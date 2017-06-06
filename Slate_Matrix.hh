@@ -139,7 +139,8 @@ void Matrix<FloatType>::syrk_nest(Ccblas::Uplo uplo, Ccblas::Tran trans,
             c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
     }
 
-    #pragma omp parallel for collapse(3) schedule(dynamic, 1) num_threads(60)
+//  #pragma omp parallel for collapse(3) schedule(dynamic, 1) num_threads(60)
+    #pragma omp parallel for collapse(3) schedule(dynamic, 1)
     for (int64_t n = 0; n < nt_; ++n) {
         for (int64_t m = 0; m < mt_; ++m)
             for (int64_t k = 0; k < a.nt_; ++k)
@@ -213,7 +214,7 @@ void Matrix<FloatType>::syrk_batch(Ccblas::Uplo uplo, Ccblas::Tran trans,
         }
     }
     trace_cpu_start();
-    mkl_set_num_threads_local(60);
+//  mkl_set_num_threads_local(60);
     cblas_dgemm_batch(CblasColMajor, transa_array, transb_array,
                       m_array, n_array, k_array, alpha_array,
                       a_array, lda_array, b_array, ldb_array, beta_array,
@@ -308,7 +309,7 @@ void Matrix<FloatType>::potrf(Ccblas::Uplo uplo, int64_t lookahead)
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[nt_-1])
             Matrix(a, k+1+lookahead, k+1+lookahead,
-                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrk_task(
+                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrk_nest(
                 Uplo::Lower, Tran::NoTrans,
                 -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
     }

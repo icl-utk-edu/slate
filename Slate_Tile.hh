@@ -50,20 +50,20 @@ public:
             memcpy(&a[n*lda], &data_[n*mb_], sizeof(FloatType)*mb_);
     }
     void pack_a(int64_t life) {
-        // trace_cpu_start();
-        // packed_a_ = cblas_dgemm_alloc(CblasAMatrix, mb_, nb_, mb_);
-        // cblas_dgemm_pack(CblasColMajor, CblasAMatrix, CblasNoTrans,
-        //                  mb_, nb_, mb_, -1.0, data_, mb_, packed_a_);
-        // packed_a_life_ = life;
-        // trace_cpu_stop("Black");
+        trace_cpu_start();
+        packed_a_ = cblas_dgemm_alloc(CblasAMatrix, mb_, nb_, mb_);
+        cblas_dgemm_pack(CblasColMajor, CblasAMatrix, CblasNoTrans,
+                         mb_, nb_, mb_, -1.0, data_, mb_, packed_a_);
+        packed_a_life_ = life;
+        trace_cpu_stop("Black");
     }
     void pack_b(int64_t life) {
-        // trace_cpu_start();
-        // packed_b_ = cblas_dgemm_alloc(CblasBMatrix, mb_, nb_, mb_);
-        // cblas_dgemm_pack(CblasColMajor, CblasBMatrix, CblasTrans,
-        //                  mb_, nb_, mb_, 1.0, data_, mb_, packed_b_);
-        // packed_b_life_ = life;
-        // trace_cpu_stop("Black");
+        trace_cpu_start();
+        packed_b_ = cblas_dgemm_alloc(CblasBMatrix, mb_, nb_, mb_);
+        cblas_dgemm_pack(CblasColMajor, CblasBMatrix, CblasTrans,
+                         mb_, nb_, mb_, 1.0, data_, mb_, packed_b_);
+        packed_b_life_ = life;
+        trace_cpu_stop("Black");
     }
 
     Tile(int64_t mb, int64_t nb) : mb_(mb), nb_(nb) {
@@ -83,25 +83,25 @@ public:
               Tile<FloatType> *a, Tile<FloatType> *b, FloatType beta)
     {
         trace_cpu_start();
-        Ccblas::gemm(Ccblas::Order::ColMajor, transa, transb,
-                     mb_, nb_, a->nb_, alpha, a->data_, a->mb_,
-                     b->data_, b->mb_, beta, data_, mb_);
-        // cblas_dgemm_compute(CblasColMajor, CblasPacked, CblasPacked,
-        //     mb_, nb_, a->nb_, a->packed_a_, a->mb_, b->packed_b_, b->mb_,
-        //     beta, data_, mb_);   
+        // Ccblas::gemm(Ccblas::Order::ColMajor, transa, transb,
+        //              mb_, nb_, a->nb_, alpha, a->data_, a->mb_,
+        //              b->data_, b->mb_, beta, data_, mb_);
+        cblas_dgemm_compute(CblasColMajor, CblasPacked, CblasPacked,
+            mb_, nb_, a->nb_, a->packed_a_, a->mb_, b->packed_b_, b->mb_,
+            beta, data_, mb_);   
 
-        // #pragma omp critical
-        // {
-        //     --a->packed_a_life_;
-        //     if (a->packed_a_life_ == 0)
-        //         cblas_dgemm_free(a->packed_a_);
-        // }
-        // #pragma omp critical
-        // {
-        //     --b->packed_b_life_;
-        //     if (b->packed_b_life_ == 0)
-        //         cblas_dgemm_free(b->packed_b_);
-        // }
+        #pragma omp critical
+        {
+            --a->packed_a_life_;
+            if (a->packed_a_life_ == 0)
+                cblas_dgemm_free(a->packed_a_);
+        }
+        #pragma omp critical
+        {
+            --b->packed_b_life_;
+            if (b->packed_b_life_ == 0)
+                cblas_dgemm_free(b->packed_b_);
+        }
         trace_cpu_stop("MediumAquamarine");
     }
     void potrf(Ccblas::Uplo uplo)

@@ -6,7 +6,7 @@ else ifeq ($(MAKECMDGOALS),lin)
 endif
 
 mac lin:
-	$(CC) $(CFLAGS) -c trace/trace.c -o trace/trace.o
+	$(CC) $(CFLAGS) -I$(MPI)/include -DMPI -c trace/trace.c -o trace/trace.o
 	$(CPP) $(CCFLAGS) $(INC) -o app app.cc trace/trace.o $(LIB)
 
 clean:

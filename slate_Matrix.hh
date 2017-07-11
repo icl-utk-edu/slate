@@ -294,7 +294,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
             {
                 #pragma omp task priority(1)
                 a(n, n)->syrk(Uplo::Lower, Op::NoTrans,
-                              -1.0, a(n, k), 1.0);            
+                              -1.0, a(n, k), 1.0);
 
                 for (int64_t m = n+1; m < nt_; ++m)
                     #pragma omp task priority(1)

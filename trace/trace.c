@@ -44,6 +44,9 @@
 #include <assert.h>
 #include <limits.h>
 #include <string.h>
+#ifdef MPI
+    #include <mpi.h>
+#endif
 
 // https://en.wikipedia.org/wiki/X11_color_names
 static struct {
@@ -196,7 +199,7 @@ void trace_label(const char *color, const char *label)
 }
 
 //------------------------------------------------------------------------------
-static void trace_finish()
+void trace_finish()
 {
     double min_time = INFINITY;
     double max_time = 0.0;
@@ -211,9 +214,39 @@ static void trace_finish()
             if (EventStopThread[thread][EventNumThread[thread]-1] > max_time)
                 max_time = EventStopThread[thread][EventNumThread[thread]-1];
 
+    int mpi_rank = 0;
+    int mpi_size = 1;
+    #ifdef MPI
+        double temp;
+        temp = min_time;
+        MPI_Reduce(&temp, &min_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+        temp = max_time;
+        MPI_Reduce(&temp, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+
+        MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+        MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+
+        if (mpi_rank > 0) {
+            MPI_Send(&EventNumThread[0], MAX_THREADS,
+                     MPI_INT, 0, 0, MPI_COMM_WORLD);
+
+            MPI_Send(&EventStartThread[0][0], MAX_THREADS*MAX_THREAD_EVENTS,
+                     MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+
+            MPI_Send(&EventStopThread[0][0], MAX_THREADS*MAX_THREAD_EVENTS,
+                     MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+            
+            MPI_Send(&EventColorThread[0][0], MAX_THREADS*MAX_THREAD_EVENTS,
+                     MPI_INT, 0, 0, MPI_COMM_WORLD);
+
+            MPI_Barrier(MPI_COMM_WORLD);
+            return;
+        }
+    #endif
+
     double total_time = max_time - min_time;
     double hscale = IMAGE_WIDTH / total_time;
-    double vscale = IMAGE_HEIGHT / (NumThreads + 1);
+    double vscale = IMAGE_HEIGHT / (mpi_size*NumThreads + 1);
 
     char file_name[32];
     snprintf(file_name, 32, "trace_%ld.svg", (unsigned long int)time(NULL));
@@ -224,24 +257,44 @@ static void trace_finish()
             "<svg viewBox=\"0 0 %d %d\">\n", IMAGE_WIDTH, IMAGE_HEIGHT);
 
     // output events
-    int thread;
-    int event;
-    for (thread = 0; thread < NumThreads; thread++) {
-        for (event = 0; event < EventNumThread[thread]; event++) {
-            double start = EventStartThread[thread][event]-min_time;
-            double stop = EventStopThread[thread][event]-min_time;
-            if (start >= 0.0)
-                fprintf(
-                    trace_file,
-                    "<rect x=\"%lf\" y=\"%lf\" width=\"%lf\" height=\"%lf\" "
-                    "fill=\"#%06x\" stroke=\"#000000\" stroke-width=\"0.2\" "
-                    "inkscape:label=\"%s\"/>\n",
-                    start * hscale,
-                    thread * vscale,
-                    (stop-start) * hscale,
-                    0.9 * vscale,
-                    Color[EventColorThread[thread][event]].value,
-                    Label[EventColorThread[thread][event]]);
+    for (int proc = 0; proc < mpi_size; proc++) {
+        #ifdef MPI
+            if (proc > 0) {
+                MPI_Recv(&EventNumThread[0], MAX_THREADS,
+                         MPI_INT, proc, 0, MPI_COMM_WORLD,
+                         MPI_STATUS_IGNORE);
+
+                MPI_Recv(&EventStartThread[0][0], MAX_THREADS*MAX_THREAD_EVENTS,
+                         MPI_DOUBLE, proc, 0, MPI_COMM_WORLD,
+                         MPI_STATUS_IGNORE);
+
+                MPI_Recv(&EventStopThread[0][0], MAX_THREADS*MAX_THREAD_EVENTS,
+                         MPI_DOUBLE, proc, 0, MPI_COMM_WORLD,
+                         MPI_STATUS_IGNORE);
+
+                MPI_Recv(&EventColorThread[0][0], MAX_THREADS*MAX_THREAD_EVENTS,
+                         MPI_INT, proc, 0, MPI_COMM_WORLD,
+                         MPI_STATUS_IGNORE);
+            }
+        #endif
+        for (int thread = 0; thread < NumThreads; thread++) {
+            for (int event = 0; event < EventNumThread[thread]; event++) {
+                double start = EventStartThread[thread][event]-min_time;
+                double stop = EventStopThread[thread][event]-min_time;
+                if (start >= 0.0)
+                    fprintf(
+                        trace_file,
+                        "<rect x=\"%lf\" y=\"%lf\" "
+                        "width=\"%lf\" height=\"%lf\" "
+                        "fill=\"#%06x\" stroke=\"#000000\" "
+                        "stroke-width=\"0.2\" inkscape:label=\"%s\"/>\n",
+                        start * hscale,
+                        (proc*NumThreads+thread) * vscale,
+                        (stop-start) * hscale,
+                        0.9 * vscale,
+                        Color[EventColorThread[thread][event]].value,
+                        Label[EventColorThread[thread][event]]);
+            }
         }
     }
 
@@ -273,8 +326,8 @@ static void trace_finish()
 
     // output xticks time scale
     // xtick spacing is power of 10, with at most 20 tick marks
-    double pwr = ceil( log10( total_time / 20 ));
-    double xtick = pow( 10., pwr );
+    double pwr = ceil(log10(total_time/20));
+    double xtick = pow(10.0, pwr);
     int decimal_places = (pwr < 0 ? (int)-pwr : 0);
     for (double t = 0; t < total_time; t += xtick) {
         fprintf(
@@ -285,16 +338,20 @@ static void trace_finish()
             "font-family=\"monospace\" font-size=\"35\">%.*f</text>\n",
             hscale * t,
             hscale * t,
-            vscale * NumThreads,
-            vscale * (NumThreads + 0.9),
+            vscale * mpi_size*NumThreads,
+            vscale * (mpi_size*NumThreads + 0.9),
             hscale * (t + 0.05*xtick),
-            vscale * (NumThreads + 0.9),
+            vscale * (mpi_size*NumThreads + 0.9),
             decimal_places, t);
     }
 
     fprintf(trace_file, "</svg>\n");
     fclose(trace_file);
     fprintf(stderr, "trace file: %s\n", file_name);
+
+    #ifdef MPI
+        MPI_Barrier(MPI_COMM_WORLD);
+    #endif
 }
 
 //------------------------------------------------------------------------------
@@ -314,5 +371,5 @@ static void trace_init()
         omp_get_max_threads() : MAX_THREADS;
 
     // Register the destructor.
-    atexit(trace_finish);
+    // atexit(trace_finish);
 }

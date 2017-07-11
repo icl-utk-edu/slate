@@ -7,12 +7,14 @@
 #include <cstdlib>
 #include <utility>
 
+#include <mpi.h>
 #include <omp.h>
 #include <mkl_cblas.h>
 #include <mkl_lapacke.h>
 
-extern "C" void trace_off();
 extern "C" void trace_on();
+extern "C" void trace_off();
+extern "C" void trace_finish();
 void print_lapack_matrix(int m, int n, double *a, int lda, int mb, int nb);
 
 //------------------------------------------------------------------------------
@@ -23,6 +25,13 @@ int main (int argc, char *argv[])
     int nt = atoi(argv[2]);
     int n = nb*nt;
     int lda = n;
+
+    //------------------------------------------------------
+    int mpi_rank = 0;
+    int mpi_size = 1;
+    assert(MPI_Init(&argc, &argv) == MPI_SUCCESS);
+    assert(MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank) == MPI_SUCCESS);
+    assert(MPI_Comm_size(MPI_COMM_WORLD, &mpi_size) == MPI_SUCCESS);
 
     //------------------------------------------------------
     double *a1 = (double*)malloc(sizeof(double)*nb*nb*nt*nt);
@@ -37,14 +46,12 @@ int main (int argc, char *argv[])
         a1[i*lda+i] += sqrt(n);
 
     //------------------------------------------------------
-
     double *a2 = (double*)malloc(sizeof(double)*nb*nb*nt*nt);
     assert(a2 != nullptr);
 
     memcpy(a2, a1, sizeof(double)*lda*n);
 
     //------------------------------------------------------
-
     trace_off();
     slate::Matrix<double> temp(n, n, a1, lda, nb, nb);
     temp.potrf(blas::Uplo::Lower);
@@ -63,7 +70,6 @@ int main (int argc, char *argv[])
     // print_lapack_matrix(n, n, a2, lda, nb, nb);
 
     //------------------------------------------------------
-
     cblas_daxpy((size_t)lda*n, -1.0, a1, 1, a2, 1);
 
     double norm = LAPACKE_dlansy(LAPACK_COL_MAJOR, 'F', 'L', n, a1, lda);
@@ -77,6 +83,7 @@ int main (int argc, char *argv[])
 
     free(a1);
     free(a2);
+    trace_finish();
     return EXIT_SUCCESS;
 }
 

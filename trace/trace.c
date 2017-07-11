@@ -230,17 +230,18 @@ static void trace_finish()
         for (event = 0; event < EventNumThread[thread]; event++) {
             double start = EventStartThread[thread][event]-min_time;
             double stop = EventStopThread[thread][event]-min_time;
-            fprintf(
-                trace_file,
-                "<rect x=\"%lf\" y=\"%lf\" width=\"%lf\" height=\"%lf\" "
-                "fill=\"#%06x\" stroke=\"#000000\" stroke-width=\"0.2\" "
-                "inkscape:label=\"%s\"/>\n",
-                start * hscale,
-                thread * vscale,
-                (stop-start) * hscale,
-                0.9 * vscale,
-                Color[EventColorThread[thread][event]].value,
-                Label[EventColorThread[thread][event]]);
+            if (start >= 0.0)
+                fprintf(
+                    trace_file,
+                    "<rect x=\"%lf\" y=\"%lf\" width=\"%lf\" height=\"%lf\" "
+                    "fill=\"#%06x\" stroke=\"#000000\" stroke-width=\"0.2\" "
+                    "inkscape:label=\"%s\"/>\n",
+                    start * hscale,
+                    thread * vscale,
+                    (stop-start) * hscale,
+                    0.9 * vscale,
+                    Color[EventColorThread[thread][event]].value,
+                    Label[EventColorThread[thread][event]]);
         }
     }
 

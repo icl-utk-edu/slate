@@ -47,12 +47,12 @@ int main (int argc, char *argv[])
 
     trace_off();
     Slate::Matrix<double> temp(n, n, a1, lda, nb, nb);
-    temp.potrf(Ccblas::Uplo::Lower);
+    temp.potrf(blas::Uplo::Lower);
     trace_on();
 
     Slate::Matrix<double> a(n, n, a1, lda, nb, nb);
     double start = omp_get_wtime();
-    a.potrf(Ccblas::Uplo::Lower);
+    a.potrf(blas::Uplo::Lower);
     double time = omp_get_wtime()-start;
     a.copyFrom(n, n, a1, lda, nb, nb);
 

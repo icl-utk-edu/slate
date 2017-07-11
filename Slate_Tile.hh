@@ -2,8 +2,8 @@
 #ifndef SLATE_TILE_HH
 #define SLATE_TILE_HH
 
-#include "Ccblas.hh"
-#include "Cclapack.hh"
+#include "blas.hh"
+#include "lapack.hh"
 
 #include <cstdio>
 #include <cstdlib>
@@ -79,11 +79,11 @@ public:
     }
 
     //------------------------------------------------------
-    void gemm(Ccblas::Tran transa, Ccblas::Tran transb, FloatType alpha,
+    void gemm(blas::Op transa, blas::Op transb, FloatType alpha,
               Tile<FloatType> *a, Tile<FloatType> *b, FloatType beta)
     {
         trace_cpu_start();
-        // Ccblas::gemm(Ccblas::Order::ColMajor, transa, transb,
+        // blas::gemm(blas::Layout::ColMajor, transa, transb,
         //              mb_, nb_, a->nb_, alpha, a->data_, a->mb_,
         //              b->data_, b->mb_, beta, data_, mb_);
         cblas_dgemm_compute(CblasColMajor, CblasPacked, CblasPacked,
@@ -104,25 +104,25 @@ public:
         }
         trace_cpu_stop("MediumAquamarine");
     }
-    void potrf(Ccblas::Uplo uplo)
+    void potrf(blas::Uplo uplo)
     {
         trace_cpu_start();
-        Cclapack::potrf(Ccblas::Order::ColMajor, uplo, nb_, data_, nb_);
+        lapack::potrf(blas::Layout::ColMajor, uplo, nb_, data_, nb_);
         trace_cpu_stop("RosyBrown");
     }
-    void syrk(Ccblas::Uplo uplo, Ccblas::Tran trans,
+    void syrk(blas::Uplo uplo, blas::Op trans,
               FloatType alpha, Tile<FloatType> *a, FloatType beta)
     {
         trace_cpu_start();
-        Ccblas::syrk(Ccblas::Order::ColMajor, uplo, trans,
+        blas::syrk(blas::Layout::ColMajor, uplo, trans,
                      nb_, a->nb_, alpha, a->data_, a->mb_, beta, data_, mb_);
         trace_cpu_stop("CornflowerBlue");
     }
-    void trsm(Ccblas::Side side, Ccblas::Uplo uplo, Ccblas::Tran transa,
-              Ccblas::Diag diag, FloatType alpha, Tile<FloatType> *a)
+    void trsm(blas::Side side, blas::Uplo uplo, blas::Op transa,
+              blas::Diag diag, FloatType alpha, Tile<FloatType> *a)
     {
         trace_cpu_start();
-        Ccblas::trsm(Ccblas::Order::ColMajor, side, uplo, transa, diag,
+        blas::trsm(blas::Layout::ColMajor, side, uplo, transa, diag,
                      mb_, nb_, alpha, a->data_, mb_, data_, mb_);
         trace_cpu_stop("MediumPurple");
     }

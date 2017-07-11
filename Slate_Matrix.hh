@@ -57,20 +57,20 @@ public:
         return (*tiles_)[std::pair<int64_t, int64_t>(it_+m, jt_+n)];
     }
 
-    void syrk_task(Ccblas::Uplo uplo, Ccblas::Tran trans,
+    void syrk_task(blas::Uplo uplo, blas::Op trans,
                    FloatType alpha, const Matrix &a, FloatType beta);
 
-    void syrk_nest(Ccblas::Uplo uplo, Ccblas::Tran trans,
+    void syrk_nest(blas::Uplo uplo, blas::Op trans,
                    FloatType alpha, const Matrix &a, FloatType beta);
 
-    void syrk_batch(Ccblas::Uplo uplo, Ccblas::Tran trans,
+    void syrk_batch(blas::Uplo uplo, blas::Op trans,
                     FloatType alpha, const Matrix &a, FloatType beta);
 
-    void trsm(Ccblas::Side side, Ccblas::Uplo uplo,
-              Ccblas::Tran trans, Ccblas::Diag diag,
+    void trsm(blas::Side side, blas::Uplo uplo,
+              blas::Op trans, blas::Diag diag,
               FloatType alpha, const Matrix &a);
 
-    void potrf(Ccblas::Uplo uplo, int64_t lookahead=1);
+    void potrf(blas::Uplo uplo, int64_t lookahead=1);
 };
 
 //------------------------------------------------------------------------------
@@ -99,11 +99,11 @@ void Matrix<FloatType>::copyFrom(int64_t m, int64_t n, FloatType *a,
 
 //------------------------------------------------------------------------------
 template<class FloatType>
-void Matrix<FloatType>::syrk_task(Ccblas::Uplo uplo, Ccblas::Tran trans,
+void Matrix<FloatType>::syrk_task(blas::Uplo uplo, blas::Op trans,
                                   FloatType alpha, const Matrix &a,
                                   FloatType beta)
 {
-    using namespace Ccblas;
+    using namespace blas;
 
     Matrix<FloatType> c = *this;
 
@@ -117,7 +117,7 @@ void Matrix<FloatType>::syrk_task(Ccblas::Uplo uplo, Ccblas::Tran trans,
         for (int64_t m = n+1; m < mt_; ++m)
             for (int64_t k = 0; k < a.nt_; ++k)
                 #pragma omp task
-                c(m, n)->gemm(trans, Tran::Trans,
+                c(m, n)->gemm(trans, Op::Trans,
                               alpha, a(m, k), a(n, k), k == 0 ? beta : 1.0);
     }
     #pragma omp taskwait
@@ -125,11 +125,11 @@ void Matrix<FloatType>::syrk_task(Ccblas::Uplo uplo, Ccblas::Tran trans,
 
 //------------------------------------------------------------------------------
 template<class FloatType>
-void Matrix<FloatType>::syrk_nest(Ccblas::Uplo uplo, Ccblas::Tran trans,
+void Matrix<FloatType>::syrk_nest(blas::Uplo uplo, blas::Op trans,
                                   FloatType alpha, const Matrix &a,
                                   FloatType beta)
 {
-    using namespace Ccblas;
+    using namespace blas;
 
     Matrix<FloatType> c = *this;
 
@@ -145,7 +145,7 @@ void Matrix<FloatType>::syrk_nest(Ccblas::Uplo uplo, Ccblas::Tran trans,
         for (int64_t m = 0; m < mt_; ++m)
             for (int64_t k = 0; k < a.nt_; ++k)
                 if (m >= n+1)
-                    c(m, n)->gemm(trans, Tran::Trans,
+                    c(m, n)->gemm(trans, Op::Trans,
                                   alpha, a(m, k), a(n, k), k == 0 ? beta : 1.0);
     }
     #pragma omp taskwait
@@ -153,11 +153,11 @@ void Matrix<FloatType>::syrk_nest(Ccblas::Uplo uplo, Ccblas::Tran trans,
 
 //------------------------------------------------------------------------------
 template<class FloatType>
-void Matrix<FloatType>::syrk_batch(Ccblas::Uplo uplo, Ccblas::Tran trans,
+void Matrix<FloatType>::syrk_batch(blas::Uplo uplo, blas::Op trans,
                                    FloatType alpha, const Matrix &a,
                                    FloatType beta)
 {
-    using namespace Ccblas;
+    using namespace blas;
 
     Matrix<FloatType> c = *this;
 
@@ -231,11 +231,11 @@ void Matrix<FloatType>::syrk_batch(Ccblas::Uplo uplo, Ccblas::Tran trans,
 
 //------------------------------------------------------------------------------
 template<class FloatType>
-void Matrix<FloatType>::trsm(Ccblas::Side side, Ccblas::Uplo uplo,
-                             Ccblas::Tran trans, Ccblas::Diag diag,
+void Matrix<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
+                             blas::Op trans, blas::Diag diag,
                              FloatType alpha, const Matrix &a)
 {
-    using namespace Ccblas;
+    using namespace blas;
 
     Matrix<FloatType> b = *this;
 
@@ -248,7 +248,7 @@ void Matrix<FloatType>::trsm(Ccblas::Side side, Ccblas::Uplo uplo,
 
             for (int64_t n = k+1; n < nt_; ++n)
                 #pragma omp task
-                b(m, n)->gemm(Tran::NoTrans, trans,
+                b(m, n)->gemm(Op::NoTrans, trans,
                               -1.0/alpha, b(m, k), a(n, k), 1.0);
         }
     }
@@ -257,9 +257,9 @@ void Matrix<FloatType>::trsm(Ccblas::Side side, Ccblas::Uplo uplo,
 
 //------------------------------------------------------------------------------
 template<class FloatType>
-void Matrix<FloatType>::potrf(Ccblas::Uplo uplo, int64_t lookahead)
+void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
 {
-    using namespace Ccblas;
+    using namespace blas;
 
     Matrix<FloatType> a = *this;
     uint8_t *column;
@@ -276,7 +276,7 @@ void Matrix<FloatType>::potrf(Ccblas::Uplo uplo, int64_t lookahead)
                 #pragma omp task priority(1)
                 {
                     a(m, k)->trsm(Side::Right, Uplo::Lower,
-                                  Tran::Trans, Diag::NonUnit,
+                                  Op::Trans, Diag::NonUnit,
                                   1.0, a(k, k));
 
                     if (m-k-1 > 0)
@@ -293,12 +293,12 @@ void Matrix<FloatType>::potrf(Ccblas::Uplo uplo, int64_t lookahead)
                              depend(inout:column[n]) priority(1)
             {
                 #pragma omp task priority(1)
-                a(n, n)->syrk(Uplo::Lower, Tran::NoTrans,
+                a(n, n)->syrk(Uplo::Lower, Op::NoTrans,
                               -1.0, a(n, k), 1.0);            
 
                 for (int64_t m = n+1; m < nt_; ++m)
                     #pragma omp task priority(1)
-                    a(m, n)->gemm(Tran::NoTrans, Tran::Trans,
+                    a(m, n)->gemm(Op::NoTrans, Op::Trans,
                                   -1.0, a(m, k), a(n, k), 1.0);
 
                 #pragma omp taskwait
@@ -310,7 +310,7 @@ void Matrix<FloatType>::potrf(Ccblas::Uplo uplo, int64_t lookahead)
                              depend(inout:column[nt_-1])
             Matrix(a, k+1+lookahead, k+1+lookahead,
                    nt_-1-k-lookahead, nt_-1-k-lookahead).syrk_nest(
-                Uplo::Lower, Tran::NoTrans,
+                Uplo::Lower, Op::NoTrans,
                 -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
     }
 }

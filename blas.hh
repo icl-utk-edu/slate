@@ -1,23 +1,23 @@
 
-#ifndef CCBLAS_HH
-#define CCBLAS_HH
+#ifndef BLAS_HH
+#define BLAS_HH
 
 #include <complex>
 
 #include "mkl_cblas.h"
 
-namespace Ccblas {
+namespace blas {
 
-enum class Order {ColMajor, RowMajor};
-enum class Side {Left, Right};
-enum class Uplo {Upper, Lower};
-enum class Tran {Trans, NoTrans, ConjTrans};
-enum class Diag {Unit, NonUnit};
+enum class Layout {ColMajor, RowMajor};
+enum class Side   {Left, Right};
+enum class Uplo   {Upper, Lower};
+enum class Op     {Trans, NoTrans, ConjTrans};
+enum class Diag   {Unit, NonUnit};
 
 //------------------------------------------------------------------------------
 inline
-void trsm(Ccblas::Order order, Ccblas::Side side, Ccblas::Uplo uplo,
-          Ccblas::Tran transa, Ccblas::Diag diag, int64_t m, int64_t n,
+void trsm(blas::Layout layout, blas::Side side, blas::Uplo uplo,
+          blas::Op transa, blas::Diag diag, int64_t m, int64_t n,
           float alpha, float *a, int64_t lda, float *b, int64_t ldb)
 {
     cblas_strsm(CblasColMajor, CblasRight, CblasLower, CblasTrans, CblasNonUnit,
@@ -25,8 +25,8 @@ void trsm(Ccblas::Order order, Ccblas::Side side, Ccblas::Uplo uplo,
 }
 
 inline
-void trsm(Ccblas::Order order, Ccblas::Side side, Ccblas::Uplo uplo,
-          Ccblas::Tran transa, Ccblas::Diag diag, int64_t m, int64_t n,
+void trsm(blas::Layout layout, blas::Side side, blas::Uplo uplo,
+          blas::Op transa, blas::Diag diag, int64_t m, int64_t n,
           double alpha, double *a, int64_t lda, double *b, int64_t ldb)
 {
     cblas_dtrsm(CblasColMajor, CblasRight, CblasLower, CblasTrans, CblasNonUnit,
@@ -34,8 +34,8 @@ void trsm(Ccblas::Order order, Ccblas::Side side, Ccblas::Uplo uplo,
 }
 
 inline
-void trsm(Ccblas::Order order, Ccblas::Side side, Ccblas::Uplo uplo,
-          Ccblas::Tran transa, Ccblas::Diag diag, int64_t m, int64_t n,
+void trsm(blas::Layout layout, blas::Side side, blas::Uplo uplo,
+          blas::Op transa, blas::Diag diag, int64_t m, int64_t n,
           std::complex<float> alpha, std::complex<float> *a, int64_t lda,
           std::complex<float> *b, int64_t ldb)
 {
@@ -44,8 +44,8 @@ void trsm(Ccblas::Order order, Ccblas::Side side, Ccblas::Uplo uplo,
 }
 
 inline
-void trsm(Ccblas::Order order, Ccblas::Side side, Ccblas::Uplo uplo,
-          Ccblas::Tran transa, Ccblas::Diag diag, int64_t m, int64_t n,
+void trsm(blas::Layout layout, blas::Side side, blas::Uplo uplo,
+          blas::Op transa, blas::Diag diag, int64_t m, int64_t n,
           std::complex<double> alpha, std::complex<double> *a, int64_t lda,
           std::complex<double> *b, int64_t ldb)
 {
@@ -55,7 +55,7 @@ void trsm(Ccblas::Order order, Ccblas::Side side, Ccblas::Uplo uplo,
 
 //------------------------------------------------------------------------------
 inline
-void syrk(Ccblas::Order order, Ccblas::Uplo uplo, Ccblas::Tran trans,
+void syrk(blas::Layout layout, blas::Uplo uplo, blas::Op trans,
           int64_t n, int64_t k, float alpha, float *a, int64_t lda,
           float beta, float *c, int64_t ldc)
 {
@@ -64,7 +64,7 @@ void syrk(Ccblas::Order order, Ccblas::Uplo uplo, Ccblas::Tran trans,
 }
 
 inline
-void syrk(Ccblas::Order order, Ccblas::Uplo uplo, Ccblas::Tran trans,
+void syrk(blas::Layout layout, blas::Uplo uplo, blas::Op trans,
           int64_t n, int64_t k, double alpha, double *a, int64_t lda,
           double beta, double *c, int64_t ldc)
 {
@@ -73,7 +73,7 @@ void syrk(Ccblas::Order order, Ccblas::Uplo uplo, Ccblas::Tran trans,
 }
 
 inline
-void syrk(Ccblas::Order order, Ccblas::Uplo uplo, Ccblas::Tran trans,
+void syrk(blas::Layout layout, blas::Uplo uplo, blas::Op trans,
           int64_t n, int64_t k, float alpha, std::complex<float> *a,
           int64_t lda, float beta, std::complex<float> *c, int64_t ldc)
 {
@@ -82,7 +82,7 @@ void syrk(Ccblas::Order order, Ccblas::Uplo uplo, Ccblas::Tran trans,
 }
 
 inline
-void syrk(Ccblas::Order order, Ccblas::Uplo uplo, Ccblas::Tran trans,
+void syrk(blas::Layout layout, blas::Uplo uplo, blas::Op trans,
           int64_t n, int64_t k, double alpha, std::complex<double> *a,
           int64_t lda, double beta, std::complex<double> *c, int64_t ldc)
 {
@@ -92,7 +92,7 @@ void syrk(Ccblas::Order order, Ccblas::Uplo uplo, Ccblas::Tran trans,
 
 //------------------------------------------------------------------------------
 inline
-void gemm(Ccblas::Order order, Ccblas::Tran transa, Ccblas::Tran transb,
+void gemm(blas::Layout layout, blas::Op transa, blas::Op transb,
           int64_t m, int64_t n, int64_t k, float alpha, float *a, int64_t lda,
           float *b, int64_t ldb, float beta, float *c, int64_t ldc)
 {
@@ -101,7 +101,7 @@ void gemm(Ccblas::Order order, Ccblas::Tran transa, Ccblas::Tran transb,
 }
 
 inline
-void gemm(Ccblas::Order order, Ccblas::Tran transa, Ccblas::Tran transb,
+void gemm(blas::Layout layout, blas::Op transa, blas::Op transb,
           int64_t m, int64_t n, int64_t k, double alpha, double *a, int64_t lda,
           double *b, int64_t ldb, double beta, double *c, int64_t ldc)
 {
@@ -110,7 +110,7 @@ void gemm(Ccblas::Order order, Ccblas::Tran transa, Ccblas::Tran transb,
 }
 
 inline
-void gemm(Ccblas::Order order, Ccblas::Tran transa, Ccblas::Tran transb,
+void gemm(blas::Layout layout, blas::Op transa, blas::Op transb,
           int64_t m, int64_t n, int64_t k, std::complex<float> alpha,
           std::complex<float> *a, int64_t lda, std::complex<float> *b,
           int64_t ldb, std::complex<float> beta,
@@ -122,7 +122,7 @@ void gemm(Ccblas::Order order, Ccblas::Tran transa, Ccblas::Tran transb,
 }
 
 inline
-void gemm(Ccblas::Order order, Ccblas::Tran transa, Ccblas::Tran transb,
+void gemm(blas::Layout layout, blas::Op transa, blas::Op transb,
           int64_t m, int64_t n, int64_t k, std::complex<double> alpha,
           std::complex<double> *a, int64_t lda, std::complex<double> *b,
           int64_t ldb, std::complex<double> beta,
@@ -133,6 +133,6 @@ void gemm(Ccblas::Order order, Ccblas::Tran transa, Ccblas::Tran transb,
                 c, ldc);
 }
 
-} // namespace CCBLAS_HH
+} // namespace BLAS_HH
 
-#endif // CCBLAS_HH
+#endif // BLAS_HH

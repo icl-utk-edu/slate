@@ -17,7 +17,7 @@
 extern "C" void trace_cpu_start();
 extern "C" void trace_cpu_stop(const char *color);
 
-namespace Slate {
+namespace slate {
 
 //------------------------------------------------------------------------------
 template<class FloatType>
@@ -140,6 +140,6 @@ public:
     }
 };
 
-} // namespace Slate
+} // namespace slate
 
 #endif // SLATE_TILE_HH

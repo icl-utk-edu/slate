@@ -2,14 +2,14 @@
 #ifndef SLATE_MATRIX_HH
 #define SLATE_MATRIX_HH
 
-#include "Slate_Tile.hh"
+#include "slate_Tile.hh"
 
 #include <utility>
 #include <map>
 
 #include <omp.h>
 
-namespace Slate {
+namespace slate {
 
 //------------------------------------------------------------------------------
 template<class FloatType>
@@ -315,6 +315,6 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
     }
 }
 
-} // namespace Slate
+} // namespace slate
 
 #endif // SLATE_MATRIX_HH

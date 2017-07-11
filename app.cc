@@ -1,5 +1,5 @@
 
-#include "Slate_Matrix.hh"
+#include "slate_Matrix.hh"
 
 #include <cassert>
 #include <cmath>
@@ -46,11 +46,11 @@ int main (int argc, char *argv[])
     //------------------------------------------------------
 
     trace_off();
-    Slate::Matrix<double> temp(n, n, a1, lda, nb, nb);
+    slate::Matrix<double> temp(n, n, a1, lda, nb, nb);
     temp.potrf(blas::Uplo::Lower);
     trace_on();
 
-    Slate::Matrix<double> a(n, n, a1, lda, nb, nb);
+    slate::Matrix<double> a(n, n, a1, lda, nb, nb);
     double start = omp_get_wtime();
     a.potrf(blas::Uplo::Lower);
     double time = omp_get_wtime()-start;

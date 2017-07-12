@@ -7,7 +7,7 @@ endif
 
 mac lin:
 	$(CC) $(CFLAGS) -I$(MPI)/include -DMPI -c trace/trace.c -o trace/trace.o
-	$(CPP) $(CCFLAGS) $(INC) -o app app.cc trace/trace.o $(LIB)
+	$(CPP) $(CCFLAGS) $(INC) app.cc trace/trace.o $(LIB) -o app
 
 clean:
 	rm -rf app trace_*.svg

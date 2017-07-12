@@ -4,9 +4,11 @@
 
 #include "slate_Tile.hh"
 
-#include <utility>
+#include <functional>
 #include <map>
+#include <utility>
 
+#include <mpi.h>
 #include <omp.h>
 
 namespace slate {
@@ -23,38 +25,41 @@ public:
     // TODO: replace by unordered_map
     std::map<std::pair<int64_t, int64_t>, Tile<FloatType>*> *tiles_;
 
+    Matrix(int64_t m, int64_t n, double *a, int64_t lda,
+           int64_t mb, int64_t nb);
+
+    Matrix(int64_t m, int64_t n, double *a, int64_t lda,
+           int64_t mb, int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q);
+
+    Matrix(const Matrix &a, int64_t it, int64_t jt, int64_t mt, int64_t nt);
+
     void copyTo(int64_t m, int64_t n, FloatType *a, int64_t lda,
                 int64_t mb, int64_t nb);
 
     void copyFrom(int64_t m, int64_t n, FloatType *a, int64_t lda,
                   int64_t mb, int64_t nb); 
 
-    Matrix(int64_t m, int64_t n, double *a, int64_t lda,
-           int64_t mb, int64_t nb)
-    {
-        tiles_ = new std::map<std::pair<int64_t, int64_t>, Tile<FloatType>*>;
-        it_ = 0;
-        jt_ = 0;
-        mt_ = m % mb == 0 ? m/mb : m/mb+1;
-        nt_ = n % nb == 0 ? n/nb : n/nb+1;
-        copyTo(m, n, a, lda, mb, nb);
-    }
-    Matrix(const Matrix &a, int64_t it, int64_t jt, int64_t mt, int64_t nt)
-    {
-        assert(it+mt <= a.mt_);
-        assert(jt+nt <= a.nt_);
-        *this = a;
-        it_ += it;
-        jt_ += jt;
-        mt_ = mt;
-        nt_ = nt;
-    }
-
     Tile<FloatType>* &operator()(int64_t m, int64_t n) {
         return (*tiles_)[std::pair<int64_t, int64_t>(it_+m, jt_+n)];
     }
     Tile<FloatType>* &operator()(int64_t m, int64_t n) const {
         return (*tiles_)[std::pair<int64_t, int64_t>(it_+m, jt_+n)];
+    }
+
+    void trsm(blas::Side side, blas::Uplo uplo,
+              blas::Op trans, blas::Diag diag,
+              FloatType alpha, const Matrix &a);
+
+    void potrf(blas::Uplo uplo, int64_t lookahead=1);
+
+private:
+    MPI_Comm mpi_comm_;
+    int64_t mpi_size_;
+    int64_t mpi_rank_;
+    std::function <int64_t (int64_t m, int64_t n)> tileLocation;
+
+    bool tileIsLocal(int64_t m, int64_t n) {
+        return tileLocation(m, n) == mpi_rank_;
     }
 
     void syrkTask(blas::Uplo uplo, blas::Op trans,
@@ -65,13 +70,64 @@ public:
 
     void syrkBatch(blas::Uplo uplo, blas::Op trans,
                    FloatType alpha, const Matrix &a, FloatType beta);
-
-    void trsm(blas::Side side, blas::Uplo uplo,
-              blas::Op trans, blas::Diag diag,
-              FloatType alpha, const Matrix &a);
-
-    void potrf(blas::Uplo uplo, int64_t lookahead=1);
 };
+
+//------------------------------------------------------------------------------
+template<class FloatType>
+Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
+                          int64_t mb, int64_t nb)
+{
+    tiles_ = new std::map<std::pair<int64_t, int64_t>, Tile<FloatType>*>;
+    it_ = 0;
+    jt_ = 0;
+    mt_ = m % mb == 0 ? m/mb : m/mb+1;
+    nt_ = n % nb == 0 ? n/nb : n/nb+1;
+
+    tileLocation = [] (int64_t m, int64_t n) { return 0; };
+
+    copyTo(m, n, a, lda, mb, nb);
+}
+
+//------------------------------------------------------------------------------
+template<class FloatType>
+Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
+                          int64_t mb, int64_t nb,
+                          MPI_Comm mpi_comm, int64_t p, int64_t q)
+{
+    tiles_ = new std::map<std::pair<int64_t, int64_t>, Tile<FloatType>*>;
+    it_ = 0;
+    jt_ = 0;
+    mt_ = m % mb == 0 ? m/mb : m/mb+1;
+    nt_ = n % nb == 0 ? n/nb : n/nb+1;
+
+    mpi_comm_ = mpi_comm;
+    int rank;
+    int size;
+    assert(MPI_Comm_rank(mpi_comm_, &rank) == MPI_SUCCESS);
+    assert(MPI_Comm_size(mpi_comm_, &size) == MPI_SUCCESS);
+    mpi_rank_ = rank;
+    mpi_size_ = size;
+
+    tileLocation = [=] (int64_t m, int64_t n) {
+        return ((it_+m)%p) + ((jt_+n)%q) * p;
+    };
+
+    copyTo(m, n, a, lda, mb, nb);
+}
+
+//------------------------------------------------------------------------------
+template<class FloatType>
+Matrix<FloatType>::Matrix(const Matrix &a, int64_t it, int64_t jt,
+                          int64_t mt, int64_t nt)
+{
+    assert(it+mt <= a.mt_);
+    assert(jt+nt <= a.nt_);
+    *this = a;
+    it_ += it;
+    jt_ += jt;
+    mt_ = mt;
+    nt_ = nt;
+}
 
 //------------------------------------------------------------------------------
 template<class FloatType>
@@ -272,7 +328,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
         {
             a(k, k)->potrf(uplo);
 
-            for (int64_t m = k+1; m < nt_; ++m)
+            for (int64_t m = k+1; m < nt_; ++m) {
                 #pragma omp task priority(1)
                 {
                     a(m, k)->trsm(Side::Right, Uplo::Lower,
@@ -285,7 +341,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                     if (nt_-m-1 > 0)
                         a(m, k)->packB(nt_-m-1);
                 }
-
+            }
             #pragma omp taskwait
         }
         for (int64_t n = k+1; n < k+1+lookahead && n < nt_; ++n) {
@@ -296,11 +352,11 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                 a(n, n)->syrk(Uplo::Lower, Op::NoTrans,
                               -1.0, a(n, k), 1.0);
 
-                for (int64_t m = n+1; m < nt_; ++m)
+                for (int64_t m = n+1; m < nt_; ++m) {
                     #pragma omp task priority(1)
                     a(m, n)->gemm(Op::NoTrans, Op::Trans,
                                   -1.0, a(m, k), a(n, k), 1.0);
-
+                }
                 #pragma omp taskwait
             }
         }

@@ -7,22 +7,26 @@
 #include <cstdlib>
 #include <utility>
 
-#include <mpi.h>
-#include <omp.h>
 #include <mkl_cblas.h>
 #include <mkl_lapacke.h>
+#include <mpi.h>
+#include <omp.h>
 
 extern "C" void trace_on();
 extern "C" void trace_off();
 extern "C" void trace_finish();
 void print_lapack_matrix(int m, int n, double *a, int lda, int mb, int nb);
+void diff_lapack_matrices(int m, int n, double *a, int lda, double *b, int ldb,
+                          int mb, int nb);
 
 //------------------------------------------------------------------------------
 int main (int argc, char *argv[])
 {
-    assert(argc == 3);
+    assert(argc == 5);
     int nb = atoi(argv[1]);
     int nt = atoi(argv[2]);
+    int p = atoi(argv[3]);
+    int q = atoi(argv[4]);
     int n = nb*nt;
     int lda = n;
 
@@ -32,6 +36,7 @@ int main (int argc, char *argv[])
     assert(MPI_Init(&argc, &argv) == MPI_SUCCESS);
     assert(MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank) == MPI_SUCCESS);
     assert(MPI_Comm_size(MPI_COMM_WORLD, &mpi_size) == MPI_SUCCESS);
+    assert(mpi_size == p*q);
 
     //------------------------------------------------------
     double *a1 = (double*)malloc(sizeof(double)*nb*nb*nt*nt);
@@ -53,11 +58,11 @@ int main (int argc, char *argv[])
 
     //------------------------------------------------------
     trace_off();
-    slate::Matrix<double> temp(n, n, a1, lda, nb, nb);
+    slate::Matrix<double> temp(n, n, a1, lda, nb, nb, MPI_COMM_WORLD, p, q);
     temp.potrf(blas::Uplo::Lower);
     trace_on();
 
-    slate::Matrix<double> a(n, n, a1, lda, nb, nb);
+    slate::Matrix<double> a(n, n, a1, lda, nb, nb, MPI_COMM_WORLD, p, q);
     MPI_Barrier(MPI_COMM_WORLD);
     double start = omp_get_wtime();
     a.potrf(blas::Uplo::Lower);
@@ -69,6 +74,11 @@ int main (int argc, char *argv[])
 
     // print_lapack_matrix(n, n, a1, lda, nb, nb);
     // print_lapack_matrix(n, n, a2, lda, nb, nb);
+    for (int rank = 0; rank < mpi_size; ++rank) {
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (rank == mpi_rank)
+            diff_lapack_matrices(n, n, a1, lda, a2, lda, nb, nb);
+    }
 
     //------------------------------------------------------
     cblas_daxpy((size_t)lda*n, -1.0, a1, 1, a2, 1);
@@ -100,6 +110,32 @@ void print_lapack_matrix(int m, int n, double *a, int lda, int mb, int nb)
         printf("\n");
         if ((i+1)%mb == 0) {
             for (int j = 0; j < (n+1)*8; ++j) {
+                printf("-");
+            }
+            printf("\n");        
+        }
+    }
+    printf("\n");
+}
+
+//------------------------------------------------------------------------------
+void diff_lapack_matrices(int m, int n, double *a, int lda, double *b, int ldb,
+                          int mb, int nb)
+{
+    for (int i = 0; i < m; ++i) {
+        if (i%mb == 2)
+            i += mb-4;
+        for (int j = 0; j < n; ++j) {
+            if (j%nb == 2)
+                j += nb-4;
+            double error = a[(size_t)lda*j+i] - b[(size_t)lda*j+i];
+            printf("%c", error < 0.000001 ? '.' : '#');
+            if ((j+1)%nb == 0)
+                printf("|");
+        }
+        printf("\n");
+        if ((i+1)%mb == 0) {
+            for (int j = 0; j < (n/nb)*5; ++j) {
                 printf("-");
             }
             printf("\n");        

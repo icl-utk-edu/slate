@@ -58,6 +58,7 @@ int main (int argc, char *argv[])
     trace_on();
 
     slate::Matrix<double> a(n, n, a1, lda, nb, nb);
+    MPI_Barrier(MPI_COMM_WORLD);
     double start = omp_get_wtime();
     a.potrf(blas::Uplo::Lower);
     double time = omp_get_wtime()-start;

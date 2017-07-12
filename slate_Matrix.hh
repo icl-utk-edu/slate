@@ -57,14 +57,14 @@ public:
         return (*tiles_)[std::pair<int64_t, int64_t>(it_+m, jt_+n)];
     }
 
-    void syrk_task(blas::Uplo uplo, blas::Op trans,
-                   FloatType alpha, const Matrix &a, FloatType beta);
+    void syrkTask(blas::Uplo uplo, blas::Op trans,
+                  FloatType alpha, const Matrix &a, FloatType beta);
 
-    void syrk_nest(blas::Uplo uplo, blas::Op trans,
-                   FloatType alpha, const Matrix &a, FloatType beta);
+    void syrkNest(blas::Uplo uplo, blas::Op trans,
+                  FloatType alpha, const Matrix &a, FloatType beta);
 
-    void syrk_batch(blas::Uplo uplo, blas::Op trans,
-                    FloatType alpha, const Matrix &a, FloatType beta);
+    void syrkBatch(blas::Uplo uplo, blas::Op trans,
+                   FloatType alpha, const Matrix &a, FloatType beta);
 
     void trsm(blas::Side side, blas::Uplo uplo,
               blas::Op trans, blas::Diag diag,
@@ -99,9 +99,9 @@ void Matrix<FloatType>::copyFrom(int64_t m, int64_t n, FloatType *a,
 
 //------------------------------------------------------------------------------
 template<class FloatType>
-void Matrix<FloatType>::syrk_task(blas::Uplo uplo, blas::Op trans,
-                                  FloatType alpha, const Matrix &a,
-                                  FloatType beta)
+void Matrix<FloatType>::syrkTask(blas::Uplo uplo, blas::Op trans,
+                                 FloatType alpha, const Matrix &a,
+                                 FloatType beta)
 {
     using namespace blas;
 
@@ -125,9 +125,9 @@ void Matrix<FloatType>::syrk_task(blas::Uplo uplo, blas::Op trans,
 
 //------------------------------------------------------------------------------
 template<class FloatType>
-void Matrix<FloatType>::syrk_nest(blas::Uplo uplo, blas::Op trans,
-                                  FloatType alpha, const Matrix &a,
-                                  FloatType beta)
+void Matrix<FloatType>::syrkNest(blas::Uplo uplo, blas::Op trans,
+                                 FloatType alpha, const Matrix &a,
+                                 FloatType beta)
 {
     using namespace blas;
 
@@ -153,9 +153,9 @@ void Matrix<FloatType>::syrk_nest(blas::Uplo uplo, blas::Op trans,
 
 //------------------------------------------------------------------------------
 template<class FloatType>
-void Matrix<FloatType>::syrk_batch(blas::Uplo uplo, blas::Op trans,
-                                   FloatType alpha, const Matrix &a,
-                                   FloatType beta)
+void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
+                                  FloatType alpha, const Matrix &a,
+                                  FloatType beta)
 {
     using namespace blas;
 
@@ -280,10 +280,10 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                                   1.0, a(k, k));
 
                     if (m-k-1 > 0)
-                        a(m, k)->pack_a(m-k-1);
+                        a(m, k)->packA(m-k-1);
 
                     if (nt_-m-1 > 0)
-                        a(m, k)->pack_b(nt_-m-1);
+                        a(m, k)->packB(nt_-m-1);
                 }
 
             #pragma omp taskwait
@@ -309,7 +309,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[nt_-1])
             Matrix(a, k+1+lookahead, k+1+lookahead,
-                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrk_nest(
+                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkNest(
                 Uplo::Lower, Op::NoTrans,
                 -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
     }

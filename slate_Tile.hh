@@ -49,7 +49,7 @@ public:
         for (int64_t n = 0; n < nb_; ++n)
             memcpy(&a[n*lda], &data_[n*mb_], sizeof(FloatType)*mb_);
     }
-    void pack_a(int64_t life) {
+    void packA(int64_t life) {
         trace_cpu_start();
         packed_a_ = cblas_dgemm_alloc(CblasAMatrix, mb_, nb_, mb_);
         cblas_dgemm_pack(CblasColMajor, CblasAMatrix, CblasNoTrans,
@@ -57,7 +57,7 @@ public:
         packed_a_life_ = life;
         trace_cpu_stop("Black");
     }
-    void pack_b(int64_t life) {
+    void packB(int64_t life) {
         trace_cpu_start();
         packed_b_ = cblas_dgemm_alloc(CblasBMatrix, mb_, nb_, mb_);
         cblas_dgemm_pack(CblasColMajor, CblasBMatrix, CblasTrans,

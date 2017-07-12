@@ -136,13 +136,6 @@ static struct {
                                           {"Black",           0x000000}
 };
 
-static int Trace = 1;
-void trace_off() {Trace = 0;}
-void trace_on()  {Trace = 1;}
-
-#define IMAGE_WIDTH 2390
-#define IMAGE_HEIGHT 1000
-
 #define MAP_SIZE 1024
 static int ColorMap[MAP_SIZE];
 static const char *Label[sizeof(Color)/sizeof(Color[0])] = { NULL };
@@ -155,6 +148,22 @@ static int    EventNumThread  [MAX_THREADS];
 static double EventStartThread[MAX_THREADS][MAX_THREAD_EVENTS];
 static double EventStopThread [MAX_THREADS][MAX_THREAD_EVENTS];
 static int    EventColorThread[MAX_THREADS][MAX_THREAD_EVENTS];
+
+#define IMAGE_WIDTH 2390
+#define IMAGE_HEIGHT 1000
+
+static int Trace = 1;
+void trace_off() {Trace = 0;}
+void trace_on()  {Trace = 1;}
+
+static void send_threads();
+static void recv_threads(int proc);
+static void print_legend(FILE *trace_file);
+static void print_xticks(int mpi_size, double total_time,
+                         double hscale, double vscale, FILE *trace_file);
+static void print_threads(int proc, double min_time,
+                          double hscale, double vscale, FILE *trace_file);
+static void find_min_max(double *min_time, double *max_time);
 
 //------------------------------------------------------------------------------
 // https://en.wikipedia.org/wiki/Fowler–Noll–Vo_hash_function
@@ -201,104 +210,182 @@ void trace_label(const char *color, const char *label)
 //------------------------------------------------------------------------------
 void trace_finish()
 {
-    double min_time = INFINITY;
-    double max_time = 0.0;
-
-    for (int thread = 0; thread < NumThreads; thread++)
-        if (EventNumThread[thread] > 0)
-            if (EventStartThread[thread][0] < min_time)
-                min_time = EventStartThread[thread][0];
-
-    for (int thread = 0; thread < NumThreads; thread++)
-        if (EventNumThread[thread] > 0)
-            if (EventStopThread[thread][EventNumThread[thread]-1] > max_time)
-                max_time = EventStopThread[thread][EventNumThread[thread]-1];
-
+    // Find size and rank.
     int mpi_rank = 0;
     int mpi_size = 1;
     #ifdef MPI
-        double temp;
-        temp = min_time;
-        MPI_Reduce(&temp, &min_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
-        temp = max_time;
-        MPI_Reduce(&temp, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-
         MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
         MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
-
-        if (mpi_rank > 0) {
-            MPI_Send(&EventNumThread[0], MAX_THREADS,
-                     MPI_INT, 0, 0, MPI_COMM_WORLD);
-
-            MPI_Send(&EventStartThread[0][0], MAX_THREADS*MAX_THREAD_EVENTS,
-                     MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
-
-            MPI_Send(&EventStopThread[0][0], MAX_THREADS*MAX_THREAD_EVENTS,
-                     MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
-            
-            MPI_Send(&EventColorThread[0][0], MAX_THREADS*MAX_THREAD_EVENTS,
-                     MPI_INT, 0, 0, MPI_COMM_WORLD);
-
-            MPI_Barrier(MPI_COMM_WORLD);
-            return;
-        }
+        MPI_Barrier(MPI_COMM_WORLD);
     #endif
 
-    double total_time = max_time - min_time;
-    double hscale = IMAGE_WIDTH / total_time;
-    double vscale = IMAGE_HEIGHT / (mpi_size*NumThreads + 1);
-
+    // Start the trace file.
+    FILE *trace_file;
     char file_name[32];
-    snprintf(file_name, 32, "trace_%ld.svg", (unsigned long int)time(NULL));
-    FILE *trace_file = fopen(file_name, "w");
-    assert(trace_file != NULL);
-
-    fprintf(trace_file,
-            "<svg viewBox=\"0 0 %d %d\">\n", IMAGE_WIDTH, IMAGE_HEIGHT);
-
-    // output events
-    for (int proc = 0; proc < mpi_size; proc++) {
-        #ifdef MPI
-            if (proc > 0) {
-                MPI_Recv(&EventNumThread[0], MAX_THREADS,
-                         MPI_INT, proc, 0, MPI_COMM_WORLD,
-                         MPI_STATUS_IGNORE);
-
-                MPI_Recv(&EventStartThread[0][0], MAX_THREADS*MAX_THREAD_EVENTS,
-                         MPI_DOUBLE, proc, 0, MPI_COMM_WORLD,
-                         MPI_STATUS_IGNORE);
-
-                MPI_Recv(&EventStopThread[0][0], MAX_THREADS*MAX_THREAD_EVENTS,
-                         MPI_DOUBLE, proc, 0, MPI_COMM_WORLD,
-                         MPI_STATUS_IGNORE);
-
-                MPI_Recv(&EventColorThread[0][0], MAX_THREADS*MAX_THREAD_EVENTS,
-                         MPI_INT, proc, 0, MPI_COMM_WORLD,
-                         MPI_STATUS_IGNORE);
-            }
-        #endif
-        for (int thread = 0; thread < NumThreads; thread++) {
-            for (int event = 0; event < EventNumThread[thread]; event++) {
-                double start = EventStartThread[thread][event]-min_time;
-                double stop = EventStopThread[thread][event]-min_time;
-                if (start >= 0.0)
-                    fprintf(
-                        trace_file,
-                        "<rect x=\"%lf\" y=\"%lf\" "
-                        "width=\"%lf\" height=\"%lf\" "
-                        "fill=\"#%06x\" stroke=\"#000000\" "
-                        "stroke-width=\"0.2\" inkscape:label=\"%s\"/>\n",
-                        start * hscale,
-                        (proc*NumThreads+thread) * vscale,
-                        (stop-start) * hscale,
-                        0.9 * vscale,
-                        Color[EventColorThread[thread][event]].value,
-                        Label[EventColorThread[thread][event]]);
-            }
-        }
+    if (mpi_rank == 0) {
+        snprintf(file_name, 32, "trace_%ld.svg", (unsigned long int)time(NULL));
+        trace_file = fopen(file_name, "w");
+        assert(trace_file != NULL);
+        fprintf(trace_file,
+                "<svg viewBox=\"0 0 %d %d\">\n", IMAGE_WIDTH, IMAGE_HEIGHT);
     }
 
-    // output legend
+    // Find scaling factors.
+    double min_time;
+    double max_time;
+    find_min_max(&min_time, &max_time);
+    double total_time = max_time - min_time;
+    double hscale = IMAGE_WIDTH / total_time;
+    double vscale = IMAGE_HEIGHT / (mpi_size*NumThreads+1);
+
+    // Output thread events.
+    if (mpi_rank == 0) {
+        for (int proc = 0; proc < mpi_size; proc++) {
+            if (proc > 0)
+                recv_threads(proc);
+            print_threads(proc, min_time, hscale, vscale, trace_file);
+        }
+    }
+    else {
+        send_threads();
+    }
+
+    // Output xticks and legend.
+    if (mpi_rank == 0) {
+        print_xticks(mpi_size, total_time, hscale, vscale, trace_file);
+        print_legend(trace_file);
+    }
+
+    // Finish the trace file.
+    if (mpi_rank == 0) {
+        fprintf(trace_file, "</svg>\n");
+        fclose(trace_file);
+        fprintf(stderr, "trace file: %s\n", file_name);
+    }
+
+    #ifdef MPI
+        MPI_Barrier(MPI_COMM_WORLD);
+    #endif
+}
+
+//------------------------------------------------------------------------------
+static void find_min_max(double *min_time, double *max_time)
+{
+    *min_time = INFINITY;
+    *max_time = 0.0;
+
+    for (int thread = 0; thread < NumThreads; thread++)
+        if (EventNumThread[thread] > 0)
+            if (EventStartThread[thread][0] < *min_time)
+                *min_time = EventStartThread[thread][0];
+
+    for (int thread = 0; thread < NumThreads; thread++)
+        if (EventNumThread[thread] > 0)
+            if (EventStopThread[thread][EventNumThread[thread]-1] > *max_time)
+                *max_time = EventStopThread[thread][EventNumThread[thread]-1];
+
+    #ifdef MPI
+        double temp;
+        temp = *min_time;
+        MPI_Reduce(&temp, min_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+        temp = *max_time;
+        MPI_Reduce(&temp, max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    #endif
+}
+
+//------------------------------------------------------------------------------
+static void send_threads()
+{
+    #ifdef MPI
+        MPI_Send(&EventNumThread[0], MAX_THREADS,
+                 MPI_INT, 0, 0, MPI_COMM_WORLD);
+
+        MPI_Send(&EventStartThread[0][0], MAX_THREADS*MAX_THREAD_EVENTS,
+                 MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+
+        MPI_Send(&EventStopThread[0][0], MAX_THREADS*MAX_THREAD_EVENTS,
+                 MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+        
+        MPI_Send(&EventColorThread[0][0], MAX_THREADS*MAX_THREAD_EVENTS,
+                 MPI_INT, 0, 0, MPI_COMM_WORLD);
+    #endif
+}
+
+//------------------------------------------------------------------------------
+static void recv_threads(int proc)
+{
+    #ifdef MPI
+        MPI_Recv(&EventNumThread[0], MAX_THREADS,
+                 MPI_INT, proc, 0, MPI_COMM_WORLD,
+                 MPI_STATUS_IGNORE);
+
+        MPI_Recv(&EventStartThread[0][0], MAX_THREADS*MAX_THREAD_EVENTS,
+                 MPI_DOUBLE, proc, 0, MPI_COMM_WORLD,
+                 MPI_STATUS_IGNORE);
+
+        MPI_Recv(&EventStopThread[0][0], MAX_THREADS*MAX_THREAD_EVENTS,
+                 MPI_DOUBLE, proc, 0, MPI_COMM_WORLD,
+                 MPI_STATUS_IGNORE);
+
+        MPI_Recv(&EventColorThread[0][0], MAX_THREADS*MAX_THREAD_EVENTS,
+                 MPI_INT, proc, 0, MPI_COMM_WORLD,
+                 MPI_STATUS_IGNORE);
+    #endif
+}
+
+//------------------------------------------------------------------------------
+static void print_threads(int proc, double min_time,
+                          double hscale, double vscale, FILE *trace_file)
+{
+    for (int thread = 0; thread < NumThreads; thread++) {
+        for (int event = 0; event < EventNumThread[thread]; event++) {
+            double start = EventStartThread[thread][event]-min_time;
+            double stop = EventStopThread[thread][event]-min_time;
+            if (start >= 0.0)
+                fprintf(
+                    trace_file,
+                    "<rect x=\"%lf\" y=\"%lf\" "
+                    "width=\"%lf\" height=\"%lf\" "
+                    "fill=\"#%06x\" stroke=\"#000000\" "
+                    "stroke-width=\"0.2\" inkscape:label=\"%s\"/>\n",
+                    start * hscale,
+                    (proc*NumThreads+thread) * vscale,
+                    (stop-start) * hscale,
+                    0.9 * vscale,
+                    Color[EventColorThread[thread][event]].value,
+                    Label[EventColorThread[thread][event]]);
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+static void print_xticks(int mpi_size, double total_time,
+                         double hscale, double vscale, FILE *trace_file)
+{
+    // xtick spacing is power of 10, with at most 20 tick marks.
+    double pwr = ceil(log10(total_time/20));
+    double xtick = pow(10.0, pwr);
+    int decimal_places = (pwr < 0 ? (int)-pwr : 0);
+    for (double t = 0; t < total_time; t += xtick) {
+        fprintf(
+            trace_file,
+            "<line x1=\"%f\" x2=\"%f\" y1=\"%f\" y2=\"%f\" "
+            "stroke=\"#000000\" stroke-width=\"1\" />\n"
+            "<text x=\"%f\" y=\"%f\" "
+            "font-family=\"monospace\" font-size=\"35\">%.*f</text>\n",
+            hscale * t,
+            hscale * t,
+            vscale * mpi_size*NumThreads,
+            vscale * (mpi_size*NumThreads + 0.9),
+            hscale * (t + 0.05*xtick),
+            vscale * (mpi_size*NumThreads + 0.9),
+            decimal_places, t);
+    }
+}
+
+//------------------------------------------------------------------------------
+static void print_legend(FILE *trace_file)
+{
     int x = 0;
     int y = IMAGE_HEIGHT+50;
     for (int color = 0; color < NumColors; color++) {
@@ -323,35 +410,6 @@ void trace_finish()
             }
         }
     }
-
-    // output xticks time scale
-    // xtick spacing is power of 10, with at most 20 tick marks
-    double pwr = ceil(log10(total_time/20));
-    double xtick = pow(10.0, pwr);
-    int decimal_places = (pwr < 0 ? (int)-pwr : 0);
-    for (double t = 0; t < total_time; t += xtick) {
-        fprintf(
-            trace_file,
-            "<line x1=\"%f\" x2=\"%f\" y1=\"%f\" y2=\"%f\" "
-            "stroke=\"#000000\" stroke-width=\"1\" />\n"
-            "<text x=\"%f\" y=\"%f\" "
-            "font-family=\"monospace\" font-size=\"35\">%.*f</text>\n",
-            hscale * t,
-            hscale * t,
-            vscale * mpi_size*NumThreads,
-            vscale * (mpi_size*NumThreads + 0.9),
-            hscale * (t + 0.05*xtick),
-            vscale * (mpi_size*NumThreads + 0.9),
-            decimal_places, t);
-    }
-
-    fprintf(trace_file, "</svg>\n");
-    fclose(trace_file);
-    fprintf(stderr, "trace file: %s\n", file_name);
-
-    #ifdef MPI
-        MPI_Barrier(MPI_COMM_WORLD);
-    #endif
 }
 
 //------------------------------------------------------------------------------
@@ -371,5 +429,6 @@ static void trace_init()
         omp_get_max_threads() : MAX_THREADS;
 
     // Register the destructor.
+    // Does not play along with mpirun.
     // atexit(trace_finish);
 }

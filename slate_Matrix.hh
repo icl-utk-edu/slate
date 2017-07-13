@@ -56,10 +56,18 @@ private:
     MPI_Comm mpi_comm_;
     int64_t mpi_size_;
     int64_t mpi_rank_;
-    std::function <int64_t (int64_t m, int64_t n)> tileLocation;
+    std::function <int64_t (int64_t i, int64_t j)> tile_mpi_rank;
+    std::function <int64_t (int64_t i)> tile_mb;
+    std::function <int64_t (int64_t j)> tile_nb;
 
-    bool tileIsLocal(int64_t m, int64_t n) {
-        return tileLocation(m, n) == mpi_rank_;
+    int64_t tileMpiRank(int64_t i, int64_t j) {
+        return tile_mpi_rank(it_+i, jt_+j);
+    }
+    int64_t tileMb(int64_t i) { return tile_mb(it_+i); }
+    int64_t tileNb(int64_t j) { return tile_nb(jt_+j); }
+
+    bool tileIsLocal(int64_t i, int64_t j) {
+        return tileMpiRank(i, j) == mpi_rank_;
     }
 
     void syrkTask(blas::Uplo uplo, blas::Op trans,
@@ -70,6 +78,8 @@ private:
 
     void syrkBatch(blas::Uplo uplo, blas::Op trans,
                    FloatType alpha, const Matrix &a, FloatType beta);
+
+    void tileBcast(int64_t m, int64_t n);
 };
 
 //------------------------------------------------------------------------------
@@ -83,7 +93,9 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
     mt_ = m % mb == 0 ? m/mb : m/mb+1;
     nt_ = n % nb == 0 ? n/nb : n/nb+1;
 
-    tileLocation = [] (int64_t m, int64_t n) { return 0; };
+    tile_mpi_rank = [] (int64_t i, int64_t j) { return 0; };
+    tile_mb = [=] (int64_t i) { return (it_+i)*mb > m ? m%mb : mb; };
+    tile_nb = [=] (int64_t j) { return (jt_+j)*nb > n ? n%nb : nb; };
 
     copyTo(m, n, a, lda, mb, nb);
 }
@@ -108,9 +120,9 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
     mpi_rank_ = rank;
     mpi_size_ = size;
 
-    tileLocation = [=] (int64_t m, int64_t n) {
-        return ((it_+m)%p) + ((jt_+n)%q) * p;
-    };
+    tile_mpi_rank = [=] (int64_t i, int64_t j) { return i%p + (j%q)*p; };
+    tile_mb = [=] (int64_t i) { return +i*mb > m ? m%mb : mb; };
+    tile_nb = [=] (int64_t j) { return +j*nb > n ? n%nb : nb; };
 
     copyTo(m, n, a, lda, mb, nb);
 }
@@ -191,6 +203,33 @@ void Matrix<FloatType>::syrkNest(blas::Uplo uplo, blas::Op trans,
 
     for (int64_t n = 0; n < nt_; ++n) {
         for (int64_t k = 0; k < a.nt_; ++k)
+            if (c.tileIsLocal(n, n))
+                c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
+    }
+
+    for (int64_t n = 0; n < nt_; ++n) {
+        for (int64_t m = 0; m < mt_; ++m)
+            for (int64_t k = 0; k < a.nt_; ++k)
+                if (m >= n+1)
+                    if (c.tileIsLocal(m, n))
+                        c(m, n)->gemm(trans, Op::Trans,
+                                      alpha, a(m, k), a(n, k),
+                                      k == 0 ? beta : 1.0);
+    }
+}
+/*
+//------------------------------------------------------------------------------
+template<class FloatType>
+void Matrix<FloatType>::syrkNest(blas::Uplo uplo, blas::Op trans,
+                                 FloatType alpha, const Matrix &a,
+                                 FloatType beta)
+{
+    using namespace blas;
+
+    Matrix<FloatType> c = *this;
+
+    for (int64_t n = 0; n < nt_; ++n) {
+        for (int64_t k = 0; k < a.nt_; ++k)
             #pragma omp task
             c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
     }
@@ -206,7 +245,7 @@ void Matrix<FloatType>::syrkNest(blas::Uplo uplo, blas::Op trans,
     }
     #pragma omp taskwait
 }
-
+*/
 //------------------------------------------------------------------------------
 template<class FloatType>
 void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
@@ -313,6 +352,75 @@ void Matrix<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
 
 //------------------------------------------------------------------------------
 template<class FloatType>
+void Matrix<FloatType>::tileBcast(int64_t m, int64_t n)
+{
+    Matrix<FloatType> a = *this;
+    Tile<FloatType> *tile;
+
+    if (a.tileIsLocal(m, n)) {
+        tile = (*this)(m, n);
+    }
+    else {
+        tile = new Tile<FloatType>(a.tileMb(m), a.tileNb(n));
+        a(m, n) = tile;
+    }
+
+    int count = tile->mb_*tile->nb_;
+    int retval = MPI_Bcast(tile->data_, count, MPI_DOUBLE,
+                           a.tileMpiRank(m, n), mpi_comm_);
+    assert(retval == MPI_SUCCESS);
+}
+
+//------------------------------------------------------------------------------
+template<class FloatType>
+void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
+{
+    using namespace blas;
+
+    Matrix<FloatType> a = *this;
+    uint8_t *column;
+
+    for (int64_t k = 0; k < nt_; ++k) {
+
+        if (a.tileIsLocal(k, k))
+            a(k, k)->potrf(uplo);
+
+        a.tileBcast(k, k);
+
+        for (int64_t m = k+1; m < nt_; ++m) {
+
+            if (a.tileIsLocal(m, k))
+                a(m, k)->trsm(Side::Right, Uplo::Lower,
+                              Op::Trans, Diag::NonUnit,
+                              1.0, a(k, k));
+
+            a.tileBcast(m, k);
+        }
+        for (int64_t n = k+1; n < k+1+lookahead && n < nt_; ++n) {
+
+            if (a.tileIsLocal(n, n))
+                a(n, n)->syrk(Uplo::Lower, Op::NoTrans,
+                              -1.0, a(n, k), 1.0);
+
+            for (int64_t m = n+1; m < nt_; ++m) {
+
+                if (a.tileIsLocal(m, n))
+                    a(m, n)->gemm(Op::NoTrans, Op::Trans,
+                                  -1.0, a(m, k), a(n, k), 1.0);
+            }
+        }
+        if (k+1+lookahead < nt_) {
+
+            Matrix(a, k+1+lookahead, k+1+lookahead,
+                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkNest(
+                Uplo::Lower, Op::NoTrans,
+                -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
+        }
+    }
+}
+/*
+//------------------------------------------------------------------------------
+template<class FloatType>
 void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
 {
     using namespace blas;
@@ -370,7 +478,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                 -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
     }
 }
-
+*/
 } // namespace slate
 
 #endif // SLATE_MATRIX_HH

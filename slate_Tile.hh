@@ -13,6 +13,7 @@
 #include <mkl.h>
 #include <mkl_cblas.h>
 #include <mkl_lapacke.h>
+#include <mpi.h>
 
 extern "C" void trace_cpu_start();
 extern "C" void trace_cpu_stop(const char *color);
@@ -32,6 +33,8 @@ public:
 
     int64_t packed_a_life_;
     int64_t packed_b_life_;
+
+    MPI_Request mpi_request_;
 
     //------------------------------------------------------
     void allocate(int64_t mb, int64_t nb)
@@ -83,25 +86,25 @@ public:
               Tile<FloatType> *a, Tile<FloatType> *b, FloatType beta)
     {
         trace_cpu_start();
-        // blas::gemm(blas::Layout::ColMajor, transa, transb,
-        //              mb_, nb_, a->nb_, alpha, a->data_, a->mb_,
-        //              b->data_, b->mb_, beta, data_, mb_);
-        cblas_dgemm_compute(CblasColMajor, CblasPacked, CblasPacked,
-            mb_, nb_, a->nb_, a->packed_a_, a->mb_, b->packed_b_, b->mb_,
-            beta, data_, mb_);   
+        blas::gemm(blas::Layout::ColMajor, transa, transb,
+                     mb_, nb_, a->nb_, alpha, a->data_, a->mb_,
+                     b->data_, b->mb_, beta, data_, mb_);
+        // cblas_dgemm_compute(CblasColMajor, CblasPacked, CblasPacked,
+        //     mb_, nb_, a->nb_, a->packed_a_, a->mb_, b->packed_b_, b->mb_,
+        //     beta, data_, mb_);   
 
-        #pragma omp critical
-        {
-            --a->packed_a_life_;
-            if (a->packed_a_life_ == 0)
-                cblas_dgemm_free(a->packed_a_);
-        }
-        #pragma omp critical
-        {
-            --b->packed_b_life_;
-            if (b->packed_b_life_ == 0)
-                cblas_dgemm_free(b->packed_b_);
-        }
+        // #pragma omp critical
+        // {
+        //     --a->packed_a_life_;
+        //     if (a->packed_a_life_ == 0)
+        //         cblas_dgemm_free(a->packed_a_);
+        // }
+        // #pragma omp critical
+        // {
+        //     --b->packed_b_life_;
+        //     if (b->packed_b_life_ == 0)
+        //         cblas_dgemm_free(b->packed_b_);
+        // }
         trace_cpu_stop("MediumAquamarine");
     }
     void potrf(blas::Uplo uplo)

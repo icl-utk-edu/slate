@@ -39,6 +39,11 @@ public:
     void copyFrom(int64_t m, int64_t n, FloatType *a, int64_t lda,
                   int64_t mb, int64_t nb); 
 
+    void copyFromFull(int64_t m, int64_t n, FloatType *a, int64_t lda,
+                      int64_t mb, int64_t nb); 
+
+    void gather();
+
     Tile<FloatType>* &operator()(int64_t m, int64_t n) {
         return (*tiles_)[std::pair<int64_t, int64_t>(it_+m, jt_+n)];
     }
@@ -79,6 +84,8 @@ private:
     void syrkBatch(blas::Uplo uplo, blas::Op trans,
                    FloatType alpha, const Matrix &a, FloatType beta);
 
+    void tileSend(int64_t i, int64_t j, int dest);
+    void tileRecv(int64_t i, int64_t j, int src);
     void tileBcast(int64_t m, int64_t n);
 };
 
@@ -149,9 +156,11 @@ void Matrix<FloatType>::copyTo(int64_t m, int64_t n, FloatType *a,
     for (int64_t i = 0; i < m; i += mb)
         for (int64_t j = 0; j < n; j += nb)
             if (j <= i)
-                (*this)(i/mb, j/nb) =
-                    new Tile<FloatType>(std::min(mb, m-i), std::min(nb, n-j),
-                                        &a[(size_t)lda*j+i], lda);
+                if (tileIsLocal(i/mb, j/nb))
+                    (*this)(i/mb, j/nb) =
+                        new Tile<FloatType>(std::min(mb, m-i),
+                                            std::min(nb, n-j),
+                                            &a[(size_t)lda*j+i], lda);
 }
 
 //------------------------------------------------------------------------------
@@ -162,7 +171,37 @@ void Matrix<FloatType>::copyFrom(int64_t m, int64_t n, FloatType *a,
     for (int64_t i = 0; i < m; i += mb)
         for (int64_t j = 0; j < n; j += nb)
             if (j <= i)
+                if (tileIsLocal(i/mb, j/nb))
+                    (*this)(i/mb, j/nb)->copyFrom(&a[(size_t)lda*j+i], lda);
+}
+
+//------------------------------------------------------------------------------
+template<class FloatType>
+void Matrix<FloatType>::copyFromFull(int64_t m, int64_t n, FloatType *a,
+                                     int64_t lda, int64_t mb, int64_t nb)
+{
+    for (int64_t i = 0; i < m; i += mb)
+        for (int64_t j = 0; j < n; j += nb)
+            if (j <= i)
                 (*this)(i/mb, j/nb)->copyFrom(&a[(size_t)lda*j+i], lda);
+}
+
+//------------------------------------------------------------------------------
+template<class FloatType>
+void Matrix<FloatType>::gather()
+{
+    for (int64_t i = 0; i < mt_; ++i) {
+        for (int64_t j = 0; j <= i && j < nt_; ++j) {
+            if (mpi_rank_ == 0) {
+                if (!tileIsLocal(i, j))
+                    tileRecv(i, j, tileRank(i, j));
+            }
+            else {
+                if (tileIsLocal(i, j))
+                    tileSend(i, j, 0);
+            }
+        }
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -352,22 +391,45 @@ void Matrix<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
 
 //------------------------------------------------------------------------------
 template<class FloatType>
-void Matrix<FloatType>::tileBcast(int64_t m, int64_t n)
+void Matrix<FloatType>::tileSend(int64_t i, int64_t j, int dest)
+{
+    Tile<FloatType> *tile = (*this)(i, j);
+    int count = tile->mb_*tile->nb_;
+    int retval = MPI_Send(tile->data_, count, MPI_DOUBLE, dest, 0, mpi_comm_);
+    assert(retval == MPI_SUCCESS);
+}
+
+//------------------------------------------------------------------------------
+template<class FloatType>
+void Matrix<FloatType>::tileRecv(int64_t i, int64_t j, int src)
+{
+    Matrix<FloatType> a = *this;
+    Tile<FloatType> *tile = new Tile<FloatType>(a.tileMb(i), a.tileNb(j));
+    a(i, j) = tile;
+    int count = tile->mb_*tile->nb_;
+    int retval = MPI_Recv(tile->data_, count, MPI_DOUBLE, src, 0, mpi_comm_,
+                          MPI_STATUS_IGNORE);
+    assert(retval == MPI_SUCCESS);
+}
+
+//------------------------------------------------------------------------------
+template<class FloatType>
+void Matrix<FloatType>::tileBcast(int64_t i, int64_t j)
 {
     Matrix<FloatType> a = *this;
     Tile<FloatType> *tile;
 
-    if (a.tileIsLocal(m, n)) {
-        tile = (*this)(m, n);
+    if (a.tileIsLocal(i, j)) {
+        tile = (*this)(i, j);
     }
     else {
-        tile = new Tile<FloatType>(a.tileMb(m), a.tileNb(n));
-        a(m, n) = tile;
+        tile = new Tile<FloatType>(a.tileMb(i), a.tileNb(j));
+        a(i, j) = tile;
     }
 
     int count = tile->mb_*tile->nb_;
     int retval = MPI_Bcast(tile->data_, count, MPI_DOUBLE,
-                           a.tileRank(m, n), mpi_comm_);
+                           a.tileRank(i, j), mpi_comm_);
     assert(retval == MPI_SUCCESS);
 }
 

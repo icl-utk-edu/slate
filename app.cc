@@ -51,10 +51,12 @@ int main (int argc, char *argv[])
         a1[i*lda+i] += sqrt(n);
 
     //------------------------------------------------------
-    double *a2 = (double*)malloc(sizeof(double)*nb*nb*nt*nt);
-    assert(a2 != nullptr);
-
-    memcpy(a2, a1, sizeof(double)*lda*n);
+    double *a2;
+    if (mpi_rank == 0) {
+        a2 = (double*)malloc(sizeof(double)*nb*nb*nt*nt);
+        assert(a2 != nullptr);
+        memcpy(a2, a1, sizeof(double)*lda*n);
+    }
 
     //------------------------------------------------------
     trace_off();
@@ -66,34 +68,33 @@ int main (int argc, char *argv[])
     MPI_Barrier(MPI_COMM_WORLD);
     double start = omp_get_wtime();
     a.potrf(blas::Uplo::Lower);
+    MPI_Barrier(MPI_COMM_WORLD);
     double time = omp_get_wtime()-start;
-    a.copyFrom(n, n, a1, lda, nb, nb);
+    a.gather();
+    MPI_Barrier(MPI_COMM_WORLD);
+    a.copyFromFull(n, n, a1, lda, nb, nb);
 
-    retval = LAPACKE_dpotrf(LAPACK_COL_MAJOR, 'L', n, a2, lda);
-    assert(retval == 0);
+    //------------------------------------------------------
+    if (mpi_rank == 0) {
 
-    // print_lapack_matrix(n, n, a1, lda, nb, nb);
-    // print_lapack_matrix(n, n, a2, lda, nb, nb);
-    for (int rank = 0; rank < mpi_size; ++rank) {
-        MPI_Barrier(MPI_COMM_WORLD);
-        if (rank == mpi_rank)
-            diff_lapack_matrices(n, n, a1, lda, a2, lda, nb, nb);
+        retval = LAPACKE_dpotrf(LAPACK_COL_MAJOR, 'L', n, a2, lda);
+        assert(retval == 0);
+        diff_lapack_matrices(n, n, a1, lda, a2, lda, nb, nb);
+
+        cblas_daxpy((size_t)lda*n, -1.0, a1, 1, a2, 1);
+        double norm = LAPACKE_dlansy(LAPACK_COL_MAJOR, 'F', 'L', n, a1, lda);
+        double error = LAPACKE_dlange(LAPACK_COL_MAJOR, 'F', n, n, a2, lda);
+        if (norm != 0)
+            error /= norm;
+        printf("\t%le\n", error);
+
+        double gflops = (double)nb*nb*nb*nt*nt*nt/3.0/time/1000000000.0;
+        printf("\t%.0lf GFLOPS\n", gflops);
+        free(a2);
     }
 
     //------------------------------------------------------
-    cblas_daxpy((size_t)lda*n, -1.0, a1, 1, a2, 1);
-
-    double norm = LAPACKE_dlansy(LAPACK_COL_MAJOR, 'F', 'L', n, a1, lda);
-    double error = LAPACKE_dlange(LAPACK_COL_MAJOR, 'F', n, n, a2, lda);
-    if (norm != 0)
-        error /= norm;
-    printf("\t%le\n", error);
-
-    double gflops = (double)nb*nb*nb*nt*nt*nt/3.0/time/1000000000.0;
-    printf("\t%.0lf GFLOPS\n", gflops);
-
     free(a1);
-    free(a2);
     trace_finish();
     return EXIT_SUCCESS;
 }

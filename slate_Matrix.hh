@@ -56,18 +56,18 @@ private:
     MPI_Comm mpi_comm_;
     int64_t mpi_size_;
     int64_t mpi_rank_;
-    std::function <int64_t (int64_t i, int64_t j)> tile_mpi_rank;
-    std::function <int64_t (int64_t i)> tile_mb;
-    std::function <int64_t (int64_t j)> tile_nb;
+    std::function <int64_t (int64_t i, int64_t j)> tileRankFunc;
+    std::function <int64_t (int64_t i)> tileMbFunc;
+    std::function <int64_t (int64_t j)> tileNbFunc;
 
-    int64_t tileMpiRank(int64_t i, int64_t j) {
-        return tile_mpi_rank(it_+i, jt_+j);
+    int64_t tileRank(int64_t i, int64_t j) {
+        return tileRankFunc(it_+i, jt_+j);
     }
-    int64_t tileMb(int64_t i) { return tile_mb(it_+i); }
-    int64_t tileNb(int64_t j) { return tile_nb(jt_+j); }
+    int64_t tileMb(int64_t i) { return tileMbFunc(it_+i); }
+    int64_t tileNb(int64_t j) { return tileNbFunc(jt_+j); }
 
     bool tileIsLocal(int64_t i, int64_t j) {
-        return tileMpiRank(i, j) == mpi_rank_;
+        return tileRank(i, j) == mpi_rank_;
     }
 
     void syrkTask(blas::Uplo uplo, blas::Op trans,
@@ -93,9 +93,9 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
     mt_ = m % mb == 0 ? m/mb : m/mb+1;
     nt_ = n % nb == 0 ? n/nb : n/nb+1;
 
-    tile_mpi_rank = [] (int64_t i, int64_t j) { return 0; };
-    tile_mb = [=] (int64_t i) { return (it_+i)*mb > m ? m%mb : mb; };
-    tile_nb = [=] (int64_t j) { return (jt_+j)*nb > n ? n%nb : nb; };
+    tileRankFunc = [] (int64_t i, int64_t j) { return 0; };
+    tileMbFunc = [=] (int64_t i) { return (it_+i)*mb > m ? m%mb : mb; };
+    tileNbFunc = [=] (int64_t j) { return (jt_+j)*nb > n ? n%nb : nb; };
 
     copyTo(m, n, a, lda, mb, nb);
 }
@@ -120,9 +120,9 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
     mpi_rank_ = rank;
     mpi_size_ = size;
 
-    tile_mpi_rank = [=] (int64_t i, int64_t j) { return i%p + (j%q)*p; };
-    tile_mb = [=] (int64_t i) { return +i*mb > m ? m%mb : mb; };
-    tile_nb = [=] (int64_t j) { return +j*nb > n ? n%nb : nb; };
+    tileRankFunc = [=] (int64_t i, int64_t j) { return i%p + (j%q)*p; };
+    tileMbFunc = [=] (int64_t i) { return +i*mb > m ? m%mb : mb; };
+    tileNbFunc = [=] (int64_t j) { return +j*nb > n ? n%nb : nb; };
 
     copyTo(m, n, a, lda, mb, nb);
 }
@@ -367,7 +367,7 @@ void Matrix<FloatType>::tileBcast(int64_t m, int64_t n)
 
     int count = tile->mb_*tile->nb_;
     int retval = MPI_Bcast(tile->data_, count, MPI_DOUBLE,
-                           a.tileMpiRank(m, n), mpi_comm_);
+                           a.tileRank(m, n), mpi_comm_);
     assert(retval == MPI_SUCCESS);
 }
 

@@ -72,13 +72,14 @@ int main (int argc, char *argv[])
     double time = omp_get_wtime()-start;
     a.gather();
     MPI_Barrier(MPI_COMM_WORLD);
-    a.copyFromFull(n, n, a1, lda, nb, nb);
 
     //------------------------------------------------------
     if (mpi_rank == 0) {
 
         retval = LAPACKE_dpotrf(LAPACK_COL_MAJOR, 'L', n, a2, lda);
         assert(retval == 0);
+
+        a.copyFromFull(n, n, a1, lda, nb, nb);
         diff_lapack_matrices(n, n, a1, lda, a2, lda, nb, nb);
 
         cblas_daxpy((size_t)lda*n, -1.0, a1, 1, a2, 1);

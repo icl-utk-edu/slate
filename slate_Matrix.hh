@@ -6,7 +6,9 @@
 
 #include <functional>
 #include <map>
+#include <set>
 #include <utility>
+#include <vector>
 
 #include <mpi.h>
 #include <omp.h>
@@ -86,7 +88,9 @@ private:
 
     void tileSend(int64_t i, int64_t j, int dest);
     void tileRecv(int64_t i, int64_t j, int src);
+    
     void tileBcast(int64_t m, int64_t n);
+    void tileBcast(int64_t m, int64_t n, std::array<int64_t, 4> range);
 };
 
 //------------------------------------------------------------------------------
@@ -122,6 +126,7 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
     mpi_comm_ = mpi_comm;
     int rank;
     int size;
+    int retval;
     assert(MPI_Comm_rank(mpi_comm_, &rank) == MPI_SUCCESS);
     assert(MPI_Comm_size(mpi_comm_, &size) == MPI_SUCCESS);
     mpi_rank_ = rank;
@@ -435,6 +440,83 @@ void Matrix<FloatType>::tileBcast(int64_t i, int64_t j)
 
 //------------------------------------------------------------------------------
 template<class FloatType>
+void Matrix<FloatType>::tileBcast(
+    int64_t i, int64_t j, std::array<int64_t, 4> range)
+{
+    int64_t i1 = range[0];
+    int64_t j1 = range[1];
+    int64_t i2 = range[2];
+    int64_t j2 = range[3];
+
+    // Find the set of participating ranks.
+    std::set<int> bcast_set;
+    bcast_set.insert(tileRank(i, j));
+    for (int64_t i = i1; i <= i2; ++i)
+        for (int64_t j = j1; j <= j2; ++j)
+            bcast_set.insert(tileRank(i, j));
+
+    // Quit if not participating.
+    if (bcast_set.find(mpi_rank_) == bcast_set.end())
+        return;
+
+    // Convert the set of ranks to a vector.
+    std::vector<int> bcast_vec(bcast_set.begin(), bcast_set.end());
+
+    // Get the group for mpi_comm_.
+    MPI_Group main_group;
+    int retval;
+    retval = MPI_Comm_group(mpi_comm_, &main_group);
+    assert(retval == MPI_SUCCESS);
+
+    // Create the broadcast group.
+    MPI_Group bcast_group;
+    retval = MPI_Group_incl(main_group, bcast_vec.size(), bcast_vec.data(),
+                            &bcast_group);
+    assert(retval == MPI_SUCCESS);
+
+    // Create a broadcast communicator.
+    MPI_Comm bcast_comm;
+    retval = MPI_Comm_create_group(mpi_comm_, bcast_group, 0, &bcast_comm);
+    assert(retval == MPI_SUCCESS);
+
+    // Find the broadcast rank.
+    int bcast_rank;
+    if (bcast_comm != MPI_COMM_NULL)
+        MPI_Comm_rank(bcast_comm, &bcast_rank);
+
+    // Find the broadcast root rank.
+    int root_rank = tileRank(i, j);
+    int bcast_root;
+    retval = MPI_Group_translate_ranks(main_group, 1, &root_rank,
+                                       bcast_group, &bcast_root);
+    assert(retval == MPI_SUCCESS);
+
+    // Do the broadcast.
+    Matrix<FloatType> a = *this;
+    Tile<FloatType> *tile;
+
+    if (a.tileIsLocal(i, j)) {
+        tile = (*this)(i, j);
+    }
+    else {
+        tile = new Tile<FloatType>(a.tileMb(i), a.tileNb(j));
+        a(i, j) = tile;
+    }
+    int count = tile->mb_*tile->nb_;
+    retval = MPI_Bcast(tile->data_, count, MPI_DOUBLE,
+                       bcast_root, bcast_comm);
+    assert(retval == MPI_SUCCESS);
+
+    // Clean up.
+    retval = MPI_Group_free(&bcast_group);
+    assert(retval == MPI_SUCCESS);
+
+    retval = MPI_Comm_free(&bcast_comm);
+    assert(retval == MPI_SUCCESS);        
+}
+
+//------------------------------------------------------------------------------
+template<class FloatType>
 void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
 {
     using namespace blas;
@@ -447,7 +529,8 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
         if (a.tileIsLocal(k, k))
             a(k, k)->potrf(uplo);
 
-        a.tileBcast(k, k);
+        if (k < nt_-1)
+            a.tileBcast(k, k, {k+1, k, nt_-1, k});
 
         for (int64_t m = k+1; m < nt_; ++m) {
 

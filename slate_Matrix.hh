@@ -91,6 +91,7 @@ private:
     
     void tileBcast(int64_t m, int64_t n);
     void tileBcast(int64_t m, int64_t n, std::array<int64_t, 4> range);
+    void tileWait(int64_t m, int64_t n);
 };
 
 //------------------------------------------------------------------------------
@@ -491,7 +492,7 @@ void Matrix<FloatType>::tileBcast(
                                        bcast_group, &bcast_root);
     assert(retval == MPI_SUCCESS);
 
-    // Do the broadcast.
+    // Get or create the tile.
     Matrix<FloatType> a = *this;
     Tile<FloatType> *tile;
 
@@ -502,9 +503,11 @@ void Matrix<FloatType>::tileBcast(
         tile = new Tile<FloatType>(a.tileMb(i), a.tileNb(j));
         a(i, j) = tile;
     }
+
+    // Do the broadcast.
     int count = tile->mb_*tile->nb_;
-    retval = MPI_Bcast(tile->data_, count, MPI_DOUBLE,
-                       bcast_root, bcast_comm);
+    retval = MPI_Ibcast(tile->data_, count, MPI_DOUBLE,
+                       bcast_root, bcast_comm, &tile->mpi_request_);
     assert(retval == MPI_SUCCESS);
 
     // Clean up.
@@ -513,6 +516,15 @@ void Matrix<FloatType>::tileBcast(
 
     retval = MPI_Comm_free(&bcast_comm);
     assert(retval == MPI_SUCCESS);        
+}
+
+//------------------------------------------------------------------------------
+template<class FloatType>
+void Matrix<FloatType>::tileWait(int64_t i, int64_t j)
+{
+    Tile<FloatType> *tile = (*this)(i, j);
+    int retval = MPI_Wait(&tile->mpi_request_, MPI_STATUS_IGNORE);
+    assert(retval == MPI_SUCCESS);
 }
 
 //------------------------------------------------------------------------------
@@ -534,10 +546,12 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
 
         for (int64_t m = k+1; m < nt_; ++m) {
 
-            if (a.tileIsLocal(m, k))
+            if (a.tileIsLocal(m, k)) {
+                a.tileWait(k, k);
                 a(m, k)->trsm(Side::Right, Uplo::Lower,
                               Op::Trans, Diag::NonUnit,
                               1.0, a(k, k));
+            }
 
             a.tileBcast(m, k);
         }

@@ -61,8 +61,9 @@ public:
 
 private:
     MPI_Comm mpi_comm_;
-    int64_t mpi_size_;
-    int64_t mpi_rank_;
+    MPI_Group mpi_group_;
+    int mpi_size_;
+    int mpi_rank_;
     std::function <int64_t (int64_t i, int64_t j)> tileRankFunc;
     std::function <int64_t (int64_t i)> tileMbFunc;
     std::function <int64_t (int64_t j)> tileNbFunc;
@@ -90,7 +91,7 @@ private:
     void tileRecv(int64_t i, int64_t j, int src);
     
     void tileBcast(int64_t m, int64_t n);
-    void tileBcast(int64_t m, int64_t n, std::array<int64_t, 4> range);
+    void tileIbcast(int64_t m, int64_t n, std::array<int64_t, 4> range);
     void tileWait(int64_t m, int64_t n);
 };
 
@@ -125,13 +126,9 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
     nt_ = n % nb == 0 ? n/nb : n/nb+1;
 
     mpi_comm_ = mpi_comm;
-    int rank;
-    int size;
-    int retval;
-    assert(MPI_Comm_rank(mpi_comm_, &rank) == MPI_SUCCESS);
-    assert(MPI_Comm_size(mpi_comm_, &size) == MPI_SUCCESS);
-    mpi_rank_ = rank;
-    mpi_size_ = size;
+    assert(MPI_Comm_rank(mpi_comm_, &mpi_rank_) == MPI_SUCCESS);
+    assert(MPI_Comm_size(mpi_comm_, &mpi_size_) == MPI_SUCCESS);
+    assert(MPI_Comm_group(mpi_comm_, &mpi_group_) == MPI_SUCCESS);
 
     tileRankFunc = [=] (int64_t i, int64_t j) { return i%p + (j%q)*p; };
     tileMbFunc = [=] (int64_t i) { return +i*mb > m ? m%mb : mb; };
@@ -441,7 +438,7 @@ void Matrix<FloatType>::tileBcast(int64_t i, int64_t j)
 
 //------------------------------------------------------------------------------
 template<class FloatType>
-void Matrix<FloatType>::tileBcast(
+void Matrix<FloatType>::tileIbcast(
     int64_t i, int64_t j, std::array<int64_t, 4> range)
 {
     int64_t i1 = range[0];
@@ -460,38 +457,6 @@ void Matrix<FloatType>::tileBcast(
     if (bcast_set.find(mpi_rank_) == bcast_set.end())
         return;
 
-    // Convert the set of ranks to a vector.
-    std::vector<int> bcast_vec(bcast_set.begin(), bcast_set.end());
-
-    // Get the group for mpi_comm_.
-    MPI_Group main_group;
-    int retval;
-    retval = MPI_Comm_group(mpi_comm_, &main_group);
-    assert(retval == MPI_SUCCESS);
-
-    // Create the broadcast group.
-    MPI_Group bcast_group;
-    retval = MPI_Group_incl(main_group, bcast_vec.size(), bcast_vec.data(),
-                            &bcast_group);
-    assert(retval == MPI_SUCCESS);
-
-    // Create a broadcast communicator.
-    MPI_Comm bcast_comm;
-    retval = MPI_Comm_create_group(mpi_comm_, bcast_group, 0, &bcast_comm);
-    assert(retval == MPI_SUCCESS);
-
-    // Find the broadcast rank.
-    int bcast_rank;
-    if (bcast_comm != MPI_COMM_NULL)
-        MPI_Comm_rank(bcast_comm, &bcast_rank);
-
-    // Find the broadcast root rank.
-    int root_rank = tileRank(i, j);
-    int bcast_root;
-    retval = MPI_Group_translate_ranks(main_group, 1, &root_rank,
-                                       bcast_group, &bcast_root);
-    assert(retval == MPI_SUCCESS);
-
     // Get or create the tile.
     Matrix<FloatType> a = *this;
     Tile<FloatType> *tile;
@@ -504,18 +469,44 @@ void Matrix<FloatType>::tileBcast(
         a(i, j) = tile;
     }
 
+    // Convert the set of ranks to a vector.
+    std::vector<int> bcast_vec(bcast_set.begin(), bcast_set.end());
+
+    // Create the broadcast group.
+    int retval;
+    retval = MPI_Group_incl(mpi_group_, bcast_vec.size(), bcast_vec.data(),
+                            &tile->bcast_group_);
+    assert(retval == MPI_SUCCESS);
+
+    // Create a broadcast communicator.
+    retval = MPI_Comm_create_group(mpi_comm_, tile->bcast_group_, 0,
+                                   &tile->bcast_comm_);
+    assert(retval == MPI_SUCCESS);
+    assert(tile->bcast_comm_ != MPI_COMM_NULL);
+
+    // Find the broadcast rank.
+    int bcast_rank;
+    MPI_Comm_rank(tile->bcast_comm_, &bcast_rank);
+
+    // Find the broadcast root rank.
+    int root_rank = tileRank(i, j);
+    int bcast_root;
+    retval = MPI_Group_translate_ranks(mpi_group_, 1, &root_rank,
+                                       tile->bcast_group_, &bcast_root);
+    assert(retval == MPI_SUCCESS);
+
     // Do the broadcast.
     int count = tile->mb_*tile->nb_;
     retval = MPI_Ibcast(tile->data_, count, MPI_DOUBLE,
-                       bcast_root, bcast_comm, &tile->mpi_request_);
+                       bcast_root, tile->bcast_comm_, &tile->bcast_request_);
     assert(retval == MPI_SUCCESS);
 
     // Clean up.
-    retval = MPI_Group_free(&bcast_group);
-    assert(retval == MPI_SUCCESS);
+    // retval = MPI_Group_free(&tile->bcast_group_);
+    // assert(retval == MPI_SUCCESS);
 
-    retval = MPI_Comm_free(&bcast_comm);
-    assert(retval == MPI_SUCCESS);        
+    // retval = MPI_Comm_free(&tile->bcast_comm_);
+    // assert(retval == MPI_SUCCESS);        
 }
 
 //------------------------------------------------------------------------------
@@ -523,7 +514,7 @@ template<class FloatType>
 void Matrix<FloatType>::tileWait(int64_t i, int64_t j)
 {
     Tile<FloatType> *tile = (*this)(i, j);
-    int retval = MPI_Wait(&tile->mpi_request_, MPI_STATUS_IGNORE);
+    int retval = MPI_Wait(&tile->bcast_request_, MPI_STATUS_IGNORE);
     assert(retval == MPI_SUCCESS);
 }
 
@@ -542,7 +533,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
             a(k, k)->potrf(uplo);
 
         if (k < nt_-1)
-            a.tileBcast(k, k, {k+1, k, nt_-1, k});
+            a.tileIbcast(k, k, {k+1, k, nt_-1, k});
 
         for (int64_t m = k+1; m < nt_; ++m) {
 

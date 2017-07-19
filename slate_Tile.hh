@@ -34,7 +34,9 @@ public:
     int64_t packed_a_life_;
     int64_t packed_b_life_;
 
-    MPI_Request mpi_request_;
+    MPI_Request bcast_request_;
+    MPI_Group bcast_group_;
+    MPI_Comm bcast_comm_;
 
     //------------------------------------------------------
     void allocate(int64_t mb, int64_t nb)

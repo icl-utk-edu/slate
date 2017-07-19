@@ -79,7 +79,7 @@ int main (int argc, char *argv[])
         retval = LAPACKE_dpotrf(LAPACK_COL_MAJOR, 'L', n, a2, lda);
         assert(retval == 0);
 
-        a.copyFromFull(n, n, a1, lda, nb, nb);
+        a.copyFromFull(a1, lda);
         diff_lapack_matrices(n, n, a1, lda, a2, lda, nb, nb);
 
         cblas_daxpy((size_t)lda*n, -1.0, a1, 1, a2, 1);

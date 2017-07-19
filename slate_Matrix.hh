@@ -35,14 +35,9 @@ public:
 
     Matrix(const Matrix &a, int64_t it, int64_t jt, int64_t mt, int64_t nt);
 
-    void copyTo(int64_t m, int64_t n, FloatType *a, int64_t lda,
-                int64_t mb, int64_t nb);
-
-    void copyFrom(int64_t m, int64_t n, FloatType *a, int64_t lda,
-                  int64_t mb, int64_t nb); 
-
-    void copyFromFull(int64_t m, int64_t n, FloatType *a, int64_t lda,
-                      int64_t mb, int64_t nb); 
+    void copyTo(FloatType *a, int64_t lda);
+    void copyFrom(FloatType *a, int64_t lda);
+    void copyFromFull(FloatType *a, int64_t lda);
 
     void gather();
 
@@ -114,7 +109,7 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
     tileMbFunc = [=] (int64_t i) { return (it_+i)*mb > m ? m%mb : mb; };
     tileNbFunc = [=] (int64_t j) { return (jt_+j)*nb > n ? n%nb : nb; };
 
-    copyTo(m, n, a, lda, mb, nb);
+    copyTo(a, lda);
 }
 
 //------------------------------------------------------------------------------
@@ -135,10 +130,10 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
     assert(MPI_Comm_group(mpi_comm_, &mpi_group_) == MPI_SUCCESS);
 
     tileRankFunc = [=] (int64_t i, int64_t j) { return i%p + (j%q)*p; };
-    tileMbFunc = [=] (int64_t i) { return +i*mb > m ? m%mb : mb; };
-    tileNbFunc = [=] (int64_t j) { return +j*nb > n ? n%nb : nb; };
+    tileMbFunc = [=] (int64_t i) { return i*mb > m ? m%mb : mb; };
+    tileNbFunc = [=] (int64_t j) { return j*nb > n ? n%nb : nb; };
 
-    copyTo(m, n, a, lda, mb, nb);
+    copyTo(a, lda);
 }
 
 //------------------------------------------------------------------------------
@@ -157,49 +152,52 @@ Matrix<FloatType>::Matrix(const Matrix &a, int64_t it, int64_t jt,
 
 //------------------------------------------------------------------------------
 template<class FloatType>
-void Matrix<FloatType>::copyTo(int64_t m, int64_t n, FloatType *a,
-                               int64_t lda, int64_t mb, int64_t nb)
+void Matrix<FloatType>::copyTo(FloatType *a, int64_t lda)
 {
-    for (int64_t i = 0; i < m; i += mb)
-        for (int64_t j = 0; j < n; j += nb)
-            if (j <= i)
-                if (tileIsLocal(i/mb, j/nb))
-                    (*this)(i/mb, j/nb) =
-// TODO:
-// Use tileMB, tileNB for size.
-// Increment i and j by one.
-                        new Tile<FloatType>(std::min(mb, m-i),
-                                            std::min(nb, n-j),
-                                            &a[(size_t)lda*j+i], lda);
+    int64_t m = 0;
+    for (int64_t i = 0; i < mt_; ++i) {
+        int64_t n = 0;
+        for (int64_t j = 0; j <= i; ++j) {
+            if (tileIsLocal(i, j))
+                (*this)(i, j) =
+                    new Tile<FloatType>(tileMb(i), tileNb(j),
+                                        &a[(size_t)lda*n+m], lda);
+            n += tileNb(j);
+        }
+        m += tileMb(i);
+    }
 }
 
 //------------------------------------------------------------------------------
 template<class FloatType>
-void Matrix<FloatType>::copyFrom(int64_t m, int64_t n, FloatType *a,
-                                 int64_t lda, int64_t mb, int64_t nb)
+void Matrix<FloatType>::copyFrom(FloatType *a, int64_t lda)
 {
-    for (int64_t i = 0; i < m; i += mb)
-        for (int64_t j = 0; j < n; j += nb)
-            if (j <= i)
-// TODO:
-// Use tileMB, tileNB for size.
-// Increment i and j by one.
-                if (tileIsLocal(i/mb, j/nb))
-                    (*this)(i/mb, j/nb)->copyFrom(&a[(size_t)lda*j+i], lda);
+    int64_t m = 0;
+    for (int64_t i = 0; i < mt_; ++i) {
+        int64_t n = 0;
+        for (int64_t j = 0; j <= i; ++j) {
+            if (tileIsLocal(i, j)) {
+                (*this)(i, j)->copyFrom(&a[(size_t)lda*m+n], lda);
+            }
+            n += tileNb(j);
+        }
+        m += tileMb(i);
+    }
 }
 
 //------------------------------------------------------------------------------
 template<class FloatType>
-void Matrix<FloatType>::copyFromFull(int64_t m, int64_t n, FloatType *a,
-                                     int64_t lda, int64_t mb, int64_t nb)
+void Matrix<FloatType>::copyFromFull(FloatType *a, int64_t lda)
 {
-    for (int64_t i = 0; i < m; i += mb)
-        for (int64_t j = 0; j < n; j += nb)
-            if (j <= i)
-// TODO:
-// Use tileMB, tileNB for size.
-// Increment i and j by one.
-                (*this)(i/mb, j/nb)->copyFrom(&a[(size_t)lda*j+i], lda);
+    int64_t m = 0;
+    for (int64_t i = 0; i < mt_; ++i) {
+        int64_t n = 0;
+        for (int64_t j = 0; j <= i; ++j) {
+            (*this)(i, j)->copyFrom(&a[(size_t)lda*n+m], lda);
+            n += tileNb(j);
+        }
+        m += tileMb(i);
+    }
 }
 
 //------------------------------------------------------------------------------

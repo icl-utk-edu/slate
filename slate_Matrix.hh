@@ -92,6 +92,10 @@ private:
     
     void tileBcast(int64_t m, int64_t n);
     void tileIbcast(int64_t m, int64_t n, std::array<int64_t, 4> range);
+    void tileIbcast(int64_t m, int64_t n,
+                    std::array<int64_t, 4> range1,
+                    std::array<int64_t, 4> range2);
+    void tileIbcast(int64_t i, int64_t j, std::set<int> &bcast_set);
     void tileWait(int64_t m, int64_t n);
 };
 
@@ -161,6 +165,9 @@ void Matrix<FloatType>::copyTo(int64_t m, int64_t n, FloatType *a,
             if (j <= i)
                 if (tileIsLocal(i/mb, j/nb))
                     (*this)(i/mb, j/nb) =
+// TODO:
+// Use tileMB, tileNB for size.
+// Increment i and j by one.
                         new Tile<FloatType>(std::min(mb, m-i),
                                             std::min(nb, n-j),
                                             &a[(size_t)lda*j+i], lda);
@@ -174,6 +181,9 @@ void Matrix<FloatType>::copyFrom(int64_t m, int64_t n, FloatType *a,
     for (int64_t i = 0; i < m; i += mb)
         for (int64_t j = 0; j < n; j += nb)
             if (j <= i)
+// TODO:
+// Use tileMB, tileNB for size.
+// Increment i and j by one.
                 if (tileIsLocal(i/mb, j/nb))
                     (*this)(i/mb, j/nb)->copyFrom(&a[(size_t)lda*j+i], lda);
 }
@@ -186,6 +196,9 @@ void Matrix<FloatType>::copyFromFull(int64_t m, int64_t n, FloatType *a,
     for (int64_t i = 0; i < m; i += mb)
         for (int64_t j = 0; j < n; j += nb)
             if (j <= i)
+// TODO:
+// Use tileMB, tileNB for size.
+// Increment i and j by one.
                 (*this)(i/mb, j/nb)->copyFrom(&a[(size_t)lda*j+i], lda);
 }
 
@@ -453,14 +466,50 @@ void Matrix<FloatType>::tileIbcast(
         for (int64_t j = j1; j <= j2; ++j)
             bcast_set.insert(tileRank(i, j));
 
-    // Quit if not participating.
-    if (bcast_set.find(mpi_rank_) == bcast_set.end())
-        return;
+    // Continue if contained in the set.
+    if (bcast_set.find(mpi_rank_) != bcast_set.end())
+        tileIbcast(i, j, bcast_set);
+}
 
+//------------------------------------------------------------------------------
+template<class FloatType>
+void Matrix<FloatType>::tileIbcast(int64_t i, int64_t j,
+                                   std::array<int64_t, 4> range1,
+                                   std::array<int64_t, 4> range2)
+{
+    // Find the set of participating ranks.
+    std::set<int> bcast_set;
+    bcast_set.insert(tileRank(i, j));
+    
+    int64_t i1 = range1[0];
+    int64_t j1 = range1[1];
+    int64_t i2 = range1[2];
+    int64_t j2 = range1[3];
+    for (int64_t i = i1; i <= i2; ++i)
+        for (int64_t j = j1; j <= j2; ++j)
+            bcast_set.insert(tileRank(i, j));
+
+    i1 = range2[0];
+    j1 = range2[1];
+    i2 = range2[2];
+    j2 = range2[3];
+    for (int64_t i = i1; i <= i2; ++i)
+        for (int64_t j = j1; j <= j2; ++j)
+            bcast_set.insert(tileRank(i, j));
+
+    // Continue if contained in the set.
+    if (bcast_set.find(mpi_rank_) != bcast_set.end())
+        tileIbcast(i, j, bcast_set);
+}
+
+//------------------------------------------------------------------------------
+template<class FloatType>
+void Matrix<FloatType>::tileIbcast(
+    int64_t i, int64_t j, std::set<int> &bcast_set)
+{
     // Get or create the tile.
     Matrix<FloatType> a = *this;
     Tile<FloatType> *tile;
-
     if (a.tileIsLocal(i, j)) {
         tile = (*this)(i, j);
     }
@@ -543,29 +592,46 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                               Op::Trans, Diag::NonUnit,
                               1.0, a(k, k));
             }
-
-            a.tileBcast(m, k);
+            a.tileIbcast(m, k, {m, k+1, m, m},
+                               {m, m, nt_-1, m});
         }
-        for (int64_t n = k+1; n < k+1+lookahead && n < nt_; ++n) {
+        for (int64_t n = k+1; n < nt_; ++n) {
 
-            if (a.tileIsLocal(n, n))
+            if (a.tileIsLocal(n, n)) {
+                a.tileWait(n, k);
                 a(n, n)->syrk(Uplo::Lower, Op::NoTrans,
                               -1.0, a(n, k), 1.0);
-
+            }
             for (int64_t m = n+1; m < nt_; ++m) {
 
-                if (a.tileIsLocal(m, n))
+                if (a.tileIsLocal(m, n)) {
+                    a.tileWait(m, k);
+                    a.tileWait(n, k);
                     a(m, n)->gemm(Op::NoTrans, Op::Trans,
                                   -1.0, a(m, k), a(n, k), 1.0);
+                }
             }
         }
-        if (k+1+lookahead < nt_) {
+        // for (int64_t n = k+1; n < k+1+lookahead && n < nt_; ++n) {
 
-            Matrix(a, k+1+lookahead, k+1+lookahead,
-                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkNest(
-                Uplo::Lower, Op::NoTrans,
-                -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
-        }
+        //     if (a.tileIsLocal(n, n))
+        //         a(n, n)->syrk(Uplo::Lower, Op::NoTrans,
+        //                       -1.0, a(n, k), 1.0);
+
+        //     for (int64_t m = n+1; m < nt_; ++m) {
+
+        //         if (a.tileIsLocal(m, n))
+        //             a(m, n)->gemm(Op::NoTrans, Op::Trans,
+        //                           -1.0, a(m, k), a(n, k), 1.0);
+        //     }
+        // }
+        // if (k+1+lookahead < nt_) {
+
+        //     Matrix(a, k+1+lookahead, k+1+lookahead,
+        //            nt_-1-k-lookahead, nt_-1-k-lookahead).syrkNest(
+        //         Uplo::Lower, Op::NoTrans,
+        //         -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
+        // }
     }
 }
 /*

@@ -52,7 +52,7 @@ public:
               blas::Op trans, blas::Diag diag,
               FloatType alpha, const Matrix &a);
 
-    void potrf(blas::Uplo uplo, int64_t lookahead=1);
+    void potrf(blas::Uplo uplo, int64_t lookahead=0);
 
 private:
     MPI_Comm mpi_comm_;
@@ -221,25 +221,33 @@ void Matrix<FloatType>::gather()
 //------------------------------------------------------------------------------
 template<class FloatType>
 void Matrix<FloatType>::syrkTask(blas::Uplo uplo, blas::Op trans,
-                                 FloatType alpha, const Matrix &a,
+                                 FloatType alpha, const Matrix &that,
                                  FloatType beta)
 {
     using namespace blas;
 
     Matrix<FloatType> c = *this;
+    Matrix<FloatType> a = that;
 
     // Lower, NoTrans
     for (int64_t n = 0; n < nt_; ++n) {
 
         for (int64_t k = 0; k < a.nt_; ++k)
             #pragma omp task
-            c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
+            if (c.tileIsLocal(n, n)) {
+                a.tileWait(n, k);
+                c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
+            }
 
         for (int64_t m = n+1; m < mt_; ++m)
             for (int64_t k = 0; k < a.nt_; ++k)
                 #pragma omp task
-                c(m, n)->gemm(trans, Op::Trans,
-                              alpha, a(m, k), a(n, k), k == 0 ? beta : 1.0);
+                if (c.tileIsLocal(m, n)) {
+                    a.tileWait(m, k);
+                    a.tileWait(n, k);
+                    c(m, n)->gemm(trans, Op::Trans,
+                                  alpha, a(m, k), a(n, k), k == 0 ? beta : 1.0);
+                }
     }
     #pragma omp taskwait
 }
@@ -247,44 +255,21 @@ void Matrix<FloatType>::syrkTask(blas::Uplo uplo, blas::Op trans,
 //------------------------------------------------------------------------------
 template<class FloatType>
 void Matrix<FloatType>::syrkNest(blas::Uplo uplo, blas::Op trans,
-                                 FloatType alpha, const Matrix &a,
+                                 FloatType alpha, const Matrix &that,
                                  FloatType beta)
 {
     using namespace blas;
 
     Matrix<FloatType> c = *this;
-
-    for (int64_t n = 0; n < nt_; ++n) {
-        for (int64_t k = 0; k < a.nt_; ++k)
-            if (c.tileIsLocal(n, n))
-                c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
-    }
-
-    for (int64_t n = 0; n < nt_; ++n) {
-        for (int64_t m = 0; m < mt_; ++m)
-            for (int64_t k = 0; k < a.nt_; ++k)
-                if (m >= n+1)
-                    if (c.tileIsLocal(m, n))
-                        c(m, n)->gemm(trans, Op::Trans,
-                                      alpha, a(m, k), a(n, k),
-                                      k == 0 ? beta : 1.0);
-    }
-}
-/*
-//------------------------------------------------------------------------------
-template<class FloatType>
-void Matrix<FloatType>::syrkNest(blas::Uplo uplo, blas::Op trans,
-                                 FloatType alpha, const Matrix &a,
-                                 FloatType beta)
-{
-    using namespace blas;
-
-    Matrix<FloatType> c = *this;
+    Matrix<FloatType> a = that;
 
     for (int64_t n = 0; n < nt_; ++n) {
         for (int64_t k = 0; k < a.nt_; ++k)
             #pragma omp task
-            c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
+            if (c.tileIsLocal(n, n)) {
+                a.tileWait(n, k);
+                c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
+            }
     }
 
 //  #pragma omp parallel for collapse(3) schedule(dynamic, 1) num_threads(60)
@@ -293,27 +278,36 @@ void Matrix<FloatType>::syrkNest(blas::Uplo uplo, blas::Op trans,
         for (int64_t m = 0; m < mt_; ++m)
             for (int64_t k = 0; k < a.nt_; ++k)
                 if (m >= n+1)
-                    c(m, n)->gemm(trans, Op::Trans,
-                                  alpha, a(m, k), a(n, k), k == 0 ? beta : 1.0);
+                    if (c.tileIsLocal(m, n)) {
+                        a.tileWait(m, k);
+                        a.tileWait(n, k);
+                        c(m, n)->gemm(trans, Op::Trans,
+                                      alpha, a(m, k), a(n, k),
+                                      k == 0 ? beta : 1.0);
+                    }
     }
     #pragma omp taskwait
 }
-*/
+
 //------------------------------------------------------------------------------
 template<class FloatType>
 void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
-                                  FloatType alpha, const Matrix &a,
+                                  FloatType alpha, const Matrix &that,
                                   FloatType beta)
 {
     using namespace blas;
 
     Matrix<FloatType> c = *this;
+    Matrix<FloatType> a = that;
 
     // Lower, NoTrans
     for (int64_t n = 0; n < nt_; ++n) {
         for (int64_t k = 0; k < a.nt_; ++k)
             #pragma omp task
-            c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
+            if (c.tileIsLocal(n, n)) {
+                a.tileWait(n, k);
+                c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
+            }
     }
 
     CBLAS_TRANSPOSE transa_array[1];
@@ -330,7 +324,7 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
     double **c_array;
     int ldc_array[1];
 
-    int nb = c(0, 0)->nb_;
+    int nb = tileNb(0);
     transa_array[0] = CblasNoTrans;
     transb_array[0] = CblasTrans;
     m_array[0] = nb;
@@ -341,7 +335,16 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
     ldb_array[0] = nb;
     beta_array[0] = beta;
     ldc_array[0] = nb;
-    int group_size = (nt_*(nt_-1))/2;
+
+    int group_size = 0;
+    for (int64_t n = 0; n < nt_; ++n)
+        for (int64_t m = n+1; m < mt_; ++m)
+            for (int64_t k = 0; k < a.nt_; ++k)
+                if (c.tileIsLocal(m, n)) {
+                    a.tileWait(m, k);
+                    a.tileWait(n, k);
+                    ++group_size;
+                }
 
     a_array = (const double**)malloc(sizeof(double*)*group_size);
     b_array = (const double**)malloc(sizeof(double*)*group_size);
@@ -350,24 +353,24 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
     assert(b_array != nullptr);
     assert(c_array != nullptr);
 
-    int i;
-    for (int64_t n = 0; n < nt_; ++n) {
-        for (int64_t m = n+1; m < mt_; ++m) {
-            for (int64_t k = 0; k < a.nt_; ++k) {
-                a_array[i] = a(m, k)->data_;
-                b_array[i] = a(n, k)->data_;
-                c_array[i] = c(m, n)->data_;
-                ++i;
-            }
-        }
-    }
+    int i = 0;
+    for (int64_t n = 0; n < nt_; ++n)
+        for (int64_t m = n+1; m < mt_; ++m)
+            for (int64_t k = 0; k < a.nt_; ++k)
+                if (c.tileIsLocal(m, n)) {
+                    a_array[i] = a(m, k)->data_;
+                    b_array[i] = a(n, k)->data_;
+                    c_array[i] = c(m, n)->data_;
+                    ++i;
+                }
+
     trace_cpu_start();
 //  mkl_set_num_threads_local(60);
     cblas_dgemm_batch(CblasColMajor, transa_array, transb_array,
                       m_array, n_array, k_array, alpha_array,
                       a_array, lda_array, b_array, ldb_array, beta_array,
                       c_array, ldc_array, 1, &group_size);
-    mkl_set_num_threads_local(1);
+//  mkl_set_num_threads_local(1);
     trace_cpu_stop("DarkGreen");
 
     free(a_array);
@@ -563,6 +566,11 @@ void Matrix<FloatType>::tileWait(int64_t i, int64_t j)
     Tile<FloatType> *tile = (*this)(i, j);
     int retval = MPI_Wait(&tile->bcast_request_, MPI_STATUS_IGNORE);
     assert(retval == MPI_SUCCESS);
+    // int flag;
+    // do {
+    //     int retval = MPI_Test(&tile->bcast_request_, &flag, MPI_STATUS_IGNORE);
+    //     assert(retval == MPI_SUCCESS);
+    // } while (flag != true);
 }
 
 //------------------------------------------------------------------------------
@@ -574,62 +582,62 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
     Matrix<FloatType> a = *this;
     uint8_t *column;
 
+    #pragma omp parallel
+    #pragma omp master
     for (int64_t k = 0; k < nt_; ++k) {
+        #pragma omp task depend(inout:column[k]) priority(1)
+        {
+            if (a.tileIsLocal(k, k))
+                a(k, k)->potrf(uplo);
 
-        if (a.tileIsLocal(k, k))
-            a(k, k)->potrf(uplo);
+            if (k < nt_-1)
+                a.tileIbcast(k, k, {k+1, k, nt_-1, k});
 
-        if (k < nt_-1)
-            a.tileIbcast(k, k, {k+1, k, nt_-1, k});
+            for (int64_t m = k+1; m < nt_; ++m) {
 
-        for (int64_t m = k+1; m < nt_; ++m) {
-
-            if (a.tileIsLocal(m, k)) {
-                a.tileWait(k, k);
-                a(m, k)->trsm(Side::Right, Uplo::Lower,
-                              Op::Trans, Diag::NonUnit,
-                              1.0, a(k, k));
-            }
-            a.tileIbcast(m, k, {m, k+1, m, m},
-                               {m, m, nt_-1, m});
-        }
-        for (int64_t n = k+1; n < nt_; ++n) {
-
-            if (a.tileIsLocal(n, n)) {
-                a.tileWait(n, k);
-                a(n, n)->syrk(Uplo::Lower, Op::NoTrans,
-                              -1.0, a(n, k), 1.0);
-            }
-            for (int64_t m = n+1; m < nt_; ++m) {
-
-                if (a.tileIsLocal(m, n)) {
-                    a.tileWait(m, k);
-                    a.tileWait(n, k);
-                    a(m, n)->gemm(Op::NoTrans, Op::Trans,
-                                  -1.0, a(m, k), a(n, k), 1.0);
+                if (a.tileIsLocal(m, k)) {
+                    a.tileWait(k, k);
+                    a(m, k)->trsm(Side::Right, Uplo::Lower,
+                                  Op::Trans, Diag::NonUnit,
+                                  1.0, a(k, k));
                 }
+                a.tileIbcast(m, k, {m, k+1, m, m},
+                                   {m, m, nt_-1, m});
+            }
+            #pragma omp taskwait
+        }
+        for (int64_t n = k+1; n < k+1+lookahead && n < nt_; ++n) {
+            #pragma omp task depend(in:column[k]) \
+                             depend(inout:column[n]) priority(1)
+            {
+                #pragma omp task priority(1)
+                if (a.tileIsLocal(n, n)) {
+                    tileWait(n, k);
+                    a(n, n)->syrk(Uplo::Lower, Op::NoTrans,
+                                  -1.0, a(n, k), 1.0);
+                }
+
+                for (int64_t m = n+1; m < nt_; ++m) {
+                    #pragma omp task priority(1)
+                    if (a.tileIsLocal(m, n)) {
+                        tileWait(m, k);
+                        tileWait(n, k);
+                        a(m, n)->gemm(Op::NoTrans, Op::Trans,
+                                      -1.0, a(m, k), a(n, k), 1.0);
+                    }
+                }
+                #pragma omp taskwait
             }
         }
-        // for (int64_t n = k+1; n < k+1+lookahead && n < nt_; ++n) {
-
-        //     if (a.tileIsLocal(n, n))
-        //         a(n, n)->syrk(Uplo::Lower, Op::NoTrans,
-        //                       -1.0, a(n, k), 1.0);
-
-        //     for (int64_t m = n+1; m < nt_; ++m) {
-
-        //         if (a.tileIsLocal(m, n))
-        //             a(m, n)->gemm(Op::NoTrans, Op::Trans,
-        //                           -1.0, a(m, k), a(n, k), 1.0);
-        //     }
-        // }
-        // if (k+1+lookahead < nt_) {
-
-        //     Matrix(a, k+1+lookahead, k+1+lookahead,
-        //            nt_-1-k-lookahead, nt_-1-k-lookahead).syrkNest(
-        //         Uplo::Lower, Op::NoTrans,
-        //         -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
-        // }
+        if (k+1+lookahead < nt_) {
+            #pragma omp task depend(in:column[k]) \
+                             depend(inout:column[k+1+lookahead]) \
+                             depend(inout:column[nt_-1])
+            Matrix(a, k+1+lookahead, k+1+lookahead,
+                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkBatch(
+                Uplo::Lower, Op::NoTrans,
+                -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
+        }
     }
 }
 /*

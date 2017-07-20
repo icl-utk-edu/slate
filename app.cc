@@ -33,7 +33,14 @@ int main (int argc, char *argv[])
     //------------------------------------------------------
     int mpi_rank = 0;
     int mpi_size = 1;
+    int provided;
+    int retval;
     assert(MPI_Init(&argc, &argv) == MPI_SUCCESS);
+    // retval = MPI_Init_thread(nullptr, nullptr,
+    //                          MPI_THREAD_MULTIPLE, &provided);
+    // assert(retval == MPI_SUCCESS);
+    // assert(provided >= MPI_THREAD_SERIALIZED);
+
     assert(MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank) == MPI_SUCCESS);
     assert(MPI_Comm_size(MPI_COMM_WORLD, &mpi_size) == MPI_SUCCESS);
     assert(mpi_size == p*q);
@@ -43,7 +50,6 @@ int main (int argc, char *argv[])
     assert(a1 != nullptr);
 
     int seed[] = {0, 0, 0, 1};
-    int retval;
     retval = LAPACKE_dlarnv(1, seed, (size_t)lda*n, a1);
     assert(retval == 0);
 

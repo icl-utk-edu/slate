@@ -21,7 +21,7 @@ extern "C" void trace_cpu_stop(const char *color);
 namespace slate {
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 class Tile {
 public:
     int64_t mb_;

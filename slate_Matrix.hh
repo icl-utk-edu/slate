@@ -16,7 +16,7 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 class Matrix {
 public:
     int64_t it_; ///< first row of tiles
@@ -95,7 +95,7 @@ private:
 };
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
                           int64_t mb, int64_t nb)
 {
@@ -113,7 +113,7 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
 }
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
                           int64_t mb, int64_t nb,
                           MPI_Comm mpi_comm, int64_t p, int64_t q)
@@ -137,7 +137,7 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
 }
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 Matrix<FloatType>::Matrix(const Matrix &a, int64_t it, int64_t jt,
                           int64_t mt, int64_t nt)
 {
@@ -151,7 +151,7 @@ Matrix<FloatType>::Matrix(const Matrix &a, int64_t it, int64_t jt,
 }
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 void Matrix<FloatType>::copyTo(FloatType *a, int64_t lda)
 {
     int64_t m = 0;
@@ -169,7 +169,7 @@ void Matrix<FloatType>::copyTo(FloatType *a, int64_t lda)
 }
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 void Matrix<FloatType>::copyFrom(FloatType *a, int64_t lda)
 {
     int64_t m = 0;
@@ -186,7 +186,7 @@ void Matrix<FloatType>::copyFrom(FloatType *a, int64_t lda)
 }
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 void Matrix<FloatType>::copyFromFull(FloatType *a, int64_t lda)
 {
     int64_t m = 0;
@@ -201,7 +201,7 @@ void Matrix<FloatType>::copyFromFull(FloatType *a, int64_t lda)
 }
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 void Matrix<FloatType>::gather()
 {
     for (int64_t i = 0; i < mt_; ++i) {
@@ -219,7 +219,7 @@ void Matrix<FloatType>::gather()
 }
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 void Matrix<FloatType>::syrkTask(blas::Uplo uplo, blas::Op trans,
                                  FloatType alpha, const Matrix &that,
                                  FloatType beta)
@@ -253,7 +253,7 @@ void Matrix<FloatType>::syrkTask(blas::Uplo uplo, blas::Op trans,
 }
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 void Matrix<FloatType>::syrkNest(blas::Uplo uplo, blas::Op trans,
                                  FloatType alpha, const Matrix &that,
                                  FloatType beta)
@@ -290,7 +290,7 @@ void Matrix<FloatType>::syrkNest(blas::Uplo uplo, blas::Op trans,
 }
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
                                   FloatType alpha, const Matrix &that,
                                   FloatType beta)
@@ -381,7 +381,7 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
 }
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 void Matrix<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
                              blas::Op trans, blas::Diag diag,
                              FloatType alpha, const Matrix &a)
@@ -407,7 +407,7 @@ void Matrix<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
 }
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 void Matrix<FloatType>::tileSend(int64_t i, int64_t j, int dest)
 {
     Tile<FloatType> *tile = (*this)(i, j);
@@ -417,7 +417,7 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, int dest)
 }
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 void Matrix<FloatType>::tileRecv(int64_t i, int64_t j, int src)
 {
     Matrix<FloatType> a = *this;
@@ -430,7 +430,7 @@ void Matrix<FloatType>::tileRecv(int64_t i, int64_t j, int src)
 }
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 void Matrix<FloatType>::tileBcast(int64_t i, int64_t j)
 {
     Matrix<FloatType> a = *this;
@@ -451,7 +451,7 @@ void Matrix<FloatType>::tileBcast(int64_t i, int64_t j)
 }
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 void Matrix<FloatType>::tileIbcast(
     int64_t i, int64_t j, std::array<int64_t, 4> range)
 {
@@ -473,7 +473,7 @@ void Matrix<FloatType>::tileIbcast(
 }
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 void Matrix<FloatType>::tileIbcast(int64_t i, int64_t j,
                                    std::array<int64_t, 4> range1,
                                    std::array<int64_t, 4> range2)
@@ -504,7 +504,7 @@ void Matrix<FloatType>::tileIbcast(int64_t i, int64_t j,
 }
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 void Matrix<FloatType>::tileIbcast(
     int64_t i, int64_t j, std::set<int> &bcast_set)
 {
@@ -560,7 +560,7 @@ void Matrix<FloatType>::tileIbcast(
 }
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 void Matrix<FloatType>::tileWait(int64_t i, int64_t j)
 {
     Tile<FloatType> *tile = (*this)(i, j);
@@ -574,7 +574,7 @@ void Matrix<FloatType>::tileWait(int64_t i, int64_t j)
 }
 
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
 {
     using namespace blas;
@@ -642,7 +642,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
 }
 /*
 //------------------------------------------------------------------------------
-template<class FloatType>
+template<typename FloatType>
 void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
 {
     using namespace blas;

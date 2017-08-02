@@ -456,8 +456,8 @@ void Matrix<FloatType>::tileIbcast(
     int64_t i, int64_t j, std::array<int64_t, 4> range)
 {
     int64_t i1 = range[0];
-    int64_t j1 = range[1];
-    int64_t i2 = range[2];
+    int64_t i2 = range[1];
+    int64_t j1 = range[2];
     int64_t j2 = range[3];
 
     // Find the set of participating ranks.
@@ -483,16 +483,16 @@ void Matrix<FloatType>::tileIbcast(int64_t i, int64_t j,
     bcast_set.insert(tileRank(i, j));
     
     int64_t i1 = range1[0];
-    int64_t j1 = range1[1];
-    int64_t i2 = range1[2];
+    int64_t i2 = range1[1];
+    int64_t j1 = range1[2];
     int64_t j2 = range1[3];
     for (int64_t i = i1; i <= i2; ++i)
         for (int64_t j = j1; j <= j2; ++j)
             bcast_set.insert(tileRank(i, j));
 
     i1 = range2[0];
-    j1 = range2[1];
-    i2 = range2[2];
+    i2 = range2[1];
+    j1 = range2[2];
     j2 = range2[3];
     for (int64_t i = i1; i <= i2; ++i)
         for (int64_t j = j1; j <= j2; ++j)
@@ -591,7 +591,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                 a(k, k)->potrf(uplo);
 
             if (k < nt_-1)
-                a.tileIbcast(k, k, {k+1, k, nt_-1, k});
+                a.tileIbcast(k, k, {k+1, nt_-1, k, k});
 
             for (int64_t m = k+1; m < nt_; ++m) {
 
@@ -601,8 +601,8 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                                   Op::Trans, Diag::NonUnit,
                                   1.0, a(k, k));
                 }
-                a.tileIbcast(m, k, {m, k+1, m, m},
-                                   {m, m, nt_-1, m});
+                a.tileIbcast(m, k, {m, m, k+1, m},
+                                   {m, nt_-1, m, m});
             }
             #pragma omp taskwait
         }

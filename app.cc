@@ -35,11 +35,11 @@ int main (int argc, char *argv[])
     int mpi_size = 1;
     int provided;
     int retval;
-    assert(MPI_Init(&argc, &argv) == MPI_SUCCESS);
-    // retval = MPI_Init_thread(nullptr, nullptr,
-    //                          MPI_THREAD_MULTIPLE, &provided);
-    // assert(retval == MPI_SUCCESS);
-    // assert(provided >= MPI_THREAD_SERIALIZED);
+//  assert(MPI_Init(&argc, &argv) == MPI_SUCCESS);
+    retval = MPI_Init_thread(nullptr, nullptr,
+                             MPI_THREAD_MULTIPLE, &provided);
+    assert(retval == MPI_SUCCESS);
+    assert(provided >= MPI_THREAD_MULTIPLE);
 
     assert(MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank) == MPI_SUCCESS);
     assert(MPI_Comm_size(MPI_COMM_WORLD, &mpi_size) == MPI_SUCCESS);

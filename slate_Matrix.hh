@@ -469,6 +469,7 @@ void Matrix<FloatType>::tileIbcast(
 
     // Continue if contained in the set.
     if (bcast_set.find(mpi_rank_) != bcast_set.end())
+        #pragma omp critical
         tileIbcast(i, j, bcast_set);
 }
 
@@ -500,6 +501,7 @@ void Matrix<FloatType>::tileIbcast(int64_t i, int64_t j,
 
     // Continue if contained in the set.
     if (bcast_set.find(mpi_rank_) != bcast_set.end())
+        #pragma omp critical
         tileIbcast(i, j, bcast_set);
 }
 
@@ -563,9 +565,12 @@ void Matrix<FloatType>::tileIbcast(
 template<typename FloatType>
 void Matrix<FloatType>::tileWait(int64_t i, int64_t j)
 {
-    Tile<FloatType> *tile = (*this)(i, j);
-    int retval = MPI_Wait(&tile->bcast_request_, MPI_STATUS_IGNORE);
-    assert(retval == MPI_SUCCESS);
+    #pragma omp critical
+    {
+        Tile<FloatType> *tile = (*this)(i, j);
+        int retval = MPI_Wait(&tile->bcast_request_, MPI_STATUS_IGNORE);
+        assert(retval == MPI_SUCCESS);
+    }
     // int flag;
     // do {
     //     int retval = MPI_Test(&tile->bcast_request_, &flag, MPI_STATUS_IGNORE);
@@ -585,6 +590,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
     #pragma omp parallel
     #pragma omp master
     for (int64_t k = 0; k < nt_; ++k) {
+        // panel
         #pragma omp task depend(inout:column[k]) priority(1)
         {
             if (a.tileIsLocal(k, k))
@@ -606,6 +612,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
             }
             #pragma omp taskwait
         }
+        // lookahead column(s)
         for (int64_t n = k+1; n < k+1+lookahead && n < nt_; ++n) {
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[n]) priority(1)
@@ -629,12 +636,13 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                 #pragma omp taskwait
             }
         }
+        // trailing submatrix
         if (k+1+lookahead < nt_) {
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[nt_-1])
             Matrix(a, k+1+lookahead, k+1+lookahead,
-                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkBatch(
+                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkNest(
                 Uplo::Lower, Op::NoTrans,
                 -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
         }

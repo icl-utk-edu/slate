@@ -15,7 +15,7 @@ Getting Help
 ============
 
 Feel free to join the [SLATE User](https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user) Google group by following the link and clicking
-`Apply to join group`. Then email your questions and comments to mailto:slate-user@icl.utk.edu.
+`Apply to join group`. Then email your questions and comments to `slate-user@icl.utk.edu`.
 
 Funding
 =======

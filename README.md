@@ -8,8 +8,7 @@ SLATE will offer a modern replacement for ScaLAPACK. ScaLAPACK is a numerical so
 Documentation
 =============
 
-
-http://www.icl.utk.edu/publications/series/swans
+[SLATE Working Notes](http://www.icl.utk.edu/publications/series/swans)
 
 Getting Help
 ============

@@ -1,9 +1,10 @@
-**Software for Linear Algebra Targeting Exascale**
 .
 
   __| |      \__ __| __|
 \__ \ |     _ \  |   _| 
 ____/____|_/  _\_|  ___|
+
+**Software for Linear Algebra Targeting Exascale**
 
 ![SLATE](http://icl.bitbucket.io/slate/artwork/slate.png)
 

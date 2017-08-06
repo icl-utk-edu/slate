@@ -1,14 +1,11 @@
-.
+      __| |      \__ __| __|
+    \__ \ |     _ \  |   _| 
+    ____/____|_/  _\_|  ___|
 
-     _ \ |      \    __|  \  |   \
-     __/ |     _ \ \__ \ |\/ |  _ \
-    _|  ____|_/  _\____/_|  _|_/  _\
-
-* * *
+![SLATE](http://icl.bitbucket.io/slate/artwork/slate.png)
 
 **Software for Linear Algebra Targeting Exascale**
 
-![SLATE](http://icl.bitbucket.io/slate/artwork/slate.png)
 
 [TOC]
 

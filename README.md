@@ -2,10 +2,10 @@
     \__ \ |     _ \  |   _| 
     ____/____|_/  _\_|  ___|
 
+**Software for Linear Algebra*
+*Targeting Exascale**
+
 ![SLATE](http://icl.bitbucket.io/slate/artwork/slate.png)
-
-**Software for Linear Algebra Targeting Exascale**
-
 
 [TOC]
 

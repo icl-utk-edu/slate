@@ -1,4 +1,5 @@
 **Software for Linear Algebra Targeting Exascale**
+.
   __| |      \__ __| __|
 \__ \ |     _ \  |   _| 
 ____/____|_/  _\_|  ___|

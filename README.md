@@ -14,10 +14,8 @@ http://www.icl.utk.edu/publications/series/swans
 Getting Help
 ============
 
-Feel free to join the *SLATE User* Google group by going to
-https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user and clicking
-`Apply to join group`.
-Then email your questions and comments to `slate-user@icl.utk.edu`.
+Feel free to join the [SLATE User](https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user) Google group by following the link and clicking
+`Apply to join group`. Then email your questions and comments to slate-user@icl.utk.edu.
 
 Funding
 =======

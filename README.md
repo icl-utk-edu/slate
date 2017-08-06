@@ -2,13 +2,17 @@
     \__ \ |     _ \  |   _| 
     ____/____|_/  _\_|  ___|
 
-**Software for Linear Algebra**
+**Software for Linear Algebra Targeting Exascale**
 
-**Targeting Exascale**
+**Innovative Computing Laboratory**
+
+**University of Tennessee**
 
 ![SLATE](http://icl.bitbucket.io/slate/artwork/slate.png)
 
 [TOC]
+
+* * *
 
 About
 =====
@@ -56,7 +60,7 @@ a collaborative effort of two U.S. Department of Energy organizations
 (Office of Science and the National Nuclear Security Administration)
 responsible for the planning and preparation of a capable exascale ecosystem,
 including software, applications, hardware, advanced system engineering
-and early testbed platforms, in support of the nation�s exascale computing imperative.
+and early testbed platforms, in support of the nation's exascale computing imperative.
 
 Cycles
 ------

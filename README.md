@@ -1,6 +1,6 @@
-![SLATE](http://icl.bitbucket.io/slate/artwork/slate.png)
-
 **Software for Linear Algebra Targeting Exascale**
+
+![SLATE](http://icl.bitbucket.io/slate/artwork/slate.png)
 
 [TOC]
 
@@ -17,6 +17,8 @@ SLATE will allow for the development of multicore and accelerator capabilities,
 by leveraging recent progress and ongoing efforts in mainstream programming models
 (MPI3 and beyond, OpenMP4 and beyond, OpenACC, etc.), and runtime scheduling systems
 (PaRSEC, Legion, etc.).
+
+* * *
 
 Resources
 =========
@@ -35,6 +37,8 @@ Feel free to join the
 Google group by following the link and clicking *Apply to join group*.
 Then email your questions and comments to *slate-user@icl.utk.edu*.
 
+* * *
+
 Acknowledgements
 ================
 
@@ -46,7 +50,7 @@ a collaborative effort of two U.S. Department of Energy organizations
 (Office of Science and the National Nuclear Security Administration)
 responsible for the planning and preparation of a capable exascale ecosystem,
 including software, applications, hardware, advanced system engineering
-and early testbed platforms, in support of the nation’s exascale computing imperative.
+and early testbed platforms, in support of the nationï¿½s exascale computing imperative.
 
 Cycles
 ------

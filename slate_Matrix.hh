@@ -415,7 +415,9 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, int dest)
     Tile<FloatType> *tile = (*this)(i, j);
     int count = tile->mb_*tile->nb_;
     int tag = 0;
-    int retval = MPI_Send(tile->data_, count, MPI_DOUBLE, dest, tag, mpi_comm_);
+    int retval;
+    #pragma omp critical
+    retval = MPI_Send(tile->data_, count, MPI_DOUBLE, dest, tag, mpi_comm_);
     assert(retval == MPI_SUCCESS);
 }
 
@@ -428,8 +430,10 @@ void Matrix<FloatType>::tileRecv(int64_t i, int64_t j, int src)
     a(i, j) = tile;
     int count = tile->mb_*tile->nb_;
     int tag = 0;
-    int retval = MPI_Recv(tile->data_, count, MPI_DOUBLE, src, tag, mpi_comm_,
-                          MPI_STATUS_IGNORE);
+    int retval;
+    #pragma omp critical
+    retval = MPI_Recv(tile->data_, count, MPI_DOUBLE, src, tag, mpi_comm_,
+                      MPI_STATUS_IGNORE);
     assert(retval == MPI_SUCCESS);
 }
 
@@ -449,8 +453,10 @@ void Matrix<FloatType>::tileBcast(int64_t i, int64_t j)
     }
 
     int count = tile->mb_*tile->nb_;
-    int retval = MPI_Bcast(tile->data_, count, MPI_DOUBLE, a.tileRank(i, j),
-                           mpi_comm_);
+    int retval;
+    #pragma omp critical
+    retval = MPI_Bcast(tile->data_, count, MPI_DOUBLE, a.tileRank(i, j),
+                       mpi_comm_);
     assert(retval == MPI_SUCCESS);
 }
 
@@ -473,7 +479,6 @@ void Matrix<FloatType>::tileIbcast(
 
     // Continue if contained in the set.
     if (bcast_set.find(mpi_rank_) != bcast_set.end())
-        #pragma omp critical
         tileIbcastIsend(i, j, bcast_set);
 }
 
@@ -505,7 +510,6 @@ void Matrix<FloatType>::tileIbcast(int64_t i, int64_t j,
 
     // Continue if contained in the set.
     if (bcast_set.find(mpi_rank_) != bcast_set.end())
-        #pragma omp critical
         tileIbcastIsend(i, j, bcast_set);
 }
 
@@ -530,6 +534,7 @@ void Matrix<FloatType>::tileIbcastIbcast(
 
     // Create the broadcast group.
     int retval;
+    #pragma omp critical
     retval = MPI_Group_incl(mpi_group_, bcast_vec.size(), bcast_vec.data(),
                             &tile->bcast_group_);
     assert(retval == MPI_SUCCESS);
@@ -537,6 +542,7 @@ void Matrix<FloatType>::tileIbcastIbcast(
     // Create a broadcast communicator.
     int tag = 0;
     trace_cpu_start();
+    #pragma omp critical
     retval = MPI_Comm_create_group(mpi_comm_, tile->bcast_group_, tag,
                                    &tile->bcast_comm_);
     assert(retval == MPI_SUCCESS);
@@ -546,26 +552,31 @@ void Matrix<FloatType>::tileIbcastIbcast(
 
     // Find the broadcast rank.
     int bcast_rank;
+    #pragma omp critical
     MPI_Comm_rank(tile->bcast_comm_, &bcast_rank);
 
     // Find the broadcast root rank.
     int root_rank = tileRank(i, j);
     int bcast_root;
+    #pragma omp critical
     retval = MPI_Group_translate_ranks(mpi_group_, 1, &root_rank,
                                        tile->bcast_group_, &bcast_root);
     assert(retval == MPI_SUCCESS);
 
     // Do the broadcast.
     int count = tile->mb_*tile->nb_;
+    #pragma omp critical
     retval = MPI_Ibcast(tile->data_, count, MPI_DOUBLE, bcast_root,
                         tile->bcast_comm_, &tile->bcast_request_);
     assert(retval == MPI_SUCCESS);
 
     // Free the group.
+    // #pragma omp critical
     // retval = MPI_Group_free(&tile->bcast_group_);
     // assert(retval == MPI_SUCCESS);
 
     // Free the communicator.
+    // #pragma omp critical
     // retval = MPI_Comm_free(&tile->bcast_comm_);
     // assert(retval == MPI_SUCCESS);
 }
@@ -589,9 +600,11 @@ void Matrix<FloatType>::tileIbcastIsend(
 
                 trace_cpu_start();
                 int retval;
+                #pragma omp critical
                 retval = MPI_Isend(tile->data_, count, MPI_DOUBLE, dst, tag,
                                    mpi_comm_, &tile->bcast_request_);
                 assert(retval == MPI_SUCCESS);
+                #pragma omp critical
                 retval = MPI_Request_free(&tile->bcast_request_);
                 assert(retval == MPI_SUCCESS);
                 trace_cpu_stop("Salmon");
@@ -607,8 +620,10 @@ void Matrix<FloatType>::tileIbcastIsend(
         int tag = 0;
 
         trace_cpu_start();
-        int retval = MPI_Irecv(tile->data_, count, MPI_DOUBLE, src, tag,
-                               mpi_comm_, &tile->bcast_request_);
+        int retval;
+        #pragma omp critical
+        retval = MPI_Irecv(tile->data_, count, MPI_DOUBLE, src, tag, mpi_comm_,
+                           &tile->bcast_request_);
         assert(retval == MPI_SUCCESS);
         trace_cpu_stop("Crimson");
     }
@@ -618,13 +633,13 @@ void Matrix<FloatType>::tileIbcastIsend(
 template<typename FloatType>
 void Matrix<FloatType>::tileWait(int64_t i, int64_t j)
 {
-    #pragma omp critical
-    if (!tileIsLocal(i, j))
-    {
+    if (!tileIsLocal(i, j)) {
         Tile<FloatType> *tile = (*this)(i, j);
 
         trace_cpu_start();
-        int retval = MPI_Wait(&tile->bcast_request_, MPI_STATUS_IGNORE);
+        int retval;
+        #pragma omp critical
+        retval = MPI_Wait(&tile->bcast_request_, MPI_STATUS_IGNORE);
         assert(retval == MPI_SUCCESS);
         trace_cpu_stop("DarkRed");
     }

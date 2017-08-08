@@ -586,11 +586,13 @@ void Matrix<FloatType>::tileIbcastIsend(
                 int count = tile->mb_*tile->nb_;
                 int dst = rank;
                 int tag = 0;
-                MPI_Request *request = new MPI_Request;
 
                 trace_cpu_start();
-                int retval = MPI_Isend(tile->data_, count, MPI_DOUBLE, dst, tag,
-                                       mpi_comm_, request);
+                int retval;
+                retval = MPI_Isend(tile->data_, count, MPI_DOUBLE, dst, tag,
+                                   mpi_comm_, &tile->bcast_request_);
+                assert(retval == MPI_SUCCESS);
+                retval = MPI_Request_free(&tile->bcast_request_);
                 assert(retval == MPI_SUCCESS);
                 trace_cpu_stop("Salmon");
             }

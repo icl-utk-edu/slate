@@ -4,6 +4,7 @@
 
 #include "slate_Tile.hh"
 
+#include <algorithm>
 #include <functional>
 #include <map>
 #include <set>
@@ -90,7 +91,8 @@ private:
     void tileIbcast(int64_t m, int64_t n,
                     std::array<int64_t, 4> range1,
                     std::array<int64_t, 4> range2);
-    void tileIbcast(int64_t i, int64_t j, std::set<int> &bcast_set);
+    void tileIbcastIbcast(int64_t i, int64_t j, std::set<int> &bcast_set);
+    void tileIbcastIsend(int64_t i, int64_t j, std::set<int> &bcast_set);
     void tileWait(int64_t m, int64_t n);
 };
 
@@ -470,7 +472,7 @@ void Matrix<FloatType>::tileIbcast(
     // Continue if contained in the set.
     if (bcast_set.find(mpi_rank_) != bcast_set.end())
         #pragma omp critical
-        tileIbcast(i, j, bcast_set);
+        tileIbcastIsend(i, j, bcast_set);
 }
 
 //------------------------------------------------------------------------------
@@ -502,12 +504,12 @@ void Matrix<FloatType>::tileIbcast(int64_t i, int64_t j,
     // Continue if contained in the set.
     if (bcast_set.find(mpi_rank_) != bcast_set.end())
         #pragma omp critical
-        tileIbcast(i, j, bcast_set);
+        tileIbcastIsend(i, j, bcast_set);
 }
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
-void Matrix<FloatType>::tileIbcast(
+void Matrix<FloatType>::tileIbcastIbcast(
     int64_t i, int64_t j, std::set<int> &bcast_set)
 {
     // Get or create the tile.
@@ -553,12 +555,56 @@ void Matrix<FloatType>::tileIbcast(
                        bcast_root, tile->bcast_comm_, &tile->bcast_request_);
     assert(retval == MPI_SUCCESS);
 
-    // Clean up.
+    // Free the group.
     // retval = MPI_Group_free(&tile->bcast_group_);
     // assert(retval == MPI_SUCCESS);
 
+    // Free the communicator.
     // retval = MPI_Comm_free(&tile->bcast_comm_);
-    // assert(retval == MPI_SUCCESS);        
+    // assert(retval == MPI_SUCCESS);
+}
+
+//------------------------------------------------------------------------------
+template<typename FloatType>
+void Matrix<FloatType>::tileIbcastIsend(
+    int64_t i, int64_t j, std::set<int> &bcast_set)
+{
+    Matrix<FloatType> a = *this;
+    Tile<FloatType> *tile;
+    if (a.tileIsLocal(i, j)) {
+
+        tile = (*this)(i, j);
+        std::for_each(bcast_set.begin(), bcast_set.end(), [&](const int &rank) {
+            if (rank != mpi_rank_) {
+
+                int count = tile->mb_*tile->nb_;
+                int dst = rank;
+                int tag = 0;
+                MPI_Request *request;
+                request = (MPI_Request*)malloc(sizeof(MPI_Request));
+
+                trace_cpu_start();
+                int retval = MPI_Isend(tile->data_, count, MPI_DOUBLE, dst, tag,
+                                       mpi_comm_, request);
+                assert(retval == MPI_SUCCESS);
+                trace_cpu_stop("Salmon");
+            }
+        });
+    }
+    else {
+        tile = new Tile<FloatType>(a.tileMb(i), a.tileNb(j));
+        a(i, j) = tile;
+
+        int count = tile->mb_*tile->nb_;
+        int src = tileRank(i, j);
+        int tag = 0;
+
+        trace_cpu_start();
+        int retval = MPI_Irecv(tile->data_, count, MPI_DOUBLE, src, tag,
+                               mpi_comm_, &tile->bcast_request_);
+        assert(retval == MPI_SUCCESS);
+        trace_cpu_stop("Crimson");
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -566,16 +612,15 @@ template<typename FloatType>
 void Matrix<FloatType>::tileWait(int64_t i, int64_t j)
 {
     #pragma omp critical
+    if (!tileIsLocal(i, j))
     {
         Tile<FloatType> *tile = (*this)(i, j);
+
+        trace_cpu_start();
         int retval = MPI_Wait(&tile->bcast_request_, MPI_STATUS_IGNORE);
         assert(retval == MPI_SUCCESS);
+        trace_cpu_stop("DarkRed");
     }
-    // int flag;
-    // do {
-    //     int retval = MPI_Test(&tile->bcast_request_, &flag, MPI_STATUS_IGNORE);
-    //     assert(retval == MPI_SUCCESS);
-    // } while (flag != true);
 }
 
 //------------------------------------------------------------------------------

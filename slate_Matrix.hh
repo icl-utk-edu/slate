@@ -414,7 +414,8 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, int dest)
 {
     Tile<FloatType> *tile = (*this)(i, j);
     int count = tile->mb_*tile->nb_;
-    int retval = MPI_Send(tile->data_, count, MPI_DOUBLE, dest, 0, mpi_comm_);
+    int tag = 0;
+    int retval = MPI_Send(tile->data_, count, MPI_DOUBLE, dest, tag, mpi_comm_);
     assert(retval == MPI_SUCCESS);
 }
 
@@ -426,7 +427,8 @@ void Matrix<FloatType>::tileRecv(int64_t i, int64_t j, int src)
     Tile<FloatType> *tile = new Tile<FloatType>(a.tileMb(i), a.tileNb(j));
     a(i, j) = tile;
     int count = tile->mb_*tile->nb_;
-    int retval = MPI_Recv(tile->data_, count, MPI_DOUBLE, src, 0, mpi_comm_,
+    int tag = 0;
+    int retval = MPI_Recv(tile->data_, count, MPI_DOUBLE, src, tag, mpi_comm_,
                           MPI_STATUS_IGNORE);
     assert(retval == MPI_SUCCESS);
 }
@@ -447,8 +449,8 @@ void Matrix<FloatType>::tileBcast(int64_t i, int64_t j)
     }
 
     int count = tile->mb_*tile->nb_;
-    int retval = MPI_Bcast(tile->data_, count, MPI_DOUBLE,
-                           a.tileRank(i, j), mpi_comm_);
+    int retval = MPI_Bcast(tile->data_, count, MPI_DOUBLE, a.tileRank(i, j),
+                           mpi_comm_);
     assert(retval == MPI_SUCCESS);
 }
 
@@ -533,10 +535,14 @@ void Matrix<FloatType>::tileIbcastIbcast(
     assert(retval == MPI_SUCCESS);
 
     // Create a broadcast communicator.
-    retval = MPI_Comm_create_group(mpi_comm_, tile->bcast_group_, 0,
+    int tag = 0;
+    trace_cpu_start();
+    retval = MPI_Comm_create_group(mpi_comm_, tile->bcast_group_, tag,
                                    &tile->bcast_comm_);
     assert(retval == MPI_SUCCESS);
     assert(tile->bcast_comm_ != MPI_COMM_NULL);
+    trace_cpu_stop("Crimson");
+
 
     // Find the broadcast rank.
     int bcast_rank;
@@ -551,8 +557,8 @@ void Matrix<FloatType>::tileIbcastIbcast(
 
     // Do the broadcast.
     int count = tile->mb_*tile->nb_;
-    retval = MPI_Ibcast(tile->data_, count, MPI_DOUBLE,
-                       bcast_root, tile->bcast_comm_, &tile->bcast_request_);
+    retval = MPI_Ibcast(tile->data_, count, MPI_DOUBLE, bcast_root,
+                        tile->bcast_comm_, &tile->bcast_request_);
     assert(retval == MPI_SUCCESS);
 
     // Free the group.
@@ -580,8 +586,7 @@ void Matrix<FloatType>::tileIbcastIsend(
                 int count = tile->mb_*tile->nb_;
                 int dst = rank;
                 int tag = 0;
-                MPI_Request *request;
-                request = (MPI_Request*)malloc(sizeof(MPI_Request));
+                MPI_Request *request = new MPI_Request;
 
                 trace_cpu_start();
                 int retval = MPI_Isend(tile->data_, count, MPI_DOUBLE, dst, tag,

@@ -53,7 +53,7 @@ public:
               blas::Op trans, blas::Diag diag,
               FloatType alpha, const Matrix &a);
 
-    void potrf(blas::Uplo uplo, int64_t lookahead=0);
+    void potrf(blas::Uplo uplo, int64_t lookahead=3);
 
 private:
     MPI_Comm mpi_comm_;
@@ -87,10 +87,17 @@ private:
     void tileRecv(int64_t i, int64_t j, int src);
     
     void tileBcast(int64_t m, int64_t n);
-    void tileIbcast(int64_t m, int64_t n, std::array<int64_t, 4> range);
+    void tileIbcast(int64_t m, int64_t n,
+                    std::array<int64_t, 4> range);
+
     void tileIbcast(int64_t m, int64_t n,
                     std::array<int64_t, 4> range1,
                     std::array<int64_t, 4> range2);
+
+    void tileIbcastFindRanks(int64_t i, int64_t j,
+                             std::array<int64_t, 4> range,
+                             std::set<int> *bcast_set);
+
     void tileIbcastIbcast(int64_t i, int64_t j, std::set<int> &bcast_set);
     void tileIbcastIsend(int64_t i, int64_t j, std::set<int> &bcast_set);
     void tileWait(int64_t m, int64_t n);
@@ -232,7 +239,7 @@ void Matrix<FloatType>::syrkTask(blas::Uplo uplo, blas::Op trans,
     Matrix<FloatType> a = that;
 
     // Lower, NoTrans
-    for (int64_t n = 0; n < nt_; ++n) {
+    for (int64_t n = 0; n < c.nt_; ++n) {
 
         for (int64_t k = 0; k < a.nt_; ++k)
             #pragma omp task
@@ -241,7 +248,7 @@ void Matrix<FloatType>::syrkTask(blas::Uplo uplo, blas::Op trans,
                 c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
             }
 
-        for (int64_t m = n+1; m < mt_; ++m)
+        for (int64_t m = n+1; m < c.mt_; ++m)
             for (int64_t k = 0; k < a.nt_; ++k)
                 #pragma omp task
                 if (c.tileIsLocal(m, n)) {
@@ -265,7 +272,7 @@ void Matrix<FloatType>::syrkNest(blas::Uplo uplo, blas::Op trans,
     Matrix<FloatType> c = *this;
     Matrix<FloatType> a = that;
 
-    for (int64_t n = 0; n < nt_; ++n) {
+    for (int64_t n = 0; n < c.nt_; ++n) {
         for (int64_t k = 0; k < a.nt_; ++k)
             #pragma omp task
             if (c.tileIsLocal(n, n)) {
@@ -276,8 +283,8 @@ void Matrix<FloatType>::syrkNest(blas::Uplo uplo, blas::Op trans,
 
 //  #pragma omp parallel for collapse(3) schedule(dynamic, 1) num_threads(60)
     #pragma omp parallel for collapse(3) schedule(dynamic, 1)
-    for (int64_t n = 0; n < nt_; ++n) {
-        for (int64_t m = 0; m < mt_; ++m)
+    for (int64_t n = 0; n < c.nt_; ++n) {
+        for (int64_t m = 0; m < c.mt_; ++m)
             for (int64_t k = 0; k < a.nt_; ++k)
                 if (m >= n+1)
                     if (c.tileIsLocal(m, n)) {
@@ -303,7 +310,7 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
     Matrix<FloatType> a = that;
 
     // Lower, NoTrans
-    for (int64_t n = 0; n < nt_; ++n) {
+    for (int64_t n = 0; n < c.nt_; ++n) {
         for (int64_t k = 0; k < a.nt_; ++k)
             #pragma omp task
             if (c.tileIsLocal(n, n)) {
@@ -339,8 +346,8 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
     ldc_array[0] = nb;
 
     int group_size = 0;
-    for (int64_t n = 0; n < nt_; ++n)
-        for (int64_t m = n+1; m < mt_; ++m)
+    for (int64_t n = 0; n < c.nt_; ++n)
+        for (int64_t m = n+1; m < c.mt_; ++m)
             for (int64_t k = 0; k < a.nt_; ++k)
                 if (c.tileIsLocal(m, n)) {
                     a.tileWait(m, k);
@@ -356,8 +363,8 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
     assert(c_array != nullptr);
 
     int i = 0;
-    for (int64_t n = 0; n < nt_; ++n)
-        for (int64_t m = n+1; m < mt_; ++m)
+    for (int64_t n = 0; n < c.nt_; ++n)
+        for (int64_t m = n+1; m < c.mt_; ++m)
             for (int64_t k = 0; k < a.nt_; ++k)
                 if (c.tileIsLocal(m, n)) {
                     a_array[i] = a(m, k)->data_;
@@ -393,13 +400,13 @@ void Matrix<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
     Matrix<FloatType> b = *this;
 
     // Right, Lower, Trans
-    for (int64_t k = 0; k < nt_; ++k) {
+    for (int64_t k = 0; k < b.nt_; ++k) {
 
-        for (int64_t m = 0; m < mt_; ++m) {
+        for (int64_t m = 0; m < b.mt_; ++m) {
             #pragma omp task
             b(m, k)->trsm(side, uplo, trans, diag, 1.0, a(k, k)); 
 
-            for (int64_t n = k+1; n < nt_; ++n)
+            for (int64_t n = k+1; n < b.nt_; ++n)
                 #pragma omp task
                 b(m, n)->gemm(Op::NoTrans, trans,
                               -1.0/alpha, b(m, k), a(n, k), 1.0);
@@ -425,9 +432,8 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, int dest)
 template<typename FloatType>
 void Matrix<FloatType>::tileRecv(int64_t i, int64_t j, int src)
 {
-    Matrix<FloatType> a = *this;
-    Tile<FloatType> *tile = new Tile<FloatType>(a.tileMb(i), a.tileNb(j));
-    a(i, j) = tile;
+    Tile<FloatType> *tile = new Tile<FloatType>(tileMb(i), tileNb(j));
+    (*this)(i, j) = tile;
     int count = tile->mb_*tile->nb_;
     int tag = 0;
     int retval;
@@ -441,45 +447,48 @@ void Matrix<FloatType>::tileRecv(int64_t i, int64_t j, int src)
 template<typename FloatType>
 void Matrix<FloatType>::tileBcast(int64_t i, int64_t j)
 {
-    Matrix<FloatType> a = *this;
     Tile<FloatType> *tile;
 
-    if (a.tileIsLocal(i, j)) {
+    if (tileIsLocal(i, j)) {
         tile = (*this)(i, j);
     }
     else {
-        tile = new Tile<FloatType>(a.tileMb(i), a.tileNb(j));
-        a(i, j) = tile;
+        tile = new Tile<FloatType>(tileMb(i), tileNb(j));
+        (*this)(i, j) = tile;
     }
 
     int count = tile->mb_*tile->nb_;
     int retval;
     #pragma omp critical
-    retval = MPI_Bcast(tile->data_, count, MPI_DOUBLE, a.tileRank(i, j),
+    retval = MPI_Bcast(tile->data_, count, MPI_DOUBLE, tileRank(i, j),
                        mpi_comm_);
     assert(retval == MPI_SUCCESS);
 }
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
-void Matrix<FloatType>::tileIbcast(
-    int64_t i, int64_t j, std::array<int64_t, 4> range)
+void Matrix<FloatType>::tileIbcast(int64_t i, int64_t j,
+                                   std::array<int64_t, 4> range)
 {
-    int64_t i1 = range[0];
-    int64_t i2 = range[1];
-    int64_t j1 = range[2];
-    int64_t j2 = range[3];
-
     // Find the set of participating ranks.
     std::set<int> bcast_set;
     bcast_set.insert(tileRank(i, j));
-    for (int64_t i = i1; i <= i2; ++i)
-        for (int64_t j = j1; j <= j2; ++j)
-            bcast_set.insert(tileRank(i, j));
+    tileIbcastFindRanks(i, j, range, &bcast_set);
 
-    // Continue if contained in the set.
-    if (bcast_set.find(mpi_rank_) != bcast_set.end())
+    // If contained in the set.
+    if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
+
+        // If receiving the tile.
+        if (!tileIsLocal(i, j)) {
+
+            // Create the tile.
+            Tile<FloatType> *tile;
+            tile = new Tile<FloatType>(tileMb(i), tileNb(j));
+            (*this)(i, j) = tile;
+        }
+        // Perform the communication.
         tileIbcastIsend(i, j, bcast_set);
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -491,26 +500,40 @@ void Matrix<FloatType>::tileIbcast(int64_t i, int64_t j,
     // Find the set of participating ranks.
     std::set<int> bcast_set;
     bcast_set.insert(tileRank(i, j));
-    
-    int64_t i1 = range1[0];
-    int64_t i2 = range1[1];
-    int64_t j1 = range1[2];
-    int64_t j2 = range1[3];
-    for (int64_t i = i1; i <= i2; ++i)
-        for (int64_t j = j1; j <= j2; ++j)
-            bcast_set.insert(tileRank(i, j));
+    tileIbcastFindRanks(i, j, range1, &bcast_set);
+    tileIbcastFindRanks(i, j, range2, &bcast_set);
 
-    i1 = range2[0];
-    i2 = range2[1];
-    j1 = range2[2];
-    j2 = range2[3];
-    for (int64_t i = i1; i <= i2; ++i)
-        for (int64_t j = j1; j <= j2; ++j)
-            bcast_set.insert(tileRank(i, j));
+    // If contained in the set.
+    if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
 
-    // Continue if contained in the set.
-    if (bcast_set.find(mpi_rank_) != bcast_set.end())
+        // If receiving the tile.
+        if (!tileIsLocal(i, j)) {
+
+            // Create the tile.
+            Tile<FloatType> *tile;
+            tile = new Tile<FloatType>(tileMb(i), tileNb(j));
+            (*this)(i, j) = tile;
+        }
+        // Perform the communication.
         tileIbcastIsend(i, j, bcast_set);
+    }
+}
+
+//------------------------------------------------------------------------------
+template<typename FloatType>
+void Matrix<FloatType>::tileIbcastFindRanks(int64_t i, int64_t j,
+                                            std::array<int64_t, 4> range,
+                                            std::set<int> *bcast_set)
+{
+    int64_t i1 = range[0];
+    int64_t i2 = range[1];
+    int64_t j1 = range[2];
+    int64_t j2 = range[3];
+
+    // Find the set of participating ranks.
+    for (int64_t i = i1; i <= i2; ++i)
+        for (int64_t j = j1; j <= j2; ++j)
+            bcast_set->insert(tileRank(i, j));
 }
 
 //------------------------------------------------------------------------------
@@ -518,21 +541,11 @@ template<typename FloatType>
 void Matrix<FloatType>::tileIbcastIbcast(
     int64_t i, int64_t j, std::set<int> &bcast_set)
 {
-    // Get or create the tile.
-    Matrix<FloatType> a = *this;
-    Tile<FloatType> *tile;
-    if (a.tileIsLocal(i, j)) {
-        tile = (*this)(i, j);
-    }
-    else {
-        tile = new Tile<FloatType>(a.tileMb(i), a.tileNb(j));
-        a(i, j) = tile;
-    }
-
     // Convert the set of ranks to a vector.
     std::vector<int> bcast_vec(bcast_set.begin(), bcast_set.end());
 
     // Create the broadcast group.
+    Tile<FloatType> *tile = (*this)(i, j);
     int retval;
     #pragma omp critical
     retval = MPI_Group_incl(mpi_group_, bcast_vec.size(), bcast_vec.data(),
@@ -548,7 +561,6 @@ void Matrix<FloatType>::tileIbcastIbcast(
     assert(retval == MPI_SUCCESS);
     assert(tile->bcast_comm_ != MPI_COMM_NULL);
     trace_cpu_stop("Crimson");
-
 
     // Find the broadcast rank.
     int bcast_rank;
@@ -586,14 +598,17 @@ template<typename FloatType>
 void Matrix<FloatType>::tileIbcastIsend(
     int64_t i, int64_t j, std::set<int> &bcast_set)
 {
-    Matrix<FloatType> a = *this;
-    Tile<FloatType> *tile;
-    if (a.tileIsLocal(i, j)) {
+    // If sending the tile.
+    if (tileIsLocal(i, j)) {
 
-        tile = (*this)(i, j);
+        // For each rank in the bcast.
         std::for_each(bcast_set.begin(), bcast_set.end(), [&](const int &rank) {
+
+            // If not my own rank.
             if (rank != mpi_rank_) {
 
+                // Send the tile.
+                Tile<FloatType> *tile = (*this)(i, j);
                 int count = tile->mb_*tile->nb_;
                 int dst = rank;
                 int tag = 0;
@@ -612,9 +627,9 @@ void Matrix<FloatType>::tileIbcastIsend(
         });
     }
     else {
-        tile = new Tile<FloatType>(a.tileMb(i), a.tileNb(j));
-        a(i, j) = tile;
 
+        // Receive the tile.
+        Tile<FloatType> *tile = (*this)(i, j);
         int count = tile->mb_*tile->nb_;
         int src = tileRank(i, j);
         int tag = 0;
@@ -660,22 +675,22 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
         // panel
         #pragma omp task depend(inout:column[k]) priority(1)
         {
-            if (a.tileIsLocal(k, k))
+            if (tileIsLocal(k, k))
                 a(k, k)->potrf(uplo);
 
             if (k < nt_-1)
-                a.tileIbcast(k, k, {k+1, nt_-1, k, k});
+                tileIbcast(k, k, {k+1, nt_-1, k, k});
 
             for (int64_t m = k+1; m < nt_; ++m) {
 
-                if (a.tileIsLocal(m, k)) {
-                    a.tileWait(k, k);
+                if (tileIsLocal(m, k)) {
+                    tileWait(k, k);
                     a(m, k)->trsm(Side::Right, Uplo::Lower,
                                   Op::Trans, Diag::NonUnit,
                                   1.0, a(k, k));
                 }
-                a.tileIbcast(m, k, {m, m, k+1, m},
-                                   {m, nt_-1, m, m});
+                tileIbcast(m, k, {m, m, k+1, m},
+                                 {m, nt_-1, m, m});
             }
             #pragma omp taskwait
         }
@@ -685,7 +700,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                              depend(inout:column[n]) priority(1)
             {
                 #pragma omp task priority(1)
-                if (a.tileIsLocal(n, n)) {
+                if (tileIsLocal(n, n)) {
                     tileWait(n, k);
                     a(n, n)->syrk(Uplo::Lower, Op::NoTrans,
                                   -1.0, a(n, k), 1.0);
@@ -693,7 +708,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
 
                 for (int64_t m = n+1; m < nt_; ++m) {
                     #pragma omp task priority(1)
-                    if (a.tileIsLocal(m, n)) {
+                    if (tileIsLocal(m, n)) {
                         tileWait(m, k);
                         tileWait(n, k);
                         a(m, n)->gemm(Op::NoTrans, Op::Trans,

@@ -91,6 +91,7 @@ public:
         blas::gemm(blas::Layout::ColMajor, transa, transb,
                      mb_, nb_, a->nb_, alpha, a->data_, a->mb_,
                      b->data_, b->mb_, beta, data_, mb_);
+
         // cblas_dgemm_compute(CblasColMajor, CblasPacked, CblasPacked,
         //     mb_, nb_, a->nb_, a->packed_a_, a->mb_, b->packed_b_, b->mb_,
         //     beta, data_, mb_);   
@@ -120,7 +121,7 @@ public:
     {
         trace_cpu_start();
         blas::syrk(blas::Layout::ColMajor, uplo, trans,
-                     nb_, a->nb_, alpha, a->data_, a->mb_, beta, data_, mb_);
+                   nb_, a->nb_, alpha, a->data_, a->mb_, beta, data_, mb_);
         trace_cpu_stop("CornflowerBlue");
     }
     void trsm(blas::Side side, blas::Uplo uplo, blas::Op transa,

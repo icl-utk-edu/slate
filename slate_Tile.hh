@@ -58,6 +58,7 @@ public:
 
     void tick(Tile<FloatType> *tile)
     {
+        return;
         #pragma omp critical
         {
             if (tile->life_ > 0) {

@@ -43,10 +43,10 @@ public:
     void gather();
 
     Tile<FloatType>* &operator()(int64_t m, int64_t n) {
-        return (*tiles_)[std::pair<int64_t, int64_t>(it_+m, jt_+n)];
+        return (*tiles_)[{it_+m, jt_+n}];
     }
     Tile<FloatType>* &operator()(int64_t m, int64_t n) const {
-        return (*tiles_)[std::pair<int64_t, int64_t>(it_+m, jt_+n)];
+        return (*tiles_)[{it_+m, jt_+n}];
     }
 
     void trsm(blas::Side side, blas::Uplo uplo,
@@ -97,6 +97,9 @@ private:
     void tileIbcastFindRanks(int64_t i, int64_t j,
                              std::array<int64_t, 4> range,
                              std::set<int> *bcast_set);
+
+    int64_t tileIbcastFindLife(int64_t i, int64_t j,
+                               std::array<int64_t, 4> range);
 
     void tileIbcastIbcast(int64_t i, int64_t j, std::set<int> &bcast_set);
     void tileIbcastIsend(int64_t i, int64_t j, std::set<int> &bcast_set);
@@ -485,6 +488,9 @@ void Matrix<FloatType>::tileIbcast(int64_t i, int64_t j,
             Tile<FloatType> *tile;
             tile = new Tile<FloatType>(tileMb(i), tileNb(j));
             (*this)(i, j) = tile;
+
+            // Find the tile's life.
+            tile->life_ = tileIbcastFindLife(i, j, range);
         }
         // Perform the communication.
         tileIbcastIsend(i, j, bcast_set);
@@ -513,6 +519,10 @@ void Matrix<FloatType>::tileIbcast(int64_t i, int64_t j,
             Tile<FloatType> *tile;
             tile = new Tile<FloatType>(tileMb(i), tileNb(j));
             (*this)(i, j) = tile;
+
+            // Find the tile's life.
+            tile->life_  = tileIbcastFindLife(i, j, range1);
+            tile->life_ += tileIbcastFindLife(i, j, range2);
         }
         // Perform the communication.
         tileIbcastIsend(i, j, bcast_set);
@@ -534,6 +544,26 @@ void Matrix<FloatType>::tileIbcastFindRanks(int64_t i, int64_t j,
     for (int64_t i = i1; i <= i2; ++i)
         for (int64_t j = j1; j <= j2; ++j)
             bcast_set->insert(tileRank(i, j));
+}
+
+//------------------------------------------------------------------------------
+template<typename FloatType>
+int64_t Matrix<FloatType>::tileIbcastFindLife(int64_t i, int64_t j,
+                                              std::array<int64_t, 4> range)
+{
+    int64_t i1 = range[0];
+    int64_t i2 = range[1];
+    int64_t j1 = range[2];
+    int64_t j2 = range[3];
+
+    // Find the tile's lifespan.
+    int64_t life = 0;
+    for (int64_t i = i1; i <= i2; ++i)
+        for (int64_t j = j1; j <= j2; ++j)
+            if (tileIsLocal(i, j))
+                ++life;
+
+    return life;
 }
 
 //------------------------------------------------------------------------------
@@ -724,13 +754,27 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[nt_-1])
             Matrix(a, k+1+lookahead, k+1+lookahead,
-                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkNest(
+                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkTask(
                 Uplo::Lower, Op::NoTrans,
                 -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
         }
     }
 }
 /*
+
+if (mpi_rank_ == 0)
+    for (int64_t i = 0; i < mt_; ++i) {
+        for (int64_t j = 0; j < nt_; j++) {
+            if (tiles_->find({i, j}) == tiles_->end())
+                printf("  .");
+            else
+                printf("%3ld", (*tiles_)[{i, j}]->life_);
+//              printf("  *");
+        }
+        printf("\n");
+    }
+}
+
 //------------------------------------------------------------------------------
 template<typename FloatType>
 void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)

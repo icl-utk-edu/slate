@@ -31,6 +31,7 @@ public:
     FloatType *packed_a_;
     FloatType *packed_b_;
 
+    int64_t life_;
     int64_t packed_a_life_;
     int64_t packed_b_life_;
 
@@ -54,6 +55,19 @@ public:
         for (int64_t n = 0; n < nb_; ++n)
             memcpy(&a[n*lda], &data_[n*mb_], sizeof(FloatType)*mb_);
     }
+
+    void tick(Tile<FloatType> *tile)
+    {
+        #pragma omp critical
+        {
+            if (tile->life_ > 0) {
+                --tile->life_;
+                if (tile->life_ == 0)
+                    delete tile;
+            }
+        }
+    }
+
     void packA(int64_t life) {
         trace_cpu_start();
         packed_a_ = cblas_dgemm_alloc(CblasAMatrix, mb_, nb_, mb_);
@@ -71,10 +85,11 @@ public:
         trace_cpu_stop("Black");
     }
 
-    Tile(int64_t mb, int64_t nb) : mb_(mb), nb_(nb) {
+    Tile(int64_t mb, int64_t nb) : mb_(mb), nb_(nb), life_(0) {
         allocate(mb, nb);
     }
-    Tile(int64_t mb, int64_t nb, FloatType *a, int64_t lda) : mb_(mb), nb_(nb)
+    Tile(int64_t mb, int64_t nb, FloatType *a, int64_t lda)
+        : mb_(mb), nb_(nb), life_(0)
     {
         allocate(mb, nb);
         copyTo(a, lda);
@@ -91,6 +106,10 @@ public:
         blas::gemm(blas::Layout::ColMajor, transa, transb,
                      mb_, nb_, a->nb_, alpha, a->data_, a->mb_,
                      b->data_, b->mb_, beta, data_, mb_);
+        trace_cpu_stop("MediumAquamarine");
+
+        tick(a);
+        tick(b);
 
         // cblas_dgemm_compute(CblasColMajor, CblasPacked, CblasPacked,
         //     mb_, nb_, a->nb_, a->packed_a_, a->mb_, b->packed_b_, b->mb_,
@@ -108,7 +127,6 @@ public:
         //     if (b->packed_b_life_ == 0)
         //         cblas_dgemm_free(b->packed_b_);
         // }
-        trace_cpu_stop("MediumAquamarine");
     }
     void potrf(blas::Uplo uplo)
     {
@@ -123,6 +141,9 @@ public:
         blas::syrk(blas::Layout::ColMajor, uplo, trans,
                    nb_, a->nb_, alpha, a->data_, a->mb_, beta, data_, mb_);
         trace_cpu_stop("CornflowerBlue");
+
+        tick(a);
+        tick(a);
     }
     void trsm(blas::Side side, blas::Uplo uplo, blas::Op transa,
               blas::Diag diag, FloatType alpha, Tile<FloatType> *a)
@@ -131,6 +152,8 @@ public:
         blas::trsm(blas::Layout::ColMajor, side, uplo, transa, diag,
                      mb_, nb_, alpha, a->data_, mb_, data_, mb_);
         trace_cpu_stop("MediumPurple");
+
+        tick(a);
     }
 
     //------------------------------------------------------

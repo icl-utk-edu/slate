@@ -276,21 +276,21 @@ static void find_min_max(double *min_time, double *max_time)
 
     for (int thread = 0; thread < NumThreads; thread++)
         if (EventNumThread[thread] > 0)
-            if (EventStartThread[thread][0] < *min_time)
-                *min_time = EventStartThread[thread][0];
+            if (EventStopThread[thread][0] < *min_time)
+                *min_time = EventStopThread[thread][0];
 
     for (int thread = 0; thread < NumThreads; thread++)
         if (EventNumThread[thread] > 0)
             if (EventStopThread[thread][EventNumThread[thread]-1] > *max_time)
                 *max_time = EventStopThread[thread][EventNumThread[thread]-1];
 
-    #ifdef MPI
-        double temp;
-        temp = *min_time;
-        MPI_Reduce(&temp, min_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
-        temp = *max_time;
-        MPI_Reduce(&temp, max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    #endif
+    // #ifdef MPI
+    //     double temp;
+    //     temp = *min_time;
+    //     MPI_Reduce(&temp, min_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+    //     temp = *max_time;
+    //     MPI_Reduce(&temp, max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    // #endif
 }
 
 //------------------------------------------------------------------------------
@@ -339,8 +339,10 @@ static void print_threads(int proc, double min_time,
 {
     for (int thread = 0; thread < NumThreads; thread++) {
         for (int event = 0; event < EventNumThread[thread]; event++) {
-            double start = EventStartThread[thread][event]-min_time;
-            double stop = EventStopThread[thread][event]-min_time;
+            double start = EventStartThread[thread][event];
+            start -= EventStopThread[0][0];
+            double stop = EventStopThread[thread][event];
+            stop -= EventStopThread[0][0];
             if (start >= 0.0)
                 fprintf(
                     trace_file,

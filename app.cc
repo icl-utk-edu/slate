@@ -70,14 +70,20 @@ int main (int argc, char *argv[])
     temp.potrf(blas::Uplo::Lower);
     trace_on();
 
-    slate::Matrix<double> a(n, n, a1, lda, nb, nb, MPI_COMM_WORLD, p, q);
+    trace_cpu_start();
     MPI_Barrier(MPI_COMM_WORLD);
+    trace_cpu_stop("Black");
+
+    slate::Matrix<double> a(n, n, a1, lda, nb, nb, MPI_COMM_WORLD, p, q);
     double start = omp_get_wtime();
     a.potrf(blas::Uplo::Lower);
     MPI_Barrier(MPI_COMM_WORLD);
     double time = omp_get_wtime()-start;
     a.gather();
+
+    trace_cpu_start();
     MPI_Barrier(MPI_COMM_WORLD);
+    trace_cpu_stop("Black");
 
     //------------------------------------------------------
     if (mpi_rank == 0) {

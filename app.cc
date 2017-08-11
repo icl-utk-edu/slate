@@ -46,9 +46,7 @@ int main (int argc, char *argv[])
     assert(mpi_size == p*q);
 
     //------------------------------------------------------
-    double *a1 = (double*)malloc(sizeof(double)*nb*nb*nt*nt);
-    assert(a1 != nullptr);
-
+    double *a1 = new double[nb*nb*nt*nt];
     int seed[] = {0, 0, 0, 1};
     retval = LAPACKE_dlarnv(1, seed, (size_t)lda*n, a1);
     assert(retval == 0);
@@ -59,8 +57,7 @@ int main (int argc, char *argv[])
     //------------------------------------------------------
     double *a2;
     if (mpi_rank == 0) {
-        a2 = (double*)malloc(sizeof(double)*nb*nb*nt*nt);
-        assert(a2 != nullptr);
+        a2 = new double[nb*nb*nt*nt];
         memcpy(a2, a1, sizeof(double)*lda*n);
     }
 
@@ -77,13 +74,13 @@ int main (int argc, char *argv[])
     slate::Matrix<double> a(n, n, a1, lda, nb, nb, MPI_COMM_WORLD, p, q);
     double start = omp_get_wtime();
     a.potrf(blas::Uplo::Lower);
-    MPI_Barrier(MPI_COMM_WORLD);
-    double time = omp_get_wtime()-start;
-    a.gather();
 
     trace_cpu_start();
     MPI_Barrier(MPI_COMM_WORLD);
     trace_cpu_stop("Black");
+
+    double time = omp_get_wtime()-start;
+    a.gather();
 
     //------------------------------------------------------
     if (mpi_rank == 0) {
@@ -103,11 +100,11 @@ int main (int argc, char *argv[])
 
         double gflops = (double)nb*nb*nb*nt*nt*nt/3.0/time/1000000000.0;
         printf("\t%.0lf GFLOPS\n", gflops);
-        free(a2);
+        delete a2;
     }
 
     //------------------------------------------------------
-    free(a1);
+    delete a1;
     trace_finish();
     return EXIT_SUCCESS;
 }

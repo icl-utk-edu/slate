@@ -358,12 +358,9 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
                     ++group_size;
                 }
 
-    a_array = (const double**)malloc(sizeof(double*)*group_size);
-    b_array = (const double**)malloc(sizeof(double*)*group_size);
-    c_array = (double**)malloc(sizeof(double*)*group_size);
-    assert(a_array != nullptr);
-    assert(b_array != nullptr);
-    assert(c_array != nullptr);
+    a_array = new double[group_size];
+    b_array = new double[group_size];
+    c_array = new double[group_size];
 
     int i = 0;
     for (int64_t n = 0; n < c.nt_; ++n)
@@ -385,9 +382,9 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
 //  mkl_set_num_threads_local(1);
     trace_cpu_stop("DarkGreen");
 
-    free(a_array);
-    free(b_array);
-    free(c_array);
+    delete a_array;
+    delete b_array;
+    delete c_array;
 
     #pragma omp taskwait
 }
@@ -760,8 +757,8 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
         }
     }
 }
-/*
 
+/*
 if (mpi_rank_ == 0)
     for (int64_t i = 0; i < mt_; ++i) {
         for (int64_t j = 0; j < nt_; j++) {
@@ -773,7 +770,6 @@ if (mpi_rank_ == 0)
         }
         printf("\n");
     }
-}
 
 //------------------------------------------------------------------------------
 template<typename FloatType>

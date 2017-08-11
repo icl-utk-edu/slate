@@ -15,6 +15,8 @@
 #include <mkl_lapacke.h>
 #include <mpi.h>
 
+#include <unistd.h>
+
 extern "C" void trace_cpu_start();
 extern "C" void trace_cpu_stop(const char *color);
 
@@ -40,11 +42,6 @@ public:
     MPI_Comm bcast_comm_;
 
     //------------------------------------------------------
-    void allocate(int64_t mb, int64_t nb)
-    {
-        data_ = (FloatType*)malloc(sizeof(FloatType)*mb*nb);
-        assert(data_ != nullptr);        
-    }
     void copyTo(FloatType *a, int64_t lda)
     {
         for (int64_t n = 0; n < nb_; ++n)
@@ -61,10 +58,9 @@ public:
         return;
         #pragma omp critical
         {
-            if (tile->life_ > 0) {
-                --tile->life_;
-                if (tile->life_ == 0)
-                    delete tile;
+            --tile->life_;
+            if (tile->life_ == 0) {
+                delete tile;
             }
         }
     }
@@ -87,16 +83,16 @@ public:
     }
 
     Tile(int64_t mb, int64_t nb) : mb_(mb), nb_(nb), life_(0) {
-        allocate(mb, nb);
+        data_ = new FloatType[mb*nb];
     }
     Tile(int64_t mb, int64_t nb, FloatType *a, int64_t lda)
         : mb_(mb), nb_(nb), life_(0)
     {
-        allocate(mb, nb);
+        data_ = new FloatType[mb*nb];
         copyTo(a, lda);
     }
     ~Tile() {
-        free(data_);
+        delete data_;
     }
 
     //------------------------------------------------------
@@ -151,7 +147,7 @@ public:
     {
         trace_cpu_start();
         blas::trsm(blas::Layout::ColMajor, side, uplo, transa, diag,
-                     mb_, nb_, alpha, a->data_, mb_, data_, mb_);
+                   mb_, nb_, alpha, a->data_, mb_, data_, mb_);
         trace_cpu_stop("MediumPurple");
 
         tick(a);

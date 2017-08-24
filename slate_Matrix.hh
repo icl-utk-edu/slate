@@ -13,6 +13,7 @@
 
 #include <mpi.h>
 #include <omp.h>
+#include <cublas_v2.h>
 
 namespace slate {
 
@@ -36,6 +37,11 @@ public:
 
     Matrix(const Matrix &a, int64_t it, int64_t jt, int64_t mt, int64_t nt);
 
+    ~Matrix() {
+        // only if not a submatrix
+        // assert(cublasDestroy(cublas_handle_) == CUBLAS_STATUS_SUCCESS);
+    }
+
     void copyTo(FloatType *a, int64_t lda);
     void copyFrom(FloatType *a, int64_t lda);
     void copyFromFull(FloatType *a, int64_t lda);
@@ -53,13 +59,16 @@ public:
               blas::Op trans, blas::Diag diag,
               FloatType alpha, const Matrix &a);
 
-    void potrf(blas::Uplo uplo, int64_t lookahead=3);
+    void potrf(blas::Uplo uplo, int64_t lookahead=0);
 
 private:
+    cublasHandle_t cublas_handle_;
+
     MPI_Comm mpi_comm_;
     MPI_Group mpi_group_;
     int mpi_size_;
     int mpi_rank_;
+
     std::function <int64_t (int64_t i, int64_t j)> tileRankFunc;
     std::function <int64_t (int64_t i)> tileMbFunc;
     std::function <int64_t (int64_t j)> tileNbFunc;
@@ -82,6 +91,9 @@ private:
 
     void syrkBatch(blas::Uplo uplo, blas::Op trans,
                    FloatType alpha, const Matrix &a, FloatType beta);
+
+    void syrkAcc(blas::Uplo uplo, blas::Op trans,
+                 FloatType alpha, const Matrix &a, FloatType beta);
 
     void tileSend(int64_t i, int64_t j, int dest);
     void tileRecv(int64_t i, int64_t j, int src);
@@ -121,6 +133,9 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
     tileMbFunc = [=] (int64_t i) { return (it_+i)*mb > m ? m%mb : mb; };
     tileNbFunc = [=] (int64_t j) { return (jt_+j)*nb > n ? n%nb : nb; };
 
+    cublasStatus_t status = cublasCreate(&cublas_handle_);
+    assert(status == CUBLAS_STATUS_SUCCESS);
+
     copyTo(a, lda);
 }
 
@@ -144,6 +159,9 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
     tileRankFunc = [=] (int64_t i, int64_t j) { return i%p + (j%q)*p; };
     tileMbFunc = [=] (int64_t i) { return i*mb > m ? m%mb : mb; };
     tileNbFunc = [=] (int64_t j) { return j*nb > n ? n%nb : nb; };
+
+    cublasStatus_t status = cublasCreate(&cublas_handle_);
+    assert(status == CUBLAS_STATUS_SUCCESS);
 
     copyTo(a, lda);
 }
@@ -312,7 +330,7 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
     Matrix<FloatType> c = *this;
     Matrix<FloatType> a = that;
 
-    // Lower, NoTrans
+    // syrk tasks
     for (int64_t n = 0; n < c.nt_; ++n) {
         for (int64_t k = 0; k < a.nt_; ++k)
             #pragma omp task
@@ -348,6 +366,8 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
     beta_array[0] = beta;
     ldc_array[0] = nb;
 
+    // Wait for remote tiles.
+    // Compute group size.
     int group_size = 0;
     for (int64_t n = 0; n < c.nt_; ++n)
         for (int64_t m = n+1; m < c.mt_; ++m)
@@ -358,9 +378,9 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
                     ++group_size;
                 }
 
-    a_array = new double[group_size];
-    b_array = new double[group_size];
-    c_array = new double[group_size];
+    a_array = new const double*[group_size];
+    b_array = new const double*[group_size];
+    c_array = new double*[group_size];
 
     int i = 0;
     for (int64_t n = 0; n < c.nt_; ++n)
@@ -386,6 +406,64 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
     delete b_array;
     delete c_array;
 
+    #pragma omp taskwait
+}
+
+//------------------------------------------------------------------------------
+template<typename FloatType>
+void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
+                                FloatType alpha, const Matrix &that,
+                                FloatType beta)
+{
+    using namespace blas;
+
+    Matrix<FloatType> c = *this;
+    Matrix<FloatType> a = that;
+
+    // Lower, NoTrans
+    for (int64_t n = 0; n < c.nt_; ++n) {
+
+        for (int64_t k = 0; k < a.nt_; ++k)
+            #pragma omp task
+            if (c.tileIsLocal(n, n)) {
+                a.tileWait(n, k);
+                c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
+            }
+
+        for (int64_t m = n+1; m < c.mt_; ++m)
+            for (int64_t k = 0; k < a.nt_; ++k)
+                #pragma omp task
+                if (c.tileIsLocal(m, n)) {
+                    a.tileWait(m, k);
+                    a.tileWait(n, k);
+                    {
+                        int nb = tileNb(0);
+                        int h = omp_get_initial_device();
+                        int t = omp_get_default_device();
+
+                        size_t s = sizeof(double)*nb*nb;
+                        double *cmn = (double*)omp_target_alloc(s, t);
+                        double *amk = (double*)omp_target_alloc(s, t);
+                        double *ank = (double*)omp_target_alloc(s, t);
+                        assert(cmn != nullptr);
+                        assert(amk != nullptr);
+                        assert(ank != nullptr);
+
+                        omp_target_memcpy(cmn, c(m, n)->data_, s, 0, 0, t, h);
+                        omp_target_memcpy(amk, a(m, k)->data_, s, 0, 0, t, h);
+                        omp_target_memcpy(ank, a(n, k)->data_, s, 0, 0, t, h);
+
+                        cublasStatus_t status = 
+                            cublasDgemm(cublas_handle_,
+                                        CUBLAS_OP_N, CUBLAS_OP_T,
+                                        nb, nb, nb,
+                                        &alpha, amk, nb, ank, nb, 
+                                        &beta, cmn, nb);
+                        assert(status == CUBLAS_STATUS_SUCCESS);
+                        omp_target_memcpy(c(m, n)->data_, cmn, s, 0, 0, h, t);
+                    }
+                }
+    }
     #pragma omp taskwait
 }
 
@@ -751,7 +829,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[nt_-1])
             Matrix(a, k+1+lookahead, k+1+lookahead,
-                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkTask(
+                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkAcc(
                 Uplo::Lower, Op::NoTrans,
                 -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
         }

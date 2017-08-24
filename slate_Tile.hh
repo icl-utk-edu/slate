@@ -15,8 +15,6 @@
 #include <mkl_lapacke.h>
 #include <mpi.h>
 
-#include <unistd.h>
-
 extern "C" void trace_cpu_start();
 extern "C" void trace_cpu_stop(const char *color);
 
@@ -30,16 +28,16 @@ public:
     int64_t nb_;
 
     FloatType *data_;
-    FloatType *packed_a_;
-    FloatType *packed_b_;
-
     int64_t life_;
-    int64_t packed_a_life_;
-    int64_t packed_b_life_;
 
     MPI_Request bcast_request_;
     MPI_Group bcast_group_;
     MPI_Comm bcast_comm_;
+
+    // FloatType *packed_a_;
+    // FloatType *packed_b_;
+    // int64_t packed_a_life_;
+    // int64_t packed_b_life_;
 
     //------------------------------------------------------
     void copyTo(FloatType *a, int64_t lda)
@@ -65,22 +63,22 @@ public:
         }
     }
 
-    void packA(int64_t life) {
-        trace_cpu_start();
-        packed_a_ = cblas_dgemm_alloc(CblasAMatrix, mb_, nb_, mb_);
-        cblas_dgemm_pack(CblasColMajor, CblasAMatrix, CblasNoTrans,
-                         mb_, nb_, mb_, -1.0, data_, mb_, packed_a_);
-        packed_a_life_ = life;
-        trace_cpu_stop("Black");
-    }
-    void packB(int64_t life) {
-        trace_cpu_start();
-        packed_b_ = cblas_dgemm_alloc(CblasBMatrix, mb_, nb_, mb_);
-        cblas_dgemm_pack(CblasColMajor, CblasBMatrix, CblasTrans,
-                         mb_, nb_, mb_, 1.0, data_, mb_, packed_b_);
-        packed_b_life_ = life;
-        trace_cpu_stop("Black");
-    }
+    // void packA(int64_t life) {
+    //     trace_cpu_start();
+    //     packed_a_ = cblas_dgemm_alloc(CblasAMatrix, mb_, nb_, mb_);
+    //     cblas_dgemm_pack(CblasColMajor, CblasAMatrix, CblasNoTrans,
+    //                      mb_, nb_, mb_, -1.0, data_, mb_, packed_a_);
+    //     packed_a_life_ = life;
+    //     trace_cpu_stop("Black");
+    // }
+    // void packB(int64_t life) {
+    //     trace_cpu_start();
+    //     packed_b_ = cblas_dgemm_alloc(CblasBMatrix, mb_, nb_, mb_);
+    //     cblas_dgemm_pack(CblasColMajor, CblasBMatrix, CblasTrans,
+    //                      mb_, nb_, mb_, 1.0, data_, mb_, packed_b_);
+    //     packed_b_life_ = life;
+    //     trace_cpu_stop("Black");
+    // }
 
     Tile(int64_t mb, int64_t nb) : mb_(mb), nb_(nb), life_(0) {
         data_ = new FloatType[mb*nb];

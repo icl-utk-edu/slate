@@ -74,9 +74,8 @@ public:
         #pragma omp critical
         {
             --tile->life_;
-            if (tile->life_ == 0) {
-                // deallocate();
-            }
+            if (tile->life_ == 0)
+                tile->deallocate();
         }
     }
 

@@ -29,6 +29,7 @@ public:
     int64_t nb_;
 
     FloatType *data_;
+    bool local_ = true;
     int64_t life_;
 
     MPI_Request bcast_request_;
@@ -71,6 +72,7 @@ public:
 
     void tick(Tile<FloatType> *tile)
     {
+        if (!local_)
         #pragma omp critical
         {
             --tile->life_;

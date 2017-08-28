@@ -661,6 +661,7 @@ void Matrix<FloatType>::tileIbcast(int64_t i, int64_t j,
             (*this)(i, j) = tile;
 
             // Find the tile's life.
+            tile->local_ = false;
             tile->life_ = tileIbcastFindLife(i, j, range);
         }
         // Perform the communication.
@@ -692,6 +693,7 @@ void Matrix<FloatType>::tileIbcast(int64_t i, int64_t j,
             (*this)(i, j) = tile;
 
             // Find the tile's life.
+            tile->local_ = false;
             tile->life_  = tileIbcastFindLife(i, j, range1);
             tile->life_ += tileIbcastFindLife(i, j, range2);
         }

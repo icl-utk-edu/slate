@@ -27,7 +27,8 @@ public:
     int64_t nt_; ///< number of tile columns
 
     // TODO: replace by unordered_map
-    std::map<std::pair<int64_t, int64_t>, Tile<FloatType>*> *tiles_;
+    std::map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*> *tiles_;
+    omp_lock_t *tiles_lock_ = new omp_lock_t();
 
     Matrix(int64_t m, int64_t n, double *a, int64_t lda,
            int64_t mb, int64_t nb);
@@ -48,11 +49,33 @@ public:
 
     void gather();
 
-    Tile<FloatType>* &operator()(int64_t m, int64_t n) {
-        return (*tiles_)[{it_+m, jt_+n}];
+    Tile<FloatType>* &operator()(int64_t m, int64_t n)
+    {
+        omp_set_lock(tiles_lock_);
+        Tile<FloatType>* &tile = (*tiles_)[{it_+m, jt_+n, host_num_}];
+        omp_unset_lock(tiles_lock_);
+        return tile;
     }
-    Tile<FloatType>* &operator()(int64_t m, int64_t n) const {
-        return (*tiles_)[{it_+m, jt_+n}];
+    Tile<FloatType>* &operator()(int64_t m, int64_t n) const
+    {
+        omp_set_lock(tiles_lock_);
+        Tile<FloatType>* &tile = (*tiles_)[{it_+m, jt_+n, host_num_}];
+        omp_unset_lock(tiles_lock_);
+        return tile;
+    }
+    Tile<FloatType>* &operator()(int64_t m, int64_t n, int device)
+    {
+        omp_set_lock(tiles_lock_);
+        Tile<FloatType>* &tile = (*tiles_)[{it_+m, jt_+n, device}];
+        omp_unset_lock(tiles_lock_);
+        return tile;
+    }
+    Tile<FloatType>* &operator()(int64_t m, int64_t n, int device) const
+    {
+        omp_set_lock(tiles_lock_);
+        Tile<FloatType>* &tile = (*tiles_)[{it_+m, jt_+n, device}];
+        omp_unset_lock(tiles_lock_);
+        return tile;
     }
 
     void trsm(blas::Side side, blas::Uplo uplo,
@@ -62,19 +85,27 @@ public:
     void potrf(blas::Uplo uplo, int64_t lookahead=0);
 
 private:
-    cublasHandle_t cublas_handle_;
-
     MPI_Comm mpi_comm_;
     MPI_Group mpi_group_;
+
     int mpi_size_;
     int mpi_rank_;
 
+    int host_num_;
+    int num_devices_;
+
+    cublasHandle_t cublas_handle_;
+
     std::function <int64_t (int64_t i, int64_t j)> tileRankFunc;
+    std::function <int64_t (int64_t i, int64_t j)> tileDeviceFunc;    
     std::function <int64_t (int64_t i)> tileMbFunc;
     std::function <int64_t (int64_t j)> tileNbFunc;
 
     int64_t tileRank(int64_t i, int64_t j) {
         return tileRankFunc(it_+i, jt_+j);
+    }
+    int64_t tileDevice(int64_t i, int64_t j) {
+        return tileDeviceFunc(it_+i, jt_+j);
     }
     int64_t tileMb(int64_t i) { return tileMbFunc(it_+i); }
     int64_t tileNb(int64_t j) { return tileNbFunc(jt_+j); }
@@ -83,6 +114,7 @@ private:
         return tileRank(i, j) == mpi_rank_;
     }
 
+    //-------------------------------------------
     void syrkTask(blas::Uplo uplo, blas::Op trans,
                   FloatType alpha, const Matrix &a, FloatType beta);
 
@@ -95,6 +127,7 @@ private:
     void syrkAcc(blas::Uplo uplo, blas::Op trans,
                  FloatType alpha, const Matrix &a, FloatType beta);
 
+    //--------------------------------------------
     void tileSend(int64_t i, int64_t j, int dest);
     void tileRecv(int64_t i, int64_t j, int src);
     
@@ -116,27 +149,83 @@ private:
     void tileIbcastIbcast(int64_t i, int64_t j, std::set<int> &bcast_set);
     void tileIbcastIsend(int64_t i, int64_t j, std::set<int> &bcast_set);
     void tileWait(int64_t m, int64_t n);
+
+    //--------------------------------------------
+    void tileCopyToDevice(int64_t i, int64_t j, int dst_device);
+    void tileMoveToDevice(int64_t i, int64_t j, int dst_device);
+
+    void tileCopyToHost(int64_t i, int64_t j, int src_device);
+    void tileMoveToHost(int64_t i, int64_t j, int src_device);
+
+    void tileErase(int64_t i, int64_t j, int device);
 };
+
+//------------------------------------------------------------------------------
+template<typename FloatType>
+void Matrix<FloatType>::tileCopyToDevice(int64_t i, int64_t j, int dst_device)
+{
+    Tile<FloatType> *src_tile = (*this)(i, j);
+    (*this)(i, j, dst_device) = new Tile<FloatType>(src_tile, dst_device);
+}
+
+//------------------------------------------------------------------------------
+template<typename FloatType>
+void Matrix<FloatType>::tileMoveToDevice(int64_t i, int64_t j, int dst_device)
+{
+    tileCopyToDevice(i, j, dst_device);
+    tileErase(i, j, host_num_);
+}
+
+//------------------------------------------------------------------------------
+template<typename FloatType>
+void Matrix<FloatType>::tileCopyToHost(int64_t i, int64_t j, int src_device)
+{
+    Tile<FloatType> *src_tile = (*this)(i, j, src_device);
+    (*this)(i, j, host_num_) = new Tile<FloatType>(src_tile, host_num_);
+}
+
+//------------------------------------------------------------------------------
+template<typename FloatType>
+void Matrix<FloatType>::tileMoveToHost(int64_t i, int64_t j, int src_device)
+{
+    tileCopyToHost(i, j, src_device);
+    tileErase(i, j, src_device);
+}
+
+//------------------------------------------------------------------------------
+template<typename FloatType>
+void Matrix<FloatType>::tileErase(int64_t i, int64_t j, int device)
+{
+    omp_set_lock(tiles_lock_);
+    tiles_->erase({it_+i, jt_+j, device});
+    omp_unset_lock(tiles_lock_);
+}
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
 Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
                           int64_t mb, int64_t nb)
 {
-    tiles_ = new std::map<std::pair<int64_t, int64_t>, Tile<FloatType>*>;
+    tiles_ = new std::map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*>;
     it_ = 0;
     jt_ = 0;
     mt_ = m % mb == 0 ? m/mb : m/mb+1;
     nt_ = n % nb == 0 ? n/nb : n/nb+1;
 
     tileRankFunc = [] (int64_t i, int64_t j) { return 0; };
+    tileDeviceFunc = [=] (int64_t i, int64_t j) { return j%num_devices_; };
     tileMbFunc = [=] (int64_t i) { return (it_+i)*mb > m ? m%mb : mb; };
     tileNbFunc = [=] (int64_t j) { return (jt_+j)*nb > n ? n%nb : nb; };
+
+    host_num_ = omp_get_initial_device();
+    num_devices_ = omp_get_num_devices();
 
     cublasStatus_t status = cublasCreate(&cublas_handle_);
     assert(status == CUBLAS_STATUS_SUCCESS);
 
     copyTo(a, lda);
+
+    omp_init_lock(tiles_lock_);
 }
 
 //------------------------------------------------------------------------------
@@ -145,7 +234,7 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
                           int64_t mb, int64_t nb,
                           MPI_Comm mpi_comm, int64_t p, int64_t q)
 {
-    tiles_ = new std::map<std::pair<int64_t, int64_t>, Tile<FloatType>*>;
+    tiles_ = new std::map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*>;
     it_ = 0;
     jt_ = 0;
     mt_ = m % mb == 0 ? m/mb : m/mb+1;
@@ -157,13 +246,19 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
     assert(MPI_Comm_group(mpi_comm_, &mpi_group_) == MPI_SUCCESS);
 
     tileRankFunc = [=] (int64_t i, int64_t j) { return i%p + (j%q)*p; };
+    tileDeviceFunc = [=] (int64_t i, int64_t j) { return j%num_devices_; };
     tileMbFunc = [=] (int64_t i) { return i*mb > m ? m%mb : mb; };
     tileNbFunc = [=] (int64_t j) { return j*nb > n ? n%nb : nb; };
+
+    host_num_ = omp_get_initial_device();
+    num_devices_ = omp_get_num_devices();
 
     cublasStatus_t status = cublasCreate(&cublas_handle_);
     assert(status == CUBLAS_STATUS_SUCCESS);
 
     copyTo(a, lda);
+
+    omp_init_lock(tiles_lock_);
 }
 
 //------------------------------------------------------------------------------
@@ -429,6 +524,7 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                 a.tileWait(n, k);
                 c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
             }
+            #pragma omp taskwait
 
         for (int64_t m = n+1; m < c.mt_; ++m)
             for (int64_t k = 0; k < a.nt_; ++k)
@@ -441,26 +537,22 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                         int h = omp_get_initial_device();
                         int t = omp_get_default_device();
 
-                        size_t s = sizeof(double)*nb*nb;
-                        double *cmn = (double*)omp_target_alloc(s, t);
-                        double *amk = (double*)omp_target_alloc(s, t);
-                        double *ank = (double*)omp_target_alloc(s, t);
-                        assert(cmn != nullptr);
-                        assert(amk != nullptr);
-                        assert(ank != nullptr);
-
-                        omp_target_memcpy(cmn, c(m, n)->data_, s, 0, 0, t, h);
-                        omp_target_memcpy(amk, a(m, k)->data_, s, 0, 0, t, h);
-                        omp_target_memcpy(ank, a(n, k)->data_, s, 0, 0, t, h);
+                        c.tileMoveToDevice(m, n, t);
+                        a.tileCopyToDevice(m, k, t);
+                        a.tileCopyToDevice(n, k, t);
 
                         cublasStatus_t status = 
                             cublasDgemm(cublas_handle_,
                                         CUBLAS_OP_N, CUBLAS_OP_T,
                                         nb, nb, nb,
-                                        &alpha, amk, nb, ank, nb, 
-                                        &beta, cmn, nb);
+                                        &alpha, a(m, k, t)->data_, nb,
+                                                a(n, k, t)->data_, nb, 
+                                        &beta,  c(m, n, t)->data_, nb);
                         assert(status == CUBLAS_STATUS_SUCCESS);
-                        omp_target_memcpy(c(m, n)->data_, cmn, s, 0, 0, h, t);
+
+                        c.tileMoveToHost(m, n, t);
+                        a.tileErase(m, k, t);
+                        a.tileErase(n, k, t);
                     }
                 }
     }
@@ -772,7 +864,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
     using namespace blas;
 
     Matrix<FloatType> a = *this;
-    uint8_t *column;
+    uint8_t *column;    
 
     #pragma omp parallel
     #pragma omp master

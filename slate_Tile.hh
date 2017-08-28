@@ -14,6 +14,7 @@
 #include <mkl_cblas.h>
 #include <mkl_lapacke.h>
 #include <mpi.h>
+#include <omp.h>
 
 extern "C" void trace_cpu_start();
 extern "C" void trace_cpu_stop(const char *color);
@@ -34,12 +35,29 @@ public:
     MPI_Group bcast_group_;
     MPI_Comm bcast_comm_;
 
+    static int host_num_;
+    int device_num_;
+
     // FloatType *packed_a_;
     // FloatType *packed_b_;
     // int64_t packed_a_life_;
     // int64_t packed_b_life_;
 
     //------------------------------------------------------
+    size_t size()
+    {
+        return sizeof(FloatType)*mb_*nb_;
+    }
+    void allocate()
+    {
+        data_ = (FloatType*)omp_target_alloc(size(), device_num_);
+        assert(data_ != nullptr);
+    }
+    void deallocate()
+    {
+        omp_target_free(data_, device_num_);
+        data_ = nullptr;
+    }
     void copyTo(FloatType *a, int64_t lda)
     {
         for (int64_t n = 0; n < nb_; ++n)
@@ -80,17 +98,29 @@ public:
     //     trace_cpu_stop("Black");
     // }
 
-    Tile(int64_t mb, int64_t nb) : mb_(mb), nb_(nb), life_(0) {
-        data_ = new FloatType[mb*nb];
+    Tile(int64_t mb, int64_t nb)
+        : mb_(mb), nb_(nb), device_num_(host_num_), life_(0)
+    {
+        allocate();
     }
     Tile(int64_t mb, int64_t nb, FloatType *a, int64_t lda)
-        : mb_(mb), nb_(nb), life_(0)
+        : mb_(mb), nb_(nb), device_num_(host_num_), life_(0)
     {
-        data_ = new FloatType[mb*nb];
+        allocate();
         copyTo(a, lda);
     }
+    Tile(const Tile<FloatType> *src_tile, int dst_device_num)
+    {
+        *this = *src_tile;
+        device_num_ = dst_device_num;
+        allocate();
+        int retval = omp_target_memcpy(data_, src_tile->data_,
+                                       size(), 0, 0,
+                                       dst_device_num, src_tile->device_num_);
+        assert(retval == 0);
+    }
     ~Tile() {
-        delete data_;
+        deallocate();
     }
 
     //------------------------------------------------------
@@ -163,6 +193,10 @@ public:
         printf("\n");
     }
 };
+
+//------------------------------------------------------------------------------
+template<typename FloatType>
+int Tile<FloatType>::host_num_ = omp_get_initial_device();
 
 } // namespace slate
 

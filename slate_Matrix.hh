@@ -220,8 +220,10 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
     host_num_ = omp_get_initial_device();
     num_devices_ = omp_get_num_devices();
 
-    cublasStatus_t status = cublasCreate(&cublas_handle_);
-    assert(status == CUBLAS_STATUS_SUCCESS);
+    if (num_devices_ > 0) {
+        cublasStatus_t status = cublasCreate(&cublas_handle_);
+        assert(status == CUBLAS_STATUS_SUCCESS);
+    }
 
     copyTo(a, lda);
 
@@ -253,8 +255,10 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
     host_num_ = omp_get_initial_device();
     num_devices_ = omp_get_num_devices();
 
-    cublasStatus_t status = cublasCreate(&cublas_handle_);
-    assert(status == CUBLAS_STATUS_SUCCESS);
+    if (num_devices_ > 0) {
+        cublasStatus_t status = cublasCreate(&cublas_handle_);
+        assert(status == CUBLAS_STATUS_SUCCESS);
+    }
 
     copyTo(a, lda);
 
@@ -921,7 +925,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[nt_-1])
             Matrix(a, k+1+lookahead, k+1+lookahead,
-                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkAcc(
+                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkTask(
                 Uplo::Lower, Op::NoTrans,
                 -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
         }

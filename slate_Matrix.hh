@@ -501,9 +501,9 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
 //  mkl_set_num_threads_local(1);
     trace_cpu_stop("DarkGreen");
 
-    delete a_array;
-    delete b_array;
-    delete c_array;
+    delete[] a_array;
+    delete[] b_array;
+    delete[] c_array;
 
     #pragma omp taskwait
 }

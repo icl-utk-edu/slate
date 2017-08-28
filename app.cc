@@ -100,11 +100,11 @@ int main (int argc, char *argv[])
 
         double gflops = (double)nb*nb*nb*nt*nt*nt/3.0/time/1000000000.0;
         printf("\t%.0lf GFLOPS\n", gflops);
-        delete a2;
+        delete[] a2;
     }
 
     //------------------------------------------------------
-    delete a1;
+    delete[] a1;
     trace_finish();
     return EXIT_SUCCESS;
 }

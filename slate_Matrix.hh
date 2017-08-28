@@ -936,10 +936,10 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
 if (mpi_rank_ == 0)
     for (int64_t i = 0; i < mt_; ++i) {
         for (int64_t j = 0; j < nt_; j++) {
-            if (tiles_->find({i, j}) == tiles_->end())
+            if (tiles_->find({i, j, host_num_}) == tiles_->end())
                 printf("  .");
             else
-                printf("%3ld", (*tiles_)[{i, j}]->life_);
+                printf("%3ld", (*tiles_)[{i, j, host_num_}]->life_);
 //              printf("  *");
         }
         printf("\n");

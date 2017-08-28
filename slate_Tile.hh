@@ -71,12 +71,11 @@ public:
 
     void tick(Tile<FloatType> *tile)
     {
-        return;
         #pragma omp critical
         {
             --tile->life_;
             if (tile->life_ == 0) {
-                delete tile;
+                // deallocate();
             }
         }
     }

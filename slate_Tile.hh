@@ -25,6 +25,8 @@ namespace slate {
 template<typename FloatType>
 class Tile {
 public:
+    omp_lock_t lock_;
+
     int64_t mb_;
     int64_t nb_;
 
@@ -102,12 +104,14 @@ public:
         : mb_(mb), nb_(nb), device_num_(host_num_), life_(0)
     {
         allocate();
+        omp_init_lock(&lock_);
     }
     Tile(int64_t mb, int64_t nb, FloatType *a, int64_t lda)
         : mb_(mb), nb_(nb), device_num_(host_num_), life_(0)
     {
         allocate();
         copyTo(a, lda);
+        omp_init_lock(&lock_);
     }
     Tile(const Tile<FloatType> *src_tile, int dst_device_num)
     {
@@ -118,6 +122,7 @@ public:
                                        size(), 0, 0,
                                        dst_device_num, src_tile->device_num_);
         assert(retval == 0);
+        omp_init_lock(&lock_);
     }
     ~Tile() {
         deallocate();
@@ -133,8 +138,8 @@ public:
                      b->data_, b->mb_, beta, data_, mb_);
         trace_cpu_stop("MediumAquamarine");
 
-        tick(a);
-        tick(b);
+        // tick(a);
+        // tick(b);
 
         // cblas_dgemm_compute(CblasColMajor, CblasPacked, CblasPacked,
         //     mb_, nb_, a->nb_, a->packed_a_, a->mb_, b->packed_b_, b->mb_,
@@ -167,8 +172,8 @@ public:
                    nb_, a->nb_, alpha, a->data_, a->mb_, beta, data_, mb_);
         trace_cpu_stop("CornflowerBlue");
 
-        tick(a);
-        tick(a);
+        // tick(a);
+        // tick(a);
     }
     void trsm(blas::Side side, blas::Uplo uplo, blas::Op transa,
               blas::Diag diag, FloatType alpha, Tile<FloatType> *a)
@@ -178,7 +183,7 @@ public:
                    mb_, nb_, alpha, a->data_, mb_, data_, mb_);
         trace_cpu_stop("MediumPurple");
 
-        tick(a);
+        // tick(a);
     }
 
     //------------------------------------------------------

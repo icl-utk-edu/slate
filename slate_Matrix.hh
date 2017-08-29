@@ -44,6 +44,8 @@ public:
         // assert(cublasDestroy(cublas_handle_) == CUBLAS_STATUS_SUCCESS);
     }
 
+    void tick(int64_t i, int64_t j);
+
     void copyTo(FloatType *a, int64_t lda);
     void copyFrom(FloatType *a, int64_t lda);
     void copyFromFull(FloatType *a, int64_t lda);
@@ -367,6 +369,7 @@ void Matrix<FloatType>::syrkTask(blas::Uplo uplo, blas::Op trans,
             if (c.tileIsLocal(n, n)) {
                 a.tileWait(n, k);
                 c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
+                a.tick(n, k); a.tick(n, k);
             }
 
         for (int64_t m = n+1; m < c.mt_; ++m)
@@ -377,6 +380,7 @@ void Matrix<FloatType>::syrkTask(blas::Uplo uplo, blas::Op trans,
                     a.tileWait(n, k);
                     c(m, n)->gemm(trans, Op::Trans,
                                   alpha, a(m, k), a(n, k), k == 0 ? beta : 1.0);
+                    a.tick(n, k); a.tick(m, k);
                 }
     }
     #pragma omp taskwait
@@ -866,6 +870,34 @@ void Matrix<FloatType>::tileWait(int64_t i, int64_t j)
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
+void Matrix<FloatType>::tick(int64_t i, int64_t j)
+{
+    // #pragma omp critical
+    if(!tileIsLocal(i, j)) {
+        auto t = (*this)(i,j);
+   omp_set_lock(&t->lock_);
+        t->life_ --;
+   if (t->life_ == 0) {
+       // delete (*this)(i,j);
+       // omp_set_lock(&tiles_lock_);
+       // tiles_->erase( std::make_pair(i,j) );
+       // printf("P%d Tile %d %d tileIsLocal %s isLocal_ %s reaches 0 life.\n",
+       //     mpi_rank_, i, j, "no", (*this)(i,j)->isLocal_ ? "yes" : "no" );
+       delete[] t->data_;
+       t->data_ = NULL;
+       // omp_unset_lock(&tiles_lock_);
+
+   }
+   omp_unset_lock(&t->lock_);
+   // if ((*this)(i,j)->life_ < 0) {
+   //     printf("P%d life negative! tile %d %d\n",
+   //     mpi_rank_, i, j);
+   // }
+    }
+}
+
+//------------------------------------------------------------------------------
+template<typename FloatType>
 void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
 {
     using namespace blas;
@@ -892,6 +924,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                     a(m, k)->trsm(Side::Right, Uplo::Lower,
                                   Op::Trans, Diag::NonUnit,
                                   1.0, a(k, k));
+                    a.tick(k, k);
                 }
                 tileIbcast(m, k, {m, m, k+1, m},
                                  {m, nt_-1, m, m});
@@ -908,6 +941,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                     tileWait(n, k);
                     a(n, n)->syrk(Uplo::Lower, Op::NoTrans,
                                   -1.0, a(n, k), 1.0);
+                    a.tick(n, k); a.tick(n, k);
                 }
 
                 for (int64_t m = n+1; m < nt_; ++m) {
@@ -917,6 +951,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                         tileWait(n, k);
                         a(m, n)->gemm(Op::NoTrans, Op::Trans,
                                       -1.0, a(m, k), a(n, k), 1.0);
+                        a.tick(m, k); a.tick(n, k);
                     }
                 }
                 #pragma omp taskwait
@@ -957,7 +992,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
             }
             printf("\n");
         }
-/*
+
 //------------------------------------------------------------------------------
 template<typename FloatType>
 void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)

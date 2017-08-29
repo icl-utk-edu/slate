@@ -72,7 +72,7 @@ public:
 
     void tick(Tile<FloatType> *tile)
     {
-        if (!local_)
+        if (!tile->local_)
         #pragma omp critical
         {
             --tile->life_;

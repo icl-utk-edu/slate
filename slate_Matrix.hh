@@ -10,6 +10,7 @@
 #include <set>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #include <mpi.h>
 #include <omp.h>
@@ -82,7 +83,7 @@ public:
               blas::Op trans, blas::Diag diag,
               FloatType alpha, const Matrix &a);
 
-    void potrf(blas::Uplo uplo, int64_t lookahead=0);
+    void potrf(blas::Uplo uplo, int64_t lookahead=3);
 
 private:
     MPI_Comm mpi_comm_;
@@ -932,21 +933,31 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                 -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
         }
     }
+
+    for (auto it=tiles_->begin(); it!=tiles_->end(); ++it){
+        if( !tileIsLocal( std::get<0>(it->first), std::get<1>(it->first) ) )
+        if ( it->second->life_ != 0 || it->second->data_ != NULL )
+        std::cout << "P" << mpi_rank_ << " TILE " << std::get<0>(it->first)
+              << " " << std::get<1>(it->first) << " LIFE "
+              << it->second->life_
+              << " data_ " << it->second->data_ << std::endl;
+    }
+
 }
 
 /*
-if (mpi_rank_ == 0)
-    for (int64_t i = 0; i < mt_; ++i) {
-        for (int64_t j = 0; j < nt_; j++) {
-            if (tiles_->find({i, j, host_num_}) == tiles_->end())
-                printf("  .");
-            else
-                printf("%3ld", (*tiles_)[{i, j, host_num_}]->life_);
-//              printf("  *");
+    if (mpi_rank_ == 0)
+        for (int64_t i = 0; i < mt_; ++i) {
+            for (int64_t j = 0; j < nt_; j++) {
+                if (tiles_->find({i, j, host_num_}) == tiles_->end())
+                    printf("  .");
+                else
+                    printf("%3ld", (*tiles_)[{i, j, host_num_}]->life_);
+    //              printf("  *");
+            }
+            printf("\n");
         }
-        printf("\n");
-    }
-
+/*
 //------------------------------------------------------------------------------
 template<typename FloatType>
 void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)

@@ -50,6 +50,7 @@ public:
 
     void gather();
 
+    //----------------------------------------------------------------
     Tile<FloatType>* &operator()(int64_t m, int64_t n)
     {
         omp_set_lock(tiles_lock_);
@@ -97,6 +98,7 @@ private:
 
     cublasHandle_t cublas_handle_;
 
+    //----------------------------------------------------------
     std::function <int64_t (int64_t i, int64_t j)> tileRankFunc;
     std::function <int64_t (int64_t i, int64_t j)> tileDeviceFunc;    
     std::function <int64_t (int64_t i)> tileMbFunc;
@@ -115,7 +117,7 @@ private:
         return tileRank(i, j) == mpi_rank_;
     }
 
-    //-------------------------------------------
+    //--------------------------------------------------------------
     void syrkTask(blas::Uplo uplo, blas::Op trans,
                   FloatType alpha, const Matrix &a, FloatType beta);
 
@@ -151,7 +153,7 @@ private:
     void tileIbcastIsend(int64_t i, int64_t j, std::set<int> &bcast_set);
     void tileWait(int64_t m, int64_t n);
 
-    //--------------------------------------------
+    //----------------------------------------------------------
     void tileCopyToDevice(int64_t i, int64_t j, int dst_device);
     void tileMoveToDevice(int64_t i, int64_t j, int dst_device);
 
@@ -159,6 +161,9 @@ private:
     void tileMoveToHost(int64_t i, int64_t j, int src_device);
 
     void tileErase(int64_t i, int64_t j, int device);
+
+    void checkLife();
+    void printLife();
 };
 
 //------------------------------------------------------------------------------
@@ -866,6 +871,38 @@ void Matrix<FloatType>::tileWait(int64_t i, int64_t j)
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
+void Matrix<FloatType>::checkLife()
+{
+    for (auto it = tiles_->begin(); it != tiles_->end(); ++it) {
+        if (!tileIsLocal(std::get<0>(it->first), std::get<1>(it->first)))
+            if (it->second->life_ != 0 || it->second->data_ != nullptr)
+                std::cout << "P" << mpi_rank_
+                          << " TILE " << std::get<0>(it->first)
+                          << " " << std::get<1>(it->first)
+                          << " LIFE " << it->second->life_
+                          << " data_ " << it->second->data_ << std::endl;
+    }
+}
+
+//------------------------------------------------------------------------------
+template<typename FloatType>
+void Matrix<FloatType>::printLife()
+{
+    if (mpi_rank_ == 0) {
+        for (int64_t i = 0; i < mt_; ++i) {
+            for (int64_t j = 0; j < nt_; j++) {
+                if (tiles_->find({i, j, host_num_}) == tiles_->end())
+                    printf("  .");
+                else
+                    printf("%3ld", (*tiles_)[{i, j, host_num_}]->life_);
+            }
+            printf("\n");
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+template<typename FloatType>
 void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
 {
     using namespace blas;
@@ -934,31 +971,10 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
         }
     }
 
-    for (auto it=tiles_->begin(); it!=tiles_->end(); ++it){
-        if( !tileIsLocal( std::get<0>(it->first), std::get<1>(it->first) ) )
-        if ( it->second->life_ != 0 || it->second->data_ != NULL )
-        std::cout << "P" << mpi_rank_ << " TILE " << std::get<0>(it->first)
-              << " " << std::get<1>(it->first) << " LIFE "
-              << it->second->life_
-              << " data_ " << it->second->data_ << std::endl;
-    }
-
+    a.checkLife();
+    a.printLife();
 }
 
-/*
-    if (mpi_rank_ == 0)
-        for (int64_t i = 0; i < mt_; ++i) {
-            for (int64_t j = 0; j < nt_; j++) {
-                if (tiles_->find({i, j, host_num_}) == tiles_->end())
-                    printf("  .");
-                else
-                    printf("%3ld", (*tiles_)[{i, j, host_num_}]->life_);
-    //              printf("  *");
-            }
-            printf("\n");
-        }
-
-*/
 } // namespace slate
 
 #endif // SLATE_MATRIX_HH

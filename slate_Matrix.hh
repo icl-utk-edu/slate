@@ -958,65 +958,6 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
             printf("\n");
         }
 
-//------------------------------------------------------------------------------
-template<typename FloatType>
-void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
-{
-    using namespace blas;
-
-    Matrix<FloatType> a = *this;
-    uint8_t *column;
-
-//  #pragma omp parallel num_threads(8)
-    #pragma omp parallel
-    #pragma omp master
-    for (int64_t k = 0; k < nt_; ++k) {
-        #pragma omp task depend(inout:column[k]) priority(1)
-        {
-            a(k, k)->potrf(uplo);
-
-            for (int64_t m = k+1; m < nt_; ++m) {
-                #pragma omp task priority(1)
-                {
-                    a(m, k)->trsm(Side::Right, Uplo::Lower,
-                                  Op::Trans, Diag::NonUnit,
-                                  1.0, a(k, k));
-
-                    if (m-k-1 > 0)
-                        a(m, k)->packA(m-k-1);
-
-                    if (nt_-m-1 > 0)
-                        a(m, k)->packB(nt_-m-1);
-                }
-            }
-            #pragma omp taskwait
-        }
-        for (int64_t n = k+1; n < k+1+lookahead && n < nt_; ++n) {
-            #pragma omp task depend(in:column[k]) \
-                             depend(inout:column[n]) priority(1)
-            {
-                #pragma omp task priority(1)
-                a(n, n)->syrk(Uplo::Lower, Op::NoTrans,
-                              -1.0, a(n, k), 1.0);
-
-                for (int64_t m = n+1; m < nt_; ++m) {
-                    #pragma omp task priority(1)
-                    a(m, n)->gemm(Op::NoTrans, Op::Trans,
-                                  -1.0, a(m, k), a(n, k), 1.0);
-                }
-                #pragma omp taskwait
-            }
-        }
-        if (k+1+lookahead < nt_)
-            #pragma omp task depend(in:column[k]) \
-                             depend(inout:column[k+1+lookahead]) \
-                             depend(inout:column[nt_-1])
-            Matrix(a, k+1+lookahead, k+1+lookahead,
-                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkNest(
-                Uplo::Lower, Op::NoTrans,
-                -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
-    }
-}
 */
 } // namespace slate
 

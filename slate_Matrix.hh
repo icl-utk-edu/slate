@@ -51,31 +51,31 @@ public:
     void gather();
 
     //----------------------------------------------------------------
-    Tile<FloatType>* &operator()(int64_t m, int64_t n)
+    Tile<FloatType>* &operator()(int64_t i, int64_t j)
     {
         omp_set_lock(tiles_lock_);
-        Tile<FloatType>* &tile = (*tiles_)[{it_+m, jt_+n, host_num_}];
+        Tile<FloatType>* &tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
         omp_unset_lock(tiles_lock_);
         return tile;
     }
-    Tile<FloatType>* &operator()(int64_t m, int64_t n) const
+    Tile<FloatType>* &operator()(int64_t i, int64_t j) const
     {
         omp_set_lock(tiles_lock_);
-        Tile<FloatType>* &tile = (*tiles_)[{it_+m, jt_+n, host_num_}];
+        Tile<FloatType>* &tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
         omp_unset_lock(tiles_lock_);
         return tile;
     }
-    Tile<FloatType>* &operator()(int64_t m, int64_t n, int device)
+    Tile<FloatType>* &operator()(int64_t i, int64_t j, int device)
     {
         omp_set_lock(tiles_lock_);
-        Tile<FloatType>* &tile = (*tiles_)[{it_+m, jt_+n, device}];
+        Tile<FloatType>* &tile = (*tiles_)[{it_+i, jt_+j, device}];
         omp_unset_lock(tiles_lock_);
         return tile;
     }
-    Tile<FloatType>* &operator()(int64_t m, int64_t n, int device) const
+    Tile<FloatType>* &operator()(int64_t i, int64_t j, int device) const
     {
         omp_set_lock(tiles_lock_);
-        Tile<FloatType>* &tile = (*tiles_)[{it_+m, jt_+n, device}];
+        Tile<FloatType>* &tile = (*tiles_)[{it_+i, jt_+j, device}];
         omp_unset_lock(tiles_lock_);
         return tile;
     }
@@ -170,32 +170,46 @@ private:
 template<typename FloatType>
 void Matrix<FloatType>::tileCopyToDevice(int64_t i, int64_t j, int dst_device)
 {
-    Tile<FloatType> *src_tile = (*this)(i, j);
-    (*this)(i, j, dst_device) = new Tile<FloatType>(src_tile, dst_device);
+    omp_set_lock(tiles_lock_);
+    Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
+    (*tiles_)[{it_+i, jt_+j, dst_device}] = 
+        new Tile<FloatType>(src_tile, dst_device);
+    omp_unset_lock(tiles_lock_);
 }
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
 void Matrix<FloatType>::tileMoveToDevice(int64_t i, int64_t j, int dst_device)
 {
-    tileCopyToDevice(i, j, dst_device);
-    tileErase(i, j, host_num_);
+    omp_set_lock(tiles_lock_);
+    Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
+    (*tiles_)[{it_+i, jt_+j, dst_device}] = 
+        new Tile<FloatType>(src_tile, dst_device);
+    tiles_->erase({it_+i, jt_+j, host_num_});
+    omp_unset_lock(tiles_lock_);
 }
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
 void Matrix<FloatType>::tileCopyToHost(int64_t i, int64_t j, int src_device)
 {
-    Tile<FloatType> *src_tile = (*this)(i, j, src_device);
-    (*this)(i, j, host_num_) = new Tile<FloatType>(src_tile, host_num_);
+    omp_set_lock(tiles_lock_);
+    Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
+    (*tiles_)[{it_+i, jt_+j, host_num_}] = 
+        new Tile<FloatType>(src_tile, host_num_);
+    omp_unset_lock(tiles_lock_);
 }
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
 void Matrix<FloatType>::tileMoveToHost(int64_t i, int64_t j, int src_device)
 {
-    tileCopyToHost(i, j, src_device);
-    tileErase(i, j, src_device);
+    omp_set_lock(tiles_lock_);
+    Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
+    (*tiles_)[{it_+i, jt_+j, host_num_}] = 
+        new Tile<FloatType>(src_tile, host_num_);
+    tiles_->erase({it_+i, jt_+j, src_device});
+    omp_unset_lock(tiles_lock_);
 }
 
 //------------------------------------------------------------------------------
@@ -527,18 +541,21 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
 
     // Lower, NoTrans
     for (int64_t n = 0; n < c.nt_; ++n) {
-
-        for (int64_t k = 0; k < a.nt_; ++k)
+        for (int64_t k = 0; k < a.nt_; ++k) {
             #pragma omp task
             if (c.tileIsLocal(n, n)) {
                 a.tileWait(n, k);
                 c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
             }
-            #pragma omp taskwait
+        }
+    }
+    #pragma omp taskwait
 
+    for (int64_t n = 0; n < c.nt_; ++n) {
         for (int64_t m = n+1; m < c.mt_; ++m)
             for (int64_t k = 0; k < a.nt_; ++k)
-                #pragma omp task
+
+                // #pragma omp task
                 if (c.tileIsLocal(m, n)) {
                     a.tileWait(m, k);
                     a.tileWait(n, k);
@@ -551,6 +568,7 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                         a.tileCopyToDevice(m, k, t);
                         a.tileCopyToDevice(n, k, t);
 
+trace_cpu_start();
                         cublasStatus_t status = 
                             cublasDgemm(cublas_handle_,
                                         CUBLAS_OP_N, CUBLAS_OP_T,
@@ -559,6 +577,7 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                                                 a(n, k, t)->data_, nb, 
                                         &beta,  c(m, n, t)->data_, nb);
                         assert(status == CUBLAS_STATUS_SUCCESS);
+trace_cpu_stop("LimeGreen");
 
                         c.tileMoveToHost(m, n, t);
                         a.tileErase(m, k, t);
@@ -965,7 +984,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[nt_-1])
             Matrix(a, k+1+lookahead, k+1+lookahead,
-                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkTask(
+                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkAcc(
                 Uplo::Lower, Op::NoTrans,
                 -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
         }

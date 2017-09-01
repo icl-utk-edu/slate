@@ -45,8 +45,7 @@ public:
     // int64_t packed_b_life_;
 
     //-----------------------------------
-    size_t size()
-    {
+    size_t size() {
         return sizeof(FloatType)*mb_*nb_;
     }
     void allocate()

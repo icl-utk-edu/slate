@@ -185,6 +185,7 @@ void Matrix<FloatType>::tileMoveToDevice(int64_t i, int64_t j, int dst_device)
     Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
     (*tiles_)[{it_+i, jt_+j, dst_device}] = 
         new Tile<FloatType>(src_tile, dst_device);
+    delete (*tiles_)[{it_+i, jt_+j, host_num_}];
     tiles_->erase({it_+i, jt_+j, host_num_});
     omp_unset_lock(tiles_lock_);
 }
@@ -208,6 +209,7 @@ void Matrix<FloatType>::tileMoveToHost(int64_t i, int64_t j, int src_device)
     Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
     (*tiles_)[{it_+i, jt_+j, host_num_}] = 
         new Tile<FloatType>(src_tile, host_num_);
+    delete (*tiles_)[{it_+i, jt_+j, src_device}];
     tiles_->erase({it_+i, jt_+j, src_device});
     omp_unset_lock(tiles_lock_);
 }
@@ -217,6 +219,7 @@ template<typename FloatType>
 void Matrix<FloatType>::tileErase(int64_t i, int64_t j, int device)
 {
     omp_set_lock(tiles_lock_);
+    delete (*tiles_)[{it_+i, jt_+j, device}];
     tiles_->erase({it_+i, jt_+j, device});
     omp_unset_lock(tiles_lock_);
 }

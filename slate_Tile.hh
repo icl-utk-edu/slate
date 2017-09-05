@@ -50,12 +50,16 @@ public:
     }
     void allocate()
     {
+        // trace_cpu_start();
         data_ = (FloatType*)omp_target_alloc(size(), device_num_);
+        // trace_cpu_stop("Orchid");
         assert(data_ != nullptr);
     }
     void deallocate()
     {
+        // trace_cpu_start();
         omp_target_free(data_, device_num_);
+        // trace_cpu_stop("Crimson");
         data_ = nullptr;
     }
     void copyTo(FloatType *a, int64_t lda)

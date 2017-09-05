@@ -185,15 +185,15 @@ void Matrix<FloatType>::tileCopyToDevice(int64_t i, int64_t j, int dst_device)
 }
 
 //------------------------------------------------------------------------------
-// @brief Move the tile to the device, if it exists on the host.
-//        If it's already been moved, it won't be moved again. 
+// @brief Move the tile to the device, if not already there.
+//        If it's already been moved, it won't be moved again.
 //
 template<typename FloatType>
 void Matrix<FloatType>::tileMoveToDevice(int64_t i, int64_t j, int dst_device)
 {
     omp_set_lock(tiles_lock_);
-    // If the tile exists on the host.
-    if (tiles_->find({it_+i, jt_+j, host_num_}) != tiles_->end()) {
+    // If the tile not on the device.
+    if (tiles_->find({it_+i, jt_+j, dst_device}) == tiles_->end()) {
         // Move the tile to the device.
         Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
         (*tiles_)[{it_+i, jt_+j, dst_device}] = 
@@ -216,15 +216,15 @@ void Matrix<FloatType>::tileMoveToDevice(int64_t i, int64_t j, int dst_device)
 // }
 
 //------------------------------------------------------------------------------
-// @brief Move the tile to the host, if it exists on the device.
-//        If it's already been moved, it won't be moved again. 
+// @brief Move the tile to the host, if not already there.
+//        If it's already been moved, it won't be moved again.
 //
 template<typename FloatType>
 void Matrix<FloatType>::tileMoveToHost(int64_t i, int64_t j, int src_device)
 {
     omp_set_lock(tiles_lock_);
-    // If the tile exists on the device.
-    if (tiles_->find({it_+i, jt_+j, src_device}) != tiles_->end()) {
+    // If the tile not on the host.
+    if (tiles_->find({it_+i, jt_+j, host_num_}) == tiles_->end()) {
         // Move the tile to the host.
         Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
         (*tiles_)[{it_+i, jt_+j, host_num_}] = 
@@ -573,26 +573,15 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
     // Lower, NoTrans
     for (int64_t n = 0; n < c.nt_; ++n) {
         for (int64_t k = 0; k < a.nt_; ++k) {
-            #pragma omp task
             if (c.tileIsLocal(n, n)) {
-                a.tileWait(n, k);
-                c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
+                #pragma omp task
+                {
+                    a.tileWait(n, k);
+                    c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
+                }
             }
         }
     }
-    #pragma omp taskwait
-
-    // Build the sets of inexes.
-    // std::set<std::pair<int, int>> a_set;
-    // std::set<std::pair<int, int>> c_set;
-    // for (int64_t n = 0; n < c.nt_; ++n)
-    //     for (int64_t m = n+1; m < c.mt_; ++m)
-    //         for (int64_t k = 0; k < a.nt_; ++k) {
-    //             a_set.insert({m, k});
-    //             a_set.insert({n, k});
-    //             c_set.insert({m, n});
-    //         }
-
 
     int nb = tileNb(0);
     int t = omp_get_default_device();
@@ -634,13 +623,11 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                 if (c.tileIsLocal(m, n)) {
 
                     c.tileMoveToHost(m, n, t);
+
                     a.tileErase(m, k, t);
                     a.tileErase(n, k, t);
                 }
 
-
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
@@ -981,6 +968,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
 {
     using namespace blas;
 
+    int t = omp_get_default_device();
     Matrix<FloatType> a = *this;
     uint8_t *column;    
 
@@ -997,12 +985,14 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                 tileIbcast(k, k, {k+1, nt_-1, k, k});
 
             for (int64_t m = k+1; m < nt_; ++m) {
-
                 if (tileIsLocal(m, k)) {
-                    tileWait(k, k);
-                    a(m, k)->trsm(Side::Right, Uplo::Lower,
-                                  Op::Trans, Diag::NonUnit,
-                                  1.0, a(k, k));
+                    #pragma omp task priority(1)
+                    {
+                        tileWait(k, k);
+                        a(m, k)->trsm(Side::Right, Uplo::Lower,
+                                      Op::Trans, Diag::NonUnit,
+                                      1.0, a(k, k));
+                    }
                 }
                 tileIbcast(m, k, {m, m, k+1, m},
                                  {m, nt_-1, m, m});
@@ -1014,20 +1004,24 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[n]) priority(1)
             {
-                #pragma omp task priority(1)
                 if (tileIsLocal(n, n)) {
-                    tileWait(n, k);
-                    a(n, n)->syrk(Uplo::Lower, Op::NoTrans,
-                                  -1.0, a(n, k), 1.0);
+                    #pragma omp task priority(1)
+                    {
+                        tileWait(n, k);
+                        a(n, n)->syrk(Uplo::Lower, Op::NoTrans,
+                                      -1.0, a(n, k), 1.0);
+                    }
                 }
 
                 for (int64_t m = n+1; m < nt_; ++m) {
-                    #pragma omp task priority(1)
                     if (tileIsLocal(m, n)) {
-                        tileWait(m, k);
-                        tileWait(n, k);
-                        a(m, n)->gemm(Op::NoTrans, Op::Trans,
-                                      -1.0, a(m, k), a(n, k), 1.0);
+                        #pragma omp task priority(1)
+                        {
+                            tileWait(m, k);
+                            tileWait(n, k);
+                            a(m, n)->gemm(Op::NoTrans, Op::Trans,
+                                          -1.0, a(m, k), a(n, k), 1.0);
+                        }
                     }
                 }
                 #pragma omp taskwait

@@ -157,7 +157,7 @@ private:
     void tileCopyToDevice(int64_t i, int64_t j, int dst_device);
     void tileMoveToDevice(int64_t i, int64_t j, int dst_device);
 
-    void tileCopyToHost(int64_t i, int64_t j, int src_device);
+//  void tileCopyToHost(int64_t i, int64_t j, int src_device);
     void tileMoveToHost(int64_t i, int64_t j, int src_device);
 
     void tileErase(int64_t i, int64_t j, int device);
@@ -167,60 +167,88 @@ private:
 };
 
 //------------------------------------------------------------------------------
+// @brief Copy the tile to the device, if not already there.
+//        If it's already been copied, it won't be copied again.
+//
 template<typename FloatType>
 void Matrix<FloatType>::tileCopyToDevice(int64_t i, int64_t j, int dst_device)
 {
     omp_set_lock(tiles_lock_);
-    Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
-    (*tiles_)[{it_+i, jt_+j, dst_device}] = 
-        new Tile<FloatType>(src_tile, dst_device);
+    // If the tile not on the device.
+    if (tiles_->find({it_+i, jt_+j, dst_device}) == tiles_->end()) {
+        // Copy the tile to the device.
+        Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
+        (*tiles_)[{it_+i, jt_+j, dst_device}] = 
+            new Tile<FloatType>(src_tile, dst_device);
+    }
     omp_unset_lock(tiles_lock_);
 }
 
 //------------------------------------------------------------------------------
+// @brief Move the tile to the device, if it exists on the host.
+//        If it's already been moved, it won't be moved again. 
+//
 template<typename FloatType>
 void Matrix<FloatType>::tileMoveToDevice(int64_t i, int64_t j, int dst_device)
 {
     omp_set_lock(tiles_lock_);
-    Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
-    (*tiles_)[{it_+i, jt_+j, dst_device}] = 
-        new Tile<FloatType>(src_tile, dst_device);
-    delete (*tiles_)[{it_+i, jt_+j, host_num_}];
-    tiles_->erase({it_+i, jt_+j, host_num_});
+    // If the tile exists on the host.
+    if (tiles_->find({it_+i, jt_+j, host_num_}) != tiles_->end()) {
+        // Move the tile to the device.
+        Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
+        (*tiles_)[{it_+i, jt_+j, dst_device}] = 
+            new Tile<FloatType>(src_tile, dst_device);
+        delete (*tiles_)[{it_+i, jt_+j, host_num_}];
+        tiles_->erase({it_+i, jt_+j, host_num_});
+    }
     omp_unset_lock(tiles_lock_);
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
-void Matrix<FloatType>::tileCopyToHost(int64_t i, int64_t j, int src_device)
-{
-    omp_set_lock(tiles_lock_);
-    Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
-    (*tiles_)[{it_+i, jt_+j, host_num_}] = 
-        new Tile<FloatType>(src_tile, host_num_);
-    omp_unset_lock(tiles_lock_);
-}
+// template<typename FloatType>
+// void Matrix<FloatType>::tileCopyToHost(int64_t i, int64_t j, int src_device)
+// {
+//     omp_set_lock(tiles_lock_);
+//     Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
+//     (*tiles_)[{it_+i, jt_+j, host_num_}] = 
+//         new Tile<FloatType>(src_tile, host_num_);
+//     omp_unset_lock(tiles_lock_);
+// }
 
 //------------------------------------------------------------------------------
+// @brief Move the tile to the host, if it exists on the device.
+//        If it's already been moved, it won't be moved again. 
+//
 template<typename FloatType>
 void Matrix<FloatType>::tileMoveToHost(int64_t i, int64_t j, int src_device)
 {
     omp_set_lock(tiles_lock_);
-    Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
-    (*tiles_)[{it_+i, jt_+j, host_num_}] = 
-        new Tile<FloatType>(src_tile, host_num_);
-    delete (*tiles_)[{it_+i, jt_+j, src_device}];
-    tiles_->erase({it_+i, jt_+j, src_device});
+    // If the tile exists on the device.
+    if (tiles_->find({it_+i, jt_+j, src_device}) != tiles_->end()) {
+        // Move the tile to the host.
+        Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
+        (*tiles_)[{it_+i, jt_+j, host_num_}] = 
+            new Tile<FloatType>(src_tile, host_num_);
+        delete (*tiles_)[{it_+i, jt_+j, src_device}];
+        tiles_->erase({it_+i, jt_+j, src_device});
+    }
     omp_unset_lock(tiles_lock_);
 }
 
 //------------------------------------------------------------------------------
+// @brief Erase the tile, if it exists in the specified location.
+//        Don't try to erase tiles that have already been erased.
+//
 template<typename FloatType>
 void Matrix<FloatType>::tileErase(int64_t i, int64_t j, int device)
 {
     omp_set_lock(tiles_lock_);
-    delete (*tiles_)[{it_+i, jt_+j, device}];
-    tiles_->erase({it_+i, jt_+j, device});
+    // If the tile exists in the specified location.
+    if (tiles_->find({it_+i, jt_+j, device}) != tiles_->end()) {
+        // Erase the tile.
+        delete (*tiles_)[{it_+i, jt_+j, device}];
+        tiles_->erase({it_+i, jt_+j, device});
+    }
     omp_unset_lock(tiles_lock_);
 }
 
@@ -554,40 +582,64 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
     }
     #pragma omp taskwait
 
-    for (int64_t n = 0; n < c.nt_; ++n) {
+    // Build the sets of inexes.
+    // std::set<std::pair<int, int>> a_set;
+    // std::set<std::pair<int, int>> c_set;
+    // for (int64_t n = 0; n < c.nt_; ++n)
+    //     for (int64_t m = n+1; m < c.mt_; ++m)
+    //         for (int64_t k = 0; k < a.nt_; ++k) {
+    //             a_set.insert({m, k});
+    //             a_set.insert({n, k});
+    //             c_set.insert({m, n});
+    //         }
+
+
+    int nb = tileNb(0);
+    int t = omp_get_default_device();
+    int h = omp_get_initial_device();
+
+    for (int64_t n = 0; n < c.nt_; ++n)
         for (int64_t m = n+1; m < c.mt_; ++m)
             for (int64_t k = 0; k < a.nt_; ++k)
-
-                // #pragma omp task
                 if (c.tileIsLocal(m, n)) {
+
                     a.tileWait(m, k);
                     a.tileWait(n, k);
-                    {
-                        int nb = tileNb(0);
-                        int h = omp_get_initial_device();
-                        int t = omp_get_default_device();
 
-                        c.tileMoveToDevice(m, n, t);
-                        a.tileCopyToDevice(m, k, t);
-                        a.tileCopyToDevice(n, k, t);
-
-trace_cpu_start();
-                        cublasStatus_t status = 
-                            cublasDgemm(cublas_handle_,
-                                        CUBLAS_OP_N, CUBLAS_OP_T,
-                                        nb, nb, nb,
-                                        &alpha, a(m, k, t)->data_, nb,
-                                                a(n, k, t)->data_, nb, 
-                                        &beta,  c(m, n, t)->data_, nb);
-                        assert(status == CUBLAS_STATUS_SUCCESS);
-trace_cpu_stop("LimeGreen");
-
-                        c.tileMoveToHost(m, n, t);
-                        a.tileErase(m, k, t);
-                        a.tileErase(n, k, t);
-                    }
+                    c.tileMoveToDevice(m, n, t);
+                    a.tileCopyToDevice(m, k, t);
+                    a.tileCopyToDevice(n, k, t);
                 }
-    }
+
+    for (int64_t n = 0; n < c.nt_; ++n)
+        for (int64_t m = n+1; m < c.mt_; ++m)
+            for (int64_t k = 0; k < a.nt_; ++k)
+                if (c.tileIsLocal(m, n)) {
+
+                    trace_cpu_start();
+                    cublasStatus_t status = 
+                        cublasDgemm(cublas_handle_,
+                                    CUBLAS_OP_N, CUBLAS_OP_T,
+                                    nb, nb, nb,
+                                    &alpha, a(m, k, t)->data_, nb,
+                                            a(n, k, t)->data_, nb, 
+                                    &beta,  c(m, n, t)->data_, nb);
+                    assert(status == CUBLAS_STATUS_SUCCESS);
+                    trace_cpu_stop("LimeGreen");
+                }
+
+    for (int64_t n = 0; n < c.nt_; ++n)
+        for (int64_t m = n+1; m < c.mt_; ++m)
+            for (int64_t k = 0; k < a.nt_; ++k)
+                if (c.tileIsLocal(m, n)) {
+
+                    c.tileMoveToHost(m, n, t);
+                    a.tileErase(m, k, t);
+                    a.tileErase(n, k, t);
+                }
+
+
+
     #pragma omp taskwait
 }
 

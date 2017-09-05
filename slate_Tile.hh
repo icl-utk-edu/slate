@@ -113,9 +113,11 @@ public:
         *this = *src_tile;
         device_num_ = dst_device_num;
         allocate();
+        trace_cpu_start();
         int retval = omp_target_memcpy(data_, src_tile->data_,
                                        size(), 0, 0,
                                        dst_device_num, src_tile->device_num_);
+        trace_cpu_stop("LightGray");
         assert(retval == 0);
     }
     ~Tile() {

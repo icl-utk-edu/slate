@@ -121,7 +121,11 @@ public:
         int retval = omp_target_memcpy(data_, src_tile->data_,
                                        size(), 0, 0,
                                        dst_device_num, src_tile->device_num_);
-        trace_cpu_stop("LightGray");
+        if (dst_device_num == host_num_)
+            trace_cpu_stop("Gray");
+        else
+            trace_cpu_stop("LightGray");
+
         assert(retval == 0);
     }
     ~Tile() {

@@ -628,6 +628,11 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                     a.tileErase(n, k, t);
                 }
 
+    // for (int64_t m = 1; m < c.mt_; ++m)
+    //     if (c.tileIsLocal(m, 0))
+    //         c.tileMoveToHost(m, 0, t);
+
+    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

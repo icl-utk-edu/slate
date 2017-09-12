@@ -15,6 +15,7 @@
 #include <mpi.h>
 #include <omp.h>
 #include <cublas_v2.h>
+#include <cuda_runtime.h>
 
 namespace slate {
 
@@ -571,66 +572,65 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
     Matrix<FloatType> a = that;
 
     // Lower, NoTrans
-    for (int64_t n = 0; n < c.nt_; ++n) {
-        for (int64_t k = 0; k < a.nt_; ++k) {
-            if (c.tileIsLocal(n, n)) {
+    for (int64_t n = 0; n < c.nt_; ++n)
+        for (int64_t k = 0; k < a.nt_; ++k)
+            if (c.tileIsLocal(n, n))
                 #pragma omp task
                 {
                     a.tileWait(n, k);
                     c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
                 }
-            }
-        }
+
+    #pragma omp task
+    {
+        int nb = tileNb(0);
+        int t = omp_get_default_device();
+        int h = omp_get_initial_device();
+
+        for (int64_t n = 0; n < c.nt_; ++n)
+            for (int64_t m = n+1; m < c.mt_; ++m)
+                for (int64_t k = 0; k < a.nt_; ++k)
+                    if (c.tileIsLocal(m, n)) {
+
+                        a.tileWait(m, k);
+                        a.tileWait(n, k);
+
+                        c.tileMoveToDevice(m, n, t);
+                        a.tileCopyToDevice(m, k, t);
+                        a.tileCopyToDevice(n, k, t);
+                    }
+
+        for (int64_t n = 0; n < c.nt_; ++n)
+            for (int64_t m = n+1; m < c.mt_; ++m)
+                for (int64_t k = 0; k < a.nt_; ++k)
+                    if (c.tileIsLocal(m, n)) {
+
+                        trace_cpu_start();
+                        cublasStatus_t status = 
+                            cublasDgemm(cublas_handle_,
+                                        CUBLAS_OP_N, CUBLAS_OP_T,
+                                        nb, nb, nb,
+                                        &alpha, a(m, k, t)->data_, nb,
+                                                a(n, k, t)->data_, nb, 
+                                        &beta,  c(m, n, t)->data_, nb);
+                        assert(status == CUBLAS_STATUS_SUCCESS);
+                        trace_cpu_stop("LimeGreen");
+                    }
+
+        trace_cpu_start();
+//      cudaDeviceSynchronize();
+        cudaStreamSynchronize(0);
+        trace_cpu_stop("Crimson");
+
+        for (int64_t n = 0; n < c.nt_; ++n)
+            for (int64_t m = n+1; m < c.mt_; ++m)
+                for (int64_t k = 0; k < a.nt_; ++k)
+                    if (c.tileIsLocal(m, n)) {
+
+                        a.tileErase(m, k, t);
+                        a.tileErase(n, k, t);
+                    }
     }
-
-    int nb = tileNb(0);
-    int t = omp_get_default_device();
-    int h = omp_get_initial_device();
-
-    for (int64_t n = 0; n < c.nt_; ++n)
-        for (int64_t m = n+1; m < c.mt_; ++m)
-            for (int64_t k = 0; k < a.nt_; ++k)
-                if (c.tileIsLocal(m, n)) {
-
-                    a.tileWait(m, k);
-                    a.tileWait(n, k);
-
-                    c.tileMoveToDevice(m, n, t);
-                    a.tileCopyToDevice(m, k, t);
-                    a.tileCopyToDevice(n, k, t);
-                }
-
-    for (int64_t n = 0; n < c.nt_; ++n)
-        for (int64_t m = n+1; m < c.mt_; ++m)
-            for (int64_t k = 0; k < a.nt_; ++k)
-                if (c.tileIsLocal(m, n)) {
-
-                    trace_cpu_start();
-                    cublasStatus_t status = 
-                        cublasDgemm(cublas_handle_,
-                                    CUBLAS_OP_N, CUBLAS_OP_T,
-                                    nb, nb, nb,
-                                    &alpha, a(m, k, t)->data_, nb,
-                                            a(n, k, t)->data_, nb, 
-                                    &beta,  c(m, n, t)->data_, nb);
-                    assert(status == CUBLAS_STATUS_SUCCESS);
-                    trace_cpu_stop("LimeGreen");
-                }
-
-    for (int64_t n = 0; n < c.nt_; ++n)
-        for (int64_t m = n+1; m < c.mt_; ++m)
-            for (int64_t k = 0; k < a.nt_; ++k)
-                if (c.tileIsLocal(m, n)) {
-
-                    c.tileMoveToHost(m, n, t);
-
-                    a.tileErase(m, k, t);
-                    a.tileErase(n, k, t);
-                }
-
-    // for (int64_t m = 1; m < c.mt_; ++m)
-    //     if (c.tileIsLocal(m, 0))
-    //         c.tileMoveToHost(m, 0, t);
 
     #pragma omp taskwait
 }
@@ -981,52 +981,54 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
     #pragma omp master
     for (int64_t k = 0; k < nt_; ++k) {
         // panel
-        #pragma omp task depend(inout:column[k]) priority(1)
+//      #pragma omp task depend(inout:column[k]) priority(1)
         {
-            if (tileIsLocal(k, k))
+            if (tileIsLocal(k, k)) {
+                a.tileMoveToHost(k, k, t);
                 a(k, k)->potrf(uplo);
+            }
 
             if (k < nt_-1)
                 tileIbcast(k, k, {k+1, nt_-1, k, k});
 
             for (int64_t m = k+1; m < nt_; ++m) {
+
+                #pragma omp task priority(1)
                 if (tileIsLocal(m, k)) {
-                    #pragma omp task priority(1)
-                    {
-                        tileWait(k, k);
-                        a(m, k)->trsm(Side::Right, Uplo::Lower,
-                                      Op::Trans, Diag::NonUnit,
-                                      1.0, a(k, k));
-                    }
+                    tileWait(k, k);
+                    a.tileMoveToHost(m, k, t);
+                    a(m, k)->trsm(Side::Right, Uplo::Lower,
+                                  Op::Trans, Diag::NonUnit,
+                                  1.0, a(k, k));
                 }
-                tileIbcast(m, k, {m, m, k+1, m},
-                                 {m, nt_-1, m, m});
             }
             #pragma omp taskwait
+
+            for (int64_t m = k+1; m < nt_; ++m)
+                tileIbcast(m, k, {m, m, k+1, m},
+                                 {m, nt_-1, m, m});
         }
         // lookahead column(s)
         for (int64_t n = k+1; n < k+1+lookahead && n < nt_; ++n) {
-            #pragma omp task depend(in:column[k]) \
-                             depend(inout:column[n]) priority(1)
+//          #pragma omp task depend(in:column[k]) \
+//                           depend(inout:column[n]) priority(1)
             {
+                #pragma omp task priority(1)
                 if (tileIsLocal(n, n)) {
-                    #pragma omp task priority(1)
-                    {
-                        tileWait(n, k);
-                        a(n, n)->syrk(Uplo::Lower, Op::NoTrans,
-                                      -1.0, a(n, k), 1.0);
-                    }
+                    tileWait(n, k);
+                    a.tileMoveToHost(n, n, t);
+                    a(n, n)->syrk(Uplo::Lower, Op::NoTrans,
+                                  -1.0, a(n, k), 1.0);
                 }
 
                 for (int64_t m = n+1; m < nt_; ++m) {
+                    #pragma omp task priority(1)
                     if (tileIsLocal(m, n)) {
-                        #pragma omp task priority(1)
-                        {
-                            tileWait(m, k);
-                            tileWait(n, k);
-                            a(m, n)->gemm(Op::NoTrans, Op::Trans,
-                                          -1.0, a(m, k), a(n, k), 1.0);
-                        }
+                        tileWait(m, k);
+                        tileWait(n, k);
+                        a.tileMoveToHost(m, n, t);
+                        a(m, n)->gemm(Op::NoTrans, Op::Trans,
+                                      -1.0, a(m, k), a(n, k), 1.0);
                     }
                 }
                 #pragma omp taskwait
@@ -1034,9 +1036,9 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
         }
         // trailing submatrix
         if (k+1+lookahead < nt_) {
-            #pragma omp task depend(in:column[k]) \
-                             depend(inout:column[k+1+lookahead]) \
-                             depend(inout:column[nt_-1])
+//          #pragma omp task depend(in:column[k]) \
+//                           depend(inout:column[k+1+lookahead]) \
+//                           depend(inout:column[nt_-1])
             Matrix(a, k+1+lookahead, k+1+lookahead,
                    nt_-1-k-lookahead, nt_-1-k-lookahead).syrkAcc(
                 Uplo::Lower, Op::NoTrans,

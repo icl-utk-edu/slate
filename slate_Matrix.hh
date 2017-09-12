@@ -627,6 +627,8 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                 for (int64_t k = 0; k < a.nt_; ++k)
                     if (c.tileIsLocal(m, n)) {
 
+                        c.tileMoveToHost(m, n, t);
+
                         a.tileErase(m, k, t);
                         a.tileErase(n, k, t);
                     }
@@ -981,10 +983,9 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
     #pragma omp master
     for (int64_t k = 0; k < nt_; ++k) {
         // panel
-//      #pragma omp task depend(inout:column[k]) priority(1)
+        #pragma omp task depend(inout:column[k]) priority(1)
         {
             if (tileIsLocal(k, k)) {
-                a.tileMoveToHost(k, k, t);
                 a(k, k)->potrf(uplo);
             }
 
@@ -996,7 +997,6 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                 #pragma omp task priority(1)
                 if (tileIsLocal(m, k)) {
                     tileWait(k, k);
-                    a.tileMoveToHost(m, k, t);
                     a(m, k)->trsm(Side::Right, Uplo::Lower,
                                   Op::Trans, Diag::NonUnit,
                                   1.0, a(k, k));
@@ -1010,13 +1010,12 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
         }
         // lookahead column(s)
         for (int64_t n = k+1; n < k+1+lookahead && n < nt_; ++n) {
-//          #pragma omp task depend(in:column[k]) \
-//                           depend(inout:column[n]) priority(1)
+            #pragma omp task depend(in:column[k]) \
+                             depend(inout:column[n]) priority(1)
             {
                 #pragma omp task priority(1)
                 if (tileIsLocal(n, n)) {
                     tileWait(n, k);
-                    a.tileMoveToHost(n, n, t);
                     a(n, n)->syrk(Uplo::Lower, Op::NoTrans,
                                   -1.0, a(n, k), 1.0);
                 }
@@ -1026,7 +1025,6 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                     if (tileIsLocal(m, n)) {
                         tileWait(m, k);
                         tileWait(n, k);
-                        a.tileMoveToHost(m, n, t);
                         a(m, n)->gemm(Op::NoTrans, Op::Trans,
                                       -1.0, a(m, k), a(n, k), 1.0);
                     }
@@ -1036,9 +1034,9 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
         }
         // trailing submatrix
         if (k+1+lookahead < nt_) {
-//          #pragma omp task depend(in:column[k]) \
-//                           depend(inout:column[k+1+lookahead]) \
-//                           depend(inout:column[nt_-1])
+            #pragma omp task depend(in:column[k]) \
+                             depend(inout:column[k+1+lookahead]) \
+                             depend(inout:column[nt_-1])
             Matrix(a, k+1+lookahead, k+1+lookahead,
                    nt_-1-k-lookahead, nt_-1-k-lookahead).syrkAcc(
                 Uplo::Lower, Op::NoTrans,

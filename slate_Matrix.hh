@@ -617,17 +617,17 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                         trace_cpu_stop("LimeGreen");
                     }
 
-        trace_cpu_start();
+//      trace_cpu_start();
 //      cudaDeviceSynchronize();
-        cudaStreamSynchronize(0);
-        trace_cpu_stop("Crimson");
+//      cudaStreamSynchronize(0);
+//      trace_cpu_stop("Crimson");
 
         for (int64_t n = 0; n < c.nt_; ++n)
             for (int64_t m = n+1; m < c.mt_; ++m)
                 for (int64_t k = 0; k < a.nt_; ++k)
                     if (c.tileIsLocal(m, n)) {
 
-                        c.tileMoveToHost(m, n, t);
+//                      c.tileMoveToHost(m, n, t);
 
                         a.tileErase(m, k, t);
                         a.tileErase(n, k, t);
@@ -997,6 +997,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                 #pragma omp task priority(1)
                 if (tileIsLocal(m, k)) {
                     tileWait(k, k);
+                    a.tileMoveToHost(m, k, t);
                     a(m, k)->trsm(Side::Right, Uplo::Lower,
                                   Op::Trans, Diag::NonUnit,
                                   1.0, a(k, k));
@@ -1025,6 +1026,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                     if (tileIsLocal(m, n)) {
                         tileWait(m, k);
                         tileWait(n, k);
+                        a.tileMoveToHost(m, n, t);
                         a(m, n)->gemm(Op::NoTrans, Op::Trans,
                                       -1.0, a(m, k), a(n, k), 1.0);
                     }

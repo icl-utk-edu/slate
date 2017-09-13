@@ -15,6 +15,7 @@
 #include <mkl_lapacke.h>
 #include <mpi.h>
 #include <omp.h>
+#include <cuda_runtime.h>
 
 extern "C" void trace_cpu_start();
 extern "C" void trace_cpu_stop(const char *color);
@@ -51,14 +52,26 @@ public:
     void allocate()
     {
         // trace_cpu_start();
-        data_ = (FloatType*)omp_target_alloc(size(), device_num_);
+        // data_ = (FloatType*)omp_target_alloc(size(), device_num_);
+        if (device_num_ == host_num_) {
+            data_ = (FloatType*)malloc(size());
+            assert(data_ != nullptr);
+        }
+        else {
+            cudaError_t error = cudaMalloc(&data_, size());
+            assert(error == cudaSuccess);
+        }
         // trace_cpu_stop("Orchid");
         assert(data_ != nullptr);
     }
     void deallocate()
     {
         // trace_cpu_start();
-        omp_target_free(data_, device_num_);
+        // omp_target_free(data_, device_num_);
+        if (device_num_ == host_num_)
+            free(data_);
+        else
+            cudaFree(data_);
         // trace_cpu_stop("Crimson");
         data_ = nullptr;
     }
@@ -118,15 +131,19 @@ public:
         device_num_ = dst_device_num;
         allocate();
         trace_cpu_start();
-        int retval = omp_target_memcpy(data_, src_tile->data_,
-                                       size(), 0, 0,
-                                       dst_device_num, src_tile->device_num_);
+        // int retval = omp_target_memcpy(data_, src_tile->data_,
+        //                                size(), 0, 0,
+        //                                dst_device_num, src_tile->device_num_);
+        cudaError_t error = cudaMemcpy(data_, src_tile->data_, size(),
+                                       cudaMemcpyDefault);
+        assert(error == cudaSuccess);
+
         if (dst_device_num == host_num_)
             trace_cpu_stop("Gray");
         else
             trace_cpu_stop("LightGray");
 
-        assert(retval == 0);
+        // assert(retval == 0);
     }
     ~Tile() {
         deallocate();

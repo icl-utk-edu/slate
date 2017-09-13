@@ -7,8 +7,8 @@
 #include <cstdlib>
 #include <utility>
 
-#include <mkl_cblas.h>
-#include <mkl_lapacke.h>
+// #include <mkl_cblas.h>
+// #include <mkl_lapacke.h>
 #include <mpi.h>
 #include <omp.h>
 
@@ -19,6 +19,18 @@ void print_lapack_matrix(int m, int n, double *a, int lda, int mb, int nb);
 void diff_lapack_matrices(int m, int n, double *a, int lda, double *b, int ldb,
                           int mb, int nb);
 
+#ifdef ESSL
+extern "C" {
+lapack_int LAPACKE_slarnv( lapack_int idist, lapack_int* iseed, lapack_int n,
+                           float* x );
+lapack_int LAPACKE_dlarnv( lapack_int idist, lapack_int* iseed, lapack_int n,
+                           double* x );
+lapack_int LAPACKE_clarnv( lapack_int idist, lapack_int* iseed, lapack_int n,
+                           lapack_complex_float* x );
+lapack_int LAPACKE_zlarnv( lapack_int idist, lapack_int* iseed, lapack_int n,
+                           lapack_complex_double* x );
+}
+#endif
 //------------------------------------------------------------------------------
 int main (int argc, char *argv[])
 {

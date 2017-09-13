@@ -471,6 +471,7 @@ void Matrix<FloatType>::syrkNest(blas::Uplo uplo, blas::Op trans,
 }
 
 //------------------------------------------------------------------------------
+#ifndef NOBATCH
 template<typename FloatType>
 void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
                                   FloatType alpha, const Matrix &that,
@@ -559,6 +560,7 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
 
     #pragma omp taskwait
 }
+#endif // #ifndef NOBATCH
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
@@ -978,7 +980,8 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
     int t = omp_get_default_device();
     Matrix<FloatType> a = *this;
     uint8_t *column;    
-
+    printf("==== POTRF: lookahead=%d \n",
+	   lookahead);
     #pragma omp parallel
     #pragma omp master
     for (int64_t k = 0; k < nt_; ++k) {

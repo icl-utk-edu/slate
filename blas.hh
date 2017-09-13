@@ -4,7 +4,11 @@
 
 #include <complex>
 
+#ifdef ESSL
+#include "essl.h"
+#else
 #include "mkl_cblas.h"
+#endif // #ifdef ESSL
 
 namespace blas {
 

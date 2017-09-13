@@ -10,9 +10,9 @@
 #include <cassert>
 #include <cstring>
 
-#include <mkl.h>
-#include <mkl_cblas.h>
-#include <mkl_lapacke.h>
+// #include <mkl.h>
+// #include <mkl_cblas.h>
+// #include <mkl_lapacke.h>
 #include <mpi.h>
 #include <omp.h>
 #include <cuda_runtime.h>

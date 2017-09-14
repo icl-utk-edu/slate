@@ -935,7 +935,7 @@ void Matrix<FloatType>::tileWait(int64_t i, int64_t j)
         #pragma omp critical
         retval = MPI_Wait(&tile->bcast_request_, MPI_STATUS_IGNORE);
         assert(retval == MPI_SUCCESS);
-        trace_cpu_stop("DarkRed");
+        trace_cpu_stop("GhostWhite");
     }
 }
 
@@ -1043,7 +1043,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[nt_-1])
             Matrix(a, k+1+lookahead, k+1+lookahead,
-                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkAcc(
+                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkTask(
                 Uplo::Lower, Op::NoTrans,
                 -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
         }

@@ -15,9 +15,11 @@
 extern "C" void trace_on();
 extern "C" void trace_off();
 extern "C" void trace_finish();
-void print_lapack_matrix(int m, int n, double *a, int lda, int mb, int nb);
-void diff_lapack_matrices(int m, int n, double *a, int lda, double *b, int ldb,
-                          int mb, int nb);
+void print_lapack_matrix(int64_t m, int64_t n, double *a, int64_t lda,
+                         int64_t mb, int64_t nb);
+void diff_lapack_matrices(int64_t m, int64_t n, double *a, int64_t lda,
+                          double *b, int64_t ldb,
+                          int64_t mb, int64_t nb);
 
 #ifdef ESSL
 extern "C" {
@@ -35,12 +37,12 @@ lapack_int LAPACKE_zlarnv( lapack_int idist, lapack_int* iseed, lapack_int n,
 int main (int argc, char *argv[])
 {
     assert(argc == 5);
-    int nb = atoi(argv[1]);
-    int nt = atoi(argv[2]);
-    int p = atoi(argv[3]);
-    int q = atoi(argv[4]);
-    int n = nb*nt;
-    int lda = n;
+    int64_t nb = atoll(argv[1]);
+    int64_t nt = atoll(argv[2]);
+    int64_t p = atoll(argv[3]);
+    int64_t q = atoll(argv[4]);
+    int64_t n = nb*nt;
+    int64_t lda = n;
 
     //------------------------------------------------------
     int mpi_rank = 0;
@@ -63,7 +65,7 @@ int main (int argc, char *argv[])
     retval = LAPACKE_dlarnv(1, seed, (size_t)lda*n, a1);
     assert(retval == 0);
 
-    for (int i = 0; i < n; ++i)
+    for (int64_t i = 0; i < n; ++i)
         a1[i*lda+i] += sqrt(n);
 
     //------------------------------------------------------
@@ -122,17 +124,18 @@ int main (int argc, char *argv[])
 }
 
 //------------------------------------------------------------------------------
-void print_lapack_matrix(int m, int n, double *a, int lda, int mb, int nb)
+void print_lapack_matrix(int64_t m, int64_t n, double *a, int64_t lda,
+                         int64_t mb, int64_t nb)
 {
-    for (int i = 0; i < m; ++i) {
-        for (int j = 0; j < n; ++j) {
+    for (int64_t i = 0; i < m; ++i) {
+        for (int64_t j = 0; j < n; ++j) {
             printf("%8.2lf", a[(size_t)lda*j+i]);
             if ((j+1)%nb == 0)
                 printf(" |");
         }
         printf("\n");
         if ((i+1)%mb == 0) {
-            for (int j = 0; j < (n+1)*8; ++j) {
+            for (int64_t j = 0; j < (n+1)*8; ++j) {
                 printf("-");
             }
             printf("\n");        
@@ -142,13 +145,13 @@ void print_lapack_matrix(int m, int n, double *a, int lda, int mb, int nb)
 }
 
 //------------------------------------------------------------------------------
-void diff_lapack_matrices(int m, int n, double *a, int lda, double *b, int ldb,
-                          int mb, int nb)
+void diff_lapack_matrices(int64_t m, int64_t n, double *a, int64_t lda,
+                          double *b, int64_t ldb, int64_t mb, int64_t nb)
 {
-    for (int i = 0; i < m; ++i) {
+    for (int64_t i = 0; i < m; ++i) {
         if (i%mb == 2)
             i += mb-4;
-        for (int j = 0; j < n; ++j) {
+        for (int64_t j = 0; j < n; ++j) {
             if (j%nb == 2)
                 j += nb-4;
             double error = a[(size_t)lda*j+i] - b[(size_t)lda*j+i];
@@ -158,7 +161,7 @@ void diff_lapack_matrices(int m, int n, double *a, int lda, double *b, int ldb,
         }
         printf("\n");
         if ((i+1)%mb == 0) {
-            for (int j = 0; j < (n/nb)*5; ++j) {
+            for (int64_t j = 0; j < (n/nb)*5; ++j) {
                 printf("-");
             }
             printf("\n");        

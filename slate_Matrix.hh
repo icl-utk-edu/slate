@@ -573,7 +573,7 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
     Matrix<FloatType> c = *this;
     Matrix<FloatType> a = that;
 
-    // Lower, NoTrans
+    // host syrk on diagonal tiles
     for (int64_t n = 0; n < c.nt_; ++n)
         for (int64_t k = 0; k < a.nt_; ++k)
             if (c.tileIsLocal(n, n))
@@ -595,6 +595,7 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
     for (int device = 0; device < num_devices_; ++device)
         #pragma omp task
         {
+            int64_t batch_count = 0;
             for (int64_t n = 0; n < c.nt_; ++n)
                 for (int64_t m = n+1; m < c.mt_; ++m)
                     for (int64_t k = 0; k < a.nt_; ++k)
@@ -603,31 +604,71 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                                 c.tileMoveToDevice(m, n, device);
                                 a.tileCopyToDevice(m, k, device);
                                 a.tileCopyToDevice(n, k, device);
+                                ++batch_count;
                             }
 
+            const double **a_array_h = new const double*[batch_count];
+            const double **b_array_h = new const double*[batch_count];
+            double **c_array_h = new double*[batch_count];
+
+            int64_t i = 0;
             for (int64_t n = 0; n < c.nt_; ++n)
                 for (int64_t m = n+1; m < c.mt_; ++m)
                     for (int64_t k = 0; k < a.nt_; ++k)
                         if (c.tileIsLocal(m, n))
                             if (device == tileDevice(m, n)) {
-
-                                trace_cpu_start();
-                                int nb = tileNb(0);
-
-                                cudaError_t error = cudaSetDevice(device);
-                                assert(error == cudaSuccess);
-
-                                cublasStatus_t status = 
-                                    cublasDgemm(
-                                        cublas_handle_,
-                                        CUBLAS_OP_N, CUBLAS_OP_T,
-                                        nb, nb, nb,
-                                        &alpha, a(m, k, device)->data_, nb,
-                                                a(n, k, device)->data_, nb, 
-                                        &beta,  c(m, n, device)->data_, nb);
-                                assert(status == CUBLAS_STATUS_SUCCESS);
-                                trace_cpu_stop("LimeGreen");
+                                a_array_h[i] = a(m, k, device)->data_;
+                                b_array_h[i] = a(n, k, device)->data_;
+                                c_array_h[i] = c(m, n, device)->data_;
+                                ++i;
                             }
+
+            const double **a_array_d;
+            const double **b_array_d;
+            double **c_array_d;
+
+            cudaError_t error;
+            error = cudaMalloc(&a_array_d, sizeof(double*)*batch_count);
+            assert(error == cudaSuccess);
+            error = cudaMalloc(&b_array_d, sizeof(double*)*batch_count);
+            assert(error == cudaSuccess);
+            error = cudaMalloc(&c_array_d, sizeof(double*)*batch_count);
+            assert(error == cudaSuccess);
+
+            error = cudaMemcpy(a_array_d, a_array_h,
+                               sizeof(double*)*batch_count,
+                               cudaMemcpyHostToDevice);
+            assert(error == cudaSuccess);
+            error = cudaMemcpy(b_array_d, b_array_h,
+                               sizeof(double*)*batch_count,
+                               cudaMemcpyHostToDevice);
+            assert(error == cudaSuccess);
+            error = cudaMemcpy(c_array_d, c_array_h,
+                               sizeof(double*)*batch_count,
+                               cudaMemcpyHostToDevice);
+            assert(error == cudaSuccess);
+
+            delete[] a_array_h;
+            delete[] b_array_h;
+            delete[] c_array_h;
+
+            trace_cpu_start();
+            int nb = tileNb(0);
+            cublasStatus_t status =
+                cublasDgemmBatched(
+                    cublas_handle_,
+                    CUBLAS_OP_N, CUBLAS_OP_T,
+                    nb, nb, nb,
+                    &alpha, a_array_d, nb,
+                            b_array_d, nb,
+                    &beta,  c_array_d, nb,
+                    batch_count);
+            assert(status == CUBLAS_STATUS_SUCCESS);
+            trace_cpu_stop("LimeGreen");
+
+            cudaFree(a_array_d);
+            cudaFree(b_array_d);
+            cudaFree(c_array_d);
 
             for (int64_t n = 0; n < c.nt_; ++n)
                 for (int64_t m = n+1; m < c.mt_; ++m)

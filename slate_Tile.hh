@@ -51,29 +51,39 @@ public:
     }
     void allocate()
     {
-        // trace_cpu_start();
+        trace_cpu_start();
         // data_ = (FloatType*)omp_target_alloc(size(), device_num_);
+        // assert(data_ != nullptr);
         if (device_num_ == host_num_) {
-            data_ = (FloatType*)malloc(size());
-            assert(data_ != nullptr);
-        }
-        else {
-            cudaError_t error = cudaMalloc(&data_, size());
+            // data_ = (FloatType*)malloc(size());
+            // assert(data_ != nullptr);
+            cudaError_t error = cudaMallocHost(&data_, size());
             assert(error == cudaSuccess);
         }
-        // trace_cpu_stop("Orchid");
-        assert(data_ != nullptr);
+        else {
+            cudaError_t error;
+            error = cudaSetDevice(device_num_);
+            assert(error == cudaSuccess);
+            error = cudaMalloc(&data_, size());
+            assert(error == cudaSuccess);
+        }
+        trace_cpu_stop("Orchid");
     }
     void deallocate()
     {
-        // trace_cpu_start();
+        trace_cpu_start();
         // omp_target_free(data_, device_num_);
-        if (device_num_ == host_num_)
-            free(data_);
-        else
+        if (device_num_ == host_num_) {
+            // free(data_);
             cudaFree(data_);
-        // trace_cpu_stop("Crimson");
+        }
+        else {
+            cudaError_t error = cudaSetDevice(device_num_);
+            assert(error == cudaSuccess);
+            cudaFree(data_);
+        }
         data_ = nullptr;
+        trace_cpu_stop("Crimson");
     }
     void copyTo(FloatType *a, int64_t lda)
     {
@@ -89,12 +99,12 @@ public:
     void tick(Tile<FloatType> *tile)
     {
         if (!tile->local_)
-        #pragma omp critical
-        {
-            --tile->life_;
-            if (tile->life_ == 0)
-                tile->deallocate();
-        }
+            #pragma omp critical
+            {
+                --tile->life_;
+                if (tile->life_ == 0)
+                    tile->deallocate();
+            }
     }
 
     // void packA(int64_t life) {
@@ -134,22 +144,31 @@ public:
         // int retval = omp_target_memcpy(data_, src_tile->data_,
         //                                size(), 0, 0,
         //                                dst_device_num, src_tile->device_num_);
-        cudaError_t error = cudaMemcpy(data_, src_tile->data_, size(),
-                                       cudaMemcpyDefault);
-        assert(error == cudaSuccess);
-
-        if (dst_device_num == host_num_)
-            trace_cpu_stop("Gray");
-        else
-            trace_cpu_stop("LightGray");
-
         // assert(retval == 0);
+        if (dst_device_num == host_num_) {
+            cudaError_t error;
+            error = cudaSetDevice(src_tile->device_num_);
+            assert(error == cudaSuccess);
+            error = cudaMemcpy(data_, src_tile->data_, size(),
+                               cudaMemcpyDeviceToHost);
+            assert(error == cudaSuccess);
+            trace_cpu_stop("Gray");
+        }
+        else {
+            cudaError_t error;
+            error = cudaSetDevice(dst_device_num);
+            assert(error == cudaSuccess);
+            error = cudaMemcpy(data_, src_tile->data_, size(),
+                               cudaMemcpyHostToDevice);
+            assert(error == cudaSuccess);
+            trace_cpu_stop("LightGray");
+        }
     }
     ~Tile() {
         deallocate();
     }
 
-    //------------------------------------------------------
+    //---------------------------------------------------------------
     void gemm(blas::Op transa, blas::Op transb, FloatType alpha,
               Tile<FloatType> *a, Tile<FloatType> *b, FloatType beta)
     {
@@ -179,12 +198,16 @@ public:
         //         cblas_dgemm_free(b->packed_b_);
         // }
     }
+
+    //---------------------------------------------------------------
     void potrf(blas::Uplo uplo)
     {
         trace_cpu_start();
         lapack::potrf(blas::Layout::ColMajor, uplo, nb_, data_, nb_);
         trace_cpu_stop("RosyBrown");
     }
+
+    //---------------------------------------------------------------------
     void syrk(blas::Uplo uplo, blas::Op trans,
               FloatType alpha, Tile<FloatType> *a, FloatType beta)
     {
@@ -196,6 +219,8 @@ public:
         tick(a);
         tick(a);
     }
+
+    //--------------------------------------------------------------
     void trsm(blas::Side side, blas::Uplo uplo, blas::Op transa,
               blas::Diag diag, FloatType alpha, Tile<FloatType> *a)
     {
@@ -207,7 +232,7 @@ public:
         tick(a);
     }
 
-    //------------------------------------------------------
+    //---------------------------------------------------
     void print()
     {
         for (int64_t m = 0; m < mb_; ++m) {

@@ -583,61 +583,68 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                     c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
                 }
 
-    #pragma omp task
-    {
-        int nb = tileNb(0);
-        int t = omp_get_default_device();
-        int h = omp_get_initial_device();
+    // Wait for MPI.
+    for (int64_t n = 0; n < c.nt_; ++n)
+        for (int64_t m = n+1; m < c.mt_; ++m)
+            for (int64_t k = 0; k < a.nt_; ++k)
+                if (c.tileIsLocal(m, n)) {
+                    a.tileWait(m, k);
+                    a.tileWait(n, k);
+                }
 
-        for (int64_t n = 0; n < c.nt_; ++n)
-            for (int64_t m = n+1; m < c.mt_; ++m)
-                for (int64_t k = 0; k < a.nt_; ++k)
-                    if (c.tileIsLocal(m, n)) {
+    for (int device = 0; device < num_devices_; ++device)
+        #pragma omp task
+        {
+            for (int64_t n = 0; n < c.nt_; ++n)
+                for (int64_t m = n+1; m < c.mt_; ++m)
+                    for (int64_t k = 0; k < a.nt_; ++k)
+                        if (c.tileIsLocal(m, n))
+                            if (device == tileDevice(m, n)) {
+                                c.tileMoveToDevice(m, n, device);
+                                a.tileCopyToDevice(m, k, device);
+                                a.tileCopyToDevice(n, k, device);
+                            }
 
-                        a.tileWait(m, k);
-                        a.tileWait(n, k);
+            for (int64_t n = 0; n < c.nt_; ++n)
+                for (int64_t m = n+1; m < c.mt_; ++m)
+                    for (int64_t k = 0; k < a.nt_; ++k)
+                        if (c.tileIsLocal(m, n))
+                            if (device == tileDevice(m, n)) {
 
-                        c.tileMoveToDevice(m, n, t);
-                        a.tileCopyToDevice(m, k, t);
-                        a.tileCopyToDevice(n, k, t);
-                    }
+                                trace_cpu_start();
+                                int nb = tileNb(0);
 
-        for (int64_t n = 0; n < c.nt_; ++n)
-            for (int64_t m = n+1; m < c.mt_; ++m)
-                for (int64_t k = 0; k < a.nt_; ++k)
-                    if (c.tileIsLocal(m, n)) {
+                                cudaError_t error = cudaSetDevice(device);
+                                assert(error == cudaSuccess);
 
-                        trace_cpu_start();
-                        cublasStatus_t status = 
-                            cublasDgemm(cublas_handle_,
+                                cublasStatus_t status = 
+                                    cublasDgemm(
+                                        cublas_handle_,
                                         CUBLAS_OP_N, CUBLAS_OP_T,
                                         nb, nb, nb,
-                                        &alpha, a(m, k, t)->data_, nb,
-                                                a(n, k, t)->data_, nb, 
-                                        &beta,  c(m, n, t)->data_, nb);
-                        assert(status == CUBLAS_STATUS_SUCCESS);
-                        trace_cpu_stop("LimeGreen");
-                    }
+                                        &alpha, a(m, k, device)->data_, nb,
+                                                a(n, k, device)->data_, nb, 
+                                        &beta,  c(m, n, device)->data_, nb);
+                                assert(status == CUBLAS_STATUS_SUCCESS);
+                                trace_cpu_stop("LimeGreen");
+                            }
+
+            for (int64_t n = 0; n < c.nt_; ++n)
+                for (int64_t m = n+1; m < c.mt_; ++m)
+                    for (int64_t k = 0; k < a.nt_; ++k)
+                        if (c.tileIsLocal(m, n))
+                            if (device == tileDevice(m, n)) {
+                                a.tileErase(m, k, device);
+                                a.tileErase(n, k, device);
+                            }
+        }
+    #pragma omp taskwait
+}
 
 //      trace_cpu_start();
 //      cudaDeviceSynchronize();
 //      cudaStreamSynchronize(0);
 //      trace_cpu_stop("Crimson");
-
-        for (int64_t n = 0; n < c.nt_; ++n)
-            for (int64_t m = n+1; m < c.mt_; ++m)
-                for (int64_t k = 0; k < a.nt_; ++k)
-                    if (c.tileIsLocal(m, n)) {
-
-//                      c.tileMoveToHost(m, n, t);
-
-                        a.tileErase(m, k, t);
-                        a.tileErase(n, k, t);
-                    }
-    }
-
-    #pragma omp taskwait
-}
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
@@ -975,13 +982,14 @@ void Matrix<FloatType>::printLife()
 template<typename FloatType>
 void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
 {
+    printf("==== POTRF: lookahead    = %d\n", lookahead);
+    printf("==== SLATE: num_devices_ = %d\n", num_devices_);
+
     using namespace blas;
 
-    int t = omp_get_default_device();
     Matrix<FloatType> a = *this;
     uint8_t *column;    
-    printf("==== POTRF: lookahead=%d \n",
-	   lookahead);
+
     #pragma omp parallel
     #pragma omp master
     for (int64_t k = 0; k < nt_; ++k) {
@@ -1000,7 +1008,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                 #pragma omp task priority(1)
                 if (tileIsLocal(m, k)) {
                     tileWait(k, k);
-                    a.tileMoveToHost(m, k, t);
+                    a.tileMoveToHost(m, k, tileDevice(m, k));
                     a(m, k)->trsm(Side::Right, Uplo::Lower,
                                   Op::Trans, Diag::NonUnit,
                                   1.0, a(k, k));
@@ -1029,7 +1037,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                     if (tileIsLocal(m, n)) {
                         tileWait(m, k);
                         tileWait(n, k);
-                        a.tileMoveToHost(m, n, t);
+                        a.tileMoveToHost(m, n, tileDevice(m, n));
                         a(m, n)->gemm(Op::NoTrans, Op::Trans,
                                       -1.0, a(m, k), a(n, k), 1.0);
                     }

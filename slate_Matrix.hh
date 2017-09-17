@@ -32,10 +32,10 @@ public:
     std::map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*> *tiles_;
     omp_lock_t *tiles_lock_ = new omp_lock_t();
 
-    Matrix(int64_t m, int64_t n, double *a, int64_t lda,
+    Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
            int64_t mb, int64_t nb);
 
-    Matrix(int64_t m, int64_t n, double *a, int64_t lda,
+    Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
            int64_t mb, int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q);
 
     Matrix(const Matrix &a, int64_t it, int64_t jt, int64_t mt, int64_t nt);
@@ -98,6 +98,18 @@ private:
     int num_devices_;
 
     cublasHandle_t cublas_handle_;
+
+    //---------------------------------------------
+    static const int MaxDevices = 4;
+    static const int64_t MaxBatchArraySize = 16384;
+
+    const FloatType **a_array_h_[MaxDevices];
+    const FloatType **b_array_h_[MaxDevices];
+    FloatType **c_array_h_[MaxDevices];
+
+    const FloatType **a_array_d_[MaxDevices];
+    const FloatType **b_array_d_[MaxDevices];
+    FloatType **c_array_d_[MaxDevices];
 
     //----------------------------------------------------------
     std::function <int64_t (int64_t i, int64_t j)> tileRankFunc;
@@ -255,36 +267,36 @@ void Matrix<FloatType>::tileErase(int64_t i, int64_t j, int device)
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
-Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
+Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
                           int64_t mb, int64_t nb)
 {
-    tiles_ = new std::map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*>;
-    it_ = 0;
-    jt_ = 0;
-    mt_ = m % mb == 0 ? m/mb : m/mb+1;
-    nt_ = n % nb == 0 ? n/nb : n/nb+1;
+    // tiles_ = new std::map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*>;
+    // it_ = 0;
+    // jt_ = 0;
+    // mt_ = m % mb == 0 ? m/mb : m/mb+1;
+    // nt_ = n % nb == 0 ? n/nb : n/nb+1;
 
-    tileRankFunc = [] (int64_t i, int64_t j) { return 0; };
-    tileDeviceFunc = [=] (int64_t i, int64_t j) { return j%num_devices_; };
-    tileMbFunc = [=] (int64_t i) { return (it_+i)*mb > m ? m%mb : mb; };
-    tileNbFunc = [=] (int64_t j) { return (jt_+j)*nb > n ? n%nb : nb; };
+    // tileRankFunc = [] (int64_t i, int64_t j) { return 0; };
+    // tileDeviceFunc = [=] (int64_t i, int64_t j) { return j%num_devices_; };
+    // tileMbFunc = [=] (int64_t i) { return (it_+i)*mb > m ? m%mb : mb; };
+    // tileNbFunc = [=] (int64_t j) { return (jt_+j)*nb > n ? n%nb : nb; };
 
-    host_num_ = omp_get_initial_device();
-    num_devices_ = omp_get_num_devices();
+    // host_num_ = omp_get_initial_device();
+    // num_devices_ = omp_get_num_devices();
 
-    if (num_devices_ > 0) {
-        cublasStatus_t status = cublasCreate(&cublas_handle_);
-        assert(status == CUBLAS_STATUS_SUCCESS);
-    }
+    // if (num_devices_ > 0) {
+    //     cublasStatus_t status = cublasCreate(&cublas_handle_);
+    //     assert(status == CUBLAS_STATUS_SUCCESS);
+    // }
 
-    copyTo(a, lda);
+    // copyTo(a, lda);
 
-    omp_init_lock(tiles_lock_);
+    // omp_init_lock(tiles_lock_);
 }
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
-Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
+Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
                           int64_t mb, int64_t nb,
                           MPI_Comm mpi_comm, int64_t p, int64_t q)
 {
@@ -315,6 +327,38 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, double *a, int64_t lda,
     copyTo(a, lda);
 
     omp_init_lock(tiles_lock_);
+
+    assert(num_devices_ <= MaxDevices);
+    for (int device = 0; device < num_devices_; ++device) {
+
+        cudaError_t error;
+
+        // Allocate host arrays.
+        error = cudaMallocHost(&a_array_h_[device], 
+                               sizeof(FloatType*)*MaxBatchArraySize);
+        assert(error == cudaSuccess);
+        error = cudaMallocHost(&b_array_h_[device], 
+                               sizeof(FloatType*)*MaxBatchArraySize);
+        assert(error == cudaSuccess);
+        error = cudaMallocHost(&c_array_h_[device], 
+                               sizeof(FloatType*)*MaxBatchArraySize);
+        assert(error == cudaSuccess);
+
+        // Set the device.
+        error = cudaSetDevice(device);
+        assert(error == cudaSuccess);
+
+        // Allocate device arrays.
+        error = cudaMalloc(&a_array_d_[device],
+                           sizeof(FloatType*)*MaxBatchArraySize);
+        assert(error == cudaSuccess);
+        error = cudaMalloc(&b_array_d_[device],
+                           sizeof(FloatType*)*MaxBatchArraySize);
+        assert(error == cudaSuccess);
+        error = cudaMalloc(&c_array_d_[device],
+                           sizeof(FloatType*)*MaxBatchArraySize);
+        assert(error == cudaSuccess);
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -497,13 +541,13 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
     int m_array[1];
     int n_array[1];
     int k_array[1];
-    double alpha_array[1];
-    const double **a_array;
+    FloatType alpha_array[1];
+    const FloatType **a_array;
     int lda_array[1];
-    const double **b_array;
+    const FloatType **b_array;
     int ldb_array[1];
-    double beta_array[1];
-    double **c_array;
+    FloatType beta_array[1];
+    FloatType **c_array;
     int ldc_array[1];
 
     int nb = tileNb(0);
@@ -530,9 +574,9 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
                     ++group_size;
                 }
 
-    a_array = new const double*[group_size];
-    b_array = new const double*[group_size];
-    c_array = new double*[group_size];
+    a_array = new const FloatType*[group_size];
+    b_array = new const FloatType*[group_size];
+    c_array = new FloatType*[group_size];
 
     int i = 0;
     for (int64_t n = 0; n < c.nt_; ++n)
@@ -607,50 +651,34 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                                 ++batch_count;
                             }
 
-            const double **a_array_h = new const double*[batch_count];
-            const double **b_array_h = new const double*[batch_count];
-            double **c_array_h = new double*[batch_count];
-
             int64_t i = 0;
             for (int64_t n = 0; n < c.nt_; ++n)
                 for (int64_t m = n+1; m < c.mt_; ++m)
                     for (int64_t k = 0; k < a.nt_; ++k)
                         if (c.tileIsLocal(m, n))
                             if (device == tileDevice(m, n)) {
-                                a_array_h[i] = a(m, k, device)->data_;
-                                b_array_h[i] = a(n, k, device)->data_;
-                                c_array_h[i] = c(m, n, device)->data_;
+                                a_array_h_[device][i] = a(m, k, device)->data_;
+                                b_array_h_[device][i] = a(n, k, device)->data_;
+                                c_array_h_[device][i] = c(m, n, device)->data_;
                                 ++i;
                             }
 
-            const double **a_array_d;
-            const double **b_array_d;
-            double **c_array_d;
-
             cudaError_t error;
-            error = cudaMalloc(&a_array_d, sizeof(double*)*batch_count);
-            assert(error == cudaSuccess);
-            error = cudaMalloc(&b_array_d, sizeof(double*)*batch_count);
-            assert(error == cudaSuccess);
-            error = cudaMalloc(&c_array_d, sizeof(double*)*batch_count);
+            error = cudaSetDevice(device);
             assert(error == cudaSuccess);
 
-            error = cudaMemcpy(a_array_d, a_array_h,
-                               sizeof(double*)*batch_count,
+            error = cudaMemcpy(a_array_d_[device], a_array_h_[device],
+                               sizeof(FloatType*)*batch_count,
                                cudaMemcpyHostToDevice);
             assert(error == cudaSuccess);
-            error = cudaMemcpy(b_array_d, b_array_h,
-                               sizeof(double*)*batch_count,
+            error = cudaMemcpy(b_array_d_[device], b_array_h_[device],
+                               sizeof(FloatType*)*batch_count,
                                cudaMemcpyHostToDevice);
             assert(error == cudaSuccess);
-            error = cudaMemcpy(c_array_d, c_array_h,
-                               sizeof(double*)*batch_count,
+            error = cudaMemcpy(c_array_d_[device], c_array_h_[device],
+                               sizeof(FloatType*)*batch_count,
                                cudaMemcpyHostToDevice);
             assert(error == cudaSuccess);
-
-            delete[] a_array_h;
-            delete[] b_array_h;
-            delete[] c_array_h;
 
             trace_cpu_start();
             int nb = tileNb(0);
@@ -659,16 +687,12 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                     cublas_handle_,
                     CUBLAS_OP_N, CUBLAS_OP_T,
                     nb, nb, nb,
-                    &alpha, a_array_d, nb,
-                            b_array_d, nb,
-                    &beta,  c_array_d, nb,
+                    &alpha, a_array_d_[device], nb,
+                            b_array_d_[device], nb,
+                    &beta,  c_array_d_[device], nb,
                     batch_count);
             assert(status == CUBLAS_STATUS_SUCCESS);
             trace_cpu_stop("LimeGreen");
-
-            cudaFree(a_array_d);
-            cudaFree(b_array_d);
-            cudaFree(c_array_d);
 
             for (int64_t n = 0; n < c.nt_; ++n)
                 for (int64_t m = n+1; m < c.mt_; ++m)
@@ -1092,7 +1116,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[nt_-1])
             Matrix(a, k+1+lookahead, k+1+lookahead,
-                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkTask(
+                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkAcc(
                 Uplo::Lower, Op::NoTrans,
                 -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
         }

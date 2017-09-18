@@ -17,6 +17,8 @@
 #include <omp.h>
 #include <cuda_runtime.h>
 
+#include "slate_Memory.hh"
+
 extern "C" void trace_cpu_start();
 extern "C" void trace_cpu_stop(const char *color);
 
@@ -40,6 +42,8 @@ public:
     static int host_num_;
     int device_num_;
 
+    static Memory memory_;
+
     // FloatType *packed_a_;
     // FloatType *packed_b_;
     // int64_t packed_a_life_;
@@ -57,15 +61,17 @@ public:
         if (device_num_ == host_num_) {
             // data_ = (FloatType*)malloc(size());
             // assert(data_ != nullptr);
-            cudaError_t error = cudaMallocHost(&data_, size());
-            assert(error == cudaSuccess);
+            // cudaError_t error = cudaMallocHost(&data_, size());
+            // assert(error == cudaSuccess);
+            data_ = (FloatType*)memory_.alloc_host();
         }
         else {
             cudaError_t error;
             error = cudaSetDevice(device_num_);
             assert(error == cudaSuccess);
-            error = cudaMalloc(&data_, size());
-            assert(error == cudaSuccess);
+            // error = cudaMalloc(&data_, size());
+            // assert(error == cudaSuccess);
+            data_ = (FloatType*)memory_.alloc();
         }
         trace_cpu_stop("Orchid");
     }
@@ -75,12 +81,14 @@ public:
         // omp_target_free(data_, device_num_);
         if (device_num_ == host_num_) {
             // free(data_);
-            cudaFree(data_);
+            // cudaFree(data_);
+            memory_.free_host(data_);
         }
         else {
             cudaError_t error = cudaSetDevice(device_num_);
             assert(error == cudaSuccess);
-            cudaFree(data_);
+            // cudaFree(data_);
+            memory_.free(data_);
         }
         data_ = nullptr;
         trace_cpu_stop("Crimson");
@@ -248,6 +256,9 @@ public:
 //------------------------------------------------------------------------------
 template<typename FloatType>
 int Tile<FloatType>::host_num_ = omp_get_initial_device();
+
+template<typename FloatType>
+Memory Tile<FloatType>::memory_ = Memory(sizeof(FloatType)*192*192, 10000);
 
 } // namespace slate
 

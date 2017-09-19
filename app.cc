@@ -36,11 +36,12 @@ lapack_int LAPACKE_zlarnv( lapack_int idist, lapack_int* iseed, lapack_int n,
 //------------------------------------------------------------------------------
 int main (int argc, char *argv[])
 {
-    assert(argc == 5);
+    assert(argc == 6);
     int64_t nb = atoll(argv[1]);
     int64_t nt = atoll(argv[2]);
     int64_t p = atoll(argv[3]);
     int64_t q = atoll(argv[4]);
+    int64_t lookahead = atoll(argv[5]);
     int64_t n = nb*nt;
     int64_t lda = n;
 
@@ -87,7 +88,7 @@ int main (int argc, char *argv[])
 
     slate::Matrix<double> a(n, n, a1, lda, nb, nb, MPI_COMM_WORLD, p, q);
     double start = omp_get_wtime();
-    a.potrf(blas::Uplo::Lower);
+    a.potrf(blas::Uplo::Lower, lookahead);
 
     trace_cpu_start();
     MPI_Barrier(MPI_COMM_WORLD);

@@ -85,7 +85,7 @@ public:
               blas::Op trans, blas::Diag diag,
               FloatType alpha, const Matrix &a);
 
-    void potrf(blas::Uplo uplo, int64_t lookahead=3);
+    void potrf(blas::Uplo uplo, int64_t lookahead=0);
 
 private:
     MPI_Comm mpi_comm_;
@@ -97,10 +97,11 @@ private:
     int host_num_;
     int num_devices_;
 
-    cublasHandle_t cublas_handle_;
-
     //---------------------------------------------
     static const int MaxDevices = 4;
+    cudaStream_t cuda_stream_[MaxDevices];
+    cublasHandle_t cublas_handle_[MaxDevices];
+
     static const int64_t MaxBatchArraySize = 16384;
 
     const FloatType **a_array_h_[MaxDevices];
@@ -325,8 +326,23 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
     host_num_ = omp_get_initial_device();
     num_devices_ = omp_get_num_devices();
 
-    if (num_devices_ > 0) {
-        cublasStatus_t status = cublasCreate(&cublas_handle_);
+    for (int device = 0; device < num_devices_; ++device) {
+
+        cudaError_t error;
+        cublasStatus_t status;
+
+        error = cudaSetDevice(device);
+        assert(error == cudaSuccess);
+
+        error = cudaStreamCreate(&cuda_stream_[device]);
+        // error = cudaStreamCreateWithFlags(&cuda_stream_[device],
+        //                                   cudaStreamNonBlocking);
+        assert(error == cudaSuccess);
+
+        status = cublasCreate(&cublas_handle_[device]);
+        assert(status == CUBLAS_STATUS_SUCCESS);
+
+        status = cublasSetStream(cublas_handle_[device], cuda_stream_[device]);
         assert(status == CUBLAS_STATUS_SUCCESS);
     }
 
@@ -340,7 +356,7 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
         cudaError_t error;
 
         // Allocate host arrays.
-        error = cudaMallocHost(&a_array_h_[device], 
+        error = cudaMallocHost(&a_array_h_[device],
                                sizeof(FloatType*)*MaxBatchArraySize);
         assert(error == cudaSuccess);
         error = cudaMallocHost(&b_array_h_[device], 
@@ -623,16 +639,6 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
     Matrix<FloatType> c = *this;
     Matrix<FloatType> a = that;
 
-    // host syrk on diagonal tiles
-    for (int64_t n = 0; n < c.nt_; ++n)
-        for (int64_t k = 0; k < a.nt_; ++k)
-            if (c.tileIsLocal(n, n))
-                #pragma omp task
-                {
-                    a.tileWait(n, k);
-                    c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
-                }
-
     // Wait for MPI.
     for (int64_t n = 0; n < c.nt_; ++n)
         for (int64_t m = n+1; m < c.mt_; ++m)
@@ -645,7 +651,7 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
     for (int device = 0; device < num_devices_; ++device)
         #pragma omp task
         {
-            int64_t batch_count = 0;
+            int64_t i = 0;
             for (int64_t n = 0; n < c.nt_; ++n)
                 for (int64_t m = n+1; m < c.mt_; ++m)
                     for (int64_t k = 0; k < a.nt_; ++k)
@@ -654,20 +660,26 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                                 c.tileMoveToDevice(m, n, device);
                                 a.tileCopyToDevice(m, k, device);
                                 a.tileCopyToDevice(n, k, device);
-                                ++batch_count;
-                            }
-
-            int64_t i = 0;
-            for (int64_t n = 0; n < c.nt_; ++n)
-                for (int64_t m = n+1; m < c.mt_; ++m)
-                    for (int64_t k = 0; k < a.nt_; ++k)
-                        if (c.tileIsLocal(m, n))
-                            if (device == tileDevice(m, n)) {
                                 a_array_h_[device][i] = a(m, k, device)->data_;
                                 b_array_h_[device][i] = a(n, k, device)->data_;
                                 c_array_h_[device][i] = c(m, n, device)->data_;
                                 ++i;
                             }
+            int64_t batch_count = i;
+
+// trace_cpu_start();
+//             int64_t i = 0;
+//             for (int64_t n = 0; n < c.nt_; ++n)
+//                 for (int64_t m = n+1; m < c.mt_; ++m)
+//                     for (int64_t k = 0; k < a.nt_; ++k)
+//                         if (c.tileIsLocal(m, n))
+//                             if (device == tileDevice(m, n)) {
+//                                 a_array_h_[device][i] = a(m, k, device)->data_;
+//                                 b_array_h_[device][i] = a(n, k, device)->data_;
+//                                 c_array_h_[device][i] = c(m, n, device)->data_;
+//                                 ++i;
+//                             }
+// trace_cpu_stop("Indigo");
 
             cudaError_t error;
             error = cudaSetDevice(device);
@@ -690,7 +702,7 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
             int nb = tileNb(0);
             cublasStatus_t status =
                 cublasDgemmBatched(
-                    cublas_handle_,
+                    cublas_handle_[device],
                     CUBLAS_OP_N, CUBLAS_OP_T,
                     nb, nb, nb,
                     &alpha, a_array_d_[device], nb,
@@ -698,6 +710,7 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                     &beta,  c_array_d_[device], nb,
                     batch_count);
             assert(status == CUBLAS_STATUS_SUCCESS);
+            cudaStreamSynchronize(cuda_stream_[device]);
             trace_cpu_stop("LimeGreen");
 
             for (int64_t n = 0; n < c.nt_; ++n)
@@ -709,6 +722,17 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                                 a.tileErase(n, k, device);
                             }
         }
+
+    // host syrk on diagonal tiles
+    for (int64_t n = 0; n < c.nt_; ++n)
+        for (int64_t k = 0; k < a.nt_; ++k)
+            if (c.tileIsLocal(n, n))
+                #pragma omp task
+                {
+                    a.tileWait(n, k);
+                    c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
+                }
+
     #pragma omp taskwait
 }
 
@@ -1094,9 +1118,9 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
         // lookahead column(s)
         for (int64_t n = k+1; n < k+1+lookahead && n < nt_; ++n) {
             #pragma omp task depend(in:column[k]) \
-                             depend(inout:column[n]) priority(1)
+                             depend(inout:column[n])
             {
-                #pragma omp task priority(1)
+                #pragma omp task
                 if (tileIsLocal(n, n)) {
                     tileWait(n, k);
                     a(n, n)->syrk(Uplo::Lower, Op::NoTrans,
@@ -1104,7 +1128,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                 }
 
                 for (int64_t m = n+1; m < nt_; ++m) {
-                    #pragma omp task priority(1)
+                    #pragma omp task
                     if (tileIsLocal(m, n)) {
                         tileWait(m, k);
                         tileWait(n, k);
@@ -1120,9 +1144,9 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
         if (k+1+lookahead < nt_) {
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[k+1+lookahead]) \
-                             depend(inout:column[nt_-1])
+                             depend(inout:column[nt_-1]) priority(1)
             Matrix(a, k+1+lookahead, k+1+lookahead,
-                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkTask(
+                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkAcc(
                 Uplo::Lower, Op::NoTrans,
                 -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
         }

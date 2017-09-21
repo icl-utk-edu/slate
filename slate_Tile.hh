@@ -143,7 +143,8 @@ public:
         allocate();
         copyTo(a, lda);
     }
-    Tile(const Tile<FloatType> *src_tile, int dst_device_num)
+    Tile(const Tile<FloatType> *src_tile, int dst_device_num,
+         cudaStream_t stream)
     {
         *this = *src_tile;
         device_num_ = dst_device_num;
@@ -157,8 +158,10 @@ public:
             cudaError_t error;
             error = cudaSetDevice(src_tile->device_num_);
             assert(error == cudaSuccess);
-            error = cudaMemcpy(data_, src_tile->data_, size(),
-                               cudaMemcpyDeviceToHost);
+            error = cudaMemcpyAsync(data_, src_tile->data_, size(),
+                                    cudaMemcpyDeviceToHost, stream);
+            assert(error == cudaSuccess);
+            error = cudaStreamSynchronize(stream);
             assert(error == cudaSuccess);
             trace_cpu_stop("Gray");
         }
@@ -166,8 +169,10 @@ public:
             cudaError_t error;
             error = cudaSetDevice(dst_device_num);
             assert(error == cudaSuccess);
-            error = cudaMemcpy(data_, src_tile->data_, size(),
-                               cudaMemcpyHostToDevice);
+            error = cudaMemcpyAsync(data_, src_tile->data_, size(),
+                                    cudaMemcpyHostToDevice, stream);
+            assert(error == cudaSuccess);
+            error = cudaStreamSynchronize(stream);
             assert(error == cudaSuccess);
             trace_cpu_stop("LightGray");
         }

@@ -193,7 +193,8 @@ void Matrix<FloatType>::tileCopyToDevice(int64_t i, int64_t j, int dst_device)
         // Copy the tile to the device.
         Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
         omp_unset_lock(tiles_lock_);
-        Tile<FloatType> *tile = new Tile<FloatType>(src_tile, dst_device);
+        Tile<FloatType> *tile =
+            new Tile<FloatType>(src_tile, dst_device, cuda_stream_[dst_device]);
         omp_set_lock(tiles_lock_);
         (*tiles_)[{it_+i, jt_+j, dst_device}] = tile;
     }
@@ -213,7 +214,8 @@ void Matrix<FloatType>::tileMoveToDevice(int64_t i, int64_t j, int dst_device)
         // Move the tile to the device.
         Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
         omp_unset_lock(tiles_lock_);
-        Tile<FloatType> *tile = new Tile<FloatType>(src_tile, dst_device);
+        Tile<FloatType> *tile =
+            new Tile<FloatType>(src_tile, dst_device, cuda_stream_[dst_device]);
         omp_set_lock(tiles_lock_);
         (*tiles_)[{it_+i, jt_+j, dst_device}] = tile;
         delete (*tiles_)[{it_+i, jt_+j, host_num_}];
@@ -246,7 +248,8 @@ void Matrix<FloatType>::tileMoveToHost(int64_t i, int64_t j, int src_device)
         // Move the tile to the host.
         Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
         omp_unset_lock(tiles_lock_);
-        Tile<FloatType> *tile = new Tile<FloatType>(src_tile, host_num_);
+        Tile<FloatType> *tile =
+            new Tile<FloatType>(src_tile, host_num_, cuda_stream_[src_device]);
         omp_set_lock(tiles_lock_);
         (*tiles_)[{it_+i, jt_+j, host_num_}] = tile;
         delete (*tiles_)[{it_+i, jt_+j, src_device}];
@@ -667,35 +670,24 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                             }
             int64_t batch_count = i;
 
-// trace_cpu_start();
-//             int64_t i = 0;
-//             for (int64_t n = 0; n < c.nt_; ++n)
-//                 for (int64_t m = n+1; m < c.mt_; ++m)
-//                     for (int64_t k = 0; k < a.nt_; ++k)
-//                         if (c.tileIsLocal(m, n))
-//                             if (device == tileDevice(m, n)) {
-//                                 a_array_h_[device][i] = a(m, k, device)->data_;
-//                                 b_array_h_[device][i] = a(n, k, device)->data_;
-//                                 c_array_h_[device][i] = c(m, n, device)->data_;
-//                                 ++i;
-//                             }
-// trace_cpu_stop("Indigo");
-
             cudaError_t error;
             error = cudaSetDevice(device);
             assert(error == cudaSuccess);
 
-            error = cudaMemcpy(a_array_d_[device], a_array_h_[device],
-                               sizeof(FloatType*)*batch_count,
-                               cudaMemcpyHostToDevice);
+            error = cudaMemcpyAsync(a_array_d_[device], a_array_h_[device],
+                                    sizeof(FloatType*)*batch_count,
+                                    cudaMemcpyHostToDevice,
+                                    cuda_stream_[device]);
             assert(error == cudaSuccess);
-            error = cudaMemcpy(b_array_d_[device], b_array_h_[device],
-                               sizeof(FloatType*)*batch_count,
-                               cudaMemcpyHostToDevice);
+            error = cudaMemcpyAsync(b_array_d_[device], b_array_h_[device],
+                                    sizeof(FloatType*)*batch_count,
+                                    cudaMemcpyHostToDevice,
+                                    cuda_stream_[device]);
             assert(error == cudaSuccess);
-            error = cudaMemcpy(c_array_d_[device], c_array_h_[device],
-                               sizeof(FloatType*)*batch_count,
-                               cudaMemcpyHostToDevice);
+            error = cudaMemcpyAsync(c_array_d_[device], c_array_h_[device],
+                                    sizeof(FloatType*)*batch_count,
+                                    cudaMemcpyHostToDevice,
+                                    cuda_stream_[device]);
             assert(error == cudaSuccess);
 
             trace_cpu_start();
@@ -710,7 +702,8 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                     &beta,  c_array_d_[device], nb,
                     batch_count);
             assert(status == CUBLAS_STATUS_SUCCESS);
-            cudaStreamSynchronize(cuda_stream_[device]);
+            error = cudaStreamSynchronize(cuda_stream_[device]);
+            assert(error == cudaSuccess);
             trace_cpu_stop("LimeGreen");
 
             for (int64_t n = 0; n < c.nt_; ++n)

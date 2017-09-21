@@ -80,13 +80,14 @@ int main (int argc, char *argv[])
     trace_off();
     slate::Matrix<double> temp(n, n, a1, lda, nb, nb, MPI_COMM_WORLD, p, q);
     temp.potrf(blas::Uplo::Lower);
+
+    slate::Matrix<double> a(n, n, a1, lda, nb, nb, MPI_COMM_WORLD, p, q);
     trace_on();
 
     trace_cpu_start();
     MPI_Barrier(MPI_COMM_WORLD);
     trace_cpu_stop("Black");
 
-    slate::Matrix<double> a(n, n, a1, lda, nb, nb, MPI_COMM_WORLD, p, q);
     double start = omp_get_wtime();
     a.potrf(blas::Uplo::Lower, lookahead);
 

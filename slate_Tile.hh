@@ -188,23 +188,6 @@ public:
 
         tick(a);
         tick(b);
-
-        // cblas_dgemm_compute(CblasColMajor, CblasPacked, CblasPacked,
-        //     mb_, nb_, a->nb_, a->packed_a_, a->mb_, b->packed_b_, b->mb_,
-        //     beta, data_, mb_);   
-
-        // #pragma omp critical
-        // {
-        //     --a->packed_a_life_;
-        //     if (a->packed_a_life_ == 0)
-        //         cblas_dgemm_free(a->packed_a_);
-        // }
-        // #pragma omp critical
-        // {
-        //     --b->packed_b_life_;
-        //     if (b->packed_b_life_ == 0)
-        //         cblas_dgemm_free(b->packed_b_);
-        // }
     }
 
     //---------------------------------------------------------------
@@ -263,3 +246,22 @@ Memory Tile<FloatType>::memory_ = Memory(sizeof(FloatType)*192*192, 10000);
 } // namespace slate
 
 #endif // SLATE_TILE_HH
+
+//------------------------------------------------------------------------------
+
+        // cblas_dgemm_compute(CblasColMajor, CblasPacked, CblasPacked,
+        //     mb_, nb_, a->nb_, a->packed_a_, a->mb_, b->packed_b_, b->mb_,
+        //     beta, data_, mb_);   
+
+        // #pragma omp critical
+        // {
+        //     --a->packed_a_life_;
+        //     if (a->packed_a_life_ == 0)
+        //         cblas_dgemm_free(a->packed_a_);
+        // }
+        // #pragma omp critical
+        // {
+        //     --b->packed_b_life_;
+        //     if (b->packed_b_life_ == 0)
+        //         cblas_dgemm_free(b->packed_b_);
+        // }

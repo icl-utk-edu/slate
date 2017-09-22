@@ -99,7 +99,8 @@ private:
 
     //---------------------------------------------
     static const int MaxDevices = 4;
-    cudaStream_t cuda_stream_[MaxDevices];
+    cudaStream_t gemm_stream_[MaxDevices];
+    cudaStream_t comm_stream_[MaxDevices];
     cublasHandle_t cublas_handle_[MaxDevices];
 
     static const int64_t MaxBatchArraySize = 16384;
@@ -194,7 +195,7 @@ void Matrix<FloatType>::tileCopyToDevice(int64_t i, int64_t j, int dst_device)
         Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
         omp_unset_lock(tiles_lock_);
         Tile<FloatType> *tile =
-            new Tile<FloatType>(src_tile, dst_device, cuda_stream_[dst_device]);
+            new Tile<FloatType>(src_tile, dst_device, comm_stream_[dst_device]);
         omp_set_lock(tiles_lock_);
         (*tiles_)[{it_+i, jt_+j, dst_device}] = tile;
     }
@@ -215,7 +216,7 @@ void Matrix<FloatType>::tileMoveToDevice(int64_t i, int64_t j, int dst_device)
         Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
         omp_unset_lock(tiles_lock_);
         Tile<FloatType> *tile =
-            new Tile<FloatType>(src_tile, dst_device, cuda_stream_[dst_device]);
+            new Tile<FloatType>(src_tile, dst_device, comm_stream_[dst_device]);
         omp_set_lock(tiles_lock_);
         (*tiles_)[{it_+i, jt_+j, dst_device}] = tile;
         delete (*tiles_)[{it_+i, jt_+j, host_num_}];
@@ -249,7 +250,7 @@ void Matrix<FloatType>::tileMoveToHost(int64_t i, int64_t j, int src_device)
         Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
         omp_unset_lock(tiles_lock_);
         Tile<FloatType> *tile =
-            new Tile<FloatType>(src_tile, host_num_, cuda_stream_[src_device]);
+            new Tile<FloatType>(src_tile, host_num_, comm_stream_[src_device]);
         omp_set_lock(tiles_lock_);
         (*tiles_)[{it_+i, jt_+j, host_num_}] = tile;
         delete (*tiles_)[{it_+i, jt_+j, src_device}];
@@ -321,13 +322,13 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
     assert(MPI_Comm_size(mpi_comm_, &mpi_size_) == MPI_SUCCESS);
     assert(MPI_Comm_group(mpi_comm_, &mpi_group_) == MPI_SUCCESS);
 
-    tileRankFunc = [=] (int64_t i, int64_t j) { return i%p + (j%q)*p; };
-    tileDeviceFunc = [=] (int64_t i, int64_t j) { return j%num_devices_; };
-    tileMbFunc = [=] (int64_t i) { return i*mb > m ? m%mb : mb; };
-    tileNbFunc = [=] (int64_t j) { return j*nb > n ? n%nb : nb; };
-
     host_num_ = omp_get_initial_device();
     num_devices_ = omp_get_num_devices();
+
+    tileRankFunc = [=] (int64_t i, int64_t j) { return i%p + (j%q)*p; };
+    tileDeviceFunc = [=] (int64_t i, int64_t j) { return j/q%num_devices_; };
+    tileMbFunc = [=] (int64_t i) { return i*mb > m ? m%mb : mb; };
+    tileNbFunc = [=] (int64_t j) { return j*nb > n ? n%nb : nb; };
 
     for (int device = 0; device < num_devices_; ++device) {
 
@@ -337,15 +338,20 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
         error = cudaSetDevice(device);
         assert(error == cudaSuccess);
 
-        error = cudaStreamCreate(&cuda_stream_[device]);
-        // error = cudaStreamCreateWithFlags(&cuda_stream_[device],
+        error = cudaStreamCreate(&gemm_stream_[device]);
+        // error = cudaStreamCreateWithFlags(&gemm_stream_[device],
+        //                                   cudaStreamNonBlocking);
+        assert(error == cudaSuccess);
+
+        error = cudaStreamCreate(&comm_stream_[device]);
+        // error = cudaStreamCreateWithFlags(&gemm_stream_[device],
         //                                   cudaStreamNonBlocking);
         assert(error == cudaSuccess);
 
         status = cublasCreate(&cublas_handle_[device]);
         assert(status == CUBLAS_STATUS_SUCCESS);
 
-        status = cublasSetStream(cublas_handle_[device], cuda_stream_[device]);
+        status = cublasSetStream(cublas_handle_[device], gemm_stream_[device]);
         assert(status == CUBLAS_STATUS_SUCCESS);
     }
 
@@ -677,17 +683,17 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
             error = cudaMemcpyAsync(a_array_d_[device], a_array_h_[device],
                                     sizeof(FloatType*)*batch_count,
                                     cudaMemcpyHostToDevice,
-                                    cuda_stream_[device]);
+                                    gemm_stream_[device]);
             assert(error == cudaSuccess);
             error = cudaMemcpyAsync(b_array_d_[device], b_array_h_[device],
                                     sizeof(FloatType*)*batch_count,
                                     cudaMemcpyHostToDevice,
-                                    cuda_stream_[device]);
+                                    gemm_stream_[device]);
             assert(error == cudaSuccess);
             error = cudaMemcpyAsync(c_array_d_[device], c_array_h_[device],
                                     sizeof(FloatType*)*batch_count,
                                     cudaMemcpyHostToDevice,
-                                    cuda_stream_[device]);
+                                    gemm_stream_[device]);
             assert(error == cudaSuccess);
 
             trace_cpu_start();
@@ -702,7 +708,7 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                     &beta,  c_array_d_[device], nb,
                     batch_count);
             assert(status == CUBLAS_STATUS_SUCCESS);
-            error = cudaStreamSynchronize(cuda_stream_[device]);
+            error = cudaStreamSynchronize(gemm_stream_[device]);
             assert(error == cudaSuccess);
             trace_cpu_stop("LimeGreen");
 
@@ -1045,7 +1051,8 @@ void Matrix<FloatType>::checkLife()
                           << " TILE " << std::get<0>(it->first)
                           << " " << std::get<1>(it->first)
                           << " LIFE " << it->second->life_
-                          << " data_ " << it->second->data_ << std::endl;
+                          << " data_ " << it->second->data_ 
+                          << " DEV " << std::get<2>(it->first) << std::endl;
     }
 }
 
@@ -1145,8 +1152,8 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
         }
     }
 
-    a.checkLife();
-    a.printLife();
+    // a.checkLife();
+    // a.printLife();
 }
 
 } // namespace slate

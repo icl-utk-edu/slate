@@ -17,6 +17,19 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 
+#ifdef ESSL
+extern "C" {
+lapack_int LAPACKE_slarnv( lapack_int idist, lapack_int* iseed, lapack_int n,
+                           float* x );
+lapack_int LAPACKE_dlarnv( lapack_int idist, lapack_int* iseed, lapack_int n,
+                           double* x );
+lapack_int LAPACKE_clarnv( lapack_int idist, lapack_int* iseed, lapack_int n,
+                           lapack_complex_float* x );
+lapack_int LAPACKE_zlarnv( lapack_int idist, lapack_int* iseed, lapack_int n,
+                           lapack_complex_double* x );
+}
+#endif
+
 namespace slate {
 
 //------------------------------------------------------------------------------
@@ -45,6 +58,7 @@ public:
         // assert(cublasDestroy(cublas_handle_) == CUBLAS_STATUS_SUCCESS);
     }
 
+    void random();
     void copyTo(FloatType *a, int64_t lda);
     void copyFrom(FloatType *a, int64_t lda);
     void copyFromFull(FloatType *a, int64_t lda);
@@ -355,7 +369,8 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
         assert(status == CUBLAS_STATUS_SUCCESS);
     }
 
-    copyTo(a, lda);
+//  copyTo(a, lda);
+    random();
 
     omp_init_lock(tiles_lock_);
 
@@ -404,6 +419,35 @@ Matrix<FloatType>::Matrix(const Matrix &a, int64_t it, int64_t jt,
     jt_ += jt;
     mt_ = mt;
     nt_ = nt;
+}
+
+//------------------------------------------------------------------------------
+template<typename FloatType>
+void Matrix<FloatType>::random()
+{
+    for (int64_t i = 0; i < mt_; ++i) {
+        for (int64_t j = 0; j <= i; ++j) {
+            if (tileIsLocal(i, j))
+            {
+                Tile<FloatType> *tile =
+                    new Tile<FloatType>(tileMb(i), tileNb(j));
+
+                int iseed[4];
+                iseed[0] = i & 0x0FFF;
+                iseed[1] = j & 0x0FFF;
+                iseed[2] = ((i >> 12) + (j >> 12)) & 0x0FFF;
+                iseed[3] = 1;
+                int nb = tileNb(0);
+                LAPACKE_dlarnv(1, iseed, (size_t)nb*nb, tile->data_);
+
+                if (i == j) {
+                    for (int64_t k = 0; k < nb; ++k)
+                    tile->data_[k*nb+k] += nb*nt_;
+                }
+                (*this)(i, j) = tile;
+            }
+        }
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -658,8 +702,9 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                 }
 
     for (int device = 0; device < num_devices_; ++device)
-        #pragma omp task
+        #pragma omp task priority (1)
         {
+            trace_cpu_start();
             int64_t i = 0;
             for (int64_t n = 0; n < c.nt_; ++n)
                 for (int64_t m = n+1; m < c.mt_; ++m)
@@ -675,6 +720,7 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                                 ++i;
                             }
             int64_t batch_count = i;
+            trace_cpu_stop("LightGray");
 
             cudaError_t error;
             error = cudaSetDevice(device);
@@ -710,13 +756,15 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
             assert(status == CUBLAS_STATUS_SUCCESS);
             error = cudaStreamSynchronize(gemm_stream_[device]);
             assert(error == cudaSuccess);
-            trace_cpu_stop("LimeGreen");
+            trace_cpu_stop("PaleGreen");
 
             for (int64_t n = 0; n < c.nt_; ++n)
                 for (int64_t m = n+1; m < c.mt_; ++m)
                     for (int64_t k = 0; k < a.nt_; ++k)
                         if (c.tileIsLocal(m, n))
                             if (device == tileDevice(m, n)) {
+                                a(m, k)->tick();
+                                a(n, k)->tick();
                                 a.tileErase(m, k, device);
                                 a.tileErase(n, k, device);
                             }
@@ -1089,7 +1137,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
     #pragma omp master
     for (int64_t k = 0; k < nt_; ++k) {
         // panel
-        #pragma omp task depend(inout:column[k]) priority(1)
+        #pragma omp task depend(inout:column[k])
         {
             if (tileIsLocal(k, k)) {
                 a(k, k)->potrf(uplo);
@@ -1100,7 +1148,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
 
             for (int64_t m = k+1; m < nt_; ++m) {
 
-                #pragma omp task priority(1)
+                #pragma omp task
                 if (tileIsLocal(m, k)) {
                     tileWait(k, k);
                     a.tileMoveToHost(m, k, tileDevice(m, k));
@@ -1114,6 +1162,16 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
             for (int64_t m = k+1; m < nt_; ++m)
                 tileIbcast(m, k, {m, m, k+1, m},
                                  {m, nt_-1, m, m});
+        }
+        // trailing submatrix
+        if (k+1+lookahead < nt_) {
+            #pragma omp task depend(in:column[k]) \
+                             depend(inout:column[k+1+lookahead]) \
+                             depend(inout:column[nt_-1])
+            Matrix(a, k+1+lookahead, k+1+lookahead,
+                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkAcc(
+                Uplo::Lower, Op::NoTrans,
+                -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
         }
         // lookahead column(s)
         for (int64_t n = k+1; n < k+1+lookahead && n < nt_; ++n) {
@@ -1140,20 +1198,10 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                 #pragma omp taskwait
             }
         }
-        // trailing submatrix
-        if (k+1+lookahead < nt_) {
-            #pragma omp task depend(in:column[k]) \
-                             depend(inout:column[k+1+lookahead]) \
-                             depend(inout:column[nt_-1]) priority(1)
-            Matrix(a, k+1+lookahead, k+1+lookahead,
-                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkAcc(
-                Uplo::Lower, Op::NoTrans,
-                -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
-        }
     }
 
-    // a.checkLife();
-    // a.printLife();
+//  a.checkLife();
+//  a.printLife();
 }
 
 } // namespace slate

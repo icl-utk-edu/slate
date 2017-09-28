@@ -59,7 +59,7 @@ int main (int argc, char *argv[])
     assert(MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank) == MPI_SUCCESS);
     assert(MPI_Comm_size(MPI_COMM_WORLD, &mpi_size) == MPI_SUCCESS);
     assert(mpi_size == p*q);
-
+/*
     //------------------------------------------------------
     double *a1 = new double[nb*nb*nt*nt];
     int seed[] = {0, 0, 0, 1};
@@ -67,7 +67,8 @@ int main (int argc, char *argv[])
     assert(retval == 0);
 
     for (int64_t i = 0; i < n; ++i)
-        a1[i*lda+i] += sqrt(n);
+//      a1[i*lda+i] += sqrt(n);
+        a1[i*lda+i] += n;
 
     //------------------------------------------------------
     double *a2;
@@ -75,13 +76,14 @@ int main (int argc, char *argv[])
         a2 = new double[nb*nb*nt*nt];
         memcpy(a2, a1, sizeof(double)*lda*n);
     }
-
+*/
     //------------------------------------------------------
     trace_off();
-    slate::Matrix<double> temp(n, n, a1, lda, nb, nb, MPI_COMM_WORLD, p, q);
-    temp.potrf(blas::Uplo::Lower);
+    // slate::Matrix<double> temp(n, n, a1, lda, nb, nb, MPI_COMM_WORLD, p, q);
+    // temp.potrf(blas::Uplo::Lower);
 
-    slate::Matrix<double> a(n, n, a1, lda, nb, nb, MPI_COMM_WORLD, p, q);
+//  slate::Matrix<double> a(n, n, a1, lda, nb, nb, MPI_COMM_WORLD, p, q);
+    slate::Matrix<double> a(n, n, nullptr, lda, nb, nb, MPI_COMM_WORLD, p, q);
     trace_on();
 
     trace_cpu_start();
@@ -96,32 +98,36 @@ int main (int argc, char *argv[])
     trace_cpu_stop("Black");
 
     double time = omp_get_wtime()-start;
-    a.gather();
+//  trace_finish();
+
+    // if (mpi_size > 1)
+    //     a.gather();
 
     //------------------------------------------------------
     if (mpi_rank == 0) {
 
-        retval = LAPACKE_dpotrf(LAPACK_COL_MAJOR, 'L', n, a2, lda);
-        assert(retval == 0);
-
-        a.copyFromFull(a1, lda);
-        diff_lapack_matrices(n, n, a1, lda, a2, lda, nb, nb);
-
-        cblas_daxpy((size_t)lda*n, -1.0, a1, 1, a2, 1);
-        double norm = LAPACKE_dlansy(LAPACK_COL_MAJOR, 'F', 'L', n, a1, lda);
-        double error = LAPACKE_dlange(LAPACK_COL_MAJOR, 'F', n, n, a2, lda);
-        if (norm != 0)
-            error /= norm;
-        printf("\t%le\n", error);
-
         double gflops = (double)nb*nb*nb*nt*nt*nt/3.0/time/1000000000.0;
         printf("\t%.0lf GFLOPS\n", gflops);
-        delete[] a2;
+        fflush(stdout);
+
+        // retval = LAPACKE_dpotrf(LAPACK_COL_MAJOR, 'L', n, a2, lda);
+        // assert(retval == 0);
+
+        // a.copyFromFull(a1, lda);
+        // diff_lapack_matrices(n, n, a1, lda, a2, lda, nb, nb);
+
+        // cblas_daxpy((size_t)lda*n, -1.0, a1, 1, a2, 1);
+        // double norm = LAPACKE_dlansy(LAPACK_COL_MAJOR, 'F', 'L', n, a1, lda);
+        // double error = LAPACKE_dlange(LAPACK_COL_MAJOR, 'F', n, n, a2, lda);
+        // delete[] a2;
+
+        // if (norm != 0)
+        //     error /= norm;
+        // printf("\t%le\n", error);
     }
 
     //------------------------------------------------------
-    delete[] a1;
-    trace_finish();
+//  delete[] a1;
     return EXIT_SUCCESS;
 }
 

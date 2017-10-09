@@ -33,25 +33,9 @@ by leveraging recent progress and ongoing efforts in mainstream programming mode
 Resources
 =========
 
-SLATE Main Website
-------------------
-
-Visit the [SLATE Main Website](http://icl.utk.edu/slate/)
-for more information about the project.
-
-SLATE Working Notes
--------------------
-
-Visit the [SLATE Working Notes](http://www.icl.utk.edu/publications/series/swans)
-to find out about SLATE developments.
-
-SLATE Mailing List
-------------------
-
-Feel free to join the
-[SLATE User](https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user)
-Google group by following the link and clicking *Apply to join group*.
-Then email your questions and comments to *slate-user@icl.utk.edu*.
+* Visit the [SLATE Main Website](http://icl.utk.edu/slate/) for more information about the project.
+* Visit the [SLATE Working Notes](http://www.icl.utk.edu/publications/series/swans) to find out about SLATE developments.
+* Feel free to join the [SLATE User](https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user) Google group by following the link and clicking *Apply to join group*. Then email your questions and comments to *slate-user@icl.utk.edu*.
 
 * * *
 

@@ -33,6 +33,12 @@ by leveraging recent progress and ongoing efforts in mainstream programming mode
 Resources
 =========
 
+SLATE Main Website
+------------------
+
+Visit the [SLATE Main Website](http://icl.utk.edu/slate/)
+for more information about the project.
+
 SLATE Working Notes
 -------------------
 

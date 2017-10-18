@@ -11,7 +11,11 @@
 #include <map>
 
 #include <omp.h>
-#include <cuda_runtime.h>
+#ifndef NO_CUDA
+    #include <cuda_runtime.h>
+#else
+    #include "slate_NoCuda.hh"
+#endif
 
 extern "C" void trace_cpu_start();
 extern "C" void trace_cpu_stop(const char *color);
@@ -45,7 +49,7 @@ public:
             printf("Device %d allocator initialized!\n", device);
             fflush(stdout);
         }
-        for (int64_t i = 0; i < max_blocks_*num_devices_; ++i) {
+        for (int64_t i = 0; i < max_blocks_*std::max(num_devices_, 1); ++i) {
             void *block;
             // cudaError_t error = cudaMallocHost(&block, block_size);
             // assert(error == cudaSuccess);
@@ -92,7 +96,7 @@ public:
         free_blocks_host_.pop_front();
 
         ++num_allocated_host_;
-        assert(num_allocated_host_ <= max_blocks_*num_devices_);
+        assert(num_allocated_host_ <= max_blocks_*std::max(num_devices_, 1));
         if (num_allocated_host_ > max_allocated_host_)
             max_allocated_host_ = num_allocated_host_;
         omp_unset_lock(blocks_lock_);

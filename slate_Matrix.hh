@@ -14,8 +14,13 @@
 
 #include <mpi.h>
 #include <omp.h>
-#include <cublas_v2.h>
-#include <cuda_runtime.h>
+#ifndef NO_CUDA
+    #include <cublas_v2.h>
+    #include <cuda_runtime.h>
+#else
+    #include "slate_NoCuda.hh"
+    #include "slate_NoCublas.hh"
+#endif
 
 #ifdef ESSL
 extern "C" {
@@ -99,7 +104,7 @@ public:
               blas::Op trans, blas::Diag diag,
               FloatType alpha, const Matrix &a);
 
-    void potrf(blas::Uplo uplo, int64_t lookahead=0);
+    void potrf(blas::Uplo uplo, int64_t lookahead = 0);
 
 private:
     MPI_Comm mpi_comm_;
@@ -337,12 +342,25 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
     assert(MPI_Comm_group(mpi_comm_, &mpi_group_) == MPI_SUCCESS);
 
     host_num_ = omp_get_initial_device();
+#ifndef NO_CUDA
     num_devices_ = omp_get_num_devices();
+#else
+    num_devices_ = 0;
+#endif
 
-    tileRankFunc = [=] (int64_t i, int64_t j) { return i%p + (j%q)*p; };
-    tileDeviceFunc = [=] (int64_t i, int64_t j) { return j/q%num_devices_; };
     tileMbFunc = [=] (int64_t i) { return i*mb > m ? m%mb : mb; };
     tileNbFunc = [=] (int64_t j) { return j*nb > n ? n%nb : nb; };
+
+    tileRankFunc = [=] (int64_t i, int64_t j) { return i%p + (j%q)*p; };
+
+    if (num_devices_ > 0) {
+        tileDeviceFunc = [=] (int64_t i, int64_t j)
+            { return j/q%num_devices_; };
+    }
+    else {
+        tileDeviceFunc = [=] (int64_t i, int64_t j)
+            { return host_num_; };
+    }
 
     for (int device = 0; device < num_devices_; ++device) {
 
@@ -380,13 +398,13 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
         cudaError_t error;
 
         // Allocate host arrays.
-        error = cudaMallocHost(&a_array_h_[device],
+        error = cudaMallocHost((void**)(&a_array_h_[device]),
                                sizeof(FloatType*)*MaxBatchArraySize);
         assert(error == cudaSuccess);
-        error = cudaMallocHost(&b_array_h_[device], 
+        error = cudaMallocHost((void**)(&b_array_h_[device]),
                                sizeof(FloatType*)*MaxBatchArraySize);
         assert(error == cudaSuccess);
-        error = cudaMallocHost(&c_array_h_[device], 
+        error = cudaMallocHost((void**)(&c_array_h_[device]),
                                sizeof(FloatType*)*MaxBatchArraySize);
         assert(error == cudaSuccess);
 
@@ -395,13 +413,13 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
         assert(error == cudaSuccess);
 
         // Allocate device arrays.
-        error = cudaMalloc(&a_array_d_[device],
+        error = cudaMalloc((void**)(&a_array_d_[device]),
                            sizeof(FloatType*)*MaxBatchArraySize);
         assert(error == cudaSuccess);
-        error = cudaMalloc(&b_array_d_[device],
+        error = cudaMalloc((void**)(&b_array_d_[device]),
                            sizeof(FloatType*)*MaxBatchArraySize);
         assert(error == cudaSuccess);
-        error = cudaMalloc(&c_array_d_[device],
+        error = cudaMalloc((void**)(&c_array_d_[device]),
                            sizeof(FloatType*)*MaxBatchArraySize);
         assert(error == cudaSuccess);
     }
@@ -1169,7 +1187,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[nt_-1])
             Matrix(a, k+1+lookahead, k+1+lookahead,
-                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkAcc(
+                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkNest(
                 Uplo::Lower, Op::NoTrans,
                 -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
         }
@@ -1200,8 +1218,8 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
         }
     }
 
-//  a.checkLife();
-//  a.printLife();
+    a.checkLife();
+    a.printLife();
 }
 
 } // namespace slate

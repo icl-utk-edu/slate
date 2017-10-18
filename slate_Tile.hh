@@ -15,7 +15,11 @@
 // #include <mkl_lapacke.h>
 #include <mpi.h>
 #include <omp.h>
-#include <cuda_runtime.h>
+#ifndef NO_CUDA
+    #include <cuda_runtime.h>
+#else
+    #include "slate_NoCuda.hh"
+#endif
 
 #include "slate_Memory.hh"
 
@@ -258,7 +262,7 @@ template<typename FloatType>
 int Tile<FloatType>::host_num_ = omp_get_initial_device();
 
 template<typename FloatType>
-Memory Tile<FloatType>::memory_ = Memory(sizeof(FloatType)*512*512, 7600);
+Memory Tile<FloatType>::memory_ = Memory(sizeof(FloatType)*512*512, 1000);
 
 } // namespace slate
 

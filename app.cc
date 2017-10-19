@@ -7,9 +7,12 @@
 #include <cstdlib>
 #include <utility>
 
-// #include <mkl_cblas.h>
-// #include <mkl_lapacke.h>
-#include <mpi.h>
+#ifdef SLATE_WITH_MPI
+    #include <mpi.h>
+#else
+    #include "slate_NoMpi.hh"
+#endif
+
 #include <omp.h>
 
 extern "C" void trace_on();

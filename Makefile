@@ -13,9 +13,11 @@ endif
 #------------------------------------------------------
 # if MPI
 ifeq (mpi,$(filter mpi,$(MAKECMDGOALS)))
+	CCFLAGS += -DSLATE_WITH_MPI
 	LIB += -lmpi
 # if Spectrum MPI
 else ifeq (spectrum,$(filter spectrum,$(MAKECMDGOALS)))
+	CCFLAGS += -DSLATE_WITH_MPI
 	LIB += -lmpi_ibm
 endif
 

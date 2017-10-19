@@ -12,13 +12,19 @@
 #include <cassert>
 #include <cstring>
 
-#include <mpi.h>
-#include <omp.h>
 #ifdef SLATE_WITH_CUDA
     #include <cuda_runtime.h>
 #else
     #include "slate_NoCuda.hh"
 #endif
+
+#ifdef SLATE_WITH_MPI
+    #include <mpi.h>
+#else
+    #include "slate_NoMpi.hh"
+#endif
+
+#include <omp.h>
 
 extern "C" void trace_cpu_start();
 extern "C" void trace_cpu_stop(const char *color);

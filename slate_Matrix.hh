@@ -4,6 +4,8 @@
 
 #include "slate_Tile.hh"
 
+#include "lapack.hh"
+
 #include <algorithm>
 #include <functional>
 #include <map>
@@ -14,25 +16,13 @@
 
 #include <mpi.h>
 #include <omp.h>
-#ifndef NO_CUDA
+
+#ifdef SLATE_WITH_CUDA
     #include <cublas_v2.h>
     #include <cuda_runtime.h>
 #else
     #include "slate_NoCuda.hh"
     #include "slate_NoCublas.hh"
-#endif
-
-#ifdef ESSL
-extern "C" {
-lapack_int LAPACKE_slarnv( lapack_int idist, lapack_int* iseed, lapack_int n,
-                           float* x );
-lapack_int LAPACKE_dlarnv( lapack_int idist, lapack_int* iseed, lapack_int n,
-                           double* x );
-lapack_int LAPACKE_clarnv( lapack_int idist, lapack_int* iseed, lapack_int n,
-                           lapack_complex_float* x );
-lapack_int LAPACKE_zlarnv( lapack_int idist, lapack_int* iseed, lapack_int n,
-                           lapack_complex_double* x );
-}
 #endif
 
 namespace slate {
@@ -342,7 +332,7 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
     assert(MPI_Comm_group(mpi_comm_, &mpi_group_) == MPI_SUCCESS);
 
     host_num_ = omp_get_initial_device();
-#ifndef NO_CUDA
+#ifdef SLATE_WITH_CUDA
     num_devices_ = omp_get_num_devices();
 #else
     num_devices_ = 0;
@@ -456,7 +446,7 @@ void Matrix<FloatType>::random()
                 iseed[2] = ((i >> 12) + (j >> 12)) & 0x0FFF;
                 iseed[3] = 1;
                 int nb = tileNb(0);
-                LAPACKE_dlarnv(1, iseed, (size_t)nb*nb, tile->data_);
+                lapack::larnv(1, iseed, nb*nb, tile->data_);
 
                 if (i == j) {
                     for (int64_t k = 0; k < nb; ++k)
@@ -608,7 +598,6 @@ void Matrix<FloatType>::syrkNest(blas::Uplo uplo, blas::Op trans,
 }
 
 //------------------------------------------------------------------------------
-#ifndef NOBATCH
 template<typename FloatType>
 void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
                                   FloatType alpha, const Matrix &that,
@@ -697,7 +686,6 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
 
     #pragma omp taskwait
 }
-#endif // #ifndef NOBATCH
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
@@ -800,11 +788,6 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
 
     #pragma omp taskwait
 }
-
-//      trace_cpu_start();
-//      cudaDeviceSynchronize();
-//      cudaStreamSynchronize(0);
-//      trace_cpu_stop("Crimson");
 
 //------------------------------------------------------------------------------
 template<typename FloatType>

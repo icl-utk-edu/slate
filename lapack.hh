@@ -4,47 +4,75 @@
 
 #include "blas.hh"
 
-#ifdef ESSL
-// extern "C" {
-#include "essl.h"
-// }
-#else
-#include "mkl_lapacke.h"
+#ifdef SLATE_WITH_MKL
+    #define MKL_Complex8  std::complex<float>
+    #define MKL_Complex16 std::complex<double>
+    #include <mkl_cblas.h>
+    #include <mkl_lapacke.h>
+#elif SLATE_WITH_ESSL
+    #include <essl.h>
+    #include <essl_lapacke.h>
 #endif
+
+extern "C" {
+    void slarnv_(int *idist, int *iseed, int *n, float *x);
+    void dlarnv_(int *idist, int *iseed, int *n, double *x);
+    void clarnv_(int *idist, int *iseed, int *n, std::complex<float> *x);
+    void zlarnv_(int *idist, int *iseed, int *n, std::complex<double> *x);
+}
 
 namespace lapack {
 
-//------------------------------------------------------------------------------
+//==============================================================================
 void potrf(blas::Layout layout, blas::Uplo uplo, int64_t n, float *a,
-           uint64_t lda)
+           int64_t lda)
 {
     LAPACKE_spotrf(LAPACK_COL_MAJOR, 'L', n, a, lda);
 }
 
+//------------------------------------------------------------------------------
 void potrf(blas::Layout layout, blas::Uplo uplo, int64_t n, double *a,
-           uint64_t lda) 
+           int64_t lda) 
 {
     LAPACKE_dpotrf(LAPACK_COL_MAJOR, 'L', n, a, lda);
 }
 
+//------------------------------------------------------------------------------
 void potrf(blas::Layout layout, blas::Uplo uplo, int64_t n,
-           std::complex<float> *a, uint64_t lda)
+           std::complex<float> *a, int64_t lda)
 {
-#ifdef ESSL
     LAPACKE_cpotrf(LAPACK_COL_MAJOR, 'L', n, a, lda);
-#else
-    LAPACKE_cpotrf(LAPACK_COL_MAJOR, 'L', n, (MKL_Complex8*)a, lda);
-#endif
 }
 
+//------------------------------------------------------------------------------
 void potrf(blas::Layout layout, blas::Uplo uplo, int64_t n,
-           std::complex<double> *a, uint64_t lda)
+           std::complex<double> *a, int64_t lda)
 {
-#ifdef ESSL
     LAPACKE_zpotrf(LAPACK_COL_MAJOR, 'L', n, a, lda);
-#else
-    LAPACKE_zpotrf(LAPACK_COL_MAJOR, 'L', n, (MKL_Complex16*)a, lda);
-#endif
+}
+
+//==============================================================================
+void larnv(int idist, int *iseed, int n, float *x)
+{
+    slarnv_(&idist, iseed, &n, x);
+}
+
+//------------------------------------------------------------------------------
+void larnv(int idist, int *iseed, int n, double *x)
+{
+    dlarnv_(&idist, iseed, &n, x);
+}
+
+//------------------------------------------------------------------------------
+void larnv(int idist, int *iseed, int n, std::complex<float> *x)
+{
+    clarnv_(&idist, iseed, &n, x);
+}
+
+//------------------------------------------------------------------------------
+void larnv(int idist, int *iseed, int n, std::complex<double> *x)
+{
+    zlarnv_(&idist, iseed, &n, x);
 }
 
 } // namespace LAPACK_HH

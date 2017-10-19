@@ -1,2 +1,0 @@
-export OMP_NESTED=true
-export OMP_MAX_TASK_PRIORITY=100

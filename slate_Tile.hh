@@ -2,6 +2,8 @@
 #ifndef SLATE_TILE_HH
 #define SLATE_TILE_HH
 
+#include "slate_Memory.hh"
+
 #include "blas.hh"
 #include "lapack.hh"
 
@@ -10,18 +12,13 @@
 #include <cassert>
 #include <cstring>
 
-// #include <mkl.h>
-// #include <mkl_cblas.h>
-// #include <mkl_lapacke.h>
 #include <mpi.h>
 #include <omp.h>
-#ifndef NO_CUDA
+#ifdef SLATE_WITH_CUDA
     #include <cuda_runtime.h>
 #else
     #include "slate_NoCuda.hh"
 #endif
-
-#include "slate_Memory.hh"
 
 extern "C" void trace_cpu_start();
 extern "C" void trace_cpu_stop(const char *color);
@@ -47,11 +44,6 @@ public:
     int device_num_;
 
     static Memory memory_;
-
-    // FloatType *packed_a_;
-    // FloatType *packed_b_;
-    // int64_t packed_a_life_;
-    // int64_t packed_b_life_;
 
     //-----------------------------------
     size_t size() {

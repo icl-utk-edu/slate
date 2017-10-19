@@ -21,18 +21,6 @@ void diff_lapack_matrices(int64_t m, int64_t n, double *a, int64_t lda,
                           double *b, int64_t ldb,
                           int64_t mb, int64_t nb);
 
-#ifdef ESSL
-extern "C" {
-lapack_int LAPACKE_slarnv( lapack_int idist, lapack_int* iseed, lapack_int n,
-                           float* x );
-lapack_int LAPACKE_dlarnv( lapack_int idist, lapack_int* iseed, lapack_int n,
-                           double* x );
-lapack_int LAPACKE_clarnv( lapack_int idist, lapack_int* iseed, lapack_int n,
-                           lapack_complex_float* x );
-lapack_int LAPACKE_zlarnv( lapack_int idist, lapack_int* iseed, lapack_int n,
-                           lapack_complex_double* x );
-}
-#endif
 //------------------------------------------------------------------------------
 int main (int argc, char *argv[])
 {
@@ -63,8 +51,9 @@ int main (int argc, char *argv[])
     //------------------------------------------------------
     double *a1 = new double[nb*nb*nt*nt];
     int seed[] = {0, 0, 0, 1};
-    retval = LAPACKE_dlarnv(1, seed, (size_t)lda*n, a1);
-    assert(retval == 0);
+    // retval = LAPACKE_dlarnv(1, seed, (size_t)lda*n, a1);
+    // assert(retval == 0);
+    lapack::larnv(1, seed, lda*n, tile->data_);
 
     for (int64_t i = 0; i < n; ++i)
 //      a1[i*lda+i] += sqrt(n);
@@ -98,7 +87,7 @@ int main (int argc, char *argv[])
     trace_cpu_stop("Black");
 
     double time = omp_get_wtime()-start;
-//  trace_finish();
+    trace_finish();
 
     // if (mpi_size > 1)
     //     a.gather();

@@ -11,7 +11,7 @@
 #include <map>
 
 #include <omp.h>
-#ifndef NO_CUDA
+#ifdef SLATE_WITH_CUDA
     #include <cuda_runtime.h>
 #else
     #include "slate_NoCuda.hh"

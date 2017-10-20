@@ -2,7 +2,7 @@
 CFLAGS  = -O3 -std=c99
 CCFLAGS = -O3 -std=c++11
 
-#---------------------------------------
+#---------------------------------------------
 # if OpenMP
 ifeq (openmp,$(filter openmp,$(MAKECMDGOALS)))
 	CCFLAGS += -fopenmp
@@ -47,7 +47,7 @@ ifeq (cuda,$(filter cuda,$(MAKECMDGOALS)))
 	LIB += -lcublas -lcudart
 endif
 
-#--------------------------
+#-------------------------------------------------------------------------------
 openmp:
 	@echo built with OpenMP
 
@@ -66,7 +66,6 @@ essl:
 cuda:
 	@echo built with CUDA
 
-#---------------------------------------------------------------------
 linux macos:
 	$(CC) $(CFLAGS) -c -DMPI trace/trace.c -o trace/trace.o
 	$(CXX) $(CCFLAGS) app.cc trace/trace.o $(LIB) -o app

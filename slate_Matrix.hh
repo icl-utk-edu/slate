@@ -382,8 +382,10 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
         assert(status == CUBLAS_STATUS_SUCCESS);
     }
 
-//  copyTo(a, lda);
-    random();
+    if (a != nullptr)
+        copyTo(a, lda);
+    else
+        random();
 
     omp_init_lock(tiles_lock_);
 

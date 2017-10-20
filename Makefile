@@ -4,7 +4,7 @@ CCFLAGS = -O3 -std=c++11
 
 #---------------------------------------
 # if OpenMP
-ifeq (omp,$(filter omp,$(MAKECMDGOALS)))
+ifeq (openmp,$(filter openmp,$(MAKECMDGOALS)))
 	CCFLAGS += -fopenmp
 else
 
@@ -26,11 +26,11 @@ endif
 ifeq (mkl,$(filter mkl,$(MAKECMDGOALS)))
 	CCFLAGS += -DSLATE_WITH_MKL
 	# if Linux
-	ifeq (lin,$(filter lin,$(MAKECMDGOALS)))
+	ifeq (linux,$(filter linux,$(MAKECMDGOALS)))
 		LIB += -L${MKLROOT}/lib \
 		       -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl
 	# if MacOS
-	else ifeq (mac,$(filter mac,$(MAKECMDGOALS)))
+	else ifeq (macos,$(filter macos,$(MAKECMDGOALS)))
 		LIB += -L${MKLROOT}/lib -Wl,-rpath,${MKLROOT}/lib \
 		       -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl
 	endif
@@ -48,7 +48,7 @@ ifeq (cuda,$(filter cuda,$(MAKECMDGOALS)))
 endif
 
 #--------------------------
-omp:
+openmp:
 	@echo built with OpenMP
 
 mpi:
@@ -67,7 +67,7 @@ cuda:
 	@echo built with CUDA
 
 #---------------------------------------------------------------------
-lin mac ibm:
+linux macos:
 	$(CC) $(CFLAGS) -c -DMPI trace/trace.c -o trace/trace.o
 	$(CXX) $(CCFLAGS) app.cc trace/trace.o $(LIB) -o app
 

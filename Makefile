@@ -5,9 +5,8 @@ CCFLAGS = -O3 -std=c++11
 #---------------------------------------------
 # if OpenMP
 ifeq (openmp,$(filter openmp,$(MAKECMDGOALS)))
+	CCFLAGS += -DSLATE_WITH_OPENMP
 	CCFLAGS += -fopenmp
-else
-
 endif
 
 #------------------------------------------------------

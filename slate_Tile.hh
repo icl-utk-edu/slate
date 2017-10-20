@@ -24,7 +24,11 @@
     #include "slate_NoMpi.hh"
 #endif
 
-#include <omp.h>
+#ifdef SLATE_WITH_OPENMP
+    #include <omp.h>
+#else
+    #include "slate_NoOpenmp.hh"
+#endif
 
 extern "C" void trace_cpu_start();
 extern "C" void trace_cpu_stop(const char *color);

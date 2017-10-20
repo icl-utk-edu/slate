@@ -28,7 +28,11 @@
     #include "slate_NoMpi.hh"
 #endif
 
-#include <omp.h>
+#ifdef SLATE_WITH_OPENMP
+    #include <omp.h>
+#else
+    #include "slate_NoOpenmp.hh"
+#endif
 
 namespace slate {
 

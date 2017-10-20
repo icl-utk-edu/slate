@@ -10,11 +10,16 @@
 #include <list>
 #include <map>
 
-#include <omp.h>
 #ifdef SLATE_WITH_CUDA
     #include <cuda_runtime.h>
 #else
     #include "slate_NoCuda.hh"
+#endif
+
+#ifdef SLATE_WITH_OPENMP
+    #include <omp.h>
+#else
+    #include "slate_NoOpenmp.hh"
 #endif
 
 extern "C" void trace_cpu_start();

@@ -1,6 +1,6 @@
 
-#ifndef SLATE_NOMPI_HH
-#define SLATE_NOMPI_HH
+#ifndef SLATE_NO_MPI_HH
+#define SLATE_NO_MPI_HH
 
 #include <cassert>
 
@@ -100,4 +100,4 @@ int MPI_Wait(MPI_Request *request, MPI_Status *status)
 }
 #endif
 
-#endif // SLATE_NOMPI_HH
+#endif // SLATE_NO_MPI_HH

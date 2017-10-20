@@ -1,6 +1,6 @@
 
-#ifndef SLATE_NOCUDA_HH
-#define SLATE_NOCUDA_HH
+#ifndef SLATE_NO_CUDA_HH
+#define SLATE_NO_CUDA_HH
 
 #include <cassert>
 
@@ -73,4 +73,4 @@ cudaError_t cudaStreamSynchronize(cudaStream_t stream)
 }
 #endif
 
-#endif // SLATE_NOCUDA_HH
+#endif // SLATE_NO_CUDA_HH

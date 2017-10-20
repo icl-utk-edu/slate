@@ -1,6 +1,6 @@
 
-#ifndef SLATE_NOCUBLAS_HH
-#define SLATE_NOCUBLAS_HH
+#ifndef SLATE_NO_CUBLAS_HH
+#define SLATE_NO_CUBLAS_HH
 
 #include <cassert>
 
@@ -47,4 +47,4 @@ cublasStatus_t cublasDgemmBatched(
 }
 #endif
 
-#endif // SLATE_NOCUBLAS_HH
+#endif // SLATE_NO_CUBLAS_HH

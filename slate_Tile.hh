@@ -88,14 +88,12 @@ public:
         tick(a);
         tick(b);
     }
-
     void potrf(blas::Uplo uplo)
     {
         trace_cpu_start();
         lapack::potrf(blas::Layout::ColMajor, uplo, nb_, data_, nb_);
         trace_cpu_stop("RosyBrown");
     }
-
     void syrk(blas::Uplo uplo, blas::Op trans,
               FloatType alpha, Tile<FloatType> *a, FloatType beta)
     {
@@ -106,7 +104,6 @@ public:
         tick(a);
         tick(a);
     }
-
     void trsm(blas::Side side, blas::Uplo uplo, blas::Op transa,
               blas::Diag diag, FloatType alpha, Tile<FloatType> *a)
     {

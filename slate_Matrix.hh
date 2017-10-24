@@ -41,11 +41,6 @@ namespace slate {
 template<typename FloatType>
 class Matrix {
 public:
-    int64_t it_; ///< first row of tiles
-    int64_t jt_; ///< first column of tiles
-    int64_t mt_; ///< number of tile rows
-    int64_t nt_; ///< number of tile columns
-
     Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
            int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q);
 
@@ -60,10 +55,16 @@ public:
     void copyTo(FloatType *a, int64_t lda);
     void copyFrom(FloatType *a, int64_t lda);
     void copyFromFull(FloatType *a, int64_t lda);
-
     void gather();
 
-    //------------------------------------------------------------------
+
+    void trsm(blas::Side side, blas::Uplo uplo,
+              blas::Op trans, blas::Diag diag,
+              FloatType alpha, const Matrix &a);
+
+    void potrf(blas::Uplo uplo, int64_t lookahead = 0);
+
+private:
     Tile<FloatType>* &operator()(int64_t i, int64_t j)
     {
         omp_set_lock(tiles_lock_);
@@ -93,50 +94,6 @@ public:
         return tile;
     }
 
-    void trsm(blas::Side side, blas::Uplo uplo,
-              blas::Op trans, blas::Diag diag,
-              FloatType alpha, const Matrix &a);
-
-    void potrf(blas::Uplo uplo, int64_t lookahead = 0);
-
-private:
-    // TODO: replace by unordered_map
-    std::map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*> *tiles_;
-    omp_lock_t *tiles_lock_ = new omp_lock_t();
-
-    Memory *memory_;
-
-    MPI_Comm mpi_comm_;
-    MPI_Group mpi_group_;
-
-    int mpi_size_;
-    int mpi_rank_;
-
-    int host_num_;
-    int num_devices_;
-
-    //---------------------------------------------
-    static const int MaxDevices = 4;
-    cudaStream_t gemm_stream_[MaxDevices];
-    cudaStream_t comm_stream_[MaxDevices];
-    cublasHandle_t cublas_handle_[MaxDevices];
-
-    static const int64_t MaxBatchArraySize = 16384;
-
-    const FloatType **a_array_h_[MaxDevices];
-    const FloatType **b_array_h_[MaxDevices];
-    FloatType **c_array_h_[MaxDevices];
-
-    const FloatType **a_array_d_[MaxDevices];
-    const FloatType **b_array_d_[MaxDevices];
-    FloatType **c_array_d_[MaxDevices];
-
-    //------------------------------------------------------------
-    std::function <int64_t (int64_t i, int64_t j)> tileRankFunc;
-    std::function <int64_t (int64_t i, int64_t j)> tileDeviceFunc;    
-    std::function <int64_t (int64_t i)> tileMbFunc;
-    std::function <int64_t (int64_t j)> tileNbFunc;
-
     int64_t tileRank(int64_t i, int64_t j) {
         return tileRankFunc(it_+i, jt_+j);
     }
@@ -150,7 +107,7 @@ private:
         return tileRank(i, j) == mpi_rank_;
     }
 
-    //--------------------------------------------------------------
+    //--------------------------------------------
     void syrkTask(blas::Uplo uplo, blas::Op trans,
                   FloatType alpha, const Matrix &a, FloatType beta);
 
@@ -163,7 +120,7 @@ private:
     void syrkAcc(blas::Uplo uplo, blas::Op trans,
                  FloatType alpha, const Matrix &a, FloatType beta);
 
-    //--------------------------------------------------------------------
+    //--------------------------------------------
     void tileSend(int64_t i, int64_t j, int dest);
     void tileRecv(int64_t i, int64_t j, int src);
     
@@ -194,6 +151,44 @@ private:
 
     void checkLife();
     void printLife();
+
+    int64_t it_; ///< first row of tiles
+    int64_t jt_; ///< first column of tiles
+    int64_t mt_; ///< number of tile rows
+    int64_t nt_; ///< number of tile columns
+
+    std::function <int64_t (int64_t i, int64_t j)> tileRankFunc;
+    std::function <int64_t (int64_t i, int64_t j)> tileDeviceFunc;
+    std::function <int64_t (int64_t i)> tileMbFunc;
+    std::function <int64_t (int64_t j)> tileNbFunc;
+
+    // TODO: replace by unordered_map
+    std::map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*> *tiles_;
+    omp_lock_t *tiles_lock_ = new omp_lock_t();
+
+    MPI_Comm mpi_comm_;
+    MPI_Group mpi_group_;
+    int mpi_size_;
+    int mpi_rank_;
+
+    int host_num_;
+    int num_devices_;
+    Memory *memory_;
+
+    static const int MaxDevices = 4;
+    cudaStream_t gemm_stream_[MaxDevices];
+    cudaStream_t comm_stream_[MaxDevices];
+    cublasHandle_t cublas_handle_[MaxDevices];
+
+    static const int64_t MaxBatchArraySize = 16384;
+
+    const FloatType **a_array_h_[MaxDevices];
+    const FloatType **b_array_h_[MaxDevices];
+    FloatType **c_array_h_[MaxDevices];
+
+    const FloatType **a_array_d_[MaxDevices];
+    const FloatType **b_array_d_[MaxDevices];
+    FloatType **c_array_d_[MaxDevices];
 };
 
 //------------------------------------------------------------------------------

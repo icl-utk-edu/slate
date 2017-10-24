@@ -47,9 +47,6 @@ public:
     int64_t nt_; ///< number of tile columns
 
     Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
-           int64_t mb, int64_t nb);
-
-    Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
            int64_t mb, int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q);
 
     Matrix(const Matrix &a, int64_t it, int64_t jt, int64_t mt, int64_t nt);
@@ -247,17 +244,6 @@ void Matrix<FloatType>::tileMoveToDevice(int64_t i, int64_t j, int dst_device)
 }
 
 //------------------------------------------------------------------------------
-// template<typename FloatType>
-// void Matrix<FloatType>::tileCopyToHost(int64_t i, int64_t j, int src_device)
-// {
-//     omp_set_lock(tiles_lock_);
-//     Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
-//     (*tiles_)[{it_+i, jt_+j, host_num_}] = 
-//         new Tile<FloatType>(src_tile, host_num_);
-//     omp_unset_lock(tiles_lock_);
-// }
-
-//------------------------------------------------------------------------------
 // @brief Move the tile to the host, if not already there.
 //        If it's already been moved, it won't be moved again.
 //
@@ -295,35 +281,6 @@ void Matrix<FloatType>::tileErase(int64_t i, int64_t j, int device)
         tiles_->erase({it_+i, jt_+j, device});
     }
     omp_unset_lock(tiles_lock_);
-}
-
-//------------------------------------------------------------------------------
-template<typename FloatType>
-Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
-                          int64_t mb, int64_t nb)
-{
-    // tiles_ = new std::map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*>;
-    // it_ = 0;
-    // jt_ = 0;
-    // mt_ = m % mb == 0 ? m/mb : m/mb+1;
-    // nt_ = n % nb == 0 ? n/nb : n/nb+1;
-
-    // tileRankFunc = [] (int64_t i, int64_t j) { return 0; };
-    // tileDeviceFunc = [=] (int64_t i, int64_t j) { return j%num_devices_; };
-    // tileMbFunc = [=] (int64_t i) { return (it_+i)*mb > m ? m%mb : mb; };
-    // tileNbFunc = [=] (int64_t j) { return (jt_+j)*nb > n ? n%nb : nb; };
-
-    // host_num_ = omp_get_initial_device();
-    // num_devices_ = omp_get_num_devices();
-
-    // if (num_devices_ > 0) {
-    //     cublasStatus_t status = cublasCreate(&cublas_handle_);
-    //     assert(status == CUBLAS_STATUS_SUCCESS);
-    // }
-
-    // copyTo(a, lda);
-
-    // omp_init_lock(tiles_lock_);
 }
 
 //------------------------------------------------------------------------------

@@ -57,12 +57,12 @@ public:
     void copyFromFull(FloatType *a, int64_t lda);
     void gather();
 
-
     void trsm(blas::Side side, blas::Uplo uplo,
               blas::Op trans, blas::Diag diag,
               FloatType alpha, const Matrix &a);
 
     void potrf(blas::Uplo uplo, int64_t lookahead = 0);
+
 
 private:
     Tile<FloatType>* &operator()(int64_t i, int64_t j)
@@ -149,6 +149,9 @@ private:
     void tileMoveToHost(int64_t i, int64_t j, int src_device);
     void tileErase(int64_t i, int64_t j, int device);
 
+    void initCudaStreams();
+    void initCublasHandles();
+
     void checkLife();
     void printLife();
 
@@ -175,11 +178,11 @@ private:
     int num_devices_;
     Memory *memory_;
 
-    static const int MaxDevices = 4;
-    cudaStream_t gemm_stream_[MaxDevices];
-    cudaStream_t comm_stream_[MaxDevices];
-    cublasHandle_t cublas_handle_[MaxDevices];
+    std::vector<cudaStream_t> gemm_stream_;
+    std::vector<cudaStream_t> comm_stream_;
+    std::vector<cublasHandle_t> cublas_handle_;
 
+    static const int MaxDevices = 4;
     static const int64_t MaxBatchArraySize = 16384;
 
     const FloatType **a_array_h_[MaxDevices];
@@ -277,6 +280,52 @@ void Matrix<FloatType>::tileErase(int64_t i, int64_t j, int device)
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
+void Matrix<FloatType>::initCudaStreams()
+{
+    gemm_stream_.resize(num_devices_);
+    comm_stream_.resize(num_devices_);
+
+    for (int device = 0; device < num_devices_; ++device) {
+
+        cudaError_t error;
+        error = cudaSetDevice(device);
+        assert(error == cudaSuccess);
+
+        error = cudaStreamCreate(&gemm_stream_[device]);
+        // error = cudaStreamCreateWithFlags(&gemm_stream_[device],
+        //                                   cudaStreamNonBlocking);
+        assert(error == cudaSuccess);
+
+        error = cudaStreamCreate(&comm_stream_[device]);
+        // error = cudaStreamCreateWithFlags(&gemm_stream_[device],
+        //                                   cudaStreamNonBlocking);
+        assert(error == cudaSuccess);
+    }
+}
+
+//------------------------------------------------------------------------------
+template<typename FloatType>
+void Matrix<FloatType>::initCublasHandles()
+{
+    cublas_handle_.resize(num_devices_);
+
+    for (int device = 0; device < num_devices_; ++device) {
+
+        cudaError_t error;
+        error = cudaSetDevice(device);
+        assert(error == cudaSuccess);
+
+        cublasStatus_t status;
+        status = cublasCreate(&cublas_handle_[device]);
+        assert(status == CUBLAS_STATUS_SUCCESS);
+
+        status = cublasSetStream(cublas_handle_[device], gemm_stream_[device]);
+        assert(status == CUBLAS_STATUS_SUCCESS);
+    }
+}
+
+//------------------------------------------------------------------------------
+template<typename FloatType>
 Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
                           int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q)
 {
@@ -314,30 +363,8 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
             { return host_num_; };
     }
 
-    for (int device = 0; device < num_devices_; ++device) {
-
-        cudaError_t error;
-        cublasStatus_t status;
-
-        error = cudaSetDevice(device);
-        assert(error == cudaSuccess);
-
-        error = cudaStreamCreate(&gemm_stream_[device]);
-        // error = cudaStreamCreateWithFlags(&gemm_stream_[device],
-        //                                   cudaStreamNonBlocking);
-        assert(error == cudaSuccess);
-
-        error = cudaStreamCreate(&comm_stream_[device]);
-        // error = cudaStreamCreateWithFlags(&gemm_stream_[device],
-        //                                   cudaStreamNonBlocking);
-        assert(error == cudaSuccess);
-
-        status = cublasCreate(&cublas_handle_[device]);
-        assert(status == CUBLAS_STATUS_SUCCESS);
-
-        status = cublasSetStream(cublas_handle_[device], gemm_stream_[device]);
-        assert(status == CUBLAS_STATUS_SUCCESS);
-    }
+    initCudaStreams();
+    initCublasHandles();
 
     if (a != nullptr)
         copyTo(a, lda);

@@ -3,6 +3,7 @@
 #define SLATE_MATRIX_HH
 
 #include "slate_Tile.hh"
+#include "slate_Memory.hh"
 
 #include "lapack.hh"
 
@@ -44,10 +45,6 @@ public:
     int64_t jt_; ///< first column of tiles
     int64_t mt_; ///< number of tile rows
     int64_t nt_; ///< number of tile columns
-
-    // TODO: replace by unordered_map
-    std::map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*> *tiles_;
-    omp_lock_t *tiles_lock_ = new omp_lock_t();
 
     Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
            int64_t mb, int64_t nb);
@@ -106,6 +103,12 @@ public:
     void potrf(blas::Uplo uplo, int64_t lookahead = 0);
 
 private:
+    // TODO: replace by unordered_map
+    std::map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*> *tiles_;
+    omp_lock_t *tiles_lock_ = new omp_lock_t();
+
+    Memory *memory_;
+
     MPI_Comm mpi_comm_;
     MPI_Group mpi_group_;
 
@@ -330,6 +333,8 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
                           MPI_Comm mpi_comm, int64_t p, int64_t q)
 {
     tiles_ = new std::map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*>;
+    memory_ = new Memory(sizeof(FloatType)*mb*nb, 0);
+
     it_ = 0;
     jt_ = 0;
     mt_ = m % mb == 0 ? m/mb : m/mb+1;
@@ -449,7 +454,7 @@ void Matrix<FloatType>::random()
             if (tileIsLocal(i, j))
             {
                 Tile<FloatType> *tile =
-                    new Tile<FloatType>(tileMb(i), tileNb(j));
+                    new Tile<FloatType>(tileMb(i), tileNb(j), memory_);
 
                 int iseed[4];
                 iseed[0] = i & 0x0FFF;
@@ -480,7 +485,7 @@ void Matrix<FloatType>::copyTo(FloatType *a, int64_t lda)
             if (tileIsLocal(i, j))
                 (*this)(i, j) =
                     new Tile<FloatType>(tileMb(i), tileNb(j),
-                                        &a[(size_t)lda*n+m], lda);
+                                        &a[(size_t)lda*n+m], lda, memory_);
             n += tileNb(j);
         }
         m += tileMb(i);
@@ -843,7 +848,7 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, int dest)
 template<typename FloatType>
 void Matrix<FloatType>::tileRecv(int64_t i, int64_t j, int src)
 {
-    Tile<FloatType> *tile = new Tile<FloatType>(tileMb(i), tileNb(j));
+    Tile<FloatType> *tile = new Tile<FloatType>(tileMb(i), tileNb(j), memory_);
     (*this)(i, j) = tile;
     int count = tile->mb_*tile->nb_;
     int tag = 0;
@@ -864,7 +869,7 @@ void Matrix<FloatType>::tileBcast(int64_t i, int64_t j)
         tile = (*this)(i, j);
     }
     else {
-        tile = new Tile<FloatType>(tileMb(i), tileNb(j));
+        tile = new Tile<FloatType>(tileMb(i), tileNb(j), memory_);
         (*this)(i, j) = tile;
     }
 
@@ -894,7 +899,7 @@ void Matrix<FloatType>::tileIbcast(int64_t i, int64_t j,
 
             // Create the tile.
             Tile<FloatType> *tile;
-            tile = new Tile<FloatType>(tileMb(i), tileNb(j));
+            tile = new Tile<FloatType>(tileMb(i), tileNb(j), memory_);
             (*this)(i, j) = tile;
 
             // Find the tile's life.
@@ -926,7 +931,7 @@ void Matrix<FloatType>::tileIbcast(int64_t i, int64_t j,
 
             // Create the tile.
             Tile<FloatType> *tile;
-            tile = new Tile<FloatType>(tileMb(i), tileNb(j));
+            tile = new Tile<FloatType>(tileMb(i), tileNb(j), memory_);
             (*this)(i, j) = tile;
 
             // Find the tile's life.
@@ -1181,7 +1186,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[nt_-1])
             Matrix(a, k+1+lookahead, k+1+lookahead,
-                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkNest(
+                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrkAcc(
                 Uplo::Lower, Op::NoTrans,
                 -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
         }

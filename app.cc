@@ -91,9 +91,9 @@ int main (int argc, char *argv[])
     // slate::Matrix<double> temp(n, n, a1, lda, nb, nb, MPI_COMM_WORLD, p, q);
     // temp.potrf(blas::Uplo::Lower);
 
+    trace_on();
     slate::Matrix<double> a(n, n, a1, lda, nb, nb, MPI_COMM_WORLD, p, q);
 
-    trace_on();
     trace_cpu_start();
     MPI_Barrier(MPI_COMM_WORLD);
     trace_cpu_stop("Black");

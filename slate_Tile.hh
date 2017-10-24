@@ -53,51 +53,23 @@ public:
     static int host_num_;
     int device_num_;
 
-    static Memory memory_;
+    Memory *memory_;
 
-    //-----------------------------------
     size_t size() {
         return sizeof(FloatType)*mb_*nb_;
     }
     void allocate()
     {
-//      trace_cpu_start();
-        // data_ = (FloatType*)omp_target_alloc(size(), device_num_);
-        // assert(data_ != nullptr);
-        if (device_num_ == host_num_) {
-            // data_ = (FloatType*)malloc(size());
-            // assert(data_ != nullptr);
-            // cudaError_t error = cudaMallocHost(&data_, size());
-            // assert(error == cudaSuccess);
-            data_ = (FloatType*)memory_.alloc_host();
-        }
-        else {
-            cudaError_t error;
-            error = cudaSetDevice(device_num_);
-            assert(error == cudaSuccess);
-            // error = cudaMalloc(&data_, size());
-            // assert(error == cudaSuccess);
-            data_ = (FloatType*)memory_.alloc();
-        }
-//      trace_cpu_stop("Orchid");
+        trace_cpu_start();
+        data_ = (FloatType*)memory_->alloc(device_num_);
+        trace_cpu_stop("Orchid");
     }
     void deallocate()
     {
-//      trace_cpu_start();
-        // omp_target_free(data_, device_num_);
-        if (device_num_ == host_num_) {
-            // free(data_);
-            // cudaFree(data_);
-            memory_.free_host(data_);
-        }
-        else {
-            cudaError_t error = cudaSetDevice(device_num_);
-            assert(error == cudaSuccess);
-            // cudaFree(data_);
-            memory_.free(data_);
-        }
+        trace_cpu_start();
+        memory_->free(data_, device_num_);
         data_ = nullptr;
-//      trace_cpu_stop("Crimson");
+        trace_cpu_stop("Crimson");
     }
     void copyTo(FloatType *a, int64_t lda)
     {
@@ -120,7 +92,6 @@ public:
                     this->deallocate();
             }
     }
-
     void tick(Tile<FloatType> *tile)
     {
         if (!tile->local_)
@@ -132,13 +103,13 @@ public:
             }
     }
 
-    Tile(int64_t mb, int64_t nb)
-        : mb_(mb), nb_(nb), device_num_(host_num_), life_(0)
+    Tile(int64_t mb, int64_t nb, Memory *memory)
+        : mb_(mb), nb_(nb), memory_(memory), device_num_(host_num_), life_(0)
     {
         allocate();
     }
-    Tile(int64_t mb, int64_t nb, FloatType *a, int64_t lda)
-        : mb_(mb), nb_(nb), device_num_(host_num_), life_(0)
+    Tile(int64_t mb, int64_t nb, FloatType *a, int64_t lda, Memory *memory)
+        : mb_(mb), nb_(nb), memory_(memory), device_num_(host_num_), life_(0)
     {
         allocate();
         copyTo(a, lda);
@@ -149,9 +120,9 @@ public:
         *this = *src_tile;
         device_num_ = dst_device_num;
         allocate();
-        // int retval = omp_target_memcpy(data_, src_tile->data_,
-        //                                size(), 0, 0,
-        //                                dst_device_num, src_tile->device_num_);
+        // int retval =
+        //     omp_target_memcpy(data_, src_tile->data_, size(), 0, 0,
+        //                       dst_device_num, src_tile->device_num_);
         // assert(retval == 0);
         if (dst_device_num == host_num_) {
             trace_cpu_start();
@@ -166,7 +137,7 @@ public:
             trace_cpu_stop("Gray");
         }
         else {
-//          trace_cpu_start();
+            // trace_cpu_start();
             cudaError_t error;
             error = cudaSetDevice(dst_device_num);
             assert(error == cudaSuccess);
@@ -175,7 +146,7 @@ public:
             assert(error == cudaSuccess);
             error = cudaStreamSynchronize(stream);
             assert(error == cudaSuccess);
-//          trace_cpu_stop("LightGray");
+            // trace_cpu_stop("LightGray");
         }
     }
     ~Tile() {
@@ -191,7 +162,6 @@ public:
                      mb_, nb_, a->nb_, alpha, a->data_, a->mb_,
                      b->data_, b->mb_, beta, data_, mb_);
         trace_cpu_stop("MediumAquamarine");
-
         tick(a);
         tick(b);
     }
@@ -212,7 +182,6 @@ public:
         blas::syrk(blas::Layout::ColMajor, uplo, trans,
                    nb_, a->nb_, alpha, a->data_, a->mb_, beta, data_, mb_);
         trace_cpu_stop("CornflowerBlue");
-
         tick(a);
         tick(a);
     }
@@ -225,7 +194,6 @@ public:
         blas::trsm(blas::Layout::ColMajor, side, uplo, transa, diag,
                    mb_, nb_, alpha, a->data_, mb_, data_, mb_);
         trace_cpu_stop("MediumPurple");
-
         tick(a);
     }
 
@@ -234,7 +202,7 @@ public:
     {
         for (int64_t m = 0; m < mb_; ++m) {
             for (int64_t n = 0; n < nb_; ++n) {
-                printf("%8.2lf", data_[(size_t)mb_*n+m]);
+                printf("%8.2lf", data_[mb_*n+m]);
             }
             printf("\n");
         }
@@ -245,9 +213,6 @@ public:
 //------------------------------------------------------------------------------
 template<typename FloatType>
 int Tile<FloatType>::host_num_ = omp_get_initial_device();
-
-template<typename FloatType>
-Memory Tile<FloatType>::memory_ = Memory(sizeof(FloatType)*512*512, 1000);
 
 } // namespace slate
 

@@ -7,8 +7,8 @@
 #include <cassert>
 #include <cstring>
 
-#include <list>
 #include <map>
+#include <stack>
 
 #ifdef SLATE_WITH_CUDA
     #include <cuda_runtime.h>
@@ -31,117 +31,95 @@ namespace slate {
 class Memory {
 public:
     Memory(size_t block_size, int64_t max_blocks)
-        : block_size_(block_size), max_blocks_(max_blocks)
+        : block_size_(block_size)
     {
-        printf("Memory allocator initializing...\n"); fflush(stdout);
+        int host_num = omp_get_initial_device();
+        for (int64_t i = 0; i < max_blocks; ++i) {
+            void *block = allocate_block(host_num);
+            free_blocks_[host_num].push(block);
+        }
 
-        cudaError_t error = cudaGetDeviceCount(&num_devices_);
-        assert(error == cudaSuccess);
-
-        for (int device = 0; device < num_devices_; ++device) {
-            cudaError_t error = cudaSetDevice(device);
-            assert(error == cudaSuccess);
-
-            for (int64_t i = 0; i < max_blocks_; ++i) {
-                void *block;
-                cudaError_t error = cudaMalloc(&block, block_size);
-                assert(error == cudaSuccess);
-                free_blocks_[device].push_back(block);
+        int num_devices = omp_get_num_devices();
+        for (int device = 0; device < num_devices; ++device) {
+            for (int64_t i = 0; i < max_blocks; ++i) {
+                void *block = allocate_block(device);
+                free_blocks_[device].push(block);
             }
-            num_allocated_[device] = 0;
-            max_allocated_[device] = 0;
-
-            printf("Device %d allocator initialized!\n", device);
-            fflush(stdout);
         }
-        for (int64_t i = 0; i < max_blocks_*std::max(num_devices_, 1); ++i) {
-            void *block;
-            // cudaError_t error = cudaMallocHost(&block, block_size);
-            // assert(error == cudaSuccess);
-            block = malloc(block_size);
-            assert(block != nullptr);
-            free_blocks_host_.push_back(block);
-        }
-        num_allocated_host_ = 0;
-        max_allocated_host_ = 0;
-
-        printf("Host allocator initialized!\n"); fflush(stdout);
     }
     ~Memory()
     {
-        printf("\n");
-        for (int device = 0; device < num_devices_; ++device)
-            printf("\t%d\tleaked\t%d\tmax\n", num_allocated_[device],
-                                              max_allocated_[device]);
-            printf("\t%d\tleaked\t%d\tmax\n", num_allocated_host_,
-                                              max_allocated_host_);
+        // print_num_free_blocks();
     }
 
-    void* alloc()
+    void* alloc(int device_num)
     {
-        int device;
-        cudaError_t error = cudaGetDevice(&device);
-        assert(error == cudaSuccess);
-
-        omp_set_lock(blocks_lock_);
-        void *block = free_blocks_[device].front();
-        free_blocks_[device].pop_front();
-
-        ++num_allocated_[device];
-        assert(num_allocated_[device] <= max_blocks_);
-        if (num_allocated_[device] > max_allocated_[device])
-            max_allocated_[device] = num_allocated_[device];
-        omp_unset_lock(blocks_lock_);
+        void *block;
+        #pragma omp critical(slate_memory)
+        {
+            if (free_blocks_[device_num].size() > 0) {
+                block = free_blocks_[device_num].top();
+                free_blocks_[device_num].pop();
+            }
+            else {
+                block = allocate_block(device_num);
+            }
+        }
         return block;
     }
-    void* alloc_host()
+    void free(void *block, int device_num)
     {
-        omp_set_lock(blocks_lock_);
-        void *block = free_blocks_host_.front();
-        free_blocks_host_.pop_front();
-
-        ++num_allocated_host_;
-        assert(num_allocated_host_ <= max_blocks_*std::max(num_devices_, 1));
-        if (num_allocated_host_ > max_allocated_host_)
-            max_allocated_host_ = num_allocated_host_;
-        omp_unset_lock(blocks_lock_);
-        return block;
-    }
-    void free(void* block)
-    {
-        int device;
-        cudaError_t error = cudaGetDevice(&device);
-        assert(error == cudaSuccess);
-
-        omp_set_lock(blocks_lock_);
-        free_blocks_[device].push_back(block);
-        --num_allocated_[device];
-        omp_unset_lock(blocks_lock_);
-    }
-    void free_host(void* block)
-    {
-        omp_set_lock(blocks_lock_);
-        free_blocks_host_.push_back(block);
-        --num_allocated_host_;
-        omp_unset_lock(blocks_lock_);
+        #pragma omp critical(slate_memory)
+        {
+            free_blocks_[device_num].push(block);
+        }
     }
 
 private:
+    void* allocate_block(int device)
+    {
+        static int host_num = omp_get_initial_device();
+
+        void *block;
+        if (device == host_num)
+            block = allocate_host_block();
+        else
+            block = allocate_device_block(device);
+
+        return block;
+    }
+    void* allocate_host_block()
+    {
+        void *block;
+        cudaError_t error = cudaMallocHost(&block, block_size_);
+        assert(error == cudaSuccess);
+        // block = malloc(block_size_);
+        // assert(block != nullptr);
+        return block;
+    }
+    void* allocate_device_block(int device)
+    {
+        cudaError_t error;
+        error = cudaSetDevice(device);
+        assert(error == cudaSuccess);
+
+        void *block;
+        error = cudaMalloc(&block, block_size_);
+        assert(error == cudaSuccess);
+        return block;
+    }
+
+    void print_num_free_blocks()
+    {
+        printf("\n");
+        for (auto it = free_blocks_.begin(); it != free_blocks_.end(); ++it) {
+            printf("\tdevice: %d\tfree blocks: %d\n", 
+                   it->first, it->second.size());
+        }
+    }
+
     size_t block_size_;
-    int64_t max_blocks_;
-    static const int MaxDevices = 4;
-    int num_devices_;
-
-    int64_t num_allocated_[MaxDevices];
-    int64_t max_allocated_[MaxDevices];
-
-    int64_t num_allocated_host_;
-    int64_t max_allocated_host_;
-
-    std::list<void*> free_blocks_[MaxDevices];
-    std::list<void*> free_blocks_host_;
-
-    omp_lock_t *blocks_lock_ = new omp_lock_t();
+    std::map<int, std::stack<void*>> free_blocks_;
 };
 
 } // namespace slate

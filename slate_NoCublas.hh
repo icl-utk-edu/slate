@@ -2,7 +2,7 @@
 #ifndef SLATE_NO_CUBLAS_HH
 #define SLATE_NO_CUBLAS_HH
 
-#include <cassert>
+#include "slate_NoCuda.hh"
 
 typedef int cublasHandle_t;
 typedef int cublasStatus_t;
@@ -18,19 +18,9 @@ enum {
 extern "C" {
 #endif
 
-//------------------------------------------------------------------------------
-cublasStatus_t cublasCreate(cublasHandle_t *handle)
-{
-    assert(0);
-}
+cublasStatus_t cublasCreate(cublasHandle_t *handle);
+cublasStatus_t cublasSetStream(cublasHandle_t handle, cudaStream_t streamId);
 
-//------------------------------------------------------------------------------
-cublasStatus_t cublasSetStream(cublasHandle_t handle, cudaStream_t streamId)
-{
-    assert(0);
-}
-
-//------------------------------------------------------------------------------
 cublasStatus_t cublasDgemmBatched(
     cublasHandle_t handle,
     cublasOperation_t transa, cublasOperation_t transb,
@@ -38,10 +28,7 @@ cublasStatus_t cublasDgemmBatched(
     const double *alpha, const double *Aarray[], int lda,
                          const double *Barray[], int ldb,
     const double *beta,        double *Carray[], int ldc,
-    int batchCount)
-{
-    assert(0);
-}
+    int batchCount);
 
 #ifdef __cplusplus
 }

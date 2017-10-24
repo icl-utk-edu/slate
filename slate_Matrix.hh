@@ -47,7 +47,7 @@ public:
     int64_t nt_; ///< number of tile columns
 
     Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
-           int64_t mb, int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q);
+           int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q);
 
     Matrix(const Matrix &a, int64_t it, int64_t jt, int64_t mt, int64_t nt);
 
@@ -189,10 +189,7 @@ private:
     //----------------------------------------------------------
     void tileCopyToDevice(int64_t i, int64_t j, int dst_device);
     void tileMoveToDevice(int64_t i, int64_t j, int dst_device);
-
-//  void tileCopyToHost(int64_t i, int64_t j, int src_device);
     void tileMoveToHost(int64_t i, int64_t j, int src_device);
-
     void tileErase(int64_t i, int64_t j, int device);
 
     void checkLife();
@@ -286,15 +283,14 @@ void Matrix<FloatType>::tileErase(int64_t i, int64_t j, int device)
 //------------------------------------------------------------------------------
 template<typename FloatType>
 Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
-                          int64_t mb, int64_t nb,
-                          MPI_Comm mpi_comm, int64_t p, int64_t q)
+                          int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q)
 {
     tiles_ = new std::map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*>;
-    memory_ = new Memory(sizeof(FloatType)*mb*nb, 0);
+    memory_ = new Memory(sizeof(FloatType)*nb*nb, 0);
 
     it_ = 0;
     jt_ = 0;
-    mt_ = m % mb == 0 ? m/mb : m/mb+1;
+    mt_ = m % nb == 0 ? m/nb : m/nb+1;
     nt_ = n % nb == 0 ? n/nb : n/nb+1;
 
     mpi_comm_ = mpi_comm;
@@ -309,7 +305,7 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
     num_devices_ = 0;
 #endif
 
-    tileMbFunc = [=] (int64_t i) { return i*mb > m ? m%mb : mb; };
+    tileMbFunc = [=] (int64_t i) { return i*nb > m ? m%nb : nb; };
     tileNbFunc = [=] (int64_t j) { return j*nb > n ? n%nb : nb; };
 
     tileRankFunc = [=] (int64_t i, int64_t j) { return i%p + (j%q)*p; };
@@ -683,7 +679,7 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
     for (int device = 0; device < num_devices_; ++device)
         #pragma omp task priority (1)
         {
-            trace_cpu_start();
+            // trace_cpu_start();
             int64_t i = 0;
             for (int64_t n = 0; n < c.nt_; ++n)
                 for (int64_t m = n+1; m < c.mt_; ++m)
@@ -699,7 +695,7 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                                 ++i;
                             }
             int64_t batch_count = i;
-            trace_cpu_stop("LightGray");
+            // trace_cpu_stop("LightGray");
 
             cudaError_t error;
             error = cudaSetDevice(device);

@@ -88,11 +88,11 @@ int main (int argc, char *argv[])
     trace_off();
     //-----------
     // warmup run
-    // slate::Matrix<double> temp(n, n, a1, lda, nb, nb, MPI_COMM_WORLD, p, q);
+    // slate::Matrix<double> temp(n, n, a1, lda, nb, MPI_COMM_WORLD, p, q);
     // temp.potrf(blas::Uplo::Lower);
 
     trace_on();
-    slate::Matrix<double> a(n, n, a1, lda, nb, nb, MPI_COMM_WORLD, p, q);
+    slate::Matrix<double> a(n, n, a1, lda, nb, MPI_COMM_WORLD, p, q);
 
     trace_cpu_start();
     MPI_Barrier(MPI_COMM_WORLD);

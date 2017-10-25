@@ -63,7 +63,6 @@ public:
 
     void potrf(blas::Uplo uplo, int64_t lookahead = 0);
 
-
 private:
     Tile<FloatType>* &operator()(int64_t i, int64_t j)
     {
@@ -151,6 +150,8 @@ private:
 
     void initCudaStreams();
     void initCublasHandles();
+    void initBatchArrays();
+    int64_t getMaxBatchSize(int device);
 
     void checkLife();
     void printLife();
@@ -174,24 +175,24 @@ private:
     int mpi_size_;
     int mpi_rank_;
 
-    int host_num_;
-    int num_devices_;
-    Memory *memory_;
+    int host_num_;    ///< host ID
+    int num_devices_; ///< number of devices
+    Memory *memory_;  ///< memory allocator
 
+    // CUDA streams and cuBLAS handles
     std::vector<cudaStream_t> gemm_stream_;
     std::vector<cudaStream_t> comm_stream_;
     std::vector<cublasHandle_t> cublas_handle_;
 
-    static const int MaxDevices = 4;
-    static const int64_t MaxBatchArraySize = 16384;
+    // host pointer arrays for batch GEMM
+    std::vector<const FloatType**> a_array_h_;
+    std::vector<const FloatType**> b_array_h_;
+    std::vector<FloatType**> c_array_h_;
 
-    const FloatType **a_array_h_[MaxDevices];
-    const FloatType **b_array_h_[MaxDevices];
-    FloatType **c_array_h_[MaxDevices];
-
-    const FloatType **a_array_d_[MaxDevices];
-    const FloatType **b_array_d_[MaxDevices];
-    FloatType **c_array_d_[MaxDevices];
+    // device pointer arrays for batch GEMM
+    std::vector<const FloatType**> a_array_d_;
+    std::vector<const FloatType**> b_array_d_;
+    std::vector<FloatType**> c_array_d_;
 };
 
 //------------------------------------------------------------------------------
@@ -326,11 +327,69 @@ void Matrix<FloatType>::initCublasHandles()
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
+void Matrix<FloatType>::initBatchArrays()
+{
+    a_array_h_.resize(num_devices_);
+    b_array_h_.resize(num_devices_);
+    c_array_h_.resize(num_devices_);
+
+    a_array_d_.resize(num_devices_);
+    b_array_d_.resize(num_devices_);
+    c_array_d_.resize(num_devices_);
+
+    for (int device = 0; device < num_devices_; ++device) {
+
+        int64_t max_batch_size = getMaxBatchSize(device);
+        cudaError_t error;
+
+        // Allocate host arrays.
+        error = cudaMallocHost((void**)(&a_array_h_[device]),
+                               sizeof(FloatType*)*max_batch_size);
+        assert(error == cudaSuccess);
+        error = cudaMallocHost((void**)(&b_array_h_[device]),
+                               sizeof(FloatType*)*max_batch_size);
+        assert(error == cudaSuccess);
+        error = cudaMallocHost((void**)(&c_array_h_[device]),
+                               sizeof(FloatType*)*max_batch_size);
+        assert(error == cudaSuccess);
+
+        // Set the device.
+        error = cudaSetDevice(device);
+        assert(error == cudaSuccess);
+
+        // Allocate device arrays.
+        error = cudaMalloc((void**)(&a_array_d_[device]),
+                           sizeof(FloatType*)*max_batch_size);
+        assert(error == cudaSuccess);
+        error = cudaMalloc((void**)(&b_array_d_[device]),
+                           sizeof(FloatType*)*max_batch_size);
+        assert(error == cudaSuccess);
+        error = cudaMalloc((void**)(&c_array_d_[device]),
+                           sizeof(FloatType*)*max_batch_size);
+        assert(error == cudaSuccess);
+    }
+}
+
+//------------------------------------------------------------------------------
+template<typename FloatType>
+int64_t Matrix<FloatType>::getMaxBatchSize(int device)
+{
+    int64_t max_batch_size = 0;
+    for (int64_t i = 0; i < mt_; ++i)
+        for (int64_t j = 0; j <= i; ++j)
+            if (tileIsLocal(i, j) && tileDevice(i, j) == device)
+                ++max_batch_size;
+
+    return max_batch_size;
+}
+
+//------------------------------------------------------------------------------
+template<typename FloatType>
 Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
                           int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q)
 {
     tiles_ = new std::map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*>;
-    memory_ = new Memory(sizeof(FloatType)*nb*nb, 0);
+    omp_init_lock(tiles_lock_);
 
     it_ = 0;
     jt_ = 0;
@@ -365,45 +424,14 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
 
     initCudaStreams();
     initCublasHandles();
+    initBatchArrays();
+
+    memory_ = new Memory(sizeof(FloatType)*nb*nb, 0);
 
     if (a != nullptr)
         copyTo(a, lda);
     else
         random();
-
-    omp_init_lock(tiles_lock_);
-
-    assert(num_devices_ <= MaxDevices);
-    for (int device = 0; device < num_devices_; ++device) {
-
-        cudaError_t error;
-
-        // Allocate host arrays.
-        error = cudaMallocHost((void**)(&a_array_h_[device]),
-                               sizeof(FloatType*)*MaxBatchArraySize);
-        assert(error == cudaSuccess);
-        error = cudaMallocHost((void**)(&b_array_h_[device]),
-                               sizeof(FloatType*)*MaxBatchArraySize);
-        assert(error == cudaSuccess);
-        error = cudaMallocHost((void**)(&c_array_h_[device]),
-                               sizeof(FloatType*)*MaxBatchArraySize);
-        assert(error == cudaSuccess);
-
-        // Set the device.
-        error = cudaSetDevice(device);
-        assert(error == cudaSuccess);
-
-        // Allocate device arrays.
-        error = cudaMalloc((void**)(&a_array_d_[device]),
-                           sizeof(FloatType*)*MaxBatchArraySize);
-        assert(error == cudaSuccess);
-        error = cudaMalloc((void**)(&b_array_d_[device]),
-                           sizeof(FloatType*)*MaxBatchArraySize);
-        assert(error == cudaSuccess);
-        error = cudaMalloc((void**)(&c_array_d_[device]),
-                           sizeof(FloatType*)*MaxBatchArraySize);
-        assert(error == cudaSuccess);
-    }
 }
 
 //------------------------------------------------------------------------------

@@ -7,13 +7,13 @@ namespace slate {
 template<typename FloatType>
 void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
 {
-    printf("==== POTRF: lookahead    = %d\n", lookahead);
-    printf("==== SLATE: num_devices_ = %d\n", num_devices_);
-
     using namespace blas;
 
     Matrix<FloatType> a = *this;
     uint8_t *column;    
+
+    for (int device = 0; device < num_devices_; ++device)
+        a.memory_->addDeviceBlocks(device, getMaxDeviceTiles(device));
 
     #pragma omp parallel
     #pragma omp master
@@ -81,6 +81,9 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
             }
         }
     }
+
+    for (int device = 0; device < num_devices_; ++device)
+        a.memory_->clearDeviceBlocks(device);
 
     a.checkLife();
     a.printLife();

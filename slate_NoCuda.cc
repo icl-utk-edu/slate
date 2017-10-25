@@ -7,6 +7,16 @@
 extern "C" {
 #endif
 
+cudaError_t cudaFree(void *devPtr)
+{
+    assert(0);
+}
+
+cudaError_t cudaFreeHost(void *devPtr)
+{
+    assert(0);
+}
+
 cudaError_t cudaGetDevice(int *device)
 {
     assert(0);

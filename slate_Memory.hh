@@ -30,26 +30,52 @@ namespace slate {
 //------------------------------------------------------------------------------
 class Memory {
 public:
-    Memory(size_t block_size, int64_t max_blocks)
-        : block_size_(block_size)
-    {
-        int host_num = omp_get_initial_device();
-        for (int64_t i = 0; i < max_blocks; ++i) {
-            void *block = allocate_block(host_num);
-            free_blocks_[host_num].push(block);
-        }
-
-        int num_devices = omp_get_num_devices();
-        for (int device = 0; device < num_devices; ++device) {
-            for (int64_t i = 0; i < max_blocks; ++i) {
-                void *block = allocate_block(device);
-                free_blocks_[device].push(block);
-            }
-        }
-    }
+    Memory(size_t block_size) : block_size_(block_size) {}
     ~Memory()
     {
-        // print_num_free_blocks();
+        // printNumFreeBlocks();
+    }
+
+    void addHostBlocks(int64_t num_blocks)
+    {
+        // or std::byte* (C++17)
+        uint8_t *host_mem;
+        host_mem = (uint8_t*)allocHostMemory(block_size_*num_blocks);
+
+        for (int64_t i = 0; i < num_blocks; ++i)
+            free_blocks_[host_num_].push(host_mem+i*block_size_);
+
+    }
+    void addDeviceBlocks(int device, int64_t num_blocks)
+    {
+        // or std::byte* (C++17)
+        uint8_t *dev_mem;
+        dev_mem = (uint8_t*)allocDeviceMemory(device, block_size_*num_blocks);
+
+        for (int64_t i = 0; i < num_blocks; ++i)
+            free_blocks_[device].push(dev_mem+i*block_size_);
+    }
+    void clearHostBlocks()
+    {
+        while (!free_blocks_[host_num_].empty())
+            free_blocks_[host_num_].pop();
+
+        while (!allocated_mem_[host_num_].empty()) {
+            void *host_mem = allocated_mem_[host_num_].top();
+            freeHostMemory(host_mem);
+            allocated_mem_[host_num_].pop();
+        } 
+    }
+    void clearDeviceBlocks(int device)
+    {
+        while (!free_blocks_[device].empty())
+            free_blocks_[device].pop();
+
+        while (!allocated_mem_[device].empty()) {
+            void *dev_mem = allocated_mem_[device].top();
+            freeDeviceMemory(device, dev_mem);
+            allocated_mem_[device].pop();
+        }
     }
 
     void* alloc(int device_num)
@@ -62,7 +88,7 @@ public:
                 free_blocks_[device_num].pop();
             }
             else {
-                block = allocate_block(device_num);
+                block = allocBlock(device_num);
             }
         }
         return block;
@@ -76,40 +102,55 @@ public:
     }
 
 private:
-    void* allocate_block(int device)
+    void* allocBlock(int device)
     {
-        static int host_num = omp_get_initial_device();
-
         void *block;
-        if (device == host_num)
-            block = allocate_host_block();
+        if (device == host_num_)
+            block = allocHostMemory(block_size_);
         else
-            block = allocate_device_block(device);
+            block = allocDeviceMemory(device, block_size_);
 
+        allocated_mem_[device].push(block);
         return block;
     }
-    void* allocate_host_block()
+    void* allocHostMemory(size_t size)
     {
-        void *block;
-        cudaError_t error = cudaMallocHost(&block, block_size_);
+        void *host_mem;
+        cudaError_t error = cudaMallocHost(&host_mem, size);
         assert(error == cudaSuccess);
-        // block = malloc(block_size_);
-        // assert(block != nullptr);
-        return block;
+        // host_mem = malloc(size);
+        // assert(host_mem != nullptr);
+        allocated_mem_[host_num_].push(host_mem);
+        return host_mem;
     }
-    void* allocate_device_block(int device)
+    void* allocDeviceMemory(int device, size_t size)
     {
         cudaError_t error;
         error = cudaSetDevice(device);
         assert(error == cudaSuccess);
 
-        void *block;
-        error = cudaMalloc(&block, block_size_);
+        void *dev_mem;
+        error = cudaMalloc(&dev_mem, size);
         assert(error == cudaSuccess);
-        return block;
+        allocated_mem_[device].push(dev_mem);
+        return dev_mem;
+    }
+    void freeHostMemory(void *host_mem)
+    {
+        cudaError_t error = cudaFreeHost(host_mem);
+        assert(error == cudaSuccess);
+    }
+    void freeDeviceMemory(int device, void *dev_mem)
+    {
+        cudaError_t error;
+        error = cudaSetDevice(device);
+        assert(error == cudaSuccess);
+
+        error = cudaFree(dev_mem);
+        assert(error == cudaSuccess);
     }
 
-    void print_num_free_blocks()
+    void printNumFreeBlocks()
     {
         printf("\n");
         for (auto it = free_blocks_.begin(); it != free_blocks_.end(); ++it) {
@@ -118,8 +159,11 @@ private:
         }
     }
 
+    static int host_num_;
+
     size_t block_size_;
     std::map<int, std::stack<void*>> free_blocks_;
+    std::map<int, std::stack<void*>> allocated_mem_;
 };
 
 } // namespace slate

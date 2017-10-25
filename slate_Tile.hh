@@ -214,9 +214,6 @@ private:
     Memory *memory_;
 };
 
-template<typename FloatType>
-int Tile<FloatType>::host_num_ = omp_get_initial_device();
-
 } // namespace slate
 
 #endif // SLATE_TILE_HH

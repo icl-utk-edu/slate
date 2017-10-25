@@ -19,6 +19,9 @@ enum {
 extern "C" {
 #endif
 
+cudaError_t cudaFree(void *devPtr);
+cudaError_t cudaFreeHost(void *ptr);
+
 cudaError_t cudaGetDevice(int *device);
 cudaError_t cudaGetDeviceCount(int *count);
 

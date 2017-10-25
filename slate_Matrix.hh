@@ -151,7 +151,9 @@ private:
     void initCudaStreams();
     void initCublasHandles();
     void initBatchArrays();
-    int64_t getMaxBatchSize(int device);
+
+    int64_t getMaxHostTiles();
+    int64_t getMaxDeviceTiles(int device);
 
     void checkLife();
     void printLife();
@@ -175,9 +177,9 @@ private:
     int mpi_size_;
     int mpi_rank_;
 
-    int host_num_;    ///< host ID
-    int num_devices_; ///< number of devices
-    Memory *memory_;  ///< memory allocator
+    static int host_num_; ///< host ID
+    int num_devices_;     ///< number of devices
+    Memory *memory_;      ///< memory allocator
 
     // CUDA streams and cuBLAS handles
     std::vector<cudaStream_t> gemm_stream_;
@@ -339,7 +341,7 @@ void Matrix<FloatType>::initBatchArrays()
 
     for (int device = 0; device < num_devices_; ++device) {
 
-        int64_t max_batch_size = getMaxBatchSize(device);
+        int64_t max_batch_size = getMaxDeviceTiles(device);
         cudaError_t error;
 
         // Allocate host arrays.
@@ -372,7 +374,20 @@ void Matrix<FloatType>::initBatchArrays()
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
-int64_t Matrix<FloatType>::getMaxBatchSize(int device)
+int64_t Matrix<FloatType>::getMaxHostTiles()
+{
+    int64_t max_batch_size = 0;
+    for (int64_t i = 0; i < mt_; ++i)
+        for (int64_t j = 0; j <= i; ++j)
+            if (tileIsLocal(i, j))
+                ++max_batch_size;
+
+    return max_batch_size;
+}
+
+//------------------------------------------------------------------------------
+template<typename FloatType>
+int64_t Matrix<FloatType>::getMaxDeviceTiles(int device)
 {
     int64_t max_batch_size = 0;
     for (int64_t i = 0; i < mt_; ++i)
@@ -426,7 +441,8 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
     initCublasHandles();
     initBatchArrays();
 
-    memory_ = new Memory(sizeof(FloatType)*nb*nb, 0);
+    memory_ = new Memory(sizeof(FloatType)*nb*nb);
+    memory_->addHostBlocks(getMaxHostTiles());
 
     if (a != nullptr)
         copyTo(a, lda);

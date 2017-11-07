@@ -2,7 +2,7 @@
 #include "slate_Matrix.hh"
 
 namespace slate {
-/*
+
 //------------------------------------------------------------------------------
 template<typename FloatType>
 void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
@@ -41,8 +41,8 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
             #pragma omp taskwait
 
             for (int64_t m = k+1; m < nt_; ++m)
-                tileSend(m, k, {m, m, k+1, m},
-                               {m, nt_-1, m, m});
+                tileSend<Target::Devices>(m, k, {m, m, k+1, m},
+                                                {m, nt_-1, m, m});
         }
         // trailing submatrix
         if (k+1+lookahead < nt_) {
@@ -84,7 +84,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
     a.checkLife();
     a.printLife();
 }
-*/
+/*
 //------------------------------------------------------------------------------
 template<typename FloatType>
 void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
@@ -166,7 +166,7 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, int64_t lookahead)
     a.checkLife();
     a.printLife();
 }
-
+*/
 template
 void Matrix<double>::potrf(blas::Uplo uplo, int64_t lookahead);
 

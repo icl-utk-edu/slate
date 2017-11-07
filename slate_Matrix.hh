@@ -37,6 +37,8 @@
 
 namespace slate {
 
+enum class Target {Host, Devices};
+
 //------------------------------------------------------------------------------
 template<typename FloatType>
 class Matrix {
@@ -123,9 +125,11 @@ private:
     void tileSend(int64_t i, int64_t j, int dest);
     void tileRecv(int64_t i, int64_t j, int src);
     
+    template<Target target = Target::Host>
     void tileSend(int64_t m, int64_t n,
                   std::array<int64_t, 4> range);
 
+    template<Target target = Target::Host>
     void tileSend(int64_t m, int64_t n,
                   std::array<int64_t, 4> range1,
                   std::array<int64_t, 4> range2);
@@ -614,6 +618,7 @@ void Matrix<FloatType>::tileRecv(int64_t i, int64_t j, int src)
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
+template<Target target>
 void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
                                  std::array<int64_t, 4> range)
 {
@@ -637,13 +642,19 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
             tile->local_ = false;
             tile->life_ = tileSendFindLife(i, j, range);
         }
-        // Perform the communication.
+        // Send across MPI ranks.
         tileSend(i, j, bcast_set);
+
+        // Copy to devices.
+        if (target == Target::Devices)
+            for (int device = 0; device < num_devices_; ++device)
+                tileCopyToDevice(i, j, device);
     }
 }
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
+template<Target target>
 void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
                                  std::array<int64_t, 4> range1,
                                  std::array<int64_t, 4> range2)
@@ -670,8 +681,13 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
             tile->life_  = tileSendFindLife(i, j, range1);
             tile->life_ += tileSendFindLife(i, j, range2);
         }
-        // Perform the communication.
+        // Send across MPI ranks.
         tileSend(i, j, bcast_set);
+
+        // Copy to devices.
+        if (target == Target::Devices)
+            for (int device = 0; device < num_devices_; ++device)
+                tileCopyToDevice(i, j, device);
     }
 }
 

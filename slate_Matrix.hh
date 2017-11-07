@@ -123,24 +123,21 @@ private:
     void tileSend(int64_t i, int64_t j, int dest);
     void tileRecv(int64_t i, int64_t j, int src);
     
-    void tileBcast(int64_t m, int64_t n);
-    void tileIbcast(int64_t m, int64_t n,
-                    std::array<int64_t, 4> range);
+    void tileSend(int64_t m, int64_t n,
+                  std::array<int64_t, 4> range);
 
-    void tileIbcast(int64_t m, int64_t n,
-                    std::array<int64_t, 4> range1,
-                    std::array<int64_t, 4> range2);
+    void tileSend(int64_t m, int64_t n,
+                  std::array<int64_t, 4> range1,
+                  std::array<int64_t, 4> range2);
 
-    void tileIbcastFindRanks(int64_t i, int64_t j,
-                             std::array<int64_t, 4> range,
-                             std::set<int> *bcast_set);
+    void tileSendFindRanks(int64_t i, int64_t j,
+                           std::array<int64_t, 4> range,
+                           std::set<int> *bcast_set);
 
-    int64_t tileIbcastFindLife(int64_t i, int64_t j,
-                               std::array<int64_t, 4> range);
+    int64_t tileSendFindLife(int64_t i, int64_t j,
+                             std::array<int64_t, 4> range);
 
-    void tileIbcastIbcast(int64_t i, int64_t j, std::set<int> &bcast_set);
-    void tileIbcastIsend(int64_t i, int64_t j, std::set<int> &bcast_set);
-    void tileWait(int64_t m, int64_t n);
+    void tileSend(int64_t i, int64_t j, std::set<int> &bcast_set);
 
     //----------------------------------------------------------
     void tileCopyToDevice(int64_t i, int64_t j, int dst_device);
@@ -617,35 +614,13 @@ void Matrix<FloatType>::tileRecv(int64_t i, int64_t j, int src)
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
-void Matrix<FloatType>::tileBcast(int64_t i, int64_t j)
-{
-    Tile<FloatType> *tile;
-
-    if (tileIsLocal(i, j)) {
-        tile = (*this)(i, j);
-    }
-    else {
-        tile = new Tile<FloatType>(tileMb(i), tileNb(j), memory_);
-        (*this)(i, j) = tile;
-    }
-
-    int count = tile->mb_*tile->nb_;
-    int retval;
-    #pragma omp critical
-    retval = MPI_Bcast(tile->data_, count, MPI_DOUBLE, tileRank(i, j),
-                       mpi_comm_);
-    assert(retval == MPI_SUCCESS);
-}
-
-//------------------------------------------------------------------------------
-template<typename FloatType>
-void Matrix<FloatType>::tileIbcast(int64_t i, int64_t j,
-                                   std::array<int64_t, 4> range)
+void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
+                                 std::array<int64_t, 4> range)
 {
     // Find the set of participating ranks.
     std::set<int> bcast_set;
     bcast_set.insert(tileRank(i, j));
-    tileIbcastFindRanks(i, j, range, &bcast_set);
+    tileSendFindRanks(i, j, range, &bcast_set);
 
     // If contained in the set.
     if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
@@ -660,24 +635,24 @@ void Matrix<FloatType>::tileIbcast(int64_t i, int64_t j,
 
             // Find the tile's life.
             tile->local_ = false;
-            tile->life_ = tileIbcastFindLife(i, j, range);
+            tile->life_ = tileSendFindLife(i, j, range);
         }
         // Perform the communication.
-        tileIbcastIsend(i, j, bcast_set);
+        tileSend(i, j, bcast_set);
     }
 }
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
-void Matrix<FloatType>::tileIbcast(int64_t i, int64_t j,
-                                   std::array<int64_t, 4> range1,
-                                   std::array<int64_t, 4> range2)
+void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
+                                 std::array<int64_t, 4> range1,
+                                 std::array<int64_t, 4> range2)
 {
     // Find the set of participating ranks.
     std::set<int> bcast_set;
     bcast_set.insert(tileRank(i, j));
-    tileIbcastFindRanks(i, j, range1, &bcast_set);
-    tileIbcastFindRanks(i, j, range2, &bcast_set);
+    tileSendFindRanks(i, j, range1, &bcast_set);
+    tileSendFindRanks(i, j, range2, &bcast_set);
 
     // If contained in the set.
     if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
@@ -692,19 +667,19 @@ void Matrix<FloatType>::tileIbcast(int64_t i, int64_t j,
 
             // Find the tile's life.
             tile->local_ = false;
-            tile->life_  = tileIbcastFindLife(i, j, range1);
-            tile->life_ += tileIbcastFindLife(i, j, range2);
+            tile->life_  = tileSendFindLife(i, j, range1);
+            tile->life_ += tileSendFindLife(i, j, range2);
         }
         // Perform the communication.
-        tileIbcastIsend(i, j, bcast_set);
+        tileSend(i, j, bcast_set);
     }
 }
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
-void Matrix<FloatType>::tileIbcastFindRanks(int64_t i, int64_t j,
-                                            std::array<int64_t, 4> range,
-                                            std::set<int> *bcast_set)
+void Matrix<FloatType>::tileSendFindRanks(int64_t i, int64_t j,
+                                          std::array<int64_t, 4> range,
+                                          std::set<int> *bcast_set)
 {
     int64_t i1 = range[0];
     int64_t i2 = range[1];
@@ -719,8 +694,8 @@ void Matrix<FloatType>::tileIbcastFindRanks(int64_t i, int64_t j,
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
-int64_t Matrix<FloatType>::tileIbcastFindLife(int64_t i, int64_t j,
-                                              std::array<int64_t, 4> range)
+int64_t Matrix<FloatType>::tileSendFindLife(int64_t i, int64_t j,
+                                            std::array<int64_t, 4> range)
 {
     int64_t i1 = range[0];
     int64_t i2 = range[1];
@@ -739,8 +714,7 @@ int64_t Matrix<FloatType>::tileIbcastFindLife(int64_t i, int64_t j,
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
-void Matrix<FloatType>::tileIbcastIbcast(
-    int64_t i, int64_t j, std::set<int> &bcast_set)
+void Matrix<FloatType>::tileSend(int64_t i, int64_t j, std::set<int> &bcast_set)
 {
     // Convert the set of ranks to a vector.
     std::vector<int> bcast_vec(bcast_set.begin(), bcast_set.end());
@@ -779,86 +753,19 @@ void Matrix<FloatType>::tileIbcastIbcast(
     // Do the broadcast.
     int count = tile->mb_*tile->nb_;
     #pragma omp critical
-    retval = MPI_Ibcast(tile->data_, count, MPI_DOUBLE, bcast_root,
-                        tile->bcast_comm_, &tile->bcast_request_);
+    retval = MPI_Bcast(tile->data_, count, MPI_DOUBLE, bcast_root,
+                       tile->bcast_comm_);
     assert(retval == MPI_SUCCESS);
 
     // Free the group.
-    // #pragma omp critical
-    // retval = MPI_Group_free(&tile->bcast_group_);
-    // assert(retval == MPI_SUCCESS);
+    #pragma omp critical
+    retval = MPI_Group_free(&tile->bcast_group_);
+    assert(retval == MPI_SUCCESS);
 
     // Free the communicator.
-    // #pragma omp critical
-    // retval = MPI_Comm_free(&tile->bcast_comm_);
-    // assert(retval == MPI_SUCCESS);
-}
-
-//------------------------------------------------------------------------------
-template<typename FloatType>
-void Matrix<FloatType>::tileIbcastIsend(
-    int64_t i, int64_t j, std::set<int> &bcast_set)
-{
-    // If sending the tile.
-    if (tileIsLocal(i, j)) {
-
-        // For each rank in the bcast.
-        std::for_each(bcast_set.begin(), bcast_set.end(), [&](const int &rank) {
-
-            // If not my own rank.
-            if (rank != mpi_rank_) {
-
-                // Send the tile.
-                Tile<FloatType> *tile = (*this)(i, j);
-                int count = tile->mb_*tile->nb_;
-                int dst = rank;
-                int tag = 0;
-
-                trace_cpu_start();
-                int retval;
-                #pragma omp critical
-                retval = MPI_Isend(tile->data_, count, MPI_DOUBLE, dst, tag,
-                                   mpi_comm_, &tile->bcast_request_);
-                assert(retval == MPI_SUCCESS);
-                #pragma omp critical
-                retval = MPI_Request_free(&tile->bcast_request_);
-                assert(retval == MPI_SUCCESS);
-                trace_cpu_stop("Salmon");
-            }
-        });
-    }
-    else {
-
-        // Receive the tile.
-        Tile<FloatType> *tile = (*this)(i, j);
-        int count = tile->mb_*tile->nb_;
-        int src = tileRank(i, j);
-        int tag = 0;
-
-        trace_cpu_start();
-        int retval;
-        #pragma omp critical
-        retval = MPI_Irecv(tile->data_, count, MPI_DOUBLE, src, tag, mpi_comm_,
-                           &tile->bcast_request_);
-        assert(retval == MPI_SUCCESS);
-        trace_cpu_stop("Crimson");
-    }
-}
-
-//------------------------------------------------------------------------------
-template<typename FloatType>
-void Matrix<FloatType>::tileWait(int64_t i, int64_t j)
-{
-    if (!tileIsLocal(i, j)) {
-        Tile<FloatType> *tile = (*this)(i, j);
-
-        trace_cpu_start();
-        int retval;
-        #pragma omp critical
-        retval = MPI_Wait(&tile->bcast_request_, MPI_STATUS_IGNORE);
-        assert(retval == MPI_SUCCESS);
-        trace_cpu_stop("GhostWhite");
-    }
+    #pragma omp critical
+    retval = MPI_Comm_free(&tile->bcast_comm_);
+    assert(retval == MPI_SUCCESS);
 }
 
 //------------------------------------------------------------------------------

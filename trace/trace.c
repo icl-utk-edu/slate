@@ -337,6 +337,9 @@ static void recv_threads(int proc)
 static void print_threads(int proc, double min_time,
                           double hscale, double vscale, FILE *trace_file)
 {
+    printf("Collecting trace from rank %d\n", proc); 
+    fflush(stdout);
+
     for (int thread = 0; thread < NumThreads; thread++) {
         for (int event = 0; event < EventNumThread[thread]; event++) {
             double start = EventStartThread[thread][event];

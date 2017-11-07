@@ -20,7 +20,6 @@ void Matrix<FloatType>::syrkTask(blas::Uplo uplo, blas::Op trans,
         for (int64_t k = 0; k < a.nt_; ++k)
             #pragma omp task
             if (c.tileIsLocal(n, n)) {
-                a.tileWait(n, k);
                 c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
             }
 
@@ -28,8 +27,6 @@ void Matrix<FloatType>::syrkTask(blas::Uplo uplo, blas::Op trans,
             for (int64_t k = 0; k < a.nt_; ++k)
                 #pragma omp task
                 if (c.tileIsLocal(m, n)) {
-                    a.tileWait(m, k);
-                    a.tileWait(n, k);
                     c(m, n)->gemm(trans, Op::Trans,
                                   alpha, a(m, k), a(n, k), k == 0 ? beta : 1.0);
                 }
@@ -52,7 +49,6 @@ void Matrix<FloatType>::syrkNest(blas::Uplo uplo, blas::Op trans,
         for (int64_t k = 0; k < a.nt_; ++k)
             #pragma omp task
             if (c.tileIsLocal(n, n)) {
-                a.tileWait(n, k);
                 c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
             }
     }
@@ -64,8 +60,6 @@ void Matrix<FloatType>::syrkNest(blas::Uplo uplo, blas::Op trans,
             for (int64_t k = 0; k < a.nt_; ++k)
                 if (m >= n+1)
                     if (c.tileIsLocal(m, n)) {
-                        a.tileWait(m, k);
-                        a.tileWait(n, k);
                         c(m, n)->gemm(trans, Op::Trans,
                                       alpha, a(m, k), a(n, k),
                                       k == 0 ? beta : 1.0);
@@ -90,7 +84,6 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
         for (int64_t k = 0; k < a.nt_; ++k)
             #pragma omp task
             if (c.tileIsLocal(n, n)) {
-                a.tileWait(n, k);
                 c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
             }
     }
@@ -128,8 +121,6 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
         for (int64_t m = n+1; m < c.mt_; ++m)
             for (int64_t k = 0; k < a.nt_; ++k)
                 if (c.tileIsLocal(m, n)) {
-                    a.tileWait(m, k);
-                    a.tileWait(n, k);
                     ++group_size;
                 }
 
@@ -174,15 +165,6 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
 
     Matrix<FloatType> c = *this;
     Matrix<FloatType> a = that;
-
-    // Wait for MPI.
-    for (int64_t n = 0; n < c.nt_; ++n)
-        for (int64_t m = n+1; m < c.mt_; ++m)
-            for (int64_t k = 0; k < a.nt_; ++k)
-                if (c.tileIsLocal(m, n)) {
-                    a.tileWait(m, k);
-                    a.tileWait(n, k);
-                }
 
     for (int device = 0; device < num_devices_; ++device)
         #pragma omp task priority (1)
@@ -259,21 +241,27 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
             if (c.tileIsLocal(n, n))
                 #pragma omp task
                 {
-                    a.tileWait(n, k);
-                    c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
+                    c(n, n)->syrk(uplo, trans, -1.0,
+                                  a(n, k), k == 0 ? beta : 1.0);
                 }
 
     #pragma omp taskwait
 }
 
 template
+void Matrix<double>::syrkTask(blas::Uplo uplo, blas::Op trans,
+                              double alpha, const Matrix &that,
+                              double beta);
+
+template
+void Matrix<double>::syrkNest(blas::Uplo uplo, blas::Op trans,
+                              double alpha, const Matrix &that,
+                              double beta);
+
+template
 void Matrix<double>::syrkAcc(blas::Uplo uplo, blas::Op trans,
                              double alpha, const Matrix &that,
                              double beta);
 
-template
-void Matrix<double>::syrkTask(blas::Uplo uplo, blas::Op trans,
-                              double alpha, const Matrix &that,
-                              double beta);
 
 } // namespace slate

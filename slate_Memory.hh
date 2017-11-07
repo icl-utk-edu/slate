@@ -116,11 +116,10 @@ private:
     void* allocHostMemory(size_t size)
     {
         void *host_mem;
-        // cudaError_t error = cudaMallocHost(&host_mem, size);
-        // assert(error == cudaSuccess);
-        host_mem = malloc(size);
-        assert(host_mem != nullptr);
-        allocated_mem_[host_num_].push(host_mem);
+        cudaError_t error = cudaMallocHost(&host_mem, size);
+        assert(error == cudaSuccess);
+        // host_mem = malloc(size);
+        // assert(host_mem != nullptr);
         return host_mem;
     }
     void* allocDeviceMemory(int device, size_t size)
@@ -132,14 +131,14 @@ private:
         void *dev_mem;
         error = cudaMalloc(&dev_mem, size);
         assert(error == cudaSuccess);
-        allocated_mem_[device].push(dev_mem);
+
         return dev_mem;
     }
     void freeHostMemory(void *host_mem)
     {
-        std::free(host_mem);
-        // cudaError_t error = cudaFreeHost(host_mem);
-        // assert(error == cudaSuccess);
+        // std::free(host_mem);
+        cudaError_t error = cudaFreeHost(host_mem);
+        assert(error == cudaSuccess);
     }
     void freeDeviceMemory(int device, void *dev_mem)
     {

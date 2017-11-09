@@ -40,7 +40,7 @@ namespace slate {
 enum class Target {Devices, Host, HostTask, HostNest, HostBatch};
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 class Matrix {
 public:
     Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
@@ -144,11 +144,11 @@ private:
     void tileSend(int64_t i, int64_t j, int dest);
     void tileRecv(int64_t i, int64_t j, int src);
 
-    template<Target target = Target::Host>
+    template <Target target = Target::Host>
     void tileSend(int64_t m, int64_t n,
                   std::array<int64_t, 4> range);
 
-    template<Target target = Target::Host>
+    template <Target target = Target::Host>
     void tileSend(int64_t m, int64_t n,
                   std::array<int64_t, 4> range1,
                   std::array<int64_t, 4> range2);
@@ -221,7 +221,7 @@ private:
 // @brief Copy the tile to the device, if not already there.
 //        If it's already been copied, it won't be copied again.
 //
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::tileCopyToDevice(int64_t i, int64_t j, int dst_device)
 {
     omp_set_lock(tiles_lock_);
@@ -242,7 +242,7 @@ void Matrix<FloatType>::tileCopyToDevice(int64_t i, int64_t j, int dst_device)
 // @brief Move the tile to the device, if not already there.
 //        If it's already been moved, it won't be moved again.
 //
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::tileMoveToDevice(int64_t i, int64_t j, int dst_device)
 {
     omp_set_lock(tiles_lock_);
@@ -265,7 +265,7 @@ void Matrix<FloatType>::tileMoveToDevice(int64_t i, int64_t j, int dst_device)
 // @brief Move the tile to the host, if not already there.
 //        If it's already been moved, it won't be moved again.
 //
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::tileMoveToHost(int64_t i, int64_t j, int src_device)
 {
     omp_set_lock(tiles_lock_);
@@ -288,7 +288,7 @@ void Matrix<FloatType>::tileMoveToHost(int64_t i, int64_t j, int src_device)
 // @brief Erase the tile, if it exists in the specified location.
 //        Don't try to erase tiles that have already been erased.
 //
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::tileErase(int64_t i, int64_t j, int device)
 {
     omp_set_lock(tiles_lock_);
@@ -302,7 +302,7 @@ void Matrix<FloatType>::tileErase(int64_t i, int64_t j, int device)
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::initCudaStreams()
 {
     gemm_stream_.resize(num_devices_);
@@ -327,7 +327,7 @@ void Matrix<FloatType>::initCudaStreams()
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::initCublasHandles()
 {
     cublas_handle_.resize(num_devices_);
@@ -348,7 +348,7 @@ void Matrix<FloatType>::initCublasHandles()
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::initBatchArrays()
 {
     a_array_h_.resize(num_devices_);
@@ -393,7 +393,7 @@ void Matrix<FloatType>::initBatchArrays()
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 int64_t Matrix<FloatType>::getMaxHostTiles()
 {
     int64_t max_batch_size = 0;
@@ -406,7 +406,7 @@ int64_t Matrix<FloatType>::getMaxHostTiles()
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 int64_t Matrix<FloatType>::getMaxDeviceTiles(int device)
 {
     int64_t max_batch_size = 0;
@@ -419,7 +419,7 @@ int64_t Matrix<FloatType>::getMaxDeviceTiles(int device)
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
                           int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q)
 {
@@ -471,7 +471,7 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 Matrix<FloatType>::Matrix(const Matrix &a, int64_t it, int64_t jt,
                           int64_t mt, int64_t nt)
 {
@@ -485,7 +485,7 @@ Matrix<FloatType>::Matrix(const Matrix &a, int64_t it, int64_t jt,
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::random()
 {
     for (int64_t i = 0; i < mt_; ++i) {
@@ -514,7 +514,7 @@ void Matrix<FloatType>::random()
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::copyTo(FloatType *a, int64_t lda)
 {
     int64_t m = 0;
@@ -532,7 +532,7 @@ void Matrix<FloatType>::copyTo(FloatType *a, int64_t lda)
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::copyFrom(FloatType *a, int64_t lda)
 {
     int64_t m = 0;
@@ -549,7 +549,7 @@ void Matrix<FloatType>::copyFrom(FloatType *a, int64_t lda)
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::copyFromFull(FloatType *a, int64_t lda)
 {
     int64_t m = 0;
@@ -564,7 +564,7 @@ void Matrix<FloatType>::copyFromFull(FloatType *a, int64_t lda)
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::gather()
 {
     for (int64_t i = 0; i < mt_; ++i) {
@@ -582,7 +582,7 @@ void Matrix<FloatType>::gather()
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
                              blas::Op trans, blas::Diag diag,
                              FloatType alpha, const Matrix &a)
@@ -608,7 +608,7 @@ void Matrix<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::tileSend(int64_t i, int64_t j, int dest)
 {
     Tile<FloatType> *tile = (*this)(i, j);
@@ -621,7 +621,7 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, int dest)
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::tileRecv(int64_t i, int64_t j, int src)
 {
     Tile<FloatType> *tile = new Tile<FloatType>(tileMb(i), tileNb(j), memory_);
@@ -636,8 +636,8 @@ void Matrix<FloatType>::tileRecv(int64_t i, int64_t j, int src)
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
-template<Target target>
+template <typename FloatType>
+template <Target target>
 void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
                                  std::array<int64_t, 4> range)
 {
@@ -672,8 +672,8 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
-template<Target target>
+template <typename FloatType>
+template <Target target>
 void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
                                  std::array<int64_t, 4> range1,
                                  std::array<int64_t, 4> range2)
@@ -711,7 +711,7 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::tileSendFindRanks(int64_t i, int64_t j,
                                           std::array<int64_t, 4> range,
                                           std::set<int> *bcast_set)
@@ -728,7 +728,7 @@ void Matrix<FloatType>::tileSendFindRanks(int64_t i, int64_t j,
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 int64_t Matrix<FloatType>::tileSendFindLife(int64_t i, int64_t j,
                                             std::array<int64_t, 4> range)
 {
@@ -748,7 +748,7 @@ int64_t Matrix<FloatType>::tileSendFindLife(int64_t i, int64_t j,
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::tileSend(int64_t i, int64_t j, std::set<int> &bcast_set)
 {
     // Convert the set of ranks to a vector.
@@ -804,7 +804,7 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, std::set<int> &bcast_set)
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::checkLife()
 {
     for (auto it = tiles_->begin(); it != tiles_->end(); ++it) {
@@ -820,7 +820,7 @@ void Matrix<FloatType>::checkLife()
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::printLife()
 {
     if (mpi_rank_ == 0) {

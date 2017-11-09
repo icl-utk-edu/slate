@@ -36,7 +36,7 @@ extern "C" void trace_cpu_stop(const char *color);
 namespace slate {
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 class Tile {
 public:
     Tile(int64_t mb, int64_t nb, Memory *memory)

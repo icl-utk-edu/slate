@@ -4,7 +4,7 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 template <Target target>
 void Matrix<FloatType>::syrk(blas::Uplo uplo, blas::Op trans,
                              FloatType alpha, const Matrix &that,
@@ -14,7 +14,7 @@ void Matrix<FloatType>::syrk(blas::Uplo uplo, blas::Op trans,
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::syrk_impl(TargetType<Target::HostTask>,
                                   blas::Uplo uplo, blas::Op trans,
                                   FloatType alpha, const Matrix &that,
@@ -46,7 +46,7 @@ void Matrix<FloatType>::syrk_impl(TargetType<Target::HostTask>,
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::syrk_impl(TargetType<Target::HostNest>,
                                   blas::Uplo uplo, blas::Op trans,
                                   FloatType alpha, const Matrix &that,
@@ -81,7 +81,7 @@ void Matrix<FloatType>::syrk_impl(TargetType<Target::HostNest>,
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::syrk_impl(TargetType<Target::HostBatch>,
                                   blas::Uplo uplo, blas::Op trans,
                                   FloatType alpha, const Matrix &that,
@@ -169,7 +169,7 @@ void Matrix<FloatType>::syrk_impl(TargetType<Target::HostBatch>,
 }
 
 //------------------------------------------------------------------------------
-template<typename FloatType>
+template <typename FloatType>
 void Matrix<FloatType>::syrk_impl(TargetType<Target::Devices>,
                                   blas::Uplo uplo, blas::Op trans,
                                   FloatType alpha, const Matrix &that,

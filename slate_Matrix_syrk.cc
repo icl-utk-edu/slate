@@ -5,9 +5,20 @@ namespace slate {
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
-void Matrix<FloatType>::syrkTask(blas::Uplo uplo, blas::Op trans,
-                                 FloatType alpha, const Matrix &that,
-                                 FloatType beta)
+template <Target target>
+void Matrix<FloatType>::syrk(blas::Uplo uplo, blas::Op trans,
+                             FloatType alpha, const Matrix &that,
+                             FloatType beta)
+{
+    syrk_impl(TargetType<target>(), uplo, trans, alpha, that, beta);
+}
+
+//------------------------------------------------------------------------------
+template<typename FloatType>
+void Matrix<FloatType>::syrk_impl(TargetType<Target::HostTask>,
+                                  blas::Uplo uplo, blas::Op trans,
+                                  FloatType alpha, const Matrix &that,
+                                  FloatType beta)
 {
     using namespace blas;
 
@@ -36,9 +47,10 @@ void Matrix<FloatType>::syrkTask(blas::Uplo uplo, blas::Op trans,
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
-void Matrix<FloatType>::syrkNest(blas::Uplo uplo, blas::Op trans,
-                                 FloatType alpha, const Matrix &that,
-                                 FloatType beta)
+void Matrix<FloatType>::syrk_impl(TargetType<Target::HostNest>,
+                                  blas::Uplo uplo, blas::Op trans,
+                                  FloatType alpha, const Matrix &that,
+                                  FloatType beta)
 {
     using namespace blas;
 
@@ -53,7 +65,7 @@ void Matrix<FloatType>::syrkNest(blas::Uplo uplo, blas::Op trans,
             }
     }
 
-//  #pragma omp parallel for collapse(3) schedule(dynamic, 1) num_threads(60)
+//  #pragma omp parallel for collapse(3) schedule(dynamic, 1) num_threads(...)
     #pragma omp parallel for collapse(3) schedule(dynamic, 1)
     for (int64_t n = 0; n < c.nt_; ++n) {
         for (int64_t m = 0; m < c.mt_; ++m)
@@ -70,7 +82,8 @@ void Matrix<FloatType>::syrkNest(blas::Uplo uplo, blas::Op trans,
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
-void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
+void Matrix<FloatType>::syrk_impl(TargetType<Target::HostBatch>,
+                                  blas::Uplo uplo, blas::Op trans,
                                   FloatType alpha, const Matrix &that,
                                   FloatType beta)
 {
@@ -140,7 +153,7 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
                 }
 
     trace_cpu_start();
-//  mkl_set_num_threads_local(60);
+//  mkl_set_num_threads_local(...);
     cblas_dgemm_batch(CblasColMajor, transa_array, transb_array,
                       m_array, n_array, k_array, alpha_array,
                       a_array, lda_array, b_array, ldb_array, beta_array,
@@ -157,9 +170,10 @@ void Matrix<FloatType>::syrkBatch(blas::Uplo uplo, blas::Op trans,
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
-void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
-                                FloatType alpha, const Matrix &that,
-                                FloatType beta)
+void Matrix<FloatType>::syrk_impl(TargetType<Target::Devices>,
+                                  blas::Uplo uplo, blas::Op trans,
+                                  FloatType alpha, const Matrix &that,
+                                  FloatType beta)
 {
     using namespace blas;
 
@@ -248,20 +262,29 @@ void Matrix<FloatType>::syrkAcc(blas::Uplo uplo, blas::Op trans,
     #pragma omp taskwait
 }
 
+//------------------------------------------------------------------------------
 template
-void Matrix<double>::syrkTask(blas::Uplo uplo, blas::Op trans,
-                              double alpha, const Matrix &that,
-                              double beta);
+void Matrix<double>::syrk<Target::HostTask>(
+    blas::Uplo uplo, blas::Op trans,
+    double alpha, const Matrix &that,
+    double beta);
 
 template
-void Matrix<double>::syrkNest(blas::Uplo uplo, blas::Op trans,
-                              double alpha, const Matrix &that,
-                              double beta);
+void Matrix<double>::syrk<Target::HostNest>(
+    blas::Uplo uplo, blas::Op trans,
+    double alpha, const Matrix &that,
+    double beta);
 
 template
-void Matrix<double>::syrkAcc(blas::Uplo uplo, blas::Op trans,
-                             double alpha, const Matrix &that,
-                             double beta);
+void Matrix<double>::syrk<Target::HostBatch>(
+    blas::Uplo uplo, blas::Op trans,
+    double alpha, const Matrix &that,
+    double beta);
 
+template
+void Matrix<double>::syrk<Target::Devices>(
+    blas::Uplo uplo, blas::Op trans,
+    double alpha, const Matrix &that,
+    double beta);
 
 } // namespace slate

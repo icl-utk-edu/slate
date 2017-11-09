@@ -37,7 +37,7 @@
 
 namespace slate {
 
-enum class Target {Host, Devices};
+enum class Target {Devices, Host, HostTask, HostNest, HostBatch};
 
 //------------------------------------------------------------------------------
 template<typename FloatType>
@@ -63,9 +63,12 @@ public:
               blas::Op trans, blas::Diag diag,
               FloatType alpha, const Matrix &a);
 
+    template <Target target = Target::HostTask>
     void potrf(blas::Uplo uplo, int64_t lookahead = 0);
 
 private:
+    template <Target> class TargetType {};
+
     Tile<FloatType>* &operator()(int64_t i, int64_t j)
     {
         omp_set_lock(tiles_lock_);
@@ -108,23 +111,39 @@ private:
         return tileRank(i, j) == mpi_rank_;
     }
 
-    //--------------------------------------------
-    void syrkTask(blas::Uplo uplo, blas::Op trans,
-                  FloatType alpha, const Matrix &a, FloatType beta);
+    //----------------------
+    template <Target target>
+    void potrf_impl(TargetType<target>,
+                    blas::Uplo uplo, int64_t lookahead);
 
-    void syrkNest(blas::Uplo uplo, blas::Op trans,
-                  FloatType alpha, const Matrix &a, FloatType beta);
+    void potrf_impl(TargetType<Target::Devices>,
+                    blas::Uplo uplo, int64_t lookahead);
 
-    void syrkBatch(blas::Uplo uplo, blas::Op trans,
+    //------------------------------------------
+    template <Target target = Target::HostTask>
+    void syrk(blas::Uplo uplo, blas::Op trans,
+              FloatType alpha, const Matrix &a, FloatType beta);
+
+    void syrk_impl(TargetType<Target::HostTask>,
+                   blas::Uplo uplo, blas::Op trans,
                    FloatType alpha, const Matrix &a, FloatType beta);
 
-    void syrkAcc(blas::Uplo uplo, blas::Op trans,
-                 FloatType alpha, const Matrix &a, FloatType beta);
+    void syrk_impl(TargetType<Target::HostNest>,
+                   blas::Uplo uplo, blas::Op trans,
+                   FloatType alpha, const Matrix &a, FloatType beta);
+
+    void syrk_impl(TargetType<Target::HostBatch>,
+                   blas::Uplo uplo, blas::Op trans,
+                   FloatType alpha, const Matrix &a, FloatType beta);
+
+    void syrk_impl(TargetType<Target::Devices>,
+                   blas::Uplo uplo, blas::Op trans,
+                   FloatType alpha, const Matrix &a, FloatType beta);
 
     //--------------------------------------------
     void tileSend(int64_t i, int64_t j, int dest);
     void tileRecv(int64_t i, int64_t j, int src);
-    
+
     template<Target target = Target::Host>
     void tileSend(int64_t m, int64_t n,
                   std::array<int64_t, 4> range);

@@ -11,6 +11,7 @@
 #include <functional>
 #include <map>
 #include <set>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 #include <iostream>
@@ -68,6 +69,16 @@ public:
 
 private:
     template <Target> class TargetType {};
+
+    struct TileHash {
+        size_t operator()(const std::tuple<int64_t, int64_t, int> &key) const
+        {
+            size_t hash_i = std::hash<int64_t>()(std::get<0>(key));
+            size_t hash_j = std::hash<int64_t>()(std::get<1>(key));
+            size_t hash_k = std::hash<int>    ()(std::get<2>(key));
+            return (hash_i*31 + hash_j)*31 + hash_k;
+        }
+    };
 
     Tile<FloatType>* &operator()(int64_t i, int64_t j)
     {
@@ -188,8 +199,11 @@ private:
     std::function <int64_t (int64_t i)> tileMbFunc;
     std::function <int64_t (int64_t j)> tileNbFunc;
 
-    // TODO: replace by unordered_map
     std::map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*> *tiles_;
+    // std::unordered_map<std::tuple<int64_t, int64_t, int>,
+    //                    Tile<FloatType>*,
+    //                    TileHash> *tiles_;
+
     omp_lock_t *tiles_lock_ = new omp_lock_t();
 
     MPI_Comm mpi_comm_;
@@ -424,6 +438,9 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
                           int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q)
 {
     tiles_ = new std::map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*>;
+    // tiles_ = new std::unordered_map<std::tuple<int64_t, int64_t, int>,
+    //                                 Tile<FloatType>*,
+    //                                 TileHash>;
     omp_init_lock(tiles_lock_);
 
     it_ = 0;

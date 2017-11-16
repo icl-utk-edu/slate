@@ -587,32 +587,6 @@ void Matrix<FloatType>::gather()
 
 //------------------------------------------------------------------------------
 template <typename FloatType>
-void Matrix<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
-                             blas::Op trans, blas::Diag diag,
-                             FloatType alpha, const Matrix &a)
-{
-    using namespace blas;
-
-    Matrix<FloatType> b = *this;
-
-    // Right, Lower, Trans
-    for (int64_t k = 0; k < b.nt_; ++k) {
-
-        for (int64_t m = 0; m < b.mt_; ++m) {
-            #pragma omp task
-            b(m, k)->trsm(side, uplo, trans, diag, 1.0, a(k, k)); 
-
-            for (int64_t n = k+1; n < b.nt_; ++n)
-                #pragma omp task
-                b(m, n)->gemm(Op::NoTrans, trans,
-                              -1.0/alpha, b(m, k), a(n, k), 1.0);
-        }
-    }
-    #pragma omp taskwait
-}
-
-//------------------------------------------------------------------------------
-template <typename FloatType>
 void Matrix<FloatType>::tileSend(int64_t i, int64_t j, int dest)
 {
     Tile<FloatType> *tile = (*this)(i, j);

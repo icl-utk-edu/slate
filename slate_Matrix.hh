@@ -46,7 +46,7 @@ public:
     Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
            int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q);
 
-    Matrix(const Matrix &a, int64_t it, int64_t jt, int64_t mt, int64_t nt);
+    Matrix(const Matrix &a, int64_t m1, int64_t m2, int64_t n1, int64_t n2);
 
     ~Matrix() {
         // only if not a submatrix
@@ -472,16 +472,20 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
 
 //------------------------------------------------------------------------------
 template <typename FloatType>
-Matrix<FloatType>::Matrix(const Matrix &a, int64_t it, int64_t jt,
-                          int64_t mt, int64_t nt)
+Matrix<FloatType>::Matrix(const Matrix &a, int64_t m1, int64_t m2,
+                          int64_t n1, int64_t n2)
 {
-    assert(it+mt <= a.mt_);
-    assert(jt+nt <= a.nt_);
+    assert(m1 <= m2);
+    assert(n1 <= n2);
+
+    assert(m2 < a.mt_);
+    assert(n2 < a.nt_);
+
     *this = a;
-    it_ += it;
-    jt_ += jt;
-    mt_ = mt;
-    nt_ = nt;
+    it_ += m1;
+    jt_ += n1;
+    mt_ = m2-m1+1;
+    nt_ = n2-n1+1;
 }
 
 //------------------------------------------------------------------------------

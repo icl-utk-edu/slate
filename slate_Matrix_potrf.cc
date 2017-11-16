@@ -81,10 +81,13 @@ void Matrix<FloatType>::potrf_impl(TargetType<target>,
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[nt_-1])
-            Matrix(a, k+1+lookahead, k+1+lookahead,
-                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrk<target>(
-                Uplo::Lower, Op::NoTrans,
-                -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
+            {
+                Matrix syrk_a = Matrix(a, k+1+lookahead, nt_-1, k, k);
+                Matrix syrk_b = Matrix(a, k+1+lookahead, nt_-1,
+                                          k+1+lookahead, nt_-1);
+                syrk_b.syrk<target>(
+                    Uplo::Lower, Op::NoTrans,-1.0, syrk_a, 1.0);
+            }
         }
     }
 
@@ -142,10 +145,13 @@ void Matrix<FloatType>::potrf_impl(TargetType<Target::Devices>,
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[nt_-1])
-            Matrix(a, k+1+lookahead, k+1+lookahead,
-                   nt_-1-k-lookahead, nt_-1-k-lookahead).syrk<Target::Devices>(
-                Uplo::Lower, Op::NoTrans,
-                -1.0, Matrix(a, k+1+lookahead, k, nt_-1-k-lookahead, 1), 1.0);
+            {
+                Matrix syrk_a = Matrix(a, k+1+lookahead, nt_-1, k, k);
+                Matrix syrk_b = Matrix(a, k+1+lookahead, nt_-1,
+                                          k+1+lookahead, nt_-1);
+                syrk_b.syrk<Target::Devices>(
+                    Uplo::Lower, Op::NoTrans,-1.0, syrk_a, 1.0);
+            }
         }
         // lookahead column(s)
         for (int64_t n = k+1; n < k+1+lookahead && n < nt_; ++n) {

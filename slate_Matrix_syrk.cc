@@ -28,11 +28,9 @@ void Matrix<FloatType>::syrk_impl(TargetType<Target::HostTask>,
     // Lower, NoTrans
     for (int64_t n = 0; n < c.nt_; ++n) {
 
-        for (int64_t k = 0; k < a.nt_; ++k)
-            #pragma omp task
-            if (c.tileIsLocal(n, n)) {
-                c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
-            }
+        #pragma omp task
+        if (c.tileIsLocal(n, n))
+            c(n, n)->syrk(uplo, trans, -1.0, a(n, 0), beta);
 
         for (int64_t m = n+1; m < c.mt_; ++m)
             for (int64_t k = 0; k < a.nt_; ++k)
@@ -58,24 +56,20 @@ void Matrix<FloatType>::syrk_impl(TargetType<Target::HostNest>,
     Matrix<FloatType> a = that;
 
     for (int64_t n = 0; n < c.nt_; ++n) {
-        for (int64_t k = 0; k < a.nt_; ++k)
-            #pragma omp task
-            if (c.tileIsLocal(n, n)) {
-                c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
-            }
+        #pragma omp task
+        if (c.tileIsLocal(n, n))
+            c(n, n)->syrk(uplo, trans, -1.0, a(n, 0), beta);
     }
 
-//  #pragma omp parallel for collapse(3) schedule(dynamic, 1) num_threads(...)
-    #pragma omp parallel for collapse(3) schedule(dynamic, 1)
+//  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
+    #pragma omp parallel for collapse(2) schedule(dynamic, 1)
     for (int64_t n = 0; n < c.nt_; ++n) {
         for (int64_t m = 0; m < c.mt_; ++m)
-            for (int64_t k = 0; k < a.nt_; ++k)
-                if (m >= n+1)
-                    if (c.tileIsLocal(m, n)) {
-                        c(m, n)->gemm(trans, Op::Trans,
-                                      alpha, a(m, k), a(n, k),
-                                      k == 0 ? beta : 1.0);
-                    }
+            if (m >= n+1)
+                if (c.tileIsLocal(m, n)) {
+                    c(m, n)->gemm(trans, Op::Trans,
+                                  alpha, a(m, 0), a(n, 0), beta);
+                }
     }
     #pragma omp taskwait
 }
@@ -94,11 +88,10 @@ void Matrix<FloatType>::syrk_impl(TargetType<Target::HostBatch>,
 
     // syrk tasks
     for (int64_t n = 0; n < c.nt_; ++n) {
-        for (int64_t k = 0; k < a.nt_; ++k)
-            #pragma omp task
-            if (c.tileIsLocal(n, n)) {
-                c(n, n)->syrk(uplo, trans, -1.0, a(n, k), k == 0 ? beta : 1.0);
-            }
+        #pragma omp task
+        if (c.tileIsLocal(n, n)) {
+            c(n, n)->syrk(uplo, trans, -1.0, a(n, 0), beta);
+        }
     }
 
     CBLAS_TRANSPOSE transa_array[1];
@@ -127,15 +120,12 @@ void Matrix<FloatType>::syrk_impl(TargetType<Target::HostBatch>,
     beta_array[0] = beta;
     ldc_array[0] = nb;
 
-    // Wait for remote tiles.
     // Compute group size.
     int group_size = 0;
     for (int64_t n = 0; n < c.nt_; ++n)
         for (int64_t m = n+1; m < c.mt_; ++m)
-            for (int64_t k = 0; k < a.nt_; ++k)
-                if (c.tileIsLocal(m, n)) {
-                    ++group_size;
-                }
+            if (c.tileIsLocal(m, n))
+                ++group_size;
 
     a_array = new const FloatType*[group_size];
     b_array = new const FloatType*[group_size];
@@ -144,13 +134,12 @@ void Matrix<FloatType>::syrk_impl(TargetType<Target::HostBatch>,
     int i = 0;
     for (int64_t n = 0; n < c.nt_; ++n)
         for (int64_t m = n+1; m < c.mt_; ++m)
-            for (int64_t k = 0; k < a.nt_; ++k)
-                if (c.tileIsLocal(m, n)) {
-                    a_array[i] = a(m, k)->data_;
-                    b_array[i] = a(n, k)->data_;
-                    c_array[i] = c(m, n)->data_;
-                    ++i;
-                }
+            if (c.tileIsLocal(m, n)) {
+                a_array[i] = a(m, 0)->data_;
+                b_array[i] = a(n, 0)->data_;
+                c_array[i] = c(m, n)->data_;
+                ++i;
+            }
 
     trace_cpu_start();
 //  mkl_set_num_threads_local(...);
@@ -187,17 +176,16 @@ void Matrix<FloatType>::syrk_impl(TargetType<Target::Devices>,
             int64_t i = 0;
             for (int64_t n = 0; n < c.nt_; ++n)
                 for (int64_t m = n+1; m < c.mt_; ++m)
-                    for (int64_t k = 0; k < a.nt_; ++k)
-                        if (c.tileIsLocal(m, n))
-                            if (device == tileDevice(m, n)) {
-                                c.tileMoveToDevice(m, n, device);
-                                a.tileCopyToDevice(m, k, device);
-                                a.tileCopyToDevice(n, k, device);
-                                a_array_h_[device][i] = a(m, k, device)->data_;
-                                b_array_h_[device][i] = a(n, k, device)->data_;
-                                c_array_h_[device][i] = c(m, n, device)->data_;
-                                ++i;
-                            }
+                    if (c.tileIsLocal(m, n))
+                        if (device == tileDevice(m, n)) {
+                            c.tileMoveToDevice(m, n, device);
+                            a.tileCopyToDevice(m, 0, device);
+                            a.tileCopyToDevice(n, 0, device);
+                            a_array_h_[device][i] = a(m, 0, device)->data_;
+                            b_array_h_[device][i] = a(n, 0, device)->data_;
+                            c_array_h_[device][i] = c(m, n, device)->data_;
+                            ++i;
+                        }
             int64_t batch_count = i;
             // trace_cpu_stop("LightGray");
 
@@ -210,11 +198,13 @@ void Matrix<FloatType>::syrk_impl(TargetType<Target::Devices>,
                                     cudaMemcpyHostToDevice,
                                     gemm_stream_[device]);
             assert(error == cudaSuccess);
+
             error = cudaMemcpyAsync(b_array_d_[device], b_array_h_[device],
                                     sizeof(FloatType*)*batch_count,
                                     cudaMemcpyHostToDevice,
                                     gemm_stream_[device]);
             assert(error == cudaSuccess);
+
             error = cudaMemcpyAsync(c_array_d_[device], c_array_h_[device],
                                     sizeof(FloatType*)*batch_count,
                                     cudaMemcpyHostToDevice,
@@ -239,25 +229,20 @@ void Matrix<FloatType>::syrk_impl(TargetType<Target::Devices>,
 
             for (int64_t n = 0; n < c.nt_; ++n)
                 for (int64_t m = n+1; m < c.mt_; ++m)
-                    for (int64_t k = 0; k < a.nt_; ++k)
-                        if (c.tileIsLocal(m, n))
-                            if (device == tileDevice(m, n)) {
-                                a(m, k)->tick();
-                                a(n, k)->tick();
-                                a.tileErase(m, k, device);
-                                a.tileErase(n, k, device);
-                            }
+                    if (c.tileIsLocal(m, n))
+                        if (device == tileDevice(m, n)) {
+                            a(m, 0)->tick();
+                            a(n, 0)->tick();
+                            a.tileErase(m, 0, device);
+                            a.tileErase(n, 0, device);
+                        }
         }
 
     // host syrk on diagonal tiles
     for (int64_t n = 0; n < c.nt_; ++n)
-        for (int64_t k = 0; k < a.nt_; ++k)
-            if (c.tileIsLocal(n, n))
-                #pragma omp task
-                {
-                    c(n, n)->syrk(uplo, trans, -1.0,
-                                  a(n, k), k == 0 ? beta : 1.0);
-                }
+        if (c.tileIsLocal(n, n))
+            #pragma omp task
+            c(n, n)->syrk(uplo, trans, -1.0, a(n, 0), beta);
 
     #pragma omp taskwait
 }

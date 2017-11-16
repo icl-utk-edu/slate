@@ -24,9 +24,24 @@ extern "C" {
 
 int MPI_Barrier(MPI_Comm comm);
 
+int MPI_Bcast(void *buffer, int count, MPI_Datatype datatype, int root,
+              MPI_Comm comm);
+
+int MPI_Comm_create_group(MPI_Comm comm, MPI_Group group, int tag,
+                          MPI_Comm *newcomm);
+
+int MPI_Comm_free(MPI_Comm *comm);
 int MPI_Comm_group(MPI_Comm comm, MPI_Group *group);
 int MPI_Comm_rank(MPI_Comm comm, int *rank);
 int MPI_Comm_size(MPI_Comm comm, int *size);
+
+int MPI_Group_free(MPI_Group *group);
+
+int MPI_Group_incl(MPI_Group group, int n, const int ranks[],
+                   MPI_Group *newgroup);
+
+int MPI_Group_translate_ranks(MPI_Group group1, int n, const int ranks1[],
+                              MPI_Group group2, int ranks2[]);
 
 int MPI_Init_thread(int *argc, char ***argv, int required, int *provided);
 

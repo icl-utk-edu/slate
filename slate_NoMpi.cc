@@ -14,6 +14,23 @@ int MPI_Barrier(MPI_Comm comm)
     return MPI_SUCCESS;
 }
 
+int MPI_Bcast(void *buffer, int count, MPI_Datatype datatype, int root,
+              MPI_Comm comm)
+{
+    assert(0);
+}
+
+int MPI_Comm_create_group(MPI_Comm comm, MPI_Group group, int tag,
+                          MPI_Comm *newcomm)
+{
+    assert(0);
+}
+
+int MPI_Comm_free(MPI_Comm *comm)
+{
+    assert(0);
+}
+
 int MPI_Comm_group(MPI_Comm comm, MPI_Group *group)
 {
     return MPI_SUCCESS;
@@ -29,6 +46,23 @@ int MPI_Comm_size(MPI_Comm comm, int *size)
 {
     *size = 1;
     return MPI_SUCCESS;
+}
+
+int MPI_Group_free(MPI_Group *group)
+{
+    assert(0);
+}
+
+int MPI_Group_incl(MPI_Group group, int n, const int ranks[],
+                   MPI_Group *newgroup)
+{
+    assert(0);
+}
+
+int MPI_Group_translate_ranks(MPI_Group group1, int n, const int ranks1[],
+                              MPI_Group group2, int ranks2[])
+{
+    assert(0);
 }
 
 int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)

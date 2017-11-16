@@ -751,6 +751,10 @@ int64_t Matrix<FloatType>::tileSendFindLife(int64_t i, int64_t j,
 template <typename FloatType>
 void Matrix<FloatType>::tileSend(int64_t i, int64_t j, std::set<int> &bcast_set)
 {
+    // Quit if only root in the broadcast set.
+    if (bcast_set.size() == 1)
+        return;
+
     // Convert the set of ranks to a vector.
     std::vector<int> bcast_vec(bcast_set.begin(), bcast_set.end());
 

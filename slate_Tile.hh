@@ -85,8 +85,8 @@ public:
                      mb_, nb_, a->nb_, alpha, a->data_, a->mb_,
                      b->data_, b->mb_, beta, data_, mb_);
         trace_cpu_stop("MediumAquamarine");
-        tick(a);
-        tick(b);
+        a->tick();
+        b->tick();
     }
     void potrf(blas::Uplo uplo)
     {
@@ -101,8 +101,8 @@ public:
         blas::syrk(blas::Layout::ColMajor, uplo, trans,
                    nb_, a->nb_, alpha, a->data_, a->mb_, beta, data_, mb_);
         trace_cpu_stop("CornflowerBlue");
-        tick(a);
-        tick(a);
+        a->tick();
+        a->tick();
     }
     void trsm(blas::Side side, blas::Uplo uplo, blas::Op transa,
               blas::Diag diag, FloatType alpha, Tile<FloatType> *a)
@@ -111,27 +111,16 @@ public:
         blas::trsm(blas::Layout::ColMajor, side, uplo, transa, diag,
                    mb_, nb_, alpha, a->data_, mb_, data_, mb_);
         trace_cpu_stop("MediumPurple");
-        tick(a);
+        a->tick();
     }
 
     void tick()
     {
-        if (!this->local_)
-            #pragma omp critical
+        if (!local_)
+            #pragma omp critical(slate_tile)
             {
-                --this->life_;
-                if (this->life_ == 0)
-                    this->deallocate();
-            }
-    }
-    void tick(Tile<FloatType> *tile)
-    {
-        if (!tile->local_)
-            #pragma omp critical
-            {
-                --tile->life_;
-                if (tile->life_ == 0)
-                    tile->deallocate();
+                if (--life_ == 0)
+                    deallocate();
             }
     }
 

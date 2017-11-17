@@ -29,7 +29,7 @@ void Matrix<FloatType>::potrf_impl(TargetType<target>,
     #pragma omp master
     for (int64_t k = 0; k < nt_; ++k) {
         // panel
-        #pragma omp task depend(inout:column[k]) priority(2)
+        #pragma omp task depend(inout:column[k]) priority(1)
         {
             if (tileIsLocal(k, k)) {
                 a(k, k)->potrf(uplo);
@@ -40,7 +40,7 @@ void Matrix<FloatType>::potrf_impl(TargetType<target>,
 
             for (int64_t m = k+1; m < nt_; ++m) {
 
-                #pragma omp task
+                #pragma omp task priority(1)
                 if (tileIsLocal(m, k)) {
                     a.tileMoveToHost(m, k, tileDevice(m, k));
                     a(m, k)->trsm(Side::Right, Uplo::Lower,

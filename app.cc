@@ -1,5 +1,5 @@
 
-#include "slate_Matrix.hh"
+#include "slate.hh"
 
 #include <cassert>
 #include <cmath>
@@ -98,7 +98,7 @@ int main (int argc, char *argv[])
     trace_cpu_stop("Black");
 
     double start = omp_get_wtime();
-    a.potrf<slate::Target::HostTask>(blas::Uplo::Lower, lookahead);
+    slate::potrf<slate::Target::HostTask>(blas::Uplo::Lower, a, lookahead);
 
     trace_cpu_start();
     MPI_Barrier(MPI_COMM_WORLD);

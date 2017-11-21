@@ -82,8 +82,8 @@ public:
     {
         trace_cpu_start();
         blas::gemm(blas::Layout::ColMajor, transa, transb,
-                     mb_, nb_, a->nb_, alpha, a->data_, a->mb_,
-                     b->data_, b->mb_, beta, data_, mb_);
+                   mb_, nb_, a->nb_, alpha, a->data_, a->mb_,
+                   b->data_, b->mb_, beta, data_, mb_);
         trace_cpu_stop("MediumAquamarine");
         a->tick();
         b->tick();

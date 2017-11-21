@@ -2,8 +2,9 @@
 #ifndef SLATE_MATRIX_HH
 #define SLATE_MATRIX_HH
 
-#include "slate_Tile.hh"
 #include "slate_Memory.hh"
+#include "slate_Tile.hh"
+#include "slate_types.hh"
 
 #include "lapack.hh"
 
@@ -38,8 +39,6 @@
 
 namespace slate {
 
-enum class Target {Devices, Host, HostTask, HostNest, HostBatch};
-
 //------------------------------------------------------------------------------
 template <typename FloatType>
 class Matrix {
@@ -64,12 +63,7 @@ public:
               blas::Op trans, blas::Diag diag,
               FloatType alpha, const Matrix &a);
 
-    template <Target target = Target::HostTask>
-    void potrf(blas::Uplo uplo, int64_t lookahead = 0);
-
-private:
-    template <Target> class TargetType {};
-
+// private:
     struct TileHash {
         size_t operator()(const std::tuple<int64_t, int64_t, int> &key) const
         {
@@ -80,6 +74,7 @@ private:
         }
     };
 
+    //------------------------------------------------
     Tile<FloatType>* &operator()(int64_t i, int64_t j)
     {
         omp_set_lock(tiles_lock_);
@@ -109,10 +104,18 @@ private:
         return tile;
     }
 
-    int64_t tileRank(int64_t i, int64_t j) {
+    Matrix<FloatType> operator()(int64_t i1, int64_t i2, int64_t j1, int64_t j2)
+    {
+        return Matrix(*this, i1, i2, j1, j2);
+    }
+
+    //------------------------------------
+    int64_t tileRank(int64_t i, int64_t j)
+    {
         return tileRankFunc(it_+i, jt_+j);
     }
-    int64_t tileDevice(int64_t i, int64_t j) {
+    int64_t tileDevice(int64_t i, int64_t j)
+    {
         return tileDeviceFunc(it_+i, jt_+j);
     }
     int64_t tileMb(int64_t i) { return tileMbFunc(it_+i); }
@@ -122,32 +125,24 @@ private:
         return tileRank(i, j) == mpi_rank_;
     }
 
-    //----------------------
-    template <Target target>
-    void potrf_impl(TargetType<target>,
-                    blas::Uplo uplo, int64_t lookahead);
-
-    void potrf_impl(TargetType<Target::Devices>,
-                    blas::Uplo uplo, int64_t lookahead);
-
-    //------------------------------------------
+    //-----------------------------------------
     template <Target target = Target::HostTask>
     void syrk(blas::Uplo uplo, blas::Op trans,
               FloatType alpha, const Matrix &a, FloatType beta);
 
-    void syrk_impl(TargetType<Target::HostTask>,
+    void syrk_impl(internal::TargetType<Target::HostTask>,
                    blas::Uplo uplo, blas::Op trans,
                    FloatType alpha, const Matrix &a, FloatType beta);
 
-    void syrk_impl(TargetType<Target::HostNest>,
+    void syrk_impl(internal::TargetType<Target::HostNest>,
                    blas::Uplo uplo, blas::Op trans,
                    FloatType alpha, const Matrix &a, FloatType beta);
 
-    void syrk_impl(TargetType<Target::HostBatch>,
+    void syrk_impl(internal::TargetType<Target::HostBatch>,
                    blas::Uplo uplo, blas::Op trans,
                    FloatType alpha, const Matrix &a, FloatType beta);
 
-    void syrk_impl(TargetType<Target::Devices>,
+    void syrk_impl(internal::TargetType<Target::Devices>,
                    blas::Uplo uplo, blas::Op trans,
                    FloatType alpha, const Matrix &a, FloatType beta);
 

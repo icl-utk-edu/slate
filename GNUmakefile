@@ -56,10 +56,10 @@ endif
 #-------------------------------------------------------------------------------
 SRC += blas.cc \
        lapack.cc \
-       slate_Matrix_potrf.cc \
        slate_Matrix_syrk.cc \
        slate_Matrix.cc \
        slate_Memory.cc \
+       slate_potrf.cc \
        slate_Tile.cc
 
 OBJ = $(SRC:.cc=.o)

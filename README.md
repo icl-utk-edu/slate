@@ -8,7 +8,7 @@
 
 **University of Tennessee**
 
-![SLATE](http://icl.bitbucket.io/slate/artwork/slate_small.png)
+![SLATE](http://icl.bitbucket.io/slate/artwork/ecp-slate.jpg)
 
 [TOC]
 

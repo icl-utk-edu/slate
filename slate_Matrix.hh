@@ -4,15 +4,14 @@
 
 #include "slate_Memory.hh"
 #include "slate_Tile.hh"
+#include "slate_Tiles.hh"
 #include "slate_types.hh"
 
 #include "lapack.hh"
 
 #include <algorithm>
 #include <functional>
-#include <map>
 #include <set>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 #include <iostream>
@@ -64,44 +63,21 @@ public:
               FloatType alpha, const Matrix &a);
 
 // private:
-    struct TileHash {
-        size_t operator()(const std::tuple<int64_t, int64_t, int> &key) const
-        {
-            size_t hash_i = std::hash<int64_t>()(std::get<0>(key));
-            size_t hash_j = std::hash<int64_t>()(std::get<1>(key));
-            size_t hash_k = std::hash<int>    ()(std::get<2>(key));
-            return (hash_i*31 + hash_j)*31 + hash_k;
-        }
-    };
-
-    //------------------------------------------------
     Tile<FloatType>* &operator()(int64_t i, int64_t j)
     {
-        omp_set_lock(tiles_lock_);
-        Tile<FloatType>* &tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
-        omp_unset_lock(tiles_lock_);
-        return tile;
+        return (*tiles_)[{it_+i, jt_+j, host_num_}];
     }
     Tile<FloatType>* &operator()(int64_t i, int64_t j) const
     {
-        omp_set_lock(tiles_lock_);
-        Tile<FloatType>* &tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
-        omp_unset_lock(tiles_lock_);
-        return tile;
+        return (*tiles_)[{it_+i, jt_+j, host_num_}];
     }
     Tile<FloatType>* &operator()(int64_t i, int64_t j, int device)
     {
-        omp_set_lock(tiles_lock_);
-        Tile<FloatType>* &tile = (*tiles_)[{it_+i, jt_+j, device}];
-        omp_unset_lock(tiles_lock_);
-        return tile;
+        return (*tiles_)[{it_+i, jt_+j, device}];
     }
     Tile<FloatType>* &operator()(int64_t i, int64_t j, int device) const
     {
-        omp_set_lock(tiles_lock_);
-        Tile<FloatType>* &tile = (*tiles_)[{it_+i, jt_+j, device}];
-        omp_unset_lock(tiles_lock_);
-        return tile;
+        return (*tiles_)[{it_+i, jt_+j, device}];
     }
 
     Matrix<FloatType> operator()(int64_t i1, int64_t i2, int64_t j1, int64_t j2)
@@ -194,12 +170,7 @@ public:
     std::function <int64_t (int64_t i)> tileMbFunc;
     std::function <int64_t (int64_t j)> tileNbFunc;
 
-    std::map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*> *tiles_;
-    // std::unordered_map<std::tuple<int64_t, int64_t, int>,
-    //                    Tile<FloatType>*,
-    //                    TileHash> *tiles_;
-
-    omp_lock_t *tiles_lock_ = new omp_lock_t();
+    Tiles<FloatType> *tiles_;
 
     MPI_Comm mpi_comm_;
     MPI_Group mpi_group_;
@@ -233,18 +204,14 @@ public:
 template <typename FloatType>
 void Matrix<FloatType>::tileCopyToDevice(int64_t i, int64_t j, int dst_device)
 {
-    omp_set_lock(tiles_lock_);
     // If the tile not on the device.
     if (tiles_->find({it_+i, jt_+j, dst_device}) == tiles_->end()) {
         // Copy the tile to the device.
         Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
-        omp_unset_lock(tiles_lock_);
         Tile<FloatType> *tile =
             new Tile<FloatType>(src_tile, dst_device, comm_stream_[dst_device]);
-        omp_set_lock(tiles_lock_);
         (*tiles_)[{it_+i, jt_+j, dst_device}] = tile;
     }
-    omp_unset_lock(tiles_lock_);
 }
 
 //------------------------------------------------------------------------------
@@ -254,20 +221,16 @@ void Matrix<FloatType>::tileCopyToDevice(int64_t i, int64_t j, int dst_device)
 template <typename FloatType>
 void Matrix<FloatType>::tileMoveToDevice(int64_t i, int64_t j, int dst_device)
 {
-    omp_set_lock(tiles_lock_);
     // If the tile not on the device.
     if (tiles_->find({it_+i, jt_+j, dst_device}) == tiles_->end()) {
         // Move the tile to the device.
         Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
-        omp_unset_lock(tiles_lock_);
         Tile<FloatType> *tile =
             new Tile<FloatType>(src_tile, dst_device, comm_stream_[dst_device]);
-        omp_set_lock(tiles_lock_);
         (*tiles_)[{it_+i, jt_+j, dst_device}] = tile;
         delete (*tiles_)[{it_+i, jt_+j, host_num_}];
         tiles_->erase({it_+i, jt_+j, host_num_});
     }
-    omp_unset_lock(tiles_lock_);
 }
 
 //------------------------------------------------------------------------------
@@ -277,20 +240,16 @@ void Matrix<FloatType>::tileMoveToDevice(int64_t i, int64_t j, int dst_device)
 template <typename FloatType>
 void Matrix<FloatType>::tileMoveToHost(int64_t i, int64_t j, int src_device)
 {
-    omp_set_lock(tiles_lock_);
     // If the tile not on the host.
     if (tiles_->find({it_+i, jt_+j, host_num_}) == tiles_->end()) {
         // Move the tile to the host.
         Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
-        omp_unset_lock(tiles_lock_);
         Tile<FloatType> *tile =
             new Tile<FloatType>(src_tile, host_num_, comm_stream_[src_device]);
-        omp_set_lock(tiles_lock_);
         (*tiles_)[{it_+i, jt_+j, host_num_}] = tile;
         delete (*tiles_)[{it_+i, jt_+j, src_device}];
         tiles_->erase({it_+i, jt_+j, src_device});
     }
-    omp_unset_lock(tiles_lock_);
 }
 
 //------------------------------------------------------------------------------
@@ -300,14 +259,12 @@ void Matrix<FloatType>::tileMoveToHost(int64_t i, int64_t j, int src_device)
 template <typename FloatType>
 void Matrix<FloatType>::tileErase(int64_t i, int64_t j, int device)
 {
-    omp_set_lock(tiles_lock_);
     // If the tile exists in the specified location.
     if (tiles_->find({it_+i, jt_+j, device}) != tiles_->end()) {
         // Erase the tile.
         delete (*tiles_)[{it_+i, jt_+j, device}];
         tiles_->erase({it_+i, jt_+j, device});
     }
-    omp_unset_lock(tiles_lock_);
 }
 
 //------------------------------------------------------------------------------
@@ -432,11 +389,11 @@ template <typename FloatType>
 Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
                           int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q)
 {
-    tiles_ = new std::map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*>;
+    tiles_ = new Tiles<FloatType>;
+    // tiles_ = new std::map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*>;
     // tiles_ = new std::unordered_map<std::tuple<int64_t, int64_t, int>,
     //                                 Tile<FloatType>*,
     //                                 TileHash>;
-    omp_init_lock(tiles_lock_);
 
     it_ = 0;
     jt_ = 0;

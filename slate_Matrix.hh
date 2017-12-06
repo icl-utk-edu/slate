@@ -390,10 +390,6 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
                           int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q)
 {
     tiles_ = new Tiles<FloatType>;
-    // tiles_ = new std::map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*>;
-    // tiles_ = new std::unordered_map<std::tuple<int64_t, int64_t, int>,
-    //                                 Tile<FloatType>*,
-    //                                 TileHash>;
 
     it_ = 0;
     jt_ = 0;

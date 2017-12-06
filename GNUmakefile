@@ -59,8 +59,8 @@ SRC += blas.cc \
        slate_Matrix_syrk.cc \
        slate_Matrix.cc \
        slate_Memory.cc \
-       slate_potrf.cc \
-       slate_Tile.cc
+       slate_Tile.cc \
+       slate_potrf.cc
 
 OBJ = $(SRC:.cc=.o)
 

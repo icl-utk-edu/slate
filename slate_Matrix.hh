@@ -3,7 +3,7 @@
 #define SLATE_MATRIX_HH
 
 #include "slate_Memory.hh"
-#include "slate_Tile.hh"
+#include "slate_ColMajorTile.hh"
 #include "slate_Tiles.hh"
 #include "slate_types.hh"
 
@@ -206,11 +206,13 @@ void Matrix<FloatType>::tileCopyToDevice(int64_t i, int64_t j, int dst_device)
 {
     // If the tile not on the device.
     if (tiles_->find({it_+i, jt_+j, dst_device}) == tiles_->end()) {
+
         // Copy the tile to the device.
         Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
-        Tile<FloatType> *tile =
-            new Tile<FloatType>(src_tile, dst_device, comm_stream_[dst_device]);
-        (*tiles_)[{it_+i, jt_+j, dst_device}] = tile;
+        Tile<FloatType> *dst_tile =
+            src_tile->copyToDevice(dst_device, comm_stream_[dst_device]);
+
+        (*tiles_)[{it_+i, jt_+j, dst_device}] = dst_tile;
     }
 }
 
@@ -223,11 +225,15 @@ void Matrix<FloatType>::tileMoveToDevice(int64_t i, int64_t j, int dst_device)
 {
     // If the tile not on the device.
     if (tiles_->find({it_+i, jt_+j, dst_device}) == tiles_->end()) {
-        // Move the tile to the device.
+
+        // Copy the tile to the device.
         Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
-        Tile<FloatType> *tile =
-            new Tile<FloatType>(src_tile, dst_device, comm_stream_[dst_device]);
-        (*tiles_)[{it_+i, jt_+j, dst_device}] = tile;
+        Tile<FloatType> *dst_tile =
+            src_tile->copyToDevice(dst_device, comm_stream_[dst_device]);
+
+        (*tiles_)[{it_+i, jt_+j, dst_device}] = dst_tile;
+
+        // Delete the tile from the host.
         delete (*tiles_)[{it_+i, jt_+j, host_num_}];
         tiles_->erase({it_+i, jt_+j, host_num_});
     }
@@ -242,11 +248,15 @@ void Matrix<FloatType>::tileMoveToHost(int64_t i, int64_t j, int src_device)
 {
     // If the tile not on the host.
     if (tiles_->find({it_+i, jt_+j, host_num_}) == tiles_->end()) {
+
         // Move the tile to the host.
         Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
-        Tile<FloatType> *tile =
-            new Tile<FloatType>(src_tile, host_num_, comm_stream_[src_device]);
-        (*tiles_)[{it_+i, jt_+j, host_num_}] = tile;
+        Tile<FloatType> *dst_tile =
+            src_tile->copyToHost(comm_stream_[src_device]);
+
+        (*tiles_)[{it_+i, jt_+j, host_num_}] = dst_tile;
+
+        // Delete the tile from the device.
         delete (*tiles_)[{it_+i, jt_+j, src_device}];
         tiles_->erase({it_+i, jt_+j, src_device});
     }
@@ -261,6 +271,7 @@ void Matrix<FloatType>::tileErase(int64_t i, int64_t j, int device)
 {
     // If the tile exists in the specified location.
     if (tiles_->find({it_+i, jt_+j, device}) != tiles_->end()) {
+
         // Erase the tile.
         delete (*tiles_)[{it_+i, jt_+j, device}];
         tiles_->erase({it_+i, jt_+j, device});
@@ -462,7 +473,7 @@ void Matrix<FloatType>::random()
             if (tileIsLocal(i, j))
             {
                 Tile<FloatType> *tile =
-                    new Tile<FloatType>(tileMb(i), tileNb(j), memory_);
+                    new ColMajorTile<FloatType>(tileMb(i), tileNb(j), memory_);
 
                 int iseed[4];
                 iseed[0] = i & 0x0FFF;
@@ -492,8 +503,9 @@ void Matrix<FloatType>::copyTo(FloatType *a, int64_t lda)
         for (int64_t j = 0; j <= i; ++j) {
             if (tileIsLocal(i, j))
                 (*this)(i, j) =
-                    new Tile<FloatType>(tileMb(i), tileNb(j),
-                                        &a[(size_t)lda*n+m], lda, memory_);
+                    new ColMajorTile<FloatType>(tileMb(i), tileNb(j),
+                                                &a[(size_t)lda*n+m], lda,
+                                                memory_);
             n += tileNb(j);
         }
         m += tileMb(i);
@@ -567,7 +579,8 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, int dest)
 template <typename FloatType>
 void Matrix<FloatType>::tileRecv(int64_t i, int64_t j, int src)
 {
-    Tile<FloatType> *tile = new Tile<FloatType>(tileMb(i), tileNb(j), memory_);
+    Tile<FloatType> *tile =
+        new ColMajorTile<FloatType>(tileMb(i), tileNb(j), memory_);
     (*this)(i, j) = tile;
     int count = tile->mb_*tile->nb_;
     int tag = 0;
@@ -597,7 +610,7 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
 
             // Create the tile.
             Tile<FloatType> *tile;
-            tile = new Tile<FloatType>(tileMb(i), tileNb(j), memory_);
+            tile = new ColMajorTile<FloatType>(tileMb(i), tileNb(j), memory_);
             (*this)(i, j) = tile;
 
             // Find the tile's life.
@@ -635,7 +648,7 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
 
             // Create the tile.
             Tile<FloatType> *tile;
-            tile = new Tile<FloatType>(tileMb(i), tileNb(j), memory_);
+            tile = new ColMajorTile<FloatType>(tileMb(i), tileNb(j), memory_);
             (*this)(i, j) = tile;
 
             // Find the tile's life.

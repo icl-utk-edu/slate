@@ -39,44 +39,64 @@ namespace slate {
 template <typename FloatType>
 class Tile {
 public:
+    Tile(const Tile<FloatType> *src_tile, int dst_device_num)
+    {
+        *this = *src_tile;
+        device_num_ = dst_device_num;
+        allocate();
+    }
     Tile(int64_t mb, int64_t nb, Memory *memory)
         : mb_(mb), nb_(nb), memory_(memory), device_num_(host_num_), life_(0)
     {
         allocate();
     }
-    Tile(int64_t mb, int64_t nb, FloatType *a, int64_t lda, Memory *memory)
-        : mb_(mb), nb_(nb), memory_(memory), device_num_(host_num_), life_(0)
-    {
-        allocate();
-        copyTo(a, lda);
-    }
-    Tile(const Tile<FloatType> *src_tile, int dst_device_num,
-         cudaStream_t stream)
-    {
-        *this = *src_tile;
-        device_num_ = dst_device_num;
-        allocate();
-
-        if (dst_device_num == host_num_)
-            copyToHost(src_tile, stream);
-        else
-            copyToDevice(src_tile, dst_device_num, stream);
-    }
     ~Tile() {
         deallocate();
     }
 
-    void copyTo(FloatType *a, int64_t lda)
+    //-------------------------------------------------
+    virtual void copyTo(FloatType *a, int64_t lda) = 0;
+    virtual void copyFrom(FloatType *a, int64_t lda) = 0;
+
+    virtual Tile<FloatType>* copyToHost(cudaStream_t stream) = 0;
+    virtual Tile<FloatType>* copyToDevice(
+        int device_num, cudaStream_t stream) = 0;
+
+    //--------------------------------------------------------------
+    Tile<FloatType>* copyDataToHost(const Tile<FloatType> *dst_tile,
+                                    cudaStream_t stream)
     {
-        for (int64_t n = 0; n < nb_; ++n)
-            memcpy(&data_[n*mb_], &a[n*lda], sizeof(FloatType)*mb_);
+        trace_cpu_start();
+        cudaError_t error;
+        error = cudaSetDevice(device_num_);
+        assert(error == cudaSuccess);
+
+        error = cudaMemcpyAsync(dst_tile->data_, data_, size(),
+                                cudaMemcpyDeviceToHost, stream);
+        assert(error == cudaSuccess);
+
+        error = cudaStreamSynchronize(stream);
+        assert(error == cudaSuccess);
+        trace_cpu_stop("Gray");
     }
-    void copyFrom(FloatType *a, int64_t lda)
+    Tile<FloatType>* copyDataToDevice(const Tile<FloatType> *dst_tile,
+                                      cudaStream_t stream)
     {
-        for (int64_t n = 0; n < nb_; ++n)
-            memcpy(&a[n*lda], &data_[n*mb_], sizeof(FloatType)*mb_);
+        trace_cpu_start();
+        cudaError_t error;
+        error = cudaSetDevice(dst_tile->device_num_);
+        assert(error == cudaSuccess);
+
+        error = cudaMemcpyAsync(dst_tile->data_, data_, size(),
+                                cudaMemcpyHostToDevice, stream);
+        assert(error == cudaSuccess);
+
+        error = cudaStreamSynchronize(stream);
+        assert(error == cudaSuccess);
+        trace_cpu_stop("LightGray");
     }
 
+    //----------------------------------------------------------
     void gemm(blas::Op transa, blas::Op transb, FloatType alpha,
               Tile<FloatType> *a, Tile<FloatType> *b, FloatType beta)
     {
@@ -136,7 +156,7 @@ public:
     MPI_Group bcast_group_;
     MPI_Comm bcast_comm_;
 
-private:
+protected:
     size_t size() {
         return sizeof(FloatType)*mb_*nb_;
     }
@@ -152,38 +172,6 @@ private:
         memory_->free(data_, device_num_);
         data_ = nullptr;
         trace_cpu_stop("Crimson");
-    }
-
-    void copyToHost(const Tile<FloatType> *src_tile, cudaStream_t stream)
-    {
-        trace_cpu_start();
-        cudaError_t error;
-        error = cudaSetDevice(src_tile->device_num_);
-        assert(error == cudaSuccess);
-
-        error = cudaMemcpyAsync(data_, src_tile->data_, size(),
-                                cudaMemcpyDeviceToHost, stream);
-        assert(error == cudaSuccess);
-
-        error = cudaStreamSynchronize(stream);
-        assert(error == cudaSuccess);
-        trace_cpu_stop("Gray");
-    }
-    void copyToDevice(const Tile<FloatType> *src_tile, int dst_device_num,
-                      cudaStream_t stream)
-    {
-        trace_cpu_start();
-        cudaError_t error;
-        error = cudaSetDevice(dst_device_num);
-        assert(error == cudaSuccess);
-
-        error = cudaMemcpyAsync(data_, src_tile->data_, size(),
-                                cudaMemcpyHostToDevice, stream);
-        assert(error == cudaSuccess);
-
-        error = cudaStreamSynchronize(stream);
-        assert(error == cudaSuccess);
-        trace_cpu_stop("LightGray");
     }
 
     void print()

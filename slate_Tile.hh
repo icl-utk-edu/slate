@@ -97,39 +97,50 @@ public:
     }
 
     //----------------------------------------------------------
-    void gemm(blas::Op transa, blas::Op transb, FloatType alpha,
-              Tile<FloatType> *a, Tile<FloatType> *b, FloatType beta)
+    static void gemm(blas::Op transa, blas::Op transb,
+                     FloatType alpha, Tile<FloatType> *a,
+                                      Tile<FloatType> *b,
+                     FloatType beta,  Tile<FloatType> *c)
     {
         trace_cpu_start();
         blas::gemm(blas::Layout::ColMajor, transa, transb,
-                   mb_, nb_, a->nb_, alpha, a->data_, a->mb_,
-                   b->data_, b->mb_, beta, data_, mb_);
+                   c->mb_, c->nb_, a->nb_,
+                   alpha, a->data_, a->mb_,
+                          b->data_, b->mb_,
+                   beta,  c->data_, c->mb_);
         trace_cpu_stop("MediumAquamarine");
         a->tick();
         b->tick();
     }
-    void potrf(blas::Uplo uplo)
+    static void potrf(blas::Uplo uplo, Tile<FloatType> *a)
     {
         trace_cpu_start();
-        lapack::potrf(blas::Layout::ColMajor, uplo, nb_, data_, nb_);
+        lapack::potrf(blas::Layout::ColMajor, uplo, a->nb_, a->data_, a->nb_);
         trace_cpu_stop("RosyBrown");
     }
-    void syrk(blas::Uplo uplo, blas::Op trans,
-              FloatType alpha, Tile<FloatType> *a, FloatType beta)
+    static void syrk(blas::Uplo uplo, blas::Op trans,
+                     FloatType alpha, Tile<FloatType> *a,
+                     FloatType beta,  Tile<FloatType> *c)
     {
         trace_cpu_start();
         blas::syrk(blas::Layout::ColMajor, uplo, trans,
-                   nb_, a->nb_, alpha, a->data_, a->mb_, beta, data_, mb_);
+                   c->nb_, a->nb_,
+                   alpha, a->data_, a->mb_,
+                   beta,  c->data_, c->mb_);
         trace_cpu_stop("CornflowerBlue");
         a->tick();
         a->tick();
     }
-    void trsm(blas::Side side, blas::Uplo uplo, blas::Op transa,
-              blas::Diag diag, FloatType alpha, Tile<FloatType> *a)
+    static void trsm(blas::Side side, blas::Uplo uplo,
+                     blas::Op transa, blas::Diag diag,
+                     FloatType alpha, Tile<FloatType> *a,
+                                      Tile<FloatType> *b)
     {
         trace_cpu_start();
         blas::trsm(blas::Layout::ColMajor, side, uplo, transa, diag,
-                   mb_, nb_, alpha, a->data_, mb_, data_, mb_);
+                   b->mb_, b->nb_,
+                   alpha, a->data_, a->mb_,
+                          b->data_, b->mb_);
         trace_cpu_stop("MediumPurple");
         a->tick();
     }

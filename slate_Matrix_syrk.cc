@@ -31,14 +31,19 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostTask>,
 
         #pragma omp task
         if (c.tileIsLocal(n, n))
-            c(n, n)->syrk(uplo, trans, -1.0, a(n, 0), beta);
+            Tile<FloatType>::syrk(uplo, trans,
+                                  -1.0, a(n, 0),
+                                  beta, c(n, n));
 
         for (int64_t m = n+1; m < c.mt_; ++m)
             for (int64_t k = 0; k < a.nt_; ++k)
                 #pragma omp task
                 if (c.tileIsLocal(m, n)) {
-                    c(m, n)->gemm(trans, Op::Trans,
-                                  alpha, a(m, k), a(n, k), k == 0 ? beta : 1.0);
+                    FloatType cbeta = k == 0 ? beta : 1.0;
+                    Tile<FloatType>::gemm(trans, Op::Trans,
+                                          alpha, a(m, k),
+                                                 a(n, k),
+                                          cbeta, c(m, n));
                 }
     }
     #pragma omp taskwait
@@ -59,7 +64,9 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostNest>,
     for (int64_t n = 0; n < c.nt_; ++n) {
         #pragma omp task
         if (c.tileIsLocal(n, n))
-            c(n, n)->syrk(uplo, trans, -1.0, a(n, 0), beta);
+            Tile<FloatType>::syrk(uplo, trans,
+                                  -1.0, a(n, 0),
+                                  beta, c(n, n));
     }
 
 //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
@@ -68,8 +75,10 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostNest>,
         for (int64_t m = 0; m < c.mt_; ++m)
             if (m >= n+1)
                 if (c.tileIsLocal(m, n)) {
-                    c(m, n)->gemm(trans, Op::Trans,
-                                  alpha, a(m, 0), a(n, 0), beta);
+                    Tile<FloatType>::gemm(trans, Op::Trans,
+                                          alpha, a(m, 0),
+                                                 a(n, 0),
+                                          beta,  c(m, n));
                 }
     }
     #pragma omp taskwait
@@ -91,7 +100,9 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostBatch>,
     for (int64_t n = 0; n < c.nt_; ++n) {
         #pragma omp task
         if (c.tileIsLocal(n, n)) {
-            c(n, n)->syrk(uplo, trans, -1.0, a(n, 0), beta);
+            Tile<FloatType>::syrk(uplo, trans,
+                                  -1.0, a(n, 0),
+                                  beta, c(n, n));
         }
     }
 
@@ -243,7 +254,9 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::Devices>,
     for (int64_t n = 0; n < c.nt_; ++n)
         if (c.tileIsLocal(n, n))
             #pragma omp task
-            c(n, n)->syrk(uplo, trans, -1.0, a(n, 0), beta);
+            Tile<FloatType>::syrk(uplo, trans,
+                                  -1.0, a(n, 0),
+                                  beta, c(n, n));
 
     #pragma omp taskwait
 }

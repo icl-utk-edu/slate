@@ -21,7 +21,7 @@ void potrf(TargetType<target>,
         #pragma omp task depend(inout:column[k]) priority(1)
         {
             if (a.tileIsLocal(k, k)) {
-                a(k, k)->potrf(uplo);
+                Tile<FloatType>::potrf(uplo, a(k, k));
             }
 
             if (k < a.nt_-1)
@@ -31,9 +31,10 @@ void potrf(TargetType<target>,
 
                 #pragma omp task priority(1)
                 if (a.tileIsLocal(m, k)) {
-                    a(m, k)->trsm(Side::Right, Uplo::Lower,
-                                  Op::Trans, Diag::NonUnit,
-                                  1.0, a(k, k));
+                    Tile<FloatType>::trsm(Side::Right, Uplo::Lower,
+                                          Op::Trans, Diag::NonUnit,
+                                          1.0, a(k, k),
+                                               a(m, k));
                 }
             }
             #pragma omp taskwait
@@ -49,15 +50,18 @@ void potrf(TargetType<target>,
             {
                 #pragma omp task
                 if (a.tileIsLocal(n, n)) {
-                    a(n, n)->syrk(Uplo::Lower, Op::NoTrans,
-                                  -1.0, a(n, k), 1.0);
+                    Tile<FloatType>::syrk(Uplo::Lower, Op::NoTrans,
+                                          -1.0, a(n, k),
+                                           1.0, a(n, n));
                 }
 
                 for (int64_t m = n+1; m < a.nt_; ++m) {
                     #pragma omp task
                     if (a.tileIsLocal(m, n)) {
-                        a(m, n)->gemm(Op::NoTrans, Op::Trans,
-                                      -1.0, a(m, k), a(n, k), 1.0);
+                        Tile<FloatType>::gemm(Op::NoTrans, Op::Trans,
+                                              -1.0, a(m, k),
+                                                    a(n, k),
+                                               1.0, a(m, n));
                     }
                 }
                 #pragma omp taskwait
@@ -103,7 +107,7 @@ void potrf(TargetType<Target::Devices>,
         #pragma omp task depend(inout:column[k])
         {
             if (a.tileIsLocal(k, k)) {
-                a(k, k)->potrf(uplo);
+                Tile<FloatType>::potrf(uplo, a(k, k));
             }
 
             if (k < a.nt_-1)
@@ -114,9 +118,10 @@ void potrf(TargetType<Target::Devices>,
                 #pragma omp task
                 if (a.tileIsLocal(m, k)) {
                     a.tileMoveToHost(m, k, a.tileDevice(m, k));
-                    a(m, k)->trsm(Side::Right, Uplo::Lower,
-                                  Op::Trans, Diag::NonUnit,
-                                  1.0, a(k, k));
+                    Tile<FloatType>::trsm(Side::Right, Uplo::Lower,
+                                          Op::Trans, Diag::NonUnit,
+                                          1.0, a(k, k),
+                                               a(m, k));
                 }
             }
             #pragma omp taskwait
@@ -148,16 +153,19 @@ void potrf(TargetType<Target::Devices>,
             {
                 #pragma omp task
                 if (a.tileIsLocal(n, n)) {
-                    a(n, n)->syrk(Uplo::Lower, Op::NoTrans,
-                                  -1.0, a(n, k), 1.0);
+                    Tile<FloatType>::syrk(Uplo::Lower, Op::NoTrans,
+                                          -1.0, a(n, k),
+                                           1.0, a(n, n));
                 }
 
                 for (int64_t m = n+1; m < a.nt_; ++m) {
                     #pragma omp task
                     if (a.tileIsLocal(m, n)) {
                         a.tileMoveToHost(m, n, a.tileDevice(m, n));
-                        a(m, n)->gemm(Op::NoTrans, Op::Trans,
-                                      -1.0, a(m, k), a(n, k), 1.0);
+                        Tile<FloatType>::gemm(Op::NoTrans, Op::Trans,
+                                              -1.0, a(m, k),
+                                                    a(n, k),
+                                               1.0, a(m, n));
                     }
                 }
                 #pragma omp taskwait

@@ -11,15 +11,15 @@ void Matrix<FloatType>::syrk(blas::Uplo uplo, blas::Op trans,
                              FloatType alpha, const Matrix &that,
                              FloatType beta)
 {
-    syrk_impl(internal::TargetType<target>(), uplo, trans, alpha, that, beta);
+    syrk(internal::TargetType<target>(), uplo, trans, alpha, that, beta);
 }
 
 //------------------------------------------------------------------------------
 template <typename FloatType>
-void Matrix<FloatType>::syrk_impl(internal::TargetType<Target::HostTask>,
-                                  blas::Uplo uplo, blas::Op trans,
-                                  FloatType alpha, const Matrix &that,
-                                  FloatType beta)
+void Matrix<FloatType>::syrk(internal::TargetType<Target::HostTask>,
+                             blas::Uplo uplo, blas::Op trans,
+                             FloatType alpha, const Matrix &that,
+                             FloatType beta)
 {
     using namespace blas;
 
@@ -46,10 +46,10 @@ void Matrix<FloatType>::syrk_impl(internal::TargetType<Target::HostTask>,
 
 //------------------------------------------------------------------------------
 template <typename FloatType>
-void Matrix<FloatType>::syrk_impl(internal::TargetType<Target::HostNest>,
-                                  blas::Uplo uplo, blas::Op trans,
-                                  FloatType alpha, const Matrix &that,
-                                  FloatType beta)
+void Matrix<FloatType>::syrk(internal::TargetType<Target::HostNest>,
+                             blas::Uplo uplo, blas::Op trans,
+                             FloatType alpha, const Matrix &that,
+                             FloatType beta)
 {
     using namespace blas;
 
@@ -77,10 +77,10 @@ void Matrix<FloatType>::syrk_impl(internal::TargetType<Target::HostNest>,
 
 //------------------------------------------------------------------------------
 template <typename FloatType>
-void Matrix<FloatType>::syrk_impl(internal::TargetType<Target::HostBatch>,
-                                  blas::Uplo uplo, blas::Op trans,
-                                  FloatType alpha, const Matrix &that,
-                                  FloatType beta)
+void Matrix<FloatType>::syrk(internal::TargetType<Target::HostBatch>,
+                             blas::Uplo uplo, blas::Op trans,
+                             FloatType alpha, const Matrix &that,
+                             FloatType beta)
 {
     using namespace blas;
 
@@ -160,10 +160,10 @@ void Matrix<FloatType>::syrk_impl(internal::TargetType<Target::HostBatch>,
 
 //------------------------------------------------------------------------------
 template <typename FloatType>
-void Matrix<FloatType>::syrk_impl(internal::TargetType<Target::Devices>,
-                                  blas::Uplo uplo, blas::Op trans,
-                                  FloatType alpha, const Matrix &that,
-                                  FloatType beta)
+void Matrix<FloatType>::syrk(internal::TargetType<Target::Devices>,
+                             blas::Uplo uplo, blas::Op trans,
+                             FloatType alpha, const Matrix &that,
+                             FloatType beta)
 {
     using namespace blas;
 

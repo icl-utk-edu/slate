@@ -106,21 +106,21 @@ public:
     void syrk(blas::Uplo uplo, blas::Op trans,
               FloatType alpha, const Matrix &a, FloatType beta);
 
-    void syrk_impl(internal::TargetType<Target::HostTask>,
-                   blas::Uplo uplo, blas::Op trans,
-                   FloatType alpha, const Matrix &a, FloatType beta);
+    void syrk(internal::TargetType<Target::HostTask>,
+              blas::Uplo uplo, blas::Op trans,
+              FloatType alpha, const Matrix &a, FloatType beta);
 
-    void syrk_impl(internal::TargetType<Target::HostNest>,
-                   blas::Uplo uplo, blas::Op trans,
-                   FloatType alpha, const Matrix &a, FloatType beta);
+    void syrk(internal::TargetType<Target::HostNest>,
+              blas::Uplo uplo, blas::Op trans,
+              FloatType alpha, const Matrix &a, FloatType beta);
 
-    void syrk_impl(internal::TargetType<Target::HostBatch>,
-                   blas::Uplo uplo, blas::Op trans,
-                   FloatType alpha, const Matrix &a, FloatType beta);
+    void syrk(internal::TargetType<Target::HostBatch>,
+              blas::Uplo uplo, blas::Op trans,
+              FloatType alpha, const Matrix &a, FloatType beta);
 
-    void syrk_impl(internal::TargetType<Target::Devices>,
-                   blas::Uplo uplo, blas::Op trans,
-                   FloatType alpha, const Matrix &a, FloatType beta);
+    void syrk(internal::TargetType<Target::Devices>,
+              blas::Uplo uplo, blas::Op trans,
+              FloatType alpha, const Matrix &a, FloatType beta);
 
     //--------------------------------------------
     void tileSend(int64_t i, int64_t j, int dest);

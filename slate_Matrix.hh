@@ -103,24 +103,29 @@ public:
 
     //-----------------------------------------
     template <Target target = Target::HostTask>
-    void syrk(blas::Uplo uplo, blas::Op trans,
-              FloatType alpha, const Matrix &a, FloatType beta);
+    static void syrk(blas::Uplo uplo, blas::Op trans,
+                     FloatType alpha, Matrix &a,
+                     FloatType beta,  Matrix &c);
 
-    void syrk(internal::TargetType<Target::HostTask>,
-              blas::Uplo uplo, blas::Op trans,
-              FloatType alpha, const Matrix &a, FloatType beta);
+    static void syrk(internal::TargetType<Target::HostTask>,
+                     blas::Uplo uplo, blas::Op trans,
+                     FloatType alpha, Matrix &a,
+                     FloatType beta,  Matrix &c);
 
-    void syrk(internal::TargetType<Target::HostNest>,
-              blas::Uplo uplo, blas::Op trans,
-              FloatType alpha, const Matrix &a, FloatType beta);
+    static void syrk(internal::TargetType<Target::HostNest>,
+                     blas::Uplo uplo, blas::Op trans,
+                     FloatType alpha, Matrix &a,
+                     FloatType beta,  Matrix &c);
 
-    void syrk(internal::TargetType<Target::HostBatch>,
-              blas::Uplo uplo, blas::Op trans,
-              FloatType alpha, const Matrix &a, FloatType beta);
+    static void syrk(internal::TargetType<Target::HostBatch>,
+                     blas::Uplo uplo, blas::Op trans,
+                     FloatType alpha, Matrix &a,
+                     FloatType beta,  Matrix &c);
 
-    void syrk(internal::TargetType<Target::Devices>,
-              blas::Uplo uplo, blas::Op trans,
-              FloatType alpha, const Matrix &a, FloatType beta);
+    static void syrk(internal::TargetType<Target::Devices>,
+                     blas::Uplo uplo, blas::Op trans,
+                     FloatType alpha, Matrix &a,
+                     FloatType beta,  Matrix &c);
 
     //--------------------------------------------
     void tileSend(int64_t i, int64_t j, int dest);

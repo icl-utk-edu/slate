@@ -76,10 +76,13 @@ void potrf(TargetType<target>,
                 Matrix<FloatType> syrk_a =
                     a(k+1+lookahead, a.nt_-1, k, k);
 
-                Matrix<FloatType> syrk_b =
+                Matrix<FloatType> syrk_c =
                     a(k+1+lookahead, a.nt_-1, k+1+lookahead, a.nt_-1);
 
-                syrk_b.template syrk<target>(Uplo::Lower, Op::NoTrans,-1.0, syrk_a, 1.0);
+                Matrix<FloatType>::template syrk<target>(
+                    Uplo::Lower, Op::NoTrans,
+                    -1.0, syrk_a,
+                     1.0, syrk_c);
             }
         }
     }
@@ -139,11 +142,13 @@ void potrf(TargetType<Target::Devices>,
                 Matrix<FloatType> syrk_a =
                     a(k+1+lookahead, a.nt_-1, k, k);
 
-                Matrix<FloatType> syrk_b =
+                Matrix<FloatType> syrk_c =
                     a(k+1+lookahead, a.nt_-1, k+1+lookahead, a.nt_-1);
 
-                syrk_b.template syrk<Target::Devices>(
-                    Uplo::Lower, Op::NoTrans,-1.0, syrk_a, 1.0);
+                Matrix<FloatType>::template syrk<Target::Devices>(
+                    Uplo::Lower, Op::NoTrans,
+                    -1.0, syrk_a,
+                     1.0, syrk_c);
             }
         }
         // lookahead column(s)

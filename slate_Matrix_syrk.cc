@@ -7,20 +7,20 @@ namespace slate {
 //------------------------------------------------------------------------------
 template <typename FloatType>
 template <Target target>
-void Matrix<FloatType>::syrk(blas::Uplo uplo, blas::Op trans,
-                             FloatType alpha, Matrix &a,
-                             FloatType beta,  Matrix &c)
+void Matrix<FloatType>::syrk(blas::Uplo uplo, blas::Op op,
+                             FloatType alpha, Matrix &&a,
+                             FloatType beta,  Matrix &&c)
 {
     syrk(internal::TargetType<target>(),
-         uplo, trans,
-         alpha, a,
-         beta,  c);
+        uplo, op,
+        alpha, a,
+        beta,  c);
 }
 
 //------------------------------------------------------------------------------
 template <typename FloatType>
 void Matrix<FloatType>::syrk(internal::TargetType<Target::HostTask>,
-                             blas::Uplo uplo, blas::Op trans,
+                             blas::Uplo uplo, blas::Op op,
                              FloatType alpha, Matrix &a,
                              FloatType beta,  Matrix &c)
 {
@@ -28,7 +28,7 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostTask>,
     for (int64_t n = 0; n < c.nt_; ++n)
         if (c.tileIsLocal(n, n))
             #pragma omp task shared(a, c)
-            Tile<FloatType>::syrk(uplo, trans,
+            Tile<FloatType>::syrk(uplo, op,
                                   -1.0, a(n, 0),
                                   beta, c(n, n));
 
@@ -37,7 +37,7 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostTask>,
             for (int64_t k = 0; k < a.nt_; ++k)
                 if (c.tileIsLocal(m, n))
                     #pragma omp task shared(a, c)
-                    Tile<FloatType>::gemm(trans, blas::Op::Trans,
+                    Tile<FloatType>::gemm(op, blas::Op::Trans,
                                           alpha, a(m, k),
                                                  a(n, k),
                                           k == 0 ? beta : 1.0, c(m, n));
@@ -48,7 +48,7 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostTask>,
 //------------------------------------------------------------------------------
 template <typename FloatType>
 void Matrix<FloatType>::syrk(internal::TargetType<Target::HostNest>,
-                             blas::Uplo uplo, blas::Op trans,
+                             blas::Uplo uplo, blas::Op op,
                              FloatType alpha, Matrix &a,
                              FloatType beta,  Matrix &c)
 {
@@ -56,7 +56,7 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostNest>,
     for (int64_t n = 0; n < c.nt_; ++n)
         if (c.tileIsLocal(n, n))
             #pragma omp task shared(a, c)
-            Tile<FloatType>::syrk(uplo, trans,
+            Tile<FloatType>::syrk(uplo, op,
                                   -1.0, a(n, 0),
                                   beta, c(n, n));
 
@@ -66,7 +66,7 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostNest>,
         for (int64_t m = 0; m < c.mt_; ++m)
             if (m >= n+1)
                 if (c.tileIsLocal(m, n))
-                    Tile<FloatType>::gemm(trans, blas::Op::Trans,
+                    Tile<FloatType>::gemm(op, blas::Op::Trans,
                                           alpha, a(m, 0),
                                                  a(n, 0),
                                           beta,  c(m, n));
@@ -77,19 +77,19 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostNest>,
 //------------------------------------------------------------------------------
 template <typename FloatType>
 void Matrix<FloatType>::syrk(internal::TargetType<Target::HostBatch>,
-                             blas::Uplo uplo, blas::Op trans,
+                             blas::Uplo uplo, blas::Op op,
                              FloatType alpha, Matrix &a,
                              FloatType beta,  Matrix &c)
 {
     for (int64_t n = 0; n < c.nt_; ++n)
         if (c.tileIsLocal(n, n))
             #pragma omp task shared(a, c)
-            Tile<FloatType>::syrk(uplo, trans,
+            Tile<FloatType>::syrk(uplo, op,
                                   -1.0, a(n, 0),
                                   beta, c(n, n));
 
-    CBLAS_TRANSPOSE transa_array[1];
-    CBLAS_TRANSPOSE transb_array[1];
+    CBLAS_TRANSPOSE opa_array[1];
+    CBLAS_TRANSPOSE opb_array[1];
     int m_array[1];
     int n_array[1];
     int k_array[1];
@@ -103,8 +103,8 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostBatch>,
     int ldc_array[1];
 
     int nb = c.tileNb(0);
-    transa_array[0] = CblasNoTrans;
-    transb_array[0] = CblasTrans;
+    opa_array[0] = CblasNoTrans;
+    opb_array[0] = CblasTrans;
     m_array[0] = nb;
     n_array[0] = nb;
     k_array[0] = nb;
@@ -136,7 +136,7 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostBatch>,
 
     trace_cpu_start();
 //  mkl_set_num_threads_local(...);
-    cblas_dgemm_batch(CblasColMajor, transa_array, transb_array,
+    cblas_dgemm_batch(CblasColMajor, opa_array, opb_array,
                       m_array, n_array, k_array, alpha_array,
                       a_array, lda_array, b_array, ldb_array, beta_array,
                       c_array, ldc_array, 1, &group_size);
@@ -153,7 +153,7 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostBatch>,
 //------------------------------------------------------------------------------
 template <typename FloatType>
 void Matrix<FloatType>::syrk(internal::TargetType<Target::Devices>,
-                             blas::Uplo uplo, blas::Op trans,
+                             blas::Uplo uplo, blas::Op op,
                              FloatType alpha, Matrix &a,
                              FloatType beta,  Matrix &c)
 {
@@ -227,7 +227,7 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::Devices>,
     for (int64_t n = 0; n < c.nt_; ++n)
         if (c.tileIsLocal(n, n))
             #pragma omp task shared(a, c)
-            Tile<FloatType>::syrk(uplo, trans,
+            Tile<FloatType>::syrk(uplo, op,
                                   -1.0, a(n, 0),
                                   beta, c(n, n));
 
@@ -237,26 +237,26 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::Devices>,
 //------------------------------------------------------------------------------
 template
 void Matrix<double>::syrk<Target::HostTask>(
-    blas::Uplo uplo, blas::Op trans,
-    double alpha, Matrix &a,
-    double beta,  Matrix &c);
+    blas::Uplo uplo, blas::Op op,
+    double alpha, Matrix &&a,
+    double beta,  Matrix &&c);
 
 template
 void Matrix<double>::syrk<Target::HostNest>(
-    blas::Uplo uplo, blas::Op trans,
-    double alpha, Matrix &a,
-    double beta,  Matrix &c);
+    blas::Uplo uplo, blas::Op op,
+    double alpha, Matrix &&a,
+    double beta,  Matrix &&c);
 
 template
 void Matrix<double>::syrk<Target::HostBatch>(
-    blas::Uplo uplo, blas::Op trans,
-    double alpha, Matrix &a,
-    double beta,  Matrix &c);
+    blas::Uplo uplo, blas::Op op,
+    double alpha, Matrix &&a,
+    double beta,  Matrix &&c);
 
 template
 void Matrix<double>::syrk<Target::Devices>(
-    blas::Uplo uplo, blas::Op trans,
-    double alpha, Matrix &a,
-    double beta,  Matrix &c);
+    blas::Uplo uplo, blas::Op op,
+    double alpha, Matrix &&a,
+    double beta,  Matrix &&c);
 
 } // namespace slate

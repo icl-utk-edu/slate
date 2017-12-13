@@ -20,24 +20,19 @@ void potrf(TargetType<target>,
         // panel
         #pragma omp task depend(inout:column[k]) priority(1)
         {
-            if (a.tileIsLocal(k, k)) {
-                Tile<FloatType>::potrf(uplo, a(k, k));
-            }
+            Matrix<FloatType>::template
+            potrf<Target::HostTask>(uplo, a(k, k, k, k));
 
-            if (k < a.nt_-1)
+            if (k+1 <= a.nt_-1)
                 a.tileSend(k, k, {k+1, a.nt_-1, k, k});
 
-            for (int64_t m = k+1; m < a.nt_; ++m) {
-
-                #pragma omp task priority(1)
-                if (a.tileIsLocal(m, k)) {
-                    Tile<FloatType>::trsm(Side::Right, Uplo::Lower,
-                                          Op::Trans, Diag::NonUnit,
-                                          1.0, a(k, k),
-                                               a(m, k));
-                }
-            }
-            #pragma omp taskwait
+            if (k+1 <= a.nt_-1)
+                Matrix<FloatType>::template
+                trsm<Target::HostTask>(
+                    Side::Right, Uplo::Lower,
+                    Op::Trans, Diag::NonUnit,
+                    1.0, a(k, k, k, k),
+                         a(k+1, a.nt_-1, k, k));
 
             for (int64_t m = k+1; m < a.nt_; ++m)
                 a.tileSend(m, k, {m, m, k+1, m},
@@ -48,43 +43,33 @@ void potrf(TargetType<target>,
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[n]) priority(1)
             {
-                #pragma omp task
-                if (a.tileIsLocal(n, n)) {
-                    Tile<FloatType>::syrk(Uplo::Lower, Op::NoTrans,
-                                          -1.0, a(n, k),
-                                           1.0, a(n, n));
-                }
+                Matrix<FloatType>::template
+                syrk<Target::HostTask>(
+                    Uplo::Lower, Op::NoTrans,
+                    -1.0, a(n, n, k, k),
+                     1.0, a(n, n, n, n));
 
-                for (int64_t m = n+1; m < a.nt_; ++m) {
-                    #pragma omp task
-                    if (a.tileIsLocal(m, n)) {
-                        Tile<FloatType>::gemm(Op::NoTrans, Op::Trans,
-                                              -1.0, a(m, k),
-                                                    a(n, k),
-                                               1.0, a(m, n));
-                    }
-                }
-                #pragma omp taskwait
+                if (n+1 <= a.nt_-1)
+                    Matrix<FloatType>::template
+                    gemm<Target::HostTask>(
+                        Op::NoTrans, Op::Trans,
+                        -1.0, a(n+1, a.nt_-1, k, k),
+                              a(n, n, k, k),
+                         1.0, a(n+1, a.nt_-1, n, n));
             }
         }
         // trailing submatrix
-        if (k+1+lookahead < a.nt_) {
+        if (k+1+lookahead < a.nt_)
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[a.nt_-1])
             {
-                Matrix<FloatType> syrk_a =
-                    a(k+1+lookahead, a.nt_-1, k, k);
-
-                Matrix<FloatType> syrk_c =
-                    a(k+1+lookahead, a.nt_-1, k+1+lookahead, a.nt_-1);
-
-                Matrix<FloatType>::template syrk<target>(
+                Matrix<FloatType>::template
+                syrk<target>(
                     Uplo::Lower, Op::NoTrans,
-                    -1.0, syrk_a,
-                     1.0, syrk_c);
+                    -1.0, a(k+1+lookahead, a.nt_-1, k, k),
+                     1.0, a(k+1+lookahead, a.nt_-1, k+1+lookahead, a.nt_-1));
             }
-        }
     }
 
     a.checkLife();
@@ -109,71 +94,56 @@ void potrf(TargetType<Target::Devices>,
         // panel
         #pragma omp task depend(inout:column[k])
         {
-            if (a.tileIsLocal(k, k)) {
-                Tile<FloatType>::potrf(uplo, a(k, k));
-            }
+            Matrix<FloatType>::template
+            potrf<Target::HostTask>(uplo, a(k, k, k, k));
 
-            if (k < a.nt_-1)
+            if (k+1 <= a.nt_-1)
                 a.tileSend(k, k, {k+1, a.nt_-1, k, k});
 
-            for (int64_t m = k+1; m < a.nt_; ++m) {
-
-                #pragma omp task
-                if (a.tileIsLocal(m, k)) {
-                    a.tileMoveToHost(m, k, a.tileDevice(m, k));
-                    Tile<FloatType>::trsm(Side::Right, Uplo::Lower,
-                                          Op::Trans, Diag::NonUnit,
-                                          1.0, a(k, k),
-                                               a(m, k));
-                }
-            }
-            #pragma omp taskwait
+            if (k+1 <= a.nt_-1)
+                Matrix<FloatType>::template
+                trsm<Target::HostTask>(
+                    Side::Right, Uplo::Lower,
+                    Op::Trans, Diag::NonUnit,
+                    1.0, a(k, k, k, k),
+                         a(k+1, a.nt_-1, k, k));
 
             for (int64_t m = k+1; m < a.nt_; ++m)
-                a.template tileSend<Target::Devices>(m, k, {m, m, k+1, m},
-                                                           {m, a.nt_-1, m, m});
+                a.template tileSend<Target::Devices>(
+                    m, k, {m, m, k+1, m},
+                          {m, a.nt_-1, m, m});
         }
         // trailing submatrix
-        if (k+1+lookahead < a.nt_) {
+        if (k+1+lookahead < a.nt_)
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[a.nt_-1])
             {
-                Matrix<FloatType> syrk_a =
-                    a(k+1+lookahead, a.nt_-1, k, k);
-
-                Matrix<FloatType> syrk_c =
-                    a(k+1+lookahead, a.nt_-1, k+1+lookahead, a.nt_-1);
-
-                Matrix<FloatType>::template syrk<Target::Devices>(
+                Matrix<FloatType>::template
+                syrk<Target::Devices>(
                     Uplo::Lower, Op::NoTrans,
-                    -1.0, syrk_a,
-                     1.0, syrk_c);
+                    -1.0, a(k+1+lookahead, a.nt_-1, k, k),
+                     1.0, a(k+1+lookahead, a.nt_-1, k+1+lookahead, a.nt_-1));
             }
-        }
+
         // lookahead column(s)
         for (int64_t n = k+1; n < k+1+lookahead && n < a.nt_; ++n) {
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[n])
             {
-                #pragma omp task
-                if (a.tileIsLocal(n, n)) {
-                    Tile<FloatType>::syrk(Uplo::Lower, Op::NoTrans,
-                                          -1.0, a(n, k),
-                                           1.0, a(n, n));
-                }
+                Matrix<FloatType>::template
+                syrk<Target::HostTask>(
+                    Uplo::Lower, Op::NoTrans,
+                    -1.0, a(n, n, k, k),
+                     1.0, a(n, n, n, n));
 
-                for (int64_t m = n+1; m < a.nt_; ++m) {
-                    #pragma omp task
-                    if (a.tileIsLocal(m, n)) {
-                        a.tileMoveToHost(m, n, a.tileDevice(m, n));
-                        Tile<FloatType>::gemm(Op::NoTrans, Op::Trans,
-                                              -1.0, a(m, k),
-                                                    a(n, k),
-                                               1.0, a(m, n));
-                    }
-                }
-                #pragma omp taskwait
+                if (n+1 <= a.nt_-1)
+                    Matrix<FloatType>::template
+                    gemm<Target::HostTask>(
+                        Op::NoTrans, Op::Trans,
+                        -1.0, a(n+1, a.nt_-1, k, k),
+                              a(n, n, k, k),
+                         1.0, a(n+1, a.nt_-1, n, n));
             }
         }
     }

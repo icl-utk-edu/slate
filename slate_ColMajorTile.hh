@@ -42,7 +42,7 @@ public:
             memcpy(&a[n*lda], &data_[n*mb_], sizeof(FloatType)*mb_);
     }
 
-    //----------------------------------------------
+    //------------------------------------------------------
     ColMajorTile<FloatType>* copyToHost(cudaStream_t stream)
     {
         ColMajorTile<FloatType> *dst_tile =

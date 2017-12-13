@@ -58,10 +58,6 @@ public:
     void copyFromFull(FloatType *a, int64_t lda);
     void gather();
 
-    void trsm(blas::Side side, blas::Uplo uplo,
-              blas::Op trans, blas::Diag diag,
-              FloatType alpha, const Matrix &a);
-
 // private:
     Tile<FloatType>* &operator()(int64_t i, int64_t j)
     {
@@ -101,32 +97,6 @@ public:
         return tileRank(i, j) == mpi_rank_;
     }
 
-    //-----------------------------------------
-    template <Target target = Target::HostTask>
-    static void syrk(blas::Uplo uplo, blas::Op trans,
-                     FloatType alpha, Matrix &a,
-                     FloatType beta,  Matrix &c);
-
-    static void syrk(internal::TargetType<Target::HostTask>,
-                     blas::Uplo uplo, blas::Op trans,
-                     FloatType alpha, Matrix &a,
-                     FloatType beta,  Matrix &c);
-
-    static void syrk(internal::TargetType<Target::HostNest>,
-                     blas::Uplo uplo, blas::Op trans,
-                     FloatType alpha, Matrix &a,
-                     FloatType beta,  Matrix &c);
-
-    static void syrk(internal::TargetType<Target::HostBatch>,
-                     blas::Uplo uplo, blas::Op trans,
-                     FloatType alpha, Matrix &a,
-                     FloatType beta,  Matrix &c);
-
-    static void syrk(internal::TargetType<Target::Devices>,
-                     blas::Uplo uplo, blas::Op trans,
-                     FloatType alpha, Matrix &a,
-                     FloatType beta,  Matrix &c);
-
     //--------------------------------------------
     void tileSend(int64_t i, int64_t j, int dest);
     void tileRecv(int64_t i, int64_t j, int src);
@@ -164,6 +134,9 @@ public:
 
     void checkLife();
     void printLife();
+
+    //-------------------------
+    #include "slate_Matrix.inc"
 
     int64_t it_; ///< first row of tiles
     int64_t jt_; ///< first column of tiles
@@ -453,7 +426,8 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
 
 //------------------------------------------------------------------------------
 template <typename FloatType>
-Matrix<FloatType>::Matrix(const Matrix &a, int64_t m1, int64_t m2,
+Matrix<FloatType>::Matrix(const Matrix &a,
+                          int64_t m1, int64_t m2,
                           int64_t n1, int64_t n2)
 {
     assert(m1 <= m2);

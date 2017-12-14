@@ -13,10 +13,10 @@ void Matrix<FloatType>::gemm(blas::Op opa, blas::Op opb,
                              FloatType beta,  Matrix &&c)
 {
     gemm(internal::TargetType<target>(),
-        opa, opb,
-        alpha, a,
-               b,
-        beta,  c);
+         opa, opb,
+         alpha, a,
+                b,
+         beta,  c);
 }
 
 //------------------------------------------------------------------------------

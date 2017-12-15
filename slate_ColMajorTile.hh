@@ -10,16 +10,28 @@ namespace slate {
 template <typename FloatType>
 class ColMajorTile : public Tile<FloatType> {
 public:
-    ColMajorTile(const ColMajorTile<FloatType> *src_tile, int dst_device_num)
-        : Tile<FloatType>(src_tile, dst_device_num) {}
-
     ColMajorTile(int64_t mb, int64_t nb, Memory *memory)
-        : Tile<FloatType>(mb, nb, memory) {}
-
+        : Tile<FloatType>(mb, nb, memory)
+    {
+        this->stride_ = this->mb_;
+        Tile<FloatType>::allocate();
+    }
+    ColMajorTile(const ColMajorTile<FloatType> *src_tile, int dst_device_num)
+    {
+        *this = *src_tile;
+        this->stride_ = this->mb_;
+        this->device_num_ = dst_device_num;
+        Tile<FloatType>::allocate();
+    }
     ColMajorTile(int64_t mb, int64_t nb, FloatType *a, int64_t lda, Memory *memory)
         : Tile<FloatType>(mb, nb, memory)
     {
+        this->stride_ = this->mb_;
+        Tile<FloatType>::allocate();
         copyTo(a, lda);
+    }
+    ~ColMajorTile() {
+        Tile<FloatType>::deallocate();
     }
 
     //------------------------------------

@@ -39,20 +39,10 @@ namespace slate {
 template <typename FloatType>
 class Tile {
 public:
-    Tile(const Tile<FloatType> *src_tile, int dst_device_num)
-    {
-        *this = *src_tile;
-        device_num_ = dst_device_num;
-        allocate();
-    }
+    Tile() {}
+
     Tile(int64_t mb, int64_t nb, Memory *memory)
-        : mb_(mb), nb_(nb), memory_(memory), device_num_(host_num_), life_(0)
-    {
-        allocate();
-    }
-    ~Tile() {
-        deallocate();
-    }
+        : mb_(mb), nb_(nb), memory_(memory), device_num_(host_num_), life_(0) {}
 
     //-------------------------------------------------
     virtual void copyTo(FloatType *a, int64_t lda) = 0;
@@ -103,11 +93,12 @@ public:
                      FloatType beta,  Tile<FloatType> *c)
     {
         trace_cpu_start();
-        blas::gemm(blas::Layout::ColMajor, transa, transb,
+        blas::gemm(blas::Layout::ColMajor,
+                   transa, transb,
                    c->mb_, c->nb_, a->nb_,
-                   alpha, a->data_, a->mb_,
-                          b->data_, b->mb_,
-                   beta,  c->data_, c->mb_);
+                   alpha, a->data_, a->stride_,
+                          b->data_, b->stride_,
+                   beta,  c->data_, c->stride_);
         trace_cpu_stop("MediumAquamarine");
         a->tick();
         b->tick();
@@ -115,7 +106,10 @@ public:
     static void potrf(blas::Uplo uplo, Tile<FloatType> *a)
     {
         trace_cpu_start();
-        lapack::potrf(blas::Layout::ColMajor, uplo, a->nb_, a->data_, a->nb_);
+        lapack::potrf(blas::Layout::ColMajor,
+                      uplo,
+                      a->nb_,
+                      a->data_, a->stride_);
         trace_cpu_stop("RosyBrown");
     }
     static void syrk(blas::Uplo uplo, blas::Op trans,
@@ -123,10 +117,11 @@ public:
                      FloatType beta,  Tile<FloatType> *c)
     {
         trace_cpu_start();
-        blas::syrk(blas::Layout::ColMajor, uplo, trans,
+        blas::syrk(blas::Layout::ColMajor,
+                   uplo, trans,
                    c->nb_, a->nb_,
-                   alpha, a->data_, a->mb_,
-                   beta,  c->data_, c->mb_);
+                   alpha, a->data_, a->stride_,
+                   beta,  c->data_, c->stride_);
         trace_cpu_stop("CornflowerBlue");
         a->tick();
         a->tick();
@@ -137,10 +132,11 @@ public:
                                       Tile<FloatType> *b)
     {
         trace_cpu_start();
-        blas::trsm(blas::Layout::ColMajor, side, uplo, transa, diag,
+        blas::trsm(blas::Layout::ColMajor,
+                   side, uplo, transa, diag,
                    b->mb_, b->nb_,
-                   alpha, a->data_, a->mb_,
-                          b->data_, b->mb_);
+                   alpha, a->data_, a->stride_,
+                          b->data_, b->stride_);
         trace_cpu_stop("MediumPurple");
         a->tick();
     }
@@ -157,6 +153,7 @@ public:
 
     int64_t mb_;
     int64_t nb_;
+    int64_t stride_;
 
     FloatType *data_;
 

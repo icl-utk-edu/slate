@@ -694,51 +694,51 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, std::set<int> &bcast_set)
     std::vector<int> bcast_vec(bcast_set.begin(), bcast_set.end());
 
     // Create the broadcast group.
-    Tile<FloatType> *tile = (*this)(i, j);
+    MPI_Group bcast_group;
     int retval;
     #pragma omp critical(slate_mpi)
     retval = MPI_Group_incl(mpi_group_, bcast_vec.size(), bcast_vec.data(),
-                            &tile->bcast_group_);
+                            &bcast_group);
     assert(retval == MPI_SUCCESS);
 
     // Create a broadcast communicator.
     int tag = 0;
+    MPI_Comm bcast_comm;
     trace_cpu_start();
     #pragma omp critical(slate_mpi)
-    retval = MPI_Comm_create_group(mpi_comm_, tile->bcast_group_, tag,
-                                   &tile->bcast_comm_);
+    retval = MPI_Comm_create_group(mpi_comm_, bcast_group, tag, &bcast_comm);
     assert(retval == MPI_SUCCESS);
-    assert(tile->bcast_comm_ != MPI_COMM_NULL);
+    assert(bcast_comm != MPI_COMM_NULL);
     trace_cpu_stop("Crimson");
 
     // Find the broadcast rank.
     int bcast_rank;
     #pragma omp critical(slate_mpi)
-    MPI_Comm_rank(tile->bcast_comm_, &bcast_rank);
+    MPI_Comm_rank(bcast_comm, &bcast_rank);
 
     // Find the broadcast root rank.
     int root_rank = tileRank(i, j);
     int bcast_root;
     #pragma omp critical(slate_mpi)
     retval = MPI_Group_translate_ranks(mpi_group_, 1, &root_rank,
-                                       tile->bcast_group_, &bcast_root);
+                                       bcast_group, &bcast_root);
     assert(retval == MPI_SUCCESS);
 
     // Do the broadcast.
+    Tile<FloatType> *tile = (*this)(i, j);
     int count = tile->mb_*tile->nb_;
     #pragma omp critical(slate_mpi)
-    retval = MPI_Bcast(tile->data_, count, MPI_DOUBLE, bcast_root,
-                       tile->bcast_comm_);
+    retval = MPI_Bcast(tile->data_, count, MPI_DOUBLE, bcast_root, bcast_comm);
     assert(retval == MPI_SUCCESS);
 
     // Free the group.
     #pragma omp critical(slate_mpi)
-    retval = MPI_Group_free(&tile->bcast_group_);
+    retval = MPI_Group_free(&bcast_group);
     assert(retval == MPI_SUCCESS);
 
     // Free the communicator.
     #pragma omp critical(slate_mpi)
-    retval = MPI_Comm_free(&tile->bcast_comm_);
+    retval = MPI_Comm_free(&bcast_comm);
     assert(retval == MPI_SUCCESS);
 }
 

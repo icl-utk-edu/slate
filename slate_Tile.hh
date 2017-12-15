@@ -163,10 +163,6 @@ public:
     bool local_ = true;
     int64_t life_;
 
-    MPI_Request bcast_request_;
-    MPI_Group bcast_group_;
-    MPI_Comm bcast_comm_;
-
 protected:
     size_t size() {
         return sizeof(FloatType)*mb_*nb_;

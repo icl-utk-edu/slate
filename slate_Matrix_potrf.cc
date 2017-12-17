@@ -20,7 +20,9 @@ void Matrix<FloatType>::potrf(internal::TargetType<Target::HostTask>,
 
     if (a.tileIsLocal(0, 0))
         #pragma omp task shared(a)
-        Tile<FloatType>::potrf(uplo, a(0, 0));
+        {
+            Tile<FloatType>::potrf(uplo, a(0, 0));
+        }
 
     #pragma omp taskwait
 }

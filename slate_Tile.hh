@@ -42,7 +42,7 @@ public:
     Tile() {}
 
     Tile(int64_t mb, int64_t nb, Memory *memory)
-        : mb_(mb), nb_(nb), memory_(memory), device_num_(host_num_), life_(0) {}
+        : mb_(mb), nb_(nb), memory_(memory), device_num_(host_num_) {}
 
     //-------------------------------------------------
     virtual void copyTo(FloatType *a, int64_t lda) = 0;
@@ -100,8 +100,6 @@ public:
                           b->data_, b->stride_,
                    beta,  c->data_, c->stride_);
         trace_cpu_stop("MediumAquamarine");
-        a->tick();
-        b->tick();
     }
     static void potrf(blas::Uplo uplo, Tile<FloatType> *a)
     {
@@ -123,8 +121,6 @@ public:
                    alpha, a->data_, a->stride_,
                    beta,  c->data_, c->stride_);
         trace_cpu_stop("CornflowerBlue");
-        a->tick();
-        a->tick();
     }
     static void trsm(blas::Side side, blas::Uplo uplo,
                      blas::Op transa, blas::Diag diag,
@@ -138,17 +134,6 @@ public:
                    alpha, a->data_, a->stride_,
                           b->data_, b->stride_);
         trace_cpu_stop("MediumPurple");
-        a->tick();
-    }
-
-    void tick()
-    {
-        if (!local_)
-            #pragma omp critical(slate_tile)
-            {
-                if (--life_ == 0)
-                    deallocate();
-            }
     }
 
     int64_t mb_;
@@ -156,9 +141,6 @@ public:
     int64_t stride_;
 
     FloatType *data_;
-
-    bool local_ = true;
-    int64_t life_;
 
 protected:
     size_t size() {

@@ -124,6 +124,7 @@ public:
     void tileMoveToDevice(int64_t i, int64_t j, int dst_device);
     void tileMoveToHost(int64_t i, int64_t j, int src_device);
     void tileErase(int64_t i, int64_t j, int device);
+    void tileTick(int64_t i, int64_t j);
 
     void initCudaStreams();
     void initCublasHandles();
@@ -149,6 +150,7 @@ public:
     std::function <int64_t (int64_t j)> tileNbFunc;
 
     Map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*> *tiles_;
+    Map<std::tuple<int64_t, int64_t>, int64_t> *lives_;
 
     MPI_Comm mpi_comm_;
     MPI_Group mpi_group_;
@@ -253,6 +255,21 @@ void Matrix<FloatType>::tileErase(int64_t i, int64_t j, int device)
         // Erase the tile.
         delete (*tiles_)[{it_+i, jt_+j, device}];
         tiles_->erase({it_+i, jt_+j, device});
+    }
+}
+
+//------------------------------------------------------------------------------
+template <typename FloatType>
+void Matrix<FloatType>::tileTick(int64_t i, int64_t j)
+{
+    if (!tileIsLocal(i, j)) {
+        int64_t life = --(*lives_)[{it_+i, jt_+j}];
+        if (life == 0) {
+            tileErase(i, j, host_num_);
+            for (int device = 0; device < num_devices_; ++device)
+                tileErase(i, j, device);
+            lives_->erase({it_+i, jt_+j});
+        }
     }
 }
 
@@ -379,6 +396,7 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
                           int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q)
 {
     tiles_ = new Map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*>;
+    lives_ = new Map<std::tuple<int64_t, int64_t>, int64_t>;
 
     it_ = 0;
     jt_ = 0;
@@ -593,8 +611,7 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
             (*this)(i, j) = tile;
 
             // Find the tile's life.
-            tile->local_ = false;
-            tile->life_ = tileSendFindLife(i, j, range);
+            (*lives_)[{it_+i, jt_+j}] = tileSendFindLife(i, j, range);
         }
         // Send across MPI ranks.
         tileSend(i, j, bcast_set);
@@ -631,9 +648,8 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
             (*this)(i, j) = tile;
 
             // Find the tile's life.
-            tile->local_ = false;
-            tile->life_  = tileSendFindLife(i, j, range1);
-            tile->life_ += tileSendFindLife(i, j, range2);
+            (*lives_)[{it_+i, jt_+j}]  = tileSendFindLife(i, j, range1);
+            (*lives_)[{it_+i, jt_+j}] += tileSendFindLife(i, j, range2);
         }
         // Send across MPI ranks.
         tileSend(i, j, bcast_set);
@@ -746,16 +762,16 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, std::set<int> &bcast_set)
 template <typename FloatType>
 void Matrix<FloatType>::checkLife()
 {
-    for (auto it = tiles_->begin(); it != tiles_->end(); ++it) {
-        if (!tileIsLocal(std::get<0>(it->first), std::get<1>(it->first)))
-            if (it->second->life_ != 0 || it->second->data_ != nullptr)
-                std::cout << "P" << mpi_rank_
-                          << " TILE " << std::get<0>(it->first)
-                          << " " << std::get<1>(it->first)
-                          << " LIFE " << it->second->life_
-                          << " data_ " << it->second->data_ 
-                          << " DEV " << std::get<2>(it->first) << std::endl;
-    }
+    // for (auto it = tiles_->begin(); it != tiles_->end(); ++it) {
+    //     if (!tileIsLocal(std::get<0>(it->first), std::get<1>(it->first)))
+    //         if (it->second->life_ != 0 || it->second->data_ != nullptr)
+    //             std::cout << "P" << mpi_rank_
+    //                       << " TILE " << std::get<0>(it->first)
+    //                       << " " << std::get<1>(it->first)
+    //                       << " LIFE " << it->second->life_
+    //                       << " data_ " << it->second->data_ 
+    //                       << " DEV " << std::get<2>(it->first) << std::endl;
+    // }
 }
 
 //------------------------------------------------------------------------------
@@ -768,7 +784,7 @@ void Matrix<FloatType>::printLife()
                 if (tiles_->find({i, j, host_num_}) == tiles_->end())
                     printf("  .");
                 else
-                    printf("%3ld", (*tiles_)[{i, j, host_num_}]->life_);
+                    printf("%3ld", (*lives_)[{it_+i, jt_+j}]);
             }
             printf("\n");
         }

@@ -30,16 +30,18 @@ void Matrix<FloatType>::gemm(internal::TargetType<Target::HostTask>,
     // NoTrans, Trans
     for (int m = 0; m < c.mt_; ++m)
         for (int n = 0; n < c.nt_; ++n)
-            for (int k = 0; k < a.nt_; ++k)
-                if (c.tileIsLocal(m, n))
-                    #pragma omp task shared(a, b, c)
-                    {
-                        c.tileMoveToHost(m, n, c.tileDevice(m, n));
-                        Tile<FloatType>::gemm(opa, opb,
-                                              alpha, a(m, k),
-                                                     b(n, k),
-                                              beta,  c(m, n));
-                    }
+            if (c.tileIsLocal(m, n))
+                #pragma omp task shared(a, b, c)
+                {
+                    c.tileMoveToHost(m, n, c.tileDevice(m, n));
+                    Tile<FloatType>::gemm(opa, opb,
+                                          alpha, a(m, 0),
+                                                 b(n, 0),
+                                          beta,  c(m, n));
+                    a.tileTick(m, 0);
+                    a.tileTick(n, 0);
+                }
+
     #pragma omp taskwait
 }
 

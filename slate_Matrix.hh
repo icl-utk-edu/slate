@@ -2,9 +2,9 @@
 #ifndef SLATE_MATRIX_HH
 #define SLATE_MATRIX_HH
 
+#include "slate_Map.hh"
 #include "slate_Memory.hh"
 #include "slate_ColMajorTile.hh"
-#include "slate_Tiles.hh"
 #include "slate_types.hh"
 
 #include "lapack.hh"

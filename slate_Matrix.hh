@@ -148,7 +148,7 @@ public:
     std::function <int64_t (int64_t i)> tileMbFunc;
     std::function <int64_t (int64_t j)> tileNbFunc;
 
-    Tiles<FloatType> *tiles_;
+    Map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*> *tiles_;
 
     MPI_Comm mpi_comm_;
     MPI_Group mpi_group_;
@@ -378,7 +378,7 @@ template <typename FloatType>
 Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
                           int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q)
 {
-    tiles_ = new Tiles<FloatType>;
+    tiles_ = new Map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*>;
 
     it_ = 0;
     jt_ = 0;

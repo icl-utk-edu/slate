@@ -88,11 +88,11 @@ cuda:
 linux macos: $(OBJ)
 	# $(CC) $(CFLAGS) -c -DMPI trace/trace.c -o trace/trace.o
 	$(CC) $(CFLAGS) -c trace/trace.c -o trace/trace.o
-	$(CXX) $(CCFLAGS) $(OBJ) app.cc trace/trace.o $(LIB) -o app
+	$(CXX) $(CCFLAGS) $(OBJ) potrf.cc trace/trace.o $(LIB) -o potrf
 
 clean:
 	rm -f $(OBJ)
-	rm -f app app.o trace_*.svg
+	rm -f potrf potrf.o trace_*.svg
 
 .cc.o:
 	$(CXX) $(CCFLAGS) -c $< -o $@

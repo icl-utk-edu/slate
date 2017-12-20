@@ -67,6 +67,8 @@ Cycles
 This research uses resources of the Oak Ridge Leadership Computing Facility,
 which is a DOE Office of Science User Facility supported under Contract DE-AC05-00OR22725.
 
+* * *
+
 License
 =======
 

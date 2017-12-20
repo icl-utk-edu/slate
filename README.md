@@ -54,7 +54,7 @@ Need assistance with the SLATE software?
 Join the *SLATE User* Google group by going to
 https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user
 and clicking `Apply to join group`.
-Upon acceptance email your questions and comments to *slate-user@icl.utk.edu*.
+Upon acceptance, email your questions and comments to *slate-user@icl.utk.edu*.
 
 * * *
 

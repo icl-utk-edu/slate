@@ -86,8 +86,8 @@ cuda:
 	@echo built with CUDA
 
 linux macos: $(OBJ)
-	# $(CC) $(CFLAGS) -c -DMPI trace/trace.c -o trace/trace.o
-	$(CC) $(CFLAGS) -c trace/trace.c -o trace/trace.o
+	$(CC) $(CFLAGS) -c -DMPI trace/trace.c -o trace/trace.o
+	# $(CC) $(CFLAGS) -c trace/trace.c -o trace/trace.o
 	$(CXX) $(CCFLAGS) $(OBJ) potrf.cc trace/trace.o $(LIB) -o potrf
 
 clean:

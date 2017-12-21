@@ -55,10 +55,10 @@ template <typename FloatType>
 void Matrix<FloatType>::potrf(internal::TargetType<Target::HostTask>,
                               blas::Uplo uplo, Matrix &a)
 {
-
     if (a.tileIsLocal(0, 0))
         #pragma omp task shared(a)
         {
+            a.tileMoveToHost(0, 0, a.tileDevice(0, 0));
             Tile<FloatType>::potrf(uplo, a(0, 0));
         }
 

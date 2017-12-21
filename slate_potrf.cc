@@ -112,6 +112,7 @@ void potrf(TargetType<target>,
 
     a.checkLife();
     a.printLife();
+    a.clean();
 }
 
 //------------------------------------------------------------------------------
@@ -191,6 +192,7 @@ void potrf(TargetType<Target::Devices>,
 
     a.checkLife();
     a.printLife();
+    a.clean();
 }
 
 //------------------------------------------------------------------------------

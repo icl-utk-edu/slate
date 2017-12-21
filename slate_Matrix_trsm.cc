@@ -68,6 +68,8 @@ void Matrix<FloatType>::trsm(internal::TargetType<Target::HostTask>,
         if (b.tileIsLocal(m, 0))
             #pragma omp task shared(a, b)
             {
+                a.tileCopyToHost(0, 0, a.tileDevice(0, 0));
+                b.tileMoveToHost(m, 0, b.tileDevice(m, 0));
                 Tile<FloatType>::trsm(side, uplo, op, diag,
                                       alpha, a(0, 0),
                                              b(m, 0));

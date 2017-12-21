@@ -80,7 +80,8 @@ public:
     Tile() {}
 
     Tile(int64_t mb, int64_t nb, Memory *memory)
-        : mb_(mb), nb_(nb), memory_(memory), device_num_(host_num_) {}
+        : mb_(mb), nb_(nb), memory_(memory),
+          device_num_(host_num_), valid_(true), origin_(false) {}
 
     //-------------------------------------------------
     virtual void copyTo(FloatType *a, int64_t lda) = 0;
@@ -179,6 +180,9 @@ public:
     int64_t stride_;
 
     FloatType *data_;
+
+    bool valid_;
+    bool origin_;
 
 protected:
     size_t size() {

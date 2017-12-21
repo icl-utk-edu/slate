@@ -67,6 +67,8 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostTask>,
         if (c.tileIsLocal(n, n))
             #pragma omp task shared(a, c)
             {
+                a.tileCopyToHost(n, 0, a.tileDevice(n, 0));
+                c.tileMoveToHost(n, n, c.tileDevice(n, n));
                 Tile<FloatType>::syrk(uplo, op,
                                       -1.0, a(n, 0),
                                       beta, c(n, n));
@@ -79,6 +81,9 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostTask>,
             if (c.tileIsLocal(m, n))
                 #pragma omp task shared(a, c)
                 {
+                    a.tileCopyToHost(m, 0, a.tileDevice(m, 0));
+                    a.tileCopyToHost(n, 0, a.tileDevice(n, 0));
+                    c.tileMoveToHost(m, n, c.tileDevice(m, n));
                     Tile<FloatType>::gemm(op, blas::Op::Trans,
                                           alpha, a(m, 0),
                                                  a(n, 0),
@@ -102,6 +107,8 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostNest>,
         if (c.tileIsLocal(n, n))
             #pragma omp task shared(a, c)
             {
+                a.tileCopyToHost(n, 0, a.tileDevice(n, 0));
+                c.tileMoveToHost(n, n, c.tileDevice(n, n));
                 Tile<FloatType>::syrk(uplo, op,
                                       -1.0, a(n, 0),
                                       beta, c(n, n));
@@ -116,6 +123,9 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostNest>,
             if (m >= n+1)
                 if (c.tileIsLocal(m, n))
                 {
+                    a.tileCopyToHost(m, 0, a.tileDevice(m, 0));
+                    a.tileCopyToHost(n, 0, a.tileDevice(n, 0));
+                    c.tileMoveToHost(m, n, c.tileDevice(m, n));
                     Tile<FloatType>::gemm(op, blas::Op::Trans,
                                           alpha, a(m, 0),
                                                  a(n, 0),
@@ -138,11 +148,21 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostBatch>,
         if (c.tileIsLocal(n, n))
             #pragma omp task shared(a, c)
             {
+                a.tileCopyToHost(n, 0, a.tileDevice(n, 0));
+                c.tileMoveToHost(n, n, c.tileDevice(n, n));
                 Tile<FloatType>::syrk(uplo, op,
                                       -1.0, a(n, 0),
                                       beta, c(n, n));
                 a.tileTick(n, 0);
                 a.tileTick(n, 0);
+            }
+
+    for (int64_t n = 0; n < c.nt_; ++n)
+        for (int64_t m = n+1; m < c.mt_; ++m)
+            if (c.tileIsLocal(m, n)) {
+                a.tileCopyToHost(m, 0, a.tileDevice(m, 0));
+                a.tileCopyToHost(n, 0, a.tileDevice(n, 0));
+                c.tileMoveToHost(m, n, c.tileDevice(m, n));
             }
 
     CBLAS_TRANSPOSE opa_array[1];
@@ -193,17 +213,16 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostBatch>,
 
     trace_cpu_start();
 //  mkl_set_num_threads_local(...);
-    cblas_dgemm_batch(CblasColMajor, opa_array, opb_array,
-                      m_array, n_array, k_array, alpha_array,
-                      a_array, lda_array, b_array, ldb_array, beta_array,
-                      c_array, ldc_array, 1, &group_size);
+    // cblas_dgemm_batch(CblasColMajor, opa_array, opb_array,
+    //                   m_array, n_array, k_array, alpha_array,
+    //                   a_array, lda_array, b_array, ldb_array, beta_array,
+    //                   c_array, ldc_array, 1, &group_size);
 //  mkl_set_num_threads_local(1);
     trace_cpu_stop("DarkGreen");
 
     for (int64_t n = 0; n < c.nt_; ++n)
         for (int64_t m = n+1; m < c.mt_; ++m)
-            if (c.tileIsLocal(m, n))
-            {
+            if (c.tileIsLocal(m, n)) {
                 a.tileTick(m, 0);
                 a.tileTick(n, 0);
             }
@@ -230,9 +249,9 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::Devices>,
                 for (int64_t m = n+1; m < c.mt_; ++m)
                     if (c.tileIsLocal(m, n))
                         if (device == c.tileDevice(m, n)) {
-                            c.tileMoveToDevice(m, n, device);
                             a.tileCopyToDevice(m, 0, device);
                             a.tileCopyToDevice(n, 0, device);
+                            c.tileMoveToDevice(m, n, device);
                             c.a_array_h_[device][i] = a(m, 0, device)->data_;
                             c.b_array_h_[device][i] = a(n, 0, device)->data_;
                             c.c_array_h_[device][i] = c(m, n, device)->data_;
@@ -293,6 +312,8 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::Devices>,
         if (c.tileIsLocal(n, n))
             #pragma omp task shared(a, c)
             {
+                a.tileCopyToHost(n, 0, a.tileDevice(n, 0));
+                c.tileMoveToHost(n, n, c.tileDevice(n, n));
                 Tile<FloatType>::syrk(uplo, op,
                                           -1.0, a(n, 0),
                                           beta, c(n, n));

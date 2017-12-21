@@ -98,7 +98,7 @@ int main (int argc, char *argv[])
     trace_cpu_stop("Black");
 
     double start = omp_get_wtime();
-    slate::potrf<slate::Target::HostTask>(blas::Uplo::Lower, a, lookahead);
+    slate::potrf<slate::Target::Devices>(blas::Uplo::Lower, a, lookahead);
 
     trace_cpu_start();
     MPI_Barrier(MPI_COMM_WORLD);

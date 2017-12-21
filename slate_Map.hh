@@ -119,6 +119,13 @@ public:
         omp_unset_lock(&lock_);
         return num_erased;
     }
+    typename stdMap::iterator erase(typename stdMap::const_iterator position)
+    {
+        omp_set_lock(&lock_);
+        typename stdMap::iterator next = std_map_.erase(position);
+        omp_unset_lock(&lock_);
+        return next;
+    }
 
     // [] operator
     ValueType &operator[](const KeyType &key)

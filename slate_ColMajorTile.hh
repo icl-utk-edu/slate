@@ -57,6 +57,7 @@ public:
     ColMajorTile(const ColMajorTile<FloatType> *src_tile, int dst_device_num)
     {
         *this = *src_tile;
+        this->origin_ = false;
         this->stride_ = this->mb_;
         this->device_num_ = dst_device_num;
         Tile<FloatType>::allocate();

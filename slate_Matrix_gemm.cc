@@ -71,13 +71,15 @@ void Matrix<FloatType>::gemm(internal::TargetType<Target::HostTask>,
             if (c.tileIsLocal(m, n))
                 #pragma omp task shared(a, b, c)
                 {
+                    a.tileCopyToHost(m, 0, a.tileDevice(m, 0));
+                    b.tileCopyToHost(n, 0, b.tileDevice(n, 0));
                     c.tileMoveToHost(m, n, c.tileDevice(m, n));
                     Tile<FloatType>::gemm(opa, opb,
                                           alpha, a(m, 0),
                                                  b(n, 0),
                                           beta,  c(m, n));
                     a.tileTick(m, 0);
-                    a.tileTick(n, 0);
+                    b.tileTick(n, 0);
                 }
 
     #pragma omp taskwait

@@ -95,6 +95,7 @@ public:
     void copyFrom(FloatType *a, int64_t lda);
     void copyFromFull(FloatType *a, int64_t lda);
     void gather();
+    void clean();
 
 // private:
     Tile<FloatType>* &operator()(int64_t i, int64_t j)
@@ -159,6 +160,7 @@ public:
 
     //----------------------------------------------------------
     void tileCopyToDevice(int64_t i, int64_t j, int dst_device);
+    void tileCopyToHost(int64_t i, int64_t j, int src_device);
     void tileMoveToDevice(int64_t i, int64_t j, int dst_device);
     void tileMoveToHost(int64_t i, int64_t j, int src_device);
     void tileErase(int64_t i, int64_t j, int device);
@@ -216,83 +218,126 @@ public:
 };
 
 //------------------------------------------------------------------------------
-// @brief Copy the tile to the device, if not already there.
-//        If it's already been copied, it won't be copied again.
+// @brief Copy the tile to the device, if a valid copy not already there.
+//        If the tile not on the device, copy the tile to the device.
+//        If the tile on the device, but not valid, update the tile's data.
+//        Do not invalidate the source tile.
 //
 template <typename FloatType>
 void Matrix<FloatType>::tileCopyToDevice(int64_t i, int64_t j, int dst_device)
 {
-    // If the tile not on the device.
-    if (tiles_->find({it_+i, jt_+j, dst_device}) == tiles_->end()) {
+    // If the tile is not on the device.
+    auto it = tiles_->find({it_+i, jt_+j, dst_device});
+    if (it == tiles_->end()) {
 
-        // Copy the tile to the device.
+        // Create a copy on the device.
         Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
         Tile<FloatType> *dst_tile =
             src_tile->copyToDevice(dst_device, comm_stream_[dst_device]);
 
         (*tiles_)[{it_+i, jt_+j, dst_device}] = dst_tile;
     }
-}
+    else {
+        // If the tile on the device is not valid.
+        Tile<FloatType> *dst_tile = it->second;
+        if (dst_tile->valid_ == false) {
 
-//------------------------------------------------------------------------------
-// @brief Move the tile to the device, if not already there.
-//        If it's already been moved, it won't be moved again.
-//
-template <typename FloatType>
-void Matrix<FloatType>::tileMoveToDevice(int64_t i, int64_t j, int dst_device)
-{
-    // If the tile not on the device.
-    if (tiles_->find({it_+i, jt_+j, dst_device}) == tiles_->end()) {
-
-        // Copy the tile to the device.
-        Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
-        Tile<FloatType> *dst_tile =
-            src_tile->copyToDevice(dst_device, comm_stream_[dst_device]);
-
-        (*tiles_)[{it_+i, jt_+j, dst_device}] = dst_tile;
-
-        // Delete the tile from the host.
-        delete (*tiles_)[{it_+i, jt_+j, host_num_}];
-        tiles_->erase({it_+i, jt_+j, host_num_});
+            // Update the device tile's data.
+            Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
+            src_tile->copyDataToDevice(dst_tile, comm_stream_[dst_device]);
+            dst_tile->valid_ = true;
+        }
     }
 }
 
 //------------------------------------------------------------------------------
-// @brief Move the tile to the host, if not already there.
-//        If it's already been moved, it won't be moved again.
+// @brief Copy the tile to the host, if a valid copy not already there.
+//        If the tile not on the host, copy the tile to the host.
+//        If the tile on the host, but not valid, update the tile's data.
+//        Invalidate the source tile.
 //
 template <typename FloatType>
-void Matrix<FloatType>::tileMoveToHost(int64_t i, int64_t j, int src_device)
+void Matrix<FloatType>::tileCopyToHost(int64_t i, int64_t j, int src_device)
 {
-    // If the tile not on the host.
-    if (tiles_->find({it_+i, jt_+j, host_num_}) == tiles_->end()) {
+    // If the tile is not on the host.
+    auto it = tiles_->find({it_+i, jt_+j, host_num_});
+    if (it == tiles_->end()) {
 
-        // Move the tile to the host.
+        // Create a copy on the host.
         Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
         Tile<FloatType> *dst_tile =
             src_tile->copyToHost(comm_stream_[src_device]);
 
         (*tiles_)[{it_+i, jt_+j, host_num_}] = dst_tile;
+    }
+    else {
+        // If the tile on the host is not valid.
+        Tile<FloatType> *dst_tile = it->second;
+        if (dst_tile->valid_ == false) {
 
-        // Delete the tile from the device.
-        delete (*tiles_)[{it_+i, jt_+j, src_device}];
-        tiles_->erase({it_+i, jt_+j, src_device});
+            // Update the host tile's data.
+            Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
+            src_tile->copyDataToHost(dst_tile, comm_stream_[src_device]);
+            dst_tile->valid_ = true;
+        }
     }
 }
 
 //------------------------------------------------------------------------------
-// @brief Erase the tile, if it exists in the specified location.
-//        Don't try to erase tiles that have already been erased.
+// @brief Copy the tile to the device.
+//        If the host tile exists, invalidate it.
+//
+template <typename FloatType>
+void Matrix<FloatType>::tileMoveToDevice(int64_t i, int64_t j, int dst_device)
+{
+    // Copy the tile to the device.
+    tileCopyToDevice(i, j, dst_device);
+
+    // If the host tile exists, invalidate it.
+    auto it = tiles_->find({it_+i, jt_+j, host_num_});
+    if (it != tiles_->end())
+        it->second->valid_ = false;
+}
+
+//------------------------------------------------------------------------------
+// @brief Copy the tile to the host.
+//        If the device tile exists, invalidate it.
+//
+template <typename FloatType>
+void Matrix<FloatType>::tileMoveToHost(int64_t i, int64_t j, int src_device)
+{
+    // If source is not the host.
+    if (src_device != host_num_) {
+
+        // Copy the tile to the host.
+        tileCopyToHost(i, j, src_device);
+
+        // If the device tile exists, invalidate it.
+        auto it = tiles_->find({it_+i, jt_+j, src_device});
+        if (it != tiles_->end())
+            it->second->valid_ = false;
+    }
+}
+
+//------------------------------------------------------------------------------
+// @brief Erase the tile, if it exists in the specified location and if it is
+//        not the origin tile.
 //
 template <typename FloatType>
 void Matrix<FloatType>::tileErase(int64_t i, int64_t j, int device)
 {
     // If the tile exists in the specified location.
-    if (tiles_->find({it_+i, jt_+j, device}) != tiles_->end()) {
+    auto it = tiles_->find({it_+i, jt_+j, device});
+    if (it != tiles_->end()) {
 
-        // Erase the tile.
-        delete (*tiles_)[{it_+i, jt_+j, device}];
-        tiles_->erase({it_+i, jt_+j, device});
+        // If the tile is not the origin.
+        Tile<FloatType> *tile = it->second;
+        if (tile->origin_ == false) {
+
+            // Delete and erase the tile.
+            delete (*tiles_)[{it_+i, jt_+j, device}];
+            tiles_->erase({it_+i, jt_+j, device});
+        }
     }
 }
 
@@ -509,6 +554,7 @@ void Matrix<FloatType>::random()
             {
                 Tile<FloatType> *tile =
                     new ColMajorTile<FloatType>(tileMb(i), tileNb(j), memory_);
+                tile->origin_ = true;
 
                 int iseed[4];
                 iseed[0] = i & 0x0FFF;
@@ -536,11 +582,14 @@ void Matrix<FloatType>::copyTo(FloatType *a, int64_t lda)
     for (int64_t i = 0; i < mt_; ++i) {
         int64_t n = 0;
         for (int64_t j = 0; j <= i; ++j) {
-            if (tileIsLocal(i, j))
-                (*this)(i, j) =
+            if (tileIsLocal(i, j)) {
+                Tile<FloatType> *tile =
                     new ColMajorTile<FloatType>(tileMb(i), tileNb(j),
                                                 &a[(size_t)lda*n+m], lda,
                                                 memory_);
+                tile->origin_ = true;
+                (*this)(i, j) = tile;
+            }
             n += tileNb(j);
         }
         m += tileMb(i);
@@ -595,6 +644,62 @@ void Matrix<FloatType>::gather()
             }
         }
     }
+}
+
+//------------------------------------------------------------------------------
+template <typename FloatType>
+void Matrix<FloatType>::clean()
+{
+    for (auto it = tiles_->begin(); it != tiles_->end(); ++it) {
+        Tile<FloatType> *tile = it->second;
+        if (tile->origin_ == false) {
+            delete tile;
+            tiles_->erase(it);
+            printf("erasing\n");
+        }
+        else {
+            printf("\t not erasing\n");            
+        }
+    }
+
+    // for (int64_t i = 0; i < mt_; ++i) {
+    //     for (int64_t j = 0; j <= i && j < nt_; ++j) {
+    //         auto it = tiles_->find({i, j, host_num_});
+    //         if (it != tiles_->end()) {
+    //             auto tile = it->second;
+    //             if (tile->origin_ == true) {
+    //                 printf("o");
+    //             }
+    //             else {
+    //                 printf("x");
+    //             }
+    //         }
+    //         else {
+    //             printf(".");
+    //         }
+    //     }
+    //     printf("\n");
+    // }
+    // for (int device = 0; device < num_devices_; ++device) {
+    //     for (int64_t i = 0; i < mt_; ++i) {
+    //         for (int64_t j = 0; j <= i && j < nt_; ++j) {
+    //             auto it = tiles_->find({i, j, device});
+    //             if (it != tiles_->end()) {
+    //                 auto tile = it->second;
+    //                 if (tile->origin_ == true) {
+    //                     printf("o");
+    //                 }
+    //                 else {
+    //                     printf("x");
+    //                 }
+    //             }
+    //             else {
+    //                 printf(".");
+    //             }
+    //         }
+    //         printf("\n");
+    //     }
+    // }
 }
 
 //------------------------------------------------------------------------------

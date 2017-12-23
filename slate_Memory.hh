@@ -68,11 +68,10 @@ namespace slate {
 //------------------------------------------------------------------------------
 class Memory {
 public:
+    friend class Debug;
+
     Memory(size_t block_size) : block_size_(block_size) {}
-    ~Memory()
-    {
-        // printNumFreeBlocks();
-    }
+    ~Memory();
 
     void addHostBlocks(int64_t num_blocks)
     {
@@ -186,15 +185,6 @@ private:
 
         error = cudaFree(dev_mem);
         assert(error == cudaSuccess);
-    }
-
-    void printNumFreeBlocks()
-    {
-        printf("\n");
-        for (auto it = free_blocks_.begin(); it != free_blocks_.end(); ++it) {
-            printf("\tdevice: %d\tfree blocks: %d\n", 
-                   it->first, it->second.size());
-        }
     }
 
     static int host_num_;

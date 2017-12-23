@@ -37,6 +37,7 @@
 // comments to <slate-user@icl.utk.edu>.
 //------------------------------------------------------------------------------
 
+#include "slate_Debug.hh"
 #include "slate_Matrix.hh"
 
 namespace slate {
@@ -110,9 +111,12 @@ void potrf(TargetType<target>,
             }
     }
 
-    a.checkLife();
-    a.printLife();
+    Debug::checkTilesLives(a);
+    Debug::printTilesLives(a);
+
     a.clean();
+
+    Debug::printTilesMaps(a);
 }
 
 //------------------------------------------------------------------------------
@@ -190,9 +194,12 @@ void potrf(TargetType<Target::Devices>,
     for (int device = 0; device < a.num_devices_; ++device)
         a.memory_->clearDeviceBlocks(device);
 
-    a.checkLife();
-    a.printLife();
+    Debug::checkTilesLives(a);
+    Debug::printTilesLives(a);
+
     a.clean();
+
+    Debug::printTilesMaps(a);
 }
 
 //------------------------------------------------------------------------------

@@ -37,16 +37,49 @@
 // comments to <slate-user@icl.utk.edu>.
 //------------------------------------------------------------------------------
 
-#include "slate_Debug.hh"
+#ifndef SLATE_DEBUG_HH
+#define SLATE_DEBUG_HH
+
+#include "slate_Matrix.hh"
 #include "slate_Memory.hh"
+
+#ifdef SLATE_WITH_CUDA
+    #include <cuda_runtime.h>
+#else
+    #include "slate_NoCuda.hh"
+#endif
+
+#ifdef SLATE_WITH_MPI
+    #include <mpi.h>
+#else
+    #include "slate_NoMpi.hh"
+#endif
+
+#ifdef SLATE_WITH_OPENMP
+    #include <omp.h>
+#else
+    #include "slate_NoOpenmp.hh"
+#endif
 
 namespace slate {
 
-int Memory::host_num_ = omp_get_initial_device();
+//------------------------------------------------------------------------------
+class Debug {
+public:
+    // Matrix class
+    template <typename FloatType>
+    static void checkTilesLives(Matrix<FloatType> &a);
 
-Memory::~Memory()
-{
-    Debug::printNumFreeMemBlocks(*this);
-}
+    template <typename FloatType>
+    static void printTilesLives(Matrix<FloatType> &a);
+
+    template <typename FloatType>
+    static void printTilesMaps(Matrix<FloatType> &a);
+
+    // Memory class
+    static void printNumFreeMemBlocks(Memory &m);
+};
 
 } // namespace slate
+
+#endif // SLATE_DEBUG_HH

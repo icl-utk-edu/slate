@@ -56,6 +56,7 @@ endif
 #-------------------------------------------------------------------------------
 SRC += blas.cc \
        lapack.cc \
+       slate_Debug.cc \
        slate_Matrix_gemm.cc \
        slate_Matrix_potrf.cc \
        slate_Matrix_syrk.cc \

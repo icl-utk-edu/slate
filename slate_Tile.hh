@@ -202,17 +202,6 @@ protected:
         trace_cpu_stop("Crimson");
     }
 
-    void print()
-    {
-        for (int64_t m = 0; m < mb_; ++m) {
-            for (int64_t n = 0; n < nb_; ++n) {
-                printf("%8.2lf", data_[mb_*n+m]);
-            }
-            printf("\n");
-        }
-        printf("\n");
-    }
-
     static int host_num_;
     int device_num_;
 

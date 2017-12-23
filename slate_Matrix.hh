@@ -80,6 +80,8 @@ namespace slate {
 template <typename FloatType>
 class Matrix {
 public:
+    friend class Debug;
+
     Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
            int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q);
 
@@ -172,9 +174,6 @@ public:
 
     int64_t getMaxHostTiles();
     int64_t getMaxDeviceTiles(int device);
-
-    void checkLife();
-    void printLife();
 
     //-------------------------
     #include "slate_Matrix.inc"
@@ -655,51 +654,8 @@ void Matrix<FloatType>::clean()
         if (tile->origin_ == false) {
             delete tile;
             tiles_->erase(it);
-            printf("erasing\n");
-        }
-        else {
-            printf("\t not erasing\n");            
         }
     }
-
-    // for (int64_t i = 0; i < mt_; ++i) {
-    //     for (int64_t j = 0; j <= i && j < nt_; ++j) {
-    //         auto it = tiles_->find({i, j, host_num_});
-    //         if (it != tiles_->end()) {
-    //             auto tile = it->second;
-    //             if (tile->origin_ == true) {
-    //                 printf("o");
-    //             }
-    //             else {
-    //                 printf("x");
-    //             }
-    //         }
-    //         else {
-    //             printf(".");
-    //         }
-    //     }
-    //     printf("\n");
-    // }
-    // for (int device = 0; device < num_devices_; ++device) {
-    //     for (int64_t i = 0; i < mt_; ++i) {
-    //         for (int64_t j = 0; j <= i && j < nt_; ++j) {
-    //             auto it = tiles_->find({i, j, device});
-    //             if (it != tiles_->end()) {
-    //                 auto tile = it->second;
-    //                 if (tile->origin_ == true) {
-    //                     printf("o");
-    //                 }
-    //                 else {
-    //                     printf("x");
-    //                 }
-    //             }
-    //             else {
-    //                 printf(".");
-    //             }
-    //         }
-    //         printf("\n");
-    //     }
-    // }
 }
 
 //------------------------------------------------------------------------------
@@ -899,39 +855,6 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, std::set<int> &bcast_set)
     #pragma omp critical(slate_mpi)
     retval = MPI_Comm_free(&bcast_comm);
     assert(retval == MPI_SUCCESS);
-}
-
-//------------------------------------------------------------------------------
-template <typename FloatType>
-void Matrix<FloatType>::checkLife()
-{
-    // for (auto it = tiles_->begin(); it != tiles_->end(); ++it) {
-    //     if (!tileIsLocal(std::get<0>(it->first), std::get<1>(it->first)))
-    //         if (it->second->life_ != 0 || it->second->data_ != nullptr)
-    //             std::cout << "P" << mpi_rank_
-    //                       << " TILE " << std::get<0>(it->first)
-    //                       << " " << std::get<1>(it->first)
-    //                       << " LIFE " << it->second->life_
-    //                       << " data_ " << it->second->data_ 
-    //                       << " DEV " << std::get<2>(it->first) << std::endl;
-    // }
-}
-
-//------------------------------------------------------------------------------
-template <typename FloatType>
-void Matrix<FloatType>::printLife()
-{
-    if (mpi_rank_ == 0) {
-        for (int64_t i = 0; i < mt_; ++i) {
-            for (int64_t j = 0; j < nt_; j++) {
-                if (tiles_->find({i, j, host_num_}) == tiles_->end())
-                    printf("  .");
-                else
-                    printf("%3ld", (*lives_)[{it_+i, jt_+j}]);
-            }
-            printf("\n");
-        }
-    }
 }
 
 } // namespace slate

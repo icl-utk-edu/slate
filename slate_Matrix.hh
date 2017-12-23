@@ -76,22 +76,29 @@
 
 namespace slate {
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \class
+/// \brief
+///
 template <typename FloatType>
 class Matrix {
 public:
     friend class Debug;
 
-    Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
-           int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q);
+    Matrix(int64_t m, int64_t n,
+            FloatType *a, int64_t lda, int64_t nb,
+            MPI_Comm mpi_comm, int64_t p, int64_t q);
 
-    Matrix(const Matrix &a, int64_t m1, int64_t m2, int64_t n1, int64_t n2);
+    Matrix(const Matrix &a,
+           int64_t m1, int64_t m2,
+           int64_t n1, int64_t n2);
 
     ~Matrix() {
         // only if not a submatrix
         // assert(cublasDestroy(cublas_handle_) == CUBLAS_STATUS_SUCCESS);
     }
 
+    // initialization and cleanup
     void random();
     void copyTo(FloatType *a, int64_t lda);
     void copyFrom(FloatType *a, int64_t lda);
@@ -99,7 +106,9 @@ public:
     void gather();
     void clean();
 
+// TODO: Friend global computational functions.
 // private:
+    // tile and submatrix operators
     Tile<FloatType>* &operator()(int64_t i, int64_t j)
     {
         return (*tiles_)[{it_+i, jt_+j, host_num_}];
@@ -116,13 +125,12 @@ public:
     {
         return (*tiles_)[{it_+i, jt_+j, device}];
     }
-
     Matrix<FloatType> operator()(int64_t i1, int64_t i2, int64_t j1, int64_t j2)
     {
         return Matrix(*this, i1, i2, j1, j2);
     }
 
-    //------------------------------------
+    // mapping to ranks and devices
     int64_t tileRank(int64_t i, int64_t j)
     {
         return tileRankFunc(it_+i, jt_+j);
@@ -131,14 +139,24 @@ public:
     {
         return tileDeviceFunc(it_+i, jt_+j);
     }
-    int64_t tileMb(int64_t i) { return tileMbFunc(it_+i); }
-    int64_t tileNb(int64_t j) { return tileNbFunc(jt_+j); }
-
-    bool tileIsLocal(int64_t i, int64_t j) {
+    bool tileIsLocal(int64_t i, int64_t j)
+    {
         return tileRank(i, j) == mpi_rank_;
     }
 
-    //--------------------------------------------
+    // tile sizes
+    int64_t tileMb(int64_t i) { return tileMbFunc(it_+i); }
+    int64_t tileNb(int64_t j) { return tileNbFunc(jt_+j); }
+
+    // node-level memory consistency
+    void tileCopyToDevice(int64_t i, int64_t j, int dst_device);
+    void tileCopyToHost(int64_t i, int64_t j, int src_device);
+    void tileMoveToDevice(int64_t i, int64_t j, int dst_device);
+    void tileMoveToHost(int64_t i, int64_t j, int src_device);
+    void tileErase(int64_t i, int64_t j, int device);
+    void tileTick(int64_t i, int64_t j);
+
+    // distributed memory communication
     void tileSend(int64_t i, int64_t j, int dest);
     void tileRecv(int64_t i, int64_t j, int src);
 
@@ -160,22 +178,16 @@ public:
 
     void tileSend(int64_t i, int64_t j, std::set<int> &bcast_set);
 
-    //----------------------------------------------------------
-    void tileCopyToDevice(int64_t i, int64_t j, int dst_device);
-    void tileCopyToHost(int64_t i, int64_t j, int src_device);
-    void tileMoveToDevice(int64_t i, int64_t j, int dst_device);
-    void tileMoveToHost(int64_t i, int64_t j, int src_device);
-    void tileErase(int64_t i, int64_t j, int device);
-    void tileTick(int64_t i, int64_t j);
-
+    // auxiliary CUDA functions
     void initCudaStreams();
     void initCublasHandles();
     void initBatchArrays();
 
+    // memory management functions
     int64_t getMaxHostTiles();
     int64_t getMaxDeviceTiles(int device);
 
-    //-------------------------
+    // submatrix functions prototypes 
     #include "slate_Matrix.inc"
 
     int64_t it_; ///< first row of tiles
@@ -205,274 +217,20 @@ public:
     std::vector<cudaStream_t> comm_stream_;
     std::vector<cublasHandle_t> cublas_handle_;
 
-    // host pointer arrays for batch GEMM
+    // host pointers arrays for batch GEMM
     std::vector<const FloatType**> a_array_h_;
     std::vector<const FloatType**> b_array_h_;
     std::vector<FloatType**> c_array_h_;
 
-    // device pointer arrays for batch GEMM
+    // device pointers arrays for batch GEMM
     std::vector<const FloatType**> a_array_d_;
     std::vector<const FloatType**> b_array_d_;
     std::vector<FloatType**> c_array_d_;
 };
 
-//------------------------------------------------------------------------------
-// @brief Copy the tile to the device, if a valid copy not already there.
-//        If the tile not on the device, copy the tile to the device.
-//        If the tile on the device, but not valid, update the tile's data.
-//        Do not invalidate the source tile.
-//
-template <typename FloatType>
-void Matrix<FloatType>::tileCopyToDevice(int64_t i, int64_t j, int dst_device)
-{
-    // If the tile is not on the device.
-    auto it = tiles_->find({it_+i, jt_+j, dst_device});
-    if (it == tiles_->end()) {
-
-        // Create a copy on the device.
-        Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
-        Tile<FloatType> *dst_tile =
-            src_tile->copyToDevice(dst_device, comm_stream_[dst_device]);
-
-        (*tiles_)[{it_+i, jt_+j, dst_device}] = dst_tile;
-    }
-    else {
-        // If the tile on the device is not valid.
-        Tile<FloatType> *dst_tile = it->second;
-        if (dst_tile->valid_ == false) {
-
-            // Update the device tile's data.
-            Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
-            src_tile->copyDataToDevice(dst_tile, comm_stream_[dst_device]);
-            dst_tile->valid_ = true;
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
-// @brief Copy the tile to the host, if a valid copy not already there.
-//        If the tile not on the host, copy the tile to the host.
-//        If the tile on the host, but not valid, update the tile's data.
-//        Invalidate the source tile.
-//
-template <typename FloatType>
-void Matrix<FloatType>::tileCopyToHost(int64_t i, int64_t j, int src_device)
-{
-    // If the tile is not on the host.
-    auto it = tiles_->find({it_+i, jt_+j, host_num_});
-    if (it == tiles_->end()) {
-
-        // Create a copy on the host.
-        Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
-        Tile<FloatType> *dst_tile =
-            src_tile->copyToHost(comm_stream_[src_device]);
-
-        (*tiles_)[{it_+i, jt_+j, host_num_}] = dst_tile;
-    }
-    else {
-        // If the tile on the host is not valid.
-        Tile<FloatType> *dst_tile = it->second;
-        if (dst_tile->valid_ == false) {
-
-            // Update the host tile's data.
-            Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
-            src_tile->copyDataToHost(dst_tile, comm_stream_[src_device]);
-            dst_tile->valid_ = true;
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
-// @brief Copy the tile to the device.
-//        If the host tile exists, invalidate it.
-//
-template <typename FloatType>
-void Matrix<FloatType>::tileMoveToDevice(int64_t i, int64_t j, int dst_device)
-{
-    // Copy the tile to the device.
-    tileCopyToDevice(i, j, dst_device);
-
-    // If the host tile exists, invalidate it.
-    auto it = tiles_->find({it_+i, jt_+j, host_num_});
-    if (it != tiles_->end())
-        it->second->valid_ = false;
-}
-
-//------------------------------------------------------------------------------
-// @brief Copy the tile to the host.
-//        If the device tile exists, invalidate it.
-//
-template <typename FloatType>
-void Matrix<FloatType>::tileMoveToHost(int64_t i, int64_t j, int src_device)
-{
-    // If source is not the host.
-    if (src_device != host_num_) {
-
-        // Copy the tile to the host.
-        tileCopyToHost(i, j, src_device);
-
-        // If the device tile exists, invalidate it.
-        auto it = tiles_->find({it_+i, jt_+j, src_device});
-        if (it != tiles_->end())
-            it->second->valid_ = false;
-    }
-}
-
-//------------------------------------------------------------------------------
-// @brief Erase the tile, if it exists in the specified location and if it is
-//        not the origin tile.
-//
-template <typename FloatType>
-void Matrix<FloatType>::tileErase(int64_t i, int64_t j, int device)
-{
-    // If the tile exists in the specified location.
-    auto it = tiles_->find({it_+i, jt_+j, device});
-    if (it != tiles_->end()) {
-
-        // If the tile is not the origin.
-        Tile<FloatType> *tile = it->second;
-        if (tile->origin_ == false) {
-
-            // Delete and erase the tile.
-            delete (*tiles_)[{it_+i, jt_+j, device}];
-            tiles_->erase({it_+i, jt_+j, device});
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
-template <typename FloatType>
-void Matrix<FloatType>::tileTick(int64_t i, int64_t j)
-{
-    if (!tileIsLocal(i, j)) {
-        int64_t life = --(*lives_)[{it_+i, jt_+j}];
-        if (life == 0) {
-            tileErase(i, j, host_num_);
-            for (int device = 0; device < num_devices_; ++device)
-                tileErase(i, j, device);
-            lives_->erase({it_+i, jt_+j});
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
-template <typename FloatType>
-void Matrix<FloatType>::initCudaStreams()
-{
-    gemm_stream_.resize(num_devices_);
-    comm_stream_.resize(num_devices_);
-
-    for (int device = 0; device < num_devices_; ++device) {
-
-        cudaError_t error;
-        error = cudaSetDevice(device);
-        assert(error == cudaSuccess);
-
-        error = cudaStreamCreate(&gemm_stream_[device]);
-        // error = cudaStreamCreateWithFlags(&gemm_stream_[device],
-        //                                   cudaStreamNonBlocking);
-        assert(error == cudaSuccess);
-
-        error = cudaStreamCreate(&comm_stream_[device]);
-        // error = cudaStreamCreateWithFlags(&gemm_stream_[device],
-        //                                   cudaStreamNonBlocking);
-        assert(error == cudaSuccess);
-    }
-}
-
-//------------------------------------------------------------------------------
-template <typename FloatType>
-void Matrix<FloatType>::initCublasHandles()
-{
-    cublas_handle_.resize(num_devices_);
-
-    for (int device = 0; device < num_devices_; ++device) {
-
-        cudaError_t error;
-        error = cudaSetDevice(device);
-        assert(error == cudaSuccess);
-
-        cublasStatus_t status;
-        status = cublasCreate(&cublas_handle_[device]);
-        assert(status == CUBLAS_STATUS_SUCCESS);
-
-        status = cublasSetStream(cublas_handle_[device], gemm_stream_[device]);
-        assert(status == CUBLAS_STATUS_SUCCESS);
-    }
-}
-
-//------------------------------------------------------------------------------
-template <typename FloatType>
-void Matrix<FloatType>::initBatchArrays()
-{
-    a_array_h_.resize(num_devices_);
-    b_array_h_.resize(num_devices_);
-    c_array_h_.resize(num_devices_);
-
-    a_array_d_.resize(num_devices_);
-    b_array_d_.resize(num_devices_);
-    c_array_d_.resize(num_devices_);
-
-    for (int device = 0; device < num_devices_; ++device) {
-
-        int64_t max_batch_size = getMaxDeviceTiles(device);
-        cudaError_t error;
-
-        // Allocate host arrays.
-        error = cudaMallocHost((void**)(&a_array_h_[device]),
-                               sizeof(FloatType*)*max_batch_size);
-        assert(error == cudaSuccess);
-        error = cudaMallocHost((void**)(&b_array_h_[device]),
-                               sizeof(FloatType*)*max_batch_size);
-        assert(error == cudaSuccess);
-        error = cudaMallocHost((void**)(&c_array_h_[device]),
-                               sizeof(FloatType*)*max_batch_size);
-        assert(error == cudaSuccess);
-
-        // Set the device.
-        error = cudaSetDevice(device);
-        assert(error == cudaSuccess);
-
-        // Allocate device arrays.
-        error = cudaMalloc((void**)(&a_array_d_[device]),
-                           sizeof(FloatType*)*max_batch_size);
-        assert(error == cudaSuccess);
-        error = cudaMalloc((void**)(&b_array_d_[device]),
-                           sizeof(FloatType*)*max_batch_size);
-        assert(error == cudaSuccess);
-        error = cudaMalloc((void**)(&c_array_d_[device]),
-                           sizeof(FloatType*)*max_batch_size);
-        assert(error == cudaSuccess);
-    }
-}
-
-//------------------------------------------------------------------------------
-template <typename FloatType>
-int64_t Matrix<FloatType>::getMaxHostTiles()
-{
-    int64_t max_batch_size = 0;
-    for (int64_t i = 0; i < mt_; ++i)
-        for (int64_t j = 0; j <= i; ++j)
-            if (tileIsLocal(i, j))
-                ++max_batch_size;
-
-    return max_batch_size;
-}
-
-//------------------------------------------------------------------------------
-template <typename FloatType>
-int64_t Matrix<FloatType>::getMaxDeviceTiles(int device)
-{
-    int64_t max_batch_size = 0;
-    for (int64_t i = 0; i < mt_; ++i)
-        for (int64_t j = 0; j <= i; ++j)
-            if (tileIsLocal(i, j) && tileDevice(i, j) == device)
-                ++max_batch_size;
-
-    return max_batch_size;
-}
-
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
                           int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q)
@@ -524,7 +282,9 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
         random();
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 Matrix<FloatType>::Matrix(const Matrix &a,
                           int64_t m1, int64_t m2,
@@ -543,7 +303,9 @@ Matrix<FloatType>::Matrix(const Matrix &a,
     nt_ = n2-n1+1;
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void Matrix<FloatType>::random()
 {
@@ -573,7 +335,9 @@ void Matrix<FloatType>::random()
     }
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void Matrix<FloatType>::copyTo(FloatType *a, int64_t lda)
 {
@@ -595,7 +359,9 @@ void Matrix<FloatType>::copyTo(FloatType *a, int64_t lda)
     }
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void Matrix<FloatType>::copyFrom(FloatType *a, int64_t lda)
 {
@@ -612,7 +378,9 @@ void Matrix<FloatType>::copyFrom(FloatType *a, int64_t lda)
     }
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void Matrix<FloatType>::copyFromFull(FloatType *a, int64_t lda)
 {
@@ -627,7 +395,9 @@ void Matrix<FloatType>::copyFromFull(FloatType *a, int64_t lda)
     }
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void Matrix<FloatType>::gather()
 {
@@ -645,7 +415,9 @@ void Matrix<FloatType>::gather()
     }
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void Matrix<FloatType>::clean()
 {
@@ -658,7 +430,160 @@ void Matrix<FloatType>::clean()
     }
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief Copy a tile to a device.
+///
+/// If the tile is not on the device, copy the tile to the device.
+/// If the tile is on the device, but is not valid, update the tile's data.
+/// Do not invalidate the source tile.
+///
+template <typename FloatType>
+void Matrix<FloatType>::tileCopyToDevice(int64_t i, int64_t j, int dst_device)
+{
+    // If the tile is not on the device.
+    auto it = tiles_->find({it_+i, jt_+j, dst_device});
+    if (it == tiles_->end()) {
+
+        // Create a copy on the device.
+        Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
+        Tile<FloatType> *dst_tile =
+            src_tile->copyToDevice(dst_device, comm_stream_[dst_device]);
+
+        (*tiles_)[{it_+i, jt_+j, dst_device}] = dst_tile;
+    }
+    else {
+        // If the tile on the device is not valid.
+        Tile<FloatType> *dst_tile = it->second;
+        if (dst_tile->valid_ == false) {
+
+            // Update the device tile's data.
+            Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
+            src_tile->copyDataToDevice(dst_tile, comm_stream_[dst_device]);
+            dst_tile->valid_ = true;
+        }
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief Copy a tile to the host.
+///
+/// If the tile not on the host, copy the tile to the host.
+/// If the tile is on the host, but is not valid, update the tile's data.
+/// Do not invalidate the source tile.
+///
+template <typename FloatType>
+void Matrix<FloatType>::tileCopyToHost(int64_t i, int64_t j, int src_device)
+{
+    // If the tile is not on the host.
+    auto it = tiles_->find({it_+i, jt_+j, host_num_});
+    if (it == tiles_->end()) {
+
+        // Create a copy on the host.
+        Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
+        Tile<FloatType> *dst_tile =
+            src_tile->copyToHost(comm_stream_[src_device]);
+
+        (*tiles_)[{it_+i, jt_+j, host_num_}] = dst_tile;
+    }
+    else {
+        // If the tile on the host is not valid.
+        Tile<FloatType> *dst_tile = it->second;
+        if (dst_tile->valid_ == false) {
+
+            // Update the host tile's data.
+            Tile<FloatType> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
+            src_tile->copyDataToHost(dst_tile, comm_stream_[src_device]);
+            dst_tile->valid_ = true;
+        }
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief Move a tile to a device.
+///
+/// If the tile is not on the device, copy the tile to the device.
+/// If the tile is on the device, but is not valid, update the tile's data.
+/// Invalidate the source tile.
+///
+template <typename FloatType>
+void Matrix<FloatType>::tileMoveToDevice(int64_t i, int64_t j, int dst_device)
+{
+    // Copy the tile to the device.
+    tileCopyToDevice(i, j, dst_device);
+
+    // If the host tile exists, invalidate it.
+    auto it = tiles_->find({it_+i, jt_+j, host_num_});
+    if (it != tiles_->end())
+        it->second->valid_ = false;
+}
+
+///-----------------------------------------------------------------------------
+/// \brief Move a tile to the host.
+///
+/// If the tile is not on the host, copy the tile to the host.
+/// If the tile is on the host, but is not valid, update the tile's data.
+/// Invalidate the source tile.
+///
+template <typename FloatType>
+void Matrix<FloatType>::tileMoveToHost(int64_t i, int64_t j, int src_device)
+{
+    // If source is not the host.
+    if (src_device != host_num_) {
+
+        // Copy the tile to the host.
+        tileCopyToHost(i, j, src_device);
+
+        // If the device tile exists, invalidate it.
+        auto it = tiles_->find({it_+i, jt_+j, src_device});
+        if (it != tiles_->end())
+            it->second->valid_ = false;
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief Erase a tile.
+///
+/// If the tile exists and is not the origin, delete the tile
+/// and erase it from the map.
+///
+template <typename FloatType>
+void Matrix<FloatType>::tileErase(int64_t i, int64_t j, int device)
+{
+    // If the tile exists in the specified location.
+    auto it = tiles_->find({it_+i, jt_+j, device});
+    if (it != tiles_->end()) {
+
+        // If the tile is not the origin.
+        Tile<FloatType> *tile = it->second;
+        if (tile->origin_ == false) {
+
+            // Delete and erase the tile.
+            delete (*tiles_)[{it_+i, jt_+j, device}];
+            tiles_->erase({it_+i, jt_+j, device});
+        }
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void Matrix<FloatType>::tileTick(int64_t i, int64_t j)
+{
+    if (!tileIsLocal(i, j)) {
+        int64_t life = --(*lives_)[{it_+i, jt_+j}];
+        if (life == 0) {
+            tileErase(i, j, host_num_);
+            for (int device = 0; device < num_devices_; ++device)
+                tileErase(i, j, device);
+            lives_->erase({it_+i, jt_+j});
+        }
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void Matrix<FloatType>::tileSend(int64_t i, int64_t j, int dest)
 {
@@ -671,7 +596,9 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, int dest)
     assert(retval == MPI_SUCCESS);
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void Matrix<FloatType>::tileRecv(int64_t i, int64_t j, int src)
 {
@@ -687,7 +614,9 @@ void Matrix<FloatType>::tileRecv(int64_t i, int64_t j, int src)
     assert(retval == MPI_SUCCESS);
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 template <Target target>
 void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
@@ -722,7 +651,9 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
     }
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 template <Target target>
 void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
@@ -760,7 +691,9 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
     }
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void Matrix<FloatType>::tileSendFindRanks(int64_t i, int64_t j,
                                           std::array<int64_t, 4> range,
@@ -777,7 +710,9 @@ void Matrix<FloatType>::tileSendFindRanks(int64_t i, int64_t j,
             bcast_set->insert(tileRank(i, j));
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 int64_t Matrix<FloatType>::tileSendFindLife(int64_t i, int64_t j,
                                             std::array<int64_t, 4> range)
@@ -797,7 +732,9 @@ int64_t Matrix<FloatType>::tileSendFindLife(int64_t i, int64_t j,
     return life;
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void Matrix<FloatType>::tileSend(int64_t i, int64_t j, std::set<int> &bcast_set)
 {
@@ -855,6 +792,133 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, std::set<int> &bcast_set)
     #pragma omp critical(slate_mpi)
     retval = MPI_Comm_free(&bcast_comm);
     assert(retval == MPI_SUCCESS);
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void Matrix<FloatType>::initCudaStreams()
+{
+    gemm_stream_.resize(num_devices_);
+    comm_stream_.resize(num_devices_);
+
+    for (int device = 0; device < num_devices_; ++device) {
+
+        cudaError_t error;
+        error = cudaSetDevice(device);
+        assert(error == cudaSuccess);
+
+        error = cudaStreamCreate(&gemm_stream_[device]);
+        // error = cudaStreamCreateWithFlags(&gemm_stream_[device],
+        //                                   cudaStreamNonBlocking);
+        assert(error == cudaSuccess);
+
+        error = cudaStreamCreate(&comm_stream_[device]);
+        // error = cudaStreamCreateWithFlags(&gemm_stream_[device],
+        //                                   cudaStreamNonBlocking);
+        assert(error == cudaSuccess);
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void Matrix<FloatType>::initCublasHandles()
+{
+    cublas_handle_.resize(num_devices_);
+
+    for (int device = 0; device < num_devices_; ++device) {
+
+        cudaError_t error;
+        error = cudaSetDevice(device);
+        assert(error == cudaSuccess);
+
+        cublasStatus_t status;
+        status = cublasCreate(&cublas_handle_[device]);
+        assert(status == CUBLAS_STATUS_SUCCESS);
+
+        status = cublasSetStream(cublas_handle_[device], gemm_stream_[device]);
+        assert(status == CUBLAS_STATUS_SUCCESS);
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void Matrix<FloatType>::initBatchArrays()
+{
+    a_array_h_.resize(num_devices_);
+    b_array_h_.resize(num_devices_);
+    c_array_h_.resize(num_devices_);
+
+    a_array_d_.resize(num_devices_);
+    b_array_d_.resize(num_devices_);
+    c_array_d_.resize(num_devices_);
+
+    for (int device = 0; device < num_devices_; ++device) {
+
+        int64_t max_batch_size = getMaxDeviceTiles(device);
+        cudaError_t error;
+
+        // Allocate host arrays.
+        error = cudaMallocHost((void**)(&a_array_h_[device]),
+                               sizeof(FloatType*)*max_batch_size);
+        assert(error == cudaSuccess);
+        error = cudaMallocHost((void**)(&b_array_h_[device]),
+                               sizeof(FloatType*)*max_batch_size);
+        assert(error == cudaSuccess);
+        error = cudaMallocHost((void**)(&c_array_h_[device]),
+                               sizeof(FloatType*)*max_batch_size);
+        assert(error == cudaSuccess);
+
+        // Set the device.
+        error = cudaSetDevice(device);
+        assert(error == cudaSuccess);
+
+        // Allocate device arrays.
+        error = cudaMalloc((void**)(&a_array_d_[device]),
+                           sizeof(FloatType*)*max_batch_size);
+        assert(error == cudaSuccess);
+        error = cudaMalloc((void**)(&b_array_d_[device]),
+                           sizeof(FloatType*)*max_batch_size);
+        assert(error == cudaSuccess);
+        error = cudaMalloc((void**)(&c_array_d_[device]),
+                           sizeof(FloatType*)*max_batch_size);
+        assert(error == cudaSuccess);
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+int64_t Matrix<FloatType>::getMaxHostTiles()
+{
+    int64_t max_batch_size = 0;
+    for (int64_t i = 0; i < mt_; ++i)
+        for (int64_t j = 0; j <= i; ++j)
+            if (tileIsLocal(i, j))
+                ++max_batch_size;
+
+    return max_batch_size;
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+int64_t Matrix<FloatType>::getMaxDeviceTiles(int device)
+{
+    int64_t max_batch_size = 0;
+    for (int64_t i = 0; i < mt_; ++i)
+        for (int64_t j = 0; j <= i; ++j)
+            if (tileIsLocal(i, j) && tileDevice(i, j) == device)
+                ++max_batch_size;
+
+    return max_batch_size;
 }
 
 } // namespace slate

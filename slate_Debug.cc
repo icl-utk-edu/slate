@@ -41,7 +41,9 @@
 
 namespace slate {
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void Debug::checkTilesLives(Matrix<FloatType> &a)
 {
@@ -62,7 +64,9 @@ void Debug::checkTilesLives(Matrix<FloatType> &a)
     }
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void Debug::printTilesLives(Matrix<FloatType> &a)
 {
@@ -79,7 +83,9 @@ void Debug::printTilesLives(Matrix<FloatType> &a)
     }
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void Debug::printTilesMaps(Matrix<FloatType> &a)
 {
@@ -119,7 +125,9 @@ void Debug::printTilesMaps(Matrix<FloatType> &a)
     }
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 void Debug::printNumFreeMemBlocks(Memory &m)
 {
     printf("\n");

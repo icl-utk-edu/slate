@@ -44,71 +44,128 @@
 
 namespace slate {
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \class
+/// \brief
+///
 template <typename FloatType>
 class ColMajorTile : public Tile<FloatType> {
 public:
-    ColMajorTile(int64_t mb, int64_t nb, Memory *memory)
-        : Tile<FloatType>(mb, nb, memory)
-    {
-        this->stride_ = this->mb_;
-        Tile<FloatType>::allocate();
-    }
-    ColMajorTile(const ColMajorTile<FloatType> *src_tile, int dst_device_num)
-    {
-        *this = *src_tile;
-        this->origin_ = false;
-        this->stride_ = this->mb_;
-        this->device_num_ = dst_device_num;
-        Tile<FloatType>::allocate();
-    }
-    ColMajorTile(int64_t mb, int64_t nb, FloatType *a, int64_t lda, Memory *memory)
-        : Tile<FloatType>(mb, nb, memory)
-    {
-        this->stride_ = this->mb_;
-        Tile<FloatType>::allocate();
-        copyTo(a, lda);
-    }
-    ~ColMajorTile() {
-        Tile<FloatType>::deallocate();
-    }
+    ColMajorTile(int64_t mb, int64_t nb, Memory *memory);
 
-    //------------------------------------
-    void copyTo(FloatType *a, int64_t lda)
-    {
-        auto mb_ = this->mb_;
-        auto nb_ = this->nb_;
-        auto data_ = this->data_;
+    ColMajorTile(int64_t mb, int64_t nb,
+                 FloatType *a, int64_t lda, Memory *memory);
 
-        for (int64_t n = 0; n < nb_; ++n)
-            memcpy(&data_[n*mb_], &a[n*lda], sizeof(FloatType)*mb_);
-    }
-    void copyFrom(FloatType *a, int64_t lda)
-    {
-        auto mb_ = this->mb_;
-        auto nb_ = this->nb_;
-        auto data_ = this->data_;
+    ColMajorTile(const ColMajorTile<FloatType> *src_tile, int dst_device_num);
+    ~ColMajorTile();
 
-        for (int64_t n = 0; n < nb_; ++n)
-            memcpy(&a[n*lda], &data_[n*mb_], sizeof(FloatType)*mb_);
-    }
+    void copyTo(FloatType *a, int64_t lda);
+    void copyFrom(FloatType *a, int64_t lda);
 
-    //------------------------------------------------------
-    ColMajorTile<FloatType>* copyToHost(cudaStream_t stream)
-    {
-        ColMajorTile<FloatType> *dst_tile =
-            new ColMajorTile<FloatType>(this, this->host_num_);
-        this->copyDataToHost(dst_tile, stream);
-        return dst_tile;
-    }
-    ColMajorTile<FloatType>* copyToDevice(int device_num, cudaStream_t stream)
-    {
-        ColMajorTile<FloatType> *dst_tile =
-            new ColMajorTile<FloatType>(this, device_num);
-        this->copyDataToDevice(dst_tile, stream);
-        return dst_tile;
-    }
+    ColMajorTile<FloatType>* copyToHost(cudaStream_t stream);
+    ColMajorTile<FloatType>* copyToDevice(int device_num, cudaStream_t stream);
 };
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+ColMajorTile<FloatType>::ColMajorTile(int64_t mb, int64_t nb, Memory *memory)
+    : Tile<FloatType>(mb, nb, memory)
+{
+    this->stride_ = this->mb_;
+    Tile<FloatType>::allocate();
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+ColMajorTile<FloatType>::ColMajorTile(int64_t mb, int64_t nb,
+                                      FloatType *a, int64_t lda, Memory *memory)
+    : Tile<FloatType>(mb, nb, memory)
+{
+    this->stride_ = this->mb_;
+    Tile<FloatType>::allocate();
+    copyTo(a, lda);
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+ColMajorTile<FloatType>::ColMajorTile(const ColMajorTile<FloatType> *src_tile,
+                                      int dst_device_num)
+{
+    *this = *src_tile;
+    this->origin_ = false;
+    this->stride_ = this->mb_;
+    this->device_num_ = dst_device_num;
+    Tile<FloatType>::allocate();
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+ColMajorTile<FloatType>::~ColMajorTile()
+{
+    Tile<FloatType>::deallocate();
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void ColMajorTile<FloatType>::copyTo(FloatType *a, int64_t lda)
+{
+    auto mb_ = this->mb_;
+    auto nb_ = this->nb_;
+    auto data_ = this->data_;
+
+    for (int64_t n = 0; n < nb_; ++n)
+        memcpy(&data_[n*mb_], &a[n*lda], sizeof(FloatType)*mb_);
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void ColMajorTile<FloatType>::copyFrom(FloatType *a, int64_t lda)
+{
+    auto mb_ = this->mb_;
+    auto nb_ = this->nb_;
+    auto data_ = this->data_;
+
+    for (int64_t n = 0; n < nb_; ++n)
+        memcpy(&a[n*lda], &data_[n*mb_], sizeof(FloatType)*mb_);
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+ColMajorTile<FloatType>*
+ColMajorTile<FloatType>::copyToHost(cudaStream_t stream)
+{
+    ColMajorTile<FloatType> *dst_tile =
+        new ColMajorTile<FloatType>(this, this->host_num_);
+    this->copyDataToHost(dst_tile, stream);
+    return dst_tile;
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+ColMajorTile<FloatType>*
+ColMajorTile<FloatType>::copyToDevice(int device_num, cudaStream_t stream)
+{
+    ColMajorTile<FloatType> *dst_tile =
+        new ColMajorTile<FloatType>(this, device_num);
+    this->copyDataToDevice(dst_tile, stream);
+    return dst_tile;
+}
 
 } // namespace slate
 

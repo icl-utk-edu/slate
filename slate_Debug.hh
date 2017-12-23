@@ -63,9 +63,13 @@
 
 namespace slate {
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \class
+/// \brief
+///
 class Debug {
 public:
+    //-------------
     // Matrix class
     template <typename FloatType>
     static void checkTilesLives(Matrix<FloatType> &a);
@@ -76,6 +80,7 @@ public:
     template <typename FloatType>
     static void printTilesMaps(Matrix<FloatType> &a);
 
+    //-------------
     // Memory class
     static void printNumFreeMemBlocks(Memory &m);
 };

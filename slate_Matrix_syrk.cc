@@ -42,7 +42,9 @@
 
 namespace slate {
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 template <Target target>
 void Matrix<FloatType>::syrk(blas::Uplo uplo, blas::Op op,
@@ -55,7 +57,9 @@ void Matrix<FloatType>::syrk(blas::Uplo uplo, blas::Op op,
         beta,  c);
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void Matrix<FloatType>::syrk(internal::TargetType<Target::HostTask>,
                              blas::Uplo uplo, blas::Op op,
@@ -95,7 +99,9 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostTask>,
     #pragma omp taskwait
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void Matrix<FloatType>::syrk(internal::TargetType<Target::HostNest>,
                              blas::Uplo uplo, blas::Op op,
@@ -137,7 +143,9 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostNest>,
     #pragma omp taskwait
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void Matrix<FloatType>::syrk(internal::TargetType<Target::HostBatch>,
                              blas::Uplo uplo, blas::Op op,
@@ -213,10 +221,10 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostBatch>,
 
     trace_cpu_start();
 //  mkl_set_num_threads_local(...);
-    // cblas_dgemm_batch(CblasColMajor, opa_array, opb_array,
-    //                   m_array, n_array, k_array, alpha_array,
-    //                   a_array, lda_array, b_array, ldb_array, beta_array,
-    //                   c_array, ldc_array, 1, &group_size);
+    cblas_dgemm_batch(CblasColMajor, opa_array, opb_array,
+                      m_array, n_array, k_array, alpha_array,
+                      a_array, lda_array, b_array, ldb_array, beta_array,
+                      c_array, ldc_array, 1, &group_size);
 //  mkl_set_num_threads_local(1);
     trace_cpu_stop("DarkGreen");
 
@@ -234,7 +242,9 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostBatch>,
     #pragma omp taskwait
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void Matrix<FloatType>::syrk(internal::TargetType<Target::Devices>,
                              blas::Uplo uplo, blas::Op op,

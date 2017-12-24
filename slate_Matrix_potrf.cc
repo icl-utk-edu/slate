@@ -42,7 +42,9 @@
 
 namespace slate {
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 template <Target target>
 void Matrix<FloatType>::potrf(blas::Uplo uplo, Matrix &&a)
@@ -50,7 +52,9 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, Matrix &&a)
     potrf(internal::TargetType<target>(), uplo, a);
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void Matrix<FloatType>::potrf(internal::TargetType<Target::HostTask>,
                               blas::Uplo uplo, Matrix &a)

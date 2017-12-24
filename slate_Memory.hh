@@ -65,7 +65,10 @@ extern "C" void trace_cpu_stop(const char *color);
 
 namespace slate {
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \class
+/// \brief
+///
 class Memory {
 public:
     friend class Debug;
@@ -73,123 +76,27 @@ public:
     Memory(size_t block_size) : block_size_(block_size) {}
     ~Memory();
 
-    void addHostBlocks(int64_t num_blocks)
-    {
-        // or std::byte* (C++17)
-        uint8_t *host_mem;
-        host_mem = (uint8_t*)allocHostMemory(block_size_*num_blocks);
+    void addHostBlocks(int64_t num_blocks);
+    void addDeviceBlocks(int device, int64_t num_blocks);
 
-        for (int64_t i = 0; i < num_blocks; ++i)
-            free_blocks_[host_num_].push(host_mem+i*block_size_);
+    void clearHostBlocks();
+    void clearDeviceBlocks(int device);
 
-    }
-    void addDeviceBlocks(int device, int64_t num_blocks)
-    {
-        // or std::byte* (C++17)
-        uint8_t *dev_mem;
-        dev_mem = (uint8_t*)allocDeviceMemory(device, block_size_*num_blocks);
-
-        for (int64_t i = 0; i < num_blocks; ++i)
-            free_blocks_[device].push(dev_mem+i*block_size_);
-    }
-    void clearHostBlocks()
-    {
-        while (!free_blocks_[host_num_].empty())
-            free_blocks_[host_num_].pop();
-
-        while (!allocated_mem_[host_num_].empty()) {
-            void *host_mem = allocated_mem_[host_num_].top();
-            freeHostMemory(host_mem);
-            allocated_mem_[host_num_].pop();
-        } 
-    }
-    void clearDeviceBlocks(int device)
-    {
-        while (!free_blocks_[device].empty())
-            free_blocks_[device].pop();
-
-        while (!allocated_mem_[device].empty()) {
-            void *dev_mem = allocated_mem_[device].top();
-            freeDeviceMemory(device, dev_mem);
-            allocated_mem_[device].pop();
-        }
-    }
-
-    void* alloc(int device_num)
-    {
-        void *block;
-        #pragma omp critical(slate_memory)
-        {
-            if (free_blocks_[device_num].size() > 0) {
-                block = free_blocks_[device_num].top();
-                free_blocks_[device_num].pop();
-            }
-            else {
-                block = allocBlock(device_num);
-            }
-        }
-        return block;
-    }
-    void free(void *block, int device_num)
-    {
-        #pragma omp critical(slate_memory)
-        {
-            free_blocks_[device_num].push(block);
-        }
-    }
+    void* alloc(int device_num);
+    void free(void *block, int device_num);
 
 private:
-    void* allocBlock(int device)
-    {
-        void *block;
-        if (device == host_num_)
-            block = allocHostMemory(block_size_);
-        else
-            block = allocDeviceMemory(device, block_size_);
+    void* allocBlock(int device);
 
-        allocated_mem_[device].push(block);
-        return block;
-    }
-    void* allocHostMemory(size_t size)
-    {
-        void *host_mem;
-        // cudaError_t error = cudaMallocHost(&host_mem, size);
-        // assert(error == cudaSuccess);
-        host_mem = malloc(size);
-        assert(host_mem != nullptr);
-        return host_mem;
-    }
-    void* allocDeviceMemory(int device, size_t size)
-    {
-        cudaError_t error;
-        error = cudaSetDevice(device);
-        assert(error == cudaSuccess);
+    void* allocHostMemory(size_t size);
+    void* allocDeviceMemory(int device, size_t size);
 
-        void *dev_mem;
-        error = cudaMalloc(&dev_mem, size);
-        assert(error == cudaSuccess);
-
-        return dev_mem;
-    }
-    void freeHostMemory(void *host_mem)
-    {
-        std::free(host_mem);
-        // cudaError_t error = cudaFreeHost(host_mem);
-        // assert(error == cudaSuccess);
-    }
-    void freeDeviceMemory(int device, void *dev_mem)
-    {
-        cudaError_t error;
-        error = cudaSetDevice(device);
-        assert(error == cudaSuccess);
-
-        error = cudaFree(dev_mem);
-        assert(error == cudaSuccess);
-    }
+    void freeHostMemory(void *host_mem);
+    void freeDeviceMemory(int device, void *dev_mem);
 
     static int host_num_;
-
     size_t block_size_;
+
     std::map<int, std::stack<void*>> free_blocks_;
     std::map<int, std::stack<void*>> allocated_mem_;
 };

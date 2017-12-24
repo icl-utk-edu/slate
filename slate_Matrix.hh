@@ -98,6 +98,7 @@ public:
         // assert(cublasDestroy(cublas_handle_) == CUBLAS_STATUS_SUCCESS);
     }
 
+    //---------------------------
     // initialization and cleanup
     void random();
     void copyTo(FloatType *a, int64_t lda);
@@ -108,6 +109,7 @@ public:
 
 // TODO: Friend global computational functions.
 // private:
+    //-----------------------------
     // tile and submatrix operators
     Tile<FloatType>* &operator()(int64_t i, int64_t j)
     {
@@ -130,6 +132,7 @@ public:
         return Matrix(*this, i1, i2, j1, j2);
     }
 
+    //-----------------------------
     // mapping to ranks and devices
     int64_t tileRank(int64_t i, int64_t j)
     {
@@ -144,6 +147,7 @@ public:
         return tileRank(i, j) == mpi_rank_;
     }
 
+    //-----------
     // tile sizes
     int64_t tileMb(int64_t i) { return tileMbFunc(it_+i); }
     int64_t tileNb(int64_t j) { return tileNbFunc(jt_+j); }
@@ -156,6 +160,7 @@ public:
     void tileErase(int64_t i, int64_t j, int device);
     void tileTick(int64_t i, int64_t j);
 
+    //---------------------------------
     // distributed memory communication
     void tileSend(int64_t i, int64_t j, int dest);
     void tileRecv(int64_t i, int64_t j, int src);
@@ -178,15 +183,18 @@ public:
 
     void tileSend(int64_t i, int64_t j, std::set<int> &bcast_set);
 
+    //-------------------------
     // auxiliary CUDA functions
     void initCudaStreams();
     void initCublasHandles();
     void initBatchArrays();
 
+    //----------------------------
     // memory management functions
     int64_t getMaxHostTiles();
     int64_t getMaxDeviceTiles(int device);
 
+    //-------------------------------
     // submatrix functions prototypes 
     #include "slate_Matrix.inc"
 

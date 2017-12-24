@@ -38,6 +38,7 @@
 //------------------------------------------------------------------------------
 
 //-----------------------------------------
+// gemm()
 template <Target target = Target::HostTask>
 static void gemm(blas::Op opa, blas::Op opb,
                  FloatType alpha, Matrix &&a,
@@ -51,6 +52,7 @@ static void gemm(internal::TargetType<Target::HostTask>,
                  FloatType beta,  Matrix &c);
 
 //-----------------------------------------
+// potrf()
 template <Target target = Target::HostTask>
 static void potrf(blas::Uplo uplo, Matrix &&a);
 
@@ -58,6 +60,7 @@ static void potrf(internal::TargetType<Target::HostTask>,
                   blas::Uplo uplo, Matrix &a);
 
 //-----------------------------------------
+// syrk()
 template <Target target = Target::HostTask>
 static void syrk(blas::Uplo uplo, blas::Op op,
                  FloatType alpha, Matrix &&a,
@@ -84,6 +87,7 @@ static void syrk(internal::TargetType<Target::Devices>,
                  FloatType beta,  Matrix &c);
 
 //-----------------------------------------
+// trsm()
 template <Target target = Target::HostTask>
 static void trsm(blas::Side side, blas::Uplo uplo,
                  blas::Op op, blas::Diag diag,

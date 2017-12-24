@@ -42,7 +42,9 @@
 
 namespace slate {
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 template <Target target>
 void Matrix<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
@@ -55,7 +57,9 @@ void Matrix<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
         alpha, a, b);
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void Matrix<FloatType>::trsm(internal::TargetType<Target::HostTask>,
                              blas::Side side, blas::Uplo uplo,

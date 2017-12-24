@@ -44,7 +44,9 @@ namespace slate {
 
 namespace internal {
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType, Target target>
 void potrf(TargetType<target>,
            blas::Uplo uplo, Matrix<FloatType> a, int64_t lookahead)
@@ -119,7 +121,9 @@ void potrf(TargetType<target>,
     Debug::printTilesMaps(a);
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void potrf(TargetType<Target::Devices>,
            blas::Uplo uplo, Matrix<FloatType> a, int64_t lookahead)
@@ -202,9 +206,11 @@ void potrf(TargetType<Target::Devices>,
     Debug::printTilesMaps(a);
 }
 
-//------------------------------------------------------------------------------
-// Precision and target templated function for implementing complex logic.
-//
+///-----------------------------------------------------------------------------
+/// \brief
+///
+/// Precision and target templated function for implementing complex logic.
+///
 template <typename FloatType, Target target>
 void potrf(blas::Uplo uplo, Matrix<FloatType> a, int64_t lookahead)
 {
@@ -213,9 +219,11 @@ void potrf(blas::Uplo uplo, Matrix<FloatType> a, int64_t lookahead)
 
 } // namespace internal
 
-//------------------------------------------------------------------------------
-// Target-templated, precision-overloaded functions for the user.
-//
+///-----------------------------------------------------------------------------
+/// \brief
+///
+/// Target-templated, precision-overloaded functions for the user.
+///
 template <Target target>
 void potrf(blas::Uplo uplo, Matrix<double> a, int64_t lookahead)
 {

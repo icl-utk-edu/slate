@@ -66,7 +66,8 @@ public:
     Map() { omp_init_lock(&lock_); }
     ~Map() { omp_destroy_lock(&lock_); }
 
-    //-------------------------------
+    //--------
+    // begin()
     typename stdMap::iterator begin()
     {
         omp_set_lock(&lock_);
@@ -74,7 +75,6 @@ public:
         omp_unset_lock(&lock_);
         return begin;
     }
-
     typename stdMap::const_iterator begin() const
     {
         omp_set_lock(&lock_);
@@ -83,7 +83,8 @@ public:
         return begin;
     }
 
-    //-----------------------------
+    //------
+    // end()
     typename stdMap::iterator end()
     {
         omp_set_lock(&lock_);
@@ -91,7 +92,6 @@ public:
         omp_unset_lock(&lock_);
         return end;
     }
-
     typename stdMap::const_iterator end() const
     {
         omp_set_lock(&lock_);
@@ -100,7 +100,8 @@ public:
         return end;
     }
 
-    //------------------------------------------------
+    //-------
+    // find()
     typename stdMap::iterator find(const KeyType &key)
     {
         omp_set_lock(&lock_);
@@ -108,7 +109,6 @@ public:
         omp_unset_lock(&lock_);
         return element;
     }
-
     typename stdMap::const_iterator find(const KeyType &key) const
     {
         omp_set_lock(&lock_);
@@ -117,7 +117,8 @@ public:
         return element;
     }
 
-    //--------------------------------------------------
+    //--------
+    // erase()
     typename stdMap::size_type erase(const KeyType &key)
     {
         omp_set_lock(&lock_);
@@ -125,7 +126,6 @@ public:
         omp_unset_lock(&lock_);
         return num_erased;
     }
-
     typename stdMap::iterator erase(typename stdMap::const_iterator position)
     {
         omp_set_lock(&lock_);
@@ -134,7 +134,8 @@ public:
         return next;
     }
 
-    //---------------------------------------
+    //------------
+    // operator []
     ValueType &operator[](const KeyType &key)
     {
         omp_set_lock(&lock_);
@@ -142,7 +143,6 @@ public:
         omp_unset_lock(&lock_);
         return tile;
     }
-
     ValueType &operator[](const KeyType &key) const
     {
         omp_set_lock(&lock_);

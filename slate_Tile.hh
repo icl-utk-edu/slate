@@ -73,7 +73,10 @@ extern "C" void trace_cpu_stop(const char *color);
 
 namespace slate {
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \class
+/// \brief
+///
 template <typename FloatType>
 class Tile {
 public:
@@ -83,98 +86,34 @@ public:
         : mb_(mb), nb_(nb), memory_(memory),
           device_num_(host_num_), valid_(true), origin_(false) {}
 
-    //-------------------------------------------------
     virtual void copyTo(FloatType *a, int64_t lda) = 0;
     virtual void copyFrom(FloatType *a, int64_t lda) = 0;
 
     virtual Tile<FloatType>* copyToHost(cudaStream_t stream) = 0;
-    virtual Tile<FloatType>* copyToDevice(
-        int device_num, cudaStream_t stream) = 0;
+    virtual Tile<FloatType>* copyToDevice(int device_num,
+                                          cudaStream_t stream) = 0;
 
-    //--------------------------------------------------------------
     Tile<FloatType>* copyDataToHost(const Tile<FloatType> *dst_tile,
-                                    cudaStream_t stream)
-    {
-        trace_cpu_start();
-        cudaError_t error;
-        error = cudaSetDevice(device_num_);
-        assert(error == cudaSuccess);
-
-        error = cudaMemcpyAsync(dst_tile->data_, data_, size(),
-                                cudaMemcpyDeviceToHost, stream);
-        assert(error == cudaSuccess);
-
-        error = cudaStreamSynchronize(stream);
-        assert(error == cudaSuccess);
-        trace_cpu_stop("Gray");
-    }
+                                    cudaStream_t stream);
     Tile<FloatType>* copyDataToDevice(const Tile<FloatType> *dst_tile,
-                                      cudaStream_t stream)
-    {
-        trace_cpu_start();
-        cudaError_t error;
-        error = cudaSetDevice(dst_tile->device_num_);
-        assert(error == cudaSuccess);
+                                      cudaStream_t stream);
 
-        error = cudaMemcpyAsync(dst_tile->data_, data_, size(),
-                                cudaMemcpyHostToDevice, stream);
-        assert(error == cudaSuccess);
-
-        error = cudaStreamSynchronize(stream);
-        assert(error == cudaSuccess);
-        trace_cpu_stop("LightGray");
-    }
-
-    //----------------------------------------------------------
     static void gemm(blas::Op transa, blas::Op transb,
                      FloatType alpha, Tile<FloatType> *a,
                                       Tile<FloatType> *b,
-                     FloatType beta,  Tile<FloatType> *c)
-    {
-        trace_cpu_start();
-        blas::gemm(blas::Layout::ColMajor,
-                   transa, transb,
-                   c->mb_, c->nb_, a->nb_,
-                   alpha, a->data_, a->stride_,
-                          b->data_, b->stride_,
-                   beta,  c->data_, c->stride_);
-        trace_cpu_stop("MediumAquamarine");
-    }
-    static void potrf(blas::Uplo uplo, Tile<FloatType> *a)
-    {
-        trace_cpu_start();
-        lapack::potrf(blas::Layout::ColMajor,
-                      uplo,
-                      a->nb_,
-                      a->data_, a->stride_);
-        trace_cpu_stop("RosyBrown");
-    }
+                     FloatType beta,  Tile<FloatType> *c);
+
+    static void potrf(blas::Uplo uplo, Tile<FloatType> *a);
+
     static void syrk(blas::Uplo uplo, blas::Op trans,
                      FloatType alpha, Tile<FloatType> *a,
-                     FloatType beta,  Tile<FloatType> *c)
-    {
-        trace_cpu_start();
-        blas::syrk(blas::Layout::ColMajor,
-                   uplo, trans,
-                   c->nb_, a->nb_,
-                   alpha, a->data_, a->stride_,
-                   beta,  c->data_, c->stride_);
-        trace_cpu_stop("CornflowerBlue");
-    }
+                     FloatType beta,  Tile<FloatType> *c);
+
     static void trsm(blas::Side side, blas::Uplo uplo,
                      blas::Op transa, blas::Diag diag,
                      FloatType alpha, Tile<FloatType> *a,
-                                      Tile<FloatType> *b)
-    {
-        trace_cpu_start();
-        blas::trsm(blas::Layout::ColMajor,
-                   side, uplo, transa, diag,
-                   b->mb_, b->nb_,
-                   alpha, a->data_, a->stride_,
-                          b->data_, b->stride_);
-        trace_cpu_stop("MediumPurple");
-    }
-
+                                      Tile<FloatType> *b);
+    
     int64_t mb_;
     int64_t nb_;
     int64_t stride_;
@@ -185,28 +124,148 @@ public:
     bool origin_;
 
 protected:
-    size_t size() {
-        return sizeof(FloatType)*mb_*nb_;
-    }
-    void allocate()
-    {
-        trace_cpu_start();
-        data_ = (FloatType*)memory_->alloc(device_num_);
-        trace_cpu_stop("Orchid");
-    }
-    void deallocate()
-    {
-        trace_cpu_start();
-        memory_->free(data_, device_num_);
-        data_ = nullptr;
-        trace_cpu_stop("Crimson");
-    }
+    size_t size() { return sizeof(FloatType)*mb_*nb_; }
+    void allocate();
+    void deallocate();
 
     static int host_num_;
     int device_num_;
 
     Memory *memory_;
 };
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+Tile<FloatType>* Tile<FloatType>::copyDataToHost(const Tile<FloatType> *dst_tile,
+                                cudaStream_t stream)
+{
+    trace_cpu_start();
+    cudaError_t error;
+    error = cudaSetDevice(device_num_);
+    assert(error == cudaSuccess);
+
+    error = cudaMemcpyAsync(dst_tile->data_, data_, size(),
+                            cudaMemcpyDeviceToHost, stream);
+    assert(error == cudaSuccess);
+
+    error = cudaStreamSynchronize(stream);
+    assert(error == cudaSuccess);
+    trace_cpu_stop("Gray");
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+Tile<FloatType>* Tile<FloatType>::copyDataToDevice(const Tile<FloatType> *dst_tile,
+                                  cudaStream_t stream)
+{
+    trace_cpu_start();
+    cudaError_t error;
+    error = cudaSetDevice(dst_tile->device_num_);
+    assert(error == cudaSuccess);
+
+    error = cudaMemcpyAsync(dst_tile->data_, data_, size(),
+                            cudaMemcpyHostToDevice, stream);
+    assert(error == cudaSuccess);
+
+    error = cudaStreamSynchronize(stream);
+    assert(error == cudaSuccess);
+    trace_cpu_stop("LightGray");
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void Tile<FloatType>::gemm(blas::Op transa, blas::Op transb,
+                 FloatType alpha, Tile<FloatType> *a,
+                                  Tile<FloatType> *b,
+                 FloatType beta,  Tile<FloatType> *c)
+{
+    trace_cpu_start();
+    blas::gemm(blas::Layout::ColMajor,
+               transa, transb,
+               c->mb_, c->nb_, a->nb_,
+               alpha, a->data_, a->stride_,
+                      b->data_, b->stride_,
+               beta,  c->data_, c->stride_);
+    trace_cpu_stop("MediumAquamarine");
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void Tile<FloatType>::potrf(blas::Uplo uplo, Tile<FloatType> *a)
+{
+    trace_cpu_start();
+    lapack::potrf(blas::Layout::ColMajor,
+                  uplo,
+                  a->nb_,
+                  a->data_, a->stride_);
+    trace_cpu_stop("RosyBrown");
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void Tile<FloatType>::syrk(blas::Uplo uplo, blas::Op trans,
+                 FloatType alpha, Tile<FloatType> *a,
+                 FloatType beta,  Tile<FloatType> *c)
+{
+    trace_cpu_start();
+    blas::syrk(blas::Layout::ColMajor,
+               uplo, trans,
+               c->nb_, a->nb_,
+               alpha, a->data_, a->stride_,
+               beta,  c->data_, c->stride_);
+    trace_cpu_stop("CornflowerBlue");
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void Tile<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
+                 blas::Op transa, blas::Diag diag,
+                 FloatType alpha, Tile<FloatType> *a,
+                                  Tile<FloatType> *b)
+{
+    trace_cpu_start();
+    blas::trsm(blas::Layout::ColMajor,
+               side, uplo, transa, diag,
+               b->mb_, b->nb_,
+               alpha, a->data_, a->stride_,
+                      b->data_, b->stride_);
+    trace_cpu_stop("MediumPurple");
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void Tile<FloatType>::allocate()
+{
+    trace_cpu_start();
+    data_ = (FloatType*)memory_->alloc(device_num_);
+    trace_cpu_stop("Orchid");
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void Tile<FloatType>::deallocate()
+{
+    trace_cpu_start();
+    memory_->free(data_, device_num_);
+    data_ = nullptr;
+    trace_cpu_stop("Crimson");
+}
 
 } // namespace slate
 

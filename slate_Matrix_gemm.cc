@@ -42,7 +42,9 @@
 
 namespace slate {
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 template <Target target>
 void Matrix<FloatType>::gemm(blas::Op opa, blas::Op opb,
@@ -57,7 +59,9 @@ void Matrix<FloatType>::gemm(blas::Op opa, blas::Op opb,
          beta,  c);
 }
 
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename FloatType>
 void Matrix<FloatType>::gemm(internal::TargetType<Target::HostTask>,
                              blas::Op opa, blas::Op opb,

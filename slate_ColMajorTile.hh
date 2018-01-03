@@ -57,6 +57,7 @@ public:
                  FloatType *a, int64_t lda, Memory *memory);
 
     ColMajorTile(const ColMajorTile<FloatType> *src_tile, int dst_device_num);
+
     ~ColMajorTile() { Tile<FloatType>::deallocate(); }
 
     void copyTo(FloatType *a, int64_t lda);

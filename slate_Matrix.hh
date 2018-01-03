@@ -152,6 +152,7 @@ public:
     int64_t tileMb(int64_t i) { return tileMbFunc(it_+i); }
     int64_t tileNb(int64_t j) { return tileNbFunc(jt_+j); }
 
+    //------------------------------
     // node-level memory consistency
     void tileCopyToDevice(int64_t i, int64_t j, int dst_device);
     void tileCopyToHost(int64_t i, int64_t j, int src_device);

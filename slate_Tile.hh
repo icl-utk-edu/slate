@@ -86,6 +86,8 @@ public:
         : mb_(mb), nb_(nb), memory_(memory),
           device_num_(host_num_), valid_(true), origin_(false) {}
 
+    virtual ~Tile() {}
+
     virtual void copyTo(FloatType *a, int64_t lda) = 0;
     virtual void copyFrom(FloatType *a, int64_t lda) = 0;
 

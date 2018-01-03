@@ -49,6 +49,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <memory>
 #include <set>
 #include <utility>
 #include <vector>
@@ -209,8 +210,11 @@ public:
     std::function <int64_t (int64_t i)> tileMbFunc;
     std::function <int64_t (int64_t j)> tileNbFunc;
 
-    Map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*> *tiles_;
-    Map<std::tuple<int64_t, int64_t>, int64_t> *lives_;
+    typedef Map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*> TilesMap;
+    typedef Map<std::tuple<int64_t, int64_t>, int64_t> LivesMap;
+
+    std::shared_ptr<TilesMap> tiles_;
+    std::shared_ptr<LivesMap> lives_;
 
     MPI_Comm mpi_comm_;
     MPI_Group mpi_group_;
@@ -244,8 +248,8 @@ template <typename FloatType>
 Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
                           int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q)
 {
-    tiles_ = new Map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*>;
-    lives_ = new Map<std::tuple<int64_t, int64_t>, int64_t>;
+    tiles_ = std::make_shared<TilesMap>();
+    lives_ = std::make_shared<LivesMap>();
 
     it_ = 0;
     jt_ = 0;

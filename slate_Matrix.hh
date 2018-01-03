@@ -94,8 +94,7 @@ public:
            int64_t n1, int64_t n2);
 
     ~Matrix() {
-        // only if not a submatrix
-        // assert(cublasDestroy(cublas_handle_) == CUBLAS_STATUS_SUCCESS);
+        // NOTE: no destruction of auxiliary CUDA/cuBLAS structures
     }
 
     //---------------------------
@@ -212,17 +211,17 @@ public:
     typedef Map<std::tuple<int64_t, int64_t, int>, Tile<FloatType>*> TilesMap;
     typedef Map<std::tuple<int64_t, int64_t>, int64_t> LivesMap;
 
-    std::shared_ptr<TilesMap> tiles_;
-    std::shared_ptr<LivesMap> lives_;
+    std::shared_ptr<TilesMap> tiles_; ///< map of tiles
+    std::shared_ptr<LivesMap> lives_; ///< map of tiles' lives
+    std::shared_ptr<Memory> memory_;  ///< memory allocator
+
+    static int host_num_; ///< host ID
+    int num_devices_;     ///< number of devices
 
     MPI_Comm mpi_comm_;
     MPI_Group mpi_group_;
     int mpi_size_;
     int mpi_rank_;
-
-    static int host_num_; ///< host ID
-    int num_devices_;     ///< number of devices
-    Memory *memory_;      ///< memory allocator
 
     // CUDA streams and cuBLAS handles
     std::vector<cudaStream_t> gemm_stream_;
@@ -285,7 +284,7 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
     initCublasHandles();
     initBatchArrays();
 
-    memory_ = new Memory(sizeof(FloatType)*nb*nb);
+    memory_ = std::make_shared<Memory>(sizeof(FloatType)*nb*nb);
     memory_->addHostBlocks(getMaxHostTiles());
 
     if (a != nullptr)

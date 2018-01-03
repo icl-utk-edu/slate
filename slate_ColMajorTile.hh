@@ -51,10 +51,10 @@ namespace slate {
 template <typename FloatType>
 class ColMajorTile : public Tile<FloatType> {
 public:
-    ColMajorTile(int64_t mb, int64_t nb, Memory *memory);
+    ColMajorTile(int64_t mb, int64_t nb, std::weak_ptr<Memory> memory);
 
     ColMajorTile(int64_t mb, int64_t nb,
-                 FloatType *a, int64_t lda, Memory *memory);
+                 FloatType *a, int64_t lda, std::weak_ptr<Memory> memory);
 
     ColMajorTile(const ColMajorTile<FloatType> *src_tile, int dst_device_num);
 
@@ -71,7 +71,8 @@ public:
 /// \brief
 ///
 template <typename FloatType>
-ColMajorTile<FloatType>::ColMajorTile(int64_t mb, int64_t nb, Memory *memory)
+ColMajorTile<FloatType>::ColMajorTile(int64_t mb, int64_t nb,
+                                      std::weak_ptr<Memory> memory)
     : Tile<FloatType>(mb, nb, memory)
 {
     this->stride_ = this->mb_;
@@ -83,7 +84,8 @@ ColMajorTile<FloatType>::ColMajorTile(int64_t mb, int64_t nb, Memory *memory)
 ///
 template <typename FloatType>
 ColMajorTile<FloatType>::ColMajorTile(int64_t mb, int64_t nb,
-                                      FloatType *a, int64_t lda, Memory *memory)
+                                      FloatType *a, int64_t lda,
+                                      std::weak_ptr<Memory> memory)
     : Tile<FloatType>(mb, nb, memory)
 {
     this->stride_ = this->mb_;

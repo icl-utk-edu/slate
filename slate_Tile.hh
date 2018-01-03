@@ -49,6 +49,7 @@
 #include <cstdlib>
 #include <cassert>
 #include <cstring>
+#include <memory>
 
 #ifdef SLATE_WITH_CUDA
     #include <cuda_runtime.h>
@@ -82,7 +83,7 @@ class Tile {
 public:
     Tile() {}
 
-    Tile(int64_t mb, int64_t nb, Memory *memory)
+    Tile(int64_t mb, int64_t nb, std::weak_ptr<Memory> memory)
         : mb_(mb), nb_(nb), memory_(memory),
           device_num_(host_num_), valid_(true), origin_(false) {}
 
@@ -133,7 +134,7 @@ protected:
     static int host_num_;
     int device_num_;
 
-    Memory *memory_;
+    std::weak_ptr<Memory> memory_;
 };
 
 ///-----------------------------------------------------------------------------
@@ -253,7 +254,7 @@ template <typename FloatType>
 void Tile<FloatType>::allocate()
 {
     trace_cpu_start();
-    data_ = (FloatType*)memory_->alloc(device_num_);
+    data_ = (FloatType*)memory_.lock()->alloc(device_num_);
     trace_cpu_stop("Orchid");
 }
 
@@ -264,7 +265,7 @@ template <typename FloatType>
 void Tile<FloatType>::deallocate()
 {
     trace_cpu_start();
-    memory_->free(data_, device_num_);
+    memory_.lock()->free(data_, device_num_);
     data_ = nullptr;
     trace_cpu_stop("Crimson");
 }

@@ -53,7 +53,6 @@
 #include <set>
 #include <utility>
 #include <vector>
-#include <iostream>
 
 #ifdef SLATE_WITH_CUDA
     #include <cublas_v2.h>

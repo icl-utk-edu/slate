@@ -43,6 +43,8 @@
 #include "slate_Matrix.hh"
 #include "slate_Memory.hh"
 
+#include <iostream>
+
 #ifdef SLATE_WITH_CUDA
     #include <cuda_runtime.h>
 #else

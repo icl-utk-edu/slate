@@ -95,6 +95,7 @@ public:
 
     ~Matrix() {
         // NOTE: no destruction of auxiliary CUDA/cuBLAS structures
+        //       Perhaps this could be handled in BBLAS++.
     }
 
     //---------------------------
@@ -166,22 +167,15 @@ public:
     void tileRecv(int64_t i, int64_t j, int src);
 
     template <Target target = Target::Host>
-    void tileSend(int64_t m, int64_t n,
-                  std::array<int64_t, 4> range);
+    void tileSend(int64_t i, int64_t j, Matrix &&a);
 
     template <Target target = Target::Host>
-    void tileSend(int64_t m, int64_t n,
-                  std::array<int64_t, 4> range1,
-                  std::array<int64_t, 4> range2);
-
-    void tileSendFindRanks(int64_t i, int64_t j,
-                           std::array<int64_t, 4> range,
-                           std::set<int> *bcast_set);
-
-    int64_t tileSendFindLife(int64_t i, int64_t j,
-                             std::array<int64_t, 4> range);
+    void tileSend(int64_t i, int64_t j, Matrix &&a1, Matrix &&a2);
 
     void tileSend(int64_t i, int64_t j, std::set<int> &bcast_set);
+
+    void tileSendFindRanks(Matrix &a, std::set<int> *bcast_set);
+    int64_t tileSendFindLife(Matrix &a);
 
     //-------------------------
     // auxiliary CUDA functions
@@ -630,13 +624,12 @@ void Matrix<FloatType>::tileRecv(int64_t i, int64_t j, int src)
 ///
 template <typename FloatType>
 template <Target target>
-void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
-                                 std::array<int64_t, 4> range)
+void Matrix<FloatType>::tileSend(int64_t i, int64_t j, Matrix &&a)
 {
     // Find the set of participating ranks.
     std::set<int> bcast_set;
     bcast_set.insert(tileRank(i, j));
-    tileSendFindRanks(i, j, range, &bcast_set);
+    tileSendFindRanks(a, &bcast_set);
 
     // If contained in the set.
     if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
@@ -650,7 +643,7 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
             (*this)(i, j) = tile;
 
             // Find the tile's life.
-            (*lives_)[{it_+i, jt_+j}] = tileSendFindLife(i, j, range);
+            (*lives_)[{it_+i, jt_+j}] = tileSendFindLife(a);
         }
         // Send across MPI ranks.
         tileSend(i, j, bcast_set);
@@ -667,15 +660,13 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
 ///
 template <typename FloatType>
 template <Target target>
-void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
-                                 std::array<int64_t, 4> range1,
-                                 std::array<int64_t, 4> range2)
+void Matrix<FloatType>::tileSend(int64_t i, int64_t j, Matrix &&a1, Matrix &&a2)
 {
     // Find the set of participating ranks.
     std::set<int> bcast_set;
     bcast_set.insert(tileRank(i, j));
-    tileSendFindRanks(i, j, range1, &bcast_set);
-    tileSendFindRanks(i, j, range2, &bcast_set);
+    tileSendFindRanks(a1, &bcast_set);
+    tileSendFindRanks(a2, &bcast_set);
 
     // If contained in the set.
     if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
@@ -689,8 +680,8 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
             (*this)(i, j) = tile;
 
             // Find the tile's life.
-            (*lives_)[{it_+i, jt_+j}]  = tileSendFindLife(i, j, range1);
-            (*lives_)[{it_+i, jt_+j}] += tileSendFindLife(i, j, range2);
+            (*lives_)[{it_+i, jt_+j}]  = tileSendFindLife(a1);
+            (*lives_)[{it_+i, jt_+j}] += tileSendFindLife(a2);
         }
         // Send across MPI ranks.
         tileSend(i, j, bcast_set);
@@ -700,47 +691,6 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j,
             for (int device = 0; device < num_devices_; ++device)
                 tileCopyToDevice(i, j, device);
     }
-}
-
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename FloatType>
-void Matrix<FloatType>::tileSendFindRanks(int64_t i, int64_t j,
-                                          std::array<int64_t, 4> range,
-                                          std::set<int> *bcast_set)
-{
-    int64_t i1 = range[0];
-    int64_t i2 = range[1];
-    int64_t j1 = range[2];
-    int64_t j2 = range[3];
-
-    // Find the set of participating ranks.
-    for (int64_t i = i1; i <= i2; ++i)
-        for (int64_t j = j1; j <= j2; ++j)
-            bcast_set->insert(tileRank(i, j));
-}
-
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename FloatType>
-int64_t Matrix<FloatType>::tileSendFindLife(int64_t i, int64_t j,
-                                            std::array<int64_t, 4> range)
-{
-    int64_t i1 = range[0];
-    int64_t i2 = range[1];
-    int64_t j1 = range[2];
-    int64_t j2 = range[3];
-
-    // Find the tile's lifespan.
-    int64_t life = 0;
-    for (int64_t i = i1; i <= i2; ++i)
-        for (int64_t j = j1; j <= j2; ++j)
-            if (tileIsLocal(i, j))
-                ++life;
-
-    return life;
 }
 
 ///-----------------------------------------------------------------------------
@@ -803,6 +753,34 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, std::set<int> &bcast_set)
     #pragma omp critical(slate_mpi)
     retval = MPI_Comm_free(&bcast_comm);
     assert(retval == MPI_SUCCESS);
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void Matrix<FloatType>::tileSendFindRanks(Matrix &a, std::set<int> *bcast_set)
+{
+    // Find the set of participating ranks.
+    for (int64_t i = 0; i < a.mt_; ++i)
+        for (int64_t j = 0; j < a.nt_; ++j)
+            bcast_set->insert(a.tileRank(i, j));
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+int64_t Matrix<FloatType>::tileSendFindLife(Matrix &a)
+{
+    // Find the tile's lifespan.
+    int64_t life = 0;
+    for (int64_t i = 0; i < a.mt_; ++i)
+        for (int64_t j = 0; j < a.nt_; ++j)
+            if (a.tileIsLocal(i, j))
+                ++life;
+
+    return life;
 }
 
 ///-----------------------------------------------------------------------------

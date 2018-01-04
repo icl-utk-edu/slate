@@ -65,7 +65,7 @@ void potrf(TargetType<target>,
             potrf<Target::HostTask>(uplo, a(k, k, k, k));
 
             if (k+1 <= a.nt_-1)
-                a.tileSend(k, k, {k+1, a.nt_-1, k, k});
+                a.tileSend(k, k, a(k+1, a.nt_-1, k, k));
 
             if (k+1 <= a.nt_-1)
                 Matrix<FloatType>::template
@@ -76,8 +76,8 @@ void potrf(TargetType<target>,
                          a(k+1, a.nt_-1, k, k));
 
             for (int64_t m = k+1; m < a.nt_; ++m)
-                a.tileSend(m, k, {m, m, k+1, m},
-                                 {m, a.nt_-1, m, m});
+                a.tileSend(m, k, a(m, m, k+1, m),
+                                 a(m, a.nt_-1, m, m));
         }
         // lookahead column(s)
         for (int64_t n = k+1; n < k+1+lookahead && n < a.nt_; ++n) {
@@ -145,7 +145,7 @@ void potrf(TargetType<Target::Devices>,
             potrf<Target::HostTask>(uplo, a(k, k, k, k));
 
             if (k+1 <= a.nt_-1)
-                a.tileSend(k, k, {k+1, a.nt_-1, k, k});
+                a.tileSend(k, k, a(k+1, a.nt_-1, k, k));
 
             if (k+1 <= a.nt_-1)
                 Matrix<FloatType>::template
@@ -157,8 +157,8 @@ void potrf(TargetType<Target::Devices>,
 
             for (int64_t m = k+1; m < a.nt_; ++m)
                 a.template tileSend<Target::Devices>(
-                    m, k, {m, m, k+1, m},
-                          {m, a.nt_-1, m, m});
+                    m, k, a(m, m, k+1, m),
+                          a(m, a.nt_-1, m, m));
         }
         // trailing submatrix
         if (k+1+lookahead < a.nt_)

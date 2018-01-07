@@ -105,6 +105,7 @@ public:
     void copyFrom(FloatType *a, int64_t lda);
     void copyFromFull(FloatType *a, int64_t lda);
     void gather();
+    void gather(FloatType *a, int64_t lda);
     void clean();
 
 // TODO: Friend global computational functions.
@@ -424,6 +425,38 @@ void Matrix<FloatType>::gather()
 /// \brief
 ///
 template <typename FloatType>
+void Matrix<FloatType>::gather(FloatType *a, int64_t lda)
+{
+    int64_t m = 0;
+    for (int64_t i = 0; i < mt_; ++i) {
+        int64_t n = 0;
+        for (int64_t j = 0; j <= i && j < nt_; ++j) {
+            if (mpi_rank_ == 0) {
+                if (!tileIsLocal(i, j)) {
+
+                   (*this)(i, j) =
+                        new ColMajorTile<FloatType>(
+                            tileMb(i), tileNb(j),
+                            &a[(size_t)lda*n+m], lda,
+                            memory_);
+
+                    tileRecv(i, j, tileRank(i, j));
+                }
+            }
+            else {
+                if (tileIsLocal(i, j))
+                    tileSend(i, j, 0);
+            }
+            n += tileNb(j);
+        }
+        m += tileMb(i);
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
 void Matrix<FloatType>::clean()
 {
     for (auto it = tiles_->begin(); it != tiles_->end(); ++it) {
@@ -592,12 +625,39 @@ void Matrix<FloatType>::tileTick(int64_t i, int64_t j)
 template <typename FloatType>
 void Matrix<FloatType>::tileSend(int64_t i, int64_t j, int dest)
 {
+    // Tile<FloatType> *tile = (*this)(i, j);
+    // int count = tile->mb_*tile->nb_;
+    // int tag = 0;
+    // int retval;
+
+    // #pragma omp critical(slate_mpi)
+    // retval = MPI_Send(tile->data_, count, MPI_DOUBLE, dest, tag, mpi_comm_);
+    // assert(retval == MPI_SUCCESS);
+
+
+
     Tile<FloatType> *tile = (*this)(i, j);
-    int count = tile->mb_*tile->nb_;
-    int tag = 0;
+    int count = tile->nb_;
+    int blocklength = tile->mb_;
+    int stride = tile->stride_;
+    MPI_Datatype newtype;
     int retval;
+
     #pragma omp critical(slate_mpi)
-    retval = MPI_Send(tile->data_, count, MPI_DOUBLE, dest, tag, mpi_comm_);
+    retval = MPI_Type_vector(count, blocklength, stride, MPI_DOUBLE, &newtype);
+    assert(retval == MPI_SUCCESS);
+
+    #pragma omp critical(slate_mpi)
+    retval = MPI_Type_commit(&newtype);
+    assert(retval == MPI_SUCCESS);
+
+    int tag = 0;
+    #pragma omp critical(slate_mpi)
+    retval = MPI_Send(tile->data_, 1, newtype, dest, tag, mpi_comm_);
+    assert(retval == MPI_SUCCESS);
+
+    #pragma omp critical(slate_mpi)
+    retval = MPI_Type_free(&newtype);
     assert(retval == MPI_SUCCESS);
 }
 
@@ -607,15 +667,45 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, int dest)
 template <typename FloatType>
 void Matrix<FloatType>::tileRecv(int64_t i, int64_t j, int src)
 {
-    Tile<FloatType> *tile =
-        new ColMajorTile<FloatType>(tileMb(i), tileNb(j), memory_);
-    (*this)(i, j) = tile;
-    int count = tile->mb_*tile->nb_;
-    int tag = 0;
+    // // Tile<FloatType> *tile =
+    // //     new ColMajorTile<FloatType>(tileMb(i), tileNb(j), memory_);
+    // // (*this)(i, j) = tile;
+
+    // Tile<FloatType> *tile = (*this)(i, j);
+    // int count = tile->mb_*tile->nb_;
+    // int tag = 0;
+    // int retval;
+
+    // #pragma omp critical(slate_mpi)
+    // retval = MPI_Recv(tile->data_, count, MPI_DOUBLE, src, tag, mpi_comm_,
+    //                   MPI_STATUS_IGNORE);
+    // assert(retval == MPI_SUCCESS);
+
+
+
+    Tile<FloatType> *tile = (*this)(i, j);
+    int count = tile->nb_;
+    int blocklength = tile->mb_;
+    int stride = tile->stride_;
+    MPI_Datatype newtype;
     int retval;
+
     #pragma omp critical(slate_mpi)
-    retval = MPI_Recv(tile->data_, count, MPI_DOUBLE, src, tag, mpi_comm_,
+    retval = MPI_Type_vector(count, blocklength, stride, MPI_DOUBLE, &newtype);
+    assert(retval == MPI_SUCCESS);
+
+    #pragma omp critical(slate_mpi)
+    retval = MPI_Type_commit(&newtype);
+    assert(retval == MPI_SUCCESS);
+
+    int tag = 0;
+    #pragma omp critical(slate_mpi)
+    retval = MPI_Recv(tile->data_, 1, newtype, src, tag, mpi_comm_,
                       MPI_STATUS_IGNORE);
+    assert(retval == MPI_SUCCESS);
+
+    #pragma omp critical(slate_mpi)
+    retval = MPI_Type_free(&newtype);
     assert(retval == MPI_SUCCESS);
 }
 
@@ -738,11 +828,34 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, std::set<int> &bcast_set)
     assert(retval == MPI_SUCCESS);
 
     // Do the broadcast.
+    // Tile<FloatType> *tile = (*this)(i, j);
+    // int count = tile->mb_*tile->nb_;
+
+
+
     Tile<FloatType> *tile = (*this)(i, j);
-    int count = tile->mb_*tile->nb_;
+    int count = tile->nb_;
+    int blocklength = tile->mb_;
+    int stride = tile->stride_;
+    MPI_Datatype newtype;
+
     #pragma omp critical(slate_mpi)
-    retval = MPI_Bcast(tile->data_, count, MPI_DOUBLE, bcast_root, bcast_comm);
+    retval = MPI_Type_vector(count, blocklength, stride, MPI_DOUBLE, &newtype);
     assert(retval == MPI_SUCCESS);
+
+    #pragma omp critical(slate_mpi)
+    retval = MPI_Type_commit(&newtype);
+    assert(retval == MPI_SUCCESS);
+
+    #pragma omp critical(slate_mpi)
+    retval = MPI_Bcast(tile->data_, 1, newtype, bcast_root, bcast_comm);
+    assert(retval == MPI_SUCCESS);
+
+    #pragma omp critical(slate_mpi)
+    retval = MPI_Type_free(&newtype);
+    assert(retval == MPI_SUCCESS);
+
+
 
     // Free the group.
     #pragma omp critical(slate_mpi)

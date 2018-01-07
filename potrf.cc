@@ -1,5 +1,6 @@
 
 #include "slate.hh"
+#include "slate_Debug.hh"
 
 #include <cassert>
 #include <cmath>
@@ -22,12 +23,6 @@
 extern "C" void trace_on();
 extern "C" void trace_off();
 extern "C" void trace_finish();
-
-void print_lapack_matrix(int64_t m, int64_t n, double *a, int64_t lda,
-                         int64_t mb, int64_t nb);
-void diff_lapack_matrices(int64_t m, int64_t n, double *a, int64_t lda,
-                          double *b, int64_t ldb,
-                          int64_t mb, int64_t nb);
 
 //------------------------------------------------------------------------------
 int main (int argc, char *argv[])
@@ -119,15 +114,15 @@ int main (int argc, char *argv[])
     //------------------
     // Test correctness.
     if (test) {
-        a.gather();
+        a.gather(a1, lda);
 
         if (mpi_rank == 0) {
 
             retval = LAPACKE_dpotrf(LAPACK_COL_MAJOR, 'L', n, a2, lda);
             assert(retval == 0);
 
-            a.copyFromFull(a1, lda);
-            diff_lapack_matrices(n, n, a1, lda, a2, lda, nb, nb);
+            // a.copyFromFull(a1, lda);
+            slate::Debug::diffLapackMatrices(n, n, a1, lda, a2, lda, nb, nb);
 
             cblas_daxpy((size_t)lda*n, -1.0, a1, 1, a2, 1);
             double norm =
@@ -145,51 +140,4 @@ int main (int argc, char *argv[])
     }
 
     return EXIT_SUCCESS;
-}
-
-//------------------------------------------------------------------------------
-void print_lapack_matrix(int64_t m, int64_t n, double *a, int64_t lda,
-                         int64_t mb, int64_t nb)
-{
-    for (int64_t i = 0; i < m; ++i) {
-        for (int64_t j = 0; j < n; ++j) {
-            printf("%8.2lf", a[(size_t)lda*j+i]);
-            if ((j+1)%nb == 0)
-                printf(" |");
-        }
-        printf("\n");
-        if ((i+1)%mb == 0) {
-            for (int64_t j = 0; j < (n+1)*8; ++j) {
-                printf("-");
-            }
-            printf("\n");        
-        }
-    }
-    printf("\n");
-}
-
-//------------------------------------------------------------------------------
-void diff_lapack_matrices(int64_t m, int64_t n, double *a, int64_t lda,
-                          double *b, int64_t ldb, int64_t mb, int64_t nb)
-{
-    for (int64_t i = 0; i < m; ++i) {
-        if (i%mb == 2)
-            i += mb-4;
-        for (int64_t j = 0; j < n; ++j) {
-            if (j%nb == 2)
-                j += nb-4;
-            double error = a[(size_t)lda*j+i] - b[(size_t)lda*j+i];
-            printf("%c", error < 0.000001 ? '.' : '#');
-            if ((j+1)%nb == 0)
-                printf("|");
-        }
-        printf("\n");
-        if ((i+1)%mb == 0) {
-            for (int64_t j = 0; j < (n/nb)*5; ++j) {
-                printf("-");
-            }
-            printf("\n");        
-        }
-    }
-    printf("\n");
 }

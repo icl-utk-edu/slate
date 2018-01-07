@@ -141,6 +141,22 @@ int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest,
     assert(0);
 }
 
+int MPI_Type_commit(MPI_Datatype *datatype)
+{
+    assert(0);
+}
+
+int MPI_Type_free(MPI_Datatype *datatype)
+{
+    assert(0);
+}
+
+int MPI_Type_vector(int count, int blocklength, int stride,
+                    MPI_Datatype oldtype, MPI_Datatype *newtype)
+{
+    assert(0);
+}
+
 int MPI_Wait(MPI_Request *request, MPI_Status *status)
 {
     assert(0);

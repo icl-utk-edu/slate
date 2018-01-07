@@ -79,6 +79,14 @@ cudaError_t cudaMallocHost(void **ptr, size_t size)
     assert(0);
 }
 
+cudaError_t cudaMemcpy2DAsync(void* dst, size_t dpitch,
+                              const void* src, size_t spitch,
+                              size_t width, size_t height,
+                              cudaMemcpyKind kind, cudaStream_t stream)
+{
+    assert(0);
+}
+
 cudaError_t cudaMemcpyAsync(void *dst, const void *src, size_t count,
                             cudaMemcpyKind kind, cudaStream_t stream)
 {

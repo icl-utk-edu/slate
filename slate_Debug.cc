@@ -45,6 +45,43 @@ namespace slate {
 /// \brief
 ///
 template <typename FloatType>
+void Debug::diffLapackMatrices(int64_t m, int64_t n,
+                               FloatType *a, int64_t lda,
+                               FloatType *b, int64_t ldb,
+                               int64_t mb, int64_t nb)
+{
+    for (int64_t i = 0; i < m; ++i) {
+
+        if (i%mb == 2)
+            i += mb-4;
+
+        for (int64_t j = 0; j < n; ++j) {
+
+            if (j%nb == 2)
+                j += nb-4;
+
+            FloatType error = a[(size_t)lda*j+i] - b[(size_t)lda*j+i];
+            printf("%c", error < 0.00000000000001 ? '.' : '#');
+
+            if ((j+1)%nb == 0)
+                printf("|");
+        }
+        printf("\n");
+
+        if ((i+1)%mb == 0) {
+            for (int64_t j = 0; j < (n/nb)*5; ++j) {
+                printf("-");
+            }
+            printf("\n");        
+        }
+    }
+    printf("\n");
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
 void Debug::checkTilesLives(Matrix<FloatType> &a)
 {
     for (auto it = a.tiles_->begin(); it != a.tiles_->end(); ++it) {
@@ -136,7 +173,12 @@ void Debug::printNumFreeMemBlocks(Memory &m)
 }
 
 //------------------------------------------------------------------------------
-template 
+template
+void Debug::diffLapackMatrices(int64_t m, int64_t n,
+                               double *a, int64_t lda,
+                               double *b, int64_t ldb,
+                               int64_t mb, int64_t nb);
+template
 void Debug::checkTilesLives(Matrix<double> &a);
 
 template

@@ -71,6 +71,13 @@ namespace slate {
 ///
 class Debug {
 public:
+    //--------
+    // generic
+    template <typename FloatType>
+    static void diffLapackMatrices(int64_t m, int64_t n,
+                                   FloatType *a, int64_t lda,
+                                   FloatType *b, int64_t ldb,
+                                   int64_t mb, int64_t nb);
     //-------------
     // Matrix class
     template <typename FloatType>

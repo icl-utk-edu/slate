@@ -100,6 +100,13 @@ int MPI_Request_free(MPI_Request *request);
 int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest,
              int tag, MPI_Comm comm);
 
+int MPI_Type_commit(MPI_Datatype *datatype);
+
+int MPI_Type_free(MPI_Datatype *datatype);
+
+int MPI_Type_vector(int count, int blocklength, int stride,
+                    MPI_Datatype oldtype, MPI_Datatype *newtype);
+
 int MPI_Wait(MPI_Request *request, MPI_Status *status);
 
 #ifdef __cplusplus

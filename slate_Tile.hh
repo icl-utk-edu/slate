@@ -83,9 +83,12 @@ class Tile {
 public:
     Tile() {}
 
-    Tile(int64_t mb, int64_t nb, std::weak_ptr<Memory> memory)
-        : mb_(mb), nb_(nb), memory_(memory),
-          device_num_(host_num_), valid_(true), origin_(false) {}
+    Tile(int64_t mb, int64_t nb,
+         std::weak_ptr<Memory> memory);
+
+    Tile(int64_t mb, int64_t nb,
+         FloatType *a, int64_t lda,
+         std::weak_ptr<Memory> memory);
 
     virtual ~Tile() {}
 
@@ -141,7 +144,34 @@ protected:
 /// \brief
 ///
 template <typename FloatType>
-Tile<FloatType>* Tile<FloatType>::copyDataToHost(const Tile<FloatType> *dst_tile,
+Tile<FloatType>::Tile(int64_t mb, int64_t nb,
+                      std::weak_ptr<Memory> memory)
+
+    : mb_(mb), nb_(nb),
+      memory_(memory),
+      device_num_(host_num_),
+      valid_(true), origin_(false) {}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+Tile<FloatType>::Tile(int64_t mb, int64_t nb,
+                      FloatType *a, int64_t lda,
+                      std::weak_ptr<Memory> memory)
+
+    : mb_(mb), nb_(nb),
+      data_(a), stride_(lda),
+      memory_(memory),
+      device_num_(host_num_),
+      valid_(true), origin_(true) {}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+Tile<FloatType>*
+Tile<FloatType>::copyDataToHost(const Tile<FloatType> *dst_tile,
                                 cudaStream_t stream)
 {
     trace_cpu_start();
@@ -149,9 +179,32 @@ Tile<FloatType>* Tile<FloatType>::copyDataToHost(const Tile<FloatType> *dst_tile
     error = cudaSetDevice(device_num_);
     assert(error == cudaSuccess);
 
-    error = cudaMemcpyAsync(dst_tile->data_, data_, size(),
-                            cudaMemcpyDeviceToHost, stream);
-    assert(error == cudaSuccess);
+    // If no stride on both sides.
+    if (stride_ == mb_ &&
+        dst_tile->stride_ == dst_tile->mb_) {
+
+        // Use simple copy.
+        error = cudaMemcpyAsync(
+            dst_tile->data_, data_, size(),
+            cudaMemcpyDeviceToHost, stream);
+        assert(error == cudaSuccess);
+    }
+    else {
+        // Otherwise, use 2D copy.
+        void* dst = dst_tile->data_;
+        const void* src = data_;
+        size_t dpitch = sizeof(FloatType)*dst_tile->stride_;
+        size_t spitch = sizeof(FloatType)*stride_;
+        size_t width = sizeof(FloatType)*mb_;
+        size_t height = nb_;
+
+        error = cudaMemcpy2DAsync(
+            dst, dpitch,
+            src, spitch,
+            width, height,
+            cudaMemcpyDeviceToHost, stream);
+        assert(error == cudaSuccess);
+    }
 
     error = cudaStreamSynchronize(stream);
     assert(error == cudaSuccess);
@@ -162,7 +215,8 @@ Tile<FloatType>* Tile<FloatType>::copyDataToHost(const Tile<FloatType> *dst_tile
 /// \brief
 ///
 template <typename FloatType>
-Tile<FloatType>* Tile<FloatType>::copyDataToDevice(const Tile<FloatType> *dst_tile,
+Tile<FloatType>*
+Tile<FloatType>::copyDataToDevice(const Tile<FloatType> *dst_tile,
                                   cudaStream_t stream)
 {
     trace_cpu_start();
@@ -170,9 +224,32 @@ Tile<FloatType>* Tile<FloatType>::copyDataToDevice(const Tile<FloatType> *dst_ti
     error = cudaSetDevice(dst_tile->device_num_);
     assert(error == cudaSuccess);
 
-    error = cudaMemcpyAsync(dst_tile->data_, data_, size(),
-                            cudaMemcpyHostToDevice, stream);
-    assert(error == cudaSuccess);
+    // If no stride on both sides.
+    if (stride_ == mb_ &&
+        dst_tile->stride_ == dst_tile->mb_) {
+
+        // Use simple copy.
+        error = cudaMemcpyAsync(
+            dst_tile->data_, data_, size(),
+            cudaMemcpyHostToDevice, stream);
+        assert(error == cudaSuccess);
+    }
+    else {
+        // Otherwise, use 2D copy.
+        void* dst = dst_tile->data_;
+        const void* src = data_;
+        size_t dpitch = sizeof(FloatType)*dst_tile->stride_;
+        size_t spitch = sizeof(FloatType)*stride_;
+        size_t width = sizeof(FloatType)*mb_;
+        size_t height = nb_;
+
+        error = cudaMemcpy2DAsync(
+            dst, dpitch,
+            src, spitch,
+            width, height,
+            cudaMemcpyHostToDevice, stream);
+        assert(error == cudaSuccess);
+    }
 
     error = cudaStreamSynchronize(stream);
     assert(error == cudaSuccess);

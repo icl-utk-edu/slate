@@ -51,10 +51,12 @@ namespace slate {
 template <typename FloatType>
 class ColMajorTile : public Tile<FloatType> {
 public:
-    ColMajorTile(int64_t mb, int64_t nb, std::weak_ptr<Memory> memory);
+    ColMajorTile(int64_t mb, int64_t nb,
+                 std::weak_ptr<Memory> memory);
 
     ColMajorTile(int64_t mb, int64_t nb,
-                 FloatType *a, int64_t lda, std::weak_ptr<Memory> memory);
+                 FloatType *a, int64_t lda,
+                 std::weak_ptr<Memory> memory);
 
     ColMajorTile(const ColMajorTile<FloatType> *src_tile, int dst_device_num);
 
@@ -86,12 +88,9 @@ template <typename FloatType>
 ColMajorTile<FloatType>::ColMajorTile(int64_t mb, int64_t nb,
                                       FloatType *a, int64_t lda,
                                       std::weak_ptr<Memory> memory)
-    : Tile<FloatType>(mb, nb, memory)
-{
-    this->stride_ = this->mb_;
-    Tile<FloatType>::allocate();
-    copyTo(a, lda);
-}
+    : Tile<FloatType>(mb, nb,
+                      a, lda,
+                      memory) {}
 
 ///-----------------------------------------------------------------------------
 /// \brief
@@ -116,9 +115,10 @@ void ColMajorTile<FloatType>::copyTo(FloatType *a, int64_t lda)
     auto mb_ = this->mb_;
     auto nb_ = this->nb_;
     auto data_ = this->data_;
+    auto stride_ = this->stride_;
 
     for (int64_t n = 0; n < nb_; ++n)
-        memcpy(&data_[n*mb_], &a[n*lda], sizeof(FloatType)*mb_);
+        memcpy(&data_[n*stride_], &a[n*lda], sizeof(FloatType)*mb_);
 }
 
 ///-----------------------------------------------------------------------------
@@ -130,9 +130,10 @@ void ColMajorTile<FloatType>::copyFrom(FloatType *a, int64_t lda)
     auto mb_ = this->mb_;
     auto nb_ = this->nb_;
     auto data_ = this->data_;
+    auto stride_ = this->stride_;
 
     for (int64_t n = 0; n < nb_; ++n)
-        memcpy(&a[n*lda], &data_[n*mb_], sizeof(FloatType)*mb_);
+        memcpy(&a[n*lda], &data_[n*stride_], sizeof(FloatType)*mb_);
 }
 
 ///-----------------------------------------------------------------------------

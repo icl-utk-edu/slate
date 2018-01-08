@@ -84,11 +84,13 @@ public:
     Tile() {}
 
     Tile(int64_t mb, int64_t nb,
-         std::weak_ptr<Memory> memory);
+         std::weak_ptr<Memory> memory,
+         MPI_Comm mpi_comm);
 
     Tile(int64_t mb, int64_t nb,
          FloatType *a, int64_t lda,
-         std::weak_ptr<Memory> memory);
+         std::weak_ptr<Memory> memory,
+         MPI_Comm mpi_comm);
 
     virtual ~Tile() {}
 
@@ -104,6 +106,9 @@ public:
 
     virtual void copyDataToDevice(const Tile<FloatType> *dst_tile,
                                   cudaStream_t stream) = 0;
+
+    virtual void send(int dst) = 0;
+    virtual void recv(int src) = 0;
 
     static void gemm(blas::Op transa, blas::Op transb,
                      FloatType alpha, Tile<FloatType> *a,
@@ -137,6 +142,7 @@ protected:
     static int host_num_;
     int device_num_;
 
+    MPI_Comm mpi_comm_;
     std::weak_ptr<Memory> memory_;
 };
 
@@ -145,10 +151,12 @@ protected:
 ///
 template <typename FloatType>
 Tile<FloatType>::Tile(int64_t mb, int64_t nb,
-                      std::weak_ptr<Memory> memory)
+                      std::weak_ptr<Memory> memory,
+                      MPI_Comm mpi_comm)
 
     : mb_(mb), nb_(nb),
       memory_(memory),
+      mpi_comm_(mpi_comm),
       device_num_(host_num_),
       valid_(true), origin_(false) {}
 
@@ -158,11 +166,13 @@ Tile<FloatType>::Tile(int64_t mb, int64_t nb,
 template <typename FloatType>
 Tile<FloatType>::Tile(int64_t mb, int64_t nb,
                       FloatType *a, int64_t lda,
-                      std::weak_ptr<Memory> memory)
+                      std::weak_ptr<Memory> memory,
+                      MPI_Comm mpi_comm)
 
     : mb_(mb), nb_(nb),
       data_(a), stride_(lda),
       memory_(memory),
+      mpi_comm_(mpi_comm),
       device_num_(host_num_),
       valid_(true), origin_(true) {}
 

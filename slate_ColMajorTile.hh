@@ -52,11 +52,13 @@ template <typename FloatType>
 class ColMajorTile : public Tile<FloatType> {
 public:
     ColMajorTile(int64_t mb, int64_t nb,
-                 std::weak_ptr<Memory> memory);
+                 std::weak_ptr<Memory> memory,
+                 MPI_Comm mpi_comm);
 
     ColMajorTile(int64_t mb, int64_t nb,
                  FloatType *a, int64_t lda,
-                 std::weak_ptr<Memory> memory);
+                 std::weak_ptr<Memory> memory,
+                 MPI_Comm mpi_comm);
 
     ColMajorTile(const ColMajorTile<FloatType> *src_tile, int dst_device_num);
 
@@ -70,6 +72,9 @@ public:
 
     void copyDataToHost(const Tile<FloatType> *dst_tile, cudaStream_t stream);
     void copyDataToDevice(const Tile<FloatType> *dst_tile, cudaStream_t stream);
+
+    void send(int dst);
+    void recv(int src);
 };
 
 ///-----------------------------------------------------------------------------
@@ -77,8 +82,10 @@ public:
 ///
 template <typename FloatType>
 ColMajorTile<FloatType>::ColMajorTile(int64_t mb, int64_t nb,
-                                      std::weak_ptr<Memory> memory)
-    : Tile<FloatType>(mb, nb, memory)
+                                      std::weak_ptr<Memory> memory,
+                                      MPI_Comm mpi_comm)
+    : Tile<FloatType>(
+        mb, nb, memory, mpi_comm)
 {
     this->stride_ = this->mb_;
     Tile<FloatType>::allocate();
@@ -90,10 +97,12 @@ ColMajorTile<FloatType>::ColMajorTile(int64_t mb, int64_t nb,
 template <typename FloatType>
 ColMajorTile<FloatType>::ColMajorTile(int64_t mb, int64_t nb,
                                       FloatType *a, int64_t lda,
-                                      std::weak_ptr<Memory> memory)
+                                      std::weak_ptr<Memory> memory,
+                                      MPI_Comm mpi_comm)
     : Tile<FloatType>(mb, nb,
                       a, lda,
-                      memory) {}
+                      memory,
+                      mpi_comm) {}
 
 ///-----------------------------------------------------------------------------
 /// \brief
@@ -269,6 +278,110 @@ void ColMajorTile<FloatType>::copyDataToDevice(
     error = cudaStreamSynchronize(stream);
     assert(error == cudaSuccess);
     trace_cpu_stop("LightGray");
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void ColMajorTile<FloatType>::send(int dst)
+{
+    // If no stride.
+    if (this->stride_ == this->mb_) {
+
+        // Use simple send.
+        auto data_ = this->data_;
+        int count = this->mb_*this->nb_;
+        int tag = 0;
+        auto mpi_comm_ = this->mpi_comm_;
+        int retval;
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Send(data_, count, MPI_DOUBLE, dst, tag, mpi_comm_);
+        assert(retval == MPI_SUCCESS);
+    }
+    else {
+
+        // Otherwise, use strided send.
+        int count = this->nb_;
+        int blocklength = this->mb_;
+        int stride = this->stride_;
+        auto data_ = this->data_;
+        MPI_Datatype newtype;
+        int tag = 0;
+        auto mpi_comm_ = this->mpi_comm_;
+        int retval;
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Type_vector(
+            count, blocklength, stride, MPI_DOUBLE, &newtype);
+        assert(retval == MPI_SUCCESS);
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Type_commit(&newtype);
+        assert(retval == MPI_SUCCESS);
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Send(data_, 1, newtype, dst, tag, mpi_comm_);
+        assert(retval == MPI_SUCCESS);
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Type_free(&newtype);
+        assert(retval == MPI_SUCCESS);
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void ColMajorTile<FloatType>::recv(int src)
+{
+    // If no stride.
+    if (this->stride_ == this->mb_) {
+
+        // Use simple recv.
+        auto data_ = this->data_;
+        int count = this->mb_*this->nb_;
+        int tag = 0;
+        auto mpi_comm_ = this->mpi_comm_;
+        int retval;
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Recv(
+            data_, count, MPI_DOUBLE, src, tag, mpi_comm_, MPI_STATUS_IGNORE);
+        assert(retval == MPI_SUCCESS);
+    }
+    else {
+
+        // Otherwise, use strided recv. 
+        int count = this->nb_;
+        int blocklength = this->mb_;
+        int stride = this->stride_;
+        auto data_ = this->data_;
+        auto mpi_comm_ = this->mpi_comm_;
+        MPI_Datatype newtype;
+        int retval;
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Type_vector(
+            count, blocklength, stride, MPI_DOUBLE, &newtype);
+        assert(retval == MPI_SUCCESS);
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Type_commit(&newtype);
+        assert(retval == MPI_SUCCESS);
+
+        int tag = 0;
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Recv(
+            data_, 1, newtype, src, tag, mpi_comm_, MPI_STATUS_IGNORE);
+        assert(retval == MPI_SUCCESS);
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Type_free(&newtype);
+        assert(retval == MPI_SUCCESS);
+    }
 }
 
 } // namespace slate

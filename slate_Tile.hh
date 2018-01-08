@@ -99,10 +99,8 @@ public:
     virtual Tile<FloatType>* copyToDevice(int device_num,
                                           cudaStream_t stream) = 0;
 
-    Tile<FloatType>* copyDataToHost(const Tile<FloatType> *dst_tile,
-                                    cudaStream_t stream);
-    Tile<FloatType>* copyDataToDevice(const Tile<FloatType> *dst_tile,
-                                      cudaStream_t stream);
+    void copyDataToHost(const Tile<FloatType> *dst_tile, cudaStream_t stream);
+    void copyDataToDevice(const Tile<FloatType> *dst_tile, cudaStream_t stream);
 
     static void gemm(blas::Op transa, blas::Op transb,
                      FloatType alpha, Tile<FloatType> *a,
@@ -119,7 +117,6 @@ public:
                      blas::Op transa, blas::Diag diag,
                      FloatType alpha, Tile<FloatType> *a,
                                       Tile<FloatType> *b);
-    
     int64_t mb_;
     int64_t nb_;
     int64_t stride_;
@@ -170,9 +167,8 @@ Tile<FloatType>::Tile(int64_t mb, int64_t nb,
 /// \brief
 ///
 template <typename FloatType>
-Tile<FloatType>*
-Tile<FloatType>::copyDataToHost(const Tile<FloatType> *dst_tile,
-                                cudaStream_t stream)
+void Tile<FloatType>::copyDataToHost(const Tile<FloatType> *dst_tile,
+                                     cudaStream_t stream)
 {
     trace_cpu_start();
     cudaError_t error;
@@ -215,9 +211,8 @@ Tile<FloatType>::copyDataToHost(const Tile<FloatType> *dst_tile,
 /// \brief
 ///
 template <typename FloatType>
-Tile<FloatType>*
-Tile<FloatType>::copyDataToDevice(const Tile<FloatType> *dst_tile,
-                                  cudaStream_t stream)
+void Tile<FloatType>::copyDataToDevice(const Tile<FloatType> *dst_tile,
+                                       cudaStream_t stream)
 {
     trace_cpu_start();
     cudaError_t error;

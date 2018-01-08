@@ -109,6 +109,7 @@ public:
 
     virtual void send(int dst) = 0;
     virtual void recv(int src) = 0;
+    virtual void bcast(int bcast_root, MPI_Comm bcast_comm) = 0;
 
     static void gemm(blas::Op transa, blas::Op transb,
                      FloatType alpha, Tile<FloatType> *a,

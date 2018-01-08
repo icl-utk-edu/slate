@@ -75,6 +75,7 @@ public:
 
     void send(int dst);
     void recv(int src);
+    void bcast(int bcast_root, MPI_Comm bcast_comm);
 };
 
 ///-----------------------------------------------------------------------------
@@ -376,6 +377,53 @@ void ColMajorTile<FloatType>::recv(int src)
         #pragma omp critical(slate_mpi)
         retval = MPI_Recv(
             data_, 1, newtype, src, tag, mpi_comm_, MPI_STATUS_IGNORE);
+        assert(retval == MPI_SUCCESS);
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Type_free(&newtype);
+        assert(retval == MPI_SUCCESS);
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void ColMajorTile<FloatType>::bcast(int bcast_root, MPI_Comm bcast_comm)
+{
+    // If no stride.
+    if (this->stride_ == this->mb_) {
+
+        // Use simple bcast.
+        auto data_ = this->data_;
+        int count = this->mb_*this->nb_;
+        int retval;
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Bcast(data_, count, MPI_DOUBLE, bcast_root, bcast_comm);
+        assert(retval == MPI_SUCCESS);
+    }
+    else {
+
+        // Otherwise, use strided bcast.
+        int count = this->nb_;
+        int blocklength = this->mb_;
+        int stride = this->stride_;
+        MPI_Datatype newtype;
+        auto data_ = this->data_;
+        int retval;
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Type_vector(
+            count, blocklength, stride, MPI_DOUBLE, &newtype);
+        assert(retval == MPI_SUCCESS);
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Type_commit(&newtype);
+        assert(retval == MPI_SUCCESS);
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Bcast(data_, 1, newtype, bcast_root, bcast_comm);
         assert(retval == MPI_SUCCESS);
 
         #pragma omp critical(slate_mpi)

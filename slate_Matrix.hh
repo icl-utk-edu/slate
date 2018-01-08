@@ -738,34 +738,7 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, std::set<int> &bcast_set)
     assert(retval == MPI_SUCCESS);
 
     // Do the broadcast.
-    // Tile<FloatType> *tile = (*this)(i, j);
-    // int count = tile->mb_*tile->nb_;
-
-
-
-    Tile<FloatType> *tile = (*this)(i, j);
-    int count = tile->nb_;
-    int blocklength = tile->mb_;
-    int stride = tile->stride_;
-    MPI_Datatype newtype;
-
-    #pragma omp critical(slate_mpi)
-    retval = MPI_Type_vector(count, blocklength, stride, MPI_DOUBLE, &newtype);
-    assert(retval == MPI_SUCCESS);
-
-    #pragma omp critical(slate_mpi)
-    retval = MPI_Type_commit(&newtype);
-    assert(retval == MPI_SUCCESS);
-
-    #pragma omp critical(slate_mpi)
-    retval = MPI_Bcast(tile->data_, 1, newtype, bcast_root, bcast_comm);
-    assert(retval == MPI_SUCCESS);
-
-    #pragma omp critical(slate_mpi)
-    retval = MPI_Type_free(&newtype);
-    assert(retval == MPI_SUCCESS);
-
-
+    (*this)(i, j)->bcast(bcast_root, bcast_comm);
 
     // Free the group.
     #pragma omp critical(slate_mpi)

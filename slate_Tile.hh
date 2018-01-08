@@ -99,8 +99,11 @@ public:
     virtual Tile<FloatType>* copyToDevice(int device_num,
                                           cudaStream_t stream) = 0;
 
-    void copyDataToHost(const Tile<FloatType> *dst_tile, cudaStream_t stream);
-    void copyDataToDevice(const Tile<FloatType> *dst_tile, cudaStream_t stream);
+    virtual void copyDataToHost(const Tile<FloatType> *dst_tile,
+                                cudaStream_t stream) = 0;
+
+    virtual void copyDataToDevice(const Tile<FloatType> *dst_tile,
+                                  cudaStream_t stream) = 0;
 
     static void gemm(blas::Op transa, blas::Op transb,
                      FloatType alpha, Tile<FloatType> *a,
@@ -162,94 +165,6 @@ Tile<FloatType>::Tile(int64_t mb, int64_t nb,
       memory_(memory),
       device_num_(host_num_),
       valid_(true), origin_(true) {}
-
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename FloatType>
-void Tile<FloatType>::copyDataToHost(const Tile<FloatType> *dst_tile,
-                                     cudaStream_t stream)
-{
-    trace_cpu_start();
-    cudaError_t error;
-    error = cudaSetDevice(device_num_);
-    assert(error == cudaSuccess);
-
-    // If no stride on both sides.
-    if (stride_ == mb_ &&
-        dst_tile->stride_ == dst_tile->mb_) {
-
-        // Use simple copy.
-        error = cudaMemcpyAsync(
-            dst_tile->data_, data_, size(),
-            cudaMemcpyDeviceToHost, stream);
-        assert(error == cudaSuccess);
-    }
-    else {
-        // Otherwise, use 2D copy.
-        void* dst = dst_tile->data_;
-        const void* src = data_;
-        size_t dpitch = sizeof(FloatType)*dst_tile->stride_;
-        size_t spitch = sizeof(FloatType)*stride_;
-        size_t width = sizeof(FloatType)*mb_;
-        size_t height = nb_;
-
-        error = cudaMemcpy2DAsync(
-            dst, dpitch,
-            src, spitch,
-            width, height,
-            cudaMemcpyDeviceToHost, stream);
-        assert(error == cudaSuccess);
-    }
-
-    error = cudaStreamSynchronize(stream);
-    assert(error == cudaSuccess);
-    trace_cpu_stop("Gray");
-}
-
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename FloatType>
-void Tile<FloatType>::copyDataToDevice(const Tile<FloatType> *dst_tile,
-                                       cudaStream_t stream)
-{
-    trace_cpu_start();
-    cudaError_t error;
-    error = cudaSetDevice(dst_tile->device_num_);
-    assert(error == cudaSuccess);
-
-    // If no stride on both sides.
-    if (stride_ == mb_ &&
-        dst_tile->stride_ == dst_tile->mb_) {
-
-        // Use simple copy.
-        error = cudaMemcpyAsync(
-            dst_tile->data_, data_, size(),
-            cudaMemcpyHostToDevice, stream);
-        assert(error == cudaSuccess);
-    }
-    else {
-        // Otherwise, use 2D copy.
-        void* dst = dst_tile->data_;
-        const void* src = data_;
-        size_t dpitch = sizeof(FloatType)*dst_tile->stride_;
-        size_t spitch = sizeof(FloatType)*stride_;
-        size_t width = sizeof(FloatType)*mb_;
-        size_t height = nb_;
-
-        error = cudaMemcpy2DAsync(
-            dst, dpitch,
-            src, spitch,
-            width, height,
-            cudaMemcpyHostToDevice, stream);
-        assert(error == cudaSuccess);
-    }
-
-    error = cudaStreamSynchronize(stream);
-    assert(error == cudaSuccess);
-    trace_cpu_stop("LightGray");
-}
 
 ///-----------------------------------------------------------------------------
 /// \brief

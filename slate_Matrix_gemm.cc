@@ -50,7 +50,8 @@ template <Target target>
 void Matrix<FloatType>::gemm(blas::Op opa, blas::Op opb,
                              FloatType alpha, Matrix &&a,
                                               Matrix &&b,
-                             FloatType beta,  Matrix &&c)
+                             FloatType beta,  Matrix &&c,
+                             int priority)
 {
     gemm(internal::TargetType<target>(),
          opa, opb,
@@ -67,13 +68,14 @@ void Matrix<FloatType>::gemm(internal::TargetType<Target::HostTask>,
                              blas::Op opa, blas::Op opb,
                              FloatType alpha, Matrix &a,
                                               Matrix &b,
-                             FloatType beta,  Matrix &c)
+                             FloatType beta,  Matrix &c,
+                             int priority)
 {
     // NoTrans, Trans
     for (int m = 0; m < c.mt_; ++m)
         for (int n = 0; n < c.nt_; ++n)
             if (c.tileIsLocal(m, n))
-                #pragma omp task shared(a, b, c)
+                #pragma omp task shared(a, b, c) priority(priority)
                 {
                     a.tileCopyToHost(m, 0, a.tileDevice(m, 0));
                     b.tileCopyToHost(n, 0, b.tileDevice(n, 0));
@@ -95,6 +97,7 @@ void Matrix<double>::gemm<Target::HostTask>(
     blas::Op opa, blas::Op opb,
     double alpha, Matrix &&a,
                   Matrix &&b,
-    double beta,  Matrix &&c);
+    double beta,  Matrix &&c,
+    int priority);
 
 } // namespace slate

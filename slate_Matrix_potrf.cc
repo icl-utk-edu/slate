@@ -47,7 +47,7 @@ namespace slate {
 ///
 template <typename FloatType>
 template <Target target>
-void Matrix<FloatType>::potrf(blas::Uplo uplo, Matrix &&a)
+void Matrix<FloatType>::potrf(blas::Uplo uplo, Matrix &&a, int priority)
 {
     potrf(internal::TargetType<target>(), uplo, a);
 }
@@ -57,10 +57,10 @@ void Matrix<FloatType>::potrf(blas::Uplo uplo, Matrix &&a)
 ///
 template <typename FloatType>
 void Matrix<FloatType>::potrf(internal::TargetType<Target::HostTask>,
-                              blas::Uplo uplo, Matrix &a)
+                              blas::Uplo uplo, Matrix &a, int priority)
 {
     if (a.tileIsLocal(0, 0))
-        #pragma omp task shared(a)
+        #pragma omp task shared(a) priority(priority)
         {
             a.tileMoveToHost(0, 0, a.tileDevice(0, 0));
             Tile<FloatType>::potrf(uplo, a(0, 0));
@@ -72,6 +72,6 @@ void Matrix<FloatType>::potrf(internal::TargetType<Target::HostTask>,
 //------------------------------------------------------------------------------
 template
 void Matrix<double>::potrf<Target::HostTask>(
-    blas::Uplo uplo, Matrix &&a);
+    blas::Uplo uplo, Matrix &&a, int priority);
 
 } // namespace slate

@@ -62,7 +62,7 @@ void potrf(TargetType<target>,
         #pragma omp task depend(inout:column[k]) priority(1)
         {
             Matrix<FloatType>::template
-            potrf<Target::HostTask>(uplo, a(k, k, k, k));
+            potrf<Target::HostTask>(uplo, a(k, k, k, k), 1);
 
             if (k+1 <= a.nt_-1)
                 a.tileSend(k, k, a(k+1, a.nt_-1, k, k));
@@ -73,7 +73,7 @@ void potrf(TargetType<target>,
                     Side::Right, Uplo::Lower,
                     Op::Trans, Diag::NonUnit,
                     1.0, a(k, k, k, k),
-                         a(k+1, a.nt_-1, k, k));
+                         a(k+1, a.nt_-1, k, k), 1);
 
             for (int64_t m = k+1; m < a.nt_; ++m)
                 a.tileSend(m, k, a(m, m, k+1, m),
@@ -88,7 +88,7 @@ void potrf(TargetType<target>,
                 syrk<Target::HostTask>(
                     Uplo::Lower, Op::NoTrans,
                     -1.0, a(n, n, k, k),
-                     1.0, a(n, n, n, n));
+                     1.0, a(n, n, n, n), 1);
 
                 if (n+1 <= a.nt_-1)
                     Matrix<FloatType>::template
@@ -96,7 +96,7 @@ void potrf(TargetType<target>,
                         Op::NoTrans, Op::Trans,
                         -1.0, a(n+1, a.nt_-1, k, k),
                               a(n, n, k, k),
-                         1.0, a(n+1, a.nt_-1, n, n));
+                         1.0, a(n+1, a.nt_-1, n, n), 1);
             }
         }
         // trailing submatrix

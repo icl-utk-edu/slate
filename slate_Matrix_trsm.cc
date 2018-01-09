@@ -50,7 +50,8 @@ template <Target target>
 void Matrix<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
                              blas::Op op, blas::Diag diag,
                              FloatType alpha, Matrix &&a,
-                                              Matrix &&b)
+                                              Matrix &&b,
+                             int priority)
 {
     trsm(internal::TargetType<target>(),
         side, uplo, op, diag,
@@ -65,7 +66,8 @@ void Matrix<FloatType>::trsm(internal::TargetType<Target::HostTask>,
                              blas::Side side, blas::Uplo uplo,
                              blas::Op op, blas::Diag diag,
                              FloatType alpha, Matrix &a,
-                                              Matrix &b)
+                                              Matrix &b,
+                             int priority)
 {
     // Right, Lower, Trans
     for (int64_t m = 0; m < b.mt_; ++m)
@@ -89,6 +91,7 @@ void Matrix<double>::trsm<Target::HostTask>(
     blas::Side side, blas::Uplo uplo,
     blas::Op op, blas::Diag diag,
     double alpha, Matrix &&a,
-                  Matrix &&b);
+                  Matrix &&b,
+    int priority);
 
 } // namespace slate

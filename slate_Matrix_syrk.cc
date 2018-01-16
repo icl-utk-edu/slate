@@ -216,9 +216,9 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostBatch>,
     for (int64_t n = 0; n < c.nt_; ++n)
         for (int64_t m = n+1; m < c.mt_; ++m)
             if (c.tileIsLocal(m, n)) {
-                a_array[i] = a(m, 0)->data_;
-                b_array[i] = a(n, 0)->data_;
-                c_array[i] = c(m, n)->data_;
+                a_array[i] = a(m, 0).data_;
+                b_array[i] = a(n, 0).data_;
+                c_array[i] = c(m, n).data_;
                 ++i;
             }
 
@@ -266,9 +266,9 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::Devices>,
                             a.tileCopyToDevice(m, 0, device);
                             a.tileCopyToDevice(n, 0, device);
                             c.tileMoveToDevice(m, n, device);
-                            c.a_array_h_[device][i] = a(m, 0, device)->data_;
-                            c.b_array_h_[device][i] = a(n, 0, device)->data_;
-                            c.c_array_h_[device][i] = c(m, n, device)->data_;
+                            c.a_array_h_[device][i] = a(m, 0, device).data_;
+                            c.b_array_h_[device][i] = a(n, 0, device).data_;
+                            c.c_array_h_[device][i] = c(m, n, device).data_;
                             ++i;
                         }
             int64_t batch_count = i;

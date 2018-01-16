@@ -112,25 +112,36 @@ public:
 // private:
     //-----------------------------
     // tile and submatrix operators
-    Tile<FloatType>* &operator()(int64_t i, int64_t j)
+    Tile<FloatType> &operator()(int64_t i, int64_t j)
     {
-        return (*tiles_)[{it_+i, jt_+j, host_num_}];
+        return *(*tiles_)[{it_+i, jt_+j, host_num_}];
     }
-    Tile<FloatType>* &operator()(int64_t i, int64_t j) const
+    Tile<FloatType> &operator()(int64_t i, int64_t j) const
     {
-        return (*tiles_)[{it_+i, jt_+j, host_num_}];
+        return *(*tiles_)[{it_+i, jt_+j, host_num_}];
     }
-    Tile<FloatType>* &operator()(int64_t i, int64_t j, int device)
+    Tile<FloatType> &operator()(int64_t i, int64_t j, int device)
     {
-        return (*tiles_)[{it_+i, jt_+j, device}];
+        return *(*tiles_)[{it_+i, jt_+j, device}];
     }
-    Tile<FloatType>* &operator()(int64_t i, int64_t j, int device) const
+    Tile<FloatType> &operator()(int64_t i, int64_t j, int device) const
     {
-        return (*tiles_)[{it_+i, jt_+j, device}];
+        return *(*tiles_)[{it_+i, jt_+j, device}];
     }
     Matrix<FloatType> operator()(int64_t i1, int64_t i2, int64_t j1, int64_t j2)
     {
         return Matrix(*this, i1, i2, j1, j2);
+    }
+
+    //-----------------------
+    // tile access by pointer
+    Tile<FloatType>* &getTile(int64_t i, int64_t j)
+    {
+        return (*tiles_)[{it_+i, jt_+j, host_num_}];
+    }
+    Tile<FloatType>* &getTile(int64_t i, int64_t j, int device)
+    {
+        return (*tiles_)[{it_+i, jt_+j, device}];
     }
 
     //-----------------------------
@@ -333,7 +344,7 @@ void Matrix<FloatType>::random()
                     for (int64_t k = 0; k < nb; ++k)
                     tile->data_[k*nb+k] += nb*nt_;
                 }
-                (*this)(i, j) = tile;
+                this->getTile(i, j) = tile;
             }
         }
     }
@@ -355,7 +366,7 @@ void Matrix<FloatType>::copyTo(FloatType *a, int64_t lda)
                                                 &a[(size_t)lda*n+m], lda,
                                                 memory_, mpi_comm_);
                 tile->origin_ = true;
-                (*this)(i, j) = tile;
+                this->getTile(i, j) = tile;
             }
             n += tileNb(j);
         }
@@ -374,7 +385,7 @@ void Matrix<FloatType>::copyFrom(FloatType *a, int64_t lda)
         int64_t n = 0;
         for (int64_t j = 0; j <= i; ++j) {
             if (tileIsLocal(i, j)) {
-                (*this)(i, j)->copyFrom(&a[(size_t)lda*m+n], lda);
+                (*this)(i, j).copyFrom(&a[(size_t)lda*m+n], lda);
             }
             n += tileNb(j);
         }
@@ -392,7 +403,7 @@ void Matrix<FloatType>::copyFromFull(FloatType *a, int64_t lda)
     for (int64_t i = 0; i < mt_; ++i) {
         int64_t n = 0;
         for (int64_t j = 0; j <= i; ++j) {
-            (*this)(i, j)->copyFrom(&a[(size_t)lda*n+m], lda);
+            (*this)(i, j).copyFrom(&a[(size_t)lda*n+m], lda);
             n += tileNb(j);
         }
         m += tileMb(i);
@@ -409,11 +420,11 @@ void Matrix<FloatType>::gather()
         for (int64_t j = 0; j <= i && j < nt_; ++j) {
             if (mpi_rank_ == 0) {
                 if (!tileIsLocal(i, j))
-                    (*this)(i, j)->recv(tileRank(i, j));
+                    (*this)(i, j).recv(tileRank(i, j));
             }
             else {
                 if (tileIsLocal(i, j))
-                    (*this)(i, j)->send(0);
+                    (*this)(i, j).send(0);
             }
         }
     }
@@ -432,18 +443,18 @@ void Matrix<FloatType>::gather(FloatType *a, int64_t lda)
             if (mpi_rank_ == 0) {
                 if (!tileIsLocal(i, j)) {
 
-                   (*this)(i, j) =
+                   this->getTile(i, j) =
                         new ColMajorTile<FloatType>(
                             tileMb(i), tileNb(j),
                             &a[(size_t)lda*n+m], lda,
                             memory_, mpi_comm_);
 
-                    (*this)(i, j)->recv(tileRank(i, j));
+                    (*this)(i, j).recv(tileRank(i, j));
                 }
             }
             else {
                 if (tileIsLocal(i, j))
-                    (*this)(i, j)->send(0);
+                    (*this)(i, j).send(0);
             }
             n += tileNb(j);
         }
@@ -639,7 +650,7 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, Matrix &&a)
             Tile<FloatType> *tile;
             tile = new ColMajorTile<FloatType>(tileMb(i), tileNb(j),
                                                memory_, mpi_comm_);
-            (*this)(i, j) = tile;
+            this->getTile(i, j) = tile;
 
             // Find the tile's life.
             (*lives_)[{it_+i, jt_+j}] = tileSendFindLife(a);
@@ -677,7 +688,7 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, Matrix &&a1, Matrix &&a2)
             Tile<FloatType> *tile;
             tile = new ColMajorTile<FloatType>(tileMb(i), tileNb(j),
                                                memory_, mpi_comm_);
-            (*this)(i, j) = tile;
+            this->getTile(i, j) = tile;
 
             // Find the tile's life.
             (*lives_)[{it_+i, jt_+j}]  = tileSendFindLife(a1);
@@ -738,7 +749,7 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, std::set<int> &bcast_set)
     assert(retval == MPI_SUCCESS);
 
     // Do the broadcast.
-    (*this)(i, j)->bcast(bcast_root, bcast_comm);
+    (*this)(i, j).bcast(bcast_root, bcast_comm);
 
     // Free the group.
     #pragma omp critical(slate_mpi)

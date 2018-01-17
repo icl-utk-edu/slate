@@ -112,20 +112,20 @@ public:
     virtual void bcast(int bcast_root, MPI_Comm bcast_comm) = 0;
 
     static void gemm(blas::Op transa, blas::Op transb,
-                     FloatType alpha, Tile<FloatType> &a,
-                                      Tile<FloatType> &b,
-                     FloatType beta,  Tile<FloatType> &c);
+                     FloatType alpha, Tile<FloatType> *a,
+                                      Tile<FloatType> *b,
+                     FloatType beta,  Tile<FloatType> *c);
 
-    static void potrf(blas::Uplo uplo, Tile<FloatType> &a);
+    static void potrf(blas::Uplo uplo, Tile<FloatType> *a);
 
     static void syrk(blas::Uplo uplo, blas::Op trans,
-                     FloatType alpha, Tile<FloatType> &a,
-                     FloatType beta,  Tile<FloatType> &c);
+                     FloatType alpha, Tile<FloatType> *a,
+                     FloatType beta,  Tile<FloatType> *c);
 
     static void trsm(blas::Side side, blas::Uplo uplo,
                      blas::Op transa, blas::Diag diag,
-                     FloatType alpha, Tile<FloatType> &a,
-                                      Tile<FloatType> &b);
+                     FloatType alpha, Tile<FloatType> *a,
+                                      Tile<FloatType> *b);
     int64_t mb_;
     int64_t nb_;
     int64_t stride_;
@@ -182,17 +182,17 @@ Tile<FloatType>::Tile(int64_t mb, int64_t nb,
 ///
 template <typename FloatType>
 void Tile<FloatType>::gemm(blas::Op transa, blas::Op transb,
-                 FloatType alpha, Tile<FloatType> &a,
-                                  Tile<FloatType> &b,
-                 FloatType beta,  Tile<FloatType> &c)
+                 FloatType alpha, Tile<FloatType> *a,
+                                  Tile<FloatType> *b,
+                 FloatType beta,  Tile<FloatType> *c)
 {
     trace_cpu_start();
     blas::gemm(blas::Layout::ColMajor,
                transa, transb,
-               c.mb_, c.nb_, a.nb_,
-               alpha, a.data_, a.stride_,
-                      b.data_, b.stride_,
-               beta,  c.data_, c.stride_);
+               c->mb_, c->nb_, a->nb_,
+               alpha, a->data_, a->stride_,
+                      b->data_, b->stride_,
+               beta,  c->data_, c->stride_);
     trace_cpu_stop("MediumAquamarine");
 }
 
@@ -200,13 +200,13 @@ void Tile<FloatType>::gemm(blas::Op transa, blas::Op transb,
 /// \brief
 ///
 template <typename FloatType>
-void Tile<FloatType>::potrf(blas::Uplo uplo, Tile<FloatType> &a)
+void Tile<FloatType>::potrf(blas::Uplo uplo, Tile<FloatType> *a)
 {
     trace_cpu_start();
     lapack::potrf(blas::Layout::ColMajor,
                   uplo,
-                  a.nb_,
-                  a.data_, a.stride_);
+                  a->nb_,
+                  a->data_, a->stride_);
     trace_cpu_stop("RosyBrown");
 }
 
@@ -215,15 +215,15 @@ void Tile<FloatType>::potrf(blas::Uplo uplo, Tile<FloatType> &a)
 ///
 template <typename FloatType>
 void Tile<FloatType>::syrk(blas::Uplo uplo, blas::Op trans,
-                 FloatType alpha, Tile<FloatType> &a,
-                 FloatType beta,  Tile<FloatType> &c)
+                 FloatType alpha, Tile<FloatType> *a,
+                 FloatType beta,  Tile<FloatType> *c)
 {
     trace_cpu_start();
     blas::syrk(blas::Layout::ColMajor,
                uplo, trans,
-               c.nb_, a.nb_,
-               alpha, a.data_, a.stride_,
-               beta,  c.data_, c.stride_);
+               c->nb_, a->nb_,
+               alpha, a->data_, a->stride_,
+               beta,  c->data_, c->stride_);
     trace_cpu_stop("CornflowerBlue");
 }
 
@@ -233,15 +233,15 @@ void Tile<FloatType>::syrk(blas::Uplo uplo, blas::Op trans,
 template <typename FloatType>
 void Tile<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
                  blas::Op transa, blas::Diag diag,
-                 FloatType alpha, Tile<FloatType> &a,
-                                  Tile<FloatType> &b)
+                 FloatType alpha, Tile<FloatType> *a,
+                                  Tile<FloatType> *b)
 {
     trace_cpu_start();
     blas::trsm(blas::Layout::ColMajor,
                side, uplo, transa, diag,
-               b.mb_, b.nb_,
-               alpha, a.data_, a.stride_,
-                      b.data_, b.stride_);
+               b->mb_, b->nb_,
+               alpha, a->data_, a->stride_,
+                      b->data_, b->stride_);
     trace_cpu_stop("MediumPurple");
 }
 

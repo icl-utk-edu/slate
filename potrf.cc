@@ -66,7 +66,7 @@ int main (int argc, char *argv[])
     double *a2 = nullptr;
 
     if (test) {
-        int seed[] = {0, 0, 0, 1};
+        int64_t seed[] = {0, 0, 0, 1};
         a1 = new double[nb*nb*nt*nt];
         lapack::larnv(1, seed, lda*n, a1);
 
@@ -118,19 +118,19 @@ int main (int argc, char *argv[])
 
         if (mpi_rank == 0) {
 
-            retval = LAPACKE_dpotrf(LAPACK_COL_MAJOR, 'L', n, a2, lda);
+            retval = lapack::potrf(lapack::Uplo::Lower, n, a2, lda);
             assert(retval == 0);
 
             // a.copyFromFull(a1, lda);
             slate::Debug::diffLapackMatrices(n, n, a1, lda, a2, lda, nb, nb);
 
-            cblas_daxpy((size_t)lda*n, -1.0, a1, 1, a2, 1);
+            blas::axpy((size_t)lda*n, -1.0, a1, 1, a2, 1);
             double norm =
-                LAPACKE_dlansy(LAPACK_COL_MAJOR, 'F', 'L', n, a1, lda);
+                lapack::lansy(lapack::Norm::Fro, lapack::Uplo::Lower, n, a1, lda);
             delete[] a1;
 
             double error =
-                LAPACKE_dlange(LAPACK_COL_MAJOR, 'F', n, n, a2, lda);
+                lapack::lange(lapack::Norm::Fro, n, n, a2, lda);
             delete[] a2;
 
             if (norm != 0)

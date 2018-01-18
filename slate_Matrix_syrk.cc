@@ -40,6 +40,12 @@
 #include "slate_Matrix.hh"
 #include "slate_types.hh"
 
+#ifdef SLATE_WITH_MKL
+    #include <mkl_cblas.h>
+#else
+    #include <cblas.h>
+#endif
+
 namespace slate {
 
 ///-----------------------------------------------------------------------------

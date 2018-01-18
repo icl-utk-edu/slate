@@ -42,8 +42,8 @@
 
 #include "slate_Memory.hh"
 
-#include "blas.hh"
-#include "lapack.hh"
+#include <blas.hh>
+#include <lapack.hh>
 
 #include <cstdio>
 #include <cstdlib>
@@ -488,11 +488,10 @@ void Tile<FloatType>::gemm(blas::Op transa, blas::Op transb,
 /// \brief
 ///
 template <typename FloatType>
-void Tile<FloatType>::potrf(blas::Uplo uplo, Tile<FloatType> *a)
+void Tile<FloatType>::potrf(lapack::Uplo uplo, Tile<FloatType> *a)
 {
     trace_cpu_start();
-    lapack::potrf(blas::Layout::ColMajor,
-                  uplo,
+    lapack::potrf(uplo,
                   a->nb_,
                   a->data_, a->stride_);
     trace_cpu_stop("RosyBrown");

@@ -321,7 +321,7 @@ void Matrix<FloatType>::random()
                                         memory_, mpi_comm_);
                 tile->origin_ = true;
 
-                int iseed[4];
+                int64_t iseed[4];
                 iseed[0] = i & 0x0FFF;
                 iseed[1] = j & 0x0FFF;
                 iseed[2] = ((i >> 12) + (j >> 12)) & 0x0FFF;

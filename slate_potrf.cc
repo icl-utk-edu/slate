@@ -49,7 +49,7 @@ namespace internal {
 ///
 template <typename FloatType, Target target>
 void potrf(TargetType<target>,
-           blas::Uplo uplo, Matrix<FloatType> &a, int64_t lookahead)
+           lapack::Uplo uplo, Matrix<FloatType> &a, int64_t lookahead)
 {
     using namespace blas;
 
@@ -126,7 +126,7 @@ void potrf(TargetType<target>,
 ///
 template <typename FloatType>
 void potrf(TargetType<Target::Devices>,
-           blas::Uplo uplo, Matrix<FloatType> &a, int64_t lookahead)
+           lapack::Uplo uplo, Matrix<FloatType> &a, int64_t lookahead)
 {
     using namespace blas;
 
@@ -212,7 +212,7 @@ void potrf(TargetType<Target::Devices>,
 /// Precision and target templated function for implementing complex logic.
 ///
 template <typename FloatType, Target target>
-void potrf(blas::Uplo uplo, Matrix<FloatType> &a, int64_t lookahead)
+void potrf(lapack::Uplo uplo, Matrix<FloatType> &a, int64_t lookahead)
 {
     potrf(TargetType<target>(), uplo, a, lookahead);
 }
@@ -225,7 +225,7 @@ void potrf(blas::Uplo uplo, Matrix<FloatType> &a, int64_t lookahead)
 /// Target-templated, precision-overloaded functions for the user.
 ///
 template <Target target>
-void potrf(blas::Uplo uplo, Matrix<double> &a, int64_t lookahead)
+void potrf(lapack::Uplo uplo, Matrix<double> &a, int64_t lookahead)
 {
     internal::potrf<double, target>(uplo, a, lookahead);
 }
@@ -233,18 +233,18 @@ void potrf(blas::Uplo uplo, Matrix<double> &a, int64_t lookahead)
 //------------------------------------------------------------------------------
 template
 void potrf<Target::HostTask>(
-    blas::Uplo uplo, Matrix<double> &a, int64_t lookahead);
+    lapack::Uplo uplo, Matrix<double> &a, int64_t lookahead);
 
 template
 void potrf<Target::HostNest>(
-    blas::Uplo uplo, Matrix<double> &a, int64_t lookahead);
+    lapack::Uplo uplo, Matrix<double> &a, int64_t lookahead);
 
 template
 void potrf<Target::HostBatch>(
-    blas::Uplo uplo, Matrix<double> &a, int64_t lookahead);
+    lapack::Uplo uplo, Matrix<double> &a, int64_t lookahead);
 
 template
 void potrf<Target::Devices>(
-    blas::Uplo uplo, Matrix<double> &a, int64_t lookahead);
+    lapack::Uplo uplo, Matrix<double> &a, int64_t lookahead);
 
 } // namespace slate

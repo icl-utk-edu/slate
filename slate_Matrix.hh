@@ -42,7 +42,7 @@
 
 #include "slate_Map.hh"
 #include "slate_Memory.hh"
-#include "slate_ColMajorTile.hh"
+#include "slate_Tile.hh"
 #include "slate_types.hh"
 
 #include "lapack.hh"
@@ -317,8 +317,8 @@ void Matrix<FloatType>::random()
             if (tileIsLocal(i, j))
             {
                 Tile<FloatType> *tile =
-                    new ColMajorTile<FloatType>(tileMb(i), tileNb(j),
-                                                memory_, mpi_comm_);
+                    new Tile<FloatType>(tileMb(i), tileNb(j),
+                                        memory_, mpi_comm_);
                 tile->origin_ = true;
 
                 int iseed[4];
@@ -351,9 +351,9 @@ void Matrix<FloatType>::copyTo(FloatType *a, int64_t lda)
         for (int64_t j = 0; j <= i; ++j) {
             if (tileIsLocal(i, j)) {
                 Tile<FloatType> *tile =
-                    new ColMajorTile<FloatType>(tileMb(i), tileNb(j),
-                                                &a[(size_t)lda*n+m], lda,
-                                                memory_, mpi_comm_);
+                    new Tile<FloatType>(tileMb(i), tileNb(j),
+                                        &a[(size_t)lda*n+m], lda,
+                                        memory_, mpi_comm_);
                 tile->origin_ = true;
                 (*this)(i, j) = tile;
             }
@@ -433,10 +433,9 @@ void Matrix<FloatType>::gather(FloatType *a, int64_t lda)
                 if (!tileIsLocal(i, j)) {
 
                    (*this)(i, j) =
-                        new ColMajorTile<FloatType>(
-                            tileMb(i), tileNb(j),
-                            &a[(size_t)lda*n+m], lda,
-                            memory_, mpi_comm_);
+                        new Tile<FloatType>(tileMb(i), tileNb(j),
+                                            &a[(size_t)lda*n+m], lda,
+                                            memory_, mpi_comm_);
 
                     (*this)(i, j)->recv(tileRank(i, j));
                 }
@@ -637,8 +636,8 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, Matrix &&a)
 
             // Create the tile.
             Tile<FloatType> *tile;
-            tile = new ColMajorTile<FloatType>(tileMb(i), tileNb(j),
-                                               memory_, mpi_comm_);
+            tile = new Tile<FloatType>(tileMb(i), tileNb(j),
+                                       memory_, mpi_comm_);
             (*this)(i, j) = tile;
 
             // Find the tile's life.
@@ -675,8 +674,8 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, Matrix &&a1, Matrix &&a2)
 
             // Create the tile.
             Tile<FloatType> *tile;
-            tile = new ColMajorTile<FloatType>(tileMb(i), tileNb(j),
-                                               memory_, mpi_comm_);
+            tile = new Tile<FloatType>(tileMb(i), tileNb(j),
+                                       memory_, mpi_comm_);
             (*this)(i, j) = tile;
 
             // Find the tile's life.

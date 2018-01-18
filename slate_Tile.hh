@@ -92,24 +92,22 @@ public:
          std::weak_ptr<Memory> memory,
          MPI_Comm mpi_comm);
 
-    virtual ~Tile() {}
+    Tile(const Tile<FloatType> *src_tile, int dst_device_num);
 
-    virtual void copyTo(FloatType *a, int64_t lda) = 0;
-    virtual void copyFrom(FloatType *a, int64_t lda) = 0;
+    ~Tile() { deallocate(); }
 
-    virtual Tile<FloatType>* copyToHost(cudaStream_t stream) = 0;
-    virtual Tile<FloatType>* copyToDevice(int device_num,
-                                          cudaStream_t stream) = 0;
+    void copyTo(FloatType *a, int64_t lda);
+    void copyFrom(FloatType *a, int64_t lda);
 
-    virtual void copyDataToHost(const Tile<FloatType> *dst_tile,
-                                cudaStream_t stream) = 0;
+    Tile<FloatType>* copyToHost(cudaStream_t stream);
+    Tile<FloatType>* copyToDevice(int device_num, cudaStream_t stream);
 
-    virtual void copyDataToDevice(const Tile<FloatType> *dst_tile,
-                                  cudaStream_t stream) = 0;
+    void copyDataToHost(const Tile<FloatType> *dst_tile, cudaStream_t stream);
+    void copyDataToDevice(const Tile<FloatType> *dst_tile, cudaStream_t stream);
 
-    virtual void send(int dst) = 0;
-    virtual void recv(int src) = 0;
-    virtual void bcast(int bcast_root, MPI_Comm bcast_comm) = 0;
+    void send(int dst);
+    void recv(int src);
+    void bcast(int bcast_root, MPI_Comm bcast_comm);
 
     static void gemm(blas::Op transa, blas::Op transb,
                      FloatType alpha, Tile<FloatType> *a,
@@ -156,10 +154,14 @@ Tile<FloatType>::Tile(int64_t mb, int64_t nb,
                       MPI_Comm mpi_comm)
 
     : mb_(mb), nb_(nb),
+      stride_(mb),
       memory_(memory),
       mpi_comm_(mpi_comm),
       device_num_(host_num_),
-      valid_(true), origin_(false) {}
+      valid_(true), origin_(false)
+{
+    allocate();
+}
 
 ///-----------------------------------------------------------------------------
 /// \brief
@@ -176,6 +178,292 @@ Tile<FloatType>::Tile(int64_t mb, int64_t nb,
       mpi_comm_(mpi_comm),
       device_num_(host_num_),
       valid_(true), origin_(true) {}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+Tile<FloatType>::Tile(const Tile<FloatType> *src_tile, int dst_device_num)
+{
+    *this = *src_tile;
+    this->origin_ = false;
+    this->stride_ = this->mb_;
+    this->device_num_ = dst_device_num;
+    allocate();
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void Tile<FloatType>::copyTo(FloatType *a, int64_t lda)
+{
+    for (int64_t n = 0; n < nb_; ++n)
+        memcpy(&data_[n*stride_], &a[n*lda], sizeof(FloatType)*mb_);
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void Tile<FloatType>::copyFrom(FloatType *a, int64_t lda)
+{
+    for (int64_t n = 0; n < nb_; ++n)
+        memcpy(&a[n*lda], &data_[n*stride_], sizeof(FloatType)*mb_);
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+Tile<FloatType>*
+Tile<FloatType>::copyToHost(cudaStream_t stream)
+{
+    Tile<FloatType> *dst_tile = new Tile<FloatType>(this, this->host_num_);
+    this->copyDataToHost(dst_tile, stream);
+    return dst_tile;
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+Tile<FloatType>*
+Tile<FloatType>::copyToDevice(int device_num, cudaStream_t stream)
+{
+    Tile<FloatType> *dst_tile = new Tile<FloatType>(this, device_num);
+    this->copyDataToDevice(dst_tile, stream);
+    return dst_tile;
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void Tile<FloatType>::copyDataToHost(
+    const Tile<FloatType> *dst_tile, cudaStream_t stream)
+{
+    trace_cpu_start();
+    cudaError_t error;
+    error = cudaSetDevice(device_num_);
+    assert(error == cudaSuccess);
+
+    // If no stride on both sides.
+    if (stride_ == mb_ &&
+        dst_tile->stride_ == dst_tile->mb_) {
+
+        // Use simple copy.
+        error = cudaMemcpyAsync(
+            dst_tile->data_, data_, size(),
+            cudaMemcpyDeviceToHost, stream);
+        assert(error == cudaSuccess);
+    }
+    else {
+        // Otherwise, use 2D copy.
+        void* dst = dst_tile->data_;
+        const void* src = data_;
+        size_t dpitch = sizeof(FloatType)*dst_tile->stride_;
+        size_t spitch = sizeof(FloatType)*stride_;
+        size_t width = sizeof(FloatType)*mb_;
+        size_t height = nb_;
+
+        error = cudaMemcpy2DAsync(
+            dst, dpitch,
+            src, spitch,
+            width, height,
+            cudaMemcpyDeviceToHost, stream);
+        assert(error == cudaSuccess);
+    }
+
+    error = cudaStreamSynchronize(stream);
+    assert(error == cudaSuccess);
+    trace_cpu_stop("Gray");
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void Tile<FloatType>::copyDataToDevice(
+    const Tile<FloatType> *dst_tile, cudaStream_t stream)
+{
+    trace_cpu_start();
+    cudaError_t error;
+    error = cudaSetDevice(dst_tile->device_num_);
+    assert(error == cudaSuccess);
+
+    // If no stride on both sides.
+    if (stride_ == mb_ &&
+        dst_tile->stride_ == dst_tile->mb_) {
+
+        // Use simple copy.
+        error = cudaMemcpyAsync(
+            dst_tile->data_, data_, size(),
+            cudaMemcpyHostToDevice, stream);
+        assert(error == cudaSuccess);
+    }
+    else {
+        // Otherwise, use 2D copy.
+        void* dst = dst_tile->data_;
+        const void* src = data_;
+        size_t dpitch = sizeof(FloatType)*dst_tile->stride_;
+        size_t spitch = sizeof(FloatType)*stride_;
+        size_t width = sizeof(FloatType)*mb_;
+        size_t height = nb_;
+
+        error = cudaMemcpy2DAsync(
+            dst, dpitch,
+            src, spitch,
+            width, height,
+            cudaMemcpyHostToDevice, stream);
+        assert(error == cudaSuccess);
+    }
+
+    error = cudaStreamSynchronize(stream);
+    assert(error == cudaSuccess);
+    trace_cpu_stop("LightGray");
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void Tile<FloatType>::send(int dst)
+{
+    // If no stride.
+    if (stride_ == mb_) {
+
+        // Use simple send.
+        int count = mb_*nb_;
+        int tag = 0;
+        int retval;
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Send(data_, count, MPI_DOUBLE, dst, tag, mpi_comm_);
+        assert(retval == MPI_SUCCESS);
+    }
+    else {
+
+        // Otherwise, use strided send.
+        int count = nb_;
+        int blocklength = mb_;
+        int stride = stride_;
+        MPI_Datatype newtype;
+        int tag = 0;
+        int retval;
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Type_vector(
+            count, blocklength, stride, MPI_DOUBLE, &newtype);
+        assert(retval == MPI_SUCCESS);
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Type_commit(&newtype);
+        assert(retval == MPI_SUCCESS);
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Send(data_, 1, newtype, dst, tag, mpi_comm_);
+        assert(retval == MPI_SUCCESS);
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Type_free(&newtype);
+        assert(retval == MPI_SUCCESS);
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void Tile<FloatType>::recv(int src)
+{
+    // If no stride.
+    if (stride_ == mb_) {
+
+        // Use simple recv.
+        int count = mb_*nb_;
+        int tag = 0;
+        int retval;
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Recv(
+            data_, count, MPI_DOUBLE, src, tag, mpi_comm_, MPI_STATUS_IGNORE);
+        assert(retval == MPI_SUCCESS);
+    }
+    else {
+
+        // Otherwise, use strided recv. 
+        int count = nb_;
+        int blocklength = mb_;
+        int stride = stride_;
+        MPI_Datatype newtype;
+        int retval;
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Type_vector(
+            count, blocklength, stride, MPI_DOUBLE, &newtype);
+        assert(retval == MPI_SUCCESS);
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Type_commit(&newtype);
+        assert(retval == MPI_SUCCESS);
+
+        int tag = 0;
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Recv(
+            data_, 1, newtype, src, tag, mpi_comm_, MPI_STATUS_IGNORE);
+        assert(retval == MPI_SUCCESS);
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Type_free(&newtype);
+        assert(retval == MPI_SUCCESS);
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+template <typename FloatType>
+void Tile<FloatType>::bcast(int bcast_root, MPI_Comm bcast_comm)
+{
+    // If no stride.
+    if (stride_ == mb_) {
+
+        // Use simple bcast.
+        int count = mb_*nb_;
+        int retval;
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Bcast(data_, count, MPI_DOUBLE, bcast_root, bcast_comm);
+        assert(retval == MPI_SUCCESS);
+    }
+    else {
+
+        // Otherwise, use strided bcast.
+        int count = nb_;
+        int blocklength = mb_;
+        int stride = stride_;
+        MPI_Datatype newtype;
+        int retval;
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Type_vector(
+            count, blocklength, stride, MPI_DOUBLE, &newtype);
+        assert(retval == MPI_SUCCESS);
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Type_commit(&newtype);
+        assert(retval == MPI_SUCCESS);
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Bcast(data_, 1, newtype, bcast_root, bcast_comm);
+        assert(retval == MPI_SUCCESS);
+
+        #pragma omp critical(slate_mpi)
+        retval = MPI_Type_free(&newtype);
+        assert(retval == MPI_SUCCESS);
+    }
+}
 
 ///-----------------------------------------------------------------------------
 /// \brief

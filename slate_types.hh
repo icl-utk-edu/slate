@@ -43,6 +43,8 @@
 #ifndef SLATE_TYPES_HH
 #define SLATE_TYPES_HH
 
+#include <blas.hh>
+
 namespace slate {
 
 typedef blas::Op Op;

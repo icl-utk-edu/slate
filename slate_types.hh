@@ -45,6 +45,11 @@
 
 namespace slate {
 
+typedef blas::Op Op;
+typedef blas::Uplo Uplo;
+typedef blas::Diag Diag;
+typedef blas::Side Side;
+
 enum class Target {Devices, Host, HostTask, HostNest, HostBatch};
 
 namespace internal {

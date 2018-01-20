@@ -100,11 +100,7 @@ public:
 
     //---------------------------
     // initialization and cleanup
-    void random();
-    void copyTo(FloatType *a, int64_t lda);
-    void copyFrom(FloatType *a, int64_t lda);
-    void copyFromFull(FloatType *a, int64_t lda);
-    void gather();
+    void init(FloatType *a, int64_t lda);
     void gather(FloatType *a, int64_t lda);
     void clean();
 
@@ -279,10 +275,7 @@ Matrix<FloatType>::Matrix(int64_t m, int64_t n, FloatType *a, int64_t lda,
     memory_ = std::make_shared<Memory>(sizeof(FloatType)*nb*nb);
     memory_->addHostBlocks(getMaxHostTiles());
 
-    if (a != nullptr)
-        copyTo(a, lda);
-    else
-        random();
+    init(a, lda);
 }
 
 ///-----------------------------------------------------------------------------
@@ -310,40 +303,7 @@ Matrix<FloatType>::Matrix(const Matrix &a,
 /// \brief
 ///
 template <typename FloatType>
-void Matrix<FloatType>::random()
-{
-    for (int64_t i = 0; i < mt_; ++i) {
-        for (int64_t j = 0; j <= i; ++j) {
-            if (tileIsLocal(i, j))
-            {
-                Tile<FloatType> *tile =
-                    new Tile<FloatType>(tileMb(i), tileNb(j),
-                                        memory_, mpi_comm_);
-                tile->origin_ = true;
-
-                int64_t iseed[4];
-                iseed[0] = i & 0x0FFF;
-                iseed[1] = j & 0x0FFF;
-                iseed[2] = ((i >> 12) + (j >> 12)) & 0x0FFF;
-                iseed[3] = 1;
-                int nb = tileNb(0);
-                lapack::larnv(1, iseed, nb*nb, tile->data_);
-
-                if (i == j) {
-                    for (int64_t k = 0; k < nb; ++k)
-                    tile->data_[k*nb+k] += nb*nt_;
-                }
-                (*this)(i, j) = tile;
-            }
-        }
-    }
-}
-
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename FloatType>
-void Matrix<FloatType>::copyTo(FloatType *a, int64_t lda)
+void Matrix<FloatType>::init(FloatType *a, int64_t lda)
 {
     int64_t m = 0;
     for (int64_t i = 0; i < mt_; ++i) {
@@ -360,62 +320,6 @@ void Matrix<FloatType>::copyTo(FloatType *a, int64_t lda)
             n += tileNb(j);
         }
         m += tileMb(i);
-    }
-}
-
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename FloatType>
-void Matrix<FloatType>::copyFrom(FloatType *a, int64_t lda)
-{
-    int64_t m = 0;
-    for (int64_t i = 0; i < mt_; ++i) {
-        int64_t n = 0;
-        for (int64_t j = 0; j <= i; ++j) {
-            if (tileIsLocal(i, j)) {
-                (*this)(i, j)->copyFrom(&a[(size_t)lda*m+n], lda);
-            }
-            n += tileNb(j);
-        }
-        m += tileMb(i);
-    }
-}
-
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename FloatType>
-void Matrix<FloatType>::copyFromFull(FloatType *a, int64_t lda)
-{
-    int64_t m = 0;
-    for (int64_t i = 0; i < mt_; ++i) {
-        int64_t n = 0;
-        for (int64_t j = 0; j <= i; ++j) {
-            (*this)(i, j)->copyFrom(&a[(size_t)lda*n+m], lda);
-            n += tileNb(j);
-        }
-        m += tileMb(i);
-    }
-}
-
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename FloatType>
-void Matrix<FloatType>::gather()
-{
-    for (int64_t i = 0; i < mt_; ++i) {
-        for (int64_t j = 0; j <= i && j < nt_; ++j) {
-            if (mpi_rank_ == 0) {
-                if (!tileIsLocal(i, j))
-                    (*this)(i, j)->recv(tileRank(i, j));
-            }
-            else {
-                if (tileIsLocal(i, j))
-                    (*this)(i, j)->send(0);
-            }
-        }
     }
 }
 

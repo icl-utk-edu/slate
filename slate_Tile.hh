@@ -96,9 +96,6 @@ public:
 
     ~Tile() { deallocate(); }
 
-    void copyTo(FloatType *a, int64_t lda);
-    void copyFrom(FloatType *a, int64_t lda);
-
     Tile<FloatType>* copyToHost(cudaStream_t stream);
     Tile<FloatType>* copyToDevice(int device_num, cudaStream_t stream);
 
@@ -190,26 +187,6 @@ Tile<FloatType>::Tile(const Tile<FloatType> *src_tile, int dst_device_num)
     this->stride_ = this->mb_;
     this->device_num_ = dst_device_num;
     allocate();
-}
-
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename FloatType>
-void Tile<FloatType>::copyTo(FloatType *a, int64_t lda)
-{
-    for (int64_t n = 0; n < nb_; ++n)
-        memcpy(&data_[n*stride_], &a[n*lda], sizeof(FloatType)*mb_);
-}
-
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename FloatType>
-void Tile<FloatType>::copyFrom(FloatType *a, int64_t lda)
-{
-    for (int64_t n = 0; n < nb_; ++n)
-        memcpy(&a[n*lda], &data_[n*stride_], sizeof(FloatType)*mb_);
 }
 
 ///-----------------------------------------------------------------------------

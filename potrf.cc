@@ -65,14 +65,14 @@ int main (int argc, char *argv[])
     double *a1 = nullptr;
     double *a2 = nullptr;
 
+    int64_t seed[] = {0, 0, 0, 1};
+    a1 = new double[nb*nb*nt*nt];
+    lapack::larnv(1, seed, lda*n, a1);
+
+    for (int64_t i = 0; i < n; ++i)
+        a1[i*lda+i] += sqrt(n);
+
     if (test) {
-        int64_t seed[] = {0, 0, 0, 1};
-        a1 = new double[nb*nb*nt*nt];
-        lapack::larnv(1, seed, lda*n, a1);
-
-        for (int64_t i = 0; i < n; ++i)
-            a1[i*lda+i] += sqrt(n);
-
         if (mpi_rank == 0) {
             a2 = new double[nb*nb*nt*nt];
             memcpy(a2, a1, sizeof(double)*lda*n);
@@ -88,7 +88,7 @@ int main (int argc, char *argv[])
     trace_cpu_stop("Black");
 
     double start = omp_get_wtime();
-    slate::potrf<slate::Target::Devices>(slate::Uplo::Lower, a, lookahead);
+    slate::potrf<slate::Target::HostTask>(slate::Uplo::Lower, a, lookahead);
 
     trace_cpu_start();
     MPI_Barrier(MPI_COMM_WORLD);

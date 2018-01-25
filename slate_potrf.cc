@@ -62,7 +62,7 @@ void potrf(TargetType<target>,
         #pragma omp task depend(inout:column[k]) priority(1)
         {
             Matrix<FloatType>::template
-            potrf<Target::HostTask>(uplo, a(k, k, k, k), 1);
+            potrf<Target::HostTask>(Uplo::Lower, a(k, k, k, k), 1);
 
             if (k+1 <= a.nt_-1)
                 a.tileSend(k, k, a(k+1, a.nt_-1, k, k));

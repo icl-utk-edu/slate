@@ -36,7 +36,12 @@
 // - you do not call the constructor trace_init(),
 // - you do not call the destructor trace_finish().
 
-#include <omp.h>
+#ifdef _OPENMP
+    #include <omp.h>
+#else
+    #include "slate_NoOpenmp.hh"
+#endif
+
 #include <math.h>
 #include <time.h>
 #include <stdio.h>
@@ -44,7 +49,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <string.h>
-#ifdef MPI
+#ifdef SLATE_WITH_MPI
     #include <mpi.h>
 #endif
 

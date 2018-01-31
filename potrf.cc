@@ -14,7 +14,7 @@
     #include "slate_NoMpi.hh"
 #endif
 
-#ifdef SLATE_WITH_OPENMP
+#ifdef _OPENMP
     #include <omp.h>
 #else
     #include "slate_NoOpenmp.hh"

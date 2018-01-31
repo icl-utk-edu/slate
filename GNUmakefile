@@ -1,11 +1,11 @@
 
-CFLAGS  = -O3 -std=c99
-CCFLAGS = -O3 -std=c++11
+CFLAGS   = -O3 -std=c99
+CXXFLAGS = -O3 -std=c++11
 
 #---------------------------------------------
 # if OpenMP
 ifeq (${openmp},1)
-	CCFLAGS += -fopenmp
+	CXXFLAGS += -fopenmp
 else
 	SRC += slate_NoOpenmp.cc
 endif
@@ -13,11 +13,13 @@ endif
 #------------------------------------------------------
 # if MPI
 ifeq (${mpi},1)
-	CCFLAGS += -DSLATE_WITH_MPI
+	CFLAGS   += -DSLATE_WITH_MPI
+	CXXFLAGS += -DSLATE_WITH_MPI
 	LIB += -lmpi
 # if Spectrum MPI
 else ifeq (${spectrum},1)
-	CCFLAGS += -DSLATE_WITH_MPI
+	CFLAGS   += -DSLATE_WITH_MPI
+	CXXFLAGS += -DSLATE_WITH_MPI
 	LIB += -lmpi_ibm
 else
 	SRC += slate_NoMpi.cc
@@ -26,7 +28,7 @@ endif
 #-----------------------------------------------------------------------------
 # if MKL 
 ifeq (${mkl},1)
-	CCFLAGS += -DSLATE_WITH_MKL
+	CXXFLAGS += -DSLATE_WITH_MKL
 	# if Linux
 	ifeq (${linux},1)
 		LIB += -L${MKLROOT}/lib \
@@ -38,22 +40,22 @@ ifeq (${mkl},1)
 	endif
 # if ESSL
 else ifeq (${essl},1)
-	CCFLAGS += -DSLATE_WITH_ESSL
+	CXXFLAGS += -DSLATE_WITH_ESSL
 	LIB += -lessl -llapack
 endif
 
 #-----------------------------------------
 # if CUDA
 ifeq (${cuda},1)
-	CCFLAGS += -DSLATE_WITH_CUDA
+	CXXFLAGS += -DSLATE_WITH_CUDA
 	LIB += -lcublas -lcudart
 else
 	SRC += slate_NoCuda.cc
 	SRC += slate_NoCublas.cc
 endif
 
-CCFLAGS += -I./blaspp/include
-CCFLAGS += -I./lapackpp/include
+CXXFLAGS += -I./blaspp/include
+CXXFLAGS += -I./lapackpp/include
 
 LIB += -L./lapackpp/lib -llapackpp
 
@@ -91,11 +93,11 @@ cuda:
 linux macos: $(OBJ)
 	$(CC) $(CFLAGS) -c -DMPI trace/trace.c -o trace/trace.o
 	# $(CC) $(CFLAGS) -c trace/trace.c -o trace/trace.o
-	$(CXX) $(CCFLAGS) $(OBJ) potrf.cc trace/trace.o $(LIB) -o potrf
+	$(CXX) $(CXXFLAGS) $(OBJ) potrf.cc trace/trace.o $(LIB) -o potrf
 
 clean:
 	rm -f $(OBJ)
 	rm -f potrf potrf.o trace_*.svg
 
 .cc.o:
-	$(CXX) $(CCFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -o $@

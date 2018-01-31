@@ -72,32 +72,17 @@ SRC += slate_Debug.cc \
 
 OBJ = $(SRC:.cc=.o)
 
-openmp:
-	@echo built with OpenMP
+all: potrf
 
-mpi:
-	@echo built with MPI
-
-spectrum:
-	@echo built with Spectrum MPI
-
-mkl:
-	@echo built with MKL
-
-essl:
-	@echo built with ESSL
-
-cuda:
-	@echo built with CUDA
-
-linux macos: $(OBJ)
-	$(CC) $(CFLAGS) -c -DMPI trace/trace.c -o trace/trace.o
-	# $(CC) $(CFLAGS) -c trace/trace.c -o trace/trace.o
-	$(CXX) $(CXXFLAGS) $(OBJ) potrf.cc trace/trace.o $(LIB) -o potrf
+potrf: $(OBJ) potrf.o trace/trace.o
+	$(CXX) $(CXXFLAGS) $(OBJ) potrf.o trace/trace.o $(LIB) -o $@
 
 clean:
 	rm -f $(OBJ)
 	rm -f potrf potrf.o trace_*.svg
 
-.cc.o:
+%.o: %.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@

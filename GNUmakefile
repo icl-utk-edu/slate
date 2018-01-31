@@ -4,7 +4,7 @@ CCFLAGS = -O3 -std=c++11
 
 #---------------------------------------------
 # if OpenMP
-ifeq (openmp,$(filter openmp,$(MAKECMDGOALS)))
+ifeq (${openmp},1)
 	CCFLAGS += -DSLATE_WITH_OPENMP
 	CCFLAGS += -fopenmp
 else
@@ -13,11 +13,11 @@ endif
 
 #------------------------------------------------------
 # if MPI
-ifeq (mpi,$(filter mpi,$(MAKECMDGOALS)))
+ifeq (${mpi},1)
 	CCFLAGS += -DSLATE_WITH_MPI
 	LIB += -lmpi
 # if Spectrum MPI
-else ifeq (spectrum,$(filter spectrum,$(MAKECMDGOALS)))
+else ifeq (${spectrum},1)
 	CCFLAGS += -DSLATE_WITH_MPI
 	LIB += -lmpi_ibm
 else
@@ -26,26 +26,26 @@ endif
 
 #-----------------------------------------------------------------------------
 # if MKL 
-ifeq (mkl,$(filter mkl,$(MAKECMDGOALS)))
+ifeq (${mkl},1)
 	CCFLAGS += -DSLATE_WITH_MKL
 	# if Linux
-	ifeq (linux,$(filter linux,$(MAKECMDGOALS)))
+	ifeq (${linux},1)
 		LIB += -L${MKLROOT}/lib \
 		       -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl
 	# if MacOS
-	else ifeq (macos,$(filter macos,$(MAKECMDGOALS)))
+	else ifeq (${macos},1)
 		LIB += -L${MKLROOT}/lib -Wl,-rpath,${MKLROOT}/lib \
 		       -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl
 	endif
 # if ESSL
-else ifeq (essl,$(filter essl,$(MAKECMDGOALS)))
+else ifeq (${essl},1)
 	CCFLAGS += -DSLATE_WITH_ESSL
 	LIB += -lessl -llapack
 endif
 
 #-----------------------------------------
 # if CUDA
-ifeq (cuda,$(filter cuda,$(MAKECMDGOALS)))
+ifeq (${cuda},1)
 	CCFLAGS += -DSLATE_WITH_CUDA
 	LIB += -lcublas -lcudart
 else

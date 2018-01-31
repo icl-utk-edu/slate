@@ -1,8 +1,25 @@
+# Relies on settings in environment. These can be set by modules.
+# Set compiler by $CC and $CXX.
+# Add include directories to $CPATH for MPI, CUDA, MKL, etc.
+# Add lib directories to $LIBRARY_PATH for MPI, CUDA, MKL, etc.
+# At runtime, these lib directories need to be in $LD_LIBRARY_PATH,
+# or on MacOS, $DYLD_LIBRARY_PATH.
+#
+# Set options on command line or in make.inc file:
+# mpi=1         for MPI (-lmpi)
+# spectrum=1    for IBM Spectrum MPI (-lmpi_ibm)
+# mkl=1         for Intel MKL. $MKLROOT must also be set.
+# cuda=1        for CUDA
+# openmp=1      for OpenMP
+
+-include make.inc
 
 CFLAGS   = -O3 -std=c99
 CXXFLAGS = -O3 -std=c++11
 
-#---------------------------------------------
+pwd = ${shell pwd}
+
+#-------------------------------------------------------------------------------
 # if OpenMP
 ifeq (${openmp},1)
 	CXXFLAGS += -fopenmp
@@ -10,7 +27,7 @@ else
 	SRC += slate_NoOpenmp.cc
 endif
 
-#------------------------------------------------------
+#-------------------------------------------------------------------------------
 # if MPI
 ifeq (${mpi},1)
 	CFLAGS   += -DSLATE_WITH_MPI
@@ -25,7 +42,7 @@ else
 	SRC += slate_NoMpi.cc
 endif
 
-#-----------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # if MKL 
 ifeq (${mkl},1)
 	CXXFLAGS += -DSLATE_WITH_MKL
@@ -44,7 +61,7 @@ else ifeq (${essl},1)
 	LIB += -lessl -llapack
 endif
 
-#-----------------------------------------
+#-------------------------------------------------------------------------------
 # if CUDA
 ifeq (${cuda},1)
 	CXXFLAGS += -DSLATE_WITH_CUDA
@@ -54,10 +71,14 @@ else
 	SRC += slate_NoCublas.cc
 endif
 
+#-------------------------------------------------------------------------------
+# SLATE libraries
 CXXFLAGS += -I./blaspp/include
 CXXFLAGS += -I./lapackpp/include
 
-LIB += -L./lapackpp/lib -llapackpp
+CFLAGS += -I.
+
+LIB += -L./lapackpp/lib -Wl,-rpath,${pwd}/lapackpp/lib -llapackpp
 
 #-------------------------------------------------------------------------------
 SRC += slate_Debug.cc \

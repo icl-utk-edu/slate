@@ -14,8 +14,8 @@
 
 -include make.inc
 
-CFLAGS   = -O3 -std=c99
-CXXFLAGS = -O3 -std=c++11
+CFLAGS   = -O3 -std=c99   -Wall -pedantic
+CXXFLAGS = -O3 -std=c++11 -Wall -pedantic
 
 pwd = ${shell pwd}
 

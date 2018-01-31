@@ -28,7 +28,7 @@ extern "C" void trace_finish();
 int main (int argc, char *argv[])
 {
     if (argc < 6) {
-        printf("Usage: app nb nt p q lookahead [test]");
+        printf("Usage: app nb nt p q lookahead [test]\n");
         return EXIT_FAILURE;
     }
 

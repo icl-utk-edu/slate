@@ -113,7 +113,7 @@ void Debug::printTilesLives(Matrix<FloatType> &a)
                 if (a.tiles_->find({i, j, a.host_num_}) == a.tiles_->end())
                     printf("  .");
                 else
-                    printf("%3ld", (*a.lives_)[{a.it_+i, a.jt_+j}]);
+                    printf("%3lld", (long long) (*a.lives_)[{a.it_+i, a.jt_+j}]);
             }
             printf("\n");
         }
@@ -169,7 +169,8 @@ void Debug::printNumFreeMemBlocks(Memory &m)
 {
     printf("\n");
     for (auto it = m.free_blocks_.begin(); it != m.free_blocks_.end(); ++it)
-        printf("\tdevice: %d\tfree blocks: %d\n", it->first, it->second.size());
+        printf("\tdevice: %d\tfree blocks: %lu\n", it->first,
+               (unsigned long) it->second.size());
 }
 
 //------------------------------------------------------------------------------

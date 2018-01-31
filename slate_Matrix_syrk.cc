@@ -77,8 +77,8 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostTask>,
     // Lower, NoTrans
     for (int64_t n = 0; n < c.nt_; ++n)
         for (int64_t m = n; m < c.mt_; ++m)
-            if (c.tileIsLocal(m, n))
-                if (m == n)
+            if (c.tileIsLocal(m, n)) {
+                if (m == n) {
                     #pragma omp task shared(a, c) priority(priority)
                     {
                         a.tileCopyToHost(n, 0, a.tileDevice(n, 0));
@@ -89,7 +89,8 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostTask>,
                         a.tileTick(n, 0);
                         a.tileTick(n, 0);
                     }
-                else
+                }
+                else {
                     #pragma omp task shared(a, c) priority(priority)
                     {
                         a.tileCopyToHost(m, 0, a.tileDevice(m, 0));
@@ -102,6 +103,8 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostTask>,
                         a.tileTick(m, 0);
                         a.tileTick(n, 0);
                     }
+                }
+            }
 
     #pragma omp taskwait
 }

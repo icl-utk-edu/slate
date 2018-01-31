@@ -150,12 +150,15 @@ Tile<FloatType>::Tile(int64_t mb, int64_t nb,
                       std::weak_ptr<Memory> memory,
                       MPI_Comm mpi_comm)
 
-    : mb_(mb), nb_(nb),
+    : mb_(mb),
+      nb_(nb),
       stride_(mb),
-      memory_(memory),
-      mpi_comm_(mpi_comm),
+      data_(nullptr),
+      valid_(true),
+      origin_(false),
       device_num_(host_num_),
-      valid_(true), origin_(false)
+      mpi_comm_(mpi_comm),
+      memory_(memory)
 {
     allocate();
 }
@@ -169,12 +172,16 @@ Tile<FloatType>::Tile(int64_t mb, int64_t nb,
                       std::weak_ptr<Memory> memory,
                       MPI_Comm mpi_comm)
 
-    : mb_(mb), nb_(nb),
-      data_(a), stride_(lda),
-      memory_(memory),
-      mpi_comm_(mpi_comm),
+    : mb_(mb),
+      nb_(nb),
+      stride_(lda),
+      data_(a),
+      valid_(true),
+      origin_(true),
       device_num_(host_num_),
-      valid_(true), origin_(true) {}
+      mpi_comm_(mpi_comm),
+      memory_(memory)
+{}
 
 ///-----------------------------------------------------------------------------
 /// \brief

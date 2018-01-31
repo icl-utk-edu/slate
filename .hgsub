@@ -1,3 +1,4 @@
+bblaspp=ssh://hg@bitbucket.org/icl/bblaspp
 blaspp=ssh://hg@bitbucket.org/icl/blaspp
 lapackpp=ssh://hg@bitbucket.org/icl/lapackpp
 libtest=ssh://hg@bitbucket.org/icl/libtest

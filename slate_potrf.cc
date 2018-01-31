@@ -53,7 +53,7 @@ void potrf(TargetType<target>,
 {
     using namespace blas;
 
-    uint8_t *column;
+    uint8_t *column = new uint8_t[ a.nt_ ];
 
     #pragma omp parallel
     #pragma omp master
@@ -119,6 +119,8 @@ void potrf(TargetType<target>,
     a.clean();
 
     Debug::printTilesMaps(a);
+
+    delete[] column;
 }
 
 ///-----------------------------------------------------------------------------
@@ -130,7 +132,7 @@ void potrf(TargetType<Target::Devices>,
 {
     using namespace blas;
 
-    uint8_t *column;
+    uint8_t *column = new uint8_t[ a.nt_ ];
 
     for (int device = 0; device < a.num_devices_; ++device)
         a.memory_->addDeviceBlocks(device, a.getMaxDeviceTiles(device));
@@ -204,6 +206,8 @@ void potrf(TargetType<Target::Devices>,
     a.clean();
 
     Debug::printTilesMaps(a);
+
+    delete[] column;
 }
 
 ///-----------------------------------------------------------------------------

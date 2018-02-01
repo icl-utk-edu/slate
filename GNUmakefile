@@ -14,8 +14,8 @@
 
 -include make.inc
 
-CFLAGS   = -O3 -std=c99   -Wall -pedantic
-CXXFLAGS = -O3 -std=c++11 -Wall -pedantic
+CFLAGS   = -O3 -std=c99   -Wall -pedantic -MMD
+CXXFLAGS = -O3 -std=c++11 -Wall -pedantic -MMD
 
 pwd = ${shell pwd}
 
@@ -92,6 +92,7 @@ SRC += slate_Debug.cc \
        slate_potrf.cc
 
 OBJ = $(SRC:.cc=.o)
+DEP = $(SRC:.cc=.d)
 
 all: potrf
 
@@ -107,3 +108,5 @@ clean:
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
+
+-include ${DEP}

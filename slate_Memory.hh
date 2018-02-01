@@ -60,9 +60,6 @@
     #include "slate_NoOpenmp.hh"
 #endif
 
-extern "C" void trace_cpu_start();
-extern "C" void trace_cpu_stop(const char *color);
-
 namespace slate {
 
 ///-----------------------------------------------------------------------------

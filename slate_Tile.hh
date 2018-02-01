@@ -41,6 +41,7 @@
 #define SLATE_TILE_HH
 
 #include "slate_Memory.hh"
+#include "slate_Trace.hh"
 
 #include <blas.hh>
 #include <lapack.hh>
@@ -68,9 +69,6 @@
 #else
     #include "slate_NoOpenmp.hh"
 #endif
-
-extern "C" void trace_cpu_start();
-extern "C" void trace_cpu_stop(const char *color);
 
 namespace slate {
 
@@ -296,7 +294,8 @@ template <typename scalar_t>
 void Tile<scalar_t>::copyDataToHost(
     Tile<scalar_t> *dst_tile, cudaStream_t stream)
 {
-    trace_cpu_start();
+    trace::Block trace_block(trace::Color::Gray);
+
     cudaError_t error;
     error = cudaSetDevice(device_num_);
     assert(error == cudaSuccess);
@@ -330,7 +329,6 @@ void Tile<scalar_t>::copyDataToHost(
 
     error = cudaStreamSynchronize(stream);
     assert(error == cudaSuccess);
-    trace_cpu_stop("Gray");
 }
 
 ///-----------------------------------------------------------------------------
@@ -340,7 +338,8 @@ template <typename scalar_t>
 void Tile<scalar_t>::copyDataToDevice(
     Tile<scalar_t> *dst_tile, cudaStream_t stream)
 {
-    trace_cpu_start();
+    trace::Block trace_block(trace::Color::LightGray);
+
     cudaError_t error;
     error = cudaSetDevice(dst_tile->device_num_);
     assert(error == cudaSuccess);
@@ -374,7 +373,6 @@ void Tile<scalar_t>::copyDataToDevice(
 
     error = cudaStreamSynchronize(stream);
     assert(error == cudaSuccess);
-    trace_cpu_stop("LightGray");
 }
 
 ///-----------------------------------------------------------------------------
@@ -477,6 +475,8 @@ void Tile<scalar_t>::recv(int src)
 template <typename scalar_t>
 void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm bcast_comm)
 {
+    trace::Block trace_block(trace::Color::Crimson);
+
     // If no stride.
     if (stride_ == mb_) {
         // Use simple bcast.
@@ -527,6 +527,8 @@ void gemm(
                     Tile<scalar_t> const& B,
     scalar_t beta,  Tile<scalar_t>& C )
 {
+    trace::Block trace_block(trace::Color::MediumAquamarine);
+
     assert( A.uplo() == blas::Uplo::General );
     assert( B.uplo() == blas::Uplo::General );
     assert( C.uplo() == blas::Uplo::General );
@@ -534,14 +536,12 @@ void gemm(
     assert( C.m() == A.m() );  // m
     assert( C.n() == B.n() );  // n
     assert( A.n() == B.m() );  // k
-    trace_cpu_start();
     blas::gemm( blas::Layout::ColMajor,
                 A.op(), B.op(),
                 C.m(), C.n(), A.n(),
                 alpha, A.data(), A.stride(),
                        B.data(), B.stride(),
                 beta,  C.data(), C.stride() );
-    trace_cpu_stop("MediumAquamarine");
 }
 
 ///-----------------------------------------------------------------------------
@@ -551,12 +551,12 @@ void gemm(
 template <typename scalar_t>
 void potrf( Tile<scalar_t>& A )
 {
+    trace::Block trace_block(trace::Color::RosyBrown);
+
     assert( A.op() == blas::Op::NoTrans );  // todo: row-major
-    trace_cpu_start();
     lapack::potrf( A.uplo(),
                    A.n(),
                    A.data(), A.stride() );
-    trace_cpu_stop("RosyBrown");
 }
 
 ///-----------------------------------------------------------------------------
@@ -568,17 +568,17 @@ void syrk(
     scalar_t alpha, Tile<scalar_t> const& A,
     scalar_t beta,  Tile<scalar_t>& C )
 {
+    trace::Block trace_block(trace::Color::CornflowerBlue);
+
     assert( A.uplo() == blas::Uplo::General );
     assert( C.m() == C.n() );  // square
     assert( C.m() == A.m() );  // n
     assert( C.op() == blas::Op::NoTrans );  // todo: row-major
-    trace_cpu_start();
     blas::syrk( blas::Layout::ColMajor,
                 C.uplo(), A.op(),
                 C.n(), A.n(),
                 alpha, A.data(), A.stride(),
                 beta,  C.data(), C.stride() );
-    trace_cpu_stop("CornflowerBlue");
 }
 
 ///-----------------------------------------------------------------------------
@@ -591,18 +591,18 @@ void trsm(
     scalar_t alpha, Tile<scalar_t> const& A,
                     Tile<scalar_t>& B )
 {
+    trace::Block trace_block(trace::Color::MediumPurple);
+
     assert( B.uplo() == blas::Uplo::General );
     assert( B.op() == blas::Op::NoTrans );  // todo: row-major
     assert( A.m() == A.n() );  // square
     assert( side == blas::Side::Left ? A.m() == B.m()     // m
                                      : A.m() == B.n() );  // n
-    trace_cpu_start();
     blas::trsm( blas::Layout::ColMajor,
                 side, A.uplo(), A.op(), diag,
                 B.m(), B.n(),
                 alpha, A.data(), A.stride(),
                        B.data(), B.stride() );
-    trace_cpu_stop("MediumPurple");
 }
 
 ///=============================================================================
@@ -614,9 +614,8 @@ void trsm(
 template <typename scalar_t>
 void Tile<scalar_t>::allocate()
 {
-    trace_cpu_start();
+    trace::Block trace_block(trace::Color::Aqua);
     data_ = (scalar_t*)memory_.lock()->alloc(device_num_);
-    trace_cpu_stop("Orchid");
 }
 
 ///-----------------------------------------------------------------------------
@@ -625,10 +624,9 @@ void Tile<scalar_t>::allocate()
 template <typename scalar_t>
 void Tile<scalar_t>::deallocate()
 {
-    trace_cpu_start();
+    trace::Block trace_block(trace::Color::Aquamarine);
     memory_.lock()->free(data_, device_num_);
     data_ = nullptr;
-    trace_cpu_stop("Crimson");
 }
 
 } // namespace slate

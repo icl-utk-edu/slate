@@ -89,6 +89,7 @@ SRC += slate_Debug.cc \
        slate_Matrix.cc \
        slate_Memory.cc \
        slate_Tile.cc \
+       slate_Trace.cc \
        slate_potrf.cc
 
 OBJ = $(SRC:.cc=.o)
@@ -96,8 +97,8 @@ DEP = $(SRC:.cc=.d)
 
 all: potrf
 
-potrf: $(OBJ) potrf.o trace/trace.o
-	$(CXX) $(CXXFLAGS) $(OBJ) potrf.o trace/trace.o $(LIB) -o $@
+potrf: $(OBJ) potrf.o
+	$(CXX) $(CXXFLAGS) $(OBJ) potrf.o $(LIB) -o $@
 
 clean:
 	rm -f $(OBJ)

@@ -1,6 +1,7 @@
 
 #include "slate.hh"
 #include "slate_Debug.hh"
+#include "slate_Trace.hh"
 
 #include <cassert>
 #include <cmath>
@@ -19,10 +20,6 @@
 #else
     #include "slate_NoOpenmp.hh"
 #endif
-
-extern "C" void trace_on();
-extern "C" void trace_off();
-extern "C" void trace_finish();
 
 //------------------------------------------------------------------------------
 int main (int argc, char *argv[])
@@ -79,23 +76,18 @@ int main (int argc, char *argv[])
         }
     }
 
-    trace_off();
     slate::Matrix<double> a(n, n, a1, lda, nb, MPI_COMM_WORLD, p, q);
-    trace_on();
-
-    trace_cpu_start();
-    MPI_Barrier(MPI_COMM_WORLD);
-    trace_cpu_stop("Black");
-
+    slate::trace::Trace::on();
+    {
+        slate::trace::Block trace_block(slate::trace::Color::Black);
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
     double start = omp_get_wtime();
     slate::potrf<slate::Target::HostTask>(slate::Uplo::Lower, a, lookahead);
 
-    trace_cpu_start();
     MPI_Barrier(MPI_COMM_WORLD);
-    trace_cpu_stop("Black");
-
     double time = omp_get_wtime()-start;
-    trace_finish();
+    slate::trace::Trace::finish();
 
     //--------------
     // Print GFLOPS.

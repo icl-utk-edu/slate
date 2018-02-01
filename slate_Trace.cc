@@ -161,7 +161,7 @@ void Trace::printThreads(int mpi_rank, int mpi_size,
                 "stroke=\"#%06x\" stroke-width=\"%lf\"/>\n",
                 x, y,
                 width, height,
-                event.color_,
+                (unsigned int)event.color_,
                 stroke_color, stroke_width);
         }
         y += vscale;

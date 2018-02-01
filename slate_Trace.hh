@@ -220,9 +220,9 @@ public:
     void stop() { stop_ = omp_get_wtime(); }
 
 private:
+    Color color_;
     double start_;
     double stop_;
-    Color color_;
 };
 
 ///-----------------------------------------------------------------------------

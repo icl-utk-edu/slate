@@ -231,14 +231,15 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostBatch>,
                 ++i;
             }
 
-    trace_cpu_start();
-//  mkl_set_num_threads_local(...);
-    cblas_dgemm_batch(CblasColMajor, opa_array, opb_array,
-                      m_array, n_array, k_array, alpha_array,
-                      a_array, lda_array, b_array, ldb_array, beta_array,
-                      c_array, ldc_array, 1, &group_size);
-//  mkl_set_num_threads_local(1);
-    trace_cpu_stop("DarkGreen");
+    {
+        trace::Block trace_block(trace::Color::DarkGreen);
+        // mkl_set_num_threads_local(...);
+        cblas_dgemm_batch(CblasColMajor, opa_array, opb_array,
+                          m_array, n_array, k_array, alpha_array,
+                          a_array, lda_array, b_array, ldb_array, beta_array,
+                          c_array, ldc_array, 1, &group_size);
+        // mkl_set_num_threads_local(1);
+    }
 
     for (int64_t n = 0; n < c.nt_; ++n)
         for (int64_t m = n+1; m < c.mt_; ++m)
@@ -304,21 +305,22 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::Devices>,
                                     c.gemm_stream_[device]);
             assert(error == cudaSuccess);
 
-            trace_cpu_start();
-            int nb = c.tileNb(0);
-            cublasStatus_t status =
-                cublasDgemmBatched(
-                    c.cublas_handle_[device],
-                    CUBLAS_OP_N, CUBLAS_OP_T,
-                    nb, nb, nb,
-                    &alpha, c.a_array_d_[device], nb,
-                            c.b_array_d_[device], nb,
-                    &beta,  c.c_array_d_[device], nb,
-                    batch_count);
-            assert(status == CUBLAS_STATUS_SUCCESS);
-            error = cudaStreamSynchronize(c.gemm_stream_[device]);
-            assert(error == cudaSuccess);
-            trace_cpu_stop("PaleGreen");
+            {
+                trace::Block trace_block(trace::Color::PaleGreen);
+                int nb = c.tileNb(0);
+                cublasStatus_t status =
+                    cublasDgemmBatched(
+                        c.cublas_handle_[device],
+                        CUBLAS_OP_N, CUBLAS_OP_T,
+                        nb, nb, nb,
+                        &alpha, c.a_array_d_[device], nb,
+                                c.b_array_d_[device], nb,
+                        &beta,  c.c_array_d_[device], nb,
+                        batch_count);
+                assert(status == CUBLAS_STATUS_SUCCESS);
+                error = cudaStreamSynchronize(c.gemm_stream_[device]);
+                assert(error == cudaSuccess);
+            }
 
             for (int64_t n = 0; n < c.nt_; ++n)
                 for (int64_t m = n+1; m < c.mt_; ++m)

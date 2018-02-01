@@ -41,6 +41,7 @@
 #define SLATE_TILE_HH
 
 #include "slate_Memory.hh"
+#include "slate_Trace.hh"
 
 #include <blas.hh>
 #include <lapack.hh>
@@ -68,9 +69,6 @@
 #else
     #include "slate_NoOpenmp.hh"
 #endif
-
-extern "C" void trace_cpu_start();
-extern "C" void trace_cpu_stop(const char *color);
 
 namespace slate {
 
@@ -149,7 +147,6 @@ template <typename FloatType>
 Tile<FloatType>::Tile(int64_t mb, int64_t nb,
                       std::weak_ptr<Memory> memory,
                       MPI_Comm mpi_comm)
-
     : mb_(mb),
       nb_(nb),
       stride_(mb),
@@ -171,7 +168,6 @@ Tile<FloatType>::Tile(int64_t mb, int64_t nb,
                       FloatType *a, int64_t lda,
                       std::weak_ptr<Memory> memory,
                       MPI_Comm mpi_comm)
-
     : mb_(mb),
       nb_(nb),
       stride_(lda),
@@ -227,7 +223,8 @@ template <typename FloatType>
 void Tile<FloatType>::copyDataToHost(
     const Tile<FloatType> *dst_tile, cudaStream_t stream)
 {
-    trace_cpu_start();
+    trace::Block trace_block(trace::Color::Gray);
+
     cudaError_t error;
     error = cudaSetDevice(device_num_);
     assert(error == cudaSuccess);
@@ -261,7 +258,6 @@ void Tile<FloatType>::copyDataToHost(
 
     error = cudaStreamSynchronize(stream);
     assert(error == cudaSuccess);
-    trace_cpu_stop("Gray");
 }
 
 ///-----------------------------------------------------------------------------
@@ -271,7 +267,8 @@ template <typename FloatType>
 void Tile<FloatType>::copyDataToDevice(
     const Tile<FloatType> *dst_tile, cudaStream_t stream)
 {
-    trace_cpu_start();
+    trace::Block trace_block(trace::Color::LightGray);
+
     cudaError_t error;
     error = cudaSetDevice(dst_tile->device_num_);
     assert(error == cudaSuccess);
@@ -305,7 +302,6 @@ void Tile<FloatType>::copyDataToDevice(
 
     error = cudaStreamSynchronize(stream);
     assert(error == cudaSuccess);
-    trace_cpu_stop("LightGray");
 }
 
 ///-----------------------------------------------------------------------------
@@ -410,6 +406,8 @@ void Tile<FloatType>::recv(int src)
 template <typename FloatType>
 void Tile<FloatType>::bcast(int bcast_root, MPI_Comm bcast_comm)
 {
+    trace::Block trace_block(trace::Color::Crimson);
+
     // If no stride.
     if (stride_ == mb_) {
 
@@ -458,14 +456,13 @@ void Tile<FloatType>::gemm(blas::Op transa, blas::Op transb,
                                   Tile<FloatType> *b,
                  FloatType beta,  Tile<FloatType> *c)
 {
-    trace_cpu_start();
+    trace::Block trace_block(trace::Color::MediumAquamarine);
     blas::gemm(blas::Layout::ColMajor,
                transa, transb,
                c->mb_, c->nb_, a->nb_,
                alpha, a->data_, a->stride_,
                       b->data_, b->stride_,
                beta,  c->data_, c->stride_);
-    trace_cpu_stop("MediumAquamarine");
 }
 
 ///-----------------------------------------------------------------------------
@@ -474,11 +471,10 @@ void Tile<FloatType>::gemm(blas::Op transa, blas::Op transb,
 template <typename FloatType>
 void Tile<FloatType>::potrf(lapack::Uplo uplo, Tile<FloatType> *a)
 {
-    trace_cpu_start();
+    trace::Block trace_block(trace::Color::RosyBrown);
     lapack::potrf(uplo,
                   a->nb_,
                   a->data_, a->stride_);
-    trace_cpu_stop("RosyBrown");
 }
 
 ///-----------------------------------------------------------------------------
@@ -489,13 +485,12 @@ void Tile<FloatType>::syrk(blas::Uplo uplo, blas::Op trans,
                  FloatType alpha, Tile<FloatType> *a,
                  FloatType beta,  Tile<FloatType> *c)
 {
-    trace_cpu_start();
+    trace::Block trace_block(trace::Color::CornflowerBlue);
     blas::syrk(blas::Layout::ColMajor,
                uplo, trans,
                c->nb_, a->nb_,
                alpha, a->data_, a->stride_,
                beta,  c->data_, c->stride_);
-    trace_cpu_stop("CornflowerBlue");
 }
 
 ///-----------------------------------------------------------------------------
@@ -507,13 +502,12 @@ void Tile<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
                  FloatType alpha, Tile<FloatType> *a,
                                   Tile<FloatType> *b)
 {
-    trace_cpu_start();
+    trace::Block trace_block(trace::Color::MediumPurple);
     blas::trsm(blas::Layout::ColMajor,
                side, uplo, transa, diag,
                b->mb_, b->nb_,
                alpha, a->data_, a->stride_,
                       b->data_, b->stride_);
-    trace_cpu_stop("MediumPurple");
 }
 
 ///-----------------------------------------------------------------------------
@@ -522,9 +516,8 @@ void Tile<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
 template <typename FloatType>
 void Tile<FloatType>::allocate()
 {
-    trace_cpu_start();
+    trace::Block trace_block(trace::Color::Aqua);
     data_ = (FloatType*)memory_.lock()->alloc(device_num_);
-    trace_cpu_stop("Orchid");
 }
 
 ///-----------------------------------------------------------------------------
@@ -533,10 +526,9 @@ void Tile<FloatType>::allocate()
 template <typename FloatType>
 void Tile<FloatType>::deallocate()
 {
-    trace_cpu_start();
+    trace::Block trace_block(trace::Color::Aquamarine);
     memory_.lock()->free(data_, device_num_);
     data_ = nullptr;
-    trace_cpu_stop("Crimson");
 }
 
 } // namespace slate

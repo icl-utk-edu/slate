@@ -620,12 +620,10 @@ void Matrix<FloatType>::tileSend(int64_t i, int64_t j, std::set<int> &bcast_set)
     // Create a broadcast communicator.
     int tag = 0;
     MPI_Comm bcast_comm;
-    trace_cpu_start();
     #pragma omp critical(slate_mpi)
     retval = MPI_Comm_create_group(mpi_comm_, bcast_group, tag, &bcast_comm);
     assert(retval == MPI_SUCCESS);
     assert(bcast_comm != MPI_COMM_NULL);
-    trace_cpu_stop("Crimson");
 
     // Find the broadcast rank.
     int bcast_rank;

@@ -78,7 +78,7 @@ namespace slate {
 /// \class
 /// \brief
 ///
-template <typename FloatType>
+template <typename scalar_t>
 class Tile {
 public:
     Tile() {}
@@ -88,50 +88,50 @@ public:
          MPI_Comm mpi_comm);
 
     Tile(int64_t mb, int64_t nb,
-         FloatType *a, int64_t lda,
+         scalar_t *a, int64_t lda,
          std::weak_ptr<Memory> memory,
          MPI_Comm mpi_comm);
 
-    Tile(const Tile<FloatType> *src_tile, int dst_device_num);
+    Tile(const Tile<scalar_t> *src_tile, int dst_device_num);
 
     ~Tile() { deallocate(); }
 
-    Tile<FloatType>* copyToHost(cudaStream_t stream);
-    Tile<FloatType>* copyToDevice(int device_num, cudaStream_t stream);
+    Tile<scalar_t>* copyToHost(cudaStream_t stream);
+    Tile<scalar_t>* copyToDevice(int device_num, cudaStream_t stream);
 
-    void copyDataToHost(const Tile<FloatType> *dst_tile, cudaStream_t stream);
-    void copyDataToDevice(const Tile<FloatType> *dst_tile, cudaStream_t stream);
+    void copyDataToHost(const Tile<scalar_t> *dst_tile, cudaStream_t stream);
+    void copyDataToDevice(const Tile<scalar_t> *dst_tile, cudaStream_t stream);
 
     void send(int dst);
     void recv(int src);
     void bcast(int bcast_root, MPI_Comm bcast_comm);
 
     static void gemm(blas::Op transa, blas::Op transb,
-                     FloatType alpha, Tile<FloatType> *a,
-                                      Tile<FloatType> *b,
-                     FloatType beta,  Tile<FloatType> *c);
+                     scalar_t alpha, Tile<scalar_t> *a,
+                                      Tile<scalar_t> *b,
+                     scalar_t beta,  Tile<scalar_t> *c);
 
-    static void potrf(blas::Uplo uplo, Tile<FloatType> *a);
+    static void potrf(blas::Uplo uplo, Tile<scalar_t> *a);
 
     static void syrk(blas::Uplo uplo, blas::Op trans,
-                     FloatType alpha, Tile<FloatType> *a,
-                     FloatType beta,  Tile<FloatType> *c);
+                     scalar_t alpha, Tile<scalar_t> *a,
+                     scalar_t beta,  Tile<scalar_t> *c);
 
     static void trsm(blas::Side side, blas::Uplo uplo,
                      blas::Op transa, blas::Diag diag,
-                     FloatType alpha, Tile<FloatType> *a,
-                                      Tile<FloatType> *b);
+                     scalar_t alpha, Tile<scalar_t> *a,
+                                      Tile<scalar_t> *b);
     int64_t mb_;
     int64_t nb_;
     int64_t stride_;
 
-    FloatType *data_;
+    scalar_t *data_;
 
     bool valid_;
     bool origin_;
 
 protected:
-    size_t size() { return sizeof(FloatType)*mb_*nb_; }
+    size_t size() { return sizeof(scalar_t)*mb_*nb_; }
     void allocate();
     void deallocate();
 
@@ -145,8 +145,8 @@ protected:
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-Tile<FloatType>::Tile(int64_t mb, int64_t nb,
+template <typename scalar_t>
+Tile<scalar_t>::Tile(int64_t mb, int64_t nb,
                       std::weak_ptr<Memory> memory,
                       MPI_Comm mpi_comm)
 
@@ -166,9 +166,9 @@ Tile<FloatType>::Tile(int64_t mb, int64_t nb,
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-Tile<FloatType>::Tile(int64_t mb, int64_t nb,
-                      FloatType *a, int64_t lda,
+template <typename scalar_t>
+Tile<scalar_t>::Tile(int64_t mb, int64_t nb,
+                      scalar_t *a, int64_t lda,
                       std::weak_ptr<Memory> memory,
                       MPI_Comm mpi_comm)
 
@@ -186,8 +186,8 @@ Tile<FloatType>::Tile(int64_t mb, int64_t nb,
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-Tile<FloatType>::Tile(const Tile<FloatType> *src_tile, int dst_device_num)
+template <typename scalar_t>
+Tile<scalar_t>::Tile(const Tile<scalar_t> *src_tile, int dst_device_num)
 {
     *this = *src_tile;
     this->origin_ = false;
@@ -199,11 +199,11 @@ Tile<FloatType>::Tile(const Tile<FloatType> *src_tile, int dst_device_num)
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-Tile<FloatType>*
-Tile<FloatType>::copyToHost(cudaStream_t stream)
+template <typename scalar_t>
+Tile<scalar_t>*
+Tile<scalar_t>::copyToHost(cudaStream_t stream)
 {
-    Tile<FloatType> *dst_tile = new Tile<FloatType>(this, this->host_num_);
+    Tile<scalar_t> *dst_tile = new Tile<scalar_t>(this, this->host_num_);
     this->copyDataToHost(dst_tile, stream);
     return dst_tile;
 }
@@ -211,11 +211,11 @@ Tile<FloatType>::copyToHost(cudaStream_t stream)
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-Tile<FloatType>*
-Tile<FloatType>::copyToDevice(int device_num, cudaStream_t stream)
+template <typename scalar_t>
+Tile<scalar_t>*
+Tile<scalar_t>::copyToDevice(int device_num, cudaStream_t stream)
 {
-    Tile<FloatType> *dst_tile = new Tile<FloatType>(this, device_num);
+    Tile<scalar_t> *dst_tile = new Tile<scalar_t>(this, device_num);
     this->copyDataToDevice(dst_tile, stream);
     return dst_tile;
 }
@@ -223,9 +223,9 @@ Tile<FloatType>::copyToDevice(int device_num, cudaStream_t stream)
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-void Tile<FloatType>::copyDataToHost(
-    const Tile<FloatType> *dst_tile, cudaStream_t stream)
+template <typename scalar_t>
+void Tile<scalar_t>::copyDataToHost(
+    const Tile<scalar_t> *dst_tile, cudaStream_t stream)
 {
     trace_cpu_start();
     cudaError_t error;
@@ -246,9 +246,9 @@ void Tile<FloatType>::copyDataToHost(
         // Otherwise, use 2D copy.
         void* dst = dst_tile->data_;
         const void* src = data_;
-        size_t dpitch = sizeof(FloatType)*dst_tile->stride_;
-        size_t spitch = sizeof(FloatType)*stride_;
-        size_t width = sizeof(FloatType)*mb_;
+        size_t dpitch = sizeof(scalar_t)*dst_tile->stride_;
+        size_t spitch = sizeof(scalar_t)*stride_;
+        size_t width = sizeof(scalar_t)*mb_;
         size_t height = nb_;
 
         error = cudaMemcpy2DAsync(
@@ -267,9 +267,9 @@ void Tile<FloatType>::copyDataToHost(
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-void Tile<FloatType>::copyDataToDevice(
-    const Tile<FloatType> *dst_tile, cudaStream_t stream)
+template <typename scalar_t>
+void Tile<scalar_t>::copyDataToDevice(
+    const Tile<scalar_t> *dst_tile, cudaStream_t stream)
 {
     trace_cpu_start();
     cudaError_t error;
@@ -290,9 +290,9 @@ void Tile<FloatType>::copyDataToDevice(
         // Otherwise, use 2D copy.
         void* dst = dst_tile->data_;
         const void* src = data_;
-        size_t dpitch = sizeof(FloatType)*dst_tile->stride_;
-        size_t spitch = sizeof(FloatType)*stride_;
-        size_t width = sizeof(FloatType)*mb_;
+        size_t dpitch = sizeof(scalar_t)*dst_tile->stride_;
+        size_t spitch = sizeof(scalar_t)*stride_;
+        size_t width = sizeof(scalar_t)*mb_;
         size_t height = nb_;
 
         error = cudaMemcpy2DAsync(
@@ -311,8 +311,8 @@ void Tile<FloatType>::copyDataToDevice(
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-void Tile<FloatType>::send(int dst)
+template <typename scalar_t>
+void Tile<scalar_t>::send(int dst)
 {
     // If no stride.
     if (stride_ == mb_) {
@@ -358,8 +358,8 @@ void Tile<FloatType>::send(int dst)
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-void Tile<FloatType>::recv(int src)
+template <typename scalar_t>
+void Tile<scalar_t>::recv(int src)
 {
     // If no stride.
     if (stride_ == mb_) {
@@ -407,8 +407,8 @@ void Tile<FloatType>::recv(int src)
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-void Tile<FloatType>::bcast(int bcast_root, MPI_Comm bcast_comm)
+template <typename scalar_t>
+void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm bcast_comm)
 {
     // If no stride.
     if (stride_ == mb_) {
@@ -452,11 +452,11 @@ void Tile<FloatType>::bcast(int bcast_root, MPI_Comm bcast_comm)
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-void Tile<FloatType>::gemm(blas::Op transa, blas::Op transb,
-                 FloatType alpha, Tile<FloatType> *a,
-                                  Tile<FloatType> *b,
-                 FloatType beta,  Tile<FloatType> *c)
+template <typename scalar_t>
+void Tile<scalar_t>::gemm(blas::Op transa, blas::Op transb,
+                 scalar_t alpha, Tile<scalar_t> *a,
+                                  Tile<scalar_t> *b,
+                 scalar_t beta,  Tile<scalar_t> *c)
 {
     trace_cpu_start();
     blas::gemm(blas::Layout::ColMajor,
@@ -471,8 +471,8 @@ void Tile<FloatType>::gemm(blas::Op transa, blas::Op transb,
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-void Tile<FloatType>::potrf(lapack::Uplo uplo, Tile<FloatType> *a)
+template <typename scalar_t>
+void Tile<scalar_t>::potrf(lapack::Uplo uplo, Tile<scalar_t> *a)
 {
     trace_cpu_start();
     lapack::potrf(uplo,
@@ -484,10 +484,10 @@ void Tile<FloatType>::potrf(lapack::Uplo uplo, Tile<FloatType> *a)
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-void Tile<FloatType>::syrk(blas::Uplo uplo, blas::Op trans,
-                 FloatType alpha, Tile<FloatType> *a,
-                 FloatType beta,  Tile<FloatType> *c)
+template <typename scalar_t>
+void Tile<scalar_t>::syrk(blas::Uplo uplo, blas::Op trans,
+                 scalar_t alpha, Tile<scalar_t> *a,
+                 scalar_t beta,  Tile<scalar_t> *c)
 {
     trace_cpu_start();
     blas::syrk(blas::Layout::ColMajor,
@@ -501,11 +501,11 @@ void Tile<FloatType>::syrk(blas::Uplo uplo, blas::Op trans,
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-void Tile<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
+template <typename scalar_t>
+void Tile<scalar_t>::trsm(blas::Side side, blas::Uplo uplo,
                  blas::Op transa, blas::Diag diag,
-                 FloatType alpha, Tile<FloatType> *a,
-                                  Tile<FloatType> *b)
+                 scalar_t alpha, Tile<scalar_t> *a,
+                                  Tile<scalar_t> *b)
 {
     trace_cpu_start();
     blas::trsm(blas::Layout::ColMajor,
@@ -519,19 +519,19 @@ void Tile<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-void Tile<FloatType>::allocate()
+template <typename scalar_t>
+void Tile<scalar_t>::allocate()
 {
     trace_cpu_start();
-    data_ = (FloatType*)memory_.lock()->alloc(device_num_);
+    data_ = (scalar_t*)memory_.lock()->alloc(device_num_);
     trace_cpu_stop("Orchid");
 }
 
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-void Tile<FloatType>::deallocate()
+template <typename scalar_t>
+void Tile<scalar_t>::deallocate()
 {
     trace_cpu_start();
     memory_.lock()->free(data_, device_num_);

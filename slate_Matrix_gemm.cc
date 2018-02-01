@@ -45,12 +45,12 @@ namespace slate {
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
+template <typename scalar_t>
 template <Target target>
-void Matrix<FloatType>::gemm(blas::Op opa, blas::Op opb,
-                             FloatType alpha, Matrix &&a,
+void Matrix<scalar_t>::gemm(blas::Op opa, blas::Op opb,
+                             scalar_t alpha, Matrix &&a,
                                               Matrix &&b,
-                             FloatType beta,  Matrix &&c,
+                             scalar_t beta,  Matrix &&c,
                              int priority)
 {
     gemm(internal::TargetType<target>(),
@@ -63,12 +63,12 @@ void Matrix<FloatType>::gemm(blas::Op opa, blas::Op opb,
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-void Matrix<FloatType>::gemm(internal::TargetType<Target::HostTask>,
+template <typename scalar_t>
+void Matrix<scalar_t>::gemm(internal::TargetType<Target::HostTask>,
                              blas::Op opa, blas::Op opb,
-                             FloatType alpha, Matrix &a,
+                             scalar_t alpha, Matrix &a,
                                               Matrix &b,
-                             FloatType beta,  Matrix &c,
+                             scalar_t beta,  Matrix &c,
                              int priority)
 {
     // NoTrans, Trans
@@ -80,7 +80,7 @@ void Matrix<FloatType>::gemm(internal::TargetType<Target::HostTask>,
                     a.tileCopyToHost(m, 0, a.tileDevice(m, 0));
                     b.tileCopyToHost(n, 0, b.tileDevice(n, 0));
                     c.tileMoveToHost(m, n, c.tileDevice(m, n));
-                    Tile<FloatType>::gemm(opa, opb,
+                    Tile<scalar_t>::gemm(opa, opb,
                                           alpha, a(m, 0),
                                                  b(n, 0),
                                           beta,  c(m, n));

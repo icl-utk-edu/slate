@@ -73,21 +73,21 @@ class Debug {
 public:
     //--------
     // generic
-    template <typename FloatType>
+    template <typename scalar_t>
     static void diffLapackMatrices(int64_t m, int64_t n,
-                                   FloatType *a, int64_t lda,
-                                   FloatType *b, int64_t ldb,
+                                   scalar_t *a, int64_t lda,
+                                   scalar_t *b, int64_t ldb,
                                    int64_t mb, int64_t nb);
     //-------------
     // Matrix class
-    template <typename FloatType>
-    static void checkTilesLives(Matrix<FloatType> &a);
+    template <typename scalar_t>
+    static void checkTilesLives(Matrix<scalar_t> &a);
 
-    template <typename FloatType>
-    static void printTilesLives(Matrix<FloatType> &a);
+    template <typename scalar_t>
+    static void printTilesLives(Matrix<scalar_t> &a);
 
-    template <typename FloatType>
-    static void printTilesMaps(Matrix<FloatType> &a);
+    template <typename scalar_t>
+    static void printTilesMaps(Matrix<scalar_t> &a);
 
     //-------------
     // Memory class

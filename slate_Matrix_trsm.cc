@@ -45,11 +45,11 @@ namespace slate {
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
+template <typename scalar_t>
 template <Target target>
-void Matrix<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
+void Matrix<scalar_t>::trsm(blas::Side side, blas::Uplo uplo,
                              blas::Op op, blas::Diag diag,
-                             FloatType alpha, Matrix &&a,
+                             scalar_t alpha, Matrix &&a,
                                               Matrix &&b,
                              int priority)
 {
@@ -61,11 +61,11 @@ void Matrix<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-void Matrix<FloatType>::trsm(internal::TargetType<Target::HostTask>,
+template <typename scalar_t>
+void Matrix<scalar_t>::trsm(internal::TargetType<Target::HostTask>,
                              blas::Side side, blas::Uplo uplo,
                              blas::Op op, blas::Diag diag,
-                             FloatType alpha, Matrix &a,
+                             scalar_t alpha, Matrix &a,
                                               Matrix &b,
                              int priority)
 {
@@ -76,7 +76,7 @@ void Matrix<FloatType>::trsm(internal::TargetType<Target::HostTask>,
             {
                 a.tileCopyToHost(0, 0, a.tileDevice(0, 0));
                 b.tileMoveToHost(m, 0, b.tileDevice(m, 0));
-                Tile<FloatType>::trsm(side, uplo, op, diag,
+                Tile<scalar_t>::trsm(side, uplo, op, diag,
                                       alpha, a(0, 0),
                                              b(m, 0));
                 a.tileTick(0, 0);

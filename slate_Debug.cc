@@ -44,10 +44,10 @@ namespace slate {
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
+template <typename scalar_t>
 void Debug::diffLapackMatrices(int64_t m, int64_t n,
-                               FloatType *a, int64_t lda,
-                               FloatType *b, int64_t ldb,
+                               scalar_t *a, int64_t lda,
+                               scalar_t *b, int64_t ldb,
                                int64_t mb, int64_t nb)
 {
     for (int64_t i = 0; i < m; ++i) {
@@ -60,7 +60,7 @@ void Debug::diffLapackMatrices(int64_t m, int64_t n,
             if (j%nb == 2)
                 j += nb-4;
 
-            FloatType error = a[(size_t)lda*j+i] - b[(size_t)lda*j+i];
+            scalar_t error = a[(size_t)lda*j+i] - b[(size_t)lda*j+i];
             printf("%c", error < 0.00000000000001 ? '.' : '#');
 
             if ((j+1)%nb == 0)
@@ -81,8 +81,8 @@ void Debug::diffLapackMatrices(int64_t m, int64_t n,
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-void Debug::checkTilesLives(Matrix<FloatType> &a)
+template <typename scalar_t>
+void Debug::checkTilesLives(Matrix<scalar_t> &a)
 {
     for (auto it = a.tiles_->begin(); it != a.tiles_->end(); ++it) {
 
@@ -104,8 +104,8 @@ void Debug::checkTilesLives(Matrix<FloatType> &a)
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-void Debug::printTilesLives(Matrix<FloatType> &a)
+template <typename scalar_t>
+void Debug::printTilesLives(Matrix<scalar_t> &a)
 {
     if (a.mpi_rank_ == 0) {
         for (int64_t i = 0; i < a.mt_; ++i) {
@@ -123,8 +123,8 @@ void Debug::printTilesLives(Matrix<FloatType> &a)
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-void Debug::printTilesMaps(Matrix<FloatType> &a)
+template <typename scalar_t>
+void Debug::printTilesMaps(Matrix<scalar_t> &a)
 {
     for (int64_t i = 0; i < a.mt_; ++i) {
         for (int64_t j = 0; j <= i && j < a.nt_; ++j) {

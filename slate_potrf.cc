@@ -47,9 +47,9 @@ namespace internal {
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType, Target target>
+template <typename scalar_t, Target target>
 void potrf(TargetType<target>,
-           lapack::Uplo uplo, Matrix<FloatType> &a, int64_t lookahead)
+           lapack::Uplo uplo, Matrix<scalar_t> &a, int64_t lookahead)
 {
     using namespace blas;
 
@@ -61,14 +61,14 @@ void potrf(TargetType<target>,
         // panel
         #pragma omp task depend(inout:column[k]) priority(1)
         {
-            Matrix<FloatType>::template
+            Matrix<scalar_t>::template
             potrf<Target::HostTask>(Uplo::Lower, a(k, k, k, k), 1);
 
             if (k+1 <= a.nt_-1)
                 a.tileSend(k, k, a(k+1, a.nt_-1, k, k));
 
             if (k+1 <= a.nt_-1)
-                Matrix<FloatType>::template
+                Matrix<scalar_t>::template
                 trsm<Target::HostTask>(
                     Side::Right, Uplo::Lower,
                     Op::Trans, Diag::NonUnit,
@@ -84,14 +84,14 @@ void potrf(TargetType<target>,
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[n]) priority(1)
             {
-                Matrix<FloatType>::template
+                Matrix<scalar_t>::template
                 syrk<Target::HostTask>(
                     Uplo::Lower, Op::NoTrans,
                     -1.0, a(n, n, k, k),
                      1.0, a(n, n, n, n), 1);
 
                 if (n+1 <= a.nt_-1)
-                    Matrix<FloatType>::template
+                    Matrix<scalar_t>::template
                     gemm<Target::HostTask>(
                         Op::NoTrans, Op::Trans,
                         -1.0, a(n+1, a.nt_-1, k, k),
@@ -105,7 +105,7 @@ void potrf(TargetType<target>,
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[a.nt_-1])
             {
-                Matrix<FloatType>::template
+                Matrix<scalar_t>::template
                 syrk<target>(
                     Uplo::Lower, Op::NoTrans,
                     -1.0, a(k+1+lookahead, a.nt_-1, k, k),
@@ -126,9 +126,9 @@ void potrf(TargetType<target>,
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
+template <typename scalar_t>
 void potrf(TargetType<Target::Devices>,
-           lapack::Uplo uplo, Matrix<FloatType> &a, int64_t lookahead)
+           lapack::Uplo uplo, Matrix<scalar_t> &a, int64_t lookahead)
 {
     using namespace blas;
 
@@ -143,14 +143,14 @@ void potrf(TargetType<Target::Devices>,
         // panel
         #pragma omp task depend(inout:column[k])
         {
-            Matrix<FloatType>::template
+            Matrix<scalar_t>::template
             potrf<Target::HostTask>(uplo, a(k, k, k, k));
 
             if (k+1 <= a.nt_-1)
                 a.tileSend(k, k, a(k+1, a.nt_-1, k, k));
 
             if (k+1 <= a.nt_-1)
-                Matrix<FloatType>::template
+                Matrix<scalar_t>::template
                 trsm<Target::HostTask>(
                     Side::Right, Uplo::Lower,
                     Op::Trans, Diag::NonUnit,
@@ -168,7 +168,7 @@ void potrf(TargetType<Target::Devices>,
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[a.nt_-1])
             {
-                Matrix<FloatType>::template
+                Matrix<scalar_t>::template
                 syrk<Target::Devices>(
                     Uplo::Lower, Op::NoTrans,
                     -1.0, a(k+1+lookahead, a.nt_-1, k, k),
@@ -180,14 +180,14 @@ void potrf(TargetType<Target::Devices>,
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[n])
             {
-                Matrix<FloatType>::template
+                Matrix<scalar_t>::template
                 syrk<Target::HostTask>(
                     Uplo::Lower, Op::NoTrans,
                     -1.0, a(n, n, k, k),
                      1.0, a(n, n, n, n));
 
                 if (n+1 <= a.nt_-1)
-                    Matrix<FloatType>::template
+                    Matrix<scalar_t>::template
                     gemm<Target::HostTask>(
                         Op::NoTrans, Op::Trans,
                         -1.0, a(n+1, a.nt_-1, k, k),
@@ -215,8 +215,8 @@ void potrf(TargetType<Target::Devices>,
 ///
 /// Precision and target templated function for implementing complex logic.
 ///
-template <typename FloatType, Target target>
-void potrf(lapack::Uplo uplo, Matrix<FloatType> &a, int64_t lookahead)
+template <typename scalar_t, Target target>
+void potrf(lapack::Uplo uplo, Matrix<scalar_t> &a, int64_t lookahead)
 {
     potrf(TargetType<target>(), uplo, a, lookahead);
 }

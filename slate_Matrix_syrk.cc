@@ -51,11 +51,11 @@ namespace slate {
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
+template <typename scalar_t>
 template <Target target>
-void Matrix<FloatType>::syrk(blas::Uplo uplo, blas::Op op,
-                             FloatType alpha, Matrix &&a,
-                             FloatType beta,  Matrix &&c,
+void Matrix<scalar_t>::syrk(blas::Uplo uplo, blas::Op op,
+                             scalar_t alpha, Matrix &&a,
+                             scalar_t beta,  Matrix &&c,
                              int priority)
 {
     syrk(internal::TargetType<target>(),
@@ -67,11 +67,11 @@ void Matrix<FloatType>::syrk(blas::Uplo uplo, blas::Op op,
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-void Matrix<FloatType>::syrk(internal::TargetType<Target::HostTask>,
+template <typename scalar_t>
+void Matrix<scalar_t>::syrk(internal::TargetType<Target::HostTask>,
                              blas::Uplo uplo, blas::Op op,
-                             FloatType alpha, Matrix &a,
-                             FloatType beta,  Matrix &c,
+                             scalar_t alpha, Matrix &a,
+                             scalar_t beta,  Matrix &c,
                              int priority)
 {
     // Lower, NoTrans
@@ -83,7 +83,7 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostTask>,
                     {
                         a.tileCopyToHost(n, 0, a.tileDevice(n, 0));
                         c.tileMoveToHost(n, n, c.tileDevice(n, n));
-                        Tile<FloatType>::syrk(uplo, op,
+                        Tile<scalar_t>::syrk(uplo, op,
                                               -1.0, a(n, 0),
                                               beta, c(n, n));
                         a.tileTick(n, 0);
@@ -96,7 +96,7 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostTask>,
                         a.tileCopyToHost(m, 0, a.tileDevice(m, 0));
                         a.tileCopyToHost(n, 0, a.tileDevice(n, 0));
                         c.tileMoveToHost(m, n, c.tileDevice(m, n));
-                        Tile<FloatType>::gemm(op, blas::Op::Trans,
+                        Tile<scalar_t>::gemm(op, blas::Op::Trans,
                                               alpha, a(m, 0),
                                                      a(n, 0),
                                               beta,  c(m, n));
@@ -112,11 +112,11 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostTask>,
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-void Matrix<FloatType>::syrk(internal::TargetType<Target::HostNest>,
+template <typename scalar_t>
+void Matrix<scalar_t>::syrk(internal::TargetType<Target::HostNest>,
                              blas::Uplo uplo, blas::Op op,
-                             FloatType alpha, Matrix &a,
-                             FloatType beta,  Matrix &c,
+                             scalar_t alpha, Matrix &a,
+                             scalar_t beta,  Matrix &c,
                              int priority)
 {
     // Lower, NoTrans
@@ -126,7 +126,7 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostNest>,
             {
                 a.tileCopyToHost(n, 0, a.tileDevice(n, 0));
                 c.tileMoveToHost(n, n, c.tileDevice(n, n));
-                Tile<FloatType>::syrk(uplo, op,
+                Tile<scalar_t>::syrk(uplo, op,
                                       -1.0, a(n, 0),
                                       beta, c(n, n));
                 a.tileTick(n, 0);
@@ -143,7 +143,7 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostNest>,
                     a.tileCopyToHost(m, 0, a.tileDevice(m, 0));
                     a.tileCopyToHost(n, 0, a.tileDevice(n, 0));
                     c.tileMoveToHost(m, n, c.tileDevice(m, n));
-                    Tile<FloatType>::gemm(op, blas::Op::Trans,
+                    Tile<scalar_t>::gemm(op, blas::Op::Trans,
                                           alpha, a(m, 0),
                                                  a(n, 0),
                                           beta,  c(m, n));
@@ -157,11 +157,11 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostNest>,
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-void Matrix<FloatType>::syrk(internal::TargetType<Target::HostBatch>,
+template <typename scalar_t>
+void Matrix<scalar_t>::syrk(internal::TargetType<Target::HostBatch>,
                              blas::Uplo uplo, blas::Op op,
-                             FloatType alpha, Matrix &a,
-                             FloatType beta,  Matrix &c,
+                             scalar_t alpha, Matrix &a,
+                             scalar_t beta,  Matrix &c,
                              int priority)
 {
     for (int64_t n = 0; n < c.nt_; ++n)
@@ -170,7 +170,7 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostBatch>,
             {
                 a.tileCopyToHost(n, 0, a.tileDevice(n, 0));
                 c.tileMoveToHost(n, n, c.tileDevice(n, n));
-                Tile<FloatType>::syrk(uplo, op,
+                Tile<scalar_t>::syrk(uplo, op,
                                       -1.0, a(n, 0),
                                       beta, c(n, n));
                 a.tileTick(n, 0);
@@ -190,13 +190,13 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostBatch>,
     int m_array[1];
     int n_array[1];
     int k_array[1];
-    FloatType alpha_array[1];
-    const FloatType **a_array;
+    scalar_t alpha_array[1];
+    const scalar_t **a_array;
     int lda_array[1];
-    const FloatType **b_array;
+    const scalar_t **b_array;
     int ldb_array[1];
-    FloatType beta_array[1];
-    FloatType **c_array;
+    scalar_t beta_array[1];
+    scalar_t **c_array;
     int ldc_array[1];
 
     int nb = c.tileNb(0);
@@ -217,9 +217,9 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostBatch>,
             if (c.tileIsLocal(m, n))
                 ++group_size;
 
-    a_array = new const FloatType*[group_size];
-    b_array = new const FloatType*[group_size];
-    c_array = new FloatType*[group_size];
+    a_array = new const scalar_t*[group_size];
+    b_array = new const scalar_t*[group_size];
+    c_array = new scalar_t*[group_size];
 
     int i = 0;
     for (int64_t n = 0; n < c.nt_; ++n)
@@ -257,11 +257,11 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostBatch>,
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-template <typename FloatType>
-void Matrix<FloatType>::syrk(internal::TargetType<Target::Devices>,
+template <typename scalar_t>
+void Matrix<scalar_t>::syrk(internal::TargetType<Target::Devices>,
                              blas::Uplo uplo, blas::Op op,
-                             FloatType alpha, Matrix &a,
-                             FloatType beta,  Matrix &c,
+                             scalar_t alpha, Matrix &a,
+                             scalar_t beta,  Matrix &c,
                              int priority)
 {
     for (int device = 0; device < c.num_devices_; ++device)
@@ -287,19 +287,19 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::Devices>,
             assert(error == cudaSuccess);
 
             error = cudaMemcpyAsync(c.a_array_d_[device], c.a_array_h_[device],
-                                    sizeof(FloatType*)*batch_count,
+                                    sizeof(scalar_t*)*batch_count,
                                     cudaMemcpyHostToDevice,
                                     c.gemm_stream_[device]);
             assert(error == cudaSuccess);
 
             error = cudaMemcpyAsync(c.b_array_d_[device], c.b_array_h_[device],
-                                    sizeof(FloatType*)*batch_count,
+                                    sizeof(scalar_t*)*batch_count,
                                     cudaMemcpyHostToDevice,
                                     c.gemm_stream_[device]);
             assert(error == cudaSuccess);
 
             error = cudaMemcpyAsync(c.c_array_d_[device], c.c_array_h_[device],
-                                    sizeof(FloatType*)*batch_count,
+                                    sizeof(scalar_t*)*batch_count,
                                     cudaMemcpyHostToDevice,
                                     c.gemm_stream_[device]);
             assert(error == cudaSuccess);
@@ -337,7 +337,7 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::Devices>,
             {
                 a.tileCopyToHost(n, 0, a.tileDevice(n, 0));
                 c.tileMoveToHost(n, n, c.tileDevice(n, n));
-                Tile<FloatType>::syrk(uplo, op,
+                Tile<scalar_t>::syrk(uplo, op,
                                           -1.0, a(n, 0),
                                           beta, c(n, n));
                 a.tileTick(n, 0);

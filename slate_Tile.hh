@@ -81,7 +81,8 @@ namespace slate {
 template <typename scalar_t>
 class Tile {
 public:
-    Tile() {}
+    Tile()
+    {}
 
     Tile(int64_t mb, int64_t nb,
          std::weak_ptr<Memory> memory,
@@ -94,62 +95,126 @@ public:
 
     Tile(const Tile<scalar_t> *src_tile, int dst_device_num);
 
-    ~Tile() { deallocate(); }
+    // todo:
+    // Tile doesn't own data; shouldn't deallocate it.
+    // MatrixStorage should deallocate it when it removes tile from map.
+    // ~Tile()
+    // {
+    //     if (! origin) {
+    //         deallocate();
+    //     }
+    // }
 
     Tile<scalar_t>* copyToHost(cudaStream_t stream);
     Tile<scalar_t>* copyToDevice(int device_num, cudaStream_t stream);
 
-    void copyDataToHost(const Tile<scalar_t> *dst_tile, cudaStream_t stream);
-    void copyDataToDevice(const Tile<scalar_t> *dst_tile, cudaStream_t stream);
+    void copyDataToHost(Tile<scalar_t> *dst_tile, cudaStream_t stream);
+    void copyDataToDevice(Tile<scalar_t> *dst_tile, cudaStream_t stream);
 
+    // todo: send/recv take mpi_comm?
     void send(int dst);
     void recv(int src);
     void bcast(int bcast_root, MPI_Comm bcast_comm);
 
-    static void gemm(blas::Op transa, blas::Op transb,
-                     scalar_t alpha, Tile<scalar_t> *a,
-                                      Tile<scalar_t> *b,
-                     scalar_t beta,  Tile<scalar_t> *c);
+    // todo: remove tile BLAS from class    
+    /// static void gemm(blas::Op transa, blas::Op transb,
+    ///                  scalar_t alpha, Tile<scalar_t> *a,
+    ///                                  Tile<scalar_t> *b,
+    ///                  scalar_t beta,  Tile<scalar_t> *c);
+    /// 
+    /// static void potrf(blas::Uplo uplo, Tile<scalar_t> *a);
+    /// 
+    /// static void syrk(blas::Uplo uplo, blas::Op trans,
+    ///                  scalar_t alpha, Tile<scalar_t> *a,
+    ///                  scalar_t beta,  Tile<scalar_t> *c);
+    /// 
+    /// static void trsm(blas::Side side, blas::Uplo uplo,
+    ///                  blas::Op transa, blas::Diag diag,
+    ///                  scalar_t alpha, Tile<scalar_t> *a,
+    ///                                  Tile<scalar_t> *b);
 
-    static void potrf(blas::Uplo uplo, Tile<scalar_t> *a);
+    // Tiles and Matrices use same transpose functions ;)
+    /// Returns shallow copy of tile that is transposed.
+    template< typename TileType >
+    friend TileType transpose( TileType& A );
 
-    static void syrk(blas::Uplo uplo, blas::Op trans,
-                     scalar_t alpha, Tile<scalar_t> *a,
-                     scalar_t beta,  Tile<scalar_t> *c);
+    /// Returns shallow copy of tile that is conjugate-transposed.
+    template< typename TileType >
+    friend TileType conj_transpose( TileType& A );
+    
+    /// m is rows of op(A)
+    int64_t m()      const { return (op_ == blas::Op::NoTrans ? mb_ : nb_); }
+    
+    /// n is cols of op(A)
+    int64_t n()      const { return (op_ == blas::Op::NoTrans ? nb_ : mb_); }
+    
+    /// column stride of A
+    int64_t stride() const { return stride_; }
+    
+    /// data pointer
+    scalar_t const* data() const { return data_; }
+    scalar_t*       data()       { return data_; }
+    
+    /// returns op(A)_{i, j}.
+    /// If op() is ConjTrans, data is NOT conjugated,
+    /// because a reference is returned.
+    scalar_t& operator() ( int64_t i, int64_t j )
+    {
+        assert( 0 <= i && i < m() );
+        assert( 0 <= j && j < n() );
+        if (op_ == blas::Op::NoTrans) {
+            return data_[ i + j*stride_ ];
+        }
+        else {
+            return data_[ j + i*stride_ ];
+        }
+    }
+    
+    /// sets/gets whether this tile is valid (cache coherency protocol)
+    bool valid() const { return valid_; }
+    void valid( bool val ) { valid_ = val; }
+    
+    /// whether this tile was originally given by the user (true),
+    /// or is a workspace buffer.
+    bool origin() const { return origin_; }
 
-    static void trsm(blas::Side side, blas::Uplo uplo,
-                     blas::Op transa, blas::Diag diag,
-                     scalar_t alpha, Tile<scalar_t> *a,
-                                      Tile<scalar_t> *b);
+    // todo: in C++ std, size is # elements; add bytes() for actual size
+    /// number of bytes; but NOT consecutive if stride != m.
+    size_t bytes() { return sizeof(scalar_t) * size2(); }
+    
+    /// number of elements; but elements are NOT consecutive if stride != m.
+    size_t size2() { return (size_t) mb_ * nb_; }
+
+protected:
+    void allocate();
+    void deallocate();
+    
     int64_t mb_;
     int64_t nb_;
     int64_t stride_;
+    blas::Op op_;
+    blas::Uplo uplo_;
 
     scalar_t *data_;
 
     bool valid_;
     bool origin_;
 
-protected:
-    size_t size() { return sizeof(scalar_t)*mb_*nb_; }
-    void allocate();
-    void deallocate();
-
     static int host_num_;
     int device_num_;
 
-    MPI_Comm mpi_comm_;
-    std::weak_ptr<Memory> memory_;
+    MPI_Comm mpi_comm_;  // todo: remove?
+    std::weak_ptr<Memory> memory_;  // todo: remove?
 };
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
+/// Creates new tile in host memory from workspace allocator.
+/// Data is uninitialized.
 template <typename scalar_t>
 Tile<scalar_t>::Tile(int64_t mb, int64_t nb,
                       std::weak_ptr<Memory> memory,
                       MPI_Comm mpi_comm)
-
     : mb_(mb),
       nb_(nb),
       stride_(mb),
@@ -165,27 +230,29 @@ Tile<scalar_t>::Tile(int64_t mb, int64_t nb,
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
+/// Creates tile that wraps existing memory buffer.
+/// TODO: currently assumes data is on host.
+/// Sets origin = true.
 template <typename scalar_t>
 Tile<scalar_t>::Tile(int64_t mb, int64_t nb,
                       scalar_t *a, int64_t lda,
                       std::weak_ptr<Memory> memory,
                       MPI_Comm mpi_comm)
-
     : mb_(mb),
       nb_(nb),
       stride_(lda),
       data_(a),
       valid_(true),
       origin_(true),
-      device_num_(host_num_),
+      device_num_(host_num_),  // todo: take device_num
       mpi_comm_(mpi_comm),
       memory_(memory)
 {}
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
+/// Creates new tile on given device from existing tile.
+// todo: use ref instead of pointer?
 template <typename scalar_t>
 Tile<scalar_t>::Tile(const Tile<scalar_t> *src_tile, int dst_device_num)
 {
@@ -198,7 +265,8 @@ Tile<scalar_t>::Tile(const Tile<scalar_t> *src_tile, int dst_device_num)
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
+/// Creates new tile on host and copies data from device to host.
+// todo: could these all implicitly figure out ToHost / ToDevice from direction from the device_nums?
 template <typename scalar_t>
 Tile<scalar_t>*
 Tile<scalar_t>::copyToHost(cudaStream_t stream)
@@ -210,7 +278,7 @@ Tile<scalar_t>::copyToHost(cudaStream_t stream)
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
+/// Creates new tile on device and copies data from host to device.
 template <typename scalar_t>
 Tile<scalar_t>*
 Tile<scalar_t>::copyToDevice(int device_num, cudaStream_t stream)
@@ -222,10 +290,11 @@ Tile<scalar_t>::copyToDevice(int device_num, cudaStream_t stream)
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
+/// Copies data from this tile on device to dst_tile on host.
+// todo: tile shouldn't be const
 template <typename scalar_t>
 void Tile<scalar_t>::copyDataToHost(
-    const Tile<scalar_t> *dst_tile, cudaStream_t stream)
+    Tile<scalar_t> *dst_tile, cudaStream_t stream)
 {
     trace_cpu_start();
     cudaError_t error;
@@ -238,7 +307,7 @@ void Tile<scalar_t>::copyDataToHost(
 
         // Use simple copy.
         error = cudaMemcpyAsync(
-            dst_tile->data_, data_, size(),
+            dst_tile->data_, data_, bytes(),
             cudaMemcpyDeviceToHost, stream);
         assert(error == cudaSuccess);
     }
@@ -266,10 +335,10 @@ void Tile<scalar_t>::copyDataToHost(
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
+/// Copies data from this tile on host to tile on device.
 template <typename scalar_t>
 void Tile<scalar_t>::copyDataToDevice(
-    const Tile<scalar_t> *dst_tile, cudaStream_t stream)
+    Tile<scalar_t> *dst_tile, cudaStream_t stream)
 {
     trace_cpu_start();
     cudaError_t error;
@@ -282,7 +351,7 @@ void Tile<scalar_t>::copyDataToDevice(
 
         // Use simple copy.
         error = cudaMemcpyAsync(
-            dst_tile->data_, data_, size(),
+            dst_tile->data_, data_, bytes(),
             cudaMemcpyHostToDevice, stream);
         assert(error == cudaSuccess);
     }
@@ -310,13 +379,13 @@ void Tile<scalar_t>::copyDataToDevice(
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
+/// Sends tile to MPI rank dst.
+// todo: take communicator?
 template <typename scalar_t>
 void Tile<scalar_t>::send(int dst)
 {
     // If no stride.
     if (stride_ == mb_) {
-
         // Use simple send.
         int count = mb_*nb_;
         int tag = 0;
@@ -327,7 +396,6 @@ void Tile<scalar_t>::send(int dst)
         assert(retval == MPI_SUCCESS);
     }
     else {
-
         // Otherwise, use strided send.
         int count = nb_;
         int blocklength = mb_;
@@ -357,13 +425,13 @@ void Tile<scalar_t>::send(int dst)
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
+/// Receives tile from MPI rank src.
+// todo: take communicator?
 template <typename scalar_t>
 void Tile<scalar_t>::recv(int src)
 {
     // If no stride.
     if (stride_ == mb_) {
-
         // Use simple recv.
         int count = mb_*nb_;
         int tag = 0;
@@ -375,7 +443,6 @@ void Tile<scalar_t>::recv(int src)
         assert(retval == MPI_SUCCESS);
     }
     else {
-
         // Otherwise, use strided recv. 
         int count = nb_;
         int blocklength = mb_;
@@ -406,13 +473,12 @@ void Tile<scalar_t>::recv(int src)
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
+/// Broadcasts tile from MPI rank bcast_root, using given communicator.
 template <typename scalar_t>
 void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm bcast_comm)
 {
     // If no stride.
     if (stride_ == mb_) {
-
         // Use simple bcast.
         int count = mb_*nb_;
         int retval;
@@ -422,7 +488,6 @@ void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm bcast_comm)
         assert(retval == MPI_SUCCESS);
     }
     else {
-
         // Otherwise, use strided bcast.
         int count = nb_;
         int blocklength = mb_;
@@ -449,76 +514,103 @@ void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm bcast_comm)
     }
 }
 
+///=============================================================================
+// Tile BLAS
+
 ///-----------------------------------------------------------------------------
 /// \brief
-///
+/// General matrix multiply: $C = \alpha op(A) op(B) + \beta C$.
+/// Use transpose/conj_transpose to set $op(A)$ and $op(B)$.
 template <typename scalar_t>
-void Tile<scalar_t>::gemm(blas::Op transa, blas::Op transb,
-                 scalar_t alpha, Tile<scalar_t> *a,
-                                  Tile<scalar_t> *b,
-                 scalar_t beta,  Tile<scalar_t> *c)
+void gemm(
+    scalar_t alpha, Tile<scalar_t> const& A,
+                    Tile<scalar_t> const& B,
+    scalar_t beta,  Tile<scalar_t>& C )
 {
+    assert( A.uplo() == blas::Uplo::General );
+    assert( B.uplo() == blas::Uplo::General );
+    assert( C.uplo() == blas::Uplo::General );
+    assert( C.op() == blas::Op::NoTrans );  // todo: row-major
+    assert( C.m() == A.m() );  // m
+    assert( C.n() == B.n() );  // n
+    assert( A.n() == B.m() );  // k
     trace_cpu_start();
-    blas::gemm(blas::Layout::ColMajor,
-               transa, transb,
-               c->mb_, c->nb_, a->nb_,
-               alpha, a->data_, a->stride_,
-                      b->data_, b->stride_,
-               beta,  c->data_, c->stride_);
+    blas::gemm( blas::Layout::ColMajor,
+                A.op(), B.op(),
+                C.m(), C.n(), A.n(),
+                alpha, A.data(), A.stride(),
+                       B.data(), B.stride(),
+                beta,  C.data(), C.stride() );
     trace_cpu_stop("MediumAquamarine");
 }
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
+/// Cholesky factorization of tile: $L L^H = A$ or $U^H U = A$.
+/// uplo is set in the tile.
 template <typename scalar_t>
-void Tile<scalar_t>::potrf(lapack::Uplo uplo, Tile<scalar_t> *a)
+void potrf( Tile<scalar_t>& A )
 {
+    assert( A.op() == blas::Op::NoTrans );  // todo: row-major
     trace_cpu_start();
-    lapack::potrf(uplo,
-                  a->nb_,
-                  a->data_, a->stride_);
+    lapack::potrf( A.uplo(),
+                   A.n(),
+                   A.data(), A.stride() );
     trace_cpu_stop("RosyBrown");
 }
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
+/// Symmetric rank-k update: $C = \alpha op(A) op(A)^T + \beta C$.
+/// Use transpose/conj_transpose to set $op(A)$.
 template <typename scalar_t>
-void Tile<scalar_t>::syrk(blas::Uplo uplo, blas::Op trans,
-                 scalar_t alpha, Tile<scalar_t> *a,
-                 scalar_t beta,  Tile<scalar_t> *c)
+void syrk(
+    scalar_t alpha, Tile<scalar_t> const& A,
+    scalar_t beta,  Tile<scalar_t>& C )
 {
+    assert( A.uplo() == blas::Uplo::General );
+    assert( C.m() == C.n() );  // square
+    assert( C.m() == A.m() );  // n
+    assert( C.op() == blas::Op::NoTrans );  // todo: row-major
     trace_cpu_start();
-    blas::syrk(blas::Layout::ColMajor,
-               uplo, trans,
-               c->nb_, a->nb_,
-               alpha, a->data_, a->stride_,
-               beta,  c->data_, c->stride_);
+    blas::syrk( blas::Layout::ColMajor,
+                C.uplo(), A.op(),
+                C.n(), A.n(),
+                alpha, A.data(), A.stride(),
+                beta,  C.data(), C.stride() );
     trace_cpu_stop("CornflowerBlue");
 }
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
+/// Triangular solve: $B = \alpha op(A)^{-1} B$ or $B = \alpha B op(A)^{-1}$.
+/// Use transpose/conj_transpose to set op(A). uplo is set in the tile.
 template <typename scalar_t>
-void Tile<scalar_t>::trsm(blas::Side side, blas::Uplo uplo,
-                 blas::Op transa, blas::Diag diag,
-                 scalar_t alpha, Tile<scalar_t> *a,
-                                  Tile<scalar_t> *b)
+void trsm(
+    blas::Side side, blas::Diag diag,
+    scalar_t alpha, Tile<scalar_t> const& A,
+                    Tile<scalar_t>& B )
 {
+    assert( B.uplo() == blas::Uplo::General );
+    assert( B.op() == blas::Op::NoTrans );  // todo: row-major
+    assert( A.m() == A.n() );  // square
+    assert( side == blas::Side::Left ? A.m() == B.m()     // m
+                                     : A.m() == B.n() );  // n
     trace_cpu_start();
-    blas::trsm(blas::Layout::ColMajor,
-               side, uplo, transa, diag,
-               b->mb_, b->nb_,
-               alpha, a->data_, a->stride_,
-                      b->data_, b->stride_);
+    blas::trsm( blas::Layout::ColMajor,
+                side, A.uplo(), A.op(), diag,
+                B.m(), B.n(),
+                alpha, A.data(), A.stride(),
+                       B.data(), B.stride() );
     trace_cpu_stop("MediumPurple");
 }
 
+///=============================================================================
+// Tile methods
+
 ///-----------------------------------------------------------------------------
 /// \brief
-///
+/// Allocates a tile in host or device memory using workspace allocator.
 template <typename scalar_t>
 void Tile<scalar_t>::allocate()
 {
@@ -529,7 +621,7 @@ void Tile<scalar_t>::allocate()
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
+/// Frees a tile in host or device memory using workspace allocator.
 template <typename scalar_t>
 void Tile<scalar_t>::deallocate()
 {

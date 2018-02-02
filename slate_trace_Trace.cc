@@ -37,7 +37,7 @@
 // comments to <slate-user@icl.utk.edu>.
 //------------------------------------------------------------------------------
 
-#include "slate_Trace.hh"
+#include "slate_trace_Trace.hh"
 
 #include <cassert>
 #include <cstdio>

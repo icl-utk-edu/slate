@@ -1,7 +1,7 @@
 
 #include "slate.hh"
 #include "slate_Debug.hh"
-#include "slate_Trace.hh"
+#include "slate_trace_Trace.hh"
 
 #include <cassert>
 #include <cmath>

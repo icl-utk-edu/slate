@@ -41,7 +41,7 @@
 #define SLATE_TILE_HH
 
 #include "slate_Memory.hh"
-#include "slate_Trace.hh"
+#include "slate_trace_Trace.hh"
 
 #include <blas.hh>
 #include <lapack.hh>

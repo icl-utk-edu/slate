@@ -89,7 +89,7 @@ SRC += slate_Debug.cc \
        slate_Matrix.cc \
        slate_Memory.cc \
        slate_Tile.cc \
-       slate_Trace.cc \
+       slate_trace_Trace.cc \
        slate_potrf.cc
 
 OBJ = $(SRC:.cc=.o)

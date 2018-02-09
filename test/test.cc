@@ -114,6 +114,7 @@ std::vector< libtest::routines_t > routines = {
   //   { "",                   nullptr,        Section::newline },
 
     { "potrf",              test_potrf,     Section::posv },
+    { "pdpotrf",            test_pdpotrf,   Section::posv },
   //   { "pptrf",              test_pptrf,     Section::posv },
   //   { "pbtrf",              test_pbtrf,     Section::posv },
   //   { "pttrf",              test_pttrf,     Section::posv },
@@ -463,7 +464,7 @@ Params::Params():
 
     //          name,      w, p, type,            def,   min,     max, help
     dim       ( "dim",     6,    ParamType::List,          0, 1000000, "m x n x k dimensions" ),
-    nb        ( "nb",      6,    ParamType::List, 4,       0, 1000000, "nb" ),
+    nb        ( "nb",      6,    ParamType::List, 96,      0, 1000000, "nb" ),
     nt        ( "nt",      6,    ParamType::List, 3,       0, 1000000, "nt" ),
     p         ( "p",       6,    ParamType::List, 1,       0, 1000000, "p" ),
     q         ( "q",       6,    ParamType::List, 1,       0, 1000000, "q" ),
@@ -612,12 +613,15 @@ int main( int argc, char** argv )
         }
     } while( params.next() );
 
-    if (mpi_rank==0 && status) {
-        printf( "%d tests FAILED.\n", status );
-    } else {
-        printf( "All tests passed.\n" );
-    }
+    MPI_Finalize();
 
-    if ( mpi_rank == 0 ) return (status);
-    else return 0;
+    if (mpi_rank==0) {
+        if (status) {
+            printf( "%d tests FAILED.\n", status );
+        } else {
+            printf( "All tests passed.\n" );
+        }
+    } 
+
+    return(status);
 }

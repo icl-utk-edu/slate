@@ -386,4 +386,6 @@ void test_lagtr ( Params& params, bool run );
 // additional BLAS
 void test_syr   ( Params& params, bool run );
 
+void test_pdpotrf ( Params& params, bool run );
+
 #endif  //  #ifndef TEST_HH

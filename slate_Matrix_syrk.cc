@@ -232,7 +232,7 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::HostBatch>,
             }
 
     {
-        trace::Block trace_block(trace::Color::DarkGreen);
+        trace::Block trace_block("cblas_dgemm_batch");
         // mkl_set_num_threads_local(...);
         cblas_dgemm_batch(CblasColMajor, opa_array, opb_array,
                           m_array, n_array, k_array, alpha_array,
@@ -306,7 +306,7 @@ void Matrix<FloatType>::syrk(internal::TargetType<Target::Devices>,
             assert(error == cudaSuccess);
 
             {
-                trace::Block trace_block(trace::Color::PaleGreen);
+                trace::Block trace_block("cublasDgemmBatched");
                 int nb = c.tileNb(0);
                 cublasStatus_t status =
                     cublasDgemmBatched(

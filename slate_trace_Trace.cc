@@ -55,6 +55,27 @@ int Trace::num_threads_ = omp_get_max_threads();
 std::vector<std::vector<Event>> Trace::events_ = 
     std::vector<std::vector<Event>>(omp_get_max_threads());
 
+std::map<std::string, Color> Trace::function_color_ = {
+
+    {"blas::gemm", Color::MediumAquamarine},
+    {"blas::syrk", Color::CornflowerBlue},
+    {"blas::trsm", Color::MediumPurple},
+
+    {"cblas_dgemm_batch",  Color::DarkGreen},
+    {"cublasDgemmBatched", Color::PaleGreen},
+
+    {"cudaMemcpy2DAsync", Color::LightGray},
+    {"cudaMemcpyAsync",   Color::LightGray},
+
+    {"lapack::potrf", Color::RosyBrown},
+
+    {"Memory::alloc", Color::Aqua},
+    {"Memory::free",  Color::Aquamarine},
+
+    {"MPI_Barrier", Color::Black},
+    {"MPI_Bcast",   Color::Crimson}
+};
+
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
@@ -158,11 +179,13 @@ void Trace::printThreads(int mpi_rank, int mpi_size,
                 "<rect x=\"%lf\" y=\"%lf\" "
                 "width=\"%lf\" height=\"%lf\" "
                 "fill=\"#%06x\" "
-                "stroke=\"#%06x\" stroke-width=\"%lf\"/>\n",
+                "stroke=\"#%06x\" stroke-width=\"%lf\" "
+                "inkscape:label=\"%s\"/>\n",
                 x, y,
                 width, height,
-                (unsigned int)event.color_,
-                stroke_color, stroke_width);
+                (unsigned int)function_color_[event.name_],
+                stroke_color, stroke_width,
+                event.name_);
         }
         y += vscale;
     }

@@ -79,7 +79,7 @@ int main (int argc, char *argv[])
     slate::Matrix<double> a(n, n, a1, lda, nb, MPI_COMM_WORLD, p, q);
     slate::trace::Trace::on();
     {
-        slate::trace::Block trace_block(slate::trace::Color::Black);
+        slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
     double start = omp_get_wtime();

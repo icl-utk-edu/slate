@@ -223,8 +223,6 @@ template <typename FloatType>
 void Tile<FloatType>::copyDataToHost(
     const Tile<FloatType> *dst_tile, cudaStream_t stream)
 {
-    trace::Block trace_block(trace::Color::Gray);
-
     cudaError_t error;
     error = cudaSetDevice(device_num_);
     assert(error == cudaSuccess);
@@ -234,13 +232,20 @@ void Tile<FloatType>::copyDataToHost(
         dst_tile->stride_ == dst_tile->mb_) {
 
         // Use simple copy.
+        trace::Block trace_block("cudaMemcpyAsync");
+
         error = cudaMemcpyAsync(
             dst_tile->data_, data_, size(),
             cudaMemcpyDeviceToHost, stream);
         assert(error == cudaSuccess);
+
+        error = cudaStreamSynchronize(stream);
+        assert(error == cudaSuccess);
     }
     else {
         // Otherwise, use 2D copy.
+        trace::Block trace_block("cudaMemcpy2DAsync");
+
         void* dst = dst_tile->data_;
         const void* src = data_;
         size_t dpitch = sizeof(FloatType)*dst_tile->stride_;
@@ -254,10 +259,10 @@ void Tile<FloatType>::copyDataToHost(
             width, height,
             cudaMemcpyDeviceToHost, stream);
         assert(error == cudaSuccess);
-    }
 
-    error = cudaStreamSynchronize(stream);
-    assert(error == cudaSuccess);
+        error = cudaStreamSynchronize(stream);
+        assert(error == cudaSuccess);
+    }
 }
 
 ///-----------------------------------------------------------------------------
@@ -267,8 +272,6 @@ template <typename FloatType>
 void Tile<FloatType>::copyDataToDevice(
     const Tile<FloatType> *dst_tile, cudaStream_t stream)
 {
-    trace::Block trace_block(trace::Color::LightGray);
-
     cudaError_t error;
     error = cudaSetDevice(dst_tile->device_num_);
     assert(error == cudaSuccess);
@@ -278,13 +281,20 @@ void Tile<FloatType>::copyDataToDevice(
         dst_tile->stride_ == dst_tile->mb_) {
 
         // Use simple copy.
+        trace::Block trace_block("cudaMemcpyAsync");
+
         error = cudaMemcpyAsync(
             dst_tile->data_, data_, size(),
             cudaMemcpyHostToDevice, stream);
         assert(error == cudaSuccess);
+
+        error = cudaStreamSynchronize(stream);
+        assert(error == cudaSuccess);
     }
     else {
         // Otherwise, use 2D copy.
+        trace::Block trace_block("cudaMemcpy2DAsync");
+
         void* dst = dst_tile->data_;
         const void* src = data_;
         size_t dpitch = sizeof(FloatType)*dst_tile->stride_;
@@ -298,10 +308,10 @@ void Tile<FloatType>::copyDataToDevice(
             width, height,
             cudaMemcpyHostToDevice, stream);
         assert(error == cudaSuccess);
-    }
 
-    error = cudaStreamSynchronize(stream);
-    assert(error == cudaSuccess);
+        error = cudaStreamSynchronize(stream);
+        assert(error == cudaSuccess);
+    }
 }
 
 ///-----------------------------------------------------------------------------
@@ -406,12 +416,12 @@ void Tile<FloatType>::recv(int src)
 template <typename FloatType>
 void Tile<FloatType>::bcast(int bcast_root, MPI_Comm bcast_comm)
 {
-    trace::Block trace_block(trace::Color::Crimson);
-
     // If no stride.
     if (stride_ == mb_) {
 
         // Use simple bcast.
+        trace::Block trace_block("MPI_Bcast");
+
         int count = mb_*nb_;
         int retval;
 
@@ -420,8 +430,9 @@ void Tile<FloatType>::bcast(int bcast_root, MPI_Comm bcast_comm)
         assert(retval == MPI_SUCCESS);
     }
     else {
-
         // Otherwise, use strided bcast.
+        trace::Block trace_block("MPI_Bcast");
+
         int count = nb_;
         int blocklength = mb_;
         int stride = stride_;
@@ -456,7 +467,7 @@ void Tile<FloatType>::gemm(blas::Op transa, blas::Op transb,
                                   Tile<FloatType> *b,
                  FloatType beta,  Tile<FloatType> *c)
 {
-    trace::Block trace_block(trace::Color::MediumAquamarine);
+    trace::Block trace_block("blas::gemm");
     blas::gemm(blas::Layout::ColMajor,
                transa, transb,
                c->mb_, c->nb_, a->nb_,
@@ -471,7 +482,7 @@ void Tile<FloatType>::gemm(blas::Op transa, blas::Op transb,
 template <typename FloatType>
 void Tile<FloatType>::potrf(lapack::Uplo uplo, Tile<FloatType> *a)
 {
-    trace::Block trace_block(trace::Color::RosyBrown);
+    trace::Block trace_block("lapack::potrf");
     lapack::potrf(uplo,
                   a->nb_,
                   a->data_, a->stride_);
@@ -485,7 +496,7 @@ void Tile<FloatType>::syrk(blas::Uplo uplo, blas::Op trans,
                  FloatType alpha, Tile<FloatType> *a,
                  FloatType beta,  Tile<FloatType> *c)
 {
-    trace::Block trace_block(trace::Color::CornflowerBlue);
+    trace::Block trace_block("blas::syrk");
     blas::syrk(blas::Layout::ColMajor,
                uplo, trans,
                c->nb_, a->nb_,
@@ -502,7 +513,7 @@ void Tile<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
                  FloatType alpha, Tile<FloatType> *a,
                                   Tile<FloatType> *b)
 {
-    trace::Block trace_block(trace::Color::MediumPurple);
+    trace::Block trace_block("blas::trsm");
     blas::trsm(blas::Layout::ColMajor,
                side, uplo, transa, diag,
                b->mb_, b->nb_,
@@ -516,7 +527,7 @@ void Tile<FloatType>::trsm(blas::Side side, blas::Uplo uplo,
 template <typename FloatType>
 void Tile<FloatType>::allocate()
 {
-    trace::Block trace_block(trace::Color::Aqua);
+    trace::Block trace_block("Memory::alloc");
     data_ = (FloatType*)memory_.lock()->alloc(device_num_);
 }
 
@@ -526,7 +537,7 @@ void Tile<FloatType>::allocate()
 template <typename FloatType>
 void Tile<FloatType>::deallocate()
 {
-    trace::Block trace_block(trace::Color::Aquamarine);
+    trace::Block trace_block("Memory::free");
     memory_.lock()->free(data_, device_num_);
     data_ = nullptr;
 }

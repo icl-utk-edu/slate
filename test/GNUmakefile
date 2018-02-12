@@ -9,9 +9,9 @@ pwd := ${shell pwd}
 cdir := ${notdir ${pwd}}
 
 CXXFLAGS += -I$(top)/libtest -I$(top)/include -I$(top) -I$(top)/blaspp/include -I$(top)/lapackpp/include 
-CXXFLAGS += -DHAVE_MKL 
-CXXFLAGS += -I$(top)/blaspp/test # for blas_flops.hh
 CXXFLAGS += -DSLATE_WITH_MKL 
+CXXFLAGS += -DHAVE_MKL -DMKL_Complex8="std::complex<float>" -DMKL_Complex16="std::complex<double>"
+CXXFLAGS += -I$(top)/blaspp/test # for blas_flops.hh
 CXXFLAGS += -DSLATE_WITH_MPI -I${I_MPI_ROOT}/2017.3.196/intel64/include
 CXXFLAGS += -fopenmp 
 

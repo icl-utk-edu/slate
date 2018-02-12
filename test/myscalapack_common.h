@@ -5,8 +5,8 @@
  * Copyright (c) 2010      University of Denver, Colorado.
  */
 
-#ifndef _SCALAPACK_COMMON_H_
-#define _SCALAPACK_COMMON_H_
+#ifndef _MYSCALAPACK_COMMON_H_
+#define _MYSCALAPACK_COMMON_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,4 +20,4 @@ void scalapack_pdplghe( double *A, int m, int n, int mb, int nb, int myrow, int 
 }
 #endif /* __cplusplus */
 
-#endif /* _SCALAPACK_COMMON_H_ */
+#endif

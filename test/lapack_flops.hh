@@ -6,6 +6,8 @@
 
 #include <complex>
 
+#pragma GCC diagnostic ignored "-Wunused-function"
+
 namespace lapack {
 
 //==============================================================================

@@ -245,11 +245,19 @@ private:
     static double getTimeSpan();
     static void printThreads(int mpi_rank, int mpi_size,
                              double timespan, FILE *trace_file);
+    static void printTicks(double timespan, FILE *trace_file);
     static void sendThreads();
     static void recvThreads(int rank);
 
     static const int width_ = 2390;
     static const int height_ = 1000;
+
+    static const int tick_height_ = 32;
+    static const int tick_width_ = 2;
+    static const int font_size_ = 32;
+
+    static double vscale_;
+    static double hscale_;
 
     static bool tracing_;
     static int num_threads_;

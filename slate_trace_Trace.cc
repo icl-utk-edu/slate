@@ -40,6 +40,7 @@
 #include "slate_trace_Trace.hh"
 
 #include <cassert>
+#include <cmath>
 #include <cstdio>
 #include <ctime>
 #include <limits>
@@ -47,6 +48,9 @@
 
 namespace slate {
 namespace trace {
+
+double Trace::vscale_;
+double Trace::hscale_;
 
 bool Trace::tracing_ = false;
 
@@ -112,6 +116,10 @@ void Trace::finish()
     // Find the global timespan.
     double timespan = getTimeSpan();
 
+    // Compute scaling factors.
+    hscale_ = width_ / timespan;
+    vscale_ = height_ / (mpi_size * num_threads_);
+
     // Print thread events.
     if (mpi_rank == 0) {
         printThreads(0, mpi_size, timespan, trace_file);
@@ -123,6 +131,10 @@ void Trace::finish()
     else {
         sendThreads();
     }
+
+    // Print ticks.
+    if (mpi_rank == 0)
+        printTicks(timespan, trace_file);
 
     // Finish the trace file.
     if (mpi_rank == 0) {
@@ -162,32 +174,56 @@ double Trace::getTimeSpan()
 void Trace::printThreads(int mpi_rank, int mpi_size,
                          double timespan, FILE *trace_file)
 {
-    double hscale = width_ / timespan;
-    double vscale = height_ / (mpi_size * num_threads_);
-    double y = mpi_rank * num_threads_ * vscale;
-    double height = 0.9 * vscale;
-    int stroke_color = 0x000000;
-    double stroke_width = vscale / 20.0;
+    double y = mpi_rank * num_threads_ * vscale_;
+    double height = 0.9 * vscale_;
+    double stroke_width = vscale_ / 50.0;
 
     for (auto thread : events_) {
         for (auto event : thread) {
 
-            double x = (event.start_ - events_[0][0].stop_) * hscale;
-            double width = (event.stop_ - event.start_) * hscale;
+            double x = (event.start_ - events_[0][0].stop_) * hscale_;
+            double width = (event.stop_ - event.start_) * hscale_;
 
             fprintf(trace_file,
                 "<rect x=\"%lf\" y=\"%lf\" "
                 "width=\"%lf\" height=\"%lf\" "
                 "fill=\"#%06x\" "
-                "stroke=\"#%06x\" stroke-width=\"%lf\" "
+                "stroke=\"#000000\" stroke-width=\"%lf\" "
                 "inkscape:label=\"%s\"/>\n",
                 x, y,
                 width, height,
                 (unsigned int)function_color_[event.name_],
-                stroke_color, stroke_width,
+                stroke_width,
                 event.name_);
         }
-        y += vscale;
+        y += vscale_;
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+void Trace::printTicks(double timespan, FILE *trace_file)
+{
+    // Tick spacing is power of 10, with at most 20 tick marks.
+    double pwr = ceil(log10(timespan/20.0));
+    double xtick = pow(10.0, pwr);
+    int decimal_places = pwr < 0 ? (int)(-pwr) : 0;
+
+    for (double t = 0; t < timespan; t += xtick) {
+        fprintf(trace_file,
+            "<line x1=\"%lf\" x2=\"%lf\" y1=\"%lf\" y2=\"%lf\" "
+            "stroke=\"#000000\" stroke-width=\"%d\"/>\n"
+            "<text x=\"%lf\" y=\"%lf\" "
+            "font-family=\"monospace\" font-size=\"%d\">%.*lf</text>\n",
+            hscale_ * t,
+            hscale_ * t,
+            (double)height_,
+            (double)height_ + tick_height_,
+            tick_width_,
+            hscale_ * t,
+            (double)height_ + tick_height_ * 2.0,
+            font_size_, decimal_places, t);
     }
 }
 

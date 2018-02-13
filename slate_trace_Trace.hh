@@ -41,6 +41,7 @@
 #define SLATE_TRACE_HH
 
 #include <map>
+#include <set>
 #include <vector>
 
 #ifdef SLATE_WITH_MPI
@@ -246,6 +247,7 @@ private:
     static void printThreads(int mpi_rank, int mpi_size,
                              double timespan, FILE *trace_file);
     static void printTicks(double timespan, FILE *trace_file);
+    static void printLegend(FILE *trace_file);
     static void sendThreads();
     static void recvThreads(int rank);
 
@@ -253,8 +255,12 @@ private:
     static const int height_ = 1000;
 
     static const int tick_height_ = 32;
-    static const int tick_width_ = 2;
-    static const int font_size_ = 32;
+    static const int tick_stroke_ = 2;
+    static const int tick_font_size_ = 32;
+
+    static const int legend_space_ = 28;
+    static const int legend_stroke_ = 2;
+    static const int legend_font_size_ = 24;
 
     static double vscale_;
     static double hscale_;
@@ -263,6 +269,7 @@ private:
     static int num_threads_;
     static std::vector<std::vector<Event>> events_;
     static std::map<std::string, Color> function_color_;
+    static std::set<std::string> legend_;
 };
 
 ///-----------------------------------------------------------------------------

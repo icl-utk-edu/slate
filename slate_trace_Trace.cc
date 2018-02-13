@@ -39,6 +39,7 @@
 
 #include "slate_trace_Trace.hh"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdio>
@@ -79,6 +80,8 @@ std::map<std::string, Color> Trace::function_color_ = {
     {"MPI_Barrier", Color::Black},
     {"MPI_Bcast",   Color::Crimson}
 };
+
+std::set<std::string> Trace::legend_;
 
 ///-----------------------------------------------------------------------------
 /// \brief
@@ -132,12 +135,12 @@ void Trace::finish()
         sendThreads();
     }
 
-    // Print ticks.
-    if (mpi_rank == 0)
-        printTicks(timespan, trace_file);
-
     // Finish the trace file.
     if (mpi_rank == 0) {
+
+        printTicks(timespan, trace_file);
+        printLegend(trace_file);
+
         fprintf(trace_file, "</svg>\n");
         fclose(trace_file);
         fprintf(stderr, "trace file: %s\n", file_name.c_str());
@@ -220,10 +223,48 @@ void Trace::printTicks(double timespan, FILE *trace_file)
             hscale_ * t,
             (double)height_,
             (double)height_ + tick_height_,
-            tick_width_,
+            tick_stroke_,
             hscale_ * t,
             (double)height_ + tick_height_ * 2.0,
-            font_size_, decimal_places, t);
+            tick_font_size_, decimal_places, t);
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+void Trace::printLegend(FILE *trace_file)
+{
+    // Build the set of labels.
+    for (auto thread : events_)
+        for (auto event : thread)
+            legend_.insert(event.name_);
+
+    // Convert the set to a vector.
+    std::vector<std::string> legend_vec(legend_.begin(), legend_.end());
+
+    // Sort the vector alphabetically.
+    std::sort(legend_vec.begin(), legend_vec.end());
+
+    // Print the labels.
+    double y_pos = 0.0;
+    for (auto label : legend_vec) {
+        fprintf(trace_file,
+            "<rect x=\"%lf\" y=\"%lf\" width=\"%lf\" height=\"%lf\" "
+            "fill=\"#%06x\" stroke=\"#000000\" stroke-width=\"%d\"/>\n"
+            "<text x=\"%lf\" y=\"%lf\" "
+            "font-family=\"monospace\" font-size=\"%d\">%s</text>\n",
+            (double)width_ + legend_space_,
+            y_pos,
+            (double)legend_space_,
+            (double)legend_space_,
+            (unsigned int)function_color_[label],
+            legend_stroke_,
+            (double)width_ + legend_space_ * 3.0,
+            y_pos + legend_space_,
+            legend_font_size_, label.c_str());
+
+            y_pos += legend_space_ * 2.0;
     }
 }
 

@@ -46,7 +46,8 @@
 namespace slate {
 
 template <Target target = Target::HostTask>
-void potrf(lapack::Uplo uplo, Matrix<double> &a, int64_t lookahead = 0);
+void potrf(lapack::Uplo uplo, Matrix<double> &a,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 } // namespace slate
 

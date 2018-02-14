@@ -24,6 +24,8 @@
 //------------------------------------------------------------------------------
 int main (int argc, char *argv[])
 {
+    using namespace slate;
+
     if (argc < 6) {
         printf("Usage: app nb nt p q lookahead [test]\n");
         return EXIT_FAILURE;
@@ -76,18 +78,18 @@ int main (int argc, char *argv[])
         }
     }
 
-    slate::Matrix<double> a(n, n, a1, lda, nb, MPI_COMM_WORLD, p, q);
-    slate::trace::Trace::on();
+    Matrix<double> a(n, n, a1, lda, nb, MPI_COMM_WORLD, p, q);
+    trace::Trace::on();
     {
-        slate::trace::Block trace_block("MPI_Barrier");
+        trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
     double start = omp_get_wtime();
-    slate::potrf<slate::Target::HostTask>(slate::Uplo::Lower, a, lookahead);
+    potrf<Target::HostTask>(Uplo::Lower, a, {{Option::Lookahead, lookahead}});
 
     MPI_Barrier(MPI_COMM_WORLD);
     double time = omp_get_wtime()-start;
-    slate::trace::Trace::finish();
+    trace::Trace::finish();
 
     //--------------
     // Print GFLOPS.
@@ -109,7 +111,7 @@ int main (int argc, char *argv[])
             assert(retval == 0);
 
             // a.copyFromFull(a1, lda);
-            slate::Debug::diffLapackMatrices(n, n, a1, lda, a2, lda, nb, nb);
+            Debug::diffLapackMatrices(n, n, a1, lda, a2, lda, nb, nb);
 
             blas::axpy((size_t)lda*n, -1.0, a1, 1, a2, 1);
             double norm =

@@ -41,7 +41,6 @@
 #include "slate_Matrix.hh"
 
 namespace slate {
-
 namespace internal {
 
 ///-----------------------------------------------------------------------------
@@ -212,8 +211,17 @@ void potrf(TargetType<Target::Devices>,
 /// Precision and target templated function for implementing complex logic.
 ///
 template <typename FloatType, Target target>
-void potrf(lapack::Uplo uplo, Matrix<FloatType> &a, int64_t lookahead)
+void potrf(lapack::Uplo uplo, Matrix<FloatType> &a,
+           const std::map<Option, Value>& opts)
 {
+    int64_t lookahead;
+    try {
+        lookahead = opts.at(Option::Lookahead).i_;
+    }
+    catch (std::out_of_range) {
+        lookahead = 1;
+    }
+
     potrf(TargetType<target>(), uplo, a, lookahead);
 }
 
@@ -225,26 +233,27 @@ void potrf(lapack::Uplo uplo, Matrix<FloatType> &a, int64_t lookahead)
 /// Target-templated, precision-overloaded functions for the user.
 ///
 template <Target target>
-void potrf(lapack::Uplo uplo, Matrix<double> &a, int64_t lookahead)
+void potrf(lapack::Uplo uplo, Matrix<double> &a,
+           const std::map<Option, Value>& opts)
 {
-    internal::potrf<double, target>(uplo, a, lookahead);
+    internal::potrf<double, target>(uplo, a, opts);
 }
 
 //------------------------------------------------------------------------------
 template
 void potrf<Target::HostTask>(
-    lapack::Uplo uplo, Matrix<double> &a, int64_t lookahead);
+    lapack::Uplo uplo, Matrix<double> &a, const std::map<Option, Value>& opts);
 
 template
 void potrf<Target::HostNest>(
-    lapack::Uplo uplo, Matrix<double> &a, int64_t lookahead);
+    lapack::Uplo uplo, Matrix<double> &a, const std::map<Option, Value>& opts);
 
 template
 void potrf<Target::HostBatch>(
-    lapack::Uplo uplo, Matrix<double> &a, int64_t lookahead);
+    lapack::Uplo uplo, Matrix<double> &a, const std::map<Option, Value>& opts);
 
 template
 void potrf<Target::Devices>(
-    lapack::Uplo uplo, Matrix<double> &a, int64_t lookahead);
+    lapack::Uplo uplo, Matrix<double> &a, const std::map<Option, Value>& opts);
 
 } // namespace slate

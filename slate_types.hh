@@ -52,13 +52,42 @@ typedef blas::Uplo Uplo;
 typedef blas::Diag Diag;
 typedef blas::Side Side;
 
-enum class Target {Devices, Host, HostTask, HostNest, HostBatch};
+///-----------------------------------------------------------------------------
+/// \class
+/// \brief
+///
+enum class Target {Host, HostTask, HostNest, HostBatch, Devices};
 
 namespace internal {
-
 template <Target> class TargetType {};
-
 } // namespace internal
+
+///-----------------------------------------------------------------------------
+/// \class
+/// \brief
+///
+enum class Option {
+    Lookahead,
+    BlockSize,
+    Tolerance
+};
+
+///-----------------------------------------------------------------------------
+/// \class
+/// \brief
+///
+class Value
+{
+public:
+    Value() {}
+    Value(int64_t i) : i_(i) {}
+    Value(double d) : d_(d) {}
+
+    union {
+        int64_t i_;
+        double d_;
+    };
+};
 
 } // namespace slate
 

@@ -54,7 +54,6 @@ double Trace::vscale_;
 double Trace::hscale_;
 
 bool Trace::tracing_ = false;
-
 int Trace::num_threads_ = omp_get_max_threads();
 
 std::vector<std::vector<Event>> Trace::events_ = 
@@ -80,8 +79,6 @@ std::map<std::string, Color> Trace::function_color_ = {
     {"MPI_Barrier", Color::Black},
     {"MPI_Bcast",   Color::Crimson}
 };
-
-std::set<std::string> Trace::legend_;
 
 ///-----------------------------------------------------------------------------
 /// \brief
@@ -123,16 +120,16 @@ void Trace::finish()
     hscale_ = width_ / timespan;
     vscale_ = height_ / (mpi_size * num_threads_);
 
-    // Print thread events.
+    // Print the events.
     if (mpi_rank == 0) {
-        printThreads(0, mpi_size, timespan, trace_file);
+        printProcEvents(0, mpi_size, timespan, trace_file);
         for (int rank = 1; rank < mpi_size; ++rank) {
-            recvThreads(rank);
-            printThreads(rank, mpi_size, timespan, trace_file);
+            recvProcEvents(rank);
+            printProcEvents(rank, mpi_size, timespan, trace_file);
         }
     }
     else {
-        sendThreads();
+        sendProcEvents();
     }
 
     // Finish the trace file.
@@ -174,8 +171,8 @@ double Trace::getTimeSpan()
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-void Trace::printThreads(int mpi_rank, int mpi_size,
-                         double timespan, FILE *trace_file)
+void Trace::printProcEvents(int mpi_rank, int mpi_size,
+                            double timespan, FILE *trace_file)
 {
     double y = mpi_rank * num_threads_ * vscale_;
     double height = 0.9 * vscale_;
@@ -210,23 +207,23 @@ void Trace::printTicks(double timespan, FILE *trace_file)
 {
     // Tick spacing is power of 10, with at most 20 tick marks.
     double pwr = ceil(log10(timespan/20.0));
-    double xtick = pow(10.0, pwr);
+    double tick = pow(10.0, pwr);
     int decimal_places = pwr < 0 ? (int)(-pwr) : 0;
 
-    for (double t = 0; t < timespan; t += xtick) {
+    for (double time = 0; time < timespan; time += tick) {
         fprintf(trace_file,
             "<line x1=\"%lf\" x2=\"%lf\" y1=\"%lf\" y2=\"%lf\" "
             "stroke=\"#000000\" stroke-width=\"%d\"/>\n"
             "<text x=\"%lf\" y=\"%lf\" "
             "font-family=\"monospace\" font-size=\"%d\">%.*lf</text>\n",
-            hscale_ * t,
-            hscale_ * t,
+            hscale_ * time,
+            hscale_ * time,
             (double)height_,
             (double)height_ + tick_height_,
             tick_stroke_,
-            hscale_ * t,
+            hscale_ * time,
             (double)height_ + tick_height_ * 2.0,
-            tick_font_size_, decimal_places, t);
+            tick_font_size_, decimal_places, time);
     }
 }
 
@@ -235,13 +232,15 @@ void Trace::printTicks(double timespan, FILE *trace_file)
 ///
 void Trace::printLegend(FILE *trace_file)
 {
+    std::set<std::string> legend_set;
+
     // Build the set of labels.
     for (auto thread : events_)
         for (auto event : thread)
-            legend_.insert(event.name_);
+            legend_set.insert(event.name_);
 
     // Convert the set to a vector.
-    std::vector<std::string> legend_vec(legend_.begin(), legend_.end());
+    std::vector<std::string> legend_vec(legend_set.begin(), legend_set.end());
 
     // Sort the vector alphabetically.
     std::sort(legend_vec.begin(), legend_vec.end());
@@ -271,14 +270,16 @@ void Trace::printLegend(FILE *trace_file)
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-void Trace::sendThreads()
+void Trace::sendProcEvents()
 {
     for (int thread = 0; thread < num_threads_; ++thread) {
 
+        // Send the number of events.
         long int num_events = events_[thread].size();
         MPI_Send(&num_events, 1, MPI_LONG,
                  0, 0, MPI_COMM_WORLD);
 
+        // Send the events.
         MPI_Send(&events_[thread][0], sizeof(Event)*num_events, MPI_BYTE,
                  0, 0, MPI_COMM_WORLD);
     }
@@ -287,14 +288,16 @@ void Trace::sendThreads()
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-void Trace::recvThreads(int rank)
+void Trace::recvProcEvents(int rank)
 {
     for (int thread = 0; thread < num_threads_; ++thread) {
 
+        // Receive the number of events.
         long int num_events;
         MPI_Recv(&num_events, 1, MPI_LONG,
                  rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
+        // Resize the vector and receive the events.
         events_[thread].resize(num_events);
         MPI_Recv(&events_[thread][0],sizeof(Event)*num_events, MPI_BYTE,
                  rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);

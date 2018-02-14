@@ -244,12 +244,12 @@ public:
 
 private:
     static double getTimeSpan();
-    static void printThreads(int mpi_rank, int mpi_size,
-                             double timespan, FILE *trace_file);
+    static void printProcEvents(int mpi_rank, int mpi_size,
+                                double timespan, FILE *trace_file);
     static void printTicks(double timespan, FILE *trace_file);
     static void printLegend(FILE *trace_file);
-    static void sendThreads();
-    static void recvThreads(int rank);
+    static void sendProcEvents();
+    static void recvProcEvents(int rank);
 
     static const int width_ = 2390;
     static const int height_ = 1000;
@@ -267,9 +267,9 @@ private:
 
     static bool tracing_;
     static int num_threads_;
+
     static std::vector<std::vector<Event>> events_;
     static std::map<std::string, Color> function_color_;
-    static std::set<std::string> legend_;
 };
 
 ///-----------------------------------------------------------------------------

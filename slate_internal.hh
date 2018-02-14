@@ -40,89 +40,13 @@
 ///-----------------------------------------------------------------------------
 /// \file
 ///
-#ifndef SLATE_TYPES_HH
-#define SLATE_TYPES_HH
+#ifndef SLATE_INTERNAL_HH
+#define SLATE_INTERNAL_HH
 
-#include <blas.hh>
+#include "slate_types.hh"
 
-namespace slate {
+#define ASSERT(cond) \
+    if (!(cond)) \
+        throw Exception(__LINE__, __FILE__, __func__, #cond);
 
-typedef blas::Op Op;
-typedef blas::Uplo Uplo;
-typedef blas::Diag Diag;
-typedef blas::Side Side;
-
-///-----------------------------------------------------------------------------
-/// \class
-/// \brief
-///
-enum class Target {Host, HostTask, HostNest, HostBatch, Devices};
-
-namespace internal {
-template <Target> class TargetType {};
-} // namespace internal
-
-///-----------------------------------------------------------------------------
-/// \class
-/// \brief
-///
-enum class Option {
-    Lookahead,
-    BlockSize,
-    Tolerance
-};
-
-///-----------------------------------------------------------------------------
-/// \class
-/// \brief
-///
-class Value
-{
-public:
-    Value() {}
-    Value(int64_t i) : i_(i) {}
-    Value(double d) : d_(d) {}
-
-    union {
-        int64_t i_;
-        double d_;
-    };
-};
-
-///-----------------------------------------------------------------------------
-/// \class
-/// \brief
-///
-class Exception : public std::exception
-{
-public:
-    Exception(int line,
-              const std::string& file,
-              const std::string& func,
-              const std::string& cond)
-        : line_(line),
-          file_(file),
-          func_(func),
-          cond_(cond),
-          msg_(std::string("Condition '") + cond + "' failed, in " +
-               "file '" + file + "', "
-               "function '" + func + "', "
-               "line " + std::to_string(line) + ".")
-    {}
-
-    virtual const char* what() const noexcept override
-    {
-        return msg_.c_str();
-    }
-
-private:
-    int line_;
-    std::string file_;
-    std::string func_;
-    std::string cond_;
-    std::string msg_;
-};
-
-} // namespace slate
-
-#endif // SLATE_TYPES_HH
+#endif // SLATE_INTERNAL_HH

@@ -45,8 +45,28 @@
 
 #include "slate_types.hh"
 
-#define ASSERT(cond) \
+#define THROW_IF(cond, error) \
+    if (cond) \
+        throw TrueConditionException( \
+            #cond, error, __FILE__, __func__, __LINE__);
+
+#define THROW_IF_NOT(cond, error) \
     if (!(cond)) \
-        throw Exception(__LINE__, __FILE__, __func__, #cond);
+        throw FalseConditionException( \
+            #cond, error, __FILE__, __func__, __LINE__);
+
+#define MPI_CALL(call) \
+{ \
+    int retval = (call); \
+    if (retval != MPI_SUCCESS) \
+        throw MpiException(#call, retval, __FILE__, __func__, __LINE__); \
+}
+
+#define CUDA_CALL(call) \
+{ \
+    cudaError_t error = (call); \
+    if (error != cudaSuccess) \
+        throw CudaException(#call, error, __FILE__, __func__, __LINE__); \
+}
 
 #endif // SLATE_INTERNAL_HH

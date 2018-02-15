@@ -89,40 +89,6 @@ public:
     };
 };
 
-///-----------------------------------------------------------------------------
-/// \class
-/// \brief
-///
-class Exception : public std::exception
-{
-public:
-    Exception(int line,
-              const std::string& file,
-              const std::string& func,
-              const std::string& cond)
-        : line_(line),
-          file_(file),
-          func_(func),
-          cond_(cond),
-          msg_(std::string("Condition '") + cond + "' failed, in " +
-               "file '" + file + "', "
-               "function '" + func + "', "
-               "line " + std::to_string(line) + ".")
-    {}
-
-    virtual const char* what() const noexcept override
-    {
-        return msg_.c_str();
-    }
-
-private:
-    int line_;
-    std::string file_;
-    std::string func_;
-    std::string cond_;
-    std::string msg_;
-};
-
 } // namespace slate
 
 #endif // SLATE_TYPES_HH

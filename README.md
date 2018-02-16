@@ -30,22 +30,9 @@ SLATE will allow for the development of multicore and accelerator capabilities,
 by leveraging recent progress and ongoing efforts in mainstream programming models
 (MPI3 and beyond, OpenMP4 and beyond, OpenACC, etc.), and runtime scheduling systems
 (PaRSEC, Legion, etc.).
-
-As part of the SLATE projects, C++ APIs are developed for the
-Basic Linear Algebra Subprograms
-([BLAS++](https://bitbucket.org/icl/blaspp)) and for the Linear Algebra PACKage
-([LAPACK++](https://bitbucket.org/icl/lapackpp)).
-
-* * *
-
-Resources
-=========
-
-* Visit the [SLATE website](http://icl.utk.edu/slate/) for more information about the SLATE project.
-* Visit the [SLATE Working Notes](http://www.icl.utk.edu/publications/series/swans) to find out more about ongoing SLATE developments.
-* Visit the [BLAS++ repository](https://bitbucket.org/icl/blaspp) for more information about the C++ API for BLAS.
-* Visit the [LAPACK++ repository](https://bitbucket.org/icl/lapackpp) for more information about the C++ API for LAPACK.
-* Visit the [ECP website](https://exascaleproject.org) to find out more about the DOE Exascale Computing Initiative.
+Also, part of the SLATE project is the development of C++ APIs
+for [BLAS++](https://bitbucket.org/icl/blaspp)
+and [LAPACK++](https://bitbucket.org/icl/lapackpp).
 
 * * *
 
@@ -57,6 +44,26 @@ Join the *SLATE User* Google group by going to
 https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user
 and clicking `Apply to join group`.
 Upon acceptance, email your questions and comments to *slate-user@icl.utk.edu*.
+
+* * *
+
+Documentation
+=============
+
+* [SLATE Users' Guide](https://icl.bitbucket.io/slate/sphinx/html/)
+* [SLATE Function Reference](https://icl.bitbucket.io/slate/doxygen/html/)
+* [SLATE Working Note 3: Designing SLATE: Software for Linear Algebra Targeting Exascale](http://www.icl.utk.edu/publications/swan-003)
+
+* * *
+
+Resources
+=========
+
+* Visit the [SLATE website](http://icl.utk.edu/slate/) for more information about the SLATE project.
+* Visit the [SLATE Working Notes](http://www.icl.utk.edu/publications/series/swans) to find out more about ongoing SLATE developments.
+* Visit the [BLAS++ repository](https://bitbucket.org/icl/blaspp) for more information about the C++ API for BLAS.
+* Visit the [LAPACK++ repository](https://bitbucket.org/icl/lapackpp) for more information about the C++ API for LAPACK.
+* Visit the [ECP website](https://exascaleproject.org) to find out more about the DOE Exascale Computing Initiative.
 
 * * *
 

@@ -36,6 +36,15 @@ and [LAPACK++](https://bitbucket.org/icl/lapackpp).
 
 * * *
 
+Documentation
+=============
+
+* [SLATE Users' Guide](https://icl.bitbucket.io/slate/sphinx/html/)
+* [SLATE Function Reference](https://icl.bitbucket.io/slate/doxygen/html/)
+* [SLATE Working Note 3: Designing SLATE: Software for Linear Algebra Targeting Exascale](http://www.icl.utk.edu/publications/swan-003)
+
+* * *
+
 Getting Help
 ============
 
@@ -44,15 +53,6 @@ Join the *SLATE User* Google group by going to
 https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user
 and clicking `Apply to join group`.
 Upon acceptance, email your questions and comments to *slate-user@icl.utk.edu*.
-
-* * *
-
-Documentation
-=============
-
-* [SLATE Users' Guide](https://icl.bitbucket.io/slate/sphinx/html/)
-* [SLATE Function Reference](https://icl.bitbucket.io/slate/doxygen/html/)
-* [SLATE Working Note 3: Designing SLATE: Software for Linear Algebra Targeting Exascale](http://www.icl.utk.edu/publications/swan-003)
 
 * * *
 

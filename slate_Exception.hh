@@ -48,9 +48,9 @@ namespace slate {
 ///
 enum class Error
 {
-    InputParameter,
-    Cuda,
-    Mpi
+    Argument, ///< invalid argument
+    Cuda,     ///< CUDA error
+    Mpi,      ///< MPI error
 };
 
 ///-----------------------------------------------------------------------------
@@ -86,8 +86,8 @@ public:
         : Exception(error, file, func, line),
           cond_(cond)
     {
-        msg_ = "SLATE ERROR: True condition '" + cond_ +
-               "', in file '" + file_ +
+        msg_ = "SLATE ERROR: Error condition '" + cond_ +
+               "' occured, in file '" + file_ +
                "', function '" + func_ +
                "', line " + std::to_string(line_) + ".";
     }
@@ -117,8 +117,8 @@ public:
         : Exception(error, file, func, line),
           cond_(cond)
     {
-        msg_ = "SLATE ERROR: False condition '" + cond_ +
-               "', in file '" + file_ +
+        msg_ = "SLATE ERROR: Error check '" + cond_ +
+               "' failed, in file '" + file_ +
                "', function '" + func_ +
                "', line " + std::to_string(line_) + ".";
     }

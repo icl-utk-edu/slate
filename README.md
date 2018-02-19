@@ -79,6 +79,8 @@ and early testbed platforms, in support of the nation's exascale computing imper
 
 This research uses resources of the Oak Ridge Leadership Computing Facility,
 which is a DOE Office of Science User Facility supported under Contract DE-AC05-00OR22725.
+This research also uses resources of the Argonne Leadership Computing Facility,
+which is a DOE Office of Science User Facility supported under Contract DE-AC02-06CH11357.
 
 * * *
 

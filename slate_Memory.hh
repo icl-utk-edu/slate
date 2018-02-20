@@ -40,10 +40,11 @@
 #ifndef SLATE_MEMORY_HH
 #define SLATE_MEMORY_HH
 
-#include <cstdio>
 #include <cstdlib>
 #include <cassert>
 #include <cstring>
+#include <iostream>
+#include <iomanip>
 
 #include <map>
 #include <stack>
@@ -65,22 +66,44 @@ namespace slate {
 ///-----------------------------------------------------------------------------
 /// \class
 /// \brief
-///
+/// Allocates workspace blocks for host and GPU devices.
+/// Currently assumes a fixed-size block of block_size bytes,
+/// e.g., block_size = sizeof(scalar_t) * nb * nb.
 class Memory {
 public:
     friend class Debug;
 
-    Memory(size_t block_size) : block_size_(block_size) {}
+    Memory(size_t block_size);
     ~Memory();
 
+    // todo: change add* to reserve*?
     void addHostBlocks(int64_t num_blocks);
     void addDeviceBlocks(int device, int64_t num_blocks);
 
     void clearHostBlocks();
     void clearDeviceBlocks(int device);
 
-    void* alloc(int device_num);
-    void free(void *block, int device_num);
+    void* alloc(int device);
+    void free(void *block, int device);
+
+    /// @return number of available free blocks in device's memory pool,
+    /// which can be host.
+    size_t available(int device) const
+    {
+        return free_blocks_.at(device).size();
+    }
+
+    /// @return total number of blocks in device's memory pool,
+    /// which can be host.
+    size_t capacity(int device) const
+    {
+        return capacity_.at(device);
+    }
+
+    // ----------------------------------------
+    // public static variables
+    static int host_num_;
+    static int num_devices_;
 
 private:
     void* allocBlock(int device);
@@ -91,11 +114,14 @@ private:
     void freeHostMemory(void *host_mem);
     void freeDeviceMemory(int device, void *dev_mem);
 
-    static int host_num_;
+    // ----------------------------------------
+    // member variables
     size_t block_size_;
 
-    std::map<int, std::stack<void*>> free_blocks_;
-    std::map<int, std::stack<void*>> allocated_mem_;
+    // map device number to stack of blocks
+    std::map< int, std::stack< void* > > free_blocks_;
+    std::map< int, std::stack< void* > > allocated_mem_;
+    std::map< int, size_t > capacity_;
 };
 
 } // namespace slate

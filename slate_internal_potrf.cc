@@ -39,59 +39,44 @@
 
 #include "slate_Matrix.hh"
 #include "slate_types.hh"
+#include "slate_Tile_blas.hh"
 
 namespace slate {
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
-template <typename scalar_t>
-template <Target target>
-void Matrix<scalar_t>::trsm(blas::Side side, blas::Uplo uplo,
-                             blas::Op op, blas::Diag diag,
-                             scalar_t alpha, Matrix &&a,
-                                              Matrix &&b,
-                             int priority)
+/// Cholesky factorization of single tile.
+/// Dispatches to target implementations.
+template <typename scalar_t, Target target>
+void potrf(HermitianMatrix< scalar_t > &&A, int priority)
 {
-    trsm(internal::TargetType<target>(),
-        side, uplo, op, diag,
-        alpha, a, b);
+    potrf(internal::TargetType<target>(), A);
 }
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
+/// Cholesky factorization of single tile, host implementation.
 template <typename scalar_t>
-void Matrix<scalar_t>::trsm(internal::TargetType<Target::HostTask>,
-                             blas::Side side, blas::Uplo uplo,
-                             blas::Op op, blas::Diag diag,
-                             scalar_t alpha, Matrix &a,
-                                              Matrix &b,
-                             int priority)
+void potrf(internal::TargetType<Target::HostTask>,
+           HermitianMatrix< scalar_t > &A, int priority)
 {
-    // Right, Lower, Trans
-    for (int64_t m = 0; m < b.mt_; ++m)
-        if (b.tileIsLocal(m, 0))
-            #pragma omp task shared(a, b)
-            {
-                a.tileCopyToHost(0, 0, a.tileDevice(0, 0));
-                b.tileMoveToHost(m, 0, b.tileDevice(m, 0));
-                Tile<scalar_t>::trsm(side, uplo, op, diag,
-                                      alpha, a(0, 0),
-                                             b(m, 0));
-                a.tileTick(0, 0);
-            }
+    assert(A.mt() == 1);
+    assert(A.nt() == 1);
+
+    if (A.tileIsLocal(0, 0))
+        #pragma omp task shared(A) priority(priority)
+        {
+            A.tileMoveToHost(0, 0, A.tileDevice(0, 0));
+            potrf(A(0, 0));
+        }
 
     #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
-template
-void Matrix<double>::trsm<Target::HostTask>(
-    blas::Side side, blas::Uplo uplo,
-    blas::Op op, blas::Diag diag,
-    double alpha, Matrix &&a,
-                  Matrix &&b,
-    int priority);
+// explicit instantiations
+template <>
+void potrf< double, Target::HostTask >(
+    HermitianMatrix<double> &&A, int priority);
 
 } // namespace slate

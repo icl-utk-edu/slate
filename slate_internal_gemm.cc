@@ -39,65 +39,72 @@
 
 #include "slate_Matrix.hh"
 #include "slate_types.hh"
+#include "slate_Tile_blas.hh"
 
 namespace slate {
+namespace internal {
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
-template <typename scalar_t>
-template <Target target>
-void Matrix<scalar_t>::gemm(blas::Op opa, blas::Op opb,
-                             scalar_t alpha, Matrix &&a,
-                                              Matrix &&b,
-                             scalar_t beta,  Matrix &&c,
-                             int priority)
+/// General matrix multiply to update trailing matrix,
+/// where A is a single block column and B is a single block row.
+/// Dispatches to target implementations.
+template <typename scalar_t, Target target>
+void gemm(scalar_t alpha, Matrix< scalar_t > &&A,
+                          Matrix< scalar_t > &&B,
+          scalar_t beta,  Matrix< scalar_t > &&C,
+          int priority)
 {
     gemm(internal::TargetType<target>(),
-         opa, opb,
-         alpha, a,
-                b,
-         beta,  c);
+         alpha, A,
+                B,
+         beta,  C);
 }
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
+/// General matrix multiply to update trailing matrix,
+/// where A is a single block column and B is a single block row.
+/// Host OpenMP task implementation.
 template <typename scalar_t>
-void Matrix<scalar_t>::gemm(internal::TargetType<Target::HostTask>,
-                             blas::Op opa, blas::Op opb,
-                             scalar_t alpha, Matrix &a,
-                                              Matrix &b,
-                             scalar_t beta,  Matrix &c,
-                             int priority)
+void gemm(internal::TargetType<Target::HostTask>,
+          scalar_t alpha, Matrix< scalar_t > &A,
+                          Matrix< scalar_t > &B,
+          scalar_t beta,  Matrix< scalar_t > &C,
+          int priority)
 {
-    // NoTrans, Trans
-    for (int m = 0; m < c.mt_; ++m)
-        for (int n = 0; n < c.nt_; ++n)
-            if (c.tileIsLocal(m, n))
-                #pragma omp task shared(a, b, c) priority(priority)
+    // check dimensions
+    assert(A.nt() == 1);
+    assert(B.mt() == 1);
+    assert(A.mt() == C.mt());
+    assert(B.nt() == C.nt());
+
+    for (int64_t i = 0; i < C.mt(); ++i)
+        for (int64_t j = 0; j < C.nt(); ++j)
+            if (C.tileIsLocal(i, j))
+                #pragma omp task shared(A, B, C) priority(priority)
                 {
-                    a.tileCopyToHost(m, 0, a.tileDevice(m, 0));
-                    b.tileCopyToHost(n, 0, b.tileDevice(n, 0));
-                    c.tileMoveToHost(m, n, c.tileDevice(m, n));
-                    Tile<scalar_t>::gemm(opa, opb,
-                                          alpha, a(m, 0),
-                                                 b(n, 0),
-                                          beta,  c(m, n));
-                    a.tileTick(m, 0);
-                    b.tileTick(n, 0);
+                    A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
+                    B.tileCopyToHost(j, 0, B.tileDevice(j, 0));
+                    C.tileMoveToHost(i, j, C.tileDevice(i, j));
+                    Tile<scalar_t>::gemm(alpha, A(i, 0),
+                                                B(0, j),
+                                         beta,  C(i, j));
+                    A.tileTick(i, 0);
+                    B.tileTick(j, 0);
                 }
 
     #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
-template
-void Matrix<double>::gemm<Target::HostTask>(
-    blas::Op opa, blas::Op opb,
-    double alpha, Matrix &&a,
-                  Matrix &&b,
-    double beta,  Matrix &&c,
+// Explicit instantiations.
+template <>
+void gemm< double, Target::HostTask >(
+    double alpha, Matrix<double> &&A,
+                  Matrix<double> &&B,
+    double beta,  Matrix<double> &&C,
     int priority);
 
+} // namespace internal
 } // namespace slate

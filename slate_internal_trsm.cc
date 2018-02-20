@@ -39,39 +39,59 @@
 
 #include "slate_Matrix.hh"
 #include "slate_types.hh"
+#include "slate_Tile_blas.hh"
 
 namespace slate {
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
-template <typename scalar_t>
-template <Target target>
-void Matrix<scalar_t>::potrf(blas::Uplo uplo, Matrix &&a, int priority)
+/// Triangular solve matrix (multiple right-hand sides).
+/// Dispatches to target implementations.
+template <typename scalar_t, Target target>
+void trsm(Side side, Diag diag,
+          scalar_t alpha, TriangularMatrix< scalar_t > &&A,
+                          Matrix< scalar_t > &&B,
+          int priority)
 {
-    potrf(internal::TargetType<target>(), uplo, a);
+    trsm(internal::TargetType<target>(),
+         side, diag,
+         alpha, A, B);
 }
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
+/// Triangular solve matrix (multiple right-hand sides).
+/// Host OpenMP task implementation.
 template <typename scalar_t>
-void Matrix<scalar_t>::potrf(internal::TargetType<Target::HostTask>,
-                              blas::Uplo uplo, Matrix &a, int priority)
+void trsm(internal::TargetType<Target::HostTask>,
+          Side side, Diag diag,
+          scalar_t alpha, TriangularMatrix< scalar_t > &A,
+                          Matrix< scalar_t > &B,
+          int priority)
 {
-    if (a.tileIsLocal(0, 0))
-        #pragma omp task shared(a) priority(priority)
-        {
-            a.tileMoveToHost(0, 0, a.tileDevice(0, 0));
-            Tile<scalar_t>::potrf(uplo, a(0, 0));
-        }
+    // Right, Lower, Trans
+    for (int64_t i = 0; i < B.mt(); ++i)
+        if (B.tileIsLocal(i, 0))
+            #pragma omp task shared(A, B)
+            {
+                A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
+                B.tileMoveToHost(i, 0, B.tileDevice(i, 0));
+                trsm(side, A.uplo(), A.op(), diag,
+                     alpha, A(0, 0),
+                            B(i, 0));
+                A.tileTick(0, 0);
+            }
 
     #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
-template
-void Matrix<double>::potrf<Target::HostTask>(
-    blas::Uplo uplo, Matrix &&a, int priority);
+// explicit instantiations
+template<>
+void trsm< double, Target::HostTask >(
+    Side side, Diag diag,
+    double alpha, TriangularMatrix< double > &&A,
+                  Matrix< double > &&B,
+    int priority);
 
 } // namespace slate

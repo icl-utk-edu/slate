@@ -61,16 +61,16 @@ public:
     {
         omp_set_lock(lock_);
     }
-    
+
     ~LockGuard()
     {
         omp_unset_lock(lock_);
     }
-    
+
 private:
     omp_lock_t* lock_;
 };
-    
+
 ///-----------------------------------------------------------------------------
 /// \class
 /// \brief
@@ -84,6 +84,9 @@ private:
     mutable omp_lock_t lock_;
 
 public:
+    using iterator = typename stdMap::iterator;
+    using const_iterator = typename stdMap::const_iterator;
+
     Map() { omp_init_lock(&lock_); }
     ~Map() { omp_destroy_lock(&lock_); }
 

@@ -37,65 +37,14 @@
 // comments to <slate-user@icl.utk.edu>.
 //------------------------------------------------------------------------------
 
-///-----------------------------------------------------------------------------
-/// \file
-///
-#ifndef SLATE_TYPES_HH
-#define SLATE_TYPES_HH
-
-#ifdef SLATE_WITH_MPI
-    #include <mpi.h>
-#else
-    #include "slate_NoMpi.hh"
-#endif
-
-#include <blas.hh>
+#include "slate_types.hh"
 
 namespace slate {
 
-typedef blas::Op Op;
-typedef blas::Uplo Uplo;
-typedef blas::Diag Diag;
-typedef blas::Side Side;
-
-enum class Target {Devices, Host, HostTask, HostNest, HostBatch};
-
-namespace internal {
-
-template <Target> class TargetType {};
-
-} // namespace internal
-
-///-----------------------------------------------------------------------------
-/// traits gives mpi_type based on actual scalar_t.
-//  constants are initialized in slate_types.cc
-template< typename scalar_t >
-class traits {};
-
-template<>
-class traits< float > {
-public:
-    static MPI_Datatype mpi_type; // = MPI_FLOAT
-};
-
-template<>
-class traits< double > {
-public:
-    static MPI_Datatype mpi_type; // = MPI_DOUBLE
-};
-
-template<>
-class traits< std::complex<float> > {
-public:
-    static MPI_Datatype mpi_type; // = MPI_C_COMPLEX
-};
-
-template<>
-class traits< std::complex<double> > {
-public:
-    static MPI_Datatype mpi_type; // = MPI_C_DOUBLE_COMPLEX
-};
+// -----------------------------------------------------------------------------
+MPI_Datatype traits< float  >::mpi_type = MPI_FLOAT;
+MPI_Datatype traits< double >::mpi_type = MPI_DOUBLE;
+MPI_Datatype traits< std::complex<float>  >::mpi_type = MPI_C_COMPLEX;
+MPI_Datatype traits< std::complex<double> >::mpi_type = MPI_C_DOUBLE_COMPLEX;
 
 } // namespace slate
-
-#endif // SLATE_TYPES_HH

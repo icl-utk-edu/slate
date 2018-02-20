@@ -130,6 +130,12 @@ int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source,
     assert(0);
 }
 
+int MPI_Reduce(void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype,
+               MPI_Op op, int root, MPI_Comm comm)
+{
+    assert(0);
+}
+
 int MPI_Request_free(MPI_Request *request)
 {
     assert(0);

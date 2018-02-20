@@ -48,11 +48,21 @@ typedef int MPI_Datatype;
 typedef int MPI_Group;
 typedef int MPI_Request;
 typedef int MPI_Status;
+typedef int MPI_Op;
 
 enum {
     MPI_COMM_NULL,
     MPI_COMM_WORLD,
+
+    MPI_BYTE,
+    MPI_LONG,
+    MPI_FLOAT,
     MPI_DOUBLE,
+    MPI_C_COMPLEX,
+    MPI_C_DOUBLE_COMPLEX,
+
+    MPI_MAX,
+
     MPI_SUCCESS,
     MPI_THREAD_MULTIPLE
 };
@@ -94,6 +104,9 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest,
 
 int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source,
              int tag, MPI_Comm comm, MPI_Status *status);
+
+int MPI_Reduce(void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype,
+               MPI_Op op, int root, MPI_Comm comm);
 
 int MPI_Request_free(MPI_Request *request);
 

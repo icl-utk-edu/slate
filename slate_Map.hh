@@ -161,6 +161,38 @@ public:
         ValueType& tile = std_map_[key];
         return tile;
     }
+
+    //------------
+    // at()
+    ValueType& at(const KeyType &key)
+    {
+        LockGuard guard(&lock_);
+        ValueType& tile = std_map_.at(key);
+        return tile;
+    }
+    ValueType& at(const KeyType &key) const
+    {
+        LockGuard guard(&lock_);
+        ValueType& tile = std_map_.at(key);
+        return tile;
+    }
+
+    //------------
+    // clear()
+    void clear()
+    {
+        LockGuard guard(&lock_);
+        std_map_.clear();
+    }
+
+    //------------
+    // size()
+    size_t size() const
+    {
+        LockGuard guard(&lock_);
+        size_t size = std_map_.size();
+        return size;
+    }
 };
 
 } // namespace slate

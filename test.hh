@@ -37,30 +37,40 @@ int host_num    = omp_get_initial_device();
 // the test function.
 class Test {
 public:
-    // -------------------------------------------------------------------------
+    // ----------------------------------------
     Test( const char* msg ):
         msg_( msg )
     {
         if (mpi_rank == 0) {
-            std::cout << "----- " << msg_ << "\n" << std::flush;
+            std::cout << "---------- " << msg_ << "\n" << std::flush;
         }
         MPI_Barrier( mpi_comm );
     }
 
-    // -------------------------------------------------------------------------
+    // ----------------------------------------
     ~Test()
     {
         std::cout << std::flush;
         MPI_Barrier( mpi_comm );
 
         if (mpi_rank == 0) {
-            std::cout << "----- " << msg_ << " done\n\n" << std::flush;
+            std::cout << "---------- " << msg_ << " done\n\n" << std::flush;
         }
         MPI_Barrier( mpi_comm );
     }
 
     const char* msg_;
 };
+
+// -----------------------------------------------------------------------------
+// Does barrier, then prints label on rank 0 for next sub-test.
+void test_barrier( const char* msg )
+{
+    MPI_Barrier( mpi_comm );
+    if (mpi_rank == 0) {
+        std::cout << "-- " << msg << "\n";
+    }
+}
 
 // -----------------------------------------------------------------------------
 // suppresses compiler warning if var is unused

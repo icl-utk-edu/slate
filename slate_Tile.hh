@@ -41,7 +41,7 @@
 #define SLATE_TILE_HH
 
 #include "slate_Memory.hh"
-#include "slate_Trace.hh"
+#include "slate_trace_Trace.hh"
 #include "slate_types.hh"
 
 #include <blas.hh>
@@ -242,8 +242,6 @@ template <typename scalar_t>
 void Tile<scalar_t>::copyDataToHost(
     Tile<scalar_t> *dst_tile, cudaStream_t stream) const
 {
-    trace::Block trace_block(trace::Color::Gray);
-
     cudaError_t error;
     error = cudaSetDevice(device_);
     assert(error == cudaSuccess);
@@ -253,13 +251,20 @@ void Tile<scalar_t>::copyDataToHost(
         dst_tile->stride_ == dst_tile->mb_) {
 
         // Use simple copy.
+        trace::Block trace_block("cudaMemcpyAsync");
+
         error = cudaMemcpyAsync(
             dst_tile->data_, data_, bytes(),
             cudaMemcpyDeviceToHost, stream);
         assert(error == cudaSuccess);
+
+        error = cudaStreamSynchronize(stream);
+        assert(error == cudaSuccess);
     }
     else {
         // Otherwise, use 2D copy.
+        trace::Block trace_block("cudaMemcpy2DAsync");
+
         void* dst = dst_tile->data_;
         const void* src = data_;
         size_t dpitch = sizeof(scalar_t)*dst_tile->stride_;
@@ -273,10 +278,10 @@ void Tile<scalar_t>::copyDataToHost(
             width, height,
             cudaMemcpyDeviceToHost, stream);
         assert(error == cudaSuccess);
-    }
 
-    error = cudaStreamSynchronize(stream);
-    assert(error == cudaSuccess);
+        error = cudaStreamSynchronize(stream);
+        assert(error == cudaSuccess);
+    }
 }
 
 ///-----------------------------------------------------------------------------
@@ -287,8 +292,6 @@ template <typename scalar_t>
 void Tile<scalar_t>::copyDataToDevice(
     Tile<scalar_t> *dst_tile, cudaStream_t stream) const
 {
-    trace::Block trace_block(trace::Color::LightGray);
-
     cudaError_t error;
     error = cudaSetDevice(dst_tile->device_);
     assert(error == cudaSuccess);
@@ -298,13 +301,20 @@ void Tile<scalar_t>::copyDataToDevice(
         dst_tile->stride_ == dst_tile->mb_) {
 
         // Use simple copy.
+        trace::Block trace_block("cudaMemcpyAsync");
+
         error = cudaMemcpyAsync(
             dst_tile->data_, data_, bytes(),
             cudaMemcpyHostToDevice, stream);
         assert(error == cudaSuccess);
+
+        error = cudaStreamSynchronize(stream);
+        assert(error == cudaSuccess);
     }
     else {
         // Otherwise, use 2D copy.
+        trace::Block trace_block("cudaMemcpy2DAsync");
+
         void* dst = dst_tile->data_;
         const void* src = data_;
         size_t dpitch = sizeof(scalar_t)*dst_tile->stride_;
@@ -318,10 +328,10 @@ void Tile<scalar_t>::copyDataToDevice(
             width, height,
             cudaMemcpyHostToDevice, stream);
         assert(error == cudaSuccess);
-    }
 
-    error = cudaStreamSynchronize(stream);
-    assert(error == cudaSuccess);
+        error = cudaStreamSynchronize(stream);
+        assert(error == cudaSuccess);
+    }
 }
 
 ///-----------------------------------------------------------------------------
@@ -429,8 +439,6 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm)
 template <typename scalar_t>
 void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm bcast_comm)
 {
-    trace::Block trace_block(trace::Color::Crimson);
-
     // If no stride.
     //if (stride_ == mb_) {
     //    // Use simple bcast.

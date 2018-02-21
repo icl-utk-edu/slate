@@ -37,9 +37,11 @@
 // comments to <slate-user@icl.utk.edu>.
 //------------------------------------------------------------------------------
 
-#include "slate_Trace.hh"
+#include "slate_trace_Trace.hh"
 
+#include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstdio>
 #include <ctime>
 #include <limits>
@@ -48,12 +50,35 @@
 namespace slate {
 namespace trace {
 
-bool Trace::tracing_ = false;
+double Trace::vscale_;
+double Trace::hscale_;
 
+bool Trace::tracing_ = false;
 int Trace::num_threads_ = omp_get_max_threads();
 
 std::vector<std::vector<Event>> Trace::events_ =
     std::vector<std::vector<Event>>(omp_get_max_threads());
+
+std::map<std::string, Color> Trace::function_color_ = {
+
+    {"blas::gemm", Color::MediumAquamarine},
+    {"blas::syrk", Color::CornflowerBlue},
+    {"blas::trsm", Color::MediumPurple},
+
+    {"cblas_dgemm_batch",  Color::DarkGreen},
+    {"cublasDgemmBatched", Color::PaleGreen},
+
+    {"cudaMemcpy2DAsync", Color::LightGray},
+    {"cudaMemcpyAsync",   Color::LightGray},
+
+    {"lapack::potrf", Color::RosyBrown},
+
+    {"Memory::alloc", Color::Aqua},
+    {"Memory::free",  Color::Aquamarine},
+
+    {"MPI_Barrier", Color::Black},
+    {"MPI_Bcast",   Color::Crimson}
+};
 
 ///-----------------------------------------------------------------------------
 /// \brief
@@ -91,20 +116,28 @@ void Trace::finish()
     // Find the global timespan.
     double timespan = getTimeSpan();
 
-    // Print thread events.
+    // Compute scaling factors.
+    hscale_ = width_ / timespan;
+    vscale_ = height_ / (mpi_size * num_threads_);
+
+    // Print the events.
     if (mpi_rank == 0) {
-        printThreads(0, mpi_size, timespan, trace_file);
+        printProcEvents(0, mpi_size, timespan, trace_file);
         for (int rank = 1; rank < mpi_size; ++rank) {
-            recvThreads(rank);
-            printThreads(rank, mpi_size, timespan, trace_file);
+            recvProcEvents(rank);
+            printProcEvents(rank, mpi_size, timespan, trace_file);
         }
     }
     else {
-        sendThreads();
+        sendProcEvents();
     }
 
     // Finish the trace file.
     if (mpi_rank == 0) {
+
+        printTicks(timespan, trace_file);
+        printLegend(trace_file);
+
         fprintf(trace_file, "</svg>\n");
         fclose(trace_file);
         fprintf(stderr, "trace file: %s\n", file_name.c_str());
@@ -138,47 +171,115 @@ double Trace::getTimeSpan()
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-void Trace::printThreads(int mpi_rank, int mpi_size,
-                         double timespan, FILE *trace_file)
+void Trace::printProcEvents(int mpi_rank, int mpi_size,
+                            double timespan, FILE *trace_file)
 {
-    double hscale = width_ / timespan;
-    double vscale = height_ / (mpi_size * num_threads_);
-    double y = mpi_rank * num_threads_ * vscale;
-    double height = 0.9 * vscale;
-    int stroke_color = 0x000000;
-    double stroke_width = vscale / 20.0;
+    double y = mpi_rank * num_threads_ * vscale_;
+    double height = 0.9 * vscale_;
+    double stroke_width = vscale_ / 50.0;
 
     for (auto thread : events_) {
         for (auto event : thread) {
 
-            double x = (event.start_ - events_[0][0].stop_) * hscale;
-            double width = (event.stop_ - event.start_) * hscale;
+            double x = (event.start_ - events_[0][0].stop_) * hscale_;
+            double width = (event.stop_ - event.start_) * hscale_;
 
             fprintf(trace_file,
                 "<rect x=\"%lf\" y=\"%lf\" "
                 "width=\"%lf\" height=\"%lf\" "
                 "fill=\"#%06x\" "
-                "stroke=\"#%06x\" stroke-width=\"%lf\"/>\n",
+                "stroke=\"#000000\" stroke-width=\"%lf\" "
+                "inkscape:label=\"%s\"/>\n",
                 x, y,
                 width, height,
-                unsigned(event.color_),
-                stroke_color, stroke_width);
+                (unsigned int)function_color_[event.name_],
+                stroke_width,
+                event.name_);
         }
-        y += vscale;
+        y += vscale_;
     }
 }
 
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-void Trace::sendThreads()
+void Trace::printTicks(double timespan, FILE *trace_file)
+{
+    // Tick spacing is power of 10, with at most 20 tick marks.
+    double pwr = ceil(log10(timespan/20.0));
+    double tick = pow(10.0, pwr);
+    int decimal_places = pwr < 0 ? (int)(-pwr) : 0;
+
+    for (double time = 0; time < timespan; time += tick) {
+        fprintf(trace_file,
+            "<line x1=\"%lf\" x2=\"%lf\" y1=\"%lf\" y2=\"%lf\" "
+            "stroke=\"#000000\" stroke-width=\"%d\"/>\n"
+            "<text x=\"%lf\" y=\"%lf\" "
+            "font-family=\"monospace\" font-size=\"%d\">%.*lf</text>\n",
+            hscale_ * time,
+            hscale_ * time,
+            (double)height_,
+            (double)height_ + tick_height_,
+            tick_stroke_,
+            hscale_ * time,
+            (double)height_ + tick_height_ * 2.0,
+            tick_font_size_, decimal_places, time);
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+void Trace::printLegend(FILE *trace_file)
+{
+    std::set<std::string> legend_set;
+
+    // Build the set of labels.
+    for (auto thread : events_)
+        for (auto event : thread)
+            legend_set.insert(event.name_);
+
+    // Convert the set to a vector.
+    std::vector<std::string> legend_vec(legend_set.begin(), legend_set.end());
+
+    // Sort the vector alphabetically.
+    std::sort(legend_vec.begin(), legend_vec.end());
+
+    // Print the labels.
+    double y_pos = 0.0;
+    for (auto label : legend_vec) {
+        fprintf(trace_file,
+            "<rect x=\"%lf\" y=\"%lf\" width=\"%lf\" height=\"%lf\" "
+            "fill=\"#%06x\" stroke=\"#000000\" stroke-width=\"%d\"/>\n"
+            "<text x=\"%lf\" y=\"%lf\" "
+            "font-family=\"monospace\" font-size=\"%d\">%s</text>\n",
+            (double)width_ + legend_space_,
+            y_pos,
+            (double)legend_space_,
+            (double)legend_space_,
+            (unsigned int)function_color_[label],
+            legend_stroke_,
+            (double)width_ + legend_space_ * 3.0,
+            y_pos + legend_space_,
+            legend_font_size_, label.c_str());
+
+            y_pos += legend_space_ * 2.0;
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
+void Trace::sendProcEvents()
 {
     for (int thread = 0; thread < num_threads_; ++thread) {
 
+        // Send the number of events.
         long int num_events = events_[thread].size();
         MPI_Send(&num_events, 1, MPI_LONG,
                  0, 0, MPI_COMM_WORLD);
 
+        // Send the events.
         MPI_Send(&events_[thread][0], sizeof(Event)*num_events, MPI_BYTE,
                  0, 0, MPI_COMM_WORLD);
     }
@@ -187,14 +288,16 @@ void Trace::sendThreads()
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-void Trace::recvThreads(int rank)
+void Trace::recvProcEvents(int rank)
 {
     for (int thread = 0; thread < num_threads_; ++thread) {
 
+        // Receive the number of events.
         long int num_events;
         MPI_Recv(&num_events, 1, MPI_LONG,
                  rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
+        // Resize the vector and receive the events.
         events_[thread].resize(num_events);
         MPI_Recv(&events_[thread][0],sizeof(Event)*num_events, MPI_BYTE,
                  rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);

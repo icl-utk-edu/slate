@@ -40,7 +40,8 @@
 #ifndef SLATE_TRACE_HH
 #define SLATE_TRACE_HH
 
-#include <stdio.h>
+#include <map>
+#include <set>
 #include <vector>
 
 #ifdef SLATE_WITH_MPI
@@ -214,16 +215,17 @@ public:
     friend class Trace;
 
     Event() {};
-    Event(Color color)
-        : start_(omp_get_wtime()),
-          color_(color) {}
+
+    Event(const char* name)
+        : name_(name),
+          start_(omp_get_wtime()) {}
 
     void stop() { stop_ = omp_get_wtime(); }
 
 private:
+    const char* name_;
     double start_;
     double stop_;
-    Color color_;
 };
 
 ///-----------------------------------------------------------------------------
@@ -232,6 +234,8 @@ private:
 ///
 class Trace {
 public:
+    friend class Block;
+
     static void on() { tracing_ = true; }
     static void off() { tracing_ = false; }
 
@@ -240,17 +244,32 @@ public:
 
 private:
     static double getTimeSpan();
-    static void printThreads(int mpi_rank, int mpi_size,
-                             double timespan, FILE *trace_file);
-    static void sendThreads();
-    static void recvThreads(int rank);
+    static void printProcEvents(int mpi_rank, int mpi_size,
+                                double timespan, FILE *trace_file);
+    static void printTicks(double timespan, FILE *trace_file);
+    static void printLegend(FILE *trace_file);
+    static void sendProcEvents();
+    static void recvProcEvents(int rank);
 
     static const int width_ = 2390;
     static const int height_ = 1000;
 
+    static const int tick_height_ = 32;
+    static const int tick_stroke_ = 2;
+    static const int tick_font_size_ = 32;
+
+    static const int legend_space_ = 28;
+    static const int legend_stroke_ = 2;
+    static const int legend_font_size_ = 24;
+
+    static double vscale_;
+    static double hscale_;
+
     static bool tracing_;
     static int num_threads_;
+
     static std::vector<std::vector<Event>> events_;
+    static std::map<std::string, Color> function_color_;
 };
 
 ///-----------------------------------------------------------------------------
@@ -259,8 +278,8 @@ private:
 ///
 class Block {
 public:
-    Block(Color color)
-        : event_(color) {}
+    Block(const char* name)
+        : event_(name) {}
 
     ~Block() { Trace::insert(event_); }
 private:

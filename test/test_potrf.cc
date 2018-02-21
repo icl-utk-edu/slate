@@ -1,5 +1,7 @@
 #include "slate.hh"
 #include "slate_Debug.hh"
+#include "slate_trace_Trace.hh"
+
 #include "test.hh"
 #include "error.hh"
 #include "lapack_flops.hh"
@@ -16,15 +18,11 @@
     #include "slate_NoMpi.hh"
 #endif
 
-#ifdef SLATE_WITH_OPENMP
+#ifdef _OPENMP
     #include <omp.h>
 #else
     #include "slate_NoOpenmp.hh"
 #endif
-
-extern "C" void trace_on();
-extern "C" void trace_off();
-extern "C" void trace_finish();
 
 //------------------------------------------------------------------------------
 template< typename scalar_t >
@@ -80,27 +78,24 @@ void test_potrf_work( Params& params, bool run )
     A_ref = A_tst;
 
     // Create slate matrix
-    trace_off();
     slate::Matrix< scalar_t > A(n, n, &A_tst[0], lda, nb, MPI_COMM_WORLD, p, q);
-
-    trace_on();
-    trace_cpu_start();
-    MPI_Barrier(MPI_COMM_WORLD);
-    trace_cpu_stop("Black");
+    slate::trace::Trace::on();
+    {
+        slate::trace::Block trace_block(slate::trace::Color::Black);
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
 
     // Call routine
     double time = libtest::get_wtime();
     slate::potrf< slate::Target::HostTask >(uplo, A, lookahead);
 
     // Wait for computation
-    trace_cpu_start();
     MPI_Barrier(MPI_COMM_WORLD);
 
     // Record time
     time = libtest::get_wtime() - time;
 
-    trace_cpu_stop("Black");
-    trace_finish();
+    slate::trace::Trace::finish();
 
     // Record gflops.
     double gflop = lapack::Gflop< scalar_t >::potrf( n );

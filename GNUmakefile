@@ -15,7 +15,6 @@
 
 -include make.inc
 
-CFLAGS   = -O3 -std=c99   -Wall -pedantic -MMD
 CXXFLAGS = -O3 -std=c++11 -Wall -pedantic -MMD
 
 pwd = ${shell pwd}
@@ -39,12 +38,10 @@ endif
 #-------------------------------------------------------------------------------
 # if MPI
 ifeq (${mpi},1)
-	CFLAGS   += -DSLATE_WITH_MPI
 	CXXFLAGS += -DSLATE_WITH_MPI
 	LIB += -lmpi
 # if Spectrum MPI
 else ifeq (${spectrum},1)
-	CFLAGS   += -DSLATE_WITH_MPI
 	CXXFLAGS += -DSLATE_WITH_MPI
 	LIB += -lmpi_ibm
 else
@@ -84,8 +81,6 @@ endif
 # SLATE libraries
 CXXFLAGS += -I./blaspp/include
 CXXFLAGS += -I./lapackpp/include
-
-CFLAGS += -I.
 
 LIB += -L./lapackpp/lib -Wl,-rpath,${pwd}/lapackpp/lib -llapackpp
 
@@ -152,9 +147,6 @@ clean:
 
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
 
 # preprocess source
 %.i: %.cc

@@ -1,23 +1,9 @@
-      __| |      \__ __| __|
-    \__ \ |     _ \  |   _| 
-    ____/____|_/  _\_|  ___|
 
-**Software for Linear Algebra Targeting Exascale**
-
-**Innovative Computing Laboratory**
-
-**University of Tennessee**
-
-![SLATE](http://icl.bitbucket.io/slate/artwork/ecp-slate.jpg)
-
-* * *
-
-[TOC]
-
-* * *
+Overview
+========
 
 About
-=====
+-----
 
 SLATE will offer a modern replacement for ScaLAPACK.
 ScaLAPACK is a numerical software library of dense linear algebra routines
@@ -30,45 +16,33 @@ SLATE will allow for the development of multicore and accelerator capabilities,
 by leveraging recent progress and ongoing efforts in mainstream programming models
 (MPI3 and beyond, OpenMP4 and beyond, OpenACC, etc.), and runtime scheduling systems
 (PaRSEC, Legion, etc.).
-Also, part of the SLATE project is the development of C++ APIs
-for [BLAS++](https://bitbucket.org/icl/blaspp)
-and [LAPACK++](https://bitbucket.org/icl/lapackpp).
 
-* * *
+As part of the SLATE projects, C++ APIs are developed for the
+Basic Linear Algebra Subprograms
+(`BLAS++ <https://bitbucket.org/icl/blaspp>`_) and for the Linear Algebra PACKage
+(`LAPACK++ <https://bitbucket.org/icl/lapackpp>`_).
 
-Documentation
-=============
 
-* [SLATE Users' Guide](https://icl.bitbucket.io/slate/sphinx/html/)
-* [SLATE Function Reference](https://icl.bitbucket.io/slate/doxygen/html/)
-* [SLATE Working Note 3: Designing SLATE: Software for Linear Algebra Targeting Exascale](http://www.icl.utk.edu/publications/swan-003)
+Resources
+---------
 
-* * *
+* Visit the `SLATE website <http://icl.utk.edu/slate/>`_ for more information about the SLATE project.
+* Visit the `SLATE Working Notes <http://www.icl.utk.edu/publications/series/swans>`_ to find out more about ongoing SLATE developments.
+* Visit the `BLAS++ repository <https://bitbucket.org/icl/blaspp>`_ for more information about the C++ API for BLAS.
+* Visit the `LAPACK++ repository <https://bitbucket.org/icl/lapackpp>`_ for more information about the C++ API for LAPACK.
+* Visit the `ECP website <https://exascaleproject.org>`_ to find out more about the DOE Exascale Computing Initiative.
 
 Getting Help
-============
+------------
 
 Need assistance with the SLATE software?
 Join the *SLATE User* Google group by going to
 https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user
-and clicking `Apply to join group`.
+and clicking ``Apply to join group``.
 Upon acceptance, email your questions and comments to *slate-user@icl.utk.edu*.
 
-* * *
-
-Resources
-=========
-
-* Visit the [SLATE website](http://icl.utk.edu/slate/) for more information about the SLATE project.
-* Visit the [SLATE Working Notes](http://www.icl.utk.edu/publications/series/swans) to find out more about ongoing SLATE developments.
-* Visit the [BLAS++ repository](https://bitbucket.org/icl/blaspp) for more information about the C++ API for BLAS.
-* Visit the [LAPACK++ repository](https://bitbucket.org/icl/lapackpp) for more information about the C++ API for LAPACK.
-* Visit the [ECP website](https://exascaleproject.org) to find out more about the DOE Exascale Computing Initiative.
-
-* * *
-
 Acknowledgments
-===============
+---------------
 
 This research was supported by the Exascale Computing Project (17-SC-20-SC),
 a collaborative effort of two U.S. Department of Energy organizations
@@ -82,10 +56,10 @@ which is a DOE Office of Science User Facility supported under Contract DE-AC05-
 This research also uses resources of the Argonne Leadership Computing Facility,
 which is a DOE Office of Science User Facility supported under Contract DE-AC02-06CH11357.
 
-* * *
-
 License
-=======
+-------
+
+.. code-block:: console
 
     Copyright (c) 2017, University of Tennessee
     All rights reserved.

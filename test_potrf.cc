@@ -1,7 +1,7 @@
 
 #include "slate.hh"
 #include "slate_Debug.hh"
-#include "slate_Trace.hh"
+#include "slate_trace_Trace.hh"
 
 #include <cassert>
 #include <cmath>
@@ -84,7 +84,7 @@ int main (int argc, char *argv[])
                                      nb, p, q, MPI_COMM_WORLD);
     slate::trace::Trace::on();
     {
-        slate::trace::Block trace_block(slate::trace::Color::Black);
+        slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
     double start = omp_get_wtime();

@@ -20,7 +20,7 @@ void gemm(
                     Tile<scalar_t> const& B,
     scalar_t beta,  Tile<scalar_t>& C)
 {
-    trace::Block trace_block(trace::Color::MediumAquamarine);
+    trace::Block trace_block("blas::gemm");
 
     assert(A.uplo() == blas::Uplo::General);
     assert(B.uplo() == blas::Uplo::General);
@@ -55,7 +55,7 @@ void gemm(
 template <typename scalar_t>
 void potrf(Tile<scalar_t>& A)
 {
-    trace::Block trace_block(trace::Color::RosyBrown);
+    trace::Block trace_block("lapack::potrf");
 
     assert(A.op() == blas::Op::NoTrans);  // todo: row-major
     lapack::potrf(A.uplo(),
@@ -80,7 +80,7 @@ void syrk(
     scalar_t alpha, Tile<scalar_t> const& A,
     scalar_t beta,  Tile<scalar_t>& C)
 {
-    trace::Block trace_block(trace::Color::CornflowerBlue);
+    trace::Block trace_block("blas::syrk");
 
     assert(A.uplo() == blas::Uplo::General);
     assert(C.mb() == C.nb());  // square
@@ -113,7 +113,7 @@ void trsm(
     scalar_t alpha, Tile<scalar_t> const& A,
                     Tile<scalar_t>& B)
 {
-    trace::Block trace_block(trace::Color::MediumPurple);
+    trace::Block trace_block("blas::trsm");
 
     assert(B.uplo() == blas::Uplo::General);
     assert(B.op() == blas::Op::NoTrans);  // todo: row-major

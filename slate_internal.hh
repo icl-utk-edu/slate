@@ -37,8 +37,37 @@
 // comments to <slate-user@icl.utk.edu>.
 //------------------------------------------------------------------------------
 
+///-----------------------------------------------------------------------------
+/// \file
+///
 #ifndef SLATE_INTERNAL_HH
 #define SLATE_INTERNAL_HH
+
+#include "slate_types.hh"
+
+#define THROW_IF(cond, error) \
+    if (cond) \
+        throw TrueConditionException( \
+            #cond, error, __FILE__, __func__, __LINE__);
+
+#define THROW_IF_NOT(cond, error) \
+    if (!(cond)) \
+        throw FalseConditionException( \
+            #cond, error, __FILE__, __func__, __LINE__);
+
+#define MPI_CALL(call) \
+{ \
+    int retval = (call); \
+    if (retval != MPI_SUCCESS) \
+        throw MpiException(#call, retval, __FILE__, __func__, __LINE__); \
+}
+
+#define CUDA_CALL(call) \
+{ \
+    cudaError_t error = (call); \
+    if (error != cudaSuccess) \
+        throw CudaException(#call, error, __FILE__, __func__, __LINE__); \
+}
 
 #include "slate_Matrix.hh"
 

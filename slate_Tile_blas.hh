@@ -26,15 +26,26 @@ void gemm(
     assert(B.uplo() == blas::Uplo::General);
     assert(C.uplo() == blas::Uplo::General);
     assert(C.op() == blas::Op::NoTrans);  // todo: row-major
-    assert(C.m() == A.m());  // m
-    assert(C.n() == B.n());  // n
-    assert(A.n() == B.m());  // k
+    assert(C.mb() == A.mb());  // m
+    assert(C.nb() == B.nb());  // n
+    assert(A.nb() == B.mb());  // k
     blas::gemm(blas::Layout::ColMajor,
                A.op(), B.op(),
-               C.m(), C.n(), A.n(),
+               C.mb(), C.nb(), A.nb(),
                alpha, A.data(), A.stride(),
                       B.data(), B.stride(),
                beta,  C.data(), C.stride());
+}
+
+///----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename scalar_t>
+void gemm(
+    scalar_t alpha, Tile<scalar_t> const&& A,
+                    Tile<scalar_t> const&& B,
+    scalar_t beta,  Tile<scalar_t>&& C)
+{
+    gemm( alpha, A, B, beta, C );
 }
 
 ///-----------------------------------------------------------------------------
@@ -48,8 +59,16 @@ void potrf(Tile<scalar_t>& A)
 
     assert(A.op() == blas::Op::NoTrans);  // todo: row-major
     lapack::potrf(A.uplo(),
-                  A.n(),
+                  A.nb(),
                   A.data(), A.stride());
+}
+
+///----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename scalar_t>
+void potrf(Tile<scalar_t>&& A)
+{
+    potrf( A );
 }
 
 ///-----------------------------------------------------------------------------
@@ -64,14 +83,24 @@ void syrk(
     trace::Block trace_block(trace::Color::CornflowerBlue);
 
     assert(A.uplo() == blas::Uplo::General);
-    assert(C.m() == C.n());  // square
-    assert(C.m() == A.m());  // n
+    assert(C.mb() == C.nb());  // square
+    assert(C.mb() == A.mb());  // n
     assert(C.op() == blas::Op::NoTrans);  // todo: row-major
     blas::syrk(blas::Layout::ColMajor,
                C.uplo(), A.op(),
-               C.n(), A.n(),
+               C.nb(), A.nb(),
                alpha, A.data(), A.stride(),
                beta,  C.data(), C.stride());
+}
+
+///----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename scalar_t>
+void syrk(
+    scalar_t alpha, Tile<scalar_t> const&& A,
+    scalar_t beta,  Tile<scalar_t>&& C)
+{
+    syrk( alpha, A, beta, C );
 }
 
 ///-----------------------------------------------------------------------------
@@ -88,14 +117,25 @@ void trsm(
 
     assert(B.uplo() == blas::Uplo::General);
     assert(B.op() == blas::Op::NoTrans);  // todo: row-major
-    assert(A.m() == A.n());  // square
-    assert(side == blas::Side::Left ? A.m() == B.m()    // m
-                                    : A.m() == B.n());  // n
+    assert(A.mb() == A.nb());  // square
+    assert(side == blas::Side::Left ? A.mb() == B.mb()    // m
+                                    : A.mb() == B.nb());  // n
     blas::trsm(blas::Layout::ColMajor,
                side, A.uplo(), A.op(), diag,
-               B.m(), B.n(),
+               B.mb(), B.nb(),
                alpha, A.data(), A.stride(),
                       B.data(), B.stride());
+}
+
+///----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename scalar_t>
+void trsm(
+    blas::Side side, blas::Diag diag,
+    scalar_t alpha, Tile<scalar_t> const&& A,
+                    Tile<scalar_t>&& B)
+{
+    trsm( side, diag, alpha, A, B );
 }
 
 } // namespace slate

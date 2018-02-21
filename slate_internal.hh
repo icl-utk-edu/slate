@@ -43,6 +43,7 @@
 #include "slate_Matrix.hh"
 
 namespace slate {
+namespace internal {
 
 //------------------------------------------------------------------------------
 // BLAS and LAPACK routines that update portions of a matrix on each node,
@@ -86,6 +87,7 @@ void trsm(Side side, Diag diag,
                           Matrix< scalar_t > &&b,
           int priority=0);
 
+} // namespace internal
 } // namespace slate
 
 #endif // SLATE_INTERNAL_HH

@@ -40,8 +40,7 @@
 #ifndef SLATE_MATRIX_HH
 #define SLATE_MATRIX_HH
 
-#include "slate_Map.hh"
-#include "slate_Memory.hh"
+#include "slate_BaseMatrix.hh"
 #include "slate_Tile.hh"
 #include "slate_types.hh"
 
@@ -53,6 +52,7 @@
 #include <set>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #ifdef SLATE_WITH_CUDA
     #include <cublas_v2.h>
@@ -76,736 +76,708 @@
 
 namespace slate {
 
-///-----------------------------------------------------------------------------
-/// \class
-/// \brief
+///=============================================================================
 ///
 template <typename scalar_t>
-class Matrix {
+class Matrix: public BaseMatrix< scalar_t > {
 public:
-    friend class Debug;
+    ///-------------------------------------------------------------------------
+    /// Default constructor
+    Matrix():
+        BaseMatrix< scalar_t >()
+    {}
 
-    Matrix(int64_t m, int64_t n,
-            scalar_t *a, int64_t lda, int64_t nb,
-            MPI_Comm mpi_comm, int64_t p, int64_t q);
-
-    Matrix(const Matrix &a,
-           int64_t m1, int64_t m2,
-           int64_t n1, int64_t n2);
-
-    ~Matrix() {
-        // NOTE: no destruction of auxiliary CUDA/cuBLAS structures
-        //       Perhaps this could be handled in BBLAS++.
-    }
-
-    //---------------------------
-    // initialization and cleanup
-    void init(scalar_t *a, int64_t lda);
-    void gather(scalar_t *a, int64_t lda);
-    void clean();
-
-// TODO: Friend global computational functions.
-// private:
-    //-----------------------------
-    // tile and submatrix operators
-    Tile<scalar_t>* &operator()(int64_t i, int64_t j)
+    ///-------------------------------------------------------------------------
+    /// Construct matrix by wrapping existing memory of an m-by-n matrix.
+    /// The caller must ensure that the memory remains valid for the lifetime
+    /// of the Matrix object and any shallow copies of it.
+    /// Input format is an LAPACK-style column-major matrix with leading
+    /// dimension (column stride) ld >= m.
+    /// Matrix gets tiled with square nb-by-nb tiles.
+    Matrix(int64_t m, int64_t n, scalar_t* A, int64_t ld, int64_t nb,
+           int p, int q, MPI_Comm mpi_comm):
+        BaseMatrix< scalar_t >(m, n, nb, p, q, mpi_comm)
     {
-        return (*tiles_)[{it_+i, jt_+j, host_num_}];
+        // ii, jj are row, col indices
+        // i, j are tile (block row, block col) indices
+        int64_t jj = 0;
+        for (int64_t j = 0; j < this->nt(); ++j) {
+            int64_t jb = this->tileNb(j);
+            int64_t ii = 0;
+            for (int64_t i = 0; i < this->mt(); ++i) {
+                int64_t ib = this->tileMb(i);
+                if (this->tileIsLocal(i, j)) {
+                    this->tileInsert(i, j, this->host_num_, &A[ ii + jj*ld ], ld);
+                }
+                ii += ib;
+            }
+            jj += jb;
+        }
     }
-    Tile<scalar_t>* &operator()(int64_t i, int64_t j) const
-    {
-        return (*tiles_)[{it_+i, jt_+j, host_num_}];
-    }
-    Tile<scalar_t>* &operator()(int64_t i, int64_t j, int device)
-    {
-        return (*tiles_)[{it_+i, jt_+j, device}];
-    }
-    Tile<scalar_t>* &operator()(int64_t i, int64_t j, int device) const
-    {
-        return (*tiles_)[{it_+i, jt_+j, device}];
-    }
-    Matrix<scalar_t> operator()(int64_t i1, int64_t i2, int64_t j1, int64_t j2)
+
+    ///-------------------------------------------------------------------------
+    /// Sub-matrix constructor creates shallow copy view of parent matrix,
+    /// A[ i1:i2, j1:j2 ].
+    Matrix(Matrix& orig,
+           int64_t i1, int64_t i2, int64_t j1, int64_t j2):
+        BaseMatrix< scalar_t >(orig, i1, i2, j1, j2)
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// Sub-matrix constructor creates shallow copy view of parent matrix,
+    /// A[ i1:i2, j1:j2 ].
+    /// This version is called for conversion from HermitianMatrix, etc.
+    Matrix(BaseMatrix< scalar_t >& orig,
+           int64_t i1, int64_t i2,
+           int64_t j1, int64_t j2):
+        BaseMatrix< scalar_t >(orig, i1, i2, j1, j2)
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// @return sub-matrix that is a shallow copy view of the
+    /// parent matrix, A[ i1:i2, j1:j2 ].
+    Matrix sub(int64_t i1, int64_t i2,
+               int64_t j1, int64_t j2)
     {
         return Matrix(*this, i1, i2, j1, j2);
     }
 
-    //-----------------------------
-    // mapping to ranks and devices
-    int64_t tileRank(int64_t i, int64_t j)
+    ///-------------------------------------------------------------------------
+    /// Swap contents of matrices A and B.
+    // (This isn't really needed over BaseMatrix swap, but is here as a reminder
+    // in case any members are added to Matrix that aren't in BaseMatrix.)
+    friend void swap(Matrix& A, Matrix& B)
     {
-        return tileRankFunc(it_+i, jt_+j);
-    }
-    int64_t tileDevice(int64_t i, int64_t j)
-    {
-        return tileDeviceFunc(it_+i, jt_+j);
-    }
-    bool tileIsLocal(int64_t i, int64_t j)
-    {
-        return tileRank(i, j) == mpi_rank_;
+        using std::swap;
+        swap(static_cast< BaseMatrix< scalar_t >& >(A),
+             static_cast< BaseMatrix< scalar_t >& >(B));
     }
 
-    //-----------
-    // tile sizes
-    int64_t tileMb(int64_t i) { return tileMbFunc(it_+i); }
-    int64_t tileNb(int64_t j) { return tileNbFunc(jt_+j); }
+    ///-------------------------------------------------------------------------
+    /// \brief
+    /// @return number of local tiles in matrix on this rank.
+    // todo: numLocalTiles? use for life as well?
+    int64_t getMaxHostTiles()
+    {
+        int64_t num_tiles = 0;
+        for (int64_t j = 0; j < this->nt(); ++j)
+            for (int64_t i = 0; i < this->mt(); ++i)
+                if (this->tileIsLocal(i, j))
+                    ++num_tiles;
 
-    //------------------------------
-    // node-level memory consistency
-    void tileCopyToDevice(int64_t i, int64_t j, int dst_device);
-    void tileCopyToHost(int64_t i, int64_t j, int src_device);
-    void tileMoveToDevice(int64_t i, int64_t j, int dst_device);
-    void tileMoveToHost(int64_t i, int64_t j, int src_device);
-    void tileErase(int64_t i, int64_t j, int device);
-    void tileTick(int64_t i, int64_t j);
+        return num_tiles;
+    }
 
-    //---------------------------------
-    // distributed memory communication
-    template <Target target = Target::Host>
-    void tileSend(int64_t i, int64_t j, Matrix &&a);
+    ///-------------------------------------------------------------------------
+    /// \brief
+    /// @return number of local tiles in matrix on this rank and given device.
+    // todo: numLocalDeviceTiles?
+    int64_t getMaxDeviceTiles(int device)
+    {
+        int64_t num_tiles = 0;
+        for (int64_t j = 0; j < this->nt(); ++j)
+            for (int64_t i = 0; i < this->mt(); ++i)
+                if (this->tileIsLocal(i, j) && this->tileDevice(i, j) == device)
+                    ++num_tiles;
 
-    template <Target target = Target::Host>
-    void tileSend(int64_t i, int64_t j, Matrix &&a1, Matrix &&a2);
+        return num_tiles;
+    }
 
-    void tileSend(int64_t i, int64_t j, std::set<int> &bcast_set);
+    ///-------------------------------------------------------------------------
+    /// Allocates batch arrays for all devices.
+    void allocateBatchArrays()
+    {
+        int64_t num_tiles = 0;
+        for (int device = 0; device < this->num_devices_; ++device) {
+            num_tiles = std::max(num_tiles, getMaxDeviceTiles(device));
+        }
+        this->storage_->allocateBatchArrays(num_tiles);
+    }
 
-    void tileSendFindRanks(Matrix &a, std::set<int> *bcast_set);
-    int64_t tileSendFindLife(Matrix &a);
+    ///-------------------------------------------------------------------------
+    /// Reserve space for temporary workspace tiles on host.
+    void reserveHostWorkspace()
+    {
+        this->storage_->reserveHostWorkspace(getMaxHostTiles());
+    }
 
-    //-------------------------
-    // auxiliary CUDA functions
-    void initCudaStreams();
-    void initCublasHandles();
-    void initBatchArrays();
+    ///-------------------------------------------------------------------------
+    /// Reserve space for temporary workspace tiles on all GPU devices.
+    void reserveDeviceWorkspace()
+    {
+        int64_t num_tiles = 0;
+        for (int device = 0; device < this->num_devices_; ++device) {
+            num_tiles = std::max(num_tiles, getMaxDeviceTiles(device));
+        }
+        this->storage_->reserveDeviceWorkspace(num_tiles);
+    }
 
-    //----------------------------
-    // memory management functions
-    int64_t getMaxHostTiles();
-    int64_t getMaxDeviceTiles(int device);
+    ///-------------------------------------------------------------------------
+    /// Gathers the entire matrix to the LAPACK-style matrix A on MPI rank 0.
+    /// Primarily for debugging purposes.
+    void gather(scalar_t *A, int64_t lda)
+    {
+        // ii, jj are row, col indices
+        // i, j are tile (block row, block col) indices
+        int64_t jj = 0;
+        for (int64_t j = 0; j < this->nt(); ++j) {
+            int64_t jb = this->tileNb(j);
 
-    //-------------------------------
-    // submatrix functions prototypes 
-    #include "slate_Matrix.inc"
+            int64_t ii = 0;
+            for (int64_t i = 0; i < this->mt(); ++i) {
+                int64_t ib = this->tileMb(i);
 
-    int64_t it_; ///< first row of tiles
-    int64_t jt_; ///< first column of tiles
-    int64_t mt_; ///< number of tile rows
-    int64_t nt_; ///< number of tile columns
-
-    std::function <int64_t (int64_t i, int64_t j)> tileRankFunc;
-    std::function <int64_t (int64_t i, int64_t j)> tileDeviceFunc;
-    std::function <int64_t (int64_t i)> tileMbFunc;
-    std::function <int64_t (int64_t j)> tileNbFunc;
-
-    typedef Map<std::tuple<int64_t, int64_t, int>, Tile<scalar_t>*> TilesMap;
-    typedef Map<std::tuple<int64_t, int64_t>, int64_t> LivesMap;
-
-    std::shared_ptr<TilesMap> tiles_; ///< map of tiles
-    std::shared_ptr<LivesMap> lives_; ///< map of tiles' lives
-    std::shared_ptr<Memory> memory_;  ///< memory allocator
-
-    static int host_num_; ///< host ID
-    int num_devices_;     ///< number of devices
-
-    MPI_Comm mpi_comm_;
-    MPI_Group mpi_group_;
-    int mpi_size_;
-    int mpi_rank_;
-
-    // CUDA streams and cuBLAS handles
-    std::vector<cudaStream_t> gemm_stream_;
-    std::vector<cudaStream_t> comm_stream_;
-    std::vector<cublasHandle_t> cublas_handle_;
-
-    // host pointers arrays for batch GEMM
-    std::vector<const scalar_t**> a_array_h_;
-    std::vector<const scalar_t**> b_array_h_;
-    std::vector<scalar_t**> c_array_h_;
-
-    // device pointers arrays for batch GEMM
-    std::vector<const scalar_t**> a_array_d_;
-    std::vector<const scalar_t**> b_array_d_;
-    std::vector<scalar_t**> c_array_d_;
+                if (this->mpi_rank_ == 0) {
+                    if (! this->tileIsLocal(i, j)) {
+                        Tile<scalar_t>* tile
+                            = this->tileInsert(i, j, &A[(size_t)lda*jj + ii], lda);
+                        tile->recv(this->tileRank(i, j), this->mpi_comm_);
+                    }
+                    // todo: if local, check if need to copy data from tiles to A?
+                    // currently assumes local tiles are parts of A.
+                    // check pointers and do lacpy if needed.
+                }
+                else if (this->tileIsLocal(i, j)) {
+                    this->at(i, j).send(0, this->mpi_comm_);
+                }
+                ii += ib;
+            }
+            jj += jb;
+        }
+    }
 };
 
-///-----------------------------------------------------------------------------
-/// \brief
+///=============================================================================
 ///
 template <typename scalar_t>
-Matrix<scalar_t>::Matrix(int64_t m, int64_t n, scalar_t *a, int64_t lda,
-                          int64_t nb, MPI_Comm mpi_comm, int64_t p, int64_t q)
-{
-    tiles_ = std::make_shared<TilesMap>();
-    lives_ = std::make_shared<LivesMap>();
+class BaseTrapezoidMatrix: public BaseMatrix< scalar_t > {
+public:
+    ///-------------------------------------------------------------------------
+    /// Default constructor
+    BaseTrapezoidMatrix():
+        BaseMatrix< scalar_t >(),
+        uplo_(Uplo::Lower)
+    {}
 
-    it_ = 0;
-    jt_ = 0;
-    mt_ = m % nb == 0 ? m/nb : m/nb+1;
-    nt_ = n % nb == 0 ? n/nb : n/nb+1;
+    ///-------------------------------------------------------------------------
+    /// Construct matrix by wrapping existing memory of an m-by-n lower
+    /// or upper trapezoidal storage matrix. Triangular, symmetric, and
+    /// Hermitian matrices all use this storage scheme (with m = n).
+    /// The caller must ensure that the memory remains valid for the lifetime
+    /// of the Matrix object and any shallow copies of it.
+    /// Input format is an LAPACK-style column-major matrix with leading
+    /// dimension (column stride) ld >= m.
+    /// Matrix gets tiled with square nb-by-nb tiles.
+    BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
+                        scalar_t* A, int64_t ld, int64_t nb,
+                        int p, int q, MPI_Comm mpi_comm):
+        BaseMatrix< scalar_t >(m, n, nb, p, q, mpi_comm),
+        uplo_(uplo)
+    {
+        // ii, jj are row, col indices
+        // i, j are tile (block row, block col) indices
+        if (uplo_ == Uplo::Lower) {
+            int64_t jj = 0;
+            for (int64_t j = 0; j < this->nt(); ++j) {
+                int64_t jb = this->tileNb(j);
 
-    mpi_comm_ = mpi_comm;
-    assert(MPI_Comm_rank(mpi_comm_, &mpi_rank_) == MPI_SUCCESS);
-    assert(MPI_Comm_size(mpi_comm_, &mpi_size_) == MPI_SUCCESS);
-    assert(MPI_Comm_group(mpi_comm_, &mpi_group_) == MPI_SUCCESS);
+                int64_t ii = j*nb;
+                for (int64_t i = j; i < this->mt(); ++i) {  // lower
+                    int64_t ib = this->tileMb(i);
 
-    host_num_ = omp_get_initial_device();
-#ifdef SLATE_WITH_CUDA
-    num_devices_ = omp_get_num_devices();
-#else
-    num_devices_ = 0;
-#endif
-
-    tileMbFunc = [=] (int64_t i) { return i*nb > m ? m%nb : nb; };
-    tileNbFunc = [=] (int64_t j) { return j*nb > n ? n%nb : nb; };
-
-    tileRankFunc = [=] (int64_t i, int64_t j) { return i%p + (j%q)*p; };
-
-    if (num_devices_ > 0) {
-        tileDeviceFunc = [=] (int64_t i, int64_t j)
-            { return j/q%num_devices_; };
-    }
-    else {
-        tileDeviceFunc = [=] (int64_t i, int64_t j)
-            { return host_num_; };
-    }
-
-    initCudaStreams();
-    initCublasHandles();
-    initBatchArrays();
-
-    memory_ = std::make_shared<Memory>(sizeof(scalar_t)*nb*nb);
-    memory_->addHostBlocks(getMaxHostTiles());
-
-    init(a, lda);
-}
-
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename scalar_t>
-Matrix<scalar_t>::Matrix(const Matrix &a,
-                          int64_t m1, int64_t m2,
-                          int64_t n1, int64_t n2)
-{
-    assert(m1 <= m2);
-    assert(n1 <= n2);
-
-    assert(m2 < a.mt_);
-    assert(n2 < a.nt_);
-
-    *this = a;
-    it_ += m1;
-    jt_ += n1;
-    mt_ = m2-m1+1;
-    nt_ = n2-n1+1;
-}
-
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename scalar_t>
-void Matrix<scalar_t>::init(scalar_t *a, int64_t lda)
-{
-    int64_t m = 0;
-    for (int64_t i = 0; i < mt_; ++i) {
-        int64_t n = 0;
-        for (int64_t j = 0; j <= i; ++j) {
-            if (tileIsLocal(i, j)) {
-                Tile<scalar_t> *tile =
-                    new Tile<scalar_t>(tileMb(i), tileNb(j),
-                                        &a[(size_t)lda*n+m], lda,
-                                        memory_, mpi_comm_);
-                tile->origin_ = true;
-                (*this)(i, j) = tile;
-            }
-            n += tileNb(j);
-        }
-        m += tileMb(i);
-    }
-}
-
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename scalar_t>
-void Matrix<scalar_t>::gather(scalar_t *a, int64_t lda)
-{
-    int64_t m = 0;
-    for (int64_t i = 0; i < mt_; ++i) {
-        int64_t n = 0;
-        for (int64_t j = 0; j <= i && j < nt_; ++j) {
-            if (mpi_rank_ == 0) {
-                if (!tileIsLocal(i, j)) {
-
-                   (*this)(i, j) =
-                        new Tile<scalar_t>(tileMb(i), tileNb(j),
-                                            &a[(size_t)lda*n+m], lda,
-                                            memory_, mpi_comm_);
-
-                    (*this)(i, j)->recv(tileRank(i, j));
+                    if (this->tileIsLocal(i, j)) {
+                        Tile< scalar_t >* tile
+                            = this->tileInsert(i, j, this->host_num_, &A[ ii + jj*ld ], ld);
+                        if (i == j)
+                            tile->uplo(uplo);
+                    }
+                    ii += ib;
                 }
+                jj += jb;
             }
-            else {
-                if (tileIsLocal(i, j))
-                    (*this)(i, j)->send(0);
+        }
+        else {  // Upper
+            int64_t jj = 0;
+            for (int64_t j = 0; j < this->nt(); ++j) {
+                int64_t jb = this->tileNb(j);
+
+                int64_t ii = 0;
+                for (int64_t i = 0; i <= j && i < this->mt(); ++i) {  // upper
+                    int64_t ib = this->tileMb(i);
+
+                    if (this->tileIsLocal(i, j)) {
+                        Tile< scalar_t >* tile
+                            = this->tileInsert(i, j, this->host_num_, &A[ ii + jj*ld ], ld);
+                        if (i == j)
+                            tile->uplo(uplo);
+                    }
+                    ii += ib;
+                }
+                jj += jb;
             }
-            n += tileNb(j);
-        }
-        m += tileMb(i);
-    }
-}
-
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename scalar_t>
-void Matrix<scalar_t>::clean()
-{
-    for (auto it = tiles_->begin(); it != tiles_->end(); ++it) {
-        Tile<scalar_t> *tile = it->second;
-        if (tile->origin_ == false) {
-            delete tile;
-            tiles_->erase(it);
         }
     }
-}
 
-///-----------------------------------------------------------------------------
-/// \brief Copy a tile to a device.
-///
-/// If the tile is not on the device, copy the tile to the device.
-/// If the tile is on the device, but is not valid, update the tile's data.
-/// Do not invalidate the source tile.
-///
-template <typename scalar_t>
-void Matrix<scalar_t>::tileCopyToDevice(int64_t i, int64_t j, int dst_device)
-{
-    // If the tile is not on the device.
-    auto it = tiles_->find({it_+i, jt_+j, dst_device});
-    if (it == tiles_->end()) {
+    ///-------------------------------------------------------------------------
+    /// Sub-matrix constructor creates shallow copy view of parent matrix,
+    /// A[ i1:i2, i1:i2 ]. The new view is still a trapezoid matrix, with the
+    /// same diagonal as the parent matrix.
+    BaseTrapezoidMatrix(BaseTrapezoidMatrix& orig,
+                        int64_t i1, int64_t i2):
+        BaseMatrix< scalar_t >(orig, i1, i2, i1, i2),
+        uplo_(orig.uplo_)
+    {}
 
-        // Create a copy on the device.
-        Tile<scalar_t> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
-        Tile<scalar_t> *dst_tile =
-            src_tile->copyToDevice(dst_device, comm_stream_[dst_device]);
+    ///-------------------------------------------------------------------------
+    /// Sub-matrix constructor creates shallow copy view of parent matrix,
+    /// A[ i1:i2, j1:j2 ].
+    /// This version is called for conversion from general Matrix, etc.
+    BaseTrapezoidMatrix(Uplo uplo, BaseMatrix< scalar_t >& orig,
+                        int64_t i1, int64_t i2,
+                        int64_t j1, int64_t j2):
+        BaseMatrix< scalar_t >(orig, i1, i2, j1, j2),
+        uplo_(orig.uplo)
+    {}
 
-        (*tiles_)[{it_+i, jt_+j, dst_device}] = dst_tile;
+    ///-------------------------------------------------------------------------
+    /// Swap contents of matrices A and B.
+    friend void swap(BaseTrapezoidMatrix& A, BaseTrapezoidMatrix& B)
+    {
+        using std::swap;
+        swap(static_cast< BaseMatrix< scalar_t >& >(A),
+             static_cast< BaseMatrix< scalar_t >& >(B));
+        swap(A.uplo_, B.uplo_);
     }
-    else {
-        // If the tile on the device is not valid.
-        Tile<scalar_t> *dst_tile = it->second;
-        if (dst_tile->valid_ == false) {
 
-            // Update the device tile's data.
-            Tile<scalar_t> *src_tile = (*tiles_)[{it_+i, jt_+j, host_num_}];
-            src_tile->copyDataToDevice(dst_tile, comm_stream_[dst_device]);
-            dst_tile->valid_ = true;
+    ///-------------------------------------------------------------------------
+    /// \brief
+    /// @return number of local tiles in matrix on this rank.
+    // todo: numLocalTiles? use for life as well?
+    int64_t getMaxHostTiles()
+    {
+        int64_t num_tiles = 0;
+        if (uplo_ == Uplo::Lower) {
+            for (int64_t j = 0; j < this->nt(); ++j)
+                for (int64_t i = j; i < this->mt(); ++i)  // lower
+                    if (this->tileIsLocal(i, j))
+                        ++num_tiles;
+        }
+        else {
+            for (int64_t j = 0; j < this->nt(); ++j)
+                for (int64_t i = 0; i <= j && j < this->mt(); ++i)  // upper
+                    if (this->tileIsLocal(i, j))
+                        ++num_tiles;
+        }
+
+        return num_tiles;
+    }
+
+    ///-------------------------------------------------------------------------
+    /// \brief
+    /// @return number of local tiles in matrix on this rank and given device.
+    // todo: numLocalDeviceTiles
+    int64_t getMaxDeviceTiles(int device)
+    {
+        int64_t num_tiles = 0;
+        if (uplo_ == Uplo::Lower) {
+            for (int64_t j = 0; j < this->nt(); ++j)
+                for (int64_t i = j; i < this->mt(); ++i)  // lower
+                    if (this->tileIsLocal(i, j) && this->tileDevice(i, j) == device)
+                        ++num_tiles;
+        }
+        else {
+            for (int64_t j = 0; j < this->nt(); ++j)
+                for (int64_t i = 0; i <= j && j < this->mt(); ++i)  // upper
+                    if (this->tileIsLocal(i, j) && this->tileDevice(i, j) == device)
+                        ++num_tiles;
+        }
+        return num_tiles;
+    }
+
+    ///-------------------------------------------------------------------------
+    /// Allocates batch arrays for all devices.
+    void allocateBatchArrays()
+    {
+        int64_t num_tiles = 0;
+        for (int device = 0; device < this->num_devices_; ++device) {
+            num_tiles = std::max(num_tiles, getMaxDeviceTiles(device));
+        }
+        this->storage_->allocateBatchArrays(num_tiles);
+    }
+
+    ///-------------------------------------------------------------------------
+    /// Reserve space for temporary workspace tiles on host.
+    void reserveHostWorkspace()
+    {
+        this->storage_->reserveHostWorkspace(getMaxHostTiles());
+    }
+
+    ///-------------------------------------------------------------------------
+    /// Reserve space for temporary workspace tiles on all GPU devices.
+    void reserveDeviceWorkspace()
+    {
+        int64_t num_tiles = 0;
+        for (int device = 0; device < this->num_devices_; ++device) {
+            num_tiles = std::max(num_tiles, getMaxDeviceTiles(device));
+        }
+        this->storage_->reserveDeviceWorkspace(num_tiles);
+    }
+
+    ///-------------------------------------------------------------------------
+    /// Gathers the entire matrix to the LAPACK-style matrix A on MPI rank 0.
+    /// Primarily for debugging purposes.
+    void gather(scalar_t *A, int64_t lda)
+    {
+        // ii, jj are row, col indices
+        // i, j are tile (block row, block col) indices
+        if (uplo_ == Uplo::Lower) {
+            int64_t jj = 0;
+            for (int64_t j = 0; j < this->nt(); ++j) {
+                int64_t jb = this->tileNb(j);
+
+                int64_t ii = 0;
+                for (int64_t i = j; i < this->mt(); ++i) {  // lower
+                    int64_t ib = this->tileMb(i);
+
+                    if (this->mpi_rank_ == 0) {
+                        if (! this->tileIsLocal(i, j)) {
+                            Tile<scalar_t>* tile
+                                = this->tileInsert(i, j, &A[(size_t)lda*jj + ii], lda);
+                            tile->recv(this->tileRank(i, j), this->mpi_comm_);
+                        }
+                        // todo: if local, check if need to copy data from tiles to A?
+                        // currently assumes local tiles are parts of A.
+                        // check pointers and do lacpy if needed.
+                    }
+                    else if (this->tileIsLocal(i, j)) {
+                        this->at(i, j).send(0, this->mpi_comm_);
+                    }
+                    ii += ib;
+                }
+                jj += jb;
+            }
+        }
+        else {
+            int64_t jj = 0;
+            for (int64_t j = 0; j < this->nt(); ++j) {
+                int64_t jb = this->tileNb(j);
+
+                int64_t ii = 0;
+                for (int64_t i = 0; i <= j && i < this->mt(); ++i) {  // upper
+                    int64_t ib = this->tileMb(i);
+
+                    if (this->mpi_rank_ == 0) {
+                        if (! this->tileIsLocal(i, j)) {
+                            Tile<scalar_t>* tile
+                                = this->tileInsert(i, j, &A[(size_t)lda*jj + ii], lda);
+                            tile->recv(this->tileRank(i, j), this->mpi_comm_);
+                        }
+                        // todo: if local, check if need to copy data from tiles to A?
+                        // currently assumes local tiles are parts of A.
+                        // check pointers and do lacpy if needed.
+                    }
+                    else if (this->tileIsLocal(i, j)) {
+                        this->at(i, j).send(0, this->mpi_comm_);
+                    }
+                    ii += ib;
+                }
+                jj += jb;
+            }
         }
     }
-}
 
-///-----------------------------------------------------------------------------
-/// \brief Copy a tile to the host.
-///
-/// If the tile not on the host, copy the tile to the host.
-/// If the tile is on the host, but is not valid, update the tile's data.
-/// Do not invalidate the source tile.
-///
-template <typename scalar_t>
-void Matrix<scalar_t>::tileCopyToHost(int64_t i, int64_t j, int src_device)
-{
-    // If the tile is not on the host.
-    auto it = tiles_->find({it_+i, jt_+j, host_num_});
-    if (it == tiles_->end()) {
-
-        // Create a copy on the host.
-        Tile<scalar_t> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
-        Tile<scalar_t> *dst_tile =
-            src_tile->copyToHost(comm_stream_[src_device]);
-
-        (*tiles_)[{it_+i, jt_+j, host_num_}] = dst_tile;
-    }
-    else {
-        // If the tile on the host is not valid.
-        Tile<scalar_t> *dst_tile = it->second;
-        if (dst_tile->valid_ == false) {
-
-            // Update the host tile's data.
-            Tile<scalar_t> *src_tile = (*tiles_)[{it_+i, jt_+j, src_device}];
-            src_tile->copyDataToHost(dst_tile, comm_stream_[src_device]);
-            dst_tile->valid_ = true;
+    ///-------------------------------------------------------------------------
+    /// @return off-diagonal sub-matrix that is a shallow copy view of the
+    /// parent matrix, A[ i1:i2, j1:j2 ].
+    /// This version returns a general Matrix, which:
+    /// - if uplo = Lower, is strictly below the diagonal, or
+    /// - if uplo = Upper, is strictly above the diagonal.
+    Matrix< scalar_t > sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2)
+    {
+        if (this->uplo_ == Uplo::Lower) {
+            // top-right corner is at or below diagonal
+            assert(i1 >= j2);
         }
-    }
-}
-
-///-----------------------------------------------------------------------------
-/// \brief Move a tile to a device.
-///
-/// If the tile is not on the device, copy the tile to the device.
-/// If the tile is on the device, but is not valid, update the tile's data.
-/// Invalidate the source tile.
-///
-template <typename scalar_t>
-void Matrix<scalar_t>::tileMoveToDevice(int64_t i, int64_t j, int dst_device)
-{
-    // Copy the tile to the device.
-    tileCopyToDevice(i, j, dst_device);
-
-    // If the host tile exists, invalidate it.
-    auto it = tiles_->find({it_+i, jt_+j, host_num_});
-    if (it != tiles_->end())
-        it->second->valid_ = false;
-}
-
-///-----------------------------------------------------------------------------
-/// \brief Move a tile to the host.
-///
-/// If the tile is not on the host, copy the tile to the host.
-/// If the tile is on the host, but is not valid, update the tile's data.
-/// Invalidate the source tile.
-///
-template <typename scalar_t>
-void Matrix<scalar_t>::tileMoveToHost(int64_t i, int64_t j, int src_device)
-{
-    // If source is not the host.
-    if (src_device != host_num_) {
-
-        // Copy the tile to the host.
-        tileCopyToHost(i, j, src_device);
-
-        // If the device tile exists, invalidate it.
-        auto it = tiles_->find({it_+i, jt_+j, src_device});
-        if (it != tiles_->end())
-            it->second->valid_ = false;
-    }
-}
-
-///-----------------------------------------------------------------------------
-/// \brief Erase a tile.
-///
-/// If the tile exists and is not the origin, delete the tile
-/// and erase it from the map.
-///
-template <typename scalar_t>
-void Matrix<scalar_t>::tileErase(int64_t i, int64_t j, int device)
-{
-    // If the tile exists in the specified location.
-    auto it = tiles_->find({it_+i, jt_+j, device});
-    if (it != tiles_->end()) {
-
-        // If the tile is not the origin.
-        Tile<scalar_t> *tile = it->second;
-        if (tile->origin_ == false) {
-
-            // Delete and erase the tile.
-            delete (*tiles_)[{it_+i, jt_+j, device}];
-            tiles_->erase({it_+i, jt_+j, device});
+        else {
+            // bottom-left corner is at or above diagonal
+            assert(i2 <= j1);
         }
+        return Matrix< scalar_t >(*this, i1, i2, j1, j2);
     }
-}
 
-///-----------------------------------------------------------------------------
-/// \brief
+    ///-------------------------------------------------------------------------
+    /// @return whether the matrix is Lower or Upper storage.
+    Uplo uplo() const { return uplo_; }
+
+protected:
+    Uplo uplo_;
+};
+
+///=============================================================================
 ///
 template <typename scalar_t>
-void Matrix<scalar_t>::tileTick(int64_t i, int64_t j)
-{
-    if (!tileIsLocal(i, j)) {
-        int64_t life = --(*lives_)[{it_+i, jt_+j}];
-        if (life == 0) {
-            tileErase(i, j, host_num_);
-            for (int device = 0; device < num_devices_; ++device)
-                tileErase(i, j, device);
-            lives_->erase({it_+i, jt_+j});
-        }
+class TrapezoidMatrix: public BaseTrapezoidMatrix< scalar_t > {
+public:
+    ///-------------------------------------------------------------------------
+    /// Default constructor
+    TrapezoidMatrix():
+        BaseTrapezoidMatrix< scalar_t >()
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// Construct matrix by wrapping existing memory of an m-by-n lower
+    /// or upper trapezoidal matrix.
+    /// @see BaseTrapezoidMatrix
+    TrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
+                    scalar_t* A, int64_t ld, int64_t nb,
+                    int p, int q, MPI_Comm mpi_comm):
+        BaseTrapezoidMatrix< scalar_t >(uplo, m, n, A, ld, nb, p, q, mpi_comm)
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// Sub-matrix constructor creates shallow copy view of parent matrix,
+    /// A[ i1:i2, i1:i2 ]. The new view is still a trapezoid matrix, with the
+    /// same diagonal as the parent matrix.
+    TrapezoidMatrix(TrapezoidMatrix& orig,
+                    int64_t i1, int64_t i2):
+        BaseTrapezoidMatrix< scalar_t >(orig, i1, i2)
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// @return diagonal sub-matrix that is a shallow copy view of the
+    /// parent matrix, A[ i1:i2, i1:i2 ].
+    /// This version returns a TrapezoidMatrix with the same diagonal as the
+    /// parent matrix.
+    /// @see Matrix TrapezoidMatrix::sub(int64_t i1, int64_t i2,
+    ///                                  int64_t j1, int64_t j2)
+    TrapezoidMatrix sub(int64_t i1, int64_t i2)
+    {
+        return TrapezoidMatrix(*this, i1, i2, i1, i2);
     }
-}
 
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename scalar_t>
-template <Target target>
-void Matrix<scalar_t>::tileSend(int64_t i, int64_t j, Matrix &&a)
-{
-    // Find the set of participating ranks.
-    std::set<int> bcast_set;
-    bcast_set.insert(tileRank(i, j));
-    tileSendFindRanks(a, &bcast_set);
-
-    // If contained in the set.
-    if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
-
-        // If receiving the tile.
-        if (!tileIsLocal(i, j)) {
-
-            // Create the tile.
-            Tile<scalar_t> *tile;
-            tile = new Tile<scalar_t>(tileMb(i), tileNb(j),
-                                       memory_, mpi_comm_);
-            (*this)(i, j) = tile;
-
-            // Find the tile's life.
-            (*lives_)[{it_+i, jt_+j}] = tileSendFindLife(a);
-        }
-        // Send across MPI ranks.
-        tileSend(i, j, bcast_set);
-
-        // Copy to devices.
-        if (target == Target::Devices)
-            for (int device = 0; device < num_devices_; ++device)
-                tileCopyToDevice(i, j, device);
+    ///-------------------------------------------------------------------------
+    /// @return off-diagonal sub-matrix that is a shallow copy view of the
+    /// parent matrix, A[ i1:i2, j1:j2 ].
+    /// This version returns a general Matrix, which:
+    /// - if uplo = Lower, is strictly below the diagonal, or
+    /// - if uplo = Upper, is strictly above the diagonal.
+    /// @see TrapezoidMatrix sub(int64_t i1, int64_t i2)
+    Matrix< scalar_t > sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2)
+    {
+        return BaseTrapezoidMatrix< scalar_t >::sub(i1, i2, j1, j2);
     }
-}
 
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename scalar_t>
-template <Target target>
-void Matrix<scalar_t>::tileSend(int64_t i, int64_t j, Matrix &&a1, Matrix &&a2)
-{
-    // Find the set of participating ranks.
-    std::set<int> bcast_set;
-    bcast_set.insert(tileRank(i, j));
-    tileSendFindRanks(a1, &bcast_set);
-    tileSendFindRanks(a2, &bcast_set);
-
-    // If contained in the set.
-    if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
-
-        // If receiving the tile.
-        if (!tileIsLocal(i, j)) {
-
-            // Create the tile.
-            Tile<scalar_t> *tile;
-            tile = new Tile<scalar_t>(tileMb(i), tileNb(j),
-                                       memory_, mpi_comm_);
-            (*this)(i, j) = tile;
-
-            // Find the tile's life.
-            (*lives_)[{it_+i, jt_+j}]  = tileSendFindLife(a1);
-            (*lives_)[{it_+i, jt_+j}] += tileSendFindLife(a2);
-        }
-        // Send across MPI ranks.
-        tileSend(i, j, bcast_set);
-
-        // Copy to devices.
-        if (target == Target::Devices)
-            for (int device = 0; device < num_devices_; ++device)
-                tileCopyToDevice(i, j, device);
+    ///-------------------------------------------------------------------------
+    /// Swap contents of matrices A and B.
+    // (This isn't really needed over BaseTrapezoidMatrix swap, but is here as a
+    // reminder in case any members are added that aren't in BaseTrapezoidMatrix.)
+    friend void swap(TrapezoidMatrix& A, TrapezoidMatrix& B)
+    {
+        using std::swap;
+        swap(static_cast< BaseTrapezoidMatrix< scalar_t >& >(A),
+             static_cast< BaseTrapezoidMatrix< scalar_t >& >(B));
     }
-}
+};
 
-///-----------------------------------------------------------------------------
-/// \brief
+///=============================================================================
 ///
 template <typename scalar_t>
-void Matrix<scalar_t>::tileSend(int64_t i, int64_t j, std::set<int> &bcast_set)
-{
-    // Quit if only root in the broadcast set.
-    if (bcast_set.size() == 1)
-        return;
+class TriangularMatrix: public TrapezoidMatrix< scalar_t > {
+public:
+    ///-------------------------------------------------------------------------
+    /// Default constructor
+    TriangularMatrix():
+        TrapezoidMatrix< scalar_t >()
+    {}
 
-    // Convert the set of ranks to a vector.
-    std::vector<int> bcast_vec(bcast_set.begin(), bcast_set.end());
+    ///-------------------------------------------------------------------------
+    /// Construct matrix by wrapping existing memory of an n-by-n lower
+    /// or upper triangular matrix.
+    /// @see BaseTrapezoidMatrix
+    TriangularMatrix(Uplo uplo, int64_t n,
+                     scalar_t* A, int64_t ld, int64_t nb,
+                     int p, int q, MPI_Comm mpi_comm):
+        TrapezoidMatrix< scalar_t >(uplo, n, n, A, ld, nb, p, q, mpi_comm)
+    {}
 
-    // Create the broadcast group.
-    MPI_Group bcast_group;
-    int retval;
-    #pragma omp critical(slate_mpi)
-    retval = MPI_Group_incl(mpi_group_, bcast_vec.size(), bcast_vec.data(),
-                            &bcast_group);
-    assert(retval == MPI_SUCCESS);
+    ///-------------------------------------------------------------------------
+    /// Sub-matrix constructor creates shallow copy view of parent matrix,
+    /// A[ i1:i2, i1:i2 ]. The new view is still a triangular matrix, with the
+    /// same diagonal as the parent matrix.
+    TriangularMatrix(TriangularMatrix& orig,
+                     int64_t i1, int64_t i2):
+        TrapezoidMatrix< scalar_t >(orig, i1, i2)
+    {}
 
-    // Create a broadcast communicator.
-    int tag = 0;
-    MPI_Comm bcast_comm;
-    #pragma omp critical(slate_mpi)
-    retval = MPI_Comm_create_group(mpi_comm_, bcast_group, tag, &bcast_comm);
-    assert(retval == MPI_SUCCESS);
-    assert(bcast_comm != MPI_COMM_NULL);
-
-    // Find the broadcast rank.
-    int bcast_rank;
-    #pragma omp critical(slate_mpi)
-    MPI_Comm_rank(bcast_comm, &bcast_rank);
-
-    // Find the broadcast root rank.
-    int root_rank = tileRank(i, j);
-    int bcast_root;
-    #pragma omp critical(slate_mpi)
-    retval = MPI_Group_translate_ranks(mpi_group_, 1, &root_rank,
-                                       bcast_group, &bcast_root);
-    assert(retval == MPI_SUCCESS);
-
-    // Do the broadcast.
-    (*this)(i, j)->bcast(bcast_root, bcast_comm);
-
-    // Free the group.
-    #pragma omp critical(slate_mpi)
-    retval = MPI_Group_free(&bcast_group);
-    assert(retval == MPI_SUCCESS);
-
-    // Free the communicator.
-    #pragma omp critical(slate_mpi)
-    retval = MPI_Comm_free(&bcast_comm);
-    assert(retval == MPI_SUCCESS);
-}
-
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename scalar_t>
-void Matrix<scalar_t>::tileSendFindRanks(Matrix &a, std::set<int> *bcast_set)
-{
-    // Find the set of participating ranks.
-    for (int64_t i = 0; i < a.mt_; ++i)
-        for (int64_t j = 0; j < a.nt_; ++j)
-            bcast_set->insert(a.tileRank(i, j));
-}
-
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename scalar_t>
-int64_t Matrix<scalar_t>::tileSendFindLife(Matrix &a)
-{
-    // Find the tile's lifespan.
-    int64_t life = 0;
-    for (int64_t i = 0; i < a.mt_; ++i)
-        for (int64_t j = 0; j < a.nt_; ++j)
-            if (a.tileIsLocal(i, j))
-                ++life;
-
-    return life;
-}
-
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename scalar_t>
-void Matrix<scalar_t>::initCudaStreams()
-{
-    gemm_stream_.resize(num_devices_);
-    comm_stream_.resize(num_devices_);
-
-    for (int device = 0; device < num_devices_; ++device) {
-
-        cudaError_t error;
-        error = cudaSetDevice(device);
-        assert(error == cudaSuccess);
-
-        error = cudaStreamCreate(&gemm_stream_[device]);
-        // error = cudaStreamCreateWithFlags(&gemm_stream_[device],
-        //                                   cudaStreamNonBlocking);
-        assert(error == cudaSuccess);
-
-        error = cudaStreamCreate(&comm_stream_[device]);
-        // error = cudaStreamCreateWithFlags(&gemm_stream_[device],
-        //                                   cudaStreamNonBlocking);
-        assert(error == cudaSuccess);
+    ///-------------------------------------------------------------------------
+    /// @return diagonal sub-matrix that is a shallow copy view of the
+    /// parent matrix, A[ i1:i2, i1:i2 ].
+    /// This version returns a TriangularMatrix with the same diagonal as the
+    /// parent matrix.
+    /// @see Matrix TrapezoidMatrix::sub(int64_t i1, int64_t i2,
+    ///                                  int64_t j1, int64_t j2)
+    TriangularMatrix sub(int64_t i1, int64_t i2)
+    {
+        return TriangularMatrix(*this, i1, i2);
     }
-}
 
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename scalar_t>
-void Matrix<scalar_t>::initCublasHandles()
-{
-    cublas_handle_.resize(num_devices_);
-
-    for (int device = 0; device < num_devices_; ++device) {
-
-        cudaError_t error;
-        error = cudaSetDevice(device);
-        assert(error == cudaSuccess);
-
-        cublasStatus_t status;
-        status = cublasCreate(&cublas_handle_[device]);
-        assert(status == CUBLAS_STATUS_SUCCESS);
-
-        status = cublasSetStream(cublas_handle_[device], gemm_stream_[device]);
-        assert(status == CUBLAS_STATUS_SUCCESS);
+    ///-------------------------------------------------------------------------
+    /// @return off-diagonal sub-matrix that is a shallow copy view of the
+    /// parent matrix, A[ i1:i2, j1:j2 ].
+    /// This version returns a general Matrix, which:
+    /// - if uplo = Lower, is strictly below the diagonal, or
+    /// - if uplo = Upper, is strictly above the diagonal.
+    /// @see TrapezoidMatrix sub(int64_t i1, int64_t i2)
+    Matrix< scalar_t > sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2)
+    {
+        return BaseTrapezoidMatrix< scalar_t >::sub(i1, i2, j1, j2);
     }
-}
 
-///-----------------------------------------------------------------------------
-/// \brief
-///
-template <typename scalar_t>
-void Matrix<scalar_t>::initBatchArrays()
-{
-    a_array_h_.resize(num_devices_);
-    b_array_h_.resize(num_devices_);
-    c_array_h_.resize(num_devices_);
-
-    a_array_d_.resize(num_devices_);
-    b_array_d_.resize(num_devices_);
-    c_array_d_.resize(num_devices_);
-
-    for (int device = 0; device < num_devices_; ++device) {
-
-        int64_t max_batch_size = getMaxDeviceTiles(device);
-        cudaError_t error;
-
-        // Allocate host arrays.
-        error = cudaMallocHost((void**)(&a_array_h_[device]),
-                               sizeof(scalar_t*)*max_batch_size);
-        assert(error == cudaSuccess);
-        error = cudaMallocHost((void**)(&b_array_h_[device]),
-                               sizeof(scalar_t*)*max_batch_size);
-        assert(error == cudaSuccess);
-        error = cudaMallocHost((void**)(&c_array_h_[device]),
-                               sizeof(scalar_t*)*max_batch_size);
-        assert(error == cudaSuccess);
-
-        // Set the device.
-        error = cudaSetDevice(device);
-        assert(error == cudaSuccess);
-
-        // Allocate device arrays.
-        error = cudaMalloc((void**)(&a_array_d_[device]),
-                           sizeof(scalar_t*)*max_batch_size);
-        assert(error == cudaSuccess);
-        error = cudaMalloc((void**)(&b_array_d_[device]),
-                           sizeof(scalar_t*)*max_batch_size);
-        assert(error == cudaSuccess);
-        error = cudaMalloc((void**)(&c_array_d_[device]),
-                           sizeof(scalar_t*)*max_batch_size);
-        assert(error == cudaSuccess);
+    ///-------------------------------------------------------------------------
+    /// Swaps contents of matrices A and B.
+    // (This isn't really needed over TrapezoidMatrix swap, but is here as a
+    // reminder in case any members are added that aren't in TrapezoidMatrix.)
+    friend void swap(TriangularMatrix& A, TriangularMatrix& B)
+    {
+        using std::swap;
+        swap(static_cast< TrapezoidMatrix< scalar_t >& >(A),
+             static_cast< TrapezoidMatrix< scalar_t >& >(B));
     }
-}
+};
 
-///-----------------------------------------------------------------------------
-/// \brief
+///=============================================================================
 ///
+// todo: transparent conversion between real-symmetric <=> real-Hermitian
 template <typename scalar_t>
-int64_t Matrix<scalar_t>::getMaxHostTiles()
-{
-    int64_t max_batch_size = 0;
-    for (int64_t i = 0; i < mt_; ++i)
-        for (int64_t j = 0; j <= i; ++j)
-            if (tileIsLocal(i, j))
-                ++max_batch_size;
+class SymmetricMatrix: public BaseTrapezoidMatrix< scalar_t > {
+public:
+    ///-------------------------------------------------------------------------
+    /// Default constructor
+    SymmetricMatrix():
+        BaseTrapezoidMatrix< scalar_t >()
+    {}
 
-    return max_batch_size;
-}
+    ///-------------------------------------------------------------------------
+    /// Construct matrix by wrapping existing memory of an n-by-n lower
+    /// or upper symmetric matrix.
+    /// @see BaseTrapezoidMatrix
+    SymmetricMatrix(Uplo uplo, int64_t n,
+                    scalar_t* A, int64_t ld, int64_t nb,
+                    int p, int q, MPI_Comm mpi_comm):
+        BaseTrapezoidMatrix< scalar_t >(uplo, n, n, A, ld, nb, p, q, mpi_comm)
+    {}
 
-///-----------------------------------------------------------------------------
-/// \brief
+    ///-------------------------------------------------------------------------
+    /// Sub-matrix constructor creates shallow copy view of parent matrix,
+    /// A[ i1:i2, i1:i2 ]. The new view is still a symmetric matrix, with the
+    /// same diagonal as the parent matrix.
+    SymmetricMatrix(SymmetricMatrix& orig,
+                    int64_t i1, int64_t i2):
+        BaseTrapezoidMatrix< scalar_t >(orig, i1, i2)
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// @return sub-matrix that is a shallow copy view of the
+    /// parent matrix, A[ i1:i2, i1:i2 ].
+    /// This version returns a SymmetricMatrix with the same diagonal as the
+    /// parent matrix.
+    /// @see Matrix TrapezoidMatrix::sub(int64_t i1, int64_t i2,
+    ///                                  int64_t j1, int64_t j2)
+    SymmetricMatrix sub(int64_t i1, int64_t i2)
+    {
+        return SymmetricMatrix(*this, i1, i2);
+    }
+
+    ///-------------------------------------------------------------------------
+    /// @return off-diagonal sub-matrix that is a shallow copy view of the
+    /// parent matrix, A[ i1:i2, j1:j2 ].
+    /// This version returns a general Matrix, which:
+    /// - if uplo = Lower, is strictly below the diagonal, or
+    /// - if uplo = Upper, is strictly above the diagonal.
+    /// @see TrapezoidMatrix sub(int64_t i1, int64_t i2)
+    Matrix< scalar_t > sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2)
+    {
+        return BaseTrapezoidMatrix< scalar_t >::sub(i1, i2, j1, j2);
+    }
+
+    ///-------------------------------------------------------------------------
+    /// Swaps contents of matrices A and B.
+    // (This isn't really needed over BaseTrapezoidMatrix swap, but is here as a
+    // reminder in case any members are added that aren't in BaseTrapezoidMatrix.)
+    friend void swap(SymmetricMatrix& A, SymmetricMatrix& B)
+    {
+        using std::swap;
+        swap(static_cast< BaseTrapezoidMatrix< scalar_t >& >(A),
+             static_cast< BaseTrapezoidMatrix< scalar_t >& >(B));
+    }
+};
+
+///=============================================================================
 ///
+// todo: transparent conversion between real-symmetric <=> real-Hermitian
 template <typename scalar_t>
-int64_t Matrix<scalar_t>::getMaxDeviceTiles(int device)
-{
-    int64_t max_batch_size = 0;
-    for (int64_t i = 0; i < mt_; ++i)
-        for (int64_t j = 0; j <= i; ++j)
-            if (tileIsLocal(i, j) && tileDevice(i, j) == device)
-                ++max_batch_size;
+class HermitianMatrix: public BaseTrapezoidMatrix< scalar_t > {
+public:
+    ///-------------------------------------------------------------------------
+    /// Default constructor
+    HermitianMatrix():
+        BaseTrapezoidMatrix< scalar_t >()
+    {}
 
-    return max_batch_size;
-}
+    ///-------------------------------------------------------------------------
+    /// Construct matrix by wrapping existing memory of an n-by-n lower
+    /// or upper Hermitian matrix.
+    /// @see BaseTrapezoidMatrix
+    HermitianMatrix(Uplo uplo, int64_t n,
+                    scalar_t* A, int64_t ld, int64_t nb,
+                    int p, int q, MPI_Comm mpi_comm):
+        BaseTrapezoidMatrix< scalar_t >(uplo, n, n, A, ld, nb, p, q, mpi_comm)
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// Sub-matrix constructor creates shallow copy view of parent matrix,
+    /// A[ i1:i2, i1:i2 ]. The new view is still a Hermitian matrix, with the
+    /// same diagonal as the parent matrix.
+    HermitianMatrix(HermitianMatrix& orig,
+                    int64_t i1, int64_t i2):
+        BaseTrapezoidMatrix< scalar_t >(orig, i1, i2)
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// @return sub-matrix that is a shallow copy view of the
+    /// parent matrix, A[ i1:i2, i1:i2 ].
+    /// This version returns a HermitianMatrix with the same diagonal as the
+    /// parent matrix.
+    /// @see Matrix TrapezoidMatrix::sub(int64_t i1, int64_t i2,
+    ///                                  int64_t j1, int64_t j2)
+    HermitianMatrix sub(int64_t i1, int64_t i2)
+    {
+        return HermitianMatrix(*this, i1, i2);
+    }
+
+    ///-------------------------------------------------------------------------
+    /// @return off-diagonal sub-matrix that is a shallow copy view of the
+    /// parent matrix, A[ i1:i2, j1:j2 ].
+    /// This version returns a general Matrix, which:
+    /// - if uplo = Lower, is strictly below the diagonal, or
+    /// - if uplo = Upper, is strictly above the diagonal.
+    /// @see TrapezoidMatrix sub(int64_t i1, int64_t i2)
+    Matrix< scalar_t > sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2)
+    {
+        return BaseTrapezoidMatrix< scalar_t >::sub(i1, i2, j1, j2);
+    }
+
+    ///-------------------------------------------------------------------------
+    /// Swaps contents of matrices A and B.
+    // (This isn't really needed over BaseTrapezoidMatrix swap, but is here as a
+    // reminder in case any members are added that aren't in BaseTrapezoidMatrix.)
+    friend void swap(HermitianMatrix& A, HermitianMatrix& B)
+    {
+        using std::swap;
+        swap(static_cast< BaseTrapezoidMatrix< scalar_t >& >(A),
+             static_cast< BaseTrapezoidMatrix< scalar_t >& >(B));
+    }
+};
 
 } // namespace slate
 

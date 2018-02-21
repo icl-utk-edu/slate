@@ -432,17 +432,18 @@ void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm bcast_comm)
     trace::Block trace_block(trace::Color::Crimson);
 
     // If no stride.
-    if (stride_ == mb_) {
-        // Use simple bcast.
-        int count = mb_*nb_;
-        int retval;
-
-        #pragma omp critical(slate_mpi)
-        retval = MPI_Bcast(data_, count, traits<scalar_t>::mpi_type,
-            bcast_root, bcast_comm);
-        assert(retval == MPI_SUCCESS);
-    }
-    else {
+    //if (stride_ == mb_) {
+    //    // Use simple bcast.
+    //    int count = mb_*nb_;
+    //    int retval;
+    //
+    //    #pragma omp critical(slate_mpi)
+    //    retval = MPI_Bcast(data_, count, traits<scalar_t>::mpi_type,
+    //        bcast_root, bcast_comm);
+    //    assert(retval == MPI_SUCCESS);
+    //}
+    //else
+    {
         // Otherwise, use strided bcast.
         int count = nb_;
         int blocklength = mb_;

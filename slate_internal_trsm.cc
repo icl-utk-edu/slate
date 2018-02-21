@@ -42,12 +42,13 @@
 #include "slate_Tile_blas.hh"
 
 namespace slate {
+namespace internal {
 
 ///-----------------------------------------------------------------------------
 /// \brief
 /// Triangular solve matrix (multiple right-hand sides).
 /// Dispatches to target implementations.
-template <typename scalar_t, Target target>
+template <Target target, typename scalar_t>
 void trsm(Side side, Diag diag,
           scalar_t alpha, TriangularMatrix< scalar_t > &&A,
                           Matrix< scalar_t > &&B,
@@ -55,7 +56,8 @@ void trsm(Side side, Diag diag,
 {
     trsm(internal::TargetType<target>(),
          side, diag,
-         alpha, A, B);
+         alpha, A, B,
+         priority);
 }
 
 ///-----------------------------------------------------------------------------
@@ -76,7 +78,7 @@ void trsm(internal::TargetType<Target::HostTask>,
             {
                 A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
                 B.tileMoveToHost(i, 0, B.tileDevice(i, 0));
-                trsm(side, A.uplo(), A.op(), diag,
+                trsm(side, diag,
                      alpha, A(0, 0),
                             B(i, 0));
                 A.tileTick(0, 0);
@@ -87,11 +89,12 @@ void trsm(internal::TargetType<Target::HostTask>,
 
 //------------------------------------------------------------------------------
 // explicit instantiations
-template<>
-void trsm< double, Target::HostTask >(
+template
+void trsm< Target::HostTask, double >(
     Side side, Diag diag,
     double alpha, TriangularMatrix< double > &&A,
                   Matrix< double > &&B,
     int priority);
 
+} // namespace internal
 } // namespace slate

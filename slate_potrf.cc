@@ -37,188 +37,174 @@
 // comments to <slate-user@icl.utk.edu>.
 //------------------------------------------------------------------------------
 
+#include "slate.hh"
 #include "slate_Debug.hh"
 #include "slate_Matrix.hh"
+#include "slate_internal.hh"
 
 namespace slate {
 
-namespace internal {
+namespace internal_specialization {
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
-template <typename scalar_t, Target target>
-void potrf(TargetType<target>,
-           lapack::Uplo uplo, Matrix<scalar_t> &a, int64_t lookahead)
+/// Distributed parallel Cholesky factorization.
+/// Generic implementation for any target.
+template <Target target, typename scalar_t>
+void potrf(slate::internal::TargetType<target>,
+           HermitianMatrix<scalar_t>& A, int64_t lookahead)
 {
+#if 0
     using namespace blas;
 
-    uint8_t *column = new uint8_t[ a.nt_ ];
+    uint8_t *column = new uint8_t[ A.nt() ];
 
     #pragma omp parallel
     #pragma omp master
-    for (int64_t k = 0; k < a.nt_; ++k) {
+    for (int64_t k = 0; k < A.nt(); ++k) {
         // panel
         #pragma omp task depend(inout:column[k]) priority(1)
         {
-            Matrix<scalar_t>::template
-            potrf<Target::HostTask>(Uplo::Lower, a(k, k, k, k), 1);
+            internal::potrf<Target::HostTask>(A.sub(k, k), 1);
 
-            if (k+1 <= a.nt_-1)
-                a.tileSend(k, k, a(k+1, a.nt_-1, k, k));
+            if (k+1 <= A.nt()-1)
+                A.tileBcast(k, k, A.sub(k+1, A.nt()-1, k, k));
 
-            if (k+1 <= a.nt_-1)
-                Matrix<scalar_t>::template
-                trsm<Target::HostTask>(
-                    Side::Right, Uplo::Lower,
-                    Op::Trans, Diag::NonUnit,
-                    1.0, a(k, k, k, k),
-                         a(k+1, a.nt_-1, k, k), 1);
+            if (k+1 <= A.nt()-1)
+                internal::trsm<Target::HostTask>(
+                    Side::Right, Diag::NonUnit,
+                    1.0, TriangularMatrix(A.sub(k, k)),
+                         A.sub(k+1, A.nt()-1, k, k), 1);
 
-            for (int64_t m = k+1; m < a.nt_; ++m)
-                a.tileSend(m, k, a(m, m, k+1, m),
-                                 a(m, a.nt_-1, m, m));
+            for (int64_t i = k+1; i < A.nt(); ++i) {
+                A.tileBcast(i, k, A.sub(i, i, k+1, i),
+                                  A.sub(i, A.nt()-1, i, i));
+            }
         }
         // lookahead column(s)
-        for (int64_t n = k+1; n < k+1+lookahead && n < a.nt_; ++n) {
+        for (int64_t j = k+1; j < k+1+lookahead && j < A.nt(); ++j) {
             #pragma omp task depend(in:column[k]) \
-                             depend(inout:column[n]) priority(1)
+                             depend(inout:column[j]) priority(1)
             {
-                Matrix<scalar_t>::template
-                syrk<Target::HostTask>(
-                    Uplo::Lower, Op::NoTrans,
-                    -1.0, a(n, n, k, k),
-                     1.0, a(n, n, n, n), 1);
+                internal::syrk<Target::HostTask>(
+                    -1.0, A.sub(j, j, k, k),
+                     1.0, A.sub(j, j, j, j), 1);
 
-                if (n+1 <= a.nt_-1)
-                    Matrix<scalar_t>::template
-                    gemm<Target::HostTask>(
-                        Op::NoTrans, Op::Trans,
-                        -1.0, a(n+1, a.nt_-1, k, k),
-                              a(n, n, k, k),
-                         1.0, a(n+1, a.nt_-1, n, n), 1);
+                if (j+1 <= A.nt()-1)
+                    internal::gemm<Target::HostTask>(
+                        -1.0, A(j+1, A.nt()-1, k, k),
+                              conj_transpose(A(j, j, k, k)),
+                         1.0, A(j+1, A.nt()-1, j, j), 1);
             }
         }
         // trailing submatrix
-        if (k+1+lookahead < a.nt_)
+        if (k+1+lookahead < A.nt())
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[k+1+lookahead]) \
-                             depend(inout:column[a.nt_-1])
+                             depend(inout:column[A.nt()-1])
             {
-                Matrix<scalar_t>::template
-                syrk<target>(
+                internal::syrk<target>(
                     Uplo::Lower, Op::NoTrans,
-                    -1.0, a(k+1+lookahead, a.nt_-1, k, k),
-                     1.0, a(k+1+lookahead, a.nt_-1, k+1+lookahead, a.nt_-1));
+                    -1.0, A.sub(k+1+lookahead, A.nt()-1, k, k),
+                     1.0, A.sub(k+1+lookahead, A.nt()-1, k+1+lookahead, A.nt()-1));
             }
     }
 
-    Debug::checkTilesLives(a);
-    Debug::printTilesLives(a);
+    //Debug::checkTilesLives(A);
+    //Debug::printTilesLives(A);
 
-    a.clean();
+    A.clearWorkspace();
 
-    Debug::printTilesMaps(a);
+    //Debug::printTilesMaps(A);
 
     delete[] column;
+#endif
 }
 
 ///-----------------------------------------------------------------------------
 /// \brief
-///
+/// Distributed parallel Cholesky factorization.
+/// Implementation for GPU device target.
 template <typename scalar_t>
-void potrf(TargetType<Target::Devices>,
-           lapack::Uplo uplo, Matrix<scalar_t> &a, int64_t lookahead)
+void potrf(slate::internal::TargetType<Target::Devices>,
+           HermitianMatrix<scalar_t>& A, int64_t lookahead)
 {
+#if 0
     using namespace blas;
 
-    uint8_t *column = new uint8_t[ a.nt_ ];
+    uint8_t *column = new uint8_t[ A.nt() ];
 
-    for (int device = 0; device < a.num_devices_; ++device)
-        a.memory_->addDeviceBlocks(device, a.getMaxDeviceTiles(device));
+    for (int device = 0; device < A.num_devices_; ++device)
+        A.reserve(device, A.getMaxDeviceTiles(device));
 
     #pragma omp parallel
     #pragma omp master
-    for (int64_t k = 0; k < a.nt_; ++k) {
+    for (int64_t k = 0; k < A.nt(); ++k) {
         // panel
         #pragma omp task depend(inout:column[k])
         {
-            Matrix<scalar_t>::template
-            potrf<Target::HostTask>(uplo, a(k, k, k, k));
+            internal::potrf<Target::HostTask>(A.uplo(), A(k, k, k, k));
 
-            if (k+1 <= a.nt_-1)
-                a.tileSend(k, k, a(k+1, a.nt_-1, k, k));
+            if (k+1 <= A.nt()-1)
+                A.tileBcast(k, k, A(k+1, A.nt()-1, k, k));
 
-            if (k+1 <= a.nt_-1)
-                Matrix<scalar_t>::template
+            if (k+1 <= A.nt()-1) {
                 trsm<Target::HostTask>(
-                    Side::Right, Uplo::Lower,
-                    Op::Trans, Diag::NonUnit,
-                    1.0, a(k, k, k, k),
-                         a(k+1, a.nt_-1, k, k));
+                    Side::Right, Diag::NonUnit,
+                    1.0, A.sub(k, k, k, k),
+                         A.sub(k+1, A.nt()-1, k, k));
+            }
 
-            for (int64_t m = k+1; m < a.nt_; ++m)
-                a.template tileSend<Target::Devices>(
-                    m, k, a(m, m, k+1, m),
-                          a(m, a.nt_-1, m, m));
+            for (int64_t i = k+1; i < A.nt(); ++i) {
+                A.template tileBcast<Target::Devices>(
+                    i, k, A.sub(i, i, k+1, i),
+                          A.sub(i, A.nt()-1, i, i));
+            }
         }
         // trailing submatrix
-        if (k+1+lookahead < a.nt_)
+        if (k+1+lookahead < A.nt())
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[k+1+lookahead]) \
-                             depend(inout:column[a.nt_-1])
+                             depend(inout:column[A.nt()-1])
             {
-                Matrix<scalar_t>::template
                 syrk<Target::Devices>(
                     Uplo::Lower, Op::NoTrans,
-                    -1.0, a(k+1+lookahead, a.nt_-1, k, k),
-                     1.0, a(k+1+lookahead, a.nt_-1, k+1+lookahead, a.nt_-1));
+                    -1.0, A.sub(k+1+lookahead, A.nt()-1, k, k),
+                     1.0, A.sub(k+1+lookahead, A.nt()-1, k+1+lookahead, A.nt()-1));
             }
 
         // lookahead column(s)
-        for (int64_t n = k+1; n < k+1+lookahead && n < a.nt_; ++n) {
+        for (int64_t j = k+1; j < k+1+lookahead && j < A.nt(); ++j) {
             #pragma omp task depend(in:column[k]) \
-                             depend(inout:column[n])
+                             depend(inout:column[j])
             {
-                Matrix<scalar_t>::template
                 syrk<Target::HostTask>(
                     Uplo::Lower, Op::NoTrans,
-                    -1.0, a(n, n, k, k),
-                     1.0, a(n, n, n, n));
+                    -1.0, A.sub(j, j, k, k),
+                     1.0, A.sub(j, j, j, j));
 
-                if (n+1 <= a.nt_-1)
-                    Matrix<scalar_t>::template
+                if (j+1 <= A.nt()-1)
                     gemm<Target::HostTask>(
                         Op::NoTrans, Op::Trans,
-                        -1.0, a(n+1, a.nt_-1, k, k),
-                              a(n, n, k, k),
-                         1.0, a(n+1, a.nt_-1, n, n));
+                        -1.0, A.sub(j+1, A.nt()-1, k, k),
+                              A.sub(j, j, k, k),
+                         1.0, A.sub(j+1, A.nt()-1, j, j));
             }
         }
     }
 
-    for (int device = 0; device < a.num_devices_; ++device)
-        a.memory_->clearDeviceBlocks(device);
+    for (int device = 0; device < A.num_devices_; ++device)
+        A.memory_->clearDeviceBlocks(device);
 
-    Debug::checkTilesLives(a);
-    Debug::printTilesLives(a);
+    Debug::checkTilesLives(A);
+    Debug::printTilesLives(A);
 
-    a.clean();
+    A.clearWorkspace();
 
-    Debug::printTilesMaps(a);
+    Debug::printTilesMaps(A);
 
     delete[] column;
-}
-
-///-----------------------------------------------------------------------------
-/// \brief
-///
-/// Precision and target templated function for implementing complex logic.
-///
-template <typename scalar_t, Target target>
-void potrf(lapack::Uplo uplo, Matrix<scalar_t> &a, int64_t lookahead)
-{
-    potrf(TargetType<target>(), uplo, a, lookahead);
+#endif
 }
 
 } // namespace internal
@@ -226,29 +212,29 @@ void potrf(lapack::Uplo uplo, Matrix<scalar_t> &a, int64_t lookahead)
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-/// Target-templated, precision-overloaded functions for the user.
-///
-template <Target target>
-void potrf(lapack::Uplo uplo, Matrix<double> &a, int64_t lookahead)
+/// Precision and target templated function.
+template <Target target, typename scalar_t>
+void potrf(HermitianMatrix<scalar_t>& A, int64_t lookahead)
 {
-    internal::potrf<double, target>(uplo, a, lookahead);
+    internal_specialization::potrf(internal::TargetType<target>(), A, lookahead);
 }
 
 //------------------------------------------------------------------------------
+// Explicit instantiations for double precision and various targets.
 template
-void potrf<Target::HostTask>(
-    lapack::Uplo uplo, Matrix<double> &a, int64_t lookahead);
+void potrf< Target::HostTask, double >(
+    HermitianMatrix<double>& A, int64_t lookahead);
 
 template
-void potrf<Target::HostNest>(
-    lapack::Uplo uplo, Matrix<double> &a, int64_t lookahead);
+void potrf< Target::HostNest, double >(
+    HermitianMatrix<double>& A, int64_t lookahead);
 
 template
-void potrf<Target::HostBatch>(
-    lapack::Uplo uplo, Matrix<double> &a, int64_t lookahead);
+void potrf< Target::HostBatch, double >(
+    HermitianMatrix<double>& A, int64_t lookahead);
 
 template
-void potrf<Target::Devices>(
-    lapack::Uplo uplo, Matrix<double> &a, int64_t lookahead);
+void potrf< Target::Devices, double >(
+    HermitianMatrix<double>& A, int64_t lookahead);
 
 } // namespace slate

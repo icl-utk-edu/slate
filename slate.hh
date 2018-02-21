@@ -45,8 +45,8 @@
 
 namespace slate {
 
-template <Target target = Target::HostTask>
-void potrf(lapack::Uplo uplo, Matrix<double> &a, int64_t lookahead = 0);
+template <Target target=Target::HostTask, typename scalar_t>
+void potrf(HermitianMatrix< scalar_t >& A, int64_t lookahead = 0);
 
 } // namespace slate
 

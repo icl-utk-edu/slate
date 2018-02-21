@@ -52,7 +52,7 @@ typedef int cudaMemcpyKind;
 enum {
     cudaMemcpyDeviceToHost,
     cudaMemcpyHostToDevice,
-    cudaStreamNonBlocking, 
+    cudaStreamNonBlocking,
     cudaSuccess
 };
 

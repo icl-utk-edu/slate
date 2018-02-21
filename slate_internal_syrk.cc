@@ -48,19 +48,21 @@
 #endif
 
 namespace slate {
+namespace internal {
 
 ///-----------------------------------------------------------------------------
 /// \brief
 /// Symmetric rank-k update of single block column (i.e., k = nb).
 /// Dispatches to target implementations.
-template <typename scalar_t, Target target>
+template <Target target, typename scalar_t>
 void syrk(scalar_t alpha, Matrix< scalar_t > &&A,
-          scalar_t beta,  Matrix< scalar_t > &&C,
+          scalar_t beta,  SymmetricMatrix< scalar_t > &&C,
           int priority)
 {
     syrk(internal::TargetType<target>(),
          alpha, A,
-         beta,  C);
+         beta,  C,
+         priority);
 }
 
 ///-----------------------------------------------------------------------------
@@ -70,7 +72,7 @@ void syrk(scalar_t alpha, Matrix< scalar_t > &&A,
 template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostTask>,
           scalar_t alpha, Matrix< scalar_t > &A,
-          scalar_t beta,  Matrix< scalar_t > &C,
+          scalar_t beta,  SymmetricMatrix< scalar_t > &C,
           int priority)
 {
     // Lower, NoTrans
@@ -82,8 +84,7 @@ void syrk(internal::TargetType<Target::HostTask>,
                     {
                         A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                         C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                        syrk(C.uplo(), A.op(),
-                             -1.0, A(j, 0),
+                        syrk(-1.0, A(j, 0),
                              beta, C(j, j));
                         A.tileTick(j, 0);
                         A.tileTick(j, 0);
@@ -114,7 +115,7 @@ void syrk(internal::TargetType<Target::HostTask>,
 template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostNest>,
           scalar_t alpha, Matrix< scalar_t > &A,
-          scalar_t beta,  Matrix< scalar_t > &C,
+          scalar_t beta,  SymmetricMatrix< scalar_t > &C,
           int priority)
 {
     // Lower, NoTrans
@@ -124,8 +125,7 @@ void syrk(internal::TargetType<Target::HostNest>,
             {
                 A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                 C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                syrk(C.uplo(), A.op(),
-                     -1.0, A(j, 0),
+                syrk(-1.0, A(j, 0),
                      beta, C(j, j));
                 A.tileTick(j, 0);
                 A.tileTick(j, 0);
@@ -141,8 +141,7 @@ void syrk(internal::TargetType<Target::HostNest>,
                     A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
                     A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                     C.tileMoveToHost(i, j, C.tileDevice(i, j));
-                    gemm(A.op(), Op::Trans,  // todo check ops
-                         alpha, A(i, 0),
+                    gemm(alpha, A(i, 0),
                                 A(j, 0),
                          beta,  C(i, j));
                     A.tileTick(i, 0);
@@ -159,7 +158,7 @@ void syrk(internal::TargetType<Target::HostNest>,
 template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostBatch>,
           scalar_t alpha, Matrix< scalar_t > &A,
-          scalar_t beta,  Matrix< scalar_t > &C,
+          scalar_t beta,  SymmetricMatrix< scalar_t > &C,
           int priority)
 {
     for (int64_t j = 0; j < C.nt(); ++j)
@@ -168,9 +167,8 @@ void syrk(internal::TargetType<Target::HostBatch>,
             {
                 A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                 C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                Tile<scalar_t>::syrk(C.uplo(), A.op(),
-                                     -1.0, A(j, 0),
-                                     beta, C(j, j));
+                syrk(-1.0, A(j, 0),
+                     beta, C(j, j));
                 A.tileTick(j, 0);
                 A.tileTick(j, 0);
             }
@@ -219,7 +217,6 @@ void syrk(internal::TargetType<Target::HostBatch>,
     b_array = new const scalar_t*[group_size];
     c_array = new scalar_t*[group_size];
 
-    int i = 0;
     for (int64_t j = 0; j < C.nt(); ++j)
         for (int64_t i = j+1; i < C.mt(); ++i)
             if (C.tileIsLocal(i, j)) {
@@ -267,12 +264,12 @@ void syrk(internal::TargetType<Target::HostBatch>,
 template <typename scalar_t>
 void syrk(internal::TargetType<Target::Devices>,
           scalar_t alpha, Matrix< scalar_t > &A,
-          scalar_t beta,  Matrix< scalar_t > &C,
+          scalar_t beta,  SymmetricMatrix< scalar_t > &C,
           int priority)
 {
     // todo: could loop over trailing matrix once
     // and setup all devices' arrays at once --- ah, it's a task for each device.
-    for (int device = 0; device < C.num_devices_; ++device)
+    for (int device = 0; device < C.num_devices(); ++device)
         #pragma omp task shared(A, C) priority(1)
         {
             scalar_t** a_array_host = C.a_array_host(device);
@@ -286,16 +283,16 @@ void syrk(internal::TargetType<Target::Devices>,
                             A.tileCopyToDevice(i, 0, device);
                             A.tileCopyToDevice(j, 0, device);
                             C.tileMoveToDevice(i, j, device);
-                            a_array_host[device][i] = A(i, 0, device).data();
-                            b_array_host[device][i] = A(j, 0, device).data();
-                            c_array_host[device][i] = C(i, j, device).data();
+                            a_array_host[i] = A(i, 0, device).data();
+                            b_array_host[i] = A(j, 0, device).data();
+                            c_array_host[i] = C(i, j, device).data();
                             ++i;
                         }
             int64_t batch_count = i;
 
-            scalar_t** a_array_dev = C.a_array_dev(device);
-            scalar_t** b_array_dev = C.b_array_dev(device);
-            scalar_t** c_array_dev = C.c_array_dev(device);
+            scalar_t** a_array_dev = C.a_array_device(device);
+            scalar_t** b_array_dev = C.b_array_device(device);
+            scalar_t** c_array_dev = C.c_array_device(device);
             cudaError_t error;
             error = cudaSetDevice(device);
             assert(error == cudaSuccess);
@@ -330,8 +327,8 @@ void syrk(internal::TargetType<Target::Devices>,
                         cublas_handle,  // assumed to use compute_stream
                         CUBLAS_OP_N, CUBLAS_OP_T,
                         nb, nb, nb,
-                        &alpha, a_array_dev, nb,
-                                b_array_dev, nb,
+                        &alpha, (const double**) a_array_dev, nb,
+                                (const double**) b_array_dev, nb,
                         &beta,  c_array_dev, nb,
                         batch_count);
                 assert(status == CUBLAS_STATUS_SUCCESS);
@@ -356,8 +353,7 @@ void syrk(internal::TargetType<Target::Devices>,
             {
                 A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                 C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                syrk(C.uplo(), A.op(),
-                     -1.0, A(j, 0),
+                syrk(-1.0, A(j, 0),
                      beta, C(j, j));
                 A.tileTick(j, 0);
                 A.tileTick(j, 0);
@@ -368,28 +364,29 @@ void syrk(internal::TargetType<Target::Devices>,
 
 //------------------------------------------------------------------------------
 // explicit instantiations
-template<>
-void syrk< double, Target::HostTask >(
+template
+void syrk< Target::HostTask, double >(
     double alpha, Matrix< double > &&A,
-    double beta,  Matrix< double > &&C,
+    double beta,  SymmetricMatrix< double > &&C,
     int priority);
 
-template<>
-void syrk< double, Target::HostNest >(
+template
+void syrk< Target::HostNest, double >(
     double alpha, Matrix< double > &&A,
-    double beta,  Matrix< double > &&C,
+    double beta,  SymmetricMatrix< double > &&C,
     int priority);
 
-template<>
-void syrk< double, Target::HostBatch >(
+template
+void syrk< Target::HostBatch, double >(
     double alpha, Matrix< double > &&A,
-    double beta,  Matrix< double > &&C,
+    double beta,  SymmetricMatrix< double > &&C,
     int priority);
 
-template<>
-void syrk< double, Target::Devices >(
+template
+void syrk< Target::Devices, double >(
     double alpha, Matrix< double > &&A,
-    double beta,  Matrix< double > &&C,
+    double beta,  SymmetricMatrix< double > &&C,
     int priority);
 
+} // namespace internal
 } // namespace slate

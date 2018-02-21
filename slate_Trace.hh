@@ -40,6 +40,7 @@
 #ifndef SLATE_TRACE_HH
 #define SLATE_TRACE_HH
 
+#include <stdio.h>
 #include <vector>
 
 #ifdef SLATE_WITH_MPI
@@ -214,8 +215,8 @@ public:
 
     Event() {};
     Event(Color color)
-        : color_(color),
-          start_(omp_get_wtime()) {}
+        : start_(omp_get_wtime()),
+          color_(color) {}
 
     void stop() { stop_ = omp_get_wtime(); }
 

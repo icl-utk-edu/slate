@@ -42,15 +42,16 @@
 #include "slate_Tile_blas.hh"
 
 namespace slate {
+namespace internal {
 
 ///-----------------------------------------------------------------------------
 /// \brief
 /// Cholesky factorization of single tile.
 /// Dispatches to target implementations.
-template <typename scalar_t, Target target>
+template <Target target, typename scalar_t>
 void potrf(HermitianMatrix< scalar_t > &&A, int priority)
 {
-    potrf(internal::TargetType<target>(), A);
+    potrf(internal::TargetType<target>(), A, priority);
 }
 
 ///-----------------------------------------------------------------------------
@@ -75,8 +76,9 @@ void potrf(internal::TargetType<Target::HostTask>,
 
 //------------------------------------------------------------------------------
 // explicit instantiations
-template <>
-void potrf< double, Target::HostTask >(
+template
+void potrf< Target::HostTask, double >(
     HermitianMatrix<double> &&A, int priority);
 
+} // namespace internal
 } // namespace slate

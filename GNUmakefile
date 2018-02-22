@@ -125,22 +125,24 @@ lib:
 ifeq (${shared},1)
     lib_so = lib/libslate.so
 
-    libs: $(lib_so)
+    libs = $(lib_so)
 
     $(lib_so): $(lib_obj) | lib
 		$(CXX) $(LDFLAGS) $^ $(LIB) -shared -o $@
 else
     lib_a = lib/libslate.a
 
-    libs: $(lib_a)
+    libs = $(lib_a)
 
     $(lib_a): $(lib_obj) | lib
 		ar cr $@ $^
 		ranlib $@
 endif
 
-$(test): %: %.o | libs
-	$(CXX) $(LDFLAGS) $^ -Llib -lslate $(LIB) -o $@
+libs: $(libs)
+
+$(test): %: %.o $(libs)
+	$(CXX) $(LDFLAGS) $< -Llib -lslate $(LIB) -o $@
 
 clean:
 	rm -f $(lib_obj) $(test_obj) $(test) trace_*.svg

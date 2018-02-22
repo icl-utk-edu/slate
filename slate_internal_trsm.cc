@@ -40,6 +40,7 @@
 #include "slate_Matrix.hh"
 #include "slate_types.hh"
 #include "slate_Tile_blas.hh"
+#include "slate_internal.hh"
 
 namespace slate {
 namespace internal {
@@ -50,8 +51,8 @@ namespace internal {
 /// Dispatches to target implementations.
 template <Target target, typename scalar_t>
 void trsm(Side side, Diag diag,
-          scalar_t alpha, TriangularMatrix< scalar_t > &&A,
-                          Matrix< scalar_t > &&B,
+          scalar_t alpha, TriangularMatrix< scalar_t >&& A,
+                          Matrix< scalar_t >&& B,
           int priority)
 {
     trsm(internal::TargetType<target>(),
@@ -67,8 +68,8 @@ void trsm(Side side, Diag diag,
 template <typename scalar_t>
 void trsm(internal::TargetType<Target::HostTask>,
           Side side, Diag diag,
-          scalar_t alpha, TriangularMatrix< scalar_t > &A,
-                          Matrix< scalar_t > &B,
+          scalar_t alpha, TriangularMatrix< scalar_t >& A,
+                          Matrix< scalar_t >& B,
           int priority)
 {
     // Right, Lower, Trans
@@ -92,8 +93,8 @@ void trsm(internal::TargetType<Target::HostTask>,
 template
 void trsm< Target::HostTask, double >(
     Side side, Diag diag,
-    double alpha, TriangularMatrix< double > &&A,
-                  Matrix< double > &&B,
+    double alpha, TriangularMatrix< double >&& A,
+                  Matrix< double >&& B,
     int priority);
 
 } // namespace internal

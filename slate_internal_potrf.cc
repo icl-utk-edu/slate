@@ -40,6 +40,7 @@
 #include "slate_Matrix.hh"
 #include "slate_types.hh"
 #include "slate_Tile_blas.hh"
+#include "slate_internal.hh"
 
 namespace slate {
 namespace internal {
@@ -49,7 +50,7 @@ namespace internal {
 /// Cholesky factorization of single tile.
 /// Dispatches to target implementations.
 template <Target target, typename scalar_t>
-void potrf(HermitianMatrix< scalar_t > &&A, int priority)
+void potrf(HermitianMatrix< scalar_t >&& A, int priority)
 {
     potrf(internal::TargetType<target>(), A, priority);
 }
@@ -59,7 +60,7 @@ void potrf(HermitianMatrix< scalar_t > &&A, int priority)
 /// Cholesky factorization of single tile, host implementation.
 template <typename scalar_t>
 void potrf(internal::TargetType<Target::HostTask>,
-           HermitianMatrix< scalar_t > &A, int priority)
+           HermitianMatrix< scalar_t >& A, int priority)
 {
     assert(A.mt() == 1);
     assert(A.nt() == 1);
@@ -78,7 +79,7 @@ void potrf(internal::TargetType<Target::HostTask>,
 // explicit instantiations
 template
 void potrf< Target::HostTask, double >(
-    HermitianMatrix<double> &&A, int priority);
+    HermitianMatrix<double>&& A, int priority);
 
 } // namespace internal
 } // namespace slate

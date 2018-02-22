@@ -40,6 +40,7 @@
 #include "slate_Matrix.hh"
 #include "slate_types.hh"
 #include "slate_Tile_blas.hh"
+#include "slate_internal.hh"
 
 #ifdef SLATE_WITH_MKL
     #include <mkl_cblas.h>
@@ -55,8 +56,8 @@ namespace internal {
 /// Symmetric rank-k update of single block column (i.e., k = nb).
 /// Dispatches to target implementations.
 template <Target target, typename scalar_t>
-void syrk(scalar_t alpha, Matrix< scalar_t > &&A,
-          scalar_t beta,  SymmetricMatrix< scalar_t > &&C,
+void syrk(scalar_t alpha, Matrix< scalar_t >&& A,
+          scalar_t beta,  SymmetricMatrix< scalar_t >&& C,
           int priority)
 {
     syrk(internal::TargetType<target>(),
@@ -71,8 +72,8 @@ void syrk(scalar_t alpha, Matrix< scalar_t > &&A,
 /// Host OpenMP task implementation.
 template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostTask>,
-          scalar_t alpha, Matrix< scalar_t > &A,
-          scalar_t beta,  SymmetricMatrix< scalar_t > &C,
+          scalar_t alpha, Matrix< scalar_t >& A,
+          scalar_t beta,  SymmetricMatrix< scalar_t >& C,
           int priority)
 {
     // Lower, NoTrans
@@ -114,8 +115,8 @@ void syrk(internal::TargetType<Target::HostTask>,
 /// Host nested OpenMP task implementation.
 template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostNest>,
-          scalar_t alpha, Matrix< scalar_t > &A,
-          scalar_t beta,  SymmetricMatrix< scalar_t > &C,
+          scalar_t alpha, Matrix< scalar_t >& A,
+          scalar_t beta,  SymmetricMatrix< scalar_t >& C,
           int priority)
 {
     // Lower, NoTrans
@@ -157,8 +158,8 @@ void syrk(internal::TargetType<Target::HostNest>,
 /// Host batched implementation.
 template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostBatch>,
-          scalar_t alpha, Matrix< scalar_t > &A,
-          scalar_t beta,  SymmetricMatrix< scalar_t > &C,
+          scalar_t alpha, Matrix< scalar_t >& A,
+          scalar_t beta,  SymmetricMatrix< scalar_t >& C,
           int priority)
 {
     for (int64_t j = 0; j < C.nt(); ++j)
@@ -236,7 +237,7 @@ void syrk(internal::TargetType<Target::HostBatch>,
                                a_array, lda_array,
                                b_array, ldb_array,
                                beta_array,
-                               c_array, ldc_array, 1, &group_size);
+                               c_array, ldc_array, 1,& group_size);
             // mkl_set_num_threads_local(1);
         #else
             assert(false);
@@ -263,8 +264,8 @@ void syrk(internal::TargetType<Target::HostBatch>,
 /// GPU device batched cuBLAS implementation.
 template <typename scalar_t>
 void syrk(internal::TargetType<Target::Devices>,
-          scalar_t alpha, Matrix< scalar_t > &A,
-          scalar_t beta,  SymmetricMatrix< scalar_t > &C,
+          scalar_t alpha, Matrix< scalar_t >& A,
+          scalar_t beta,  SymmetricMatrix< scalar_t >& C,
           int priority)
 {
     // todo: could loop over trailing matrix once
@@ -366,26 +367,26 @@ void syrk(internal::TargetType<Target::Devices>,
 // explicit instantiations
 template
 void syrk< Target::HostTask, double >(
-    double alpha, Matrix< double > &&A,
-    double beta,  SymmetricMatrix< double > &&C,
+    double alpha, Matrix< double >&& A,
+    double beta,  SymmetricMatrix< double >&& C,
     int priority);
 
 template
 void syrk< Target::HostNest, double >(
-    double alpha, Matrix< double > &&A,
-    double beta,  SymmetricMatrix< double > &&C,
+    double alpha, Matrix< double >&& A,
+    double beta,  SymmetricMatrix< double >&& C,
     int priority);
 
 template
 void syrk< Target::HostBatch, double >(
-    double alpha, Matrix< double > &&A,
-    double beta,  SymmetricMatrix< double > &&C,
+    double alpha, Matrix< double >&& A,
+    double beta,  SymmetricMatrix< double >&& C,
     int priority);
 
 template
 void syrk< Target::Devices, double >(
-    double alpha, Matrix< double > &&A,
-    double beta,  SymmetricMatrix< double > &&C,
+    double alpha, Matrix< double >&& A,
+    double beta,  SymmetricMatrix< double >&& C,
     int priority);
 
 } // namespace internal

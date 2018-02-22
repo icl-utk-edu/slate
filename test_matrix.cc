@@ -1060,6 +1060,157 @@ void test_hermitian( blas::Uplo uplo, int n, int nb, int p, int q )
 }
 
 // -----------------------------------------------------------------------------
+void test_conversion( blas::Uplo uplo, int m, int n, int nb, int p, int q )
+{
+    Test name( __func__ );
+
+    if (mpi_rank == 0) {
+        std::cout << "uplo " << char(uplo) << "\n";
+    }
+
+    // A is m-by-n general
+    int lda = int((m + 31)/32)*32;
+    double* Ad = new double[ lda*n ];
+    for (int j = 0; j < n; ++j)
+        for (int i = 0; i < m; ++i)
+            Ad[ i + j*lda ] = i + j/1000.;
+    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, mpi_comm );
+
+    // B is n-by-m general
+    int ldb = int((n + 31)/32)*32;
+    double* Bd = new double[ ldb*m ];
+    for (int j = 0; j < m; ++j)
+        for (int i = 0; i < n; ++i)
+            Bd[ i + j*ldb ] = i + j/1000.;
+    slate::Matrix<double> B( n, m, Bd, ldb, nb, p, q, mpi_comm );
+
+    // S is n-by-n symmetric
+    int lds = int((n + 31)/32)*32;
+    double* Sd = new double[ lds*n ];
+    for (int j = 0; j < n; ++j)
+        for (int i = 0; i < n; ++i)
+            Sd[ i + j*lds ] = i + j/1000.;
+    slate::SymmetricMatrix<double> S( uplo, n, Sd, lds, nb, p, q, mpi_comm );
+
+    // -----
+    // general to triangular
+    // can't go backwards from {tz, sy, he, tr} => ge,
+    // since half the tiles may not exist!
+    test_barrier( "ge => tz, ge => sy, ge => he, ge => tr" );
+    slate::TrapezoidMatrix<double> ZA( uplo, A );
+    slate::TrapezoidMatrix<double> ZB( uplo, B );
+
+    // sub-matrix constructor
+    slate::TrapezoidMatrix<double> ZB2( ZB, 1, ZB.mt()-1, 1, ZB.nt()-1 );
+
+    // sub-matrix constructor throws exception if i1 != j1
+    test_assert_throw( slate::TrapezoidMatrix<double>( ZB, 1, ZB.mt()-1, 2, ZB.nt()-1 ),
+                       std::exception );
+
+    test_assert( ZA.mt() == A.mt() );
+    test_assert( ZA.nt() == A.nt() );
+    test_assert( ZB.mt() == B.mt() );
+    test_assert( ZB.nt() == B.nt() );
+
+    int min_nt = std::min( A.mt(), A.nt() );
+
+    slate::TriangularMatrix<double> TA( uplo, A );
+    slate::TriangularMatrix<double> TB( uplo, B );
+    test_assert( TA.mt() == min_nt );
+    test_assert( TA.nt() == min_nt );
+    test_assert( TB.mt() == min_nt );
+    test_assert( TB.nt() == min_nt );
+
+    slate::SymmetricMatrix<double>  SA( uplo, A );
+    slate::SymmetricMatrix<double>  SB( uplo, B );
+    test_assert( SA.mt() == min_nt );
+    test_assert( SA.nt() == min_nt );
+    test_assert( SB.mt() == min_nt );
+    test_assert( SB.nt() == min_nt );
+
+    slate::HermitianMatrix<double>  HA( uplo, A );
+    slate::HermitianMatrix<double>  HB( uplo, B );
+    test_assert( HA.mt() == min_nt );
+    test_assert( HA.nt() == min_nt );
+    test_assert( HB.mt() == min_nt );
+    test_assert( HB.nt() == min_nt );
+
+    // -----
+    test_barrier( "sy => he, he => sy" );
+    slate::HermitianMatrix<double>  H( S );
+
+    test_barrier( "sy => he, he => sy (2)" );
+    slate::SymmetricMatrix<double> S2( H );
+
+    test_barrier( "sy => he, he => sy (3)" );
+    test_assert( S.mt()   ==  H.mt()   );
+    test_assert( S.nt()   ==  H.nt()   );
+    test_assert( S.uplo() ==  H.uplo() );
+    test_assert( S.mt()   == S2.mt()   );
+    test_assert( S.nt()   == S2.nt()   );
+    test_assert( S.uplo() == S2.uplo() );
+
+    // -----
+    test_barrier( "sy => tr, tr => sy" );
+    slate::TriangularMatrix<double> T1( S  );
+    slate::SymmetricMatrix<double>  S3( T1 );
+    test_assert( S.mt()   == T1.mt()   );
+    test_assert( S.nt()   == T1.nt()   );
+    test_assert( S.uplo() == T1.uplo() );
+    test_assert( S.mt()   == S3.mt()   );
+    test_assert( S.nt()   == S3.nt()   );
+    test_assert( S.uplo() == S3.uplo() );
+
+    // alt. syntax, sy => tr
+    auto T2 = slate::TriangularMatrix<double>( S );
+    test_assert( S.mt()   == T2.mt()   );
+    test_assert( S.nt()   == T2.nt()   );
+    test_assert( S.uplo() == T2.uplo() );
+
+    // -----
+    test_barrier( "he => tr, tr => he" );
+    slate::TriangularMatrix<double> T3( H  );
+    slate::HermitianMatrix<double>  H2( T3 );
+    test_assert( S.mt()   == T3.mt()   );
+    test_assert( S.nt()   == T3.nt()   );
+    test_assert( S.uplo() == T3.uplo() );
+    test_assert( S.mt()   == H2.mt()   );
+    test_assert( S.nt()   == H2.nt()   );
+    test_assert( S.uplo() == H2.uplo() );
+
+    // if upper, transpose so we can access as-if lower
+    if (uplo == blas::Uplo::Upper) {
+        S  = transpose( S  );
+        S2 = transpose( S2 );
+        H  = transpose( H  );
+        H2 = transpose( H2 );
+        T1 = transpose( T1 );
+        T2 = transpose( T2 );
+        T3 = transpose( T3 );
+    }
+
+    for (int j = 0; j < S.nt(); ++j) {
+        for (int i = j; i < S.mt(); ++i) {  // lower
+            if (S.tileIsLocal( i, j )) {
+                auto S_ij  =  S( i, j );
+                auto S2_ij = S2( i, j );
+                auto H_ij  =  H( i, j );
+                auto H2_ij = H2( i, j );
+                auto T1_ij = T1( i, j );
+                auto T2_ij = T2( i, j );
+                auto T3_ij = T3( i, j );
+                test_assert( S_ij.data() == S2_ij.data() );
+                test_assert( S_ij.data() ==  H_ij.data() );
+                test_assert( S_ij.data() == H2_ij.data() );
+                test_assert( S_ij.data() == T1_ij.data() );
+                test_assert( S_ij.data() == T2_ij.data() );
+                test_assert( S_ij.data() == T3_ij.data() );
+            }
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
 int main( int argc, char** argv )
 {
     MPI_Init( &argc, &argv );
@@ -1112,6 +1263,9 @@ int main( int argc, char** argv )
 
     test_hermitian( blas::Uplo::Lower, m, nb, p, q );
     test_hermitian( blas::Uplo::Upper, m, nb, p, q );
+
+    test_conversion( blas::Uplo::Lower, m, n, nb, p, q );
+    test_conversion( blas::Uplo::Upper, m, n, nb, p, q );
 
     MPI_Finalize();
     return 0;

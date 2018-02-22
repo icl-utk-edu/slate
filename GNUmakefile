@@ -15,7 +15,7 @@
 
 -include make.inc
 
-CXXFLAGS = -O3 -std=c++11 -Wall -pedantic -MMD
+CXXFLAGS += -O3 -std=c++11 -Wall -pedantic -MMD
 
 pwd = ${shell pwd}
 

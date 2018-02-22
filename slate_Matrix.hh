@@ -126,7 +126,8 @@ public:
     ///-------------------------------------------------------------------------
     /// Sub-matrix constructor creates shallow copy view of parent matrix,
     /// A[ i1:i2, j1:j2 ].
-    /// This version is called for conversion from HermitianMatrix, etc.
+    /// This version is called for conversion from off-diagonal submatrix of
+    /// TriangularMatrix, SymmetricMatrix, HermitianMatrix, etc.
     Matrix(BaseMatrix< scalar_t >& orig,
            int64_t i1, int64_t i2,
            int64_t j1, int64_t j2):
@@ -319,25 +320,37 @@ public:
     }
 
     ///-------------------------------------------------------------------------
-    /// Sub-matrix constructor creates shallow copy view of parent matrix,
-    /// A[ i1:i2, i1:i2 ]. The new view is still a trapezoid matrix, with the
-    /// same diagonal as the parent matrix.
-    BaseTrapezoidMatrix(BaseTrapezoidMatrix& orig,
-                        int64_t i1, int64_t i2):
-        BaseMatrix< scalar_t >(orig, i1, i2, i1, i2),
-        uplo_(orig.uplo_)
+    /// Conversion from general matrix
+    /// creates shallow copy view of original matrix.
+    BaseTrapezoidMatrix(Uplo uplo, Matrix< scalar_t >& orig):
+        BaseMatrix< scalar_t >(orig),
+        uplo_(uplo)
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// Conversion from general matrix, sub-matrix constructor
+    /// creates shallow copy view of original matrix, A[ i1:i2, j1:j2 ].
+    BaseTrapezoidMatrix(Uplo uplo, Matrix< scalar_t >& orig,
+                        int64_t i1, int64_t i2,
+                        int64_t j1, int64_t j2):
+        BaseMatrix< scalar_t >(orig, i1, i2, j1, j2),
+        uplo_(uplo)
     {}
 
     ///-------------------------------------------------------------------------
     /// Sub-matrix constructor creates shallow copy view of parent matrix,
-    /// A[ i1:i2, j1:j2 ].
-    /// This version is called for conversion from general Matrix, etc.
-    BaseTrapezoidMatrix(Uplo uplo, BaseMatrix< scalar_t >& orig,
+    /// A[ i1:i2, j1:j2 ]. Requires i1 == j1. The new view is still a trapezoid
+    /// matrix, with the same diagonal as the parent matrix.
+    BaseTrapezoidMatrix(BaseTrapezoidMatrix& orig,
                         int64_t i1, int64_t i2,
                         int64_t j1, int64_t j2):
         BaseMatrix< scalar_t >(orig, i1, i2, j1, j2),
-        uplo_(orig.uplo)
-    {}
+        uplo_(orig.uplo_)
+    {
+        if (i1 != j1) {
+            throw std::exception();
+        }
+    }
 
     ///-------------------------------------------------------------------------
     /// Swap contents of matrices A and B.
@@ -535,12 +548,45 @@ public:
     {}
 
     ///-------------------------------------------------------------------------
+    /// Conversion from trapezoid, triangular, symmetric, or Hermitian matrix
+    /// creates a shallow copy view of the original matrix.
+    explicit TrapezoidMatrix(BaseTrapezoidMatrix< scalar_t >& orig):
+        BaseTrapezoidMatrix< scalar_t >(orig)
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// Conversion from trapezoid, triangular, symmetric, or Hermitian matrix
+    /// creates a shallow copy view of the original matrix, A[ i1:i2, j1:j2 ].
+    TrapezoidMatrix(BaseTrapezoidMatrix< scalar_t >& orig,
+                    int64_t i1, int64_t i2,
+                    int64_t j1, int64_t j2):
+        BaseTrapezoidMatrix< scalar_t >(orig, i1, i2, j1, j2)
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// Conversion from general matrix
+    /// creates a shallow copy view of the original matrix.
+    TrapezoidMatrix(Uplo uplo, Matrix< scalar_t >& orig):
+        BaseTrapezoidMatrix< scalar_t >(uplo, orig)
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// Conversion from general matrix, sub-matrix constructor
+    /// creates shallow copy view of original matrix, A[ i1:i2, j1:j2 ].
+    TrapezoidMatrix(Uplo uplo, Matrix< scalar_t >& orig,
+                    int64_t i1, int64_t i2,
+                    int64_t j1, int64_t j2):
+        BaseTrapezoidMatrix< scalar_t >(uplo, orig, i1, i2, j1, j2)
+    {}
+
+    ///-------------------------------------------------------------------------
     /// Sub-matrix constructor creates shallow copy view of parent matrix,
-    /// A[ i1:i2, i1:i2 ]. The new view is still a trapezoid matrix, with the
-    /// same diagonal as the parent matrix.
+    /// A[ i1:i2, j1:j2 ]. Requires i1 == j1. The new view is still a trapezoid
+    /// matrix, with the same diagonal as the parent matrix.
     TrapezoidMatrix(TrapezoidMatrix& orig,
-                    int64_t i1, int64_t i2):
-        BaseTrapezoidMatrix< scalar_t >(orig, i1, i2)
+                    int64_t i1, int64_t i2,
+                    int64_t j1, int64_t j2):
+        BaseTrapezoidMatrix< scalar_t >(orig, i1, i2, j1, j2)
     {}
 
     ///-------------------------------------------------------------------------
@@ -601,12 +647,32 @@ public:
     {}
 
     ///-------------------------------------------------------------------------
+    /// Conversion from trapezoid, triangular, symmetric, or Hermitian matrix
+    /// creates a shallow copy view of the original matrix.
+    /// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+    explicit TriangularMatrix(BaseTrapezoidMatrix< scalar_t >& orig):
+        TrapezoidMatrix< scalar_t >(orig,
+            0, std::min( orig.mt()-1, orig.nt()-1 ),
+            0, std::min( orig.mt()-1, orig.nt()-1 ))
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// Conversion from general matrix
+    /// creates a shallow copy view of the original matrix.
+    /// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+    TriangularMatrix(Uplo uplo, Matrix< scalar_t >& orig):
+        TrapezoidMatrix< scalar_t >(uplo, orig,
+            0, std::min( orig.mt()-1, orig.nt()-1 ),
+            0, std::min( orig.mt()-1, orig.nt()-1 ))
+    {}
+
+    ///-------------------------------------------------------------------------
     /// Sub-matrix constructor creates shallow copy view of parent matrix,
     /// A[ i1:i2, i1:i2 ]. The new view is still a triangular matrix, with the
     /// same diagonal as the parent matrix.
     TriangularMatrix(TriangularMatrix& orig,
                      int64_t i1, int64_t i2):
-        TrapezoidMatrix< scalar_t >(orig, i1, i2)
+        TrapezoidMatrix< scalar_t >(orig, i1, i2, i1, i2)
     {}
 
     ///-------------------------------------------------------------------------
@@ -665,6 +731,26 @@ public:
                     scalar_t* A, int64_t ld, int64_t nb,
                     int p, int q, MPI_Comm mpi_comm):
         BaseTrapezoidMatrix< scalar_t >(uplo, n, n, A, ld, nb, p, q, mpi_comm)
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// Conversion from trapezoid, triangular, symmetric, or Hermitian matrix
+    /// creates a shallow copy view of the original matrix.
+    /// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+    explicit SymmetricMatrix(BaseTrapezoidMatrix< scalar_t >& orig):
+        BaseTrapezoidMatrix< scalar_t >(orig,
+            0, std::min( orig.mt()-1, orig.nt()-1 ),
+            0, std::min( orig.mt()-1, orig.nt()-1 ))
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// Conversion from general matrix
+    /// creates a shallow copy view of the original matrix.
+    /// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+    SymmetricMatrix(Uplo uplo, Matrix< scalar_t >& orig):
+        BaseTrapezoidMatrix< scalar_t >(uplo, orig,
+            0, std::min( orig.mt()-1, orig.nt()-1 ),
+            0, std::min( orig.mt()-1, orig.nt()-1 ))
     {}
 
     ///-------------------------------------------------------------------------
@@ -732,6 +818,26 @@ public:
                     scalar_t* A, int64_t ld, int64_t nb,
                     int p, int q, MPI_Comm mpi_comm):
         BaseTrapezoidMatrix< scalar_t >(uplo, n, n, A, ld, nb, p, q, mpi_comm)
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// Conversion from trapezoid, triangular, symmetric, or Hermitian matrix
+    /// creates a shallow copy view of the original matrix.
+    /// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+    explicit HermitianMatrix(BaseTrapezoidMatrix< scalar_t >& orig):
+        BaseTrapezoidMatrix< scalar_t >(orig,
+            0, std::min( orig.mt()-1, orig.nt()-1 ),
+            0, std::min( orig.mt()-1, orig.nt()-1 ))
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// Conversion from general matrix
+    /// creates a shallow copy view of the original matrix.
+    /// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+    HermitianMatrix(Uplo uplo, Matrix< scalar_t >& orig):
+        BaseTrapezoidMatrix< scalar_t >(uplo, orig,
+            0, std::min( orig.mt()-1, orig.nt()-1 ),
+            0, std::min( orig.mt()-1, orig.nt()-1 ))
     {}
 
     ///-------------------------------------------------------------------------

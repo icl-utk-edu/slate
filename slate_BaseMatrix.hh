@@ -144,10 +144,8 @@ public:
         assert(0 <= j2 && j2 < nt());
 
         // adjust i2, j2 for empty matrix
-        if (i2 < i1 - 1)
-            i2 = i1 - 1;
-        if (j2 < j1 - 1)
-            j2 = j1 - 1;
+        i2 = std::max(i2, i1 - 1);
+        j2 = std::max(j2, j1 - 1);
 
         if (op_ == Op::NoTrans) {
             ioffset_ += i1;

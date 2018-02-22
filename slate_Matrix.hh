@@ -712,8 +712,6 @@ public:
 };
 
 ///=============================================================================
-///
-// todo: transparent conversion between real-symmetric <=> real-Hermitian
 template <typename scalar_t>
 class SymmetricMatrix: public BaseTrapezoidMatrix< scalar_t > {
 public:
@@ -759,7 +757,7 @@ public:
     /// same diagonal as the parent matrix.
     SymmetricMatrix(SymmetricMatrix& orig,
                     int64_t i1, int64_t i2):
-        BaseTrapezoidMatrix< scalar_t >(orig, i1, i2)
+        BaseTrapezoidMatrix< scalar_t >(orig, i1, i2, i1, i2)
     {}
 
     ///-------------------------------------------------------------------------
@@ -799,8 +797,6 @@ public:
 };
 
 ///=============================================================================
-///
-// todo: transparent conversion between real-symmetric <=> real-Hermitian
 template <typename scalar_t>
 class HermitianMatrix: public BaseTrapezoidMatrix< scalar_t > {
 public:
@@ -846,7 +842,7 @@ public:
     /// same diagonal as the parent matrix.
     HermitianMatrix(HermitianMatrix& orig,
                     int64_t i1, int64_t i2):
-        BaseTrapezoidMatrix< scalar_t >(orig, i1, i2)
+        BaseTrapezoidMatrix< scalar_t >(orig, i1, i2, i1, i2)
     {}
 
     ///-------------------------------------------------------------------------

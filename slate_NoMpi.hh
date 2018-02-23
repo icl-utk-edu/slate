@@ -94,6 +94,8 @@ int MPI_Group_incl(MPI_Group group, int n, const int ranks[],
 int MPI_Group_translate_ranks(MPI_Group group1, int n, const int ranks1[],
                               MPI_Group group2, int ranks2[]);
 
+int MPI_Init(int *argc, char ***argv);
+
 int MPI_Init_thread(int *argc, char ***argv, int required, int *provided);
 
 int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
@@ -121,6 +123,8 @@ int MPI_Type_vector(int count, int blocklength, int stride,
                     MPI_Datatype oldtype, MPI_Datatype *newtype);
 
 int MPI_Wait(MPI_Request *request, MPI_Status *status);
+
+int MPI_Finalize( void );
 
 #ifdef __cplusplus
 }

@@ -61,6 +61,7 @@ extern "C" {
 
 cublasStatus_t cublasCreate(cublasHandle_t *handle);
 cublasStatus_t cublasSetStream(cublasHandle_t handle, cudaStream_t streamId);
+cublasStatus_t cublasDestroy(cublasHandle_t handle);
 
 cublasStatus_t cublasDgemmBatched(
     cublasHandle_t handle,

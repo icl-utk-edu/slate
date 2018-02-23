@@ -93,6 +93,12 @@ cudaError_t cudaMemcpyAsync(void *dst, const void *src, size_t count,
     assert(0);
 }
 
+cudaError_t cudaMemcpy(void *dst, const void * src,
+                       size_t count, cudaMemcpyKind kind)
+{
+    assert(0);
+}
+
 cudaError_t cudaSetDevice(int device)
 {
     assert(0);
@@ -104,6 +110,11 @@ cudaError_t cudaStreamCreate(cudaStream_t *pStream)
 }
 
 cudaError_t cudaStreamSynchronize(cudaStream_t stream)
+{
+    assert(0);
+}
+
+cudaError_t cudaStreamDestroy(cudaStream_t pStream)
 {
     assert(0);
 }

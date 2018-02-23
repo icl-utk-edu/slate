@@ -53,6 +53,11 @@ cublasStatus_t cublasCreate(cublasHandle_t *handle)
     assert(0);
 }
 
+cublasStatus_t cublasDestroy(cublasHandle_t handle) 
+{
+    assert(0);
+}
+
 cublasStatus_t cublasSetStream(cublasHandle_t handle, cudaStream_t streamId)
 {
     assert(0);

@@ -125,6 +125,15 @@ public:
     static MPI_Datatype mpi_type; // = MPI_C_DOUBLE_COMPLEX
 };
 
+///-----------------------------------------------------------------------------
+// define enable_if_t if not using c++14
+#if __cplusplus >= 201402L
+    using std::enable_if_t;
+#else
+    template< bool B, class T = void >
+    using enable_if_t = typename std::enable_if<B,T>::type;
+#endif
+
 } // namespace slate
 
 #endif // SLATE_TYPES_HH

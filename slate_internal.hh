@@ -83,37 +83,69 @@ namespace internal {
 //-----------------------------------------
 // gemm()
 template <Target target=Target::HostTask, typename scalar_t>
-void gemm(scalar_t alpha, Matrix< scalar_t > &&A,
-                          Matrix< scalar_t > &&B,
-          scalar_t beta,  Matrix< scalar_t > &&C,
+void gemm(scalar_t alpha, Matrix< scalar_t >&& A,
+                          Matrix< scalar_t >&& B,
+          scalar_t beta,  Matrix< scalar_t >&& C,
           int priority=0);
 
 //-----------------------------------------
 // potrf()
 template <Target target=Target::HostTask, typename scalar_t>
-void potrf(HermitianMatrix< scalar_t > &&A,
+void potrf(HermitianMatrix< scalar_t >&& A,
            int priority=0);
+
+// forward real-symmetric matrices to potrf;
+// disabled for complex, which isn't a C++ "scalar" type.
+template <Target target=Target::HostTask, typename scalar_t>
+void potrf(SymmetricMatrix< scalar_t >&& A,
+           int priority=0,
+           enable_if_t< std::is_scalar< scalar_t >::value >* = nullptr)
+{
+    potrf(SymmetricMatrix< scalar_t >( A ), priority);
+}
 
 //-----------------------------------------
 // syrk()
 template <Target target=Target::HostTask, typename scalar_t>
-void syrk(scalar_t alpha, SymmetricMatrix< scalar_t > &&A,
-          scalar_t beta,  SymmetricMatrix< scalar_t > &&C,
+void syrk(scalar_t alpha, Matrix< scalar_t >&& A,
+          scalar_t beta,  SymmetricMatrix< scalar_t >&& C,
           int priority=0);
 
-// //-----------------------------------------
-// // herk()
-// template <Target target=Target::HostTask, typename scalar_t>
-// void herk(blas::traits<scalar_t>::real_t alpha, HermitianMatrix< scalar_t > &&A,
-//           blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t > &&C,
-//           int priority=0);
+// forward real-Hermitian matrices to syrk;
+// disabled for complex, which isn't a C++ "scalar" type.
+template <Target target=Target::HostTask, typename scalar_t>
+void syrk(scalar_t alpha, Matrix< scalar_t >&& A,
+          scalar_t beta,  HermitianMatrix< scalar_t >&& C,
+          int priority=0,
+          enable_if_t< std::is_scalar< scalar_t >::value >* = nullptr)
+{
+    syrk(alpha, A, beta, SymmetricMatrix< scalar_t >( C ), priority);
+}
+
+//-----------------------------------------
+// herk()
+template <Target target=Target::HostTask, typename scalar_t>
+void herk(typename blas::traits<scalar_t>::real_t alpha, Matrix< scalar_t >&& A,
+          typename blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t >&& C,
+          int priority=0);
+
+// forward real-symmetric matrices to herk;
+// disabled for complex, which isn't a C++ "scalar" type.
+template <Target target=Target::HostTask, typename scalar_t>
+void herk(scalar_t alpha, Matrix< scalar_t >&& A,
+          scalar_t beta,  SymmetricMatrix< scalar_t >&& C,
+          int priority=0,
+          enable_if_t< std::is_scalar< scalar_t >::value >* = nullptr)
+{
+    herk(alpha, A, beta, HermitianMatrix< scalar_t >( C ), priority);
+}
 
 //-----------------------------------------
 // trsm()
 template <Target target=Target::HostTask, typename scalar_t>
 void trsm(Side side, Diag diag,
-          scalar_t alpha, TriangularMatrix< scalar_t > &&a,
-                          Matrix< scalar_t > &&b,
+          scalar_t alpha, TriangularMatrix< scalar_t >&& A,
+                          Matrix< scalar_t >&& B,
           int priority=0);
 
 } // namespace internal

@@ -74,7 +74,7 @@ void potrf(Tile<scalar_t>&& A)
 ///-----------------------------------------------------------------------------
 /// \brief
 /// Symmetric rank-k update: $C = \alpha op(A) op(A)^T + \beta C$.
-/// Use transpose/conj_transpose to set $op(A)$.
+/// Use transpose or conj_transpose to set $op(A)$.
 template <typename scalar_t>
 void syrk(
     scalar_t alpha, Tile<scalar_t> const& A,
@@ -101,6 +101,38 @@ void syrk(
     scalar_t beta,  Tile<scalar_t>&& C)
 {
     syrk( alpha, A, beta, C );
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+/// Hermitian rank-k update: $C = \alpha op(A) op(A)^T + \beta C$.
+/// Use conj_transpose to set $op(A)$.
+template <typename scalar_t>
+void herk(
+    scalar_t alpha, Tile<scalar_t> const& A,
+    scalar_t beta,  Tile<scalar_t>& C)
+{
+    trace::Block trace_block("blas::herk");
+
+    assert(A.uplo() == blas::Uplo::General);
+    assert(C.mb() == C.nb());  // square
+    assert(C.mb() == A.mb());  // n
+    assert(C.op() == blas::Op::NoTrans);  // todo: row-major
+    blas::herk(blas::Layout::ColMajor,
+               C.uplo(), A.op(),
+               C.nb(), A.nb(),
+               alpha, A.data(), A.stride(),
+               beta,  C.data(), C.stride());
+}
+
+///----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename scalar_t>
+void herk(
+    scalar_t alpha, Tile<scalar_t> const&& A,
+    scalar_t beta,  Tile<scalar_t>&& C)
+{
+    herk( alpha, A, beta, C );
 }
 
 ///-----------------------------------------------------------------------------

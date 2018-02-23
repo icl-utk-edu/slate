@@ -183,7 +183,7 @@ public:
     /// returns op(A)_{i, j}.
     /// If op() is ConjTrans, data is NOT conjugated,
     /// because a reference is returned.
-    scalar_t& operator() (int64_t i, int64_t j)
+    scalar_t const& operator() (int64_t i, int64_t j) const
     {
         assert(0 <= i && i < mb());
         assert(0 <= j && j < nb());
@@ -193,6 +193,15 @@ public:
         else {
             return data_[ j + i*stride_ ];
         }
+    }
+
+    /// returns op(A)_{i, j}.
+    /// If op() is ConjTrans, data is NOT conjugated,
+    /// because a reference is returned.
+    scalar_t& operator() (int64_t i, int64_t j)
+    {
+        // forward to const operator() version
+        return const_cast<scalar_t&>( static_cast<const Tile>(*this)(i,j) );
     }
 
     /// sets/gets whether this tile is valid (cache coherency protocol)

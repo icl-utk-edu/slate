@@ -942,15 +942,258 @@ void test_workspace( int m, int n, int nb, int p, int q )
 }
 
 // -----------------------------------------------------------------------------
+// TESTS
+// general Matrix gather
+void test_gather( int m, int n, int nb, int p, int q )
+{
+    Test name( __func__ );
+
+    // A is m-by-n
+    int lda = int((m + 31)/32)*32;
+    double* Ad = new double[ lda*n ];
+    double* Bd = new double[ lda*n ];
+    for (int j = 0; j < n; ++j) {
+        for (int i = 0; i < m; ++i) {
+            Ad[ i + j*lda ] = mpi_rank*1000 + i + j/1000.;
+            Bd[ i + j*lda ] = nan("");
+        }
+    }
+    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, mpi_comm );
+
+    // -----
+    test_barrier( "gather into A" );
+    A.gather( Ad, lda );
+
+    if (mpi_rank == 0) {
+        // loop over tiles
+        for (int j = 0; j < A.nt(); ++j) {
+            int jb = A.tileNb( j );
+            for (int i = 0; i < A.mt(); ++i) {
+                int ib = A.tileMb( i );
+
+                // verify tile Aij exists
+                auto Aij = A( i, j );
+                unused( Aij );
+
+                // loop over tile {i, j} in Ad, verify data came from correct rank
+                int tile_rank = A.tileRank( i, j );
+                for (int jj = j*nb; jj < j*nb + jb; ++jj) {
+                    for (int ii = i*nb; ii < i*nb + ib; ++ii) {
+                        test_assert( Ad[ ii + jj*lda ] == tile_rank*1000 + ii + jj/1000. );
+                    }
+                }
+            }
+        }
+    }
+
+    // -----
+    test_barrier( "gather into B" );
+    A.gather( Bd, lda );
+
+    if (mpi_rank == 0) {
+        // loop over tiles
+        for (int j = 0; j < A.nt(); ++j) {
+            int jb = A.tileNb( j );
+            for (int i = 0; i < A.mt(); ++i) {
+                int ib = A.tileMb( i );
+
+                // verify tile Aij exists
+                auto Aij = A( i, j );
+                unused( Aij );
+
+                // loop over tile {i, j} in Bd, verify data came from correct rank
+                int tile_rank = A.tileRank( i, j );
+                for (int jj = j*nb; jj < j*nb + jb; ++jj) {
+                    for (int ii = i*nb; ii < i*nb + ib; ++ii) {
+                        test_assert( Bd[ ii + jj*lda ] == tile_rank*1000 + ii + jj/1000. );
+                    }
+                }
+            }
+        }
+    }
+
+    delete[] Ad;
+    Ad = nullptr;
+
+    delete[] Bd;
+    Bd = nullptr;
+}
+
+// -----------------------------------------------------------------------------
+// TESTS
+// Hermitian gather
+void test_hermitian_gather( blas::Uplo uplo, int n, int nb, int p, int q )
+{
+    Test name( __func__ );
+    if (mpi_rank == 0) {
+        std::cout << "uplo " << char(uplo) << "\n";
+    }
+
+    // A is n-by-n
+    int lda = int((n + 31)/32)*32;
+    double* Ad = new double[ lda*n ];
+    double* Bd = new double[ lda*n ];
+    for (int j = 0; j < n; ++j) {
+        for (int i = 0; i < n; ++i) {
+            Ad[ i + j*lda ] = mpi_rank*1000 + i + j/1000.;
+            Bd[ i + j*lda ] = nan("");
+        }
+    }
+    slate::HermitianMatrix<double> A( uplo, n, Ad, lda, nb, p, q, mpi_comm );
+
+    // for lower, set block upper triangle (excluding diagonal tiles) to inf;
+    // for upper, set block lower triangle (excluding diagonal tiles) to inf;
+    // outside local tiles, set data to nan
+    for (int j = 0; j < A.nt(); ++j) {
+        int jb = A.tileNb( j );
+        for (int i = 0; i < A.mt(); ++i) {
+            int ib = A.tileMb( i );
+
+            if ((uplo == blas::Uplo::Lower && i < j) ||  // block upper
+                (uplo == blas::Uplo::Upper && i > j)) {  // block lower
+                for (int jj = j*nb; jj < j*nb + jb; ++jj) {
+                    for (int ii = i*nb; ii < i*nb + ib; ++ii) {
+                        Ad[ ii + jj*lda ] = INFINITY;
+                    }
+                }
+            }
+            else if (! A.tileIsLocal( i, j )) {
+                for (int jj = j*nb; jj < j*nb + jb; ++jj) {
+                    for (int ii = i*nb; ii < i*nb + ib; ++ii) {
+                        Ad[ ii + jj*lda ] = NAN;
+                    }
+                }
+            }
+        }
+    }
+
+    //for (int rank = 0; rank < mpi_size; ++rank) {
+    //    if (rank == mpi_rank) {
+    //        printf( "rank %d, A=", mpi_rank );
+    //        print( n, n, Ad, lda );
+    //    }
+    //    fflush( 0 );
+    //    test_barrier( "print A" );
+    //}
+
+    // -----
+    test_barrier( "gather into A" );
+    A.gather( Ad, lda );
+
+    if (mpi_rank == 0) {
+        //printf( "rank %d, A=", mpi_rank );
+        //print( n, n, Ad, lda );
+
+        // loop over tiles
+        if (uplo == blas::Uplo::Lower) {
+            for (int j = 0; j < A.nt(); ++j) {
+                int jb = A.tileNb( j );
+                for (int i = j; i < A.mt(); ++i) {  // lower
+                    int ib = A.tileMb( i );
+
+                    // verify tile Aij exists
+                    auto Aij = A( i, j );
+                    unused( Aij );
+
+                    // loop over tile {i, j} in Ad, verify data came from correct rank
+                    int tile_rank = A.tileRank( i, j );
+                    for (int jj = j*nb; jj < j*nb + jb; ++jj) {
+                        for (int ii = i*nb; ii < i*nb + ib; ++ii) {
+                            //if (Ad[ ii + jj*lda ] != tile_rank*1000 + ii + jj/1000.) {
+                            //    printf( "%3d, %3d, Ad=%8.4f, expect=%8.4f\n",
+                            //            ii, jj, Ad[ ii + jj*lda ],
+                            //            tile_rank*1000 + ii + jj/1000. );
+                            //}
+                            test_assert( Ad[ ii + jj*lda ] == tile_rank*1000 + ii + jj/1000. );
+                        }
+                    }
+                }
+            }
+        }
+        else {
+            for (int j = 0; j < A.nt(); ++j) {
+                int jb = A.tileNb( j );
+                for (int i = 0; i <= j && i < A.mt(); ++i) {  // upper
+                    int ib = A.tileMb( i );
+
+                    // verify tile Aij exists
+                    auto Aij = A( i, j );
+                    unused( Aij );
+
+                    // loop over tile {i, j} in Ad, verify data came from correct rank
+                    int tile_rank = A.tileRank( i, j );
+                    for (int jj = j*nb; jj < j*nb + jb; ++jj) {
+                        for (int ii = i*nb; ii < i*nb + ib; ++ii) {
+                            test_assert( Ad[ ii + jj*lda ] == tile_rank*1000 + ii + jj/1000. );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // -----
+    test_barrier( "gather into B" );
+    A.gather( Bd, lda );
+
+    if (mpi_rank == 0) {
+        // loop over tiles
+        if (uplo == blas::Uplo::Lower) {
+            for (int j = 0; j < A.nt(); ++j) {
+                int jb = A.tileNb( j );
+                for (int i = j; i < A.mt(); ++i) {  // lower
+                    int ib = A.tileMb( i );
+
+                    // verify tile Aij exists
+                    auto Aij = A( i, j );
+                    unused( Aij );
+
+                    // loop over tile {i, j} in Bd, verify data came from correct rank
+                    int tile_rank = A.tileRank( i, j );
+                    for (int jj = j*nb; jj < j*nb + jb; ++jj) {
+                        for (int ii = i*nb; ii < i*nb + ib; ++ii) {
+                            test_assert( Bd[ ii + jj*lda ] == tile_rank*1000 + ii + jj/1000. );
+                        }
+                    }
+                }
+            }
+        }
+        else {
+            for (int j = 0; j < A.nt(); ++j) {
+                int jb = A.tileNb( j );
+                for (int i = 0; i <= j && i < A.mt(); ++i) {  // upper
+                    int ib = A.tileMb( i );
+
+                    // verify tile Aij exists
+                    auto Aij = A( i, j );
+                    unused( Aij );
+
+                    // loop over tile {i, j} in Bd, verify data came from correct rank
+                    int tile_rank = A.tileRank( i, j );
+                    for (int jj = j*nb; jj < j*nb + jb; ++jj) {
+                        for (int ii = i*nb; ii < i*nb + ib; ++ii) {
+                            test_assert( Bd[ ii + jj*lda ] == tile_rank*1000 + ii + jj/1000. );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    delete[] Ad;
+    Ad = nullptr;
+
+    delete[] Bd;
+    Bd = nullptr;
+}
+
+// -----------------------------------------------------------------------------
 // TODO
 // tileInsert( i, j, dev, life )        // implicit
 // tileInsert( i, j, dev, data, ld )    // implicit
 // tileErase                            // implicit
 //
-// gather
 // clear
-// clearWorkspace
-// reserveWorkspace
 
 
 // -----------------------------------------------------------------------------
@@ -1266,6 +1509,10 @@ int main( int argc, char** argv )
 
     test_conversion( blas::Uplo::Lower, m, n, nb, p, q );
     test_conversion( blas::Uplo::Upper, m, n, nb, p, q );
+
+    test_gather( m, n, nb, p, q );
+    test_hermitian_gather( blas::Uplo::Lower, m, nb, p, q );
+    test_hermitian_gather( blas::Uplo::Upper, m, nb, p, q );
 
     MPI_Finalize();
     return 0;

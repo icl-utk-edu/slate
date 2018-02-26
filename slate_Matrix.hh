@@ -231,12 +231,19 @@ public:
                 if (this->mpi_rank_ == 0) {
                     if (! this->tileIsLocal(i, j)) {
                         Tile<scalar_t>* tile
-                            = this->tileInsert(i, j, &A[(size_t)lda*jj + ii], lda);
+                            = this->tileInsert(i, j, this->host_num_,
+                                               &A[(size_t)lda*jj + ii], lda);
                         tile->recv(this->tileRank(i, j), this->mpi_comm_);
                     }
-                    // todo: if local, check if need to copy data from tiles to A?
-                    // currently assumes local tiles are parts of A.
-                    // check pointers and do lacpy if needed.
+                    else {
+                        // copy local tiles if needed.
+                        auto Aij = this->at(i,j);
+                        if (Aij.data() != &A[(size_t)lda*jj + ii]) {
+                            lapack::lacpy(lapack::MatrixType::General, ib, jb,
+                                          Aij.data(), Aij.stride(),
+                                          &A[(size_t)lda*jj + ii], lda);
+                        }
+                    }
                 }
                 else if (this->tileIsLocal(i, j)) {
                     this->at(i, j).send(0, this->mpi_comm_);
@@ -256,9 +263,10 @@ public:
     ///-------------------------------------------------------------------------
     /// Default constructor
     BaseTrapezoidMatrix():
-        BaseMatrix< scalar_t >(),
-        uplo_(Uplo::Lower)
-    {}
+        BaseMatrix< scalar_t >()
+    {
+        this->uplo_ = Uplo::Lower;
+    }
 
     ///-------------------------------------------------------------------------
     /// Construct matrix by wrapping existing memory of an m-by-n lower
@@ -269,15 +277,16 @@ public:
     /// Input format is an LAPACK-style column-major matrix with leading
     /// dimension (column stride) ld >= m.
     /// Matrix gets tiled with square nb-by-nb tiles.
-    BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
+    BaseTrapezoidMatrix(Uplo in_uplo, int64_t m, int64_t n,
                         scalar_t* A, int64_t ld, int64_t nb,
                         int p, int q, MPI_Comm mpi_comm):
-        BaseMatrix< scalar_t >(m, n, nb, p, q, mpi_comm),
-        uplo_(uplo)
+        BaseMatrix< scalar_t >(m, n, nb, p, q, mpi_comm)
     {
+        this->uplo_ = in_uplo;
+
         // ii, jj are row, col indices
         // i, j are tile (block row, block col) indices
-        if (uplo_ == Uplo::Lower) {
+        if (uplo() == Uplo::Lower) {
             int64_t jj = 0;
             for (int64_t j = 0; j < this->nt(); ++j) {
                 int64_t jb = this->tileNb(j);
@@ -287,10 +296,7 @@ public:
                     int64_t ib = this->tileMb(i);
 
                     if (this->tileIsLocal(i, j)) {
-                        Tile< scalar_t >* tile
-                            = this->tileInsert(i, j, this->host_num_, &A[ ii + jj*ld ], ld);
-                        if (i == j)
-                            tile->uplo(uplo);
+                        this->tileInsert(i, j, this->host_num_, &A[ ii + jj*ld ], ld);
                     }
                     ii += ib;
                 }
@@ -307,10 +313,7 @@ public:
                     int64_t ib = this->tileMb(i);
 
                     if (this->tileIsLocal(i, j)) {
-                        Tile< scalar_t >* tile
-                            = this->tileInsert(i, j, this->host_num_, &A[ ii + jj*ld ], ld);
-                        if (i == j)
-                            tile->uplo(uplo);
+                        this->tileInsert(i, j, this->host_num_, &A[ ii + jj*ld ], ld);
                     }
                     ii += ib;
                 }
@@ -323,9 +326,10 @@ public:
     /// Conversion from general matrix
     /// creates shallow copy view of original matrix.
     BaseTrapezoidMatrix(Uplo uplo, Matrix< scalar_t >& orig):
-        BaseMatrix< scalar_t >(orig),
-        uplo_(uplo)
-    {}
+        BaseMatrix< scalar_t >(orig)
+    {
+        this->uplo_ = uplo;
+    }
 
     ///-------------------------------------------------------------------------
     /// Conversion from general matrix, sub-matrix constructor
@@ -333,9 +337,10 @@ public:
     BaseTrapezoidMatrix(Uplo uplo, Matrix< scalar_t >& orig,
                         int64_t i1, int64_t i2,
                         int64_t j1, int64_t j2):
-        BaseMatrix< scalar_t >(orig, i1, i2, j1, j2),
-        uplo_(uplo)
-    {}
+        BaseMatrix< scalar_t >(orig, i1, i2, j1, j2)
+    {
+        this->uplo_ = uplo;
+    }
 
     ///-------------------------------------------------------------------------
     /// Sub-matrix constructor creates shallow copy view of parent matrix,
@@ -344,9 +349,9 @@ public:
     BaseTrapezoidMatrix(BaseTrapezoidMatrix& orig,
                         int64_t i1, int64_t i2,
                         int64_t j1, int64_t j2):
-        BaseMatrix< scalar_t >(orig, i1, i2, j1, j2),
-        uplo_(orig.uplo_)
+        BaseMatrix< scalar_t >(orig, i1, i2, j1, j2)
     {
+        this->uplo_ = orig.uplo_;
         if (i1 != j1) {
             throw std::exception();
         }
@@ -359,7 +364,6 @@ public:
         using std::swap;
         swap(static_cast< BaseMatrix< scalar_t >& >(A),
              static_cast< BaseMatrix< scalar_t >& >(B));
-        swap(A.uplo_, B.uplo_);
     }
 
     ///-------------------------------------------------------------------------
@@ -369,7 +373,7 @@ public:
     int64_t getMaxHostTiles()
     {
         int64_t num_tiles = 0;
-        if (uplo_ == Uplo::Lower) {
+        if (uplo() == Uplo::Lower) {
             for (int64_t j = 0; j < this->nt(); ++j)
                 for (int64_t i = j; i < this->mt(); ++i)  // lower
                     if (this->tileIsLocal(i, j))
@@ -392,7 +396,7 @@ public:
     int64_t getMaxDeviceTiles(int device)
     {
         int64_t num_tiles = 0;
-        if (uplo_ == Uplo::Lower) {
+        if (uplo() == Uplo::Lower) {
             for (int64_t j = 0; j < this->nt(); ++j)
                 for (int64_t i = j; i < this->mt(); ++i)  // lower
                     if (this->tileIsLocal(i, j) && this->tileDevice(i, j) == device)
@@ -443,59 +447,40 @@ public:
     {
         // ii, jj are row, col indices
         // i, j are tile (block row, block col) indices
-        if (uplo_ == Uplo::Lower) {
-            int64_t jj = 0;
-            for (int64_t j = 0; j < this->nt(); ++j) {
-                int64_t jb = this->tileNb(j);
+        int64_t jj = 0;
+        for (int64_t j = 0; j < this->nt(); ++j) {
+            int64_t jb = this->tileNb(j);
 
-                int64_t ii = 0;
-                for (int64_t i = j; i < this->mt(); ++i) {  // lower
-                    int64_t ib = this->tileMb(i);
+            int64_t ii = 0;
+            for (int64_t i = 0; i < this->mt(); ++i) {
+                int64_t ib = this->tileMb(i);
 
+                if ((uplo() == Uplo::Lower && i >= j) ||
+                    (uplo() == Uplo::Upper && i <= j)) {
                     if (this->mpi_rank_ == 0) {
                         if (! this->tileIsLocal(i, j)) {
                             Tile<scalar_t>* tile
-                                = this->tileInsert(i, j, &A[(size_t)lda*jj + ii], lda);
+                                = this->tileInsert(i, j, this->host_num_,
+                                                   &A[(size_t)lda*jj + ii], lda);
                             tile->recv(this->tileRank(i, j), this->mpi_comm_);
                         }
-                        // todo: if local, check if need to copy data from tiles to A?
-                        // currently assumes local tiles are parts of A.
-                        // check pointers and do lacpy if needed.
+                        else {
+                            // copy local tiles if needed.
+                            auto Aij = this->at(i,j);
+                            if (Aij.data() != &A[(size_t)lda*jj + ii]) {
+                                lapack::lacpy(lapack::MatrixType::General, ib, jb,
+                                              Aij.data(), Aij.stride(),
+                                              &A[(size_t)lda*jj + ii], lda);
+                            }
+                        }
                     }
                     else if (this->tileIsLocal(i, j)) {
                         this->at(i, j).send(0, this->mpi_comm_);
                     }
-                    ii += ib;
                 }
-                jj += jb;
+                ii += ib;
             }
-        }
-        else {
-            int64_t jj = 0;
-            for (int64_t j = 0; j < this->nt(); ++j) {
-                int64_t jb = this->tileNb(j);
-
-                int64_t ii = 0;
-                for (int64_t i = 0; i <= j && i < this->mt(); ++i) {  // upper
-                    int64_t ib = this->tileMb(i);
-
-                    if (this->mpi_rank_ == 0) {
-                        if (! this->tileIsLocal(i, j)) {
-                            Tile<scalar_t>* tile
-                                = this->tileInsert(i, j, &A[(size_t)lda*jj + ii], lda);
-                            tile->recv(this->tileRank(i, j), this->mpi_comm_);
-                        }
-                        // todo: if local, check if need to copy data from tiles to A?
-                        // currently assumes local tiles are parts of A.
-                        // check pointers and do lacpy if needed.
-                    }
-                    else if (this->tileIsLocal(i, j)) {
-                        this->at(i, j).send(0, this->mpi_comm_);
-                    }
-                    ii += ib;
-                }
-                jj += jb;
-            }
+            jj += jb;
         }
     }
 
@@ -507,7 +492,7 @@ public:
     /// - if uplo = Upper, is strictly above the diagonal.
     Matrix< scalar_t > sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2)
     {
-        if (this->uplo_ == Uplo::Lower) {
+        if (this->uplo() == Uplo::Lower) {
             // top-right corner is at or below diagonal
             assert(i1 >= j2);
         }
@@ -520,10 +505,7 @@ public:
 
     ///-------------------------------------------------------------------------
     /// @return whether the matrix is Lower or Upper storage.
-    Uplo uplo() const { return uplo_; }
-
-protected:
-    Uplo uplo_;
+    Uplo uplo() const { return this->uplo_; }
 };
 
 ///=============================================================================

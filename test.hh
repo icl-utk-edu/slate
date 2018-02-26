@@ -13,6 +13,8 @@
     #include "slate_NoOpenmp.hh"
 #endif
 
+#include "slate_Matrix.hh"
+
 #include <iostream>
 #include <iomanip>
 
@@ -121,5 +123,127 @@ void test_barrier( const char* msg )
                       << __FILE__ << ":" << __LINE__ << ": unexpected exception thrown\n"; \
         } \
     } while(0)
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void print( slate::Matrix< scalar_t >& A )
+{
+    printf( "[\n" );
+    // loop over block rows, then rows within block row
+    for (int i = 0; i < A.mt(); ++i) {
+
+        // loop over block cols, print out address
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            int64_t jb = A.tileNb(i);
+
+            if (A.tileIsLocal( i, j )) {
+                printf( "   " );
+                auto Aij = A( i, j );
+                printf( "        %14p", (void*) Aij.data() );
+                for (int64_t jj = 2; jj < jb; ++jj) {
+                    printf( "           " );
+                }
+            }
+            else {
+                printf( " ... " );
+            }
+        }
+        printf( "\n" );
+
+        int64_t ib = A.tileMb(i);
+        for (int64_t ii = 0; ii < ib; ++ii) {
+
+            // loop over block cols, then cols within block col
+            for (int64_t j = 0; j < A.nt(); ++j) {
+                int64_t jb = A.tileNb(i);
+
+                if (A.tileIsLocal( i, j )) {
+                    printf( "   " );
+                    auto Aij = A( i, j );
+                    for (int64_t jj = 0; jj < jb; ++jj) {
+                        printf( " %10.4f", Aij( ii, jj ));
+                    }
+                }
+                else {
+                    printf( " ... " );
+                }
+            }
+            printf( "\n" );
+        }
+        if (i < A.mt()-1) {
+            printf( "\n" );
+        }
+    }
+    printf( "];\n" );
+}
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void print( slate::BaseTrapezoidMatrix< scalar_t >& A )
+{
+    assert( A.uplo() == blas::Uplo::Lower );
+
+    printf( "[\n" );
+    // loop over block rows, then rows within block row
+    for (int i = 0; i < A.mt(); ++i) {
+
+        // loop over block cols, print out address
+        for (int64_t j = 0; j <= i && j < A.nt(); ++j) {  // lower
+            int64_t jb = A.tileNb(i);
+
+            if (A.tileIsLocal( i, j )) {
+                printf( "   " );
+                auto Aij = A( i, j );
+                printf( "        %14p", (void*) Aij.data() );
+                for (int64_t jj = 2; jj < jb; ++jj) {
+                    printf( "           " );
+                }
+            }
+            else {
+                printf( " ... " );
+            }
+        }
+        printf( "\n" );
+
+        int64_t ib = A.tileMb(i);
+        for (int64_t ii = 0; ii < ib; ++ii) {
+
+            // loop over block cols, then cols within block col
+            for (int64_t j = 0; j <= i && j < A.nt(); ++j) {  // lower
+                int64_t jb = A.tileNb(i);
+
+                if (A.tileIsLocal( i, j )) {
+                    auto Aij = A( i, j );
+                    printf( "   " );
+                    for (int64_t jj = 0; jj < jb; ++jj) {
+                        printf( " %10.4f", Aij( ii, jj ));
+                    }
+                }
+                else {
+                    printf( " ... " );
+                }
+            }
+            printf( "\n" );
+        }
+        if (i < A.mt()-1) {
+            printf( "\n" );
+        }
+    }
+    printf( "];\n" );
+}
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void print( int64_t m, int64_t n, scalar_t* A, int64_t lda )
+{
+    printf( "[\n" );
+    for (int i = 0; i < m; ++i) {
+        for (int j = 0; j < n; ++j) {
+            printf( " %10.4f", A[ i + j*lda ] );
+        }
+        printf( "\n" );
+    }
+    printf( "];\n" );
+}
 
 #endif        //  #ifndef TEST_HH

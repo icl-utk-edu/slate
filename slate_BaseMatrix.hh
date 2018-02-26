@@ -93,6 +93,7 @@ public:
         joffset_(0),
         mt_(0),
         nt_(0),
+        uplo_(Uplo::General),
         op_(Op::NoTrans),
         storage_(nullptr)
     {}
@@ -112,6 +113,7 @@ public:
         joffset_(0),
         mt_(ceildiv(m, nb)),
         nt_(ceildiv(n, nb)),
+        uplo_(Uplo::General),
         op_(Op::NoTrans),
         storage_(std::make_shared< MatrixStorage< scalar_t > >(m, n, nb, p, q, mpi_comm)),
         mpi_comm_(mpi_comm)
@@ -170,6 +172,7 @@ public:
         swap(A.joffset_, B.joffset_);
         swap(A.mt_,      B.mt_);
         swap(A.nt_,      B.nt_);
+        swap(A.uplo_,    B.uplo_);
         swap(A.op_,      B.op_);
         swap(A.storage_, B.storage_);
     }
@@ -311,7 +314,13 @@ public:
     /// Insert tile and allocate its data.
     Tile<scalar_t>* tileInsert(int64_t i, int64_t j, int device)
     {
-        return storage_->tileInsert(globalIndex(i, j, device));
+        auto index = globalIndex(i, j, device);
+        auto tile = storage_->tileInsert(index);
+        // set uplo on diagonal tiles (global i == j)
+        if (std::get<0>(index) == std::get<1>(index)) {
+            tile->uplo( uplo_ );
+        }
+        return tile;
     }
 
     ///-------------------------------------------------------------------------
@@ -319,7 +328,13 @@ public:
     Tile<scalar_t>* tileInsert(int64_t i, int64_t j, int device,
                                scalar_t* A, int64_t ld)
     {
-        return storage_->tileInsert(globalIndex(i, j, device), A, ld);
+        auto index = globalIndex(i, j, device);
+        auto tile = storage_->tileInsert(index, A, ld);
+        // set uplo on diagonal tiles (global i == j)
+        if (std::get<0>(index) == std::get<1>(index)) {
+            tile->uplo( uplo_ );
+        }
+        return tile;
     }
 
     ///-------------------------------------------------------------------------
@@ -357,7 +372,7 @@ public:
     /// If target is Devices, also copies tile to all devices on each MPI rank.
     /// This should be called by at least all ranks with local tiles in A;
     /// ones that do not have any local tiles are excluded from the broadcast.
-    // todo: should these be "tileBcast"? there is no tileRecv.
+    // todo: make separate Target::Devices implementation
     template <Target target = Target::Host>
     void tileBcast(int64_t i, int64_t j, BaseMatrix const& A)
     {
@@ -683,6 +698,7 @@ private:
     int64_t nt_;        ///< number of local block cols in this view
 
 protected:
+    Uplo uplo_;         ///< upper or lower storage
     Op op_;             ///< transpose operation with respect to original matrix
     std::shared_ptr< MatrixStorage< scalar_t > > storage_;   ///< shared storage of tiles and buffers
 

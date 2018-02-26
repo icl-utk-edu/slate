@@ -93,7 +93,7 @@ lib_src += \
        slate_internal_syrk.cc \
        slate_internal_trsm.cc \
        slate_Memory.cc \
-       slate_Trace.cc \
+       slate_trace_Trace.cc \
        slate_potrf.cc \
        slate_types.cc
 

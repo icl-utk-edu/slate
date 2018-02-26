@@ -114,7 +114,7 @@ std::vector< libtest::routines_t > routines = {
   //   { "",                   nullptr,        Section::newline },
 
     { "potrf",              test_potrf,     Section::posv },
-    { "ppotrf",             test_ppotrf,    Section::posv },
+    { "potrf_lapack",       test_potrf_lapack,    Section::posv },
   //   { "pptrf",              test_pptrf,     Section::posv },
   //   { "pbtrf",              test_pbtrf,     Section::posv },
   //   { "pttrf",              test_pttrf,     Section::posv },
@@ -432,6 +432,7 @@ Params::Params():
     check     ( "check",   0,    ParamType::Value, 'y', "ny",  "check the results" ),
     error_exit( "error-exit", 0, ParamType::Value, 'n', "ny",  "check error exits" ),
     ref       ( "ref",     0,    ParamType::Value, 'y', "ny",  "run reference; sometimes check implies ref" ),
+    trace     ( "trace",   0,    ParamType::Value, 'n', "ny",  "enable/disable traces" ),
 
     //          name,      w, p, type,             def, min,  max, help
     tol       ( "tol",     0, 0, ParamType::Value,  50,   1, 1000, "tolerance (e.g., error < tol*epsilon to pass)" ),
@@ -518,6 +519,7 @@ Params::Params():
     check  .value();
     error_exit.value();
     ref    .value();
+    trace  .value();
     tol    .value();
     repeat .value();
     verbose.value();
@@ -623,5 +625,8 @@ int main( int argc, char** argv )
         }
     } 
 
-    return(status);
+    if (mpi_rank==0) 
+        return(status);
+    else
+        return(0);
 }

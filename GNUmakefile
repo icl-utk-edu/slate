@@ -13,7 +13,8 @@
 # openmp=1      for OpenMP
 # shared=1      for shared library (libslate.so); otherwise static (libslate.a)
 
--include make.inc
+top ?= .
+include ${top}/make.inc
 
 CXXFLAGS += -O3 -std=c++11 -Wall -pedantic -MMD
 

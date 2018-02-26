@@ -45,7 +45,7 @@
 
 #include "slate_NoCuda.hh"
 
-typedef int cublasHandle_t;
+typedef void *cublasHandle_t;
 typedef int cublasStatus_t;
 typedef int cublasOperation_t;
 
@@ -61,6 +61,8 @@ extern "C" {
 
 cublasStatus_t cublasCreate(cublasHandle_t *handle);
 cublasStatus_t cublasSetStream(cublasHandle_t handle, cudaStream_t streamId);
+cublasStatus_t cublasGetStream(cublasHandle_t handle, cudaStream_t *streamId);
+cublasStatus_t cublasDasum(cublasHandle_t handle, int n, const double *x, int incx, double *result);
 cublasStatus_t cublasDestroy(cublasHandle_t handle);
 
 cublasStatus_t cublasDgemmBatched(

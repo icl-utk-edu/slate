@@ -63,6 +63,16 @@ cublasStatus_t cublasSetStream(cublasHandle_t handle, cudaStream_t streamId)
     assert(0);
 }
 
+cublasStatus_t cublasGetStream(cublasHandle_t handle, cudaStream_t *streamId)
+{
+    assert(0);
+}
+
+cublasStatus_t cublasDasum(cublasHandle_t handle, int n, const double *x, int incx, double *result)
+{
+    assert(0);
+}
+
 cublasStatus_t cublasDgemmBatched(
     cublasHandle_t handle,
     cublasOperation_t transa, cublasOperation_t transb,

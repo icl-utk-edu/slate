@@ -46,7 +46,7 @@
 #include <cstdlib>
 
 typedef int cudaError_t;
-typedef int cudaStream_t;
+typedef void *cudaStream_t;
 typedef int cudaMemcpyKind;
 
 enum {

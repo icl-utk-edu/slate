@@ -41,6 +41,8 @@
 
 namespace slate {
 
+bool Debug::debug_ = true;
+
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
@@ -50,6 +52,7 @@ void Debug::diffLapackMatrices(int64_t m, int64_t n,
                                scalar_t *b, int64_t ldb,
                                int64_t mb, int64_t nb)
 {
+    if (! debug_) return;
     for (int64_t i = 0; i < m; ++i) {
 
         if (i%mb == 2)
@@ -84,6 +87,7 @@ void Debug::diffLapackMatrices(int64_t m, int64_t n,
 template <typename scalar_t>
 void Debug::checkTilesLives(Matrix<scalar_t> &a)
 {
+    if (! debug_) return;
     // i, j are global indices
     for (auto it = a.storage_->tiles_.begin(); it != a.storage_->tiles_.end(); ++it) {
         int64_t i = std::get<0>(it->first);
@@ -107,6 +111,7 @@ void Debug::checkTilesLives(Matrix<scalar_t> &a)
 template <typename scalar_t>
 void Debug::printTilesLives(Matrix<scalar_t> &a)
 {
+    if (! debug_) return;
     // i, j are local indices
     if (a.mpi_rank_ == 0) {
         for (int64_t i = 0; i < a.mt(); ++i) {
@@ -127,6 +132,7 @@ void Debug::printTilesLives(Matrix<scalar_t> &a)
 template <typename scalar_t>
 void Debug::printTilesMaps(Matrix<scalar_t> &a)
 {
+    if (! debug_) return;
     // i, j are local indices
     for (int64_t i = 0; i < a.mt(); ++i) {
         for (int64_t j = 0; j <= i && j < a.nt(); ++j) {
@@ -169,6 +175,7 @@ void Debug::printTilesMaps(Matrix<scalar_t> &a)
 ///
 void Debug::printNumFreeMemBlocks(Memory &m)
 {
+    if (! debug_) return;
     printf("\n");
     for (auto it = m.free_blocks_.begin(); it != m.free_blocks_.end(); ++it)
         printf("\tdevice: %d\tfree blocks: %lu\n", it->first,

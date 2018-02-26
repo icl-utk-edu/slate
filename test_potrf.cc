@@ -21,11 +21,13 @@
     #include "slate_NoOpenmp.hh"
 #endif
 
+#include "test.hh"
+
 //------------------------------------------------------------------------------
 int main (int argc, char *argv[])
 {
     if (argc < 6) {
-        printf("Usage: %s n nb p q lookahead [test]\n", argv[0]);
+        printf("Usage: %s n nb p q lookahead [host|device] [test] [verbose] [trace]\n", argv[0]);
         return EXIT_FAILURE;
     }
 
@@ -34,9 +36,13 @@ int main (int argc, char *argv[])
     int p = atoi(argv[3]);
     int q = atoi(argv[4]);
     int64_t lookahead = atoll(argv[5]);
-    bool test = argc == 7;
-    
-    printf( "n=%lld, nb=%lld, p=%d, q=%d\n", n, nb, p, q );
+    bool use_device = argc > 6 && std::string(argv[6]) == "device";
+    bool test       = argc > 7 && std::string(argv[7]) == "test";
+    bool verbose    = argc > 8 && std::string(argv[8]) == "verbose";
+    bool trace      = argc > 9 && std::string(argv[9]) == "trace";
+
+    printf( "n=%lld, nb=%lld, p=%d, q=%d, lookahead=%lld, use_device=%d, test=%d, verbose=%d, trace=%d\n",
+            n, nb, p, q, lookahead, use_device, test, verbose, trace );
     // for now, potrf requires full tiles
     assert(n % nb == 0);
 
@@ -62,37 +68,64 @@ int main (int argc, char *argv[])
 
     //---------------------
     // test initializations
-    double *A1 = nullptr;
-    double *A2 = nullptr;
+    double *Adata = nullptr;
+    double *Aref  = nullptr;
 
     int64_t seed[] = {0, 0, 0, 1};
-    A1 = new double[ lda*n ];
-    lapack::larnv(1, seed, lda*n, A1);
+    Adata = new double[ lda*n ];
+    lapack::larnv(1, seed, lda*n, Adata);
+
+    // set unused data to nan
+    for (int64_t j = 0; j < n; ++j)
+        for (int64_t i = 0; i < j && i < n; ++i) // upper, excluding diagonal
+            Adata[i + j*lda] = nan("");
 
     // brute force positive definite
     for (int64_t i = 0; i < n; ++i)
-        A1[i*lda+i] += sqrt(n);
+        Adata[i + i*lda] += sqrt(n);
 
     if (test) {
         if (mpi_rank == 0) {
-            A2 = new double[ lda*n ];
-            memcpy(A2, A1, sizeof(double)*lda*n);
+            Aref = new double[ lda*n ];
+            memcpy(Aref, Adata, sizeof(double)*lda*n);
         }
     }
 
-    slate::HermitianMatrix<double> A(slate::Uplo::Lower, n, A1, lda,
+    slate::HermitianMatrix<double> A(slate::Uplo::Lower, n, Adata, lda,
                                      nb, p, q, MPI_COMM_WORLD);
-    slate::trace::Trace::on();
+
+    if (verbose && mpi_rank == 0) {
+        printf( "Adata = " );
+        print( n, n, Adata, lda );
+
+        printf( "A = " );
+        print( A );
+    }
+
+    if (trace) {
+        slate::trace::Trace::on();
+    }
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
-    double start = omp_get_wtime();
-    slate::potrf<slate::Target::HostTask>(A, lookahead);
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    double start = omp_get_wtime();
+    if (use_device) {
+        slate::potrf<slate::Target::Devices>(A, lookahead);
+    }
+    else {
+        slate::potrf<slate::Target::HostTask>(A, lookahead);
+    }
+
+    {
+        slate::trace::Block trace_block("MPI_Barrier");
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
     double time = omp_get_wtime() - start;
-    slate::trace::Trace::finish();
+    if (trace) {
+        slate::trace::Trace::finish();
+    }
 
     //--------------
     // Print GFLOPS.
@@ -103,35 +136,47 @@ int main (int argc, char *argv[])
         fflush(stdout);
     }
 
+    if (verbose && mpi_rank == 0) {
+        printf( "Adata2 = " );
+        print( n, n, Adata, lda );
+    }
+
     //------------------
     // Test correctness.
     if (test) {
-        //A.gather(A1, lda);
+        A.gather(Adata, lda);
 
         if (mpi_rank == 0) {
-            retval = lapack::potrf(lapack::Uplo::Lower, n, A2, lda);
+            double Anorm =
+                lapack::lanhe(lapack::Norm::Fro, lapack::Uplo::Lower, n, Aref, lda);
+
+            retval = lapack::potrf(lapack::Uplo::Lower, n, Aref, lda);
             assert(retval == 0);
 
-            // A.copyFromFull(A1, lda);
-            slate::Debug::diffLapackMatrices(n, n, A1, lda, A2, lda, nb, nb);
+            //slate::Debug::diffLapackMatrices(n, n, Adata, lda, Aref, lda, nb, nb);
 
-            blas::axpy((size_t)lda*n, -1.0, A1, 1, A2, 1);
-            double norm =
-                lapack::lansy(lapack::Norm::Fro, lapack::Uplo::Lower, n, A1, lda);
-
+            blas::axpy((size_t)lda*n, -1.0, Aref, 1, Adata, 1);
             double error =
-                lapack::lansy(lapack::Norm::Fro, lapack::Uplo::Lower, n, A2, lda);
+                lapack::lanhe(lapack::Norm::Fro, lapack::Uplo::Lower, n, Adata, lda);
+            if (Anorm != 0)
+                error /= Anorm;
 
-            if (norm != 0)
-                error /= norm;
-            printf("\t%le\n", error);
+            if (verbose) {
+                printf( "Aref2 = " );
+                print( n, n, Aref, lda );
 
-            delete[] A2;
-            A2 = nullptr;
+                printf( "diff = " );
+                print( n, n, Adata, lda );
+            }
+
+            printf("\t%.2e error\n", error);
+
+            delete[] Aref;
+            Aref = nullptr;
         }
     }
-    delete[] A1;
-    A1 = nullptr;
+    delete[] Adata;
+    Adata = nullptr;
 
     MPI_Finalize();
     return EXIT_SUCCESS;

@@ -44,70 +44,86 @@
 
 namespace slate {
 
-namespace internal_specialization {
+// specialization namespace differentiates, e.g.,
+// internal::potrf from internal::specialization::potrf
+namespace internal {
+namespace specialization {
 
 ///-----------------------------------------------------------------------------
 /// \brief
 /// Distributed parallel Cholesky factorization.
 /// Generic implementation for any target.
+/// Panel and lookahead computed on host using Host OpenMP task.
 template <Target target, typename scalar_t>
 void potrf(slate::internal::TargetType<target>,
            HermitianMatrix<scalar_t>& A, int64_t lookahead)
 {
-#if 0
-    using namespace blas;
-
     uint8_t *column = new uint8_t[ A.nt() ];
 
     #pragma omp parallel
     #pragma omp master
     for (int64_t k = 0; k < A.nt(); ++k) {
-        // panel
+        // panel, high priority
         #pragma omp task depend(inout:column[k]) priority(1)
         {
+            // factor A(k, k)
             internal::potrf<Target::HostTask>(A.sub(k, k), 1);
 
-            if (k+1 <= A.nt()-1)
+            // send A(k, k) down col A(k+1:nt-1, k)
+            if (k+1 <= A.nt()-1) {
                 A.tileBcast(k, k, A.sub(k+1, A.nt()-1, k, k));
+            }
 
-            if (k+1 <= A.nt()-1)
+            // A(k+1:nt-1, k) * A(k, k)^{-H}
+            if (k+1 <= A.nt()-1) {
+                auto Akk = A.sub(k, k);
+                auto Tkk = TriangularMatrix< scalar_t >( Akk );
                 internal::trsm<Target::HostTask>(
                     Side::Right, Diag::NonUnit,
-                    1.0, TriangularMatrix(A.sub(k, k)),
+                    1.0, conj_transpose( Tkk ),
                          A.sub(k+1, A.nt()-1, k, k), 1);
+            }
 
             for (int64_t i = k+1; i < A.nt(); ++i) {
+                // send A(i, k) across row A(i, k+1:i) and down col A(i:nt-1, i)
+                //
                 A.tileBcast(i, k, A.sub(i, i, k+1, i),
                                   A.sub(i, A.nt()-1, i, i));
             }
         }
-        // lookahead column(s)
+        // update lookahead column(s), high priority
         for (int64_t j = k+1; j < k+1+lookahead && j < A.nt(); ++j) {
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[j]) priority(1)
             {
-                internal::syrk<Target::HostTask>(
+                // A(j, j) -= A(j, k) * A(j, k)^H
+                internal::herk<Target::HostTask>(
                     -1.0, A.sub(j, j, k, k),
-                     1.0, A.sub(j, j, j, j), 1);
+                     1.0, A.sub(j, j), 1);
 
-                if (j+1 <= A.nt()-1)
+                // A(j+1:nt, j) -= A(j+1:nt-1, k) * A(j, k)^H
+                if (j+1 <= A.nt()-1) {
+                    auto Ajk = A.sub(j, j, k, k);
                     internal::gemm<Target::HostTask>(
-                        -1.0, A(j+1, A.nt()-1, k, k),
-                              conj_transpose(A(j, j, k, k)),
-                         1.0, A(j+1, A.nt()-1, j, j), 1);
+                        -1.0, A.sub(j+1, A.nt()-1, k, k),
+                              conj_transpose( Ajk ),
+                         1.0, A.sub(j+1, A.nt()-1, j, j), 1);
+                }
             }
         }
-        // trailing submatrix
-        if (k+1+lookahead < A.nt())
+        // update trailing submatrix, normal priority
+        if (k+1+lookahead < A.nt()) {
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[A.nt()-1])
             {
-                internal::syrk<target>(
-                    Uplo::Lower, Op::NoTrans,
+                // A(kl+1:nt-1, kl+1:nt-1) -= A(kl+1:nt-1, k) * A(kl+1:nt-1, k)^H
+                // where kl = k + lookahead
+                internal::herk<target>(
                     -1.0, A.sub(k+1+lookahead, A.nt()-1, k, k),
-                     1.0, A.sub(k+1+lookahead, A.nt()-1, k+1+lookahead, A.nt()-1));
+                     1.0, A.sub(k+1+lookahead, A.nt()-1));
             }
+        }
     }
 
     //Debug::checkTilesLives(A);
@@ -118,95 +134,98 @@ void potrf(slate::internal::TargetType<target>,
     //Debug::printTilesMaps(A);
 
     delete[] column;
-#endif
 }
 
 ///-----------------------------------------------------------------------------
 /// \brief
 /// Distributed parallel Cholesky factorization.
-/// Implementation for GPU device target.
+/// GPU device batched cuBLAS implementation.
 template <typename scalar_t>
 void potrf(slate::internal::TargetType<Target::Devices>,
            HermitianMatrix<scalar_t>& A, int64_t lookahead)
 {
-#if 0
-    using namespace blas;
-
     uint8_t *column = new uint8_t[ A.nt() ];
 
-    for (int device = 0; device < A.num_devices_; ++device)
-        A.reserve(device, A.getMaxDeviceTiles(device));
+    A.reserveDeviceWorkspace();
 
     #pragma omp parallel
     #pragma omp master
     for (int64_t k = 0; k < A.nt(); ++k) {
-        // panel
+        // panel, normal priority
         #pragma omp task depend(inout:column[k])
         {
-            internal::potrf<Target::HostTask>(A.uplo(), A(k, k, k, k));
+            // factor A(k, k)
+            internal::potrf<Target::HostTask>(A.sub(k, k));
 
-            if (k+1 <= A.nt()-1)
-                A.tileBcast(k, k, A(k+1, A.nt()-1, k, k));
-
+            // send A(k, k) down col A(k+1:nt-1, k)
             if (k+1 <= A.nt()-1) {
-                trsm<Target::HostTask>(
+                A.tileBcast(k, k, A.sub(k+1, A.nt()-1, k, k));
+            }
+
+            // A(k+1:nt-1, k) * A(k, k)^{-H}
+            if (k+1 <= A.nt()-1) {
+                auto Akk = A.sub(k, k);
+                auto Tkk = TriangularMatrix< scalar_t >( Akk );
+                internal::trsm<Target::HostTask>(
                     Side::Right, Diag::NonUnit,
-                    1.0, A.sub(k, k, k, k),
+                    1.0, conj_transpose( Tkk ),
                          A.sub(k+1, A.nt()-1, k, k));
             }
 
             for (int64_t i = k+1; i < A.nt(); ++i) {
-                A.template tileBcast<Target::Devices>(
-                    i, k, A.sub(i, i, k+1, i),
-                          A.sub(i, A.nt()-1, i, i));
+                // send A(i, k) across row A(i, k+1:i) and down col A(i:nt-1, i)
+                // todo was: A.template tileBcast<Target::Devices>(
+                A.tileBcast(i, k, A.sub(i, i, k+1, i),
+                                  A.sub(i, A.nt()-1, i, i));
             }
         }
-        // trailing submatrix
-        if (k+1+lookahead < A.nt())
+        // update trailing submatrix, normal priority
+        if (k+1+lookahead < A.nt()) {
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[A.nt()-1])
             {
-                syrk<Target::Devices>(
-                    Uplo::Lower, Op::NoTrans,
+                // A(kl+1:nt-1, kl+1:nt-1) -= A(kl+1:nt-1, k) * A(kl+1:nt-1, k)^H
+                // where kl = k + lookahead
+                internal::herk<Target::Devices>(
                     -1.0, A.sub(k+1+lookahead, A.nt()-1, k, k),
-                     1.0, A.sub(k+1+lookahead, A.nt()-1, k+1+lookahead, A.nt()-1));
+                     1.0, A.sub(k+1+lookahead, A.nt()-1));
             }
+        }
 
-        // lookahead column(s)
+        // update lookahead column(s), normal priority
         for (int64_t j = k+1; j < k+1+lookahead && j < A.nt(); ++j) {
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[j])
             {
-                syrk<Target::HostTask>(
-                    Uplo::Lower, Op::NoTrans,
+                // A(j, j) -= A(j, k) * A(j, k)^H
+                internal::herk<Target::HostTask>(
                     -1.0, A.sub(j, j, k, k),
-                     1.0, A.sub(j, j, j, j));
+                     1.0, A.sub(j, j));
 
-                if (j+1 <= A.nt()-1)
-                    gemm<Target::HostTask>(
-                        Op::NoTrans, Op::Trans,
+                // A(j+1:nt, j) -= A(j+1:nt-1, k) * A(j, k)^H
+                if (j+1 <= A.nt()-1) {
+                    auto Ajk = A.sub(j, j, k, k);
+                    internal::gemm<Target::HostTask>(
                         -1.0, A.sub(j+1, A.nt()-1, k, k),
-                              A.sub(j, j, k, k),
+                              conj_transpose( Ajk ),
                          1.0, A.sub(j+1, A.nt()-1, j, j));
+                }
             }
         }
     }
 
-    for (int device = 0; device < A.num_devices_; ++device)
-        A.memory_->clearDeviceBlocks(device);
-
-    Debug::checkTilesLives(A);
-    Debug::printTilesLives(A);
+    //Debug::checkTilesLives(A);
+    //Debug::printTilesLives(A);
 
     A.clearWorkspace();
 
-    Debug::printTilesMaps(A);
+    //Debug::printTilesMaps(A);
 
     delete[] column;
-#endif
 }
 
+} // namespace specialization
 } // namespace internal
 
 ///-----------------------------------------------------------------------------
@@ -216,7 +235,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 template <Target target, typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>& A, int64_t lookahead)
 {
-    internal_specialization::potrf(internal::TargetType<target>(), A, lookahead);
+    internal::specialization::potrf(internal::TargetType<target>(), A, lookahead);
 }
 
 //------------------------------------------------------------------------------

@@ -240,9 +240,9 @@ void* Memory::allocDeviceMemory(int device, size_t size)
     cudaError_t error;
     error = cudaSetDevice(device);
     assert(error == cudaSuccess);
-
-    void *dev_mem;
-    error = cudaMalloc(&dev_mem, size);
+    
+    double *dev_mem;
+    error = cudaMalloc((void**)&dev_mem, size);
     assert(error == cudaSuccess);
 
     return dev_mem;

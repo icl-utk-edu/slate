@@ -73,6 +73,9 @@ class Debug {
 public:
     //--------
     // generic
+    static void on() { Debug::debug_ = true; }
+    static void off() { Debug::debug_ = false; }
+
     template <typename scalar_t>
     static void diffLapackMatrices(int64_t m, int64_t n,
                                    scalar_t *a, int64_t lda,
@@ -92,6 +95,10 @@ public:
     //-------------
     // Memory class
     static void printNumFreeMemBlocks(Memory &m);
+
+private:
+    static bool debug_;
+
 };
 
 } // namespace slate

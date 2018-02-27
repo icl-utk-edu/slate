@@ -34,6 +34,7 @@ public:
     libtest::ParamChar   check;
     libtest::ParamChar   error_exit;
     libtest::ParamChar   ref;
+    libtest::ParamChar   trace;
     libtest::ParamDouble tol;
     libtest::ParamInt    repeat;
     libtest::ParamInt    verbose;
@@ -386,6 +387,6 @@ void test_lagtr ( Params& params, bool run );
 // additional BLAS
 void test_syr   ( Params& params, bool run );
 
-void test_ppotrf ( Params& params, bool run );
+void test_potrf_lapack ( Params& params, bool run );
 
 #endif  //  #ifndef TEST_HH

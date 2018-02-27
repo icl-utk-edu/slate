@@ -46,7 +46,7 @@
 #include <cstdlib>
 
 typedef int cudaError_t;
-typedef int cudaStream_t;
+typedef void *cudaStream_t;
 typedef int cudaMemcpyKind;
 
 enum {
@@ -77,10 +77,14 @@ cudaError_t cudaMemcpy2DAsync(void* dst, size_t dpitch,
 cudaError_t cudaMemcpyAsync(void *dst, const void *src, size_t count,
                             cudaMemcpyKind kind, cudaStream_t stream = 0);
 
+cudaError_t cudaMemcpy(void *dst, const void * src,
+                       size_t count, cudaMemcpyKind kind);
+
 cudaError_t cudaSetDevice(int device);
 
 cudaError_t cudaStreamCreate(cudaStream_t *pStream);
 cudaError_t cudaStreamSynchronize(cudaStream_t stream);
+cudaError_t cudaStreamDestroy(cudaStream_t pStream);
 
 #ifdef __cplusplus
 }

@@ -106,6 +106,11 @@ int MPI_Group_translate_ranks(MPI_Group group1, int n, const int ranks1[],
     assert(0);
 }
 
+int MPI_Init(int *argc, char ***argv) 
+{
+    return MPI_SUCCESS;
+}
+
 int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
 {
     *provided = MPI_THREAD_MULTIPLE;
@@ -166,6 +171,11 @@ int MPI_Type_vector(int count, int blocklength, int stride,
 int MPI_Wait(MPI_Request *request, MPI_Status *status)
 {
     assert(0);
+}
+
+int MPI_Finalize( void )
+{
+    return MPI_SUCCESS;
 }
 
 #ifdef __cplusplus

@@ -388,8 +388,8 @@ void test_tile_device( int m, int n )
     cudaStream_t stream;
     test_assert( cudaSuccess == cudaSetDevice( device ));
     test_assert( cudaSuccess == cudaStreamCreate( &stream ));
-    test_assert( cudaSuccess == cudaMalloc( &devSd, sizeof(double) * ld*n ));
-    test_assert( cudaSuccess == cudaMalloc( &devCd, sizeof(double) *  m*n ));
+    test_assert( cudaSuccess == cudaMalloc( (void **)&devSd, sizeof(double) * ld*n ));
+    test_assert( cudaSuccess == cudaMalloc( (void **)&devCd, sizeof(double) *  m*n ));
     slate::Tile<double> devS( m, n, devSd, ld, device );
     slate::Tile<double> devC( m, n, devCd,  m, device );
     MPI_Barrier( g_mpi_comm );

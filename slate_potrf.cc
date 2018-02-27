@@ -146,6 +146,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 {
     uint8_t *column = new uint8_t[ A.nt() ];
 
+    A.allocateBatchArrays();
     A.reserveDeviceWorkspace();
 
     #pragma omp parallel

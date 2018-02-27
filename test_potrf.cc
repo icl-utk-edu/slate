@@ -27,7 +27,7 @@
 int main (int argc, char *argv[])
 {
     if (argc < 6) {
-        printf("Usage: %s n nb p q lookahead [host|device] [test] [verbose] [trace]\n", argv[0]);
+        printf("Usage: %s n nb p q lookahead [HostTask|HostNest|HostBatch|Devices] [test] [verbose] [trace]\n", argv[0]);
         return EXIT_FAILURE;
     }
 
@@ -36,13 +36,27 @@ int main (int argc, char *argv[])
     int p = atoi(argv[3]);
     int q = atoi(argv[4]);
     int64_t lookahead = atoll(argv[5]);
-    bool use_device = argc > 6 && std::string(argv[6]) == "device";
+    slate::Target target = slate::Target::Host;
+    if (argc > 6) {
+        if (std::string(argv[6]) == "HostTask")
+            target = slate::Target::HostTask;
+        else if (std::string(argv[6]) == "HostNest")
+            target = slate::Target::HostNest;
+        else if (std::string(argv[6]) == "HostBatch")
+            target = slate::Target::HostBatch;
+        else if (std::string(argv[6]) == "Devices")
+            target = slate::Target::Devices;
+        else {
+            printf( "Unknown target: %s\n", argv[6] );
+            exit(1);
+        }
+    }
     bool test       = argc > 7 && std::string(argv[7]) == "test";
     bool verbose    = argc > 8 && std::string(argv[8]) == "verbose";
     bool trace      = argc > 9 && std::string(argv[9]) == "trace";
 
-    printf( "n=%lld, nb=%lld, p=%d, q=%d, lookahead=%lld, use_device=%d, test=%d, verbose=%d, trace=%d\n",
-            n, nb, p, q, lookahead, use_device, test, verbose, trace );
+    printf( "n=%lld, nb=%lld, p=%d, q=%d, lookahead=%lld, target=%d, test=%d, verbose=%d, trace=%d\n",
+            n, nb, p, q, lookahead, int(target), test, verbose, trace );
     // for now, potrf requires full tiles
     assert(n % nb == 0);
 
@@ -109,14 +123,16 @@ int main (int argc, char *argv[])
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
-
     double start = omp_get_wtime();
-    if (use_device) {
-        slate::potrf<slate::Target::Devices>(A, lookahead);
-    }
-    else {
-        slate::potrf<slate::Target::HostTask>(A, lookahead);
-    }
+
+    if (target == slate::Target::HostTask)
+        slate::potrf< slate::Target::HostTask >(A, lookahead);
+    else if (target == slate::Target::HostNest)
+        slate::potrf< slate::Target::HostNest >(A, lookahead);
+    else if (target == slate::Target::HostBatch)
+        slate::potrf< slate::Target::HostBatch >(A, lookahead);
+    else if (target == slate::Target::Devices)
+        slate::potrf< slate::Target::Devices >(A, lookahead);
 
     {
         slate::trace::Block trace_block("MPI_Barrier");

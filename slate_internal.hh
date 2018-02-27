@@ -119,7 +119,7 @@ void syrk(scalar_t alpha, Matrix< scalar_t >&& A,
           int priority=0,
           enable_if_t< std::is_scalar< scalar_t >::value >* = nullptr)
 {
-    syrk(alpha, A, beta, SymmetricMatrix< scalar_t >( C ), priority);
+    syrk(alpha, std::move(A), beta, SymmetricMatrix< scalar_t >( C ), priority);
 }
 
 //-----------------------------------------
@@ -137,7 +137,7 @@ void herk(scalar_t alpha, Matrix< scalar_t >&& A,
           int priority=0,
           enable_if_t< std::is_scalar< scalar_t >::value >* = nullptr)
 {
-    herk(alpha, A, beta, HermitianMatrix< scalar_t >( C ), priority);
+    herk(alpha, std::move(A), beta, HermitianMatrix< scalar_t >( C ), priority);
 }
 
 //-----------------------------------------

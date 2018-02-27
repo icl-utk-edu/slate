@@ -109,8 +109,8 @@ void syrk(
 /// Use conj_transpose to set $op(A)$.
 template <typename scalar_t>
 void herk(
-    scalar_t alpha, Tile<scalar_t> const& A,
-    scalar_t beta,  Tile<scalar_t>& C)
+    typename blas::traits<scalar_t>::real_t alpha, Tile<scalar_t> const& A,
+    typename blas::traits<scalar_t>::real_t beta,  Tile<scalar_t>& C)
 {
     trace::Block trace_block("blas::herk");
 
@@ -129,8 +129,8 @@ void herk(
 /// Converts rvalue refs to lvalue refs.
 template <typename scalar_t>
 void herk(
-    scalar_t alpha, Tile<scalar_t> const&& A,
-    scalar_t beta,  Tile<scalar_t>&& C)
+    typename blas::traits<scalar_t>::real_t alpha, Tile<scalar_t> const&& A,
+    typename blas::traits<scalar_t>::real_t beta,  Tile<scalar_t>&& C)
 {
     herk( alpha, A, beta, C );
 }

@@ -164,6 +164,7 @@ void herk(internal::TargetType<Target::HostBatch>,
           typename blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t >& C,
           int priority)
 {
+    // diagonal tiles by herk on host
     for (int64_t j = 0; j < C.nt(); ++j)
         if (C.tileIsLocal(j, j))
             #pragma omp task shared(A, C)
@@ -176,6 +177,7 @@ void herk(internal::TargetType<Target::HostBatch>,
                 A.tileTick(j, 0);
             }
 
+    // load off-diagonal tiles to host, if not there
     for (int64_t j = 0; j < C.nt(); ++j)
         for (int64_t i = j+1; i < C.mt(); ++i)  // lower
             if (C.tileIsLocal(i, j)) {
@@ -184,6 +186,7 @@ void herk(internal::TargetType<Target::HostBatch>,
                 C.tileMoveToHost(i, j, C.tileDevice(i, j));
             }
 
+    // off-diagonal tiles by batch gemm on host
     CBLAS_TRANSPOSE opa_array[1];
     CBLAS_TRANSPOSE opb_array[1];
     int m_array[1];
@@ -220,13 +223,14 @@ void herk(internal::TargetType<Target::HostBatch>,
     b_array = new const scalar_t*[group_size];
     c_array = new scalar_t*[group_size];
 
+    int batch_index = 0;
     for (int64_t j = 0; j < C.nt(); ++j)
         for (int64_t i = j+1; i < C.mt(); ++i)  // lower
             if (C.tileIsLocal(i, j)) {
-                a_array[i] = A(i, 0).data();
-                b_array[i] = A(j, 0).data();
-                c_array[i] = C(i, j).data();
-                ++i;
+                a_array[ batch_index ] = A(i, 0).data();
+                b_array[ batch_index ] = A(j, 0).data();
+                c_array[ batch_index ] = C(i, j).data();
+                ++batch_index;
             }
 
     {

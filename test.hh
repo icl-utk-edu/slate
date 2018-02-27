@@ -20,17 +20,12 @@
 
 // -----------------------------------------------------------------------------
 // global variables
-namespace slate {
+MPI_Comm g_mpi_comm;
 int  g_mpi_rank;
+int  g_mpi_size;
 bool g_verbose;
-}
-
-int mpi_rank;
-int mpi_size;
-MPI_Comm mpi_comm;
-
-int num_devices = 1;  // todo: should be omp_get_num_devices
-int host_num    = omp_get_initial_device();
+int  g_num_devices = omp_get_num_devices();
+int  g_host_num    = omp_get_initial_device();
 
 // -----------------------------------------------------------------------------
 // Prints test name at start and end of test.
@@ -43,22 +38,22 @@ public:
     Test( const char* msg ):
         msg_( msg )
     {
-        if (mpi_rank == 0) {
+        if (g_mpi_rank == 0) {
             std::cout << "---------- " << msg_ << "\n" << std::flush;
         }
-        MPI_Barrier( mpi_comm );
+        MPI_Barrier( g_mpi_comm );
     }
 
     // ----------------------------------------
     ~Test()
     {
         std::cout << std::flush;
-        MPI_Barrier( mpi_comm );
+        MPI_Barrier( g_mpi_comm );
 
-        if (mpi_rank == 0) {
+        if (g_mpi_rank == 0) {
             std::cout << "---------- " << msg_ << " done\n\n" << std::flush;
         }
-        MPI_Barrier( mpi_comm );
+        MPI_Barrier( g_mpi_comm );
     }
 
     const char* msg_;
@@ -68,8 +63,8 @@ public:
 // Does barrier, then prints label on rank 0 for next sub-test.
 void test_barrier( const char* msg )
 {
-    MPI_Barrier( mpi_comm );
-    if (mpi_rank == 0) {
+    MPI_Barrier( g_mpi_comm );
+    if (g_mpi_rank == 0) {
         std::cout << "-- " << msg << "\n";
     }
 }
@@ -84,7 +79,7 @@ void test_barrier( const char* msg )
 #define test_assert( cond ) \
     do { \
         if (! (cond)) { \
-            std::cerr << "rank " << slate::g_mpi_rank \
+            std::cerr << "rank " << g_mpi_rank \
                       << ": assertion failed at " \
                       << __FILE__ << ":" << __LINE__ << ": " \
                       << #cond << "\n"; \
@@ -98,13 +93,13 @@ void test_barrier( const char* msg )
     do { \
         try { \
             expr; \
-            std::cerr << "rank " << slate::g_mpi_rank \
+            std::cerr << "rank " << g_mpi_rank \
                       << ": assertion failed at " \
                       << __FILE__ << ":" << __LINE__ << ": did not throw expected exception\n"; \
         } \
         catch( exception& e ) {} \
         catch( ... ) { \
-            std::cerr << "rank " << slate::g_mpi_rank \
+            std::cerr << "rank " << g_mpi_rank \
                       << ": assertion failed at " \
                       << __FILE__ << ":" << __LINE__ << ": wrong exception thrown\n"; \
         } \
@@ -118,7 +113,7 @@ void test_barrier( const char* msg )
             expr; \
         } \
         catch( ... ) { \
-            std::cerr << "rank " << slate::g_mpi_rank \
+            std::cerr << "rank " << g_mpi_rank \
                       << ": assertion failed at " \
                       << __FILE__ << ":" << __LINE__ << ": unexpected exception thrown\n"; \
         } \
@@ -137,11 +132,12 @@ void print( slate::Matrix< scalar_t >& A )
             int64_t jb = A.tileNb(i);
 
             if (A.tileIsLocal( i, j )) {
-                printf( "   " );
+                if (j > 0)
+                    printf( "   " );
                 auto Aij = A( i, j );
-                printf( "        %14p", (void*) Aij.data() );
-                for (int64_t jj = 2; jj < jb; ++jj) {
-                    printf( "           " );
+                printf( "  %-18p", (void*) Aij.data() );
+                for (int64_t jj = 2; jj < jb; ++jj) { // above pointer is 2 columns
+                    printf( " %9s", "" );
                 }
             }
             else {
@@ -158,10 +154,11 @@ void print( slate::Matrix< scalar_t >& A )
                 int64_t jb = A.tileNb(i);
 
                 if (A.tileIsLocal( i, j )) {
-                    printf( "   " );
+                    if (j > 0)
+                        printf( "   " );
                     auto Aij = A( i, j );
                     for (int64_t jj = 0; jj < jb; ++jj) {
-                        printf( " %10.4f", Aij( ii, jj ));
+                        printf( " %9.4f", Aij( ii, jj ));
                     }
                 }
                 else {
@@ -192,11 +189,12 @@ void print( slate::BaseTrapezoidMatrix< scalar_t >& A )
             int64_t jb = A.tileNb(i);
 
             if (A.tileIsLocal( i, j )) {
-                printf( "   " );
+                if (j > 0)
+                    printf( "   " );
                 auto Aij = A( i, j );
-                printf( "        %14p", (void*) Aij.data() );
+                printf( "  %-18p", (void*) Aij.data() );
                 for (int64_t jj = 2; jj < jb; ++jj) {
-                    printf( "           " );
+                    printf( " %9s", "" );
                 }
             }
             else {
@@ -213,10 +211,11 @@ void print( slate::BaseTrapezoidMatrix< scalar_t >& A )
                 int64_t jb = A.tileNb(i);
 
                 if (A.tileIsLocal( i, j )) {
+                    if (j > 0)
+                        printf( "   " );
                     auto Aij = A( i, j );
-                    printf( "   " );
                     for (int64_t jj = 0; jj < jb; ++jj) {
-                        printf( " %10.4f", Aij( ii, jj ));
+                        printf( " %9.4f", Aij( ii, jj ));
                     }
                 }
                 else {
@@ -239,7 +238,7 @@ void print( int64_t m, int64_t n, scalar_t* A, int64_t lda )
     printf( "[\n" );
     for (int i = 0; i < m; ++i) {
         for (int j = 0; j < n; ++j) {
-            printf( " %10.4f", A[ i + j*lda ] );
+            printf( " %9.4f", A[ i + j*lda ] );
         }
         printf( "\n" );
     }

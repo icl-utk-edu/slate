@@ -10,7 +10,7 @@ void test_empty()
     test_barrier( "Matrix" );
     slate::Matrix<double> A;
 
-    if (mpi_rank == 0) {
+    if (g_mpi_rank == 0) {
         std::cout << "General    A( empty ): mt=" << A.mt()
                   << ", nt=" << A.nt()
                   << ", op=" << char(A.op())
@@ -24,7 +24,7 @@ void test_empty()
     test_barrier( "TrapezoidMatrix" );
     slate::TrapezoidMatrix<double> Z;
 
-    if (mpi_rank == 0) {
+    if (g_mpi_rank == 0) {
         std::cout << "Trapezoid  Z( empty ): mt=" << Z.mt()
                   << ", nt=" << Z.nt()
                   << ", op=" << char(Z.op())
@@ -40,7 +40,7 @@ void test_empty()
     test_barrier( "TriangularMatrix" );
     slate::TriangularMatrix<double> T;
 
-    if (mpi_rank == 0) {
+    if (g_mpi_rank == 0) {
         std::cout << "Triangular T( empty ): mt=" << T.mt()
                   << ", nt=" << T.nt()
                   << ", op=" << char(T.op())
@@ -56,7 +56,7 @@ void test_empty()
     test_barrier( "SymmetricMatrix" );
     slate::SymmetricMatrix<double> S;
 
-    if (mpi_rank == 0) {
+    if (g_mpi_rank == 0) {
         std::cout << "Symmetric  S( empty ): mt=" << S.mt()
                   << ", nt=" << S.nt()
                   << ", op=" << char(S.op())
@@ -72,7 +72,7 @@ void test_empty()
     test_barrier( "HermitianMatrix" );
     slate::HermitianMatrix<double> H;
 
-    if (mpi_rank == 0) {
+    if (g_mpi_rank == 0) {
         std::cout << "Hermitian  H( empty ): mt=" << H.mt()
                   << ", nt=" << H.nt()
                   << ", op=" << char(H.op())
@@ -103,14 +103,14 @@ void test_general( int m, int n, int nb, int p, int q )
     // A is m-by-n
     int lda = int((m + 31)/32)*32;
     double* Ad = new double[ lda*n ];
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, mpi_comm );
+    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     // B is n-by-n
     int ldb = int((n + 31)/32)*32;
     double* Bd = new double[ ldb*n ];
-    slate::Matrix<double> B( n, n, Bd, ldb, nb, p, q, mpi_comm );
+    slate::Matrix<double> B( n, n, Bd, ldb, nb, p, q, g_mpi_comm );
 
-    if (mpi_rank == 0) {
+    if (g_mpi_rank == 0) {
         std::cout << "A( m="    << m
                   << ", n="     << n
                   << ", nb="    << nb
@@ -131,7 +131,7 @@ void test_general( int m, int n, int nb, int p, int q )
     test_assert( A.mt() == (m + nb - 1) / nb );
     test_assert( A.nt() == (n + nb - 1) / nb );
     test_assert( A.op() == blas::Op::NoTrans );
-    if (mpi_rank == 0) {
+    if (g_mpi_rank == 0) {
         test_assert( A.tileIsLocal( 0, 0 ) );
         test_assert( A( 0, 0 ).data() == Ad );
         test_assert( A.at( 0, 0 ).data() == Ad );
@@ -140,7 +140,7 @@ void test_general( int m, int n, int nb, int p, int q )
     test_assert( B.mt() == (n + nb - 1) / nb );
     test_assert( B.nt() == (n + nb - 1) / nb );
     test_assert( B.op() == blas::Op::NoTrans );
-    if (mpi_rank == 0) {
+    if (g_mpi_rank == 0) {
         test_assert( B.tileIsLocal( 0, 0 ) );
         test_assert( B( 0, 0 ).data() == Bd );
         test_assert( B.at( 0, 0 ).data() == Bd );
@@ -158,7 +158,7 @@ void test_general( int m, int n, int nb, int p, int q )
     test_assert( B.mt() == (m + nb - 1) / nb );
     test_assert( B.nt() == (n + nb - 1) / nb );
     test_assert( B.op() == blas::Op::NoTrans );
-    if (mpi_rank == 0) {
+    if (g_mpi_rank == 0) {
         test_assert( B.tileIsLocal( 0, 0 ) );
         test_assert( B( 0, 0 ).data() == Ad );
     }
@@ -166,7 +166,7 @@ void test_general( int m, int n, int nb, int p, int q )
     test_assert( A.mt() == (n + nb - 1) / nb );
     test_assert( A.nt() == (n + nb - 1) / nb );
     test_assert( A.op() == blas::Op::Trans );
-    if (mpi_rank == 0) {
+    if (g_mpi_rank == 0) {
         test_assert( A.tileIsLocal( 0, 0 ) );
         test_assert( A( 0, 0 ).data() == Bd );
     }
@@ -178,7 +178,7 @@ void test_general( int m, int n, int nb, int p, int q )
     test_assert( A.mt() == (m + nb - 1) / nb );
     test_assert( A.nt() == (n + nb - 1) / nb );
     test_assert( A.op() == blas::Op::NoTrans );
-    if (mpi_rank == 0) {
+    if (g_mpi_rank == 0) {
         test_assert( A.tileIsLocal( 0, 0 ) );
         test_assert( A( 0, 0 ).data() == Ad );
     }
@@ -186,7 +186,7 @@ void test_general( int m, int n, int nb, int p, int q )
     test_assert( B.mt() == (n + nb - 1) / nb );
     test_assert( B.nt() == (n + nb - 1) / nb );
     test_assert( B.op() == blas::Op::Trans );
-    if (mpi_rank == 0) {
+    if (g_mpi_rank == 0) {
         test_assert( B.tileIsLocal( 0, 0 ) );
         test_assert( B( 0, 0 ).data() == Bd );
     }
@@ -225,7 +225,7 @@ void test_general( int m, int n, int nb, int p, int q )
                 test_assert( tile.uplo() == blas::Uplo::General );
                 test_assert( tile.origin() == true );
                 test_assert( tile.valid()  == true );
-                test_assert( tile.device() == host_num );
+                test_assert( tile.device() == g_host_num );
                 test_assert( tile.size() == size_t(ib * jb) );
                 test_assert( tile.bytes() == sizeof(double) * ib * jb );
 
@@ -251,7 +251,7 @@ void test_general( int m, int n, int nb, int p, int q )
 
     // ----- verify size (# tiles)
     test_barrier( "size" );
-    size_t size = (mt/p + (mt%p > mpi_rank%p)) * (nt/q + (nt%q > mpi_rank/p));
+    size_t size = (mt/p + (mt%p > g_mpi_rank%p)) * (nt/q + (nt%q > g_mpi_rank/p));
     test_assert( A.size() == size );
 
     // ----- verify tile functions
@@ -261,10 +261,12 @@ void test_general( int m, int n, int nb, int p, int q )
             int rank = (i % p) + (j % q)*p;
             test_assert( rank == A.tileRank( i, j ));
 
-            int dev = (j / q) % num_devices;
-            test_assert( dev == A.tileDevice( i, j ));
+            if (g_num_devices > 0) {
+                int dev = (j / q) % g_num_devices;
+                test_assert( dev == A.tileDevice( i, j ));
+            }
 
-            test_assert( (rank == mpi_rank) == A.tileIsLocal( i, j ));
+            test_assert( (rank == g_mpi_rank) == A.tileIsLocal( i, j ));
         }
     }
 
@@ -273,32 +275,32 @@ void test_general( int m, int n, int nb, int p, int q )
     for (int j = 0; j < nt; ++j) {
         for (int i = 0; i < mt; ++i) {
             if (A.tileIsLocal( i, j )) {
-                slate::Tile<double> B = A( i, j );
+                slate::Tile<double> D = A( i, j );
 
-                auto BT = transpose( B );
-                test_assert( BT.op() == blas::Op::Trans );
-                test_assert( BT.mb() == B.nb() );
-                test_assert( BT.nb() == B.mb() );
+                auto DT = transpose( D );
+                test_assert( DT.op() == blas::Op::Trans );
+                test_assert( DT.mb() == D.nb() );
+                test_assert( DT.nb() == D.mb() );
 
-                auto BTT = transpose( BT );
-                test_assert( BTT.op() == blas::Op::NoTrans );
-                test_assert( BTT.mb() == B.mb() );
-                test_assert( BTT.nb() == B.nb() );
+                auto DTT = transpose( DT );
+                test_assert( DTT.op() == blas::Op::NoTrans );
+                test_assert( DTT.mb() == D.mb() );
+                test_assert( DTT.nb() == D.nb() );
 
-                auto BC = conj_transpose( B );
-                test_assert( BC.op() == blas::Op::ConjTrans );
-                test_assert( BC.mb() == B.nb() );
-                test_assert( BC.nb() == B.mb() );
+                auto DC = conj_transpose( D );
+                test_assert( DC.op() == blas::Op::ConjTrans );
+                test_assert( DC.mb() == D.nb() );
+                test_assert( DC.nb() == D.mb() );
 
-                auto BCC = conj_transpose( BC );
-                test_assert( BCC.op() == blas::Op::NoTrans );
-                test_assert( BCC.mb() == B.mb() );
-                test_assert( BCC.nb() == B.nb() );
+                auto DCC = conj_transpose( DC );
+                test_assert( DCC.op() == blas::Op::NoTrans );
+                test_assert( DCC.mb() == D.mb() );
+                test_assert( DCC.nb() == D.nb() );
 
-                // conj_trans( trans( B )) is not supported
-                // trans( conj_trans( B )) is not supported
-                test_assert_throw( conj_transpose( BT ), std::exception );
-                test_assert_throw( transpose( BC ),      std::exception );
+                // conj_trans( trans( D )) is not supported
+                // trans( conj_trans( D )) is not supported
+                test_assert_throw( conj_transpose( DT ), std::exception );
+                test_assert_throw( transpose( DC ),      std::exception );
             }
         }
     }
@@ -382,7 +384,7 @@ void test_general_sub( int m, int n, int nb, int p, int q )
     // A is m-by-n
     int lda = int((m + 31)/32)*32;
     double* Ad = new double[ lda*n ];
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, mpi_comm );
+    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     int64_t mt = A.mt();
     int64_t nt = A.nt();
@@ -405,7 +407,7 @@ void test_general_sub( int m, int n, int nb, int p, int q )
 
         auto As = A.sub( i1, i2, j1, j2 );
         slate::Matrix<double> As2( A, i1, i2, j1, j2 );
-        if (mpi_rank == 0) {
+        if (g_mpi_rank == 0) {
             std::cout << "A.sub( " << std::setw(3) << i1 << ": " << std::setw(3) << i2
                       << ", "      << std::setw(3) << j1 << ": " << std::setw(3) << j2
                       << "): mt="  << std::setw(3) << As.mt()
@@ -476,7 +478,7 @@ void test_general_sub( int m, int n, int nb, int p, int q )
 
         test_assert( ranks == ranks2 );
 
-        //if (mpi_rank == 0) {
+        //if (g_mpi_rank == 0) {
         //    std::cout << " rank=0, getRanks={ ";
         //    for (auto iter = ranks.begin(); iter != ranks.end(); ++iter)
         //        std::cout << *iter << ", ";
@@ -502,7 +504,7 @@ void test_general_send( int m, int n, int nb, int p, int q )
     // A is m-by-n
     int lda = int((m + 31)/32)*32;
     double* Ad = new double[ lda*n ];
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, mpi_comm );
+    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     // -------------------- broadcast A(0,0) to all of A
     test_barrier( "broadcast A(0,0) to all of A" );
@@ -634,7 +636,7 @@ void test_general_send2( int m, int n, int nb, int p, int q )
     // A is m-by-n
     int lda = int((m + 31)/32)*32;
     double* Ad = new double[ lda*n ];
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, mpi_comm );
+    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     // -------------------- broadcast A(1,1) across row A(1,2:nt) and col A(2:mt,1)
     test_barrier( "broadcast A(1,1) to A(1,2:nt) and A(2:mt,1)" );
@@ -707,9 +709,9 @@ void test_cuda_streams( int m, int n, int nb, int p, int q )
     for (int j = 0; j < n; ++j)
         for (int i = 0; i < m; ++i)
             Ad[ i + j*lda ] = i + j/1000.;
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, mpi_comm );
+    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
-    for (int device = 0; device < num_devices; ++device) {
+    for (int device = 0; device < g_num_devices; ++device) {
         double* devAd;
         cudaError_t err;
         size_t size = sizeof(double) * lda*n;
@@ -782,13 +784,13 @@ void test_batch_arrays( int m, int n, int nb, int p, int q )
     for (int j = 0; j < n; ++j)
         for (int i = 0; i < m; ++i)
             Ad[ i + j*lda ] = i + j/1000.;
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, mpi_comm );
+    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     test_barrier( "allocateBatchArrays" );
     A.allocateBatchArrays();
 
     // test filling in each host array and copying to device array
-    for (int device = 0; device < num_devices; ++device) {
+    for (int device = 0; device < g_num_devices; ++device) {
         int size = A.getMaxDeviceTiles( device );
         double **array_host, **array_device;
         cudaError_t err;
@@ -831,7 +833,7 @@ void test_batch_arrays( int m, int n, int nb, int p, int q )
     A.clearBatchArrays();
 
     // now all the arrays should give errors
-    for (int device = 0; device < num_devices; ++device) {
+    for (int device = 0; device < g_num_devices; ++device) {
         test_assert_throw( A.a_array_host( device ), std::exception );
         test_assert_throw( A.b_array_host( device ), std::exception );
         test_assert_throw( A.c_array_host( device ), std::exception );
@@ -855,9 +857,9 @@ void test_copyToDevice( int m, int n, int nb, int p, int q )
     for (int j = 0; j < n; ++j)
         for (int i = 0; i < m; ++i)
             Ad[ i + j*lda ] = i + j/1000.;
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, mpi_comm );
+    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
-    for (int device = 0; device < num_devices; ++device) {
+    for (int device = 0; device < g_num_devices; ++device) {
         if (A.tileIsLocal( 0, 0 )) {
             // initially, tile exists only on host
             auto Aij = A( 0, 0 );
@@ -887,12 +889,12 @@ void test_copyToHost( int m, int n, int nb, int p, int q )
     for (int j = 0; j < n; ++j)
         for (int i = 0; i < m; ++i)
             Ad[ i + j*lda ] = i + j/1000.;
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, mpi_comm );
+    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     // todo: this doesn't test if the tile exists only on device,
     // because that currently doesn't happen: data starts on host and is copied
     // to the device, but the host tile always exists.
-    for (int device = 0; device < num_devices; ++device) {
+    for (int device = 0; device < g_num_devices; ++device) {
         if (A.tileIsLocal( 0, 0 )) {
             // initially, tile exists only on host
             auto Aij = A( 0, 0 );
@@ -934,7 +936,7 @@ void test_workspace( int m, int n, int nb, int p, int q )
     for (int j = 0; j < n; ++j)
         for (int i = 0; i < m; ++i)
             Ad[ i + j*lda ] = i + j/1000.;
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, mpi_comm );
+    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     A.reserveHostWorkspace();
     A.reserveDeviceWorkspace();
@@ -954,17 +956,17 @@ void test_gather( int m, int n, int nb, int p, int q )
     double* Bd = new double[ lda*n ];
     for (int j = 0; j < n; ++j) {
         for (int i = 0; i < m; ++i) {
-            Ad[ i + j*lda ] = mpi_rank*1000 + i + j/1000.;
+            Ad[ i + j*lda ] = g_mpi_rank*1000 + i + j/1000.;
             Bd[ i + j*lda ] = nan("");
         }
     }
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, mpi_comm );
+    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     // -----
     test_barrier( "gather into A" );
     A.gather( Ad, lda );
 
-    if (mpi_rank == 0) {
+    if (g_mpi_rank == 0) {
         // loop over tiles
         for (int j = 0; j < A.nt(); ++j) {
             int jb = A.tileNb( j );
@@ -990,7 +992,7 @@ void test_gather( int m, int n, int nb, int p, int q )
     test_barrier( "gather into B" );
     A.gather( Bd, lda );
 
-    if (mpi_rank == 0) {
+    if (g_mpi_rank == 0) {
         // loop over tiles
         for (int j = 0; j < A.nt(); ++j) {
             int jb = A.tileNb( j );
@@ -1025,7 +1027,7 @@ void test_gather( int m, int n, int nb, int p, int q )
 void test_hermitian_gather( blas::Uplo uplo, int n, int nb, int p, int q )
 {
     Test name( __func__ );
-    if (mpi_rank == 0) {
+    if (g_mpi_rank == 0) {
         std::cout << "uplo " << char(uplo) << "\n";
     }
 
@@ -1035,11 +1037,11 @@ void test_hermitian_gather( blas::Uplo uplo, int n, int nb, int p, int q )
     double* Bd = new double[ lda*n ];
     for (int j = 0; j < n; ++j) {
         for (int i = 0; i < n; ++i) {
-            Ad[ i + j*lda ] = mpi_rank*1000 + i + j/1000.;
+            Ad[ i + j*lda ] = g_mpi_rank*1000 + i + j/1000.;
             Bd[ i + j*lda ] = nan("");
         }
     }
-    slate::HermitianMatrix<double> A( uplo, n, Ad, lda, nb, p, q, mpi_comm );
+    slate::HermitianMatrix<double> A( uplo, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     // for lower, set block upper triangle (excluding diagonal tiles) to inf;
     // for upper, set block lower triangle (excluding diagonal tiles) to inf;
@@ -1067,9 +1069,9 @@ void test_hermitian_gather( blas::Uplo uplo, int n, int nb, int p, int q )
         }
     }
 
-    //for (int rank = 0; rank < mpi_size; ++rank) {
-    //    if (rank == mpi_rank) {
-    //        printf( "rank %d, A=", mpi_rank );
+    //for (int rank = 0; rank < g_mpi_size; ++rank) {
+    //    if (rank == g_mpi_rank) {
+    //        printf( "rank %d, A=", g_mpi_rank );
     //        print( n, n, Ad, lda );
     //    }
     //    fflush( 0 );
@@ -1080,8 +1082,8 @@ void test_hermitian_gather( blas::Uplo uplo, int n, int nb, int p, int q )
     test_barrier( "gather into A" );
     A.gather( Ad, lda );
 
-    if (mpi_rank == 0) {
-        //printf( "rank %d, A=", mpi_rank );
+    if (g_mpi_rank == 0) {
+        //printf( "rank %d, A=", g_mpi_rank );
         //print( n, n, Ad, lda );
 
         // loop over tiles
@@ -1136,7 +1138,7 @@ void test_hermitian_gather( blas::Uplo uplo, int n, int nb, int p, int q )
     test_barrier( "gather into B" );
     A.gather( Bd, lda );
 
-    if (mpi_rank == 0) {
+    if (g_mpi_rank == 0) {
         // loop over tiles
         if (uplo == blas::Uplo::Lower) {
             for (int j = 0; j < A.nt(); ++j) {
@@ -1205,9 +1207,9 @@ void test_hermitian( blas::Uplo uplo, int n, int nb, int p, int q )
     int lda = int((m + 31)/32)*32;
     double* Ad = new double[ lda*n ];
 
-    slate::HermitianMatrix<double> A( uplo, n, Ad, lda, nb, p, q, mpi_comm );
+    slate::HermitianMatrix<double> A( uplo, n, Ad, lda, nb, p, q, g_mpi_comm );
 
-    if (mpi_rank == 0) {
+    if (g_mpi_rank == 0) {
         std::cout << "A( uplo=" << char(uplo)
                   << ", n="     << n
                   << ", nb="    << nb
@@ -1261,7 +1263,7 @@ void test_hermitian( blas::Uplo uplo, int n, int nb, int p, int q )
 
                 test_assert( tile.origin() == true );
                 test_assert( tile.valid()  == true );
-                test_assert( tile.device() == host_num );
+                test_assert( tile.device() == g_host_num );
                 test_assert( tile.size() == size_t(ib * jb) );
                 test_assert( tile.bytes() == sizeof(double) * ib * jb );
             }
@@ -1277,7 +1279,7 @@ void test_hermitian( blas::Uplo uplo, int n, int nb, int p, int q )
         for (int i = 0; i < mt; ++i) {
             if ((uplo == blas::Uplo::Lower && i >= j) ||
                 (uplo == blas::Uplo::Upper && i <= j)) {
-                if (i % p == mpi_rank % p && j % q == mpi_rank / p) {
+                if (i % p == g_mpi_rank % p && j % q == g_mpi_rank / p) {
                     ++size;
                 }
             }
@@ -1292,10 +1294,12 @@ void test_hermitian( blas::Uplo uplo, int n, int nb, int p, int q )
             int rank = (i % p) + (j % q)*p;
             test_assert( rank == A.tileRank( i, j ));
 
-            int dev = (j / q) % num_devices;
-            test_assert( dev == A.tileDevice( i, j ));
+            if (g_num_devices > 0) {
+                int dev = (j / q) % g_num_devices;
+                test_assert( dev == A.tileDevice( i, j ));
+            }
 
-            test_assert( (rank == mpi_rank) == A.tileIsLocal( i, j ));
+            test_assert( (rank == g_mpi_rank) == A.tileIsLocal( i, j ));
         }
     }
 
@@ -1307,7 +1311,7 @@ void test_conversion( blas::Uplo uplo, int m, int n, int nb, int p, int q )
 {
     Test name( __func__ );
 
-    if (mpi_rank == 0) {
+    if (g_mpi_rank == 0) {
         std::cout << "uplo " << char(uplo) << "\n";
     }
 
@@ -1317,7 +1321,7 @@ void test_conversion( blas::Uplo uplo, int m, int n, int nb, int p, int q )
     for (int j = 0; j < n; ++j)
         for (int i = 0; i < m; ++i)
             Ad[ i + j*lda ] = i + j/1000.;
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, mpi_comm );
+    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     // B is n-by-m general
     int ldb = int((n + 31)/32)*32;
@@ -1325,7 +1329,7 @@ void test_conversion( blas::Uplo uplo, int m, int n, int nb, int p, int q )
     for (int j = 0; j < m; ++j)
         for (int i = 0; i < n; ++i)
             Bd[ i + j*ldb ] = i + j/1000.;
-    slate::Matrix<double> B( n, m, Bd, ldb, nb, p, q, mpi_comm );
+    slate::Matrix<double> B( n, m, Bd, ldb, nb, p, q, g_mpi_comm );
 
     // S is n-by-n symmetric
     int lds = int((n + 31)/32)*32;
@@ -1333,7 +1337,7 @@ void test_conversion( blas::Uplo uplo, int m, int n, int nb, int p, int q )
     for (int j = 0; j < n; ++j)
         for (int i = 0; i < n; ++i)
             Sd[ i + j*lds ] = i + j/1000.;
-    slate::SymmetricMatrix<double> S( uplo, n, Sd, lds, nb, p, q, mpi_comm );
+    slate::SymmetricMatrix<double> S( uplo, n, Sd, lds, nb, p, q, g_mpi_comm );
 
     // -----
     // general to triangular
@@ -1457,17 +1461,15 @@ void test_conversion( blas::Uplo uplo, int m, int n, int nb, int p, int q )
 int main( int argc, char** argv )
 {
     MPI_Init( &argc, &argv );
-    mpi_comm = MPI_COMM_WORLD;
-    MPI_Comm_rank( mpi_comm, &mpi_rank );
-    MPI_Comm_size( mpi_comm, &mpi_size );
-    slate::g_mpi_rank = mpi_rank;
-    slate::g_verbose = false; //(mpi_rank == 0);
+    g_mpi_comm = MPI_COMM_WORLD;
+    MPI_Comm_rank( g_mpi_comm, &g_mpi_rank );
+    MPI_Comm_size( g_mpi_comm, &g_mpi_size );
 
     int m  = 200;
     int n  = 500;
     int nb = 64;
     int p  = 2;
-    int q  = mpi_size / p;
+    int q  = g_mpi_size / p;
 
     if (argc > 1) { m  = atoi( argv[1] ); }
     if (argc > 2) { n  = atoi( argv[2] ); }
@@ -1475,23 +1477,23 @@ int main( int argc, char** argv )
     if (argc > 4) { p  = atoi( argv[4] ); }
     if (argc > 5) { q  = atoi( argv[5] ); }
 
-    test_assert( p * q == mpi_size );
+    test_assert( p * q == g_mpi_size );
 
-    std::cout << "mpi rank=" << mpi_rank
-              << ", mpi size=" << mpi_size
-              << ", num_devices=" << num_devices
+    std::cout << "mpi rank=" << g_mpi_rank
+              << ", mpi size=" << g_mpi_size
+              << ", num devices=" << g_num_devices
               << ", m=" << m
               << ", n=" << n
               << ", nb=" << nb
               << ", p=" << p
               << ", q=" << q
               << "\n" << std::flush;
-    MPI_Barrier( mpi_comm );
+    MPI_Barrier( g_mpi_comm );
 
-    if (mpi_rank == 0) {
+    if (g_mpi_rank == 0) {
         std::cout << "\n" << std::flush;
     }
-    MPI_Barrier( mpi_comm );
+    MPI_Barrier( g_mpi_comm );
 
     test_empty();
     test_general( m, n, nb, p, q );

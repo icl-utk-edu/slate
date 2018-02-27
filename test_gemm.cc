@@ -29,15 +29,15 @@ int main (int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    int64_t n  = atoll(argv[1]);
-    int64_t nb = atoll(argv[2]);
-    int p = atoi(argv[3]);
-    int q = atoi(argv[4]);
-    int64_t lookahead = atoll(argv[5]);
+    int64_t n = atol(argv[1]);
+    int64_t nb = atol(argv[2]);
+    int64_t p = atol(argv[3]);
+    int64_t q = atol(argv[4]);
+    int64_t lookahead = atol(argv[5]);
     bool test = argc == 7;
     
-    printf( "n=%ld, nb=%ld, p=%d, q=%d\n", n, nb, p, q );
-    // for now, potrf requires full tiles
+    printf( "n=%ld, nb=%ld, p=%ld, q=%ld\n", n, nb, p, q );
+    // for now, gemm requires full tiles
     assert(n % nb == 0);
 
     int64_t lda = n;
@@ -62,33 +62,44 @@ int main (int argc, char *argv[])
 
     //---------------------
     // test initializations
+    double alpha = 1.234;
+    double beta = 4.321;
+
     double *A1 = nullptr;
-    double *A2 = nullptr;
+    double *B1 = nullptr;
+    double *C1 = nullptr;
+    double *C2 = nullptr;
 
-    int64_t seed[] = {0, 0, 0, 1};
+    int64_t seed_a[] = {0, 1, 0, 0};
     A1 = new double[ lda*n ];
-    lapack::larnv(1, seed, lda*n, A1);
+    lapack::larnv(1, seed_a, lda*n, A1);
 
-    // brute force positive definite
-    for (int64_t i = 0; i < n; ++i)
-        A1[i*lda+i] += sqrt(n);
+    int64_t seed_b[] = {0, 0, 1, 0};
+    B1 = new double[ lda*n ];
+    lapack::larnv(1, seed_b, lda*n, B1);
+
+    int64_t seed_c[] = {0, 0, 0, 1};
+    C1 = new double[ lda*n ];
+    lapack::larnv(1, seed_c, lda*n, C1);
 
     if (test) {
         if (mpi_rank == 0) {
-            A2 = new double[ lda*n ];
-            memcpy(A2, A1, sizeof(double)*lda*n);
+            C2 = new double[ lda*n ];
+            memcpy(C2, C1, sizeof(double)*lda*n);
         }
     }
 
-    slate::HermitianMatrix<double> A(slate::Uplo::Lower, n, A1, lda,
-                                     nb, p, q, MPI_COMM_WORLD);
+    slate::Matrix<double> A(n, n, A1, lda, nb, p, q, MPI_COMM_WORLD);
+    slate::Matrix<double> B(n, n, B1, lda, nb, p, q, MPI_COMM_WORLD);
+    slate::Matrix<double> C(n, n, C1, lda, nb, p, q, MPI_COMM_WORLD);
     slate::trace::Trace::on();
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
     double start = omp_get_wtime();
-    slate::potrf<slate::Target::HostTask>(A, lookahead);
+    slate::gemm<slate::Target::HostTask>(blas::Op::NoTrans, blas::Op::NoTrans,
+                                         alpha, A, B, beta, C, lookahead);
 
     MPI_Barrier(MPI_COMM_WORLD);
     double time = omp_get_wtime() - start;
@@ -97,7 +108,7 @@ int main (int argc, char *argv[])
     //--------------
     // Print GFLOPS.
     if (mpi_rank == 0) {
-        double ops = (double) n*n*n / 3.0;
+        double ops = 2.0*n*n*n;
         double gflops = ops/time/1e9;
         printf("\t%.0f GFLOPS\n", gflops);
         fflush(stdout);
@@ -106,32 +117,36 @@ int main (int argc, char *argv[])
     //------------------
     // Test correctness.
     if (test) {
-        //A.gather(A1, lda);
+        //C.gather(C1, lda);
 
         if (mpi_rank == 0) {
-            retval = lapack::potrf(lapack::Uplo::Lower, n, A2, lda);
-            assert(retval == 0);
+            blas::gemm(blas::Layout::ColMajor,
+                       blas::Op::NoTrans, blas::Op::NoTrans,
+                       n, n, n,
+                       alpha, A1,  lda,
+                              B1,  lda,
+                       beta,  C2, lda);
 
-            // A.copyFromFull(A1, lda);
-            slate::Debug::diffLapackMatrices(n, n, A1, lda, A2, lda, nb, nb);
+            // C.copyFromFull(C1, lda);
+            slate::Debug::diffLapackMatrices(n, n, C1, lda, C2, lda, nb, nb);
 
-            blas::axpy((size_t)lda*n, -1.0, A1, 1, A2, 1);
+            blas::axpy((size_t)lda*n, -1.0, C1, 1, C2, 1);
             double norm =
-                lapack::lansy(lapack::Norm::Fro, lapack::Uplo::Lower, n, A1, lda);
+                lapack::lange(lapack::Norm::Fro, n, n, C1, lda);
 
             double error =
-                lapack::lansy(lapack::Norm::Fro, lapack::Uplo::Lower, n, A2, lda);
+                lapack::lange(lapack::Norm::Fro, n, n, C2, lda);
 
             if (norm != 0)
                 error /= norm;
             printf("\t%le\n", error);
 
-            delete[] A2;
-            A2 = nullptr;
+            delete[] C2;
+            C2 = nullptr;
         }
     }
-    delete[] A1;
-    A1 = nullptr;
+    delete[] C1;
+    C1 = nullptr;
 
     MPI_Finalize();
     return EXIT_SUCCESS;

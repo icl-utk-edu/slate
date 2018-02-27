@@ -86,13 +86,13 @@ void gemm(internal::TargetType<Target::HostTask>,
                 #pragma omp task shared(A, B, C) priority(priority)
                 {
                     A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
-                    B.tileCopyToHost(j, 0, B.tileDevice(j, 0));
+                    B.tileCopyToHost(0, j, B.tileDevice(0, j));
                     C.tileMoveToHost(i, j, C.tileDevice(i, j));
                     gemm(alpha, A(i, 0),
                                 B(0, j),
                          beta,  C(i, j));
                     A.tileTick(i, 0);
-                    B.tileTick(j, 0);
+                    B.tileTick(0, j);
                 }
 
     #pragma omp taskwait

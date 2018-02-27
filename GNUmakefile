@@ -17,6 +17,7 @@ top ?= .
 include ${top}/make.inc
 
 CXXFLAGS += -O3 -std=c++11 -Wall -pedantic -MMD
+CXXFLAGS += -Wno-strict-overflow -Wsign-compare
 
 pwd = ${shell pwd}
 
@@ -96,13 +97,15 @@ lib_src += \
        slate_Memory.cc \
        slate_trace_Trace.cc \
        slate_potrf.cc \
+       slate_gemm.cc \
        slate_types.cc
 
 test_src = \
        test_memory.cc \
        test_matrix.cc \
        test_tile.cc \
-       test_potrf.cc
+       test_potrf.cc \
+       test_gemm.cc
 
 lib_obj  = $(lib_src:.cc=.o)
 test_obj = $(test_src:.cc=.o)

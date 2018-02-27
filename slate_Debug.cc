@@ -63,8 +63,8 @@ void Debug::diffLapackMatrices(int64_t m, int64_t n,
             if (j%nb == 2)
                 j += nb-4;
 
-            scalar_t error = a[(size_t)lda*j+i] - b[(size_t)lda*j+i];
-            printf("%c", error < 0.00000000000001 ? '.' : '#');
+            scalar_t error = abs(a[(size_t)lda*j+i] - b[(size_t)lda*j+i]);
+            printf("%c", error < 0.000000000001 ? '.' : '#');
 
             if ((j+1)%nb == 0)
                 printf("|");

@@ -55,7 +55,6 @@ namespace internal {
 /// \brief
 /// Hermitian rank-k update of single block column (i.e., k = nb).
 /// Dispatches to target implementations.
-// todo: alpha and beta real
 template <Target target, typename scalar_t>
 void herk(typename blas::traits<scalar_t>::real_t alpha, Matrix< scalar_t >&& A,
           typename blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t >&& C,
@@ -79,7 +78,7 @@ void herk(internal::TargetType<Target::HostTask>,
 {
     // Lower, NoTrans
     for (int64_t j = 0; j < C.nt(); ++j)
-        for (int64_t i = j; i < C.mt(); ++i)
+        for (int64_t i = j; i < C.mt(); ++i)  // lower
             if (C.tileIsLocal(i, j)) {
                 if (i == j) {
                     #pragma omp task shared(A, C) priority(priority)
@@ -100,7 +99,7 @@ void herk(internal::TargetType<Target::HostTask>,
                         C.tileMoveToHost(i, j, C.tileDevice(i, j));
                         auto Aj0 = A(j, 0);
                         gemm(alpha, A(i, 0),
-                                    conj_transpose( Aj0 ),
+                                    conj_transpose(Aj0),
                              beta,  C(i, j));
                         A.tileTick(i, 0);
                         A.tileTick(j, 0);
@@ -137,8 +136,8 @@ void herk(internal::TargetType<Target::HostNest>,
 //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
     #pragma omp parallel for collapse(2) schedule(dynamic, 1)
     for (int64_t j = 0; j < C.nt(); ++j)
-        for (int64_t i = 0; i < C.mt(); ++i)
-            if (i >= j+1)
+        for (int64_t i = 0; i < C.mt(); ++i)  // full
+            if (i >= j+1)                     // lower
                 if (C.tileIsLocal(i, j))
                 {
                     A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
@@ -146,7 +145,7 @@ void herk(internal::TargetType<Target::HostNest>,
                     C.tileMoveToHost(i, j, C.tileDevice(i, j));
                     auto Aj0 = A(j, 0);
                     gemm(alpha, A(i, 0),
-                                conj_transpose( Aj0 ),
+                                conj_transpose(Aj0),
                          beta,  C(i, j));
                     A.tileTick(i, 0);
                     A.tileTick(j, 0);
@@ -178,7 +177,7 @@ void herk(internal::TargetType<Target::HostBatch>,
             }
 
     for (int64_t j = 0; j < C.nt(); ++j)
-        for (int64_t i = j+1; i < C.mt(); ++i)
+        for (int64_t i = j+1; i < C.mt(); ++i)  // lower
             if (C.tileIsLocal(i, j)) {
                 A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
                 A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
@@ -213,7 +212,7 @@ void herk(internal::TargetType<Target::HostBatch>,
 
     int group_size = 0;
     for (int64_t j = 0; j < C.nt(); ++j)
-        for (int64_t i = j+1; i < C.mt(); ++i)
+        for (int64_t i = j+1; i < C.mt(); ++i)  // lower
             if (C.tileIsLocal(i, j))
                 ++group_size;
 
@@ -222,7 +221,7 @@ void herk(internal::TargetType<Target::HostBatch>,
     c_array = new scalar_t*[group_size];
 
     for (int64_t j = 0; j < C.nt(); ++j)
-        for (int64_t i = j+1; i < C.mt(); ++i)
+        for (int64_t i = j+1; i < C.mt(); ++i)  // lower
             if (C.tileIsLocal(i, j)) {
                 a_array[i] = A(i, 0).data();
                 b_array[i] = A(j, 0).data();
@@ -248,7 +247,7 @@ void herk(internal::TargetType<Target::HostBatch>,
     }
 
     for (int64_t j = 0; j < C.nt(); ++j)
-        for (int64_t i = j+1; i < C.mt(); ++i)
+        for (int64_t i = j+1; i < C.mt(); ++i)  // lower
             if (C.tileIsLocal(i, j)) {
                 A.tileTick(i, 0);
                 A.tileTick(j, 0);
@@ -271,28 +270,34 @@ void herk(internal::TargetType<Target::Devices>,
           typename blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t >& C,
           int priority)
 {
-    // todo: could loop over trailing matrix once
-    // and setup all devices' arrays at once --- ah, it's a task for each device.
-    for (int device = 0; device < C.num_devices(); ++device)
+    // Lower, NoTrans
+    assert(C.uplo() == Uplo::Lower);
+    assert(A.op() == Op::NoTrans);
+
+    // off-diagonal tiles by batch gemm on device
+    for (int device = 0; device < C.num_devices(); ++device) {
         #pragma omp task shared(A, C) priority(1)
         {
             scalar_t** a_array_host = C.a_array_host(device);
             scalar_t** b_array_host = C.b_array_host(device);
             scalar_t** c_array_host = C.c_array_host(device);
-            int64_t i = 0;
-            for (int64_t j = 0; j < C.nt(); ++j)
-                for (int64_t i = j+1; i < C.mt(); ++i)
-                    if (C.tileIsLocal(i, j))
+
+            int64_t batch_count = 0;
+            for (int64_t j = 0; j < C.nt(); ++j) {
+                for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
+                    if (C.tileIsLocal(i, j)) {
                         if (device == C.tileDevice(i, j)) {
                             A.tileCopyToDevice(i, 0, device);
                             A.tileCopyToDevice(j, 0, device);
                             C.tileMoveToDevice(i, j, device);
-                            a_array_host[i] = A(i, 0, device).data();
-                            b_array_host[i] = A(j, 0, device).data();
-                            c_array_host[i] = C(i, j, device).data();
-                            ++i;
+                            a_array_host[ batch_count ] = A(i, 0, device).data();
+                            b_array_host[ batch_count ] = A(j, 0, device).data();
+                            c_array_host[ batch_count ] = C(i, j, device).data();
+                            ++batch_count;
                         }
-            int64_t batch_count = i;
+                    }
+                }
+            }
 
             scalar_t** a_array_dev = C.a_array_device(device);
             scalar_t** b_array_dev = C.b_array_device(device);
@@ -301,7 +306,7 @@ void herk(internal::TargetType<Target::Devices>,
             error = cudaSetDevice(device);
             assert(error == cudaSuccess);
 
-            // todo: check that handle uses this stream
+            // cublas_handle uses this stream
             cudaStream_t stream = C.compute_stream(device);
             cublasHandle_t cublas_handle = C.cublas_handle(device);
 
@@ -330,7 +335,7 @@ void herk(internal::TargetType<Target::Devices>,
                 cublasOperation_t opb = (A.op() == Op::NoTrans ? CUBLAS_OP_C : CUBLAS_OP_N);
                 cublasStatus_t status =
                     cublasDgemmBatched(
-                        cublas_handle,  // assumed to use compute_stream
+                        cublas_handle,  // uses stream
                         opa, opb,
                         nb, nb, nb,
                         &alpha, (const double**) a_array_dev, nb,
@@ -342,19 +347,24 @@ void herk(internal::TargetType<Target::Devices>,
                 assert(error == cudaSuccess);
             }
 
-            for (int64_t j = 0; j < C.nt(); ++j)
-                for (int64_t i = j+1; i < C.mt(); ++i)
-                    if (C.tileIsLocal(i, j))
+            for (int64_t j = 0; j < C.nt(); ++j) {
+                for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
+                    if (C.tileIsLocal(i, j)) {
                         if (device == C.tileDevice(i, j)) {
                             //A.tileErase(i, 0, device);  // todo: why? shouldn't tileTick deal with this?
                             //A.tileErase(j, 0, device);  // ditto
                             A.tileTick(i, 0);
                             A.tileTick(j, 0);
                         }
+                    }
+                }
+            }
         }
+    }
 
-    for (int64_t j = 0; j < C.nt(); ++j)
-        if (C.tileIsLocal(j, j))
+    // diagonal tiles by herk on host
+    for (int64_t j = 0; j < C.nt(); ++j) {
+        if (C.tileIsLocal(j, j)) {
             #pragma omp task shared(A, C)
             {
                 A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
@@ -364,6 +374,8 @@ void herk(internal::TargetType<Target::Devices>,
                 A.tileTick(j, 0);
                 A.tileTick(j, 0);
             }
+        }
+    }
 
     #pragma omp taskwait
 }

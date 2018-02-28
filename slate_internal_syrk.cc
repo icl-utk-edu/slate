@@ -165,8 +165,8 @@ void syrk(internal::TargetType<Target::HostBatch>,
           int priority)
 {
     // diagonal tiles by syrk on host
-    for (int64_t j = 0; j < C.nt(); ++j)
-        if (C.tileIsLocal(j, j))
+    for (int64_t j = 0; j < C.nt(); ++j) {
+        if (C.tileIsLocal(j, j)) {
             #pragma omp task shared(A, C)
             {
                 A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
@@ -176,90 +176,93 @@ void syrk(internal::TargetType<Target::HostBatch>,
                 A.tileTick(j, 0);
                 A.tileTick(j, 0);
             }
+        }
+    }
 
     // load off-diagonal tiles to host, if not there
-    for (int64_t j = 0; j < C.nt(); ++j)
-        for (int64_t i = j+1; i < C.mt(); ++i)  // lower
+    // also count tiles
+    int batch_count = 0;
+    for (int64_t j = 0; j < C.nt(); ++j) {
+        for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
             if (C.tileIsLocal(i, j)) {
                 A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
                 A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                 C.tileMoveToHost(i, j, C.tileDevice(i, j));
+                ++batch_count;
             }
-
-    // off-diagonal tiles by batch gemm on host
-    CBLAS_TRANSPOSE opa_array[1];
-    CBLAS_TRANSPOSE opb_array[1];
-    int m_array[1];
-    int n_array[1];
-    int k_array[1];
-    scalar_t alpha_array[1];
-    const scalar_t **a_array;
-    int lda_array[1];
-    const scalar_t **b_array;
-    int ldb_array[1];
-    scalar_t beta_array[1];
-    scalar_t **c_array;
-    int ldc_array[1];
-
-    int nb = C.tileNb(0);
-    opa_array[0] = (A.op() == Op::NoTrans ? CblasNoTrans : CblasTrans);
-    opb_array[0] = (A.op() == Op::NoTrans ? CblasTrans : CblasNoTrans);
-    m_array[0] = nb;
-    n_array[0] = nb;
-    k_array[0] = nb;
-    alpha_array[0] = alpha;
-    lda_array[0] = nb;
-    ldb_array[0] = nb;
-    beta_array[0] = beta;
-    ldc_array[0] = nb;
-
-    int group_size = 0;
-    for (int64_t j = 0; j < C.nt(); ++j)
-        for (int64_t i = j+1; i < C.mt(); ++i)  // lower
-            if (C.tileIsLocal(i, j))
-                ++group_size;
-
-    a_array = new const scalar_t*[group_size];
-    b_array = new const scalar_t*[group_size];
-    c_array = new scalar_t*[group_size];
-
-    int batch_index = 0;
-    for (int64_t j = 0; j < C.nt(); ++j)
-        for (int64_t i = j+1; i < C.mt(); ++i)  // lower
-            if (C.tileIsLocal(i, j)) {
-                a_array[ batch_index ] = A(i, 0).data();
-                b_array[ batch_index ] = A(j, 0).data();
-                c_array[ batch_index ] = C(i, j).data();
-                ++batch_index;
-            }
-
-    {
-        trace::Block trace_block("cblas_dgemm_batch");
-        #ifdef SLATE_WITH_MKL
-            // mkl_set_num_threads_local(...);
-            cblas_dgemm_batch(CblasColMajor, opa_array, opb_array,
-                               m_array, n_array, k_array,
-                               alpha_array,
-                               a_array, lda_array,
-                               b_array, ldb_array,
-                               beta_array,
-                               c_array, ldc_array, 1, &group_size);
-            // mkl_set_num_threads_local(1);
-        #else
-            assert(false);
-        #endif
+        }
     }
+    if (batch_count > 0) {
+        // off-diagonal tiles by batch gemm on host
+        CBLAS_TRANSPOSE opA = (A.op() == Op::NoTrans ? CblasNoTrans : CblasTrans);
+        CBLAS_TRANSPOSE opB = (A.op() == Op::NoTrans ? CblasTrans : CblasNoTrans);
+        std::vector< CBLAS_TRANSPOSE > opA_array( batch_count, opA );  // all same
+        std::vector< CBLAS_TRANSPOSE > opB_array( batch_count, opB );  // all same
+        std::vector< int > m_array( batch_count );
+        std::vector< int > n_array( batch_count );
+        std::vector< int > k_array( batch_count );
+        std::vector< typename blas::traits<scalar_t>::real_t > alpha_array( batch_count, alpha );  // all same
+        std::vector< typename blas::traits<scalar_t>::real_t >  beta_array( batch_count,  beta );  // all same
+        std::vector< const scalar_t* > a_array( batch_count );
+        std::vector< const scalar_t* > b_array( batch_count );
+        std::vector< scalar_t* > c_array( batch_count );
+        std::vector< int > lda_array( batch_count );
+        std::vector< int > ldb_array( batch_count );
+        std::vector< int > ldc_array( batch_count );
+        std::vector< int > group_size( batch_count, 1 );  // all same
 
-    for (int64_t j = 0; j < C.nt(); ++j)
-        for (int64_t i = j+1; i < C.mt(); ++i)  // lower
-            if (C.tileIsLocal(i, j)) {
-                A.tileTick(i, 0);
-                A.tileTick(j, 0);
+        int index = 0;
+        for (int64_t j = 0; j < C.nt(); ++j) {
+            for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
+                if (C.tileIsLocal(i, j)) {
+                    m_array[ index ] = C(i, j).mb();
+                    n_array[ index ] = C(i, j).nb();
+                    k_array[ index ] = A(i, 0).nb();  // should be all same
+
+                    assert( A(i, 0).mb() == m_array[ index ] );
+                    assert( A(j, 0).mb() == n_array[ index ] );
+                    assert( A(j, 0).nb() == k_array[ index ] );
+
+                    a_array[ index ] = A(i, 0).data();
+                    b_array[ index ] = A(j, 0).data();
+                    c_array[ index ] = C(i, j).data();
+
+                    lda_array[ index ] = A(i, 0).stride();
+                    ldb_array[ index ] = A(j, 0).stride();
+                    ldc_array[ index ] = C(i, j).stride();
+
+                    ++index;
+                }
             }
+        }
 
-    delete[] a_array;
-    delete[] b_array;
-    delete[] c_array;
+        {
+            trace::Block trace_block("cblas_dgemm_batch");
+            #ifdef SLATE_WITH_MKL
+                // mkl_set_num_threads_local(...);
+                cblas_dgemm_batch( CblasColMajor, opA_array.data(), opB_array.data(),
+                                   m_array.data(), n_array.data(), k_array.data(),
+                                   alpha_array.data(),
+                                   a_array.data(), lda_array.data(),
+                                   b_array.data(), ldb_array.data(),
+                                   beta_array.data(),
+                                   c_array.data(), ldc_array.data(),
+                                   batch_count, group_size.data() );
+                // mkl_set_num_threads_local(1);
+            #else
+                assert(false);
+            #endif
+        }
+
+        for (int64_t j = 0; j < C.nt(); ++j) {
+            for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
+                if (C.tileIsLocal(i, j)) {
+                    A.tileTick(i, 0);
+                    A.tileTick(j, 0);
+                }
+            }
+        }
+    }
 
     #pragma omp taskwait
 }

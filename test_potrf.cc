@@ -36,7 +36,7 @@ int main (int argc, char *argv[])
     int p = atoi(argv[3]);
     int q = atoi(argv[4]);
     int64_t lookahead = atoll(argv[5]);
-    slate::Target target = slate::Target::Host;
+    slate::Target target = slate::Target::HostTask;
     if (argc > 6) {
         if (std::string(argv[6]) == "HostTask")
             target = slate::Target::HostTask;
@@ -51,14 +51,12 @@ int main (int argc, char *argv[])
             exit(1);
         }
     }
-    bool test       = argc > 7 && std::string(argv[7]) == "test";
-    bool verbose    = argc > 8 && std::string(argv[8]) == "verbose";
-    bool trace      = argc > 9 && std::string(argv[9]) == "trace";
+    bool test    = argc > 7 && std::string(argv[7]) == "test";
+    bool verbose = argc > 8 && std::string(argv[8]) == "verbose";
+    bool trace   = argc > 9 && std::string(argv[9]) == "trace";
 
     printf( "n=%lld, nb=%lld, p=%d, q=%d, lookahead=%lld, target=%d, test=%d, verbose=%d, trace=%d\n",
             n, nb, p, q, lookahead, int(target), test, verbose, trace );
-    // for now, potrf requires full tiles
-    assert(n % nb == 0);
 
     int64_t lda = n;
 

@@ -50,6 +50,10 @@ namespace internal_specialization {
 /// \brief
 /// Distributed parallel matrix multiplication.
 /// Generic implementation for any target.
+/// Dependencies enforce the following behavior:
+/// - bcast communications are serialized,
+/// - gemm operations are serialized,
+/// - bcasts can get ahead of gemms by the value of lookahead.
 template <Target target, typename scalar_t>
 void gemm(slate::internal::TargetType<target>,
           blas::Op transA, blas::Op transB,
@@ -60,12 +64,34 @@ void gemm(slate::internal::TargetType<target>,
 {
     using namespace blas;
 
-    uint8_t *column = new uint8_t[A.nt()];
+    uint8_t *bcast = new uint8_t[A.nt()];
+    uint8_t *gemm  = new uint8_t[A.nt()];
 
     #pragma omp parallel
     #pragma omp master
     {
-        #pragma omp task depend(inout:column[0])
+        #pragma omp task depend(out:bcast[0])
+        {
+            for (int64_t i = 0; i < A.mt(); ++i)
+                A.tileBcast(i, 0, C.sub(i, i, 0, C.nt()-1));
+
+            for (int64_t j = 0; j < B.nt(); ++j)
+                B.tileBcast(0, j, C.sub(0, C.mt()-1, j, j));
+        }
+
+        for (int64_t k = 1; k < lookahead+1 && k < A.nt(); ++k)
+            #pragma omp task depend(in:bcast[k-1]) \
+                             depend(out:bcast[k])
+            {
+                for (int64_t i = 0; i < A.mt(); ++i)
+                    A.tileBcast(i, k, C.sub(i, i, 0, C.nt()-1));
+
+                for (int64_t j = 0; j < B.nt(); ++j)
+                    B.tileBcast(k, j, C.sub(0, C.mt()-1, j, j));
+            }
+
+        #pragma omp task depend(in:bcast[0]) \
+                         depend(out:gemm[0])
         internal::gemm<Target::HostTask>(
             alpha, A.sub(0, A.mt()-1, 0, 0),
                    B.sub(0, 0, 0, B.nt()-1),
@@ -73,7 +99,21 @@ void gemm(slate::internal::TargetType<target>,
 
         for (int64_t k = 1; k < A.nt(); ++k) {
 
-            #pragma omp task depend(inout:column[0])
+            if (k+lookahead < A.nt())
+                #pragma omp task depend(in:gemm[k-1]) \
+                                 depend(in:bcast[k+lookahead-1]) \
+                                 depend(out:bcast[k+lookahead])
+                {
+                    for (int64_t i = 0; i < A.mt(); ++i)
+                        A.tileBcast(i, k+lookahead, C.sub(i, i, 0, C.nt()-1));
+
+                    for (int64_t j = 0; j < B.nt(); ++j)
+                        B.tileBcast(k+lookahead, j, C.sub(0, C.mt()-1, j, j));
+                }
+
+            #pragma omp task depend(in:bcast[k]) \
+                             depend(in:gemm[k-1]) \
+                             depend(out:gemm[k])
             internal::gemm<Target::HostTask>(
                 alpha, A.sub(0, A.mt()-1, k, k),
                        B.sub(k, k, 0, B.nt()-1),
@@ -84,7 +124,8 @@ void gemm(slate::internal::TargetType<target>,
     A.clearWorkspace();
     B.clearWorkspace();
 
-    delete[] column;
+    delete[] bcast;
+    delete[] gemm;
 }
 
 ///-----------------------------------------------------------------------------

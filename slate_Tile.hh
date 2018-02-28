@@ -462,6 +462,8 @@ void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm bcast_comm)
     //else
     {
         // Otherwise, use strided bcast.
+        trace::Block trace_block("MPI_Bcast");
+
         int count = nb_;
         int blocklength = mb_;
         int stride = stride_;

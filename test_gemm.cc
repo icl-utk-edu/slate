@@ -117,7 +117,7 @@ int main (int argc, char *argv[])
     //------------------
     // Test correctness.
     if (test) {
-        //C.gather(C1, lda);
+        C.gather(C1, lda);
 
         if (mpi_rank == 0) {
             blas::gemm(blas::Layout::ColMajor,

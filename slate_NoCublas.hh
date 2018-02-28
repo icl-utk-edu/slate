@@ -50,6 +50,7 @@ typedef int cublasStatus_t;
 typedef int cublasOperation_t;
 
 enum {
+    CUBLAS_OP_C,
     CUBLAS_OP_N,
     CUBLAS_OP_T,
     CUBLAS_STATUS_SUCCESS

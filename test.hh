@@ -123,6 +123,8 @@ void test_barrier( const char* msg )
 template <typename scalar_t>
 void print( slate::Matrix< scalar_t >& A )
 {
+    using blas::real;
+
     printf( "[\n" );
     // loop over block rows, then rows within block row
     for (int i = 0; i < A.mt(); ++i) {
@@ -158,7 +160,7 @@ void print( slate::Matrix< scalar_t >& A )
                         printf( "   " );
                     auto Aij = A( i, j );
                     for (int64_t jj = 0; jj < jb; ++jj) {
-                        printf( " %9.4f", Aij( ii, jj ));
+                        printf( " %9.4f", real( Aij( ii, jj ) ) );
                     }
                 }
                 else {
@@ -178,6 +180,8 @@ void print( slate::Matrix< scalar_t >& A )
 template <typename scalar_t>
 void print( slate::BaseTrapezoidMatrix< scalar_t >& A )
 {
+    using blas::real;
+
     assert( A.uplo() == blas::Uplo::Lower );
 
     printf( "[\n" );
@@ -215,7 +219,7 @@ void print( slate::BaseTrapezoidMatrix< scalar_t >& A )
                         printf( "   " );
                     auto Aij = A( i, j );
                     for (int64_t jj = 0; jj < jb; ++jj) {
-                        printf( " %9.4f", Aij( ii, jj ));
+                        printf( " %9.4f", real( Aij( ii, jj ) ) );
                     }
                 }
                 else {
@@ -235,10 +239,12 @@ void print( slate::BaseTrapezoidMatrix< scalar_t >& A )
 template <typename scalar_t>
 void print( int64_t m, int64_t n, scalar_t* A, int64_t lda )
 {
+    using blas::real;
+
     printf( "[\n" );
     for (int i = 0; i < m; ++i) {
         for (int j = 0; j < n; ++j) {
-            printf( " %9.4f", A[ i + j*lda ] );
+            printf( " %9.4f", real( A[ i + j*lda ] ) );
         }
         printf( "\n" );
     }

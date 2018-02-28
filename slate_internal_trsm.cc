@@ -89,12 +89,37 @@ void trsm(internal::TargetType<Target::HostTask>,
 }
 
 //------------------------------------------------------------------------------
-// explicit instantiations
+// Explicit instantiations.
+// ----------------------------------------
+template
+void trsm< Target::HostTask, float >(
+    Side side, Diag diag,
+    float alpha, TriangularMatrix< float >&& A,
+                 Matrix< float >&& B,
+    int priority);
+
+// ----------------------------------------
 template
 void trsm< Target::HostTask, double >(
     Side side, Diag diag,
     double alpha, TriangularMatrix< double >&& A,
                   Matrix< double >&& B,
+    int priority);
+
+// ----------------------------------------
+template
+void trsm< Target::HostTask, std::complex<float> >(
+    Side side, Diag diag,
+    std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
+                               Matrix< std::complex<float> >&& B,
+    int priority);
+
+// ----------------------------------------
+template
+void trsm< Target::HostTask, std::complex<double> >(
+    Side side, Diag diag,
+    std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
+                                Matrix< std::complex<double> >&& B,
     int priority);
 
 } // namespace internal

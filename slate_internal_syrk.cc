@@ -41,6 +41,7 @@
 #include "slate_types.hh"
 #include "slate_Tile_blas.hh"
 #include "slate_internal.hh"
+#include "slate_internal_batch.hh"
 
 #ifdef SLATE_WITH_MKL
     #include <mkl_cblas.h>
@@ -85,8 +86,8 @@ void syrk(internal::TargetType<Target::HostTask>,
                     {
                         A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                         C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                        syrk(-1.0, A(j, 0),
-                             beta, C(j, j));
+                        syrk(scalar_t(-1.0), A(j, 0),
+                             beta,           C(j, j));
                         A.tileTick(j, 0);
                         A.tileTick(j, 0);
                     }
@@ -127,8 +128,8 @@ void syrk(internal::TargetType<Target::HostNest>,
             {
                 A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                 C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                syrk(-1.0, A(j, 0),
-                     beta, C(j, j));
+                syrk(scalar_t(-1.0), A(j, 0),
+                     beta,           C(j, j));
                 A.tileTick(j, 0);
                 A.tileTick(j, 0);
             }
@@ -171,8 +172,8 @@ void syrk(internal::TargetType<Target::HostBatch>,
             {
                 A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                 C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                syrk(-1.0, A(j, 0),
-                     beta, C(j, j));
+                syrk(scalar_t(-1.0), A(j, 0),
+                     beta,           C(j, j));
                 A.tileTick(j, 0);
                 A.tileTick(j, 0);
             }
@@ -201,8 +202,8 @@ void syrk(internal::TargetType<Target::HostBatch>,
         std::vector< int > m_array( batch_count );
         std::vector< int > n_array( batch_count );
         std::vector< int > k_array( batch_count );
-        std::vector< typename blas::traits<scalar_t>::real_t > alpha_array( batch_count, alpha );  // all same
-        std::vector< typename blas::traits<scalar_t>::real_t >  beta_array( batch_count,  beta );  // all same
+        std::vector< scalar_t > alpha_array( batch_count, alpha );  // all same
+        std::vector< scalar_t >  beta_array( batch_count,  beta );  // all same
         std::vector< const scalar_t* > a_array( batch_count );
         std::vector< const scalar_t* > b_array( batch_count );
         std::vector< scalar_t* > c_array( batch_count );
@@ -240,14 +241,14 @@ void syrk(internal::TargetType<Target::HostBatch>,
             trace::Block trace_block("cblas_dgemm_batch");
             #ifdef SLATE_WITH_MKL
                 // mkl_set_num_threads_local(...);
-                cblas_dgemm_batch( CblasColMajor, opA_array.data(), opB_array.data(),
-                                   m_array.data(), n_array.data(), k_array.data(),
-                                   alpha_array.data(),
-                                   a_array.data(), lda_array.data(),
-                                   b_array.data(), ldb_array.data(),
-                                   beta_array.data(),
-                                   c_array.data(), ldc_array.data(),
-                                   batch_count, group_size.data() );
+                cblas_gemm_batch( CblasColMajor, opA_array.data(), opB_array.data(),
+                                  m_array.data(), n_array.data(), k_array.data(),
+                                  alpha_array.data(),
+                                  a_array.data(), lda_array.data(),
+                                  b_array.data(), ldb_array.data(),
+                                  beta_array.data(),
+                                  c_array.data(), ldc_array.data(),
+                                  batch_count, group_size.data() );
                 // mkl_set_num_threads_local(1);
             #else
                 assert(false);
@@ -341,12 +342,12 @@ void syrk(internal::TargetType<Target::Devices>,
                 cublasOperation_t opa = (A.op() == Op::NoTrans ? CUBLAS_OP_N : CUBLAS_OP_C);
                 cublasOperation_t opb = (A.op() == Op::NoTrans ? CUBLAS_OP_C : CUBLAS_OP_N);
                 cublasStatus_t status =
-                    cublasDgemmBatched(
+                    cublasGemmBatched(
                         cublas_handle,  // uses stream
                         opa, opb,
                         nb, nb, nb,
-                        &alpha, (const double**) a_array_dev, nb,
-                                (const double**) b_array_dev, nb,
+                        &alpha, (const scalar_t**) a_array_dev, nb,
+                                (const scalar_t**) b_array_dev, nb,
                         &beta,  c_array_dev, nb,
                         batch_count);
                 assert(status == CUBLAS_STATUS_SUCCESS);
@@ -376,8 +377,8 @@ void syrk(internal::TargetType<Target::Devices>,
             {
                 A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                 C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                syrk(-1.0, A(j, 0),
-                     beta, C(j, j));
+                syrk(scalar_t(-1.0), A(j, 0),
+                     beta,           C(j, j));
                 A.tileTick(j, 0);
                 A.tileTick(j, 0);
             }
@@ -388,7 +389,33 @@ void syrk(internal::TargetType<Target::Devices>,
 }
 
 //------------------------------------------------------------------------------
-// explicit instantiations
+// Explicit instantiations.
+// ----------------------------------------
+template
+void syrk< Target::HostTask, float >(
+    float alpha, Matrix< float >&& A,
+    float beta,  SymmetricMatrix< float >&& C,
+    int priority);
+
+template
+void syrk< Target::HostNest, float >(
+    float alpha, Matrix< float >&& A,
+    float beta,  SymmetricMatrix< float >&& C,
+    int priority);
+
+template
+void syrk< Target::HostBatch, float >(
+    float alpha, Matrix< float >&& A,
+    float beta,  SymmetricMatrix< float >&& C,
+    int priority);
+
+template
+void syrk< Target::Devices, float >(
+    float alpha, Matrix< float >&& A,
+    float beta,  SymmetricMatrix< float >&& C,
+    int priority);
+
+// ----------------------------------------
 template
 void syrk< Target::HostTask, double >(
     double alpha, Matrix< double >&& A,
@@ -411,6 +438,56 @@ template
 void syrk< Target::Devices, double >(
     double alpha, Matrix< double >&& A,
     double beta,  SymmetricMatrix< double >&& C,
+    int priority);
+
+// ----------------------------------------
+template
+void syrk< Target::HostTask, std::complex<float> >(
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+    std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
+    int priority);
+
+template
+void syrk< Target::HostNest, std::complex<float> >(
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+    std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
+    int priority);
+
+template
+void syrk< Target::HostBatch, std::complex<float> >(
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+    std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
+    int priority);
+
+template
+void syrk< Target::Devices, std::complex<float> >(
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+    std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
+    int priority);
+
+// ----------------------------------------
+template
+void syrk< Target::HostTask, std::complex<double> >(
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+    std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
+    int priority);
+
+template
+void syrk< Target::HostNest, std::complex<double> >(
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+    std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
+    int priority);
+
+template
+void syrk< Target::HostBatch, std::complex<double> >(
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+    std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
+    int priority);
+
+template
+void syrk< Target::Devices, std::complex<double> >(
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+    std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
     int priority);
 
 } // namespace internal

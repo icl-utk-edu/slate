@@ -101,11 +101,36 @@ void gemm(internal::TargetType<Target::HostTask>,
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
+// ----------------------------------------
+template
+void gemm< Target::HostTask, float >(
+    float alpha, Matrix<float>&& A,
+                 Matrix<float>&& B,
+    float beta,  Matrix<float>&& C,
+    int priority);
+
+// ----------------------------------------
 template
 void gemm< Target::HostTask, double >(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
+    int priority);
+
+// ----------------------------------------
+template
+void gemm< Target::HostTask, std::complex<float> >(
+    std::complex<float> alpha, Matrix<std::complex<float>>&& A,
+                               Matrix<std::complex<float>>&& B,
+    std::complex<float> beta,  Matrix<std::complex<float>>&& C,
+    int priority);
+
+// ----------------------------------------
+template
+void gemm< Target::HostTask, std::complex<double> >(
+    std::complex<double> alpha, Matrix<std::complex<double>>&& A,
+                                Matrix<std::complex<double>>&& B,
+    std::complex<double> beta,  Matrix<std::complex<double>>&& C,
     int priority);
 
 } // namespace internal

@@ -58,6 +58,8 @@ template <Target target, typename scalar_t>
 void potrf(slate::internal::TargetType<target>,
            HermitianMatrix<scalar_t>& A, int64_t lookahead)
 {
+    using real_t = typename blas::traits<scalar_t>::real_t;
+
     uint8_t *column = new uint8_t[ A.nt() ];
 
     #pragma omp parallel
@@ -80,8 +82,8 @@ void potrf(slate::internal::TargetType<target>,
                 auto Tkk = TriangularMatrix< scalar_t >( Akk );
                 internal::trsm<Target::HostTask>(
                     Side::Right, Diag::NonUnit,
-                    1.0, conj_transpose( Tkk ),
-                         A.sub(k+1, A.nt()-1, k, k), 1);
+                    scalar_t(1.0), conj_transpose( Tkk ),
+                                   A.sub(k+1, A.nt()-1, k, k), 1);
             }
 
             for (int64_t i = k+1; i < A.nt(); ++i) {
@@ -98,16 +100,16 @@ void potrf(slate::internal::TargetType<target>,
             {
                 // A(j, j) -= A(j, k) * A(j, k)^H
                 internal::herk<Target::HostTask>(
-                    -1.0, A.sub(j, j, k, k),
-                     1.0, A.sub(j, j), 1);
+                    real_t(-1.0), A.sub(j, j, k, k),
+                    real_t( 1.0), A.sub(j, j), 1);
 
                 // A(j+1:nt, j) -= A(j+1:nt-1, k) * A(j, k)^H
                 if (j+1 <= A.nt()-1) {
                     auto Ajk = A.sub(j, j, k, k);
                     internal::gemm<Target::HostTask>(
-                        -1.0, A.sub(j+1, A.nt()-1, k, k),
-                              conj_transpose( Ajk ),
-                         1.0, A.sub(j+1, A.nt()-1, j, j), 1);
+                        scalar_t(-1.0), A.sub(j+1, A.nt()-1, k, k),
+                                        conj_transpose( Ajk ),
+                        scalar_t( 1.0), A.sub(j+1, A.nt()-1, j, j), 1);
                 }
             }
         }
@@ -120,8 +122,8 @@ void potrf(slate::internal::TargetType<target>,
                 // A(kl+1:nt-1, kl+1:nt-1) -= A(kl+1:nt-1, k) * A(kl+1:nt-1, k)^H
                 // where kl = k + lookahead
                 internal::herk<target>(
-                    -1.0, A.sub(k+1+lookahead, A.nt()-1, k, k),
-                     1.0, A.sub(k+1+lookahead, A.nt()-1));
+                    real_t(-1.0), A.sub(k+1+lookahead, A.nt()-1, k, k),
+                    real_t( 1.0), A.sub(k+1+lookahead, A.nt()-1));
             }
         }
     }
@@ -144,6 +146,8 @@ template <typename scalar_t>
 void potrf(slate::internal::TargetType<Target::Devices>,
            HermitianMatrix<scalar_t>& A, int64_t lookahead)
 {
+    using real_t = typename blas::traits<scalar_t>::real_t;
+
     uint8_t *column = new uint8_t[ A.nt() ];
 
     A.allocateBatchArrays();
@@ -169,8 +173,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 auto Tkk = TriangularMatrix< scalar_t >( Akk );
                 internal::trsm<Target::HostTask>(
                     Side::Right, Diag::NonUnit,
-                    1.0, conj_transpose( Tkk ),
-                         A.sub(k+1, A.nt()-1, k, k));
+                    scalar_t(1.0), conj_transpose( Tkk ),
+                                   A.sub(k+1, A.nt()-1, k, k));
             }
 
             for (int64_t i = k+1; i < A.nt(); ++i) {
@@ -189,8 +193,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 // A(kl+1:nt-1, kl+1:nt-1) -= A(kl+1:nt-1, k) * A(kl+1:nt-1, k)^H
                 // where kl = k + lookahead
                 internal::herk<Target::Devices>(
-                    -1.0, A.sub(k+1+lookahead, A.nt()-1, k, k),
-                     1.0, A.sub(k+1+lookahead, A.nt()-1));
+                    real_t(-1.0), A.sub(k+1+lookahead, A.nt()-1, k, k),
+                    real_t( 1.0), A.sub(k+1+lookahead, A.nt()-1));
             }
         }
 
@@ -201,16 +205,16 @@ void potrf(slate::internal::TargetType<Target::Devices>,
             {
                 // A(j, j) -= A(j, k) * A(j, k)^H
                 internal::herk<Target::HostTask>(
-                    -1.0, A.sub(j, j, k, k),
-                     1.0, A.sub(j, j));
+                    real_t(-1.0), A.sub(j, j, k, k),
+                    real_t( 1.0), A.sub(j, j));
 
                 // A(j+1:nt, j) -= A(j+1:nt-1, k) * A(j, k)^H
                 if (j+1 <= A.nt()-1) {
                     auto Ajk = A.sub(j, j, k, k);
                     internal::gemm<Target::HostTask>(
-                        -1.0, A.sub(j+1, A.nt()-1, k, k),
-                              conj_transpose( Ajk ),
-                         1.0, A.sub(j+1, A.nt()-1, j, j));
+                        scalar_t(-1.0), A.sub(j+1, A.nt()-1, k, k),
+                                        conj_transpose( Ajk ),
+                        scalar_t( 1.0), A.sub(j+1, A.nt()-1, j, j));
                 }
             }
         }
@@ -240,21 +244,73 @@ void potrf(HermitianMatrix<scalar_t>& A, int64_t lookahead)
 }
 
 //------------------------------------------------------------------------------
-// Explicit instantiations for double precision and various targets.
+// Explicit instantiations.
+// ----------------------------------------
+template
+void potrf< Target::HostTask, float >(
+    HermitianMatrix< float >& A, int64_t lookahead);
+
+template
+void potrf< Target::HostNest, float >(
+    HermitianMatrix< float >& A, int64_t lookahead);
+
+template
+void potrf< Target::HostBatch, float >(
+    HermitianMatrix< float >& A, int64_t lookahead);
+
+template
+void potrf< Target::Devices, float >(
+    HermitianMatrix< float >& A, int64_t lookahead);
+
+// ----------------------------------------
 template
 void potrf< Target::HostTask, double >(
-    HermitianMatrix<double>& A, int64_t lookahead);
+    HermitianMatrix< double >& A, int64_t lookahead);
 
 template
 void potrf< Target::HostNest, double >(
-    HermitianMatrix<double>& A, int64_t lookahead);
+    HermitianMatrix< double >& A, int64_t lookahead);
 
 template
 void potrf< Target::HostBatch, double >(
-    HermitianMatrix<double>& A, int64_t lookahead);
+    HermitianMatrix< double >& A, int64_t lookahead);
 
 template
 void potrf< Target::Devices, double >(
-    HermitianMatrix<double>& A, int64_t lookahead);
+    HermitianMatrix< double >& A, int64_t lookahead);
+
+// ----------------------------------------
+template
+void potrf< Target::HostTask, std::complex<float> >(
+    HermitianMatrix< std::complex<float> >& A, int64_t lookahead);
+
+template
+void potrf< Target::HostNest, std::complex<float> >(
+    HermitianMatrix< std::complex<float> >& A, int64_t lookahead);
+
+template
+void potrf< Target::HostBatch, std::complex<float> >(
+    HermitianMatrix< std::complex<float> >& A, int64_t lookahead);
+
+template
+void potrf< Target::Devices, std::complex<float> >(
+    HermitianMatrix< std::complex<float> >& A, int64_t lookahead);
+
+// ----------------------------------------
+template
+void potrf< Target::HostTask, std::complex<double> >(
+    HermitianMatrix< std::complex<double> >& A, int64_t lookahead);
+
+template
+void potrf< Target::HostNest, std::complex<double> >(
+    HermitianMatrix< std::complex<double> >& A, int64_t lookahead);
+
+template
+void potrf< Target::HostBatch, std::complex<double> >(
+    HermitianMatrix< std::complex<double> >& A, int64_t lookahead);
+
+template
+void potrf< Target::Devices, std::complex<double> >(
+    HermitianMatrix< std::complex<double> >& A, int64_t lookahead);
 
 } // namespace slate

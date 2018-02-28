@@ -41,6 +41,7 @@
 #include "slate_types.hh"
 #include "slate_Tile_blas.hh"
 #include "slate_internal.hh"
+#include "slate_internal_batch.hh"
 
 #ifdef SLATE_WITH_MKL
     #include <mkl_cblas.h>
@@ -76,6 +77,11 @@ void herk(internal::TargetType<Target::HostTask>,
           typename blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t >& C,
           int priority)
 {
+    using real_t = typename blas::traits<scalar_t>::real_t;
+
+    scalar_t alpha_ = scalar_t(alpha);
+    scalar_t beta_  = scalar_t(beta);
+
     // Lower, NoTrans
     for (int64_t j = 0; j < C.nt(); ++j)
         for (int64_t i = j; i < C.mt(); ++i)  // lower
@@ -85,8 +91,8 @@ void herk(internal::TargetType<Target::HostTask>,
                     {
                         A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                         C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                        herk(-1.0, A(j, 0),
-                             beta, C(j, j));
+                        herk(real_t(-1.0), A(j, 0),
+                             beta,         C(j, j));
                         A.tileTick(j, 0);
                         A.tileTick(j, 0);
                     }
@@ -98,9 +104,9 @@ void herk(internal::TargetType<Target::HostTask>,
                         A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                         C.tileMoveToHost(i, j, C.tileDevice(i, j));
                         auto Aj0 = A(j, 0);
-                        gemm(alpha, A(i, 0),
-                                    conj_transpose(Aj0),
-                             beta,  C(i, j));
+                        gemm(alpha_, A(i, 0),
+                                     conj_transpose(Aj0),
+                             beta_,  C(i, j));
                         A.tileTick(i, 0);
                         A.tileTick(j, 0);
                     }
@@ -120,6 +126,11 @@ void herk(internal::TargetType<Target::HostNest>,
           typename blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t >& C,
           int priority)
 {
+    using real_t = typename blas::traits<scalar_t>::real_t;
+
+    scalar_t alpha_ = scalar_t(alpha);
+    scalar_t beta_  = scalar_t(beta);
+
     // Lower, NoTrans
     for (int64_t j = 0; j < C.nt(); ++j)
         if (C.tileIsLocal(j, j))
@@ -127,8 +138,8 @@ void herk(internal::TargetType<Target::HostNest>,
             {
                 A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                 C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                herk(-1.0, A(j, 0),
-                     beta, C(j, j));
+                herk(real_t(-1.0), A(j, 0),
+                     beta,         C(j, j));
                 A.tileTick(j, 0);
                 A.tileTick(j, 0);
             }
@@ -144,9 +155,9 @@ void herk(internal::TargetType<Target::HostNest>,
                     A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                     C.tileMoveToHost(i, j, C.tileDevice(i, j));
                     auto Aj0 = A(j, 0);
-                    gemm(alpha, A(i, 0),
-                                conj_transpose(Aj0),
-                         beta,  C(i, j));
+                    gemm(alpha_, A(i, 0),
+                                 conj_transpose(Aj0),
+                         beta_,  C(i, j));
                     A.tileTick(i, 0);
                     A.tileTick(j, 0);
                 }
@@ -164,6 +175,8 @@ void herk(internal::TargetType<Target::HostBatch>,
           typename blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t >& C,
           int priority)
 {
+    using real_t = typename blas::traits<scalar_t>::real_t;
+
     // diagonal tiles by herk on host
     for (int64_t j = 0; j < C.nt(); ++j) {
         if (C.tileIsLocal(j, j)) {
@@ -171,8 +184,8 @@ void herk(internal::TargetType<Target::HostBatch>,
             {
                 A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                 C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                herk(-1.0, A(j, 0),
-                     beta, C(j, j));
+                herk(real_t(-1.0), A(j, 0),
+                     beta,         C(j, j));
                 A.tileTick(j, 0);
                 A.tileTick(j, 0);
             }
@@ -201,8 +214,8 @@ void herk(internal::TargetType<Target::HostBatch>,
         std::vector< int > m_array( batch_count );
         std::vector< int > n_array( batch_count );
         std::vector< int > k_array( batch_count );
-        std::vector< typename blas::traits<scalar_t>::real_t > alpha_array( batch_count, alpha );  // all same
-        std::vector< typename blas::traits<scalar_t>::real_t >  beta_array( batch_count,  beta );  // all same
+        std::vector< scalar_t > alpha_array( batch_count, alpha );  // all same
+        std::vector< scalar_t >  beta_array( batch_count,  beta );  // all same
         std::vector< const scalar_t* > a_array( batch_count );
         std::vector< const scalar_t* > b_array( batch_count );
         std::vector< scalar_t* > c_array( batch_count );
@@ -240,7 +253,7 @@ void herk(internal::TargetType<Target::HostBatch>,
             trace::Block trace_block("cblas_dgemm_batch");
             #ifdef SLATE_WITH_MKL
                 // mkl_set_num_threads_local(...);
-                cblas_dgemm_batch( CblasColMajor, opA_array.data(), opB_array.data(),
+                cblas_gemm_batch( CblasColMajor, opA_array.data(), opB_array.data(),
                                    m_array.data(), n_array.data(), k_array.data(),
                                    alpha_array.data(),
                                    a_array.data(), lda_array.data(),
@@ -277,6 +290,8 @@ void herk(internal::TargetType<Target::Devices>,
           typename blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t >& C,
           int priority)
 {
+    using real_t = typename blas::traits<scalar_t>::real_t;
+
     // Lower, NoTrans
     assert(C.uplo() == Uplo::Lower);
     assert(A.op() == Op::NoTrans);
@@ -336,18 +351,21 @@ void herk(internal::TargetType<Target::Devices>,
             assert(error == cudaSuccess);
 
             {
+                scalar_t alpha_ = scalar_t(alpha);
+                scalar_t beta_  = scalar_t(beta);
+
                 trace::Block trace_block("cublasDgemmBatched");
                 int nb = C.tileNb(0);
                 cublasOperation_t opa = (A.op() == Op::NoTrans ? CUBLAS_OP_N : CUBLAS_OP_C);
                 cublasOperation_t opb = (A.op() == Op::NoTrans ? CUBLAS_OP_C : CUBLAS_OP_N);
                 cublasStatus_t status =
-                    cublasDgemmBatched(
+                    cublasGemmBatched(
                         cublas_handle,  // uses stream
                         opa, opb,
                         nb, nb, nb,
-                        &alpha, (const double**) a_array_dev, nb,
-                                (const double**) b_array_dev, nb,
-                        &beta,  c_array_dev, nb,
+                        &alpha_, (const scalar_t**) a_array_dev, nb,
+                                 (const scalar_t**) b_array_dev, nb,
+                        &beta_,  c_array_dev, nb,
                         batch_count);
                 assert(status == CUBLAS_STATUS_SUCCESS);
                 error = cudaStreamSynchronize(stream);
@@ -376,8 +394,8 @@ void herk(internal::TargetType<Target::Devices>,
             {
                 A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                 C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                herk(-1.0, A(j, 0),
-                     beta, C(j, j));
+                herk(real_t(-1.0), A(j, 0),
+                     beta,         C(j, j));
                 A.tileTick(j, 0);
                 A.tileTick(j, 0);
             }
@@ -388,7 +406,33 @@ void herk(internal::TargetType<Target::Devices>,
 }
 
 //------------------------------------------------------------------------------
-// explicit instantiations
+// Explicit instantiations.
+// ----------------------------------------
+template
+void herk< Target::HostTask, float >(
+    float alpha, Matrix< float >&& A,
+    float beta,  HermitianMatrix< float >&& C,
+    int priority);
+
+template
+void herk< Target::HostNest, float >(
+    float alpha, Matrix< float >&& A,
+    float beta,  HermitianMatrix< float >&& C,
+    int priority);
+
+template
+void herk< Target::HostBatch, float >(
+    float alpha, Matrix< float >&& A,
+    float beta,  HermitianMatrix< float >&& C,
+    int priority);
+
+template
+void herk< Target::Devices, float >(
+    float alpha, Matrix< float >&& A,
+    float beta,  HermitianMatrix< float >&& C,
+    int priority);
+
+// ----------------------------------------
 template
 void herk< Target::HostTask, double >(
     double alpha, Matrix< double >&& A,
@@ -411,6 +455,56 @@ template
 void herk< Target::Devices, double >(
     double alpha, Matrix< double >&& A,
     double beta,  HermitianMatrix< double >&& C,
+    int priority);
+
+// ----------------------------------------
+template
+void herk< Target::HostTask, std::complex<float> >(
+    float alpha, Matrix< std::complex<float> >&& A,
+    float beta,  HermitianMatrix< std::complex<float> >&& C,
+    int priority);
+
+template
+void herk< Target::HostNest, std::complex<float> >(
+    float alpha, Matrix< std::complex<float> >&& A,
+    float beta,  HermitianMatrix< std::complex<float> >&& C,
+    int priority);
+
+template
+void herk< Target::HostBatch, std::complex<float> >(
+    float alpha, Matrix< std::complex<float> >&& A,
+    float beta,  HermitianMatrix< std::complex<float> >&& C,
+    int priority);
+
+template
+void herk< Target::Devices, std::complex<float> >(
+    float alpha, Matrix< std::complex<float> >&& A,
+    float beta,  HermitianMatrix< std::complex<float> >&& C,
+    int priority);
+
+// ----------------------------------------
+template
+void herk< Target::HostTask, std::complex<double> >(
+    double alpha, Matrix< std::complex<double> >&& A,
+    double beta,  HermitianMatrix< std::complex<double> >&& C,
+    int priority);
+
+template
+void herk< Target::HostNest, std::complex<double> >(
+    double alpha, Matrix< std::complex<double> >&& A,
+    double beta,  HermitianMatrix< std::complex<double> >&& C,
+    int priority);
+
+template
+void herk< Target::HostBatch, std::complex<double> >(
+    double alpha, Matrix< std::complex<double> >&& A,
+    double beta,  HermitianMatrix< std::complex<double> >&& C,
+    int priority);
+
+template
+void herk< Target::Devices, std::complex<double> >(
+    double alpha, Matrix< std::complex<double> >&& A,
+    double beta,  HermitianMatrix< std::complex<double> >&& C,
     int priority);
 
 } // namespace internal

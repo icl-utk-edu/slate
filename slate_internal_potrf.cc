@@ -76,10 +76,30 @@ void potrf(internal::TargetType<Target::HostTask>,
 }
 
 //------------------------------------------------------------------------------
-// explicit instantiations
+// Explicit instantiations.
+// ----------------------------------------
+template
+void potrf< Target::HostTask, float >(
+    HermitianMatrix< float >&& A,
+    int priority);
+
+// ----------------------------------------
 template
 void potrf< Target::HostTask, double >(
-    HermitianMatrix<double>&& A, int priority);
+    HermitianMatrix< double >&& A,
+    int priority);
+
+// ----------------------------------------
+template
+void potrf< Target::HostTask, std::complex<float> >(
+    HermitianMatrix< std::complex<float> >&& A,
+    int priority);
+
+// ----------------------------------------
+template
+void potrf< Target::HostTask, std::complex<double> >(
+    HermitianMatrix< std::complex<double> >&& A,
+    int priority);
 
 } // namespace internal
 } // namespace slate

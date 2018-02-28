@@ -44,7 +44,10 @@
 
 namespace slate {
 
-namespace internal_specialization {
+// specialization namespace differentiates, e.g.,
+// internal::gemm from internal::specialization::gemm
+namespace internal {
+namespace specialization {
 
 ///-----------------------------------------------------------------------------
 /// \brief
@@ -128,22 +131,8 @@ void gemm(slate::internal::TargetType<target>,
     delete[] gemm;
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
-/// Distributed parallel matrix multiplication.
-/// Implementation for GPU device target.
-template <typename scalar_t>
-void gemm(slate::internal::TargetType<Target::Devices>,
-          blas::Op transA, blas::Op transB,
-          scalar_t alpha, Matrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          int64_t lookahead)
-{
-
-}
-
-} // namespace internal_specialization
+} // namespace specialization
+} // namespace internal
 
 ///-----------------------------------------------------------------------------
 /// \brief
@@ -154,14 +143,22 @@ void gemm(blas::Op transA, blas::Op transB,
           scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          int64_t lookahead)
+          const std::map<Option, Value>& opts)
 {
-    internal_specialization::gemm(internal::TargetType<target>(),
-                                  transA, transB,
-                                  alpha, A,
-                                         B,
-                                  beta,  C,
-                                  lookahead);
+    int64_t lookahead;
+    try {
+        lookahead = opts.at(Option::Lookahead).i_;
+    }
+    catch (std::out_of_range) {
+        lookahead = 1;
+    }
+
+    internal::specialization::gemm(internal::TargetType<target>(),
+                                   transA, transB,
+                                   alpha, A,
+                                          B,
+                                   beta,  C,
+                                   lookahead);
 }
 
 //------------------------------------------------------------------------------
@@ -172,7 +169,7 @@ void gemm< Target::HostTask, double >(
     double alpha, Matrix<double>& A,
                   Matrix<double>& B,
     double beta,  Matrix<double>& C,
-    int64_t lookahead);
+    const std::map<Option, Value>& opts);
 
 template
 void gemm< Target::HostNest, double >(
@@ -180,7 +177,7 @@ void gemm< Target::HostNest, double >(
     double alpha, Matrix<double>& A,
                   Matrix<double>& B,
     double beta,  Matrix<double>& C,
-    int64_t lookahead);
+    const std::map<Option, Value>& opts);
 
 template
 void gemm< Target::HostBatch, double >(
@@ -188,7 +185,7 @@ void gemm< Target::HostBatch, double >(
     double alpha, Matrix<double>& A,
                   Matrix<double>& B,
     double beta,  Matrix<double>& C,
-    int64_t lookahead);
+    const std::map<Option, Value>& opts);
 
 template
 void gemm< Target::Devices, double >(
@@ -196,6 +193,6 @@ void gemm< Target::Devices, double >(
     double alpha, Matrix<double>& A,
                   Matrix<double>& B,
     double beta,  Matrix<double>& C,
-    int64_t lookahead);
+    const std::map<Option, Value>& opts);
 
 } // namespace slate

@@ -98,8 +98,9 @@ int main (int argc, char *argv[])
         MPI_Barrier(MPI_COMM_WORLD);
     }
     double start = omp_get_wtime();
-    slate::gemm<slate::Target::HostTask>(blas::Op::NoTrans, blas::Op::NoTrans,
-                                         alpha, A, B, beta, C, lookahead);
+    slate::gemm<slate::Target::HostTask>(
+        blas::Op::NoTrans, blas::Op::NoTrans,
+        alpha, A, B, beta, C, {{slate::Option::Lookahead, lookahead}});
 
     MPI_Barrier(MPI_COMM_WORLD);
     double time = omp_get_wtime() - start;

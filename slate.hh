@@ -53,7 +53,7 @@ void gemm(blas::Op transA, blas::Op transB,
           scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          int64_t lookahead = 0);
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 } // namespace slate
 

@@ -36,7 +36,7 @@ int main (int argc, char *argv[])
     int64_t lookahead = atol(argv[5]);
     bool test = argc == 7;
     
-    printf( "n=%ld, nb=%ld, p=%ld, q=%ld\n", n, nb, p, q );
+    printf( "n=%lld, nb=%lld, p=%lld, q=%lld\n", n, nb, p, q );
     // for now, gemm requires full tiles
     assert(n % nb == 0);
 

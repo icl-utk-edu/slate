@@ -13,11 +13,11 @@
 # openmp=1      for OpenMP
 # shared=1      for shared library (libslate.so); otherwise static (libslate.a)
 
-# top ?= .
-# include ${top}/make.inc
+top ?= .
+-include ${top}/make.inc
 
 CXXFLAGS += -O3 -std=c++11 -Wall -pedantic -MMD
-CXXFLAGS += -Wno-strict-overflow -Wsign-compare -Wformat=0
+CXXFLAGS += -Wno-strict-overflow -Wsign-compare #-Wno-format
 
 pwd = ${shell pwd}
 

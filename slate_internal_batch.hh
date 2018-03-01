@@ -44,13 +44,19 @@
 #ifndef SLATE_INTERNAL_BATCH_HH
 #define SLATE_INTERNAL_BATCH_HH
 
+#ifdef SLATE_WITH_CUDA
+    #include <cublas_v2.h>
+    #include <cuda_runtime.h>
+#else
+    #include "slate_NoCuda.hh"
+    #include "slate_NoCublas.hh"
+#endif
+
 #ifdef SLATE_WITH_MKL
     #include <mkl_cblas.h>
 #else
     #include <cblas.h>
 #endif
-
-#include <cublas_v2.h>
 
 #include <complex>
 

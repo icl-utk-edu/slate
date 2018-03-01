@@ -45,6 +45,8 @@
 
 #include <cstdlib>
 
+typedef int cuComplex;
+typedef int cuDoubleComplex;
 typedef int cudaError_t;
 typedef void *cudaStream_t;
 typedef int cudaMemcpyKind;

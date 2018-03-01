@@ -73,6 +73,18 @@ cublasStatus_t cublasDasum(cublasHandle_t handle, int n, const double *x, int in
     assert(0);
 }
 
+cublasStatus_t cublasSgemmBatched(
+    cublasHandle_t handle,
+    cublasOperation_t transa, cublasOperation_t transb,
+    int m, int n, int k,
+    const float *alpha, const float *Aarray[], int lda,
+                        const float *Barray[], int ldb,
+    const float *beta,        float *Carray[], int ldc,
+    int batchCount)
+{
+    assert(0);
+}
+
 cublasStatus_t cublasDgemmBatched(
     cublasHandle_t handle,
     cublasOperation_t transa, cublasOperation_t transb,
@@ -80,6 +92,30 @@ cublasStatus_t cublasDgemmBatched(
     const double *alpha, const double *Aarray[], int lda,
                          const double *Barray[], int ldb,
     const double *beta,        double *Carray[], int ldc,
+    int batchCount)
+{
+    assert(0);
+}
+
+cublasStatus_t cublasCgemmBatched(
+    cublasHandle_t handle,
+    cublasOperation_t transa, cublasOperation_t transb,
+    int m, int n, int k,
+    const cuComplex *alpha, const cuComplex *Aarray[], int lda,
+                            const cuComplex *Barray[], int ldb,
+    const cuComplex *beta,        cuComplex *Carray[], int ldc,
+    int batchCount)
+{
+    assert(0);
+}
+
+cublasStatus_t cublasZgemmBatched(
+    cublasHandle_t handle,
+    cublasOperation_t transa, cublasOperation_t transb,
+    int m, int n, int k,
+    const cuDoubleComplex *alpha, const cuDoubleComplex *Aarray[], int lda,
+                                  const cuDoubleComplex *Barray[], int ldb,
+    const cuDoubleComplex *beta,        cuDoubleComplex *Carray[], int ldc,
     int batchCount)
 {
     assert(0);

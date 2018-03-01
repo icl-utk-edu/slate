@@ -49,8 +49,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void potrf(HermitianMatrix< scalar_t >& A, int64_t lookahead = 0);
 
 template <Target target=Target::HostTask, typename scalar_t>
-void gemm(blas::Op transA, blas::Op transB,
-          scalar_t alpha, Matrix<scalar_t>& A,
+void gemm(scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());

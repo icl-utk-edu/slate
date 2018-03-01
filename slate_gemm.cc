@@ -59,7 +59,6 @@ namespace specialization {
 /// - bcasts can get ahead of gemms by the value of lookahead.
 template <Target target, typename scalar_t>
 void gemm(slate::internal::TargetType<target>,
-          blas::Op transA, blas::Op transB,
           scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
@@ -69,6 +68,9 @@ void gemm(slate::internal::TargetType<target>,
 
     uint8_t *bcast = new uint8_t[A.nt()];
     uint8_t *gemm  = new uint8_t[A.nt()];
+
+    C.allocateBatchArrays();
+    C.reserveDeviceWorkspace();
 
     #pragma omp parallel
     #pragma omp master
@@ -95,7 +97,7 @@ void gemm(slate::internal::TargetType<target>,
 
         #pragma omp task depend(in:bcast[0]) \
                          depend(out:gemm[0])
-        internal::gemm<Target::HostTask>(
+        internal::gemm<target>(
             alpha, A.sub(0, A.mt()-1, 0, 0),
                    B.sub(0, 0, 0, B.nt()-1),
             beta,  C.sub(0, C.mt()-1, 0, C.nt()-1));
@@ -117,15 +119,22 @@ void gemm(slate::internal::TargetType<target>,
             #pragma omp task depend(in:bcast[k]) \
                              depend(in:gemm[k-1]) \
                              depend(out:gemm[k])
-            internal::gemm<Target::HostTask>(
-                alpha, A.sub(0, A.mt()-1, k, k),
-                       B.sub(k, k, 0, B.nt()-1),
-                1.0,   C.sub(0, C.mt()-1, 0, C.nt()-1));
+            internal::gemm<target>(
+                alpha,         A.sub(0, A.mt()-1, k, k),
+                               B.sub(k, k, 0, B.nt()-1),
+                scalar_t(1.0), C.sub(0, C.mt()-1, 0, C.nt()-1));
         }
     }
 
-    A.clearWorkspace();
-    B.clearWorkspace();
+    // todo: we need a function that updates origins that are not valid
+    for (int device = 0; device < C.num_devices(); ++device)
+        for (int64_t i = 0; i < C.mt(); ++i)
+            for (int64_t j = 0; j < C.nt(); ++j)
+                if (C.tileIsLocal(i, j))
+                    if (device == C.tileDevice(i, j))
+                        C.tileMoveToHost(i, j, device);
+
+    C.clearWorkspace();
 
     delete[] bcast;
     delete[] gemm;
@@ -139,8 +148,7 @@ void gemm(slate::internal::TargetType<target>,
 ///
 /// Precision and target templated function.
 template <Target target, typename scalar_t>
-void gemm(blas::Op transA, blas::Op transB,
-          scalar_t alpha, Matrix<scalar_t>& A,
+void gemm(scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts)
@@ -154,7 +162,6 @@ void gemm(blas::Op transA, blas::Op transB,
     }
 
     internal::specialization::gemm(internal::TargetType<target>(),
-                                   transA, transB,
                                    alpha, A,
                                           B,
                                    beta,  C,
@@ -164,8 +171,36 @@ void gemm(blas::Op transA, blas::Op transB,
 //------------------------------------------------------------------------------
 // Explicit instantiations for double precision and various targets.
 template
+void gemm< Target::HostTask, float >(
+    float alpha, Matrix<float>& A,
+                 Matrix<float>& B,
+    float beta,  Matrix<float>& C,
+    const std::map<Option, Value>& opts);
+
+template
+void gemm< Target::HostNest, float >(
+    float alpha, Matrix<float>& A,
+                 Matrix<float>& B,
+    float beta,  Matrix<float>& C,
+    const std::map<Option, Value>& opts);
+
+template
+void gemm< Target::HostBatch, float >(
+    float alpha, Matrix<float>& A,
+                 Matrix<float>& B,
+    float beta,  Matrix<float>& C,
+    const std::map<Option, Value>& opts);
+
+template
+void gemm< Target::Devices, float >(
+    float alpha, Matrix<float>& A,
+                 Matrix<float>& B,
+    float beta,  Matrix<float>& C,
+    const std::map<Option, Value>& opts);
+
+// ----------------------------------------
+template
 void gemm< Target::HostTask, double >(
-    blas::Op transA, blas::Op transB,
     double alpha, Matrix<double>& A,
                   Matrix<double>& B,
     double beta,  Matrix<double>& C,
@@ -173,7 +208,6 @@ void gemm< Target::HostTask, double >(
 
 template
 void gemm< Target::HostNest, double >(
-    blas::Op transA, blas::Op transB,
     double alpha, Matrix<double>& A,
                   Matrix<double>& B,
     double beta,  Matrix<double>& C,
@@ -181,7 +215,6 @@ void gemm< Target::HostNest, double >(
 
 template
 void gemm< Target::HostBatch, double >(
-    blas::Op transA, blas::Op transB,
     double alpha, Matrix<double>& A,
                   Matrix<double>& B,
     double beta,  Matrix<double>& C,
@@ -189,10 +222,67 @@ void gemm< Target::HostBatch, double >(
 
 template
 void gemm< Target::Devices, double >(
-    blas::Op transA, blas::Op transB,
     double alpha, Matrix<double>& A,
                   Matrix<double>& B,
     double beta,  Matrix<double>& C,
+    const std::map<Option, Value>& opts);
+
+// ----------------------------------------
+template
+void gemm< Target::HostTask,  std::complex<float>  >(
+    std::complex<float> alpha, Matrix< std::complex<float> >& A,
+                               Matrix< std::complex<float> >& B,
+    std::complex<float> beta,  Matrix< std::complex<float> >& C,
+    const std::map<Option, Value>& opts);
+
+template
+void gemm< Target::HostNest, std::complex<float> >(
+    std::complex<float> alpha, Matrix< std::complex<float> >& A,
+                               Matrix< std::complex<float> >& B,
+    std::complex<float> beta,  Matrix< std::complex<float> >& C,
+    const std::map<Option, Value>& opts);
+
+template
+void gemm< Target::HostBatch, std::complex<float> >(
+    std::complex<float> alpha, Matrix< std::complex<float> >& A,
+                               Matrix< std::complex<float> >& B,
+    std::complex<float> beta,  Matrix< std::complex<float> >& C,
+    const std::map<Option, Value>& opts);
+
+template
+void gemm< Target::Devices, std::complex<float> >(
+    std::complex<float> alpha, Matrix< std::complex<float> >& A,
+                               Matrix< std::complex<float> >& B,
+    std::complex<float> beta,  Matrix< std::complex<float> >& C,
+    const std::map<Option, Value>& opts);
+
+// ----------------------------------------
+template
+void gemm< Target::HostTask, std::complex<double> >(
+    std::complex<double> alpha, Matrix< std::complex<double> >& A,
+                                Matrix< std::complex<double> >& B,
+    std::complex<double> beta,  Matrix< std::complex<double> >& C,
+    const std::map<Option, Value>& opts);
+
+template
+void gemm< Target::HostNest, std::complex<double> >(
+    std::complex<double> alpha, Matrix< std::complex<double> >& A,
+                                Matrix< std::complex<double> >& B,
+    std::complex<double> beta,  Matrix< std::complex<double> >& C,
+    const std::map<Option, Value>& opts);
+
+template
+void gemm< Target::HostBatch, std::complex<double> >(
+    std::complex<double> alpha, Matrix< std::complex<double> >& A,
+                                Matrix< std::complex<double> >& B,
+    std::complex<double> beta,  Matrix< std::complex<double> >& C,
+    const std::map<Option, Value>& opts);
+
+template
+void gemm< Target::Devices, std::complex<double> >(
+    std::complex<double> alpha, Matrix< std::complex<double> >& A,
+                                Matrix< std::complex<double> >& B,
+    std::complex<double> beta,  Matrix< std::complex<double> >& C,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

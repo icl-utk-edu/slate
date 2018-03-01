@@ -41,6 +41,13 @@
 #include "slate_types.hh"
 #include "slate_Tile_blas.hh"
 #include "slate_internal.hh"
+#include "slate_internal_batch.hh"
+
+#ifdef SLATE_WITH_MKL
+    #include <mkl_cblas.h>
+#else
+    #include <cblas.h>
+#endif
 
 namespace slate {
 namespace internal {
@@ -99,11 +106,270 @@ void gemm(internal::TargetType<Target::HostTask>,
     #pragma omp taskwait
 }
 
+///-----------------------------------------------------------------------------
+/// \brief
+/// General matrix multiply to update trailing matrix,
+/// where A is a single block column and B is a single block row.
+/// Host nested OpenMP implementation.
+template <typename scalar_t>
+void gemm(internal::TargetType<Target::HostNest>,
+          scalar_t alpha, Matrix< scalar_t >& A,
+                          Matrix< scalar_t >& B,
+          scalar_t beta,  Matrix< scalar_t >& C,
+          int priority)
+{
+    // check dimensions
+    assert(A.nt() == 1);
+    assert(B.mt() == 1);
+    assert(A.mt() == C.mt());
+    assert(B.nt() == C.nt());
+
+//  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
+    #pragma omp parallel for collapse(2) schedule(dynamic, 1)
+    for (int64_t i = 0; i < C.mt(); ++i)
+        for (int64_t j = 0; j < C.nt(); ++j)
+            if (C.tileIsLocal(i, j)) {
+
+                A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
+                B.tileCopyToHost(0, j, B.tileDevice(0, j));
+                C.tileMoveToHost(i, j, C.tileDevice(i, j));
+                gemm(alpha, A(i, 0),
+                            B(0, j),
+                     beta,  C(i, j));
+                A.tileTick(i, 0);
+                B.tileTick(0, j);
+            }
+
+    #pragma omp taskwait
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+/// General matrix multiply to update trailing matrix,
+/// where A is a single block column and B is a single block row.
+/// Host batched implementation.
+template <typename scalar_t>
+void gemm(internal::TargetType<Target::HostBatch>,
+          scalar_t alpha, Matrix< scalar_t >& A,
+                          Matrix< scalar_t >& B,
+          scalar_t beta,  Matrix< scalar_t >& C,
+          int priority)
+{
+    // check dimensions
+    assert(A.nt() == 1);
+    assert(B.mt() == 1);
+    assert(A.mt() == C.mt());
+    assert(B.nt() == C.nt());
+
+    // load off-diagonal tiles to host, if not there
+    // also count tiles
+    int batch_count = 0;
+     for (int64_t i = 0; i < C.mt(); ++i)
+        for (int64_t j = 0; j < C.nt(); ++j)
+            if (C.tileIsLocal(i, j)) {
+                A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
+                B.tileCopyToHost(0, j, B.tileDevice(0, j));
+                C.tileMoveToHost(i, j, C.tileDevice(i, j));
+                ++batch_count;
+            }
+
+    if (batch_count > 0) {
+        CBLAS_TRANSPOSE opA = (A.op() == Op::NoTrans ? CblasNoTrans : CblasTrans);
+        CBLAS_TRANSPOSE opB = (B.op() == Op::NoTrans ? CblasNoTrans : CblasTrans);
+        std::vector< CBLAS_TRANSPOSE > opA_array( batch_count, opA );  // all same
+        std::vector< CBLAS_TRANSPOSE > opB_array( batch_count, opB );  // all same
+        std::vector< int > m_array( batch_count );
+        std::vector< int > n_array( batch_count );
+        std::vector< int > k_array( batch_count );
+        std::vector< scalar_t > alpha_array( batch_count, alpha );  // all same
+        std::vector< scalar_t >  beta_array( batch_count,  beta );  // all same
+        std::vector< const scalar_t* > a_array( batch_count );
+        std::vector< const scalar_t* > b_array( batch_count );
+        std::vector< scalar_t* > c_array( batch_count );
+        std::vector< int > lda_array( batch_count );
+        std::vector< int > ldb_array( batch_count );
+        std::vector< int > ldc_array( batch_count );
+        std::vector< int > group_size( batch_count, 1 );  // all same
+
+        int index = 0;
+        for (int64_t i = 0; i < C.mt(); ++i)
+            for (int64_t j = 0; j < C.nt(); ++j)
+                if (C.tileIsLocal(i, j)) {
+                    m_array[ index ] = C(i, j).mb();
+                    n_array[ index ] = C(i, j).nb();
+                    k_array[ index ] = A(i, 0).nb();  // should be all same
+
+                    assert( A(i, 0).mb() == m_array[ index ] );
+                    assert( B(0, j).nb() == n_array[ index ] );
+                    assert( B(0, j).mb() == k_array[ index ] );
+
+                    a_array[ index ] = A(i, 0).data();
+                    b_array[ index ] = B(0, j).data();
+                    c_array[ index ] = C(i, j).data();
+
+                    lda_array[ index ] = A(i, 0).stride();
+                    ldb_array[ index ] = B(0, j).stride();
+                    ldc_array[ index ] = C(i, j).stride();
+
+                    ++index;
+                }
+
+        {
+            trace::Block trace_block("cblas_dgemm_batch");
+            #ifdef SLATE_WITH_MKL
+                // mkl_set_num_threads_local(...);
+                cblas_gemm_batch(
+                    CblasColMajor,
+                    opA_array.data(), opB_array.data(),
+                    m_array.data(), n_array.data(), k_array.data(),
+                    alpha_array.data(), a_array.data(), lda_array.data(),
+                                        b_array.data(), ldb_array.data(),
+                    beta_array.data(),  c_array.data(), ldc_array.data(),
+                    batch_count, group_size.data());
+                // mkl_set_num_threads_local(1);
+            #else
+                assert(false);
+            #endif
+        }
+
+    for (int64_t i = 0; i < C.mt(); ++i)
+        for (int64_t j = 0; j < C.nt(); ++j)
+            if (C.tileIsLocal(i, j)) {
+                A.tileTick(i, 0);
+                B.tileTick(0, j);
+            }
+    }
+
+    #pragma omp taskwait
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+/// General matrix multiply to update trailing matrix,
+/// where A is a single block column and B is a single block row.
+/// GPU device batched cuBLAS implementation.
+template <typename scalar_t>
+void gemm(internal::TargetType<Target::Devices>,
+          scalar_t alpha, Matrix< scalar_t >& A,
+                          Matrix< scalar_t >& B,
+          scalar_t beta,  Matrix< scalar_t >& C,
+          int priority)
+{
+    // check dimensions
+    assert(A.nt() == 1);
+    assert(B.mt() == 1);
+    assert(A.mt() == C.mt());
+    assert(B.nt() == C.nt());
+
+    for (int device = 0; device < C.num_devices(); ++device) {
+        #pragma omp task shared(A, B, C) priority(priority)
+        {
+            scalar_t** a_array_host = C.a_array_host(device);
+            scalar_t** b_array_host = C.b_array_host(device);
+            scalar_t** c_array_host = C.c_array_host(device);
+
+            int64_t batch_count = 0;
+            for (int64_t i = 0; i < C.mt(); ++i)
+                for (int64_t j = 0; j < C.nt(); ++j)
+                    if (C.tileIsLocal(i, j))
+                        if (device == C.tileDevice(i, j)) {
+                            A.tileCopyToDevice(i, 0, device);
+                            B.tileCopyToDevice(0, j, device);
+                            C.tileMoveToDevice(i, j, device);
+                            a_array_host[ batch_count ] = A(i, 0, device).data();
+                            b_array_host[ batch_count ] = B(0, j, device).data();
+                            c_array_host[ batch_count ] = C(i, j, device).data();
+                            ++batch_count;
+                        }
+
+            scalar_t** a_array_dev = C.a_array_device(device);
+            scalar_t** b_array_dev = C.b_array_device(device);
+            scalar_t** c_array_dev = C.c_array_device(device);
+
+            cudaError_t error;
+            error = cudaSetDevice(device);
+            assert(error == cudaSuccess);
+
+            // cublas_handle uses this stream
+            cudaStream_t stream = C.compute_stream(device);
+            cublasHandle_t cublas_handle = C.cublas_handle(device);
+
+            error = cudaMemcpyAsync(a_array_dev, a_array_host,
+                                    sizeof(scalar_t*)*batch_count,
+                                    cudaMemcpyHostToDevice,
+                                    stream);
+            assert(error == cudaSuccess);
+
+            error = cudaMemcpyAsync(b_array_dev, b_array_host,
+                                    sizeof(scalar_t*)*batch_count,
+                                    cudaMemcpyHostToDevice,
+                                    stream);
+            assert(error == cudaSuccess);
+
+            error = cudaMemcpyAsync(c_array_dev, c_array_host,
+                                    sizeof(scalar_t*)*batch_count,
+                                    cudaMemcpyHostToDevice,
+                                    stream);
+            assert(error == cudaSuccess);
+
+            {
+                trace::Block trace_block("cublasDgemmBatched");
+                int nb = C.tileNb(0);
+                cublasOperation_t opa = (A.op() == Op::NoTrans ? CUBLAS_OP_N : CUBLAS_OP_C);
+                cublasOperation_t opb = (A.op() == Op::NoTrans ? CUBLAS_OP_N : CUBLAS_OP_C);
+                cublasStatus_t status =
+                    cublasGemmBatched(
+                        cublas_handle,  // uses stream
+                        opa, opb,
+                        nb, nb, nb,
+                        &alpha, (const scalar_t**) a_array_dev, nb,
+                                (const scalar_t**) b_array_dev, nb,
+                        &beta,  c_array_dev, nb,
+                        batch_count);
+                assert(status == CUBLAS_STATUS_SUCCESS);
+                error = cudaStreamSynchronize(stream);
+                assert(error == cudaSuccess);
+            }
+
+            for (int64_t i = 0; i < C.mt(); ++i)
+                for (int64_t j = 0; j < C.nt(); ++j)
+                    if (C.tileIsLocal(i, j))
+                        if (device == C.tileDevice(i, j)) {
+                            A.tileTick(i, 0);
+                            B.tileTick(0, j);
+                        }
+        }
+    }
+
+    #pragma omp taskwait
+}
+
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 // ----------------------------------------
 template
 void gemm< Target::HostTask, float >(
+    float alpha, Matrix<float>&& A,
+                 Matrix<float>&& B,
+    float beta,  Matrix<float>&& C,
+    int priority);
+
+template
+void gemm< Target::HostNest, float >(
+    float alpha, Matrix<float>&& A,
+                 Matrix<float>&& B,
+    float beta,  Matrix<float>&& C,
+    int priority);
+
+template
+void gemm< Target::HostBatch, float >(
+    float alpha, Matrix<float>&& A,
+                 Matrix<float>&& B,
+    float beta,  Matrix<float>&& C,
+    int priority);
+
+template
+void gemm< Target::Devices, float >(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
@@ -117,6 +383,27 @@ void gemm< Target::HostTask, double >(
     double beta,  Matrix<double>&& C,
     int priority);
 
+template
+void gemm< Target::HostNest, double >(
+    double alpha, Matrix<double>&& A,
+                  Matrix<double>&& B,
+    double beta,  Matrix<double>&& C,
+    int priority);
+
+template
+void gemm< Target::HostBatch, double >(
+    double alpha, Matrix<double>&& A,
+                  Matrix<double>&& B,
+    double beta,  Matrix<double>&& C,
+    int priority);
+
+template
+void gemm< Target::Devices, double >(
+    double alpha, Matrix<double>&& A,
+                  Matrix<double>&& B,
+    double beta,  Matrix<double>&& C,
+    int priority);
+
 // ----------------------------------------
 template
 void gemm< Target::HostTask, std::complex<float> >(
@@ -125,9 +412,51 @@ void gemm< Target::HostTask, std::complex<float> >(
     std::complex<float> beta,  Matrix<std::complex<float>>&& C,
     int priority);
 
+template
+void gemm< Target::HostNest, std::complex<float> >(
+    std::complex<float> alpha, Matrix<std::complex<float>>&& A,
+                               Matrix<std::complex<float>>&& B,
+    std::complex<float> beta,  Matrix<std::complex<float>>&& C,
+    int priority);
+
+template
+void gemm< Target::HostBatch, std::complex<float> >(
+    std::complex<float> alpha, Matrix<std::complex<float>>&& A,
+                               Matrix<std::complex<float>>&& B,
+    std::complex<float> beta,  Matrix<std::complex<float>>&& C,
+    int priority);
+
+template
+void gemm< Target::Devices, std::complex<float> >(
+    std::complex<float> alpha, Matrix<std::complex<float>>&& A,
+                               Matrix<std::complex<float>>&& B,
+    std::complex<float> beta,  Matrix<std::complex<float>>&& C,
+    int priority);
+
 // ----------------------------------------
 template
 void gemm< Target::HostTask, std::complex<double> >(
+    std::complex<double> alpha, Matrix<std::complex<double>>&& A,
+                                Matrix<std::complex<double>>&& B,
+    std::complex<double> beta,  Matrix<std::complex<double>>&& C,
+    int priority);
+
+template
+void gemm< Target::HostNest, std::complex<double> >(
+    std::complex<double> alpha, Matrix<std::complex<double>>&& A,
+                                Matrix<std::complex<double>>&& B,
+    std::complex<double> beta,  Matrix<std::complex<double>>&& C,
+    int priority);
+
+template
+void gemm< Target::HostBatch, std::complex<double> >(
+    std::complex<double> alpha, Matrix<std::complex<double>>&& A,
+                                Matrix<std::complex<double>>&& B,
+    std::complex<double> beta,  Matrix<std::complex<double>>&& C,
+    int priority);
+
+template
+void gemm< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, Matrix<std::complex<double>>&& A,
                                 Matrix<std::complex<double>>&& B,
     std::complex<double> beta,  Matrix<std::complex<double>>&& C,

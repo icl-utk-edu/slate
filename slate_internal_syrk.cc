@@ -114,7 +114,7 @@ void syrk(internal::TargetType<Target::HostTask>,
 ///-----------------------------------------------------------------------------
 /// \brief
 /// Symmetric rank-k update of single block column (i.e., k = nb).
-/// Host nested OpenMP task implementation.
+/// Host nested OpenMP implementation.
 template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostNest>,
           scalar_t alpha, Matrix< scalar_t >& A,
@@ -139,8 +139,8 @@ void syrk(internal::TargetType<Target::HostNest>,
     for (int64_t j = 0; j < C.nt(); ++j)
         for (int64_t i = 0; i < C.mt(); ++i)  // full
             if (i >= j+1)                     // lower
-                if (C.tileIsLocal(i, j))
-                {
+                if (C.tileIsLocal(i, j)) {
+
                     A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
                     A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                     C.tileMoveToHost(i, j, C.tileDevice(i, j));
@@ -284,7 +284,7 @@ void syrk(internal::TargetType<Target::Devices>,
 
     // off-diagonal tiles by batch gemm on device
     for (int device = 0; device < C.num_devices(); ++device) {
-        #pragma omp task shared(A, C) priority(1)
+        #pragma omp task shared(A, C) priority(priority)
         {
             scalar_t** a_array_host = C.a_array_host(device);
             scalar_t** b_array_host = C.b_array_host(device);

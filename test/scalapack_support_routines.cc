@@ -11,16 +11,13 @@
 #include <assert.h>
 #include <mpi.h>
 #include <math.h>
-#include "myscalapack_common.h"
-#include "myscalapack_fortran.h"
+#include "scalapack_wrappers.hh"
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-/**
- * Matrix generations
- */
+// Matrix generation
 #define Rnd64_A  6364136223846793005ULL
 #define Rnd64_C  1ULL
 #define RndF_Mul 5.4210108624275222e-20f
@@ -48,7 +45,7 @@ Rnd64_jump(unsigned long long int n, unsigned long long int seed ) {
 
 static inline void
 CORE_dplrnt( int m, int n, double *A, int lda,
-             int bigM, int m0, int n0, unsigned long long int seed )
+             int bigM, int m0, int n0, int seed )
 {
     double *tmp = A;
     int64_t i, j;
@@ -57,7 +54,7 @@ CORE_dplrnt( int m, int n, double *A, int lda,
     jump = (unsigned long long int)m0 + (unsigned long long int)n0 * (unsigned long long int)bigM;
 
     for (j=0; j<n; ++j ) {
-        ran = Rnd64_jump( jump, seed );
+        ran = Rnd64_jump( jump, (unsigned long long int)seed );
         for (i = 0; i < m; ++i) {
             *tmp = 0.5f - ran * RndF_Mul;
             ran  = Rnd64_A * ran + Rnd64_C;

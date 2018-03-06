@@ -113,8 +113,10 @@ std::vector< libtest::routines_t > routines = {
   //   { "ptsv",               test_ptsv,      Section::posv },
   //   { "",                   nullptr,        Section::newline },
 
-    { "potrf",              test_potrf,     Section::posv },
-    { "potrf_lapack",       test_potrf_lapack,    Section::posv },
+    { "potrf",              test_potrf,        Section::posv },
+    { "potrf_lapack",       test_potrf_lapack, Section::posv },
+    { "gemm",               test_gemm,         Section::posv },
+
   //   { "pptrf",              test_pptrf,     Section::posv },
   //   { "pbtrf",              test_pbtrf,     Section::posv },
   //   { "pttrf",              test_pttrf,     Section::posv },

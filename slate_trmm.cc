@@ -64,10 +64,12 @@ void trmm(slate::internal::TargetType<target>,
 
     for (int64_t k = A.nt()-1; k > 0; --k) {
 
-        // internal::trmm<target>(
-        //     side, diag,
-        //     alpha, A.sub(0, k, 0, k),
-        //            B.sub(0, k, 0, B.nt()));
+        auto Akk = A.sub(0, k, 0, k);
+        auto Tkk = TriangularMatrix< scalar_t >( Uplo::Lower, Akk );
+        internal::trmm<target>(
+            side, diag,
+            alpha, std::move(Tkk),
+                   B.sub(0, k, 0, B.nt()-1));
     }
 
 

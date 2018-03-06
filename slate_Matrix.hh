@@ -116,6 +116,38 @@ public:
     }
 
     ///-------------------------------------------------------------------------
+    /// Construct matrix by wrapping existing memory of an m-by-n ScaLAPACK matrix.
+    /// The caller must ensure that the memory remains valid for the lifetime
+    /// of the Matrix object and any shallow copies of it.
+    /// Input format is an ScaLAPACK-style column-major matrix.
+    /// Matrix gets tiled with square nb-by-nb tiles.
+    Matrix(int64_t m, int64_t n, scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
+           int p, int q, int64_t lld_s, MPI_Comm mpi_comm):
+        slate::BaseMatrix< scalar_t >(m, n, nb, p, q, mpi_comm)
+        {
+            // ii, jj are row, col indices
+            // ii_loc and jj_loc are the local array indices in a block-cyclic layout (indxg2l)
+            // i, j are tile (block row, block col) indices
+            int64_t jj = 0;
+            for (int64_t j = 0; j < this->nt(); ++j) {
+                int64_t jb = this->tileNb(j);
+                // Using Scalapack indxg2l
+                int64_t jj_loc = nb*(jj/(nb*p)) + (jj % nb);
+                int64_t ii = 0;
+                for (int64_t i = 0; i < this->mt(); ++i) {
+                    int64_t ib = this->tileMb(i);
+                    if (this->tileIsLocal(i, j)) {
+                        // Using Scalapack indxg2l
+                        int64_t ii_loc = mb*(ii/(mb*q)) + (ii % mb);
+                        this->tileInsert(i, j, this->host_num_, &A[ ii_loc + jj_loc*lld_s ], lda);
+                    }
+                    ii += ib;
+                }
+                jj += jb;
+            }
+        }
+
+    ///-------------------------------------------------------------------------
     /// Sub-matrix constructor creates shallow copy view of parent matrix,
     /// A[ i1:i2, j1:j2 ].
     Matrix(Matrix& orig,

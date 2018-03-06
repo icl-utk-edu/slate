@@ -94,11 +94,13 @@ lib_src += \
        slate_internal_potrf.cc \
        slate_internal_syrk.cc \
        slate_internal_herk.cc \
+       slate_internal_trmm.cc \
        slate_internal_trsm.cc \
        slate_Memory.cc \
        slate_trace_Trace.cc \
        slate_potrf.cc \
        slate_gemm.cc \
+       slate_trmm.cc \
        slate_types.cc
 
 test_src = \
@@ -107,7 +109,8 @@ test_src = \
        test_tile.cc \
        test_tile_blas.cc \
        test_potrf.cc \
-       test_gemm.cc
+       test_gemm.cc \
+       test_trmm.cc
 
 lib_obj  = $(lib_src:.cc=.o)
 test_obj = $(test_src:.cc=.o)

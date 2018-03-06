@@ -190,6 +190,34 @@ void herk(
 
 ///-----------------------------------------------------------------------------
 /// \brief
+template <typename scalar_t>
+void trmm(
+    Side side, Diag diag,
+    scalar_t alpha, Tile<scalar_t> const& A,
+                    Tile<scalar_t>& B)
+{
+    trace::Block trace_block("blas::trmm");
+
+    blas::trsm(blas::Layout::ColMajor,
+               side, A.uplo(), A.op(), diag,
+               B.mb(), B.nb(),
+               alpha, A.data(), A.stride(),
+                      B.data(), B.stride());
+}
+
+///----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename scalar_t>
+void trmm(
+    Side side, Diag diag,
+    scalar_t alpha, Tile<scalar_t> const&& A,
+                    Tile<scalar_t>&& B)
+{
+    trmm( side, diag, alpha, A, B );
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
 /// Triangular solve: $B = \alpha op(A)^{-1} B$ or $B = \alpha B op(A)^{-1}$.
 /// Use transpose/conj_transpose to set op(A). uplo is set in the tile.
 /// In the complex case,

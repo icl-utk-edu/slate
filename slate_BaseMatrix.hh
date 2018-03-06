@@ -405,7 +405,6 @@ public:
     /// This should be called by at least all ranks with local tiles in A1 or A2;
     /// ones that do not have any local tiles are excluded from the broadcast.
     // todo: this code is nearly identical to above tileBcast. Generalize?
-    // todo: should these be "tileBcast"? there is no tileRecv.
     template <Target target = Target::Host>
     void tileBcast(int64_t i, int64_t j, BaseMatrix const& A1, BaseMatrix const& A2)
     {
@@ -438,7 +437,6 @@ public:
     /// Broadcast tile {i, j} to all MPI ranks in the bcast_set.
     /// This should be called by all (and only) ranks that are in bcast_set,
     /// as either the root sender or a receiver.
-    // todo: should these be "tileBcast"? there is no tileRecv.
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> &bcast_set)
     {
         // Quit if only root in the broadcast set.
@@ -595,8 +593,8 @@ public:
     /// Puts all MPI ranks that have tiles in the matrix into the set.
     void getRanks(std::set<int> *bcast_set) const
     {
-        for (int64_t i = 0; i < mt_; ++i)
-            for (int64_t j = 0; j < nt_; ++j)
+        for (int64_t i = 0; i < mt(); ++i)
+            for (int64_t j = 0; j < nt(); ++j)
                 bcast_set->insert(tileRank(i, j));
     }
 
@@ -607,8 +605,8 @@ public:
     {
         // Find the tile's lifespan.
         int64_t life = 0;
-        for (int64_t i = 0; i < mt_; ++i)
-            for (int64_t j = 0; j < nt_; ++j)
+        for (int64_t i = 0; i < mt(); ++i)
+            for (int64_t j = 0; j < nt(); ++j)
                 if (tileIsLocal(i, j))
                     ++life;
 

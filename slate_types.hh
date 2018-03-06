@@ -126,6 +126,19 @@ public:
 };
 
 ///-----------------------------------------------------------------------------
+/// True if T is std::complex<T2> for some type T2.
+template <typename T>
+struct is_complex:
+    std::integral_constant< bool, false >
+{};
+
+// specialize for std::complex
+template <typename T>
+struct is_complex< std::complex<T> >:
+    std::integral_constant< bool, true >
+{};
+
+///-----------------------------------------------------------------------------
 // define enable_if_t if not using c++14
 #if __cplusplus >= 201402L
     using std::enable_if_t;

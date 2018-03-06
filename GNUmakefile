@@ -105,6 +105,7 @@ test_src = \
        test_memory.cc \
        test_matrix.cc \
        test_tile.cc \
+       test_tile_blas.cc \
        test_potrf.cc \
        test_gemm.cc
 

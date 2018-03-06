@@ -117,6 +117,8 @@ MatrixType conj_transpose(MatrixType& A)
 template <typename scalar_t>
 class Tile {
 public:
+    ///-------------------------------------------------------------------------
+    /// Create empty tile.
     Tile():
         mb_(0),
         nb_(0),
@@ -130,7 +132,7 @@ public:
     {}
 
     ///-------------------------------------------------------------------------
-    /// Creates tile that wraps existing memory buffer.
+    /// Create tile that wraps existing memory buffer.
     /// Sets origin = true.
     Tile(int64_t mb, int64_t nb,
          scalar_t *A, int64_t lda, int device, bool origin=true):
@@ -143,9 +145,14 @@ public:
         valid_(true),
         origin_(origin),
         device_(device)
-    {}
+    {
+        assert( mb >= 0 );
+        assert( nb >= 0 );
+        assert( A != nullptr );
+        assert( lda >= mb );
+    }
 
-    // defaults okay (tile doesn't own data, doesn't allocate/deallocate data, :
+    // defaults okay (tile doesn't own data, doesn't allocate/deallocate data)
     // 1. destructor
     // 2. copy & move constructors
     // 3. copy & move assignment

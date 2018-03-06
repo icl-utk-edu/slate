@@ -7,7 +7,7 @@ void test_empty()
     Test name( __func__ );
 
     // ----- General
-    test_barrier( "Matrix" );
+    test_message( "Matrix" );
     slate::Matrix<double> A;
 
     if (g_mpi_rank == 0) {
@@ -21,7 +21,7 @@ void test_empty()
     test_assert( A.op() == blas::Op::NoTrans );
 
     // ----- Trapezoid
-    test_barrier( "TrapezoidMatrix" );
+    test_message( "TrapezoidMatrix" );
     slate::TrapezoidMatrix<double> Z;
 
     if (g_mpi_rank == 0) {
@@ -37,7 +37,7 @@ void test_empty()
     test_assert( Z.uplo() == blas::Uplo::Lower );
 
     // ----- Triangular
-    test_barrier( "TriangularMatrix" );
+    test_message( "TriangularMatrix" );
     slate::TriangularMatrix<double> T;
 
     if (g_mpi_rank == 0) {
@@ -53,7 +53,7 @@ void test_empty()
     test_assert( T.uplo() == blas::Uplo::Lower );
 
     // ----- Symmetric
-    test_barrier( "SymmetricMatrix" );
+    test_message( "SymmetricMatrix" );
     slate::SymmetricMatrix<double> S;
 
     if (g_mpi_rank == 0) {
@@ -69,7 +69,7 @@ void test_empty()
     test_assert( S.uplo() == blas::Uplo::Lower );
 
     // ----- Hermitian
-    test_barrier( "HermitianMatrix" );
+    test_message( "HermitianMatrix" );
     slate::HermitianMatrix<double> H;
 
     if (g_mpi_rank == 0) {
@@ -147,7 +147,7 @@ void test_general( int m, int n, int nb, int p, int q )
     }
 
     // ----- verify swap
-    test_barrier( "swap( A, B )" );
+    test_message( "swap( A, B )" );
     // transpose so we can tell if op was swapped
     B = transpose( B );
     test_assert( B.op() == blas::Op::Trans );
@@ -200,7 +200,7 @@ void test_general( int m, int n, int nb, int p, int q )
     int nt = A.nt();
 
     // ----- verify each tile and tile sizes
-    test_barrier( "tile members" );
+    test_message( "tile members" );
     for (int j = 0; j < nt; ++j) {
         int jb = (j == nt-1 ? n - j*nb : nb);
 
@@ -250,12 +250,12 @@ void test_general( int m, int n, int nb, int p, int q )
     }
 
     // ----- verify size (# tiles)
-    test_barrier( "size" );
+    test_message( "size" );
     size_t size = (mt/p + (mt%p > g_mpi_rank%p)) * (nt/q + (nt%q > g_mpi_rank/p));
     test_assert( A.size() == size );
 
     // ----- verify tile functions
-    test_barrier( "tileRank, tileDevice, tileIsLocal" );
+    test_message( "tileRank, tileDevice, tileIsLocal" );
     for (int j = 0; j < nt; ++j) {
         for (int i = 0; i < mt; ++i) {
             int rank = (i % p) + (j % q)*p;
@@ -271,7 +271,7 @@ void test_general( int m, int n, int nb, int p, int q )
     }
 
     // ----- verify tile transpose
-    test_barrier( "[conj_]transpose( tile )" );
+    test_message( "[conj_]transpose( tile )" );
     for (int j = 0; j < nt; ++j) {
         for (int i = 0; i < mt; ++i) {
             if (A.tileIsLocal( i, j )) {
@@ -306,7 +306,7 @@ void test_general( int m, int n, int nb, int p, int q )
     }
 
     // ----- verify tile transpose
-    test_barrier( "transpose( A )" );
+    test_message( "transpose( A )" );
     auto AT = transpose( A );
     test_assert( AT.mt() == A.nt() );
     test_assert( AT.nt() == A.mt() );
@@ -336,7 +336,7 @@ void test_general( int m, int n, int nb, int p, int q )
     }
 
     // ----- verify tile conj_transpose
-    test_barrier( "conj_transpose( A )" );
+    test_message( "conj_transpose( A )" );
     auto AC = conj_transpose( A );
     test_assert( AC.mt() == A.nt() );
     test_assert( AC.nt() == A.mt() );
@@ -507,14 +507,14 @@ void test_general_send( int m, int n, int nb, int p, int q )
     slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     // -------------------- broadcast A(0,0) to all of A
-    test_barrier( "broadcast A(0,0) to all of A" );
+    test_message( "broadcast A(0,0) to all of A" );
     A.tileBcast( 0, 0, A );
 
     auto Aij = A( 0, 0 );  // should be on all ranks now
     unused( Aij );
 
     // ----- verify life
-    test_barrier( "life" );
+    test_message( "life" );
     int life = A.tileLife( 0, 0 );
     int life2 = 0;
     if (! A.tileIsLocal( 0, 0 )) {
@@ -531,7 +531,7 @@ void test_general_send( int m, int n, int nb, int p, int q )
     test_assert( life == life2 );
 
     // ----- verify tileTick
-    test_barrier( "tileTick" );
+    test_message( "tileTick" );
     // after all the tickTicks, life of A(0,0) should have been decrement to 0
     // and deleted the A(0,0) tile
     test_assert( A.tileLife( 0, 0 ) == 0 );
@@ -541,12 +541,12 @@ void test_general_send( int m, int n, int nb, int p, int q )
         test_assert_throw( A( 0, 0 ), std::out_of_range );
 
     // -------------------- broadcast A(1,1) across row A(1,2:nt)
-    test_barrier( "broadcast A(1,1) to A(1,2:nt)" );
+    test_message( "broadcast A(1,1) to A(1,2:nt)" );
     auto Arow = A.sub( 1, 1, 2, A.nt()-1 );
     A.tileBcast( 1, 1, Arow );
 
     // ----- verify life
-    test_barrier( "life" );
+    test_message( "life" );
     life2 = 0;
     bool row_is_local = A.tileIsLocal( 1, 1 );
     if (! A.tileIsLocal( 1, 1 )) {
@@ -567,7 +567,7 @@ void test_general_send( int m, int n, int nb, int p, int q )
         test_assert_throw( A( 1, 1 ), std::exception );
 
     // ----- verify tileTick
-    test_barrier( "tileTick" );
+    test_message( "tileTick" );
     // tileTick should reduce life to 0
     for (int j = 2; j < A.nt(); ++j) {
         if (A.tileIsLocal( 1, j )) {
@@ -583,12 +583,12 @@ void test_general_send( int m, int n, int nb, int p, int q )
         test_assert_throw( A( 1, 1 ), std::exception );
 
     // -------------------- broadcast A(1,1) across col A(2:mt,1)
-    test_barrier( "broadcast A(1,1) to A(2:mt,1)" );
+    test_message( "broadcast A(1,1) to A(2:mt,1)" );
     auto Acol = A.sub( 2, A.mt()-1, 1, 1 );
     A.tileBcast( 1, 1, Acol );
 
     // ----- verify life
-    test_barrier( "life" );
+    test_message( "life" );
     life2 = 0;
     bool col_is_local = A.tileIsLocal( 1, 1 );
     if (! A.tileIsLocal( 1, 1 )) {
@@ -609,7 +609,7 @@ void test_general_send( int m, int n, int nb, int p, int q )
         test_assert_throw( A( 1, 1 ), std::exception );
 
     // ----- verify tileTick
-    test_barrier( "tileTick" );
+    test_message( "tileTick" );
     // tileTick should reduce life to 0
     for (int i = 2; i < A.mt(); ++i) {
         if (A.tileIsLocal( i, 1 )) {
@@ -639,14 +639,14 @@ void test_general_send2( int m, int n, int nb, int p, int q )
     slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     // -------------------- broadcast A(1,1) across row A(1,2:nt) and col A(2:mt,1)
-    test_barrier( "broadcast A(1,1) to A(1,2:nt) and A(2:mt,1)" );
+    test_message( "broadcast A(1,1) to A(1,2:nt) and A(2:mt,1)" );
     auto Arow = A.sub( 1, 1, 2, A.nt()-1 );
     auto Acol = A.sub( 2, A.mt()-1, 1, 1 );
     A.tileBcast( 1, 1, Arow, Acol );
     slate::Tile<double> Aij;
 
     // ----- verify life
-    test_barrier( "life" );
+    test_message( "life" );
     int life2 = 0;
     bool blk_is_local = A.tileIsLocal( 1, 1 );
     if (! A.tileIsLocal( 1, 1 )) {
@@ -675,7 +675,7 @@ void test_general_send2( int m, int n, int nb, int p, int q )
         test_assert_throw( A( 1, 1 ), std::exception );
 
     // ----- verify tileTick
-    test_barrier( "tileTick" );
+    test_message( "tileTick" );
     // tileTick should reduce life to 0
     for (int j = 2; j < A.nt(); ++j) {
         if (A.tileIsLocal( 1, j )) {
@@ -719,7 +719,7 @@ void test_cuda_streams( int m, int n, int nb, int p, int q )
         test_assert( err == cudaSuccess );
 
         // ----- compute stream
-        test_barrier( "compute stream" );
+        test_message( "compute stream" );
         test_assert( A.compute_stream( device ) != nullptr );
 
         err = cudaMemcpyAsync( devAd, Ad, size, cudaMemcpyHostToDevice, A.compute_stream( device ));
@@ -729,7 +729,7 @@ void test_cuda_streams( int m, int n, int nb, int p, int q )
         test_assert( err == cudaSuccess );
 
         // ----- comm stream
-        test_barrier( "comm stream" );
+        test_message( "comm stream" );
         test_assert( A.comm_stream( device ) != nullptr );
 
         err = cudaMemcpyAsync( devAd, Ad, size, cudaMemcpyHostToDevice, A.comm_stream( device ));
@@ -742,7 +742,7 @@ void test_cuda_streams( int m, int n, int nb, int p, int q )
         test_assert( A.comm_stream( device ) != A.compute_stream( device ) );
 
         // ----- cublas handle
-        test_barrier( "cublas handle" );
+        test_message( "cublas handle" );
         cudaStream_t stream;
         cublasStatus_t status;
         status = cublasGetStream( A.cublas_handle( device ), &stream );
@@ -786,7 +786,7 @@ void test_batch_arrays( int m, int n, int nb, int p, int q )
             Ad[ i + j*lda ] = i + j/1000.;
     slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
-    test_barrier( "allocateBatchArrays" );
+    test_message( "allocateBatchArrays" );
     A.allocateBatchArrays();
 
     // test filling in each host array and copying to device array
@@ -796,7 +796,7 @@ void test_batch_arrays( int m, int n, int nb, int p, int q )
         cudaError_t err;
 
         // -----
-        test_barrier( "a_array" );
+        test_message( "a_array" );
         array_host   = A.a_array_host  ( device );
         array_device = A.a_array_device( device );
         test_assert( array_host   != nullptr );
@@ -807,7 +807,7 @@ void test_batch_arrays( int m, int n, int nb, int p, int q )
         test_assert( err == cudaSuccess );
 
         // -----
-        test_barrier( "b_array" );
+        test_message( "b_array" );
         array_host   = A.b_array_host  ( device );
         array_device = A.b_array_device( device );
         test_assert( array_host   != nullptr );
@@ -818,7 +818,7 @@ void test_batch_arrays( int m, int n, int nb, int p, int q )
         test_assert( err == cudaSuccess );
 
         // -----
-        test_barrier( "c_array" );
+        test_message( "c_array" );
         array_host   = A.c_array_host  ( device );
         array_device = A.c_array_device( device );
         test_assert( array_host   != nullptr );
@@ -829,7 +829,7 @@ void test_batch_arrays( int m, int n, int nb, int p, int q )
         test_assert( err == cudaSuccess );
     }
 
-    test_barrier( "clearBatchArrays" );
+    test_message( "clearBatchArrays" );
     A.clearBatchArrays();
 
     // now all the arrays should give errors
@@ -866,7 +866,7 @@ void test_copyToDevice( int m, int n, int nb, int p, int q )
             test_assert_throw( Aij = A( 0, 0, device ), std::exception );
 
             // after copy, both host and device data are valid
-            test_barrier( "copyToDevice" );
+            test_message( "copyToDevice" );
             A.tileCopyToDevice( 0, 0, device );
             test_assert( A( 0, 0 ).valid() );
             test_assert( A( 0, 0, device ).valid() );
@@ -901,19 +901,19 @@ void test_copyToHost( int m, int n, int nb, int p, int q )
             test_assert_throw( Aij = A( 0, 0, device ), std::exception );
 
             // after move, both tiles exist, but only device is valid
-            test_barrier( "tileMoveToDevice" );
+            test_message( "tileMoveToDevice" );
             A.tileMoveToDevice( 0, 0, device );  // invalidates host data
             test_assert( ! A( 0, 0 ).valid() );
             test_assert( A( 0, 0, device ).valid() );
 
             // after copy, both host and device are valid
-            test_barrier( "tileCopyToHost" );
+            test_message( "tileCopyToHost" );
             A.tileCopyToHost( 0, 0, device );
             test_assert( A( 0, 0 ).valid() );
             test_assert( A( 0, 0, device ).valid() );
 
             // after move, both tiles exist, but only host is valid
-            test_barrier( "tileMoveToHost" );
+            test_message( "tileMoveToHost" );
             A.tileMoveToHost( 0, 0, device );
             test_assert( A( 0, 0 ).valid() );
             test_assert( ! A( 0, 0, device ).valid() );
@@ -963,7 +963,7 @@ void test_gather( int m, int n, int nb, int p, int q )
     slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     // -----
-    test_barrier( "gather into A" );
+    test_message( "gather into A" );
     A.gather( Ad, lda );
 
     if (g_mpi_rank == 0) {
@@ -989,7 +989,7 @@ void test_gather( int m, int n, int nb, int p, int q )
     }
 
     // -----
-    test_barrier( "gather into B" );
+    test_message( "gather into B" );
     A.gather( Bd, lda );
 
     if (g_mpi_rank == 0) {
@@ -1075,11 +1075,11 @@ void test_hermitian_gather( blas::Uplo uplo, int n, int nb, int p, int q )
     //        print( n, n, Ad, lda );
     //    }
     //    fflush( 0 );
-    //    test_barrier( "print A" );
+    //    test_message( "print A" );
     //}
 
     // -----
-    test_barrier( "gather into A" );
+    test_message( "gather into A" );
     A.gather( Ad, lda );
 
     if (g_mpi_rank == 0) {
@@ -1135,7 +1135,7 @@ void test_hermitian_gather( blas::Uplo uplo, int n, int nb, int p, int q )
     }
 
     // -----
-    test_barrier( "gather into B" );
+    test_message( "gather into B" );
     A.gather( Bd, lda );
 
     if (g_mpi_rank == 0) {
@@ -1229,7 +1229,7 @@ void test_hermitian( blas::Uplo uplo, int n, int nb, int p, int q )
     int mt = A.mt();
 
     // ----- verify each tile and tile sizes
-    test_barrier( "tile members" );
+    test_message( "tile members" );
     for (int j = 0; j < nt; ++j) {
         int jb = (j == nt-1 ? n - j*nb : nb);
 
@@ -1273,7 +1273,7 @@ void test_hermitian( blas::Uplo uplo, int n, int nb, int p, int q )
     }
 
     // ----- verify size (# tiles)
-    test_barrier( "size" );
+    test_message( "size" );
     size_t size = 0;
     for (int j = 0; j < nt; ++j) {
         for (int i = 0; i < mt; ++i) {
@@ -1288,7 +1288,7 @@ void test_hermitian( blas::Uplo uplo, int n, int nb, int p, int q )
     test_assert( A.size() == size );
 
     // ----- verify tile functions
-    test_barrier( "tileRank, tileDevice, tileIsLocal" );
+    test_message( "tileRank, tileDevice, tileIsLocal" );
     for (int j = 0; j < nt; ++j) {
         for (int i = 0; i < mt; ++i) {
             int rank = (i % p) + (j % q)*p;
@@ -1343,7 +1343,7 @@ void test_conversion( blas::Uplo uplo, int m, int n, int nb, int p, int q )
     // general to triangular
     // can't go backwards from {tz, sy, he, tr} => ge,
     // since half the tiles may not exist!
-    test_barrier( "ge => tz, ge => sy, ge => he, ge => tr" );
+    test_message( "ge => tz, ge => sy, ge => he, ge => tr" );
     slate::TrapezoidMatrix<double> ZA( uplo, A );
     slate::TrapezoidMatrix<double> ZB( uplo, B );
 
@@ -1383,13 +1383,13 @@ void test_conversion( blas::Uplo uplo, int m, int n, int nb, int p, int q )
     test_assert( HB.nt() == min_nt );
 
     // -----
-    test_barrier( "sy => he, he => sy" );
+    test_message( "sy => he, he => sy" );
     slate::HermitianMatrix<double>  H( S );
 
-    test_barrier( "sy => he, he => sy (2)" );
+    test_message( "sy => he, he => sy (2)" );
     slate::SymmetricMatrix<double> S2( H );
 
-    test_barrier( "sy => he, he => sy (3)" );
+    test_message( "sy => he, he => sy (3)" );
     test_assert( S.mt()   ==  H.mt()   );
     test_assert( S.nt()   ==  H.nt()   );
     test_assert( S.uplo() ==  H.uplo() );
@@ -1398,7 +1398,7 @@ void test_conversion( blas::Uplo uplo, int m, int n, int nb, int p, int q )
     test_assert( S.uplo() == S2.uplo() );
 
     // -----
-    test_barrier( "sy => tr, tr => sy" );
+    test_message( "sy => tr, tr => sy" );
     slate::TriangularMatrix<double> T1( S  );
     slate::SymmetricMatrix<double>  S3( T1 );
     test_assert( S.mt()   == T1.mt()   );
@@ -1415,7 +1415,7 @@ void test_conversion( blas::Uplo uplo, int m, int n, int nb, int p, int q )
     test_assert( S.uplo() == T2.uplo() );
 
     // -----
-    test_barrier( "he => tr, tr => he" );
+    test_message( "he => tr, tr => he" );
     slate::TriangularMatrix<double> T3( H  );
     slate::HermitianMatrix<double>  H2( T3 );
     test_assert( S.mt()   == T3.mt()   );

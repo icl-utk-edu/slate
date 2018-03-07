@@ -28,17 +28,20 @@ void test_gemm_work( Params& params, bool run )
     typedef typename blas::traits< scalar_t >::real_t real_t;
 
     // get & mark input values
+    blas::Op transA = params.transA.value();
+    blas::Op transB = params.transB.value();
+    scalar_t alpha = params.alpha.value();
+    scalar_t beta = params.beta.value();
+    //int64_t m = params.dim.m(); // TODO
     int64_t n = params.dim.n();
+    //int64_t k = params.dim.k(); // TODO
     int64_t nb = params.nb.value();
     int64_t p = params.p.value();
     int64_t q = params.q.value();
+    int64_t lookahead = params.lookahead.value();
     bool check = params.check.value()=='y';
     bool ref = params.ref.value()=='y';
     bool trace = params.trace.value()=='y';
-    const char *transa = "n";
-    const char *transb = "n";
-    // int64_t align = params.align.value();
-    int64_t lookahead = params.lookahead.value();
 
     // mark non-standard output values
     params.time.value();
@@ -51,8 +54,6 @@ void test_gemm_work( Params& params, bool run )
 
     // Local values
     static int i0=0, i1=1;
-    static scalar_t alpha = 1.234;
-    static scalar_t beta = 4.321;
 
     // BLACS/MPI variables
     int ictxt, nprow, npcol, myrow, mycol, info, mloc, nloc;
@@ -126,7 +127,6 @@ void test_gemm_work( Params& params, bool run )
 
     real_t tol = params.tol.value();
 
-    // if ( 0==1 )
     if ( check || ref ) {
         // Comparison with reference routine from ScaLAPACK
 
@@ -139,7 +139,7 @@ void test_gemm_work( Params& params, bool run )
         // Run the reference routine
         MPI_Barrier(MPI_COMM_WORLD);        
         double time = libtest::get_wtime();
-        scalapack_pgemm( transa, transb, &n_, &n_, &n_, &alpha,
+        scalapack_pgemm( op2str(transA), op2str(transB), &n_, &n_, &n_, &alpha,
             &A_tst[0], &i1, &i1, descA_tst,
             &B_tst[0], &i1, &i1, descB_tst, &beta,
             &C_ref[0], &i1, &i1, descC_ref );

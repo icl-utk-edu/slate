@@ -143,9 +143,9 @@ void herk(scalar_t alpha, Matrix< scalar_t >&& A,
 //-----------------------------------------
 // trmm()
 template <Target target=Target::HostTask, typename scalar_t>
-void tzmm(Side side, Diag diag,
-          scalar_t alpha, TrapezoidMatrix< scalar_t >&& A,
-                                   Matrix< scalar_t >&& B,
+void trmm(Side side, Diag diag,
+          scalar_t alpha, TriangularMatrix< scalar_t >&& A,
+                                    Matrix< scalar_t >&& B,
           int priority=0);
 
 //-----------------------------------------

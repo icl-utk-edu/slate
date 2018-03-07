@@ -60,20 +60,36 @@ void trmm(slate::internal::TargetType<target>,
                                     Matrix<scalar_t>& B,
           int64_t lookahead)
 {
-    assert(A.mt() == A.nt());
+    using namespace blas;
+
+    uint8_t *bcast = new uint8_t[A.nt()];
+    uint8_t *tzmm  = new uint8_t[A.nt()];
+
+    // B.allocateBatchArrays();
+    // B.reserveDeviceWorkspace();
 
     #pragma omp parallel
     #pragma omp master
-    for (int64_t k = A.nt()-1; k >= 0; --k) {
+    for (int64_t k = A.mt()-1; k >= 0; --k) {
 
-        auto Ak = A.sub(k, k, 0, k);
-        auto Tk = TrapezoidMatrix< scalar_t >( Uplo::Lower, Ak );
-
-        internal::tzmm<Target::HostTask>(
+        internal::trmm<Target::HostTask>(
             side, diag,
-            alpha, std::move(Tk),
-                   B.sub(0, k, 0, B.nt()-1));
+            alpha, A.sub(k, k),
+                   B.sub(k, k, 0, B.nt()-1));
+
+        for (int64_t n = k-1; n >= 0; --n) {
+
+            internal::gemm<Target::HostTask>(
+                alpha,         A.sub(k, k, n, n),
+                               B.sub(n, n, 0, B.nt()-1),
+                scalar_t(1.0), B.sub(k, k, 0, B.nt()-1));
+        }
     }
+
+//  B.clearWorkspace();
+
+    delete[] bcast;
+    delete[] tzmm;
 }
 
 } // namespace specialization

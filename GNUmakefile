@@ -94,7 +94,7 @@ lib_src += \
        slate_internal_potrf.cc \
        slate_internal_syrk.cc \
        slate_internal_herk.cc \
-       slate_internal_tzmm.cc \
+       slate_internal_trmm.cc \
        slate_internal_trsm.cc \
        slate_Memory.cc \
        slate_trace_Trace.cc \

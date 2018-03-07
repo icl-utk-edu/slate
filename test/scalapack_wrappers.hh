@@ -234,4 +234,41 @@ inline void scalapack_psymm(const char *side, const char *uplo, int *m, int *n, 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
+#define scalapack_pstrmm BLAS_FORTRAN_NAME(pstrmm,PSTRMM)
+#define scalapack_pdtrmm BLAS_FORTRAN_NAME(pdtrmm,PDTRMM)
+#define scalapack_pctrmm BLAS_FORTRAN_NAME(pctrmm,PCTRMM)
+#define scalapack_pztrmm BLAS_FORTRAN_NAME(pztrmm,PZTRMM)
+
+extern "C" void scalapack_pstrmm (const char *side , const char *uplo , const char *transa , const char *diag , const blas_int *m , const blas_int *n , const float *alpha , const float *a , const blas_int *ia , const blas_int *ja , const blas_int *desca , float *b , const blas_int *ib , const blas_int *jb , const blas_int *descb );
+
+extern "C" void scalapack_pdtrmm (const char *side , const char *uplo , const char *transa , const char *diag , const blas_int *m , const blas_int *n , const double *alpha , const double *a , const blas_int *ia , const blas_int *ja , const blas_int *desca , double *b , const blas_int *ib , const blas_int *jb , const blas_int *descb );
+
+extern "C" void scalapack_pctrmm (const char *side , const char *uplo , const char *transa , const char *diag , const blas_int *m , const blas_int *n , const std::complex<float> *alpha , const std::complex<float> *a , const blas_int *ia , const blas_int *ja , const blas_int *desca , std::complex<float> *b , const blas_int *ib , const blas_int *jb , const blas_int *descb );
+
+extern "C" void scalapack_pztrmm (const char *side , const char *uplo , const char *transa , const char *diag , const blas_int *m , const blas_int *n , const std::complex<double> *alpha , const std::complex<double> *a , const blas_int *ia , const blas_int *ja , const blas_int *desca , std::complex<double> *b , const blas_int *ib , const blas_int *jb , const blas_int *descb );
+
+// -----------------------------------------------------------------------------
+
+inline void scalapack_ptrmm (const char *side, const char *uplo, const char *transa, const char *diag, const blas_int *m, const blas_int *n, const float *alpha, const float *a, const blas_int *ia, const blas_int *ja, const blas_int *desca, float *b, const blas_int *ib, const blas_int *jb, const blas_int *descb )
+{
+    scalapack_pstrmm( side, uplo, transa, diag, m, n, alpha, a, ia, ja, desca, b, ib, jb, descb );
+}
+
+inline void scalapack_ptrmm (const char *side, const char *uplo, const char *transa, const char *diag, const blas_int *m, const blas_int *n, const double *alpha, const double *a, const blas_int *ia, const blas_int *ja, const blas_int *desca, double *b, const blas_int *ib, const blas_int *jb, const blas_int *descb )
+{
+    scalapack_pdtrmm( side, uplo, transa, diag, m, n, alpha, a, ia, ja, desca, b, ib, jb, descb );
+}
+
+inline void scalapack_ptrmm (const char *side, const char *uplo, const char *transa, const char *diag, const blas_int *m, const blas_int *n, const std::complex<float> *alpha, const std::complex<float> *a, const blas_int *ia, const blas_int *ja, const blas_int *desca, std::complex<float> *b, const blas_int *ib, const blas_int *jb, const blas_int *descb )
+{
+    scalapack_pctrmm( side, uplo, transa, diag, m, n, alpha, a, ia, ja, desca, b, ib, jb, descb );
+}
+
+inline void scalapack_ptrmm (const char *side, const char *uplo, const char *transa, const char *diag, const blas_int *m, const blas_int *n, const std::complex<double> *alpha, const std::complex<double> *a, const blas_int *ia, const blas_int *ja, const blas_int *desca, std::complex<double> *b, const blas_int *ib, const blas_int *jb, const blas_int *descb )
+{
+    scalapack_pztrmm( side, uplo, transa, diag, m, n, alpha, a, ia, ja, desca, b, ib, jb, descb );
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 #endif

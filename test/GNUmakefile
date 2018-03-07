@@ -12,7 +12,7 @@ CXXFLAGS += -I$(top)/blaspp/test # for blas_flops.hh
 
 LIBS += -L${top}/libtest -Wl,-rpath,${top}/libtest -ltest -L${top}/lapackpp/lib -Wl,-rpath,${top}/lapackpp/lib -llapackpp 
 
-test_src = ${top}/test/test.cc ${top}/test/scalapack_support_routines.cc ${top}/test/test_potrf.cc ${top}/test/test_potrf_lapack.cc ${top}/test/test_gemm.cc 
+test_src = ${top}/test/test.cc ${top}/test/scalapack_support_routines.cc ${top}/test/test_potrf.cc ${top}/test/test_potrf_lapack.cc ${top}/test/test_gemm.cc ${top}/test/test_trmm.cc 
 test_obj = ${addsuffix .o, ${basename ${test_src}}}
 test_dep = ${addsuffix .d, ${basename ${test_src}}}
 

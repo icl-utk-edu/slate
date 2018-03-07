@@ -389,5 +389,6 @@ void test_syr   ( Params& params, bool run );
 
 void test_potrf_lapack ( Params& params, bool run );
 void test_gemm ( Params& params, bool run );
+void test_trmm ( Params& params, bool run );
 
 #endif  //  #ifndef TEST_HH

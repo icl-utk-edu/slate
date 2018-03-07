@@ -62,16 +62,18 @@ void trmm(slate::internal::TargetType<target>,
 {
     assert(A.mt() == A.nt());
 
-    for (int64_t k = A.nt()-1; k > 0; --k) {
+    #pragma omp parallel
+    #pragma omp master
+    for (int64_t k = A.nt()-1; k >= 0; --k) {
 
-        internal::trmm<Target::HostTask>(
+        auto Ak = A.sub(k, k, 0, k);
+        auto Tk = TrapezoidMatrix< scalar_t >( Uplo::Lower, Ak );
+
+        internal::tzmm<Target::HostTask>(
             side, diag,
-            alpha, A.sub(0, k),
+            alpha, std::move(Tk),
                    B.sub(0, k, 0, B.nt()-1));
     }
-
-
-
 }
 
 } // namespace specialization

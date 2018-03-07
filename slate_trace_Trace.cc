@@ -63,6 +63,7 @@ std::map<std::string, Color> Trace::function_color_ = {
 
     {"blas::gemm", Color::MediumAquamarine},
     {"blas::syrk", Color::CornflowerBlue},
+    {"blas::trmm", Color::MediumOrchid},
     {"blas::trsm", Color::MediumPurple},
 
     {"cblas_dgemm_batch",  Color::DarkGreen},

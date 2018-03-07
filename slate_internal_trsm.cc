@@ -52,12 +52,13 @@ namespace internal {
 template <Target target, typename scalar_t>
 void trsm(Side side, Diag diag,
           scalar_t alpha, TriangularMatrix< scalar_t >&& A,
-                          Matrix< scalar_t >&& B,
+                                    Matrix< scalar_t >&& B,
           int priority)
 {
     trsm(internal::TargetType<target>(),
          side, diag,
-         alpha, A, B,
+         alpha, A,
+                B,
          priority);
 }
 
@@ -69,7 +70,7 @@ template <typename scalar_t>
 void trsm(internal::TargetType<Target::HostTask>,
           Side side, Diag diag,
           scalar_t alpha, TriangularMatrix< scalar_t >& A,
-                          Matrix< scalar_t >& B,
+                                    Matrix< scalar_t >& B,
           int priority)
 {
     // Right, Lower, Trans
@@ -95,7 +96,7 @@ template
 void trsm< Target::HostTask, float >(
     Side side, Diag diag,
     float alpha, TriangularMatrix< float >&& A,
-                 Matrix< float >&& B,
+                           Matrix< float >&& B,
     int priority);
 
 // ----------------------------------------
@@ -103,7 +104,7 @@ template
 void trsm< Target::HostTask, double >(
     Side side, Diag diag,
     double alpha, TriangularMatrix< double >&& A,
-                  Matrix< double >&& B,
+                            Matrix< double >&& B,
     int priority);
 
 // ----------------------------------------
@@ -111,7 +112,7 @@ template
 void trsm< Target::HostTask, std::complex<float> >(
     Side side, Diag diag,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
-                               Matrix< std::complex<float> >&& B,
+                                         Matrix< std::complex<float> >&& B,
     int priority);
 
 // ----------------------------------------
@@ -119,7 +120,7 @@ template
 void trsm< Target::HostTask, std::complex<double> >(
     Side side, Diag diag,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
-                                Matrix< std::complex<double> >&& B,
+                                          Matrix< std::complex<double> >&& B,
     int priority);
 
 } // namespace internal

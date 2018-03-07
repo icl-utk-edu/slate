@@ -198,7 +198,7 @@ void trmm(
 {
     trace::Block trace_block("blas::trmm");
 
-    blas::trsm(blas::Layout::ColMajor,
+    blas::trmm(blas::Layout::ColMajor,
                side, A.uplo(), A.op(), diag,
                B.mb(), B.nb(),
                alpha, A.data(), A.stride(),

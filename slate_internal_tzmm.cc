@@ -50,12 +50,12 @@ namespace internal {
 /// Triangular matrix multiply.
 /// Dispatches to target implementations.
 template <Target target, typename scalar_t>
-void trmm(Side side, Diag diag,
-          scalar_t alpha, TriangularMatrix< scalar_t >&& A,
-                                    Matrix< scalar_t >&& B,
+void tzmm(Side side, Diag diag,
+          scalar_t alpha, TrapezoidMatrix< scalar_t >&& A,
+                                   Matrix< scalar_t >&& B,
           int priority)
 {
-    trmm(internal::TargetType<target>(),
+    tzmm(internal::TargetType<target>(),
          side, diag,
          alpha, A,
                 B,
@@ -67,10 +67,10 @@ void trmm(Side side, Diag diag,
 /// Triangular matrix multiply.
 /// Host OpenMP task implementation.
 template <typename scalar_t>
-void trmm(internal::TargetType<Target::HostTask>,
+void tzmm(internal::TargetType<Target::HostTask>,
           Side side, Diag diag,
-          scalar_t alpha, TriangularMatrix< scalar_t >& A,
-                                    Matrix< scalar_t >& B,
+          scalar_t alpha, TrapezoidMatrix< scalar_t >& A,
+                                   Matrix< scalar_t >& B,
           int priority)
 {
     assert(A.mt() == 1);
@@ -84,50 +84,53 @@ void trmm(internal::TargetType<Target::HostTask>,
                         B(B.mt()-1, n));
         }
 
-    for (int64_t k = A.nt()-2; k >= 0; --k)
-        for (int64_t n = 0; n < B.nt(); ++n)
+    #pragma omp taskwait
+
+    for (int64_t k = A.nt()-2; k >= 0; --k) {
+        for (int64_t n = 0; n < B.nt(); ++n) {
             #pragma omp task shared(A, B)
             {
                 gemm(alpha,         A(0, k),
                                     B(k, n),
                      scalar_t(1.0), B(B.mt()-1, n));
             }
-
-    #pragma omp taskwait
+        }
+        #pragma omp taskwait
+    }
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 // ----------------------------------------
 template
-void trmm< Target::HostTask, float >(
+void tzmm< Target::HostTask, float >(
     Side side, Diag diag,
-    float alpha, TriangularMatrix< float >&& A,
-                           Matrix< float >&& B,
+    float alpha, TrapezoidMatrix< float >&& A,
+                          Matrix< float >&& B,
     int priority);
 
 // ----------------------------------------
 template
-void trmm< Target::HostTask, double >(
+void tzmm< Target::HostTask, double >(
     Side side, Diag diag,
-    double alpha, TriangularMatrix< double >&& A,
-                            Matrix< double >&& B,
+    double alpha, TrapezoidMatrix< double >&& A,
+                           Matrix< double >&& B,
     int priority);
 
 // ----------------------------------------
 template
-void trmm< Target::HostTask, std::complex<float> >(
+void tzmm< Target::HostTask, std::complex<float> >(
     Side side, Diag diag,
-    std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
-                                         Matrix< std::complex<float> >&& B,
+    std::complex<float> alpha, TrapezoidMatrix< std::complex<float> >&& A,
+                                        Matrix< std::complex<float> >&& B,
     int priority);
 
 // ----------------------------------------
 template
-void trmm< Target::HostTask, std::complex<double> >(
+void tzmm< Target::HostTask, std::complex<double> >(
     Side side, Diag diag,
-    std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
-                                          Matrix< std::complex<double> >&& B,
+    std::complex<double> alpha, TrapezoidMatrix< std::complex<double> >&& A,
+                                         Matrix< std::complex<double> >&& B,
     int priority);
 
 } // namespace internal

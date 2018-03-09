@@ -76,10 +76,10 @@ void trmm(internal::TargetType<Target::HostTask>,
     assert(A.mt() == 1);
     assert(B.mt() == 1);
 
-    // Left, Lower, NoTrans
+    // Left, Upper, NoTrans
     for (int64_t j = 0; j < B.nt(); ++j)
         if (B.tileIsLocal(0, j))
-            #pragma omp task shared(A, B)
+            #pragma omp task shared(A, B) priority(priority)
             {
                 A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
                 B.tileMoveToHost(0, j, B.tileDevice(0, j));

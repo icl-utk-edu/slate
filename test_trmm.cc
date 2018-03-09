@@ -83,7 +83,7 @@ int main (int argc, char *argv[])
         }
     }
 
-    slate::TriangularMatrix<double> A(slate::Uplo::Lower,
+    slate::TriangularMatrix<double> A(slate::Uplo::Upper,
                                       n, A1, lda,
                                       nb, p, q, MPI_COMM_WORLD);
     slate::Matrix<double> B(n, n, B1, lda, nb, p, q, MPI_COMM_WORLD);
@@ -117,7 +117,7 @@ int main (int argc, char *argv[])
 
         if (mpi_rank == 0) {
             blas::trmm(blas::Layout::ColMajor,
-                       blas::Side::Left, blas::Uplo::Lower,
+                       blas::Side::Left, blas::Uplo::Upper,
                        blas::Op::NoTrans, blas::Diag::NonUnit,
                        n, n,
                        alpha, A1, lda,

@@ -63,33 +63,75 @@ void trmm(slate::internal::TargetType<target>,
     using namespace blas;
 
     uint8_t *bcast = new uint8_t[A.nt()];
-    uint8_t *tzmm  = new uint8_t[A.nt()];
+    uint8_t *gemm  = new uint8_t[A.nt()];
 
     // B.allocateBatchArrays();
     // B.reserveDeviceWorkspace();
 
     #pragma omp parallel
     #pragma omp master
-    for (int64_t k = A.mt()-1; k >= 0; --k) {
+    {
+        #pragma omp task depend(out:bcast[0])
+        {
+            A.tileBcast(0, 0, B.sub(0, 0, 0, B.nt()-1));
 
+            for (int64_t j = 0; j < B.nt(); ++j)
+                B.tileBcast(0, j, B.sub(0, 0, j, j));           
+        }
+
+        for (int64_t k = 1; k < lookahead+1 && k < A.nt(); ++k)
+            #pragma omp task depend(in:bcast[k-1]) \
+                             depend(out:bcast[k])
+            {
+                for (int64_t i = 0; i <= k; ++i)
+                    A.tileBcast(i, k, B.sub(i, i, 0, B.nt()-1));
+
+                for (int64_t j = 0; j < B.nt(); ++j)
+                    B.tileBcast(k, j, B.sub(0, k, j, j));            
+            }
+
+        #pragma omp task depend(in:bcast[0]) \
+                         depend(out:gemm[0])
         internal::trmm<Target::HostTask>(
             side, diag,
-            alpha, A.sub(k, k),
-                   B.sub(k, k, 0, B.nt()-1));
+            alpha, A.sub(0, 0),
+                   B.sub(0, 0, 0, B.nt()-1));
 
-        for (int64_t n = k-1; n >= 0; --n) {
+        for (int64_t k = 1; k < A.nt(); ++k) {
 
-            internal::gemm<Target::HostTask>(
-                alpha,         A.sub(k, k, n, n),
-                               B.sub(n, n, 0, B.nt()-1),
-                scalar_t(1.0), B.sub(k, k, 0, B.nt()-1));
+            if (k+lookahead < A.nt())
+                #pragma omp task depend(in:gemm[k-1]) \
+                                 depend(in:bcast[k+lookahead-1]) \
+                                 depend(out:bcast[k+lookahead])
+                {
+                    for (int64_t i = 0; i <= k+lookahead; ++i)
+                        A.tileBcast(i, k+lookahead, B.sub(i, i, 0, B.nt()-1));
+
+                    for (int64_t j = 0; j < B.nt(); ++j)
+                        B.tileBcast(k+lookahead, j, B.sub(0, k+lookahead, j, j));
+                }
+
+            #pragma omp task depend(in:bcast[k]) \
+                             depend(in:gemm[k-1]) \
+                             depend(out:gemm[k])
+            {
+                internal::gemm<Target::HostTask>(
+                    alpha,         A.sub(0, k-1, k, k),
+                                   B.sub(k, k, 0, B.nt()-1),
+                    scalar_t(1.0), B.sub(0, k-1, 0, B.nt()-1));
+
+                internal::trmm<Target::HostTask>(
+                    side, diag,
+                    alpha, A.sub(k, k),
+                           B.sub(k, k, 0, B.nt()-1));
+            }
         }
     }
 
 //  B.clearWorkspace();
 
     delete[] bcast;
-    delete[] tzmm;
+    delete[] gemm;
 }
 
 } // namespace specialization

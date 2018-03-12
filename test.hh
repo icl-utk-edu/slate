@@ -74,7 +74,8 @@ public:
         msg_( msg )
     {
         if (g_mpi_rank == 0) {
-            std::cout << "%---------- " << msg_ << "\n" << std::flush;
+            std::cout << "%---------------------------------------- "
+                      << msg_ << "\n" << std::flush;
         }
         MPI_Barrier( g_mpi_comm );
     }
@@ -86,7 +87,8 @@ public:
         MPI_Barrier( g_mpi_comm );
 
         if (g_mpi_rank == 0) {
-            std::cout << "%---------- " << msg_ << " done\n\n" << std::flush;
+            std::cout << "%---------------------------------------- "
+                      << msg_ << " done\n\n" << std::flush;
         }
         MPI_Barrier( g_mpi_comm );
     }
@@ -162,6 +164,7 @@ void test_message( const char* format, ... )
     } while(0)
 
 //------------------------------------------------------------------------------
+// print Tile
 template <typename scalar_t>
 void print( slate::Tile< scalar_t >& A )
 {
@@ -176,6 +179,7 @@ void print( slate::Tile< scalar_t >& A )
 }
 
 //------------------------------------------------------------------------------
+// print Tile, complex specialization
 template <typename scalar_t>
 void print( slate::Tile< std::complex< scalar_t > >& A )
 {
@@ -195,6 +199,7 @@ void print( slate::Tile< std::complex< scalar_t > >& A )
 }
 
 //------------------------------------------------------------------------------
+// print Matrix
 template <typename scalar_t>
 void print( slate::Matrix< scalar_t >& A )
 {
@@ -203,17 +208,18 @@ void print( slate::Matrix< scalar_t >& A )
     printf( "[\n" );
     // loop over block rows, then rows within block row
     for (int i = 0; i < A.mt(); ++i) {
+        int64_t ib = A.tileMb(i);
 
         // loop over block cols, print out address
         for (int64_t j = 0; j < A.nt(); ++j) {
-            int64_t jb = A.tileNb(i);
+            int64_t jb = A.tileNb(j);
 
             if (A.tileIsLocal( i, j )) {
                 if (j > 0)
                     printf( "   " );
                 auto Aij = A(i, j);
-                printf( "  %-18p", (void*) Aij.data() );
-                for (int64_t jj = 2; jj < jb; ++jj) { // above pointer is 2 columns
+                printf( "  %-18p  %2d by %2d", (void*) Aij.data(), ib, jb );
+                for (int64_t jt = 3; jt < jb; ++jt) { // above pointer is 3 columns
                     printf( " %9s", "" );
                 }
             }
@@ -223,19 +229,18 @@ void print( slate::Matrix< scalar_t >& A )
         }
         printf( "\n" );
 
-        int64_t ib = A.tileMb(i);
-        for (int64_t ii = 0; ii < ib; ++ii) {
+        for (int64_t it = 0; it < ib; ++it) {
 
             // loop over block cols, then cols within block col
             for (int64_t j = 0; j < A.nt(); ++j) {
-                int64_t jb = A.tileNb(i);
+                int64_t jb = A.tileNb(j);
 
                 if (A.tileIsLocal( i, j )) {
                     if (j > 0)
                         printf( "   " );
                     auto Aij = A(i, j);
-                    for (int64_t jj = 0; jj < jb; ++jj) {
-                        printf( " %9.4f", real( Aij( ii, jj ) ) );
+                    for (int64_t jt = 0; jt < jb; ++jt) {
+                        printf( " %9.4f", real( Aij( it, jt ) ) );
                     }
                 }
                 else {
@@ -252,6 +257,7 @@ void print( slate::Matrix< scalar_t >& A )
 }
 
 //------------------------------------------------------------------------------
+// print Matrix, complex specialization
 template <typename scalar_t>
 void print( slate::Matrix< std::complex< scalar_t > >& A )
 {
@@ -260,17 +266,18 @@ void print( slate::Matrix< std::complex< scalar_t > >& A )
     printf( "[\n" );
     // loop over block rows, then rows within block row
     for (int i = 0; i < A.mt(); ++i) {
+        int64_t ib = A.tileMb(i);
 
         // loop over block cols, print out address
         for (int64_t j = 0; j < A.nt(); ++j) {
-            int64_t jb = A.tileNb(i);
+            int64_t jb = A.tileNb(j);
 
             if (A.tileIsLocal( i, j )) {
                 if (j > 0)
                     printf( "   " );
                 auto Aij = A(i, j);
                 printf( "  %-21p", (void*) Aij.data() );
-                for (int64_t jj = 1; jj < jb; ++jj) { // above pointer is 1 column
+                for (int64_t jt = 1; jt < jb; ++jt) { // above pointer is 1 column
                     printf( " %22s", "" );
                 }
             }
@@ -280,19 +287,18 @@ void print( slate::Matrix< std::complex< scalar_t > >& A )
         }
         printf( "\n" );
 
-        int64_t ib = A.tileMb(i);
-        for (int64_t ii = 0; ii < ib; ++ii) {
+        for (int64_t it = 0; it < ib; ++it) {
 
             // loop over block cols, then cols within block col
             for (int64_t j = 0; j < A.nt(); ++j) {
-                int64_t jb = A.tileNb(i);
+                int64_t jb = A.tileNb(j);
 
                 if (A.tileIsLocal( i, j )) {
                     if (j > 0)
                         printf( "   " );
                     auto Aij = A(i, j);
-                    for (int64_t jj = 0; jj < jb; ++jj) {
-                        printf( " %9.4f + %9.4fi", real( Aij(ii, jj) ), imag( Aij(ii, jj) ) );
+                    for (int64_t jt = 0; jt < jb; ++jt) {
+                        printf( " %9.4f + %9.4fi", real( Aij(it, jt) ), imag( Aij(it, jt) ) );
                     }
                 }
                 else {
@@ -309,26 +315,36 @@ void print( slate::Matrix< std::complex< scalar_t > >& A )
 }
 
 //------------------------------------------------------------------------------
+// print Trapezoid matrix
 template <typename scalar_t>
 void print( slate::BaseTrapezoidMatrix< scalar_t >& A )
 {
-    assert( A.uplo() == blas::Uplo::Lower );
+    bool lower =
+        ((A.uplo() == blas::Uplo::Lower && A.op() == blas::Op::NoTrans) ||
+         (A.uplo() == blas::Uplo::Upper && A.op() != blas::Op::NoTrans));
+    bool upper = ! lower;
 
     printf( "[\n" );
     // loop over block rows, then rows within block row
     for (int i = 0; i < A.mt(); ++i) {
 
         // loop over block cols, print out address
-        for (int64_t j = 0; j <= i && j < A.nt(); ++j) {  // lower
-            int64_t jb = A.tileNb(i);
-
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            int64_t jb = A.tileNb(j);
             if (A.tileIsLocal( i, j )) {
                 if (j > 0)
                     printf( "   " );
-                auto Aij = A(i, j);
-                printf( "  %-18p", (void*) Aij.data() );
-                for (int64_t jj = 2; jj < jb; ++jj) { // above pointer is 2 columns
-                    printf( " %9s", "" );
+                if ((lower && i >= j) || (upper && i <= j)) {
+                    auto Aij = A(i, j);
+                    printf( "  %-18p", (void*) Aij.data() );
+                    for (int64_t jt = 2; jt < jb; ++jt) { // above pointer is 2 columns
+                        printf( " %9s", "" );
+                    }
+                }
+                else {
+                    for (int64_t jt = 0; jt < jb; ++jt) {
+                        printf( " %9s", "" );
+                    }
                 }
             }
             else {
@@ -338,18 +354,24 @@ void print( slate::BaseTrapezoidMatrix< scalar_t >& A )
         printf( "\n" );
 
         int64_t ib = A.tileMb(i);
-        for (int64_t ii = 0; ii < ib; ++ii) {
+        for (int64_t it = 0; it < ib; ++it) {
 
             // loop over block cols, then cols within block col
-            for (int64_t j = 0; j <= i && j < A.nt(); ++j) {  // lower
-                int64_t jb = A.tileNb(i);
-
+            for (int64_t j = 0; j < A.nt(); ++j) {
+                int64_t jb = A.tileNb(j);
                 if (A.tileIsLocal( i, j )) {
                     if (j > 0)
                         printf( "   " );
-                    auto Aij = A(i, j);
-                    for (int64_t jj = 0; jj < jb; ++jj) {
-                        printf( " %9.4f", Aij(ii, jj) );
+                    if ((lower && i >= j) || (upper && i <= j)) {
+                        auto Aij = A(i, j);
+                        for (int64_t jt = 0; jt < jb; ++jt) {
+                            printf( " %9.4f", Aij(it, jt) );
+                        }
+                    }
+                    else {
+                        for (int64_t jt = 0; jt < jb; ++jt) {
+                            printf( " %9s", "---" );
+                        }
                     }
                 }
                 else {
@@ -366,6 +388,7 @@ void print( slate::BaseTrapezoidMatrix< scalar_t >& A )
 }
 
 //------------------------------------------------------------------------------
+// print Trapezoid matrix, complex specialization
 template <typename scalar_t>
 void print( slate::BaseTrapezoidMatrix< std::complex< scalar_t > >& A )
 {
@@ -377,14 +400,14 @@ void print( slate::BaseTrapezoidMatrix< std::complex< scalar_t > >& A )
 
         // loop over block cols, print out address
         for (int64_t j = 0; j <= i && j < A.nt(); ++j) {  // lower
-            int64_t jb = A.tileNb(i);
+            int64_t jb = A.tileNb(j);
 
             if (A.tileIsLocal( i, j )) {
                 if (j > 0)
                     printf( "   " );
                 auto Aij = A(i, j);
                 printf( "  %-21p", (void*) Aij.data() );
-                for (int64_t jj = 1; jj < jb; ++jj) { // above pointer is 1 column
+                for (int64_t jt = 1; jt < jb; ++jt) { // above pointer is 1 column
                     printf( " %22s", "" );
                 }
             }
@@ -395,18 +418,18 @@ void print( slate::BaseTrapezoidMatrix< std::complex< scalar_t > >& A )
         printf( "\n" );
 
         int64_t ib = A.tileMb(i);
-        for (int64_t ii = 0; ii < ib; ++ii) {
+        for (int64_t it = 0; it < ib; ++it) {
 
             // loop over block cols, then cols within block col
             for (int64_t j = 0; j <= i && j < A.nt(); ++j) {  // lower
-                int64_t jb = A.tileNb(i);
+                int64_t jb = A.tileNb(j);
 
                 if (A.tileIsLocal( i, j )) {
                     if (j > 0)
                         printf( "   " );
                     auto Aij = A(i, j);
-                    for (int64_t jj = 0; jj < jb; ++jj) {
-                        printf( " %9.4f + %9.4fi", real( Aij(ii, jj) ), imag( Aij(ii, jj) ) );
+                    for (int64_t jt = 0; jt < jb; ++jt) {
+                        printf( " %9.4f + %9.4fi", real( Aij(it, jt) ), imag( Aij(it, jt) ) );
                     }
                 }
                 else {
@@ -423,6 +446,7 @@ void print( slate::BaseTrapezoidMatrix< std::complex< scalar_t > >& A )
 }
 
 //------------------------------------------------------------------------------
+// print LAPACK-style matrix
 template <typename scalar_t>
 void print( int64_t m, int64_t n, scalar_t* A, int64_t lda )
 {
@@ -437,6 +461,7 @@ void print( int64_t m, int64_t n, scalar_t* A, int64_t lda )
 }
 
 //------------------------------------------------------------------------------
+// print LAPACK-style matrix, complex specialization
 template <typename scalar_t>
 void print( int64_t m, int64_t n, std::complex< scalar_t >* A, int64_t lda )
 {

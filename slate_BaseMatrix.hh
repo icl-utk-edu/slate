@@ -86,6 +86,9 @@ class BaseMatrix {
 public:
     friend class Debug;
 
+    static constexpr bool is_complex = is_complex< scalar_t >::value;
+    static constexpr bool is_real    = ! is_complex;
+
     ///-------------------------------------------------------------------------
     /// Default constructor; does not allocate any memory.
     BaseMatrix():
@@ -288,7 +291,7 @@ public:
 
     ///-------------------------------------------------------------------------
     /// @return number of rows (mb) in block row i of op(A).
-    int64_t tileMb(int64_t i)
+    int64_t tileMb(int64_t i) const
     {
         if (op_ == Op::NoTrans) {
             return storage_->tileMb(ioffset_ + i);
@@ -300,7 +303,7 @@ public:
 
     ///-------------------------------------------------------------------------
     /// @return number of cols (nb) in block col j of op(A).
-    int64_t tileNb(int64_t j)
+    int64_t tileNb(int64_t j) const
     {
         if (op_ == Op::NoTrans) {
             return storage_->tileNb(joffset_ + j);

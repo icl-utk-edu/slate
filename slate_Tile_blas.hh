@@ -50,9 +50,8 @@ void gemm(
         Op opA;
         if (A.op() == Op::NoTrans)
             opA = C.op();
-        else if (A.op() == C.op() || std::is_arithmetic< scalar_t >::value)
-            // A and C are both Trans or both ConjTrans;
-            // Trans and ConjTrans are identical if scalar_t is real
+        else if (A.op() == C.op() || C.is_real)
+            // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
             opA = Op::NoTrans;
         else
             throw std::exception();
@@ -60,9 +59,8 @@ void gemm(
         Op opB;
         if (B.op() == Op::NoTrans)
             opB = C.op();
-        else if (B.op() == C.op() || std::is_arithmetic< scalar_t >::value)
-            // B and C are both Trans or both ConjTrans;
-            // Trans and ConjTrans are identical if scalar_t is real
+        else if (B.op() == C.op() || C.is_real)
+            // B and C are both Trans or both ConjTrans; Trans == ConjTrans if real
             opB = Op::NoTrans;
         else
             throw std::exception();
@@ -132,7 +130,7 @@ void syrk(
     assert(A.uplo() == Uplo::General);
     assert(C.mb() == C.nb());  // square
     assert(C.mb() == A.mb());  // n
-    if (is_complex< scalar_t >::value && C.op() == Op::ConjTrans)
+    if (C.is_complex && C.op() == Op::ConjTrans)
         throw std::exception();
 
     blas::syrk(blas::Layout::ColMajor,
@@ -168,7 +166,7 @@ void herk(
     assert(A.uplo() == Uplo::General);
     assert(C.mb() == C.nb());  // square
     assert(C.mb() == A.mb());  // n
-    if (is_complex< scalar_t >::value && C.op() == Op::Trans)
+    if (C.is_complex && C.op() == Op::Trans)
         throw std::exception();
 
     blas::herk(blas::Layout::ColMajor,
@@ -245,8 +243,7 @@ void trsm(
                           B.data(), B.stride());
     }
     else {
-        if (is_complex< scalar_t >::value &&
-            A.op() != Op::NoTrans && A.op() != B.op())
+        if (A.is_complex && A.op() != Op::NoTrans && A.op() != B.op())
             throw std::exception();
 
         // switch op(A) <=> op(B), side left <=> right, m <=> n
@@ -254,9 +251,8 @@ void trsm(
         Op opA;
         if (A.op() == Op::NoTrans)
             opA = B.op();
-        else if (A.op() == B.op() || std::is_arithmetic< scalar_t >::value)
-            // A and B are both Trans or both ConjTrans;
-            // Trans and ConjTrans are identical if scalar_t is real
+        else if (A.op() == B.op() || A.is_real)
+            // A and B are both Trans or both ConjTrans; Trans == ConjTrans if real
             opA = Op::NoTrans;
         else
             throw std::exception();

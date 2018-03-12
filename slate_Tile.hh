@@ -84,7 +84,7 @@ MatrixType transpose(MatrixType& A)
     if (AT.op_ == Op::NoTrans) {
         AT.op_ = Op::Trans;
     }
-    else if (AT.op_ == Op::Trans) {
+    else if (AT.op_ == Op::Trans || A.is_real) {
         AT.op_ = Op::NoTrans;
     }
     else {
@@ -101,7 +101,7 @@ MatrixType conj_transpose(MatrixType& A)
     if (AT.op_ == Op::NoTrans) {
         AT.op_ = Op::ConjTrans;
     }
-    else if (AT.op_ == Op::ConjTrans) {
+    else if (AT.op_ == Op::ConjTrans || A.is_real) {
         AT.op_ = Op::NoTrans;
     }
     else {
@@ -117,6 +117,9 @@ MatrixType conj_transpose(MatrixType& A)
 template <typename scalar_t>
 class Tile {
 public:
+    static constexpr bool is_complex = is_complex< scalar_t >::value;
+    static constexpr bool is_real    = ! is_complex;
+
     ///-------------------------------------------------------------------------
     /// Create empty tile.
     Tile():

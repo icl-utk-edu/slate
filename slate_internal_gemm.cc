@@ -57,12 +57,22 @@ namespace internal {
 /// General matrix multiply to update trailing matrix,
 /// where A is a single block column and B is a single block row.
 /// Dispatches to target implementations.
+/// In the complex case,
+/// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conj_transpose;
+/// if $op(C)$ is conj_transpose, then $op(A)$ and $op(B)$ cannot be transpose.
 template <Target target, typename scalar_t>
 void gemm(scalar_t alpha, Matrix< scalar_t >&& A,
                           Matrix< scalar_t >&& B,
           scalar_t beta,  Matrix< scalar_t >&& C,
           int priority)
 {
+    if (C.is_complex &&
+        ((C.op() == Op::Trans && (A.op() == Op::ConjTrans || B.op() == Op::ConjTrans)) ||
+         (C.op() == Op::ConjTrans && (A.op() == Op::Trans || B.op() == Op::Trans))))
+    {
+        throw std::exception();
+    }
+
     gemm(internal::TargetType<target>(),
          alpha, A,
                 B,
@@ -88,22 +98,35 @@ void gemm(internal::TargetType<Target::HostTask>,
     assert(A.mt() == C.mt());
     assert(B.nt() == C.nt());
 
-    for (int64_t i = 0; i < C.mt(); ++i)
-        for (int64_t j = 0; j < C.nt(); ++j)
-            if (C.tileIsLocal(i, j))
-                #pragma omp task shared(A, B, C) priority(priority)
+    int err = 0;
+    for (int64_t i = 0; i < C.mt(); ++i) {
+        for (int64_t j = 0; j < C.nt(); ++j) {
+            if (C.tileIsLocal(i, j)) {
+                #pragma omp task shared(A, B, C, err) priority(priority)
                 {
-                    A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
-                    B.tileCopyToHost(0, j, B.tileDevice(0, j));
-                    C.tileMoveToHost(i, j, C.tileDevice(i, j));
-                    gemm(alpha, A(i, 0),
-                                B(0, j),
-                         beta,  C(i, j));
-                    A.tileTick(i, 0);
-                    B.tileTick(0, j);
+                    try {
+                        A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
+                        B.tileCopyToHost(0, j, B.tileDevice(0, j));
+                        C.tileMoveToHost(i, j, C.tileDevice(i, j));
+                        gemm(alpha, A(i, 0),
+                                    B(0, j),
+                             beta,  C(i, j));
+                        A.tileTick(i, 0);
+                        B.tileTick(0, j);
+                    }
+                    catch (std::exception& e) {
+                        err = __LINE__;
+                    }
                 }
+            }
+        }
+    }
 
     #pragma omp taskwait
+
+    if (err) {
+        throw std::exception();
+    }
 }
 
 ///-----------------------------------------------------------------------------
@@ -124,29 +147,42 @@ void gemm(internal::TargetType<Target::HostNest>,
     assert(A.mt() == C.mt());
     assert(B.nt() == C.nt());
 
+    int err = 0;
 //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
-    #pragma omp parallel for collapse(2) schedule(dynamic, 1)
-    for (int64_t i = 0; i < C.mt(); ++i)
-        for (int64_t j = 0; j < C.nt(); ++j)
+    #pragma omp parallel for collapse(2) schedule(dynamic, 1) shared(err)
+    for (int64_t i = 0; i < C.mt(); ++i) {
+        for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(i, j)) {
-
-                A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
-                B.tileCopyToHost(0, j, B.tileDevice(0, j));
-                C.tileMoveToHost(i, j, C.tileDevice(i, j));
-                gemm(alpha, A(i, 0),
-                            B(0, j),
-                     beta,  C(i, j));
-                A.tileTick(i, 0);
-                B.tileTick(0, j);
+                try {
+                    A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
+                    B.tileCopyToHost(0, j, B.tileDevice(0, j));
+                    C.tileMoveToHost(i, j, C.tileDevice(i, j));
+                    gemm(alpha, A(i, 0),
+                                B(0, j),
+                         beta,  C(i, j));
+                    A.tileTick(i, 0);
+                    B.tileTick(0, j);
+                }
+                catch (std::exception& e) {
+                    err = __LINE__;
+                }
             }
+        }
+    }
 
     #pragma omp taskwait
+
+    if (err) {
+        throw std::exception();
+    }
 }
 
 ///-----------------------------------------------------------------------------
 /// \brief
 /// General matrix multiply to update trailing matrix,
-/// where A is a single block column and B is a single block row.
+/// where A is a single block col (mt tiles by 1 tile)
+/// and   B is a single block row (1 tile by nt tiles)
+/// and   C is mt tiles by nt tiles.
 /// Host batched implementation.
 template <typename scalar_t>
 void gemm(internal::TargetType<Target::HostBatch>,
@@ -155,6 +191,9 @@ void gemm(internal::TargetType<Target::HostBatch>,
           scalar_t beta,  Matrix< scalar_t >& C,
           int priority)
 {
+    using blas::conj;
+    using std::swap;
+
     // check dimensions
     assert(A.nt() == 1);
     assert(B.mt() == 1);
@@ -164,20 +203,50 @@ void gemm(internal::TargetType<Target::HostBatch>,
     // load off-diagonal tiles to host, if not there
     // also count tiles
     int batch_count = 0;
-     for (int64_t i = 0; i < C.mt(); ++i)
-        for (int64_t j = 0; j < C.nt(); ++j)
+    for (int64_t i = 0; i < C.mt(); ++i) {
+        for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(i, j)) {
                 A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
                 B.tileCopyToHost(0, j, B.tileDevice(0, j));
                 C.tileMoveToHost(i, j, C.tileDevice(i, j));
                 ++batch_count;
             }
+        }
+    }
 
     if (batch_count > 0) {
-        CBLAS_TRANSPOSE opA = (A.op() == Op::NoTrans ? CblasNoTrans : CblasTrans);
-        CBLAS_TRANSPOSE opB = (B.op() == Op::NoTrans ? CblasNoTrans : CblasTrans);
-        std::vector< CBLAS_TRANSPOSE > opA_array( batch_count, opA );  // all same
-        std::vector< CBLAS_TRANSPOSE > opB_array( batch_count, opB );  // all same
+        // if op(C) is NoTrans, invert opA, opB if possible
+        Op opA = A.op();
+        if (C.op() != Op::NoTrans) {
+            if (opA == Op::NoTrans)
+                opA = C.op();
+            else if (A.op() == C.op() || C.is_real)
+                // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
+                opA = Op::NoTrans;
+            else {
+                throw std::exception();
+            }
+        }
+
+        Op opB = B.op();
+        if (C.op() != Op::NoTrans) {
+            if (opB == Op::NoTrans)
+                opB = C.op();
+            else if (opB == C.op() || C.is_real)
+                // B and C are both Trans or both ConjTrans; Trans == ConjTrans if real
+                opB = Op::NoTrans;
+            else {
+                throw std::exception();
+            }
+        }
+
+        if (C.op() == Op::ConjTrans) {
+            alpha = conj( alpha );
+            beta  = conj( beta  );
+        }
+
+        std::vector< CBLAS_TRANSPOSE > opA_array( batch_count, cblas_trans_const( opA ));  // all same
+        std::vector< CBLAS_TRANSPOSE > opB_array( batch_count, cblas_trans_const( opB ));  // all same
         std::vector< int > m_array( batch_count );
         std::vector< int > n_array( batch_count );
         std::vector< int > k_array( batch_count );
@@ -192,8 +261,8 @@ void gemm(internal::TargetType<Target::HostBatch>,
         std::vector< int > group_size( batch_count, 1 );  // all same
 
         int index = 0;
-        for (int64_t i = 0; i < C.mt(); ++i)
-            for (int64_t j = 0; j < C.nt(); ++j)
+        for (int64_t i = 0; i < C.mt(); ++i) {
+            for (int64_t j = 0; j < C.nt(); ++j) {
                 if (C.tileIsLocal(i, j)) {
                     m_array[ index ] = C(i, j).mb();
                     n_array[ index ] = C(i, j).nb();
@@ -213,6 +282,16 @@ void gemm(internal::TargetType<Target::HostBatch>,
 
                     ++index;
                 }
+            }
+        }
+
+        if (C.op() != Op::NoTrans) {
+            // swap A <=> B; swap m <=> n
+            swap( opA_array, opB_array );
+            swap( a_array,   b_array   );
+            swap( lda_array, ldb_array );
+            swap( m_array,   n_array   );
+        }
 
         {
             trace::Block trace_block("cblas_dgemm_batch");
@@ -232,12 +311,14 @@ void gemm(internal::TargetType<Target::HostBatch>,
             #endif
         }
 
-    for (int64_t i = 0; i < C.mt(); ++i)
-        for (int64_t j = 0; j < C.nt(); ++j)
-            if (C.tileIsLocal(i, j)) {
-                A.tileTick(i, 0);
-                B.tileTick(0, j);
+        for (int64_t i = 0; i < C.mt(); ++i) {
+            for (int64_t j = 0; j < C.nt(); ++j) {
+                if (C.tileIsLocal(i, j)) {
+                    A.tileTick(i, 0);
+                    B.tileTick(0, j);
+                }
             }
+        }
     }
 
     #pragma omp taskwait
@@ -255,23 +336,57 @@ void gemm(internal::TargetType<Target::Devices>,
           scalar_t beta,  Matrix< scalar_t >& C,
           int priority)
 {
+    using blas::conj;
+    using std::swap;
+
     // check dimensions
     assert(A.nt() == 1);
     assert(B.mt() == 1);
     assert(A.mt() == C.mt());
     assert(B.nt() == C.nt());
 
+    int err = 0;
     for (int device = 0; device < C.num_devices(); ++device) {
-        #pragma omp task shared(A, B, C) priority(priority)
+        #pragma omp task shared(A, B, C, err) priority(priority)
         {
+            // if op(C) is NoTrans, invert opA, opB if possible
+            Op opA = A.op();
+            if (C.op() != Op::NoTrans) {
+                if (opA == Op::NoTrans)
+                    opA = C.op();
+                else if (A.op() == C.op() || C.is_real)
+                    // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
+                    opA = Op::NoTrans;
+                else {
+                    err = __LINE__;  // ConjNoTrans not supported
+                }
+            }
+
+            Op opB = B.op();
+            if (C.op() != Op::NoTrans) {
+                if (opB == Op::NoTrans)
+                    opB = C.op();
+                else if (opB == C.op() || C.is_real)
+                    // B and C are both Trans or both ConjTrans; Trans == ConjTrans if real
+                    opB = Op::NoTrans;
+                else {
+                    err = __LINE__;  // ConjNoTrans not supported
+                }
+            }
+
+            if (C.op() == Op::ConjTrans) {
+                alpha = conj( alpha );
+                beta  = conj( beta  );
+            }
+
             scalar_t** a_array_host = C.a_array_host(device);
             scalar_t** b_array_host = C.b_array_host(device);
             scalar_t** c_array_host = C.c_array_host(device);
 
             int64_t batch_count = 0;
-            for (int64_t i = 0; i < C.mt(); ++i)
-                for (int64_t j = 0; j < C.nt(); ++j)
-                    if (C.tileIsLocal(i, j))
+            for (int64_t i = 0; i < C.mt(); ++i) {
+                for (int64_t j = 0; j < C.nt(); ++j) {
+                    if (C.tileIsLocal(i, j)) {
                         if (device == C.tileDevice(i, j)) {
                             A.tileCopyToDevice(i, 0, device);
                             B.tileCopyToDevice(0, j, device);
@@ -281,6 +396,17 @@ void gemm(internal::TargetType<Target::Devices>,
                             c_array_host[ batch_count ] = C(i, j, device).data();
                             ++batch_count;
                         }
+                    }
+                }
+            }
+
+            if (C.op() != Op::NoTrans) {
+                // swap A <=> B; swap m <=> n
+                swap( opA, opB );
+                swap( a_array_host, b_array_host );
+                //swap( lda, ldb );  // todo: assumed to be nb
+                //swap( m, n );      // todo: assumed to be nb
+            }
 
             scalar_t** a_array_dev = C.a_array_device(device);
             scalar_t** b_array_dev = C.b_array_device(device);
@@ -314,13 +440,12 @@ void gemm(internal::TargetType<Target::Devices>,
 
             {
                 trace::Block trace_block("cublasDgemmBatched");
-                int nb = C.tileNb(0);
-                cublasOperation_t opa = (A.op() == Op::NoTrans ? CUBLAS_OP_N : CUBLAS_OP_C);
-                cublasOperation_t opb = (A.op() == Op::NoTrans ? CUBLAS_OP_N : CUBLAS_OP_C);
+                // todo: assumes all tiles are allocated nb-by-nb with stride nb
+                int nb = C.tileMb(0);
                 cublasStatus_t status =
                     cublasGemmBatched(
                         cublas_handle,  // uses stream
-                        opa, opb,
+                        cublas_op_const( opA ), cublas_op_const( opB ),
                         nb, nb, nb,
                         &alpha, (const scalar_t**) a_array_dev, nb,
                                 (const scalar_t**) b_array_dev, nb,
@@ -331,17 +456,24 @@ void gemm(internal::TargetType<Target::Devices>,
                 assert(error == cudaSuccess);
             }
 
-            for (int64_t i = 0; i < C.mt(); ++i)
-                for (int64_t j = 0; j < C.nt(); ++j)
-                    if (C.tileIsLocal(i, j))
+            for (int64_t i = 0; i < C.mt(); ++i) {
+                for (int64_t j = 0; j < C.nt(); ++j) {
+                    if (C.tileIsLocal(i, j)) {
                         if (device == C.tileDevice(i, j)) {
                             A.tileTick(i, 0);
                             B.tileTick(0, j);
                         }
+                    }
+                }
+            }
         }
     }
 
     #pragma omp taskwait
+
+    if (err) {
+        throw std::exception();
+    }
 }
 
 //------------------------------------------------------------------------------

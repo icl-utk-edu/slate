@@ -104,6 +104,7 @@ lib_src += \
        slate_types.cc
 
 test_src = \
+       test_internal_blas.cc \
        test_memory.cc \
        test_matrix.cc \
        test_tile.cc \

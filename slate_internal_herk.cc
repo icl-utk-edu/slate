@@ -56,11 +56,22 @@ namespace internal {
 /// \brief
 /// Hermitian rank-k update of single block column (i.e., k = nb).
 /// Dispatches to target implementations.
+/// C is Lower, NoTrans or Upper, Trans/ConjTrans.
+/// In complex case, A and C cannot be Trans.
 template <Target target, typename scalar_t>
 void herk(typename blas::traits<scalar_t>::real_t alpha, Matrix< scalar_t >&& A,
           typename blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t >&& C,
           int priority)
 {
+    if (! ( ( (C.uplo() == Uplo::Lower && C.op() == Op::NoTrans) ||
+              (C.uplo() == Uplo::Upper && C.op() != Op::NoTrans) )
+            &&
+            ( C.is_real || (C.op() != Op::Trans &&
+                            A.op() != Op::Trans) ) ) )
+    {
+        throw std::exception();
+    }
+
     herk(internal::TargetType<target>(),
          alpha, A,
          beta,  C,
@@ -71,35 +82,105 @@ void herk(typename blas::traits<scalar_t>::real_t alpha, Matrix< scalar_t >&& A,
 /// \brief
 /// Hermitian rank-k update of single block column (i.e., k = nb).
 /// Host OpenMP task implementation.
+/// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
 template <typename scalar_t>
 void herk(internal::TargetType<Target::HostTask>,
           typename blas::traits<scalar_t>::real_t alpha, Matrix< scalar_t >& A,
           typename blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t >& C,
           int priority)
 {
-    using real_t = typename blas::traits<scalar_t>::real_t;
-
     scalar_t alpha_ = scalar_t(alpha);
     scalar_t beta_  = scalar_t(beta);
 
     // Lower, NoTrans
+    int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j)
         for (int64_t i = j; i < C.mt(); ++i)  // lower
             if (C.tileIsLocal(i, j)) {
                 if (i == j) {
-                    #pragma omp task shared(A, C) priority(priority)
+                    #pragma omp task shared(A, C, err) priority(priority)
                     {
-                        A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
-                        C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                        herk(real_t(-1.0), A(j, 0),
-                             beta,         C(j, j));
-                        A.tileTick(j, 0);
-                        A.tileTick(j, 0);
+                        try {
+                            A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
+                            C.tileMoveToHost(j, j, C.tileDevice(j, j));
+                            herk(alpha, A(j, 0),
+                                 beta,  C(j, j));
+                            A.tileTick(j, 0);
+                            A.tileTick(j, 0);
+                        }
+                        catch (std::exception& e) {
+                            err = __LINE__;
+                        }
                     }
                 }
                 else {
-                    #pragma omp task shared(A, C) priority(priority)
+                    #pragma omp task shared(A, C, err) priority(priority)
                     {
+                        try {
+                            A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
+                            A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
+                            C.tileMoveToHost(i, j, C.tileDevice(i, j));
+                            auto Aj0 = A(j, 0);
+                            gemm(alpha_, A(i, 0),
+                                         conj_transpose(Aj0),
+                                 beta_,  C(i, j));
+                            A.tileTick(i, 0);
+                            A.tileTick(j, 0);
+                        }
+                        catch (std::exception& e ) {
+                            err = __LINE__;
+                        }
+                    }
+                }
+            }
+
+    #pragma omp taskwait
+
+    if (err) {
+        throw std::exception();
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+/// Hermitian rank-k update of single block column (i.e., k = nb).
+/// Host nested OpenMP implementation.
+/// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
+template <typename scalar_t>
+void herk(internal::TargetType<Target::HostNest>,
+          typename blas::traits<scalar_t>::real_t alpha, Matrix< scalar_t >& A,
+          typename blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t >& C,
+          int priority)
+{
+    scalar_t alpha_ = scalar_t(alpha);
+    scalar_t beta_  = scalar_t(beta);
+
+    // Lower, NoTrans
+    int err = 0;
+    for (int64_t j = 0; j < C.nt(); ++j)
+        if (C.tileIsLocal(j, j))
+            #pragma omp task shared(A, C)
+            {
+                try {
+                    A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
+                    C.tileMoveToHost(j, j, C.tileDevice(j, j));
+                    herk(alpha, A(j, 0),
+                         beta,  C(j, j));
+                    A.tileTick(j, 0);
+                    A.tileTick(j, 0);
+                }
+                catch (std::exception& e) {
+                    err = __LINE__;
+                }
+            }
+
+//  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
+    #pragma omp parallel for collapse(2) schedule(dynamic, 1)
+    for (int64_t j = 0; j < C.nt(); ++j)
+        for (int64_t i = 0; i < C.mt(); ++i)  // full
+            if (i >= j+1)                     // lower
+                if (C.tileIsLocal(i, j)) {
+                    try {
                         A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
                         A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                         C.tileMoveToHost(i, j, C.tileDevice(i, j));
@@ -110,84 +191,46 @@ void herk(internal::TargetType<Target::HostTask>,
                         A.tileTick(i, 0);
                         A.tileTick(j, 0);
                     }
-                }
-            }
-
-    #pragma omp taskwait
-}
-
-///-----------------------------------------------------------------------------
-/// \brief
-/// Hermitian rank-k update of single block column (i.e., k = nb).
-/// Host nested OpenMP task implementation.
-template <typename scalar_t>
-void herk(internal::TargetType<Target::HostNest>,
-          typename blas::traits<scalar_t>::real_t alpha, Matrix< scalar_t >& A,
-          typename blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t >& C,
-          int priority)
-{
-    using real_t = typename blas::traits<scalar_t>::real_t;
-
-    scalar_t alpha_ = scalar_t(alpha);
-    scalar_t beta_  = scalar_t(beta);
-
-    // Lower, NoTrans
-    for (int64_t j = 0; j < C.nt(); ++j)
-        if (C.tileIsLocal(j, j))
-            #pragma omp task shared(A, C)
-            {
-                A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
-                C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                herk(real_t(-1.0), A(j, 0),
-                     beta,         C(j, j));
-                A.tileTick(j, 0);
-                A.tileTick(j, 0);
-            }
-
-//  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
-    #pragma omp parallel for collapse(2) schedule(dynamic, 1)
-    for (int64_t j = 0; j < C.nt(); ++j)
-        for (int64_t i = 0; i < C.mt(); ++i)  // full
-            if (i >= j+1)                     // lower
-                if (C.tileIsLocal(i, j))
-                {
-                    A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
-                    A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
-                    C.tileMoveToHost(i, j, C.tileDevice(i, j));
-                    auto Aj0 = A(j, 0);
-                    gemm(alpha_, A(i, 0),
-                                 conj_transpose(Aj0),
-                         beta_,  C(i, j));
-                    A.tileTick(i, 0);
-                    A.tileTick(j, 0);
+                    catch (std::exception& e) {
+                        err = __LINE__;
+                    }
                 }
 
     #pragma omp taskwait
+
+    if (err) {
+        throw std::exception();
+    }
 }
 
 ///-----------------------------------------------------------------------------
 /// \brief
 /// Hermitian rank-k update of single block column (i.e., k = nb).
 /// Host batched implementation.
+/// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
 template <typename scalar_t>
 void herk(internal::TargetType<Target::HostBatch>,
           typename blas::traits<scalar_t>::real_t alpha, Matrix< scalar_t >& A,
           typename blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t >& C,
           int priority)
 {
-    using real_t = typename blas::traits<scalar_t>::real_t;
-
     // diagonal tiles by herk on host
+    int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j) {
         if (C.tileIsLocal(j, j)) {
             #pragma omp task shared(A, C)
             {
-                A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
-                C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                herk(real_t(-1.0), A(j, 0),
-                     beta,         C(j, j));
-                A.tileTick(j, 0);
-                A.tileTick(j, 0);
+                try {
+                    A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
+                    C.tileMoveToHost(j, j, C.tileDevice(j, j));
+                    herk(alpha, A(j, 0),
+                         beta,  C(j, j));
+                    A.tileTick(j, 0);
+                    A.tileTick(j, 0);
+                }
+                catch (std::exception& e) {
+                    err = __LINE__;
+                }
             }
         }
     }
@@ -207,10 +250,21 @@ void herk(internal::TargetType<Target::HostBatch>,
     }
     if (batch_count > 0) {
         // off-diagonal tiles by batch gemm on host
-        CBLAS_TRANSPOSE opA = (A.op() == Op::NoTrans ? CblasNoTrans : CblasConjTrans);
-        CBLAS_TRANSPOSE opB = (A.op() == Op::NoTrans ? CblasConjTrans : CblasNoTrans);
-        std::vector< CBLAS_TRANSPOSE > opA_array( batch_count, opA );  // all same
-        std::vector< CBLAS_TRANSPOSE > opB_array( batch_count, opB );  // all same
+        Op opA = A.op();
+        if (C.op() != Op::NoTrans) {
+            if (A.op() == Op::NoTrans)
+                opA = C.op();
+            else if (A.op() == C.op() || C.is_real)
+                // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
+                opA = Op::NoTrans;
+            else
+                throw std::exception();
+        }
+
+        Op opB = (opA == Op::NoTrans ? Op::ConjTrans : Op::NoTrans);
+
+        std::vector< CBLAS_TRANSPOSE > opA_array( batch_count, cblas_trans_const( opA ));  // all same
+        std::vector< CBLAS_TRANSPOSE > opB_array( batch_count, cblas_trans_const( opB ));  // all same
         std::vector< int > m_array( batch_count );
         std::vector< int > n_array( batch_count );
         std::vector< int > k_array( batch_count );
@@ -249,18 +303,26 @@ void herk(internal::TargetType<Target::HostBatch>,
             }
         }
 
+        if (C.op() != Op::NoTrans) {
+            // swap A <=> B; swap m <=> n
+            swap( opA_array, opB_array );
+            swap( a_array,   b_array   );
+            swap( lda_array, ldb_array );
+            swap( m_array,   n_array   );
+        }
+
         {
             trace::Block trace_block("cblas_dgemm_batch");
             #ifdef SLATE_WITH_MKL
                 // mkl_set_num_threads_local(...);
                 cblas_gemm_batch( CblasColMajor, opA_array.data(), opB_array.data(),
-                                   m_array.data(), n_array.data(), k_array.data(),
-                                   alpha_array.data(),
-                                   a_array.data(), lda_array.data(),
-                                   b_array.data(), ldb_array.data(),
-                                   beta_array.data(),
-                                   c_array.data(), ldc_array.data(),
-                                   batch_count, group_size.data() );
+                                  m_array.data(), n_array.data(), k_array.data(),
+                                  alpha_array.data(),
+                                  a_array.data(), lda_array.data(),
+                                  b_array.data(), ldb_array.data(),
+                                  beta_array.data(),
+                                  c_array.data(), ldc_array.data(),
+                                  batch_count, group_size.data() );
                 // mkl_set_num_threads_local(1);
             #else
                 assert(false);
@@ -278,111 +340,139 @@ void herk(internal::TargetType<Target::HostBatch>,
     }
 
     #pragma omp taskwait
+
+    if (err) {
+        throw std::exception();
+    }
 }
 
 ///-----------------------------------------------------------------------------
 /// \brief
 /// Hermitian rank-k update of single block column (i.e., k = nb).
 /// GPU device batched cuBLAS implementation.
+/// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
 template <typename scalar_t>
 void herk(internal::TargetType<Target::Devices>,
           typename blas::traits<scalar_t>::real_t alpha, Matrix< scalar_t >& A,
           typename blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t >& C,
           int priority)
 {
-    using real_t = typename blas::traits<scalar_t>::real_t;
-
-    // Lower, NoTrans
-    assert(C.uplo() == Uplo::Lower);
-    assert(A.op() == Op::NoTrans);
+    int err = 0;
+    using std::swap;
 
     // off-diagonal tiles by batch gemm on device
     for (int device = 0; device < C.num_devices(); ++device) {
-        #pragma omp task shared(A, C) priority(1)
+        #pragma omp task shared(A, C) priority(priority)
         {
-            scalar_t** a_array_host = C.a_array_host(device);
-            scalar_t** b_array_host = C.b_array_host(device);
-            scalar_t** c_array_host = C.c_array_host(device);
+            try {
+                // if op(C) is NoTrans, invert opA, opB if possible
+                Op opA = A.op();
+                if (C.op() != Op::NoTrans) {
+                    if (A.op() == Op::NoTrans)
+                        opA = C.op();
+                    else if (A.op() == C.op() || C.is_real)
+                        // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
+                        opA = Op::NoTrans;
+                    else
+                        throw std::exception();
+                }
 
-            int64_t batch_count = 0;
-            for (int64_t j = 0; j < C.nt(); ++j) {
-                for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
-                    if (C.tileIsLocal(i, j)) {
-                        if (device == C.tileDevice(i, j)) {
-                            A.tileCopyToDevice(i, 0, device);
-                            A.tileCopyToDevice(j, 0, device);
-                            C.tileMoveToDevice(i, j, device);
-                            a_array_host[ batch_count ] = A(i, 0, device).data();
-                            b_array_host[ batch_count ] = A(j, 0, device).data();
-                            c_array_host[ batch_count ] = C(i, j, device).data();
-                            ++batch_count;
+                Op opB = (opA == Op::NoTrans ? Op::ConjTrans : Op::NoTrans);
+
+                scalar_t** a_array_host = C.a_array_host(device);
+                scalar_t** b_array_host = C.b_array_host(device);
+                scalar_t** c_array_host = C.c_array_host(device);
+
+                int64_t batch_count = 0;
+                for (int64_t j = 0; j < C.nt(); ++j) {
+                    for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
+                        if (C.tileIsLocal(i, j)) {
+                            if (device == C.tileDevice(i, j)) {
+                                A.tileCopyToDevice(i, 0, device);
+                                A.tileCopyToDevice(j, 0, device);
+                                C.tileMoveToDevice(i, j, device);
+                                a_array_host[ batch_count ] = A(i, 0, device).data();
+                                b_array_host[ batch_count ] = A(j, 0, device).data();
+                                c_array_host[ batch_count ] = C(i, j, device).data();
+                                ++batch_count;
+                            }
                         }
                     }
                 }
-            }
 
-            scalar_t** a_array_dev = C.a_array_device(device);
-            scalar_t** b_array_dev = C.b_array_device(device);
-            scalar_t** c_array_dev = C.c_array_device(device);
-            cudaError_t error;
-            error = cudaSetDevice(device);
-            assert(error == cudaSuccess);
+                if (C.op() != Op::NoTrans) {
+                    // swap A <=> B; swap m <=> n
+                    swap( opA, opB );
+                    swap( a_array_host, b_array_host );
+                    //swap( lda, ldb );  // todo: assumed to be nb
+                    //swap( m, n );      // todo: assumed to be nb
+                }
 
-            // cublas_handle uses this stream
-            cudaStream_t stream = C.compute_stream(device);
-            cublasHandle_t cublas_handle = C.cublas_handle(device);
-
-            error = cudaMemcpyAsync(a_array_dev, a_array_host,
-                                    sizeof(scalar_t*)*batch_count,
-                                    cudaMemcpyHostToDevice,
-                                    stream);
-            assert(error == cudaSuccess);
-
-            error = cudaMemcpyAsync(b_array_dev, b_array_host,
-                                    sizeof(scalar_t*)*batch_count,
-                                    cudaMemcpyHostToDevice,
-                                    stream);
-            assert(error == cudaSuccess);
-
-            error = cudaMemcpyAsync(c_array_dev, c_array_host,
-                                    sizeof(scalar_t*)*batch_count,
-                                    cudaMemcpyHostToDevice,
-                                    stream);
-            assert(error == cudaSuccess);
-
-            {
-                scalar_t alpha_ = scalar_t(alpha);
-                scalar_t beta_  = scalar_t(beta);
-
-                trace::Block trace_block("cublasDgemmBatched");
-                int nb = C.tileNb(0);
-                cublasOperation_t opa = (A.op() == Op::NoTrans ? CUBLAS_OP_N : CUBLAS_OP_C);
-                cublasOperation_t opb = (A.op() == Op::NoTrans ? CUBLAS_OP_C : CUBLAS_OP_N);
-                cublasStatus_t status =
-                    cublasGemmBatched(
-                        cublas_handle,  // uses stream
-                        opa, opb,
-                        nb, nb, nb,
-                        &alpha_, (const scalar_t**) a_array_dev, nb,
-                                 (const scalar_t**) b_array_dev, nb,
-                        &beta_,  c_array_dev, nb,
-                        batch_count);
-                assert(status == CUBLAS_STATUS_SUCCESS);
-                error = cudaStreamSynchronize(stream);
+                scalar_t** a_array_dev = C.a_array_device(device);
+                scalar_t** b_array_dev = C.b_array_device(device);
+                scalar_t** c_array_dev = C.c_array_device(device);
+                cudaError_t error;
+                error = cudaSetDevice(device);
                 assert(error == cudaSuccess);
-            }
 
-            for (int64_t j = 0; j < C.nt(); ++j) {
-                for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
-                    if (C.tileIsLocal(i, j)) {
-                        if (device == C.tileDevice(i, j)) {
-                            //A.tileErase(i, 0, device);  // todo: why? shouldn't tileTick deal with this?
-                            //A.tileErase(j, 0, device);  // ditto
-                            A.tileTick(i, 0);
-                            A.tileTick(j, 0);
+                // cublas_handle uses this stream
+                cudaStream_t stream = C.compute_stream(device);
+                cublasHandle_t cublas_handle = C.cublas_handle(device);
+
+                error = cudaMemcpyAsync(a_array_dev, a_array_host,
+                                        sizeof(scalar_t*)*batch_count,
+                                        cudaMemcpyHostToDevice,
+                                        stream);
+                assert(error == cudaSuccess);
+
+                error = cudaMemcpyAsync(b_array_dev, b_array_host,
+                                        sizeof(scalar_t*)*batch_count,
+                                        cudaMemcpyHostToDevice,
+                                        stream);
+                assert(error == cudaSuccess);
+
+                error = cudaMemcpyAsync(c_array_dev, c_array_host,
+                                        sizeof(scalar_t*)*batch_count,
+                                        cudaMemcpyHostToDevice,
+                                        stream);
+                assert(error == cudaSuccess);
+
+                {
+                    scalar_t alpha_ = scalar_t(alpha);
+                    scalar_t beta_  = scalar_t(beta);
+
+                    trace::Block trace_block("cublasDgemmBatched");
+                    // todo: assumes all tiles are allocated nb-by-nb with stride nb
+                    int nb = C.tileNb(0);
+                    cublasStatus_t status =
+                        cublasGemmBatched(
+                            cublas_handle,  // uses stream
+                            cublas_op_const( opA ), cublas_op_const( opB ),
+                            nb, nb, nb,
+                            &alpha_, (const scalar_t**) a_array_dev, nb,
+                                     (const scalar_t**) b_array_dev, nb,
+                            &beta_,  c_array_dev, nb,
+                            batch_count);
+                    assert(status == CUBLAS_STATUS_SUCCESS);
+                    error = cudaStreamSynchronize(stream);
+                    assert(error == cudaSuccess);
+                }
+
+                for (int64_t j = 0; j < C.nt(); ++j) {
+                    for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
+                        if (C.tileIsLocal(i, j)) {
+                            if (device == C.tileDevice(i, j)) {
+                                //A.tileErase(i, 0, device);  // todo: why? shouldn't tileTick deal with this?
+                                //A.tileErase(j, 0, device);  // ditto
+                                A.tileTick(i, 0);
+                                A.tileTick(j, 0);
+                            }
                         }
                     }
                 }
+            }
+            catch (std::exception& e) {
+                err = __LINE__;
             }
         }
     }
@@ -390,19 +480,28 @@ void herk(internal::TargetType<Target::Devices>,
     // diagonal tiles by herk on host
     for (int64_t j = 0; j < C.nt(); ++j) {
         if (C.tileIsLocal(j, j)) {
-            #pragma omp task shared(A, C)
+            #pragma omp task shared(A, C, err)
             {
-                A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
-                C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                herk(real_t(-1.0), A(j, 0),
-                     beta,         C(j, j));
-                A.tileTick(j, 0);
-                A.tileTick(j, 0);
+                try {
+                    A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
+                    C.tileMoveToHost(j, j, C.tileDevice(j, j));
+                    herk(alpha, A(j, 0),
+                         beta,  C(j, j));
+                    A.tileTick(j, 0);
+                    A.tileTick(j, 0);
+                }
+                catch (std::exception& e) {
+                    err = __LINE__;
+                }
             }
         }
     }
 
     #pragma omp taskwait
+
+    if (err) {
+        throw std::exception();
+    }
 }
 
 //------------------------------------------------------------------------------

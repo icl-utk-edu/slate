@@ -68,7 +68,7 @@ void copy( slate::Tile< scalar_t > const& A, scalar_t* opAref, int lda )
 // check op(A) == B, within absolute or relative tolerance.
 // Assert aborts on failure.
 template <typename scalar_t>
-void test_assert_equal( slate::Tile< scalar_t > A, scalar_t* B, int ldb,
+void test_assert_equal( slate::Tile< scalar_t > const& A, scalar_t const* B, int ldb,
                         typename blas::traits< scalar_t >::real_t abs_tol=0,
                         typename blas::traits< scalar_t >::real_t rel_tol=0 )
 {
@@ -77,7 +77,7 @@ void test_assert_equal( slate::Tile< scalar_t > A, scalar_t* B, int ldb,
     using blas::imag;
     using blas::conj;
 
-    // whether op(A) is general, lower, or upper
+    // whether uplo(A) is general, lower, or upper
     bool general = (A.uplo() == blas::Uplo::General);
     bool lower =
         (A.uplo() == blas::Uplo::Lower && A.op() == blas::Op::NoTrans) ||
@@ -85,6 +85,7 @@ void test_assert_equal( slate::Tile< scalar_t > A, scalar_t* B, int ldb,
     bool upper =
         (A.uplo() == blas::Uplo::Upper && A.op() == blas::Op::NoTrans) ||
         (A.uplo() == blas::Uplo::Lower && A.op() != blas::Op::NoTrans);
+    assert( general || lower || upper );
 
     for (int j = 0; j < A.nb(); ++j) {
         for (int i = 0; i < A.mb(); ++i) {
@@ -275,12 +276,10 @@ void test_syrk()
         blas::Uplo uplo = uplos[iu];
 
         // setup C such that op(C) is n-by-n
-        int Cm = n;
-        int Cn = n;
-        int ldc = Cm + 1;
-        std::vector< scalar_t > Cdata( ldc*Cn );
+        int ldc = n + 1;
+        std::vector< scalar_t > Cdata( ldc*n );
         lapack::larnv( 1, iseed, Cdata.size(), Cdata.data() );
-        slate::Tile< scalar_t > C( Cm, Cn, Cdata.data(), ldc, g_host_num );
+        slate::Tile< scalar_t > C( n, n, Cdata.data(), ldc, g_host_num );
         C.uplo( uplo );
         C.op( ops[ic] );
         assert( C.mb() == n );
@@ -400,12 +399,10 @@ void test_herk()
         blas::Uplo uplo = uplos[iu];
 
         // setup C such that op(C) is n-by-n
-        int Cm = n;
-        int Cn = n;
-        int ldc = Cm + 1;
-        std::vector< scalar_t > Cdata( ldc*Cn );
+        int ldc = n + 1;
+        std::vector< scalar_t > Cdata( ldc*n );
         lapack::larnv( 1, iseed, Cdata.size(), Cdata.data() );
-        slate::Tile< scalar_t > C( Cm, Cn, Cdata.data(), ldc, g_host_num );
+        slate::Tile< scalar_t > C( n, n, Cdata.data(), ldc, g_host_num );
         C.uplo( uplo );
         C.op( ops[ic] );
         assert( C.mb() == n );

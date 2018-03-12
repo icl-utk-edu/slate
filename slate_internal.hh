@@ -45,6 +45,20 @@
 
 #include "slate_types.hh"
 
+#ifdef SLATE_WITH_CUDA
+    #include <cublas_v2.h>
+    #include <cuda_runtime.h>
+#else
+    #include "slate_NoCuda.hh"
+    #include "slate_NoCublas.hh"
+#endif
+
+#ifdef SLATE_WITH_MKL
+    #include <mkl_cblas.h>
+#else
+    #include <cblas.h>
+#endif
+
 #define THROW_IF(cond, error) \
     if (cond) \
         throw TrueConditionException( \
@@ -73,6 +87,28 @@
 
 namespace slate {
 namespace internal {
+
+///-----------------------------------------------------------------------------
+inline CBLAS_TRANSPOSE cblas_trans_const( Op op )
+{
+    switch (op) {
+        case Op::NoTrans:   return CblasNoTrans;
+        case Op::Trans:     return CblasTrans;
+        case Op::ConjTrans: return CblasConjTrans;
+        default: assert( false );
+    }
+}
+
+///-----------------------------------------------------------------------------
+inline cublasOperation_t cublas_op_const( Op op )
+{
+    switch (op) {
+        case Op::NoTrans:   return CUBLAS_OP_N;
+        case Op::Trans:     return CUBLAS_OP_T;
+        case Op::ConjTrans: return CUBLAS_OP_C;
+        default: assert( false );
+    }
+}
 
 //------------------------------------------------------------------------------
 // BLAS and LAPACK routines that update portions of a matrix on each node,
@@ -132,8 +168,8 @@ void herk(typename blas::traits<scalar_t>::real_t alpha, Matrix< scalar_t >&& A,
 // forward real-symmetric matrices to herk;
 // disabled for complex, which isn't a C++ "scalar" type.
 template <Target target=Target::HostTask, typename scalar_t>
-void herk(scalar_t alpha, Matrix< scalar_t >&& A,
-          scalar_t beta,  SymmetricMatrix< scalar_t >&& C,
+void herk(typename blas::traits<scalar_t>::real_t alpha, Matrix< scalar_t >&& A,
+          typename blas::traits<scalar_t>::real_t beta,  SymmetricMatrix< scalar_t >&& C,
           int priority=0,
           enable_if_t< std::is_scalar< scalar_t >::value >* = nullptr)
 {

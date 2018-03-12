@@ -166,10 +166,10 @@ void copy( slate::BaseTrapezoidMatrix< scalar_t > /*const*/ & A,
 template <typename scalar_t>
 void test_assert_equal( slate::Matrix< scalar_t > /*const*/& A,
                         scalar_t const* B, int ldb,
-                        typename blas::traits< scalar_t >::real_t abs_tol=0,
-                        typename blas::traits< scalar_t >::real_t rel_tol=0 )
+                        blas::real_type<scalar_t> abs_tol=0,
+                        blas::real_type<scalar_t> rel_tol=0 )
 {
-    using real_t = typename blas::traits< scalar_t >::real_t;
+    using real_t = blas::real_type<scalar_t>;
     using blas::real;
     using blas::imag;
     using blas::conj;
@@ -233,10 +233,10 @@ void test_assert_equal( slate::Matrix< scalar_t > /*const*/& A,
 template <typename scalar_t>
 void test_assert_equal( slate::BaseTrapezoidMatrix< scalar_t > /*const*/& A,
                         scalar_t const* B, int ldb,
-                        typename blas::traits< scalar_t >::real_t abs_tol=0,
-                        typename blas::traits< scalar_t >::real_t rel_tol=0 )
+                        blas::real_type<scalar_t> abs_tol=0,
+                        blas::real_type<scalar_t> rel_tol=0 )
 {
-    using real_t = typename blas::traits< scalar_t >::real_t;
+    using real_t = blas::real_type<scalar_t>;
     using blas::real;
     using blas::imag;
     using blas::conj;
@@ -322,7 +322,7 @@ void test_gemm( slate::Target target )
     using blas::real;
     using blas::imag;
     using blas::conj;
-    using real_t = typename blas::traits< scalar_t >::real_t;
+    using real_t = blas::real_type<scalar_t>;
     int64_t iseed[4] = { 0, 1, 2, 3 };
 
     int nb = 16;
@@ -486,7 +486,7 @@ void test_syrk( slate::Target target )
     using blas::real;
     using blas::imag;
     using blas::conj;
-    using real_t = typename blas::traits< scalar_t >::real_t;
+    using real_t = blas::real_type<scalar_t>;
     int64_t iseed[4] = { 0, 1, 2, 3 };
 
     int nb = 4;
@@ -655,7 +655,7 @@ void test_herk( slate::Target target )
     using blas::real;
     using blas::imag;
     using blas::conj;
-    using real_t = typename blas::traits< scalar_t >::real_t;
+    using real_t = blas::real_type<scalar_t>;
     int64_t iseed[4] = { 0, 1, 2, 3 };
 
     int nb = 4;

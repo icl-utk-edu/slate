@@ -158,8 +158,8 @@ void syrk(
 // Allowing C^T would require two conjugations: conj( conj(C) + A*A^H ).
 template <typename scalar_t>
 void herk(
-    typename blas::traits<scalar_t>::real_t alpha, Tile<scalar_t> const& A,
-    typename blas::traits<scalar_t>::real_t beta,  Tile<scalar_t>& C)
+    blas::real_type<scalar_t> alpha, Tile<scalar_t> const& A,
+    blas::real_type<scalar_t> beta,  Tile<scalar_t>& C)
 {
     trace::Block trace_block("blas::herk");
 
@@ -180,8 +180,8 @@ void herk(
 /// Converts rvalue refs to lvalue refs.
 template <typename scalar_t>
 void herk(
-    typename blas::traits<scalar_t>::real_t alpha, Tile<scalar_t> const&& A,
-    typename blas::traits<scalar_t>::real_t beta,  Tile<scalar_t>&& C)
+    blas::real_type<scalar_t> alpha, Tile<scalar_t> const&& A,
+    blas::real_type<scalar_t> beta,  Tile<scalar_t>&& C)
 {
     herk( alpha, A, beta, C );
 }

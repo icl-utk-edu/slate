@@ -59,8 +59,8 @@ namespace internal {
 /// C is Lower, NoTrans or Upper, Trans/ConjTrans.
 /// In complex case, A and C cannot be Trans.
 template <Target target, typename scalar_t>
-void herk(typename blas::traits<scalar_t>::real_t alpha, Matrix< scalar_t >&& A,
-          typename blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t >&& C,
+void herk(blas::real_type<scalar_t> alpha, Matrix< scalar_t >&& A,
+          blas::real_type<scalar_t> beta,  HermitianMatrix< scalar_t >&& C,
           int priority)
 {
     if (! ( ( (C.uplo() == Uplo::Lower && C.op() == Op::NoTrans) ||
@@ -85,8 +85,8 @@ void herk(typename blas::traits<scalar_t>::real_t alpha, Matrix< scalar_t >&& A,
 /// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
 template <typename scalar_t>
 void herk(internal::TargetType<Target::HostTask>,
-          typename blas::traits<scalar_t>::real_t alpha, Matrix< scalar_t >& A,
-          typename blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t >& C,
+          blas::real_type<scalar_t> alpha, Matrix< scalar_t >& A,
+          blas::real_type<scalar_t> beta,  HermitianMatrix< scalar_t >& C,
           int priority)
 {
     scalar_t alpha_ = scalar_t(alpha);
@@ -148,8 +148,8 @@ void herk(internal::TargetType<Target::HostTask>,
 /// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
 template <typename scalar_t>
 void herk(internal::TargetType<Target::HostNest>,
-          typename blas::traits<scalar_t>::real_t alpha, Matrix< scalar_t >& A,
-          typename blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t >& C,
+          blas::real_type<scalar_t> alpha, Matrix< scalar_t >& A,
+          blas::real_type<scalar_t> beta,  HermitianMatrix< scalar_t >& C,
           int priority)
 {
     scalar_t alpha_ = scalar_t(alpha);
@@ -210,8 +210,8 @@ void herk(internal::TargetType<Target::HostNest>,
 /// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
 template <typename scalar_t>
 void herk(internal::TargetType<Target::HostBatch>,
-          typename blas::traits<scalar_t>::real_t alpha, Matrix< scalar_t >& A,
-          typename blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t >& C,
+          blas::real_type<scalar_t> alpha, Matrix< scalar_t >& A,
+          blas::real_type<scalar_t> beta,  HermitianMatrix< scalar_t >& C,
           int priority)
 {
     // diagonal tiles by herk on host
@@ -353,8 +353,8 @@ void herk(internal::TargetType<Target::HostBatch>,
 /// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
 template <typename scalar_t>
 void herk(internal::TargetType<Target::Devices>,
-          typename blas::traits<scalar_t>::real_t alpha, Matrix< scalar_t >& A,
-          typename blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t >& C,
+          blas::real_type<scalar_t> alpha, Matrix< scalar_t >& A,
+          blas::real_type<scalar_t> beta,  HermitianMatrix< scalar_t >& C,
           int priority)
 {
     int err = 0;

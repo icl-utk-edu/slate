@@ -29,7 +29,7 @@ void test_potrf(
     int64_t n, int64_t nb, int p, int q, int64_t lookahead,
     slate::Target target, bool test, bool verbose, bool trace )
 {
-    using real_t = typename blas::traits<scalar_t>::real_t;
+    using real_t = blas::real_type<scalar_t>;
     using blas::real;
 
     //--------------------

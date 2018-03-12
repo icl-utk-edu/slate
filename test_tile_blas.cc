@@ -69,10 +69,10 @@ void copy( slate::Tile< scalar_t > const& A, scalar_t* opAref, int lda )
 // Assert aborts on failure.
 template <typename scalar_t>
 void test_assert_equal( slate::Tile< scalar_t > const& A, scalar_t const* B, int ldb,
-                        typename blas::traits< scalar_t >::real_t abs_tol=0,
-                        typename blas::traits< scalar_t >::real_t rel_tol=0 )
+                        blas::real_type<scalar_t> abs_tol=0,
+                        blas::real_type<scalar_t> rel_tol=0 )
 {
-    using real_t = typename blas::traits< scalar_t >::real_t;
+    using real_t = blas::real_type<scalar_t>;
     using blas::real;
     using blas::imag;
     using blas::conj;
@@ -132,7 +132,7 @@ void test_gemm()
     using blas::real;
     using blas::imag;
     using blas::conj;
-    using real_t = typename blas::traits< scalar_t >::real_t;
+    using real_t = blas::real_type<scalar_t>;
     real_t eps = std::numeric_limits< real_t >::epsilon();
     int64_t iseed[4] = { 0, 1, 2, 3 };
 
@@ -252,7 +252,7 @@ void test_syrk()
     using blas::real;
     using blas::imag;
     using blas::conj;
-    using real_t = typename blas::traits< scalar_t >::real_t;
+    using real_t = blas::real_type<scalar_t>;
     real_t eps = std::numeric_limits< real_t >::epsilon();
     int64_t iseed[4] = { 0, 1, 2, 3 };
 
@@ -376,7 +376,7 @@ void test_herk()
     using blas::real;
     using blas::imag;
     using blas::conj;
-    using real_t = typename blas::traits< scalar_t >::real_t;
+    using real_t = blas::real_type<scalar_t>;
     real_t eps = std::numeric_limits< real_t >::epsilon();
     int64_t iseed[4] = { 0, 1, 2, 3 };
 
@@ -497,7 +497,7 @@ void test_potrf()
     Test name( msg.c_str() );
 
     using blas::conj;
-    using real_t = typename blas::traits< scalar_t >::real_t;
+    using real_t = blas::real_type<scalar_t>;
     real_t eps = std::numeric_limits< real_t >::epsilon();
     int64_t iseed[4] = { 0, 1, 2, 3 };
 
@@ -580,7 +580,7 @@ void test_trsm()
     using blas::real;
     using blas::imag;
     using blas::conj;
-    using real_t = typename blas::traits< scalar_t >::real_t;
+    using real_t = blas::real_type<scalar_t>;
     real_t eps = std::numeric_limits< real_t >::epsilon();
     int64_t iseed[4] = { 0, 1, 2, 3 };
 

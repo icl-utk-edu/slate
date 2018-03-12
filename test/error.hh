@@ -10,11 +10,10 @@
 // TODO: generalize to more arbitrary iterators than std::vector.
 // TODO: use LAPACK's lassq algorithm to avoid numerical issues in summing squares.
 template< typename T1, typename T2 >
-typename blas::traits2< T1, T2 >::real_t
+blas::real_type< T1, T2 >
 abs_error( std::vector<T1>& x, std::vector<T2>& xref )
 {
-    //using namespace blas;
-    typedef typename blas::traits2< T1, T2 >::real_t real_t;
+    using real_t = blas::real_type< T1, T2 >;
 
     if (x.size() != xref.size()) {
         return std::numeric_limits<blas_int>::quiet_NaN();
@@ -32,11 +31,10 @@ abs_error( std::vector<T1>& x, std::vector<T2>& xref )
 // -----------------------------------------------------------------------------
 // returns relative error, || x - xref ||_2 / || xref ||_2
 template< typename T1, typename T2 >
-typename blas::traits2< T1, T2 >::real_t
+blas::real_type< T1, T2 >
 rel_error( std::vector<T1>& x, std::vector<T2>& xref )
 {
-    //using namespace blas;
-    typedef typename blas::traits2< T1, T2 >::real_t real_t;
+    using real_t = blas::real_type< T1, T2 >;
 
     if (x.size() != xref.size()) {
         return std::numeric_limits<blas_int>::quiet_NaN();

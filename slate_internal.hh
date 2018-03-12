@@ -161,15 +161,15 @@ void syrk(scalar_t alpha, Matrix< scalar_t >&& A,
 //-----------------------------------------
 // herk()
 template <Target target=Target::HostTask, typename scalar_t>
-void herk(typename blas::traits<scalar_t>::real_t alpha, Matrix< scalar_t >&& A,
-          typename blas::traits<scalar_t>::real_t beta,  HermitianMatrix< scalar_t >&& C,
+void herk(blas::real_type<scalar_t> alpha, Matrix< scalar_t >&& A,
+          blas::real_type<scalar_t> beta,  HermitianMatrix< scalar_t >&& C,
           int priority=0);
 
 // forward real-symmetric matrices to herk;
 // disabled for complex, which isn't a C++ "scalar" type.
 template <Target target=Target::HostTask, typename scalar_t>
-void herk(typename blas::traits<scalar_t>::real_t alpha, Matrix< scalar_t >&& A,
-          typename blas::traits<scalar_t>::real_t beta,  SymmetricMatrix< scalar_t >&& C,
+void herk(blas::real_type<scalar_t> alpha, Matrix< scalar_t >&& A,
+          blas::real_type<scalar_t> beta,  SymmetricMatrix< scalar_t >&& C,
           int priority=0,
           enable_if_t< std::is_scalar< scalar_t >::value >* = nullptr)
 {

@@ -25,7 +25,7 @@ extern "C" int MKL_Set_Num_Threads( int nt );
 template< typename scalar_t >
 void test_trmm_work( Params& params, bool run )
 {
-    typedef typename blas::traits< scalar_t >::real_t real_t;
+    using real_t = blas::real_type<scalar_t>;
 
     // get & mark input values
     blas::Side side = params.side.value();

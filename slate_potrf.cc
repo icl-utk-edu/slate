@@ -58,7 +58,7 @@ template <Target target, typename scalar_t>
 void potrf(slate::internal::TargetType<target>,
            HermitianMatrix<scalar_t>& A, int64_t lookahead)
 {
-    using real_t = typename blas::traits<scalar_t>::real_t;
+    using real_t = blas::real_type<scalar_t>;
 
     uint8_t *column = new uint8_t[ A.nt() ];
 
@@ -146,7 +146,7 @@ template <typename scalar_t>
 void potrf(slate::internal::TargetType<Target::Devices>,
            HermitianMatrix<scalar_t>& A, int64_t lookahead)
 {
-    using real_t = typename blas::traits<scalar_t>::real_t;
+    using real_t = blas::real_type<scalar_t>;
 
     uint8_t *column = new uint8_t[ A.nt() ];
 

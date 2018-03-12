@@ -28,7 +28,7 @@
 template< typename scalar_t >
 void test_potrf_lapack_work( Params& params, bool run )
 {
-    typedef typename blas::traits< scalar_t >::real_t real_t;
+    using real_t = blas::real_type<scalar_t>;
     typedef long long lld;
 
     // get & mark input values

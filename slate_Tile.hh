@@ -368,7 +368,7 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm) const
         int retval;
 
         #pragma omp critical(slate_mpi)
-        retval = MPI_Send(data_, count, traits<scalar_t>::mpi_type, dst, tag, mpi_comm);
+        retval = MPI_Send(data_, count, mpi_type<scalar_t>::value, dst, tag, mpi_comm);
         assert(retval == MPI_SUCCESS);
     }
     else {
@@ -382,7 +382,7 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm) const
 
         #pragma omp critical(slate_mpi)
         retval = MPI_Type_vector(
-            count, blocklength, stride, traits<scalar_t>::mpi_type, &newtype);
+            count, blocklength, stride, mpi_type<scalar_t>::value, &newtype);
         assert(retval == MPI_SUCCESS);
 
         #pragma omp critical(slate_mpi)
@@ -415,7 +415,7 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm)
 
         #pragma omp critical(slate_mpi)
         retval = MPI_Recv(
-            data_, count, traits<scalar_t>::mpi_type, src, tag, mpi_comm,
+            data_, count, mpi_type<scalar_t>::value, src, tag, mpi_comm,
             MPI_STATUS_IGNORE);
         assert(retval == MPI_SUCCESS);
     }
@@ -429,7 +429,7 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm)
 
         #pragma omp critical(slate_mpi)
         retval = MPI_Type_vector(
-            count, blocklength, stride, traits<scalar_t>::mpi_type, &newtype);
+            count, blocklength, stride, mpi_type<scalar_t>::value, &newtype);
         assert(retval == MPI_SUCCESS);
 
         #pragma omp critical(slate_mpi)
@@ -465,7 +465,7 @@ void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm bcast_comm)
     //    int retval;
     //
     //    #pragma omp critical(slate_mpi)
-    //    retval = MPI_Bcast(data_, count, traits<scalar_t>::mpi_type,
+    //    retval = MPI_Bcast(data_, count, mpi_type<scalar_t>::value,
     //        bcast_root, bcast_comm);
     //    assert(retval == MPI_SUCCESS);
     //}
@@ -482,7 +482,7 @@ void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm bcast_comm)
 
         #pragma omp critical(slate_mpi)
         retval = MPI_Type_vector(
-            count, blocklength, stride, traits<scalar_t>::mpi_type, &newtype);
+            count, blocklength, stride, mpi_type<scalar_t>::value, &newtype);
         assert(retval == MPI_SUCCESS);
 
         #pragma omp critical(slate_mpi)

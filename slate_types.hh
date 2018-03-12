@@ -96,33 +96,33 @@ public:
 };
 
 ///-----------------------------------------------------------------------------
-/// traits gives mpi_type based on actual scalar_t.
+/// gives mpi_type based on actual scalar_t.
 //  constants are initialized in slate_types.cc
 template< typename scalar_t >
-class traits {};
+class mpi_type {};
 
 template<>
-class traits< float > {
+class mpi_type< float > {
 public:
-    static MPI_Datatype mpi_type; // = MPI_FLOAT
+    static MPI_Datatype value; // = MPI_FLOAT
 };
 
 template<>
-class traits< double > {
+class mpi_type< double > {
 public:
-    static MPI_Datatype mpi_type; // = MPI_DOUBLE
+    static MPI_Datatype value; // = MPI_DOUBLE
 };
 
 template<>
-class traits< std::complex<float> > {
+class mpi_type< std::complex<float> > {
 public:
-    static MPI_Datatype mpi_type; // = MPI_C_COMPLEX
+    static MPI_Datatype value; // = MPI_C_COMPLEX
 };
 
 template<>
-class traits< std::complex<double> > {
+class mpi_type< std::complex<double> > {
 public:
-    static MPI_Datatype mpi_type; // = MPI_C_DOUBLE_COMPLEX
+    static MPI_Datatype value; // = MPI_C_DOUBLE_COMPLEX
 };
 
 ///-----------------------------------------------------------------------------

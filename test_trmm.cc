@@ -3,6 +3,8 @@
 #include "slate_Debug.hh"
 #include "slate_trace_Trace.hh"
 
+#include "test.hh"
+
 #include <cassert>
 #include <cmath>
 #include <cstdio>
@@ -24,23 +26,35 @@
 //------------------------------------------------------------------------------
 int main (int argc, char *argv[])
 {
-    if (argc < 6) {
-        printf("Usage: %s n nb p q lookahead [test]\n", argv[0]);
+    if (argc < 11) {
+        printf("Usage: %s side{l,r} uplo{u,l} op{n,t,c} diag{n,u} m n nb p q lookahead [test] [verbose] [trace]\n", argv[0]);
         return EXIT_FAILURE;
     }
 
-    int64_t n = atol(argv[1]);
-    int64_t nb = atol(argv[2]);
-    int64_t p = atol(argv[3]);
-    int64_t q = atol(argv[4]);
-    int64_t lookahead = atol(argv[5]);
-    bool test = argc == 7;
-    
-    printf( "n=%lld, nb=%lld, p=%lld, q=%lld\n", n, nb, p, q );
-    // for now, gemm requires full tiles
+    int arg = 1;
+    blas::Side side  = blas::char2side( argv[arg][0] ); arg += 1;
+    blas::Uplo uplo  = blas::char2uplo( argv[arg][0] ); arg += 1;
+    blas::Op   op    = blas::char2op  ( argv[arg][0] ); arg += 1;
+    blas::Diag diag  = blas::char2diag( argv[arg][0] ); arg += 1;
+    int64_t m  = atol(argv[arg]); arg += 1;
+    int64_t n  = atol(argv[arg]); arg += 1;
+    int64_t nb = atol(argv[arg]); arg += 1;
+    int64_t p  = atol(argv[arg]); arg += 1;
+    int64_t q  = atol(argv[arg]); arg += 1;
+    int64_t lookahead = atol(argv[arg]); arg += 1;
+    bool test    = argc > arg && std::string(argv[arg]) == "test";    arg += 1;
+    bool verbose = argc > arg && std::string(argv[arg]) == "verbose"; arg += 1;
+    bool trace   = argc > arg && std::string(argv[arg]) == "trace";   arg += 1;
+
+    printf( "side=%c, uplo=%c, op=%c, diag=%c, m=%lld, n=%lld, nb=%lld, p=%lld, q=%lld, lookahead=%lld\n",
+            char(side), char(uplo), char(op), char(diag), m, n, nb, p, q, lookahead );
+    // for now, trmm requires full tiles
+    assert(m % nb == 0);
     assert(n % nb == 0);
 
-    int64_t lda = n;
+    int64_t An  = (side == blas::Side::Left ? m : n);
+    int64_t lda = An;
+    int64_t ldb = m;
 
     //--------------------
     // MPI initializations
@@ -68,38 +82,64 @@ int main (int argc, char *argv[])
     double *B1 = nullptr;
     double *B2 = nullptr;
 
-    int64_t seed_a[] = {0, 1, 0, 0};
-    A1 = new double[ lda*n ];
-    lapack::larnv(1, seed_a, lda*n, A1);
+    int64_t seed_a[] = {0, 1, 0, 3};
+    A1 = new double[ lda*An ];
+    lapack::larnv(1, seed_a, lda*An, A1);
+
+    // set unused data to nan
+    if (uplo == blas::Uplo::Lower) {
+        for (int j = 0; j < An; ++j)
+            for (int i = 0; i < j && i < An; ++i)  // upper
+                A1[ i + j*lda ] = nan("");
+    }
+    else {
+        for (int j = 0; j < An; ++j)
+            for (int i = j+1; i < An; ++i)  // lower
+                A1[ i + j*lda ] = nan("");
+    }
 
     int64_t seed_c[] = {0, 0, 0, 1};
-    B1 = new double[ lda*n ];
-    lapack::larnv(1, seed_c, lda*n, B1);
+    B1 = new double[ ldb*n ];
+    lapack::larnv(1, seed_c, ldb*n, B1);
 
     if (test) {
         if (mpi_rank == 0) {
-            B2 = new double[ lda*n ];
-            memcpy(B2, B1, sizeof(double)*lda*n);
+            B2 = new double[ ldb*n ];
+            memcpy(B2, B1, sizeof(double)*ldb*n);
         }
     }
 
-    slate::TriangularMatrix<double> A(slate::Uplo::Upper,
-                                      n, A1, lda,
+    slate::TriangularMatrix<double> A(uplo,
+                                      An, A1, lda,
                                       nb, p, q, MPI_COMM_WORLD);
-    slate::Matrix<double> B(n, n, B1, lda, nb, p, q, MPI_COMM_WORLD);
-    slate::trace::Trace::on();
+    if (op == blas::Op::Trans)
+        A = transpose( A );
+    else if (op == blas::Op::ConjTrans)
+        A = conj_transpose( A );
+    slate::Matrix<double> B(m, n, B1, ldb, nb, p, q, MPI_COMM_WORLD);
+    if (verbose && mpi_rank == 0) {
+        printf( "A = " ); print( An, An, A1, lda );
+        printf( "A = " ); print( A );
+        printf( "B = " ); print( m, n, B1, ldb );
+        printf( "B = " ); print( B );
+    }
+    if (trace)
+        slate::trace::Trace::on();
+
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
     double start = omp_get_wtime();
     slate::trmm<slate::Target::HostTask>(
-        blas::Side::Left, blas::Diag::NonUnit,
+        side, diag,
         alpha, A, B, {{slate::Option::Lookahead, lookahead}});
 
     MPI_Barrier(MPI_COMM_WORLD);
     double time = omp_get_wtime() - start;
-    slate::trace::Trace::finish();
+
+    if (trace)
+        slate::trace::Trace::finish();
 
     //--------------
     // Print GFLOPS.
@@ -113,24 +153,28 @@ int main (int argc, char *argv[])
     //------------------
     // Test correctness.
     if (test) {
-        B.gather(B1, lda);
+        B.gather(B1, ldb);
 
         if (mpi_rank == 0) {
             blas::trmm(blas::Layout::ColMajor,
-                       blas::Side::Left, blas::Uplo::Upper,
-                       blas::Op::NoTrans, blas::Diag::NonUnit,
-                       n, n,
+                       side, uplo, op, diag,
+                       m, n,
                        alpha, A1, lda,
-                              B2, lda);
+                              B2, ldb);
 
-            slate::Debug::diffLapackMatrices(n, n, B1, lda, B2, lda, nb, nb);
+            if (verbose && mpi_rank == 0) {
+                printf( "Bresult = " ); print( B );
+                printf( "Bref = "    ); print( m, n, B2, ldb );
+            }
+            if (verbose)
+                slate::Debug::diffLapackMatrices(m, n, B1, ldb, B2, ldb, nb, nb);
 
-            blas::axpy((size_t)lda*n, -1.0, B1, 1, B2, 1);
+            blas::axpy((size_t)ldb*n, -1.0, B1, 1, B2, 1);
             double norm =
-                lapack::lange(lapack::Norm::Fro, n, n, B1, lda);
+                lapack::lange(lapack::Norm::Fro, m, n, B1, ldb);
 
             double error =
-                lapack::lange(lapack::Norm::Fro, n, n, B2, lda);
+                lapack::lange(lapack::Norm::Fro, m, n, B2, ldb);
 
             if (norm != 0)
                 error /= norm;

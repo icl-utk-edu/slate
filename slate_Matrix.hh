@@ -524,7 +524,8 @@ public:
     /// - if uplo = Upper, is strictly above the diagonal.
     Matrix< scalar_t > sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2)
     {
-        if (this->uplo() == Uplo::Lower) {
+        if ((this->uplo() == Uplo::Lower && this->op() == Op::NoTrans) ||
+            (this->uplo() == Uplo::Upper && this->op() != Op::NoTrans)) {
             // top-right corner is at or below diagonal
             assert(i1 >= j2);
         }

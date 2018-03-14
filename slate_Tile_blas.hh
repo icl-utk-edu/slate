@@ -196,11 +196,44 @@ void trmm(
 {
     trace::Block trace_block("blas::trmm");
 
-    blas::trmm(blas::Layout::ColMajor,
-               side, A.uplo(), A.op(), diag,
-               B.mb(), B.nb(),
-               alpha, A.data(), A.stride(),
-                      B.data(), B.stride());
+    using blas::conj;
+
+    assert(B.uplo() == Uplo::General);
+    assert(A.mb() == A.nb());  // square
+    assert(side == Side::Left ? A.mb() == B.mb()    // m
+                              : A.mb() == B.nb());  // n
+    if (B.op() == Op::NoTrans) {
+        blas::trmm(blas::Layout::ColMajor,
+                   side, A.uplo(), A.op(), diag,
+                   B.mb(), B.nb(),
+                   alpha, A.data(), A.stride(),
+                          B.data(), B.stride());
+    }
+    else {
+        if (A.is_complex && A.op() != Op::NoTrans && A.op() != B.op())
+            throw std::exception();
+
+        // switch op(A) <=> op(B), side left <=> right, m <=> n
+        Side side2 = (side == Side::Left ? Side::Right : Side::Left);
+        Op opA;
+        if (A.op() == Op::NoTrans)
+            opA = B.op();
+        else if (A.op() == B.op() || A.is_real)
+            // A and B are both Trans or both ConjTrans; Trans == ConjTrans if real
+            opA = Op::NoTrans;
+        else
+            throw std::exception();
+
+        if (B.op() == Op::ConjTrans) {
+            alpha = conj( alpha );
+        }
+
+        blas::trmm(blas::Layout::ColMajor,
+                   side2, A.uplo(), opA, diag,
+                   B.nb(), B.mb(),
+                   alpha, A.data(), A.stride(),
+                          B.data(), B.stride());
+    }
 }
 
 ///----------------------------------------

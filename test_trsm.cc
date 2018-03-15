@@ -49,7 +49,7 @@ int main (int argc, char *argv[])
 
     printf( "side=%c, uplo=%c, op=%c, diag=%c, m=%lld, n=%lld, nb=%lld, p=%lld, q=%lld, lookahead=%lld\n",
             char(side), char(uplo), char(op), char(diag), m, n, nb, p, q, lookahead );
-    // for now, trmm requires full tiles
+    // for now, trsm requires full tiles
     assert(m % nb == 0);
     assert(n % nb == 0);
 
@@ -99,6 +99,15 @@ int main (int argc, char *argv[])
                 A1[ i + j*lda ] = nan("");
     }
 
+    // Factor A into L L^H or U U^H to get a well-conditioned triangular matrix.
+    // If diag == Unit, the diagonal is replaced; this is still well-conditioned.
+    // First, brute force positive definiteness.
+    for (int i = 0; i < An; ++i) {
+        A1[ i + i*lda ] += An;
+    }
+    int64_t info = lapack::potrf( uplo, An, A1, lda );
+    assert( info == 0 );
+
     int64_t seed_c[] = {0, 0, 0, 1};
     B1 = new double[ ldb*n ];
     lapack::larnv(1, seed_c, ldb*n, B1);
@@ -132,7 +141,7 @@ int main (int argc, char *argv[])
         MPI_Barrier(MPI_COMM_WORLD);
     }
     double start = omp_get_wtime();
-    slate::trmm<slate::Target::HostTask>(
+    slate::trsm<slate::Target::HostTask>(
         side, diag,
         alpha, A, B, {{slate::Option::Lookahead, lookahead}});
 
@@ -157,7 +166,7 @@ int main (int argc, char *argv[])
         B.gather(B1, ldb);
 
         if (mpi_rank == 0) {
-            blas::trmm(blas::Layout::ColMajor,
+            blas::trsm(blas::Layout::ColMajor,
                        side, uplo, op, diag,
                        m, n,
                        alpha, A1, lda,

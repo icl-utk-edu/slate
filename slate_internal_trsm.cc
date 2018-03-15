@@ -73,18 +73,42 @@ void trsm(internal::TargetType<Target::HostTask>,
                                     Matrix< scalar_t >& B,
           int priority)
 {
-    // Right, Lower, Trans
-    for (int64_t i = 0; i < B.mt(); ++i)
-        if (B.tileIsLocal(i, 0))
-            #pragma omp task shared(A, B)
-            {
-                A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
-                B.tileMoveToHost(i, 0, B.tileDevice(i, 0));
-                trsm(side, diag,
-                     alpha, A(0, 0),
-                            B(i, 0));
-                A.tileTick(0, 0);
+    assert(A.mt() == 1);
+
+    // alternatively, if (side == right), (conj)-transpose both A and B,
+    // then assume side == left; see slate::trsm
+    if (side == Side::Right) {
+        assert(B.nt() == 1);
+        for (int64_t i = 0; i < B.mt(); ++i) {
+            if (B.tileIsLocal(i, 0)) {
+                #pragma omp task shared(A, B)
+                {
+                    A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
+                    B.tileMoveToHost(i, 0, B.tileDevice(i, 0));
+                    trsm(side, diag,
+                         alpha, A(0, 0),
+                                B(i, 0));
+                    A.tileTick(0, 0);
+                }
             }
+        }
+    }
+    else {
+        assert(B.mt() == 1);
+        for (int64_t j = 0; j < B.nt(); ++j) {
+            if (B.tileIsLocal(0, j)) {
+                #pragma omp task shared(A, B)
+                {
+                    A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
+                    B.tileMoveToHost(0, j, B.tileDevice(0, j));
+                    trsm(side, diag,
+                         alpha, A(0, 0),
+                                B(0, j));
+                    A.tileTick(0, 0);
+                }
+            }
+        }
+    }
 
     #pragma omp taskwait
 }

@@ -205,7 +205,7 @@ void print( slate::Matrix< scalar_t >& A )
 {
     using blas::real;
 
-    printf( "[\n" );
+    printf( "[  %% op=%c\n", char(A.op()) );
     // loop over block rows, then rows within block row
     for (int i = 0; i < A.mt(); ++i) {
         int64_t ib = A.tileMb(i);
@@ -216,9 +216,11 @@ void print( slate::Matrix< scalar_t >& A )
 
             if (A.tileIsLocal( i, j )) {
                 if (j > 0)
-                    printf( "   " );
+                    printf( "    " );
+                else
+                    printf( "%%   " );
                 auto Aij = A(i, j);
-                printf( "  %-18p  %2d by %2d", (void*) Aij.data(), ib, jb );
+                printf( "  %-18p %2d by %2d", (void*) Aij.data(), ib, jb );
                 for (int64_t jt = 3; jt < jb; ++jt) { // above pointer is 3 columns
                     printf( " %9s", "" );
                 }
@@ -236,8 +238,7 @@ void print( slate::Matrix< scalar_t >& A )
                 int64_t jb = A.tileNb(j);
 
                 if (A.tileIsLocal( i, j )) {
-                    if (j > 0)
-                        printf( "   " );
+                    printf( "    " );
                     auto Aij = A(i, j);
                     for (int64_t jt = 0; jt < jb; ++jt) {
                         printf( " %9.4f", real( Aij( it, jt ) ) );
@@ -253,7 +254,7 @@ void print( slate::Matrix< scalar_t >& A )
             printf( "\n" );
         }
     }
-    printf( "];  %% op=%c\n", char(A.op()) );
+    printf( "];\n" );
 }
 
 //------------------------------------------------------------------------------
@@ -274,7 +275,9 @@ void print( slate::Matrix< std::complex< scalar_t > >& A )
 
             if (A.tileIsLocal( i, j )) {
                 if (j > 0)
-                    printf( "   " );
+                    printf( "    " );
+                else
+                    printf( "%%   " );
                 auto Aij = A(i, j);
                 printf( "  %-21p", (void*) Aij.data() );
                 for (int64_t jt = 1; jt < jb; ++jt) { // above pointer is 1 column
@@ -294,8 +297,7 @@ void print( slate::Matrix< std::complex< scalar_t > >& A )
                 int64_t jb = A.tileNb(j);
 
                 if (A.tileIsLocal( i, j )) {
-                    if (j > 0)
-                        printf( "   " );
+                    printf( "    " );
                     auto Aij = A(i, j);
                     for (int64_t jt = 0; jt < jb; ++jt) {
                         printf( " %9.4f + %9.4fi", real( Aij(it, jt) ), imag( Aij(it, jt) ) );

@@ -101,7 +101,8 @@ lib_src += \
        slate_potrf.cc \
        slate_gemm.cc \
        slate_trmm.cc \
-       slate_types.cc
+       slate_trsm.cc \
+       slate_types.cc \
 
 test_src = \
        test_internal_blas.cc \
@@ -111,7 +112,8 @@ test_src = \
        test_tile_blas.cc \
        test_potrf.cc \
        test_gemm.cc \
-       test_trmm.cc
+       test_trmm.cc \
+       test_trsm.cc \
 
 lib_obj  = $(lib_src:.cc=.o)
 test_obj = $(test_src:.cc=.o)

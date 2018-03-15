@@ -60,6 +60,12 @@ void trmm(blas::Side side, blas::Diag diag,
                                     Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
+template <Target target=Target::HostTask, typename scalar_t>
+void trsm(blas::Side side, blas::Diag diag,
+          scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                                    Matrix<scalar_t>& B,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 } // namespace slate
 
 #endif // SLATE_HH

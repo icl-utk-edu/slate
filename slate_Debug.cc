@@ -66,7 +66,8 @@ void Debug::diffLapackMatrices(int64_t m, int64_t n,
             if (j%nb == 2)
                 j += nb-4;
 
-            real_t error = abs(a[(size_t)lda*j+i] - b[(size_t)lda*j+i]);
+            real_t error = abs(a[(size_t)lda*j+i] - b[(size_t)lda*j+i])
+                         / abs(a[(size_t)lda*j+i]);
             printf("%c", error < 100*eps ? '.' : '#');
 
             if ((j+1)%nb == 0)

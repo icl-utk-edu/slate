@@ -114,6 +114,53 @@ int64_t potrf(Tile<scalar_t>&& A)
 
 ///-----------------------------------------------------------------------------
 /// \brief
+/// Symmetric matrix multiply: $C = \alpha A B + \beta C$
+///                         or $C = \alpha B A + \beta C$,
+/// where $A$ is symmetric.
+template <typename scalar_t>
+void symm(
+    Side side,
+    scalar_t alpha, Tile<scalar_t> const& A,
+                    Tile<scalar_t> const& B,
+    scalar_t beta,  Tile<scalar_t>& C)
+{
+    trace::Block trace_block("blas::syrk");
+
+    using blas::conj;
+
+    assert(A.mb() == A.nb());  // square
+    assert(A.op() == Op::NoTrans);  // todo: swap upper/lower
+    assert(B.op() == Op::NoTrans);
+    assert(C.op() == Op::NoTrans);
+    assert(B.mb() == C.mb());
+    assert(B.nb() == C.nb());
+    if (side == Side::Left)
+        assert(A.mb() == B.mb());
+    else
+        assert(A.mb() == B.nb());
+
+    blas::symm(blas::Layout::ColMajor,
+               side, A.uplo(),
+               C.mb(), C.nb(),
+               alpha, A.data(), A.stride(),
+                      B.data(), B.stride(),
+               beta,  C.data(), C.stride());
+}
+
+///----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename scalar_t>
+void symm(
+    Side side,
+    scalar_t alpha, Tile<scalar_t> const&& A,
+                    Tile<scalar_t> const&& B,
+    scalar_t beta,  Tile<scalar_t>&& C)
+{
+    symm( side, alpha, A, B, beta, C );
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
 /// Symmetric rank-k update: $C = \alpha op(A) op(A)^T + \beta C$.
 /// Use transpose or conj_transpose to set $op(A)$.
 /// In the complex case, C cannot be conj_transpose.

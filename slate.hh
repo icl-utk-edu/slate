@@ -45,6 +45,8 @@
 
 namespace slate {
 
+// -----------------------------------------------------------------------------
+// Level 3 BLAS
 template <Target target=Target::HostTask, typename scalar_t>
 void gemm(scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
@@ -52,7 +54,18 @@ void gemm(scalar_t alpha, Matrix<scalar_t>& A,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template <Target target=Target::HostTask, typename scalar_t>
-void potrf(HermitianMatrix< scalar_t >& A, int64_t lookahead = 0);
+void hemm(blas::Side side,
+          blas::real_type<scalar_t> alpha, HermitianMatrix<scalar_t>& A,
+                                                    Matrix<scalar_t>& B,
+          blas::real_type<scalar_t> beta,           Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target=Target::HostTask, typename scalar_t>
+void symm(blas::Side side,
+          scalar_t alpha, SymmetricMatrix<scalar_t>& A,
+                                   Matrix<scalar_t>& B,
+          scalar_t beta,           Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template <Target target=Target::HostTask, typename scalar_t>
 void trmm(blas::Side side, blas::Diag diag,
@@ -65,6 +78,11 @@ void trsm(blas::Side side, blas::Diag diag,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+// -----------------------------------------------------------------------------
+// Factorizations, etc.
+template <Target target=Target::HostTask, typename scalar_t>
+void potrf(HermitianMatrix< scalar_t >& A, int64_t lookahead = 0);
 
 } // namespace slate
 

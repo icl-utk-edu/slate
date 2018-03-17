@@ -135,9 +135,31 @@ void potrf(HermitianMatrix< scalar_t >&& A,
 template <Target target=Target::HostTask, typename scalar_t>
 void potrf(SymmetricMatrix< scalar_t >&& A,
            int priority=0,
-           enable_if_t< std::is_scalar< scalar_t >::value >* = nullptr)
+           enable_if_t< ! is_complex< scalar_t >::value >* = nullptr)
 {
     potrf<target>(SymmetricMatrix< scalar_t >( A ), priority);
+}
+
+//-----------------------------------------
+// symm()
+template <Target target=Target::HostTask, typename scalar_t>
+void symm(Side side,
+          scalar_t alpha, SymmetricMatrix< scalar_t >&& A,
+                          Matrix< scalar_t >&& B,
+          scalar_t beta,  Matrix< scalar_t >&& C,
+          int priority=0);
+
+// forward real-Hermitian matrices to symm;
+// disabled for complex, which isn't a C++ "scalar" type.
+template <Target target=Target::HostTask, typename scalar_t>
+void symm(Side side,
+          scalar_t alpha, HermitianMatrix< scalar_t >&& A,
+                          Matrix< scalar_t >&& B,
+          scalar_t beta,  Matrix< scalar_t >&& C,
+          int priority=0,
+          enable_if_t< ! is_complex< scalar_t >::value >* = nullptr)
+{
+    symm<target>(side, alpha, std::move(A), beta, SymmetricMatrix< scalar_t >( C ), priority);
 }
 
 //-----------------------------------------
@@ -153,7 +175,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void syrk(scalar_t alpha, Matrix< scalar_t >&& A,
           scalar_t beta,  HermitianMatrix< scalar_t >&& C,
           int priority=0,
-          enable_if_t< std::is_scalar< scalar_t >::value >* = nullptr)
+          enable_if_t< ! is_complex< scalar_t >::value >* = nullptr)
 {
     syrk<target>(alpha, std::move(A), beta, SymmetricMatrix< scalar_t >( C ), priority);
 }
@@ -171,7 +193,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix< scalar_t >&& A,
           blas::real_type<scalar_t> beta,  SymmetricMatrix< scalar_t >&& C,
           int priority=0,
-          enable_if_t< std::is_scalar< scalar_t >::value >* = nullptr)
+          enable_if_t< ! is_complex< scalar_t >::value >* = nullptr)
 {
     herk<target>(alpha, std::move(A), beta, HermitianMatrix< scalar_t >( C ), priority);
 }

@@ -24,49 +24,22 @@
 #endif
 
 //------------------------------------------------------------------------------
-int main (int argc, char *argv[])
+template <typename scalar_t>
+void test_trsm(
+    blas::Side side, blas::Uplo uplo, blas::Op opA, blas::Diag diag,
+    int64_t m, int64_t n, int64_t nb, int p, int q, int64_t lookahead,
+    slate::Target target, bool test, bool verbose, bool trace )
 {
-    if (argc < 11) {
-        printf("Usage: %s {Left,Right} {Upper,Lower} {Notrans,Trans,Conjtrans} {Nonunit,Unit} m n nb p q lookahead [test] [verbose] [trace]\n"
-               "For side, uplo, op, diag, only the first letter is used.\n", argv[0]);
-        return EXIT_FAILURE;
-    }
-
-    int arg = 1;
-    blas::Side side  = blas::char2side( argv[arg][0] ); arg += 1;
-    blas::Uplo uplo  = blas::char2uplo( argv[arg][0] ); arg += 1;
-    blas::Op   op    = blas::char2op  ( argv[arg][0] ); arg += 1;
-    blas::Diag diag  = blas::char2diag( argv[arg][0] ); arg += 1;
-    int64_t m  = atol(argv[arg]); arg += 1;
-    int64_t n  = atol(argv[arg]); arg += 1;
-    int64_t nb = atol(argv[arg]); arg += 1;
-    int64_t p  = atol(argv[arg]); arg += 1;
-    int64_t q  = atol(argv[arg]); arg += 1;
-    int64_t lookahead = atol(argv[arg]); arg += 1;
-    bool test    = argc > arg && std::string(argv[arg]) == "test";    arg += 1;
-    bool verbose = argc > arg && std::string(argv[arg]) == "verbose"; arg += 1;
-    bool trace   = argc > arg && std::string(argv[arg]) == "trace";   arg += 1;
-
-    printf( "side=%c, uplo=%c, op=%c, diag=%c, m=%lld, n=%lld, nb=%lld, p=%lld, q=%lld, lookahead=%lld\n",
-            char(side), char(uplo), char(op), char(diag), m, n, nb, p, q, lookahead );
-    // for now, trsm requires full tiles
-    assert(m % nb == 0);
-    assert(n % nb == 0);
-
-    int64_t An  = (side == blas::Side::Left ? m : n);
-    int64_t lda = An;
-    int64_t ldb = m;
+    using real_t = blas::real_type<scalar_t>;
+    using blas::Op;
+    using blas::real;
+    using blas::imag;
 
     //--------------------
     // MPI initializations
     int mpi_rank;
     int mpi_size;
-    int provided;
     int retval;
-
-    retval = MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided);
-    assert(retval == MPI_SUCCESS);
-    assert(provided >= MPI_THREAD_MULTIPLE);
 
     retval = MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     assert(retval == MPI_SUCCESS);
@@ -77,14 +50,28 @@ int main (int argc, char *argv[])
 
     //---------------------
     // test initializations
-    double alpha = 1.234;
+    if (mpi_rank == 0) {
+        printf( "side=%c, uplo=%c, opA=%c, diag=%c, m=%lld, n=%lld, nb=%lld, p=%d, q=%d, lookahead=%lld, target=%d\n",
+                char(side), char(uplo), char(opA), char(diag), m, n, nb, p, q, lookahead, int(target) );
+    }
 
-    double *A1 = nullptr;
-    double *B1 = nullptr;
-    double *B2 = nullptr;
+    // for now, trsm requires full tiles
+    assert(m % nb == 0);
+    assert(n % nb == 0);
+
+    int64_t An  = (side == blas::Side::Left ? m : n);
+    int64_t lda = An;
+    int64_t ldb = m;
+
+    // todo: complex
+    scalar_t alpha = 1.234;
+
+    scalar_t *A1 = nullptr;
+    scalar_t *B1 = nullptr;
+    scalar_t *B2 = nullptr;
 
     int64_t seed_a[] = {0, 1, 0, 3};
-    A1 = new double[ lda*An ];
+    A1 = new scalar_t[ lda*An ];
     lapack::larnv(1, seed_a, lda*An, A1);
 
     // set unused data to nan
@@ -99,40 +86,38 @@ int main (int argc, char *argv[])
                 A1[ i + j*lda ] = nan("");
     }
 
-    // Factor A into L L^H or U U^H to get a well-conditioned triangular matrix.
-    // If diag == Unit, the diagonal is replaced; this is still well-conditioned.
-    // First, brute force positive definiteness.
-    for (int i = 0; i < An; ++i) {
-        A1[ i + i*lda ] += An;
-    }
-    int64_t info = lapack::potrf( uplo, An, A1, lda );
-    assert( info == 0 );
-
     int64_t seed_c[] = {0, 0, 0, 1};
-    B1 = new double[ ldb*n ];
+    B1 = new scalar_t[ ldb*n ];
     lapack::larnv(1, seed_c, ldb*n, B1);
 
     if (test) {
         if (mpi_rank == 0) {
-            B2 = new double[ ldb*n ];
-            memcpy(B2, B1, sizeof(double)*ldb*n);
+            B2 = new scalar_t[ ldb*n ];
+            memcpy(B2, B1, sizeof(scalar_t)*ldb*n);
         }
     }
 
-    slate::TriangularMatrix<double> A(uplo,
-                                      An, A1, lda,
-                                      nb, p, q, MPI_COMM_WORLD);
-    if (op == blas::Op::Trans)
+    slate::TriangularMatrix<scalar_t> A(uplo,
+                                        An, A1, lda,
+                                        nb, p, q, MPI_COMM_WORLD);
+    slate::Matrix<scalar_t> B(m, n, B1, ldb, nb, p, q, MPI_COMM_WORLD);
+
+    if (opA == Op::Trans)
         A = transpose( A );
-    else if (op == blas::Op::ConjTrans)
+    else if (opA == Op::ConjTrans)
         A = conj_transpose( A );
-    slate::Matrix<double> B(m, n, B1, ldb, nb, p, q, MPI_COMM_WORLD);
+
     if (verbose && mpi_rank == 0) {
-        printf( "A = " ); print( An, An, A1, lda );
-        printf( "A = " ); print( A );
-        printf( "B = " ); print( m, n, B1, ldb );
-        printf( "B = " ); print( B );
+        printf( "alpha = %.4f + %.4fi;\n",
+                real(alpha), imag(alpha) );
+        printf( "A1 = " ); print( An, An, A1, lda );
+        printf( "A = "  ); print( A );
+        printf( "B1 = " ); print( m, n, B1, ldb );
+        printf( "B = "  ); print( B );
     }
+
+    //---------------------
+    // run test
     if (trace)
         slate::trace::Trace::on();
 
@@ -141,15 +126,44 @@ int main (int argc, char *argv[])
         MPI_Barrier(MPI_COMM_WORLD);
     }
     double start = omp_get_wtime();
-    slate::trsm<slate::Target::HostTask>(
-        side, diag,
-        alpha, A, B, {{slate::Option::Lookahead, lookahead}});
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    switch (target) {
+        case slate::Target::Host:
+        case slate::Target::HostTask:
+            slate::trsm<slate::Target::HostTask>(
+                side, diag,
+                alpha, A, B, {{slate::Option::Lookahead, lookahead}});
+            break;
+        case slate::Target::HostNest:
+            slate::trsm<slate::Target::HostNest>(
+                side, diag,
+                alpha, A, B, {{slate::Option::Lookahead, lookahead}});
+            break;
+        case slate::Target::HostBatch:
+            slate::trsm<slate::Target::HostBatch>(
+                side, diag,
+                alpha, A, B, {{slate::Option::Lookahead, lookahead}});
+            break;
+        case slate::Target::Devices:
+            slate::trsm<slate::Target::Devices>(
+                side, diag,
+                alpha, A, B, {{slate::Option::Lookahead, lookahead}});
+            break;
+    }
+
+    {
+        slate::trace::Block trace_block("MPI_Barrier");
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
     double time = omp_get_wtime() - start;
 
     if (trace)
         slate::trace::Trace::finish();
+
+    if (verbose) {
+        printf( "B1res = " ); print( m, n, B1, ldb );
+        printf( "Bres = "  ); print( B );
+    }
 
     //--------------
     // Print GFLOPS.
@@ -167,28 +181,30 @@ int main (int argc, char *argv[])
 
         if (mpi_rank == 0) {
             blas::trsm(blas::Layout::ColMajor,
-                       side, uplo, op, diag,
+                       side, uplo, opA, diag,
                        m, n,
                        alpha, A1, lda,
                               B2, ldb);
 
             if (verbose && mpi_rank == 0) {
-                printf( "Bresult = " ); print( B );
-                printf( "Bref = "    ); print( m, n, B2, ldb );
+                printf( "Bref = " ); print( m, n, B2, ldb );
             }
             if (verbose)
                 slate::Debug::diffLapackMatrices(m, n, B1, ldb, B2, ldb, nb, nb);
 
             blas::axpy((size_t)ldb*n, -1.0, B1, 1, B2, 1);
-            double norm =
+            real_t norm =
                 lapack::lange(lapack::Norm::Fro, m, n, B1, ldb);
 
-            double error =
+            real_t error =
                 lapack::lange(lapack::Norm::Fro, m, n, B2, ldb);
 
             if (norm != 0)
                 error /= norm;
-            printf("\t%.2e error\n", error);
+
+            real_t eps = std::numeric_limits< real_t >::epsilon();
+            bool okay = (error < 50*eps);
+            printf("\t%.2e error, %s\n", error, okay ? "ok" : "failed");
 
             delete[] B2;
             B2 = nullptr;
@@ -196,7 +212,93 @@ int main (int argc, char *argv[])
     }
     delete[] B1;
     B1 = nullptr;
+}
 
+//------------------------------------------------------------------------------
+int main (int argc, char *argv[])
+{
+    //--------------------
+    // MPI initializations
+    int provided;
+    int retval;
+    int mpi_rank;
+
+    retval = MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided);
+    assert(retval == MPI_SUCCESS);
+    assert(provided >= MPI_THREAD_MULTIPLE);
+
+    retval = MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    assert(retval == MPI_SUCCESS);
+
+    //--------------------
+    // parse command line
+    if (argc < 11 && mpi_rank == 0) {
+        printf("Usage: %s {Left,Right} {Upper,Lower} {Notrans,Trans,Conjtrans} {Nonunit,Unit} m n nb p q lookahead [HostTask|HostNest|HostBatch|Devices] [s|d|c|z] [test] [verbose] [trace]\n"
+               "For side, uplo, opA, diag, only the first letter is used.\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+
+    int arg = 1;
+    blas::Side side  = blas::char2side( argv[arg][0] ); ++arg;
+    blas::Uplo uplo  = blas::char2uplo( argv[arg][0] ); ++arg;
+    blas::Op   opA   = blas::char2op  ( argv[arg][0] ); ++arg;
+    blas::Diag diag  = blas::char2diag( argv[arg][0] ); ++arg;
+    int64_t m  = atol(argv[arg]); ++arg;
+    int64_t n  = atol(argv[arg]); ++arg;
+    int64_t nb = atol(argv[arg]); ++arg;
+    int64_t p  = atol(argv[arg]); ++arg;
+    int64_t q  = atol(argv[arg]); ++arg;
+    int64_t lookahead = atol(argv[arg]); ++arg;
+
+    slate::Target target = slate::Target::HostTask;
+    if (argc > arg) {
+        std::string s( argv[arg] );
+        if (s == "HostTask")
+            target = slate::Target::HostTask;
+        else if (s == "HostNest")
+            target = slate::Target::HostNest;
+        else if (s == "HostBatch")
+            target = slate::Target::HostBatch;
+        else if (s == "Devices")
+            target = slate::Target::Devices;
+        else {
+            printf( "Unknown target: %s\n", argv[arg] );
+            return EXIT_FAILURE;
+        }
+        ++arg;
+    }
+
+    char datatype = 'd';
+    if (argc > arg) {
+        datatype = argv[arg][0];
+        ++arg;
+    }
+
+    bool test    = argc > arg && std::string(argv[arg]) == "test";    ++arg;
+    bool verbose = argc > arg && std::string(argv[arg]) == "verbose"; ++arg;
+    bool trace   = argc > arg && std::string(argv[arg]) == "trace";   ++arg;
+
+    //--------------------
+    // run test
+    switch (datatype) {
+        case 's':
+            test_trsm< float >( side, uplo, opA, diag, m, n, nb, p, q, lookahead, target, test, verbose, trace );
+            break;
+        case 'd':
+            test_trsm< double >( side, uplo, opA, diag, m, n, nb, p, q, lookahead, target, test, verbose, trace );
+            break;
+        case 'c':
+            test_trsm< std::complex<float> >( side, uplo, opA, diag, m, n, nb, p, q, lookahead, target, test, verbose, trace );
+            break;
+        case 'z':
+            test_trsm< std::complex<double> >( side, uplo, opA, diag, m, n, nb, p, q, lookahead, target, test, verbose, trace );
+            break;
+        default:
+            printf( "unknown datatype: %c\n", datatype );
+            break;
+    }
+
+    //--------------------
     MPI_Finalize();
     return EXIT_SUCCESS;
 }

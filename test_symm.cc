@@ -25,9 +25,9 @@
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void test_gemm(
-    blas::Op opA, blas::Op opB,
-    int64_t m, int64_t n, int64_t k, int64_t nb, int p, int q, int64_t lookahead,
+void test_symm(
+    blas::Side side, blas::Uplo uplo,
+    int64_t m, int64_t n, int64_t nb, int p, int q, int64_t lookahead,
     slate::Target target, bool test, bool verbose, bool trace )
 {
     using real_t = blas::real_type<scalar_t>;
@@ -51,29 +51,24 @@ void test_gemm(
     //---------------------
     // test initializations
     if (mpi_rank == 0) {
-        printf( "opA=%c, opB=%c, m=%lld, n=%lld, k=%lld, nb=%lld, p=%d, q=%d, lookahead=%lld, target=%d\n",
-                char(opA), char(opB), m, n, k, nb, p, q, lookahead, int(target) );
+        printf( "side=%c, uplo=%c, m=%lld, n=%lld, nb=%lld, p=%d, q=%d, lookahead=%lld, target=%d\n",
+                char(side), char(uplo), m, n, nb, p, q, lookahead, int(target) );
     }
 
-    // for now, gemm on Devices requires full tiles
+    // for now, symm on Devices requires full tiles
     if (target == slate::Target::Devices) {
         assert(m % nb == 0);
         assert(n % nb == 0);
-        assert(k % nb == 0);
     }
 
-    int64_t Am = (opA == Op::NoTrans ? m : k);
-    int64_t An = (opA == Op::NoTrans ? k : m);
-    int64_t Bm = (opB == Op::NoTrans ? k : n);
-    int64_t Bn = (opB == Op::NoTrans ? n : k);
-
-    int64_t lda = Am;
-    int64_t ldb = Bm;
+    int64_t An = (side == blas::Side::Left ? m : n);
+    int64_t lda = An;
+    int64_t ldb = m;
     int64_t ldc = m;
 
     // todo: complex
     scalar_t alpha = 1.234;
-    scalar_t beta = 4.321;
+    scalar_t beta  = 4.321;
 
     scalar_t *A1 = nullptr;
     scalar_t *B1 = nullptr;
@@ -85,8 +80,8 @@ void test_gemm(
     lapack::larnv(1, seed_a, lda*An, A1);
 
     int64_t seed_b[] = {0, 0, 1, 0};
-    B1 = new scalar_t[ ldb*Bn ];
-    lapack::larnv(1, seed_b, ldb*Bn, B1);
+    B1 = new scalar_t[ ldb*n ];
+    lapack::larnv(1, seed_b, ldb*n, B1);
 
     int64_t seed_c[] = {0, 0, 0, 1};
     C1 = new scalar_t[ ldc*n ];
@@ -99,32 +94,25 @@ void test_gemm(
         }
     }
 
-    slate::Matrix<scalar_t> A(Am, An, A1, lda, nb, p, q, MPI_COMM_WORLD);
-    slate::Matrix<scalar_t> B(Bm, Bn, B1, ldb, nb, p, q, MPI_COMM_WORLD);
+    slate::SymmetricMatrix<scalar_t> A(uplo, An, A1, lda, nb, p, q, MPI_COMM_WORLD);
+    slate::Matrix<scalar_t> B( m,  n, B1, ldb, nb, p, q, MPI_COMM_WORLD);
     slate::Matrix<scalar_t> C( m,  n, C1, ldc, nb, p, q, MPI_COMM_WORLD);
 
-    if (opA == Op::Trans)
-        A = transpose( A );
-    else if (opA == Op::ConjTrans)
-        A = conj_transpose( A );
-
-    if (opB == Op::Trans)
-        B = transpose( B );
-    else if (opB == Op::ConjTrans)
-        B = conj_transpose( B );
-
-    assert( A.mt() == C.mt() );
+    if (side == blas::Side::Left)
+        assert( A.mt() == C.mt() );
+    else
+        assert( A.mt() == C.nt() );
+    assert( B.mt() == C.mt() );
     assert( B.nt() == C.nt() );
-    assert( A.nt() == B.mt() );
 
     if (verbose && mpi_rank == 0) {
         printf( "alpha = %.4f + %.4fi;\n"
                 "beta  = %.4f + %.4fi;\n",
                 real(alpha), imag(alpha),
                 real(beta),  imag(beta) );
-        printf( "A1 = " ); print( Am, An, A1, lda );
+        printf( "A1 = " ); print( An, An, A1, lda );
         printf( "A = "  ); print( A );
-        printf( "B1 = " ); print( Bm, Bn, B1, ldb );
+        printf( "B1 = " ); print( m, n, B1, ldb );
         printf( "B = "  ); print( B );
         printf( "C1 = " ); print( m, n, C1, ldc );
         printf( "C = "  ); print( C );
@@ -144,20 +132,20 @@ void test_gemm(
     switch (target) {
         case slate::Target::Host:
         case slate::Target::HostTask:
-            slate::gemm<slate::Target::HostTask>(
-                alpha, A, B, beta, C, {{slate::Option::Lookahead, lookahead}});
+            slate::symm<slate::Target::HostTask>(
+                side, alpha, A, B, beta, C, {{slate::Option::Lookahead, lookahead}});
             break;
         case slate::Target::HostNest:
-            slate::gemm<slate::Target::HostNest>(
-                alpha, A, B, beta, C, {{slate::Option::Lookahead, lookahead}});
+            slate::symm<slate::Target::HostNest>(
+                side, alpha, A, B, beta, C, {{slate::Option::Lookahead, lookahead}});
             break;
         case slate::Target::HostBatch:
-            slate::gemm<slate::Target::HostBatch>(
-                alpha, A, B, beta, C, {{slate::Option::Lookahead, lookahead}});
+            slate::symm<slate::Target::HostBatch>(
+                side, alpha, A, B, beta, C, {{slate::Option::Lookahead, lookahead}});
             break;
         case slate::Target::Devices:
-            slate::gemm<slate::Target::Devices>(
-                alpha, A, B, beta, C, {{slate::Option::Lookahead, lookahead}});
+            slate::symm<slate::Target::Devices>(
+                side, alpha, A, B, beta, C, {{slate::Option::Lookahead, lookahead}});
             break;
     }
 
@@ -190,9 +178,9 @@ void test_gemm(
         C.gather(C1, ldc);
 
         if (mpi_rank == 0) {
-            blas::gemm(blas::Layout::ColMajor,
-                       opA, opB,
-                       m, n, k,
+            blas::symm(blas::Layout::ColMajor,
+                       side, uplo,
+                       m, n,
                        alpha, A1, lda,
                               B1, ldb,
                        beta,  C2, ldc);
@@ -243,18 +231,17 @@ int main (int argc, char *argv[])
 
     //--------------------
     // parse command line
-    if (argc < 10 && mpi_rank == 0) {
-        printf("Usage: %s {notrans,trans,conj} {notrans,trans,conj} m n k nb p q lookahead [HostTask|HostNest|HostBatch|Devices] [s|d|c|z] [test] [verbose] [trace]\n"
-               "For opA, opB, only the first letter is used.\n", argv[0]);
+    if (argc < 9 && mpi_rank == 0) {
+        printf("Usage: %s {left,right} {upper,lower} m n nb p q lookahead [HostTask|HostNest|HostBatch|Devices] [s|d|c|z] [test] [verbose] [trace]\n"
+               "For side, uplo, only the first letter is used.\n", argv[0]);
         return EXIT_FAILURE;
     }
 
     int arg = 1;
-    blas::Op opA = blas::char2op( argv[arg][0] );  ++arg;
-    blas::Op opB = blas::char2op( argv[arg][0] );  ++arg;
+    blas::Side side = blas::char2side( argv[arg][0] );  ++arg;
+    blas::Uplo uplo = blas::char2uplo( argv[arg][0] );  ++arg;
     int64_t m  = atol(argv[arg]);  ++arg;
     int64_t n  = atol(argv[arg]);  ++arg;
-    int64_t k  = atol(argv[arg]);  ++arg;
     int64_t nb = atol(argv[arg]);  ++arg;
     int p      = atoi(argv[arg]);  ++arg;
     int q      = atoi(argv[arg]);  ++arg;
@@ -292,16 +279,16 @@ int main (int argc, char *argv[])
     // run test
     switch (datatype) {
         case 's':
-            test_gemm< float >( opA, opB, m, n, k, nb, p, q, lookahead, target, test, verbose, trace );
+            test_symm< float >( side, uplo, m, n, nb, p, q, lookahead, target, test, verbose, trace );
             break;
         case 'd':
-            test_gemm< double >( opA, opB, m, n, k, nb, p, q, lookahead, target, test, verbose, trace );
+            test_symm< double >( side, uplo, m, n, nb, p, q, lookahead, target, test, verbose, trace );
             break;
         case 'c':
-            test_gemm< std::complex<float> >( opA, opB, m, n, k, nb, p, q, lookahead, target, test, verbose, trace );
+            test_symm< std::complex<float> >( side, uplo, m, n, nb, p, q, lookahead, target, test, verbose, trace );
             break;
         case 'z':
-            test_gemm< std::complex<double> >( opA, opB, m, n, k, nb, p, q, lookahead, target, test, verbose, trace );
+            test_symm< std::complex<double> >( side, uplo, m, n, nb, p, q, lookahead, target, test, verbose, trace );
             break;
         default:
             printf( "unknown datatype: %c\n", datatype );

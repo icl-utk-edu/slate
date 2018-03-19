@@ -52,6 +52,9 @@ void Debug::diffLapackMatrices(int64_t m, int64_t n,
                                scalar_t *b, int64_t ldb,
                                int64_t mb, int64_t nb)
 {
+    using real_t = blas::real_type<scalar_t>;
+    const real_t eps = std::numeric_limits<real_t>::epsilon();
+
     if (! debug_) return;
     for (int64_t i = 0; i < m; ++i) {
 
@@ -63,8 +66,8 @@ void Debug::diffLapackMatrices(int64_t m, int64_t n,
             if (j%nb == 2)
                 j += nb-4;
 
-            scalar_t error = abs(a[(size_t)lda*j+i] - b[(size_t)lda*j+i]);
-            printf("%c", error < 0.000000000001 ? '.' : '#');
+            real_t error = abs(a[(size_t)lda*j+i] - b[(size_t)lda*j+i]);
+            printf("%c", error < 100*eps ? '.' : '#');
 
             if ((j+1)%nb == 0)
                 printf("|");
@@ -183,6 +186,22 @@ void Debug::printNumFreeMemBlocks(Memory &m)
 }
 
 //------------------------------------------------------------------------------
+// Explicit instantiations.
+template
+void Debug::diffLapackMatrices(int64_t m, int64_t n,
+                               float *a, int64_t lda,
+                               float *b, int64_t ldb,
+                               int64_t mb, int64_t nb);
+template
+void Debug::checkTilesLives(Matrix<float> &a);
+
+template
+void Debug::printTilesLives(Matrix<float> &a);
+
+template
+void Debug::printTilesMaps(Matrix<float> &a);
+
+// ----------------------------------------
 template
 void Debug::diffLapackMatrices(int64_t m, int64_t n,
                                double *a, int64_t lda,
@@ -196,5 +215,36 @@ void Debug::printTilesLives(Matrix<double> &a);
 
 template
 void Debug::printTilesMaps(Matrix<double> &a);
+
+// ----------------------------------------
+template
+void Debug::diffLapackMatrices(int64_t m, int64_t n,
+                               std::complex<float> *a, int64_t lda,
+                               std::complex<float> *b, int64_t ldb,
+                               int64_t mb, int64_t nb);
+template
+void Debug::checkTilesLives(Matrix<std::complex<float>> &a);
+
+template
+void Debug::printTilesLives(Matrix<std::complex<float>> &a);
+
+template
+void Debug::printTilesMaps(Matrix<std::complex<float>> &a);
+
+// ----------------------------------------
+template
+void Debug::diffLapackMatrices(int64_t m, int64_t n,
+                               std::complex<double> *a, int64_t lda,
+                               std::complex<double> *b, int64_t ldb,
+                               int64_t mb, int64_t nb);
+template
+void Debug::checkTilesLives(Matrix<std::complex<double>> &a);
+
+template
+void Debug::printTilesLives(Matrix<std::complex<double>> &a);
+
+template
+void Debug::printTilesMaps(Matrix<std::complex<double>> &a);
+
 
 } // namespace slate

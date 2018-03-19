@@ -220,7 +220,7 @@ void print( slate::Matrix< scalar_t >& A )
                 else
                     printf( "%%   " );
                 auto Aij = A(i, j);
-                printf( "  %-18p %2d by %2d", (void*) Aij.data(), ib, jb );
+                printf( "  %-18p %2lld by %2lld", (void*) Aij.data(), ib, jb );
                 for (int64_t jt = 3; jt < jb; ++jt) { // above pointer is 3 columns
                     printf( " %9s", "" );
                 }

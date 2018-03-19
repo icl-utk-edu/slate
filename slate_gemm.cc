@@ -169,7 +169,7 @@ void gemm(scalar_t alpha, Matrix<scalar_t>& A,
 }
 
 //------------------------------------------------------------------------------
-// Explicit instantiations for double precision and various targets.
+// Explicit instantiations.
 template
 void gemm< Target::HostTask, float >(
     float alpha, Matrix<float>& A,

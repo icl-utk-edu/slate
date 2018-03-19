@@ -69,8 +69,10 @@ void gemm(slate::internal::TargetType<target>,
     uint8_t *bcast = new uint8_t[A.nt()];
     uint8_t *gemm  = new uint8_t[A.nt()];
 
-    C.allocateBatchArrays();
-    C.reserveDeviceWorkspace();
+    if (target == Target::Devices) {
+        C.allocateBatchArrays();
+        C.reserveDeviceWorkspace();
+    }
 
     #pragma omp parallel
     #pragma omp master
@@ -127,12 +129,10 @@ void gemm(slate::internal::TargetType<target>,
     }
 
     // todo: we need a function that updates origins that are not valid
-    for (int device = 0; device < C.num_devices(); ++device)
-        for (int64_t i = 0; i < C.mt(); ++i)
-            for (int64_t j = 0; j < C.nt(); ++j)
-                if (C.tileIsLocal(i, j))
-                    if (device == C.tileDevice(i, j))
-                        C.tileMoveToHost(i, j, device);
+    for (int64_t i = 0; i < C.mt(); ++i)
+        for (int64_t j = 0; j < C.nt(); ++j)
+            if (C.tileIsLocal(i, j))
+                C.tileMoveToHost(i, j, C.tileDevice(i, j));
 
     C.clearWorkspace();
 

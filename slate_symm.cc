@@ -57,12 +57,14 @@ namespace specialization {
 /// - bcast communications are serialized,
 /// - symm operations are serialized,
 /// - bcasts can get ahead of symms by the value of lookahead.
+// Note A, B, and C are passed by value, so we can transpose if needed
+// (for side = right) without affecting caller.
 template <Target target, typename scalar_t>
 void symm(slate::internal::TargetType<target>,
           Side side,
-          scalar_t alpha, SymmetricMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
+          scalar_t alpha, SymmetricMatrix<scalar_t> A,
+                          Matrix<scalar_t> B,
+          scalar_t beta,  Matrix<scalar_t> C,
           int64_t lookahead)
 {
     using namespace blas;
@@ -132,7 +134,7 @@ void symm(slate::internal::TargetType<target>,
             #pragma omp task depend(in:bcast[0]) \
                              depend(out:gemm[0])
             {
-                internal::symm<target>(
+                internal::symm<Target::HostTask>(  // todo: target
                     Side::Left,
                     alpha, A.sub(0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
@@ -181,7 +183,7 @@ void symm(slate::internal::TargetType<target>,
                                        B.sub(k, k, 0, B.nt()-1),
                         scalar_t(1.0), C.sub(0, k-1, 0, C.nt()-1));
 
-                    internal::symm<target>(
+                    internal::symm<Target::HostTask>(  // todo: target
                         Side::Left,
                         alpha,          A.sub(k, k),
                                         B.sub(k, k, 0, B.nt()-1),
@@ -236,7 +238,7 @@ void symm(slate::internal::TargetType<target>,
             #pragma omp task depend(in:bcast[0]) \
                              depend(out:gemm[0])
             {
-                internal::symm<target>(
+                internal::symm<Target::HostTask>(  // todo: target
                     Side::Left,
                     alpha, A.sub(0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
@@ -285,7 +287,7 @@ void symm(slate::internal::TargetType<target>,
                                        B.sub(k, k, 0, B.nt()-1),
                         scalar_t(1.0), C.sub(0, k-1, 0, C.nt()-1));
 
-                    internal::symm<target>(
+                    internal::symm<Target::HostTask>(  // todo: target
                         Side::Left,
                         alpha,          A.sub(k, k),
                                         B.sub(k, k, 0, B.nt()-1),

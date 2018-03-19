@@ -114,9 +114,11 @@ int64_t potrf(Tile<scalar_t>&& A)
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// Symmetric matrix multiply: $C = \alpha A B + \beta C$
-///                         or $C = \alpha B A + \beta C$,
+/// Symmetric matrix multiply: $C = \alpha A op(B) + \beta op(C)$
+///                         or $C = \alpha op(B) A + \beta op(C)$,
 /// where $A$ is symmetric.
+/// Unlike most BLAS operations, here op(B) and op(C) must be
+/// both the same, either both NoTrans or both Trans.
 template <typename scalar_t>
 void symm(
     Side side,
@@ -129,22 +131,36 @@ void symm(
     using blas::conj;
 
     assert(A.mb() == A.nb());  // square
-    assert(A.op() == Op::NoTrans);  // todo: swap upper/lower
-    assert(B.op() == Op::NoTrans);
-    assert(C.op() == Op::NoTrans);
     assert(B.mb() == C.mb());
     assert(B.nb() == C.nb());
     if (side == Side::Left)
         assert(A.mb() == B.mb());
     else
         assert(A.mb() == B.nb());
+    assert( B.op() == C.op() );
+    assert( A.op() != Op::ConjTrans );
+    assert( B.op() != Op::ConjTrans );
 
-    blas::symm(blas::Layout::ColMajor,
-               side, A.uplo(),
-               C.mb(), C.nb(),
-               alpha, A.data(), A.stride(),
-                      B.data(), B.stride(),
-               beta,  C.data(), C.stride());
+    // A.op can be ignored, since A == A^T
+    if (B.op() == Op::NoTrans) {
+        blas::symm(blas::Layout::ColMajor,
+                   side, A.uplo(),
+                   C.mb(), C.nb(),
+                   alpha, A.data(), A.stride(),
+                          B.data(), B.stride(),
+                   beta,  C.data(), C.stride());
+    }
+    else {
+        // Trans
+        // undo transpose by swapping left <=> right, m <=> n
+        side = (side == Side::Left ? Side::Right : Side::Left);
+        blas::symm(blas::Layout::ColMajor,
+                   side, A.uplo(),
+                   C.nb(), C.mb(),
+                   alpha, A.data(), A.stride(),
+                          B.data(), B.stride(),
+                   beta,  C.data(), C.stride());
+    }
 }
 
 ///----------------------------------------

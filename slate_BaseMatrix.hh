@@ -387,9 +387,18 @@ public:
         // If this rank is in the set.
         if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
             // If receiving the tile, create tile to receive data, with life span.
+            // If tile already exists, add to its life span.
             if (! tileIsLocal(i, j)) {
-                tileInsert(i, j, host_num_);
-                tileLife(i, j, A.numLocalTiles());
+                LockGuard( storage_->tiles_.get_lock() );
+                auto iter = storage_->find(globalIndex(i, j, host_num_));
+                int64_t life = A.numLocalTiles();
+                if (iter == storage_->end()) {
+                    tileInsert(i, j, host_num_);
+                }
+                else {
+                    life += tileLife(i, j);
+                }
+                tileLife(i, j, life);
             }
 
             // Send across MPI ranks.
@@ -501,6 +510,7 @@ public:
     /// Do not invalidate the host source tile.
     void tileCopyToDevice(int64_t i, int64_t j, int dst_device)
     {
+        // todo: race condition if multiple threads try to copy tile to device
         // If the tile is not on the device.
         auto iter = storage_->find(globalIndex(i, j, dst_device));
         if (iter == storage_->end()) {
@@ -530,6 +540,7 @@ public:
     /// Do not invalidate the device source tile.
     void tileCopyToHost(int64_t i, int64_t j, int src_device)
     {
+        // todo: race condition if multiple threads try to copy tile to device
         // If the tile is not on the host.
         auto iter = storage_->find(globalIndex(i, j, host_num_));
         if (iter == storage_->end()) {
@@ -564,6 +575,7 @@ public:
 
         // If the host tile exists, invalidate it.
         // todo: how could host tile not exist?
+        // todo: any races here?
         auto iter = storage_->find(globalIndex(i, j, host_num_));
         if (iter != storage_->end())
             iter->second->valid(false);
@@ -586,6 +598,7 @@ public:
 
             // If the device tile exists, invalidate it.
             // todo: how could device tile not exist?
+            // todo: any races here?
             auto iter = storage_->find(globalIndex(i, j, src_device));
             if (iter != storage_->end())
                 iter->second->valid(false);

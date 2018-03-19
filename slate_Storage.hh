@@ -300,6 +300,7 @@ public:
     /// Also clears life.
     void clearWorkspace()
     {
+        LockGuard( tiles_.get_lock() );
         for (auto iter = tiles_.begin(); iter != tiles_.end(); /* incremented below */) {
             if (! iter->second->origin()) {
                 // since we can't increment the iterator after deleting the element,
@@ -362,6 +363,7 @@ public:
     // todo: currently ignores if ijdev doesn't exist; is that right?
     void erase(ijdev_tuple ijdev)
     {
+        LockGuard( tiles_.get_lock() );
         auto iter = tiles_.find(ijdev);
         if (iter != tiles_.end()) {
             Tile<scalar_t>* tile = tiles_.at(ijdev);
@@ -411,6 +413,7 @@ public:
     /// Does not set tile's life.
     Tile<scalar_t>* tileInsert(ijdev_tuple ijdev)
     {
+        assert( tiles_.find( ijdev ) == tiles_.end() );  // doesn't exist yet
         int64_t i  = std::get<0>(ijdev);
         int64_t j  = std::get<1>(ijdev);
         int device = std::get<2>(ijdev);
@@ -430,6 +433,7 @@ public:
     /// Does not set tile's life.
     Tile<scalar_t>* tileInsert(ijdev_tuple ijdev, scalar_t* data, int64_t lda)
     {
+        assert( tiles_.find( ijdev ) == tiles_.end() );  // doesn't exist yet
         int64_t i  = std::get<0>(ijdev);
         int64_t j  = std::get<1>(ijdev);
         int device = std::get<2>(ijdev);
@@ -446,12 +450,12 @@ public:
     /// if life reaches 0, erase tile on the host and all devices.
     void tileTick(ij_tuple ij)
     {
-        int64_t i = std::get<0>(ij);
-        int64_t j = std::get<1>(ij);
         if (! tileIsLocal(ij)) {
-            int64_t life = 0;
-            life = --lives_.at(ij);
+            LockGuard( lives_.get_lock() );
+            int64_t life = --lives_.at(ij);
             if (life == 0) {
+                int64_t i = std::get<0>(ij);
+                int64_t j = std::get<1>(ij);
                 erase({i, j, host_num_});
                 for (int device = 0; device < num_devices_; ++device) {
                     erase({i, j, device});

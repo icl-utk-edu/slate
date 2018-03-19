@@ -56,19 +56,19 @@ namespace slate {
 /// by-pass the unlock. Like std::lock_guard, but for OpenMP locks.
 class LockGuard {
 public:
-    LockGuard(omp_lock_t* lock):
+    LockGuard(omp_nest_lock_t* lock):
         lock_(lock)
     {
-        omp_set_lock(lock_);
+        omp_set_nest_lock(lock_);
     }
 
     ~LockGuard()
     {
-        omp_unset_lock(lock_);
+        omp_unset_nest_lock(lock_);
     }
 
 private:
-    omp_lock_t* lock_;
+    omp_nest_lock_t* lock_;
 };
 
 ///-----------------------------------------------------------------------------
@@ -81,14 +81,19 @@ private:
     typedef std::map<KeyType, ValueType> stdMap;
 
     stdMap std_map_;
-    mutable omp_lock_t lock_;
+    mutable omp_nest_lock_t lock_;
 
 public:
     using iterator = typename stdMap::iterator;
     using const_iterator = typename stdMap::const_iterator;
 
-    Map() { omp_init_lock(&lock_); }
-    ~Map() { omp_destroy_lock(&lock_); }
+    Map() { omp_init_nest_lock(&lock_); }
+    ~Map() { omp_destroy_nest_lock(&lock_); }
+
+    omp_nest_lock_t* get_lock()
+    {
+        return &lock_;
+    }
 
     //--------
     // begin()

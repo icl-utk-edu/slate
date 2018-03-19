@@ -60,7 +60,9 @@ void potrf(slate::internal::TargetType<target>,
 {
     using real_t = blas::real_type<scalar_t>;
 
-    uint8_t *column = new uint8_t[ A.nt() ];
+    // OpenMP needs pointer types, but vectors are exception safe
+    std::vector< uint8_t > column_vector(A.nt());
+    uint8_t *column = column_vector.data();
 
     #pragma omp parallel
     #pragma omp master
@@ -134,8 +136,6 @@ void potrf(slate::internal::TargetType<target>,
     A.clearWorkspace();
 
     //Debug::printTilesMaps(A);
-
-    delete[] column;
 }
 
 ///-----------------------------------------------------------------------------
@@ -148,7 +148,9 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 {
     using real_t = blas::real_type<scalar_t>;
 
-    uint8_t *column = new uint8_t[ A.nt() ];
+    // OpenMP needs pointer types, but vectors are exception safe
+    std::vector< uint8_t > column_vector(A.nt());
+    uint8_t *column = column_vector.data();
 
     A.allocateBatchArrays();
     A.reserveDeviceWorkspace();
@@ -226,8 +228,6 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     A.clearWorkspace();
 
     //Debug::printTilesMaps(A);
-
-    delete[] column;
 }
 
 } // namespace specialization

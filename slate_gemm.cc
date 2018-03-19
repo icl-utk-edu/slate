@@ -66,8 +66,11 @@ void gemm(slate::internal::TargetType<target>,
 {
     using namespace blas;
 
-    uint8_t *bcast = new uint8_t[A.nt()];
-    uint8_t *gemm  = new uint8_t[A.nt()];
+    // OpenMP needs pointer types, but vectors are exception safe
+    std::vector< uint8_t > bcast_vector( A.nt() );
+    std::vector< uint8_t >  gemm_vector( A.nt() );
+    uint8_t *bcast = bcast_vector.data();
+    uint8_t *gemm  =  gemm_vector.data();
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();
@@ -135,9 +138,6 @@ void gemm(slate::internal::TargetType<target>,
                 C.tileMoveToHost(i, j, C.tileDevice(i, j));
 
     C.clearWorkspace();
-
-    delete[] bcast;
-    delete[] gemm;
 }
 
 } // namespace specialization

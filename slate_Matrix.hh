@@ -405,7 +405,8 @@ public:
     int64_t getMaxHostTiles()
     {
         int64_t num_tiles = 0;
-        if (uplo() == Uplo::Lower) {
+        if ((this->uplo() == Uplo::Lower && this->op() == Op::NoTrans) ||
+            (this->uplo() == Uplo::Upper && this->op() != Op::NoTrans)) {
             for (int64_t j = 0; j < this->nt(); ++j)
                 for (int64_t i = j; i < this->mt(); ++i)  // lower
                     if (this->tileIsLocal(i, j))
@@ -428,7 +429,8 @@ public:
     int64_t getMaxDeviceTiles(int device)
     {
         int64_t num_tiles = 0;
-        if (uplo() == Uplo::Lower) {
+        if ((this->uplo() == Uplo::Lower && this->op() == Op::NoTrans) ||
+            (this->uplo() == Uplo::Upper && this->op() != Op::NoTrans)) {
             for (int64_t j = 0; j < this->nt(); ++j)
                 for (int64_t i = j; i < this->mt(); ++i)  // lower
                     if (this->tileIsLocal(i, j) && this->tileDevice(i, j) == device)

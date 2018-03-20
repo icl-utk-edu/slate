@@ -61,11 +61,33 @@ void hemm(blas::Side side,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template <Target target=Target::HostTask, typename scalar_t>
+void herk(scalar_t alpha,          Matrix<scalar_t>& A,
+          scalar_t beta,  HermitianMatrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target=Target::HostTask, typename scalar_t>
+void her2k(scalar_t alpha,          Matrix<scalar_t>& A,
+                                    Matrix<scalar_t>& B,
+           scalar_t beta,  HermitianMatrix<scalar_t>& C,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target=Target::HostTask, typename scalar_t>
 void symm(blas::Side side,
           scalar_t alpha, SymmetricMatrix<scalar_t>& A,
                                    Matrix<scalar_t>& B,
           scalar_t beta,           Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target=Target::HostTask, typename scalar_t>
+void syrk(scalar_t alpha,          Matrix<scalar_t>& A,
+          scalar_t beta,  SymmetricMatrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target=Target::HostTask, typename scalar_t>
+void syr2k(scalar_t alpha,          Matrix<scalar_t>& A,
+                                    Matrix<scalar_t>& B,
+           scalar_t beta,  HermitianMatrix<scalar_t>& C,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template <Target target=Target::HostTask, typename scalar_t>
 void trmm(blas::Side side, blas::Diag diag,

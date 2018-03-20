@@ -143,10 +143,10 @@ public:
                int64_t j1, int64_t j2):
         BaseMatrix(orig)
     {
-        assert(0 <= i1 && i1 < mt());
-        assert(0 <= i2 && i2 < mt());
-        assert(0 <= j1 && j1 < nt());
-        assert(0 <= j2 && j2 < nt());
+        assert((0 <= i1 && i1 < mt()) || (i1 > i2));
+        assert((0 <= i2 && i2 < mt()) || (i1 > i2));
+        assert((0 <= j1 && j1 < nt()) || (j1 > j2));
+        assert((0 <= j2 && j2 < nt()) || (j1 > j2));
 
         // adjust i2, j2 for empty matrix
         i2 = std::max(i2, i1 - 1);

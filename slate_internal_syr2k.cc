@@ -57,25 +57,30 @@ namespace internal {
 /// Symmetric rank-k update of single block column (i.e., k = nb).
 /// Dispatches to target implementations.
 /// C is Lower, NoTrans or Upper, Trans/ConjTrans.
-/// In complex case, A and C cannot be ConjTrans.
+/// In complex case, A, B, and C cannot be ConjTrans.
+/// Requires op(A) and op(B) to be the same, either both NoTrans, or both Trans.
 template <Target target, typename scalar_t>
-void syrk(scalar_t alpha, Matrix< scalar_t >&& A,
-          scalar_t beta,  SymmetricMatrix< scalar_t >&& C,
-          int priority)
+void syr2k(scalar_t alpha, Matrix< scalar_t >&& A,
+                           Matrix< scalar_t >&& B,
+           scalar_t beta,  SymmetricMatrix< scalar_t >&& C,
+           int priority)
 {
     if (! ( ( (C.uplo() == Uplo::Lower && C.op() == Op::NoTrans) ||
               (C.uplo() == Uplo::Upper && C.op() != Op::NoTrans) )
             &&
             ( C.is_real || (C.op() != Op::ConjTrans &&
-                            A.op() != Op::ConjTrans) ) ) )
+                            A.op() != Op::ConjTrans) )
+            &&
+            ( A.op() == B.op() ) ) )
     {
         throw std::exception();
     }
 
-    syrk(internal::TargetType<target>(),
-         alpha, A,
-         beta,  C,
-         priority);
+    syr2k(internal::TargetType<target>(),
+          alpha, A,
+                 B,
+          beta,  C,
+          priority);
 }
 
 ///-----------------------------------------------------------------------------
@@ -84,25 +89,28 @@ void syrk(scalar_t alpha, Matrix< scalar_t >&& A,
 /// Host OpenMP task implementation.
 /// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
 template <typename scalar_t>
-void syrk(internal::TargetType<Target::HostTask>,
-          scalar_t alpha, Matrix< scalar_t >& A,
-          scalar_t beta,  SymmetricMatrix< scalar_t >& C,
-          int priority)
+void syr2k(internal::TargetType<Target::HostTask>,
+           scalar_t alpha, Matrix< scalar_t >& A,
+                           Matrix< scalar_t >& B,
+           scalar_t beta,  SymmetricMatrix< scalar_t >& C,
+           int priority)
 {
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j)
         for (int64_t i = j; i < C.mt(); ++i)  // lower
             if (C.tileIsLocal(i, j)) {
                 if (i == j) {
-                    #pragma omp task shared(A, C, err) priority(priority)
+                    #pragma omp task shared(A, B, C, err) priority(priority)
                     {
                         try {
                             A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
+                            B.tileCopyToHost(j, 0, B.tileDevice(j, 0));
                             C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                            syrk(alpha, A(j, 0),
-                                 beta,  C(j, j));
+                            syr2k(alpha, A(j, 0),
+                                         B(j, 0),
+                                  beta,  C(j, j));
                             A.tileTick(j, 0);
-                            A.tileTick(j, 0);
+                            B.tileTick(j, 0);
                         }
                         catch (std::exception& e) {
                             err = __LINE__;
@@ -110,18 +118,26 @@ void syrk(internal::TargetType<Target::HostTask>,
                     }
                 }
                 else {
-                    #pragma omp task shared(A, C, err) priority(priority)
+                    #pragma omp task shared(A, B, C, err) priority(priority)
                     {
                         try {
                             A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
-                            A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
+                            A.tileCopyToHost(j, 0, A.tileDevice(i, 0));
+                            B.tileCopyToHost(i, 0, B.tileDevice(j, 0));
+                            B.tileCopyToHost(j, 0, B.tileDevice(j, 0));
                             C.tileMoveToHost(i, j, C.tileDevice(i, j));
                             auto Aj0 = A(j, 0);
+                            auto Bj0 = B(j, 0);
                             gemm(alpha, A(i, 0),
-                                        transpose(Aj0),
+                                        transpose(Bj0),
                                  beta,  C(i, j));
+                            gemm(alpha, B(i, 0),
+                                        transpose(Aj0),
+                                 scalar_t(1.0), C(i, j));
                             A.tileTick(i, 0);
                             A.tileTick(j, 0);
+                            B.tileTick(i, 0);
+                            B.tileTick(j, 0);
                         }
                         catch (std::exception& e ) {
                             err = __LINE__;
@@ -143,23 +159,26 @@ void syrk(internal::TargetType<Target::HostTask>,
 /// Host nested OpenMP implementation.
 /// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
 template <typename scalar_t>
-void syrk(internal::TargetType<Target::HostNest>,
-          scalar_t alpha, Matrix< scalar_t >& A,
-          scalar_t beta,  SymmetricMatrix< scalar_t >& C,
-          int priority)
+void syr2k(internal::TargetType<Target::HostNest>,
+           scalar_t alpha, Matrix< scalar_t >& A,
+                           Matrix< scalar_t >& B,
+           scalar_t beta,  SymmetricMatrix< scalar_t >& C,
+           int priority)
 {
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j)
         if (C.tileIsLocal(j, j))
-            #pragma omp task shared(A, C, err)
+            #pragma omp task shared(A, B, C, err)
             {
                 try {
                     A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
+                    B.tileCopyToHost(j, 0, B.tileDevice(j, 0));
                     C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                    syrk(alpha, A(j, 0),
-                         beta,  C(j, j));
+                    syr2k(alpha, A(j, 0),
+                                 B(j, 0),
+                          beta,  C(j, j));
                     A.tileTick(j, 0);
-                    A.tileTick(j, 0);
+                    B.tileTick(j, 0);
                 }
                 catch (std::exception& e) {
                     err = __LINE__;
@@ -174,14 +193,20 @@ void syrk(internal::TargetType<Target::HostNest>,
                 if (C.tileIsLocal(i, j)) {
                     try {
                         A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
-                        A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
+                        B.tileCopyToHost(j, 0, B.tileDevice(j, 0));
                         C.tileMoveToHost(i, j, C.tileDevice(i, j));
                         auto Aj0 = A(j, 0);
+                        auto Bj0 = B(j, 0);
                         gemm(alpha, A(i, 0),
-                                    transpose(Aj0),
+                                    transpose(Bj0),
                              beta,  C(i, j));
+                        gemm(alpha, B(i, 0),
+                                    transpose(Aj0),
+                             scalar_t(1.0), C(i, j));
                         A.tileTick(i, 0);
                         A.tileTick(j, 0);
+                        B.tileTick(i, 0);
+                        B.tileTick(j, 0);
                     }
                     catch (std::exception& e) {
                         err = __LINE__;
@@ -201,24 +226,27 @@ void syrk(internal::TargetType<Target::HostNest>,
 /// Host batched implementation.
 /// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
 template <typename scalar_t>
-void syrk(internal::TargetType<Target::HostBatch>,
-          scalar_t alpha, Matrix< scalar_t >& A,
-          scalar_t beta,  SymmetricMatrix< scalar_t >& C,
-          int priority)
+void syr2k(internal::TargetType<Target::HostBatch>,
+           scalar_t alpha, Matrix< scalar_t >& A,
+                           Matrix< scalar_t >& B,
+           scalar_t beta,  SymmetricMatrix< scalar_t >& C,
+           int priority)
 {
-    // diagonal tiles by syrk on host
+    // diagonal tiles by syr2k on host
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j) {
         if (C.tileIsLocal(j, j)) {
-            #pragma omp task shared(A, C, err)
+            #pragma omp task shared(A, B, C, err)
             {
                 try {
                     A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
+                    B.tileCopyToHost(j, 0, B.tileDevice(j, 0));
                     C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                    syrk(alpha, A(j, 0),
-                         beta,  C(j, j));
+                    syr2k(alpha, A(j, 0),
+                                 B(j, 0),
+                          beta,  C(j, j));
                     A.tileTick(j, 0);
-                    A.tileTick(j, 0);
+                    B.tileTick(j, 0);
                 }
                 catch (std::exception& e) {
                     err = __LINE__;
@@ -234,7 +262,7 @@ void syrk(internal::TargetType<Target::HostBatch>,
         for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
             if (C.tileIsLocal(i, j)) {
                 A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
-                A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
+                B.tileCopyToHost(j, 0, B.tileDevice(j, 0));
                 C.tileMoveToHost(i, j, C.tileDevice(i, j));
                 ++batch_count;
             }
@@ -262,11 +290,15 @@ void syrk(internal::TargetType<Target::HostBatch>,
         std::vector< int > k_array( batch_count );
         std::vector< scalar_t > alpha_array( batch_count, alpha );  // all same
         std::vector< scalar_t >  beta_array( batch_count,  beta );  // all same
-        std::vector< const scalar_t* > a_array( batch_count );
-        std::vector< const scalar_t* > b_array( batch_count );
+        std::vector< const scalar_t* > ai_array( batch_count );
+        std::vector< const scalar_t* > aj_array( batch_count );
+        std::vector< const scalar_t* > bi_array( batch_count );
+        std::vector< const scalar_t* > bj_array( batch_count );
         std::vector< scalar_t* > c_array( batch_count );
-        std::vector< int > lda_array( batch_count );
-        std::vector< int > ldb_array( batch_count );
+        std::vector< int > ldai_array( batch_count );
+        std::vector< int > ldaj_array( batch_count );
+        std::vector< int > ldbi_array( batch_count );
+        std::vector< int > ldbj_array( batch_count );
         std::vector< int > ldc_array( batch_count );
         std::vector< int > group_size( batch_count, 1 );  // all same
 
@@ -282,12 +314,16 @@ void syrk(internal::TargetType<Target::HostBatch>,
                     assert( A(j, 0).mb() == n_array[ index ] );
                     assert( A(j, 0).nb() == k_array[ index ] );
 
-                    a_array[ index ] = A(i, 0).data();
-                    b_array[ index ] = A(j, 0).data();
+                    ai_array[ index ] = A(i, 0).data();
+                    aj_array[ index ] = A(j, 0).data();
+                    bi_array[ index ] = B(i, 0).data();
+                    bj_array[ index ] = B(j, 0).data();
                     c_array[ index ] = C(i, j).data();
 
-                    lda_array[ index ] = A(i, 0).stride();
-                    ldb_array[ index ] = A(j, 0).stride();
+                    ldai_array[ index ] = A(i, 0).stride();
+                    ldaj_array[ index ] = A(j, 0).stride();
+                    ldbi_array[ index ] = B(i, 0).stride();
+                    ldbj_array[ index ] = B(j, 0).stride();
                     ldc_array[ index ] = C(i, j).stride();
 
                     ++index;
@@ -297,10 +333,12 @@ void syrk(internal::TargetType<Target::HostBatch>,
 
         if (C.op() != Op::NoTrans) {
             // swap A <=> B; swap m <=> n
-            swap( opA_array, opB_array );
-            swap( a_array,   b_array   );
-            swap( lda_array, ldb_array );
-            swap( m_array,   n_array   );
+            swap( opA_array,  opB_array  );
+            swap( ai_array,   bj_array   );
+            swap( aj_array,   bi_array   );
+            swap( ldai_array, ldbj_array );
+            swap( ldaj_array, ldbi_array );
+            swap( m_array,    n_array    );
         }
 
         {
@@ -310,8 +348,19 @@ void syrk(internal::TargetType<Target::HostBatch>,
                 cblas_gemm_batch( CblasColMajor, opA_array.data(), opB_array.data(),
                                   m_array.data(), n_array.data(), k_array.data(),
                                   alpha_array.data(),
-                                  a_array.data(), lda_array.data(),
-                                  b_array.data(), ldb_array.data(),
+                                  ai_array.data(), ldai_array.data(),
+                                  bj_array.data(), ldbj_array.data(),
+                                  beta_array.data(),
+                                  c_array.data(), ldc_array.data(),
+                                  batch_count, group_size.data() );
+
+                // ai => bi, bj => aj, set beta = 1
+                std::fill( beta_array.begin(), beta_array.end(), scalar_t(1.0) );
+                cblas_gemm_batch( CblasColMajor, opA_array.data(), opB_array.data(),
+                                  m_array.data(), n_array.data(), k_array.data(),
+                                  alpha_array.data(),
+                                  bi_array.data(), ldbi_array.data(),
+                                  aj_array.data(), ldaj_array.data(),
                                   beta_array.data(),
                                   c_array.data(), ldc_array.data(),
                                   batch_count, group_size.data() );
@@ -326,6 +375,8 @@ void syrk(internal::TargetType<Target::HostBatch>,
                 if (C.tileIsLocal(i, j)) {
                     A.tileTick(i, 0);
                     A.tileTick(j, 0);
+                    B.tileTick(i, 0);
+                    B.tileTick(j, 0);
                 }
             }
         }
@@ -344,10 +395,11 @@ void syrk(internal::TargetType<Target::HostBatch>,
 /// GPU device batched cuBLAS implementation.
 /// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
 template <typename scalar_t>
-void syrk(internal::TargetType<Target::Devices>,
-          scalar_t alpha, Matrix< scalar_t >& A,
-          scalar_t beta,  SymmetricMatrix< scalar_t >& C,
-          int priority)
+void syr2k(internal::TargetType<Target::Devices>,
+           scalar_t alpha, Matrix< scalar_t >& A,
+                           Matrix< scalar_t >& B,
+           scalar_t beta,  SymmetricMatrix< scalar_t >& C,
+           int priority)
 {
     int err = 0;
     using std::swap;
@@ -356,7 +408,7 @@ void syrk(internal::TargetType<Target::Devices>,
 
     // off-diagonal tiles by batch gemm on device
     for (int device = 0; device < C.num_devices(); ++device) {
-        #pragma omp task shared(A, C, err) priority(priority)
+        #pragma omp task shared(A, B, C, err) priority(priority)
         {
             try {
                 // if op(C) is NoTrans, invert opA, opB if possible
@@ -379,14 +431,16 @@ void syrk(internal::TargetType<Target::Devices>,
 
                 int64_t batch_count = 0;
                 for (int64_t j = 0; j < C.nt(); ++j) {
-                    for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
+                    for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
                                 A.tileCopyToDevice(i, 0, device);
                                 A.tileCopyToDevice(j, 0, device);
+                                B.tileCopyToDevice(i, 0, device);
+                                B.tileCopyToDevice(j, 0, device);
                                 C.tileMoveToDevice(i, j, device);
                                 a_array_host[ batch_count ] = A(i, 0, device).data();
-                                b_array_host[ batch_count ] = A(j, 0, device).data();
+                                b_array_host[ batch_count ] = B(j, 0, device).data();
                                 c_array_host[ batch_count ] = C(i, j, device).data();
                                 ++batch_count;
                             }
@@ -445,18 +499,69 @@ void syrk(internal::TargetType<Target::Devices>,
                             &beta,  c_array_dev, nb,
                             batch_count);
                     assert(status == CUBLAS_STATUS_SUCCESS);
+
+                    // todo: need to wait for previous cudaMemcpy to finish,
+                    // NOT for gemm batched to finish
+                    error = cudaStreamSynchronize(stream);
+                    assert(error == cudaSuccess);
+
+                    // ai => bi, bj => aj, set beta = 1
+                    batch_count = 0;
+                    for (int64_t j = 0; j < C.nt(); ++j) {
+                        for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
+                            if (C.tileIsLocal(i, j)) {
+                                if (device == C.tileDevice(i, j)) {
+                                    a_array_host[ batch_count ] = A(j, 0, device).data();
+                                    b_array_host[ batch_count ] = B(i, 0, device).data();
+                                    ++batch_count;
+                                }
+                            }
+                        }
+                    }
+
+                    if (C.op() != Op::NoTrans) {
+                        // swap A <=> B; swap m <=> n
+                        //swap( opA, opB );  // already done above
+                        swap( a_array_host, b_array_host );
+                        //swap( lda, ldb );  // todo: assumed to be nb
+                        //swap( m, n );      // todo: assumed to be nb
+                    }
+
+                    error = cudaMemcpyAsync(a_array_dev, a_array_host,
+                                            sizeof(scalar_t*)*batch_count,
+                                            cudaMemcpyHostToDevice,
+                                            stream);
+                    assert(error == cudaSuccess);
+
+                    error = cudaMemcpyAsync(b_array_dev, b_array_host,
+                                            sizeof(scalar_t*)*batch_count,
+                                            cudaMemcpyHostToDevice,
+                                            stream);
+                    assert(error == cudaSuccess);
+
+                    scalar_t one = 1;
+                    status =
+                        cublasGemmBatched(
+                            cublas_handle,  // uses stream
+                            cublas_op_const( opA ), cublas_op_const( opB ),
+                            nb, nb, nb,
+                            &alpha, (const scalar_t**) b_array_dev, nb,
+                                    (const scalar_t**) a_array_dev, nb,
+                            &one,   c_array_dev, nb,
+                            batch_count);
+                    assert(status == CUBLAS_STATUS_SUCCESS);
                     error = cudaStreamSynchronize(stream);
                     assert(error == cudaSuccess);
                 }
 
                 for (int64_t j = 0; j < C.nt(); ++j) {
-                    for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
+                    for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
-                                //A.tileErase(i, 0, device);  // todo: why? shouldn't tileTick deal with this?
-                                //A.tileErase(j, 0, device);  // ditto
                                 A.tileTick(i, 0);
                                 A.tileTick(j, 0);
+                                B.tileTick(i, 0);
+                                B.tileTick(j, 0);
                             }
                         }
                     }
@@ -468,18 +573,20 @@ void syrk(internal::TargetType<Target::Devices>,
         }
     }
 
-    // diagonal tiles by syrk on host
+    // diagonal tiles by syr2k on host
     for (int64_t j = 0; j < C.nt(); ++j) {
         if (C.tileIsLocal(j, j)) {
-            #pragma omp task shared(A, C, err)
+            #pragma omp task shared(A, B, C, err)
             {
                 try {
                     A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
+                    B.tileCopyToHost(j, 0, B.tileDevice(j, 0));
                     C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                    syrk(alpha, A(j, 0),
-                         beta,  C(j, j));
+                    syr2k(alpha, A(j, 0),
+                                 B(j, 0),
+                          beta,  C(j, j));
                     A.tileTick(j, 0);
-                    A.tileTick(j, 0);
+                    B.tileTick(j, 0);
                 }
                 catch (std::exception& e) {
                     err = __LINE__;
@@ -499,101 +606,117 @@ void syrk(internal::TargetType<Target::Devices>,
 // Explicit instantiations.
 // ----------------------------------------
 template
-void syrk< Target::HostTask, float >(
+void syr2k< Target::HostTask, float >(
     float alpha, Matrix< float >&& A,
+                 Matrix< float >&& B,
     float beta,  SymmetricMatrix< float >&& C,
     int priority);
 
 template
-void syrk< Target::HostNest, float >(
+void syr2k< Target::HostNest, float >(
     float alpha, Matrix< float >&& A,
+                 Matrix< float >&& B,
     float beta,  SymmetricMatrix< float >&& C,
     int priority);
 
 template
-void syrk< Target::HostBatch, float >(
+void syr2k< Target::HostBatch, float >(
     float alpha, Matrix< float >&& A,
+                 Matrix< float >&& B,
     float beta,  SymmetricMatrix< float >&& C,
     int priority);
 
 template
-void syrk< Target::Devices, float >(
+void syr2k< Target::Devices, float >(
     float alpha, Matrix< float >&& A,
+                 Matrix< float >&& B,
     float beta,  SymmetricMatrix< float >&& C,
     int priority);
 
 // ----------------------------------------
 template
-void syrk< Target::HostTask, double >(
+void syr2k< Target::HostTask, double >(
     double alpha, Matrix< double >&& A,
+                  Matrix< double >&& B,
     double beta,  SymmetricMatrix< double >&& C,
     int priority);
 
 template
-void syrk< Target::HostNest, double >(
+void syr2k< Target::HostNest, double >(
     double alpha, Matrix< double >&& A,
+                  Matrix< double >&& B,
     double beta,  SymmetricMatrix< double >&& C,
     int priority);
 
 template
-void syrk< Target::HostBatch, double >(
+void syr2k< Target::HostBatch, double >(
     double alpha, Matrix< double >&& A,
+                  Matrix< double >&& B,
     double beta,  SymmetricMatrix< double >&& C,
     int priority);
 
 template
-void syrk< Target::Devices, double >(
+void syr2k< Target::Devices, double >(
     double alpha, Matrix< double >&& A,
+                  Matrix< double >&& B,
     double beta,  SymmetricMatrix< double >&& C,
     int priority);
 
 // ----------------------------------------
 template
-void syrk< Target::HostTask, std::complex<float> >(
+void syr2k< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+                               Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
     int priority);
 
 template
-void syrk< Target::HostNest, std::complex<float> >(
+void syr2k< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+                               Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
     int priority);
 
 template
-void syrk< Target::HostBatch, std::complex<float> >(
+void syr2k< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+                               Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
     int priority);
 
 template
-void syrk< Target::Devices, std::complex<float> >(
+void syr2k< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+                               Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
     int priority);
 
 // ----------------------------------------
 template
-void syrk< Target::HostTask, std::complex<double> >(
+void syr2k< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+                                Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
     int priority);
 
 template
-void syrk< Target::HostNest, std::complex<double> >(
+void syr2k< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+                                Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
     int priority);
 
 template
-void syrk< Target::HostBatch, std::complex<double> >(
+void syr2k< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+                                Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
     int priority);
 
 template
-void syrk< Target::Devices, std::complex<double> >(
+void syr2k< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+                                Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
     int priority);
 

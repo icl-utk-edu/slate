@@ -345,6 +345,8 @@ void gemm(internal::TargetType<Target::Devices>,
     assert(A.mt() == C.mt());
     assert(B.nt() == C.nt());
 
+    assert( C.num_devices() > 0 );
+
     int err = 0;
     for (int device = 0; device < C.num_devices(); ++device) {
         #pragma omp task shared(A, B, C, err) priority(priority)

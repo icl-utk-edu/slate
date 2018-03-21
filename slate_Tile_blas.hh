@@ -126,7 +126,7 @@ void symm(
                     Tile<scalar_t> const& B,
     scalar_t beta,  Tile<scalar_t>& C)
 {
-    trace::Block trace_block("blas::syrk");
+    trace::Block trace_block("blas::symm");
 
     using blas::conj;
 
@@ -211,6 +211,50 @@ void syrk(
     scalar_t beta,  Tile<scalar_t>&& C)
 {
     syrk( alpha, A, beta, C );
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+/// Symmetric rank-2k update: $C = \alpha op(A) op(B)^T + \alpha op(B) op(A)^T + \beta C$.
+/// Use transpose or conj_transpose to set $op(A)$ and $op(B)$.
+/// In the complex case, C cannot be conj_transpose.
+// Allowing C^H would require two conjugations: conj( conj(C) + A*A^T ).
+template <typename scalar_t>
+void syr2k(
+    scalar_t alpha, Tile<scalar_t> const& A,
+                    Tile<scalar_t> const& B,
+    scalar_t beta,  Tile<scalar_t>& C)
+{
+    trace::Block trace_block("blas::syr2k");
+
+    using blas::conj;
+
+    assert(A.op() == B.op());
+    assert(A.uplo() == Uplo::General);
+    assert(B.uplo() == Uplo::General);
+    assert(C.mb() == C.nb());  // square
+    assert(C.mb() == A.mb());  // n
+    assert(C.mb() == B.mb());  // n
+    if (C.is_complex && C.op() == Op::ConjTrans)
+        throw std::exception();
+
+    blas::syr2k(blas::Layout::ColMajor,
+                C.uplo(), A.op(),
+                C.nb(), A.nb(),
+                alpha, A.data(), A.stride(),
+                       B.data(), B.stride(),
+                beta,  C.data(), C.stride());
+}
+
+///----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename scalar_t>
+void syr2k(
+    scalar_t alpha, Tile<scalar_t> const&& A,
+                    Tile<scalar_t> const&& B,
+    scalar_t beta,  Tile<scalar_t>&& C)
+{
+    syr2k( alpha, A, B, beta, C );
 }
 
 ///-----------------------------------------------------------------------------

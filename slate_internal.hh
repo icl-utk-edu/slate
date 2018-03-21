@@ -125,13 +125,53 @@ void gemm(scalar_t alpha, Matrix< scalar_t >&& A,
           int priority=0);
 
 //-----------------------------------------
+// herk()
+template <Target target=Target::HostTask, typename scalar_t>
+void herk(blas::real_type<scalar_t> alpha, Matrix< scalar_t >&& A,
+          blas::real_type<scalar_t> beta,  HermitianMatrix< scalar_t >&& C,
+          int priority=0);
+
+// forward real-symmetric matrices to herk;
+// disabled for complex
+template <Target target=Target::HostTask, typename scalar_t>
+void herk(blas::real_type<scalar_t> alpha, Matrix< scalar_t >&& A,
+          blas::real_type<scalar_t> beta,  SymmetricMatrix< scalar_t >&& C,
+          int priority=0,
+          enable_if_t< ! is_complex< scalar_t >::value >* = nullptr)
+{
+    herk<target>(alpha, std::move(A),
+                 beta, HermitianMatrix< scalar_t >( C ), priority);
+}
+
+//-----------------------------------------
+// her2k()
+template <Target target=Target::HostTask, typename scalar_t>
+void her2k(blas::real_type<scalar_t> alpha, Matrix< scalar_t >&& A,
+                                            Matrix< scalar_t >&& B,
+           blas::real_type<scalar_t> beta,  HermitianMatrix< scalar_t >&& C,
+           int priority=0);
+
+// forward real-symmetric matrices to her2k;
+// disabled for complex
+template <Target target=Target::HostTask, typename scalar_t>
+void her2k(blas::real_type<scalar_t> alpha, Matrix< scalar_t >&& A,
+                                            Matrix< scalar_t >&& B,
+           blas::real_type<scalar_t> beta,  SymmetricMatrix< scalar_t >&& C,
+           int priority=0,
+           enable_if_t< ! is_complex< scalar_t >::value >* = nullptr)
+{
+    her2k<target>(alpha, std::move(A),
+                  beta, HermitianMatrix< scalar_t >( C ), priority);
+}
+
+//-----------------------------------------
 // potrf()
 template <Target target=Target::HostTask, typename scalar_t>
 void potrf(HermitianMatrix< scalar_t >&& A,
            int priority=0);
 
 // forward real-symmetric matrices to potrf;
-// disabled for complex, which isn't a C++ "scalar" type.
+// disabled for complex
 template <Target target=Target::HostTask, typename scalar_t>
 void potrf(SymmetricMatrix< scalar_t >&& A,
            int priority=0,
@@ -150,7 +190,7 @@ void symm(Side side,
           int priority=0);
 
 // forward real-Hermitian matrices to symm;
-// disabled for complex, which isn't a C++ "scalar" type.
+// disabled for complex
 template <Target target=Target::HostTask, typename scalar_t>
 void symm(Side side,
           scalar_t alpha, HermitianMatrix< scalar_t >&& A,
@@ -170,32 +210,36 @@ void syrk(scalar_t alpha, Matrix< scalar_t >&& A,
           int priority=0);
 
 // forward real-Hermitian matrices to syrk;
-// disabled for complex, which isn't a C++ "scalar" type.
+// disabled for complex
 template <Target target=Target::HostTask, typename scalar_t>
 void syrk(scalar_t alpha, Matrix< scalar_t >&& A,
           scalar_t beta,  HermitianMatrix< scalar_t >&& C,
           int priority=0,
           enable_if_t< ! is_complex< scalar_t >::value >* = nullptr)
 {
-    syrk<target>(alpha, std::move(A), beta, SymmetricMatrix< scalar_t >( C ), priority);
+    syrk<target>(alpha, std::move(A),
+                 beta, SymmetricMatrix< scalar_t >( C ), priority);
 }
 
 //-----------------------------------------
-// herk()
+// syr2k()
 template <Target target=Target::HostTask, typename scalar_t>
-void herk(blas::real_type<scalar_t> alpha, Matrix< scalar_t >&& A,
-          blas::real_type<scalar_t> beta,  HermitianMatrix< scalar_t >&& C,
-          int priority=0);
+void syr2k(scalar_t alpha, Matrix< scalar_t >&& A,
+                           Matrix< scalar_t >&& B,
+           scalar_t beta,  SymmetricMatrix< scalar_t >&& C,
+           int priority=0);
 
-// forward real-symmetric matrices to herk;
-// disabled for complex, which isn't a C++ "scalar" type.
+// forward real-Hermitian matrices to syr2k;
+// disabled for complex
 template <Target target=Target::HostTask, typename scalar_t>
-void herk(blas::real_type<scalar_t> alpha, Matrix< scalar_t >&& A,
-          blas::real_type<scalar_t> beta,  SymmetricMatrix< scalar_t >&& C,
-          int priority=0,
-          enable_if_t< ! is_complex< scalar_t >::value >* = nullptr)
+void syr2k(scalar_t alpha, Matrix< scalar_t >&& A,
+                           Matrix< scalar_t >&& B,
+           scalar_t beta,  HermitianMatrix< scalar_t >&& C,
+           int priority=0,
+           enable_if_t< ! is_complex< scalar_t >::value >* = nullptr)
 {
-    herk<target>(alpha, std::move(A), beta, HermitianMatrix< scalar_t >( C ), priority);
+    syr2k<target>(alpha, std::move(A), std::move(B),
+                  beta, SymmetricMatrix< scalar_t >( C ), priority);
 }
 
 //-----------------------------------------

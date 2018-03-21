@@ -86,7 +86,7 @@ void syrk(scalar_t alpha,          Matrix<scalar_t>& A,
 template <Target target=Target::HostTask, typename scalar_t>
 void syr2k(scalar_t alpha,          Matrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
-           scalar_t beta,  HermitianMatrix<scalar_t>& C,
+           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template <Target target=Target::HostTask, typename scalar_t>

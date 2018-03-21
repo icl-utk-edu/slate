@@ -83,10 +83,12 @@ void gemm(slate::internal::TargetType<target>,
         #pragma omp task depend(out:bcast[0])
         {
             for (int64_t i = 0; i < A.mt(); ++i)
-                A.tileBcast(i, 0, C.sub(i, i, 0, C.nt()-1));
+                A.template tileBcast<target>(
+                    i, 0, C.sub(i, i, 0, C.nt()-1));
 
             for (int64_t j = 0; j < B.nt(); ++j)
-                B.tileBcast(0, j, C.sub(0, C.mt()-1, j, j));
+                B.template tileBcast<target>(
+                    0, j, C.sub(0, C.mt()-1, j, j));
         }
 
         for (int64_t k = 1; k < lookahead+1 && k < A.nt(); ++k)
@@ -94,10 +96,12 @@ void gemm(slate::internal::TargetType<target>,
                              depend(out:bcast[k])
             {
                 for (int64_t i = 0; i < A.mt(); ++i)
-                    A.tileBcast(i, k, C.sub(i, i, 0, C.nt()-1));
+                    A.template tileBcast<target>(
+                        i, k, C.sub(i, i, 0, C.nt()-1));
 
                 for (int64_t j = 0; j < B.nt(); ++j)
-                    B.tileBcast(k, j, C.sub(0, C.mt()-1, j, j));
+                    B.template tileBcast<target>(
+                        k, j, C.sub(0, C.mt()-1, j, j));
             }
 
         #pragma omp task depend(in:bcast[0]) \
@@ -115,10 +119,12 @@ void gemm(slate::internal::TargetType<target>,
                                  depend(out:bcast[k+lookahead])
                 {
                     for (int64_t i = 0; i < A.mt(); ++i)
-                        A.tileBcast(i, k+lookahead, C.sub(i, i, 0, C.nt()-1));
+                        A.template tileBcast<target>(
+                            i, k+lookahead, C.sub(i, i, 0, C.nt()-1));
 
                     for (int64_t j = 0; j < B.nt(); ++j)
-                        B.tileBcast(k+lookahead, j, C.sub(0, C.mt()-1, j, j));
+                        B.template tileBcast<target>(
+                            k+lookahead, j, C.sub(0, C.mt()-1, j, j));
                 }
 
             #pragma omp task depend(in:bcast[k]) \

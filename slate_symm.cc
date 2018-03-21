@@ -106,11 +106,13 @@ void symm(slate::internal::TargetType<target>,
             {
                 // broadcast A(i, 0) to ranks owning block row C(i, :)
                 for (int64_t i = 0; i < A.mt(); ++i)
-                    A.tileBcast(i, 0, C.sub(i, i, 0, C.nt()-1));
+                    A.template tileBcast<target>(
+                        i, 0, C.sub(i, i, 0, C.nt()-1));
 
                 // broadcast B(0, j) to ranks owning block col C(:, j)
                 for (int64_t j = 0; j < B.nt(); ++j)
-                    B.tileBcast(0, j, C.sub(0, C.mt()-1, j, j));
+                    B.template tileBcast<target>(
+                        0, j, C.sub(0, C.mt()-1, j, j));
             }
 
             // send next lookahead block cols of A and block rows of B
@@ -120,14 +122,17 @@ void symm(slate::internal::TargetType<target>,
                 {
                     // broadcast A(k, i) or A(i, k) to ranks owning block row C(i, :)
                     for (int64_t i = 0; i < k && i < A.mt(); ++i)
-                        A.tileBcast(k, i, C.sub(i, i, 0, C.nt()-1));
+                        A.template tileBcast<target>(
+                            k, i, C.sub(i, i, 0, C.nt()-1));
 
                     for (int64_t i = k; i < A.mt(); ++i)
-                        A.tileBcast(i, k, C.sub(i, i, 0, C.nt()-1));
+                        A.template tileBcast<target>(
+                            i, k, C.sub(i, i, 0, C.nt()-1));
 
                     // broadcast B(k, j) to ranks owning block col C(0:k, j)
                     for (int64_t j = 0; j < B.nt(); ++j)
-                        B.tileBcast(k, j, C.sub(0, C.mt()-1, j, j));
+                        B.template tileBcast<target>(
+                            k, j, C.sub(0, C.mt()-1, j, j));
                 }
             }
 
@@ -161,14 +166,17 @@ void symm(slate::internal::TargetType<target>,
                     {
                         // broadcast A(k+la, i) or A(i, k+la) to ranks owning block row C(i, :)
                         for (int64_t i = 0; i < k+lookahead; ++i)
-                            A.tileBcast(k+lookahead, i, C.sub(i, i, 0, C.nt()-1));
+                            A.template tileBcast<target>(
+                                k+lookahead, i, C.sub(i, i, 0, C.nt()-1));
 
                         for (int64_t i = k+lookahead; i < A.mt(); ++i)
-                            A.tileBcast(i, k+lookahead, C.sub(i, i, 0, C.nt()-1));
+                            A.template tileBcast<target>(
+                                i, k+lookahead, C.sub(i, i, 0, C.nt()-1));
 
                         // broadcast B(k+la, j) to ranks owning block col C(0:k+la, j)
                         for (int64_t j = 0; j < B.nt(); ++j)
-                            B.tileBcast(k+lookahead, j, C.sub(0, C.mt()-1, j, j));
+                            B.template tileBcast<target>(
+                                k+lookahead, j, C.sub(0, C.mt()-1, j, j));
                     }
                 }
 
@@ -210,11 +218,13 @@ void symm(slate::internal::TargetType<target>,
             {
                 // broadcast A(i, 0) to ranks owning block row C(i, :)
                 for (int64_t i = 0; i < A.mt(); ++i)
-                    A.tileBcast(0, i, C.sub(i, i, 0, C.nt()-1));
+                    A.template tileBcast<target>(
+                        0, i, C.sub(i, i, 0, C.nt()-1));
 
                 // broadcast B(0, j) to ranks owning block col C(:, j)
                 for (int64_t j = 0; j < B.nt(); ++j)
-                    B.tileBcast(0, j, C.sub(0, C.mt()-1, j, j));
+                    B.template tileBcast<target>(
+                        0, j, C.sub(0, C.mt()-1, j, j));
             }
 
             // send next lookahead block cols of A and block rows of B
@@ -224,14 +234,17 @@ void symm(slate::internal::TargetType<target>,
                 {
                     // broadcast A(k, i) or A(i, k) to ranks owning block row C(i, :)
                     for (int64_t i = 0; i < k && i < A.mt(); ++i)
-                        A.tileBcast(i, k, C.sub(i, i, 0, C.nt()-1));
+                        A.template tileBcast<target>(
+                            i, k, C.sub(i, i, 0, C.nt()-1));
 
                     for (int64_t i = k; i < A.mt(); ++i)
-                        A.tileBcast(k, i, C.sub(i, i, 0, C.nt()-1));
+                        A.template tileBcast<target>(
+                            k, i, C.sub(i, i, 0, C.nt()-1));
 
                     // broadcast B(k, j) to ranks owning block col C(0:k, j)
                     for (int64_t j = 0; j < B.nt(); ++j)
-                        B.tileBcast(k, j, C.sub(0, C.mt()-1, j, j));
+                        B.template tileBcast<target>(
+                            k, j, C.sub(0, C.mt()-1, j, j));
                 }
             }
 
@@ -266,14 +279,17 @@ void symm(slate::internal::TargetType<target>,
                     {
                         // broadcast A(k+la, i) or A(i, k+la) to ranks owning block row C(i, :)
                         for (int64_t i = 0; i < k+lookahead; ++i)
-                            A.tileBcast(i, k+lookahead, C.sub(i, i, 0, C.nt()-1));
+                            A.template tileBcast<target>(
+                                i, k+lookahead, C.sub(i, i, 0, C.nt()-1));
 
                         for (int64_t i = k+lookahead; i < A.mt(); ++i)
-                            A.tileBcast(k+lookahead, i, C.sub(i, i, 0, C.nt()-1));
+                            A.template tileBcast<target>(
+                                k+lookahead, i, C.sub(i, i, 0, C.nt()-1));
 
                         // broadcast B(k+la, j) to ranks owning block col C(0:k+la, j)
                         for (int64_t j = 0; j < B.nt(); ++j)
-                            B.tileBcast(k+lookahead, j, C.sub(0, C.mt()-1, j, j));
+                            B.template tileBcast<target>(
+                                k+lookahead, j, C.sub(0, C.mt()-1, j, j));
                     }
                 }
 

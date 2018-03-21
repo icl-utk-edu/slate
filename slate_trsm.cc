@@ -112,7 +112,8 @@ void trsm(slate::internal::TargetType<target>,
             {
                 // broadcast A(i, 0) to ranks owning block row B(i, :)
                 for (int64_t i = 0; i < mt; ++i)
-                    A.template tileBcast<target>(i, mt-1, B.sub(i, i, 0, nt-1));
+                    A.template tileBcast<target>(
+                        i, mt-1, B.sub(i, i, 0, nt-1));
             }
 
             // send next lookahead block cols of A
@@ -122,7 +123,8 @@ void trsm(slate::internal::TargetType<target>,
                 {
                     // broadcast A(i, k) to ranks owning block row B(i, :)
                     for (int64_t i = 0; i <= k; ++i)  // upper
-                        A.template tileBcast<target>(i, k, B.sub(i, i, 0, nt-1));
+                        A.template tileBcast<target>(
+                            i, k, B.sub(i, i, 0, nt-1));
                 }
             }
 
@@ -137,7 +139,8 @@ void trsm(slate::internal::TargetType<target>,
 
                 // broadcast B(0, j) to ranks owning block col B(0:0, j)
                 for (int64_t j = 0; j < nt; ++j)
-                    B.template tileBcast<target>(mt-1, j, B.sub(0, mt-2, j, j));
+                    B.template tileBcast<target>(
+                        mt-1, j, B.sub(0, mt-2, j, j));
             }
 
             // update B(0:mt-2, :) = -A(0:mt-2, mt-1) B(mt-1, :) + alpha B(0:mt-2, :)
@@ -161,7 +164,8 @@ void trsm(slate::internal::TargetType<target>,
                     {
                         // broadcast A(i, k-la) to ranks owning block row B(i, :)
                         for (int64_t i = 0; i <= k-lookahead; ++i)  // upper
-                            A.template tileBcast<target>(i, k-lookahead, B.sub(i, i, 0, nt-1));
+                            A.template tileBcast<target>(
+                                i, k-lookahead, B.sub(i, i, 0, nt-1));
                     }
                 }
 
@@ -179,7 +183,8 @@ void trsm(slate::internal::TargetType<target>,
                     // broadcast B(k, j) to ranks owning block col B(0:k-1, j)
                     if (k > 0) {
                         for (int64_t j = 0; j < nt; ++j)
-                            B.template tileBcast<target>(k, j, B.sub(0, k-1, j, j));
+                            B.template tileBcast<target>(
+                                k, j, B.sub(0, k-1, j, j));
                     }
                 }
 
@@ -208,7 +213,8 @@ void trsm(slate::internal::TargetType<target>,
             {
                 // broadcast A(i, 0) to ranks owning block row B(i, :)
                 for (int64_t i = 0; i < mt; ++i)
-                    A.template tileBcast<target>(i, 0, B.sub(i, i, 0, nt-1));
+                    A.template tileBcast<target>(
+                        i, 0, B.sub(i, i, 0, nt-1));
             }
 
             // send next lookahead block cols of A
@@ -218,7 +224,8 @@ void trsm(slate::internal::TargetType<target>,
                 {
                     // broadcast A(i, k) to ranks owning block row B(i, :)
                     for (int64_t i = k; i < mt; ++i)  // lower
-                        A.template tileBcast<target>(i, k, B.sub(i, i, 0, nt-1));
+                        A.template tileBcast<target>(
+                            i, k, B.sub(i, i, 0, nt-1));
                 }
             }
 
@@ -233,7 +240,8 @@ void trsm(slate::internal::TargetType<target>,
 
                 // broadcast B(0, j) to ranks owning block col B(1:mt-1, j)
                 for (int64_t j = 0; j < nt; ++j)
-                    B.template tileBcast<target>(0, j, B.sub(1, mt-1, j, j));
+                    B.template tileBcast<target>(
+                        0, j, B.sub(1, mt-1, j, j));
             }
 
             // update B(1:mt-1, :) = -A(1:mt-1, 0) B(0, :) + alpha B(1:mt-1, :)
@@ -257,7 +265,8 @@ void trsm(slate::internal::TargetType<target>,
                     {
                         // broadcast A(i, k-la) to ranks owning block row B(i, :)
                         for (int64_t i = k-lookahead; i < mt; ++i)  // lower
-                            A.template tileBcast<target>(i, k+lookahead, B.sub(i, i, 0, nt-1));
+                            A.template tileBcast<target>(
+                                i, k+lookahead, B.sub(i, i, 0, nt-1));
                     }
                 }
 
@@ -275,7 +284,8 @@ void trsm(slate::internal::TargetType<target>,
                     // broadcast B(k, j) to ranks owning block col B(k+1:mt-1, j)
                     if (k < mt-1) {
                         for (int64_t j = 0; j < nt; ++j)
-                            B.template tileBcast<target>(k, j, B.sub(k+1, mt-1, j, j));
+                            B.template tileBcast<target>(
+                                k, j, B.sub(k+1, mt-1, j, j));
                     }
                 }
 

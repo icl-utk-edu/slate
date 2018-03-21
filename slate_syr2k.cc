@@ -100,10 +100,12 @@ void syr2k(slate::internal::TargetType<target>,
             // broadcast A(i, 0) and B(i, 0) to ranks owning
             // block row C(i, 0:i) and block col C(i:n, i)
             for (int64_t i = 0; i < A.mt(); ++i) {
-                A.template tileBcast<target>(i, 0, C.sub(i, i, 0, i),
-                                                   C.sub(i, C.mt()-1, i, i));
-                B.template tileBcast<target>(i, 0, C.sub(i, i, 0, i),
-                                                   C.sub(i, C.mt()-1, i, i));
+                A.template tileBcast<target>(
+                    i, 0, C.sub(i, i, 0, i),
+                          C.sub(i, C.mt()-1, i, i));
+                B.template tileBcast<target>(
+                    i, 0, C.sub(i, i, 0, i),
+                          C.sub(i, C.mt()-1, i, i));
             }
         }
 
@@ -115,10 +117,12 @@ void syr2k(slate::internal::TargetType<target>,
                 // broadcast A(i, k) and B(i, k) to ranks owning
                 // block row C(i, 0:i) and block col C(i:n, i)
                 for (int64_t i = 0; i < A.mt(); ++i) {
-                    A.template tileBcast<target>(i, k, C.sub(i, i, 0, i),
-                                                       C.sub(i, C.mt()-1, i, i));
-                    B.template tileBcast<target>(i, k, C.sub(i, i, 0, i),
-                                                       C.sub(i, C.mt()-1, i, i));
+                    A.template tileBcast<target>(
+                        i, k, C.sub(i, i, 0, i),
+                              C.sub(i, C.mt()-1, i, i));
+                    B.template tileBcast<target>(
+                        i, k, C.sub(i, i, 0, i),
+                              C.sub(i, C.mt()-1, i, i));
                 }
             }
         }
@@ -143,10 +147,12 @@ void syr2k(slate::internal::TargetType<target>,
                 {
                     // broadcast A(k+la, i) to ranks owning block row C(i, 0:i) and block col C(i:n, i)
                     for (int64_t i = 0; i < A.mt(); ++i) {
-                        A.template tileBcast<target>(i, k+lookahead, C.sub(i, i, 0, i),
-                                                                     C.sub(i, C.mt()-1, i, i));
-                        B.template tileBcast<target>(i, k+lookahead, C.sub(i, i, 0, i),
-                                                                     C.sub(i, C.mt()-1, i, i));
+                        A.template tileBcast<target>(
+                            i, k+lookahead, C.sub(i, i, 0, i),
+                                            C.sub(i, C.mt()-1, i, i));
+                        B.template tileBcast<target>(
+                            i, k+lookahead, C.sub(i, i, 0, i),
+                                            C.sub(i, C.mt()-1, i, i));
                     }
                 }
             }

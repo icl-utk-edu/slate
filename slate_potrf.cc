@@ -75,7 +75,8 @@ void potrf(slate::internal::TargetType<target>,
 
             // send A(k, k) down col A(k+1:nt-1, k)
             if (k+1 <= A.nt()-1) {
-                A.tileBcast(k, k, A.sub(k+1, A.nt()-1, k, k));
+                A.template tileBcast<target>(
+                    k, k, A.sub(k+1, A.nt()-1, k, k));
             }
 
             // A(k+1:nt-1, k) * A(k, k)^{-H}
@@ -91,8 +92,9 @@ void potrf(slate::internal::TargetType<target>,
             for (int64_t i = k+1; i < A.nt(); ++i) {
                 // send A(i, k) across row A(i, k+1:i) and down col A(i:nt-1, i)
                 //
-                A.tileBcast(i, k, A.sub(i, i, k+1, i),
-                                  A.sub(i, A.nt()-1, i, i));
+                A.template tileBcast<target>(
+                    i, k, A.sub(i, i, k+1, i),
+                          A.sub(i, A.nt()-1, i, i));
             }
         }
         // update lookahead column(s), high priority
@@ -166,7 +168,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 
             // send A(k, k) down col A(k+1:nt-1, k)
             if (k+1 <= A.nt()-1) {
-                A.tileBcast(k, k, A.sub(k+1, A.nt()-1, k, k));
+                A.template tileBcast<Target::Devices>(
+                    k, k, A.sub(k+1, A.nt()-1, k, k));
             }
 
             // A(k+1:nt-1, k) * A(k, k)^{-H}
@@ -182,8 +185,9 @@ void potrf(slate::internal::TargetType<Target::Devices>,
             for (int64_t i = k+1; i < A.nt(); ++i) {
                 // send A(i, k) across row A(i, k+1:i) and down col A(i:nt-1, i)
                 // todo was: A.template tileBcast<Target::Devices>(
-                A.tileBcast(i, k, A.sub(i, i, k+1, i),
-                                  A.sub(i, A.nt()-1, i, i));
+                A.template tileBcast<Target::Devices>(
+                    i, k, A.sub(i, i, k+1, i),
+                          A.sub(i, A.nt()-1, i, i));
             }
         }
         // update trailing submatrix, normal priority

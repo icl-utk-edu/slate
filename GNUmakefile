@@ -19,8 +19,6 @@ top ?= .
 CXXFLAGS += -O3 -std=c++11 -Wall -pedantic -MMD
 CXXFLAGS += -Wno-strict-overflow -Wsign-compare
 
-pwd = ${shell pwd}
-
 #-------------------------------------------------------------------------------
 # if shared
 ifeq (${shared},1)
@@ -62,6 +60,8 @@ ifeq (${mkl},1)
 	else ifeq (${macos},1)
 		LIB += -L${MKLROOT}/lib -Wl,-rpath,${MKLROOT}/lib \
 		       -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl
+	else
+        $(error Error: for MKL, please set either linux or macos to 1)
 	endif
 # if ESSL
 else ifeq (${essl},1)
@@ -84,7 +84,7 @@ endif
 CXXFLAGS += -I./blaspp/include
 CXXFLAGS += -I./lapackpp/include
 
-LIB += -L./lapackpp/lib -Wl,-rpath,${pwd}/lapackpp/lib -llapackpp
+LIB += -L./lapackpp/lib -Wl,-rpath,${abspath ./lapackpp/lib} -llapackpp
 
 #-------------------------------------------------------------------------------
 # Files
@@ -176,3 +176,30 @@ clean:
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 -include ${dep}
+
+echo:
+	@echo "openmp   = '${openmp}'"
+	@echo "mpi      = '${mpi}'"
+	@echo "spectrum = '${spectrum}'"
+	@echo "linux    = '${linux}'"
+	@echo "macos    = '${macos}'"
+	@echo "mkl      = '${mkl}'"
+	@echo "essl     = '${essl}'"
+	@echo "cuda     = '${cuda}'"
+	@echo "shared   = '${shared}'"
+	@echo
+	@echo "lib_src  = ${lib_src}"
+	@echo "lib_obj  = ${lib_obj}"
+	@echo "test_src = ${test_src}"
+	@echo "test_obj = ${test_obj}"
+	@echo "test     = ${test}"
+	@echo "dep      = ${dep}"
+	@echo
+	@echo "lib_a    = ${lib_a}"
+	@echo "lib_so   = ${lib_so}"
+	@echo "libs     = ${libs}"
+	@echo
+	@echo "CXX      = ${CXX}"
+	@echo "CXXFLAGS = ${CXXFLAGS}"
+	@echo "LDFLAGS  = ${LDFLAGS}"
+	@echo "LIB      = ${LIB}"

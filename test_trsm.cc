@@ -76,15 +76,24 @@ void test_trsm(
 
     // set unused data to nan
     if (uplo == blas::Uplo::Lower) {
-        for (int j = 0; j < An; ++j)
-            for (int i = 0; i < j && i < An; ++i)  // upper
+        for (int64_t j = 0; j < An; ++j)
+            for (int64_t i = 0; i < j && i < An; ++i)  // strictly upper
                 A1[ i + j*lda ] = nan("");
     }
     else {
-        for (int j = 0; j < An; ++j)
-            for (int i = j+1; i < An; ++i)  // lower
+        for (int64_t j = 0; j < An; ++j)
+            for (int64_t i = j+1; i < An; ++i)  // strictly lower
                 A1[ i + j*lda ] = nan("");
     }
+
+    // Factor A into L L^H or U U^H to get a well-conditioned triangular matrix.
+    // If diag == Unit, the diagonal is replaced; this is still well-conditioned.
+    // First, brute force positive definiteness.
+    for (int64_t i = 0; i < An; ++i) {
+        A1[ i + i*lda ] += An;
+    }
+    int64_t info = lapack::potrf(uplo, An, A1, lda);
+    assert(info == 0);
 
     int64_t seed_c[] = {0, 0, 0, 1};
     B1 = new scalar_t[ ldb*n ];

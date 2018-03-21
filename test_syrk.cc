@@ -106,10 +106,10 @@ void test_syrk(
                 "beta  = %.4f + %.4fi;\n",
                 real(alpha), imag(alpha),
                 real(beta),  imag(beta) );
-        printf( "A1 = " ); print( Am, An, A1, lda );
-        printf( "A = "  ); print( A );
-        printf( "C1 = " ); print( n, k, C1, ldc );
-        printf( "C = "  ); print( C );
+        print( "A1", Am, An, A1, lda );
+        print( "A",  A );
+        print( "C1", n, k, C1, ldc );
+        print( "C",  C );
     }
 
     //---------------------
@@ -153,8 +153,8 @@ void test_syrk(
         slate::trace::Trace::finish();
 
     if (verbose) {
-        printf( "C1res = " ); print( n, n, C1, ldc );
-        printf( "Cres = "  ); print( C );
+        print( "C1res", n, n, C1, ldc );
+        print( "Cres", C );
     }
 
     //--------------
@@ -179,7 +179,7 @@ void test_syrk(
                        beta,  C2, ldc);
 
             if (verbose && mpi_rank == 0) {
-                printf( "Cref = " ); print( n, n, C2, ldc );
+                print( "Cref", n, n, C2, ldc );
             }
             if (verbose)
                 slate::Debug::diffLapackMatrices(n, n, C1, ldc, C2, ldc, nb, nb);

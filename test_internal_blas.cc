@@ -401,12 +401,12 @@ void test_gemm( slate::Target target )
                       char(A.op()), char(B.op()), char(C.op()) );
 
         if (g_verbose) {
-            printf( "\nA = "    );  print( A );
-            printf( "\nAref = " );  print( Am, An, Adata.data(), lda );
-            printf( "\nB = "    );  print( B );
-            printf( "\nBref = " );  print( Bm, Bn, Bdata.data(), ldb );
-            printf( "\nC = "    );  print( C );
-            printf( "\nCref = " );  print( m, n, opCref.data(), ldopc );
+            print( "A",    A );
+            print( "Aref", Am, An, Adata.data(), lda );
+            print( "B",    B );
+            print( "Bref", Bm, Bn, Bdata.data(), ldb );
+            print( "C",    C );
+            print( "Cref", m, n, opCref.data(), ldopc );
         }
 
         // run test
@@ -465,8 +465,8 @@ void test_gemm( slate::Target target )
                     beta, opCref.data(), ldopc );
 
         if (g_verbose) {
-            printf( "\nChat = "     );  print( C );
-            printf( "\nChat_ref = " );  print( m, n, opCref.data(), ldopc );
+            print( "Chat",     C );
+            print( "Chat_ref", m, n, opCref.data(), ldopc );
         }
 
         real_t eps = std::numeric_limits< real_t >::epsilon();
@@ -560,10 +560,10 @@ void test_syrk( slate::Target target )
                       char(C.uplo()), char(A.op()), char(C.op()) );
 
         if (g_verbose) {
-            printf( "\nA = "    );  print( A );
-            printf( "\nAref = " );  print( Am, An, Adata.data(), lda );
-            printf( "\nC = "    );  print( C );
-            printf( "\nCref = " );  print( n, n, opCref.data(), ldc );
+            print( "A",    A );
+            print( "Aref", Am, An, Adata.data(), lda );
+            print( "C",    C );
+            print( "Cref", n, n, opCref.data(), ldc );
         }
 
         // run test
@@ -634,8 +634,8 @@ void test_syrk( slate::Target target )
                     beta, opCref.data(), ldc );
 
         if (g_verbose) {
-            printf( "\nChat = "     );  print( C );
-            printf( "\nChat_ref = " );  print( n, n, opCref.data(), ldc );
+            print( "Chat",     C );
+            print( "Chat_ref", n, n, opCref.data(), ldc );
         }
 
         real_t eps = std::numeric_limits< real_t >::epsilon();
@@ -728,10 +728,10 @@ void test_herk( slate::Target target )
                       char(C.uplo()), char(A.op()), char(C.op()) );
 
         if (g_verbose) {
-            printf( "\nA = "    );  print( A );
-            printf( "\nAref = " );  print( Am, An, Adata.data(), lda );
-            printf( "\nC = "    );  print( C );
-            printf( "\nCref = " );  print( n, n, opCref.data(), ldc );
+            print( "A",    A );
+            print( "Aref", Am, An, Adata.data(), lda );
+            print( "C",    C );
+            print( "Cref", n, n, opCref.data(), ldc );
         }
 
         // run test
@@ -802,8 +802,8 @@ void test_herk( slate::Target target )
                     beta, opCref.data(), ldc );
 
         if (g_verbose) {
-            printf( "\nChat = "     );  print( C );
-            printf( "\nChat_ref = " );  print( n, n, opCref.data(), ldc );
+            print( "Chat",     C );
+            print( "Chat_ref", n, n, opCref.data(), ldc );
         }
 
         real_t eps = std::numeric_limits< real_t >::epsilon();

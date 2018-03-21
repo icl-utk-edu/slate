@@ -81,8 +81,8 @@ void test_potrf(
                                          nb, p, q, MPI_COMM_WORLD);
 
     if (verbose && mpi_rank == 0) {
-        printf( "Adata = " ); print( n, n, Adata, lda );
-        printf( "A = "     ); print( A );
+        print( "Adata", n, n, Adata, lda );
+        print( "A", A );
     }
 
     //---------------------
@@ -122,8 +122,8 @@ void test_potrf(
         slate::trace::Trace::finish();
 
     if (verbose) {
-        printf( "A1res = " ); print( n, n, Adata, lda );
-        printf( "Ares = "  ); print( A );
+        print( "A1res", n, n, Adata, lda );
+        print( "Ares", A );
     }
 
     //--------------
@@ -148,7 +148,7 @@ void test_potrf(
             assert(retval == 0);
 
             if (verbose) {
-                printf( "Aref = " ); print( n, n, Aref, lda );
+                print( "Aref", n, n, Aref, lda );
             }
             if (verbose)
                 slate::Debug::diffLapackMatrices(n, n, Adata, lda, Aref, lda, nb, nb);

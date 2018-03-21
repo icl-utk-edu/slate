@@ -110,10 +110,10 @@ void test_trsm(
     if (verbose && mpi_rank == 0) {
         printf( "alpha = %.4f + %.4fi;\n",
                 real(alpha), imag(alpha) );
-        printf( "A1 = " ); print( An, An, A1, lda );
-        printf( "A = "  ); print( A );
-        printf( "B1 = " ); print( m, n, B1, ldb );
-        printf( "B = "  ); print( B );
+        print( "A1", An, An, A1, lda );
+        print( "A",  A );
+        print( "B1", m, n, B1, ldb );
+        print( "B",  B );
     }
 
     //---------------------
@@ -161,8 +161,8 @@ void test_trsm(
         slate::trace::Trace::finish();
 
     if (verbose) {
-        printf( "B1res = " ); print( m, n, B1, ldb );
-        printf( "Bres = "  ); print( B );
+        print( "B1res", m, n, B1, ldb );
+        print( "Bres", B );
     }
 
     //--------------
@@ -187,7 +187,7 @@ void test_trsm(
                               B2, ldb);
 
             if (verbose && mpi_rank == 0) {
-                printf( "Bref = " ); print( m, n, B2, ldb );
+                print( "Bref", m, n, B2, ldb );
             }
             if (verbose)
                 slate::Debug::diffLapackMatrices(m, n, B1, ldb, B2, ldb, nb, nb);

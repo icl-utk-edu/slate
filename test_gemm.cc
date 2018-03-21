@@ -122,12 +122,12 @@ void test_gemm(
                 "beta  = %.4f + %.4fi;\n",
                 real(alpha), imag(alpha),
                 real(beta),  imag(beta) );
-        printf( "A1 = " ); print( Am, An, A1, lda );
-        printf( "A = "  ); print( A );
-        printf( "B1 = " ); print( Bm, Bn, B1, ldb );
-        printf( "B = "  ); print( B );
-        printf( "C1 = " ); print( m, n, C1, ldc );
-        printf( "C = "  ); print( C );
+        print( "A1", Am, An, A1, lda );
+        print( "A",  A );
+        print( "B1", Bm, Bn, B1, ldb );
+        print( "B",  B );
+        print( "C1", m, n, C1, ldc );
+        print( "C",  C );
     }
 
     //---------------------
@@ -171,8 +171,8 @@ void test_gemm(
         slate::trace::Trace::finish();
 
     if (verbose) {
-        printf( "C1res = " ); print( m, n, C1, ldc );
-        printf( "Cres = "  ); print( C );
+        print( "C1res", m, n, C1, ldc );
+        print( "Cres", C );
     }
 
     //--------------
@@ -198,7 +198,7 @@ void test_gemm(
                        beta,  C2, ldc);
 
             if (verbose && mpi_rank == 0) {
-                printf( "Cref = " ); print( m, n, C2, ldc );
+                print( "Cref", m, n, C2, ldc );
             }
             if (verbose)
                 slate::Debug::diffLapackMatrices(m, n, C1, ldc, C2, ldc, nb, nb);

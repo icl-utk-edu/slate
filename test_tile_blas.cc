@@ -196,9 +196,9 @@ void test_gemm()
                       char(A.op()), char(B.op()), char(C.op()) );
 
         if (g_verbose) {
-            printf( "\nA = " );  print( A );
-            printf( "\nB = " );  print( B );
-            printf( "\nC = " );  print( C );
+            print( "A", A );
+            print( "B", B );
+            print( "C", C );
         }
 
         // run test
@@ -222,10 +222,10 @@ void test_gemm()
         }
 
         if (g_verbose) {
-            printf( "\nChat = " );  print( C );
-            printf( "\nAref = " );  print( Am, An, Adata.data(), lda );
-            printf( "\nBref = " );  print( Bm, Bn, Bdata.data(), ldb );
-            printf( "\nCref = " );  print( m, n, opCref.data(), ldopc );
+            print( "Chat", C );
+            print( "Aref", Am, An, Adata.data(), lda );
+            print( "Bref", Bm, Bn, Bdata.data(), ldb );
+            print( "Cref", m, n, opCref.data(), ldopc );
         }
 
         // reference solution
@@ -235,7 +235,7 @@ void test_gemm()
                     beta, opCref.data(), ldopc );
 
         if (g_verbose) {
-            printf( "\nChat_ref = " );  print( m, n, opCref.data(), ldopc );
+            print( "Chat_ref", m, n, opCref.data(), ldopc );
         }
 
         test_assert_equal( C, opCref.data(), ldopc, 3*sqrt(k)*eps, 3*sqrt(k)*eps );
@@ -316,8 +316,8 @@ void test_syrk()
                       char(C.uplo()), char(A.op()), char(C.op()) );
 
         if (g_verbose) {
-            printf( "\nA = " );  print( A );
-            printf( "\nC = " );  print( C );
+            print( "A", A );
+            print( "C", C );
         }
 
         // run test
@@ -342,9 +342,9 @@ void test_syrk()
         }
 
         if (g_verbose) {
-            printf( "\nChat = " );  print( C );
-            printf( "\nAref = " );  print( Am, An, Adata.data(), lda );
-            printf( "\nCref = " );  print( n, n, opCref.data(), ldc );
+            print( "Chat", C );
+            print( "Aref", Am, An, Adata.data(), lda );
+            print( "Cref", n, n, opCref.data(), ldc );
         }
 
         // reference solution
@@ -359,7 +359,7 @@ void test_syrk()
                     beta, opCref.data(), ldc );
 
         if (g_verbose) {
-            printf( "\nChat_ref = " );  print( n, n, opCref.data(), ldc );
+            print( "Chat_ref", n, n, opCref.data(), ldc );
         }
 
         test_assert_equal( C, opCref.data(), ldc, 3*sqrt(k)*eps, 3*sqrt(k)*eps );
@@ -439,8 +439,8 @@ void test_herk()
                       char(C.uplo()), char(A.op()), char(C.op()) );
 
         if (g_verbose) {
-            printf( "\nA = " );  print( A );
-            printf( "\nC = " );  print( C );
+            print( "A", A );
+            print( "C", C );
         }
 
         // run test
@@ -465,9 +465,9 @@ void test_herk()
         }
 
         if (g_verbose) {
-            printf( "\nChat = " );  print( C );
-            printf( "\nAref = " );  print( Am, An, Adata.data(), lda );
-            printf( "\nCref = " );  print( n, n, opCref.data(), ldc );
+            print( "Chat", C );
+            print( "Aref", Am, An, Adata.data(), lda );
+            print( "Cref", n, n, opCref.data(), ldc );
         }
 
         // reference solution
@@ -482,7 +482,7 @@ void test_herk()
                     beta, opCref.data(), ldc );
 
         if (g_verbose) {
-            printf( "\nChat_ref = " );  print( n, n, opCref.data(), ldc );
+            print( "Chat_ref", n, n, opCref.data(), ldc );
         }
 
         test_assert_equal( C, opCref.data(), ldc, 3*sqrt(k)*eps, 3*sqrt(k)*eps );
@@ -540,7 +540,7 @@ void test_potrf()
                       char(A.op()), char(A.uplo()) );
 
         if (g_verbose) {
-            printf( "A = " );  print( A );
+            print( "A", A );
         }
 
         // run test
@@ -548,8 +548,8 @@ void test_potrf()
         test_assert( info == 0 );
 
         if (g_verbose) {
-            printf( "Ahat = " );  print( A );
-            printf( "opA = " );  print( n, n, opAref.data(), lda );
+            print( "Ahat", A );
+            print( "opA", n, n, opAref.data(), lda );
         }
 
         // reference solution
@@ -563,7 +563,7 @@ void test_potrf()
         test_assert( info == 0 );
 
         if (g_verbose) {
-            printf( "opAhat = " );  print( n, n, opAref.data(), lda );
+            print( "opAhat", n, n, opAref.data(), lda );
         }
 
         test_assert_equal( A, opAref.data(), lda, 3*eps, 3*eps );
@@ -653,8 +653,8 @@ void test_trsm()
                       char(side), char(A.uplo()), char(A.op()), char(diag), char(B.op()) );
 
         if (g_verbose) {
-            printf( "\nA = " );  print( A );
-            printf( "\nB = " );  print( B );
+            print( "A", A );
+            print( "B", B );
         }
 
         // run test
@@ -678,9 +678,9 @@ void test_trsm()
         }
 
         if (g_verbose) {
-            printf( "\nBhat = " );  print( B );
-            printf( "\nAref = " );  print( An, An, Adata.data(), lda );
-            printf( "\nBref = " );  print( m, n, opBref.data(), ldopb );
+            print( "Bhat", B );
+            print( "Aref", An, An, Adata.data(), lda );
+            print( "Bref", m, n, opBref.data(), ldopb );
         }
 
         // reference solution
@@ -689,7 +689,7 @@ void test_trsm()
                            opBref.data(), ldopb );
 
         if (g_verbose) {
-            printf( "\nBhat_ref = " );  print( m, n, opBref.data(), ldopb );
+            print( "Bhat_ref", m, n, opBref.data(), ldopb );
         }
 
         test_assert_equal( B, opBref.data(), ldopb, 3*eps, 3*eps );

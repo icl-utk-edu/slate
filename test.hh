@@ -166,9 +166,9 @@ void test_message( const char* format, ... )
 //------------------------------------------------------------------------------
 // print Tile
 template <typename scalar_t>
-void print( slate::Tile< scalar_t >& A )
+void print( const char* name, slate::Tile< scalar_t >& A )
 {
-    printf( "[\n" );
+    printf( "%s = [\n", name );
     for (int i = 0; i < A.mb(); ++i) {
         for (int64_t j = 0; j < A.nb(); ++j) {
             printf( " %9.4f", A(i, j) );
@@ -181,9 +181,9 @@ void print( slate::Tile< scalar_t >& A )
 //------------------------------------------------------------------------------
 // print Tile, complex specialization
 template <typename scalar_t>
-void print( slate::Tile< std::complex< scalar_t > >& A )
+void print( const char* name, slate::Tile< std::complex< scalar_t > >& A )
 {
-    printf( "[\n" );
+    printf( "%s = [\n", name );
     for (int i = 0; i < A.mb(); ++i) {
         for (int64_t j = 0; j < A.nb(); ++j) {
             if (A.op() == blas::Op::ConjTrans) {
@@ -201,11 +201,11 @@ void print( slate::Tile< std::complex< scalar_t > >& A )
 //------------------------------------------------------------------------------
 // print Matrix
 template <typename scalar_t>
-void print( slate::Matrix< scalar_t >& A )
+void print( const char* name, slate::Matrix< scalar_t >& A )
 {
     using blas::real;
 
-    printf( "[  %% op=%c\n", char(A.op()) );
+    printf( "%s = [  %% op=%c\n", name, char(A.op()) );
     // loop over block rows, then rows within block row
     for (int i = 0; i < A.mt(); ++i) {
         int64_t ib = A.tileMb(i);
@@ -260,11 +260,11 @@ void print( slate::Matrix< scalar_t >& A )
 //------------------------------------------------------------------------------
 // print Matrix, complex specialization
 template <typename scalar_t>
-void print( slate::Matrix< std::complex< scalar_t > >& A )
+void print( const char* name, slate::Matrix< std::complex< scalar_t > >& A )
 {
     using blas::real;
 
-    printf( "[\n" );
+    printf( "%s = [  %% op=%c\n", name, char(A.op()) );
     // loop over block rows, then rows within block row
     for (int i = 0; i < A.mt(); ++i) {
         int64_t ib = A.tileMb(i);
@@ -313,20 +313,20 @@ void print( slate::Matrix< std::complex< scalar_t > >& A )
             printf( "\n" );
         }
     }
-    printf( "];  %% op=%c\n", char(A.op()) );
+    printf( "];\n" );
 }
 
 //------------------------------------------------------------------------------
 // print Trapezoid matrix
 template <typename scalar_t>
-void print( slate::BaseTrapezoidMatrix< scalar_t >& A )
+void print( const char* name, slate::BaseTrapezoidMatrix< scalar_t >& A )
 {
     bool lower =
         ((A.uplo() == blas::Uplo::Lower && A.op() == blas::Op::NoTrans) ||
          (A.uplo() == blas::Uplo::Upper && A.op() != blas::Op::NoTrans));
     bool upper = ! lower;
 
-    printf( "[\n" );
+    printf( "%s = [  %% op=%c, uplo=%c\n", name, char(A.op()), char(A.uplo()) );
     // loop over block rows, then rows within block row
     for (int i = 0; i < A.mt(); ++i) {
 
@@ -336,6 +336,8 @@ void print( slate::BaseTrapezoidMatrix< scalar_t >& A )
             if (A.tileIsLocal( i, j )) {
                 if (j > 0)
                     printf( "   " );
+                else
+                    printf( "%%   " );
                 if ((lower && i >= j) || (upper && i <= j)) {
                     auto Aij = A(i, j);
                     printf( "  %-18p", (void*) Aij.data() );
@@ -386,17 +388,23 @@ void print( slate::BaseTrapezoidMatrix< scalar_t >& A )
             printf( "\n" );
         }
     }
-    printf( "];  %% op=%c, uplo=%c\n", char(A.op()), char(A.uplo()) );
+    printf( "];\n" );
+
+    // symmetrize in Matlab
+    if (A.uplo() == blas::Uplo::Lower)
+        printf( "%s = tril(%s) + tril(%s, -1)';\n", name, name, name );
+    else
+        printf( "%s = triu(%s) + triu(%s,  1)';\n", name, name, name );
 }
 
 //------------------------------------------------------------------------------
 // print Trapezoid matrix, complex specialization
 template <typename scalar_t>
-void print( slate::BaseTrapezoidMatrix< std::complex< scalar_t > >& A )
+void print( const char* name, slate::BaseTrapezoidMatrix< std::complex< scalar_t > >& A )
 {
     assert( A.uplo() == blas::Uplo::Lower );
 
-    printf( "[\n" );
+    printf( "%s = [  %% op=%c, uplo=%c\n", name, char(A.op()), char(A.uplo()) );
     // loop over block rows, then rows within block row
     for (int i = 0; i < A.mt(); ++i) {
 
@@ -407,6 +415,8 @@ void print( slate::BaseTrapezoidMatrix< std::complex< scalar_t > >& A )
             if (A.tileIsLocal( i, j )) {
                 if (j > 0)
                     printf( "   " );
+                else
+                    printf( "%%   " );
                 auto Aij = A(i, j);
                 printf( "  %-21p", (void*) Aij.data() );
                 for (int64_t jt = 1; jt < jb; ++jt) { // above pointer is 1 column
@@ -444,15 +454,21 @@ void print( slate::BaseTrapezoidMatrix< std::complex< scalar_t > >& A )
             printf( "\n" );
         }
     }
-    printf( "];  %% op=%c, uplo=%c\n", char(A.op()), char(A.uplo()) );
+    printf( "];\n" );
+
+    // symmetrize in Matlab
+    if (A.uplo() == blas::Uplo::Lower)
+        printf( "%s = tril(%s) + tril(%s, -1)';\n", name, name, name );
+    else
+        printf( "%s = triu(%s) + triu(%s,  1)';\n", name, name, name );
 }
 
 //------------------------------------------------------------------------------
 // print LAPACK-style matrix
 template <typename scalar_t>
-void print( int64_t m, int64_t n, scalar_t* A, int64_t lda )
+void print( const char* name, int64_t m, int64_t n, scalar_t* A, int64_t lda )
 {
-    printf( "[\n" );
+    printf( "%s = [\n", name );
     for (int i = 0; i < m; ++i) {
         for (int j = 0; j < n; ++j) {
             printf( " %9.4f", A[ i + j*lda ] );
@@ -465,9 +481,9 @@ void print( int64_t m, int64_t n, scalar_t* A, int64_t lda )
 //------------------------------------------------------------------------------
 // print LAPACK-style matrix, complex specialization
 template <typename scalar_t>
-void print( int64_t m, int64_t n, std::complex< scalar_t >* A, int64_t lda )
+void print( const char* name, int64_t m, int64_t n, std::complex< scalar_t >* A, int64_t lda )
 {
-    printf( "[\n" );
+    printf( "%s = [\n", name );
     for (int i = 0; i < m; ++i) {
         for (int j = 0; j < n; ++j) {
             printf( " %9.4f + %9.4fi", real( A[ i + j*lda ] ), imag( A[ i + j*lda ] ) );

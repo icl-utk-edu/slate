@@ -453,8 +453,10 @@ void syrk(internal::TargetType<Target::Devices>,
                     for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
-                                //A.tileErase(i, 0, device);  // todo: why? shouldn't tileTick deal with this?
-                                //A.tileErase(j, 0, device);  // ditto
+                                // erase tmp local and remote device tiles;
+                                // decrement life for remote tiles
+                                A.tileErase(i, 0, device);
+                                A.tileErase(j, 0, device);
                                 A.tileTick(i, 0);
                                 A.tileTick(j, 0);
                             }

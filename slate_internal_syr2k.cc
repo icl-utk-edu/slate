@@ -558,6 +558,12 @@ void syr2k(internal::TargetType<Target::Devices>,
                     for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
+                                // erase tmp local and remote device tiles;
+                                // decrement life for remote tiles
+                                A.tileErase(i, 0, device);
+                                A.tileErase(j, 0, device);
+                                B.tileErase(i, 0, device);
+                                B.tileErase(j, 0, device);
                                 A.tileTick(i, 0);
                                 A.tileTick(j, 0);
                                 B.tileTick(i, 0);

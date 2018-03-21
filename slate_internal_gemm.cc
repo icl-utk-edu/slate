@@ -462,6 +462,10 @@ void gemm(internal::TargetType<Target::Devices>,
                 for (int64_t j = 0; j < C.nt(); ++j) {
                     if (C.tileIsLocal(i, j)) {
                         if (device == C.tileDevice(i, j)) {
+                            // erase tmp local and remote device tiles;
+                            // decrement life for remote tiles
+                            A.tileErase(i, 0, device);
+                            B.tileErase(0, j, device);
                             A.tileTick(i, 0);
                             B.tileTick(0, j);
                         }

@@ -160,9 +160,9 @@ void test_syrk(
     //--------------
     // Print GFLOPS.
     if (mpi_rank == 0) {
-        double ops = 2.0*n*n*n;  // todo
+        double ops = (0.5*k*n*(n+1)) + (0.5*k*n*(n+1)); // todo check this
         double gflops = ops/time/1e9;
-        printf("\t%.0f GFLOPS\n", gflops);
+        printf("\t%.2f GFLOPS time %f\n", gflops, ops, time);
         fflush(stdout);
     }
 

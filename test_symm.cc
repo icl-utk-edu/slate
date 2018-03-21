@@ -166,7 +166,7 @@ void test_symm(
     //--------------
     // Print GFLOPS.
     if (mpi_rank == 0) {
-        double ops = 2.0*n*n*n;
+        double ops = ((side == blas::Side::Left ? m*m*n : m*n*n) + (side == blas::Side::Left ? m*m*n : m*n*n)); // todo check
         double gflops = ops/time/1e9;
         printf("\t%.0f GFLOPS\n", gflops);
         fflush(stdout);

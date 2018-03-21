@@ -89,6 +89,7 @@ void syrk(internal::TargetType<Target::HostTask>,
           scalar_t beta,  SymmetricMatrix< scalar_t >& C,
           int priority)
 {
+    // Lower, NoTrans
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j)
         for (int64_t i = j; i < C.mt(); ++i)  // lower
@@ -148,6 +149,7 @@ void syrk(internal::TargetType<Target::HostNest>,
           scalar_t beta,  SymmetricMatrix< scalar_t >& C,
           int priority)
 {
+    // Lower, NoTrans
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j)
         if (C.tileIsLocal(j, j))
@@ -170,7 +172,7 @@ void syrk(internal::TargetType<Target::HostNest>,
     #pragma omp parallel for collapse(2) schedule(dynamic, 1)
     for (int64_t j = 0; j < C.nt(); ++j)
         for (int64_t i = 0; i < C.mt(); ++i)  // full
-            if (i >= j+1)                     // lower
+            if (i >= j+1)                     // strictly lower
                 if (C.tileIsLocal(i, j)) {
                     try {
                         A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
@@ -231,7 +233,7 @@ void syrk(internal::TargetType<Target::HostBatch>,
     // also count tiles
     int batch_count = 0;
     for (int64_t j = 0; j < C.nt(); ++j) {
-        for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
+        for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
             if (C.tileIsLocal(i, j)) {
                 A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
                 A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
@@ -272,7 +274,7 @@ void syrk(internal::TargetType<Target::HostBatch>,
 
         int index = 0;
         for (int64_t j = 0; j < C.nt(); ++j) {
-            for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
+            for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                 if (C.tileIsLocal(i, j)) {
                     m_array[ index ] = C(i, j).mb();
                     n_array[ index ] = C(i, j).nb();
@@ -322,7 +324,7 @@ void syrk(internal::TargetType<Target::HostBatch>,
         }
 
         for (int64_t j = 0; j < C.nt(); ++j) {
-            for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
+            for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                 if (C.tileIsLocal(i, j)) {
                     A.tileTick(i, 0);
                     A.tileTick(j, 0);
@@ -379,7 +381,7 @@ void syrk(internal::TargetType<Target::Devices>,
 
                 int64_t batch_count = 0;
                 for (int64_t j = 0; j < C.nt(); ++j) {
-                    for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
+                    for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
                                 A.tileCopyToDevice(i, 0, device);
@@ -450,7 +452,7 @@ void syrk(internal::TargetType<Target::Devices>,
                 }
 
                 for (int64_t j = 0; j < C.nt(); ++j) {
-                    for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
+                    for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
                                 // erase tmp local and remote device tiles;

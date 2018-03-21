@@ -159,7 +159,7 @@ void herk(internal::TargetType<Target::HostNest>,
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j)
         if (C.tileIsLocal(j, j))
-            #pragma omp task shared(A, C)
+            #pragma omp task shared(A, C, err)
             {
                 try {
                     A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
@@ -178,7 +178,7 @@ void herk(internal::TargetType<Target::HostNest>,
     #pragma omp parallel for collapse(2) schedule(dynamic, 1)
     for (int64_t j = 0; j < C.nt(); ++j)
         for (int64_t i = 0; i < C.mt(); ++i)  // full
-            if (i >= j+1)                     // lower
+            if (i >= j+1)                     // strictly lower
                 if (C.tileIsLocal(i, j)) {
                     try {
                         A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
@@ -218,7 +218,7 @@ void herk(internal::TargetType<Target::HostBatch>,
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j) {
         if (C.tileIsLocal(j, j)) {
-            #pragma omp task shared(A, C)
+            #pragma omp task shared(A, C, err)
             {
                 try {
                     A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
@@ -239,7 +239,7 @@ void herk(internal::TargetType<Target::HostBatch>,
     // also count tiles
     int batch_count = 0;
     for (int64_t j = 0; j < C.nt(); ++j) {
-        for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
+        for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
             if (C.tileIsLocal(i, j)) {
                 A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
                 A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
@@ -280,7 +280,7 @@ void herk(internal::TargetType<Target::HostBatch>,
 
         int index = 0;
         for (int64_t j = 0; j < C.nt(); ++j) {
-            for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
+            for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                 if (C.tileIsLocal(i, j)) {
                     m_array[ index ] = C(i, j).mb();
                     n_array[ index ] = C(i, j).nb();
@@ -330,7 +330,7 @@ void herk(internal::TargetType<Target::HostBatch>,
         }
 
         for (int64_t j = 0; j < C.nt(); ++j) {
-            for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
+            for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                 if (C.tileIsLocal(i, j)) {
                     A.tileTick(i, 0);
                     A.tileTick(j, 0);
@@ -360,9 +360,11 @@ void herk(internal::TargetType<Target::Devices>,
     int err = 0;
     using std::swap;
 
+    assert( C.num_devices() > 0 );
+
     // off-diagonal tiles by batch gemm on device
     for (int device = 0; device < C.num_devices(); ++device) {
-        #pragma omp task shared(A, C) priority(priority)
+        #pragma omp task shared(A, C, err) priority(priority)
         {
             try {
                 // if op(C) is NoTrans, invert opA, opB if possible
@@ -385,7 +387,7 @@ void herk(internal::TargetType<Target::Devices>,
 
                 int64_t batch_count = 0;
                 for (int64_t j = 0; j < C.nt(); ++j) {
-                    for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
+                    for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
                                 A.tileCopyToDevice(i, 0, device);
@@ -459,7 +461,7 @@ void herk(internal::TargetType<Target::Devices>,
                 }
 
                 for (int64_t j = 0; j < C.nt(); ++j) {
-                    for (int64_t i = j+1; i < C.mt(); ++i) {  // lower
+                    for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
                                 // erase tmp local and remote device tiles;

@@ -396,6 +396,7 @@ public:
                     tileInsert(i, j, host_num_);
                 }
                 else {
+                    // todo: use temp tile to receive broadcast
                     life += tileLife(i, j);
                 }
                 tileLife(i, j, life);

@@ -381,7 +381,7 @@ public:
     {
         // Find the set of participating ranks.
         std::set<int> bcast_set;
-        bcast_set.insert(tileRank(i, j));
+        bcast_set.insert(tileRank(i, j));  // root of bcast
         A.getRanks(&bcast_set);
 
         // If this rank is in the set.
@@ -406,9 +406,12 @@ public:
             tileBcastToSet(i, j, bcast_set);
 
             // Copy to devices.
-            if (target == Target::Devices)
-                for (int device = 0; device < num_devices_; ++device)
-                    tileCopyToDevice(i, j, device);
+            if (target == Target::Devices) {
+                std::set<int> dev_set;
+                A.getLocalDevices(&dev_set);
+                for (auto iter = dev_set.begin(); iter != dev_set.end(); ++iter)
+                    tileCopyToDevice(i, j, *iter);
+            }
         }
     }
 
@@ -423,7 +426,7 @@ public:
     {
         // Find the set of participating ranks.
         std::set<int> bcast_set;
-        bcast_set.insert(tileRank(i, j));
+        bcast_set.insert(tileRank(i, j));  // root of bcast
         A1.getRanks(&bcast_set);
         A2.getRanks(&bcast_set);
 
@@ -439,9 +442,13 @@ public:
             tileBcastToSet(i, j, bcast_set);
 
             // Copy to devices.
-            if (target == Target::Devices)
-                for (int device = 0; device < num_devices_; ++device)
-                    tileCopyToDevice(i, j, device);
+            if (target == Target::Devices) {
+                std::set<int> dev_set;
+                A1.getLocalDevices(&dev_set);
+                A2.getLocalDevices(&dev_set);
+                for (auto iter = dev_set.begin(); iter != dev_set.end(); ++iter)
+                    tileCopyToDevice(i, j, *iter);
+            }
         }
     }
 
@@ -613,6 +620,16 @@ public:
         for (int64_t i = 0; i < mt(); ++i)
             for (int64_t j = 0; j < nt(); ++j)
                 bcast_set->insert(tileRank(i, j));
+    }
+
+    ///-------------------------------------------------------------------------
+    /// Puts all devices that have local tiles in the matrix into the set.
+    void getLocalDevices(std::set<int> *dev_set) const
+    {
+        for (int64_t i = 0; i < mt(); ++i)
+            for (int64_t j = 0; j < nt(); ++j)
+                if (tileIsLocal(i, j))
+                    dev_set->insert(tileDevice(i, j));
     }
 
     ///-------------------------------------------------------------------------

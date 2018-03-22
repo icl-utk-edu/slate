@@ -177,7 +177,7 @@ void Trace::printProcEvents(int mpi_rank, int mpi_size,
 {
     double y = mpi_rank * num_threads_ * vscale_;
     double height = 0.9 * vscale_;
-    double stroke_width = vscale_ / 50.0;
+    double stroke_width = vscale_ / 500.0;
 
     for (auto thread : events_) {
         for (auto event : thread) {

@@ -17,7 +17,7 @@ top ?= .
 -include ${top}/make.inc
 
 CXXFLAGS += -O3 -std=c++11 -Wall -pedantic -MMD
-CXXFLAGS += -Wno-strict-overflow -Wsign-compare
+CXXFLAGS += -Wno-strict-overflow -Wsign-compare -Wno-format
 
 #-------------------------------------------------------------------------------
 # if shared

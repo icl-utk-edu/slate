@@ -54,12 +54,13 @@ namespace internal {
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// General matrix multiply to update trailing matrix,
-/// where A is a single block column and B is a single block row.
+/// Symmetric matrix multiply to update trailing matrix,
+/// where A is a single tile.
+/// If side = left,  B and C are each a single block row;
+/// if side = right, B and C are each a single block col.
+/// Unlike most BLAS operations, here op(B) and op(C) must be
+/// both the same, either both NoTrans or both Trans.
 /// Dispatches to target implementations.
-/// In the complex case,
-/// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conj_transpose;
-/// if $op(C)$ is conj_transpose, then $op(A)$ and $op(B)$ cannot be transpose.
 template <Target target, typename scalar_t>
 void symm(Side side,
           scalar_t alpha, SymmetricMatrix< scalar_t >&& A,
@@ -67,13 +68,21 @@ void symm(Side side,
           scalar_t beta,  Matrix< scalar_t >&& C,
           int priority)
 {
-    /// if (C.is_complex &&
-    ///     ((C.op() == Op::Trans && (A.op() == Op::ConjTrans || B.op() == Op::ConjTrans)) ||
-    ///      (C.op() == Op::ConjTrans && (A.op() == Op::Trans || B.op() == Op::Trans))))
-    /// {
-    ///     throw std::exception();
-    /// }
-    ///
+    // check dimensions
+    assert(A.mt() == 1);
+    assert(A.nt() == 1);
+    if (side == Side::Left) {
+        assert(B.mt() == 1);
+        assert(C.mt() == 1);
+        assert(B.nt() == C.nt());
+    }
+    else {
+        assert(B.nt() == 1);
+        assert(C.nt() == 1);
+        assert(B.mt() == C.mt());
+    }
+    assert(B.op() == C.op());
+
     symm(internal::TargetType<target>(),
          side,
          alpha, A,
@@ -84,8 +93,7 @@ void symm(Side side,
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// Symmetric matrix multiply to update trailing matrix,
-/// where A is a single block column and B is a single block row.
+/// Symmetric matrix multiply to update trailing matrix.
 /// Host OpenMP task implementation.
 template <typename scalar_t>
 void symm(internal::TargetType<Target::HostTask>,
@@ -95,16 +103,8 @@ void symm(internal::TargetType<Target::HostTask>,
           scalar_t beta,  Matrix< scalar_t >& C,
           int priority)
 {
-    // check dimensions
-    assert(A.mt() == 1);
-    assert(A.nt() == 1);
-    assert(B.mt() == 1);
-    assert(A.mt() == C.mt());
-    assert(B.nt() == C.nt());
-
     int err = 0;
     if (side == Side::Left) {
-        assert(B.mt() == 1);
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(0, j)) {
                 #pragma omp task shared(A, B, C, err) priority(priority)
@@ -129,7 +129,6 @@ void symm(internal::TargetType<Target::HostTask>,
     }
     else {
         // side == Right
-        assert(B.nt() == 1);
         for (int64_t i = 0; i < C.mt(); ++i) {
             if (C.tileIsLocal(i, 0)) {
                 #pragma omp task shared(A, B, C, err) priority(priority)
@@ -162,8 +161,7 @@ void symm(internal::TargetType<Target::HostTask>,
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// General matrix multiply to update trailing matrix,
-/// where A is a single block column and B is a single block row.
+/// Symmetric matrix multiply to update trailing matrix.
 /// Host nested OpenMP implementation.
 template <typename scalar_t>
 void symm(internal::TargetType<Target::HostNest>,
@@ -173,341 +171,59 @@ void symm(internal::TargetType<Target::HostNest>,
           scalar_t beta,  Matrix< scalar_t >& C,
           int priority)
 {
-    /// // check dimensions
-    /// assert(A.nt() == 1);
-    /// assert(B.mt() == 1);
-    /// assert(A.mt() == C.mt());
-    /// assert(B.nt() == C.nt());
-    ///
-    /// int err = 0;
-//  /// #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
-    /// #pragma omp parallel for collapse(2) schedule(dynamic, 1) shared(err)
-    /// for (int64_t i = 0; i < C.mt(); ++i) {
-    ///     for (int64_t j = 0; j < C.nt(); ++j) {
-    ///         if (C.tileIsLocal(i, j)) {
-    ///             try {
-    ///                 A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
-    ///                 B.tileCopyToHost(0, j, B.tileDevice(0, j));
-    ///                 C.tileMoveToHost(i, j, C.tileDevice(i, j));
-    ///                 symm(alpha, A(i, 0),
-    ///                             B(0, j),
-    ///                      beta,  C(i, j));
-    ///                 A.tileTick(i, 0);
-    ///                 B.tileTick(0, j);
-    ///             }
-    ///             catch (std::exception& e) {
-    ///                 err = __LINE__;
-    ///             }
-    ///         }
-    ///     }
-    /// }
-    ///
-    /// #pragma omp taskwait
-    ///
-    /// if (err) {
-    ///     throw std::exception();
-    /// }
-}
+    int err = 0;
+    if (side == Side::Left) {
+        #pragma omp parallel for schedule(dynamic, 1) shared(err)
+        for (int64_t j = 0; j < C.nt(); ++j) {
+            if (C.tileIsLocal(0, j)) {
+                try {
+                    A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
+                    B.tileCopyToHost(0, j, B.tileDevice(0, j));
+                    C.tileMoveToHost(0, j, C.tileDevice(0, j));
+                    symm(side,
+                         alpha, A(0, 0),
+                                B(0, j),
+                         beta,  C(0, j));
+                    A.tileTick(0, 0);
+                    B.tileTick(0, j);
+                }
+                catch (std::exception& e) {
+                    err = __LINE__;
+                }
+            }
+        }
+    }
+    else {
+        // side == Right
+        #pragma omp parallel for schedule(dynamic, 1) shared(err)
+        for (int64_t i = 0; i < C.mt(); ++i) {
+            if (C.tileIsLocal(i, 0)) {
+                #pragma omp task shared(A, B, C, err) priority(priority)
+                {
+                    try {
+                        A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
+                        B.tileCopyToHost(i, 0, B.tileDevice(i, 0));
+                        C.tileMoveToHost(i, 0, C.tileDevice(i, 0));
+                        symm(side,
+                             alpha, A(0, 0),
+                                    B(i, 0),
+                             beta,  C(i, 0));
+                        A.tileTick(0, 0);
+                        B.tileTick(i, 0);
+                    }
+                    catch (std::exception& e) {
+                        err = __LINE__;
+                    }
+                }
+            }
+        }
+    }
 
-///-----------------------------------------------------------------------------
-/// \brief
-/// General matrix multiply to update trailing matrix,
-/// where A is a single block col (mt tiles by 1 tile)
-/// and   B is a single block row (1 tile by nt tiles)
-/// and   C is mt tiles by nt tiles.
-/// Host batched implementation.
-template <typename scalar_t>
-void symm(internal::TargetType<Target::HostBatch>,
-          Side side,
-          scalar_t alpha, SymmetricMatrix< scalar_t >& A,
-                          Matrix< scalar_t >& B,
-          scalar_t beta,  Matrix< scalar_t >& C,
-          int priority)
-{
-    /// using blas::conj;
-    /// using std::swap;
-    ///
-    /// // check dimensions
-    /// assert(A.nt() == 1);
-    /// assert(B.mt() == 1);
-    /// assert(A.mt() == C.mt());
-    /// assert(B.nt() == C.nt());
-    ///
-    /// // load off-diagonal tiles to host, if not there
-    /// // also count tiles
-    /// int batch_count = 0;
-    /// for (int64_t i = 0; i < C.mt(); ++i) {
-    ///     for (int64_t j = 0; j < C.nt(); ++j) {
-    ///         if (C.tileIsLocal(i, j)) {
-    ///             A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
-    ///             B.tileCopyToHost(0, j, B.tileDevice(0, j));
-    ///             C.tileMoveToHost(i, j, C.tileDevice(i, j));
-    ///             ++batch_count;
-    ///         }
-    ///     }
-    /// }
-    ///
-    /// if (batch_count > 0) {
-    ///     // if op(C) is NoTrans, invert opA, opB if possible
-    ///     Op opA = A.op();
-    ///     if (C.op() != Op::NoTrans) {
-    ///         if (opA == Op::NoTrans)
-    ///             opA = C.op();
-    ///         else if (A.op() == C.op() || C.is_real)
-    ///             // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
-    ///             opA = Op::NoTrans;
-    ///         else {
-    ///             throw std::exception();
-    ///         }
-    ///     }
-    ///
-    ///     Op opB = B.op();
-    ///     if (C.op() != Op::NoTrans) {
-    ///         if (opB == Op::NoTrans)
-    ///             opB = C.op();
-    ///         else if (opB == C.op() || C.is_real)
-    ///             // B and C are both Trans or both ConjTrans; Trans == ConjTrans if real
-    ///             opB = Op::NoTrans;
-    ///         else {
-    ///             throw std::exception();
-    ///         }
-    ///     }
-    ///
-    ///     if (C.op() == Op::ConjTrans) {
-    ///         alpha = conj( alpha );
-    ///         beta  = conj( beta  );
-    ///     }
-    ///
-    ///     std::vector< CBLAS_TRANSPOSE > opA_array( batch_count, cblas_trans_const( opA ));  // all same
-    ///     std::vector< CBLAS_TRANSPOSE > opB_array( batch_count, cblas_trans_const( opB ));  // all same
-    ///     std::vector< int > m_array( batch_count );
-    ///     std::vector< int > n_array( batch_count );
-    ///     std::vector< int > k_array( batch_count );
-    ///     std::vector< scalar_t > alpha_array( batch_count, alpha );  // all same
-    ///     std::vector< scalar_t >  beta_array( batch_count,  beta );  // all same
-    ///     std::vector< const scalar_t* > a_array( batch_count );
-    ///     std::vector< const scalar_t* > b_array( batch_count );
-    ///     std::vector< scalar_t* > c_array( batch_count );
-    ///     std::vector< int > lda_array( batch_count );
-    ///     std::vector< int > ldb_array( batch_count );
-    ///     std::vector< int > ldc_array( batch_count );
-    ///     std::vector< int > group_size( batch_count, 1 );  // all same
-    ///
-    ///     int index = 0;
-    ///     for (int64_t i = 0; i < C.mt(); ++i) {
-    ///         for (int64_t j = 0; j < C.nt(); ++j) {
-    ///             if (C.tileIsLocal(i, j)) {
-    ///                 m_array[ index ] = C(i, j).mb();
-    ///                 n_array[ index ] = C(i, j).nb();
-    ///                 k_array[ index ] = A(i, 0).nb();  // should be all same
-    ///
-    ///                 assert( A(i, 0).mb() == m_array[ index ] );
-    ///                 assert( B(0, j).nb() == n_array[ index ] );
-    ///                 assert( B(0, j).mb() == k_array[ index ] );
-    ///
-    ///                 a_array[ index ] = A(i, 0).data();
-    ///                 b_array[ index ] = B(0, j).data();
-    ///                 c_array[ index ] = C(i, j).data();
-    ///
-    ///                 lda_array[ index ] = A(i, 0).stride();
-    ///                 ldb_array[ index ] = B(0, j).stride();
-    ///                 ldc_array[ index ] = C(i, j).stride();
-    ///
-    ///                 ++index;
-    ///             }
-    ///         }
-    ///     }
-    ///
-    ///     if (C.op() != Op::NoTrans) {
-    ///         // swap A <=> B; swap m <=> n
-    ///         swap( opA_array, opB_array );
-    ///         swap( a_array,   b_array   );
-    ///         swap( lda_array, ldb_array );
-    ///         swap( m_array,   n_array   );
-    ///     }
-    ///
-    ///     {
-    ///         trace::Block trace_block("cblas_dsymm_batch");
-    ///         #ifdef SLATE_WITH_MKL
-    ///             // mkl_set_num_threads_local(...);
-    ///             cblas_symm_batch(
-    ///                 CblasColMajor,
-    ///                 opA_array.data(), opB_array.data(),
-    ///                 m_array.data(), n_array.data(), k_array.data(),
-    ///                 alpha_array.data(), a_array.data(), lda_array.data(),
-    ///                                     b_array.data(), ldb_array.data(),
-    ///                 beta_array.data(),  c_array.data(), ldc_array.data(),
-    ///                 batch_count, group_size.data());
-    ///             // mkl_set_num_threads_local(1);
-    ///         #else
-    ///             assert(false);
-    ///         #endif
-    ///     }
-    ///
-    ///     for (int64_t i = 0; i < C.mt(); ++i) {
-    ///         for (int64_t j = 0; j < C.nt(); ++j) {
-    ///             if (C.tileIsLocal(i, j)) {
-    ///                 A.tileTick(i, 0);
-    ///                 B.tileTick(0, j);
-    ///             }
-    ///         }
-    ///     }
-    /// }
-    ///
-    /// #pragma omp taskwait
-}
+    #pragma omp taskwait
 
-///-----------------------------------------------------------------------------
-/// \brief
-/// General matrix multiply to update trailing matrix,
-/// where A is a single block column and B is a single block row.
-/// GPU device batched cuBLAS implementation.
-template <typename scalar_t>
-void symm(internal::TargetType<Target::Devices>,
-          Side side,
-          scalar_t alpha, SymmetricMatrix< scalar_t >& A,
-                          Matrix< scalar_t >& B,
-          scalar_t beta,  Matrix< scalar_t >& C,
-          int priority)
-{
-    /// using blas::conj;
-    /// using std::swap;
-    ///
-    /// // check dimensions
-    /// assert(A.nt() == 1);
-    /// assert(B.mt() == 1);
-    /// assert(A.mt() == C.mt());
-    /// assert(B.nt() == C.nt());
-    ///
-    /// int err = 0;
-    /// for (int device = 0; device < C.num_devices(); ++device) {
-    ///     #pragma omp task shared(A, B, C, err) priority(priority)
-    ///     {
-    ///         // if op(C) is NoTrans, invert opA, opB if possible
-    ///         Op opA = A.op();
-    ///         if (C.op() != Op::NoTrans) {
-    ///             if (opA == Op::NoTrans)
-    ///                 opA = C.op();
-    ///             else if (A.op() == C.op() || C.is_real)
-    ///                 // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
-    ///                 opA = Op::NoTrans;
-    ///             else {
-    ///                 err = __LINE__;  // ConjNoTrans not supported
-    ///             }
-    ///         }
-    ///
-    ///         Op opB = B.op();
-    ///         if (C.op() != Op::NoTrans) {
-    ///             if (opB == Op::NoTrans)
-    ///                 opB = C.op();
-    ///             else if (opB == C.op() || C.is_real)
-    ///                 // B and C are both Trans or both ConjTrans; Trans == ConjTrans if real
-    ///                 opB = Op::NoTrans;
-    ///             else {
-    ///                 err = __LINE__;  // ConjNoTrans not supported
-    ///             }
-    ///         }
-    ///
-    ///         if (C.op() == Op::ConjTrans) {
-    ///             alpha = conj( alpha );
-    ///             beta  = conj( beta  );
-    ///         }
-    ///
-    ///         scalar_t** a_array_host = C.a_array_host(device);
-    ///         scalar_t** b_array_host = C.b_array_host(device);
-    ///         scalar_t** c_array_host = C.c_array_host(device);
-    ///
-    ///         int64_t batch_count = 0;
-    ///         for (int64_t i = 0; i < C.mt(); ++i) {
-    ///             for (int64_t j = 0; j < C.nt(); ++j) {
-    ///                 if (C.tileIsLocal(i, j)) {
-    ///                     if (device == C.tileDevice(i, j)) {
-    ///                         A.tileCopyToDevice(i, 0, device);
-    ///                         B.tileCopyToDevice(0, j, device);
-    ///                         C.tileMoveToDevice(i, j, device);
-    ///                         a_array_host[ batch_count ] = A(i, 0, device).data();
-    ///                         b_array_host[ batch_count ] = B(0, j, device).data();
-    ///                         c_array_host[ batch_count ] = C(i, j, device).data();
-    ///                         ++batch_count;
-    ///                     }
-    ///                 }
-    ///             }
-    ///         }
-    ///
-    ///         if (C.op() != Op::NoTrans) {
-    ///             // swap A <=> B; swap m <=> n
-    ///             swap( opA, opB );
-    ///             swap( a_array_host, b_array_host );
-    ///             //swap( lda, ldb );  // todo: assumed to be nb
-    ///             //swap( m, n );      // todo: assumed to be nb
-    ///         }
-    ///
-    ///         scalar_t** a_array_dev = C.a_array_device(device);
-    ///         scalar_t** b_array_dev = C.b_array_device(device);
-    ///         scalar_t** c_array_dev = C.c_array_device(device);
-    ///
-    ///         cudaError_t error;
-    ///         error = cudaSetDevice(device);
-    ///         assert(error == cudaSuccess);
-    ///
-    ///         // cublas_handle uses this stream
-    ///         cudaStream_t stream = C.compute_stream(device);
-    ///         cublasHandle_t cublas_handle = C.cublas_handle(device);
-    ///
-    ///         error = cudaMemcpyAsync(a_array_dev, a_array_host,
-    ///                                 sizeof(scalar_t*)*batch_count,
-    ///                                 cudaMemcpyHostToDevice,
-    ///                                 stream);
-    ///         assert(error == cudaSuccess);
-    ///
-    ///         error = cudaMemcpyAsync(b_array_dev, b_array_host,
-    ///                                 sizeof(scalar_t*)*batch_count,
-    ///                                 cudaMemcpyHostToDevice,
-    ///                                 stream);
-    ///         assert(error == cudaSuccess);
-    ///
-    ///         error = cudaMemcpyAsync(c_array_dev, c_array_host,
-    ///                                 sizeof(scalar_t*)*batch_count,
-    ///                                 cudaMemcpyHostToDevice,
-    ///                                 stream);
-    ///         assert(error == cudaSuccess);
-    ///
-    ///         {
-    ///             trace::Block trace_block("cublasDsymmBatched");
-    ///             // todo: assumes all tiles are allocated nb-by-nb with stride nb
-    ///             int nb = C.tileMb(0);
-    ///             cublasStatus_t status =
-    ///                 cublasSymmBatched(
-    ///                     cublas_handle,  // uses stream
-    ///                     cublas_op_const( opA ), cublas_op_const( opB ),
-    ///                     nb, nb, nb,
-    ///                     &alpha, (const scalar_t**) a_array_dev, nb,
-    ///                             (const scalar_t**) b_array_dev, nb,
-    ///                     &beta,  c_array_dev, nb,
-    ///                     batch_count);
-    ///             assert(status == CUBLAS_STATUS_SUCCESS);
-    ///             error = cudaStreamSynchronize(stream);
-    ///             assert(error == cudaSuccess);
-    ///         }
-    ///
-    ///         for (int64_t i = 0; i < C.mt(); ++i) {
-    ///             for (int64_t j = 0; j < C.nt(); ++j) {
-    ///                 if (C.tileIsLocal(i, j)) {
-    ///                     if (device == C.tileDevice(i, j)) {
-    ///                         A.tileTick(i, 0);
-    ///                         B.tileTick(0, j);
-    ///                     }
-    ///                 }
-    ///             }
-    ///         }
-    ///     }
-    /// }
-    ///
-    /// #pragma omp taskwait
-    ///
-    /// if (err) {
-    ///     throw std::exception();
-    /// }
+    if (err) {
+        throw std::exception();
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -523,22 +239,6 @@ void symm< Target::HostTask, float >(
 
 template
 void symm< Target::HostNest, float >(
-    Side side,
-    float alpha, SymmetricMatrix< float >&& A,
-                 Matrix< float >&& B,
-    float beta,  Matrix< float >&& C,
-    int priority);
-
-template
-void symm< Target::HostBatch, float >(
-    Side side,
-    float alpha, SymmetricMatrix< float >&& A,
-                 Matrix< float >&& B,
-    float beta,  Matrix< float >&& C,
-    int priority);
-
-template
-void symm< Target::Devices, float >(
     Side side,
     float alpha, SymmetricMatrix< float >&& A,
                  Matrix< float >&& B,
@@ -562,22 +262,6 @@ void symm< Target::HostNest, double >(
     double beta,  Matrix< double >&& C,
     int priority);
 
-template
-void symm< Target::HostBatch, double >(
-    Side side,
-    double alpha, SymmetricMatrix< double >&& A,
-                  Matrix< double >&& B,
-    double beta,  Matrix< double >&& C,
-    int priority);
-
-template
-void symm< Target::Devices, double >(
-    Side side,
-    double alpha, SymmetricMatrix< double >&& A,
-                  Matrix< double >&& B,
-    double beta,  Matrix< double >&& C,
-    int priority);
-
 // ----------------------------------------
 template
 void symm< Target::HostTask, std::complex<float> >(
@@ -595,22 +279,6 @@ void symm< Target::HostNest, std::complex<float> >(
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
     int priority);
 
-template
-void symm< Target::HostBatch, std::complex<float> >(
-    Side side,
-    std::complex<float> alpha, SymmetricMatrix< std::complex<float> >&& A,
-                               Matrix< std::complex<float> >&& B,
-    std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int priority);
-
-template
-void symm< Target::Devices, std::complex<float> >(
-    Side side,
-    std::complex<float> alpha, SymmetricMatrix< std::complex<float> >&& A,
-                               Matrix< std::complex<float> >&& B,
-    std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int priority);
-
 // ----------------------------------------
 template
 void symm< Target::HostTask, std::complex<double> >(
@@ -622,22 +290,6 @@ void symm< Target::HostTask, std::complex<double> >(
 
 template
 void symm< Target::HostNest, std::complex<double> >(
-    Side side,
-    std::complex<double> alpha, SymmetricMatrix< std::complex<double> >&& A,
-                                Matrix< std::complex<double> >&& B,
-    std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int priority);
-
-template
-void symm< Target::HostBatch, std::complex<double> >(
-    Side side,
-    std::complex<double> alpha, SymmetricMatrix< std::complex<double> >&& A,
-                                Matrix< std::complex<double> >&& B,
-    std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int priority);
-
-template
-void symm< Target::Devices, std::complex<double> >(
     Side side,
     std::complex<double> alpha, SymmetricMatrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,

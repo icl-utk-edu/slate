@@ -142,7 +142,7 @@ void symm(slate::internal::TargetType<target>,
             #pragma omp task depend(in:bcast[0]) \
                              depend(out:gemm[0])
             {
-                internal::symm<Target::HostTask>(  // todo: target
+                internal::symm<Target::HostTask>(
                     Side::Left,
                     alpha, A.sub(0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
@@ -194,7 +194,7 @@ void symm(slate::internal::TargetType<target>,
                                        B.sub(k, k, 0, B.nt()-1),
                         scalar_t(1.0), C.sub(0, k-1, 0, C.nt()-1));
 
-                    internal::symm<Target::HostTask>(  // todo: target
+                    internal::symm<Target::HostTask>(
                         Side::Left,
                         alpha,          A.sub(k, k),
                                         B.sub(k, k, 0, B.nt()-1),
@@ -254,7 +254,7 @@ void symm(slate::internal::TargetType<target>,
             #pragma omp task depend(in:bcast[0]) \
                              depend(out:gemm[0])
             {
-                internal::symm<Target::HostTask>(  // todo: target
+                internal::symm<Target::HostTask>(
                     Side::Left,
                     alpha, A.sub(0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
@@ -306,7 +306,7 @@ void symm(slate::internal::TargetType<target>,
                                        B.sub(k, k, 0, B.nt()-1),
                         scalar_t(1.0), C.sub(0, k-1, 0, C.nt()-1));
 
-                    internal::symm<Target::HostTask>(  // todo: target
+                    internal::symm<Target::HostTask>(
                         Side::Left,
                         alpha,          A.sub(k, k),
                                         B.sub(k, k, 0, B.nt()-1),

@@ -142,6 +142,9 @@ void trsm(slate::internal::TargetType<target>,
                 }
 
                 // trailing update, B(k+1+la:mt-1, :) -= A(k+1+la:mt-1, k) B(k, :)
+                // Updates rows k+1+la to mt-1, but two depends are sufficient:
+                // depend on k+1+la is all that is needed in next iteration;
+                // depend on mt-1 daisy chains all the trailing updates.
                 if (k+1+lookahead < mt) {
                     #pragma omp task depend(in:row[k]) \
                                      depend(inout:row[k+1+lookahead]) \
@@ -199,6 +202,9 @@ void trsm(slate::internal::TargetType<target>,
                 }
 
                 // trailing update, B(0:k-1-la, :) -= A(0:k-1-la, k) B(k, :)
+                // Updates rows 0 to k-1-la, but two depends are sufficient:
+                // depend on k-1-la is all that is needed in next iteration;
+                // depend on 0 daisy chains all the trailing updates.
                 if (k-1-lookahead >= 0) {
                     #pragma omp task depend(in:row[k]) \
                                      depend(inout:row[k-1-lookahead]) \
@@ -239,6 +245,7 @@ void trsm(blas::Side side, blas::Diag diag,
     int64_t lookahead;
     try {
         lookahead = opts.at(Option::Lookahead).i_;
+        assert(lookahead >= 0);
     }
     catch (std::out_of_range) {
         lookahead = 1;

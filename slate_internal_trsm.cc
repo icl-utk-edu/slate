@@ -81,7 +81,7 @@ void trsm(internal::TargetType<Target::HostTask>,
         assert(B.nt() == 1);
         for (int64_t i = 0; i < B.mt(); ++i) {
             if (B.tileIsLocal(i, 0)) {
-                #pragma omp task shared(A, B)
+                #pragma omp task shared(A, B) priority(priority)
                 {
                     A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
                     B.tileMoveToHost(i, 0, B.tileDevice(i, 0));
@@ -97,7 +97,7 @@ void trsm(internal::TargetType<Target::HostTask>,
         assert(B.mt() == 1);
         for (int64_t j = 0; j < B.nt(); ++j) {
             if (B.tileIsLocal(0, j)) {
-                #pragma omp task shared(A, B)
+                #pragma omp task shared(A, B) priority(priority)
                 {
                     A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
                     B.tileMoveToHost(0, j, B.tileDevice(0, j));

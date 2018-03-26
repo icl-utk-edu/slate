@@ -97,50 +97,118 @@ void trsm(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
-        for (int64_t k = 0; k < mt; ++k) {
-            scalar_t alph = k == 0 ? alpha : scalar_t(1.0);
+        if ((A.uplo() == Uplo::Lower && A.op() == Op::NoTrans) ||
+            (A.uplo() == Uplo::Upper && A.op() != Op::NoTrans)) {
+            // ----------------------------------------
+            // Lower/NoTrans or Upper/Trans, Left case
+            // Forward sweep
+            for (int64_t k = 0; k < mt; ++k) {
+                scalar_t alph = k == 0 ? alpha : scalar_t(1.0);
 
-            #pragma omp task depend(inout:row[k]) priority(1)
-            {
-                A.template tileBcast<target>(
-                    k, k, B.sub(k, k, 0, nt-1));
-
-                internal::trsm<Target::HostTask>(
-                    Side::Left, diag,
-                    alph, A.sub(k, k),
-                          B.sub(k, k, 0, nt-1), 1);
-
-                for (int64_t i = k+1; i < mt; ++i)
-                    A.template tileBcast(
-                        i, k, B.sub(i, i, 0, nt-1));
-
-                for (int64_t j = 0; j < nt; ++j)
-                    B.template tileBcast(
-                        k, j, B.sub(k, mt-1, j, j));
-            }
-
-            for (int64_t i = k+1; i < k+1+lookahead && i < mt; ++i) {
-
-                #pragma omp task depend(in:row[k]) \
-                                 depend(inout:row[i]) priority(1)
+                // panel (Akk tile)
+                #pragma omp task depend(inout:row[k]) priority(1)
                 {
-                    internal::gemm<Target::HostTask>(
-                        scalar_t(-1.0), A.sub(i, i, k, k),
-                                        B.sub(k, k, 0, nt-1),
-                        alph,           B.sub(i, i, 0, nt-1), 1);
+                    // send A(k, k) to ranks owning block row B(k, :)
+                    A.template tileBcast<target>(
+                        k, k, B.sub(k, k, 0, nt-1));
+
+                    // solve A(k, k) B(k, :) = alpha B(k, :)
+                    internal::trsm<Target::HostTask>(
+                        Side::Left, diag,
+                        alph, A.sub(k, k),
+                              B.sub(k, k, 0, nt-1), 1);
+
+                    // send A(i=k+1:mt-1, k) to ranks owning block row B(i, :)
+                    for (int64_t i = k+1; i < mt; ++i)
+                        A.template tileBcast(
+                            i, k, B.sub(i, i, 0, nt-1));
+
+                    // send B(k, j=0:nt-1) to ranks owning block col B(k+1:mt-1, j)
+                    for (int64_t j = 0; j < nt; ++j)
+                        B.template tileBcast(
+                            k, j, B.sub(k+1, mt-1, j, j));
                 }
-            }
 
-            if (k+1+lookahead < mt) {
+                // lookahead update, B(k+1:k+la, :) -= A(k+1:k+la, k) B(k, :)
+                for (int64_t i = k+1; i < k+1+lookahead && i < mt; ++i) {
+                    #pragma omp task depend(in:row[k]) \
+                                     depend(inout:row[i]) priority(1)
+                    {
+                        internal::gemm<Target::HostTask>(
+                            scalar_t(-1.0), A.sub(i, i, k, k),
+                                            B.sub(k, k, 0, nt-1),
+                            alph,           B.sub(i, i, 0, nt-1), 1);
+                    }
+                }
 
+                // trailing update, B(k+1+la:mt-1, :) -= A(k+1+la:mt-1, k) B(k, :)
+                if (k+1+lookahead < mt) {
                     #pragma omp task depend(in:row[k]) \
                                      depend(inout:row[k+1+lookahead]) \
                                      depend(inout:row[mt-1])
+                    {
+                        internal::gemm<target>(
+                            scalar_t(-1.0), A.sub(k+1+lookahead, mt-1, k, k),
+                                            B.sub(k, k, 0, nt-1),
+                            alph,           B.sub(k+1+lookahead, mt-1, 0, nt-1));
+                    }
+                }
+            }
+        }
+        else {
+            // ----------------------------------------
+            // Upper/NoTrans or Lower/Trans, Left case
+            // Backward sweep
+            for (int64_t k = mt-1; k >= 0; --k) {
+                scalar_t alph = k == (mt-1) ? alpha : scalar_t(1.0);
+
+                // panel (Akk tile)
+                #pragma omp task depend(inout:row[k]) priority(1)
                 {
-                    internal::gemm<target>(
-                        scalar_t(-1.0), A.sub(k+1+lookahead, mt-1, k, k),
-                                        B.sub(k, k, 0, nt-1),
-                        alph,           B.sub(k+1+lookahead, mt-1, 0, nt-1));
+                    // send A(k, k) to ranks owning block row B(k, :)
+                    A.template tileBcast<target>(
+                        k, k, B.sub(k, k, 0, nt-1));
+
+                    // solve A(k, k) B(k, :) = alpha B(k, :)
+                    internal::trsm<Target::HostTask>(
+                        Side::Left, diag,
+                        alph, A.sub(k, k),
+                              B.sub(k, k, 0, nt-1), 1);
+
+                    // send A(i=0:k-1, k) to ranks owning block row B(i, :)
+                    for (int64_t i = 0; i < k; ++i)
+                        A.template tileBcast(
+                            i, k, B.sub(i, i, 0, nt-1));
+
+                    // send B(k, j=0:nt-1) to ranks owning block col B(0:k-1, j)
+                    for (int64_t j = 0; j < nt; ++j)
+                        B.template tileBcast(
+                            k, j, B.sub(0, k-1, j, j));
+                }
+
+                // lookahead update, B(k-la:k-1, :) -= A(k-la:k-1, k) B(k, :)
+                for (int64_t i = k-1; i > k-1-lookahead && i >= 0; --i) {
+                    #pragma omp task depend(in:row[k]) \
+                                     depend(inout:row[i]) priority(1)
+                    {
+                        internal::gemm<Target::HostTask>(
+                            scalar_t(-1.0), A.sub(i, i, k, k),
+                                            B.sub(k, k, 0, nt-1),
+                            alph,           B.sub(i, i, 0, nt-1), 1);
+                    }
+                }
+
+                // trailing update, B(0:k-1-la, :) -= A(0:k-1-la, k) B(k, :)
+                if (k-1-lookahead >= 0) {
+                    #pragma omp task depend(in:row[k]) \
+                                     depend(inout:row[k-1-lookahead]) \
+                                     depend(inout:row[0])
+                    {
+                        internal::gemm<target>(
+                            scalar_t(-1.0), A.sub(0, k-1-lookahead, k, k),
+                                            B.sub(k, k, 0, nt-1),
+                            alph,           B.sub(0, k-1-lookahead, 0, nt-1));
+                    }
                 }
             }
         }

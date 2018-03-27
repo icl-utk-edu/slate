@@ -88,13 +88,44 @@ public:
     {}
 
     ///-------------------------------------------------------------------------
-    /// Construct matrix by wrapping existing memory of an m-by-n matrix.
+    /// Named constructor returns new Matrix.
+    /// Construct matrix by wrapping existing memory of an m-by-n LAPACK matrix.
     /// The caller must ensure that the memory remains valid for the lifetime
     /// of the Matrix object and any shallow copies of it.
     /// Input format is an LAPACK-style column-major matrix with leading
-    /// dimension (column stride) ld >= m.
+    /// dimension (column stride) lda >= m.
     /// Matrix gets tiled with square nb-by-nb tiles.
-    Matrix(int64_t m, int64_t n, scalar_t* A, int64_t ld, int64_t nb,
+    static
+    Matrix fromLAPACK(int64_t m, int64_t n,
+                      scalar_t* A, int64_t lda, int64_t nb,
+                      int p, int q, MPI_Comm mpi_comm)
+    {
+        return Matrix(m, n, A, lda, nb, p, q, mpi_comm);
+    }
+
+    ///-------------------------------------------------------------------------
+    /// Named constructor returns new Matrix.
+    /// Construct matrix by wrapping existing memory of an m-by-n ScaLAPACK matrix.
+    /// The caller must ensure that the memory remains valid for the lifetime
+    /// of the Matrix object and any shallow copies of it.
+    /// Input format is a ScaLAPACK-style 2D block-cyclic column-major matrix
+    /// with local leading dimension (column stride) lda,
+    /// p block rows and q block columns.
+    /// Matrix gets tiled with square nb-by-nb tiles.
+    static
+    Matrix fromScaLAPACK(int64_t m, int64_t n,
+                         scalar_t* A, int64_t lda, int64_t nb,
+                         int p, int q, MPI_Comm mpi_comm)
+    {
+        // note extra nb
+        return Matrix(m, n, A, lda, nb, nb, p, q, mpi_comm);
+    }
+
+    ///-------------------------------------------------------------------------
+    /// @see fromLAPACK
+    /// todo: make this protected
+    Matrix(int64_t m, int64_t n,
+           scalar_t* A, int64_t lda, int64_t nb,
            int p, int q, MPI_Comm mpi_comm):
         BaseMatrix< scalar_t >(m, n, nb, p, q, mpi_comm)
     {
@@ -107,7 +138,7 @@ public:
             for (int64_t i = 0; i < this->mt(); ++i) {
                 int64_t ib = this->tileMb(i);
                 if (this->tileIsLocal(i, j)) {
-                    this->tileInsert(i, j, this->host_num_, &A[ ii + jj*ld ], ld);
+                    this->tileInsert(i, j, this->host_num_, &A[ ii + jj*lda ], lda);
                 }
                 ii += ib;
             }
@@ -116,36 +147,35 @@ public:
     }
 
     ///-------------------------------------------------------------------------
-    /// Construct matrix by wrapping existing memory of an m-by-n ScaLAPACK matrix.
-    /// The caller must ensure that the memory remains valid for the lifetime
-    /// of the Matrix object and any shallow copies of it.
-    /// Input format is an ScaLAPACK-style column-major matrix.
-    /// Matrix gets tiled with square nb-by-nb tiles.
-    Matrix(int64_t m, int64_t n, scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
-           int p, int q, int64_t lld_s, MPI_Comm mpi_comm):
-        slate::BaseMatrix< scalar_t >(m, n, nb, p, q, mpi_comm)
-        {
-            // ii, jj are row, col indices
-            // ii_loc and jj_loc are the local array indices in a block-cyclic layout (indxg2l)
-            // i, j are tile (block row, block col) indices
-            int64_t jj = 0;
-            for (int64_t j = 0; j < this->nt(); ++j) {
-                int64_t jb = this->tileNb(j);
-                // Using Scalapack indxg2l
-                int64_t jj_loc = nb*(jj/(nb*p)) + (jj % nb);
-                int64_t ii = 0;
-                for (int64_t i = 0; i < this->mt(); ++i) {
-                    int64_t ib = this->tileMb(i);
-                    if (this->tileIsLocal(i, j)) {
-                        // Using Scalapack indxg2l
-                        int64_t ii_loc = mb*(ii/(mb*q)) + (ii % mb);
-                        this->tileInsert(i, j, this->host_num_, &A[ ii_loc + jj_loc*lld_s ], lda);
-                    }
-                    ii += ib;
+    /// @see fromScaLAPACK
+    /// This differs from LAPACK constructor by adding mb.
+    /// todo: make this protected
+    Matrix(int64_t m, int64_t n,
+           scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
+           int p, int q, MPI_Comm mpi_comm):
+        BaseMatrix< scalar_t >(m, n, nb, p, q, mpi_comm)
+    {
+        // ii, jj are row, col indices
+        // ii_loc and jj_loc are the local array indices in a block-cyclic layout (indxg2l)
+        // i, j are tile (block row, block col) indices
+        int64_t jj = 0;
+        for (int64_t j = 0; j < this->nt(); ++j) {
+            int64_t jb = this->tileNb(j);
+            // Using Scalapack indxg2l
+            int64_t jj_loc = nb*(jj/(nb*q)) + (jj % nb);
+            int64_t ii = 0;
+            for (int64_t i = 0; i < this->mt(); ++i) {
+                int64_t ib = this->tileMb(i);
+                if (this->tileIsLocal(i, j)) {
+                    // Using Scalapack indxg2l
+                    int64_t ii_loc = mb*(ii/(mb*p)) + (ii % mb);
+                    this->tileInsert(i, j, this->host_num_, &A[ ii_loc + jj_loc*lda ], lda);
                 }
-                jj += jb;
+                ii += ib;
             }
+            jj += jb;
         }
+    }
 
     ///-------------------------------------------------------------------------
     /// Sub-matrix constructor creates shallow copy view of parent matrix,
@@ -295,6 +325,8 @@ public:
 template <typename scalar_t>
 class BaseTrapezoidMatrix: public BaseMatrix< scalar_t > {
 public:
+    /// todo: make all constructors protected for Base class?
+
     ///-------------------------------------------------------------------------
     /// Default constructor
     BaseTrapezoidMatrix():
@@ -305,15 +337,15 @@ public:
 
     ///-------------------------------------------------------------------------
     /// Construct matrix by wrapping existing memory of an m-by-n lower
-    /// or upper trapezoidal storage matrix. Triangular, symmetric, and
+    /// or upper trapezoidal storage LAPACK matrix. Triangular, symmetric, and
     /// Hermitian matrices all use this storage scheme (with m = n).
     /// The caller must ensure that the memory remains valid for the lifetime
     /// of the Matrix object and any shallow copies of it.
     /// Input format is an LAPACK-style column-major matrix with leading
-    /// dimension (column stride) ld >= m.
+    /// dimension (column stride) lda >= m.
     /// Matrix gets tiled with square nb-by-nb tiles.
     BaseTrapezoidMatrix(Uplo in_uplo, int64_t m, int64_t n,
-                        scalar_t* A, int64_t ld, int64_t nb,
+                        scalar_t* A, int64_t lda, int64_t nb,
                         int p, int q, MPI_Comm mpi_comm):
         BaseMatrix< scalar_t >(m, n, nb, p, q, mpi_comm)
     {
@@ -331,7 +363,7 @@ public:
                     int64_t ib = this->tileMb(i);
 
                     if (this->tileIsLocal(i, j)) {
-                        this->tileInsert(i, j, this->host_num_, &A[ ii + jj*ld ], ld);
+                        this->tileInsert(i, j, this->host_num_, &A[ ii + jj*lda ], lda);
                     }
                     ii += ib;
                 }
@@ -348,7 +380,71 @@ public:
                     int64_t ib = this->tileMb(i);
 
                     if (this->tileIsLocal(i, j)) {
-                        this->tileInsert(i, j, this->host_num_, &A[ ii + jj*ld ], ld);
+                        this->tileInsert(i, j, this->host_num_, &A[ ii + jj*lda ], lda);
+                    }
+                    ii += ib;
+                }
+                jj += jb;
+            }
+        }
+    }
+
+    ///-------------------------------------------------------------------------
+    /// Construct matrix by wrapping existing memory of an m-by-n lower
+    /// or upper trapezoidal storage ScaLAPACK matrix. Triangular, symmetric, and
+    /// Hermitian matrices all use this storage scheme (with m = n).
+    /// The caller must ensure that the memory remains valid for the lifetime
+    /// of the Matrix object and any shallow copies of it.
+    /// Input format is a ScaLAPACK-style 2D block-cyclic column-major matrix
+    /// with local leading dimension (column stride) lda,
+    /// p block rows and q block columns.
+    /// Matrix gets tiled with square nb-by-nb tiles.
+    /// This differs from LAPACK constructor by adding mb.
+    BaseTrapezoidMatrix(Uplo in_uplo, int64_t m, int64_t n,
+                        scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
+                        int p, int q, MPI_Comm mpi_comm):
+        BaseMatrix< scalar_t >(m, n, nb, p, q, mpi_comm)
+    {
+        this->uplo_ = in_uplo;
+
+        // ii, jj are row, col indices
+        // i, j are tile (block row, block col) indices
+        if (uplo() == Uplo::Lower) {
+            int64_t jj = 0;
+            for (int64_t j = 0; j < this->nt(); ++j) {
+                int64_t jb = this->tileNb(j);
+                // Using Scalapack indxg2l
+                int64_t jj_loc = nb*(jj/(nb*q)) + (jj % nb);
+
+                int64_t ii = j*nb;
+                for (int64_t i = j; i < this->mt(); ++i) {  // lower
+                    int64_t ib = this->tileMb(i);
+                    // Using Scalapack indxg2l
+                    int64_t ii_loc = mb*(ii/(mb*p)) + (ii % mb);
+
+                    if (this->tileIsLocal(i, j)) {
+                        this->tileInsert(i, j, this->host_num_, &A[ ii_loc + jj_loc*lda ], lda);
+                    }
+                    ii += ib;
+                }
+                jj += jb;
+            }
+        }
+        else {  // Upper
+            int64_t jj = 0;
+            for (int64_t j = 0; j < this->nt(); ++j) {
+                int64_t jb = this->tileNb(j);
+                // Using Scalapack indxg2l
+                int64_t jj_loc = nb*(jj/(nb*q)) + (jj % nb);
+
+                int64_t ii = 0;
+                for (int64_t i = 0; i <= j && i < this->mt(); ++i) {  // upper
+                    int64_t ib = this->tileMb(i);
+                    // Using Scalapack indxg2l
+                    int64_t ii_loc = mb*(ii/(mb*p)) + (ii % mb);
+
+                    if (this->tileIsLocal(i, j)) {
+                        this->tileInsert(i, j, this->host_num_, &A[ ii_loc + jj_loc*lda ], lda);
                     }
                     ii += ib;
                 }
@@ -561,13 +657,49 @@ public:
     {}
 
     ///-------------------------------------------------------------------------
+    /// Named constructor returns new TrapezoidMatrix.
     /// Construct matrix by wrapping existing memory of an m-by-n lower
-    /// or upper trapezoidal matrix.
+    /// or upper trapezoidal LAPACK-style matrix.
     /// @see BaseTrapezoidMatrix
+    static
+    TrapezoidMatrix fromLAPACK(Uplo uplo, int64_t m, int64_t n,
+                               scalar_t* A, int64_t lda, int64_t nb,
+                               int p, int q, MPI_Comm mpi_comm)
+    {
+        return TrapezoidMatrix(uplo, m, n, A, lda, nb, p, q, mpi_comm);
+    }
+
+    ///-------------------------------------------------------------------------
+    /// Named constructor returns new TrapezoidMatrix.
+    /// Construct matrix by wrapping existing memory of an m-by-n lower
+    /// or upper trapezoidal ScaLAPACK-style matrix.
+    /// @see BaseTrapezoidMatrix
+    static
+    TrapezoidMatrix fromScaLAPACK(Uplo uplo, int64_t m, int64_t n,
+                                  scalar_t* A, int64_t lda, int64_t nb,
+                                  int p, int q, MPI_Comm mpi_comm)
+    {
+        // note extra nb
+        return TrapezoidMatrix(uplo, m, n, A, lda, nb, nb, p, q, mpi_comm);
+    }
+
+    ///-------------------------------------------------------------------------
+    /// @see fromLAPACK
+    /// todo: make this protected
     TrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
-                    scalar_t* A, int64_t ld, int64_t nb,
+                    scalar_t* A, int64_t lda, int64_t nb,
                     int p, int q, MPI_Comm mpi_comm):
-        BaseTrapezoidMatrix< scalar_t >(uplo, m, n, A, ld, nb, p, q, mpi_comm)
+        BaseTrapezoidMatrix< scalar_t >(uplo, m, n, A, lda, nb, p, q, mpi_comm)
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// @see fromScaLAPACK
+    /// This differs from LAPACK constructor by adding mb.
+    /// todo: make this protected
+    TrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
+                    scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
+                    int p, int q, MPI_Comm mpi_comm):
+        BaseTrapezoidMatrix< scalar_t >(uplo, m, n, A, lda, mb, nb, p, q, mpi_comm)
     {}
 
     ///-------------------------------------------------------------------------
@@ -660,13 +792,49 @@ public:
     {}
 
     ///-------------------------------------------------------------------------
+    /// Named constructor returns new TriangularMatrix.
     /// Construct matrix by wrapping existing memory of an n-by-n lower
-    /// or upper triangular matrix.
+    /// or upper triangular LAPACK-style matrix.
     /// @see BaseTrapezoidMatrix
+    static
+    TriangularMatrix fromLAPACK(Uplo uplo, int64_t n,
+                                scalar_t* A, int64_t lda, int64_t nb,
+                                int p, int q, MPI_Comm mpi_comm)
+    {
+        return TriangularMatrix(uplo, n, A, lda, nb, p, q, mpi_comm);
+    }
+
+    ///-------------------------------------------------------------------------
+    /// Named constructor returns new TrapezoidMatrix.
+    /// Construct matrix by wrapping existing memory of an n-by-n lower
+    /// or upper triangular ScaLAPACK-style matrix.
+    /// @see BaseTrapezoidMatrix
+    static
+    TriangularMatrix fromScaLAPACK(Uplo uplo, int64_t n,
+                                   scalar_t* A, int64_t lda, int64_t nb,
+                                   int p, int q, MPI_Comm mpi_comm)
+    {
+        // note extra nb
+        return TriangularMatrix(uplo, n, A, lda, nb, nb, p, q, mpi_comm);
+    }
+
+    ///-------------------------------------------------------------------------
+    /// @see fromLAPACK
+    /// todo: make this protected
     TriangularMatrix(Uplo uplo, int64_t n,
-                     scalar_t* A, int64_t ld, int64_t nb,
+                     scalar_t* A, int64_t lda, int64_t nb,
                      int p, int q, MPI_Comm mpi_comm):
-        TrapezoidMatrix< scalar_t >(uplo, n, n, A, ld, nb, p, q, mpi_comm)
+        TrapezoidMatrix< scalar_t >(uplo, n, n, A, lda, nb, p, q, mpi_comm)
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// @see fromScaLAPACK
+    /// This differs from LAPACK constructor by adding mb.
+    /// todo: make this protected
+    TriangularMatrix(Uplo uplo, int64_t n,
+                     scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
+                     int p, int q, MPI_Comm mpi_comm):
+        TrapezoidMatrix< scalar_t >(uplo, n, n, A, lda, mb, nb, p, q, mpi_comm)
     {}
 
     ///-------------------------------------------------------------------------
@@ -746,12 +914,46 @@ public:
 
     ///-------------------------------------------------------------------------
     /// Construct matrix by wrapping existing memory of an n-by-n lower
-    /// or upper symmetric matrix.
+    /// or upper symmetric LAPACK matrix.
     /// @see BaseTrapezoidMatrix
+    static
+    SymmetricMatrix fromLAPACK(Uplo uplo, int64_t n,
+                               scalar_t* A, int64_t lda, int64_t nb,
+                               int p, int q, MPI_Comm mpi_comm)
+    {
+        return SymmetricMatrix(uplo, n, A, lda, nb, p, q, mpi_comm);
+    }
+
+    ///-------------------------------------------------------------------------
+    /// Construct matrix by wrapping existing memory of an n-by-n lower
+    /// or upper symmetric ScaLAPACK matrix.
+    /// @see BaseTrapezoidMatrix
+    static
+    SymmetricMatrix fromScaLAPACK(Uplo uplo, int64_t n,
+                                  scalar_t* A, int64_t lda, int64_t nb,
+                                  int p, int q, MPI_Comm mpi_comm)
+    {
+        // note extra nb
+        return SymmetricMatrix(uplo, n, A, lda, nb, nb, p, q, mpi_comm);
+    }
+
+    ///-------------------------------------------------------------------------
+    /// @see fromLAPACK
+    /// todo: make this protected
     SymmetricMatrix(Uplo uplo, int64_t n,
-                    scalar_t* A, int64_t ld, int64_t nb,
+                    scalar_t* A, int64_t lda, int64_t nb,
                     int p, int q, MPI_Comm mpi_comm):
-        BaseTrapezoidMatrix< scalar_t >(uplo, n, n, A, ld, nb, p, q, mpi_comm)
+        BaseTrapezoidMatrix< scalar_t >(uplo, n, n, A, lda, nb, p, q, mpi_comm)
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// @see fromScaLAPACK
+    /// This differs from LAPACK constructor by adding mb.
+    /// todo: make this protected
+    SymmetricMatrix(Uplo uplo, int64_t n,
+                    scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
+                    int p, int q, MPI_Comm mpi_comm):
+        BaseTrapezoidMatrix< scalar_t >(uplo, n, n, A, lda, mb, nb, p, q, mpi_comm)
     {}
 
     ///-------------------------------------------------------------------------
@@ -831,12 +1033,46 @@ public:
 
     ///-------------------------------------------------------------------------
     /// Construct matrix by wrapping existing memory of an n-by-n lower
-    /// or upper Hermitian matrix.
+    /// or upper Hermitian LAPACK-style matrix.
     /// @see BaseTrapezoidMatrix
+    static
+    HermitianMatrix fromLAPACK(Uplo uplo, int64_t n,
+                               scalar_t* A, int64_t lda, int64_t nb,
+                               int p, int q, MPI_Comm mpi_comm)
+    {
+        return HermitianMatrix(uplo, n, A, lda, nb, p, q, mpi_comm);
+    }
+
+    ///-------------------------------------------------------------------------
+    /// Construct matrix by wrapping existing memory of an n-by-n lower
+    /// or upper Hermitian ScaLAPACK-style matrix.
+    /// @see BaseTrapezoidMatrix
+    static
+    HermitianMatrix fromScaLAPACK(Uplo uplo, int64_t n,
+                                  scalar_t* A, int64_t lda, int64_t nb,
+                                  int p, int q, MPI_Comm mpi_comm)
+    {
+        // note extra nb
+        return HermitianMatrix(uplo, n, A, lda, nb, nb, p, q, mpi_comm);
+    }
+
+    ///-------------------------------------------------------------------------
+    /// @see fromLAPACK
+    /// todo: make this protected
     HermitianMatrix(Uplo uplo, int64_t n,
-                    scalar_t* A, int64_t ld, int64_t nb,
+                    scalar_t* A, int64_t lda, int64_t nb,
                     int p, int q, MPI_Comm mpi_comm):
-        BaseTrapezoidMatrix< scalar_t >(uplo, n, n, A, ld, nb, p, q, mpi_comm)
+        BaseTrapezoidMatrix< scalar_t >(uplo, n, n, A, lda, nb, p, q, mpi_comm)
+    {}
+
+    ///-------------------------------------------------------------------------
+    /// @see fromScaLAPACK
+    /// This differs from LAPACK constructor by adding mb.
+    /// todo: make this protected
+    HermitianMatrix(Uplo uplo, int64_t n,
+                    scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
+                    int p, int q, MPI_Comm mpi_comm):
+        BaseTrapezoidMatrix< scalar_t >(uplo, n, n, A, lda, mb, nb, p, q, mpi_comm)
     {}
 
     ///-------------------------------------------------------------------------

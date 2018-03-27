@@ -103,12 +103,19 @@ void test_general( int m, int n, int nb, int p, int q )
     // A is m-by-n
     int lda = int((m + 31)/32)*32;
     double* Ad = new double[ lda*n ];
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    int64_t iseed[] = { 0, 1, 2, 3 };
+    lapack::larnv( 1, iseed, lda*n, Ad );
+    //slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    auto A = slate::Matrix<double>::fromLAPACK(
+                m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     // B is n-by-n
     int ldb = int((n + 31)/32)*32;
     double* Bd = new double[ ldb*n ];
-    slate::Matrix<double> B( n, n, Bd, ldb, nb, p, q, g_mpi_comm );
+    lapack::larnv( 1, iseed, ldb*n, Bd );
+    //slate::Matrix<double> B( n, n, Bd, ldb, nb, p, q, g_mpi_comm );
+    auto B = slate::Matrix<double>::fromLAPACK(
+                n, n, Bd, ldb, nb, p, q, g_mpi_comm );
 
     if (g_mpi_rank == 0) {
         std::cout << "A( m="    << m
@@ -469,7 +476,11 @@ void test_general_sub( int m, int n, int nb, int p, int q )
     // A is m-by-n
     int lda = int((m + 31)/32)*32;
     double* Ad = new double[ lda*n ];
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    int64_t iseed[] = { 0, 1, 2, 3 };
+    lapack::larnv( 1, iseed, lda*n, Ad );
+    //slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    auto A = slate::Matrix<double>::fromLAPACK(
+                m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     int64_t mt = A.mt();
     int64_t nt = A.nt();
@@ -589,7 +600,11 @@ void test_general_send( int m, int n, int nb, int p, int q )
     // A is m-by-n
     int lda = int((m + 31)/32)*32;
     double* Ad = new double[ lda*n ];
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    int64_t iseed[] = { 0, 1, 2, 3 };
+    lapack::larnv( 1, iseed, lda*n, Ad );
+    //slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    auto A = slate::Matrix<double>::fromLAPACK(
+                m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     // -------------------- broadcast A(0,0) to all of A
     test_message( "broadcast A(0,0) to all of A" );
@@ -721,7 +736,11 @@ void test_general_send2( int m, int n, int nb, int p, int q )
     // A is m-by-n
     int lda = int((m + 31)/32)*32;
     double* Ad = new double[ lda*n ];
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    int64_t iseed[] = { 0, 1, 2, 3 };
+    lapack::larnv( 1, iseed, lda*n, Ad );
+    //slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    auto A = slate::Matrix<double>::fromLAPACK(
+                m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     // -------------------- broadcast A(1,1) across row A(1,2:nt) and col A(2:mt,1)
     test_message( "broadcast A(1,1) to A(1,2:nt) and A(2:mt,1)" );
@@ -794,7 +813,9 @@ void test_cuda_streams( int m, int n, int nb, int p, int q )
     for (int j = 0; j < n; ++j)
         for (int i = 0; i < m; ++i)
             Ad[ i + j*lda ] = i + j/1000.;
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    //slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    auto A = slate::Matrix<double>::fromLAPACK(
+                m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     for (int device = 0; device < g_num_devices; ++device) {
         double* devAd;
@@ -869,7 +890,9 @@ void test_batch_arrays( int m, int n, int nb, int p, int q )
     for (int j = 0; j < n; ++j)
         for (int i = 0; i < m; ++i)
             Ad[ i + j*lda ] = i + j/1000.;
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    //slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    auto A = slate::Matrix<double>::fromLAPACK(
+                m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     test_message( "allocateBatchArrays" );
     A.allocateBatchArrays();
@@ -942,7 +965,9 @@ void test_copyToDevice( int m, int n, int nb, int p, int q )
     for (int j = 0; j < n; ++j)
         for (int i = 0; i < m; ++i)
             Ad[ i + j*lda ] = i + j/1000.;
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    //slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    auto A = slate::Matrix<double>::fromLAPACK(
+                m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     for (int device = 0; device < g_num_devices; ++device) {
         if (A.tileIsLocal( 0, 0 )) {
@@ -974,7 +999,9 @@ void test_copyToHost( int m, int n, int nb, int p, int q )
     for (int j = 0; j < n; ++j)
         for (int i = 0; i < m; ++i)
             Ad[ i + j*lda ] = i + j/1000.;
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    //slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    auto A = slate::Matrix<double>::fromLAPACK(
+                m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     // todo: this doesn't test if the tile exists only on device,
     // because that currently doesn't happen: data starts on host and is copied
@@ -1021,7 +1048,9 @@ void test_workspace( int m, int n, int nb, int p, int q )
     for (int j = 0; j < n; ++j)
         for (int i = 0; i < m; ++i)
             Ad[ i + j*lda ] = i + j/1000.;
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    //slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    auto A = slate::Matrix<double>::fromLAPACK(
+                m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     A.reserveHostWorkspace();
     A.reserveDeviceWorkspace();
@@ -1045,12 +1074,15 @@ void test_gather( int m, int n, int nb, int p, int q )
             Bd[ i + j*lda ] = nan("");
         }
     }
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    //slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    auto A = slate::Matrix<double>::fromLAPACK(
+                m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     // -----
     test_message( "gather into A" );
     A.gather( Ad, lda );
 
+    test_message( "check A" );
     if (g_mpi_rank == 0) {
         // loop over tiles
         for (int j = 0; j < A.nt(); ++j) {
@@ -1077,6 +1109,7 @@ void test_gather( int m, int n, int nb, int p, int q )
     test_message( "gather into B" );
     A.gather( Bd, lda );
 
+    test_message( "check B" );
     if (g_mpi_rank == 0) {
         // loop over tiles
         for (int j = 0; j < A.nt(); ++j) {
@@ -1126,7 +1159,9 @@ void test_hermitian_gather( blas::Uplo uplo, int n, int nb, int p, int q )
             Bd[ i + j*lda ] = nan("");
         }
     }
-    slate::HermitianMatrix<double> A( uplo, n, Ad, lda, nb, p, q, g_mpi_comm );
+    //slate::HermitianMatrix<double> A( uplo, n, Ad, lda, nb, p, q, g_mpi_comm );
+    auto A = slate::HermitianMatrix<double>::fromLAPACK(
+                uplo, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     // for lower, set block upper triangle (excluding diagonal tiles) to inf;
     // for upper, set block lower triangle (excluding diagonal tiles) to inf;
@@ -1291,8 +1326,12 @@ void test_hermitian( blas::Uplo uplo, int n, int nb, int p, int q )
     int m = n;
     int lda = int((m + 31)/32)*32;
     double* Ad = new double[ lda*n ];
+    int64_t iseed[] = { 0, 1, 2, 3 };
+    lapack::larnv( 1, iseed, lda*n, Ad );
 
-    slate::HermitianMatrix<double> A( uplo, n, Ad, lda, nb, p, q, g_mpi_comm );
+    //slate::HermitianMatrix<double> A( uplo, n, Ad, lda, nb, p, q, g_mpi_comm );
+    auto A = slate::HermitianMatrix<double>::fromLAPACK(
+                uplo, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     if (g_mpi_rank == 0) {
         std::cout << "A( uplo=" << char(uplo)
@@ -1406,7 +1445,9 @@ void test_conversion( blas::Uplo uplo, int m, int n, int nb, int p, int q )
     for (int j = 0; j < n; ++j)
         for (int i = 0; i < m; ++i)
             Ad[ i + j*lda ] = i + j/1000.;
-    slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    //slate::Matrix<double> A( m, n, Ad, lda, nb, p, q, g_mpi_comm );
+    auto A = slate::Matrix<double>::fromLAPACK(
+                m, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     // B is n-by-m general
     int ldb = int((n + 31)/32)*32;
@@ -1414,7 +1455,9 @@ void test_conversion( blas::Uplo uplo, int m, int n, int nb, int p, int q )
     for (int j = 0; j < m; ++j)
         for (int i = 0; i < n; ++i)
             Bd[ i + j*ldb ] = i + j/1000.;
-    slate::Matrix<double> B( n, m, Bd, ldb, nb, p, q, g_mpi_comm );
+    //slate::Matrix<double> B( n, m, Bd, ldb, nb, p, q, g_mpi_comm );
+    auto B = slate::Matrix<double>::fromLAPACK(
+                n, m, Bd, ldb, nb, p, q, g_mpi_comm );
 
     // S is n-by-n symmetric
     int lds = int((n + 31)/32)*32;
@@ -1422,7 +1465,9 @@ void test_conversion( blas::Uplo uplo, int m, int n, int nb, int p, int q )
     for (int j = 0; j < n; ++j)
         for (int i = 0; i < n; ++i)
             Sd[ i + j*lds ] = i + j/1000.;
-    slate::SymmetricMatrix<double> S( uplo, n, Sd, lds, nb, p, q, g_mpi_comm );
+    //slate::SymmetricMatrix<double> S( uplo, n, Sd, lds, nb, p, q, g_mpi_comm );
+    auto S = slate::HermitianMatrix<double>::fromLAPACK(
+                uplo, n, Ad, lda, nb, p, q, g_mpi_comm );
 
     // -----
     // general to triangular
@@ -1543,6 +1588,253 @@ void test_conversion( blas::Uplo uplo, int m, int n, int nb, int p, int q )
 }
 
 // -----------------------------------------------------------------------------
+// quick test of fromLAPACK and fromScaLAPACK for various types.
+// see test_{general,hermitian}_scalapack() for more specific tests.
+void test_constructors( int m, int n, int nb, int p, int q )
+{
+    Test name( __func__ );
+
+    blas::Uplo uplo = blas::Uplo::Lower;
+    int lda = m;
+    int ldb = n;
+    double *Adata = new double[ lda*n ];  // m-by-n
+    double *Bdata = new double[ ldb*n ];  // n-by-n
+
+    for (int j = 0; j < n; ++j)
+        for (int i = 0; i < m; ++i)
+            Adata[ i + j*lda ] = i + j/1000.;
+
+    for (int j = 0; j < n; ++j)
+        for (int i = 0; i < n; ++i)
+            Bdata[ i + j*ldb ] = i + j/1000.;
+
+    bool verbose = false;
+    //verbose = true;
+
+    // ---------- m-by-n rectangular
+    //printf( "Matrix Lapack\n" );
+    //slate::Matrix<double> A1( m, n, Adata, lda, nb, p, q, g_mpi_comm );
+    //printf( "Matrix ScaLapack\n" );
+    //slate::Matrix<double> A2( m, n, Adata, lda, nb, nb, p, q, g_mpi_comm );
+    auto A_lapack = slate::Matrix<double>::fromLAPACK( m, n, Adata, lda, nb, p, q, g_mpi_comm );
+    auto A_scalapack = slate::Matrix<double>::fromScaLAPACK( m, n, Adata, lda, nb, p, q, g_mpi_comm );
+    if (verbose) {
+        fflush(0);
+        test_message( "Matrix" );
+        for (int rank = 0; rank < g_mpi_size; ++rank) {
+            if (rank == g_mpi_rank) {
+                printf( "rank %d\n", rank );
+                print( "A_lapack", A_lapack );
+                print( "A_scalapack", A_scalapack );
+                printf( "\n" );
+                fflush(0);
+            }
+            MPI_Barrier( g_mpi_comm );
+        }
+    }
+
+    //printf( "TrapezoidMatrix Lapack\n" );
+    //slate::TrapezoidMatrix<double> Z1( uplo, m, n, Adata, lda, nb, p, q, g_mpi_comm );
+    //printf( "TrapezoidMatrix ScaLapack\n" );
+    //slate::TrapezoidMatrix<double> Z2( uplo, m, n, Adata, lda, nb, nb, p, q, g_mpi_comm );
+    auto Z_lapack = slate::TrapezoidMatrix<double>::fromLAPACK( uplo, m, n, Adata, lda, nb, p, q, g_mpi_comm );
+    auto Z_scalapack = slate::TrapezoidMatrix<double>::fromScaLAPACK( uplo, m, n, Adata, lda, nb, p, q, g_mpi_comm );
+    if (verbose) {
+        fflush(0);
+        test_message( "TrapezoidMatrix" );
+        for (int rank = 0; rank < g_mpi_size; ++rank) {
+            if (rank == g_mpi_rank) {
+                printf( "rank %d\n", rank );
+                print( "Z_lapack", Z_lapack );
+                print( "Z_scalapack", Z_scalapack );
+                printf( "\n" );
+                fflush(0);
+            }
+            MPI_Barrier( g_mpi_comm );
+        }
+    }
+
+    // ---------- n-by-n square
+    //printf( "TriangularMatrix Lapack\n" );
+    //slate::TriangularMatrix<double> T1( uplo, n, Bdata, ldb, nb, p, q, g_mpi_comm );
+    //printf( "TriangularMatrix ScaLapack\n" );
+    //slate::TriangularMatrix<double> T2( uplo, n, Bdata, ldb, nb, nb, p, q, g_mpi_comm );
+    auto T_lapack = slate::TriangularMatrix<double>::fromLAPACK( uplo, n, Bdata, ldb, nb, p, q, g_mpi_comm );
+    auto T_scalapack = slate::TriangularMatrix<double>::fromScaLAPACK( uplo, n, Bdata, ldb, nb, p, q, g_mpi_comm );
+    if (verbose) {
+        fflush(0);
+        test_message( "TriangularMatrix" );
+        for (int rank = 0; rank < g_mpi_size; ++rank) {
+            if (rank == g_mpi_rank) {
+                printf( "rank %d\n", rank );
+                print( "T_lapack", T_lapack );
+                print( "T_scalapack", T_scalapack );
+                printf( "\n" );
+                fflush(0);
+            }
+            MPI_Barrier( g_mpi_comm );
+        }
+    }
+
+    //printf( "SymmetricMatrix Lapack\n" );
+    //slate::SymmetricMatrix<double> S1( uplo, n, Bdata, ldb, nb, p, q, g_mpi_comm );
+    //printf( "SymmetricMatrix ScaLapack\n" );
+    //slate::SymmetricMatrix<double> S2( uplo, n, Bdata, ldb, nb, nb, p, q, g_mpi_comm );
+    auto S_lapack = slate::SymmetricMatrix<double>::fromLAPACK( uplo, n, Bdata, ldb, nb, p, q, g_mpi_comm );
+    auto S_scalapack = slate::SymmetricMatrix<double>::fromScaLAPACK( uplo, n, Bdata, ldb, nb, p, q, g_mpi_comm );
+    if (verbose) {
+        fflush(0);
+        test_message( "SymmetricMatrix" );
+        for (int rank = 0; rank < g_mpi_size; ++rank) {
+            if (rank == g_mpi_rank) {
+                printf( "rank %d\n", rank );
+                print( "S_lapack", S_lapack );
+                print( "S_scalapack", S_scalapack );
+                printf( "\n" );
+                fflush(0);
+            }
+            MPI_Barrier( g_mpi_comm );
+        }
+    }
+
+    //printf( "HermitianMatrix Lapack\n" );
+    //slate::HermitianMatrix<double> H1( uplo, n, Bdata, ldb, nb, p, q, g_mpi_comm );
+    //printf( "HermitianMatrix ScaLapack\n" );
+    //slate::HermitianMatrix<double> H2( uplo, n, Bdata, ldb, nb, nb, p, q, g_mpi_comm );
+    auto H_lapack = slate::HermitianMatrix<double>::fromLAPACK( uplo, n, Bdata, ldb, nb, p, q, g_mpi_comm );
+    auto H_scalapack = slate::HermitianMatrix<double>::fromScaLAPACK( uplo, n, Bdata, ldb, nb, p, q, g_mpi_comm );
+    if (verbose) {
+        fflush(0);
+        test_message( "HermitianMatrix" );
+        for (int rank = 0; rank < g_mpi_size; ++rank) {
+            if (rank == g_mpi_rank) {
+                printf( "rank %d\n", rank );
+                print( "H_lapack", H_lapack );
+                print( "H_scalapack", H_scalapack );
+                printf( "\n" );
+                fflush(0);
+            }
+            MPI_Barrier( g_mpi_comm );
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+void test_general_scalapack( int m, int n, int nb, int p, int q )
+{
+    Test name( __func__ );
+
+    // maximum number of tiles per rank
+    int mt = slate::ceildiv( m, nb );
+    int nt = slate::ceildiv( n, nb );
+
+    // number of local tiles
+    int mt_loc = mt / p;
+    if (mt % p > g_mpi_rank % p)
+        mt_loc += 1;
+
+    int nt_loc = nt / q;
+    if (nt % q > g_mpi_rank / p)
+        nt_loc += 1;
+
+    // local m, n, lda (rounded up to whole tiles)
+    int m_loc = mt_loc*nb;
+    int n_loc = nt_loc*nb;
+    int lda_loc = m_loc;
+
+    printf( "rank %d, m %d (%d), n %d (%d), mt %d (%d), nt %d (%d), nb %d, p %d, q %d (local quantities)\n",
+            g_mpi_rank, m, m_loc, n, n_loc, mt, mt_loc, nt, nt_loc, nb, p, q );
+
+    double *Ad = new double[ lda_loc * n_loc ];
+    int64_t iseed[] = { 0, 1, 2, 3 };
+    lapack::larnv( 1, iseed, lda_loc*n_loc, Ad );
+    auto A = slate::Matrix<double>::fromScaLAPACK(
+                m, n, Ad, lda_loc, nb, p, q, g_mpi_comm );
+
+    test_assert( A.mt() == mt );
+    test_assert( A.nt() == nt );
+
+    int j_loc = 0;
+    for (int j = 0; j < nt; ++j) {
+        int i_loc = 0;
+        for (int i = 0; i < mt; ++i) {
+            if (A.tileIsLocal( i, j )) {
+                //printf( "rank %d, i=%d/%d, j=%d/%d, %p %p\n",
+                //        g_mpi_rank, i, i_loc, j, j_loc,
+                //        (void*) A(i, j).data(),
+                //        (void*) &Ad[ i_loc*nb + j_loc*nb*lda_loc ] );
+                test_assert( A(i, j).data() == &Ad[ i_loc*nb + j_loc*nb*lda_loc ] );
+                ++i_loc;
+            }
+        }
+        if (i_loc > 0) {
+            test_assert( i_loc == mt_loc );
+            ++j_loc;
+        }
+    }
+    test_assert( j_loc == nt_loc );
+}
+
+// -----------------------------------------------------------------------------
+void test_hermitian_scalapack( blas::Uplo uplo, int n, int nb, int p, int q )
+{
+    Test name( __func__ );
+    if (g_mpi_rank == 0) {
+        std::cout << "uplo=" << char(uplo) << "\n";
+    }
+
+    // maximum number of tiles per rank
+    int nt = slate::ceildiv( n, nb );
+    int mt = nt;
+
+    // number of local tiles
+    int mt_loc = mt / p;
+    if (mt % p > g_mpi_rank % p)
+        mt_loc += 1;
+
+    int nt_loc = nt / q;
+    if (nt % q > g_mpi_rank / p)
+        nt_loc += 1;
+
+    // local m, n, lda (rounded up to whole tiles)
+    int m_loc = mt_loc*nb;
+    int n_loc = nt_loc*nb;
+    int lda_loc = m_loc;
+
+    printf( "rank %d, n rows %d (%d), n %d (%d), mt %d (%d), nt %d (%d), nb %d, p %d, q %d (local quantities)\n",
+            g_mpi_rank, n, m_loc, n, n_loc, mt, mt_loc, nt, nt_loc, nb, p, q );
+
+    double *Ad = new double[ lda_loc * n_loc ];
+    int64_t iseed[] = { 0, 1, 2, 3 };
+    lapack::larnv( 1, iseed, lda_loc*n_loc, Ad );
+    auto A = slate::HermitianMatrix<double>::fromScaLAPACK(
+                uplo, n, Ad, lda_loc, nb, p, q, g_mpi_comm );
+
+    test_assert( A.mt() == mt );
+    test_assert( A.nt() == nt );
+
+    int j_loc = 0;
+    for (int j = 0; j < nt; ++j) {
+        int i_loc = 0;
+        for (int i = 0; i < mt; ++i) {
+            if (A.tileIsLocal( i, j )) {
+                if ((uplo == blas::Uplo::Lower && i >= j) ||
+                    (uplo == blas::Uplo::Upper && i <= j))
+                {
+                    test_assert( A(i, j).data() == &Ad[ i_loc*nb + j_loc*nb*lda_loc ] );
+                }
+                ++i_loc;
+            }
+        }
+        if (i_loc > 0) {
+            test_assert( i_loc == mt_loc );
+            ++j_loc;
+        }
+    }
+    test_assert( j_loc == nt_loc );
+}
+
+// -----------------------------------------------------------------------------
 int main( int argc, char** argv )
 {
     MPI_Init( &argc, &argv );
@@ -1553,14 +1845,17 @@ int main( int argc, char** argv )
     int m  = 200;
     int n  = 500;
     int nb = 64;
-    int p  = 2;
+    int p  = std::min( 2, g_mpi_size );
     int q  = g_mpi_size / p;
+    std::string test = "all";
 
     if (argc > 1) { m  = atoi( argv[1] ); }
     if (argc > 2) { n  = atoi( argv[2] ); }
     if (argc > 3) { nb = atoi( argv[3] ); }
     if (argc > 4) { p  = atoi( argv[4] ); }
     if (argc > 5) { q  = atoi( argv[5] ); }
+    if (argc > 6) { test = argv[6]; }
+    bool all = test == "all";
 
     test_assert( p * q == g_mpi_size );
 
@@ -1580,26 +1875,41 @@ int main( int argc, char** argv )
     }
     MPI_Barrier( g_mpi_comm );
 
-    test_empty();
-    test_general( m, n, nb, p, q );
-    test_general_sub( m, n, nb, p, q );
-    test_general_send( m, n, nb, p, q );
-    test_general_send2( m, n, nb, p, q );
-    test_cuda_streams( m, n, nb, p, q );
-    test_batch_arrays( m, n, nb, p, q );
-    test_copyToDevice( m, n, nb, p, q );
-    test_copyToHost( m, n, nb, p, q );
-    test_workspace( m, n, nb, p, q );
+    if (all || test == "general") {
+        test_empty();
+        test_general( m, n, nb, p, q );
+        test_general_sub( m, n, nb, p, q );
+        test_general_send( m, n, nb, p, q );
+        test_general_send2( m, n, nb, p, q );
+        test_cuda_streams( m, n, nb, p, q );
+        test_batch_arrays( m, n, nb, p, q );
+        test_copyToDevice( m, n, nb, p, q );
+        test_copyToHost( m, n, nb, p, q );
+        test_workspace( m, n, nb, p, q );
+    }
 
-    test_hermitian( blas::Uplo::Lower, m, nb, p, q );
-    test_hermitian( blas::Uplo::Upper, m, nb, p, q );
+    if (all || test == "hermitian") {
+        test_hermitian( blas::Uplo::Lower, m, nb, p, q );
+        test_hermitian( blas::Uplo::Upper, m, nb, p, q );
+    }
 
-    test_conversion( blas::Uplo::Lower, m, n, nb, p, q );
-    test_conversion( blas::Uplo::Upper, m, n, nb, p, q );
+    if (all || test == "conversion") {
+        test_conversion( blas::Uplo::Lower, m, n, nb, p, q );
+        test_conversion( blas::Uplo::Upper, m, n, nb, p, q );
+    }
 
-    test_gather( m, n, nb, p, q );
-    test_hermitian_gather( blas::Uplo::Lower, m, nb, p, q );
-    test_hermitian_gather( blas::Uplo::Upper, m, nb, p, q );
+    if (all || test == "gather") {
+        test_gather( m, n, nb, p, q );
+        test_hermitian_gather( blas::Uplo::Lower, m, nb, p, q );
+        test_hermitian_gather( blas::Uplo::Upper, m, nb, p, q );
+    }
+
+    if (all || test == "scalapack") {
+        test_constructors( m, n, nb, p, q );
+        test_general_scalapack( m, n, nb, p, q );
+        test_hermitian_scalapack( blas::Uplo::Lower, m, nb, p, q );
+        test_hermitian_scalapack( blas::Uplo::Upper, m, nb, p, q );
+    }
 
     MPI_Finalize();
     return 0;

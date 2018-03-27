@@ -89,6 +89,8 @@ public:
     static constexpr bool is_complex = is_complex< scalar_t >::value;
     static constexpr bool is_real    = ! is_complex;
 
+    /// todo: make all constructors protected for Base class?
+
     ///-------------------------------------------------------------------------
     /// Default constructor; does not allocate any memory.
     BaseMatrix():

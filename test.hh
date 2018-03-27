@@ -211,44 +211,47 @@ void print( const char* name, slate::Matrix< scalar_t >& A )
         int64_t ib = A.tileMb(i);
 
         // loop over block cols, print out address
+        bool row_is_local = false;
         for (int64_t j = 0; j < A.nt(); ++j) {
             int64_t jb = A.tileNb(j);
 
+            if (j > 0)
+                printf( "    " );
+            else
+                printf( "%%   " );
             if (A.tileIsLocal( i, j )) {
-                if (j > 0)
-                    printf( "    " );
-                else
-                    printf( "%%   " );
+                row_is_local = true;
                 auto Aij = A(i, j);
-                printf( "  %-18p %2lld by %2lld", (void*) Aij.data(), ib, jb );
+                printf( "   %-18p %2lld by %2lld", (void*) Aij.data(), ib, jb );
                 for (int64_t jt = 3; jt < jb; ++jt) { // above pointer is 3 columns
                     printf( " %9s", "" );
                 }
             }
             else {
-                printf( " ... " );
+                printf( " [...] " );
             }
         }
         printf( "\n" );
 
-        for (int64_t it = 0; it < ib; ++it) {
+        if (row_is_local) {
+            for (int64_t it = 0; it < ib; ++it) {
+                // loop over block cols, then cols within block col
+                for (int64_t j = 0; j < A.nt(); ++j) {
+                    int64_t jb = A.tileNb(j);
 
-            // loop over block cols, then cols within block col
-            for (int64_t j = 0; j < A.nt(); ++j) {
-                int64_t jb = A.tileNb(j);
-
-                if (A.tileIsLocal( i, j )) {
                     printf( "    " );
-                    auto Aij = A(i, j);
-                    for (int64_t jt = 0; jt < jb; ++jt) {
-                        printf( " %9.4f", real( Aij( it, jt ) ) );
+                    if (A.tileIsLocal( i, j )) {
+                        auto Aij = A(i, j);
+                        for (int64_t jt = 0; jt < jb; ++jt) {
+                            printf( " %9.4f", real( Aij( it, jt ) ) );
+                        }
+                    }
+                    else {
+                        printf( " [...] " );
                     }
                 }
-                else {
-                    printf( " ... " );
-                }
+                printf( "\n" );
             }
-            printf( "\n" );
         }
         if (i < A.mt()-1) {
             printf( "\n" );
@@ -270,14 +273,16 @@ void print( const char* name, slate::Matrix< std::complex< scalar_t > >& A )
         int64_t ib = A.tileMb(i);
 
         // loop over block cols, print out address
+        bool row_is_local = false;
         for (int64_t j = 0; j < A.nt(); ++j) {
             int64_t jb = A.tileNb(j);
 
+            if (j > 0)
+                printf( "    " );
+            else
+                printf( "%%   " );
             if (A.tileIsLocal( i, j )) {
-                if (j > 0)
-                    printf( "    " );
-                else
-                    printf( "%%   " );
+                row_is_local = true;
                 auto Aij = A(i, j);
                 printf( "  %-21p", (void*) Aij.data() );
                 for (int64_t jt = 1; jt < jb; ++jt) { // above pointer is 1 column
@@ -285,29 +290,30 @@ void print( const char* name, slate::Matrix< std::complex< scalar_t > >& A )
                 }
             }
             else {
-                printf( " ... " );
+                printf( " [...] " );
             }
         }
         printf( "\n" );
 
-        for (int64_t it = 0; it < ib; ++it) {
+        if (row_is_local) {
+            for (int64_t it = 0; it < ib; ++it) {
+                // loop over block cols, then cols within block col
+                for (int64_t j = 0; j < A.nt(); ++j) {
+                    int64_t jb = A.tileNb(j);
 
-            // loop over block cols, then cols within block col
-            for (int64_t j = 0; j < A.nt(); ++j) {
-                int64_t jb = A.tileNb(j);
-
-                if (A.tileIsLocal( i, j )) {
                     printf( "    " );
-                    auto Aij = A(i, j);
-                    for (int64_t jt = 0; jt < jb; ++jt) {
-                        printf( " %9.4f + %9.4fi", real( Aij(it, jt) ), imag( Aij(it, jt) ) );
+                    if (A.tileIsLocal( i, j )) {
+                        auto Aij = A(i, j);
+                        for (int64_t jt = 0; jt < jb; ++jt) {
+                            printf( " %9.4f + %9.4fi", real( Aij(it, jt) ), imag( Aij(it, jt) ) );
+                        }
+                    }
+                    else {
+                        printf( " [...] " );
                     }
                 }
-                else {
-                    printf( " ... " );
-                }
+                printf( "\n" );
             }
-            printf( "\n" );
         }
         if (i < A.mt()-1) {
             printf( "\n" );
@@ -331,13 +337,16 @@ void print( const char* name, slate::BaseTrapezoidMatrix< scalar_t >& A )
     for (int i = 0; i < A.mt(); ++i) {
 
         // loop over block cols, print out address
+        bool row_is_local = false;
         for (int64_t j = 0; j < A.nt(); ++j) {
             int64_t jb = A.tileNb(j);
+
+            if (j > 0)
+                printf( "    " );
+            else
+                printf( "%%   " );
             if (A.tileIsLocal( i, j )) {
-                if (j > 0)
-                    printf( "   " );
-                else
-                    printf( "%%   " );
+                row_is_local = true;
                 if ((lower && i >= j) || (upper && i <= j)) {
                     auto Aij = A(i, j);
                     printf( "  %-18p", (void*) Aij.data() );
@@ -352,37 +361,39 @@ void print( const char* name, slate::BaseTrapezoidMatrix< scalar_t >& A )
                 }
             }
             else {
-                printf( " ... " );
+                printf( " [...] " );
             }
         }
         printf( "\n" );
 
-        int64_t ib = A.tileMb(i);
-        for (int64_t it = 0; it < ib; ++it) {
+        if (row_is_local) {
+            int64_t ib = A.tileMb(i);
+            for (int64_t it = 0; it < ib; ++it) {
 
-            // loop over block cols, then cols within block col
-            for (int64_t j = 0; j < A.nt(); ++j) {
-                int64_t jb = A.tileNb(j);
-                if (A.tileIsLocal( i, j )) {
-                    if (j > 0)
-                        printf( "   " );
-                    if ((lower && i >= j) || (upper && i <= j)) {
-                        auto Aij = A(i, j);
-                        for (int64_t jt = 0; jt < jb; ++jt) {
-                            printf( " %9.4f", Aij(it, jt) );
+                // loop over block cols, then cols within block col
+                for (int64_t j = 0; j < A.nt(); ++j) {
+                    int64_t jb = A.tileNb(j);
+
+                    printf( "    " );
+                    if (A.tileIsLocal( i, j )) {
+                        if ((lower && i >= j) || (upper && i <= j)) {
+                            auto Aij = A(i, j);
+                            for (int64_t jt = 0; jt < jb; ++jt) {
+                                printf( " %9.4f", Aij(it, jt) );
+                            }
+                        }
+                        else {
+                            for (int64_t jt = 0; jt < jb; ++jt) {
+                                printf( " %9s", "---" );
+                            }
                         }
                     }
                     else {
-                        for (int64_t jt = 0; jt < jb; ++jt) {
-                            printf( " %9s", "---" );
-                        }
+                        printf( " [...] " );
                     }
                 }
-                else {
-                    printf( " ... " );
-                }
+                printf( "\n" );
             }
-            printf( "\n" );
         }
         if (i < A.mt()-1) {
             printf( "\n" );
@@ -409,14 +420,16 @@ void print( const char* name, slate::BaseTrapezoidMatrix< std::complex< scalar_t
     for (int i = 0; i < A.mt(); ++i) {
 
         // loop over block cols, print out address
+        bool row_is_local = false;
         for (int64_t j = 0; j <= i && j < A.nt(); ++j) {  // lower
             int64_t jb = A.tileNb(j);
 
+            if (j > 0)
+                printf( "    " );
+            else
+                printf( "%%   " );
             if (A.tileIsLocal( i, j )) {
-                if (j > 0)
-                    printf( "   " );
-                else
-                    printf( "%%   " );
+                row_is_local = true;
                 auto Aij = A(i, j);
                 printf( "  %-21p", (void*) Aij.data() );
                 for (int64_t jt = 1; jt < jb; ++jt) { // above pointer is 1 column
@@ -424,31 +437,32 @@ void print( const char* name, slate::BaseTrapezoidMatrix< std::complex< scalar_t
                 }
             }
             else {
-                printf( " ... " );
+                printf( " [...] " );
             }
         }
         printf( "\n" );
 
-        int64_t ib = A.tileMb(i);
-        for (int64_t it = 0; it < ib; ++it) {
+        if (row_is_local) {
+            int64_t ib = A.tileMb(i);
+            for (int64_t it = 0; it < ib; ++it) {
 
-            // loop over block cols, then cols within block col
-            for (int64_t j = 0; j <= i && j < A.nt(); ++j) {  // lower
-                int64_t jb = A.tileNb(j);
+                // loop over block cols, then cols within block col
+                for (int64_t j = 0; j <= i && j < A.nt(); ++j) {  // lower
+                    int64_t jb = A.tileNb(j);
 
-                if (A.tileIsLocal( i, j )) {
-                    if (j > 0)
-                        printf( "   " );
-                    auto Aij = A(i, j);
-                    for (int64_t jt = 0; jt < jb; ++jt) {
-                        printf( " %9.4f + %9.4fi", real( Aij(it, jt) ), imag( Aij(it, jt) ) );
+                    printf( "    " );
+                    if (A.tileIsLocal( i, j )) {
+                        auto Aij = A(i, j);
+                        for (int64_t jt = 0; jt < jb; ++jt) {
+                            printf( " %9.4f + %9.4fi", real( Aij(it, jt) ), imag( Aij(it, jt) ) );
+                        }
+                    }
+                    else {
+                        printf( " [...] " );
                     }
                 }
-                else {
-                    printf( " ... " );
-                }
+                printf( "\n" );
             }
-            printf( "\n" );
         }
         if (i < A.mt()-1) {
             printf( "\n" );

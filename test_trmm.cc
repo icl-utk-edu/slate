@@ -34,6 +34,7 @@ void test_trmm(
     using blas::Op;
     using blas::real;
     using blas::imag;
+    typedef long long lld;
 
     //--------------------
     // MPI initializations
@@ -52,7 +53,7 @@ void test_trmm(
     // test initializations
     if (mpi_rank == 0) {
         printf( "side=%c, uplo=%c, opA=%c, diag=%c, m=%lld, n=%lld, nb=%lld, p=%d, q=%d, lookahead=%lld, target=%d\n",
-                char(side), char(uplo), char(opA), char(diag), m, n, nb, p, q, lookahead, int(target) );
+                char(side), char(uplo), char(opA), char(diag), lld(m), lld(n), lld(nb), p, q, lld(lookahead), int(target) );
     }
 
     // for now, trmm requires full tiles

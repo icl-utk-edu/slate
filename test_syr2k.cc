@@ -34,6 +34,7 @@ void test_syr2k(
     using blas::Op;
     using blas::real;
     using blas::imag;
+    typedef long long lld;
 
     //--------------------
     // MPI initializations
@@ -52,7 +53,7 @@ void test_syr2k(
     // test initializations
     if (mpi_rank == 0) {
         printf( "op=%c, uplo=%c, n=%lld, k=%lld, nb=%lld, p=%d, q=%d, lookahead=%lld, target=%d\n",
-                char(op), char(uplo), n, k, nb, p, q, lookahead, int(target) );
+                char(op), char(uplo), lld(n), lld(k), lld(nb), p, q, lld(lookahead), int(target) );
     }
 
     // for now, syr2k on Devices requires full tiles

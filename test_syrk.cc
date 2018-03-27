@@ -34,6 +34,7 @@ void test_syrk(
     using blas::Op;
     using blas::real;
     using blas::imag;
+    typedef long long lld;
 
     //--------------------
     // MPI initializations
@@ -52,7 +53,7 @@ void test_syrk(
     // test initializations
     if (mpi_rank == 0) {
         printf( "opA=%c, uplo=%c, n=%lld, k=%lld, nb=%lld, p=%d, q=%d, lookahead=%lld, target=%d\n",
-                char(opA), char(uplo), n, k, nb, p, q, lookahead, int(target) );
+                char(opA), char(uplo), lld(n), lld(k), lld(nb), p, q, lld(lookahead), int(target) );
     }
 
     // for now, syrk on Devices requires full tiles

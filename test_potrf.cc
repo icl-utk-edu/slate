@@ -31,6 +31,7 @@ void test_potrf(
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
+    typedef long long lld;
 
     //--------------------
     // MPI initializations
@@ -49,7 +50,7 @@ void test_potrf(
     // test initializations
     if (mpi_rank == 0) {
         printf( "uplo=%c, n=%lld, nb=%lld, p=%d, q=%d, lookahead=%lld, target=%d\n",
-                char(uplo), n, nb, p, q, lookahead, int(target) );
+                char(uplo), lld(n), lld(nb), p, q, lld(lookahead), int(target) );
     }
 
     int64_t lda = n;

@@ -34,6 +34,7 @@ void test_gemm(
     using blas::Op;
     using blas::real;
     using blas::imag;
+    typedef long long lld;
 
     //--------------------
     // MPI initializations
@@ -52,7 +53,7 @@ void test_gemm(
     // test initializations
     if (mpi_rank == 0) {
         printf( "opA=%c, opB=%c, m=%lld, n=%lld, k=%lld, nb=%lld, p=%d, q=%d, lookahead=%lld, target=%d\n",
-                char(opA), char(opB), m, n, k, nb, p, q, lookahead, int(target) );
+                char(opA), char(opB), lld(m), lld(n), lld(k), lld(nb), p, q, lld(lookahead), int(target) );
     }
 
     // for now, gemm on Devices requires full tiles

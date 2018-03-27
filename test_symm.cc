@@ -34,6 +34,7 @@ void test_symm(
     using blas::Op;
     using blas::real;
     using blas::imag;
+    typedef long long lld;
 
     //--------------------
     // MPI initializations
@@ -52,7 +53,7 @@ void test_symm(
     // test initializations
     if (mpi_rank == 0) {
         printf( "side=%c, uplo=%c, m=%lld, n=%lld, nb=%lld, p=%d, q=%d, lookahead=%lld, target=%d\n",
-                char(side), char(uplo), m, n, nb, p, q, lookahead, int(target) );
+                char(side), char(uplo), lld(m), lld(n), lld(nb), p, q, lld(lookahead), int(target) );
     }
 
     // for now, symm on Devices requires full tiles

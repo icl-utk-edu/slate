@@ -297,15 +297,22 @@ void test_general( int m, int n, int nb, int p, int q )
                 test_assert( DCC.mb() == D.mb() );
                 test_assert( DCC.nb() == D.nb() );
 
-                // conj_trans( trans( D )) is not supported
-                // trans( conj_trans( D )) is not supported
-                test_assert_throw( conj_transpose( DT ), std::exception );
-                test_assert_throw( transpose( DC ),      std::exception );
+                // conj_trans( trans( D )) is okay for real, not supported for complex
+                auto DTC = conj_transpose( DT );
+                test_assert( DTC.op() == blas::Op::NoTrans );
+                test_assert( DTC.mb() == D.mb() );
+                test_assert( DTC.nb() == D.nb() );
+
+                // trans( conj_trans( D )) is okay for real, not supported for complex
+                auto DCT = transpose( DC );
+                test_assert( DCT.op() == blas::Op::NoTrans );
+                test_assert( DCT.mb() == D.mb() );
+                test_assert( DCT.nb() == D.nb() );
             }
         }
     }
 
-    // ----- verify tile transpose
+    // ----- verify matrix transpose
     test_message( "transpose( A )" );
     auto AT = transpose( A );
     test_assert( AT.mt() == A.nt() );
@@ -335,7 +342,18 @@ void test_general( int m, int n, int nb, int p, int q )
         }
     }
 
-    // ----- verify tile conj_transpose
+    auto ATT = transpose( AT );
+    test_assert( ATT.mt() == A.mt() );
+    test_assert( ATT.nt() == A.nt() );
+    test_assert( ATT.op() == blas::Op::NoTrans );
+
+    // conj_trans( trans( A )) is okay for real, not supported for complex
+    auto ATC = conj_transpose( AT );
+    test_assert( ATC.mt() == A.mt() );
+    test_assert( ATC.nt() == A.nt() );
+    test_assert( ATC.op() == blas::Op::NoTrans );
+
+    // ----- verify matrix conj_transpose
     test_message( "conj_transpose( A )" );
     auto AC = conj_transpose( A );
     test_assert( AC.mt() == A.nt() );
@@ -370,7 +388,74 @@ void test_general( int m, int n, int nb, int p, int q )
         }
     }
 
+    auto ACC = conj_transpose( AC );
+    test_assert( ACC.mt() == A.mt() );
+    test_assert( ACC.nt() == A.nt() );
+    test_assert( ACC.op() == blas::Op::NoTrans );
+
+    // trans( conj_trans( A )) is okay for real, not supported for complex
+    auto ACT = transpose( AC );
+    test_assert( ACT.mt() == A.mt() );
+    test_assert( ACT.nt() == A.nt() );
+    test_assert( ACT.op() == blas::Op::NoTrans );
+
     delete[] Ad;
+
+    // ----- test complex: conj_trans( trans( Z )) is unsupported
+    test_message( "complex transpose and conj_transpose" );
+    std::complex<double> *Zd = new std::complex<double>[ lda*n ];
+    auto Z = slate::Matrix< std::complex<double> >::fromLAPACK(
+                m, n, Zd, lda, nb, p, q, g_mpi_comm );
+
+    auto ZT  = transpose( Z );
+    test_assert( ZT.mt() == Z.nt() );
+    test_assert( ZT.nt() == Z.mt() );
+    test_assert( ZT.op() == blas::Op::Trans );
+
+    auto ZTT = transpose( ZT );
+    test_assert( ZTT.mt() == Z.mt() );
+    test_assert( ZTT.nt() == Z.nt() );
+    test_assert( ZTT.op() == blas::Op::NoTrans );
+
+    test_assert_throw( conj_transpose( ZT ), std::exception );
+
+    auto ZC  = conj_transpose( Z );
+    test_assert( ZC.mt() == Z.nt() );
+    test_assert( ZC.nt() == Z.mt() );
+    test_assert( ZC.op() == blas::Op::ConjTrans );
+
+    auto ZCC = conj_transpose( ZC );
+    test_assert( ZCC.mt() == Z.mt() );
+    test_assert( ZCC.nt() == Z.nt() );
+    test_assert( ZCC.op() == blas::Op::NoTrans );
+
+    test_assert_throw( transpose( ZC ), std::exception );
+
+    for (int j = 0; j < Z.nt(); ++j) {
+        for (int i = 0; i < Z.mt(); ++i) {
+            if (Z.tileIsLocal( i, j )) {
+                auto D = Z( i, j );
+
+                auto DT  = transpose( D );
+                test_assert( DT.op() == blas::Op::Trans );
+
+                auto DTT = transpose( DT );
+                test_assert( DTT.op() == blas::Op::NoTrans );
+
+                test_assert_throw( conj_transpose( DT ), std::exception );
+
+                auto DC  = conj_transpose( D );
+                test_assert( DC.op() == blas::Op::ConjTrans );
+
+                auto DCC = conj_transpose( DC );
+                test_assert( DCC.op() == blas::Op::NoTrans );
+
+                test_assert_throw( transpose( DC ), std::exception );
+            }
+        }
+    }
+
+    delete[] Zd;
 }
 
 // -----------------------------------------------------------------------------

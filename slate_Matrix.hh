@@ -262,14 +262,16 @@ public:
 
                 if (this->mpi_rank_ == 0) {
                     if (! this->tileIsLocal(i, j)) {
-                        Tile<scalar_t>* tile
-                            = this->tileInsert(i, j, this->host_num_,
-                                               &A[(size_t)lda*jj + ii], lda);
-                        tile->recv(this->tileRank(i, j), this->mpi_comm_);
+                        // erase any existing non-local tile and insert new one
+                        this->tileErase(i, j, this->host_num_);
+                        this->tileInsert(i, j, this->host_num_,
+                                         &A[(size_t)lda*jj + ii], lda);
+                        auto Aij = this->at(i, j);
+                        Aij.recv(this->tileRank(i, j), this->mpi_comm_);
                     }
                     else {
                         // copy local tiles if needed.
-                        auto Aij = this->at(i,j);
+                        auto Aij = this->at(i, j);
                         if (Aij.data() != &A[(size_t)lda*jj + ii]) {
                             lapack::lacpy(lapack::MatrixType::General, ib, jb,
                                           Aij.data(), Aij.stride(),
@@ -278,7 +280,8 @@ public:
                     }
                 }
                 else if (this->tileIsLocal(i, j)) {
-                    this->at(i, j).send(0, this->mpi_comm_);
+                    auto Aij = this->at(i, j);
+                    Aij.send(0, this->mpi_comm_);
                 }
                 ii += ib;
             }
@@ -493,14 +496,16 @@ public:
                     (uplo() == Uplo::Upper && i <= j)) {
                     if (this->mpi_rank_ == 0) {
                         if (! this->tileIsLocal(i, j)) {
-                            Tile<scalar_t>* tile
-                                = this->tileInsert(i, j, this->host_num_,
-                                                   &A[(size_t)lda*jj + ii], lda);
-                            tile->recv(this->tileRank(i, j), this->mpi_comm_);
+                            // erase any existing non-local tile and insert new one
+                            this->tileErase(i, j, this->host_num_);
+                            this->tileInsert(i, j, this->host_num_,
+                                             &A[(size_t)lda*jj + ii], lda);
+                            auto Aij = this->at(i, j);
+                            Aij.recv(this->tileRank(i, j), this->mpi_comm_);
                         }
                         else {
                             // copy local tiles if needed.
-                            auto Aij = this->at(i,j);
+                            auto Aij = this->at(i, j);
                             if (Aij.data() != &A[(size_t)lda*jj + ii]) {
                                 lapack::lacpy(lapack::MatrixType::General, ib, jb,
                                               Aij.data(), Aij.stride(),
@@ -509,7 +514,8 @@ public:
                         }
                     }
                     else if (this->tileIsLocal(i, j)) {
-                        this->at(i, j).send(0, this->mpi_comm_);
+                        auto Aij = this->at(i, j);
+                        Aij.send(0, this->mpi_comm_);
                     }
                 }
                 ii += ib;

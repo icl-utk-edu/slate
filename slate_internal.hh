@@ -125,6 +125,29 @@ void gemm(scalar_t alpha, Matrix< scalar_t >&& A,
           int priority=0);
 
 //-----------------------------------------
+// hemm()
+template <Target target=Target::HostTask, typename scalar_t>
+void hemm(Side side,
+          scalar_t alpha, HermitianMatrix< scalar_t >&& A,
+                          Matrix< scalar_t >&& B,
+          scalar_t beta,  Matrix< scalar_t >&& C,
+          int priority=0);
+
+// forward real-Hermitian matrices to hemm;
+// disabled for complex
+template <Target target=Target::HostTask, typename scalar_t>
+void hemm(Side side,
+          scalar_t alpha, SymmetricMatrix< scalar_t >&& A,
+                          Matrix< scalar_t >&& B,
+          scalar_t beta,  Matrix< scalar_t >&& C,
+          int priority=0,
+          enable_if_t< ! is_complex< scalar_t >::value >* = nullptr)
+{
+    hemm<target>(side, alpha, std::move(A),
+                 beta, HermitianMatrix< scalar_t >( C ), priority);
+}
+
+//-----------------------------------------
 // herk()
 template <Target target=Target::HostTask, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix< scalar_t >&& A,
@@ -146,7 +169,7 @@ void herk(blas::real_type<scalar_t> alpha, Matrix< scalar_t >&& A,
 //-----------------------------------------
 // her2k()
 template <Target target=Target::HostTask, typename scalar_t>
-void her2k(blas::real_type<scalar_t> alpha, Matrix< scalar_t >&& A,
+void her2k(scalar_t alpha,                  Matrix< scalar_t >&& A,
                                             Matrix< scalar_t >&& B,
            blas::real_type<scalar_t> beta,  HermitianMatrix< scalar_t >&& C,
            int priority=0);
@@ -154,7 +177,7 @@ void her2k(blas::real_type<scalar_t> alpha, Matrix< scalar_t >&& A,
 // forward real-symmetric matrices to her2k;
 // disabled for complex
 template <Target target=Target::HostTask, typename scalar_t>
-void her2k(blas::real_type<scalar_t> alpha, Matrix< scalar_t >&& A,
+void her2k(scalar_t alpha,                  Matrix< scalar_t >&& A,
                                             Matrix< scalar_t >&& B,
            blas::real_type<scalar_t> beta,  SymmetricMatrix< scalar_t >&& C,
            int priority=0,
@@ -162,22 +185,6 @@ void her2k(blas::real_type<scalar_t> alpha, Matrix< scalar_t >&& A,
 {
     her2k<target>(alpha, std::move(A),
                   beta, HermitianMatrix< scalar_t >( C ), priority);
-}
-
-//-----------------------------------------
-// potrf()
-template <Target target=Target::HostTask, typename scalar_t>
-void potrf(HermitianMatrix< scalar_t >&& A,
-           int priority=0);
-
-// forward real-symmetric matrices to potrf;
-// disabled for complex
-template <Target target=Target::HostTask, typename scalar_t>
-void potrf(SymmetricMatrix< scalar_t >&& A,
-           int priority=0,
-           enable_if_t< ! is_complex< scalar_t >::value >* = nullptr)
-{
-    potrf<target>(SymmetricMatrix< scalar_t >( A ), priority);
 }
 
 //-----------------------------------------
@@ -199,7 +206,8 @@ void symm(Side side,
           int priority=0,
           enable_if_t< ! is_complex< scalar_t >::value >* = nullptr)
 {
-    symm<target>(side, alpha, std::move(A), beta, SymmetricMatrix< scalar_t >( C ), priority);
+    symm<target>(side, alpha, std::move(A),
+                 beta, SymmetricMatrix< scalar_t >( C ), priority);
 }
 
 //-----------------------------------------
@@ -257,6 +265,23 @@ void trsm(Side side, Diag diag,
           scalar_t alpha, TriangularMatrix< scalar_t >&& A,
                                     Matrix< scalar_t >&& B,
           int priority=0);
+
+
+//-----------------------------------------
+// potrf()
+template <Target target=Target::HostTask, typename scalar_t>
+void potrf(HermitianMatrix< scalar_t >&& A,
+           int priority=0);
+
+// forward real-symmetric matrices to potrf;
+// disabled for complex
+template <Target target=Target::HostTask, typename scalar_t>
+void potrf(SymmetricMatrix< scalar_t >&& A,
+           int priority=0,
+           enable_if_t< ! is_complex< scalar_t >::value >* = nullptr)
+{
+    potrf<target>(SymmetricMatrix< scalar_t >( A ), priority);
+}
 
 } // namespace internal
 } // namespace slate

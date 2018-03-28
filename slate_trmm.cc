@@ -307,7 +307,7 @@ void trmm(blas::Side side, blas::Diag diag,
 }
 
 //------------------------------------------------------------------------------
-// Explicit instantiations for double precision and various targets.
+// Explicit instantiations.
 template
 void trmm< Target::HostTask, float >(
     blas::Side side, blas::Diag diag,

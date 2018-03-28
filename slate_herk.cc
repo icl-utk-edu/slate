@@ -45,7 +45,7 @@
 namespace slate {
 
 // specialization namespace differentiates, e.g.,
-// internal::syr2k from internal::specialization::syr2k
+// internal::herk from internal::specialization::herk
 namespace internal {
 namespace specialization {
 
@@ -55,29 +55,27 @@ namespace specialization {
 /// Generic implementation for any target.
 /// Dependencies enforce the following behavior:
 /// - bcast communications are serialized,
-/// - syr2k operations are serialized,
-/// - bcasts can get ahead of syr2ks by the value of lookahead.
-// Note A, B, and C are passed by value, so we can transpose if needed
+/// - herk operations are serialized,
+/// - bcasts can get ahead of herks by the value of lookahead.
+// Note A and C are passed by value, so we can transpose if needed
 // (for uplo = Upper) without affecting caller.
 template <Target target, typename scalar_t>
-void syr2k(slate::internal::TargetType<target>,
-          scalar_t alpha, Matrix<scalar_t> A,
-                          Matrix<scalar_t> B,
-          scalar_t beta,  SymmetricMatrix<scalar_t> C,
+void herk(slate::internal::TargetType<target>,
+          blas::real_type<scalar_t> alpha, Matrix<scalar_t> A,
+          blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t> C,
           int64_t lookahead)
 {
     using namespace blas;
+    using real_t = blas::real_type<scalar_t>;
 
     // if upper, change to lower
     if ((C.uplo() == Uplo::Upper && C.op() == Op::NoTrans) ||
         (C.uplo() == Uplo::Lower && C.op() != Op::NoTrans)) {
-        C = transpose(C);
+        C = conj_transpose(C);
     }
 
     // A is mt-by-nt, C is mt-by-mt
     assert(A.mt() == C.mt());
-    assert(B.mt() == C.mt());
-    assert(A.nt() == B.nt());
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > bcast_vector( A.nt() );
@@ -93,17 +91,13 @@ void syr2k(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
-        // Lower/NoTrans or Upper/Trans case
+        // Lower/NoTrans or Upper/ConjTrans case
         // send 1st block col of A
         #pragma omp task depend(out:bcast[0])
         {
-            // broadcast A(i, 0) and B(i, 0) to ranks owning
-            // block row C(i, 0:i) and block col C(i:n, i)
+            // broadcast A(i, 0) to ranks owning block row C(i, 0:i) and block col C(i:n, i)
             for (int64_t i = 0; i < A.mt(); ++i) {
                 A.template tileBcast<target>(
-                    i, 0, C.sub(i, i, 0, i),
-                          C.sub(i, C.mt()-1, i, i));
-                B.template tileBcast<target>(
                     i, 0, C.sub(i, i, 0, i),
                           C.sub(i, C.mt()-1, i, i));
             }
@@ -114,26 +108,21 @@ void syr2k(slate::internal::TargetType<target>,
             #pragma omp task depend(in:bcast[k-1]) \
                              depend(out:bcast[k])
             {
-                // broadcast A(i, k) and B(i, k) to ranks owning
-                // block row C(i, 0:i) and block col C(i:n, i)
+                // broadcast A(i, k) to ranks owning block row C(i, 0:i) and block col C(i:n, i)
                 for (int64_t i = 0; i < A.mt(); ++i) {
                     A.template tileBcast<target>(
-                        i, k, C.sub(i, i, 0, i),
-                              C.sub(i, C.mt()-1, i, i));
-                    B.template tileBcast<target>(
                         i, k, C.sub(i, i, 0, i),
                               C.sub(i, C.mt()-1, i, i));
                 }
             }
         }
 
-        // multiply alpha A(:, 0) B(0, :)^T + beta C
+        // multiply alpha A(:, 0) A(0, :)^T + beta C
         #pragma omp task depend(in:bcast[0]) \
                          depend(out:gemm[0])
         {
-            internal::syr2k<target>(
+            internal::herk<target>(
                 alpha, A.sub(0, A.mt()-1, 0, 0),
-                       B.sub(0, B.mt()-1, 0, 0),
                 beta,  std::move(C));
         }
 
@@ -150,9 +139,6 @@ void syr2k(slate::internal::TargetType<target>,
                         A.template tileBcast<target>(
                             i, k+lookahead, C.sub(i, i, 0, i),
                                             C.sub(i, C.mt()-1, i, i));
-                        B.template tileBcast<target>(
-                            i, k+lookahead, C.sub(i, i, 0, i),
-                                            C.sub(i, C.mt()-1, i, i));
                     }
                 }
             }
@@ -162,10 +148,9 @@ void syr2k(slate::internal::TargetType<target>,
                              depend(in:gemm[k-1]) \
                              depend(out:gemm[k])
             {
-                internal::syr2k<target>(
-                    alpha,         A.sub(0, A.mt()-1, k, k),
-                                   B.sub(0, B.mt()-1, k, k),
-                    scalar_t(1.0), std::move(C));
+                internal::herk<target>(
+                    alpha,       A.sub(0, A.mt()-1, k, k),
+                    real_t(1.0), std::move(C));
             }
         }
     }
@@ -187,9 +172,8 @@ void syr2k(slate::internal::TargetType<target>,
 ///
 /// Precision and target templated function.
 template <Target target, typename scalar_t>
-void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
-                           Matrix<scalar_t>& B,
-          scalar_t beta,  SymmetricMatrix<scalar_t>& C,
+void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
+          blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
           const std::map<Option, Value>& opts)
 {
     int64_t lookahead;
@@ -200,9 +184,8 @@ void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
         lookahead = 1;
     }
 
-    internal::specialization::syr2k(internal::TargetType<target>(),
+    internal::specialization::herk(internal::TargetType<target>(),
                                    alpha, A,
-                                          B,
                                    beta,  C,
                                    lookahead);
 }
@@ -210,118 +193,102 @@ void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void syr2k< Target::HostTask, float >(
+void herk< Target::HostTask, float >(
     float alpha, Matrix<float>& A,
-                 Matrix<float>& B,
-    float beta,  SymmetricMatrix<float>& C,
+    float beta,  HermitianMatrix<float>& C,
     const std::map<Option, Value>& opts);
 
 template
-void syr2k< Target::HostNest, float >(
+void herk< Target::HostNest, float >(
     float alpha, Matrix<float>& A,
-                 Matrix<float>& B,
-    float beta,  SymmetricMatrix<float>& C,
+    float beta,  HermitianMatrix<float>& C,
     const std::map<Option, Value>& opts);
 
 template
-void syr2k< Target::HostBatch, float >(
+void herk< Target::HostBatch, float >(
     float alpha, Matrix<float>& A,
-                 Matrix<float>& B,
-    float beta,  SymmetricMatrix<float>& C,
+    float beta,  HermitianMatrix<float>& C,
     const std::map<Option, Value>& opts);
 
 template
-void syr2k< Target::Devices, float >(
+void herk< Target::Devices, float >(
     float alpha, Matrix<float>& A,
-                 Matrix<float>& B,
-    float beta,  SymmetricMatrix<float>& C,
+    float beta,  HermitianMatrix<float>& C,
     const std::map<Option, Value>& opts);
 
 // ----------------------------------------
 template
-void syr2k< Target::HostTask, double >(
+void herk< Target::HostTask, double >(
     double alpha, Matrix<double>& A,
-                  Matrix<double>& B,
-    double beta,  SymmetricMatrix<double>& C,
+    double beta,  HermitianMatrix<double>& C,
     const std::map<Option, Value>& opts);
 
 template
-void syr2k< Target::HostNest, double >(
+void herk< Target::HostNest, double >(
     double alpha, Matrix<double>& A,
-                  Matrix<double>& B,
-    double beta,  SymmetricMatrix<double>& C,
+    double beta,  HermitianMatrix<double>& C,
     const std::map<Option, Value>& opts);
 
 template
-void syr2k< Target::HostBatch, double >(
+void herk< Target::HostBatch, double >(
     double alpha, Matrix<double>& A,
-                  Matrix<double>& B,
-    double beta,  SymmetricMatrix<double>& C,
+    double beta,  HermitianMatrix<double>& C,
     const std::map<Option, Value>& opts);
 
 template
-void syr2k< Target::Devices, double >(
+void herk< Target::Devices, double >(
     double alpha, Matrix<double>& A,
-                  Matrix<double>& B,
-    double beta,  SymmetricMatrix<double>& C,
+    double beta,  HermitianMatrix<double>& C,
     const std::map<Option, Value>& opts);
 
 // ----------------------------------------
 template
-void syr2k< Target::HostTask,  std::complex<float>  >(
-    std::complex<float> alpha, Matrix< std::complex<float> >& A,
-                               Matrix< std::complex<float> >& B,
-    std::complex<float> beta,  SymmetricMatrix< std::complex<float> >& C,
+void herk< Target::HostTask,  std::complex<float>  >(
+    float alpha, Matrix< std::complex<float> >& A,
+    float beta,  HermitianMatrix< std::complex<float> >& C,
     const std::map<Option, Value>& opts);
 
 template
-void syr2k< Target::HostNest, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >& A,
-                               Matrix< std::complex<float> >& B,
-    std::complex<float> beta,  SymmetricMatrix< std::complex<float> >& C,
+void herk< Target::HostNest, std::complex<float> >(
+    float alpha, Matrix< std::complex<float> >& A,
+    float beta,  HermitianMatrix< std::complex<float> >& C,
     const std::map<Option, Value>& opts);
 
 template
-void syr2k< Target::HostBatch, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >& A,
-                               Matrix< std::complex<float> >& B,
-    std::complex<float> beta,  SymmetricMatrix< std::complex<float> >& C,
+void herk< Target::HostBatch, std::complex<float> >(
+    float alpha, Matrix< std::complex<float> >& A,
+    float beta,  HermitianMatrix< std::complex<float> >& C,
     const std::map<Option, Value>& opts);
 
 template
-void syr2k< Target::Devices, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >& A,
-                               Matrix< std::complex<float> >& B,
-    std::complex<float> beta,  SymmetricMatrix< std::complex<float> >& C,
+void herk< Target::Devices, std::complex<float> >(
+    float alpha, Matrix< std::complex<float> >& A,
+    float beta,  HermitianMatrix< std::complex<float> >& C,
     const std::map<Option, Value>& opts);
 
 // ----------------------------------------
 template
-void syr2k< Target::HostTask, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >& A,
-                                Matrix< std::complex<double> >& B,
-    std::complex<double> beta,  SymmetricMatrix< std::complex<double> >& C,
+void herk< Target::HostTask, std::complex<double> >(
+    double alpha, Matrix< std::complex<double> >& A,
+    double beta,  HermitianMatrix< std::complex<double> >& C,
     const std::map<Option, Value>& opts);
 
 template
-void syr2k< Target::HostNest, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >& A,
-                                Matrix< std::complex<double> >& B,
-    std::complex<double> beta,  SymmetricMatrix< std::complex<double> >& C,
+void herk< Target::HostNest, std::complex<double> >(
+    double alpha, Matrix< std::complex<double> >& A,
+    double beta,  HermitianMatrix< std::complex<double> >& C,
     const std::map<Option, Value>& opts);
 
 template
-void syr2k< Target::HostBatch, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >& A,
-                                Matrix< std::complex<double> >& B,
-    std::complex<double> beta,  SymmetricMatrix< std::complex<double> >& C,
+void herk< Target::HostBatch, std::complex<double> >(
+    double alpha, Matrix< std::complex<double> >& A,
+    double beta,  HermitianMatrix< std::complex<double> >& C,
     const std::map<Option, Value>& opts);
 
 template
-void syr2k< Target::Devices, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >& A,
-                                Matrix< std::complex<double> >& B,
-    std::complex<double> beta,  SymmetricMatrix< std::complex<double> >& C,
+void herk< Target::Devices, std::complex<double> >(
+    double alpha, Matrix< std::complex<double> >& A,
+    double beta,  HermitianMatrix< std::complex<double> >& C,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

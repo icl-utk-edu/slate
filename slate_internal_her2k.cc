@@ -54,29 +54,29 @@ namespace internal {
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// Symmetric rank-k update of single block column (i.e., k = nb).
+/// Hermitian rank-k update of single block column (i.e., k = nb).
 /// Dispatches to target implementations.
 /// C is Lower, NoTrans or Upper, Trans/ConjTrans.
-/// In complex case, A, B, and C cannot be ConjTrans.
+/// In complex case, A, B, and C cannot be Trans.
 /// Requires op(A) and op(B) to be the same, either both NoTrans, or both Trans.
 template <Target target, typename scalar_t>
-void syr2k(scalar_t alpha, Matrix< scalar_t >&& A,
-                           Matrix< scalar_t >&& B,
-           scalar_t beta,  SymmetricMatrix< scalar_t >&& C,
+void her2k(scalar_t alpha,                  Matrix< scalar_t >&& A,
+                                            Matrix< scalar_t >&& B,
+           blas::real_type<scalar_t> beta,  HermitianMatrix< scalar_t >&& C,
            int priority)
 {
     if (! ( ( (C.uplo() == Uplo::Lower && C.op() == Op::NoTrans) ||
               (C.uplo() == Uplo::Upper && C.op() != Op::NoTrans) )
             &&
-            ( C.is_real || (C.op() != Op::ConjTrans &&
-                            A.op() != Op::ConjTrans) )
+            ( C.is_real || (C.op() != Op::Trans &&
+                            A.op() != Op::Trans) )
             &&
             ( A.op() == B.op() ) ) )
     {
         throw std::exception();
     }
 
-    syr2k(internal::TargetType<target>(),
+    her2k(internal::TargetType<target>(),
           alpha, A,
                  B,
           beta,  C,
@@ -85,16 +85,17 @@ void syr2k(scalar_t alpha, Matrix< scalar_t >&& A,
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// Symmetric rank-k update of single block column (i.e., k = nb).
+/// Hermitian rank-k update of single block column (i.e., k = nb).
 /// Host OpenMP task implementation.
-/// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
+/// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
 template <typename scalar_t>
-void syr2k(internal::TargetType<Target::HostTask>,
-           scalar_t alpha, Matrix< scalar_t >& A,
-                           Matrix< scalar_t >& B,
-           scalar_t beta,  SymmetricMatrix< scalar_t >& C,
+void her2k(internal::TargetType<Target::HostTask>,
+           scalar_t alpha,                 Matrix< scalar_t >& A,
+                                           Matrix< scalar_t >& B,
+           blas::real_type<scalar_t> beta, HermitianMatrix< scalar_t >& C,
            int priority)
 {
+    scalar_t beta_ = beta;
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j)
         for (int64_t i = j; i < C.mt(); ++i)  // lower
@@ -106,7 +107,7 @@ void syr2k(internal::TargetType<Target::HostTask>,
                             A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                             B.tileCopyToHost(j, 0, B.tileDevice(j, 0));
                             C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                            syr2k(alpha, A(j, 0),
+                            her2k(alpha, A(j, 0),
                                          B(j, 0),
                                   beta,  C(j, j));
                             A.tileTick(j, 0);
@@ -129,10 +130,10 @@ void syr2k(internal::TargetType<Target::HostTask>,
                             auto Aj0 = A(j, 0);
                             auto Bj0 = B(j, 0);
                             gemm(alpha, A(i, 0),
-                                        transpose(Bj0),
-                                 beta,  C(i, j));
+                                        conj_transpose(Bj0),
+                                 beta_, C(i, j));
                             gemm(alpha, B(i, 0),
-                                        transpose(Aj0),
+                                        conj_transpose(Aj0),
                                  scalar_t(1.0), C(i, j));
                             A.tileTick(i, 0);
                             A.tileTick(j, 0);
@@ -155,16 +156,17 @@ void syr2k(internal::TargetType<Target::HostTask>,
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// Symmetric rank-k update of single block column (i.e., k = nb).
+/// Hermitian rank-k update of single block column (i.e., k = nb).
 /// Host nested OpenMP implementation.
-/// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
+/// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
 template <typename scalar_t>
-void syr2k(internal::TargetType<Target::HostNest>,
-           scalar_t alpha, Matrix< scalar_t >& A,
-                           Matrix< scalar_t >& B,
-           scalar_t beta,  SymmetricMatrix< scalar_t >& C,
+void her2k(internal::TargetType<Target::HostNest>,
+           scalar_t alpha,                 Matrix< scalar_t >& A,
+                                           Matrix< scalar_t >& B,
+           blas::real_type<scalar_t> beta, HermitianMatrix< scalar_t >& C,
            int priority)
 {
+    scalar_t beta_ = beta;
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j)
         if (C.tileIsLocal(j, j))
@@ -174,7 +176,7 @@ void syr2k(internal::TargetType<Target::HostNest>,
                     A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                     B.tileCopyToHost(j, 0, B.tileDevice(j, 0));
                     C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                    syr2k(alpha, A(j, 0),
+                    her2k(alpha, A(j, 0),
                                  B(j, 0),
                           beta,  C(j, j));
                     A.tileTick(j, 0);
@@ -198,10 +200,10 @@ void syr2k(internal::TargetType<Target::HostNest>,
                         auto Aj0 = A(j, 0);
                         auto Bj0 = B(j, 0);
                         gemm(alpha, A(i, 0),
-                                    transpose(Bj0),
-                             beta,  C(i, j));
+                                    conj_transpose(Bj0),
+                             beta_, C(i, j));
                         gemm(alpha, B(i, 0),
-                                    transpose(Aj0),
+                                    conj_transpose(Aj0),
                              scalar_t(1.0), C(i, j));
                         A.tileTick(i, 0);
                         A.tileTick(j, 0);
@@ -222,17 +224,17 @@ void syr2k(internal::TargetType<Target::HostNest>,
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// Symmetric rank-k update of single block column (i.e., k = nb).
+/// Hermitian rank-k update of single block column (i.e., k = nb).
 /// Host batched implementation.
-/// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
+/// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
 template <typename scalar_t>
-void syr2k(internal::TargetType<Target::HostBatch>,
-           scalar_t alpha, Matrix< scalar_t >& A,
-                           Matrix< scalar_t >& B,
-           scalar_t beta,  SymmetricMatrix< scalar_t >& C,
+void her2k(internal::TargetType<Target::HostBatch>,
+           scalar_t alpha,                 Matrix< scalar_t >& A,
+                                           Matrix< scalar_t >& B,
+           blas::real_type<scalar_t> beta, HermitianMatrix< scalar_t >& C,
            int priority)
 {
-    // diagonal tiles by syr2k on host
+    // diagonal tiles by her2k on host
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j) {
         if (C.tileIsLocal(j, j)) {
@@ -242,7 +244,7 @@ void syr2k(internal::TargetType<Target::HostBatch>,
                     A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                     B.tileCopyToHost(j, 0, B.tileDevice(j, 0));
                     C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                    syr2k(alpha, A(j, 0),
+                    her2k(alpha, A(j, 0),
                                  B(j, 0),
                           beta,  C(j, j));
                     A.tileTick(j, 0);
@@ -281,7 +283,7 @@ void syr2k(internal::TargetType<Target::HostBatch>,
                 throw std::exception();
         }
 
-        Op opB = (opA == Op::NoTrans ? Op::Trans : Op::NoTrans);
+        Op opB = (opA == Op::NoTrans ? Op::ConjTrans : Op::NoTrans);
 
         std::vector< CBLAS_TRANSPOSE > opA_array( batch_count, cblas_trans_const( opA ));  // all same
         std::vector< CBLAS_TRANSPOSE > opB_array( batch_count, cblas_trans_const( opB ));  // all same
@@ -391,20 +393,21 @@ void syr2k(internal::TargetType<Target::HostBatch>,
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// Symmetric rank-k update of single block column (i.e., k = nb).
+/// Hermitian rank-k update of single block column (i.e., k = nb).
 /// GPU device batched cuBLAS implementation.
-/// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
+/// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
 template <typename scalar_t>
-void syr2k(internal::TargetType<Target::Devices>,
-           scalar_t alpha, Matrix< scalar_t >& A,
-                           Matrix< scalar_t >& B,
-           scalar_t beta,  SymmetricMatrix< scalar_t >& C,
+void her2k(internal::TargetType<Target::Devices>,
+           scalar_t alpha,                 Matrix< scalar_t >& A,
+                                           Matrix< scalar_t >& B,
+           blas::real_type<scalar_t> beta, HermitianMatrix< scalar_t >& C,
            int priority)
 {
     using std::swap;
 
     assert( C.num_devices() > 0 );
 
+    scalar_t beta_ = beta;
     int err = 0;
 
     // off-diagonal tiles by batch gemm on device
@@ -424,7 +427,7 @@ void syr2k(internal::TargetType<Target::Devices>,
                         throw std::exception();
                 }
 
-                Op opB = (opA == Op::NoTrans ? Op::Trans : Op::NoTrans);
+                Op opB = (opA == Op::NoTrans ? Op::ConjTrans : Op::NoTrans);
 
                 scalar_t** a_array_host = C.a_array_host(device);
                 scalar_t** b_array_host = C.b_array_host(device);
@@ -497,7 +500,7 @@ void syr2k(internal::TargetType<Target::Devices>,
                             nb, nb, nb,
                             &alpha, (const scalar_t**) a_array_dev, nb,
                                     (const scalar_t**) b_array_dev, nb,
-                            &beta,  c_array_dev, nb,
+                            &beta_, c_array_dev, nb,
                             batch_count);
                     assert(status == CUBLAS_STATUS_SUCCESS);
 
@@ -580,7 +583,7 @@ void syr2k(internal::TargetType<Target::Devices>,
         }
     }
 
-    // diagonal tiles by syr2k on host
+    // diagonal tiles by her2k on host
     for (int64_t j = 0; j < C.nt(); ++j) {
         if (C.tileIsLocal(j, j)) {
             #pragma omp task shared(A, B, C, err)
@@ -589,7 +592,7 @@ void syr2k(internal::TargetType<Target::Devices>,
                     A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
                     B.tileCopyToHost(j, 0, B.tileDevice(j, 0));
                     C.tileMoveToHost(j, j, C.tileDevice(j, j));
-                    syr2k(alpha, A(j, 0),
+                    her2k(alpha, A(j, 0),
                                  B(j, 0),
                           beta,  C(j, j));
                     A.tileTick(j, 0);
@@ -613,118 +616,118 @@ void syr2k(internal::TargetType<Target::Devices>,
 // Explicit instantiations.
 // ----------------------------------------
 template
-void syr2k< Target::HostTask, float >(
+void her2k< Target::HostTask, float >(
     float alpha, Matrix< float >&& A,
                  Matrix< float >&& B,
-    float beta,  SymmetricMatrix< float >&& C,
+    float beta,  HermitianMatrix< float >&& C,
     int priority);
 
 template
-void syr2k< Target::HostNest, float >(
+void her2k< Target::HostNest, float >(
     float alpha, Matrix< float >&& A,
                  Matrix< float >&& B,
-    float beta,  SymmetricMatrix< float >&& C,
+    float beta,  HermitianMatrix< float >&& C,
     int priority);
 
 template
-void syr2k< Target::HostBatch, float >(
+void her2k< Target::HostBatch, float >(
     float alpha, Matrix< float >&& A,
                  Matrix< float >&& B,
-    float beta,  SymmetricMatrix< float >&& C,
+    float beta,  HermitianMatrix< float >&& C,
     int priority);
 
 template
-void syr2k< Target::Devices, float >(
+void her2k< Target::Devices, float >(
     float alpha, Matrix< float >&& A,
                  Matrix< float >&& B,
-    float beta,  SymmetricMatrix< float >&& C,
+    float beta,  HermitianMatrix< float >&& C,
     int priority);
 
 // ----------------------------------------
 template
-void syr2k< Target::HostTask, double >(
+void her2k< Target::HostTask, double >(
     double alpha, Matrix< double >&& A,
                   Matrix< double >&& B,
-    double beta,  SymmetricMatrix< double >&& C,
+    double beta,  HermitianMatrix< double >&& C,
     int priority);
 
 template
-void syr2k< Target::HostNest, double >(
+void her2k< Target::HostNest, double >(
     double alpha, Matrix< double >&& A,
                   Matrix< double >&& B,
-    double beta,  SymmetricMatrix< double >&& C,
+    double beta,  HermitianMatrix< double >&& C,
     int priority);
 
 template
-void syr2k< Target::HostBatch, double >(
+void her2k< Target::HostBatch, double >(
     double alpha, Matrix< double >&& A,
                   Matrix< double >&& B,
-    double beta,  SymmetricMatrix< double >&& C,
+    double beta,  HermitianMatrix< double >&& C,
     int priority);
 
 template
-void syr2k< Target::Devices, double >(
+void her2k< Target::Devices, double >(
     double alpha, Matrix< double >&& A,
                   Matrix< double >&& B,
-    double beta,  SymmetricMatrix< double >&& C,
+    double beta,  HermitianMatrix< double >&& C,
     int priority);
 
 // ----------------------------------------
 template
-void syr2k< Target::HostTask, std::complex<float> >(
+void her2k< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
-    std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
+    float beta,                HermitianMatrix< std::complex<float> >&& C,
     int priority);
 
 template
-void syr2k< Target::HostNest, std::complex<float> >(
+void her2k< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
-    std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
+    float beta,                HermitianMatrix< std::complex<float> >&& C,
     int priority);
 
 template
-void syr2k< Target::HostBatch, std::complex<float> >(
+void her2k< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
-    std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
+    float beta,                HermitianMatrix< std::complex<float> >&& C,
     int priority);
 
 template
-void syr2k< Target::Devices, std::complex<float> >(
+void her2k< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
-    std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
+    float beta,                HermitianMatrix< std::complex<float> >&& C,
     int priority);
 
 // ----------------------------------------
 template
-void syr2k< Target::HostTask, std::complex<double> >(
+void her2k< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
-    std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
+    double beta,                HermitianMatrix< std::complex<double> >&& C,
     int priority);
 
 template
-void syr2k< Target::HostNest, std::complex<double> >(
+void her2k< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
-    std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
+    double beta,                HermitianMatrix< std::complex<double> >&& C,
     int priority);
 
 template
-void syr2k< Target::HostBatch, std::complex<double> >(
+void her2k< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
-    std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
+    double beta,                HermitianMatrix< std::complex<double> >&& C,
     int priority);
 
 template
-void syr2k< Target::Devices, std::complex<double> >(
+void her2k< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
-    std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
+    double beta,                HermitianMatrix< std::complex<double> >&& C,
     int priority);
 
 } // namespace internal

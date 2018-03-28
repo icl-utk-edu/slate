@@ -92,24 +92,145 @@ void gemm(
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// Cholesky factorization of tile: $L L^H = A$ or $U^H U = A$.
-/// uplo is set in the tile.
+/// Hermitian matrix multiply: $C = \alpha A op(B) + \beta op(C)$
+///                         or $C = \alpha op(B) A + \beta op(C)$,
+/// where $A$ is Hermitian.
+/// Unlike most BLAS operations, here op(B) and op(C) must be
+/// both the same, either both NoTrans or both ConjTrans.
 template <typename scalar_t>
-int64_t potrf(Tile<scalar_t>& A)
+void hemm(
+    Side side,
+    scalar_t alpha, Tile<scalar_t> const& A,
+                    Tile<scalar_t> const& B,
+    scalar_t beta,  Tile<scalar_t>& C)
 {
-    trace::Block trace_block("lapack::potrf");
+    trace::Block trace_block("blas::hemm");
 
-    return lapack::potrf(A.uplo(),
-                         A.nb(),
-                         A.data(), A.stride());
+    using blas::conj;
+
+    assert(A.mb() == A.nb());  // square
+    assert(B.mb() == C.mb());
+    assert(B.nb() == C.nb());
+    if (side == Side::Left)
+        assert(A.mb() == B.mb());
+    else
+        assert(A.mb() == B.nb());
+    assert( B.op() == C.op() );
+    assert( A.op() != Op::Trans );
+    assert( B.op() != Op::Trans );
+
+    // A.op can be ignored, since A == A^T
+    if (B.op() == Op::NoTrans) {
+        blas::hemm(blas::Layout::ColMajor,
+                   side, A.uplo(),
+                   C.mb(), C.nb(),
+                   alpha, A.data(), A.stride(),
+                          B.data(), B.stride(),
+                   beta,  C.data(), C.stride());
+    }
+    else {
+        // ConjTrans
+        // undo transpose by swapping left <=> right, m <=> n
+        side = (side == Side::Left ? Side::Right : Side::Left);
+        blas::hemm(blas::Layout::ColMajor,
+                   side, A.uplo(),
+                   C.nb(), C.mb(),
+                   alpha, A.data(), A.stride(),
+                          B.data(), B.stride(),
+                   beta,  C.data(), C.stride());
+    }
 }
 
 ///----------------------------------------
 /// Converts rvalue refs to lvalue refs.
 template <typename scalar_t>
-int64_t potrf(Tile<scalar_t>&& A)
+void hemm(
+    Side side,
+    scalar_t alpha, Tile<scalar_t> const&& A,
+                    Tile<scalar_t> const&& B,
+    scalar_t beta,  Tile<scalar_t>&& C)
 {
-    return potrf( A );
+    hemm( side, alpha, A, B, beta, C );
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+/// Hermitian rank-k update: $C = \alpha op(A) op(A)^H + \beta C$.
+/// Use conj_transpose to set $op(A)$.
+/// In the complex case, C cannot be transpose.
+// Allowing C^T would require two conjugations: conj( conj(C) + A*A^H ).
+template <typename scalar_t>
+void herk(
+    blas::real_type<scalar_t> alpha, Tile<scalar_t> const& A,
+    blas::real_type<scalar_t> beta,  Tile<scalar_t>& C)
+{
+    trace::Block trace_block("blas::herk");
+
+    assert(A.uplo() == Uplo::General);
+    assert(C.mb() == C.nb());  // square
+    assert(C.mb() == A.mb());  // n
+    if (C.is_complex && C.op() == Op::Trans)
+        throw std::exception();
+
+    blas::herk(blas::Layout::ColMajor,
+               C.uplo(), A.op(),
+               C.nb(), A.nb(),
+               alpha, A.data(), A.stride(),
+               beta,  C.data(), C.stride());
+}
+
+///----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename scalar_t>
+void herk(
+    blas::real_type<scalar_t> alpha, Tile<scalar_t> const&& A,
+    blas::real_type<scalar_t> beta,  Tile<scalar_t>&& C)
+{
+    herk( alpha, A, beta, C );
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+/// Hermitian rank-2k update: $C = \alpha op(A) op(B)^T + \alpha op(B) op(A)^T + \beta C$.
+/// Use transpose or conj_transpose to set $op(A)$ and $op(B)$.
+/// In the complex case, C cannot be transpose.
+// Allowing C^H would require two conjugations: conj( conj(C) + A*A^T ).
+template <typename scalar_t>
+void her2k(
+    scalar_t alpha,                 Tile<scalar_t> const& A,
+                                    Tile<scalar_t> const& B,
+    blas::real_type<scalar_t> beta, Tile<scalar_t>& C)
+{
+    trace::Block trace_block("blas::her2k");
+
+    using blas::conj;
+
+    assert(A.op() == B.op());
+    assert(A.uplo() == Uplo::General);
+    assert(B.uplo() == Uplo::General);
+    assert(C.mb() == C.nb());  // square
+    assert(C.mb() == A.mb());  // n
+    assert(C.mb() == B.mb());  // n
+    if (C.is_complex && C.op() == Op::Trans)
+        throw std::exception();
+
+    blas::her2k(blas::Layout::ColMajor,
+                C.uplo(), A.op(),
+                C.nb(), A.nb(),
+                alpha, A.data(), A.stride(),
+                       B.data(), B.stride(),
+                beta,  C.data(), C.stride());
+}
+
+///----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename scalar_t>
+void her2k(
+    scalar_t alpha,                 Tile<scalar_t> const&& A,
+                                    Tile<scalar_t> const&& B,
+    blas::real_type<scalar_t> beta, Tile<scalar_t>&& C)
+{
+    her2k( alpha, A, B, beta, C );
 }
 
 ///-----------------------------------------------------------------------------
@@ -259,42 +380,6 @@ void syr2k(
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// Hermitian rank-k update: $C = \alpha op(A) op(A)^H + \beta C$.
-/// Use conj_transpose to set $op(A)$.
-/// In the real case, C cannot be transpose.
-// Allowing C^T would require two conjugations: conj( conj(C) + A*A^H ).
-template <typename scalar_t>
-void herk(
-    blas::real_type<scalar_t> alpha, Tile<scalar_t> const& A,
-    blas::real_type<scalar_t> beta,  Tile<scalar_t>& C)
-{
-    trace::Block trace_block("blas::herk");
-
-    assert(A.uplo() == Uplo::General);
-    assert(C.mb() == C.nb());  // square
-    assert(C.mb() == A.mb());  // n
-    if (C.is_complex && C.op() == Op::Trans)
-        throw std::exception();
-
-    blas::herk(blas::Layout::ColMajor,
-               C.uplo(), A.op(),
-               C.nb(), A.nb(),
-               alpha, A.data(), A.stride(),
-               beta,  C.data(), C.stride());
-}
-
-///----------------------------------------
-/// Converts rvalue refs to lvalue refs.
-template <typename scalar_t>
-void herk(
-    blas::real_type<scalar_t> alpha, Tile<scalar_t> const&& A,
-    blas::real_type<scalar_t> beta,  Tile<scalar_t>&& C)
-{
-    herk( alpha, A, beta, C );
-}
-
-///-----------------------------------------------------------------------------
-/// \brief
 template <typename scalar_t>
 void trmm(
     Side side, Diag diag,
@@ -418,6 +503,31 @@ void trsm(
                     Tile<scalar_t>&& B)
 {
     trsm( side, diag, alpha, A, B );
+}
+
+///=============================================================================
+// Tile factorizations
+
+///-----------------------------------------------------------------------------
+/// \brief
+/// Cholesky factorization of tile: $L L^H = A$ or $U^H U = A$.
+/// uplo is set in the tile.
+template <typename scalar_t>
+int64_t potrf(Tile<scalar_t>& A)
+{
+    trace::Block trace_block("lapack::potrf");
+
+    return lapack::potrf(A.uplo(),
+                         A.nb(),
+                         A.data(), A.stride());
+}
+
+///----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename scalar_t>
+int64_t potrf(Tile<scalar_t>&& A)
+{
+    return potrf( A );
 }
 
 } // namespace slate

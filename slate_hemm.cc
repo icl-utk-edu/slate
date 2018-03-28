@@ -45,7 +45,7 @@
 namespace slate {
 
 // specialization namespace differentiates, e.g.,
-// internal::symm from internal::specialization::symm
+// internal::hemm from internal::specialization::hemm
 namespace internal {
 namespace specialization {
 
@@ -55,14 +55,14 @@ namespace specialization {
 /// Generic implementation for any target.
 /// Dependencies enforce the following behavior:
 /// - bcast communications are serialized,
-/// - symm operations are serialized,
-/// - bcasts can get ahead of symms by the value of lookahead.
+/// - hemm operations are serialized,
+/// - bcasts can get ahead of hemms by the value of lookahead.
 // Note A, B, and C are passed by value, so we can transpose if needed
 // (for side = right) without affecting caller.
 template <Target target, typename scalar_t>
-void symm(slate::internal::TargetType<target>,
+void hemm(slate::internal::TargetType<target>,
           Side side,
-          scalar_t alpha, SymmetricMatrix<scalar_t> A,
+          scalar_t alpha, HermitianMatrix<scalar_t> A,
                           Matrix<scalar_t> B,
           scalar_t beta,  Matrix<scalar_t> C,
           int64_t lookahead)
@@ -71,9 +71,9 @@ void symm(slate::internal::TargetType<target>,
 
     // if on right, change to left by transposing A, B, C to get op(C) = op(A)*op(B)
     if (side == Side::Right) {
-        A = transpose(A);
-        B = transpose(B);
-        C = transpose(C);
+        A = conj_transpose(A);
+        B = conj_transpose(B);
+        C = conj_transpose(C);
     }
 
     // B and C are mt-by-nt, A is mt-by-mt (assuming side = left)
@@ -99,7 +99,7 @@ void symm(slate::internal::TargetType<target>,
         if ((A.uplo() == Uplo::Lower && A.op() == Op::NoTrans) ||
             (A.uplo() == Uplo::Upper && A.op() != Op::NoTrans)) {
             // ----------------------------------------
-            // Left, Lower/NoTrans or Upper/Trans case
+            // Left, Lower/NoTrans or Upper/ConjTrans case
 
             // send 1st block col of A and block row of B
             #pragma omp task depend(out:bcast[0])
@@ -137,12 +137,12 @@ void symm(slate::internal::TargetType<target>,
             }
 
             // multiply alpha A(:, 0) B(0, :), which is:
-            // C(0, :)      = alpha [ A(0, 0)      B(0, :) ] + beta C(0, :)       symm
+            // C(0, :)      = alpha [ A(0, 0)      B(0, :) ] + beta C(0, :)       hemm
             // C(1:mt-1, :) = alpha [ A(1:mt-1, 0) B(0, :) ] + beta C(1:mt-1, :)  gemm
             #pragma omp task depend(in:bcast[0]) \
                              depend(out:gemm[0])
             {
-                internal::symm<Target::HostTask>(
+                internal::hemm<Target::HostTask>(
                     Side::Left,
                     alpha, A.sub(0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
@@ -182,7 +182,7 @@ void symm(slate::internal::TargetType<target>,
 
                 // multiply alpha A(:, k) B(k, :), which is:
                 // C(0:k-1, :)    += alpha [ A(k, 0:k-1)^T  B(k, :) ]  gemm
-                // C(k, :)        += alpha [ A(k, k)        B(k, :) ]  symm
+                // C(k, :)        += alpha [ A(k, k)        B(k, :) ]  hemm
                 // C(k+1:mt-1, :) += alpha [ A(k+1:mt-1, k) B(k, :) ]  gemm
                 #pragma omp task depend(in:bcast[k]) \
                                  depend(in:gemm[k-1]) \
@@ -190,11 +190,11 @@ void symm(slate::internal::TargetType<target>,
                 {
                     auto Arow_k = A.sub(k, k, 0, k-1);
                     internal::gemm<target>(
-                        alpha,         transpose( Arow_k ),
+                        alpha,         conj_transpose( Arow_k ),
                                        B.sub(k, k, 0, B.nt()-1),
                         scalar_t(1.0), C.sub(0, k-1, 0, C.nt()-1));
 
-                    internal::symm<Target::HostTask>(
+                    internal::hemm<Target::HostTask>(
                         Side::Left,
                         alpha,          A.sub(k, k),
                                         B.sub(k, k, 0, B.nt()-1),
@@ -211,7 +211,7 @@ void symm(slate::internal::TargetType<target>,
         }
         else {
             // ----------------------------------------
-            // Left, Upper/NoTrans or Lower/Trans case
+            // Left, Upper/NoTrans or Lower/ConjTrans case
 
             // send 1st block col (row) of A and block row of B
             #pragma omp task depend(out:bcast[0])
@@ -249,12 +249,12 @@ void symm(slate::internal::TargetType<target>,
             }
 
             // multiply alpha A(:, 0) B(0, :), which is:
-            // C(0, :)      = alpha [ A(0, 0)      B(0, :) ] + beta C(0, :)       symm
+            // C(0, :)      = alpha [ A(0, 0)      B(0, :) ] + beta C(0, :)       hemm
             // C(1:mt-1, :) = alpha [ A(1:mt-1, 0) B(0, :) ] + beta C(1:mt-1, :)  gemm
             #pragma omp task depend(in:bcast[0]) \
                              depend(out:gemm[0])
             {
-                internal::symm<Target::HostTask>(
+                internal::hemm<Target::HostTask>(
                     Side::Left,
                     alpha, A.sub(0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
@@ -263,7 +263,7 @@ void symm(slate::internal::TargetType<target>,
                 if (A.mt()-1 > 0) {
                     auto Arow_k = A.sub(0, 0, 1, A.mt()-1);
                     internal::gemm<target>(
-                        alpha, transpose( Arow_k ),
+                        alpha, conj_transpose( Arow_k ),
                                B.sub(0, 0, 0, B.nt()-1),
                         beta,  C.sub(1, C.mt()-1, 0, C.nt()-1));
                 }
@@ -295,7 +295,7 @@ void symm(slate::internal::TargetType<target>,
 
                 // multiply alpha A(:, k) B(k, :), which is:
                 // C(0:k-1, :)    += alpha [ A(k, 0:k-1)^T  B(k, :) ]  gemm
-                // C(k, :)        += alpha [ A(k, k)        B(k, :) ]  symm
+                // C(k, :)        += alpha [ A(k, k)        B(k, :) ]  hemm
                 // C(k+1:mt-1, :) += alpha [ A(k+1:mt-1, k) B(k, :) ]  gemm
                 #pragma omp task depend(in:bcast[k]) \
                                  depend(in:gemm[k-1]) \
@@ -306,7 +306,7 @@ void symm(slate::internal::TargetType<target>,
                                        B.sub(k, k, 0, B.nt()-1),
                         scalar_t(1.0), C.sub(0, k-1, 0, C.nt()-1));
 
-                    internal::symm<Target::HostTask>(
+                    internal::hemm<Target::HostTask>(
                         Side::Left,
                         alpha,          A.sub(k, k),
                                         B.sub(k, k, 0, B.nt()-1),
@@ -315,7 +315,7 @@ void symm(slate::internal::TargetType<target>,
                     if (A.mt()-1 > k) {
                         auto Arow_k = A.sub(k, k, k+1, A.mt()-1);
                         internal::gemm<target>(
-                            alpha,         transpose( Arow_k ),
+                            alpha,         conj_transpose( Arow_k ),
                                            B.sub(k, k, 0, B.nt()-1),
                             scalar_t(1.0), C.sub(k+1, C.mt()-1, 0, C.nt()-1));
                     }
@@ -341,8 +341,8 @@ void symm(slate::internal::TargetType<target>,
 ///
 /// Precision and target templated function.
 template <Target target, typename scalar_t>
-void symm(Side side,
-          scalar_t alpha, SymmetricMatrix<scalar_t>& A,
+void hemm(Side side,
+          scalar_t alpha, HermitianMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts)
@@ -355,7 +355,7 @@ void symm(Side side,
         lookahead = 1;
     }
 
-    internal::specialization::symm(internal::TargetType<target>(),
+    internal::specialization::hemm(internal::TargetType<target>(),
                                    side,
                                    alpha, A,
                                           B,
@@ -366,132 +366,132 @@ void symm(Side side,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void symm< Target::HostTask, float >(
+void hemm< Target::HostTask, float >(
     Side side,
-    float alpha, SymmetricMatrix<float>& A,
+    float alpha, HermitianMatrix<float>& A,
                  Matrix<float>& B,
     float beta,  Matrix<float>& C,
     const std::map<Option, Value>& opts);
 
 template
-void symm< Target::HostNest, float >(
+void hemm< Target::HostNest, float >(
     Side side,
-    float alpha, SymmetricMatrix<float>& A,
+    float alpha, HermitianMatrix<float>& A,
                  Matrix<float>& B,
     float beta,  Matrix<float>& C,
     const std::map<Option, Value>& opts);
 
 template
-void symm< Target::HostBatch, float >(
+void hemm< Target::HostBatch, float >(
     Side side,
-    float alpha, SymmetricMatrix<float>& A,
+    float alpha, HermitianMatrix<float>& A,
                  Matrix<float>& B,
     float beta,  Matrix<float>& C,
     const std::map<Option, Value>& opts);
 
 template
-void symm< Target::Devices, float >(
+void hemm< Target::Devices, float >(
     Side side,
-    float alpha, SymmetricMatrix<float>& A,
+    float alpha, HermitianMatrix<float>& A,
                  Matrix<float>& B,
     float beta,  Matrix<float>& C,
     const std::map<Option, Value>& opts);
 
 // ----------------------------------------
 template
-void symm< Target::HostTask, double >(
+void hemm< Target::HostTask, double >(
     Side side,
-    double alpha, SymmetricMatrix<double>& A,
+    double alpha, HermitianMatrix<double>& A,
                   Matrix<double>& B,
     double beta,  Matrix<double>& C,
     const std::map<Option, Value>& opts);
 
 template
-void symm< Target::HostNest, double >(
+void hemm< Target::HostNest, double >(
     Side side,
-    double alpha, SymmetricMatrix<double>& A,
+    double alpha, HermitianMatrix<double>& A,
                   Matrix<double>& B,
     double beta,  Matrix<double>& C,
     const std::map<Option, Value>& opts);
 
 template
-void symm< Target::HostBatch, double >(
+void hemm< Target::HostBatch, double >(
     Side side,
-    double alpha, SymmetricMatrix<double>& A,
+    double alpha, HermitianMatrix<double>& A,
                   Matrix<double>& B,
     double beta,  Matrix<double>& C,
     const std::map<Option, Value>& opts);
 
 template
-void symm< Target::Devices, double >(
+void hemm< Target::Devices, double >(
     Side side,
-    double alpha, SymmetricMatrix<double>& A,
+    double alpha, HermitianMatrix<double>& A,
                   Matrix<double>& B,
     double beta,  Matrix<double>& C,
     const std::map<Option, Value>& opts);
 
 // ----------------------------------------
 template
-void symm< Target::HostTask,  std::complex<float>  >(
+void hemm< Target::HostTask,  std::complex<float>  >(
     Side side,
-    std::complex<float> alpha, SymmetricMatrix< std::complex<float> >& A,
+    std::complex<float> alpha, HermitianMatrix< std::complex<float> >& A,
                                Matrix< std::complex<float> >& B,
     std::complex<float> beta,  Matrix< std::complex<float> >& C,
     const std::map<Option, Value>& opts);
 
 template
-void symm< Target::HostNest, std::complex<float> >(
+void hemm< Target::HostNest, std::complex<float> >(
     Side side,
-    std::complex<float> alpha, SymmetricMatrix< std::complex<float> >& A,
+    std::complex<float> alpha, HermitianMatrix< std::complex<float> >& A,
                                Matrix< std::complex<float> >& B,
     std::complex<float> beta,  Matrix< std::complex<float> >& C,
     const std::map<Option, Value>& opts);
 
 template
-void symm< Target::HostBatch, std::complex<float> >(
+void hemm< Target::HostBatch, std::complex<float> >(
     Side side,
-    std::complex<float> alpha, SymmetricMatrix< std::complex<float> >& A,
+    std::complex<float> alpha, HermitianMatrix< std::complex<float> >& A,
                                Matrix< std::complex<float> >& B,
     std::complex<float> beta,  Matrix< std::complex<float> >& C,
     const std::map<Option, Value>& opts);
 
 template
-void symm< Target::Devices, std::complex<float> >(
+void hemm< Target::Devices, std::complex<float> >(
     Side side,
-    std::complex<float> alpha, SymmetricMatrix< std::complex<float> >& A,
+    std::complex<float> alpha, HermitianMatrix< std::complex<float> >& A,
                                Matrix< std::complex<float> >& B,
     std::complex<float> beta,  Matrix< std::complex<float> >& C,
     const std::map<Option, Value>& opts);
 
 // ----------------------------------------
 template
-void symm< Target::HostTask, std::complex<double> >(
+void hemm< Target::HostTask, std::complex<double> >(
     Side side,
-    std::complex<double> alpha, SymmetricMatrix< std::complex<double> >& A,
+    std::complex<double> alpha, HermitianMatrix< std::complex<double> >& A,
                                 Matrix< std::complex<double> >& B,
     std::complex<double> beta,  Matrix< std::complex<double> >& C,
     const std::map<Option, Value>& opts);
 
 template
-void symm< Target::HostNest, std::complex<double> >(
+void hemm< Target::HostNest, std::complex<double> >(
     Side side,
-    std::complex<double> alpha, SymmetricMatrix< std::complex<double> >& A,
+    std::complex<double> alpha, HermitianMatrix< std::complex<double> >& A,
                                 Matrix< std::complex<double> >& B,
     std::complex<double> beta,  Matrix< std::complex<double> >& C,
     const std::map<Option, Value>& opts);
 
 template
-void symm< Target::HostBatch, std::complex<double> >(
+void hemm< Target::HostBatch, std::complex<double> >(
     Side side,
-    std::complex<double> alpha, SymmetricMatrix< std::complex<double> >& A,
+    std::complex<double> alpha, HermitianMatrix< std::complex<double> >& A,
                                 Matrix< std::complex<double> >& B,
     std::complex<double> beta,  Matrix< std::complex<double> >& C,
     const std::map<Option, Value>& opts);
 
 template
-void symm< Target::Devices, std::complex<double> >(
+void hemm< Target::Devices, std::complex<double> >(
     Side side,
-    std::complex<double> alpha, SymmetricMatrix< std::complex<double> >& A,
+    std::complex<double> alpha, HermitianMatrix< std::complex<double> >& A,
                                 Matrix< std::complex<double> >& B,
     std::complex<double> beta,  Matrix< std::complex<double> >& C,
     const std::map<Option, Value>& opts);

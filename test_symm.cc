@@ -169,7 +169,7 @@ void test_symm(
     // Print GFLOPS.
     if (mpi_rank == 0) {
         double ops = blas::Gflop<scalar_t>::symm( side, m, n );
-        double gflops = ops/time/1e9;
+        double gflops = ops/time;
         printf("\t%.0f GFLOPS\n", gflops);
         fflush(stdout);
     }

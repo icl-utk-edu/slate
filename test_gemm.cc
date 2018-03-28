@@ -181,7 +181,7 @@ void test_gemm(
     // Print GFLOPS.
     if (mpi_rank == 0) {
         double ops = blas::Gflop<scalar_t>::gemm( m, n, k );
-        double gflops = ops/time/1e9;
+        double gflops = ops/time;
         printf("\t%.0f GFLOPS\n", gflops);
         fflush(stdout);
     }

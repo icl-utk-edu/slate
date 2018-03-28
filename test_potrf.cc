@@ -131,7 +131,7 @@ void test_potrf(
     // Print GFLOPS.
     if (mpi_rank == 0) {
         double ops = (double) n*n*n / 3.0;
-        double gflops = ops/time/1e9;
+        double gflops = ops/time;
         printf("\t%.0f GFLOPS\n", gflops);
         fflush(stdout);
     }

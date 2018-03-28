@@ -163,7 +163,7 @@ void test_syrk(
     // Print GFLOPS.
     if (mpi_rank == 0) {
         double ops = blas::Gflop<scalar_t>::syrk( n, k );
-        double gflops = ops/time/1e9;
+        double gflops = ops/time;
         printf("\t%.2f GFLOPS\n", gflops);
         fflush(stdout);
     }

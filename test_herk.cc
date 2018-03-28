@@ -162,7 +162,7 @@ void test_herk(
     // Print GFLOPS.
     if (mpi_rank == 0) {
         double ops = blas::Gflop<scalar_t>::herk( n, k );
-        double gflops = ops/time/1e9;
+        double gflops = ops/time;
         printf("\t%.2f GFLOPS\n", gflops);
         fflush(stdout);
     }

@@ -40,7 +40,7 @@
 #ifndef SLATE_DEBUG_HH
 #define SLATE_DEBUG_HH
 
-#include "slate_Matrix.hh"
+#include "slate_BaseMatrix.hh"
 #include "slate_Memory.hh"
 
 #include <iostream>
@@ -78,23 +78,29 @@ public:
 
     template <typename scalar_t>
     static void diffLapackMatrices(int64_t m, int64_t n,
-                                   scalar_t *a, int64_t lda,
-                                   scalar_t *b, int64_t ldb,
+                                   scalar_t const *A, int64_t lda,
+                                   scalar_t const *B, int64_t ldb,
                                    int64_t mb, int64_t nb);
     //-------------
-    // Matrix class
+    // BaseMatrix class
     template <typename scalar_t>
-    static void checkTilesLives(Matrix<scalar_t> &a);
+    static void checkTilesLives(BaseMatrix<scalar_t> const& A);
 
     template <typename scalar_t>
-    static void printTilesLives(Matrix<scalar_t> &a);
+    static void printTilesLives(BaseMatrix<scalar_t> const& A);
 
     template <typename scalar_t>
-    static void printTilesMaps(Matrix<scalar_t> &a);
+    static void printTilesMaps(BaseMatrix<scalar_t> const& A);
 
     //-------------
     // Memory class
-    static void printNumFreeMemBlocks(Memory &m);
+    static void printNumFreeMemBlocks(Memory const& m);
+
+    template <typename scalar_t>
+    static void printNumFreeMemBlocks(BaseMatrix<scalar_t> const& A)
+    {
+        printNumFreeMemBlocks( A.storage_->memory_ );
+    }
 
 private:
     static bool debug_;

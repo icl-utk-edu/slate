@@ -48,8 +48,8 @@ bool Debug::debug_ = true;
 ///
 template <typename scalar_t>
 void Debug::diffLapackMatrices(int64_t m, int64_t n,
-                               scalar_t *a, int64_t lda,
-                               scalar_t *b, int64_t ldb,
+                               scalar_t const *A, int64_t lda,
+                               scalar_t const *B, int64_t ldb,
                                int64_t mb, int64_t nb)
 {
     using real_t = blas::real_type<scalar_t>;
@@ -66,8 +66,8 @@ void Debug::diffLapackMatrices(int64_t m, int64_t n,
             if (j%nb == 2)
                 j += nb-4;
 
-            real_t error = abs(a[(size_t)lda*j+i] - b[(size_t)lda*j+i])
-                         / abs(a[(size_t)lda*j+i]);
+            real_t error = abs(A[(size_t)lda*j+i] - B[(size_t)lda*j+i])
+                         / abs(A[(size_t)lda*j+i]);
             printf("%c", error < 100*eps ? '.' : '#');
 
             if ((j+1)%nb == 0)
@@ -89,21 +89,21 @@ void Debug::diffLapackMatrices(int64_t m, int64_t n,
 /// \brief
 ///
 template <typename scalar_t>
-void Debug::checkTilesLives(Matrix<scalar_t> &a)
+void Debug::checkTilesLives(BaseMatrix<scalar_t> const& A)
 {
     if (! debug_) return;
     // i, j are global indices
-    for (auto it = a.storage_->tiles_.begin(); it != a.storage_->tiles_.end(); ++it) {
+    for (auto it = A.storage_->tiles_.begin(); it != A.storage_->tiles_.end(); ++it) {
         int64_t i = std::get<0>(it->first);
         int64_t j = std::get<1>(it->first);
 
-        if (! a.tileIsLocal(i, j))
-            if (a.storage_->lives_[{i, j}] != 0 || it->second->data() != nullptr)
+        if (! A.tileIsLocal(i, j))
+            if (A.storage_->lives_[{i, j}] != 0 || it->second->data() != nullptr)
 
-                std::cout << "P"      << a.mpi_rank_
-                          << " TILE " << std::get<0>(it->first)
-                          << " "      << std::get<1>(it->first)
-                          << " LIFE " << a.storage_->lives_[{i, j}]
+                std::cout << "RANK "  << std::setw(3) << A.mpi_rank_
+                          << " TILE " << std::setw(3) << std::get<0>(it->first)
+                          << " "      << std::setw(3) << std::get<1>(it->first)
+                          << " LIFE " << std::setw(3) << A.storage_->lives_[{i, j}]
                           << " data " << it->second->data()
                           << " DEV "  << std::get<2>(it->first) << "\n";
     }
@@ -113,17 +113,17 @@ void Debug::checkTilesLives(Matrix<scalar_t> &a)
 /// \brief
 ///
 template <typename scalar_t>
-void Debug::printTilesLives(Matrix<scalar_t> &a)
+void Debug::printTilesLives(BaseMatrix<scalar_t> const& A)
 {
     if (! debug_) return;
-    // i, j are local indices
-    if (a.mpi_rank_ == 0) {
-        for (int64_t i = 0; i < a.mt(); ++i) {
-            for (int64_t j = 0; j < a.nt(); j++) {
-                if (a.storage_->tiles_.find(a.globalIndex(i, j, a.host_num_)) == a.storage_->tiles_.end())
+    // i, j are tile indices
+    if (A.mpi_rank_ == 0) {
+        for (int64_t i = 0; i < A.mt(); ++i) {
+            for (int64_t j = 0; j < A.nt(); j++) {
+                if (A.storage_->tiles_.find(A.globalIndex(i, j, A.host_num_)) == A.storage_->tiles_.end())
                     printf("  .");
                 else
-                    printf("%3lld", (long long) a.tileLife(i, j));
+                    printf("%3lld", (long long) A.tileLife(i, j));
             }
             printf("\n");
         }
@@ -134,14 +134,15 @@ void Debug::printTilesLives(Matrix<scalar_t> &a)
 /// \brief
 ///
 template <typename scalar_t>
-void Debug::printTilesMaps(Matrix<scalar_t> &a)
+void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
 {
     if (! debug_) return;
-    // i, j are local indices
-    for (int64_t i = 0; i < a.mt(); ++i) {
-        for (int64_t j = 0; j <= i && j < a.nt(); ++j) {
-            auto it = a.storage_->tiles_.find({i, j, a.host_num_});
-            if (it != a.storage_->tiles_.end()) {
+    // i, j are tile indices
+    printf( "host\n" );
+    for (int64_t i = 0; i < A.mt(); ++i) {
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            auto it = A.storage_->tiles_.find({i, j, A.host_num_});
+            if (it != A.storage_->tiles_.end()) {
                 auto tile = it->second;
                 if (tile->origin() == true)
                     printf("o");
@@ -154,11 +155,12 @@ void Debug::printTilesMaps(Matrix<scalar_t> &a)
         }
         printf("\n");
     }
-    for (int device = 0; device < a.num_devices_; ++device) {
-        for (int64_t i = 0; i < a.mt(); ++i) {
-            for (int64_t j = 0; j <= i && j < a.nt(); ++j) {
-                auto it = a.storage_->tiles_.find({i, j, device});
-                if (it != a.storage_->tiles_.end()) {
+    for (int device = 0; device < A.num_devices_; ++device) {
+        printf( "device %d\n", device );
+        for (int64_t i = 0; i < A.mt(); ++i) {
+            for (int64_t j = 0; j < A.nt(); ++j) {
+                auto it = A.storage_->tiles_.find({i, j, device});
+                if (it != A.storage_->tiles_.end()) {
                     auto tile = it->second;
                     if (tile->origin() == true)
                         printf("o");
@@ -190,62 +192,62 @@ void Debug::printNumFreeMemBlocks(Memory &m)
 // Explicit instantiations.
 template
 void Debug::diffLapackMatrices(int64_t m, int64_t n,
-                               float *a, int64_t lda,
-                               float *b, int64_t ldb,
+                               float const *A, int64_t lda,
+                               float const *B, int64_t ldb,
                                int64_t mb, int64_t nb);
 template
-void Debug::checkTilesLives(Matrix<float> &a);
+void Debug::checkTilesLives(BaseMatrix<float> const& A);
 
 template
-void Debug::printTilesLives(Matrix<float> &a);
+void Debug::printTilesLives(BaseMatrix<float> const& A);
 
 template
-void Debug::printTilesMaps(Matrix<float> &a);
+void Debug::printTilesMaps(BaseMatrix<float> const& A);
 
 // ----------------------------------------
 template
 void Debug::diffLapackMatrices(int64_t m, int64_t n,
-                               double *a, int64_t lda,
-                               double *b, int64_t ldb,
+                               double const *A, int64_t lda,
+                               double const *B, int64_t ldb,
                                int64_t mb, int64_t nb);
 template
-void Debug::checkTilesLives(Matrix<double> &a);
+void Debug::checkTilesLives(BaseMatrix<double> const& A);
 
 template
-void Debug::printTilesLives(Matrix<double> &a);
+void Debug::printTilesLives(BaseMatrix<double> const& A);
 
 template
-void Debug::printTilesMaps(Matrix<double> &a);
+void Debug::printTilesMaps(BaseMatrix<double> const& A);
 
 // ----------------------------------------
 template
 void Debug::diffLapackMatrices(int64_t m, int64_t n,
-                               std::complex<float> *a, int64_t lda,
-                               std::complex<float> *b, int64_t ldb,
+                               std::complex<float> const *A, int64_t lda,
+                               std::complex<float> const *B, int64_t ldb,
                                int64_t mb, int64_t nb);
 template
-void Debug::checkTilesLives(Matrix<std::complex<float>> &a);
+void Debug::checkTilesLives(BaseMatrix<std::complex<float>> const& A);
 
 template
-void Debug::printTilesLives(Matrix<std::complex<float>> &a);
+void Debug::printTilesLives(BaseMatrix<std::complex<float>> const& A);
 
 template
-void Debug::printTilesMaps(Matrix<std::complex<float>> &a);
+void Debug::printTilesMaps(BaseMatrix<std::complex<float>> const& A);
 
 // ----------------------------------------
 template
 void Debug::diffLapackMatrices(int64_t m, int64_t n,
-                               std::complex<double> *a, int64_t lda,
-                               std::complex<double> *b, int64_t ldb,
+                               std::complex<double> const *A, int64_t lda,
+                               std::complex<double> const *B, int64_t ldb,
                                int64_t mb, int64_t nb);
 template
-void Debug::checkTilesLives(Matrix<std::complex<double>> &a);
+void Debug::checkTilesLives(BaseMatrix<std::complex<double>> const& A);
 
 template
-void Debug::printTilesLives(Matrix<std::complex<double>> &a);
+void Debug::printTilesLives(BaseMatrix<std::complex<double>> const& A);
 
 template
-void Debug::printTilesMaps(Matrix<std::complex<double>> &a);
+void Debug::printTilesMaps(BaseMatrix<std::complex<double>> const& A);
 
 
 } // namespace slate

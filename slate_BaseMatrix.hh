@@ -344,7 +344,7 @@ public:
 
     ///-------------------------------------------------------------------------
     /// @return life counter of tile {i, j}.
-    int64_t tileLife(int64_t i, int64_t j)
+    int64_t tileLife(int64_t i, int64_t j) const
     {
         return storage_->tileLife(globalIndex(i, j));
     }

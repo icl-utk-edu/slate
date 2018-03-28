@@ -25,7 +25,7 @@ void test_potrf_work( Params& params, bool run )
     using real_t = blas::real_type<scalar_t>;
 
     // get & mark input values
-    lapack::Uplo uplo = params.uplo.value();
+    slate::Uplo uplo = params.uplo.value();
     // int64_t align = params.align.value();
     int64_t lookahead = params.lookahead.value();
     int64_t p = params.p.value();
@@ -80,9 +80,8 @@ void test_potrf_work( Params& params, bool run )
     scalapack_pdplghe( &A_tst[0], m, n, nb, nb, myrow, mycol, nprow, npcol, mloc, iseed );
 
     // Create SLATE matrix from the ScaLAPACK layouts
-    //int llda_ = 8;
-    //slate::HermitianMatrix< scalar_t > A(slate::Uplo::Lower, n, Adata, lda, nb, p, q, MPI_COMM_WORLD);
-    //slate::Matrix<double> A( n_, n_, &A_tst[0], descA_tst[llda_], nb_, nb_, nprow, npcol, descA_tst[llda_], MPI_COMM_WORLD );
+    int64_t llda = descA_tst[8];
+    auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK( uplo, n_, &A_tst[0], llda, nb_, nprow, npcol, MPI_COMM_WORLD );
 
     // If check is required, save A in A_ref and create a descriptor for it
     if ( params.check.value() == 'y' ) {
@@ -94,8 +93,8 @@ void test_potrf_work( Params& params, bool run )
     // Call the routine using ScaLAPACK layout
     MPI_Barrier(MPI_COMM_WORLD);
     double time = libtest::get_wtime();
-    // slate::potrf< slate::Target::HostTask >(A, lookahead);
-    scalapack_ppotrf( uplo_str, &n, &A_tst[0], &i1, &i1, descA_tst, &info );  assert( 0 == info );
+    slate::potrf< slate::Target::HostTask >(A, lookahead);
+    // scalapack_ppotrf( uplo_str, &n, &A_tst[0], &i1, &i1, descA_tst, &info );  assert( 0 == info );
     MPI_Barrier(MPI_COMM_WORLD);
     double time_tst = libtest::get_wtime() - time;
 

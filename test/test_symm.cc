@@ -27,18 +27,20 @@ inline int MKL_Set_Num_Threads( int nt ) { return 1; }
 
 //------------------------------------------------------------------------------
 template< typename scalar_t >
-void test_trmm_work( Params& params, bool run )
+void test_symm_work( Params& params, bool run )
 {
     using real_t = blas::real_type<scalar_t>;
 
     // get & mark input values
+    //blas::Op transA = params.transA.value();
+    //blas::Op transB = params.transB.value();
+    blas::Uplo uplo = params.uplo.value();
     blas::Side side = params.side.value();
-    lapack::Uplo uplo = params.uplo.value();
-    lapack::Op trans = params.trans.value();
-    blas::Diag diag = params.diag.value();
-    scalar_t alpha  = params.alpha.value();
-    int64_t m = params.dim.m();
+    scalar_t alpha = params.alpha.value();
+    scalar_t beta = params.beta.value();
+    //int64_t m = params.dim.m(); // TODO
     int64_t n = params.dim.n();
+    //int64_t k = params.dim.k(); // TODO
     int64_t nb = params.nb.value();
     int64_t p = params.p.value();
     int64_t q = params.q.value();
@@ -61,7 +63,7 @@ void test_trmm_work( Params& params, bool run )
 
     // BLACS/MPI variables
     int ictxt, nprow, npcol, myrow, mycol, info, mloc, nloc;
-    int descA_tst[9], descB_tst[9], descB_ref[9];
+    int descA_tst[9], descB_tst[9], descC_tst[9], descC_ref[9];
     int iam=0, nprocs=1;
     int n_ = n; 
     int nb_ = nb;
@@ -77,37 +79,43 @@ void test_trmm_work( Params& params, bool run )
     // typedef long long lld;
 
     // Allocate space
-    size_t size_A = (size_t)( mloc*nloc );
+    size_t size_A = (size_t)( (size_t)mloc*(size_t)nloc );
+    // printf("size_A %lud %lld mloc %d nloc %d\n", size_A, size_A_ll, mloc, nloc);
     std::vector< scalar_t > A_tst( size_A );
-    size_t size_B = (size_t)( mloc*nloc );
-    std::vector< scalar_t > B_tst( size_B );
-    std::vector< scalar_t > B_ref;
+    std::vector< scalar_t > B_tst( size_A );
+    std::vector< scalar_t > C_tst( size_A );
+    std::vector< scalar_t > C_ref;
 
     // Initialize the matrix
     int iseed = 0;
-    // TODO: A is a unit, or non-unit, upper or lower triangular distributed matrix, 
     scalapack_pdplghe( &A_tst[0], n_, n_, nb_, nb_, myrow, mycol, nprow, npcol, mloc, iseed+1 );
-    // TODO: B is an m-by-n distributed matrix
     scalapack_pdplrnt( &B_tst[0], n_, n_, nb_, nb_, myrow, mycol, nprow, npcol, mloc, iseed+2 );
+    scalapack_pdplrnt( &C_tst[0], n_, n_, nb_, nb_, myrow, mycol, nprow, npcol, mloc, iseed+3 );
 
     // Create ScaLAPACK descriptors
     scalapack_descinit( descA_tst, &n_, &n_, &nb_, &nb_, &i0, &i0, &ictxt, &mloc, &info ); assert(info==0);
     scalapack_descinit( descB_tst, &n_, &n_, &nb_, &nb_, &i0, &i0, &ictxt, &mloc, &info ); assert(info==0);
+    scalapack_descinit( descC_tst, &n_, &n_, &nb_, &nb_, &i0, &i0, &ictxt, &mloc, &info ); assert(info==0);
 
     // If check is required, save data and create a descriptor for it
     if ( check || ref ) {
-        B_ref.resize( size_B );
-        B_ref = B_tst;
-        scalapack_descinit( descB_ref, &n_, &n_, &nb_, &nb_, &i0, &i0, &ictxt, &mloc, &info ); assert(info==0);
+        C_ref.resize( size_A );
+        C_ref = C_tst;
+        scalapack_descinit( descC_ref, &n_, &n_, &nb_, &nb_, &i0, &i0, &ictxt, &mloc, &info ); assert(info==0);
     }
 
     // Create SLATE matrices from the ScaLAPACK layouts
     int64_t llda = (int64_t)descA_tst[8];
-    auto A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK( uplo, n, &A_tst[0], llda, nb, nprow, npcol, MPI_COMM_WORLD );
+    auto A = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK( uplo, n_, &A_tst[0], llda, nb_, nprow, npcol, MPI_COMM_WORLD );
+    auto B = slate::Matrix<scalar_t>::fromScaLAPACK( n_, n_, &B_tst[0], llda, nb_, nprow, npcol, MPI_COMM_WORLD );
+    auto C = slate::Matrix<scalar_t>::fromScaLAPACK( n_, n_, &C_tst[0], llda, nb_, nprow, npcol, MPI_COMM_WORLD );
 
-    // Create SLATE matrices from the ScaLAPACK layouts
-    int64_t lldb = (int64_t)descB_tst[8];
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK( n_, n_, &B_tst[0], lldb, nb_, nprow, npcol, MPI_COMM_WORLD );
+    if (side == blas::Side::Left)
+        assert( A.mt() == C.mt() );
+    else
+        assert( A.mt() == C.nt() );
+    assert( B.mt() == C.mt() );
+    assert( B.nt() == C.nt() );
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
@@ -116,28 +124,28 @@ void test_trmm_work( Params& params, bool run )
     MPI_Barrier(MPI_COMM_WORLD);
     double time = libtest::get_wtime();
     if ( params.target.value() == 't' )
-        slate::trmm<slate::Target::HostTask>(
-            side, diag, alpha, A, B, {{slate::Option::Lookahead, lookahead}});
+        slate::symm<slate::Target::HostTask>(
+            side, alpha, A, B, beta, C, {{slate::Option::Lookahead, lookahead}});
     else if ( params.target.value() == 'n' )
-        slate::trmm<slate::Target::HostNest>(
-            side, diag, alpha, A, B, {{slate::Option::Lookahead, lookahead}});
+        slate::symm<slate::Target::HostNest>(
+            side, alpha, A, B, beta, C, {{slate::Option::Lookahead, lookahead}});
     else if ( params.target.value() == 'b' )
-        slate::trmm<slate::Target::HostBatch>(
-            side, diag, alpha, A, B, {{slate::Option::Lookahead, lookahead}});
+        slate::symm<slate::Target::HostBatch>(
+            side, alpha, A, B, beta, C, {{slate::Option::Lookahead, lookahead}});
     else if ( params.target.value() == 'd' )
-        slate::trmm<slate::Target::Devices>(
-            side, diag, alpha, A, B, {{slate::Option::Lookahead, lookahead}});
-    // scalapack_ptrmm( side2str(side), uplo2str(uplo), op2str(trans), diag2str(diag),
-    //                  &n_, &n_, &alpha,
+        slate::symm<slate::Target::Devices>(
+            side, alpha, A, B, beta, C, {{slate::Option::Lookahead, lookahead}});
+    // scalapack_psymm( op2str(transA), op2str(transB), &n_, &n_, &n_, &alpha,
     //                  &A_tst[0], &i1, &i1, descA_tst,
-    //                  &B_tst[0], &i1, &i1, descB_tst);
+    //                  &B_tst[0], &i1, &i1, descB_tst, &beta,
+    //                  &C_tst[0], &i1, &i1, descC_tst );
     MPI_Barrier(MPI_COMM_WORLD);
     double time_tst = libtest::get_wtime() - time;
     
     if (trace) slate::trace::Trace::finish();
 
     // Compute and save timing/performance
-    double gflop = blas::Gflop < scalar_t >::trmm( side, m, n );
+    double gflop = blas::Gflop< scalar_t >::symm( side, n, n );
     params.time.value() = time_tst;
     params.gflops.value() = gflop / time_tst;
 
@@ -155,26 +163,29 @@ void test_trmm_work( Params& params, bool run )
         // Run the reference routine
         MPI_Barrier(MPI_COMM_WORLD);        
         double time = libtest::get_wtime();
-        scalapack_ptrmm( side2str(side), uplo2str(uplo), op2str(trans), diag2str(diag),  
-                         &n_, &n_, &alpha,
-                         &A_tst[0], &i1, &i1, descA_tst,
-                         &B_ref[0], &i1, &i1, descB_ref);
+        // void pdsymm (const char *side , const char *uplo , const MKL_INT *m , const MKL_INT *n , const double *alpha , const double *a , const MKL_INT *ia , const MKL_INT *ja , const MKL_INT *desca , const double *b , const MKL_INT *ib , const MKL_INT *jb , const MKL_INT *descb , const double *beta , double *c , const MKL_INT *ic , const MKL_INT *jc , const MKL_INT *descc );
+        // scalapack_psymm( op2str(transA), op2str(transB), &n_, &n_, &n_, &alpha,
+        //     &A_tst[0], &i1, &i1, descA_tst,
+        //     &B_tst[0], &i1, &i1, descB_tst, &beta,
+        //     &C_ref[0], &i1, &i1, descC_ref );
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 
         // Allocate work space
         std::vector< scalar_t > worklange( mloc );
 
-        // Local operation: error = B_ref - B_tst
-        blas::axpy(size_B, -1.0, &B_tst[0], 1, &B_ref[0], 1);
+        // blas::axpy((size_t)lda*n, -1.0, C_tst, 1, C_ref, 1);
+        // Local operation: error = C_ref - C_tst
+        for(size_t i = 0; i < C_ref.size(); i++)
+            C_ref[i] = C_ref[i] - C_tst[i];
 
-        // norm(B_tst)
-        real_t B_tst_norm = scalapack_plange( "I", &n_, &n_, &B_tst[0], &i1, &i1, descB_tst, &worklange[0]);
+        // norm(C_tst)
+        real_t C_tst_norm = scalapack_plange( "I", &n_, &n_, &C_tst[0], &i1, &i1, descC_tst, &worklange[0]);
 
-        // norm(B_ref - B_tst)
-        real_t error_norm = scalapack_plange( "I", &n_, &n_, &B_ref[0], &i1, &i1, descB_tst, &worklange[0] );
-        if ( B_tst_norm != 0 )
-            error_norm /=  B_tst_norm;
+        // norm(C_ref - C_tst)
+        real_t error_norm = scalapack_plange( "I", &n_, &n_, &C_ref[0], &i1, &i1, descC_tst, &worklange[0] );
+        if ( C_tst_norm != 0 )
+            error_norm /=  C_tst_norm;
 
         params.ref_time.value() = time_ref;
         params.ref_gflops.value() = gflop / time_ref;
@@ -190,7 +201,7 @@ void test_trmm_work( Params& params, bool run )
 }
 
 // -----------------------------------------------------------------------------
-void test_trmm( Params& params, bool run )
+void test_symm( Params& params, bool run )
 {
     switch (params.datatype.value()) {
         case libtest::DataType::Integer:
@@ -198,20 +209,19 @@ void test_trmm( Params& params, bool run )
             break;
 
         case libtest::DataType::Single:
-            throw std::exception();// test_trmm_work< float >( params, run );
+            throw std::exception();// test_symm_work< float >( params, run );
             break;
 
         case libtest::DataType::Double:
-            test_trmm_work< double >( params, run );
+            test_symm_work< double >( params, run );
             break;
 
         case libtest::DataType::SingleComplex:
-            throw std::exception();// test_trmm_work< std::complex<float> >( params, run );
+            throw std::exception();// test_symm_work< std::complex<float> >( params, run );
             break;
 
         case libtest::DataType::DoubleComplex:
-            throw std::exception();// test_trmm_work< std::complex<double> >( params, run );
+            throw std::exception();// test_symm_work< std::complex<double> >( params, run );
             break;
     }
 }
-

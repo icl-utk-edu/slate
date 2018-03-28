@@ -113,9 +113,13 @@ std::vector< libtest::routines_t > routines = {
   //   { "ptsv",               test_ptsv,      Section::posv },
   //   { "",                   nullptr,        Section::newline },
 
+    { "gemm",               test_gemm,         Section::posv },
     { "potrf",              test_potrf,        Section::posv },
     { "potrf_lapack",       test_potrf_lapack, Section::posv },
-    { "gemm",               test_gemm,         Section::posv },
+    { "symm",               test_symm,         Section::posv },
+    { "syr2k",              test_syr2k,        Section::posv },
+    { "syrk",               test_syrk,         Section::posv },
+    { "trsm",               test_trsm,         Section::posv },
     { "trmm",               test_trmm,         Section::posv },
 
   //   { "pptrf",              test_pptrf,     Section::posv },
@@ -443,6 +447,8 @@ Params::Params():
     verbose   ( "verbose", 0,    ParamType::Value,   0,   0,   10, "verbose level" ),
     cache     ( "cache",   0,    ParamType::Value,  20,   1, 1024, "total cache size, in MiB" ),
 
+    target     ( "target", 1,    ParamType::Value, 'd', "tnbd", "target: t=HostTask n=HostNest b=HostBatch d=Devices" ),
+
     // ----- routine parameters
     //          name,      w,    type,            def,                    char2enum,         enum2char,         enum2str,         help
     datatype  ( "type",    4,    ParamType::List, DataType::Double,       char2datatype,     datatype2char,     datatype2str,     "s=single (float), d=double, c=complex-single, z=complex-double" ),
@@ -462,6 +468,7 @@ Params::Params():
     jobu      ( "jobu",    9,    ParamType::List, lapack::Job::NoVec, lapack::char2job, lapack::job2char, lapack::job2str, "left singular vectors (U): n=no vectors, s=some vectors, o=overwrite, a=all vectors" ),
     jobvt     ( "jobvt",   9,    ParamType::List, lapack::Job::NoVec, lapack::char2job, lapack::job2char, lapack::job2str, "right singular vectors (V^T): n=no vectors, s=some vectors, o=overwrite, a=all vectors" ),
     range     ( "range",   9,    ParamType::List, lapack::Range::All, lapack::char2range, lapack::range2char, lapack::range2str, "find: a=all eigen/singular values, v=values in (vl, vu], i=il-th through iu-th values" ),
+
     matrixtype( "matrixtype", 10, ParamType::List, lapack::MatrixType::General,
                 lapack::char2matrixtype, lapack::matrixtype2char, lapack::matrixtype2str,
                 "matrix type: g=general, l=lower, u=upper, h=Hessenberg, z=band-general, b=band-lower, q=band-upper" ),
@@ -527,6 +534,7 @@ Params::Params():
     repeat .value();
     verbose.value();
     cache  .value();
+    target  .value();
 
     // routine's parameters are marked by the test routine; see main
 }

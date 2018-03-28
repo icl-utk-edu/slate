@@ -19,7 +19,43 @@
 // -----------------------------------------------------------------------------
 
 extern "C" void scalapack_pdplrnt( double *A, int m, int n, int mb, int nb, int myrow, int mycol, int nprow, int npcol, int mloc, int seed );
+extern "C" void scalapack_psplrnt( float *A, int m, int n, int mb, int nb, int myrow, int mycol, int nprow, int npcol, int mloc, int seed );
+extern "C" void scalapack_pcplrnt( std::complex<float> *A, int m, int n, int mb, int nb, int myrow, int mycol, int nprow, int npcol, int mloc, int seed );
+extern "C" void scalapack_pzplrnt( std::complex<double> *A, int m, int n, int mb, int nb, int myrow, int mycol, int nprow, int npcol, int mloc, int seed );
+
+// -----------------------------------------------------------------------------
+inline void scalapack_pplrnt ( double *A, int m, int n, int mb, int nb, int myrow, int mycol, int nprow, int npcol, int mloc, int seed )
+{
+    scalapack_pdplrnt( A, m, n, mb, nb, myrow, mycol, nprow, npcol, mloc, seed );
+}
+
+inline void scalapack_pplrnt ( float *A, int m, int n, int mb, int nb, int myrow, int mycol, int nprow, int npcol, int mloc, int seed )
+{
+    scalapack_psplrnt( A, m, n, mb, nb, myrow, mycol, nprow, npcol, mloc, seed );
+}
+
+inline void scalapack_pplrnt ( std::complex<float> *A, int m, int n, int mb, int nb, int myrow, int mycol, int nprow, int npcol, int mloc, int seed )
+{
+    scalapack_pcplrnt( A, m, n, mb, nb, myrow, mycol, nprow, npcol, mloc, seed );
+}
+
+inline void scalapack_pplrnt ( std::complex<double> *A, int m, int n, int mb, int nb, int myrow, int mycol, int nprow, int npcol, int mloc, int seed )
+{
+    scalapack_pzplrnt( A, m, n, mb, nb, myrow, mycol, nprow, npcol, mloc, seed );
+}
+
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 extern "C" void scalapack_pdplghe( double *A, int m, int n, int mb, int nb, int myrow, int mycol, int nprow, int npcol, int mloc, int seed );
+
+// -----------------------------------------------------------------------------
+
+inline void scalapack_pplghe( double *A, int m, int n, int mb, int nb, int myrow, int mycol, int nprow, int npcol, int mloc, int seed)
+{
+    scalapack_pdplghe( A, m, n, mb, nb, myrow, mycol, nprow, npcol, mloc, seed);
+}
+
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -78,17 +114,14 @@ inline blas_float_return scalapack_plange( const char *norm, blas_int *m, blas_i
 {
     return scalapack_pslange( norm, m, n, A, ia, ja, descA, work);
 }
-
 inline double scalapack_plange( const char *norm, blas_int *m, blas_int *n, double *A, blas_int *ia, blas_int *ja, blas_int *descA, double *work)
 {
     return scalapack_pdlange( norm, m, n, A, ia, ja, descA, work);
 }
-
 inline blas_float_return scalapack_plange( const char *norm, blas_int *m, blas_int *n, std::complex<float> *A, blas_int *ia, blas_int *ja, blas_int *descA, float *work)
 {
     return scalapack_pclange( norm, m, n, A, ia, ja, descA, work);
 }
-
 inline double scalapack_plange( const char *norm, blas_int *m, blas_int *n, std::complex<double> *A, blas_int *ia, blas_int *ja, blas_int *descA, double *work)
 {
     return scalapack_pzlange( norm, m, n, A, ia, ja, descA, work);
@@ -173,9 +206,13 @@ inline double scalapack_plansy( const char *norm, const char *uplo, blas_int *n,
 
 #define scalapack_psgemm BLAS_FORTRAN_NAME( psgemm, PSGEMM )
 #define scalapack_pdgemm BLAS_FORTRAN_NAME( pdgemm, PDGEMM )
+#define scalapack_pcgemm BLAS_FORTRAN_NAME( pcgemm, PCGEMM )
+#define scalapack_pzgemm BLAS_FORTRAN_NAME( pzgemm, PZGEMM )
 
 extern "C" void psgemm_( const char *transa, const char *transb, int *M, int *N, int *K, float *alpha, float *A, int *ia, int *ja, int *descA, float *B, int *ib, int *jb, int *descB, float *beta, float *C, int *ic, int *jc, int *descC );
 extern "C" void pdgemm_( const char *transa, const char *transb, int *M, int *N, int *K, double *alpha, double *A, int *ia, int *ja, int *descA, double *B, int *ib, int *jb, int *descB, double *beta, double *C, int *ic, int *jc, int *descC );
+extern "C" void pcgemm_( const char *transa, const char *transb, int *M, int *N, int *K, std::complex<float> *alpha, std::complex<float> *A, int *ia, int *ja, int *descA, std::complex<float> *B, int *ib, int *jb, int *descB, std::complex<float> *beta, std::complex<float> *C, int *ic, int *jc, int *descC );
+extern "C" void pzgemm_( const char *transa, const char *transb, int *M, int *N, int *K, std::complex<double> *alpha, std::complex<double> *A, int *ia, int *ja, int *descA, std::complex<double> *B, int *ib, int *jb, int *descB, std::complex<double> *beta, std::complex<double> *C, int *ic, int *jc, int *descC );
 
 // -----------------------------------------------------------------------------
 
@@ -186,6 +223,14 @@ inline void scalapack_pgemm( const char *transa, const char *transb, int *M, int
 inline void scalapack_pgemm( const char *transa, const char *transb, int *M, int *N, int *K, double *alpha, double *A, int *ia, int *ja, int *descA, double *B, int *ib, int *jb, int *descB, double *beta, double *C, int *ic, int *jc, int *descC )
 {
     scalapack_pdgemm( transa, transb, M, N, K, alpha, A, ia, ja, descA, B, ib, jb, descB, beta, C, ic, jc, descC );
+}
+inline void scalapack_pgemm( const char *transa, const char *transb, int *M, int *N, int *K, std::complex<float> *alpha, std::complex<float> *A, int *ia, int *ja, int *descA, std::complex<float> *B, int *ib, int *jb, int *descB, std::complex<float> *beta, std::complex<float> *C, int *ic, int *jc, int *descC )
+{
+    scalapack_pcgemm( transa, transb, M, N, K, alpha, A, ia, ja, descA, B, ib, jb, descB, beta, C, ic, jc, descC );
+}
+inline void scalapack_pgemm( const char *transa, const char *transb, int *M, int *N, int *K, std::complex<double> *alpha, std::complex<double> *A, int *ia, int *ja, int *descA, std::complex<double> *B, int *ib, int *jb, int *descB, std::complex<double> *beta, std::complex<double> *C, int *ic, int *jc, int *descC )
+{
+    scalapack_pzgemm( transa, transb, M, N, K, alpha, A, ia, ja, descA, B, ib, jb, descB, beta, C, ic, jc, descC );
 }
 
 // -----------------------------------------------------------------------------

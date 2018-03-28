@@ -18,8 +18,14 @@
 
 #include "scalapack_wrappers.hh"
 
+#ifdef SLATE_WITH_MKL
 //#include "mkl.h"
 extern "C" int MKL_Set_Num_Threads( int nt );
+#else
+inline int MKL_Set_Num_Threads( int nt ) { return 1; }
+#endif
+
+#undef PIN_MATRICES
 
 //------------------------------------------------------------------------------
 template< typename scalar_t >
@@ -42,7 +48,7 @@ void test_gemm_work( Params& params, bool run )
     bool check = params.check.value()=='y';
     bool ref = params.ref.value()=='y';
     bool trace = params.trace.value()=='y';
-
+    
     // mark non-standard output values
     params.time.value();
     params.gflops.value();
@@ -73,17 +79,25 @@ void test_gemm_work( Params& params, bool run )
     // typedef long long lld;
 
     // Allocate space
-    size_t size_A = (size_t)( mloc*nloc );
+    size_t size_A = (size_t)( (size_t)mloc*(size_t)nloc );
+    // printf("size_A %lud %lld mloc %d nloc %d\n", size_A, size_A_ll, mloc, nloc);
     std::vector< scalar_t > A_tst( size_A );
     std::vector< scalar_t > B_tst( size_A );
     std::vector< scalar_t > C_tst( size_A );
     std::vector< scalar_t > C_ref;
 
+#ifdef PIN_MATRICES
+    int error;
+    error=cudaHostRegister(&A_tst[0],(size_t)size_A*sizeof(scalar_t),cudaHostRegisterDefault);
+    error=cudaHostRegister(&B_tst[0],(size_t)size_A*sizeof(scalar_t),cudaHostRegisterDefault);
+    error=cudaHostRegister(&C_tst[0],(size_t)size_A*sizeof(scalar_t),cudaHostRegisterDefault);
+#endif
+
     // Initialize the matrix
     int iseed = 0;
-    scalapack_pdplrnt( &A_tst[0], n_, n_, nb_, nb_, myrow, mycol, nprow, npcol, mloc, iseed+1 );
-    scalapack_pdplrnt( &B_tst[0], n_, n_, nb_, nb_, myrow, mycol, nprow, npcol, mloc, iseed+2 );
-    scalapack_pdplrnt( &C_tst[0], n_, n_, nb_, nb_, myrow, mycol, nprow, npcol, mloc, iseed+3 );
+    scalapack_pplrnt( &A_tst[0], n_, n_, nb_, nb_, myrow, mycol, nprow, npcol, mloc, iseed+1 );
+    scalapack_pplrnt( &B_tst[0], n_, n_, nb_, nb_, myrow, mycol, nprow, npcol, mloc, iseed+2 );
+    scalapack_pplrnt( &C_tst[0], n_, n_, nb_, nb_, myrow, mycol, nprow, npcol, mloc, iseed+3 );
 
     // Create ScaLAPACK descriptors
     scalapack_descinit( descA_tst, &n_, &n_, &nb_, &nb_, &i0, &i0, &ictxt, &mloc, &info ); assert(info==0);
@@ -98,10 +112,10 @@ void test_gemm_work( Params& params, bool run )
     }
 
     // Create SLATE matrices from the ScaLAPACK layouts
-    int64_t local_lda = (int64_t)descA_tst[8];
-    slate::Matrix<double> A( n_, n_, &A_tst[0], local_lda, nb_, nb_, nprow, npcol, local_lda, MPI_COMM_WORLD );
-    slate::Matrix<double> B( n_, n_, &B_tst[0], local_lda, nb_, nb_, nprow, npcol, local_lda, MPI_COMM_WORLD );
-    slate::Matrix<double> C( n_, n_, &C_tst[0], local_lda, nb_, nb_, nprow, npcol, local_lda, MPI_COMM_WORLD );
+    int64_t llda = (int64_t)descA_tst[8];
+    auto A = slate::Matrix<scalar_t>::fromScaLAPACK( n_, n_, &A_tst[0], llda, nb_, nprow, npcol, MPI_COMM_WORLD );
+    auto B = slate::Matrix<scalar_t>::fromScaLAPACK( n_, n_, &B_tst[0], llda, nb_, nprow, npcol, MPI_COMM_WORLD );
+    auto C = slate::Matrix<scalar_t>::fromScaLAPACK( n_, n_, &C_tst[0], llda, nb_, nprow, npcol, MPI_COMM_WORLD );
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
@@ -109,12 +123,22 @@ void test_gemm_work( Params& params, bool run )
     // Call the routine using ScaLAPACK layout
     MPI_Barrier(MPI_COMM_WORLD);
     double time = libtest::get_wtime();
-    slate::gemm<slate::Target::HostTask>(
-        alpha, A, B, beta, C, {{slate::Option::Lookahead, lookahead}});
-    // sla_pgemm( transa, transb, &n_, &n_, &n_, &alpha,
-    //            &A_tst[0], &i1, &i1, descA_tst,
-    //            &B_tst[0], &i1, &i1, descB_tst, &beta,
-    //            &C_tst[0], &i1, &i1, descC_tst );
+    if ( params.target.value() == 't' )
+        slate::gemm<slate::Target::HostTask>(
+            alpha, A, B, beta, C, {{slate::Option::Lookahead, lookahead}});
+    else if ( params.target.value() == 'n' )
+        slate::gemm<slate::Target::HostNest>(
+            alpha, A, B, beta, C, {{slate::Option::Lookahead, lookahead}});
+    else if ( params.target.value() == 'b' )
+        slate::gemm<slate::Target::HostBatch>(
+            alpha, A, B, beta, C, {{slate::Option::Lookahead, lookahead}});
+    else if ( params.target.value() == 'd' )
+        slate::gemm<slate::Target::Devices>(
+            alpha, A, B, beta, C, {{slate::Option::Lookahead, lookahead}});
+    // scalapack_pgemm( op2str(transA), op2str(transB), &n_, &n_, &n_, &alpha,
+    //                  &A_tst[0], &i1, &i1, descA_tst,
+    //                  &B_tst[0], &i1, &i1, descB_tst, &beta,
+    //                  &C_tst[0], &i1, &i1, descC_tst );
     MPI_Barrier(MPI_COMM_WORLD);
     double time_tst = libtest::get_wtime() - time;
     
@@ -147,7 +171,7 @@ void test_gemm_work( Params& params, bool run )
         double time_ref = libtest::get_wtime() - time;
 
         // Allocate work space
-        std::vector< scalar_t > worklange( mloc );
+        std::vector< real_t > worklange( mloc );
 
         // blas::axpy((size_t)lda*n, -1.0, C_tst, 1, C_ref, 1);
         // Local operation: error = C_ref - C_tst
@@ -169,6 +193,12 @@ void test_gemm_work( Params& params, bool run )
         MKL_Set_Num_Threads(saved_mkl_num_threads);
     }
 
+#ifdef PIN_MATRICES
+    error=cudaHostUnregister(&A_tst[0]);
+    error=cudaHostUnregister(&B_tst[0]);
+    error=cudaHostUnregister(&C_tst[0]);
+#endif
+    
     params.okay.value() = (params.error.value() <= tol);
 
     //Cblacs_exit(1) is commented out because it does not handle re-entering ... some unknown problem
@@ -184,7 +214,7 @@ void test_gemm( Params& params, bool run )
             break;
 
         case libtest::DataType::Single:
-            throw std::exception();// test_gemm_work< float >( params, run );
+            test_gemm_work< float >( params, run );
             break;
 
         case libtest::DataType::Double:
@@ -192,11 +222,11 @@ void test_gemm( Params& params, bool run )
             break;
 
         case libtest::DataType::SingleComplex:
-            throw std::exception();// test_gemm_work< std::complex<float> >( params, run );
+            test_gemm_work< std::complex<float> >( params, run );
             break;
 
         case libtest::DataType::DoubleComplex:
-            throw std::exception();// test_gemm_work< std::complex<double> >( params, run );
+            test_gemm_work< std::complex<double> >( params, run );
             break;
     }
 }

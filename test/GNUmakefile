@@ -1,26 +1,33 @@
 # This will get the compiler and flags
 top ?= ..
-testdir_target: ${top}/test/test
+cdir = ${top}/test
+cdir_target: ${cdir}/test
 
-include ../GNUmakefile
+include ${top}/GNUmakefile
 
 pwd := ${shell pwd}
-cdir := ${notdir ${pwd}}
 
-CXXFLAGS += -I$(top)/test -I$(top) -I$(top)/libtest -I$(top)/lapackpp/include -I$(top)/blaspp/include 
+CXXFLAGS += -I${cdir} -I$(top) -I$(top)/libtest -I$(top)/lapackpp/include -I$(top)/blaspp/include
 CXXFLAGS += -I$(top)/blaspp/test # for blas_flops.hh
 
-LIBS += -L${top}/libtest -Wl,-rpath,${top}/libtest -ltest -L${top}/lapackpp/lib -Wl,-rpath,${top}/lapackpp/lib -llapackpp 
-
-test_src = ${top}/test/test.cc ${top}/test/scalapack_support_routines.cc ${top}/test/test_potrf.cc ${top}/test/test_potrf_lapack.cc ${top}/test/test_gemm.cc ${top}/test/test_trmm.cc 
-test_obj = ${addsuffix .o, ${basename ${test_src}}}
-test_dep = ${addsuffix .d, ${basename ${test_src}}}
+LIB += -L${top}/libtest -Wl,-rpath,${pwd}/${top}/libtest -ltest -L${top}/lapackpp/lib -Wl,-rpath,${pwd}/${top}/lapackpp/lib -llapackpp 
+LIB += -L${top}/lib -Wl,-rpath,${pwd}/${top}/lib -lslate 
+LIB += -lscalapack 
 
 %.o: %.c
 	${CC} ${CFLAGS} -c $< -o $@ 
 
-${top}/test/test: ${test_obj} ${top_obj} 
-	${CXX} ${LDFLAGS} -o $@ ${test_obj} ${top_obj} -L${top}/lib -lslate $(LIB) 
+%.o: %.cc
+	echo "hello"
+	echo ${CXXFLAGS}
+	$(CXX) ${CXXFLAGS} -c $< -o $@
+
+test_src = ${cdir}/test.cc ${cdir}/scalapack_support_routines.cc ${cdir}/test_potrf.cc ${cdir}/test_potrf_lapack.cc ${cdir}/test_gemm.cc ${cdir}/test_trmm.cc ${cdir}/test_symm.cc ${cdir}/test_syr2k.cc ${cdir}/test_syrk.cc ${cdir}/test_trsm.cc
+test_obj = ${addsuffix .o, ${basename ${test_src}}}
+test_dep = ${addsuffix .d, ${basename ${test_src}}}
+
+${cdir}/test: ${test_obj} ${top_obj} 
+	${CXX} ${LDFLAGS} -o $@ ${test_obj} ${top_obj} $(LIB)
 
 clean:
 		rm -f $(test_obj) test trace_*.svg

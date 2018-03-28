@@ -27,14 +27,14 @@ inline int MKL_Set_Num_Threads( int nt ) { return 1; }
 
 //------------------------------------------------------------------------------
 template< typename scalar_t >
-void test_trmm_work( Params& params, bool run )
+void test_trsm_work( Params& params, bool run )
 {
     using real_t = blas::real_type<scalar_t>;
 
     // get & mark input values
     blas::Side side = params.side.value();
     lapack::Uplo uplo = params.uplo.value();
-    lapack::Op trans = params.trans.value();
+    // lapack::Op trans = params.trans.value();
     blas::Diag diag = params.diag.value();
     scalar_t alpha  = params.alpha.value();
     int64_t m = params.dim.m();
@@ -104,8 +104,6 @@ void test_trmm_work( Params& params, bool run )
     // Create SLATE matrices from the ScaLAPACK layouts
     int64_t llda = (int64_t)descA_tst[8];
     auto A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK( uplo, n, &A_tst[0], llda, nb, nprow, npcol, MPI_COMM_WORLD );
-
-    // Create SLATE matrices from the ScaLAPACK layouts
     int64_t lldb = (int64_t)descB_tst[8];
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK( n_, n_, &B_tst[0], lldb, nb_, nprow, npcol, MPI_COMM_WORLD );
 
@@ -116,18 +114,18 @@ void test_trmm_work( Params& params, bool run )
     MPI_Barrier(MPI_COMM_WORLD);
     double time = libtest::get_wtime();
     if ( params.target.value() == 't' )
-        slate::trmm<slate::Target::HostTask>(
+        slate::trsm<slate::Target::HostTask>(
             side, diag, alpha, A, B, {{slate::Option::Lookahead, lookahead}});
     else if ( params.target.value() == 'n' )
-        slate::trmm<slate::Target::HostNest>(
+        slate::trsm<slate::Target::HostNest>(
             side, diag, alpha, A, B, {{slate::Option::Lookahead, lookahead}});
     else if ( params.target.value() == 'b' )
-        slate::trmm<slate::Target::HostBatch>(
+        slate::trsm<slate::Target::HostBatch>(
             side, diag, alpha, A, B, {{slate::Option::Lookahead, lookahead}});
     else if ( params.target.value() == 'd' )
-        slate::trmm<slate::Target::Devices>(
+        slate::trsm<slate::Target::Devices>(
             side, diag, alpha, A, B, {{slate::Option::Lookahead, lookahead}});
-    // scalapack_ptrmm( side2str(side), uplo2str(uplo), op2str(trans), diag2str(diag),
+    // scalapack_ptrsm( side2str(side), uplo2str(uplo), op2str(trans), diag2str(diag),
     //                  &n_, &n_, &alpha,
     //                  &A_tst[0], &i1, &i1, descA_tst,
     //                  &B_tst[0], &i1, &i1, descB_tst);
@@ -137,7 +135,7 @@ void test_trmm_work( Params& params, bool run )
     if (trace) slate::trace::Trace::finish();
 
     // Compute and save timing/performance
-    double gflop = blas::Gflop < scalar_t >::trmm( side, m, n );
+    double gflop = blas::Gflop < scalar_t >::trsm( side, m, n );
     params.time.value() = time_tst;
     params.gflops.value() = gflop / time_tst;
 
@@ -155,10 +153,10 @@ void test_trmm_work( Params& params, bool run )
         // Run the reference routine
         MPI_Barrier(MPI_COMM_WORLD);        
         double time = libtest::get_wtime();
-        scalapack_ptrmm( side2str(side), uplo2str(uplo), op2str(trans), diag2str(diag),  
-                         &n_, &n_, &alpha,
-                         &A_tst[0], &i1, &i1, descA_tst,
-                         &B_ref[0], &i1, &i1, descB_ref);
+        // scalapack_ptrsm( side2str(side), uplo2str(uplo), op2str(trans), diag2str(diag),  
+        //                  &n_, &n_, &alpha,
+        //                  &A_tst[0], &i1, &i1, descA_tst,
+        //                  &B_ref[0], &i1, &i1, descB_ref);
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 
@@ -190,7 +188,7 @@ void test_trmm_work( Params& params, bool run )
 }
 
 // -----------------------------------------------------------------------------
-void test_trmm( Params& params, bool run )
+void test_trsm( Params& params, bool run )
 {
     switch (params.datatype.value()) {
         case libtest::DataType::Integer:
@@ -198,20 +196,19 @@ void test_trmm( Params& params, bool run )
             break;
 
         case libtest::DataType::Single:
-            throw std::exception();// test_trmm_work< float >( params, run );
+            throw std::exception();// test_trsm_work< float >( params, run );
             break;
 
         case libtest::DataType::Double:
-            test_trmm_work< double >( params, run );
+            test_trsm_work< double >( params, run );
             break;
 
         case libtest::DataType::SingleComplex:
-            throw std::exception();// test_trmm_work< std::complex<float> >( params, run );
+            throw std::exception();// test_trsm_work< std::complex<float> >( params, run );
             break;
 
         case libtest::DataType::DoubleComplex:
-            throw std::exception();// test_trmm_work< std::complex<double> >( params, run );
+            throw std::exception();// test_trsm_work< std::complex<double> >( params, run );
             break;
     }
 }
-

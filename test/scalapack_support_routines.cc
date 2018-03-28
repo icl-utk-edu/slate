@@ -65,6 +65,77 @@ CORE_dplrnt( int m, int n, double *A, int lda,
     }
 }
 
+
+static inline void
+CORE_splrnt( int m, int n, float *A, int lda,
+             int bigM, int m0, int n0, int seed )
+{
+    float *tmp = A;
+    int64_t i, j;
+    unsigned long long int ran, jump;
+
+    jump = (unsigned long long int)m0 + (unsigned long long int)n0 * (unsigned long long int)bigM;
+
+    for (j=0; j<n; ++j ) {
+        ran = Rnd64_jump( jump, (unsigned long long int)seed );
+        for (i = 0; i < m; ++i) {
+            *tmp = 0.5f - ran * RndF_Mul;
+            ran  = Rnd64_A * ran + Rnd64_C;
+            tmp++;
+        }
+        tmp  += lda-i;
+        jump += bigM;
+    }
+}
+
+static inline void
+CORE_cplrnt( int m, int n, std::complex<float> *A, int lda,
+             int bigM, int m0, int n0, int seed )
+{
+    std::complex<float> *tmp = A;
+    int64_t i, j;
+    unsigned long long int ran, jump;
+
+    jump = (unsigned long long int)m0 + (unsigned long long int)n0 * (unsigned long long int)bigM;
+
+    for (j=0; j<n; ++j ) {
+        ran = Rnd64_jump( jump, (unsigned long long int)seed );
+        for (i = 0; i < m; ++i) {
+            *tmp = 0.5f - ran * RndF_Mul;
+            ran  = Rnd64_A * ran + Rnd64_C;
+            tmp++;
+        }
+        tmp  += lda-i;
+        jump += bigM;
+    }
+}
+
+static inline void
+CORE_zplrnt( int m, int n, std::complex<double> *A, int lda,
+             int bigM, int m0, int n0, int seed )
+{
+    std::complex<double> *tmp = A;
+    int64_t i, j;
+    unsigned long long int ran, jump;
+
+    jump = (unsigned long long int)m0 + (unsigned long long int)n0 * (unsigned long long int)bigM;
+
+    for (j=0; j<n; ++j ) {
+        ran = Rnd64_jump( jump, (unsigned long long int)seed );
+        for (i = 0; i < m; ++i) {
+            *tmp = 0.5f - ran * RndF_Mul;
+            ran  = Rnd64_A * ran + Rnd64_C;
+            tmp++;
+        }
+        tmp  += lda-i;
+        jump += bigM;
+    }
+}
+
+
+
+
+
 static inline void
 CORE_dplghe( double bump, int m, int n, double *A, int lda,
              int gM, int m0, int n0, unsigned long long int seed )
@@ -163,6 +234,98 @@ void scalapack_pdplrnt( double *A,
         }
     }
 }
+
+void scalapack_psplrnt( float *A,
+                        int m, int n,
+                        int mb, int nb,
+                        int myrow, int mycol,
+                        int nprow, int npcol,
+                        int mloc,
+                        int seed )
+{
+    int i, j;
+    int idum1, idum2, iloc, jloc, i0=0;
+    int tempm, tempn;
+    float *Ab;
+    
+    for (i = 1; i <= m; i += mb) {
+        for (j = 1; j <= n; j += nb) {
+            if ( ( myrow == indxg2p_( &i, &mb, &idum1, &i0, &nprow ) ) &&
+                 ( mycol == indxg2p_( &j, &nb, &idum1, &i0, &npcol ) ) ){
+                iloc = indxg2l_( &i, &mb, &idum1, &idum2, &nprow );
+                jloc = indxg2l_( &j, &nb, &idum1, &idum2, &npcol );
+
+                Ab =  &A[ (jloc-1)*mloc + (iloc-1) ];
+                tempm = (m - i +1) > mb ? mb : (m-i + 1);
+                tempn = (n - j +1) > nb ? nb : (n-j + 1);
+                CORE_splrnt( tempm, tempn, Ab, mloc,
+                             m, (i-1), (j-1), seed );
+            }
+        }
+    }
+}
+
+
+void scalapack_pcplrnt( std::complex<float> *A,
+                        int m, int n,
+                        int mb, int nb,
+                        int myrow, int mycol,
+                        int nprow, int npcol,
+                        int mloc,
+                        int seed )
+{
+    int i, j;
+    int idum1, idum2, iloc, jloc, i0=0;
+    int tempm, tempn;
+    std::complex<float> *Ab;
+    
+    for (i = 1; i <= m; i += mb) {
+        for (j = 1; j <= n; j += nb) {
+            if ( ( myrow == indxg2p_( &i, &mb, &idum1, &i0, &nprow ) ) &&
+                 ( mycol == indxg2p_( &j, &nb, &idum1, &i0, &npcol ) ) ){
+                iloc = indxg2l_( &i, &mb, &idum1, &idum2, &nprow );
+                jloc = indxg2l_( &j, &nb, &idum1, &idum2, &npcol );
+
+                Ab =  &A[ (jloc-1)*mloc + (iloc-1) ];
+                tempm = (m - i +1) > mb ? mb : (m-i + 1);
+                tempn = (n - j +1) > nb ? nb : (n-j + 1);
+                CORE_cplrnt( tempm, tempn, Ab, mloc,
+                             m, (i-1), (j-1), seed );
+            }
+        }
+    }
+}
+
+void scalapack_pzplrnt( std::complex<double> *A,
+                        int m, int n,
+                        int mb, int nb,
+                        int myrow, int mycol,
+                        int nprow, int npcol,
+                        int mloc,
+                        int seed )
+{
+    int i, j;
+    int idum1, idum2, iloc, jloc, i0=0;
+    int tempm, tempn;
+    std::complex<double> *Ab;
+    
+    for (i = 1; i <= m; i += mb) {
+        for (j = 1; j <= n; j += nb) {
+            if ( ( myrow == indxg2p_( &i, &mb, &idum1, &i0, &nprow ) ) &&
+                 ( mycol == indxg2p_( &j, &nb, &idum1, &i0, &npcol ) ) ){
+                iloc = indxg2l_( &i, &mb, &idum1, &idum2, &nprow );
+                jloc = indxg2l_( &j, &nb, &idum1, &idum2, &npcol );
+
+                Ab =  &A[ (jloc-1)*mloc + (iloc-1) ];
+                tempm = (m - i +1) > mb ? mb : (m-i + 1);
+                tempn = (n - j +1) > nb ? nb : (n-j + 1);
+                CORE_zplrnt( tempm, tempn, Ab, mloc,
+                             m, (i-1), (j-1), seed );
+            }
+        }
+    }
+}
+
 
 void scalapack_pdplghe( double *A,
                         int m, int n,

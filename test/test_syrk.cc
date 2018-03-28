@@ -27,18 +27,17 @@ inline int MKL_Set_Num_Threads( int nt ) { return 1; }
 
 //------------------------------------------------------------------------------
 template< typename scalar_t >
-void test_trmm_work( Params& params, bool run )
+void test_syrk_work( Params& params, bool run )
 {
     using real_t = blas::real_type<scalar_t>;
 
     // get & mark input values
-    blas::Side side = params.side.value();
     lapack::Uplo uplo = params.uplo.value();
-    lapack::Op trans = params.trans.value();
-    blas::Diag diag = params.diag.value();
     scalar_t alpha  = params.alpha.value();
-    int64_t m = params.dim.m();
+    scalar_t beta  = params.beta.value();
+    // int64_t m = params.dim.m();
     int64_t n = params.dim.n();
+    int64_t k = params.dim.n();
     int64_t nb = params.nb.value();
     int64_t p = params.p.value();
     int64_t q = params.q.value();
@@ -61,7 +60,7 @@ void test_trmm_work( Params& params, bool run )
 
     // BLACS/MPI variables
     int ictxt, nprow, npcol, myrow, mycol, info, mloc, nloc;
-    int descA_tst[9], descB_tst[9], descB_ref[9];
+    int descA_tst[9], descC_tst[9], descC_ref[9];
     int iam=0, nprocs=1;
     int n_ = n; 
     int nb_ = nb;
@@ -79,35 +78,31 @@ void test_trmm_work( Params& params, bool run )
     // Allocate space
     size_t size_A = (size_t)( mloc*nloc );
     std::vector< scalar_t > A_tst( size_A );
-    size_t size_B = (size_t)( mloc*nloc );
-    std::vector< scalar_t > B_tst( size_B );
-    std::vector< scalar_t > B_ref;
+    size_t size_C = (size_t)( mloc*nloc );
+    std::vector< scalar_t > C_tst( size_C );
+    std::vector< scalar_t > C_ref;
 
     // Initialize the matrix
     int iseed = 0;
-    // TODO: A is a unit, or non-unit, upper or lower triangular distributed matrix, 
-    scalapack_pdplghe( &A_tst[0], n_, n_, nb_, nb_, myrow, mycol, nprow, npcol, mloc, iseed+1 );
-    // TODO: B is an m-by-n distributed matrix
-    scalapack_pdplrnt( &B_tst[0], n_, n_, nb_, nb_, myrow, mycol, nprow, npcol, mloc, iseed+2 );
+    scalapack_pdplrnt( &A_tst[0], n_, n_, nb_, nb_, myrow, mycol, nprow, npcol, mloc, iseed+1 );
+    scalapack_pdplghe( &C_tst[0], n_, n_, nb_, nb_, myrow, mycol, nprow, npcol, mloc, iseed+2 );
 
     // Create ScaLAPACK descriptors
     scalapack_descinit( descA_tst, &n_, &n_, &nb_, &nb_, &i0, &i0, &ictxt, &mloc, &info ); assert(info==0);
-    scalapack_descinit( descB_tst, &n_, &n_, &nb_, &nb_, &i0, &i0, &ictxt, &mloc, &info ); assert(info==0);
+    scalapack_descinit( descC_tst, &n_, &n_, &nb_, &nb_, &i0, &i0, &ictxt, &mloc, &info ); assert(info==0);
 
     // If check is required, save data and create a descriptor for it
     if ( check || ref ) {
-        B_ref.resize( size_B );
-        B_ref = B_tst;
-        scalapack_descinit( descB_ref, &n_, &n_, &nb_, &nb_, &i0, &i0, &ictxt, &mloc, &info ); assert(info==0);
+        C_ref.resize( size_C );
+        C_ref = C_tst;
+        scalapack_descinit( descC_ref, &n_, &n_, &nb_, &nb_, &i0, &i0, &ictxt, &mloc, &info ); assert(info==0);
     }
 
     // Create SLATE matrices from the ScaLAPACK layouts
     int64_t llda = (int64_t)descA_tst[8];
-    auto A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK( uplo, n, &A_tst[0], llda, nb, nprow, npcol, MPI_COMM_WORLD );
-
-    // Create SLATE matrices from the ScaLAPACK layouts
-    int64_t lldb = (int64_t)descB_tst[8];
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK( n_, n_, &B_tst[0], lldb, nb_, nprow, npcol, MPI_COMM_WORLD );
+    auto A = slate::Matrix<scalar_t>::fromScaLAPACK( n_, n_, &A_tst[0], llda, nb_, nprow, npcol, MPI_COMM_WORLD );
+    int64_t lldc = (int64_t)descC_tst[8];
+    auto C = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK( uplo, n_, &C_tst[0], lldc, nb_, nprow, npcol, MPI_COMM_WORLD );
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
@@ -116,18 +111,18 @@ void test_trmm_work( Params& params, bool run )
     MPI_Barrier(MPI_COMM_WORLD);
     double time = libtest::get_wtime();
     if ( params.target.value() == 't' )
-        slate::trmm<slate::Target::HostTask>(
-            side, diag, alpha, A, B, {{slate::Option::Lookahead, lookahead}});
+        slate::syrk<slate::Target::HostTask>(
+            alpha, A, beta, C, {{slate::Option::Lookahead, lookahead}});
     else if ( params.target.value() == 'n' )
-        slate::trmm<slate::Target::HostNest>(
-            side, diag, alpha, A, B, {{slate::Option::Lookahead, lookahead}});
+        slate::syrk<slate::Target::HostNest>(
+            alpha, A, beta, C, {{slate::Option::Lookahead, lookahead}});
     else if ( params.target.value() == 'b' )
-        slate::trmm<slate::Target::HostBatch>(
-            side, diag, alpha, A, B, {{slate::Option::Lookahead, lookahead}});
+        slate::syrk<slate::Target::HostBatch>(
+            alpha, A, beta, C, {{slate::Option::Lookahead, lookahead}});
     else if ( params.target.value() == 'd' )
-        slate::trmm<slate::Target::Devices>(
-            side, diag, alpha, A, B, {{slate::Option::Lookahead, lookahead}});
-    // scalapack_ptrmm( side2str(side), uplo2str(uplo), op2str(trans), diag2str(diag),
+        slate::syrk<slate::Target::Devices>(
+            alpha, A, beta, C, {{slate::Option::Lookahead, lookahead}});
+    // scalapack_psyrk( side2str(side), uplo2str(uplo), op2str(trans), diag2str(diag),
     //                  &n_, &n_, &alpha,
     //                  &A_tst[0], &i1, &i1, descA_tst,
     //                  &B_tst[0], &i1, &i1, descB_tst);
@@ -137,7 +132,7 @@ void test_trmm_work( Params& params, bool run )
     if (trace) slate::trace::Trace::finish();
 
     // Compute and save timing/performance
-    double gflop = blas::Gflop < scalar_t >::trmm( side, m, n );
+    double gflop = blas::Gflop < scalar_t >::syrk( n, k );
     params.time.value() = time_tst;
     params.gflops.value() = gflop / time_tst;
 
@@ -155,24 +150,24 @@ void test_trmm_work( Params& params, bool run )
         // Run the reference routine
         MPI_Barrier(MPI_COMM_WORLD);        
         double time = libtest::get_wtime();
-        scalapack_ptrmm( side2str(side), uplo2str(uplo), op2str(trans), diag2str(diag),  
-                         &n_, &n_, &alpha,
-                         &A_tst[0], &i1, &i1, descA_tst,
-                         &B_ref[0], &i1, &i1, descB_ref);
+        // scalapack_psyrk( side2str(side), uplo2str(uplo), op2str(trans), diag2str(diag),  
+        //                  &n_, &n_, &alpha,
+        //                  &A_tst[0], &i1, &i1, descA_tst,
+        //                  &B_ref[0], &i1, &i1, descB_ref);
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 
         // Allocate work space
         std::vector< scalar_t > worklange( mloc );
 
-        // Local operation: error = B_ref - B_tst
-        blas::axpy(size_B, -1.0, &B_tst[0], 1, &B_ref[0], 1);
+        // Local operation: error = _ref - _tst
+        blas::axpy(size_C, -1.0, &C_tst[0], 1, &C_ref[0], 1);
 
         // norm(B_tst)
-        real_t B_tst_norm = scalapack_plange( "I", &n_, &n_, &B_tst[0], &i1, &i1, descB_tst, &worklange[0]);
+        real_t B_tst_norm = scalapack_plange( "I", &n_, &n_, &C_tst[0], &i1, &i1, descC_tst, &worklange[0]);
 
         // norm(B_ref - B_tst)
-        real_t error_norm = scalapack_plange( "I", &n_, &n_, &B_ref[0], &i1, &i1, descB_tst, &worklange[0] );
+        real_t error_norm = scalapack_plange( "I", &n_, &n_, &C_ref[0], &i1, &i1, descC_tst, &worklange[0] );
         if ( B_tst_norm != 0 )
             error_norm /=  B_tst_norm;
 
@@ -190,7 +185,7 @@ void test_trmm_work( Params& params, bool run )
 }
 
 // -----------------------------------------------------------------------------
-void test_trmm( Params& params, bool run )
+void test_syrk( Params& params, bool run )
 {
     switch (params.datatype.value()) {
         case libtest::DataType::Integer:
@@ -198,20 +193,19 @@ void test_trmm( Params& params, bool run )
             break;
 
         case libtest::DataType::Single:
-            throw std::exception();// test_trmm_work< float >( params, run );
+            throw std::exception();// test_syrk_work< float >( params, run );
             break;
 
         case libtest::DataType::Double:
-            test_trmm_work< double >( params, run );
+            test_syrk_work< double >( params, run );
             break;
 
         case libtest::DataType::SingleComplex:
-            throw std::exception();// test_trmm_work< std::complex<float> >( params, run );
+            throw std::exception();// test_syrk_work< std::complex<float> >( params, run );
             break;
 
         case libtest::DataType::DoubleComplex:
-            throw std::exception();// test_trmm_work< std::complex<double> >( params, run );
+            throw std::exception();// test_syrk_work< std::complex<double> >( params, run );
             break;
     }
 }
-

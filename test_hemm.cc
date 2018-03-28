@@ -4,6 +4,7 @@
 #include "slate_trace_Trace.hh"
 
 #include "test.hh"
+#include "blas_flops.hh"
 
 #include <cassert>
 #include <cmath>
@@ -167,7 +168,7 @@ void test_hemm(
     //--------------
     // Print GFLOPS.
     if (mpi_rank == 0) {
-        double ops = ((side == blas::Side::Left ? m*m*n : m*n*n) + (side == blas::Side::Left ? m*m*n : m*n*n)); // todo check
+        double ops = blas::Gflop<scalar_t>::hemm( side, m, n );
         double gflops = ops/time/1e9;
         printf("\t%.0f GFLOPS\n", gflops);
         fflush(stdout);

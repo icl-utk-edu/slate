@@ -4,6 +4,7 @@
 #include "slate_trace_Trace.hh"
 
 #include "test.hh"
+#include "blas_flops.hh"
 
 #include <cassert>
 #include <cmath>
@@ -160,7 +161,7 @@ void test_herk(
     //--------------
     // Print GFLOPS.
     if (mpi_rank == 0) {
-        double ops = (0.5*k*n*(n+1)) + (0.5*k*n*(n+1)); // todo check this
+        double ops = blas::Gflop<scalar_t>::herk( n, k );
         double gflops = ops/time/1e9;
         printf("\t%.2f GFLOPS\n", gflops);
         fflush(stdout);

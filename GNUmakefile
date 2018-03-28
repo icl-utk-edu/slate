@@ -82,6 +82,7 @@ endif
 # SLATE libraries
 CXXFLAGS += -I./blaspp/include
 CXXFLAGS += -I./lapackpp/include
+CXXFLAGS += -I./blaspp/test  # for blas_flops.hh
 
 LIB += -L./lapackpp/lib -Wl,-rpath,${abspath ./lapackpp/lib} -llapackpp
 

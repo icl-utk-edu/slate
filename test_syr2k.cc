@@ -4,6 +4,7 @@
 #include "slate_trace_Trace.hh"
 
 #include "test.hh"
+#include "blas_flops.hh"
 
 #include <cassert>
 #include <cmath>
@@ -188,7 +189,7 @@ void test_syr2k(
     //--------------
     // Print GFLOPS.
     if (mpi_rank == 0) {
-        double ops = 2.0*n*n*n;  // todo
+        double ops = blas::Gflop<scalar_t>::syr2k( n, k );
         double gflops = ops/time/1e9;
         printf("\t%.0f GFLOPS\n", gflops);
         fflush(stdout);

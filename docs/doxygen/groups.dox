@@ -1,0 +1,146 @@
+/*
+    (move groups into ** Doxygen commented section below to enable)
+
+    ----------------------------------------------------------------------------
+    @defgroup group_solve Linear solve, AX = B
+    @{
+        @defgroup gesv General matrix: LU
+        @defgroup gbsv General matrix: LU: banded
+        @defgroup gtsv General matrix: LU: tridiagonal
+        @defgroup posv Positive definite: Cholesky
+        @defgroup ppsv Positive definite: Cholesky: packed
+        @defgroup pbsv Positive definite: Cholesky: banded
+        @defgroup ptsv Positive definite: Cholesky: tridiagonal
+        @defgroup sysv Symmetric indefinite
+        @defgroup spsv Symmetric indefinite: packed
+        @defgroup hesv Hermitian indefinite
+        @defgroup hpsv Hermitian indefinite: packed
+    @}
+
+    ----------------------------------------------------------------------------
+    @defgroup group_solve_computational Linear solve: computational routines
+    @{
+        @defgroup gesv_computational General matrix: LU
+        @defgroup gbsv_computational General matrix: LU: banded
+        @defgroup gtsv_computational General matrix: LU: tridiagonal
+        @defgroup posv_computational Positive definite: Cholesky
+        @defgroup ppsv_computational Positive definite: Cholesky: packed
+        @defgroup pfsv_computational Positive definite: Cholesky: RFP
+        @defgroup pbsv_computational Positive definite: Cholesky: banded
+        @defgroup ptsv_computational Positive definite: Cholesky: tridiagonal
+        @defgroup sysv_computational Symmetric indefinite: Bunch-Kaufman
+        @defgroup spsv_computational Symmetric indefinite: Bunch-Kaufman: packed
+        @defgroup sysv_rk_computational Symmetric indefinite: Rook
+        @defgroup sysv_aa_computational Symmetric indefinite: Aasen's
+        @defgroup hesv_computational Hermitian indefinite: Bunch-Kaufman
+        @defgroup hpsv_computational Hermitian indefinite: Bunch-Kaufman: packed
+        @defgroup hesv_rk_computational Hermitian indefinite: Rook
+        @defgroup hesv_aa_computational Hermitian indefinite: Aasen's
+        @defgroup trsv_computational Triangular
+        @defgroup tpsv_computational Triangular: packed
+        @defgroup tfsv_computational Triangular: RFP
+        @defgroup tbsv_computational Triangular: banded
+    @}
+
+    ----------------------------------------------------------------------------
+    @defgroup group_gels Least squares
+    @{
+        @defgroup gels Standard, AX = B
+        @defgroup ggls Constrained
+    @}
+
+    ----------------------------------------------------------------------------
+    @defgroup group_unitary Orthogonal/unitary factorizations (QR, etc.)
+    @{
+        @defgroup geqrf A = QR factorization
+        @defgroup geqpf AP = QR factorization with pivoting
+        @defgroup gelqf A = LQ factorization
+        @defgroup geqlf A = QL factorization
+        @defgroup gerqf A = RQ factorization
+        @defgroup tzrzf A = RZ factorization
+        @defgroup ggqrf Generalized QR factorization
+        @defgroup ggrqf Generalized RQ factorization
+        @defgroup bbcsd Cosine-Sine (CS) decomposition
+    @}
+
+    ----------------------------------------------------------------------------
+    @defgroup group_symmetric_eigen Symmetric/Hermitian eigenvalues
+    @{
+        @defgroup heev Standard, AV = VW
+        @defgroup hpev Standard, AV = VW: packed
+        @defgroup hbev Standard, AV = VW: banded
+        @defgroup htev Standard, AV = VW: tridiagonal
+        @defgroup hygv Generalized, AV = BVW, etc.
+        @defgroup hpgv Generalized, AV = BVW, etc.: packed
+        @defgroup hbgv Generalized, AV = BVW, etc.: banded
+        @defgroup heev_computational Computational routines
+    @}
+
+    ----------------------------------------------------------------------------
+    @defgroup group_nonsymmetric_eigen Non-symmetric eigenvalues
+    @{
+        @defgroup geev Standard, AV = VW
+        @defgroup ggev Generalized, AV = BVW
+        @defgroup gees Schur form, A = ZTZ^H
+        @defgroup gges Generalized Schur form
+        @defgroup geev_computational Computational routines
+    @}
+
+    ----------------------------------------------------------------------------
+    @defgroup group_svd Singular Value Decomposition (SVD)
+    @{
+        @defgroup gesvd Standard, A = USV^H
+        @defgroup bdsvd Standard, A = USV^H, bidiagonal
+        @defgroup ggsvd Generalized
+        @defgroup gesvd_computational Computational routines
+    @}
+
+    ----------------------------------------------------------------------------
+    @defgroup group_aux Auxiliary routines
+    @{
+        @defgroup initialize Initialize, copy, convert matrices
+        @defgroup norm Matrix norms
+        @defgroup unitary_computational Householder reflectors and plane rotations
+        @defgroup auxiliary Other auxiliary routines
+    @}
+*/
+
+/**
+    ------------------------------------------------------------
+    @defgroup blas3            Level 3 BLAS: matrix-matrix operations, O(n^3) work
+    @brief    Matrix-matrix operations that perform $O(n^3)$ work on $O(n^2)$ data.
+              These benefit from cache reuse, since many operations can be
+              performed for every read from main memory.
+    @{
+        @defgroup gemm         gemm:  General matrix multiply
+        @brief    $C = \alpha A B + \beta C$
+
+        @defgroup hemm         hemm:  Hermitian matrix multiply
+        @brief    $C = \alpha A B + \beta C$
+               or $C = \alpha B A + \beta C$ where $A$ is Hermitian
+
+        @defgroup herk         herk:  Hermitian rank k update
+        @brief    $C = \alpha A A^H + \beta C$ where $C$ is Hermitian
+
+        @defgroup her2k        her2k: Hermitian rank 2k update
+        @brief    $C = \alpha A B^H + \alpha B A^H + \beta C$ where $C$ is Hermitian
+
+        @defgroup symm         symm:  Symmetric matrix multiply
+        @brief    $C = \alpha A B + \beta C$
+               or $C = \alpha B A + \beta C$ where $A$ is symmetric
+
+        @defgroup syrk         syrk:  Symmetric rank k update
+        @brief    $C = \alpha A A^T + \beta C$ where $C$ is symmetric
+
+        @defgroup syr2k        syr2k: Symmetric rank 2k update
+        @brief    $C = \alpha A B^T + \alpha B A^T + \beta C$ where $C$ is symmetric
+
+        @defgroup trmm         trmm:  Triangular matrix multiply
+        @brief    $B = \alpha A B$
+               or $B = \alpha B A$ where $A$ is triangular
+
+        @defgroup trsm         trsm:  Triangular solve matrix
+        @brief    $C = A^{-1} B$
+               or $C = B A^{-1}$ where $A$ is triangular
+    @}
+**/

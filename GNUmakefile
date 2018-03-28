@@ -142,9 +142,12 @@ test = $(basename $(test_src))
 # Rules
 .DELETE_ON_ERROR:
 .SUFFIXES:
-.PHONY: all libs clean
+.PHONY: all docs libs clean
 
 all: $(test)
+
+docs:
+	doxygen docs/doxygen/doxyfile.conf
 
 lib:
 	mkdir lib

@@ -74,6 +74,8 @@ void hemm(slate::internal::TargetType<target>,
         A = conj_transpose(A);
         B = conj_transpose(B);
         C = conj_transpose(C);
+        alpha = conj(alpha);
+        beta  = conj(beta);
     }
 
     // B and C are mt-by-nt, A is mt-by-mt (assuming side = left)

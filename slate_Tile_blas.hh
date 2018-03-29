@@ -130,14 +130,14 @@ void hemm(
     }
     else {
         // ConjTrans
-        // undo transpose by swapping left <=> right, m <=> n
+        // undo transpose by swapping left <=> right, m <=> n, conj alpha & beta
         side = (side == Side::Left ? Side::Right : Side::Left);
         blas::hemm(blas::Layout::ColMajor,
                    side, A.uplo(),
                    C.nb(), C.mb(),
-                   alpha, A.data(), A.stride(),
-                          B.data(), B.stride(),
-                   beta,  C.data(), C.stride());
+                   conj(alpha), A.data(), A.stride(),
+                                B.data(), B.stride(),
+                   conj(beta),  C.data(), C.stride());
     }
 }
 

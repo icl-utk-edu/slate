@@ -95,6 +95,8 @@ void her2k(internal::TargetType<Target::HostTask>,
            blas::real_type<scalar_t> beta, HermitianMatrix< scalar_t >& C,
            int priority)
 {
+    using blas::conj;
+
     scalar_t beta_ = beta;
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j)
@@ -132,8 +134,8 @@ void her2k(internal::TargetType<Target::HostTask>,
                             gemm(alpha, A(i, 0),
                                         conj_transpose(Bj0),
                                  beta_, C(i, j));
-                            gemm(alpha, B(i, 0),
-                                        conj_transpose(Aj0),
+                            gemm(conj(alpha),   B(i, 0),
+                                                conj_transpose(Aj0),
                                  scalar_t(1.0), C(i, j));
                             A.tileTick(i, 0);
                             A.tileTick(j, 0);
@@ -166,6 +168,8 @@ void her2k(internal::TargetType<Target::HostNest>,
            blas::real_type<scalar_t> beta, HermitianMatrix< scalar_t >& C,
            int priority)
 {
+    using blas::conj;
+
     scalar_t beta_ = beta;
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j)
@@ -202,8 +206,8 @@ void her2k(internal::TargetType<Target::HostNest>,
                         gemm(alpha, A(i, 0),
                                     conj_transpose(Bj0),
                              beta_, C(i, j));
-                        gemm(alpha, B(i, 0),
-                                    conj_transpose(Aj0),
+                        gemm(conj(alpha),   B(i, 0),
+                                            conj_transpose(Aj0),
                              scalar_t(1.0), C(i, j));
                         A.tileTick(i, 0);
                         A.tileTick(j, 0);
@@ -234,6 +238,8 @@ void her2k(internal::TargetType<Target::HostBatch>,
            blas::real_type<scalar_t> beta, HermitianMatrix< scalar_t >& C,
            int priority)
 {
+    using blas::conj;
+
     // diagonal tiles by her2k on host
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j) {
@@ -281,6 +287,7 @@ void her2k(internal::TargetType<Target::HostBatch>,
                 opA = Op::NoTrans;
             else
                 throw std::exception();
+            alpha = conj(alpha);
         }
 
         Op opB = (opA == Op::NoTrans ? Op::ConjTrans : Op::NoTrans);
@@ -335,6 +342,7 @@ void her2k(internal::TargetType<Target::HostBatch>,
 
         if (C.op() != Op::NoTrans) {
             // swap A <=> B; swap m <=> n
+            // alpha conjugated above
             swap( opA_array,  opB_array  );
             swap( ai_array,   bj_array   );
             swap( aj_array,   bi_array   );
@@ -356,7 +364,10 @@ void her2k(internal::TargetType<Target::HostBatch>,
                                   c_array.data(), ldc_array.data(),
                                   batch_count, group_size.data() );
 
-                // ai => bi, bj => aj, set beta = 1
+                // ai => bi, bj => aj, conjugate alpha, set beta = 1
+                if (is_complex<scalar_t>::value) {
+                    std::fill( alpha_array.begin(), alpha_array.end(), conj(alpha) );
+                }
                 std::fill( beta_array.begin(), beta_array.end(), scalar_t(1.0) );
                 cblas_gemm_batch( CblasColMajor, opA_array.data(), opB_array.data(),
                                   m_array.data(), n_array.data(), k_array.data(),
@@ -404,6 +415,7 @@ void her2k(internal::TargetType<Target::Devices>,
            int priority)
 {
     using std::swap;
+    using blas::conj;
 
     assert( C.num_devices() > 0 );
 
@@ -425,6 +437,7 @@ void her2k(internal::TargetType<Target::Devices>,
                         opA = Op::NoTrans;
                     else
                         throw std::exception();
+                    alpha = conj(alpha);
                 }
 
                 Op opB = (opA == Op::NoTrans ? Op::ConjTrans : Op::NoTrans);
@@ -454,6 +467,7 @@ void her2k(internal::TargetType<Target::Devices>,
 
                 if (C.op() != Op::NoTrans) {
                     // swap A <=> B; swap m <=> n
+                    // alpha conjugated above
                     swap( opA, opB );
                     swap( a_array_host, b_array_host );
                     //swap( lda, ldb );  // todo: assumed to be nb
@@ -543,6 +557,7 @@ void her2k(internal::TargetType<Target::Devices>,
                                             stream);
                     assert(error == cudaSuccess);
 
+                    alpha = conj(alpha);
                     scalar_t one = 1;
                     status =
                         cublasGemmBatched(

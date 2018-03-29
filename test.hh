@@ -414,7 +414,10 @@ void print( const char* name, slate::BaseTrapezoidMatrix< scalar_t >& A )
 template <typename scalar_t>
 void print( const char* name, slate::BaseTrapezoidMatrix< std::complex< scalar_t > >& A )
 {
-    assert( A.uplo() == blas::Uplo::Lower );
+    bool lower =
+        ((A.uplo() == blas::Uplo::Lower && A.op() == blas::Op::NoTrans) ||
+         (A.uplo() == blas::Uplo::Upper && A.op() != blas::Op::NoTrans));
+    bool upper = ! lower;
 
     printf( "%s = [  %% op=%c, uplo=%c\n", name, char(A.op()), char(A.uplo()) );
     // loop over block rows, then rows within block row
@@ -422,7 +425,7 @@ void print( const char* name, slate::BaseTrapezoidMatrix< std::complex< scalar_t
 
         // loop over block cols, print out address
         bool row_is_local = false;
-        for (int64_t j = 0; j <= i && j < A.nt(); ++j) {  // lower
+        for (int64_t j = 0; j < A.nt(); ++j) {
             int64_t jb = A.tileNb(j);
 
             if (j > 0)
@@ -431,10 +434,17 @@ void print( const char* name, slate::BaseTrapezoidMatrix< std::complex< scalar_t
                 printf( "%%   " );
             if (A.tileIsLocal( i, j )) {
                 row_is_local = true;
-                auto Aij = A(i, j);
-                printf( "  %-21p", (void*) Aij.data() );
-                for (int64_t jt = 1; jt < jb; ++jt) { // above pointer is 1 column
-                    printf( " %22s", "" );
+                if ((lower && i >= j) || (upper && i <= j)) {
+                    auto Aij = A(i, j);
+                    printf( "  %-21p", (void*) Aij.data() );
+                    for (int64_t jt = 1; jt < jb; ++jt) { // above pointer is 1 column
+                        printf( " %22s", "" );
+                    }
+                }
+                else {
+                    for (int64_t jt = 0; jt < jb; ++jt) {
+                        printf( " %22s", "" );
+                    }
                 }
             }
             else {
@@ -448,14 +458,21 @@ void print( const char* name, slate::BaseTrapezoidMatrix< std::complex< scalar_t
             for (int64_t it = 0; it < ib; ++it) {
 
                 // loop over block cols, then cols within block col
-                for (int64_t j = 0; j <= i && j < A.nt(); ++j) {  // lower
+                for (int64_t j = 0; j < A.nt(); ++j) {
                     int64_t jb = A.tileNb(j);
 
                     printf( "    " );
                     if (A.tileIsLocal( i, j )) {
-                        auto Aij = A(i, j);
-                        for (int64_t jt = 0; jt < jb; ++jt) {
-                            printf( " %9.4f + %9.4fi", real( Aij(it, jt) ), imag( Aij(it, jt) ) );
+                        if ((lower && i >= j) || (upper && i <= j)) {
+                            auto Aij = A(i, j);
+                            for (int64_t jt = 0; jt < jb; ++jt) {
+                                printf( " %9.4f + %9.4fi", real( Aij(it, jt) ), imag( Aij(it, jt) ) );
+                            }
+                        }
+                        else {
+                            for (int64_t jt = 0; jt < jb; ++jt) {
+                                printf( " %22s", "---" );
+                            }
                         }
                     }
                     else {

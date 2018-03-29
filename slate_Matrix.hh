@@ -504,8 +504,7 @@ public:
     int64_t getMaxHostTiles()
     {
         int64_t num_tiles = 0;
-        if ((this->uplo() == Uplo::Lower && this->op() == Op::NoTrans) ||
-            (this->uplo() == Uplo::Upper && this->op() != Op::NoTrans)) {
+        if (this->uplo_logical() == Uplo::Lower) {
             for (int64_t j = 0; j < this->nt(); ++j)
                 for (int64_t i = j; i < this->mt(); ++i)  // lower
                     if (this->tileIsLocal(i, j))
@@ -528,8 +527,7 @@ public:
     int64_t getMaxDeviceTiles(int device)
     {
         int64_t num_tiles = 0;
-        if ((this->uplo() == Uplo::Lower && this->op() == Op::NoTrans) ||
-            (this->uplo() == Uplo::Upper && this->op() != Op::NoTrans)) {
+        if (this->uplo_logical() == Uplo::Lower) {
             for (int64_t j = 0; j < this->nt(); ++j)
                 for (int64_t i = j; i < this->mt(); ++i)  // lower
                     if (this->tileIsLocal(i, j) && this->tileDevice(i, j) == device)
@@ -628,8 +626,7 @@ public:
     /// - if uplo = Upper, is strictly above the diagonal.
     Matrix< scalar_t > sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2)
     {
-        if ((this->uplo() == Uplo::Lower && this->op() == Op::NoTrans) ||
-            (this->uplo() == Uplo::Upper && this->op() != Op::NoTrans)) {
+        if (this->uplo_logical() == Uplo::Lower) {
             // top-right corner is at or below diagonal
             assert(i1 >= j2);
         }
@@ -641,8 +638,26 @@ public:
     }
 
     ///-------------------------------------------------------------------------
-    /// @return whether the matrix is Lower or Upper storage.
+    /// @return whether the matrix is physically Lower or Upper storage
+    ///         (ignoring the transposition operation).
+    /// @see uplo_logical()
     Uplo uplo() const { return this->uplo_; }
+
+    ///-------------------------------------------------------------------------
+    /// @return whether op(A) is logically Lower or Upper storage,
+    ///         taking the transposition operation into account.
+    /// @see uplo()
+    Uplo uplo_logical() const
+    {
+        if ((this->uplo() == Uplo::Lower && this->op() == Op::NoTrans) ||
+            (this->uplo() == Uplo::Upper && this->op() != Op::NoTrans))
+        {
+            return Uplo::Lower;
+        }
+        else {
+            return Uplo::Upper;
+        }
+    }
 };
 
 ///=============================================================================

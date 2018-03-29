@@ -69,8 +69,7 @@ void herk(slate::internal::TargetType<target>,
     using real_t = blas::real_type<scalar_t>;
 
     // if upper, change to lower
-    if ((C.uplo() == Uplo::Upper && C.op() == Op::NoTrans) ||
-        (C.uplo() == Uplo::Lower && C.op() != Op::NoTrans)) {
+    if (C.uplo_logical() == Uplo::Upper) {
         C = conj_transpose(C);
     }
 

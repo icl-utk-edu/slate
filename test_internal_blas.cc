@@ -114,12 +114,8 @@ void copy( slate::BaseTrapezoidMatrix< scalar_t > /*const*/ & A,
     using blas::conj;
 
     // whether uplo(A) is lower or upper
-    bool lower =
-        (A.uplo() == Uplo::Lower && A.op() == Op::NoTrans) ||
-        (A.uplo() == Uplo::Upper && A.op() != Op::NoTrans);
-    bool upper =
-        (A.uplo() == Uplo::Upper && A.op() == Op::NoTrans) ||
-        (A.uplo() == Uplo::Lower && A.op() != Op::NoTrans);
+    bool lower = (A.uplo_logical() == Uplo::Lower);
+    bool upper = ! lower;
 
     int jj = 0;
     for (int j = 0; j < A.nt(); ++j) {
@@ -244,13 +240,8 @@ void test_assert_equal( slate::BaseTrapezoidMatrix< scalar_t > /*const*/& A,
     using blas::Op;
 
     // whether uplo(A) is lower or upper
-    bool lower =
-        (A.uplo() == Uplo::Lower && A.op() == Op::NoTrans) ||
-        (A.uplo() == Uplo::Upper && A.op() != Op::NoTrans);
-    bool upper =
-        (A.uplo() == Uplo::Upper && A.op() == Op::NoTrans) ||
-        (A.uplo() == Uplo::Lower && A.op() != Op::NoTrans);
-    assert( lower || upper );
+    bool lower = (A.uplo_logical() == Uplo::Lower);
+    bool upper = ! lower;
 
     int jj = 0;
     for (int j = 0; j < A.nt(); ++j) {
@@ -608,16 +599,12 @@ void test_syrk( slate::Target target )
             // C is complex and
             // C is conj-transposed or A is conj-transposed.
             // Also, only Lower, NoTrans or Upper, Trans/ConjTrans.
-            assert( ((C.uplo() == Uplo::Lower && C.op() == Op::NoTrans) ||
-                     (C.uplo() == Uplo::Upper && C.op() != Op::NoTrans))
-                    &&
+            assert( (C.uplo_logical() == Uplo::Lower) &&
                     ! (C.is_complex && (ic == 2 || ia == 2)) );
         }
         catch (std::exception& e) {
             printf( "%%      not allowed\n" );
-            assert( ! ( ((C.uplo() == Uplo::Lower && C.op() == Op::NoTrans) ||
-                         (C.uplo() == Uplo::Upper && C.op() != Op::NoTrans))
-                        &&
+            assert( ! ( (C.uplo_logical() == Uplo::Lower) &&
                         ! (C.is_complex && (ic == 2 || ia == 2)) ) );
             continue;
         }
@@ -776,16 +763,12 @@ void test_herk( slate::Target target )
             // C is complex and
             // C is conj-transposed or A is conj-transposed.
             // Also, only Lower, NoTrans or Upper, Trans/ConjTrans.
-            assert( ((C.uplo() == Uplo::Lower && C.op() == Op::NoTrans) ||
-                     (C.uplo() == Uplo::Upper && C.op() != Op::NoTrans))
-                    &&
+            assert( (C.uplo_logical() == Uplo::Lower) &&
                     ! (C.is_complex && (ic == 1 || ia == 1)) );
         }
         catch (std::exception& e) {
             printf( "%%      not allowed\n" );
-            assert( ! ( ((C.uplo() == Uplo::Lower && C.op() == Op::NoTrans) ||
-                         (C.uplo() == Uplo::Upper && C.op() != Op::NoTrans))
-                        &&
+            assert( ! ( (C.uplo_logical() == Uplo::Lower) &&
                         ! (C.is_complex && (ic == 1 || ia == 1)) ) );
             continue;
         }

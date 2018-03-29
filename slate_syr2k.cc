@@ -69,8 +69,7 @@ void syr2k(slate::internal::TargetType<target>,
     using namespace blas;
 
     // if upper, change to lower
-    if ((C.uplo() == Uplo::Upper && C.op() == Op::NoTrans) ||
-        (C.uplo() == Uplo::Lower && C.op() != Op::NoTrans)) {
+    if (C.uplo_logical() == Uplo::Upper) {
         C = transpose(C);
     }
 

@@ -232,10 +232,27 @@ public:
     Uplo uplo() const { return uplo_; }
     void uplo(Uplo uplo) { uplo_ = uplo; }  // todo: protected?
 
+    //--------------------------------------------------------------------------
+    /// @return whether op(A) is logically Lower or Upper storage,
+    ///         taking the transposition operation into account.
+    /// @see uplo()
+    Uplo uplo_logical() const
+    {
+        if ((this->uplo() == Uplo::Lower && this->op() == Op::NoTrans) ||
+            (this->uplo() == Uplo::Upper && this->op() != Op::NoTrans))
+        {
+            return Uplo::Lower;
+        }
+        else {
+            return Uplo::Upper;
+        }
+    }
+
     /// get and set transposition operation
     Op op() const { return op_; }
     void op(Op op) { op_ = op; }  // todo: protected?
 
+    /// which host or GPU device tile's data is located on
     int device() const { return device_; }
 
 protected:

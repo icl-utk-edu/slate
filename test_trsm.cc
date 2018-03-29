@@ -65,27 +65,28 @@ void test_trsm(
     int64_t lda = An;
     int64_t ldb = m;
 
-    // todo: complex
-    scalar_t alpha = 1.234;
+    scalar_t alpha;
+    scalar_t beta;
+    int64_t seed[] = {0, 1, 2, 3};
+    lapack::larnv(1, seed, 1, &alpha);
+    lapack::larnv(1, seed, 1, &beta);
 
     scalar_t *A1 = nullptr;
     scalar_t *B1 = nullptr;
     scalar_t *B2 = nullptr;
 
-    int64_t seed_a[] = {0, 1, 0, 3};
     A1 = new scalar_t[ lda*An ];
-    lapack::larnv(1, seed_a, lda*An, A1);
+    lapack::larnv(1, seed, lda*An, A1);
 
     // set unused data to nan
+    scalar_t nan_ = nan("");
     if (uplo == blas::Uplo::Lower) {
-        for (int64_t j = 0; j < An; ++j)
-            for (int64_t i = 0; i < j && i < An; ++i)  // strictly upper
-                A1[ i + j*lda ] = nan("");
+        lapack::laset( lapack::MatrixType::Upper, An-1, An-1, nan_, nan_,
+                       &A1[ 0 + 1*lda ], lda );
     }
     else {
-        for (int64_t j = 0; j < An; ++j)
-            for (int64_t i = j+1; i < An; ++i)  // strictly lower
-                A1[ i + j*lda ] = nan("");
+        lapack::laset( lapack::MatrixType::Lower, An-1, An-1, nan_, nan_,
+                       &A1[ 1 + 0*lda ], lda );
     }
 
     // Factor A into L L^H or U U^H to get a well-conditioned triangular matrix.
@@ -97,9 +98,8 @@ void test_trsm(
     int64_t info = lapack::potrf(uplo, An, A1, lda);
     assert(info == 0);
 
-    int64_t seed_c[] = {0, 0, 0, 1};
     B1 = new scalar_t[ ldb*n ];
-    lapack::larnv(1, seed_c, ldb*n, B1);
+    lapack::larnv(1, seed, ldb*n, B1);
 
     if (test) {
         if (mpi_rank == 0) {

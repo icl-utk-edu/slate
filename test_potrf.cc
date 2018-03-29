@@ -63,9 +63,15 @@ void test_potrf(
     lapack::larnv(1, seed, lda*n, Adata);
 
     // set unused data to nan
-    for (int64_t j = 0; j < n; ++j)
-        for (int64_t i = 0; i < j && i < n; ++i) // upper, excluding diagonal
-            Adata[i + j*lda] = nan("");
+    scalar_t nan_ = nan("");
+    if (uplo == blas::Uplo::Lower) {
+        lapack::laset( lapack::MatrixType::Upper, n-1, n-1, nan_, nan_,
+                       &Adata[ 0 + 1*lda ], lda );
+    }
+    else {
+        lapack::laset( lapack::MatrixType::Lower, n-1, n-1, nan_, nan_,
+                       &Adata[ 1 + 0*lda ], lda );
+    }
 
     // brute force positive definite
     for (int64_t i = 0; i < n; ++i)

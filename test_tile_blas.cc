@@ -286,14 +286,14 @@ void test_syrk()
         assert( C.nb() == n );
 
         // set unused data to nan
-        for (int j = 0; j < n; ++j) {
-            for (int i = 0; i < n; ++i) {
-                if ((uplo == blas::Uplo::Lower && i < j) ||
-                    (uplo == blas::Uplo::Upper && i > j))
-                {
-                    Cdata[ i + j*ldc ] = nan("");
-                }
-            }
+        scalar_t nan_ = nan("");
+        if (uplo == blas::Uplo::Lower) {
+            lapack::laset( lapack::MatrixType::Upper, n-1, n-1, nan_, nan_,
+                           &Cdata[ 0 + 1*ldc ], ldc );
+        }
+        else {
+            lapack::laset( lapack::MatrixType::Lower, n-1, n-1, nan_, nan_,
+                           &Cdata[ 1 + 0*ldc ], ldc );
         }
 
         // opCref = op(C) is n-by-n
@@ -409,14 +409,14 @@ void test_herk()
         assert( C.nb() == n );
 
         // set unused data to nan
-        for (int j = 0; j < n; ++j) {
-            for (int i = 0; i < n; ++i) {
-                if ((uplo == blas::Uplo::Lower && i < j) ||
-                    (uplo == blas::Uplo::Upper && i > j))
-                {
-                    Cdata[ i + j*ldc ] = nan("");
-                }
-            }
+        scalar_t nan_ = nan("");
+        if (uplo == blas::Uplo::Lower) {
+            lapack::laset( lapack::MatrixType::Upper, n-1, n-1, nan_, nan_,
+                           &Cdata[ 0 + 1*ldc ], ldc );
+        }
+        else {
+            lapack::laset( lapack::MatrixType::Lower, n-1, n-1, nan_, nan_,
+                           &Cdata[ 1 + 0*ldc ], ldc );
         }
 
         // opCref = op(C) is n-by-n
@@ -517,14 +517,14 @@ void test_potrf()
         A.op( ops[ia] );
 
         // set unused data to nan
-        for (int j = 0; j < n; ++j) {
-            for (int i = 0; i < n; ++i) {
-                if ((uplo == blas::Uplo::Lower && i < j) ||
-                    (uplo == blas::Uplo::Upper && i > j))
-                {
-                    Adata[ i + j*lda ] = nan("");
-                }
-            }
+        scalar_t nan_ = nan("");
+        if (uplo == blas::Uplo::Lower) {
+            lapack::laset( lapack::MatrixType::Upper, n-1, n-1, nan_, nan_,
+                           &Adata[ 0 + 1*lda ], lda );
+        }
+        else {
+            lapack::laset( lapack::MatrixType::Lower, n-1, n-1, nan_, nan_,
+                           &Adata[ 1 + 0*lda ], lda );
         }
 
         // brute force positive definiteness
@@ -614,14 +614,14 @@ void test_trsm()
         A.op( ops[ia] );
 
         // set unused data to nan
-        for (int j = 0; j < An; ++j) {
-            for (int i = 0; i < An; ++i) {
-                if ((uplo == blas::Uplo::Lower && i < j) ||
-                    (uplo == blas::Uplo::Upper && i > j))
-                {
-                    Adata[ i + j*lda ] = nan("");
-                }
-            }
+        scalar_t nan_ = nan("");
+        if (uplo == blas::Uplo::Lower) {
+            lapack::laset( lapack::MatrixType::Upper, n-1, n-1, nan_, nan_,
+                           &Adata[ 0 + 1*lda ], lda );
+        }
+        else {
+            lapack::laset( lapack::MatrixType::Lower, n-1, n-1, nan_, nan_,
+                           &Adata[ 1 + 0*lda ], lda );
         }
 
         // brute force positive definiteness

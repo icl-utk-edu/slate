@@ -72,37 +72,35 @@ void test_syr2k(
     int64_t ldb = Bm;
     int64_t ldc = n;
 
-    // todo: complex
-    scalar_t alpha = 1.234;
-    scalar_t beta  = 4.321;
+    scalar_t alpha;
+    scalar_t beta;
+    int64_t seed[] = {0, 1, 2, 3};
+    lapack::larnv(1, seed, 1, &alpha);
+    lapack::larnv(1, seed, 1, &beta);
 
     scalar_t *A1 = nullptr;
     scalar_t *B1 = nullptr;
     scalar_t *C1 = nullptr;
     scalar_t *C2 = nullptr;
 
-    int64_t seed_a[] = {0, 1, 0, 0};
     A1 = new scalar_t[ lda*An ];
-    lapack::larnv(1, seed_a, lda*An, A1);
+    lapack::larnv(1, seed, lda*An, A1);
 
-    int64_t seed_b[] = {0, 1, 0, 3};
     B1 = new scalar_t[ ldb*Bn ];
-    lapack::larnv(1, seed_b, ldb*Bn, B1);
+    lapack::larnv(1, seed, ldb*Bn, B1);
 
-    int64_t seed_c[] = {0, 0, 0, 1};
     C1 = new scalar_t[ ldc*n ];
-    lapack::larnv(1, seed_c, ldc*n, C1);
+    lapack::larnv(1, seed, ldc*n, C1);
 
     // set unused data to nan
+    scalar_t nan_ = nan("");
     if (uplo == blas::Uplo::Lower) {
-        for (int64_t j = 0; j < n; ++j)
-            for (int64_t i = 0; i < j && i < n; ++i)  // upper, excluding diag
-                C1[ i + j*ldc ] = nan("");
+        lapack::laset( lapack::MatrixType::Upper, n-1, n-1, nan_, nan_,
+                       &C1[ 0 + 1*ldc ], ldc );
     }
     else {
-        for (int64_t j = 0; j < n; ++j)
-            for (int64_t i = j+1; i < n; ++i)  // lower, excluding diag
-                C1[ i + j*ldc ] = nan("");
+        lapack::laset( lapack::MatrixType::Lower, n-1, n-1, nan_, nan_,
+                       &C1[ 1 + 0*ldc ], ldc );
     }
 
     if (test) {

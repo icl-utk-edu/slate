@@ -27,7 +27,7 @@
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_trmm(
-    blas::Side side, blas::Uplo uplo, blas::Op opA, blas::Diag diag,
+    blas::Side side, blas::Uplo uplo, blas::Op opA, blas::Op opB, blas::Diag diag,
     int64_t m, int64_t n, int64_t nb, int p, int q, int64_t lookahead,
     slate::Target target, bool test, bool verbose, bool trace )
 {
@@ -35,6 +35,7 @@ void test_trmm(
     using blas::Op;
     using blas::real;
     using blas::imag;
+    using blas::conj;
     typedef long long lld;
 
     //--------------------
@@ -53,17 +54,20 @@ void test_trmm(
     //---------------------
     // test initializations
     if (mpi_rank == 0) {
-        printf( "side=%c, uplo=%c, opA=%c, diag=%c, m=%lld, n=%lld, nb=%lld, p=%d, q=%d, lookahead=%lld, target=%d\n",
-                char(side), char(uplo), char(opA), char(diag), lld(m), lld(n), lld(nb), p, q, lld(lookahead), int(target) );
+        printf( "side=%c, uplo=%c, opA=%c, obB=%c, diag=%c, m=%lld, n=%lld, nb=%lld, p=%d, q=%d, lookahead=%lld, target=%d\n",
+                char(side), char(uplo), char(opA), char(opB), char(diag), lld(m), lld(n), lld(nb), p, q, lld(lookahead), int(target) );
     }
 
     // for now, trmm requires full tiles
     assert(m % nb == 0);
     assert(n % nb == 0);
 
+    // setup so op(B) is m-by-n
     int64_t An  = (side == blas::Side::Left ? m : n);
+    int64_t Bm  = (opB == Op::NoTrans ? m : n);
+    int64_t Bn  = (opB == Op::NoTrans ? n : m);
     int64_t lda = An;
-    int64_t ldb = m;
+    int64_t ldb = Bm;
 
     scalar_t alpha;
     int64_t seed[] = {0, 1, 2, 3};
@@ -87,32 +91,37 @@ void test_trmm(
                        &A1[ 1 + 0*lda ], lda );
     }
 
-    B1 = new scalar_t[ ldb*n ];
-    lapack::larnv(1, seed, ldb*n, B1);
+    B1 = new scalar_t[ ldb*Bn ];
+    lapack::larnv(1, seed, ldb*Bn, B1);
 
     if (test) {
         if (mpi_rank == 0) {
-            B2 = new scalar_t[ ldb*n ];
-            memcpy(B2, B1, sizeof(scalar_t)*ldb*n);
+            B2 = new scalar_t[ ldb*Bn ];
+            memcpy(B2, B1, sizeof(scalar_t)*ldb*Bn);
         }
     }
 
     slate::TriangularMatrix<scalar_t> A(uplo,
                                         An, A1, lda,
                                         nb, p, q, MPI_COMM_WORLD);
-    slate::Matrix<scalar_t> B(m, n, B1, ldb, nb, p, q, MPI_COMM_WORLD);
+    slate::Matrix<scalar_t> B(Bm, Bn, B1, ldb, nb, p, q, MPI_COMM_WORLD);
 
     if (opA == Op::Trans)
         A = transpose( A );
     else if (opA == Op::ConjTrans)
         A = conj_transpose( A );
 
+    if (opB == Op::Trans)
+        B = transpose( B );
+    else if (opB == Op::ConjTrans)
+        B = conj_transpose( B );
+
     if (verbose && mpi_rank == 0) {
         printf( "alpha = %.4f + %.4fi;\n",
                 real(alpha), imag(alpha) );
         print( "A1", An, An, A1, lda );
         print( "A",  A );
-        print( "B1", m, n, B1, ldb );
+        print( "B1", Bm, Bn, B1, ldb );
         print( "B",  B );
     }
 
@@ -161,9 +170,12 @@ void test_trmm(
         slate::trace::Trace::finish();
 
     if (verbose) {
-        print( "B1res", m, n, B1, ldb );
+        print( "B1res", Bm, Bn, B1, ldb );
         print( "Bres", B );
     }
+
+    assert( B.mt() == slate::ceildiv( m, nb ));
+    assert( B.nt() == slate::ceildiv( n, nb ));
 
     //--------------
     // Print GFLOPS.
@@ -180,24 +192,48 @@ void test_trmm(
         B.gather(B1, ldb);
 
         if (mpi_rank == 0) {
-            blas::trmm(blas::Layout::ColMajor,
-                       side, uplo, opA, diag,
-                       m, n,
-                       alpha, A1, lda,
-                              B2, ldb);
+            if (opB == Op::NoTrans) {
+                blas::trmm(blas::Layout::ColMajor,
+                           side, uplo, opA, diag,
+                           Bm, Bn,
+                           alpha, A1, lda,
+                                  B2, ldb);
+            }
+            else {
+                // transposed B: swap left <=> right
+                blas::Side side2 = (side == blas::Side::Left
+                        ? blas::Side::Right : blas::Side::Left);
+
+                blas::Op op2;
+                if (opA == Op::NoTrans)
+                    op2 = opB;
+                else if (opA == opB || A.is_real)
+                    op2 = Op::NoTrans;
+                else
+                    throw std::exception();
+
+                if (opB == Op::ConjTrans)
+                    alpha = conj(alpha);
+
+                blas::trmm(blas::Layout::ColMajor,
+                           side2, uplo, op2, diag,
+                           Bm, Bn,
+                           alpha, A1, lda,
+                                  B2, ldb);
+            }
 
             if (verbose && mpi_rank == 0) {
-                print( "Bref", m, n, B2, ldb );
+                print( "Bref", Bm, Bn, B2, ldb );
             }
             if (verbose)
-                slate::Debug::diffLapackMatrices(m, n, B1, ldb, B2, ldb, nb, nb);
+                slate::Debug::diffLapackMatrices(Bm, Bn, B1, ldb, B2, ldb, nb, nb);
 
-            blas::axpy((size_t)ldb*n, -1.0, B1, 1, B2, 1);
+            blas::axpy((size_t)ldb*Bn, -1.0, B1, 1, B2, 1);
             real_t norm =
-                lapack::lange(lapack::Norm::Fro, m, n, B1, ldb);
+                lapack::lange(lapack::Norm::Fro, Bm, Bn, B1, ldb);
 
             real_t error =
-                lapack::lange(lapack::Norm::Fro, m, n, B2, ldb);
+                lapack::lange(lapack::Norm::Fro, Bm, Bn, B2, ldb);
 
             if (norm != 0)
                 error /= norm;
@@ -233,8 +269,8 @@ int main (int argc, char *argv[])
     //--------------------
     // parse command line
     if (argc < 11 && mpi_rank == 0) {
-        printf("Usage: %s {Left,Right} {Upper,Lower} {Notrans,Trans,Conjtrans} {Nonunit,Unit} m n nb p q lookahead [HostTask|HostNest|HostBatch|Devices] [s|d|c|z] [test] [verbose] [trace]\n"
-               "For side, uplo, opA, diag, only the first letter is used.\n", argv[0]);
+        printf("Usage: %s {Left,Right} {Upper,Lower} {Notrans,Trans,Conjtrans} {Notrans,Trans,Conjtrans} {Nonunit,Unit} m n nb p q lookahead [HostTask|HostNest|HostBatch|Devices] [s|d|c|z] [test] [verbose] [trace]\n"
+               "For side, uplo, opA, opB, diag, only the first letter is used.\n", argv[0]);
         return EXIT_FAILURE;
     }
 
@@ -242,6 +278,7 @@ int main (int argc, char *argv[])
     blas::Side side  = blas::char2side( argv[arg][0] ); ++arg;
     blas::Uplo uplo  = blas::char2uplo( argv[arg][0] ); ++arg;
     blas::Op   opA   = blas::char2op  ( argv[arg][0] ); ++arg;
+    blas::Op   opB   = blas::char2op  ( argv[arg][0] ); ++arg;
     blas::Diag diag  = blas::char2diag( argv[arg][0] ); ++arg;
     int64_t m  = atol(argv[arg]); ++arg;
     int64_t n  = atol(argv[arg]); ++arg;
@@ -282,16 +319,16 @@ int main (int argc, char *argv[])
     // run test
     switch (datatype) {
         case 's':
-            test_trmm< float >( side, uplo, opA, diag, m, n, nb, p, q, lookahead, target, test, verbose, trace );
+            test_trmm< float >( side, uplo, opA, opB, diag, m, n, nb, p, q, lookahead, target, test, verbose, trace );
             break;
         case 'd':
-            test_trmm< double >( side, uplo, opA, diag, m, n, nb, p, q, lookahead, target, test, verbose, trace );
+            test_trmm< double >( side, uplo, opA, opB, diag, m, n, nb, p, q, lookahead, target, test, verbose, trace );
             break;
         case 'c':
-            test_trmm< std::complex<float> >( side, uplo, opA, diag, m, n, nb, p, q, lookahead, target, test, verbose, trace );
+            test_trmm< std::complex<float> >( side, uplo, opA, opB, diag, m, n, nb, p, q, lookahead, target, test, verbose, trace );
             break;
         case 'z':
-            test_trmm< std::complex<double> >( side, uplo, opA, diag, m, n, nb, p, q, lookahead, target, test, verbose, trace );
+            test_trmm< std::complex<double> >( side, uplo, opA, opB, diag, m, n, nb, p, q, lookahead, target, test, verbose, trace );
             break;
         default:
             printf( "unknown datatype: %c\n", datatype );

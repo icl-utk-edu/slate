@@ -280,6 +280,10 @@ public:
     /// Primarily for debugging purposes.
     void gather(scalar_t *A, int64_t lda)
     {
+        // this code assumes the matrix is not transposed
+        Op op_save = this->op();
+        this->op_ = Op::NoTrans;
+
         // ii, jj are row, col indices
         // i, j are tile (block row, block col) indices
         int64_t jj = 0;
@@ -317,6 +321,8 @@ public:
             }
             jj += jb;
         }
+
+        this->op_ = op_save;
     }
 };
 
@@ -576,6 +582,10 @@ public:
     /// Primarily for debugging purposes.
     void gather(scalar_t *A, int64_t lda)
     {
+        // this code assumes the matrix is not transposed
+        Op op_save = this->op();
+        this->op_ = Op::NoTrans;
+
         // ii, jj are row, col indices
         // i, j are tile (block row, block col) indices
         int64_t jj = 0;
@@ -616,6 +626,8 @@ public:
             }
             jj += jb;
         }
+
+        this->op_ = op_save;
     }
 
     ///-------------------------------------------------------------------------

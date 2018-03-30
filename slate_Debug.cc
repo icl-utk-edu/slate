@@ -43,9 +43,17 @@ namespace slate {
 
 bool Debug::debug_ = true;
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
+/// Prints a summary of differences between matrices A and B.
+/// Uses "." for small relative error, "#" for large relative error in an entry.
+/// For each tile, checks only the four corner 2x2 blocks, marked by letters:
 ///
+///     [ a e - - i m ]  output as:  -----------
+///     [ b f - - j n ]              | a e i m |
+///     [ - - - - - - ]              | b f j n |
+///     [ - - - - - - ]              | c g k o |
+///     [ c g - - k o ]              | d h l p |
+///     [ d h - - l p ]              -----------
 template <typename scalar_t>
 void Debug::diffLapackMatrices(int64_t m, int64_t n,
                                scalar_t const *A, int64_t lda,
@@ -66,7 +74,7 @@ void Debug::diffLapackMatrices(int64_t m, int64_t n,
             if (j%nb == 2)
                 j += nb-4;
 
-            real_t error = abs(A[(size_t)lda*j+i] - B[(size_t)lda*j+i])
+            real_t error = abs(A[(size_t)lda*j+i] - B[(size_t)ldb*j+i])
                          / abs(A[(size_t)lda*j+i]);
             printf("%c", error < 100*eps ? '.' : '#');
 
@@ -85,9 +93,8 @@ void Debug::diffLapackMatrices(int64_t m, int64_t n,
     printf("\n");
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
-///
+//------------------------------------------------------------------------------
+/// Prints information about tiles that have non-zero life.
 template <typename scalar_t>
 void Debug::checkTilesLives(BaseMatrix<scalar_t> const& A)
 {
@@ -109,9 +116,8 @@ void Debug::checkTilesLives(BaseMatrix<scalar_t> const& A)
     }
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
-///
+//------------------------------------------------------------------------------
+/// On MPI rank 0 only, print lives of all tiles, with "." if tile doesn't exist.
 template <typename scalar_t>
 void Debug::printTilesLives(BaseMatrix<scalar_t> const& A)
 {
@@ -130,9 +136,12 @@ void Debug::printTilesLives(BaseMatrix<scalar_t> const& A)
     }
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
-///
+//------------------------------------------------------------------------------
+/// Prints map of all tiles.
+/// Uses
+///  - "." if tile doesn't exist,
+///  - "o" if it is origin (i.e., local tiles),
+///  - "x" otherwise (i.e., remote tiles).
 template <typename scalar_t>
 void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
 {
@@ -176,10 +185,9 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
     }
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
-///
-void Debug::printNumFreeMemBlocks(Memory &m)
+//------------------------------------------------------------------------------
+/// Prints the number of free blocks for each device.
+void Debug::printNumFreeMemBlocks(Memory const& m)
 {
     if (! debug_) return;
     printf("\n");

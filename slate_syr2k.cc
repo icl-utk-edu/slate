@@ -49,16 +49,17 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
-/// Distributed parallel matrix multiplication.
+//------------------------------------------------------------------------------
+/// @internal
+/// Distributed parallel symmetric rank 2k update.
 /// Generic implementation for any target.
 /// Dependencies enforce the following behavior:
 /// - bcast communications are serialized,
 /// - syr2k operations are serialized,
 /// - bcasts can get ahead of syr2ks by the value of lookahead.
-// Note A, B, and C are passed by value, so we can transpose if needed
-// (for uplo = Upper) without affecting caller.
+/// Note A, B, and C are passed by value, so we can transpose if needed
+/// (for uplo = Upper) without affecting caller.
+/// @ingroup syr2k
 template <Target target, typename scalar_t>
 void syr2k(slate::internal::TargetType<target>,
           scalar_t alpha, Matrix<scalar_t> A,
@@ -181,10 +182,55 @@ void syr2k(slate::internal::TargetType<target>,
 } // namespace specialization
 } // namespace internal
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
+/// Distributed parallel symmetric rank 2k update.
+/// Performs the symmetric rank 2k operation
+/// \[
+///     C = \alpha A B^T + \alpha B A^T + \beta C,
+/// \]
+/// where alpha and beta are scalars, C is an n-by-n symmetric
+/// matrix, and A and B are an n-by-k matrices.
+/// The matrices can be transposed beforehand, e.g.,
 ///
-/// Precision and target templated function.
+///     auto AT = slate::transpose( A );
+///     auto BT = slate::transpose( B );
+///     slate::syr2k( alpha, AT, BT, beta, C );
+///
+//------------------------------------------------------------------------------
+/// @tparam target
+///         Implementation to target. Possible values:
+///         - HostTask:  OpenMP tasks on CPU host [default].
+///         - HostNest:  nested OpenMP parallel for look on CPU host.
+///         - HostBatch: batched BLAS on CPU host.
+///         - Devices:   batched BLAS on GPU device.
+///
+/// @tparam scalar_t
+///         One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in] alpha
+///         The scalar alpha.
+///
+/// @param[in] A
+///         The n-by-k matrix A.
+///
+/// @param[in] B
+///         The n-by-k matrix B.
+///
+/// @param[in] beta
+///         The scalar beta.
+///
+/// @param[in,out] C
+///         On entry, the n-by-n symmetric matrix C.
+///         On exit, overwritten by the result
+///         $C = \alpha A B^T + \alpha B A^T + \beta C$.
+///
+/// @param[in] opts
+///         Additional options, as map of name = value pairs. Possible options:
+///         - Option::Lookahead:
+///           Number of blocks to overlap communication and computation.
+///           lookahead >= 0. Default 0.
+///
+/// @ingroup syr2k
 template <Target target, typename scalar_t>
 void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
                            Matrix<scalar_t>& B,

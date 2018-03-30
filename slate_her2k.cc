@@ -49,16 +49,17 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
-/// Distributed parallel matrix multiplication.
+//------------------------------------------------------------------------------
+/// @internal
+/// Distributed parallel Hermitian rank 2k update.
 /// Generic implementation for any target.
 /// Dependencies enforce the following behavior:
 /// - bcast communications are serialized,
 /// - her2k operations are serialized,
 /// - bcasts can get ahead of her2ks by the value of lookahead.
-// Note A, B, and C are passed by value, so we can transpose if needed
-// (for uplo = Upper) without affecting caller.
+/// Note A, B, and C are passed by value, so we can transpose if needed
+/// (for uplo = Upper) without affecting caller.
+/// @ingroup her2k
 template <Target target, typename scalar_t>
 void her2k(slate::internal::TargetType<target>,
            scalar_t alpha,                  Matrix<scalar_t> A,
@@ -127,7 +128,7 @@ void her2k(slate::internal::TargetType<target>,
             }
         }
 
-        // multiply alpha A(:, 0) B(0, :)^T + beta C
+        // multiply alpha A(:, 0) B(0, :)^H + beta C
         #pragma omp task depend(in:bcast[0]) \
                          depend(out:gemm[0])
         {
@@ -182,10 +183,55 @@ void her2k(slate::internal::TargetType<target>,
 } // namespace specialization
 } // namespace internal
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
+/// Distributed parallel Hermitian rank 2k update.
+/// Performs the Hermitian rank 2k operation
+/// \[
+///     C = \alpha A B^H + \alpha B A^H + \beta C,
+/// \]
+/// where alpha and beta are scalars, C is an n-by-n Hermitian
+/// matrix, and A and B are an n-by-k matrices.
+/// The matrices can be conjugate-transposed beforehand, e.g.,
 ///
-/// Precision and target templated function.
+///     auto AT = slate::conj_transpose( A );
+///     auto BT = slate::conj_transpose( B );
+///     slate::her2k( alpha, AT, BT, beta, C );
+///
+//------------------------------------------------------------------------------
+/// @tparam target
+///         Implementation to target. Possible values:
+///         - HostTask:  OpenMP tasks on CPU host [default].
+///         - HostNest:  nested OpenMP parallel for look on CPU host.
+///         - HostBatch: batched BLAS on CPU host.
+///         - Devices:   batched BLAS on GPU device.
+///
+/// @tparam scalar_t
+///         One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in] alpha
+///         The scalar alpha.
+///
+/// @param[in] A
+///         The n-by-k matrix A.
+///
+/// @param[in] B
+///         The n-by-k matrix B.
+///
+/// @param[in] beta
+///         The real scalar beta.
+///
+/// @param[in,out] C
+///         On entry, the n-by-n Hermitian matrix C.
+///         On exit, overwritten by the result
+///         $C = \alpha A B^H + \alpha B A^H + \beta C$.
+///
+/// @param[in] opts
+///         Additional options, as map of name = value pairs. Possible options:
+///         - Option::Lookahead:
+///           Number of blocks to overlap communication and computation.
+///           lookahead >= 0. Default 0.
+///
+/// @ingroup her2k
 template <Target target, typename scalar_t>
 void her2k(scalar_t alpha,                  Matrix<scalar_t>& A,
                                             Matrix<scalar_t>& B,

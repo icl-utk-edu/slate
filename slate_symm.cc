@@ -49,16 +49,17 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
-/// Distributed parallel matrix multiplication.
+//------------------------------------------------------------------------------
+/// @internal
+/// Distributed parallel symmetric matrix-matrix multiplication.
 /// Generic implementation for any target.
 /// Dependencies enforce the following behavior:
 /// - bcast communications are serialized,
 /// - symm operations are serialized,
 /// - bcasts can get ahead of symms by the value of lookahead.
-// Note A, B, and C are passed by value, so we can transpose if needed
-// (for side = right) without affecting caller.
+/// Note A, B, and C are passed by value, so we can transpose if needed
+/// (for side = right) without affecting caller.
+/// @ingroup symm
 template <Target target, typename scalar_t>
 void symm(slate::internal::TargetType<target>,
           Side side,
@@ -335,10 +336,60 @@ void symm(slate::internal::TargetType<target>,
 } // namespace specialization
 } // namespace internal
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
+/// Distributed parallel symmetric matrix-matrix multiplication.
+/// Performs one of the matrix-matrix operations
+/// \[
+///     C = \alpha A B + \beta C
+/// \]
+/// or
+/// \[
+///     C = \alpha B A + \beta C
+/// \]
+/// where alpha and beta are scalars, A is a symmetric matrix and B and
+/// C are m-by-n matrices.
 ///
-/// Precision and target templated function.
+//------------------------------------------------------------------------------
+/// @tparam target
+///         Implementation to target. Possible values:
+///         - HostTask:  OpenMP tasks on CPU host [default].
+///         - HostNest:  nested OpenMP parallel for look on CPU host.
+///         - HostBatch: batched BLAS on CPU host.
+///         - Devices:   batched BLAS on GPU device.
+///
+/// @tparam scalar_t
+///         One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in] side
+///         Whether the symmetric matrix A appears on the left or right:
+///         - Side::Left:  $C = \alpha A B + \beta C$
+///         - Side::Right: $C = \alpha B A + \beta C$
+///
+/// @param[in] alpha
+///         The scalar alpha.
+///
+/// @param[in] A
+///         - If side = left,  the m-by-m symmetric matrix A;
+///         - if side = right, the n-by-n symmetric matrix A.
+///
+/// @param[in] B
+///         The m-by-n matrix B.
+///
+/// @param[in] beta
+///         The scalar beta.
+///
+/// @param[in,out] C
+///         On entry, the m-by-n matrix C.
+///         On exit, overwritten by the result
+///         $\alpha A B + \beta C$ or $\alpha B A + \beta C$.
+///
+/// @param[in] opts
+///         Additional options, as map of name = value pairs. Possible options:
+///         - Option::Lookahead:
+///           Number of blocks to overlap communication and computation.
+///           lookahead >= 0. Default 0.
+///
+/// @ingroup symm
 template <Target target, typename scalar_t>
 void symm(Side side,
           scalar_t alpha, SymmetricMatrix<scalar_t>& A,

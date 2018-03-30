@@ -49,12 +49,13 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
-/// Distributed parallel triangular matrix multiplication.
+//------------------------------------------------------------------------------
+/// @internal
+/// Distributed parallel triangular matrix solve.
 /// Generic implementation for any target.
-// Note A and B are passed by value, so we can transpose if needed
-// (for side = right) without affecting caller.
+/// Note A and B are passed by value, so we can transpose if needed
+/// (for side = right) without affecting caller.
+/// @ingroup trsm
 template <Target target, typename scalar_t>
 void trsm(slate::internal::TargetType<target>,
           Side side, Diag diag,
@@ -231,10 +232,64 @@ void trsm(slate::internal::TargetType<target>,
 } // namespace specialization
 } // namespace internal
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
+/// Distributed parallel triangular matrix-matrix solve.
+/// Solves one of the triangular matrix equations
+/// \[
+///     A X = \alpha B,
+/// \]
+/// or
+/// \[
+///     X A = \alpha B,
+/// \]
+/// where alpha is a scalar, B is an m-by-n matrix and A is a unit or non-unit,
+/// upper or lower triangular matrix. The matrix X overwrites B.
+/// The matrices can be transposed or conjugate-transposed beforehand, e.g.,
 ///
-/// Precision and target templated function.
+///     auto AT = slate::transpose( A );
+///     slate::trsm( Side::Left, Diag::NonUnit, alpha, AT, B );
+///
+//------------------------------------------------------------------------------
+/// @tparam target
+///         Implementation to target. Possible values:
+///         - HostTask:  OpenMP tasks on CPU host [default].
+///         - HostNest:  nested OpenMP parallel for look on CPU host.
+///         - HostBatch: batched BLAS on CPU host.
+///         - Devices:   batched BLAS on GPU device.
+///
+/// @tparam scalar_t
+///         One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in] side
+///         Whether A appears on the left or on the right of X:
+///         - Side::Left:  solve $A X = \alpha B$
+///         - Side::Right: solve $X A = \alpha B$
+///
+/// @param[in] diag
+///         Whether or not A is unit triangular:
+///         - Diag::NonUnit: A is non-unit triangular;
+///         - Diag::Unit:    A is unit triangular.
+///                          The diagonal elements of A are not referenced
+///                          and are assumed to be 1.
+///
+/// @param[in] alpha
+///         The scalar alpha.
+///
+/// @param[in] A
+///         - If side = left,  the m-by-m triangular matrix A;
+///         - if side = right, the n-by-n triangular matrix A.
+///
+/// @param[in,out] B
+///         On entry, the m-by-n matrix B.
+///         On exit, overwritten by the result X.
+///
+/// @param[in] opts
+///         Additional options, as map of name = value pairs. Possible options:
+///         - Option::Lookahead:
+///           Number of panels to overlap with matrix updates.
+///           lookahead >= 0. Default 0.
+///
+/// @ingroup trsm
 template <Target target, typename scalar_t>
 void trsm(blas::Side side, blas::Diag diag,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,

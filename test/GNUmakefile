@@ -22,7 +22,7 @@ LIB += -lscalapack
 	echo ${CXXFLAGS}
 	$(CXX) ${CXXFLAGS} -c $< -o $@
 
-test_src = ${cdir}/test.cc ${cdir}/scalapack_support_routines.cc ${cdir}/test_potrf.cc ${cdir}/test_potrf_lapack.cc ${cdir}/test_gemm.cc ${cdir}/test_trmm.cc ${cdir}/test_symm.cc ${cdir}/test_syr2k.cc ${cdir}/test_syrk.cc ${cdir}/test_trsm.cc
+test_src = ${cdir}/test.cc ${cdir}/test_gemm.cc ${cdir}/test_trmm.cc ${cdir}/test_symm.cc ${cdir}/test_syr2k.cc ${cdir}/test_syrk.cc ${cdir}/test_trsm.cc ${cdir}/test_potrf.cc ${cdir}/test_potrf_lapack.cc 
 test_obj = ${addsuffix .o, ${basename ${test_src}}}
 test_dep = ${addsuffix .d, ${basename ${test_src}}}
 

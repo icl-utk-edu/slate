@@ -17,6 +17,7 @@
 #endif
 
 #include "scalapack_wrappers.hh"
+#include "scalapack_support_routines.hh"
 
 //------------------------------------------------------------------------------
 template< typename scalar_t >
@@ -77,7 +78,7 @@ void test_potrf_work( Params& params, bool run )
     // Initialize the matrix
     int iseed = iam;
     descinit_( descA_tst, &m, &n, &nb, &nb, &i0, &i0, &ictxt, &mloc, &info );  assert( 0 == info );
-    scalapack_pdplghe( &A_tst[0], m, n, nb, nb, myrow, mycol, nprow, npcol, mloc, iseed );
+    scalapack_pplghe( &A_tst[0], m, n, nb, nb, myrow, mycol, nprow, npcol, mloc, iseed );
 
     // Create SLATE matrix from the ScaLAPACK layouts
     int64_t llda = descA_tst[8];
@@ -119,7 +120,7 @@ void test_potrf_work( Params& params, bool run )
         std::vector< scalar_t > X_ref( size_B );
 
         // Initialize B
-        scalapack_pdplrnt( &B_ref[0], n, s, nb, nb, myrow, mycol,  nprow, npcol, mloc, iseed + 1 );
+        scalapack_pplrnt( &B_ref[0], n, s, nb, nb, myrow, mycol,  nprow, npcol, mloc, iseed + 1 );
         // Copy B to X (use local copies instead of globally via ScaLAPACK pdlacpy)
         X_ref = B_ref;
 

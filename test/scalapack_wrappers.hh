@@ -8,54 +8,10 @@
 #ifndef SCALAPACK_WRAPPERS_HH
 #define SCALAPACK_WRAPPERS_HH
 
-// get BLAS_FORTRAN_NAME and blas_int
-#include "blas_fortran.hh"
-
 #include <complex>
 
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// Defined in scalapack_support_routines.cc
-// -----------------------------------------------------------------------------
-
-extern "C" void scalapack_pdplrnt( double *A, int m, int n, int mb, int nb, int myrow, int mycol, int nprow, int npcol, int mloc, int seed );
-extern "C" void scalapack_psplrnt( float *A, int m, int n, int mb, int nb, int myrow, int mycol, int nprow, int npcol, int mloc, int seed );
-extern "C" void scalapack_pcplrnt( std::complex<float> *A, int m, int n, int mb, int nb, int myrow, int mycol, int nprow, int npcol, int mloc, int seed );
-extern "C" void scalapack_pzplrnt( std::complex<double> *A, int m, int n, int mb, int nb, int myrow, int mycol, int nprow, int npcol, int mloc, int seed );
-
-// -----------------------------------------------------------------------------
-inline void scalapack_pplrnt ( double *A, int m, int n, int mb, int nb, int myrow, int mycol, int nprow, int npcol, int mloc, int seed )
-{
-    scalapack_pdplrnt( A, m, n, mb, nb, myrow, mycol, nprow, npcol, mloc, seed );
-}
-
-inline void scalapack_pplrnt ( float *A, int m, int n, int mb, int nb, int myrow, int mycol, int nprow, int npcol, int mloc, int seed )
-{
-    scalapack_psplrnt( A, m, n, mb, nb, myrow, mycol, nprow, npcol, mloc, seed );
-}
-
-inline void scalapack_pplrnt ( std::complex<float> *A, int m, int n, int mb, int nb, int myrow, int mycol, int nprow, int npcol, int mloc, int seed )
-{
-    scalapack_pcplrnt( A, m, n, mb, nb, myrow, mycol, nprow, npcol, mloc, seed );
-}
-
-inline void scalapack_pplrnt ( std::complex<double> *A, int m, int n, int mb, int nb, int myrow, int mycol, int nprow, int npcol, int mloc, int seed )
-{
-    scalapack_pzplrnt( A, m, n, mb, nb, myrow, mycol, nprow, npcol, mloc, seed );
-}
-
-
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-extern "C" void scalapack_pdplghe( double *A, int m, int n, int mb, int nb, int myrow, int mycol, int nprow, int npcol, int mloc, int seed );
-
-// -----------------------------------------------------------------------------
-
-inline void scalapack_pplghe( double *A, int m, int n, int mb, int nb, int myrow, int mycol, int nprow, int npcol, int mloc, int seed)
-{
-    scalapack_pdplghe( A, m, n, mb, nb, myrow, mycol, nprow, npcol, mloc, seed);
-}
-
+// get BLAS_FORTRAN_NAME and blas_int
+#include "blas_fortran.hh"
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------

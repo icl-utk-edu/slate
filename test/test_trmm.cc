@@ -17,6 +17,7 @@
 #include "blas_flops.hh"
 
 #include "scalapack_wrappers.hh"
+#include "scalapack_support_routines.hh"
 
 #ifdef SLATE_WITH_MKL
 //#include "mkl.h"
@@ -86,9 +87,9 @@ void test_trmm_work( Params& params, bool run )
     // Initialize the matrix
     int iseed = 0;
     // TODO: A is a unit, or non-unit, upper or lower triangular distributed matrix, 
-    scalapack_pdplghe( &A_tst[0], n_, n_, nb_, nb_, myrow, mycol, nprow, npcol, mloc, iseed+1 );
+    scalapack_pplghe( &A_tst[0], n_, n_, nb_, nb_, myrow, mycol, nprow, npcol, mloc, iseed+1 );
     // TODO: B is an m-by-n distributed matrix
-    scalapack_pdplrnt( &B_tst[0], n_, n_, nb_, nb_, myrow, mycol, nprow, npcol, mloc, iseed+2 );
+    scalapack_pplrnt( &B_tst[0], n_, n_, nb_, nb_, myrow, mycol, nprow, npcol, mloc, iseed+2 );
 
     // Create ScaLAPACK descriptors
     scalapack_descinit( descA_tst, &n_, &n_, &nb_, &nb_, &i0, &i0, &ictxt, &mloc, &info ); assert(info==0);
@@ -163,7 +164,7 @@ void test_trmm_work( Params& params, bool run )
         double time_ref = libtest::get_wtime() - time;
 
         // Allocate work space
-        std::vector< scalar_t > worklange( mloc );
+        std::vector< real_t > worklange( mloc );
 
         // Local operation: error = B_ref - B_tst
         blas::axpy(size_B, -1.0, &B_tst[0], 1, &B_ref[0], 1);
@@ -198,7 +199,7 @@ void test_trmm( Params& params, bool run )
             break;
 
         case libtest::DataType::Single:
-            throw std::exception();// test_trmm_work< float >( params, run );
+            test_trmm_work< float >( params, run );
             break;
 
         case libtest::DataType::Double:
@@ -206,11 +207,11 @@ void test_trmm( Params& params, bool run )
             break;
 
         case libtest::DataType::SingleComplex:
-            throw std::exception();// test_trmm_work< std::complex<float> >( params, run );
+            test_trmm_work< std::complex<float> >( params, run );
             break;
 
         case libtest::DataType::DoubleComplex:
-            throw std::exception();// test_trmm_work< std::complex<double> >( params, run );
+            test_trmm_work< std::complex<double> >( params, run );
             break;
     }
 }

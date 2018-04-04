@@ -24,6 +24,9 @@
     #include "slate_NoOpenmp.hh"
 #endif
 
+#include "scalapack_wrappers.hh"
+#include "scalapack_support_routines.hh"
+
 //------------------------------------------------------------------------------
 template< typename scalar_t >
 void test_potrf_lapack_work( Params& params, bool run )

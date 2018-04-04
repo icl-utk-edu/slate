@@ -17,6 +17,7 @@
 #include "blas_flops.hh"
 
 #include "scalapack_wrappers.hh"
+#include "scalapack_support_routines.hh"
 
 #ifdef SLATE_WITH_MKL
 //#include "mkl.h"

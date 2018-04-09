@@ -136,7 +136,7 @@ extern "C" double scalapack_pzlansy( const char *norm, const char *uplo, blas_in
 
 // -----------------------------------------------------------------------------
 
-inline float scalapack_plansy( char *norm, char *uplo, blas_int *n, float *a, blas_int *ia, blas_int *ja, blas_int *desca, float *work )
+inline float scalapack_plansy( const char *norm, const char *uplo, blas_int *n, float *a, blas_int *ia, blas_int *ja, blas_int *desca, float *work )
 {
     return scalapack_pslansy( norm, uplo, n, a, ia, ja, desca, work );
 }

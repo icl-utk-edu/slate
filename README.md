@@ -19,17 +19,45 @@
 About
 =====
 
-SLATE will offer a modern replacement for ScaLAPACK.
-ScaLAPACK is a numerical software library of dense linear algebra routines
-essential to the field of scientific and engineering computing,
-with good asymptotic scaling properties, but lack of support for modern node architectures,
-which are based on multicore processors and hardware accelerators,
-and characterized by complex memory hierarchies.
+The objective of the Software for Linear Algebra Targeting Exascale (SLATE) project
+is to provide fundamental dense linear algebra capabilities
+to the US Department of Energy
+and to the high-performance computing (HPC) community at large.
+To this end, SLATE will provide basic dense matrix operations
+(e.g., matrix multiplication, rank-k update, triangular solve),
+linear systems solvers, least square solvers, singular value and eigenvalue solvers.
 
-SLATE will allow for the development of multicore and accelerator capabilities,
-by leveraging recent progress and ongoing efforts in mainstream programming models
-(MPI3 and beyond, OpenMP4 and beyond, OpenACC, etc.), and runtime scheduling systems
-(PaRSEC, Legion, etc.).
+The ultimate objective of SLATE is to replace
+the venerable Scalable Linear Algebra PACKage (ScaLAPACK) library,
+which has become the industry standard for dense linear algebra operations
+in distributed memory environments.
+However, after two decades of operation, ScaLAPACK is past the end of its lifecycle
+and overdue for a replacement, as it can hardly be retrofitted
+to support hardware accelerators, which are an integral part
+of today's HPC hardware infrastructure.
+
+Primarily, SLATE aims to extract the full performance potential and maximum scalability
+from modern, many-node HPC machines with large numbers of cores
+and multiple hardware accelerators per node.
+For typical dense linear algebra workloads, this means getting close
+to the theoretical peak performance and scaling to the full size of the machine
+(i.e., thousands to tens of thousands of nodes).
+This is to be accomplished in a portable manner by relying on standards
+like MPI and OpenMP.
+
+SLATE functionalities will first be delivered to the ECP applications
+that most urgently require SLATE capabilities
+(e.g., EXascale Atomistics with Accuracy, Length, and Time [EXAALT],
+NorthWest computational Chemistry for Exascale [NWChemEx],
+Quantum Monte Carlo PACKage [QMCPACK],
+General Atomic and Molecular Electronic Structure System [GAMESS],
+CANcer Distributed Learning Environment [CANDLE])
+and to other software libraries that rely on underlying dense linear algebra services
+(e.g., Factorization Based Sparse Solvers and Preconditioners [FBSS]).
+SLATE will also fill the void left by ScaLAPACK's inability
+to utilize hardware accelerators, and it will ease the difficulties
+associated with ScaLAPACK'slegacy matrix layout and Fortran API.
+
 Also, part of the SLATE project is the development of C++ APIs
 for [BLAS++](https://bitbucket.org/icl/blaspp)
 and [LAPACK++](https://bitbucket.org/icl/lapackpp).

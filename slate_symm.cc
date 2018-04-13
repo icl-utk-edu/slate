@@ -353,7 +353,7 @@ void symm(slate::internal::TargetType<target>,
 /// @tparam target
 ///         Implementation to target. Possible values:
 ///         - HostTask:  OpenMP tasks on CPU host [default].
-///         - HostNest:  nested OpenMP parallel for look on CPU host.
+///         - HostNest:  nested OpenMP parallel for loop on CPU host.
 ///         - HostBatch: batched BLAS on CPU host.
 ///         - Devices:   batched BLAS on GPU device.
 ///

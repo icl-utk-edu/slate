@@ -49,17 +49,8 @@
 #include <map>
 #include <stack>
 
-#ifdef SLATE_WITH_CUDA
-    #include <cuda_runtime.h>
-#else
-    #include "slate_NoCuda.hh"
-#endif
-
-#ifdef _OPENMP
-    #include <omp.h>
-#else
-    #include "slate_NoOpenmp.hh"
-#endif
+#include "slate_cuda.hh"
+#include "slate_openmp.hh"
 
 namespace slate {
 

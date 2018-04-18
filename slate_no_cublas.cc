@@ -40,7 +40,7 @@
 ///-----------------------------------------------------------------------------
 /// \file
 ///
-#include "slate_NoCuda.hh"
+#include "slate_cublas.hh"
 
 #include <cassert>
 
@@ -48,73 +48,75 @@
 extern "C" {
 #endif
 
-cudaError_t cudaFree(void *devPtr)
+cublasStatus_t cublasCreate(cublasHandle_t *handle)
 {
     assert(0);
 }
 
-cudaError_t cudaFreeHost(void *devPtr)
+cublasStatus_t cublasDestroy(cublasHandle_t handle) 
 {
     assert(0);
 }
 
-cudaError_t cudaGetDevice(int *device)
+cublasStatus_t cublasSetStream(cublasHandle_t handle, cudaStream_t streamId)
 {
     assert(0);
 }
 
-cudaError_t cudaGetDeviceCount(int *count)
-{
-    *count = 0;
-    return cudaSuccess;
-}
-
-cudaError_t cudaMalloc(void **devPtr, size_t size)
+cublasStatus_t cublasGetStream(cublasHandle_t handle, cudaStream_t *streamId)
 {
     assert(0);
 }
 
-cudaError_t cudaMallocHost(void **ptr, size_t size)
+cublasStatus_t cublasDasum(cublasHandle_t handle, int n, const double *x, int incx, double *result)
 {
     assert(0);
 }
 
-cudaError_t cudaMemcpy2DAsync(void* dst, size_t dpitch,
-                              const void* src, size_t spitch,
-                              size_t width, size_t height,
-                              cudaMemcpyKind kind, cudaStream_t stream)
+cublasStatus_t cublasSgemmBatched(
+    cublasHandle_t handle,
+    cublasOperation_t transa, cublasOperation_t transb,
+    int m, int n, int k,
+    const float *alpha, const float *Aarray[], int lda,
+                        const float *Barray[], int ldb,
+    const float *beta,        float *Carray[], int ldc,
+    int batchCount)
 {
     assert(0);
 }
 
-cudaError_t cudaMemcpyAsync(void *dst, const void *src, size_t count,
-                            cudaMemcpyKind kind, cudaStream_t stream)
+cublasStatus_t cublasDgemmBatched(
+    cublasHandle_t handle,
+    cublasOperation_t transa, cublasOperation_t transb,
+    int m, int n, int k,
+    const double *alpha, const double *Aarray[], int lda,
+                         const double *Barray[], int ldb,
+    const double *beta,        double *Carray[], int ldc,
+    int batchCount)
 {
     assert(0);
 }
 
-cudaError_t cudaMemcpy(void *dst, const void * src,
-                       size_t count, cudaMemcpyKind kind)
+cublasStatus_t cublasCgemmBatched(
+    cublasHandle_t handle,
+    cublasOperation_t transa, cublasOperation_t transb,
+    int m, int n, int k,
+    const cuComplex *alpha, const cuComplex *Aarray[], int lda,
+                            const cuComplex *Barray[], int ldb,
+    const cuComplex *beta,        cuComplex *Carray[], int ldc,
+    int batchCount)
 {
     assert(0);
 }
 
-cudaError_t cudaSetDevice(int device)
-{
-    assert(0);
-}
-
-cudaError_t cudaStreamCreate(cudaStream_t *pStream)
-{
-    assert(0);
-}
-
-cudaError_t cudaStreamSynchronize(cudaStream_t stream)
-{
-    assert(0);
-}
-
-cudaError_t cudaStreamDestroy(cudaStream_t pStream)
+cublasStatus_t cublasZgemmBatched(
+    cublasHandle_t handle,
+    cublasOperation_t transa, cublasOperation_t transb,
+    int m, int n, int k,
+    const cuDoubleComplex *alpha, const cuDoubleComplex *Aarray[], int lda,
+                                  const cuDoubleComplex *Barray[], int ldb,
+    const cuDoubleComplex *beta,        cuDoubleComplex *Carray[], int ldc,
+    int batchCount)
 {
     assert(0);
 }

@@ -40,70 +40,144 @@
 ///-----------------------------------------------------------------------------
 /// \file
 ///
-#ifndef SLATE_NO_CUBLAS_HH
-#define SLATE_NO_CUBLAS_HH
+#include "slate_mpi.hh"
 
-#include "slate_NoCuda.hh"
+#include <cassert>
 
-typedef void *cublasHandle_t;
-typedef int cublasStatus_t;
-typedef int cublasOperation_t;
-
-enum {
-    CUBLAS_OP_C,
-    CUBLAS_OP_N,
-    CUBLAS_OP_T,
-    CUBLAS_STATUS_SUCCESS
-};
+int *MPI_STATUS_IGNORE;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-cublasStatus_t cublasCreate(cublasHandle_t *handle);
-cublasStatus_t cublasSetStream(cublasHandle_t handle, cudaStream_t streamId);
-cublasStatus_t cublasGetStream(cublasHandle_t handle, cudaStream_t *streamId);
-cublasStatus_t cublasDasum(cublasHandle_t handle, int n, const double *x, int incx, double *result);
-cublasStatus_t cublasDestroy(cublasHandle_t handle);
+int MPI_Barrier(MPI_Comm comm)
+{
+    return MPI_SUCCESS;
+}
 
-cublasStatus_t cublasSgemmBatched(
-    cublasHandle_t handle,
-    cublasOperation_t transa, cublasOperation_t transb,
-    int m, int n, int k,
-    const float *alpha, const float *Aarray[], int lda,
-                        const float *Barray[], int ldb,
-    const float *beta,        float *Carray[], int ldc,
-    int batchCount);
+int MPI_Bcast(void *buffer, int count, MPI_Datatype datatype, int root,
+              MPI_Comm comm)
+{
+    assert(0);
+}
 
-cublasStatus_t cublasDgemmBatched(
-    cublasHandle_t handle,
-    cublasOperation_t transa, cublasOperation_t transb,
-    int m, int n, int k,
-    const double *alpha, const double *Aarray[], int lda,
-                         const double *Barray[], int ldb,
-    const double *beta,        double *Carray[], int ldc,
-    int batchCount);
+int MPI_Comm_create_group(MPI_Comm comm, MPI_Group group, int tag,
+                          MPI_Comm *newcomm)
+{
+    assert(0);
+}
 
-cublasStatus_t cublasCgemmBatched(
-    cublasHandle_t handle,
-    cublasOperation_t transa, cublasOperation_t transb,
-    int m, int n, int k,
-    const cuComplex *alpha, const cuComplex *Aarray[], int lda,
-                            const cuComplex *Barray[], int ldb,
-    const cuComplex *beta,        cuComplex *Carray[], int ldc,
-    int batchCount);
+int MPI_Comm_free(MPI_Comm *comm)
+{
+    assert(0);
+}
 
-cublasStatus_t cublasZgemmBatched(
-    cublasHandle_t handle,
-    cublasOperation_t transa, cublasOperation_t transb,
-    int m, int n, int k,
-    const cuDoubleComplex *alpha, const cuDoubleComplex *Aarray[], int lda,
-                                  const cuDoubleComplex *Barray[], int ldb,
-    const cuDoubleComplex *beta,        cuDoubleComplex *Carray[], int ldc,
-    int batchCount);
+int MPI_Comm_group(MPI_Comm comm, MPI_Group *group)
+{
+    return MPI_SUCCESS;
+}
+
+int MPI_Comm_rank(MPI_Comm comm, int *rank)
+{
+    *rank = 0;
+    return MPI_SUCCESS;
+}
+
+int MPI_Comm_size(MPI_Comm comm, int *size)
+{
+    *size = 1;
+    return MPI_SUCCESS;
+}
+
+int MPI_Group_free(MPI_Group *group)
+{
+    assert(0);
+}
+
+int MPI_Group_incl(MPI_Group group, int n, const int ranks[],
+                   MPI_Group *newgroup)
+{
+    assert(0);
+}
+
+int MPI_Group_translate_ranks(MPI_Group group1, int n, const int ranks1[],
+                              MPI_Group group2, int ranks2[])
+{
+    assert(0);
+}
+
+int MPI_Init(int *argc, char ***argv) 
+{
+    return MPI_SUCCESS;
+}
+
+int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
+{
+    *provided = MPI_THREAD_MULTIPLE;
+    return MPI_SUCCESS;
+}
+
+int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
+              int tag, MPI_Comm comm, MPI_Request *request)
+{
+    assert(0);
+}
+
+int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest,
+              int tag, MPI_Comm comm, MPI_Request *request)
+{
+    assert(0);
+}
+
+int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source,
+             int tag, MPI_Comm comm, MPI_Status *status)
+{
+    assert(0);
+}
+
+int MPI_Reduce(void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype,
+               MPI_Op op, int root, MPI_Comm comm)
+{
+    assert(0);
+}
+
+int MPI_Request_free(MPI_Request *request)
+{
+    assert(0);
+}
+
+int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest,
+             int tag, MPI_Comm comm)
+{
+    assert(0);
+}
+
+int MPI_Type_commit(MPI_Datatype *datatype)
+{
+    assert(0);
+}
+
+int MPI_Type_free(MPI_Datatype *datatype)
+{
+    assert(0);
+}
+
+int MPI_Type_vector(int count, int blocklength, int stride,
+                    MPI_Datatype oldtype, MPI_Datatype *newtype)
+{
+    assert(0);
+}
+
+int MPI_Wait(MPI_Request *request, MPI_Status *status)
+{
+    assert(0);
+}
+
+int MPI_Finalize( void )
+{
+    return MPI_SUCCESS;
+}
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif // SLATE_NO_CUBLAS_HH

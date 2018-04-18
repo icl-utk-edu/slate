@@ -56,11 +56,7 @@
 #include <vector>
 #include <iostream>
 
-#ifdef SLATE_WITH_MPI
-    #include <mpi.h>
-#else
-    #include "slate_NoMpi.hh"
-#endif
+#include "slate_mpi.hh"
 
 namespace slate {
 

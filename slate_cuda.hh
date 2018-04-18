@@ -40,8 +40,12 @@
 ///-----------------------------------------------------------------------------
 /// \file
 ///
-#ifndef SLATE_NO_CUDA_HH
-#define SLATE_NO_CUDA_HH
+#ifndef SLATE_CUDA_HH
+#define SLATE_CUDA_HH
+
+#ifdef SLATE_WITH_CUDA
+    #include <cuda_runtime.h>
+#else
 
 #include <cstdlib>
 
@@ -92,4 +96,6 @@ cudaError_t cudaStreamDestroy(cudaStream_t pStream);
 }
 #endif
 
-#endif // SLATE_NO_CUDA_HH
+#endif // not SLATE_WITH_CUDA
+
+#endif // SLATE_CUDA_HH

@@ -44,17 +44,8 @@
 #include <set>
 #include <vector>
 
-#ifdef SLATE_WITH_MPI
-    #include <mpi.h>
-#else
-    #include "slate_NoMpi.hh"
-#endif
-
-#ifdef _OPENMP
-    #include <omp.h>
-#else
-    #include "slate_NoOpenmp.hh"
-#endif
+#include "slate_mpi.hh"
+#include "slate_openmp.hh"
 
 namespace slate {
 namespace trace {

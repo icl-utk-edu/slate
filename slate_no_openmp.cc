@@ -40,85 +40,85 @@
 ///-----------------------------------------------------------------------------
 /// \file
 ///
-#include "slate_NoCublas.hh"
+#include "slate_openmp.hh"
 
-#include <cassert>
+#include <sys/time.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-cublasStatus_t cublasCreate(cublasHandle_t *handle)
+int omp_get_initial_device()
 {
-    assert(0);
+    return -10;
 }
 
-cublasStatus_t cublasDestroy(cublasHandle_t handle) 
+int omp_get_max_threads()
 {
-    assert(0);
+    return 1;
 }
 
-cublasStatus_t cublasSetStream(cublasHandle_t handle, cudaStream_t streamId)
+int omp_get_num_devices()
 {
-    assert(0);
+    return 0;
 }
 
-cublasStatus_t cublasGetStream(cublasHandle_t handle, cudaStream_t *streamId)
+int omp_get_thread_num(void)
 {
-    assert(0);
+    return 0;
 }
 
-cublasStatus_t cublasDasum(cublasHandle_t handle, int n, const double *x, int incx, double *result)
+double omp_get_wtime()
 {
-    assert(0);
+    struct timeval  time;
+    struct timezone zone;
+
+    gettimeofday(&time, &zone);
+
+    double sec = time.tv_sec;
+    double usec = time.tv_usec;
+
+    return sec + usec/1000000.0;
 }
 
-cublasStatus_t cublasSgemmBatched(
-    cublasHandle_t handle,
-    cublasOperation_t transa, cublasOperation_t transb,
-    int m, int n, int k,
-    const float *alpha, const float *Aarray[], int lda,
-                        const float *Barray[], int ldb,
-    const float *beta,        float *Carray[], int ldc,
-    int batchCount)
+void omp_destroy_lock(omp_lock_t *lock)
 {
-    assert(0);
+    return;
 }
 
-cublasStatus_t cublasDgemmBatched(
-    cublasHandle_t handle,
-    cublasOperation_t transa, cublasOperation_t transb,
-    int m, int n, int k,
-    const double *alpha, const double *Aarray[], int lda,
-                         const double *Barray[], int ldb,
-    const double *beta,        double *Carray[], int ldc,
-    int batchCount)
+void omp_init_lock(omp_lock_t *lock)
 {
-    assert(0);
+    return;
 }
 
-cublasStatus_t cublasCgemmBatched(
-    cublasHandle_t handle,
-    cublasOperation_t transa, cublasOperation_t transb,
-    int m, int n, int k,
-    const cuComplex *alpha, const cuComplex *Aarray[], int lda,
-                            const cuComplex *Barray[], int ldb,
-    const cuComplex *beta,        cuComplex *Carray[], int ldc,
-    int batchCount)
+void omp_set_lock(omp_lock_t *lock)
 {
-    assert(0);
+    return;
 }
 
-cublasStatus_t cublasZgemmBatched(
-    cublasHandle_t handle,
-    cublasOperation_t transa, cublasOperation_t transb,
-    int m, int n, int k,
-    const cuDoubleComplex *alpha, const cuDoubleComplex *Aarray[], int lda,
-                                  const cuDoubleComplex *Barray[], int ldb,
-    const cuDoubleComplex *beta,        cuDoubleComplex *Carray[], int ldc,
-    int batchCount)
+void omp_unset_lock(omp_lock_t *lock)
 {
-    assert(0);
+    return;
+}
+
+void omp_destroy_nest_lock(omp_nest_lock_t *lock)
+{
+    return;
+}
+
+void omp_init_nest_lock(omp_nest_lock_t *lock)
+{
+    return;
+}
+
+void omp_set_nest_lock(omp_nest_lock_t *lock)
+{
+    return;
+}
+
+void omp_unset_nest_lock(omp_nest_lock_t *lock)
+{
+    return;
 }
 
 #ifdef __cplusplus

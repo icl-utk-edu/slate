@@ -43,11 +43,7 @@
 #ifndef SLATE_TYPES_HH
 #define SLATE_TYPES_HH
 
-#ifdef SLATE_WITH_MPI
-    #include <mpi.h>
-#else
-    #include "slate_NoMpi.hh"
-#endif
+#include "slate_mpi.hh"
 
 #include <blas.hh>
 

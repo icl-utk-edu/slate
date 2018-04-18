@@ -55,25 +55,10 @@
 #include <vector>
 #include <iostream>
 
-#ifdef SLATE_WITH_CUDA
-    #include <cublas_v2.h>
-    #include <cuda_runtime.h>
-#else
-    #include "slate_NoCuda.hh"
-    #include "slate_NoCublas.hh"
-#endif
-
-#ifdef SLATE_WITH_MPI
-    #include <mpi.h>
-#else
-    #include "slate_NoMpi.hh"
-#endif
-
-#ifdef _OPENMP
-    #include <omp.h>
-#else
-    #include "slate_NoOpenmp.hh"
-#endif
+#include "slate_cuda.hh"
+#include "slate_cublas.hh"
+#include "slate_mpi.hh"
+#include "slate_openmp.hh"
 
 namespace slate {
 

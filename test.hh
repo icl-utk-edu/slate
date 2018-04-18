@@ -1,17 +1,8 @@
 #ifndef TEST_HH
 #define TEST_HH
 
-#ifdef SLATE_WITH_MPI
-    #include <mpi.h>
-#else
-    #include "slate_NoMpi.hh"
-#endif
-
-#ifdef _OPENMP
-    #include <omp.h>
-#else
-    #include "slate_NoOpenmp.hh"
-#endif
+#include "slate_mpi.hh"
+#include "slate_openmp.hh"
 
 #include "slate_Matrix.hh"
 #include "slate_BaseTrapezoidMatrix.hh"

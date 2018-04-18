@@ -42,11 +42,7 @@
 
 #include <map>
 
-#ifdef _OPENMP
-    #include <omp.h>
-#else
-    #include "slate_NoOpenmp.hh"
-#endif
+#include "slate_openmp.hh"
 
 namespace slate {
 

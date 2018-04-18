@@ -40,29 +40,85 @@
 ///-----------------------------------------------------------------------------
 /// \file
 ///
-#ifndef SLATE_NO_OPENMP_HH
-#define SLATE_NO_OPENMP_HH
+#include "slate_cuda.hh"
 
-typedef int omp_lock_t;
+#include <cassert>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-int omp_get_initial_device();
-int omp_get_max_threads();
-int omp_get_num_devices();
-int omp_get_thread_num(void);
+cudaError_t cudaFree(void *devPtr)
+{
+    assert(0);
+}
 
-double omp_get_wtime();
+cudaError_t cudaFreeHost(void *devPtr)
+{
+    assert(0);
+}
 
-void omp_destroy_lock(omp_lock_t *lock);
-void omp_init_lock(omp_lock_t *lock);
-void omp_set_lock(omp_lock_t *lock);
-void omp_unset_lock(omp_lock_t *lock);
+cudaError_t cudaGetDevice(int *device)
+{
+    assert(0);
+}
+
+cudaError_t cudaGetDeviceCount(int *count)
+{
+    *count = 0;
+    return cudaSuccess;
+}
+
+cudaError_t cudaMalloc(void **devPtr, size_t size)
+{
+    assert(0);
+}
+
+cudaError_t cudaMallocHost(void **ptr, size_t size)
+{
+    assert(0);
+}
+
+cudaError_t cudaMemcpy2DAsync(void* dst, size_t dpitch,
+                              const void* src, size_t spitch,
+                              size_t width, size_t height,
+                              cudaMemcpyKind kind, cudaStream_t stream)
+{
+    assert(0);
+}
+
+cudaError_t cudaMemcpyAsync(void *dst, const void *src, size_t count,
+                            cudaMemcpyKind kind, cudaStream_t stream)
+{
+    assert(0);
+}
+
+cudaError_t cudaMemcpy(void *dst, const void * src,
+                       size_t count, cudaMemcpyKind kind)
+{
+    assert(0);
+}
+
+cudaError_t cudaSetDevice(int device)
+{
+    assert(0);
+}
+
+cudaError_t cudaStreamCreate(cudaStream_t *pStream)
+{
+    assert(0);
+}
+
+cudaError_t cudaStreamSynchronize(cudaStream_t stream)
+{
+    assert(0);
+}
+
+cudaError_t cudaStreamDestroy(cudaStream_t pStream)
+{
+    assert(0);
+}
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif // SLATE_NO_OPENMP_HH

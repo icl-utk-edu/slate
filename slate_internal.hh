@@ -132,7 +132,7 @@ void hemm(Side side,
           scalar_t beta,  Matrix< scalar_t >&& C,
           int priority=0);
 
-// forward real-Hermitian matrices to hemm;
+// forward real-symmetric matrices to hemm;
 // disabled for complex
 template <Target target=Target::HostTask, typename scalar_t>
 void hemm(Side side,

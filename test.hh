@@ -14,6 +14,7 @@
 #endif
 
 #include "slate_Matrix.hh"
+#include "slate_BaseTrapezoidMatrix.hh"
 
 #include <iostream>
 #include <iomanip>

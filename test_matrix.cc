@@ -1,5 +1,9 @@
 #include "test.hh"
 #include "slate_Matrix.hh"
+#include "slate_HermitianMatrix.hh"
+#include "slate_SymmetricMatrix.hh"
+#include "slate_TrapezoidMatrix.hh"
+#include "slate_TriangularMatrix.hh"
 
 // -----------------------------------------------------------------------------
 void test_empty()

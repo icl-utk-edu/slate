@@ -59,6 +59,12 @@
     #include <cblas.h>
 #endif
 
+#include "slate_Matrix.hh"
+#include "slate_HermitianMatrix.hh"
+#include "slate_SymmetricMatrix.hh"
+#include "slate_TriangularMatrix.hh"
+
+///-----------------------------------------------------------------------------
 #define THROW_IF(cond, error) \
     if (cond) \
         throw TrueConditionException( \
@@ -82,8 +88,6 @@
     if (error != cudaSuccess) \
         throw CudaException(#call, error, __FILE__, __func__, __LINE__); \
 }
-
-#include "slate_Matrix.hh"
 
 namespace slate {
 namespace internal {

@@ -40,7 +40,9 @@
 #ifndef SLATE_TRIANGULAR_MATRIX_HH
 #define SLATE_TRIANGULAR_MATRIX_HH
 
+#include "slate_BaseTrapezoidMatrix.hh"
 #include "slate_TrapezoidMatrix.hh"
+#include "slate_Matrix.hh"
 #include "slate_Tile.hh"
 #include "slate_types.hh"
 

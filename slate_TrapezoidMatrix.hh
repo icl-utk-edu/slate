@@ -41,6 +41,7 @@
 #define SLATE_TRAPEZOID_MATRIX_HH
 
 #include "slate_BaseTrapezoidMatrix.hh"
+#include "slate_Matrix.hh"
 #include "slate_Tile.hh"
 #include "slate_types.hh"
 

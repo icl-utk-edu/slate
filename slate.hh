@@ -41,6 +41,9 @@
 #define SLATE_HH
 
 #include "slate_Matrix.hh"
+#include "slate_HermitianMatrix.hh"
+#include "slate_SymmetricMatrix.hh"
+#include "slate_TriangularMatrix.hh"
 #include "slate_types.hh"
 
 namespace slate {

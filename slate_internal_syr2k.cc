@@ -38,6 +38,7 @@
 //------------------------------------------------------------------------------
 
 #include "slate_Matrix.hh"
+#include "slate_SymmetricMatrix.hh"
 #include "slate_types.hh"
 #include "slate_Tile_blas.hh"
 #include "slate_internal.hh"

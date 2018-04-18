@@ -184,6 +184,31 @@ void syr2k(slate::internal::TargetType<target>,
 } // namespace internal
 
 //------------------------------------------------------------------------------
+/// Version with target as template parameter.
+/// @ingroup syr2k
+template <Target target, typename scalar_t>
+void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
+                           Matrix<scalar_t>& B,
+           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
+           const std::map<Option, Value>& opts)
+{
+    int64_t lookahead;
+    try {
+        lookahead = opts.at(Option::Lookahead).i_;
+        assert(lookahead >= 0);
+    }
+    catch (std::out_of_range) {
+        lookahead = 1;
+    }
+
+    internal::specialization::syr2k(internal::TargetType<target>(),
+                                   alpha, A,
+                                          B,
+                                   beta,  C,
+                                   lookahead);
+}
+
+//------------------------------------------------------------------------------
 /// Distributed parallel symmetric rank 2k update.
 /// Performs the symmetric rank 2k operation
 /// \[
@@ -198,13 +223,6 @@ void syr2k(slate::internal::TargetType<target>,
 ///     slate::syr2k( alpha, AT, BT, beta, C );
 ///
 //------------------------------------------------------------------------------
-/// @tparam target
-///         Implementation to target. Possible values:
-///         - HostTask:  OpenMP tasks on CPU host [default].
-///         - HostNest:  nested OpenMP parallel for loop on CPU host.
-///         - HostBatch: batched BLAS on CPU host.
-///         - Devices:   batched BLAS on GPU device.
-///
 /// @tparam scalar_t
 ///         One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
@@ -229,142 +247,71 @@ void syr2k(slate::internal::TargetType<target>,
 ///         Additional options, as map of name = value pairs. Possible options:
 ///         - Option::Lookahead:
 ///           Number of blocks to overlap communication and computation.
-///           lookahead >= 0. Default 0.
+///           lookahead >= 0. Default 1.
+///         - Option::Target:
+///           Implementation to target. Possible values:
+///           - HostTask:  OpenMP tasks on CPU host [default].
+///           - HostNest:  nested OpenMP parallel for loop on CPU host.
+///           - HostBatch: batched BLAS on CPU host.
+///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup syr2k
-template <Target target, typename scalar_t>
+template <typename scalar_t>
 void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
                            Matrix<scalar_t>& B,
-          scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          const std::map<Option, Value>& opts)
+           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
+           const std::map<Option, Value>& opts)
 {
-    int64_t lookahead;
+    Target target;
     try {
-        lookahead = opts.at(Option::Lookahead).i_;
+        target = Target( opts.at(Option::Target).i_ );
     }
     catch (std::out_of_range) {
-        lookahead = 1;
+        target = Target::HostTask;
     }
 
-    internal::specialization::syr2k(internal::TargetType<target>(),
-                                   alpha, A,
-                                          B,
-                                   beta,  C,
-                                   lookahead);
+    switch (target) {
+        case Target::Host:
+        case Target::HostTask:
+            syr2k<Target::HostTask>(alpha, A, B, beta, C, opts);
+            break;
+        case Target::HostNest:
+            syr2k<Target::HostNest>(alpha, A, B, beta, C, opts);
+            break;
+        case Target::HostBatch:
+            syr2k<Target::HostBatch>(alpha, A, B, beta, C, opts);
+            break;
+        case Target::Devices:
+            syr2k<Target::Devices>(alpha, A, B, beta, C, opts);
+            break;
+    }
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void syr2k< Target::HostTask, float >(
+void syr2k< float >(
     float alpha, Matrix<float>& A,
                  Matrix<float>& B,
     float beta,  SymmetricMatrix<float>& C,
     const std::map<Option, Value>& opts);
 
 template
-void syr2k< Target::HostNest, float >(
-    float alpha, Matrix<float>& A,
-                 Matrix<float>& B,
-    float beta,  SymmetricMatrix<float>& C,
-    const std::map<Option, Value>& opts);
-
-template
-void syr2k< Target::HostBatch, float >(
-    float alpha, Matrix<float>& A,
-                 Matrix<float>& B,
-    float beta,  SymmetricMatrix<float>& C,
-    const std::map<Option, Value>& opts);
-
-template
-void syr2k< Target::Devices, float >(
-    float alpha, Matrix<float>& A,
-                 Matrix<float>& B,
-    float beta,  SymmetricMatrix<float>& C,
-    const std::map<Option, Value>& opts);
-
-// ----------------------------------------
-template
-void syr2k< Target::HostTask, double >(
+void syr2k< double >(
     double alpha, Matrix<double>& A,
                   Matrix<double>& B,
     double beta,  SymmetricMatrix<double>& C,
     const std::map<Option, Value>& opts);
 
 template
-void syr2k< Target::HostNest, double >(
-    double alpha, Matrix<double>& A,
-                  Matrix<double>& B,
-    double beta,  SymmetricMatrix<double>& C,
-    const std::map<Option, Value>& opts);
-
-template
-void syr2k< Target::HostBatch, double >(
-    double alpha, Matrix<double>& A,
-                  Matrix<double>& B,
-    double beta,  SymmetricMatrix<double>& C,
-    const std::map<Option, Value>& opts);
-
-template
-void syr2k< Target::Devices, double >(
-    double alpha, Matrix<double>& A,
-                  Matrix<double>& B,
-    double beta,  SymmetricMatrix<double>& C,
-    const std::map<Option, Value>& opts);
-
-// ----------------------------------------
-template
-void syr2k< Target::HostTask,  std::complex<float>  >(
+void syr2k< std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >& A,
                                Matrix< std::complex<float> >& B,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >& C,
     const std::map<Option, Value>& opts);
 
 template
-void syr2k< Target::HostNest, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >& A,
-                               Matrix< std::complex<float> >& B,
-    std::complex<float> beta,  SymmetricMatrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void syr2k< Target::HostBatch, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >& A,
-                               Matrix< std::complex<float> >& B,
-    std::complex<float> beta,  SymmetricMatrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void syr2k< Target::Devices, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >& A,
-                               Matrix< std::complex<float> >& B,
-    std::complex<float> beta,  SymmetricMatrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
-
-// ----------------------------------------
-template
-void syr2k< Target::HostTask, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >& A,
-                                Matrix< std::complex<double> >& B,
-    std::complex<double> beta,  SymmetricMatrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void syr2k< Target::HostNest, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >& A,
-                                Matrix< std::complex<double> >& B,
-    std::complex<double> beta,  SymmetricMatrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void syr2k< Target::HostBatch, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >& A,
-                                Matrix< std::complex<double> >& B,
-    std::complex<double> beta,  SymmetricMatrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void syr2k< Target::Devices, std::complex<double> >(
+void syr2k< std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >& A,
                                 Matrix< std::complex<double> >& B,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >& C,

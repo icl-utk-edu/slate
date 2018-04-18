@@ -283,6 +283,31 @@ void trmm(slate::internal::TargetType<target>,
 } // namespace internal
 
 //------------------------------------------------------------------------------
+/// Version with target as template parameter.
+/// @ingroup trmm
+template <Target target, typename scalar_t>
+void trmm(blas::Side side, blas::Diag diag,
+          scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                                    Matrix<scalar_t>& B,
+          const std::map<Option, Value>& opts)
+{
+    int64_t lookahead;
+    try {
+        lookahead = opts.at(Option::Lookahead).i_;
+        assert(lookahead >= 0);
+    }
+    catch (std::out_of_range) {
+        lookahead = 1;
+    }
+
+    internal::specialization::trmm(internal::TargetType<target>(),
+                                   side, diag,
+                                   alpha, A,
+                                          B,
+                                   lookahead);
+}
+
+//------------------------------------------------------------------------------
 /// Distributed parallel triangular matrix-matrix multiplication.
 /// Performs one of the triangular matrix-matrix operations
 /// \[
@@ -300,13 +325,6 @@ void trmm(slate::internal::TargetType<target>,
 ///     slate::trmm( Side::Left, Diag::NonUnit, alpha, AT, B );
 ///
 //------------------------------------------------------------------------------
-/// @tparam target
-///         Implementation to target. Possible values:
-///         - HostTask:  OpenMP tasks on CPU host [default].
-///         - HostNest:  nested OpenMP parallel for loop on CPU host.
-///         - HostBatch: batched BLAS on CPU host.
-///         - Devices:   batched BLAS on GPU device.
-///
 /// @tparam scalar_t
 ///         One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
@@ -337,142 +355,71 @@ void trmm(slate::internal::TargetType<target>,
 ///         Additional options, as map of name = value pairs. Possible options:
 ///         - Option::Lookahead:
 ///           Number of blocks to overlap communication and computation.
-///           lookahead >= 0. Default 0.
+///           lookahead >= 0. Default 1.
+///         - Option::Target:
+///           Implementation to target. Possible values:
+///           - HostTask:  OpenMP tasks on CPU host [default].
+///           - HostNest:  nested OpenMP parallel for loop on CPU host.
+///           - HostBatch: batched BLAS on CPU host.
+///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup trmm
-template <Target target, typename scalar_t>
+template <typename scalar_t>
 void trmm(blas::Side side, blas::Diag diag,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts)
 {
-    int64_t lookahead;
+    Target target;
     try {
-        lookahead = opts.at(Option::Lookahead).i_;
+        target = Target( opts.at(Option::Target).i_ );
     }
     catch (std::out_of_range) {
-        lookahead = 1;
+        target = Target::HostTask;
     }
 
-    internal::specialization::trmm(internal::TargetType<target>(),
-                                   side, diag,
-                                   alpha, A,
-                                          B,
-                                   lookahead);
+    switch (target) {
+        case Target::Host:
+        case Target::HostTask:
+            trmm<Target::HostTask>(side, diag, alpha, A, B, opts);
+            break;
+        case Target::HostNest:
+            trmm<Target::HostNest>(side, diag, alpha, A, B, opts);
+            break;
+        case Target::HostBatch:
+            trmm<Target::HostBatch>(side, diag, alpha, A, B, opts);
+            break;
+        case Target::Devices:
+            trmm<Target::Devices>(side, diag, alpha, A, B, opts);
+            break;
+    }
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void trmm< Target::HostTask, float >(
+void trmm< float >(
     blas::Side side, blas::Diag diag,
     float alpha, TriangularMatrix<float>& A,
                            Matrix<float>& B,
     const std::map<Option, Value>& opts);
 
 template
-void trmm< Target::HostNest, float >(
-    blas::Side side, blas::Diag diag,
-    float alpha, TriangularMatrix<float>& A,
-                           Matrix<float>& B,
-    const std::map<Option, Value>& opts);
-
-template
-void trmm< Target::HostBatch, float >(
-    blas::Side side, blas::Diag diag,
-    float alpha, TriangularMatrix<float>& A,
-                           Matrix<float>& B,
-    const std::map<Option, Value>& opts);
-
-template
-void trmm< Target::Devices, float >(
-    blas::Side side, blas::Diag diag,
-    float alpha, TriangularMatrix<float>& A,
-                           Matrix<float>& B,
-    const std::map<Option, Value>& opts);
-
-// ----------------------------------------
-template
-void trmm< Target::HostTask, double >(
+void trmm< double >(
     blas::Side side, blas::Diag diag,
     double alpha, TriangularMatrix<double>& A,
                             Matrix<double>& B,
     const std::map<Option, Value>& opts);
 
 template
-void trmm< Target::HostNest, double >(
-    blas::Side side, blas::Diag diag,
-    double alpha, TriangularMatrix<double>& A,
-                            Matrix<double>& B,
-    const std::map<Option, Value>& opts);
-
-template
-void trmm< Target::HostBatch, double >(
-    blas::Side side, blas::Diag diag,
-    double alpha, TriangularMatrix<double>& A,
-                            Matrix<double>& B,
-    const std::map<Option, Value>& opts);
-
-template
-void trmm< Target::Devices, double >(
-    blas::Side side, blas::Diag diag,
-    double alpha, TriangularMatrix<double>& A,
-                            Matrix<double>& B,
-    const std::map<Option, Value>& opts);
-
-// ----------------------------------------
-template
-void trmm< Target::HostTask, std::complex<float> >(
+void trmm< std::complex<float> >(
     blas::Side side, blas::Diag diag,
     std::complex<float> alpha, TriangularMatrix<std::complex<float>>& A,
                                          Matrix<std::complex<float>>& B,
     const std::map<Option, Value>& opts);
 
 template
-void trmm< Target::HostNest, std::complex<float> >(
-    blas::Side side, blas::Diag diag,
-    std::complex<float> alpha, TriangularMatrix<std::complex<float>>& A,
-                                         Matrix<std::complex<float>>& B,
-    const std::map<Option, Value>& opts);
-
-template
-void trmm< Target::HostBatch, std::complex<float> >(
-    blas::Side side, blas::Diag diag,
-    std::complex<float> alpha, TriangularMatrix<std::complex<float>>& A,
-                                         Matrix<std::complex<float>>& B,
-    const std::map<Option, Value>& opts);
-
-template
-void trmm< Target::Devices, std::complex<float> >(
-    blas::Side side, blas::Diag diag,
-    std::complex<float> alpha, TriangularMatrix<std::complex<float>>& A,
-                                         Matrix<std::complex<float>>& B,
-    const std::map<Option, Value>& opts);
-
-// ----------------------------------------
-template
-void trmm< Target::HostTask, std::complex<double> >(
-    blas::Side side, blas::Diag diag,
-    std::complex<double> alpha, TriangularMatrix<std::complex<double>>& A,
-                                          Matrix<std::complex<double>>& B,
-    const std::map<Option, Value>& opts);
-
-template
-void trmm< Target::HostNest, std::complex<double> >(
-    blas::Side side, blas::Diag diag,
-    std::complex<double> alpha, TriangularMatrix<std::complex<double>>& A,
-                                          Matrix<std::complex<double>>& B,
-    const std::map<Option, Value>& opts);
-
-template
-void trmm< Target::HostBatch, std::complex<double> >(
-    blas::Side side, blas::Diag diag,
-    std::complex<double> alpha, TriangularMatrix<std::complex<double>>& A,
-                                          Matrix<std::complex<double>>& B,
-    const std::map<Option, Value>& opts);
-
-template
-void trmm< Target::Devices, std::complex<double> >(
+void trmm< std::complex<double> >(
     blas::Side side, blas::Diag diag,
     std::complex<double> alpha, TriangularMatrix<std::complex<double>>& A,
                                           Matrix<std::complex<double>>& B,

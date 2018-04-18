@@ -71,7 +71,8 @@ template <Target> class TargetType {};
 enum class Option {
     Lookahead,
     BlockSize,
-    Tolerance
+    Tolerance,
+    Target,
 };
 
 ///-----------------------------------------------------------------------------
@@ -84,6 +85,7 @@ public:
     Value() {}
     Value(int64_t i) : i_(i) {}
     Value(double d) : d_(d) {}
+    Value(Target t) : i_(int(t)) {}
 
     union {
         int64_t i_;

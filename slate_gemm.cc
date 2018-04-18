@@ -151,6 +151,31 @@ void gemm(slate::internal::TargetType<target>,
 } // namespace internal
 
 //------------------------------------------------------------------------------
+/// Version with target as template parameter.
+/// @ingroup gemm
+template <Target target, typename scalar_t>
+void gemm(scalar_t alpha, Matrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts)
+{
+    int64_t lookahead;
+    try {
+        lookahead = opts.at(Option::Lookahead).i_;
+        assert(lookahead >= 0);
+    }
+    catch (std::out_of_range) {
+        lookahead = 1;
+    }
+
+    internal::specialization::gemm(internal::TargetType<target>(),
+                                   alpha, A,
+                                          B,
+                                   beta,  C,
+                                   lookahead);
+}
+
+//------------------------------------------------------------------------------
 /// Distributed parallel general matrix-matrix multiplication.
 /// Performs the matrix-matrix operation
 /// \[
@@ -165,13 +190,6 @@ void gemm(slate::internal::TargetType<target>,
 ///     slate::gemm( alpha, AT, BT, beta, C );
 ///
 //------------------------------------------------------------------------------
-/// @tparam target
-///         Implementation to target. Possible values:
-///         - HostTask:  OpenMP tasks on CPU host [default].
-///         - HostNest:  nested OpenMP parallel for loop on CPU host.
-///         - HostBatch: batched BLAS on CPU host.
-///         - Devices:   batched BLAS on GPU device.
-///
 /// @tparam scalar_t
 ///         One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
@@ -195,142 +213,71 @@ void gemm(slate::internal::TargetType<target>,
 ///         Additional options, as map of name = value pairs. Possible options:
 ///         - Option::Lookahead:
 ///           Number of blocks to overlap communication and computation.
-///           lookahead >= 0. Default 0.
+///           lookahead >= 0. Default 1.
+///         - Option::Target:
+///           Implementation to target. Possible values:
+///           - HostTask:  OpenMP tasks on CPU host [default].
+///           - HostNest:  nested OpenMP parallel for loop on CPU host.
+///           - HostBatch: batched BLAS on CPU host.
+///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup gemm
-template <Target target, typename scalar_t>
+template <typename scalar_t>
 void gemm(scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts)
 {
-    int64_t lookahead;
+    Target target;
     try {
-        lookahead = opts.at(Option::Lookahead).i_;
+        target = Target( opts.at(Option::Target).i_ );
     }
     catch (std::out_of_range) {
-        lookahead = 1;
+        target = Target::HostTask;
     }
 
-    internal::specialization::gemm(internal::TargetType<target>(),
-                                   alpha, A,
-                                          B,
-                                   beta,  C,
-                                   lookahead);
+    switch (target) {
+        case Target::Host:
+        case Target::HostTask:
+            gemm<Target::HostTask>(alpha, A, B, beta, C, opts);
+            break;
+        case Target::HostNest:
+            gemm<Target::HostNest>(alpha, A, B, beta, C, opts);
+            break;
+        case Target::HostBatch:
+            gemm<Target::HostBatch>(alpha, A, B, beta, C, opts);
+            break;
+        case Target::Devices:
+            gemm<Target::Devices>(alpha, A, B, beta, C, opts);
+            break;
+    }
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void gemm< Target::HostTask, float >(
+void gemm< float >(
     float alpha, Matrix<float>& A,
                  Matrix<float>& B,
     float beta,  Matrix<float>& C,
     const std::map<Option, Value>& opts);
 
 template
-void gemm< Target::HostNest, float >(
-    float alpha, Matrix<float>& A,
-                 Matrix<float>& B,
-    float beta,  Matrix<float>& C,
-    const std::map<Option, Value>& opts);
-
-template
-void gemm< Target::HostBatch, float >(
-    float alpha, Matrix<float>& A,
-                 Matrix<float>& B,
-    float beta,  Matrix<float>& C,
-    const std::map<Option, Value>& opts);
-
-template
-void gemm< Target::Devices, float >(
-    float alpha, Matrix<float>& A,
-                 Matrix<float>& B,
-    float beta,  Matrix<float>& C,
-    const std::map<Option, Value>& opts);
-
-// ----------------------------------------
-template
-void gemm< Target::HostTask, double >(
+void gemm< double >(
     double alpha, Matrix<double>& A,
                   Matrix<double>& B,
     double beta,  Matrix<double>& C,
     const std::map<Option, Value>& opts);
 
 template
-void gemm< Target::HostNest, double >(
-    double alpha, Matrix<double>& A,
-                  Matrix<double>& B,
-    double beta,  Matrix<double>& C,
-    const std::map<Option, Value>& opts);
-
-template
-void gemm< Target::HostBatch, double >(
-    double alpha, Matrix<double>& A,
-                  Matrix<double>& B,
-    double beta,  Matrix<double>& C,
-    const std::map<Option, Value>& opts);
-
-template
-void gemm< Target::Devices, double >(
-    double alpha, Matrix<double>& A,
-                  Matrix<double>& B,
-    double beta,  Matrix<double>& C,
-    const std::map<Option, Value>& opts);
-
-// ----------------------------------------
-template
-void gemm< Target::HostTask,  std::complex<float>  >(
+void gemm< std::complex<float>  >(
     std::complex<float> alpha, Matrix< std::complex<float> >& A,
                                Matrix< std::complex<float> >& B,
     std::complex<float> beta,  Matrix< std::complex<float> >& C,
     const std::map<Option, Value>& opts);
 
 template
-void gemm< Target::HostNest, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >& A,
-                               Matrix< std::complex<float> >& B,
-    std::complex<float> beta,  Matrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void gemm< Target::HostBatch, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >& A,
-                               Matrix< std::complex<float> >& B,
-    std::complex<float> beta,  Matrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void gemm< Target::Devices, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >& A,
-                               Matrix< std::complex<float> >& B,
-    std::complex<float> beta,  Matrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
-
-// ----------------------------------------
-template
-void gemm< Target::HostTask, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >& A,
-                                Matrix< std::complex<double> >& B,
-    std::complex<double> beta,  Matrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void gemm< Target::HostNest, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >& A,
-                                Matrix< std::complex<double> >& B,
-    std::complex<double> beta,  Matrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void gemm< Target::HostBatch, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >& A,
-                                Matrix< std::complex<double> >& B,
-    std::complex<double> beta,  Matrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void gemm< Target::Devices, std::complex<double> >(
+void gemm< std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >& A,
                                 Matrix< std::complex<double> >& B,
     std::complex<double> beta,  Matrix< std::complex<double> >& C,

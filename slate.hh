@@ -50,55 +50,109 @@ namespace slate {
 
 // -----------------------------------------------------------------------------
 // Level 3 BLAS
-template <Target target=Target::HostTask, typename scalar_t>
+template <typename scalar_t>
 void gemm(scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target=Target::HostTask, typename scalar_t>
+template <Target target, typename scalar_t>
+void gemm(scalar_t alpha, Matrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
 void hemm(blas::Side side,
           scalar_t alpha, HermitianMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target=Target::HostTask, typename scalar_t>
+template <typename scalar_t>
+void hemm(blas::Side side,
+          scalar_t alpha, HermitianMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target=Target::HostTask, typename scalar_t>
+template <Target target, typename scalar_t>
+void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
+          blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <typename scalar_t>
 void her2k(scalar_t alpha,                 Matrix<scalar_t>& A,
                                            Matrix<scalar_t>& B,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target=Target::HostTask, typename scalar_t>
+template <Target target, typename scalar_t>
+void her2k(scalar_t alpha,                 Matrix<scalar_t>& A,
+                                           Matrix<scalar_t>& B,
+           blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <typename scalar_t>
 void symm(blas::Side side,
           scalar_t alpha, SymmetricMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target=Target::HostTask, typename scalar_t>
+template <Target target, typename scalar_t>
+void symm(blas::Side side,
+          scalar_t alpha, SymmetricMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <typename scalar_t>
 void syrk(scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target=Target::HostTask, typename scalar_t>
+template <Target target, typename scalar_t>
+void syrk(scalar_t alpha, Matrix<scalar_t>& A,
+          scalar_t beta,  SymmetricMatrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <typename scalar_t>
 void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
                            Matrix<scalar_t>& B,
            scalar_t beta,  SymmetricMatrix<scalar_t>& C,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target=Target::HostTask, typename scalar_t>
+template <Target target, typename scalar_t>
+void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
+                           Matrix<scalar_t>& B,
+           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
 void trmm(blas::Side side, blas::Diag diag,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target=Target::HostTask, typename scalar_t>
+template <typename scalar_t>
+void trmm(blas::Side side, blas::Diag diag,
+          scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <typename scalar_t>
+void trsm(blas::Side side, blas::Diag diag,
+          scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
 void trsm(blas::Side side, blas::Diag diag,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,

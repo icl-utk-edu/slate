@@ -120,16 +120,6 @@ test_src = \
        test_matrix.cc \
        test_tile.cc \
        test_tile_blas.cc \
-       test_potrf.cc \
-       test_gemm.cc \
-       test_hemm.cc \
-       test_herk.cc \
-       test_her2k.cc \
-       test_symm.cc \
-       test_syrk.cc \
-       test_syr2k.cc \
-       test_trmm.cc \
-       test_trsm.cc \
 
 lib_obj  = $(lib_src:.cc=.o)
 test_obj = $(test_src:.cc=.o)

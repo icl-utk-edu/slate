@@ -38,9 +38,6 @@
 //------------------------------------------------------------------------------
 
 #include "slate.hh"
-#include "slate_Debug.hh"
-#include "slate_Matrix.hh"
-#include "slate_HermitianMatrix.hh"
 #include "slate_internal.hh"
 
 namespace slate {
@@ -89,8 +86,8 @@ void hemm(slate::internal::TargetType<target>,
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > bcast_vector( A.nt() );
     std::vector< uint8_t >  gemm_vector( A.nt() );
-    uint8_t *bcast = bcast_vector.data();
-    uint8_t *gemm  =  gemm_vector.data();
+    uint8_t* bcast = bcast_vector.data();
+    uint8_t* gemm  =  gemm_vector.data();
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();
@@ -108,14 +105,16 @@ void hemm(slate::internal::TargetType<target>,
             #pragma omp task depend(out:bcast[0])
             {
                 // broadcast A(i, 0) to ranks owning block row C(i, :)
-                for (int64_t i = 0; i < A.mt(); ++i)
+                for (int64_t i = 0; i < A.mt(); ++i) {
                     A.template tileBcast<target>(
-                        i, 0, C.sub(i, i, 0, C.nt()-1));
+                        i, 0, C.sub(i, i, 0, C.nt() - 1));
+                }
 
                 // broadcast B(0, j) to ranks owning block col C(:, j)
-                for (int64_t j = 0; j < B.nt(); ++j)
+                for (int64_t j = 0; j < B.nt(); ++j) {
                     B.template tileBcast<target>(
-                        0, j, C.sub(0, C.mt()-1, j, j));
+                        0, j, C.sub(0, C.mt() - 1, j, j));
+                }
             }
 
             // send next lookahead block cols of A and block rows of B
@@ -124,18 +123,19 @@ void hemm(slate::internal::TargetType<target>,
                                  depend(out:bcast[k])
                 {
                     // broadcast A(k, i) or A(i, k) to ranks owning block row C(i, :)
-                    for (int64_t i = 0; i < k && i < A.mt(); ++i)
+                    for (int64_t i = 0; i < k && i < A.mt(); ++i) {
                         A.template tileBcast<target>(
-                            k, i, C.sub(i, i, 0, C.nt()-1));
-
-                    for (int64_t i = k; i < A.mt(); ++i)
+                            k, i, C.sub(i, i, 0, C.nt() - 1));
+                    }
+                    for (int64_t i = k; i < A.mt(); ++i) {
                         A.template tileBcast<target>(
-                            i, k, C.sub(i, i, 0, C.nt()-1));
-
+                            i, k, C.sub(i, i, 0, C.nt() - 1));
+                    }
                     // broadcast B(k, j) to ranks owning block col C(0:k, j)
-                    for (int64_t j = 0; j < B.nt(); ++j)
+                    for (int64_t j = 0; j < B.nt(); ++j) {
                         B.template tileBcast<target>(
-                            k, j, C.sub(0, C.mt()-1, j, j));
+                            k, j, C.sub(0, C.mt() - 1, j, j));
+                    }
                 }
             }
 
@@ -168,18 +168,19 @@ void hemm(slate::internal::TargetType<target>,
                                      depend(out:bcast[k+lookahead])
                     {
                         // broadcast A(k+la, i) or A(i, k+la) to ranks owning block row C(i, :)
-                        for (int64_t i = 0; i < k+lookahead; ++i)
+                        for (int64_t i = 0; i < k+lookahead; ++i) {
                             A.template tileBcast<target>(
-                                k+lookahead, i, C.sub(i, i, 0, C.nt()-1));
-
-                        for (int64_t i = k+lookahead; i < A.mt(); ++i)
+                                k + lookahead, i, C.sub(i, i, 0, C.nt() - 1));
+                        }
+                        for (int64_t i = k+lookahead; i < A.mt(); ++i) {
                             A.template tileBcast<target>(
-                                i, k+lookahead, C.sub(i, i, 0, C.nt()-1));
-
+                                i, k + lookahead, C.sub(i, i, 0, C.nt() - 1));
+                        }
                         // broadcast B(k+la, j) to ranks owning block col C(0:k+la, j)
-                        for (int64_t j = 0; j < B.nt(); ++j)
+                        for (int64_t j = 0; j < B.nt(); ++j) {
                             B.template tileBcast<target>(
-                                k+lookahead, j, C.sub(0, C.mt()-1, j, j));
+                                k + lookahead, j, C.sub(0, C.mt() - 1, j, j));
+                        }
                     }
                 }
 
@@ -220,14 +221,15 @@ void hemm(slate::internal::TargetType<target>,
             #pragma omp task depend(out:bcast[0])
             {
                 // broadcast A(i, 0) to ranks owning block row C(i, :)
-                for (int64_t i = 0; i < A.mt(); ++i)
+                for (int64_t i = 0; i < A.mt(); ++i) {
                     A.template tileBcast<target>(
-                        0, i, C.sub(i, i, 0, C.nt()-1));
-
+                        0, i, C.sub(i, i, 0, C.nt() - 1));
+                }
                 // broadcast B(0, j) to ranks owning block col C(:, j)
-                for (int64_t j = 0; j < B.nt(); ++j)
+                for (int64_t j = 0; j < B.nt(); ++j) {
                     B.template tileBcast<target>(
-                        0, j, C.sub(0, C.mt()-1, j, j));
+                        0, j, C.sub(0, C.mt() - 1, j, j));
+                }
             }
 
             // send next lookahead block cols of A and block rows of B
@@ -236,18 +238,19 @@ void hemm(slate::internal::TargetType<target>,
                                  depend(out:bcast[k])
                 {
                     // broadcast A(k, i) or A(i, k) to ranks owning block row C(i, :)
-                    for (int64_t i = 0; i < k && i < A.mt(); ++i)
+                    for (int64_t i = 0; i < k && i < A.mt(); ++i) {
                         A.template tileBcast<target>(
-                            i, k, C.sub(i, i, 0, C.nt()-1));
-
-                    for (int64_t i = k; i < A.mt(); ++i)
+                            i, k, C.sub(i, i, 0, C.nt() - 1));
+                    }
+                    for (int64_t i = k; i < A.mt(); ++i) {
                         A.template tileBcast<target>(
-                            k, i, C.sub(i, i, 0, C.nt()-1));
-
+                            k, i, C.sub(i, i, 0, C.nt() - 1));
+                    }
                     // broadcast B(k, j) to ranks owning block col C(0:k, j)
-                    for (int64_t j = 0; j < B.nt(); ++j)
+                    for (int64_t j = 0; j < B.nt(); ++j) {
                         B.template tileBcast<target>(
-                            k, j, C.sub(0, C.mt()-1, j, j));
+                            k, j, C.sub(0, C.mt() - 1, j, j));
+                    }
                 }
             }
 
@@ -281,18 +284,19 @@ void hemm(slate::internal::TargetType<target>,
                                      depend(out:bcast[k+lookahead])
                     {
                         // broadcast A(k+la, i) or A(i, k+la) to ranks owning block row C(i, :)
-                        for (int64_t i = 0; i < k+lookahead; ++i)
+                        for (int64_t i = 0; i < k+lookahead; ++i) {
                             A.template tileBcast<target>(
-                                i, k+lookahead, C.sub(i, i, 0, C.nt()-1));
-
-                        for (int64_t i = k+lookahead; i < A.mt(); ++i)
+                                i, k + lookahead, C.sub(i, i, 0, C.nt() - 1));
+                        }
+                        for (int64_t i = k+lookahead; i < A.mt(); ++i) {
                             A.template tileBcast<target>(
-                                k+lookahead, i, C.sub(i, i, 0, C.nt()-1));
-
+                                k + lookahead, i, C.sub(i, i, 0, C.nt() - 1));
+                        }
                         // broadcast B(k+la, j) to ranks owning block col C(0:k+la, j)
-                        for (int64_t j = 0; j < B.nt(); ++j)
+                        for (int64_t j = 0; j < B.nt(); ++j) {
                             B.template tileBcast<target>(
-                                k+lookahead, j, C.sub(0, C.mt()-1, j, j));
+                                k + lookahead, j, C.sub(0, C.mt() - 1, j, j));
+                        }
                     }
                 }
 

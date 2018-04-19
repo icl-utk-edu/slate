@@ -38,9 +38,6 @@
 //------------------------------------------------------------------------------
 
 #include "slate.hh"
-#include "slate_Debug.hh"
-#include "slate_Matrix.hh"
-#include "slate_HermitianMatrix.hh"
 #include "slate_internal.hh"
 
 namespace slate {
@@ -84,8 +81,8 @@ void her2k(slate::internal::TargetType<target>,
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > bcast_vector( A.nt() );
     std::vector< uint8_t >  gemm_vector( A.nt() );
-    uint8_t *bcast = bcast_vector.data();
-    uint8_t *gemm  =  gemm_vector.data();
+    uint8_t* bcast = bcast_vector.data();
+    uint8_t* gemm  =  gemm_vector.data();
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();

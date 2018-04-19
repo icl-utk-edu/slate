@@ -38,8 +38,6 @@
 //------------------------------------------------------------------------------
 
 #include "slate.hh"
-#include "slate_Debug.hh"
-#include "slate_Matrix.hh"
 #include "slate_internal.hh"
 
 namespace slate {
@@ -70,8 +68,8 @@ void gemm(slate::internal::TargetType<target>,
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > bcast_vector( A.nt() );
     std::vector< uint8_t >  gemm_vector( A.nt() );
-    uint8_t *bcast = bcast_vector.data();
-    uint8_t *gemm  =  gemm_vector.data();
+    uint8_t* bcast = bcast_vector.data();
+    uint8_t* gemm  =  gemm_vector.data();
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();
@@ -83,58 +81,67 @@ void gemm(slate::internal::TargetType<target>,
     {
         #pragma omp task depend(out:bcast[0])
         {
-            for (int64_t i = 0; i < A.mt(); ++i)
+            for (int64_t i = 0; i < A.mt(); ++i) {
                 A.template tileBcast<target>(
-                    i, 0, C.sub(i, i, 0, C.nt()-1));
+                    i, 0, C.sub(i, i, 0, C.nt() - 1));
+            }
 
-            for (int64_t j = 0; j < B.nt(); ++j)
+            for (int64_t j = 0; j < B.nt(); ++j) {
                 B.template tileBcast<target>(
-                    0, j, C.sub(0, C.mt()-1, j, j));
+                    0, j, C.sub(0, C.mt() - 1, j, j));
+            }
         }
 
         for (int64_t k = 1; k < lookahead+1 && k < A.nt(); ++k)
             #pragma omp task depend(in:bcast[k-1]) \
                              depend(out:bcast[k])
             {
-                for (int64_t i = 0; i < A.mt(); ++i)
+                for (int64_t i = 0; i < A.mt(); ++i) {
                     A.template tileBcast<target>(
-                        i, k, C.sub(i, i, 0, C.nt()-1));
+                        i, k, C.sub(i, i, 0, C.nt() - 1));
+                }
 
-                for (int64_t j = 0; j < B.nt(); ++j)
+                for (int64_t j = 0; j < B.nt(); ++j) {
                     B.template tileBcast<target>(
-                        k, j, C.sub(0, C.mt()-1, j, j));
+                        k, j, C.sub(0, C.mt() - 1, j, j));
+                }
             }
 
         #pragma omp task depend(in:bcast[0]) \
                          depend(out:gemm[0])
-        internal::gemm<target>(
-            alpha, A.sub(0, A.mt()-1, 0, 0),
-                   B.sub(0, 0, 0, B.nt()-1),
-            beta,  C.sub(0, C.mt()-1, 0, C.nt()-1));
+        {
+            internal::gemm<target>(
+                    alpha, A.sub(0, A.mt() - 1, 0, 0),
+                    B.sub(0, 0, 0, B.nt() - 1),
+                    beta,  C.sub(0, C.mt() - 1, 0, C.nt() - 1));
+        }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
 
-            if (k+lookahead < A.nt())
+            if (k+lookahead < A.nt()) {
                 #pragma omp task depend(in:gemm[k-1]) \
                                  depend(in:bcast[k+lookahead-1]) \
                                  depend(out:bcast[k+lookahead])
                 {
-                    for (int64_t i = 0; i < A.mt(); ++i)
+                    for (int64_t i = 0; i < A.mt(); ++i) {
                         A.template tileBcast<target>(
-                            i, k+lookahead, C.sub(i, i, 0, C.nt()-1));
-
-                    for (int64_t j = 0; j < B.nt(); ++j)
+                                i, k + lookahead, C.sub(i, i, 0, C.nt() - 1));
+                    }
+                    for (int64_t j = 0; j < B.nt(); ++j) {
                         B.template tileBcast<target>(
-                            k+lookahead, j, C.sub(0, C.mt()-1, j, j));
+                                k + lookahead, j, C.sub(0, C.mt() - 1, j, j));
+                    }
                 }
-
+            }
             #pragma omp task depend(in:bcast[k]) \
                              depend(in:gemm[k-1]) \
                              depend(out:gemm[k])
-            internal::gemm<target>(
-                alpha,         A.sub(0, A.mt()-1, k, k),
-                               B.sub(k, k, 0, B.nt()-1),
-                scalar_t(1.0), C.sub(0, C.mt()-1, 0, C.nt()-1));
+            {
+                internal::gemm<target>(
+                        alpha, A.sub(0, A.mt() - 1, k, k),
+                        B.sub(k, k, 0, B.nt() - 1),
+                        scalar_t(1.0), C.sub(0, C.mt() - 1, 0, C.nt() - 1));
+            }
         }
     }
 

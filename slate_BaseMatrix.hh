@@ -510,8 +510,8 @@ public:
         auto iter = storage_->find(globalIndex(i, j, dst_device));
         if (iter == storage_->end()) {
             // Create a copy on the device.
-            Tile<scalar_t> *src_tile = storage_->at(globalIndex(i, j, host_num_));
-            Tile<scalar_t> *dst_tile = tileInsert(i, j, dst_device);
+            Tile<scalar_t>* src_tile = storage_->at(globalIndex(i, j, host_num_));
+            Tile<scalar_t>* dst_tile = tileInsert(i, j, dst_device);
             src_tile->copyDataToDevice(dst_tile, comm_stream(dst_device));
         }
         else {
@@ -519,7 +519,7 @@ public:
             Tile<scalar_t> *dst_tile = iter->second;
             if (! dst_tile->valid()) {
                 // Update the device tile's data.
-                Tile<scalar_t> *src_tile = storage_->at(globalIndex(i, j, host_num_));
+                Tile<scalar_t>* src_tile = storage_->at(globalIndex(i, j, host_num_));
                 src_tile->copyDataToDevice(dst_tile, comm_stream(dst_device));
                 dst_tile->valid(true);
             }
@@ -540,16 +540,16 @@ public:
         auto iter = storage_->find(globalIndex(i, j, host_num_));
         if (iter == storage_->end()) {
             // Create a copy on the host.
-            Tile<scalar_t> *src_tile = storage_->at(globalIndex(i, j, src_device));
-            Tile<scalar_t> *dst_tile = tileInsert(i, j, host_num_);
+            Tile<scalar_t>* src_tile = storage_->at(globalIndex(i, j, src_device));
+            Tile<scalar_t>* dst_tile = tileInsert(i, j, host_num_);
             src_tile->copyDataToHost(dst_tile, comm_stream(src_device));
         }
         else {
             // If the tile on the host is not valid.
-            Tile<scalar_t> *dst_tile = iter->second;
+            Tile<scalar_t>* dst_tile = iter->second;
             if (! dst_tile->valid()) {
                 // Update the host tile's data.
-                Tile<scalar_t> *src_tile = storage_->at(globalIndex(i, j, src_device));
+                Tile<scalar_t>* src_tile = storage_->at(globalIndex(i, j, src_device));
                 src_tile->copyDataToHost(dst_tile, comm_stream(src_device));
                 dst_tile->valid(true);
             }

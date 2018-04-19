@@ -56,8 +56,8 @@ bool Debug::debug_ = true;
 ///     [ d h - - l p ]              -----------
 template <typename scalar_t>
 void Debug::diffLapackMatrices(int64_t m, int64_t n,
-                               scalar_t const *A, int64_t lda,
-                               scalar_t const *B, int64_t ldb,
+                               scalar_t const* A, int64_t lda,
+                               scalar_t const* B, int64_t ldb,
                                int64_t mb, int64_t nb)
 {
     using real_t = blas::real_type<scalar_t>;
@@ -191,17 +191,18 @@ void Debug::printNumFreeMemBlocks(Memory const& m)
 {
     if (! debug_) return;
     printf("\n");
-    for (auto it = m.free_blocks_.begin(); it != m.free_blocks_.end(); ++it)
+    for (auto it = m.free_blocks_.begin(); it != m.free_blocks_.end(); ++it) {
         printf("\tdevice: %d\tfree blocks: %lu\n", it->first,
                (unsigned long) it->second.size());
+    }
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
 void Debug::diffLapackMatrices(int64_t m, int64_t n,
-                               float const *A, int64_t lda,
-                               float const *B, int64_t ldb,
+                               float const* A, int64_t lda,
+                               float const* B, int64_t ldb,
                                int64_t mb, int64_t nb);
 template
 void Debug::checkTilesLives(BaseMatrix<float> const& A);
@@ -215,8 +216,8 @@ void Debug::printTilesMaps(BaseMatrix<float> const& A);
 // ----------------------------------------
 template
 void Debug::diffLapackMatrices(int64_t m, int64_t n,
-                               double const *A, int64_t lda,
-                               double const *B, int64_t ldb,
+                               double const* A, int64_t lda,
+                               double const* B, int64_t ldb,
                                int64_t mb, int64_t nb);
 template
 void Debug::checkTilesLives(BaseMatrix<double> const& A);
@@ -230,8 +231,8 @@ void Debug::printTilesMaps(BaseMatrix<double> const& A);
 // ----------------------------------------
 template
 void Debug::diffLapackMatrices(int64_t m, int64_t n,
-                               std::complex<float> const *A, int64_t lda,
-                               std::complex<float> const *B, int64_t ldb,
+                               std::complex<float> const* A, int64_t lda,
+                               std::complex<float> const* B, int64_t ldb,
                                int64_t mb, int64_t nb);
 template
 void Debug::checkTilesLives(BaseMatrix<std::complex<float>> const& A);
@@ -245,8 +246,8 @@ void Debug::printTilesMaps(BaseMatrix<std::complex<float>> const& A);
 // ----------------------------------------
 template
 void Debug::diffLapackMatrices(int64_t m, int64_t n,
-                               std::complex<double> const *A, int64_t lda,
-                               std::complex<double> const *B, int64_t ldb,
+                               std::complex<double> const* A, int64_t lda,
+                               std::complex<double> const* B, int64_t ldb,
                                int64_t mb, int64_t nb);
 template
 void Debug::checkTilesLives(BaseMatrix<std::complex<double>> const& A);

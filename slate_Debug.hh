@@ -64,8 +64,8 @@ public:
 
     template <typename scalar_t>
     static void diffLapackMatrices(int64_t m, int64_t n,
-                                   scalar_t const *A, int64_t lda,
-                                   scalar_t const *B, int64_t ldb,
+                                   scalar_t const* A, int64_t lda,
+                                   scalar_t const* B, int64_t ldb,
                                    int64_t mb, int64_t nb);
     //-------------
     // BaseMatrix class

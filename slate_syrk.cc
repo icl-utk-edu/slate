@@ -168,6 +168,29 @@ void syrk(slate::internal::TargetType<target>,
 } // namespace internal
 
 //------------------------------------------------------------------------------
+/// Version with target as template parameter.
+/// @ingroup syrk
+template <Target target, typename scalar_t>
+void syrk(scalar_t alpha, Matrix<scalar_t>& A,
+          scalar_t beta,  SymmetricMatrix<scalar_t>& C,
+          const std::map<Option, Value>& opts)
+{
+    int64_t lookahead;
+    try {
+        lookahead = opts.at(Option::Lookahead).i_;
+        assert(lookahead >= 0);
+    }
+    catch (std::out_of_range) {
+        lookahead = 1;
+    }
+
+    internal::specialization::syrk(internal::TargetType<target>(),
+                                   alpha, A,
+                                   beta,  C,
+                                   lookahead);
+}
+
+//------------------------------------------------------------------------------
 /// Distributed parallel symmetric rank k update.
 /// Performs the symmetric rank k operation
 /// \[
@@ -181,13 +204,6 @@ void syrk(slate::internal::TargetType<target>,
 ///     slate::syrk( alpha, AT, beta, C );
 ///
 //------------------------------------------------------------------------------
-/// @tparam target
-///         Implementation to target. Possible values:
-///         - HostTask:  OpenMP tasks on CPU host [default].
-///         - HostNest:  nested OpenMP parallel for loop on CPU host.
-///         - HostBatch: batched BLAS on CPU host.
-///         - Devices:   batched BLAS on GPU device.
-///
 /// @tparam scalar_t
 ///         One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
@@ -209,125 +225,67 @@ void syrk(slate::internal::TargetType<target>,
 ///         Additional options, as map of name = value pairs. Possible options:
 ///         - Option::Lookahead:
 ///           Number of blocks to overlap communication and computation.
-///           lookahead >= 0. Default 0.
+///           lookahead >= 0. Default 1.
+///         - Option::Target:
+///           Implementation to target. Possible values:
+///           - HostTask:  OpenMP tasks on CPU host [default].
+///           - HostNest:  nested OpenMP parallel for loop on CPU host.
+///           - HostBatch: batched BLAS on CPU host.
+///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup syrk
-template <Target target, typename scalar_t>
+template <typename scalar_t>
 void syrk(scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
           const std::map<Option, Value>& opts)
 {
-    int64_t lookahead;
+    Target target;
     try {
-        lookahead = opts.at(Option::Lookahead).i_;
+        target = Target( opts.at(Option::Target).i_ );
     }
     catch (std::out_of_range) {
-        lookahead = 1;
+        target = Target::HostTask;
     }
 
-    internal::specialization::syrk(internal::TargetType<target>(),
-                                   alpha, A,
-                                   beta,  C,
-                                   lookahead);
+    switch (target) {
+        case Target::Host:
+        case Target::HostTask:
+            syrk<Target::HostTask>(alpha, A, beta, C, opts);
+            break;
+        case Target::HostNest:
+            syrk<Target::HostNest>(alpha, A, beta, C, opts);
+            break;
+        case Target::HostBatch:
+            syrk<Target::HostBatch>(alpha, A, beta, C, opts);
+            break;
+        case Target::Devices:
+            syrk<Target::Devices>(alpha, A, beta, C, opts);
+            break;
+    }
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void syrk< Target::HostTask, float >(
+void syrk< float >(
     float alpha, Matrix<float>& A,
     float beta,  SymmetricMatrix<float>& C,
     const std::map<Option, Value>& opts);
 
 template
-void syrk< Target::HostNest, float >(
-    float alpha, Matrix<float>& A,
-    float beta,  SymmetricMatrix<float>& C,
-    const std::map<Option, Value>& opts);
-
-template
-void syrk< Target::HostBatch, float >(
-    float alpha, Matrix<float>& A,
-    float beta,  SymmetricMatrix<float>& C,
-    const std::map<Option, Value>& opts);
-
-template
-void syrk< Target::Devices, float >(
-    float alpha, Matrix<float>& A,
-    float beta,  SymmetricMatrix<float>& C,
-    const std::map<Option, Value>& opts);
-
-// ----------------------------------------
-template
-void syrk< Target::HostTask, double >(
+void syrk< double >(
     double alpha, Matrix<double>& A,
     double beta,  SymmetricMatrix<double>& C,
     const std::map<Option, Value>& opts);
 
 template
-void syrk< Target::HostNest, double >(
-    double alpha, Matrix<double>& A,
-    double beta,  SymmetricMatrix<double>& C,
-    const std::map<Option, Value>& opts);
-
-template
-void syrk< Target::HostBatch, double >(
-    double alpha, Matrix<double>& A,
-    double beta,  SymmetricMatrix<double>& C,
-    const std::map<Option, Value>& opts);
-
-template
-void syrk< Target::Devices, double >(
-    double alpha, Matrix<double>& A,
-    double beta,  SymmetricMatrix<double>& C,
-    const std::map<Option, Value>& opts);
-
-// ----------------------------------------
-template
-void syrk< Target::HostTask,  std::complex<float>  >(
+void syrk< std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >& A,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >& C,
     const std::map<Option, Value>& opts);
 
 template
-void syrk< Target::HostNest, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >& A,
-    std::complex<float> beta,  SymmetricMatrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void syrk< Target::HostBatch, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >& A,
-    std::complex<float> beta,  SymmetricMatrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void syrk< Target::Devices, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >& A,
-    std::complex<float> beta,  SymmetricMatrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
-
-// ----------------------------------------
-template
-void syrk< Target::HostTask, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >& A,
-    std::complex<double> beta,  SymmetricMatrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void syrk< Target::HostNest, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >& A,
-    std::complex<double> beta,  SymmetricMatrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void syrk< Target::HostBatch, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >& A,
-    std::complex<double> beta,  SymmetricMatrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void syrk< Target::Devices, std::complex<double> >(
+void syrk< std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >& A,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >& C,
     const std::map<Option, Value>& opts);

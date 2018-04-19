@@ -50,55 +50,206 @@ namespace slate {
 
 // -----------------------------------------------------------------------------
 // Level 3 BLAS
-template <Target target=Target::HostTask, typename scalar_t>
+
+//-----------------------------------------
+// gemm()
+template <typename scalar_t>
 void gemm(scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target=Target::HostTask, typename scalar_t>
+template <Target target, typename scalar_t>
+void gemm(scalar_t alpha, Matrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// hemm()
+template <Target target, typename scalar_t>
 void hemm(blas::Side side,
           scalar_t alpha, HermitianMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target=Target::HostTask, typename scalar_t>
+template <typename scalar_t>
+void hemm(blas::Side side,
+          scalar_t alpha, HermitianMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+// forward real-symmetric matrices to hemm;
+// disabled for complex
+template <typename scalar_t>
+void hemm(Side side,
+          scalar_t alpha, SymmetricMatrix< scalar_t >& A,
+                          Matrix< scalar_t >& B,
+          scalar_t beta,  Matrix< scalar_t >& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>(),
+          enable_if_t< ! is_complex< scalar_t >::value >* = nullptr)
+{
+    HermitianMatrix< scalar_t > AH( A );
+    hemm(side, alpha, AH, B, beta, C, opts);
+}
+
+//-----------------------------------------
+// herk()
+template <typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target=Target::HostTask, typename scalar_t>
+template <Target target, typename scalar_t>
+void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
+          blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+// forward real-symmetric matrices to herk;
+// disabled for complex
+template <typename scalar_t>
+void herk(blas::real_type<scalar_t> alpha, Matrix< scalar_t >& A,
+          blas::real_type<scalar_t> beta,  SymmetricMatrix< scalar_t >& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>(),
+          enable_if_t< ! is_complex< scalar_t >::value >* = nullptr)
+{
+    HermitianMatrix< scalar_t > CH( C );
+    herk(alpha, A, beta, CH, opts);
+}
+
+//-----------------------------------------
+// her2k()
+template <typename scalar_t>
 void her2k(scalar_t alpha,                 Matrix<scalar_t>& A,
                                            Matrix<scalar_t>& B,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target=Target::HostTask, typename scalar_t>
+template <Target target, typename scalar_t>
+void her2k(scalar_t alpha,                 Matrix<scalar_t>& A,
+                                           Matrix<scalar_t>& B,
+           blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+// forward real-symmetric matrices to her2k;
+// disabled for complex
+template <typename scalar_t>
+void her2k(scalar_t alpha,                  Matrix< scalar_t >& A,
+                                            Matrix< scalar_t >& B,
+           blas::real_type<scalar_t> beta,  SymmetricMatrix< scalar_t >& C,
+           const std::map<Option, Value>& opts = std::map<Option, Value>(),
+           enable_if_t< ! is_complex< scalar_t >::value >* = nullptr)
+{
+    HermitianMatrix< scalar_t > CH( C );
+    her2k(alpha, A, B, beta, CH, opts);
+}
+
+//-----------------------------------------
+// symm()
+template <typename scalar_t>
 void symm(blas::Side side,
           scalar_t alpha, SymmetricMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target=Target::HostTask, typename scalar_t>
+template <Target target, typename scalar_t>
+void symm(blas::Side side,
+          scalar_t alpha, SymmetricMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+// forward real-Hermitian matrices to symm;
+// disabled for complex
+template <typename scalar_t>
+void symm(Side side,
+          scalar_t alpha, HermitianMatrix< scalar_t >& A,
+                          Matrix< scalar_t >& B,
+          scalar_t beta,  Matrix< scalar_t >& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>(),
+          enable_if_t< ! is_complex< scalar_t >::value >* = nullptr)
+{
+    SymmetricMatrix< scalar_t > AS( A );
+    symm(side, alpha, AS, B, beta, C, opts);
+}
+
+//-----------------------------------------
+// syrk()
+template <typename scalar_t>
 void syrk(scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target=Target::HostTask, typename scalar_t>
+template <Target target, typename scalar_t>
+void syrk(scalar_t alpha, Matrix<scalar_t>& A,
+          scalar_t beta,  SymmetricMatrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+// forward real-Hermitian matrices to syrk;
+// disabled for complex
+template <typename scalar_t>
+void syrk(scalar_t alpha, Matrix< scalar_t >& A,
+          scalar_t beta,  HermitianMatrix< scalar_t >& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>(),
+          enable_if_t< ! is_complex< scalar_t >::value >* = nullptr)
+{
+    SymmetricMatrix< scalar_t > CS( C );
+    syrk(alpha, A, beta, CS, opts);
+}
+
+//-----------------------------------------
+// syr2k()
+template <typename scalar_t>
 void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
                            Matrix<scalar_t>& B,
            scalar_t beta,  SymmetricMatrix<scalar_t>& C,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target=Target::HostTask, typename scalar_t>
+template <Target target, typename scalar_t>
+void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
+                           Matrix<scalar_t>& B,
+           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+// forward real-Hermitian matrices to syr2k;
+// disabled for complex
+template <typename scalar_t>
+void syr2k(scalar_t alpha, Matrix< scalar_t >& A,
+                           Matrix< scalar_t >& B,
+           scalar_t beta,  HermitianMatrix< scalar_t >& C,
+           const std::map<Option, Value>& opts = std::map<Option, Value>(),
+           enable_if_t< ! is_complex< scalar_t >::value >* = nullptr)
+{
+    SymmetricMatrix< scalar_t > CS( C );
+    syr2k(alpha, A, B, beta, CS, opts);
+}
+
+//-----------------------------------------
+// trmm()
+template <Target target, typename scalar_t>
 void trmm(blas::Side side, blas::Diag diag,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target=Target::HostTask, typename scalar_t>
+template <typename scalar_t>
+void trmm(blas::Side side, blas::Diag diag,
+          scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// trsm()
+template <typename scalar_t>
+void trsm(blas::Side side, blas::Diag diag,
+          scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
 void trsm(blas::Side side, blas::Diag diag,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,

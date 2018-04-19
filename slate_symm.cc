@@ -338,6 +338,32 @@ void symm(slate::internal::TargetType<target>,
 } // namespace internal
 
 //------------------------------------------------------------------------------
+/// Version with target as template parameter.
+/// @ingroup symm
+template <Target target, typename scalar_t>
+void symm(Side side,
+          scalar_t alpha, SymmetricMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts)
+{
+    int64_t lookahead;
+    try {
+        lookahead = opts.at(Option::Lookahead).i_;
+    }
+    catch (std::out_of_range) {
+        lookahead = 1;
+    }
+
+    internal::specialization::symm(internal::TargetType<target>(),
+                                   side,
+                                   alpha, A,
+                                          B,
+                                   beta,  C,
+                                   lookahead);
+}
+
+//------------------------------------------------------------------------------
 /// Distributed parallel symmetric matrix-matrix multiplication.
 /// Performs one of the matrix-matrix operations
 /// \[
@@ -351,13 +377,6 @@ void symm(slate::internal::TargetType<target>,
 /// C are m-by-n matrices.
 ///
 //------------------------------------------------------------------------------
-/// @tparam target
-///         Implementation to target. Possible values:
-///         - HostTask:  OpenMP tasks on CPU host [default].
-///         - HostNest:  nested OpenMP parallel for loop on CPU host.
-///         - HostBatch: batched BLAS on CPU host.
-///         - Devices:   batched BLAS on GPU device.
-///
 /// @tparam scalar_t
 ///         One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
@@ -388,36 +407,51 @@ void symm(slate::internal::TargetType<target>,
 ///         Additional options, as map of name = value pairs. Possible options:
 ///         - Option::Lookahead:
 ///           Number of blocks to overlap communication and computation.
-///           lookahead >= 0. Default 0.
+///           lookahead >= 0. Default 1.
+///         - Option::Target:
+///           Implementation to target. Possible values:
+///           - HostTask:  OpenMP tasks on CPU host [default].
+///           - HostNest:  nested OpenMP parallel for loop on CPU host.
+///           - HostBatch: batched BLAS on CPU host.
+///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup symm
-template <Target target, typename scalar_t>
+template <typename scalar_t>
 void symm(Side side,
           scalar_t alpha, SymmetricMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts)
 {
-    int64_t lookahead;
+    Target target;
     try {
-        lookahead = opts.at(Option::Lookahead).i_;
+        target = Target( opts.at(Option::Target).i_ );
     }
     catch (std::out_of_range) {
-        lookahead = 1;
+        target = Target::HostTask;
     }
 
-    internal::specialization::symm(internal::TargetType<target>(),
-                                   side,
-                                   alpha, A,
-                                          B,
-                                   beta,  C,
-                                   lookahead);
+    switch (target) {
+        case Target::Host:
+        case Target::HostTask:
+            symm<Target::HostTask>(side, alpha, A, B, beta, C, opts);
+            break;
+        case Target::HostNest:
+            symm<Target::HostNest>(side, alpha, A, B, beta, C, opts);
+            break;
+        case Target::HostBatch:
+            symm<Target::HostBatch>(side, alpha, A, B, beta, C, opts);
+            break;
+        case Target::Devices:
+            symm<Target::Devices>(side, alpha, A, B, beta, C, opts);
+            break;
+    }
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void symm< Target::HostTask, float >(
+void symm< float >(
     Side side,
     float alpha, SymmetricMatrix<float>& A,
                  Matrix<float>& B,
@@ -425,32 +459,7 @@ void symm< Target::HostTask, float >(
     const std::map<Option, Value>& opts);
 
 template
-void symm< Target::HostNest, float >(
-    Side side,
-    float alpha, SymmetricMatrix<float>& A,
-                 Matrix<float>& B,
-    float beta,  Matrix<float>& C,
-    const std::map<Option, Value>& opts);
-
-template
-void symm< Target::HostBatch, float >(
-    Side side,
-    float alpha, SymmetricMatrix<float>& A,
-                 Matrix<float>& B,
-    float beta,  Matrix<float>& C,
-    const std::map<Option, Value>& opts);
-
-template
-void symm< Target::Devices, float >(
-    Side side,
-    float alpha, SymmetricMatrix<float>& A,
-                 Matrix<float>& B,
-    float beta,  Matrix<float>& C,
-    const std::map<Option, Value>& opts);
-
-// ----------------------------------------
-template
-void symm< Target::HostTask, double >(
+void symm< double >(
     Side side,
     double alpha, SymmetricMatrix<double>& A,
                   Matrix<double>& B,
@@ -458,32 +467,7 @@ void symm< Target::HostTask, double >(
     const std::map<Option, Value>& opts);
 
 template
-void symm< Target::HostNest, double >(
-    Side side,
-    double alpha, SymmetricMatrix<double>& A,
-                  Matrix<double>& B,
-    double beta,  Matrix<double>& C,
-    const std::map<Option, Value>& opts);
-
-template
-void symm< Target::HostBatch, double >(
-    Side side,
-    double alpha, SymmetricMatrix<double>& A,
-                  Matrix<double>& B,
-    double beta,  Matrix<double>& C,
-    const std::map<Option, Value>& opts);
-
-template
-void symm< Target::Devices, double >(
-    Side side,
-    double alpha, SymmetricMatrix<double>& A,
-                  Matrix<double>& B,
-    double beta,  Matrix<double>& C,
-    const std::map<Option, Value>& opts);
-
-// ----------------------------------------
-template
-void symm< Target::HostTask,  std::complex<float>  >(
+void symm< std::complex<float> >(
     Side side,
     std::complex<float> alpha, SymmetricMatrix< std::complex<float> >& A,
                                Matrix< std::complex<float> >& B,
@@ -491,56 +475,7 @@ void symm< Target::HostTask,  std::complex<float>  >(
     const std::map<Option, Value>& opts);
 
 template
-void symm< Target::HostNest, std::complex<float> >(
-    Side side,
-    std::complex<float> alpha, SymmetricMatrix< std::complex<float> >& A,
-                               Matrix< std::complex<float> >& B,
-    std::complex<float> beta,  Matrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void symm< Target::HostBatch, std::complex<float> >(
-    Side side,
-    std::complex<float> alpha, SymmetricMatrix< std::complex<float> >& A,
-                               Matrix< std::complex<float> >& B,
-    std::complex<float> beta,  Matrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void symm< Target::Devices, std::complex<float> >(
-    Side side,
-    std::complex<float> alpha, SymmetricMatrix< std::complex<float> >& A,
-                               Matrix< std::complex<float> >& B,
-    std::complex<float> beta,  Matrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
-
-// ----------------------------------------
-template
-void symm< Target::HostTask, std::complex<double> >(
-    Side side,
-    std::complex<double> alpha, SymmetricMatrix< std::complex<double> >& A,
-                                Matrix< std::complex<double> >& B,
-    std::complex<double> beta,  Matrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void symm< Target::HostNest, std::complex<double> >(
-    Side side,
-    std::complex<double> alpha, SymmetricMatrix< std::complex<double> >& A,
-                                Matrix< std::complex<double> >& B,
-    std::complex<double> beta,  Matrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void symm< Target::HostBatch, std::complex<double> >(
-    Side side,
-    std::complex<double> alpha, SymmetricMatrix< std::complex<double> >& A,
-                                Matrix< std::complex<double> >& B,
-    std::complex<double> beta,  Matrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void symm< Target::Devices, std::complex<double> >(
+void symm< std::complex<double> >(
     Side side,
     std::complex<double> alpha, SymmetricMatrix< std::complex<double> >& A,
                                 Matrix< std::complex<double> >& B,

@@ -166,6 +166,29 @@ void herk(slate::internal::TargetType<target>,
 } // namespace internal
 
 //------------------------------------------------------------------------------
+/// Version with target as template parameter.
+/// @ingroup herk
+template <Target target, typename scalar_t>
+void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
+          blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
+          const std::map<Option, Value>& opts)
+{
+    int64_t lookahead;
+    try {
+        lookahead = opts.at(Option::Lookahead).i_;
+        assert(lookahead >= 0);
+    }
+    catch (std::out_of_range) {
+        lookahead = 1;
+    }
+
+    internal::specialization::herk(internal::TargetType<target>(),
+                                   alpha, A,
+                                   beta,  C,
+                                   lookahead);
+}
+
+//------------------------------------------------------------------------------
 /// Distributed parallel Hermitian rank k update.
 /// Performs the Hermitian rank k operation
 /// \[
@@ -179,13 +202,6 @@ void herk(slate::internal::TargetType<target>,
 ///     slate::herk( alpha, AT, beta, C );
 ///
 //------------------------------------------------------------------------------
-/// @tparam target
-///         Implementation to target. Possible values:
-///         - HostTask:  OpenMP tasks on CPU host [default].
-///         - HostNest:  nested OpenMP parallel for loop on CPU host.
-///         - HostBatch: batched BLAS on CPU host.
-///         - Devices:   batched BLAS on GPU device.
-///
 /// @tparam scalar_t
 ///         One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
@@ -207,125 +223,67 @@ void herk(slate::internal::TargetType<target>,
 ///         Additional options, as map of name = value pairs. Possible options:
 ///         - Option::Lookahead:
 ///           Number of blocks to overlap communication and computation.
-///           lookahead >= 0. Default 0.
+///           lookahead >= 0. Default 1.
+///         - Option::Target:
+///           Implementation to target. Possible values:
+///           - HostTask:  OpenMP tasks on CPU host [default].
+///           - HostNest:  nested OpenMP parallel for loop on CPU host.
+///           - HostBatch: batched BLAS on CPU host.
+///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup herk
-template <Target target, typename scalar_t>
+template <typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
           const std::map<Option, Value>& opts)
 {
-    int64_t lookahead;
+    Target target;
     try {
-        lookahead = opts.at(Option::Lookahead).i_;
+        target = Target( opts.at(Option::Target).i_ );
     }
     catch (std::out_of_range) {
-        lookahead = 1;
+        target = Target::HostTask;
     }
 
-    internal::specialization::herk(internal::TargetType<target>(),
-                                   alpha, A,
-                                   beta,  C,
-                                   lookahead);
+    switch (target) {
+        case Target::Host:
+        case Target::HostTask:
+            herk<Target::HostTask>(alpha, A, beta, C, opts);
+            break;
+        case Target::HostNest:
+            herk<Target::HostNest>(alpha, A, beta, C, opts);
+            break;
+        case Target::HostBatch:
+            herk<Target::HostBatch>(alpha, A, beta, C, opts);
+            break;
+        case Target::Devices:
+            herk<Target::Devices>(alpha, A, beta, C, opts);
+            break;
+    }
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void herk< Target::HostTask, float >(
+void herk< float >(
     float alpha, Matrix<float>& A,
     float beta,  HermitianMatrix<float>& C,
     const std::map<Option, Value>& opts);
 
 template
-void herk< Target::HostNest, float >(
-    float alpha, Matrix<float>& A,
-    float beta,  HermitianMatrix<float>& C,
-    const std::map<Option, Value>& opts);
-
-template
-void herk< Target::HostBatch, float >(
-    float alpha, Matrix<float>& A,
-    float beta,  HermitianMatrix<float>& C,
-    const std::map<Option, Value>& opts);
-
-template
-void herk< Target::Devices, float >(
-    float alpha, Matrix<float>& A,
-    float beta,  HermitianMatrix<float>& C,
-    const std::map<Option, Value>& opts);
-
-// ----------------------------------------
-template
-void herk< Target::HostTask, double >(
+void herk< double >(
     double alpha, Matrix<double>& A,
     double beta,  HermitianMatrix<double>& C,
     const std::map<Option, Value>& opts);
 
 template
-void herk< Target::HostNest, double >(
-    double alpha, Matrix<double>& A,
-    double beta,  HermitianMatrix<double>& C,
-    const std::map<Option, Value>& opts);
-
-template
-void herk< Target::HostBatch, double >(
-    double alpha, Matrix<double>& A,
-    double beta,  HermitianMatrix<double>& C,
-    const std::map<Option, Value>& opts);
-
-template
-void herk< Target::Devices, double >(
-    double alpha, Matrix<double>& A,
-    double beta,  HermitianMatrix<double>& C,
-    const std::map<Option, Value>& opts);
-
-// ----------------------------------------
-template
-void herk< Target::HostTask,  std::complex<float>  >(
+void herk< std::complex<float> >(
     float alpha, Matrix< std::complex<float> >& A,
     float beta,  HermitianMatrix< std::complex<float> >& C,
     const std::map<Option, Value>& opts);
 
 template
-void herk< Target::HostNest, std::complex<float> >(
-    float alpha, Matrix< std::complex<float> >& A,
-    float beta,  HermitianMatrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void herk< Target::HostBatch, std::complex<float> >(
-    float alpha, Matrix< std::complex<float> >& A,
-    float beta,  HermitianMatrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void herk< Target::Devices, std::complex<float> >(
-    float alpha, Matrix< std::complex<float> >& A,
-    float beta,  HermitianMatrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
-
-// ----------------------------------------
-template
-void herk< Target::HostTask, std::complex<double> >(
-    double alpha, Matrix< std::complex<double> >& A,
-    double beta,  HermitianMatrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void herk< Target::HostNest, std::complex<double> >(
-    double alpha, Matrix< std::complex<double> >& A,
-    double beta,  HermitianMatrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void herk< Target::HostBatch, std::complex<double> >(
-    double alpha, Matrix< std::complex<double> >& A,
-    double beta,  HermitianMatrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
-
-template
-void herk< Target::Devices, std::complex<double> >(
+void herk< std::complex<double> >(
     double alpha, Matrix< std::complex<double> >& A,
     double beta,  HermitianMatrix< std::complex<double> >& C,
     const std::map<Option, Value>& opts);

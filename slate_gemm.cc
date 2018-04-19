@@ -83,12 +83,12 @@ void gemm(slate::internal::TargetType<target>,
         {
             for (int64_t i = 0; i < A.mt(); ++i) {
                 A.template tileBcast<target>(
-                    i, 0, C.sub(i, i, 0, C.nt() - 1));
+                    i, 0, C.sub(i, i, 0, C.nt()-1));
             }
 
             for (int64_t j = 0; j < B.nt(); ++j) {
                 B.template tileBcast<target>(
-                    0, j, C.sub(0, C.mt() - 1, j, j));
+                    0, j, C.sub(0, C.mt()-1, j, j));
             }
         }
 
@@ -98,12 +98,12 @@ void gemm(slate::internal::TargetType<target>,
             {
                 for (int64_t i = 0; i < A.mt(); ++i) {
                     A.template tileBcast<target>(
-                        i, k, C.sub(i, i, 0, C.nt() - 1));
+                        i, k, C.sub(i, i, 0, C.nt()-1));
                 }
 
                 for (int64_t j = 0; j < B.nt(); ++j) {
                     B.template tileBcast<target>(
-                        k, j, C.sub(0, C.mt() - 1, j, j));
+                        k, j, C.sub(0, C.mt()-1, j, j));
                 }
             }
 
@@ -111,9 +111,9 @@ void gemm(slate::internal::TargetType<target>,
                          depend(out:gemm[0])
         {
             internal::gemm<target>(
-                    alpha, A.sub(0, A.mt() - 1, 0, 0),
-                    B.sub(0, 0, 0, B.nt() - 1),
-                    beta,  C.sub(0, C.mt() - 1, 0, C.nt() - 1));
+                    alpha, A.sub(0, A.mt()-1, 0, 0),
+                    B.sub(0, 0, 0, B.nt()-1),
+                    beta,  C.sub(0, C.mt()-1, 0, C.nt()-1));
         }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
@@ -125,11 +125,11 @@ void gemm(slate::internal::TargetType<target>,
                 {
                     for (int64_t i = 0; i < A.mt(); ++i) {
                         A.template tileBcast<target>(
-                                i, k + lookahead, C.sub(i, i, 0, C.nt() - 1));
+                                i, k+lookahead, C.sub(i, i, 0, C.nt()-1));
                     }
                     for (int64_t j = 0; j < B.nt(); ++j) {
                         B.template tileBcast<target>(
-                                k + lookahead, j, C.sub(0, C.mt() - 1, j, j));
+                                k+lookahead, j, C.sub(0, C.mt()-1, j, j));
                     }
                 }
             }
@@ -138,9 +138,9 @@ void gemm(slate::internal::TargetType<target>,
                              depend(out:gemm[k])
             {
                 internal::gemm<target>(
-                        alpha, A.sub(0, A.mt() - 1, k, k),
-                        B.sub(k, k, 0, B.nt() - 1),
-                        scalar_t(1.0), C.sub(0, C.mt() - 1, 0, C.nt() - 1));
+                        alpha, A.sub(0, A.mt()-1, k, k),
+                        B.sub(k, k, 0, B.nt()-1),
+                        scalar_t(1.0), C.sub(0, C.mt()-1, 0, C.nt()-1));
             }
         }
     }

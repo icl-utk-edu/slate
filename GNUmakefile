@@ -18,6 +18,8 @@ top ?= .
 
 CXXFLAGS += -O3 -std=c++11 -Wall -pedantic -MMD
 
+pwd = ${shell pwd}
+
 #-------------------------------------------------------------------------------
 # if shared
 ifeq (${shared},1)
@@ -59,8 +61,6 @@ ifeq (${mkl},1)
 	else ifeq (${macos},1)
 		LIB += -L${MKLROOT}/lib -Wl,-rpath,${MKLROOT}/lib \
 		       -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl
-	else
-        $(error Error: for MKL, please set either linux or macos to 1)
 	endif
 # if ESSL
 else ifeq (${essl},1)
@@ -80,11 +80,12 @@ endif
 
 #-------------------------------------------------------------------------------
 # SLATE libraries
-CXXFLAGS += -I./blaspp/include
-CXXFLAGS += -I./lapackpp/include
+CXXFLAGS += -I${top}
+CXXFLAGS += -I${top}/blaspp/include
+CXXFLAGS += -I${top}/lapackpp/include
 CXXFLAGS += -I./blaspp/test  # for blas_flops.hh
 
-LIB += -L./lapackpp/lib -Wl,-rpath,${abspath ./lapackpp/lib} -llapackpp
+LIB += -L${top}/lapackpp/lib -Wl,-rpath,${pwd}/${top}/lapackpp/lib -llapackpp
 
 #-------------------------------------------------------------------------------
 # Files
@@ -144,14 +145,14 @@ lib:
 
 # shared or static library
 ifeq (${shared},1)
-    lib_so = lib/libslate.so
+    lib_so = ${top}/lib/libslate.so
 
     libs = $(lib_so)
 
     $(lib_so): $(lib_obj) | lib
 		$(CXX) $(LDFLAGS) $^ $(LIB) -shared -o $@
 else
-    lib_a = lib/libslate.a
+    lib_a = ${top}/lib/libslate.a
 
     libs = $(lib_a)
 
@@ -163,10 +164,10 @@ endif
 libs: $(libs)
 
 $(test): %: %.o $(libs)
-	$(CXX) $(LDFLAGS) $< -Llib -lslate $(LIB) -o $@
+	$(CXX) $(LDFLAGS) $< -L${top}/lib -Wl,-rpath,${pwd}/lib -lslate $(LIB) -o $@
 
 clean:
-	rm -f $(lib_obj) $(test_obj) $(test) trace_*.svg
+	rm -f $(lib_obj) $(test_obj) $(test) trace_*.svg 
 
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@

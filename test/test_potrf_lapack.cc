@@ -97,7 +97,9 @@ void test_potrf_lapack_work( Params& params, bool run )
     double start = omp_get_wtime();
 
     // Call routine
-    slate::potrf<slate::Target::HostTask>(A, lookahead);
+    slate::potrf(A,
+                {{slate::Option::Lookahead, lookahead},
+                 {slate::Option::Target, slate::Target::HostTask}});
 
     MPI_Barrier(MPI_COMM_WORLD);
     double time = omp_get_wtime() - start;

@@ -89,7 +89,9 @@ template < typename scalar_t > void test_potrf_work(Params & params, bool run)
     // Call the routine using ScaLAPACK layout
     MPI_Barrier(MPI_COMM_WORLD);
     double time = libtest::get_wtime();
-    slate::potrf < slate::Target::HostTask > (A, lookahead);
+    slate::potrf(A,
+                {{slate::Option::Lookahead, lookahead},
+                 {slate::Option::Target, slate::Target::HostTask}});
     // scalapack_ppotrf( uplo_str, &n, &A_tst[0], &i1, &i1, descA_tst, &info ); assert( 0 == info );
     MPI_Barrier(MPI_COMM_WORLD);
     double time_tst = libtest::get_wtime() - time;

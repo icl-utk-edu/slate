@@ -106,6 +106,17 @@
 */
 
 /**
+    ----------------------------------------------------------------------------
+    @defgroup group_solve Linear solve, AX = B
+    @{
+        @defgroup group_posv Positive definite: Cholesky
+        @{
+            @defgroup posv      Driver
+            @defgroup posv_comp Computational
+            @defgroup posv_aux  Auxiliary
+        @}
+    @}
+
     ------------------------------------------------------------
     @defgroup blas3            Level 3 BLAS: matrix-matrix operations, O(n^3) work
     @brief    Matrix-matrix operations that perform $O(n^3)$ work on $O(n^2)$ data.

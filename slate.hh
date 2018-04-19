@@ -257,8 +257,27 @@ void trsm(blas::Side side, blas::Diag diag,
 
 // -----------------------------------------------------------------------------
 // Factorizations, etc.
-template <Target target=Target::HostTask, typename scalar_t>
-void potrf(HermitianMatrix< scalar_t >& A, int64_t lookahead = 0);
+
+//-----------------------------------------
+// potrf
+template <typename scalar_t>
+void potrf(HermitianMatrix< scalar_t >& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void potrf(HermitianMatrix< scalar_t >& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+// forward real-symmetric matrices to potrf;
+// disabled for complex
+template <typename scalar_t>
+void potrf(SymmetricMatrix< scalar_t >& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>(),
+           enable_if_t< ! is_complex< scalar_t >::value >* = nullptr)
+{
+    HermitianMatrix< scalar_t > AH( A );
+    potrf(AH);
+}
 
 } // namespace slate
 

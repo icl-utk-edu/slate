@@ -239,84 +239,113 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 } // namespace specialization
 } // namespace internal
 
-///-----------------------------------------------------------------------------
-/// \brief
-///
-/// Precision and target templated function.
+//------------------------------------------------------------------------------
+/// Version with target as template parameter.
+/// @ingroup posv_comp
 template <Target target, typename scalar_t>
-void potrf(HermitianMatrix<scalar_t>& A, int64_t lookahead)
+void potrf(HermitianMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts)
 {
-    internal::specialization::potrf(internal::TargetType<target>(), A, lookahead);
+    int64_t lookahead;
+    try {
+        lookahead = opts.at(Option::Lookahead).i_;
+        assert(lookahead >= 0);
+    }
+    catch (std::out_of_range) {
+        lookahead = 1;
+    }
+
+    internal::specialization::potrf(internal::TargetType<target>(),
+                                    A, lookahead);
+}
+
+//------------------------------------------------------------------------------
+/// Distributed parallel Cholesky factorization.
+/// Performs the Cholesky factorization of a Hermitian
+/// (or symmetric, in the real case) positive definite
+/// matrix A. The factorization has the form
+/// \[
+///     A = L L^H,
+/// \]
+/// if A is stored lower, where L is a lower triangular matrix, or
+/// \[
+///     A = U^H U,
+/// \]
+/// if A is stored upper, where U is an upper triangular matrix.
+///
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///     One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in,out] A
+///     On entry, the Hermitian positive definite matrix A.
+///     On exit, if return value = 0, the factor U or L from the Cholesky
+///     factorization $A = U^H U$ or $A = L L^H$.
+///     If scalar_t is real, A can be a SymmetricMatrix object.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Lookahead:
+///       Number of panels to overlap with matrix updates.
+///       lookahead >= 0. Default 1.
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
+/// @ingroup posv_comp
+template <typename scalar_t>
+void potrf(HermitianMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts)
+{
+    Target target;
+    try {
+        target = Target( opts.at(Option::Target).i_ );
+    }
+    catch (std::out_of_range) {
+        target = Target::HostTask;
+    }
+
+    switch (target) {
+        case Target::Host:
+        case Target::HostTask:
+            potrf<Target::HostTask>(A, opts);
+            break;
+        case Target::HostNest:
+            potrf<Target::HostNest>(A, opts);
+            break;
+        case Target::HostBatch:
+            potrf<Target::HostBatch>(A, opts);
+            break;
+        case Target::Devices:
+            potrf<Target::Devices>(A, opts);
+            break;
+    }
+    // todo: return value for errors?
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
-// ----------------------------------------
 template
-void potrf< Target::HostTask, float >(
-    HermitianMatrix< float >& A, int64_t lookahead);
+void potrf< float >(
+    HermitianMatrix< float >& A,
+    const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template
-void potrf< Target::HostNest, float >(
-    HermitianMatrix< float >& A, int64_t lookahead);
+void potrf< double >(
+    HermitianMatrix< double >& A,
+    const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template
-void potrf< Target::HostBatch, float >(
-    HermitianMatrix< float >& A, int64_t lookahead);
+void potrf< std::complex<float> >(
+    HermitianMatrix< std::complex<float> >& A,
+    const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template
-void potrf< Target::Devices, float >(
-    HermitianMatrix< float >& A, int64_t lookahead);
-
-// ----------------------------------------
-template
-void potrf< Target::HostTask, double >(
-    HermitianMatrix< double >& A, int64_t lookahead);
-
-template
-void potrf< Target::HostNest, double >(
-    HermitianMatrix< double >& A, int64_t lookahead);
-
-template
-void potrf< Target::HostBatch, double >(
-    HermitianMatrix< double >& A, int64_t lookahead);
-
-template
-void potrf< Target::Devices, double >(
-    HermitianMatrix< double >& A, int64_t lookahead);
-
-// ----------------------------------------
-template
-void potrf< Target::HostTask, std::complex<float> >(
-    HermitianMatrix< std::complex<float> >& A, int64_t lookahead);
-
-template
-void potrf< Target::HostNest, std::complex<float> >(
-    HermitianMatrix< std::complex<float> >& A, int64_t lookahead);
-
-template
-void potrf< Target::HostBatch, std::complex<float> >(
-    HermitianMatrix< std::complex<float> >& A, int64_t lookahead);
-
-template
-void potrf< Target::Devices, std::complex<float> >(
-    HermitianMatrix< std::complex<float> >& A, int64_t lookahead);
-
-// ----------------------------------------
-template
-void potrf< Target::HostTask, std::complex<double> >(
-    HermitianMatrix< std::complex<double> >& A, int64_t lookahead);
-
-template
-void potrf< Target::HostNest, std::complex<double> >(
-    HermitianMatrix< std::complex<double> >& A, int64_t lookahead);
-
-template
-void potrf< Target::HostBatch, std::complex<double> >(
-    HermitianMatrix< std::complex<double> >& A, int64_t lookahead);
-
-template
-void potrf< Target::Devices, std::complex<double> >(
-    HermitianMatrix< std::complex<double> >& A, int64_t lookahead);
+void potrf< std::complex<double> >(
+    HermitianMatrix< std::complex<double> >& A,
+    const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 } // namespace slate

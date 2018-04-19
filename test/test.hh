@@ -10,12 +10,7 @@
 #include "libtest.hh"
 #include "blas.hh"
 #include "lapack.hh"
-
-// #ifdef HAVE_MKL
-//     #include <mkl_lapacke.h>
-// #else
-//     #include <lapacke.h>
-// #endif
+#include "slate.hh"
 
 // -----------------------------------------------------------------------------
 class Params: public libtest::ParamsBase
@@ -397,5 +392,19 @@ void test_syrk ( Params& params, bool run );
 void test_trsm ( Params& params, bool run );
 void test_trmm ( Params& params, bool run );
 
+// -----------------------------------------------------------------------------
+
+inline slate::Target char2target(char targetchar) 
+{
+    if ( targetchar == 't' )
+        return slate::Target::HostTask;
+    else if ( targetchar == 'n' )
+        return slate::Target::HostNest;
+    else if ( targetchar == 'b' )
+        return slate::Target::HostBatch;
+    else if ( targetchar == 'd' )
+        return slate::Target::Devices;
+    return slate::Target::HostTask;
+}
 
 #endif  //  #ifndef TEST_HH

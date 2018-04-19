@@ -35,6 +35,7 @@ group_size.add_argument(       '--dim',    action='store',      help='explicitly
 
 group_cat = parser.add_argument_group( 'category (default is all)' )
 categories = [
+    group_cat.add_argument( '--blas3',         action='store_true', help='run Level 3 BLAS tests' ),
     group_cat.add_argument( '--lu',            action='store_true', help='run LU tests' ),
     group_cat.add_argument( '--gb',            action='store_true', help='run GB tests' ),
     group_cat.add_argument( '--gt',            action='store_true', help='run GT tests' ),
@@ -86,7 +87,7 @@ group_opt.add_argument( '--kd',     action='store', help='default=%(default)s', 
 group_opt.add_argument( '--kl',     action='store', help='default=%(default)s', default='20,100' )
 group_opt.add_argument( '--ku',     action='store', help='default=%(default)s', default='20,100' )
 group_opt.add_argument( '--matrixtype', action='store', help='default=%(default)s', default='g,l,u' )
-group_opt.add_argument( '--nb',     action='store', help='default=%(default)s', default='10,100,268' )
+group_opt.add_argument( '--nb',     action='store', help='default=%(default)s', default='10,100' )
 group_opt.add_argument( '--nt',     action='store', help='default=%(default)s', default='5,10,20' )
 group_opt.add_argument( '--p',      action='store', help='default=%(default)s', default='1' )
 group_opt.add_argument( '--q',      action='store', help='default=%(default)s', default='1' )
@@ -222,6 +223,26 @@ incy_pos = ' --incy ' + filter_csv( ('1', '2'), opts.incy )
 
 # ------------------------------------------------------------------------------
 cmds = []
+
+# Level 3
+if (opts.blas3):
+    cmds += [
+    [ 'gemm',  dtype         + transA + transB + mnk + nb ],
+    [ 'symm',  dtype         + side + uplo + mn + nb ],
+    [ 'trmm',  dtype         + side + uplo + transA + diag + mn + nb ],
+    [ 'syr2k', dtype_real    + uplo + trans    + mn + nb ],
+    [ 'syr2k', dtype_complex + uplo + trans_nt + mn + nb],
+    [ 'syrk',  dtype_real    + uplo + trans    + mn + nb ],
+    [ 'syrk',  dtype_complex + uplo + trans_nt + mn + nb ],
+    [ 'trsm',  dtype         + side + uplo + transA + diag + mn + nb ],
+
+
+    [ 'hemm',  dtype         + layout + align + side + uplo + mn ],
+    [ 'herk',  dtype_real    + layout + align + uplo + trans    + mn ],
+    [ 'herk',  dtype_complex + layout + align + uplo + trans_nc + mn ],
+    [ 'her2k', dtype_real    + layout + align + uplo + trans    + mn ],
+    [ 'her2k', dtype_complex + layout + align + uplo + trans_nc + mn ],
+    ]
 
 # LU
 if (opts.lu):

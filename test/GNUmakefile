@@ -1,33 +1,31 @@
 # This will get the compiler and flags
 top ?= ..
-cdir = ${top}/test
-cdir_target: ${cdir}/test
-
+testdir_target: ${top}/test/test
 include ${top}/GNUmakefile
 
 pwd := ${shell pwd}
 
-CXXFLAGS += -I${cdir} -I$(top) -I$(top)/libtest -I$(top)/lapackpp/include -I$(top)/blaspp/include
+CXXFLAGS += -I$(top)/libtest
+LIB += -L${top}/libtest -Wl,-rpath,${top}/libtest -ltest 
+
 CXXFLAGS += -I$(top)/blaspp/test # for blas_flops.hh
 
-LIB += -L${top}/libtest -Wl,-rpath,${pwd}/${top}/libtest -ltest -L${top}/lapackpp/lib -Wl,-rpath,${pwd}/${top}/lapackpp/lib -llapackpp 
-LIB += -L${top}/lib -Wl,-rpath,${pwd}/${top}/lib -lslate 
-LIB += -lscalapack 
+# ScaLAPACK
+ifeq (${mkl},1)
+LIB := -L${MKLROOT}/lib/intel64 -Wl,-rpath,${MKLROOT}/lib -Wl,--no-as-needed -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64 ${LIB}
+endif
+
+test_src = ${top}/test/test.cc ${top}/test/test_gemm.cc ${top}/test/test_trmm.cc ${top}/test/test_symm.cc ${top}/test/test_syrk.cc ${top}/test/test_syr2k.cc ${top}/test/test_trsm.cc ${top}/test/test_potrf.cc ${top}/test/test_potrf_lapack.cc
+test_obj = ${addsuffix .o, ${basename ${test_src}}}
+test_dep = ${addsuffix .d, ${basename ${test_src}}}
 
 %.o: %.c
 	${CC} ${CFLAGS} -c $< -o $@ 
 
-%.o: %.cc
-	echo "hello"
-	echo ${CXXFLAGS}
-	$(CXX) ${CXXFLAGS} -c $< -o $@
+${top}/test/test: ${test_obj} ${top_obj} 
+	${CXX} ${LDFLAGS} -o $@ ${test_obj} ${top_obj} -L${top}/lib -Wl,-rpath,${pwd}/${top}/lib -lslate $(LIB) 
 
-test_src = ${cdir}/test.cc ${cdir}/test_gemm.cc ${cdir}/test_trmm.cc ${cdir}/test_symm.cc ${cdir}/test_syr2k.cc ${cdir}/test_syrk.cc ${cdir}/test_trsm.cc ${cdir}/test_potrf.cc ${cdir}/test_potrf_lapack.cc 
-test_obj = ${addsuffix .o, ${basename ${test_src}}}
-test_dep = ${addsuffix .d, ${basename ${test_src}}}
+clean_test:
+	rm -f $(test_obj) test trace_*.svg
 
-${cdir}/test: ${test_obj} ${top_obj} 
-	${CXX} ${LDFLAGS} -o $@ ${test_obj} ${top_obj} $(LIB)
-
-clean:
-		rm -f $(test_obj) test trace_*.svg
+clean: clean_test

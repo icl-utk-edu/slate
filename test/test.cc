@@ -19,9 +19,6 @@ using libtest::DataType;
 using libtest::char2datatype;
 using libtest::datatype2char;
 using libtest::datatype2str;
-using libtest::ansi_bold;
-using libtest::ansi_red;
-using libtest::ansi_normal;
 
 // -----------------------------------------------------------------------------
 // each section must have a corresponding entry in section_names
@@ -61,7 +58,7 @@ const char* section_names[] = {
    "auxiliary - norms",
    "auxiliary - Householder",
    "auxiliary - matrix generation",
-   "additional BLAS",
+   "BLAS",
 };
 
 // { "", nullptr, Section::newline } entries force newline in help
@@ -113,14 +110,9 @@ std::vector< libtest::routines_t > routines = {
   //   { "ptsv",               test_ptsv,      Section::posv },
   //   { "",                   nullptr,        Section::newline },
 
-    { "gemm",               test_gemm,         Section::posv },
+
     { "potrf",              test_potrf,        Section::posv },
     { "potrf_lapack",       test_potrf_lapack, Section::posv },
-    { "symm",               test_symm,         Section::posv },
-    { "syr2k",              test_syr2k,        Section::posv },
-    { "syrk",               test_syrk,         Section::posv },
-    { "trsm",               test_trsm,         Section::posv },
-    { "trmm",               test_trmm,         Section::posv },
 
   //   { "pptrf",              test_pptrf,     Section::posv },
   //   { "pbtrf",              test_pbtrf,     Section::posv },
@@ -420,8 +412,13 @@ std::vector< libtest::routines_t > routines = {
   //   { "",                   nullptr,        Section::newline },
 
   //   // additional BLAS
-  //   { "syr",                test_syr,       Section::blas_section },
-  //   { "",                   nullptr,        Section::newline },
+    { "gemm",               test_gemm,         Section::blas_section },
+    { "symm",               test_symm,         Section::blas_section },
+    { "syr2k",              test_syr2k,        Section::blas_section },
+    { "syrk",               test_syrk,         Section::blas_section },
+    { "trsm",               test_trsm,         Section::blas_section },
+    { "trmm",               test_trmm,         Section::blas_section },
+    { "",                   nullptr,           Section::newline },
 };
 
 // -----------------------------------------------------------------------------
@@ -447,7 +444,7 @@ Params::Params():
     verbose   ( "verbose", 0,    ParamType::Value,   0,   0,   10, "verbose level" ),
     cache     ( "cache",   0,    ParamType::Value,  20,   1, 1024, "total cache size, in MiB" ),
 
-    target     ( "target", 1,    ParamType::Value, 'd', "tnbd", "target: t=HostTask n=HostNest b=HostBatch d=Devices" ),
+    target     ( "target", 1,    ParamType::Value, 't', "tnbd", "target: t=HostTask n=HostNest b=HostBatch d=Devices" ),
 
     // ----- routine parameters
     //          name,      w,    type,            def,                    char2enum,         enum2char,         enum2str,         help
@@ -551,8 +548,7 @@ int main( int argc, char** argv )
             ( provided >= MPI_THREAD_MULTIPLE ) &&
             ( MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank) == MPI_SUCCESS ) &&
             ( MPI_Comm_size(MPI_COMM_WORLD, &mpi_size) == MPI_SUCCESS ) ) ) {
-        fprintf( stderr, "%s%sError: MPI could not be initialized (requires MPI_THREAD_MULTIPLE)%s\n\n",
-                 libtest::ansi_bold, libtest::ansi_red, libtest::ansi_normal );
+        fprintf( stderr, "Error: MPI could not be initialized (requires MPI_THREAD_MULTIPLE)\n" );
         return -1;
     }
     
@@ -570,9 +566,7 @@ int main( int argc, char** argv )
     libtest::test_func_ptr test_routine = find_tester( routine, routines );
     if (test_routine == nullptr) {
         if ( mpi_rank == 0 ) {
-            fprintf( stderr, "%s%sError: routine %s not found%s\n\n",
-                     libtest::ansi_bold, libtest::ansi_red, routine,
-                     libtest::ansi_normal );
+            fprintf( stderr, "Error: routine %s not found\n", routine );
             usage( argc, argv, routines, section_names );
         }
         return -1;

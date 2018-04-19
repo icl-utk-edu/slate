@@ -1,8 +1,16 @@
 #include "slate.hh"
-#include "slate_Debug.hh"
 #include "test.hh"
-#include "error.hh"
+#include "blas_flops.hh"
 #include "lapack_flops.hh"
+
+#include "scalapack_wrappers.hh"
+#include "scalapack_support_routines.hh"
+
+#ifdef SLATE_WITH_MPI
+    #include <mpi.h>
+#else
+    #include "slate_NoMpi.hh"
+#endif
 
 #include <cassert>
 #include <cmath>
@@ -10,29 +18,29 @@
 #include <cstdlib>
 #include <utility>
 
-#ifdef SLATE_WITH_MPI
-#include <mpi.h>
+#ifdef SLATE_WITH_MKL
+extern "C" int MKL_Set_Num_Threads( int nt );
+inline int slate_set_blas_num_threads( const int nt ) { return MKL_Set_Num_Threads( nt ); }
 #else
-#include "slate_NoMpi.hh"
+inline int slate_set_blas_num_threads( const int nt ) { return -1; }
 #endif
 
-#include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
-
-// ------------------------------------------------------------------------------
-template < typename scalar_t > void test_potrf_work(Params & params, bool run)
+//------------------------------------------------------------------------------
+template < typename scalar_t > void test_potrf_work( Params &params, bool run )
 {
     using real_t = blas::real_type < scalar_t >;
 
     // get & mark input values
     slate::Uplo uplo = params.uplo.value();
-    // int64_t align = params.align.value();
-    int64_t lookahead = params.lookahead.value();
+    int64_t n = params.dim.n();
     int64_t p = params.p.value();
     int64_t q = params.q.value();
-    int64_t s = params.nrhs.value();
     int64_t nb = params.nb.value();
-    int64_t n = params.dim.n();
+    int64_t lookahead = params.lookahead.value();
+    bool check = params.check.value()=='y';
+    bool ref = params.ref.value()=='y';
+    bool trace = params.trace.value()=='y';
+    slate::Target target = char2target(params.target.value());
 
     // mark non-standard output values
     params.time.value();
@@ -41,133 +49,98 @@ template < typename scalar_t > void test_potrf_work(Params & params, bool run)
     params.ref_gflops.value();
     params.error2.value();
 
-    if(!run)
+    if( !run )
         return;
 
-    // Get ScaLAPACK compatible versions of some of the parameters
-    int s_ = s, nb_ = nb, n_ = n;
-    const char *uplo_str = blas::uplo2str(uplo);
+    int64_t Am = n;
+    int64_t An = n;
+
+    // Local values
+    static int i0=0, i1=1;
 
     // BLACS/MPI variables
-    int ictxt, nprow, npcol, myrow, mycol, info, mloc, nloc, sloc;
+    int ictxt, nprow, npcol, myrow, mycol, info;
     int descA_tst[9], descA_ref[9];
-    int iam = 0;
-    int nprocs = 1;
-    static int i0 = 0, i1 = 1;
-    static scalar_t m1 = -1e0, p1 = 1e0;
+    int iam=0, nprocs=1;
+    int iseed = 1;
 
-    Cblacs_pinfo(&iam, &nprocs);
-    assert(p * q <= nprocs);
-    Cblacs_get(-1, 0, &ictxt);
-    Cblacs_gridinit(&ictxt, "Row", p, q);
-    Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
-    mloc = scalapack_numroc(&n_, &nb_, &myrow, &i0, &nprow);
-    nloc = scalapack_numroc(&n_, &nb_, &mycol, &i0, &npcol);
-    sloc = scalapack_numroc(&s_, &nb_, &mycol, &i0, &npcol);
+    // initialize BLACS and ScaLAPACK
+    Cblacs_pinfo( &iam, &nprocs );
+    assert( p*q <= nprocs );
+    Cblacs_get( -1, 0, &ictxt );
+    Cblacs_gridinit( &ictxt, "Row", p, q );
+    Cblacs_gridinfo( ictxt, &nprow, &npcol, &myrow, &mycol );
 
-    // typedef long long lld;
-    size_t size_A = (size_t) (mloc * nloc);
-    std::vector < scalar_t > A_tst(size_A);
-    std::vector < scalar_t > A_ref(size_A);
-
-    // Initialize the matrix
-    int iseed = iam;
-    scalapack_descinit(descA_tst, &n_, &n_, &nb_, &nb_, &i0, &i0, &ictxt, &mloc, &info);
-    assert(0 == info);
-    scalapack_pplghe(&A_tst[0], n_, n_, nb_, nb_, myrow, mycol, nprow, npcol, mloc, iseed);
+    // todo: matrix A is a unit, or non-unit, upper or lower triangular distributed matrix,
+    // matrix A, figure out local size, allocate, create descriptor, initialize
+    int64_t mlocA = scalapack_numroc( Am, nb, myrow, i0, nprow );
+    int64_t nlocA = scalapack_numroc( An, nb, mycol, i0, npcol );
+    scalapack_descinit( descA_tst, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info );
+    assert( info==0 );
+    int64_t lldA = ( int64_t )descA_tst[8];
+    std::vector< scalar_t > A_tst( lldA * nlocA );
+    scalapack_pplghe( &A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1 );
 
     // Create SLATE matrix from the ScaLAPACK layouts
-    int64_t local_lda = descA_tst[8];
-    auto A = slate::HermitianMatrix < scalar_t >::fromScaLAPACK(uplo, n, &A_tst[0], local_lda, nb, nprow, npcol, MPI_COMM_WORLD);
+    auto A = slate::HermitianMatrix < scalar_t >::fromScaLAPACK( uplo, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD );
 
-    // If check is required, save A in A_ref and create a descriptor for it
-    if(params.check.value() == 'y') {
-        scalapack_descinit(descA_ref, &n_, &n_, &nb_, &nb_, &i0, &i0, &ictxt, &mloc, &info);
-        assert(0 == info);
+    // if check is required, copy test data and create a descriptor for it
+    std::vector< scalar_t > A_ref;
+    if( check || ref ) {
+        A_ref.resize( A_tst.size() );
         A_ref = A_tst;
+        scalapack_descinit( descA_ref, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info );
+        assert( info==0 );
     }
-    // Call the routine using ScaLAPACK layout
-    MPI_Barrier(MPI_COMM_WORLD);
+
+    if( trace ) slate::trace::Trace::on();
+    else slate::trace::Trace::off();
+
+    // run test
+    MPI_Barrier( MPI_COMM_WORLD );
     double time = libtest::get_wtime();
-    slate::potrf(A,
-                {{slate::Option::Lookahead, lookahead},
-                 {slate::Option::Target, slate::Target::HostTask}});
-    // scalapack_ppotrf( uplo_str, &n, &A_tst[0], &i1, &i1, descA_tst, &info ); assert( 0 == info );
-    MPI_Barrier(MPI_COMM_WORLD);
+
+    slate::potrf( A, {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target}} );
+
+    MPI_Barrier( MPI_COMM_WORLD );
     double time_tst = libtest::get_wtime() - time;
 
-    // Compute and save timing/performance
-    double gflop = lapack::Gflop < scalar_t >::potrf(n);
+    if( trace ) slate::trace::Trace::finish();
+
+    // compute and save timing/performance
+    double gflop = lapack::Gflop < scalar_t >::potrf( n );
     params.time.value() = time_tst;
     params.gflops.value() = gflop / time_tst;
 
-    real_t eps = std::numeric_limits < real_t >::epsilon();
-    real_t tol = params.tol.value();
-
-    if(params.check.value() == 'y') {
-        // A numerical check of the value
-        // This should not alter A_ref
-
-        // create B and copy it to X
-        int descB_ref[9];
-        scalapack_descinit(descB_ref, &n_, &s_, &nb_, &nb_, &i0, &i0, &ictxt, &mloc, &info);
-        assert(0 == info);
-        size_t size_B = (size_t) (mloc * sloc);
-        std::vector < scalar_t > B_ref(size_B);
-        std::vector < scalar_t > X_ref(size_B);
-
-        // Initialize B
-        scalapack_pplrnt(&B_ref[0], n, s, nb, nb, myrow, mycol, nprow, npcol, mloc, iseed + 1);
-        // Copy B to X (use local copies instead of globally via ScaLAPACK pdlacpy)
-        X_ref = B_ref;
-
-        // Get norms of A and B
-        size_t ldw = nb * ceil(ceil(mloc / (double) nb) / (ilcm_(&nprow, &npcol) / nprow));
-        std::vector < scalar_t > worklansy(2 * nloc + mloc + ldw);
-        real_t Anorm = scalapack_plansy("I", uplo_str, &n_, &A_ref[0], &i1, &i1, descA_ref, &worklansy[0]);
-        real_t Bnorm = scalapack_plange("I", &n_, &s_, &B_ref[0], &i1, &i1, descB_ref, &worklansy[0]);
-
-        // Solve for X using the A_tst factorization
-        scalapack_ppotrs(uplo_str, &n_, &s_, &A_tst[0], &i1, &i1, descA_ref, &X_ref[0], &i1, &i1, descB_ref, &info);
-        assert(0 == info);
-
-        // Compute B(diff) = B - A_ref * X
-        scalapack_psymm(uplo_str, uplo_str, &n_, &s_, &m1, &A_ref[0], &i1, &i1, descA_tst, &X_ref[0], &i1, &i1, descB_ref, &p1, &B_ref[0], &i1, &i1, descB_ref);
-
-        // Norms of X and B(diff)
-        std::vector < scalar_t > worklange(mloc);
-        real_t Xnorm = scalapack_plange("I", &n_, &s_, &X_ref[0], &i1, &i1, descB_ref, &worklange[0]);
-        real_t Rnorm = scalapack_plange("I", &n_, &s_, &B_ref[0], &i1, &i1, descB_ref, &worklange[0]);
-        real_t resid = Rnorm / ((Bnorm + Anorm * Xnorm) * fmax(n, n));
-        params.error.value() = resid;
-    }
-
-    if(params.ref.value() == 'y') {
+    if( check || ref ) {
         // A comparison with a reference routine from ScaLAPACK
         // This expects to get the original (clean) A_ref and will alter A_ref
 
         // Run the reference routine on A_ref
-        MPI_Barrier(MPI_COMM_WORLD);
+        MPI_Barrier( MPI_COMM_WORLD );
         double time = libtest::get_wtime();
-        scalapack_ppotrf(uplo_str, &n_, &A_ref[0], &i1, &i1, descA_ref, &info);
-        assert(0 == info);
-        MPI_Barrier(MPI_COMM_WORLD);
+        scalapack_ppotrf( uplo2str( uplo ), n, &A_ref[0], i1, i1, descA_ref, &info );
+        assert( 0 == info );
+        MPI_Barrier( MPI_COMM_WORLD );
         double time_ref = libtest::get_wtime() - time;
 
-        // norm(A_ref)
-        size_t ldw = nb * ceil(ceil(mloc / (double) nb) / (scalapack_ilcm(&nprow, &npcol) / nprow));
-        std::vector < scalar_t > worklansy(2 * nloc + mloc + ldw);
-        real_t A_ref_norm = scalapack_plansy("I", uplo_str, &n_, &A_ref[0], &i1, &i1, descA_ref, &worklansy[0]);
+        // allocate work space
+        size_t ldw = nb * ceil( ceil( mlocA / ( double ) nb ) / ( scalapack_ilcm( &nprow, &npcol ) / nprow ) );
+        std::vector < scalar_t > worklansy( 2 * nlocA + mlocA + ldw );
 
-        // Local operation: error = A_ref = A_ref - A_tst
-        for(size_t i = 0; i < A_ref.size(); i++)
-            A_ref[i] = A_ref[i] - A_tst[i];
+        // norm of A
+        real_t A_ref_norm = scalapack_plansy( "I", uplo2str(uplo), n, &A_ref[0], i1, i1, descA_ref, &worklansy[0] );
+
+        // local operation: error = A_ref = A_ref - A_tst
+        blas::axpy( A_ref.size(), -1.0, &A_tst[0], 1, &A_ref[0], 1 );
 
         // error = norm(error)
-        real_t error_norm = scalapack_plansy("I", uplo_str, &n_, &A_ref[0], &i1, &i1, descA_ref, &worklansy[0]);
+        real_t error_norm = scalapack_plansy( "I", uplo2str( uplo ), n, &A_ref[0], i1, i1, descA_ref, &worklansy[0] );
 
         // error = error / norm;
-        if(error_norm != 0)
+        if( error_norm != 0 )
             error_norm /= A_ref_norm;
 
         params.ref_time.value() = time_ref;
@@ -175,34 +148,35 @@ template < typename scalar_t > void test_potrf_work(Params & params, bool run)
         params.error2.value() = error_norm;
     }
 
-    params.okay.value() = ((params.error.value() <= tol) && (params.error2.value() <= 3 * eps));
+    real_t eps = std::numeric_limits< real_t >::epsilon();
+    params.okay.value() = ( ( params.error.value() <= 50*eps ) && ( params.error2.value() <= 50*eps ) );
 
     // Cblacs_exit is commented out because it does not handle re-entering ... some unknown problem
     // Cblacs_exit( 1 ); // 1 means that you can run Cblacs again
 }
 
 // -----------------------------------------------------------------------------
-void test_potrf(Params & params, bool run)
+void test_potrf( Params &params, bool run )
 {
-    switch (params.datatype.value()) {
-        case libtest::DataType::Integer:
-            throw std::exception();
-            break;
+    switch( params.datatype.value() ) {
+    case libtest::DataType::Integer:
+        throw std::exception();
+        break;
 
-        case libtest::DataType::Single:
-            test_potrf_work< float >( params, run );
-            break;
+    case libtest::DataType::Single:
+        test_potrf_work< float >( params, run );
+        break;
 
-        case libtest::DataType::Double:
-            test_potrf_work < double >(params, run);
-            break;
+    case libtest::DataType::Double:
+        test_potrf_work < double >( params, run );
+        break;
 
-        case libtest::DataType::SingleComplex:
-            throw std::exception();     // test_potrf_work< std::complex<float> >( params, run );
-            break;
+    case libtest::DataType::SingleComplex:
+        throw std::exception();     // test_potrf_work< std::complex<float> >( params, run );
+        break;
 
-        case libtest::DataType::DoubleComplex:
-            throw std::exception();     // test_potrf_work< std::complex<double> >( params, run );
-            break;
+    case libtest::DataType::DoubleComplex:
+        throw std::exception();     // test_potrf_work< std::complex<double> >( params, run );
+        break;
     }
 }

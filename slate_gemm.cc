@@ -138,9 +138,9 @@ void gemm(slate::internal::TargetType<target>,
                              depend(out:gemm[k])
             {
                 internal::gemm<target>(
-                        alpha, A.sub(0, A.mt()-1, k, k),
-                        B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0), C.sub(0, C.mt()-1, 0, C.nt()-1));
+                    alpha,         A.sub(0, A.mt()-1, k, k),
+                                   B.sub(k, k, 0, B.nt()-1),
+                    scalar_t(1.0), C.sub(0, C.mt()-1, 0, C.nt()-1));
             }
         }
     }

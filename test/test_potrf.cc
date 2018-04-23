@@ -6,11 +6,7 @@
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
 
-#ifdef SLATE_WITH_MPI
-    #include <mpi.h>
-#else
-    #include "slate_NoMpi.hh"
-#endif
+#include "slate_mpi.hh"
 
 #include <cassert>
 #include <cmath>

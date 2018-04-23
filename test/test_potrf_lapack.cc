@@ -12,11 +12,7 @@
 #include <cstdlib>
 #include <utility>
 
-#ifdef SLATE_WITH_MPI
-    #include <mpi.h>
-#else
-    #include "slate_NoMpi.hh"
-#endif
+#include "slate_mpi.hh"
 
 #ifdef _OPENMP
     #include <omp.h>

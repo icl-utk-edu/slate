@@ -64,7 +64,7 @@ void potrf(slate::internal::TargetType<target>,
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A.nt());
-    uint8_t *column = column_vector.data();
+    uint8_t* column = column_vector.data();
 
     #pragma omp parallel
     #pragma omp master
@@ -154,7 +154,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A.nt());
-    uint8_t *column = column_vector.data();
+    uint8_t* column = column_vector.data();
 
     A.allocateBatchArrays();
     A.reserveDeviceWorkspace();

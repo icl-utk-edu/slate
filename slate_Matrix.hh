@@ -263,7 +263,7 @@ public:
     ///-------------------------------------------------------------------------
     /// Gathers the entire matrix to the LAPACK-style matrix A on MPI rank 0.
     /// Primarily for debugging purposes.
-    void gather(scalar_t *A, int64_t lda)
+    void gather(scalar_t* A, int64_t lda)
     {
         // this code assumes the matrix is not transposed
         Op op_save = this->op();

@@ -84,7 +84,7 @@ Memory::~Memory()
 void Memory::addHostBlocks(int64_t num_blocks)
 {
     // or std::byte* (C++17)
-    uint8_t *host_mem;
+    uint8_t* host_mem;
     host_mem = (uint8_t*) allocHostMemory(block_size_*num_blocks);
     capacity_[host_num_] += num_blocks;
 
@@ -99,7 +99,7 @@ void Memory::addHostBlocks(int64_t num_blocks)
 void Memory::addDeviceBlocks(int device, int64_t num_blocks)
 {
     // or std::byte* (C++17)
-    uint8_t *dev_mem;
+    uint8_t* dev_mem;
     dev_mem = (uint8_t*) allocDeviceMemory(device, block_size_*num_blocks);
     capacity_[device] += num_blocks;
 
@@ -132,7 +132,7 @@ void Memory::clearHostBlocks()
         free_blocks_[host_num_].pop();
 
     while (! allocated_mem_[host_num_].empty()) {
-        void *host_mem = allocated_mem_[host_num_].top();
+        void* host_mem = allocated_mem_[host_num_].top();
         freeHostMemory(host_mem);
         allocated_mem_[host_num_].pop();
     }
@@ -163,7 +163,7 @@ void Memory::clearDeviceBlocks(int device)
         free_blocks_[device].pop();
 
     while (! allocated_mem_[device].empty()) {
-        void *dev_mem = allocated_mem_[device].top();
+        void* dev_mem = allocated_mem_[device].top();
         freeDeviceMemory(device, dev_mem);
         allocated_mem_[device].pop();
     }
@@ -176,7 +176,7 @@ void Memory::clearDeviceBlocks(int device)
 /// either from free blocks or by allocating a new block.
 void* Memory::alloc(int device)
 {
-    void *block;
+    void* block;
     #pragma omp critical(slate_memory)
     {
         if (free_blocks_[device].size() > 0) {
@@ -223,7 +223,7 @@ void* Memory::allocBlock(int device)
 /// Allocates host memory of given size.
 void* Memory::allocHostMemory(size_t size)
 {
-    void *host_mem;
+    void* host_mem;
     // cudaError_t error = cudaMallocHost(&host_mem, size);
     // assert(error == cudaSuccess);
     host_mem = malloc(size);
@@ -241,7 +241,7 @@ void* Memory::allocDeviceMemory(int device, size_t size)
     error = cudaSetDevice(device);
     assert(error == cudaSuccess);
     
-    double *dev_mem;
+    double* dev_mem;
     error = cudaMalloc((void**)&dev_mem, size);
     assert(error == cudaSuccess);
 
@@ -251,7 +251,7 @@ void* Memory::allocDeviceMemory(int device, size_t size)
 ///-----------------------------------------------------------------------------
 /// \brief
 /// Frees host memory.
-void Memory::freeHostMemory(void *host_mem)
+void Memory::freeHostMemory(void* host_mem)
 {
     std::free(host_mem);
     // cudaError_t error = cudaFreeHost(host_mem);
@@ -261,7 +261,7 @@ void Memory::freeHostMemory(void *host_mem)
 ///-----------------------------------------------------------------------------
 /// \brief
 /// Frees GPU device memory.
-void Memory::freeDeviceMemory(int device, void *dev_mem)
+void Memory::freeDeviceMemory(int device, void* dev_mem)
 {
     cudaError_t error;
     error = cudaSetDevice(device);

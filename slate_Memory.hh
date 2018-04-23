@@ -75,7 +75,7 @@ public:
     void clearDeviceBlocks(int device);
 
     void* alloc(int device);
-    void free(void *block, int device);
+    void free(void* block, int device);
 
     /// @return number of available free blocks in device's memory pool,
     /// which can be host.
@@ -102,8 +102,8 @@ private:
     void* allocHostMemory(size_t size);
     void* allocDeviceMemory(int device, size_t size);
 
-    void freeHostMemory(void *host_mem);
-    void freeDeviceMemory(int device, void *dev_mem);
+    void freeHostMemory(void* host_mem);
+    void freeDeviceMemory(int device, void* dev_mem);
 
     // ----------------------------------------
     // member variables

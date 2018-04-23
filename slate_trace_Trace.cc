@@ -105,7 +105,7 @@ void Trace::finish()
     MPI_Barrier(MPI_COMM_WORLD);
 
     // Start the trace file.
-    FILE *trace_file = nullptr;
+    FILE* trace_file = nullptr;
     std::string file_name("trace_" + std::to_string(time(nullptr)) + ".svg");
 
     if (mpi_rank == 0) {
@@ -173,7 +173,7 @@ double Trace::getTimeSpan()
 /// \brief
 ///
 void Trace::printProcEvents(int mpi_rank, int mpi_size,
-                            double timespan, FILE *trace_file)
+                            double timespan, FILE* trace_file)
 {
     double y = mpi_rank * num_threads_ * vscale_;
     double height = 0.9 * vscale_;
@@ -204,7 +204,7 @@ void Trace::printProcEvents(int mpi_rank, int mpi_size,
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-void Trace::printTicks(double timespan, FILE *trace_file)
+void Trace::printTicks(double timespan, FILE* trace_file)
 {
     // Tick spacing is power of 10, with at most 20 tick marks.
     double pwr = ceil(log10(timespan/20.0));
@@ -231,7 +231,7 @@ void Trace::printTicks(double timespan, FILE *trace_file)
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
-void Trace::printLegend(FILE *trace_file)
+void Trace::printLegend(FILE* trace_file)
 {
     std::set<std::string> legend_set;
 

@@ -175,21 +175,23 @@ void symm(internal::TargetType<Target::HostNest>,
     int err = 0;
     if (side == Side::Left) {
         #pragma omp parallel for schedule(dynamic, 1) shared(err)
-        for (int64_t j = 0; j < C.nt(); ++j) {
-            if (C.tileIsLocal(0, j)) {
-                try {
-                    A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
-                    B.tileCopyToHost(0, j, B.tileDevice(0, j));
-                    C.tileMoveToHost(0, j, C.tileDevice(0, j));
-                    symm(side,
-                         alpha, A(0, 0),
-                                B(0, j),
-                         beta,  C(0, j));
-                    A.tileTick(0, 0);
-                    B.tileTick(0, j);
-                }
-                catch (std::exception& e) {
-                    err = __LINE__;
+        {
+            for (int64_t j = 0; j < C.nt(); ++j) {
+                if (C.tileIsLocal(0, j)) {
+                    try {
+                        A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
+                        B.tileCopyToHost(0, j, B.tileDevice(0, j));
+                        C.tileMoveToHost(0, j, C.tileDevice(0, j));
+                        symm(side,
+                             alpha, A(0, 0),
+                                    B(0, j),
+                             beta,  C(0, j));
+                        A.tileTick(0, 0);
+                        B.tileTick(0, j);
+                    }
+                    catch (std::exception& e) {
+                        err = __LINE__;
+                    }
                 }
             }
         }
@@ -197,23 +199,25 @@ void symm(internal::TargetType<Target::HostNest>,
     else {
         // side == Right
         #pragma omp parallel for schedule(dynamic, 1) shared(err)
-        for (int64_t i = 0; i < C.mt(); ++i) {
-            if (C.tileIsLocal(i, 0)) {
-                #pragma omp task shared(A, B, C, err) priority(priority)
-                {
-                    try {
-                        A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
-                        B.tileCopyToHost(i, 0, B.tileDevice(i, 0));
-                        C.tileMoveToHost(i, 0, C.tileDevice(i, 0));
-                        symm(side,
-                             alpha, A(0, 0),
-                                    B(i, 0),
-                             beta,  C(i, 0));
-                        A.tileTick(0, 0);
-                        B.tileTick(i, 0);
-                    }
-                    catch (std::exception& e) {
-                        err = __LINE__;
+        {
+            for (int64_t i = 0; i < C.mt(); ++i) {
+                if (C.tileIsLocal(i, 0)) {
+                    #pragma omp task shared(A, B, C, err) priority(priority)
+                    {
+                        try {
+                            A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
+                            B.tileCopyToHost(i, 0, B.tileDevice(i, 0));
+                            C.tileMoveToHost(i, 0, C.tileDevice(i, 0));
+                            symm(side,
+                                 alpha, A(0, 0),
+                                        B(i, 0),
+                                 beta,  C(i, 0));
+                            A.tileTick(0, 0);
+                            B.tileTick(i, 0);
+                        }
+                        catch (std::exception& e) {
+                            err = __LINE__;
+                        }
                     }
                 }
             }

@@ -176,13 +176,13 @@ inline cublasStatus_t cublasGemmBatched(
     int m,
     int n,
     int k,
-    const float *alpha,  /* host or device pointer */
-    const float *Aarray[],
+    const float* alpha,  /* host or device pointer */
+    const float* Aarray[],
     int lda,
-    const float *Barray[],
+    const float* Barray[],
     int ldb,
-    const float *beta,   /* host or device pointer */
-    float *Carray[],
+    const float* beta,   /* host or device pointer */
+    float* Carray[],
     int ldc,
     int batchCount)
 {
@@ -201,13 +201,13 @@ inline cublasStatus_t cublasGemmBatched(
     int m,
     int n,
     int k,
-    const double *alpha,  /* host or device pointer */
-    const double *Aarray[],
+    const double* alpha,  /* host or device pointer */
+    const double* Aarray[],
     int lda,
-    const double *Barray[],
+    const double* Barray[],
     int ldb,
-    const double *beta,   /* host or device pointer */
-    double *Carray[],
+    const double* beta,   /* host or device pointer */
+    double* Carray[],
     int ldc,
     int batchCount)
 {
@@ -226,13 +226,13 @@ inline cublasStatus_t cublasGemmBatched(
     int m,
     int n,
     int k,
-    const std::complex<float> *alpha,  /* host or device pointer */
-    const std::complex<float> *Aarray[],
+    const std::complex<float>* alpha,  /* host or device pointer */
+    const std::complex<float>* Aarray[],
     int lda,
-    const std::complex<float> *Barray[],
+    const std::complex<float>* Barray[],
     int ldb,
-    const std::complex<float> *beta,   /* host or device pointer */
-    std::complex<float> *Carray[],
+    const std::complex<float>* beta,   /* host or device pointer */
+    std::complex<float>* Carray[],
     int ldc,
     int batchCount)
 {
@@ -253,13 +253,13 @@ inline cublasStatus_t cublasGemmBatched(
     int m,
     int n,
     int k,
-    const std::complex<double> *alpha,  /* host or device pointer */
-    const std::complex<double> *Aarray[],
+    const std::complex<double>* alpha,  /* host or device pointer */
+    const std::complex<double>* Aarray[],
     int lda,
-    const std::complex<double> *Barray[],
+    const std::complex<double>* Barray[],
     int ldb,
-    const std::complex<double> *beta,   /* host or device pointer */
-    std::complex<double> *Carray[],
+    const std::complex<double>* beta,   /* host or device pointer */
+    std::complex<double>* Carray[],
     int ldc,
     int batchCount)
 {

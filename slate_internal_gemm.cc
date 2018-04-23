@@ -220,9 +220,10 @@ void gemm(internal::TargetType<Target::HostBatch>,
         if (C.op() != Op::NoTrans) {
             if (opA == Op::NoTrans)
                 opA = C.op();
-            else if (A.op() == C.op() || C.is_real)
+            else if (A.op() == C.op() || C.is_real) {
                 // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
                 opA = Op::NoTrans;
+            }
             else {
                 throw std::exception();
             }
@@ -232,9 +233,10 @@ void gemm(internal::TargetType<Target::HostBatch>,
         if (C.op() != Op::NoTrans) {
             if (opB == Op::NoTrans)
                 opB = C.op();
-            else if (opB == C.op() || C.is_real)
+            else if (opB == C.op() || C.is_real) {
                 // B and C are both Trans or both ConjTrans; Trans == ConjTrans if real
                 opB = Op::NoTrans;
+            }
             else {
                 throw std::exception();
             }
@@ -356,9 +358,10 @@ void gemm(internal::TargetType<Target::Devices>,
             if (C.op() != Op::NoTrans) {
                 if (opA == Op::NoTrans)
                     opA = C.op();
-                else if (A.op() == C.op() || C.is_real)
+                else if (A.op() == C.op() || C.is_real) {
                     // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
                     opA = Op::NoTrans;
+                }
                 else {
                     err = __LINE__;  // ConjNoTrans not supported
                 }
@@ -368,9 +371,10 @@ void gemm(internal::TargetType<Target::Devices>,
             if (C.op() != Op::NoTrans) {
                 if (opB == Op::NoTrans)
                     opB = C.op();
-                else if (opB == C.op() || C.is_real)
+                else if (opB == C.op() || C.is_real) {
                     // B and C are both Trans or both ConjTrans; Trans == ConjTrans if real
                     opB = Op::NoTrans;
+                }
                 else {
                     err = __LINE__;  // ConjNoTrans not supported
                 }

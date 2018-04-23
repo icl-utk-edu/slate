@@ -94,8 +94,8 @@ void herk(internal::TargetType<Target::HostTask>,
 
     // Lower, NoTrans
     int err = 0;
-    for (int64_t j = 0; j < C.nt(); ++j)
-        for (int64_t i = j; i < C.mt(); ++i)  // lower
+    for (int64_t j = 0; j < C.nt(); ++j) {
+        for (int64_t i = j; i < C.mt(); ++i) {  // lower
             if (C.tileIsLocal(i, j)) {
                 if (i == j) {
                     #pragma omp task shared(A, C, err) priority(priority)
@@ -133,6 +133,8 @@ void herk(internal::TargetType<Target::HostTask>,
                     }
                 }
             }
+        }
+    }
 
     #pragma omp taskwait
 
@@ -157,8 +159,8 @@ void herk(internal::TargetType<Target::HostNest>,
 
     // Lower, NoTrans
     int err = 0;
-    for (int64_t j = 0; j < C.nt(); ++j)
-        if (C.tileIsLocal(j, j))
+    for (int64_t j = 0; j < C.nt(); ++j) {
+        if (C.tileIsLocal(j, j)) {
             #pragma omp task shared(A, C, err)
             {
                 try {
@@ -173,28 +175,35 @@ void herk(internal::TargetType<Target::HostNest>,
                     err = __LINE__;
                 }
             }
+        }
+    }
 
 //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
     #pragma omp parallel for collapse(2) schedule(dynamic, 1)
-    for (int64_t j = 0; j < C.nt(); ++j)
-        for (int64_t i = 0; i < C.mt(); ++i)  // full
-            if (i >= j+1)                     // strictly lower
-                if (C.tileIsLocal(i, j)) {
-                    try {
-                        A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
-                        A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
-                        C.tileMoveToHost(i, j, C.tileDevice(i, j));
-                        auto Aj0 = A(j, 0);
-                        gemm(alpha_, A(i, 0),
-                                     conj_transpose(Aj0),
-                             beta_,  C(i, j));
-                        A.tileTick(i, 0);
-                        A.tileTick(j, 0);
-                    }
-                    catch (std::exception& e) {
-                        err = __LINE__;
+    {
+        for (int64_t j = 0; j < C.nt(); ++j) {
+            for (int64_t i = 0; i < C.mt(); ++i) {  // full
+                if (i >= j+1) {                    // strictly lower
+                    if (C.tileIsLocal(i, j)) {
+                        try {
+                            A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
+                            A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
+                            C.tileMoveToHost(i, j, C.tileDevice(i, j));
+                            auto Aj0 = A(j, 0);
+                            gemm(alpha_, A(i, 0),
+                                         conj_transpose(Aj0),
+                                 beta_,  C(i, j));
+                            A.tileTick(i, 0);
+                            A.tileTick(j, 0);
+                        }
+                        catch (std::exception& e) {
+                            err = __LINE__;
+                        }
                     }
                 }
+            }
+        }
+    }
 
     #pragma omp taskwait
 
@@ -254,9 +263,10 @@ void herk(internal::TargetType<Target::HostBatch>,
         if (C.op() != Op::NoTrans) {
             if (A.op() == Op::NoTrans)
                 opA = C.op();
-            else if (A.op() == C.op() || C.is_real)
+            else if (A.op() == C.op() || C.is_real) {
                 // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
                 opA = Op::NoTrans;
+            }
             else
                 throw std::exception();
         }

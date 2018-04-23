@@ -96,8 +96,8 @@ void syr2k(internal::TargetType<Target::HostTask>,
            int priority)
 {
     int err = 0;
-    for (int64_t j = 0; j < C.nt(); ++j)
-        for (int64_t i = j; i < C.mt(); ++i)  // lower
+    for (int64_t j = 0; j < C.nt(); ++j) {
+        for (int64_t i = j; i < C.mt(); ++i) {  // lower
             if (C.tileIsLocal(i, j)) {
                 if (i == j) {
                     #pragma omp task shared(A, B, C, err) priority(priority)
@@ -145,6 +145,8 @@ void syr2k(internal::TargetType<Target::HostTask>,
                     }
                 }
             }
+        }
+    }
 
     #pragma omp taskwait
 
@@ -166,8 +168,8 @@ void syr2k(internal::TargetType<Target::HostNest>,
            int priority)
 {
     int err = 0;
-    for (int64_t j = 0; j < C.nt(); ++j)
-        if (C.tileIsLocal(j, j))
+    for (int64_t j = 0; j < C.nt(); ++j) {
+        if (C.tileIsLocal(j, j)) {
             #pragma omp task shared(A, B, C, err)
             {
                 try {
@@ -184,34 +186,41 @@ void syr2k(internal::TargetType<Target::HostNest>,
                     err = __LINE__;
                 }
             }
+        }
+    }
 
 //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
     #pragma omp parallel for collapse(2) schedule(dynamic, 1)
-    for (int64_t j = 0; j < C.nt(); ++j)
-        for (int64_t i = 0; i < C.mt(); ++i)  // full
-            if (i >= j+1)                     // strictly lower
-                if (C.tileIsLocal(i, j)) {
-                    try {
-                        A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
-                        B.tileCopyToHost(j, 0, B.tileDevice(j, 0));
-                        C.tileMoveToHost(i, j, C.tileDevice(i, j));
-                        auto Aj0 = A(j, 0);
-                        auto Bj0 = B(j, 0);
-                        gemm(alpha, A(i, 0),
-                                    transpose(Bj0),
-                             beta,  C(i, j));
-                        gemm(alpha, B(i, 0),
-                                    transpose(Aj0),
-                             scalar_t(1.0), C(i, j));
-                        A.tileTick(i, 0);
-                        A.tileTick(j, 0);
-                        B.tileTick(i, 0);
-                        B.tileTick(j, 0);
-                    }
-                    catch (std::exception& e) {
-                        err = __LINE__;
+    {
+        for (int64_t j = 0; j < C.nt(); ++j) {
+            for (int64_t i = 0; i < C.mt(); ++i) {  // full
+                if (i >= j+1) {                     // strictly lower
+                    if (C.tileIsLocal(i, j)) {
+                        try {
+                            A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
+                            B.tileCopyToHost(j, 0, B.tileDevice(j, 0));
+                            C.tileMoveToHost(i, j, C.tileDevice(i, j));
+                            auto Aj0 = A(j, 0);
+                            auto Bj0 = B(j, 0);
+                            gemm(alpha, A(i, 0),
+                                        transpose(Bj0),
+                                 beta,  C(i, j));
+                            gemm(alpha, B(i, 0),
+                                        transpose(Aj0),
+                                 scalar_t(1.0), C(i, j));
+                            A.tileTick(i, 0);
+                            A.tileTick(j, 0);
+                            B.tileTick(i, 0);
+                            B.tileTick(j, 0);
+                        }
+                        catch (std::exception& e) {
+                            err = __LINE__;
+                        }
                     }
                 }
+            }
+        }
+    }
 
     #pragma omp taskwait
 
@@ -274,9 +283,10 @@ void syr2k(internal::TargetType<Target::HostBatch>,
         if (C.op() != Op::NoTrans) {
             if (A.op() == Op::NoTrans)
                 opA = C.op();
-            else if (A.op() == C.op() || C.is_real)
+            else if (A.op() == C.op() || C.is_real) {
                 // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
                 opA = Op::NoTrans;
+            }
             else
                 throw std::exception();
         }
@@ -417,9 +427,10 @@ void syr2k(internal::TargetType<Target::Devices>,
                 if (C.op() != Op::NoTrans) {
                     if (A.op() == Op::NoTrans)
                         opA = C.op();
-                    else if (A.op() == C.op() || C.is_real)
+                    else if (A.op() == C.op() || C.is_real) {
                         // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
                         opA = Op::NoTrans;
+                    }
                     else
                         throw std::exception();
                 }

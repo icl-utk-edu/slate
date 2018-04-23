@@ -81,42 +81,42 @@ double omp_get_wtime()
     return sec + usec/1000000.0;
 }
 
-void omp_destroy_lock(omp_lock_t *lock)
+void omp_destroy_lock(omp_lock_t* lock)
 {
     return;
 }
 
-void omp_init_lock(omp_lock_t *lock)
+void omp_init_lock(omp_lock_t* lock)
 {
     return;
 }
 
-void omp_set_lock(omp_lock_t *lock)
+void omp_set_lock(omp_lock_t* lock)
 {
     return;
 }
 
-void omp_unset_lock(omp_lock_t *lock)
+void omp_unset_lock(omp_lock_t* lock)
 {
     return;
 }
 
-void omp_destroy_nest_lock(omp_nest_lock_t *lock)
+void omp_destroy_nest_lock(omp_nest_lock_t* lock)
 {
     return;
 }
 
-void omp_init_nest_lock(omp_nest_lock_t *lock)
+void omp_init_nest_lock(omp_nest_lock_t* lock)
 {
     return;
 }
 
-void omp_set_nest_lock(omp_nest_lock_t *lock)
+void omp_set_nest_lock(omp_nest_lock_t* lock)
 {
     return;
 }
 
-void omp_unset_nest_lock(omp_nest_lock_t *lock)
+void omp_unset_nest_lock(omp_nest_lock_t* lock)
 {
     return;
 }

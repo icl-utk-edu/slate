@@ -48,7 +48,7 @@
 extern "C" {
 #endif
 
-cublasStatus_t cublasCreate(cublasHandle_t *handle)
+cublasStatus_t cublasCreate(cublasHandle_t* handle)
 {
     assert(0);
 }
@@ -63,12 +63,12 @@ cublasStatus_t cublasSetStream(cublasHandle_t handle, cudaStream_t streamId)
     assert(0);
 }
 
-cublasStatus_t cublasGetStream(cublasHandle_t handle, cudaStream_t *streamId)
+cublasStatus_t cublasGetStream(cublasHandle_t handle, cudaStream_t* streamId)
 {
     assert(0);
 }
 
-cublasStatus_t cublasDasum(cublasHandle_t handle, int n, const double *x, int incx, double *result)
+cublasStatus_t cublasDasum(cublasHandle_t handle, int n, const double* x, int incx, double* result)
 {
     assert(0);
 }
@@ -77,9 +77,9 @@ cublasStatus_t cublasSgemmBatched(
     cublasHandle_t handle,
     cublasOperation_t transa, cublasOperation_t transb,
     int m, int n, int k,
-    const float *alpha, const float *Aarray[], int lda,
-                        const float *Barray[], int ldb,
-    const float *beta,        float *Carray[], int ldc,
+    const float* alpha, const float* Aarray[], int lda,
+                        const float* Barray[], int ldb,
+    const float* beta,        float* Carray[], int ldc,
     int batchCount)
 {
     assert(0);
@@ -89,9 +89,9 @@ cublasStatus_t cublasDgemmBatched(
     cublasHandle_t handle,
     cublasOperation_t transa, cublasOperation_t transb,
     int m, int n, int k,
-    const double *alpha, const double *Aarray[], int lda,
-                         const double *Barray[], int ldb,
-    const double *beta,        double *Carray[], int ldc,
+    const double* alpha, const double* Aarray[], int lda,
+                         const double* Barray[], int ldb,
+    const double* beta,        double* Carray[], int ldc,
     int batchCount)
 {
     assert(0);
@@ -101,9 +101,9 @@ cublasStatus_t cublasCgemmBatched(
     cublasHandle_t handle,
     cublasOperation_t transa, cublasOperation_t transb,
     int m, int n, int k,
-    const cuComplex *alpha, const cuComplex *Aarray[], int lda,
-                            const cuComplex *Barray[], int ldb,
-    const cuComplex *beta,        cuComplex *Carray[], int ldc,
+    const cuComplex* alpha, const cuComplex* Aarray[], int lda,
+                            const cuComplex* Barray[], int ldb,
+    const cuComplex* beta,        cuComplex* Carray[], int ldc,
     int batchCount)
 {
     assert(0);
@@ -113,9 +113,9 @@ cublasStatus_t cublasZgemmBatched(
     cublasHandle_t handle,
     cublasOperation_t transa, cublasOperation_t transb,
     int m, int n, int k,
-    const cuDoubleComplex *alpha, const cuDoubleComplex *Aarray[], int lda,
-                                  const cuDoubleComplex *Barray[], int ldb,
-    const cuDoubleComplex *beta,        cuDoubleComplex *Carray[], int ldc,
+    const cuDoubleComplex* alpha, const cuDoubleComplex* Aarray[], int lda,
+                                  const cuDoubleComplex* Barray[], int ldb,
+    const cuDoubleComplex* beta,        cuDoubleComplex* Carray[], int ldc,
     int batchCount)
 {
     assert(0);

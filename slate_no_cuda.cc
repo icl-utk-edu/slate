@@ -48,33 +48,33 @@
 extern "C" {
 #endif
 
-cudaError_t cudaFree(void *devPtr)
+cudaError_t cudaFree(void* devPtr)
 {
     assert(0);
 }
 
-cudaError_t cudaFreeHost(void *devPtr)
+cudaError_t cudaFreeHost(void* devPtr)
 {
     assert(0);
 }
 
-cudaError_t cudaGetDevice(int *device)
+cudaError_t cudaGetDevice(int* device)
 {
     assert(0);
 }
 
-cudaError_t cudaGetDeviceCount(int *count)
+cudaError_t cudaGetDeviceCount(int* count)
 {
     *count = 0;
     return cudaSuccess;
 }
 
-cudaError_t cudaMalloc(void **devPtr, size_t size)
+cudaError_t cudaMalloc(void** devPtr, size_t size)
 {
     assert(0);
 }
 
-cudaError_t cudaMallocHost(void **ptr, size_t size)
+cudaError_t cudaMallocHost(void** ptr, size_t size)
 {
     assert(0);
 }
@@ -87,13 +87,13 @@ cudaError_t cudaMemcpy2DAsync(void* dst, size_t dpitch,
     assert(0);
 }
 
-cudaError_t cudaMemcpyAsync(void *dst, const void *src, size_t count,
+cudaError_t cudaMemcpyAsync(void* dst, const void* src, size_t count,
                             cudaMemcpyKind kind, cudaStream_t stream)
 {
     assert(0);
 }
 
-cudaError_t cudaMemcpy(void *dst, const void * src,
+cudaError_t cudaMemcpy(void* dst, const void* src,
                        size_t count, cudaMemcpyKind kind)
 {
     assert(0);
@@ -104,7 +104,7 @@ cudaError_t cudaSetDevice(int device)
     assert(0);
 }
 
-cudaError_t cudaStreamCreate(cudaStream_t *pStream)
+cudaError_t cudaStreamCreate(cudaStream_t* pStream)
 {
     assert(0);
 }

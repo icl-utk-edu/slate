@@ -52,6 +52,8 @@
 #include <functional>
 #include <memory>
 #include <set>
+#include <list>
+#include <tuple>
 #include <utility>
 #include <vector>
 #include <iostream>
@@ -437,6 +439,19 @@ public:
                     tileCopyToDevice(i, j, *iter);
             }
         }
+    }
+
+    ///-------------------------------------------------------------------------
+    typedef std::tuple<int64_t, int64_t, BaseMatrix<scalar_t> > Bcast;
+    typedef std::list<Bcast> BcastList;
+
+    template <Target target = Target::Host>
+    void listBcast(BcastList& bcast_list)
+    {
+        for (auto bcast : bcast_list)
+            tileBcast<target>(std::get<0>(bcast),
+                              std::get<1>(bcast),
+                              std::get<2>(bcast));
     }
 
     ///-------------------------------------------------------------------------

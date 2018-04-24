@@ -67,6 +67,7 @@ void gemm(slate::internal::TargetType<target>,
           int64_t lookahead)
 {
     using namespace blas;
+    using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > bcast_vector( A.nt() );
@@ -78,9 +79,6 @@ void gemm(slate::internal::TargetType<target>,
         C.allocateBatchArrays();
         C.reserveDeviceWorkspace();
     }
-
-    typedef std::tuple<int64_t, int64_t, BaseMatrix<scalar_t> > Bcast;
-    typedef std::list<Bcast> BcastList;
 
     #pragma omp parallel
     #pragma omp master

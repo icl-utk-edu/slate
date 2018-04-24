@@ -71,6 +71,9 @@ namespace slate {
 template <typename scalar_t>
 class BaseMatrix {
 public:
+    using BcastList =
+        std::list<std::tuple<int64_t, int64_t, BaseMatrix<scalar_t> > >;
+
     friend class Debug;
 
     static constexpr bool is_complex = is_complex< scalar_t >::value;
@@ -442,9 +445,6 @@ public:
     }
 
     ///-------------------------------------------------------------------------
-    typedef std::tuple<int64_t, int64_t, BaseMatrix<scalar_t> > Bcast;
-    typedef std::list<Bcast> BcastList;
-
     template <Target target = Target::Host>
     void listBcast(BcastList& bcast_list)
     {

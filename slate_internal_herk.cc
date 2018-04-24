@@ -180,25 +180,23 @@ void herk(internal::TargetType<Target::HostNest>,
 
 //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
     #pragma omp parallel for collapse(2) schedule(dynamic, 1)
-    {
-        for (int64_t j = 0; j < C.nt(); ++j) {
-            for (int64_t i = 0; i < C.mt(); ++i) {  // full
-                if (i >= j+1) {                    // strictly lower
-                    if (C.tileIsLocal(i, j)) {
-                        try {
-                            A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
-                            A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
-                            C.tileMoveToHost(i, j, C.tileDevice(i, j));
-                            auto Aj0 = A(j, 0);
-                            gemm(alpha_, A(i, 0),
-                                         conj_transpose(Aj0),
-                                 beta_,  C(i, j));
-                            A.tileTick(i, 0);
-                            A.tileTick(j, 0);
-                        }
-                        catch (std::exception& e) {
-                            err = __LINE__;
-                        }
+    for (int64_t j = 0; j < C.nt(); ++j) {
+        for (int64_t i = 0; i < C.mt(); ++i) {  // full
+            if (i >= j+1) {                    // strictly lower
+                if (C.tileIsLocal(i, j)) {
+                    try {
+                        A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
+                        A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
+                        C.tileMoveToHost(i, j, C.tileDevice(i, j));
+                        auto Aj0 = A(j, 0);
+                        gemm(alpha_, A(i, 0),
+                                     conj_transpose(Aj0),
+                             beta_,  C(i, j));
+                        A.tileTick(i, 0);
+                        A.tileTick(j, 0);
+                    }
+                    catch (std::exception& e) {
+                        err = __LINE__;
                     }
                 }
             }

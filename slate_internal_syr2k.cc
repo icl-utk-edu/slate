@@ -191,31 +191,29 @@ void syr2k(internal::TargetType<Target::HostNest>,
 
 //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
     #pragma omp parallel for collapse(2) schedule(dynamic, 1)
-    {
-        for (int64_t j = 0; j < C.nt(); ++j) {
-            for (int64_t i = 0; i < C.mt(); ++i) {  // full
-                if (i >= j+1) {                     // strictly lower
-                    if (C.tileIsLocal(i, j)) {
-                        try {
-                            A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
-                            B.tileCopyToHost(j, 0, B.tileDevice(j, 0));
-                            C.tileMoveToHost(i, j, C.tileDevice(i, j));
-                            auto Aj0 = A(j, 0);
-                            auto Bj0 = B(j, 0);
-                            gemm(alpha, A(i, 0),
-                                        transpose(Bj0),
-                                 beta,  C(i, j));
-                            gemm(alpha, B(i, 0),
-                                        transpose(Aj0),
-                                 scalar_t(1.0), C(i, j));
-                            A.tileTick(i, 0);
-                            A.tileTick(j, 0);
-                            B.tileTick(i, 0);
-                            B.tileTick(j, 0);
-                        }
-                        catch (std::exception& e) {
-                            err = __LINE__;
-                        }
+    for (int64_t j = 0; j < C.nt(); ++j) {
+        for (int64_t i = 0; i < C.mt(); ++i) {  // full
+            if (i >= j+1) {                     // strictly lower
+                if (C.tileIsLocal(i, j)) {
+                    try {
+                        A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
+                        B.tileCopyToHost(j, 0, B.tileDevice(j, 0));
+                        C.tileMoveToHost(i, j, C.tileDevice(i, j));
+                        auto Aj0 = A(j, 0);
+                        auto Bj0 = B(j, 0);
+                        gemm(alpha, A(i, 0),
+                                    transpose(Bj0),
+                             beta,  C(i, j));
+                        gemm(alpha, B(i, 0),
+                                    transpose(Aj0),
+                             scalar_t(1.0), C(i, j));
+                        A.tileTick(i, 0);
+                        A.tileTick(j, 0);
+                        B.tileTick(i, 0);
+                        B.tileTick(j, 0);
+                    }
+                    catch (std::exception& e) {
+                        err = __LINE__;
                     }
                 }
             }

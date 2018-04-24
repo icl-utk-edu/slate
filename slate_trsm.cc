@@ -94,7 +94,7 @@ void trsm(slate::internal::TargetType<target>,
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > row_vector(A.nt());
-    uint8_t *row = row_vector.data();
+    uint8_t* row = row_vector.data();
 
     #pragma omp parallel
     #pragma omp master
@@ -180,14 +180,15 @@ void trsm(slate::internal::TargetType<target>,
                               B.sub(k, k, 0, nt-1), 1);
 
                     // send A(i=0:k-1, k) to ranks owning block row B(i, :)
-                    for (int64_t i = 0; i < k; ++i)
+                    for (int64_t i = 0; i < k; ++i) {
                         A.template tileBcast(
                             i, k, B.sub(i, i, 0, nt-1));
-
+                    }
                     // send B(k, j=0:nt-1) to ranks owning block col B(0:k-1, j)
-                    for (int64_t j = 0; j < nt; ++j)
+                    for (int64_t j = 0; j < nt; ++j) {
                         B.template tileBcast(
                             k, j, B.sub(0, k-1, j, j));
+                    }
                 }
 
                 // lookahead update, B(k-la:k-1, :) -= A(k-la:k-1, k) B(k, :)

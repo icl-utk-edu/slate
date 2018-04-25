@@ -136,7 +136,7 @@ extern "C" void scalapack_pdpotrf( const char *uplo, blas_int *n, double *a, bla
 
 extern "C" void scalapack_pcpotrf( const char *uplo, blas_int *n, std::complex<float> *a, blas_int *ia, blas_int *ja, blas_int *desca, blas_int *info );
 
-extern void scalapack_pzpotrf( const char *uplo, blas_int *n, std::complex<double> *a, blas_int *ia, blas_int *ja, blas_int *desca, blas_int *info );
+extern "C" void scalapack_pzpotrf( const char *uplo, blas_int *n, std::complex<double> *a, blas_int *ia, blas_int *ja, blas_int *desca, blas_int *info );
 
 // -----------------------------------------------------------------------------
 
@@ -209,7 +209,7 @@ inline double scalapack_plansy( const char *norm, const char *uplo, blas_int *n,
 }
 
 template < typename scalar_t >
-inline double scalapack_plansy( const char *norm, const char *uplo, int64_t n, scalar_t *a, int64_t ia, int64_t ja, int *desca, blas::real_type < scalar_t > *work )
+inline double scalapack_plansy( const char *norm, const char *uplo, int64_t n, scalar_t *a, int64_t ia, int64_t ja, int *desca, blas::real_type<scalar_t> *work )
 {
     int n_ = int64_to_int( n );
     int ia_ = int64_to_int( ia );

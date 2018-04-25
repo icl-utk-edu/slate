@@ -43,7 +43,6 @@ template < typename scalar_t > void test_potrf_work( Params &params, bool run )
     params.gflops.value();
     params.ref_time.value();
     params.ref_gflops.value();
-    params.error2.value();
 
     if( !run )
         return;
@@ -64,10 +63,9 @@ template < typename scalar_t > void test_potrf_work( Params &params, bool run )
     Cblacs_pinfo( &iam, &nprocs );
     assert( p*q <= nprocs );
     Cblacs_get( -1, 0, &ictxt );
-    Cblacs_gridinit( &ictxt, "Row", p, q );
+    Cblacs_gridinit( &ictxt, "Col", p, q );
     Cblacs_gridinfo( ictxt, &nprow, &npcol, &myrow, &mycol );
 
-    // todo: matrix A is a unit, or non-unit, upper or lower triangular distributed matrix,
     // matrix A, figure out local size, allocate, create descriptor, initialize
     int64_t mlocA = scalapack_numroc( Am, nb, myrow, i0, nprow );
     int64_t nlocA = scalapack_numroc( An, nb, mycol, i0, npcol );
@@ -78,7 +76,7 @@ template < typename scalar_t > void test_potrf_work( Params &params, bool run )
     scalapack_pplghe( &A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1 );
 
     // Create SLATE matrix from the ScaLAPACK layouts
-    auto A = slate::HermitianMatrix < scalar_t >::fromScaLAPACK( uplo, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD );
+    auto A = slate::HermitianMatrix < scalar_t >::fromScaLAPACK( uplo, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD );
 
     // if check is required, copy test data and create a descriptor for it
     std::vector< scalar_t > A_ref;
@@ -124,7 +122,7 @@ template < typename scalar_t > void test_potrf_work( Params &params, bool run )
 
         // allocate work space
         size_t ldw = nb * ceil( ceil( mlocA / ( double ) nb ) / ( scalapack_ilcm( &nprow, &npcol ) / nprow ) );
-        std::vector < scalar_t > worklansy( 2 * nlocA + mlocA + ldw );
+        std::vector < real_t > worklansy( 2 * nlocA + mlocA + ldw );
 
         // norm of A
         real_t A_ref_norm = scalapack_plansy( "I", uplo2str(uplo), n, &A_ref[0], i1, i1, descA_ref, &worklansy[0] );
@@ -141,11 +139,11 @@ template < typename scalar_t > void test_potrf_work( Params &params, bool run )
 
         params.ref_time.value() = time_ref;
         params.ref_gflops.value() = gflop / time_ref;
-        params.error2.value() = error_norm;
+        params.error.value() = error_norm;
     }
 
     real_t eps = std::numeric_limits< real_t >::epsilon();
-    params.okay.value() = ( ( params.error.value() <= 50*eps ) && ( params.error2.value() <= 50*eps ) );
+    params.okay.value() = ( ( params.error.value() <= 50*eps ) );
 
     // Cblacs_exit is commented out because it does not handle re-entering ... some unknown problem
     // Cblacs_exit( 1 ); // 1 means that you can run Cblacs again
@@ -168,11 +166,11 @@ void test_potrf( Params &params, bool run )
         break;
 
     case libtest::DataType::SingleComplex:
-        throw std::exception();     // test_potrf_work< std::complex<float> >( params, run );
+        test_potrf_work< std::complex<float> >( params, run );
         break;
 
     case libtest::DataType::DoubleComplex:
-        throw std::exception();     // test_potrf_work< std::complex<double> >( params, run );
+        test_potrf_work< std::complex<double> >( params, run );
         break;
     }
 }

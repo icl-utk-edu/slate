@@ -39,7 +39,7 @@ static inline ull Rnd64_jump( ull n, ull seed )
 
 template< typename scalar_t >
 static inline void CORE_plrnt( int64_t m, int64_t n, scalar_t *A, int64_t lda,
-                               int64_t bigM, int64_t m0, int64_t n0, int64_t seed )
+                               int64_t bigM, int64_t m0, int64_t n0, ull seed )
 {
     scalar_t *tmp = A;
     int64_t i, j;

@@ -469,7 +469,7 @@ Params::Params():
 
     //          name,      w, p, type,            def,   min,     max, help
     dim       ( "dim",     6,    ParamType::List,          0, 1000000, "m x n x k dimensions" ),
-    nb        ( "nb",      6,    ParamType::List, 96,      0, 1000000, "nb" ),
+    nb        ( "nb",      6,    ParamType::List, 100,     0, 1000000, "nb" ),
     nt        ( "nt",      6,    ParamType::List, 3,       0, 1000000, "nt" ),
     p         ( "p",       6,    ParamType::List, 1,       0, 1000000, "p" ),
     q         ( "q",       6,    ParamType::List, 1,       0, 1000000, "q" ),
@@ -606,7 +606,7 @@ int main( int argc, char** argv )
             catch (...) {
                 // happens for assert_throw failures
                 params.okay.value() = false;
-                printf( "Caught error\n" );
+                printf( "Caught unknown error when calling test routine\n" );
             }
             if ( mpi_rank == 0 ) params.print();
             status += ! params.okay.value();

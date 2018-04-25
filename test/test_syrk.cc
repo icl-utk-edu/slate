@@ -15,9 +15,9 @@
 
 #ifdef SLATE_WITH_MKL
 extern "C" int MKL_Set_Num_Threads( int nt );
-inline int slate_set_num_threads( const int nt ) { return MKL_Set_Num_Threads( nt ); }
+inline int slate_set_num_blas_threads( const int nt ) { return MKL_Set_Num_Threads( nt ); }
 #else
-inline int slate_set_num_threads( const int nt ) { return -1; }
+inline int slate_set_num_blas_threads( const int nt ) { return -1; }
 #endif
 
 //------------------------------------------------------------------------------
@@ -76,7 +76,7 @@ void test_syrk_work( Params &params, bool run )
     Cblacs_pinfo( &iam, &nprocs );
     assert( p*q <= nprocs );
     Cblacs_get( -1, 0, &ictxt );
-    Cblacs_gridinit( &ictxt, "Row", p, q );
+    Cblacs_gridinit( &ictxt, "Col", p, q );
     Cblacs_gridinfo( ictxt, &nprow, &npcol, &myrow, &mycol );
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
@@ -144,7 +144,7 @@ void test_syrk_work( Params &params, bool run )
         int omp_num_threads;
         #pragma omp parallel
         { omp_num_threads = omp_get_num_threads(); }
-        int saved_num_threads = slate_set_num_threads( omp_num_threads );
+        int saved_num_threads = slate_set_num_blas_threads( omp_num_threads );
 
         // run the reference routine
         MPI_Barrier( MPI_COMM_WORLD );
@@ -165,7 +165,7 @@ void test_syrk_work( Params &params, bool run )
         real_t C_tst_norm = scalapack_plange( "I", Cm, Cn, &C_tst[0], i1, i1, descC_tst, &worklange[0] );
 
         // norm(C_ref - C_tst)
-        real_t error_norm = scalapack_plange( "I", Cm, Cn, &C_ref[0], i1, i1, descC_tst, &worklange[0] );
+        real_t error_norm = scalapack_plange( "I", Cm, Cn, &C_ref[0], i1, i1, descC_ref, &worklange[0] );
 
         if( C_tst_norm != 0 )
             error_norm /=  C_tst_norm;
@@ -174,7 +174,7 @@ void test_syrk_work( Params &params, bool run )
         params.ref_gflops.value() = gflop / time_ref;
         params.error.value() = error_norm;
 
-        slate_set_num_threads( saved_num_threads );
+        slate_set_num_blas_threads( saved_num_threads );
     }
 
     real_t eps = std::numeric_limits< real_t >::epsilon();

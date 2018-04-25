@@ -15,9 +15,9 @@
 
 #ifdef SLATE_WITH_MKL
 extern "C" int MKL_Set_Num_Threads( int nt );
-inline int slate_set_num_threads( const int nt ) { return MKL_Set_Num_Threads( nt ); }
+inline int slate_set_num_blas_threads( const int nt ) { return MKL_Set_Num_Threads( nt ); }
 #else
-inline int slate_set_num_threads( const int nt ) { return -1; }
+inline int slate_set_num_blas_threads( const int nt ) { return -1; }
 #endif
 
 //------------------------------------------------------------------------------
@@ -77,26 +77,26 @@ void test_trmm_work( Params &params, bool run )
     Cblacs_pinfo( &iam, &nprocs );
     assert( p*q <= nprocs );
     Cblacs_get( -1, 0, &ictxt );
-    Cblacs_gridinit( &ictxt, "Row", p, q );
+    Cblacs_gridinit( &ictxt, "Col", p, q );
     Cblacs_gridinfo( ictxt, &nprow, &npcol, &myrow, &mycol );
 
     // todo: matrix a is a unit, or non-unit, upper or lower triangular distributed matrix,
     // matrix A, figure out local size, allocate, create descriptor, initialize
     int64_t mlocA = scalapack_numroc( Am, nb, myrow, i0, nprow );
     int64_t nlocA = scalapack_numroc( An, nb, mycol, i0, npcol );
-    std::vector< scalar_t > A_tst( mlocA * nlocA );
     scalapack_descinit( descA_tst, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info );
     assert( info==0 );
     int64_t lldA = ( int64_t )descA_tst[8];
+    std::vector< scalar_t > A_tst( lldA * nlocA );
     scalapack_pplghe( &A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1 );
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
     int64_t mlocB = scalapack_numroc( Bm, nb, myrow, i0, nprow );
     int64_t nlocB = scalapack_numroc( Bn, nb, mycol, i0, npcol );
-    std::vector< scalar_t > B_tst( mlocB * nlocB );
     scalapack_descinit( descB_tst, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info );
     assert( info==0 );
     int64_t lldB = ( int64_t )descB_tst[8];
+    std::vector< scalar_t > B_tst( lldB * nlocB );
     scalapack_pplrnt( &B_tst[0], Bm, Bn, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed+1 );
 
     // if check is required, copy test data and create a descriptor for it
@@ -150,7 +150,7 @@ void test_trmm_work( Params &params, bool run )
         int omp_num_threads;
         #pragma omp parallel
         { omp_num_threads = omp_get_num_threads(); }
-        int saved_num_threads = slate_set_num_threads( omp_num_threads );
+        int saved_num_threads = slate_set_num_blas_threads( omp_num_threads );
 
         // run the reference routine
         MPI_Barrier( MPI_COMM_WORLD );
@@ -181,7 +181,7 @@ void test_trmm_work( Params &params, bool run )
         params.ref_gflops.value() = gflop / time_ref;
         params.error.value() = error_norm;
 
-        slate_set_num_threads( saved_num_threads );
+        slate_set_num_blas_threads( saved_num_threads );
     }
 
     real_t eps = std::numeric_limits< real_t >::epsilon();

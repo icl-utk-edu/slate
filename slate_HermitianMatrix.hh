@@ -48,135 +48,287 @@
 #include "lapack.hh"
 
 #include <algorithm>
-#include <functional>
-#include <memory>
-#include <set>
 #include <utility>
-#include <vector>
-#include <iostream>
 
 #include "slate_mpi.hh"
 
 namespace slate {
 
-///=============================================================================
+//==============================================================================
+/// Hermitian, n-by-n, distributed, tiled matrices.
 template <typename scalar_t>
 class HermitianMatrix: public BaseTrapezoidMatrix< scalar_t > {
 public:
-    ///-------------------------------------------------------------------------
-    /// Default constructor
-    HermitianMatrix():
-        BaseTrapezoidMatrix< scalar_t >()
-    {}
+    // constructors
+    HermitianMatrix();
 
-    ///-------------------------------------------------------------------------
-    /// Construct matrix by wrapping existing memory of an n-by-n lower
-    /// or upper Hermitian LAPACK-style matrix.
-    /// @see BaseTrapezoidMatrix
     static
     HermitianMatrix fromLAPACK(Uplo uplo, int64_t n,
                                scalar_t* A, int64_t lda, int64_t nb,
-                               int p, int q, MPI_Comm mpi_comm)
-    {
-        return HermitianMatrix(uplo, n, A, lda, nb, p, q, mpi_comm);
-    }
+                               int p, int q, MPI_Comm mpi_comm);
 
-    ///-------------------------------------------------------------------------
-    /// Construct matrix by wrapping existing memory of an n-by-n lower
-    /// or upper Hermitian ScaLAPACK-style matrix.
-    /// @see BaseTrapezoidMatrix
     static
     HermitianMatrix fromScaLAPACK(Uplo uplo, int64_t n,
                                   scalar_t* A, int64_t lda, int64_t nb,
-                                  int p, int q, MPI_Comm mpi_comm)
-    {
-        // note extra nb
-        return HermitianMatrix(uplo, n, A, lda, nb, nb, p, q, mpi_comm);
-    }
+                                  int p, int q, MPI_Comm mpi_comm);
 
-    ///-------------------------------------------------------------------------
-    /// @see fromLAPACK
-    /// todo: make this protected
+    // conversion
+    explicit HermitianMatrix(BaseTrapezoidMatrix< scalar_t >& orig);
+
+    HermitianMatrix(Uplo uplo, Matrix< scalar_t >& orig);
+
+    // sub-matrix
+    HermitianMatrix sub(int64_t i1, int64_t i2);
+
+    Matrix< scalar_t > sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
+
+protected:
+    // used by fromLAPACK
     HermitianMatrix(Uplo uplo, int64_t n,
                     scalar_t* A, int64_t lda, int64_t nb,
-                    int p, int q, MPI_Comm mpi_comm):
-        BaseTrapezoidMatrix< scalar_t >(uplo, n, n, A, lda, nb, p, q, mpi_comm)
-    {}
+                    int p, int q, MPI_Comm mpi_comm);
 
-    ///-------------------------------------------------------------------------
-    /// @see fromScaLAPACK
-    /// This differs from LAPACK constructor by adding mb.
-    /// todo: make this protected
+    // used by fromScaLAPACK
     HermitianMatrix(Uplo uplo, int64_t n,
                     scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
-                    int p, int q, MPI_Comm mpi_comm):
-        BaseTrapezoidMatrix< scalar_t >(uplo, n, n, A, lda, mb, nb, p, q, mpi_comm)
-    {}
+                    int p, int q, MPI_Comm mpi_comm);
 
-    ///-------------------------------------------------------------------------
-    /// Conversion from trapezoid, triangular, symmetric, or Hermitian matrix
-    /// creates a shallow copy view of the original matrix.
-    /// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
-    explicit HermitianMatrix(BaseTrapezoidMatrix< scalar_t >& orig):
-        BaseTrapezoidMatrix< scalar_t >(orig,
-            0, std::min( orig.mt()-1, orig.nt()-1 ),
-            0, std::min( orig.mt()-1, orig.nt()-1 ))
-    {}
-
-    ///-------------------------------------------------------------------------
-    /// Conversion from general matrix
-    /// creates a shallow copy view of the original matrix.
-    /// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
-    HermitianMatrix(Uplo uplo, Matrix< scalar_t >& orig):
-        BaseTrapezoidMatrix< scalar_t >(uplo, orig,
-            0, std::min( orig.mt()-1, orig.nt()-1 ),
-            0, std::min( orig.mt()-1, orig.nt()-1 ))
-    {}
-
-    ///-------------------------------------------------------------------------
-    /// Sub-matrix constructor creates shallow copy view of parent matrix,
-    /// A[ i1:i2, i1:i2 ]. The new view is still a Hermitian matrix, with the
-    /// same diagonal as the parent matrix.
+    // used by sub
     HermitianMatrix(HermitianMatrix& orig,
-                    int64_t i1, int64_t i2):
-        BaseTrapezoidMatrix< scalar_t >(orig, i1, i2, i1, i2)
-    {}
+                    int64_t i1, int64_t i2);
 
-    ///-------------------------------------------------------------------------
-    /// @return sub-matrix that is a shallow copy view of the
-    /// parent matrix, A[ i1:i2, i1:i2 ].
-    /// This version returns a HermitianMatrix with the same diagonal as the
-    /// parent matrix.
-    /// @see Matrix TrapezoidMatrix::sub(int64_t i1, int64_t i2,
-    ///                                  int64_t j1, int64_t j2)
-    HermitianMatrix sub(int64_t i1, int64_t i2)
-    {
-        return HermitianMatrix(*this, i1, i2);
-    }
-
-    ///-------------------------------------------------------------------------
-    /// @return off-diagonal sub-matrix that is a shallow copy view of the
-    /// parent matrix, A[ i1:i2, j1:j2 ].
-    /// This version returns a general Matrix, which:
-    /// - if uplo = Lower, is strictly below the diagonal, or
-    /// - if uplo = Upper, is strictly above the diagonal.
-    /// @see TrapezoidMatrix sub(int64_t i1, int64_t i2)
-    Matrix< scalar_t > sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2)
-    {
-        return BaseTrapezoidMatrix< scalar_t >::sub(i1, i2, j1, j2);
-    }
-
-    ///-------------------------------------------------------------------------
-    /// Swaps contents of matrices A and B.
-    // (This isn't really needed over BaseTrapezoidMatrix swap, but is here as a
-    // reminder in case any members are added that aren't in BaseTrapezoidMatrix.)
-    friend void swap(HermitianMatrix& A, HermitianMatrix& B)
-    {
-        using std::swap;
-        swap(static_cast< BaseTrapezoidMatrix< scalar_t >& >(A),
-             static_cast< BaseTrapezoidMatrix< scalar_t >& >(B));
-    }
+public:
+    template <typename T>
+    friend void swap(HermitianMatrix<T>& A, HermitianMatrix<T>& B);
 };
+
+//------------------------------------------------------------------------------
+/// Default constructor
+template <typename scalar_t>
+HermitianMatrix<scalar_t>::HermitianMatrix():
+    BaseTrapezoidMatrix< scalar_t >()
+{}
+
+//------------------------------------------------------------------------------
+/// [static]
+/// Named constructor returns a new Matrix from LAPACK layout.
+/// Construct matrix by wrapping existing memory of an n-by-n lower
+/// or upper Hermitian LAPACK-style matrix.
+///
+/// @param[in] in_uplo
+///     - Upper: upper triangle of A is stored.
+///     - Lower: lower triangle of A is stored.
+///
+/// @param[in] n
+///     Number of rows and columns of the matrix. n >= 0.
+///
+/// @param[in,out] A
+///     The n-by-n Hermitian matrix A, stored in an lda-by-n array.
+///
+/// @param[in] lda
+///     Leading dimension of the array A. lda >= m.
+///
+/// @param[in] nb
+///     Block size in 2D block-cyclic distribution.
+///
+/// @param[in] p
+///     Number of block rows in 2D block-cyclic distribution. p > 0.
+///
+/// @param[in] q
+///     Number of block columns of 2D block-cyclic distribution. q > 0.
+///
+/// @param[in] mpi_comm
+///     MPI communicator to distribute matrix across.
+///     p*q == MPI_Comm_size(mpi_comm).
+template <typename scalar_t>
+HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::fromLAPACK(
+    Uplo uplo, int64_t n,
+    scalar_t* A, int64_t lda, int64_t nb,
+    int p, int q, MPI_Comm mpi_comm)
+{
+    return HermitianMatrix(uplo, n, A, lda, nb, p, q, mpi_comm);
+}
+
+//------------------------------------------------------------------------------
+/// [static]
+/// Named constructor returns a new Matrix from ScaLAPACK layout.
+/// Construct matrix by wrapping existing memory of an n-by-n lower
+/// or upper Hermitian ScaLAPACK-style matrix.
+/// @see BaseTrapezoidMatrix
+///
+/// @param[in] in_uplo
+///     - Upper: upper triangle of A is stored.
+///     - Lower: lower triangle of A is stored.
+///
+/// @param[in] n
+///     Number of rows and columns of the matrix. n >= 0.
+///
+/// @param[in,out] A
+///     The local portion of the 2D block cyclic distribution of
+///     the n-by-n matrix A, with local leading dimension lda.
+///
+/// @param[in] lda
+///     Local leading dimension of the array A. lda >= local number of rows.
+///
+/// @param[in] nb
+///     Block size in 2D block-cyclic distribution. nb > 0.
+///
+/// @param[in] p
+///     Number of block rows in 2D block-cyclic distribution. p > 0.
+///
+/// @param[in] q
+///     Number of block columns of 2D block-cyclic distribution. q > 0.
+///
+/// @param[in] mpi_comm
+///     MPI communicator to distribute matrix across.
+///     p*q == MPI_Comm_size(mpi_comm).
+template <typename scalar_t>
+HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::fromScaLAPACK(
+    Uplo uplo, int64_t n,
+    scalar_t* A, int64_t lda, int64_t nb,
+    int p, int q, MPI_Comm mpi_comm)
+{
+    // note extra nb
+    return HermitianMatrix(uplo, n, A, lda, nb, nb, p, q, mpi_comm);
+}
+
+//------------------------------------------------------------------------------
+/// @see fromLAPACK
+template <typename scalar_t>
+HermitianMatrix<scalar_t>::HermitianMatrix(
+    Uplo uplo, int64_t n,
+    scalar_t* A, int64_t lda, int64_t nb,
+    int p, int q, MPI_Comm mpi_comm)
+    : BaseTrapezoidMatrix< scalar_t >(uplo, n, n, A, lda, nb, p, q, mpi_comm)
+{}
+
+//------------------------------------------------------------------------------
+/// @see fromScaLAPACK
+/// This differs from LAPACK constructor by adding mb.
+template <typename scalar_t>
+HermitianMatrix<scalar_t>::HermitianMatrix(
+    Uplo uplo, int64_t n,
+    scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
+    int p, int q, MPI_Comm mpi_comm)
+    : BaseTrapezoidMatrix< scalar_t >(uplo, n, n, A, lda, mb, nb, p, q, mpi_comm)
+{}
+
+//------------------------------------------------------------------------------
+/// [explicit]
+/// Conversion from trapezoid, triangular, symmetric, or Hermitian matrix
+/// creates a shallow copy view of the original matrix.
+/// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+///
+/// @param[in,out] orig
+///     Original matrix.
+template <typename scalar_t>
+HermitianMatrix<scalar_t>::HermitianMatrix(
+    BaseTrapezoidMatrix< scalar_t >& orig)
+    : BaseTrapezoidMatrix< scalar_t >(
+        orig,
+        0, std::min( orig.mt()-1, orig.nt()-1 ),
+        0, std::min( orig.mt()-1, orig.nt()-1 ))
+{}
+
+//------------------------------------------------------------------------------
+/// Conversion from general matrix
+/// creates a shallow copy view of the original matrix.
+/// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+///
+/// @param[in] in_uplo
+///     - Upper: upper triangle of A is stored.
+///     - Lower: lower triangle of A is stored.
+///
+/// @param[in,out] orig
+///     Original matrix.
+template <typename scalar_t>
+HermitianMatrix<scalar_t>::HermitianMatrix(
+    Uplo uplo, Matrix< scalar_t >& orig)
+    : BaseTrapezoidMatrix< scalar_t >(
+        uplo, orig,
+        0, std::min( orig.mt()-1, orig.nt()-1 ),
+        0, std::min( orig.mt()-1, orig.nt()-1 ))
+{}
+
+//------------------------------------------------------------------------------
+/// Sub-matrix constructor creates shallow copy view of parent matrix,
+/// A[ i1:i2, i1:i2 ]. The new view is still a Hermitian matrix, with the
+/// same diagonal as the parent matrix.
+///
+/// @param[in,out] orig
+///     Original matrix.
+///
+/// @param[in] i1
+///     Starting block row and column index. 0 <= i1 < mt.
+///
+/// @param[in] i2
+///     Ending block row and column index (inclusive). i2 < mt.
+template <typename scalar_t>
+HermitianMatrix<scalar_t>::HermitianMatrix(
+    HermitianMatrix& orig,
+    int64_t i1, int64_t i2)
+    : BaseTrapezoidMatrix< scalar_t >(orig, i1, i2, i1, i2)
+{}
+
+//------------------------------------------------------------------------------
+/// Returns sub-matrix that is a shallow copy view of the
+/// parent matrix, A[ i1:i2, i1:i2 ].
+/// This version returns a HermitianMatrix with the same diagonal as the
+/// parent matrix.
+/// @see Matrix TrapezoidMatrix::sub(int64_t i1, int64_t i2,
+///                                  int64_t j1, int64_t j2)
+///
+/// @param[in] i1
+///     Starting block row and column index. 0 <= i1 < mt.
+///
+/// @param[in] i2
+///     Ending block row and column index (inclusive). i2 < mt.
+template <typename scalar_t>
+HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::sub(
+    int64_t i1, int64_t i2)
+{
+    return HermitianMatrix(*this, i1, i2);
+}
+
+//------------------------------------------------------------------------------
+/// Returns off-diagonal sub-matrix that is a shallow copy view of the
+/// parent matrix, A[ i1:i2, j1:j2 ].
+/// This version returns a general Matrix, which:
+/// - if uplo = Lower, is strictly below the diagonal, or
+/// - if uplo = Upper, is strictly above the diagonal.
+/// @see TrapezoidMatrix sub(int64_t i1, int64_t i2)
+///
+/// @param[in] i1
+///     Starting block row index. 0 <= i1 < mt.
+///
+/// @param[in] i2
+///     Ending block row index (inclusive). i2 < mt.
+///
+/// @param[in] j1
+///     Starting block column index. 0 <= j1 < nt.
+///
+/// @param[in] j2
+///     Ending block column index (inclusive). j2 < nt.
+template <typename scalar_t>
+Matrix< scalar_t > HermitianMatrix<scalar_t>::sub(
+    int64_t i1, int64_t i2,
+    int64_t j1, int64_t j2)
+{
+    return BaseTrapezoidMatrix< scalar_t >::sub(i1, i2, j1, j2);
+}
+
+//------------------------------------------------------------------------------
+/// Swaps contents of matrices A and B.
+//
+// (This isn't really needed over BaseTrapezoidMatrix swap, but is here as a
+// reminder in case any members are added that aren't in BaseTrapezoidMatrix.)
+template <typename scalar_t>
+void swap(HermitianMatrix<scalar_t>& A, HermitianMatrix<scalar_t>& B)
+{
+    using std::swap;
+    swap(static_cast< BaseTrapezoidMatrix< scalar_t >& >(A),
+         static_cast< BaseTrapezoidMatrix< scalar_t >& >(B));
+}
 
 } // namespace slate
 

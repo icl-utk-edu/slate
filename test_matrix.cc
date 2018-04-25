@@ -134,10 +134,12 @@ void test_empty()
 // swap( A, B )
 // Tile operator ( i, j )
 // Tile at( i, j )
-// mt, nt, op, size
+// mt, nt, op
 // transpose
 // conj_transpose
 // tileRank, tileDevice, tileIsLocal, tileMb, tileNb
+//
+// removed: size
 
 void test_general( int m, int n, int nb, int p, int q )
 {
@@ -167,7 +169,7 @@ void test_general( int m, int n, int nb, int p, int q )
                   << " ): mt="  << A.mt()
                   << ", nt="    << A.nt()
                   << ", op="    << char(A.op())
-                  << ", size="  << A.size()
+                //<< ", size="  << A.size()
                   << "\n";
         std::cout << "B( n="    << n
                   << ", n="     << n
@@ -175,7 +177,7 @@ void test_general( int m, int n, int nb, int p, int q )
                   << " ): mt="  << B.mt()
                   << ", nt="    << B.nt()
                   << ", op="    << char(B.op())
-                  << ", size="  << B.size()
+                //<< ", size="  << B.size()
                   << "\n";
     }
     test_assert( A.mt() == (m + nb - 1) / nb );
@@ -300,9 +302,9 @@ void test_general( int m, int n, int nb, int p, int q )
     }
 
     // ----- verify size (# tiles)
-    test_message( "size" );
-    size_t size = (mt/p + (mt%p > g_mpi_rank%p)) * (nt/q + (nt%q > g_mpi_rank/p));
-    test_assert( A.size() == size );
+    //test_message( "size" );
+    //size_t size = (mt/p + (mt%p > g_mpi_rank%p)) * (nt/q + (nt%q > g_mpi_rank/p));
+    //test_assert( A.size() == size );
 
     // ----- verify tile functions
     test_message( "tileRank, tileDevice, tileIsLocal" );
@@ -545,7 +547,7 @@ void test_general_sub( int m, int n, int nb, int p, int q )
         test_assert( 0 <= j1 && j1 - 2 <= j2 && j2 < nt );
 
         auto As = A.sub( i1, i2, j1, j2 );
-        slate::Matrix<double> As2( A, i1, i2, j1, j2 );
+        //slate::Matrix<double> As2( A, i1, i2, j1, j2 );  // protected now
         if (g_mpi_rank == 0) {
             std::cout << "A.sub( " << std::setw(3) << i1 << ": " << std::setw(3) << i2
                       << ", "      << std::setw(3) << j1 << ": " << std::setw(3) << j2
@@ -572,8 +574,8 @@ void test_general_sub( int m, int n, int nb, int p, int q )
         test_assert( As.mt() == i2 - i1 + 1 );
         test_assert( As.nt() == j2 - j1 + 1 );
 
-        test_assert( As2.mt() == i2 - i1 + 1 );
-        test_assert( As2.nt() == j2 - j1 + 1 );
+        //test_assert( As2.mt() == i2 - i1 + 1 );
+        //test_assert( As2.nt() == j2 - j1 + 1 );
 
         std::set<int> ranks, ranks2;
         As.getRanks( &ranks );
@@ -587,28 +589,28 @@ void test_general_sub( int m, int n, int nb, int p, int q )
                 test_assert( As.tileNb     ( j )    == A.tileNb     ( j + j1 ));
                 test_assert( As.tileIsLocal( i, j ) == A.tileIsLocal( i + i1, j + j1 ));
 
-                test_assert( As2.tileRank   ( i, j ) == A.tileRank   ( i + i1, j + j1 ));
-                test_assert( As2.tileDevice ( i, j ) == A.tileDevice ( i + i1, j + j1 ));
-                test_assert( As2.tileRank   ( i, j ) == A.tileRank   ( i + i1, j + j1 ));
-                test_assert( As2.tileMb     ( i )    == A.tileMb     ( i + i1 ));
-                test_assert( As2.tileNb     ( j )    == A.tileNb     ( j + j1 ));
-                test_assert( As2.tileIsLocal( i, j ) == A.tileIsLocal( i + i1, j + j1 ));
+                //test_assert( As2.tileRank   ( i, j ) == A.tileRank   ( i + i1, j + j1 ));
+                //test_assert( As2.tileDevice ( i, j ) == A.tileDevice ( i + i1, j + j1 ));
+                //test_assert( As2.tileRank   ( i, j ) == A.tileRank   ( i + i1, j + j1 ));
+                //test_assert( As2.tileMb     ( i )    == A.tileMb     ( i + i1 ));
+                //test_assert( As2.tileNb     ( j )    == A.tileNb     ( j + j1 ));
+                //test_assert( As2.tileIsLocal( i, j ) == A.tileIsLocal( i + i1, j + j1 ));
 
                 if (As.tileIsLocal( i, j )) {
                     auto T  = A( i + i1, j + j1 );
                     auto T1 = As( i, j );
-                    auto T2 = As2( i, j );
+                    //auto T2 = As2( i, j );
                     test_assert( T.data() == T1.data() );
                     test_assert( T.mb()   == T1.mb()   );
                     test_assert( T.nb()   == T1.nb()   );
                     test_assert( T.op()   == T1.op()   );
                     test_assert( T.uplo() == T1.uplo() );
 
-                    test_assert( T.data() == T2.data() );
-                    test_assert( T.mb()   == T2.mb()   );
-                    test_assert( T.nb()   == T2.nb()   );
-                    test_assert( T.op()   == T2.op()   );
-                    test_assert( T.uplo() == T2.uplo() );
+                    //test_assert( T.data() == T2.data() );
+                    //test_assert( T.mb()   == T2.mb()   );
+                    //test_assert( T.nb()   == T2.nb()   );
+                    //test_assert( T.op()   == T2.op()   );
+                    //test_assert( T.uplo() == T2.uplo() );
                 }
 
                 ranks2.insert( As.tileRank( i, j ));
@@ -1384,7 +1386,7 @@ void test_hermitian( blas::Uplo uplo, int n, int nb, int p, int q )
                   << ", nt="    << A.nt()
                   << ", op="    << char(A.op())
                   << ", uplo="  << char(A.uplo())
-                  << ", size="  << A.size()
+                //<< ", size="  << A.size()
                   << "\n";
     }
     test_assert( A.mt() == (n + nb - 1) / nb );
@@ -1440,19 +1442,19 @@ void test_hermitian( blas::Uplo uplo, int n, int nb, int p, int q )
     }
 
     // ----- verify size (# tiles)
-    test_message( "size" );
-    size_t size = 0;
-    for (int j = 0; j < nt; ++j) {
-        for (int i = 0; i < mt; ++i) {
-            if ((uplo == blas::Uplo::Lower && i >= j) ||
-                (uplo == blas::Uplo::Upper && i <= j)) {
-                if (i % p == g_mpi_rank % p && j % q == g_mpi_rank / p) {
-                    ++size;
-                }
-            }
-        }
-    }
-    test_assert( A.size() == size );
+    //test_message( "size" );
+    //size_t size = 0;
+    //for (int j = 0; j < nt; ++j) {
+    //    for (int i = 0; i < mt; ++i) {
+    //        if ((uplo == blas::Uplo::Lower && i >= j) ||
+    //            (uplo == blas::Uplo::Upper && i <= j)) {
+    //            if (i % p == g_mpi_rank % p && j % q == g_mpi_rank / p) {
+    //                ++size;
+    //            }
+    //        }
+    //    }
+    //}
+    //test_assert( A.size() == size );
 
     // ----- verify tile functions
     test_message( "tileRank, tileDevice, tileIsLocal" );
@@ -1521,11 +1523,13 @@ void test_conversion( blas::Uplo uplo, int m, int n, int nb, int p, int q )
     slate::TrapezoidMatrix<double> ZB( uplo, B );
 
     // sub-matrix constructor
-    slate::TrapezoidMatrix<double> ZB2( ZB, 1, ZB.mt()-1, 1, ZB.nt()-1 );
+    // protected now
+    //slate::TrapezoidMatrix<double> ZB2( ZB, 1, ZB.mt()-1, 1, ZB.nt()-1 );
 
     // sub-matrix constructor throws exception if i1 != j1
-    test_assert_throw( slate::TrapezoidMatrix<double>( ZB, 1, ZB.mt()-1, 2, ZB.nt()-1 ),
-                       std::exception );
+    // protected now
+    //test_assert_throw( slate::TrapezoidMatrix<double>( ZB, 1, ZB.mt()-1, 2, ZB.nt()-1 ),
+    //                   std::exception );
 
     test_assert( ZA.mt() == A.mt() );
     test_assert( ZA.nt() == A.nt() );

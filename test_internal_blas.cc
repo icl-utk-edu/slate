@@ -384,7 +384,7 @@ void test_gemm( slate::Target target )
         int ldc = Cm + 1;
         std::vector< scalar_t > Cdata( ldc*Cn );
         lapack::larnv( 1, iseed, Cdata.size(), Cdata.data() );
-        slate::Matrix< scalar_t > C( Cm, Cn, Cdata.data(), ldc, nb, p, q, g_mpi_comm );
+        auto C = slate::Matrix< scalar_t >::fromLAPACK( Cm, Cn, Cdata.data(), ldc, nb, p, q, g_mpi_comm );
         if (ic == 1)
             C = transpose( C );
         else if (ic == 2 )
@@ -405,7 +405,7 @@ void test_gemm( slate::Target target )
         int ldb = Bm + 1;
         std::vector< scalar_t > Bdata( ldb*Bn );
         lapack::larnv( 1, iseed, Bdata.size(), Bdata.data() );
-        slate::Matrix< scalar_t > B( Bm, Bn, Bdata.data(), ldb, nb, p, q, g_mpi_comm );
+        auto B = slate::Matrix< scalar_t >::fromLAPACK( Bm, Bn, Bdata.data(), ldb, nb, p, q, g_mpi_comm );
         if (ib == 1)
             B = transpose( B );
         else if (ib == 2 )
@@ -419,7 +419,7 @@ void test_gemm( slate::Target target )
         int lda = Am + 1;
         std::vector< scalar_t > Adata( lda*An );
         lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
-        slate::Matrix< scalar_t > A( Am, An, Adata.data(), lda, nb, p, q, g_mpi_comm );
+        auto A = slate::Matrix< scalar_t >::fromLAPACK( Am, An, Adata.data(), lda, nb, p, q, g_mpi_comm );
         if (ia == 1)
             A = transpose( A );
         else if (ia == 2 )
@@ -546,7 +546,7 @@ void test_syrk( slate::Target target )
         int ldc = n + 1;
         std::vector< scalar_t > Cdata( ldc*n );
         lapack::larnv( 1, iseed, Cdata.size(), Cdata.data() );
-        slate::SymmetricMatrix< scalar_t > C( uplo, n, Cdata.data(), ldc, nb, p, q, g_mpi_comm );
+        auto C = slate::SymmetricMatrix< scalar_t >::fromLAPACK( uplo, n, Cdata.data(), ldc, nb, p, q, g_mpi_comm );
         if (ic == 1)
             C = transpose( C );
         else if (ic == 2 )
@@ -578,7 +578,7 @@ void test_syrk( slate::Target target )
         int lda = Am + 1;
         std::vector< scalar_t > Adata( lda*An );
         lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
-        slate::Matrix< scalar_t > A( Am, An, Adata.data(), lda, nb, p, q, g_mpi_comm );
+        auto A = slate::Matrix< scalar_t >::fromLAPACK( Am, An, Adata.data(), lda, nb, p, q, g_mpi_comm );
         if (ia == 1)
             A = transpose( A );
         else if (ia == 2 )
@@ -710,7 +710,7 @@ void test_herk( slate::Target target )
         int ldc = n + 1;
         std::vector< scalar_t > Cdata( ldc*n );
         lapack::larnv( 1, iseed, Cdata.size(), Cdata.data() );
-        slate::HermitianMatrix< scalar_t > C( uplo, n, Cdata.data(), ldc, nb, p, q, g_mpi_comm );
+        auto C = slate::HermitianMatrix< scalar_t >::fromLAPACK( uplo, n, Cdata.data(), ldc, nb, p, q, g_mpi_comm );
         if (ic == 1)
             C = transpose( C );
         else if (ic == 2 )
@@ -742,7 +742,7 @@ void test_herk( slate::Target target )
         int lda = Am + 1;
         std::vector< scalar_t > Adata( lda*An );
         lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
-        slate::Matrix< scalar_t > A( Am, An, Adata.data(), lda, nb, p, q, g_mpi_comm );
+        auto A = slate::Matrix< scalar_t >::fromLAPACK( Am, An, Adata.data(), lda, nb, p, q, g_mpi_comm );
         if (ia == 1)
             A = transpose( A );
         else if (ia == 2 )

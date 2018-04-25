@@ -5,14 +5,16 @@ The Makefile is initially hardcoded for MKL+OPENMP.
 CXXFLAGS += -DSLATE_WITH_MKL
 CXXFLAGS += -DSLATE_WITH_OPENMP
 
-Running the SLATE only tester
-make; 
-./test potrf  --type d --align 32 --nt 5,10,20 --nb 10,100,268 --uplo l --p 1 --q 1
-mpirun -n 4 ./test potrf  --type d --align 32 --nb 200 --nt 6 --lookahead 1 --p 2 --q 2
-salloc -N 4 -w b[01-04] srun ./test potrf  --type d --align 32 --nb 200 --nt 6 --lookahead 1 --p 2 --q 2
 
-Running the ScaLAPACK pdpotrf tester
-make
-./test pdpotrf --nb 128,256 --dim 2000 --dim 1200 --p 1 --q 1
-mpirun -np 4 ./test pdpotrf --nb 128,256 --dim 10000 --dim 12000 --p 2 --q 2
-salloc -N 4 -w b[01-04] srun -n 4 ./test pdpotrf --nb 128,256 --dim 10000 --dim 12000 --p 2 --q 2
+Example of running the tester 
+
+salloc -N 4 -w b[01-04] mpirun -n 4 ./test symm   --type s,d,c,z --side l,r --uplo l,u --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,50  --p 2 --q 2
+
+salloc -N 4 -w b[01-04] mpirun -n 4 ./test syr2k  --type s,d --uplo l,u --trans n,t,c --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,50 --p 2 --q 2 
+
+salloc -N 4 -w b[01-04] mpirun -n 4 ./test syrk   --type s,d --uplo l,u --trans n,t,c --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,50  --p 2 --q 2 
+
+salloc -N 4 -w b[01-04] mpirun -n 4 ./test trmm   --type s,d,c,z --side l,r --uplo l,u --transA n,t,c --diag n,u --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,50 --p 2 --q 2 
+
+salloc -N 4 -w b[01-04] mpirun -n 4 ./test trsm   --type s,d,c,z --side l,r --uplo l,u --transA n,t,c --diag n,u --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,50  --p 2 --q 2 
+  The trsm has some FAILED output because errors are not in 5*eps range.

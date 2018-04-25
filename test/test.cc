@@ -109,7 +109,6 @@ std::vector< libtest::routines_t > routines = {
 
 
     { "potrf",              test_potrf,        Section::posv },
-    { "potrf_lapack",       test_potrf_lapack, Section::posv },
 
   //   { "pptrf",              test_pptrf,     Section::posv },
   //   { "pbtrf",              test_pbtrf,     Section::posv },

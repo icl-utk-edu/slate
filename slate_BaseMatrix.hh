@@ -97,13 +97,12 @@ protected:
                int64_t j1, int64_t j2);
 
 public:
-    /// Returns shallow copy transpose of A.
-    /// The template ensures that the type matches the type of A,
-    /// so for SymmetricMatrix A, transpose(A) is SymmetricMatrix.
+    /// Returns shallow copy of op(A) that is transposed.
+    /// @see conj_transpose
     template< typename MatrixType >
     friend MatrixType transpose(MatrixType& A);
 
-    /// Returns shallow copy conjugate-transpose of A.
+    /// Returns shallow copy of op(A) that is conjugate-transpose.
     /// @see transpose
     template< typename MatrixType >
     friend MatrixType conj_transpose(MatrixType& A);

@@ -61,7 +61,7 @@ namespace slate {
 
 ///-----------------------------------------------------------------------------
 /// transpose returns Tile, Matrix, SymmetricMatrix, etc.
-/// Making a template avoids repeating the code ad naseum in each class.
+/// Making a template avoids repeating the code ad nauseum in each class.
 /// Tile and BaseMatrix make this a friend, to change op.
 template< typename MatrixType >
 MatrixType transpose(MatrixType& A)
@@ -96,65 +96,31 @@ MatrixType conj_transpose(MatrixType& A)
     return AT;
 }
 
-///-----------------------------------------------------------------------------
-/// \class
-/// \brief
-///
+//------------------------------------------------------------------------------
+/// Tile holding an mb-by-nb matrix, with leading dimension (stride).
 template <typename scalar_t>
 class Tile {
 public:
     static constexpr bool is_complex = is_complex< scalar_t >::value;
     static constexpr bool is_real    = ! is_complex;
 
-    ///-------------------------------------------------------------------------
-    /// Create empty tile.
-    Tile():
-        mb_(0),
-        nb_(0),
-        stride_(0),
-        op_(Op::NoTrans),
-        uplo_(Uplo::General),
-        data_(nullptr),
-        valid_(false),
-        origin_(true),
-        device_(-1)  // todo: host_num
-    {}
+    Tile();
 
-    ///-------------------------------------------------------------------------
-    /// Create tile that wraps existing memory buffer.
-    /// Sets origin = true.
     Tile(int64_t mb, int64_t nb,
-         scalar_t* A, int64_t lda, int device, bool origin=true):
-        mb_(mb),
-        nb_(nb),
-        stride_(lda),
-        op_(Op::NoTrans),
-        uplo_(Uplo::General),
-        data_(A),
-        valid_(true),
-        origin_(origin),
-        device_(device)
-    {
-        assert( mb >= 0 );
-        assert( nb >= 0 );
-        assert( A != nullptr );
-        assert( lda >= mb );
-    }
+         scalar_t* A, int64_t lda, int device, bool origin=true);
 
     // defaults okay (tile doesn't own data, doesn't allocate/deallocate data)
     // 1. destructor
     // 2. copy & move constructors
     // 3. copy & move assignment
 
-    // todo: make these one function, copy(dst_tile, stream) or copyTo?
     void copyDataToHost(  Tile<scalar_t>* dst_tile, cudaStream_t stream) const;
     void copyDataToDevice(Tile<scalar_t>* dst_tile, cudaStream_t stream) const;
 
     void send(int dst, MPI_Comm mpi_comm) const;
     void recv(int src, MPI_Comm mpi_comm);
-    void bcast(int bcast_root, MPI_Comm bcast_comm);
+    void bcast(int bcast_root, MPI_Comm mpi_comm);
 
-    // Tiles and Matrices use same transpose functions ;)
     /// Returns shallow copy of tile that is transposed.
     template< typename TileType >
     friend TileType transpose(TileType& A);
@@ -163,82 +129,55 @@ public:
     template< typename TileType >
     friend TileType conj_transpose(TileType& A);
 
-    /// @return number of rows of op(A), where A is this tile
+    /// Returns number of rows of op(A), where A is this tile
     int64_t mb() const { return (op_ == Op::NoTrans ? mb_ : nb_); }
 
-    /// @return number of cols of op(A), where A is this tile
+    /// Returns number of cols of op(A), where A is this tile
     int64_t nb() const { return (op_ == Op::NoTrans ? nb_ : mb_); }
 
-    /// @return column stride of this tile
+    /// Returns column stride of this tile
     int64_t stride() const { return stride_; }
 
-    /// @return pointer to data, i.e., A(0,0), where A is this tile
+    /// Returns const pointer to data, i.e., A(0,0), where A is this tile
     scalar_t const* data() const { return data_; }
+
+    /// Returns pointer to data, i.e., A(0,0), where A is this tile
     scalar_t*       data()       { return data_; }
 
-    /// returns op(A)_{i, j}.
-    /// If op() is ConjTrans, data is NOT conjugated,
-    /// because a reference is returned.
-    scalar_t const& operator() (int64_t i, int64_t j) const
-    {
-        assert(0 <= i && i < mb());
-        assert(0 <= j && j < nb());
-        if (op_ == Op::NoTrans) {
-            return data_[ i + j*stride_ ];
-        }
-        else {
-            return data_[ j + i*stride_ ];
-        }
-    }
+    scalar_t operator() (int64_t i, int64_t j) const;
+    scalar_t const& at(int64_t i, int64_t j) const;
+    scalar_t&       at(int64_t i, int64_t j);
 
-    /// returns op(A)_{i, j}.
-    /// If op() is ConjTrans, data is NOT conjugated,
-    /// because a reference is returned.
-    scalar_t& operator() (int64_t i, int64_t j)
-    {
-        // forward to const operator() version
-        return const_cast<scalar_t&>( static_cast<const Tile>(*this)(i,j) );
-    }
-
-    /// sets/gets whether this tile is valid (cache coherency protocol)
+    /// Returns whether this tile is valid (cache coherency protocol).
     bool valid() const { return valid_; }
+
+    /// Sets whether this tile is valid (cache coherency protocol).
     void valid(bool val) { valid_ = val; }  // todo: protected?
 
-    /// whether this tile was originally given by the user (true),
+    /// Returns whether this is a local tile, originally given by the user (true),
     /// or is a workspace buffer.
     bool origin() const { return origin_; }
 
-    /// number of bytes; but NOT consecutive if stride != mb.
+    /// Returns number of bytes; but NOT consecutive if stride != mb_.
     size_t bytes() const { return sizeof(scalar_t) * size(); }
 
-    /// number of elements; but elements are NOT consecutive if stride != mb.
+    /// Returns number of elements; but NOT consecutive if stride != mb_.
     size_t size()  const { return (size_t) mb_ * nb_; }
 
-    /// get and set upper/lower storage flag
+    /// Returns upper, lower, or general storage flag.
     Uplo uplo() const { return uplo_; }
+    Uplo uplo_logical() const;
+
+    /// Sets upper, lower, or general storage flag.
     void uplo(Uplo uplo) { uplo_ = uplo; }  // todo: protected?
 
-    //--------------------------------------------------------------------------
-    /// @return whether op(A) is logically Lower or Upper storage,
-    ///         taking the transposition operation into account.
-    /// @see uplo()
-    Uplo uplo_logical() const
-    {
-        if ((this->uplo() == Uplo::Lower && this->op() == Op::NoTrans) ||
-            (this->uplo() == Uplo::Upper && this->op() != Op::NoTrans))
-        {
-            return Uplo::Lower;
-        }
-        else {
-            return Uplo::Upper;
-        }
-    }
-
-    /// get and set transposition operation
+    /// Returns transposition operation.
     Op op() const { return op_; }
+
+    /// Sets transposition operation.
     void op(Op op) { op_ = op; }  // todo: protected?
 
-    /// which host or GPU device tile's data is located on
+    /// Returns which host or GPU device tile's data is located on.
     int device() const { return device_; }
 
 protected:
@@ -256,9 +195,162 @@ protected:
     int device_;
 };
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
+/// Create empty tile.
+template <typename scalar_t>
+Tile<scalar_t>::Tile()
+    : mb_(0),
+      nb_(0),
+      stride_(0),
+      op_(Op::NoTrans),
+      uplo_(Uplo::General),
+      data_(nullptr),
+      valid_(false),
+      origin_(true),
+      device_(-1)  // todo: host_num
+{}
+
+//------------------------------------------------------------------------------
+/// Create tile that wraps existing memory buffer.
+///
+/// @param[in] mb
+///     Number of rows of the tile. mb >= 0.
+///
+/// @param[in] nb
+///     Number of columns of the tile. nb >= 0.
+///
+/// @param[in,out] A
+///     The mb-by-nb tile A, stored in an lda-by-nb array.
+///
+/// @param[in] lda
+///     Leading dimension of the array A. lda >= mb.
+///
+/// @param[in] device
+///     Tile's device ID.
+///
+/// @param[in] origin
+///     Whether tile is a local tile, originally given by the user (true),
+///     or is a workspace tile.
+template <typename scalar_t>
+Tile<scalar_t>::Tile(
+    int64_t mb, int64_t nb,
+    scalar_t* A, int64_t lda, int device, bool origin)
+    : mb_(mb),
+      nb_(nb),
+      stride_(lda),
+      op_(Op::NoTrans),
+      uplo_(Uplo::General),
+      data_(A),
+      valid_(true),
+      origin_(origin),
+      device_(device)
+{
+    assert( mb >= 0 );
+    assert( nb >= 0 );
+    assert( A != nullptr );
+    assert( lda >= mb );
+}
+
+//------------------------------------------------------------------------------
+/// Returns element {i, j} of op(A).
+/// The actual value is returned, not a reference. Use at() to get a reference.
+/// If op() is ConjTrans, data IS conjugated, unlike with at().
+///
+/// @param[in] i
+///     Row index. 0 <= i < mb.
+///
+/// @param[in] j
+///     Column index. 0 <= j < nb.
+template <typename scalar_t>
+scalar_t Tile<scalar_t>::operator() (int64_t i, int64_t j) const
+{
+    using blas::conj;
+    assert(0 <= i && i < mb());
+    assert(0 <= j && j < nb());
+    if (op_ == Op::NoTrans) {
+        return data_[ i + j*stride_ ];
+    }
+    else if (op_ == Op::Trans) {
+        return data_[ j + i*stride_ ];
+    }
+    else {
+        assert(op_ == Op::ConjTrans);
+        return conj( data_[ j + i*stride_ ] );
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Returns a const reference to element {i, j} of op(A).
+/// If op() is ConjTrans, data is NOT conjugated,
+/// because a reference is returned.
+/// Use operator() to get the actual value, conjugated if need be.
+///
+/// @param[in] i
+///     Row index. 0 <= i < mb.
+///
+/// @param[in] j
+///     Column index. 0 <= j < nb.
+template <typename scalar_t>
+scalar_t const& Tile<scalar_t>::at(int64_t i, int64_t j) const
+{
+    assert(0 <= i && i < mb());
+    assert(0 <= j && j < nb());
+    if (op_ == Op::NoTrans) {
+        return data_[ i + j*stride_ ];
+    }
+    else {
+        assert(op_ == Op::Trans || op_ == Op::ConjTrans);
+        return data_[ j + i*stride_ ];
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Returns a reference to element {i, j} of op(A).
+/// If op() is ConjTrans, data is NOT conjugated,
+/// because a reference is returned.
+/// Use operator() to get the actual value, conjugated if need be.
+///
+/// @param[in] i
+///     Row index. 0 <= i < mb.
+///
+/// @param[in] j
+///     Column index. 0 <= j < nb.
+template <typename scalar_t>
+scalar_t& Tile<scalar_t>::at(int64_t i, int64_t j)
+{
+    // forward to const at() version
+    return const_cast<scalar_t&>( static_cast<const Tile>(*this).at(i, j) );
+}
+
+//--------------------------------------------------------------------------
+/// Returns whether op(A) is logically Upper, Lower, or General storage,
+///         taking the transposition operation into account.
+/// @see uplo()
+template <typename scalar_t>
+Uplo Tile<scalar_t>::uplo_logical() const
+{
+    if (this->uplo() == Uplo::General) {
+        return Uplo::General;
+    }
+    else if ((this->uplo() == Uplo::Lower && this->op() == Op::NoTrans) ||
+             (this->uplo() == Uplo::Upper && this->op() != Op::NoTrans))
+    {
+        return Uplo::Lower;
+    }
+    else {
+        return Uplo::Upper;
+    }
+}
+
+//------------------------------------------------------------------------------
 /// Copies data from this tile on device to dst_tile on host.
+///
+/// @param[in] dst_tile
+///     Destination tile, assumed to be on host.
+///
+/// @param[in] stream
+///     CUDA stream for copy.
+//
 // todo need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
 void Tile<scalar_t>::copyDataToHost(
@@ -306,9 +398,15 @@ void Tile<scalar_t>::copyDataToHost(
     }
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Copies data from this tile on host to dst_tile on device.
+///
+/// @param[in] dst_tile
+///     Destination tile, assumed to be on device.
+///
+/// @param[in] stream
+///     CUDA stream for copy.
+//
 // todo need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
 void Tile<scalar_t>::copyDataToDevice(
@@ -356,9 +454,15 @@ void Tile<scalar_t>::copyDataToDevice(
     }
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Sends tile to MPI rank dst.
+///
+/// @param[in] dst
+///     Destination MPI rank in mpi_comm.
+///
+/// @param[in] mpi_comm
+///     MPI communicator.
+//
 // todo need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
 void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm) const
@@ -412,9 +516,15 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm) const
     }
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Receives tile from MPI rank src.
+///
+/// @param[in] src
+///     Source MPI rank in mpi_comm.
+///
+/// @param[in] mpi_comm
+///     MPI communicator.
+//
 // todo need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
 void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm)
@@ -471,15 +581,22 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm)
     }
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Broadcasts tile from MPI rank bcast_root, using given communicator.
+///
+/// @param[in] bcast_root
+///     Root (source) MPI rank in mpi_comm.
+///
+/// @param[in] mpi_comm
+///     MPI communicator.
+//
 // todo: OpenMPI MPI_Bcast seems to have a bug such that either all ranks must
 // use the simple case, or all ranks use vector case, even though the type
 // signatures match.
+//
 // todo need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
-void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm bcast_comm)
+void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm mpi_comm)
 {
     // If no stride.
     //if (stride_ == mb_) {
@@ -489,7 +606,7 @@ void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm bcast_comm)
     //
     //    #pragma omp critical(slate_mpi)
     //    retval = MPI_Bcast(data_, count, mpi_type<scalar_t>::value,
-    //        bcast_root, bcast_comm);
+    //        bcast_root, mpi_comm);
     //    assert(retval == MPI_SUCCESS);
     //}
     //else
@@ -518,7 +635,7 @@ void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm bcast_comm)
 
         #pragma omp critical(slate_mpi)
         {
-            retval = MPI_Bcast(data_, 1, newtype, bcast_root, bcast_comm);
+            retval = MPI_Bcast(data_, 1, newtype, bcast_root, mpi_comm);
         }
         assert(retval == MPI_SUCCESS);
 

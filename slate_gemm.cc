@@ -85,28 +85,30 @@ void gemm(slate::internal::TargetType<target>,
     {
         #pragma omp task depend(out:bcast[0])
         {
-            BcastList bcast_list;
+            BcastList bcast_list_A;
             for (int64_t i = 0; i < A.mt(); ++i)
-                bcast_list.push_back({i, 0, C.sub(i, i, 0, C.nt()-1)});
-            A.template listBcast<target>(bcast_list);
+                bcast_list_A.push_back({i, 0, {C.sub(i, i, 0, C.nt()-1)}});
+            A.template listBcast<target>(bcast_list_A);
 
+            BcastList bcast_list_B;
             for (int64_t j = 0; j < B.nt(); ++j)
-                bcast_list.push_back({0, j, C.sub(0, C.mt()-1, j, j)});
-            B.template listBcast<target>(bcast_list);
+                bcast_list_B.push_back({0, j, {C.sub(0, C.mt()-1, j, j)}});
+            B.template listBcast<target>(bcast_list_B);
         }
 
         for (int64_t k = 1; k < lookahead+1 && k < A.nt(); ++k)
             #pragma omp task depend(in:bcast[k-1]) \
                              depend(out:bcast[k])
             {
-                BcastList bcast_list;
+                BcastList bcast_list_A;
                 for (int64_t i = 0; i < A.mt(); ++i)
-                    bcast_list.push_back({i, k, C.sub(i, i, 0, C.nt()-1)});
-                A.template listBcast<target>(bcast_list);
+                    bcast_list_A.push_back({i, k, {C.sub(i, i, 0, C.nt()-1)}});
+                A.template listBcast<target>(bcast_list_A);
 
+                BcastList bcast_list_B;
                 for (int64_t j = 0; j < B.nt(); ++j)
-                    bcast_list.push_back({k, j, C.sub(0, C.mt()-1, j, j)});
-                B.template listBcast<target>(bcast_list);
+                    bcast_list_B.push_back({k, j, {C.sub(0, C.mt()-1, j, j)}});
+                B.template listBcast<target>(bcast_list_B);
             }
 
         #pragma omp task depend(in:bcast[0]) \
@@ -125,18 +127,19 @@ void gemm(slate::internal::TargetType<target>,
                                  depend(in:bcast[k+lookahead-1]) \
                                  depend(out:bcast[k+lookahead])
                 {
-                    BcastList bcast_list;
+                    BcastList bcast_list_A;
                     for (int64_t i = 0; i < A.mt(); ++i) {
-                        bcast_list.push_back(
-                            {i, k+lookahead, C.sub(i, i, 0, C.nt()-1)});
+                        bcast_list_A.push_back(
+                            {i, k+lookahead, {C.sub(i, i, 0, C.nt()-1)}});
                     }
-                    A.template listBcast<target>(bcast_list);
+                    A.template listBcast<target>(bcast_list_A);
 
+                    BcastList bcast_list_B;
                     for (int64_t j = 0; j < B.nt(); ++j) {
-                        bcast_list.push_back(
-                            {k+lookahead, j, C.sub(0, C.mt()-1, j, j)});
+                        bcast_list_B.push_back(
+                            {k+lookahead, j, {C.sub(0, C.mt()-1, j, j)}});
                     }
-                    B.template listBcast<target>(bcast_list);
+                    B.template listBcast<target>(bcast_list_B);
                 }
             }
             #pragma omp task depend(in:bcast[k]) \

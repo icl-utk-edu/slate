@@ -69,6 +69,7 @@ void syr2k(slate::internal::TargetType<target>,
           int64_t lookahead)
 {
     using namespace blas;
+    using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // if upper, change to lower
     if (C.uplo_logical() == Uplo::Upper) {
@@ -100,14 +101,16 @@ void syr2k(slate::internal::TargetType<target>,
         {
             // broadcast A(i, 0) and B(i, 0) to ranks owning
             // block row C(i, 0:i) and block col C(i:n, i)
+            BcastList bcast_list_A;
+            BcastList bcast_list_B;
             for (int64_t i = 0; i < A.mt(); ++i) {
-                A.template tileBcast<target>(
-                    i, 0, C.sub(i, i, 0, i),
-                          C.sub(i, C.mt()-1, i, i));
-                B.template tileBcast<target>(
-                    i, 0, C.sub(i, i, 0, i),
-                          C.sub(i, C.mt()-1, i, i));
+                bcast_list_A.push_back({i, 0, {C.sub(i, i, 0, i),
+                                               C.sub(i, C.mt()-1, i, i)}});
+                bcast_list_B.push_back({i, 0, {C.sub(i, i, 0, i),
+                                               C.sub(i, C.mt()-1, i, i)}});
             }
+            A.template listBcast<target>(bcast_list_A);
+            B.template listBcast<target>(bcast_list_B);
         }
 
         // send next lookahead block cols of A
@@ -117,14 +120,16 @@ void syr2k(slate::internal::TargetType<target>,
             {
                 // broadcast A(i, k) and B(i, k) to ranks owning
                 // block row C(i, 0:i) and block col C(i:n, i)
+                BcastList bcast_list_A;
+                BcastList bcast_list_B;
                 for (int64_t i = 0; i < A.mt(); ++i) {
-                    A.template tileBcast<target>(
-                        i, k, C.sub(i, i, 0, i),
-                              C.sub(i, C.mt()-1, i, i));
-                    B.template tileBcast<target>(
-                        i, k, C.sub(i, i, 0, i),
-                              C.sub(i, C.mt()-1, i, i));
+                    bcast_list_A.push_back({i, k, {C.sub(i, i, 0, i),
+                                                   C.sub(i, C.mt()-1, i, i)}});
+                    bcast_list_B.push_back({i, k, {C.sub(i, i, 0, i),
+                                                   C.sub(i, C.mt()-1, i, i)}});
                 }
+                A.template listBcast<target>(bcast_list_A);
+                B.template listBcast<target>(bcast_list_B);
             }
         }
 
@@ -146,15 +151,20 @@ void syr2k(slate::internal::TargetType<target>,
                                  depend(in:bcast[k+lookahead-1]) \
                                  depend(out:bcast[k+lookahead])
                 {
-                    // broadcast A(k+la, i) to ranks owning block row C(i, 0:i) and block col C(i:n, i)
+                    // broadcast A(k+la, i) to ranks owning 
+                    // block row C(i, 0:i) and block col C(i:n, i)
+                    BcastList bcast_list_A;
+                    BcastList bcast_list_B;
                     for (int64_t i = 0; i < A.mt(); ++i) {
-                        A.template tileBcast<target>(
-                            i, k+lookahead, C.sub(i, i, 0, i),
-                                            C.sub(i, C.mt()-1, i, i));
-                        B.template tileBcast<target>(
-                            i, k+lookahead, C.sub(i, i, 0, i),
-                                            C.sub(i, C.mt()-1, i, i));
+                        bcast_list_A.push_back(
+                            {i, k+lookahead, {C.sub(i, i, 0, i),
+                                              C.sub(i, C.mt()-1, i, i)}});
+                        bcast_list_B.push_back(
+                            {i, k+lookahead, {C.sub(i, i, 0, i),
+                                              C.sub(i, C.mt()-1, i, i)}});
                     }
+                    A.template listBcast<target>(bcast_list_A);
+                    B.template listBcast<target>(bcast_list_B);
                 }
             }
 

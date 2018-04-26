@@ -65,6 +65,7 @@ void trsm(slate::internal::TargetType<target>,
           int64_t lookahead)
 {
     using namespace blas;
+    using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // if on right, change to left by (conj)-transposing A and B to get
     // op(B) = op(A)^{-1} * op(B)
@@ -110,8 +111,7 @@ void trsm(slate::internal::TargetType<target>,
                 #pragma omp task depend(inout:row[k]) priority(1)
                 {
                     // send A(k, k) to ranks owning block row B(k, :)
-                    A.template tileBcast<target>(
-                        k, k, B.sub(k, k, 0, nt-1));
+                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1));
 
                     // solve A(k, k) B(k, :) = alpha B(k, :)
                     internal::trsm<Target::HostTask>(
@@ -120,14 +120,19 @@ void trsm(slate::internal::TargetType<target>,
                               B.sub(k, k, 0, nt-1), 1);
 
                     // send A(i=k+1:mt-1, k) to ranks owning block row B(i, :)
+                    BcastList bcast_list_A;
                     for (int64_t i = k+1; i < mt; ++i)
-                        A.template tileBcast(
-                            i, k, B.sub(i, i, 0, nt-1));
+                        bcast_list_A.push_back({i, k, {B.sub(i, i, 0, nt-1)}});
+                    A.template listBcast<target>(bcast_list_A);
 
-                    // send B(k, j=0:nt-1) to ranks owning block col B(k+1:mt-1, j)
-                    for (int64_t j = 0; j < nt; ++j)
-                        B.template tileBcast(
-                            k, j, B.sub(k+1, mt-1, j, j));
+                    // send B(k, j=0:nt-1) to ranks owning
+                    // block col B(k+1:mt-1, j)
+                    BcastList bcast_list_B;
+                    for (int64_t j = 0; j < nt; ++j) {
+                        bcast_list_B.push_back(
+                            {k, j, {B.sub(k+1, mt-1, j, j)}});
+                    }
+                    B.template listBcast<target>(bcast_list_B);
                 }
 
                 // lookahead update, B(k+1:k+la, :) -= A(k+1:k+la, k) B(k, :)
@@ -142,7 +147,8 @@ void trsm(slate::internal::TargetType<target>,
                     }
                 }
 
-                // trailing update, B(k+1+la:mt-1, :) -= A(k+1+la:mt-1, k) B(k, :)
+                // trailing update,
+                // B(k+1+la:mt-1, :) -= A(k+1+la:mt-1, k) B(k, :)
                 // Updates rows k+1+la to mt-1, but two depends are sufficient:
                 // depend on k+1+la is all that is needed in next iteration;
                 // depend on mt-1 daisy chains all the trailing updates.
@@ -170,8 +176,7 @@ void trsm(slate::internal::TargetType<target>,
                 #pragma omp task depend(inout:row[k]) priority(1)
                 {
                     // send A(k, k) to ranks owning block row B(k, :)
-                    A.template tileBcast<target>(
-                        k, k, B.sub(k, k, 0, nt-1));
+                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1));
 
                     // solve A(k, k) B(k, :) = alpha B(k, :)
                     internal::trsm<Target::HostTask>(
@@ -180,15 +185,16 @@ void trsm(slate::internal::TargetType<target>,
                               B.sub(k, k, 0, nt-1), 1);
 
                     // send A(i=0:k-1, k) to ranks owning block row B(i, :)
-                    for (int64_t i = 0; i < k; ++i) {
-                        A.template tileBcast(
-                            i, k, B.sub(i, i, 0, nt-1));
-                    }
+                    BcastList bcast_list_A;
+                    for (int64_t i = 0; i < k; ++i)
+                        bcast_list_A.push_back({i, k, {B.sub(i, i, 0, nt-1)}});
+                    A.template listBcast<target>(bcast_list_A);
+
                     // send B(k, j=0:nt-1) to ranks owning block col B(0:k-1, j)
-                    for (int64_t j = 0; j < nt; ++j) {
-                        B.template tileBcast(
-                            k, j, B.sub(0, k-1, j, j));
-                    }
+                    BcastList bcast_list_B;
+                    for (int64_t j = 0; j < nt; ++j)
+                        bcast_list_B.push_back({k, j, {B.sub(0, k-1, j, j)}});
+                    B.template listBcast<target>(bcast_list_B);
                 }
 
                 // lookahead update, B(k-la:k-1, :) -= A(k-la:k-1, k) B(k, :)

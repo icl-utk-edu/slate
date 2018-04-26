@@ -61,6 +61,7 @@ void potrf(slate::internal::TargetType<target>,
            HermitianMatrix<scalar_t>& A, int64_t lookahead)
 {
     using real_t = blas::real_type<scalar_t>;
+    using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A.nt());
@@ -76,10 +77,8 @@ void potrf(slate::internal::TargetType<target>,
             internal::potrf<Target::HostTask>(A.sub(k, k), 1);
 
             // send A(k, k) down col A(k+1:nt-1, k)
-            if (k+1 <= A.nt()-1) {
-                A.template tileBcast<target>(
-                    k, k, A.sub(k+1, A.nt()-1, k, k));
-            }
+            if (k+1 <= A.nt()-1)
+                A.tileBcast(k, k, A.sub(k+1, A.nt()-1, k, k));
 
             // A(k+1:nt-1, k) * A(k, k)^{-H}
             if (k+1 <= A.nt()-1) {
@@ -91,13 +90,13 @@ void potrf(slate::internal::TargetType<target>,
                                    A.sub(k+1, A.nt()-1, k, k), 1);
             }
 
+            BcastList bcast_list_A;
             for (int64_t i = k+1; i < A.nt(); ++i) {
                 // send A(i, k) across row A(i, k+1:i) and down col A(i:nt-1, i)
-                //
-                A.template tileBcast<target>(
-                    i, k, A.sub(i, i, k+1, i),
-                          A.sub(i, A.nt()-1, i, i));
+                bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, i),
+                                               A.sub(i, A.nt()-1, i, i)}});
             }
+            A.template listBcast(bcast_list_A);
         }
         // update lookahead column(s), high priority
         for (int64_t j = k+1; j < k+1+lookahead && j < A.nt(); ++j) {
@@ -134,12 +133,12 @@ void potrf(slate::internal::TargetType<target>,
         }
     }
 
-    //Debug::checkTilesLives(A);
-    //Debug::printTilesLives(A);
+    // Debug::checkTilesLives(A);
+    // Debug::printTilesLives(A);
 
     A.clearWorkspace();
 
-    //Debug::printTilesMaps(A);
+    // Debug::printTilesMaps(A);
 }
 
 ///-----------------------------------------------------------------------------
@@ -151,6 +150,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
            HermitianMatrix<scalar_t>& A, int64_t lookahead)
 {
     using real_t = blas::real_type<scalar_t>;
+    using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A.nt());
@@ -169,10 +169,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
             internal::potrf<Target::HostTask>(A.sub(k, k));
 
             // send A(k, k) down col A(k+1:nt-1, k)
-            if (k+1 <= A.nt()-1) {
-                A.template tileBcast<Target::Devices>(
-                    k, k, A.sub(k+1, A.nt()-1, k, k));
-            }
+            if (k+1 <= A.nt()-1)
+                A.tileBcast(k, k, A.sub(k+1, A.nt()-1, k, k));
 
             // A(k+1:nt-1, k) * A(k, k)^{-H}
             if (k+1 <= A.nt()-1) {
@@ -184,13 +182,13 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                                    A.sub(k+1, A.nt()-1, k, k));
             }
 
+            BcastList bcast_list_A;
             for (int64_t i = k+1; i < A.nt(); ++i) {
                 // send A(i, k) across row A(i, k+1:i) and down col A(i:nt-1, i)
-                // todo was: A.template tileBcast<Target::Devices>(
-                A.template tileBcast<Target::Devices>(
-                    i, k, A.sub(i, i, k+1, i),
-                          A.sub(i, A.nt()-1, i, i));
+                bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, i),
+                                               A.sub(i, A.nt()-1, i, i)}});
             }
+            A.template listBcast<Target::Devices>(bcast_list_A);
         }
         // update trailing submatrix, normal priority
         if (k+1+lookahead < A.nt()) {
@@ -228,12 +226,12 @@ void potrf(slate::internal::TargetType<Target::Devices>,
         }
     }
 
-    //Debug::checkTilesLives(A);
-    //Debug::printTilesLives(A);
+    // Debug::checkTilesLives(A);
+    // Debug::printTilesLives(A);
 
     A.clearWorkspace();
 
-    //Debug::printTilesMaps(A);
+    // Debug::printTilesMaps(A);
 }
 
 } // namespace specialization

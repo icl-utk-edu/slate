@@ -71,7 +71,8 @@ template <typename scalar_t>
 class BaseMatrix {
 public:
     using BcastList =
-        std::list< std::tuple< int64_t, int64_t, BaseMatrix<scalar_t> > >;
+        std::list<std::tuple<int64_t, int64_t,
+                             std::list<BaseMatrix<scalar_t> > > >;
 
     friend class Debug;
 
@@ -704,9 +705,24 @@ template <Target target>
 void BaseMatrix<scalar_t>::listBcast(BcastList& bcast_list)
 {
     for (auto bcast : bcast_list) {
-        tileBcast<target>(std::get<0>(bcast),
-                          std::get<1>(bcast),
-                          std::get<2>(bcast));
+
+        auto i = std::get<0>(bcast);
+        auto j = std::get<1>(bcast);
+        auto list = std::get<2>(bcast);
+
+        if (list.size() == 1) {
+            auto matrix = list.front();
+            tileBcast<target>(i, j, matrix);
+        }
+        else if (list.size() == 2) {
+            auto matrix1 = list.front();
+            list.pop_front();
+            auto matrix2 = list.front();
+            tileBcast<target>(i, j, matrix1, matrix2);
+        }
+        else {
+            assert(0);
+        }
     }
 }
 
@@ -747,7 +763,11 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     int tag = 0;
     MPI_Comm bcast_comm;
     #pragma omp critical(slate_mpi)
-    retval = MPI_Comm_create_group(mpi_comm_, bcast_group, tag, &bcast_comm);
+    {
+        trace::Block trace_block("MPI_Comm_create_group");
+        retval = MPI_Comm_create_group(
+            mpi_comm_, bcast_group, tag, &bcast_comm);
+    }
     assert(retval == MPI_SUCCESS);
     assert(bcast_comm != MPI_COMM_NULL);
 

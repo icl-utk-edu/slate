@@ -597,6 +597,8 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm)
 // todo: OpenMPI MPI_Bcast seems to have a bug such that either all ranks must
 // use the simple case, or all ranks use vector case, even though the type
 // signatures match.
+// Bug confirmed with OpenMPI folks. All nodes need to make same decision
+// about using a pipelined bcast algorithm (in the contiguous case), and can't.
 //
 // todo need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>

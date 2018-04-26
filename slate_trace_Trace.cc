@@ -61,10 +61,15 @@ std::vector<std::vector<Event>> Trace::events_ =
 
 std::map<std::string, Color> Trace::function_color_ = {
 
-    {"blas::gemm", Color::MediumAquamarine},
-    {"blas::syrk", Color::CornflowerBlue},
-    {"blas::trmm", Color::MediumOrchid},
-    {"blas::trsm", Color::MediumPurple},
+    {"blas::gemm",  Color::MediumAquamarine},
+    {"blas::hemm",  Color::MediumAquamarine},
+    {"blas::her2k", Color::MediumAquamarine},
+    {"blas::herk",  Color::MediumAquamarine},
+    {"blas::symm",  Color::CornflowerBlue},
+    {"blas::syr2k", Color::CornflowerBlue},
+    {"blas::syrk",  Color::CornflowerBlue},
+    {"blas::trmm",  Color::MediumOrchid},
+    {"blas::trsm",  Color::MediumPurple},
 
     {"cblas_dgemm_batch",  Color::DarkGreen},
     {"cublasDgemmBatched", Color::PaleGreen},
@@ -77,8 +82,9 @@ std::map<std::string, Color> Trace::function_color_ = {
     {"Memory::alloc", Color::Aqua},
     {"Memory::free",  Color::Aquamarine},
 
-    {"MPI_Barrier", Color::Black},
-    {"MPI_Bcast",   Color::Crimson}
+    {"MPI_Barrier",           Color::Black},
+    {"MPI_Comm_create_group", Color::DarkRed},
+    {"MPI_Bcast",             Color::Crimson}
 };
 
 ///-----------------------------------------------------------------------------

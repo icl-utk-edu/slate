@@ -14,6 +14,10 @@ CXXFLAGS += -I$(top)/blaspp/test # for blas_flops.hh
 ifeq (${mkl},1)
 LIB := -L${MKLROOT}/lib/intel64 -Wl,-rpath,${MKLROOT}/lib -Wl,--no-as-needed -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64 ${LIB}
 endif
+ifeq (${essl},1)
+LIB := -lscalapack ${LIB}
+endif
+
 
 test_src = ${top}/test/test.cc ${top}/test/test_gemm.cc ${top}/test/test_trmm.cc ${top}/test/test_symm.cc ${top}/test/test_syrk.cc ${top}/test/test_syr2k.cc ${top}/test/test_trsm.cc ${top}/test/test_potrf.cc 
 test_obj = ${addsuffix .o, ${basename ${test_src}}}

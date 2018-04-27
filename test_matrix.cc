@@ -791,7 +791,7 @@ void test_general_send2( int m, int n, int nb, int p, int q )
     test_message( "broadcast A(1,1) to A(1,2:nt) and A(2:mt,1)" );
     auto Arow = A.sub( 1, 1, 2, A.nt()-1 );
     auto Acol = A.sub( 2, A.mt()-1, 1, 1 );
-    A.tileBcast( 1, 1, Arow, Acol );
+//  A.tileBcast( 1, 1, Arow, Acol );
     slate::Tile<double> Aij;
 
     // ----- verify life

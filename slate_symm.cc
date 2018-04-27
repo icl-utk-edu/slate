@@ -69,6 +69,14 @@ void symm(slate::internal::TargetType<target>,
           scalar_t beta,  Matrix<scalar_t> C,
           int64_t lookahead)
 {
+    // Due to the symmetry, each off diagonal tile is sent twice, once as part
+    // of A and once as art of A^T. In principle, this could be avoided by
+    // sending each tile only once and retaining it until it is used twice. 
+    // This would, however, violate the upper bound on the size of communication
+    // buffers.
+    // The same happens in the hemm routine.
+    // See also the implementation remarks in the BaseMatrix::listBcast routine.
+
     using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 

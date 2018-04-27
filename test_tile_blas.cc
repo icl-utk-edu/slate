@@ -83,7 +83,7 @@ void conjugate( slate::Tile< scalar_t >& A )
     using blas::conj;
     for (int j = 0; j < A.nb(); ++j)
         for (int i = 0; i < A.mb(); ++i)
-            A(i,j) = conj( A(i,j) );
+            A.at(i,j) = conj( A.at(i,j) );
 }
 
 // -----------------------------------------------------------------------------
@@ -94,11 +94,7 @@ void copy( slate::Tile< scalar_t > const& A, scalar_t* opAref, int lda )
     using blas::conj;
     for (int j = 0; j < A.nb(); ++j) {
         for (int i = 0; i < A.mb(); ++i) {
-            // currently, A(i,j) does transpose but not conj.
-            if (A.op() == blas::Op::ConjTrans)
-                opAref[ i + j*lda ] = conj( A(i,j) );
-            else
-                opAref[ i + j*lda ] = A(i,j);
+            opAref[ i + j*lda ] = A(i,j);
         }
     }
 }
@@ -130,29 +126,16 @@ void test_assert_equal( slate::Tile< scalar_t > const& A, scalar_t const* B, int
         for (int i = 0; i < A.mb(); ++i) {
             if (general || (lower && i >= j) || (upper && i <= j)) {
                 real_t abs_error;
-                // currently, A(i,j) does transpose but not conj.
-                if (A.op() == blas::Op::ConjTrans)
-                    abs_error = std::abs( conj( A(i,j) ) - B[ i + j*ldb ] );
-                else
-                    abs_error = std::abs( A(i,j) - B[ i + j*ldb ] );
+                abs_error = std::abs( A(i,j) - B[ i + j*ldb ] );
                 real_t rel_error = abs_error / std::abs( A(i,j) );
 
                 // print elements if assert will fail
                 if (! (abs_error <= abs_tol || rel_error <= rel_tol)) {
-                    if (A.op() == blas::Op::ConjTrans) {
-                        printf( "A(%3d, %3d) %8.4f + %8.4fi\n"
-                                "B           %8.4f + %8.4fi, abs_error %.2e, rel_error %.2e\n",
-                                i, j, real( A(i,j) ), -imag( A(i,j) ),
-                                      real( B[ i + j*ldb ] ), imag( B[ i + j*ldb ] ),
-                                abs_error, rel_error );
-                    }
-                    else {
-                        printf( "A(%3d, %3d) %8.4f + %8.4fi\n"
-                                "B           %8.4f + %8.4fi, abs_error %.2e, rel_error %.2e\n",
-                                i, j, real( A(i,j) ), imag( A(i,j) ),
-                                      real( B[ i + j*ldb ] ), imag( B[ i + j*ldb ] ),
-                                abs_error, rel_error );
-                    }
+                    printf( "A(%3d, %3d) %8.4f + %8.4fi\n"
+                            "B           %8.4f + %8.4fi, abs_error %.2e, rel_error %.2e\n",
+                            i, j, real( A(i,j) ), imag( A(i,j) ),
+                                  real( B[ i + j*ldb ] ), imag( B[ i + j*ldb ] ),
+                            abs_error, rel_error );
                 }
 
                 test_assert( abs_error <= abs_tol || rel_error <= rel_tol );
@@ -336,7 +319,6 @@ void test_syrk()
         }
 
         // opCref = op(C) is n-by-n
-        // currently, C(i,j) does transpose but not conj.
         std::vector< scalar_t > opCref( ldc*n );
         copy( C, opCref.data(), ldc );
 
@@ -459,7 +441,6 @@ void test_herk()
         }
 
         // opCref = op(C) is n-by-n
-        // currently, C(i,j) does transpose but not conj.
         std::vector< scalar_t > opCref( ldc*n );
         copy( C, opCref.data(), ldc );
 
@@ -571,7 +552,6 @@ void test_potrf()
             Adata[ j + j*lda ] += n;
 
         // opAref = op(A) is n-by-n
-        // currently, A(i,j) does transpose but not conj.
         std::vector< scalar_t > opAref( lda*n );
         copy( A, opAref.data(), lda );
 
@@ -683,7 +663,6 @@ void test_trsm()
         assert( B.nb() == n );
 
         // opBref = op(B) is m-by-n
-        // currently, B(i,j) does transpose but not conj.
         int ldopb = m + 1;
         std::vector< scalar_t > opBref( ldopb*n );
         copy( B, opBref.data(), ldopb );

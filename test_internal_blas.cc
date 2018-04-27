@@ -131,11 +131,7 @@ void copy( slate::Matrix< scalar_t > /*const*/ & A, scalar_t* opAref, int lda )
             for (int jt = 0; jt < jb; ++jt, ++jj) {
                 ii = ii_save;
                 for (int it = 0; it < ib; ++it, ++ii) {
-                    // currently, A(i,j) does transpose but not conj.
-                    if (A.op() == Op::ConjTrans)
-                        opAref[ ii + jj*lda ] = conj( Aij( it, jt ) );
-                    else
-                        opAref[ ii + jj*lda ] = Aij( it, jt );
+                    opAref[ ii + jj*lda ] = Aij( it, jt );
                 }
             }
         }
@@ -174,11 +170,7 @@ void copy( slate::BaseTrapezoidMatrix< scalar_t > /*const*/ & A,
                 for (int jt = 0; jt < jb; ++jt, ++jj) {
                     ii = ii_save;
                     for (int it = 0; it < ib; ++it, ++ii) {
-                        // currently, A(i,j) does transpose but not conj.
-                        if (A.op() == Op::ConjTrans)
-                            opAref[ ii + jj*lda ] = conj( Aij( it, jt ) );
-                        else
-                            opAref[ ii + jj*lda ] = Aij( it, jt );
+                        opAref[ ii + jj*lda ] = Aij( it, jt );
                     }
                 }
             }
@@ -228,31 +220,17 @@ void test_assert_equal( slate::Matrix< scalar_t > /*const*/& A,
                 ii = ii_save;
                 for (int it = 0; it < ib; ++it, ++ii) {
                     real_t abs_error;
-                    // currently, A(i,j) does transpose but not conj.
-                    if (Aij.op() == Op::ConjTrans)
-                        abs_error = std::abs( conj( Aij( it, jt ) ) - B[ ii + jj*ldb ] );
-                    else
-                        abs_error = std::abs( Aij( it, jt ) - B[ ii + jj*ldb ] );
+                    abs_error = std::abs( Aij( it, jt ) - B[ ii + jj*ldb ] );
                     real_t rel_error = abs_error / std::abs( Aij( it, jt ) );
 
                     // print elements if assert will fail
                     if (! (abs_error <= abs_tol || rel_error <= rel_tol)) {
-                        if (A.op() == Op::ConjTrans) {
-                            printf( "A(%3d, %3d) %8.4f + %8.4fi\n"
-                                    "B           %8.4f + %8.4fi, abs_error %.2e, rel_error %.2e\n",
-                                    ii, jj,
-                                    real( Aij( it, jt ) ), -imag( Aij( it, jt ) ),
-                                    real( B[ ii + jj*ldb ] ), imag( B[ ii + jj*ldb ] ),
-                                    abs_error, rel_error );
-                        }
-                        else {
-                            printf( "A(%3d, %3d) %8.4f + %8.4fi\n"
-                                    "B           %8.4f + %8.4fi, abs_error %.2e, rel_error %.2e\n",
-                                    ii, jj,
-                                    real( Aij( it, jt ) ), imag( Aij( it, jt ) ),
-                                    real( B[ ii + jj*ldb ] ), imag( B[ ii + jj*ldb ] ),
-                                    abs_error, rel_error );
-                        }
+                        printf( "A(%3d, %3d) %8.4f + %8.4fi\n"
+                                "B           %8.4f + %8.4fi, abs_error %.2e, rel_error %.2e\n",
+                                ii, jj,
+                                real( Aij( it, jt ) ), imag( Aij( it, jt ) ),
+                                real( B[ ii + jj*ldb ] ), imag( B[ ii + jj*ldb ] ),
+                                abs_error, rel_error );
                     }
 
                     test_assert( abs_error <= abs_tol || rel_error <= rel_tol );
@@ -302,31 +280,17 @@ void test_assert_equal( slate::BaseTrapezoidMatrix< scalar_t > /*const*/& A,
                     for (int it = 0; it < ib; ++it, ++ii) {
                         if ((lower && ii >= jj) || (upper && ii <= jj)) {
                             real_t abs_error;
-                            // currently, A(i,j) does transpose but not conj.
-                            if (Aij.op() == Op::ConjTrans)
-                                abs_error = std::abs( conj( Aij( it, jt ) ) - B[ ii + jj*ldb ] );
-                            else
-                                abs_error = std::abs( Aij( it, jt ) - B[ ii + jj*ldb ] );
+                            abs_error = std::abs( Aij( it, jt ) - B[ ii + jj*ldb ] );
                             real_t rel_error = abs_error / std::abs( Aij( it, jt ) );
 
                             // print elements if assert will fail
                             if (! (abs_error <= abs_tol || rel_error <= rel_tol)) {
-                                if (A.op() == Op::ConjTrans) {
-                                    printf( "A(%3d, %3d) %8.4f + %8.4fi\n"
-                                            "B           %8.4f + %8.4fi, abs_error %.2e, rel_error %.2e\n",
-                                            ii, jj,
-                                            real( Aij( it, jt ) ), -imag( Aij( it, jt ) ),
-                                            real( B[ ii + jj*ldb ] ), imag( B[ ii + jj*ldb ] ),
-                                            abs_error, rel_error );
-                                }
-                                else {
-                                    printf( "A(%3d, %3d) %8.4f + %8.4fi\n"
-                                            "B           %8.4f + %8.4fi, abs_error %.2e, rel_error %.2e\n",
-                                            ii, jj,
-                                            real( Aij( it, jt ) ), imag( Aij( it, jt ) ),
-                                            real( B[ ii + jj*ldb ] ), imag( B[ ii + jj*ldb ] ),
-                                            abs_error, rel_error );
-                                }
+                                printf( "A(%3d, %3d) %8.4f + %8.4fi\n"
+                                        "B           %8.4f + %8.4fi, abs_error %.2e, rel_error %.2e\n",
+                                        ii, jj,
+                                        real( Aij( it, jt ) ), imag( Aij( it, jt ) ),
+                                        real( B[ ii + jj*ldb ] ), imag( B[ ii + jj*ldb ] ),
+                                        abs_error, rel_error );
                             }
 
                             test_assert( abs_error <= abs_tol || rel_error <= rel_tol );

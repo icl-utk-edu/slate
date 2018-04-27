@@ -70,9 +70,8 @@ namespace slate {
 template <typename scalar_t>
 class BaseMatrix {
 public:
-    using BcastList =
-        std::list<std::tuple<int64_t, int64_t,
-                             std::list<BaseMatrix<scalar_t> > > >;
+    using BcastList = std::list<std::tuple<int64_t, int64_t,
+                                           std::list<BaseMatrix<scalar_t> > > >;
 
     friend class Debug;
 
@@ -97,13 +96,12 @@ protected:
                int64_t j1, int64_t j2);
 
 public:
-    /// Returns shallow copy transpose of A.
-    /// The template ensures that the type matches the type of A,
-    /// so for SymmetricMatrix A, transpose(A) is SymmetricMatrix.
+    /// Returns shallow copy of op(A) that is transposed.
+    /// @see conj_transpose
     template< typename MatrixType >
     friend MatrixType transpose(MatrixType& A);
 
-    /// Returns shallow copy conjugate-transpose of A.
+    /// Returns shallow copy of op(A) that is conjugate-transpose.
     /// @see transpose
     template< typename MatrixType >
     friend MatrixType conj_transpose(MatrixType& A);
@@ -182,10 +180,6 @@ public:
 
     template <Target target = Target::Host>
     void tileBcast(int64_t i, int64_t j, BaseMatrix const& B);
-
-    template <Target target = Target::Host>
-    void tileBcast(int64_t i, int64_t j, BaseMatrix const& B1,
-                                         BaseMatrix const& B2);
 
     template <Target target = Target::Host>
     void listBcast(BcastList& bcast_list);
@@ -605,123 +599,85 @@ template <Target target>
 void BaseMatrix<scalar_t>::tileBcast(
     int64_t i, int64_t j, BaseMatrix<scalar_t> const& B)
 {
-    // Find the set of participating ranks.
-    std::set<int> bcast_set;
-    bcast_set.insert(tileRank(i, j));  // root of bcast
-    B.getRanks(&bcast_set);
-
-    // If this rank is in the set.
-    if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
-        // If receiving the tile, create tile to receive data, with life span.
-        // If tile already exists, add to its life span.
-        if (! tileIsLocal(i, j)) {
-            LockGuard( storage_->tiles_.get_lock() );
-            auto iter = storage_->find(globalIndex(i, j, host_num_));
-            int64_t life = B.numLocalTiles();
-            if (iter == storage_->end()) {
-                tileInsert(i, j, host_num_);
-            }
-            else {
-                // todo: use temp tile to receive broadcast
-                life += tileLife(i, j);
-            }
-            tileLife(i, j, life);
-        }
-
-        // Send across MPI ranks.
-        tileBcastToSet(i, j, bcast_set);
-
-        // Copy to devices.
-        if (target == Target::Devices) {
-            std::set<int> dev_set;
-            B.getLocalDevices(&dev_set);
-            for (auto iter = dev_set.begin(); iter != dev_set.end(); ++iter)
-                tileCopyToDevice(i, j, *iter);
-        }
-    }
+    BcastList bcast_list_B;
+    bcast_list_B.push_back({i, j, {B}});
+    listBcast<target>(bcast_list_B);
 }
 
 //------------------------------------------------------------------------------
-/// Send tile {i, j} to all MPI ranks in matrix B1 or B2.
-/// If target is Devices, also copies tile to all devices on each MPI rank.
-/// This should be called by at least all ranks with local tiles in B1 or B2;
-/// ones that do not have any local tiles are excluded from the broadcast.
+/// Send tile {i, j} of op(A) to all MPI ranks in the list of submatrices
+/// bcast_list.
 ///
 /// @tparam target
 ///     Destination to target; either Host (default) or Device.
 ///
-/// @param[in] i
-///     Tile's block row index. 0 <= i < mt.
+/// @param[in] bcast_list
+///     List of submatrices defining the MPI ranks to send to.
+///     Usually it is the portion of the matrix to be updated by tile {i, j}.
 ///
-/// @param[in] j
-///     Tile's block column index. 0 <= j < nt.
-///
-/// @param[in] B1
-/// @param[in] B2
-///     Sub-matrices B1 and B2 define MPI ranks to send to.
-///     Usually they are the portion of the matrix to be updated by tile {i, j}.
-//
-// todo: this code is nearly identical to above tileBcast. Generalize?
-template <typename scalar_t>
-template <Target target>
-void BaseMatrix<scalar_t>::tileBcast(
-    int64_t i, int64_t j,
-    BaseMatrix<scalar_t> const& B1,
-    BaseMatrix<scalar_t> const& B2)
-{
-    // Find the set of participating ranks.
-    std::set<int> bcast_set;
-    bcast_set.insert(tileRank(i, j));  // root of bcast
-    B1.getRanks(&bcast_set);
-    B2.getRanks(&bcast_set);
-
-    // If this rank is in the set.
-    if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
-        // If receiving the tile, create tile to receive data, with life span.
-        if (! tileIsLocal(i, j)) {
-            tileInsert(i, j, host_num_);
-            tileLife(i, j, B1.numLocalTiles() + B2.numLocalTiles());
-        }
-
-        // Send across MPI ranks.
-        tileBcastToSet(i, j, bcast_set);
-
-        // Copy to devices.
-        if (target == Target::Devices) {
-            std::set<int> dev_set;
-            B1.getLocalDevices(&dev_set);
-            B2.getLocalDevices(&dev_set);
-            for (auto iter = dev_set.begin(); iter != dev_set.end(); ++iter)
-                tileCopyToDevice(i, j, *iter);
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
-/// @tparam target
-///     Destination to target; either Host (default) or Device.
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::listBcast(BcastList& bcast_list)
 {
+    // It is possible that the same tile, with the same data, is sent twice.
+    // This happens, e.g., in the hemm and symm routines, where the same tile
+    // is sent once part of A and once as part of A^T.
+    // This cannot be avoided without violating the upper bound on the size of
+    // communication buffers.
+    // Due to dynamic scheduling, the second communication may occur before the
+    // first tile has been discarded.
+    // If that happens, instead of creating the tile, the life of the existing
+    // tile is increased.
+    // Also, currently, the message is received to the same buffer.
+
     for (auto bcast : bcast_list) {
 
         auto i = std::get<0>(bcast);
         auto j = std::get<1>(bcast);
-        auto list = std::get<2>(bcast);
+        auto submatrices_list = std::get<2>(bcast);
 
-        if (list.size() == 1) {
-            auto matrix = list.front();
-            tileBcast<target>(i, j, matrix);
+        // Find the set of participating ranks.
+        std::set<int> bcast_set;
+        bcast_set.insert(tileRank(i, j));       // Insert root.
+        for (auto submatrix : submatrices_list) // Insert destinations.
+            submatrix.getRanks(&bcast_set);
+
+        // If this rank is in the set.
+        if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
+
+            // If receiving the tile.
+            if (!tileIsLocal(i, j)) {
+
+                // If receiving the tile, create tile to receive data,
+                // with life span.
+                // If tile already exists, add to its life span.
+                LockGuard(storage_->tiles_.get_lock());
+                auto iter = storage_->find(globalIndex(i, j, host_num_));
+
+                int64_t life = 0;
+                for (auto submatrix : submatrices_list)
+                    life += submatrix.numLocalTiles();
+
+                if (iter == storage_->end()) 
+                    tileInsert(i, j, host_num_);
+                else
+                    life += tileLife(i, j); // todo: use temp tile to receive
+                tileLife(i, j, life);
+            }
+
+            // Send across MPI ranks.
+            tileBcastToSet(i, j, bcast_set);
         }
-        else if (list.size() == 2) {
-            auto matrix1 = list.front();
-            list.pop_front();
-            auto matrix2 = list.front();
-            tileBcast<target>(i, j, matrix1, matrix2);
-        }
-        else {
-            assert(0);
+
+        // Copy to devices.
+        if (target == Target::Devices) {
+
+            std::set<int> dev_set;
+            for (auto submatrix : submatrices_list)
+                submatrix.getLocalDevices(&dev_set);
+
+            for (auto device : dev_set)
+                tileCopyToDevice(i, j, device);
         }
     }
 }

@@ -217,12 +217,7 @@ void print( const char* name, slate::Tile< std::complex< scalar_t > >& A )
     printf( "%s = [\n", name );
     for (int i = 0; i < A.mb(); ++i) {
         for (int64_t j = 0; j < A.nb(); ++j) {
-            if (A.op() == blas::Op::ConjTrans) {
-                printf( " %9.4f + %9.4fi", real( A(i, j) ), -imag( A(i, j) ) );
-            }
-            else {
-                printf( " %9.4f + %9.4fi", real( A(i, j) ),  imag( A(i, j) ) );
-            }
+            printf( " %9.4f + %9.4fi", real( A(i, j) ), imag( A(i, j) ) );
         }
         printf( "\n" );
     }

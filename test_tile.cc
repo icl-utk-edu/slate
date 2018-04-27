@@ -42,12 +42,13 @@
 
 // -----------------------------------------------------------------------------
 // sets Aij = (g_mpi_rank + 1)*1000 + i + j/1000
-void tile_setup_data( slate::Tile<double>& A )
+template <typename scalar_t>
+void tile_setup_data( slate::Tile<scalar_t>& A )
 {
     //int m = A.mb();
     int n = A.nb();
     int ld = A.stride();
-    double* Ad = A.data();
+    scalar_t* Ad = A.data();
     for (int j = 0; j < n; ++j)
         for (int i = 0; i < ld; ++i)  // note: to ld, not just m
             Ad[ i + j*ld ] = (g_mpi_rank + 1)*1000 + i + j/1000.;
@@ -55,14 +56,15 @@ void tile_setup_data( slate::Tile<double>& A )
 
 // -----------------------------------------------------------------------------
 // sets Aij = 0
-void tile_clear_data( slate::Tile<double>& A )
+template <typename scalar_t>
+void tile_clear_data( slate::Tile<scalar_t>& A )
 {
-    //int m = A.mb();
+    int m = A.mb();
     int n = A.nb();
     int ld = A.stride();
     double* Ad = A.data();
     for (int j = 0; j < n; ++j)
-        for (int i = 0; i < ld; ++i)  // note: to ld, not just m
+        for (int i = 0; i < m; ++i)  // TODO: why was this ld? // note: to ld, not just m
             Ad[ i + j*ld ] = 0;
 }
 
@@ -72,12 +74,13 @@ void tile_clear_data( slate::Tile<double>& A )
 // Aij = (g_mpi_rank  + 1)*1000 + i + j/1000 for m <= i < stride.
 // expect_rank is where the data is coming from.
 // Data in the padding shouldn't be modified.
-void tile_verify_data( slate::Tile<double>& A, int expect_rank )
+template <typename scalar_t>
+void tile_verify_data( slate::Tile<scalar_t>& A, int expect_rank )
 {
     int m = A.mb();
     int n = A.nb();
     int ld = A.stride();
-    double* Ad = A.data();
+    scalar_t* Ad = A.data();
     for (int j = 0; j < n; ++j) {
         // for i in [0, m), use expect_rank
         for (int i = 0; i < m; ++i)
@@ -85,7 +88,7 @@ void tile_verify_data( slate::Tile<double>& A, int expect_rank )
 
         // for i in [m, ld), use actual rank (data shouldn't be modified)
         for (int i = m; i < ld; ++i)
-            test_assert( Ad[ i + j*ld ] = (g_mpi_rank + 1)*1000 + i + j/1000. );
+            test_assert( Ad[ i + j*ld ] == (g_mpi_rank + 1)*1000 + i + j/1000. );
     }
 }
 
@@ -94,7 +97,8 @@ void tile_verify_data( slate::Tile<double>& A, int expect_rank )
 // Aij = (expect_rank + 1)*1000 + j + i/1000 for 0 <= i < m, using A(i,j) operator.
 // expect_rank is where the data is coming from.
 // Doesn't check data in padding, since A(i,j) won't allow access.
-void tile_verify_data_transpose( slate::Tile<double>& A, int expect_rank )
+template <typename scalar_t>
+void tile_verify_data_transpose( slate::Tile<scalar_t>& A, int expect_rank )
 {
     int m = A.mb();
     int n = A.nb();
@@ -106,6 +110,7 @@ void tile_verify_data_transpose( slate::Tile<double>& A, int expect_rank )
 }
 
 // -----------------------------------------------------------------------------
+template <typename scalar_t>
 void test_tile( int m, int n )
 {
     Test name( __func__ );
@@ -114,7 +119,7 @@ void test_tile( int m, int n )
     if (g_mpi_rank == 0) {
         std::cout << "empty tile\n";
     }
-    slate::Tile<double> A;
+    slate::Tile<scalar_t> A;
     test_assert( A.mb() == 0 );
     test_assert( A.nb() == 0 );
     test_assert( A.stride() == 0 );
@@ -137,8 +142,8 @@ void test_tile( int m, int n )
         std::cout << "m-by-n tile\n";
     }
     int ld = ((m + 31)/32)*32;
-    double* Bd = new double[ ld*n ];
-    slate::Tile<double> B( m, n, Bd, ld, g_host_num );
+    scalar_t* Bd = new scalar_t[ ld*n ];
+    slate::Tile<scalar_t> B( m, n, Bd, ld, g_host_num );
     tile_setup_data( B );
     tile_verify_data( B, g_mpi_rank );
     test_assert( B.mb() == m );
@@ -149,7 +154,7 @@ void test_tile( int m, int n )
     test_assert( B.data() == Bd );
     test_assert( B.valid() == true );
     test_assert( B.origin() == true );
-    test_assert( B.bytes() == sizeof(double) * m * n );
+    test_assert( B.bytes() == sizeof(scalar_t) * m * n );
     test_assert( B.size() == size_t(m * n) );
     test_assert( B.device() == g_host_num );
 
@@ -167,7 +172,7 @@ void test_tile( int m, int n )
     test_assert( BT.data() == Bd );
     test_assert( BT.valid() == true );
     test_assert( BT.origin() == true );
-    test_assert( BT.bytes() == sizeof(double) * m * n );
+    test_assert( BT.bytes() == sizeof(scalar_t) * m * n );
     test_assert( BT.size() == size_t(m * n) );
     test_assert( BT.device() == g_host_num );
 
@@ -185,7 +190,7 @@ void test_tile( int m, int n )
     test_assert( BTT.data() == Bd );
     test_assert( BTT.valid() == true );
     test_assert( BTT.origin() == true );
-    test_assert( BTT.bytes() == sizeof(double) * m * n );
+    test_assert( BTT.bytes() == sizeof(scalar_t) * m * n );
     test_assert( BTT.size() == size_t(m * n) );
     test_assert( BTT.device() == g_host_num );
 
@@ -203,7 +208,7 @@ void test_tile( int m, int n )
     test_assert( BC.data() == Bd );
     test_assert( BC.valid() == true );
     test_assert( BC.origin() == true );
-    test_assert( BC.bytes() == sizeof(double) * m * n );
+    test_assert( BC.bytes() == sizeof(scalar_t) * m * n );
     test_assert( BC.size() == size_t(m * n) );
     test_assert( BC.device() == g_host_num );
 
@@ -221,16 +226,24 @@ void test_tile( int m, int n )
     test_assert( BCC.data() == Bd );
     test_assert( BCC.valid() == true );
     test_assert( BCC.origin() == true );
-    test_assert( BCC.bytes() == sizeof(double) * m * n );
+    test_assert( BCC.bytes() == sizeof(scalar_t) * m * n );
     test_assert( BCC.size() == size_t(m * n) );
     test_assert( BCC.device() == g_host_num );
 
     // ----- unsupported transpose + conj_transpose
     if (g_mpi_rank == 0) {
-        std::cout << "transpose + conj_transpose (illegal)\n";
+        std::cout << "transpose + conj_transpose (ok far real, illegal for complex)\n";
     }
-    test_assert_throw( conj_transpose( BT ), std::exception );
-    test_assert_throw( transpose( BC ),      std::exception );
+    if (BT.is_real) {
+        printf( "real\n" );
+        conj_transpose( BT );
+        transpose( BC );
+    }
+    else {
+        printf( "complex\n" );
+        test_assert_throw( conj_transpose( BT ), std::exception );
+        test_assert_throw( transpose( BC ),      std::exception );
+    }
 
     delete[] Bd;
 }
@@ -524,7 +537,8 @@ int main( int argc, char** argv )
     }
     MPI_Barrier( g_mpi_comm );
 
-    test_tile( m, n );
+    test_tile< double >( m, n );
+    test_tile< std::complex<double> >( m, n );
     test_tile_send( m, n );
     test_tile_bcast( m, n );
     test_tile_device( m, n );

@@ -181,4 +181,3 @@ int MPI_Finalize( void )
 #ifdef __cplusplus
 }
 #endif
-:wait

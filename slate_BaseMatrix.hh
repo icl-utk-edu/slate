@@ -188,8 +188,11 @@ protected:
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set);
 
 public:
-    void tileCopyToDevice(int64_t i, int64_t j, int dst_device);
-    void tileCopyToHost(  int64_t i, int64_t j, int src_device);
+    void tileCopyToDevice(
+        int64_t i, int64_t j, int dst_device, Mode mode=Mode::Sync);
+    void tileCopyToHost(
+        int64_t i, int64_t j, int src_device, Mode mode=Mode::Sync);
+
     void tileMoveToDevice(int64_t i, int64_t j, int dst_device);
     void tileMoveToHost(  int64_t i, int64_t j, int src_device);
 
@@ -677,8 +680,19 @@ void BaseMatrix<scalar_t>::listBcast(BcastList& bcast_list)
                 submatrix.getLocalDevices(&dev_set);
 
             for (auto device : dev_set)
-                tileCopyToDevice(i, j, device);
+                tileCopyToDevice(i, j, device, Mode::Async);
         }
+    }
+
+    // Synchronize communication streams.
+    for (int device = 0; device < num_devices_; ++device) {
+
+        cudaError_t error;
+        error = cudaSetDevice(device);
+        assert(error == cudaSuccess);
+
+        error = cudaStreamSynchronize(comm_stream(device));
+        assert(error == cudaSuccess);
     }
 }
 
@@ -768,7 +782,7 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
 ///     Tile's block column index. 0 <= j < nt.
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileCopyToDevice(
-    int64_t i, int64_t j, int dst_device)
+    int64_t i, int64_t j, int dst_device, Mode mode)
 {
     // todo: race condition if multiple threads try to copy tile to device
     // If the tile is not on the device.
@@ -777,15 +791,16 @@ void BaseMatrix<scalar_t>::tileCopyToDevice(
         // Create a copy on the device.
         Tile<scalar_t>* src_tile = storage_->at(globalIndex(i, j, host_num_));
         Tile<scalar_t>* dst_tile = tileInsert(i, j, dst_device);
-        src_tile->copyDataToDevice(dst_tile, comm_stream(dst_device));
+        src_tile->copyDataToDevice(dst_tile, comm_stream(dst_device), mode);
     }
     else {
         // If the tile on the device is not valid.
         Tile<scalar_t> *dst_tile = iter->second;
         if (! dst_tile->valid()) {
             // Update the device tile's data.
-            Tile<scalar_t>* src_tile = storage_->at(globalIndex(i, j, host_num_));
-            src_tile->copyDataToDevice(dst_tile, comm_stream(dst_device));
+            Tile<scalar_t>* src_tile =
+                storage_->at(globalIndex(i, j, host_num_));
+            src_tile->copyDataToDevice(dst_tile, comm_stream(dst_device), mode);
             dst_tile->valid(true);
         }
     }
@@ -808,7 +823,7 @@ void BaseMatrix<scalar_t>::tileCopyToDevice(
 ///     Tile's source device ID.
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileCopyToHost(
-    int64_t i, int64_t j, int src_device)
+    int64_t i, int64_t j, int src_device, Mode mode)
 {
     // todo: race condition if multiple threads try to copy tile to device
     // If the tile is not on the host.
@@ -817,15 +832,16 @@ void BaseMatrix<scalar_t>::tileCopyToHost(
         // Create a copy on the host.
         Tile<scalar_t>* src_tile = storage_->at(globalIndex(i, j, src_device));
         Tile<scalar_t>* dst_tile = tileInsert(i, j, host_num_);
-        src_tile->copyDataToHost(dst_tile, comm_stream(src_device));
+        src_tile->copyDataToHost(dst_tile, comm_stream(src_device), mode);
     }
     else {
         // If the tile on the host is not valid.
         Tile<scalar_t>* dst_tile = iter->second;
         if (! dst_tile->valid()) {
             // Update the host tile's data.
-            Tile<scalar_t>* src_tile = storage_->at(globalIndex(i, j, src_device));
-            src_tile->copyDataToHost(dst_tile, comm_stream(src_device));
+            Tile<scalar_t>* src_tile =
+                storage_->at(globalIndex(i, j, src_device));
+            src_tile->copyDataToHost(dst_tile, comm_stream(src_device), mode);
             dst_tile->valid(true);
         }
     }

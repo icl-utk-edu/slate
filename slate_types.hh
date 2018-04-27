@@ -59,6 +59,7 @@ typedef blas::Side Side;
 /// \brief
 ///
 enum class Target {Host, HostTask, HostNest, HostBatch, Devices};
+enum class Mode {Sync, Async};
 
 namespace internal {
 template <Target> class TargetType {};

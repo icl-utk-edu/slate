@@ -605,12 +605,31 @@ void BaseMatrix<scalar_t>::tileBcast(
 }
 
 //------------------------------------------------------------------------------
+/// Send tile {i, j} of op(A) to all MPI ranks in the list of submatrices
+/// bcast_list.
+///
 /// @tparam target
 ///     Destination to target; either Host (default) or Device.
+///
+/// @param[in] bcast_list
+///     List of submatrices defining the MPI ranks to send to.
+///     Usually it is the portion of the matrix to be updated by tile {i, j}.
+///
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::listBcast(BcastList& bcast_list)
 {
+    // It is possible that the same tile, with the same data, is sent twice.
+    // This happens, e.g., in the hemm and symm routines, where the same tile
+    // is sent once part of A and once as part of A^T.
+    // This cannot be avoided without violating the upper bound on the size of
+    // communication buffers.
+    // Due to dynamic scheduling, the second communication may occur before the
+    // first tile has been discarded.
+    // If that happens, instead of creating the tile, the life of the existing
+    // tile is increased.
+    // Also, currently, the message is received to the same buffer.
+
     for (auto bcast : bcast_list) {
 
         auto i = std::get<0>(bcast);

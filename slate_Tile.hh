@@ -114,13 +114,8 @@ public:
     // 2. copy & move constructors
     // 3. copy & move assignment
 
-    void copyDataToHost(Tile<scalar_t>* dst_tile,
-                        cudaStream_t stream,
-                        Mode mode=Mode::Sync) const;
-
-    void copyDataToDevice(Tile<scalar_t>* dst_tile,
-                          cudaStream_t stream,
-                          Mode mode=Mode::Sync) const;
+    void copyDataToHost(Tile<scalar_t>* dst_tile, cudaStream_t stream) const;
+    void copyDataToDevice(Tile<scalar_t>* dst_tile, cudaStream_t stream) const;
 
     void send(int dst, MPI_Comm mpi_comm) const;
     void recv(int src, MPI_Comm mpi_comm);
@@ -359,7 +354,7 @@ Uplo Tile<scalar_t>::uplo_logical() const
 // todo need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
 void Tile<scalar_t>::copyDataToHost(
-    Tile<scalar_t>* dst_tile, cudaStream_t stream, Mode mode) const
+    Tile<scalar_t>* dst_tile, cudaStream_t stream) const
 {
     cudaError_t error;
     error = cudaSetDevice(device_);
@@ -377,10 +372,8 @@ void Tile<scalar_t>::copyDataToHost(
             cudaMemcpyDeviceToHost, stream);
         assert(error == cudaSuccess);
 
-        if (mode == Mode::Sync) {
-            error = cudaStreamSynchronize(stream);
-            assert(error == cudaSuccess);
-        }
+        error = cudaStreamSynchronize(stream);
+        assert(error == cudaSuccess);
     }
     else {
         // Otherwise, use 2D copy.
@@ -400,10 +393,8 @@ void Tile<scalar_t>::copyDataToHost(
             cudaMemcpyDeviceToHost, stream);
         assert(error == cudaSuccess);
 
-        if (mode == Mode::Sync) {
-            error = cudaStreamSynchronize(stream);
-            assert(error == cudaSuccess);
-        }
+        error = cudaStreamSynchronize(stream);
+        assert(error == cudaSuccess);
     }
 }
 
@@ -419,7 +410,7 @@ void Tile<scalar_t>::copyDataToHost(
 // todo: need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
 void Tile<scalar_t>::copyDataToDevice(
-    Tile<scalar_t>* dst_tile, cudaStream_t stream, Mode mode) const
+    Tile<scalar_t>* dst_tile, cudaStream_t stream) const
 {
     cudaError_t error;
     error = cudaSetDevice(dst_tile->device_);
@@ -437,10 +428,8 @@ void Tile<scalar_t>::copyDataToDevice(
             cudaMemcpyHostToDevice, stream);
         assert(error == cudaSuccess);
 
-        if (mode == Mode::Sync) {
-            error = cudaStreamSynchronize(stream);
-            assert(error == cudaSuccess);
-        }
+        error = cudaStreamSynchronize(stream);
+        assert(error == cudaSuccess);
     }
     else {
         // Otherwise, use 2D copy.
@@ -460,10 +449,8 @@ void Tile<scalar_t>::copyDataToDevice(
             cudaMemcpyHostToDevice, stream);
         assert(error == cudaSuccess);
 
-        if (mode == Mode::Sync) {
-            error = cudaStreamSynchronize(stream);
-            assert(error == cudaSuccess);
-        }
+        error = cudaStreamSynchronize(stream);
+        assert(error == cudaSuccess);
     }
 }
 

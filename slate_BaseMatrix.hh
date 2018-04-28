@@ -683,6 +683,8 @@ void BaseMatrix<scalar_t>::listBcast(BcastList& bcast_list)
             }
         }
     }
+
+    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

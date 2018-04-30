@@ -106,15 +106,15 @@ public:
     using LivesMap = slate::Map< ij_tuple, int64_t >;
 
     ///-------------------------------------------------------------------------
-    MatrixStorage(int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm):
-        m_(m),
-        n_(n),
-        mt_(ceildiv(m, nb)),
-        nt_(ceildiv(n, nb)),
-        nb_(nb),
-        tiles_(),
-        lives_(),
-        memory_(sizeof(scalar_t) * nb * nb)  // block size in bytes
+    MatrixStorage(int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+        : m_(m),
+          n_(n),
+          mt_(ceildiv(m, nb)),
+          nt_(ceildiv(n, nb)),
+          nb_(nb),
+          tiles_(),
+          lives_(),
+          memory_(sizeof(scalar_t) * nb * nb)  // block size in bytes
         //mpi_comm_(mpi_comm)
     {
         int err;

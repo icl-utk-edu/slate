@@ -161,6 +161,8 @@ void test_gemm_work( Params &params, bool run )
 
     if( trace ) slate::trace::Trace::finish();
 
+    params.okay.value() = true;
+
     // compute and save timing/performance
     double gflop = blas::Gflop< scalar_t >::gemm( m, n, k );
     params.time.value() = time_tst;
@@ -175,6 +177,14 @@ void test_gemm_work( Params &params, bool run )
         { omp_num_threads = omp_get_num_threads(); }
         int saved_num_threads = slate_set_num_blas_threads( omp_num_threads );
 
+        // allocate work space
+        std::vector< real_t > worklange( std::max( {mlocC, mlocB, mlocA} ) );
+
+        // get norms of the original data
+        real_t A_orig_norm = scalapack_plange( "I", m, n, &A_tst[0], i1, i1, descA_tst, &worklange[0] );
+        real_t B_orig_norm = scalapack_plange( "I", m, n, &B_tst[0], i1, i1, descB_tst, &worklange[0] );
+        real_t C_orig_norm = scalapack_plange( "I", m, n, &C_ref[0], i1, i1, descC_ref, &worklange[0] );
+
         // run the reference routine
         MPI_Barrier( MPI_COMM_WORLD );
         double time = libtest::get_wtime();
@@ -185,26 +195,24 @@ void test_gemm_work( Params &params, bool run )
         MPI_Barrier( MPI_COMM_WORLD );
         double time_ref = libtest::get_wtime() - time;
 
-        // allocate work space
-        std::vector< real_t > worklange( mlocC );
-
-        // local operation: error = C_ref - C_tst
+        // perform a local operation to get differences C_ref = C_ref - C_tst 
         blas::axpy( C_ref.size(), -1.0, &C_tst[0], 1, &C_ref[0], 1 );
 
-        // norm(C_tst)
-        real_t C_tst_norm = scalapack_plange( "I", m, n, &C_tst[0], i1, i1, descC_tst, &worklange[0] );
-
         // norm(C_ref - C_tst)
-        real_t error_norm = scalapack_plange( "I", m, n, &C_ref[0], i1, i1, descC_tst, &worklange[0] );
+        real_t C_diff_norm = scalapack_plange( "I", m, n, &C_ref[0], i1, i1, descC_ref, &worklange[0] );
 
-        if( C_tst_norm != 0 )
-            error_norm /=  C_tst_norm;
+        real_t error = C_diff_norm 
+            / ( sqrt(real_t(k)+2) * std::abs(alpha) * A_orig_norm * B_orig_norm + 2*std::abs(beta) * C_orig_norm );
 
         params.ref_time.value() = time_ref;
         params.ref_gflops.value() = gflop / time_ref;
-        params.error.value() = error_norm;
+        params.error.value() = error;
 
         slate_set_num_blas_threads( saved_num_threads );
+
+        // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.
+        real_t eps = std::numeric_limits< real_t >::epsilon();
+        params.okay.value() = ( params.error.value() <= 3*eps );
     }
 
 #ifdef PIN_MATRICES
@@ -212,9 +220,6 @@ void test_gemm_work( Params &params, bool run )
     cuerror=cudaHostUnregister( &B_tst[0] );
     cuerror=cudaHostUnregister( &C_tst[0] );
 #endif
-
-    real_t eps = std::numeric_limits< real_t >::epsilon();
-    params.okay.value() = ( params.error.value() <= 50*eps );
 
     //Cblacs_exit(1) is commented out because it does not handle re-entering ... some unknown problem
     //Cblacs_exit(1); // 1 means that you can run Cblacs again

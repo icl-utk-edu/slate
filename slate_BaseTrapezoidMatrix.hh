@@ -103,7 +103,7 @@ public:
     void allocateBatchArrays();
     void reserveHostWorkspace();
     void reserveDeviceWorkspace();
-    void gather(scalar_t *A, int64_t lda);
+    void gather(scalar_t* A, int64_t lda);
     Uplo uplo() const;
     Uplo uplo_logical() const;
 };
@@ -111,8 +111,8 @@ public:
 ///-------------------------------------------------------------------------
 /// Default constructor creates an empty matrix.
 template <typename scalar_t>
-BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix():
-    BaseMatrix< scalar_t >()
+BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix()
+    : BaseMatrix< scalar_t >()
 {
     this->uplo_ = Uplo::Lower;
 }
@@ -471,7 +471,7 @@ void BaseTrapezoidMatrix<scalar_t>::reserveDeviceWorkspace()
 /// Gathers the entire matrix to the LAPACK-style matrix A on MPI rank 0.
 /// Primarily for debugging purposes.
 template <typename scalar_t>
-void BaseTrapezoidMatrix<scalar_t>::gather(scalar_t *A, int64_t lda)
+void BaseTrapezoidMatrix<scalar_t>::gather(scalar_t* A, int64_t lda)
 {
     // this code assumes the matrix is not transposed
     Op op_save = this->op();

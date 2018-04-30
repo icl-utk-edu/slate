@@ -104,8 +104,8 @@ void Debug::checkTilesLives(BaseMatrix<scalar_t> const& A)
         int64_t i = std::get<0>(it->first);
         int64_t j = std::get<1>(it->first);
 
-        if (! A.tileIsLocal(i, j))
-            if (A.storage_->lives_[{i, j}] != 0 || it->second->data() != nullptr)
+        if (! A.tileIsLocal(i, j)) {
+            if (A.storage_->lives_[{i, j}] != 0 || it->second->data() != nullptr) {
 
                 std::cout << "RANK "  << std::setw(3) << A.mpi_rank_
                           << " TILE " << std::setw(3) << std::get<0>(it->first)
@@ -113,6 +113,8 @@ void Debug::checkTilesLives(BaseMatrix<scalar_t> const& A)
                           << " LIFE " << std::setw(3) << A.storage_->lives_[{i, j}]
                           << " data " << it->second->data()
                           << " DEV "  << std::get<2>(it->first) << "\n";
+            }
+        }
     }
 }
 

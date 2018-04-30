@@ -193,8 +193,8 @@ public:
     void tileMoveToDevice(int64_t i, int64_t j, int dst_device);
     void tileMoveToHost(  int64_t i, int64_t j, int src_device);
 
-    void getRanks(std::set<int> *bcast_set) const;
-    void getLocalDevices(std::set<int> *dev_set) const;
+    void getRanks(std::set<int>* bcast_set) const;
+    void getLocalDevices(std::set<int>* dev_set) const;
     int64_t numLocalTiles() const;
 
     /// Removes all tiles from matrix.
@@ -268,14 +268,14 @@ protected:
 /// Default constructor creates an empty matrix.
 /// Does not allocate any memory.
 template <typename scalar_t>
-BaseMatrix<scalar_t>::BaseMatrix():
-    ioffset_(0),
-    joffset_(0),
-    mt_(0),
-    nt_(0),
-    uplo_(Uplo::General),
-    op_(Op::NoTrans),
-    storage_(nullptr)
+BaseMatrix<scalar_t>::BaseMatrix()
+    : ioffset_(0),
+      joffset_(0),
+      mt_(0),
+      nt_(0),
+      uplo_(Uplo::General),
+      op_(Op::NoTrans),
+      storage_(nullptr)
 {}
 
 //------------------------------------------------------------------------------
@@ -786,7 +786,7 @@ void BaseMatrix<scalar_t>::tileCopyToDevice(
     }
     else {
         // If the tile on the device is not valid.
-        Tile<scalar_t> *dst_tile = iter->second;
+        Tile<scalar_t>* dst_tile = iter->second;
         if (! dst_tile->valid()) {
             // Update the device tile's data.
             Tile<scalar_t>* src_tile =
@@ -908,7 +908,7 @@ void BaseMatrix<scalar_t>::tileMoveToHost(
 /// @param[out] bcast_set
 ///     On output, set of MPI ranks that this sub-matrix has tiles on.
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::getRanks(std::set<int> *bcast_set) const
+void BaseMatrix<scalar_t>::getRanks(std::set<int>* bcast_set) const
 {
     for (int64_t i = 0; i < mt(); ++i)
         for (int64_t j = 0; j < nt(); ++j)
@@ -921,7 +921,7 @@ void BaseMatrix<scalar_t>::getRanks(std::set<int> *bcast_set) const
 /// @param[out] dev_set
 ///     On output, set of device IDs that this sub-matrix has local tiles on.
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::getLocalDevices(std::set<int> *dev_set) const
+void BaseMatrix<scalar_t>::getLocalDevices(std::set<int>* dev_set) const
 {
     for (int64_t i = 0; i < mt(); ++i)
         for (int64_t j = 0; j < nt(); ++j)

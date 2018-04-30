@@ -52,7 +52,7 @@
 typedef int cuComplex;
 typedef int cuDoubleComplex;
 typedef int cudaError_t;
-typedef void *cudaStream_t;
+typedef void* cudaStream_t;
 typedef int cudaMemcpyKind;
 
 enum {
@@ -66,29 +66,29 @@ enum {
 extern "C" {
 #endif
 
-cudaError_t cudaFree(void *devPtr);
-cudaError_t cudaFreeHost(void *ptr);
+cudaError_t cudaFree(void* devPtr);
+cudaError_t cudaFreeHost(void* ptr);
 
-cudaError_t cudaGetDevice(int *device);
-cudaError_t cudaGetDeviceCount(int *count);
+cudaError_t cudaGetDevice(int* device);
+cudaError_t cudaGetDeviceCount(int* count);
 
-cudaError_t cudaMalloc(void **devPtr, size_t size);
-cudaError_t cudaMallocHost(void **ptr, size_t size);
+cudaError_t cudaMalloc(void** devPtr, size_t size);
+cudaError_t cudaMallocHost(void** ptr, size_t size);
 
 cudaError_t cudaMemcpy2DAsync(void* dst, size_t dpitch,
                               const void* src, size_t spitch,
                               size_t width, size_t height,
                               cudaMemcpyKind kind, cudaStream_t stream = 0);
 
-cudaError_t cudaMemcpyAsync(void *dst, const void *src, size_t count,
+cudaError_t cudaMemcpyAsync(void* dst, const void* src, size_t count,
                             cudaMemcpyKind kind, cudaStream_t stream = 0);
 
-cudaError_t cudaMemcpy(void *dst, const void * src,
+cudaError_t cudaMemcpy(void* dst, const void*  src,
                        size_t count, cudaMemcpyKind kind);
 
 cudaError_t cudaSetDevice(int device);
 
-cudaError_t cudaStreamCreate(cudaStream_t *pStream);
+cudaError_t cudaStreamCreate(cudaStream_t* pStream);
 cudaError_t cudaStreamSynchronize(cudaStream_t stream);
 cudaError_t cudaStreamDestroy(cudaStream_t pStream);
 

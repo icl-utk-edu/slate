@@ -621,7 +621,7 @@ void BaseMatrix<scalar_t>::listBcast(BcastList& bcast_list)
 {
     // It is possible that the same tile, with the same data, is sent twice.
     // This happens, e.g., in the hemm and symm routines, where the same tile
-    // is sent once part of A and once as part of A^T.
+    // is sent once as part of A and once as part of A^T.
     // This cannot be avoided without violating the upper bound on the size of
     // communication buffers.
     // Due to dynamic scheduling, the second communication may occur before the

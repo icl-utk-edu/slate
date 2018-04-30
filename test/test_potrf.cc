@@ -108,6 +108,8 @@ template < typename scalar_t > void test_potrf_work( Params &params, bool run )
     params.time.value() = time_tst;
     params.gflops.value() = gflop / time_tst;
 
+    params.okay.value() = true;
+
     if( check || ref ) {
         // A comparison with a reference routine from ScaLAPACK
         // This expects to get the original (clean) A_ref and will alter A_ref
@@ -140,10 +142,10 @@ template < typename scalar_t > void test_potrf_work( Params &params, bool run )
         params.ref_time.value() = time_ref;
         params.ref_gflops.value() = gflop / time_ref;
         params.error.value() = error_norm;
-    }
 
-    real_t eps = std::numeric_limits< real_t >::epsilon();
-    params.okay.value() = ( ( params.error.value() <= 50*eps ) );
+        real_t eps = std::numeric_limits< real_t >::epsilon();
+        params.okay.value() = ( ( params.error.value() <= 50*eps ) );
+    }
 
     // Cblacs_exit is commented out because it does not handle re-entering ... some unknown problem
     // Cblacs_exit( 1 ); // 1 means that you can run Cblacs again

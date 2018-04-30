@@ -71,7 +71,7 @@ enum {
     MPI_THREAD_MULTIPLE
 };
 
-extern int *MPI_STATUS_IGNORE;
+extern int* MPI_STATUS_IGNORE;
 
 #ifdef __cplusplus
 extern "C" {
@@ -83,7 +83,7 @@ int MPI_Bcast(void* buffer, int count, MPI_Datatype datatype, int root,
               MPI_Comm comm);
 
 int MPI_Comm_create_group(MPI_Comm comm, MPI_Group group, int tag,
-                          MPI_Comm *newcomm);
+                          MPI_Comm* newcomm);
 
 int MPI_Comm_free(MPI_Comm* comm);
 int MPI_Comm_group(MPI_Comm comm, MPI_Group* group);
@@ -106,7 +106,7 @@ int MPI_Irecv(void* buf, int count, MPI_Datatype datatype, int source,
               int tag, MPI_Comm comm, MPI_Request* request);
 
 int MPI_Isend(const void* buf, int count, MPI_Datatype datatype, int dest,
-              int tag, MPI_Comm comm, MPI_Request *request);
+              int tag, MPI_Comm comm, MPI_Request* request);
 
 int MPI_Recv(void* buf, int count, MPI_Datatype datatype, int source,
              int tag, MPI_Comm comm, MPI_Status* status);

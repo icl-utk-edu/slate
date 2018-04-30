@@ -205,11 +205,13 @@ class Event {
 public:
     friend class Trace;
 
-    Event() {};
+    Event()
+    {}
 
     Event(const char* name)
         : name_(name),
-          start_(omp_get_wtime()) {}
+          start_(omp_get_wtime())
+    {}
 
     void stop() { stop_ = omp_get_wtime(); }
 
@@ -236,9 +238,9 @@ public:
 private:
     static double getTimeSpan();
     static void printProcEvents(int mpi_rank, int mpi_size,
-                                double timespan, FILE *trace_file);
-    static void printTicks(double timespan, FILE *trace_file);
-    static void printLegend(FILE *trace_file);
+                                double timespan, FILE* trace_file);
+    static void printTicks(double timespan, FILE* trace_file);
+    static void printLegend(FILE* trace_file);
     static void sendProcEvents();
     static void recvProcEvents(int rank);
 
@@ -270,7 +272,8 @@ private:
 class Block {
 public:
     Block(const char* name)
-        : event_(name) {}
+        : event_(name)
+    {}
 
     ~Block() { Trace::insert(event_); }
 private:

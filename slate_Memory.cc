@@ -194,7 +194,7 @@ void* Memory::alloc(int device)
 /// \brief
 /// Puts a single block of memory back into the pool of free blocks
 /// for the given device, which can be host.
-void Memory::free(void *block, int device)
+void Memory::free(void* block, int device)
 {
     #pragma omp critical(slate_memory)
     {
@@ -207,7 +207,7 @@ void Memory::free(void *block, int device)
 /// Allocates a single block of memory on the given device, which can be host.
 void* Memory::allocBlock(int device)
 {
-    void *block;
+    void* block;
     if (device == host_num_)
         block = allocHostMemory(block_size_);
     else

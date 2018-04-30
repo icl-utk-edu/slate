@@ -455,7 +455,7 @@ void test_general( int m, int n, int nb, int p, int q )
 
     // ----- test complex: conj_trans( trans( Z )) is unsupported
     test_message( "complex transpose and conj_transpose" );
-    std::complex<double> *Zd = new std::complex<double>[ lda*n ];
+    std::complex<double>* Zd = new std::complex<double>[ lda*n ];
     auto Z = slate::Matrix< std::complex<double> >::fromLAPACK(
                 m, n, Zd, lda, nb, p, q, g_mpi_comm );
 

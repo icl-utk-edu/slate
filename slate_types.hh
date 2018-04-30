@@ -82,10 +82,17 @@ enum class Option {
 class Value
 {
 public:
-    Value() {}
-    Value(int64_t i) : i_(i) {}
-    Value(double d) : d_(d) {}
-    Value(Target t) : i_(int(t)) {}
+    Value()
+    {}
+
+    Value(int64_t i) : i_(i)
+    {}
+
+    Value(double d) : d_(d)
+    {}
+
+    Value(Target t) : i_(int(t))
+    {}
 
     union {
         int64_t i_;

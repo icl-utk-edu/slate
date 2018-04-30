@@ -105,8 +105,8 @@ public:
 //------------------------------------------------------------------------------
 /// Default constructor creates an empty matrix.
 template <typename scalar_t>
-SymmetricMatrix<scalar_t>::SymmetricMatrix():
-    BaseTrapezoidMatrix< scalar_t >()
+SymmetricMatrix<scalar_t>::SymmetricMatrix()
+    : BaseTrapezoidMatrix< scalar_t >()
 {}
 
 //------------------------------------------------------------------------------

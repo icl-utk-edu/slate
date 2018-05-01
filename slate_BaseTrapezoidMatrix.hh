@@ -63,7 +63,7 @@ namespace slate {
 /// assumed by symmetry (SymmetricMatrix, HermitianMatrix),
 /// or assumed to be zero (TrapezoidMatrix, TriangularMatrix).
 template <typename scalar_t>
-class BaseTrapezoidMatrix: public BaseMatrix< scalar_t > {
+class BaseTrapezoidMatrix: public BaseMatrix<scalar_t> {
 protected:
     // constructors
     BaseTrapezoidMatrix();
@@ -85,7 +85,7 @@ protected:
                         int p, int q, MPI_Comm mpi_comm);
 
     // used by sub-classes' off-diagonal sub
-    BaseTrapezoidMatrix(Uplo uplo, Matrix< scalar_t >& orig,
+    BaseTrapezoidMatrix(Uplo uplo, Matrix<scalar_t>& orig,
                         int64_t i1, int64_t i2,
                         int64_t j1, int64_t j2);
 
@@ -112,7 +112,7 @@ public:
 /// Default constructor creates an empty matrix.
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix()
-    : BaseMatrix< scalar_t >()
+    : BaseMatrix<scalar_t>()
 {
     this->uplo_ = Uplo::Lower;
 }
@@ -160,7 +160,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     Uplo in_uplo, int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : BaseMatrix< scalar_t >(m, n, nb, p, q, mpi_comm)
+    : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
 {
     this->uplo_ = in_uplo;
 
@@ -247,7 +247,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     Uplo in_uplo, int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : BaseMatrix< scalar_t >(m, n, nb, p, q, mpi_comm)
+    : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
 {
     assert(mb == nb);
     this->uplo_ = in_uplo;
@@ -310,8 +310,8 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 ///     Original matrix.
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
-    Uplo uplo, Matrix< scalar_t >& orig)
-    : BaseMatrix< scalar_t >(orig)
+    Uplo uplo, Matrix<scalar_t>& orig)
+    : BaseMatrix<scalar_t>(orig)
 {
     this->uplo_ = uplo;
 }
@@ -340,10 +340,10 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 ///     Ending block column index (inclusive). j2 < nt.
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
-    Uplo uplo, Matrix< scalar_t >& orig,
+    Uplo uplo, Matrix<scalar_t>& orig,
     int64_t i1, int64_t i2,
     int64_t j1, int64_t j2)
-    : BaseMatrix< scalar_t >(orig, i1, i2, j1, j2)
+    : BaseMatrix<scalar_t>(orig, i1, i2, j1, j2)
 {
     this->uplo_ = uplo;
 }
@@ -372,7 +372,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     BaseTrapezoidMatrix& orig,
     int64_t i1, int64_t i2,
     int64_t j1, int64_t j2)
-    : BaseMatrix< scalar_t >(orig, i1, i2, j1, j2)
+    : BaseMatrix<scalar_t>(orig, i1, i2, j1, j2)
 {
     this->uplo_ = orig.uplo_;
     if (i1 != j1) {
@@ -386,8 +386,8 @@ template <typename scalar_t>
 void swap(BaseTrapezoidMatrix<scalar_t>& A, BaseTrapezoidMatrix<scalar_t>& B)
 {
     using std::swap;
-    swap(static_cast< BaseMatrix< scalar_t >& >(A),
-         static_cast< BaseMatrix< scalar_t >& >(B));
+    swap(static_cast< BaseMatrix<scalar_t>& >(A),
+         static_cast< BaseMatrix<scalar_t>& >(B));
 }
 
 //------------------------------------------------------------------------------
@@ -528,7 +528,7 @@ void BaseTrapezoidMatrix<scalar_t>::gather(scalar_t* A, int64_t lda)
 /// - if uplo = Lower, is strictly below the diagonal, or
 /// - if uplo = Upper, is strictly above the diagonal.
 template <typename scalar_t>
-Matrix< scalar_t > BaseTrapezoidMatrix<scalar_t>::sub(
+Matrix<scalar_t> BaseTrapezoidMatrix<scalar_t>::sub(
     int64_t i1, int64_t i2, int64_t j1, int64_t j2)
 {
     if (this->uplo_logical() == Uplo::Lower) {

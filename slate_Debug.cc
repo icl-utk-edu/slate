@@ -237,13 +237,13 @@ void Debug::diffLapackMatrices(int64_t m, int64_t n,
                                std::complex<float> const* B, int64_t ldb,
                                int64_t mb, int64_t nb);
 template
-void Debug::checkTilesLives(BaseMatrix<std::complex<float>> const& A);
+void Debug::checkTilesLives(BaseMatrix< std::complex<float> > const& A);
 
 template
-void Debug::printTilesLives(BaseMatrix<std::complex<float>> const& A);
+void Debug::printTilesLives(BaseMatrix< std::complex<float> > const& A);
 
 template
-void Debug::printTilesMaps(BaseMatrix<std::complex<float>> const& A);
+void Debug::printTilesMaps(BaseMatrix< std::complex<float> > const& A);
 
 // ----------------------------------------
 template
@@ -252,13 +252,13 @@ void Debug::diffLapackMatrices(int64_t m, int64_t n,
                                std::complex<double> const* B, int64_t ldb,
                                int64_t mb, int64_t nb);
 template
-void Debug::checkTilesLives(BaseMatrix<std::complex<double>> const& A);
+void Debug::checkTilesLives(BaseMatrix< std::complex<double> > const& A);
 
 template
-void Debug::printTilesLives(BaseMatrix<std::complex<double>> const& A);
+void Debug::printTilesLives(BaseMatrix< std::complex<double> > const& A);
 
 template
-void Debug::printTilesMaps(BaseMatrix<std::complex<double>> const& A);
+void Debug::printTilesMaps(BaseMatrix< std::complex<double> > const& A);
 
 
 } // namespace slate

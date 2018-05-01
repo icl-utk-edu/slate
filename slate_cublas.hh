@@ -67,7 +67,8 @@ extern "C" {
 cublasStatus_t cublasCreate(cublasHandle_t* handle);
 cublasStatus_t cublasSetStream(cublasHandle_t handle, cudaStream_t streamId);
 cublasStatus_t cublasGetStream(cublasHandle_t handle, cudaStream_t* streamId);
-cublasStatus_t cublasDasum(cublasHandle_t handle, int n, const double* x, int incx, double* result);
+cublasStatus_t cublasDasum(
+    cublasHandle_t handle, int n, const double* x, int incx, double* result);
 cublasStatus_t cublasDestroy(cublasHandle_t handle);
 
 cublasStatus_t cublasSgemmBatched(

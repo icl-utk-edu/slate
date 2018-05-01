@@ -75,7 +75,7 @@ public:
 
     friend class Debug;
 
-    static constexpr bool is_complex = is_complex< scalar_t >::value;
+    static constexpr bool is_complex = is_complex<scalar_t>::value;
     static constexpr bool is_real    = ! is_complex;
 
 protected:
@@ -98,12 +98,12 @@ protected:
 public:
     /// Returns shallow copy of op(A) that is transposed.
     /// @see conj_transpose
-    template< typename MatrixType >
+    template<typename MatrixType>
     friend MatrixType transpose(MatrixType& A);
 
     /// Returns shallow copy of op(A) that is conjugate-transpose.
     /// @see transpose
-    template< typename MatrixType >
+    template<typename MatrixType>
     friend MatrixType conj_transpose(MatrixType& A);
 
     template <typename T>
@@ -189,7 +189,7 @@ protected:
 
 public:
     void tileCopyToDevice(int64_t i, int64_t j, int dst_device);
-    void tileCopyToHost( int64_t i, int64_t j, int src_device);
+    void tileCopyToHost(  int64_t i, int64_t j, int src_device);
     void tileMoveToDevice(int64_t i, int64_t j, int dst_device);
     void tileMoveToHost(  int64_t i, int64_t j, int src_device);
 
@@ -234,10 +234,10 @@ public:
     cudaStream_t   comm_stream   (int device) { return storage_->comm_streams_   .at(device); }
 
 protected:
-    std::tuple< int64_t, int64_t >
+    std::tuple<int64_t, int64_t>
         globalIndex(int64_t i, int64_t j) const;
 
-    std::tuple< int64_t, int64_t, int >
+    std::tuple<int64_t, int64_t, int>
         globalIndex(int64_t i, int64_t j, int device) const;
 
 private:
@@ -252,7 +252,7 @@ protected:
     Op op_;             ///< transpose operation with respect to original matrix
 
     /// shared storage of tiles and buffers
-    std::shared_ptr< MatrixStorage< scalar_t > > storage_;
+    std::shared_ptr< MatrixStorage<scalar_t> > storage_;
 
     // ----- consider where to put these, here or in MatrixStorage
     static int host_num_;
@@ -982,7 +982,7 @@ std::tuple< int64_t, int64_t >
 /// @param[in] device
 ///     Tile's device ID.
 template <typename scalar_t>
-std::tuple< int64_t, int64_t, int >
+std::tuple<int64_t, int64_t, int>
     BaseMatrix<scalar_t>::globalIndex(int64_t i, int64_t j, int device) const
 {
     assert(0 <= i && i < mt());
@@ -996,10 +996,10 @@ std::tuple< int64_t, int64_t, int >
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-int BaseMatrix< scalar_t >::host_num_ = -1;
+int BaseMatrix<scalar_t>::host_num_ = -1;
 
 template <typename scalar_t>
-int BaseMatrix< scalar_t >::num_devices_ = 0;
+int BaseMatrix<scalar_t>::num_devices_ = 0;
 
 } // namespace slate
 

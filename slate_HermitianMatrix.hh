@@ -57,7 +57,7 @@ namespace slate {
 //==============================================================================
 /// Hermitian, n-by-n, distributed, tiled matrices.
 template <typename scalar_t>
-class HermitianMatrix: public BaseTrapezoidMatrix< scalar_t > {
+class HermitianMatrix: public BaseTrapezoidMatrix<scalar_t> {
 public:
     // constructors
     HermitianMatrix();
@@ -73,14 +73,14 @@ public:
                                   int p, int q, MPI_Comm mpi_comm);
 
     // conversion
-    explicit HermitianMatrix(BaseTrapezoidMatrix< scalar_t >& orig);
+    explicit HermitianMatrix(BaseTrapezoidMatrix<scalar_t>& orig);
 
     HermitianMatrix(Uplo uplo, Matrix< scalar_t >& orig);
 
     // sub-matrix
     HermitianMatrix sub(int64_t i1, int64_t i2);
 
-    Matrix< scalar_t > sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
+    Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
 
 protected:
     // used by fromLAPACK
@@ -199,7 +199,7 @@ HermitianMatrix<scalar_t>::HermitianMatrix(
     Uplo uplo, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : BaseTrapezoidMatrix< scalar_t >(uplo, n, n, A, lda, nb, p, q, mpi_comm)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, n, n, A, lda, nb, p, q, mpi_comm)
 {}
 
 //------------------------------------------------------------------------------
@@ -210,7 +210,7 @@ HermitianMatrix<scalar_t>::HermitianMatrix(
     Uplo uplo, int64_t n,
     scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : BaseTrapezoidMatrix< scalar_t >(uplo, n, n, A, lda, mb, nb, p, q, mpi_comm)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, n, n, A, lda, mb, nb, p, q, mpi_comm)
 {}
 
 //------------------------------------------------------------------------------
@@ -223,8 +223,8 @@ HermitianMatrix<scalar_t>::HermitianMatrix(
 ///     Original matrix.
 template <typename scalar_t>
 HermitianMatrix<scalar_t>::HermitianMatrix(
-    BaseTrapezoidMatrix< scalar_t >& orig)
-    : BaseTrapezoidMatrix< scalar_t >(
+    BaseTrapezoidMatrix<scalar_t>& orig)
+    : BaseTrapezoidMatrix<scalar_t>(
         orig,
         0, std::min( orig.mt()-1, orig.nt()-1 ),
         0, std::min( orig.mt()-1, orig.nt()-1 ))
@@ -243,8 +243,8 @@ HermitianMatrix<scalar_t>::HermitianMatrix(
 ///     Original matrix.
 template <typename scalar_t>
 HermitianMatrix<scalar_t>::HermitianMatrix(
-    Uplo uplo, Matrix< scalar_t >& orig)
-    : BaseTrapezoidMatrix< scalar_t >(
+    Uplo uplo, Matrix<scalar_t>& orig)
+    : BaseTrapezoidMatrix<scalar_t>(
         uplo, orig,
         0, std::min( orig.mt()-1, orig.nt()-1 ),
         0, std::min( orig.mt()-1, orig.nt()-1 ))
@@ -267,7 +267,7 @@ template <typename scalar_t>
 HermitianMatrix<scalar_t>::HermitianMatrix(
     HermitianMatrix& orig,
     int64_t i1, int64_t i2)
-    : BaseTrapezoidMatrix< scalar_t >(orig, i1, i2, i1, i2)
+    : BaseTrapezoidMatrix<scalar_t>(orig, i1, i2, i1, i2)
 {}
 
 //------------------------------------------------------------------------------
@@ -310,11 +310,11 @@ HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::sub(
 /// @param[in] j2
 ///     Ending block column index (inclusive). j2 < nt.
 template <typename scalar_t>
-Matrix< scalar_t > HermitianMatrix<scalar_t>::sub(
+Matrix<scalar_t> HermitianMatrix<scalar_t>::sub(
     int64_t i1, int64_t i2,
     int64_t j1, int64_t j2)
 {
-    return BaseTrapezoidMatrix< scalar_t >::sub(i1, i2, j1, j2);
+    return BaseTrapezoidMatrix<scalar_t>::sub(i1, i2, j1, j2);
 }
 
 //------------------------------------------------------------------------------
@@ -326,8 +326,8 @@ template <typename scalar_t>
 void swap(HermitianMatrix<scalar_t>& A, HermitianMatrix<scalar_t>& B)
 {
     using std::swap;
-    swap(static_cast< BaseTrapezoidMatrix< scalar_t >& >(A),
-         static_cast< BaseTrapezoidMatrix< scalar_t >& >(B));
+    swap(static_cast< BaseTrapezoidMatrix<scalar_t>& >(A),
+         static_cast< BaseTrapezoidMatrix<scalar_t>& >(B));
 }
 
 } // namespace slate

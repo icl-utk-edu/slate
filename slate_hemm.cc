@@ -93,8 +93,8 @@ void hemm(slate::internal::TargetType<target>,
     assert(B.nt() == C.nt());
 
     // OpenMP needs pointer types, but vectors are exception safe
-    std::vector< uint8_t > bcast_vector( A.nt() );
-    std::vector< uint8_t >  gemm_vector( A.nt() );
+    std::vector<uint8_t> bcast_vector( A.nt() );
+    std::vector<uint8_t>  gemm_vector( A.nt() );
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
 
@@ -298,7 +298,7 @@ void hemm(slate::internal::TargetType<target>,
                 if (A.mt()-1 > 0) {
                     auto Arow_k = A.sub(0, 0, 1, A.mt()-1);
                     internal::gemm<target>(
-                        alpha, conj_transpose( Arow_k ),
+                        alpha, conj_transpose(Arow_k),
                                B.sub(0, 0, 0, B.nt()-1),
                         beta,  C.sub(1, C.mt()-1, 0, C.nt()-1));
                 }
@@ -358,7 +358,7 @@ void hemm(slate::internal::TargetType<target>,
                     if (A.mt()-1 > k) {
                         auto Arow_k = A.sub(k, k, k+1, A.mt()-1);
                         internal::gemm<target>(
-                            alpha,         conj_transpose( Arow_k ),
+                            alpha,         conj_transpose(Arow_k),
                                            B.sub(k, k, 0, B.nt()-1),
                             scalar_t(1.0), C.sub(k+1, C.mt()-1, 0, C.nt()-1));
                     }
@@ -468,7 +468,7 @@ void hemm(Side side,
 {
     Target target;
     try {
-        target = Target( opts.at(Option::Target).i_ );
+        target = Target(opts.at(Option::Target).i_);
     }
     catch (std::out_of_range) {
         target = Target::HostTask;
@@ -494,7 +494,7 @@ void hemm(Side side,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void hemm< float >(
+void hemm<float>(
     Side side,
     float alpha, HermitianMatrix<float>& A,
                  Matrix<float>& B,
@@ -502,7 +502,7 @@ void hemm< float >(
     const std::map<Option, Value>& opts);
 
 template
-void hemm< double >(
+void hemm<double>(
     Side side,
     double alpha, HermitianMatrix<double>& A,
                   Matrix<double>& B,
@@ -510,7 +510,7 @@ void hemm< double >(
     const std::map<Option, Value>& opts);
 
 template
-void hemm< std::complex<float>  >(
+void hemm< std::complex<float> >(
     Side side,
     std::complex<float> alpha, HermitianMatrix< std::complex<float> >& A,
                                Matrix< std::complex<float> >& B,

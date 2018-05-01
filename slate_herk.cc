@@ -77,8 +77,8 @@ void herk(slate::internal::TargetType<target>,
     assert(A.mt() == C.mt());
 
     // OpenMP needs pointer types, but vectors are exception safe
-    std::vector< uint8_t > bcast_vector( A.nt() );
-    std::vector< uint8_t >  gemm_vector( A.nt() );
+    std::vector<uint8_t> bcast_vector( A.nt() );
+    std::vector<uint8_t>  gemm_vector( A.nt() );
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
 
@@ -273,13 +273,13 @@ void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void herk< float >(
+void herk<float>(
     float alpha, Matrix<float>& A,
     float beta,  HermitianMatrix<float>& C,
     const std::map<Option, Value>& opts);
 
 template
-void herk< double >(
+void herk<double>(
     double alpha, Matrix<double>& A,
     double beta,  HermitianMatrix<double>& C,
     const std::map<Option, Value>& opts);

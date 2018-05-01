@@ -70,8 +70,8 @@ void gemm(slate::internal::TargetType<target>,
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // OpenMP needs pointer types, but vectors are exception safe
-    std::vector< uint8_t > bcast_vector( A.nt() );
-    std::vector< uint8_t >  gemm_vector( A.nt() );
+    std::vector<uint8_t> bcast_vector( A.nt() );
+    std::vector<uint8_t>  gemm_vector( A.nt() );
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
 
@@ -272,14 +272,14 @@ void gemm(scalar_t alpha, Matrix<scalar_t>& A,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void gemm< float >(
+void gemm<float>(
     float alpha, Matrix<float>& A,
                  Matrix<float>& B,
     float beta,  Matrix<float>& C,
     const std::map<Option, Value>& opts);
 
 template
-void gemm< double >(
+void gemm<double>(
     double alpha, Matrix<double>& A,
                   Matrix<double>& B,
     double beta,  Matrix<double>& C,

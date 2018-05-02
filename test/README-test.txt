@@ -18,3 +18,7 @@ salloc -N 4 -w b[01-04] mpirun -n 4 ./test trmm   --type s,d,c,z --side l,r --up
 
 salloc -N 4 -w b[01-04] mpirun -n 4 ./test trsm   --type s,d,c,z --side l,r --uplo l,u --transA n,t,c --diag n,u --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,50  --p 2 --q 2 
   The trsm has some FAILED output because errors are not in 5*eps range.
+
+
+Small tests over all the execution models
+salloc -N 4 -w b[01-04] mpirun -n 4 ./test gemm  --type d --dim 2880 --nb 288 --p 2 --q 2 --target t,d,n,b

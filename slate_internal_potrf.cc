@@ -61,7 +61,7 @@ void potrf(HermitianMatrix< scalar_t >&& A, int priority)
 /// Cholesky factorization of single tile, host implementation.
 template <typename scalar_t>
 void potrf(internal::TargetType<Target::HostTask>,
-           HermitianMatrix< scalar_t >& A, int priority)
+           HermitianMatrix<scalar_t>& A, int priority)
 {
     assert(A.mt() == 1);
     assert(A.nt() == 1);
@@ -80,14 +80,14 @@ void potrf(internal::TargetType<Target::HostTask>,
 // Explicit instantiations.
 // ----------------------------------------
 template
-void potrf< Target::HostTask, float >(
-    HermitianMatrix< float >&& A,
+void potrf<Target::HostTask, float>(
+    HermitianMatrix<float>&& A,
     int priority);
 
 // ----------------------------------------
 template
-void potrf< Target::HostTask, double >(
-    HermitianMatrix< double >&& A,
+void potrf<Target::HostTask, double>(
+    HermitianMatrix<double>&& A,
     int priority);
 
 // ----------------------------------------

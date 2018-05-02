@@ -60,8 +60,8 @@ namespace internal {
 /// C is Lower, NoTrans or Upper, Trans/ConjTrans.
 /// In complex case, A and C cannot be ConjTrans.
 template <Target target, typename scalar_t>
-void syrk(scalar_t alpha, Matrix< scalar_t >&& A,
-          scalar_t beta,  SymmetricMatrix< scalar_t >&& C,
+void syrk(scalar_t alpha, Matrix<scalar_t>&& A,
+          scalar_t beta,  SymmetricMatrix<scalar_t>&& C,
           int priority)
 {
     if (! ( ( C.uplo_logical() == Uplo::Lower )
@@ -85,8 +85,8 @@ void syrk(scalar_t alpha, Matrix< scalar_t >&& A,
 /// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
 template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostTask>,
-          scalar_t alpha, Matrix< scalar_t >& A,
-          scalar_t beta,  SymmetricMatrix< scalar_t >& C,
+          scalar_t alpha, Matrix<scalar_t>& A,
+          scalar_t beta,  SymmetricMatrix<scalar_t>& C,
           int priority)
 {
     // Lower, NoTrans
@@ -147,8 +147,8 @@ void syrk(internal::TargetType<Target::HostTask>,
 /// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
 template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostNest>,
-          scalar_t alpha, Matrix< scalar_t >& A,
-          scalar_t beta,  SymmetricMatrix< scalar_t >& C,
+          scalar_t alpha, Matrix<scalar_t>& A,
+          scalar_t beta,  SymmetricMatrix<scalar_t>& C,
           int priority)
 {
     // Lower, NoTrans
@@ -211,8 +211,8 @@ void syrk(internal::TargetType<Target::HostNest>,
 /// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
 template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostBatch>,
-          scalar_t alpha, Matrix< scalar_t >& A,
-          scalar_t beta,  SymmetricMatrix< scalar_t >& C,
+          scalar_t alpha, Matrix<scalar_t>& A,
+          scalar_t beta,  SymmetricMatrix<scalar_t>& C,
           int priority)
 {
     // diagonal tiles by syrk on host
@@ -265,20 +265,20 @@ void syrk(internal::TargetType<Target::HostBatch>,
 
         Op opB = (opA == Op::NoTrans ? Op::Trans : Op::NoTrans);
 
-        std::vector< CBLAS_TRANSPOSE > opA_array( batch_count, cblas_trans_const( opA ));  // all same
-        std::vector< CBLAS_TRANSPOSE > opB_array( batch_count, cblas_trans_const( opB ));  // all same
-        std::vector< int > m_array( batch_count );
-        std::vector< int > n_array( batch_count );
-        std::vector< int > k_array( batch_count );
-        std::vector< scalar_t > alpha_array( batch_count, alpha );  // all same
-        std::vector< scalar_t >  beta_array( batch_count,  beta );  // all same
-        std::vector< const scalar_t* > a_array( batch_count );
-        std::vector< const scalar_t* > b_array( batch_count );
-        std::vector< scalar_t* > c_array( batch_count );
-        std::vector< int > lda_array( batch_count );
-        std::vector< int > ldb_array( batch_count );
-        std::vector< int > ldc_array( batch_count );
-        std::vector< int > group_size( batch_count, 1 );  // all same
+        std::vector<CBLAS_TRANSPOSE> opA_array(batch_count, cblas_trans_const(opA));  // all same
+        std::vector<CBLAS_TRANSPOSE> opB_array(batch_count, cblas_trans_const(opB));  // all same
+        std::vector<int> m_array(batch_count);
+        std::vector<int> n_array(batch_count);
+        std::vector<int> k_array(batch_count);
+        std::vector<scalar_t> alpha_array(batch_count, alpha);  // all same
+        std::vector<scalar_t>  beta_array(batch_count,  beta);  // all same
+        std::vector<const scalar_t*> a_array(batch_count);
+        std::vector<const scalar_t*> b_array(batch_count);
+        std::vector<scalar_t*> c_array(batch_count);
+        std::vector<int> lda_array(batch_count);
+        std::vector<int> ldb_array(batch_count);
+        std::vector<int> ldc_array(batch_count);
+        std::vector<int> group_size(batch_count, 1);  // all same
 
         int index = 0;
         for (int64_t j = 0; j < C.nt(); ++j) {
@@ -307,10 +307,10 @@ void syrk(internal::TargetType<Target::HostBatch>,
 
         if (C.op() != Op::NoTrans) {
             // swap A <=> B; swap m <=> n
-            swap( opA_array, opB_array );
-            swap( a_array,   b_array   );
-            swap( lda_array, ldb_array );
-            swap( m_array,   n_array   );
+            swap(opA_array, opB_array);
+            swap(a_array,   b_array  );
+            swap(lda_array, ldb_array);
+            swap(m_array,   n_array  );
         }
 
         {
@@ -355,14 +355,14 @@ void syrk(internal::TargetType<Target::HostBatch>,
 /// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
 template <typename scalar_t>
 void syrk(internal::TargetType<Target::Devices>,
-          scalar_t alpha, Matrix< scalar_t >& A,
-          scalar_t beta,  SymmetricMatrix< scalar_t >& C,
+          scalar_t alpha, Matrix<scalar_t>& A,
+          scalar_t beta,  SymmetricMatrix<scalar_t>& C,
           int priority)
 {
     int err = 0;
     using std::swap;
 
-    assert( C.num_devices() > 0 );
+    assert(C.num_devices() > 0);
 
     // off-diagonal tiles by batch gemm on device
     for (int device = 0; device < C.num_devices(); ++device) {
@@ -407,8 +407,8 @@ void syrk(internal::TargetType<Target::Devices>,
 
                 if (C.op() != Op::NoTrans) {
                     // swap A <=> B; swap m <=> n
-                    swap( opA, opB );
-                    swap( a_array_host, b_array_host );
+                    swap(opA, opB);
+                    swap(a_array_host, b_array_host);
                     //swap( lda, ldb );  // todo: assumed to be nb
                     //swap( m, n );      // todo: assumed to be nb
                 }
@@ -512,52 +512,52 @@ void syrk(internal::TargetType<Target::Devices>,
 // Explicit instantiations.
 // ----------------------------------------
 template
-void syrk< Target::HostTask, float >(
-    float alpha, Matrix< float >&& A,
-    float beta,  SymmetricMatrix< float >&& C,
+void syrk<Target::HostTask, float>(
+    float alpha, Matrix<float>&& A,
+    float beta,  SymmetricMatrix<float>&& C,
     int priority);
 
 template
-void syrk< Target::HostNest, float >(
-    float alpha, Matrix< float >&& A,
-    float beta,  SymmetricMatrix< float >&& C,
+void syrk<Target::HostNest, float>(
+    float alpha, Matrix<float>&& A,
+    float beta,  SymmetricMatrix<float>&& C,
     int priority);
 
 template
-void syrk< Target::HostBatch, float >(
-    float alpha, Matrix< float >&& A,
-    float beta,  SymmetricMatrix< float >&& C,
+void syrk<Target::HostBatch, float>(
+    float alpha, Matrix<float>&& A,
+    float beta,  SymmetricMatrix<float>&& C,
     int priority);
 
 template
-void syrk< Target::Devices, float >(
-    float alpha, Matrix< float >&& A,
-    float beta,  SymmetricMatrix< float >&& C,
+void syrk<Target::Devices, float>(
+    float alpha, Matrix<float>&& A,
+    float beta,  SymmetricMatrix<float>&& C,
     int priority);
 
 // ----------------------------------------
 template
-void syrk< Target::HostTask, double >(
-    double alpha, Matrix< double >&& A,
-    double beta,  SymmetricMatrix< double >&& C,
+void syrk<Target::HostTask, double>(
+    double alpha, Matrix<double>&& A,
+    double beta,  SymmetricMatrix<double>&& C,
     int priority);
 
 template
-void syrk< Target::HostNest, double >(
-    double alpha, Matrix< double >&& A,
-    double beta,  SymmetricMatrix< double >&& C,
+void syrk<Target::HostNest, double>(
+    double alpha, Matrix<double>&& A,
+    double beta,  SymmetricMatrix<double>&& C,
     int priority);
 
 template
-void syrk< Target::HostBatch, double >(
-    double alpha, Matrix< double >&& A,
-    double beta,  SymmetricMatrix< double >&& C,
+void syrk<Target::HostBatch, double>(
+    double alpha, Matrix<double>&& A,
+    double beta,  SymmetricMatrix<double>&& C,
     int priority);
 
 template
-void syrk< Target::Devices, double >(
-    double alpha, Matrix< double >&& A,
-    double beta,  SymmetricMatrix< double >&& C,
+void syrk<Target::Devices, double>(
+    double alpha, Matrix<double>&& A,
+    double beta,  SymmetricMatrix<double>&& C,
     int priority);
 
 // ----------------------------------------

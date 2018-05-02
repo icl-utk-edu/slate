@@ -64,9 +64,9 @@ namespace internal {
 /// Dispatches to target implementations.
 template <Target target, typename scalar_t>
 void symm(Side side,
-          scalar_t alpha, SymmetricMatrix< scalar_t >&& A,
-                          Matrix< scalar_t >&& B,
-          scalar_t beta,  Matrix< scalar_t >&& C,
+          scalar_t alpha, SymmetricMatrix<scalar_t>&& A,
+                          Matrix<scalar_t>&& B,
+          scalar_t beta,  Matrix<scalar_t>&& C,
           int priority)
 {
     // check dimensions
@@ -99,9 +99,9 @@ void symm(Side side,
 template <typename scalar_t>
 void symm(internal::TargetType<Target::HostTask>,
           Side side,
-          scalar_t alpha, SymmetricMatrix< scalar_t >& A,
-                          Matrix< scalar_t >& B,
-          scalar_t beta,  Matrix< scalar_t >& C,
+          scalar_t alpha, SymmetricMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
           int priority)
 {
     int err = 0;
@@ -167,9 +167,9 @@ void symm(internal::TargetType<Target::HostTask>,
 template <typename scalar_t>
 void symm(internal::TargetType<Target::HostNest>,
           Side side,
-          scalar_t alpha, SymmetricMatrix< scalar_t >& A,
-                          Matrix< scalar_t >& B,
-          scalar_t beta,  Matrix< scalar_t >& C,
+          scalar_t alpha, SymmetricMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
           int priority)
 {
     int err = 0;
@@ -231,36 +231,36 @@ void symm(internal::TargetType<Target::HostNest>,
 // Explicit instantiations.
 // ----------------------------------------
 template
-void symm< Target::HostTask, float >(
+void symm<Target::HostTask, float>(
     Side side,
-    float alpha, SymmetricMatrix< float >&& A,
-                 Matrix< float >&& B,
-    float beta,  Matrix< float >&& C,
+    float alpha, SymmetricMatrix<float>&& A,
+                 Matrix<float>&& B,
+    float beta,  Matrix<float>&& C,
     int priority);
 
 template
-void symm< Target::HostNest, float >(
+void symm<Target::HostNest, float>(
     Side side,
-    float alpha, SymmetricMatrix< float >&& A,
-                 Matrix< float >&& B,
-    float beta,  Matrix< float >&& C,
+    float alpha, SymmetricMatrix<float>&& A,
+                 Matrix<float>&& B,
+    float beta,  Matrix<float>&& C,
     int priority);
 
 // ----------------------------------------
 template
-void symm< Target::HostTask, double >(
+void symm<Target::HostTask, double>(
     Side side,
-    double alpha, SymmetricMatrix< double >&& A,
-                  Matrix< double >&& B,
-    double beta,  Matrix< double >&& C,
+    double alpha, SymmetricMatrix<double>&& A,
+                  Matrix<double>&& B,
+    double beta,  Matrix<double>&& C,
     int priority);
 
 template
-void symm< Target::HostNest, double >(
+void symm<Target::HostNest, double>(
     Side side,
-    double alpha, SymmetricMatrix< double >&& A,
-                  Matrix< double >&& B,
-    double beta,  Matrix< double >&& C,
+    double alpha, SymmetricMatrix<double>&& A,
+                  Matrix<double>&& B,
+    double beta,  Matrix<double>&& C,
     int priority);
 
 // ----------------------------------------

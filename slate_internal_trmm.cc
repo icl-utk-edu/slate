@@ -52,8 +52,8 @@ namespace internal {
 /// Dispatches to target implementations.
 template <Target target, typename scalar_t>
 void trmm(Side side, Diag diag,
-          scalar_t alpha, TriangularMatrix< scalar_t >&& A,
-                                    Matrix< scalar_t >&& B,
+          scalar_t alpha, TriangularMatrix<scalar_t>&& A,
+                                    Matrix<scalar_t>&& B,
           int priority)
 {
     trmm(internal::TargetType<target>(),
@@ -70,8 +70,8 @@ void trmm(Side side, Diag diag,
 template <typename scalar_t>
 void trmm(internal::TargetType<Target::HostTask>,
           Side side, Diag diag,
-          scalar_t alpha, TriangularMatrix< scalar_t >& A,
-                                    Matrix< scalar_t >& B,
+          scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                                    Matrix<scalar_t>& B,
           int priority)
 {
     assert(A.mt() == 1);
@@ -118,18 +118,18 @@ void trmm(internal::TargetType<Target::HostTask>,
 // Explicit instantiations.
 // ----------------------------------------
 template
-void trmm< Target::HostTask, float >(
+void trmm<Target::HostTask, float>(
     Side side, Diag diag,
-    float alpha, TriangularMatrix< float >&& A,
-                           Matrix< float >&& B,
+    float alpha, TriangularMatrix<float>&& A,
+                           Matrix<float>&& B,
     int priority);
 
 // ----------------------------------------
 template
-void trmm< Target::HostTask, double >(
+void trmm<Target::HostTask, double>(
     Side side, Diag diag,
-    double alpha, TriangularMatrix< double >&& A,
-                            Matrix< double >&& B,
+    double alpha, TriangularMatrix<double>&& A,
+                            Matrix<double>&& B,
     int priority);
 
 // ----------------------------------------

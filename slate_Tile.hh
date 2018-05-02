@@ -467,6 +467,8 @@ void Tile<scalar_t>::copyDataToDevice(
 template <typename scalar_t>
 void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm) const
 {
+    trace::Block trace_block("MPI_Send");
+
     // If no stride.
     if (stride_ == mb_) {
         // Use simple send.
@@ -529,6 +531,8 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm) const
 template <typename scalar_t>
 void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm)
 {
+    trace::Block trace_block("MPI_Recv");
+
     // If no stride.
     if (stride_ == mb_) {
         // Use simple recv.

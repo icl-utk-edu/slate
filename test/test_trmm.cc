@@ -21,7 +21,7 @@ inline int slate_set_num_blas_threads( const int nt ) { return -1; }
 #endif
 
 //------------------------------------------------------------------------------
-template< typename scalar_t >
+template<typename scalar_t>
 void test_trmm_work( Params &params, bool run )
 {
     using real_t = blas::real_type<scalar_t>;
@@ -43,7 +43,7 @@ void test_trmm_work( Params &params, bool run )
     bool check = params.check.value()=='y';
     bool ref = params.ref.value()=='y';
     bool trace = params.trace.value()=='y';
-    slate::Target target = char2target(params.target.value());
+    slate::Target target = char2target( params.target.value() );
 
     // mark non-standard output values
     params.time.value();
@@ -51,7 +51,7 @@ void test_trmm_work( Params &params, bool run )
     params.ref_time.value();
     params.ref_gflops.value();
 
-    if( ! run )
+    if ( ! run )
         return;
 
     // for now, trmm requires full tiles
@@ -87,7 +87,7 @@ void test_trmm_work( Params &params, bool run )
     scalapack_descinit( descA_tst, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info );
     assert( info==0 );
     int64_t lldA = ( int64_t )descA_tst[8];
-    std::vector< scalar_t > A_tst( lldA * nlocA );
+    std::vector<scalar_t> A_tst( lldA * nlocA );
     scalapack_pplghe( &A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1 );
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
@@ -96,12 +96,12 @@ void test_trmm_work( Params &params, bool run )
     scalapack_descinit( descB_tst, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info );
     assert( info==0 );
     int64_t lldB = ( int64_t )descB_tst[8];
-    std::vector< scalar_t > B_tst( lldB * nlocB );
+    std::vector<scalar_t> B_tst( lldB * nlocB );
     scalapack_pplrnt( &B_tst[0], Bm, Bn, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed+1 );
 
     // if check is required, copy test data and create a descriptor for it
-    std::vector< scalar_t > B_ref;
-    if( check || ref ) {
+    std::vector<scalar_t> B_ref;
+    if ( check || ref ) {
         B_ref.resize( B_tst.size() );
         B_ref = B_tst;
         scalapack_descinit( descB_ref, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info );
@@ -112,17 +112,17 @@ void test_trmm_work( Params &params, bool run )
     auto A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK( uplo, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD );
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK( Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD );
 
-    if( transA == Op::Trans )
+    if ( transA == Op::Trans )
         A = transpose( A );
-    else if( transA == Op::ConjTrans )
+    else if ( transA == Op::ConjTrans )
         A = conj_transpose( A );
 
-    if( transB == Op::Trans )
+    if ( transB == Op::Trans )
         B = transpose( B );
-    else if( transB == Op::ConjTrans )
+    else if ( transB == Op::ConjTrans )
         B = conj_transpose( B );
 
-    if( trace ) slate::trace::Trace::on();
+    if ( trace ) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
     // run test
@@ -130,22 +130,23 @@ void test_trmm_work( Params &params, bool run )
     double time = libtest::get_wtime();
 
     slate::trmm( side, diag, alpha, A, B, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target}} );
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target}
+    } );
 
     MPI_Barrier( MPI_COMM_WORLD );
     double time_tst = libtest::get_wtime() - time;
 
-    if( trace ) slate::trace::Trace::finish();
+    if ( trace ) slate::trace::Trace::finish();
 
     // compute and save timing/performance
-    double gflop = blas::Gflop < scalar_t >::trmm( side, m, n );
+    double gflop = blas::Gflop <scalar_t>::trmm( side, m, n );
     params.time.value() = time_tst;
     params.gflops.value() = gflop / time_tst;
 
     params.okay.value() = true;
 
-    if( check || ref ) {
+    if ( check || ref ) {
         // comparison with reference routine from ScaLAPACK
 
         // set MKL num threads appropriately for parallel BLAS
@@ -153,6 +154,14 @@ void test_trmm_work( Params &params, bool run )
         #pragma omp parallel
         { omp_num_threads = omp_get_num_threads(); }
         int saved_num_threads = slate_set_num_blas_threads( omp_num_threads );
+
+        // allocate workspace for norms
+        std::vector<real_t> worklantr( std::max( { mlocA, nlocA } ) );
+        std::vector<real_t> worklange( mlocB );
+
+        // get norms of the original data
+        real_t A_orig_norm = scalapack_plantr( "I", uplo2str( uplo ), diag2str( diag ), Am, An, &A_tst[0], i1, i1, descA_tst, &worklantr[0] );
+        real_t B_orig_norm = scalapack_plange( "I", m, n, &B_tst[0], i1, i1, descB_tst, &worklange[0] );
 
         // run the reference routine
         MPI_Barrier( MPI_COMM_WORLD );
@@ -164,29 +173,24 @@ void test_trmm_work( Params &params, bool run )
         MPI_Barrier( MPI_COMM_WORLD );
         double time_ref = libtest::get_wtime() - time;
 
-        // Allocate work space
-        std::vector< real_t > worklange( mlocB );
-
         // Local operation: error = B_ref - B_tst
         blas::axpy( B_ref.size(), -1.0, &B_tst[0], 1, &B_ref[0], 1 );
 
-        // norm(B_tst)
-        real_t B_tst_norm = scalapack_plange( "I", Bm, Bn, &B_tst[0], i1, i1, descB_tst, &worklange[0] );
-
         // norm(B_ref - B_tst)
-        real_t error_norm = scalapack_plange( "I", Bm, Bn, &B_ref[0], i1, i1, descB_ref, &worklange[0] );
+        real_t B_diff_norm = scalapack_plange( "I", m, n, &B_ref[0], i1, i1, descB_ref, &worklange[0] );
 
-        if( B_tst_norm != 0 )
-            error_norm /=  B_tst_norm;
+        real_t error = B_diff_norm
+                       / ( sqrt( real_t( Am )+2 ) * std::abs( alpha ) * A_orig_norm * B_orig_norm );
 
         params.ref_time.value() = time_ref;
         params.ref_gflops.value() = gflop / time_ref;
-        params.error.value() = error_norm;
+        params.error.value() = error;
 
         slate_set_num_blas_threads( saved_num_threads );
 
-        real_t eps = std::numeric_limits< real_t >::epsilon();
-        params.okay.value() = ( params.error.value() <= 50*eps );
+        // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.
+        real_t eps = std::numeric_limits<real_t>::epsilon();
+        params.okay.value() = ( params.error.value() <= 3*eps );
     }
 
     //Cblacs_exit(1) is commented out because it does not handle re-entering ... some unknown problem
@@ -196,25 +200,25 @@ void test_trmm_work( Params &params, bool run )
 // -----------------------------------------------------------------------------
 void test_trmm( Params &params, bool run )
 {
-    switch( params.datatype.value() ) {
+    switch ( params.datatype.value() ) {
     case libtest::DataType::Integer:
         throw std::exception();
         break;
 
     case libtest::DataType::Single:
-        test_trmm_work< float >( params, run );
+        test_trmm_work<float>( params, run );
         break;
 
     case libtest::DataType::Double:
-        test_trmm_work< double >( params, run );
+        test_trmm_work<double>( params, run );
         break;
 
     case libtest::DataType::SingleComplex:
-        test_trmm_work< std::complex<float> >( params, run );
+        test_trmm_work<std::complex<float>>( params, run );
         break;
 
     case libtest::DataType::DoubleComplex:
-        test_trmm_work< std::complex<double> >( params, run );
+        test_trmm_work<std::complex<double>>( params, run );
         break;
     }
 }

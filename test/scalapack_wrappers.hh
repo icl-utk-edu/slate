@@ -547,6 +547,53 @@ inline void scalapack_ptrsm( const char *side, const char *uplo, const char *tra
     scalapack_ptrsm( side, uplo, transa, diag, &m_, &n_, &alpha, a, &ia_, &ja_, desca, b, &ib_, &jb_, descb );
 }
 
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+#define scalapack_pslantr BLAS_FORTRAN_NAME( pslantr, PSLANTR )
+#define scalapack_pdlantr BLAS_FORTRAN_NAME( pdlantr, PDLANTR )
+#define scalapack_pclantr BLAS_FORTRAN_NAME( pclantr, PCLANTR )
+#define scalapack_pzlantr BLAS_FORTRAN_NAME( pzlantr, PZLANTR )
+
+extern "C" blas_float_return scalapack_pslantr( const char *norm, const char *uplo, const char *diag, blas_int *m, blas_int *n, float *A, blas_int *ia, blas_int *ja, blas_int *descA, float *work );
+
+extern "C" double scalapack_pdlantr( const char *norm, const char *uplo, const char *diag, blas_int *m, blas_int *n, double *A, blas_int *ia, blas_int *ja, blas_int *descA, double *work );
+
+extern "C" blas_float_return scalapack_pclantr( const char *norm, const char *uplo, const char *diag, blas_int *m, blas_int *n, std::complex<float> *A, blas_int *ia, blas_int *ja, blas_int *descA, float *work );
+
+extern "C" double scalapack_pzlantr( const char *norm, const char *uplo, const char *diag, blas_int *m, blas_int *n, std::complex<double> *A, blas_int *ia, blas_int *ja, blas_int *descA, double *work );
+
+// -----------------------------------------------------------------------------
+
+inline blas_float_return scalapack_plantr( const char *norm, const char *uplo, const char *diag, blas_int *m, blas_int *n, float *A, blas_int *ia, blas_int *ja, blas_int *descA, float *work )
+{
+    return scalapack_pslantr( norm, uplo, diag, m, n, A, ia, ja, descA, work );
+}
+inline double scalapack_plantr( const char *norm, const char *uplo, const char *diag, blas_int *m, blas_int *n, double *A, blas_int *ia, blas_int *ja, blas_int *descA, double *work )
+{
+    return scalapack_pdlantr( norm, uplo, diag, m, n, A, ia, ja, descA, work );
+}
+inline blas_float_return scalapack_plantr( const char *norm, const char *uplo, const char *diag, blas_int *m, blas_int *n, std::complex<float> *A, blas_int *ia, blas_int *ja, blas_int *descA, float *work )
+{
+    return scalapack_pclantr( norm, uplo, diag, m, n, A, ia, ja, descA, work );
+}
+inline double scalapack_plantr( const char *norm, const char *uplo, const char *diag, blas_int *m, blas_int *n, std::complex<double> *A, blas_int *ia, blas_int *ja, blas_int *descA, double *work )
+{
+    return scalapack_pzlantr( norm, uplo, diag, m, n, A, ia, ja, descA, work );
+}
+
+template < typename scalar_t >
+inline blas::real_type<scalar_t> scalapack_plantr( const char *norm, const char *uplo, const char *diag, int64_t m, int64_t n, scalar_t *A, int64_t ia, int64_t ja, blas_int *descA, blas::real_type<scalar_t> *work )
+{
+    int m_ = int64_to_int( m );
+    int n_ = int64_to_int( n );
+    int ia_ = int64_to_int( ia );
+    int ja_ = int64_to_int( ja );
+    return scalapack_plantr( norm, uplo, diag, &m_, &n_, A, &ia_, &ja_, descA, work );
+}
+
+
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 #endif // ICL_SLATE_SCALAPACK_WRAPPERS_HH

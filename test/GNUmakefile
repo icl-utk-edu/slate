@@ -20,14 +20,20 @@ endif
 
 
 test_src = ${top}/test/test.cc ${top}/test/test_gemm.cc ${top}/test/test_trmm.cc ${top}/test/test_symm.cc ${top}/test/test_syrk.cc ${top}/test/test_syr2k.cc ${top}/test/test_trsm.cc ${top}/test/test_potrf.cc 
-test_obj = ${addsuffix .o, ${basename ${test_src}}}
-test_dep = ${addsuffix .d, ${basename ${test_src}}}
+test_obj = $(test_src:.cc=.o)
+test_dep = $(test_src:.cc=.d) 
 
-%.o: %.c
+-include ${test_dep}
+
+%.o: %.c %.d
 	${CC} ${CFLAGS} -c $< -o $@ 
 
-${top}/test/test: ${test_obj} ${top_obj} 
-	${CXX} ${LDFLAGS} -o $@ ${test_obj} ${top_obj} -L${top}/lib -Wl,-rpath,${pwd}/${top}/lib -lslate $(LIB) 
+# preprocess source
+%.i: %.cc
+	$(CXX) $(CXXFLAGS) -E $< -o $@
+
+${top}/test/test: ${test_obj} ${top}/lib 
+	${CXX} ${LDFLAGS} -o $@ ${test_obj} -L${top}/lib -Wl,-rpath,${pwd}/${top}/lib -lslate $(LIB) 
 
 clean_test:
 	rm -f $(test_obj) test trace_*.svg

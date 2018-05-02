@@ -21,7 +21,7 @@ inline int slate_set_num_blas_threads( const int nt ) { return -1; }
 #endif
 
 //------------------------------------------------------------------------------
-template< typename scalar_t >
+template<typename scalar_t>
 void test_syrk_work( Params &params, bool run )
 {
     using real_t = blas::real_type<scalar_t>;
@@ -40,7 +40,7 @@ void test_syrk_work( Params &params, bool run )
     bool check = params.check.value()=='y';
     bool ref = params.ref.value()=='y';
     bool trace = params.trace.value()=='y';
-    slate::Target target = char2target(params.target.value());
+    slate::Target target = char2target( params.target.value() );
 
     // mark non-standard output values
     params.time.value();
@@ -48,11 +48,11 @@ void test_syrk_work( Params &params, bool run )
     params.ref_time.value();
     params.ref_gflops.value();
 
-    if( ! run )
+    if ( ! run )
         return;
 
     // for now, syrk on Devices requires full tiles
-    if( target == slate::Target::Devices ) {
+    if ( target == slate::Target::Devices ) {
         assert( n % nb == 0 );
         assert( k % nb == 0 );
     }
@@ -85,7 +85,7 @@ void test_syrk_work( Params &params, bool run )
     scalapack_descinit( descA_tst, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info );
     assert( info==0 );
     int64_t lldA = ( int64_t )descA_tst[8];
-    std::vector< scalar_t > A_tst( lldA * nlocA );
+    std::vector<scalar_t> A_tst( lldA * nlocA );
     scalapack_pplrnt( &A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1 );
 
     // matrix C, figure out local size, allocate, create descriptor, initialize
@@ -94,12 +94,12 @@ void test_syrk_work( Params &params, bool run )
     scalapack_descinit( descC_tst, Cm, Cn, nb, nb, i0, i0, ictxt, mlocC, &info );
     assert( info==0 );
     int64_t lldC = ( int64_t )descC_tst[8];
-    std::vector< scalar_t > C_tst( lldC * nlocC );
+    std::vector<scalar_t> C_tst( lldC * nlocC );
     scalapack_pplrnt( &C_tst[0], Cm, Cn, nb, nb, myrow, mycol, nprow, npcol, mlocC, iseed+1 );
 
     // if check is required, copy test data and create a descriptor for it
-    std::vector< scalar_t > C_ref;
-    if( check || ref ) {
+    std::vector<scalar_t> C_ref;
+    if ( check || ref ) {
         C_ref.resize( C_tst.size() );
         C_ref = C_tst;
         scalapack_descinit( descC_ref, Cm, Cn, nb, nb, i0, i0, ictxt, mlocC, &info );
@@ -110,13 +110,13 @@ void test_syrk_work( Params &params, bool run )
     auto A = slate::Matrix<scalar_t>::fromScaLAPACK( Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD );
     auto C = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK( uplo, Cn, &C_tst[0], lldC, nb, nprow, npcol, MPI_COMM_WORLD );
 
-    if( transA == blas::Op::Trans )
+    if ( transA == blas::Op::Trans )
         A = transpose( A );
-    else if( transA == blas::Op::ConjTrans )
+    else if ( transA == blas::Op::ConjTrans )
         A = conj_transpose( A );
     assert( A.mt() == C.mt() );
 
-    if( trace ) slate::trace::Trace::on();
+    if ( trace ) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
     // Call the routine
@@ -125,21 +125,22 @@ void test_syrk_work( Params &params, bool run )
 
     slate::syrk( alpha, A, beta, C, {
         {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}} );
+        {slate::Option::Target, target}
+    } );
 
     MPI_Barrier( MPI_COMM_WORLD );
     double time_tst = libtest::get_wtime() - time;
 
-    if( trace ) slate::trace::Trace::finish();
+    if ( trace ) slate::trace::Trace::finish();
 
     // Compute and save timing/performance
-    double gflop = blas::Gflop < scalar_t >::syrk( n, k );
+    double gflop = blas::Gflop <scalar_t>::syrk( n, k );
     params.time.value() = time_tst;
     params.gflops.value() = gflop / time_tst;
 
     params.okay.value() = true;
 
-    if( check || ref ) {
+    if ( check || ref ) {
         // comparison with reference routine from ScaLAPACK
 
         // set MKL num threads appropriately for parallel BLAS
@@ -147,6 +148,15 @@ void test_syrk_work( Params &params, bool run )
         #pragma omp parallel
         { omp_num_threads = omp_get_num_threads(); }
         int saved_num_threads = slate_set_num_blas_threads( omp_num_threads );
+
+        // allocate workspace for norms
+        size_t ldw = nb * ceil( ceil( mlocC / ( double ) nb ) / ( scalapack_ilcm( &nprow, &npcol ) / nprow ) );
+        std::vector<real_t> worklansy( 2 * nlocC + mlocC + ldw );
+        std::vector<real_t> worklange( mlocA );
+
+        // get norms of the original data
+        real_t A_orig_norm = scalapack_plange( "I", Am, An, &A_tst[0], i1, i1, descA_tst, &worklange[0] );
+        real_t C_orig_norm = scalapack_plansy( "I", uplo2str( uplo ), Cn, &C_ref[0], i1, i1, descC_ref, &worklansy[0] );
 
         // run the reference routine
         MPI_Barrier( MPI_COMM_WORLD );
@@ -157,29 +167,23 @@ void test_syrk_work( Params &params, bool run )
         MPI_Barrier( MPI_COMM_WORLD );
         double time_ref = libtest::get_wtime() - time;
 
-        // allocate work space
-        std::vector< real_t > worklange( mlocC );
-
         // local operation: error = C_ref - C_tst
         blas::axpy( C_ref.size(), -1.0, &C_tst[0], 1, &C_ref[0], 1 );
 
-        // norm(C_tst)
-        real_t C_tst_norm = scalapack_plange( "I", Cm, Cn, &C_tst[0], i1, i1, descC_tst, &worklange[0] );
-
         // norm(C_ref - C_tst)
-        real_t error_norm = scalapack_plange( "I", Cm, Cn, &C_ref[0], i1, i1, descC_ref, &worklange[0] );
+        real_t C_diff_norm = scalapack_plansy( "I", uplo2str( uplo ), Cn, &C_ref[0], i1, i1, descC_ref, &worklansy[0] );
 
-        if( C_tst_norm != 0 )
-            error_norm /=  C_tst_norm;
+        real_t error = C_diff_norm
+                       / ( sqrt( real_t( k )+2 )*std::abs( alpha )*A_orig_norm*A_orig_norm + 2*std::abs( beta )*C_orig_norm );
 
         params.ref_time.value() = time_ref;
         params.ref_gflops.value() = gflop / time_ref;
-        params.error.value() = error_norm;
+        params.error.value() = error;
 
         slate_set_num_blas_threads( saved_num_threads );
 
-        real_t eps = std::numeric_limits< real_t >::epsilon();
-        params.okay.value() = ( params.error.value() <= 50*eps );
+        real_t eps = std::numeric_limits<real_t>::epsilon();
+        params.okay.value() = ( params.error.value() <= 3*eps );
     }
 
     //Cblacs_exit(1) is commented out because it does not handle re-entering ... some unknown problem
@@ -189,25 +193,25 @@ void test_syrk_work( Params &params, bool run )
 // -----------------------------------------------------------------------------
 void test_syrk( Params &params, bool run )
 {
-    switch( params.datatype.value() ) {
+    switch ( params.datatype.value() ) {
     case libtest::DataType::Integer:
         throw std::exception();
         break;
 
     case libtest::DataType::Single:
-        test_syrk_work< float >( params, run );
+        test_syrk_work<float>( params, run );
         break;
 
     case libtest::DataType::Double:
-        test_syrk_work< double >( params, run );
+        test_syrk_work<double>( params, run );
         break;
 
     case libtest::DataType::SingleComplex:
-        test_syrk_work< std::complex<float> >( params, run );
+        test_syrk_work<std::complex<float>>( params, run );
         break;
 
     case libtest::DataType::DoubleComplex:
-        test_syrk_work< std::complex<double> >( params, run );
+        test_syrk_work<std::complex<double>>( params, run );
         break;
     }
 }

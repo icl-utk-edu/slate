@@ -60,8 +60,8 @@ namespace internal {
 /// C is Lower, NoTrans or Upper, Trans/ConjTrans.
 /// In complex case, A and C cannot be Trans.
 template <Target target, typename scalar_t>
-void herk(blas::real_type<scalar_t> alpha, Matrix< scalar_t >&& A,
-          blas::real_type<scalar_t> beta,  HermitianMatrix< scalar_t >&& C,
+void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
+          blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>&& C,
           int priority)
 {
     if (! ( ( C.uplo_logical() == Uplo::Lower )
@@ -85,7 +85,7 @@ void herk(blas::real_type<scalar_t> alpha, Matrix< scalar_t >&& A,
 /// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
 template <typename scalar_t>
 void herk(internal::TargetType<Target::HostTask>,
-          blas::real_type<scalar_t> alpha, Matrix< scalar_t >& A,
+          blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix< scalar_t >& C,
           int priority)
 {
@@ -127,7 +127,7 @@ void herk(internal::TargetType<Target::HostTask>,
                             A.tileTick(i, 0);
                             A.tileTick(j, 0);
                         }
-                        catch (std::exception& e ) {
+                        catch (std::exception& e) {
                             err = __LINE__;
                         }
                     }
@@ -150,8 +150,8 @@ void herk(internal::TargetType<Target::HostTask>,
 /// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
 template <typename scalar_t>
 void herk(internal::TargetType<Target::HostNest>,
-          blas::real_type<scalar_t> alpha, Matrix< scalar_t >& A,
-          blas::real_type<scalar_t> beta,  HermitianMatrix< scalar_t >& C,
+          blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
+          blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
           int priority)
 {
     scalar_t alpha_ = scalar_t(alpha);
@@ -217,8 +217,8 @@ void herk(internal::TargetType<Target::HostNest>,
 /// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
 template <typename scalar_t>
 void herk(internal::TargetType<Target::HostBatch>,
-          blas::real_type<scalar_t> alpha, Matrix< scalar_t >& A,
-          blas::real_type<scalar_t> beta,  HermitianMatrix< scalar_t >& C,
+          blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
+          blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
           int priority)
 {
     // diagonal tiles by herk on host
@@ -271,20 +271,20 @@ void herk(internal::TargetType<Target::HostBatch>,
 
         Op opB = (opA == Op::NoTrans ? Op::ConjTrans : Op::NoTrans);
 
-        std::vector< CBLAS_TRANSPOSE > opA_array( batch_count, cblas_trans_const( opA ));  // all same
-        std::vector< CBLAS_TRANSPOSE > opB_array( batch_count, cblas_trans_const( opB ));  // all same
-        std::vector< int > m_array( batch_count );
-        std::vector< int > n_array( batch_count );
-        std::vector< int > k_array( batch_count );
-        std::vector< scalar_t > alpha_array( batch_count, alpha );  // all same
-        std::vector< scalar_t >  beta_array( batch_count,  beta );  // all same
-        std::vector< const scalar_t* > a_array( batch_count );
-        std::vector< const scalar_t* > b_array( batch_count );
-        std::vector< scalar_t* > c_array( batch_count );
-        std::vector< int > lda_array( batch_count );
-        std::vector< int > ldb_array( batch_count );
-        std::vector< int > ldc_array( batch_count );
-        std::vector< int > group_size( batch_count, 1 );  // all same
+        std::vector<CBLAS_TRANSPOSE> opA_array(batch_count, cblas_trans_const(opA));  // all same
+        std::vector<CBLAS_TRANSPOSE> opB_array(batch_count, cblas_trans_const(opB));  // all same
+        std::vector<int> m_array(batch_count);
+        std::vector<int> n_array(batch_count);
+        std::vector<int> k_array(batch_count);
+        std::vector<scalar_t> alpha_array(batch_count, alpha);  // all same
+        std::vector<scalar_t>  beta_array(batch_count,  beta);  // all same
+        std::vector<const scalar_t*> a_array(batch_count);
+        std::vector<const scalar_t*> b_array(batch_count);
+        std::vector<scalar_t*> c_array(batch_count);
+        std::vector<int> lda_array(batch_count);
+        std::vector<int> ldb_array(batch_count);
+        std::vector<int> ldc_array(batch_count);
+        std::vector<int> group_size(batch_count, 1);  // all same
 
         int index = 0;
         for (int64_t j = 0; j < C.nt(); ++j) {
@@ -313,10 +313,10 @@ void herk(internal::TargetType<Target::HostBatch>,
 
         if (C.op() != Op::NoTrans) {
             // swap A <=> B; swap m <=> n
-            swap( opA_array, opB_array );
-            swap( a_array,   b_array   );
-            swap( lda_array, ldb_array );
-            swap( m_array,   n_array   );
+            swap(opA_array, opB_array);
+            swap(a_array,   b_array  );
+            swap(lda_array, ldb_array);
+            swap(m_array,   n_array  );
         }
 
         {
@@ -361,14 +361,14 @@ void herk(internal::TargetType<Target::HostBatch>,
 /// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
 template <typename scalar_t>
 void herk(internal::TargetType<Target::Devices>,
-          blas::real_type<scalar_t> alpha, Matrix< scalar_t >& A,
-          blas::real_type<scalar_t> beta,  HermitianMatrix< scalar_t >& C,
+          blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
+          blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
           int priority)
 {
     int err = 0;
     using std::swap;
 
-    assert( C.num_devices() > 0 );
+    assert(C.num_devices() > 0);
 
     // off-diagonal tiles by batch gemm on device
     for (int device = 0; device < C.num_devices(); ++device) {
@@ -380,9 +380,10 @@ void herk(internal::TargetType<Target::Devices>,
                 if (C.op() != Op::NoTrans) {
                     if (A.op() == Op::NoTrans)
                         opA = C.op();
-                    else if (A.op() == C.op() || C.is_real)
+                    else if (A.op() == C.op() || C.is_real) {
                         // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
                         opA = Op::NoTrans;
+                    }
                     else
                         throw std::exception();
                 }
@@ -412,8 +413,8 @@ void herk(internal::TargetType<Target::Devices>,
 
                 if (C.op() != Op::NoTrans) {
                     // swap A <=> B; swap m <=> n
-                    swap( opA, opB );
-                    swap( a_array_host, b_array_host );
+                    swap(opA, opB);
+                    swap(a_array_host, b_array_host);
                     //swap( lda, ldb );  // todo: assumed to be nb
                     //swap( m, n );      // todo: assumed to be nb
                 }
@@ -457,7 +458,7 @@ void herk(internal::TargetType<Target::Devices>,
                     cublasStatus_t status =
                         cublasGemmBatched(
                             cublas_handle,  // uses stream
-                            cublas_op_const( opA ), cublas_op_const( opB ),
+                            cublas_op_const(opA), cublas_op_const(opB),
                             nb, nb, nb,
                             &alpha_, (const scalar_t**) a_array_dev, nb,
                                      (const scalar_t**) b_array_dev, nb,
@@ -520,52 +521,52 @@ void herk(internal::TargetType<Target::Devices>,
 // Explicit instantiations.
 // ----------------------------------------
 template
-void herk< Target::HostTask, float >(
-    float alpha, Matrix< float >&& A,
-    float beta,  HermitianMatrix< float >&& C,
+void herk<Target::HostTask, float>(
+    float alpha, Matrix<float>&& A,
+    float beta,  HermitianMatrix<float>&& C,
     int priority);
 
 template
-void herk< Target::HostNest, float >(
-    float alpha, Matrix< float >&& A,
-    float beta,  HermitianMatrix< float >&& C,
+void herk<Target::HostNest, float>(
+    float alpha, Matrix<float>&& A,
+    float beta,  HermitianMatrix<float>&& C,
     int priority);
 
 template
-void herk< Target::HostBatch, float >(
-    float alpha, Matrix< float >&& A,
-    float beta,  HermitianMatrix< float >&& C,
+void herk<Target::HostBatch, float>(
+    float alpha, Matrix<float>&& A,
+    float beta,  HermitianMatrix<float>&& C,
     int priority);
 
 template
-void herk< Target::Devices, float >(
-    float alpha, Matrix< float >&& A,
-    float beta,  HermitianMatrix< float >&& C,
+void herk<Target::Devices, float>(
+    float alpha, Matrix<float>&& A,
+    float beta,  HermitianMatrix<float>&& C,
     int priority);
 
 // ----------------------------------------
 template
-void herk< Target::HostTask, double >(
-    double alpha, Matrix< double >&& A,
-    double beta,  HermitianMatrix< double >&& C,
+void herk<Target::HostTask, double>(
+    double alpha, Matrix<double>&& A,
+    double beta,  HermitianMatrix<double>&& C,
     int priority);
 
 template
-void herk< Target::HostNest, double >(
-    double alpha, Matrix< double >&& A,
-    double beta,  HermitianMatrix< double >&& C,
+void herk<Target::HostNest, double>(
+    double alpha, Matrix<double>&& A,
+    double beta,  HermitianMatrix<double>&& C,
     int priority);
 
 template
-void herk< Target::HostBatch, double >(
-    double alpha, Matrix< double >&& A,
-    double beta,  HermitianMatrix< double >&& C,
+void herk<Target::HostBatch, double>(
+    double alpha, Matrix<double>&& A,
+    double beta,  HermitianMatrix<double>&& C,
     int priority);
 
 template
-void herk< Target::Devices, double >(
-    double alpha, Matrix< double >&& A,
-    double beta,  HermitianMatrix< double >&& C,
+void herk<Target::Devices, double>(
+    double alpha, Matrix<double>&& A,
+    double beta,  HermitianMatrix<double>&& C,
     int priority);
 
 // ----------------------------------------

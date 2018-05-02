@@ -64,9 +64,9 @@ namespace internal {
 /// Dispatches to target implementations.
 template <Target target, typename scalar_t>
 void hemm(Side side,
-          scalar_t alpha, HermitianMatrix< scalar_t >&& A,
-                          Matrix< scalar_t >&& B,
-          scalar_t beta,  Matrix< scalar_t >&& C,
+          scalar_t alpha, HermitianMatrix<scalar_t>&& A,
+                          Matrix<scalar_t>&& B,
+          scalar_t beta,  Matrix<scalar_t>&& C,
           int priority)
 {
     // check dimensions
@@ -99,9 +99,9 @@ void hemm(Side side,
 template <typename scalar_t>
 void hemm(internal::TargetType<Target::HostTask>,
           Side side,
-          scalar_t alpha, HermitianMatrix< scalar_t >& A,
-                          Matrix< scalar_t >& B,
-          scalar_t beta,  Matrix< scalar_t >& C,
+          scalar_t alpha, HermitianMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
           int priority)
 {
     int err = 0;
@@ -167,9 +167,9 @@ void hemm(internal::TargetType<Target::HostTask>,
 template <typename scalar_t>
 void hemm(internal::TargetType<Target::HostNest>,
           Side side,
-          scalar_t alpha, HermitianMatrix< scalar_t >& A,
-                          Matrix< scalar_t >& B,
-          scalar_t beta,  Matrix< scalar_t >& C,
+          scalar_t alpha, HermitianMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
           int priority)
 {
     int err = 0;
@@ -233,34 +233,34 @@ void hemm(internal::TargetType<Target::HostNest>,
 template
 void hemm< Target::HostTask, float >(
     Side side,
-    float alpha, HermitianMatrix< float >&& A,
-                 Matrix< float >&& B,
-    float beta,  Matrix< float >&& C,
+    float alpha, HermitianMatrix<float>&& A,
+                 Matrix<float>&& B,
+    float beta,  Matrix<float>&& C,
     int priority);
 
 template
-void hemm< Target::HostNest, float >(
+void hemm<Target::HostNest, float>(
     Side side,
-    float alpha, HermitianMatrix< float >&& A,
-                 Matrix< float >&& B,
-    float beta,  Matrix< float >&& C,
+    float alpha, HermitianMatrix<float>&& A,
+                 Matrix<float>&& B,
+    float beta,  Matrix<float>&& C,
     int priority);
 
 // ----------------------------------------
 template
-void hemm< Target::HostTask, double >(
+void hemm<Target::HostTask, double>(
     Side side,
-    double alpha, HermitianMatrix< double >&& A,
-                  Matrix< double >&& B,
-    double beta,  Matrix< double >&& C,
+    double alpha, HermitianMatrix<double>&& A,
+                  Matrix<double>&& B,
+    double beta,  Matrix<double>&& C,
     int priority);
 
 template
-void hemm< Target::HostNest, double >(
+void hemm<Target::HostNest, double>(
     Side side,
-    double alpha, HermitianMatrix< double >&& A,
-                  Matrix< double >&& B,
-    double beta,  Matrix< double >&& C,
+    double alpha, HermitianMatrix<double>&& A,
+                  Matrix<double>&& B,
+    double beta,  Matrix<double>&& C,
     int priority);
 
 // ----------------------------------------

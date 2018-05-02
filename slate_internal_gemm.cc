@@ -61,9 +61,9 @@ namespace internal {
 /// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conj_transpose;
 /// if $op(C)$ is conj_transpose, then $op(A)$ and $op(B)$ cannot be transpose.
 template <Target target, typename scalar_t>
-void gemm(scalar_t alpha, Matrix< scalar_t >&& A,
-                          Matrix< scalar_t >&& B,
-          scalar_t beta,  Matrix< scalar_t >&& C,
+void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
+                          Matrix<scalar_t>&& B,
+          scalar_t beta,  Matrix<scalar_t>&& C,
           int priority)
 {
     if (C.is_complex &&
@@ -87,9 +87,9 @@ void gemm(scalar_t alpha, Matrix< scalar_t >&& A,
 /// Host OpenMP task implementation.
 template <typename scalar_t>
 void gemm(internal::TargetType<Target::HostTask>,
-          scalar_t alpha, Matrix< scalar_t >& A,
-                          Matrix< scalar_t >& B,
-          scalar_t beta,  Matrix< scalar_t >& C,
+          scalar_t alpha, Matrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
           int priority)
 {
     // check dimensions
@@ -136,9 +136,9 @@ void gemm(internal::TargetType<Target::HostTask>,
 /// Host nested OpenMP implementation.
 template <typename scalar_t>
 void gemm(internal::TargetType<Target::HostNest>,
-          scalar_t alpha, Matrix< scalar_t >& A,
-                          Matrix< scalar_t >& B,
-          scalar_t beta,  Matrix< scalar_t >& C,
+          scalar_t alpha, Matrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
           int priority)
 {
     // check dimensions
@@ -186,9 +186,9 @@ void gemm(internal::TargetType<Target::HostNest>,
 /// Host batched implementation.
 template <typename scalar_t>
 void gemm(internal::TargetType<Target::HostBatch>,
-          scalar_t alpha, Matrix< scalar_t >& A,
-                          Matrix< scalar_t >& B,
-          scalar_t beta,  Matrix< scalar_t >& C,
+          scalar_t alpha, Matrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
           int priority)
 {
     using blas::conj;
@@ -243,24 +243,24 @@ void gemm(internal::TargetType<Target::HostBatch>,
         }
 
         if (C.op() == Op::ConjTrans) {
-            alpha = conj( alpha );
-            beta  = conj( beta  );
+            alpha = conj(alpha);
+            beta  = conj(beta);
         }
 
-        std::vector< CBLAS_TRANSPOSE > opA_array( batch_count, cblas_trans_const( opA ));  // all same
-        std::vector< CBLAS_TRANSPOSE > opB_array( batch_count, cblas_trans_const( opB ));  // all same
-        std::vector< int > m_array( batch_count );
-        std::vector< int > n_array( batch_count );
-        std::vector< int > k_array( batch_count );
-        std::vector< scalar_t > alpha_array( batch_count, alpha );  // all same
-        std::vector< scalar_t >  beta_array( batch_count,  beta );  // all same
-        std::vector< const scalar_t* > a_array( batch_count );
-        std::vector< const scalar_t* > b_array( batch_count );
-        std::vector< scalar_t* > c_array( batch_count );
-        std::vector< int > lda_array( batch_count );
-        std::vector< int > ldb_array( batch_count );
-        std::vector< int > ldc_array( batch_count );
-        std::vector< int > group_size( batch_count, 1 );  // all same
+        std::vector<CBLAS_TRANSPOSE> opA_array(batch_count, cblas_trans_const(opA));  // all same
+        std::vector<CBLAS_TRANSPOSE> opB_array(batch_count, cblas_trans_const(opB));  // all same
+        std::vector<int> m_array(batch_count);
+        std::vector<int> n_array(batch_count);
+        std::vector<int> k_array(batch_count);
+        std::vector<scalar_t> alpha_array(batch_count, alpha);  // all same
+        std::vector<scalar_t>  beta_array(batch_count,  beta);  // all same
+        std::vector<const scalar_t*> a_array(batch_count);
+        std::vector<const scalar_t*> b_array(batch_count);
+        std::vector<scalar_t*> c_array(batch_count);
+        std::vector<int> lda_array(batch_count);
+        std::vector<int> ldb_array(batch_count);
+        std::vector<int> ldc_array(batch_count);
+        std::vector<int> group_size(batch_count, 1);  // all same
 
         int index = 0;
         for (int64_t i = 0; i < C.mt(); ++i) {
@@ -289,10 +289,10 @@ void gemm(internal::TargetType<Target::HostBatch>,
 
         if (C.op() != Op::NoTrans) {
             // swap A <=> B; swap m <=> n
-            swap( opA_array, opB_array );
-            swap( a_array,   b_array   );
-            swap( lda_array, ldb_array );
-            swap( m_array,   n_array   );
+            swap(opA_array, opB_array);
+            swap(a_array,   b_array  );
+            swap(lda_array, ldb_array);
+            swap(m_array,   n_array  );
         }
 
         {
@@ -347,7 +347,7 @@ void gemm(internal::TargetType<Target::Devices>,
     assert(A.mt() == C.mt());
     assert(B.nt() == C.nt());
 
-    assert( C.num_devices() > 0 );
+    assert(C.num_devices() > 0);
 
     int err = 0;
     for (int device = 0; device < C.num_devices(); ++device) {
@@ -381,8 +381,8 @@ void gemm(internal::TargetType<Target::Devices>,
             }
 
             if (C.op() == Op::ConjTrans) {
-                alpha = conj( alpha );
-                beta  = conj( beta  );
+                alpha = conj(alpha);
+                beta  = conj(beta );
             }
 
             scalar_t** a_array_host = C.a_array_host(device);
@@ -408,8 +408,8 @@ void gemm(internal::TargetType<Target::Devices>,
 
             if (C.op() != Op::NoTrans) {
                 // swap A <=> B; swap m <=> n
-                swap( opA, opB );
-                swap( a_array_host, b_array_host );
+                swap(opA, opB);
+                swap(a_array_host, b_array_host);
                 //swap( lda, ldb );  // todo: assumed to be nb
                 //swap( m, n );      // todo: assumed to be nb
             }
@@ -451,7 +451,7 @@ void gemm(internal::TargetType<Target::Devices>,
                 cublasStatus_t status =
                     cublasGemmBatched(
                         cublas_handle,  // uses stream
-                        cublas_op_const( opA ), cublas_op_const( opB ),
+                        cublas_op_const(opA), cublas_op_const(opB),
                         nb, nb, nb,
                         &alpha, (const scalar_t**) a_array_dev, nb,
                                 (const scalar_t**) b_array_dev, nb,
@@ -490,28 +490,28 @@ void gemm(internal::TargetType<Target::Devices>,
 // Explicit instantiations.
 // ----------------------------------------
 template
-void gemm< Target::HostTask, float >(
+void gemm<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
     int priority);
 
 template
-void gemm< Target::HostNest, float >(
+void gemm<Target::HostNest, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
     int priority);
 
 template
-void gemm< Target::HostBatch, float >(
+void gemm<Target::HostBatch, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
     int priority);
 
 template
-void gemm< Target::Devices, float >(
+void gemm<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
@@ -519,28 +519,28 @@ void gemm< Target::Devices, float >(
 
 // ----------------------------------------
 template
-void gemm< Target::HostTask, double >(
+void gemm<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
     int priority);
 
 template
-void gemm< Target::HostNest, double >(
+void gemm<Target::HostNest, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
     int priority);
 
 template
-void gemm< Target::HostBatch, double >(
+void gemm<Target::HostBatch, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
     int priority);
 
 template
-void gemm< Target::Devices, double >(
+void gemm<Target::Devices, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
@@ -549,59 +549,59 @@ void gemm< Target::Devices, double >(
 // ----------------------------------------
 template
 void gemm< Target::HostTask, std::complex<float> >(
-    std::complex<float> alpha, Matrix<std::complex<float>>&& A,
-                               Matrix<std::complex<float>>&& B,
-    std::complex<float> beta,  Matrix<std::complex<float>>&& C,
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+                               Matrix< std::complex<float> >&& B,
+    std::complex<float> beta,  Matrix< std::complex<float> >&& C,
     int priority);
 
 template
 void gemm< Target::HostNest, std::complex<float> >(
-    std::complex<float> alpha, Matrix<std::complex<float>>&& A,
-                               Matrix<std::complex<float>>&& B,
-    std::complex<float> beta,  Matrix<std::complex<float>>&& C,
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+                               Matrix< std::complex<float> >&& B,
+    std::complex<float> beta,  Matrix< std::complex<float> >&& C,
     int priority);
 
 template
 void gemm< Target::HostBatch, std::complex<float> >(
-    std::complex<float> alpha, Matrix<std::complex<float>>&& A,
-                               Matrix<std::complex<float>>&& B,
-    std::complex<float> beta,  Matrix<std::complex<float>>&& C,
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+                               Matrix< std::complex<float> >&& B,
+    std::complex<float> beta,  Matrix< std::complex<float> >&& C,
     int priority);
 
 template
 void gemm< Target::Devices, std::complex<float> >(
-    std::complex<float> alpha, Matrix<std::complex<float>>&& A,
-                               Matrix<std::complex<float>>&& B,
-    std::complex<float> beta,  Matrix<std::complex<float>>&& C,
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+                               Matrix< std::complex<float> >&& B,
+    std::complex<float> beta,  Matrix< std::complex<float> >&& C,
     int priority);
 
 // ----------------------------------------
 template
 void gemm< Target::HostTask, std::complex<double> >(
-    std::complex<double> alpha, Matrix<std::complex<double>>&& A,
-                                Matrix<std::complex<double>>&& B,
-    std::complex<double> beta,  Matrix<std::complex<double>>&& C,
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+                                Matrix< std::complex<double> >&& B,
+    std::complex<double> beta,  Matrix< std::complex<double> >&& C,
     int priority);
 
 template
 void gemm< Target::HostNest, std::complex<double> >(
-    std::complex<double> alpha, Matrix<std::complex<double>>&& A,
-                                Matrix<std::complex<double>>&& B,
-    std::complex<double> beta,  Matrix<std::complex<double>>&& C,
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+                                Matrix< std::complex<double> >&& B,
+    std::complex<double> beta,  Matrix< std::complex<double> >&& C,
     int priority);
 
 template
 void gemm< Target::HostBatch, std::complex<double> >(
-    std::complex<double> alpha, Matrix<std::complex<double>>&& A,
-                                Matrix<std::complex<double>>&& B,
-    std::complex<double> beta,  Matrix<std::complex<double>>&& C,
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+                                Matrix< std::complex<double> >&& B,
+    std::complex<double> beta,  Matrix< std::complex<double> >&& C,
     int priority);
 
 template
 void gemm< Target::Devices, std::complex<double> >(
-    std::complex<double> alpha, Matrix<std::complex<double>>&& A,
-                                Matrix<std::complex<double>>&& B,
-    std::complex<double> beta,  Matrix<std::complex<double>>&& C,
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+                                Matrix< std::complex<double> >&& B,
+    std::complex<double> beta,  Matrix< std::complex<double> >&& C,
     int priority);
 
 } // namespace internal

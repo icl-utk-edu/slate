@@ -83,8 +83,10 @@ std::map<std::string, Color> Trace::function_color_ = {
     {"Memory::free",  Color::Aquamarine},
 
     {"MPI_Barrier",           Color::Black},
+    {"MPI_Bcast",             Color::Crimson},
     {"MPI_Comm_create_group", Color::DarkRed},
-    {"MPI_Bcast",             Color::Crimson}
+    {"MPI_Recv",              Color::Crimson},
+    {"MPI_Send",              Color::LightCoral}
 };
 
 ///-----------------------------------------------------------------------------

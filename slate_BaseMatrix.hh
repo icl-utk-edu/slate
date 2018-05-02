@@ -798,11 +798,11 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     // Sort the ranks.
     std::sort(bcast_vec.begin(), bcast_vec.end());
 
-    // Find root's index.
+    // Find root.
     int root_rank = tileRank(i, j);
     auto root_iter = std::find(bcast_vec.begin(), bcast_vec.end(), root_rank);
 
-    // Shift root to zero.
+    // Shift root to position zero.
     std::vector<int> new_vec(root_iter, bcast_vec.end());
     new_vec.insert(new_vec.end(), bcast_vec.begin(), root_iter);
 

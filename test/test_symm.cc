@@ -42,7 +42,7 @@ void test_symm_work( Params &params, bool run )
     bool check = params.check.value()=='y';
     bool ref = params.ref.value()=='y';
     bool trace = params.trace.value()=='y';
-    slate::Target target = char2target(params.target.value());
+    slate::Target target = char2target( params.target.value() );
 
     // mark non-standard output values
     params.time.value();
@@ -50,11 +50,11 @@ void test_symm_work( Params &params, bool run )
     params.ref_time.value();
     params.ref_gflops.value();
 
-    if( ! run )
+    if ( ! run )
         return;
 
     // for now, symm on Devices requires full tiles
-    if( target == slate::Target::Devices ) {
+    if ( target == slate::Target::Devices ) {
         assert( m % nb == 0 );
         assert( n % nb == 0 );
     }
@@ -113,7 +113,7 @@ void test_symm_work( Params &params, bool run )
 
     // if check is required, copy test data and create a descriptor for it
     std::vector< scalar_t > C_ref;
-    if( check || ref ) {
+    if ( check || ref ) {
         C_ref.resize( C_tst.size() );
         C_ref = C_tst;
         scalapack_descinit( descC_ref, Cm, Cn, nb, nb, i0, i0, ictxt, mlocC, &info );
@@ -125,14 +125,14 @@ void test_symm_work( Params &params, bool run )
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK( Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD );
     auto C = slate::Matrix<scalar_t>::fromScaLAPACK( Cm, Cn, &C_tst[0], lldC, nb, nprow, npcol, MPI_COMM_WORLD );
 
-    if( side == blas::Side::Left )
+    if ( side == blas::Side::Left )
         assert( A.mt() == C.mt() );
     else
         assert( A.mt() == C.nt() );
     assert( B.mt() == C.mt() );
     assert( B.nt() == C.nt() );
 
-    if( trace ) slate::trace::Trace::on();
+    if ( trace ) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
     // Call the routine using ScaLAPACK layout
@@ -140,13 +140,14 @@ void test_symm_work( Params &params, bool run )
     double time = libtest::get_wtime();
 
     slate::symm( side, alpha, A, B, beta, C, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target}} );
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target}
+    } );
 
     MPI_Barrier( MPI_COMM_WORLD );
     double time_tst = libtest::get_wtime() - time;
 
-    if( trace ) slate::trace::Trace::finish();
+    if ( trace ) slate::trace::Trace::finish();
 
     // Compute and save timing/performance
     double gflop = blas::Gflop< scalar_t >::symm( side, n, n );
@@ -155,7 +156,7 @@ void test_symm_work( Params &params, bool run )
 
     params.okay.value() = true;
 
-    if( check || ref ) {
+    if ( check || ref ) {
         // comparison with reference routine from ScaLAPACK
 
         // set MKL num threads appropriately for parallel BLAS
@@ -163,6 +164,16 @@ void test_symm_work( Params &params, bool run )
         #pragma omp parallel
         { omp_num_threads = omp_get_num_threads(); }
         int saved_num_threads = slate_set_num_blas_threads( omp_num_threads );
+
+        // allocate workspace for norms
+        size_t ldw = nb * ceil( ceil( mlocA / ( double ) nb ) / ( scalapack_ilcm( &nprow, &npcol ) / nprow ) );
+        std::vector< real_t > worklansy( 2 * nlocA + mlocA + ldw );
+        std::vector< real_t > worklange( std::max( {mlocC, mlocB, mlocA} ) );
+
+        // get norms of the original data
+        real_t A_orig_norm = scalapack_plansy( "I", uplo2str( uplo ), n, &A_tst[0], i1, i1, descA_tst, &worklansy[0] );
+        real_t B_orig_norm = scalapack_plange( "I", m, n, &B_tst[0], i1, i1, descB_tst, &worklange[0] );
+        real_t C_orig_norm = scalapack_plange( "I", m, n, &C_ref[0], i1, i1, descC_ref, &worklange[0] );
 
         // Run the reference routine
         MPI_Barrier( MPI_COMM_WORLD );
@@ -174,24 +185,18 @@ void test_symm_work( Params &params, bool run )
         MPI_Barrier( MPI_COMM_WORLD );
         double time_ref = libtest::get_wtime() - time;
 
-        // allocate work space
-        std::vector< real_t > worklange( mlocC );
-
         // Local operation: error = C_ref - C_tst
         blas::axpy( C_ref.size(), -1.0, &C_tst[0], 1, &C_ref[0], 1 );
 
-        // norm(C_tst)
-        real_t C_tst_norm = scalapack_plange( "I", m, n, &C_tst[0], i1, i1, descC_tst, &worklange[0] );
-
         // norm(C_ref - C_tst)
-        real_t error_norm = scalapack_plange( "I", m, n, &C_ref[0], i1, i1, descC_ref, &worklange[0] );
+        real_t C_diff_norm = scalapack_plange( "I", m, n, &C_ref[0], i1, i1, descC_ref, &worklange[0] );
 
-        if( C_tst_norm != 0 )
-            error_norm /=  C_tst_norm;
+        real_t error = C_diff_norm
+                       / ( sqrt( real_t( An )+2 ) * std::abs( alpha ) * A_orig_norm * B_orig_norm + 2*std::abs( beta ) * C_orig_norm );
 
         params.ref_time.value() = time_ref;
         params.ref_gflops.value() = gflop / time_ref;
-        params.error.value() = error_norm;
+        params.error.value() = error;
 
         slate_set_num_blas_threads( saved_num_threads );
 
@@ -206,7 +211,7 @@ void test_symm_work( Params &params, bool run )
 // -----------------------------------------------------------------------------
 void test_symm( Params &params, bool run )
 {
-    switch( params.datatype.value() ) {
+    switch ( params.datatype.value() ) {
     case libtest::DataType::Integer:
         throw std::exception();
         break;

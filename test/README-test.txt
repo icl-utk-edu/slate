@@ -1,24 +1,24 @@
-This will compile the files in the source as well as in the test directory.
-Check the GNUMakefile for CXXFLAGS or LIBS that may need to be altered.
-The Makefile is initially hardcoded for MKL+OPENMP.
+Examples of running the tester 
 
-CXXFLAGS += -DSLATE_WITH_MKL
-CXXFLAGS += -DSLATE_WITH_OPENMP
+salloc -N 4 -w b[01-04] mpirun -n 4 ./test gemm  --type s,d,c,z --transA n,t,c --transB n,t,c --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --dim 100x300x600 --dim 300x100x600 --dim 100x600x300 --dim 300x600x100 --dim 600x100x300 --dim 600x300x100 --nb 10,64 --p 2 --q 2
 
+salloc -N 4 -w b[01-04] mpirun -n 4 ./test symm   --type s,d,c,z --side l,r --uplo l,u --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,64  --p 2 --q 2
 
-Example of running the tester 
+salloc -N 4 -w b[01-04] mpirun -n 4 ./test syr2k  --type s,d --uplo l,u --trans n,t,c --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,64  --p 2 --q 2 
+salloc -N 4 -w b[01-04] mpirun -n 4 ./test syr2k  --type c,z --uplo l,u --trans n,t --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,64  --p 2 --q 2 
 
-salloc -N 4 -w b[01-04] mpirun -n 4 ./test symm   --type s,d,c,z --side l,r --uplo l,u --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,50  --p 2 --q 2
+salloc -N 4 -w b[01-04] mpirun -n 4 ./test syrk   --type s,d --uplo l,u --trans n,t,c --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,64   --p 2 --q 2 
+salloc -N 4 -w b[01-04] mpirun -n 4 ./test syrk   --type c,z --uplo l,u --trans n,t --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,64   --p 2 --q 2 
 
-salloc -N 4 -w b[01-04] mpirun -n 4 ./test syr2k  --type s,d --uplo l,u --trans n,t,c --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,50 --p 2 --q 2 
+salloc -N 4 -w b[01-04] mpirun -n 4 ./test trmm   --type s,d,c,z --side l,r --uplo l,u --transA n,t,c --diag n,u --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,64 --p 2 --q 2 
 
-salloc -N 4 -w b[01-04] mpirun -n 4 ./test syrk   --type s,d --uplo l,u --trans n,t,c --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,50  --p 2 --q 2 
+salloc -N 4 -w b[01-04] mpirun -n 4 ./test trsm   --type s,d,c,z --side l,r --uplo l,u --transA n,t,c --diag n,u --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,64  --p 2 --q 2 
 
-salloc -N 4 -w b[01-04] mpirun -n 4 ./test trmm   --type s,d,c,z --side l,r --uplo l,u --transA n,t,c --diag n,u --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,50 --p 2 --q 2 
+salloc -N 4 -w b[01-04] mpirun -n 4 ./test potrf  --type s,d,c,z --dim 100:500:100 --uplo l,u --nb 10,64 --p 2 --q 2 
 
-salloc -N 4 -w b[01-04] mpirun -n 4 ./test trsm   --type s,d,c,z --side l,r --uplo l,u --transA n,t,c --diag n,u --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,50  --p 2 --q 2 
-  The trsm has some FAILED output because errors are not in 5*eps range.
+---- 
 
+Single runs 
 
-Small tests over all the execution models
-salloc -N 4 -w b[01-04] mpirun -n 4 ./test gemm  --type d --dim 2880 --nb 288 --p 2 --q 2 --target t,d,n,b
+salloc -N 4 -w b[01-04] mpirun -n 4 ./test gemm  --type s --dim 100 --nb 64 --p 2 --q 2 
+salloc -N 4 -w b[01-04] mpirun -n 4 ./test potrf  --type s --dim 100 --uplo u --nb 64 --p 2 --q 2 

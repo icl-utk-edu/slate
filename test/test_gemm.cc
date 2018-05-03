@@ -40,6 +40,7 @@ void test_gemm_work( Params &params, bool run )
     int64_t p = params.p.value();
     int64_t q = params.q.value();
     int64_t lookahead = params.lookahead.value();
+    lapack::Norm norm = params.norm.value();
     bool check = params.check.value()=='y';
     bool ref = params.ref.value()=='y';
     bool trace = params.trace.value()=='y';
@@ -176,12 +177,12 @@ void test_gemm_work( Params &params, bool run )
         int saved_num_threads = slate_set_num_blas_threads( omp_num_threads );
 
         // allocate work space
-        std::vector< real_t > worklange( std::max( {mlocC, mlocB, mlocA} ) );
+        std::vector< real_t > worklange( std::max( {mlocC, mlocB, mlocA, nlocC, nlocB, nlocA} ) );
 
         // get norms of the original data
-        real_t A_orig_norm = scalapack_plange( "I", m, n, &A_tst[0], i1, i1, descA_tst, &worklange[0] );
-        real_t B_orig_norm = scalapack_plange( "I", m, n, &B_tst[0], i1, i1, descB_tst, &worklange[0] );
-        real_t C_orig_norm = scalapack_plange( "I", m, n, &C_ref[0], i1, i1, descC_ref, &worklange[0] );
+        real_t A_orig_norm = scalapack_plange( norm2str( norm ), m, n, &A_tst[0], i1, i1, descA_tst, &worklange[0] );
+        real_t B_orig_norm = scalapack_plange( norm2str( norm ), m, n, &B_tst[0], i1, i1, descB_tst, &worklange[0] );
+        real_t C_orig_norm = scalapack_plange( norm2str( norm ), m, n, &C_ref[0], i1, i1, descC_ref, &worklange[0] );
 
         // run the reference routine
         MPI_Barrier( MPI_COMM_WORLD );
@@ -197,7 +198,7 @@ void test_gemm_work( Params &params, bool run )
         blas::axpy( C_ref.size(), -1.0, &C_tst[0], 1, &C_ref[0], 1 );
 
         // norm(C_ref - C_tst)
-        real_t C_diff_norm = scalapack_plange( "I", m, n, &C_ref[0], i1, i1, descC_ref, &worklange[0] );
+        real_t C_diff_norm = scalapack_plange( norm2str( norm ), m, n, &C_ref[0], i1, i1, descC_ref, &worklange[0] );
 
         real_t error = C_diff_norm 
             / ( sqrt(real_t(k)+2) * std::abs(alpha) * A_orig_norm * B_orig_norm + 2*std::abs(beta) * C_orig_norm );

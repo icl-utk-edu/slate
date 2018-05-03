@@ -33,6 +33,7 @@ template < typename scalar_t > void test_potrf_work( Params &params, bool run )
     int64_t q = params.q.value();
     int64_t nb = params.nb.value();
     int64_t lookahead = params.lookahead.value();
+    lapack::Norm norm = params.norm.value();
     bool check = params.check.value()=='y';
     bool ref = params.ref.value()=='y';
     bool trace = params.trace.value()=='y';
@@ -125,13 +126,13 @@ template < typename scalar_t > void test_potrf_work( Params &params, bool run )
         std::vector < real_t > worklansy( 2 * nlocA + mlocA + ldw );
 
         // norm of A
-        real_t A_ref_norm = scalapack_plansy( "I", uplo2str(uplo), n, &A_ref[0], i1, i1, descA_ref, &worklansy[0] );
+        real_t A_ref_norm = scalapack_plansy( norm2str( norm ), uplo2str(uplo), n, &A_ref[0], i1, i1, descA_ref, &worklansy[0] );
 
         // local operation: error = A_ref = A_ref - A_tst
         blas::axpy( A_ref.size(), -1.0, &A_tst[0], 1, &A_ref[0], 1 );
 
         // error = norm(error)
-        real_t error_norm = scalapack_plansy( "I", uplo2str( uplo ), n, &A_ref[0], i1, i1, descA_ref, &worklansy[0] );
+        real_t error_norm = scalapack_plansy( norm2str( norm ), uplo2str( uplo ), n, &A_ref[0], i1, i1, descA_ref, &worklansy[0] );
 
         // error = error / norm;
         if( error_norm != 0 )

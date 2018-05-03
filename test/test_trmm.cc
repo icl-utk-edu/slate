@@ -40,6 +40,7 @@ void test_trmm_work( Params &params, bool run )
     int64_t q = params.q.value();
     int64_t nb = params.nb.value();
     int64_t lookahead = params.lookahead.value();
+    lapack::Norm norm = params.norm.value();
     bool check = params.check.value()=='y';
     bool ref = params.ref.value()=='y';
     bool trace = params.trace.value()=='y';
@@ -155,11 +156,11 @@ void test_trmm_work( Params &params, bool run )
 
         // allocate workspace for norms
         std::vector<real_t> worklantr( std::max( { mlocA, nlocA } ) );
-        std::vector<real_t> worklange( mlocB );
+        std::vector<real_t> worklange( std::max( { mlocB, nlocB } ) );
 
         // get norms of the original data
-        real_t A_orig_norm = scalapack_plantr( "I", uplo2str( uplo ), diag2str( diag ), Am, An, &A_tst[0], i1, i1, descA_tst, &worklantr[0] );
-        real_t B_orig_norm = scalapack_plange( "I", m, n, &B_tst[0], i1, i1, descB_tst, &worklange[0] );
+        real_t A_orig_norm = scalapack_plantr( norm2str( norm ), uplo2str( uplo ), diag2str( diag ), Am, An, &A_tst[0], i1, i1, descA_tst, &worklantr[0] );
+        real_t B_orig_norm = scalapack_plange( norm2str( norm ), Bm, Bn, &B_tst[0], i1, i1, descB_tst, &worklange[0] );
 
         // run the reference routine
         MPI_Barrier( MPI_COMM_WORLD );
@@ -175,7 +176,7 @@ void test_trmm_work( Params &params, bool run )
         blas::axpy( B_ref.size(), -1.0, &B_tst[0], 1, &B_ref[0], 1 );
 
         // norm(B_ref - B_tst)
-        real_t B_diff_norm = scalapack_plange( "I", m, n, &B_ref[0], i1, i1, descB_ref, &worklange[0] );
+        real_t B_diff_norm = scalapack_plange( norm2str( norm ), Bm, Bn, &B_ref[0], i1, i1, descB_ref, &worklange[0] );
 
         real_t error = B_diff_norm
                        / ( sqrt( real_t( Am )+2 ) * std::abs( alpha ) * A_orig_norm * B_orig_norm );

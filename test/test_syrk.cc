@@ -37,6 +37,7 @@ void test_syrk_work( Params &params, bool run )
     int64_t q = params.q.value();
     int64_t nb = params.nb.value();
     int64_t lookahead = params.lookahead.value();
+    lapack::Norm norm = params.norm.value();
     bool check = params.check.value()=='y';
     bool ref = params.ref.value()=='y';
     bool trace = params.trace.value()=='y';
@@ -150,11 +151,11 @@ void test_syrk_work( Params &params, bool run )
         // allocate workspace for norms
         size_t ldw = nb * ceil( ceil( mlocC / ( double ) nb ) / ( scalapack_ilcm( &nprow, &npcol ) / nprow ) );
         std::vector<real_t> worklansy( 2 * nlocC + mlocC + ldw );
-        std::vector<real_t> worklange( mlocA );
+        std::vector<real_t> worklange( std::max( { mlocA, nlocA } ) );
 
         // get norms of the original data
-        real_t A_orig_norm = scalapack_plange( "I", Am, An, &A_tst[0], i1, i1, descA_tst, &worklange[0] );
-        real_t C_orig_norm = scalapack_plansy( "I", uplo2str( uplo ), Cn, &C_ref[0], i1, i1, descC_ref, &worklansy[0] );
+        real_t A_orig_norm = scalapack_plange( norm2str( norm ), Am, An, &A_tst[0], i1, i1, descA_tst, &worklange[0] );
+        real_t C_orig_norm = scalapack_plansy( norm2str( norm ), uplo2str( uplo ), Cn, &C_ref[0], i1, i1, descC_ref, &worklansy[0] );
 
         // run the reference routine
         MPI_Barrier( MPI_COMM_WORLD );
@@ -169,7 +170,7 @@ void test_syrk_work( Params &params, bool run )
         blas::axpy( C_ref.size(), -1.0, &C_tst[0], 1, &C_ref[0], 1 );
 
         // norm(C_ref - C_tst)
-        real_t C_diff_norm = scalapack_plansy( "I", uplo2str( uplo ), Cn, &C_ref[0], i1, i1, descC_ref, &worklansy[0] );
+        real_t C_diff_norm = scalapack_plansy( norm2str( norm ), uplo2str( uplo ), Cn, &C_ref[0], i1, i1, descC_ref, &worklansy[0] );
 
         real_t error = C_diff_norm
                        / ( sqrt( real_t( k )+2 )*std::abs( alpha )*A_orig_norm*A_orig_norm + 2*std::abs( beta )*C_orig_norm );

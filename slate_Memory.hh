@@ -110,8 +110,8 @@ private:
     size_t block_size_;
 
     // map device number to stack of blocks
-    std::map< int, std::stack< void* > > free_blocks_;
-    std::map< int, std::stack< void* > > allocated_mem_;
+    std::map< int, std::stack<void*> > free_blocks_;
+    std::map< int, std::stack<void*> > allocated_mem_;
     std::map< int, size_t > capacity_;
 };
 

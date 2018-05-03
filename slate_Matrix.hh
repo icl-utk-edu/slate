@@ -59,7 +59,7 @@ namespace slate {
 //==============================================================================
 /// General non-symmetric, m-by-n, distributed, tiled matrices.
 template <typename scalar_t>
-class Matrix: public BaseMatrix< scalar_t > {
+class Matrix: public BaseMatrix<scalar_t> {
 public:
     // constructors
     Matrix();
@@ -75,7 +75,7 @@ public:
                          int p, int q, MPI_Comm mpi_comm);
 
     // conversion sub-matrix
-    Matrix(BaseMatrix< scalar_t >& orig,
+    Matrix(BaseMatrix<scalar_t>& orig,
            int64_t i1, int64_t i2,
            int64_t j1, int64_t j2);
 
@@ -107,14 +107,14 @@ public:
     void allocateBatchArrays();
     void reserveHostWorkspace();
     void reserveDeviceWorkspace();
-    void gather(scalar_t *A, int64_t lda);
+    void gather(scalar_t* A, int64_t lda);
 };
 
 //------------------------------------------------------------------------------
 /// Default constructor creates an empty matrix.
 template <typename scalar_t>
 Matrix<scalar_t>::Matrix():
-    BaseMatrix< scalar_t >()
+    BaseMatrix<scalar_t>()
 {}
 
 //------------------------------------------------------------------------------
@@ -214,7 +214,7 @@ Matrix<scalar_t>::Matrix(
     int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : BaseMatrix< scalar_t >(m, n, nb, p, q, mpi_comm)
+    : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
 {
     // ii, jj are row, col indices
     // i, j are tile (block row, block col) indices
@@ -242,7 +242,7 @@ Matrix<scalar_t>::Matrix(
     int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : BaseMatrix< scalar_t >(m, n, nb, p, q, mpi_comm)
+    : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
 {
     assert(mb == nb);
     // ii, jj are row, col indices
@@ -288,7 +288,7 @@ Matrix<scalar_t>::Matrix(
     Matrix& orig,
     int64_t i1, int64_t i2,
     int64_t j1, int64_t j2)
-    : BaseMatrix< scalar_t >(orig, i1, i2, j1, j2)
+    : BaseMatrix<scalar_t>(orig, i1, i2, j1, j2)
 {}
 
 //------------------------------------------------------------------------------
@@ -301,7 +301,7 @@ Matrix<scalar_t>::Matrix(
     BaseMatrix< scalar_t >& orig,
     int64_t i1, int64_t i2,
     int64_t j1, int64_t j2)
-    : BaseMatrix< scalar_t >(orig, i1, i2, j1, j2)
+    : BaseMatrix<scalar_t>(orig, i1, i2, j1, j2)
 {}
 
 //------------------------------------------------------------------------------
@@ -313,8 +313,8 @@ template <typename scalar_t>
 void swap(Matrix<scalar_t>& A, Matrix<scalar_t>& B)
 {
     using std::swap;
-    swap(static_cast< BaseMatrix< scalar_t >& >(A),
-         static_cast< BaseMatrix< scalar_t >& >(B));
+    swap(static_cast< BaseMatrix<scalar_t>& >(A),
+         static_cast< BaseMatrix<scalar_t>& >(B));
 }
 
 //------------------------------------------------------------------------------
@@ -385,7 +385,7 @@ void Matrix<scalar_t>::reserveDeviceWorkspace()
 /// Gathers the entire matrix to the LAPACK-style matrix A on MPI rank 0.
 /// Primarily for debugging purposes.
 template <typename scalar_t>
-void Matrix<scalar_t>::gather(scalar_t *A, int64_t lda)
+void Matrix<scalar_t>::gather(scalar_t* A, int64_t lda)
 {
     // this code assumes the matrix is not transposed
     Op op_save = this->op();

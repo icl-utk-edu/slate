@@ -175,10 +175,10 @@ void potrf(slate::internal::TargetType<Target::Devices>,
             // A(k+1:nt-1, k) * A(k, k)^{-H}
             if (k+1 <= A.nt()-1) {
                 auto Akk = A.sub(k, k);
-                auto Tkk = TriangularMatrix< scalar_t >( Akk );
+                auto Tkk = TriangularMatrix< scalar_t >(Akk);
                 internal::trsm<Target::HostTask>(
                     Side::Right, Diag::NonUnit,
-                    scalar_t(1.0), conj_transpose( Tkk ),
+                    scalar_t(1.0), conj_transpose(Tkk),
                                    A.sub(k+1, A.nt()-1, k, k));
             }
 
@@ -219,7 +219,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     auto Ajk = A.sub(j, j, k, k);
                     internal::gemm<Target::HostTask>(
                         scalar_t(-1.0), A.sub(j+1, A.nt()-1, k, k),
-                                        conj_transpose( Ajk ),
+                                        conj_transpose(Ajk),
                         scalar_t( 1.0), A.sub(j+1, A.nt()-1, j, j));
                 }
             }

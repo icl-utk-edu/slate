@@ -63,7 +63,7 @@ namespace slate {
 
 ///-----------------------------------------------------------------------------
 /// @return ceil(a / b), for integer type T.
-template< typename T >
+template<typename T>
 T ceildiv(T a, T b)
 {
     return ((a + b - 1) / b);
@@ -71,7 +71,7 @@ T ceildiv(T a, T b)
 
 ///-----------------------------------------------------------------------------
 /// Type-safe wrapper for cudaMalloc. Throws std::bad_alloc for errors.
-template< typename value_type >
+template<typename value_type>
 void slateCudaMalloc(value_type** ptr, size_t nelements)
 {
     cudaError_t error;
@@ -80,7 +80,7 @@ void slateCudaMalloc(value_type** ptr, size_t nelements)
         throw std::bad_alloc();
 }
 
-template< typename value_type >
+template<typename value_type>
 void slateCudaMallocHost(value_type** ptr, size_t nelements)
 {
     cudaError_t error;
@@ -96,14 +96,14 @@ class MatrixStorage {
 public:
     friend class Debug;
 
-    using ijdev_tuple = std::tuple< int64_t, int64_t, int >;
-    using ij_tuple    = std::tuple< int64_t, int64_t >;
+    using ijdev_tuple = std::tuple<int64_t, int64_t, int>;
+    using ij_tuple    = std::tuple<int64_t, int64_t>;
 
     /// Map of tiles is indexed by {i, j, device}.
     using TilesMap = slate::Map< ijdev_tuple, Tile<scalar_t>* >;
 
     /// Map of lives is indexed by {i, j}. The life applies to all devices.
-    using LivesMap = slate::Map< ij_tuple, int64_t >;
+    using LivesMap = slate::Map<ij_tuple, int64_t>;
 
     ///-------------------------------------------------------------------------
     MatrixStorage(int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
@@ -324,7 +324,7 @@ public:
     /// Also clears life.
     void clearWorkspace()
     {
-        LockGuard( tiles_.get_lock() );
+        LockGuard(tiles_.get_lock());
         for (auto iter = tiles_.begin(); iter != tiles_.end(); /* incremented below */) {
             if (! iter->second->origin()) {
                 // since we can't increment the iterator after deleting the element,
@@ -387,7 +387,7 @@ public:
     // todo: currently ignores if ijdev doesn't exist; is that right?
     void erase(ijdev_tuple ijdev)
     {
-        LockGuard( tiles_.get_lock() );
+        LockGuard(tiles_.get_lock());
         auto iter = tiles_.find(ijdev);
         if (iter != tiles_.end()) {
             Tile<scalar_t>* tile = tiles_.at(ijdev);
@@ -445,7 +445,7 @@ public:
         int64_t mb = tileMb(i);
         int64_t nb = tileNb(j);
         Tile<scalar_t>* tile = new Tile<scalar_t>(mb, nb, data, nb, device, false);
-        tiles_[ ijdev  ] = tile;
+        tiles_[ ijdev ] = tile;
         return tile;
     }
 
@@ -457,7 +457,7 @@ public:
     /// Does not set tile's life.
     Tile<scalar_t>* tileInsert(ijdev_tuple ijdev, scalar_t* data, int64_t lda)
     {
-        assert( tiles_.find( ijdev ) == tiles_.end() );  // doesn't exist yet
+        assert(tiles_.find(ijdev) == tiles_.end());  // doesn't exist yet
         int64_t i  = std::get<0>(ijdev);
         int64_t j  = std::get<1>(ijdev);
         int device = std::get<2>(ijdev);
@@ -536,16 +536,16 @@ public:
     std::vector< scalar_t** > c_array_host_;
 
     // device pointers arrays for batch GEMM
-    std::vector< scalar_t** > a_array_dev_;
-    std::vector< scalar_t** > b_array_dev_;
-    std::vector< scalar_t** > c_array_dev_;
+    std::vector<scalar_t**> a_array_dev_;
+    std::vector<scalar_t**> b_array_dev_;
+    std::vector<scalar_t**> c_array_dev_;
 };
 
 template <typename scalar_t>
-int MatrixStorage< scalar_t >::host_num_ = -1;
+int MatrixStorage<scalar_t>::host_num_ = -1;
 
 template <typename scalar_t>
-int MatrixStorage< scalar_t >::num_devices_ = 0;
+int MatrixStorage<scalar_t>::num_devices_ = 0;
 
 } // namespace slate
 

@@ -40,6 +40,7 @@ void test_trsm_work( Params &params, bool run )
     int64_t q = params.q.value();
     int64_t nb = params.nb.value();
     int64_t lookahead = params.lookahead.value();
+    lapack::Norm norm = params.norm.value();
     bool check = params.check.value()=='y';
     bool ref = params.ref.value()=='y';
     bool trace = params.trace.value()=='y';
@@ -51,7 +52,7 @@ void test_trsm_work( Params &params, bool run )
     params.ref_time.value();
     params.ref_gflops.value();
 
-    if( ! run )
+    if ( ! run )
         return;
 
     // for now, trsm requires full tiles
@@ -101,7 +102,7 @@ void test_trsm_work( Params &params, bool run )
 
     // if check is required, copy test data and create a descriptor for it
     std::vector< scalar_t > B_ref;
-    if( check || ref ) {
+    if ( check || ref ) {
         scalapack_descinit( descB_ref, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info );
         assert( info==0 );
         B_ref.resize( B_tst.size() );
@@ -112,17 +113,17 @@ void test_trsm_work( Params &params, bool run )
     auto A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK( uplo, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD );
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK( Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD );
 
-    if( transA == Op::Trans )
+    if ( transA == Op::Trans )
         A = transpose( A );
-    else if( transA == Op::ConjTrans )
+    else if ( transA == Op::ConjTrans )
         A = conj_transpose( A );
 
-    if( transB == Op::Trans )
+    if ( transB == Op::Trans )
         B = transpose( B );
-    else if( transB == Op::ConjTrans )
+    else if ( transB == Op::ConjTrans )
         B = conj_transpose( B );
 
-    if( trace ) slate::trace::Trace::on();
+    if ( trace ) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
     // Call the routine using ScaLAPACK layout
@@ -137,14 +138,14 @@ void test_trsm_work( Params &params, bool run )
     MPI_Barrier( MPI_COMM_WORLD );
     double time_tst = libtest::get_wtime() - time;
 
-    if( trace ) slate::trace::Trace::finish();
+    if ( trace ) slate::trace::Trace::finish();
 
     // Compute and save timing/performance
     double gflop = blas::Gflop < scalar_t >::trsm( side, m, n );
     params.time.value() = time_tst;
     params.gflops.value() = gflop / time_tst;
 
-    if( check || ref ) {
+    if ( check || ref ) {
         // comparison with reference routine from ScaLAPACK
 
         // set MKL num threads appropriately for parallel BLAS
@@ -152,6 +153,13 @@ void test_trsm_work( Params &params, bool run )
         #pragma omp parallel
         { omp_num_threads = omp_get_num_threads(); }
         int saved_num_threads = slate_set_num_blas_threads( omp_num_threads );
+
+        std::vector<real_t> worklantr( std::max( { mlocA, nlocA } ) );
+        std::vector<real_t> worklange( std::max( { mlocB, nlocB } ) );
+
+        // get norms of the original data
+        real_t A_orig_norm = scalapack_plantr( norm2str( norm ), uplo2str( uplo ), diag2str( diag ), Am, An, &A_tst[0], i1, i1, descA_tst, &worklantr[0] );
+        real_t B_orig_norm = scalapack_plange( norm2str( norm ), Bm, Bn, &B_tst[0], i1, i1, descB_tst, &worklange[0] );
 
         // Run the reference routine
         MPI_Barrier( MPI_COMM_WORLD );
@@ -163,29 +171,24 @@ void test_trsm_work( Params &params, bool run )
         MPI_Barrier( MPI_COMM_WORLD );
         double time_ref = libtest::get_wtime() - time;
 
-        // allocate work space
-        std::vector< real_t > worklange( mlocB );
-
         // local operation: error = B_ref - B_tst
         blas::axpy( B_ref.size(), -1.0, &B_tst[0], 1, &B_ref[0], 1 );
 
-        // norm(B_tst)
-        real_t B_tst_norm = scalapack_plange( "I", m, n, &B_tst[0], i1, i1, descB_tst, &worklange[0] );
-
         // norm(B_ref - B_tst)
-        real_t error_norm = scalapack_plange( "I", m, n, &B_ref[0], i1, i1, descB_ref, &worklange[0] );
+        real_t B_diff_norm = scalapack_plange( norm2str( norm ), Bm, Bn, &B_ref[0], i1, i1, descB_ref, &worklange[0] );
 
-        if( B_tst_norm != 0 )
-            error_norm /=  B_tst_norm;
+        real_t error = B_diff_norm
+                       / ( sqrt( real_t( Am )+2 ) * std::abs( alpha ) * A_orig_norm * B_orig_norm );
 
         params.ref_time.value() = time_ref;
         params.ref_gflops.value() = gflop / time_ref;
-        params.error.value() = error_norm;
+        params.error.value() = error;
 
         slate_set_num_blas_threads( saved_num_threads );
 
+        // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.
         real_t eps = std::numeric_limits< real_t >::epsilon();
-        params.okay.value() = ( params.error.value() <= 50*eps );
+        params.okay.value() = ( params.error.value() <= 3*eps );
     }
 
     //Cblacs_exit(1) is commented out because it does not handle re-entering ... some unknown problem
@@ -195,7 +198,7 @@ void test_trsm_work( Params &params, bool run )
 // -----------------------------------------------------------------------------
 void test_trsm( Params &params, bool run )
 {
-    switch( params.datatype.value() ) {
+    switch ( params.datatype.value() ) {
     case libtest::DataType::Integer:
         throw std::exception();
         break;

@@ -468,7 +468,7 @@ Params::Params():
 
     //          name,      w, p, type,            def,   min,     max, help
     dim       ( "dim",     6,    ParamType::List,          0, 1000000, "m x n x k dimensions" ),
-    nb        ( "nb",      5,    ParamType::List, 100,     0, 1000000, "nb" ),
+    nb        ( "nb",      5,    ParamType::List, 50,      0, 1000000, "nb" ),
     nt        ( "nt",      5,    ParamType::List, 3,       0, 1000000, "nt" ),
     p         ( "p",       4,    ParamType::List, 1,       0, 1000000, "p" ),
     q         ( "q",       4,    ParamType::List, 1,       0, 1000000, "q" ),

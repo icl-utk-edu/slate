@@ -57,7 +57,7 @@ namespace slate {
 //==============================================================================
 /// Symmetric, n-by-n, distributed, tiled matrices.
 template <typename scalar_t>
-class SymmetricMatrix: public BaseTrapezoidMatrix< scalar_t > {
+class SymmetricMatrix: public BaseTrapezoidMatrix<scalar_t> {
 public:
     // constructors
     SymmetricMatrix();
@@ -73,14 +73,14 @@ public:
                                   int p, int q, MPI_Comm mpi_comm);
 
     // conversion
-    explicit SymmetricMatrix(BaseTrapezoidMatrix< scalar_t >& orig);
+    explicit SymmetricMatrix(BaseTrapezoidMatrix<scalar_t>& orig);
 
-    SymmetricMatrix(Uplo uplo, Matrix< scalar_t >& orig);
+    SymmetricMatrix(Uplo uplo, Matrix<scalar_t>& orig);
 
     // sub-matrix
     SymmetricMatrix sub(int64_t i1, int64_t i2);
 
-    Matrix< scalar_t > sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
+    Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
 
 protected:
     // used by fromLAPACK
@@ -106,7 +106,7 @@ public:
 /// Default constructor creates an empty matrix.
 template <typename scalar_t>
 SymmetricMatrix<scalar_t>::SymmetricMatrix()
-    : BaseTrapezoidMatrix< scalar_t >()
+    : BaseTrapezoidMatrix<scalar_t>()
 {}
 
 //------------------------------------------------------------------------------
@@ -199,7 +199,7 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
     Uplo uplo, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : BaseTrapezoidMatrix< scalar_t >(uplo, n, n, A, lda, nb, p, q, mpi_comm)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, n, n, A, lda, nb, p, q, mpi_comm)
 {}
 
 //------------------------------------------------------------------------------
@@ -210,7 +210,7 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
     Uplo uplo, int64_t n,
     scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : BaseTrapezoidMatrix< scalar_t >(uplo, n, n, A, lda, mb, nb, p, q, mpi_comm)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, n, n, A, lda, mb, nb, p, q, mpi_comm)
 {}
 
 //------------------------------------------------------------------------------
@@ -223,11 +223,11 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
 ///     Original matrix.
 template <typename scalar_t>
 SymmetricMatrix<scalar_t>::SymmetricMatrix(
-    BaseTrapezoidMatrix< scalar_t >& orig)
-    : BaseTrapezoidMatrix< scalar_t >(
+    BaseTrapezoidMatrix<scalar_t>& orig)
+    : BaseTrapezoidMatrix<scalar_t>(
         orig,
-        0, std::min( orig.mt()-1, orig.nt()-1 ),
-        0, std::min( orig.mt()-1, orig.nt()-1 ))
+        0, std::min(orig.mt()-1, orig.nt()-1),
+        0, std::min(orig.mt()-1, orig.nt()-1))
 {}
 
 //------------------------------------------------------------------------------
@@ -243,11 +243,11 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
 ///     Original matrix.
 template <typename scalar_t>
 SymmetricMatrix<scalar_t>::SymmetricMatrix(
-    Uplo uplo, Matrix< scalar_t >& orig)
-    : BaseTrapezoidMatrix< scalar_t >(
+    Uplo uplo, Matrix<scalar_t>& orig)
+    : BaseTrapezoidMatrix<scalar_t>(
         uplo, orig,
-        0, std::min( orig.mt()-1, orig.nt()-1 ),
-        0, std::min( orig.mt()-1, orig.nt()-1 ))
+        0, std::min(orig.mt()-1, orig.nt()-1),
+        0, std::min(orig.mt()-1, orig.nt()-1))
 {}
 
 //------------------------------------------------------------------------------
@@ -267,7 +267,7 @@ template <typename scalar_t>
 SymmetricMatrix<scalar_t>::SymmetricMatrix(
     SymmetricMatrix<scalar_t>& orig,
     int64_t i1, int64_t i2)
-    : BaseTrapezoidMatrix< scalar_t >(orig, i1, i2, i1, i2)
+    : BaseTrapezoidMatrix<scalar_t>(orig, i1, i2, i1, i2)
 {}
 
 //------------------------------------------------------------------------------
@@ -310,11 +310,11 @@ SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::sub(
 /// @param[in] j2
 ///     Ending block column index (inclusive). j2 < nt.
 template <typename scalar_t>
-Matrix< scalar_t > SymmetricMatrix<scalar_t>::sub(
+Matrix<scalar_t> SymmetricMatrix<scalar_t>::sub(
     int64_t i1, int64_t i2,
     int64_t j1, int64_t j2)
 {
-    return BaseTrapezoidMatrix< scalar_t >::sub(i1, i2, j1, j2);
+    return BaseTrapezoidMatrix<scalar_t>::sub(i1, i2, j1, j2);
 }
 
 //------------------------------------------------------------------------------
@@ -326,8 +326,8 @@ template <typename scalar_t>
 void swap(SymmetricMatrix<scalar_t>& A, SymmetricMatrix<scalar_t>& B)
 {
     using std::swap;
-    swap(static_cast< BaseTrapezoidMatrix< scalar_t >& >(A),
-         static_cast< BaseTrapezoidMatrix< scalar_t >& >(B));
+    swap(static_cast< BaseTrapezoidMatrix<scalar_t>& >(A),
+         static_cast< BaseTrapezoidMatrix<scalar_t>& >(B));
 }
 
 } // namespace slate

@@ -63,7 +63,7 @@ namespace slate {
 /// transpose returns Tile, Matrix, SymmetricMatrix, etc.
 /// Making a template avoids repeating the code ad nauseum in each class.
 /// Tile and BaseMatrix make this a friend, to change op.
-template< typename MatrixType >
+template<typename MatrixType>
 MatrixType transpose(MatrixType& A)
 {
     MatrixType AT = A;
@@ -80,7 +80,7 @@ MatrixType transpose(MatrixType& A)
 }
 
 /// @see transpose()
-template< typename MatrixType >
+template<typename MatrixType>
 MatrixType conj_transpose(MatrixType& A)
 {
     MatrixType AT = A;
@@ -101,7 +101,7 @@ MatrixType conj_transpose(MatrixType& A)
 template <typename scalar_t>
 class Tile {
 public:
-    static constexpr bool is_complex = is_complex< scalar_t >::value;
+    static constexpr bool is_complex = is_complex<scalar_t>::value;
     static constexpr bool is_real    = ! is_complex;
 
     Tile();
@@ -122,11 +122,11 @@ public:
     void bcast(int bcast_root, MPI_Comm mpi_comm);
 
     /// Returns shallow copy of tile that is transposed.
-    template< typename TileType >
+    template<typename TileType>
     friend TileType transpose(TileType& A);
 
     /// Returns shallow copy of tile that is conjugate-transposed.
-    template< typename TileType >
+    template<typename TileType>
     friend TileType conj_transpose(TileType& A);
 
     /// Returns number of rows of op(A), where A is this tile
@@ -319,7 +319,7 @@ template <typename scalar_t>
 scalar_t& Tile<scalar_t>::at(int64_t i, int64_t j)
 {
     // forward to const at() version
-    return const_cast<scalar_t&>( static_cast<const Tile>(*this).at(i, j) );
+    return const_cast<scalar_t&>(static_cast<const Tile>(*this).at(i, j));
 }
 
 //--------------------------------------------------------------------------

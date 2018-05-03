@@ -82,8 +82,8 @@ void syr2k(slate::internal::TargetType<target>,
     assert(A.nt() == B.nt());
 
     // OpenMP needs pointer types, but vectors are exception safe
-    std::vector< uint8_t > bcast_vector( A.nt() );
-    std::vector< uint8_t >  gemm_vector( A.nt() );
+    std::vector<uint8_t> bcast_vector(A.nt());
+    std::vector<uint8_t>  gemm_vector(A.nt());
     uint8_t *bcast = bcast_vector.data();
     uint8_t *gemm  =  gemm_vector.data();
 
@@ -300,14 +300,14 @@ void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void syr2k< float >(
+void syr2k<float>(
     float alpha, Matrix<float>& A,
                  Matrix<float>& B,
     float beta,  SymmetricMatrix<float>& C,
     const std::map<Option, Value>& opts);
 
 template
-void syr2k< double >(
+void syr2k<double>(
     double alpha, Matrix<double>& A,
                   Matrix<double>& B,
     double beta,  SymmetricMatrix<double>& C,

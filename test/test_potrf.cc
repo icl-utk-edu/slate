@@ -22,9 +22,9 @@ inline int slate_set_blas_num_threads( const int nt ) { return -1; }
 #endif
 
 //------------------------------------------------------------------------------
-template < typename scalar_t > void test_potrf_work( Params &params, bool run )
+template <typename scalar_t> void test_potrf_work( Params &params, bool run )
 {
-    using real_t = blas::real_type < scalar_t >;
+    using real_t = blas::real_type<scalar_t>;
 
     // get & mark input values
     slate::Uplo uplo = params.uplo.value();
@@ -37,7 +37,7 @@ template < typename scalar_t > void test_potrf_work( Params &params, bool run )
     bool check = params.check.value()=='y';
     bool ref = params.ref.value()=='y';
     bool trace = params.trace.value()=='y';
-    slate::Target target = char2target(params.target.value());
+    slate::Target target = char2target( params.target.value() );
 
     // mark non-standard output values
     params.time.value();
@@ -45,7 +45,7 @@ template < typename scalar_t > void test_potrf_work( Params &params, bool run )
     params.ref_time.value();
     params.ref_gflops.value();
 
-    if( !run )
+    if ( !run )
         return;
 
     int64_t Am = n;
@@ -73,22 +73,22 @@ template < typename scalar_t > void test_potrf_work( Params &params, bool run )
     scalapack_descinit( descA_tst, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info );
     assert( info==0 );
     int64_t lldA = ( int64_t )descA_tst[8];
-    std::vector< scalar_t > A_tst( lldA * nlocA );
+    std::vector<scalar_t> A_tst( lldA * nlocA );
     scalapack_pplghe( &A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1 );
 
     // Create SLATE matrix from the ScaLAPACK layouts
-    auto A = slate::HermitianMatrix < scalar_t >::fromScaLAPACK( uplo, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD );
+    auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK( uplo, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD );
 
     // if check is required, copy test data and create a descriptor for it
-    std::vector< scalar_t > A_ref;
-    if( check || ref ) {
+    std::vector<scalar_t> A_ref;
+    if ( check || ref ) {
         A_ref.resize( A_tst.size() );
         A_ref = A_tst;
         scalapack_descinit( descA_ref, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info );
         assert( info==0 );
     }
 
-    if( trace ) slate::trace::Trace::on();
+    if ( trace ) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
     // run test
@@ -97,19 +97,20 @@ template < typename scalar_t > void test_potrf_work( Params &params, bool run )
 
     slate::potrf( A, {
         {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}} );
+        {slate::Option::Target, target}
+    } );
 
     MPI_Barrier( MPI_COMM_WORLD );
     double time_tst = libtest::get_wtime() - time;
 
-    if( trace ) slate::trace::Trace::finish();
+    if ( trace ) slate::trace::Trace::finish();
 
     // compute and save timing/performance
-    double gflop = lapack::Gflop < scalar_t >::potrf( n );
+    double gflop = lapack::Gflop<scalar_t>::potrf( n );
     params.time.value() = time_tst;
     params.gflops.value() = gflop / time_tst;
 
-    if( check || ref ) {
+    if ( check || ref ) {
         // A comparison with a reference routine from ScaLAPACK
         // This expects to get the original (clean) A_ref and will alter A_ref
 
@@ -123,10 +124,10 @@ template < typename scalar_t > void test_potrf_work( Params &params, bool run )
 
         // allocate work space
         size_t ldw = nb * ceil( ceil( mlocA / ( double ) nb ) / ( scalapack_ilcm( &nprow, &npcol ) / nprow ) );
-        std::vector < real_t > worklansy( 2 * nlocA + mlocA + ldw );
+        std::vector<real_t> worklansy( 2 * nlocA + mlocA + ldw );
 
         // norm of A
-        real_t A_ref_norm = scalapack_plansy( norm2str( norm ), uplo2str(uplo), n, &A_ref[0], i1, i1, descA_ref, &worklansy[0] );
+        real_t A_ref_norm = scalapack_plansy( norm2str( norm ), uplo2str( uplo ), n, &A_ref[0], i1, i1, descA_ref, &worklansy[0] );
 
         // local operation: error = A_ref = A_ref - A_tst
         blas::axpy( A_ref.size(), -1.0, &A_tst[0], 1, &A_ref[0], 1 );
@@ -135,14 +136,14 @@ template < typename scalar_t > void test_potrf_work( Params &params, bool run )
         real_t error_norm = scalapack_plansy( norm2str( norm ), uplo2str( uplo ), n, &A_ref[0], i1, i1, descA_ref, &worklansy[0] );
 
         // error = error / norm;
-        if( error_norm != 0 )
+        if ( error_norm != 0 )
             error_norm /= A_ref_norm;
 
         params.ref_time.value() = time_ref;
         params.ref_gflops.value() = gflop / time_ref;
         params.error.value() = error_norm;
 
-        real_t eps = std::numeric_limits< real_t >::epsilon();
+        real_t eps = std::numeric_limits<real_t>::epsilon();
         params.okay.value() = ( ( params.error.value() <= 50*eps ) );
     }
 
@@ -153,25 +154,25 @@ template < typename scalar_t > void test_potrf_work( Params &params, bool run )
 // -----------------------------------------------------------------------------
 void test_potrf( Params &params, bool run )
 {
-    switch( params.datatype.value() ) {
+    switch ( params.datatype.value() ) {
     case libtest::DataType::Integer:
         throw std::exception();
         break;
 
     case libtest::DataType::Single:
-        test_potrf_work< float >( params, run );
+        test_potrf_work<float>( params, run );
         break;
 
     case libtest::DataType::Double:
-        test_potrf_work < double >( params, run );
+        test_potrf_work<double>( params, run );
         break;
 
     case libtest::DataType::SingleComplex:
-        test_potrf_work< std::complex<float> >( params, run );
+        test_potrf_work<std::complex<float>>( params, run );
         break;
 
     case libtest::DataType::DoubleComplex:
-        test_potrf_work< std::complex<double> >( params, run );
+        test_potrf_work<std::complex<double>>( params, run );
         break;
     }
 }

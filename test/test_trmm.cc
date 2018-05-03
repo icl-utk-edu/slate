@@ -55,10 +55,6 @@ void test_trmm_work( Params &params, bool run )
     if ( ! run )
         return;
 
-    // for now, trmm requires full tiles
-    assert( m % nb == 0 );
-    assert( n % nb == 0 );
-
     // setup so op(B) is m-by-n
     int64_t An  = ( side == blas::Side::Left ? m : n );
     int64_t Am  = An;

@@ -53,12 +53,6 @@ void test_syr2k_work( Params &params, bool run )
     if ( ! run )
         return;
 
-    // for now, syr2k on Devices requires full tiles
-    if ( target == slate::Target::Devices ) {
-        assert( n % nb == 0 );
-        assert( k % nb == 0 );
-    }
-
     // setup so op(A) and op(B) are n-by-k
     int64_t Am = ( trans == blas::Op::NoTrans ? n : k );
     int64_t An = ( trans == blas::Op::NoTrans ? k : n );

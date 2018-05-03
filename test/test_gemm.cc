@@ -55,18 +55,13 @@ void test_gemm_work( Params &params, bool run )
     if( ! run )
         return;
 
-    // for now, gemm on Devices requires full tiles
-    if( target == slate::Target::Devices ) {
-        assert( m % nb == 0 );
-        assert( n % nb == 0 );
-        assert( k % nb == 0 );
-    }
-
     // sizes of A and B
     int64_t Am = ( transA == blas::Op::NoTrans ? m : k );
     int64_t An = ( transA == blas::Op::NoTrans ? k : m );
     int64_t Bm = ( transB == blas::Op::NoTrans ? k : n );
     int64_t Bn = ( transB == blas::Op::NoTrans ? n : k );
+    int64_t Cm = m;
+    int64_t Cn = n;
 
     // local values
     static int i0=0, i1=1;
@@ -105,7 +100,7 @@ void test_gemm_work( Params &params, bool run )
     // matrix C, figure out local size, allocate, create descriptor, initialize
     int64_t mlocC = scalapack_numroc( m, nb, myrow, i0, nprow );
     int64_t nlocC = scalapack_numroc( n, nb, mycol, i0, npcol );
-    scalapack_descinit( descC_tst, m, n, nb, nb, i0, i0, ictxt, mlocC, &info );
+    scalapack_descinit( descC_tst, Cm, Cn, nb, nb, i0, i0, ictxt, mlocC, &info );
     assert( info==0 );
     int64_t lldC = ( int64_t )descC_tst[8];
     std::vector< scalar_t > C_tst( lldC * nlocC );
@@ -123,7 +118,7 @@ void test_gemm_work( Params &params, bool run )
     if( check || ref ) {
         C_ref.resize( C_tst.size() );
         C_ref = C_tst;
-        scalapack_descinit( descC_ref, m, n, nb, nb, i0, i0, ictxt, mlocC, &info );
+        scalapack_descinit( descC_ref, Cm, Cn, nb, nb, i0, i0, ictxt, mlocC, &info );
         assert( info==0 );
     }
 
@@ -180,9 +175,9 @@ void test_gemm_work( Params &params, bool run )
         std::vector< real_t > worklange( std::max( {mlocC, mlocB, mlocA, nlocC, nlocB, nlocA} ) );
 
         // get norms of the original data
-        real_t A_orig_norm = scalapack_plange( norm2str( norm ), m, n, &A_tst[0], i1, i1, descA_tst, &worklange[0] );
-        real_t B_orig_norm = scalapack_plange( norm2str( norm ), m, n, &B_tst[0], i1, i1, descB_tst, &worklange[0] );
-        real_t C_orig_norm = scalapack_plange( norm2str( norm ), m, n, &C_ref[0], i1, i1, descC_ref, &worklange[0] );
+        real_t A_orig_norm = scalapack_plange( norm2str( norm ), Am, An, &A_tst[0], i1, i1, descA_tst, &worklange[0] );
+        real_t B_orig_norm = scalapack_plange( norm2str( norm ), Bm, Bn, &B_tst[0], i1, i1, descB_tst, &worklange[0] );
+        real_t C_orig_norm = scalapack_plange( norm2str( norm ), Cm, Cn, &C_ref[0], i1, i1, descC_ref, &worklange[0] );
 
         // run the reference routine
         MPI_Barrier( MPI_COMM_WORLD );
@@ -198,8 +193,9 @@ void test_gemm_work( Params &params, bool run )
         blas::axpy( C_ref.size(), -1.0, &C_tst[0], 1, &C_ref[0], 1 );
 
         // norm(C_ref - C_tst)
-        real_t C_diff_norm = scalapack_plange( norm2str( norm ), m, n, &C_ref[0], i1, i1, descC_ref, &worklange[0] );
+        real_t C_diff_norm = scalapack_plange( norm2str( norm ), Cm, Cn, &C_ref[0], i1, i1, descC_ref, &worklange[0] );
 
+        //printf("%f \n", ( sqrt(real_t(k)+2) * std::abs(alpha) * A_orig_norm * B_orig_norm + 2*std::abs(beta) * C_orig_norm ));
         real_t error = C_diff_norm 
             / ( sqrt(real_t(k)+2) * std::abs(alpha) * A_orig_norm * B_orig_norm + 2*std::abs(beta) * C_orig_norm );
 

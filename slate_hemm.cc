@@ -222,9 +222,9 @@ void hemm(slate::internal::TargetType<target>,
 
                     internal::hemm<Target::HostTask>(
                         Side::Left,
-                        alpha,          A.sub(k, k),
-                                        B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0),  C.sub(k, k, 0, C.nt()-1));
+                        alpha,         A.sub(k, k),
+                                       B.sub(k, k, 0, B.nt()-1),
+                        scalar_t(1.0), C.sub(k, k, 0, C.nt()-1));
 
                     if (A.mt()-1 > k) {
                         internal::gemm<target>(
@@ -351,9 +351,9 @@ void hemm(slate::internal::TargetType<target>,
 
                     internal::hemm<Target::HostTask>(
                         Side::Left,
-                        alpha,          A.sub(k, k),
-                                        B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0),  C.sub(k, k, 0, C.nt()-1));
+                        alpha,         A.sub(k, k),
+                                       B.sub(k, k, 0, B.nt()-1),
+                        scalar_t(1.0), C.sub(k, k, 0, C.nt()-1));
 
                     if (A.mt()-1 > k) {
                         auto Arow_k = A.sub(k, k, k+1, A.mt()-1);

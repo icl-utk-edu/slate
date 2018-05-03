@@ -33,7 +33,7 @@ ifeq (${openmp},1)
 	CXXFLAGS += -fopenmp
 	LDFLAGS  += -fopenmp
 else
-	lib_src += slate_no_openmp.cc
+	lib_src += slate_openmp_stubs.cc
 endif
 
 #-------------------------------------------------------------------------------
@@ -46,7 +46,7 @@ else ifeq (${spectrum},1)
 	CXXFLAGS += -DSLATE_WITH_MPI
 	LIB += -lmpi_ibm
 else
-	lib_src += slate_no_mpi.cc
+	lib_src += slate_mpi_stubs.cc
 endif
 
 #-------------------------------------------------------------------------------
@@ -74,8 +74,8 @@ ifeq (${cuda},1)
 	CXXFLAGS += -DSLATE_WITH_CUDA
 	LIB += -lcublas -lcudart
 else
-	lib_src += slate_no_cuda.cc
-	lib_src += slate_no_cublas.cc
+	lib_src += slate_cuda_stubs.cc
+	lib_src += slate_cublas_stubs.cc
 endif
 
 #-------------------------------------------------------------------------------

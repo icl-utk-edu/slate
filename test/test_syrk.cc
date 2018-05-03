@@ -52,12 +52,6 @@ void test_syrk_work( Params &params, bool run )
     if ( ! run )
         return;
 
-    // for now, syrk on Devices requires full tiles
-    if ( target == slate::Target::Devices ) {
-        assert( n % nb == 0 );
-        assert( k % nb == 0 );
-    }
-
     // setup so op(A) is n-by-k
     int64_t Am = ( transA == blas::Op::NoTrans ? n : k );
     int64_t An = ( transA == blas::Op::NoTrans ? k : n );

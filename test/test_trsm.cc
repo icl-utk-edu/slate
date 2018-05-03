@@ -55,10 +55,6 @@ void test_trsm_work( Params &params, bool run )
     if ( ! run )
         return;
 
-    // for now, trsm requires full tiles
-    assert( m % nb == 0 );
-    assert( n % nb == 0 );
-
     // setup so trans(B) is m-by-n
     int64_t An  = ( side == blas::Side::Left ? m : n );
     int64_t Am  = An;

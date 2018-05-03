@@ -54,12 +54,6 @@ void test_symm_work( Params &params, bool run )
     if ( ! run )
         return;
 
-    // for now, symm on Devices requires full tiles
-    if ( target == slate::Target::Devices ) {
-        assert( m % nb == 0 );
-        assert( n % nb == 0 );
-    }
-
     // sizes of data
     int64_t An = ( side == blas::Side::Left ? m : n );
     int64_t Am = An;
@@ -188,7 +182,7 @@ void test_symm_work( Params &params, bool run )
         blas::axpy( C_ref.size(), -1.0, &C_tst[0], 1, &C_ref[0], 1 );
 
         // norm(C_ref - C_tst)
-        real_t C_diff_norm = scalapack_plange( norm2str( norm ), m, n, &C_ref[0], i1, i1, descC_ref, &worklange[0] );
+        real_t C_diff_norm = scalapack_plange( norm2str( norm ), Cm, Cn, &C_ref[0], i1, i1, descC_ref, &worklange[0] );
 
         real_t error = C_diff_norm
                        / ( sqrt( real_t( An )+2 ) * std::abs( alpha ) * A_orig_norm * B_orig_norm + 2*std::abs( beta ) * C_orig_norm );

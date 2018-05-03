@@ -440,7 +440,7 @@ Params::Params():
     verbose   ( "verbose", 0,    ParamType::Value,   0,   0,   10, "verbose level" ),
     cache     ( "cache",   0,    ParamType::Value,  20,   1, 1024, "total cache size, in MiB" ),
 
-    target     ( "target", 1,    ParamType::Value, 't', "tnbd", "target: t=HostTask n=HostNest b=HostBatch d=Devices" ),
+    target     ( "target", 6,    ParamType::Value, 't', "tnbd", "target: t=HostTask n=HostNest b=HostBatch d=Devices" ),
 
     // ----- routine parameters
     //          name,      w,    type,            def,                    char2enum,         enum2char,         enum2str,         help
@@ -468,22 +468,22 @@ Params::Params():
 
     //          name,      w, p, type,            def,   min,     max, help
     dim       ( "dim",     6,    ParamType::List,          0, 1000000, "m x n x k dimensions" ),
-    nb        ( "nb",      6,    ParamType::List, 100,     0, 1000000, "nb" ),
-    nt        ( "nt",      6,    ParamType::List, 3,       0, 1000000, "nt" ),
-    p         ( "p",       6,    ParamType::List, 1,       0, 1000000, "p" ),
-    q         ( "q",       6,    ParamType::List, 1,       0, 1000000, "q" ),
-    lookahead ( "lookahead", 6,  ParamType::List, 1,       0, 1000000, "lookahead" ),
+    nb        ( "nb",      5,    ParamType::List, 100,     0, 1000000, "nb" ),
+    nt        ( "nt",      5,    ParamType::List, 3,       0, 1000000, "nt" ),
+    p         ( "p",       4,    ParamType::List, 1,       0, 1000000, "p" ),
+    q         ( "q",       4,    ParamType::List, 1,       0, 1000000, "q" ),
+    lookahead ( "lookahead", 9,  ParamType::List, 1,       0, 1000000, "lookahead" ),
 
     kd        ( "kd",      6,    ParamType::List, 100,     0, 1000000, "bandwidth" ),
     kl        ( "kl",      6,    ParamType::List, 100,     0, 1000000, "lower bandwidth" ),
     ku        ( "ku",      6,    ParamType::List, 100,     0, 1000000, "upper bandwidth" ),
     nrhs      ( "nrhs",    6,    ParamType::List,  10,     0, 1000000, "number of right hand sides" ),
-    vl        ( "vl",      6, 4, ParamType::List,  10,     0, 1000000, "lower bound of eigen/singular values to find; default 10.0" ),
-    vu        ( "vu",      6, 4, ParamType::List, 100,     0, 1000000, "upper bound of eigen/singular values to find; default 100.0" ),
+    vl        ( "vl",      6, 3, ParamType::List,  10,     0, 1000000, "lower bound of eigen/singular values to find; default 10.0" ),
+    vu        ( "vu",      6, 3, ParamType::List, 100,     0, 1000000, "upper bound of eigen/singular values to find; default 100.0" ),
     il        ( "il",      6,    ParamType::List,  10,     0, 1000000, "1-based index of smallest eigen/singular value to find; default 10" ),
     iu        ( "iu",      6,    ParamType::List, 100,     0, 1000000, "1-based index of largest  eigen/singular value to find; default 100" ),
-    alpha     ( "alpha",   9, 4, ParamType::List,  pi,  -inf,     inf, "scalar alpha" ),
-    beta      ( "beta",    9, 4, ParamType::List,   e,  -inf,     inf, "scalar beta" ),
+    alpha     ( "alpha",   8, 3, ParamType::List,  pi,  -inf,     inf, "scalar alpha" ),
+    beta      ( "beta",    8, 3, ParamType::List,   e,  -inf,     inf, "scalar beta" ),
     incx      ( "incx",    6,    ParamType::List,   1, -1000,    1000, "stride of x vector" ),
     incy      ( "incy",    6,    ParamType::List,   1, -1000,    1000, "stride of y vector" ),
     align     ( "align",   6,    ParamType::List,  32,     1,    1024, "column alignment (sets lda, ldb, etc. to multiple of align)" ),
@@ -491,27 +491,27 @@ Params::Params():
     // ----- output parameters
     // min, max are ignored
     //           name,                    w, p, type,              default,               min, max, help
-    error      ( "error",                11, 4, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error" ),
-    error2     ( "error2",               11, 4, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error" ),
-    error3     ( "error3",               11, 4, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error" ),
-    error4     ( "error4",               11, 4, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error" ),
-    error5     ( "error5",               11, 4, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error" ),
-    ortho      ( "orth. error",          11, 4, ParamType::Output, libtest::no_data_flag,   0,   0, "orthogonality error" ),
-    ortho_U    ( "U orth.",              11, 4, ParamType::Output, libtest::no_data_flag,   0,   0, "U orthogonality error" ),
-    ortho_V    ( "V orth.",              11, 4, ParamType::Output, libtest::no_data_flag,   0,   0, "V orthogonality error" ),
-    error_sigma( "Sigma error",          11, 4, ParamType::Output, libtest::no_data_flag,   0,   0, "Sigma error" ),
+    error      ( "error",                 9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error" ),
+    error2     ( "error2",                9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error" ),
+    error3     ( "error3",                9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error" ),
+    error4     ( "error4",                9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error" ),
+    error5     ( "error5",                9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error" ),
+    ortho      ( "orth. error",           9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "orthogonality error" ),
+    ortho_U    ( "U orth.",               9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "U orthogonality error" ),
+    ortho_V    ( "V orth.",               9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "V orthogonality error" ),
+    error_sigma( "Sigma error",           9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "Sigma error" ),
 
-    time      ( "time (s)",    11, 4, ParamType::Output, libtest::no_data_flag,   0,   0, "time to solution" ),
-    gflops    ( "Gflop/s",     11, 4, ParamType::Output, libtest::no_data_flag,   0,   0, "Gflop/s rate" ),
+    time      ( "SLATE\ntime (s)",        9, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "time to solution" ),
+    gflops    ( "SLATE\nGflop/s",        10, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "Gflop/s rate" ),
     iters     ( "iters",        6,    ParamType::Output,                     0,   0,   0, "iterations to solution" ),
 
-    ref_time  ( "Ref.\ntime (s)",        11, 4, ParamType::Output, libtest::no_data_flag,   0,   0, "reference time to solution" ),
-    ref_gflops( "Ref.\nGflop/s",         11, 4, ParamType::Output, libtest::no_data_flag,   0,   0, "reference Gflop/s rate" ),
+    ref_time  ( "Ref.\ntime (s)",        10, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "reference time to solution" ),
+    ref_gflops( "Ref.\nGflop/s",         10, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "reference Gflop/s rate" ),
     ref_iters ( "Ref.\niters",            6,    ParamType::Output,                     0,   0,   0, "reference iterations to solution" ),
 
     // default -1 means "no check"
     //          name,     w, type,              def, min, max, help
-    okay      ( "status", 6, ParamType::Output,  0,   0,   0, "success indicator" )
+    okay      ( "status", 8, ParamType::Output,  -1,   0,   0, "success indicator" )
 {
     // mark standard set of output fields as used
     okay  .value();

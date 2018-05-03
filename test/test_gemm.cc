@@ -161,8 +161,6 @@ void test_gemm_work( Params &params, bool run )
 
     if( trace ) slate::trace::Trace::finish();
 
-    params.okay.value() = true;
-
     // compute and save timing/performance
     double gflop = blas::Gflop< scalar_t >::gemm( m, n, k );
     params.time.value() = time_tst;

@@ -108,8 +108,6 @@ template < typename scalar_t > void test_potrf_work( Params &params, bool run )
     params.time.value() = time_tst;
     params.gflops.value() = gflop / time_tst;
 
-    params.okay.value() = true;
-
     if( check || ref ) {
         // A comparison with a reference routine from ScaLAPACK
         // This expects to get the original (clean) A_ref and will alter A_ref

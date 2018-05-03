@@ -144,8 +144,6 @@ void test_trmm_work( Params &params, bool run )
     params.time.value() = time_tst;
     params.gflops.value() = gflop / time_tst;
 
-    params.okay.value() = true;
-
     if ( check || ref ) {
         // comparison with reference routine from ScaLAPACK
 

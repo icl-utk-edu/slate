@@ -40,6 +40,7 @@
 #ifndef SLATE_BASE_MATRIX_HH
 #define SLATE_BASE_MATRIX_HH
 
+#include "slate_internal_communication.hh"
 #include "slate_Map.hh"
 #include "slate_Memory.hh"
 #include "slate_Storage.hh"
@@ -188,9 +189,6 @@ protected:
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set);
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set,
                         int radix);
-    void cubeBcastPattern(int size, int rank, int radix,
-                          std::list<int>& recv_from, std::list<int>& send_to);
-    int ipow(int base, int exp);
 
 public:
     void tileCopyToDevice(int64_t i, int64_t j, int dst_device);
@@ -813,7 +811,8 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     // Get the send/recv pattern.
     std::list<int> recv_from;
     std::list<int> send_to;
-    cubeBcastPattern(new_vec.size(), new_rank, radix, recv_from, send_to);
+    internal::cubeBcastPattern(new_vec.size(), new_rank, radix,
+                               recv_from, send_to);
 
     // Receive.
     if (!recv_from.empty())
@@ -822,89 +821,6 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     // Forward.
     for (int dst : send_to)
         at(i, j).send(new_vec[dst], mpi_comm_);
-}
-
-//------------------------------------------------------------------------------
-/// [internal]
-/// Implements a hypercube broadcast pattern. For a given rank, finds the rank
-/// to receive from and the list of ranks to forward to. Assumes rank 0 as the
-/// root of the broadcast.
-///
-/// @param[in] size
-///     Number of ranks participating in the broadcast.
-///
-/// @param[in] rank
-///     Rank of the local process.
-///
-/// @param[in] radix
-///     Dimension of the cube.
-///
-/// @param[out] recv_rank
-///     List containing the the rank to receive from.
-///     Empty list for rank 0.
-///
-/// @param[out] send_to
-///     List of ranks to forward to.
-///
-template <typename scalar_t>
-void BaseMatrix<scalar_t>::cubeBcastPattern(
-    int size, int rank, int radix,
-    std::list<int>& recv_from, std::list<int>& send_to)
-{
-    //-------------------------------------------
-    // Find the cube's and the rank's attributes:    
-
-    // Find the number of cube's dimensions.
-    int num_dimensions = 1;
-    int max_rank = size-1;
-    while ((max_rank /= radix) > 0)
-        ++num_dimensions;
-
-    int dimension; // how deep the rank is in the cube
-    int position;  // position in the last dimension
-    int stride;    // stride of the last dimension
-
-    // Find the rank's dimension, position, and stride.
-    int radix_pow = ipow(radix, num_dimensions-1);
-    dimension = 0;
-    while (rank%radix_pow != 0) {
-        ++dimension;
-        radix_pow /= radix;
-    }
-    stride = ipow(radix, num_dimensions-dimension-1);
-    position = rank%ipow(radix, num_dimensions-dimension)/stride;
-
-    //--------------------------------------
-    // Find the origin and the destinations.
-
-    // Unless root, receive from the predecessor.
-    if (rank != 0)
-        recv_from.push_back(rank-stride);
-
-    // If not on the edge and successor exists, send to the successor.
-    if (position < radix-1 && rank+stride < size)
-        send_to.push_back(rank+stride);
-
-    // Forward to all lower dimensions.
-    for (int dim = dimension+1; dim < num_dimensions; ++dim) {
-        stride /= radix;
-        if (rank+stride < size)
-            send_to.push_back(rank+stride);
-    }
-}
-
-//------------------------------------------------------------------------------
-/// [internal]
-/// Computes integer power function.
-///
-template <typename scalar_t>
-int BaseMatrix<scalar_t>::ipow(int base, int exp)
-{
-    int pow = 1;
-    for (int i = 0; i < exp; ++i)
-        pow *= base;
-
-    return pow;
 }
 
 //------------------------------------------------------------------------------

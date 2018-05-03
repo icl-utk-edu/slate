@@ -89,31 +89,41 @@ LIB += -L${top}/lapackpp/lib -Wl,-rpath,${pwd}/${top}/lapackpp/lib -llapackpp
 
 #-------------------------------------------------------------------------------
 # Files
+
+# types and classes
 lib_src += \
        slate_Debug.cc \
-       slate_internal_potrf.cc \
-       slate_internal_gemm.cc \
-       slate_internal_hemm.cc \
-       slate_internal_herk.cc \
-       slate_internal_her2k.cc \
-       slate_internal_symm.cc \
-       slate_internal_syrk.cc \
-       slate_internal_syr2k.cc \
-       slate_internal_trmm.cc \
-       slate_internal_trsm.cc \
        slate_Memory.cc \
        slate_trace_Trace.cc \
-       slate_potrf.cc \
+       slate_types.cc \
+
+# internal
+lib_src += \
+       slate_internal_communication.cc \
+       slate_internal_gemm.cc \
+       slate_internal_hemm.cc \
+       slate_internal_her2k.cc \
+       slate_internal_herk.cc \
+       slate_internal_potrf.cc \
+       slate_internal_symm.cc \
+       slate_internal_syr2k.cc \
+       slate_internal_syrk.cc \
+       slate_internal_trmm.cc \
+       slate_internal_trsm.cc \
+       slate_internal_util.cc \
+
+# driver
+lib_src += \
        slate_gemm.cc \
        slate_hemm.cc \
-       slate_herk.cc \
        slate_her2k.cc \
+       slate_herk.cc \
+       slate_potrf.cc \
        slate_symm.cc \
-       slate_syrk.cc \
        slate_syr2k.cc \
+       slate_syrk.cc \
        slate_trmm.cc \
        slate_trsm.cc \
-       slate_types.cc \
 
 test_src = \
        test_internal_blas.cc \

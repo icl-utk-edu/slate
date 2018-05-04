@@ -103,17 +103,17 @@ public:
 ///-----------------------------------------------------------------------------
 /// gives mpi_type based on actual scalar_t.
 //  constants are initialized in slate_types.cc
-template< typename scalar_t >
+template<typename scalar_t>
 class mpi_type {};
 
 template<>
-class mpi_type< float > {
+class mpi_type<float> {
 public:
     static MPI_Datatype value; // = MPI_FLOAT
 };
 
 template<>
-class mpi_type< double > {
+class mpi_type<double> {
 public:
     static MPI_Datatype value; // = MPI_DOUBLE
 };
@@ -134,13 +134,13 @@ public:
 /// True if T is std::complex<T2> for some type T2.
 template <typename T>
 struct is_complex:
-    std::integral_constant< bool, false >
+    std::integral_constant<bool, false>
 {};
 
 // specialize for std::complex
 template <typename T>
 struct is_complex< std::complex<T> >:
-    std::integral_constant< bool, true >
+    std::integral_constant<bool, true>
 {};
 
 ///-----------------------------------------------------------------------------
@@ -148,7 +148,7 @@ struct is_complex< std::complex<T> >:
 #if __cplusplus >= 201402L
     using std::enable_if_t;
 #else
-    template< bool B, class T = void >
+    template<bool B, class T = void>
     using enable_if_t = typename std::enable_if<B,T>::type;
 #endif
 

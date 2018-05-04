@@ -93,8 +93,8 @@ void trmm(slate::internal::TargetType<target>,
     }
 
     // OpenMP needs pointer types, but vectors are exception safe
-    std::vector< uint8_t > bcast_vector(mt);
-    std::vector< uint8_t >  gemm_vector(mt);
+    std::vector<uint8_t> bcast_vector(mt);
+    std::vector<uint8_t>  gemm_vector(mt);
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
 
@@ -431,14 +431,14 @@ void trmm(blas::Side side, blas::Diag diag,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void trmm< float >(
+void trmm<float>(
     blas::Side side, blas::Diag diag,
     float alpha, TriangularMatrix<float>& A,
                            Matrix<float>& B,
     const std::map<Option, Value>& opts);
 
 template
-void trmm< double >(
+void trmm<double>(
     blas::Side side, blas::Diag diag,
     double alpha, TriangularMatrix<double>& A,
                             Matrix<double>& B,
@@ -447,15 +447,15 @@ void trmm< double >(
 template
 void trmm< std::complex<float> >(
     blas::Side side, blas::Diag diag,
-    std::complex<float> alpha, TriangularMatrix<std::complex<float>>& A,
-                                         Matrix<std::complex<float>>& B,
+    std::complex<float> alpha, TriangularMatrix< std::complex<float> >& A,
+                                         Matrix< std::complex<float> >& B,
     const std::map<Option, Value>& opts);
 
 template
 void trmm< std::complex<double> >(
     blas::Side side, blas::Diag diag,
-    std::complex<double> alpha, TriangularMatrix<std::complex<double>>& A,
-                                          Matrix<std::complex<double>>& B,
+    std::complex<double> alpha, TriangularMatrix< std::complex<double> >& A,
+                                          Matrix< std::complex<double> >& B,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

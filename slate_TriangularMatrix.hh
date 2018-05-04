@@ -58,7 +58,7 @@ namespace slate {
 //==============================================================================
 /// Triangular, n-by-n, distributed, tiled matrices.
 template <typename scalar_t>
-class TriangularMatrix: public TrapezoidMatrix< scalar_t > {
+class TriangularMatrix: public TrapezoidMatrix<scalar_t> {
 public:
     // constructors
     TriangularMatrix();
@@ -74,14 +74,14 @@ public:
                                    int p, int q, MPI_Comm mpi_comm);
 
     // conversion
-    explicit TriangularMatrix(BaseTrapezoidMatrix< scalar_t >& orig);
+    explicit TriangularMatrix(BaseTrapezoidMatrix<scalar_t>& orig);
 
-    TriangularMatrix(Uplo uplo, Matrix< scalar_t >& orig);
+    TriangularMatrix(Uplo uplo, Matrix<scalar_t>& orig);
 
     // sub-matrix
     TriangularMatrix sub(int64_t i1, int64_t i2);
 
-    Matrix< scalar_t > sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
+    Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
 
 protected:
     // used by fromLAPACK
@@ -107,7 +107,7 @@ public:
 /// Default constructor creates an empty matrix.
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix():
-    TrapezoidMatrix< scalar_t >()
+    TrapezoidMatrix<scalar_t>()
 {}
 
 //------------------------------------------------------------------------------
@@ -200,7 +200,7 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
     Uplo uplo, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : TrapezoidMatrix< scalar_t >(uplo, n, n, A, lda, nb, p, q, mpi_comm)
+    : TrapezoidMatrix<scalar_t>(uplo, n, n, A, lda, nb, p, q, mpi_comm)
 {}
 
 //------------------------------------------------------------------------------
@@ -211,7 +211,7 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
     Uplo uplo, int64_t n,
     scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : TrapezoidMatrix< scalar_t >(uplo, n, n, A, lda, mb, nb, p, q, mpi_comm)
+    : TrapezoidMatrix<scalar_t>(uplo, n, n, A, lda, mb, nb, p, q, mpi_comm)
 {}
 
 //------------------------------------------------------------------------------
@@ -224,8 +224,8 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 ///     Original matrix.
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
-    BaseTrapezoidMatrix< scalar_t >& orig)
-    : TrapezoidMatrix< scalar_t >(
+    BaseTrapezoidMatrix<scalar_t>& orig)
+    : TrapezoidMatrix<scalar_t>(
         orig,
         0, std::min( orig.mt()-1, orig.nt()-1 ),
         0, std::min( orig.mt()-1, orig.nt()-1 ))
@@ -244,8 +244,8 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 ///     Original matrix.
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
-    Uplo uplo, Matrix< scalar_t >& orig)
-    : TrapezoidMatrix< scalar_t >(
+    Uplo uplo, Matrix<scalar_t>& orig)
+    : TrapezoidMatrix<scalar_t>(
         uplo, orig,
         0, std::min( orig.mt()-1, orig.nt()-1 ),
         0, std::min( orig.mt()-1, orig.nt()-1 ))
@@ -268,7 +268,7 @@ template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
     TriangularMatrix& orig,
     int64_t i1, int64_t i2)
-    : TrapezoidMatrix< scalar_t >(orig, i1, i2, i1, i2)
+    : TrapezoidMatrix<scalar_t>(orig, i1, i2, i1, i2)
 {}
 
 //------------------------------------------------------------------------------
@@ -311,11 +311,11 @@ TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::sub(
 /// @param[in] j2
 ///     Ending block column index (inclusive). j2 < nt.
 template <typename scalar_t>
-Matrix< scalar_t > TriangularMatrix<scalar_t>::sub(
+Matrix<scalar_t> TriangularMatrix<scalar_t>::sub(
     int64_t i1, int64_t i2,
     int64_t j1, int64_t j2)
 {
-    return BaseTrapezoidMatrix< scalar_t >::sub(i1, i2, j1, j2);
+    return BaseTrapezoidMatrix<scalar_t>::sub(i1, i2, j1, j2);
 }
 
 //------------------------------------------------------------------------------
@@ -327,8 +327,8 @@ template <typename scalar_t>
 void swap(TriangularMatrix<scalar_t>& A, TriangularMatrix<scalar_t>& B)
 {
     using std::swap;
-    swap(static_cast< TrapezoidMatrix< scalar_t >& >(A),
-         static_cast< TrapezoidMatrix< scalar_t >& >(B));
+    swap(static_cast< TrapezoidMatrix<scalar_t>& >(A),
+         static_cast< TrapezoidMatrix<scalar_t>& >(B));
 }
 
 } // namespace slate

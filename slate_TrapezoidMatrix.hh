@@ -57,7 +57,7 @@ namespace slate {
 //==============================================================================
 /// Symmetric, n-by-n, distributed, tiled matrices.
 template <typename scalar_t>
-class TrapezoidMatrix: public BaseTrapezoidMatrix< scalar_t > {
+class TrapezoidMatrix: public BaseTrapezoidMatrix<scalar_t> {
 public:
     // constructors
     TrapezoidMatrix();
@@ -75,21 +75,21 @@ public:
     // conversion
     explicit TrapezoidMatrix(BaseTrapezoidMatrix< scalar_t >& orig);
 
-    TrapezoidMatrix(Uplo uplo, Matrix< scalar_t >& orig);
+    TrapezoidMatrix(Uplo uplo, Matrix<scalar_t>& orig);
 
     // conversion sub-matrix
-    TrapezoidMatrix(BaseTrapezoidMatrix< scalar_t >& orig,
+    TrapezoidMatrix(BaseTrapezoidMatrix<scalar_t>& orig,
                     int64_t i1, int64_t i2,
                     int64_t j1, int64_t j2);
 
-    TrapezoidMatrix(Uplo uplo, Matrix< scalar_t >& orig,
+    TrapezoidMatrix(Uplo uplo, Matrix<scalar_t>& orig,
                     int64_t i1, int64_t i2,
                     int64_t j1, int64_t j2);
 
     // sub-matrix
     TrapezoidMatrix sub(int64_t i1, int64_t i2);
 
-    Matrix< scalar_t > sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
+    Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
 
 protected:
     // used by fromLAPACK
@@ -116,7 +116,7 @@ public:
 /// Default constructor creates an empty matrix.
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix():
-    BaseTrapezoidMatrix< scalar_t >()
+    BaseTrapezoidMatrix<scalar_t>()
 {}
 
 //------------------------------------------------------------------------------
@@ -209,7 +209,7 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
     Uplo uplo, int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : BaseTrapezoidMatrix< scalar_t >(uplo, m, n, A, lda, nb, p, q, mpi_comm)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, m, n, A, lda, nb, p, q, mpi_comm)
 {}
 
 //------------------------------------------------------------------------------
@@ -220,7 +220,7 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
     Uplo uplo, int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : BaseTrapezoidMatrix< scalar_t >(uplo, m, n, A, lda, mb, nb, p, q, mpi_comm)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, m, n, A, lda, mb, nb, p, q, mpi_comm)
 {}
 
 //------------------------------------------------------------------------------
@@ -233,8 +233,8 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 ///     Original matrix.
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
-    BaseTrapezoidMatrix< scalar_t >& orig)
-    : BaseTrapezoidMatrix< scalar_t >(orig)
+    BaseTrapezoidMatrix<scalar_t>& orig)
+    : BaseTrapezoidMatrix<scalar_t>(orig)
 {}
 
 //------------------------------------------------------------------------------
@@ -242,10 +242,10 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 /// creates a shallow copy view of the original matrix, A[ i1:i2, j1:j2 ].
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
-    BaseTrapezoidMatrix< scalar_t >& orig,
+    BaseTrapezoidMatrix<scalar_t>& orig,
     int64_t i1, int64_t i2,
     int64_t j1, int64_t j2)
-    : BaseTrapezoidMatrix< scalar_t >(orig, i1, i2, j1, j2)
+    : BaseTrapezoidMatrix<scalar_t>(orig, i1, i2, j1, j2)
 {}
 
 //------------------------------------------------------------------------------
@@ -260,8 +260,8 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 ///     Original matrix.
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
-    Uplo uplo, Matrix< scalar_t >& orig)
-    : BaseTrapezoidMatrix< scalar_t >(uplo, orig)
+    Uplo uplo, Matrix<scalar_t>& orig)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, orig)
 {}
 
 //------------------------------------------------------------------------------
@@ -284,10 +284,10 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 ///     Ending block column index (inclusive). j2 < nt.
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
-    Uplo uplo, Matrix< scalar_t >& orig,
+    Uplo uplo, Matrix<scalar_t>& orig,
     int64_t i1, int64_t i2,
     int64_t j1, int64_t j2)
-    : BaseTrapezoidMatrix< scalar_t >(uplo, orig, i1, i2, j1, j2)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, orig, i1, i2, j1, j2)
 {}
 
 //------------------------------------------------------------------------------
@@ -314,7 +314,7 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
     TrapezoidMatrix& orig,
     int64_t i1, int64_t i2,
     int64_t j1, int64_t j2)
-    : BaseTrapezoidMatrix< scalar_t >(orig, i1, i2, j1, j2)
+    : BaseTrapezoidMatrix<scalar_t>(orig, i1, i2, j1, j2)
 {}
 
 //------------------------------------------------------------------------------
@@ -357,11 +357,11 @@ TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::sub(
 /// @param[in] j2
 ///     Ending block column index (inclusive). j2 < nt.
 template <typename scalar_t>
-Matrix< scalar_t > TrapezoidMatrix<scalar_t>::sub(
+Matrix<scalar_t> TrapezoidMatrix<scalar_t>::sub(
     int64_t i1, int64_t i2,
     int64_t j1, int64_t j2)
 {
-    return BaseTrapezoidMatrix< scalar_t >::sub(i1, i2, j1, j2);
+    return BaseTrapezoidMatrix<scalar_t>::sub(i1, i2, j1, j2);
 }
 
 //------------------------------------------------------------------------------
@@ -373,8 +373,8 @@ template <typename scalar_t>
 void swap(TrapezoidMatrix<scalar_t>& A, TrapezoidMatrix<scalar_t>& B)
 {
     using std::swap;
-    swap(static_cast< BaseTrapezoidMatrix< scalar_t >& >(A),
-         static_cast< BaseTrapezoidMatrix< scalar_t >& >(B));
+    swap(static_cast< BaseTrapezoidMatrix<scalar_t>& >(A),
+         static_cast< BaseTrapezoidMatrix<scalar_t>& >(B));
 }
 
 } // namespace slate

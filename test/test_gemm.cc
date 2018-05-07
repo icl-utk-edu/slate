@@ -145,14 +145,20 @@ void test_gemm_work( Params &params, bool run )
     else slate::trace::Trace::off();
 
     // call the test routine
-    MPI_Barrier( MPI_COMM_WORLD );
+    {
+        slate::trace::Block trace_block("MPI_Barrier");
+        MPI_Barrier( MPI_COMM_WORLD );
+    }
     double time = libtest::get_wtime();
 
     slate::gemm( alpha, A, B, beta, C, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target}} );
 
-    MPI_Barrier( MPI_COMM_WORLD );
+    {
+        slate::trace::Block trace_block("MPI_Barrier");
+        MPI_Barrier( MPI_COMM_WORLD );
+    }
     double time_tst = libtest::get_wtime() - time;
 
     if( trace ) slate::trace::Trace::finish();

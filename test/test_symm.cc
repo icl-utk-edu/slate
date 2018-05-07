@@ -131,15 +131,20 @@ void test_symm_work( Params &params, bool run )
     else slate::trace::Trace::off();
 
     // Call the routine using ScaLAPACK layout
-    MPI_Barrier( MPI_COMM_WORLD );
+    {
+        slate::trace::Block trace_block("MPI_Barrier");
+        MPI_Barrier( MPI_COMM_WORLD );
+    }
     double time = libtest::get_wtime();
 
     slate::symm( side, alpha, A, B, beta, C, {
         {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}
-    } );
+        {slate::Option::Target, target}} );
 
-    MPI_Barrier( MPI_COMM_WORLD );
+    {
+        slate::trace::Block trace_block("MPI_Barrier");
+        MPI_Barrier( MPI_COMM_WORLD );
+    }
     double time_tst = libtest::get_wtime() - time;
 
     if ( trace ) slate::trace::Trace::finish();

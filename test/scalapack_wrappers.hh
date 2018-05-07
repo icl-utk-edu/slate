@@ -226,13 +226,13 @@ inline double scalapack_plansy( const char *norm, const char *uplo, int64_t n, s
 #define scalapack_pcgemm BLAS_FORTRAN_NAME( pcgemm, PCGEMM )
 #define scalapack_pzgemm BLAS_FORTRAN_NAME( pzgemm, PZGEMM )
 
-extern "C" void psgemm_( const char *transa, const char *transb, int *M, int *N, int *K, float *alpha, float *A, int *ia, int *ja, int *descA, float *B, int *ib, int *jb, int *descB, float *beta, float *C, int *ic, int *jc, int *descC );
+extern "C" void scalapack_psgemm( const char *transa, const char *transb, int *M, int *N, int *K, float *alpha, float *A, int *ia, int *ja, int *descA, float *B, int *ib, int *jb, int *descB, float *beta, float *C, int *ic, int *jc, int *descC );
 
-extern "C" void pdgemm_( const char *transa, const char *transb, int *M, int *N, int *K, double *alpha, double *A, int *ia, int *ja, int *descA, double *B, int *ib, int *jb, int *descB, double *beta, double *C, int *ic, int *jc, int *descC );
+extern "C" void scalapack_pdgemm( const char *transa, const char *transb, int *M, int *N, int *K, double *alpha, double *A, int *ia, int *ja, int *descA, double *B, int *ib, int *jb, int *descB, double *beta, double *C, int *ic, int *jc, int *descC );
 
-extern "C" void pcgemm_( const char *transa, const char *transb, int *M, int *N, int *K, std::complex<float> *alpha, std::complex<float> *A, int *ia, int *ja, int *descA, std::complex<float> *B, int *ib, int *jb, int *descB, std::complex<float> *beta, std::complex<float> *C, int *ic, int *jc, int *descC );
+extern "C" void scalapack_pcgemm( const char *transa, const char *transb, int *M, int *N, int *K, std::complex<float> *alpha, std::complex<float> *A, int *ia, int *ja, int *descA, std::complex<float> *B, int *ib, int *jb, int *descB, std::complex<float> *beta, std::complex<float> *C, int *ic, int *jc, int *descC );
 
-extern "C" void pzgemm_( const char *transa, const char *transb, int *M, int *N, int *K, std::complex<double> *alpha, std::complex<double> *A, int *ia, int *ja, int *descA, std::complex<double> *B, int *ib, int *jb, int *descB, std::complex<double> *beta, std::complex<double> *C, int *ic, int *jc, int *descC );
+extern "C" void scalapack_pzgemm( const char *transa, const char *transb, int *M, int *N, int *K, std::complex<double> *alpha, std::complex<double> *A, int *ia, int *ja, int *descA, std::complex<double> *B, int *ib, int *jb, int *descB, std::complex<double> *beta, std::complex<double> *C, int *ic, int *jc, int *descC );
 
 // -----------------------------------------------------------------------------
 

@@ -444,7 +444,7 @@ public:
         scalar_t* data = (scalar_t*) memory_.alloc(device);
         int64_t mb = tileMb(i);
         int64_t nb = tileNb(j);
-        Tile<scalar_t>* tile = new Tile<scalar_t>(mb, nb, data, nb, device, false);
+        Tile<scalar_t>* tile = new Tile<scalar_t>(mb, nb, data, mb, device, false);
         tiles_[ ijdev ] = tile;
         return tile;
     }

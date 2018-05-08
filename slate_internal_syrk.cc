@@ -384,11 +384,6 @@ void syrk(internal::TargetType<Target::Devices>,
 
                 Op opB = (opA == Op::NoTrans ? Op::Trans : Op::NoTrans);
 
-                scalar_t** a_array_host = C.a_array_host(device);
-                scalar_t** b_array_host = C.b_array_host(device);
-                scalar_t** c_array_host = C.c_array_host(device);
-
-                int64_t batch_count = 0;
                 for (int64_t j = 0; j < C.nt(); ++j) {
                     for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                         if (C.tileIsLocal(i, j)) {
@@ -396,11 +391,53 @@ void syrk(internal::TargetType<Target::Devices>,
                                 A.tileCopyToDevice(i, 0, device);
                                 A.tileCopyToDevice(j, 0, device);
                                 C.tileMoveToDevice(i, j, device);
-                                a_array_host[ batch_count ] = A(i, 0, device).data();
-                                b_array_host[ batch_count ] = A(j, 0, device).data();
-                                c_array_host[ batch_count ] = C(i, j, device).data();
+                            }
+                        }
+                    }
+                }
+
+                scalar_t** a_array_host = C.a_array_host(device);
+                scalar_t** b_array_host = C.b_array_host(device);
+                scalar_t** c_array_host = C.c_array_host(device);
+
+                int64_t batch_count = 0;
+                int64_t batch_count_00 = 0;
+                int64_t lda00;
+                int64_t ldb00;
+                int64_t ldc00;
+                for (int64_t j = 0; j < C.nt()-1; ++j) {
+                    for (int64_t i = j+1; i < C.mt()-1; ++i) {  // strictly lower
+                        if (C.tileIsLocal(i, j)) {
+                            if (device == C.tileDevice(i, j)) {
+                                a_array_host[batch_count] = A(i, 0, device).data();
+                                b_array_host[batch_count] = A(j, 0, device).data();
+                                c_array_host[batch_count] = C(i, j, device).data();
+                                lda00 = A(i, 0, device).stride();
+                                ldb00 = A(j, 0, device).stride();
+                                ldc00 = C(i, j, device).stride();
+                                ++batch_count_00;
                                 ++batch_count;
                             }
+                        }
+                    }
+                }
+
+                int64_t batch_count_10 = 0;
+                int64_t lda10;
+                int64_t ldb10;
+                int64_t ldc10;
+                int64_t i = C.mt()-1;
+                for (int64_t j = 0; j < C.nt()-1; ++j) {
+                    if (C.tileIsLocal(i, j)) {
+                        if (device == C.tileDevice(i, j)) {
+                            a_array_host[batch_count] = A(i, 0, device).data();
+                            b_array_host[batch_count] = A(j, 0, device).data();
+                            c_array_host[batch_count] = C(i, j, device).data();
+                            lda10 = A(i, 0, device).stride();
+                            ldb10 = A(j, 0, device).stride();
+                            ldc10 = C(i, j, device).stride();
+                            ++batch_count_10;
+                            ++batch_count;
                         }
                     }
                 }
@@ -416,6 +453,7 @@ void syrk(internal::TargetType<Target::Devices>,
                 scalar_t** a_array_dev = C.a_array_device(device);
                 scalar_t** b_array_dev = C.b_array_device(device);
                 scalar_t** c_array_dev = C.c_array_device(device);
+
                 cudaError_t error;
                 error = cudaSetDevice(device);
                 assert(error == cudaSuccess);
@@ -444,18 +482,41 @@ void syrk(internal::TargetType<Target::Devices>,
 
                 {
                     trace::Block trace_block("cublasDgemmBatched");
-                    // todo: assumes all tiles are allocated nb-by-nb with stride nb
-                    int nb = C.tileNb(0);
-                    cublasStatus_t status =
-                        cublasGemmBatched(
-                            cublas_handle,  // uses stream
-                            cublas_op_const( opA ), cublas_op_const( opB ),
-                            nb, nb, nb,
-                            &alpha, (const scalar_t**) a_array_dev, nb,
-                                    (const scalar_t**) b_array_dev, nb,
-                            &beta,  c_array_dev, nb,
-                            batch_count);
-                    assert(status == CUBLAS_STATUS_SUCCESS);
+                    if (batch_count_00 > 0) {
+                        int64_t mb = C.tileMb(0);
+                        int64_t nb = C.tileNb(0);
+                        int64_t kb = A.tileNb(0);   // == A.tileMb(0)
+                        cublasStatus_t status =
+                            cublasGemmBatched(
+                                cublas_handle,  // uses stream
+                                cublas_op_const(opA), cublas_op_const(opB),
+                                mb, nb, kb,
+                                &alpha, (const scalar_t**) a_array_dev, lda00,
+                                        (const scalar_t**) b_array_dev, ldb00,
+                                &beta,                     c_array_dev, ldc00,
+                                batch_count_00);
+                        assert(status == CUBLAS_STATUS_SUCCESS);
+                        a_array_dev += batch_count_00;
+                        b_array_dev += batch_count_00;
+                        c_array_dev += batch_count_00;
+                    }
+
+                    if (batch_count_10 > 0) {
+                        int64_t mb = C.tileMb(C.mt()-1);
+                        int64_t nb = C.tileNb(0);
+                        int64_t kb = A.tileNb(0);   // == A.tileMb(0)
+                        cublasStatus_t status =
+                            cublasGemmBatched(
+                                cublas_handle,  // uses stream
+                                cublas_op_const(opA), cublas_op_const(opB),
+                                mb, nb, kb,
+                                &alpha, (const scalar_t**) a_array_dev, lda10,
+                                        (const scalar_t**) b_array_dev, ldb10,
+                                &beta,                     c_array_dev, ldc10,
+                                batch_count_10);
+                        assert(status == CUBLAS_STATUS_SUCCESS);
+                    }
+
                     error = cudaStreamSynchronize(stream);
                     assert(error == cudaSuccess);
                 }

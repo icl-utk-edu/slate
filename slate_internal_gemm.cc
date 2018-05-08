@@ -417,8 +417,8 @@ void gemm(internal::TargetType<Target::Devices>,
                 }
             }
             int64_t batch_count_10 = 0;
+            int64_t i = C.mt()-1;
             for (int64_t j = 0; j < C.nt()-1; ++j) {
-                int64_t i = C.mt()-1;
                 if (C.tileIsLocal(i, j)) {
                     if (device == C.tileDevice(i, j)) {
                         a_array_host[batch_count] = A(i, 0, device).data();
@@ -430,8 +430,8 @@ void gemm(internal::TargetType<Target::Devices>,
                 }
             }
             int64_t batch_count_01 = 0;
-            for (int64_t i = 0; i < C.mt()-1; ++i) {
             int64_t j = C.nt()-1;
+            for (int64_t i = 0; i < C.mt()-1; ++i) {
                 if (C.tileIsLocal(i, j)) {
                     if (device == C.tileDevice(i, j)) {
                         a_array_host[batch_count] = A(i, 0, device).data();
@@ -443,8 +443,8 @@ void gemm(internal::TargetType<Target::Devices>,
                 }
             }
             int64_t batch_count_11 = 0;
-            int64_t i = C.mt()-1;
-            int64_t j = C.nt()-1;
+            i = C.mt()-1;
+            j = C.nt()-1;
             if (C.tileIsLocal(i, j)) {
                 if (device == C.tileDevice(i, j)) {
                     a_array_host[batch_count] = A(i, 0, device).data();
@@ -513,12 +513,12 @@ void gemm(internal::TargetType<Target::Devices>,
                             &beta,                     c_array_dev, ldc,
                             batch_count_00);
                     assert(status == CUBLAS_STATUS_SUCCESS);
-                }
-
-                if (batch_count_10 > 0) {
                     a_array_dev += batch_count_00;
                     b_array_dev += batch_count_00;
                     c_array_dev += batch_count_00;
+                }
+
+                if (batch_count_10 > 0) {
                     int64_t mb = C.tileMb(C.mt()-1);
                     int64_t nb = C.tileNb(0);
                     int64_t kb = A.tileNb(0);   // == A.tileMb(0)
@@ -535,12 +535,12 @@ void gemm(internal::TargetType<Target::Devices>,
                             &beta,                     c_array_dev, ldc,
                             batch_count_10);
                     assert(status == CUBLAS_STATUS_SUCCESS);
-                }
-
-                if (batch_count_01 > 0) {
                     a_array_dev += batch_count_10;
                     b_array_dev += batch_count_10;
                     c_array_dev += batch_count_10;
+                }
+
+                if (batch_count_01 > 0) {
                     int64_t mb = C.tileMb(0);
                     int64_t nb = C.tileNb(C.nt()-1);
                     int64_t kb = A.tileNb(0);   // == A.tileMb(0)
@@ -557,12 +557,12 @@ void gemm(internal::TargetType<Target::Devices>,
                             &beta,                     c_array_dev, ldc,
                             batch_count_01);
                     assert(status == CUBLAS_STATUS_SUCCESS);
-                }
-
-                if (batch_count_11 > 0) {
                     a_array_dev += batch_count_01;
                     b_array_dev += batch_count_01;
                     c_array_dev += batch_count_01;
+                }
+
+                if (batch_count_11 > 0) {
                     int64_t mb = C.tileMb(C.mt()-1);
                     int64_t nb = C.tileNb(C.nt()-1);
                     int64_t kb = A.tileNb(0);   // == A.tileMb(0)

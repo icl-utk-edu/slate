@@ -385,11 +385,6 @@ void gemm(internal::TargetType<Target::Devices>,
                 beta  = conj(beta );
             }
 
-            scalar_t** a_array_host = C.a_array_host(device);
-            scalar_t** b_array_host = C.b_array_host(device);
-            scalar_t** c_array_host = C.c_array_host(device);
-
-            int64_t batch_count = 0;
             for (int64_t i = 0; i < C.mt(); ++i) {
                 for (int64_t j = 0; j < C.nt(); ++j) {
                     if (C.tileIsLocal(i, j)) {
@@ -397,12 +392,66 @@ void gemm(internal::TargetType<Target::Devices>,
                             A.tileCopyToDevice(i, 0, device);
                             B.tileCopyToDevice(0, j, device);
                             C.tileMoveToDevice(i, j, device);
-                            a_array_host[ batch_count ] = A(i, 0, device).data();
-                            b_array_host[ batch_count ] = B(0, j, device).data();
-                            c_array_host[ batch_count ] = C(i, j, device).data();
+                        }
+                    }
+                }
+            }
+
+            scalar_t** a_array_host = C.a_array_host(device);
+            scalar_t** b_array_host = C.b_array_host(device);
+            scalar_t** c_array_host = C.c_array_host(device);
+
+            int64_t batch_count = 0;
+            int64_t batch_count_00 = 0;
+            for (int64_t i = 0; i < C.mt()-1; ++i) {
+                for (int64_t j = 0; j < C.nt()-1; ++j) {
+                    if (C.tileIsLocal(i, j)) {
+                        if (device == C.tileDevice(i, j)) {
+                            a_array_host[batch_count] = A(i, 0, device).data();
+                            b_array_host[batch_count] = B(0, j, device).data();
+                            c_array_host[batch_count] = C(i, j, device).data();
+                            ++batch_count_00;
                             ++batch_count;
                         }
                     }
+                }
+            }
+            int64_t batch_count_10 = 0;
+            for (int64_t j = 0; j < C.nt()-1; ++j) {
+                int64_t i = C.mt()-1;
+                if (C.tileIsLocal(i, j)) {
+                    if (device == C.tileDevice(i, j)) {
+                        a_array_host[batch_count] = A(i, 0, device).data();
+                        b_array_host[batch_count] = B(0, j, device).data();
+                        c_array_host[batch_count] = C(i, j, device).data();
+                        ++batch_count_10;
+                        ++batch_count;
+                    }
+                }
+            }
+            int64_t batch_count_01 = 0;
+            for (int64_t i = 0; i < C.mt()-1; ++i) {
+            int64_t j = C.nt()-1;
+                if (C.tileIsLocal(i, j)) {
+                    if (device == C.tileDevice(i, j)) {
+                        a_array_host[batch_count] = A(i, 0, device).data();
+                        b_array_host[batch_count] = B(0, j, device).data();
+                        c_array_host[batch_count] = C(i, j, device).data();
+                        ++batch_count_01;
+                        ++batch_count;
+                    }
+                }
+            }
+            int64_t batch_count_11 = 0;
+            int64_t i = C.mt()-1;
+            int64_t j = C.nt()-1;
+            if (C.tileIsLocal(i, j)) {
+                if (device == C.tileDevice(i, j)) {
+                    a_array_host[batch_count] = A(i, 0, device).data();
+                    b_array_host[batch_count] = B(0, j, device).data();
+                    c_array_host[batch_count] = C(i, j, device).data();
+                    ++batch_count_11;
+                    ++batch_count;
                 }
             }
 
@@ -446,18 +495,92 @@ void gemm(internal::TargetType<Target::Devices>,
 
             {
                 trace::Block trace_block("cublasDgemmBatched");
-                // todo: assumes all tiles are allocated nb-by-nb with stride nb
-                int nb = C.tileMb(0);
-                cublasStatus_t status =
-                    cublasGemmBatched(
-                        cublas_handle,  // uses stream
-                        cublas_op_const(opA), cublas_op_const(opB),
-                        nb, nb, nb,
-                        &alpha, (const scalar_t**) a_array_dev, nb,
-                                (const scalar_t**) b_array_dev, nb,
-                        &beta,  c_array_dev, nb,
-                        batch_count);
-                assert(status == CUBLAS_STATUS_SUCCESS);
+                // todo: assumes no stride
+                if (batch_count_00 > 0) {
+                    int64_t mb = C.tileMb(0);
+                    int64_t nb = C.tileNb(0);
+                    int64_t kb = A.tileNb(0);   // == A.tileMb(0)
+                    int64_t lda = A.tileMb(0);
+                    int64_t ldb = B.tileMb(0);
+                    int64_t ldc = C.tileMb(0);
+                    cublasStatus_t status =
+                        cublasGemmBatched(
+                            cublas_handle,  // uses stream
+                            cublas_op_const(opA), cublas_op_const(opB),
+                            mb, nb, kb,
+                            &alpha, (const scalar_t**) a_array_dev, lda,
+                                    (const scalar_t**) b_array_dev, ldb,
+                            &beta,                     c_array_dev, ldc,
+                            batch_count_00);
+                    assert(status == CUBLAS_STATUS_SUCCESS);
+                }
+
+                if (batch_count_10 > 0) {
+                    a_array_dev += batch_count_00;
+                    b_array_dev += batch_count_00;
+                    c_array_dev += batch_count_00;
+                    int64_t mb = C.tileMb(C.mt()-1);
+                    int64_t nb = C.tileNb(0);
+                    int64_t kb = A.tileNb(0);   // == A.tileMb(0)
+                    int64_t lda = A.tileMb(A.mt()-1);
+                    int64_t ldb = B.tileMb(0);
+                    int64_t ldc = C.tileMb(C.mt()-1);
+                    cublasStatus_t status =
+                        cublasGemmBatched(
+                            cublas_handle,  // uses stream
+                            cublas_op_const(opA), cublas_op_const(opB),
+                            mb, nb, kb,
+                            &alpha, (const scalar_t**) a_array_dev, lda,
+                                    (const scalar_t**) b_array_dev, ldb,
+                            &beta,                     c_array_dev, ldc,
+                            batch_count_10);
+                    assert(status == CUBLAS_STATUS_SUCCESS);
+                }
+
+                if (batch_count_01 > 0) {
+                    a_array_dev += batch_count_10;
+                    b_array_dev += batch_count_10;
+                    c_array_dev += batch_count_10;
+                    int64_t mb = C.tileMb(0);
+                    int64_t nb = C.tileNb(C.nt()-1);
+                    int64_t kb = A.tileNb(0);   // == A.tileMb(0)
+                    int64_t lda = A.tileMb(0);
+                    int64_t ldb = B.tileMb(B.mt()-1);
+                    int64_t ldc = C.tileMb(0);
+                    cublasStatus_t status =
+                        cublasGemmBatched(
+                            cublas_handle,  // uses stream
+                            cublas_op_const(opA), cublas_op_const(opB),
+                            mb, nb, kb,
+                            &alpha, (const scalar_t**) a_array_dev, lda,
+                                    (const scalar_t**) b_array_dev, ldb,
+                            &beta,                     c_array_dev, ldc,
+                            batch_count_01);
+                    assert(status == CUBLAS_STATUS_SUCCESS);
+                }
+
+                if (batch_count_11 > 0) {
+                    a_array_dev += batch_count_01;
+                    b_array_dev += batch_count_01;
+                    c_array_dev += batch_count_01;
+                    int64_t mb = C.tileMb(C.mt()-1);
+                    int64_t nb = C.tileNb(C.nt()-1);
+                    int64_t kb = A.tileNb(0);   // == A.tileMb(0)
+                    int64_t lda = A.tileMb(A.mt()-1);
+                    int64_t ldb = B.tileMb(B.mt()-1);
+                    int64_t ldc = C.tileMb(C.mt()-1);
+                    cublasStatus_t status =
+                        cublasGemmBatched(
+                            cublas_handle,  // uses stream
+                            cublas_op_const(opA), cublas_op_const(opB),
+                            mb, nb, kb,
+                            &alpha, (const scalar_t**) a_array_dev, lda,
+                                    (const scalar_t**) b_array_dev, ldb,
+                            &beta,                     c_array_dev, ldc,
+                            batch_count_11);
+                    assert(status == CUBLAS_STATUS_SUCCESS);
+                }
+
                 error = cudaStreamSynchronize(stream);
                 assert(error == cudaSuccess);
             }

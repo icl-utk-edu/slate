@@ -56,11 +56,11 @@ Memory::Memory(size_t block_size):
 {
     // touch maps to create entries;
     // this allows available() and capacity() to be const by using at()
-    free_blocks_[ host_num_ ];
-    capacity_[ host_num_ ] = 0;
+    free_blocks_[host_num_];
+    capacity_[host_num_] = 0;
     for (int device = 0; device < num_devices_; ++device) {
-        free_blocks_[ device ];
-        capacity_[ device ] = 0;
+        free_blocks_[device];
+        capacity_[device] = 0;
     }
 }
 

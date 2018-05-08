@@ -106,7 +106,8 @@ public:
     using LivesMap = slate::Map<ij_tuple, int64_t>;
 
     ///-------------------------------------------------------------------------
-    MatrixStorage(int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+    MatrixStorage(int64_t m, int64_t n, int64_t nb,
+                  int p, int q, MPI_Comm mpi_comm)
         : m_(m),
           n_(n),
           mt_(ceildiv(m, nb)),
@@ -119,8 +120,10 @@ public:
     {
         int err;
         err = MPI_Comm_rank(mpi_comm, &mpi_rank_); assert(err == MPI_SUCCESS);
-        //err = MPI_Comm_size(mpi_comm_, &mpi_size_); assert(err == MPI_SUCCESS);
-        //err = MPI_Comm_group(mpi_comm_, &mpi_group_); assert(err == MPI_SUCCESS);
+        //err = MPI_Comm_size(mpi_comm_, &mpi_size_);
+        // assert(err == MPI_SUCCESS);
+        //err = MPI_Comm_group(mpi_comm_, &mpi_group_);
+        // assert(err == MPI_SUCCESS);
 
         // todo: these are static, but we (re-)initialize with each matrix.
         // todo: similar code in BaseMatrix(...) and MatrixStorage(...)
@@ -128,11 +131,13 @@ public:
         num_devices_ = memory_.num_devices_;
 
         // TODO: these all assume 2D block cyclic with fixed size tiles (nb)
-        // lambdas that capture m, n, nb for computing tile's mb (rows) and nb (cols)
+        // lambdas that capture m, n, nb for
+        // computing tile's mb (rows) and nb (cols)
         tileMb = [=] (int64_t i) { return (i + 1)*nb > m ? m%nb : nb; };
         tileNb = [=] (int64_t j) { return (j + 1)*nb > n ? n%nb : nb; };
 
-        // lambda that captures p, q for computing tile's rank, assuming 2D block cyclic
+        // lambda that captures p, q for computing tile's rank,
+        // assuming 2D block cyclic
         tileRank = [=] (ij_tuple ij)
         {
             int64_t i = std::get<0>(ij);
@@ -325,10 +330,12 @@ public:
     void clearWorkspace()
     {
         LockGuard(tiles_.get_lock());
-        for (auto iter = tiles_.begin(); iter != tiles_.end(); /* incremented below */) {
+        // incremented below
+        for (auto iter = tiles_.begin(); iter != tiles_.end();) {
             if (! iter->second->origin()) {
-                // since we can't increment the iterator after deleting the element,
-                // use post-fix iter++ to increment it but erase the current value
+                // Since we can't increment the iterator after deleting the
+                // element, use post-fix iter++ to increment it but
+                // erase the current value.
                 erase((iter++)->first);
             }
             else {
@@ -372,7 +379,7 @@ public:
     }
 
     ///-------------------------------------------------------------------------
-    /// @return pointer to a single tile. Throws exception if tile doesn't exist.
+    /// @return pointer to single tile. Throws exception if tile doesn't exist.
     // at() doesn't create new (null) entries in map as operator[] would
     Tile<scalar_t>* at(ijdev_tuple ijdev)
     {
@@ -403,7 +410,8 @@ public:
     /// Delete all tiles.
     void clear()
     {
-        for (auto iter = tiles_.begin(); iter != tiles_.end(); /* incremented below */) {
+        // incremented below
+        for (auto iter = tiles_.begin(); iter != tiles_.end();) {
             // erasing the element invalidates the iterator,
             // so use iter++ to erase the current value but increment it first.
             erase((iter++)->first);
@@ -437,15 +445,16 @@ public:
     /// Does not set tile's life.
     Tile<scalar_t>* tileInsert(ijdev_tuple ijdev)
     {
-        assert( tiles_.find( ijdev ) == tiles_.end() );  // doesn't exist yet
+        assert(tiles_.find(ijdev) == tiles_.end());  // doesn't exist yet
         int64_t i  = std::get<0>(ijdev);
         int64_t j  = std::get<1>(ijdev);
         int device = std::get<2>(ijdev);
         scalar_t* data = (scalar_t*) memory_.alloc(device);
         int64_t mb = tileMb(i);
         int64_t nb = tileNb(j);
-        Tile<scalar_t>* tile = new Tile<scalar_t>(mb, nb, data, mb, device, false);
-        tiles_[ ijdev ] = tile;
+        Tile<scalar_t>* tile = new Tile<scalar_t>(mb, nb, data, mb,
+                                                  device, false);
+        tiles_[ijdev] = tile;
         return tile;
     }
 
@@ -463,8 +472,9 @@ public:
         int device = std::get<2>(ijdev);
         int64_t mb = tileMb(i);
         int64_t nb = tileNb(j);
-        Tile<scalar_t>* tile = new Tile<scalar_t>(mb, nb, data, lda, device, true);
-        tiles_[ ijdev ] = tile;
+        Tile<scalar_t>* tile = new Tile<scalar_t>(mb, nb, data, lda,
+                                                  device, true);
+        tiles_[ijdev] = tile;
         return tile;
     }
 
@@ -496,14 +506,14 @@ public:
     // Could use at() instead, but then would throw errors.
     int64_t tileLife(ij_tuple ij)
     {
-        return lives_[ ij ];
+        return lives_[ij];
     }
 
     ///-------------------------------------------------------------------------
     /// set tile's life counter.
     void tileLife(ij_tuple ij, int64_t life)
     {
-        lives_[ ij ] = life;
+        lives_[ij] = life;
     }
 
 //private:

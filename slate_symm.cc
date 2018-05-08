@@ -80,7 +80,8 @@ void symm(slate::internal::TargetType<target>,
     using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
-    // if on right, change to left by transposing A, B, C to get op(C) = op(A)*op(B)
+    // if on right, change to left by transposing A, B, C to get
+    // op(C) = op(A)*op(B)
     if (side == Side::Right) {
         A = transpose(A);
         B = transpose(B);

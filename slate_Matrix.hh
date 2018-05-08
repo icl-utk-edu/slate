@@ -246,7 +246,8 @@ Matrix<scalar_t>::Matrix(
 {
     assert(mb == nb);
     // ii, jj are row, col indices
-    // ii_loc and jj_loc are the local array indices in a block-cyclic layout (indxg2l)
+    // ii_loc and jj_loc are the local array indices in a
+    // block-cyclic layout (indxg2l)
     // i, j are tile (block row, block col) indices
     int64_t jj = 0;
     for (int64_t j = 0; j < this->nt(); ++j) {
@@ -259,7 +260,8 @@ Matrix<scalar_t>::Matrix(
             if (this->tileIsLocal(i, j)) {
                 // Using Scalapack indxg2l
                 int64_t ii_loc = mb*(ii/(mb*p)) + (ii % mb);
-                this->tileInsert(i, j, this->host_num_, &A[ ii_loc + jj_loc*lda ], lda);
+                this->tileInsert(i, j, this->host_num_,
+                                 &A[ ii_loc + jj_loc*lda ], lda);
             }
             ii += ib;
         }

@@ -327,13 +327,13 @@ void potrf(HermitianMatrix<scalar_t>& A,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void potrf< float >(
-    HermitianMatrix< float >& A,
+void potrf<float>(
+    HermitianMatrix<float>& A,
     const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template
-void potrf< double >(
-    HermitianMatrix< double >& A,
+void potrf<double>(
+    HermitianMatrix<double>& A,
     const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template

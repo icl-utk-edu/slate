@@ -403,6 +403,9 @@ void gemm(internal::TargetType<Target::Devices>,
 
             int64_t batch_count = 0;
             int64_t batch_count_00 = 0;
+            int64_t lda00;
+            int64_t ldb00;
+            int64_t ldc00;
             for (int64_t i = 0; i < C.mt()-1; ++i) {
                 for (int64_t j = 0; j < C.nt()-1; ++j) {
                     if (C.tileIsLocal(i, j)) {
@@ -410,6 +413,9 @@ void gemm(internal::TargetType<Target::Devices>,
                             a_array_host[batch_count] = A(i, 0, device).data();
                             b_array_host[batch_count] = B(0, j, device).data();
                             c_array_host[batch_count] = C(i, j, device).data();
+                            lda00 = A(i, 0, device).stride();
+                            ldb00 = B(0, j, device).stride();
+                            ldc00 = C(i, j, device).stride();
                             ++batch_count_00;
                             ++batch_count;
                         }
@@ -417,6 +423,9 @@ void gemm(internal::TargetType<Target::Devices>,
                 }
             }
             int64_t batch_count_10 = 0;
+            int64_t lda10;
+            int64_t ldb10;
+            int64_t ldc10;
             int64_t i = C.mt()-1;
             for (int64_t j = 0; j < C.nt()-1; ++j) {
                 if (C.tileIsLocal(i, j)) {
@@ -424,12 +433,18 @@ void gemm(internal::TargetType<Target::Devices>,
                         a_array_host[batch_count] = A(i, 0, device).data();
                         b_array_host[batch_count] = B(0, j, device).data();
                         c_array_host[batch_count] = C(i, j, device).data();
+                        lda10 = A(i, 0, device).stride();
+                        ldb10 = B(0, j, device).stride();
+                        ldc10 = C(i, j, device).stride();
                         ++batch_count_10;
                         ++batch_count;
                     }
                 }
             }
             int64_t batch_count_01 = 0;
+            int64_t lda01;
+            int64_t ldb01;
+            int64_t ldc01;
             int64_t j = C.nt()-1;
             for (int64_t i = 0; i < C.mt()-1; ++i) {
                 if (C.tileIsLocal(i, j)) {
@@ -437,12 +452,18 @@ void gemm(internal::TargetType<Target::Devices>,
                         a_array_host[batch_count] = A(i, 0, device).data();
                         b_array_host[batch_count] = B(0, j, device).data();
                         c_array_host[batch_count] = C(i, j, device).data();
+                        lda01 = A(i, 0, device).stride();
+                        ldb01 = B(0, j, device).stride();
+                        ldc01 = C(i, j, device).stride();
                         ++batch_count_01;
                         ++batch_count;
                     }
                 }
             }
             int64_t batch_count_11 = 0;
+            int64_t lda11;
+            int64_t ldb11;
+            int64_t ldc11;
             i = C.mt()-1;
             j = C.nt()-1;
             if (C.tileIsLocal(i, j)) {
@@ -450,6 +471,9 @@ void gemm(internal::TargetType<Target::Devices>,
                     a_array_host[batch_count] = A(i, 0, device).data();
                     b_array_host[batch_count] = B(0, j, device).data();
                     c_array_host[batch_count] = C(i, j, device).data();
+                    lda11 = A(i, 0, device).stride();
+                    ldb11 = B(0, j, device).stride();
+                    ldc11 = C(i, j, device).stride();
                     ++batch_count_11;
                     ++batch_count;
                 }
@@ -500,17 +524,14 @@ void gemm(internal::TargetType<Target::Devices>,
                     int64_t mb = C.tileMb(0);
                     int64_t nb = C.tileNb(0);
                     int64_t kb = A.tileNb(0);   // == A.tileMb(0)
-                    int64_t lda = A.tileMb(0);
-                    int64_t ldb = B.tileMb(0);
-                    int64_t ldc = C.tileMb(0);
                     cublasStatus_t status =
                         cublasGemmBatched(
                             cublas_handle,  // uses stream
                             cublas_op_const(opA), cublas_op_const(opB),
                             mb, nb, kb,
-                            &alpha, (const scalar_t**) a_array_dev, lda,
-                                    (const scalar_t**) b_array_dev, ldb,
-                            &beta,                     c_array_dev, ldc,
+                            &alpha, (const scalar_t**) a_array_dev, lda00,
+                                    (const scalar_t**) b_array_dev, ldb00,
+                            &beta,                     c_array_dev, ldc00,
                             batch_count_00);
                     assert(status == CUBLAS_STATUS_SUCCESS);
                     a_array_dev += batch_count_00;
@@ -522,17 +543,14 @@ void gemm(internal::TargetType<Target::Devices>,
                     int64_t mb = C.tileMb(C.mt()-1);
                     int64_t nb = C.tileNb(0);
                     int64_t kb = A.tileNb(0);   // == A.tileMb(0)
-                    int64_t lda = A.tileMb(A.mt()-1);
-                    int64_t ldb = B.tileMb(0);
-                    int64_t ldc = C.tileMb(C.mt()-1);
                     cublasStatus_t status =
                         cublasGemmBatched(
                             cublas_handle,  // uses stream
                             cublas_op_const(opA), cublas_op_const(opB),
                             mb, nb, kb,
-                            &alpha, (const scalar_t**) a_array_dev, lda,
-                                    (const scalar_t**) b_array_dev, ldb,
-                            &beta,                     c_array_dev, ldc,
+                            &alpha, (const scalar_t**) a_array_dev, lda10,
+                                    (const scalar_t**) b_array_dev, ldb10,
+                            &beta,                     c_array_dev, ldc10,
                             batch_count_10);
                     assert(status == CUBLAS_STATUS_SUCCESS);
                     a_array_dev += batch_count_10;
@@ -544,17 +562,14 @@ void gemm(internal::TargetType<Target::Devices>,
                     int64_t mb = C.tileMb(0);
                     int64_t nb = C.tileNb(C.nt()-1);
                     int64_t kb = A.tileNb(0);   // == A.tileMb(0)
-                    int64_t lda = A.tileMb(0);
-                    int64_t ldb = B.tileMb(B.mt()-1);
-                    int64_t ldc = C.tileMb(0);
                     cublasStatus_t status =
                         cublasGemmBatched(
                             cublas_handle,  // uses stream
                             cublas_op_const(opA), cublas_op_const(opB),
                             mb, nb, kb,
-                            &alpha, (const scalar_t**) a_array_dev, lda,
-                                    (const scalar_t**) b_array_dev, ldb,
-                            &beta,                     c_array_dev, ldc,
+                            &alpha, (const scalar_t**) a_array_dev, lda01,
+                                    (const scalar_t**) b_array_dev, ldb01,
+                            &beta,                     c_array_dev, ldc01,
                             batch_count_01);
                     assert(status == CUBLAS_STATUS_SUCCESS);
                     a_array_dev += batch_count_01;
@@ -566,17 +581,14 @@ void gemm(internal::TargetType<Target::Devices>,
                     int64_t mb = C.tileMb(C.mt()-1);
                     int64_t nb = C.tileNb(C.nt()-1);
                     int64_t kb = A.tileNb(0);   // == A.tileMb(0)
-                    int64_t lda = A.tileMb(A.mt()-1);
-                    int64_t ldb = B.tileMb(B.mt()-1);
-                    int64_t ldc = C.tileMb(C.mt()-1);
                     cublasStatus_t status =
                         cublasGemmBatched(
                             cublas_handle,  // uses stream
                             cublas_op_const(opA), cublas_op_const(opB),
                             mb, nb, kb,
-                            &alpha, (const scalar_t**) a_array_dev, lda,
-                                    (const scalar_t**) b_array_dev, ldb,
-                            &beta,                     c_array_dev, ldc,
+                            &alpha, (const scalar_t**) a_array_dev, lda11,
+                                    (const scalar_t**) b_array_dev, ldb11,
+                            &beta,                     c_array_dev, ldc11,
                             batch_count_11);
                     assert(status == CUBLAS_STATUS_SUCCESS);
                 }

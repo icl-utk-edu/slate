@@ -91,7 +91,7 @@ void hemm(Side side,
           const std::map<Option, Value>& opts = std::map<Option, Value>(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    HermitianMatrix<scalar_t> AH( A );
+    HermitianMatrix<scalar_t> AH(A);
     hemm(side, alpha, AH, B, beta, C, opts);
 }
 
@@ -115,7 +115,7 @@ void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           const std::map<Option, Value>& opts = std::map<Option, Value>(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    HermitianMatrix<scalar_t> CH( C );
+    HermitianMatrix<scalar_t> CH(C);
     herk(alpha, A, beta, CH, opts);
 }
 
@@ -142,7 +142,7 @@ void her2k(scalar_t alpha,                  Matrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>(),
            enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    HermitianMatrix<scalar_t> CH( C );
+    HermitianMatrix<scalar_t> CH(C);
     her2k(alpha, A, B, beta, CH, opts);
 }
 
@@ -172,7 +172,7 @@ void symm(Side side,
           const std::map<Option, Value>& opts = std::map<Option, Value>(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    SymmetricMatrix<scalar_t> AS( A );
+    SymmetricMatrix<scalar_t> AS(A);
     symm(side, alpha, AS, B, beta, C, opts);
 }
 
@@ -196,7 +196,7 @@ void syrk(scalar_t alpha, Matrix<scalar_t>& A,
           const std::map<Option, Value>& opts = std::map<Option, Value>(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    SymmetricMatrix<scalar_t> CS( C );
+    SymmetricMatrix<scalar_t> CS(C);
     syrk(alpha, A, beta, CS, opts);
 }
 
@@ -223,7 +223,7 @@ void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>(),
            enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    SymmetricMatrix<scalar_t> CS( C );
+    SymmetricMatrix<scalar_t> CS(C);
     syr2k(alpha, A, B, beta, CS, opts);
 }
 
@@ -275,7 +275,7 @@ void potrf(SymmetricMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>(),
            enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    HermitianMatrix<scalar_t> AH( A );
+    HermitianMatrix<scalar_t> AH(A);
     potrf(AH);
 }
 

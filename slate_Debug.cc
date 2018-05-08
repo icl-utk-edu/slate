@@ -100,17 +100,20 @@ void Debug::checkTilesLives(BaseMatrix<scalar_t> const& A)
 {
     if (! debug_) return;
     // i, j are global indices
-    for (auto it = A.storage_->tiles_.begin(); it != A.storage_->tiles_.end(); ++it) {
+    for (auto it = A.storage_->tiles_.begin();
+             it != A.storage_->tiles_.end(); ++it) {
         int64_t i = std::get<0>(it->first);
         int64_t j = std::get<1>(it->first);
 
         if (! A.tileIsLocal(i, j)) {
-            if (A.storage_->lives_[{i, j}] != 0 || it->second->data() != nullptr) {
+            if (A.storage_->lives_[{i, j}] != 0 ||
+                it->second->data() != nullptr) {
 
                 std::cout << "RANK "  << std::setw(3) << A.mpi_rank_
                           << " TILE " << std::setw(3) << std::get<0>(it->first)
                           << " "      << std::setw(3) << std::get<1>(it->first)
-                          << " LIFE " << std::setw(3) << A.storage_->lives_[{i, j}]
+                          << " LIFE " << std::setw(3)
+                          << A.storage_->lives_[{i, j}]
                           << " data " << it->second->data()
                           << " DEV "  << std::get<2>(it->first) << "\n";
             }
@@ -126,9 +129,15 @@ void Debug::printTilesLives(BaseMatrix<scalar_t> const& A)
     if (! debug_) return;
     // i, j are tile indices
     if (A.mpi_rank_ == 0) {
+        auto index = A.globalIndex(0, 0, A.host_num_);
+        auto tmp_tile = A.storage_->tiles_.find(index);
+        auto tile_end = A.storage_->tiles_.end();
+
         for (int64_t i = 0; i < A.mt(); ++i) {
             for (int64_t j = 0; j < A.nt(); j++) {
-                if (A.storage_->tiles_.find(A.globalIndex(i, j, A.host_num_)) == A.storage_->tiles_.end())
+                index = A.globalIndex(i, j, A.host_num_);
+                tmp_tile = A.storage_->tiles_.find(index);
+                if (tmp_tile == tile_end)
                     printf("  .");
                 else
                     printf("%3lld", (long long) A.tileLife(i, j));

@@ -217,24 +217,43 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    /// @return batch arrays for the A, B, or C matrices, on host, to send to device
+    /// @return batch arrays for the A, B, or C matrices,
+    /// on host, to send to device
     /// Throws error if arrays were not allocated with allocateBatchArrays.
-    scalar_t** a_array_host(int device) { return storage_->a_array_host_.at(device); }
-    scalar_t** b_array_host(int device) { return storage_->b_array_host_.at(device); }
-    scalar_t** c_array_host(int device) { return storage_->c_array_host_.at(device); }
+    scalar_t** a_array_host(int device) {
+        return storage_->a_array_host_.at(device);
+    }
+    scalar_t** b_array_host(int device) {
+        return storage_->b_array_host_.at(device);
+    }
+    scalar_t** c_array_host(int device) {
+        return storage_->c_array_host_.at(device);
+    }
 
     //--------------------------------------------------------------------------
     /// @return batch arrays for the A, B, or C matrices, on device
     /// Throws error if arrays were not allocated with allocateBatchArrays.
-    scalar_t** a_array_device(int device) { return storage_->a_array_dev_.at(device); }
-    scalar_t** b_array_device(int device) { return storage_->b_array_dev_.at(device); }
-    scalar_t** c_array_device(int device) { return storage_->c_array_dev_.at(device); }
+    scalar_t** a_array_device(int device) {
+        return storage_->a_array_dev_.at(device);
+    }
+    scalar_t** b_array_device(int device) {
+        return storage_->b_array_dev_.at(device);
+    }
+    scalar_t** c_array_device(int device) {
+        return storage_->c_array_dev_.at(device);
+    }
 
     //--------------------------------------------------------------------------
     /// @return CUDA streams and cuBLAS handles
-    cublasHandle_t cublas_handle (int device) { return storage_->cublas_handles_ .at(device); }
-    cudaStream_t   compute_stream(int device) { return storage_->compute_streams_.at(device); }
-    cudaStream_t   comm_stream   (int device) { return storage_->comm_streams_   .at(device); }
+    cublasHandle_t cublas_handle(int device) {
+        return storage_->cublas_handles_.at(device);
+    }
+    cudaStream_t compute_stream(int device) {
+        return storage_->compute_streams_.at(device);
+    }
+    cudaStream_t comm_stream(int device) {
+        return storage_->comm_streams_.at(device);
+    }
 
 protected:
     std::tuple<int64_t, int64_t>
@@ -522,7 +541,7 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
     auto tile = storage_->tileInsert(index);
     // set uplo on diagonal tiles (global i == j)
     if (std::get<0>(index) == std::get<1>(index)) {
-        tile->uplo( uplo_ );
+        tile->uplo(uplo_);
     }
     return tile;
 }
@@ -555,7 +574,7 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
     auto tile = storage_->tileInsert(index, data, ld);
     // set uplo on diagonal tiles (global i == j)
     if (std::get<0>(index) == std::get<1>(index)) {
-        tile->uplo( uplo_ );
+        tile->uplo(uplo_);
     }
     return tile;
 }

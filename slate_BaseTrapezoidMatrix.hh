@@ -176,7 +176,8 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
                 int64_t ib = this->tileMb(i);
 
                 if (this->tileIsLocal(i, j)) {
-                    this->tileInsert(i, j, this->host_num_, &A[ ii + jj*lda ], lda);
+                    this->tileInsert(i, j, this->host_num_,
+                                     &A[ii + jj*lda], lda);
                 }
                 ii += ib;
             }
@@ -193,7 +194,8 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
                 int64_t ib = this->tileMb(i);
 
                 if (this->tileIsLocal(i, j)) {
-                    this->tileInsert(i, j, this->host_num_, &A[ ii + jj*lda ], lda);
+                    this->tileInsert(i, j, this->host_num_,
+                                     &A[ii + jj*lda], lda);
                 }
                 ii += ib;
             }
@@ -268,7 +270,8 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
                 int64_t ii_loc = mb*(ii/(mb*p)) + (ii % mb);
 
                 if (this->tileIsLocal(i, j)) {
-                    this->tileInsert(i, j, this->host_num_, &A[ ii_loc + jj_loc*lda ], lda);
+                    this->tileInsert(i, j, this->host_num_,
+                                     &A[ii_loc + jj_loc*lda], lda);
                 }
                 ii += ib;
             }
@@ -289,7 +292,8 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
                 int64_t ii_loc = mb*(ii/(mb*p)) + (ii % mb);
 
                 if (this->tileIsLocal(i, j)) {
-                    this->tileInsert(i, j, this->host_num_, &A[ ii_loc + jj_loc*lda ], lda);
+                    this->tileInsert(i, j, this->host_num_,
+                                     &A[ii_loc + jj_loc*lda], lda);
                 }
                 ii += ib;
             }

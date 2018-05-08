@@ -42,6 +42,7 @@
 
 #include "slate_BaseMatrix.hh"
 #include "slate_Memory.hh"
+#include "slate_Map.hh"
 
 #include <iostream>
 

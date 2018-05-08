@@ -77,7 +77,8 @@ void hemm(slate::internal::TargetType<target>,
     using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
-    // if on right, change to left by transposing A, B, C to get op(C) = op(A)*op(B)
+    // if on right, change to left by transposing A, B, C to get
+    // op(C) = op(A)*op(B)
     if (side == Side::Right) {
         A = conj_transpose(A);
         B = conj_transpose(B);
@@ -93,8 +94,8 @@ void hemm(slate::internal::TargetType<target>,
     assert(B.nt() == C.nt());
 
     // OpenMP needs pointer types, but vectors are exception safe
-    std::vector<uint8_t> bcast_vector( A.nt() );
-    std::vector<uint8_t>  gemm_vector( A.nt() );
+    std::vector<uint8_t> bcast_vector(A.nt());
+    std::vector<uint8_t>  gemm_vector(A.nt());
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
 

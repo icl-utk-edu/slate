@@ -80,8 +80,8 @@ void her2k(slate::internal::TargetType<target>,
     assert(A.nt() == B.nt());
 
     // OpenMP needs pointer types, but vectors are exception safe
-    std::vector<uint8_t> bcast_vector( A.nt() );
-    std::vector<uint8_t>  gemm_vector( A.nt() );
+    std::vector<uint8_t> bcast_vector(A.nt());
+    std::vector<uint8_t>  gemm_vector(A.nt());
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
 

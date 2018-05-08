@@ -106,7 +106,7 @@ public:
 /// Default constructor
 template <typename scalar_t>
 HermitianMatrix<scalar_t>::HermitianMatrix():
-    BaseTrapezoidMatrix< scalar_t >()
+    BaseTrapezoidMatrix<scalar_t>()
 {}
 
 //------------------------------------------------------------------------------

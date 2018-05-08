@@ -519,7 +519,6 @@ void gemm(internal::TargetType<Target::Devices>,
 
             {
                 trace::Block trace_block("cublasDgemmBatched");
-                // todo: assumes no stride
                 if (batch_count_00 > 0) {
                     int64_t mb = C.tileMb(0);
                     int64_t nb = C.tileNb(0);

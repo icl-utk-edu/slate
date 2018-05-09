@@ -150,7 +150,7 @@ template <typename scalar_t> void test_potrf_work( Params &params, bool run )
         params.error.value() = error_norm;
 
         real_t eps = std::numeric_limits<real_t>::epsilon();
-        params.okay.value() = ( ( params.error.value() <= 50*eps ) );
+        params.okay.value() = ( params.error.value() <= 50*eps );
     }
 
     // Cblacs_exit is commented out because it does not handle re-entering ... some unknown problem

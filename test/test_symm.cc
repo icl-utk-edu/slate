@@ -27,8 +27,6 @@ void test_symm_work( Params &params, bool run )
     using real_t = blas::real_type<scalar_t>;
 
     // get & mark input values
-    //blas::Op transA = params.transA.value();
-    //blas::Op transB = params.transB.value();
     blas::Side side = params.side.value();
     blas::Uplo uplo = params.uplo.value();
     int64_t m = params.dim.m();
@@ -166,7 +164,7 @@ void test_symm_work( Params &params, bool run )
         // allocate workspace for norms
         size_t ldw = nb * ceil( ceil( mlocA / ( double ) nb ) / ( scalapack_ilcm( &nprow, &npcol ) / nprow ) );
         std::vector< real_t > worklansy( 2 * nlocA + mlocA + ldw );
-        std::vector< real_t > worklange( std::max( {mlocC, mlocB} ) );
+        std::vector< real_t > worklange( std::max( {mlocC, nlocC, mlocB, nlocB} ) );
 
         // get norms of the original data
         real_t A_orig_norm = scalapack_plansy( norm2str( norm ), uplo2str( uplo ), An, &A_tst[0], i1, i1, descA_tst, &worklansy[0] );
@@ -199,7 +197,7 @@ void test_symm_work( Params &params, bool run )
         slate_set_num_blas_threads( saved_num_threads );
 
         real_t eps = std::numeric_limits< real_t >::epsilon();
-        params.okay.value() = ( params.error.value() <= 50*eps );
+        params.okay.value() = ( params.error.value() <= 3*eps );
     }
 
     //Cblacs_exit(1) is commented out because it does not handle re-entering ... some unknown problem

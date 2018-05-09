@@ -384,7 +384,7 @@ void syrk(internal::TargetType<Target::Devices>,
 
                 Op opB = (opA == Op::NoTrans ? Op::Trans : Op::NoTrans);
 
-                for (int64_t j = 0; j < C.nt(); ++j) {
+                for (int64_t j = 0; j < C.nt()-1; ++j) {
                     for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
@@ -521,7 +521,7 @@ void syrk(internal::TargetType<Target::Devices>,
                     assert(error == cudaSuccess);
                 }
 
-                for (int64_t j = 0; j < C.nt(); ++j) {
+                for (int64_t j = 0; j < C.nt()-1; ++j) {
                     for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {

@@ -642,4 +642,50 @@ inline void scalapack_phemm (const char *side, const char *uplo, int64_t m, int6
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+
+#define scalapack_pcher2k BLAS_FORTRAN_NAME(pcher2k,PCHER2K)
+#define scalapack_pzher2k BLAS_FORTRAN_NAME(pzher2k,PZHER2K)
+
+extern "C" void scalapack_pcher2k (const char *uplo, const char *trans, blas_int *n, blas_int *k, std::complex<float> *alpha, std::complex<float> *a, blas_int *ia, blas_int *ja, blas_int *desca, std::complex<float> *b, blas_int *ib, blas_int *jb, blas_int *descb, float *beta, std::complex<float> *c, blas_int *ic, blas_int *jc, blas_int *descc);
+
+extern "C" void scalapack_pzher2k (const char *uplo, const char *trans, blas_int *n, blas_int *k, std::complex<double> *alpha, std::complex<double> *a, blas_int *ia, blas_int *ja, blas_int *desca, std::complex<double> *b, blas_int *ib, blas_int *jb, blas_int *descb, double *beta, std::complex<double> *c, blas_int *ic, blas_int *jc, blas_int *descc);
+
+// -----------------------------------------------------------------------------
+
+inline void scalapack_pher2k (const char *uplo, const char *trans, blas_int *n, blas_int *k, float *alpha, float *a, blas_int *ia, blas_int *ja, blas_int *desca, float *b, blas_int *ib, blas_int *jb, blas_int *descb, float *beta, float *c, blas_int *ic, blas_int *jc, blas_int *descc)
+{
+    scalapack_pssyr2k (uplo, trans, n, k, alpha, a, ia, ja, desca, b, ib, jb, descb, beta, c, ic, jc, descc);
+}
+
+inline void scalapack_pher2k (const char *uplo, const char *trans, blas_int *n, blas_int *k, double *alpha, double *a, blas_int *ia, blas_int *ja, blas_int *desca, double *b, blas_int *ib, blas_int *jb, blas_int *descb, double *beta, double *c, blas_int *ic, blas_int *jc, blas_int *descc)
+{
+    scalapack_pdsyr2k (uplo, trans, n, k, alpha, a, ia, ja, desca, b, ib, jb, descb, beta, c, ic, jc, descc);
+}
+
+inline void scalapack_pher2k (const char *uplo, const char *trans, blas_int *n, blas_int *k, std::complex<float> *alpha, std::complex<float> *a, blas_int *ia, blas_int *ja, blas_int *desca, std::complex<float> *b, blas_int *ib, blas_int *jb, blas_int *descb, float *beta, std::complex<float> *c, blas_int *ic, blas_int *jc, blas_int *descc)
+{
+    scalapack_pcher2k (uplo, trans, n, k, alpha, a, ia, ja, desca, b, ib, jb, descb, beta, c, ic, jc, descc);
+}
+
+inline void scalapack_pher2k (const char *uplo, const char *trans, blas_int *n, blas_int *k, std::complex<double> *alpha, std::complex<double> *a, blas_int *ia, blas_int *ja, blas_int *desca, std::complex<double> *b, blas_int *ib, blas_int *jb, blas_int *descb, double *beta, std::complex<double> *c, blas_int *ic, blas_int *jc, blas_int *descc)
+{
+    scalapack_pzher2k (uplo, trans, n, k, alpha, a, ia, ja, desca, b, ib, jb, descb, beta, c, ic, jc, descc);
+}
+
+template <typename scalar_t>
+inline void scalapack_pher2k (const char *uplo, const char *trans, int64_t n, int64_t k, scalar_t alpha, scalar_t *a, int64_t ia, int64_t ja, int *desca, scalar_t *b, int64_t ib, int64_t jb, int *descb, blas::real_type<scalar_t> beta, scalar_t *c, int64_t ic, int64_t jc, int *descc)
+{
+    int n_ = int64_to_int (n);
+    int k_ = int64_to_int (k);
+    int ia_ = int64_to_int (ia);
+    int ja_ = int64_to_int (ja);
+    int ib_ = int64_to_int (ib);
+    int jb_ = int64_to_int (jb);
+    int ic_ = int64_to_int (ic);
+    int jc_ = int64_to_int (jc);
+    scalapack_pher2k (uplo, trans, &n_, &k_, &alpha, a, &ia_, &ja_, desca, b, &ib_, &jb_, descb, &beta, c, &ic_, &jc_, descc);
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 #endif // ICL_SLATE_SCALAPACK_WRAPPERS_HH

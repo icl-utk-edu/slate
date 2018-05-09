@@ -451,12 +451,7 @@ void her2k(internal::TargetType<Target::Devices>,
 
                 Op opB = (opA == Op::NoTrans ? Op::ConjTrans : Op::NoTrans);
 
-                scalar_t** a_array_host = C.a_array_host(device);
-                scalar_t** b_array_host = C.b_array_host(device);
-                scalar_t** c_array_host = C.c_array_host(device);
-
-                int64_t batch_count = 0;
-                for (int64_t j = 0; j < C.nt(); ++j) {
+                for (int64_t j = 0; j < C.nt()-1; ++j) {
                     for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
@@ -465,9 +460,61 @@ void her2k(internal::TargetType<Target::Devices>,
                                 B.tileCopyToDevice(i, 0, device);
                                 B.tileCopyToDevice(j, 0, device);
                                 C.tileMoveToDevice(i, j, device);
-                                a_array_host[ batch_count ] = A(i, 0, device).data();
-                                b_array_host[ batch_count ] = B(j, 0, device).data();
-                                c_array_host[ batch_count ] = C(i, j, device).data();
+                            }
+                        }
+                    }
+                }
+
+                scalar_t** a_array_host = C.a_array_host(device);
+                scalar_t** b_array_host = C.b_array_host(device);
+                scalar_t** c_array_host = C.c_array_host(device);
+
+                //----------------------------------------
+                // A * B^T
+                int64_t batch_count = 0;
+                int64_t batch_count_00 = 0;
+                int64_t lda00 = 0;
+                int64_t ldb00 = 0;
+                int64_t ldc00 = 0;
+                int64_t mb00 = C.tileMb(0);
+                int64_t nb00 = C.tileNb(0);
+                int64_t kb = A.tileNb(0);   // == A.tileMb(0)
+                for (int64_t j = 0; j < C.nt()-1; ++j) {
+                    for (int64_t i = j+1; i < C.mt()-1; ++i) {  // strictly lower
+                        if (C.tileIsLocal(i, j)) {
+                            if (device == C.tileDevice(i, j)) {
+                                a_array_host[batch_count] = A(i, 0, device).data();
+                                b_array_host[batch_count] = B(j, 0, device).data();
+                                c_array_host[batch_count] = C(i, j, device).data();
+                                lda00 = A(i, 0, device).stride();
+                                ldb00 = B(j, 0, device).stride();
+                                ldc00 = C(i, j, device).stride();
+                                ++batch_count_00;
+                                ++batch_count;
+                            }
+                        }
+                    }
+                }
+
+                int64_t batch_count_10 = 0;
+                int64_t lda10 = 0;
+                int64_t ldb10 = 0;
+                int64_t ldc10 = 0;
+                int64_t mb10 = C.tileMb(C.mt()-1);
+                int64_t nb10 = C.tileNb(0);
+                // same kb as above
+                {
+                    int64_t i = C.mt()-1;
+                    for (int64_t j = 0; j < C.nt()-1; ++j) {
+                        if (C.tileIsLocal(i, j)) {
+                            if (device == C.tileDevice(i, j)) {
+                                a_array_host[batch_count] = A(i, 0, device).data();
+                                b_array_host[batch_count] = B(j, 0, device).data();
+                                c_array_host[batch_count] = C(i, j, device).data();
+                                lda10 = A(i, 0, device).stride();
+                                ldb10 = B(j, 0, device).stride();
+                                ldc10 = C(i, j, device).stride();
+                                ++batch_count_10;
                                 ++batch_count;
                             }
                         }
@@ -476,16 +523,18 @@ void her2k(internal::TargetType<Target::Devices>,
 
                 if (C.op() != Op::NoTrans) {
                     // swap A <=> B; swap m <=> n
-                    // alpha conjugated above
                     swap(opA, opB);
                     swap(a_array_host, b_array_host);
-                    //swap( lda, ldb );  // todo: assumed to be nb
-                    //swap( m, n );      // todo: assumed to be nb
+                    swap(lda00, ldb00);
+                    swap(lda10, ldb10);
+                    swap(mb00, nb00);
+                    swap(mb10, nb10);
                 }
 
                 scalar_t** a_array_dev = C.a_array_device(device);
                 scalar_t** b_array_dev = C.b_array_device(device);
                 scalar_t** c_array_dev = C.c_array_device(device);
+
                 cudaError_t error;
                 error = cudaSetDevice(device);
                 assert(error == cudaSuccess);
@@ -514,70 +563,134 @@ void her2k(internal::TargetType<Target::Devices>,
 
                 {
                     trace::Block trace_block("cublasDgemmBatched");
-                    // todo: assumes all tiles are allocated nb-by-nb with stride nb
-                    int nb = C.tileNb(0);
-                    cublasStatus_t status =
-                        cublasGemmBatched(
-                            cublas_handle,  // uses stream
-                            cublas_op_const(opA), cublas_op_const(opB),
-                            nb, nb, nb,
-                            &alpha, (const scalar_t**) a_array_dev, nb,
-                                    (const scalar_t**) b_array_dev, nb,
-                            &beta_, c_array_dev, nb,
-                            batch_count);
-                    assert(status == CUBLAS_STATUS_SUCCESS);
+                    if (batch_count_00 > 0) {
+                        cublasStatus_t status =
+                            cublasGemmBatched(
+                                cublas_handle,  // uses stream
+                                cublas_op_const(opA), cublas_op_const(opB),
+                                mb00, nb00, kb,
+                                &alpha, (const scalar_t**) a_array_dev, lda00,
+                                        (const scalar_t**) b_array_dev, ldb00,
+                                &beta_,                    c_array_dev, ldc00,
+                                batch_count_00);
+                        assert(status == CUBLAS_STATUS_SUCCESS);
+                        a_array_dev += batch_count_00;
+                        b_array_dev += batch_count_00;
+                        c_array_dev += batch_count_00;
+                    }
+
+                    if (batch_count_10 > 0) {
+                        cublasStatus_t status =
+                            cublasGemmBatched(
+                                cublas_handle,  // uses stream
+                                cublas_op_const(opA), cublas_op_const(opB),
+                                mb10, nb10, kb,
+                                &alpha, (const scalar_t**) a_array_dev, lda10,
+                                        (const scalar_t**) b_array_dev, ldb10,
+                                &beta_,                    c_array_dev, ldc10,
+                                batch_count_10);
+                        assert(status == CUBLAS_STATUS_SUCCESS);
+                    }
 
                     // todo: need to wait for previous cudaMemcpy to finish,
                     // NOT for gemm batched to finish
                     error = cudaStreamSynchronize(stream);
                     assert(error == cudaSuccess);
+                }
 
-                    // ai => bi, bj => aj, set beta = 1
-                    batch_count = 0;
-                    for (int64_t j = 0; j < C.nt(); ++j) {
-                        for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
-                            if (C.tileIsLocal(i, j)) {
-                                if (device == C.tileDevice(i, j)) {
-                                    a_array_host[ batch_count ] = A(j, 0, device).data();
-                                    b_array_host[ batch_count ] = B(i, 0, device).data();
-                                    ++batch_count;
-                                }
+                //----------------------------------------
+                // B * A^T
+                // ai => bi, bj => aj, set beta = 1
+                batch_count = 0;
+                for (int64_t j = 0; j < C.nt()-1; ++j) {
+                    for (int64_t i = j+1; i < C.mt()-1; ++i) {  // strictly lower
+                        if (C.tileIsLocal(i, j)) {
+                            if (device == C.tileDevice(i, j)) {
+                                a_array_host[batch_count] = A(j, 0, device).data();
+                                b_array_host[batch_count] = B(i, 0, device).data();
+                                lda00 = A(j, 0, device).stride();
+                                ldb00 = B(i, 0, device).stride();
+                                ++batch_count;
                             }
                         }
                     }
+                }
 
-                    if (C.op() != Op::NoTrans) {
-                        // swap A <=> B; swap m <=> n
-                        //swap( opA, opB );  // already done above
-                        swap(a_array_host, b_array_host);
-                        //swap( lda, ldb );  // todo: assumed to be nb
-                        //swap( m, n );      // todo: assumed to be nb
+                {
+                    int i = C.mt()-1;
+                    for (int64_t j = 0; j < C.nt()-1; ++j) {
+                        if (C.tileIsLocal(i, j)) {
+                            if (device == C.tileDevice(i, j)) {
+                                a_array_host[batch_count] = A(j, 0, device).data();
+                                b_array_host[batch_count] = B(i, 0, device).data();
+                                lda10 = A(j, 0, device).stride();
+                                ldb10 = B(i, 0, device).stride();
+                                ++batch_count;
+                            }
+                        }
                     }
+                }
 
-                    error = cudaMemcpyAsync(a_array_dev, a_array_host,
-                                            sizeof(scalar_t*)*batch_count,
-                                            cudaMemcpyHostToDevice,
-                                            stream);
-                    assert(error == cudaSuccess);
+                if (C.op() != Op::NoTrans) {
+                    // swap A <=> B; swap m <=> n
+                    //swap(opA, opB);  // already done above
+                    swap(a_array_host, b_array_host);
+                    swap(lda00, ldb00);
+                    swap(lda10, ldb10);
+                    //swap(mb00, nb00);  // already done above
+                    //swap(mb10, nb10);  // already done above
+                }
 
-                    error = cudaMemcpyAsync(b_array_dev, b_array_host,
-                                            sizeof(scalar_t*)*batch_count,
-                                            cudaMemcpyHostToDevice,
-                                            stream);
-                    assert(error == cudaSuccess);
+                a_array_dev = C.a_array_device(device);
+                b_array_dev = C.b_array_device(device);
+                c_array_dev = C.c_array_device(device);
 
+                error = cudaMemcpyAsync(a_array_dev, a_array_host,
+                                        sizeof(scalar_t*)*batch_count,
+                                        cudaMemcpyHostToDevice,
+                                        stream);
+                assert(error == cudaSuccess);
+
+                error = cudaMemcpyAsync(b_array_dev, b_array_host,
+                                        sizeof(scalar_t*)*batch_count,
+                                        cudaMemcpyHostToDevice,
+                                        stream);
+                assert(error == cudaSuccess);
+
+                {
+                    trace::Block trace_block("cublasDgemmBatched");
                     alpha = conj(alpha);
                     scalar_t one = 1;
-                    status =
-                        cublasGemmBatched(
-                            cublas_handle,  // uses stream
-                            cublas_op_const( opA ), cublas_op_const( opB ),
-                            nb, nb, nb,
-                            &alpha, (const scalar_t**) b_array_dev, nb,
-                                    (const scalar_t**) a_array_dev, nb,
-                            &one,   c_array_dev, nb,
-                            batch_count);
-                    assert(status == CUBLAS_STATUS_SUCCESS);
+
+                    if (batch_count_00 > 0) {
+                        cublasStatus_t status =
+                            cublasGemmBatched(
+                                cublas_handle,  // uses stream
+                                cublas_op_const(opA), cublas_op_const(opB),
+                                mb00, nb00, kb,
+                                &alpha, (const scalar_t**) b_array_dev, ldb00,
+                                        (const scalar_t**) a_array_dev, lda00,
+                                &one,                      c_array_dev, ldc00,
+                                batch_count_00);
+                        assert(status == CUBLAS_STATUS_SUCCESS);
+                        a_array_dev += batch_count_00;
+                        b_array_dev += batch_count_00;
+                        c_array_dev += batch_count_00;
+                    }
+
+                    if (batch_count_10 > 0) {
+                        cublasStatus_t status =
+                            cublasGemmBatched(
+                                cublas_handle,  // uses stream
+                                cublas_op_const(opA), cublas_op_const(opB),
+                                mb10, nb10, kb,
+                                &alpha, (const scalar_t**) b_array_dev, ldb10,
+                                        (const scalar_t**) a_array_dev, lda10,
+                                &one,                      c_array_dev, ldc10,
+                                batch_count_10);
+                        assert(status == CUBLAS_STATUS_SUCCESS);
+                    }
+
                     error = cudaStreamSynchronize(stream);
                     assert(error == cudaSuccess);
                 }

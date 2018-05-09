@@ -159,7 +159,7 @@ void test_syrk_work (Params &params, bool run)
 
         // run the reference routine
         MPI_Barrier (MPI_COMM_WORLD);
-        double time = libtest::get_wtime();
+        time = libtest::get_wtime();
         scalapack_psyrk (uplo2str (uplo), op2str (transA), n, k, alpha,
                          &A_tst[0], i1, i1, descA_tst, beta,
                          &C_ref[0], i1, i1, descC_ref);

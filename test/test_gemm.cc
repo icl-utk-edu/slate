@@ -188,7 +188,7 @@ void test_gemm_work (Params &params, bool run)
 
         // run the reference routine
         MPI_Barrier (MPI_COMM_WORLD);
-        double time = libtest::get_wtime();
+        time = libtest::get_wtime();
         scalapack_pgemm (op2str (transA), op2str (transB), m, n, k, alpha,
                          &A_tst[0], i1, i1, descA_tst,
                          &B_tst[0], i1, i1, descB_tst, beta,

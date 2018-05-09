@@ -123,7 +123,7 @@ template <typename scalar_t> void test_potrf_work (Params &params, bool run)
 
         // Run the reference routine on A_ref
         MPI_Barrier (MPI_COMM_WORLD);
-        double time = libtest::get_wtime();
+        time = libtest::get_wtime();
         scalapack_ppotrf (uplo2str (uplo), n, &A_ref[0], i1, i1, descA_ref, &info);
         assert (0 == info);
         MPI_Barrier (MPI_COMM_WORLD);

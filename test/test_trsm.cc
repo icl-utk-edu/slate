@@ -165,7 +165,7 @@ void test_trsm_work (Params &params, bool run)
 
         // Run the reference routine
         MPI_Barrier (MPI_COMM_WORLD);
-        double time = libtest::get_wtime();
+        time = libtest::get_wtime();
         scalapack_ptrsm (side2str (side), uplo2str (uplo), op2str (transA), diag2str (diag),
                          m, n, alpha,
                          &A_tst[0], i1, i1, descA_tst,

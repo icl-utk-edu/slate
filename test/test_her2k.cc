@@ -179,7 +179,7 @@ void test_her2k_work (Params &params, bool run)
 
         // Run the reference routine
         MPI_Barrier (MPI_COMM_WORLD);
-        double time = libtest::get_wtime();
+        time = libtest::get_wtime();
         scalapack_pher2k (uplo2str (uplo), op2str (trans), n, k, alpha,
                           &A_tst[0], i1, i1, descA_tst,
                           &B_tst[0], i1, i1, descB_tst, beta,

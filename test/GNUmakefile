@@ -19,7 +19,7 @@ LIB := -lscalapack ${LIB}
 endif
 
 
-test_src = ${top}/test/test.cc ${top}/test/test_gemm.cc ${top}/test/test_trmm.cc ${top}/test/test_symm.cc ${top}/test/test_syrk.cc ${top}/test/test_syr2k.cc ${top}/test/test_trsm.cc ${top}/test/test_potrf.cc 
+test_src = ${top}/test/test.cc ${top}/test/test_gemm.cc ${top}/test/test_trmm.cc ${top}/test/test_symm.cc ${top}/test/test_syrk.cc ${top}/test/test_syr2k.cc ${top}/test/test_trsm.cc ${top}/test/test_potrf.cc ${top}/test/test_hemm.cc 
 test_obj = $(test_src:.cc=.o)
 test_dep = $(test_src:.cc=.d) 
 

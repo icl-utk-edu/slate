@@ -596,4 +596,50 @@ inline blas::real_type<scalar_t> scalapack_plantr( const char *norm, const char 
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+
+#define scalapack_pchemm BLAS_FORTRAN_NAME(pchemm,PCHEMM)
+#define scalapack_pzhemm BLAS_FORTRAN_NAME(pzhemm,PZHEMM)
+
+extern "C" void scalapack_pchemm( const char *side, const char *uplo, int *m, int *n, const std::complex<float>  *alpha, const std::complex<float>  *a, int *ia, int *ja, int *desca, const std::complex<float>  *b, int *ib, int *jb, int *descb, const std::complex<float>  *beta, const std::complex<float>  *c, int *ic, int *jc, int *descc );
+
+extern "C" void scalapack_pzhemm( const char *side, const char *uplo, int *m, int *n, const std::complex<double> *alpha, const std::complex<double> *a, int *ia, int *ja, int *desca, const std::complex<double> *b, int *ib, int *jb, int *descb, const std::complex<double> *beta, const std::complex<double> *c, int *ic, int *jc, int *descc );
+
+// -----------------------------------------------------------------------------
+
+inline void scalapack_phemm( const char *side, const char *uplo, int *m, int *n, float *alpha, float *a, int *ia, int *ja, int *desca, float *b, int *ib, int *jb, int *descb, float *beta, float *c, int *ic, int *jc, int *descc )
+{
+    scalapack_pssymm( side, uplo, m, n, alpha, a, ia, ja, desca, b, ib, jb, descb, beta, c, ic, jc, descc );
+}
+
+inline void scalapack_phemm( const char *side, const char *uplo, int *m, int *n, double *alpha, double *a, int *ia, int *ja, int *desca, double *b, int *ib, int *jb, int *descb, double *beta, double *c, int *ic, int *jc, int *descc )
+{
+    scalapack_pdsymm( side, uplo, m, n, alpha, a, ia, ja, desca, b, ib, jb, descb, beta, c, ic, jc, descc );
+}
+
+inline void scalapack_phemm( const char *side, const char *uplo, int *m, int *n, const std::complex<float>  *alpha, const std::complex<float>  *a, int *ia, int *ja, int *desca, const std::complex<float>  *b, int *ib, int *jb, int *descb, const std::complex<float>  *beta, const std::complex<float>  *c, int *ic, int *jc, int *descc )
+{
+    scalapack_pchemm( side, uplo, m, n, alpha, a, ia, ja, desca, b, ib, jb, descb, beta, c, ic, jc, descc );
+}
+
+inline void scalapack_phemm( const char *side, const char *uplo, int *m, int *n, const std::complex<double> *alpha, const std::complex<double> *a, int *ia, int *ja, int *desca, const std::complex<double> *b, int *ib, int *jb, int *descb, const std::complex<double> *beta, const std::complex<double> *c, int *ic, int *jc, int *descc )
+{
+    scalapack_pzhemm( side, uplo, m, n, alpha, a, ia, ja, desca, b, ib, jb, descb, beta, c, ic, jc, descc );
+}
+
+template < typename scalar_t >
+inline void scalapack_phemm( const char *side, const char *uplo, int64_t m, int64_t n, scalar_t alpha, scalar_t *a, int64_t ia, int64_t ja, int *desca, scalar_t *b, int64_t ib, int64_t jb, int *descb, scalar_t beta, scalar_t *c, int64_t ic, int64_t jc, int *descc )
+{
+    int m_ = int64_to_int( m );
+    int n_ = int64_to_int( n );
+    int ia_ = int64_to_int( ia );
+    int ja_ = int64_to_int( ja );
+    int ib_ = int64_to_int( ib );
+    int jb_ = int64_to_int( jb );
+    int ic_ = int64_to_int( ic );
+    int jc_ = int64_to_int( jc );
+    scalapack_phemm( side, uplo, &m_, &n_, &alpha, a, &ia_, &ja_, desca, b, &ib_, &jb_, descb, &beta, c, &ic_, &jc_, descc );
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 #endif // ICL_SLATE_SCALAPACK_WRAPPERS_HH

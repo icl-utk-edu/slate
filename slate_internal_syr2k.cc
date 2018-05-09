@@ -479,18 +479,20 @@ void syr2k(internal::TargetType<Target::Devices>,
                 int64_t lda10;
                 int64_t ldb10;
                 int64_t ldc10;
-                 int64_t i = C.mt()-1;
-                for (int64_t j = 0; j < C.nt()-1; ++j) {
-                    if (C.tileIsLocal(i, j)) {
-                        if (device == C.tileDevice(i, j)) {
-                            a_array_host[batch_count] = A(i, 0, device).data();
-                            b_array_host[batch_count] = B(j, 0, device).data();
-                            c_array_host[batch_count] = C(i, j, device).data();
-                            lda10 = A(i, 0, device).stride();
-                            ldb10 = B(j, 0, device).stride();
-                            ldc10 = C(i, j, device).stride();
-                            ++batch_count_10;
-                            ++batch_count;
+                {
+                    int64_t i = C.mt()-1;
+                    for (int64_t j = 0; j < C.nt()-1; ++j) {
+                        if (C.tileIsLocal(i, j)) {
+                            if (device == C.tileDevice(i, j)) {
+                                a_array_host[batch_count] = A(i, 0, device).data();
+                                b_array_host[batch_count] = B(j, 0, device).data();
+                                c_array_host[batch_count] = C(i, j, device).data();
+                                lda10 = A(i, 0, device).stride();
+                                ldb10 = B(j, 0, device).stride();
+                                ldc10 = C(i, j, device).stride();
+                                ++batch_count_10;
+                                ++batch_count;
+                            }
                         }
                     }
                 }
@@ -592,15 +594,17 @@ void syr2k(internal::TargetType<Target::Devices>,
                     }
                 }
 
-                i = C.mt()-1;
-                for (int64_t j = 0; j < C.nt()-1; ++j) {
-                    if (C.tileIsLocal(i, j)) {
-                        if (device == C.tileDevice(i, j)) {
-                            a_array_host[batch_count] = A(j, 0, device).data();
-                            b_array_host[batch_count] = B(i, 0, device).data();
-                            lda10 = A(j, 0, device).stride();
-                            ldb10 = B(i, 0, device).stride();
-                            ++batch_count;
+                {
+                    int i = C.mt()-1;
+                    for (int64_t j = 0; j < C.nt()-1; ++j) {
+                        if (C.tileIsLocal(i, j)) {
+                            if (device == C.tileDevice(i, j)) {
+                                a_array_host[batch_count] = A(j, 0, device).data();
+                                b_array_host[batch_count] = B(i, 0, device).data();
+                                lda10 = A(j, 0, device).stride();
+                                ldb10 = B(i, 0, device).stride();
+                                ++batch_count;
+                            }
                         }
                     }
                 }

@@ -426,18 +426,20 @@ void gemm(internal::TargetType<Target::Devices>,
             int64_t lda10;
             int64_t ldb10;
             int64_t ldc10;
-            int64_t i = C.mt()-1;
-            for (int64_t j = 0; j < C.nt()-1; ++j) {
-                if (C.tileIsLocal(i, j)) {
-                    if (device == C.tileDevice(i, j)) {
-                        a_array_host[batch_count] = A(i, 0, device).data();
-                        b_array_host[batch_count] = B(0, j, device).data();
-                        c_array_host[batch_count] = C(i, j, device).data();
-                        lda10 = A(i, 0, device).stride();
-                        ldb10 = B(0, j, device).stride();
-                        ldc10 = C(i, j, device).stride();
-                        ++batch_count_10;
-                        ++batch_count;
+            {
+                int64_t i = C.mt()-1;
+                for (int64_t j = 0; j < C.nt()-1; ++j) {
+                    if (C.tileIsLocal(i, j)) {
+                        if (device == C.tileDevice(i, j)) {
+                            a_array_host[batch_count] = A(i, 0, device).data();
+                            b_array_host[batch_count] = B(0, j, device).data();
+                            c_array_host[batch_count] = C(i, j, device).data();
+                            lda10 = A(i, 0, device).stride();
+                            ldb10 = B(0, j, device).stride();
+                            ldc10 = C(i, j, device).stride();
+                            ++batch_count_10;
+                            ++batch_count;
+                        }
                     }
                 }
             }
@@ -445,18 +447,20 @@ void gemm(internal::TargetType<Target::Devices>,
             int64_t lda01;
             int64_t ldb01;
             int64_t ldc01;
-            int64_t j = C.nt()-1;
-            for (int64_t i = 0; i < C.mt()-1; ++i) {
-                if (C.tileIsLocal(i, j)) {
-                    if (device == C.tileDevice(i, j)) {
-                        a_array_host[batch_count] = A(i, 0, device).data();
-                        b_array_host[batch_count] = B(0, j, device).data();
-                        c_array_host[batch_count] = C(i, j, device).data();
-                        lda01 = A(i, 0, device).stride();
-                        ldb01 = B(0, j, device).stride();
-                        ldc01 = C(i, j, device).stride();
-                        ++batch_count_01;
-                        ++batch_count;
+            {
+                int64_t j = C.nt()-1;
+                for (int64_t i = 0; i < C.mt()-1; ++i) {
+                    if (C.tileIsLocal(i, j)) {
+                        if (device == C.tileDevice(i, j)) {
+                            a_array_host[batch_count] = A(i, 0, device).data();
+                            b_array_host[batch_count] = B(0, j, device).data();
+                            c_array_host[batch_count] = C(i, j, device).data();
+                            lda01 = A(i, 0, device).stride();
+                            ldb01 = B(0, j, device).stride();
+                            ldc01 = C(i, j, device).stride();
+                            ++batch_count_01;
+                            ++batch_count;
+                        }
                     }
                 }
             }
@@ -464,20 +468,22 @@ void gemm(internal::TargetType<Target::Devices>,
             int64_t lda11;
             int64_t ldb11;
             int64_t ldc11;
-            i = C.mt()-1;
-            j = C.nt()-1;
-            if (C.tileIsLocal(i, j)) {
-                if (device == C.tileDevice(i, j)) {
-                    a_array_host[batch_count] = A(i, 0, device).data();
-                    b_array_host[batch_count] = B(0, j, device).data();
-                    c_array_host[batch_count] = C(i, j, device).data();
-                    lda11 = A(i, 0, device).stride();
-                    ldb11 = B(0, j, device).stride();
-                    ldc11 = C(i, j, device).stride();
-                    ++batch_count_11;
-                    ++batch_count;
+            {
+                int i = C.mt()-1;
+                int j = C.nt()-1;
+                if (C.tileIsLocal(i, j)) {
+                    if (device == C.tileDevice(i, j)) {
+                        a_array_host[batch_count] = A(i, 0, device).data();
+                        b_array_host[batch_count] = B(0, j, device).data();
+                        c_array_host[batch_count] = C(i, j, device).data();
+                        lda11 = A(i, 0, device).stride();
+                        ldb11 = B(0, j, device).stride();
+                        ldc11 = C(i, j, device).stride();
+                        ++batch_count_11;
+                        ++batch_count;
+                    }
                 }
-            }
+           }
 
             if (C.op() != Op::NoTrans) {
                 // swap A <=> B; swap m <=> n

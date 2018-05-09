@@ -688,4 +688,48 @@ inline void scalapack_pher2k (const char *uplo, const char *trans, int64_t n, in
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+
+#define scalapack_pcherk BLAS_FORTRAN_NAME(pcherk,PCHERK)
+#define scalapack_pzherk BLAS_FORTRAN_NAME(pzherk,PZHERK)
+
+extern "C" void scalapack_pcherk (const char *uplo, const char *trans, blas_int *n, blas_int *k, float *alpha, std::complex<float> *a, blas_int *ia, blas_int *ja, blas_int *desca, float *beta, std::complex<float> *c, blas_int *ic, blas_int *jc, blas_int *descc);
+
+extern "C" void scalapack_pzherk (const char *uplo, const char *trans, blas_int *n, blas_int *k, double *alpha, std::complex<double> *a, blas_int *ia, blas_int *ja, blas_int *desca, double *beta, std::complex<double> *c, blas_int *ic, blas_int *jc, blas_int *descc);
+
+// -----------------------------------------------------------------------------
+
+inline void scalapack_pherk (const char *uplo, const char *trans, blas_int *n, blas_int *k, float *alpha, float *a, blas_int *ia, blas_int *ja, blas_int *desca, float *beta, float *c, blas_int *ic, blas_int *jc, blas_int *descc)
+{
+    scalapack_pssyrk (uplo, trans, n, k, alpha, a, ia, ja, desca, beta, c, ic, jc, descc);
+}
+
+inline void scalapack_pherk (const char *uplo, const char *trans, blas_int *n, blas_int *k, double *alpha, double *a, blas_int *ia, blas_int *ja, blas_int *desca, double *beta, double *c, blas_int *ic, blas_int *jc, blas_int *descc)
+{
+    scalapack_pdsyrk (uplo, trans, n, k, alpha, a, ia, ja, desca, beta, c, ic, jc, descc);
+}
+
+inline void scalapack_pherk (const char *uplo, const char *trans, blas_int *n, blas_int *k, float *alpha, std::complex<float> *a, blas_int *ia, blas_int *ja, blas_int *desca, float *beta, std::complex<float> *c, blas_int *ic, blas_int *jc, blas_int *descc)
+{
+    scalapack_pcherk (uplo, trans, n, k, alpha, a, ia, ja, desca, beta, c, ic, jc, descc);
+}
+
+inline void scalapack_pherk (const char *uplo, const char *trans, blas_int *n, blas_int *k, double *alpha, std::complex<double> *a, blas_int *ia, blas_int *ja, blas_int *desca, double *beta, std::complex<double> *c, blas_int *ic, blas_int *jc, blas_int *descc)
+{
+    scalapack_pzherk (uplo, trans, n, k, alpha, a, ia, ja, desca, beta, c, ic, jc, descc);
+}
+
+template <typename scalar_t>
+inline void scalapack_pherk (const char *uplo, const char *trans, int64_t n, int64_t k, blas::real_type<scalar_t> alpha, scalar_t *a, int64_t ia, int64_t ja, int *desca, blas::real_type<scalar_t> beta, scalar_t *c, int64_t ic, int64_t jc, int *descc)
+{
+    int n_ = int64_to_int (n);
+    int k_ = int64_to_int (k);
+    int ia_ = int64_to_int (ia);
+    int ja_ = int64_to_int (ja);
+    int ic_ = int64_to_int (ic);
+    int jc_ = int64_to_int (jc);
+    scalapack_pherk (uplo, trans, &n_, &k_, &alpha, a, &ia_, &ja_, desca, &beta, c, &ic_, &jc_, descc);
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 #endif // ICL_SLATE_SCALAPACK_WRAPPERS_HH

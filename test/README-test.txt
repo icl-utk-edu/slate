@@ -21,6 +21,9 @@ salloc -N 4 -w b[01-04] mpirun -n 4 ./test hemm   --type s,d,c,z --side l,r --up
 salloc -N 4 -w b[01-04] mpirun -n 4 ./test her2k  --type s,d --uplo l,u --trans n,t,c --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,50 --p 2 --q 2
 salloc -N 4 -w b[01-04] mpirun -n 4 ./test her2k  --type c,z --uplo l,u --trans n,c --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,50 --p 2 --q 2
 
+salloc -N 4 -w b[01-04] mpirun -n 4 ./test herk   --type s,d --uplo l,u --trans n,t,c --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,50 --p 2 --q 2
+salloc -N 4 -w b[01-04] mpirun -n 4 ./test herk   --type c,z --uplo l,u --trans n,c --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,50 --p 2 --q 2
+
 
 ---- 
 
@@ -28,3 +31,5 @@ Single runs
 
 salloc -N 4 -w b[01-04] mpirun -n 4 ./test gemm  --type s --dim 100 --nb 64 --p 2 --q 2 
 salloc -N 4 -w b[01-04] mpirun -n 4 ./test potrf  --type s --dim 100 --uplo u --nb 64 --p 2 --q 2 
+
+

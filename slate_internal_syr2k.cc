@@ -643,9 +643,9 @@ void syr2k(internal::TargetType<Target::Devices>,
 
                 {
                     trace::Block trace_block("cublasDgemmBatched");
-                    // todo: assumes all tiles are allocated nb-by-nb with stride nb
+                    scalar_t one = 1;
+
                     if (batch_count_00 > 0) {
-                        scalar_t one = 1;
                         cublasStatus_t status =
                             cublasGemmBatched(
                                 cublas_handle,  // uses stream
@@ -662,7 +662,6 @@ void syr2k(internal::TargetType<Target::Devices>,
                     }
 
                     if (batch_count_10 > 0) {
-                        scalar_t one = 1;
                         cublasStatus_t status =
                             cublasGemmBatched(
                                 cublas_handle,  // uses stream

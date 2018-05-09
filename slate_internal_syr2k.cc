@@ -453,11 +453,16 @@ void syr2k(internal::TargetType<Target::Devices>,
                 scalar_t** b_array_host = C.b_array_host(device);
                 scalar_t** c_array_host = C.c_array_host(device);
 
+                //----------------------------------------
+                // A * B^T
                 int64_t batch_count = 0;
                 int64_t batch_count_00 = 0;
-                int64_t lda00;
-                int64_t ldb00;
-                int64_t ldc00;
+                int64_t lda00 = 0;
+                int64_t ldb00 = 0;
+                int64_t ldc00 = 0;
+                int64_t mb00 = C.tileMb(0);
+                int64_t nb00 = C.tileNb(0);
+                int64_t kb = A.tileNb(0);   // == A.tileMb(0)
                 for (int64_t j = 0; j < C.nt()-1; ++j) {
                     for (int64_t i = j+1; i < C.mt()-1; ++i) {  // strictly lower
                         if (C.tileIsLocal(i, j)) {
@@ -476,9 +481,12 @@ void syr2k(internal::TargetType<Target::Devices>,
                 }
 
                 int64_t batch_count_10 = 0;
-                int64_t lda10;
-                int64_t ldb10;
-                int64_t ldc10;
+                int64_t lda10 = 0;
+                int64_t ldb10 = 0;
+                int64_t ldc10 = 0;
+                int64_t mb10 = C.tileMb(C.mt()-1);
+                int64_t nb10 = C.tileNb(0);
+                // same kb as above
                 {
                     int64_t i = C.mt()-1;
                     for (int64_t j = 0; j < C.nt()-1; ++j) {
@@ -499,10 +507,12 @@ void syr2k(internal::TargetType<Target::Devices>,
 
                 if (C.op() != Op::NoTrans) {
                     // swap A <=> B; swap m <=> n
-                    swap( opA, opB );
-                    swap( a_array_host, b_array_host );
-                    //swap( lda, ldb );  // todo: assumed to be nb
-                    //swap( m, n );      // todo: assumed to be nb
+                    swap(opA, opB);
+                    swap(a_array_host, b_array_host);
+                    swap(lda00, ldb00);
+                    swap(lda10, ldb10);
+                    swap(mb00, nb00);
+                    swap(mb10, nb10);
                 }
 
                 scalar_t** a_array_dev = C.a_array_device(device);
@@ -538,14 +548,11 @@ void syr2k(internal::TargetType<Target::Devices>,
                 {
                     trace::Block trace_block("cublasDgemmBatched");
                     if (batch_count_00 > 0) {
-                        int64_t mb = C.tileMb(0);
-                        int64_t nb = C.tileNb(0);
-                        int64_t kb = A.tileNb(0);   // == A.tileMb(0)
                         cublasStatus_t status =
                             cublasGemmBatched(
                                 cublas_handle,  // uses stream
                                 cublas_op_const(opA), cublas_op_const(opB),
-                                mb, nb, kb,
+                                mb00, nb00, kb,
                                 &alpha, (const scalar_t**) a_array_dev, lda00,
                                         (const scalar_t**) b_array_dev, ldb00,
                                 &beta,                     c_array_dev, ldc00,
@@ -557,14 +564,11 @@ void syr2k(internal::TargetType<Target::Devices>,
                     }
 
                     if (batch_count_10 > 0) {
-                        int64_t mb = C.tileMb(C.mt()-1);
-                        int64_t nb = C.tileNb(0);
-                        int64_t kb = A.tileNb(0);   // == A.tileMb(0)
                         cublasStatus_t status =
                             cublasGemmBatched(
                                 cublas_handle,  // uses stream
                                 cublas_op_const(opA), cublas_op_const(opB),
-                                mb, nb, kb,
+                                mb10, nb10, kb,
                                 &alpha, (const scalar_t**) a_array_dev, lda10,
                                         (const scalar_t**) b_array_dev, ldb10,
                                 &beta,                     c_array_dev, ldc10,
@@ -578,6 +582,8 @@ void syr2k(internal::TargetType<Target::Devices>,
                     assert(error == cudaSuccess);
                 }
 
+                //----------------------------------------
+                // B * A^T
                 // ai => bi, bj => aj, set beta = 1
                 batch_count = 0;
                 for (int64_t j = 0; j < C.nt()-1; ++j) {
@@ -611,10 +617,12 @@ void syr2k(internal::TargetType<Target::Devices>,
 
                 if (C.op() != Op::NoTrans) {
                     // swap A <=> B; swap m <=> n
-                    //swap( opA, opB );  // already done above
+                    //swap(opA, opB);  // already done above
                     swap(a_array_host, b_array_host);
-                    //swap( lda, ldb );  // todo: assumed to be nb
-                    //swap( m, n );      // todo: assumed to be nb
+                    swap(lda00, ldb00);
+                    swap(lda10, ldb10);
+                    //swap(mb00, nb00);  // already done above
+                    //swap(mb10, nb10);  // already done above
                 }
 
                 a_array_dev = C.a_array_device(device);
@@ -637,15 +645,12 @@ void syr2k(internal::TargetType<Target::Devices>,
                     trace::Block trace_block("cublasDgemmBatched");
                     // todo: assumes all tiles are allocated nb-by-nb with stride nb
                     if (batch_count_00 > 0) {
-                        int64_t mb = C.tileMb(0);
-                        int64_t nb = C.tileNb(0);
-                        int64_t kb = A.tileNb(0);   // == A.tileMb(0)
                         scalar_t one = 1;
                         cublasStatus_t status =
                             cublasGemmBatched(
                                 cublas_handle,  // uses stream
                                 cublas_op_const(opA), cublas_op_const(opB),
-                                mb, nb, kb,
+                                mb00, nb00, kb,
                                 &alpha, (const scalar_t**) b_array_dev, ldb00,
                                         (const scalar_t**) a_array_dev, lda00,
                                 &one,                      c_array_dev, ldc00,
@@ -657,15 +662,12 @@ void syr2k(internal::TargetType<Target::Devices>,
                     }
 
                     if (batch_count_10 > 0) {
-                        int64_t mb = C.tileMb(C.mt()-1);
-                        int64_t nb = C.tileNb(0);
-                        int64_t kb = A.tileNb(0);   // == A.tileMb(0)
                         scalar_t one = 1;
                         cublasStatus_t status =
                             cublasGemmBatched(
                                 cublas_handle,  // uses stream
                                 cublas_op_const(opA), cublas_op_const(opB),
-                                mb, nb, kb,
+                                mb10, nb10, kb,
                                 &alpha, (const scalar_t**) b_array_dev, ldb10,
                                         (const scalar_t**) a_array_dev, lda10,
                                 &one,                      c_array_dev, ldc10,

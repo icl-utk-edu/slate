@@ -127,7 +127,7 @@ void Trace::finish()
 
     // Compute scaling factors.
     hscale_ = width_ / timespan;
-    vscale_ = height_ / (mpi_size * num_threads_);
+    vscale_ = height_ / ((double) mpi_size * num_threads_);
 
     // Print the events.
     if (mpi_rank == 0) {

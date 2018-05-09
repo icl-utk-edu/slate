@@ -106,8 +106,8 @@ public:
 //------------------------------------------------------------------------------
 /// Default constructor creates an empty matrix.
 template <typename scalar_t>
-TriangularMatrix<scalar_t>::TriangularMatrix():
-    TrapezoidMatrix<scalar_t>()
+TriangularMatrix<scalar_t>::TriangularMatrix()
+    : TrapezoidMatrix<scalar_t>()
 {}
 
 //------------------------------------------------------------------------------

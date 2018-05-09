@@ -115,8 +115,8 @@ public:
 //------------------------------------------------------------------------------
 /// Default constructor creates an empty matrix.
 template <typename scalar_t>
-TrapezoidMatrix<scalar_t>::TrapezoidMatrix():
-    BaseTrapezoidMatrix<scalar_t>()
+TrapezoidMatrix<scalar_t>::TrapezoidMatrix()
+    : BaseTrapezoidMatrix<scalar_t>()
 {}
 
 //------------------------------------------------------------------------------
@@ -199,7 +199,8 @@ TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromScaLAPACK(
     int p, int q, MPI_Comm mpi_comm)
 {
     // note extra nb
-    return TrapezoidMatrix<scalar_t>(uplo, m, n, A, lda, nb, nb, p, q, mpi_comm);
+    return TrapezoidMatrix<scalar_t>(uplo, m, n, A, lda, nb, nb,
+                                     p, q, mpi_comm);
 }
 
 //------------------------------------------------------------------------------

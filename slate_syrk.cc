@@ -275,13 +275,13 @@ void syrk(scalar_t alpha, Matrix<scalar_t>& A,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void syrk< float >(
+void syrk<float>(
     float alpha, Matrix<float>& A,
     float beta,  SymmetricMatrix<float>& C,
     const std::map<Option, Value>& opts);
 
 template
-void syrk< double >(
+void syrk<double>(
     double alpha, Matrix<double>& A,
     double beta,  SymmetricMatrix<double>& C,
     const std::map<Option, Value>& opts);

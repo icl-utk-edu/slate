@@ -90,7 +90,8 @@ void gemm(
         if (A.op() == Op::NoTrans)
             opA = C.op();
         else if (A.op() == C.op() || C.is_real) {
-            // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
+            // A and C are both Trans or both ConjTrans;
+            // Trans == ConjTrans if real
             opA = Op::NoTrans;
         }
         else
@@ -100,15 +101,16 @@ void gemm(
         if (B.op() == Op::NoTrans)
             opB = C.op();
         else if (B.op() == C.op() || C.is_real) {
-            // B and C are both Trans or both ConjTrans; Trans == ConjTrans if real
+            // B and C are both Trans or both ConjTrans;
+            // Trans == ConjTrans if real
             opB = Op::NoTrans;
         }
         else
             throw std::exception();
 
         if (C.op() == Op::ConjTrans) {
-            alpha = conj( alpha );
-            beta  = conj( beta );
+            alpha = conj(alpha);
+            beta  = conj(beta);
         }
 
         blas::gemm(blas::Layout::ColMajor,
@@ -128,7 +130,7 @@ void gemm(
                     Tile<scalar_t> const&& B,
     scalar_t beta,  Tile<scalar_t>&& C)
 {
-    gemm( alpha, A, B, beta, C );
+    gemm(alpha, A, B, beta, C);
 }
 
 ///-----------------------------------------------------------------------------
@@ -156,9 +158,9 @@ void hemm(
         assert(A.mb() == B.mb());
     else
         assert(A.mb() == B.nb());
-    assert( B.op() == C.op() );
-    assert( A.op() != Op::Trans );
-    assert( B.op() != Op::Trans );
+    assert(B.op() == C.op());
+    assert(A.op() != Op::Trans);
+    assert(B.op() != Op::Trans);
 
     // A.op can be ignored, since A == A^T
     if (B.op() == Op::NoTrans) {
@@ -191,7 +193,7 @@ void hemm(
                     Tile<scalar_t> const&& B,
     scalar_t beta,  Tile<scalar_t>&& C)
 {
-    hemm( side, alpha, A, B, beta, C );
+    hemm(side, alpha, A, B, beta, C);
 }
 
 ///-----------------------------------------------------------------------------
@@ -227,12 +229,13 @@ void herk(
     blas::real_type<scalar_t> alpha, Tile<scalar_t> const&& A,
     blas::real_type<scalar_t> beta,  Tile<scalar_t>&& C)
 {
-    herk( alpha, A, beta, C );
+    herk(alpha, A, beta, C);
 }
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// Hermitian rank-2k update: $C = \alpha op(A) op(B)^T + \alpha op(B) op(A)^T + \beta C$.
+/// Hermitian rank-2k update:
+///     $C = \alpha op(A) op(B)^T + \alpha op(B) op(A)^T + \beta C$.
 /// Use transpose or conj_transpose to set $op(A)$ and $op(B)$.
 /// In the complex case, C cannot be transpose.
 // Allowing C^H would require two conjugations: conj( conj(C) + A*A^T ).
@@ -299,9 +302,9 @@ void symm(
         assert(A.mb() == B.mb());
     else
         assert(A.mb() == B.nb());
-    assert( B.op() == C.op() );
-    assert( A.op() != Op::ConjTrans );
-    assert( B.op() != Op::ConjTrans );
+    assert(B.op() == C.op());
+    assert(A.op() != Op::ConjTrans);
+    assert(B.op() != Op::ConjTrans);
 
     // A.op can be ignored, since A == A^T
     if (B.op() == Op::NoTrans) {
@@ -334,7 +337,7 @@ void symm(
                     Tile<scalar_t> const&& B,
     scalar_t beta,  Tile<scalar_t>&& C)
 {
-    symm( side, alpha, A, B, beta, C );
+    symm(side, alpha, A, B, beta, C);
 }
 
 ///-----------------------------------------------------------------------------
@@ -372,12 +375,13 @@ void syrk(
     scalar_t alpha, Tile<scalar_t> const&& A,
     scalar_t beta,  Tile<scalar_t>&& C)
 {
-    syrk( alpha, A, beta, C );
+    syrk(alpha, A, beta, C);
 }
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// Symmetric rank-2k update: $C = \alpha op(A) op(B)^T + \alpha op(B) op(A)^T + \beta C$.
+/// Symmetric rank-2k update:
+///     $C = \alpha op(A) op(B)^T + \alpha op(B) op(A)^T + \beta C$.
 /// Use transpose or conj_transpose to set $op(A)$ and $op(B)$.
 /// In the complex case, C cannot be conj_transpose.
 // Allowing C^H would require two conjugations: conj( conj(C) + A*A^T ).
@@ -416,7 +420,7 @@ void syr2k(
                     Tile<scalar_t> const&& B,
     scalar_t beta,  Tile<scalar_t>&& C)
 {
-    syr2k( alpha, A, B, beta, C );
+    syr2k(alpha, A, B, beta, C);
 }
 
 ///-----------------------------------------------------------------------------
@@ -452,14 +456,15 @@ void trmm(
         if (A.op() == Op::NoTrans)
             opA = B.op();
         else if (A.op() == B.op() || A.is_real) {
-            // A and B are both Trans or both ConjTrans; Trans == ConjTrans if real
+            // A and B are both Trans or both ConjTrans;
+            // Trans == ConjTrans if real
             opA = Op::NoTrans;
         }
         else
             throw std::exception();
 
         if (B.op() == Op::ConjTrans) {
-            alpha = conj( alpha );
+            alpha = conj(alpha);
         }
 
         blas::trmm(blas::Layout::ColMajor,
@@ -478,7 +483,7 @@ void trmm(
     scalar_t alpha, Tile<scalar_t> const&& A,
                     Tile<scalar_t>&& B)
 {
-    trmm( side, diag, alpha, A, B );
+    trmm(side, diag, alpha, A, B);
 }
 
 ///-----------------------------------------------------------------------------
@@ -519,14 +524,15 @@ void trsm(
         if (A.op() == Op::NoTrans)
             opA = B.op();
         else if (A.op() == B.op() || A.is_real) {
-            // A and B are both Trans or both ConjTrans; Trans == ConjTrans if real
+            // A and B are both Trans or both ConjTrans;
+            // Trans == ConjTrans if real
             opA = Op::NoTrans;
         }
         else
             throw std::exception();
 
         if (B.op() == Op::ConjTrans) {
-            alpha = conj( alpha );
+            alpha = conj(alpha);
         }
 
         blas::trsm(blas::Layout::ColMajor,
@@ -545,7 +551,7 @@ void trsm(
     scalar_t alpha, Tile<scalar_t> const&& A,
                     Tile<scalar_t>&& B)
 {
-    trsm( side, diag, alpha, A, B );
+    trsm(side, diag, alpha, A, B);
 }
 
 ///=============================================================================
@@ -570,7 +576,7 @@ int64_t potrf(Tile<scalar_t>& A)
 template <typename scalar_t>
 int64_t potrf(Tile<scalar_t>&& A)
 {
-    return potrf( A );
+    return potrf(A);
 }
 
 } // namespace slate

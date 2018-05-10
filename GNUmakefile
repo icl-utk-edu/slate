@@ -11,7 +11,8 @@
 # mkl=1         for Intel MKL. $MKLROOT must also be set.
 # cuda=1        for CUDA
 # openmp=1      for OpenMP
-# shared=1      for shared library (libslate.so); otherwise static (libslate.a)
+# static=1        for static library (libslate.a);
+#                 otherwise shared library (libslate.so).
 
 top ?= .
 -include ${top}/make.inc
@@ -30,7 +31,7 @@ endif
 
 #-------------------------------------------------------------------------------
 # if shared
-ifeq (${shared},1)
+ifneq ($(static),1)
 	CXXFLAGS += -fPIC
 	LDFLAGS  += -fPIC
 endif
@@ -159,37 +160,43 @@ test = $(basename $(test_src))
 # Rules
 .DELETE_ON_ERROR:
 .SUFFIXES:
-.PHONY: all docs libs clean
+.PHONY: all docs lib clean
 
 all: $(test)
 
 docs:
 	doxygen docs/doxygen/doxyfile.conf
 
-lib:
-	mkdir lib
+#-------------------------------------------------------------------------------
+# libslate library
+lib_a  = ./lib/libslate.a
+lib_so = ./lib/libslate.so
 
-# shared or static library
-ifeq (${shared},1)
-    lib_so = ${top}/lib/libslate.so
+$(lib_a): $(lib_obj)
+	mkdir -p lib
+	ar cr $@ $^
+	ranlib $@
 
-    libs = $(lib_so)
+$(lib_so): $(lib_obj)
+	mkdir -p lib
+	$(CXX) $(LDFLAGS) \
+		$^ \
+		$(LIB) \
+		-shared $(install_name) -o $@
 
-    $(lib_so): $(lib_obj) | lib
-		$(CXX) $(LDFLAGS) $^ $(LIB) -shared $(install_name) -o $@
+ifeq ($(static),1)
+    lib = $(lib_a)
 else
-    lib_a = ${top}/lib/libslate.a
-
-    libs = $(lib_a)
-
-    $(lib_a): $(lib_obj) | lib
-		ar cr $@ $^
-		ranlib $@
+    lib = $(lib_so)
 endif
 
-libs: $(libs)
+lib: $(lib)
 
-$(test): %: %.o $(libs)
+#-------------------------------------------------------------------------------
+# testers
+test: $(test)
+
+$(test): %: %.o $(lib)
 	$(CXX) $(LDFLAGS) $< -L${top}/lib -Wl,-rpath,${pwd}/lib -lslate $(LIB) -o $@
 
 clean:
@@ -228,7 +235,7 @@ echo:
 	@echo
 	@echo "lib_a    = ${lib_a}"
 	@echo "lib_so   = ${lib_so}"
-	@echo "libs     = ${libs}"
+	@echo "lib      = ${lib}"
 	@echo
 	@echo "CXX      = ${CXX}"
 	@echo "CXXFLAGS = ${CXXFLAGS}"

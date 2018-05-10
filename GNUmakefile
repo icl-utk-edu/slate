@@ -146,23 +146,39 @@ test_src = \
        test_internal_blas.cc \
        test_memory.cc \
        test_matrix.cc \
-       test_tile.cc \
        test_tile_blas.cc \
 
-lib_obj  = $(lib_src:.cc=.o)
-test_obj = $(test_src:.cc=.o)
-dep      = $(lib_src:.cc=.d) $(test_src:.cc=.d)
+# unit testers
+unit_src = \
+        unit_test/test_Tile.cc \
+
+# unit test framework
+unit_test_obj = \
+        unit_test/unit_test.o
+
+lib_obj   = $(lib_src:.cc=.o)
+test_obj  = $(test_src:.cc=.o)
+unit_obj  = $(unit_src:.cc=.o)
+dep       = $(lib_src:.cc=.d) $(test_src:.cc=.d) $(unit_src:.cc=.d) \
+            $(unit_test_obj:.o=.d)
 
 test = $(basename $(test_src))
+unit_test = $(basename $(unit_src))
 
+#-------------------------------------------------------------------------------
+# SLATE specific flags and libraries
+
+# additional flags and libraries for testers
+UNIT_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
+UNIT_LIB     += -lslate
 
 #-------------------------------------------------------------------------------
 # Rules
 .DELETE_ON_ERROR:
 .SUFFIXES:
-.PHONY: all docs lib clean
+.PHONY: all docs lib test unit_test clean distclean
 
-all: $(test)
+all: lib test unit_test
 
 docs:
 	doxygen docs/doxygen/doxyfile.conf
@@ -199,8 +215,26 @@ test: $(test)
 $(test): %: %.o $(lib)
 	$(CXX) $(LDFLAGS) $< -L${top}/lib -Wl,-rpath,${pwd}/lib -lslate $(LIB) -o $@
 
-clean:
-	rm -f $(lib_obj) $(test_obj) $(test) trace_*.svg 
+#-------------------------------------------------------------------------------
+# unit testers
+unit_test: $(unit_test)
+
+unit_test/clean:
+	rm -f $(unit_test) $(unit_obj) $(unit_test_obj)
+
+$(unit_test): %: %.o $(unit_test_obj) $(lib)
+	$(CXX) $(UNIT_LDFLAGS) $(LDFLAGS) $< \
+		$(unit_test_obj) $(UNIT_LIB) $(LIB) -o $@
+
+#-------------------------------------------------------------------------------
+# general rules
+clean: unit_test/clean
+	rm -f $(lib_a) $(lib_so) $(lib_obj)
+	rm -f $(test) $(test_obj)
+	rm -f trace_*.svg
+
+distclean: clean
+	rm -f $(dep)
 
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -215,6 +249,8 @@ clean:
 
 -include ${dep}
 
+#-------------------------------------------------------------------------------
+# debugging
 echo:
 	@echo "openmp   = '${openmp}'"
 	@echo "mpi      = '${mpi}'"

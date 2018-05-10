@@ -1,0 +1,40 @@
+# Subdirectories include this makefile to forward rules to the top level makefile.
+# Define ${top} for where the top level is.
+# Example: src/GNUmakefile:
+#     top = ..
+#     include ${top}/GNUmakefile.subdir
+
+.SUFFIXES:
+
+pwd  := ${shell pwd}
+cdir := ${notdir ${pwd}}
+
+# ------------------------------------------------------------------------------
+ifneq (${MAKECMDGOALS},)
+
+# If arguments are given, presumably files like test.o, forward them to top
+# with cdir prefix.
+# All files are forwarded as one rule, based on first; rest are quietly ignored.
+forward := ${addprefix ${cdir}/, ${MAKECMDGOALS}}
+first   := ${firstword ${MAKECMDGOALS}}
+rest    := ${wordlist 2, ${words ${MAKECMDGOALS}}, ${MAKECMDGOALS}}
+
+${first}: force
+	cd ${top} && ${MAKE} ${forward}
+
+${rest}: force
+	@echo > /dev/null
+
+# ------------------------------------------------------------------------------
+else
+
+# Otherwise, forward subdirectory name as target.
+.PHONY: ${cdir}
+
+${cdir}:
+	cd ${top} && ${MAKE} $@
+
+endif
+# ------------------------------------------------------------------------------
+
+force: ;

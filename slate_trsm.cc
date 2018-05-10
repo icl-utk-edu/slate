@@ -160,7 +160,8 @@ void trsm(slate::internal::TargetType<target>,
                         internal::gemm<target>(
                             scalar_t(-1.0), A.sub(k+1+lookahead, mt-1, k, k),
                                             B.sub(k, k, 0, nt-1),
-                            alph,           B.sub(k+1+lookahead, mt-1, 0, nt-1));
+                            alph,           B.sub(k+1+lookahead, mt-1, 0,
+                                                  nt-1));
                     }
                 }
             }
@@ -330,7 +331,7 @@ void trsm(blas::Side side, blas::Diag diag,
 {
     Target target;
     try {
-        target = Target( opts.at(Option::Target).i_ );
+        target = Target(opts.at(Option::Target).i_);
     }
     catch (std::out_of_range) {
         target = Target::HostTask;

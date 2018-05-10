@@ -67,7 +67,8 @@ void trmm(slate::internal::TargetType<target>,
     using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
-    // if on right, change to left by (conj)-transposing A and B to get op(B) = op(A)*op(B)
+    // if on right, change to left by (conj)-transposing A and B to get
+    // op(B) = op(A)*op(B)
     if (side == Side::Right) {
         if (A.op() == Op::ConjTrans || B.op() == Op::ConjTrans) {
             A = conj_transpose(A);
@@ -405,7 +406,7 @@ void trmm(blas::Side side, blas::Diag diag,
 {
     Target target;
     try {
-        target = Target( opts.at(Option::Target).i_ );
+        target = Target(opts.at(Option::Target).i_);
     }
     catch (std::out_of_range) {
         target = Target::HostTask;

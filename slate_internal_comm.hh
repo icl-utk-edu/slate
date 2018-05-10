@@ -40,8 +40,8 @@
 ///-----------------------------------------------------------------------------
 /// \file
 ///
-#ifndef SLATE_INTERNAL_COMMUNICATION_HH
-#define SLATE_INTERNAL_COMMUNICATION_HH
+#ifndef SLATE_INTERNAL_COMM_HH
+#define SLATE_INTERNAL_COMM_HH
 
 #include <list>
 
@@ -54,4 +54,4 @@ void cubeBcastPattern(int size, int rank, int radix,
 } // namespace internal
 } // namespace slate
 
-#endif // SLATE_INTERNAL_COMMUNICATION_HH
+#endif // SLATE_INTERNAL_COMM_HH

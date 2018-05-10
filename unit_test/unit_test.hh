@@ -116,11 +116,9 @@ public:
 typedef void test_function(void);
 
 void run_test(test_function* func, const char* name);
-
-int unit_test_main(MPI_Comm comm);
-
 void run_test(test_function* func, const char* name, MPI_Comm comm);
 
+int unit_test_main();
 int unit_test_main(MPI_Comm comm);
 
 /// To be implemented by user; called by unit_test_main().

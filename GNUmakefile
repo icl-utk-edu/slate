@@ -209,6 +209,7 @@ test_src = \
 # unit testers
 unit_src = \
         unit_test/test_Tile.cc \
+        unit_test/test_Memory.cc \
 
 # unit test framework
 unit_test_obj = \

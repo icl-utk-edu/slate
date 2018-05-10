@@ -229,10 +229,10 @@ int unit_test_main()
     run_tests();
 
     if (g_pass == g_total) {
-        printf("\n%spassed:  all tests (%d of %d)%s\n",
+        printf("\n%spassed all tests (%d of %d)%s\n",
                ansi_blue, g_pass, g_total, ansi_normal);
         if (g_skip > 0) {
-            printf("%sskipped: %d tests%s\n",
+            printf("%sskipped %d tests%s\n",
                    ansi_magenta, g_skip, ansi_normal);
         }
         return 0;

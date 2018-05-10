@@ -99,7 +99,7 @@ lib_src += \
 
 # internal
 lib_src += \
-       slate_internal_communication.cc \
+       slate_internal_comm.cc \
        slate_internal_gemm.cc \
        slate_internal_hemm.cc \
        slate_internal_her2k.cc \

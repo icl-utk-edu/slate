@@ -40,7 +40,7 @@
 #ifndef SLATE_BASE_MATRIX_HH
 #define SLATE_BASE_MATRIX_HH
 
-#include "slate_internal_communication.hh"
+#include "slate_internal_comm.hh"
 #include "slate_Map.hh"
 #include "slate_Memory.hh"
 #include "slate_Storage.hh"

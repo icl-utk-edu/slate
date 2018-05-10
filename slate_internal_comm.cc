@@ -37,7 +37,7 @@
 // comments to <slate-user@icl.utk.edu>.
 //------------------------------------------------------------------------------
 
-#include "slate_internal_communication.hh"
+#include "slate_internal_comm.hh"
 #include "slate_internal_util.hh"
 
 namespace slate {

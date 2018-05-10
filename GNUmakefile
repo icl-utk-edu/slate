@@ -20,6 +20,14 @@ CXXFLAGS += -O3 -std=c++11 -Wall -pedantic -MMD
 
 pwd = ${shell pwd}
 
+# auto-detect OS
+# $OSTYPE may not be exported from the shell, so echo it
+ostype = $(shell echo $${OSTYPE})
+ifneq ($(findstring darwin, $(ostype)),)
+	# MacOS is darwin
+	macos = 1
+endif
+
 #-------------------------------------------------------------------------------
 # if shared
 ifeq (${shared},1)
@@ -76,6 +84,14 @@ ifeq (${cuda},1)
 else
 	lib_src += slate_cuda_stubs.cc
 	lib_src += slate_cublas_stubs.cc
+endif
+
+#-------------------------------------------------------------------------------
+# MacOS needs shared library's path set
+ifeq ($(macos),1)
+   install_name = -install_name @rpath/$(notdir $@)
+else
+   install_name =
 endif
 
 #-------------------------------------------------------------------------------
@@ -160,7 +176,7 @@ ifeq (${shared},1)
     libs = $(lib_so)
 
     $(lib_so): $(lib_obj) | lib
-		$(CXX) $(LDFLAGS) $^ $(LIB) -shared -o $@
+		$(CXX) $(LDFLAGS) $^ $(LIB) -shared $(install_name) -o $@
 else
     lib_a = ${top}/lib/libslate.a
 

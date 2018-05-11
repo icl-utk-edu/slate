@@ -360,7 +360,7 @@ void her2k(internal::TargetType<Target::HostBatch>,
         }
 
         {
-            trace::Block trace_block("cblas_dgemm_batch");
+            trace::Block trace_block("cblas_gemm_batch");
             #ifdef SLATE_WITH_MKL
                 // mkl_set_num_threads_local(...);
                 cblas_gemm_batch(CblasColMajor, opA_array.data(), opB_array.data(),
@@ -562,7 +562,7 @@ void her2k(internal::TargetType<Target::Devices>,
                 assert(error == cudaSuccess);
 
                 {
-                    trace::Block trace_block("cublasDgemmBatched");
+                    trace::Block trace_block("cublasGemmBatched");
                     if (batch_count_00 > 0) {
                         cublasStatus_t status =
                             cublasGemmBatched(
@@ -658,7 +658,7 @@ void her2k(internal::TargetType<Target::Devices>,
                 assert(error == cudaSuccess);
 
                 {
-                    trace::Block trace_block("cublasDgemmBatched");
+                    trace::Block trace_block("cublasGemmBatched");
                     alpha = conj(alpha);
                     scalar_t one = 1;
 

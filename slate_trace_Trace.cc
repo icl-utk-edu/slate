@@ -71,8 +71,8 @@ std::map<std::string, Color> Trace::function_color_ = {
     {"blas::trmm",  Color::MediumOrchid},
     {"blas::trsm",  Color::MediumPurple},
 
-    {"cblas_dgemm_batch",  Color::DarkGreen},
-    {"cublasDgemmBatched", Color::PaleGreen},
+    {"cblas_gemm_batch",  Color::DarkGreen},
+    {"cublasGemmBatched", Color::PaleGreen},
 
     {"cudaMemcpy2DAsync", Color::LightGray},
     {"cudaMemcpyAsync",   Color::LightGray},

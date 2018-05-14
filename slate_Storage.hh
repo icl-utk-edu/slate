@@ -61,7 +61,7 @@
 
 namespace slate {
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// @return ceil(a / b), for integer type T.
 template<typename T>
 T ceildiv(T a, T b)
@@ -69,7 +69,7 @@ T ceildiv(T a, T b)
     return ((a + b - 1) / b);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Type-safe wrapper for cudaMalloc. Throws std::bad_alloc for errors.
 template<typename value_type>
 void slateCudaMalloc(value_type** ptr, size_t nelements)
@@ -89,8 +89,11 @@ void slateCudaMallocHost(value_type** ptr, size_t nelements)
         throw std::bad_alloc();
 }
 
-///-----------------------------------------------------------------------------
-/// todo: is ///--- adding an extra HR in doxygen?
+//------------------------------------------------------------------------------
+// todo: is ///--- adding an extra HR in doxygen?
+/// Slate::MatrixStorage class
+/// Used to store the map of distributed tiles.
+/// @tparam scalar_t Data type for the elements of the matrix
 template <typename scalar_t>
 class MatrixStorage {
 public:
@@ -105,7 +108,7 @@ public:
     /// Map of lives is indexed by {i, j}. The life applies to all devices.
     using LivesMap = slate::Map<ij_tuple, int64_t>;
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     MatrixStorage(int64_t m, int64_t n, int64_t nb,
                   int p, int q, MPI_Comm mpi_comm)
         : m_(m),
@@ -164,7 +167,7 @@ public:
         initCudaStreams();
     }
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     // 1. destructor: deletes all tiles and frees workspace buffers
     ~MatrixStorage()
     {
@@ -174,7 +177,7 @@ public:
     }
 
 protected:
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     /// Initializes CUDA streams and cuBLAS handles on each device.
     /// Called in constructor.
     void initCudaStreams()
@@ -205,7 +208,7 @@ protected:
         }
     }
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     /// Destroys CUDA streams and cuBLAS handles on each device.
     /// As this is called in the destructor, it should NOT throw exceptions.
     void destroyCudaStreams()
@@ -233,7 +236,7 @@ protected:
     }
 
 public:
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     /// Allocates CUDA batch arrays
     // todo: resizeBatchArrays?
     void allocateBatchArrays(int64_t max_batch_size)
@@ -266,7 +269,7 @@ public:
         }
     }
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     /// Frees CUDA batch arrays that were allocated by allocateBatchArrays().
     /// As this is called in the destructor, it should NOT throw exceptions.
     // todo: destructor can't throw; how to deal with errors?
@@ -309,14 +312,14 @@ public:
         c_array_dev_.clear();
     }
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     /// Reserves num_tiles on host in allocator.
     void reserveHostWorkspace(int64_t num_tiles)
     {
         memory_.addHostBlocks(num_tiles);
     }
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     /// Reserves num_tiles on each device in allocator.
     void reserveDeviceWorkspace(int64_t num_tiles)
     {
@@ -324,7 +327,7 @@ public:
             memory_.addDeviceBlocks(device, num_tiles);
     }
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     /// Clears all host and device workspace tiles.
     /// Also clears life.
     void clearWorkspace()
@@ -347,7 +350,7 @@ public:
             memory_.clearDeviceBlocks(device);
     }
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     // 2. copy constructor -- not allowed; object is shared
     // 3. move constructor -- not allowed; object is shared
     // 4. copy assignment  -- not allowed; object is shared
@@ -357,28 +360,28 @@ public:
     MatrixStorage& operator = (MatrixStorage&  orig) = delete;
     MatrixStorage& operator = (MatrixStorage&& orig) = delete;
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     /// @return
     typename TilesMap::iterator find(ijdev_tuple ijdev)
     {
         return tiles_.find(ijdev);
     }
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     /// @return
     typename TilesMap::iterator begin()
     {
         return tiles_.begin();
     }
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     /// @return
     typename TilesMap::iterator end()
     {
         return tiles_.end();
     }
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     /// @return pointer to single tile. Throws exception if tile doesn't exist.
     // at() doesn't create new (null) entries in map as operator[] would
     Tile<scalar_t>* at(ijdev_tuple ijdev)
@@ -386,11 +389,12 @@ public:
         return tiles_.at(ijdev);
     }
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     /// Remove a tile from the map and delete it.
     /// If tile is workspace, i.e., not origin, then its memory is freed back
     /// to the allocator memory pool.
     /// Doesn't delete life; see tileTick for deleting life.
+    ///
     // todo: currently ignores if ijdev doesn't exist; is that right?
     void erase(ijdev_tuple ijdev)
     {
@@ -406,7 +410,7 @@ public:
         }
     }
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     /// Delete all tiles.
     void clear()
     {
@@ -420,29 +424,32 @@ public:
         lives_.clear();
     }
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     /// @return number of allocated tiles (size of tiles map).
     size_t size() const { return tiles_.size(); }
+
+    /// @return True if Tile is empty, False otherwise.
     bool empty() const { return size() == 0; }
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     std::function <int (ij_tuple ij)> tileRank;
     std::function <int (ij_tuple ij)> tileDevice;
     std::function <int64_t (int64_t i)> tileMb;
     std::function <int64_t (int64_t j)> tileNb;
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     /// @return whether tile {i, j} is local.
     bool tileIsLocal(ij_tuple ij)
     {
         return tileRank(ij) == mpi_rank_;
     }
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     /// Inserts workspace tile {i, j} on given device, which can be host,
     /// allocating new memory for it.
     /// Sets tile origin = false.
     /// Does not set tile's life.
+    /// @return Pointer to newly inserted Tile.
     Tile<scalar_t>* tileInsert(ijdev_tuple ijdev)
     {
         assert(tiles_.find(ijdev) == tiles_.end());  // doesn't exist yet
@@ -458,12 +465,13 @@ public:
         return tile;
     }
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     /// This is intended for inserting the original matrix.
     /// Inserts tile {i, j} on given device, which can be host,
     /// wrapping existing memory for it.
     /// Sets tile origin = true.
     /// Does not set tile's life.
+    /// @return Pointer to newly inserted Tile.
     Tile<scalar_t>* tileInsert(ijdev_tuple ijdev, scalar_t* data, int64_t lda)
     {
         assert(tiles_.find(ijdev) == tiles_.end());  // doesn't exist yet
@@ -478,7 +486,7 @@ public:
         return tile;
     }
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     /// If tile {i, j} is a workspace tile (i.e., not local),
     /// decrement its life counter by 1;
     /// if life reaches 0, erase tile on the host and all devices.
@@ -499,7 +507,7 @@ public:
         }
     }
 
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     /// @return tile's life counter.
     // todo: logically, this is const, but if ij doesn't exist in lives_,
     // it is added and returns 0, so that makes it non-const.
@@ -509,8 +517,8 @@ public:
         return lives_[ij];
     }
 
-    ///-------------------------------------------------------------------------
-    /// set tile's life counter.
+    //--------------------------------------------------------------------------
+    /// Set tile's life counter.
     void tileLife(ij_tuple ij, int64_t life)
     {
         lives_[ij] = life;

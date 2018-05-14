@@ -43,12 +43,38 @@
 #include "slate_mpi.hh"
 
 #include <cassert>
+#include <complex>
 
 int* MPI_STATUS_IGNORE;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+int MPI_Allreduce(const void *sendbuf, void *recvbuf, int count,
+                  MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)
+{
+    assert(count == 1);
+    assert(op == MPI_MAX);
+
+    switch (datatype) {
+        case MPI_FLOAT:
+            *(float*)recvbuf = *(float*)sendbuf;
+            break;
+        case MPI_DOUBLE:
+            *(double*)recvbuf = *(double*)sendbuf;
+            break;
+        case MPI_C_COMPLEX:
+            *(std::complex<float>*)recvbuf = *(std::complex<float>*)sendbuf;
+            break;
+        case MPI_C_DOUBLE_COMPLEX:
+            *(std::complex<double>*)recvbuf = *(std::complex<double>*)sendbuf;
+            break;
+        default:
+            assert(0);
+    }
+    return MPI_SUCCESS;
+}
 
 int MPI_Barrier(MPI_Comm comm)
 {
@@ -138,7 +164,26 @@ int MPI_Recv(void* buf, int count, MPI_Datatype datatype, int source,
 int MPI_Reduce(void* sendbuf, void* recvbuf, int count, MPI_Datatype datatype,
                MPI_Op op, int root, MPI_Comm comm)
 {
-    assert(0);
+    assert(count == 1);
+    assert(op == MPI_MAX);
+
+    switch (datatype) {
+        case MPI_FLOAT:
+            *(float*)recvbuf = *(float*)sendbuf;
+            break;
+        case MPI_DOUBLE:
+            *(double*)recvbuf = *(double*)sendbuf;
+            break;
+        case MPI_C_COMPLEX:
+            *(std::complex<float>*)recvbuf = *(std::complex<float>*)sendbuf;
+            break;
+        case MPI_C_DOUBLE_COMPLEX:
+            *(std::complex<double>*)recvbuf = *(std::complex<double>*)sendbuf;
+            break;
+        default:
+            assert(0);
+    }
+    return MPI_SUCCESS;
 }
 
 int MPI_Request_free(MPI_Request* request)

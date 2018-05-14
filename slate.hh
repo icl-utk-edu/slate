@@ -66,6 +66,18 @@ void gemm(scalar_t alpha, Matrix<scalar_t>& A,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
+// genorm()
+template <typename scalar_t>
+blas::real_type<scalar_t>
+genorm(Norm norm, Matrix<scalar_t>& A,
+       const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+blas::real_type<scalar_t>
+genorm(Norm norm, Matrix<scalar_t>& A,
+       const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
 // hemm()
 template <Target target, typename scalar_t>
 void hemm(blas::Side side,

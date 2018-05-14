@@ -555,7 +555,33 @@ void trsm(
 }
 
 ///=============================================================================
-// Tile factorizations
+// Tile LAPACK
+
+///-----------------------------------------------------------------------------
+/// \brief
+/// General matrix norm.
+template <typename scalar_t>
+blas::real_type<scalar_t> genorm(
+    Norm norm, Tile<scalar_t> const& A)
+{
+    trace::Block trace_block("lapack::lange");
+
+    assert(A.uplo() == Uplo::General);
+    assert(A.op() == Op::NoTrans);
+
+    return lapack::lange(norm,
+                         A.mb(), A.nb(),
+                         A.data(), A.stride());
+}
+
+///----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename scalar_t>
+blas::real_type<scalar_t> genorm(
+    Norm norm, Tile<scalar_t> const&& A)
+{
+    return genorm(norm, A);
+}
 
 ///-----------------------------------------------------------------------------
 /// \brief
@@ -581,4 +607,4 @@ int64_t potrf(Tile<scalar_t>&& A)
 
 } // namespace slate
 
-#endif        //  #ifndef SLATE_TILE_BLAS_HH
+#endif // SLATE_TILE_BLAS_HH

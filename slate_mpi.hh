@@ -77,6 +77,9 @@ extern int* MPI_STATUS_IGNORE;
 extern "C" {
 #endif
 
+int MPI_Allreduce(const void *sendbuf, void *recvbuf, int count,
+                  MPI_Datatype datatype, MPI_Op op, MPI_Comm comm);
+
 int MPI_Barrier(MPI_Comm comm);
 
 int MPI_Bcast(void* buffer, int count, MPI_Datatype datatype, int root,

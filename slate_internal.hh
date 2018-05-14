@@ -124,6 +124,13 @@ void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
           int priority=0);
 
 //-----------------------------------------
+// genorm()
+template <Target target=Target::HostTask, typename scalar_t>
+blas::real_type<scalar_t>
+genorm(Norm norm, Matrix<scalar_t>&& A,
+       int priority=0);
+
+//-----------------------------------------
 // hemm()
 template <Target target=Target::HostTask, typename scalar_t>
 void hemm(Side side,

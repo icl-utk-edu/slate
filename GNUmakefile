@@ -168,6 +168,7 @@ lib_src += \
 lib_src += \
        slate_internal_comm.cc \
        slate_internal_gemm.cc \
+       slate_internal_genorm.cc \
        slate_internal_hemm.cc \
        slate_internal_her2k.cc \
        slate_internal_herk.cc \
@@ -182,6 +183,7 @@ lib_src += \
 # driver
 lib_src += \
        slate_gemm.cc \
+       slate_genorm.cc \
        slate_hemm.cc \
        slate_her2k.cc \
        slate_herk.cc \
@@ -206,7 +208,7 @@ test_src = \
         test/test_her2k.cc \
         test/test_herk.cc  \
 
-# unit testers
+#unit testers
 unit_src = \
         unit_test/test_Tile.cc \
         unit_test/test_Memory.cc \
@@ -253,7 +255,7 @@ UNIT_LIB     += -lslate
 .PHONY: all docs lib test unit_test clean distclean
 
 all: lib test unit_test
-
+	
 docs:
 	doxygen docs/doxygen/doxyfile.conf
 

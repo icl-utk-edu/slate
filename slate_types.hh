@@ -46,6 +46,7 @@
 #include "slate_mpi.hh"
 
 #include <blas.hh>
+#include <lapack.hh>
 
 namespace slate {
 
@@ -53,6 +54,8 @@ typedef blas::Op Op;
 typedef blas::Uplo Uplo;
 typedef blas::Diag Diag;
 typedef blas::Side Side;
+
+typedef lapack::Norm Norm;
 
 ///-----------------------------------------------------------------------------
 /// \class

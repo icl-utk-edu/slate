@@ -46,14 +46,15 @@
 
 namespace slate {
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Constructor acquires lock; destructor releases lock.
 /// This provides safety in case an exception is thrown, which would otherwise
 /// by-pass the unlock. Like std::lock_guard, but for OpenMP locks.
+///
 class LockGuard {
 public:
-    LockGuard(omp_nest_lock_t* lock):
-        lock_(lock)
+    LockGuard(omp_nest_lock_t* lock)
+        : lock_(lock)
     {
         omp_set_nest_lock(lock_);
     }
@@ -67,9 +68,13 @@ private:
     omp_nest_lock_t* lock_;
 };
 
-///-----------------------------------------------------------------------------
-/// \class
-/// \brief
+// -----------------------------------------------------------------------------
+/// Slate::Map
+/// @brief Used for traversal of Matrix's tiles
+/// @detailed Used by Slate::Storage to create mapping for each tile stored
+///     in a matrix
+/// @tparam KeyType Type for the key value
+/// @tparam ValueType Type for the stored value
 ///
 template <typename KeyType, typename ValueType>
 class Map {
@@ -83,7 +88,9 @@ public:
     using iterator = typename stdMap::iterator;
     using const_iterator = typename stdMap::const_iterator;
 
+    /// Constructor for Map class
     Map() { omp_init_nest_lock(&lock_); }
+    /// Destructor for Map class
     ~Map() { omp_destroy_nest_lock(&lock_); }
 
     omp_nest_lock_t* get_lock()

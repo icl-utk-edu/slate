@@ -63,6 +63,7 @@ namespace slate {
 /// transpose returns Tile, Matrix, SymmetricMatrix, etc.
 /// Making a template avoids repeating the code ad nauseum in each class.
 /// Tile and BaseMatrix make this a friend, to change op.
+///
 template<typename MatrixType>
 MatrixType transpose(MatrixType& A)
 {
@@ -231,6 +232,7 @@ Tile<scalar_t>::Tile()
 /// @param[in] origin
 ///     Whether tile is a local tile, originally given by the user (true),
 ///     or is a workspace tile.
+///
 template <typename scalar_t>
 Tile<scalar_t>::Tile(
     int64_t mb, int64_t nb,
@@ -245,10 +247,10 @@ Tile<scalar_t>::Tile(
       origin_(origin),
       device_(device)
 {
-    assert( mb >= 0 );
-    assert( nb >= 0 );
-    assert( A != nullptr );
-    assert( lda >= mb );
+    assert(mb >= 0);
+    assert(nb >= 0 );
+    assert(A != nullptr);
+    assert(lda >= mb);
 }
 
 //------------------------------------------------------------------------------
@@ -261,6 +263,7 @@ Tile<scalar_t>::Tile(
 ///
 /// @param[in] j
 ///     Column index. 0 <= j < nb.
+///
 template <typename scalar_t>
 scalar_t Tile<scalar_t>::operator() (int64_t i, int64_t j) const
 {
@@ -290,6 +293,7 @@ scalar_t Tile<scalar_t>::operator() (int64_t i, int64_t j) const
 ///
 /// @param[in] j
 ///     Column index. 0 <= j < nb.
+///
 template <typename scalar_t>
 scalar_t const& Tile<scalar_t>::at(int64_t i, int64_t j) const
 {
@@ -315,6 +319,7 @@ scalar_t const& Tile<scalar_t>::at(int64_t i, int64_t j) const
 ///
 /// @param[in] j
 ///     Column index. 0 <= j < nb.
+///
 template <typename scalar_t>
 scalar_t& Tile<scalar_t>::at(int64_t i, int64_t j)
 {
@@ -326,6 +331,7 @@ scalar_t& Tile<scalar_t>::at(int64_t i, int64_t j)
 /// Returns whether op(A) is logically Upper, Lower, or General storage,
 ///         taking the transposition operation into account.
 /// @see uplo()
+///
 template <typename scalar_t>
 Uplo Tile<scalar_t>::uplo_logical() const
 {
@@ -350,7 +356,7 @@ Uplo Tile<scalar_t>::uplo_logical() const
 ///
 /// @param[in] stream
 ///     CUDA stream for copy.
-//
+///
 // todo need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
 void Tile<scalar_t>::copyDataToHost(
@@ -406,7 +412,7 @@ void Tile<scalar_t>::copyDataToHost(
 ///
 /// @param[in] stream
 ///     CUDA stream for copy.
-//
+///
 // todo: need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
 void Tile<scalar_t>::copyDataToDevice(
@@ -462,7 +468,7 @@ void Tile<scalar_t>::copyDataToDevice(
 ///
 /// @param[in] mpi_comm
 ///     MPI communicator.
-//
+///
 // todo need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
 void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm) const
@@ -526,7 +532,7 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm) const
 ///
 /// @param[in] mpi_comm
 ///     MPI communicator.
-//
+///
 // todo need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
 void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm)
@@ -593,9 +599,9 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm)
 ///
 /// @param[in] mpi_comm
 ///     MPI communicator.
-//
+///
 // todo: OpenMPI MPI_Bcast seems to have a bug such that either all ranks must
-// use the simple case, or all ranks use vector case, even though the type
+// Use the simple case, or all ranks use vector case, even though the type
 // signatures match.
 // Bug confirmed with OpenMPI folks. All nodes need to make same decision
 // about using a pipelined bcast algorithm (in the contiguous case), and can't.

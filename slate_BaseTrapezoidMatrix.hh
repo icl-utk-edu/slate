@@ -62,6 +62,7 @@ namespace slate {
 /// Either the upper or lower trapezoid is stored, with the opposite triangle
 /// assumed by symmetry (SymmetricMatrix, HermitianMatrix),
 /// or assumed to be zero (TrapezoidMatrix, TriangularMatrix).
+///
 template <typename scalar_t>
 class BaseTrapezoidMatrix: public BaseMatrix<scalar_t> {
 protected:
@@ -108,7 +109,7 @@ public:
     Uplo uplo_logical() const;
 };
 
-///-------------------------------------------------------------------------
+//--------------------------------------------------------------------------
 /// Default constructor creates an empty matrix.
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix()
@@ -117,7 +118,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix()
     this->uplo_ = Uplo::Lower;
 }
 
-///-------------------------------------------------------------------------
+//--------------------------------------------------------------------------
 /// Construct matrix by wrapping existing memory of an m-by-n lower
 /// or upper trapezoidal storage LAPACK matrix. Triangular, symmetric, and
 /// Hermitian matrices all use this storage scheme (with m = n).
@@ -155,6 +156,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix()
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
 ///     p*q == MPI_Comm_size(mpi_comm).
+///
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     Uplo in_uplo, int64_t m, int64_t n,
@@ -204,7 +206,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     }
 }
 
-///-------------------------------------------------------------------------
+//--------------------------------------------------------------------------
 /// Construct matrix by wrapping existing memory of an m-by-n lower
 /// or upper trapezoidal storage ScaLAPACK matrix. Triangular, symmetric, and
 /// Hermitian matrices all use this storage scheme (with m = n).
@@ -244,6 +246,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
 ///     p*q == MPI_Comm_size(mpi_comm).
+///
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     Uplo in_uplo, int64_t m, int64_t n,
@@ -302,7 +305,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     }
 }
 
-///-------------------------------------------------------------------------
+//--------------------------------------------------------------------------
 /// Conversion from general matrix
 /// creates shallow copy view of original matrix.
 ///
@@ -312,6 +315,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 ///
 /// @param[in] orig
 ///     Original matrix.
+///
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     Uplo uplo, Matrix<scalar_t>& orig)
@@ -320,7 +324,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     this->uplo_ = uplo;
 }
 
-///-------------------------------------------------------------------------
+//--------------------------------------------------------------------------
 /// Conversion from general matrix, sub-matrix constructor
 /// creates shallow copy view of original matrix, A[ i1:i2, j1:j2 ].
 ///
@@ -342,6 +346,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 ///
 /// @param[in] j2
 ///     Ending block column index (inclusive). j2 < nt.
+///
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     Uplo uplo, Matrix<scalar_t>& orig,
@@ -352,7 +357,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     this->uplo_ = uplo;
 }
 
-///-------------------------------------------------------------------------
+//--------------------------------------------------------------------------
 /// Sub-matrix constructor creates shallow copy view of parent matrix,
 /// A[ i1:i2, j1:j2 ]. Requires i1 == j1. The new view is still a trapezoid
 /// matrix, with the same diagonal as the parent matrix.
@@ -371,6 +376,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 ///
 /// @param[in] j2
 ///     Ending block column index (inclusive). j2 < nt.
+///
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     BaseTrapezoidMatrix& orig,
@@ -384,7 +390,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     }
 }
 
-///-------------------------------------------------------------------------
+//--------------------------------------------------------------------------
 /// Swap contents of matrices A and B.
 template <typename scalar_t>
 void swap(BaseTrapezoidMatrix<scalar_t>& A, BaseTrapezoidMatrix<scalar_t>& B)
@@ -474,6 +480,7 @@ void BaseTrapezoidMatrix<scalar_t>::reserveDeviceWorkspace()
 //------------------------------------------------------------------------------
 /// Gathers the entire matrix to the LAPACK-style matrix A on MPI rank 0.
 /// Primarily for debugging purposes.
+///
 template <typename scalar_t>
 void BaseTrapezoidMatrix<scalar_t>::gather(scalar_t* A, int64_t lda)
 {
@@ -531,6 +538,7 @@ void BaseTrapezoidMatrix<scalar_t>::gather(scalar_t* A, int64_t lda)
 /// This version returns a general Matrix, which:
 /// - if uplo = Lower, is strictly below the diagonal, or
 /// - if uplo = Upper, is strictly above the diagonal.
+///
 template <typename scalar_t>
 Matrix<scalar_t> BaseTrapezoidMatrix<scalar_t>::sub(
     int64_t i1, int64_t i2, int64_t j1, int64_t j2)
@@ -550,6 +558,7 @@ Matrix<scalar_t> BaseTrapezoidMatrix<scalar_t>::sub(
 /// Returns whether A is physically Lower or Upper storage,
 ///         ignoring the transposition operation.
 /// @see uplo_logical()
+///
 template <typename scalar_t>
 Uplo BaseTrapezoidMatrix<scalar_t>::uplo() const
 {
@@ -560,6 +569,7 @@ Uplo BaseTrapezoidMatrix<scalar_t>::uplo() const
 /// Returns whether op(A) is logically Lower or Upper storage,
 ///         taking the transposition operation into account.
 /// @see uplo()
+///
 template <typename scalar_t>
 Uplo BaseTrapezoidMatrix<scalar_t>::uplo_logical() const
 {

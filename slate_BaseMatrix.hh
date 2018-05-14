@@ -68,6 +68,7 @@ namespace slate {
 /// Base class for all SLATE distributed, tiled matrices.
 /// In general, the documentation refers to the current matrix object as op(A),
 /// to emphasize that it may be transposed with respect to its parent matrix.
+///
 template <typename scalar_t>
 class BaseMatrix {
 public:

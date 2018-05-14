@@ -52,15 +52,15 @@
 
 namespace slate {
 
-///-----------------------------------------------------------------------------
-/// \class
-/// \brief
+// -----------------------------------------------------------------------------
+/// Slate::Debug - helper class used for debugging during development.
 ///
 class Debug {
 public:
     //--------
-    // generic
+    /// Enable debugging output
     static void on() { Debug::debug_ = true; }
+    /// Disable debugging output
     static void off() { Debug::debug_ = false; }
 
     template <typename scalar_t>

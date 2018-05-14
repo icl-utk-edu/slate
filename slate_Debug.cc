@@ -54,6 +54,7 @@ bool Debug::debug_ = true;
 ///     [ - - - - - - ]              | c g k o |
 ///     [ c g - - k o ]              | d h l p |
 ///     [ d h - - l p ]              -----------
+///
 template <typename scalar_t>
 void Debug::diffLapackMatrices(int64_t m, int64_t n,
                                scalar_t const* A, int64_t lda,
@@ -224,7 +225,7 @@ void Debug::printTilesLives(BaseMatrix<float> const& A);
 template
 void Debug::printTilesMaps(BaseMatrix<float> const& A);
 
-// ----------------------------------------
+//------------------------------------------------------------------------------
 template
 void Debug::diffLapackMatrices(int64_t m, int64_t n,
                                double const* A, int64_t lda,
@@ -239,7 +240,7 @@ void Debug::printTilesLives(BaseMatrix<double> const& A);
 template
 void Debug::printTilesMaps(BaseMatrix<double> const& A);
 
-// ----------------------------------------
+//------------------------------------------------------------------------------
 template
 void Debug::diffLapackMatrices(int64_t m, int64_t n,
                                std::complex<float> const* A, int64_t lda,
@@ -254,7 +255,7 @@ void Debug::printTilesLives(BaseMatrix< std::complex<float> > const& A);
 template
 void Debug::printTilesMaps(BaseMatrix< std::complex<float> > const& A);
 
-// ----------------------------------------
+//------------------------------------------------------------------------------
 template
 void Debug::diffLapackMatrices(int64_t m, int64_t n,
                                std::complex<double> const* A, int64_t lda,

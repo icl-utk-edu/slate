@@ -67,7 +67,7 @@ namespace internal {
 template <Target> class TargetType {};
 } // namespace internal
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// \class
 /// \brief
 ///
@@ -78,8 +78,8 @@ enum class Option {
     Target,
 };
 
-///-----------------------------------------------------------------------------
-/// \class
+//------------------------------------------------------------------------------
+/// Slate::internal::Value class
 /// \brief
 ///
 class Value
@@ -103,7 +103,7 @@ public:
     };
 };
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// gives mpi_type based on actual scalar_t.
 //  constants are initialized in slate_types.cc
 template<typename scalar_t>
@@ -133,7 +133,7 @@ public:
     static MPI_Datatype value; // = MPI_C_DOUBLE_COMPLEX
 };
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// True if T is std::complex<T2> for some type T2.
 template <typename T>
 struct is_complex:
@@ -146,7 +146,7 @@ struct is_complex< std::complex<T> >:
     std::integral_constant<bool, true>
 {};
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // define enable_if_t if not using c++14
 #if __cplusplus >= 201402L
     using std::enable_if_t;

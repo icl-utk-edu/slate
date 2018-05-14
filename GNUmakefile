@@ -255,6 +255,8 @@ UNIT_LIB     += -lslate
 .PHONY: all docs lib test unit_test clean distclean
 
 all: lib test unit_test
+	$(CXX) $(CXXFLAGS) test_genorm.cc $(LDFLAGS) $(UNIT_LDFLAGS) \
+		$(LIB) $(UNIT_LIB) -o test_genorm
 
 docs:
 	doxygen docs/doxygen/doxyfile.conf

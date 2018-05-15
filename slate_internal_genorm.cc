@@ -113,9 +113,28 @@ genorm(internal::TargetType<Target::HostNest>,
        Norm norm, Matrix<scalar_t>& A,
        int priority)
 {
+    using real_t = blas::real_type<scalar_t>;
 
+    std::vector<real_t> tiles_maxima;
 
-    return 234.567;
+    #pragma omp parallel for collapse(2) schedule(dynamic, 1)
+    for (int64_t i = 0; i < A.mt(); ++i) {
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            if (A.tileIsLocal(i, j)) {
+
+                A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                real_t tile_max = genorm(norm, A(i, j));
+                #pragma omp critical
+                {
+                    tiles_maxima.push_back(tile_max);
+                }
+            }
+        }
+    }
+
+    #pragma omp taskwait
+
+    return lapack::lange(norm, tiles_maxima.size(), 1, tiles_maxima.data(), 1);
 }
 
 ///-----------------------------------------------------------------------------

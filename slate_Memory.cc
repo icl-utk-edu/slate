@@ -49,7 +49,7 @@ int Memory::host_num_ = omp_get_initial_device();
     int Memory::num_devices_ = 0;
 #endif
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Construct saves block size, but does not allocate any memory.
 Memory::Memory(size_t block_size):
     block_size_(block_size)
@@ -64,7 +64,7 @@ Memory::Memory(size_t block_size):
     }
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// \brief
 /// Destructor frees all allocations on host and devices.
 Memory::~Memory()
@@ -76,10 +76,11 @@ Memory::~Memory()
         clearDeviceBlocks(device);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// \brief
 /// Allocates num_blocks in host memory
 /// and adds them to the pool of free blocks.
+///
 // todo: merge with addDeviceBlocks by recognizing host_num_?
 void Memory::addHostBlocks(int64_t num_blocks)
 {
@@ -92,10 +93,11 @@ void Memory::addHostBlocks(int64_t num_blocks)
         free_blocks_[host_num_].push(host_mem + i*block_size_);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// \brief
 /// Allocates num_blocks in given device's memory
 /// and adds them to the pool of free blocks.
+///
 void Memory::addDeviceBlocks(int device, int64_t num_blocks)
 {
     // or std::byte* (C++17)
@@ -107,9 +109,10 @@ void Memory::addDeviceBlocks(int device, int64_t num_blocks)
         free_blocks_[device].push(dev_mem + i*block_size_);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// \brief
 /// Empties the pool of free blocks of host memory and frees the allocations.
+///
 // todo: merge with clearDeviceBlocks by recognizing host_num_?
 void Memory::clearHostBlocks()
 {
@@ -139,9 +142,10 @@ void Memory::clearHostBlocks()
     capacity_[host_num_] = 0;
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// \brief
 /// Empties the pool of free blocks of given device's memory and frees the allocations.
+///
 void Memory::clearDeviceBlocks(int device)
 {
     #ifdef DEBUG
@@ -170,10 +174,11 @@ void Memory::clearDeviceBlocks(int device)
     capacity_[device] = 0;
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// \brief
 /// @return single block of memory on the given device, which can be host,
 /// either from free blocks or by allocating a new block.
+///
 void* Memory::alloc(int device)
 {
     void* block;
@@ -190,10 +195,11 @@ void* Memory::alloc(int device)
     return block;
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// \brief
 /// Puts a single block of memory back into the pool of free blocks
 /// for the given device, which can be host.
+///
 void Memory::free(void* block, int device)
 {
     #pragma omp critical(slate_memory)
@@ -202,9 +208,10 @@ void Memory::free(void* block, int device)
     }
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// \brief
 /// Allocates a single block of memory on the given device, which can be host.
+///
 void* Memory::allocBlock(int device)
 {
     void* block;
@@ -218,9 +225,10 @@ void* Memory::allocBlock(int device)
     return block;
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// \brief
 /// Allocates host memory of given size.
+///
 void* Memory::allocHostMemory(size_t size)
 {
     void* host_mem;
@@ -232,15 +240,16 @@ void* Memory::allocHostMemory(size_t size)
     return host_mem;
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// \brief
 /// Allocates GPU device memory of given size.
+///
 void* Memory::allocDeviceMemory(int device, size_t size)
 {
     cudaError_t error;
     error = cudaSetDevice(device);
     assert(error == cudaSuccess);
-    
+
     double* dev_mem;
     error = cudaMalloc((void**)&dev_mem, size);
     assert(error == cudaSuccess);
@@ -248,9 +257,10 @@ void* Memory::allocDeviceMemory(int device, size_t size)
     return dev_mem;
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// \brief
 /// Frees host memory.
+///
 void Memory::freeHostMemory(void* host_mem)
 {
     std::free(host_mem);
@@ -258,9 +268,10 @@ void Memory::freeHostMemory(void* host_mem)
     // assert(error == cudaSuccess);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// \brief
 /// Frees GPU device memory.
+///
 void Memory::freeDeviceMemory(int device, void* dev_mem)
 {
     cudaError_t error;

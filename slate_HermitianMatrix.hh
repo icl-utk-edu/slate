@@ -140,6 +140,7 @@ HermitianMatrix<scalar_t>::HermitianMatrix():
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
 ///     p*q == MPI_Comm_size(mpi_comm).
+///
 template <typename scalar_t>
 HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::fromLAPACK(
     Uplo uplo, int64_t n,
@@ -182,6 +183,7 @@ HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::fromLAPACK(
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
 ///     p*q == MPI_Comm_size(mpi_comm).
+///
 template <typename scalar_t>
 HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::fromScaLAPACK(
     Uplo uplo, int64_t n,
@@ -221,13 +223,14 @@ HermitianMatrix<scalar_t>::HermitianMatrix(
 ///
 /// @param[in,out] orig
 ///     Original matrix.
+///
 template <typename scalar_t>
 HermitianMatrix<scalar_t>::HermitianMatrix(
     BaseTrapezoidMatrix<scalar_t>& orig)
     : BaseTrapezoidMatrix<scalar_t>(
-        orig,
-        0, std::min( orig.mt()-1, orig.nt()-1 ),
-        0, std::min( orig.mt()-1, orig.nt()-1 ))
+          orig,
+          0, std::min(orig.mt()-1, orig.nt()-1),
+          0, std::min(orig.mt()-1, orig.nt()-1))
 {}
 
 //------------------------------------------------------------------------------
@@ -241,13 +244,14 @@ HermitianMatrix<scalar_t>::HermitianMatrix(
 ///
 /// @param[in,out] orig
 ///     Original matrix.
+///
 template <typename scalar_t>
 HermitianMatrix<scalar_t>::HermitianMatrix(
     Uplo uplo, Matrix<scalar_t>& orig)
     : BaseTrapezoidMatrix<scalar_t>(
-        uplo, orig,
-        0, std::min( orig.mt()-1, orig.nt()-1 ),
-        0, std::min( orig.mt()-1, orig.nt()-1 ))
+          uplo, orig,
+          0, std::min(orig.mt()-1, orig.nt()-1),
+          0, std::min(orig.mt()-1, orig.nt()-1))
 {}
 
 //------------------------------------------------------------------------------
@@ -263,6 +267,7 @@ HermitianMatrix<scalar_t>::HermitianMatrix(
 ///
 /// @param[in] i2
 ///     Ending block row and column index (inclusive). i2 < mt.
+///
 template <typename scalar_t>
 HermitianMatrix<scalar_t>::HermitianMatrix(
     HermitianMatrix& orig,
@@ -283,6 +288,7 @@ HermitianMatrix<scalar_t>::HermitianMatrix(
 ///
 /// @param[in] i2
 ///     Ending block row and column index (inclusive). i2 < mt.
+///
 template <typename scalar_t>
 HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::sub(
     int64_t i1, int64_t i2)
@@ -309,6 +315,7 @@ HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::sub(
 ///
 /// @param[in] j2
 ///     Ending block column index (inclusive). j2 < nt.
+///
 template <typename scalar_t>
 Matrix<scalar_t> HermitianMatrix<scalar_t>::sub(
     int64_t i1, int64_t i2,

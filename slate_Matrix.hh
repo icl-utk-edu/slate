@@ -151,6 +151,7 @@ Matrix<scalar_t>::Matrix():
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
 ///     p*q == MPI_Comm_size(mpi_comm).
+///
 template <typename scalar_t>
 Matrix<scalar_t> Matrix<scalar_t>::fromLAPACK(
     int64_t m, int64_t n,
@@ -196,6 +197,7 @@ Matrix<scalar_t> Matrix<scalar_t>::fromLAPACK(
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
 ///     p*q == MPI_Comm_size(mpi_comm).
+///
 template <typename scalar_t>
 Matrix<scalar_t> Matrix<scalar_t>::fromScaLAPACK(
     int64_t m, int64_t n,
@@ -209,6 +211,7 @@ Matrix<scalar_t> Matrix<scalar_t>::fromScaLAPACK(
 //------------------------------------------------------------------------------
 /// [internal]
 /// @see fromLAPACK
+///
 template <typename scalar_t>
 Matrix<scalar_t>::Matrix(
     int64_t m, int64_t n,
@@ -237,6 +240,7 @@ Matrix<scalar_t>::Matrix(
 /// [internal]
 /// @see fromScaLAPACK
 /// This differs from LAPACK constructor by adding mb.
+///
 template <typename scalar_t>
 Matrix<scalar_t>::Matrix(
     int64_t m, int64_t n,
@@ -272,6 +276,7 @@ Matrix<scalar_t>::Matrix(
 //------------------------------------------------------------------------------
 /// Returns sub-matrix that is a shallow copy view of the
 /// parent matrix, A[ i1:i2, j1:j2 ].
+///
 template <typename scalar_t>
 Matrix<scalar_t> Matrix<scalar_t>::sub(
     int64_t i1, int64_t i2,
@@ -285,6 +290,7 @@ Matrix<scalar_t> Matrix<scalar_t>::sub(
 /// Sub-matrix constructor creates shallow copy view of parent matrix,
 /// A[ i1:i2, j1:j2 ].
 /// @see sub().
+///
 template <typename scalar_t>
 Matrix<scalar_t>::Matrix(
     Matrix& orig,
@@ -298,6 +304,7 @@ Matrix<scalar_t>::Matrix(
 /// A[ i1:i2, j1:j2 ].
 /// This version is called for conversion from off-diagonal submatrix of
 /// TriangularMatrix, SymmetricMatrix, HermitianMatrix, etc.
+///
 template <typename scalar_t>
 Matrix<scalar_t>::Matrix(
     BaseMatrix< scalar_t >& orig,
@@ -386,6 +393,7 @@ void Matrix<scalar_t>::reserveDeviceWorkspace()
 //------------------------------------------------------------------------------
 /// Gathers the entire matrix to the LAPACK-style matrix A on MPI rank 0.
 /// Primarily for debugging purposes.
+///
 template <typename scalar_t>
 void Matrix<scalar_t>::gather(scalar_t* A, int64_t lda)
 {

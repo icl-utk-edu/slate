@@ -665,7 +665,7 @@ void test_copyDataToDevice(int align_host, int align_dev)
     test_assert(cudaStreamCreate(&stream) == cudaSuccess);
 
     double* data_dev;
-    test_assert(cudaMalloc(&data_dev, sizeof(double)*ldda*n) == cudaSuccess);
+    test_assert(cudaMalloc((void**) &data_dev, sizeof(double)*ldda*n) == cudaSuccess);
     test_assert(data_dev != nullptr);
 
     slate::Tile<double> dA(m, n, data_dev, ldda, 0);

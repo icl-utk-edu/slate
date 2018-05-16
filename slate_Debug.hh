@@ -86,7 +86,7 @@ public:
     template <typename scalar_t>
     static void printNumFreeMemBlocks(BaseMatrix<scalar_t> const& A)
     {
-        printNumFreeMemBlocks( A.storage_->memory_ );
+        printNumFreeMemBlocks(A.storage_->memory_);
     }
 
 private:

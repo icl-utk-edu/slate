@@ -53,7 +53,7 @@ cublasStatus_t cublasCreate(cublasHandle_t* handle)
     assert(0);
 }
 
-cublasStatus_t cublasDestroy(cublasHandle_t handle) 
+cublasStatus_t cublasDestroy(cublasHandle_t handle)
 {
     assert(0);
 }

@@ -385,9 +385,8 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     : BaseMatrix<scalar_t>(orig, i1, i2, j1, j2)
 {
     this->uplo_ = orig.uplo_;
-    if (i1 != j1) {
+    if (i1 != j1)
         throw std::exception();
-    }
 }
 
 //--------------------------------------------------------------------------
@@ -451,9 +450,8 @@ template <typename scalar_t>
 void BaseTrapezoidMatrix<scalar_t>::allocateBatchArrays()
 {
     int64_t num_tiles = 0;
-    for (int device = 0; device < this->num_devices_; ++device) {
+    for (int device = 0; device < this->num_devices_; ++device)
         num_tiles = std::max(num_tiles, getMaxDeviceTiles(device));
-    }
     this->storage_->allocateBatchArrays(num_tiles);
 }
 
@@ -471,9 +469,8 @@ template <typename scalar_t>
 void BaseTrapezoidMatrix<scalar_t>::reserveDeviceWorkspace()
 {
     int64_t num_tiles = 0;
-    for (int device = 0; device < this->num_devices_; ++device) {
+    for (int device = 0; device < this->num_devices_; ++device)
         num_tiles = std::max(num_tiles, getMaxDeviceTiles(device));
-    }
     this->storage_->reserveDeviceWorkspace(num_tiles);
 }
 
@@ -575,12 +572,9 @@ Uplo BaseTrapezoidMatrix<scalar_t>::uplo_logical() const
 {
     if ((this->uplo() == Uplo::Lower && this->op() == Op::NoTrans) ||
         (this->uplo() == Uplo::Upper && this->op() != Op::NoTrans))
-    {
         return Uplo::Lower;
-    }
-    else {
+    else
         return Uplo::Upper;
-    }
 }
 
 } // namespace slate

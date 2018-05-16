@@ -85,9 +85,8 @@ void Debug::diffLapackMatrices(int64_t m, int64_t n,
         printf("\n");
 
         if ((i+1)%mb == 0) {
-            for (int64_t j = 0; j < (n/nb)*5; ++j) {
+            for (int64_t j = 0; j < (n/nb)*5; ++j)
                 printf("-");
-            }
             printf("\n");
         }
     }
@@ -159,7 +158,7 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
 {
     if (! debug_) return;
     // i, j are tile indices
-    printf( "host\n" );
+    printf("host\n");
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             auto it = A.storage_->tiles_.find({i, j, A.host_num_});
@@ -170,14 +169,13 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
                 else
                     printf("x");
             }
-            else {
+            else
                 printf(".");
-            }
         }
         printf("\n");
     }
     for (int device = 0; device < A.num_devices_; ++device) {
-        printf( "device %d\n", device );
+        printf("device %d\n", device);
         for (int64_t i = 0; i < A.mt(); ++i) {
             for (int64_t j = 0; j < A.nt(); ++j) {
                 auto it = A.storage_->tiles_.find({i, j, device});
@@ -188,9 +186,8 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
                     else
                         printf("x");
                 }
-                else {
+                else
                     printf(".");
-                }
             }
             printf("\n");
         }

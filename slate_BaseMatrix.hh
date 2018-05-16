@@ -111,16 +111,18 @@ public:
     template <typename T>
     friend void swap(BaseMatrix<T>& A, BaseMatrix<T>& B);
 
-    Tile<scalar_t> operator() (int64_t i, int64_t j);
-    Tile<scalar_t> operator() (int64_t i, int64_t j, int device);
+    Tile<scalar_t> operator()(int64_t i, int64_t j);
+    Tile<scalar_t> operator()(int64_t i, int64_t j, int device);
 
     /// Alias of operator().
-    Tile<scalar_t> at(int64_t i, int64_t j) {
+    Tile<scalar_t> at(int64_t i, int64_t j)
+    {
         return (*this)(i, j);
     }
 
     /// Alias of operator().
-    Tile<scalar_t> at(int64_t i, int64_t j, int device) {
+    Tile<scalar_t> at(int64_t i, int64_t j, int device)
+    {
         return (*this)(i, j, device);
     }
 
@@ -140,17 +142,20 @@ public:
     Op op() const { return op_; }
 
     /// Returns MPI rank of tile {i, j} of op(A).
-    int tileRank(int64_t i, int64_t j) const {
+    int tileRank(int64_t i, int64_t j) const
+    {
         return storage_->tileRank(globalIndex(i, j));
     }
 
     /// Returns device of tile {i, j} of op(A).
-    int tileDevice(int64_t i, int64_t j) const {
+    int tileDevice(int64_t i, int64_t j) const
+    {
         return storage_->tileDevice(globalIndex(i, j));
     }
 
     /// Returns whether tile {i, j} of op(A) is local.
-    bool tileIsLocal(int64_t i, int64_t j) const {
+    bool tileIsLocal(int64_t i, int64_t j) const
+    {
         return storage_->tileIsLocal(globalIndex(i, j));
     }
 
@@ -162,19 +167,22 @@ public:
                                scalar_t* A, int64_t ld);
 
     /// Returns life counter of tile {i, j} of op(A).
-    int64_t tileLife(int64_t i, int64_t j) const {
+    int64_t tileLife(int64_t i, int64_t j) const
+    {
         return storage_->tileLife(globalIndex(i, j));
     }
 
     /// Set life counter of tile {i, j} of op(A).
-    void tileLife(int64_t i, int64_t j, int64_t life) {
+    void tileLife(int64_t i, int64_t j, int64_t life)
+    {
         storage_->tileLife(globalIndex(i, j), life);
     }
 
     /// Decrements life counter of workspace tile {i, j} of op(A).
     /// Then, if life reaches 0, deletes tile on all devices.
     /// For local, non-workspace tiles, does nothing.
-    void tileTick(int64_t i, int64_t j) {
+    void tileTick(int64_t i, int64_t j)
+    {
         storage_->tileTick(globalIndex(i, j));
     }
 
@@ -204,18 +212,21 @@ public:
 
 
     /// Removes all tiles from matrix.
-    void clear() {
+    void clear()
+    {
         storage_->clear();
     }
 
     /// Removes all temporary host and device workspace tiles from matrix.
     /// Leaves origin tiles.
-    void clearWorkspace() {
+    void clearWorkspace()
+    {
         storage_->clearWorkspace();
     }
 
     /// Removes batch arrays from matrix for all devices.
-    void clearBatchArrays() {
+    void clearBatchArrays()
+    {
         storage_->clearBatchArrays();
     }
 
@@ -223,38 +234,47 @@ public:
     /// @return batch arrays for the A, B, or C matrices,
     /// on host, to send to device
     /// Throws error if arrays were not allocated with allocateBatchArrays.
-    scalar_t** a_array_host(int device) {
+    scalar_t** a_array_host(int device)
+    {
         return storage_->a_array_host_.at(device);
     }
-    scalar_t** b_array_host(int device) {
+    scalar_t** b_array_host(int device)
+    {
         return storage_->b_array_host_.at(device);
     }
-    scalar_t** c_array_host(int device) {
+    scalar_t** c_array_host(int device)
+    {
         return storage_->c_array_host_.at(device);
     }
 
     //--------------------------------------------------------------------------
     /// @return batch arrays for the A, B, or C matrices, on device
     /// Throws error if arrays were not allocated with allocateBatchArrays.
-    scalar_t** a_array_device(int device) {
+    scalar_t** a_array_device(int device)
+    {
         return storage_->a_array_dev_.at(device);
     }
-    scalar_t** b_array_device(int device) {
+    scalar_t** b_array_device(int device)
+    {
         return storage_->b_array_dev_.at(device);
     }
-    scalar_t** c_array_device(int device) {
+    scalar_t** c_array_device(int device)
+    {
         return storage_->c_array_dev_.at(device);
     }
 
     //--------------------------------------------------------------------------
     /// @return CUDA streams and cuBLAS handles
-    cublasHandle_t cublas_handle(int device) {
+    cublasHandle_t cublas_handle(int device)
+    {
         return storage_->cublas_handles_.at(device);
     }
-    cudaStream_t compute_stream(int device) {
+    cudaStream_t compute_stream(int device)
+    {
         return storage_->compute_streams_.at(device);
     }
-    cudaStream_t comm_stream(int device) {
+    cudaStream_t comm_stream(int device)
+    {
         return storage_->comm_streams_.at(device);
     }
 
@@ -432,7 +452,7 @@ void swap(BaseMatrix<scalar_t>& A, BaseMatrix<scalar_t>& B)
 ///
 /// @return Tile {i, j, host}.
 template <typename scalar_t>
-Tile<scalar_t> BaseMatrix<scalar_t>::operator() (
+Tile<scalar_t> BaseMatrix<scalar_t>::operator()(
     int64_t i, int64_t j)
 {
     return (*this)(i, j, host_num_);
@@ -453,18 +473,15 @@ Tile<scalar_t> BaseMatrix<scalar_t>::operator() (
 ///
 /// @return Tile {i, j, device}.
 template <typename scalar_t>
-Tile<scalar_t> BaseMatrix<scalar_t>::operator() (
+Tile<scalar_t> BaseMatrix<scalar_t>::operator()(
     int64_t i, int64_t j, int device)
 {
-    if (op_ == Op::NoTrans) {
+    if (op_ == Op::NoTrans)
         return *(storage_->at(globalIndex(i, j, device)));
-    }
-    else if (op_ == Op::Trans) {
+    else if (op_ == Op::Trans)
         return transpose(*(storage_->at(globalIndex(i, j, device))));
-    }
-    else {  // if (op_ == Op::ConjTrans)
+    else    // if (op_ == Op::ConjTrans)
         return conj_transpose(*(storage_->at(globalIndex(i, j, device))));
-    }
 }
 
 //------------------------------------------------------------------------------
@@ -473,9 +490,8 @@ template <typename scalar_t>
 int64_t BaseMatrix<scalar_t>::m() const
 {
     int64_t sum = 0;
-    for (int64_t i = 0; i < mt(); ++i) {
+    for (int64_t i = 0; i < mt(); ++i)
         sum += tileMb(i);
-    }
     return sum;
 }
 
@@ -485,9 +501,8 @@ template <typename scalar_t>
 int64_t BaseMatrix<scalar_t>::n() const
 {
     int64_t sum = 0;
-    for (int64_t j = 0; j < nt(); ++j) {
+    for (int64_t j = 0; j < nt(); ++j)
         sum += tileNb(j);
-    }
     return sum;
 }
 
@@ -499,12 +514,10 @@ int64_t BaseMatrix<scalar_t>::n() const
 template <typename scalar_t>
 int64_t BaseMatrix<scalar_t>::tileMb(int64_t i) const
 {
-    if (op_ == Op::NoTrans) {
+    if (op_ == Op::NoTrans)
         return storage_->tileMb(ioffset_ + i);
-    }
-    else {
+    else
         return storage_->tileNb(joffset_ + i);
-    }
 }
 
 //------------------------------------------------------------------------------
@@ -515,12 +528,10 @@ int64_t BaseMatrix<scalar_t>::tileMb(int64_t i) const
 template <typename scalar_t>
 int64_t BaseMatrix<scalar_t>::tileNb(int64_t j) const
 {
-    if (op_ == Op::NoTrans) {
+    if (op_ == Op::NoTrans)
         return storage_->tileNb(joffset_ + j);
-    }
-    else {
+    else
         return storage_->tileMb(ioffset_ + j);
-    }
 }
 
 //------------------------------------------------------------------------------
@@ -543,9 +554,8 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
     auto index = globalIndex(i, j, device);
     auto tile = storage_->tileInsert(index);
     // set uplo on diagonal tiles (global i == j)
-    if (std::get<0>(index) == std::get<1>(index)) {
+    if (std::get<0>(index) == std::get<1>(index))
         tile->uplo(uplo_);
-    }
     return tile;
 }
 
@@ -576,9 +586,8 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
     auto index = globalIndex(i, j, device);
     auto tile = storage_->tileInsert(index, data, ld);
     // set uplo on diagonal tiles (global i == j)
-    if (std::get<0>(index) == std::get<1>(index)) {
+    if (std::get<0>(index) == std::get<1>(index))
         tile->uplo(uplo_);
-    }
     return tile;
 }
 

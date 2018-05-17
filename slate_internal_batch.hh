@@ -62,109 +62,109 @@ namespace internal {
 ///-----------------------------------------------------------------------------
 inline void cblas_gemm_batch(
     const CBLAS_LAYOUT layout,
-    const CBLAS_TRANSPOSE *transA_array,
-    const CBLAS_TRANSPOSE *transB_array,
-    const int *m_array,
-    const int *n_array,
-    const int *k_array,
-    const float *alpha_array,
-    const float **A_array,
-    const int *lda_array,
-    const float **B_array,
-    const int *ldb_array,
-    const float *beta_array,
-    float **C_array,
-    const int *ldc_array,
+    const CBLAS_TRANSPOSE* transA_array,
+    const CBLAS_TRANSPOSE* transB_array,
+    const int* m_array,
+    const int* n_array,
+    const int* k_array,
+    const float* alpha_array,
+    const float** A_array,
+    const int* lda_array,
+    const float** B_array,
+    const int* ldb_array,
+    const float* beta_array,
+    float** C_array,
+    const int* ldc_array,
     const int group_count,
-    const int *group_size)
+    const int* group_size)
 {
-    cblas_sgemm_batch( layout, transA_array, transB_array,
-                       m_array, n_array, k_array,
-                       alpha_array, A_array, lda_array,
-                                    B_array, ldb_array,
-                       beta_array,  C_array, ldc_array,
-                       group_count, group_size );
+    cblas_sgemm_batch(layout, transA_array, transB_array,
+                      m_array, n_array, k_array,
+                      alpha_array, A_array, lda_array,
+                                   B_array, ldb_array,
+                      beta_array,  C_array, ldc_array,
+                      group_count, group_size);
 }
 
 ///-----------------------------------------------------------------------------
 inline void cblas_gemm_batch(
     const CBLAS_LAYOUT layout,
-    const CBLAS_TRANSPOSE *transA_array,
-    const CBLAS_TRANSPOSE *transB_array,
-    const int *m_array,
-    const int *n_array,
-    const int *k_array,
-    const double *alpha_array,
-    const double **A_array,
-    const int *lda_array,
-    const double **B_array,
-    const int *ldb_array,
-    const double *beta_array,
-    double **C_array,
-    const int *ldc_array,
+    const CBLAS_TRANSPOSE* transA_array,
+    const CBLAS_TRANSPOSE* transB_array,
+    const int* m_array,
+    const int* n_array,
+    const int* k_array,
+    const double* alpha_array,
+    const double** A_array,
+    const int* lda_array,
+    const double** B_array,
+    const int* ldb_array,
+    const double* beta_array,
+    double** C_array,
+    const int* ldc_array,
     const int group_count,
-    const int *group_size)
+    const int* group_size)
 {
-    cblas_dgemm_batch( layout, transA_array, transB_array,
-                       m_array, n_array, k_array,
-                       alpha_array, A_array, lda_array,
-                                    B_array, ldb_array,
-                       beta_array,  C_array, ldc_array,
-                       group_count, group_size );
+    cblas_dgemm_batch(layout, transA_array, transB_array,
+                      m_array, n_array, k_array,
+                      alpha_array, A_array, lda_array,
+                                   B_array, ldb_array,
+                      beta_array,  C_array, ldc_array,
+                      group_count, group_size);
 }
 
 ///-----------------------------------------------------------------------------
 inline void cblas_gemm_batch(
     const CBLAS_LAYOUT layout,
-    const CBLAS_TRANSPOSE *transA_array,
-    const CBLAS_TRANSPOSE *transB_array,
-    const int *m_array,
-    const int *n_array,
-    const int *k_array,
-    const std::complex<float> *alpha_array,
-    const std::complex<float> **A_array,
-    const int *lda_array,
-    const std::complex<float> **B_array,
-    const int *ldb_array,
-    const std::complex<float> *beta_array,
-    std::complex<float> **C_array,
-    const int *ldc_array,
+    const CBLAS_TRANSPOSE* transA_array,
+    const CBLAS_TRANSPOSE* transB_array,
+    const int* m_array,
+    const int* n_array,
+    const int* k_array,
+    const std::complex<float>* alpha_array,
+    const std::complex<float>** A_array,
+    const int* lda_array,
+    const std::complex<float>** B_array,
+    const int* ldb_array,
+    const std::complex<float>* beta_array,
+    std::complex<float>** C_array,
+    const int* ldc_array,
     const int group_count,
-    const int *group_size)
+    const int* group_size)
 {
-    cblas_cgemm_batch( layout, transA_array, transB_array,
-                       m_array, n_array, k_array,
-                       alpha_array, (const void**) A_array, lda_array,
-                                    (const void**) B_array, ldb_array,
-                       beta_array,  (void**)       C_array, ldc_array,
-                       group_count, group_size );
+    cblas_cgemm_batch(layout, transA_array, transB_array,
+                      m_array, n_array, k_array,
+                      alpha_array, (const void**) A_array, lda_array,
+                                   (const void**) B_array, ldb_array,
+                      beta_array,  (void**)       C_array, ldc_array,
+                      group_count, group_size);
 }
 
 ///-----------------------------------------------------------------------------
 inline void cblas_gemm_batch(
     const CBLAS_LAYOUT layout,
-    const CBLAS_TRANSPOSE *transA_array,
-    const CBLAS_TRANSPOSE *transB_array,
-    const int *m_array,
-    const int *n_array,
-    const int *k_array,
-    const std::complex<double> *alpha_array,
-    const std::complex<double> **A_array,
-    const int *lda_array,
-    const std::complex<double> **B_array,
-    const int *ldb_array,
-    const std::complex<double> *beta_array,
-    std::complex<double> **C_array,
-    const int *ldc_array,
+    const CBLAS_TRANSPOSE* transA_array,
+    const CBLAS_TRANSPOSE* transB_array,
+    const int* m_array,
+    const int* n_array,
+    const int* k_array,
+    const std::complex<double>* alpha_array,
+    const std::complex<double>** A_array,
+    const int* lda_array,
+    const std::complex<double>** B_array,
+    const int* ldb_array,
+    const std::complex<double>* beta_array,
+    std::complex<double>** C_array,
+    const int* ldc_array,
     const int group_count,
-    const int *group_size)
+    const int* group_size)
 {
-    cblas_zgemm_batch( layout, transA_array, transB_array,
-                       m_array, n_array, k_array,
-                       alpha_array, (const void**) A_array, lda_array,
-                                    (const void**) B_array, ldb_array,
-                       beta_array,  (void**)       C_array, ldc_array,
-                       group_count, group_size );
+    cblas_zgemm_batch(layout, transA_array, transB_array,
+                      m_array, n_array, k_array,
+                      alpha_array, (const void**) A_array, lda_array,
+                                   (const void**) B_array, ldb_array,
+                      beta_array,  (void**)       C_array, ldc_array,
+                      group_count, group_size);
 }
 #endif // SLATE_WITH_MKL
 
@@ -186,11 +186,11 @@ inline cublasStatus_t cublasGemmBatched(
     int ldc,
     int batchCount)
 {
-    return cublasSgemmBatched( handle, transa, transb, m, n, k,
-                               alpha, Aarray, lda,
-                                      Barray, ldb,
-                               beta,  Carray, ldc,
-                               batchCount );
+    return cublasSgemmBatched(handle, transa, transb, m, n, k,
+                              alpha, Aarray, lda,
+                                     Barray, ldb,
+                              beta,  Carray, ldc,
+                              batchCount);
 }
 
 ///-----------------------------------------------------------------------------
@@ -211,11 +211,11 @@ inline cublasStatus_t cublasGemmBatched(
     int ldc,
     int batchCount)
 {
-    return cublasDgemmBatched( handle, transa, transb, m, n, k,
-                               alpha, Aarray, lda,
-                                      Barray, ldb,
-                               beta,  Carray, ldc,
-                               batchCount );
+    return cublasDgemmBatched(handle, transa, transb, m, n, k,
+                              alpha, Aarray, lda,
+                                     Barray, ldb,
+                              beta,  Carray, ldc,
+                              batchCount);
 }
 
 ///-----------------------------------------------------------------------------
@@ -236,13 +236,13 @@ inline cublasStatus_t cublasGemmBatched(
     int ldc,
     int batchCount)
 {
-    return cublasCgemmBatched( handle, transa, transb, m, n, k,
-                               (cuComplex*)  alpha,
-                               (const cuComplex**) Aarray, lda,
-                               (const cuComplex**) Barray, ldb,
-                               (cuComplex*)  beta,
-                               (cuComplex**) Carray, ldc,
-                               batchCount );
+    return cublasCgemmBatched(handle, transa, transb, m, n, k,
+                              (cuComplex*)  alpha,
+                              (const cuComplex**) Aarray, lda,
+                              (const cuComplex**) Barray, ldb,
+                              (cuComplex*)  beta,
+                              (cuComplex**) Carray, ldc,
+                              batchCount);
 }
 
 ///-----------------------------------------------------------------------------
@@ -263,13 +263,13 @@ inline cublasStatus_t cublasGemmBatched(
     int ldc,
     int batchCount)
 {
-    return cublasZgemmBatched( handle, transa, transb, m, n, k,
-                               (cuDoubleComplex*)  alpha,
-                               (const cuDoubleComplex**) Aarray, lda,
-                               (const cuDoubleComplex**) Barray, ldb,
-                               (cuDoubleComplex*)  beta,
-                               (cuDoubleComplex**) Carray, ldc,
-                               batchCount );
+    return cublasZgemmBatched(handle, transa, transb, m, n, k,
+                              (cuDoubleComplex*)  alpha,
+                              (const cuDoubleComplex**) Aarray, lda,
+                              (const cuDoubleComplex**) Barray, ldb,
+                              (cuDoubleComplex*)  beta,
+                              (cuDoubleComplex**) Carray, ldc,
+                              batchCount);
 }
 
 } // namespace slate

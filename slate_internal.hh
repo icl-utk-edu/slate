@@ -105,7 +105,7 @@ inline cublasOperation_t cublas_op_const(Op op)
         case Op::NoTrans:   return CUBLAS_OP_N;
         case Op::Trans:     return CUBLAS_OP_T;
         case Op::ConjTrans: return CUBLAS_OP_C;
-        default: assert( false );
+        default: assert(false);
     }
 }
 

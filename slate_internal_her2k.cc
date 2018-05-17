@@ -66,15 +66,13 @@ void her2k(scalar_t alpha,                  Matrix<scalar_t>&& A,
            blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>&& C,
            int priority)
 {
-    if (! ( ( C.uplo_logical() == Uplo::Lower )
-            &&
-            ( C.is_real || (C.op() != Op::Trans &&
-                            A.op() != Op::Trans) )
-            &&
-            ( A.op() == B.op() ) ) )
-    {
+    if (!((C.uplo_logical() == Uplo::Lower)
+          &&
+          (C.is_real || (C.op() != Op::Trans &&
+                         A.op() != Op::Trans))
+          &&
+          (A.op() == B.op())))
         throw std::exception();
-    }
 
     her2k(internal::TargetType<target>(),
           alpha, A,
@@ -142,7 +140,7 @@ void her2k(internal::TargetType<Target::HostTask>,
                             B.tileTick(i, 0);
                             B.tileTick(j, 0);
                         }
-                        catch (std::exception& e ) {
+                        catch (std::exception& e) {
                             err = __LINE__;
                         }
                     }
@@ -153,9 +151,8 @@ void her2k(internal::TargetType<Target::HostTask>,
 
     #pragma omp taskwait
 
-    if (err) {
+    if (err)
         throw std::exception();
-    }
 }
 
 ///-----------------------------------------------------------------------------
@@ -228,9 +225,8 @@ void her2k(internal::TargetType<Target::HostNest>,
 
     #pragma omp taskwait
 
-    if (err) {
+    if (err)
         throw std::exception();
-    }
 }
 
 ///-----------------------------------------------------------------------------
@@ -290,7 +286,8 @@ void her2k(internal::TargetType<Target::HostBatch>,
             if (A.op() == Op::NoTrans)
                 opA = C.op();
             else if (A.op() == C.op() || C.is_real) {
-                // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
+                // A and C are both Trans or both ConjTrans;
+                // Trans == ConjTrans if real
                 opA = Op::NoTrans;
             }
             else
@@ -300,8 +297,12 @@ void her2k(internal::TargetType<Target::HostBatch>,
 
         Op opB = (opA == Op::NoTrans ? Op::ConjTrans : Op::NoTrans);
 
-        std::vector<CBLAS_TRANSPOSE> opA_array(batch_count, cblas_trans_const(opA));  // all same
-        std::vector<CBLAS_TRANSPOSE> opB_array(batch_count, cblas_trans_const(opB));  // all same
+        // all same
+        std::vector<CBLAS_TRANSPOSE> opA_array(batch_count,
+                                               cblas_trans_const(opA));
+        // all same
+        std::vector<CBLAS_TRANSPOSE> opB_array(batch_count,
+                                               cblas_trans_const(opB));
         std::vector<int> m_array(batch_count);
         std::vector<int> n_array(batch_count);
         std::vector<int> k_array(batch_count);
@@ -363,7 +364,8 @@ void her2k(internal::TargetType<Target::HostBatch>,
             trace::Block trace_block("cblas_gemm_batch");
             #ifdef SLATE_WITH_MKL
                 // mkl_set_num_threads_local(...);
-                cblas_gemm_batch(CblasColMajor, opA_array.data(), opB_array.data(),
+                cblas_gemm_batch(CblasColMajor,
+                                 opA_array.data(), opB_array.data(),
                                  m_array.data(), n_array.data(), k_array.data(),
                                  alpha_array.data(),
                                  ai_array.data(), ldai_array.data(),
@@ -374,10 +376,12 @@ void her2k(internal::TargetType<Target::HostBatch>,
 
                 // ai => bi, bj => aj, conjugate alpha, set beta = 1
                 if (is_complex<scalar_t>::value) {
-                    std::fill(alpha_array.begin(), alpha_array.end(), conj(alpha));
+                    std::fill(alpha_array.begin(),
+                              alpha_array.end(), conj(alpha));
                 }
                 std::fill(beta_array.begin(), beta_array.end(), scalar_t(1.0));
-                cblas_gemm_batch(CblasColMajor, opA_array.data(), opB_array.data(),
+                cblas_gemm_batch(CblasColMajor,
+                                 opA_array.data(), opB_array.data(),
                                  m_array.data(), n_array.data(), k_array.data(),
                                  alpha_array.data(),
                                  bi_array.data(), ldbi_array.data(),
@@ -405,9 +409,8 @@ void her2k(internal::TargetType<Target::HostBatch>,
 
     #pragma omp taskwait
 
-    if (err) {
+    if (err)
         throw std::exception();
-    }
 }
 
 ///-----------------------------------------------------------------------------
@@ -441,7 +444,8 @@ void her2k(internal::TargetType<Target::Devices>,
                     if (A.op() == Op::NoTrans)
                         opA = C.op();
                     else if (A.op() == C.op() || C.is_real) {
-                        // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
+                        // A and C are both Trans or both ConjTrans;
+                        // Trans == ConjTrans if real
                         opA = Op::NoTrans;
                     }
                     else
@@ -744,9 +748,8 @@ void her2k(internal::TargetType<Target::Devices>,
 
     #pragma omp taskwait
 
-    if (err) {
+    if (err)
         throw std::exception();
-    }
 }
 
 //------------------------------------------------------------------------------

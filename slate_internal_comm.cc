@@ -69,7 +69,7 @@ void cubeBcastPattern(int size, int rank, int radix,
                       std::list<int>& recv_from, std::list<int>& send_to)
 {
     //-------------------------------------------
-    // Find the cube's and the rank's attributes:    
+    // Find the cube's and the rank's attributes:
 
     // Find the number of cube's dimensions.
     int num_dimensions = 1;

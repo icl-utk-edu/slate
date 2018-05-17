@@ -64,13 +64,11 @@ void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>&& C,
           int priority)
 {
-    if (! ( ( C.uplo_logical() == Uplo::Lower )
-            &&
-            ( C.is_real || (C.op() != Op::Trans &&
-                            A.op() != Op::Trans) ) ) )
-    {
+    if (!((C.uplo_logical() == Uplo::Lower)
+          &&
+          (C.is_real || (C.op() != Op::Trans &&
+                         A.op() != Op::Trans))))
         throw std::exception();
-    }
 
     herk(internal::TargetType<target>(),
          alpha, A,
@@ -138,9 +136,8 @@ void herk(internal::TargetType<Target::HostTask>,
 
     #pragma omp taskwait
 
-    if (err) {
+    if (err)
         throw std::exception();
-    }
 }
 
 ///-----------------------------------------------------------------------------
@@ -205,9 +202,8 @@ void herk(internal::TargetType<Target::HostNest>,
 
     #pragma omp taskwait
 
-    if (err) {
+    if (err)
         throw std::exception();
-    }
 }
 
 ///-----------------------------------------------------------------------------
@@ -290,21 +286,21 @@ void herk(internal::TargetType<Target::HostBatch>,
         for (int64_t j = 0; j < C.nt(); ++j) {
             for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                 if (C.tileIsLocal(i, j)) {
-                    m_array[ index ] = C(i, j).mb();
-                    n_array[ index ] = C(i, j).nb();
-                    k_array[ index ] = A(i, 0).nb();  // should be all same
+                    m_array[index] = C(i, j).mb();
+                    n_array[index] = C(i, j).nb();
+                    k_array[index] = A(i, 0).nb();  // should be all same
 
-                    assert( A(i, 0).mb() == m_array[ index ] );
-                    assert( A(j, 0).mb() == n_array[ index ] );
-                    assert( A(j, 0).nb() == k_array[ index ] );
+                    assert(A(i, 0).mb() == m_array[index]);
+                    assert(A(j, 0).mb() == n_array[index]);
+                    assert(A(j, 0).nb() == k_array[index]);
 
-                    a_array[ index ] = A(i, 0).data();
-                    b_array[ index ] = A(j, 0).data();
-                    c_array[ index ] = C(i, j).data();
+                    a_array[index] = A(i, 0).data();
+                    b_array[index] = A(j, 0).data();
+                    c_array[index] = C(i, j).data();
 
-                    lda_array[ index ] = A(i, 0).stride();
-                    ldb_array[ index ] = A(j, 0).stride();
-                    ldc_array[ index ] = C(i, j).stride();
+                    lda_array[index] = A(i, 0).stride();
+                    ldb_array[index] = A(j, 0).stride();
+                    ldc_array[index] = C(i, j).stride();
 
                     ++index;
                 }
@@ -323,14 +319,14 @@ void herk(internal::TargetType<Target::HostBatch>,
             trace::Block trace_block("cblas_gemm_batch");
             #ifdef SLATE_WITH_MKL
                 // mkl_set_num_threads_local(...);
-                cblas_gemm_batch( CblasColMajor, opA_array.data(), opB_array.data(),
-                                  m_array.data(), n_array.data(), k_array.data(),
-                                  alpha_array.data(),
-                                  a_array.data(), lda_array.data(),
-                                  b_array.data(), ldb_array.data(),
-                                  beta_array.data(),
-                                  c_array.data(), ldc_array.data(),
-                                  batch_count, group_size.data() );
+                cblas_gemm_batch(CblasColMajor, opA_array.data(), opB_array.data(),
+                                 m_array.data(), n_array.data(), k_array.data(),
+                                 alpha_array.data(),
+                                 a_array.data(), lda_array.data(),
+                                 b_array.data(), ldb_array.data(),
+                                 beta_array.data(),
+                                 c_array.data(), ldc_array.data(),
+                                 batch_count, group_size.data());
                 // mkl_set_num_threads_local(1);
             #else
                 assert(false);
@@ -349,9 +345,8 @@ void herk(internal::TargetType<Target::HostBatch>,
 
     #pragma omp taskwait
 
-    if (err) {
+    if (err)
         throw std::exception();
-    }
 }
 
 ///-----------------------------------------------------------------------------
@@ -577,9 +572,8 @@ void herk(internal::TargetType<Target::Devices>,
 
     #pragma omp taskwait
 
-    if (err) {
+    if (err)
         throw std::exception();
-    }
 }
 
 //------------------------------------------------------------------------------

@@ -124,9 +124,8 @@ void gemm(internal::TargetType<Target::HostTask>,
 
     #pragma omp taskwait
 
-    if (err) {
+    if (err)
         throw std::exception();
-    }
 }
 
 ///-----------------------------------------------------------------------------
@@ -172,9 +171,8 @@ void gemm(internal::TargetType<Target::HostNest>,
 
     #pragma omp taskwait
 
-    if (err) {
+    if (err)
         throw std::exception();
-    }
 }
 
 ///-----------------------------------------------------------------------------
@@ -224,9 +222,8 @@ void gemm(internal::TargetType<Target::HostBatch>,
                 // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
                 opA = Op::NoTrans;
             }
-            else {
+            else
                 throw std::exception();
-            }
         }
 
         Op opB = B.op();
@@ -237,9 +234,8 @@ void gemm(internal::TargetType<Target::HostBatch>,
                 // B and C are both Trans or both ConjTrans; Trans == ConjTrans if real
                 opB = Op::NoTrans;
             }
-            else {
+            else
                 throw std::exception();
-            }
         }
 
         if (C.op() == Op::ConjTrans) {
@@ -270,9 +266,9 @@ void gemm(internal::TargetType<Target::HostBatch>,
                     n_array[ index ] = C(i, j).nb();
                     k_array[ index ] = A(i, 0).nb();  // should be all same
 
-                    assert( A(i, 0).mb() == m_array[ index ] );
-                    assert( B(0, j).nb() == n_array[ index ] );
-                    assert( B(0, j).mb() == k_array[ index ] );
+                    assert(A(i, 0).mb() == m_array[index]);
+                    assert(B(0, j).nb() == n_array[index]);
+                    assert(B(0, j).mb() == k_array[index]);
 
                     a_array[ index ] = A(i, 0).data();
                     b_array[ index ] = B(0, j).data();
@@ -290,9 +286,9 @@ void gemm(internal::TargetType<Target::HostBatch>,
         if (C.op() != Op::NoTrans) {
             // swap A <=> B; swap m <=> n
             swap(opA_array, opB_array);
-            swap(a_array,   b_array  );
+            swap(a_array,   b_array);
             swap(lda_array, ldb_array);
-            swap(m_array,   n_array  );
+            swap(m_array,   n_array);
         }
 
         {
@@ -382,7 +378,7 @@ void gemm(internal::TargetType<Target::Devices>,
 
             if (C.op() == Op::ConjTrans) {
                 alpha = conj(alpha);
-                beta  = conj(beta );
+                beta  = conj(beta);
             }
 
             for (int64_t i = 0; i < C.mt(); ++i) {
@@ -627,9 +623,8 @@ void gemm(internal::TargetType<Target::Devices>,
 
     #pragma omp taskwait
 
-    if (err) {
+    if (err)
         throw std::exception();
-    }
 }
 
 //------------------------------------------------------------------------------

@@ -42,12 +42,9 @@
 
 namespace slate {
 
-int Memory::host_num_ = omp_get_initial_device();
-#ifdef SLATE_WITH_CUDA
-    int Memory::num_devices_ = omp_get_num_devices();
-#else
-    int Memory::num_devices_ = 0;
-#endif
+int Memory::host_num_;
+int Memory::num_devices_;
+Memory::StaticConstructor Memory::static_constructor_;
 
 //------------------------------------------------------------------------------
 /// Construct saves block size, but does not allocate any memory.

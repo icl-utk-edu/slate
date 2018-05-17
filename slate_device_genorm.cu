@@ -37,97 +37,113 @@
 // comments to <slate-user@icl.utk.edu>.
 //------------------------------------------------------------------------------
 
-#ifndef SLATE_MEMORY_HH
-#define SLATE_MEMORY_HH
+#include "slate_device.hh"
 
-#include <cstdlib>
-#include <cassert>
-#include <cstring>
-#include <iostream>
-#include <iomanip>
-
-#include <map>
-#include <stack>
-
-#include "slate_cuda.hh"
-#include "slate_openmp.hh"
+#include <cstdio>
 
 namespace slate {
+namespace device {
 
-//------------------------------------------------------------------------------
+__global__ void genormMaxKernel(int64_t m, int64_t n,
+                                float** a, int64_t lda,
+                                float* max)
+{}
+
+__global__ void genormMaxKernel(int64_t m, int64_t n,
+                                double** a, int64_t lda,
+                                double* max);
+
+__global__ void genormMaxKernel(int64_t m, int64_t n,
+                                std::complex<float>** a, int64_t lda,
+                                float* max)
+{}
+
+__global__ void genormMaxKernel(int64_t m, int64_t n,
+                                std::complex<double>** a, int64_t lda,
+                                double* max)
+{}
+
+///-----------------------------------------------------------------------------
 /// \brief
-/// Allocates workspace blocks for host and GPU devices.
-/// Currently assumes a fixed-size block of block_size bytes,
-/// e.g., block_size = sizeof(scalar_t) * nb * nb.
-class Memory {
-public:
-    friend class Debug;
+///
+template <typename scalar_t>
+void genormMax(
+    int64_t m, int64_t n,
+    scalar_t** a, int64_t lda,
+    real_type<scalar_t>* max,
+    int64_t batch_count,
+    cudaStream_t stream)
+{
+    dim3 dimBlock(n);
+    dim3 dimGrid(batch_count);
+    genormMaxKernel<<<dimGrid, dimBlock, sizeof(double)*n, stream>>>
+        (m, n, a, lda, max);
+}
 
-    static struct StaticConstructor {
-        StaticConstructor()
-        {
-            #ifdef SLATE_WITH_CUDA
-                cudaError_t error = cudaGetDeviceCount(&num_devices_);
-                assert(error == cudaSuccess);
-                host_num_ = -num_devices_;
-            #else
-                num_devices_ = 0;
-                host_num_ = 0;
-            #endif
-        }
-    } static_constructor_;
+//----------------------------------------
+// instantiations
+template
+void genormMax(
+    int64_t m, int64_t n,
+    float** a, int64_t lda,
+    float* max,
+    int64_t batch_count,
+    cudaStream_t stream);
 
-    Memory(size_t block_size);
-    ~Memory();
+template
+void genormMax(
+    int64_t m, int64_t n,
+    double** a, int64_t lda,
+    double* max,
+    int64_t batch_count,
+    cudaStream_t stream);
 
-    // todo: change add* to reserve*?
-    void addHostBlocks(int64_t num_blocks);
-    void addDeviceBlocks(int device, int64_t num_blocks);
+template
+void genormMax(
+    int64_t m, int64_t n,
+    std::complex<float>** a, int64_t lda,
+    float* max,
+    int64_t batch_count,
+    cudaStream_t stream);
 
-    void clearHostBlocks();
-    void clearDeviceBlocks(int device);
+template
+void genormMax(
+    int64_t m, int64_t n,
+    std::complex<double>** a, int64_t lda,
+    double* max,
+    int64_t batch_count,
+    cudaStream_t stream);
 
-    void* alloc(int device);
-    void free(void* block, int device);
+///-----------------------------------------------------------------------------
+/// \brief
+///
+__global__ void genormMaxKernel(int64_t m, int64_t n,
+                                double** tiles, int64_t lda,
+                                double* tiles_maxima)
+{
+    double* tile = tiles[blockIdx.x];
+    double* column = &tile[lda*threadIdx.x];
+    double tile_max;
 
-    /// @return number of available free blocks in device's memory pool,
-    /// which can be host.
-    size_t available(int device) const
-    {
-        return free_blocks_.at(device).size();
+    extern __shared__ double col_max[];
+
+    double max = column[0];
+    for (int64_t i = 1; i < m; ++i)
+        if (column[i] > max)
+            max = column[i];
+
+    col_max[threadIdx.x] = max;
+    __syncthreads();
+
+    if (threadIdx.x == 0) {
+        tile_max = col_max[0];
+        for (int64_t j = 1; j < n; ++j)
+            if (col_max[j] > tile_max)
+                tile_max = col_max[j];
+
+        tiles_maxima[blockIdx.x] = tile_max;
     }
+}
 
-    /// @return total number of blocks in device's memory pool,
-    /// which can be host.
-    size_t capacity(int device) const
-    {
-        return capacity_.at(device);
-    }
-
-    // ----------------------------------------
-    // public static variables
-    static int host_num_;
-    static int num_devices_;
-
-private:
-    void* allocBlock(int device);
-
-    void* allocHostMemory(size_t size);
-    void* allocDeviceMemory(int device, size_t size);
-
-    void freeHostMemory(void* host_mem);
-    void freeDeviceMemory(int device, void* dev_mem);
-
-    // ----------------------------------------
-    // member variables
-    size_t block_size_;
-
-    // map device number to stack of blocks
-    std::map< int, std::stack<void*> > free_blocks_;
-    std::map< int, std::stack<void*> > allocated_mem_;
-    std::map< int, size_t > capacity_;
-};
-
+} // namespace device
 } // namespace slate
-
-#endif // SLATE_MEMORY_HH

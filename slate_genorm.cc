@@ -66,6 +66,9 @@ genorm(slate::internal::TargetType<target>,
     real_t local_max;
     real_t global_max;
 
+    if (target == Target::Devices)
+        A.reserveDeviceWorkspace();
+
     #pragma omp parallel
     #pragma omp master
     {
@@ -82,6 +85,8 @@ genorm(slate::internal::TargetType<target>,
                           MPI_MAX, A.mpiComm());
     }
     assert(retval == MPI_SUCCESS);
+
+    A.clearWorkspace();
 
     return global_max;
 }

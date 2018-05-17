@@ -549,9 +549,9 @@ public:
     std::vector<cublasHandle_t> cublas_handles_;
 
     // host pointers arrays for batch GEMM
-    std::vector< scalar_t** > a_array_host_;
-    std::vector< scalar_t** > b_array_host_;
-    std::vector< scalar_t** > c_array_host_;
+    std::vector<scalar_t**> a_array_host_;
+    std::vector<scalar_t**> b_array_host_;
+    std::vector<scalar_t**> c_array_host_;
 
     // device pointers arrays for batch GEMM
     std::vector<scalar_t**> a_array_dev_;

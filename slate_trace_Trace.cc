@@ -78,7 +78,7 @@ std::map<std::string, Color> Trace::function_color_ = {
     {"cudaMemcpyAsync",   Color::LightGray},
 
     {"lapack::potrf", Color::RosyBrown},
-    {"lapack::lange", Color::LightSkyBlue},
+    {"lapack::lange", Color::LightBlue},
 
     {"Memory::alloc", Color::Aqua},
     {"Memory::free",  Color::Aquamarine},
@@ -88,7 +88,9 @@ std::map<std::string, Color> Trace::function_color_ = {
     {"MPI_Bcast",             Color::Crimson},
     {"MPI_Comm_create_group", Color::DarkRed},
     {"MPI_Recv",              Color::Crimson},
-    {"MPI_Send",              Color::LightCoral}
+    {"MPI_Send",              Color::LightCoral},
+
+    {"slate::device::genorm", Color::LightSkyBlue}
 };
 
 ///-----------------------------------------------------------------------------

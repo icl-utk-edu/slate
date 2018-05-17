@@ -39,6 +39,7 @@
 
 #include "slate.hh"
 #include "slate_internal.hh"
+#include "slate_internal_util.hh"
 #include "slate_mpi.hh"
 
 #include <list>
@@ -77,12 +78,27 @@ genorm(slate::internal::TargetType<target>,
     }
 
     int retval;
+
+    // todo: make op_max_nan a static member of BaseMatrix?
+    MPI_Op op_max_nan;
+    #pragma omp critical(slate_mpi)
+    {
+        retval = MPI_Op_create(mpi_max_nan, true, &op_max_nan);
+    }
+    assert(retval == MPI_SUCCESS);
+
     #pragma omp critical(slate_mpi)
     {
         trace::Block trace_block("MPI_Allreduce");
         retval =
             MPI_Allreduce(&local_max, &global_max, 1, mpi_type<scalar_t>::value,
-                          MPI_MAX, A.mpiComm());
+                          op_max_nan, A.mpiComm());
+    }
+    assert(retval == MPI_SUCCESS);
+
+    #pragma omp critical(slate_mpi)
+    {
+        retval = MPI_Op_free( &op_max_nan );
     }
     assert(retval == MPI_SUCCESS);
 

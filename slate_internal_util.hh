@@ -43,11 +43,17 @@
 #ifndef SLATE_INTERNAL_UTIL_HH
 #define SLATE_INTERNAL_UTIL_HH
 
+#include "slate_mpi.hh"
+
+#include <cmath>
+
 namespace slate {
 namespace internal {
 
 template <typename T>
 T pow(T base, T exp);
+
+void mpi_max_nan(void* invec, void* inoutvec, int* len, MPI_Datatype* datatype);
 
 } // namespace internal
 } // namespace slate

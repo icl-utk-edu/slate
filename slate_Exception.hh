@@ -56,8 +56,7 @@ enum class Error {
 /// \class
 /// \brief
 ///
-class Exception : public std::exception
-{
+class Exception : public std::exception {
 public:
     Exception(Error error, const char* file, const char* func, int line)
         : error_(error), file_(file), func_(func), line_(line)
@@ -74,8 +73,7 @@ protected:
 /// \class
 /// \brief
 ///
-class TrueConditionException : public Exception
-{
+class TrueConditionException : public Exception {
 public:
     TrueConditionException(const char* cond,
                            Error error,
@@ -105,8 +103,7 @@ protected:
 /// \class
 /// \brief
 ///
-class FalseConditionException : public Exception
-{
+class FalseConditionException : public Exception {
 public:
     FalseConditionException(const char* cond,
                             Error error,
@@ -136,8 +133,7 @@ protected:
 /// \class
 /// \brief
 ///
-class MpiException : public Exception
-{
+class MpiException : public Exception {
 public:
     MpiException(const char* call,
                  int code,
@@ -175,8 +171,7 @@ protected:
 /// \class
 /// \brief
 ///
-class CudaException : public Exception
-{
+class CudaException : public Exception {
 public:
     CudaException(const char* call,
                   cudaError_t code,

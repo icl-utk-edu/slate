@@ -70,9 +70,8 @@ void her2k(slate::internal::TargetType<target>,
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // if upper, change to lower
-    if (C.uplo_logical() == Uplo::Upper) {
+    if (C.uplo_logical() == Uplo::Upper)
         C = conj_transpose(C);
-    }
 
     // A is mt-by-nt, C is mt-by-mt
     assert(A.mt() == C.mt());
@@ -103,9 +102,11 @@ void her2k(slate::internal::TargetType<target>,
             BcastList bcast_list_B;
             for (int64_t i = 0; i < A.mt(); ++i) {
                 bcast_list_A.push_back({i, 0, {C.sub(i, i, 0, i),
-                                               C.sub(i, C.mt()-1, i, i)}});
+                                               C.sub(i, C.mt()-1, i, i)
+                                              }});
                 bcast_list_B.push_back({i, 0, {C.sub(i, i, 0, i),
-                                               C.sub(i, C.mt()-1, i, i)}});
+                                               C.sub(i, C.mt()-1, i, i)
+                                              }});
             }
             A.template listBcast<target>(bcast_list_A);
             B.template listBcast<target>(bcast_list_B);
@@ -149,7 +150,7 @@ void her2k(slate::internal::TargetType<target>,
                                  depend(in:bcast[k+lookahead-1]) \
                                  depend(out:bcast[k+lookahead])
                 {
-                    // broadcast A(k+la, i) to ranks owning 
+                    // broadcast A(k+la, i) to ranks owning
                     // block row C(i, 0:i) and block col C(i:n, i)
                     BcastList bcast_list_A;
                     BcastList bcast_list_B;
@@ -265,9 +266,9 @@ void her2k(scalar_t alpha,                  Matrix<scalar_t>& A,
 ///
 /// @ingroup her2k
 template <typename scalar_t>
-void her2k(scalar_t alpha,                  Matrix<scalar_t>& A,
-                                            Matrix<scalar_t>& B,
-           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
+void her2k(scalar_t alpha,                 Matrix<scalar_t>& A,
+                                           Matrix<scalar_t>& B,
+           blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
            const std::map<Option, Value>& opts)
 {
     Target target;

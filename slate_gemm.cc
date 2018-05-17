@@ -257,7 +257,7 @@ void gemm(scalar_t alpha, Matrix<scalar_t>& A,
 {
     Target target;
     try {
-        target = Target( opts.at(Option::Target).i_ );
+        target = Target(opts.at(Option::Target).i_);
     }
     catch (std::out_of_range) {
         target = Target::HostTask;

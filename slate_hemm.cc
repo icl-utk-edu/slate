@@ -62,13 +62,13 @@ template <Target target, typename scalar_t>
 void hemm(slate::internal::TargetType<target>,
           Side side,
           scalar_t alpha, HermitianMatrix<scalar_t> A,
-                          Matrix<scalar_t> B,
+          Matrix<scalar_t> B,
           scalar_t beta,  Matrix<scalar_t> C,
           int64_t lookahead)
 {
     // Due to the symmetry, each off diagonal tile is sent twice, once as part
     // of A and once as art of A^T. In principle, this could be avoided by
-    // sending each tile only once and retaining it until it is used twice. 
+    // sending each tile only once and retaining it until it is used twice.
     // This would, however, violate the upper bound on the size of communication
     // buffers.
     // The same happens in the symm routine.
@@ -132,7 +132,7 @@ void hemm(slate::internal::TargetType<target>,
                 #pragma omp task depend(in:bcast[k-1]) \
                                  depend(out:bcast[k])
                 {
-                    // broadcast A(k, i) or A(i, k) 
+                    // broadcast A(k, i) or A(i, k)
                     // to ranks owning block row C(i, :)
                     BcastList bcast_list_A;
                     for (int64_t i = 0; i < k && i < A.mt(); ++i) {
@@ -217,7 +217,7 @@ void hemm(slate::internal::TargetType<target>,
                 {
                     auto Arow_k = A.sub(k, k, 0, k-1);
                     internal::gemm<target>(
-                        alpha,         conj_transpose( Arow_k ),
+                        alpha,         conj_transpose(Arow_k),
                                        B.sub(k, k, 0, B.nt()-1),
                         scalar_t(1.0), C.sub(0, k-1, 0, C.nt()-1));
 
@@ -261,7 +261,7 @@ void hemm(slate::internal::TargetType<target>,
                 #pragma omp task depend(in:bcast[k-1]) \
                                  depend(out:bcast[k])
                 {
-                    // broadcast A(k, i) or A(i, k) 
+                    // broadcast A(k, i) or A(i, k)
                     // to ranks owning block row C(i, :)
                     BcastList bcast_list_A;
                     for (int64_t i = 0; i < k && i < A.mt(); ++i) {
@@ -313,7 +313,7 @@ void hemm(slate::internal::TargetType<target>,
                                      depend(in:bcast[k+lookahead-1]) \
                                      depend(out:bcast[k+lookahead])
                     {
-                        // broadcast A(k+la, i) or A(i, k+la) 
+                        // broadcast A(k+la, i) or A(i, k+la)
                         // to ranks owning block row C(i, :)
                         BcastList bcast_list_A;
                         for (int64_t i = 0; i < k+lookahead; ++i) {

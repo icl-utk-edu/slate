@@ -69,9 +69,8 @@ void herk(slate::internal::TargetType<target>,
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // if upper, change to lower
-    if (C.uplo_logical() == Uplo::Upper) {
+    if (C.uplo_logical() == Uplo::Upper)
         C = conj_transpose(C);
-    }
 
     // A is mt-by-nt, C is mt-by-mt
     assert(A.mt() == C.mt());
@@ -247,7 +246,7 @@ void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
 {
     Target target;
     try {
-        target = Target( opts.at(Option::Target).i_ );
+        target = Target(opts.at(Option::Target).i_);
     }
     catch (std::out_of_range) {
         target = Target::HostTask;

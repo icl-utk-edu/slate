@@ -170,19 +170,19 @@ genorm(internal::TargetType<Target::Devices>,
 
         int64_t max_tiles = A.getMaxDeviceTiles(device);
 
-        error = cudaMallocHost(&a_arrays_host.at(device),
+        error = cudaMallocHost((void**)&a_arrays_host.at(device),
                                sizeof(scalar_t*)*max_tiles);
         assert(error == cudaSuccess);
 
-        error = cudaMallocHost(&norm_arrays_host.at(device),
+        error = cudaMallocHost((void**)&norm_arrays_host.at(device),
                                sizeof(real_t)*max_tiles);
         assert(error == cudaSuccess);
 
-        error = cudaMalloc(&a_arrays_dev.at(device),
+        error = cudaMalloc((void**)&a_arrays_dev.at(device),
                            sizeof(scalar_t*)*max_tiles);
         assert(error == cudaSuccess);
 
-        error = cudaMalloc(&norm_arrays_dev.at(device),
+        error = cudaMalloc((void**)&norm_arrays_dev.at(device),
                            sizeof(real_t)*max_tiles);
         assert(error == cudaSuccess);
     }

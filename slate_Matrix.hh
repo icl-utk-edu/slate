@@ -227,9 +227,8 @@ Matrix<scalar_t>::Matrix(
         int64_t ii = 0;
         for (int64_t i = 0; i < this->mt(); ++i) {
             int64_t ib = this->tileMb(i);
-            if (this->tileIsLocal(i, j)) {
+            if (this->tileIsLocal(i, j))
                 this->tileInsert(i, j, this->host_num_, &A[ ii + jj*lda ], lda);
-            }
             ii += ib;
         }
         jj += jb;
@@ -364,9 +363,8 @@ template <typename scalar_t>
 void Matrix<scalar_t>::allocateBatchArrays()
 {
     int64_t num_tiles = 0;
-    for (int device = 0; device < this->num_devices_; ++device) {
+    for (int device = 0; device < this->num_devices_; ++device)
         num_tiles = std::max(num_tiles, getMaxDeviceTiles(device));
-    }
     this->storage_->allocateBatchArrays(num_tiles);
 }
 
@@ -384,9 +382,8 @@ template <typename scalar_t>
 void Matrix<scalar_t>::reserveDeviceWorkspace()
 {
     int64_t num_tiles = 0;
-    for (int device = 0; device < this->num_devices_; ++device) {
+    for (int device = 0; device < this->num_devices_; ++device)
         num_tiles = std::max(num_tiles, getMaxDeviceTiles(device));
-    }
     this->storage_->reserveDeviceWorkspace(num_tiles);
 }
 

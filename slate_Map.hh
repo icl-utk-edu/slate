@@ -130,13 +130,13 @@ public:
 
     //-------
     // find()
-    typename stdMap::iterator find(const KeyType &key)
+    typename stdMap::iterator find(const KeyType& key)
     {
         LockGuard guard(&lock_);
         typename stdMap::iterator element = std_map_.find(key);
         return element;
     }
-    typename stdMap::const_iterator find(const KeyType &key) const
+    typename stdMap::const_iterator find(const KeyType& key) const
     {
         LockGuard guard(&lock_);
         typename stdMap::iterator element = std_map_.find(key);
@@ -145,7 +145,7 @@ public:
 
     //--------
     // erase()
-    typename stdMap::size_type erase(const KeyType &key)
+    typename stdMap::size_type erase(const KeyType& key)
     {
         LockGuard guard(&lock_);
         typename stdMap::size_type num_erased = std_map_.erase(key);
@@ -160,13 +160,13 @@ public:
 
     //------------
     // operator []
-    ValueType& operator[](const KeyType &key)
+    ValueType& operator[](const KeyType& key)
     {
         LockGuard guard(&lock_);
         ValueType& tile = std_map_[key];
         return tile;
     }
-    ValueType& operator[](const KeyType &key) const
+    ValueType& operator[](const KeyType& key) const
     {
         LockGuard guard(&lock_);
         ValueType& tile = std_map_[key];
@@ -175,13 +175,13 @@ public:
 
     //------------
     // at()
-    ValueType& at(const KeyType &key)
+    ValueType& at(const KeyType& key)
     {
         LockGuard guard(&lock_);
         ValueType& tile = std_map_.at(key);
         return tile;
     }
-    ValueType& at(const KeyType &key) const
+    ValueType& at(const KeyType& key) const
     {
         LockGuard guard(&lock_);
         ValueType& tile = std_map_.at(key);

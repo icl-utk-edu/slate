@@ -77,7 +77,7 @@ extern int* MPI_STATUS_IGNORE;
 extern "C" {
 #endif
 
-int MPI_Allreduce(const void *sendbuf, void *recvbuf, int count,
+int MPI_Allreduce(const void* sendbuf, void* recvbuf, int count,
                   MPI_Datatype datatype, MPI_Op op, MPI_Comm comm);
 
 int MPI_Barrier(MPI_Comm comm);
@@ -131,7 +131,7 @@ int MPI_Type_vector(int count, int blocklength, int stride,
 
 int MPI_Wait(MPI_Request* request, MPI_Status* status);
 
-int MPI_Finalize( void );
+int MPI_Finalize(void);
 
 #ifdef __cplusplus
 }

@@ -51,7 +51,7 @@ int* MPI_STATUS_IGNORE;
 extern "C" {
 #endif
 
-int MPI_Allreduce(const void *sendbuf, void *recvbuf, int count,
+int MPI_Allreduce(const void* sendbuf, void* recvbuf, int count,
                   MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)
 {
     assert(count == 1);
@@ -149,7 +149,7 @@ int MPI_Irecv(void* buf, int count, MPI_Datatype datatype, int source,
     assert(0);
 }
 
-int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest,
+int MPI_Isend(const void* buf, int count, MPI_Datatype datatype, int dest,
               int tag, MPI_Comm comm, MPI_Request* request)
 {
     assert(0);
@@ -213,12 +213,12 @@ int MPI_Type_vector(int count, int blocklength, int stride,
     assert(0);
 }
 
-int MPI_Wait(MPI_Request *request, MPI_Status* status)
+int MPI_Wait(MPI_Request* request, MPI_Status* status)
 {
     assert(0);
 }
 
-int MPI_Finalize( void )
+int MPI_Finalize(void)
 {
     return MPI_SUCCESS;
 }

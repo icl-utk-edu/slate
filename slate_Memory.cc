@@ -185,9 +185,8 @@ void* Memory::alloc(int device)
             block = free_blocks_[device].top();
             free_blocks_[device].pop();
         }
-        else {
+        else
             block = allocBlock(device);
-        }
     }
     return block;
 }

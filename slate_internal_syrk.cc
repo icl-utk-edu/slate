@@ -64,13 +64,11 @@ void syrk(scalar_t alpha, Matrix<scalar_t>&& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>&& C,
           int priority)
 {
-    if (! ( ( C.uplo_logical() == Uplo::Lower )
-            &&
-            ( C.is_real || (C.op() != Op::ConjTrans &&
-                            A.op() != Op::ConjTrans) ) ) )
-    {
+    if (!((C.uplo_logical() == Uplo::Lower)
+          &&
+          (C.is_real || (C.op() != Op::ConjTrans &&
+                         A.op() != Op::ConjTrans))))
         throw std::exception();
-    }
 
     syrk(internal::TargetType<target>(),
          alpha, A,
@@ -135,9 +133,8 @@ void syrk(internal::TargetType<Target::HostTask>,
 
     #pragma omp taskwait
 
-    if (err) {
+    if (err)
         throw std::exception();
-    }
 }
 
 ///-----------------------------------------------------------------------------
@@ -199,9 +196,8 @@ void syrk(internal::TargetType<Target::HostNest>,
 
     #pragma omp taskwait
 
-    if (err) {
+    if (err)
         throw std::exception();
-    }
 }
 
 ///-----------------------------------------------------------------------------
@@ -284,21 +280,21 @@ void syrk(internal::TargetType<Target::HostBatch>,
         for (int64_t j = 0; j < C.nt(); ++j) {
             for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                 if (C.tileIsLocal(i, j)) {
-                    m_array[ index ] = C(i, j).mb();
-                    n_array[ index ] = C(i, j).nb();
-                    k_array[ index ] = A(i, 0).nb();  // should be all same
+                    m_array[index] = C(i, j).mb();
+                    n_array[index] = C(i, j).nb();
+                    k_array[index] = A(i, 0).nb();  // should be all same
 
-                    assert( A(i, 0).mb() == m_array[ index ] );
-                    assert( A(j, 0).mb() == n_array[ index ] );
-                    assert( A(j, 0).nb() == k_array[ index ] );
+                    assert(A(i, 0).mb() == m_array[index]);
+                    assert(A(j, 0).mb() == n_array[index]);
+                    assert(A(j, 0).nb() == k_array[index]);
 
-                    a_array[ index ] = A(i, 0).data();
-                    b_array[ index ] = A(j, 0).data();
-                    c_array[ index ] = C(i, j).data();
+                    a_array[index] = A(i, 0).data();
+                    b_array[index] = A(j, 0).data();
+                    c_array[index] = C(i, j).data();
 
-                    lda_array[ index ] = A(i, 0).stride();
-                    ldb_array[ index ] = A(j, 0).stride();
-                    ldc_array[ index ] = C(i, j).stride();
+                    lda_array[index] = A(i, 0).stride();
+                    ldb_array[index] = A(j, 0).stride();
+                    ldc_array[index] = C(i, j).stride();
 
                     ++index;
                 }
@@ -308,9 +304,9 @@ void syrk(internal::TargetType<Target::HostBatch>,
         if (C.op() != Op::NoTrans) {
             // swap A <=> B; swap m <=> n
             swap(opA_array, opB_array);
-            swap(a_array,   b_array  );
+            swap(a_array,   b_array);
             swap(lda_array, ldb_array);
-            swap(m_array,   n_array  );
+            swap(m_array,   n_array);
         }
 
         {
@@ -343,9 +339,8 @@ void syrk(internal::TargetType<Target::HostBatch>,
 
     #pragma omp taskwait
 
-    if (err) {
+    if (err)
         throw std::exception();
-    }
 }
 
 ///-----------------------------------------------------------------------------
@@ -568,9 +563,8 @@ void syrk(internal::TargetType<Target::Devices>,
 
     #pragma omp taskwait
 
-    if (err) {
+    if (err)
         throw std::exception();
-    }
 }
 
 //------------------------------------------------------------------------------

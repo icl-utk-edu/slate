@@ -70,16 +70,14 @@ void mpi_max_nan(void* invec, void* inoutvec, int* len, MPI_Datatype* datatype)
     if (*datatype == MPI_DOUBLE) {
         double* x = (double*) invec;
         double* y = (double*) inoutvec;
-        for (int i = 0; i < *len; ++i) {
+        for (int i = 0; i < *len; ++i)
             y[i] = (std::isnan(y[i]) || y[i] >= x[i]) ? y[i] : x[i];
-        }
     }
     else if (*datatype == MPI_FLOAT) {
         float* x = (float*) invec;
         float* y = (float*) inoutvec;
-        for (int i = 0; i < *len; ++i) {
+        for (int i = 0; i < *len; ++i)
             y[i] = (std::isnan(y[i]) || y[i] >= x[i]) ? y[i] : x[i];
-        }
     }
 }
 

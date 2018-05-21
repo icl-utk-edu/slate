@@ -155,9 +155,8 @@ void symm(internal::TargetType<Target::HostTask>,
 
     #pragma omp taskwait
 
-    if (err) {
+    if (err)
         throw std::exception();
-    }
 }
 
 ///-----------------------------------------------------------------------------
@@ -222,9 +221,8 @@ void symm(internal::TargetType<Target::HostNest>,
 
     #pragma omp taskwait
 
-    if (err) {
+    if (err)
         throw std::exception();
-    }
 }
 
 //------------------------------------------------------------------------------

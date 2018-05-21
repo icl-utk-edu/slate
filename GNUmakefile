@@ -308,6 +308,32 @@ $(unit_test): %: %.o $(unit_test_obj) $(lib)
 		$(unit_test_obj) $(UNIT_LIB) $(LIB) -o $@
 
 #-------------------------------------------------------------------------------
+# scalapack_compat library
+scalapack_compat = lib/libslate_scalapack_compat.so
+
+scalapack_compat_src = \
+                     scalapack_compat/scalapack_compat_gemm.cc \
+                     scalapack_compat/scalapack_compat_syrk.cc \
+                     scalapack_compat/scalapack_compat_symm.cc \
+                     scalapack_compat/scalapack_compat_trsm.cc \
+                     scalapack_compat/scalapack_compat_syr2k.cc \
+                     scalapack_compat/scalapack_compat_trmm.cc 
+
+scalapack_compat_obj = $(scalapack_compat_src:.cc=.o) 
+
+SCALAPACK_COMPAT_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
+SCALAPACK_COMPAT_LIB     += -lslate $(scalapack)
+
+scalapack_compat: lib $(scalapack_compat)
+
+scalapack_compat/clean:
+	rm -f $(scalapack_compat) $(scalapack_compat_obj)
+
+$(scalapack_compat): $(scalapack_compat_obj) $(lib)
+	$(CXX) $(SCALAPACK_COMPAT_LDFLAGS) $(LDFLAGS) $^ \
+		$(SCALAPACK_COMPAT_LIB) $(LIB) -shared $(install_name) -o $@
+
+#-------------------------------------------------------------------------------
 # general rules
 clean: test/clean unit_test/clean
 	rm -f $(lib_a) $(lib_so) $(lib_obj)

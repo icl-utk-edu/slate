@@ -57,7 +57,7 @@ bool Trace::tracing_ = false;
 int Trace::num_threads_ = omp_get_max_threads();
 
 std::vector<std::vector<Event>> Trace::events_ =
-    std::vector<std::vector<Event>>(omp_get_max_threads());
+                                 std::vector<std::vector<Event>>(omp_get_max_threads());
 
 std::map<std::string, Color> Trace::function_color_ = {
 
@@ -141,9 +141,8 @@ void Trace::finish()
             printProcEvents(rank, mpi_size, timespan, trace_file);
         }
     }
-    else {
+    else
         sendProcEvents();
-    }
 
     // Finish the trace file.
     if (mpi_rank == 0) {
@@ -198,16 +197,16 @@ void Trace::printProcEvents(int mpi_rank, int mpi_size,
             double width = (event.stop_ - event.start_) * hscale_;
 
             fprintf(trace_file,
-                "<rect x=\"%lf\" y=\"%lf\" "
-                "width=\"%lf\" height=\"%lf\" "
-                "fill=\"#%06x\" "
-                "stroke=\"#000000\" stroke-width=\"%lf\" "
-                "inkscape:label=\"%s\"/>\n",
-                x, y,
-                width, height,
-                (unsigned int)function_color_[event.name_],
-                stroke_width,
-                event.name_);
+                    "<rect x=\"%lf\" y=\"%lf\" "
+                    "width=\"%lf\" height=\"%lf\" "
+                    "fill=\"#%06x\" "
+                    "stroke=\"#000000\" stroke-width=\"%lf\" "
+                    "inkscape:label=\"%s\"/>\n",
+                    x, y,
+                    width, height,
+                    (unsigned int)function_color_[event.name_],
+                    stroke_width,
+                    event.name_);
         }
         y += vscale_;
     }
@@ -225,18 +224,18 @@ void Trace::printTicks(double timespan, FILE* trace_file)
 
     for (double time = 0; time < timespan; time += tick) {
         fprintf(trace_file,
-            "<line x1=\"%lf\" x2=\"%lf\" y1=\"%lf\" y2=\"%lf\" "
-            "stroke=\"#000000\" stroke-width=\"%d\"/>\n"
-            "<text x=\"%lf\" y=\"%lf\" "
-            "font-family=\"monospace\" font-size=\"%d\">%.*lf</text>\n",
-            hscale_ * time,
-            hscale_ * time,
-            (double)height_,
-            (double)height_ + tick_height_,
-            tick_stroke_,
-            hscale_ * time,
-            (double)height_ + tick_height_ * 2.0,
-            tick_font_size_, decimal_places, time);
+                "<line x1=\"%lf\" x2=\"%lf\" y1=\"%lf\" y2=\"%lf\" "
+                "stroke=\"#000000\" stroke-width=\"%d\"/>\n"
+                "<text x=\"%lf\" y=\"%lf\" "
+                "font-family=\"monospace\" font-size=\"%d\">%.*lf</text>\n",
+                hscale_ * time,
+                hscale_ * time,
+                (double)height_,
+                (double)height_ + tick_height_,
+                tick_stroke_,
+                hscale_ * time,
+                (double)height_ + tick_height_ * 2.0,
+                tick_font_size_, decimal_places, time);
     }
 }
 
@@ -262,21 +261,21 @@ void Trace::printLegend(FILE* trace_file)
     double y_pos = 0.0;
     for (auto label : legend_vec) {
         fprintf(trace_file,
-            "<rect x=\"%lf\" y=\"%lf\" width=\"%lf\" height=\"%lf\" "
-            "fill=\"#%06x\" stroke=\"#000000\" stroke-width=\"%d\"/>\n"
-            "<text x=\"%lf\" y=\"%lf\" "
-            "font-family=\"monospace\" font-size=\"%d\">%s</text>\n",
-            (double)width_ + legend_space_,
-            y_pos,
-            (double)legend_space_,
-            (double)legend_space_,
-            (unsigned int)function_color_[label],
-            legend_stroke_,
-            (double)width_ + legend_space_ * 3.0,
-            y_pos + legend_space_,
-            legend_font_size_, label.c_str());
+                "<rect x=\"%lf\" y=\"%lf\" width=\"%lf\" height=\"%lf\" "
+                "fill=\"#%06x\" stroke=\"#000000\" stroke-width=\"%d\"/>\n"
+                "<text x=\"%lf\" y=\"%lf\" "
+                "font-family=\"monospace\" font-size=\"%d\">%s</text>\n",
+                (double)width_ + legend_space_,
+                y_pos,
+                (double)legend_space_,
+                (double)legend_space_,
+                (unsigned int)function_color_[label],
+                legend_stroke_,
+                (double)width_ + legend_space_ * 3.0,
+                y_pos + legend_space_,
+                legend_font_size_, label.c_str());
 
-            y_pos += legend_space_ * 2.0;
+        y_pos += legend_space_ * 2.0;
     }
 }
 
@@ -312,7 +311,7 @@ void Trace::recvProcEvents(int rank)
 
         // Resize the vector and receive the events.
         events_[thread].resize(num_events);
-        MPI_Recv(&events_[thread][0],sizeof(Event)*num_events, MPI_BYTE,
+        MPI_Recv(&events_[thread][0], sizeof(Event)*num_events, MPI_BYTE,
                  rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     }
 }

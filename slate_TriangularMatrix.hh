@@ -226,9 +226,9 @@ template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
     BaseTrapezoidMatrix<scalar_t>& orig)
     : TrapezoidMatrix<scalar_t>(
-        orig,
-        0, std::min( orig.mt()-1, orig.nt()-1 ),
-        0, std::min( orig.mt()-1, orig.nt()-1 ))
+          orig,
+          0, std::min(orig.mt()-1, orig.nt()-1),
+          0, std::min(orig.mt()-1, orig.nt()-1))
 {}
 
 //------------------------------------------------------------------------------
@@ -246,9 +246,9 @@ template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
     Uplo uplo, Matrix<scalar_t>& orig)
     : TrapezoidMatrix<scalar_t>(
-        uplo, orig,
-        0, std::min( orig.mt()-1, orig.nt()-1 ),
-        0, std::min( orig.mt()-1, orig.nt()-1 ))
+          uplo, orig,
+          0, std::min(orig.mt()-1, orig.nt()-1),
+          0, std::min(orig.mt()-1, orig.nt()-1))
 {}
 
 //------------------------------------------------------------------------------

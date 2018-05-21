@@ -261,7 +261,7 @@ void trmm(slate::internal::TargetType<target>,
                                      depend(in:bcast[k-lookahead+1]) \
                                      depend(out:bcast[k-lookahead])
                     {
-                        // broadcast A(i, k-la) to ranks 
+                        // broadcast A(i, k-la) to ranks
                         // owning block row B(i, :)
                         BcastList bcast_list_A;
                         for (int64_t i = k-lookahead; i < mt; ++i) {  // lower

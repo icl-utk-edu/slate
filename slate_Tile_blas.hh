@@ -274,7 +274,7 @@ void her2k(
                                     Tile<scalar_t> const&& B,
     blas::real_type<scalar_t> beta, Tile<scalar_t>&& C)
 {
-    her2k( alpha, A, B, beta, C );
+    her2k(alpha, A, B, beta, C);
 }
 
 ///-----------------------------------------------------------------------------
@@ -463,9 +463,8 @@ void trmm(
         else
             throw std::exception();
 
-        if (B.op() == Op::ConjTrans) {
+        if (B.op() == Op::ConjTrans)
             alpha = conj(alpha);
-        }
 
         blas::trmm(blas::Layout::ColMajor,
                    side2, A.uplo(), opA, diag,
@@ -531,9 +530,8 @@ void trsm(
         else
             throw std::exception();
 
-        if (B.op() == Op::ConjTrans) {
+        if (B.op() == Op::ConjTrans)
             alpha = conj(alpha);
-        }
 
         blas::trsm(blas::Layout::ColMajor,
                    side2, A.uplo(), opA, diag,

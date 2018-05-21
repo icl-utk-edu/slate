@@ -82,8 +82,7 @@ enum class Option {
 /// Slate::internal::Value class
 /// \brief
 ///
-class Value
-{
+class Value {
 public:
     Value()
     {}
@@ -152,7 +151,7 @@ struct is_complex< std::complex<T> >:
     using std::enable_if_t;
 #else
     template<bool B, class T = void>
-    using enable_if_t = typename std::enable_if<B,T>::type;
+    using enable_if_t = typename std::enable_if<B, T>::type;
 #endif
 
 } // namespace slate

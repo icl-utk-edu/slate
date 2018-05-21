@@ -334,6 +334,26 @@ $(scalapack_compat): $(scalapack_compat_obj) $(lib)
 		$(SCALAPACK_COMPAT_LIB) $(LIB) -shared $(install_name) -o $@
 
 #-------------------------------------------------------------------------------
+# lapack_compat library
+lapack_compat = lib/libslate_lapack_compat.so
+
+lapack_compat_src = \
+                     lapack_compat/lapack_compat_gemm.cc \
+
+lapack_compat_obj = $(lapack_compat_src:.cc=.o) 
+
+LAPACK_COMPAT_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
+LAPACK_COMPAT_LIB     += -lslate 
+
+lapack_compat: lib $(lapack_compat)
+
+lapack_compat/clean:
+	rm -f $(lapack_compat) $(lapack_compat_obj)
+
+$(lapack_compat): $(lapack_compat_obj) $(lib)
+	$(CXX) $(LAPACK_COMPAT_LDFLAGS) $(LDFLAGS) $^ $(LAPACK_COMPAT_LIB) $(LIB) -shared $(install_name) -o $@
+
+#-------------------------------------------------------------------------------
 # general rules
 clean: test/clean unit_test/clean
 	rm -f $(lib_a) $(lib_so) $(lib_obj)

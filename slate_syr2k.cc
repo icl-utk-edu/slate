@@ -72,9 +72,8 @@ void syr2k(slate::internal::TargetType<target>,
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // if upper, change to lower
-    if (C.uplo_logical() == Uplo::Upper) {
+    if (C.uplo_logical() == Uplo::Upper)
         C = transpose(C);
-    }
 
     // A is mt-by-nt, C is mt-by-mt
     assert(A.mt() == C.mt());
@@ -84,8 +83,8 @@ void syr2k(slate::internal::TargetType<target>,
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector(A.nt());
     std::vector<uint8_t>  gemm_vector(A.nt());
-    uint8_t *bcast = bcast_vector.data();
-    uint8_t *gemm  =  gemm_vector.data();
+    uint8_t* bcast = bcast_vector.data();
+    uint8_t* gemm  =  gemm_vector.data();
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();
@@ -139,7 +138,7 @@ void syr2k(slate::internal::TargetType<target>,
         {
             internal::syr2k<target>(
                 alpha, A.sub(0, A.mt()-1, 0, 0),
-                       B.sub(0, B.mt()-1, 0, 0),
+                B.sub(0, B.mt()-1, 0, 0),
                 beta,  std::move(C));
         }
 
@@ -151,7 +150,7 @@ void syr2k(slate::internal::TargetType<target>,
                                  depend(in:bcast[k+lookahead-1]) \
                                  depend(out:bcast[k+lookahead])
                 {
-                    // broadcast A(k+la, i) to ranks owning 
+                    // broadcast A(k+la, i) to ranks owning
                     // block row C(i, 0:i) and block col C(i:n, i)
                     BcastList bcast_list_A;
                     BcastList bcast_list_B;
@@ -212,10 +211,10 @@ void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
     }
 
     internal::specialization::syr2k(internal::TargetType<target>(),
-                                   alpha, A,
-                                          B,
-                                   beta,  C,
-                                   lookahead);
+                                    alpha, A,
+                                           B,
+                                    beta,  C,
+                                    lookahead);
 }
 
 //------------------------------------------------------------------------------
@@ -274,7 +273,7 @@ void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
 {
     Target target;
     try {
-        target = Target( opts.at(Option::Target).i_ );
+        target = Target(opts.at(Option::Target).i_);
     }
     catch (std::out_of_range) {
         target = Target::HostTask;

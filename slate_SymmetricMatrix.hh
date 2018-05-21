@@ -225,9 +225,9 @@ template <typename scalar_t>
 SymmetricMatrix<scalar_t>::SymmetricMatrix(
     BaseTrapezoidMatrix<scalar_t>& orig)
     : BaseTrapezoidMatrix<scalar_t>(
-        orig,
-        0, std::min(orig.mt()-1, orig.nt()-1),
-        0, std::min(orig.mt()-1, orig.nt()-1))
+          orig,
+          0, std::min(orig.mt()-1, orig.nt()-1),
+          0, std::min(orig.mt()-1, orig.nt()-1))
 {}
 
 //------------------------------------------------------------------------------
@@ -245,9 +245,9 @@ template <typename scalar_t>
 SymmetricMatrix<scalar_t>::SymmetricMatrix(
     Uplo uplo, Matrix<scalar_t>& orig)
     : BaseTrapezoidMatrix<scalar_t>(
-        uplo, orig,
-        0, std::min(orig.mt()-1, orig.nt()-1),
-        0, std::min(orig.mt()-1, orig.nt()-1))
+          uplo, orig,
+          0, std::min(orig.mt()-1, orig.nt()-1),
+          0, std::min(orig.mt()-1, orig.nt()-1))
 {}
 
 //------------------------------------------------------------------------------

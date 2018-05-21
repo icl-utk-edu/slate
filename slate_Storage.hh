@@ -119,7 +119,7 @@ public:
           tiles_(),
           lives_(),
           memory_(sizeof(scalar_t) * nb * nb)  // block size in bytes
-        //mpi_comm_(mpi_comm)
+          //mpi_comm_(mpi_comm)
     {
         int err;
         err = MPI_Comm_rank(mpi_comm, &mpi_rank_); assert(err == MPI_SUCCESS);
@@ -136,13 +136,12 @@ public:
         // TODO: these all assume 2D block cyclic with fixed size tiles (nb)
         // lambdas that capture m, n, nb for
         // computing tile's mb (rows) and nb (cols)
-        tileMb = [=] (int64_t i) { return (i + 1)*nb > m ? m%nb : nb; };
-        tileNb = [=] (int64_t j) { return (j + 1)*nb > n ? n%nb : nb; };
+        tileMb = [=](int64_t i) { return (i + 1)*nb > m ? m%nb : nb; };
+        tileNb = [=](int64_t j) { return (j + 1)*nb > n ? n%nb : nb; };
 
         // lambda that captures p, q for computing tile's rank,
         // assuming 2D block cyclic
-        tileRank = [=] (ij_tuple ij)
-        {
+        tileRank = [=](ij_tuple ij) {
             int64_t i = std::get<0>(ij);
             int64_t j = std::get<1>(ij);
             return int(i%p + (j%q)*p);
@@ -151,15 +150,13 @@ public:
         // lambda that captures q, num_devices_ to distribute local matrix
         // in 1D column block cyclic fashion among devices
         if (num_devices_ > 0) {
-            tileDevice = [=] (ij_tuple ij)
-            {
+            tileDevice = [=](ij_tuple ij) {
                 int64_t j = std::get<1>(ij);
                 return int(j/q)%num_devices_;
             };
         }
         else {
-            tileDevice = [=] (ij_tuple ij)
-            {
+            tileDevice = [=](ij_tuple ij) {
                 return host_num_;
             };
         }
@@ -341,9 +338,8 @@ public:
                 // erase the current value.
                 erase((iter++)->first);
             }
-            else {
+            else
                 ++iter;
-            }
         }
         memory_.clearHostBlocks();
         for (int device = 0; device < num_devices_; ++device)
@@ -402,9 +398,8 @@ public:
         auto iter = tiles_.find(ijdev);
         if (iter != tiles_.end()) {
             Tile<scalar_t>* tile = tiles_.at(ijdev);
-            if (! tile->origin()) {
+            if (! tile->origin())
                 memory_.free(tile->data(), tile->device());
-            }
             delete tile;
             tiles_.erase(ijdev);
         }
@@ -493,7 +488,7 @@ public:
     void tileTick(ij_tuple ij)
     {
         if (! tileIsLocal(ij)) {
-            LockGuard( lives_.get_lock() );
+            LockGuard(lives_.get_lock());
             int64_t life = --lives_.at(ij);
             if (life == 0) {
                 int64_t i = std::get<0>(ij);

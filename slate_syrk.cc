@@ -71,9 +71,8 @@ void syrk(slate::internal::TargetType<target>,
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // if upper, change to lower
-    if (C.uplo_logical() == Uplo::Upper) {
+    if (C.uplo_logical() == Uplo::Upper)
         C = transpose(C);
-    }
 
     // A is mt-by-nt, C is mt-by-mt
     assert(A.mt() == C.mt());

@@ -71,7 +71,7 @@ void symm(slate::internal::TargetType<target>,
 {
     // Due to the symmetry, each off diagonal tile is sent twice, once as part
     // of A and once as part of A^T. In principle, this could be avoided by
-    // sending each tile only once and retaining it until it is used twice. 
+    // sending each tile only once and retaining it until it is used twice.
     // This would, however, violate the upper bound on the size of communication
     // buffers.
     // The same happens in the hemm routine.

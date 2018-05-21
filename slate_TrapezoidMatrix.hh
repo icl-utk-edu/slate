@@ -150,6 +150,7 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix()
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
 ///     p*q == MPI_Comm_size(mpi_comm).
+///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromLAPACK(
     Uplo uplo, int64_t m, int64_t n,
@@ -192,6 +193,7 @@ TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromLAPACK(
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
 ///     p*q == MPI_Comm_size(mpi_comm).
+///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromScaLAPACK(
     Uplo uplo, int64_t m, int64_t n,
@@ -232,6 +234,7 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 ///
 /// @param[in,out] orig
 ///     Original matrix.
+///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
     BaseTrapezoidMatrix<scalar_t>& orig)
@@ -241,6 +244,7 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 //------------------------------------------------------------------------------
 /// Conversion from trapezoid, triangular, symmetric, or Hermitian matrix
 /// creates a shallow copy view of the original matrix, A[ i1:i2, j1:j2 ].
+///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
     BaseTrapezoidMatrix<scalar_t>& orig,
@@ -259,6 +263,7 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 ///
 /// @param[in,out] orig
 ///     Original matrix.
+///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
     Uplo uplo, Matrix<scalar_t>& orig)
@@ -283,6 +288,7 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 ///
 /// @param[in] j2
 ///     Ending block column index (inclusive). j2 < nt.
+///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
     Uplo uplo, Matrix<scalar_t>& orig,
@@ -310,6 +316,7 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 ///
 /// @param[in] j2
 ///     Ending block column index (inclusive). j2 < nt.
+///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
     TrapezoidMatrix& orig,
@@ -331,6 +338,7 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 ///
 /// @param[in] i2
 ///     Ending block row and column index (inclusive). i2 < mt.
+///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::sub(
     int64_t i1, int64_t i2)
@@ -357,6 +365,7 @@ TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::sub(
 ///
 /// @param[in] j2
 ///     Ending block column index (inclusive). j2 < nt.
+///
 template <typename scalar_t>
 Matrix<scalar_t> TrapezoidMatrix<scalar_t>::sub(
     int64_t i1, int64_t i2,

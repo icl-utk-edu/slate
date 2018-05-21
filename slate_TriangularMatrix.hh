@@ -141,6 +141,7 @@ TriangularMatrix<scalar_t>::TriangularMatrix()
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
 ///     p*q == MPI_Comm_size(mpi_comm).
+///
 template <typename scalar_t>
 TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::fromLAPACK(
     Uplo uplo, int64_t n,
@@ -183,6 +184,7 @@ TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::fromLAPACK(
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
 ///     p*q == MPI_Comm_size(mpi_comm).
+///
 template <typename scalar_t>
 TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::fromScaLAPACK(
     Uplo uplo, int64_t n,
@@ -206,6 +208,7 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 //------------------------------------------------------------------------------
 /// @see fromScaLAPACK
 /// This differs from LAPACK constructor by adding mb.
+///
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
     Uplo uplo, int64_t n,
@@ -222,6 +225,7 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 ///
 /// @param[in,out] orig
 ///     Original matrix.
+///
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
     BaseTrapezoidMatrix<scalar_t>& orig)
@@ -242,6 +246,7 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 ///
 /// @param[in,out] orig
 ///     Original matrix.
+///
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
     Uplo uplo, Matrix<scalar_t>& orig)
@@ -264,6 +269,7 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 ///
 /// @param[in] i2
 ///     Ending block row and column index (inclusive). i2 < mt.
+///
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
     TriangularMatrix& orig,
@@ -284,6 +290,7 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 ///
 /// @param[in] i2
 ///     Ending block row and column index (inclusive). i2 < mt.
+///
 template <typename scalar_t>
 TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::sub(
     int64_t i1, int64_t i2)
@@ -310,6 +317,7 @@ TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::sub(
 ///
 /// @param[in] j2
 ///     Ending block column index (inclusive). j2 < nt.
+///
 template <typename scalar_t>
 Matrix<scalar_t> TriangularMatrix<scalar_t>::sub(
     int64_t i1, int64_t i2,

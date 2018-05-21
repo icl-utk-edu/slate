@@ -140,6 +140,7 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix()
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
 ///     p*q == MPI_Comm_size(mpi_comm).
+///
 template <typename scalar_t>
 SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::fromLAPACK(
     Uplo uplo, int64_t n,
@@ -182,6 +183,7 @@ SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::fromLAPACK(
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
 ///     p*q == MPI_Comm_size(mpi_comm).
+///
 template <typename scalar_t>
 SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::fromScaLAPACK(
     Uplo uplo, int64_t n,
@@ -205,6 +207,7 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
 //------------------------------------------------------------------------------
 /// @see fromScaLAPACK
 /// This differs from LAPACK constructor by adding mb.
+///
 template <typename scalar_t>
 SymmetricMatrix<scalar_t>::SymmetricMatrix(
     Uplo uplo, int64_t n,
@@ -221,6 +224,7 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
 ///
 /// @param[in,out] orig
 ///     Original matrix.
+///
 template <typename scalar_t>
 SymmetricMatrix<scalar_t>::SymmetricMatrix(
     BaseTrapezoidMatrix<scalar_t>& orig)
@@ -241,6 +245,7 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
 ///
 /// @param[in,out] orig
 ///     Original matrix.
+///
 template <typename scalar_t>
 SymmetricMatrix<scalar_t>::SymmetricMatrix(
     Uplo uplo, Matrix<scalar_t>& orig)
@@ -263,6 +268,7 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
 ///
 /// @param[in] i2
 ///     Ending block row and column index (inclusive). i2 < mt.
+///
 template <typename scalar_t>
 SymmetricMatrix<scalar_t>::SymmetricMatrix(
     SymmetricMatrix<scalar_t>& orig,
@@ -283,6 +289,7 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
 ///
 /// @param[in] i2
 ///     Ending block row and column index (inclusive). i2 < mt.
+///
 template <typename scalar_t>
 SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::sub(
     int64_t i1, int64_t i2)
@@ -309,6 +316,7 @@ SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::sub(
 ///
 /// @param[in] j2
 ///     Ending block column index (inclusive). j2 < nt.
+///
 template <typename scalar_t>
 Matrix<scalar_t> SymmetricMatrix<scalar_t>::sub(
     int64_t i1, int64_t i2,

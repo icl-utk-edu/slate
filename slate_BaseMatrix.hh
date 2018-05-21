@@ -312,6 +312,7 @@ protected:
 /// [internal]
 /// Default constructor creates an empty matrix.
 /// Does not allocate any memory.
+///
 template <typename scalar_t>
 BaseMatrix<scalar_t>::BaseMatrix()
     : ioffset_(0),
@@ -348,6 +349,7 @@ BaseMatrix<scalar_t>::BaseMatrix()
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
 ///     p*q == MPI_Comm_size(mpi_comm).
+///
 template <typename scalar_t>
 BaseMatrix<scalar_t>::BaseMatrix(
     int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
@@ -395,6 +397,7 @@ BaseMatrix<scalar_t>::BaseMatrix(
 ///
 /// @param[in] j2
 ///     Ending block column index (inclusive). j2 < nt.
+///
 template <typename scalar_t>
 BaseMatrix<scalar_t>::BaseMatrix(
     BaseMatrix<scalar_t>& B,
@@ -451,6 +454,7 @@ void swap(BaseMatrix<scalar_t>& A, BaseMatrix<scalar_t>& B)
 ///     Tile's block column index. 0 <= j < nt.
 ///
 /// @return Tile {i, j, host}.
+///
 template <typename scalar_t>
 Tile<scalar_t> BaseMatrix<scalar_t>::operator()(
     int64_t i, int64_t j)
@@ -472,6 +476,7 @@ Tile<scalar_t> BaseMatrix<scalar_t>::operator()(
 ///     Tile's device ID.
 ///
 /// @return Tile {i, j, device}.
+///
 template <typename scalar_t>
 Tile<scalar_t> BaseMatrix<scalar_t>::operator()(
     int64_t i, int64_t j, int device)
@@ -525,6 +530,7 @@ int64_t BaseMatrix<scalar_t>::tileMb(int64_t i) const
 ///
 /// @param[in] j
 ///     Tile's block column index. 0 <= j < nt.
+///
 template <typename scalar_t>
 int64_t BaseMatrix<scalar_t>::tileNb(int64_t j) const
 {
@@ -547,6 +553,7 @@ int64_t BaseMatrix<scalar_t>::tileNb(int64_t j) const
 ///     Tile's device ID.
 ///
 /// @return Pointer to new tile.
+///
 template <typename scalar_t>
 Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
     int64_t i, int64_t j, int device)
@@ -579,6 +586,7 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 ///     Leading dimension of data; column stride. ld >= tileMb(i).
 ///
 /// @return Pointer to new tile.
+///
 template <typename scalar_t>
 Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
     int64_t i, int64_t j, int device, scalar_t* data, int64_t ld)
@@ -603,6 +611,7 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 ///
 /// @param[in] device
 ///     Tile's device ID.
+///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileErase(int64_t i, int64_t j, int device)
 {
@@ -628,6 +637,7 @@ void BaseMatrix<scalar_t>::tileErase(int64_t i, int64_t j, int device)
 /// @param[in] B
 ///     Sub-matrix B defines the MPI ranks to send to.
 ///     Usually it is the portion of the matrix to be updated by tile {i, j}.
+///
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::tileBcast(
@@ -736,6 +746,7 @@ void BaseMatrix<scalar_t>::listBcast(BcastList& bcast_list)
 ///
 /// @param[in] bcast_set
 ///     Set of MPI ranks to broadcast to.
+///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileBcastToSet(
     int64_t i, int64_t j, std::set<int> const& bcast_set)
@@ -866,6 +877,7 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
 ///
 /// @param[in] j
 ///     Tile's block column index. 0 <= j < nt.
+///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileCopyToDevice(
     int64_t i, int64_t j, int dst_device)
@@ -907,6 +919,7 @@ void BaseMatrix<scalar_t>::tileCopyToDevice(
 ///
 /// @param[in] src_device
 ///     Tile's source device ID.
+///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileCopyToHost(
     int64_t i, int64_t j, int src_device)
@@ -948,6 +961,7 @@ void BaseMatrix<scalar_t>::tileCopyToHost(
 ///
 /// @param[in] src_device
 ///     Tile's destination device ID.
+///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileMoveToDevice(
     int64_t i, int64_t j, int dst_device)
@@ -978,6 +992,7 @@ void BaseMatrix<scalar_t>::tileMoveToDevice(
 ///
 /// @param[in] src_device
 ///     Tile's source device ID.
+///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileMoveToHost(
     int64_t i, int64_t j, int src_device)
@@ -1002,6 +1017,7 @@ void BaseMatrix<scalar_t>::tileMoveToHost(
 ///
 /// @param[out] bcast_set
 ///     On output, set of MPI ranks that this sub-matrix has tiles on.
+///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::getRanks(std::set<int>* bcast_set) const
 {
@@ -1015,6 +1031,7 @@ void BaseMatrix<scalar_t>::getRanks(std::set<int>* bcast_set) const
 ///
 /// @param[out] dev_set
 ///     On output, set of device IDs that this sub-matrix has local tiles on.
+///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::getLocalDevices(std::set<int>* dev_set) const
 {
@@ -1028,6 +1045,7 @@ void BaseMatrix<scalar_t>::getLocalDevices(std::set<int>* dev_set) const
 /// Returns number of local tiles in this matrix.
 /// Used for the lifespan of a temporary tile that updates every tile in
 /// the matrix.
+///
 template <typename scalar_t>
 int64_t BaseMatrix<scalar_t>::numLocalTiles() const
 {
@@ -1051,6 +1069,7 @@ int64_t BaseMatrix<scalar_t>::numLocalTiles() const
 ///
 /// @param[in] j
 ///     Tile's block column index. 0 <= j < nt.
+///
 template <typename scalar_t>
 std::tuple< int64_t, int64_t >
     BaseMatrix<scalar_t>::globalIndex(int64_t i, int64_t j) const
@@ -1076,6 +1095,7 @@ std::tuple< int64_t, int64_t >
 ///
 /// @param[in] device
 ///     Tile's device ID.
+///
 template <typename scalar_t>
 std::tuple<int64_t, int64_t, int>
     BaseMatrix<scalar_t>::globalIndex(int64_t i, int64_t j, int device) const

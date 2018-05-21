@@ -60,7 +60,7 @@
 namespace slate {
 
 ///-----------------------------------------------------------------------------
-/// transpose returns Tile, Matrix, SymmetricMatrix, etc.
+/// Transpose returns Tile, Matrix, SymmetricMatrix, etc.
 /// Making a template avoids repeating the code ad nauseum in each class.
 /// Tile and BaseMatrix make this a friend, to change op.
 ///
@@ -322,7 +322,7 @@ scalar_t& Tile<scalar_t>::at(int64_t i, int64_t j)
 
 //--------------------------------------------------------------------------
 /// Returns whether op(A) is logically Upper, Lower, or General storage,
-///         taking the transposition operation into account.
+/// taking the transposition operation into account.
 /// @see uplo()
 ///
 template <typename scalar_t>

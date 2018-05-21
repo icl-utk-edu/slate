@@ -90,10 +90,10 @@ void slateCudaMallocHost(value_type** ptr, size_t nelements)
 }
 
 //------------------------------------------------------------------------------
-// todo: is ///--- adding an extra HR in doxygen?
-/// Slate::MatrixStorage class
-/// Used to store the map of distributed tiles.
+/// @brief Slate::MatrixStorage class
+/// @details Used to store the map of distributed tiles.
 /// @tparam scalar_t Data type for the elements of the matrix
+///
 template <typename scalar_t>
 class MatrixStorage {
 public:
@@ -177,6 +177,7 @@ protected:
     //--------------------------------------------------------------------------
     /// Initializes CUDA streams and cuBLAS handles on each device.
     /// Called in constructor.
+    ///
     void initCudaStreams()
     {
         compute_streams_.resize(num_devices_);
@@ -208,6 +209,7 @@ protected:
     //--------------------------------------------------------------------------
     /// Destroys CUDA streams and cuBLAS handles on each device.
     /// As this is called in the destructor, it should NOT throw exceptions.
+    ///
     void destroyCudaStreams()
     {
         for (int device = 0; device < num_devices_; ++device) {
@@ -236,6 +238,7 @@ public:
     //--------------------------------------------------------------------------
     /// Allocates CUDA batch arrays
     // todo: resizeBatchArrays?
+    ///
     void allocateBatchArrays(int64_t max_batch_size)
     {
         assert(max_batch_size >= 0);
@@ -269,6 +272,7 @@ public:
     //--------------------------------------------------------------------------
     /// Frees CUDA batch arrays that were allocated by allocateBatchArrays().
     /// As this is called in the destructor, it should NOT throw exceptions.
+    ///
     // todo: destructor can't throw; how to deal with errors?
     void clearBatchArrays()
     {
@@ -327,6 +331,7 @@ public:
     //--------------------------------------------------------------------------
     /// Clears all host and device workspace tiles.
     /// Also clears life.
+    ///
     void clearWorkspace()
     {
         LockGuard(tiles_.get_lock());
@@ -445,6 +450,7 @@ public:
     /// Sets tile origin = false.
     /// Does not set tile's life.
     /// @return Pointer to newly inserted Tile.
+    ///
     Tile<scalar_t>* tileInsert(ijdev_tuple ijdev)
     {
         assert(tiles_.find(ijdev) == tiles_.end());  // doesn't exist yet
@@ -467,6 +473,7 @@ public:
     /// Sets tile origin = true.
     /// Does not set tile's life.
     /// @return Pointer to newly inserted Tile.
+    ///
     Tile<scalar_t>* tileInsert(ijdev_tuple ijdev, scalar_t* data, int64_t lda)
     {
         assert(tiles_.find(ijdev) == tiles_.end());  // doesn't exist yet
@@ -485,6 +492,7 @@ public:
     /// If tile {i, j} is a workspace tile (i.e., not local),
     /// decrement its life counter by 1;
     /// if life reaches 0, erase tile on the host and all devices.
+    ///
     void tileTick(ij_tuple ij)
     {
         if (! tileIsLocal(ij)) {

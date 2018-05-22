@@ -258,7 +258,8 @@ void herk(internal::TargetType<Target::HostBatch>,
             if (A.op() == Op::NoTrans)
                 opA = C.op();
             else if (A.op() == C.op() || C.is_real) {
-                // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
+                // A and C are both Trans or both ConjTrans;
+                // Trans == ConjTrans if real
                 opA = Op::NoTrans;
             }
             else
@@ -267,8 +268,12 @@ void herk(internal::TargetType<Target::HostBatch>,
 
         Op opB = (opA == Op::NoTrans ? Op::ConjTrans : Op::NoTrans);
 
-        std::vector<CBLAS_TRANSPOSE> opA_array(batch_count, cblas_trans_const(opA));  // all same
-        std::vector<CBLAS_TRANSPOSE> opB_array(batch_count, cblas_trans_const(opB));  // all same
+        // all same
+        std::vector<CBLAS_TRANSPOSE> opA_array(batch_count,
+                                               cblas_trans_const(opA));
+        // all same
+        std::vector<CBLAS_TRANSPOSE> opB_array(batch_count,
+                                               cblas_trans_const(opB));
         std::vector<int> m_array(batch_count);
         std::vector<int> n_array(batch_count);
         std::vector<int> k_array(batch_count);
@@ -319,7 +324,8 @@ void herk(internal::TargetType<Target::HostBatch>,
             trace::Block trace_block("cblas_gemm_batch");
             #ifdef SLATE_WITH_MKL
                 // mkl_set_num_threads_local(...);
-                cblas_gemm_batch(CblasColMajor, opA_array.data(), opB_array.data(),
+                cblas_gemm_batch(CblasColMajor,
+                                 opA_array.data(), opB_array.data(),
                                  m_array.data(), n_array.data(), k_array.data(),
                                  alpha_array.data(),
                                  a_array.data(), lda_array.data(),
@@ -376,7 +382,8 @@ void herk(internal::TargetType<Target::Devices>,
                     if (A.op() == Op::NoTrans)
                         opA = C.op();
                     else if (A.op() == C.op() || C.is_real) {
-                        // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
+                        // A and C are both Trans or both ConjTrans;
+                        // Trans == ConjTrans if real
                         opA = Op::NoTrans;
                     }
                     else
@@ -410,12 +417,16 @@ void herk(internal::TargetType<Target::Devices>,
                 int64_t nb00 = C.tileNb(0);
                 int64_t kb = A.tileNb(0);   // == A.tileMb(0)
                 for (int64_t j = 0; j < C.nt()-1; ++j) {
-                    for (int64_t i = j+1; i < C.mt()-1; ++i) {  // strictly lower
+                    // strictly lower
+                    for (int64_t i = j+1; i < C.mt()-1; ++i) {
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
-                                a_array_host[batch_count] = A(i, 0, device).data();
-                                b_array_host[batch_count] = A(j, 0, device).data();
-                                c_array_host[batch_count] = C(i, j, device).data();
+                                a_array_host[batch_count] =
+                                    A(i, 0, device).data();
+                                b_array_host[batch_count] =
+                                    A(j, 0, device).data();
+                                c_array_host[batch_count] =
+                                    C(i, j, device).data();
                                 lda00 = A(i, 0, device).stride();
                                 ldb00 = A(j, 0, device).stride();
                                 ldc00 = C(i, j, device).stride();
@@ -438,9 +449,12 @@ void herk(internal::TargetType<Target::Devices>,
                     for (int64_t j = 0; j < C.nt()-1; ++j) {
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
-                                a_array_host[batch_count] = A(i, 0, device).data();
-                                b_array_host[batch_count] = A(j, 0, device).data();
-                                c_array_host[batch_count] = C(i, j, device).data();
+                                a_array_host[batch_count] =
+                                        A(i, 0, device).data();
+                                b_array_host[batch_count] =
+                                        A(j, 0, device).data();
+                                c_array_host[batch_count] =
+                                        C(i, j, device).data();
                                 lda10 = A(i, 0, device).stride();
                                 ldb10 = A(j, 0, device).stride();
                                 ldc10 = C(i, j, device).stride();

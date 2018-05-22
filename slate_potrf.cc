@@ -124,7 +124,8 @@ void potrf(slate::internal::TargetType<target>,
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[A.nt()-1])
             {
-                // A(kl+1:nt-1, kl+1:nt-1) -= A(kl+1:nt-1, k) * A(kl+1:nt-1, k)^H
+                // A(kl+1:nt-1, kl+1:nt-1) -=
+                //     A(kl+1:nt-1, k) * A(kl+1:nt-1, k)^H
                 // where kl = k + lookahead
                 internal::herk<target>(
                     real_t(-1.0), A.sub(k+1+lookahead, A.nt()-1, k, k),
@@ -196,7 +197,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[A.nt()-1])
             {
-                // A(kl+1:nt-1, kl+1:nt-1) -= A(kl+1:nt-1, k) * A(kl+1:nt-1, k)^H
+                // A(kl+1:nt-1, kl+1:nt-1) -=
+                //     A(kl+1:nt-1, k) * A(kl+1:nt-1, k)^H
                 // where kl = k + lookahead
                 internal::herk<Target::Devices>(
                     real_t(-1.0), A.sub(k+1+lookahead, A.nt()-1, k, k),

@@ -57,7 +57,7 @@ bool Trace::tracing_ = false;
 int Trace::num_threads_ = omp_get_max_threads();
 
 std::vector<std::vector<Event>> Trace::events_ =
-                                 std::vector<std::vector<Event>>(omp_get_max_threads());
+    std::vector<std::vector<Event>>(omp_get_max_threads());
 
 std::map<std::string, Color> Trace::function_color_ = {
 

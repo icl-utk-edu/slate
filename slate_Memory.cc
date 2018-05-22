@@ -116,7 +116,8 @@ void Memory::clearHostBlocks()
     #ifdef DEBUG
         if (free_blocks_[host_num_].size() < capacity_[host_num_]) {
             std::cerr << "rank " << g_mpi_rank << " "
-                      << " memory leak: freed " << free_blocks_[host_num_].size()
+                      << " memory leak: freed "
+                      << free_blocks_[host_num_].size()
                       << " of " << capacity_[host_num_]
                       << " blocks on host\n";
         }
@@ -141,7 +142,8 @@ void Memory::clearHostBlocks()
 
 //------------------------------------------------------------------------------
 /// \brief
-/// Empties the pool of free blocks of given device's memory and frees the allocations.
+/// Empties the pool of free blocks of given device's memory and frees the
+/// allocations.
 ///
 void Memory::clearDeviceBlocks(int device)
 {

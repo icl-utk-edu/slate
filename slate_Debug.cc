@@ -122,7 +122,8 @@ void Debug::checkTilesLives(BaseMatrix<scalar_t> const& A)
 }
 
 //------------------------------------------------------------------------------
-/// On MPI rank 0 only, print lives of all tiles, with "." if tile doesn't exist.
+/// On MPI rank 0 only,
+///     print lives of all tiles, with "." if tile doesn't exist.
 template <typename scalar_t>
 void Debug::printTilesLives(BaseMatrix<scalar_t> const& A)
 {
@@ -153,6 +154,7 @@ void Debug::printTilesLives(BaseMatrix<scalar_t> const& A)
 ///  - "." if tile doesn't exist,
 ///  - "o" if it is origin (i.e., local tiles),
 ///  - "x" otherwise (i.e., remote tiles).
+///
 template <typename scalar_t>
 void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
 {

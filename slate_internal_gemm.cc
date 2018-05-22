@@ -67,8 +67,10 @@ void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
           int priority)
 {
     if (C.is_complex &&
-        ((C.op() == Op::Trans && (A.op() == Op::ConjTrans || B.op() == Op::ConjTrans)) ||
-         (C.op() == Op::ConjTrans && (A.op() == Op::Trans || B.op() == Op::Trans))))
+        ((C.op() == Op::Trans &&
+         (A.op() == Op::ConjTrans || B.op() == Op::ConjTrans)) ||
+         (C.op() == Op::ConjTrans &&
+         (A.op() == Op::Trans || B.op() == Op::Trans))))
     {
         throw std::exception();
     }
@@ -219,7 +221,8 @@ void gemm(internal::TargetType<Target::HostBatch>,
             if (opA == Op::NoTrans)
                 opA = C.op();
             else if (A.op() == C.op() || C.is_real) {
-                // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
+                // A and C are both Trans or both ConjTrans;
+                // Trans == ConjTrans if real
                 opA = Op::NoTrans;
             }
             else
@@ -231,7 +234,8 @@ void gemm(internal::TargetType<Target::HostBatch>,
             if (opB == Op::NoTrans)
                 opB = C.op();
             else if (opB == C.op() || C.is_real) {
-                // B and C are both Trans or both ConjTrans; Trans == ConjTrans if real
+                // B and C are both Trans or both ConjTrans;
+                // Trans == ConjTrans if real
                 opB = Op::NoTrans;
             }
             else
@@ -243,8 +247,12 @@ void gemm(internal::TargetType<Target::HostBatch>,
             beta  = conj(beta);
         }
 
-        std::vector<CBLAS_TRANSPOSE> opA_array(batch_count, cblas_trans_const(opA));  // all same
-        std::vector<CBLAS_TRANSPOSE> opB_array(batch_count, cblas_trans_const(opB));  // all same
+        // all same
+        std::vector<CBLAS_TRANSPOSE> opA_array(batch_count,
+                                               cblas_trans_const(opA));
+        // all same
+        std::vector<CBLAS_TRANSPOSE> opB_array(batch_count,
+                                               cblas_trans_const(opB));
         std::vector<int> m_array(batch_count);
         std::vector<int> n_array(batch_count);
         std::vector<int> k_array(batch_count);
@@ -355,7 +363,8 @@ void gemm(internal::TargetType<Target::Devices>,
                 if (opA == Op::NoTrans)
                     opA = C.op();
                 else if (A.op() == C.op() || C.is_real) {
-                    // A and C are both Trans or both ConjTrans; Trans == ConjTrans if real
+                    // A and C are both Trans or both ConjTrans;
+                    // Trans == ConjTrans if real
                     opA = Op::NoTrans;
                 }
                 else {
@@ -368,7 +377,8 @@ void gemm(internal::TargetType<Target::Devices>,
                 if (opB == Op::NoTrans)
                     opB = C.op();
                 else if (opB == C.op() || C.is_real) {
-                    // B and C are both Trans or both ConjTrans; Trans == ConjTrans if real
+                    // B and C are both Trans or both ConjTrans;
+                    // Trans == ConjTrans if real
                     opB = Op::NoTrans;
                 }
                 else {

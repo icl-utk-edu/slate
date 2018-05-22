@@ -484,12 +484,16 @@ void her2k(internal::TargetType<Target::Devices>,
                 int64_t nb00 = C.tileNb(0);
                 int64_t kb = A.tileNb(0);   // == A.tileMb(0)
                 for (int64_t j = 0; j < C.nt()-1; ++j) {
-                    for (int64_t i = j+1; i < C.mt()-1; ++i) {  // strictly lower
+                    // strictly lower
+                    for (int64_t i = j+1; i < C.mt()-1; ++i) {
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
-                                a_array_host[batch_count] = A(i, 0, device).data();
-                                b_array_host[batch_count] = B(j, 0, device).data();
-                                c_array_host[batch_count] = C(i, j, device).data();
+                                a_array_host[batch_count] =
+                                    A(i, 0, device).data();
+                                b_array_host[batch_count] =
+                                    B(j, 0, device).data();
+                                c_array_host[batch_count] =
+                                    C(i, j, device).data();
                                 lda00 = A(i, 0, device).stride();
                                 ldb00 = B(j, 0, device).stride();
                                 ldc00 = C(i, j, device).stride();
@@ -512,9 +516,12 @@ void her2k(internal::TargetType<Target::Devices>,
                     for (int64_t j = 0; j < C.nt()-1; ++j) {
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
-                                a_array_host[batch_count] = A(i, 0, device).data();
-                                b_array_host[batch_count] = B(j, 0, device).data();
-                                c_array_host[batch_count] = C(i, j, device).data();
+                                a_array_host[batch_count] =
+                                    A(i, 0, device).data();
+                                b_array_host[batch_count] =
+                                    B(j, 0, device).data();
+                                c_array_host[batch_count] =
+                                    C(i, j, device).data();
                                 lda10 = A(i, 0, device).stride();
                                 ldb10 = B(j, 0, device).stride();
                                 ldc10 = C(i, j, device).stride();
@@ -607,11 +614,14 @@ void her2k(internal::TargetType<Target::Devices>,
                 // ai => bi, bj => aj, set beta = 1
                 batch_count = 0;
                 for (int64_t j = 0; j < C.nt()-1; ++j) {
-                    for (int64_t i = j+1; i < C.mt()-1; ++i) {  // strictly lower
+                    // strictly lower
+                    for (int64_t i = j+1; i < C.mt()-1; ++i) {
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
-                                a_array_host[batch_count] = A(j, 0, device).data();
-                                b_array_host[batch_count] = B(i, 0, device).data();
+                                a_array_host[batch_count] =
+                                    A(j, 0, device).data();
+                                b_array_host[batch_count] =
+                                    B(i, 0, device).data();
                                 lda00 = A(j, 0, device).stride();
                                 ldb00 = B(i, 0, device).stride();
                                 ++batch_count;
@@ -625,8 +635,10 @@ void her2k(internal::TargetType<Target::Devices>,
                     for (int64_t j = 0; j < C.nt()-1; ++j) {
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
-                                a_array_host[batch_count] = A(j, 0, device).data();
-                                b_array_host[batch_count] = B(i, 0, device).data();
+                                a_array_host[batch_count] =
+                                     A(j, 0, device).data();
+                                b_array_host[batch_count] =
+                                     B(i, 0, device).data();
                                 lda10 = A(j, 0, device).stride();
                                 ldb10 = B(i, 0, device).stride();
                                 ++batch_count;

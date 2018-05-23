@@ -308,16 +308,16 @@ $(unit_test): %: %.o $(unit_test_obj) $(lib)
 		$(unit_test_obj) $(UNIT_LIB) $(LIB) -o $@
 
 #-------------------------------------------------------------------------------
-# scalapack_compat library
+# scalapack_api library
 scalapack_api = lib/libslate_scalapack_api.so
 
 scalapack_api_src = \
-                     scalapack_api/scalapack_compat_gemm.cc \
-                     scalapack_api/scalapack_compat_syrk.cc \
-                     scalapack_api/scalapack_compat_symm.cc \
-                     scalapack_api/scalapack_compat_trsm.cc \
-                     scalapack_api/scalapack_compat_syr2k.cc \
-                     scalapack_api/scalapack_compat_trmm.cc 
+                     scalapack_api/scalapack_gemm.cc \
+                     scalapack_api/scalapack_syrk.cc \
+                     scalapack_api/scalapack_symm.cc \
+                     scalapack_api/scalapack_trsm.cc \
+                     scalapack_api/scalapack_syr2k.cc \
+                     scalapack_api/scalapack_trmm.cc 
 
 scalapack_api_obj = $(scalapack_api_src:.cc=.o) 
 

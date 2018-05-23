@@ -82,6 +82,8 @@ public:
     //-------------
     // Memory class
     static void printNumFreeMemBlocks(Memory const& m);
+    static void checkHostMemoryLeaks(Memory const& m);
+    static void checkDeviceMemoryLeaks(Memory const& m, int device);
 
     template <typename scalar_t>
     static void printNumFreeMemBlocks(BaseMatrix<scalar_t> const& A)

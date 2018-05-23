@@ -113,21 +113,7 @@ void Memory::addDeviceBlocks(int device, int64_t num_blocks)
 // todo: merge with clearDeviceBlocks by recognizing host_num_?
 void Memory::clearHostBlocks()
 {
-    #ifdef DEBUG
-        if (free_blocks_[host_num_].size() < capacity_[host_num_]) {
-            std::cerr << "rank " << g_mpi_rank << " "
-                      << " memory leak: freed "
-                      << free_blocks_[host_num_].size()
-                      << " of " << capacity_[host_num_]
-                      << " blocks on host\n";
-        }
-        else if (free_blocks_[host_num_].size() > capacity_[host_num_]) {
-            std::cerr << "rank " << g_mpi_rank << " "
-                      << " freed too many: " << free_blocks_[host_num_].size()
-                      << " of " << capacity_[host_num_]
-                      << " blocks on host\n";
-        }
-    #endif
+    Debug::checkHostMemoryLeaks(*this);
 
     while (! free_blocks_[host_num_].empty())
         free_blocks_[host_num_].pop();
@@ -147,20 +133,7 @@ void Memory::clearHostBlocks()
 ///
 void Memory::clearDeviceBlocks(int device)
 {
-    #ifdef DEBUG
-        if (free_blocks_[device].size() < capacity_[device]) {
-            std::cerr << "rank " << g_mpi_rank << " "
-                      << "memory leak: freed " << free_blocks_[device].size()
-                      << " of " << capacity_[device]
-                      << " blocks on device " << device << "\n";
-        }
-        else if (free_blocks_[device].size() > capacity_[device]) {
-            std::cerr << "rank " << g_mpi_rank << " "
-                      << "freed too many: " << free_blocks_[device].size()
-                      << " of " << capacity_[device]
-                      << " blocks on device " << device << "\n";
-        }
-    #endif
+    Debug::checkDeviceMemoryLeaks(*this, device);
 
     while (! free_blocks_[device].empty())
         free_blocks_[device].pop();

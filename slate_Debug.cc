@@ -209,6 +209,48 @@ void Debug::printNumFreeMemBlocks(Memory const& m)
 }
 
 //------------------------------------------------------------------------------
+/// Checks whether blocks were leaked or freed too many times, for host.
+void Debug::checkHostMemoryLeaks(Memory const& m)
+{
+    using llu = long long unsigned;
+    if (! debug_) return;
+    printf("\n");
+    if (m.free_blocks_.at(m.host_num_).size() < m.capacity_.at(m.host_num_)) {
+        fprintf(stderr,
+                "Error: memory leak: freed %llu of %llu blocks on host\n",
+                (llu) m.free_blocks_.at(m.host_num_).size(),
+                (llu) m.capacity_.at(m.host_num_));
+    }
+    else if (m.free_blocks_.at(m.host_num_).size() > m.capacity_.at(m.host_num_)) {
+        fprintf(stderr,
+                "Error: freed too many: %llu of %llu blocks on host\n",
+                (llu) m.free_blocks_.at(m.host_num_).size(),
+                (llu) m.capacity_.at(m.host_num_));
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Checks whether blocks were leaked or freed too many times, for device.
+void Debug::checkDeviceMemoryLeaks(Memory const& m, int device)
+{
+    using llu = long long unsigned;
+    if (! debug_) return;
+    printf("\n");
+    if (m.free_blocks_.at(device).size() < m.capacity_.at(device)) {
+        fprintf(stderr,
+                "Error: memory leak: freed %llu of %llu blocks on device %d\n",
+                (llu) m.free_blocks_.at(device).size(),
+                (llu) m.capacity_.at(device), device);
+    }
+    else if (m.free_blocks_.at(device).size() > m.capacity_.at(device)) {
+        fprintf(stderr,
+                "Error: freed too many: %llu of %llu blocks on device %d\n",
+                (llu) m.free_blocks_.at(device).size(),
+                (llu) m.capacity_.at(device), device);
+    }
+}
+
+//------------------------------------------------------------------------------
 // Explicit instantiations.
 template
 void Debug::diffLapackMatrices(int64_t m, int64_t n,

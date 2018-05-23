@@ -309,29 +309,29 @@ $(unit_test): %: %.o $(unit_test_obj) $(lib)
 
 #-------------------------------------------------------------------------------
 # scalapack_compat library
-scalapack_compat = lib/libslate_scalapack_compat.so
+scalapack_api = lib/libslate_scalapack_api.so
 
-scalapack_compat_src = \
-                     scalapack_compat/scalapack_compat_gemm.cc \
-                     scalapack_compat/scalapack_compat_syrk.cc \
-                     scalapack_compat/scalapack_compat_symm.cc \
-                     scalapack_compat/scalapack_compat_trsm.cc \
-                     scalapack_compat/scalapack_compat_syr2k.cc \
-                     scalapack_compat/scalapack_compat_trmm.cc 
+scalapack_api_src = \
+                     scalapack_api/scalapack_compat_gemm.cc \
+                     scalapack_api/scalapack_compat_syrk.cc \
+                     scalapack_api/scalapack_compat_symm.cc \
+                     scalapack_api/scalapack_compat_trsm.cc \
+                     scalapack_api/scalapack_compat_syr2k.cc \
+                     scalapack_api/scalapack_compat_trmm.cc 
 
-scalapack_compat_obj = $(scalapack_compat_src:.cc=.o) 
+scalapack_api_obj = $(scalapack_api_src:.cc=.o) 
 
-SCALAPACK_COMPAT_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
-SCALAPACK_COMPAT_LIB     += -lslate $(scalapack)
+SCALAPACK_API_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
+SCALAPACK_API_LIB     += -lslate $(scalapack)
 
-scalapack_compat: lib $(scalapack_compat)
+scalapack_api: lib $(scalapack_api)
 
-scalapack_compat/clean:
-	rm -f $(scalapack_compat) $(scalapack_compat_obj)
+scalapack_api/clean:
+	rm -f $(scalapack_api) $(scalapack_api_obj)
 
-$(scalapack_compat): $(scalapack_compat_obj) $(lib)
-	$(CXX) $(SCALAPACK_COMPAT_LDFLAGS) $(LDFLAGS) $^ \
-		$(SCALAPACK_COMPAT_LIB) $(LIB) -shared $(install_name) -o $@
+$(scalapack_api): $(scalapack_api_obj) $(lib)
+	$(CXX) $(SCALAPACK_API_LDFLAGS) $(LDFLAGS) $^ \
+		$(SCALAPACK_API_LIB) $(LIB) -shared $(install_name) -o $@
 
 #-------------------------------------------------------------------------------
 # lapack_compat library

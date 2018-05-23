@@ -90,6 +90,7 @@ public:
 
     /// Constructor for Map class
     Map() { omp_init_nest_lock(&lock_); }
+
     /// Destructor for Map class
     ~Map() { omp_destroy_nest_lock(&lock_); }
 

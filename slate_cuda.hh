@@ -43,7 +43,7 @@
 #ifndef SLATE_CUDA_HH
 #define SLATE_CUDA_HH
 
-#ifdef SLATE_WITH_CUDA
+#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
     #include <cuda_runtime.h>
 #else
 

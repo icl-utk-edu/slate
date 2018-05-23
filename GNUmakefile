@@ -21,10 +21,17 @@
 # openmp=1        for OpenMP.
 # static=1        for static library (libslate.a);
 #                 otherwise shared library (libslate.so).
+#
+# cuda_arch="ARCH" for CUDA architectures, where ARCH is one or more of:
+#                     kepler maxwell pascal volta sm_XX
+#                  and sm_XX is a CUDA architecture (see nvcc -h).
 
 -include make.inc
 
+NVCC ?= nvcc
+
 CXXFLAGS += -O3 -std=c++11 -Wall -pedantic -MMD
+NVCCFLAGS += -O3 -std=c++11
 
 # auto-detect OS
 # $OSTYPE may not be exported from the shell, so echo it
@@ -147,6 +154,47 @@ else
 endif
 
 #-------------------------------------------------------------------------------
+# Generate flags for which CUDA architectures to build.
+# cuda_arch_ is a local copy to modify.
+cuda_arch ?= kepler pascal
+cuda_arch_ = $(cuda_arch)
+ifneq ($(findstring kepler, $(cuda_arch_)),)
+	cuda_arch_ += sm_30
+endif
+ifneq ($(findstring maxwell, $(cuda_arch_)),)
+	cuda_arch_ += sm_50
+endif
+ifneq ($(findstring pascal, $(cuda_arch_)),)
+	cuda_arch_ += sm_60
+endif
+ifneq ($(findstring volta, $(cuda_arch_)),)
+	cuda_arch_ += sm_70
+endif
+
+# CUDA architectures that nvcc supports
+sms = 30 32 35 37 50 52 53 60 61 62 70 72
+
+# code=sm_XX is binary, code=compute_XX is PTX
+gencode_sm      = -gencode arch=compute_$(sm),code=sm_$(sm)
+gencode_compute = -gencode arch=compute_$(sm),code=compute_$(sm)
+
+# Get gencode options for all sm_XX in cuda_arch_.
+nv_sm      = $(filter %, $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_sm))))
+nv_compute = $(filter %, $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_compute))))
+
+ifeq ($(nv_sm),)
+    $(warning No valid CUDA architectures found in cuda_arch = $(cuda_arch).)
+else
+	# Get last option (last 2 words) of nv_compute.
+	nwords  = $(words $(nv_compute))
+	nwords_1 = $(shell expr $(nwords) - 1)
+	nv_compute_last = $(wordlist $(nwords_1), $(nwords), $(nv_compute))
+endif
+
+# Use all sm_XX (binary), and the last compute_XX (PTX) for forward compatibility.
+NVCCFLAGS += $(nv_sm) $(nv_compute_last)
+
+#-------------------------------------------------------------------------------
 # MacOS needs shared library's path set
 ifeq ($(macos),1)
    install_name = -install_name @rpath/$(notdir $@)
@@ -179,6 +227,10 @@ lib_src += \
        slate_internal_trmm.cc \
        slate_internal_trsm.cc \
        slate_internal_util.cc \
+
+# device
+lib_src += \
+       slate_device_genorm.cu \
 
 # driver
 lib_src += \
@@ -217,11 +269,11 @@ unit_src = \
 unit_test_obj = \
         unit_test/unit_test.o
 
-lib_obj   = $(lib_src:.cc=.o)
-test_obj  = $(test_src:.cc=.o)
-unit_obj  = $(unit_src:.cc=.o)
-dep       = $(lib_src:.cc=.d) $(test_src:.cc=.d) $(unit_src:.cc=.d) \
-            $(unit_test_obj:.o=.d)
+lib_obj   = $(addsuffix .o, $(basename $(lib_src)))
+test_obj  = $(addsuffix .o, $(basename $(test_src)))
+unit_obj  = $(addsuffix .o, $(basename $(unit_src)))
+dep       = $(addsuffix .d, $(basename $(lib_src) $(test_src) $(unit_src) \
+                                       $(unit_test_obj)))
 
 test      = test/test
 unit_test = $(basename $(unit_src))
@@ -319,7 +371,7 @@ scalapack_api_src = \
                      scalapack_api/scalapack_syr2k.cc \
                      scalapack_api/scalapack_trmm.cc 
 
-scalapack_api_obj = $(scalapack_api_src:.cc=.o) 
+scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
 
 SCALAPACK_API_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 SCALAPACK_API_LIB     += -lslate $(scalapack)
@@ -340,7 +392,7 @@ lapack_compat = lib/libslate_lapack_compat.so
 lapack_compat_src = \
                      lapack_compat/lapack_compat_gemm.cc \
 
-lapack_compat_obj = $(lapack_compat_src:.cc=.o) 
+lapack_compat_obj = $(addsuffix .o, $(basename $(lapack_compat_src)))
 
 LAPACK_COMPAT_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 LAPACK_COMPAT_LIB     += -lslate 
@@ -364,6 +416,9 @@ distclean: clean
 
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+%.o: %.cu
+	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
 # preprocess source
 %.i: %.cc
@@ -414,6 +469,17 @@ echo:
 	@echo
 	@echo "CXX           = $(CXX)"
 	@echo "CXXFLAGS      = $(CXXFLAGS)"
+	@echo
+	@echo "NVCC          = $(NVCC)"
+	@echo "NVCCFLAGS     = $(NVCCFLAGS)"
+	@echo "cuda_arch     = $(cuda_arch)"
+	@echo "cuda_arch_    = $(cuda_arch_)"
+	@echo "sms           = $(sms)"
+	@echo "nv_sm         = $(nv_sm)"
+	@echo "nv_compute    = $(nv_compute)"
+	@echo "nwords        = $(nwords)"
+	@echo "nwords_1      = $(nwords_1)"
+	@echo "nv_compute_last = $(nv_compute_last)"
 	@echo
 	@echo "LDFLAGS       = $(LDFLAGS)"
 	@echo "LIB           = $(LIB)"

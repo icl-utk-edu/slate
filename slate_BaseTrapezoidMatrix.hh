@@ -107,6 +107,7 @@ public:
     void gather(scalar_t* A, int64_t lda);
     Uplo uplo() const;
     Uplo uplo_logical() const;
+    void moveAllToOrigin();
 };
 
 //--------------------------------------------------------------------------
@@ -575,6 +576,27 @@ Uplo BaseTrapezoidMatrix<scalar_t>::uplo_logical() const
         return Uplo::Lower;
     else
         return Uplo::Upper;
+}
+
+//------------------------------------------------------------------------------
+/// Move all tiles back to their origin.
+//
+// todo: currently assumes origin == host.
+template <typename scalar_t>
+void BaseTrapezoidMatrix<scalar_t>::moveAllToOrigin()
+{
+    if (this->uplo_logical() == Uplo::Lower) {
+        for (int64_t j = 0; j < this->nt(); ++j)
+            for (int64_t i = j; i < this->mt(); ++i)  // lower
+                if (this->tileIsLocal(i, j))
+                    this->tileMoveToHost(i, j, this->tileDevice(i, j));
+    }
+    else {
+        for (int64_t j = 0; j < this->nt(); ++j)
+            for (int64_t i = 0; i <= j && i < this->mt(); ++i)  // upper
+                if (this->tileIsLocal(i, j))
+                    this->tileMoveToHost(i, j, this->tileDevice(i, j));
+    }
 }
 
 } // namespace slate

@@ -229,12 +229,7 @@ void trsm(slate::internal::TargetType<target>,
         }
     }
 
-    // todo: we need a function that updates origins that are not valid
-    for (int64_t i = 0; i < B.mt(); ++i)
-        for (int64_t j = 0; j < B.nt(); ++j)
-            if (B.tileIsLocal(i, j))
-                B.tileMoveToHost(i, j, B.tileDevice(i, j));
-
+    B.moveAllToOrigin();
     B.clearWorkspace();
 }
 

@@ -369,12 +369,7 @@ void symm(slate::internal::TargetType<target>,
         }
     }
 
-    // todo: we need a function that updates origins that are not valid
-    for (int64_t i = 0; i < C.mt(); ++i)
-        for (int64_t j = 0; j < C.nt(); ++j)
-            if (C.tileIsLocal(i, j))
-                C.tileMoveToHost(i, j, C.tileDevice(i, j));
-
+    C.moveAllToOrigin();
     C.clearWorkspace();
 }
 

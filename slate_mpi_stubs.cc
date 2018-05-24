@@ -161,6 +161,16 @@ int MPI_Recv(void* buf, int count, MPI_Datatype datatype, int source,
     assert(0);
 }
 
+int MPI_Op_create(MPI_User_function *user_fn, int commute, MPI_Op *op)
+{
+    assert(0);
+}
+
+int MPI_Op_free(MPI_Op *op)
+{
+    assert(0);
+}
+
 int MPI_Reduce(void* sendbuf, void* recvbuf, int count, MPI_Datatype datatype,
                MPI_Op op, int root, MPI_Comm comm)
 {

@@ -73,6 +73,9 @@ enum {
 
 extern int* MPI_STATUS_IGNORE;
 
+typedef void (MPI_User_function) ( void * a, 
+                                   void * b, int * len, MPI_Datatype * ); 
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -113,6 +116,10 @@ int MPI_Isend(const void* buf, int count, MPI_Datatype datatype, int dest,
 
 int MPI_Recv(void* buf, int count, MPI_Datatype datatype, int source,
              int tag, MPI_Comm comm, MPI_Status* status);
+
+int MPI_Op_create(MPI_User_function *user_fn, int commute, MPI_Op *op);
+
+int MPI_Op_free(MPI_Op *op);
 
 int MPI_Reduce(void* sendbuf, void* recvbuf, int count, MPI_Datatype datatype,
                MPI_Op op, int root, MPI_Comm comm);

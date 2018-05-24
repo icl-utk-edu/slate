@@ -46,6 +46,7 @@ endif
 ifneq ($(static),1)
 	CXXFLAGS += -fPIC
 	LDFLAGS  += -fPIC
+	NVCCFLAGS += --compiler-options '-fPIC'
 endif
 
 #-------------------------------------------------------------------------------

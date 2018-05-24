@@ -45,8 +45,7 @@ using std::max;
 
 //------------------------------------------------------------------------------
 // global variables
-int nb = 0;
-
+int nb;
 
 //------------------------------------------------------------------------------
 /// Tests Memory(size) constructor. Doesn't allocate memory.
@@ -272,7 +271,7 @@ void run_tests()
 int main(int argc, char** argv)
 {
     // global nb
-    nb = 10;
+    nb = 16;
     if (argc > 1) {
         nb = atoi(argv[1]);
     }

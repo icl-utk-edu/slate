@@ -121,6 +121,10 @@ void run_test(test_function* func, const char* name, MPI_Comm comm);
 int unit_test_main();
 int unit_test_main(MPI_Comm comm);
 
+std::string string_printf(const char* format, ...);
+void printf_gather(int root, MPI_Comm comm, const std::string& str);
+void printf_gather(int root, MPI_Comm comm, const char* format, ...);
+
 /// To be implemented by user; called by unit_test_main().
 void run_tests();
 

@@ -108,7 +108,7 @@ std::string output_skip(SkipException& e)
 
 //------------------------------------------------------------------------------
 /// Root node prints string str from all MPI ranks.
-void print_gather(const std::string& str, int root, MPI_Comm comm)
+void printf_gather(int root, MPI_Comm comm, const std::string& str)
 {
 #ifdef SLATE_WITH_MPI
     int mpi_rank, mpi_size;
@@ -138,6 +138,18 @@ void print_gather(const std::string& str, int root, MPI_Comm comm)
         MPI_Send(str.c_str(), bufsize, MPI_CHAR, 0, 0, comm);
     }
 #endif
+}
+
+//------------------------------------------------------------------------------
+/// Root node prints output from all MPI ranks.
+void printf_gather(int root, MPI_Comm comm, const char* format, ...)
+{
+    // same code in string_printf
+    char buf[ 1024 ];
+    va_list va;
+    va_start(va, format);
+    vsnprintf(buf, sizeof(buf), format, va);
+    printf_gather(root, comm, std::string(buf));
 }
 
 //------------------------------------------------------------------------------
@@ -215,7 +227,7 @@ void run_test(test_function* func, const char* name, MPI_Comm comm)
         output += output_fail(err);
         ++g_fail;
     }
-    print_gather(output, 0, comm);
+    printf_gather(0, comm, output);
 #else
     run_test(func, name);
 #endif // not SLATE_WITH_MPI

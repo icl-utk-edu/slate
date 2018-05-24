@@ -260,9 +260,10 @@ test_src = \
         test/test_her2k.cc \
         test/test_herk.cc  \
 
-#unit testers
+# unit testers
 unit_src = \
         unit_test/test_Tile.cc \
+        unit_test/test_Matrix.cc \
         unit_test/test_Memory.cc \
 
 # unit test framework

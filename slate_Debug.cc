@@ -214,7 +214,6 @@ void Debug::checkHostMemoryLeaks(Memory const& m)
 {
     using llu = long long unsigned;
     if (! debug_) return;
-    printf("\n");
     if (m.free_blocks_.at(m.host_num_).size() < m.capacity_.at(m.host_num_)) {
         fprintf(stderr,
                 "Error: memory leak: freed %llu of %llu blocks on host\n",
@@ -235,7 +234,6 @@ void Debug::checkDeviceMemoryLeaks(Memory const& m, int device)
 {
     using llu = long long unsigned;
     if (! debug_) return;
-    printf("\n");
     if (m.free_blocks_.at(device).size() < m.capacity_.at(device)) {
         fprintf(stderr,
                 "Error: memory leak: freed %llu of %llu blocks on device %d\n",

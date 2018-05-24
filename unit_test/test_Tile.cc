@@ -41,18 +41,20 @@
 
 #include "unit_test.hh"
 
-int g_mpi_rank;
-int g_mpi_size;
+//------------------------------------------------------------------------------
+// global variables
+int mpi_rank;
+int mpi_size;
 
-// -----------------------------------------------------------------------------
-template< typename T >
+//------------------------------------------------------------------------------
+template <typename T>
 inline constexpr T roundup(T x, T y)
 {
     return T((x + y - 1) / y) * y;
 }
 
 //------------------------------------------------------------------------------
-/// Sets Aij = (g_mpi_rank + 1)*1000 + i + j/1000, for all i, j.
+/// Sets Aij = (mpi_rank + 1)*1000 + i + j/1000, for all i, j.
 template <typename scalar_t>
 void setup_data(slate::Tile<scalar_t>& A)
 {
@@ -62,7 +64,7 @@ void setup_data(slate::Tile<scalar_t>& A)
     scalar_t* Ad = A.data();
     for (int j = 0; j < n; ++j) {
         for (int i = 0; i < lda; ++i) {  // note: to lda, not just m
-            Ad[ i + j*lda ] = (g_mpi_rank + 1)*1000 + i + j/1000.;
+            Ad[ i + j*lda ] = (mpi_rank + 1)*1000 + i + j/1000.;
         }
     }
 }
@@ -87,7 +89,7 @@ void clear_data(slate::Tile<scalar_t>& A)
 /// Verifies that:
 /// Aij = (expect_rank + 1)*1000 + i + j/1000 for 0 <= i < m,
 /// using A(i, j) operator, and
-/// Aij = (g_mpi_rank  + 1)*1000 + i + j/1000 for m <= i < stride.
+/// Aij = (mpi_rank  + 1)*1000 + i + j/1000 for m <= i < stride.
 /// expect_rank is where the data is coming from.
 template <typename scalar_t>
 void verify_data_(slate::Tile<scalar_t>& A, int expect_rank,
@@ -111,7 +113,7 @@ void verify_data_(slate::Tile<scalar_t>& A, int expect_rank,
             // (data in padding shouldn't be modified)
             for (int i = m; i < lda; ++i) {
                 test_assert(
-                    Ad[i + j*lda] == (g_mpi_rank + 1)*1000 + i + j/1000.);
+                    Ad[i + j*lda] == (mpi_rank + 1)*1000 + i + j/1000.);
             }
         }
     }
@@ -294,7 +296,7 @@ void test_transpose()
     slate::Tile<scalar_t> A(m, n, data, lda, -1);
     setup_data(A);
 
-    // ----- transpose
+    //----- transpose
     auto AT = transpose(A);
 
     test_assert(AT.mb() == n);  // trans
@@ -310,9 +312,9 @@ void test_transpose()
     test_assert(AT.bytes() == sizeof(scalar_t) * m * n);
     test_assert(AT.size() == size_t(m * n));
 
-    verify_data_transpose(AT, g_mpi_rank);
+    verify_data_transpose(AT, mpi_rank);
 
-    // ----- transpose again
+    //----- transpose again
     auto ATT = transpose(AT);
 
     test_assert(ATT.mb() == m);  // restored
@@ -328,7 +330,7 @@ void test_transpose()
     test_assert(ATT.bytes() == sizeof(scalar_t) * m * n);
     test_assert(ATT.size() == size_t(m * n));
 
-    verify_data(ATT, g_mpi_rank);
+    verify_data(ATT, mpi_rank);
 }
 
 void test_transpose_double()
@@ -353,7 +355,7 @@ void test_conj_transpose()
     slate::Tile<scalar_t> A(m, n, data, lda, -1);
     setup_data(A);
 
-    // ----- conj_transpose
+    //----- conj_transpose
     auto AC = conj_transpose(A);
 
     test_assert(AC.mb() == n);  // trans
@@ -369,9 +371,9 @@ void test_conj_transpose()
     test_assert(AC.bytes() == sizeof(scalar_t) * m * n);
     test_assert(AC.size() == size_t(m * n));
 
-    verify_data_conj_transpose(AC, g_mpi_rank);
+    verify_data_conj_transpose(AC, mpi_rank);
 
-    // ----- conj_transpose again
+    //----- conj_transpose again
     auto ACC = conj_transpose(AC);
 
     test_assert(ACC.mb() == m);  // restored
@@ -387,11 +389,11 @@ void test_conj_transpose()
     test_assert(ACC.bytes() == sizeof(scalar_t) * m * n);
     test_assert(ACC.size() == size_t(m * n));
 
-    verify_data(ACC, g_mpi_rank);
+    verify_data(ACC, mpi_rank);
 
     auto AT = transpose(A);
     if (AT.is_real) {
-        // ----- transpose + conj_transpose for real
+        //----- transpose + conj_transpose for real
         auto ATC = conj_transpose(AT);
 
         test_assert(ATC.mb() == m);  // restored
@@ -407,9 +409,9 @@ void test_conj_transpose()
         test_assert(ATC.bytes() == sizeof(scalar_t) * m * n);
         test_assert(ATC.size() == size_t(m * n));
 
-        verify_data(ATC, g_mpi_rank);
+        verify_data(ATC, mpi_rank);
 
-        // ----- conj_transpose + transpose for real
+        //----- conj_transpose + transpose for real
         auto ACT = transpose(AC);
 
         test_assert(ACT.mb() == m);  // restored
@@ -425,10 +427,10 @@ void test_conj_transpose()
         test_assert(ACT.bytes() == sizeof(scalar_t) * m * n);
         test_assert(ACT.size() == size_t(m * n));
 
-        verify_data(ATC, g_mpi_rank);
+        verify_data(ATC, mpi_rank);
     }
     else {
-        // ----- transpose + conj_transpose is unsupported for complex
+        //----- transpose + conj_transpose is unsupported for complex
         test_assert_throw_std(conj_transpose(AT) /* std::exception */);
         test_assert_throw_std(transpose(AC)      /* std::exception */);
     }
@@ -535,23 +537,23 @@ void test_upper_complex()
 /// src/dst lda is rounded up to multiple of align_src/dst, respectively.
 void test_send_recv(int align_src, int align_dst)
 {
-    if (g_mpi_size == 1) {
+    if (mpi_size == 1) {
         test_skip("requires MPI comm size > 1");
     }
 
     const int m = 20;
     const int n = 30;
     // even is src, odd is dst
-    int lda = roundup(m, (g_mpi_rank % 2 == 0 ? align_src : align_dst));
+    int lda = roundup(m, (mpi_rank % 2 == 0 ? align_src : align_dst));
     double* data = new double[ lda * n ];
     assert(data != nullptr);
     slate::Tile<double> A(m, n, data, lda, -1);
     setup_data(A);
 
-    int r = int(g_mpi_rank / 2) * 2;
-    if (r+1 < g_mpi_size) {
+    int r = int(mpi_rank / 2) * 2;
+    if (r+1 < mpi_size) {
         // send from r to r+1
-        if (r == g_mpi_rank) {
+        if (r == mpi_rank) {
             A.send(r+1, MPI_COMM_WORLD);
         }
         else {
@@ -560,7 +562,7 @@ void test_send_recv(int align_src, int align_dst)
         verify_data(A, r);
     }
     else {
-        verify_data(A, g_mpi_rank);
+        verify_data(A, mpi_rank);
     }
 
     delete[] data;
@@ -598,7 +600,7 @@ void test_bcast(int align_src, int align_dst)
     const int m = 20;
     const int n = 30;
     // rank 0 is dst (root)
-    int lda = roundup(m, (g_mpi_rank == 0 ? align_dst : align_src));
+    int lda = roundup(m, (mpi_rank == 0 ? align_dst : align_src));
     double* data = new double[ lda * n ];
     assert(data != nullptr);
     slate::Tile<double> A(m, n, data, lda, -1);
@@ -608,7 +610,7 @@ void test_bcast(int align_src, int align_dst)
     A.bcast(0, MPI_COMM_WORLD);
     verify_data(A, 0);
 
-    if (g_mpi_size > 1) {
+    if (mpi_size > 1) {
         // with root = 1
         setup_data(A);
         A.bcast(1, MPI_COMM_WORLD);
@@ -673,7 +675,7 @@ void test_copyDataToDevice(int align_host, int align_dev)
     // copy to device and back, then verify
     A.copyDataToDevice(&dA, stream);
     dA.copyDataToHost(&B, stream);
-    verify_data(B, g_mpi_rank);
+    verify_data(B, mpi_rank);
 
     test_assert(cudaFree(data_dev) == cudaSuccess);
     test_assert(cudaStreamDestroy(stream) == cudaSuccess);
@@ -710,7 +712,7 @@ void test_copyDataToDevice_ss()
 /// Runs all tests. Called by unit test main().
 void run_tests()
 {
-    if (g_mpi_rank == 0) {
+    if (mpi_rank == 0) {
         run_test(
             test_Tile_default,
             "Tile(); also mb, nb, uplo, etc.");
@@ -787,8 +789,8 @@ void run_tests()
 int main(int argc, char** argv)
 {
     MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &g_mpi_rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &g_mpi_size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
     int err = unit_test_main(MPI_COMM_WORLD);  // which calls run_tests()
 

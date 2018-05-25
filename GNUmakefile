@@ -314,20 +314,48 @@ docs:
 	doxygen docs/doxygen/doxyfile.conf
 
 #-------------------------------------------------------------------------------
+# LAPACK++ library
+liblapackpp_src = $(wildcard lapackpp/include/*.h \
+                             lapackpp/include/*.hh \
+                             lapackpp/src/*.cc)
+
+ifeq ($(static),1)
+	liblapackpp = lapackpp/lib/liblapackpp.a
+else
+	liblapackpp = lapackpp/lib/liblapackpp.so
+endif
+
+$(liblapackpp): $(liblapackpp_src)
+	cd lapackpp && $(MAKE) lib
+
+#-------------------------------------------------------------------------------
+# libtest library
+libtest_src = $(wildcard libtest/*.hh libtest/*.cc)
+
+ifeq ($(static),1)
+	libtest = libtest/libtest.a
+else
+	libtest = libtest/libtest.so
+endif
+
+$(libtest): $(libtest_src)
+	cd libtest && $(MAKE) lib
+
+#-------------------------------------------------------------------------------
 # libslate library
 lib_a  = ./lib/libslate.a
 lib_so = ./lib/libslate.so
 
-$(lib_a): $(lib_obj)
+$(lib_a): $(lib_obj) $(liblapackpp)
 	mkdir -p lib
 	-rm $@
-	ar cr $@ $^
+	ar cr $@ $(lib_obj)
 	ranlib $@
 
-$(lib_so): $(lib_obj)
+$(lib_so): $(lib_obj) $(liblapackpp)
 	mkdir -p lib
 	$(CXX) $(LDFLAGS) \
-		$^ \
+		$(lib_obj) \
 		$(LIB) \
 		-shared $(install_name) -o $@
 
@@ -346,7 +374,7 @@ test: $(test)
 test/clean:
 	rm -f $(test) $(test_obj)
 
-$(test): $(test_obj) $(lib)
+$(test): $(test_obj) $(lib) $(libtest)
 	$(CXX) $(TEST_LDFLAGS) $(LDFLAGS) $(test_obj) \
 		$(TEST_LIB) $(LIB) -o $@
 

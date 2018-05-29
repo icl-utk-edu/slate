@@ -418,24 +418,23 @@ $(scalapack_api): $(scalapack_api_obj) $(lib)
 		$(SCALAPACK_API_LIB) $(LIB) -shared $(install_name) -o $@
 
 #-------------------------------------------------------------------------------
-# lapack_compat library
-lapack_compat = lib/libslate_lapack_compat.so
+# lapack_api library
+lapack_api = lib/libslate_lapack_api.so
 
-lapack_compat_src = \
-                     lapack_compat/lapack_compat_gemm.cc \
+lapack_api_src = lapack_api/lapack_api_gemm.cc \
 
-lapack_compat_obj = $(addsuffix .o, $(basename $(lapack_compat_src)))
+lapack_api_obj = $(addsuffix .o, $(basename $(lapack_api_src)))
 
-LAPACK_COMPAT_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
-LAPACK_COMPAT_LIB     += -lslate 
+LAPACK_API_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
+LAPACK_API_LIB     += -lslate 
 
-lapack_compat: lib $(lapack_compat)
+lapack_api: lib $(lapack_api)
 
-lapack_compat/clean:
-	rm -f $(lapack_compat) $(lapack_compat_obj)
+lapack_api/clean:
+	rm -f $(lapack_api) $(lapack_api_obj)
 
-$(lapack_compat): $(lapack_compat_obj) $(lib)
-	$(CXX) $(LAPACK_COMPAT_LDFLAGS) $(LDFLAGS) $^ $(LAPACK_COMPAT_LIB) $(LIB) -shared $(install_name) -o $@
+$(lapack_api): $(lapack_api_obj) $(lib)
+	$(CXX) $(LAPACK_API_LDFLAGS) $(LDFLAGS) $^ $(LAPACK_API_LIB) $(LIB) -shared $(install_name) -o $@
 
 #-------------------------------------------------------------------------------
 # general rules

@@ -38,6 +38,7 @@
 //------------------------------------------------------------------------------
 
 #include "slate.hh"
+#include "slate_cuda.hh"
 #include "blas_fortran.hh"
 #include <complex>
 
@@ -46,11 +47,11 @@
 extern "C" int MKL_Set_Num_Threads(int nt);
 inline int slate_set_num_blas_threads(const int nt) { return MKL_Set_Num_Threads(nt); }
 #else
-inline int slate_set_num_blas_threads(const int nt) { return -1; }
+inline int slate_set_num_blas_threads(const int nt) { return 1; }
 #endif
 
 namespace slate {
-namespace lapack_compat {
+namespace lapack_api {
 
 // -----------------------------------------------------------------------------
 
@@ -92,22 +93,35 @@ extern "C" void slate_zgemm(const char* transa, const char* transb, int* m, int*
 template< typename scalar_t >
 void slate_gemm(const char* transastr, const char* transbstr, int m, int n, int k, scalar_t alpha, scalar_t* a, int lda, scalar_t* b, int ldb, scalar_t beta, scalar_t* c, int ldc)
 {
-    printf("In slate\n");
+    typedef long long lld;
 
-    // todo: does this set the omp num threads correctly
+    // todo: does this set the omp num threads correctly in all circumstances
     int saved_num_blas_threads = slate_set_num_blas_threads(1);
-    int saved_num_omp_threads;
-    #pragma omp parallel
-    { saved_num_omp_threads = omp_get_num_threads(); }
-    omp_set_num_threads(std::max({saved_num_blas_threads, saved_num_omp_threads}));
 
     blas::Op transA = blas::char2op(transastr[0]);
     blas::Op transB = blas::char2op(transbstr[0]);
-    slate::Target target = slate::Target::Devices;
     int64_t lookahead = 1;
     int64_t p = 1;
     int64_t q = 1;
-    int64_t nb = 384;
+    slate::Target target;
+    int cudadevcount = 0;
+    if ((cudaGetDeviceCount(&cudadevcount)==cudaSuccess) && (cudadevcount>0))
+        target = slate::Target::Devices;
+    else
+        target = slate::Target::HostTask;
+
+    static int64_t nb = 0;
+    if (nb==0) {
+        if (std::getenv("SLATE_NB"))
+            nb = strtol(std::getenv("SLATE_NB"), NULL, 0);
+        else if (target==slate::Target::HostTask && p==1 && q==1)
+            nb = 512;
+        else if (target==slate::Target::Devices)
+            nb = 1024;
+        else
+            nb = 256;
+    }
+    // printf("In slate NB %lld %lld %lld\n", (lld)std::max({m,n}), (lld)omp_num_threads, (lld)nb);
 
     // sizes of A and B
     int64_t Am = (transA == blas::Op::NoTrans ? m : k);
@@ -137,14 +151,13 @@ void slate_gemm(const char* transastr, const char* transbstr, int m, int n, int 
     assert(B.nt() == C.nt());
     assert(A.nt() == B.mt());
 
-    // slate::gemm(alpha, A, B, beta, C, {
-    //     {slate::Option::Lookahead, lookahead},
-    //     {slate::Option::Target, target}
-    // });
+    slate::gemm(alpha, A, B, beta, C, {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target}
+    });
 
-    omp_set_num_threads(saved_num_omp_threads);
     slate_set_num_blas_threads(saved_num_blas_threads);
 }
 
-} // namespace lapack_compat
+} // namespace lapack_api
 } // namespace slate

@@ -171,25 +171,6 @@ struct real_type_traits< T1, Types... >
 };
 
 //------------------------------------------------------------------------------
-//  max that propogates nan consistently:
-//  max_nan( 1,   nan ) = nan
-//  max_nan( nan, 1   ) = nan
-//
-//  For x=nan, y=1:
-//  nan < y is false, yields x (nan)
-//
-//  For x=1, y=nan:
-//  x < nan    is false, would yield x, but
-//  isnan(nan) is true, yields y (nan)
-//
-template< typename T >
-__host__ __device__
-inline T max_nan( T x, T y )
-{
-    return (isnan(y) || (x) < (y) ? (y) : (x));
-}
-
-//------------------------------------------------------------------------------
 template <typename scalar_t>
 void genormMax(
     int64_t m, int64_t n,

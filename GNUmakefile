@@ -230,8 +230,10 @@ lib_src += \
        slate_internal_util.cc \
 
 # device
-lib_src += \
-       slate_device_genorm.cu \
+ifeq ($(cuda),1)
+    lib_src += \
+           slate_device_genorm.cu
+endif
 
 # driver
 lib_src += \

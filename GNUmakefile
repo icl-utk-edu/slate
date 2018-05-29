@@ -421,7 +421,7 @@ $(scalapack_api): $(scalapack_api_obj) $(lib)
 # lapack_api library
 lapack_api = lib/libslate_lapack_api.so
 
-lapack_api_src = lapack_api/lapack_api_gemm.cc \
+lapack_api_src = lapack_api/lapack_gemm.cc 
 
 lapack_api_obj = $(addsuffix .o, $(basename $(lapack_api_src)))
 

@@ -93,7 +93,7 @@ extern "C" void slate_zgemm(const char* transa, const char* transb, int* m, int*
 template< typename scalar_t >
 void slate_gemm(const char* transastr, const char* transbstr, int m, int n, int k, scalar_t alpha, scalar_t* a, int lda, scalar_t* b, int ldb, scalar_t beta, scalar_t* c, int ldc)
 {
-    typedef long long lld;
+    // typedef long long lld;
 
     // todo: does this set the omp num threads correctly in all circumstances
     int saved_num_blas_threads = slate_set_num_blas_threads(1);
@@ -121,7 +121,6 @@ void slate_gemm(const char* transastr, const char* transbstr, int m, int n, int 
         else
             nb = 256;
     }
-    // printf("In slate NB %lld %lld %lld\n", (lld)std::max({m,n}), (lld)omp_num_threads, (lld)nb);
 
     // sizes of A and B
     int64_t Am = (transA == blas::Op::NoTrans ? m : k);
@@ -132,7 +131,6 @@ void slate_gemm(const char* transastr, const char* transbstr, int m, int n, int 
     int64_t Cn = n;
 
     // create SLATE matrices from the Lapack layouts
-    // printf("Am %lld An %lld \n", Am, An );
     auto A = slate::Matrix<scalar_t>::fromLAPACK(Am, An, a, lda, nb, p, q, MPI_COMM_WORLD);
     auto B = slate::Matrix<scalar_t>::fromLAPACK(Bm, Bn, b, ldb, nb, p, q, MPI_COMM_WORLD);
     auto C = slate::Matrix<scalar_t>::fromLAPACK(Cm, Cn, c, ldc, nb, p, q, MPI_COMM_WORLD);

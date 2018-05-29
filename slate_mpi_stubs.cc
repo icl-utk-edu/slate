@@ -137,6 +137,12 @@ int MPI_Init(int* argc, char*** argv)
     return MPI_SUCCESS;
 }
 
+int MPI_Initialized(int *flag)
+{
+    *flag = 1;
+    return MPI_SUCCESS;
+}
+
 int MPI_Init_thread(int* argc, char*** argv, int required, int* provided)
 {
     *provided = MPI_THREAD_MULTIPLE;

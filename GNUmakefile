@@ -414,7 +414,7 @@ scalapack_api/clean:
 	rm -f $(scalapack_api) $(scalapack_api_obj)
 
 $(scalapack_api): $(scalapack_api_obj) $(lib)
-	$(CXX) $(SCALAPACK_API_LDFLAGS) $(LDFLAGS) $^ \
+	$(CXX) $(SCALAPACK_API_LDFLAGS) $(LDFLAGS) $(scalapack_api_obj) \
 		$(SCALAPACK_API_LIB) $(LIB) -shared $(install_name) -o $@
 
 #-------------------------------------------------------------------------------
@@ -434,7 +434,8 @@ lapack_api/clean:
 	rm -f $(lapack_api) $(lapack_api_obj)
 
 $(lapack_api): $(lapack_api_obj) $(lib)
-	$(CXX) $(LAPACK_API_LDFLAGS) $(LDFLAGS) $^ $(LAPACK_API_LIB) $(LIB) -shared $(install_name) -o $@
+	$(CXX) $(LAPACK_API_LDFLAGS) $(LDFLAGS) $(lapack_api_obj) \
+		$(LAPACK_API_LIB) $(LIB) -shared $(install_name) -o $@
 
 #-------------------------------------------------------------------------------
 # general rules

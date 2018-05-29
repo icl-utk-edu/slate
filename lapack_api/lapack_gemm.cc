@@ -42,7 +42,6 @@
 #include "blas_fortran.hh"
 #include <complex>
 
-
 #ifdef SLATE_WITH_MKL
 extern "C" int MKL_Set_Num_Threads(int nt);
 inline int slate_set_num_blas_threads(const int nt) { return MKL_Set_Num_Threads(nt); }
@@ -93,7 +92,10 @@ extern "C" void slate_zgemm(const char* transa, const char* transb, int* m, int*
 template< typename scalar_t >
 void slate_gemm(const char* transastr, const char* transbstr, int m, int n, int k, scalar_t alpha, scalar_t* a, int lda, scalar_t* b, int ldb, scalar_t beta, scalar_t* c, int ldc)
 {
-    // typedef long long lld;
+    typedef long long lld;
+    int initialized, provided;
+    MPI_Initialized(&initialized);
+    if (! initialized) MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided);
 
     // todo: does this set the omp num threads correctly in all circumstances
     int saved_num_blas_threads = slate_set_num_blas_threads(1);
@@ -103,23 +105,35 @@ void slate_gemm(const char* transastr, const char* transbstr, int m, int n, int 
     int64_t lookahead = 1;
     int64_t p = 1;
     int64_t q = 1;
-    slate::Target target;
-    int cudadevcount = 0;
-    if ((cudaGetDeviceCount(&cudadevcount)==cudaSuccess) && (cudadevcount>0))
-        target = slate::Target::Devices;
-    else
-        target = slate::Target::HostTask;
-
+    static slate::Target target;
+    static int64_t target_is_set = 0;
     static int64_t nb = 0;
-    if (nb==0) {
+
+    // set target if not already done
+    if (! target_is_set) {
+        int cudadevcount = 0;
+        target = slate::Target::HostTask;
+        if (std::getenv("SLATE_TARGET")) {
+            char targetchar = (char)(toupper(std::getenv("SLATE_TARGET")[4]));
+            if (targetchar=='T') target = slate::Target::HostTask;
+            else if (targetchar=='N') target = slate::Target::HostNest;
+            else if (targetchar=='B') target = slate::Target::HostBatch;
+            else if (targetchar=='C') target = slate::Target::Devices;
+        }
+        else if (cudaGetDeviceCount(&cudadevcount)==cudaSuccess && cudadevcount>0)
+            target = slate::Target::Devices;
+        target_is_set = 1;
+    }
+
+    // set nb if not already done
+    if (nb == 0) {
+        nb = 256;
         if (std::getenv("SLATE_NB"))
             nb = strtol(std::getenv("SLATE_NB"), NULL, 0);
-        else if (target==slate::Target::HostTask && p==1 && q==1)
+        else if (target==slate::Target::HostTask)
             nb = 512;
         else if (target==slate::Target::Devices)
             nb = 1024;
-        else
-            nb = 256;
     }
 
     // sizes of A and B
@@ -144,11 +158,8 @@ void slate_gemm(const char* transastr, const char* transbstr, int m, int n, int 
         B = transpose(B);
     else if (transB == blas::Op::ConjTrans)
         B = conj_transpose(B);
-
-    assert(A.mt() == C.mt());
-    assert(B.nt() == C.nt());
-    assert(A.nt() == B.mt());
-
+    
+    // printf("SLATE GEMM m %lld n %lld nb %lld \n", (lld)m, (lld)n, (lld)nb);
     slate::gemm(alpha, A, B, beta, C, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}

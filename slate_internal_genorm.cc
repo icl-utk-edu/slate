@@ -288,7 +288,7 @@ genorm(internal::TargetType<Target::Devices>,
                                         cudaMemcpyHostToDevice,
                                         stream);
                 assert(error == cudaSuccess);
-/*
+
                 if (batch_count_00 > 0) {
                         device::genormMax(
                             mb00, nb00,
@@ -330,7 +330,7 @@ genorm(internal::TargetType<Target::Devices>,
                             batch_count_11,
                             stream);
                 }
-*/
+
                 norm_array_dev = norm_arrays_dev.at(device);
 
                 error = cudaMemcpyAsync(norm_array_host, norm_array_dev,

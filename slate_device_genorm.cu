@@ -86,6 +86,35 @@ __global__ void genormMaxKernel(int64_t m, int64_t n,
 ///-----------------------------------------------------------------------------
 /// \brief
 ///
+__global__ void genormMaxKernel(int64_t m, int64_t n,
+                                double** tiles, int64_t lda,
+                                double* tiles_maxima)
+{
+    double* tile = tiles[blockIdx.x];
+    double* column = &tile[lda*threadIdx.x];
+    double tile_max;
+
+    extern __shared__ double col_max[];
+
+    double max = column[0];
+    for (int64_t i = 1; i < m; ++i)
+        max = max_nan(max, column[i]);
+
+    col_max[threadIdx.x] = max;
+    __syncthreads();
+
+    if (threadIdx.x == 0) {
+        tile_max = col_max[0];
+        for (int64_t j = 1; j < n; ++j)
+            tile_max = max_nan(tile_max, col_max[j]);
+
+        tiles_maxima[blockIdx.x] = tile_max;
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+///
 template <typename scalar_t>
 void genormMax(
     int64_t m, int64_t n,
@@ -133,35 +162,6 @@ void genormMax(
     double* max,
     int64_t batch_count,
     cudaStream_t stream);
-
-///-----------------------------------------------------------------------------
-/// \brief
-///
-__global__ void genormMaxKernel(int64_t m, int64_t n,
-                                double** tiles, int64_t lda,
-                                double* tiles_maxima)
-{
-    double* tile = tiles[blockIdx.x];
-    double* column = &tile[lda*threadIdx.x];
-    double tile_max;
-
-    extern __shared__ double col_max[];
-
-    double max = column[0];
-    for (int64_t i = 1; i < m; ++i)
-        max = max_nan(max, column[i]);
-
-    col_max[threadIdx.x] = max;
-    __syncthreads();
-
-    if (threadIdx.x == 0) {
-        tile_max = col_max[0];
-        for (int64_t j = 1; j < n; ++j)
-            tile_max = max_nan(tile_max, col_max[j]);
-
-        tiles_maxima[blockIdx.x] = tile_max;
-    }
-}
 
 } // namespace device
 } // namespace slate

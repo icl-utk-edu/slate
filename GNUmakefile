@@ -61,11 +61,11 @@ endif
 #-------------------------------------------------------------------------------
 # if MPI
 ifeq ($(mpi),1)
-	CXXFLAGS += -DSLATE_WITH_MPI
+	FLAGS += -DSLATE_WITH_MPI
 	LIB += -lmpi
 # if Spectrum MPI
 else ifeq ($(spectrum),1)
-	CXXFLAGS += -DSLATE_WITH_MPI
+	FLAGS += -DSLATE_WITH_MPI
 	LIB += -lmpi_ibm
 else
 	lib_src += slate_mpi_stubs.cc
@@ -84,7 +84,7 @@ ifeq ($(mkl_intel),1)
 	mkl = 1
 endif
 ifeq ($(mkl),1)
-	CXXFLAGS += -DSLATE_WITH_MKL
+	FLAGS += -DSLATE_WITH_MKL
 	# Auto-detect whether to use Intel or GNU conventions.
 	# Won't detect if CXX = mpicxx.
 	ifeq ($(CXX),icpc)
@@ -136,18 +136,18 @@ ifeq ($(mkl),1)
 	endif
 # if ESSL
 else ifeq ($(essl),1)
-	CXXFLAGS += -DSLATE_WITH_ESSL
+	FLAGS += -DSLATE_WITH_ESSL
 	LIB += -lessl -llapack
 # if OpenBLAS
 else ifeq ($(openblas),1)
-	CXXFLAGS += -DSLATE_WITH_OPENBLAS
+	FLAGS += -DSLATE_WITH_OPENBLAS
 	LIB += -lopenblas
 endif
 
 #-------------------------------------------------------------------------------
 # if CUDA
 ifeq ($(cuda),1)
-	CXXFLAGS += -DSLATE_WITH_CUDA
+	FLAGS += -DSLATE_WITH_CUDA
 	LIB += -lcublas -lcudart
 else
 	lib_src += slate_cuda_stubs.cc
@@ -284,13 +284,18 @@ unit_test = $(basename $(unit_src))
 
 #-------------------------------------------------------------------------------
 # SLATE specific flags and libraries
-CXXFLAGS += -I.
-CXXFLAGS += -I./blaspp/include
-CXXFLAGS += -I./lapackpp/include
+# FLAGS accumulates definitions, include dirs, etc. for both CXX and NVCC.
+FLAGS += -I.
+FLAGS += -I./blaspp/include
+FLAGS += -I./lapackpp/include
+
+CXXFLAGS  += $(FLAGS)
+NVCCFLAGS += $(FLAGS)
 
 # libraries to create libslate.so
+LDFLAGS  += -L./blaspp/lib -Wl,-rpath,$(abspath ./blaspp/lib)
 LDFLAGS  += -L./lapackpp/lib -Wl,-rpath,$(abspath ./lapackpp/lib)
-LIB      := -llapackpp $(LIB)
+LIB      := -lblaspp -llapackpp $(LIB)
 
 # additional flags and libraries for testers
 $(test_obj): CXXFLAGS += -I./blaspp/test    # for blas_flops.hh
@@ -331,6 +336,21 @@ $(liblapackpp): $(liblapackpp_src)
 	cd lapackpp && $(MAKE) lib
 
 #-------------------------------------------------------------------------------
+# BLAS++ library
+libblaspp_src = $(wildcard blaspp/include/*.h \
+                           blaspp/include/*.hh \
+                           blaspp/src/*.cc)
+
+ifeq ($(static),1)
+	libblaspp = blaspp/lib/libblaspp.a
+else
+	libblaspp = blaspp/lib/libblaspp.so
+endif
+
+$(libblaspp): $(libblaspp_src)
+	cd blaspp && $(MAKE) lib
+
+#-------------------------------------------------------------------------------
 # libtest library
 libtest_src = $(wildcard libtest/*.hh libtest/*.cc)
 
@@ -348,13 +368,13 @@ $(libtest): $(libtest_src)
 lib_a  = ./lib/libslate.a
 lib_so = ./lib/libslate.so
 
-$(lib_a): $(lib_obj) $(liblapackpp)
+$(lib_a): $(lib_obj) $(libblaspp) $(liblapackpp)
 	mkdir -p lib
 	-rm $@
 	ar cr $@ $(lib_obj)
 	ranlib $@
 
-$(lib_so): $(lib_obj) $(liblapackpp)
+$(lib_so): $(lib_obj) $(libblaspp) $(liblapackpp)
 	mkdir -p lib
 	$(CXX) $(LDFLAGS) \
 		$(lib_obj) \

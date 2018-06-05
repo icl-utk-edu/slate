@@ -31,7 +31,7 @@
 NVCC ?= nvcc
 
 CXXFLAGS += -O3 -std=c++11 -Wall -pedantic -MMD
-NVCCFLAGS += -O3 -std=c++11
+NVCCFLAGS += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
 
 # auto-detect OS
 # $OSTYPE may not be exported from the shell, so echo it

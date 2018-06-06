@@ -262,6 +262,7 @@ test_src = \
         test/test_hemm.cc  \
         test/test_her2k.cc \
         test/test_herk.cc  \
+        test/test_genorm.cc  \
 
 # unit testers
 unit_src = \

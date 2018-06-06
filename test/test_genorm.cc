@@ -1,0 +1,167 @@
+#include "slate.hh"
+#include "test.hh"
+
+#include "scalapack_wrappers.hh"
+#include "scalapack_support_routines.hh"
+
+#include "slate_mpi.hh"
+
+#include <cassert>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <utility>
+
+#ifdef SLATE_WITH_MKL
+extern "C" int MKL_Set_Num_Threads(int nt);
+inline int slate_set_num_blas_threads(const int nt) { return MKL_Set_Num_Threads(nt); }
+#else
+inline int slate_set_num_blas_threads(const int nt) { return -1; }
+#endif
+
+//------------------------------------------------------------------------------
+template<typename scalar_t>
+void test_genorm_work(Params& params, bool run)
+{
+    using real_t = blas::real_type<scalar_t>;
+
+    // get & mark input values
+    lapack::Norm norm = params.norm.value();
+    int64_t m = params.dim.m();
+    int64_t n = params.dim.n();
+    int64_t nb = params.nb.value();
+    int64_t p = params.p.value();
+    int64_t q = params.q.value();
+    int64_t lookahead = params.lookahead.value();
+    bool check = params.check.value()=='y';
+    bool ref = params.ref.value()=='y';
+    bool trace = params.trace.value()=='y';
+    slate::Target target = char2target(params.target.value());
+
+    // mark non-standard output values
+    params.time.value();
+    params.ref_time.value();
+
+    if (! run)
+        return;
+
+    // Sizes of data
+    int64_t Am = m;
+    int64_t An = n;
+
+    // local values
+    static int i0=0, i1=1;
+
+    // BLACS/MPI variables
+    int ictxt, nprow, npcol, myrow, mycol, info;
+    int descA_tst[9];
+    int iam=0, nprocs=1;
+    int iseed = 1;
+
+    // initialize BLACS and ScaLAPACK
+    Cblacs_pinfo(&iam, &nprocs);
+    assert(p*q <= nprocs);
+    Cblacs_get(-1, 0, &ictxt);
+    Cblacs_gridinit(&ictxt, "Col", p, q);
+    Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
+
+    // matrix A, figure out local size, allocate, create descriptor, initialize
+    int64_t mlocA = scalapack_numroc(Am, nb, myrow, i0, nprow);
+    int64_t nlocA = scalapack_numroc(An, nb, mycol, i0, npcol);
+    scalapack_descinit(descA_tst, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
+    assert(info==0);
+    int64_t lldA = (int64_t)descA_tst[8];
+    std::vector<scalar_t> A_tst(lldA * nlocA);
+    scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
+
+    // create SLATE matrices from the ScaLAPACK layouts
+    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+
+    if (trace) slate::trace::Trace::on();
+    else slate::trace::Trace::off();
+
+    // call the test routine
+    {
+        slate::trace::Block trace_block("MPI_Barrier");
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+    double time = libtest::get_wtime();
+
+    real_t A_norm = slate::genorm(norm, A, {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target}
+    });
+
+    {
+        slate::trace::Block trace_block("MPI_Barrier");
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+    double time_tst = libtest::get_wtime() - time;
+
+    if (trace) slate::trace::Trace::finish();
+
+    // compute and save timing/performance
+    params.time.value() = time_tst;
+
+    if (check || ref) {
+        // comparison with reference routine from ScaLAPACK
+
+        // set MKL num threads appropriately for parallel BLAS
+        int omp_num_threads;
+        #pragma omp parallel
+        { omp_num_threads = omp_get_num_threads(); }
+        int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
+
+        // allocate work space
+        std::vector<real_t> worklange(std::max({mlocA, nlocA}));
+
+        // run the reference routine
+        MPI_Barrier(MPI_COMM_WORLD);
+        time = libtest::get_wtime();
+        real_t A_norm_ref = scalapack_plange(norm2str(norm), Am, An,
+                                             &A_tst[0], i1, i1, descA_tst, &worklange[0]);
+        MPI_Barrier(MPI_COMM_WORLD);
+        double time_ref = libtest::get_wtime() - time;
+
+        // difference between norms
+        real_t error = std::abs(A_norm - A_norm_ref);
+
+        params.ref_time.value() = time_ref;
+        params.error.value() = error;
+
+        slate_set_num_blas_threads(saved_num_threads);
+
+        // Allow for difference
+        real_t eps = std::numeric_limits<real_t>::epsilon();
+        params.okay.value() = (params.error.value() <= 3*eps);
+    }
+
+    //Cblacs_exit(1) is commented out because it does not handle re-entering ... some unknown problem
+    //Cblacs_exit(1); // 1 means that you can run Cblacs again
+}
+
+// -----------------------------------------------------------------------------
+void test_genorm(Params& params, bool run)
+{
+    switch (params.datatype.value()) {
+        case libtest::DataType::Integer:
+            throw std::exception();
+            break;
+
+        case libtest::DataType::Single:
+            test_genorm_work<float> (params, run);
+            break;
+
+        case libtest::DataType::Double:
+            test_genorm_work<double> (params, run);
+            break;
+
+        case libtest::DataType::SingleComplex:
+            test_genorm_work<std::complex<float>> (params, run);
+            break;
+
+        case libtest::DataType::DoubleComplex:
+            test_genorm_work<std::complex<double>> (params, run);
+            break;
+    }
+}

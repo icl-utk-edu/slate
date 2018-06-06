@@ -417,6 +417,7 @@ std::vector< libtest::routines_t > routines = {
     { "hemm",               test_hemm,         Section::blas_section },
     { "her2k",              test_her2k,        Section::blas_section },
     { "herk",               test_herk,         Section::blas_section },
+    { "genorm",             test_genorm,       Section::blas_section },
     { "",                   nullptr,           Section::newline },
 };
 

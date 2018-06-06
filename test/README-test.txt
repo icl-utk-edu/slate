@@ -24,6 +24,9 @@ salloc -N 4 -w b[01-04] mpirun -n 4 ./test her2k  --type c,z --uplo l,u --trans 
 salloc -N 4 -w b[01-04] mpirun -n 4 ./test herk   --type s,d --uplo l,u --trans n,t,c --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,50 --p 2 --q 2
 salloc -N 4 -w b[01-04] mpirun -n 4 ./test herk   --type c,z --uplo l,u --trans n,c --dim 100:500:100 --dim 200:1000:200x100:500:100 --dim 100:500:100x200:1000:200 --nb 10,50 --p 2 --q 2
 
+---- 
+
+salloc -N 4 -w b[01-04] env OMP_NUM_THREADS=20  mpirun -n 4 test/test genorm  --type d --dim $[256*4],$[256*4]:$[256*1000]:$[256*10]  --nb 256 --p 2 --q 2 --target t --norm m
 
 ---- 
 

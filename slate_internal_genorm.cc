@@ -60,13 +60,12 @@ namespace internal {
 /// General matrix norm.
 /// Dispatches to target implementations.
 template <Target target, typename scalar_t>
-blas::real_type<scalar_t>
-genorm(Norm norm, Matrix<scalar_t>&& A,
+void genorm(Norm norm, Matrix<scalar_t>&& A, blas::real_type<scalar_t>* values,
        int priority)
 {
-    return genorm(internal::TargetType<target>(),
-                  norm, A,
-                  priority);
+    genorm(internal::TargetType<target>(),
+           norm, A, values,
+           priority);
 }
 
 ///-----------------------------------------------------------------------------
@@ -74,34 +73,72 @@ genorm(Norm norm, Matrix<scalar_t>&& A,
 /// General matrix norm.
 /// Host OpenMP task implementation.
 template <typename scalar_t>
-blas::real_type<scalar_t>
-genorm(internal::TargetType<Target::HostTask>,
-       Norm norm, Matrix<scalar_t>& A,
-       int priority)
+void genorm(internal::TargetType<Target::HostTask>,
+            Norm norm, Matrix<scalar_t>& A, blas::real_type<scalar_t>* values,
+            int priority)
 {
     using real_t = blas::real_type<scalar_t>;
 
-    std::vector<real_t> tiles_maxima;
+    //---------
+    // max norm
+    if (norm == Norm::Max) {
 
-    for (int64_t i = 0; i < A.mt(); ++i) {
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            if (A.tileIsLocal(i, j)) {
-                #pragma omp task shared(A, tiles_maxima) priority(priority)
-                {
-                    A.tileCopyToHost(i, j, A.tileDevice(i, j));
-                    real_t tile_max = genorm(norm, A(i, j));
-                    #pragma omp critical
+        std::vector<real_t> tiles_maxima;
+        for (int64_t i = 0; i < A.mt(); ++i) {
+            for (int64_t j = 0; j < A.nt(); ++j) {
+                if (A.tileIsLocal(i, j)) {
+                    #pragma omp task shared(A, tiles_maxima) priority(priority)
                     {
-                        tiles_maxima.push_back(tile_max);
+                        A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                        real_t tile_max;
+                        genorm(norm, A(i, j), &tile_max);
+                        #pragma omp critical
+                        {
+                            tiles_maxima.push_back(tile_max);
+                        }
                     }
                 }
             }
         }
+
+        #pragma omp taskwait
+
+        *values = lapack::lange(norm,
+                                tiles_maxima.size(), 1,
+                                tiles_maxima.data(), 1);
     }
+    //---------
+    // one norm
+    else if (norm == Norm::One) {
 
-    #pragma omp taskwait
+        std::vector<real_t> tiles_sums(A.n()*A.mt());
+        for (int64_t i = 0; i < A.mt(); ++i) {
+            int64_t j_offs = 0;
+            for (int64_t j = 0; j < A.nt(); ++j) {
+                if (A.tileIsLocal(i, j)) {
+                    #pragma omp task shared(A, tiles_sums) priority(priority)
+                    {
+                        A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                        genorm(norm, A(i, j), &tiles_sums[A.n()*i+j_offs]);
+                    }
+                }
+                j_offs += A.tileNb(j);
+            }
+        }
 
-    return lapack::lange(norm, tiles_maxima.size(), 1, tiles_maxima.data(), 1);
+        #pragma omp taskwait
+
+        // todo: This is currently a performance bottleneck.
+        // Perhaps omp taskloop could with coule be applied here.
+        // Perhaps with chunking of A.nb().
+        for (int64_t j = 0; j < A.n(); ++j)
+            values[j] = 0.0;
+
+        for (int64_t i = 0; i < A.mt(); ++i)
+            for (int64_t j = 0; j < A.n(); ++j)
+                values[j] += tiles_sums[A.n()*i+j];
+
+    }
 }
 
 ///-----------------------------------------------------------------------------
@@ -109,10 +146,9 @@ genorm(internal::TargetType<Target::HostTask>,
 /// General matrix norm.
 /// Host nested OpenMP implementation.
 template <typename scalar_t>
-blas::real_type<scalar_t>
-genorm(internal::TargetType<Target::HostNest>,
-       Norm norm, Matrix<scalar_t>& A,
-       int priority)
+void genorm(internal::TargetType<Target::HostNest>,
+            Norm norm, Matrix<scalar_t>& A, blas::real_type<scalar_t>* values,
+            int priority)
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -124,7 +160,8 @@ genorm(internal::TargetType<Target::HostNest>,
             if (A.tileIsLocal(i, j)) {
 
                 A.tileCopyToHost(i, j, A.tileDevice(i, j));
-                real_t tile_max = genorm(norm, A(i, j));
+                real_t tile_max;
+                genorm(norm, A(i, j), &tile_max);
                 #pragma omp critical
                 {
                     tiles_maxima.push_back(tile_max);
@@ -135,7 +172,9 @@ genorm(internal::TargetType<Target::HostNest>,
 
     #pragma omp taskwait
 
-    return lapack::lange(norm, tiles_maxima.size(), 1, tiles_maxima.data(), 1);
+    *values = lapack::lange(norm,
+                            tiles_maxima.size(), 1,
+                            tiles_maxima.data(), 1);
 }
 
 ///-----------------------------------------------------------------------------
@@ -143,10 +182,9 @@ genorm(internal::TargetType<Target::HostNest>,
 /// General matrix norm.
 /// GPU device implementation.
 template <typename scalar_t>
-blas::real_type<scalar_t>
-genorm(internal::TargetType<Target::Devices>,
-       Norm norm, Matrix< scalar_t >& A,
-       int priority)
+void genorm(internal::TargetType<Target::Devices>,
+            Norm norm, Matrix< scalar_t >& A, blas::real_type<scalar_t>* values,
+            int priority)
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -155,8 +193,10 @@ genorm(internal::TargetType<Target::Devices>,
     // Allocate norm-specific batch arrays.
     // In the case of norms, the internal routine is only called once.
     // Therefore, memory management has no detrimental effect on performance.
-    // Although, cudaMallocHost()/cudaFreeHost() would be a disaster. 
+    // Although, cudaMallocHost()/cudaFreeHost() would be a disaster.
 
+    // todo: Replace each host array with a vector of vectors.
+    //       Remove calls to malloc() and free().
     std::vector<scalar_t**> a_arrays_host(A.num_devices());
     std::vector<real_t*> norm_arrays_host(A.num_devices());
 
@@ -367,74 +407,75 @@ genorm(internal::TargetType<Target::Devices>,
         assert(error == cudaSuccess);
     }
 
-    return lapack::lange(
-        norm, devices_maxima.size(), 1, devices_maxima.data(), 1);
+    *values = lapack::lange(norm,
+                            devices_maxima.size(), 1,
+                            devices_maxima.data(), 1);
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 // ----------------------------------------
 template
-float genorm<Target::HostTask, float>(
-    Norm norm, Matrix<float>&& A,
+void genorm<Target::HostTask, float>(
+    Norm norm, Matrix<float>&& A, float* values,
     int priority);
 
 template
-float genorm<Target::HostNest, float>(
-    Norm norm, Matrix<float>&& A,
+void genorm<Target::HostNest, float>(
+    Norm norm, Matrix<float>&& A, float* values,
     int priority);
 
 template
-float genorm<Target::Devices, float>(
-    Norm norm, Matrix<float>&& A,
-    int priority);
-
-// ----------------------------------------
-template
-double genorm<Target::HostTask, double>(
-    Norm norm, Matrix<double>&& A,
-    int priority);
-
-template
-double genorm<Target::HostNest, double>(
-    Norm norm, Matrix<double>&& A,
-    int priority);
-
-template
-double genorm<Target::Devices, double>(
-    Norm norm, Matrix<double>&& A,
+void genorm<Target::Devices, float>(
+    Norm norm, Matrix<float>&& A, float* values,
     int priority);
 
 // ----------------------------------------
 template
-float genorm< Target::HostTask, std::complex<float> >(
-    Norm norm, Matrix< std::complex<float> >&& A,
+void genorm<Target::HostTask, double>(
+    Norm norm, Matrix<double>&& A, double* values,
     int priority);
 
 template
-float genorm< Target::HostNest, std::complex<float> >(
-    Norm norm, Matrix< std::complex<float> >&& A,
+void genorm<Target::HostNest, double>(
+    Norm norm, Matrix<double>&& A, double* values,
     int priority);
 
 template
-float genorm< Target::Devices, std::complex<float> >(
-    Norm norm, Matrix< std::complex<float> >&& A,
+void genorm<Target::Devices, double>(
+    Norm norm, Matrix<double>&& A, double* values,
     int priority);
 
 // ----------------------------------------
 template
-double genorm< Target::HostTask, std::complex<double> >(
-    Norm norm, Matrix< std::complex<double> >&& A,
+void genorm< Target::HostTask, std::complex<float> >(
+    Norm norm, Matrix< std::complex<float> >&& A, float* values,
     int priority);
 
 template
-double genorm< Target::HostNest, std::complex<double> >(
-    Norm norm, Matrix< std::complex<double> >&& A,
+void genorm< Target::HostNest, std::complex<float> >(
+    Norm norm, Matrix< std::complex<float> >&& A, float* values,
     int priority);
 
 template
-double genorm< Target::Devices, std::complex<double> >(
-    Norm norm, Matrix< std::complex<double> >&& A,
+void genorm< Target::Devices, std::complex<float> >(
+    Norm norm, Matrix< std::complex<float> >&& A, float* values,
+    int priority);
+
+// ----------------------------------------
+template
+void genorm< Target::HostTask, std::complex<double> >(
+    Norm norm, Matrix< std::complex<double> >&& A, double* values,
+    int priority);
+
+template
+void genorm< Target::HostNest, std::complex<double> >(
+    Norm norm, Matrix< std::complex<double> >&& A, double* values,
+    int priority);
+
+template
+void genorm< Target::Devices, std::complex<double> >(
+    Norm norm, Matrix< std::complex<double> >&& A, double* values,
     int priority);
 
 } // namespace internal

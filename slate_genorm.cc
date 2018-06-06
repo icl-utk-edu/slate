@@ -64,47 +64,79 @@ genorm(slate::internal::TargetType<target>,
 {
     using real_t = blas::real_type<scalar_t>;
 
-    real_t local_max;
-    real_t global_max;
+    //---------
+    // max norm
+    if (norm == Norm::Max) {
 
-    if (target == Target::Devices)
-        A.reserveDeviceWorkspace();
+        real_t local_max;
+        real_t global_max;
 
-    #pragma omp parallel
-    #pragma omp master
-    {
-        local_max =
-            internal::genorm<target>(norm, A.sub(0, A.mt()-1, 0, A.nt()-1));
+        if (target == Target::Devices)
+            A.reserveDeviceWorkspace();
+
+        #pragma omp parallel
+        #pragma omp master
+        {
+            internal::genorm<target>(norm, A.sub(0, A.mt()-1, 0, A.nt()-1),
+                                     &local_max);
+        }
+
+        int retval;
+
+        // todo: make op_max_nan a static member of BaseMatrix?
+        MPI_Op op_max_nan;
+        #pragma omp critical(slate_mpi)
+        {
+            retval = MPI_Op_create(mpi_max_nan, true, &op_max_nan);
+        }
+        assert(retval == MPI_SUCCESS);
+
+        #pragma omp critical(slate_mpi)
+        {
+            trace::Block trace_block("MPI_Allreduce");
+            retval = MPI_Allreduce(&local_max, &global_max,
+                                   1, mpi_type<real_t>::value,
+                                   op_max_nan, A.mpiComm());
+        }
+        assert(retval == MPI_SUCCESS);
+
+        #pragma omp critical(slate_mpi)
+        {
+            retval = MPI_Op_free(&op_max_nan);
+        }
+        assert(retval == MPI_SUCCESS);
+
+        A.clearWorkspace();
+
+        return global_max;
     }
+    //---------
+    // one norm
+    else if (norm == Norm::One) {
 
-    int retval;
+        std::vector<real_t> local_sums(A.n());
 
-    // todo: make op_max_nan a static member of BaseMatrix?
-    MPI_Op op_max_nan;
-    #pragma omp critical(slate_mpi)
-    {
-        retval = MPI_Op_create(mpi_max_nan, true, &op_max_nan);
+        #pragma omp parallel
+        #pragma omp master
+        {
+            internal::genorm<target>(norm, A.sub(0, A.mt()-1, 0, A.nt()-1),
+                                     local_sums.data());
+        }
+
+        std::vector<real_t> global_sums(A.n());
+        int retval;
+
+        #pragma omp critical(slate_mpi)
+        {
+            trace::Block trace_block("MPI_Allreduce");
+            retval = MPI_Allreduce(local_sums.data(), global_sums.data(),
+                                   A.n(), mpi_type<real_t>::value,
+                                   MPI_SUM, A.mpiComm());
+        }
+        assert(retval == MPI_SUCCESS);
+
+        return lapack::lange(Norm::Max, A.n(), 1, global_sums.data(), 1);
     }
-    assert(retval == MPI_SUCCESS);
-
-    #pragma omp critical(slate_mpi)
-    {
-        trace::Block trace_block("MPI_Allreduce");
-        retval =
-            MPI_Allreduce(&local_max, &global_max, 1, mpi_type<real_t>::value,
-                          op_max_nan, A.mpiComm());
-    }
-    assert(retval == MPI_SUCCESS);
-
-    #pragma omp critical(slate_mpi)
-    {
-        retval = MPI_Op_free(&op_max_nan);
-    }
-    assert(retval == MPI_SUCCESS);
-
-    A.clearWorkspace();
-
-    return global_max;
 }
 
 } // namespace specialization

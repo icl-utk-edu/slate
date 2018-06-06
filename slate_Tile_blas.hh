@@ -559,26 +559,40 @@ void trsm(
 /// \brief
 /// General matrix norm.
 template <typename scalar_t>
-blas::real_type<scalar_t> genorm(
-    Norm norm, Tile<scalar_t> const& A)
+void genorm(Norm norm, Tile<scalar_t> const& A,
+            blas::real_type<scalar_t>* values)
 {
     trace::Block trace_block("lapack::lange");
 
     assert(A.uplo() == Uplo::General);
     assert(A.op() == Op::NoTrans);
 
-    return lapack::lange(norm,
-                         A.mb(), A.nb(),
-                         A.data(), A.stride());
+    // max norm
+    if (norm == Norm::Max) {
+        *values = lapack::lange(norm,
+                                A.mb(), A.nb(),
+                                A.data(), A.stride());
+    }
+    // one norm
+    else if (norm == Norm::One) {
+
+        // todo: introduce [] operator for A.
+        for (int64_t j = 0; j < A.nb(); ++j) {
+            values[j] = abs(*(A.data()+A.stride()*j));
+            for (int64_t i = 1; i < A.mb(); ++i) {
+                values[j] += abs(*(A.data()+A.stride()*j+i));
+            }
+        }
+    }
 }
 
 ///----------------------------------------
 /// Converts rvalue refs to lvalue refs.
 template <typename scalar_t>
-blas::real_type<scalar_t> genorm(
-    Norm norm, Tile<scalar_t> const&& A)
+void genorm(Norm norm, Tile<scalar_t> const&& A,
+            blas::real_type<scalar_t>* values)
 {
-    return genorm(norm, A);
+    return genorm(norm, A, values);
 }
 
 ///-----------------------------------------------------------------------------

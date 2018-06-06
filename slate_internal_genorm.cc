@@ -350,6 +350,25 @@ genorm(internal::TargetType<Target::Devices>,
 
     #pragma omp taskwait
 
+    for (int device = 0; device < A.num_devices(); ++device) {
+
+        cudaError_t error;
+        error = cudaSetDevice(device);
+        assert(error == cudaSuccess);
+
+        error = cudaFreeHost((void*)a_arrays_host.at(device));
+        assert(error == cudaSuccess);
+
+        error = cudaFreeHost((void*)norm_arrays_host.at(device));
+        assert(error == cudaSuccess);
+
+        error = cudaFree((void*)a_arrays_dev.at(device));
+        assert(error == cudaSuccess);
+
+        error = cudaFree((void*)norm_arrays_dev.at(device));
+        assert(error == cudaSuccess);
+    }
+
     return lapack::lange(
         norm, devices_maxima.size(), 1, devices_maxima.data(), 1);
 }

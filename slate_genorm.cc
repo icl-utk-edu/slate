@@ -91,14 +91,14 @@ genorm(slate::internal::TargetType<target>,
     {
         trace::Block trace_block("MPI_Allreduce");
         retval =
-            MPI_Allreduce(&local_max, &global_max, 1, mpi_type<scalar_t>::value,
+            MPI_Allreduce(&local_max, &global_max, 1, mpi_type<real_t>::value,
                           op_max_nan, A.mpiComm());
     }
     assert(retval == MPI_SUCCESS);
 
     #pragma omp critical(slate_mpi)
     {
-        retval = MPI_Op_free( &op_max_nan );
+        retval = MPI_Op_free(&op_max_nan);
     }
     assert(retval == MPI_SUCCESS);
 

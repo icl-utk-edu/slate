@@ -155,6 +155,7 @@ genorm(internal::TargetType<Target::Devices>,
     // Allocate norm-specific batch arrays.
     // In the case of norms, the internal routine is only called once.
     // Therefore, memory management has no detrimental effect on performance.
+    // Although, cudaMallocHost()/cudaFreeHost() would be a disaster. 
 
     std::vector<scalar_t**> a_arrays_host(A.num_devices());
     std::vector<real_t*> norm_arrays_host(A.num_devices());
@@ -170,13 +171,13 @@ genorm(internal::TargetType<Target::Devices>,
 
         int64_t max_tiles = A.getMaxDeviceTiles(device);
 
-        error = cudaMallocHost((void**)&a_arrays_host.at(device),
-                               sizeof(scalar_t*)*max_tiles);
-        assert(error == cudaSuccess);
+        a_arrays_host.at(device) =
+            (scalar_t**)malloc(sizeof(scalar_t*)*max_tiles);
+        assert(a_arrays_host.at(device) != nullptr);
 
-        error = cudaMallocHost((void**)&norm_arrays_host.at(device),
-                               sizeof(real_t)*max_tiles);
-        assert(error == cudaSuccess);
+        norm_arrays_host.at(device) =
+            (real_t*)malloc(sizeof(real_t)*max_tiles);
+        assert(norm_arrays_host.at(device) != nullptr);
 
         error = cudaMalloc((void**)&a_arrays_dev.at(device),
                            sizeof(scalar_t*)*max_tiles);
@@ -356,11 +357,8 @@ genorm(internal::TargetType<Target::Devices>,
         error = cudaSetDevice(device);
         assert(error == cudaSuccess);
 
-        error = cudaFreeHost((void*)a_arrays_host.at(device));
-        assert(error == cudaSuccess);
-
-        error = cudaFreeHost((void*)norm_arrays_host.at(device));
-        assert(error == cudaSuccess);
+        free(a_arrays_host.at(device));
+        free(norm_arrays_host.at(device));
 
         error = cudaFree((void*)a_arrays_dev.at(device));
         assert(error == cudaSuccess);

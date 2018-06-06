@@ -334,7 +334,7 @@ genorm(internal::TargetType<Target::Devices>,
                 norm_array_dev = norm_arrays_dev.at(device);
 
                 error = cudaMemcpyAsync(norm_array_host, norm_array_dev,
-                                        sizeof(scalar_t*)*batch_count,
+                                        sizeof(real_t)*batch_count,
                                         cudaMemcpyDeviceToHost,
                                         stream);
                 assert(error == cudaSuccess);

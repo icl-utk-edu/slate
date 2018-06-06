@@ -63,7 +63,7 @@ void slate_gemm(const char* transa, const char* transb, int m, int n, int k, sca
 
 #define slate_sgemm BLAS_FORTRAN_NAME( slate_sgemm, SLATE_SGEMM )
 #define slate_dgemm BLAS_FORTRAN_NAME( slate_dgemm, SLATE_DGEMM )
-#define slate_cgemm BLAS_FORTRAN_NAME( slate_pgemm, SLATE_CGEMM )
+#define slate_cgemm BLAS_FORTRAN_NAME( slate_cgemm, SLATE_CGEMM )
 #define slate_zgemm BLAS_FORTRAN_NAME( slate_zgemm, SLATE_ZGEMM )
 
 extern "C" void slate_sgemm(const char* transa, const char* transb, int* m, int* n, int* k, float* alpha, float* a, int* lda, float* b, int* ldb, float* beta, float* c, int* ldc)

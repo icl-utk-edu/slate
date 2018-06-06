@@ -74,8 +74,12 @@ std::map<std::string, Color> Trace::function_color_ = {
     {"cblas_gemm_batch",  Color::DarkGreen},
     {"cublasGemmBatched", Color::PaleGreen},
 
+    {"cudaMalloc",        Color::HotPink},
+    {"cudaMallocHost",    Color::DeepPink},
     {"cudaMemcpy2DAsync", Color::LightGray},
     {"cudaMemcpyAsync",   Color::LightGray},
+    {"cudaFree",          Color::LightSalmon},
+    {"cudaFreeHost",      Color::Salmon},
 
     {"lapack::potrf", Color::RosyBrown},
     {"lapack::lange", Color::LightBlue},

@@ -116,6 +116,9 @@ genorm(slate::internal::TargetType<target>,
 
         std::vector<real_t> local_sums(A.n());
 
+        if (target == Target::Devices)
+            A.reserveDeviceWorkspace();
+
         #pragma omp parallel
         #pragma omp master
         {
@@ -135,6 +138,8 @@ genorm(slate::internal::TargetType<target>,
         }
         assert(retval == MPI_SUCCESS);
 
+        A.clearWorkspace();
+
         return lapack::lange(Norm::Max, A.n(), 1, global_sums.data(), 1);
     }
 }
@@ -149,7 +154,6 @@ template <Target target, typename scalar_t>
 blas::real_type<scalar_t>
 genorm(Norm norm, Matrix<scalar_t>& A,
        const std::map<Option, Value>& opts)
-
 {
     return internal::specialization::genorm(internal::TargetType<target>(),
                                             norm, A);

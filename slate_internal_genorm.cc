@@ -111,7 +111,8 @@ void genorm(internal::TargetType<Target::HostTask>,
     // one norm
     else if (norm == Norm::One) {
 
-        std::vector<real_t> tiles_sums(A.n()*A.mt());
+        // todo: Is setting to zero necessary?
+        std::vector<real_t> tiles_sums(A.n()*A.mt(), 0.0);
         for (int64_t i = 0; i < A.mt(); ++i) {
             int64_t j_offs = 0;
             for (int64_t j = 0; j < A.nt(); ++j) {
@@ -129,7 +130,7 @@ void genorm(internal::TargetType<Target::HostTask>,
         #pragma omp taskwait
 
         // todo: This is currently a performance bottleneck.
-        // Perhaps omp taskloop could with coule be applied here.
+        // Perhaps omp taskloop could be applied here.
         // Perhaps with chunking of A.nb().
         for (int64_t j = 0; j < A.n(); ++j)
             values[j] = 0.0;
@@ -183,25 +184,24 @@ void genorm(internal::TargetType<Target::HostNest>,
 /// GPU device implementation.
 template <typename scalar_t>
 void genorm(internal::TargetType<Target::Devices>,
-            Norm norm, Matrix< scalar_t >& A, blas::real_type<scalar_t>* values,
+            Norm norm, Matrix<scalar_t>& A, blas::real_type<scalar_t>* values,
             int priority)
 {
     using real_t = blas::real_type<scalar_t>;
 
     assert(A.num_devices() > 0);
 
-    // Allocate norm-specific batch arrays.
-    // In the case of norms, the internal routine is only called once.
-    // Therefore, memory management has no detrimental effect on performance.
-    // Although, cudaMallocHost()/cudaFreeHost() would be a disaster.
-
-    // todo: Replace each host array with a vector of vectors.
-    //       Remove calls to malloc() and free().
-    std::vector<scalar_t**> a_arrays_host(A.num_devices());
-    std::vector<real_t*> norm_arrays_host(A.num_devices());
+    std::vector<std::vector<scalar_t*> > a_arrays_host(A.num_devices());
+    std::vector<std::vector<real_t> > vals_arrays_host(A.num_devices());
 
     std::vector<scalar_t**> a_arrays_dev(A.num_devices());
-    std::vector<real_t*> norm_arrays_dev(A.num_devices());
+    std::vector<real_t*> vals_arrays_dev(A.num_devices());
+
+    int64_t vals_chunk;
+    if (norm == Norm::Max)
+        vals_chunk = 1;
+    else if (norm == Norm::One)
+        vals_chunk = A.tileNb(0);
 
     for (int device = 0; device < A.num_devices(); ++device) {
 
@@ -209,29 +209,25 @@ void genorm(internal::TargetType<Target::Devices>,
         error = cudaSetDevice(device);
         assert(error == cudaSuccess);
 
-        int64_t max_tiles = A.getMaxDeviceTiles(device);
+        int64_t num_tiles = A.getMaxDeviceTiles(device);
 
-        a_arrays_host.at(device) =
-            (scalar_t**)malloc(sizeof(scalar_t*)*max_tiles);
-        assert(a_arrays_host.at(device) != nullptr);
-
-        norm_arrays_host.at(device) =
-            (real_t*)malloc(sizeof(real_t)*max_tiles);
-        assert(norm_arrays_host.at(device) != nullptr);
+        a_arrays_host.at(device) = std::vector<scalar_t*>(num_tiles);
+        vals_arrays_host.at(device) = std::vector<real_t>(num_tiles*vals_chunk);
 
         error = cudaMalloc((void**)&a_arrays_dev.at(device),
-                           sizeof(scalar_t*)*max_tiles);
+                           sizeof(scalar_t*)*num_tiles);
         assert(error == cudaSuccess);
 
-        error = cudaMalloc((void**)&norm_arrays_dev.at(device),
-                           sizeof(real_t)*max_tiles);
+        error = cudaMalloc((void**)&vals_arrays_dev.at(device),
+                           sizeof(real_t)*num_tiles*vals_chunk);
         assert(error == cudaSuccess);
     }
 
     std::vector<real_t> devices_maxima(A.num_devices());
 
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task shared(A, devices_maxima) priority(priority)
+        #pragma omp task shared(A, devices_maxima, vals_arrays_host) \
+                         priority(priority)
         {
             for (int64_t i = 0; i < A.mt(); ++i)
                 for (int64_t j = 0; j < A.nt(); ++j)
@@ -239,7 +235,7 @@ void genorm(internal::TargetType<Target::Devices>,
                         if (device == A.tileDevice(i, j))
                             A.tileCopyToDevice(i, j, device);
 
-            scalar_t** a_array_host = a_arrays_host.at(device);
+            scalar_t** a_array_host = a_arrays_host.at(device).data();
             scalar_t** a_array_dev = a_arrays_dev.at(device);
 
             int64_t batch_count = 0;
@@ -313,8 +309,8 @@ void genorm(internal::TargetType<Target::Devices>,
                 }
             }
 
-            real_t* norm_array_host = norm_arrays_host.at(device);
-            real_t* norm_array_dev = norm_arrays_dev.at(device);
+            real_t* vals_array_host = vals_arrays_host.at(device).data();
+            real_t* vals_array_dev = vals_arrays_dev.at(device);
 
             {
                 trace::Block trace_block("slate::device::genorm");
@@ -331,51 +327,43 @@ void genorm(internal::TargetType<Target::Devices>,
                 assert(error == cudaSuccess);
 
                 if (batch_count_00 > 0) {
-                        device::genormMax(
-                            mb00, nb00,
-                            a_array_dev, lda00,
-                            norm_array_dev,
-                            batch_count_00,
-                            stream);
+                    device::genorm(norm,
+                                   mb00, nb00,
+                                   a_array_dev, lda00,
+                                   vals_array_dev, batch_count_00, stream);
                     a_array_dev += batch_count_00;
-                    norm_array_dev += batch_count_00;
+                    vals_array_dev += batch_count_00*vals_chunk;
                 }
 
                 if (batch_count_10 > 0) {
-                        device::genormMax(
-                            mb10, nb10,
-                            a_array_dev, lda10,
-                            norm_array_dev,
-                            batch_count_10,
-                            stream);
+                    device::genorm(norm,
+                                   mb10, nb10,
+                                   a_array_dev, lda10,
+                                   vals_array_dev, batch_count_10, stream);
                     a_array_dev += batch_count_10;
-                    norm_array_dev += batch_count_10;
+                    vals_array_dev += batch_count_10*vals_chunk;
                 }
 
                 if (batch_count_01 > 0) {
-                        device::genormMax(
-                            mb01, nb01,
-                            a_array_dev, lda01,
-                            norm_array_dev,
-                            batch_count_01,
-                            stream);
+                    device::genorm(norm,
+                                   mb01, nb01,
+                                   a_array_dev, lda01,
+                                   vals_array_dev, batch_count_01, stream);
                     a_array_dev += batch_count_01;
-                    norm_array_dev += batch_count_01;
+                    vals_array_dev += batch_count_01*vals_chunk;
                 }
 
                 if (batch_count_11 > 0) {
-                        device::genormMax(
-                            mb11, nb11,
-                            a_array_dev, lda11,
-                            norm_array_dev,
-                            batch_count_11,
-                            stream);
+                    device::genorm(norm,
+                                   mb11, nb11,
+                                   a_array_dev, lda11,
+                                   vals_array_dev, batch_count_11, stream);
                 }
 
-                norm_array_dev = norm_arrays_dev.at(device);
+                vals_array_dev = vals_arrays_dev.at(device);
 
-                error = cudaMemcpyAsync(norm_array_host, norm_array_dev,
-                                        sizeof(real_t)*batch_count,
+                error = cudaMemcpyAsync(vals_array_host, vals_array_dev,
+                                        sizeof(real_t)*batch_count*vals_chunk,
                                         cudaMemcpyDeviceToHost,
                                         stream);
                 assert(error == cudaSuccess);
@@ -384,8 +372,10 @@ void genorm(internal::TargetType<Target::Devices>,
                 assert(error == cudaSuccess);
             }
 
-            devices_maxima[device] =
-                lapack::lange(norm, batch_count, 1, norm_array_host, 1);
+            if (norm == Norm::Max) {
+                devices_maxima.at(device) =
+                    lapack::lange(norm, batch_count, 1, vals_array_host, 1);
+            }
         }
     }
 
@@ -397,19 +387,88 @@ void genorm(internal::TargetType<Target::Devices>,
         error = cudaSetDevice(device);
         assert(error == cudaSuccess);
 
-        free(a_arrays_host.at(device));
-        free(norm_arrays_host.at(device));
-
         error = cudaFree((void*)a_arrays_dev.at(device));
         assert(error == cudaSuccess);
 
-        error = cudaFree((void*)norm_arrays_dev.at(device));
+        error = cudaFree((void*)vals_arrays_dev.at(device));
         assert(error == cudaSuccess);
     }
 
-    *values = lapack::lange(norm,
-                            devices_maxima.size(), 1,
-                            devices_maxima.data(), 1);
+    if (norm == Norm::Max) {
+        *values = lapack::lange(norm,
+                                devices_maxima.size(), 1,
+                                devices_maxima.data(), 1);
+    }
+    else if (norm == Norm::One) {
+
+        for (int device = 0; device < A.num_devices(); ++device) {
+
+            real_t* vals_array_host = vals_arrays_host.at(device).data();
+
+            int64_t batch_count = 0;
+            int64_t nb00 = A.tileNb(0);
+            for (int64_t i = 0; i < A.mt()-1; ++i) {
+                for (int64_t j = 0; j < A.nt()-1; ++j) {
+                    if (A.tileIsLocal(i, j)) {
+                        if (device == A.tileDevice(i, j)) {
+                            blas::axpy(
+                                nb00, 1.0,
+                                &vals_array_host[batch_count*vals_chunk], 1,
+                                &values[j*vals_chunk], 1);
+                            ++batch_count;
+                        }
+                    }
+                }
+            }
+
+            int64_t nb10 = A.tileNb(0);
+            {
+                int64_t i = A.mt()-1;
+                for (int64_t j = 0; j < A.nt()-1; ++j) {
+                    if (A.tileIsLocal(i, j)) {
+                        if (device == A.tileDevice(i, j)) {
+                            blas::axpy(
+                                nb10, 1.0,
+                                &vals_array_host[batch_count*vals_chunk], 1,
+                                &values[j*vals_chunk], 1);
+                            ++batch_count;
+                        }
+                    }
+                }
+            }
+
+            int64_t nb01 = A.tileNb(A.nt()-1);
+            {
+                int64_t j = A.nt()-1;
+                for (int64_t i = 0; i < A.mt()-1; ++i) {
+                    if (A.tileIsLocal(i, j)) {
+                        if (device == A.tileDevice(i, j)) {
+                            blas::axpy(
+                                nb01, 1.0,
+                                &vals_array_host[batch_count*vals_chunk], 1,
+                                &values[j*vals_chunk], 1);
+                            ++batch_count;
+                        }
+                    }
+                }
+            }
+
+            int64_t nb11 = A.tileNb(A.nt()-1);
+            {
+                int64_t i = A.mt()-1;
+                int64_t j = A.nt()-1;
+                if (A.tileIsLocal(i, j)) {
+                    if (device == A.tileDevice(i, j)) {
+                            blas::axpy(
+                                nb11, 1.0,
+                                &vals_array_host[batch_count*vals_chunk], 1,
+                                &values[j*vals_chunk], 1);
+                            ++batch_count;
+                    }
+                }
+            }
+        }
+    }
 }
 
 //------------------------------------------------------------------------------

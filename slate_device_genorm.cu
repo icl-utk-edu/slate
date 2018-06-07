@@ -95,7 +95,7 @@ inline double abs(std::complex<double> x)
 /// Each thread block deals with one tile.
 /// Each thread deals with one column, followed by a reduction.
 /// Kernel assumes non-trivial tiles (m, n >= 1).
-/// Launched by genormMax().
+/// Launched by genorm().
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 1.
@@ -122,16 +122,16 @@ __global__ void genormMaxKernel(
     scalar_t const* const* tiles, int64_t lda,
     blas::real_type<scalar_t>* tiles_maxima)
 {
-    using real_type = blas::real_type<scalar_t>;
+    using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
     scalar_t const* column = &tile[lda*threadIdx.x];
-    real_type tile_max;
+    real_t tile_max;
 
     // Each thread finds max of one column.
     extern __shared__ char dynamic_data[];
-    real_type* col_max = (real_type*) dynamic_data;
+    real_t* col_max = (real_t*) dynamic_data;
 
-    real_type max = abs(column[0]);
+    real_t max = abs(column[0]);
     for (int64_t i = 1; i < m; ++i)
         max = max_nan(max, abs(column[i]));
 
@@ -149,6 +149,28 @@ __global__ void genormMaxKernel(
     }
 }
 
+//------------------------------------------------------------------------------
+///
+template <typename scalar_t>
+__global__ void genormOneKernel(
+    int64_t m, int64_t n,
+    scalar_t const* const* tiles, int64_t lda,
+    blas::real_type<scalar_t>* tiles_sums)
+{
+    using real_t = blas::real_type<scalar_t>;
+    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* column = &tile[lda*threadIdx.x];
+
+    real_t sum = abs(column[0]);
+    for (int64_t i = 1; i < m; ++i)
+        sum += abs(column[i]);
+
+    real_t* tile_sums = &tiles_sums[blockIdx.x*n];
+    tile_sums[threadIdx.x] = sum;
+}
+
+// todo: tiles_maxima was renamed to values and serves different purposes
+//       depending on the type or norm.
 //------------------------------------------------------------------------------
 /// Batched routine that returns the largest absolute value of elements for
 /// each tile in Aarray. Sets
@@ -181,62 +203,83 @@ __global__ void genormMaxKernel(
 ///     Size of Aarray. batch_count >= 0.
 ///
 template <typename scalar_t>
-void genormMax(
+void genorm(
+    lapack::Norm norm,
     int64_t m, int64_t n,
     scalar_t const* const* Aarray, int64_t lda,
-    blas::real_type<scalar_t>* tiles_maxima,
-    int64_t batch_count,
+    blas::real_type<scalar_t>* values, int64_t batch_count,
     cudaStream_t stream)
 {
-    assert(n <= 1024);
-    using real_type = blas::real_type<scalar_t>;
-    if (batch_count == 0) {
-        // nothing to do
+    using real_t = blas::real_type<scalar_t>;
+
+    // quick return
+    if (batch_count == 0)
+        return;
+
+    //---------
+    // max norm
+    if (norm == lapack::Norm::Max) {
+
+        if (m == 0 || n == 0) {
+            cudaMemset(values, 0, sizeof(real_t)*batch_count);
+        }
+        else {
+            assert(n <= 1024);
+            // Max 1024 threads * 16 bytes = 16 KiB shared memory in double-complex.
+            dim3 dimBlock(blas::max(1, n));
+            dim3 dimGrid(batch_count);
+            genormMaxKernel<<<dimGrid, dimBlock, sizeof(scalar_t)*n, stream>>>
+                (m, n, Aarray, lda, values);
+        }
     }
-    else if (m == 0 || n == 0) {
-        cudaMemset(tiles_maxima, 0, sizeof(real_type)*batch_count);
-    }
-    else {
-        // Max 1024 threads * 16 bytes = 16 KiB shared memory in double-complex.
-        dim3 dimBlock(blas::max(1, n));
-        dim3 dimGrid(batch_count);
-        genormMaxKernel<<<dimGrid, dimBlock, sizeof(scalar_t)*n, stream>>>
-            (m, n, Aarray, lda, tiles_maxima);
+    //---------
+    // one norm
+    else if (norm == lapack::Norm::One) {
+
+        if (m == 0 || n == 0) {
+            // todo: Set to zero.
+        }
+        else {
+            dim3 dimBlock(blas::max(1, n));
+            dim3 dimGrid(batch_count);
+            genormOneKernel<<<dimGrid, dimBlock, 0, stream>>>
+                (m, n, Aarray, lda, values);
+        }
     }
 }
 
 //----------------------------------------
 // instantiations
 template
-void genormMax(
+void genorm(
+    lapack::Norm norm,
     int64_t m, int64_t n,
     float const* const* Aarray, int64_t lda,
-    float* tiles_maxima,
-    int64_t batch_count,
+    float* tiles_maxima, int64_t batch_count,
     cudaStream_t stream);
 
 template
-void genormMax(
+void genorm(
+    lapack::Norm norm,
     int64_t m, int64_t n,
     double const* const* Aarray, int64_t lda,
-    double* tiles_maxima,
-    int64_t batch_count,
+    double* tiles_maxima, int64_t batch_count,
     cudaStream_t stream);
 
 template
-void genormMax(
+void genorm(
+    lapack::Norm norm,
     int64_t m, int64_t n,
     std::complex<float> const* const* Aarray, int64_t lda,
-    float* tiles_maxima,
-    int64_t batch_count,
+    float* tiles_maxima, int64_t batch_count,
     cudaStream_t stream);
 
 template
-void genormMax(
+void genorm(
+    lapack::Norm norm,
     int64_t m, int64_t n,
     std::complex<double> const* const* Aarray, int64_t lda,
-    double* tiles_maxima,
-    int64_t batch_count,
+    double* tiles_maxima, int64_t batch_count,
     cudaStream_t stream);
 
 } // namespace device

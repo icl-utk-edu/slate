@@ -41,18 +41,20 @@
 #define SLATE_DEVICE_HH
 
 #include "slate_cuda.hh"
-#include "blas.hh"
+
+#include <blas.hh>
+#include <lapack.hh>
 
 namespace slate {
 namespace device {
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void genormMax(
+void genorm(
+    lapack::Norm norm,
     int64_t m, int64_t n,
     scalar_t const* const* Aarray, int64_t lda,
-    blas::real_type<scalar_t>* tiles_maxima,
-    int64_t batch_count,
+    blas::real_type<scalar_t>* tiles_maxima, int64_t batch_count,
     cudaStream_t stream);
 
 } // namespace device

@@ -45,6 +45,7 @@
 
 #if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
     #include <cuda_runtime.h>
+    #include <cuComplex.h>
 #else
 
 #include <cstdlib>

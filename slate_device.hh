@@ -45,6 +45,24 @@
 #include <blas.hh>
 #include <lapack.hh>
 
+//------------------------------------------------------------------------------
+// Extend BLAS real_type to cover cuComplex
+namespace blas {
+
+template<>
+struct real_type_traits<cuFloatComplex>
+{
+    using real_t = float;
+};
+
+template<>
+struct real_type_traits<cuDoubleComplex>
+{
+    using real_t = double;
+};
+
+} // namespace blas
+
 namespace slate {
 namespace device {
 

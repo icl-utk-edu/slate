@@ -79,15 +79,15 @@ inline double abs(double x)
 }
 
 __host__ __device__
-inline float abs(std::complex<float> x)
+inline float abs(cuFloatComplex x)
 {
-    return cuCabsf(*((cuFloatComplex*)&x));
+    return cuCabsf(x);
 }
 
 __host__ __device__
-inline double abs(std::complex<double> x)
+inline double abs(cuDoubleComplex x)
 {
-    return cuCabs(*((cuDoubleComplex*)&x));
+    return cuCabs(x);
 }
 
 //------------------------------------------------------------------------------
@@ -248,8 +248,8 @@ void genorm(
     }
 }
 
-//----------------------------------------
-// instantiations
+//------------------------------------------------------------------------------
+// Explicit instantiations.
 template
 void genorm(
     lapack::Norm norm,
@@ -270,7 +270,7 @@ template
 void genorm(
     lapack::Norm norm,
     int64_t m, int64_t n,
-    std::complex<float> const* const* Aarray, int64_t lda,
+    cuFloatComplex const* const* Aarray, int64_t lda,
     float* tiles_maxima, int64_t batch_count,
     cudaStream_t stream);
 
@@ -278,7 +278,7 @@ template
 void genorm(
     lapack::Norm norm,
     int64_t m, int64_t n,
-    std::complex<double> const* const* Aarray, int64_t lda,
+    cuDoubleComplex const* const* Aarray, int64_t lda,
     double* tiles_maxima, int64_t batch_count,
     cudaStream_t stream);
 

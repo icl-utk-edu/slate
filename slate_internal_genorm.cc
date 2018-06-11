@@ -53,6 +53,41 @@
 #endif
 
 namespace slate {
+
+///-----------------------------------------------------------------------------
+// On macOS, nvcc using clang++ generates a different C++ name mangling
+// (std::__1::complex) than g++ for std::complex. This solution is to use
+// cu*Complex in .cu files, and cast from std::complex here.
+namespace device {
+
+template <>
+void genorm(
+    Norm norm,
+    int64_t m, int64_t n,
+    std::complex<float> const* const* Aarray, int64_t lda,
+    float* values,
+    int64_t batch_count,
+    cudaStream_t stream)
+{
+    genorm(norm, m, n, (cuFloatComplex**) Aarray, lda, values, batch_count,
+           stream);
+}
+
+template <>
+void genorm(
+    Norm norm,
+    int64_t m, int64_t n,
+    std::complex<double> const* const* Aarray, int64_t lda,
+    double* values,
+    int64_t batch_count,
+    cudaStream_t stream)
+{
+    genorm(norm, m, n, (cuDoubleComplex**) Aarray, lda, values, batch_count,
+           stream);
+}
+
+} // namespace device
+
 namespace internal {
 
 ///-----------------------------------------------------------------------------

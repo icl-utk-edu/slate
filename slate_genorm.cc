@@ -77,8 +77,7 @@ genorm(slate::internal::TargetType<target>,
         #pragma omp parallel
         #pragma omp master
         {
-            internal::genorm<target>(norm, A.sub(0, A.mt()-1, 0, A.nt()-1),
-                                     &local_max);
+            internal::genorm<target>(norm, std::move(A), &local_max);
         }
 
         int retval;
@@ -122,8 +121,7 @@ genorm(slate::internal::TargetType<target>,
         #pragma omp parallel
         #pragma omp master
         {
-            internal::genorm<target>(norm, A.sub(0, A.mt()-1, 0, A.nt()-1),
-                                     local_sums.data());
+            internal::genorm<target>(norm, std::move(A), local_sums.data());
         }
 
         std::vector<real_t> global_sums(A.n());

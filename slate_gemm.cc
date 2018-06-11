@@ -123,7 +123,7 @@ void gemm(slate::internal::TargetType<target>,
             internal::gemm<target>(
                     alpha, A.sub(0, A.mt()-1, 0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
-                    beta,  C.sub(0, C.mt()-1, 0, C.nt()-1));
+                    beta,  std::move(C));
         }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
@@ -160,7 +160,7 @@ void gemm(slate::internal::TargetType<target>,
                 internal::gemm<target>(
                     alpha,         A.sub(0, A.mt()-1, k, k),
                                    B.sub(k, k, 0, B.nt()-1),
-                    scalar_t(1.0), C.sub(0, C.mt()-1, 0, C.nt()-1));
+                    scalar_t(1.0), std::move(C));
             }
         }
     }

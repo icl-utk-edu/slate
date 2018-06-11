@@ -142,6 +142,9 @@ genorm(slate::internal::TargetType<target>,
 
         return lapack::lange(Norm::Max, A.n(), 1, global_sums.data(), 1);
     }
+    else {
+        throw std::exception();  // todo: invalid norm
+    }
 }
 
 } // namespace specialization
@@ -198,6 +201,7 @@ genorm(Norm norm, Matrix<scalar_t>& A,
         case Target::HostTask:
             return genorm<Target::HostTask>(norm, A, opts);
             break;
+        case Target::HostBatch:
         case Target::HostNest:
             return genorm<Target::HostNest>(norm, A, opts);
             break;
@@ -205,6 +209,7 @@ genorm(Norm norm, Matrix<scalar_t>& A,
             return genorm<Target::Devices>(norm, A, opts);
             break;
     }
+    throw std::exception();  // todo: invalid target
 }
 
 //------------------------------------------------------------------------------

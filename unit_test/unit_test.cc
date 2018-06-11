@@ -228,6 +228,7 @@ void run_test(test_function* func, const char* name, MPI_Comm comm)
         ++g_fail;
     }
     printf_gather(0, comm, output);
+    MPI_Barrier(comm);
 #else
     run_test(func, name);
 #endif // not SLATE_WITH_MPI

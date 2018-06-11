@@ -69,6 +69,9 @@ protected:
     // constructors
     BaseTrapezoidMatrix();
 
+    BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n, int64_t nb,
+                        int p, int q, MPI_Comm mpi_comm);
+
     // conversion
     BaseTrapezoidMatrix(Uplo uplo, Matrix< scalar_t >& orig);
 
@@ -84,6 +87,11 @@ protected:
     BaseTrapezoidMatrix(Uplo in_uplo, int64_t m, int64_t n,
                         scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
                         int p, int q, MPI_Comm mpi_comm);
+
+    // used by sub-classes' fromDevices
+    BaseTrapezoidMatrix(Uplo in_uplo, int64_t m, int64_t n,
+                        scalar_t** Aarray, int num_devices, int64_t lda,
+                        int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
     // used by sub-classes' off-diagonal sub
     BaseTrapezoidMatrix(Uplo uplo, Matrix<scalar_t>& orig,
@@ -119,7 +127,21 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix()
     this->uplo_ = Uplo::Lower;
 }
 
-//--------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+/// Constructor creates an m-by-n matrix, with no tiles allocated.
+/// Tiles can be added with tileInsert().
+//
+// todo: have allocate flag? If true, allocate data; else user will insert tiles?
+template <typename scalar_t>
+BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
+    Uplo uplo, int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+    : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
+{
+    this->uplo_ = uplo;
+}
+
+//------------------------------------------------------------------------------
+/// Used by subclasses' fromLAPACK.
 /// Construct matrix by wrapping existing memory of an m-by-n lower
 /// or upper trapezoidal storage LAPACK matrix. Triangular, symmetric, and
 /// Hermitian matrices all use this storage scheme (with m = n).
@@ -207,7 +229,8 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     }
 }
 
-//--------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+/// Used by subclasses' fromScaLAPACK.
 /// Construct matrix by wrapping existing memory of an m-by-n lower
 /// or upper trapezoidal storage ScaLAPACK matrix. Triangular, symmetric, and
 /// Hermitian matrices all use this storage scheme (with m = n).
@@ -264,18 +287,16 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
         int64_t jj = 0;
         for (int64_t j = 0; j < this->nt(); ++j) {
             int64_t jb = this->tileNb(j);
-            // Using Scalapack indxg2l
-            int64_t jj_loc = nb*(jj/(nb*q)) + (jj % nb);
+            int64_t jj_local = indexGlobal2Local(jj, nb, q);
 
             int64_t ii = j*nb;
             for (int64_t i = j; i < this->mt(); ++i) {  // lower
                 int64_t ib = this->tileMb(i);
-                // Using Scalapack indxg2l
-                int64_t ii_loc = mb*(ii/(mb*p)) + (ii % mb);
+                int64_t ii_local = indexGlobal2Local(ii, mb, p);
 
                 if (this->tileIsLocal(i, j)) {
                     this->tileInsert(i, j, this->host_num_,
-                                     &A[ii_loc + jj_loc*lda], lda);
+                                     &A[ii_local + jj_local*lda], lda);
                 }
                 ii += ib;
             }
@@ -286,18 +307,16 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
         int64_t jj = 0;
         for (int64_t j = 0; j < this->nt(); ++j) {
             int64_t jb = this->tileNb(j);
-            // Using Scalapack indxg2l
-            int64_t jj_loc = nb*(jj/(nb*q)) + (jj % nb);
+            int64_t jj_local = indexGlobal2Local(jj, nb, q);
 
             int64_t ii = 0;
             for (int64_t i = 0; i <= j && i < this->mt(); ++i) {  // upper
                 int64_t ib = this->tileMb(i);
-                // Using Scalapack indxg2l
-                int64_t ii_loc = mb*(ii/(mb*p)) + (ii % mb);
+                int64_t ii_local = indexGlobal2Local(ii, mb, p);
 
                 if (this->tileIsLocal(i, j)) {
                     this->tileInsert(i, j, this->host_num_,
-                                     &A[ii_loc + jj_loc*lda], lda);
+                                     &A[ii_local + jj_local*lda], lda);
                 }
                 ii += ib;
             }
@@ -306,7 +325,110 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     }
 }
 
-//--------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+/// Used by subclasses' fromDevices.
+/// Construct matrix by wrapping existing memory of an m-by-n lower
+/// or upper trapezoidal storage that is 2D block-cyclic across nodes
+/// and 1D block-cyclic across GPU devicse within a node.
+///
+/// @param[in] m
+///     Number of rows of the matrix. m >= 0.
+///
+/// @param[in] n
+///     Number of columns of the matrix. n >= 0.
+///
+/// @param[in,out] Aarray
+///     TODO
+///     The local portion of the 2D block cyclic distribution of
+///     the m-by-n matrix A, with local leading dimension lda.
+///
+/// @param[in] num_devices
+///     Dimension of Aarray.
+///
+/// @param[in] lda
+///     Local leading dimension of the array A. lda >= local number of rows.
+///
+/// @param[in] nb
+///     Block size in 2D block-cyclic distribution. nb > 0.
+///
+/// @param[in] p
+///     Number of block rows in 2D block-cyclic distribution. p > 0.
+///
+/// @param[in] q
+///     Number of block columns of 2D block-cyclic distribution. q > 0.
+///
+/// @param[in] mpi_comm
+///     MPI communicator to distribute matrix across.
+///     p*q == MPI_Comm_size(mpi_comm).
+///
+template <typename scalar_t>
+BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
+    Uplo in_uplo, int64_t m, int64_t n,
+    scalar_t** Aarray, int num_devices, int64_t lda, int64_t nb,
+    int p, int q, MPI_Comm mpi_comm)
+    : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
+{
+    if (this->num_devices() != num_devices) {
+        throw std::exception();
+    }
+
+    this->uplo_ = in_uplo;
+
+    // ii, jj are row, col indices
+    // ii_local and jj_local are the local array indices in a
+    // 2D block-cyclic layout.
+    // jj_dev is the local array index for the current device in a
+    // 1D block-cyclic layout within a node.
+    // i, j are tile (block row, block col) indices
+    if (uplo() == Uplo::Lower) {
+        int64_t jj = 0;
+        for (int64_t j = 0; j < this->nt(); ++j) {
+            int64_t jb = this->tileNb(j);
+            int64_t jj_local = indexGlobal2Local(jj, nb, q);
+
+            int64_t ii = j*nb;
+            for (int64_t i = j; i < this->mt(); ++i) {  // lower
+                int64_t ib = this->tileMb(i);
+                int64_t ii_local = indexGlobal2Local(ii, nb, p);
+
+                if (this->tileIsLocal(i, j)) {
+                    int dev = this->tileDevice(i, j);
+                    int64_t jj_dev
+                        = indexGlobal2Local(jj_local, nb, num_devices);
+                    this->tileInsert(
+                        i, j, dev, &Aarray[dev][ii_local + jj_dev*lda], lda);
+                }
+                ii += ib;
+            }
+            jj += jb;
+        }
+    }
+    else {  // Upper
+        int64_t jj = 0;
+        for (int64_t j = 0; j < this->nt(); ++j) {
+            int64_t jb = this->tileNb(j);
+            int64_t jj_local = indexGlobal2Local(jj, nb, q);
+
+            int64_t ii = 0;
+            for (int64_t i = 0; i <= j && i < this->mt(); ++i) {  // upper
+                int64_t ib = this->tileMb(i);
+                int64_t ii_local = indexGlobal2Local(ii, nb, p);
+
+                if (this->tileIsLocal(i, j)) {
+                    int dev = this->tileDevice(i, j);
+                    int64_t jj_dev
+                        = indexGlobal2Local(jj_local, nb, num_devices);
+                    this->tileInsert(
+                        i, j, dev, &Aarray[dev][ii_local + jj_dev*lda], lda);
+                }
+                ii += ib;
+            }
+            jj += jb;
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
 /// Conversion from general matrix
 /// creates shallow copy view of original matrix.
 ///
@@ -325,7 +447,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     this->uplo_ = uplo;
 }
 
-//--------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Conversion from general matrix, sub-matrix constructor
 /// creates shallow copy view of original matrix, A[ i1:i2, j1:j2 ].
 ///
@@ -358,7 +480,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     this->uplo_ = uplo;
 }
 
-//--------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Sub-matrix constructor creates shallow copy view of parent matrix,
 /// A[ i1:i2, j1:j2 ]. Requires i1 == j1. The new view is still a trapezoid
 /// matrix, with the same diagonal as the parent matrix.
@@ -390,7 +512,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
         throw std::exception();
 }
 
-//--------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Swap contents of matrices A and B.
 template <typename scalar_t>
 void swap(BaseTrapezoidMatrix<scalar_t>& A, BaseTrapezoidMatrix<scalar_t>& B)

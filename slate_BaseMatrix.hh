@@ -1116,6 +1116,14 @@ int BaseMatrix<scalar_t>::host_num_ = -1;
 template <typename scalar_t>
 int BaseMatrix<scalar_t>::num_devices_ = 0;
 
+//------------------------------------------------------------------------------
+// from ScaLAPACK's indxg2l
+// todo: where to put utilities like this?
+inline int64_t indexGlobal2Local(int64_t i, int64_t nb, int num_ranks)
+{
+    return nb*(i/(nb*num_ranks)) + (i % nb);
+}
+
 } // namespace slate
 
 #endif // SLATE_BASE_MATRIX_HH

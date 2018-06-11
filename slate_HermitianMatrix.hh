@@ -62,6 +62,9 @@ public:
     // constructors
     HermitianMatrix();
 
+    HermitianMatrix(Uplo uplo, int64_t n, int64_t nb,
+                    int p, int q, MPI_Comm mpi_comm);
+
     static
     HermitianMatrix fromLAPACK(Uplo uplo, int64_t n,
                                scalar_t* A, int64_t lda, int64_t nb,
@@ -72,10 +75,15 @@ public:
                                   scalar_t* A, int64_t lda, int64_t nb,
                                   int p, int q, MPI_Comm mpi_comm);
 
+    static
+    HermitianMatrix fromDevices(Uplo uplo, int64_t n,
+                                scalar_t** Aarray, int num_devices, int64_t lda,
+                                int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
     // conversion
     explicit HermitianMatrix(BaseTrapezoidMatrix<scalar_t>& orig);
 
-    HermitianMatrix(Uplo uplo, Matrix< scalar_t >& orig);
+    HermitianMatrix(Uplo uplo, Matrix<scalar_t>& orig);
 
     // sub-matrix
     HermitianMatrix sub(int64_t i1, int64_t i2);
@@ -93,6 +101,11 @@ protected:
                     scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
                     int p, int q, MPI_Comm mpi_comm);
 
+    // used by fromDevices
+    HermitianMatrix(Uplo uplo, int64_t n,
+                    scalar_t** Aarray, int num_devices, int64_t lda,
+                    int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
     // used by sub
     HermitianMatrix(HermitianMatrix& orig,
                     int64_t i1, int64_t i2);
@@ -103,10 +116,21 @@ public:
 };
 
 //------------------------------------------------------------------------------
-/// Default constructor
+/// Default constructor creates an empty matrix.
 template <typename scalar_t>
 HermitianMatrix<scalar_t>::HermitianMatrix():
     BaseTrapezoidMatrix<scalar_t>()
+{}
+
+//------------------------------------------------------------------------------
+/// Constructor creates an n-by-n matrix, with no tiles allocated.
+/// Tiles can be added with tileInsert().
+//
+// todo: have allocate flag? If true, allocate data; else user will insert tiles?
+template <typename scalar_t>
+HermitianMatrix<scalar_t>::HermitianMatrix(
+    Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, n, n, nb, p, q, mpi_comm)
 {}
 
 //------------------------------------------------------------------------------
@@ -195,6 +219,55 @@ HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::fromScaLAPACK(
 }
 
 //------------------------------------------------------------------------------
+/// [static]
+/// TODO
+/// Named constructor returns a new Matrix from ScaLAPACK layout.
+/// Construct matrix by wrapping existing memory of an n-by-n lower
+/// or upper Hermitian ScaLAPACK-style matrix.
+/// @see BaseTrapezoidMatrix
+///
+/// @param[in] in_uplo
+///     - Upper: upper triangle of A is stored.
+///     - Lower: lower triangle of A is stored.
+///
+/// @param[in] n
+///     Number of rows and columns of the matrix. n >= 0.
+///
+/// @param[in,out] Aarray
+///     TODO
+///     The local portion of the 2D block cyclic distribution of
+///     the n-by-n matrix A, with local leading dimension lda.
+///
+/// @param[in] num_devices
+///     TODO
+///
+/// @param[in] lda
+///     Local leading dimension of the array A. lda >= local number of rows.
+///
+/// @param[in] nb
+///     Block size in 2D block-cyclic distribution. nb > 0.
+///
+/// @param[in] p
+///     Number of block rows in 2D block-cyclic distribution. p > 0.
+///
+/// @param[in] q
+///     Number of block columns of 2D block-cyclic distribution. q > 0.
+///
+/// @param[in] mpi_comm
+///     MPI communicator to distribute matrix across.
+///     p*q == MPI_Comm_size(mpi_comm).
+///
+template <typename scalar_t>
+HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::fromDevices(
+    Uplo uplo, int64_t n,
+    scalar_t** Aarray, int num_devices, int64_t lda, int64_t nb,
+    int p, int q, MPI_Comm mpi_comm)
+{
+    return HermitianMatrix<scalar_t>(uplo, n, Aarray, num_devices, lda, nb,
+                                     p, q, mpi_comm);
+}
+
+//------------------------------------------------------------------------------
 /// @see fromLAPACK
 template <typename scalar_t>
 HermitianMatrix<scalar_t>::HermitianMatrix(
@@ -207,12 +280,25 @@ HermitianMatrix<scalar_t>::HermitianMatrix(
 //------------------------------------------------------------------------------
 /// @see fromScaLAPACK
 /// This differs from LAPACK constructor by adding mb.
+///
 template <typename scalar_t>
 HermitianMatrix<scalar_t>::HermitianMatrix(
     Uplo uplo, int64_t n,
     scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
     : BaseTrapezoidMatrix<scalar_t>(uplo, n, n, A, lda, mb, nb, p, q, mpi_comm)
+{}
+
+//------------------------------------------------------------------------------
+/// @see fromDevices
+///
+template <typename scalar_t>
+HermitianMatrix<scalar_t>::HermitianMatrix(
+    Uplo uplo, int64_t n,
+    scalar_t** Aarray, int num_devices, int64_t lda, int64_t nb,
+    int p, int q, MPI_Comm mpi_comm)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, n, n, Aarray, num_devices, lda, nb,
+                                    p, q, mpi_comm)
 {}
 
 //------------------------------------------------------------------------------

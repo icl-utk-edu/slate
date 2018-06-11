@@ -64,6 +64,8 @@ public:
     // constructors
     Matrix();
 
+    Matrix(int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
     static
     Matrix fromLAPACK(int64_t m, int64_t n,
                       scalar_t* A, int64_t lda, int64_t nb,
@@ -73,6 +75,11 @@ public:
     Matrix fromScaLAPACK(int64_t m, int64_t n,
                          scalar_t* A, int64_t lda, int64_t nb,
                          int p, int q, MPI_Comm mpi_comm);
+
+    static
+    Matrix fromDevices(int64_t m, int64_t n,
+                       scalar_t** Aarray, int num_devices, int64_t lda,
+                       int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
     // conversion sub-matrix
     Matrix(BaseMatrix<scalar_t>& orig,
@@ -92,6 +99,11 @@ protected:
     // used by fromScaLAPACK
     Matrix(int64_t m, int64_t n,
            scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
+           int p, int q, MPI_Comm mpi_comm);
+
+    // used by fromDevices
+    Matrix(int64_t m, int64_t n,
+           scalar_t** Aarray, int num_devices, int64_t lda, int64_t nb,
            int p, int q, MPI_Comm mpi_comm);
 
     // used by sub
@@ -116,6 +128,17 @@ public:
 template <typename scalar_t>
 Matrix<scalar_t>::Matrix():
     BaseMatrix<scalar_t>()
+{}
+
+//------------------------------------------------------------------------------
+/// Constructor creates an m-by-n matrix, with no tiles allocated.
+/// Tiles can be added with tileInsert().
+//
+// todo: have allocate flag? If true, allocate data; else user will insert tiles?
+template <typename scalar_t>
+Matrix<scalar_t>::Matrix(
+    int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+    : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
 {}
 
 //------------------------------------------------------------------------------
@@ -210,6 +233,53 @@ Matrix<scalar_t> Matrix<scalar_t>::fromScaLAPACK(
 }
 
 //------------------------------------------------------------------------------
+/// [static]
+/// Named constructor returns a new Matrix from data in GPU device memory,
+/// distributed 2D block-cyclic across MPI ranks,
+/// and 1D block-cyclic across GPU devices within an MPI rank.
+///
+/// Aarray contains pointers to data on each GPU device in this MPI rank.
+///
+/// @param[in] m
+///     Number of rows of the matrix. m >= 0.
+///
+/// @param[in] n
+///     Number of columns of the matrix. n >= 0.
+///
+/// @param[in,out] Aarray
+///     Array of
+///     The local portion of the 2D block cyclic distribution of
+///     the m-by-n matrix A, with local leading dimension lda.
+///
+/// @param[in] num_devices
+///     Dimension of Aarray.
+///
+/// @param[in] lda
+///     Local leading dimension of the array A. lda >= local number of rows.
+///
+/// @param[in] nb
+///     Block size in 2D block-cyclic distribution. nb > 0.
+///
+/// @param[in] p
+///     Number of block rows in 2D block-cyclic distribution. p > 0.
+///
+/// @param[in] q
+///     Number of block columns of 2D block-cyclic distribution. q > 0.
+///
+/// @param[in] mpi_comm
+///     MPI communicator to distribute matrix across.
+///     p*q == MPI_Comm_size(mpi_comm).
+///
+template <typename scalar_t>
+Matrix<scalar_t> Matrix<scalar_t>::fromDevices(
+    int64_t m, int64_t n,
+    scalar_t** Aarray, int num_devices, int64_t lda,
+    int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    return Matrix<scalar_t>(m, n, Aarray, num_devices, lda, nb, p, q, mpi_comm);
+}
+
+//------------------------------------------------------------------------------
 /// [internal]
 /// @see fromLAPACK
 ///
@@ -250,22 +320,62 @@ Matrix<scalar_t>::Matrix(
 {
     assert(mb == nb);
     // ii, jj are row, col indices
-    // ii_loc and jj_loc are the local array indices in a
+    // ii_local and jj_local are the local array indices in a
     // block-cyclic layout (indxg2l)
     // i, j are tile (block row, block col) indices
     int64_t jj = 0;
     for (int64_t j = 0; j < this->nt(); ++j) {
         int64_t jb = this->tileNb(j);
         // Using Scalapack indxg2l
-        int64_t jj_loc = nb*(jj/(nb*q)) + (jj % nb);
+        int64_t jj_local = nb*(jj/(nb*q)) + (jj % nb);
         int64_t ii = 0;
         for (int64_t i = 0; i < this->mt(); ++i) {
             int64_t ib = this->tileMb(i);
             if (this->tileIsLocal(i, j)) {
                 // Using Scalapack indxg2l
-                int64_t ii_loc = mb*(ii/(mb*p)) + (ii % mb);
+                int64_t ii_local = mb*(ii/(mb*p)) + (ii % mb);
                 this->tileInsert(i, j, this->host_num_,
-                                 &A[ ii_loc + jj_loc*lda ], lda);
+                                 &A[ ii_local + jj_local*lda ], lda);
+            }
+            ii += ib;
+        }
+        jj += jb;
+    }
+}
+
+//------------------------------------------------------------------------------
+/// [internal]
+/// @see fromDevices
+///
+template <typename scalar_t>
+Matrix<scalar_t>::Matrix(
+    int64_t m, int64_t n,
+    scalar_t** Aarray, int num_devices, int64_t lda,
+    int64_t nb, int p, int q, MPI_Comm mpi_comm)
+    : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
+{
+    if (this->num_devices() != num_devices) {
+        throw std::exception();
+    }
+    // ii, jj are row, col indices
+    // ii_local and jj_local are the local array indices in a
+    // 2D block-cyclic layout.
+    // jj_dev is the local array index for the current device in a
+    // 1D block-cyclic layout within a node.
+    // i, j are tile (block row, block col) indices
+    int64_t jj = 0;
+    for (int64_t j = 0; j < this->nt(); ++j) {
+        int64_t jb = this->tileNb(j);
+        int64_t jj_local = indexGlobal2Local(jj, nb, q);
+        int64_t ii = 0;
+        for (int64_t i = 0; i < this->mt(); ++i) {
+            int64_t ib = this->tileMb(i);
+            if (this->tileIsLocal(i, j)) {
+                int64_t ii_local = indexGlobal2Local(ii, nb, p);
+                int dev = this->tileDevice(i, j);
+                int64_t jj_dev = indexGlobal2Local(jj_local, nb, num_devices);
+                this->tileInsert(i, j, dev,
+                                 &Aarray[ dev ][ ii_local + jj_dev*lda ], lda);
             }
             ii += ib;
         }

@@ -56,41 +56,29 @@ namespace lapack_api {
 
 // Local function
 template< typename scalar_t >
-void slate_gemm(const char* transa, const char* transb, int m, int n, int k, scalar_t alpha, scalar_t* a, int lda, scalar_t* b, int ldb, scalar_t beta, scalar_t* c, int ldc);
+void slate_hemm(const char* sidestr, const char* uplostr, const int m, const int n, const scalar_t alpha, scalar_t* a, const int lda, scalar_t* b, const int ldb, const scalar_t beta, scalar_t* c, const int ldc);
 
 // -----------------------------------------------------------------------------
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
 
-#define slate_sgemm BLAS_FORTRAN_NAME( slate_sgemm, SLATE_SGEMM )
-#define slate_dgemm BLAS_FORTRAN_NAME( slate_dgemm, SLATE_DGEMM )
-#define slate_cgemm BLAS_FORTRAN_NAME( slate_cgemm, SLATE_CGEMM )
-#define slate_zgemm BLAS_FORTRAN_NAME( slate_zgemm, SLATE_ZGEMM )
+#define slate_chemm BLAS_FORTRAN_NAME( slate_chemm, SLATE_CHEMM )
+#define slate_zhemm BLAS_FORTRAN_NAME( slate_zhemm, SLATE_ZHEMM )
 
-extern "C" void slate_sgemm(const char* transa, const char* transb, int* m, int* n, int* k, float* alpha, float* a, int* lda, float* b, int* ldb, float* beta, float* c, int* ldc)
+extern "C" void slate_chemm(const char* side, const char* uplo, const int* m, const int* n, std::complex<float>* alpha, std::complex<float>* a, const int* lda, std::complex<float>* b, const int* ldb, std::complex<float>* beta, std::complex<float>* c, const int* ldc)
 {
-    slate_gemm(transa, transb, *m, *n, *k, *alpha, a, *lda, b, *ldb, *beta, c, *ldc);
+    slate_hemm(side, uplo, *m, *n, *alpha, a, *lda, b, *ldb, *beta, c, *ldc);
 }
 
-extern "C" void slate_dgemm(const char* transa, const char* transb, int* m, int* n, int* k, double* alpha, double* a, int* lda, double* b, int* ldb, double* beta, double* c, int* ldc)
+extern "C" void slate_zhemm(const char* side, const char* uplo, const int* m, const int* n, std::complex<double>* alpha, std::complex<double>* a, const int* lda, std::complex<double>* b, const int* ldb, std::complex<double>* beta, std::complex<double>* c, const int* ldc)
 {
-    slate_gemm(transa, transb, *m, *n, *k, *alpha, a, *lda, b, *ldb, *beta, c, *ldc);
-}
-
-extern "C" void slate_cgemm(const char* transa, const char* transb, int* m, int* n, int* k, std::complex<float>* alpha, std::complex<float>* a, int* lda, std::complex<float>* b, int* ldb, std::complex<float>* beta, std::complex<float>* c, int* ldc)
-{
-    slate_gemm(transa, transb, *m, *n, *k, *alpha, a, *lda, b, *ldb, *beta, c, *ldc);
-}
-
-extern "C" void slate_zgemm(const char* transa, const char* transb, int* m, int* n, int* k, std::complex<double>* alpha, std::complex<double>* a, int* lda, std::complex<double>* b, int* ldb, std::complex<double>* beta, std::complex<double>* c, int* ldc)
-{
-    slate_gemm(transa, transb, *m, *n, *k, *alpha, a, *lda, b, *ldb, *beta, c, *ldc);
+    slate_hemm(side, uplo, *m, *n, *alpha, a, *lda, b, *ldb, *beta, c, *ldc);
 }
 
 // -----------------------------------------------------------------------------
 
 // Type generic function calls the SLATE routine
 template< typename scalar_t >
-void slate_gemm(const char* transastr, const char* transbstr, int m, int n, int k, scalar_t alpha, scalar_t* a, int lda, scalar_t* b, int ldb, scalar_t beta, scalar_t* c, int ldc)
+void slate_hemm(const char* sidestr, const char* uplostr, const int m, const int n, const scalar_t alpha, scalar_t* a, const int lda, scalar_t* b, const int ldb, const scalar_t beta, scalar_t* c, const int ldc)
 {
     int initialized, provided;
     MPI_Initialized(&initialized);
@@ -99,8 +87,8 @@ void slate_gemm(const char* transastr, const char* transbstr, int m, int n, int 
     // todo: does this set the omp num threads correctly in all circumstances
     int saved_num_blas_threads = slate_set_num_blas_threads(1);
 
-    blas::Op transA = blas::char2op(transastr[0]);
-    blas::Op transB = blas::char2op(transbstr[0]);
+    blas::Side side = blas::char2side(sidestr[0]);
+    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
     int64_t lookahead = 1;
     int64_t p = 1;
     int64_t q = 1;
@@ -135,32 +123,28 @@ void slate_gemm(const char* transastr, const char* transbstr, int m, int n, int 
             nb = 1024;
     }
 
-    // sizes of A and B
-    int64_t Am = (transA == blas::Op::NoTrans ? m : k);
-    int64_t An = (transA == blas::Op::NoTrans ? k : m);
-    int64_t Bm = (transB == blas::Op::NoTrans ? k : n);
-    int64_t Bn = (transB == blas::Op::NoTrans ? n : k);
+    // sizes of data
+    int64_t An = (side == blas::Side::Left ? m : n);
+    int64_t Bm = m;
+    int64_t Bn = n;
     int64_t Cm = m;
     int64_t Cn = n;
 
     // create SLATE matrices from the Lapack layouts
-    auto A = slate::Matrix<scalar_t>::fromLAPACK(Am, An, a, lda, nb, p, q, MPI_COMM_WORLD);
+    auto A = slate::HermitianMatrix<scalar_t>::fromLAPACK(uplo, An, a, lda, nb, p, q, MPI_COMM_WORLD);
     auto B = slate::Matrix<scalar_t>::fromLAPACK(Bm, Bn, b, ldb, nb, p, q, MPI_COMM_WORLD);
     auto C = slate::Matrix<scalar_t>::fromLAPACK(Cm, Cn, c, ldc, nb, p, q, MPI_COMM_WORLD);
 
-    if (transA == blas::Op::Trans)
-        A = transpose(A);
-    else if (transA == blas::Op::ConjTrans)
-        A = conj_transpose(A);
+    if (side == blas::Side::Left)
+        assert(A.mt() == C.mt());
+    else
+        assert(A.mt() == C.nt());
+    assert(B.mt() == C.mt());
+    assert(B.nt() == C.nt());
 
-    if (transB == blas::Op::Trans)
-        B = transpose(B);
-    else if (transB == blas::Op::ConjTrans)
-        B = conj_transpose(B);
-
-    // typedef long long lld;
-    // printf("SLATE GEMM m %lld n %lld nb %lld \n", (lld)m, (lld)n, (lld)nb);
-    slate::gemm(alpha, A, B, beta, C, {
+    //typedef long long lld;
+    //printf("SLATE HEMM m %lld n %lld nb %lld \n", (lld)m, (lld)n, (lld)nb);
+    slate::hemm(side, alpha, A, B, beta, C, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });

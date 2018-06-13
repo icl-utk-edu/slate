@@ -73,8 +73,35 @@ void test_genorm_work(Params& params, bool run)
     std::vector<scalar_t> A_tst(lldA * nlocA);
     scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
 
-    // create SLATE matrices from the ScaLAPACK layouts
-    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+
+    slate::Matrix<scalar_t> A;
+    std::vector<scalar_t*> Aarray(A.num_devices());
+    if (target == slate::Target::Devices) {
+        // Distribute local ScaLAPACK data in 1D-cyclic fashion to GPU devices.
+        for (int device = 0; device < A.num_devices(); ++device) {
+            int64_t ndevA = scalapack_numroc(nlocA, nb, device, i0, A.num_devices());
+            size_t len = blas::max((int64_t)sizeof(double) * lldA * ndevA, 1);
+            cudaMalloc(&Aarray[device], len);
+            assert(Aarray[device] != nullptr);
+            int64_t jj_dev = 0;
+            for (int64_t jj_local = device*nb; jj_local < nlocA; jj_local += nb) {
+                int64_t jb = std::min(nb, nlocA - jj_local);
+                cublasSetMatrix(mlocA, jb, sizeof(scalar_t),
+                                &A_tst[ jj_local * lldA ], lldA,
+                                &Aarray[device][ jj_dev * lldA ], lldA);
+                jj_dev += nb;
+            }
+        }
+        // Create SLATE matrix from the device layout.
+        A = slate::Matrix<scalar_t>::fromDevices(
+            Am, An, Aarray.data(), Aarray.size(), lldA, nb,
+            nprow, npcol, MPI_COMM_WORLD);
+    }
+    else {
+        // Create SLATE matrix from the ScaLAPACK layout.
+        A = slate::Matrix<scalar_t>::fromScaLAPACK(
+            Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+    }
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
@@ -145,6 +172,13 @@ void test_genorm_work(Params& params, bool run)
 
         // Allow for difference
         params.okay.value() = (params.error.value() <= tol);
+    }
+
+    if (target == slate::Target::Devices) {
+        for (int device = 0; device < A.num_devices(); ++device) {
+            cudaFree(Aarray[device]);
+            Aarray[device] = nullptr;
+        }
     }
 
     //Cblacs_exit(1) is commented out because it does not handle re-entering ... some unknown problem

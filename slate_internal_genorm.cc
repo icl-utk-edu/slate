@@ -254,6 +254,20 @@ void genorm(internal::TargetType<Target::Devices>,
     }
 
     std::vector<real_t> devices_maxima(A.num_devices());
+    // Define index ranges for quadrants of matrix.
+    // Tiles in each quadrant are all the same size.
+    int64_t irange[4][2] = {
+        { 0,        A.mt()-1 },
+        { A.mt()-1, A.mt()   },
+        { 0,        A.mt()-1 },
+        { A.mt()-1, A.mt()   }
+    };
+    int64_t jrange[4][2] = {
+        { 0,        A.nt()-1 },
+        { 0,        A.nt()-1 },
+        { A.nt()-1, A.nt()   },
+        { A.nt()-1, A.nt()   }
+    };
 
     for (int device = 0; device < A.num_devices(); ++device) {
         #pragma omp task shared(A, devices_maxima, vals_arrays_host) \
@@ -270,72 +284,22 @@ void genorm(internal::TargetType<Target::Devices>,
             scalar_t** a_array_dev = a_arrays_dev[device];
 
             int64_t batch_count = 0;
-            int64_t batch_count_00 = 0;
-            int64_t lda00 = 0;
-            int64_t mb00 = A.tileMb(0);
-            int64_t nb00 = A.tileNb(0);
-            for (int64_t i = 0; i < A.mt()-1; ++i) {
-                for (int64_t j = 0; j < A.nt()-1; ++j) {
-                    if (A.tileIsLocal(i, j)) {
-                        if (device == A.tileDevice(i, j)) {
-                            a_array_host[batch_count] = A(i, j, device).data();
-                            lda00 = A(i, j, device).stride();
-                            ++batch_count_00;
-                            ++batch_count;
+            int64_t mb[4], nb[4], lda[4], group_count[4];
+            for (int q = 0; q < 4; ++q) {
+                group_count[q] = 0;
+                lda[q] = 0;
+                mb[q] = A.tileMb(irange[q][0]);
+                nb[q] = A.tileNb(jrange[q][0]);
+                for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
+                    for (int64_t j = jrange[q][0]; j <  jrange[q][1]; ++j) {
+                        if (A.tileIsLocal(i, j)) {
+                            if (device == A.tileDevice(i, j)) {
+                                a_array_host[batch_count] = A(i, j, device).data();
+                                lda[q] = A(i, j, device).stride();
+                                ++group_count[q];
+                                ++batch_count;
+                            }
                         }
-                    }
-                }
-            }
-
-            int64_t batch_count_10 = 0;
-            int64_t lda10 = 0;
-            int64_t mb10 = A.tileMb(A.mt()-1);
-            int64_t nb10 = A.tileNb(0);
-            {
-                int64_t i = A.mt()-1;
-                for (int64_t j = 0; j < A.nt()-1; ++j) {
-                    if (A.tileIsLocal(i, j)) {
-                        if (device == A.tileDevice(i, j)) {
-                            a_array_host[batch_count] = A(i, j, device).data();
-                            lda10 = A(i, j, device).stride();
-                            ++batch_count_10;
-                            ++batch_count;
-                        }
-                    }
-                }
-            }
-
-            int64_t batch_count_01 = 0;
-            int64_t lda01 = 0;
-            int64_t mb01 = A.tileMb(0);
-            int64_t nb01 = A.tileNb(A.nt()-1);
-            {
-                int64_t j = A.nt()-1;
-                for (int64_t i = 0; i < A.mt()-1; ++i) {
-                    if (A.tileIsLocal(i, j)) {
-                        if (device == A.tileDevice(i, j)) {
-                            a_array_host[batch_count] = A(i, j, device).data();
-                            lda01 = A(i, j, device).stride();
-                            ++batch_count_01;
-                            ++batch_count;
-                        }
-                    }
-                }
-            }
-
-            int64_t batch_count_11 = 0;
-            int64_t lda11 = 0;
-            int64_t mb11 = A.tileMb(A.mt()-1);
-            int64_t nb11 = A.tileNb(A.nt()-1);
-            {
-                int64_t i = A.mt()-1;
-                int64_t j = A.nt()-1;
-                if (A.tileIsLocal(i, j)) {
-                    if (device == A.tileDevice(i, j)) {
-                        a_array_host[batch_count] = A(i, j, device).data();
-                        lda11 = A(i, j, device).stride();
-                        ++batch_count_11;
-                        ++batch_count;
                     }
                 }
             }
@@ -358,38 +322,15 @@ void genorm(internal::TargetType<Target::Devices>,
                                         stream);
                 assert(error == cudaSuccess);
 
-                if (batch_count_00 > 0) {
-                    device::genorm(norm,
-                                   mb00, nb00,
-                                   a_array_dev, lda00,
-                                   vals_array_dev, batch_count_00, stream);
-                    a_array_dev += batch_count_00;
-                    vals_array_dev += batch_count_00*vals_chunk;
-                }
-
-                if (batch_count_10 > 0) {
-                    device::genorm(norm,
-                                   mb10, nb10,
-                                   a_array_dev, lda10,
-                                   vals_array_dev, batch_count_10, stream);
-                    a_array_dev += batch_count_10;
-                    vals_array_dev += batch_count_10*vals_chunk;
-                }
-
-                if (batch_count_01 > 0) {
-                    device::genorm(norm,
-                                   mb01, nb01,
-                                   a_array_dev, lda01,
-                                   vals_array_dev, batch_count_01, stream);
-                    a_array_dev += batch_count_01;
-                    vals_array_dev += batch_count_01*vals_chunk;
-                }
-
-                if (batch_count_11 > 0) {
-                    device::genorm(norm,
-                                   mb11, nb11,
-                                   a_array_dev, lda11,
-                                   vals_array_dev, batch_count_11, stream);
+                for (int q = 0; q < 4; ++q) {
+                    if (group_count[q] > 0) {
+                        device::genorm(norm,
+                                       mb[q], nb[q],
+                                       a_array_dev, lda[q],
+                                       vals_array_dev, group_count[q], stream);
+                        a_array_dev += group_count[q];
+                        vals_array_dev += group_count[q] * vals_chunk;
+                    }
                 }
 
                 vals_array_dev = vals_arrays_dev[device];
@@ -440,64 +381,19 @@ void genorm(internal::TargetType<Target::Devices>,
             real_t* vals_array_host = vals_arrays_host[device].data();
 
             int64_t batch_count = 0;
-            int64_t nb00 = A.tileNb(0);
-            for (int64_t i = 0; i < A.mt()-1; ++i) {
-                for (int64_t j = 0; j < A.nt()-1; ++j) {
-                    if (A.tileIsLocal(i, j)) {
-                        if (device == A.tileDevice(i, j)) {
-                            blas::axpy(
-                                nb00, 1.0,
-                                &vals_array_host[batch_count*vals_chunk], 1,
-                                &values[j*vals_chunk], 1);
-                            ++batch_count;
+            for (int q = 0; q < 4; ++q) {
+                int64_t nb = A.tileNb(jrange[q][0]);
+                for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
+                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
+                        if (A.tileIsLocal(i, j)) {
+                            if (device == A.tileDevice(i, j)) {
+                                blas::axpy(
+                                    nb, 1.0,
+                                    &vals_array_host[batch_count*vals_chunk], 1,
+                                    &values[j*vals_chunk], 1);
+                                ++batch_count;
+                            }
                         }
-                    }
-                }
-            }
-
-            int64_t nb10 = A.tileNb(0);
-            {
-                int64_t i = A.mt()-1;
-                for (int64_t j = 0; j < A.nt()-1; ++j) {
-                    if (A.tileIsLocal(i, j)) {
-                        if (device == A.tileDevice(i, j)) {
-                            blas::axpy(
-                                nb10, 1.0,
-                                &vals_array_host[batch_count*vals_chunk], 1,
-                                &values[j*vals_chunk], 1);
-                            ++batch_count;
-                        }
-                    }
-                }
-            }
-
-            int64_t nb01 = A.tileNb(A.nt()-1);
-            {
-                int64_t j = A.nt()-1;
-                for (int64_t i = 0; i < A.mt()-1; ++i) {
-                    if (A.tileIsLocal(i, j)) {
-                        if (device == A.tileDevice(i, j)) {
-                            blas::axpy(
-                                nb01, 1.0,
-                                &vals_array_host[batch_count*vals_chunk], 1,
-                                &values[j*vals_chunk], 1);
-                            ++batch_count;
-                        }
-                    }
-                }
-            }
-
-            int64_t nb11 = A.tileNb(A.nt()-1);
-            {
-                int64_t i = A.mt()-1;
-                int64_t j = A.nt()-1;
-                if (A.tileIsLocal(i, j)) {
-                    if (device == A.tileDevice(i, j)) {
-                            blas::axpy(
-                                nb11, 1.0,
-                                &vals_array_host[batch_count*vals_chunk], 1,
-                                &values[j*vals_chunk], 1);
-                            ++batch_count;
                     }
                 }
             }

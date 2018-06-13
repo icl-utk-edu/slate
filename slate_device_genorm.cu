@@ -93,28 +93,30 @@ inline double abs(cuDoubleComplex x)
 //------------------------------------------------------------------------------
 /// Finds the largest absolute value of elements, for each tile in tiles.
 /// Each thread block deals with one tile.
-/// Each thread deals with one column, followed by a reduction.
+/// Each thread deals with one row, followed by a reduction.
+/// Uses dynamic shared memory array of length sizeof(real_t) * m.
 /// Kernel assumes non-trivial tiles (m, n >= 1).
 /// Launched by genorm().
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 1.
+///     Also the number of threads per block (blockDim.x), hence,
+///     m <= 1024 for current CUDA architectures (2.x to 6.x).
 ///
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
-///     Also the number of threads per block, hence,
-///     n <= 1024 for current CUDA architectures (2.x to 6.x).
 ///
 /// @param[in] tiles
-///     Array of tiles of dimension blockDim.x,
+///     Array of tiles of dimension gridDim.x,
 ///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= m.
 ///
 /// @param[out] tiles_maxima
-///     Array of dimension blockDim.x.
-///     On exit, tiles_maxima[k] = max_{i, j}( abs( A^(k)_(i, j) )).
+///     Array of dimension gridDim.x.
+///     On exit, tiles_maxima[k] = max_{i, j} abs( A^(k)_(i, j) )
+///     for tile A^(k).
 ///
 template <typename scalar_t>
 __global__ void genormMaxKernel(
@@ -124,26 +126,26 @@ __global__ void genormMaxKernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
-    scalar_t const* column = &tile[lda*threadIdx.x];
-    real_t tile_max;
+    scalar_t const* row = &tile[threadIdx.x];
 
-    // Each thread finds max of one column.
+    // Each thread finds max of one row.
+    // This does coalesced reads of one column at a time in parallel.
+    real_t max = abs(row[0]);
+    for (int64_t j = 1; j < n; ++j)
+        max = max_nan(max, abs(row[j]));
+
+    // Save partial results in shared memory.
     extern __shared__ char dynamic_data[];
-    real_t* col_max = (real_t*) dynamic_data;
-
-    real_t max = abs(column[0]);
-    for (int64_t i = 1; i < m; ++i)
-        max = max_nan(max, abs(column[i]));
-
-    col_max[threadIdx.x] = max;
+    real_t* row_max = (real_t*) dynamic_data;
+    row_max[threadIdx.x] = max;
     __syncthreads();
 
     // Reduction to find max of tile.
     // todo: parallel reduction.
     if (threadIdx.x == 0) {
-        tile_max = col_max[0];
-        for (int64_t j = 1; j < n; ++j)
-            tile_max = max_nan(tile_max, col_max[j]);
+        real_t tile_max = row_max[0];
+        for (int64_t i = 1; i < m; ++i)
+            tile_max = max_nan(tile_max, row_max[i]);
 
         tiles_maxima[blockIdx.x] = tile_max;
     }
@@ -253,11 +255,9 @@ void genorm(
             cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count, stream);
         }
         else {
-            assert(n <= 1024);
+            assert(m <= 1024);
             // Max 1024 threads * 16 bytes = 16 KiB shared memory in double-complex.
-            dim3 dimBlock(blas::max(1, n));
-            dim3 dimGrid(batch_count);
-            genormMaxKernel<<<dimGrid, dimBlock, sizeof(scalar_t)*n, stream>>>
+            genormMaxKernel<<<batch_count, m, sizeof(scalar_t) * m, stream>>>
                 (m, n, Aarray, lda, values);
         }
     }

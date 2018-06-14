@@ -140,7 +140,7 @@ genorm(slate::internal::TargetType<target>,
 
         A.clearWorkspace();
 
-        return lapack::lange(Norm::Max, A.n(), 1, global_sums.data(), 1);
+        return lapack::lange(Norm::Max, 1, A.n(), global_sums.data(), 1);
     }
     else {
         throw std::exception();  // todo: invalid norm

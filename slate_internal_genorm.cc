@@ -139,7 +139,7 @@ void genorm(internal::TargetType<Target::HostTask>,
         #pragma omp taskwait
 
         *values = lapack::lange(norm,
-                                tiles_maxima.size(), 1,
+                                1, tiles_maxima.size(),
                                 tiles_maxima.data(), 1);
     }
     //---------
@@ -209,7 +209,7 @@ void genorm(internal::TargetType<Target::HostNest>,
     #pragma omp taskwait
 
     *values = lapack::lange(norm,
-                            tiles_maxima.size(), 1,
+                            1, tiles_maxima.size(),
                             tiles_maxima.data(), 1);
 }
 
@@ -409,7 +409,7 @@ void genorm(internal::TargetType<Target::Devices>,
 
             if (norm == Norm::Max) {
                 devices_maxima.at(device) =
-                    lapack::lange(norm, batch_count, 1, vals_array_host, 1);
+                    lapack::lange(norm, 1, batch_count, vals_array_host, 1);
             }
         }
     }
@@ -431,7 +431,7 @@ void genorm(internal::TargetType<Target::Devices>,
 
     if (norm == Norm::Max) {
         *values = lapack::lange(norm,
-                                devices_maxima.size(), 1,
+                                1, devices_maxima.size(),
                                 devices_maxima.data(), 1);
     }
     else if (norm == Norm::One) {

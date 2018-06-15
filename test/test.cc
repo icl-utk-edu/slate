@@ -504,17 +504,17 @@ Params::Params():
     ortho_V    ( "V orth.",               9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "V orthogonality error" ),
     error_sigma( "Sigma error",           9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "Sigma error" ),
 
-    time      ( "SLATE\ntime (s)",        9, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "time to solution" ),
+    time      ( "SLATE\ntime (s)",       10, 4, ParamType::Output, libtest::no_data_flag,   0,   0, "time to solution" ),
     gflops    ( "SLATE\nGflop/s",        10, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "Gflop/s rate" ),
     iters     ( "iters",        6,    ParamType::Output,                     0,   0,   0, "iterations to solution" ),
 
-    ref_time  ( "Ref.\ntime (s)",        10, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "reference time to solution" ),
+    ref_time  ( "Ref.\ntime (s)",        10, 4, ParamType::Output, libtest::no_data_flag,   0,   0, "reference time to solution" ),
     ref_gflops( "Ref.\nGflop/s",         10, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "reference Gflop/s rate" ),
     ref_iters ( "Ref.\niters",            6,    ParamType::Output,                     0,   0,   0, "reference iterations to solution" ),
 
     // default -1 means "no check"
     //          name,     w, type,              def, min, max, help
-    okay      ( "status", 8, ParamType::Output,  -1,   0,   0, "success indicator" )
+    okay      ( "status", 6, ParamType::Output,  -1,   0,   0, "success indicator" )
 {
     // mark standard set of output fields as used
     okay  .value();

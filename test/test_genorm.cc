@@ -32,7 +32,6 @@ void test_genorm_work(Params& params, bool run)
     int64_t nb = params.nb.value();
     int64_t p = params.p.value();
     int64_t q = params.q.value();
-    int64_t lookahead = params.lookahead.value();
     bool check = params.check.value()=='y';
     bool ref = params.ref.value()=='y';
     bool trace = params.trace.value()=='y';
@@ -88,7 +87,6 @@ void test_genorm_work(Params& params, bool run)
     double time = libtest::get_wtime();
 
     real_t A_norm = slate::genorm(norm, A, {
-        {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
 
@@ -124,7 +122,21 @@ void test_genorm_work(Params& params, bool run)
         double time_ref = libtest::get_wtime() - time;
 
         // difference between norms
-        real_t error = std::abs(A_norm - A_norm_ref);
+        real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
+        if (norm == lapack::Norm::One)
+            error /= sqrt( Am );
+        else if (norm == lapack::Norm::Inf)
+            error /= sqrt( An );
+        else if (norm == lapack::Norm::Fro)
+            error /= sqrt( Am*An );
+
+        // Allow for difference, except max norm in real should be exact.
+        real_t eps = std::numeric_limits<real_t>::epsilon();
+        real_t tol;
+        if (norm == lapack::Norm::Max && ! slate::is_complex<scalar_t>::value)
+            tol = 0;
+        else
+            tol = 3*eps;
 
         params.ref_time.value() = time_ref;
         params.error.value() = error;
@@ -132,8 +144,7 @@ void test_genorm_work(Params& params, bool run)
         slate_set_num_blas_threads(saved_num_threads);
 
         // Allow for difference
-        real_t eps = std::numeric_limits<real_t>::epsilon();
-        params.okay.value() = (params.error.value() <= 3*eps);
+        params.okay.value() = (params.error.value() <= tol);
     }
 
     //Cblacs_exit(1) is commented out because it does not handle re-entering ... some unknown problem

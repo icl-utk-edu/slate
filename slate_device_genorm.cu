@@ -90,6 +90,36 @@ inline double abs(cuDoubleComplex x)
     return cuCabs(x);
 }
 
+///-----------------------------------------------------------------------------
+/// Square of number.
+/// @return x^2
+template <typename scalar_t>
+__host__ __device__
+scalar_t sqr(scalar_t x)
+{
+    return x*x;
+}
+
+//------------------------------------------------------------------------------
+/// Adds two scaled, sum-of-squares representations.
+/// On exit, scale1 and sumsq1 are updated such that:
+///     scale1^2 sumsq1 := scale1^2 sumsq1 + scale2^2 sumsq2.
+template <typename real_t>
+__host__ __device__
+void add_sumsq(
+    real_t&       scale1, real_t&       sumsq1,
+    real_t const& scale2, real_t const& sumsq2 )
+{
+    if (scale1 > scale2) {
+        sumsq1 = sumsq1 + sumsq2*sqr(scale2 / scale1);
+        // scale1 stays same
+    }
+    else {
+        sumsq1 = sumsq1*sqr(scale1 / scale2) + sumsq2;
+        scale1 = scale2;
+    }
+}
+
 //------------------------------------------------------------------------------
 /// Finds the largest absolute value of elements, for each tile in tiles.
 /// Each thread block deals with one tile.
@@ -198,6 +228,129 @@ __global__ void genormOneKernel(
     tile_sums[threadIdx.x] = sum;
 }
 
+//------------------------------------------------------------------------------
+/// Sum of absolute values of each row of elements, for each tile in tiles.
+/// Each thread block deals with one tile.
+/// Each thread deals with one row.
+/// Kernel assumes non-trivial tiles (m, n >= 1).
+/// Launched by genorm().
+///
+/// @param[in] m
+///     Number of rows of each tile. m >= 1.
+///     Also the number of threads per block, hence,
+///     m <= 1024 for current CUDA architectures (2.x to 6.x).
+///
+/// @param[in] n
+///     Number of columns of each tile. n >= 1.
+///
+/// @param[in] tiles
+///     Array of tiles of dimension gridDim.x,
+///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///
+/// @param[in] lda
+///     Leading dimension of each tile. lda >= m.
+///
+/// @param[out] tiles_sums
+///     Array of dimension gridDim.x * blockDim.x.
+///     On exit, tiles_sums[k*m + i] = sum_{j} abs( A^(k)_(i, j) )
+///     for row i of tile A^(k).
+///
+template <typename scalar_t>
+__global__ void genormInfKernel(
+    int64_t m, int64_t n,
+    scalar_t const* const* tiles, int64_t lda,
+    blas::real_type<scalar_t>* tiles_sums)
+{
+    using real_t = blas::real_type<scalar_t>;
+    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* row = &tile[threadIdx.x];
+
+    // Each thread sums one row.
+    // This does coalesced reads of one column at a time in parallel.
+    real_t sum = abs(row[0]);
+    for (int64_t j = 1; j < n; ++j)
+        sum += abs(row[j*lda]);
+
+    real_t* tile_sums = &tiles_sums[blockIdx.x*m];
+    tile_sums[threadIdx.x] = sum;
+}
+
+//------------------------------------------------------------------------------
+/// Sum of squares, in scaled representation, for each tile in tiles.
+/// Each thread block deals with one tile.
+/// Each thread deals with one row, followed by a reduction.
+/// Kernel assumes non-trivial tiles (m, n >= 1).
+/// Launched by genorm().
+///
+/// @param[in] m
+///     Number of rows of each tile. m >= 1.
+///
+/// @param[in] n
+///     Number of columns of each tile. n >= 1.
+///     Also the number of threads per block, hence,
+///     n <= 1024 for current CUDA architectures (2.x to 6.x).
+///
+/// @param[in] tiles
+///     Array of tiles of dimension blockDim.x,
+///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///
+/// @param[in] lda
+///     Leading dimension of each tile. lda >= m.
+///
+/// @param[out] tiles_values
+///     Array of dimension 2 * blockDim.x.
+///     On exit,
+///         tiles_values[2*k + 0] = scale
+///         tiles_values[2*k + 1] = sumsq
+///     such that scale^2 * sumsq = sum_{i,j} abs( A^(k)_{i,j} )^2
+///     for tile A^(k).
+///
+template <typename scalar_t>
+__global__ void genormFroKernel(
+    int64_t m, int64_t n,
+    scalar_t const* const* tiles, int64_t lda,
+    blas::real_type<scalar_t>* tiles_values)
+{
+    using real_t = blas::real_type<scalar_t>;
+    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* row = &tile[threadIdx.x];
+
+    // Each thread finds sum-of-squares of one row.
+    // This does coalesced reads of one column at a time in parallel.
+    real_t scale = abs(row[0]);
+    real_t sumsq = 1;
+    for (int64_t j = 1; j < n; ++j) {
+        real_t absx = abs(row[j*lda]);
+        if (scale < absx) {
+            sumsq = 1 + sumsq * sqr(scale / absx);
+            scale = absx;
+        }
+        else {
+            sumsq = sumsq + sqr(absx / scale);
+        }
+    }
+
+    // Save partial results in shared memory.
+    extern __shared__ char dynamic_data[];
+    real_t* row_scale = (real_t*) &dynamic_data[0];
+    real_t* row_sumsq = &row_scale[m];
+    row_scale[threadIdx.x] = scale;
+    row_sumsq[threadIdx.x] = sumsq;
+    __syncthreads();
+
+    // Reduction to find sum-of-squares of tile.
+    // todo: parallel reduction.
+    if (threadIdx.x == 0) {
+        real_t tile_scale = row_scale[0];
+        real_t tile_sumsq = row_sumsq[0];
+        for (int64_t i = 1; i < m; ++i)
+            add_sumsq(tile_scale, tile_sumsq, row_scale[i], row_sumsq[i]);
+
+        tiles_values[blockIdx.x*2 + 0] = tile_scale;
+        tiles_values[blockIdx.x*2 + 1] = tile_sumsq;
+    }
+}
+
 // todo: tiles_maxima was renamed to values and serves different purposes
 //       depending on the type or norm.
 //------------------------------------------------------------------------------
@@ -224,9 +377,25 @@ __global__ void genormOneKernel(
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= m.
 ///
-/// @param[out] tiles_maxima
-///     Array of dimension batch_count.
-///     On exit, tiles_maxima[k] = max_{i, j}( abs( A^(k)_(i, j) )).
+/// @param[out] values
+///     - Norm::Max: dimension batch_count.
+///         On exit, values[k] = max_{i, j} abs( A^(k)_(i, j) )
+///         for 0 <= k < batch_count.
+///
+///     - Norm::One: dimension batch_count * n.
+///         On exit, values[k*n + j] = sum_{i} abs( A^(k)_(i, j) )
+///         for 0 <= k < batch_count, 0 <= j < n.
+///
+///     - Norm::Inf: dimension batch_count * m.
+///         On exit, values[k*m + i] = sum_{j} abs( A^(k)_(i, j) )
+///         for 0 <= k < batch_count, 0 <= i < m.
+///
+///     - Norm::Max: dimension batch_count * 2.
+///         On exit,
+///             values[k*2 + 0] = scale_k
+///             values[k*2 + 1] = sumsq_k
+///         where scale_k^2 sumsq_k = sum_{i,j} abs( A^(k)_(i, j) )^2
+///         for 0 <= k < batch_count.
 ///
 /// @param[in] batch_count
 ///     Size of Aarray. batch_count >= 0.
@@ -270,6 +439,31 @@ void genorm(
         else {
             assert(n <= 1024);
             genormOneKernel<<<batch_count, n, 0, stream>>>
+                (m, n, Aarray, lda, values);
+        }
+    }
+    //---------
+    // inf norm
+    else if (norm == lapack::Norm::Inf) {
+        if (m == 0 || n == 0) {
+            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * m, stream);
+        }
+        else {
+            assert(m <= 1024);
+            genormInfKernel<<<batch_count, m, 0, stream>>>
+                (m, n, Aarray, lda, values);
+        }
+    }
+    //---------
+    // Frobenius norm
+    else if (norm == lapack::Norm::Fro) {
+        if (m == 0 || n == 0) {
+            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * 2, stream);
+        }
+        else {
+            assert(m <= 1024);
+            // Max 1024 threads * 32 bytes = 32 KiB shared memory in double-complex.
+            genormFroKernel<<<batch_count, m, sizeof(scalar_t) * m * 2, stream>>>
                 (m, n, Aarray, lda, values);
         }
     }

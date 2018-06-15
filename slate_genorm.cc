@@ -141,6 +141,75 @@ genorm(slate::internal::TargetType<target>,
 
         return lapack::lange(Norm::Max, 1, A.n(), global_sums.data(), 1);
     }
+    //---------
+    // inf norm
+    // max row sum = max_i sum_j abs( A_{i,j} )
+    else if (norm == Norm::Inf) {
+
+        std::vector<real_t> local_sums(A.m());
+
+        if (target == Target::Devices)
+            A.reserveDeviceWorkspace();
+
+        #pragma omp parallel
+        #pragma omp master
+        {
+            internal::genorm<target>(norm, std::move(A), local_sums.data());
+        }
+
+        std::vector<real_t> global_sums(A.m());
+        int retval;
+
+        #pragma omp critical(slate_mpi)
+        {
+            trace::Block trace_block("MPI_Allreduce");
+            retval = MPI_Allreduce(local_sums.data(), global_sums.data(),
+                                   A.m(), mpi_type<real_t>::value,
+                                   MPI_SUM, A.mpiComm());
+        }
+        assert(retval == MPI_SUCCESS);
+
+        A.clearWorkspace();
+
+        return lapack::lange(Norm::Max, A.m(), 1, global_sums.data(), 1);
+    }
+    //---------
+    // Frobenius norm
+    // sqrt( sum_{i,j} abs( A_{i,j} )^2 )
+    else if (norm == Norm::Fro) {
+
+        real_t local_values[2];
+        real_t local_sumsq;
+        real_t global_sumsq;
+
+        if (target == Target::Devices)
+            A.reserveDeviceWorkspace();
+
+        #pragma omp parallel
+        #pragma omp master
+        {
+            internal::genorm<target>(norm, std::move(A), local_values);
+        }
+
+        int retval;
+
+        #pragma omp critical(slate_mpi)
+        {
+            trace::Block trace_block("MPI_Allreduce");
+            // todo: propogate scale
+            local_sumsq = local_values[0] * local_values[0] * local_values[1];
+            retval = MPI_Allreduce(&local_sumsq, &global_sumsq,
+                                   1, mpi_type<real_t>::value,
+                                   MPI_SUM, A.mpiComm());
+            //printf( "local values %.4f, %.4f, local sumsq %.4f, global sumsq %.4f\n",
+            //        local_values[0], local_values[1], local_sumsq, global_sumsq );
+        }
+        assert(retval == MPI_SUCCESS);
+
+        A.clearWorkspace();
+
+        return sqrt(global_sumsq);
+    }
     else {
         throw std::exception();  // todo: invalid norm
     }

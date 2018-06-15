@@ -85,9 +85,44 @@ void genorm(
 namespace internal {
 
 ///-----------------------------------------------------------------------------
-/// \brief
+/// Square of number.
+/// @return x^2
+template <typename scalar_t>
+scalar_t sqr(scalar_t x)
+{
+    return x*x;
+}
+
+//------------------------------------------------------------------------------
+/// Adds two scaled, sum-of-squares representations.
+/// On exit, scale1 and sumsq1 are updated such that:
+///     scale1^2 sumsq1 := scale1^2 sumsq1 + scale2^2 sumsq2.
+template <typename real_t>
+__host__ __device__
+void add_sumsq(
+    real_t&       scale1, real_t&       sumsq1,
+    real_t const& scale2, real_t const& sumsq2 )
+{
+    if (scale1 > scale2) {
+        sumsq1 = sumsq1 + sumsq2*sqr(scale2 / scale1);
+        // scale1 stays same
+    }
+    else {
+        sumsq1 = sumsq1*sqr(scale1 / scale2) + sumsq2;
+        scale1 = scale2;
+    }
+}
+
+///-----------------------------------------------------------------------------
 /// General matrix norm.
 /// Dispatches to target implementations.
+///
+/// @param norm
+/// - Norm::Max: values is dimension 1 and contains the local max.
+/// - Norm::One: values is dimension n and contains the local column sum.
+/// - Norm::Inf: values is dimension m and contains the local row sum.
+/// - Norm::Fro: values is dimension 1 and contains the local sum-of-squares.
+///
 template <Target target, typename scalar_t>
 void genorm(Norm norm, Matrix<scalar_t>&& A, blas::real_type<scalar_t>* values,
        int priority)
@@ -172,6 +207,64 @@ void genorm(internal::TargetType<Target::HostTask>,
                 values[j] += tiles_sums[A.n()*i+j];
 
     }
+    //---------
+    // inf norm
+    // max row sum = max_ii sum_jj abs( A_{ii,jj} )
+    else if (norm == Norm::Inf) {
+
+        // Sum each row within a tile.
+        std::vector<real_t> tiles_sums(A.m()*A.nt(), 0.0);
+        int64_t ii = 0;
+        for (int64_t i = 0; i < A.mt(); ++i) {
+            for (int64_t j = 0; j < A.nt(); ++j) {
+                if (A.tileIsLocal(i, j)) {
+                    #pragma omp task shared(A, tiles_sums) priority(priority)
+                    {
+                        A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                        genorm(norm, A(i, j), &tiles_sums[A.m()*j + ii]);
+                    }
+                }
+            }
+            ii += A.tileMb(i);
+        }
+
+        #pragma omp taskwait
+
+        // Sum tile results into local results.
+        // todo: This is currently a performance bottleneck.
+        // Perhaps omp taskloop could be applied here.
+        // Perhaps with chunking of A.nb().
+        std::fill_n(values, A.m(), 0.0);
+        for (int64_t j = 0; j < A.nt(); ++j)
+            for (int64_t ii = 0; ii < A.m(); ++ii)
+                values[ii] += tiles_sums[A.m()*j + ii];
+    }
+    //---------
+    // Frobenius norm
+    // sqrt( sum_{ii,jj} abs( A_{ii,jj} )^2 )
+    // In scaled form: scale^2 sumsq = sum abs( A_{ii,jj}^2 )
+    else if (norm == Norm::Fro) {
+
+        values[0] = 0;  // scale
+        values[1] = 1;  // sumsq
+        for (int64_t i = 0; i < A.mt(); ++i) {
+            for (int64_t j = 0; j < A.nt(); ++j) {
+                if (A.tileIsLocal(i, j)) {
+                    #pragma omp task shared(A, values) priority(priority)
+                    {
+                        A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                        real_t tile_values[2];
+                        genorm(norm, A(i, j), tile_values);
+                        #pragma omp critical
+                        {
+                            add_sumsq(values[0], values[1],
+                                      tile_values[0], tile_values[1]);
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 ///-----------------------------------------------------------------------------
@@ -227,11 +320,24 @@ void genorm(internal::TargetType<Target::Devices>,
     std::vector<scalar_t**> a_arrays_dev(A.num_devices());
     std::vector<real_t*> vals_arrays_dev(A.num_devices());
 
+    // devices_values used for max and Frobenius norms.
+    std::vector<real_t> devices_values(A.num_devices());
+
     int64_t vals_chunk;
-    if (norm == Norm::Max)
+    if (norm == Norm::Max) {
         vals_chunk = 1;
-    else if (norm == Norm::One)
+        devices_values.resize(A.num_devices());
+    }
+    else if (norm == Norm::One) {
         vals_chunk = A.tileNb(0);
+    }
+    else if (norm == Norm::Inf) {
+        vals_chunk = A.tileMb(0);
+    }
+    else if (norm == Norm::Fro) {
+        vals_chunk = 2;
+        devices_values.resize(A.num_devices() * 2);
+    }
 
     for (int device = 0; device < A.num_devices(); ++device) {
 
@@ -253,7 +359,6 @@ void genorm(internal::TargetType<Target::Devices>,
         assert(error == cudaSuccess);
     }
 
-    std::vector<real_t> devices_maxima(A.num_devices());
     // Define index ranges for quadrants of matrix.
     // Tiles in each quadrant are all the same size.
     int64_t irange[4][2] = {
@@ -270,7 +375,7 @@ void genorm(internal::TargetType<Target::Devices>,
     };
 
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task shared(A, devices_maxima, vals_arrays_host) \
+        #pragma omp task shared(A, devices_values, vals_arrays_host) \
                          priority(priority)
         {
             for (int64_t i = 0; i < A.mt(); ++i)
@@ -347,8 +452,16 @@ void genorm(internal::TargetType<Target::Devices>,
 
             // Reduction over tiles to device result.
             if (norm == Norm::Max) {
-                devices_maxima[device] =
+                devices_values[device] =
                     lapack::lange(norm, 1, batch_count, vals_array_host, 1);
+            }
+            else if (norm == Norm::Fro) {
+                for (int64_t k = 0; k < batch_count; ++k) {
+                    add_sumsq(devices_values[2*device + 0],
+                              devices_values[2*device + 1],
+                              vals_array_host[2*k + 0],
+                              vals_array_host[2*k + 1]);
+                }
             }
         }
     }
@@ -371,8 +484,8 @@ void genorm(internal::TargetType<Target::Devices>,
     // Reduction over devices to local result.
     if (norm == Norm::Max) {
         *values = lapack::lange(norm,
-                                1, devices_maxima.size(),
-                                devices_maxima.data(), 1);
+                                1, devices_values.size(),
+                                devices_values.data(), 1);
     }
     else if (norm == Norm::One) {
 
@@ -397,6 +510,40 @@ void genorm(internal::TargetType<Target::Devices>,
                     }
                 }
             }
+        }
+    }
+    else if (norm == Norm::Inf) {
+
+        for (int device = 0; device < A.num_devices(); ++device) {
+
+            real_t* vals_array_host = vals_arrays_host[device].data();
+
+            int64_t batch_count = 0;
+            for (int q = 0; q < 4; ++q) {
+                int64_t mb = A.tileMb(jrange[q][0]);
+                for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
+                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
+                        if (A.tileIsLocal(i, j)) {
+                            if (device == A.tileDevice(i, j)) {
+                                blas::axpy(
+                                    mb, 1.0,
+                                    &vals_array_host[batch_count*vals_chunk], 1,
+                                    &values[i*vals_chunk], 1);
+                                ++batch_count;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    else if (norm == Norm::Fro) {
+        values[0] = 0;
+        values[1] = 1;
+        for (int device = 0; device < A.num_devices(); ++device) {
+            add_sumsq(values[0], values[1],
+                      devices_values[2*device + 0],
+                      devices_values[2*device + 1]);
         }
     }
 }

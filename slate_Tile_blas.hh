@@ -584,6 +584,31 @@ void genorm(Norm norm, Tile<scalar_t> const& A,
             }
         }
     }
+    // inf norm
+    // values[i] = sum_j abs( A_{i,j} )
+    else if (norm == Norm::Inf) {
+        for (int64_t i = 0; i < A.mb(); ++i) {
+            values[i] = std::abs( A(i, 0) );
+        }
+        for (int64_t j = 1; j < A.nb(); ++j) {
+            for (int64_t i = 0; i < A.mb(); ++i) {
+                values[i] += std::abs( A(i, j) );
+            }
+        }
+    }
+    // Frobenius norm
+    // values[0] = scale, values[1] = sumsq such that
+    // scale^2 * sumsq = sum_{i,j} abs( A_{i,j} )^2
+    else if (norm == Norm::Fro) {
+        values[0] = 0;  // scale
+        values[1] = 1;  // sumsq
+        for (int64_t j = 0; j < A.nb(); ++j) {
+            lapack::lassq(A.mb(), &A.at(0, j), 1, &values[0], &values[1]);
+        }
+    }
+    else {
+        throw std::exception();  // invalid norm
+    }
 }
 
 ///----------------------------------------

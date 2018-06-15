@@ -66,6 +66,7 @@ genorm(slate::internal::TargetType<target>,
 
     //---------
     // max norm
+    // max_{i,j} abs( A_{i,j} )
     if (norm == Norm::Max) {
 
         real_t local_max;
@@ -82,7 +83,6 @@ genorm(slate::internal::TargetType<target>,
 
         int retval;
 
-        // todo: make op_max_nan a static member of BaseMatrix?
         MPI_Op op_max_nan;
         #pragma omp critical(slate_mpi)
         {
@@ -111,6 +111,7 @@ genorm(slate::internal::TargetType<target>,
     }
     //---------
     // one norm
+    // max col sum = max_j sum_i abs( A_{i,j} )
     else if (norm == Norm::One) {
 
         std::vector<real_t> local_sums(A.n());

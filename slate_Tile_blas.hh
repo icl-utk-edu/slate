@@ -568,19 +568,19 @@ void genorm(Norm norm, Tile<scalar_t> const& A,
     assert(A.op() == Op::NoTrans);
 
     // max norm
+    // values[0] = max_{i,j} A_{i,j}
     if (norm == Norm::Max) {
         *values = lapack::lange(norm,
                                 A.mb(), A.nb(),
                                 A.data(), A.stride());
     }
     // one norm
+    // values[j] = sum_i abs( A_{i,j} )
     else if (norm == Norm::One) {
-
-        // todo: introduce [] operator for A.
         for (int64_t j = 0; j < A.nb(); ++j) {
-            values[j] = abs(*(A.data()+A.stride()*j));
+            values[j] = std::abs(A(0, j));
             for (int64_t i = 1; i < A.mb(); ++i) {
-                values[j] += abs(*(A.data()+A.stride()*j+i));
+                values[j] += std::abs(A(i, j));
             }
         }
     }

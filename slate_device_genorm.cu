@@ -91,7 +91,7 @@ inline double abs(cuDoubleComplex x)
 }
 
 //------------------------------------------------------------------------------
-/// Returns the largest absolute value of elements for each tile in tiles.
+/// Finds the largest absolute value of elements, for each tile in tiles.
 /// Each thread block deals with one tile.
 /// Each thread deals with one column, followed by a reduction.
 /// Kernel assumes non-trivial tiles (m, n >= 1).
@@ -150,6 +150,31 @@ __global__ void genormMaxKernel(
 }
 
 //------------------------------------------------------------------------------
+/// Sum of absolute values of each column of elements, for each tile in tiles.
+/// Each thread block deals with one tile.
+/// Each thread deals with one column.
+/// Kernel assumes non-trivial tiles (m, n >= 1).
+/// Launched by genorm().
+///
+/// @param[in] m
+///     Number of rows of each tile. m >= 1.
+///
+/// @param[in] n
+///     Number of columns of each tile. n >= 1.
+///     Also the number of threads per block (blockDim.x), hence,
+///     n <= 1024 for current CUDA architectures (2.x to 6.x).
+///
+/// @param[in] tiles
+///     Array of tiles of dimension gridDim.x,
+///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///
+/// @param[in] lda
+///     Leading dimension of each tile. lda >= m.
+///
+/// @param[out] tiles_sums
+///     Array of dimension gridDim.x * blockDim.x.
+///     On exit, tiles_sums[k*n + j] = max_{i} abs( A^(k)_(i, j) )
+///     for row j of tile A^(k).
 ///
 template <typename scalar_t>
 __global__ void genormOneKernel(
@@ -161,6 +186,8 @@ __global__ void genormOneKernel(
     scalar_t const* tile = tiles[blockIdx.x];
     scalar_t const* column = &tile[lda*threadIdx.x];
 
+    // Each thread sums one column.
+    // todo: this doesn't do coalesced reads
     real_t sum = abs(column[0]);
     for (int64_t i = 1; i < m; ++i)
         sum += abs(column[i]);
@@ -202,6 +229,9 @@ __global__ void genormOneKernel(
 /// @param[in] batch_count
 ///     Size of Aarray. batch_count >= 0.
 ///
+/// @param[in] stream
+///     CUDA stream to execute in.
+///
 template <typename scalar_t>
 void genorm(
     lapack::Norm norm,
@@ -219,9 +249,8 @@ void genorm(
     //---------
     // max norm
     if (norm == lapack::Norm::Max) {
-
         if (m == 0 || n == 0) {
-            cudaMemset(values, 0, sizeof(real_t)*batch_count);
+            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count, stream);
         }
         else {
             assert(n <= 1024);
@@ -235,14 +264,12 @@ void genorm(
     //---------
     // one norm
     else if (norm == lapack::Norm::One) {
-
         if (m == 0 || n == 0) {
-            // todo: Set to zero.
+            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * n, stream);
         }
         else {
-            dim3 dimBlock(blas::max(1, n));
-            dim3 dimGrid(batch_count);
-            genormOneKernel<<<dimGrid, dimBlock, 0, stream>>>
+            assert(n <= 1024);
+            genormOneKernel<<<batch_count, n, 0, stream>>>
                 (m, n, Aarray, lda, values);
         }
     }

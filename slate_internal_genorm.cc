@@ -46,12 +46,6 @@
 
 #include <vector>
 
-#ifdef SLATE_WITH_MKL
-    #include <mkl_cblas.h>
-#else
-    #include <cblas.h>
-#endif
-
 namespace slate {
 
 ///-----------------------------------------------------------------------------
@@ -104,7 +98,6 @@ void genorm(Norm norm, Matrix<scalar_t>&& A, blas::real_type<scalar_t>* values,
 }
 
 ///-----------------------------------------------------------------------------
-/// \brief
 /// General matrix norm.
 /// Host OpenMP task implementation.
 template <typename scalar_t>
@@ -114,10 +107,13 @@ void genorm(internal::TargetType<Target::HostTask>,
 {
     using real_t = blas::real_type<scalar_t>;
 
+    // i, j are tile row, tile col indices; ii, jj are row, col indices.
     //---------
     // max norm
+    // max_{ii,jj} abs( A_{ii,jj} )
     if (norm == Norm::Max) {
 
+        // Find max of each tile, append to tiles_maxima.
         std::vector<real_t> tiles_maxima;
         for (int64_t i = 0; i < A.mt(); ++i) {
             for (int64_t j = 0; j < A.nt(); ++j) {
@@ -138,38 +134,39 @@ void genorm(internal::TargetType<Target::HostTask>,
 
         #pragma omp taskwait
 
+        // Find max of tiles_maxima.
         *values = lapack::lange(norm,
                                 1, tiles_maxima.size(),
                                 tiles_maxima.data(), 1);
     }
     //---------
     // one norm
+    // max col sum = max_jj sum_ii abs( A_{ii,jj} )
     else if (norm == Norm::One) {
 
-        // todo: Is setting to zero necessary?
+        // Sum each column within a tile.
         std::vector<real_t> tiles_sums(A.n()*A.mt(), 0.0);
         for (int64_t i = 0; i < A.mt(); ++i) {
-            int64_t j_offs = 0;
+            int64_t jj = 0;
             for (int64_t j = 0; j < A.nt(); ++j) {
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, tiles_sums) priority(priority)
                     {
                         A.tileCopyToHost(i, j, A.tileDevice(i, j));
-                        genorm(norm, A(i, j), &tiles_sums[A.n()*i+j_offs]);
+                        genorm(norm, A(i, j), &tiles_sums[A.n()*i+jj]);
                     }
                 }
-                j_offs += A.tileNb(j);
+                jj += A.tileNb(j);
             }
         }
 
         #pragma omp taskwait
 
+        // Sum tile results into local results.
         // todo: This is currently a performance bottleneck.
         // Perhaps omp taskloop could be applied here.
         // Perhaps with chunking of A.nb().
-        for (int64_t j = 0; j < A.n(); ++j)
-            values[j] = 0.0;
-
+        std::fill_n(values, A.n(), 0.0);
         for (int64_t i = 0; i < A.mt(); ++i)
             for (int64_t j = 0; j < A.n(); ++j)
                 values[j] += tiles_sums[A.n()*i+j];
@@ -178,7 +175,6 @@ void genorm(internal::TargetType<Target::HostTask>,
 }
 
 ///-----------------------------------------------------------------------------
-/// \brief
 /// General matrix norm.
 /// Host nested OpenMP implementation.
 template <typename scalar_t>
@@ -214,7 +210,6 @@ void genorm(internal::TargetType<Target::HostNest>,
 }
 
 ///-----------------------------------------------------------------------------
-/// \brief
 /// General matrix norm.
 /// GPU device implementation.
 template <typename scalar_t>
@@ -246,14 +241,14 @@ void genorm(internal::TargetType<Target::Devices>,
 
         int64_t num_tiles = A.getMaxDeviceTiles(device);
 
-        a_arrays_host.at(device) = std::vector<scalar_t*>(num_tiles);
-        vals_arrays_host.at(device) = std::vector<real_t>(num_tiles*vals_chunk);
+        a_arrays_host[device].resize(num_tiles);
+        vals_arrays_host[device].resize(num_tiles*vals_chunk);
 
-        error = cudaMalloc((void**)&a_arrays_dev.at(device),
+        error = cudaMalloc((void**)&a_arrays_dev[device],
                            sizeof(scalar_t*)*num_tiles);
         assert(error == cudaSuccess);
 
-        error = cudaMalloc((void**)&vals_arrays_dev.at(device),
+        error = cudaMalloc((void**)&vals_arrays_dev[device],
                            sizeof(real_t)*num_tiles*vals_chunk);
         assert(error == cudaSuccess);
     }
@@ -270,8 +265,9 @@ void genorm(internal::TargetType<Target::Devices>,
                         if (device == A.tileDevice(i, j))
                             A.tileCopyToDevice(i, j, device);
 
-            scalar_t** a_array_host = a_arrays_host.at(device).data();
-            scalar_t** a_array_dev = a_arrays_dev.at(device);
+            // Setup batched arguments.
+            scalar_t** a_array_host = a_arrays_host[device].data();
+            scalar_t** a_array_dev = a_arrays_dev[device];
 
             int64_t batch_count = 0;
             int64_t batch_count_00 = 0;
@@ -344,9 +340,10 @@ void genorm(internal::TargetType<Target::Devices>,
                 }
             }
 
-            real_t* vals_array_host = vals_arrays_host.at(device).data();
-            real_t* vals_array_dev = vals_arrays_dev.at(device);
+            real_t* vals_array_host = vals_arrays_host[device].data();
+            real_t* vals_array_dev = vals_arrays_dev[device];
 
+            // Batched call to compute partial results for each tile.
             {
                 trace::Block trace_block("slate::device::genorm");
 
@@ -395,7 +392,7 @@ void genorm(internal::TargetType<Target::Devices>,
                                    vals_array_dev, batch_count_11, stream);
                 }
 
-                vals_array_dev = vals_arrays_dev.at(device);
+                vals_array_dev = vals_arrays_dev[device];
 
                 error = cudaMemcpyAsync(vals_array_host, vals_array_dev,
                                         sizeof(real_t)*batch_count*vals_chunk,
@@ -407,8 +404,9 @@ void genorm(internal::TargetType<Target::Devices>,
                 assert(error == cudaSuccess);
             }
 
+            // Reduction over tiles to device result.
             if (norm == Norm::Max) {
-                devices_maxima.at(device) =
+                devices_maxima[device] =
                     lapack::lange(norm, 1, batch_count, vals_array_host, 1);
             }
         }
@@ -422,13 +420,14 @@ void genorm(internal::TargetType<Target::Devices>,
         error = cudaSetDevice(device);
         assert(error == cudaSuccess);
 
-        error = cudaFree((void*)a_arrays_dev.at(device));
+        error = cudaFree((void*)a_arrays_dev[device]);
         assert(error == cudaSuccess);
 
-        error = cudaFree((void*)vals_arrays_dev.at(device));
+        error = cudaFree((void*)vals_arrays_dev[device]);
         assert(error == cudaSuccess);
     }
 
+    // Reduction over devices to local result.
     if (norm == Norm::Max) {
         *values = lapack::lange(norm,
                                 1, devices_maxima.size(),
@@ -438,7 +437,7 @@ void genorm(internal::TargetType<Target::Devices>,
 
         for (int device = 0; device < A.num_devices(); ++device) {
 
-            real_t* vals_array_host = vals_arrays_host.at(device).data();
+            real_t* vals_array_host = vals_arrays_host[device].data();
 
             int64_t batch_count = 0;
             int64_t nb00 = A.tileNb(0);

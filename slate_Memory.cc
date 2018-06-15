@@ -191,7 +191,6 @@ void* Memory::allocBlock(int device)
     else
         block = allocDeviceMemory(device, block_size_);
 
-    allocated_mem_[device].push(block);
     capacity_[device] += 1;
     return block;
 }
@@ -207,6 +206,7 @@ void* Memory::allocHostMemory(size_t size)
     // assert(error == cudaSuccess);
     host_mem = malloc(size);
     assert(host_mem != nullptr);
+    allocated_mem_[host_num_].push(host_mem);
 
     return host_mem;
 }
@@ -224,6 +224,7 @@ void* Memory::allocDeviceMemory(int device, size_t size)
     double* dev_mem;
     error = cudaMalloc((void**)&dev_mem, size);
     assert(error == cudaSuccess);
+    allocated_mem_[device].push(dev_mem);
 
     return dev_mem;
 }

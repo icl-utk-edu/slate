@@ -65,6 +65,71 @@ inline T max_nan(T x, T y)
 }
 
 //------------------------------------------------------------------------------
+/// Max reduction of n-element array x, leaving total in x[0]. Propogates NaN
+/// values consistently.
+/// With k threads, can reduce array up to 2*k in size. Assumes number of
+/// threads <= 1024, which is the current max number of CUDA threads.
+///
+/// @param[in] n
+///		Size of array.
+///
+/// @param[in] tid
+///     Thread id.
+///
+/// @param[in] x
+///     Array of dimension n. On exit, x[0] = max(x[0], ..., x[n-1]);
+///     the rest of x is overwritten.
+///
+template <typename T>
+__device__ void
+max_nan_reduce(int n, int tid, T* x)
+{
+    if (n > 1024) { if (tid < 1024 && tid + 1024 < n) { x[tid] = max_nan(x[tid], x[tid+1024]); }  __syncthreads(); }
+    if (n >  512) { if (tid <  512 && tid +  512 < n) { x[tid] = max_nan(x[tid], x[tid+ 512]); }  __syncthreads(); }
+    if (n >  256) { if (tid <  256 && tid +  256 < n) { x[tid] = max_nan(x[tid], x[tid+ 256]); }  __syncthreads(); }
+    if (n >  128) { if (tid <  128 && tid +  128 < n) { x[tid] = max_nan(x[tid], x[tid+ 128]); }  __syncthreads(); }
+    if (n >   64) { if (tid <   64 && tid +   64 < n) { x[tid] = max_nan(x[tid], x[tid+  64]); }  __syncthreads(); }
+    if (n >   32) { if (tid <   32 && tid +   32 < n) { x[tid] = max_nan(x[tid], x[tid+  32]); }  __syncthreads(); }
+    if (n >   16) { if (tid <   16 && tid +   16 < n) { x[tid] = max_nan(x[tid], x[tid+  16]); }  __syncthreads(); }
+    if (n >    8) { if (tid <    8 && tid +    8 < n) { x[tid] = max_nan(x[tid], x[tid+   8]); }  __syncthreads(); }
+    if (n >    4) { if (tid <    4 && tid +    4 < n) { x[tid] = max_nan(x[tid], x[tid+   4]); }  __syncthreads(); }
+    if (n >    2) { if (tid <    2 && tid +    2 < n) { x[tid] = max_nan(x[tid], x[tid+   2]); }  __syncthreads(); }
+    if (n >    1) { if (tid <    1 && tid +    1 < n) { x[tid] = max_nan(x[tid], x[tid+   1]); }  __syncthreads(); }
+}
+
+//------------------------------------------------------------------------------
+/// Sum reduction of n-element array x, leaving total in x[0].
+/// With k threads, can reduce array up to 2*k in size. Assumes number of
+/// threads <= 1024 (which is current max number of CUDA threads).
+///
+/// @param[in] n
+///		Size of array.
+///
+/// @param[in] tid
+///     Thread id.
+///
+/// @param[in] x
+///     Array of dimension n. On exit, x[0] = sum(x[0], ..., x[n-1]);
+///     rest of x is overwritten.
+///
+template <typename T>
+__device__ void
+sum_reduce(int n, int tid, T* x)
+{
+    if (n > 1024) { if (tid < 1024 && tid + 1024 < n) { x[tid] += x[tid+1024]; }  __syncthreads(); }
+    if (n >  512) { if (tid <  512 && tid +  512 < n) { x[tid] += x[tid+ 512]; }  __syncthreads(); }
+    if (n >  256) { if (tid <  256 && tid +  256 < n) { x[tid] += x[tid+ 256]; }  __syncthreads(); }
+    if (n >  128) { if (tid <  128 && tid +  128 < n) { x[tid] += x[tid+ 128]; }  __syncthreads(); }
+    if (n >   64) { if (tid <   64 && tid +   64 < n) { x[tid] += x[tid+  64]; }  __syncthreads(); }
+    if (n >   32) { if (tid <   32 && tid +   32 < n) { x[tid] += x[tid+  32]; }  __syncthreads(); }
+    if (n >   16) { if (tid <   16 && tid +   16 < n) { x[tid] += x[tid+  16]; }  __syncthreads(); }
+    if (n >    8) { if (tid <    8 && tid +    8 < n) { x[tid] += x[tid+   8]; }  __syncthreads(); }
+    if (n >    4) { if (tid <    4 && tid +    4 < n) { x[tid] += x[tid+   4]; }  __syncthreads(); }
+    if (n >    2) { if (tid <    2 && tid +    2 < n) { x[tid] += x[tid+   2]; }  __syncthreads(); }
+    if (n >    1) { if (tid <    1 && tid +    1 < n) { x[tid] += x[tid+   1]; }  __syncthreads(); }
+}
+
+//------------------------------------------------------------------------------
 /// Overloaded versions of absolute value on device.
 __host__ __device__
 inline float abs(float x)
@@ -171,13 +236,9 @@ __global__ void genormMaxKernel(
     __syncthreads();
 
     // Reduction to find max of tile.
-    // todo: parallel reduction.
+    max_nan_reduce(blockDim.x, threadIdx.x, row_max);
     if (threadIdx.x == 0) {
-        real_t tile_max = row_max[0];
-        for (int64_t i = 1; i < m; ++i)
-            tile_max = max_nan(tile_max, row_max[i]);
-
-        tiles_maxima[blockIdx.x] = tile_max;
+        tiles_maxima[blockIdx.x] = row_max[0];
     }
 }
 

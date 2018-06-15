@@ -467,6 +467,12 @@ void genorm(
                 (m, n, Aarray, lda, values);
         }
     }
+
+    // check that launch succeeded (could still have async errors)
+    cudaError_t error = cudaGetLastError();
+    if (error != cudaSuccess) {
+        throw std::exception();
+    }
 }
 
 //------------------------------------------------------------------------------

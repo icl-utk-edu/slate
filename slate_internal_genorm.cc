@@ -98,7 +98,6 @@ scalar_t sqr(scalar_t x)
 /// On exit, scale1 and sumsq1 are updated such that:
 ///     scale1^2 sumsq1 := scale1^2 sumsq1 + scale2^2 sumsq2.
 template <typename real_t>
-__host__ __device__
 void add_sumsq(
     real_t&       scale1, real_t&       sumsq1,
     real_t const& scale2, real_t const& sumsq2 )
@@ -203,9 +202,8 @@ void genorm(internal::TargetType<Target::HostTask>,
         // Perhaps with chunking of A.nb().
         std::fill_n(values, A.n(), 0.0);
         for (int64_t i = 0; i < A.mt(); ++i)
-            for (int64_t j = 0; j < A.n(); ++j)
-                values[j] += tiles_sums[A.n()*i+j];
-
+            for (int64_t jj = 0; jj < A.n(); ++jj)
+                values[jj] += tiles_sums[A.n()*i + jj];
     }
     //---------
     // inf norm
@@ -514,7 +512,7 @@ void genorm(internal::TargetType<Target::Devices>,
 
             int64_t batch_count = 0;
             for (int q = 0; q < 4; ++q) {
-                int64_t mb = A.tileMb(jrange[q][0]);
+                int64_t mb = A.tileMb(irange[q][0]);
                 for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                         if (A.tileIsLocal(i, j)) {

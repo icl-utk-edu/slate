@@ -73,6 +73,8 @@ void test_genorm_work(Params& params, bool run)
     std::vector<scalar_t> A_tst(lldA * nlocA);
     scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
 
+    // todo: work-around to initialize BaseMatrix::num_devices_
+    slate::Matrix<scalar_t> A0(Am, An, nb, p, q, MPI_COMM_WORLD);
 
     slate::Matrix<scalar_t> A;
     std::vector<scalar_t*> Aarray(A.num_devices());

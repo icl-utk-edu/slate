@@ -167,7 +167,7 @@ genorm(slate::internal::TargetType<target>,
 
         A.clearWorkspace();
 
-        return lapack::lange(Norm::Max, A.m(), 1, global_sums.data(), 1);
+        return lapack::lange(Norm::Max, 1, A.m(), global_sums.data(), 1);
     }
     //---------
     // Frobenius norm

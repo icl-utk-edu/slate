@@ -127,7 +127,7 @@ public:
     }
 
     /// Returns number of devices (per MPI process) to distribute matrix to.
-    int64_t num_devices() const { return num_devices_; }
+    int num_devices() const { return num_devices_; }
 
     int64_t m() const;
     int64_t n() const;

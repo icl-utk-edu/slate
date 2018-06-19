@@ -268,6 +268,10 @@ test_src = \
         test/test_herk.cc  \
         test/test_genorm.cc  \
         test/test_trnorm.cc  \
+        test/pslantr.f \
+        test/pdlantr.f \
+        test/pclantr.f \
+        test/pzlantr.f \
 
 # unit testers
 unit_src = \
@@ -482,6 +486,9 @@ distclean: clean
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+%.o: %.f
+	$(FC) $(FCFLAGS) -c $< -o $@
+
 %.o: %.cu
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
@@ -545,6 +552,9 @@ echo:
 	@echo "nwords        = $(nwords)"
 	@echo "nwords_1      = $(nwords_1)"
 	@echo "nv_compute_last = $(nv_compute_last)"
+	@echo
+	@echo "FC            = $(FC)"
+	@echo "FCFLAGS       = $(FCFLAGS)"
 	@echo
 	@echo "LDFLAGS       = $(LDFLAGS)"
 	@echo "LIB           = $(LIB)"

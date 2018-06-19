@@ -81,29 +81,27 @@ genorm(slate::internal::TargetType<target>,
             internal::genorm<target>(norm, std::move(A), &local_max);
         }
 
-        int retval;
-
         MPI_Op op_max_nan;
         #pragma omp critical(slate_mpi)
         {
-            retval = MPI_Op_create(mpi_max_nan, true, &op_max_nan);
+            slate_mpi_call(
+                MPI_Op_create(mpi_max_nan, true, &op_max_nan));
         }
-        assert(retval == MPI_SUCCESS);
 
         #pragma omp critical(slate_mpi)
         {
             trace::Block trace_block("MPI_Allreduce");
-            retval = MPI_Allreduce(&local_max, &global_max,
-                                   1, mpi_type<real_t>::value,
-                                   op_max_nan, A.mpiComm());
+            slate_mpi_call(
+                MPI_Allreduce(&local_max, &global_max,
+                              1, mpi_type<real_t>::value,
+                              op_max_nan, A.mpiComm()));
         }
-        assert(retval == MPI_SUCCESS);
 
         #pragma omp critical(slate_mpi)
         {
-            retval = MPI_Op_free(&op_max_nan);
+            slate_mpi_call(
+                MPI_Op_free(&op_max_nan));
         }
-        assert(retval == MPI_SUCCESS);
 
         A.clearWorkspace();
 
@@ -126,16 +124,15 @@ genorm(slate::internal::TargetType<target>,
         }
 
         std::vector<real_t> global_sums(A.n());
-        int retval;
 
         #pragma omp critical(slate_mpi)
         {
             trace::Block trace_block("MPI_Allreduce");
-            retval = MPI_Allreduce(local_sums.data(), global_sums.data(),
-                                   A.n(), mpi_type<real_t>::value,
-                                   MPI_SUM, A.mpiComm());
+            slate_mpi_call(
+                MPI_Allreduce(local_sums.data(), global_sums.data(),
+                              A.n(), mpi_type<real_t>::value,
+                              MPI_SUM, A.mpiComm()));
         }
-        assert(retval == MPI_SUCCESS);
 
         A.clearWorkspace();
 
@@ -158,16 +155,15 @@ genorm(slate::internal::TargetType<target>,
         }
 
         std::vector<real_t> global_sums(A.m());
-        int retval;
 
         #pragma omp critical(slate_mpi)
         {
             trace::Block trace_block("MPI_Allreduce");
-            retval = MPI_Allreduce(local_sums.data(), global_sums.data(),
-                                   A.m(), mpi_type<real_t>::value,
-                                   MPI_SUM, A.mpiComm());
+            slate_mpi_call(
+                MPI_Allreduce(local_sums.data(), global_sums.data(),
+                              A.m(), mpi_type<real_t>::value,
+                              MPI_SUM, A.mpiComm()));
         }
-        assert(retval == MPI_SUCCESS);
 
         A.clearWorkspace();
 
@@ -191,20 +187,16 @@ genorm(slate::internal::TargetType<target>,
             internal::genorm<target>(norm, std::move(A), local_values);
         }
 
-        int retval;
-
         #pragma omp critical(slate_mpi)
         {
             trace::Block trace_block("MPI_Allreduce");
             // todo: propogate scale
             local_sumsq = local_values[0] * local_values[0] * local_values[1];
-            retval = MPI_Allreduce(&local_sumsq, &global_sumsq,
-                                   1, mpi_type<real_t>::value,
-                                   MPI_SUM, A.mpiComm());
-            //printf( "local values %.4f, %.4f, local sumsq %.4f, global sumsq %.4f\n",
-            //        local_values[0], local_values[1], local_sumsq, global_sumsq );
+            slate_mpi_call(
+                MPI_Allreduce(&local_sumsq, &global_sumsq,
+                              1, mpi_type<real_t>::value,
+                              MPI_SUM, A.mpiComm()));
         }
-        assert(retval == MPI_SUCCESS);
 
         A.clearWorkspace();
 

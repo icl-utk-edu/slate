@@ -70,23 +70,19 @@ T ceildiv(T a, T b)
 }
 
 //------------------------------------------------------------------------------
-/// Type-safe wrapper for cudaMalloc. Throws std::bad_alloc for errors.
+/// Type-safe wrapper for cudaMalloc. Throws errors.
 template<typename value_type>
 void slateCudaMalloc(value_type** ptr, size_t nelements)
 {
-    cudaError_t error;
-    error = cudaMalloc((void**) ptr, nelements * sizeof(value_type));
-    if (error != cudaSuccess)
-        throw std::bad_alloc();
+    slate_cuda_call(
+        cudaMalloc((void**) ptr, nelements * sizeof(value_type)));
 }
 
 template<typename value_type>
 void slateCudaMallocHost(value_type** ptr, size_t nelements)
 {
-    cudaError_t error;
-    error = cudaMallocHost((void**) ptr, nelements * sizeof(value_type));
-    if (error != cudaSuccess)
-        throw std::bad_alloc();
+    slate_cuda_call(
+        cudaMallocHost((void**) ptr, nelements * sizeof(value_type)));
 }
 
 //------------------------------------------------------------------------------
@@ -255,8 +251,8 @@ MatrixStorage<scalar_t>::MatrixStorage(
       lives_(),
       memory_(sizeof(scalar_t) * nb * nb)  // block size in bytes
 {
-    int err;
-    err = MPI_Comm_rank(mpi_comm, &mpi_rank_); assert(err == MPI_SUCCESS);
+    slate_mpi_call(
+        MPI_Comm_rank(mpi_comm, &mpi_rank_));
 
     // todo: these are static, but we (re-)initialize with each matrix.
     // todo: similar code in BaseMatrix(...) and MatrixStorage(...)
@@ -316,24 +312,20 @@ void MatrixStorage<scalar_t>::initCudaStreams()
     cublas_handles_ .resize(num_devices_);
 
     for (int device = 0; device < num_devices_; ++device) {
-        cudaError_t error;
-        error = cudaSetDevice(device);
-        assert(error == cudaSuccess);
-
-        error = cudaStreamCreate(&compute_streams_[device]);
-        assert(error == cudaSuccess);
-
-        error = cudaStreamCreate(&comm_streams_[device]);
-        assert(error == cudaSuccess);
+        slate_cuda_call(
+            cudaSetDevice(device));
+        slate_cuda_call(
+            cudaStreamCreate(&compute_streams_[device]));
+        slate_cuda_call(
+            cudaStreamCreate(&comm_streams_[device]));
 
         // create cuBLAS handles, associated with compute_streams_
-        cublasStatus_t status;
-        status = cublasCreate(&cublas_handles_[device]);
-        assert(status == CUBLAS_STATUS_SUCCESS);
+        slate_cublas_call(
+            cublasCreate(&cublas_handles_[device]));
 
-        status = cublasSetStream(cublas_handles_[device],
-                                 compute_streams_[device]);
-        assert(status == CUBLAS_STATUS_SUCCESS);
+        slate_cublas_call(
+            cublasSetStream(cublas_handles_[device],
+                                          compute_streams_[device]));
     }
 }
 
@@ -345,24 +337,22 @@ template <typename scalar_t>
 void MatrixStorage<scalar_t>::destroyCudaStreams()
 {
     for (int device = 0; device < num_devices_; ++device) {
-        cudaError_t error;
-        error = cudaSetDevice(device);
-        assert(error == cudaSuccess);
+        slate_cuda_call(
+            cudaSetDevice(device));
 
         // destroy cuBLAS handles, associated with compute_streams_
-        cublasStatus_t status;
-        status = cublasDestroy(cublas_handles_[device]);
+        slate_cublas_call(
+            cublasDestroy(cublas_handles_[device]));
         cublas_handles_[device] = nullptr;
-        assert(status == CUBLAS_STATUS_SUCCESS);
 
         // destroy CUDA streams
-        error = cudaStreamDestroy(compute_streams_[device]);
+        slate_cuda_call(
+            cudaStreamDestroy(compute_streams_[device]));
         compute_streams_[device] = nullptr;
-        assert(error == cudaSuccess);
 
-        error = cudaStreamDestroy(comm_streams_[device]);
+        slate_cuda_call(
+            cudaStreamDestroy(comm_streams_[device]));
         comm_streams_[device] = nullptr;
-        assert(error == cudaSuccess);
     }
 }
 
@@ -390,9 +380,8 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(int64_t max_batch_size)
         slateCudaMallocHost(&c_array_host_[device], max_batch_size);
 
         // Set the device.
-        cudaError_t error;
-        error = cudaSetDevice(device);
-        assert(error == cudaSuccess);
+        slate_cuda_call(
+            cudaSetDevice(device));
 
         // Allocate device arrays.
         slateCudaMalloc(&a_array_dev_[device], max_batch_size);
@@ -414,27 +403,25 @@ void MatrixStorage<scalar_t>::clearBatchArrays()
     int size = (int) a_array_host_.size();
     assert(size == 0 || size == num_devices_);
     for (int device = 0; device < size; ++device) {
-        cudaError_t error;
-
         // Free host arrays.
-        error = cudaFreeHost(a_array_host_[device]);
-        assert(error == cudaSuccess);
-        error = cudaFreeHost(b_array_host_[device]);
-        assert(error == cudaSuccess);
-        error = cudaFreeHost(c_array_host_[device]);
-        assert(error == cudaSuccess);
+        slate_cuda_call(
+            cudaFreeHost(a_array_host_[device]));
+        slate_cuda_call(
+            cudaFreeHost(b_array_host_[device]));
+        slate_cuda_call(
+            cudaFreeHost(c_array_host_[device]));
 
         // Set the device.
-        error = cudaSetDevice(device);
-        assert(error == cudaSuccess);
+        slate_cuda_call(
+            cudaSetDevice(device));
 
         // Free device arrays.
-        error = cudaFree(a_array_dev_[device]);
-        assert(error == cudaSuccess);
-        error = cudaFree(b_array_dev_[device]);
-        assert(error == cudaSuccess);
-        error = cudaFree(c_array_dev_[device]);
-        assert(error == cudaSuccess);
+        slate_cuda_call(
+            cudaFree(a_array_dev_[device]));
+        slate_cuda_call(
+            cudaFree(b_array_dev_[device]));
+        slate_cuda_call(
+            cudaFree(c_array_dev_[device]));
     }
 
     a_array_host_.clear();

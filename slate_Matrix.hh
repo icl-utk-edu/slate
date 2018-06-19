@@ -354,9 +354,8 @@ Matrix<scalar_t>::Matrix(
     int64_t nb, int p, int q, MPI_Comm mpi_comm)
     : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
 {
-    if (this->num_devices() != num_devices) {
-        throw std::exception();
-    }
+    slate_error_if(this->num_devices() != num_devices);
+
     // ii, jj are row, col indices
     // ii_local and jj_local are the local array indices in a
     // 2D block-cyclic layout.

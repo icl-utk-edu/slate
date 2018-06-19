@@ -363,11 +363,10 @@ BaseMatrix<scalar_t>::BaseMatrix(
           m, n, nb, p, q, mpi_comm)),
       mpi_comm_(mpi_comm)
 {
-    int err;
-    err = MPI_Comm_rank(mpi_comm_, &mpi_rank_);
-    assert(err == MPI_SUCCESS);
-    err = MPI_Comm_group(mpi_comm_, &mpi_group_);
-    assert(err == MPI_SUCCESS);
+    slate_mpi_call(
+        MPI_Comm_rank(mpi_comm_, &mpi_rank_));
+    slate_mpi_call(
+        MPI_Comm_group(mpi_comm_, &mpi_group_));
 
     // todo: these are static, but we (re-)initialize with each matrix.
     // todo: similar code in BaseMatrix(...) and MatrixStorage(...)
@@ -760,11 +759,10 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
 
     // Create the broadcast group.
     MPI_Group bcast_group;
-    int retval;
     #pragma omp critical(slate_mpi)
-    retval = MPI_Group_incl(mpi_group_, bcast_vec.size(), bcast_vec.data(),
-                            &bcast_group);
-    assert(retval == MPI_SUCCESS);
+    slate_mpi_call(
+        MPI_Group_incl(mpi_group_, bcast_vec.size(), bcast_vec.data(),
+                       &bcast_group));
 
     // Create a broadcast communicator.
     int tag = 0;
@@ -772,10 +770,9 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     #pragma omp critical(slate_mpi)
     {
         trace::Block trace_block("MPI_Comm_create_group");
-        retval = MPI_Comm_create_group(
-            mpi_comm_, bcast_group, tag, &bcast_comm);
+        slate_mpi_call(
+            MPI_Comm_create_group(mpi_comm_, bcast_group, tag, &bcast_comm));
     }
-    assert(retval == MPI_SUCCESS);
     assert(bcast_comm != MPI_COMM_NULL);
 
     // Find the broadcast rank.
@@ -787,22 +784,22 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     int root_rank = tileRank(i, j);
     int bcast_root;
     #pragma omp critical(slate_mpi)
-    retval = MPI_Group_translate_ranks(mpi_group_, 1, &root_rank,
-                                       bcast_group, &bcast_root);
-    assert(retval == MPI_SUCCESS);
+    slate_mpi_call(
+        MPI_Group_translate_ranks(mpi_group_, 1, &root_rank,
+                                  bcast_group, &bcast_root));
 
     // Do the broadcast.
     at(i, j).bcast(bcast_root, bcast_comm);
 
     // Free the group.
     #pragma omp critical(slate_mpi)
-    retval = MPI_Group_free(&bcast_group);
-    assert(retval == MPI_SUCCESS);
+    slate_mpi_call(
+        MPI_Group_free(&bcast_group));
 
     // Free the communicator.
     #pragma omp critical(slate_mpi)
-    retval = MPI_Comm_free(&bcast_comm);
-    assert(retval == MPI_SUCCESS);
+    slate_mpi_call(
+        MPI_Comm_free(&bcast_comm));
 }
 
 //------------------------------------------------------------------------------

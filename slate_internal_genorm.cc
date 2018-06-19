@@ -341,22 +341,21 @@ void genorm(internal::TargetType<Target::Devices>,
 
     for (int device = 0; device < A.num_devices(); ++device) {
 
-        cudaError_t error;
-        error = cudaSetDevice(device);
-        assert(error == cudaSuccess);
+        slate_cuda_call(
+            cudaSetDevice(device));
 
         int64_t num_tiles = A.getMaxDeviceTiles(device);
 
         a_arrays_host[device].resize(num_tiles);
         vals_arrays_host[device].resize(num_tiles*vals_chunk);
 
-        error = cudaMalloc((void**)&a_arrays_dev[device],
-                           sizeof(scalar_t*)*num_tiles);
-        assert(error == cudaSuccess);
+        slate_cuda_call(
+            cudaMalloc((void**)&a_arrays_dev[device],
+                       sizeof(scalar_t*)*num_tiles));
 
-        error = cudaMalloc((void**)&vals_arrays_dev[device],
-                           sizeof(real_t)*num_tiles*vals_chunk);
-        assert(error == cudaSuccess);
+        slate_cuda_call(
+            cudaMalloc((void**)&vals_arrays_dev[device],
+                       sizeof(real_t)*num_tiles*vals_chunk));
     }
 
     // Define index ranges for quadrants of matrix.
@@ -416,16 +415,15 @@ void genorm(internal::TargetType<Target::Devices>,
             {
                 trace::Block trace_block("slate::device::genorm");
 
-                cudaError_t error;
-                error = cudaSetDevice(device);
-                assert(error == cudaSuccess);
+                slate_cuda_call(
+                    cudaSetDevice(device));
 
                 cudaStream_t stream = A.compute_stream(device);
-                error = cudaMemcpyAsync(a_array_dev, a_array_host,
-                                        sizeof(scalar_t*)*batch_count,
-                                        cudaMemcpyHostToDevice,
-                                        stream);
-                assert(error == cudaSuccess);
+                slate_cuda_call(
+                    cudaMemcpyAsync(a_array_dev, a_array_host,
+                                    sizeof(scalar_t*)*batch_count,
+                                    cudaMemcpyHostToDevice,
+                                    stream));
 
                 for (int q = 0; q < 4; ++q) {
                     if (group_count[q] > 0) {
@@ -440,14 +438,14 @@ void genorm(internal::TargetType<Target::Devices>,
 
                 vals_array_dev = vals_arrays_dev[device];
 
-                error = cudaMemcpyAsync(vals_array_host, vals_array_dev,
-                                        sizeof(real_t)*batch_count*vals_chunk,
-                                        cudaMemcpyDeviceToHost,
-                                        stream);
-                assert(error == cudaSuccess);
+                slate_cuda_call(
+                    cudaMemcpyAsync(vals_array_host, vals_array_dev,
+                                    sizeof(real_t)*batch_count*vals_chunk,
+                                    cudaMemcpyDeviceToHost,
+                                    stream));
 
-                error = cudaStreamSynchronize(stream);
-                assert(error == cudaSuccess);
+                slate_cuda_call(
+                    cudaStreamSynchronize(stream));
             }
 
             // Reduction over tiles to device result.
@@ -469,16 +467,12 @@ void genorm(internal::TargetType<Target::Devices>,
     #pragma omp taskwait
 
     for (int device = 0; device < A.num_devices(); ++device) {
-
-        cudaError_t error;
-        error = cudaSetDevice(device);
-        assert(error == cudaSuccess);
-
-        error = cudaFree((void*)a_arrays_dev[device]);
-        assert(error == cudaSuccess);
-
-        error = cudaFree((void*)vals_arrays_dev[device]);
-        assert(error == cudaSuccess);
+        slate_cuda_call(
+            cudaSetDevice(device));
+        slate_cuda_call(
+            cudaFree((void*)a_arrays_dev[device]));
+        slate_cuda_call(
+            cudaFree((void*)vals_arrays_dev[device]));
     }
 
     // Reduction over devices to local result.

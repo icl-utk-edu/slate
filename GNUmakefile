@@ -209,6 +209,7 @@ endif
 # types and classes
 lib_src += \
        slate_Debug.cc \
+       slate_Exception.cc \
        slate_Memory.cc \
        slate_trace_Trace.cc \
        slate_types.cc \

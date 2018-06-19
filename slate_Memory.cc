@@ -202,8 +202,8 @@ void* Memory::allocBlock(int device)
 void* Memory::allocHostMemory(size_t size)
 {
     void* host_mem;
-    // cudaError_t error = cudaMallocHost(&host_mem, size);
-    // assert(error == cudaSuccess);
+    //slate_cuda_call(
+    //    cudaMallocHost(&host_mem, size));
     host_mem = malloc(size);
     assert(host_mem != nullptr);
     allocated_mem_[host_num_].push(host_mem);
@@ -217,13 +217,12 @@ void* Memory::allocHostMemory(size_t size)
 ///
 void* Memory::allocDeviceMemory(int device, size_t size)
 {
-    cudaError_t error;
-    error = cudaSetDevice(device);
-    assert(error == cudaSuccess);
+    slate_cuda_call(
+        cudaSetDevice(device));
 
     double* dev_mem;
-    error = cudaMalloc((void**)&dev_mem, size);
-    assert(error == cudaSuccess);
+    slate_cuda_call(
+        cudaMalloc((void**)&dev_mem, size));
     allocated_mem_[device].push(dev_mem);
 
     return dev_mem;
@@ -236,8 +235,8 @@ void* Memory::allocDeviceMemory(int device, size_t size)
 void Memory::freeHostMemory(void* host_mem)
 {
     std::free(host_mem);
-    // cudaError_t error = cudaFreeHost(host_mem);
-    // assert(error == cudaSuccess);
+    //slate_cuda_call(
+    //    cudaFreeHost(host_mem));
 }
 
 //------------------------------------------------------------------------------
@@ -246,12 +245,10 @@ void Memory::freeHostMemory(void* host_mem)
 ///
 void Memory::freeDeviceMemory(int device, void* dev_mem)
 {
-    cudaError_t error;
-    error = cudaSetDevice(device);
-    assert(error == cudaSuccess);
-
-    error = cudaFree(dev_mem);
-    assert(error == cudaSuccess);
+    slate_cuda_call(
+        cudaSetDevice(device));
+    slate_cuda_call(
+        cudaFree(dev_mem));
 }
 
 } // namespace slate

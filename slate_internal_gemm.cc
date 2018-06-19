@@ -521,36 +521,35 @@ void gemm(internal::TargetType<Target::Devices>,
             scalar_t** b_array_dev = C.b_array_device(device);
             scalar_t** c_array_dev = C.c_array_device(device);
 
-            cudaError_t error;
-            error = cudaSetDevice(device);
-            assert(error == cudaSuccess);
+            slate_cuda_call(
+                cudaSetDevice(device));
 
             // cublas_handle uses this stream
             cudaStream_t stream = C.compute_stream(device);
             cublasHandle_t cublas_handle = C.cublas_handle(device);
 
-            error = cudaMemcpyAsync(a_array_dev, a_array_host,
-                                    sizeof(scalar_t*)*batch_count,
-                                    cudaMemcpyHostToDevice,
-                                    stream);
-            assert(error == cudaSuccess);
+            slate_cuda_call(
+                cudaMemcpyAsync(a_array_dev, a_array_host,
+                                sizeof(scalar_t*)*batch_count,
+                                cudaMemcpyHostToDevice,
+                                stream));
 
-            error = cudaMemcpyAsync(b_array_dev, b_array_host,
-                                    sizeof(scalar_t*)*batch_count,
-                                    cudaMemcpyHostToDevice,
-                                    stream);
-            assert(error == cudaSuccess);
+            slate_cuda_call(
+                cudaMemcpyAsync(b_array_dev, b_array_host,
+                                sizeof(scalar_t*)*batch_count,
+                                cudaMemcpyHostToDevice,
+                                stream));
 
-            error = cudaMemcpyAsync(c_array_dev, c_array_host,
-                                    sizeof(scalar_t*)*batch_count,
-                                    cudaMemcpyHostToDevice,
-                                    stream);
-            assert(error == cudaSuccess);
+            slate_cuda_call(
+                cudaMemcpyAsync(c_array_dev, c_array_host,
+                                sizeof(scalar_t*)*batch_count,
+                                cudaMemcpyHostToDevice,
+                                stream));
 
             {
                 trace::Block trace_block("cublasGemmBatched");
                 if (batch_count_00 > 0) {
-                    cublasStatus_t status =
+                    slate_cublas_call(
                         cublasGemmBatched(
                             cublas_handle,  // uses stream
                             cublas_op_const(opA), cublas_op_const(opB),
@@ -558,15 +557,14 @@ void gemm(internal::TargetType<Target::Devices>,
                             &alpha, (const scalar_t**) a_array_dev, lda00,
                                     (const scalar_t**) b_array_dev, ldb00,
                             &beta,                     c_array_dev, ldc00,
-                            batch_count_00);
-                    assert(status == CUBLAS_STATUS_SUCCESS);
+                            batch_count_00));
                     a_array_dev += batch_count_00;
                     b_array_dev += batch_count_00;
                     c_array_dev += batch_count_00;
                 }
 
                 if (batch_count_10 > 0) {
-                    cublasStatus_t status =
+                    slate_cublas_call(
                         cublasGemmBatched(
                             cublas_handle,  // uses stream
                             cublas_op_const(opA), cublas_op_const(opB),
@@ -574,15 +572,14 @@ void gemm(internal::TargetType<Target::Devices>,
                             &alpha, (const scalar_t**) a_array_dev, lda10,
                                     (const scalar_t**) b_array_dev, ldb10,
                             &beta,                     c_array_dev, ldc10,
-                            batch_count_10);
-                    assert(status == CUBLAS_STATUS_SUCCESS);
+                            batch_count_10));
                     a_array_dev += batch_count_10;
                     b_array_dev += batch_count_10;
                     c_array_dev += batch_count_10;
                 }
 
                 if (batch_count_01 > 0) {
-                    cublasStatus_t status =
+                    slate_cublas_call(
                         cublasGemmBatched(
                             cublas_handle,  // uses stream
                             cublas_op_const(opA), cublas_op_const(opB),
@@ -590,15 +587,14 @@ void gemm(internal::TargetType<Target::Devices>,
                             &alpha, (const scalar_t**) a_array_dev, lda01,
                                     (const scalar_t**) b_array_dev, ldb01,
                             &beta,                     c_array_dev, ldc01,
-                            batch_count_01);
-                    assert(status == CUBLAS_STATUS_SUCCESS);
+                            batch_count_01));
                     a_array_dev += batch_count_01;
                     b_array_dev += batch_count_01;
                     c_array_dev += batch_count_01;
                 }
 
                 if (batch_count_11 > 0) {
-                    cublasStatus_t status =
+                    slate_cublas_call(
                         cublasGemmBatched(
                             cublas_handle,  // uses stream
                             cublas_op_const(opA), cublas_op_const(opB),
@@ -606,12 +602,11 @@ void gemm(internal::TargetType<Target::Devices>,
                             &alpha, (const scalar_t**) a_array_dev, lda11,
                                     (const scalar_t**) b_array_dev, ldb11,
                             &beta,                     c_array_dev, ldc11,
-                            batch_count_11);
-                    assert(status == CUBLAS_STATUS_SUCCESS);
+                            batch_count_11));
                 }
 
-                error = cudaStreamSynchronize(stream);
-                assert(error == cudaSuccess);
+                slate_cuda_call(
+                    cudaStreamSynchronize(stream));
             }
 
             for (int64_t i = 0; i < C.mt(); ++i) {

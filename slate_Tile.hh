@@ -43,6 +43,7 @@
 #include "slate_Memory.hh"
 #include "slate_trace_Trace.hh"
 #include "slate_types.hh"
+#include "slate_Exception.hh"
 
 #include <blas.hh>
 #include <lapack.hh>
@@ -72,9 +73,9 @@ MatrixType transpose(MatrixType& A)
         AT.op_ = Op::Trans;
     else if (AT.op_ == Op::Trans || A.is_real)
         AT.op_ = Op::NoTrans;
-    else {
-        throw std::exception();  // todo: op_ = Op::Conj doesn't exist
-    }
+    else
+        slate_error("unsupported operation, results in conjugate-no-transpose");
+
     return AT;
 }
 
@@ -87,9 +88,9 @@ MatrixType conj_transpose(MatrixType& A)
         AT.op_ = Op::ConjTrans;
     else if (AT.op_ == Op::ConjTrans || A.is_real)
         AT.op_ = Op::NoTrans;
-    else {
-        throw std::exception();  // todo: op_ = Op::Conj doesn't exist
-    }
+    else
+        slate_error("unsupported operation, results in conjugate-no-transpose");
+
     return AT;
 }
 
@@ -243,10 +244,10 @@ Tile<scalar_t>::Tile(
       origin_(origin),
       device_(device)
 {
-    assert(mb >= 0);
-    assert(nb >= 0);
-    assert(A != nullptr);
-    assert(lda >= mb);
+    slate_assert(mb >= 0);
+    slate_assert(nb >= 0);
+    slate_assert(A != nullptr);
+    slate_assert(lda >= mb);
 }
 
 //------------------------------------------------------------------------------
@@ -351,9 +352,8 @@ template <typename scalar_t>
 void Tile<scalar_t>::copyDataToHost(
     Tile<scalar_t>* dst_tile, cudaStream_t stream) const
 {
-    cudaError_t error;
-    error = cudaSetDevice(device_);
-    assert(error == cudaSuccess);
+    slate_cuda_call(
+        cudaSetDevice(device_));
 
     // If no stride on both sides.
     if (stride_ == mb_ &&
@@ -362,13 +362,13 @@ void Tile<scalar_t>::copyDataToHost(
         // Use simple copy.
         trace::Block trace_block("cudaMemcpyAsync");
 
-        error = cudaMemcpyAsync(
+        slate_cuda_call(
+            cudaMemcpyAsync(
                     dst_tile->data_, data_, bytes(),
-                    cudaMemcpyDeviceToHost, stream);
-        assert(error == cudaSuccess);
+                    cudaMemcpyDeviceToHost, stream));
 
-        error = cudaStreamSynchronize(stream);
-        assert(error == cudaSuccess);
+        slate_cuda_call(
+            cudaStreamSynchronize(stream));
     }
     else {
         // Otherwise, use 2D copy.
@@ -381,15 +381,15 @@ void Tile<scalar_t>::copyDataToHost(
         size_t width  = sizeof(scalar_t)*mb_;
         size_t height = nb_;
 
-        error = cudaMemcpy2DAsync(
+        slate_cuda_call(
+            cudaMemcpy2DAsync(
                     dst, dpitch,
                     src, spitch,
                     width, height,
-                    cudaMemcpyDeviceToHost, stream);
-        assert(error == cudaSuccess);
+                    cudaMemcpyDeviceToHost, stream));
 
-        error = cudaStreamSynchronize(stream);
-        assert(error == cudaSuccess);
+        slate_cuda_call(
+            cudaStreamSynchronize(stream));
     }
 }
 
@@ -407,9 +407,8 @@ template <typename scalar_t>
 void Tile<scalar_t>::copyDataToDevice(
     Tile<scalar_t>* dst_tile, cudaStream_t stream) const
 {
-    cudaError_t error;
-    error = cudaSetDevice(dst_tile->device_);
-    assert(error == cudaSuccess);
+    slate_cuda_call(
+        cudaSetDevice(dst_tile->device_));
 
     // If no stride on both sides.
     if (stride_ == mb_ &&
@@ -418,13 +417,13 @@ void Tile<scalar_t>::copyDataToDevice(
         // Use simple copy.
         trace::Block trace_block("cudaMemcpyAsync");
 
-        error = cudaMemcpyAsync(
+        slate_cuda_call(
+            cudaMemcpyAsync(
                     dst_tile->data_, data_, bytes(),
-                    cudaMemcpyHostToDevice, stream);
-        assert(error == cudaSuccess);
+                    cudaMemcpyHostToDevice, stream));
 
-        error = cudaStreamSynchronize(stream);
-        assert(error == cudaSuccess);
+        slate_cuda_call(
+            cudaStreamSynchronize(stream));
     }
     else {
         // Otherwise, use 2D copy.
@@ -437,15 +436,15 @@ void Tile<scalar_t>::copyDataToDevice(
         size_t width  = sizeof(scalar_t)*mb_;
         size_t height = nb_;
 
-        error = cudaMemcpy2DAsync(
+        slate_cuda_call(
+            cudaMemcpy2DAsync(
                     dst, dpitch,
                     src, spitch,
                     width, height,
-                    cudaMemcpyHostToDevice, stream);
-        assert(error == cudaSuccess);
+                    cudaMemcpyHostToDevice, stream));
 
-        error = cudaStreamSynchronize(stream);
-        assert(error == cudaSuccess);
+        slate_cuda_call(
+            cudaStreamSynchronize(stream));
     }
 }
 
@@ -469,13 +468,13 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm) const
         // Use simple send.
         int count = mb_*nb_;
         int tag = 0;
-        int retval;
 
         #pragma omp critical(slate_mpi)
         {
-            retval = MPI_Send(data_, count, mpi_type<scalar_t>::value, dst, tag, mpi_comm);
+            slate_mpi_call(
+                MPI_Send(data_, count, mpi_type<scalar_t>::value, dst, tag,
+                         mpi_comm));
         }
-        assert(retval == MPI_SUCCESS);
     }
     else {
         // Otherwise, use strided send.
@@ -484,32 +483,31 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm) const
         int stride = stride_;
         MPI_Datatype newtype;
         int tag = 0;
-        int retval;
 
         #pragma omp critical(slate_mpi)
         {
-            retval = MPI_Type_vector(
-                         count, blocklength, stride, mpi_type<scalar_t>::value, &newtype);
+            slate_mpi_call(
+                MPI_Type_vector(count, blocklength, stride,
+                                mpi_type<scalar_t>::value, &newtype));
         }
-        assert(retval == MPI_SUCCESS);
 
         #pragma omp critical(slate_mpi)
         {
-            retval = MPI_Type_commit(&newtype);
+            slate_mpi_call(
+                MPI_Type_commit(&newtype));
         }
-        assert(retval == MPI_SUCCESS);
 
         #pragma omp critical(slate_mpi)
         {
-            retval = MPI_Send(data_, 1, newtype, dst, tag, mpi_comm);
+            slate_mpi_call(
+                MPI_Send(data_, 1, newtype, dst, tag, mpi_comm));
         }
-        assert(retval == MPI_SUCCESS);
 
         #pragma omp critical(slate_mpi)
         {
-            retval = MPI_Type_free(&newtype);
+            slate_mpi_call(
+                MPI_Type_free(&newtype));
         }
-        assert(retval == MPI_SUCCESS);
     }
 }
 
@@ -533,15 +531,13 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm)
         // Use simple recv.
         int count = mb_*nb_;
         int tag = 0;
-        int retval;
 
         #pragma omp critical(slate_mpi)
         {
-            retval = MPI_Recv(
-                         data_, count, mpi_type<scalar_t>::value, src, tag, mpi_comm,
-                         MPI_STATUS_IGNORE);
+            slate_mpi_call(
+                MPI_Recv(data_, count, mpi_type<scalar_t>::value, src, tag,
+                         mpi_comm, MPI_STATUS_IGNORE));
         }
-        assert(retval == MPI_SUCCESS);
     }
     else {
         // Otherwise, use strided recv.
@@ -549,34 +545,34 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm)
         int blocklength = mb_;
         int stride = stride_;
         MPI_Datatype newtype;
-        int retval;
 
         #pragma omp critical(slate_mpi)
         {
-            retval = MPI_Type_vector(
-                         count, blocklength, stride, mpi_type<scalar_t>::value, &newtype);
+            slate_mpi_call(
+                MPI_Type_vector(
+                    count, blocklength, stride, mpi_type<scalar_t>::value,
+                    &newtype));
         }
-        assert(retval == MPI_SUCCESS);
 
         #pragma omp critical(slate_mpi)
         {
-            retval = MPI_Type_commit(&newtype);
+            slate_mpi_call(
+                MPI_Type_commit(&newtype));
         }
-        assert(retval == MPI_SUCCESS);
 
         int tag = 0;
         #pragma omp critical(slate_mpi)
         {
-            retval = MPI_Recv(
-                         data_, 1, newtype, src, tag, mpi_comm, MPI_STATUS_IGNORE);
+            slate_mpi_call(
+                MPI_Recv(data_, 1, newtype, src, tag, mpi_comm,
+                         MPI_STATUS_IGNORE));
         }
-        assert(retval == MPI_SUCCESS);
 
         #pragma omp critical(slate_mpi)
         {
-            retval = MPI_Type_free(&newtype);
+            slate_mpi_call(
+                MPI_Type_free(&newtype));
         }
-        assert(retval == MPI_SUCCESS);
     }
 }
 
@@ -603,12 +599,11 @@ void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm mpi_comm)
     //if (stride_ == mb_) {
     //    // Use simple bcast.
     //    int count = mb_*nb_;
-    //    int retval;
     //
     //    #pragma omp critical(slate_mpi)
-    //    retval = MPI_Bcast(data_, count, mpi_type<scalar_t>::value,
-    //        bcast_root, mpi_comm);
-    //    assert(retval == MPI_SUCCESS);
+    //    slate_mpi_call(
+    //        MPI_Bcast(data_, count, mpi_type<scalar_t>::value,
+    //                  bcast_root, mpi_comm));
     //}
     //else
     {
@@ -619,32 +614,32 @@ void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm mpi_comm)
         int blocklength = mb_;
         int stride = stride_;
         MPI_Datatype newtype;
-        int retval;
 
         #pragma omp critical(slate_mpi)
         {
-            retval = MPI_Type_vector(
-                         count, blocklength, stride, mpi_type<scalar_t>::value, &newtype);
+            slate_mpi_call(
+                MPI_Type_vector(
+                    count, blocklength, stride, mpi_type<scalar_t>::value,
+                    &newtype));
         }
-        assert(retval == MPI_SUCCESS);
 
         #pragma omp critical(slate_mpi)
         {
-            retval = MPI_Type_commit(&newtype);
+            slate_mpi_call(
+                MPI_Type_commit(&newtype));
         }
-        assert(retval == MPI_SUCCESS);
 
         #pragma omp critical(slate_mpi)
         {
-            retval = MPI_Bcast(data_, 1, newtype, bcast_root, mpi_comm);
+            slate_mpi_call(
+                MPI_Bcast(data_, 1, newtype, bcast_root, mpi_comm));
         }
-        assert(retval == MPI_SUCCESS);
 
         #pragma omp critical(slate_mpi)
         {
-            retval = MPI_Type_free(&newtype);
+            slate_mpi_call(
+                MPI_Type_free(&newtype));
         }
-        assert(retval == MPI_SUCCESS);
     }
 }
 

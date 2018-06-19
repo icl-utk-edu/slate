@@ -44,6 +44,7 @@
 #include "slate_Matrix.hh"
 #include "slate_Tile.hh"
 #include "slate_types.hh"
+#include "slate_Exception.hh"
 
 #include "lapack.hh"
 
@@ -368,9 +369,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     int p, int q, MPI_Comm mpi_comm)
     : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
 {
-    if (this->num_devices() != num_devices) {
-        throw std::exception();
-    }
+    slate_assert(this->num_devices() != num_devices);
 
     this->uplo_ = in_uplo;
 

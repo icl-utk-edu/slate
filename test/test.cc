@@ -601,9 +601,22 @@ int main( int argc, char** argv )
             try {
                 test_routine( params, true );
             }
+            catch (slate::Exception& err) {
+                params.okay.value() = false;
+                printf( "SLATE error: %s\n", err.what() );
+            }
             catch (blas::Error& err) {
                 params.okay.value() = false;
                 printf( "BLAS error: %s\n", err.what() );
+            }
+            catch (lapack::Error& err) {
+                params.okay.value() = false;
+                printf( "LAPACK error: %s\n", err.what() );
+            }
+            catch (std::exception& e) {
+                // happens for assert_throw failures
+                params.okay.value() = false;
+                printf( "Caught std::exception\n" );
             }
             catch (...) {
                 // happens for assert_throw failures

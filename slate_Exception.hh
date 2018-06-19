@@ -40,171 +40,214 @@
 #ifndef SLATE_EXCEPTION_HH
 #define SLATE_EXCEPTION_HH
 
+#include <string>
+#include <exception>
+
+#include <slate_cuda.hh>
+#include <slate_cublas.hh>
+#include <slate_mpi.hh>
+
 namespace slate {
 
 //------------------------------------------------------------------------------
-/// slate::Error
-/// @brief Enum class for use in slate::Exception class.
-///
-enum class Error {
-    Argument, ///< invalid argument
-    Cuda,     ///< CUDA error
-    Mpi,      ///< MPI error
-};
-
-//------------------------------------------------------------------------------
-/// \class
-/// \brief
-///
+/// Base class for SLATE exceptions.
 class Exception : public std::exception {
 public:
-    Exception(Error error, const char* file, const char* func, int line)
-        : error_(error), file_(file), func_(func), line_(line)
+    Exception()
+        : std::exception()
     {}
 
+    /// Sets the what() message to msg.
+    Exception(std::string const& msg)
+        : std::exception(),
+          msg_(msg)
+    {}
+
+    /// Sets the what() message to msg with func, file, line appended.
+    Exception(std::string const& msg,
+              const char* func, const char* file, int line)
+        : std::exception(),
+          msg_(msg + " in " + func + " at " + file + ":" + std::to_string(line))
+    {}
+
+    /// @return message describing the execption.
+    virtual char const* what() const noexcept override
+    {
+        return msg_.c_str();
+    }
+
 protected:
-    Error error_;
-    std::string file_;
-    std::string func_;
-    int line_;
+    /// Sets the what() message to msg with func, file, line appended.
+    void what(std::string const& msg,
+              const char* func, const char* file, int line)
+    {
+        msg_ = msg + " in " + func + " at " + file + ":" + std::to_string(line);
+    }
+
+    std::string msg_;
 };
 
+/// Throws Exception with given message.
+#define slate_error(msg) \
+    do { \
+        throw Exception(msg, __func__, __FILE__, __LINE__); \
+    } while(0)
+
 //------------------------------------------------------------------------------
-/// \class
-/// \brief
-///
+/// Exception class for slate_error_if().
 class TrueConditionException : public Exception {
 public:
     TrueConditionException(const char* cond,
-                           Error error,
-                           const char* file,
                            const char* func,
+                           const char* file,
                            int line)
-        : Exception(error, file, func, line),
-          cond_(cond)
-    {
-        msg_ = "SLATE ERROR: Error condition '" + cond_ +
-               "' occured, in file '" + file_ +
-               "', function '" + func_ +
-               "', line " + std::to_string(line_) + ".";
-    }
-
-    virtual char const* what() const noexcept
-    {
-        return msg_.c_str();
-    }
-
-protected:
-    std::string cond_;
-    std::string msg_;
+        : Exception(std::string("SLATE ERROR: Error condition '")
+                    + cond + "' occured",
+                    func, file, line)
+    {}
 };
 
+/// Throws TrueConditionException if cond is true.
+#define slate_error_if(cond) \
+    do { \
+        if ((cond)) \
+            throw TrueConditionException(#cond, __func__, __FILE__, __LINE__); \
+    } while(0)
+
 //------------------------------------------------------------------------------
-/// \class
-/// \brief
-///
+/// Exception class for slate_assert().
 class FalseConditionException : public Exception {
 public:
     FalseConditionException(const char* cond,
-                            Error error,
-                            const char* file,
                             const char* func,
+                            const char* file,
                             int line)
-        : Exception(error, file, func, line),
-          cond_(cond)
-    {
-        msg_ = "SLATE ERROR: Error check '" + cond_ +
-               "' failed, in file '" + file_ +
-               "', function '" + func_ +
-               "', line " + std::to_string(line_) + ".";
-    }
-
-    virtual char const* what() const noexcept
-    {
-        return msg_.c_str();
-    }
-
-protected:
-    std::string cond_;
-    std::string msg_;
+        : Exception(std::string("SLATE ERROR: Error check '")
+                    + cond + "' failed",
+                    func, file, line)
+    {}
 };
 
+/// Throws FalseConditionException if cond is false.
+#define slate_assert(cond) \
+    do { \
+        if (! (cond)) \
+            throw FalseConditionException(#cond, __func__, __FILE__, __LINE__);\
+    } while(0)
+
 //------------------------------------------------------------------------------
-/// \class
-/// \brief
-///
+/// Exception class for slate_mpi_call().
 class MpiException : public Exception {
 public:
     MpiException(const char* call,
                  int code,
-                 const char* file,
                  const char* func,
+                 const char* file,
                  int line)
-        : Exception(Error::Mpi, file, func, line),
-          call_(call),
-          code_(code)
+        : Exception()
     {
+        char string[MPI_MAX_ERROR_STRING] = "unknown error";
         int resultlen;
-        int retval = MPI_Error_string(code_, string_, &resultlen);
+        MPI_Error_string(code, string, &resultlen);
 
-        msg_ = "SLATE ERROR: The MPI call '" + call_ +
-               "' failed, in file '" + file_ +
-               "', function '" + func_ +
-               "', line " + std::to_string(line_) +
-               ", returning error code " + std::to_string(code_) +
-               ", with the corresponding error string:\n" + string_;
+        what(std::string("SLATE MPI ERROR: ")
+             + call + " failed: " + string
+             + " (" + std::to_string(code) + ")",
+             func, file, line);
     }
-
-    virtual char const* what() const noexcept
-    {
-        return msg_.c_str();
-    }
-
-protected:
-    int code_;
-    char* string_;
-    std::string call_;
-    std::string msg_;
 };
 
+/// Throws an MpiException if the MPI call fails.
+/// Example:
+///     try {
+///         slate_mpi_call( MPI_Barrier( MPI_COMM_WORLD ) );
+///     }
+///     catch (MpiException& e) {
+///         ...
+///     }
+#define slate_mpi_call(call) \
+    do { \
+        int slate_mpi_call_ = call; \
+        if (slate_mpi_call_ != MPI_SUCCESS) \
+            throw MpiException( \
+                #call, slate_mpi_call_, __func__, __FILE__, __LINE__); \
+    } while(0)
+
 //------------------------------------------------------------------------------
-/// \class
-/// \brief
-///
+/// Exception class for slate_cuda_call().
 class CudaException : public Exception {
 public:
     CudaException(const char* call,
                   cudaError_t code,
-                  const char* file,
                   const char* func,
+                  const char* file,
                   int line)
-        : Exception(Error::Cuda, file, func, line),
-          call_(call),
-          code_(code)
+        : Exception()
     {
-        name_ = cudaGetErrorName(code_);
-        string_ = cudaGetErrorString(code_);
+        const char* name = cudaGetErrorName(code);
+        const char* string = cudaGetErrorString(code);
 
-        msg_ = "SLATE ERROR: The CUDA call '" + call_ +
-               "' failed, in file '" + file_ +
-               "', function '" + func_ +
-               "', line " + std::to_string(line_) +
-               ", returning error " + name_ +
-               ", with the corresponding error string:\n" + string_;
+        what(std::string("SLATE CUDA ERROR: ")
+             + call + " failed: " + string
+             + " (" + name + "=" + std::to_string(code) + ")",
+             func, file, line);
     }
-
-    virtual char const* what() const noexcept
-    {
-        return msg_.c_str();
-    }
-
-protected:
-    cudaError_t code_;
-    const char* name_;
-    const char* string_;
-    std::string call_;
-    std::string msg_;
 };
+
+/// Throws a CudaException if the CUDA call fails.
+/// Example:
+///     try {
+///         slate_cuda_call( cudaSetDevice( device ) );
+///     }
+///     catch (CudaException& e) {
+///         ...
+///     }
+#define slate_cuda_call(call) \
+    do { \
+        cudaError_t slate_cuda_call_ = call; \
+        if (slate_cuda_call_ != cudaSuccess) \
+            throw CudaException(#call, slate_cuda_call_, \
+                                __func__, __FILE__, __LINE__); \
+    } while(0)
+
+//------------------------------------------------------------------------------
+const char* getCublasErrorName(cublasStatus_t status);
+
+//------------------------------------------------------------------------------
+/// Exception class for slate_cublas_call().
+class CublasException : public Exception {
+public:
+    CublasException(const char* call,
+                    cublasStatus_t code,
+                    const char* func,
+                    const char* file,
+                    int line)
+        : Exception()
+    {
+        const char* name = getCublasErrorName(code);
+
+        what(std::string("SLATE CUBLAS ERROR: ")
+             + call + " failed: " + name
+             + " (" + std::to_string(code) + ")",
+             func, file, line);
+    }
+};
+
+/// Throws a CublasException if the CUBLAS call fails.
+/// Example:
+///     try {
+///         slate_cublas_call( cublasCreate( &handle ) );
+///     }
+///     catch (CublasException& e) {
+///         ...
+///     }
+#define slate_cublas_call(call) \
+    do { \
+        cublasStatus_t slate_cublas_call_ = call; \
+        if (slate_cublas_call_ != CUBLAS_STATUS_SUCCESS) \
+            throw CublasException( \
+                #call, slate_cublas_call_, __func__, __FILE__, __LINE__); \
+    } while(0)
 
 } // namespace slate
 

@@ -479,31 +479,30 @@ void herk(internal::TargetType<Target::Devices>,
                 scalar_t** b_array_dev = C.b_array_device(device);
                 scalar_t** c_array_dev = C.c_array_device(device);
 
-                cudaError_t error;
-                error = cudaSetDevice(device);
-                assert(error == cudaSuccess);
+                slate_cuda_call(
+                    cudaSetDevice(device));
 
                 // cublas_handle uses this stream
                 cudaStream_t stream = C.compute_stream(device);
                 cublasHandle_t cublas_handle = C.cublas_handle(device);
 
-                error = cudaMemcpyAsync(a_array_dev, a_array_host,
-                                        sizeof(scalar_t*)*batch_count,
-                                        cudaMemcpyHostToDevice,
-                                        stream);
-                assert(error == cudaSuccess);
+                slate_cuda_call(
+                    cudaMemcpyAsync(a_array_dev, a_array_host,
+                                    sizeof(scalar_t*)*batch_count,
+                                    cudaMemcpyHostToDevice,
+                                    stream));
 
-                error = cudaMemcpyAsync(b_array_dev, b_array_host,
-                                        sizeof(scalar_t*)*batch_count,
-                                        cudaMemcpyHostToDevice,
-                                        stream);
-                assert(error == cudaSuccess);
+                slate_cuda_call(
+                    cudaMemcpyAsync(b_array_dev, b_array_host,
+                                    sizeof(scalar_t*)*batch_count,
+                                    cudaMemcpyHostToDevice,
+                                    stream));
 
-                error = cudaMemcpyAsync(c_array_dev, c_array_host,
-                                        sizeof(scalar_t*)*batch_count,
-                                        cudaMemcpyHostToDevice,
-                                        stream);
-                assert(error == cudaSuccess);
+                slate_cuda_call(
+                    cudaMemcpyAsync(c_array_dev, c_array_host,
+                                    sizeof(scalar_t*)*batch_count,
+                                    cudaMemcpyHostToDevice,
+                                    stream));
 
                 {
                     trace::Block trace_block("cublasGemmBatched");
@@ -511,7 +510,7 @@ void herk(internal::TargetType<Target::Devices>,
                     scalar_t beta_  = scalar_t(beta);
 
                     if (batch_count_00 > 0) {
-                        cublasStatus_t status =
+                        slate_cublas_call(
                             cublasGemmBatched(
                                 cublas_handle,  // uses stream
                                 cublas_op_const(opA), cublas_op_const(opB),
@@ -519,15 +518,14 @@ void herk(internal::TargetType<Target::Devices>,
                                 &alpha_, (const scalar_t**) a_array_dev, lda00,
                                          (const scalar_t**) b_array_dev, ldb00,
                                 &beta_,                     c_array_dev, ldc00,
-                                batch_count_00);
-                        assert(status == CUBLAS_STATUS_SUCCESS);
+                                batch_count_00));
                         a_array_dev += batch_count_00;
                         b_array_dev += batch_count_00;
                         c_array_dev += batch_count_00;
                     }
 
                     if (batch_count_10 > 0) {
-                        cublasStatus_t status =
+                        slate_cublas_call(
                             cublasGemmBatched(
                                 cublas_handle,  // uses stream
                                 cublas_op_const(opA), cublas_op_const(opB),
@@ -535,12 +533,11 @@ void herk(internal::TargetType<Target::Devices>,
                                 &alpha_, (const scalar_t**) a_array_dev, lda10,
                                          (const scalar_t**) b_array_dev, ldb10,
                                 &beta_,                     c_array_dev, ldc10,
-                                batch_count_10);
-                        assert(status == CUBLAS_STATUS_SUCCESS);
+                                batch_count_10));
                     }
 
-                    error = cudaStreamSynchronize(stream);
-                    assert(error == cudaSuccess);
+                    slate_cuda_call(
+                        cudaStreamSynchronize(stream));
                 }
 
                 for (int64_t j = 0; j < C.nt(); ++j) {

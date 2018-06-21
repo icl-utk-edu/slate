@@ -708,8 +708,10 @@ void BaseMatrix<scalar_t>::listBcast(BcastList& bcast_list)
                 tileLife(i, j, life);
             }
 
-            // Send across MPI ranks.
-            tileBcastToSet(i, j, bcast_set);
+            // Send across MPI ranks.  
+            // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
+            // Currently uses 2D hypercube p2p send. 
+            tileBcastToSet(i, j, bcast_set, 2);
         }
 
         // Copy to devices.

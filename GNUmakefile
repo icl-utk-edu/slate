@@ -278,6 +278,7 @@ unit_src = \
         unit_test/test_Tile.cc \
         unit_test/test_Matrix.cc \
         unit_test/test_Memory.cc \
+        unit_test/test_norm.cc \
 
 # unit test framework
 unit_test_obj = \
@@ -324,6 +325,7 @@ UNIT_LIB     += -lslate
 .DELETE_ON_ERROR:
 .SUFFIXES:
 .PHONY: all docs lib test unit_test clean distclean
+.DEFAULT_GOAL := all
 
 all: lib test unit_test
 

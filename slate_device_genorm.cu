@@ -227,7 +227,7 @@ __global__ void genormMaxKernel(
     // This does coalesced reads of one column at a time in parallel.
     real_t max = abs(row[0]);
     for (int64_t j = 1; j < n; ++j)
-        max = max_nan(max, abs(row[j]));
+        max = max_nan(max, abs(row[j*lda]));
 
     // Save partial results in shared memory.
     extern __shared__ char dynamic_data[];
@@ -484,8 +484,8 @@ void genorm(
         }
         else {
             assert(m <= 1024);
-            // Max 1024 threads * 16 bytes = 16 KiB shared memory in double-complex.
-            genormMaxKernel<<<batch_count, m, sizeof(scalar_t) * m, stream>>>
+            // Max 1024 threads * 8 bytes = 8 KiB shared memory in double [complex].
+            genormMaxKernel<<<batch_count, m, sizeof(real_t) * m, stream>>>
                 (m, n, Aarray, lda, values);
         }
     }
@@ -521,8 +521,8 @@ void genorm(
         }
         else {
             assert(m <= 1024);
-            // Max 1024 threads * 32 bytes = 32 KiB shared memory in double-complex.
-            genormFroKernel<<<batch_count, m, sizeof(scalar_t) * m * 2, stream>>>
+            // Max 1024 threads * 16 bytes = 16 KiB shared memory in double [complex].
+            genormFroKernel<<<batch_count, m, sizeof(real_t) * m * 2, stream>>>
                 (m, n, Aarray, lda, values);
         }
     }
@@ -541,7 +541,7 @@ void genorm(
     lapack::Norm norm,
     int64_t m, int64_t n,
     float const* const* Aarray, int64_t lda,
-    float* tiles_maxima, int64_t batch_count,
+    float* values, int64_t batch_count,
     cudaStream_t stream);
 
 template
@@ -549,7 +549,7 @@ void genorm(
     lapack::Norm norm,
     int64_t m, int64_t n,
     double const* const* Aarray, int64_t lda,
-    double* tiles_maxima, int64_t batch_count,
+    double* values, int64_t batch_count,
     cudaStream_t stream);
 
 template
@@ -557,7 +557,7 @@ void genorm(
     lapack::Norm norm,
     int64_t m, int64_t n,
     cuFloatComplex const* const* Aarray, int64_t lda,
-    float* tiles_maxima, int64_t batch_count,
+    float* values, int64_t batch_count,
     cudaStream_t stream);
 
 template
@@ -565,7 +565,7 @@ void genorm(
     lapack::Norm norm,
     int64_t m, int64_t n,
     cuDoubleComplex const* const* Aarray, int64_t lda,
-    double* tiles_maxima, int64_t batch_count,
+    double* values, int64_t batch_count,
     cudaStream_t stream);
 
 } // namespace device

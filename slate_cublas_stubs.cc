@@ -74,6 +74,12 @@ cublasStatus_t cublasDasum(cublasHandle_t handle, int n, const double* x,
     assert(0);
 }
 
+cublasStatus_t cublasSetMatrix(int rows, int cols, int elemSize,
+                const void *A, int lda, void *B, int ldb)
+{
+    assert(0);
+}
+
 cublasStatus_t cublasSgemmBatched(
     cublasHandle_t handle,
     cublasOperation_t transa, cublasOperation_t transb,

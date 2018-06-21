@@ -49,15 +49,28 @@
 
 #include "slate_cuda.hh"
 
+#include <complex>
+
 typedef void* cublasHandle_t;
-typedef int cublasStatus_t;
 typedef int cublasOperation_t;
 
 enum {
     CUBLAS_OP_C,
     CUBLAS_OP_N,
     CUBLAS_OP_T,
-    CUBLAS_STATUS_SUCCESS
+};
+
+enum cublasStatus_t {
+    CUBLAS_STATUS_SUCCESS,
+    CUBLAS_STATUS_NOT_INITIALIZED,
+    CUBLAS_STATUS_ALLOC_FAILED,
+    CUBLAS_STATUS_INVALID_VALUE,
+    CUBLAS_STATUS_ARCH_MISMATCH,
+    CUBLAS_STATUS_MAPPING_ERROR,
+    CUBLAS_STATUS_EXECUTION_FAILED,
+    CUBLAS_STATUS_INTERNAL_ERROR,
+    CUBLAS_STATUS_NOT_SUPPORTED,
+    CUBLAS_STATUS_LICENSE_ERROR,
 };
 
 #ifdef __cplusplus
@@ -70,6 +83,9 @@ cublasStatus_t cublasGetStream(cublasHandle_t handle, cudaStream_t* streamId);
 cublasStatus_t cublasDasum(
     cublasHandle_t handle, int n, const double* x, int incx, double* result);
 cublasStatus_t cublasDestroy(cublasHandle_t handle);
+
+cublasStatus_t cublasSetMatrix(int rows, int cols, int elemSize,
+                               const void *A, int lda, void *B, int ldb);
 
 cublasStatus_t cublasSgemmBatched(
     cublasHandle_t handle,

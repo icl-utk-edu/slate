@@ -49,12 +49,14 @@
 #else
 
 #include <cstdlib>
+#include <complex>
 
 typedef int cuComplex;
-typedef int cuDoubleComplex;
 typedef int cudaError_t;
 typedef void* cudaStream_t;
 typedef int cudaMemcpyKind;
+typedef std::complex<float> cuFloatComplex;
+typedef std::complex<double> cuDoubleComplex;
 
 enum {
     cudaMemcpyDeviceToHost,
@@ -74,6 +76,7 @@ cudaError_t cudaGetDevice(int* device);
 cudaError_t cudaGetDeviceCount(int* count);
 
 cudaError_t cudaMalloc(void** devPtr, size_t size);
+
 cudaError_t cudaMallocHost(void** ptr, size_t size);
 
 cudaError_t cudaMemcpy2DAsync(void* dst, size_t dpitch,
@@ -92,6 +95,9 @@ cudaError_t cudaSetDevice(int device);
 cudaError_t cudaStreamCreate(cudaStream_t* pStream);
 cudaError_t cudaStreamSynchronize(cudaStream_t stream);
 cudaError_t cudaStreamDestroy(cudaStream_t pStream);
+
+char* cudaGetErrorName(cudaError_t error);
+char* cudaGetErrorString(cudaError_t error);
 
 #ifdef __cplusplus
 }

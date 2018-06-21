@@ -41,6 +41,7 @@ enum Section {
 
 const char* section_names[] = {
    "",  // none
+   "BLAS",
    "LU",
    "Cholesky",
    "symmetric indefinite",
@@ -55,11 +56,21 @@ const char* section_names[] = {
    "auxiliary - norms",
    "auxiliary - Householder",
    "auxiliary - matrix generation",
-   "BLAS",
 };
 
 // { "", nullptr, Section::newline } entries force newline in help
 std::vector< libtest::routines_t > routines = {
+    // BLAS
+    { "gemm",               test_gemm,         Section::blas_section },
+    { "symm",               test_symm,         Section::blas_section },
+    { "syr2k",              test_syr2k,        Section::blas_section },
+    { "syrk",               test_syrk,         Section::blas_section },
+    { "trsm",               test_trsm,         Section::blas_section },
+    { "trmm",               test_trmm,         Section::blas_section },
+    { "hemm",               test_hemm,         Section::blas_section },
+    { "her2k",              test_her2k,        Section::blas_section },
+    { "herk",               test_herk,         Section::blas_section },
+
     // -----
   //   // LU
   //   { "gesv",               test_gesv,      Section::gesv },
@@ -376,12 +387,10 @@ std::vector< libtest::routines_t > routines = {
   //   { "larft",              test_larft,     Section::aux_householder },
   //   { "",                   nullptr,        Section::newline },
 
-  //   // auxiliary: norms
-  //   { "lange",              test_lange,     Section::aux_norm },
-  //   { "lanhe",              test_lanhe,     Section::aux_norm },
-  //   { "lansy",              test_lansy,     Section::aux_norm },
-  //   { "lantr",              test_lantr,     Section::aux_norm },
-  //   { "",                   nullptr,        Section::newline },
+    // auxiliary: norms
+    { "genorm",             test_genorm,       Section::aux_norm },
+    { "trnorm",             test_trnorm,       Section::aux_norm },
+    { "",                   nullptr,           Section::newline },
 
   //   { "",                   nullptr,        Section::aux_norm },
   //   { "lanhp",              test_lanhp,     Section::aux_norm },
@@ -406,19 +415,6 @@ std::vector< libtest::routines_t > routines = {
   // //{ "laghe",              test_laghe,     Section::aux_gen },
   // //{ "lagtr",              test_lagtr,     Section::aux_gen },
   //   { "",                   nullptr,        Section::newline },
-
-  //   // additional BLAS
-    { "gemm",               test_gemm,         Section::blas_section },
-    { "symm",               test_symm,         Section::blas_section },
-    { "syr2k",              test_syr2k,        Section::blas_section },
-    { "syrk",               test_syrk,         Section::blas_section },
-    { "trsm",               test_trsm,         Section::blas_section },
-    { "trmm",               test_trmm,         Section::blas_section },
-    { "hemm",               test_hemm,         Section::blas_section },
-    { "her2k",              test_her2k,        Section::blas_section },
-    { "herk",               test_herk,         Section::blas_section },
-    { "genorm",             test_genorm,       Section::blas_section },
-    { "",                   nullptr,           Section::newline },
 };
 
 // -----------------------------------------------------------------------------
@@ -550,7 +546,7 @@ int main( int argc, char** argv )
         fprintf( stderr, "Error: MPI could not be initialized (requires MPI_THREAD_MULTIPLE)\n" );
         return -1;
     }
-    
+
     // Usage: test routine [params]
     // find routine to test
     if (argc < 2 ||
@@ -560,7 +556,7 @@ int main( int argc, char** argv )
         if ( mpi_rank == 0 ) usage( argc, argv, routines, section_names );
         return 0;
     }
-    
+
     const char* routine = argv[1];
     libtest::test_func_ptr test_routine = find_tester( routine, routines );
     if (test_routine == nullptr) {
@@ -570,14 +566,14 @@ int main( int argc, char** argv )
         }
         return -1;
     }
-    
+
     // mark fields that are used (run=false)
     Params params;
     test_routine( params, false );
-    
+
     // parse parameters after routine name
     params.parse( routine, argc-2, argv+2 );
-    
+
     // print input so running `test [input] > out.txt` documents input
     if  ( mpi_rank == 0 ) {
         printf( "input: %s", argv[0] );
@@ -640,9 +636,9 @@ int main( int argc, char** argv )
         } else {
             printf( "All tests passed.\n" );
         }
-    } 
+    }
 
-    if (mpi_rank==0) 
+    if (mpi_rank==0)
         return(status);
     else
         return(0);

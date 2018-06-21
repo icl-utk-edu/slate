@@ -369,7 +369,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     int p, int q, MPI_Comm mpi_comm)
     : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
 {
-    slate_assert(this->num_devices() != num_devices);
+    slate_error_if(this->num_devices() != num_devices);
 
     this->uplo_ = in_uplo;
 

@@ -40,7 +40,7 @@
 #include "slate_device.hh"
 #include "slate_internal_batch.hh"
 #include "slate_internal.hh"
-#include "slate_Matrix.hh"
+#include "slate_TrapezoidMatrix.hh"
 #include "slate_Tile_blas.hh"
 #include "slate_types.hh"
 
@@ -55,29 +55,29 @@ namespace slate {
 namespace device {
 
 template <>
-void genorm(
-    Norm norm,
+void trnorm(
+    Norm norm, Uplo uplo, Diag diag,
     int64_t m, int64_t n,
     std::complex<float> const* const* Aarray, int64_t lda,
     float* values,
     int64_t batch_count,
     cudaStream_t stream)
 {
-    genorm(norm, m, n, (cuFloatComplex**) Aarray, lda, values, batch_count,
-           stream);
+    trnorm(norm, uplo, diag, m, n, (cuFloatComplex**) Aarray, lda,
+           values, batch_count, stream);
 }
 
 template <>
-void genorm(
-    Norm norm,
+void trnorm(
+    Norm norm, Uplo uplo, Diag diag,
     int64_t m, int64_t n,
     std::complex<double> const* const* Aarray, int64_t lda,
     double* values,
     int64_t batch_count,
     cudaStream_t stream)
 {
-    genorm(norm, m, n, (cuDoubleComplex**) Aarray, lda, values, batch_count,
-           stream);
+    trnorm(norm, uplo, diag, m, n, (cuDoubleComplex**) Aarray, lda,
+           values, batch_count, stream);
 }
 
 } // namespace device
@@ -113,22 +113,24 @@ void add_sumsq(
 }
 
 ///-----------------------------------------------------------------------------
-/// General matrix norm.
+/// Trapezoid and triangular matrix norm.
 /// Dispatches to target implementations.
 ///
 /// @param norm
 /// - Norm::Max: values is dimension 1 and contains the local max.
 /// - Norm::One: values is dimension n and contains the local column sum.
 /// - Norm::Inf: values is dimension m and contains the local row sum.
-/// - Norm::Fro: values is dimension 1 and contains the local sum-of-squares.
+/// - Norm::Fro: values is dimension 2 and contains the local scale and
+///              sum-of-squares.
 ///
 template <Target target, typename scalar_t>
-void genorm(
-    Norm norm, Matrix<scalar_t>&& A, blas::real_type<scalar_t>* values,
+void trnorm(
+    Norm norm, Diag diag, TrapezoidMatrix<scalar_t>&& A,
+    blas::real_type<scalar_t>* values,
     int priority)
 {
-    genorm(internal::TargetType<target>(),
-           norm, A, values,
+    trnorm(internal::TargetType<target>(),
+           norm, diag, A, values,
            priority);
 }
 
@@ -136,9 +138,10 @@ void genorm(
 /// General matrix norm.
 /// Host OpenMP task implementation.
 template <typename scalar_t>
-void genorm(
+void trnorm(
     internal::TargetType<Target::HostTask>,
-    Norm norm, Matrix<scalar_t>& A, blas::real_type<scalar_t>* values,
+    Norm norm, Diag diag, TrapezoidMatrix<scalar_t>& A,
+    blas::real_type<scalar_t>* values,
     int priority)
 {
     using real_t = blas::real_type<scalar_t>;
@@ -148,20 +151,51 @@ void genorm(
     // max norm
     // max_{ii,jj} abs( A_{ii,jj} )
     if (norm == Norm::Max) {
-
         // Find max of each tile, append to tiles_maxima.
         std::vector<real_t> tiles_maxima;
-        for (int64_t i = 0; i < A.mt(); ++i) {
-            for (int64_t j = 0; j < A.nt(); ++j) {
-                if (A.tileIsLocal(i, j)) {
-                    #pragma omp task shared(A, tiles_maxima) priority(priority)
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            // diagonal tile
+            if (j < A.mt() && A.tileIsLocal(j, j)) {
+                #pragma omp task shared(A, tiles_maxima) priority(priority)
+                {
+                    A.tileCopyToHost(j, j, A.tileDevice(j, j));
+                    real_t tile_max;
+                    trnorm(norm, diag, A(j, j), &tile_max);
+                    #pragma omp critical
                     {
-                        A.tileCopyToHost(i, j, A.tileDevice(i, j));
-                        real_t tile_max;
-                        genorm(norm, A(i, j), &tile_max);
-                        #pragma omp critical
+                        tiles_maxima.push_back(tile_max);
+                    }
+                }
+            }
+            // off-diagonal tiles
+            if (A.uplo_logical() == Uplo::Lower) {
+                for (int64_t i = j+1; i < A.mt(); ++i) {  // strictly lower
+                    if (A.tileIsLocal(i, j)) {
+                        #pragma omp task shared(A, tiles_maxima) priority(priority)
                         {
-                            tiles_maxima.push_back(tile_max);
+                            A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                            real_t tile_max;
+                            genorm(norm, A(i, j), &tile_max);
+                            #pragma omp critical
+                            {
+                                tiles_maxima.push_back(tile_max);
+                            }
+                        }
+                    }
+                }
+            }
+            else { // Uplo::Upper
+                for (int64_t i = 0; i < j && i < A.mt(); ++i) {  // strictly upper
+                    if (A.tileIsLocal(i, j)) {
+                        #pragma omp task shared(A, tiles_maxima) priority(priority)
+                        {
+                            A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                            real_t tile_max;
+                            genorm(norm, A(i, j), &tile_max);
+                            #pragma omp critical
+                            {
+                                tiles_maxima.push_back(tile_max);
+                            }
                         }
                     }
                 }
@@ -179,21 +213,42 @@ void genorm(
     // one norm
     // max col sum = max_jj sum_ii abs( A_{ii,jj} )
     else if (norm == Norm::One) {
-
         // Sum each column within a tile.
         std::vector<real_t> tiles_sums(A.n()*A.mt(), 0.0);
-        for (int64_t i = 0; i < A.mt(); ++i) {
-            int64_t jj = 0;
-            for (int64_t j = 0; j < A.nt(); ++j) {
-                if (A.tileIsLocal(i, j)) {
-                    #pragma omp task shared(A, tiles_sums) priority(priority)
-                    {
-                        A.tileCopyToHost(i, j, A.tileDevice(i, j));
-                        genorm(norm, A(i, j), &tiles_sums[A.n()*i+jj]);
+        int64_t jj = 0;
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            // diagonal tile
+            if (j < A.mt() && A.tileIsLocal(j, j)) {
+                #pragma omp task shared(A, tiles_sums) priority(priority)
+                {
+                    A.tileCopyToHost(j, j, A.tileDevice(j, j));
+                    trnorm(norm, diag, A(j, j), &tiles_sums[A.n()*j+jj]);
+                }
+            }
+            // off-diagonal tiles
+            if (A.uplo() == Uplo::Lower) {
+                for (int64_t i = j+1; i < A.mt(); ++i) { // strictly lower
+                    if (A.tileIsLocal(i, j)) {
+                        #pragma omp task shared(A, tiles_sums) priority(priority)
+                        {
+                            A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                            genorm(norm, A(i, j), &tiles_sums[A.n()*i+jj]);
+                        }
                     }
                 }
-                jj += A.tileNb(j);
             }
+            else { // Uplo::Upper
+                for (int64_t i = 0; i < j && i < A.mt(); ++i) { // strictly upper
+                    if (A.tileIsLocal(i, j)) {
+                        #pragma omp task shared(A, tiles_sums) priority(priority)
+                        {
+                            A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                            genorm(norm, A(i, j), &tiles_sums[A.n()*i+jj]);
+                        }
+                    }
+                }
+            }
+            jj += A.tileNb(j);
         }
 
         #pragma omp taskwait
@@ -211,17 +266,38 @@ void genorm(
     // inf norm
     // max row sum = max_ii sum_jj abs( A_{ii,jj} )
     else if (norm == Norm::Inf) {
-
         // Sum each row within a tile.
         std::vector<real_t> tiles_sums(A.m()*A.nt(), 0.0);
         int64_t ii = 0;
         for (int64_t i = 0; i < A.mt(); ++i) {
-            for (int64_t j = 0; j < A.nt(); ++j) {
-                if (A.tileIsLocal(i, j)) {
-                    #pragma omp task shared(A, tiles_sums) priority(priority)
-                    {
-                        A.tileCopyToHost(i, j, A.tileDevice(i, j));
-                        genorm(norm, A(i, j), &tiles_sums[A.m()*j + ii]);
+            // diagonal tile
+            if (i < A.nt() && A.tileIsLocal(i, i)) {
+                #pragma omp task shared(A, tiles_sums) priority(priority)
+                {
+                    A.tileCopyToHost(i, i, A.tileDevice(i, i));
+                    trnorm(norm, diag, A(i, i), &tiles_sums[A.m()*i + ii]);
+                }
+            }
+            // off-diagonal tiles
+            if (A.uplo() == Uplo::Lower) {
+                for (int64_t j = 0; j < i && j < A.nt(); ++j) { // strictly lower
+                    if (A.tileIsLocal(i, j)) {
+                        #pragma omp task shared(A, tiles_sums) priority(priority)
+                        {
+                            A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                            genorm(norm, A(i, j), &tiles_sums[A.m()*j + ii]);
+                        }
+                    }
+                }
+            }
+            else { // Uplo::Upper
+                for (int64_t j = i+1; j < A.nt(); ++j) { // strictly upper
+                    if (A.tileIsLocal(i, j)) {
+                        #pragma omp task shared(A, tiles_sums) priority(priority)
+                        {
+                            A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                            genorm(norm, A(i, j), &tiles_sums[A.m()*j + ii]);
+                        }
                     }
                 }
             }
@@ -244,21 +320,51 @@ void genorm(
     // sqrt( sum_{ii,jj} abs( A_{ii,jj} )^2 )
     // In scaled form: scale^2 sumsq = sum abs( A_{ii,jj}^2 )
     else if (norm == Norm::Fro) {
-
         values[0] = 0;  // scale
         values[1] = 1;  // sumsq
-        for (int64_t i = 0; i < A.mt(); ++i) {
-            for (int64_t j = 0; j < A.nt(); ++j) {
-                if (A.tileIsLocal(i, j)) {
-                    #pragma omp task shared(A, values) priority(priority)
-                    {
-                        A.tileCopyToHost(i, j, A.tileDevice(i, j));
-                        real_t tile_values[2];
-                        genorm(norm, A(i, j), tile_values);
-                        #pragma omp critical
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            // diagonal tile
+            if (j < A.mt() && A.tileIsLocal(j, j)) {
+                A.tileCopyToHost(j, j, A.tileDevice(j, j));
+                real_t tile_values[2];
+                trnorm(norm, diag, A(j, j), tile_values);
+                #pragma omp critical
+                {
+                    add_sumsq(values[0], values[1],
+                              tile_values[0], tile_values[1]);
+                }
+            }
+            // off-diagonal tiles
+            if (A.uplo() == Uplo::Lower) {
+                for (int64_t i = j+1; i < A.mt(); ++i) { // strictly lower
+                    if (A.tileIsLocal(i, j)) {
+                        #pragma omp task shared(A, values) priority(priority)
                         {
-                            add_sumsq(values[0], values[1],
-                                      tile_values[0], tile_values[1]);
+                            A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                            real_t tile_values[2];
+                            genorm(norm, A(i, j), tile_values);
+                            #pragma omp critical
+                            {
+                                add_sumsq(values[0], values[1],
+                                          tile_values[0], tile_values[1]);
+                            }
+                        }
+                    }
+                }
+            }
+            else { // Uplo::Upper
+                for (int64_t i = 0; i < j && i < A.mt(); ++i) { // strictly upper
+                    if (A.tileIsLocal(i, j)) {
+                        #pragma omp task shared(A, values) priority(priority)
+                        {
+                            A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                            real_t tile_values[2];
+                            genorm(norm, A(i, j), tile_values);
+                            #pragma omp critical
+                            {
+                                add_sumsq(values[0], values[1],
+                                          tile_values[0], tile_values[1]);
+                            }
                         }
                     }
                 }
@@ -271,44 +377,23 @@ void genorm(
 /// General matrix norm.
 /// Host nested OpenMP implementation.
 template <typename scalar_t>
-void genorm(
+void trnorm(
     internal::TargetType<Target::HostNest>,
-    Norm norm, Matrix<scalar_t>& A, blas::real_type<scalar_t>* values,
+    Norm norm, Diag diag, TrapezoidMatrix<scalar_t>& A,
+    blas::real_type<scalar_t>* values,
     int priority)
 {
-    using real_t = blas::real_type<scalar_t>;
-
-    std::vector<real_t> tiles_maxima;
-
-    #pragma omp parallel for collapse(2) schedule(dynamic, 1)
-    for (int64_t i = 0; i < A.mt(); ++i) {
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            if (A.tileIsLocal(i, j)) {
-                A.tileCopyToHost(i, j, A.tileDevice(i, j));
-                real_t tile_max;
-                genorm(norm, A(i, j), &tile_max);
-                #pragma omp critical
-                {
-                    tiles_maxima.push_back(tile_max);
-                }
-            }
-        }
-    }
-
-    #pragma omp taskwait
-
-    *values = lapack::lange(norm,
-                            1, tiles_maxima.size(),
-                            tiles_maxima.data(), 1);
+    throw Exception("HostNested not yet implemented");
 }
 
 ///-----------------------------------------------------------------------------
-/// General matrix norm.
+/// Trapezoid and triangular matrix norm.
 /// GPU device implementation.
 template <typename scalar_t>
-void genorm(
+void trnorm(
     internal::TargetType<Target::Devices>,
-    Norm norm, Matrix<scalar_t>& A, blas::real_type<scalar_t>* values,
+    Norm norm, Diag diag, TrapezoidMatrix<scalar_t>& A,
+    blas::real_type<scalar_t>* values,
     int priority)
 {
     using real_t = blas::real_type<scalar_t>;
@@ -341,7 +426,6 @@ void genorm(
     }
 
     for (int device = 0; device < A.num_devices(); ++device) {
-
         slate_cuda_call(
             cudaSetDevice(device));
 
@@ -361,34 +445,50 @@ void genorm(
 
     // Define index ranges for quadrants of matrix.
     // Tiles in each quadrant are all the same size.
-    int64_t irange[4][2] = {
+    int64_t irange[6][2] = {
+        // off-diagonal
         { 0,        A.mt()-1 },
         { A.mt()-1, A.mt()   },
         { 0,        A.mt()-1 },
-        { A.mt()-1, A.mt()   }
+        { A.mt()-1, A.mt()   },
+        // diagonal
+        { 0,                          std::min(A.mt(), A.nt())-1 },
+        { std::min(A.mt(), A.nt())-1, std::min(A.mt(), A.nt())   }
     };
-    int64_t jrange[4][2] = {
+    int64_t jrange[6][2] = {
+        // off-diagonal
         { 0,        A.nt()-1 },
         { 0,        A.nt()-1 },
         { A.nt()-1, A.nt()   },
-        { A.nt()-1, A.nt()   }
+        { A.nt()-1, A.nt()   },
+        // diagonal
+        { 0,                          std::min(A.mt(), A.nt())-1 },
+        { std::min(A.mt(), A.nt())-1, std::min(A.mt(), A.nt())   }
     };
 
     for (int device = 0; device < A.num_devices(); ++device) {
         #pragma omp task shared(A, devices_values, vals_arrays_host) \
                          priority(priority)
         {
-            for (int64_t i = 0; i < A.mt(); ++i)
-                for (int64_t j = 0; j < A.nt(); ++j)
-                    if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j))
+            for (int64_t i = 0; i < A.mt(); ++i) {
+                for (int64_t j = 0; j < A.nt(); ++j) {
+                    if (A.tileIsLocal(i, j) &&
+                        device == A.tileDevice(i, j) &&
+                        ( (A.uplo() == Uplo::Lower && i > j) ||
+                          (A.uplo() == Uplo::Upper && i < j) ))
+                    {
                         A.tileCopyToDevice(i, j, device);
+                    }
+                }
+            }
 
             // Setup batched arguments.
             scalar_t** a_array_host = a_arrays_host[device].data();
             scalar_t** a_array_dev = a_arrays_dev[device];
 
             int64_t batch_count = 0;
-            int64_t mb[4], nb[4], lda[4], group_count[4];
+            int64_t mb[6], nb[6], lda[6], group_count[6];
+            // off-diagonal blocks
             for (int q = 0; q < 4; ++q) {
                 group_count[q] = 0;
                 lda[q] = 0;
@@ -397,7 +497,9 @@ void genorm(
                 for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                     for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
                         if (A.tileIsLocal(i, j) &&
-                            device == A.tileDevice(i, j))
+                            device == A.tileDevice(i, j) &&
+                            ( (A.uplo() == Uplo::Lower && i > j) ||
+                              (A.uplo() == Uplo::Upper && i < j) ))
                         {
                             a_array_host[batch_count] = A(i, j, device).data();
                             lda[q] = A(i, j, device).stride();
@@ -407,13 +509,30 @@ void genorm(
                     }
                 }
             }
+            // diagonal blocks
+            for (int q = 4; q < 6; ++q) {
+                group_count[q] = 0;
+                lda[q] = 0;
+                mb[q] = A.tileMb(jrange[q][0]);
+                nb[q] = A.tileNb(jrange[q][0]);
+                for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
+                    if (A.tileIsLocal(j, j) &&
+                        device == A.tileDevice(j, j))
+                    {
+                        a_array_host[batch_count] = A(j, j, device).data();
+                        lda[q] = A(j, j, device).stride();
+                        ++group_count[q];
+                        ++batch_count;
+                    }
+                }
+            }
 
             real_t* vals_array_host = vals_arrays_host[device].data();
             real_t* vals_array_dev = vals_arrays_dev[device];
 
             // Batched call to compute partial results for each tile.
             {
-                trace::Block trace_block("slate::device::genorm");
+                trace::Block trace_block("slate::device::trnorm");
 
                 slate_cuda_call(
                     cudaSetDevice(device));
@@ -425,9 +544,21 @@ void genorm(
                                     cudaMemcpyHostToDevice,
                                     stream));
 
+                // off-diagonal blocks
                 for (int q = 0; q < 4; ++q) {
                     if (group_count[q] > 0) {
                         device::genorm(norm,
+                                       mb[q], nb[q],
+                                       a_array_dev, lda[q],
+                                       vals_array_dev, group_count[q], stream);
+                        a_array_dev += group_count[q];
+                        vals_array_dev += group_count[q] * vals_chunk;
+                    }
+                }
+                // diagonal blocks
+                for (int q = 4; q < 6; ++q) {
+                    if (group_count[q] > 0) {
+                        device::trnorm(norm, A.uplo(), diag,
                                        mb[q], nb[q],
                                        a_array_dev, lda[q],
                                        vals_array_dev, group_count[q], stream);
@@ -482,9 +613,7 @@ void genorm(
                                 devices_values.data(), 1);
     }
     else if (norm == Norm::One) {
-
         for (int device = 0; device < A.num_devices(); ++device) {
-
             real_t* vals_array_host = vals_arrays_host[device].data();
 
             int64_t batch_count = 0;
@@ -507,9 +636,7 @@ void genorm(
         }
     }
     else if (norm == Norm::Inf) {
-
         for (int device = 0; device < A.num_devices(); ++device) {
-
             real_t* vals_array_host = vals_arrays_host[device].data();
 
             int64_t batch_count = 0;
@@ -546,77 +673,77 @@ void genorm(
 // Explicit instantiations.
 // ----------------------------------------
 template
-void genorm<Target::HostTask, float>(
-    Norm norm, Matrix<float>&& A,
+void trnorm<Target::HostTask, float>(
+    Norm norm, Diag diag, TrapezoidMatrix<float>&& A,
     float* values,
     int priority);
 
 template
-void genorm<Target::HostNest, float>(
-    Norm norm, Matrix<float>&& A,
+void trnorm<Target::HostNest, float>(
+    Norm norm, Diag diag, TrapezoidMatrix<float>&& A,
     float* values,
     int priority);
 
 template
-void genorm<Target::Devices, float>(
-    Norm norm, Matrix<float>&& A,
-    float* values,
-    int priority);
-
-// ----------------------------------------
-template
-void genorm<Target::HostTask, double>(
-    Norm norm, Matrix<double>&& A,
-    double* values,
-    int priority);
-
-template
-void genorm<Target::HostNest, double>(
-    Norm norm, Matrix<double>&& A,
-    double* values,
-    int priority);
-
-template
-void genorm<Target::Devices, double>(
-    Norm norm, Matrix<double>&& A,
-    double* values,
-    int priority);
-
-// ----------------------------------------
-template
-void genorm< Target::HostTask, std::complex<float> >(
-    Norm norm, Matrix< std::complex<float> >&& A,
-    float* values,
-    int priority);
-
-template
-void genorm< Target::HostNest, std::complex<float> >(
-    Norm norm, Matrix< std::complex<float> >&& A,
-    float* values,
-    int priority);
-
-template
-void genorm< Target::Devices, std::complex<float> >(
-    Norm norm, Matrix< std::complex<float> >&& A,
+void trnorm<Target::Devices, float>(
+    Norm norm, Diag diag, TrapezoidMatrix<float>&& A,
     float* values,
     int priority);
 
 // ----------------------------------------
 template
-void genorm< Target::HostTask, std::complex<double> >(
-    Norm norm, Matrix< std::complex<double> >&& A,
+void trnorm<Target::HostTask, double>(
+    Norm norm, Diag diag, TrapezoidMatrix<double>&& A,
     double* values,
     int priority);
 
 template
-void genorm< Target::HostNest, std::complex<double> >(
-    Norm norm, Matrix< std::complex<double> >&& A,
+void trnorm<Target::HostNest, double>(
+    Norm norm, Diag diag, TrapezoidMatrix<double>&& A,
     double* values,
     int priority);
 
 template
-void genorm< Target::Devices, std::complex<double> >(
-    Norm norm, Matrix< std::complex<double> >&& A,
+void trnorm<Target::Devices, double>(
+    Norm norm, Diag diag, TrapezoidMatrix<double>&& A,
+    double* values,
+    int priority);
+
+// ----------------------------------------
+template
+void trnorm< Target::HostTask, std::complex<float> >(
+    Norm norm, Diag diag, TrapezoidMatrix< std::complex<float> >&& A,
+    float* values,
+    int priority);
+
+template
+void trnorm< Target::HostNest, std::complex<float> >(
+    Norm norm, Diag diag, TrapezoidMatrix< std::complex<float> >&& A,
+    float* values,
+    int priority);
+
+template
+void trnorm< Target::Devices, std::complex<float> >(
+    Norm norm, Diag diag, TrapezoidMatrix< std::complex<float> >&& A,
+    float* values,
+    int priority);
+
+// ----------------------------------------
+template
+void trnorm< Target::HostTask, std::complex<double> >(
+    Norm norm, Diag diag, TrapezoidMatrix< std::complex<double> >&& A,
+    double* values,
+    int priority);
+
+template
+void trnorm< Target::HostNest, std::complex<double> >(
+    Norm norm, Diag diag, TrapezoidMatrix< std::complex<double> >&& A,
+    double* values,
+    int priority);
+
+template
+void trnorm< Target::Devices, std::complex<double> >(
+    Norm norm, Diag diag, TrapezoidMatrix< std::complex<double> >&& A,
     double* values,
     int priority);
 

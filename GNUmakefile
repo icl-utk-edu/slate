@@ -228,18 +228,21 @@ lib_src += \
        slate_internal_syrk.cc \
        slate_internal_trmm.cc \
        slate_internal_trsm.cc \
+       slate_internal_trnorm.cc \
        slate_internal_util.cc \
 
 # device
 ifeq ($(cuda),1)
     lib_src += \
-           slate_device_genorm.cu
+           slate_device_genorm.cu \
+           slate_device_trnorm.cu
 endif
 
 # driver
 lib_src += \
        slate_gemm.cc \
        slate_genorm.cc \
+       slate_trnorm.cc \
        slate_hemm.cc \
        slate_her2k.cc \
        slate_herk.cc \
@@ -264,6 +267,7 @@ test_src = \
         test/test_her2k.cc \
         test/test_herk.cc  \
         test/test_genorm.cc  \
+        test/test_trnorm.cc  \
 
 # unit testers
 unit_src = \

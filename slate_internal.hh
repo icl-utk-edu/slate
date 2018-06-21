@@ -126,7 +126,8 @@ void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
 //-----------------------------------------
 // genorm()
 template <Target target=Target::HostTask, typename scalar_t>
-void genorm(Norm norm, Matrix<scalar_t>&& A, blas::real_type<scalar_t>* values,
+void genorm(Norm norm, Matrix<scalar_t>&& A,
+            blas::real_type<scalar_t>* values,
             int priority=0);
 
 //-----------------------------------------
@@ -271,6 +272,12 @@ void trsm(Side side, Diag diag,
                                     Matrix<scalar_t>&& B,
           int priority=0);
 
+//-----------------------------------------
+// trnorm()
+template <Target target=Target::HostTask, typename scalar_t>
+void trnorm(Norm norm, Diag diag, TrapezoidMatrix<scalar_t>&& A,
+            blas::real_type<scalar_t>* values,
+            int priority=0);
 
 //-----------------------------------------
 // potrf()

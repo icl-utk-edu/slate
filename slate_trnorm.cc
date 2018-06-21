@@ -48,19 +48,19 @@
 namespace slate {
 
 // specialization namespace differentiates, e.g.,
-// internal::genorm from internal::specialization::genorm
+// internal::trnorm from internal::specialization::trnorm
 namespace internal {
 namespace specialization {
 
 //------------------------------------------------------------------------------
 /// @internal
-/// Distributed parallel general matrix norm.
+/// Distributed parallel trapezoid and triangular matrix norm.
 /// Generic implementation for any target.
-/// @ingroup genorm
+/// @ingroup trnorm
 template <Target target, typename scalar_t>
 blas::real_type<scalar_t>
-genorm(slate::internal::TargetType<target>,
-       Norm norm, Matrix<scalar_t>& A)
+trnorm(slate::internal::TargetType<target>,
+       Norm norm, Diag diag, TrapezoidMatrix<scalar_t>& A)
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -68,7 +68,6 @@ genorm(slate::internal::TargetType<target>,
     // max norm
     // max_{i,j} abs( A_{i,j} )
     if (norm == Norm::Max) {
-
         real_t local_max;
         real_t global_max;
 
@@ -78,7 +77,7 @@ genorm(slate::internal::TargetType<target>,
         #pragma omp parallel
         #pragma omp master
         {
-            internal::genorm<target>(norm, std::move(A), &local_max);
+            internal::trnorm<target>(norm, diag, std::move(A), &local_max);
         }
 
         MPI_Op op_max_nan;
@@ -111,7 +110,6 @@ genorm(slate::internal::TargetType<target>,
     // one norm
     // max col sum = max_j sum_i abs( A_{i,j} )
     else if (norm == Norm::One) {
-
         std::vector<real_t> local_sums(A.n());
 
         if (target == Target::Devices)
@@ -120,7 +118,7 @@ genorm(slate::internal::TargetType<target>,
         #pragma omp parallel
         #pragma omp master
         {
-            internal::genorm<target>(norm, std::move(A), local_sums.data());
+            internal::trnorm<target>(norm, diag, std::move(A), local_sums.data());
         }
 
         std::vector<real_t> global_sums(A.n());
@@ -142,7 +140,6 @@ genorm(slate::internal::TargetType<target>,
     // inf norm
     // max row sum = max_i sum_j abs( A_{i,j} )
     else if (norm == Norm::Inf) {
-
         std::vector<real_t> local_sums(A.m());
 
         if (target == Target::Devices)
@@ -151,7 +148,7 @@ genorm(slate::internal::TargetType<target>,
         #pragma omp parallel
         #pragma omp master
         {
-            internal::genorm<target>(norm, std::move(A), local_sums.data());
+            internal::trnorm<target>(norm, diag, std::move(A), local_sums.data());
         }
 
         std::vector<real_t> global_sums(A.m());
@@ -173,7 +170,6 @@ genorm(slate::internal::TargetType<target>,
     // Frobenius norm
     // sqrt( sum_{i,j} abs( A_{i,j} )^2 )
     else if (norm == Norm::Fro) {
-
         real_t local_values[2];
         real_t local_sumsq;
         real_t global_sumsq;
@@ -184,7 +180,7 @@ genorm(slate::internal::TargetType<target>,
         #pragma omp parallel
         #pragma omp master
         {
-            internal::genorm<target>(norm, std::move(A), local_values);
+            internal::trnorm<target>(norm, diag, std::move(A), local_values);
         }
 
         #pragma omp critical(slate_mpi)
@@ -212,18 +208,18 @@ genorm(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup genorm
+/// @ingroup trnorm
 template <Target target, typename scalar_t>
 blas::real_type<scalar_t>
-genorm(Norm norm, Matrix<scalar_t>& A,
+trnorm(Norm norm, Diag diag, TrapezoidMatrix<scalar_t>& A,
        const std::map<Option, Value>& opts)
 {
-    return internal::specialization::genorm(internal::TargetType<target>(),
-                                            norm, A);
+    return internal::specialization::trnorm(internal::TargetType<target>(),
+                                            norm, diag, A);
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel general matrix norm.
+/// Distributed parallel trapezoid and triangular matrix norm.
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
@@ -236,8 +232,15 @@ genorm(Norm norm, Matrix<scalar_t>& A,
 ///     - Norm::Inf: maximum row sum,    $\max_i \sum_j \abs( A_{i, j} )$
 ///     - Norm::Fro: Frobenius norm, $\sqrt( \sum_{i, j} \abs( A_{i, j} )^2 )$
 ///
+/// @param[in] diag
+///     Whether or not A is unit triangular:
+///     - Diag::NonUnit: A is non-unit triangular;
+///     - Diag::Unit:    A is unit triangular.
+///                      The diagonal elements of A are not referenced
+///                      and are assumed to be 1.
+///
 /// @param[in] A
-///     The m-by-n matrix A.
+///     The m-by-n trapezoid matrix A.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
@@ -247,10 +250,10 @@ genorm(Norm norm, Matrix<scalar_t>& A,
 ///       - HostNest:  nested OpenMP parallel for loop on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// @ingroup genorm
+/// @ingroup trnorm
 template <typename scalar_t>
 blas::real_type<scalar_t>
-genorm(Norm norm, Matrix<scalar_t>& A,
+trnorm(Norm norm, Diag diag, TrapezoidMatrix<scalar_t>& A,
        const std::map<Option, Value>& opts)
 {
     Target target;
@@ -264,14 +267,14 @@ genorm(Norm norm, Matrix<scalar_t>& A,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            return genorm<Target::HostTask>(norm, A, opts);
+            return trnorm<Target::HostTask>(norm, diag, A, opts);
             break;
         case Target::HostBatch:
         case Target::HostNest:
-            return genorm<Target::HostNest>(norm, A, opts);
+            return trnorm<Target::HostNest>(norm, diag, A, opts);
             break;
         case Target::Devices:
-            return genorm<Target::Devices>(norm, A, opts);
+            return trnorm<Target::Devices>(norm, diag, A, opts);
             break;
     }
     throw std::exception();  // todo: invalid target
@@ -280,23 +283,23 @@ genorm(Norm norm, Matrix<scalar_t>& A,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-float genorm<float>(
-    Norm norm, Matrix<float>& A,
+float trnorm<float>(
+    Norm norm, Diag diag, TrapezoidMatrix<float>& A,
     const std::map<Option, Value>& opts);
 
 template
-double genorm<double>(
-    Norm norm, Matrix<double>& A,
+double trnorm<double>(
+    Norm norm, Diag diag, TrapezoidMatrix<double>& A,
     const std::map<Option, Value>& opts);
 
 template
-float genorm< std::complex<float> >(
-    Norm norm, Matrix< std::complex<float> >& A,
+float trnorm< std::complex<float> >(
+    Norm norm, Diag diag, TrapezoidMatrix< std::complex<float> >& A,
     const std::map<Option, Value>& opts);
 
 template
-double genorm< std::complex<double> >(
-    Norm norm, Matrix< std::complex<double> >& A,
+double trnorm< std::complex<double> >(
+    Norm norm, Diag diag, TrapezoidMatrix< std::complex<double> >& A,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

@@ -621,6 +621,144 @@ void genorm(Norm norm, Tile<scalar_t> const&& A,
 }
 
 ///-----------------------------------------------------------------------------
+/// Trapezoid and triangular matrix norm.
+template <typename scalar_t>
+void trnorm(Norm norm, Diag diag, Tile<scalar_t> const& A,
+            blas::real_type<scalar_t>* values)
+{
+    using blas::max;
+    using blas::min;
+
+    trace::Block trace_block("lapack::lantr");
+
+    assert(A.uplo() != Uplo::General);
+    assert(A.op() == Op::NoTrans);
+
+    if (norm == Norm::Max) {
+        // max norm
+        // values[0] = max_{i,j} A_{i,j}
+        *values = lapack::lantr(norm, A.uplo(), diag,
+                                A.mb(), A.nb(),
+                                A.data(), A.stride());
+    }
+    else if (norm == Norm::One) {
+        // one norm
+        // values[j] = sum_i abs( A_{i,j} )
+        for (int64_t j = 0; j < A.nb(); ++j) {
+            values[j] = 0;
+            // diagonal element
+            if (j < A.mb()) {
+                if (diag == Diag::Unit) {
+                    values[j] += 1;
+                }
+                else {
+                    values[j] += std::abs(A(j, j));
+                }
+            }
+            // off-diagonal elements
+            if (A.uplo() == Uplo::Lower) {
+                for (int64_t i = j+1; i < A.mb(); ++i) { // strictly lower
+                    values[j] += std::abs(A(i, j));
+                }
+            }
+            else {
+                for (int64_t i = 0; i < j && i < A.mb(); ++i) { // strictly upper
+                    values[j] += std::abs(A(i, j));
+                }
+            }
+        }
+    }
+    else if (norm == Norm::Inf) {
+        // inf norm
+        // values[i] = sum_j abs( A_{i,j} )
+        for (int64_t i = 0; i < A.mb(); ++i) {
+            values[i] = 0;
+        }
+        for (int64_t j = 0; j < A.nb(); ++j) {
+            // diagonal element
+            if (j < A.mb()) {
+                if (diag == Diag::Unit) {
+                    values[j] += 1;
+                }
+                else {
+                    values[j] += std::abs(A(j, j));
+                }
+            }
+            // off-diagonal elements
+            if (A.uplo() == Uplo::Lower) {
+                for (int64_t i = j+1; i < A.mb(); ++i) { // strictly lower
+                    values[i] += std::abs(A(i, j));
+                }
+            }
+            else {
+                for (int64_t i = 0; i < j && i < A.mb(); ++i) { // strictly upper
+                    values[i] += std::abs(A(i, j));
+                }
+            }
+        }
+    }
+    else if (norm == Norm::Fro) {
+        // Frobenius norm
+        // values[0] = scale, values[1] = sumsq such that
+        // scale^2 * sumsq = sum_{i,j} abs( A_{i,j} )^2
+        values[0] = 0;  // scale
+        values[1] = 1;  // sumsq
+        if (diag == Diag::Unit) {
+            // diagonal elements: sum 1^2 + ... + 1^2 = min( mb, nb )
+            values[0] = 1;
+            values[1] = min(A.mb(), A.nb());
+            // off-diagonal elements
+            if (A.uplo() == Uplo::Lower) {
+                // strictly lower: A[ j+1:mb, j ]
+                for (int64_t j = 0; j < A.nb(); ++j) {
+                    int64_t ib = max(A.mb() - (j+1), 0);
+                    if (ib > 0)
+                        lapack::lassq(ib, &A.at(j+1, j), 1, &values[0], &values[1]);
+                }
+            }
+            else {
+                // strictly upper: A[ 0:j-1, j ]
+                for (int64_t j = 0; j < A.nb(); ++j) {
+                    int64_t ib = min(j, A.mb());
+                    if (ib > 0)
+                        lapack::lassq(ib, &A.at(0, j), 1, &values[0], &values[1]);
+                }
+            }
+        }
+        else {
+            if (A.uplo() == Uplo::Lower) {
+                // lower: A[ j:mb, j ]
+                for (int64_t j = 0; j < A.nb(); ++j) {
+                    int64_t ib = max(A.mb() - j, 0);
+                    if (ib > 0)
+                        lapack::lassq(ib, &A.at(j, j), 1, &values[0], &values[1]);
+                }
+            }
+            else {
+                // upper: A[ 0:j, j ]
+                for (int64_t j = 0; j < A.nb(); ++j) {
+                    int64_t ib = min(j+1, A.mb());
+                    if (ib > 0)
+                        lapack::lassq(ib, &A.at(0, j), 1, &values[0], &values[1]);
+                }
+            }
+        }
+    }
+    else {
+        throw std::exception();  // invalid norm
+    }
+}
+
+///----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename scalar_t>
+void trnorm(Norm norm, Tile<scalar_t> const&& A,
+            blas::real_type<scalar_t>* values)
+{
+    return trnorm(norm, A, values);
+}
+
+///-----------------------------------------------------------------------------
 /// \brief
 /// Cholesky factorization of tile: $L L^H = A$ or $U^H U = A$.
 /// uplo is set in the tile.

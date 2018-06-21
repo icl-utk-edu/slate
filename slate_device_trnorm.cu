@@ -160,7 +160,7 @@ inline double abs(cuDoubleComplex x)
 /// @return x^2
 template <typename scalar_t>
 __host__ __device__
-scalar_t sqr(scalar_t x)
+inline scalar_t sqr(scalar_t x)
 {
     return x*x;
 }
@@ -186,12 +186,31 @@ void add_sumsq(
 }
 
 //------------------------------------------------------------------------------
+/// Adds new value to scaled, sum-of-squares representation.
+/// On exit, scale and sumsq are updated such that:
+///     scale^2 sumsq := scale^2 sumsq + (absx)^2
+template <typename real_t>
+__host__ __device__
+inline void add_sumsq(
+    real_t& scale, real_t& sumsq,
+    real_t absx)
+{
+    if (scale < absx) {
+        sumsq = 1 + sumsq * sqr(scale / absx);
+        scale = absx;
+    }
+    else {
+        sumsq = sumsq + sqr(absx / scale);
+    }
+}
+
+//------------------------------------------------------------------------------
 /// Finds the largest absolute value of elements, for each tile in tiles.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row, followed by a reduction.
 /// Uses dynamic shared memory array of length sizeof(real_t) * m.
 /// Kernel assumes non-trivial tiles (m, n >= 1).
-/// Launched by genorm().
+/// Launched by trnorm().
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 1.
@@ -214,7 +233,8 @@ void add_sumsq(
 ///     for tile A^(k).
 ///
 template <typename scalar_t>
-__global__ void genormMaxKernel(
+__global__ void trnormMaxKernel(
+    lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     scalar_t const* const* tiles, int64_t lda,
     blas::real_type<scalar_t>* tiles_maxima)
@@ -225,9 +245,32 @@ __global__ void genormMaxKernel(
 
     // Each thread finds max of one row.
     // This does coalesced reads of one column at a time in parallel.
-    real_t max = abs(row[0]);
-    for (int64_t j = 1; j < n; ++j)
-        max = max_nan(max, abs(row[j]));
+    real_t max = 0;
+    if (uplo == lapack::Uplo::Lower) {
+        if (diag == lapack::Diag::Unit) {
+            if (threadIdx.x < n) // diag
+                max = 1;
+            for (int64_t j = 0; j < threadIdx.x && j < n; ++j) // strictly lower
+                max = max_nan(max, abs(row[j*lda]));
+        }
+        else {
+            for (int64_t j = 0; j <= threadIdx.x && j < n; ++j) // lower
+                max = max_nan(max, abs(row[j*lda]));
+        }
+    }
+    else {
+        // Loop backwards (n-1 down to i) to maintain coalesced reads.
+        if (diag == lapack::Diag::Unit) {
+            if (threadIdx.x < n) // diag
+                max = 1;
+            for (int64_t j = n-1; j > threadIdx.x; --j) // strictly upper
+                max = max_nan(max, abs(row[j*lda]));
+        }
+        else {
+            for (int64_t j = n-1; j >= threadIdx.x; --j) // upper
+                max = max_nan(max, abs(row[j*lda]));
+        }
+    }
 
     // Save partial results in shared memory.
     extern __shared__ char dynamic_data[];
@@ -247,7 +290,7 @@ __global__ void genormMaxKernel(
 /// Each thread block deals with one tile.
 /// Each thread deals with one column.
 /// Kernel assumes non-trivial tiles (m, n >= 1).
-/// Launched by genorm().
+/// Launched by trnorm().
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 1.
@@ -270,7 +313,8 @@ __global__ void genormMaxKernel(
 ///     for row j of tile A^(k).
 ///
 template <typename scalar_t>
-__global__ void genormOneKernel(
+__global__ void trnormOneKernel(
+    lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     scalar_t const* const* tiles, int64_t lda,
     blas::real_type<scalar_t>* tiles_sums)
@@ -281,9 +325,31 @@ __global__ void genormOneKernel(
 
     // Each thread sums one column.
     // todo: this doesn't do coalesced reads
-    real_t sum = abs(column[0]);
-    for (int64_t i = 1; i < m; ++i)
-        sum += abs(column[i]);
+    real_t sum = 0;
+    if (uplo == lapack::Uplo::Lower) {
+        if (diag == lapack::Diag::Unit) {
+            if (threadIdx.x < m) // diag
+                sum += 1;
+            for (int64_t i = threadIdx.x+1; i < m; ++i) // strictly lower
+                sum += abs(column[i]);
+        }
+        else {
+            for (int64_t i = threadIdx.x; i < m; ++i) // lower
+                sum += abs(column[i]);
+        }
+    }
+    else {
+        if (diag == lapack::Diag::Unit) {
+            if (threadIdx.x < m) // diag
+                sum += 1;
+            for (int64_t i = 0; i < threadIdx.x && i < m; ++i) // strictly upper
+                sum += abs(column[i]);
+        }
+        else {
+            for (int64_t i = 0; i <= threadIdx.x && i < m; ++i) // upper
+                sum += abs(column[i]);
+        }
+    }
 
     real_t* tile_sums = &tiles_sums[blockIdx.x*n];
     tile_sums[threadIdx.x] = sum;
@@ -294,7 +360,7 @@ __global__ void genormOneKernel(
 /// Each thread block deals with one tile.
 /// Each thread deals with one row.
 /// Kernel assumes non-trivial tiles (m, n >= 1).
-/// Launched by genorm().
+/// Launched by trnorm().
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 1.
@@ -317,7 +383,8 @@ __global__ void genormOneKernel(
 ///     for row i of tile A^(k).
 ///
 template <typename scalar_t>
-__global__ void genormInfKernel(
+__global__ void trnormInfKernel(
+    lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     scalar_t const* const* tiles, int64_t lda,
     blas::real_type<scalar_t>* tiles_sums)
@@ -328,9 +395,32 @@ __global__ void genormInfKernel(
 
     // Each thread sums one row.
     // This does coalesced reads of one column at a time in parallel.
-    real_t sum = abs(row[0]);
-    for (int64_t j = 1; j < n; ++j)
-        sum += abs(row[j*lda]);
+    real_t sum = 0;
+    if (uplo == lapack::Uplo::Lower) {
+        if (diag == lapack::Diag::Unit) {
+            if (threadIdx.x < n) // diag
+                sum += 1;
+            for (int64_t j = 0; j < threadIdx.x && j < n; ++j) // strictly lower
+                sum += abs(row[j*lda]);
+        }
+        else {
+            for (int64_t j = 0; j <= threadIdx.x && j < n; ++j) // lower
+                sum += abs(row[j*lda]);
+        }
+    }
+    else {
+        // Loop backwards (n-1 down to i) to maintain coalesced reads.
+        if (diag == lapack::Diag::Unit) {
+            if (threadIdx.x < n) // diag
+                sum += 1;
+            for (int64_t j = n-1; j > threadIdx.x; --j) // strictly upper
+                sum += abs(row[j*lda]);
+        }
+        else {
+            for (int64_t j = n-1; j >= threadIdx.x; --j) // upper
+                sum += abs(row[j*lda]);
+        }
+    }
 
     real_t* tile_sums = &tiles_sums[blockIdx.x*m];
     tile_sums[threadIdx.x] = sum;
@@ -341,7 +431,7 @@ __global__ void genormInfKernel(
 /// Each thread block deals with one tile.
 /// Each thread deals with one row, followed by a reduction.
 /// Kernel assumes non-trivial tiles (m, n >= 1).
-/// Launched by genorm().
+/// Launched by trnorm().
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 1.
@@ -367,7 +457,8 @@ __global__ void genormInfKernel(
 ///     for tile A^(k).
 ///
 template <typename scalar_t>
-__global__ void genormFroKernel(
+__global__ void trnormFroKernel(
+    lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     scalar_t const* const* tiles, int64_t lda,
     blas::real_type<scalar_t>* tiles_values)
@@ -378,16 +469,31 @@ __global__ void genormFroKernel(
 
     // Each thread finds sum-of-squares of one row.
     // This does coalesced reads of one column at a time in parallel.
-    real_t scale = abs(row[0]);
+    real_t scale = 0;
     real_t sumsq = 1;
-    for (int64_t j = 1; j < n; ++j) {
-        real_t absx = abs(row[j*lda]);
-        if (scale < absx) {
-            sumsq = 1 + sumsq * sqr(scale / absx);
-            scale = absx;
+    if (uplo == lapack::Uplo::Lower) {
+        if (diag == lapack::Diag::Unit) {
+            if (threadIdx.x < n) // diag
+                add_sumsq(scale, sumsq, real_t(1));
+            for (int64_t j = 0; j < threadIdx.x && j < n; ++j) // strictly lower
+                add_sumsq(scale, sumsq, abs(row[j*lda]));
         }
         else {
-            sumsq = sumsq + sqr(absx / scale);
+            for (int64_t j = 0; j <= threadIdx.x && j < n; ++j) // lower
+                add_sumsq(scale, sumsq, abs(row[j*lda]));
+        }
+    }
+    else {
+        // Loop backwards (n-1 down to i) to maintain coalesced reads.
+        if (diag == lapack::Diag::Unit) {
+            if (threadIdx.x < n) // diag
+                add_sumsq(scale, sumsq, real_t(1));
+            for (int64_t j = n-1; j > threadIdx.x; --j) // strictly upper
+                add_sumsq(scale, sumsq, abs(row[j*lda]));
+        }
+        else {
+            for (int64_t j = n-1; j >= threadIdx.x; --j) // upper
+                add_sumsq(scale, sumsq, abs(row[j*lda]));
         }
     }
 
@@ -430,13 +536,14 @@ __global__ void genormFroKernel(
 ///     Currently, n <= 1024 due to CUDA implementation.
 ///
 /// @param[in] Aarray
-///     Array of dimension batch_count, containing pointers to tiles,
-///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
+///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array in GPU memory.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= m.
 ///
 /// @param[out] values
+///     Array in GPU memory.
 ///     - Norm::Max: dimension batch_count.
 ///         On exit, values[k] = max_{i, j} abs( A^(k)_(i, j) )
 ///         for 0 <= k < batch_count.
@@ -463,8 +570,8 @@ __global__ void genormFroKernel(
 ///     CUDA stream to execute in.
 ///
 template <typename scalar_t>
-void genorm(
-    lapack::Norm norm,
+void trnorm(
+    lapack::Norm norm, lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* values, int64_t batch_count,
@@ -484,9 +591,9 @@ void genorm(
         }
         else {
             assert(m <= 1024);
-            // Max 1024 threads * 16 bytes = 16 KiB shared memory in double-complex.
-            genormMaxKernel<<<batch_count, m, sizeof(scalar_t) * m, stream>>>
-                (m, n, Aarray, lda, values);
+            // Max 1024 threads * 8 bytes = 8 KiB shared memory in double [complex].
+            trnormMaxKernel<<<batch_count, m, sizeof(real_t) * m, stream>>>
+                (uplo, diag, m, n, Aarray, lda, values);
         }
     }
     //---------
@@ -497,8 +604,8 @@ void genorm(
         }
         else {
             assert(n <= 1024);
-            genormOneKernel<<<batch_count, n, 0, stream>>>
-                (m, n, Aarray, lda, values);
+            trnormOneKernel<<<batch_count, n, 0, stream>>>
+                (uplo, diag, m, n, Aarray, lda, values);
         }
     }
     //---------
@@ -509,8 +616,8 @@ void genorm(
         }
         else {
             assert(m <= 1024);
-            genormInfKernel<<<batch_count, m, 0, stream>>>
-                (m, n, Aarray, lda, values);
+            trnormInfKernel<<<batch_count, m, 0, stream>>>
+                (uplo, diag, m, n, Aarray, lda, values);
         }
     }
     //---------
@@ -521,9 +628,9 @@ void genorm(
         }
         else {
             assert(m <= 1024);
-            // Max 1024 threads * 32 bytes = 32 KiB shared memory in double-complex.
-            genormFroKernel<<<batch_count, m, sizeof(scalar_t) * m * 2, stream>>>
-                (m, n, Aarray, lda, values);
+            // Max 1024 threads * 16 bytes = 16 KiB shared memory in double [complex].
+            trnormFroKernel<<<batch_count, m, sizeof(real_t) * m * 2, stream>>>
+                (uplo, diag, m, n, Aarray, lda, values);
         }
     }
 
@@ -537,35 +644,35 @@ void genorm(
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void genorm(
-    lapack::Norm norm,
+void trnorm(
+    lapack::Norm norm, lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     float const* const* Aarray, int64_t lda,
-    float* tiles_maxima, int64_t batch_count,
+    float* values, int64_t batch_count,
     cudaStream_t stream);
 
 template
-void genorm(
-    lapack::Norm norm,
+void trnorm(
+    lapack::Norm norm, lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     double const* const* Aarray, int64_t lda,
-    double* tiles_maxima, int64_t batch_count,
+    double* values, int64_t batch_count,
     cudaStream_t stream);
 
 template
-void genorm(
-    lapack::Norm norm,
+void trnorm(
+    lapack::Norm norm, lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     cuFloatComplex const* const* Aarray, int64_t lda,
-    float* tiles_maxima, int64_t batch_count,
+    float* values, int64_t batch_count,
     cudaStream_t stream);
 
 template
-void genorm(
-    lapack::Norm norm,
+void trnorm(
+    lapack::Norm norm, lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     cuDoubleComplex const* const* Aarray, int64_t lda,
-    double* tiles_maxima, int64_t batch_count,
+    double* values, int64_t batch_count,
     cudaStream_t stream);
 
 } // namespace device

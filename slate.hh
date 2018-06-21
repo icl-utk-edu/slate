@@ -267,6 +267,18 @@ void trsm(blas::Side side, blas::Diag diag,
                           Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
+//-----------------------------------------
+// trnorm()
+template <typename scalar_t>
+blas::real_type<scalar_t>
+trnorm(Norm norm, Diag diag, TrapezoidMatrix<scalar_t>& A,
+       const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+blas::real_type<scalar_t>
+trnorm(Norm norm, Diag diag, TrapezoidMatrix<scalar_t>& A,
+       const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 // -----------------------------------------------------------------------------
 // Factorizations, etc.
 

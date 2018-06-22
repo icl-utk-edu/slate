@@ -119,6 +119,16 @@ cudaError_t cudaStreamDestroy(cudaStream_t pStream)
     assert(0);
 }
 
+char* cudaGetErrorName (cudaError_t error)
+{
+    assert(0);
+}
+
+char* cudaGetErrorString(cudaError_t error)
+{
+    assert(0);
+}
+
 #ifdef __cplusplus
 }
 #endif

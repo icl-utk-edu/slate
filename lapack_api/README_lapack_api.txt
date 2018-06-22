@@ -8,7 +8,7 @@ directly. For example:
    SLATE_GEMM( transa, transb, m, n, standard parameters ) 
 
 The SLATE API will map the Fortran-style parameters as needed and call
-the SLATE routine.  The SLATE API will need to make some choicesa that
+the SLATE routine.  The SLATE API will need to make some choices that
 are not part of the standard API.
 
 SLATE execution target is set in this order: 
@@ -30,5 +30,3 @@ manually changed to use the SLATE API names (e.g. GEMM -> SLATE_GEMM).
 
 Currently the tests and API handle numeric testing. 
 These tests cannot catch parameter-errors.
-
-

@@ -1053,7 +1053,7 @@ void test_Matrix_fromDevices()
 
         // cudaMalloc returns null if len = 0, so make it at least 1.
         size_t len = std::max(sizeof(double) * lda * n_dev, size_t(1));
-        cudaMalloc(&Aarray[dev], len);
+        cudaMalloc((void**)&Aarray[dev], len);
         assert(Aarray[dev] != nullptr);
     }
 
@@ -1097,7 +1097,7 @@ void test_TrapezoidMatrix_fromDevices()
 
         // cudaMalloc returns null if len = 0, so make it at least 1.
         size_t len = std::max(sizeof(double) * lda * n_dev, size_t(1));
-        cudaMalloc(&Aarray[dev], len);
+        cudaMalloc((void**)&Aarray[dev], len);
         assert(Aarray[dev] != nullptr);
     }
 
@@ -1160,7 +1160,7 @@ void test_TriangularMatrix_fromDevices()
 
         // cudaMalloc returns null if len = 0, so make it at least 1.
         size_t len = std::max(sizeof(double) * lda * n_dev, size_t(1));
-        cudaMalloc(&Aarray[dev], len);
+        cudaMalloc((void**)&Aarray[dev], len);
         assert(Aarray[dev] != nullptr);
     }
 
@@ -1223,7 +1223,7 @@ void test_SymmetricMatrix_fromDevices()
 
         // cudaMalloc returns null if len = 0, so make it at least 1.
         size_t len = std::max(sizeof(double) * lda * n_dev, size_t(1));
-        cudaMalloc(&Aarray[dev], len);
+        cudaMalloc((void**)&Aarray[dev], len);
         assert(Aarray[dev] != nullptr);
     }
 
@@ -1286,7 +1286,7 @@ void test_HermitianMatrix_fromDevices()
 
         // cudaMalloc returns null if len = 0, so make it at least 1.
         size_t len = std::max(sizeof(double) * lda * n_dev, size_t(1));
-        cudaMalloc(&Aarray[dev], len);
+        cudaMalloc((void**)&Aarray[dev], len);
         assert(Aarray[dev] != nullptr);
     }
 

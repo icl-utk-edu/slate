@@ -289,7 +289,7 @@ void test_genorm_dev(Norm norm)
     test_assert(cudaStreamCreate(&stream) == cudaSuccess);
 
     double* dAdata;
-    test_assert(cudaMalloc(&dAdata, sizeof(double) * lda * n) == cudaSuccess);
+    test_assert(cudaMalloc((void**)&dAdata, sizeof(double) * lda * n) == cudaSuccess);
     test_assert(dAdata != nullptr);
     slate::Tile<double> dA(m, n, dAdata, lda, 0);
     A.copyDataToDevice(&dA, stream);
@@ -297,7 +297,7 @@ void test_genorm_dev(Norm norm)
     const int batch_count = 1;
     double* Aarray[batch_count];
     double** dAarray;
-    test_assert(cudaMalloc(&dAarray, sizeof(double*) * batch_count) == cudaSuccess);
+    test_assert(cudaMalloc((void**)&dAarray, sizeof(double*) * batch_count) == cudaSuccess);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
     test_assert(cudaMemcpy(dAarray, Aarray, sizeof(double*) * batch_count,
@@ -316,7 +316,7 @@ void test_genorm_dev(Norm norm)
     values.resize( ldv * batch_count );
 
     double* dvalues;
-    test_assert(cudaMalloc(&dvalues, sizeof(double) * ldv * batch_count) == cudaSuccess);
+    test_assert(cudaMalloc((void**)&dvalues, sizeof(double) * ldv * batch_count) == cudaSuccess);
     test_assert(dvalues != nullptr);
 
     slate::device::genorm( norm, m, n, dAarray, lda,
@@ -394,7 +394,7 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
     test_assert(cudaStreamCreate(&stream) == cudaSuccess);
 
     double* dAdata;
-    test_assert(cudaMalloc(&dAdata, sizeof(double) * lda * n) == cudaSuccess);
+    test_assert(cudaMalloc((void**)&dAdata, sizeof(double) * lda * n) == cudaSuccess);
     test_assert(dAdata != nullptr);
     slate::Tile<double> dA(m, n, dAdata, lda, 0);
     A.copyDataToDevice(&dA, stream);
@@ -403,7 +403,7 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
     const int batch_count = 1;
     double* Aarray[batch_count];
     double** dAarray;
-    test_assert(cudaMalloc(&dAarray, sizeof(double*) * batch_count) == cudaSuccess);
+    test_assert(cudaMalloc((void**)&dAarray, sizeof(double*) * batch_count) == cudaSuccess);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
     test_assert(cudaMemcpy(dAarray, Aarray, sizeof(double*) * batch_count,
@@ -422,7 +422,7 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
     values.resize( ldv * batch_count );
 
     double* dvalues;
-    test_assert(cudaMalloc(&dvalues, sizeof(double) * ldv * batch_count) == cudaSuccess);
+    test_assert(cudaMalloc((void**)&dvalues, sizeof(double) * ldv * batch_count) == cudaSuccess);
     test_assert(dvalues != nullptr);
 
     slate::device::trnorm( norm, uplo, diag, m, n, dAarray, lda,

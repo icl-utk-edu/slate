@@ -107,7 +107,7 @@ void test_genorm_work(Params& params, bool run)
         for (int device = 0; device < A.num_devices(); ++device) {
             int64_t ndevA = scalapack_numroc(nlocA, nb, device, i0, A.num_devices());
             size_t len = blas::max((int64_t)sizeof(double) * lldA * ndevA, 1);
-            cudaMalloc(&Aarray[device], len);
+            cudaMalloc((void**)&Aarray[device], len);
             assert(Aarray[device] != nullptr);
             int64_t jj_dev = 0;
             for (int64_t jj_local = device*nb; jj_local < nlocA; jj_local += nb) {

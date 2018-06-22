@@ -16,9 +16,9 @@
 
 #ifdef SLATE_WITH_MKL
 extern "C" int MKL_Set_Num_Threads (int nt);
-inline int slate_set_blas_num_threads (const int nt) { return MKL_Set_Num_Threads (nt); }
+inline int slate_set_num_blas_threads (const int nt) { return MKL_Set_Num_Threads (nt); }
 #else
-inline int slate_set_blas_num_threads (const int nt) { return -1; }
+inline int slate_set_num_blas_threads (const int nt) { return -1; }
 #endif
 
 //------------------------------------------------------------------------------
@@ -121,6 +121,12 @@ template <typename scalar_t> void test_potrf_work (Params &params, bool run)
         // A comparison with a reference routine from ScaLAPACK
         // This expects to get the original (clean) A_ref and will alter A_ref
 
+        // set MKL num threads appropriately for parallel BLAS
+        int omp_num_threads;
+        #pragma omp parallel
+        { omp_num_threads = omp_get_num_threads(); }
+        int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
+
         // Run the reference routine on A_ref
         MPI_Barrier (MPI_COMM_WORLD);
         time = libtest::get_wtime();
@@ -149,6 +155,8 @@ template <typename scalar_t> void test_potrf_work (Params &params, bool run)
         params.ref_time.value() = time_ref;
         params.ref_gflops.value() = gflop / time_ref;
         params.error.value() = error_norm;
+
+        slate_set_num_blas_threads(saved_num_threads);
 
         real_t eps = std::numeric_limits<real_t>::epsilon();
         params.okay.value() = (params.error.value() <= 50*eps);

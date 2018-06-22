@@ -421,7 +421,7 @@
                   IF( UDIAG ) THEN
                      DO 280 LL = JJ, JJ + JB -1
                         SUM = ONE
-                        DO 270 KK = IIA, MIN( II+LL-JJ, IIA+MP-1 )
+                        DO 270 KK = IIA, MIN( II+LL-JJ-1, IIA+MP-1 )
                            SUM = SUM + ABS( A( IOFFA+KK ) )
   270                   CONTINUE
                         IOFFA = IOFFA + LDA
@@ -430,7 +430,7 @@
                   ELSE
                      DO 300 LL = JJ, JJ + JB -1
                         SUM = ZERO
-                        DO 290 KK = IIA, MIN( II+LL-JJ+1, IIA+MP-1 )
+                        DO 290 KK = IIA, MIN( II+LL-JJ, IIA+MP-1 )
                            SUM = SUM + ABS( A( IOFFA+KK ) )
   290                   CONTINUE
                         IOFFA = IOFFA + LDA
@@ -465,7 +465,7 @@
                      IF( UDIAG ) THEN
                         DO 340 LL = JJ, JJ + JB -1
                            SUM = ONE
-                           DO 330 KK = IIA, MIN( II+LL-JJ+1, IIA+MP-1 )
+                           DO 330 KK = IIA, MIN( II+LL-JJ-1, IIA+MP-1 )
                               SUM = SUM + ABS( A( IOFFA+KK ) )
   330                      CONTINUE
                            IOFFA = IOFFA + LDA
@@ -661,7 +661,7 @@
                IF( MYROW.EQ.IAROW ) THEN
                   IF( UDIAG ) THEN
                      DO 590 LL = JJ, JJ + JB -1
-                        DO 580 KK = IIA, MIN( II+LL-JJ, IIA+MP-1 )
+                        DO 580 KK = IIA, MIN( II+LL-JJ-1, IIA+MP-1 )
                            WORK( KK-IIA+1 ) = WORK( KK-IIA+1 ) +
      $                                        ABS( A( IOFFA+KK ) )
   580                   CONTINUE
@@ -669,7 +669,7 @@
   590                CONTINUE
                   ELSE
                      DO 610 LL = JJ, JJ + JB -1
-                        DO 600 KK = IIA, MIN(II+LL-JJ+1,IIA+MP-1)
+                        DO 600 KK = IIA, MIN( II+LL-JJ, IIA+MP-1 )
                            WORK( KK-IIA+1 ) = WORK( KK-IIA+1 ) +
      $                                        ABS( A( IOFFA+KK ) )
   600                   CONTINUE
@@ -702,7 +702,7 @@
                   IF( MYROW.EQ.IAROW ) THEN
                      IF( UDIAG ) THEN
                         DO 650 LL = JJ, JJ + JB -1
-                           DO 640 KK = IIA, MIN( II+LL-JJ+1, IIA+MP-1 )
+                           DO 640 KK = IIA, MIN( II+LL-JJ-1, IIA+MP-1 )
                               WORK( KK-IIA+1 ) = WORK( KK-IIA+1 ) +
      $                                           ABS( A( IOFFA+KK ) )
   640                      CONTINUE

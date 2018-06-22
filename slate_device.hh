@@ -72,7 +72,7 @@ void genorm(
     lapack::Norm norm,
     int64_t m, int64_t n,
     scalar_t const* const* Aarray, int64_t lda,
-    blas::real_type<scalar_t>* values, int64_t batch_count,
+    blas::real_type<scalar_t>* values, int64_t ldv, int64_t batch_count,
     cudaStream_t stream);
 
 //------------------------------------------------------------------------------
@@ -81,7 +81,7 @@ void trnorm(
     lapack::Norm norm, lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     scalar_t const* const* Aarray, int64_t lda,
-    blas::real_type<scalar_t>* values, int64_t batch_count,
+    blas::real_type<scalar_t>* values, int64_t ldv, int64_t batch_count,
     cudaStream_t stream);
 
 } // namespace device

@@ -59,12 +59,12 @@ void trnorm(
     Norm norm, Uplo uplo, Diag diag,
     int64_t m, int64_t n,
     std::complex<float> const* const* Aarray, int64_t lda,
-    float* values,
+    float* values, int64_t ldv,
     int64_t batch_count,
     cudaStream_t stream)
 {
     trnorm(norm, uplo, diag, m, n, (cuFloatComplex**) Aarray, lda,
-           values, batch_count, stream);
+           values, ldv, batch_count, stream);
 }
 
 template <>
@@ -72,12 +72,12 @@ void trnorm(
     Norm norm, Uplo uplo, Diag diag,
     int64_t m, int64_t n,
     std::complex<double> const* const* Aarray, int64_t lda,
-    double* values,
+    double* values, int64_t ldv,
     int64_t batch_count,
     cudaStream_t stream)
 {
     trnorm(norm, uplo, diag, m, n, (cuDoubleComplex**) Aarray, lda,
-           values, batch_count, stream);
+           values, ldv, batch_count, stream);
 }
 
 } // namespace device
@@ -407,7 +407,7 @@ void trnorm(
     std::vector<real_t*> vals_dev_arrays(A.num_devices());
 
     // devices_values used for max and Frobenius norms.
-    std::vector<real_t> devices_values(A.num_devices());
+    std::vector<real_t> devices_values;
 
     int64_t ldv;
     if (norm == Norm::Max) {
@@ -494,8 +494,8 @@ void trnorm(
                 lda[q] = 0;
                 mb[q] = A.tileMb(irange[q][0]);
                 nb[q] = A.tileNb(jrange[q][0]);
-                for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                    for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
+                for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
+                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                         if (A.tileIsLocal(i, j) &&
                             device == A.tileDevice(i, j) &&
                             ( (A.uplo() == Uplo::Lower && i > j) ||
@@ -550,7 +550,8 @@ void trnorm(
                         device::genorm(norm,
                                        mb[q], nb[q],
                                        a_dev_array, lda[q],
-                                       vals_dev_array, group_count[q], stream);
+                                       vals_dev_array, ldv,
+                                       group_count[q], stream);
                         a_dev_array += group_count[q];
                         vals_dev_array += group_count[q] * ldv;
                     }
@@ -561,7 +562,8 @@ void trnorm(
                         device::trnorm(norm, A.uplo(), diag,
                                        mb[q], nb[q],
                                        a_dev_array, lda[q],
-                                       vals_dev_array, group_count[q], stream);
+                                       vals_dev_array, ldv,
+                                       group_count[q], stream);
                         a_dev_array += group_count[q];
                         vals_dev_array += group_count[q] * ldv;
                     }
@@ -617,12 +619,15 @@ void trnorm(
             real_t* vals_host_array = vals_host_arrays[device].data();
 
             int64_t batch_count = 0;
+            // off-diagonal blocks
             for (int q = 0; q < 4; ++q) {
                 int64_t nb = A.tileNb(jrange[q][0]);
                 for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                         if (A.tileIsLocal(i, j) &&
-                            device == A.tileDevice(i, j))
+                            device == A.tileDevice(i, j) &&
+                            ( (A.uplo() == Uplo::Lower && i > j) ||
+                              (A.uplo() == Uplo::Upper && i < j) ))
                         {
                             blas::axpy(
                                 nb, 1.0,
@@ -633,6 +638,21 @@ void trnorm(
                     }
                 }
             }
+            // diagonal blocks
+            for (int q = 4; q < 6; ++q) {
+                int64_t nb = A.tileNb(jrange[q][0]);
+                for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
+                    if (A.tileIsLocal(j, j) &&
+                        device == A.tileDevice(j, j))
+                    {
+                        blas::axpy(
+                            nb, 1.0,
+                            &vals_host_array[batch_count*ldv], 1,
+                            &values[j*ldv], 1);
+                        ++batch_count;
+                    }
+                }
+            }
         }
     }
     else if (norm == Norm::Inf) {
@@ -640,12 +660,15 @@ void trnorm(
             real_t* vals_host_array = vals_host_arrays[device].data();
 
             int64_t batch_count = 0;
+            // off-diagonal blocks
             for (int q = 0; q < 4; ++q) {
                 int64_t mb = A.tileMb(irange[q][0]);
                 for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                         if (A.tileIsLocal(i, j) &&
-                            device == A.tileDevice(i, j))
+                            device == A.tileDevice(i, j) &&
+                            ( (A.uplo() == Uplo::Lower && i > j) ||
+                              (A.uplo() == Uplo::Upper && i < j) ))
                         {
                             blas::axpy(
                                 mb, 1.0,
@@ -653,6 +676,21 @@ void trnorm(
                                 &values[i*ldv], 1);
                             ++batch_count;
                         }
+                    }
+                }
+            }
+            // diagonal blocks
+            for (int q = 4; q < 6; ++q) {
+                int64_t mb = A.tileMb(irange[q][0]);
+                for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
+                    if (A.tileIsLocal(i, i) &&
+                        device == A.tileDevice(i, i))
+                    {
+                        blas::axpy(
+                            mb, 1.0,
+                            &vals_host_array[batch_count*ldv], 1,
+                            &values[i*ldv], 1);
+                        ++batch_count;
                     }
                 }
             }

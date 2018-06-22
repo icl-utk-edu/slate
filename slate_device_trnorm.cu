@@ -308,16 +308,19 @@ __global__ void trnormMaxKernel(
 ///     Leading dimension of each tile. lda >= m.
 ///
 /// @param[out] tiles_sums
-///     Array of dimension gridDim.x * blockDim.x.
-///     On exit, tiles_sums[k*n + j] = max_{i} abs( A^(k)_(i, j) )
+///     Array of dimension gridDim.x * ldv.
+///     On exit, tiles_sums[k*ldv + j] = max_{i} abs( A^(k)_(i, j) )
 ///     for row j of tile A^(k).
+///
+/// @param[in] ldv
+///     Leading dimension of tiles_sums (values) array.
 ///
 template <typename scalar_t>
 __global__ void trnormOneKernel(
     lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     scalar_t const* const* tiles, int64_t lda,
-    blas::real_type<scalar_t>* tiles_sums)
+    blas::real_type<scalar_t>* tiles_sums, int64_t ldv)
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
@@ -351,8 +354,7 @@ __global__ void trnormOneKernel(
         }
     }
 
-    real_t* tile_sums = &tiles_sums[blockIdx.x*n];
-    tile_sums[threadIdx.x] = sum;
+    tiles_sums[blockIdx.x*ldv + threadIdx.x] = sum;
 }
 
 //------------------------------------------------------------------------------
@@ -378,16 +380,19 @@ __global__ void trnormOneKernel(
 ///     Leading dimension of each tile. lda >= m.
 ///
 /// @param[out] tiles_sums
-///     Array of dimension gridDim.x * blockDim.x.
-///     On exit, tiles_sums[k*m + i] = sum_{j} abs( A^(k)_(i, j) )
+///     Array of dimension gridDim.x * ldv.
+///     On exit, tiles_sums[k*ldv + i] = sum_{j} abs( A^(k)_(i, j) )
 ///     for row i of tile A^(k).
+///
+/// @param[in] ldv
+///     Leading dimension of tiles_sums (values) array.
 ///
 template <typename scalar_t>
 __global__ void trnormInfKernel(
     lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     scalar_t const* const* tiles, int64_t lda,
-    blas::real_type<scalar_t>* tiles_sums)
+    blas::real_type<scalar_t>* tiles_sums, int64_t ldv)
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
@@ -422,8 +427,7 @@ __global__ void trnormInfKernel(
         }
     }
 
-    real_t* tile_sums = &tiles_sums[blockIdx.x*m];
-    tile_sums[threadIdx.x] = sum;
+    tiles_sums[blockIdx.x*ldv + threadIdx.x] = sum;
 }
 
 //------------------------------------------------------------------------------
@@ -543,25 +547,28 @@ __global__ void trnormFroKernel(
 ///     Leading dimension of each tile. lda >= m.
 ///
 /// @param[out] values
-///     Array in GPU memory.
-///     - Norm::Max: dimension batch_count.
+///     Array in GPU memory, dimension batch_count * ldv.
+///     - Norm::Max: ldv = 1.
 ///         On exit, values[k] = max_{i, j} abs( A^(k)_(i, j) )
 ///         for 0 <= k < batch_count.
 ///
-///     - Norm::One: dimension batch_count * n.
-///         On exit, values[k*n + j] = sum_{i} abs( A^(k)_(i, j) )
+///     - Norm::One: ldv >= n.
+///         On exit, values[k*ldv + j] = sum_{i} abs( A^(k)_(i, j) )
 ///         for 0 <= k < batch_count, 0 <= j < n.
 ///
-///     - Norm::Inf: dimension batch_count * m.
-///         On exit, values[k*m + i] = sum_{j} abs( A^(k)_(i, j) )
+///     - Norm::Inf: ldv >= m.
+///         On exit, values[k*ldv + i] = sum_{j} abs( A^(k)_(i, j) )
 ///         for 0 <= k < batch_count, 0 <= i < m.
 ///
-///     - Norm::Max: dimension batch_count * 2.
+///     - Norm::Max: ldv = 2.
 ///         On exit,
 ///             values[k*2 + 0] = scale_k
 ///             values[k*2 + 1] = sumsq_k
 ///         where scale_k^2 sumsq_k = sum_{i,j} abs( A^(k)_(i, j) )^2
 ///         for 0 <= k < batch_count.
+///
+/// @param[in] ldv
+///     Leading dimension of tiles_sums (values) array.
 ///
 /// @param[in] batch_count
 ///     Size of Aarray. batch_count >= 0.
@@ -574,7 +581,7 @@ void trnorm(
     lapack::Norm norm, lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     scalar_t const* const* Aarray, int64_t lda,
-    blas::real_type<scalar_t>* values, int64_t batch_count,
+    blas::real_type<scalar_t>* values, int64_t ldv, int64_t batch_count,
     cudaStream_t stream)
 {
     using real_t = blas::real_type<scalar_t>;
@@ -591,6 +598,7 @@ void trnorm(
         }
         else {
             assert(m <= 1024);
+            assert(ldv == 1);
             // Max 1024 threads * 8 bytes = 8 KiB shared memory in double [complex].
             trnormMaxKernel<<<batch_count, m, sizeof(real_t) * m, stream>>>
                 (uplo, diag, m, n, Aarray, lda, values);
@@ -604,8 +612,9 @@ void trnorm(
         }
         else {
             assert(n <= 1024);
+            assert(ldv >= n);
             trnormOneKernel<<<batch_count, n, 0, stream>>>
-                (uplo, diag, m, n, Aarray, lda, values);
+                (uplo, diag, m, n, Aarray, lda, values, ldv);
         }
     }
     //---------
@@ -616,8 +625,9 @@ void trnorm(
         }
         else {
             assert(m <= 1024);
+            assert(ldv >= m);
             trnormInfKernel<<<batch_count, m, 0, stream>>>
-                (uplo, diag, m, n, Aarray, lda, values);
+                (uplo, diag, m, n, Aarray, lda, values, ldv);
         }
     }
     //---------
@@ -628,6 +638,7 @@ void trnorm(
         }
         else {
             assert(m <= 1024);
+            assert(ldv == 2);
             // Max 1024 threads * 16 bytes = 16 KiB shared memory in double [complex].
             trnormFroKernel<<<batch_count, m, sizeof(real_t) * m * 2, stream>>>
                 (uplo, diag, m, n, Aarray, lda, values);
@@ -648,7 +659,7 @@ void trnorm(
     lapack::Norm norm, lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     float const* const* Aarray, int64_t lda,
-    float* values, int64_t batch_count,
+    float* values, int64_t ldv, int64_t batch_count,
     cudaStream_t stream);
 
 template
@@ -656,7 +667,7 @@ void trnorm(
     lapack::Norm norm, lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     double const* const* Aarray, int64_t lda,
-    double* values, int64_t batch_count,
+    double* values, int64_t ldv, int64_t batch_count,
     cudaStream_t stream);
 
 template
@@ -664,7 +675,7 @@ void trnorm(
     lapack::Norm norm, lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     cuFloatComplex const* const* Aarray, int64_t lda,
-    float* values, int64_t batch_count,
+    float* values, int64_t ldv, int64_t batch_count,
     cudaStream_t stream);
 
 template
@@ -672,7 +683,7 @@ void trnorm(
     lapack::Norm norm, lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     cuDoubleComplex const* const* Aarray, int64_t lda,
-    double* values, int64_t batch_count,
+    double* values, int64_t ldv, int64_t batch_count,
     cudaStream_t stream);
 
 } // namespace device

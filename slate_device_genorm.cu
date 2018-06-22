@@ -284,15 +284,18 @@ __global__ void genormMaxKernel(
 ///     Leading dimension of each tile. lda >= m.
 ///
 /// @param[out] tiles_sums
-///     Array of dimension gridDim.x * blockDim.x.
-///     On exit, tiles_sums[k*n + j] = max_{i} abs( A^(k)_(i, j) )
+///     Array of dimension gridDim.x * ldv.
+///     On exit, tiles_sums[k*ldv + j] = max_{i} abs( A^(k)_(i, j) )
 ///     for row j of tile A^(k).
+///
+/// @param[in] ldv
+///     Leading dimension of tiles_sums (values) array.
 ///
 template <typename scalar_t>
 __global__ void genormOneKernel(
     int64_t m, int64_t n,
     scalar_t const* const* tiles, int64_t lda,
-    blas::real_type<scalar_t>* tiles_sums)
+    blas::real_type<scalar_t>* tiles_sums, int64_t ldv)
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
@@ -304,8 +307,7 @@ __global__ void genormOneKernel(
     for (int64_t i = 1; i < m; ++i)
         sum += abs(column[i]);
 
-    real_t* tile_sums = &tiles_sums[blockIdx.x*n];
-    tile_sums[threadIdx.x] = sum;
+    tiles_sums[blockIdx.x*ldv + threadIdx.x] = sum;
 }
 
 //------------------------------------------------------------------------------
@@ -331,15 +333,18 @@ __global__ void genormOneKernel(
 ///     Leading dimension of each tile. lda >= m.
 ///
 /// @param[out] tiles_sums
-///     Array of dimension gridDim.x * blockDim.x.
-///     On exit, tiles_sums[k*m + i] = sum_{j} abs( A^(k)_(i, j) )
+///     Array of dimension gridDim.x * ldv.
+///     On exit, tiles_sums[k*ldv + i] = sum_{j} abs( A^(k)_(i, j) )
 ///     for row i of tile A^(k).
+///
+/// @param[in] ldv
+///     Leading dimension of tiles_sums (values) array.
 ///
 template <typename scalar_t>
 __global__ void genormInfKernel(
     int64_t m, int64_t n,
     scalar_t const* const* tiles, int64_t lda,
-    blas::real_type<scalar_t>* tiles_sums)
+    blas::real_type<scalar_t>* tiles_sums, int64_t ldv)
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
@@ -351,8 +356,7 @@ __global__ void genormInfKernel(
     for (int64_t j = 1; j < n; ++j)
         sum += abs(row[j*lda]);
 
-    real_t* tile_sums = &tiles_sums[blockIdx.x*m];
-    tile_sums[threadIdx.x] = sum;
+    tiles_sums[blockIdx.x*ldv + threadIdx.x] = sum;
 }
 
 //------------------------------------------------------------------------------
@@ -442,31 +446,35 @@ __global__ void genormFroKernel(
 ///     Currently, n <= 1024 due to CUDA implementation.
 ///
 /// @param[in] Aarray
-///     Array of dimension batch_count, containing pointers to tiles,
-///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
+///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array in GPU memory.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= m.
 ///
 /// @param[out] values
-///     - Norm::Max: dimension batch_count.
+///     Array in GPU memory, dimension batch_count * ldv.
+///     - Norm::Max: ldv = 1.
 ///         On exit, values[k] = max_{i, j} abs( A^(k)_(i, j) )
 ///         for 0 <= k < batch_count.
 ///
-///     - Norm::One: dimension batch_count * n.
-///         On exit, values[k*n + j] = sum_{i} abs( A^(k)_(i, j) )
+///     - Norm::One: ldv >= n.
+///         On exit, values[k*ldv + j] = sum_{i} abs( A^(k)_(i, j) )
 ///         for 0 <= k < batch_count, 0 <= j < n.
 ///
-///     - Norm::Inf: dimension batch_count * m.
-///         On exit, values[k*m + i] = sum_{j} abs( A^(k)_(i, j) )
+///     - Norm::Inf: ldv >= m.
+///         On exit, values[k*ldv + i] = sum_{j} abs( A^(k)_(i, j) )
 ///         for 0 <= k < batch_count, 0 <= i < m.
 ///
-///     - Norm::Max: dimension batch_count * 2.
+///     - Norm::Max: ldv = 2.
 ///         On exit,
 ///             values[k*2 + 0] = scale_k
 ///             values[k*2 + 1] = sumsq_k
 ///         where scale_k^2 sumsq_k = sum_{i,j} abs( A^(k)_(i, j) )^2
 ///         for 0 <= k < batch_count.
+///
+/// @param[in] ldv
+///     Leading dimension of tiles_sums (values) array.
 ///
 /// @param[in] batch_count
 ///     Size of Aarray. batch_count >= 0.
@@ -479,7 +487,7 @@ void genorm(
     lapack::Norm norm,
     int64_t m, int64_t n,
     scalar_t const* const* Aarray, int64_t lda,
-    blas::real_type<scalar_t>* values, int64_t batch_count,
+    blas::real_type<scalar_t>* values, int64_t ldv, int64_t batch_count,
     cudaStream_t stream)
 {
     using real_t = blas::real_type<scalar_t>;
@@ -496,6 +504,7 @@ void genorm(
         }
         else {
             assert(m <= 1024);
+            assert(ldv == 1);
             // Max 1024 threads * 8 bytes = 8 KiB shared memory in double [complex].
             genormMaxKernel<<<batch_count, m, sizeof(real_t) * m, stream>>>
                 (m, n, Aarray, lda, values);
@@ -509,8 +518,9 @@ void genorm(
         }
         else {
             assert(n <= 1024);
+            assert(ldv >= n);
             genormOneKernel<<<batch_count, n, 0, stream>>>
-                (m, n, Aarray, lda, values);
+                (m, n, Aarray, lda, values, ldv);
         }
     }
     //---------
@@ -521,8 +531,9 @@ void genorm(
         }
         else {
             assert(m <= 1024);
+            assert(ldv >= m);
             genormInfKernel<<<batch_count, m, 0, stream>>>
-                (m, n, Aarray, lda, values);
+                (m, n, Aarray, lda, values, ldv);
         }
     }
     //---------
@@ -533,6 +544,7 @@ void genorm(
         }
         else {
             assert(m <= 1024);
+            assert(ldv == 2);
             // Max 1024 threads * 16 bytes = 16 KiB shared memory in double [complex].
             genormFroKernel<<<batch_count, m, sizeof(real_t) * m * 2, stream>>>
                 (m, n, Aarray, lda, values);
@@ -553,7 +565,7 @@ void genorm(
     lapack::Norm norm,
     int64_t m, int64_t n,
     float const* const* Aarray, int64_t lda,
-    float* values, int64_t batch_count,
+    float* values, int64_t ldv, int64_t batch_count,
     cudaStream_t stream);
 
 template
@@ -561,7 +573,7 @@ void genorm(
     lapack::Norm norm,
     int64_t m, int64_t n,
     double const* const* Aarray, int64_t lda,
-    double* values, int64_t batch_count,
+    double* values, int64_t ldv, int64_t batch_count,
     cudaStream_t stream);
 
 template
@@ -569,7 +581,7 @@ void genorm(
     lapack::Norm norm,
     int64_t m, int64_t n,
     cuFloatComplex const* const* Aarray, int64_t lda,
-    float* values, int64_t batch_count,
+    float* values, int64_t ldv, int64_t batch_count,
     cudaStream_t stream);
 
 template
@@ -577,7 +589,7 @@ void genorm(
     lapack::Norm norm,
     int64_t m, int64_t n,
     cuDoubleComplex const* const* Aarray, int64_t lda,
-    double* values, int64_t batch_count,
+    double* values, int64_t ldv, int64_t batch_count,
     cudaStream_t stream);
 
 } // namespace device

@@ -304,23 +304,23 @@ void test_genorm_dev(Norm norm)
                            cudaMemcpyHostToDevice ) == cudaSuccess);
 
     std::vector<double> values;
-    size_t values_len = 1;
+    size_t ldv = 1;
     if (norm == lapack::Norm::Max)
-        values_len = 1;
+        ldv = 1;
     else if (norm == lapack::Norm::One)
-        values_len = n;
+        ldv = n;
     else if (norm == lapack::Norm::Inf)
-        values_len = m;
+        ldv = m;
     else if (norm == lapack::Norm::Fro)
-        values_len = 2;
-    values.resize( values_len * batch_count );
+        ldv = 2;
+    values.resize( ldv * batch_count );
 
     double* dvalues;
-    test_assert(cudaMalloc(&dvalues, sizeof(double) * values_len * batch_count) == cudaSuccess);
+    test_assert(cudaMalloc(&dvalues, sizeof(double) * ldv * batch_count) == cudaSuccess);
     test_assert(dvalues != nullptr);
 
     slate::device::genorm( norm, m, n, dAarray, lda,
-                           dvalues, batch_count, stream );
+                           dvalues, ldv, batch_count, stream );
     cudaStreamSynchronize( stream );
     test_assert(cudaMemcpy( &values[0], dvalues, sizeof(double) * values.size(),
                             cudaMemcpyDeviceToHost ) == cudaSuccess );
@@ -410,23 +410,23 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
                            cudaMemcpyHostToDevice ) == cudaSuccess);
 
     std::vector<double> values;
-    size_t values_len = 1;
+    size_t ldv = 1;
     if (norm == lapack::Norm::Max)
-        values_len = 1;
+        ldv = 1;
     else if (norm == lapack::Norm::One)
-        values_len = n;
+        ldv = n;
     else if (norm == lapack::Norm::Inf)
-        values_len = m;
+        ldv = m;
     else if (norm == lapack::Norm::Fro)
-        values_len = 2;
-    values.resize( values_len * batch_count );
+        ldv = 2;
+    values.resize( ldv * batch_count );
 
     double* dvalues;
-    test_assert(cudaMalloc(&dvalues, sizeof(double) * values_len * batch_count) == cudaSuccess);
+    test_assert(cudaMalloc(&dvalues, sizeof(double) * ldv * batch_count) == cudaSuccess);
     test_assert(dvalues != nullptr);
 
     slate::device::trnorm( norm, uplo, diag, m, n, dAarray, lda,
-                           dvalues, batch_count, stream );
+                           dvalues, ldv, batch_count, stream );
     cudaStreamSynchronize( stream );
     test_assert(cudaMemcpy( &values[0], dvalues, sizeof(double) * values.size(),
                             cudaMemcpyDeviceToHost ) == cudaSuccess );

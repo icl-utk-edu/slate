@@ -59,12 +59,12 @@ void genorm(
     Norm norm,
     int64_t m, int64_t n,
     std::complex<float> const* const* Aarray, int64_t lda,
-    float* values,
+    float* values, int64_t ldv,
     int64_t batch_count,
     cudaStream_t stream)
 {
-    genorm(norm, m, n, (cuFloatComplex**) Aarray, lda, values, batch_count,
-           stream);
+    genorm(norm, m, n, (cuFloatComplex**) Aarray, lda,
+           values, ldv, batch_count, stream);
 }
 
 template <>
@@ -72,12 +72,12 @@ void genorm(
     Norm norm,
     int64_t m, int64_t n,
     std::complex<double> const* const* Aarray, int64_t lda,
-    double* values,
+    double* values, int64_t ldv,
     int64_t batch_count,
     cudaStream_t stream)
 {
-    genorm(norm, m, n, (cuDoubleComplex**) Aarray, lda, values, batch_count,
-           stream);
+    genorm(norm, m, n, (cuDoubleComplex**) Aarray, lda,
+           values, ldv, batch_count, stream);
 }
 
 } // namespace device
@@ -120,11 +120,13 @@ void add_sumsq(
 /// - Norm::Max: values is dimension 1 and contains the local max.
 /// - Norm::One: values is dimension n and contains the local column sum.
 /// - Norm::Inf: values is dimension m and contains the local row sum.
-/// - Norm::Fro: values is dimension 1 and contains the local sum-of-squares.
+/// - Norm::Fro: values is dimension 2 and contains the local scale and
+///              sum-of-squares.
 ///
 template <Target target, typename scalar_t>
 void genorm(
-    Norm norm, Matrix<scalar_t>&& A, blas::real_type<scalar_t>* values,
+    Norm norm, Matrix<scalar_t>&& A,
+    blas::real_type<scalar_t>* values,
     int priority)
 {
     genorm(internal::TargetType<target>(),
@@ -138,7 +140,8 @@ void genorm(
 template <typename scalar_t>
 void genorm(
     internal::TargetType<Target::HostTask>,
-    Norm norm, Matrix<scalar_t>& A, blas::real_type<scalar_t>* values,
+    Norm norm, Matrix<scalar_t>& A,
+    blas::real_type<scalar_t>* values,
     int priority)
 {
     using real_t = blas::real_type<scalar_t>;
@@ -273,7 +276,8 @@ void genorm(
 template <typename scalar_t>
 void genorm(
     internal::TargetType<Target::HostNest>,
-    Norm norm, Matrix<scalar_t>& A, blas::real_type<scalar_t>* values,
+    Norm norm, Matrix<scalar_t>& A,
+    blas::real_type<scalar_t>* values,
     int priority)
 {
     using real_t = blas::real_type<scalar_t>;
@@ -308,7 +312,8 @@ void genorm(
 template <typename scalar_t>
 void genorm(
     internal::TargetType<Target::Devices>,
-    Norm norm, Matrix<scalar_t>& A, blas::real_type<scalar_t>* values,
+    Norm norm, Matrix<scalar_t>& A,
+    blas::real_type<scalar_t>* values,
     int priority)
 {
     using real_t = blas::real_type<scalar_t>;
@@ -322,7 +327,7 @@ void genorm(
     std::vector<real_t*> vals_dev_arrays(A.num_devices());
 
     // devices_values used for max and Frobenius norms.
-    std::vector<real_t> devices_values(A.num_devices());
+    std::vector<real_t> devices_values;
 
     int64_t ldv;
     if (norm == Norm::Max) {
@@ -394,8 +399,8 @@ void genorm(
                 lda[q] = 0;
                 mb[q] = A.tileMb(irange[q][0]);
                 nb[q] = A.tileNb(jrange[q][0]);
-                for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                    for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
+                for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
+                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                         if (A.tileIsLocal(i, j) &&
                             device == A.tileDevice(i, j))
                         {
@@ -430,7 +435,8 @@ void genorm(
                         device::genorm(norm,
                                        mb[q], nb[q],
                                        a_dev_array, lda[q],
-                                       vals_dev_array, group_count[q], stream);
+                                       vals_dev_array, ldv,
+                                       group_count[q], stream);
                         a_dev_array += group_count[q];
                         vals_dev_array += group_count[q] * ldv;
                     }

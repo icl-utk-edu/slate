@@ -315,28 +315,28 @@ void genorm(
 
     assert(A.num_devices() > 0);
 
-    std::vector<std::vector<scalar_t*> > a_arrays_host(A.num_devices());
-    std::vector<std::vector<real_t> > vals_arrays_host(A.num_devices());
+    std::vector<std::vector<scalar_t*> > a_host_arrays(A.num_devices());
+    std::vector<std::vector<real_t> > vals_host_arrays(A.num_devices());
 
-    std::vector<scalar_t**> a_arrays_dev(A.num_devices());
-    std::vector<real_t*> vals_arrays_dev(A.num_devices());
+    std::vector<scalar_t**> a_dev_arrays(A.num_devices());
+    std::vector<real_t*> vals_dev_arrays(A.num_devices());
 
     // devices_values used for max and Frobenius norms.
     std::vector<real_t> devices_values(A.num_devices());
 
-    int64_t vals_chunk;
+    int64_t ldv;
     if (norm == Norm::Max) {
-        vals_chunk = 1;
+        ldv = 1;
         devices_values.resize(A.num_devices());
     }
     else if (norm == Norm::One) {
-        vals_chunk = A.tileNb(0);
+        ldv = A.tileNb(0);
     }
     else if (norm == Norm::Inf) {
-        vals_chunk = A.tileMb(0);
+        ldv = A.tileMb(0);
     }
     else if (norm == Norm::Fro) {
-        vals_chunk = 2;
+        ldv = 2;
         devices_values.resize(A.num_devices() * 2);
     }
 
@@ -347,16 +347,16 @@ void genorm(
 
         int64_t num_tiles = A.getMaxDeviceTiles(device);
 
-        a_arrays_host[device].resize(num_tiles);
-        vals_arrays_host[device].resize(num_tiles*vals_chunk);
+        a_host_arrays[device].resize(num_tiles);
+        vals_host_arrays[device].resize(num_tiles*ldv);
 
         slate_cuda_call(
-            cudaMalloc((void**)&a_arrays_dev[device],
+            cudaMalloc((void**)&a_dev_arrays[device],
                        sizeof(scalar_t*)*num_tiles));
 
         slate_cuda_call(
-            cudaMalloc((void**)&vals_arrays_dev[device],
-                       sizeof(real_t)*num_tiles*vals_chunk));
+            cudaMalloc((void**)&vals_dev_arrays[device],
+                       sizeof(real_t)*num_tiles*ldv));
     }
 
     // Define index ranges for quadrants of matrix.
@@ -375,7 +375,7 @@ void genorm(
     };
 
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task shared(A, devices_values, vals_arrays_host) \
+        #pragma omp task shared(A, devices_values, vals_host_arrays) \
                          priority(priority)
         {
             for (int64_t i = 0; i < A.mt(); ++i)
@@ -384,8 +384,8 @@ void genorm(
                         A.tileCopyToDevice(i, j, device);
 
             // Setup batched arguments.
-            scalar_t** a_array_host = a_arrays_host[device].data();
-            scalar_t** a_array_dev = a_arrays_dev[device];
+            scalar_t** a_host_array = a_host_arrays[device].data();
+            scalar_t** a_dev_array = a_dev_arrays[device];
 
             int64_t batch_count = 0;
             int64_t mb[4], nb[4], lda[4], group_count[4];
@@ -399,7 +399,7 @@ void genorm(
                         if (A.tileIsLocal(i, j) &&
                             device == A.tileDevice(i, j))
                         {
-                            a_array_host[batch_count] = A(i, j, device).data();
+                            a_host_array[batch_count] = A(i, j, device).data();
                             lda[q] = A(i, j, device).stride();
                             ++group_count[q];
                             ++batch_count;
@@ -408,8 +408,8 @@ void genorm(
                 }
             }
 
-            real_t* vals_array_host = vals_arrays_host[device].data();
-            real_t* vals_array_dev = vals_arrays_dev[device];
+            real_t* vals_host_array = vals_host_arrays[device].data();
+            real_t* vals_dev_array = vals_dev_arrays[device];
 
             // Batched call to compute partial results for each tile.
             {
@@ -420,7 +420,7 @@ void genorm(
 
                 cudaStream_t stream = A.compute_stream(device);
                 slate_cuda_call(
-                    cudaMemcpyAsync(a_array_dev, a_array_host,
+                    cudaMemcpyAsync(a_dev_array, a_host_array,
                                     sizeof(scalar_t*)*batch_count,
                                     cudaMemcpyHostToDevice,
                                     stream));
@@ -429,18 +429,18 @@ void genorm(
                     if (group_count[q] > 0) {
                         device::genorm(norm,
                                        mb[q], nb[q],
-                                       a_array_dev, lda[q],
-                                       vals_array_dev, group_count[q], stream);
-                        a_array_dev += group_count[q];
-                        vals_array_dev += group_count[q] * vals_chunk;
+                                       a_dev_array, lda[q],
+                                       vals_dev_array, group_count[q], stream);
+                        a_dev_array += group_count[q];
+                        vals_dev_array += group_count[q] * ldv;
                     }
                 }
 
-                vals_array_dev = vals_arrays_dev[device];
+                vals_dev_array = vals_dev_arrays[device];
 
                 slate_cuda_call(
-                    cudaMemcpyAsync(vals_array_host, vals_array_dev,
-                                    sizeof(real_t)*batch_count*vals_chunk,
+                    cudaMemcpyAsync(vals_host_array, vals_dev_array,
+                                    sizeof(real_t)*batch_count*ldv,
                                     cudaMemcpyDeviceToHost,
                                     stream));
 
@@ -451,14 +451,14 @@ void genorm(
             // Reduction over tiles to device result.
             if (norm == Norm::Max) {
                 devices_values[device] =
-                    lapack::lange(norm, 1, batch_count, vals_array_host, 1);
+                    lapack::lange(norm, 1, batch_count, vals_host_array, 1);
             }
             else if (norm == Norm::Fro) {
                 for (int64_t k = 0; k < batch_count; ++k) {
                     add_sumsq(devices_values[2*device + 0],
                               devices_values[2*device + 1],
-                              vals_array_host[2*k + 0],
-                              vals_array_host[2*k + 1]);
+                              vals_host_array[2*k + 0],
+                              vals_host_array[2*k + 1]);
                 }
             }
         }
@@ -470,9 +470,9 @@ void genorm(
         slate_cuda_call(
             cudaSetDevice(device));
         slate_cuda_call(
-            cudaFree((void*)a_arrays_dev[device]));
+            cudaFree((void*)a_dev_arrays[device]));
         slate_cuda_call(
-            cudaFree((void*)vals_arrays_dev[device]));
+            cudaFree((void*)vals_dev_arrays[device]));
     }
 
     // Reduction over devices to local result.
@@ -485,7 +485,7 @@ void genorm(
 
         for (int device = 0; device < A.num_devices(); ++device) {
 
-            real_t* vals_array_host = vals_arrays_host[device].data();
+            real_t* vals_host_array = vals_host_arrays[device].data();
 
             int64_t batch_count = 0;
             for (int q = 0; q < 4; ++q) {
@@ -497,8 +497,8 @@ void genorm(
                         {
                             blas::axpy(
                                 nb, 1.0,
-                                &vals_array_host[batch_count*vals_chunk], 1,
-                                &values[j*vals_chunk], 1);
+                                &vals_host_array[batch_count*ldv], 1,
+                                &values[j*ldv], 1);
                             ++batch_count;
                         }
                     }
@@ -510,7 +510,7 @@ void genorm(
 
         for (int device = 0; device < A.num_devices(); ++device) {
 
-            real_t* vals_array_host = vals_arrays_host[device].data();
+            real_t* vals_host_array = vals_host_arrays[device].data();
 
             int64_t batch_count = 0;
             for (int q = 0; q < 4; ++q) {
@@ -522,8 +522,8 @@ void genorm(
                         {
                             blas::axpy(
                                 mb, 1.0,
-                                &vals_array_host[batch_count*vals_chunk], 1,
-                                &values[i*vals_chunk], 1);
+                                &vals_host_array[batch_count*ldv], 1,
+                                &values[i*ldv], 1);
                             ++batch_count;
                         }
                     }

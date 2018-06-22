@@ -24,6 +24,7 @@ template<typename scalar_t>
 void test_trnorm_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
+    using blas::real;
 
     // get & mark input values
     lapack::Norm norm = params.norm.value();
@@ -61,7 +62,6 @@ void test_trnorm_work(Params& params, bool run)
     int ictxt, nprow, npcol, myrow, mycol, info;
     int descA_tst[9];
     int iam=0, nprocs=1;
-    int iseed = 1;
 
 //printf( "%d Cblacs\n", mpi_rank ); fflush( stdout );
     // initialize BLACS and ScaLAPACK
@@ -78,11 +78,21 @@ void test_trnorm_work(Params& params, bool run)
     assert(info==0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA * nlocA);
-    scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
+    //int iseed = 1;
+    //scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
+    int64_t iseeds[4] = { myrow, mycol, 2, 3 };
+    lapack::larnv(2, iseeds, lldA * nlocA, &A_tst[0] );
 
-    int i = rand() % lldA;
-    int j = rand() % nlocA;
-    A_tst[i + j*lldA] = -12.3456;
+    if (verbose) {
+        printf( "A = [\n" );
+        for (int i = 0; i < mlocA; ++i) {
+            for (int j = 0; j < nlocA; ++j) {
+                printf( " %8.4f", real( A_tst[i + j*lldA] ) );
+            }
+            printf( "\n" );
+        }
+        printf( "]\n" );
+    }
 
 //printf( "%d TrapezoidMatrix\n", mpi_rank ); fflush( stdout );
     // todo: work-around to initialize BaseMatrix::num_devices_

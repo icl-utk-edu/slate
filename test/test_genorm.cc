@@ -24,6 +24,7 @@ template<typename scalar_t>
 void test_genorm_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
+    using blas::real;
 
     // get & mark input values
     lapack::Norm norm = params.norm.value();
@@ -56,7 +57,6 @@ void test_genorm_work(Params& params, bool run)
     int ictxt, nprow, npcol, myrow, mycol, info;
     int descA_tst[9];
     int iam=0, nprocs=1;
-    int iseed = 1;
 
     // initialize BLACS and ScaLAPACK
     Cblacs_pinfo(&iam, &nprocs);
@@ -72,7 +72,30 @@ void test_genorm_work(Params& params, bool run)
     assert(info==0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA * nlocA);
-    scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
+    //int iseed = 1;
+    //scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
+    int64_t iseeds[4] = { myrow, mycol, 2, 3 };
+    lapack::larnv(2, iseeds, lldA * nlocA, &A_tst[0] );
+
+    if (verbose) {
+        for (int i = 0; i < nprow; ++i) {
+            for (int j = 0; j < npcol; ++j) {
+                if (myrow == i && mycol == j) {
+                    printf( "process (%d, %d)\n", i, j );
+                    printf( "A = [\n" );
+                    for (int i = 0; i < mlocA; ++i) {
+                        for (int j = 0; j < nlocA; ++j) {
+                            printf( " %8.4f", real( A_tst[i + j*lldA] ) );
+                        }
+                        printf( "\n" );
+                    }
+                    printf( "]\n\n" );
+                }
+                fflush( stdout );
+                MPI_Barrier( MPI_COMM_WORLD );
+            }
+        }
+    }
 
     // todo: work-around to initialize BaseMatrix::num_devices_
     slate::Matrix<scalar_t> A0(Am, An, nb, p, q, MPI_COMM_WORLD);

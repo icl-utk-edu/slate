@@ -160,7 +160,7 @@ inline double abs(cuDoubleComplex x)
 /// @return x^2
 template <typename scalar_t>
 __host__ __device__
-scalar_t sqr(scalar_t x)
+inline scalar_t sqr(scalar_t x)
 {
     return x*x;
 }
@@ -182,6 +182,25 @@ void add_sumsq(
     else {
         sumsq1 = sumsq1*sqr(scale1 / scale2) + sumsq2;
         scale1 = scale2;
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Adds new value to scaled, sum-of-squares representation.
+/// On exit, scale and sumsq are updated such that:
+///     scale^2 sumsq := scale^2 sumsq + (absx)^2
+template <typename real_t>
+__host__ __device__
+inline void add_sumsq(
+    real_t& scale, real_t& sumsq,
+    real_t absx)
+{
+    if (scale < absx) {
+        sumsq = 1 + sumsq * sqr(scale / absx);
+        scale = absx;
+    }
+    else {
+        sumsq = sumsq + sqr(absx / scale);
     }
 }
 
@@ -381,14 +400,7 @@ __global__ void genormFroKernel(
     real_t scale = abs(row[0]);
     real_t sumsq = 1;
     for (int64_t j = 1; j < n; ++j) {
-        real_t absx = abs(row[j*lda]);
-        if (scale < absx) {
-            sumsq = 1 + sumsq * sqr(scale / absx);
-            scale = absx;
-        }
-        else {
-            sumsq = sumsq + sqr(absx / scale);
-        }
+        add_sumsq(scale, sumsq, abs(row[j*lda]));
     }
 
     // Save partial results in shared memory.

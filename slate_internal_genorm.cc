@@ -63,7 +63,7 @@ void genorm(
     int64_t batch_count,
     cudaStream_t stream)
 {
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
+#if defined(SLATE_WITH_CUDA)
     genorm(norm, m, n, (cuFloatComplex**) Aarray, lda,
            values, ldv, batch_count, stream);
 #endif
@@ -78,26 +78,23 @@ void genorm(
     int64_t batch_count,
     cudaStream_t stream)
 {
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
+#if defined(SLATE_WITH_CUDA)
     genorm(norm, m, n, (cuDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, stream);
 #endif
 }
 
-// Explicit instatiations allow compilation without CUDA
+#if ! defined(SLATE_WITH_CUDA)
+// Specializations to allow compilation without CUDA.
 template <>
 void genorm(
     Norm norm,
     int64_t m, int64_t n,
     double const* const* Aarray, int64_t lda,
-    double* values,
+    double* values, int64_t ldv,
     int64_t batch_count,
     cudaStream_t stream)
 {
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
-    genorm(norm, m, n, Aarray, lda, values, batch_count,
-           stream);
-#endif
 }
 
 template <>
@@ -105,16 +102,12 @@ void genorm(
     Norm norm,
     int64_t m, int64_t n,
     float const* const* Aarray, int64_t lda,
-    float* values,
+    float* values, int64_t ldv,
     int64_t batch_count,
     cudaStream_t stream)
 {
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
-    genorm(norm, m, n, Aarray, lda, values, batch_count,
-           stream);
-#endif
 }
-
+#endif // not SLATE_WITH_CUDA
 
 } // namespace device
 

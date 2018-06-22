@@ -84,20 +84,17 @@ void trnorm(
 #endif
 }
 
-// Explicit instatiations allow compilation without CUDA
+#if ! defined(SLATE_WITH_CUDA)
+// Specializations to allow compilation without CUDA.
 template <>
 void trnorm(
     Norm norm, Uplo uplo, Diag diag,
     int64_t m, int64_t n,
     double const* const* Aarray, int64_t lda,
-    double* values,
+    double* values, int64_t ldv,
     int64_t batch_count,
     cudaStream_t stream)
 {
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
-    trnorm(norm, uplo, diag, m, n, Aarray, lda,
-           values, batch_count, stream);
-#endif
 }
 
 template <>
@@ -105,16 +102,12 @@ void trnorm(
     Norm norm, Uplo uplo, Diag diag,
     int64_t m, int64_t n,
     float const* const* Aarray, int64_t lda,
-    float* values,
+    float* values, int64_t ldv,
     int64_t batch_count,
     cudaStream_t stream)
 {
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
-    trnorm(norm, uplo, diag, m, n, Aarray, lda,
-           values, batch_count, stream);
-#endif
 }
-
+#endif // not SLATE_WITH_CUDA
 
 } // namespace device
 

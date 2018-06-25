@@ -299,15 +299,26 @@ __global__ void genormOneKernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
-    scalar_t const* column = &tile[lda*threadIdx.x];
+    extern __shared__ char dynamic_data[];
+    real_t* shmem_tile = (real_t*)dynamic_data;
+    const int idx = threadIdx.x;
 
-    // Each thread sums one column.
-    // todo: this doesn't do coalesced reads
-    real_t sum = abs(column[0]);
-    for (int64_t i = 1; i < m; ++i)
-        sum += abs(column[i]);
+    for (int64_t jj = 0; jj < n; jj += 32) {
+        real_t sum = 0.0;
+        for (int64_t ii = 0; ii < m; ii += 32) {
 
-    tiles_sums[blockIdx.x*ldv + threadIdx.x] = sum;
+            for (int64_t j = 0; j < 32; ++j)
+                if (jj+j < n && ii+idx < m)
+                    shmem_tile[j*33+idx] = abs(tile[(jj+j)*lda+ii+idx]);
+
+            for (int64_t i = 0; i < 32; ++i)
+                if (jj+idx < n && ii+i < m)
+                    sum += shmem_tile[idx*33+i];
+        }
+
+        if (jj+idx < n)
+            tiles_sums[blockIdx.x*ldv + jj+idx] = sum;
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -517,9 +528,8 @@ void genorm(
             cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * n, stream);
         }
         else {
-            assert(n <= 1024);
             assert(ldv >= n);
-            genormOneKernel<<<batch_count, n, 0, stream>>>
+            genormOneKernel<<<batch_count, 32, sizeof(real_t)*32*33, stream>>>
                 (m, n, Aarray, lda, values, ldv);
         }
     }

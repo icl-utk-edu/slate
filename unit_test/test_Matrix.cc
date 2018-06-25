@@ -53,20 +53,6 @@ int mpi_size;
 MPI_Comm mpi_comm;
 int host_num, num_devices;
 
-//------------------------------------------------------------------------------
-template <typename T>
-inline constexpr T ceildiv(T x, T y)
-{
-    return T((x + y - 1) / y);
-}
-
-//------------------------------------------------------------------------------
-template <typename T>
-inline constexpr T roundup(T x, T y)
-{
-    return T((x + y - 1) / y) * y;
-}
-
 //==============================================================================
 // default constructor
 

@@ -66,18 +66,6 @@ void gemm(scalar_t alpha, Matrix<scalar_t>& A,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
-// genorm()
-template <typename scalar_t>
-blas::real_type<scalar_t>
-genorm(Norm norm, Matrix<scalar_t>& A,
-       const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-blas::real_type<scalar_t>
-genorm(Norm norm, Matrix<scalar_t>& A,
-       const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-//-----------------------------------------
 // hemm()
 template <Target target, typename scalar_t>
 void hemm(blas::Side side,
@@ -266,6 +254,33 @@ void trsm(blas::Side side, blas::Diag diag,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//------------------------------------------------------------------------------
+// Norms
+
+//-----------------------------------------
+// genorm()
+template <typename scalar_t>
+blas::real_type<scalar_t>
+genorm(Norm norm, Matrix<scalar_t>& A,
+       const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+blas::real_type<scalar_t>
+genorm(Norm norm, Matrix<scalar_t>& A,
+       const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// synorm()
+template <typename scalar_t>
+blas::real_type<scalar_t>
+synorm(Norm norm, SymmetricMatrix<scalar_t>& A,
+       const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+blas::real_type<scalar_t>
+synorm(Norm norm, SymmetricMatrix<scalar_t>& A,
+       const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
 // trnorm()

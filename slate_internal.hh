@@ -115,6 +115,9 @@ inline cublasOperation_t cublas_op_const(Op op)
 // E.g., this gemm multiplies one block column by one block row to update the
 // trailing matrix. These operations can be mapped to batch BLAS.
 
+//------------------------------------------------------------------------------
+// Level 3 BLAS
+
 //-----------------------------------------
 // gemm()
 template <Target target=Target::HostTask, typename scalar_t>
@@ -122,13 +125,6 @@ void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
           int priority=0);
-
-//-----------------------------------------
-// genorm()
-template <Target target=Target::HostTask, typename scalar_t>
-void genorm(Norm norm, Matrix<scalar_t>&& A,
-            blas::real_type<scalar_t>* values,
-            int priority=0);
 
 //-----------------------------------------
 // hemm()
@@ -272,12 +268,32 @@ void trsm(Side side, Diag diag,
                                     Matrix<scalar_t>&& B,
           int priority=0);
 
+//------------------------------------------------------------------------------
+// Norms
+
+//-----------------------------------------
+// genorm()
+template <Target target=Target::HostTask, typename scalar_t>
+void genorm(Norm norm, Matrix<scalar_t>&& A,
+            blas::real_type<scalar_t>* values,
+            int priority=0);
+
+//-----------------------------------------
+// synorm()
+template <Target target=Target::HostTask, typename scalar_t>
+void synorm(Norm norm, SymmetricMatrix<scalar_t>&& A,
+            blas::real_type<scalar_t>* values,
+            int priority=0);
+
 //-----------------------------------------
 // trnorm()
 template <Target target=Target::HostTask, typename scalar_t>
 void trnorm(Norm norm, Diag diag, TrapezoidMatrix<scalar_t>&& A,
             blas::real_type<scalar_t>* values,
             int priority=0);
+
+//------------------------------------------------------------------------------
+// Factorizations
 
 //-----------------------------------------
 // potrf()

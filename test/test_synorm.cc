@@ -21,7 +21,7 @@ inline int slate_set_num_blas_threads(const int nt) { return -1; }
 
 //------------------------------------------------------------------------------
 template<typename scalar_t>
-void test_trnorm_work(Params& params, bool run)
+void test_synorm_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
@@ -29,8 +29,6 @@ void test_trnorm_work(Params& params, bool run)
     // get & mark input values
     lapack::Norm norm = params.norm.value();
     lapack::Uplo uplo = params.uplo.value();
-    lapack::Diag diag = params.diag.value();
-    int64_t m = params.dim.m();
     int64_t n = params.dim.n();
     int64_t nb = params.nb.value();
     int64_t p = params.p.value();
@@ -49,7 +47,6 @@ void test_trnorm_work(Params& params, bool run)
         return;
 
     // Sizes of data
-    int64_t Am = m;
     int64_t An = n;
 
     // local values
@@ -72,14 +69,14 @@ void test_trnorm_work(Params& params, bool run)
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = scalapack_numroc(Am, nb, myrow, i0, nprow);
+    int64_t mlocA = scalapack_numroc(An, nb, myrow, i0, nprow);
     int64_t nlocA = scalapack_numroc(An, nb, mycol, i0, npcol);
-    scalapack_descinit(descA_tst, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
+    scalapack_descinit(descA_tst, An, An, nb, nb, i0, i0, ictxt, mlocA, &info);
     assert(info==0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA * nlocA);
     //int iseed = 1;
-    //scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
+    //scalapack_pplrnt(&A_tst[0], An, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
     int64_t iseeds[4] = { myrow, mycol, 2, 3 };
     lapack::larnv(2, iseeds, lldA * nlocA, &A_tst[0] );
 
@@ -94,11 +91,11 @@ void test_trnorm_work(Params& params, bool run)
         printf( "]\n" );
     }
 
-//printf( "%d TrapezoidMatrix\n", mpi_rank ); fflush( stdout );
+//printf( "%d SymmetricMatrix\n", mpi_rank ); fflush( stdout );
     // todo: work-around to initialize BaseMatrix::num_devices_
-    slate::TrapezoidMatrix<scalar_t> A0(uplo, Am, An, nb, p, q, MPI_COMM_WORLD);
+    slate::SymmetricMatrix<scalar_t> A0(uplo, An, nb, p, q, MPI_COMM_WORLD);
 
-    slate::TrapezoidMatrix<scalar_t> A;
+    slate::SymmetricMatrix<scalar_t> A;
     std::vector<scalar_t*> Aarray(A.num_devices());
     if (target == slate::Target::Devices) {
         // Distribute local ScaLAPACK data in 1D-cyclic fashion to GPU devices.
@@ -120,14 +117,14 @@ void test_trnorm_work(Params& params, bool run)
             }
         }
         // Create SLATE matrix from the device layout.
-        A = slate::TrapezoidMatrix<scalar_t>::fromDevices(
-            uplo, Am, An, Aarray.data(), Aarray.size(), lldA, nb,
+        A = slate::SymmetricMatrix<scalar_t>::fromDevices(
+            uplo, An, Aarray.data(), Aarray.size(), lldA, nb,
             nprow, npcol, MPI_COMM_WORLD);
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layout.
-        A = slate::TrapezoidMatrix<scalar_t>::fromScaLAPACK(
-            uplo, Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+        A = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
+            uplo, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     }
 
     if (trace) slate::trace::Trace::on();
@@ -140,8 +137,8 @@ void test_trnorm_work(Params& params, bool run)
     }
     double time = libtest::get_wtime();
 
-//printf( "%d slate::trnorm\n", mpi_rank ); fflush( stdout );
-    real_t A_norm = slate::trnorm(norm, diag, A, {
+//printf( "%d slate::synorm\n", mpi_rank ); fflush( stdout );
+    real_t A_norm = slate::synorm(norm, A, {
         {slate::Option::Target, target}
     });
 
@@ -166,35 +163,35 @@ void test_trnorm_work(Params& params, bool run)
         int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
         // allocate work space
-        std::vector<real_t> worklantr(std::max(mlocA, nlocA));
+        int lcm = scalapack_ilcm( &nprow, &npcol );
+        int ldw = nb * slate::ceildiv( int(slate::ceildiv( nlocA, nb )), (lcm / nprow) );
+        int lwork = 2*mlocA + nlocA + ldw;
+        std::vector<real_t> worklansy( lwork );
 
         // run the reference routine
-//printf( "%d scalapack_plantr\n", mpi_rank ); fflush( stdout );
+//printf( "%d scalapack_plansy\n", mpi_rank ); fflush( stdout );
         MPI_Barrier(MPI_COMM_WORLD);
         time = libtest::get_wtime();
-        real_t A_norm_ref = scalapack_plantr(
-            norm2str(norm), uplo2str(A.uplo()), diag2str(diag),
-            Am, An, &A_tst[0], i1, i1, descA_tst, &worklantr[0]);
-          //Am-4, An-4, &A_tst[0], 5, 5, descA_tst, &worklantr[0]);
+        real_t A_norm_ref = scalapack_plansy(
+            norm2str(norm), uplo2str(A.uplo()),
+            An, &A_tst[0], i1, i1, descA_tst, &worklansy[0]);
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 
-        real_t A_norm_la = lapack::lantr(norm, uplo, diag, Am, An, &A_tst[0], lldA);
+//printf( "%d lapack_lansy\n", mpi_rank ); fflush( stdout );
+        real_t A_norm_la = lapack::lansy(norm, uplo, An, &A_tst[0], lldA);
         real_t error_la = std::abs(A_norm - A_norm_la) / A_norm_la;
 
+//printf( "%d error\n", mpi_rank ); fflush( stdout );
         // difference between norms
         real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
-        if (norm == lapack::Norm::One) {
-            error /= sqrt( Am );
-            error_la /= sqrt( Am );
-        }
-        else if (norm == lapack::Norm::Inf) {
+        if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
             error /= sqrt( An );
             error_la /= sqrt( An );
         }
         else if (norm == lapack::Norm::Fro) {
-            error /= sqrt( Am*An );
-            error_la /= sqrt( Am*An );
+            error /= An;  // = sqrt( An*An );
+            error_la /= An;
         }
 
         if (verbose) {
@@ -231,7 +228,7 @@ void test_trnorm_work(Params& params, bool run)
 }
 
 // -----------------------------------------------------------------------------
-void test_trnorm(Params& params, bool run)
+void test_synorm(Params& params, bool run)
 {
     switch (params.datatype.value()) {
         case libtest::DataType::Integer:
@@ -239,19 +236,19 @@ void test_trnorm(Params& params, bool run)
             break;
 
         case libtest::DataType::Single:
-            test_trnorm_work<float> (params, run);
+            test_synorm_work<float> (params, run);
             break;
 
         case libtest::DataType::Double:
-            test_trnorm_work<double> (params, run);
+            test_synorm_work<double> (params, run);
             break;
 
         case libtest::DataType::SingleComplex:
-            test_trnorm_work<std::complex<float>> (params, run);
+            test_synorm_work<std::complex<float>> (params, run);
             break;
 
         case libtest::DataType::DoubleComplex:
-            test_trnorm_work<std::complex<double>> (params, run);
+            test_synorm_work<std::complex<double>> (params, run);
             break;
     }
 }

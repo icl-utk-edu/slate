@@ -112,6 +112,23 @@ public:
 #define test_skip(msg) \
     throw SkipException(msg, __FILE__, __LINE__)
 
+// -----------------------------------------------------------------------------
+// Utilities
+
+/// returns ceil( x / y )
+template <typename T>
+inline constexpr T ceildiv(T x, T y)
+{
+    return T((x + y - 1) / y);
+}
+
+/// returns ceil( x / y )*y, i.e., x rounded up to next multiple of y.
+template <typename T>
+inline constexpr T roundup(T x, T y)
+{
+    return T((x + y - 1) / y) * y;
+}
+
 //------------------------------------------------------------------------------
 typedef void test_function(void);
 

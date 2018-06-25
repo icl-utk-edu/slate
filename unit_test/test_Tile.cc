@@ -47,13 +47,6 @@ int mpi_rank;
 int mpi_size;
 
 //------------------------------------------------------------------------------
-template <typename T>
-inline constexpr T roundup(T x, T y)
-{
-    return T((x + y - 1) / y) * y;
-}
-
-//------------------------------------------------------------------------------
 /// Sets Aij = (mpi_rank + 1)*1000 + i + j/1000, for all i, j.
 template <typename scalar_t>
 void setup_data(slate::Tile<scalar_t>& A)

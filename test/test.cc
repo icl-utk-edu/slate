@@ -21,6 +21,7 @@ using libtest::datatype2str;
 // each section must have a corresponding entry in section_names
 enum Section {
     newline = 0,  // zero flag forces newline
+    blas_section,
     gesv,
     posv,
     sysv,
@@ -35,7 +36,6 @@ enum Section {
     aux_norm,
     aux_householder,
     aux_gen,
-    blas_section,
     num_sections,  // last
 };
 
@@ -389,6 +389,7 @@ std::vector< libtest::routines_t > routines = {
 
     // auxiliary: norms
     { "genorm",             test_genorm,       Section::aux_norm },
+    { "synorm",             test_synorm,       Section::aux_norm },
     { "trnorm",             test_trnorm,       Section::aux_norm },
     { "",                   nullptr,           Section::newline },
 

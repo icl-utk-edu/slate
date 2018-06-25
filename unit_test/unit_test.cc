@@ -158,6 +158,7 @@ void printf_gather(int root, MPI_Comm comm, const char* format, ...)
 void run_test(test_function* func, const char* name)
 {
     printf(output_test(name).c_str());
+    fflush(stdout);
     ++g_total;
 
     try {

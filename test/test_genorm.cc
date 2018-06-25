@@ -77,7 +77,7 @@ void test_genorm_work(Params& params, bool run)
     int64_t iseeds[4] = { myrow, mycol, 2, 3 };
     lapack::larnv(2, iseeds, lldA * nlocA, &A_tst[0] );
 
-    if (verbose) {
+    if (verbose > 1) {
         for (int i = 0; i < nprow; ++i) {
             for (int j = 0; j < npcol; ++j) {
                 if (myrow == i && mycol == j) {

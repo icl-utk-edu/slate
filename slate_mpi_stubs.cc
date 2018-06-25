@@ -234,6 +234,11 @@ int MPI_Wait(MPI_Request* request, MPI_Status* status)
     assert(0);
 }
 
+int MPI_Error_string(int errorcode, char *string, int *resultlen)
+{
+    assert(0);
+}
+
 int MPI_Finalize(void)
 {
     return MPI_SUCCESS;

@@ -66,10 +66,13 @@ enum {
     MPI_C_DOUBLE_COMPLEX,
 
     MPI_MAX,
+    MPI_SUM,
 
     MPI_SUCCESS,
     MPI_THREAD_MULTIPLE
 };
+
+#define MPI_MAX_ERROR_STRING 512
 
 extern int* MPI_STATUS_IGNORE;
 
@@ -139,6 +142,8 @@ int MPI_Type_vector(int count, int blocklength, int stride,
                     MPI_Datatype oldtype, MPI_Datatype* newtype);
 
 int MPI_Wait(MPI_Request* request, MPI_Status* status);
+
+int MPI_Error_string(int errorcode, char *string, int *resultlen);
 
 int MPI_Finalize(void);
 

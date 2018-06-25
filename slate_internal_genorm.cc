@@ -236,6 +236,7 @@ void genorm(
         // Perhaps with chunking of A.nb().
         std::fill_n(values, A.n(), 0.0);
         for (int64_t i = 0; i < A.mt(); ++i)
+            #pragma omp taskloop shared(A, tiles_sums, values) priority(priority) 
             for (int64_t jj = 0; jj < A.n(); ++jj)
                 values[jj] += tiles_sums[A.n()*i + jj];
     }
@@ -268,6 +269,7 @@ void genorm(
         // Perhaps with chunking of A.nb().
         std::fill_n(values, A.m(), 0.0);
         for (int64_t j = 0; j < A.nt(); ++j)
+            #pragma omp taskloop shared(A, tiles_sums, values) priority(priority) 
             for (int64_t ii = 0; ii < A.m(); ++ii)
                 values[ii] += tiles_sums[A.m()*j + ii];
     }

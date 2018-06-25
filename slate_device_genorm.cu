@@ -42,6 +42,8 @@
 #include <cstdio>
 #include <cuComplex.h>
 
+// todo: replace the 32 (and 33) literals with a static const int variable
+
 namespace slate {
 namespace device {
 

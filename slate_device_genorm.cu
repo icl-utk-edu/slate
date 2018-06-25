@@ -240,7 +240,8 @@ __global__ void genormMaxKernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
-    scalar_t const* row = &tile[threadIdx.x];
+    const int idx = threadIdx.x;
+    scalar_t const* row = &tile[idx];
 
     // Each thread finds max of one row.
     // This does coalesced reads of one column at a time in parallel.
@@ -251,12 +252,12 @@ __global__ void genormMaxKernel(
     // Save partial results in shared memory.
     extern __shared__ char dynamic_data[];
     real_t* row_max = (real_t*) dynamic_data;
-    row_max[threadIdx.x] = max;
+    row_max[idx] = max;
     __syncthreads();
 
     // Reduction to find max of tile.
-    max_nan_reduce(blockDim.x, threadIdx.x, row_max);
-    if (threadIdx.x == 0) {
+    max_nan_reduce(blockDim.x, idx, row_max);
+    if (idx == 0) {
         tiles_maxima[blockIdx.x] = row_max[0];
     }
 }
@@ -359,7 +360,8 @@ __global__ void genormInfKernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
-    scalar_t const* row = &tile[threadIdx.x];
+    const int idx = threadIdx.x;
+    scalar_t const* row = &tile[idx];
 
     // Each thread sums one row.
     // This does coalesced reads of one column at a time in parallel.
@@ -367,7 +369,7 @@ __global__ void genormInfKernel(
     for (int64_t j = 1; j < n; ++j)
         sum += abs(row[j*lda]);
 
-    tiles_sums[blockIdx.x*ldv + threadIdx.x] = sum;
+    tiles_sums[blockIdx.x*ldv + idx] = sum;
 }
 
 //------------------------------------------------------------------------------
@@ -408,7 +410,8 @@ __global__ void genormFroKernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
-    scalar_t const* row = &tile[threadIdx.x];
+    const int idx = threadIdx.x;
+    scalar_t const* row = &tile[idx];
 
     // Each thread finds sum-of-squares of one row.
     // This does coalesced reads of one column at a time in parallel.
@@ -422,13 +425,13 @@ __global__ void genormFroKernel(
     extern __shared__ char dynamic_data[];
     real_t* row_scale = (real_t*) &dynamic_data[0];
     real_t* row_sumsq = &row_scale[m];
-    row_scale[threadIdx.x] = scale;
-    row_sumsq[threadIdx.x] = sumsq;
+    row_scale[idx] = scale;
+    row_sumsq[idx] = sumsq;
     __syncthreads();
 
     // Reduction to find sum-of-squares of tile.
     // todo: parallel reduction.
-    if (threadIdx.x == 0) {
+    if (idx == 0) {
         real_t tile_scale = row_scale[0];
         real_t tile_sumsq = row_sumsq[0];
         for (int64_t i = 1; i < m; ++i)

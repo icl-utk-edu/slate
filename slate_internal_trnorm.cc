@@ -283,9 +283,10 @@ void trnorm(
         #pragma omp taskwait
 
         // Sum tile results into local results.
-        // todo: This is currently a performance bottleneck.
-        // Perhaps omp taskloop could be applied here.
-        // Perhaps with chunking of A.nb().
+        // Right now it goes over the partial sums of the entire matrix,
+        // with all the non-local sums being zero.
+        // todo: Eventually this needs to be done like in the device code,
+        // by summing up local contributions only.
         std::fill_n(values, A.n(), 0.0);
         for (int64_t i = 0; i < A.mt(); ++i)
             #pragma omp taskloop shared(A, tiles_sums, values) priority(priority) 

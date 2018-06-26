@@ -155,7 +155,7 @@ void synormOffdiag(
     Norm norm,
     int64_t m, int64_t n,
     float const* const* Aarray, int64_t lda,
-    double* values, int64_t ldv,
+    float* values, int64_t ldv,
     int64_t batch_count,
     cudaStream_t stream)
 {

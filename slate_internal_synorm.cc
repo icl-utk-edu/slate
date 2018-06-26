@@ -153,7 +153,7 @@ void synormOffdiag(
 template <>
 void synormOffdiag(
     Norm norm,
-    iint64_t m, nt64_t n,
+    int64_t m, int64_t n,
     float const* const* Aarray, int64_t lda,
     double* values, int64_t ldv,
     int64_t batch_count,

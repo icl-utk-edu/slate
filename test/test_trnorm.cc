@@ -63,7 +63,6 @@ void test_trnorm_work(Params& params, bool run)
     int descA_tst[9];
     int iam=0, nprocs=1;
 
-//printf( "%d Cblacs\n", mpi_rank ); fflush( stdout );
     // initialize BLACS and ScaLAPACK
     Cblacs_pinfo(&iam, &nprocs);
     assert(p*q <= nprocs);
@@ -84,17 +83,25 @@ void test_trnorm_work(Params& params, bool run)
     lapack::larnv(2, iseeds, lldA * nlocA, &A_tst[0] );
 
     if (verbose > 1) {
-        printf( "A = [\n" );
-        for (int i = 0; i < mlocA; ++i) {
-            for (int j = 0; j < nlocA; ++j) {
-                printf( " %8.4f", real( A_tst[i + j*lldA] ) );
+        for (int i = 0; i < nprow; ++i) {
+            for (int j = 0; j < npcol; ++j) {
+                if (myrow == i && mycol == j) {
+                    printf( "process (%d, %d)\n", i, j );
+                    printf( "A = [\n" );
+                    for (int i = 0; i < mlocA; ++i) {
+                        for (int j = 0; j < nlocA; ++j) {
+                            printf( " %8.4f", real( A_tst[i + j*lldA] ) );
+                        }
+                        printf( "\n" );
+                    }
+                    printf( "]\n\n" );
+                }
+                fflush( stdout );
+                MPI_Barrier( MPI_COMM_WORLD );
             }
-            printf( "\n" );
         }
-        printf( "]\n" );
     }
 
-//printf( "%d TrapezoidMatrix\n", mpi_rank ); fflush( stdout );
     // todo: work-around to initialize BaseMatrix::num_devices_
     slate::TrapezoidMatrix<scalar_t> A0(uplo, Am, An, nb, p, q, MPI_COMM_WORLD);
 
@@ -140,7 +147,6 @@ void test_trnorm_work(Params& params, bool run)
     }
     double time = libtest::get_wtime();
 
-//printf( "%d slate::trnorm\n", mpi_rank ); fflush( stdout );
     real_t A_norm = slate::trnorm(norm, diag, A, {
         {slate::Option::Target, target}
     });
@@ -169,37 +175,29 @@ void test_trnorm_work(Params& params, bool run)
         std::vector<real_t> worklantr(std::max(mlocA, nlocA));
 
         // run the reference routine
-//printf( "%d scalapack_plantr\n", mpi_rank ); fflush( stdout );
         MPI_Barrier(MPI_COMM_WORLD);
         time = libtest::get_wtime();
         real_t A_norm_ref = scalapack_plantr(
             norm2str(norm), uplo2str(A.uplo()), diag2str(diag),
             Am, An, &A_tst[0], i1, i1, descA_tst, &worklantr[0]);
-          //Am-4, An-4, &A_tst[0], 5, 5, descA_tst, &worklantr[0]);
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
-
-        real_t A_norm_la = lapack::lantr(norm, uplo, diag, Am, An, &A_tst[0], lldA);
-        real_t error_la = std::abs(A_norm - A_norm_la) / A_norm_la;
 
         // difference between norms
         real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
         if (norm == lapack::Norm::One) {
             error /= sqrt( Am );
-            error_la /= sqrt( Am );
         }
         else if (norm == lapack::Norm::Inf) {
             error /= sqrt( An );
-            error_la /= sqrt( An );
         }
         else if (norm == lapack::Norm::Fro) {
             error /= sqrt( Am*An );
-            error_la /= sqrt( Am*An );
         }
 
-        if (verbose) {
-            printf( "rank %d, norm %.8e, ref %.8e, la %.8e, error %.2e, error_la %.2e ",
-                    mpi_rank, A_norm, A_norm_ref, A_norm_la, error, error_la );
+        if (verbose && mpi_rank == 0) {
+            printf( "norm %.8e, ref %.8e, error %.2e\n",
+                    A_norm, A_norm_ref, error );
         }
 
         // Allow for difference, except max norm in real should be exact.

@@ -53,6 +53,9 @@ void test_genorm_work(Params& params, bool run)
     // local values
     static int i0=0, i1=1;
 
+    int mpi_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+
     // BLACS/MPI variables
     int ictxt, nprow, npcol, myrow, mycol, info;
     int descA_tst[9];
@@ -180,14 +183,17 @@ void test_genorm_work(Params& params, bool run)
 
         // difference between norms
         real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
-        if (norm == lapack::Norm::One)
+        if (norm == lapack::Norm::One) {
             error /= sqrt( Am );
-        else if (norm == lapack::Norm::Inf)
+        }
+        else if (norm == lapack::Norm::Inf) {
             error /= sqrt( An );
-        else if (norm == lapack::Norm::Fro)
+        }
+        else if (norm == lapack::Norm::Fro) {
             error /= sqrt( Am*An );
+        }
 
-        if (verbose) {
+        if (verbose && mpi_rank == 0) {
             printf( "norm %.8e, ref %.8e, error %.2e\n",
                     A_norm, A_norm_ref, error );
         }

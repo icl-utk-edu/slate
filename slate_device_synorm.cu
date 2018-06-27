@@ -43,6 +43,24 @@
 #include <cuComplex.h>
 
 namespace slate {
+
+// -----------------------------------------------------------------------------
+// Utilities
+
+/// returns ceil( x / y )
+template <typename T>
+inline constexpr T ceildiv(T x, T y)
+{
+    return T((x + y - 1) / y);
+}
+
+/// returns ceil( x / y )*y, i.e., x rounded up to next multiple of y.
+template <typename T>
+inline constexpr T roundup(T x, T y)
+{
+    return T((x + y - 1) / y) * y;
+}
+
 namespace device {
 
 //------------------------------------------------------------------------------
@@ -71,7 +89,7 @@ inline T max_nan(T x, T y)
 /// threads <= 1024, which is the current max number of CUDA threads.
 ///
 /// @param[in] n
-///		Size of array.
+///     Size of array.
 ///
 /// @param[in] tid
 ///     Thread id.
@@ -103,7 +121,7 @@ max_nan_reduce(int n, int tid, T* x)
 /// threads <= 1024 (which is current max number of CUDA threads).
 ///
 /// @param[in] n
-///		Size of array.
+///     Size of array.
 ///
 /// @param[in] tid
 ///     Thread id.
@@ -518,30 +536,36 @@ void synorm(
     }
 }
 
+const int one_ib = 32;
+const int one_ib1 = 33;
+
 //------------------------------------------------------------------------------
 /// Sum of absolute values of each row and each column of elements,
 /// for each tile in tiles.
 /// Each thread block deals with one tile.
-/// Each thread deals with one column.
-/// Kernel assumes non-trivial tiles (n >= 1).
-/// Launched by synorm().
+/// Kernel assumes non-trivial tiles (m, n >= 1).
+/// Launched by synormOffdiag().
+///
+/// @param[in] m
+///     Number of rows of each tile. m >= 1.
 ///
 /// @param[in] n
-///     Number of rows and columns of each tile. n >= 1.
-///     Also the number of threads per block (blockDim.x), hence,
-///     n <= 1024 for current CUDA architectures (2.x to 6.x).
+///     Number of columns of each tile. n >= 1.
 ///
 /// @param[in] tiles
 ///     Array of tiles of dimension gridDim.x,
-///     where each tiles[k] is an n-by-n matrix stored in an lda-by-n array.
+///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
-///     Leading dimension of each tile. lda >= n.
+///     Leading dimension of each tile. lda >= m.
 ///
 /// @param[out] tiles_sums
 ///     Array of dimension gridDim.x * ldv.
-///     On exit, tiles_sums[k*ldv + j] = max_{i} abs( A^(k)_(i, j) )
-///     for row j of tile A^(k).
+///     On exit,
+///         tiles_sums[k*ldv + j]     = sum_{i} abs( A^(k)_(i, j) )
+///     for column j of tile A^(k), and
+///         tiles_sums[k*ldv + i + n] = sum_{j} abs( A^(k)_(i, j) )
+///     for row i of tile A^(k).
 ///
 /// @param[in] ldv
 ///     Leading dimension of tiles_sums (values) array.
@@ -550,32 +574,53 @@ template <typename scalar_t>
 __global__ void synormOffdiagOneKernel(
     int64_t m, int64_t n,
     scalar_t const* const* tiles, int64_t lda,
-    blas::real_type<scalar_t>* values, int64_t ldv)
+    blas::real_type<scalar_t>* tiles_sums, int64_t ldv)
 {
+    // row_sums doesn't need to be shared, it could be in registers,
+    // but we don't know how large it is beforehand -- each thread uses
+    // ceil(m/ib) entries; in total it is ceil(m/ib)*ib entries.
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
+    extern __shared__ char dynamic_data[];
+    real_t* shmem_tile = (real_t*)dynamic_data;
+    real_t* row_sums = &shmem_tile[one_ib1*one_ib];
+    const int idx = threadIdx.x;
 
-    // todo: use blocking to read the tile just once.
-    if (threadIdx.x < m) {
-        // Each thread sums one row.
-        // This does coalesced reads of one column at a time in parallel.
-        scalar_t const* row = &tile[threadIdx.x];
-        real_t sum = 0;
-        for (int64_t j = 0; j < n; ++j)
-            sum += abs(row[j*lda]);
-
-        values[blockIdx.x*ldv + n + threadIdx.x] = sum;
+    // Initialize row sums.
+    for (int64_t ii = 0; ii < m; ii += one_ib) {
+        row_sums[ii+idx] = 0;
     }
 
-    if (threadIdx.x < n) {
-        // Each thread sums one column.
-        // todo: reads are not coalesced
-        scalar_t const* column = &tile[lda*threadIdx.x];
-        real_t sum = 0;
-        for (int64_t i = 0; i < m; ++i)
-            sum += abs(column[i]);
+    for (int64_t jj = 0; jj < n; jj += one_ib) {
+        real_t sum = 0.0;
+        for (int64_t ii = 0; ii < m; ii += one_ib) {
+            // Read 32 x 32 (ib x ib) sub-tile into shared memory.
+            // This does coalesced reads of one column at a time in parallel.
+            for (int64_t j = 0; j < one_ib; ++j)
+                if (jj+j < n && ii+idx < m)
+                    shmem_tile[j*one_ib1 + idx] = abs(tile[(jj+j)*lda + ii+idx]);
+            __syncthreads();  // shmem_tile loaded
 
-        values[blockIdx.x*ldv + threadIdx.x] = sum;
+            // Each thread sums one column.
+            for (int64_t i = 0; i < one_ib; ++i)
+                if (ii+i < m)
+                    sum += shmem_tile[idx*one_ib1 + i];
+
+            // Each thread sums one row.
+            for (int64_t j = 0; j < one_ib; ++j)
+                if (jj+j < n)
+                    row_sums[ii+idx] += shmem_tile[j*one_ib1 + idx];
+            __syncthreads();  // done with shmem_tile
+        }
+
+        if (jj+idx < n)
+            tiles_sums[blockIdx.x*ldv + jj+idx] = sum;
+    }
+
+    // Save row sums.
+    for (int64_t ii = 0; ii < m; ii += one_ib) {
+        if (ii+idx < m)
+            tiles_sums[blockIdx.x*ldv + ii+idx + n] = row_sums[ii+idx];
     }
 }
 
@@ -637,6 +682,8 @@ void synormOffdiag(
     int64_t batch_count,
     cudaStream_t stream)
 {
+    using real_t = blas::real_type<scalar_t>;
+
     // quick return
     if (batch_count == 0)
         return;
@@ -644,11 +691,10 @@ void synormOffdiag(
     //---------
     // one norm
     if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
-        assert(m <= 1024);
-        assert(n <= 1024);
         assert(ldv >= n);
-        int nthreads = std::max(m, n);
-        synormOffdiagOneKernel<<<batch_count, nthreads, 0, stream>>>
+        size_t lwork = sizeof(real_t) * (one_ib*one_ib1 + roundup(m, int64_t(one_ib)));
+        assert(lwork <= 48*1024); // max 48 KiB
+        synormOffdiagOneKernel<<<batch_count, 32, lwork, stream>>>
             (m, n, Aarray, lda, values, ldv);
     }
     else {

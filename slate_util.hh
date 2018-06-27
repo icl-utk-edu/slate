@@ -37,50 +37,89 @@
 // comments to <slate-user@icl.utk.edu>.
 //------------------------------------------------------------------------------
 
-#include "slate_util.hh"
-#include "slate_internal_util.hh"
+///-----------------------------------------------------------------------------
+/// \file
+///
+#ifndef SLATE_UTIL_HH
+#define SLATE_UTIL_HH
+
+#include "slate_mpi.hh"
+
+#include <cmath>
 
 namespace slate {
-namespace internal {
 
 //------------------------------------------------------------------------------
-/// [internal]
-/// Computes the power function.
-///
+/// max that propogates nan consistently:
+///     max_nan( 1,   nan ) = nan
+///     max_nan( nan, 1   ) = nan
+template <typename real_t>
+inline real_t max_nan(real_t x, real_t y)
+{
+    return (std::isnan(y) || (y) >= (x) ? (y) : (x));
+}
+
+//------------------------------------------------------------------------------
+/// Square of number.
+/// @return x^2
+template <typename scalar_t>
+inline scalar_t sqr(scalar_t x)
+{
+    return x*x;
+}
+
+//------------------------------------------------------------------------------
+/// Adds two scaled, sum-of-squares representations.
+/// On exit, scale1 and sumsq1 are updated such that:
+///     scale1^2 sumsq1 := scale1^2 sumsq1 + scale2^2 sumsq2.
+template <typename real_t>
+void add_sumsq(
+    real_t& scale1, real_t& sumsq1,
+    real_t  scale2, real_t  sumsq2 )
+{
+    if (scale1 > scale2) {
+        sumsq1 = sumsq1 + sumsq2*sqr(scale2 / scale1);
+        // scale1 stays same
+    }
+    else if (scale2 != 0) {
+        sumsq1 = sumsq1*sqr(scale1 / scale2) + sumsq2;
+        scale1 = scale2;
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Adds new value to scaled, sum-of-squares representation.
+/// On exit, scale and sumsq are updated such that:
+///     scale^2 sumsq := scale^2 sumsq + (absx)^2
+template <typename real_t>
+void add_sumsq(
+    real_t& scale, real_t& sumsq,
+    real_t absx)
+{
+    if (scale < absx) {
+        sumsq = 1 + sumsq * sqr(scale / absx);
+        scale = absx;
+    }
+    else {
+        sumsq = sumsq + sqr(absx / scale);
+    }
+}
+
+//------------------------------------------------------------------------------
+/// @return ceil( x / y ), for integer type T.
 template <typename T>
-T pow(T base, T exp)
+inline constexpr T ceildiv(T x, T y)
 {
-    T pow = 1;
-    for (T i = 0; i < exp; ++i)
-        pow *= base;
-
-    return pow;
+    return T((x + y - 1) / y);
 }
 
-//------------------------------
-// explicit instantiation
-template
-int pow<int>(int base, int exp);
-
-//------------------------------------------------------------------------------
-/// [internal]
-/// Implememts a custom MPI reduction that propagates NaNs.
-///
-void mpi_max_nan(void* invec, void* inoutvec, int* len, MPI_Datatype* datatype)
+/// @return ceil( x / y )*y, i.e., x rounded up to next multiple of y.
+template <typename T>
+inline constexpr T roundup(T x, T y)
 {
-    if (*datatype == MPI_DOUBLE) {
-        double* x = (double*) invec;
-        double* y = (double*) inoutvec;
-        for (int i = 0; i < *len; ++i)
-            y[i] = max_nan(x[i], y[i]);
-    }
-    else if (*datatype == MPI_FLOAT) {
-        float* x = (float*) invec;
-        float* y = (float*) inoutvec;
-        for (int i = 0; i < *len; ++i)
-            y[i] = max_nan(x[i], y[i]);
-    }
+    return T((x + y - 1) / y) * y;
 }
 
-} // namespace internal
 } // namespace slate
+
+#endif // SLATE_UTIL_HH

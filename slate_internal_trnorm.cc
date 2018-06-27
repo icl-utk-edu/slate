@@ -40,6 +40,7 @@
 #include "slate_device.hh"
 #include "slate_internal_batch.hh"
 #include "slate_internal.hh"
+#include "slate_util.hh"
 #include "slate_TrapezoidMatrix.hh"
 #include "slate_Tile_blas.hh"
 #include "slate_types.hh"
@@ -112,34 +113,6 @@ void trnorm(
 } // namespace device
 
 namespace internal {
-
-///-----------------------------------------------------------------------------
-/// Square of number.
-/// @return x^2
-template <typename scalar_t>
-scalar_t sqr(scalar_t x)
-{
-    return x*x;
-}
-
-//------------------------------------------------------------------------------
-/// Adds two scaled, sum-of-squares representations.
-/// On exit, scale1 and sumsq1 are updated such that:
-///     scale1^2 sumsq1 := scale1^2 sumsq1 + scale2^2 sumsq2.
-template <typename real_t>
-void add_sumsq(
-    real_t&       scale1, real_t&       sumsq1,
-    real_t const& scale2, real_t const& sumsq2 )
-{
-    if (scale1 > scale2) {
-        sumsq1 = sumsq1 + sumsq2*sqr(scale2 / scale1);
-        // scale1 stays same
-    }
-    else {
-        sumsq1 = sumsq1*sqr(scale1 / scale2) + sumsq2;
-        scale1 = scale2;
-    }
-}
 
 ///-----------------------------------------------------------------------------
 /// Trapezoid and triangular matrix norm.

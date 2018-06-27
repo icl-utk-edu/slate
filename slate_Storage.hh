@@ -44,6 +44,7 @@
 #include "slate_Memory.hh"
 #include "slate_Tile.hh"
 #include "slate_types.hh"
+#include "slate_util.hh"
 
 #include "lapack.hh"
 
@@ -60,14 +61,6 @@
 #include "slate_openmp.hh"
 
 namespace slate {
-
-//------------------------------------------------------------------------------
-/// @return ceil(a / b), for integer type T.
-template<typename T>
-T ceildiv(T a, T b)
-{
-    return ((a + b - 1) / b);
-}
 
 //------------------------------------------------------------------------------
 /// Type-safe wrapper for cudaMalloc. Throws errors.

@@ -42,8 +42,12 @@
 #include "slate_SymmetricMatrix.hh"
 #include "slate_TrapezoidMatrix.hh"
 #include "slate_TriangularMatrix.hh"
+#include "slate_util.hh"
 
 #include "unit_test.hh"
+
+using slate::ceildiv;
+using slate::roundup;
 
 //------------------------------------------------------------------------------
 // global variables

@@ -243,17 +243,15 @@ endif
 # driver
 lib_src += \
        slate_gemm.cc \
-       slate_genorm.cc \
        slate_hemm.cc \
        slate_her2k.cc \
        slate_herk.cc \
+       slate_norm.cc \
        slate_potrf.cc \
        slate_symm.cc \
-       slate_synorm.cc \
        slate_syr2k.cc \
        slate_syrk.cc \
        slate_trmm.cc \
-       slate_trnorm.cc \
        slate_trsm.cc \
 
 # main tester

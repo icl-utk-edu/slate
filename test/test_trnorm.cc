@@ -155,7 +155,8 @@ void test_trnorm_work(Params& params, bool run)
     }
     double time = libtest::get_wtime();
 
-    real_t A_norm = slate::trnorm(norm, diag, A, {
+    // todo: diag
+    real_t A_norm = slate::norm(norm, A, {
         {slate::Option::Target, target}
     });
 

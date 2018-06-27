@@ -48,26 +48,28 @@
 namespace slate {
 
 // specialization namespace differentiates, e.g.,
-// internal::synorm from internal::specialization::synorm
+// internal::norm from internal::specialization::norm
 namespace internal {
 namespace specialization {
 
 //------------------------------------------------------------------------------
 /// @internal
-/// Distributed parallel symmetric matrix norm.
+/// Distributed parallel general matrix norm.
 /// Generic implementation for any target.
-/// @ingroup synorm
-template <Target target, typename scalar_t>
-blas::real_type<scalar_t>
-synorm(slate::internal::TargetType<target>,
-       Norm norm, SymmetricMatrix<scalar_t>& A)
+/// @ingroup norm
+template <Target target, typename matrix_type>
+blas::real_type<typename matrix_type::value_type>
+norm(slate::internal::TargetType<target>,
+       Norm in_norm, matrix_type& A)
 {
+    using scalar_t = typename matrix_type::value_type;
     using real_t = blas::real_type<scalar_t>;
 
     //---------
     // max norm
     // max_{i,j} abs( A_{i,j} )
-    if (norm == Norm::Max) {
+    if (in_norm == Norm::Max) {
+
         real_t local_max;
         real_t global_max;
 
@@ -77,7 +79,7 @@ synorm(slate::internal::TargetType<target>,
         #pragma omp parallel
         #pragma omp master
         {
-            internal::synorm<target>(norm, std::move(A), &local_max);
+            internal::norm<target>(in_norm, std::move(A), &local_max);
         }
 
         MPI_Op op_max_nan;
@@ -109,7 +111,8 @@ synorm(slate::internal::TargetType<target>,
     //---------
     // one norm
     // max col sum = max_j sum_i abs( A_{i,j} )
-    else if (norm == Norm::One || norm == Norm::Inf) {
+    else if (in_norm == Norm::One) {
+
         std::vector<real_t> local_sums(A.n());
 
         if (target == Target::Devices)
@@ -118,7 +121,7 @@ synorm(slate::internal::TargetType<target>,
         #pragma omp parallel
         #pragma omp master
         {
-            internal::synorm<target>(norm, std::move(A), local_sums.data());
+            internal::norm<target>(in_norm, std::move(A), local_sums.data());
         }
 
         std::vector<real_t> global_sums(A.n());
@@ -137,9 +140,41 @@ synorm(slate::internal::TargetType<target>,
         return lapack::lange(Norm::Max, 1, A.n(), global_sums.data(), 1);
     }
     //---------
+    // inf norm
+    // max row sum = max_i sum_j abs( A_{i,j} )
+    else if (in_norm == Norm::Inf) {
+
+        std::vector<real_t> local_sums(A.m());
+
+        if (target == Target::Devices)
+            A.reserveDeviceWorkspace();
+
+        #pragma omp parallel
+        #pragma omp master
+        {
+            internal::norm<target>(in_norm, std::move(A), local_sums.data());
+        }
+
+        std::vector<real_t> global_sums(A.m());
+
+        #pragma omp critical(slate_mpi)
+        {
+            trace::Block trace_block("MPI_Allreduce");
+            slate_mpi_call(
+                MPI_Allreduce(local_sums.data(), global_sums.data(),
+                              A.m(), mpi_type<real_t>::value,
+                              MPI_SUM, A.mpiComm()));
+        }
+
+        A.clearWorkspace();
+
+        return lapack::lange(Norm::Max, 1, A.m(), global_sums.data(), 1);
+    }
+    //---------
     // Frobenius norm
     // sqrt( sum_{i,j} abs( A_{i,j} )^2 )
-    else if (norm == Norm::Fro) {
+    else if (in_norm == Norm::Fro) {
+
         real_t local_values[2];
         real_t local_sumsq;
         real_t global_sumsq;
@@ -150,7 +185,7 @@ synorm(slate::internal::TargetType<target>,
         #pragma omp parallel
         #pragma omp master
         {
-            internal::synorm<target>(norm, std::move(A), local_values);
+            internal::norm<target>(in_norm, std::move(A), local_values);
         }
 
         #pragma omp critical(slate_mpi)
@@ -178,32 +213,34 @@ synorm(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup synorm
-template <Target target, typename scalar_t>
-blas::real_type<scalar_t>
-synorm(Norm norm, SymmetricMatrix<scalar_t>& A,
+/// @ingroup norm
+template <Target target, typename matrix_type>
+blas::real_type<typename matrix_type::value_type>
+norm(Norm norm, matrix_type& A,
        const std::map<Option, Value>& opts)
 {
-    return internal::specialization::synorm(internal::TargetType<target>(),
+    return internal::specialization::norm(internal::TargetType<target>(),
                                             norm, A);
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel symmetric matrix norm.
+/// Distributed parallel general matrix norm.
 ///
 //------------------------------------------------------------------------------
-/// @tparam scalar_t
-///     One of float, double, std::complex<float>, std::complex<double>.
+/// @tparam matrix_type
+///     Any SLATE matrix type: Matrix, SymmetricMatrix, HermitianMatrix,
+///     TriangularMatrix, etc.
 //------------------------------------------------------------------------------
 /// @param[in] norm
 ///     Norm to compute:
 ///     - Norm::Max: maximum element,    $\max_{i, j}   \abs( A_{i, j} )$
 ///     - Norm::One: maximum column sum, $\max_j \sum_i \abs( A_{i, j} )$
-///     - Norm::Inf: for symmetric, same as Norm::One
+///     - Norm::Inf: maximum row sum,    $\max_i \sum_j \abs( A_{i, j} )$
+///       For symmetric and Hermitian matrices, the One and Inf norms are the same.
 ///     - Norm::Fro: Frobenius norm, $\sqrt( \sum_{i, j} \abs( A_{i, j} )^2 )$
 ///
 /// @param[in] A
-///     The n-by-n symmetric matrix A.
+///     The matrix A.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
@@ -213,11 +250,11 @@ synorm(Norm norm, SymmetricMatrix<scalar_t>& A,
 ///       - HostNest:  nested OpenMP parallel for loop on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// @ingroup synorm
-template <typename scalar_t>
-blas::real_type<scalar_t>
-synorm(Norm norm, SymmetricMatrix<scalar_t>& A,
-       const std::map<Option, Value>& opts)
+/// @ingroup norm
+template <typename matrix_type>
+blas::real_type<typename matrix_type::value_type>
+norm(Norm in_norm, matrix_type& A,
+     const std::map<Option, Value>& opts)
 {
     Target target;
     try {
@@ -230,14 +267,14 @@ synorm(Norm norm, SymmetricMatrix<scalar_t>& A,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            return synorm<Target::HostTask>(norm, A, opts);
+            return norm<Target::HostTask>(in_norm, A, opts);
             break;
         case Target::HostBatch:
         case Target::HostNest:
-            return synorm<Target::HostNest>(norm, A, opts);
+            return norm<Target::HostNest>(in_norm, A, opts);
             break;
         case Target::Devices:
-            return synorm<Target::Devices>(norm, A, opts);
+            return norm<Target::Devices>(in_norm, A, opts);
             break;
     }
     throw std::exception();  // todo: invalid target
@@ -246,23 +283,65 @@ synorm(Norm norm, SymmetricMatrix<scalar_t>& A,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-float synorm<float>(
-    Norm norm, SymmetricMatrix<float>& A,
+float norm(
+    Norm in_norm, Matrix<float>& A,
     const std::map<Option, Value>& opts);
 
 template
-double synorm<double>(
-    Norm norm, SymmetricMatrix<double>& A,
+double norm(
+    Norm in_norm, Matrix<double>& A,
     const std::map<Option, Value>& opts);
 
 template
-float synorm< std::complex<float> >(
-    Norm norm, SymmetricMatrix< std::complex<float> >& A,
+float norm(
+    Norm in_norm, Matrix< std::complex<float> >& A,
     const std::map<Option, Value>& opts);
 
 template
-double synorm< std::complex<double> >(
-    Norm norm, SymmetricMatrix< std::complex<double> >& A,
+double norm(
+    Norm in_norm, Matrix< std::complex<double> >& A,
+    const std::map<Option, Value>& opts);
+
+//--------------------
+template
+float norm(
+    Norm in_norm, SymmetricMatrix<float>& A,
+    const std::map<Option, Value>& opts);
+
+template
+double norm(
+    Norm in_norm, SymmetricMatrix<double>& A,
+    const std::map<Option, Value>& opts);
+
+template
+float norm(
+    Norm in_norm, SymmetricMatrix< std::complex<float> >& A,
+    const std::map<Option, Value>& opts);
+
+template
+double norm(
+    Norm in_norm, SymmetricMatrix< std::complex<double> >& A,
+    const std::map<Option, Value>& opts);
+
+//--------------------
+template
+float norm(
+    Norm in_norm, TrapezoidMatrix<float>& A,
+    const std::map<Option, Value>& opts);
+
+template
+double norm(
+    Norm in_norm, TrapezoidMatrix<double>& A,
+    const std::map<Option, Value>& opts);
+
+template
+float norm(
+    Norm in_norm, TrapezoidMatrix< std::complex<float> >& A,
+    const std::map<Option, Value>& opts);
+
+template
+double norm(
+    Norm in_norm, TrapezoidMatrix< std::complex<double> >& A,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

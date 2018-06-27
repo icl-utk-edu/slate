@@ -80,6 +80,8 @@ public:
     static constexpr bool is_complex = is_complex<scalar_t>::value;
     static constexpr bool is_real    = ! is_complex;
 
+    typedef scalar_t value_type;
+
 protected:
     BaseMatrix();
 

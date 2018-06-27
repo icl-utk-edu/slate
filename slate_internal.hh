@@ -274,23 +274,48 @@ void trsm(Side side, Diag diag,
 //-----------------------------------------
 // genorm()
 template <Target target=Target::HostTask, typename scalar_t>
-void genorm(Norm norm, Matrix<scalar_t>&& A,
+void genorm(Norm in_norm, Matrix<scalar_t>&& A,
             blas::real_type<scalar_t>* values,
             int priority=0);
+
+template <Target target=Target::HostTask, typename scalar_t>
+void norm(  Norm in_norm, Matrix<scalar_t>&& A,
+            blas::real_type<scalar_t>* values,
+            int priority=0)
+{
+    genorm(in_norm, std::move(A), values, priority);
+}
 
 //-----------------------------------------
 // synorm()
 template <Target target=Target::HostTask, typename scalar_t>
-void synorm(Norm norm, SymmetricMatrix<scalar_t>&& A,
+void synorm(Norm in_norm, SymmetricMatrix<scalar_t>&& A,
             blas::real_type<scalar_t>* values,
             int priority=0);
+
+template <Target target=Target::HostTask, typename scalar_t>
+void norm(  Norm in_norm, SymmetricMatrix<scalar_t>&& A,
+            blas::real_type<scalar_t>* values,
+            int priority=0)
+{
+    synorm(in_norm, std::move(A), values, priority);
+}
 
 //-----------------------------------------
 // trnorm()
 template <Target target=Target::HostTask, typename scalar_t>
-void trnorm(Norm norm, Diag diag, TrapezoidMatrix<scalar_t>&& A,
+void trnorm(Norm in_norm, Diag diag, TrapezoidMatrix<scalar_t>&& A,
             blas::real_type<scalar_t>* values,
             int priority=0);
+
+// todo: put diag into TrapezoidMatrix class
+template <Target target=Target::HostTask, typename scalar_t>
+void norm(  Norm in_norm, TrapezoidMatrix<scalar_t>&& A,
+            blas::real_type<scalar_t>* values,
+            int priority=0)
+{
+    trnorm(in_norm, Diag::NonUnit, std::move(A), values, priority);
+}
 
 //------------------------------------------------------------------------------
 // Factorizations

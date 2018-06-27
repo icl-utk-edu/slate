@@ -259,40 +259,16 @@ void trsm(blas::Side side, blas::Diag diag,
 // Norms
 
 //-----------------------------------------
-// genorm()
-template <typename scalar_t>
-blas::real_type<scalar_t>
-genorm(Norm norm, Matrix<scalar_t>& A,
-       const std::map<Option, Value>& opts = std::map<Option, Value>());
+// norm()
+template <typename matrix_type>
+blas::real_type<typename matrix_type::value_type>
+norm(Norm norm, matrix_type& A,
+     const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target, typename scalar_t>
-blas::real_type<scalar_t>
-genorm(Norm norm, Matrix<scalar_t>& A,
-       const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-//-----------------------------------------
-// synorm()
-template <typename scalar_t>
-blas::real_type<scalar_t>
-synorm(Norm norm, SymmetricMatrix<scalar_t>& A,
-       const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-blas::real_type<scalar_t>
-synorm(Norm norm, SymmetricMatrix<scalar_t>& A,
-       const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-//-----------------------------------------
-// trnorm()
-template <typename scalar_t>
-blas::real_type<scalar_t>
-trnorm(Norm norm, Diag diag, TrapezoidMatrix<scalar_t>& A,
-       const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-blas::real_type<scalar_t>
-trnorm(Norm norm, Diag diag, TrapezoidMatrix<scalar_t>& A,
-       const std::map<Option, Value>& opts = std::map<Option, Value>());
+template <Target target, typename matrix_type>
+blas::real_type<typename matrix_type::value_type>
+norm(Norm norm, matrix_type& A,
+     const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 // -----------------------------------------------------------------------------
 // Factorizations, etc.

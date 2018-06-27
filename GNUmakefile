@@ -272,10 +272,25 @@ test_src = \
         test/test_genorm.cc  \
         test/test_synorm.cc  \
         test/test_trnorm.cc  \
+
+# Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
+# Note that 'make' sets $(FC) to f77 by default.
+FORTRAN = $(shell which $(FC))
+ifneq ($(FORTRAN),)
+    test_src += \
+        test/pslange.f \
+        test/pdlange.f \
+        test/pclange.f \
+        test/pzlange.f \
+        test/pslansy.f \
+        test/pdlansy.f \
+        test/pclansy.f \
+        test/pzlansy.f \
         test/pslantr.f \
         test/pdlantr.f \
         test/pclantr.f \
-        test/pzlantr.f \
+        test/pzlantr.f
+endif
 
 # unit testers
 unit_src = \

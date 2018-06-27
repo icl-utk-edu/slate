@@ -42,8 +42,6 @@
 #include <cstdio>
 #include <cuComplex.h>
 
-// todo: replace the 32 (and 33) literals with a static const int variable
-
 namespace slate {
 namespace device {
 
@@ -264,6 +262,9 @@ __global__ void genormMaxKernel(
     }
 }
 
+const int one_ib = 32;
+const int one_ib1 = 33;
+
 //------------------------------------------------------------------------------
 /// Sum of absolute values of each column of elements, for each tile in tiles.
 /// Each thread block deals with one tile.
@@ -306,17 +307,21 @@ __global__ void genormOneKernel(
     real_t* shmem_tile = (real_t*)dynamic_data;
     const int idx = threadIdx.x;
 
-    for (int64_t jj = 0; jj < n; jj += 32) {
+    for (int64_t jj = 0; jj < n; jj += one_ib) {
         real_t sum = 0.0;
-        for (int64_t ii = 0; ii < m; ii += 32) {
-
-            for (int64_t j = 0; j < 32; ++j)
+        for (int64_t ii = 0; ii < m; ii += one_ib) {
+            // Read 32x32 sub-tile into shared memory.
+            // This does coalesced reads of one column at a time in parallel.
+            for (int64_t j = 0; j < one_ib; ++j)
                 if (jj+j < n && ii+idx < m)
-                    shmem_tile[j*33+idx] = abs(tile[(jj+j)*lda+ii+idx]);
+                    shmem_tile[j*one_ib1 + idx] = abs(tile[(jj+j)*lda + ii+idx]);
+            __syncthreads();  // shmem_tile loaded
 
-            for (int64_t i = 0; i < 32; ++i)
+            // Each thread sums one column.
+            for (int64_t i = 0; i < one_ib; ++i)
                 if (jj+idx < n && ii+i < m)
-                    sum += shmem_tile[idx*33+i];
+                    sum += shmem_tile[idx*one_ib1 + i];
+            __syncthreads();  // done with shmem_tile
         }
 
         if (jj+idx < n)
@@ -534,7 +539,7 @@ void genorm(
         }
         else {
             assert(ldv >= n);
-            genormOneKernel<<<batch_count, 32, sizeof(real_t)*32*33, stream>>>
+            genormOneKernel<<<batch_count, one_ib, sizeof(real_t)*one_ib*one_ib1, stream>>>
                 (m, n, Aarray, lda, values, ldv);
         }
     }

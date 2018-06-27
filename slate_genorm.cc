@@ -227,7 +227,7 @@ genorm(Norm norm, Matrix<scalar_t>& A,
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
-///         One of float, double, std::complex<float>, std::complex<double>.
+///     One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
 /// @param[in] norm
 ///     Norm to compute:

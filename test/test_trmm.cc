@@ -106,8 +106,10 @@ void test_trmm_work (Params &params, bool run)
     }
 
     // create SLATE matrices from the ScaLAPACK layouts
-    auto A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK (uplo, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK (Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+    auto A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
+        uplo, diag, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+    auto B = slate::Matrix<scalar_t>::fromScaLAPACK
+        (Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
 
     if (transA == Op::Trans)
         A = transpose (A);
@@ -129,7 +131,7 @@ void test_trmm_work (Params &params, bool run)
     }
     double time = libtest::get_wtime();
 
-    slate::trmm (side, diag, alpha, A, B, {
+    slate::trmm(side, alpha, A, B, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });

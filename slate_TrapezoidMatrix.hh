@@ -62,35 +62,35 @@ public:
     // constructors
     TrapezoidMatrix();
 
-    TrapezoidMatrix(Uplo uplo, int64_t m, int64_t n, int64_t nb,
+    TrapezoidMatrix(Uplo uplo, Diag diag, int64_t m, int64_t n, int64_t nb,
                     int p, int q, MPI_Comm mpi_comm);
 
     static
-    TrapezoidMatrix fromLAPACK(Uplo uplo, int64_t m, int64_t n,
+    TrapezoidMatrix fromLAPACK(Uplo uplo, Diag diag, int64_t m, int64_t n,
                                scalar_t* A, int64_t lda, int64_t nb,
                                int p, int q, MPI_Comm mpi_comm);
 
     static
-    TrapezoidMatrix fromScaLAPACK(Uplo uplo, int64_t m, int64_t n,
+    TrapezoidMatrix fromScaLAPACK(Uplo uplo, Diag diag, int64_t m, int64_t n,
                                   scalar_t* A, int64_t lda, int64_t nb,
                                   int p, int q, MPI_Comm mpi_comm);
 
     static
-    TrapezoidMatrix fromDevices(Uplo uplo, int64_t m, int64_t n,
+    TrapezoidMatrix fromDevices(Uplo uplo, Diag diag, int64_t m, int64_t n,
                                 scalar_t** A, int num_devices, int64_t lda,
                                 int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
     // conversion
-    explicit TrapezoidMatrix(BaseTrapezoidMatrix< scalar_t >& orig);
+    TrapezoidMatrix(Diag diag, BaseTrapezoidMatrix< scalar_t >& orig);
 
-    TrapezoidMatrix(Uplo uplo, Matrix<scalar_t>& orig);
+    TrapezoidMatrix(Uplo uplo, Diag diag, Matrix<scalar_t>& orig);
 
     // conversion sub-matrix
-    TrapezoidMatrix(BaseTrapezoidMatrix<scalar_t>& orig,
+    TrapezoidMatrix(Diag diag, BaseTrapezoidMatrix<scalar_t>& orig,
                     int64_t i1, int64_t i2,
                     int64_t j1, int64_t j2);
 
-    TrapezoidMatrix(Uplo uplo, Matrix<scalar_t>& orig,
+    TrapezoidMatrix(Uplo uplo, Diag diag, Matrix<scalar_t>& orig,
                     int64_t i1, int64_t i2,
                     int64_t j1, int64_t j2);
 
@@ -101,17 +101,17 @@ public:
 
 protected:
     // used by fromLAPACK
-    TrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
+    TrapezoidMatrix(Uplo uplo, Diag diag, int64_t m, int64_t n,
                     scalar_t* A, int64_t lda, int64_t nb,
                     int p, int q, MPI_Comm mpi_comm);
 
     // used by fromScaLAPACK
-    TrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
+    TrapezoidMatrix(Uplo uplo, Diag diag, int64_t m, int64_t n,
                     scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
                     int p, int q, MPI_Comm mpi_comm);
 
     // used by fromDevices
-    TrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
+    TrapezoidMatrix(Uplo uplo, Diag diag, int64_t m, int64_t n,
                     scalar_t** Aarray, int num_devices, int64_t lda, int64_t nb,
                     int p, int q, MPI_Comm mpi_comm);
 
@@ -123,6 +123,12 @@ protected:
 public:
     template <typename T>
     friend void swap(TrapezoidMatrix<T>& A, TrapezoidMatrix<T>& B);
+
+    Diag diag() { return diag_; }
+    void diag(Diag in_diag) { diag_ = in_diag; }
+
+protected:
+    Diag diag_;
 };
 
 //------------------------------------------------------------------------------
@@ -139,9 +145,10 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix()
 // todo: have allocate flag? If true, allocate data; else user will insert tiles?
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
-    Uplo uplo, int64_t m, int64_t n, int64_t nb,
+    Uplo uplo, Diag diag, int64_t m, int64_t n, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : BaseTrapezoidMatrix<scalar_t>(uplo, m, n, nb, p, q, mpi_comm)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, m, n, nb, p, q, mpi_comm),
+      diag_(diag)
 {}
 
 //------------------------------------------------------------------------------
@@ -150,9 +157,14 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 /// Construct matrix by wrapping existing memory of an n-by-n lower
 /// or upper symmetric LAPACK-style matrix.
 ///
-/// @param[in] in_uplo
+/// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
 ///     - Lower: lower triangle of A is stored.
+///
+/// @param[in] diag
+///     - NonUnit: A does not have unit diagonal.
+///     - Unit:    A has unit diagonal; diagonal elements are not referenced
+///                and are assumed to be one.
 ///
 /// @param[in] n
 ///     Number of rows and columns of the matrix. n >= 0.
@@ -178,11 +190,12 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 ///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromLAPACK(
-    Uplo uplo, int64_t m, int64_t n,
+    Uplo uplo, Diag diag, int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
-    return TrapezoidMatrix<scalar_t>(uplo, m, n, A, lda, nb, p, q, mpi_comm);
+    return TrapezoidMatrix<scalar_t>(uplo, diag, m, n, A, lda, nb,
+                                     p, q, mpi_comm);
 }
 
 //------------------------------------------------------------------------------
@@ -192,9 +205,14 @@ TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromLAPACK(
 /// or upper symmetric ScaLAPACK-style matrix.
 /// @see BaseTrapezoidMatrix
 ///
-/// @param[in] in_uplo
+/// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
 ///     - Lower: lower triangle of A is stored.
+///
+/// @param[in] diag
+///     - NonUnit: A does not have unit diagonal.
+///     - Unit:    A has unit diagonal; diagonal elements are not referenced
+///                and are assumed to be one.
 ///
 /// @param[in] n
 ///     Number of rows and columns of the matrix. n >= 0.
@@ -221,12 +239,12 @@ TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromLAPACK(
 ///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromScaLAPACK(
-    Uplo uplo, int64_t m, int64_t n,
+    Uplo uplo, Diag diag, int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
     // note extra nb
-    return TrapezoidMatrix<scalar_t>(uplo, m, n, A, lda, nb, nb,
+    return TrapezoidMatrix<scalar_t>(uplo, diag, m, n, A, lda, nb, nb,
                                      p, q, mpi_comm);
 }
 
@@ -237,9 +255,14 @@ TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromScaLAPACK(
 /// or upper symmetric ScaLAPACK-style matrix.
 /// @see BaseTrapezoidMatrix
 ///
-/// @param[in] in_uplo
+/// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
 ///     - Lower: lower triangle of A is stored.
+///
+/// @param[in] diag
+///     - NonUnit: A does not have unit diagonal.
+///     - Unit:    A has unit diagonal; diagonal elements are not referenced
+///                and are assumed to be one.
 ///
 /// @param[in] n
 ///     Number of rows and columns of the matrix. n >= 0.
@@ -266,11 +289,11 @@ TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromScaLAPACK(
 ///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromDevices(
-    Uplo uplo, int64_t m, int64_t n,
+    Uplo uplo, Diag diag, int64_t m, int64_t n,
     scalar_t** Aarray, int num_devices, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
-    return TrapezoidMatrix<scalar_t>(uplo, m, n, Aarray, num_devices, lda, nb,
+    return TrapezoidMatrix<scalar_t>(uplo, diag, m, n, Aarray, num_devices, lda, nb,
                                      p, q, mpi_comm);
 }
 
@@ -278,10 +301,11 @@ TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromDevices(
 /// @see fromLAPACK
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
-    Uplo uplo, int64_t m, int64_t n,
+    Uplo uplo, Diag diag, int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : BaseTrapezoidMatrix<scalar_t>(uplo, m, n, A, lda, nb, p, q, mpi_comm)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, m, n, A, lda, nb, p, q, mpi_comm),
+      diag_(diag)
 {}
 
 //------------------------------------------------------------------------------
@@ -289,21 +313,23 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 /// This differs from LAPACK constructor by adding mb.
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
-    Uplo uplo, int64_t m, int64_t n,
+    Uplo uplo, Diag diag, int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : BaseTrapezoidMatrix<scalar_t>(uplo, m, n, A, lda, mb, nb, p, q, mpi_comm)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, m, n, A, lda, mb, nb, p, q, mpi_comm),
+      diag_(diag)
 {}
 
 //------------------------------------------------------------------------------
 /// @see fromDevices
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
-    Uplo uplo, int64_t m, int64_t n,
+    Uplo uplo, Diag diag, int64_t m, int64_t n,
     scalar_t** Aarray, int num_devices, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
     : BaseTrapezoidMatrix<scalar_t>(uplo, m, n, Aarray, num_devices, lda, nb,
-                                    p, q, mpi_comm)
+                                    p, q, mpi_comm),
+      diag_(diag)
 {}
 
 //------------------------------------------------------------------------------
@@ -312,22 +338,33 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 /// creates a shallow copy view of the original matrix.
 /// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
 ///
+/// @param[in] diag
+///     - NonUnit: A does not have unit diagonal.
+///     - Unit:    A has unit diagonal; diagonal elements are not referenced
+///                and are assumed to be one.
+///
 /// @param[in,out] orig
 ///     Original matrix.
 ///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
-    BaseTrapezoidMatrix<scalar_t>& orig)
-    : BaseTrapezoidMatrix<scalar_t>(orig)
+    Diag diag, BaseTrapezoidMatrix<scalar_t>& orig)
+    : BaseTrapezoidMatrix<scalar_t>(orig),
+      diag_(diag)
 {}
 
 //------------------------------------------------------------------------------
 /// Conversion from trapezoid, triangular, symmetric, or Hermitian matrix
 /// creates a shallow copy view of the original matrix, A[ i1:i2, j1:j2 ].
 ///
+/// @param[in] diag
+///     - NonUnit: A does not have unit diagonal.
+///     - Unit:    A has unit diagonal; diagonal elements are not referenced
+///                and are assumed to be one.
+///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
-    BaseTrapezoidMatrix<scalar_t>& orig,
+    Diag diag, BaseTrapezoidMatrix<scalar_t>& orig,
     int64_t i1, int64_t i2,
     int64_t j1, int64_t j2)
     : BaseTrapezoidMatrix<scalar_t>(orig, i1, i2, j1, j2)
@@ -341,18 +378,29 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 ///     - Upper: upper triangle of A is stored.
 ///     - Lower: lower triangle of A is stored.
 ///
+/// @param[in] diag
+///     - NonUnit: A does not have unit diagonal.
+///     - Unit:    A has unit diagonal; diagonal elements are not referenced
+///                and are assumed to be one.
+///
 /// @param[in,out] orig
 ///     Original matrix.
 ///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
-    Uplo uplo, Matrix<scalar_t>& orig)
-    : BaseTrapezoidMatrix<scalar_t>(uplo, orig)
+    Uplo uplo, Diag diag, Matrix<scalar_t>& orig)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, orig),
+      diag_(diag)
 {}
 
 //------------------------------------------------------------------------------
 /// Conversion from general matrix, sub-matrix constructor
 /// creates shallow copy view of original matrix, A[ i1:i2, j1:j2 ].
+///
+/// @param[in] diag
+///     - NonUnit: A does not have unit diagonal.
+///     - Unit:    A has unit diagonal; diagonal elements are not referenced
+///                and are assumed to be one.
 ///
 /// @param[in,out] orig
 ///     Original matrix.
@@ -371,10 +419,11 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 ///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
-    Uplo uplo, Matrix<scalar_t>& orig,
+    Uplo uplo, Diag diag, Matrix<scalar_t>& orig,
     int64_t i1, int64_t i2,
     int64_t j1, int64_t j2)
-    : BaseTrapezoidMatrix<scalar_t>(uplo, orig, i1, i2, j1, j2)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, orig, i1, i2, j1, j2),
+      diag_(diag)
 {}
 
 //------------------------------------------------------------------------------
@@ -402,7 +451,8 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
     TrapezoidMatrix& orig,
     int64_t i1, int64_t i2,
     int64_t j1, int64_t j2)
-    : BaseTrapezoidMatrix<scalar_t>(orig, i1, i2, j1, j2)
+    : BaseTrapezoidMatrix<scalar_t>(orig, i1, i2, j1, j2),
+      diag_(orig.diag())
 {}
 
 //------------------------------------------------------------------------------
@@ -456,15 +506,13 @@ Matrix<scalar_t> TrapezoidMatrix<scalar_t>::sub(
 
 //------------------------------------------------------------------------------
 /// Swaps contents of matrices A and B.
-//
-// (This isn't really needed over BaseTrapezoidMatrix swap, but is here as a
-// reminder in case any members are added that aren't in BaseTrapezoidMatrix.)
 template <typename scalar_t>
 void swap(TrapezoidMatrix<scalar_t>& A, TrapezoidMatrix<scalar_t>& B)
 {
     using std::swap;
     swap(static_cast< BaseTrapezoidMatrix<scalar_t>& >(A),
          static_cast< BaseTrapezoidMatrix<scalar_t>& >(B));
+    swap(A.diag_, B.diag_);
 }
 
 } // namespace slate

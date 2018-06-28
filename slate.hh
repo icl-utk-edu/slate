@@ -230,13 +230,13 @@ void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
 //-----------------------------------------
 // trmm()
 template <Target target, typename scalar_t>
-void trmm(blas::Side side, blas::Diag diag,
+void trmm(blas::Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template <typename scalar_t>
-void trmm(blas::Side side, blas::Diag diag,
+void trmm(blas::Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
@@ -244,13 +244,13 @@ void trmm(blas::Side side, blas::Diag diag,
 //-----------------------------------------
 // trsm()
 template <typename scalar_t>
-void trsm(blas::Side side, blas::Diag diag,
+void trsm(blas::Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template <Target target, typename scalar_t>
-void trsm(blas::Side side, blas::Diag diag,
+void trsm(blas::Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());

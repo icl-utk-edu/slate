@@ -255,7 +255,7 @@ void syr2k(scalar_t alpha, Matrix<scalar_t>&& A,
 //-----------------------------------------
 // trmm()
 template <Target target=Target::HostTask, typename scalar_t>
-void trmm(Side side, Diag diag,
+void trmm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
           int priority=0);
@@ -263,7 +263,7 @@ void trmm(Side side, Diag diag,
 //-----------------------------------------
 // trsm()
 template <Target target=Target::HostTask, typename scalar_t>
-void trsm(Side side, Diag diag,
+void trsm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
           int priority=0);
@@ -304,17 +304,16 @@ void norm(  Norm in_norm, SymmetricMatrix<scalar_t>&& A,
 //-----------------------------------------
 // trnorm()
 template <Target target=Target::HostTask, typename scalar_t>
-void trnorm(Norm in_norm, Diag diag, TrapezoidMatrix<scalar_t>&& A,
+void trnorm(Norm in_norm, TrapezoidMatrix<scalar_t>&& A,
             blas::real_type<scalar_t>* values,
             int priority=0);
 
-// todo: put diag into TrapezoidMatrix class
 template <Target target=Target::HostTask, typename scalar_t>
 void norm(  Norm in_norm, TrapezoidMatrix<scalar_t>&& A,
             blas::real_type<scalar_t>* values,
             int priority=0)
 {
-    trnorm(in_norm, Diag::NonUnit, std::move(A), values, priority);
+    trnorm(in_norm, std::move(A), values, priority);
 }
 
 //------------------------------------------------------------------------------

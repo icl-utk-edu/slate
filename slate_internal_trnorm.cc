@@ -127,12 +127,12 @@ namespace internal {
 ///
 template <Target target, typename scalar_t>
 void trnorm(
-    Norm norm, Diag diag, TrapezoidMatrix<scalar_t>&& A,
+    Norm norm, TrapezoidMatrix<scalar_t>&& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
     trnorm(internal::TargetType<target>(),
-           norm, diag, A, values,
+           norm, A, values,
            priority);
 }
 
@@ -142,7 +142,7 @@ void trnorm(
 template <typename scalar_t>
 void trnorm(
     internal::TargetType<Target::HostTask>,
-    Norm norm, Diag diag, TrapezoidMatrix<scalar_t>& A,
+    Norm norm, TrapezoidMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
@@ -162,7 +162,7 @@ void trnorm(
                 {
                     A.tileCopyToHost(j, j, A.tileDevice(j, j));
                     real_t tile_max;
-                    trnorm(norm, diag, A(j, j), &tile_max);
+                    trnorm(norm, A.diag(), A(j, j), &tile_max);
                     #pragma omp critical
                     {
                         tiles_maxima.push_back(tile_max);
@@ -224,7 +224,7 @@ void trnorm(
                 #pragma omp task shared(A, tiles_sums) priority(priority)
                 {
                     A.tileCopyToHost(j, j, A.tileDevice(j, j));
-                    trnorm(norm, diag, A(j, j), &tiles_sums[A.n()*j+jj]);
+                    trnorm(norm, A.diag(), A(j, j), &tiles_sums[A.n()*j+jj]);
                 }
             }
             // off-diagonal tiles
@@ -279,7 +279,7 @@ void trnorm(
                 #pragma omp task shared(A, tiles_sums) priority(priority)
                 {
                     A.tileCopyToHost(i, i, A.tileDevice(i, i));
-                    trnorm(norm, diag, A(i, i), &tiles_sums[A.m()*i + ii]);
+                    trnorm(norm, A.diag(), A(i, i), &tiles_sums[A.m()*i + ii]);
                 }
             }
             // off-diagonal tiles
@@ -332,7 +332,7 @@ void trnorm(
             if (j < A.mt() && A.tileIsLocal(j, j)) {
                 A.tileCopyToHost(j, j, A.tileDevice(j, j));
                 real_t tile_values[2];
-                trnorm(norm, diag, A(j, j), tile_values);
+                trnorm(norm, A.diag(), A(j, j), tile_values);
                 #pragma omp critical
                 {
                     add_sumsq(values[0], values[1],
@@ -384,7 +384,7 @@ void trnorm(
 template <typename scalar_t>
 void trnorm(
     internal::TargetType<Target::HostNest>,
-    Norm norm, Diag diag, TrapezoidMatrix<scalar_t>& A,
+    Norm norm, TrapezoidMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
@@ -397,7 +397,7 @@ void trnorm(
 template <typename scalar_t>
 void trnorm(
     internal::TargetType<Target::Devices>,
-    Norm norm, Diag diag, TrapezoidMatrix<scalar_t>& A,
+    Norm norm, TrapezoidMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
@@ -564,7 +564,7 @@ void trnorm(
                 // diagonal blocks
                 for (int q = 4; q < 6; ++q) {
                     if (group_count[q] > 0) {
-                        device::trnorm(norm, A.uplo(), diag,
+                        device::trnorm(norm, A.uplo(), A.diag(),
                                        mb[q], nb[q],
                                        a_dev_array, lda[q],
                                        vals_dev_array, ldv,
@@ -717,76 +717,76 @@ void trnorm(
 // ----------------------------------------
 template
 void trnorm<Target::HostTask, float>(
-    Norm norm, Diag diag, TrapezoidMatrix<float>&& A,
+    Norm norm, TrapezoidMatrix<float>&& A,
     float* values,
     int priority);
 
 template
 void trnorm<Target::HostNest, float>(
-    Norm norm, Diag diag, TrapezoidMatrix<float>&& A,
+    Norm norm, TrapezoidMatrix<float>&& A,
     float* values,
     int priority);
 
 template
 void trnorm<Target::Devices, float>(
-    Norm norm, Diag diag, TrapezoidMatrix<float>&& A,
+    Norm norm, TrapezoidMatrix<float>&& A,
     float* values,
     int priority);
 
 // ----------------------------------------
 template
 void trnorm<Target::HostTask, double>(
-    Norm norm, Diag diag, TrapezoidMatrix<double>&& A,
+    Norm norm, TrapezoidMatrix<double>&& A,
     double* values,
     int priority);
 
 template
 void trnorm<Target::HostNest, double>(
-    Norm norm, Diag diag, TrapezoidMatrix<double>&& A,
+    Norm norm, TrapezoidMatrix<double>&& A,
     double* values,
     int priority);
 
 template
 void trnorm<Target::Devices, double>(
-    Norm norm, Diag diag, TrapezoidMatrix<double>&& A,
+    Norm norm, TrapezoidMatrix<double>&& A,
     double* values,
     int priority);
 
 // ----------------------------------------
 template
 void trnorm< Target::HostTask, std::complex<float> >(
-    Norm norm, Diag diag, TrapezoidMatrix< std::complex<float> >&& A,
+    Norm norm, TrapezoidMatrix< std::complex<float> >&& A,
     float* values,
     int priority);
 
 template
 void trnorm< Target::HostNest, std::complex<float> >(
-    Norm norm, Diag diag, TrapezoidMatrix< std::complex<float> >&& A,
+    Norm norm, TrapezoidMatrix< std::complex<float> >&& A,
     float* values,
     int priority);
 
 template
 void trnorm< Target::Devices, std::complex<float> >(
-    Norm norm, Diag diag, TrapezoidMatrix< std::complex<float> >&& A,
+    Norm norm, TrapezoidMatrix< std::complex<float> >&& A,
     float* values,
     int priority);
 
 // ----------------------------------------
 template
 void trnorm< Target::HostTask, std::complex<double> >(
-    Norm norm, Diag diag, TrapezoidMatrix< std::complex<double> >&& A,
+    Norm norm, TrapezoidMatrix< std::complex<double> >&& A,
     double* values,
     int priority);
 
 template
 void trnorm< Target::HostNest, std::complex<double> >(
-    Norm norm, Diag diag, TrapezoidMatrix< std::complex<double> >&& A,
+    Norm norm, TrapezoidMatrix< std::complex<double> >&& A,
     double* values,
     int priority);
 
 template
 void trnorm< Target::Devices, std::complex<double> >(
-    Norm norm, Diag diag, TrapezoidMatrix< std::complex<double> >&& A,
+    Norm norm, TrapezoidMatrix< std::complex<double> >&& A,
     double* values,
     int priority);
 

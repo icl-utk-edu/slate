@@ -107,7 +107,7 @@ void test_trnorm_work(Params& params, bool run)
     }
 
     // todo: work-around to initialize BaseMatrix::num_devices_
-    slate::TrapezoidMatrix<scalar_t> A0(uplo, Am, An, nb, p, q, MPI_COMM_WORLD);
+    slate::TrapezoidMatrix<scalar_t> A0(uplo, diag, Am, An, nb, p, q, MPI_COMM_WORLD);
 
     slate::TrapezoidMatrix<scalar_t> A;
     std::vector<scalar_t*> Aarray(A.num_devices());
@@ -136,13 +136,13 @@ void test_trnorm_work(Params& params, bool run)
         }
         // Create SLATE matrix from the device layout.
         A = slate::TrapezoidMatrix<scalar_t>::fromDevices(
-            uplo, Am, An, Aarray.data(), Aarray.size(), lldA, nb,
+            uplo, diag, Am, An, Aarray.data(), Aarray.size(), lldA, nb,
             nprow, npcol, MPI_COMM_WORLD);
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layout.
         A = slate::TrapezoidMatrix<scalar_t>::fromScaLAPACK(
-            uplo, Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+            uplo, diag, Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     }
 
     if (trace) slate::trace::Trace::on();
@@ -155,7 +155,6 @@ void test_trnorm_work(Params& params, bool run)
     }
     double time = libtest::get_wtime();
 
-    // todo: diag
     real_t A_norm = slate::norm(norm, A, {
         {slate::Option::Target, target}
     });

@@ -59,7 +59,7 @@ namespace specialization {
 /// @ingroup trsm
 template <Target target, typename scalar_t>
 void trsm(slate::internal::TargetType<target>,
-          Side side, Diag diag,
+          Side side,
           scalar_t alpha, TriangularMatrix<scalar_t> A,
                                     Matrix<scalar_t> B,
           int64_t lookahead)
@@ -115,7 +115,7 @@ void trsm(slate::internal::TargetType<target>,
 
                     // solve A(k, k) B(k, :) = alpha B(k, :)
                     internal::trsm<Target::HostTask>(
-                        Side::Left, diag,
+                        Side::Left,
                         alph, A.sub(k, k),
                               B.sub(k, k, 0, nt-1), 1);
 
@@ -181,7 +181,7 @@ void trsm(slate::internal::TargetType<target>,
 
                     // solve A(k, k) B(k, :) = alpha B(k, :)
                     internal::trsm<Target::HostTask>(
-                        Side::Left, diag,
+                        Side::Left,
                         alph, A.sub(k, k),
                               B.sub(k, k, 0, nt-1), 1);
 
@@ -240,7 +240,7 @@ void trsm(slate::internal::TargetType<target>,
 /// Version with target as template parameter.
 /// @ingroup trsm
 template <Target target, typename scalar_t>
-void trsm(blas::Side side, blas::Diag diag,
+void trsm(blas::Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts)
@@ -255,7 +255,7 @@ void trsm(blas::Side side, blas::Diag diag,
     }
 
     internal::specialization::trsm(internal::TargetType<target>(),
-                                   side, diag,
+                                   side,
                                    alpha, A,
                                           B,
                                    lookahead);
@@ -276,7 +276,7 @@ void trsm(blas::Side side, blas::Diag diag,
 /// The matrices can be transposed or conjugate-transposed beforehand, e.g.,
 ///
 ///     auto AT = slate::transpose( A );
-///     slate::trsm( Side::Left, Diag::NonUnit, alpha, AT, B );
+///     slate::trsm( Side::Left, alpha, AT, B );
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
@@ -286,13 +286,6 @@ void trsm(blas::Side side, blas::Diag diag,
 ///         Whether A appears on the left or on the right of X:
 ///         - Side::Left:  solve $A X = \alpha B$
 ///         - Side::Right: solve $X A = \alpha B$
-///
-/// @param[in] diag
-///         Whether or not A is unit triangular:
-///         - Diag::NonUnit: A is non-unit triangular;
-///         - Diag::Unit:    A is unit triangular.
-///                          The diagonal elements of A are not referenced
-///                          and are assumed to be 1.
 ///
 /// @param[in] alpha
 ///         The scalar alpha.
@@ -319,7 +312,7 @@ void trsm(blas::Side side, blas::Diag diag,
 ///
 /// @ingroup trsm
 template <typename scalar_t>
-void trsm(blas::Side side, blas::Diag diag,
+void trsm(blas::Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts)
@@ -335,16 +328,16 @@ void trsm(blas::Side side, blas::Diag diag,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            trsm<Target::HostTask>(side, diag, alpha, A, B, opts);
+            trsm<Target::HostTask>(side, alpha, A, B, opts);
             break;
         case Target::HostNest:
-            trsm<Target::HostNest>(side, diag, alpha, A, B, opts);
+            trsm<Target::HostNest>(side, alpha, A, B, opts);
             break;
         case Target::HostBatch:
-            trsm<Target::HostBatch>(side, diag, alpha, A, B, opts);
+            trsm<Target::HostBatch>(side, alpha, A, B, opts);
             break;
         case Target::Devices:
-            trsm<Target::Devices>(side, diag, alpha, A, B, opts);
+            trsm<Target::Devices>(side, alpha, A, B, opts);
             break;
     }
 }
@@ -353,28 +346,28 @@ void trsm(blas::Side side, blas::Diag diag,
 // Explicit instantiations.
 template
 void trsm<float>(
-    blas::Side side, blas::Diag diag,
+    blas::Side side,
     float alpha, TriangularMatrix<float>& A,
                            Matrix<float>& B,
     const std::map<Option, Value>& opts);
 
 template
 void trsm<double>(
-    blas::Side side, blas::Diag diag,
+    blas::Side side,
     double alpha, TriangularMatrix<double>& A,
                             Matrix<double>& B,
     const std::map<Option, Value>& opts);
 
 template
 void trsm< std::complex<float> >(
-    blas::Side side, blas::Diag diag,
+    blas::Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >& A,
                                          Matrix< std::complex<float> >& B,
     const std::map<Option, Value>& opts);
 
 template
 void trsm< std::complex<double> >(
-    blas::Side side, blas::Diag diag,
+    blas::Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >& A,
                                           Matrix< std::complex<double> >& B,
     const std::map<Option, Value>& opts);

@@ -60,7 +60,7 @@ namespace specialization {
 template <Target target, typename matrix_type>
 blas::real_type<typename matrix_type::value_type>
 norm(slate::internal::TargetType<target>,
-       Norm in_norm, matrix_type& A)
+     Norm in_norm, matrix_type& A)
 {
     using scalar_t = typename matrix_type::value_type;
     using real_t = blas::real_type<scalar_t>;
@@ -217,10 +217,10 @@ norm(slate::internal::TargetType<target>,
 template <Target target, typename matrix_type>
 blas::real_type<typename matrix_type::value_type>
 norm(Norm norm, matrix_type& A,
-       const std::map<Option, Value>& opts)
+     const std::map<Option, Value>& opts)
 {
     return internal::specialization::norm(internal::TargetType<target>(),
-                                            norm, A);
+                                          norm, A);
 }
 
 //------------------------------------------------------------------------------

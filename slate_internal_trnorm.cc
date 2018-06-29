@@ -57,7 +57,7 @@ namespace device {
 
 template <>
 void trnorm(
-    Norm norm, Uplo uplo, Diag diag,
+    Norm in_norm, Uplo uplo, Diag diag,
     int64_t m, int64_t n,
     std::complex<float> const* const* Aarray, int64_t lda,
     float* values, int64_t ldv,
@@ -65,14 +65,14 @@ void trnorm(
     cudaStream_t stream)
 {
 #if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
-    trnorm(norm, uplo, diag, m, n, (cuFloatComplex**) Aarray, lda,
+    trnorm(in_norm, uplo, diag, m, n, (cuFloatComplex**) Aarray, lda,
            values, ldv, batch_count, stream);
 #endif
 }
 
 template <>
 void trnorm(
-    Norm norm, Uplo uplo, Diag diag,
+    Norm in_norm, Uplo uplo, Diag diag,
     int64_t m, int64_t n,
     std::complex<double> const* const* Aarray, int64_t lda,
     double* values, int64_t ldv,
@@ -80,7 +80,7 @@ void trnorm(
     cudaStream_t stream)
 {
 #if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
-    trnorm(norm, uplo, diag, m, n, (cuDoubleComplex**) Aarray, lda,
+    trnorm(in_norm, uplo, diag, m, n, (cuDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, stream);
 #endif
 }
@@ -89,7 +89,7 @@ void trnorm(
 // Specializations to allow compilation without CUDA.
 template <>
 void trnorm(
-    Norm norm, Uplo uplo, Diag diag,
+    Norm in_norm, Uplo uplo, Diag diag,
     int64_t m, int64_t n,
     double const* const* Aarray, int64_t lda,
     double* values, int64_t ldv,
@@ -100,7 +100,7 @@ void trnorm(
 
 template <>
 void trnorm(
-    Norm norm, Uplo uplo, Diag diag,
+    Norm in_norm, Uplo uplo, Diag diag,
     int64_t m, int64_t n,
     float const* const* Aarray, int64_t lda,
     float* values, int64_t ldv,
@@ -118,7 +118,7 @@ namespace internal {
 /// Trapezoid and triangular matrix norm.
 /// Dispatches to target implementations.
 ///
-/// @param norm
+/// @param in_norm
 /// - Norm::Max: values is dimension 1 and contains the local max.
 /// - Norm::One: values is dimension n and contains the local column sum.
 /// - Norm::Inf: values is dimension m and contains the local row sum.
@@ -126,23 +126,23 @@ namespace internal {
 ///              sum-of-squares.
 ///
 template <Target target, typename scalar_t>
-void trnorm(
-    Norm norm, TrapezoidMatrix<scalar_t>&& A,
+void norm(
+    Norm in_norm, TrapezoidMatrix<scalar_t>&& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
-    trnorm(internal::TargetType<target>(),
-           norm, A, values,
-           priority);
+    norm(internal::TargetType<target>(),
+         in_norm, A, values,
+         priority);
 }
 
 ///-----------------------------------------------------------------------------
 /// General matrix norm.
 /// Host OpenMP task implementation.
 template <typename scalar_t>
-void trnorm(
+void norm(
     internal::TargetType<Target::HostTask>,
-    Norm norm, TrapezoidMatrix<scalar_t>& A,
+    Norm in_norm, TrapezoidMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
@@ -152,7 +152,7 @@ void trnorm(
     //---------
     // max norm
     // max_{ii,jj} abs( A_{ii,jj} )
-    if (norm == Norm::Max) {
+    if (in_norm == Norm::Max) {
         // Find max of each tile, append to tiles_maxima.
         std::vector<real_t> tiles_maxima;
         for (int64_t j = 0; j < A.nt(); ++j) {
@@ -162,7 +162,7 @@ void trnorm(
                 {
                     A.tileCopyToHost(j, j, A.tileDevice(j, j));
                     real_t tile_max;
-                    trnorm(norm, A.diag(), A(j, j), &tile_max);
+                    trnorm(in_norm, A.diag(), A(j, j), &tile_max);
                     #pragma omp critical
                     {
                         tiles_maxima.push_back(tile_max);
@@ -177,7 +177,7 @@ void trnorm(
                         {
                             A.tileCopyToHost(i, j, A.tileDevice(i, j));
                             real_t tile_max;
-                            genorm(norm, A(i, j), &tile_max);
+                            genorm(in_norm, A(i, j), &tile_max);
                             #pragma omp critical
                             {
                                 tiles_maxima.push_back(tile_max);
@@ -193,7 +193,7 @@ void trnorm(
                         {
                             A.tileCopyToHost(i, j, A.tileDevice(i, j));
                             real_t tile_max;
-                            genorm(norm, A(i, j), &tile_max);
+                            genorm(in_norm, A(i, j), &tile_max);
                             #pragma omp critical
                             {
                                 tiles_maxima.push_back(tile_max);
@@ -207,14 +207,14 @@ void trnorm(
         #pragma omp taskwait
 
         // Find max of tiles_maxima.
-        *values = lapack::lange(norm,
+        *values = lapack::lange(in_norm,
                                 1, tiles_maxima.size(),
                                 tiles_maxima.data(), 1);
     }
     //---------
     // one norm
     // max col sum = max_jj sum_ii abs( A_{ii,jj} )
-    else if (norm == Norm::One) {
+    else if (in_norm == Norm::One) {
         // Sum each column within a tile.
         std::vector<real_t> tiles_sums(A.n()*A.mt(), 0.0);
         int64_t jj = 0;
@@ -224,7 +224,7 @@ void trnorm(
                 #pragma omp task shared(A, tiles_sums) priority(priority)
                 {
                     A.tileCopyToHost(j, j, A.tileDevice(j, j));
-                    trnorm(norm, A.diag(), A(j, j), &tiles_sums[A.n()*j+jj]);
+                    trnorm(in_norm, A.diag(), A(j, j), &tiles_sums[A.n()*j+jj]);
                 }
             }
             // off-diagonal tiles
@@ -234,7 +234,7 @@ void trnorm(
                         #pragma omp task shared(A, tiles_sums) priority(priority)
                         {
                             A.tileCopyToHost(i, j, A.tileDevice(i, j));
-                            genorm(norm, A(i, j), &tiles_sums[A.n()*i+jj]);
+                            genorm(in_norm, A(i, j), &tiles_sums[A.n()*i+jj]);
                         }
                     }
                 }
@@ -245,7 +245,7 @@ void trnorm(
                         #pragma omp task shared(A, tiles_sums) priority(priority)
                         {
                             A.tileCopyToHost(i, j, A.tileDevice(i, j));
-                            genorm(norm, A(i, j), &tiles_sums[A.n()*i+jj]);
+                            genorm(in_norm, A(i, j), &tiles_sums[A.n()*i+jj]);
                         }
                     }
                 }
@@ -269,7 +269,7 @@ void trnorm(
     //---------
     // inf norm
     // max row sum = max_ii sum_jj abs( A_{ii,jj} )
-    else if (norm == Norm::Inf) {
+    else if (in_norm == Norm::Inf) {
         // Sum each row within a tile.
         std::vector<real_t> tiles_sums(A.m()*A.nt(), 0.0);
         int64_t ii = 0;
@@ -279,7 +279,7 @@ void trnorm(
                 #pragma omp task shared(A, tiles_sums) priority(priority)
                 {
                     A.tileCopyToHost(i, i, A.tileDevice(i, i));
-                    trnorm(norm, A.diag(), A(i, i), &tiles_sums[A.m()*i + ii]);
+                    trnorm(in_norm, A.diag(), A(i, i), &tiles_sums[A.m()*i + ii]);
                 }
             }
             // off-diagonal tiles
@@ -289,7 +289,7 @@ void trnorm(
                         #pragma omp task shared(A, tiles_sums) priority(priority)
                         {
                             A.tileCopyToHost(i, j, A.tileDevice(i, j));
-                            genorm(norm, A(i, j), &tiles_sums[A.m()*j + ii]);
+                            genorm(in_norm, A(i, j), &tiles_sums[A.m()*j + ii]);
                         }
                     }
                 }
@@ -300,7 +300,7 @@ void trnorm(
                         #pragma omp task shared(A, tiles_sums) priority(priority)
                         {
                             A.tileCopyToHost(i, j, A.tileDevice(i, j));
-                            genorm(norm, A(i, j), &tiles_sums[A.m()*j + ii]);
+                            genorm(in_norm, A(i, j), &tiles_sums[A.m()*j + ii]);
                         }
                     }
                 }
@@ -324,7 +324,7 @@ void trnorm(
     // Frobenius norm
     // sqrt( sum_{ii,jj} abs( A_{ii,jj} )^2 )
     // In scaled form: scale^2 sumsq = sum abs( A_{ii,jj}^2 )
-    else if (norm == Norm::Fro) {
+    else if (in_norm == Norm::Fro) {
         values[0] = 0;  // scale
         values[1] = 1;  // sumsq
         for (int64_t j = 0; j < A.nt(); ++j) {
@@ -332,7 +332,7 @@ void trnorm(
             if (j < A.mt() && A.tileIsLocal(j, j)) {
                 A.tileCopyToHost(j, j, A.tileDevice(j, j));
                 real_t tile_values[2];
-                trnorm(norm, A.diag(), A(j, j), tile_values);
+                trnorm(in_norm, A.diag(), A(j, j), tile_values);
                 #pragma omp critical
                 {
                     add_sumsq(values[0], values[1],
@@ -347,7 +347,7 @@ void trnorm(
                         {
                             A.tileCopyToHost(i, j, A.tileDevice(i, j));
                             real_t tile_values[2];
-                            genorm(norm, A(i, j), tile_values);
+                            genorm(in_norm, A(i, j), tile_values);
                             #pragma omp critical
                             {
                                 add_sumsq(values[0], values[1],
@@ -364,7 +364,7 @@ void trnorm(
                         {
                             A.tileCopyToHost(i, j, A.tileDevice(i, j));
                             real_t tile_values[2];
-                            genorm(norm, A(i, j), tile_values);
+                            genorm(in_norm, A(i, j), tile_values);
                             #pragma omp critical
                             {
                                 add_sumsq(values[0], values[1],
@@ -382,9 +382,9 @@ void trnorm(
 /// General matrix norm.
 /// Host nested OpenMP implementation.
 template <typename scalar_t>
-void trnorm(
+void norm(
     internal::TargetType<Target::HostNest>,
-    Norm norm, TrapezoidMatrix<scalar_t>& A,
+    Norm in_norm, TrapezoidMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
@@ -395,9 +395,9 @@ void trnorm(
 /// Trapezoid and triangular matrix norm.
 /// GPU device implementation.
 template <typename scalar_t>
-void trnorm(
+void norm(
     internal::TargetType<Target::Devices>,
-    Norm norm, TrapezoidMatrix<scalar_t>& A,
+    Norm in_norm, TrapezoidMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
@@ -415,17 +415,17 @@ void trnorm(
     std::vector<real_t> devices_values;
 
     int64_t ldv;
-    if (norm == Norm::Max) {
+    if (in_norm == Norm::Max) {
         ldv = 1;
         devices_values.resize(A.num_devices());
     }
-    else if (norm == Norm::One) {
+    else if (in_norm == Norm::One) {
         ldv = A.tileNb(0);
     }
-    else if (norm == Norm::Inf) {
+    else if (in_norm == Norm::Inf) {
         ldv = A.tileMb(0);
     }
-    else if (norm == Norm::Fro) {
+    else if (in_norm == Norm::Fro) {
         ldv = 2;
         devices_values.resize(A.num_devices() * 2);
     }
@@ -552,7 +552,7 @@ void trnorm(
                 // off-diagonal blocks
                 for (int q = 0; q < 4; ++q) {
                     if (group_count[q] > 0) {
-                        device::genorm(norm,
+                        device::genorm(in_norm,
                                        mb[q], nb[q],
                                        a_dev_array, lda[q],
                                        vals_dev_array, ldv,
@@ -564,7 +564,7 @@ void trnorm(
                 // diagonal blocks
                 for (int q = 4; q < 6; ++q) {
                     if (group_count[q] > 0) {
-                        device::trnorm(norm, A.uplo(), A.diag(),
+                        device::trnorm(in_norm, A.uplo(), A.diag(),
                                        mb[q], nb[q],
                                        a_dev_array, lda[q],
                                        vals_dev_array, ldv,
@@ -587,11 +587,11 @@ void trnorm(
             }
 
             // Reduction over tiles to device result.
-            if (norm == Norm::Max) {
+            if (in_norm == Norm::Max) {
                 devices_values[device] =
-                    lapack::lange(norm, 1, batch_count, vals_host_array, 1);
+                    lapack::lange(in_norm, 1, batch_count, vals_host_array, 1);
             }
-            else if (norm == Norm::Fro) {
+            else if (in_norm == Norm::Fro) {
                 for (int64_t k = 0; k < batch_count; ++k) {
                     add_sumsq(devices_values[2*device + 0],
                               devices_values[2*device + 1],
@@ -614,12 +614,12 @@ void trnorm(
     }
 
     // Reduction over devices to local result.
-    if (norm == Norm::Max) {
-        *values = lapack::lange(norm,
+    if (in_norm == Norm::Max) {
+        *values = lapack::lange(in_norm,
                                 1, devices_values.size(),
                                 devices_values.data(), 1);
     }
-    else if (norm == Norm::One) {
+    else if (in_norm == Norm::One) {
         for (int device = 0; device < A.num_devices(); ++device) {
             real_t* vals_host_array = vals_host_arrays[device].data();
 
@@ -660,7 +660,7 @@ void trnorm(
             }
         }
     }
-    else if (norm == Norm::Inf) {
+    else if (in_norm == Norm::Inf) {
         for (int device = 0; device < A.num_devices(); ++device) {
             real_t* vals_host_array = vals_host_arrays[device].data();
 
@@ -701,7 +701,7 @@ void trnorm(
             }
         }
     }
-    else if (norm == Norm::Fro) {
+    else if (in_norm == Norm::Fro) {
         values[0] = 0;
         values[1] = 1;
         for (int device = 0; device < A.num_devices(); ++device) {
@@ -716,77 +716,77 @@ void trnorm(
 // Explicit instantiations.
 // ----------------------------------------
 template
-void trnorm<Target::HostTask, float>(
-    Norm norm, TrapezoidMatrix<float>&& A,
+void norm<Target::HostTask, float>(
+    Norm in_norm, TrapezoidMatrix<float>&& A,
     float* values,
     int priority);
 
 template
-void trnorm<Target::HostNest, float>(
-    Norm norm, TrapezoidMatrix<float>&& A,
+void norm<Target::HostNest, float>(
+    Norm in_norm, TrapezoidMatrix<float>&& A,
     float* values,
     int priority);
 
 template
-void trnorm<Target::Devices, float>(
-    Norm norm, TrapezoidMatrix<float>&& A,
-    float* values,
-    int priority);
-
-// ----------------------------------------
-template
-void trnorm<Target::HostTask, double>(
-    Norm norm, TrapezoidMatrix<double>&& A,
-    double* values,
-    int priority);
-
-template
-void trnorm<Target::HostNest, double>(
-    Norm norm, TrapezoidMatrix<double>&& A,
-    double* values,
-    int priority);
-
-template
-void trnorm<Target::Devices, double>(
-    Norm norm, TrapezoidMatrix<double>&& A,
-    double* values,
-    int priority);
-
-// ----------------------------------------
-template
-void trnorm< Target::HostTask, std::complex<float> >(
-    Norm norm, TrapezoidMatrix< std::complex<float> >&& A,
-    float* values,
-    int priority);
-
-template
-void trnorm< Target::HostNest, std::complex<float> >(
-    Norm norm, TrapezoidMatrix< std::complex<float> >&& A,
-    float* values,
-    int priority);
-
-template
-void trnorm< Target::Devices, std::complex<float> >(
-    Norm norm, TrapezoidMatrix< std::complex<float> >&& A,
+void norm<Target::Devices, float>(
+    Norm in_norm, TrapezoidMatrix<float>&& A,
     float* values,
     int priority);
 
 // ----------------------------------------
 template
-void trnorm< Target::HostTask, std::complex<double> >(
-    Norm norm, TrapezoidMatrix< std::complex<double> >&& A,
+void norm<Target::HostTask, double>(
+    Norm in_norm, TrapezoidMatrix<double>&& A,
     double* values,
     int priority);
 
 template
-void trnorm< Target::HostNest, std::complex<double> >(
-    Norm norm, TrapezoidMatrix< std::complex<double> >&& A,
+void norm<Target::HostNest, double>(
+    Norm in_norm, TrapezoidMatrix<double>&& A,
     double* values,
     int priority);
 
 template
-void trnorm< Target::Devices, std::complex<double> >(
-    Norm norm, TrapezoidMatrix< std::complex<double> >&& A,
+void norm<Target::Devices, double>(
+    Norm in_norm, TrapezoidMatrix<double>&& A,
+    double* values,
+    int priority);
+
+// ----------------------------------------
+template
+void norm< Target::HostTask, std::complex<float> >(
+    Norm in_norm, TrapezoidMatrix< std::complex<float> >&& A,
+    float* values,
+    int priority);
+
+template
+void norm< Target::HostNest, std::complex<float> >(
+    Norm in_norm, TrapezoidMatrix< std::complex<float> >&& A,
+    float* values,
+    int priority);
+
+template
+void norm< Target::Devices, std::complex<float> >(
+    Norm in_norm, TrapezoidMatrix< std::complex<float> >&& A,
+    float* values,
+    int priority);
+
+// ----------------------------------------
+template
+void norm< Target::HostTask, std::complex<double> >(
+    Norm in_norm, TrapezoidMatrix< std::complex<double> >&& A,
+    double* values,
+    int priority);
+
+template
+void norm< Target::HostNest, std::complex<double> >(
+    Norm in_norm, TrapezoidMatrix< std::complex<double> >&& A,
+    double* values,
+    int priority);
+
+template
+void norm< Target::Devices, std::complex<double> >(
+    Norm in_norm, TrapezoidMatrix< std::complex<double> >&& A,
     double* values,
     int priority);
 

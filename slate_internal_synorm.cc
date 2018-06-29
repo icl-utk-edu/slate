@@ -58,7 +58,7 @@ namespace device {
 
 template <>
 void synorm(
-    Norm norm, Uplo uplo,
+    Norm in_norm, Uplo uplo,
     int64_t n,
     std::complex<float> const* const* Aarray, int64_t lda,
     float* values, int64_t ldv,
@@ -66,14 +66,14 @@ void synorm(
     cudaStream_t stream)
 {
 #if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
-    synorm(norm, uplo, n, (cuFloatComplex**) Aarray, lda,
+    synorm(in_norm, uplo, n, (cuFloatComplex**) Aarray, lda,
            values, ldv, batch_count, stream);
 #endif
 }
 
 template <>
 void synorm(
-    Norm norm, Uplo uplo,
+    Norm in_norm, Uplo uplo,
     int64_t n,
     std::complex<double> const* const* Aarray, int64_t lda,
     double* values, int64_t ldv,
@@ -81,14 +81,14 @@ void synorm(
     cudaStream_t stream)
 {
 #if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
-    synorm(norm, uplo, n, (cuDoubleComplex**) Aarray, lda,
+    synorm(in_norm, uplo, n, (cuDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, stream);
 #endif
 }
 
 template <>
 void synormOffdiag(
-    Norm norm,
+    Norm in_norm,
     int64_t m, int64_t n,
     std::complex<float> const* const* Aarray, int64_t lda,
     float* values, int64_t ldv,
@@ -96,14 +96,14 @@ void synormOffdiag(
     cudaStream_t stream)
 {
 #if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
-    synormOffdiag(norm, m, n, (cuFloatComplex**) Aarray, lda,
+    synormOffdiag(in_norm, m, n, (cuFloatComplex**) Aarray, lda,
                   values, ldv, batch_count, stream);
 #endif
 }
 
 template <>
 void synormOffdiag(
-    Norm norm,
+    Norm in_norm,
     int64_t m, int64_t n,
     std::complex<double> const* const* Aarray, int64_t lda,
     double* values, int64_t ldv,
@@ -111,7 +111,7 @@ void synormOffdiag(
     cudaStream_t stream)
 {
 #if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
-    synormOffdiag(norm, m, n, (cuDoubleComplex**) Aarray, lda,
+    synormOffdiag(in_norm, m, n, (cuDoubleComplex**) Aarray, lda,
                   values, ldv, batch_count, stream);
 #endif
 }
@@ -120,7 +120,7 @@ void synormOffdiag(
 // Specializations to allow compilation without CUDA.
 template <>
 void synorm(
-    Norm norm, Uplo uplo,
+    Norm in_norm, Uplo uplo,
     int64_t n,
     double const* const* Aarray, int64_t lda,
     double* values, int64_t ldv,
@@ -131,7 +131,7 @@ void synorm(
 
 template <>
 void synorm(
-    Norm norm, Uplo uplo,
+    Norm in_norm, Uplo uplo,
     int64_t n,
     float const* const* Aarray, int64_t lda,
     float* values, int64_t ldv,
@@ -142,7 +142,7 @@ void synorm(
 
 template <>
 void synormOffdiag(
-    Norm norm,
+    Norm in_norm,
     int64_t m, int64_t n,
     double const* const* Aarray, int64_t lda,
     double* values, int64_t ldv,
@@ -153,7 +153,7 @@ void synormOffdiag(
 
 template <>
 void synormOffdiag(
-    Norm norm,
+    Norm in_norm,
     int64_t m, int64_t n,
     float const* const* Aarray, int64_t lda,
     float* values, int64_t ldv,
@@ -171,7 +171,7 @@ namespace internal {
 /// Symmetric matrix norm.
 /// Dispatches to target implementations.
 ///
-/// @param norm
+/// @param in_norm
 /// - Norm::Max: values is dimension 1 and contains the local max.
 /// - Norm::One: values is dimension n and contains the local column sum.
 /// - Norm::Inf: for symmetric, same as Norm::One.
@@ -179,23 +179,23 @@ namespace internal {
 ///              sum-of-squares.
 ///
 template <Target target, typename scalar_t>
-void synorm(
-    Norm norm, SymmetricMatrix<scalar_t>&& A,
+void norm(
+    Norm in_norm, SymmetricMatrix<scalar_t>&& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
-    synorm(internal::TargetType<target>(),
-           norm, A, values,
-           priority);
+    norm(internal::TargetType<target>(),
+         in_norm, A, values,
+         priority);
 }
 
 ///-----------------------------------------------------------------------------
 /// General matrix norm.
 /// Host OpenMP task implementation.
 template <typename scalar_t>
-void synorm(
+void norm(
     internal::TargetType<Target::HostTask>,
-    Norm norm, SymmetricMatrix<scalar_t>& A,
+    Norm in_norm, SymmetricMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
@@ -205,7 +205,7 @@ void synorm(
     //---------
     // max norm
     // max_{ii,jj} abs( A_{ii,jj} )
-    if (norm == Norm::Max) {
+    if (in_norm == Norm::Max) {
         // Note: same code in slate::internal::trnorm( Norm::Max ).
         // Find max of each tile, append to tiles_maxima.
         std::vector<real_t> tiles_maxima;
@@ -216,7 +216,7 @@ void synorm(
                 {
                     A.tileCopyToHost(j, j, A.tileDevice(j, j));
                     real_t tile_max;
-                    synorm(norm, A(j, j), &tile_max);
+                    synorm(in_norm, A(j, j), &tile_max);
                     #pragma omp critical
                     {
                         tiles_maxima.push_back(tile_max);
@@ -231,7 +231,7 @@ void synorm(
                         {
                             A.tileCopyToHost(i, j, A.tileDevice(i, j));
                             real_t tile_max;
-                            genorm(norm, A(i, j), &tile_max);
+                            genorm(in_norm, A(i, j), &tile_max);
                             #pragma omp critical
                             {
                                 tiles_maxima.push_back(tile_max);
@@ -247,7 +247,7 @@ void synorm(
                         {
                             A.tileCopyToHost(i, j, A.tileDevice(i, j));
                             real_t tile_max;
-                            genorm(norm, A(i, j), &tile_max);
+                            genorm(in_norm, A(i, j), &tile_max);
                             #pragma omp critical
                             {
                                 tiles_maxima.push_back(tile_max);
@@ -261,14 +261,14 @@ void synorm(
         #pragma omp taskwait
 
         // Find max of tiles_maxima.
-        *values = lapack::lange(norm,
+        *values = lapack::lange(in_norm,
                                 1, tiles_maxima.size(),
                                 tiles_maxima.data(), 1);
     }
     //---------
     // one norm
     // max col sum = max_jj sum_ii abs( A_{ii,jj} )
-    else if (norm == Norm::One || norm == Norm::Inf) {
+    else if (in_norm == Norm::One || in_norm == Norm::Inf) {
         // Sum each column within a tile.
         std::vector<real_t> tiles_sums(A.n()*A.mt(), 0.0);
         int64_t jj = 0;
@@ -278,7 +278,7 @@ void synorm(
                 #pragma omp task shared(A, tiles_sums) priority(priority)
                 {
                     A.tileCopyToHost(j, j, A.tileDevice(j, j));
-                    synorm(norm, A(j, j), &tiles_sums[A.n()*j + jj]);
+                    synorm(in_norm, A(j, j), &tiles_sums[A.n()*j + jj]);
                 }
             }
             // off-diagonal tiles
@@ -289,7 +289,7 @@ void synorm(
                         #pragma omp task shared(A, tiles_sums) priority(priority)
                         {
                             A.tileCopyToHost(i, j, A.tileDevice(i, j));
-                            synormOffdiag(norm, A(i, j),
+                            synormOffdiag(in_norm, A(i, j),
                                           &tiles_sums[A.n()*i + jj],
                                           &tiles_sums[A.n()*j + ii]);
                         }
@@ -304,7 +304,7 @@ void synorm(
                         #pragma omp task shared(A, tiles_sums) priority(priority)
                         {
                             A.tileCopyToHost(i, j, A.tileDevice(i, j));
-                            synormOffdiag(norm, A(i, j),
+                            synormOffdiag(in_norm, A(i, j),
                                           &tiles_sums[A.n()*i + jj],
                                           &tiles_sums[A.n()*j + ii]);
                         }
@@ -332,7 +332,7 @@ void synorm(
     // Frobenius norm
     // sqrt( sum_{ii,jj} abs( A_{ii,jj} )^2 )
     // In scaled form: scale^2 sumsq = sum abs( A_{ii,jj}^2 )
-    else if (norm == Norm::Fro) {
+    else if (in_norm == Norm::Fro) {
         values[0] = 0;  // scale
         values[1] = 1;  // sumsq
         for (int64_t j = 0; j < A.nt(); ++j) {
@@ -340,7 +340,7 @@ void synorm(
             if (j < A.mt() && A.tileIsLocal(j, j)) {
                 A.tileCopyToHost(j, j, A.tileDevice(j, j));
                 real_t tile_values[2];
-                synorm(norm, A(j, j), tile_values);
+                synorm(in_norm, A(j, j), tile_values);
                 #pragma omp critical
                 {
                     add_sumsq(values[0], values[1],
@@ -355,7 +355,7 @@ void synorm(
                         {
                             A.tileCopyToHost(i, j, A.tileDevice(i, j));
                             real_t tile_values[2];
-                            genorm(norm, A(i, j), tile_values);
+                            genorm(in_norm, A(i, j), tile_values);
                             // double for symmetric entries
                             tile_values[1] *= 2;
                             #pragma omp critical
@@ -374,7 +374,7 @@ void synorm(
                         {
                             A.tileCopyToHost(i, j, A.tileDevice(i, j));
                             real_t tile_values[2];
-                            genorm(norm, A(i, j), tile_values);
+                            genorm(in_norm, A(i, j), tile_values);
                             // double for symmetric entries
                             tile_values[1] *= 2;
                             #pragma omp critical
@@ -394,9 +394,9 @@ void synorm(
 /// General matrix norm.
 /// Host nested OpenMP implementation.
 template <typename scalar_t>
-void synorm(
+void norm(
     internal::TargetType<Target::HostNest>,
-    Norm norm, SymmetricMatrix<scalar_t>& A,
+    Norm in_norm, SymmetricMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
@@ -407,9 +407,9 @@ void synorm(
 /// Symmetric matrix norm.
 /// GPU device implementation.
 template <typename scalar_t>
-void synorm(
+void norm(
     internal::TargetType<Target::Devices>,
-    Norm norm, SymmetricMatrix<scalar_t>& A,
+    Norm in_norm, SymmetricMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
@@ -427,14 +427,14 @@ void synorm(
     std::vector<real_t> devices_values;
 
     int64_t ldv;
-    if (norm == Norm::Max) {
+    if (in_norm == Norm::Max) {
         ldv = 1;
         devices_values.resize(A.num_devices());
     }
-    else if (norm == Norm::One || norm == Norm::Inf) {
+    else if (in_norm == Norm::One || in_norm == Norm::Inf) {
         ldv = 2*A.tileNb(0);
     }
-    else if (norm == Norm::Fro) {
+    else if (in_norm == Norm::Fro) {
         ldv = 2;
         devices_values.resize(A.num_devices() * 2);
     }
@@ -561,15 +561,15 @@ void synorm(
                 // off-diagonal blocks
                 for (int q = 0; q < 4; ++q) {
                     if (group_count[q] > 0) {
-                        if (norm == Norm::One || norm == Norm::Inf) {
-                            device::synormOffdiag(norm,
+                        if (in_norm == Norm::One || in_norm == Norm::Inf) {
+                            device::synormOffdiag(in_norm,
                                                   mb[q], nb[q],
                                                   a_dev_array, lda[q],
                                                   vals_dev_array, ldv,
                                                   group_count[q], stream);
                         }
                         else {
-                            device::genorm(norm,
+                            device::genorm(in_norm,
                                            mb[q], nb[q],
                                            a_dev_array, lda[q],
                                            vals_dev_array, ldv,
@@ -582,7 +582,7 @@ void synorm(
                 // diagonal blocks
                 for (int q = 4; q < 6; ++q) {
                     if (group_count[q] > 0) {
-                        device::synorm(norm, A.uplo(),
+                        device::synorm(in_norm, A.uplo(),
                                        nb[q],
                                        a_dev_array, lda[q],
                                        vals_dev_array, ldv,
@@ -605,11 +605,11 @@ void synorm(
             }
 
             // Reduction over tiles to device result.
-            if (norm == Norm::Max) {
+            if (in_norm == Norm::Max) {
                 devices_values[device] =
-                    lapack::lange(norm, 1, batch_count, vals_host_array, 1);
+                    lapack::lange(in_norm, 1, batch_count, vals_host_array, 1);
             }
-            else if (norm == Norm::Fro) {
+            else if (in_norm == Norm::Fro) {
                 int64_t batch_count = 0;
                 for (int q = 0; q < 6; ++q) {
                     // double for symmetric entries in off-diagonal blocks
@@ -638,12 +638,12 @@ void synorm(
     }
 
     // Reduction over devices to local result.
-    if (norm == Norm::Max) {
-        *values = lapack::lange(norm,
+    if (in_norm == Norm::Max) {
+        *values = lapack::lange(in_norm,
                                 1, devices_values.size(),
                                 devices_values.data(), 1);
     }
-    else if (norm == Norm::One || norm == Norm::Inf) {
+    else if (in_norm == Norm::One || in_norm == Norm::Inf) {
         for (int device = 0; device < A.num_devices(); ++device) {
             real_t* vals_host_array = vals_host_arrays[device].data();
 
@@ -692,7 +692,7 @@ void synorm(
             }
         }
     }
-    else if (norm == Norm::Fro) {
+    else if (in_norm == Norm::Fro) {
         values[0] = 0;
         values[1] = 1;
         for (int device = 0; device < A.num_devices(); ++device) {
@@ -707,77 +707,77 @@ void synorm(
 // Explicit instantiations.
 // ----------------------------------------
 template
-void synorm<Target::HostTask, float>(
-    Norm norm, SymmetricMatrix<float>&& A,
+void norm<Target::HostTask, float>(
+    Norm in_norm, SymmetricMatrix<float>&& A,
     float* values,
     int priority);
 
 template
-void synorm<Target::HostNest, float>(
-    Norm norm, SymmetricMatrix<float>&& A,
+void norm<Target::HostNest, float>(
+    Norm in_norm, SymmetricMatrix<float>&& A,
     float* values,
     int priority);
 
 template
-void synorm<Target::Devices, float>(
-    Norm norm, SymmetricMatrix<float>&& A,
-    float* values,
-    int priority);
-
-// ----------------------------------------
-template
-void synorm<Target::HostTask, double>(
-    Norm norm, SymmetricMatrix<double>&& A,
-    double* values,
-    int priority);
-
-template
-void synorm<Target::HostNest, double>(
-    Norm norm, SymmetricMatrix<double>&& A,
-    double* values,
-    int priority);
-
-template
-void synorm<Target::Devices, double>(
-    Norm norm, SymmetricMatrix<double>&& A,
-    double* values,
-    int priority);
-
-// ----------------------------------------
-template
-void synorm< Target::HostTask, std::complex<float> >(
-    Norm norm, SymmetricMatrix< std::complex<float> >&& A,
-    float* values,
-    int priority);
-
-template
-void synorm< Target::HostNest, std::complex<float> >(
-    Norm norm, SymmetricMatrix< std::complex<float> >&& A,
-    float* values,
-    int priority);
-
-template
-void synorm< Target::Devices, std::complex<float> >(
-    Norm norm, SymmetricMatrix< std::complex<float> >&& A,
+void norm<Target::Devices, float>(
+    Norm in_norm, SymmetricMatrix<float>&& A,
     float* values,
     int priority);
 
 // ----------------------------------------
 template
-void synorm< Target::HostTask, std::complex<double> >(
-    Norm norm, SymmetricMatrix< std::complex<double> >&& A,
+void norm<Target::HostTask, double>(
+    Norm in_norm, SymmetricMatrix<double>&& A,
     double* values,
     int priority);
 
 template
-void synorm< Target::HostNest, std::complex<double> >(
-    Norm norm, SymmetricMatrix< std::complex<double> >&& A,
+void norm<Target::HostNest, double>(
+    Norm in_norm, SymmetricMatrix<double>&& A,
     double* values,
     int priority);
 
 template
-void synorm< Target::Devices, std::complex<double> >(
-    Norm norm, SymmetricMatrix< std::complex<double> >&& A,
+void norm<Target::Devices, double>(
+    Norm in_norm, SymmetricMatrix<double>&& A,
+    double* values,
+    int priority);
+
+// ----------------------------------------
+template
+void norm< Target::HostTask, std::complex<float> >(
+    Norm in_norm, SymmetricMatrix< std::complex<float> >&& A,
+    float* values,
+    int priority);
+
+template
+void norm< Target::HostNest, std::complex<float> >(
+    Norm in_norm, SymmetricMatrix< std::complex<float> >&& A,
+    float* values,
+    int priority);
+
+template
+void norm< Target::Devices, std::complex<float> >(
+    Norm in_norm, SymmetricMatrix< std::complex<float> >&& A,
+    float* values,
+    int priority);
+
+// ----------------------------------------
+template
+void norm< Target::HostTask, std::complex<double> >(
+    Norm in_norm, SymmetricMatrix< std::complex<double> >&& A,
+    double* values,
+    int priority);
+
+template
+void norm< Target::HostNest, std::complex<double> >(
+    Norm in_norm, SymmetricMatrix< std::complex<double> >&& A,
+    double* values,
+    int priority);
+
+template
+void norm< Target::Devices, std::complex<double> >(
+    Norm in_norm, SymmetricMatrix< std::complex<double> >&& A,
     double* values,
     int priority);
 

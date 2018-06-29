@@ -270,51 +270,20 @@ void trsm(Side side,
 
 //------------------------------------------------------------------------------
 // Norms
-
-//-----------------------------------------
-// genorm()
 template <Target target=Target::HostTask, typename scalar_t>
-void genorm(Norm in_norm, Matrix<scalar_t>&& A,
-            blas::real_type<scalar_t>* values,
-            int priority=0);
+void norm(Norm in_norm, Matrix<scalar_t>&& A,
+          blas::real_type<scalar_t>* values,
+          int priority=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
-void norm(  Norm in_norm, Matrix<scalar_t>&& A,
-            blas::real_type<scalar_t>* values,
-            int priority=0)
-{
-    genorm(in_norm, std::move(A), values, priority);
-}
-
-//-----------------------------------------
-// synorm()
-template <Target target=Target::HostTask, typename scalar_t>
-void synorm(Norm in_norm, SymmetricMatrix<scalar_t>&& A,
-            blas::real_type<scalar_t>* values,
-            int priority=0);
+void norm(Norm in_norm, SymmetricMatrix<scalar_t>&& A,
+          blas::real_type<scalar_t>* values,
+          int priority=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
-void norm(  Norm in_norm, SymmetricMatrix<scalar_t>&& A,
-            blas::real_type<scalar_t>* values,
-            int priority=0)
-{
-    synorm(in_norm, std::move(A), values, priority);
-}
-
-//-----------------------------------------
-// trnorm()
-template <Target target=Target::HostTask, typename scalar_t>
-void trnorm(Norm in_norm, TrapezoidMatrix<scalar_t>&& A,
-            blas::real_type<scalar_t>* values,
-            int priority=0);
-
-template <Target target=Target::HostTask, typename scalar_t>
-void norm(  Norm in_norm, TrapezoidMatrix<scalar_t>&& A,
-            blas::real_type<scalar_t>* values,
-            int priority=0)
-{
-    trnorm(in_norm, std::move(A), values, priority);
-}
+void norm(Norm in_norm, TrapezoidMatrix<scalar_t>&& A,
+          blas::real_type<scalar_t>* values,
+          int priority=0);
 
 //------------------------------------------------------------------------------
 // Factorizations

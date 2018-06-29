@@ -77,10 +77,14 @@ void test_trnorm_work(Params& params, bool run)
     assert(info==0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA * nlocA);
-    //int iseed = 1;
-    //scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
+    // todo: fix the generation
+    // int iseed = 1;
+    // scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
     int64_t iseeds[4] = { myrow, mycol, 2, 3 };
-    lapack::larnv(2, iseeds, lldA * nlocA, &A_tst[0] );
+    // lapack::larnv(2, iseeds, lldA * nlocA, &A_tst[0] );
+    for (int64_t j = 0; j < nlocA; ++j)
+        lapack::larnv(2, iseeds, mlocA, &A_tst[j*lldA]);
+
 
     if (verbose > 1) {
         for (int i = 0; i < nprow; ++i) {

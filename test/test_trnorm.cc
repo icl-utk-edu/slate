@@ -111,7 +111,7 @@ void test_trnorm_work(Params& params, bool run)
         // Distribute local ScaLAPACK data in 1D-cyclic fashion to GPU devices.
         for (int device = 0; device < A.num_devices(); ++device) {
             int64_t ndevA = scalapack_numroc(nlocA, nb, device, i0, A.num_devices());
-            size_t len = blas::max((int64_t)sizeof(double) * lldA * ndevA, 1);
+            size_t len = blas::max((int64_t)sizeof(scalar_t) * lldA * ndevA, 1);
             cudaSetDevice(device);
             cudaMalloc((void**)&Aarray[device], len);
             assert(Aarray[device] != nullptr);

@@ -90,7 +90,7 @@ protected:
 /// Throws Exception with given message.
 #define slate_error(msg) \
     do { \
-        throw Exception(msg, __func__, __FILE__, __LINE__); \
+        throw slate::Exception(msg, __func__, __FILE__, __LINE__); \
     } while(0)
 
 //------------------------------------------------------------------------------
@@ -111,7 +111,8 @@ public:
 #define slate_error_if(cond) \
     do { \
         if ((cond)) \
-            throw TrueConditionException(#cond, __func__, __FILE__, __LINE__); \
+            throw slate::TrueConditionException( \
+                #cond, __func__, __FILE__, __LINE__); \
     } while(0)
 
 //------------------------------------------------------------------------------
@@ -132,7 +133,8 @@ public:
 #define slate_assert(cond) \
     do { \
         if (! (cond)) \
-            throw FalseConditionException(#cond, __func__, __FILE__, __LINE__);\
+            throw slate::FalseConditionException( \
+                #cond, __func__, __FILE__, __LINE__); \
     } while(0)
 
 //------------------------------------------------------------------------------
@@ -169,7 +171,7 @@ public:
     do { \
         int slate_mpi_call_ = call; \
         if (slate_mpi_call_ != MPI_SUCCESS) \
-            throw MpiException( \
+            throw slate::MpiException( \
                 #call, slate_mpi_call_, __func__, __FILE__, __LINE__); \
     } while(0)
 
@@ -206,8 +208,8 @@ public:
     do { \
         cudaError_t slate_cuda_call_ = call; \
         if (slate_cuda_call_ != cudaSuccess) \
-            throw CudaException(#call, slate_cuda_call_, \
-                                __func__, __FILE__, __LINE__); \
+            throw slate::CudaException( \
+                #call, slate_cuda_call_, __func__, __FILE__, __LINE__); \
     } while(0)
 
 //------------------------------------------------------------------------------
@@ -245,7 +247,7 @@ public:
     do { \
         cublasStatus_t slate_cublas_call_ = call; \
         if (slate_cublas_call_ != CUBLAS_STATUS_SUCCESS) \
-            throw CublasException( \
+            throw slate::CublasException( \
                 #call, slate_cublas_call_, __func__, __FILE__, __LINE__); \
     } while(0)
 

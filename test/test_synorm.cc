@@ -113,17 +113,21 @@ void test_synorm_work(Params& params, bool run)
         for (int device = 0; device < A.num_devices(); ++device) {
             int64_t ndevA = scalapack_numroc(nlocA, nb, device, i0, A.num_devices());
             size_t len = blas::max((int64_t)sizeof(scalar_t) * lldA * ndevA, 1);
-            cudaSetDevice(device);
-            cudaMalloc((void**)&Aarray[device], len);
+            slate_cuda_call(
+                cudaSetDevice(device));
+            slate_cuda_call(
+                cudaMalloc((void**)&Aarray[device], len));
             assert(Aarray[device] != nullptr);
             int64_t jj_dev = 0;
             for (int64_t jj_local = nb*device; jj_local < nlocA;
                  jj_local += nb*A.num_devices())
             {
                 int64_t jb = std::min(nb, nlocA - jj_local);
-                cublasSetMatrix(mlocA, jb, sizeof(scalar_t),
-                                &A_tst[ jj_local * lldA ], lldA,
-                                &Aarray[device][ jj_dev * lldA ], lldA);
+                slate_cublas_call(
+                    cublasSetMatrix(
+                        mlocA, jb, sizeof(scalar_t),
+                        &A_tst[ jj_local * lldA ], lldA,
+                        &Aarray[device][ jj_dev * lldA ], lldA));
                 jj_dev += nb;
             }
         }
@@ -220,7 +224,8 @@ void test_synorm_work(Params& params, bool run)
 
     if (target == slate::Target::Devices) {
         for (int device = 0; device < A.num_devices(); ++device) {
-            cudaFree(Aarray[device]);
+            slate_cuda_call(
+                cudaFree(Aarray[device]));
             Aarray[device] = nullptr;
         }
     }

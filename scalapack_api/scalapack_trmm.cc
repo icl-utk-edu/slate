@@ -203,7 +203,7 @@ void slate_ptrmm(const char* sidestr, const char* uplostr, const char* transastr
     // todo fix allocation of A
     //auto AT = slate::Matrix<scalar_t>::fromScaLAPACK (desca[M_], desca[N_], a, desca[LLD_], desca[MB_], nprow, npcol, MPI_COMM_WORLD);
     //A = slate_scalapack_submatrix (Am, An, A, ia, ja, desca);
-    auto AT = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(uplo, An, a, desca[LLD_], desca[MB_], nprow, npcol, MPI_COMM_WORLD);
+    auto AT = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(uplo, diag, An, a, desca[LLD_], desca[MB_], nprow, npcol, MPI_COMM_WORLD);
     // auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desca[M_], desca[N_], a, desca[LLD_], desca[MB_], nprow, npcol, MPI_COMM_WORLD);
     //AT = slate_scalapack_submatrix (Am, An, AT, ia, ja, desca);
     // auto AT = slate::TriangularMatrix<scalar_t> (uplo, A);
@@ -218,7 +218,7 @@ void slate_ptrmm(const char* sidestr, const char* uplostr, const char* transastr
         AT = conj_transpose(AT);
 
     int64_t lookahead = 1;
-    slate::trmm(side, diag, alpha, AT, B, {
+    slate::trmm(side, alpha, AT, B, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });

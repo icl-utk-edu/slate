@@ -255,7 +255,7 @@ void syr2k(scalar_t alpha, Matrix<scalar_t>&& A,
 //-----------------------------------------
 // trmm()
 template <Target target=Target::HostTask, typename scalar_t>
-void trmm(Side side, Diag diag,
+void trmm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
           int priority=0);
@@ -263,34 +263,27 @@ void trmm(Side side, Diag diag,
 //-----------------------------------------
 // trsm()
 template <Target target=Target::HostTask, typename scalar_t>
-void trsm(Side side, Diag diag,
+void trsm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
           int priority=0);
 
 //------------------------------------------------------------------------------
 // Norms
-
-//-----------------------------------------
-// genorm()
 template <Target target=Target::HostTask, typename scalar_t>
-void genorm(Norm norm, Matrix<scalar_t>&& A,
-            blas::real_type<scalar_t>* values,
-            int priority=0);
+void norm(Norm in_norm, Matrix<scalar_t>&& A,
+          blas::real_type<scalar_t>* values,
+          int priority=0);
 
-//-----------------------------------------
-// synorm()
 template <Target target=Target::HostTask, typename scalar_t>
-void synorm(Norm norm, SymmetricMatrix<scalar_t>&& A,
-            blas::real_type<scalar_t>* values,
-            int priority=0);
+void norm(Norm in_norm, SymmetricMatrix<scalar_t>&& A,
+          blas::real_type<scalar_t>* values,
+          int priority=0);
 
-//-----------------------------------------
-// trnorm()
 template <Target target=Target::HostTask, typename scalar_t>
-void trnorm(Norm norm, Diag diag, TrapezoidMatrix<scalar_t>&& A,
-            blas::real_type<scalar_t>* values,
-            int priority=0);
+void norm(Norm in_norm, TrapezoidMatrix<scalar_t>&& A,
+          blas::real_type<scalar_t>* values,
+          int priority=0);
 
 //------------------------------------------------------------------------------
 // Factorizations

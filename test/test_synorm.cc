@@ -152,7 +152,7 @@ void test_synorm_work(Params& params, bool run)
     }
     double time = libtest::get_wtime();
 
-    real_t A_norm = slate::synorm(norm, A, {
+    real_t A_norm = slate::norm(norm, A, {
         {slate::Option::Target, target}
     });
 

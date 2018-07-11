@@ -51,13 +51,13 @@ namespace internal {
 /// Triangular matrix multiply.
 /// Dispatches to target implementations.
 template <Target target, typename scalar_t>
-void trmm(Side side, Diag diag,
+void trmm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
           int priority)
 {
     trmm(internal::TargetType<target>(),
-         side, diag,
+         side,
          alpha, A,
                 B,
          priority);
@@ -69,7 +69,7 @@ void trmm(Side side, Diag diag,
 /// Host OpenMP task implementation.
 template <typename scalar_t>
 void trmm(internal::TargetType<Target::HostTask>,
-          Side side, Diag diag,
+          Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
           int priority)
@@ -86,7 +86,7 @@ void trmm(internal::TargetType<Target::HostTask>,
                 {
                     A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
                     B.tileMoveToHost(i, 0, B.tileDevice(i, 0));
-                    trmm(side, diag,
+                    trmm(side, A.diag(),
                          alpha, A(0, 0),
                                 B(i, 0));
                     A.tileTick(0, 0);
@@ -102,7 +102,7 @@ void trmm(internal::TargetType<Target::HostTask>,
                 {
                     A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
                     B.tileMoveToHost(0, j, B.tileDevice(0, j));
-                    trmm(side, diag,
+                    trmm(side, A.diag(),
                          alpha, A(0, 0),
                                 B(0, j));
                     A.tileTick(0, 0);
@@ -119,7 +119,7 @@ void trmm(internal::TargetType<Target::HostTask>,
 // ----------------------------------------
 template
 void trmm<Target::HostTask, float>(
-    Side side, Diag diag,
+    Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
     int priority);
@@ -127,7 +127,7 @@ void trmm<Target::HostTask, float>(
 // ----------------------------------------
 template
 void trmm<Target::HostTask, double>(
-    Side side, Diag diag,
+    Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
     int priority);
@@ -135,7 +135,7 @@ void trmm<Target::HostTask, double>(
 // ----------------------------------------
 template
 void trmm< Target::HostTask, std::complex<float> >(
-    Side side, Diag diag,
+    Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
     int priority);
@@ -143,7 +143,7 @@ void trmm< Target::HostTask, std::complex<float> >(
 // ----------------------------------------
 template
 void trmm< Target::HostTask, std::complex<double> >(
-    Side side, Diag diag,
+    Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
     int priority);

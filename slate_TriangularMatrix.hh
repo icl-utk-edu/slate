@@ -63,28 +63,28 @@ public:
     // constructors
     TriangularMatrix();
 
-    TriangularMatrix(Uplo uplo, int64_t n, int64_t nb,
+    TriangularMatrix(Uplo uplo, Diag diag, int64_t n, int64_t nb,
                      int p, int q, MPI_Comm mpi_comm);
 
     static
-    TriangularMatrix fromLAPACK(Uplo uplo, int64_t n,
+    TriangularMatrix fromLAPACK(Uplo uplo, Diag diag, int64_t n,
                                 scalar_t* A, int64_t lda, int64_t nb,
                                 int p, int q, MPI_Comm mpi_comm);
 
     static
-    TriangularMatrix fromScaLAPACK(Uplo uplo, int64_t n,
+    TriangularMatrix fromScaLAPACK(Uplo uplo, Diag diag, int64_t n,
                                    scalar_t* A, int64_t lda, int64_t nb,
                                    int p, int q, MPI_Comm mpi_comm);
 
     static
-    TriangularMatrix fromDevices(Uplo uplo, int64_t n,
+    TriangularMatrix fromDevices(Uplo uplo, Diag diag, int64_t n,
                                  scalar_t** Aarray, int num_devices, int64_t lda,
                                  int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
     // conversion
-    explicit TriangularMatrix(BaseTrapezoidMatrix<scalar_t>& orig);
+    explicit TriangularMatrix(Diag diag, BaseTrapezoidMatrix<scalar_t>& orig);
 
-    TriangularMatrix(Uplo uplo, Matrix<scalar_t>& orig);
+    TriangularMatrix(Uplo uplo, Diag diag, Matrix<scalar_t>& orig);
 
     // sub-matrix
     TriangularMatrix sub(int64_t i1, int64_t i2);
@@ -93,17 +93,17 @@ public:
 
 protected:
     // used by fromLAPACK
-    TriangularMatrix(Uplo uplo, int64_t n,
+    TriangularMatrix(Uplo uplo, Diag diag, int64_t n,
                      scalar_t* A, int64_t lda, int64_t nb,
                      int p, int q, MPI_Comm mpi_comm);
 
     // used by fromScaLAPACK
-    TriangularMatrix(Uplo uplo, int64_t n,
+    TriangularMatrix(Uplo uplo, Diag diag, int64_t n,
                      scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
                      int p, int q, MPI_Comm mpi_comm);
 
     // used by fromDevices
-    TriangularMatrix(Uplo uplo, int64_t n,
+    TriangularMatrix(Uplo uplo, Diag diag, int64_t n,
                      scalar_t** Aarray, int num_devices, int64_t lda,
                      int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
@@ -130,8 +130,8 @@ TriangularMatrix<scalar_t>::TriangularMatrix()
 // todo: have allocate flag? If true, allocate data; else user will insert tiles?
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
-    Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
-    : TrapezoidMatrix<scalar_t>(uplo, n, n, nb, p, q, mpi_comm)
+    Uplo uplo, Diag diag, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+    : TrapezoidMatrix<scalar_t>(uplo, diag, n, n, nb, p, q, mpi_comm)
 {}
 
 //------------------------------------------------------------------------------
@@ -140,9 +140,14 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 /// Construct matrix by wrapping existing memory of an n-by-n lower
 /// or upper triangular LAPACK-style matrix.
 ///
-/// @param[in] in_uplo
+/// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
 ///     - Lower: lower triangle of A is stored.
+///
+/// @param[in] diag
+///     - NonUnit: A does not have unit diagonal.
+///     - Unit:    A has unit diagonal; diagonal elements are not referenced
+///                and are assumed to be one.
 ///
 /// @param[in] n
 ///     Number of rows and columns of the matrix. n >= 0.
@@ -168,11 +173,11 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 ///
 template <typename scalar_t>
 TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::fromLAPACK(
-    Uplo uplo, int64_t n,
+    Uplo uplo, Diag diag, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
-    return TriangularMatrix(uplo, n, A, lda, nb, p, q, mpi_comm);
+    return TriangularMatrix(uplo, diag, n, A, lda, nb, p, q, mpi_comm);
 }
 
 //------------------------------------------------------------------------------
@@ -182,9 +187,14 @@ TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::fromLAPACK(
 /// or upper triangular ScaLAPACK-style matrix.
 /// @see BaseTrapezoidMatrix
 ///
-/// @param[in] in_uplo
+/// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
 ///     - Lower: lower triangle of A is stored.
+///
+/// @param[in] diag
+///     - NonUnit: A does not have unit diagonal.
+///     - Unit:    A has unit diagonal; diagonal elements are not referenced
+///                and are assumed to be one.
 ///
 /// @param[in] n
 ///     Number of rows and columns of the matrix. n >= 0.
@@ -211,12 +221,12 @@ TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::fromLAPACK(
 ///
 template <typename scalar_t>
 TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::fromScaLAPACK(
-    Uplo uplo, int64_t n,
+    Uplo uplo, Diag diag, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
     // note extra nb
-    return TriangularMatrix<scalar_t>(uplo, n, A, lda, nb, nb, p, q, mpi_comm);
+    return TriangularMatrix<scalar_t>(uplo, diag, n, A, lda, nb, nb, p, q, mpi_comm);
 }
 
 //------------------------------------------------------------------------------
@@ -227,9 +237,14 @@ TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::fromScaLAPACK(
 /// or upper triangular ScaLAPACK-style matrix.
 /// @see BaseTrapezoidMatrix
 ///
-/// @param[in] in_uplo
+/// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
 ///     - Lower: lower triangle of A is stored.
+///
+/// @param[in] diag
+///     - NonUnit: A does not have unit diagonal.
+///     - Unit:    A has unit diagonal; diagonal elements are not referenced
+///                and are assumed to be one.
 ///
 /// @param[in] n
 ///     Number of rows and columns of the matrix. n >= 0.
@@ -260,11 +275,11 @@ TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::fromScaLAPACK(
 ///
 template <typename scalar_t>
 TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::fromDevices(
-    Uplo uplo, int64_t n,
+    Uplo uplo, Diag diag, int64_t n,
     scalar_t** Aarray, int num_devices, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
-    return TriangularMatrix<scalar_t>(uplo, n, Aarray, num_devices, lda, nb,
+    return TriangularMatrix<scalar_t>(uplo, diag, n, Aarray, num_devices, lda, nb,
                                       p, q, mpi_comm);
 }
 
@@ -272,10 +287,10 @@ TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::fromDevices(
 /// @see fromLAPACK
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
-    Uplo uplo, int64_t n,
+    Uplo uplo, Diag diag, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : TrapezoidMatrix<scalar_t>(uplo, n, n, A, lda, nb, p, q, mpi_comm)
+    : TrapezoidMatrix<scalar_t>(uplo, diag, n, n, A, lda, nb, p, q, mpi_comm)
 {}
 
 //------------------------------------------------------------------------------
@@ -284,10 +299,10 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 ///
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
-    Uplo uplo, int64_t n,
+    Uplo uplo, Diag diag, int64_t n,
     scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : TrapezoidMatrix<scalar_t>(uplo, n, n, A, lda, mb, nb, p, q, mpi_comm)
+    : TrapezoidMatrix<scalar_t>(uplo, diag, n, n, A, lda, mb, nb, p, q, mpi_comm)
 {}
 
 //------------------------------------------------------------------------------
@@ -295,10 +310,10 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 ///
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
-    Uplo uplo, int64_t n,
+    Uplo uplo, Diag diag, int64_t n,
     scalar_t** Aarray, int num_devices, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : TrapezoidMatrix<scalar_t>(uplo, n, n, Aarray, num_devices, lda, nb,
+    : TrapezoidMatrix<scalar_t>(uplo, diag, n, n, Aarray, num_devices, lda, nb,
                                 p, q, mpi_comm)
 {}
 
@@ -313,9 +328,9 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 ///
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
-    BaseTrapezoidMatrix<scalar_t>& orig)
+    Diag diag, BaseTrapezoidMatrix<scalar_t>& orig)
     : TrapezoidMatrix<scalar_t>(
-          orig,
+          diag, orig,
           0, std::min(orig.mt()-1, orig.nt()-1),
           0, std::min(orig.mt()-1, orig.nt()-1))
 {}
@@ -334,9 +349,9 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 ///
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
-    Uplo uplo, Matrix<scalar_t>& orig)
+    Uplo uplo, Diag diag, Matrix<scalar_t>& orig)
     : TrapezoidMatrix<scalar_t>(
-          uplo, orig,
+          uplo, diag, orig,
           0, std::min(orig.mt()-1, orig.nt()-1),
           0, std::min(orig.mt()-1, orig.nt()-1))
 {}

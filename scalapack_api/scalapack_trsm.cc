@@ -189,7 +189,7 @@ void slate_ptrsm(const char* sidestr, const char* uplostr, const char* transastr
     int nprow, npcol, myrow, mycol;
     // todo fix A's allocation
     Cblacs_gridinfo(desca[CTXT_], &nprow, &npcol, &myrow, &mycol);
-    auto A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(uplo, An, a, desca[LLD_], desca[MB_], nprow, npcol, MPI_COMM_WORLD);
+    auto A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(uplo, diag, An, a, desca[LLD_], desca[MB_], nprow, npcol, MPI_COMM_WORLD);
     A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
 
     Cblacs_gridinfo(descb[CTXT_], &nprow, &npcol, &myrow, &mycol);
@@ -201,7 +201,7 @@ void slate_ptrsm(const char* sidestr, const char* uplostr, const char* transastr
     else if (transA == Op::ConjTrans)
         A = conj_transpose(A);
 
-    slate::trsm(side, diag, alpha, A, B, {
+    slate::trsm(side, alpha, A, B, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });

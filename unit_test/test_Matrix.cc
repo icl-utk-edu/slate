@@ -42,8 +42,12 @@
 #include "slate_SymmetricMatrix.hh"
 #include "slate_TrapezoidMatrix.hh"
 #include "slate_TriangularMatrix.hh"
+#include "slate_util.hh"
 
 #include "unit_test.hh"
+
+using slate::ceildiv;
+using slate::roundup;
 
 //------------------------------------------------------------------------------
 // global variables
@@ -130,41 +134,49 @@ void test_Matrix_empty()
 }
 
 //------------------------------------------------------------------------------
-/// Tests TrapezoidMatrix(), mt, nt, op, uplo.
+/// Tests TrapezoidMatrix(), mt, nt, op, uplo, diag.
 void test_TrapezoidMatrix_empty()
 {
-    slate::TrapezoidMatrix<double> L(blas::Uplo::Lower, m, n, nb, p, q, mpi_comm);
+    slate::TrapezoidMatrix<double> L(
+        blas::Uplo::Lower, blas::Diag::NonUnit, m, n, nb, p, q, mpi_comm);
 
     test_assert(L.mt() == ceildiv(m, nb));
     test_assert(L.nt() == ceildiv(n, nb));
     test_assert(L.op() == blas::Op::NoTrans);
     test_assert(L.uplo() == blas::Uplo::Lower);
+    test_assert(L.diag() == blas::Diag::NonUnit);
 
-    slate::TrapezoidMatrix<double> U(blas::Uplo::Upper, m, n, nb, p, q, mpi_comm);
+    slate::TrapezoidMatrix<double> U(
+        blas::Uplo::Upper, blas::Diag::Unit, m, n, nb, p, q, mpi_comm);
 
     test_assert(U.mt() == ceildiv(m, nb));
     test_assert(U.nt() == ceildiv(n, nb));
     test_assert(U.op() == blas::Op::NoTrans);
     test_assert(U.uplo() == blas::Uplo::Upper);
+    test_assert(U.diag() == blas::Diag::Unit);
 }
 
 //------------------------------------------------------------------------------
-/// Tests TriangularMatrix(), mt, nt, op, uplo.
+/// Tests TriangularMatrix(), mt, nt, op, uplo, diag.
 void test_TriangularMatrix_empty()
 {
-    slate::TriangularMatrix<double> L(blas::Uplo::Lower, n, nb, p, q, mpi_comm);
+    slate::TriangularMatrix<double> L(
+        blas::Uplo::Lower, blas::Diag::NonUnit, n, nb, p, q, mpi_comm);
 
     test_assert(L.mt() == ceildiv(n, nb));
     test_assert(L.nt() == ceildiv(n, nb));
     test_assert(L.op() == blas::Op::NoTrans);
     test_assert(L.uplo() == blas::Uplo::Lower);
+    test_assert(L.diag() == blas::Diag::NonUnit);
 
-    slate::TriangularMatrix<double> U(blas::Uplo::Upper, n, nb, p, q, mpi_comm);
+    slate::TriangularMatrix<double> U(
+        blas::Uplo::Upper, blas::Diag::Unit, n, nb, p, q, mpi_comm);
 
     test_assert(U.mt() == ceildiv(n, nb));
     test_assert(U.nt() == ceildiv(n, nb));
     test_assert(U.op() == blas::Op::NoTrans);
     test_assert(U.uplo() == blas::Uplo::Upper);
+    test_assert(U.diag() == blas::Diag::Unit);
 }
 
 //------------------------------------------------------------------------------
@@ -349,12 +361,13 @@ void test_TrapezoidMatrix_fromLAPACK()
     //----------
     // lower
     auto L = slate::TrapezoidMatrix<double>::fromLAPACK(
-        blas::Uplo::Lower, m, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Lower, blas::Diag::NonUnit, m, n, Ad, lda, nb, p, q, mpi_comm );
 
     test_assert(L.mt() == ceildiv(m, nb));
     test_assert(L.nt() == ceildiv(n, nb));
     test_assert(L.op() == blas::Op::NoTrans);
     test_assert(L.uplo() == blas::Uplo::Lower);
+    test_assert(L.diag() == blas::Diag::NonUnit);
 
     for (int j = 0; j < L.nt(); ++j) {
         for (int i = j; i < L.mt(); ++i) {  // lower
@@ -365,12 +378,13 @@ void test_TrapezoidMatrix_fromLAPACK()
     //----------
     // upper
     auto U = slate::TrapezoidMatrix<double>::fromLAPACK(
-        blas::Uplo::Upper, m, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Upper, blas::Diag::Unit, m, n, Ad, lda, nb, p, q, mpi_comm );
 
     test_assert(U.mt() == ceildiv(m, nb));
     test_assert(U.nt() == ceildiv(n, nb));
     test_assert(U.op() == blas::Op::NoTrans);
     test_assert(U.uplo() == blas::Uplo::Upper);
+    test_assert(U.diag() == blas::Diag::Unit);
 
     for (int j = 0; j < U.nt(); ++j) {
         for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
@@ -392,12 +406,13 @@ void test_TriangularMatrix_fromLAPACK()
     //----------
     // lower
     auto L = slate::TriangularMatrix<double>::fromLAPACK(
-        blas::Uplo::Lower, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Lower, blas::Diag::NonUnit, n, Ad, lda, nb, p, q, mpi_comm );
 
     test_assert(L.mt() == ceildiv(n, nb));
     test_assert(L.nt() == ceildiv(n, nb));
     test_assert(L.op() == blas::Op::NoTrans);
     test_assert(L.uplo() == blas::Uplo::Lower);
+    test_assert(L.diag() == blas::Diag::NonUnit);
 
     for (int j = 0; j < L.nt(); ++j) {
         for (int i = j; i < L.mt(); ++i) {  // lower
@@ -408,12 +423,13 @@ void test_TriangularMatrix_fromLAPACK()
     //----------
     // upper
     auto U = slate::TriangularMatrix<double>::fromLAPACK(
-        blas::Uplo::Upper, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Upper, blas::Diag::Unit, n, Ad, lda, nb, p, q, mpi_comm );
 
     test_assert(U.mt() == ceildiv(n, nb));
     test_assert(U.nt() == ceildiv(n, nb));
     test_assert(U.op() == blas::Op::NoTrans);
     test_assert(U.uplo() == blas::Uplo::Upper);
+    test_assert(U.diag() == blas::Diag::Unit);
 
     for (int j = 0; j < U.nt(); ++j) {
         for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
@@ -719,12 +735,13 @@ void test_TrapezoidMatrix_fromScaLAPACK()
     //----------
     // lower
     auto L = slate::TrapezoidMatrix<double>::fromScaLAPACK(
-        blas::Uplo::Lower, m, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Lower, blas::Diag::NonUnit, m, n, Ad, lda, nb, p, q, mpi_comm );
 
     test_assert(L.mt() == ceildiv(m, nb));
     test_assert(L.nt() == ceildiv(n, nb));
     test_assert(L.op() == blas::Op::NoTrans);
     test_assert(L.uplo() == blas::Uplo::Lower);
+    test_assert(L.diag() == blas::Diag::NonUnit);
 
     for (int j = 0; j < L.nt(); ++j) {
         for (int i = j; i < L.mt(); ++i) {  // lower
@@ -735,12 +752,13 @@ void test_TrapezoidMatrix_fromScaLAPACK()
     //----------
     // upper
     auto U = slate::TrapezoidMatrix<double>::fromScaLAPACK(
-        blas::Uplo::Upper, m, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Upper, blas::Diag::Unit, m, n, Ad, lda, nb, p, q, mpi_comm );
 
     test_assert(U.mt() == ceildiv(m, nb));
     test_assert(U.nt() == ceildiv(n, nb));
     test_assert(U.op() == blas::Op::NoTrans);
     test_assert(U.uplo() == blas::Uplo::Upper);
+    test_assert(U.diag() == blas::Diag::Unit);
 
     for (int j = 0; j < U.nt(); ++j) {
         for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
@@ -768,12 +786,13 @@ void test_TriangularMatrix_fromScaLAPACK()
     //----------
     // lower
     auto L = slate::TriangularMatrix<double>::fromScaLAPACK(
-        blas::Uplo::Lower, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Lower, blas::Diag::NonUnit, n, Ad, lda, nb, p, q, mpi_comm );
 
     test_assert(L.mt() == ceildiv(n, nb));
     test_assert(L.nt() == ceildiv(n, nb));
     test_assert(L.op() == blas::Op::NoTrans);
     test_assert(L.uplo() == blas::Uplo::Lower);
+    test_assert(L.diag() == blas::Diag::NonUnit);
 
     for (int j = 0; j < L.nt(); ++j) {
         for (int i = j; i < L.mt(); ++i) {  // lower
@@ -784,12 +803,13 @@ void test_TriangularMatrix_fromScaLAPACK()
     //----------
     // upper
     auto U = slate::TriangularMatrix<double>::fromScaLAPACK(
-        blas::Uplo::Upper, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Upper, blas::Diag::Unit, n, Ad, lda, nb, p, q, mpi_comm );
 
     test_assert(U.mt() == ceildiv(n, nb));
     test_assert(U.nt() == ceildiv(n, nb));
     test_assert(U.op() == blas::Op::NoTrans);
     test_assert(U.uplo() == blas::Uplo::Upper);
+    test_assert(U.diag() == blas::Diag::Unit);
 
     for (int j = 0; j < U.nt(); ++j) {
         for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
@@ -1090,12 +1110,13 @@ void test_TrapezoidMatrix_fromDevices()
     //----------
     // lower
     auto L = slate::TrapezoidMatrix<double>::fromDevices(
-        blas::Uplo::Lower, m, n, Aarray, num_devices, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Lower, blas::Diag::NonUnit, m, n, Aarray, num_devices, lda, nb, p, q, mpi_comm );
 
     test_assert(L.mt() == ceildiv(m, nb));
     test_assert(L.nt() == ceildiv(n, nb));
     test_assert(L.op() == blas::Op::NoTrans);
     test_assert(L.uplo() == blas::Uplo::Lower);
+    test_assert(L.diag() == blas::Diag::NonUnit);
 
     for (int j = 0; j < L.nt(); ++j) {
         for (int i = j; i < L.mt(); ++i) {  // lower
@@ -1106,12 +1127,13 @@ void test_TrapezoidMatrix_fromDevices()
     //----------
     // upper
     auto U = slate::TrapezoidMatrix<double>::fromDevices(
-        blas::Uplo::Upper, m, n, Aarray, num_devices, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Upper, blas::Diag::Unit, m, n, Aarray, num_devices, lda, nb, p, q, mpi_comm );
 
     test_assert(U.mt() == ceildiv(m, nb));
     test_assert(U.nt() == ceildiv(n, nb));
     test_assert(U.op() == blas::Op::NoTrans);
     test_assert(U.uplo() == blas::Uplo::Upper);
+    test_assert(U.diag() == blas::Diag::Unit);
 
     for (int j = 0; j < U.nt(); ++j) {
         for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
@@ -1153,12 +1175,13 @@ void test_TriangularMatrix_fromDevices()
     //----------
     // lower
     auto L = slate::TriangularMatrix<double>::fromDevices(
-        blas::Uplo::Lower, n, Aarray, num_devices, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Lower, blas::Diag::NonUnit, n, Aarray, num_devices, lda, nb, p, q, mpi_comm );
 
     test_assert(L.mt() == ceildiv(n, nb));
     test_assert(L.nt() == ceildiv(n, nb));
     test_assert(L.op() == blas::Op::NoTrans);
     test_assert(L.uplo() == blas::Uplo::Lower);
+    test_assert(L.diag() == blas::Diag::NonUnit);
 
     for (int j = 0; j < L.nt(); ++j) {
         for (int i = j; i < L.mt(); ++i) {  // lower
@@ -1169,12 +1192,13 @@ void test_TriangularMatrix_fromDevices()
     //----------
     // upper
     auto U = slate::TriangularMatrix<double>::fromDevices(
-        blas::Uplo::Upper, n, Aarray, num_devices, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Upper, blas::Diag::Unit, n, Aarray, num_devices, lda, nb, p, q, mpi_comm );
 
     test_assert(U.mt() == ceildiv(n, nb));
     test_assert(U.nt() == ceildiv(n, nb));
     test_assert(U.op() == blas::Op::NoTrans);
     test_assert(U.uplo() == blas::Uplo::Upper);
+    test_assert(U.diag() == blas::Diag::Unit);
 
     for (int j = 0; j < U.nt(); ++j) {
         for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper

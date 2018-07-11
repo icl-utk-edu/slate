@@ -41,9 +41,11 @@
 #include "slate_Tile_blas.hh"
 #include "slate_Tile_synorm.hh"
 #include "slate_device.hh"
+#include "slate_util.hh"
 
 #include "unit_test.hh"
 
+using slate::roundup;
 using slate::Norm;
 using slate::Uplo;
 using slate::Diag;

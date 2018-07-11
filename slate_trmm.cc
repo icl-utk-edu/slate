@@ -59,7 +59,7 @@ namespace specialization {
 /// @ingroup trmm
 template <Target target, typename scalar_t>
 void trmm(slate::internal::TargetType<target>,
-          Side side, Diag diag,
+          Side side,
           scalar_t alpha, TriangularMatrix<scalar_t> A,
                                     Matrix<scalar_t> B,
           int64_t lookahead)
@@ -147,7 +147,7 @@ void trmm(slate::internal::TargetType<target>,
                              depend(out:gemm[0])
             {
                 internal::trmm<Target::HostTask>(
-                    Side::Left, diag,
+                    Side::Left,
                     alpha, A.sub(0, 0),
                            B.sub(0, 0, 0, nt-1));
             }
@@ -194,7 +194,7 @@ void trmm(slate::internal::TargetType<target>,
 
                     // todo: target? needs batch trmm
                     internal::trmm<Target::HostTask>(
-                        Side::Left, diag,
+                        Side::Left,
                         alpha, A.sub(k, k),
                                B.sub(k, k, 0, nt-1));
                 }
@@ -248,7 +248,7 @@ void trmm(slate::internal::TargetType<target>,
                              depend(out:gemm[mt-1])
             {
                 internal::trmm<Target::HostTask>(
-                    Side::Left, diag,
+                    Side::Left,
                     alpha, A.sub(mt-1, mt-1),
                            B.sub(mt-1, mt-1, 0, nt-1));
             }
@@ -296,7 +296,7 @@ void trmm(slate::internal::TargetType<target>,
 
                     // todo: target? needs batch trmm
                     internal::trmm<Target::HostTask>(
-                        Side::Left, diag,
+                        Side::Left,
                         alpha, A.sub(k, k),
                                B.sub(k, k, 0, nt-1));
                 }
@@ -315,7 +315,7 @@ void trmm(slate::internal::TargetType<target>,
 /// Version with target as template parameter.
 /// @ingroup trmm
 template <Target target, typename scalar_t>
-void trmm(blas::Side side, blas::Diag diag,
+void trmm(blas::Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts)
@@ -330,7 +330,7 @@ void trmm(blas::Side side, blas::Diag diag,
     }
 
     internal::specialization::trmm(internal::TargetType<target>(),
-                                   side, diag,
+                                   side,
                                    alpha, A,
                                           B,
                                    lookahead);
@@ -351,7 +351,7 @@ void trmm(blas::Side side, blas::Diag diag,
 /// The matrices can be transposed or conjugate-transposed beforehand, e.g.,
 ///
 ///     auto AT = slate::transpose( A );
-///     slate::trmm( Side::Left, Diag::NonUnit, alpha, AT, B );
+///     slate::trmm( Side::Left, alpha, AT, B );
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
@@ -361,13 +361,6 @@ void trmm(blas::Side side, blas::Diag diag,
 ///         Whether A appears on the left or on the right of B:
 ///         - Side::Left:  $B = \alpha A B$
 ///         - Side::Right: $B = \alpha B A$
-///
-/// @param[in] diag
-///         Whether or not A is unit triangular:
-///         - Diag::NonUnit: A is non-unit triangular;
-///         - Diag::Unit:    A is unit triangular.
-///                          The diagonal elements of A are not referenced
-///                          and are assumed to be 1.
 ///
 /// @param[in] alpha
 ///         The scalar alpha.
@@ -394,7 +387,7 @@ void trmm(blas::Side side, blas::Diag diag,
 ///
 /// @ingroup trmm
 template <typename scalar_t>
-void trmm(blas::Side side, blas::Diag diag,
+void trmm(blas::Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts)
@@ -410,16 +403,16 @@ void trmm(blas::Side side, blas::Diag diag,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            trmm<Target::HostTask>(side, diag, alpha, A, B, opts);
+            trmm<Target::HostTask>(side, alpha, A, B, opts);
             break;
         case Target::HostNest:
-            trmm<Target::HostNest>(side, diag, alpha, A, B, opts);
+            trmm<Target::HostNest>(side, alpha, A, B, opts);
             break;
         case Target::HostBatch:
-            trmm<Target::HostBatch>(side, diag, alpha, A, B, opts);
+            trmm<Target::HostBatch>(side, alpha, A, B, opts);
             break;
         case Target::Devices:
-            trmm<Target::Devices>(side, diag, alpha, A, B, opts);
+            trmm<Target::Devices>(side, alpha, A, B, opts);
             break;
     }
 }
@@ -428,28 +421,28 @@ void trmm(blas::Side side, blas::Diag diag,
 // Explicit instantiations.
 template
 void trmm<float>(
-    blas::Side side, blas::Diag diag,
+    blas::Side side,
     float alpha, TriangularMatrix<float>& A,
                            Matrix<float>& B,
     const std::map<Option, Value>& opts);
 
 template
 void trmm<double>(
-    blas::Side side, blas::Diag diag,
+    blas::Side side,
     double alpha, TriangularMatrix<double>& A,
                             Matrix<double>& B,
     const std::map<Option, Value>& opts);
 
 template
 void trmm< std::complex<float> >(
-    blas::Side side, blas::Diag diag,
+    blas::Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >& A,
                                          Matrix< std::complex<float> >& B,
     const std::map<Option, Value>& opts);
 
 template
 void trmm< std::complex<double> >(
-    blas::Side side, blas::Diag diag,
+    blas::Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >& A,
                                           Matrix< std::complex<double> >& B,
     const std::map<Option, Value>& opts);

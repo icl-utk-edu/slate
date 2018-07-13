@@ -99,7 +99,7 @@ MatrixType conj_transpose(MatrixType& A)
 template <typename scalar_t>
 class Tile {
 public:
-    static constexpr bool is_complex = is_complex<scalar_t>::value;
+    static constexpr bool is_complex = slate::is_complex<scalar_t>::value;
     static constexpr bool is_real    = ! is_complex;
 
     Tile();

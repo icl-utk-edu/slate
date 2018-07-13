@@ -344,7 +344,7 @@ UNIT_LIB     += -lslate
 .PHONY: all docs lib test unit_test clean distclean
 .DEFAULT_GOAL := all
 
-all: lib test unit_test
+all: lib test unit_test scalapack_api lapack_api
 
 docs:
 	doxygen docs/doxygen/doxyfile.conf

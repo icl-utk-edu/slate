@@ -144,7 +144,7 @@ void slate_trmm(const char* sidestr, const char* uplostr, const char* transastr,
     int64_t Bn  = n;
 
     // create SLATE matrices from the LAPACK data
-    auto A = slate::TriangularMatrix<scalar_t>::fromLAPACK(uplo, An, a, lda, nb, p, q, MPI_COMM_WORLD);
+    auto A = slate::TriangularMatrix<scalar_t>::fromLAPACK(uplo, diag, An, a, lda, nb, p, q, MPI_COMM_WORLD);
     auto B = slate::Matrix<scalar_t>::fromLAPACK(Bm, Bn, b, ldb, nb, p, q, MPI_COMM_WORLD);
 
     if (transA == Op::Trans)
@@ -154,7 +154,7 @@ void slate_trmm(const char* sidestr, const char* uplostr, const char* transastr,
 
     // typedef long long lld;
     // printf("SLATE TRMM m %lld n %lld nb %lld \n", (lld)m, (lld)n, (lld)nb);
-    slate::trmm(side, diag, alpha, A, B, {
+    slate::trmm(side, alpha, A, B, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });

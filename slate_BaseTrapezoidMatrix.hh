@@ -536,7 +536,7 @@ int64_t BaseTrapezoidMatrix<scalar_t>::getMaxHostTiles()
     }
     else {
         for (int64_t j = 0; j < this->nt(); ++j)
-            for (int64_t i = 0; i <= j && j < this->mt(); ++i)  // upper
+            for (int64_t i = 0; i <= j && i < this->mt(); ++i)  // upper
                 if (this->tileIsLocal(i, j))
                     ++num_tiles;
     }
@@ -559,7 +559,7 @@ int64_t BaseTrapezoidMatrix<scalar_t>::getMaxDeviceTiles(int device)
     }
     else {
         for (int64_t j = 0; j < this->nt(); ++j)
-            for (int64_t i = 0; i <= j && j < this->mt(); ++i)  // upper
+            for (int64_t i = 0; i <= j && i < this->mt(); ++i)  // upper
                 if (this->tileIsLocal(i, j) && this->tileDevice(i, j) == device)
                     ++num_tiles;
     }

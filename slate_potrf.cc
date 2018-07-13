@@ -335,21 +335,21 @@ void potrf(HermitianMatrix<scalar_t>& A,
 template
 void potrf<float>(
     HermitianMatrix<float>& A,
-    const std::map<Option, Value>& opts = std::map<Option, Value>());
+    const std::map<Option, Value>& opts);
 
 template
 void potrf<double>(
     HermitianMatrix<double>& A,
-    const std::map<Option, Value>& opts = std::map<Option, Value>());
+    const std::map<Option, Value>& opts);
 
 template
 void potrf< std::complex<float> >(
     HermitianMatrix< std::complex<float> >& A,
-    const std::map<Option, Value>& opts = std::map<Option, Value>());
+    const std::map<Option, Value>& opts);
 
 template
 void potrf< std::complex<double> >(
     HermitianMatrix< std::complex<double> >& A,
-    const std::map<Option, Value>& opts = std::map<Option, Value>());
+    const std::map<Option, Value>& opts);
 
 } // namespace slate

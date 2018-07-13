@@ -33,6 +33,7 @@ public:
     libtest::ParamDouble tol;
     libtest::ParamInt    repeat;
     libtest::ParamInt    verbose;
+    libtest::ParamInt    extended;
     libtest::ParamInt    cache;
     libtest::ParamChar   target;
 

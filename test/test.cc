@@ -439,6 +439,7 @@ Params::Params():
     tol       ( "tol",     0, 0, ParamType::Value,  50,   1, 1000, "tolerance (e.g., error < tol*epsilon to pass)" ),
     repeat    ( "repeat",  0,    ParamType::Value,   1,   1, 1000, "number of times to repeat each test" ),
     verbose   ( "verbose", 0,    ParamType::Value,   0,   0,   10, "verbose level" ),
+    extended  ( "extended",0,    ParamType::Value,   0,   0,   10, "extended tests" ),
     cache     ( "cache",   0,    ParamType::Value,  20,   1, 1024, "total cache size, in MiB" ),
 
     // ----- routine parameters

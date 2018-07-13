@@ -63,13 +63,15 @@ void potrf(slate::internal::TargetType<target>,
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    const int64_t A_nt = A.nt();
+
     // OpenMP needs pointer types, but vectors are exception safe
-    std::vector< uint8_t > column_vector(A.nt());
+    std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
 
     #pragma omp parallel
     #pragma omp master
-    for (int64_t k = 0; k < A.nt(); ++k) {
+    for (int64_t k = 0; k < A_nt; ++k) {
         // panel, high priority
         #pragma omp task depend(inout:column[k]) priority(1)
         {
@@ -77,29 +79,29 @@ void potrf(slate::internal::TargetType<target>,
             internal::potrf<Target::HostTask>(A.sub(k, k), 1);
 
             // send A(k, k) down col A(k+1:nt-1, k)
-            if (k+1 <= A.nt()-1)
-                A.tileBcast(k, k, A.sub(k+1, A.nt()-1, k, k));
+            if (k+1 <= A_nt-1)
+                A.tileBcast(k, k, A.sub(k+1, A_nt-1, k, k));
 
             // A(k+1:nt-1, k) * A(k, k)^{-H}
-            if (k+1 <= A.nt()-1) {
+            if (k+1 <= A_nt-1) {
                 auto Akk = A.sub(k, k);
                 auto Tkk = TriangularMatrix< scalar_t >(Diag::NonUnit, Akk);
                 internal::trsm<Target::HostTask>(
                     Side::Right,
                     scalar_t(1.0), conj_transpose(Tkk),
-                    A.sub(k+1, A.nt()-1, k, k), 1);
+                    A.sub(k+1, A_nt-1, k, k), 1);
             }
 
             BcastList bcast_list_A;
-            for (int64_t i = k+1; i < A.nt(); ++i) {
+            for (int64_t i = k+1; i < A_nt; ++i) {
                 // send A(i, k) across row A(i, k+1:i) and down col A(i:nt-1, i)
                 bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, i),
-                                               A.sub(i, A.nt()-1, i, i)}});
+                                               A.sub(i, A_nt-1, i, i)}});
             }
             A.template listBcast(bcast_list_A);
         }
         // update lookahead column(s), high priority
-        for (int64_t j = k+1; j < k+1+lookahead && j < A.nt(); ++j) {
+        for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[j]) priority(1)
             {
@@ -109,27 +111,27 @@ void potrf(slate::internal::TargetType<target>,
                     real_t( 1.0), A.sub(j, j), 1);
 
                 // A(j+1:nt, j) -= A(j+1:nt-1, k) * A(j, k)^H
-                if (j+1 <= A.nt()-1) {
+                if (j+1 <= A_nt-1) {
                     auto Ajk = A.sub(j, j, k, k);
                     internal::gemm<Target::HostTask>(
-                        scalar_t(-1.0), A.sub(j+1, A.nt()-1, k, k),
+                        scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
                                         conj_transpose(Ajk),
-                        scalar_t(1.0), A.sub(j+1, A.nt()-1, j, j), 1);
+                        scalar_t(1.0), A.sub(j+1, A_nt-1, j, j), 1);
                 }
             }
         }
         // update trailing submatrix, normal priority
-        if (k+1+lookahead < A.nt()) {
+        if (k+1+lookahead < A_nt) {
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[k+1+lookahead]) \
-                             depend(inout:column[A.nt()-1])
+                             depend(inout:column[A_nt-1])
             {
                 // A(kl+1:nt-1, kl+1:nt-1) -=
                 //     A(kl+1:nt-1, k) * A(kl+1:nt-1, k)^H
                 // where kl = k + lookahead
                 internal::herk<target>(
-                    real_t(-1.0), A.sub(k+1+lookahead, A.nt()-1, k, k),
-                    real_t( 1.0), A.sub(k+1+lookahead, A.nt()-1));
+                    real_t(-1.0), A.sub(k+1+lookahead, A_nt-1, k, k),
+                    real_t( 1.0), A.sub(k+1+lookahead, A_nt-1));
             }
         }
     }
@@ -153,8 +155,10 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    const int64_t A_nt = A.nt();
+
     // OpenMP needs pointer types, but vectors are exception safe
-    std::vector< uint8_t > column_vector(A.nt());
+    std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
 
     A.allocateBatchArrays();
@@ -162,7 +166,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 
     #pragma omp parallel
     #pragma omp master
-    for (int64_t k = 0; k < A.nt(); ++k) {
+    for (int64_t k = 0; k < A_nt; ++k) {
         // panel, normal priority
         #pragma omp task depend(inout:column[k])
         {
@@ -170,44 +174,44 @@ void potrf(slate::internal::TargetType<Target::Devices>,
             internal::potrf<Target::HostTask>(A.sub(k, k));
 
             // send A(k, k) down col A(k+1:nt-1, k)
-            if (k+1 <= A.nt()-1)
-                A.tileBcast(k, k, A.sub(k+1, A.nt()-1, k, k));
+            if (k+1 <= A_nt-1)
+                A.tileBcast(k, k, A.sub(k+1, A_nt-1, k, k));
 
             // A(k+1:nt-1, k) * A(k, k)^{-H}
-            if (k+1 <= A.nt()-1) {
+            if (k+1 <= A_nt-1) {
                 auto Akk = A.sub(k, k);
                 auto Tkk = TriangularMatrix< scalar_t >(Diag::NonUnit, Akk);
                 internal::trsm<Target::HostTask>(
                     Side::Right,
                     scalar_t(1.0), conj_transpose(Tkk),
-                                   A.sub(k+1, A.nt()-1, k, k));
+                                   A.sub(k+1, A_nt-1, k, k));
             }
 
             BcastList bcast_list_A;
-            for (int64_t i = k+1; i < A.nt(); ++i) {
+            for (int64_t i = k+1; i < A_nt; ++i) {
                 // send A(i, k) across row A(i, k+1:i) and down col A(i:nt-1, i)
                 bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, i),
-                                               A.sub(i, A.nt()-1, i, i)}});
+                                               A.sub(i, A_nt-1, i, i)}});
             }
             A.template listBcast<Target::Devices>(bcast_list_A);
         }
         // update trailing submatrix, normal priority
-        if (k+1+lookahead < A.nt()) {
+        if (k+1+lookahead < A_nt) {
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[k+1+lookahead]) \
-                             depend(inout:column[A.nt()-1])
+                             depend(inout:column[A_nt-1])
             {
                 // A(kl+1:nt-1, kl+1:nt-1) -=
                 //     A(kl+1:nt-1, k) * A(kl+1:nt-1, k)^H
                 // where kl = k + lookahead
                 internal::herk<Target::Devices>(
-                    real_t(-1.0), A.sub(k+1+lookahead, A.nt()-1, k, k),
-                    real_t( 1.0), A.sub(k+1+lookahead, A.nt()-1));
+                    real_t(-1.0), A.sub(k+1+lookahead, A_nt-1, k, k),
+                    real_t( 1.0), A.sub(k+1+lookahead, A_nt-1));
             }
         }
 
         // update lookahead column(s), normal priority
-        for (int64_t j = k+1; j < k+1+lookahead && j < A.nt(); ++j) {
+        for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[j])
             {
@@ -217,12 +221,12 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     real_t( 1.0), A.sub(j, j));
 
                 // A(j+1:nt, j) -= A(j+1:nt-1, k) * A(j, k)^H
-                if (j+1 <= A.nt()-1) {
+                if (j+1 <= A_nt-1) {
                     auto Ajk = A.sub(j, j, k, k);
                     internal::gemm<Target::HostTask>(
-                        scalar_t(-1.0), A.sub(j+1, A.nt()-1, k, k),
+                        scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
                                         conj_transpose(Ajk),
-                        scalar_t( 1.0), A.sub(j+1, A.nt()-1, j, j));
+                        scalar_t( 1.0), A.sub(j+1, A_nt-1, j, j));
                 }
             }
         }
@@ -331,21 +335,21 @@ void potrf(HermitianMatrix<scalar_t>& A,
 template
 void potrf<float>(
     HermitianMatrix<float>& A,
-    const std::map<Option, Value>& opts = std::map<Option, Value>());
+    const std::map<Option, Value>& opts);
 
 template
 void potrf<double>(
     HermitianMatrix<double>& A,
-    const std::map<Option, Value>& opts = std::map<Option, Value>());
+    const std::map<Option, Value>& opts);
 
 template
 void potrf< std::complex<float> >(
     HermitianMatrix< std::complex<float> >& A,
-    const std::map<Option, Value>& opts = std::map<Option, Value>());
+    const std::map<Option, Value>& opts);
 
 template
 void potrf< std::complex<double> >(
     HermitianMatrix< std::complex<double> >& A,
-    const std::map<Option, Value>& opts = std::map<Option, Value>());
+    const std::map<Option, Value>& opts);
 
 } // namespace slate

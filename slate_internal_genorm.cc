@@ -289,9 +289,12 @@ void norm(
 
     std::vector<real_t> tiles_maxima;
 
+    const int64_t A_mt = A.mt();
+    const int64_t A_nt = A.nt();
+
     #pragma omp parallel for collapse(2) schedule(dynamic, 1)
-    for (int64_t i = 0; i < A.mt(); ++i) {
-        for (int64_t j = 0; j < A.nt(); ++j) {
+    for (int64_t i = 0; i < A_mt; ++i) {
+        for (int64_t j = 0; j < A_nt; ++j) {
             if (A.tileIsLocal(i, j)) {
                 A.tileCopyToHost(i, j, A.tileDevice(i, j));
                 real_t tile_max;

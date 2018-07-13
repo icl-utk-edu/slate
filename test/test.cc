@@ -611,10 +611,10 @@ int main( int argc, char** argv )
                 params.okay.value() = false;
                 printf( "LAPACK error: %s\n", err.what() );
             }
-            catch (std::exception& e) {
+            catch (std::exception& err) {
                 // happens for assert_throw failures
                 params.okay.value() = false;
-                printf( "Caught std::exception\n" );
+                printf( "Caught std::exception: %s\n", err.what() );
             }
             catch (...) {
                 // happens for assert_throw failures

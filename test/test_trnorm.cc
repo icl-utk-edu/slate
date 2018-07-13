@@ -238,14 +238,11 @@ void test_trnorm_work(Params& params, bool run)
         // seed all MPI processes the same
         srand( 1234 );
 
-        int64_t mt = ceildiv( m, nb );
-        assert( mt == A.mt() );
-        int64_t nt = ceildiv( n, nb );
-        assert( nt == A.nt() );
-
         // Test tiles in 2x2 in all 4 corners, and 4 random rows and cols,
         // up to 64 tiles total.
         // Indices may be out-of-bounds if mt or nt is small, so check in loops.
+        int64_t mt = A.mt();
+        int64_t nt = A.nt();
         std::set<int64_t> i_indices = { 0, 1, mt-2, mt-1 };
         std::set<int64_t> j_indices = { 0, 1, nt-2, nt-1 };
         for (size_t k = 0; k < 4; ++k) {
@@ -290,12 +287,17 @@ void test_trnorm_work(Params& params, bool run)
                             continue;
                         }
 
+                        int64_t ilocal = int(i / p)*nb + ii;
+                        int64_t jlocal = int(j / q)*nb + jj;
                         if (A.tileIsLocal(i, j)) {
                             A.tileMoveToHost(i, j, A.tileDevice(i, j));
                             auto T = A(i, j);
                             save = T(ii, jj);
+                            assert( A_tst[ ilocal + jlocal*lldA ] == save );
                             T.at(ii, jj) = peak;
-                            A.tileCopyToDevice(i, j, A.tileDevice(i, j));
+                            A_tst[ ilocal + jlocal*lldA ] = peak;
+                            // todo: this move shouldn't be required -- the trnorm should copy data itself.
+                            A.tileMoveToDevice(i, j, A.tileDevice(i, j));
                         }
 
                         real_t A_norm = slate::norm(norm, A, {
@@ -343,8 +345,12 @@ void test_trnorm_work(Params& params, bool run)
                         }
 
                         if (A.tileIsLocal(i, j)) {
+                            A.tileMoveToHost(i, j, A.tileDevice(i, j));
                             auto T = A(i, j);
                             T.at(ii, jj) = save;
+                            A_tst[ ilocal + jlocal*lldA ] = save;
+                            // todo: this move shouldn't be required -- the trnorm should copy data itself.
+                            A.tileMoveToDevice(i, j, A.tileDevice(i, j));
                         }
                     }
                 }

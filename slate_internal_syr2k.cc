@@ -187,10 +187,13 @@ void syr2k(internal::TargetType<Target::HostNest>,
         }
     }
 
+    const int64_t C_nt = C.nt();
+    const int64_t C_mt = C.mt();
+
 //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
     #pragma omp parallel for collapse(2) schedule(dynamic, 1)
-    for (int64_t j = 0; j < C.nt(); ++j) {
-        for (int64_t i = 0; i < C.mt(); ++i) {  // full
+    for (int64_t j = 0; j < C_nt; ++j) {
+        for (int64_t i = 0; i < C_mt; ++i) {  // full
             if (i >= j+1) {                     // strictly lower
                 if (C.tileIsLocal(i, j)) {
                     try {

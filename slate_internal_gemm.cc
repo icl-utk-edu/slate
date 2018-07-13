@@ -149,10 +149,12 @@ void gemm(internal::TargetType<Target::HostNest>,
     assert(B.nt() == C.nt());
 
     int err = 0;
+    const int64_t C_mt = C.mt();
+    const int64_t C_nt = C.nt();
 //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
     #pragma omp parallel for collapse(2) schedule(dynamic, 1) shared(err)
-    for (int64_t i = 0; i < C.mt(); ++i) {
-        for (int64_t j = 0; j < C.nt(); ++j) {
+    for (int64_t i = 0; i < C_mt; ++i) {
+        for (int64_t j = 0; j < C_nt; ++j) {
             if (C.tileIsLocal(i, j)) {
                 try {
                     A.tileCopyToHost(i, 0, A.tileDevice(i, 0));

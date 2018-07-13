@@ -67,6 +67,8 @@ void potrf(slate::internal::TargetType<target>,
     std::vector< uint8_t > column_vector(A.nt());
     uint8_t* column = column_vector.data();
 
+    const int64_t A_nt = A.nt();
+
     #pragma omp parallel
     #pragma omp master
     for (int64_t k = 0; k < A.nt(); ++k) {
@@ -122,7 +124,7 @@ void potrf(slate::internal::TargetType<target>,
         if (k+1+lookahead < A.nt()) {
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[k+1+lookahead]) \
-                             depend(inout:column[A.nt()-1])
+                             depend(inout:column[A_nt-1])
             {
                 // A(kl+1:nt-1, kl+1:nt-1) -=
                 //     A(kl+1:nt-1, k) * A(kl+1:nt-1, k)^H
@@ -160,6 +162,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     A.allocateBatchArrays();
     A.reserveDeviceWorkspace();
 
+    const int64_t A_nt = A.nt();
+
     #pragma omp parallel
     #pragma omp master
     for (int64_t k = 0; k < A.nt(); ++k) {
@@ -195,7 +199,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
         if (k+1+lookahead < A.nt()) {
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[k+1+lookahead]) \
-                             depend(inout:column[A.nt()-1])
+                             depend(inout:column[A_nt-1])
             {
                 // A(kl+1:nt-1, kl+1:nt-1) -=
                 //     A(kl+1:nt-1, k) * A(kl+1:nt-1, k)^H

@@ -243,7 +243,7 @@
                IF( MYROW.EQ.IAROW ) THEN
                   IF( UDIAG ) THEN
                      DO 20 LL = JJ, JJ + JB -1
-                        DO 10 KK = IIA, MIN(II+LL-JJ+1,IIA+MP-1)
+                        DO 10 KK = IIA, MIN(II+LL-JJ-1,IIA+MP-1)
                            VALUE = MAX( VALUE, ABS( A( IOFFA+KK ) ) )
    10                   CONTINUE
                         IOFFA = IOFFA + LDA
@@ -281,7 +281,7 @@
                   IF( MYROW.EQ.IAROW ) THEN
                      IF( UDIAG ) THEN
                         DO 80 LL = JJ, JJ + JB -1
-                           DO 70 KK = IIA, MIN( II+LL-JJ+1, IIA+MP-1 )
+                           DO 70 KK = IIA, MIN( II+LL-JJ-1, IIA+MP-1 )
                               VALUE = MAX( VALUE, ABS( A( IOFFA+KK ) ) )
    70                      CONTINUE
                            IOFFA = IOFFA + LDA

@@ -367,7 +367,8 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
     Diag diag, BaseTrapezoidMatrix<scalar_t>& orig,
     int64_t i1, int64_t i2,
     int64_t j1, int64_t j2)
-    : BaseTrapezoidMatrix<scalar_t>(orig, i1, i2, j1, j2)
+    : BaseTrapezoidMatrix<scalar_t>(orig, i1, i2, j1, j2),
+      diag_(diag)
 {}
 
 //------------------------------------------------------------------------------

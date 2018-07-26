@@ -43,6 +43,7 @@
 #include <map>
 #include <set>
 #include <vector>
+#include <cstring>
 
 #include "slate_mpi.hh"
 #include "slate_openmp.hh"
@@ -209,14 +210,16 @@ public:
     {}
 
     Event(const char* name)
-        : name_(name),
-          start_(omp_get_wtime())
-    {}
+        : start_(omp_get_wtime())
+    {
+        strncpy(name_, name, 30);
+        name_[30]='\0';
+    }
 
     void stop() { stop_ = omp_get_wtime(); }
 
 private:
-    const char* name_;
+    char name_[31];
     double start_;
     double stop_;
 };

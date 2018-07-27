@@ -77,7 +77,7 @@ Getting Help
 ============
 
 For assistance with SLATE, email *slate-user@icl.utk.edu*.
-You can also join the *SLATE User* Google group by going to 
+You can also join the *SLATE User* Google group by going to
 https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user,
 signing in with your Google credentials, and then clicking `Join group`.
 

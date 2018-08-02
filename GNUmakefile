@@ -219,6 +219,7 @@ lib_src += \
        slate_internal_comm.cc \
        slate_internal_gemm.cc \
        slate_internal_genorm.cc \
+       slate_internal_getrf.cc \
        slate_internal_hemm.cc \
        slate_internal_her2k.cc \
        slate_internal_herk.cc \
@@ -243,6 +244,7 @@ endif
 # driver
 lib_src += \
        slate_gemm.cc \
+       slate_getrf.cc \
        slate_hemm.cc \
        slate_her2k.cc \
        slate_herk.cc \

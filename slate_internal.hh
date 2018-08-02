@@ -289,6 +289,12 @@ void norm(Norm in_norm, TrapezoidMatrix<scalar_t>&& A,
 // Factorizations
 
 //-----------------------------------------
+// getrf()
+template <Target target=Target::HostTask, typename scalar_t>
+void getrf(Matrix<scalar_t>&& A,
+           int priority=0);
+
+//-----------------------------------------
 // potrf()
 template <Target target=Target::HostTask, typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>&& A,

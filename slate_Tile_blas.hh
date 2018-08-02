@@ -780,6 +780,29 @@ int64_t potrf(Tile<scalar_t>&& A)
     return potrf(A);
 }
 
+///-----------------------------------------------------------------------------
+/// \brief
+/// LU factorization of tile: $L U = A$.
+template <typename scalar_t>
+int64_t getrf(Tile<scalar_t>& A)
+{
+    trace::Block trace_block("lapack::getrf");
+
+    int64_t info;
+    return lapack::getrf(A.mb(),
+                         A.nb(),
+                         A.data(), A.stride(),
+                         &info);
+}
+
+///----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename scalar_t>
+int64_t getrf(Tile<scalar_t>&& A)
+{
+    return getrf(A);
+}
+
 } // namespace slate
 
 #endif // SLATE_TILE_BLAS_HH

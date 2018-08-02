@@ -274,6 +274,16 @@ norm(Norm norm, matrix_type& A,
 // Factorizations, etc.
 
 //-----------------------------------------
+// getrf
+template <typename scalar_t>
+void getrf(Matrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void getrf(Matrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
 // potrf
 template <typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>& A,

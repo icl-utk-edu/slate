@@ -64,6 +64,7 @@ void getrf(slate::internal::TargetType<target>,
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     const int64_t A_nt = A.nt();
+    const int64_t A_mt = A.mt();
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
@@ -76,8 +77,7 @@ void getrf(slate::internal::TargetType<target>,
         #pragma omp task depend(inout:column[k]) priority(1)
         {
             // factor A(k:mt-1, k)
-            // todo: Replace A.sub(k, k, k, k) with A.sub(k, k).
-            internal::getrf<Target::HostTask>(A.sub(k, k, k, k), 1);
+            internal::getrf<Target::HostTask>(A.sub(k, A_mt-1, k, k), 1);
 
         }
         // update lookahead column(s), high priority

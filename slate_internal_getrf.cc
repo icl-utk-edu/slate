@@ -63,15 +63,64 @@ template <typename scalar_t>
 void getrf(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A, int priority)
 {
-    assert(A.mt() == 1);
     assert(A.nt() == 1);
 
-    if (A.tileIsLocal(0, 0))
-        #pragma omp task shared(A) priority(priority)
-        {
-            A.tileMoveToHost(0, 0, A.tileDevice(0, 0));
-            getrf(A(0, 0));
+    // Move the panel to the host.
+    for (int64_t i = 0; i < A.mt(); ++i) {
+        if (A.tileIsLocal(i, 0)) {
+            #pragma omp task shared(A) priority(priority)
+            {
+                A.tileMoveToHost(i, 0, A.tileDevice(i, 0));
+            }
         }
+    }
+    #pragma omp taskwait
+
+    // lists of tiles, indices, and offsets for each thread
+    std::vector< std::vector< Tile<scalar_t> > > tiles;
+    std::vector< std::vector<int64_t> > i_indices;
+    std::vector< std::vector<int64_t> > i_offsets;
+
+    const int thread_size = 2;
+    tiles.resize(thread_size);
+    i_indices.resize(thread_size);
+    i_offsets.resize(thread_size);
+
+    // Build lists of tiles, indices, and offsets for each thread.
+    // Assing local tiles to threads in a round-robin fashion.
+    int thread_rank = 0;
+    int64_t i_offset = 0;
+    for (int64_t i = 0; i < A.mt(); ++i) {
+
+        if (A.tileIsLocal(i, 0)) {
+
+            tiles[thread_rank].push_back(A(i, 0));
+            i_indices[thread_rank].push_back(i);
+            i_offsets[thread_rank].push_back(i_offset);
+
+            ++thread_rank;
+            if (thread_rank == thread_size)
+                thread_rank = 0;
+        }
+        i_offset += A.tileMb(i);
+    }
+
+    // Launch the panel tasks.
+    std::vector<scalar_t> max_val(thread_size);
+    std::vector<int64_t> max_idx(thread_size);
+    ThreadBarrier thread_barrier;\
+
+    #pragma omp taskloop num_tasks(thread_size) \
+                         shared(thread_barrier, max_val, max_idx)
+    for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank)
+    {
+        // Factor the panel in parallel.
+        getrf(tiles[thread_rank],
+              i_indices[thread_rank], i_offsets[thread_rank],
+              thread_rank, thread_size,
+              thread_barrier,
+              max_val, max_idx);
+    }
 
     #pragma omp taskwait
 }

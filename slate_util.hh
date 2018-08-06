@@ -120,6 +120,30 @@ inline constexpr T roundup(T x, T y)
     return T((x + y - 1) / y) * y;
 }
 
+//------------------------------------------------------------------------------
+class ThreadBarrier {
+public:
+    ThreadBarrier()
+        : count_(0),
+          passed_(0)
+    {}
+
+    void wait(int size)
+    {
+        int passed_old = passed_;
+
+        __sync_fetch_and_add(&count_, 1);
+        if (__sync_bool_compare_and_swap(&count_, size, 0))
+            passed_++;
+        else
+            while (passed_ == passed_old);
+    }
+
+private:
+    int count_;
+    volatile int passed_;
+};
+
 } // namespace slate
 
 #endif // SLATE_UTIL_HH

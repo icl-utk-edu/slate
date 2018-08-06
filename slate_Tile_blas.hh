@@ -43,6 +43,9 @@
 #include <blas.hh>
 
 #include "slate_Tile.hh"
+#include "slate_util.hh"
+
+#include <list>
 
 namespace slate {
 
@@ -780,27 +783,100 @@ int64_t potrf(Tile<scalar_t>&& A)
     return potrf(A);
 }
 
+#include <unistd.h>
+
 ///-----------------------------------------------------------------------------
 /// \brief
 /// LU factorization of tile: $L U = A$.
 template <typename scalar_t>
-int64_t getrf(Tile<scalar_t>& A)
+int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
+              std::vector<int64_t>& i_indices, std::vector<int64_t>& i_offsets,
+              int thread_rank, int thread_size,
+              ThreadBarrier& thread_barrier,
+              std::vector<scalar_t>& max_val, std::vector<int64_t>& max_idx)
 {
     trace::Block trace_block("lapack::getrf");
 
-    int64_t info;
-    return lapack::getrf(A.mb(),
-                         A.nb(),
-                         A.data(), A.stride(),
-                         &info);
-}
+    // Tile<scalar_t>& A = tiles.front();
+    // std::vector<int64_t> ipiv(A.mb());
+    // return lapack::getrf(A.mb(),
+    //                      A.nb(),
+    //                      A.data(), A.stride(),
+    //                      &ipiv[0]);
 
-///----------------------------------------
-/// Converts rvalue refs to lvalue refs.
-template <typename scalar_t>
-int64_t getrf(Tile<scalar_t>&& A)
-{
-    return getrf(A);
+    int64_t ib = 4;
+    bool root = i_indices.at(0) == 0;
+
+    auto top_tile = tiles.front();
+    int64_t diag_len = std::min(top_tile.nb(), top_tile.mb());
+
+    // Loop over ib-wide stripes.
+    for (int64_t k = 0; k < diag_len; k += ib) {
+
+        // Loop over ib columns of a stripe.
+        for (int64_t j = k; j < k+ib && j < diag_len; ++j) {
+
+            //--------------------------------
+            // Find the pivot (max abs value).
+            if (root)
+                max_val[thread_rank] = top_tile(j, j);
+            else
+                max_val[thread_rank] = top_tile(0, j);
+
+            // Loop over tiles.
+            for (std::size_t idx = 0; idx < tiles.size(); ++idx) {
+
+                auto tile = tiles.at(idx);
+                auto i_index = i_indices.at(idx);
+
+                // if diagonal tile
+                if (i_index == 0) {
+                    for (int64_t i = j+1; i < tile.mb(); ++i) {
+                        if (std::abs(tile(i, j)) >
+                            std::abs(max_val[thread_rank]))
+                        {
+                            max_val[thread_rank] = tile(i, j);
+                        }
+                    }
+
+                }
+                // off diagonal tiles
+                else {
+                    for (int64_t i = 0; i < tile.mb(); ++i) {
+                        if (std::abs(tile(i, j)) >
+                            std::abs(max_val[thread_rank]))
+                        {
+                            max_val[thread_rank] = tile(i, j);
+                        }
+                    }
+                }
+            }
+
+            thread_barrier.wait(thread_size);
+            if (thread_rank == 0) {
+
+                // local max reduction
+                for (int rank = 1; rank < thread_size; ++rank)
+                    if (std::abs(max_val[rank]) > std::abs(max_val[0]))
+                        max_val[0] = max_val[rank];
+
+if (root)
+    std::cout << max_val[0] << std::endl << std::flush;
+
+
+            }
+            thread_barrier.wait(thread_size);
+
+        }
+
+return 0;
+
+    }
+
+
+// std::cout << max_val << std::endl << std::flush;
+
+
 }
 
 } // namespace slate

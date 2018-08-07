@@ -44,9 +44,16 @@
 #define SLATE_INTERNAL_COMM_HH
 
 #include <list>
+#include <set>
+
+#include "slate_mpi.hh"
 
 namespace slate {
 namespace internal {
+
+MPI_Comm commFromSet(const std::set<int>& bcast_set,
+                     MPI_Comm mpi_comm, MPI_Group mpi_group,
+                     const int in_rank, int& out_rank);
 
 void cubeBcastPattern(int size, int rank, int radix,
                       std::list<int>& recv_from, std::list<int>& send_to);

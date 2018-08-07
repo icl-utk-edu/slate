@@ -211,7 +211,8 @@ public:
     void getLocalDevices(std::set<int>* dev_set) const;
     int64_t numLocalTiles() const;
     MPI_Comm mpiComm() const { return mpi_comm_; }
-
+    MPI_Comm mpiRank() const { return mpi_rank_; }
+    MPI_Comm mpiGroup() const { return mpi_group_; }
 
     /// Removes all tiles from matrix.
     void clear()
@@ -750,6 +751,7 @@ void BaseMatrix<scalar_t>::listBcast(BcastList& bcast_list)
 /// @param[in] bcast_set
 ///     Set of MPI ranks to broadcast to.
 ///
+// todo: use the commFromSet() function from slate_internal_comm.cc
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileBcastToSet(
     int64_t i, int64_t j, std::set<int> const& bcast_set)
@@ -1019,6 +1021,7 @@ void BaseMatrix<scalar_t>::tileMoveToHost(
 /// @param[out] bcast_set
 ///     On output, set of MPI ranks that this sub-matrix has tiles on.
 ///
+// todo: pass bcast_set by reference
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::getRanks(std::set<int>* bcast_set) const
 {

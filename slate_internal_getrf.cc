@@ -76,50 +76,53 @@ void getrf(internal::TargetType<Target::HostTask>,
     }
     #pragma omp taskwait
 
-    // lists of tiles, indices, and offsets for each thread
-    std::vector< std::vector< Tile<scalar_t> > > tiles;
-    std::vector< std::vector<int64_t> > i_indices;
-    std::vector< std::vector<int64_t> > i_offsets;
+    // lists of local tiles, indices, and offsets
+    std::vector< Tile<scalar_t> > tiles;
+    std::vector<int64_t> i_indices;
+    std::vector<int64_t> i_offsets;
 
-    const int thread_size = 2;
-    tiles.resize(thread_size);
-    i_indices.resize(thread_size);
-    i_offsets.resize(thread_size);
-
-    // Build lists of tiles, indices, and offsets for each thread.
-    // Assing local tiles to threads in a round-robin fashion.
-    int thread_rank = 0;
+    // Build the broadcast set.
+    // Build lists of local tiles, indices, and offsets.
     int64_t i_offset = 0;
+    std::set<int> bcast_set;
     for (int64_t i = 0; i < A.mt(); ++i) {
-
+        bcast_set.insert(A.tileRank(i, 0));
         if (A.tileIsLocal(i, 0)) {
-
-            tiles[thread_rank].push_back(A(i, 0));
-            i_indices[thread_rank].push_back(i);
-            i_offsets[thread_rank].push_back(i_offset);
-
-            ++thread_rank;
-            if (thread_rank == thread_size)
-                thread_rank = 0;
+            tiles.push_back(A(i, 0));
+            i_indices.push_back(i);
+            i_offsets.push_back(i_offset);
         }
         i_offset += A.tileMb(i);
     }
 
+    // Create the broadcast communicator.
+    // Translate the root rank.
+    int bcast_rank;
+    int bcast_root;
+    MPI_Comm bcast_comm;
+    bcast_comm = commFromSet(bcast_set,
+                             A.mpiComm(), A.mpiGroup(),
+                             A.tileRank(0, 0), bcast_root);
+    // Find the local rank.
+    MPI_Comm_rank(bcast_comm, &bcast_rank);
+
     // Launch the panel tasks.
+    const int thread_size = 2;
     std::vector<scalar_t> max_val(thread_size);
     std::vector<int64_t> max_idx(thread_size);
-    ThreadBarrier thread_barrier;\
+    std::vector<int64_t> max_offs(thread_size);
+    ThreadBarrier thread_barrier;
 
     #pragma omp taskloop num_tasks(thread_size) \
-                         shared(thread_barrier, max_val, max_idx)
+                         shared(thread_barrier, max_val, max_idx, max_offs)
     for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank)
     {
         // Factor the panel in parallel.
-        getrf(tiles[thread_rank],
-              i_indices[thread_rank], i_offsets[thread_rank],
+        getrf(tiles, i_indices, i_offsets,
               thread_rank, thread_size,
               thread_barrier,
-              max_val, max_idx);
+              max_val, max_idx, max_offs,
+              bcast_rank, bcast_root, bcast_comm);
     }
 
     #pragma omp taskwait

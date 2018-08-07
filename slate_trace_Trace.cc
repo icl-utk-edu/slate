@@ -88,6 +88,7 @@ std::map<std::string, Color> Trace::function_color_ = {
     {"Memory::alloc", Color::Aqua},
     {"Memory::free",  Color::Aquamarine},
 
+    {"MPI_Reduce",            Color::Purple},
     {"MPI_Allreduce",         Color::Purple},
     {"MPI_Barrier",           Color::Black},
     {"MPI_Bcast",             Color::Crimson},

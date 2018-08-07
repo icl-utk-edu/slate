@@ -784,31 +784,29 @@ int64_t potrf(Tile<scalar_t>&& A)
 }
 
 #include <unistd.h>
+#include <iomanip>
+#include <limits>
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// LU factorization of tile: $L U = A$.
+/// Compute the LU factorization of a panel.
 template <typename scalar_t>
 int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
               std::vector<int64_t>& i_indices, std::vector<int64_t>& i_offsets,
               int thread_rank, int thread_size,
               ThreadBarrier& thread_barrier,
-              std::vector<scalar_t>& max_val, std::vector<int64_t>& max_idx)
+              std::vector<scalar_t>& max_val, std::vector<int64_t>& max_idx,
+              std::vector<int64_t>& max_offs,
+              int mpi_rank, int mpi_root, MPI_Comm mpi_comm)
 {
     trace::Block trace_block("lapack::getrf");
-
-    // Tile<scalar_t>& A = tiles.front();
-    // std::vector<int64_t> ipiv(A.mb());
-    // return lapack::getrf(A.mb(),
-    //                      A.nb(),
-    //                      A.data(), A.stride(),
-    //                      &ipiv[0]);
 
     int64_t ib = 4;
     bool root = i_indices.at(0) == 0;
 
-    auto top_tile = tiles.front();
-    int64_t diag_len = std::min(top_tile.nb(), top_tile.mb());
+    auto mb = tiles.at(0).mb();
+    auto nb = tiles.at(0).nb();
+    int64_t diag_len = std::min(nb, mb);
 
     // Loop over ib-wide stripes.
     for (int64_t k = 0; k < diag_len; k += ib) {
@@ -816,16 +814,22 @@ int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
         // Loop over ib columns of a stripe.
         for (int64_t j = k; j < k+ib && j < diag_len; ++j) {
 
-            //--------------------------------
-            // Find the pivot (max abs value).
-            if (root)
-                max_val[thread_rank] = top_tile(j, j);
-            else
-                max_val[thread_rank] = top_tile(0, j);
+            if (root) {
+                max_val[thread_rank] = tiles.at(0)(j, j);
+                max_idx[thread_rank] = thread_rank;
+                max_offs[thread_rank] = j;
+            }
+            else {
+                max_val[thread_rank] = tiles.at(0)(0, j);
+                max_idx[thread_rank] = thread_rank;
+                max_offs[thread_rank] = 0;
+            }
 
-            // Loop over tiles.
-            for (std::size_t idx = 0; idx < tiles.size(); ++idx) {
-
+            // Loop over tiles in the column.
+            for (int64_t idx = thread_rank;
+                 idx < tiles.size();
+                 idx += thread_size)
+            {
                 auto tile = tiles.at(idx);
                 auto i_index = i_indices.at(idx);
 
@@ -836,6 +840,8 @@ int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
                             std::abs(max_val[thread_rank]))
                         {
                             max_val[thread_rank] = tile(i, j);
+                            max_idx[thread_rank] = idx;
+                            max_offs[thread_rank] = i;
                         }
                     }
 
@@ -847,6 +853,8 @@ int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
                             std::abs(max_val[thread_rank]))
                         {
                             max_val[thread_rank] = tile(i, j);
+                            max_idx[thread_rank] = idx;
+                            max_offs[thread_rank] = i;
                         }
                     }
                 }
@@ -856,25 +864,41 @@ int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
             if (thread_rank == 0) {
 
                 // local max reduction
-                for (int rank = 1; rank < thread_size; ++rank)
-                    if (std::abs(max_val[rank]) > std::abs(max_val[0]))
+                for (int rank = 1; rank < thread_size; ++rank) {
+                    if (std::abs(max_val[rank]) > std::abs(max_val[0])) {
                         max_val[0] = max_val[rank];
+                        max_idx[0] = max_idx[rank];
+                        max_offs[0] = max_offs[rank];
+                    }
+                }
 
-if (root)
-    std::cout << max_val[0] << std::endl << std::flush;
+                struct { scalar_t max; int loc; } max_loc;
 
+                max_loc.max = std::abs(max_val[0]);
+                max_loc.loc = !root;
+
+                if (root) {
+                    MPI_Reduce(MPI_IN_PLACE, &max_loc, 1, MPI_DOUBLE_INT,
+                               MPI_MAXLOC, 0, MPI_COMM_WORLD);
+                }
+                else {
+                    MPI_Reduce(&max_loc, &max_loc, 1, MPI_DOUBLE_INT,
+                               MPI_MAXLOC, 0, MPI_COMM_WORLD);
+                }
+
+                if (root)
+                    std::cout << std::setprecision(4) 
+                              << max_loc.max << "\t"
+                              << max_loc.loc << std::endl;
 
             }
             thread_barrier.wait(thread_size);
 
         }
 
-return 0;
+        return 0;
 
     }
-
-
-// std::cout << max_val << std::endl << std::flush;
 
 
 }

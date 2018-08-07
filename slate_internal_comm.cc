@@ -37,11 +37,50 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
+#include "slate_Exception.hh"
 #include "slate_internal_comm.hh"
 #include "slate_internal_util.hh"
+#include "slate_trace_Trace.hh"
+
+#include <cassert>
+#include <vector>
 
 namespace slate {
 namespace internal {
+
+MPI_Comm commFromSet(const std::set<int>& bcast_set,
+                     MPI_Comm mpi_comm, MPI_Group mpi_group,
+                     const int in_rank, int& out_rank)
+{
+    // Convert the set of ranks to a vector.
+    std::vector<int> bcast_vec(bcast_set.begin(), bcast_set.end());
+
+    // Create the broadcast group.
+    MPI_Group bcast_group;
+    #pragma omp critical(slate_mpi)
+    slate_mpi_call(
+        MPI_Group_incl(mpi_group, bcast_vec.size(), bcast_vec.data(),
+                       &bcast_group));
+
+    // Create a broadcast communicator.
+    int tag = 0;
+    MPI_Comm bcast_comm;
+    #pragma omp critical(slate_mpi)
+    {
+        trace::Block trace_block("MPI_Comm_create_group");
+        slate_mpi_call(
+            MPI_Comm_create_group(mpi_comm, bcast_group, tag, &bcast_comm));
+    }
+    assert(bcast_comm != MPI_COMM_NULL);
+
+    // Translate the input rank.
+    #pragma omp critical(slate_mpi)
+    slate_mpi_call(
+        MPI_Group_translate_ranks(mpi_group, 1, &in_rank,
+                                  bcast_group, &out_rank));
+
+    return bcast_comm;
+}
 
 //------------------------------------------------------------------------------
 /// [internal]

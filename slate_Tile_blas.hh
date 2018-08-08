@@ -789,6 +789,50 @@ int64_t potrf(Tile<scalar_t>&& A)
 
 ///-----------------------------------------------------------------------------
 /// \brief
+/// Swap rows of two local tiles.
+///
+template <typename scalar_t>
+void swap(Tile<scalar_t>& A, int64_t i1,
+          Tile<scalar_t>& B, int64_t i2)
+{
+    assert(A.nb() == B.nb());
+    assert(A.op() == B.op());
+
+    if (A.op() == Op::NoTrans) {
+        blas::swap(A.nb(),
+                   &A.data()[i1], A.stride(),
+                   &B.data()[i2], B.stride());
+    }
+    else {
+        // todo: op_ == Op::Trans
+        assert(0);
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+/// Swap rows with another process.
+///
+template <typename scalar_t>
+void swap(Tile<scalar_t>& A, int64_t i, int other_rank, MPI_Comm mpi_comm)
+{
+    std::vector<scalar_t> local_row(A.nb());
+    std::vector<scalar_t> other_row(A.nb());
+
+    for (int64_t j = 0; j < A.nb(); ++j)
+        local_row[j] = A(i, j);
+
+    int tag = 0;
+    MPI_Sendrecv(local_row.data(), A.nb(), MPI_DOUBLE, other_rank, tag,
+                 other_row.data(), A.nb(), MPI_DOUBLE, other_rank, tag,
+                 mpi_comm, MPI_STATUS_IGNORE);
+
+    for (int64_t j = 0; j < A.nb(); ++j)
+         A.at(i, j) = other_row[j];
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
 /// Compute the LU factorization of a panel.
 template <typename scalar_t>
 int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
@@ -797,12 +841,15 @@ int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
               ThreadBarrier& thread_barrier,
               std::vector<scalar_t>& max_val, std::vector<int64_t>& max_idx,
               std::vector<int64_t>& max_offs,
+              scalar_t& piv_val, std::vector<scalar_t>& top_row,
               int mpi_rank, int mpi_root, MPI_Comm mpi_comm)
 {
     trace::Block trace_block("lapack::getrf");
 
     int64_t ib = 4;
-    bool root = i_indices.at(0) == 0;
+    bool root = mpi_rank == mpi_root;
+    if (root)
+        assert(i_indices[0] == 0);
 
     auto mb = tiles.at(0).mb();
     auto nb = tiles.at(0).nb();
@@ -816,16 +863,17 @@ int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
 
             if (root) {
                 max_val[thread_rank] = tiles.at(0)(j, j);
-                max_idx[thread_rank] = thread_rank;
+                max_idx[thread_rank] = 0;
                 max_offs[thread_rank] = j;
             }
             else {
                 max_val[thread_rank] = tiles.at(0)(0, j);
-                max_idx[thread_rank] = thread_rank;
+                max_idx[thread_rank] = 0;
                 max_offs[thread_rank] = 0;
             }
 
-            // Loop over tiles in the column.
+            //------------------
+            // thread max search
             for (int64_t idx = thread_rank;
                  idx < tiles.size();
                  idx += thread_size)
@@ -859,11 +907,13 @@ int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
                     }
                 }
             }
-
             thread_barrier.wait(thread_size);
+
+            //------------------------------------
+            // global max reduction and pivot swap
             if (thread_rank == 0) {
 
-                // local max reduction
+                // threads max reduction
                 for (int rank = 1; rank < thread_size; ++rank) {
                     if (std::abs(max_val[rank]) > std::abs(max_val[0])) {
                         max_val[0] = max_val[rank];
@@ -872,31 +922,90 @@ int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
                     }
                 }
 
-                struct { scalar_t max; int loc; } max_loc;
+                // MPI max abs reduction
+                struct { scalar_t max; int loc; } max_loc_in, max_loc;
+                max_loc_in.max = std::abs(max_val[0]);
+                max_loc_in.loc = mpi_rank;
+                MPI_Allreduce(&max_loc_in, &max_loc, 1, MPI_DOUBLE_INT,
+                              MPI_MAXLOC, mpi_comm);
 
-                max_loc.max = std::abs(max_val[0]);
-                max_loc.loc = !root;
+                // Broadcast the pivot actual value (not abs).
+                piv_val = max_val[0];
+                MPI_Bcast(&piv_val, 1, MPI_DOUBLE, max_loc.loc, mpi_comm);
 
-                if (root) {
-                    MPI_Reduce(MPI_IN_PLACE, &max_loc, 1, MPI_DOUBLE_INT,
-                               MPI_MAXLOC, 0, MPI_COMM_WORLD);
+                // Broadcast the top row for the geru operation.
+                
+
+                //-----------
+                // pivot swap
+
+                // if I own the pivot
+                if (max_loc.loc == mpi_rank) {
+                    // if I am the root
+                    if (root) {
+                        // local swap
+                        swap(tiles.at(0), j, tiles.at(max_idx[0]), max_offs[0]);
+                    }
+                    // I am not the root
+                    else {
+                        // MPI swap with the root
+                        swap(tiles.at(max_idx[0]), max_offs[0], mpi_root,
+                                      mpi_comm);
+                    }
+                }
+                // I don't own the pivot
+                else {
+                    // I am the root
+                    if (root) {
+                        // MPI swap with the pivot owner
+                        swap(tiles.at(0), j, max_loc.loc, mpi_comm);
+                    }
+                }
+            }
+            thread_barrier.wait(thread_size);
+
+            // column scaling and trailing update
+            for (int64_t idx = thread_rank;
+                 idx < tiles.size();
+                 idx += thread_size)
+            {
+                auto tile = tiles.at(idx);
+                auto i_index = i_indices.at(idx);
+
+                if (i_index == 0) {
+                    // diagonal tile
+                    for (int64_t i = j+1; i < tile.mb(); ++i)
+                        tile.at(i, j) /= tile(j, j);
                 }
                 else {
-                    MPI_Reduce(&max_loc, &max_loc, 1, MPI_DOUBLE_INT,
-                               MPI_MAXLOC, 0, MPI_COMM_WORLD);
+                    // off diagonal tile
+                    for (int64_t i = 0; i < tile.mb(); ++i)
+                        tile.at(i, j) /= piv_val;
                 }
 
-                if (root)
-                    std::cout << std::setprecision(4) 
-                              << max_loc.max << "\t"
-                              << max_loc.loc << std::endl;
+                // todo: make it a tile operation
+                if (i_index == 0) {
+                    blas::geru(blas::Layout::ColMajor,
+                               tile.mb()-j-1, std::min(k+ib-j-1, diag_len-j-1),
+                               -1.0, &tile.data()[j+1+j*tile.stride()], 1,
+                                     &tile.data()[j+(j+1)*tile.stride()], tile.stride(),
+                                     &tile.data()[j+1+(j+1)*tile.stride()], tile.stride());
+                }
+                else {
+                    // blas::geru(blas::Layout::ColMajor,
+                    //            tile.mb(), std::min(k+ib-j-1, diag_len-j-1),
+                    //            -1.0, &tile.data()[j*tile.stride()], 1,
+                    //                  &tile.data()[j+(j+1)*tile.stride()], tile.stride(),
+                    //                  &tile.data()[j+1+(j+1)*tile.stride()], tile.stride());
+                }
+
 
             }
             thread_barrier.wait(thread_size);
 
+
         }
 
-        return 0;
 
     }
 

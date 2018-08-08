@@ -111,10 +111,17 @@ void getrf(internal::TargetType<Target::HostTask>,
     std::vector<scalar_t> max_val(thread_size);
     std::vector<int64_t> max_idx(thread_size);
     std::vector<int64_t> max_offs(thread_size);
+    scalar_t piv_val;
+    std::vector<scalar_t> top_row(A.tileNb(0));
     ThreadBarrier thread_barrier;
 
-    #pragma omp taskloop num_tasks(thread_size) \
-                         shared(thread_barrier, max_val, max_idx, max_offs)
+    // #pragma omp parallel for \
+        num_tasks(thread_size) \
+        shared(thread_barrier, max_val, max_idx, max_offs, piv_val)
+
+    #pragma omp taskloop \
+        num_tasks(thread_size) \
+        shared(thread_barrier, max_val, max_idx, max_offs, piv_val, top_row)
     for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank)
     {
         // Factor the panel in parallel.
@@ -122,6 +129,7 @@ void getrf(internal::TargetType<Target::HostTask>,
               thread_rank, thread_size,
               thread_barrier,
               max_val, max_idx, max_offs,
+              piv_val, top_row,
               bcast_rank, bcast_root, bcast_comm);
     }
 

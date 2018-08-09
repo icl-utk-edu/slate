@@ -58,83 +58,49 @@ extern "C" void Cblacs_gridinfo(int context, int*  np_row, int* np_col, int*  my
 
 // Declarations
 template< typename scalar_t >
-void slate_psyr2k(const char* uplostr, const char* transstr, int n, int k, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb, scalar_t beta, scalar_t* c, int ic, int jc, int* descc);
+void slate_pher2k(const char* uplostr, const char* transstr, int n, int k, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb, blas::real_type<scalar_t> beta, scalar_t* c, int ic, int jc, int* descc);
 
 // -----------------------------------------------------------------------------
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
-// Each C interface calls the type generic slate_psyr2k
+// Each C interface calls the type generic slate_pher2k
 
-extern "C" void PDSYR2K(const char* uplo, const char* trans, int* n, int* k, double* alpha, double* a, int* ia, int* ja, int* desca, double* b, int* ib, int* jb, int* descb, double* beta, double* c, int* ic, int* jc, int* descc)
+extern "C" void PCHER2K(const char* uplo, const char* trans, int* n, int* k, std::complex<float>* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, std::complex<float>* b, int* ib, int* jb, int* descb, float* beta, std::complex<float>* c, int* ic, int* jc, int* descc)
 {
-    slate_psyr2k(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb, *beta, c, *ic, *jc, descc);
+    slate_pher2k(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb, *beta, c, *ic, *jc, descc);
 }
 
-extern "C" void pdsyr2k(const char* uplo, const char* trans, int* n, int* k, double* alpha, double* a, int* ia, int* ja, int* desca, double* b, int* ib, int* jb, int* descb, double* beta, double* c, int* ic, int* jc, int* descc)
+extern "C" void pcher2k(const char* uplo, const char* trans, int* n, int* k, std::complex<float>* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, std::complex<float>* b, int* ib, int* jb, int* descb, float* beta, std::complex<float>* c, int* ic, int* jc, int* descc)
 {
-    slate_psyr2k(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb, *beta, c, *ic, *jc, descc);
+    slate_pher2k(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb, *beta, c, *ic, *jc, descc);
 }
 
-extern "C" void pdsyr2k_(const char* uplo, const char* trans, int* n, int* k, double* alpha, double* a, int* ia, int* ja, int* desca, double* b, int* ib, int* jb, int* descb, double* beta, double* c, int* ic, int* jc, int* descc)
+extern "C" void pcher2k_(const char* uplo, const char* trans, int* n, int* k, std::complex<float>* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, std::complex<float>* b, int* ib, int* jb, int* descb, float* beta, std::complex<float>* c, int* ic, int* jc, int* descc)
 {
-    slate_psyr2k(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb, *beta, c, *ic, *jc, descc);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PSSYR2K(const char* uplo, const char* trans, int* n, int* k, float* alpha, float* a, int* ia, int* ja, int* desca, float* b, int* ib, int* jb, int* descb, float* beta, float* c, int* ic, int* jc, int* descc)
-{
-    slate_psyr2k(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb, *beta, c, *ic, *jc, descc);
-}
-
-extern "C" void pssyr2k(const char* uplo, const char* trans, int* n, int* k, float* alpha, float* a, int* ia, int* ja, int* desca, float* b, int* ib, int* jb, int* descb, float* beta, float* c, int* ic, int* jc, int* descc)
-{
-    slate_psyr2k(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb, *beta, c, *ic, *jc, descc);
-}
-
-extern "C" void pssyr2k_(const char* uplo, const char* trans, int* n, int* k, float* alpha, float* a, int* ia, int* ja, int* desca, float* b, int* ib, int* jb, int* descb, float* beta, float* c, int* ic, int* jc, int* descc)
-{
-    slate_psyr2k(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb, *beta, c, *ic, *jc, descc);
+    slate_pher2k(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb, *beta, c, *ic, *jc, descc);
 }
 
 // -----------------------------------------------------------------------------
 
-extern "C" void PCSYR2K(const char* uplo, const char* trans, int* n, int* k, std::complex<float>* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, std::complex<float>* b, int* ib, int* jb, int* descb, std::complex<float>* beta, std::complex<float>* c, int* ic, int* jc, int* descc)
+extern "C" void PZHER2K(const char* uplo, const char* trans, int* n, int* k, std::complex<double>* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, std::complex<double>* b, int* ib, int* jb, int* descb, double* beta, std::complex<double>* c, int* ic, int* jc, int* descc)
 {
-    slate_psyr2k(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb, *beta, c, *ic, *jc, descc);
+    slate_pher2k(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb, *beta, c, *ic, *jc, descc);
 }
 
-extern "C" void pcsyr2k(const char* uplo, const char* trans, int* n, int* k, std::complex<float>* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, std::complex<float>* b, int* ib, int* jb, int* descb, std::complex<float>* beta, std::complex<float>* c, int* ic, int* jc, int* descc)
+extern "C" void pzher2k(const char* uplo, const char* trans, int* n, int* k, std::complex<double>* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, std::complex<double>* b, int* ib, int* jb, int* descb, double* beta, std::complex<double>* c, int* ic, int* jc, int* descc)
 {
-    slate_psyr2k(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb, *beta, c, *ic, *jc, descc);
+    slate_pher2k(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb, *beta, c, *ic, *jc, descc);
 }
 
-extern "C" void pcsyr2k_(const char* uplo, const char* trans, int* n, int* k, std::complex<float>* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, std::complex<float>* b, int* ib, int* jb, int* descb, std::complex<float>* beta, std::complex<float>* c, int* ic, int* jc, int* descc)
+extern "C" void pzher2k_(const char* uplo, const char* trans, int* n, int* k, std::complex<double>* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, std::complex<double>* b, int* ib, int* jb, int* descb, double* beta, std::complex<double>* c, int* ic, int* jc, int* descc)
 {
-    slate_psyr2k(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb, *beta, c, *ic, *jc, descc);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PZSYR2K(const char* uplo, const char* trans, int* n, int* k, std::complex<double>* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, std::complex<double>* b, int* ib, int* jb, int* descb, std::complex<double>* beta, std::complex<double>* c, int* ic, int* jc, int* descc)
-{
-    slate_psyr2k(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb, *beta, c, *ic, *jc, descc);
-}
-
-extern "C" void pzsyr2k(const char* uplo, const char* trans, int* n, int* k, std::complex<double>* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, std::complex<double>* b, int* ib, int* jb, int* descb, std::complex<double>* beta, std::complex<double>* c, int* ic, int* jc, int* descc)
-{
-    slate_psyr2k(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb, *beta, c, *ic, *jc, descc);
-}
-
-extern "C" void pzsyr2k_(const char* uplo, const char* trans, int* n, int* k, std::complex<double>* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, std::complex<double>* b, int* ib, int* jb, int* descb, std::complex<double>* beta, std::complex<double>* c, int* ic, int* jc, int* descc)
-{
-    slate_psyr2k(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb, *beta, c, *ic, *jc, descc);
+    slate_pher2k(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb, *beta, c, *ic, *jc, descc);
 }
 
 // -----------------------------------------------------------------------------
 
 // Type generic function calls the SLATE routine
 template< typename scalar_t >
-void slate_psyr2k(const char* uplostr, const char* transstr, int n, int k, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb, scalar_t beta, scalar_t* c, int ic, int jc, int* descc)
+void slate_pher2k(const char* uplostr, const char* transstr, int n, int k, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb, blas::real_type<scalar_t> beta, scalar_t* c, int ic, int jc, int* descc)
 {
     // todo: figure out if the pxq grid is in row or column
 
@@ -166,8 +132,8 @@ void slate_psyr2k(const char* uplostr, const char* transstr, int n, int k, scala
     B = slate_scalapack_submatrix(Bm, Bn, B, ib, jb, descb);
 
     Cblacs_gridinfo(desc_CTXT(descc), &nprow, &npcol, &myrow, &mycol);
-    auto C = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(descc), c, desc_LLD(descc), desc_MB(descc), nprow, npcol, MPI_COMM_WORLD);
-    auto CS = slate_scalapack_submatrix(Cn, Cn, C, ic, jc, descc);
+    auto CH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(descc), c, desc_LLD(descc), desc_MB(descc), nprow, npcol, MPI_COMM_WORLD);
+    CH = slate_scalapack_submatrix(Cn, Cn, CH, ic, jc, descc);
 
     if (trans == blas::Op::Trans) {
         A = transpose(A);
@@ -177,14 +143,14 @@ void slate_psyr2k(const char* uplostr, const char* transstr, int n, int k, scala
         A = conj_transpose(A);
         B = conj_transpose(B);
     }
-    assert(A.mt() == CS.mt());
-    assert(B.mt() == CS.mt());
+    assert(A.mt() == CH.mt());
+    assert(B.mt() == CH.mt());
     assert(A.nt() == B.nt());
 
     if (verbose && myrow==0 && mycol==0)
-        logprintf("%s\n", "syr2k");
+        logprintf("%s\n", "her2k");
 
-    slate::syr2k(alpha, A, B, beta, CS, {
+    slate::her2k(alpha, A, B, beta, CH, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });

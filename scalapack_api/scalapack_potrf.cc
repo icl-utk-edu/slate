@@ -38,8 +38,8 @@
 //------------------------------------------------------------------------------
 
 #include "slate.hh"
+#include "scalapack_slate.hh"
 #include <complex>
-
 
 #ifdef SLATE_WITH_MKL
 extern "C" int MKL_Set_Num_Threads(int nt);
@@ -49,20 +49,16 @@ inline int slate_set_num_blas_threads(const int nt) { return -1; }
 #endif
 
 namespace slate {
-namespace scalapack_compat {
+namespace scalapack_api {
 
 // -----------------------------------------------------------------------------
 
 // Required CBLACS calls
 extern "C" void Cblacs_gridinfo(int context, int*  np_row, int* np_col, int*  my_row, int*  my_col);
 
-    void pspotrf (char *uplo , MKL_INT *n , float *a , MKL_INT *ia , MKL_INT *ja , MKL_INT *desca , MKL_INT *info );
-
 // Declarations
 template<typename scalar_t>
 void slate_ppotrf(const char* uplostr, int n, scalar_t* a, int ia, int ja, int* desca, int* info);
-
-enum slate_scalapack_desc { DTYPE_=0, CTXT_=1, M_=2, N_=3, IMB_=4, INB_=5, MB_=6, NB_=7, RSRC_=8, CSRC_=9, LLD_=10 };
 
 // -----------------------------------------------------------------------------
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
@@ -136,50 +132,23 @@ extern "C" void pzpotrf_(const char* side, const char* uplo, const char* transa,
 
 // -----------------------------------------------------------------------------
 
-template< typename scalar_t >
-static slate::Matrix<scalar_t> slate_scalapack_submatrix(int Am, int An, slate::Matrix<scalar_t>& A, int ia, int ja, int* desca)
-{
-    assert((ia-1)%desca[MB_]==0);
-    assert((ja-1)%desca[NB_]==0);
-    int64_t i1 = (ia-1)/desca[MB_];
-    int64_t i2 = (ia-1+Am)/desca[MB_]-1;
-    int64_t j1 = (ja-1)/desca[NB_];
-    int64_t j2 = (ja-1+An)/desca[NB_]-1;
-    return A.sub(i1, i2, j1, j2);
-}
-
-template< typename scalar_t >
-static slate::TriangularMatrix<scalar_t> slate_scalapack_submatrix(int Am, int An, slate::TriangularMatrix<scalar_t>& A, int ia, int ja, int* desca)
-{
-    assert((ia-1)%desca[MB_]==0);
-    assert((ja-1)%desca[NB_]==0);
-    int64_t i1 = (ia-1)/desca[MB_];
-    int64_t i2 = (ia-1+Am)/desca[MB_]-1;
-    // int64_t j1 = (ja-1)/desca[NB_];
-    // int64_t j2 = (ja-1+An)/desca[NB_]-1;
-    return A.sub(i1, i2);
-}
-
 // Type generic function calls the SLATE routine
 template<typename scalar_t>
 void slate_ppotrf(const char* uplostr, int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, int* info)
 {
     // todo: figure out if the pxq grid is in row or column
-    printf("potrf");;
 
-    int saved_num_blas_threads = slate_set_num_blas_threads(1);
-    int saved_num_omp_threads;
+    // make blas single threaded
     // todo: does this set the omp num threads correctly
-    #pragma omp parallel
-    { saved_num_omp_threads = omp_get_num_threads(); }
-    omp_set_num_threads(std::max({saved_num_blas_threads, saved_num_omp_threads}));
+    int saved_num_blas_threads = slate_set_num_blas_threads(1);
 
     blas::Side side = blas::char2side(sidestr[0]);
     blas::Uplo uplo = blas::char2uplo(uplostr[0]);
     blas::Op transA = blas::char2op(transastr[0]);
     blas::Diag diag = blas::char2diag(diagstr[0]);
+    static slate::Target target = slate_scalapack_set_target();
+    static int verbose = slate_scalapack_set_verbose();
     int64_t lookahead = 1;
-    slate::Target target = slate::Target::Devices;
 
     // setup so trans(B) is m-by-n
     int64_t An  = (side == blas::Side::Left ? m : n);
@@ -189,13 +158,12 @@ void slate_ppotrf(const char* uplostr, int n, int nrhs, scalar_t* a, int ia, int
 
     // create SLATE matrices from the ScaLAPACK layouts
     int nprow, npcol, myrow, mycol;
-    // todo fix A's allocation
-    Cblacs_gridinfo(desca[CTXT_], &nprow, &npcol, &myrow, &mycol);
-    auto A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(uplo, An, a, desca[LLD_], desca[MB_], nprow, npcol, MPI_COMM_WORLD);
+    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myrow, &mycol);
+    auto A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(desca), a, desc_LLD(desca), desc_MB(desca), nprow, npcol, MPI_COMM_WORLD);
     A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
 
-    Cblacs_gridinfo(descb[CTXT_], &nprow, &npcol, &myrow, &mycol);
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(descb[M_], descb[N_], b, descb[LLD_], descb[MB_], nprow, npcol, MPI_COMM_WORLD);
+    Cblacs_gridinfo(desc_CTXT(descb), &nprow, &npcol, &myrow, &mycol);
+    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(descb), desc_N(descb), b, desc_LLD(descb), desc_MB(descb), nprow, npcol, MPI_COMM_WORLD);
     B = slate_scalapack_submatrix(Bm, Bn, B, ib, jb, descb);
 
     if (transA == Op::Trans)
@@ -203,14 +171,16 @@ void slate_ppotrf(const char* uplostr, int n, int nrhs, scalar_t* a, int ia, int
     else if (transA == Op::ConjTrans)
         A = conj_transpose(A);
 
+    if (verbose && myrow==0 && mycol==0)
+        logprintf("%s\n", "potrf");
+
     slate::potrf(side, diag, alpha, A, B, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
 
-    omp_set_num_threads(saved_num_omp_threads);
     slate_set_num_blas_threads(saved_num_blas_threads);
 }
 
-} // namespace scalapack_compat
+} // namespace scalapack_api
 } // namespace slate

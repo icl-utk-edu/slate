@@ -446,7 +446,7 @@ $(unit_test): %: %.o $(unit_test_obj) $(lib)
 # scalapack_api library
 scalapack_api = lib/libslate_scalapack_api.so
 
-scalapack_api_src = \
+scalapack_api_src += \
                      scalapack_api/scalapack_gemm.cc \
                      scalapack_api/scalapack_syrk.cc \
                      scalapack_api/scalapack_symm.cc \

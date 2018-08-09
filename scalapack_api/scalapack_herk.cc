@@ -41,7 +41,6 @@
 #include "scalapack_slate.hh"
 #include <complex>
 
-
 #ifdef SLATE_WITH_MKL
 extern "C" int MKL_Set_Num_Threads(int nt);
 inline int slate_set_num_blas_threads(const int nt) { return MKL_Set_Num_Threads(nt); }
@@ -59,83 +58,49 @@ extern "C" void Cblacs_gridinfo(int context, int*  np_row, int* np_col, int*  my
 
 // Declarations
 template< typename scalar_t >
-void slate_psyrk(const char* uplostr, const char* transstr, int n, int k, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t beta, scalar_t* c, int ic, int jc, int* descc);
+void slate_pherk(const char* uplostr, const char* transstr, int n, int k, blas::real_type<scalar_t> alpha, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t> beta, scalar_t* c, int ic, int jc, int* descc);
 
 // -----------------------------------------------------------------------------
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
-// Each C interface calls the type generic slate_psyrk
+// Each C interface calls the type generic slate_pherk
 
-extern "C" void PDSYRK(const char* uplo, const char* trans, int* n, int* k, double* alpha, double* a, int* ia, int* ja, int* desca, double* beta, double* c, int* ic, int* jc, int* descc)
+extern "C" void PCHERK(const char* uplo, const char* trans, int* n, int* k, float* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, float* beta, std::complex<float>* c, int* ic, int* jc, int* descc)
 {
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
+    slate_pherk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
 }
 
-extern "C" void pdsyrk(const char* uplo, const char* trans, int* n, int* k, double* alpha, double* a, int* ia, int* ja, int* desca, double* beta, double* c, int* ic, int* jc, int* descc)
+extern "C" void pcherk(const char* uplo, const char* trans, int* n, int* k, float* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, float* beta, std::complex<float>* c, int* ic, int* jc, int* descc)
 {
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
+    slate_pherk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
 }
 
-extern "C" void pdsyrk_(const char* uplo, const char* trans, int* n, int* k, double* alpha, double* a, int* ia, int* ja, int* desca, double* beta, double* c, int* ic, int* jc, int* descc)
+extern "C" void pcherk_(const char* uplo, const char* trans, int* n, int* k, float* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, float* beta, std::complex<float>* c, int* ic, int* jc, int* descc)
 {
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PSSYRK(const char* uplo, const char* trans, int* n, int* k, float* alpha, float* a, int* ia, int* ja, int* desca, float* beta, float* c, int* ic, int* jc, int* descc)
-{
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
-}
-
-extern "C" void pssyrk(const char* uplo, const char* trans, int* n, int* k, float* alpha, float* a, int* ia, int* ja, int* desca, float* beta, float* c, int* ic, int* jc, int* descc)
-{
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
-}
-
-extern "C" void pssyrk_(const char* uplo, const char* trans, int* n, int* k, float* alpha, float* a, int* ia, int* ja, int* desca, float* beta, float* c, int* ic, int* jc, int* descc)
-{
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
+    slate_pherk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
 }
 
 // -----------------------------------------------------------------------------
 
-extern "C" void PCSYRK(const char* uplo, const char* trans, int* n, int* k, std::complex<float>* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, std::complex<float>* beta, std::complex<float>* c, int* ic, int* jc, int* descc)
+extern "C" void PZHERK(const char* uplo, const char* trans, int* n, int* k, double* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, double* beta, std::complex<double>* c, int* ic, int* jc, int* descc)
 {
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
+    slate_pherk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
 }
 
-extern "C" void pcsyrk(const char* uplo, const char* trans, int* n, int* k, std::complex<float>* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, std::complex<float>* beta, std::complex<float>* c, int* ic, int* jc, int* descc)
+extern "C" void pzherk(const char* uplo, const char* trans, int* n, int* k, double* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, double* beta, std::complex<double>* c, int* ic, int* jc, int* descc)
 {
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
+    slate_pherk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
 }
 
-extern "C" void pcsyrk_(const char* uplo, const char* trans, int* n, int* k, std::complex<float>* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, std::complex<float>* beta, std::complex<float>* c, int* ic, int* jc, int* descc)
+extern "C" void pzherk_(const char* uplo, const char* trans, int* n, int* k, double* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, double* beta, std::complex<double>* c, int* ic, int* jc, int* descc)
 {
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PZSYRK(const char* uplo, const char* trans, int* n, int* k, std::complex<double>* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, std::complex<double>* beta, std::complex<double>* c, int* ic, int* jc, int* descc)
-{
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
-}
-
-extern "C" void pzsyrk(const char* uplo, const char* trans, int* n, int* k, std::complex<double>* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, std::complex<double>* beta, std::complex<double>* c, int* ic, int* jc, int* descc)
-{
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
-}
-
-extern "C" void pzsyrk_(const char* uplo, const char* trans, int* n, int* k, std::complex<double>* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, std::complex<double>* beta, std::complex<double>* c, int* ic, int* jc, int* descc)
-{
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
+    slate_pherk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
 }
 
 // -----------------------------------------------------------------------------
 
 // Type generic function calls the SLATE routine
 template< typename scalar_t >
-void slate_psyrk(const char* uplostr, const char* transstr, int n, int k, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t beta, scalar_t* c, int ic, int jc, int* descc)
+void slate_pherk(const char* uplostr, const char* transstr, int n, int k, blas::real_type<scalar_t> alpha, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t> beta, scalar_t* c, int ic, int jc, int* descc)
 {
     // todo: figure out if the pxq grid is in row or column
 
@@ -162,8 +127,11 @@ void slate_psyrk(const char* uplostr, const char* transstr, int n, int k, scalar
     A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
 
     Cblacs_gridinfo(desc_CTXT(descc), &nprow, &npcol, &myrow, &mycol);
-    auto C = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(descc), c, desc_LLD(descc), desc_MB(descc), nprow, npcol, MPI_COMM_WORLD);
+    auto C = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(descc), c, desc_LLD(descc), desc_MB(descc), nprow, npcol, MPI_COMM_WORLD);
     C = slate_scalapack_submatrix(Cm, Cn, C, ic, jc, descc);
+
+    if (verbose && myrow==0 && mycol==0)
+        logprintf("%s\n", "herk");
 
     if (transA == blas::Op::Trans)
         A = transpose(A);
@@ -171,10 +139,7 @@ void slate_psyrk(const char* uplostr, const char* transstr, int n, int k, scalar
         A = conj_transpose(A);
     assert(A.mt() == C.mt());
 
-    if (verbose && myrow==0 && mycol==0)
-        logprintf("%s\n", "syrk");
-
-    slate::syrk(alpha, A, beta, C, {
+    slate::herk(alpha, A, beta, C, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });

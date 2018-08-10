@@ -55,7 +55,8 @@ namespace slate {
 /// \brief
 /// Compute the LU factorization of a panel.
 template <typename scalar_t>
-int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
+int64_t getrf(int64_t ib,
+              std::vector< Tile<scalar_t> >& tiles,
               std::vector<int64_t>& i_indices, std::vector<int64_t>& i_offsets,
               int thread_rank, int thread_size,
               ThreadBarrier& thread_barrier,
@@ -69,7 +70,6 @@ int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
     using namespace blas;
     using real_t = blas::real_type<scalar_t>;
 
-    int64_t ib = 4;
     bool root = mpi_rank == mpi_root;
     if (root)
         assert(i_indices[0] == 0);

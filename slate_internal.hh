@@ -291,7 +291,7 @@ void norm(Norm in_norm, TrapezoidMatrix<scalar_t>&& A,
 //-----------------------------------------
 // getrf()
 template <Target target=Target::HostTask, typename scalar_t>
-void getrf(Matrix<scalar_t>&& A,
+void getrf(Matrix<scalar_t>&& A, int64_t ib,
            int priority=0);
 
 //-----------------------------------------

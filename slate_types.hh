@@ -74,6 +74,7 @@ template <Target> class TargetType {};
 enum class Option {
     Lookahead,
     BlockSize,
+    InnerBlocking,
     Tolerance,
     Target,
 };

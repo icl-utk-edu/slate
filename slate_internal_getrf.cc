@@ -51,9 +51,9 @@ namespace internal {
 /// LU factorization of a column of tiles.
 /// Dispatches to target implementations.
 template <Target target, typename scalar_t>
-void getrf(Matrix<scalar_t>&& A, int priority)
+void getrf(Matrix<scalar_t>&& A, int64_t ib, int priority)
 {
-    getrf(internal::TargetType<target>(), A, priority);
+    getrf(internal::TargetType<target>(), A, ib, priority);
 }
 
 ///-----------------------------------------------------------------------------
@@ -61,7 +61,7 @@ void getrf(Matrix<scalar_t>&& A, int priority)
 /// LU factorization of a column of tiles, host implementation.
 template <typename scalar_t>
 void getrf(internal::TargetType<Target::HostTask>,
-           Matrix<scalar_t>& A, int priority)
+           Matrix<scalar_t>& A, int64_t ib, int priority)
 {
     assert(A.nt() == 1);
 
@@ -124,7 +124,8 @@ void getrf(internal::TargetType<Target::HostTask>,
     for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank)
     {
         // Factor the panel in parallel.
-        getrf(tiles, i_indices, i_offsets,
+        getrf(ib,
+              tiles, i_indices, i_offsets,
               thread_rank, thread_size,
               thread_barrier,
               max_val, max_idx, max_offs,
@@ -140,25 +141,25 @@ void getrf(internal::TargetType<Target::HostTask>,
 // ----------------------------------------
 template
 void getrf<Target::HostTask, float>(
-    Matrix<float>&& A,
+    Matrix<float>&& A, int64_t ib, 
     int priority);
 
 // ----------------------------------------
 template
 void getrf<Target::HostTask, double>(
-    Matrix<double>&& A,
+    Matrix<double>&& A, int64_t ib, 
     int priority);
 
 // ----------------------------------------
 template
 void getrf< Target::HostTask, std::complex<float> >(
-    Matrix< std::complex<float> >&& A,
+    Matrix< std::complex<float> >&& A, int64_t ib, 
     int priority);
 
 // ----------------------------------------
 template
 void getrf< Target::HostTask, std::complex<double> >(
-    Matrix< std::complex<double> >&& A,
+    Matrix< std::complex<double> >&& A, int64_t ib, 
     int priority);
 
 } // namespace internal

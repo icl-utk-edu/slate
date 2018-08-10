@@ -166,7 +166,7 @@ int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
                     // if I am the root
                     if (root) {
                         // if pivot not on the diagonal
-                        if (max_idx[0] > 0 && max_offs[0] > j) {
+                        if (max_idx[0] > 0 || max_offs[0] > j) {
                             // local swap
                             swap(k, std::min(diag_len-k, ib),
                                  tiles.at(0), j,

@@ -146,7 +146,7 @@ inline slate::HermitianMatrix<scalar_t> slate_scalapack_submatrix(int Am, int An
 inline slate::Target slate_scalapack_set_target()
 {
     // set the SLATE default computational target
-    slate::Target target = slate::Target::Devices; // default
+    slate::Target target = slate::Target::HostTask;
     char* targetstr = std::getenv("SLATE_SCALAPACK_TARGET");
     if (targetstr) {
         char targetchar = (char)(toupper(targetstr[4]));

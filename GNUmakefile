@@ -452,7 +452,14 @@ scalapack_api_src += \
                      scalapack_api/scalapack_symm.cc \
                      scalapack_api/scalapack_trsm.cc \
                      scalapack_api/scalapack_syr2k.cc \
-                     scalapack_api/scalapack_trmm.cc 
+                     scalapack_api/scalapack_trmm.cc \
+                     scalapack_api/scalapack_hemm.cc \
+                     scalapack_api/scalapack_herk.cc \
+                     scalapack_api/scalapack_her2k.cc \
+                     scalapack_api/scalapack_lange.cc \
+                     scalapack_api/scalapack_lansy.cc \
+                     scalapack_api/scalapack_lantr.cc \
+                     scalapack_api/scalapack_lanhe.cc \
 
 scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
 
@@ -472,14 +479,14 @@ $(scalapack_api): $(scalapack_api_obj) $(lib)
 # lapack_api library
 lapack_api = lib/libslate_lapack_api.so
 
-lapack_api_src += lapack_api/lapack_gemm.cc \
+lapack_api_src += \
+		lapack_api/lapack_gemm.cc \
 		lapack_api/lapack_hemm.cc \
 		lapack_api/lapack_symm.cc \
 		lapack_api/lapack_trmm.cc \
 		lapack_api/lapack_trsm.cc \
 		lapack_api/lapack_herk.cc \
 		lapack_api/lapack_syrk.cc \
-
 
 lapack_api_obj = $(addsuffix .o, $(basename $(lapack_api_src)))
 

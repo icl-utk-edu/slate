@@ -825,9 +825,10 @@ void swap(int64_t j, int64_t n,
         local_row[k] = A(i, j+k);
 
     int tag = 0;
-    MPI_Sendrecv(local_row.data(), n, MPI_DOUBLE, other_rank, tag,
-                 other_row.data(), n, MPI_DOUBLE, other_rank, tag,
-                 mpi_comm, MPI_STATUS_IGNORE);
+    MPI_Sendrecv(
+        local_row.data(), n, mpi_type<scalar_t>::value, other_rank, tag,
+        other_row.data(), n, mpi_type<scalar_t>::value, other_rank, tag,
+        mpi_comm, MPI_STATUS_IGNORE);
 
     for (int64_t k = 0; k < n; ++k)
          A.at(i, j+k) = other_row[k];

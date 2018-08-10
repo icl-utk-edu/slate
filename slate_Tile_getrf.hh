@@ -150,7 +150,8 @@ int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
 
                 // Broadcast the pivot actual value (not abs).
                 piv_val = max_val[0];
-                MPI_Bcast(&piv_val, 1, MPI_DOUBLE, max_loc.loc, mpi_comm);
+                MPI_Bcast(&piv_val, 1, mpi_type<scalar_t>::value,
+                          max_loc.loc, mpi_comm);
 
                 //-----------
                 // pivot swap
@@ -191,7 +192,7 @@ int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
                                top_tile.stride(), top_row.data(), 1);
                 }
                 MPI_Bcast(top_row.data(), std::min(k+ib-j-1, diag_len-j-1),
-                          MPI_DOUBLE, mpi_root, mpi_comm);
+                          mpi_type<scalar_t>::value, mpi_root, mpi_comm);
             }
             thread_barrier.wait(thread_size);
 

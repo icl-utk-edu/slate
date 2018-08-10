@@ -792,16 +792,17 @@ int64_t potrf(Tile<scalar_t>&& A)
 /// Swap rows of two local tiles.
 ///
 template <typename scalar_t>
-void swap(Tile<scalar_t>& A, int64_t i1,
+void swap(int64_t j, int64_t n,
+          Tile<scalar_t>& A, int64_t i1,
           Tile<scalar_t>& B, int64_t i2)
 {
     assert(A.nb() == B.nb());
     assert(A.op() == B.op());
 
     if (A.op() == Op::NoTrans) {
-        blas::swap(A.nb(),
-                   &A.data()[i1], A.stride(),
-                   &B.data()[i2], B.stride());
+        blas::swap(n,
+                   &A.data()[i1+j*A.stride()], A.stride(),
+                   &B.data()[i2+j*B.stride()], B.stride());
     }
     else {
         // todo: op_ == Op::Trans
@@ -814,21 +815,22 @@ void swap(Tile<scalar_t>& A, int64_t i1,
 /// Swap rows with another process.
 ///
 template <typename scalar_t>
-void swap(Tile<scalar_t>& A, int64_t i, int other_rank, MPI_Comm mpi_comm)
+void swap(int64_t j, int64_t n,
+          Tile<scalar_t>& A, int64_t i, int other_rank, MPI_Comm mpi_comm)
 {
-    std::vector<scalar_t> local_row(A.nb());
-    std::vector<scalar_t> other_row(A.nb());
+    std::vector<scalar_t> local_row(n);
+    std::vector<scalar_t> other_row(n);
 
-    for (int64_t j = 0; j < A.nb(); ++j)
-        local_row[j] = A(i, j);
+    for (int64_t k = 0; k < n; ++k)
+        local_row[k] = A(i, j+k);
 
     int tag = 0;
-    MPI_Sendrecv(local_row.data(), A.nb(), MPI_DOUBLE, other_rank, tag,
-                 other_row.data(), A.nb(), MPI_DOUBLE, other_rank, tag,
+    MPI_Sendrecv(local_row.data(), n, MPI_DOUBLE, other_rank, tag,
+                 other_row.data(), n, MPI_DOUBLE, other_rank, tag,
                  mpi_comm, MPI_STATUS_IGNORE);
 
-    for (int64_t j = 0; j < A.nb(); ++j)
-         A.at(i, j) = other_row[j];
+    for (int64_t k = 0; k < n; ++k)
+         A.at(i, j+k) = other_row[k];
 }
 
 ///-----------------------------------------------------------------------------
@@ -933,9 +935,6 @@ int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
                 piv_val = max_val[0];
                 MPI_Bcast(&piv_val, 1, MPI_DOUBLE, max_loc.loc, mpi_comm);
 
-                // Broadcast the top row for the geru operation.
-                
-
                 //-----------
                 // pivot swap
 
@@ -944,13 +943,17 @@ int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
                     // if I am the root
                     if (root) {
                         // local swap
-                        swap(tiles.at(0), j, tiles.at(max_idx[0]), max_offs[0]);
+                        // todo: what if pivot on the diag?
+                        swap(k, std::min(diag_len-k, ib),
+                             tiles.at(0), j, tiles.at(max_idx[0]),
+                             max_offs[0]);
                     }
                     // I am not the root
                     else {
                         // MPI swap with the root
-                        swap(tiles.at(max_idx[0]), max_offs[0], mpi_root,
-                                      mpi_comm);
+                        swap(k, std::min(diag_len-k, ib),
+                             tiles.at(max_idx[0]), max_offs[0], mpi_root,
+                             mpi_comm);
                     }
                 }
                 // I don't own the pivot
@@ -958,9 +961,20 @@ int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
                     // I am the root
                     if (root) {
                         // MPI swap with the pivot owner
-                        swap(tiles.at(0), j, max_loc.loc, mpi_comm);
+                        swap(k, std::min(diag_len-k, ib),
+                             tiles.at(0), j, max_loc.loc, mpi_comm);
                     }
                 }
+
+                // Broadcast the top row for the geru operation.
+                if (root) {
+                    auto top_tile = tiles.at(0);
+                    blas::copy(std::min(k+ib-j-1, diag_len-j-1),
+                               &top_tile.data()[j+(j+1)*top_tile.stride()],
+                               top_tile.stride(), top_row.data(), 1);
+                }
+                MPI_Bcast(top_row.data(), std::min(k+ib-j-1, diag_len-j-1),
+                          MPI_DOUBLE, mpi_root, mpi_comm);
             }
             thread_barrier.wait(thread_size);
 
@@ -988,24 +1002,25 @@ int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
                     blas::geru(blas::Layout::ColMajor,
                                tile.mb()-j-1, std::min(k+ib-j-1, diag_len-j-1),
                                -1.0, &tile.data()[j+1+j*tile.stride()], 1,
-                                     &tile.data()[j+(j+1)*tile.stride()], tile.stride(),
-                                     &tile.data()[j+1+(j+1)*tile.stride()], tile.stride());
+                                     top_row.data(), 1,
+                                     &tile.data()[j+1+(j+1)*tile.stride()],
+                                     tile.stride());
                 }
                 else {
-                    // blas::geru(blas::Layout::ColMajor,
-                    //            tile.mb(), std::min(k+ib-j-1, diag_len-j-1),
-                    //            -1.0, &tile.data()[j*tile.stride()], 1,
-                    //                  &tile.data()[j+(j+1)*tile.stride()], tile.stride(),
-                    //                  &tile.data()[j+1+(j+1)*tile.stride()], tile.stride());
+                    blas::geru(blas::Layout::ColMajor,
+                               tile.mb(), std::min(k+ib-j-1, diag_len-j-1),
+                               -1.0, &tile.data()[j*tile.stride()], 1,
+                                     top_row.data(), 1,
+                                     &tile.data()[(j+1)*tile.stride()],
+                                     tile.stride());
                 }
-
 
             }
             thread_barrier.wait(thread_size);
 
-
         }
 
+        return 0;
 
     }
 

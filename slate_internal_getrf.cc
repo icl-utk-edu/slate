@@ -116,9 +116,8 @@ void getrf(internal::TargetType<Target::HostTask>,
     ThreadBarrier thread_barrier;
 
     // #pragma omp parallel for \
-        num_tasks(thread_size) \
-        shared(thread_barrier, max_val, max_idx, max_offs, piv_val)
-
+    //     num_threads(thread_size) \
+    //     shared(thread_barrier, max_val, max_idx, max_offs, piv_val, top_row)
     #pragma omp taskloop \
         num_tasks(thread_size) \
         shared(thread_barrier, max_val, max_idx, max_offs, piv_val, top_row)

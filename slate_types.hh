@@ -105,7 +105,7 @@ public:
 //------------------------------------------------------------------------------
 /// gives mpi_type based on actual scalar_t.
 //  constants are initialized in slate_types.cc
-template<typename scalar_t>
+template <typename scalar_t>
 class mpi_type {};
 
 template<>
@@ -130,6 +130,22 @@ template<>
 class mpi_type< std::complex<double> > {
 public:
     static MPI_Datatype value; // = MPI_C_DOUBLE_COMPLEX
+};
+
+// for type-generic maxloc operations
+template <typename real_t>
+struct max_loc_type { real_t x; int i; };
+
+template<>
+class mpi_type< max_loc_type<float> > {
+public:
+    static MPI_Datatype value; // = MPI_FLOAT_INT
+};
+
+template<>
+class mpi_type< max_loc_type<double> > {
+public:
+    static MPI_Datatype value; // = MPI_DOUBLE_INT
 };
 
 //------------------------------------------------------------------------------

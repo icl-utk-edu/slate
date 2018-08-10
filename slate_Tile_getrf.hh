@@ -150,7 +150,8 @@ int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
                 struct { real_t max; int loc; } max_loc_in, max_loc;
                 max_loc_in.max = std::abs(max_val[0]);
                 max_loc_in.loc = mpi_rank;
-                MPI_Allreduce(&max_loc_in, &max_loc, 1, MPI_DOUBLE_INT,
+                MPI_Allreduce(&max_loc_in, &max_loc,
+                              1, mpi_type< max_loc_type<real_t> >::value,
                               MPI_MAXLOC, mpi_comm);
 
                 // Broadcast the pivot actual value (not abs).

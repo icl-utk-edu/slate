@@ -40,7 +40,7 @@
 #include "slate_Matrix.hh"
 #include "slate_HermitianMatrix.hh"
 #include "slate_types.hh"
-#include "slate_Tile_blas.hh"
+#include "slate_Tile_getrf.hh"
 #include "slate_internal.hh"
 
 namespace slate {

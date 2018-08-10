@@ -44,6 +44,7 @@
 
 #include "slate_Tile.hh"
 #include "slate_Tile_blas.hh"
+#include "slate_types.hh"
 #include "slate_util.hh"
 
 #include <list>
@@ -64,6 +65,9 @@ int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
               int mpi_rank, int mpi_root, MPI_Comm mpi_comm)
 {
     trace::Block trace_block("lapack::getrf");
+
+    using namespace blas;
+    using real_t = blas::real_type<scalar_t>;
 
     int64_t ib = 4;
     bool root = mpi_rank == mpi_root;
@@ -142,7 +146,8 @@ int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
                 }
 
                 // MPI max abs reduction
-                struct { scalar_t max; int loc; } max_loc_in, max_loc;
+                // todo: if root & IN_PLACE
+                struct { real_t max; int loc; } max_loc_in, max_loc;
                 max_loc_in.max = std::abs(max_val[0]);
                 max_loc_in.loc = mpi_rank;
                 MPI_Allreduce(&max_loc_in, &max_loc, 1, MPI_DOUBLE_INT,
@@ -160,11 +165,13 @@ int64_t getrf(std::vector< Tile<scalar_t> >& tiles,
                 if (max_loc.loc == mpi_rank) {
                     // if I am the root
                     if (root) {
-                        // local swap
-                        // todo: what if pivot on the diag?
-                        swap(k, std::min(diag_len-k, ib),
-                             tiles.at(0), j, tiles.at(max_idx[0]),
-                             max_offs[0]);
+                        // if pivot not on the diagonal
+                        if (max_idx[0] > 0 && max_offs[0] > j) {
+                            // local swap
+                            swap(k, std::min(diag_len-k, ib),
+                                 tiles.at(0), j,
+                                 tiles.at(max_idx[0]), max_offs[0]);
+                        }
                     }
                     // I am not the root
                     else {

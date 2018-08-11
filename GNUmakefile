@@ -459,7 +459,6 @@ scalapack_api_src += \
                      scalapack_api/scalapack_lange.cc \
                      scalapack_api/scalapack_lansy.cc \
                      scalapack_api/scalapack_lantr.cc \
-                     scalapack_api/scalapack_lanhe.cc \
 
 scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
 

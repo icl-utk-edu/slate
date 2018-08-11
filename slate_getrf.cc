@@ -58,10 +58,10 @@ namespace specialization {
 /// Panel and lookahead computed on host using Host OpenMP task.
 template <Target target, typename scalar_t>
 void getrf(slate::internal::TargetType<target>,
-           Matrix<scalar_t>& A, int64_t lookahead)
+           Matrix<scalar_t>& A, int64_t ib, int64_t lookahead)
 {
-    using real_t = blas::real_type<scalar_t>;
-    using BcastList = typename Matrix<scalar_t>::BcastList;
+    // using real_t = blas::real_type<scalar_t>;
+    // using BcastList = typename Matrix<scalar_t>::BcastList;
 
     const int64_t A_nt = A.nt();
     const int64_t A_mt = A.mt();
@@ -77,7 +77,7 @@ void getrf(slate::internal::TargetType<target>,
         #pragma omp task depend(inout:column[k]) priority(1)
         {
             // factor A(k:mt-1, k)
-            internal::getrf<Target::HostTask>(A.sub(k, A_mt-1, k, k), 1);
+            internal::getrf<Target::HostTask>(A.sub(k, A_mt-1, k, k), ib, 1);
 
         }
         // update lookahead column(s), high priority
@@ -126,8 +126,17 @@ void getrf(Matrix<scalar_t>& A,
         lookahead = 1;
     }
 
+    int64_t ib;
+    try {
+        ib = opts.at(Option::InnerBlocking).i_;
+        assert(ib >= 0);
+    }
+    catch (std::out_of_range) {
+        ib = 1;
+    }
+
     internal::specialization::getrf(internal::TargetType<target>(),
-                                    A, lookahead);
+                                    A, ib, lookahead);
 }
 
 //------------------------------------------------------------------------------

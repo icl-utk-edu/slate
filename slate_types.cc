@@ -41,10 +41,13 @@
 
 namespace slate {
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 MPI_Datatype mpi_type<float >::value = MPI_FLOAT;
 MPI_Datatype mpi_type<double>::value = MPI_DOUBLE;
 MPI_Datatype mpi_type< std::complex<float>  >::value = MPI_C_COMPLEX;
 MPI_Datatype mpi_type< std::complex<double> >::value = MPI_C_DOUBLE_COMPLEX;
+
+MPI_Datatype mpi_type< max_loc_type<float>  >::value = MPI_FLOAT_INT;
+MPI_Datatype mpi_type< max_loc_type<double> >::value = MPI_DOUBLE_INT;
 
 } // namespace slate

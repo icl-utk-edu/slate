@@ -210,9 +210,9 @@ public:
     void getRanks(std::set<int>* bcast_set) const;
     void getLocalDevices(std::set<int>* dev_set) const;
     int64_t numLocalTiles() const;
-    MPI_Comm mpiComm() const { return mpi_comm_; }
-    MPI_Comm mpiRank() const { return mpi_rank_; }
-    MPI_Comm mpiGroup() const { return mpi_group_; }
+    MPI_Comm  mpiComm()  const { return mpi_comm_; }
+    int       mpiRank()  const { return mpi_rank_; }
+    MPI_Group mpiGroup() const { return mpi_group_; }
 
     /// Removes all tiles from matrix.
     void clear()

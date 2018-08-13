@@ -385,7 +385,7 @@ inline T roundup( T x, T y )
 
 void test_gemm ( Params& params, bool run );
 void test_potrf ( Params& params, bool run );
-void test_potrf_lapack ( Params& params, bool run );
+void test_getrf ( Params& params, bool run );
 void test_symm ( Params& params, bool run );
 void test_syr2k ( Params& params, bool run );
 void test_syrk ( Params& params, bool run );

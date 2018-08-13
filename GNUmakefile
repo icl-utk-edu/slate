@@ -257,7 +257,7 @@ lib_src += \
        slate_trsm.cc \
 
 # main tester
-test_src = \
+test_src += \
         test/test.cc       \
         test/test_gemm.cc  \
         test/test_trmm.cc  \
@@ -272,6 +272,7 @@ test_src = \
         test/test_genorm.cc  \
         test/test_synorm.cc  \
         test/test_trnorm.cc  \
+        test/test_getrf.cc \
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
 # Note that 'make' sets $(FC) to f77 by default.

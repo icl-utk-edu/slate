@@ -83,7 +83,7 @@ std::vector< libtest::routines_t > routines = {
   // //{ "gtsvx",              test_gtsvx,     Section::gesv },
   //   { "",                   nullptr,        Section::newline },
 
-  //   { "getrf",              test_getrf,     Section::gesv },
+    { "getrf",              test_getrf,     Section::gesv },
   //   { "gbtrf",              test_gbtrf,     Section::gesv },
   //   { "gttrf",              test_gttrf,     Section::gesv },
   //   { "",                   nullptr,        Section::newline },

@@ -732,4 +732,54 @@ inline void scalapack_pherk (const char *uplo, const char *trans, int64_t n, int
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+
+#define scalapack_psgetrf BLAS_FORTRAN_NAME( psgetrf, PSGETRF )
+#define scalapack_pdgetrf BLAS_FORTRAN_NAME( pdgetrf, PDGETRF )
+#define scalapack_pcgetrf BLAS_FORTRAN_NAME( pcgetrf, PCGETRF )
+#define scalapack_pzgetrf BLAS_FORTRAN_NAME( pzgetrf, PZGETRF )
+
+extern "C" void scalapack_psgetrf (blas_int *M , blas_int *N , float *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , blas_int *info );
+
+extern "C" void scalapack_pdgetrf (blas_int *M , blas_int *N , double *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , blas_int *info );
+
+extern "C" void scalapack_pcgetrf (blas_int *M , blas_int *N , std::complex<float> *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , blas_int *info );
+
+extern "C" void scalapack_pzgetrf (blas_int *M , blas_int *N , std::complex<double> *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , blas_int *info );
+
+// -----------------------------------------------------------------------------
+
+inline void scalapack_pgetrf (blas_int *M , blas_int *N , float *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , blas_int *info )
+{
+    scalapack_psgetrf (M, N, A, ia, ja, descA, ipiv, info);
+}
+
+inline void scalapack_pgetrf (blas_int *M , blas_int *N , double *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , blas_int *info )
+{
+    scalapack_pdgetrf (M, N, A, ia, ja, descA, ipiv, info);
+}
+
+inline void scalapack_pgetrf (blas_int *M , blas_int *N ,std::complex<float> *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , blas_int *info )
+{
+    scalapack_pcgetrf (M, N, A, ia, ja, descA, ipiv, info);
+}
+
+inline void scalapack_pgetrf (blas_int *M , blas_int *N , std::complex<double> *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , blas_int *info )
+{
+    scalapack_pzgetrf (M, N, A, ia, ja, descA, ipiv, info);
+}
+
+template <typename scalar_t>
+inline void scalapack_pgetrf (int64_t M , int64_t N , scalar_t *A , int64_t ia , int64_t ja , blas_int *descA , blas_int *ipiv , int64_t *info )
+{
+    blas_int M_ = int64_to_int (M);
+    blas_int N_ = int64_to_int (N);
+    blas_int ia_ = int64_to_int (ia);
+    blas_int ja_ = int64_to_int (ja);
+    blas_int info_ = int64_to_int (*info);
+    scalapack_pgetrf (&M_ , &N_ , A , &ia_ , &ja_ , descA , ipiv , &info_ );
+    *info = (int64_t)info_;
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 #endif // ICL_SLATE_SCALAPACK_WRAPPERS_HH

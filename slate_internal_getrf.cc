@@ -113,19 +113,21 @@ void getrf(internal::TargetType<Target::HostTask>,
     if (tiles.size() < max_panel_threads)
         thread_size = tiles.size();
 
-    std::vector<scalar_t> max_val(thread_size);
-    std::vector<int64_t> max_idx(thread_size);
-    std::vector<int64_t> max_offs(thread_size);
+    std::vector<scalar_t> max_value(thread_size);
+    std::vector<int64_t> max_index(thread_size);
+    std::vector<int64_t> max_offset(thread_size);
     std::vector<scalar_t> top_row(A.tileNb(0));
     ThreadBarrier thread_barrier;
-    std::vector< pivot_t<scalar_t> > piv_vec(A.tileMb(0));
+    std::vector< pivot_t<scalar_t> > pivot_vector(A.tileMb(0));
 
     // #pragma omp parallel for \
     //     num_threads(thread_size) \
-    //     shared(thread_barrier, max_val, max_idx, max_offs, top_row, piv_vec)
+    //     shared(thread_barrier, max_value, max_index, max_offset, top_row, \
+                  pivot_vector)
     #pragma omp taskloop \
         num_tasks(thread_size) \
-        shared(thread_barrier, max_val, max_idx, max_offs, top_row, piv_vec)
+        shared(thread_barrier, max_value, max_index, max_offset, top_row, \
+               pivot_vector)
     for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank)
     {
         // Factor the panel in parallel.
@@ -133,9 +135,9 @@ void getrf(internal::TargetType<Target::HostTask>,
               tiles, tile_indices, tile_offsets,
               thread_rank, thread_size,
               thread_barrier,
-              max_val, max_idx, max_offs, top_row,
+              max_value, max_index, max_offset, top_row,
               bcast_rank, bcast_root, bcast_comm,
-              piv_vec);
+              pivot_vector);
     }
 
     #pragma omp taskwait

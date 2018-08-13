@@ -54,10 +54,9 @@ namespace slate {
 template <typename scalar_t>
 class pivot_t {
 public:
-    scalar_t val;
-    int64_t tile_idx;
-    int64_t elem_offs;
-    int64_t scalapack_idx;
+    scalar_t value;
+    int64_t tile_index;
+    int64_t element_offset;
 };
 
 ///-----------------------------------------------------------------------------
@@ -70,10 +69,10 @@ int64_t getrf(int64_t ib,
               std::vector<int64_t>& tile_offsets,
               int thread_rank, int thread_size,
               ThreadBarrier& thread_barrier,
-              std::vector<scalar_t>& max_val, std::vector<int64_t>& max_idx,
-              std::vector<int64_t>& max_offs, std::vector<scalar_t>& top_row,
+              std::vector<scalar_t>& max_value, std::vector<int64_t>& max_index,
+              std::vector<int64_t>& max_offset, std::vector<scalar_t>& top_row,
               int mpi_rank, int mpi_root, MPI_Comm mpi_comm,
-              std::vector< pivot_t<scalar_t> >& piv_vec)
+              std::vector< pivot_t<scalar_t> >& pivot_vector)
 {
     trace::Block trace_block("lapack::getrf");
 
@@ -86,23 +85,23 @@ int64_t getrf(int64_t ib,
 
     auto mb = tiles.at(0).mb();
     auto nb = tiles.at(0).nb();
-    int64_t diag_len = std::min(nb, mb);
+    int64_t diagonal_length = std::min(nb, mb);
 
     // Loop over ib-wide stripes.
-    for (int64_t k = 0; k < diag_len; k += ib) {
+    for (int64_t k = 0; k < diagonal_length; k += ib) {
 
         // Loop over ib columns of a stripe.
-        for (int64_t j = k; j < k+ib && j < diag_len; ++j) {
+        for (int64_t j = k; j < k+ib && j < diagonal_length; ++j) {
 
             if (root) {
-                max_val[thread_rank] = tiles.at(0)(j, j);
-                max_idx[thread_rank] = 0;
-                max_offs[thread_rank] = j;
+                max_value[thread_rank] = tiles.at(0)(j, j);
+                max_index[thread_rank] = 0;
+                max_offset[thread_rank] = j;
             }
             else {
-                max_val[thread_rank] = tiles.at(0)(0, j);
-                max_idx[thread_rank] = 0;
-                max_offs[thread_rank] = 0;
+                max_value[thread_rank] = tiles.at(0)(0, j);
+                max_index[thread_rank] = 0;
+                max_offset[thread_rank] = 0;
             }
 
             //------------------
@@ -118,11 +117,11 @@ int64_t getrf(int64_t ib,
                 if (i_index == 0) {
                     for (int64_t i = j+1; i < tile.mb(); ++i) {
                         if (std::abs(tile(i, j)) >
-                            std::abs(max_val[thread_rank]))
+                            std::abs(max_value[thread_rank]))
                         {
-                            max_val[thread_rank] = tile(i, j);
-                            max_idx[thread_rank] = idx;
-                            max_offs[thread_rank] = i;
+                            max_value[thread_rank] = tile(i, j);
+                            max_index[thread_rank] = idx;
+                            max_offset[thread_rank] = i;
                         }
                     }
 
@@ -131,11 +130,11 @@ int64_t getrf(int64_t ib,
                 else {
                     for (int64_t i = 0; i < tile.mb(); ++i) {
                         if (std::abs(tile(i, j)) >
-                            std::abs(max_val[thread_rank]))
+                            std::abs(max_value[thread_rank]))
                         {
-                            max_val[thread_rank] = tile(i, j);
-                            max_idx[thread_rank] = idx;
-                            max_offs[thread_rank] = i;
+                            max_value[thread_rank] = tile(i, j);
+                            max_index[thread_rank] = idx;
+                            max_offset[thread_rank] = i;
                         }
                     }
                 }
@@ -145,19 +144,18 @@ int64_t getrf(int64_t ib,
             //------------------------------------
             // global max reduction and pivot swap
             if (thread_rank == 0) {
-
                 // threads max reduction
                 for (int rank = 1; rank < thread_size; ++rank) {
-                    if (std::abs(max_val[rank]) > std::abs(max_val[0])) {
-                        max_val[0] = max_val[rank];
-                        max_idx[0] = max_idx[rank];
-                        max_offs[0] = max_offs[rank];
+                    if (std::abs(max_value[rank]) > std::abs(max_value[0])) {
+                        max_value[0] = max_value[rank];
+                        max_index[0] = max_index[rank];
+                        max_offset[0] = max_offset[rank];
                     }
                 }
 
                 // MPI max abs reduction
                 struct { real_t max; int loc; } max_loc_in, max_loc;
-                max_loc_in.max = std::abs(max_val[0]);
+                max_loc_in.max = std::abs(max_value[0]);
                 max_loc_in.loc = mpi_rank;
                 #pragma omp critical(slate_mpi)
                 {
@@ -168,14 +166,13 @@ int64_t getrf(int64_t ib,
                 }
 
                 // Broadcast the pivot information.
-                piv_vec[j] = {max_val[0],
-                              max_idx[0],
-                              max_offs[0],
-                              tile_offsets[max_idx[0]] + max_offs[0]};
+                pivot_vector[j] = {max_value[0],
+                                   max_index[0],
+                                   max_offset[0]};
                 #pragma omp critical(slate_mpi)
                 {
                     slate_mpi_call(
-                        MPI_Bcast(&piv_vec[j], sizeof(pivot_t<scalar_t>),
+                        MPI_Bcast(&pivot_vector[j], sizeof(pivot_t<scalar_t>),
                                   MPI_BYTE, max_loc.loc, mpi_comm));
                 }
 
@@ -187,18 +184,18 @@ int64_t getrf(int64_t ib,
                     // if I am the root
                     if (root) {
                         // if pivot not on the diagonal
-                        if (max_idx[0] > 0 || max_offs[0] > j) {
+                        if (max_index[0] > 0 || max_offset[0] > j) {
                             // local swap
-                            swap(k, std::min(diag_len-k, ib),
+                            swap(k, std::min(diagonal_length-k, ib),
                                  tiles.at(0), j,
-                                 tiles.at(max_idx[0]), max_offs[0]);
+                                 tiles.at(max_index[0]), max_offset[0]);
                         }
                     }
                     // I am not the root
                     else {
                         // MPI swap with the root
-                        swap(k, std::min(diag_len-k, ib),
-                             tiles.at(max_idx[0]), max_offs[0], mpi_root,
+                        swap(k, std::min(diagonal_length-k, ib),
+                             tiles.at(max_index[0]), max_offset[0],mpi_root,
                              mpi_comm);
                     }
                 }
@@ -207,7 +204,7 @@ int64_t getrf(int64_t ib,
                     // I am the root
                     if (root) {
                         // MPI swap with the pivot owner
-                        swap(k, std::min(diag_len-k, ib),
+                        swap(k, std::min(diagonal_length-k, ib),
                              tiles.at(0), j, max_loc.loc, mpi_comm);
                     }
                 }
@@ -215,7 +212,7 @@ int64_t getrf(int64_t ib,
                 // Broadcast the top row for the geru operation.
                 if (root) {
                     auto top_tile = tiles.at(0);
-                    blas::copy(std::min(k+ib-j-1, diag_len-j-1),
+                    blas::copy(std::min(k+ib-j-1, diagonal_length-j-1),
                                &top_tile.data()[j+(j+1)*top_tile.stride()],
                                top_tile.stride(), top_row.data(), 1);
                 }
@@ -223,7 +220,8 @@ int64_t getrf(int64_t ib,
                 {
                     slate_mpi_call(
                         MPI_Bcast(
-                            top_row.data(), std::min(k+ib-j-1, diag_len-j-1),
+                            top_row.data(),
+                            std::min(k+ib-j-1, diagonal_length-j-1),
                             mpi_type<scalar_t>::value, mpi_root, mpi_comm));
                 }
             }
@@ -245,25 +243,27 @@ int64_t getrf(int64_t ib,
                 else {
                     // off diagonal tile
                     for (int64_t i = 0; i < tile.mb(); ++i)
-                        tile.at(i, j) /= piv_vec[j].val;
+                        tile.at(i, j) /= pivot_vector[j].value;
                 }
 
                 // todo: make it a tile operation
                 if (i_index == 0) {
-                    blas::geru(blas::Layout::ColMajor,
-                               tile.mb()-j-1, std::min(k+ib-j-1, diag_len-j-1),
-                               -1.0, &tile.data()[j+1+j*tile.stride()], 1,
-                                     top_row.data(), 1,
-                                     &tile.data()[j+1+(j+1)*tile.stride()],
-                                     tile.stride());
+                    blas::geru(
+                        blas::Layout::ColMajor,
+                        tile.mb()-j-1, std::min(k+ib-j-1, diagonal_length-j-1),
+                        -1.0, &tile.data()[j+1+j*tile.stride()], 1,
+                              top_row.data(), 1,
+                              &tile.data()[j+1+(j+1)*tile.stride()],
+                              tile.stride());
                 }
                 else {
-                    blas::geru(blas::Layout::ColMajor,
-                               tile.mb(), std::min(k+ib-j-1, diag_len-j-1),
-                               -1.0, &tile.data()[j*tile.stride()], 1,
-                                     top_row.data(), 1,
-                                     &tile.data()[(j+1)*tile.stride()],
-                                     tile.stride());
+                    blas::geru(
+                        blas::Layout::ColMajor,
+                        tile.mb(), std::min(k+ib-j-1, diagonal_length-j-1),
+                        -1.0, &tile.data()[j*tile.stride()], 1,
+                              top_row.data(), 1,
+                              &tile.data()[(j+1)*tile.stride()],
+                              tile.stride());
                 }
 
             }

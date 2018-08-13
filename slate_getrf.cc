@@ -58,7 +58,8 @@ namespace specialization {
 /// Panel and lookahead computed on host using Host OpenMP task.
 template <Target target, typename scalar_t>
 void getrf(slate::internal::TargetType<target>,
-           Matrix<scalar_t>& A, int64_t ib, int64_t lookahead)
+           Matrix<scalar_t>& A, int64_t ib, int max_panel_threads,
+           int64_t lookahead)
 {
     // using real_t = blas::real_type<scalar_t>;
     // using BcastList = typename Matrix<scalar_t>::BcastList;
@@ -77,7 +78,8 @@ void getrf(slate::internal::TargetType<target>,
         #pragma omp task depend(inout:column[k]) priority(1)
         {
             // factor A(k:mt-1, k)
-            internal::getrf<Target::HostTask>(A.sub(k, A_mt-1, k, k), ib, 1);
+            internal::getrf<Target::HostTask>(A.sub(k, A_mt-1, k, k),
+                                              ib, max_panel_threads, 1);
 
         }
         // update lookahead column(s), high priority
@@ -135,8 +137,17 @@ void getrf(Matrix<scalar_t>& A,
         ib = 1;
     }
 
+    int64_t max_panel_threads;
+    try {
+        max_panel_threads = opts.at(Option::MaxPanelThreads).i_;
+        assert(max_panel_threads >= 0);
+    }
+    catch (std::out_of_range) {
+        max_panel_threads = std::max(omp_get_max_threads()/2, 1);
+    }
+
     internal::specialization::getrf(internal::TargetType<target>(),
-                                    A, ib, lookahead);
+                                    A, ib, max_panel_threads, lookahead);
 }
 
 //------------------------------------------------------------------------------

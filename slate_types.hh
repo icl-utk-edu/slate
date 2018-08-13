@@ -75,6 +75,7 @@ enum class Option {
     Lookahead,
     BlockSize,
     InnerBlocking,
+    MaxPanelThreads,
     Tolerance,
     Target,
 };

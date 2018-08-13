@@ -51,9 +51,10 @@ namespace internal {
 /// LU factorization of a column of tiles.
 /// Dispatches to target implementations.
 template <Target target, typename scalar_t>
-void getrf(Matrix<scalar_t>&& A, int64_t ib, int priority)
+void getrf(Matrix<scalar_t>&& A, int64_t ib, int max_panel_threads,
+           int priority)
 {
-    getrf(internal::TargetType<target>(), A, ib, priority);
+    getrf(internal::TargetType<target>(), A, ib, max_panel_threads, priority);
 }
 
 ///-----------------------------------------------------------------------------
@@ -61,7 +62,8 @@ void getrf(Matrix<scalar_t>&& A, int64_t ib, int priority)
 /// LU factorization of a column of tiles, host implementation.
 template <typename scalar_t>
 void getrf(internal::TargetType<Target::HostTask>,
-           Matrix<scalar_t>& A, int64_t ib, int priority)
+           Matrix<scalar_t>& A, int64_t ib, int max_panel_threads,
+           int priority)
 {
     assert(A.nt() == 1);
 
@@ -107,7 +109,10 @@ void getrf(internal::TargetType<Target::HostTask>,
     MPI_Comm_rank(bcast_comm, &bcast_rank);
 
     // Launch the panel tasks.
-    const int thread_size = 2;
+    int thread_size = max_panel_threads;
+    if (tiles.size() < max_panel_threads)
+        thread_size = tiles.size();
+
     std::vector<scalar_t> max_val(thread_size);
     std::vector<int64_t> max_idx(thread_size);
     std::vector<int64_t> max_offs(thread_size);
@@ -141,25 +146,25 @@ void getrf(internal::TargetType<Target::HostTask>,
 // ----------------------------------------
 template
 void getrf<Target::HostTask, float>(
-    Matrix<float>&& A, int64_t ib, 
+    Matrix<float>&& A, int64_t ib, int max_panel_threads,
     int priority);
 
 // ----------------------------------------
 template
 void getrf<Target::HostTask, double>(
-    Matrix<double>&& A, int64_t ib, 
+    Matrix<double>&& A, int64_t ib, int max_panel_threads,
     int priority);
 
 // ----------------------------------------
 template
 void getrf< Target::HostTask, std::complex<float> >(
-    Matrix< std::complex<float> >&& A, int64_t ib, 
+    Matrix< std::complex<float> >&& A, int64_t ib, int max_panel_threads,
     int priority);
 
 // ----------------------------------------
 template
 void getrf< Target::HostTask, std::complex<double> >(
-    Matrix< std::complex<double> >&& A, int64_t ib, 
+    Matrix< std::complex<double> >&& A, int64_t ib, int max_panel_threads,
     int priority);
 
 } // namespace internal

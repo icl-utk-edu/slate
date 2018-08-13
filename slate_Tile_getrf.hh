@@ -51,19 +51,29 @@
 
 namespace slate {
 
+template <typename scalar_t>
+class pivot_t {
+public:
+    scalar_t val;
+    int64_t tile_idx;
+    int64_t elem_offs;
+    int64_t scalapack_idx;
+};
+
 ///-----------------------------------------------------------------------------
 /// \brief
 /// Compute the LU factorization of a panel.
 template <typename scalar_t>
 int64_t getrf(int64_t ib,
               std::vector< Tile<scalar_t> >& tiles,
-              std::vector<int64_t>& i_indices, std::vector<int64_t>& i_offsets,
+              std::vector<int64_t>& tile_indices,
+              std::vector<int64_t>& tile_offsets,
               int thread_rank, int thread_size,
               ThreadBarrier& thread_barrier,
               std::vector<scalar_t>& max_val, std::vector<int64_t>& max_idx,
-              std::vector<int64_t>& max_offs,
-              scalar_t& piv_val, std::vector<scalar_t>& top_row,
-              int mpi_rank, int mpi_root, MPI_Comm mpi_comm)
+              std::vector<int64_t>& max_offs, std::vector<scalar_t>& top_row,
+              int mpi_rank, int mpi_root, MPI_Comm mpi_comm,
+              std::vector< pivot_t<scalar_t> >& piv_vec)
 {
     trace::Block trace_block("lapack::getrf");
 
@@ -72,7 +82,7 @@ int64_t getrf(int64_t ib,
 
     bool root = mpi_rank == mpi_root;
     if (root)
-        assert(i_indices[0] == 0);
+        assert(tile_indices[0] == 0);
 
     auto mb = tiles.at(0).mb();
     auto nb = tiles.at(0).nb();
@@ -102,7 +112,7 @@ int64_t getrf(int64_t ib,
                  idx += thread_size)
             {
                 auto tile = tiles.at(idx);
-                auto i_index = i_indices.at(idx);
+                auto i_index = tile_indices.at(idx);
 
                 // if diagonal tile
                 if (i_index == 0) {
@@ -157,13 +167,16 @@ int64_t getrf(int64_t ib,
                                       MPI_MAXLOC, mpi_comm));
                 }
 
-                // Broadcast the pivot actual value (not abs).
-                piv_val = max_val[0];
+                // Broadcast the pivot information.
+                piv_vec[j] = {max_val[0],
+                              max_idx[0],
+                              max_offs[0],
+                              tile_offsets[max_idx[0]] + max_offs[0]};
                 #pragma omp critical(slate_mpi)
                 {
                     slate_mpi_call(
-                        MPI_Bcast(&piv_val, 1, mpi_type<scalar_t>::value,
-                                  max_loc.loc, mpi_comm));
+                        MPI_Bcast(&piv_vec[j], sizeof(pivot_t<scalar_t>),
+                                  MPI_BYTE, max_loc.loc, mpi_comm));
                 }
 
                 //-----------
@@ -222,7 +235,7 @@ int64_t getrf(int64_t ib,
                  idx += thread_size)
             {
                 auto tile = tiles.at(idx);
-                auto i_index = i_indices.at(idx);
+                auto i_index = tile_indices.at(idx);
 
                 if (i_index == 0) {
                     // diagonal tile
@@ -232,7 +245,7 @@ int64_t getrf(int64_t ib,
                 else {
                     // off diagonal tile
                     for (int64_t i = 0; i < tile.mb(); ++i)
-                        tile.at(i, j) /= piv_val;
+                        tile.at(i, j) /= piv_vec[j].val;
                 }
 
                 // todo: make it a tile operation

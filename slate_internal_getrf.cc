@@ -78,21 +78,21 @@ void getrf(internal::TargetType<Target::HostTask>,
 
     // lists of local tiles, indices, and offsets
     std::vector< Tile<scalar_t> > tiles;
-    std::vector<int64_t> i_indices;
-    std::vector<int64_t> i_offsets;
+    std::vector<int64_t> tile_indices;
+    std::vector<int64_t> tile_offsets;
 
     // Build the broadcast set.
     // Build lists of local tiles, indices, and offsets.
-    int64_t i_offset = 0;
+    int64_t tile_offset = 0;
     std::set<int> bcast_set;
     for (int64_t i = 0; i < A.mt(); ++i) {
         bcast_set.insert(A.tileRank(i, 0));
         if (A.tileIsLocal(i, 0)) {
             tiles.push_back(A(i, 0));
-            i_indices.push_back(i);
-            i_offsets.push_back(i_offset);
+            tile_indices.push_back(i);
+            tile_offsets.push_back(tile_offset);
         }
-        i_offset += A.tileMb(i);
+        tile_offset += A.tileMb(i);
     }
 
     // Create the broadcast communicator.
@@ -111,26 +111,26 @@ void getrf(internal::TargetType<Target::HostTask>,
     std::vector<scalar_t> max_val(thread_size);
     std::vector<int64_t> max_idx(thread_size);
     std::vector<int64_t> max_offs(thread_size);
-    scalar_t piv_val;
     std::vector<scalar_t> top_row(A.tileNb(0));
     ThreadBarrier thread_barrier;
+    std::vector< pivot_t<scalar_t> > piv_vec(A.tileMb(0));
 
     // #pragma omp parallel for \
     //     num_threads(thread_size) \
-    //     shared(thread_barrier, max_val, max_idx, max_offs, piv_val, top_row)
+    //     shared(thread_barrier, max_val, max_idx, max_offs, top_row, piv_vec)
     #pragma omp taskloop \
         num_tasks(thread_size) \
-        shared(thread_barrier, max_val, max_idx, max_offs, piv_val, top_row)
+        shared(thread_barrier, max_val, max_idx, max_offs, top_row, piv_vec)
     for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank)
     {
         // Factor the panel in parallel.
         getrf(ib,
-              tiles, i_indices, i_offsets,
+              tiles, tile_indices, tile_offsets,
               thread_rank, thread_size,
               thread_barrier,
-              max_val, max_idx, max_offs,
-              piv_val, top_row,
-              bcast_rank, bcast_root, bcast_comm);
+              max_val, max_idx, max_offs, top_row,
+              bcast_rank, bcast_root, bcast_comm,
+              piv_vec);
     }
 
     #pragma omp taskwait

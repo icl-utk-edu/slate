@@ -105,6 +105,15 @@ public:
 };
 
 //------------------------------------------------------------------------------
+template <typename scalar_t>
+class Pivot {
+public:
+    scalar_t value;
+    int64_t tile_index;
+    int64_t element_offset;
+};
+
+//------------------------------------------------------------------------------
 /// gives mpi_type based on actual scalar_t.
 //  constants are initialized in slate_types.cc
 template <typename scalar_t>

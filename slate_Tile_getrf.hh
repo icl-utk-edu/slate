@@ -51,14 +51,6 @@
 
 namespace slate {
 
-template <typename scalar_t>
-class pivot_t {
-public:
-    scalar_t value;
-    int64_t tile_index;
-    int64_t element_offset;
-};
-
 ///-----------------------------------------------------------------------------
 /// \brief
 /// Compute the LU factorization of a panel.
@@ -72,7 +64,7 @@ int64_t getrf(int64_t ib,
               std::vector<scalar_t>& max_value, std::vector<int64_t>& max_index,
               std::vector<int64_t>& max_offset, std::vector<scalar_t>& top_row,
               int mpi_rank, int mpi_root, MPI_Comm mpi_comm,
-              std::vector< pivot_t<scalar_t> >& pivot_vector)
+              std::vector< Pivot<scalar_t> >& pivot_vector)
 {
     trace::Block trace_block("lapack::getrf");
 
@@ -172,7 +164,7 @@ int64_t getrf(int64_t ib,
                 #pragma omp critical(slate_mpi)
                 {
                     slate_mpi_call(
-                        MPI_Bcast(&pivot_vector[j], sizeof(pivot_t<scalar_t>),
+                        MPI_Bcast(&pivot_vector[j], sizeof(Pivot<scalar_t>),
                                   MPI_BYTE, max_loc.loc, mpi_comm));
                 }
 

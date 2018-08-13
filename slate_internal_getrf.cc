@@ -118,7 +118,7 @@ void getrf(internal::TargetType<Target::HostTask>,
     std::vector<int64_t> max_offset(thread_size);
     std::vector<scalar_t> top_row(A.tileNb(0));
     ThreadBarrier thread_barrier;
-    std::vector< pivot_t<scalar_t> > pivot_vector(A.tileMb(0));
+    std::vector< Pivot<scalar_t> > pivot_vector(A.tileMb(0));
 
     // #pragma omp parallel for \
     //     num_threads(thread_size) \

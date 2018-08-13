@@ -226,21 +226,20 @@ cmds = []
 # Level 3
 if (opts.blas3):
     cmds += [
-    [ 'gemm',  dtype         + transA + transB + mnk + nb ],
-    [ 'symm',  dtype         + side + uplo + mn + nb ],
-    [ 'trmm',  dtype         + side + uplo + transA + diag + mn + nb ],
-    [ 'syr2k', dtype_real    + uplo + trans    + mn + nb ],
-    [ 'syr2k', dtype_complex + uplo + trans_nt + mn + nb],
-    [ 'syrk',  dtype_real    + uplo + trans    + mn + nb ],
-    [ 'syrk',  dtype_complex + uplo + trans_nt + mn + nb ],
+    [ 'gemm',  dtype         + transA + transB + mnk + nb + p + q ],
+    [ 'symm',  dtype         + side + uplo + mn + nb + p + q ],
+    [ 'trmm',  dtype         + side + uplo + transA + diag + mn + nb + p + q ],
+    [ 'syr2k', dtype_real    + uplo + trans    + mn + nb + p + q ],
+    [ 'syr2k', dtype_complex + uplo + trans_nt + mn + nb + p + q ],
+    [ 'syrk',  dtype_real    + uplo + trans    + mn + nb + p + q ],
+    [ 'syrk',  dtype_complex + uplo + trans_nt + mn + nb + p + q ],
     [ 'trsm',  dtype         + side + uplo + transA + diag + mn + nb ],
 
-
-    [ 'hemm',  dtype         + layout + side + uplo + mn ],
-    [ 'herk',  dtype_real    + layout + uplo + trans    + mn ],
-    [ 'herk',  dtype_complex + layout + uplo + trans_nc + mn ],
-    [ 'her2k', dtype_real    + layout + uplo + trans    + mn ],
-    [ 'her2k', dtype_complex + layout + uplo + trans_nc + mn ],
+    [ 'hemm',  dtype         + side + uplo + mn + nb + p + q ],
+    [ 'herk',  dtype_real    + uplo + trans    + mn + nb + p + q ],
+    [ 'herk',  dtype_complex + uplo + trans_nc + mn + nb + p + q ],
+    [ 'her2k', dtype_real    + uplo + trans    + mn + nb + p + q ],
+    [ 'her2k', dtype_complex + uplo + trans_nc + mn + nb + p + q ],
     ]
 
 # LU
@@ -280,7 +279,7 @@ if (opts.gt):
 if (opts.chol):
     cmds += [
     #[ 'posv',  check + dtype + n + uplo ],
-    [ 'potrf', check + dtype_double + nt + nb + uplo + p + q ],
+    [ 'potrf', check + dtype + n + uplo + nb + p + q ],
     #[ 'potrs', check + dtype + n + uplo ],
     #[ 'potri', check + dtype + n + uplo ],
     #[ 'pocon', check + dtype + n + uplo ],

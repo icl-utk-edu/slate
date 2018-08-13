@@ -38,16 +38,10 @@
 //------------------------------------------------------------------------------
 
 #include "slate.hh"
+#include "lapack_slate.hh"
 #include "slate_cuda.hh"
 #include "blas_fortran.hh"
 #include <complex>
-
-#ifdef SLATE_WITH_MKL
-extern "C" int MKL_Set_Num_Threads(int nt);
-inline int slate_set_num_blas_threads(const int nt) { return MKL_Set_Num_Threads(nt); }
-#else
-inline int slate_set_num_blas_threads(const int nt) { return 1; }
-#endif
 
 namespace slate {
 namespace lapack_api {
@@ -92,48 +86,22 @@ extern "C" void slate_zgemm(const char* transa, const char* transb, int* m, int*
 template< typename scalar_t >
 void slate_gemm(const char* transastr, const char* transbstr, int m, int n, int k, scalar_t alpha, scalar_t* a, int lda, scalar_t* b, int ldb, scalar_t beta, scalar_t* c, int ldc)
 {
+    // Need a dummy MPI_Init for SLATE to proceed
     int initialized, provided;
     MPI_Initialized(&initialized);
-    if (! initialized) MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided);
+    if (! initialized) MPI_Init_thread(nullptr, nullptr, MPI_THREAD_SERIALIZED, &provided);
 
     // todo: does this set the omp num threads correctly in all circumstances
-    int saved_num_blas_threads = slate_set_num_blas_threads(1);
+    int saved_num_blas_threads = slate_lapack_set_num_blas_threads(1);
 
     blas::Op transA = blas::char2op(transastr[0]);
     blas::Op transB = blas::char2op(transbstr[0]);
     int64_t lookahead = 1;
     int64_t p = 1;
     int64_t q = 1;
-    static slate::Target target;
-    static int64_t target_is_set = 0;
-    static int64_t nb = 0;
-
-    // set target if not already done
-    if (! target_is_set) {
-        int cudadevcount = 0;
-        target = slate::Target::HostTask;
-        if (std::getenv("SLATE_TARGET")) {
-            char targetchar = (char)(toupper(std::getenv("SLATE_TARGET")[4]));
-            if (targetchar=='T') target = slate::Target::HostTask;
-            else if (targetchar=='N') target = slate::Target::HostNest;
-            else if (targetchar=='B') target = slate::Target::HostBatch;
-            else if (targetchar=='C') target = slate::Target::Devices;
-        }
-        else if (cudaGetDeviceCount(&cudadevcount)==cudaSuccess && cudadevcount>0)
-            target = slate::Target::Devices;
-        target_is_set = 1;
-    }
-
-    // set nb if not already done
-    if (nb == 0) {
-        nb = 256;
-        if (std::getenv("SLATE_NB"))
-            nb = strtol(std::getenv("SLATE_NB"), NULL, 0);
-        else if (target==slate::Target::HostTask)
-            nb = 512;
-        else if (target==slate::Target::Devices)
-            nb = 1024;
-    }
+    static slate::Target target = slate_lapack_set_target();
+    static int verbose = slate_lapack_set_verbose();
+    static int64_t nb = slate_lapack_set_nb(target);
 
     // sizes of A and B
     int64_t Am = (transA == blas::Op::NoTrans ? m : k);
@@ -158,14 +126,13 @@ void slate_gemm(const char* transastr, const char* transbstr, int m, int n, int 
     else if (transB == blas::Op::ConjTrans)
         B = conj_transpose(B);
 
-    // typedef long long lld;
-    // printf("SLATE GEMM m %lld n %lld nb %lld \n", (lld)m, (lld)n, (lld)nb);
+    if (verbose) logprintf("%s\n", "gemm");
     slate::gemm(alpha, A, B, beta, C, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
 
-    slate_set_num_blas_threads(saved_num_blas_threads);
+    slate_lapack_set_num_blas_threads(saved_num_blas_threads);
 }
 
 } // namespace lapack_api

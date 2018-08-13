@@ -38,15 +38,16 @@
 //------------------------------------------------------------------------------
 
 #include "slate.hh"
+#include "lapack_slate.hh"
 #include "slate_cuda.hh"
 #include "blas_fortran.hh"
 #include <complex>
 
 #ifdef SLATE_WITH_MKL
 extern "C" int MKL_Set_Num_Threads(int nt);
-inline int slate_set_num_blas_threads(const int nt) { return MKL_Set_Num_Threads(nt); }
+inline int slate_lapack_set_num_blas_threads(const int nt) { return MKL_Set_Num_Threads(nt); }
 #else
-inline int slate_set_num_blas_threads(const int nt) { return 1; }
+inline int slate_lapack_set_num_blas_threads(const int nt) { return 1; }
 #endif
 
 namespace slate {
@@ -99,43 +100,16 @@ void slate_symm(const char* sidestr, const char* uplostr, const int m, const int
     if (! initialized) assert(MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided) == MPI_SUCCESS);
 
     // todo: does this set the omp num threads correctly in all circumstances
-    int saved_num_blas_threads = slate_set_num_blas_threads(1);
+    int saved_num_blas_threads = slate_lapack_set_num_blas_threads(1);
 
     blas::Side side = blas::char2side(sidestr[0]);
     blas::Uplo uplo = blas::char2uplo(uplostr[0]);
     int64_t lookahead = 1;
     int64_t p = 1;
     int64_t q = 1;
-    static slate::Target target;
-    static int64_t target_is_set = 0;
-    static int64_t nb = 0;
-
-    // set target if not already done
-    if (! target_is_set) {
-        int cudadevcount = 0;
-        target = slate::Target::HostTask;
-        if (std::getenv("SLATE_TARGET")) {
-            char targetchar = (char)(toupper(std::getenv("SLATE_TARGET")[4]));
-            if (targetchar=='T') target = slate::Target::HostTask;
-            else if (targetchar=='N') target = slate::Target::HostNest;
-            else if (targetchar=='B') target = slate::Target::HostBatch;
-            else if (targetchar=='C') target = slate::Target::Devices;
-        }
-        else if (cudaGetDeviceCount(&cudadevcount)==cudaSuccess && cudadevcount>0)
-            target = slate::Target::Devices;
-        target_is_set = 1;
-    }
-
-    // set nb if not already done
-    if (nb == 0) {
-        nb = 256;
-        if (std::getenv("SLATE_NB"))
-            nb = strtol(std::getenv("SLATE_NB"), NULL, 0);
-        else if (target==slate::Target::HostTask)
-            nb = 512;
-        else if (target==slate::Target::Devices)
-            nb = 1024;
-    }
+    static slate::Target target = slate_lapack_set_target();
+    static int verbose = slate_lapack_set_verbose();
+    static int64_t nb = slate_lapack_set_nb(target);
 
     // sizes of data
     int64_t An = (side == blas::Side::Left ? m : n);
@@ -156,14 +130,13 @@ void slate_symm(const char* sidestr, const char* uplostr, const int m, const int
     assert(B.mt() == C.mt());
     assert(B.nt() == C.nt());
 
-    // typedef long long lld;
-    // printf("SLATE SYMM m %lld n %lld nb %lld \n", (lld)m, (lld)n, (lld)nb);
+    if (verbose) logprintf("%s\n", "symm");
     slate::symm(side, alpha, A, B, beta, C, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
 
-    slate_set_num_blas_threads(saved_num_blas_threads);
+    slate_lapack_set_num_blas_threads(saved_num_blas_threads);
 }
 
 } // namespace lapack_api

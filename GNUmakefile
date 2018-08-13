@@ -463,6 +463,8 @@ scalapack_api_src += \
 
 scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
 
+dep += $(addsuffix .d, $(basename $(scalapack_api_src)))
+
 SCALAPACK_API_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 SCALAPACK_API_LIB     += -lslate $(scalapack)
 
@@ -489,6 +491,8 @@ lapack_api_src += \
 		lapack_api/lapack_syrk.cc \
 
 lapack_api_obj = $(addsuffix .o, $(basename $(lapack_api_src)))
+
+dep += $(addsuffix .d, $(basename $(lapack_api_src)))
 
 LAPACK_API_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 LAPACK_API_LIB     += -lslate 

@@ -42,7 +42,7 @@
 #include "slate_internal.hh"
 #include "slate_util.hh"
 #include "slate_TrapezoidMatrix.hh"
-#include "slate_Tile_blas.hh"
+#include "slate_Tile_lapack.hh"
 #include "slate_types.hh"
 
 #include <vector>

@@ -44,6 +44,7 @@
 
 #include "slate_Tile.hh"
 #include "slate_Tile_blas.hh"
+#include "slate_Tile_lapack.hh"
 #include "slate_types.hh"
 #include "slate_util.hh"
 

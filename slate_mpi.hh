@@ -61,11 +61,14 @@ enum {
     MPI_BYTE,
     MPI_LONG,
     MPI_FLOAT,
+    MPI_FLOAT_INT,
     MPI_DOUBLE,
+    MPI_DOUBLE_INT,
     MPI_C_COMPLEX,
     MPI_C_DOUBLE_COMPLEX,
 
     MPI_MAX,
+    MPI_MAXLOC,
     MPI_SUM,
 
     MPI_SUCCESS,
@@ -133,6 +136,11 @@ int MPI_Request_free(MPI_Request* request);
 
 int MPI_Send(const void* buf, int count, MPI_Datatype datatype, int dest,
              int tag, MPI_Comm comm);
+
+int MPI_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                 int dest, int sendtag, void *recvbuf, int recvcount,
+                 MPI_Datatype recvtype, int source, int recvtag,
+                 MPI_Comm comm, MPI_Status *status);
 
 int MPI_Type_commit(MPI_Datatype* datatype);
 

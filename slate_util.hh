@@ -47,6 +47,8 @@
 
 #include <cmath>
 
+#include <blas.hh>
+
 namespace slate {
 
 //------------------------------------------------------------------------------
@@ -118,6 +120,28 @@ template <typename T>
 inline constexpr T roundup(T x, T y)
 {
     return T((x + y - 1) / y) * y;
+}
+
+//------------------------------------------------------------------------------
+/// @return abs(r) + abs(i)
+inline constexpr float cabs1(float x)
+{
+    return std::abs(x);
+}
+
+inline constexpr double cabs1(double x)
+{
+    return std::abs(x);
+}
+
+inline constexpr float cabs1(std::complex<float> x)
+{
+    return float(std::abs(x.real()) + std::abs(x.imag()));
+}
+
+inline constexpr double cabs1(std::complex<double> x)
+{
+    return double(std::abs(x.real()) + std::abs(x.imag()));
 }
 
 //------------------------------------------------------------------------------

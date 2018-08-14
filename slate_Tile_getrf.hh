@@ -52,6 +52,8 @@
 
 namespace slate {
 
+#include <unistd.h>
+
 ///-----------------------------------------------------------------------------
 /// \brief
 /// Compute the LU factorization of a panel.
@@ -109,8 +111,8 @@ int64_t getrf(int64_t ib,
                 // if diagonal tile
                 if (i_index == 0) {
                     for (int64_t i = j+1; i < tile.mb(); ++i) {
-                        if (std::abs(tile(i, j)) >
-                            std::abs(max_value[thread_rank]))
+                        if (cabs1(tile(i, j)) >
+                            cabs1(max_value[thread_rank]))
                         {
                             max_value[thread_rank] = tile(i, j);
                             max_index[thread_rank] = idx;
@@ -122,8 +124,8 @@ int64_t getrf(int64_t ib,
                 // off diagonal tiles
                 else {
                     for (int64_t i = 0; i < tile.mb(); ++i) {
-                        if (std::abs(tile(i, j)) >
-                            std::abs(max_value[thread_rank]))
+                        if (cabs1(tile(i, j)) >
+                            cabs1(max_value[thread_rank]))
                         {
                             max_value[thread_rank] = tile(i, j);
                             max_index[thread_rank] = idx;
@@ -139,7 +141,7 @@ int64_t getrf(int64_t ib,
             if (thread_rank == 0) {
                 // threads max reduction
                 for (int rank = 1; rank < thread_size; ++rank) {
-                    if (std::abs(max_value[rank]) > std::abs(max_value[0])) {
+                    if (cabs1(max_value[rank]) > cabs1(max_value[0])) {
                         max_value[0] = max_value[rank];
                         max_index[0] = max_index[rank];
                         max_offset[0] = max_offset[rank];
@@ -148,7 +150,7 @@ int64_t getrf(int64_t ib,
 
                 // MPI max abs reduction
                 struct { real_t max; int loc; } max_loc_in, max_loc;
-                max_loc_in.max = std::abs(max_value[0]);
+                max_loc_in.max = cabs1(max_value[0]);
                 max_loc_in.loc = mpi_rank;
                 #pragma omp critical(slate_mpi)
                 {
@@ -230,7 +232,7 @@ int64_t getrf(int64_t ib,
                 auto i_index = tile_indices.at(idx);
 
                 real_t sfmin = std::numeric_limits<real_t>::min();
-                if (std::abs(tile(j, j)) >= sfmin) {
+                if (cabs1(tile(j, j)) >= sfmin) {
                     if (i_index == 0) {
                         // diagonal tile
                         for (int64_t i = j+1; i < tile.mb(); ++i)

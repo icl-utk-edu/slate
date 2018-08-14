@@ -205,6 +205,7 @@ int64_t getrf(int64_t ib,
                 // Broadcast the top row for the geru operation.
                 if (root) {
                     auto top_tile = tiles.at(0);
+                    // todo: make it a tile operation
                     blas::copy(std::min(k+ib-j-1, diagonal_length-j-1),
                                &top_tile.data()[j+(j+1)*top_tile.stride()],
                                top_tile.stride(), top_row.data(), 1);
@@ -228,15 +229,35 @@ int64_t getrf(int64_t ib,
                 auto tile = tiles.at(idx);
                 auto i_index = tile_indices.at(idx);
 
-                if (i_index == 0) {
-                    // diagonal tile
-                    for (int64_t i = j+1; i < tile.mb(); ++i)
-                        tile.at(i, j) /= tile(j, j);
+                real_t sfmin = std::numeric_limits<real_t>::epsilon() / 2.0;
+                if (std::abs(tile(j, j)) >= sfmin) {
+                    if (i_index == 0) {
+                        // diagonal tile
+                        for (int64_t i = j+1; i < tile.mb(); ++i)
+                            tile.at(i, j) /= tile(j, j);
+                    }
+                    else {
+                        // off diagonal tile
+                        for (int64_t i = 0; i < tile.mb(); ++i)
+                            tile.at(i, j) /= pivot_vector[j].value;
+                    }
                 }
                 else {
-                    // off diagonal tile
-                    for (int64_t i = 0; i < tile.mb(); ++i)
-                        tile.at(i, j) /= pivot_vector[j].value;
+                    // todo: make it a tile operation
+                    if (i_index == 0) {
+                        // diagonal tile
+                        scalar_t one = 1.0;
+                        scalar_t alpha = one / tile(j, j);
+                        blas::scal(tile.mb()-j-1, alpha,
+                                   &tile.data()[j+1+j*tile.stride()], 1);
+                    }
+                    else {
+                        // off diagonal tile
+                        scalar_t one = 1.0;
+                        scalar_t alpha = one / pivot_vector[j].value;
+                        blas::scal(tile.mb(), alpha,
+                                   &tile.data()[j*tile.stride()], 1);
+                    }
                 }
 
                 // todo: make it a tile operation

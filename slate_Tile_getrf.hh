@@ -172,7 +172,7 @@ int64_t getrf(int64_t ib,
                 //-----------
                 // pivot swap
 
-                // if I own the pivot
+                // If I own the pivot.
                 if (max_loc.loc == mpi_rank) {
                     // if I am the root
                     if (root) {
@@ -184,7 +184,7 @@ int64_t getrf(int64_t ib,
                                  tiles.at(max_index[0]), max_offset[0]);
                         }
                     }
-                    // I am not the root
+                    // I am not the root.
                     else {
                         // MPI swap with the root
                         swap(k, std::min(diagonal_length-k, ib),
@@ -192,9 +192,9 @@ int64_t getrf(int64_t ib,
                              mpi_comm);
                     }
                 }
-                // I don't own the pivot
+                // I don't own the pivot.
                 else {
-                    // I am the root
+                    // I am the root.
                     if (root) {
                         // MPI swap with the pivot owner
                         swap(k, std::min(diagonal_length-k, ib),
@@ -229,7 +229,7 @@ int64_t getrf(int64_t ib,
                 auto tile = tiles.at(idx);
                 auto i_index = tile_indices.at(idx);
 
-                real_t sfmin = std::numeric_limits<real_t>::epsilon() / 2.0;
+                real_t sfmin = std::numeric_limits<real_t>::min();
                 if (std::abs(tile(j, j)) >= sfmin) {
                     if (i_index == 0) {
                         // diagonal tile

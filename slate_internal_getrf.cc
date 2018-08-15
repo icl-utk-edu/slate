@@ -78,9 +78,6 @@ void getrf(internal::TargetType<Target::HostTask>,
     }
     #pragma omp taskwait
 
-    // diagonal of the top tile
-    int64_t diagonal_length = std::min(A.tileMb(0), A.tileNb(0));
-
     // lists of local tiles, indices, and offsets
     std::vector< Tile<scalar_t> > tiles;
     std::vector<int64_t> tile_indices;
@@ -100,50 +97,55 @@ void getrf(internal::TargetType<Target::HostTask>,
         tile_offset += A.tileMb(i);
     }
 
-    // Create the broadcast communicator.
-    // Translate the root rank.
-    int bcast_rank;
-    int bcast_root;
-    MPI_Comm bcast_comm;
-    bcast_comm = commFromSet(bcast_set,
-                             A.mpiComm(), A.mpiGroup(),
-                             A.tileRank(0, 0), bcast_root);
-    // Find the local rank.
-    MPI_Comm_rank(bcast_comm, &bcast_rank);
+    // If participating in the panel factorization.
+    if (bcast_set.find(A.mpiRank()) != bcast_set.end()) {
 
-    // Launch the panel tasks.
-    int thread_size = max_panel_threads;
-    if (tiles.size() < max_panel_threads)
-        thread_size = tiles.size();
+        // Create the broadcast communicator.
+        // Translate the root rank.
+        int bcast_rank;
+        int bcast_root;
+        MPI_Comm bcast_comm;
+        bcast_comm = commFromSet(bcast_set,
+                                 A.mpiComm(), A.mpiGroup(),
+                                 A.tileRank(0, 0), bcast_root);
+        // Find the local rank.
+        MPI_Comm_rank(bcast_comm, &bcast_rank);
 
-    std::vector<scalar_t> max_value(thread_size);
-    std::vector<int64_t> max_index(thread_size);
-    std::vector<int64_t> max_offset(thread_size);
-    std::vector<scalar_t> top_block(ib*A.tileNb(0));
-    ThreadBarrier thread_barrier;
-    std::vector< Pivot<scalar_t> > pivot_vector(A.tileMb(0));
+        // Launch the panel tasks.
+        int thread_size = max_panel_threads;
+        if (tiles.size() < max_panel_threads)
+            thread_size = tiles.size();
 
-    // #pragma omp parallel for \
-    //     num_threads(thread_size) \
-    //     shared(thread_barrier, max_value, max_index, max_offset, top_block, \
-                  pivot_vector)
-    #pragma omp taskloop \
-        num_tasks(thread_size) \
-        shared(thread_barrier, max_value, max_index, max_offset, top_block, \
-               pivot_vector)
-    for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank)
-    {
-        // Factor the panel in parallel.
-        getrf(diagonal_length, ib,
-              tiles, tile_indices, tile_offsets,
-              thread_rank, thread_size,
-              thread_barrier,
-              max_value, max_index, max_offset, top_block,
-              bcast_rank, bcast_root, bcast_comm,
-              pivot_vector);
+        std::vector<scalar_t> max_value(thread_size);
+        std::vector<int64_t> max_index(thread_size);
+        std::vector<int64_t> max_offset(thread_size);
+        std::vector<scalar_t> top_block(ib*A.tileNb(0));
+        ThreadBarrier thread_barrier;
+        std::vector< Pivot<scalar_t> > pivot_vector(A.tileMb(0));
+        int64_t diagonal_length = std::min(A.tileMb(0), A.tileNb(0));
+
+        // #pragma omp parallel for \
+        //     num_threads(thread_size) \
+        //     shared(thread_barrier, max_value, max_index, max_offset, \
+                      top_block, pivot_vector)
+        #pragma omp taskloop \
+            num_tasks(thread_size) \
+            shared(thread_barrier, max_value, max_index, max_offset, \
+                   top_block, pivot_vector)
+        for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank)
+        {
+            // Factor the panel in parallel.
+            getrf(diagonal_length, ib,
+                  tiles, tile_indices, tile_offsets,
+                  thread_rank, thread_size,
+                  thread_barrier,
+                  max_value, max_index, max_offset, top_block,
+                  bcast_rank, bcast_root, bcast_comm,
+                  pivot_vector);
+        }
+
+        #pragma omp taskwait
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

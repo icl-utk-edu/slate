@@ -393,9 +393,52 @@ int64_t getrf(int64_t diagonal_length, int64_t ib,
 
         }
         thread_barrier.wait(thread_size);
+    }
 
+    //=====================
+    // pivoting to the left
 
+    for (int64_t k = ib; k < diagonal_length; k += ib) {
 
+        if (thread_rank == 0) {
+
+            for (int64_t i = k; i < k+ib; ++i) {
+
+                // If I own the pivot.
+                if (pivot_vector[i].rank == mpi_rank) {
+                    // if I am the root
+                    if (root) {
+                        // if pivot not on the diagonal
+                        if (pivot_vector[i].tile_index > 0 ||
+                            pivot_vector[i].element_offset > i)
+                        {
+                            // local swap
+                            swap(k-ib, ib,
+                                 tiles.at(0), i,
+                                 tiles.at(pivot_vector[i].tile_index),
+                                 pivot_vector[i].element_offset);
+                        }
+                    }
+                    // I am not the root.
+                    else {
+                        // MPI swap with the root
+                        swap(k-ib, ib,
+                             tiles.at(pivot_vector[i].tile_index),
+                             pivot_vector[i].element_offset,
+                             mpi_root, mpi_comm);
+                    }
+                }
+                // I don't own the pivot.
+                else {
+                    // I am the root.
+                    if (root) {
+                        // MPI swap with the pivot owner
+                        swap(k-ib, ib,
+                             tiles.at(0), i, pivot_vector[i].rank, mpi_comm);
+                    }
+                }
+            }
+        }
     }
 }
 

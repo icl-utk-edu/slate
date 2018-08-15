@@ -232,7 +232,7 @@ int64_t getrf(int64_t diagonal_length, int64_t ib,
                 auto i_index = tile_indices.at(idx);
 
                 real_t sfmin = std::numeric_limits<real_t>::min();
-                if (cabs1(tile(j, j)) >= sfmin) {
+                if (cabs1(pivot_vector[j].value) >= sfmin) {
                     if (i_index == 0) {
                         // diagonal tile
                         for (int64_t i = j+1; i < tile.mb(); ++i)
@@ -279,7 +279,6 @@ int64_t getrf(int64_t diagonal_length, int64_t ib,
                                &tile.data()[(j+1)*tile.stride()],
                                tile.stride());
                 }
-
             }
             thread_barrier.wait(thread_size);
         }

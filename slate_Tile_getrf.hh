@@ -413,7 +413,7 @@ int64_t getrf(int64_t diagonal_length, int64_t ib,
                             pivot_vector[i].element_offset > i)
                         {
                             // local swap
-                            swap(k-ib, ib,
+                            swap(0, k,
                                  tiles.at(0), i,
                                  tiles.at(pivot_vector[i].tile_index),
                                  pivot_vector[i].element_offset);
@@ -422,7 +422,7 @@ int64_t getrf(int64_t diagonal_length, int64_t ib,
                     // I am not the root.
                     else {
                         // MPI swap with the root
-                        swap(k-ib, ib,
+                        swap(0, k,
                              tiles.at(pivot_vector[i].tile_index),
                              pivot_vector[i].element_offset,
                              mpi_root, mpi_comm);
@@ -433,7 +433,7 @@ int64_t getrf(int64_t diagonal_length, int64_t ib,
                     // I am the root.
                     if (root) {
                         // MPI swap with the pivot owner
-                        swap(k-ib, ib,
+                        swap(0, k,
                              tiles.at(0), i, pivot_vector[i].rank, mpi_comm);
                     }
                 }

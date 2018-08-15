@@ -552,6 +552,53 @@ void trsm(
     trsm(side, diag, alpha, A, B);
 }
 
+///-----------------------------------------------------------------------------
+/// \brief
+/// Swap rows of two local tiles.
+///
+template <typename scalar_t>
+void swap(int64_t j, int64_t n,
+          Tile<scalar_t>& A, int64_t i1,
+          Tile<scalar_t>& B, int64_t i2)
+{
+    assert(A.nb() == B.nb());
+    assert(A.op() == B.op());
+
+    if (A.op() == Op::NoTrans) {
+        blas::swap(n,
+                   &A.data()[i1+j*A.stride()], A.stride(),
+                   &B.data()[i2+j*B.stride()], B.stride());
+    }
+    else {
+        // todo: op_ == Op::Trans
+        assert(0);
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+/// Swap rows with another process.
+///
+template <typename scalar_t>
+void swap(int64_t j, int64_t n,
+          Tile<scalar_t>& A, int64_t i, int other_rank, MPI_Comm mpi_comm)
+{
+    std::vector<scalar_t> local_row(n);
+    std::vector<scalar_t> other_row(n);
+
+    for (int64_t k = 0; k < n; ++k)
+        local_row[k] = A(i, j+k);
+
+    int tag = 0;
+    MPI_Sendrecv(
+        local_row.data(), n, mpi_type<scalar_t>::value, other_rank, tag,
+        other_row.data(), n, mpi_type<scalar_t>::value, other_rank, tag,
+        mpi_comm, MPI_STATUS_IGNORE);
+
+    for (int64_t k = 0; k < n; ++k)
+         A.at(i, j+k) = other_row[k];
+}
+
 } // namespace slate
 
 #endif // SLATE_TILE_BLAS_HH

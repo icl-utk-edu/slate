@@ -40,8 +40,6 @@
 #ifndef SLATE_TILE_GETRF_HH
 #define SLATE_TILE_GETRF_HH
 
-#include <blas.hh>
-
 #include "slate_Tile.hh"
 #include "slate_Tile_blas.hh"
 #include "slate_Tile_lapack.hh"
@@ -50,15 +48,15 @@
 
 #include <list>
 
-namespace slate {
+#include <blas.hh>
 
-#include <unistd.h>
+namespace slate {
 
 ///-----------------------------------------------------------------------------
 /// \brief
 /// Compute the LU factorization of a panel.
 template <typename scalar_t>
-int64_t getrf(int64_t ib,
+int64_t getrf(int64_t diagonal_length, int64_t ib,
               std::vector< Tile<scalar_t> >& tiles,
               std::vector<int64_t>& tile_indices,
               std::vector<int64_t>& tile_offsets,
@@ -72,21 +70,19 @@ int64_t getrf(int64_t ib,
     trace::Block trace_block("lapack::getrf");
 
     using namespace blas;
-    using real_t = blas::real_type<scalar_t>;
+    using real_t = real_type<scalar_t>;
 
     bool root = mpi_rank == mpi_root;
-    if (root)
-        assert(tile_indices[0] == 0);
-
-    auto mb = tiles.at(0).mb();
-    auto nb = tiles.at(0).nb();
-    int64_t diagonal_length = std::min(nb, mb);
 
     // Loop over ib-wide stripes.
     for (int64_t k = 0; k < diagonal_length; k += ib) {
 
+        //=======================
+        // IB panel factorization
+        int64_t stripe_width = std::min(diagonal_length-k, ib);
+
         // Loop over ib columns of a stripe.
-        for (int64_t j = k; j < k+ib && j < diagonal_length; ++j) {
+        for (int64_t j = k; j < k+stripe_width; ++j) {
 
             if (root) {
                 max_value[thread_rank] = tiles.at(0)(j, j);
@@ -181,7 +177,7 @@ int64_t getrf(int64_t ib,
                         // if pivot not on the diagonal
                         if (max_index[0] > 0 || max_offset[0] > j) {
                             // local swap
-                            swap(k, std::min(diagonal_length-k, ib),
+                            swap(k, stripe_width,
                                  tiles.at(0), j,
                                  tiles.at(max_index[0]), max_offset[0]);
                         }
@@ -189,8 +185,8 @@ int64_t getrf(int64_t ib,
                     // I am not the root.
                     else {
                         // MPI swap with the root
-                        swap(k, std::min(diagonal_length-k, ib),
-                             tiles.at(max_index[0]), max_offset[0],mpi_root,
+                        swap(k, stripe_width,
+                             tiles.at(max_index[0]), max_offset[0], mpi_root,
                              mpi_comm);
                     }
                 }
@@ -199,7 +195,7 @@ int64_t getrf(int64_t ib,
                     // I am the root.
                     if (root) {
                         // MPI swap with the pivot owner
-                        swap(k, std::min(diagonal_length-k, ib),
+                        swap(k, stripe_width,
                              tiles.at(0), j, max_loc.loc, mpi_comm);
                     }
                 }
@@ -208,16 +204,16 @@ int64_t getrf(int64_t ib,
                 if (root) {
                     auto top_tile = tiles.at(0);
                     // todo: make it a tile operation
-                    blas::copy(std::min(k+ib-j-1, diagonal_length-j-1),
-                               &top_tile.data()[j+(j+1)*top_tile.stride()],
-                               top_tile.stride(), top_row.data(), 1);
+                    copy(k+stripe_width-j-1,
+                         &top_tile.data()[j+(j+1)*top_tile.stride()],
+                         top_tile.stride(), top_row.data(), 1);
                 }
                 #pragma omp critical(slate_mpi)
                 {
                     slate_mpi_call(
                         MPI_Bcast(
                             top_row.data(),
-                            std::min(k+ib-j-1, diagonal_length-j-1),
+                            k+stripe_width-j-1,
                             mpi_type<scalar_t>::value, mpi_root, mpi_comm));
                 }
             }
@@ -250,42 +246,57 @@ int64_t getrf(int64_t ib,
                         // diagonal tile
                         scalar_t one = 1.0;
                         scalar_t alpha = one / tile(j, j);
-                        blas::scal(tile.mb()-j-1, alpha,
-                                   &tile.data()[j+1+j*tile.stride()], 1);
+                        scal(tile.mb()-j-1, alpha,
+                             &tile.data()[j+1+j*tile.stride()], 1);
                     }
                     else {
                         // off diagonal tile
                         scalar_t one = 1.0;
                         scalar_t alpha = one / pivot_vector[j].value;
-                        blas::scal(tile.mb(), alpha,
-                                   &tile.data()[j*tile.stride()], 1);
+                        scal(tile.mb(), alpha,
+                             &tile.data()[j*tile.stride()], 1);
                     }
                 }
 
                 // todo: make it a tile operation
                 if (i_index == 0) {
-                    blas::geru(
-                        blas::Layout::ColMajor,
-                        tile.mb()-j-1, std::min(k+ib-j-1, diagonal_length-j-1),
-                        -1.0, &tile.data()[j+1+j*tile.stride()], 1,
-                              top_row.data(), 1,
-                              &tile.data()[j+1+(j+1)*tile.stride()],
-                              tile.stride());
+                    geru(Layout::ColMajor,
+                         tile.mb()-j-1, k+stripe_width-j-1,
+                         -1.0, &tile.data()[j+1+j*tile.stride()], 1,
+                               top_row.data(), 1,
+                               &tile.data()[j+1+(j+1)*tile.stride()],
+                               tile.stride());
                 }
                 else {
-                    blas::geru(
-                        blas::Layout::ColMajor,
-                        tile.mb(), std::min(k+ib-j-1, diagonal_length-j-1),
-                        -1.0, &tile.data()[j*tile.stride()], 1,
-                              top_row.data(), 1,
-                              &tile.data()[(j+1)*tile.stride()],
-                              tile.stride());
+                    geru(Layout::ColMajor,
+                         tile.mb(), k+stripe_width-j-1,
+                         -1.0, &tile.data()[j*tile.stride()], 1,
+                               top_row.data(), 1,
+                               &tile.data()[(j+1)*tile.stride()],
+                               tile.stride());
                 }
 
             }
             thread_barrier.wait(thread_size);
-
         }
+
+        //====================================
+        // right pivoting and trinagular solve
+
+        if (root && thread_rank == 0) {
+
+            // triangular solve
+            auto tile = tiles.at(0);
+            trsm(Layout::ColMajor,
+                 Side::Left, Uplo::Lower,
+                 Op::NoTrans, Diag::Unit,
+                 stripe_width,
+                 tile.nb()-k-stripe_width,
+                 1.0, &tile.data()[k+k*tile.stride()], tile.stride(),
+                      &tile.data()[k+(k+stripe_width)*tile.stride()],
+                      tile.stride());
+        }
+        thread_barrier.wait(thread_size);
 
         return 0;
 

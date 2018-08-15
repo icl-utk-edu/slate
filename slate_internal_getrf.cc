@@ -78,6 +78,9 @@ void getrf(internal::TargetType<Target::HostTask>,
     }
     #pragma omp taskwait
 
+    // diagonal of the top tile
+    int64_t diagonal_length = std::min(A.tileMb(0), A.tileNb(0));
+
     // lists of local tiles, indices, and offsets
     std::vector< Tile<scalar_t> > tiles;
     std::vector<int64_t> tile_indices;
@@ -131,7 +134,7 @@ void getrf(internal::TargetType<Target::HostTask>,
     for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank)
     {
         // Factor the panel in parallel.
-        getrf(ib,
+        getrf(diagonal_length, ib,
               tiles, tile_indices, tile_offsets,
               thread_rank, thread_size,
               thread_barrier,

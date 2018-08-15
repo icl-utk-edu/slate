@@ -119,17 +119,17 @@ void getrf(internal::TargetType<Target::HostTask>,
     std::vector<scalar_t> max_value(thread_size);
     std::vector<int64_t> max_index(thread_size);
     std::vector<int64_t> max_offset(thread_size);
-    std::vector<scalar_t> top_row(A.tileNb(0));
+    std::vector<scalar_t> top_block(ib*A.tileNb(0));
     ThreadBarrier thread_barrier;
     std::vector< Pivot<scalar_t> > pivot_vector(A.tileMb(0));
 
     // #pragma omp parallel for \
     //     num_threads(thread_size) \
-    //     shared(thread_barrier, max_value, max_index, max_offset, top_row, \
+    //     shared(thread_barrier, max_value, max_index, max_offset, top_block, \
                   pivot_vector)
     #pragma omp taskloop \
         num_tasks(thread_size) \
-        shared(thread_barrier, max_value, max_index, max_offset, top_row, \
+        shared(thread_barrier, max_value, max_index, max_offset, top_block, \
                pivot_vector)
     for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank)
     {
@@ -138,7 +138,7 @@ void getrf(internal::TargetType<Target::HostTask>,
               tiles, tile_indices, tile_offsets,
               thread_rank, thread_size,
               thread_barrier,
-              max_value, max_index, max_offset, top_row,
+              max_value, max_index, max_offset, top_block,
               bcast_rank, bcast_root, bcast_comm,
               pivot_vector);
     }

@@ -116,13 +116,14 @@ void getrf(internal::TargetType<Target::HostTask>,
         if (tiles.size() < max_panel_threads)
             thread_size = tiles.size();
 
+        int64_t diagonal_length = std::min(A.tileMb(0), A.tileNb(0));
+        std::vector< Pivot<scalar_t> > pivot_vector(A.tileMb(0));
+        ThreadBarrier thread_barrier;
+
         std::vector<scalar_t> max_value(thread_size);
         std::vector<int64_t> max_index(thread_size);
         std::vector<int64_t> max_offset(thread_size);
         std::vector<scalar_t> top_block(ib*A.tileNb(0));
-        ThreadBarrier thread_barrier;
-        std::vector< Pivot<scalar_t> > pivot_vector(A.tileMb(0));
-        int64_t diagonal_length = std::min(A.tileMb(0), A.tileNb(0));
 
         // #pragma omp parallel for \
         //     num_threads(thread_size) \
@@ -137,11 +138,11 @@ void getrf(internal::TargetType<Target::HostTask>,
             // Factor the panel in parallel.
             getrf(diagonal_length, ib,
                   tiles, tile_indices, tile_offsets,
+                  pivot_vector,
+                  bcast_rank, bcast_root, bcast_comm,
                   thread_rank, thread_size,
                   thread_barrier,
-                  max_value, max_index, max_offset, top_block,
-                  bcast_rank, bcast_root, bcast_comm,
-                  pivot_vector);
+                  max_value, max_index, max_offset, top_block);
         }
 
         #pragma omp taskwait

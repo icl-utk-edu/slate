@@ -55,20 +55,143 @@ namespace slate {
 
 ///-----------------------------------------------------------------------------
 /// \brief
+/// Swap a single row in the panel factorization.
+///
+/// \param[in] i
+///     pivot index
+///
+/// \param[in] j
+///     first column of the swap
+///
+/// \param[in] n
+///     length of the swap
+///
+/// \param[inout] tiles
+///     vector of local panel tiles
+///
+/// \param[in] pivots
+///     vector of pivot indices
+///
+/// \param[in] mpi_rank
+///     MPI rank in the panel factorization
+///
+/// \param[in] mpi_root
+///     MPI rank of the root for the panel factorization
+///
+/// \param[in] mpi_comm
+///     MPI subcommunicator for the panel factorization
+///
+template <typename scalar_t>
+void getrf_swap(
+    int64_t i, int64_t j, int64_t n,
+    std::vector< Tile<scalar_t> >& tiles,
+    std::vector< Pivot<scalar_t> >& pivots,
+    int mpi_rank, int mpi_root, MPI_Comm mpi_comm)
+{
+    bool root = mpi_rank == mpi_root;
+
+    // If I own the pivot.
+    if (pivots[i].rank == mpi_rank) {
+        // If I am the root.
+        if (root) {
+            // if pivot not on the diagonal
+            if (pivots[i].tile_index > 0 ||
+                pivots[i].element_offset > i)
+            {
+                // local swap
+                swap(j, n,
+                     tiles.at(0), i,
+                     tiles.at(pivots[i].tile_index), pivots[i].element_offset);
+            }
+        }
+        // I am not the root.
+        else {
+            // MPI swap with the root
+            swap(j, n,
+                 tiles.at(pivots[i].tile_index), pivots[i].element_offset,
+                 mpi_root, mpi_comm);
+        }
+    }
+    // I don't own the pivot.
+    else {
+        // I am the root.
+        if (root) {
+            // MPI swap with the pivot owner
+            swap(j, n,
+                 tiles.at(0), i,
+                 pivots[i].rank, mpi_comm);
+        }
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
 /// Compute the LU factorization of a panel.
+///
+/// \param[in] diagonal_length
+///     length of the panel diagonal
+///
+/// \param[in] ib
+///     internal blocking in the panel
+///
+/// \param[inout] tiles
+///     local tiles in the panel
+///
+/// \param[in] tile_indices
+///     i indices of the tiles in the panel
+///
+/// \param[in] tile_offsets
+///     i element offsets of the tiles in the panel
+///
+/// \param[inout] pivots
+///     pivots produced by the panel factorization
+///
+/// \param[in] mpi_rank
+///     MPI rank in the panel factorization
+///
+/// \param[in] mpi_root
+///     MPI rank of the root for the panel factorization
+///
+/// \param[in] mpi_comm
+///     MPI subcommunicator for the panel factorization
+///
+/// \param[in] thread_rank
+///     rank of this thread
+///
+/// \param[in] thread_size
+///     number of local threads
+///
+/// \param[in] thread_barrier
+///     barrier for synchronizing local threads
+///
+/// \param[out] max_value
+///     workspace for per-thread pivot value
+///
+/// \param[in] max_index
+///     workspace for per-thread pivot index
+//      (local index of the tile containing the pivot)
+///
+/// \param[in] max_offset
+///     workspace for per-thread pivot offset
+///     (pivot offset in the tile)
+///
+/// \param[in] tob_block
+///     workspace for broadcasting the top row for the geru operation
+///     and the top block for the gemm operation.
+///
 template <typename scalar_t>
 int64_t getrf(int64_t diagonal_length, int64_t ib,
               std::vector< Tile<scalar_t> >& tiles,
               std::vector<int64_t>& tile_indices,
               std::vector<int64_t>& tile_offsets,
+              std::vector< Pivot<scalar_t> >& pivots,
+              int mpi_rank, int mpi_root, MPI_Comm mpi_comm,
               int thread_rank, int thread_size,
               ThreadBarrier& thread_barrier,
               std::vector<scalar_t>& max_value,
               std::vector<int64_t>& max_index,
               std::vector<int64_t>& max_offset,
-              std::vector<scalar_t>& top_block,
-              int mpi_rank, int mpi_root, MPI_Comm mpi_comm,
-              std::vector< Pivot<scalar_t> >& pivot_vector)
+              std::vector<scalar_t>& top_block)
 {
     trace::Block trace_block("lapack::getrf");
 
@@ -162,49 +285,21 @@ int64_t getrf(int64_t diagonal_length, int64_t ib,
                 }
 
                 // Broadcast the pivot information.
-                pivot_vector[j] = {max_loc.loc,
-                                   max_value[0],
-                                   max_index[0],
-                                   max_offset[0]};
+                pivots[j] = {max_loc.loc,
+                             max_value[0],
+                             max_index[0],
+                             max_offset[0]};
                 #pragma omp critical(slate_mpi)
                 {
                     slate_mpi_call(
-                        MPI_Bcast(&pivot_vector[j], sizeof(Pivot<scalar_t>),
-                                  MPI_BYTE, max_loc.loc, mpi_comm));
+                        MPI_Bcast(&pivots[j], sizeof(Pivot<scalar_t>), MPI_BYTE,
+                                  max_loc.loc, mpi_comm));
                 }
 
-                //-----------
                 // pivot swap
-
-                // If I own the pivot.
-                if (max_loc.loc == mpi_rank) {
-                    // if I am the root
-                    if (root) {
-                        // if pivot not on the diagonal
-                        if (max_index[0] > 0 || max_offset[0] > j) {
-                            // local swap
-                            swap(k, kb,
-                                 tiles.at(0), j,
-                                 tiles.at(max_index[0]), max_offset[0]);
-                        }
-                    }
-                    // I am not the root.
-                    else {
-                        // MPI swap with the root
-                        swap(k, kb,
-                             tiles.at(max_index[0]), max_offset[0],
-                             mpi_root, mpi_comm);
-                    }
-                }
-                // I don't own the pivot.
-                else {
-                    // I am the root.
-                    if (root) {
-                        // MPI swap with the pivot owner
-                        swap(k, kb,
-                             tiles.at(0), j, max_loc.loc, mpi_comm);
-                    }
-                }
+                getrf_swap(j, k, kb,
+                           tiles, pivots,
+                           mpi_rank, mpi_root, mpi_comm);
 
                 // Broadcast the top row for the geru operation.
                 if (k+kb > j+1) {
@@ -236,7 +331,7 @@ int64_t getrf(int64_t diagonal_length, int64_t ib,
 
                 // column scaling
                 real_t sfmin = std::numeric_limits<real_t>::min();
-                if (cabs1(pivot_vector[j].value) >= sfmin) {
+                if (cabs1(pivots[j].value) >= sfmin) {
                     if (i_index == 0) {
                         // diagonal tile
                         for (int64_t i = j+1; i < tile.mb(); ++i)
@@ -245,7 +340,7 @@ int64_t getrf(int64_t diagonal_length, int64_t ib,
                     else {
                         // off diagonal tile
                         for (int64_t i = 0; i < tile.mb(); ++i)
-                            tile.at(i, j) /= pivot_vector[j].value;
+                            tile.at(i, j) /= pivots[j].value;
                     }
                 }
                 else {
@@ -259,7 +354,7 @@ int64_t getrf(int64_t diagonal_length, int64_t ib,
                     else {
                         // off diagonal tile
                         scalar_t one = 1.0;
-                        scalar_t alpha = one / pivot_vector[j].value;
+                        scalar_t alpha = one / pivots[j].value;
                         scal(tile.mb(), alpha, &tile.at(0, j), 1);
                     }
                 }
@@ -292,42 +387,10 @@ int64_t getrf(int64_t diagonal_length, int64_t ib,
             //======================
             // pivoting to the right
             if (thread_rank == 0) {
-
                 for (int64_t i = k; i < k+kb; ++i) {
-
-                    // If I own the pivot.
-                    if (pivot_vector[i].rank == mpi_rank) {
-                        // if I am the root
-                        if (root) {
-                            // if pivot not on the diagonal
-                            if (pivot_vector[i].tile_index > 0 ||
-                                pivot_vector[i].element_offset > i)
-                            {
-                                // local swap
-                                swap(k+kb, nb-k-kb,
-                                     tiles.at(0), i,
-                                     tiles.at(pivot_vector[i].tile_index),
-                                     pivot_vector[i].element_offset);
-                            }
-                        }
-                        // I am not the root.
-                        else {
-                            // MPI swap with the root
-                            swap(k+kb, nb-k-kb,
-                                 tiles.at(pivot_vector[i].tile_index),
-                                 pivot_vector[i].element_offset,
-                                 mpi_root, mpi_comm);
-                        }
-                    }
-                    // I don't own the pivot.
-                    else {
-                        // I am the root.
-                        if (root) {
-                            // MPI swap with the pivot owner
-                            swap(k+kb, nb-k-kb,
-                                 tiles.at(0), i, pivot_vector[i].rank, mpi_comm);
-                        }
-                    }
+                    getrf_swap(i, k+kb, nb-k-kb,
+                               tiles, pivots,
+                               mpi_rank, mpi_root, mpi_comm);
                 }
             }
             thread_barrier.wait(thread_size);
@@ -397,46 +460,12 @@ int64_t getrf(int64_t diagonal_length, int64_t ib,
 
     //=====================
     // pivoting to the left
-
     for (int64_t k = ib; k < diagonal_length; k += ib) {
-
         if (thread_rank == 0) {
-
             for (int64_t i = k; i < k+ib; ++i) {
-
-                // If I own the pivot.
-                if (pivot_vector[i].rank == mpi_rank) {
-                    // if I am the root
-                    if (root) {
-                        // if pivot not on the diagonal
-                        if (pivot_vector[i].tile_index > 0 ||
-                            pivot_vector[i].element_offset > i)
-                        {
-                            // local swap
-                            swap(0, k,
-                                 tiles.at(0), i,
-                                 tiles.at(pivot_vector[i].tile_index),
-                                 pivot_vector[i].element_offset);
-                        }
-                    }
-                    // I am not the root.
-                    else {
-                        // MPI swap with the root
-                        swap(0, k,
-                             tiles.at(pivot_vector[i].tile_index),
-                             pivot_vector[i].element_offset,
-                             mpi_root, mpi_comm);
-                    }
-                }
-                // I don't own the pivot.
-                else {
-                    // I am the root.
-                    if (root) {
-                        // MPI swap with the pivot owner
-                        swap(0, k,
-                             tiles.at(0), i, pivot_vector[i].rank, mpi_comm);
-                    }
-                }
+                getrf_swap(i, 0, k,
+                           tiles, pivots,
+                           mpi_rank, mpi_root, mpi_comm);
             }
         }
     }

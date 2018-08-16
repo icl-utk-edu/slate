@@ -63,7 +63,8 @@ int64_t getrf(int64_t diagonal_length, int64_t ib,
               std::vector<int64_t>& tile_offsets,
               int thread_rank, int thread_size,
               ThreadBarrier& thread_barrier,
-              std::vector<scalar_t>& max_value, std::vector<int64_t>& max_index,
+              std::vector<scalar_t>& max_value,
+              std::vector<int64_t>& max_index,
               std::vector<int64_t>& max_offset,
               std::vector<scalar_t>& top_block,
               int mpi_rank, int mpi_root, MPI_Comm mpi_comm,
@@ -206,19 +207,21 @@ int64_t getrf(int64_t diagonal_length, int64_t ib,
                 }
 
                 // Broadcast the top row for the geru operation.
-                if (root) {
-                    auto top_tile = tiles.at(0);
-                    // todo: make it a tile operation
-                    copy(k+kb-j-1,
-                         &top_tile.data()[j+(j+1)*top_tile.stride()],
-                         top_tile.stride(), top_block.data(), 1);
-                }
-                #pragma omp critical(slate_mpi)
-                {
-                    slate_mpi_call(
-                        MPI_Bcast(top_block.data(),
-                                  k+kb-j-1, mpi_type<scalar_t>::value,
-                                  mpi_root, mpi_comm));
+                if (k+kb > j+1) {
+                    if (root) {
+                        auto top_tile = tiles.at(0);
+                        // todo: make it a tile operation
+                        copy(k+kb-j-1,
+                             &top_tile.at(j, j+1), top_tile.stride(),
+                             top_block.data(), 1);
+                    }
+                    #pragma omp critical(slate_mpi)
+                    {
+                        slate_mpi_call(
+                            MPI_Bcast(top_block.data(),
+                                      k+kb-j-1, mpi_type<scalar_t>::value,
+                                      mpi_root, mpi_comm));
+                    }
                 }
             }
             thread_barrier.wait(thread_size);
@@ -231,6 +234,7 @@ int64_t getrf(int64_t diagonal_length, int64_t ib,
                 auto tile = tiles.at(idx);
                 auto i_index = tile_indices.at(idx);
 
+                // column scaling
                 real_t sfmin = std::numeric_limits<real_t>::min();
                 if (cabs1(pivot_vector[j].value) >= sfmin) {
                     if (i_index == 0) {
@@ -250,148 +254,145 @@ int64_t getrf(int64_t diagonal_length, int64_t ib,
                         // diagonal tile
                         scalar_t one = 1.0;
                         scalar_t alpha = one / tile(j, j);
-                        scal(tile.mb()-j-1, alpha,
-                             &tile.data()[j+1+j*tile.stride()], 1);
+                        scal(tile.mb()-j-1, alpha, &tile.at(j+1, j), 1);
                     }
                     else {
                         // off diagonal tile
                         scalar_t one = 1.0;
                         scalar_t alpha = one / pivot_vector[j].value;
-                        scal(tile.mb(), alpha,
-                             &tile.data()[j*tile.stride()], 1);
+                        scal(tile.mb(), alpha, &tile.at(0, j), 1);
                     }
                 }
 
+                // trailing update
                 // todo: make it a tile operation
-                if (i_index == 0) {
-                    geru(Layout::ColMajor,
-                         tile.mb()-j-1, k+kb-j-1,
-                         -1.0, &tile.data()[j+1+j*tile.stride()], 1,
-                               top_block.data(), 1,
-                               &tile.data()[j+1+(j+1)*tile.stride()],
-                               tile.stride());
-                }
-                else {
-                    geru(Layout::ColMajor,
-                         tile.mb(), k+kb-j-1,
-                         -1.0, &tile.data()[j*tile.stride()], 1,
-                               top_block.data(), 1,
-                               &tile.data()[(j+1)*tile.stride()],
-                               tile.stride());
+                if (k+kb > j+1) {
+                    if (i_index == 0) {
+                        geru(Layout::ColMajor,
+                             tile.mb()-j-1, k+kb-j-1,
+                             -1.0, &tile.at(j+1, j), 1,
+                                   top_block.data(), 1,
+                                   &tile.at(j+1, j+1), tile.stride());
+                    }
+                    else {
+                        geru(Layout::ColMajor,
+                             tile.mb(), k+kb-j-1,
+                             -1.0, &tile.at(0, j), 1,
+                                   top_block.data(), 1,
+                                   &tile.at(0, j+1), tile.stride());
+                    }
                 }
             }
             thread_barrier.wait(thread_size);
         }
 
-        //======================
-        // pivoting to the right
-        if (thread_rank == 0) {
+        // If there is a trailing submatrix.
+        if (k+kb < nb) {
 
-            for (int64_t i = k; i < k+kb; ++i) {
+            //======================
+            // pivoting to the right
+            if (thread_rank == 0) {
 
-                // If I own the pivot.
-                if (pivot_vector[i].rank == mpi_rank) {
-                    // if I am the root
-                    if (root) {
-                        // if pivot not on the diagonal
-                        if (pivot_vector[i].tile_index > 0 ||
-                            pivot_vector[i].element_offset > i)
-                        {
-                            // local swap
+                for (int64_t i = k; i < k+kb; ++i) {
+
+                    // If I own the pivot.
+                    if (pivot_vector[i].rank == mpi_rank) {
+                        // if I am the root
+                        if (root) {
+                            // if pivot not on the diagonal
+                            if (pivot_vector[i].tile_index > 0 ||
+                                pivot_vector[i].element_offset > i)
+                            {
+                                // local swap
+                                swap(k+kb, nb-k-kb,
+                                     tiles.at(0), i,
+                                     tiles.at(pivot_vector[i].tile_index),
+                                     pivot_vector[i].element_offset);
+                            }
+                        }
+                        // I am not the root.
+                        else {
+                            // MPI swap with the root
                             swap(k+kb, nb-k-kb,
-                                 tiles.at(0), i,
                                  tiles.at(pivot_vector[i].tile_index),
-                                 pivot_vector[i].element_offset);
+                                 pivot_vector[i].element_offset,
+                                 mpi_root, mpi_comm);
                         }
                     }
-                    // I am not the root.
+                    // I don't own the pivot.
                     else {
-                        // MPI swap with the root
-                        swap(k+kb, nb-k-kb,
-                             tiles.at(pivot_vector[i].tile_index),
-                             pivot_vector[i].element_offset,
-                             mpi_root, mpi_comm);
-                    }
-                }
-                // I don't own the pivot.
-                else {
-                    // I am the root.
-                    if (root) {
-                        // MPI swap with the pivot owner
-                        swap(k+kb, nb-k-kb,
-                             tiles.at(0), i, pivot_vector[i].rank, mpi_comm);
+                        // I am the root.
+                        if (root) {
+                            // MPI swap with the pivot owner
+                            swap(k+kb, nb-k-kb,
+                                 tiles.at(0), i, pivot_vector[i].rank, mpi_comm);
+                        }
                     }
                 }
             }
-        }
-        thread_barrier.wait(thread_size);
+            thread_barrier.wait(thread_size);
 
-        //=================
-        // triangular solve
-        if (root && thread_rank == 0) {
+            //=================
+            // triangular solve
+            if (root && thread_rank == 0) {
 
-            auto top_tile = tiles.at(0);
-            int64_t stride = top_tile.stride();
-            trsm(Layout::ColMajor,
-                 Side::Left, Uplo::Lower,
-                 Op::NoTrans, Diag::Unit,
-                 kb, nb-k-kb,
-                 1.0, &top_tile.data()[k+k*stride], stride,
-                      &top_tile.data()[k+(k+kb)*stride], stride);
-        }
-        thread_barrier.wait(thread_size);
-
-        // Broadcast the top block for gemm.
-        if (thread_rank == 0) {
-            if (root) {
                 auto top_tile = tiles.at(0);
-                lacpy(MatrixType::General,
-                      kb, nb-k-kb,
-                      &top_tile.data()[k+(k+kb)*top_tile.stride()],
-                      top_tile.stride(),
-                      top_block.data(), kb);
+                trsm(Layout::ColMajor,
+                     Side::Left, Uplo::Lower,
+                     Op::NoTrans, Diag::Unit,
+                     kb, nb-k-kb,
+                     1.0, &top_tile.at(k, k), top_tile.stride(),
+                          &top_tile.at(k, k+kb), top_tile.stride());
             }
-            #pragma omp critical(slate_mpi)
+            thread_barrier.wait(thread_size);
+
+            // Broadcast the top block for gemm.
+            if (thread_rank == 0) {
+                if (root) {
+                    auto top_tile = tiles.at(0);
+                    lacpy(MatrixType::General,
+                          kb, nb-k-kb,
+                          &top_tile.at(k, k+kb), top_tile.stride(),
+                          top_block.data(), kb);
+                }
+                #pragma omp critical(slate_mpi)
+                {
+                    slate_mpi_call(
+                        MPI_Bcast(top_block.data(),
+                                  kb*(nb-k-kb), mpi_type<scalar_t>::value,
+                                  mpi_root, mpi_comm));
+                }
+            }
+            thread_barrier.wait(thread_size);
+
+            //============================
+            // rank-ib update to the right
+            for (int64_t idx = thread_rank;
+                 idx < tiles.size();
+                 idx += thread_size)
             {
-                slate_mpi_call(
-                    MPI_Bcast(top_block.data(),
-                              kb*(nb-k-kb), mpi_type<scalar_t>::value,
-                              mpi_root, mpi_comm));
+                auto tile = tiles.at(idx);
+                auto i_index = tile_indices.at(idx);
+
+                if (i_index == 0) {
+                    gemm(Layout::ColMajor,
+                         Op::NoTrans, Op::NoTrans,
+                         tile.mb()-k-kb, nb-k-kb, kb,
+                         -1.0, &tile.at(k+kb,k   ), tile.stride(),
+                               &tile.at(k,   k+kb), tile.stride(),
+                          1.0, &tile.at(k+kb,k+kb), tile.stride());
+                }
+                else {
+                    gemm(Layout::ColMajor,
+                         Op::NoTrans, Op::NoTrans,
+                         tile.mb(), nb-k-kb, kb,
+                         -1.0, &tile.at(0, k), tile.stride(),
+                               top_block.data(), kb,
+                          1.0, &tile.at(0, k+kb), tile.stride());
+                }
             }
+            thread_barrier.wait(thread_size);
         }
-        thread_barrier.wait(thread_size);
-
-        //============================
-        // rank-ib update to the right
-        for (int64_t idx = thread_rank;
-             idx < tiles.size();
-             idx += thread_size)
-        {
-            auto tile = tiles.at(idx);
-            auto i_index = tile_indices.at(idx);
-
-            const int64_t& stride = tile.stride();
-
-            if (i_index == 0) {
-                gemm(Layout::ColMajor,
-                     Op::NoTrans, Op::NoTrans,
-                     tile.mb()-k-kb, nb-k-kb, kb,
-                     -1.0, &tile.data()[k+kb+k*stride], stride,
-                           &tile.data()[k+(k+kb)*stride], stride,
-                      1.0, &tile.data()[(k+kb)+(k+kb)*stride], stride);
-            }
-            else {
-                gemm(Layout::ColMajor,
-                     Op::NoTrans, Op::NoTrans,
-                     tile.mb(), nb-k-kb, kb,
-                     -1.0, &tile.data()[k*stride], stride,
-                           top_block.data(), kb,
-                      1.0, &tile.data()[(k+kb)*stride], stride);
-            }
-
-
-        }
-        thread_barrier.wait(thread_size);
     }
 
     //=====================

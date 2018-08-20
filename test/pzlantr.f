@@ -421,10 +421,15 @@
                IF( MYROW.EQ.IAROW ) THEN
                   IF( UDIAG ) THEN
                      DO 280 LL = JJ, JJ + JB -1
-                        SUM = ONE
+                        SUM = ZERO
                         DO 270 KK = IIA, MIN( II+LL-JJ-1, IIA+MP-1 )
                            SUM = SUM + ABS( A( IOFFA+KK ) )
   270                   CONTINUE
+*                       Unit diagonal entry
+                        KK = II+LL-JJ
+                        IF (KK <= IIA+MP-1) THEN
+                           SUM = SUM + ONE
+                        ENDIF
                         IOFFA = IOFFA + LDA
                         WORK( LL-JJA+1 ) = SUM
   280                CONTINUE
@@ -465,10 +470,15 @@
                   IF( MYROW.EQ.IAROW ) THEN
                      IF( UDIAG ) THEN
                         DO 340 LL = JJ, JJ + JB -1
-                           SUM = ONE
+                           SUM = ZERO
                            DO 330 KK = IIA, MIN( II+LL-JJ-1, IIA+MP-1 )
                               SUM = SUM + ABS( A( IOFFA+KK ) )
   330                      CONTINUE
+*                          Unit diagonal entry
+                           KK = II+LL-JJ
+                           IF (KK <= IIA+MP-1) THEN
+                              SUM = SUM + ONE
+                           ENDIF
                            IOFFA = IOFFA + LDA
                            WORK( LL-JJA+1 ) = SUM
   340                   CONTINUE
@@ -622,31 +632,14 @@
       ELSE IF( LSAME( NORM, 'I' ) ) THEN
 *
          IF( LSAME( UPLO, 'U' ) ) THEN
-            IF( UDIAG ) THEN
-               DO 530 KK = IIA, IIA+MP-1
-                  WORK( KK ) = ONE
-  530          CONTINUE
-            ELSE
+!! todo: which of mp, np, min(mp, np), or max(mp, np) should be used?
                DO 540 KK = IIA, IIA+MP-1
                   WORK( KK ) = ZERO
   540          CONTINUE
-            END IF
          ELSE
-            IF( UDIAG ) THEN
-               NP = NUMROC( N+IROFF, DESCA( MB_ ), MYROW, IAROW, NPROW )
-               IF( MYROW.EQ.IAROW )
-     $            NP = NP - IROFF
-               DO 550 KK = IIA, IIA+NP-1
-                  WORK( KK ) = ONE
-  550          CONTINUE
-               DO 560 KK = IIA+NP, IIA+MP-1
-                  WORK( KK ) = ZERO
-  560          CONTINUE
-            ELSE
                DO 570 KK = IIA, IIA+MP-1
                   WORK( KK ) = ZERO
   570          CONTINUE
-            END IF
          END IF
 *
          IF( LSAME( UPLO, 'U' ) ) THEN
@@ -666,6 +659,11 @@
                            WORK( KK-IIA+1 ) = WORK( KK-IIA+1 ) +
      $                                        ABS( A( IOFFA+KK ) )
   580                   CONTINUE
+*                       Unit diagonal entry
+                        KK = II+LL-JJ
+                        IF (KK <= IIA+MP-1) THEN
+                           WORK( KK-IIA+1 ) = WORK( KK-IIA+1 ) + ONE
+                        ENDIF
                         IOFFA = IOFFA + LDA
   590                CONTINUE
                   ELSE
@@ -707,6 +705,11 @@
                               WORK( KK-IIA+1 ) = WORK( KK-IIA+1 ) +
      $                                           ABS( A( IOFFA+KK ) )
   640                      CONTINUE
+*                          Unit diagonal entry
+                           KK = II+LL-JJ
+                           IF (KK <= IIA+MP-1) THEN
+                              WORK( KK-IIA+1 ) = WORK( KK-IIA+1 ) + ONE
+                           ENDIF
                            IOFFA = IOFFA + LDA
   650                   CONTINUE
                      ELSE
@@ -750,6 +753,9 @@
                IF( MYROW.EQ.IAROW ) THEN
                   IF( UDIAG ) THEN
                      DO 720 LL = JJ, JJ + JB -1
+*                       Unit diagonal entry
+                        KK = II+LL-JJ
+                        WORK( KK-IIA+1 ) = WORK( KK-IIA+1 ) + ONE
                         DO 710 KK = II+LL-JJ+1, IIA+MP-1
                            WORK( KK-IIA+1 ) = WORK( KK-IIA+1 ) +
      $                                        ABS( A( IOFFA+KK ) )
@@ -791,6 +797,9 @@
                   IF( MYROW.EQ.IAROW ) THEN
                      IF( UDIAG ) THEN
                         DO 780 LL = JJ, JJ + JB -1
+*                          Unit diagonal entry
+                           KK = II+LL-JJ
+                           WORK( KK-IIA+1 ) = WORK( KK-IIA+1 ) + ONE
                            DO 770 KK = II+LL-JJ+1, IIA+MP-1
                               WORK( KK-IIA+1 ) = WORK( KK-IIA+1 ) +
      $                                           ABS( A( IOFFA+KK ) )

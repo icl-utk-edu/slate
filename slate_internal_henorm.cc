@@ -41,8 +41,9 @@
 #include "slate_internal_batch.hh"
 #include "slate_internal.hh"
 #include "slate_util.hh"
-#include "slate_SymmetricMatrix.hh"
+#include "slate_HermitianMatrix.hh"
 #include "slate_Tile_blas.hh"
+#include "slate_Tile_henorm.hh"
 #include "slate_Tile_synorm.hh"
 #include "slate_types.hh"
 
@@ -57,7 +58,7 @@ namespace slate {
 namespace device {
 
 template <>
-void synorm(
+void henorm(
     Norm in_norm, Uplo uplo,
     int64_t n,
     std::complex<float> const* const* Aarray, int64_t lda,
@@ -66,13 +67,13 @@ void synorm(
     cudaStream_t stream)
 {
 #if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
-    synorm(in_norm, uplo, n, (cuFloatComplex**) Aarray, lda,
+    henorm(in_norm, uplo, n, (cuFloatComplex**) Aarray, lda,
            values, ldv, batch_count, stream);
 #endif
 }
 
 template <>
-void synorm(
+void henorm(
     Norm in_norm, Uplo uplo,
     int64_t n,
     std::complex<double> const* const* Aarray, int64_t lda,
@@ -81,45 +82,15 @@ void synorm(
     cudaStream_t stream)
 {
 #if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
-    synorm(in_norm, uplo, n, (cuDoubleComplex**) Aarray, lda,
+    henorm(in_norm, uplo, n, (cuDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, stream);
-#endif
-}
-
-template <>
-void synormOffdiag(
-    Norm in_norm,
-    int64_t m, int64_t n,
-    std::complex<float> const* const* Aarray, int64_t lda,
-    float* values, int64_t ldv,
-    int64_t batch_count,
-    cudaStream_t stream)
-{
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
-    synormOffdiag(in_norm, m, n, (cuFloatComplex**) Aarray, lda,
-                  values, ldv, batch_count, stream);
-#endif
-}
-
-template <>
-void synormOffdiag(
-    Norm in_norm,
-    int64_t m, int64_t n,
-    std::complex<double> const* const* Aarray, int64_t lda,
-    double* values, int64_t ldv,
-    int64_t batch_count,
-    cudaStream_t stream)
-{
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
-    synormOffdiag(in_norm, m, n, (cuDoubleComplex**) Aarray, lda,
-                  values, ldv, batch_count, stream);
 #endif
 }
 
 #if ! defined(SLATE_WITH_CUDA)
 // Specializations to allow compilation without CUDA.
 template <>
-void synorm(
+void henorm(
     Norm in_norm, Uplo uplo,
     int64_t n,
     double const* const* Aarray, int64_t lda,
@@ -130,31 +101,9 @@ void synorm(
 }
 
 template <>
-void synorm(
+void henorm(
     Norm in_norm, Uplo uplo,
     int64_t n,
-    float const* const* Aarray, int64_t lda,
-    float* values, int64_t ldv,
-    int64_t batch_count,
-    cudaStream_t stream)
-{
-}
-
-template <>
-void synormOffdiag(
-    Norm in_norm,
-    int64_t m, int64_t n,
-    double const* const* Aarray, int64_t lda,
-    double* values, int64_t ldv,
-    int64_t batch_count,
-    cudaStream_t stream)
-{
-}
-
-template <>
-void synormOffdiag(
-    Norm in_norm,
-    int64_t m, int64_t n,
     float const* const* Aarray, int64_t lda,
     float* values, int64_t ldv,
     int64_t batch_count,
@@ -168,19 +117,19 @@ void synormOffdiag(
 namespace internal {
 
 ///-----------------------------------------------------------------------------
-/// Symmetric matrix norm.
+/// Hermitian matrix norm.
 /// Dispatches to target implementations.
 ///
 /// @param in_norm
 /// - Norm::Max: values is dimension 1 and contains the local max.
 /// - Norm::One: values is dimension n and contains the local column sum.
-/// - Norm::Inf: for symmetric, same as Norm::One.
+/// - Norm::Inf: for Hermitian, same as Norm::One.
 /// - Norm::Fro: values is dimension 2 and contains the local scale and
 ///              sum-of-squares.
 ///
 template <Target target, typename scalar_t>
 void norm(
-    Norm in_norm, SymmetricMatrix<scalar_t>&& A,
+    Norm in_norm, HermitianMatrix<scalar_t>&& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
@@ -190,12 +139,12 @@ void norm(
 }
 
 ///-----------------------------------------------------------------------------
-/// Symmetric matrix norm.
+/// Hermitian matrix norm.
 /// Host OpenMP task implementation.
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::HostTask>,
-    Norm in_norm, SymmetricMatrix<scalar_t>& A,
+    Norm in_norm, HermitianMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
@@ -216,7 +165,7 @@ void norm(
                 {
                     A.tileCopyToHost(j, j, A.tileDevice(j, j));
                     real_t tile_max;
-                    synorm(in_norm, A(j, j), &tile_max);
+                    henorm(in_norm, A(j, j), &tile_max);
                     #pragma omp critical
                     {
                         tiles_maxima.push_back(tile_max);
@@ -278,10 +227,10 @@ void norm(
                 #pragma omp task shared(A, tiles_sums) priority(priority)
                 {
                     A.tileCopyToHost(j, j, A.tileDevice(j, j));
-                    synorm(in_norm, A(j, j), &tiles_sums[A.n()*j + jj]);
+                    henorm(in_norm, A(j, j), &tiles_sums[A.n()*j + jj]);
                 }
             }
-            // off-diagonal tiles
+            // off-diagonal tiles (same as synorm)
             if (A.uplo() == Uplo::Lower) {
                 int64_t ii = jj + A.tileNb(j);
                 for (int64_t i = j+1; i < A.mt(); ++i) { // strictly lower
@@ -340,7 +289,7 @@ void norm(
             if (j < A.mt() && A.tileIsLocal(j, j)) {
                 A.tileCopyToHost(j, j, A.tileDevice(j, j));
                 real_t tile_values[2];
-                synorm(in_norm, A(j, j), tile_values);
+                henorm(in_norm, A(j, j), tile_values);
                 #pragma omp critical
                 {
                     add_sumsq(values[0], values[1],
@@ -391,12 +340,12 @@ void norm(
 }
 
 ///-----------------------------------------------------------------------------
-/// Symmetric matrix norm.
+/// Hermitian matrix norm.
 /// Host nested OpenMP implementation.
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::HostNest>,
-    Norm in_norm, SymmetricMatrix<scalar_t>& A,
+    Norm in_norm, HermitianMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
@@ -404,12 +353,12 @@ void norm(
 }
 
 ///-----------------------------------------------------------------------------
-/// Symmetric matrix norm.
+/// Hermitian matrix norm.
 /// GPU device implementation.
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::Devices>,
-    Norm in_norm, SymmetricMatrix<scalar_t>& A,
+    Norm in_norm, HermitianMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
@@ -546,7 +495,7 @@ void norm(
 
             // Batched call to compute partial results for each tile.
             {
-                trace::Block trace_block("slate::device::synorm");
+                trace::Block trace_block("slate::device::henorm");
 
                 slate_cuda_call(
                     cudaSetDevice(device));
@@ -558,7 +507,7 @@ void norm(
                                     cudaMemcpyHostToDevice,
                                     stream));
 
-                // off-diagonal blocks
+                // off-diagonal blocks (same as synorm)
                 for (int q = 0; q < 4; ++q) {
                     if (group_count[q] > 0) {
                         if (in_norm == Norm::One || in_norm == Norm::Inf) {
@@ -582,7 +531,7 @@ void norm(
                 // diagonal blocks
                 for (int q = 4; q < 6; ++q) {
                     if (group_count[q] > 0) {
-                        device::synorm(in_norm, A.uplo(),
+                        device::henorm(in_norm, A.uplo(),
                                        nb[q],
                                        a_dev_array, lda[q],
                                        vals_dev_array, ldv,
@@ -708,76 +657,76 @@ void norm(
 // ----------------------------------------
 template
 void norm<Target::HostTask, float>(
-    Norm in_norm, SymmetricMatrix<float>&& A,
+    Norm in_norm, HermitianMatrix<float>&& A,
     float* values,
     int priority);
 
 template
 void norm<Target::HostNest, float>(
-    Norm in_norm, SymmetricMatrix<float>&& A,
+    Norm in_norm, HermitianMatrix<float>&& A,
     float* values,
     int priority);
 
 template
 void norm<Target::Devices, float>(
-    Norm in_norm, SymmetricMatrix<float>&& A,
+    Norm in_norm, HermitianMatrix<float>&& A,
     float* values,
     int priority);
 
 // ----------------------------------------
 template
 void norm<Target::HostTask, double>(
-    Norm in_norm, SymmetricMatrix<double>&& A,
+    Norm in_norm, HermitianMatrix<double>&& A,
     double* values,
     int priority);
 
 template
 void norm<Target::HostNest, double>(
-    Norm in_norm, SymmetricMatrix<double>&& A,
+    Norm in_norm, HermitianMatrix<double>&& A,
     double* values,
     int priority);
 
 template
 void norm<Target::Devices, double>(
-    Norm in_norm, SymmetricMatrix<double>&& A,
+    Norm in_norm, HermitianMatrix<double>&& A,
     double* values,
     int priority);
 
 // ----------------------------------------
 template
 void norm< Target::HostTask, std::complex<float> >(
-    Norm in_norm, SymmetricMatrix< std::complex<float> >&& A,
+    Norm in_norm, HermitianMatrix< std::complex<float> >&& A,
     float* values,
     int priority);
 
 template
 void norm< Target::HostNest, std::complex<float> >(
-    Norm in_norm, SymmetricMatrix< std::complex<float> >&& A,
+    Norm in_norm, HermitianMatrix< std::complex<float> >&& A,
     float* values,
     int priority);
 
 template
 void norm< Target::Devices, std::complex<float> >(
-    Norm in_norm, SymmetricMatrix< std::complex<float> >&& A,
+    Norm in_norm, HermitianMatrix< std::complex<float> >&& A,
     float* values,
     int priority);
 
 // ----------------------------------------
 template
 void norm< Target::HostTask, std::complex<double> >(
-    Norm in_norm, SymmetricMatrix< std::complex<double> >&& A,
+    Norm in_norm, HermitianMatrix< std::complex<double> >&& A,
     double* values,
     int priority);
 
 template
 void norm< Target::HostNest, std::complex<double> >(
-    Norm in_norm, SymmetricMatrix< std::complex<double> >&& A,
+    Norm in_norm, HermitianMatrix< std::complex<double> >&& A,
     double* values,
     int priority);
 
 template
 void norm< Target::Devices, std::complex<double> >(
-    Norm in_norm, SymmetricMatrix< std::complex<double> >&& A,
+    Norm in_norm, HermitianMatrix< std::complex<double> >&& A,
     double* values,
     int priority);
 

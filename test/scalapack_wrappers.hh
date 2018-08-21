@@ -221,6 +221,48 @@ inline double scalapack_plansy (const char *norm, const char *uplo, int64_t n, s
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
+#define scalapack_pclanhe BLAS_FORTRAN_NAME(pclanhe,PCLANHE)
+#define scalapack_pzlanhe BLAS_FORTRAN_NAME(pzlanhe,PZLANHE)
+
+extern "C" float scalapack_pclanhe (const char *norm, const char *uplo, blas_int *n, std::complex<float> *a, blas_int *ia, blas_int *ja, blas_int *desca, float *work);
+
+extern "C" double scalapack_pzlanhe (const char *norm, const char *uplo, blas_int *n, std::complex<double> *a, blas_int *ia, blas_int *ja, blas_int *desca, double *work);
+
+// -----------------------------------------------------------------------------
+
+inline float scalapack_planhe (const char *norm, const char *uplo, blas_int *n, float *a, blas_int *ia, blas_int *ja, blas_int *desca, float *work)
+{
+    return scalapack_pslansy (norm, uplo, n, a, ia, ja, desca, work);
+}
+
+inline double scalapack_planhe (const char *norm, const char *uplo, blas_int *n, double *a, blas_int *ia, blas_int *ja, blas_int *desca, double *work)
+{
+    return scalapack_pdlansy (norm, uplo, n, a, ia, ja, desca, work);
+}
+
+inline float scalapack_planhe (const char *norm, const char *uplo, blas_int *n, std::complex<float> *a, blas_int *ia, blas_int *ja, blas_int *desca, float *work)
+{
+    return scalapack_pclanhe (norm, uplo, n, a, ia, ja, desca, work);
+}
+
+inline double scalapack_planhe (const char *norm, const char *uplo, blas_int *n, std::complex<double> *a, blas_int *ia, blas_int *ja, blas_int *desca, double *work)
+{
+    return scalapack_pzlanhe (norm, uplo, n, a, ia, ja, desca, work);
+}
+
+template <typename scalar_t>
+inline double scalapack_planhe (const char *norm, const char *uplo, int64_t n, scalar_t *a, int64_t ia, int64_t ja, int *desca, blas::real_type<scalar_t> *work)
+{
+    int n_ = int64_to_int (n);
+    int ia_ = int64_to_int (ia);
+    int ja_ = int64_to_int (ja);
+    return scalapack_planhe (norm, uplo, &n_, a, &ia_, &ja_, desca, work);
+}
+
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
 #define scalapack_psgemm BLAS_FORTRAN_NAME( psgemm, PSGEMM )
 #define scalapack_pdgemm BLAS_FORTRAN_NAME( pdgemm, PDGEMM )
 #define scalapack_pcgemm BLAS_FORTRAN_NAME( pcgemm, PCGEMM )

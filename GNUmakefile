@@ -220,6 +220,7 @@ lib_src += \
        slate_internal_gemm.cc \
        slate_internal_genorm.cc \
        slate_internal_hemm.cc \
+       slate_internal_henorm.cc \
        slate_internal_her2k.cc \
        slate_internal_herk.cc \
        slate_internal_potrf.cc \
@@ -236,6 +237,7 @@ lib_src += \
 ifeq ($(cuda),1)
     lib_src += \
            slate_device_genorm.cu \
+           slate_device_henorm.cu \
            slate_device_synorm.cu \
            slate_device_trnorm.cu
 endif
@@ -265,6 +267,7 @@ test_src = \
         test/test_trsm.cc  \
         test/test_potrf.cc \
         test/test_hemm.cc  \
+        test/test_henorm.cc  \
         test/test_her2k.cc \
         test/test_herk.cc  \
         test/test_genorm.cc  \

@@ -389,6 +389,7 @@ std::vector< libtest::routines_t > routines = {
 
     // auxiliary: norms
     { "genorm",             test_genorm,       Section::aux_norm },
+    { "henorm",             test_henorm,       Section::aux_norm },
     { "synorm",             test_synorm,       Section::aux_norm },
     { "trnorm",             test_trnorm,       Section::aux_norm },
     { "",                   nullptr,           Section::newline },

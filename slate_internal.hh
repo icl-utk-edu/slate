@@ -276,6 +276,11 @@ void norm(Norm in_norm, Matrix<scalar_t>&& A,
           int priority=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
+void norm(Norm in_norm, HermitianMatrix<scalar_t>&& A,
+          blas::real_type<scalar_t>* values,
+          int priority=0);
+
+template <Target target=Target::HostTask, typename scalar_t>
 void norm(Norm in_norm, SymmetricMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
           int priority=0);

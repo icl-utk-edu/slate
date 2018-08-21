@@ -556,14 +556,15 @@ int main( int argc, char** argv )
         strcmp( argv[1], "-h" ) == 0 ||
         strcmp( argv[1], "--help" ) == 0)
     {
-        if ( mpi_rank == 0 ) usage( argc, argv, routines, section_names );
+        if (mpi_rank == 0)
+            usage( argc, argv, routines, section_names );
         return 0;
     }
 
     const char* routine = argv[1];
     libtest::test_func_ptr test_routine = find_tester( routine, routines );
     if (test_routine == nullptr) {
-        if ( mpi_rank == 0 ) {
+        if (mpi_rank == 0) {
             fprintf( stderr, "Error: routine %s not found\n", routine );
             usage( argc, argv, routines, section_names );
         }
@@ -578,7 +579,7 @@ int main( int argc, char** argv )
     params.parse( routine, argc-2, argv+2 );
 
     // print input so running `test [input] > out.txt` documents input
-    if  ( mpi_rank == 0 ) {
+    if (mpi_rank == 0) {
         printf( "input: %s", argv[0] );
         for (int i = 1; i < argc; ++i) {
             printf( " %s", argv[i] );
@@ -590,11 +591,13 @@ int main( int argc, char** argv )
     int status = 0;
     int repeat = params.repeat.value();
     libtest::DataType last = params.datatype.value();
-    if ( mpi_rank == 0 ) params.header();
+    if (mpi_rank == 0)
+        params.header();
     do {
         if (params.datatype.value() != last) {
             last = params.datatype.value();
-            printf( "\n" );
+            if (mpi_rank == 0)
+                printf("\n");
         }
         for (int iter = 0; iter < repeat; ++iter) {
             try {
@@ -602,38 +605,42 @@ int main( int argc, char** argv )
             }
             catch (slate::Exception& err) {
                 params.okay.value() = false;
-                printf( "SLATE error: %s\n", err.what() );
+                printf("rank %d, SLATE error: %s\n", mpi_rank, err.what());
             }
             catch (blas::Error& err) {
                 params.okay.value() = false;
-                printf( "BLAS error: %s\n", err.what() );
+                printf("rank %d, BLAS error: %s\n", mpi_rank, err.what());
             }
             catch (lapack::Error& err) {
                 params.okay.value() = false;
-                printf( "LAPACK error: %s\n", err.what() );
+                printf("rank %d, LAPACK error: %s\n",
+                       mpi_rank, err.what());
             }
             catch (std::exception& err) {
                 // happens for assert_throw failures
                 params.okay.value() = false;
-                printf( "Caught std::exception: %s\n", err.what() );
+                printf("rank %d, Caught std::exception: %s\n",
+                       mpi_rank, err.what());
             }
             catch (...) {
                 // happens for assert_throw failures
                 params.okay.value() = false;
-                printf( "Caught unknown error when calling test routine\n" );
+                printf("rank %d, Caught unknown error when calling test routine\n",
+                       mpi_rank);
             }
-            if ( mpi_rank == 0 ) params.print();
+            if (mpi_rank == 0)
+                params.print();
             status += ! params.okay.value();
             params.reset_output();
         }
-        if (repeat > 1) {
+        if (repeat > 1 && mpi_rank == 0) {
             printf( "\n" );
         }
     } while( params.next() );
 
     MPI_Finalize();
 
-    if (mpi_rank==0) {
+    if (mpi_rank == 0) {
         if (status) {
             printf( "%d tests FAILED.\n", status );
         } else {
@@ -641,8 +648,8 @@ int main( int argc, char** argv )
         }
     }
 
-    if (mpi_rank==0)
-        return(status);
+    if (mpi_rank == 0)
+        return status;
     else
-        return(0);
+        return 0;
 }

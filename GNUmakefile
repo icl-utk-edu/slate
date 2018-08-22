@@ -219,6 +219,7 @@ lib_src += \
        slate_internal_comm.cc \
        slate_internal_gemm.cc \
        slate_internal_genorm.cc \
+       slate_internal_getrf.cc \
        slate_internal_hemm.cc \
        slate_internal_henorm.cc \
        slate_internal_her2k.cc \
@@ -245,6 +246,7 @@ endif
 # driver
 lib_src += \
        slate_gemm.cc \
+       slate_getrf.cc \
        slate_hemm.cc \
        slate_her2k.cc \
        slate_herk.cc \
@@ -257,7 +259,7 @@ lib_src += \
        slate_trsm.cc \
 
 # main tester
-test_src = \
+test_src += \
         test/test.cc       \
         test/test_gemm.cc  \
         test/test_trmm.cc  \
@@ -273,6 +275,7 @@ test_src = \
         test/test_genorm.cc  \
         test/test_synorm.cc  \
         test/test_trnorm.cc  \
+        test/test_getrf.cc \
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
 # Note that 'make' sets $(FC) to f77 by default.
@@ -447,15 +450,23 @@ $(unit_test): %: %.o $(unit_test_obj) $(lib)
 # scalapack_api library
 scalapack_api = lib/libslate_scalapack_api.so
 
-scalapack_api_src = \
+scalapack_api_src += \
                      scalapack_api/scalapack_gemm.cc \
                      scalapack_api/scalapack_syrk.cc \
                      scalapack_api/scalapack_symm.cc \
                      scalapack_api/scalapack_trsm.cc \
                      scalapack_api/scalapack_syr2k.cc \
-                     scalapack_api/scalapack_trmm.cc 
+                     scalapack_api/scalapack_trmm.cc \
+                     scalapack_api/scalapack_hemm.cc \
+                     scalapack_api/scalapack_herk.cc \
+                     scalapack_api/scalapack_her2k.cc \
+                     scalapack_api/scalapack_lange.cc \
+                     scalapack_api/scalapack_lansy.cc \
+                     scalapack_api/scalapack_lantr.cc \
 
 scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
+
+dep += $(addsuffix .d, $(basename $(scalapack_api_src)))
 
 SCALAPACK_API_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 SCALAPACK_API_LIB     += -lslate $(scalapack)
@@ -473,7 +484,8 @@ $(scalapack_api): $(scalapack_api_obj) $(lib)
 # lapack_api library
 lapack_api = lib/libslate_lapack_api.so
 
-lapack_api_src += lapack_api/lapack_gemm.cc \
+lapack_api_src += \
+		lapack_api/lapack_gemm.cc \
 		lapack_api/lapack_hemm.cc \
 		lapack_api/lapack_symm.cc \
 		lapack_api/lapack_trmm.cc \
@@ -481,8 +493,9 @@ lapack_api_src += lapack_api/lapack_gemm.cc \
 		lapack_api/lapack_herk.cc \
 		lapack_api/lapack_syrk.cc \
 
-
 lapack_api_obj = $(addsuffix .o, $(basename $(lapack_api_src)))
+
+dep += $(addsuffix .d, $(basename $(lapack_api_src)))
 
 LAPACK_API_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 LAPACK_API_LIB     += -lslate 

@@ -31,10 +31,10 @@
 // software, applications, hardware, advanced system engineering and early
 // testbed platforms, in support of the nation's exascale computing imperative.
 //------------------------------------------------------------------------------
-// Need assistance with the SLATE software? Join the "SLATE User" Google group
-// by going to https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user
-// and clicking "Apply to join group". Upon acceptance, email your questions and
-// comments to <slate-user@icl.utk.edu>.
+// For assistance with SLATE, email <slate-user@icl.utk.edu>.
+// You can also join the "SLATE User" Google group by going to
+// https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user,
+// signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
 ///-----------------------------------------------------------------------------
@@ -74,6 +74,8 @@ template <Target> class TargetType {};
 enum class Option {
     Lookahead,
     BlockSize,
+    InnerBlocking,
+    MaxPanelThreads,
     Tolerance,
     Target,
 };
@@ -103,9 +105,19 @@ public:
 };
 
 //------------------------------------------------------------------------------
+template <typename scalar_t>
+class Pivot {
+public:
+    int rank;               ///< rank of the pivot owner
+    scalar_t value;         ///< pivot value
+    int64_t tile_index;     ///< tile index in the local list
+    int64_t element_offset; ///< pivot offset in the tile
+};
+
+//------------------------------------------------------------------------------
 /// gives mpi_type based on actual scalar_t.
 //  constants are initialized in slate_types.cc
-template<typename scalar_t>
+template <typename scalar_t>
 class mpi_type {};
 
 template<>
@@ -130,6 +142,22 @@ template<>
 class mpi_type< std::complex<double> > {
 public:
     static MPI_Datatype value; // = MPI_C_DOUBLE_COMPLEX
+};
+
+// for type-generic maxloc operations
+template <typename real_t>
+struct max_loc_type { real_t x; int i; };
+
+template<>
+class mpi_type< max_loc_type<float> > {
+public:
+    static MPI_Datatype value; // = MPI_FLOAT_INT
+};
+
+template<>
+class mpi_type< max_loc_type<double> > {
+public:
+    static MPI_Datatype value; // = MPI_DOUBLE_INT
 };
 
 //------------------------------------------------------------------------------

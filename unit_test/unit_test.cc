@@ -79,7 +79,7 @@ std::string output_test(const char* str)
 
 std::string output_test(const char* str, int rank)
 {
-    std::string tmp = string_printf("%s, rank %d", str, rank);
+    std::string tmp = string_printf("rank %2d, %s", rank, str);
     return string_printf("%-60s", tmp.c_str());
 }
 

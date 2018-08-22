@@ -31,10 +31,10 @@
 // software, applications, hardware, advanced system engineering and early
 // testbed platforms, in support of the nation's exascale computing imperative.
 //------------------------------------------------------------------------------
-// Need assistance with the SLATE software? Join the "SLATE User" Google group
-// by going to https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user
-// and clicking "Apply to join group". Upon acceptance, email your questions and
-// comments to <slate-user@icl.utk.edu>.
+// For assistance with SLATE, email <slate-user@icl.utk.edu>.
+// You can also join the "SLATE User" Google group by going to
+// https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user,
+// signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
 #ifndef SLATE_BASE_MATRIX_HH
@@ -113,17 +113,10 @@ public:
     template <typename T>
     friend void swap(BaseMatrix<T>& A, BaseMatrix<T>& B);
 
-    Tile<scalar_t> operator()(int64_t i, int64_t j);
-    Tile<scalar_t> operator()(int64_t i, int64_t j, int device);
+    Tile<scalar_t> operator()(int64_t i, int64_t j, int device=host_num_);
 
     /// Alias of operator().
-    Tile<scalar_t> at(int64_t i, int64_t j)
-    {
-        return (*this)(i, j);
-    }
-
-    /// Alias of operator().
-    Tile<scalar_t> at(int64_t i, int64_t j, int device)
+    Tile<scalar_t> at(int64_t i, int64_t j, int device=host_num_)
     {
         return (*this)(i, j, device);
     }
@@ -164,9 +157,16 @@ public:
     int64_t tileMb(int64_t i) const;
     int64_t tileNb(int64_t j) const;
 
-    Tile<scalar_t>* tileInsert(int64_t i, int64_t j, int device);
+    Tile<scalar_t>* tileInsert(int64_t i, int64_t j, int device=host_num_);
     Tile<scalar_t>* tileInsert(int64_t i, int64_t j, int device,
                                scalar_t* A, int64_t ld);
+
+    /// Insert tile with default device=host_num. @see tileInsert.
+    Tile<scalar_t>* tileInsert(int64_t i, int64_t j,
+                               scalar_t* A, int64_t ld)
+    {
+        return tileInsert(i, j, host_num_, A, ld);
+    }
 
     /// Returns life counter of tile {i, j} of op(A).
     int64_t tileLife(int64_t i, int64_t j) const
@@ -188,7 +188,7 @@ public:
         storage_->tileTick(globalIndex(i, j));
     }
 
-    void tileErase(int64_t i, int64_t j, int device);
+    void tileErase(int64_t i, int64_t j, int device=host_num_);
 
     template <Target target = Target::Host>
     void tileBcast(int64_t i, int64_t j, BaseMatrix const& B);
@@ -210,8 +210,10 @@ public:
     void getRanks(std::set<int>* bcast_set) const;
     void getLocalDevices(std::set<int>* dev_set) const;
     int64_t numLocalTiles() const;
-    MPI_Comm mpiComm() const { return mpi_comm_; }
-
+    MPI_Comm  mpiComm()  const { return mpi_comm_; }
+    int       mpiRank()  const { return mpi_rank_; }
+    MPI_Group mpiGroup() const { return mpi_group_; }
+    int       hostNum()  const { return host_num_; }
 
     /// Removes all tiles from matrix.
     void clear()
@@ -445,25 +447,6 @@ void swap(BaseMatrix<scalar_t>& A, BaseMatrix<scalar_t>& B)
 }
 
 //------------------------------------------------------------------------------
-/// Get shallow copy of tile {i, j} of op(A) on host,
-/// with the tile's op flag set to match the matrix's.
-///
-/// @param[in] i
-///     Tile's block row index. 0 <= i < mt.
-///
-/// @param[in] j
-///     Tile's block column index. 0 <= j < nt.
-///
-/// @return Tile {i, j, host}.
-///
-template <typename scalar_t>
-Tile<scalar_t> BaseMatrix<scalar_t>::operator()(
-    int64_t i, int64_t j)
-{
-    return (*this)(i, j, host_num_);
-}
-
-//------------------------------------------------------------------------------
 /// Get shallow copy of tile {i, j} of op(A) on given device,
 /// with the tile's op flag set to match the matrix's.
 ///
@@ -474,7 +457,7 @@ Tile<scalar_t> BaseMatrix<scalar_t>::operator()(
 ///     Tile's block column index. 0 <= j < nt.
 ///
 /// @param[in] device
-///     Tile's device ID.
+///     Tile's device ID; default is host_num.
 ///
 /// @return Tile {i, j, device}.
 ///
@@ -482,12 +465,19 @@ template <typename scalar_t>
 Tile<scalar_t> BaseMatrix<scalar_t>::operator()(
     int64_t i, int64_t j, int device)
 {
-    if (op_ == Op::NoTrans)
-        return *(storage_->at(globalIndex(i, j, device)));
-    else if (op_ == Op::Trans)
-        return transpose(*(storage_->at(globalIndex(i, j, device))));
-    else    // if (op_ == Op::ConjTrans)
-        return conj_transpose(*(storage_->at(globalIndex(i, j, device))));
+    auto tile = *storage_->at(globalIndex(i, j, device));
+
+    // set uplo on diagonal tile (off-diagonal tiles are always general)
+    if (i == j)
+        tile.uplo(uplo_);
+
+    // apply transpose
+    if (op_ == Op::Trans)
+        tile = transpose(tile);
+    else if (op_ == Op::ConjTrans)
+        tile = conj_transpose(tile);
+
+    return tile;
 }
 
 //------------------------------------------------------------------------------
@@ -551,7 +541,7 @@ int64_t BaseMatrix<scalar_t>::tileNb(int64_t j) const
 ///     Tile's block column index. 0 <= j < nt.
 ///
 /// @param[in] device
-///     Tile's device ID.
+///     Tile's device ID; default is host_num.
 ///
 /// @return Pointer to new tile.
 ///
@@ -561,9 +551,6 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 {
     auto index = globalIndex(i, j, device);
     auto tile = storage_->tileInsert(index);
-    // set uplo on diagonal tiles (global i == j)
-    if (std::get<0>(index) == std::get<1>(index))
-        tile->uplo(uplo_);
     return tile;
 }
 
@@ -577,7 +564,7 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 ///     Tile's block column index. 0 <= j < nt.
 ///
 /// @param[in] device
-///     Tile's device ID.
+///     Tile's device ID; default is host_num (provided by overloaded function).
 ///
 /// @param[in,out] data
 ///     Tile's data. The matrix uses this pointer directly, it does not copy
@@ -594,9 +581,6 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 {
     auto index = globalIndex(i, j, device);
     auto tile = storage_->tileInsert(index, data, ld);
-    // set uplo on diagonal tiles (global i == j)
-    if (std::get<0>(index) == std::get<1>(index))
-        tile->uplo(uplo_);
     return tile;
 }
 
@@ -750,6 +734,7 @@ void BaseMatrix<scalar_t>::listBcast(BcastList& bcast_list)
 /// @param[in] bcast_set
 ///     Set of MPI ranks to broadcast to.
 ///
+// todo: use the commFromSet() function from slate_internal_comm.cc
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileBcastToSet(
     int64_t i, int64_t j, std::set<int> const& bcast_set)
@@ -1019,6 +1004,7 @@ void BaseMatrix<scalar_t>::tileMoveToHost(
 /// @param[out] bcast_set
 ///     On output, set of MPI ranks that this sub-matrix has tiles on.
 ///
+// todo: pass bcast_set by reference
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::getRanks(std::set<int>* bcast_set) const
 {

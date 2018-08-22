@@ -31,20 +31,23 @@
 // software, applications, hardware, advanced system engineering and early
 // testbed platforms, in support of the nation's exascale computing imperative.
 //------------------------------------------------------------------------------
-// Need assistance with the SLATE software? Join the "SLATE User" Google group
-// by going to https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user
-// and clicking "Apply to join group". Upon acceptance, email your questions and
-// comments to <slate-user@icl.utk.edu>.
+// For assistance with SLATE, email <slate-user@icl.utk.edu>.
+// You can also join the "SLATE User" Google group by going to
+// https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user,
+// signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
 #include "slate_types.hh"
 
 namespace slate {
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 MPI_Datatype mpi_type<float >::value = MPI_FLOAT;
 MPI_Datatype mpi_type<double>::value = MPI_DOUBLE;
 MPI_Datatype mpi_type< std::complex<float>  >::value = MPI_C_COMPLEX;
 MPI_Datatype mpi_type< std::complex<double> >::value = MPI_C_DOUBLE_COMPLEX;
+
+MPI_Datatype mpi_type< max_loc_type<float>  >::value = MPI_FLOAT_INT;
+MPI_Datatype mpi_type< max_loc_type<double> >::value = MPI_DOUBLE_INT;
 
 } // namespace slate

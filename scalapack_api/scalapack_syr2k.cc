@@ -31,15 +31,15 @@
 // software, applications, hardware, advanced system engineering and early
 // testbed platforms, in support of the nation's exascale computing imperative.
 //------------------------------------------------------------------------------
-// Need assistance with the SLATE software? Join the "SLATE User" Google group
-// by going to https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user
-// and clicking "Apply to join group". Upon acceptance, email your questions and
-// comments to <slate-user@icl.utk.edu>.
+// For assistance with SLATE, email <slate-user@icl.utk.edu>.
+// You can also join the "SLATE User" Google group by going to
+// https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user,
+// signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
 #include "slate.hh"
+#include "scalapack_slate.hh"
 #include <complex>
-
 
 #ifdef SLATE_WITH_MKL
 extern "C" int MKL_Set_Num_Threads(int nt);
@@ -49,7 +49,7 @@ inline int slate_set_num_blas_threads(const int nt) { return -1; }
 #endif
 
 namespace slate {
-namespace scalapack_compat {
+namespace scalapack_api {
 
 // -----------------------------------------------------------------------------
 
@@ -59,8 +59,6 @@ extern "C" void Cblacs_gridinfo(int context, int*  np_row, int* np_col, int*  my
 // Declarations
 template< typename scalar_t >
 void slate_psyr2k(const char* uplostr, const char* transstr, int n, int k, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb, scalar_t beta, scalar_t* c, int ic, int jc, int* descc);
-
-enum slate_scalapack_desc { DTYPE_=0, CTXT_=1, M_=2, N_=3, IMB_=4, INB_=5, MB_=6, NB_=7, RSRC_=8, CSRC_=9, LLD_=10 };
 
 // -----------------------------------------------------------------------------
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
@@ -134,72 +132,42 @@ extern "C" void pzsyr2k_(const char* uplo, const char* trans, int* n, int* k, st
 
 // -----------------------------------------------------------------------------
 
-template< typename scalar_t >
-static slate::Matrix<scalar_t> slate_scalapack_submatrix(int Am, int An, slate::Matrix<scalar_t>& A, int ia, int ja, int* desca)
-{
-    assert((ia-1)%desca[MB_]==0);
-    assert((ja-1)%desca[NB_]==0);
-    int64_t i1 = (ia-1)/desca[MB_];
-    int64_t i2 = (ia-1+Am)/desca[MB_]-1;
-    int64_t j1 = (ja-1)/desca[NB_];
-    int64_t j2 = (ja-1+An)/desca[NB_]-1;
-    return A.sub(i1, i2, j1, j2);
-}
-
-template< typename scalar_t >
-static slate::SymmetricMatrix<scalar_t> slate_scalapack_submatrix(int Am, int An, slate::SymmetricMatrix<scalar_t>& A, int ia, int ja, int* desca)
-{
-    assert((ia-1)%desca[MB_]==0);
-    assert((ja-1)%desca[NB_]==0);
-    int64_t i1 = (ia-1)/desca[MB_];
-    int64_t i2 = (ia-1+Am)/desca[MB_]-1;
-    // int64_t j1 = (ja-1)/desca[NB_];
-    // int64_t j2 = (ja-1+An)/desca[NB_]-1;
-    return A.sub(i1, i2);
-}
-
 // Type generic function calls the SLATE routine
 template< typename scalar_t >
 void slate_psyr2k(const char* uplostr, const char* transstr, int n, int k, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb, scalar_t beta, scalar_t* c, int ic, int jc, int* descc)
 {
     // todo: figure out if the pxq grid is in row or column
-    printf("syr2k");
 
-    int saved_num_blas_threads = slate_set_num_blas_threads(1);
-    int saved_num_omp_threads;
+    // make blas single threaded
     // todo: does this set the omp num threads correctly
-    #pragma omp parallel
-    { saved_num_omp_threads = omp_get_num_threads(); }
-    omp_set_num_threads(std::max({saved_num_blas_threads, saved_num_omp_threads}));
+    int saved_num_blas_threads = slate_set_num_blas_threads(1);
 
     blas::Uplo uplo = blas::char2uplo(uplostr[0]);
     blas::Op trans = blas::char2op(transstr[0]);
-    slate::Target target = slate::Target::Devices;
+    static slate::Target target = slate_scalapack_set_target();
+    static int verbose = slate_scalapack_set_verbose();
+    int64_t lookahead = 1;
 
     // setup so op(A) and op(B) are n-by-k
     int64_t Am = (trans == blas::Op::NoTrans ? n : k);
     int64_t An = (trans == blas::Op::NoTrans ? k : n);
     int64_t Bm = Am;
     int64_t Bn = An;
-    // int64_t Cm = n;
     int64_t Cn = n;
 
     // create SLATE matrices from the ScaLAPACK layouts
     int nprow, npcol, myrow, mycol;
-    Cblacs_gridinfo(desca[CTXT_], &nprow, &npcol, &myrow, &mycol);
-    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desca[M_], desca[N_], a, desca[LLD_], desca[MB_], nprow, npcol, MPI_COMM_WORLD);
+    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myrow, &mycol);
+    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), nprow, npcol, MPI_COMM_WORLD);
     A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
 
-    Cblacs_gridinfo(descb[CTXT_], &nprow, &npcol, &myrow, &mycol);
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(descb[M_], descb[N_], b, descb[LLD_], descb[MB_], nprow, npcol, MPI_COMM_WORLD);
+    Cblacs_gridinfo(desc_CTXT(descb), &nprow, &npcol, &myrow, &mycol);
+    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(descb), desc_N(descb), b, desc_LLD(descb), desc_MB(descb), nprow, npcol, MPI_COMM_WORLD);
     B = slate_scalapack_submatrix(Bm, Bn, B, ib, jb, descb);
 
-    Cblacs_gridinfo(descc[CTXT_], &nprow, &npcol, &myrow, &mycol);
-    // todo fix this allocation of C so it respects ic jc
-    // auto C = slate::Matrix<scalar_t>::fromScaLAPACK(descc[M_], descc[N_], c, descc[LLD_], descc[MB_], nprow, npcol, MPI_COMM_WORLD);
-    // auto Csub = slate_scalapack_submatrix(Cm, Cn, C, ic, jc, descc);
-    // auto CS = slate::SymmetricMatrix<scalar_t>(uplo, Csub);
-    auto CS = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(uplo, Cn, c, descc[LLD_], descc[MB_], nprow, npcol, MPI_COMM_WORLD);
+    Cblacs_gridinfo(desc_CTXT(descc), &nprow, &npcol, &myrow, &mycol);
+    auto C = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(descc), c, desc_LLD(descc), desc_MB(descc), nprow, npcol, MPI_COMM_WORLD);
+    auto CS = slate_scalapack_submatrix(Cn, Cn, C, ic, jc, descc);
 
     if (trans == blas::Op::Trans) {
         A = transpose(A);
@@ -213,15 +181,16 @@ void slate_psyr2k(const char* uplostr, const char* transstr, int n, int k, scala
     assert(B.mt() == CS.mt());
     assert(A.nt() == B.nt());
 
-    int64_t lookahead = 1;
+    if (verbose && myrow==0 && mycol==0)
+        logprintf("%s\n", "syr2k");
+
     slate::syr2k(alpha, A, B, beta, CS, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
 
-    omp_set_num_threads(saved_num_omp_threads);
     slate_set_num_blas_threads(saved_num_blas_threads);
 }
 
-} // namespace scalapack_compat
+} // namespace scalapack_api
 } // namespace slate

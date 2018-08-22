@@ -31,10 +31,10 @@
 // software, applications, hardware, advanced system engineering and early
 // testbed platforms, in support of the nation's exascale computing imperative.
 //------------------------------------------------------------------------------
-// Need assistance with the SLATE software? Join the "SLATE User" Google group
-// by going to https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user
-// and clicking "Apply to join group". Upon acceptance, email your questions and
-// comments to <slate-user@icl.utk.edu>.
+// For assistance with SLATE, email <slate-user@icl.utk.edu>.
+// You can also join the "SLATE User" Google group by going to
+// https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user,
+// signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
 #include "slate_trace_Trace.hh"
@@ -81,12 +81,14 @@ std::map<std::string, Color> Trace::function_color_ = {
     {"cudaFree",          Color::LightSalmon},
     {"cudaFreeHost",      Color::Salmon},
 
-    {"lapack::potrf", Color::RosyBrown},
+    {"lapack::getrf", Color::RosyBrown},
     {"lapack::lange", Color::LightBlue},
+    {"lapack::potrf", Color::BurlyWood},
 
     {"Memory::alloc", Color::Aqua},
     {"Memory::free",  Color::Aquamarine},
 
+    {"MPI_Reduce",            Color::Purple},
     {"MPI_Allreduce",         Color::Purple},
     {"MPI_Barrier",           Color::Black},
     {"MPI_Bcast",             Color::Crimson},

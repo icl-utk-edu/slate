@@ -31,10 +31,10 @@
 // software, applications, hardware, advanced system engineering and early
 // testbed platforms, in support of the nation's exascale computing imperative.
 //------------------------------------------------------------------------------
-// Need assistance with the SLATE software? Join the "SLATE User" Google group
-// by going to https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user
-// and clicking "Apply to join group". Upon acceptance, email your questions and
-// comments to <slate-user@icl.utk.edu>.
+// For assistance with SLATE, email <slate-user@icl.utk.edu>.
+// You can also join the "SLATE User" Google group by going to
+// https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user,
+// signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
 ///-----------------------------------------------------------------------------
@@ -209,6 +209,14 @@ int MPI_Request_free(MPI_Request* request)
 
 int MPI_Send(const void* buf, int count, MPI_Datatype datatype, int dest,
              int tag, MPI_Comm comm)
+{
+    assert(0);
+}
+
+int MPI_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                 int dest, int sendtag, void *recvbuf, int recvcount,
+                 MPI_Datatype recvtype, int source, int recvtag,
+                 MPI_Comm comm, MPI_Status *status)
 {
     assert(0);
 }

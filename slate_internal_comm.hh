@@ -31,10 +31,10 @@
 // software, applications, hardware, advanced system engineering and early
 // testbed platforms, in support of the nation's exascale computing imperative.
 //------------------------------------------------------------------------------
-// Need assistance with the SLATE software? Join the "SLATE User" Google group
-// by going to https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user
-// and clicking "Apply to join group". Upon acceptance, email your questions and
-// comments to <slate-user@icl.utk.edu>.
+// For assistance with SLATE, email <slate-user@icl.utk.edu>.
+// You can also join the "SLATE User" Google group by going to
+// https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user,
+// signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
 ///-----------------------------------------------------------------------------
@@ -44,9 +44,16 @@
 #define SLATE_INTERNAL_COMM_HH
 
 #include <list>
+#include <set>
+
+#include "slate_mpi.hh"
 
 namespace slate {
 namespace internal {
+
+MPI_Comm commFromSet(const std::set<int>& bcast_set,
+                     MPI_Comm mpi_comm, MPI_Group mpi_group,
+                     const int in_rank, int& out_rank);
 
 void cubeBcastPattern(int size, int rank, int radix,
                       std::list<int>& recv_from, std::list<int>& send_to);

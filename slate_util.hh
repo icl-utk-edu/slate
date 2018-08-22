@@ -31,10 +31,10 @@
 // software, applications, hardware, advanced system engineering and early
 // testbed platforms, in support of the nation's exascale computing imperative.
 //------------------------------------------------------------------------------
-// Need assistance with the SLATE software? Join the "SLATE User" Google group
-// by going to https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user
-// and clicking "Apply to join group". Upon acceptance, email your questions and
-// comments to <slate-user@icl.utk.edu>.
+// For assistance with SLATE, email <slate-user@icl.utk.edu>.
+// You can also join the "SLATE User" Google group by going to
+// https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user,
+// signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
 ///-----------------------------------------------------------------------------
@@ -46,6 +46,8 @@
 #include "slate_mpi.hh"
 
 #include <cmath>
+
+#include <blas.hh>
 
 namespace slate {
 
@@ -119,6 +121,52 @@ inline constexpr T roundup(T x, T y)
 {
     return T((x + y - 1) / y) * y;
 }
+
+//------------------------------------------------------------------------------
+/// @return abs(r) + abs(i)
+inline constexpr float cabs1(float x)
+{
+    return std::abs(x);
+}
+
+inline constexpr double cabs1(double x)
+{
+    return std::abs(x);
+}
+
+inline constexpr float cabs1(std::complex<float> x)
+{
+    return float(std::abs(x.real()) + std::abs(x.imag()));
+}
+
+inline constexpr double cabs1(std::complex<double> x)
+{
+    return double(std::abs(x.real()) + std::abs(x.imag()));
+}
+
+//------------------------------------------------------------------------------
+class ThreadBarrier {
+public:
+    ThreadBarrier()
+        : count_(0),
+          passed_(0)
+    {}
+
+    void wait(int size)
+    {
+        int passed_old = passed_;
+
+        __sync_fetch_and_add(&count_, 1);
+        if (__sync_bool_compare_and_swap(&count_, size, 0))
+            passed_++;
+        else
+            while (passed_ == passed_old);
+    }
+
+private:
+    int count_;
+    volatile int passed_;
+};
 
 } // namespace slate
 

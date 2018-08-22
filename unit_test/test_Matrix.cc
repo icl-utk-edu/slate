@@ -51,7 +51,7 @@ using slate::roundup;
 
 //------------------------------------------------------------------------------
 // global variables
-int m, n, nb, p, q;
+int m, n, k, nb, p, q;
 int mpi_rank;
 int mpi_size;
 MPI_Comm mpi_comm;
@@ -1330,6 +1330,454 @@ void test_HermitianMatrix_fromDevices()
 // Methods
 
 //------------------------------------------------------------------------------
+void test_Matrix_transpose()
+{
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+    auto A = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto AT = transpose( A );
+
+    test_assert(AT.mt() == ceildiv(n, nb));
+    test_assert(AT.nt() == ceildiv(m, nb));
+    test_assert(AT.op() == slate::Op::Trans);
+
+    for (int j = 0; j < AT.nt(); ++j) {
+        for (int i = 0; i < AT.mt(); ++i) {
+            if (AT.tileIsLocal(i, j)) {
+                int ib = std::min( nb, n - i*nb );
+                int jb = std::min( nb, m - j*nb );
+                test_assert(AT(i,j).data() == &Ad[j*nb + i*nb*lda]);
+                test_assert(AT(i,j).op() == slate::Op::Trans);
+                test_assert(AT(i,j).mb() == AT.tileMb(i));
+                test_assert(AT(i,j).nb() == AT.tileNb(j));
+                test_assert(AT(i,j).mb() == ib);
+                test_assert(AT(i,j).nb() == jb);
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+void test_Matrix_conj_transpose()
+{
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+    auto A = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto AT = conj_transpose( A );
+
+    test_assert(AT.mt() == ceildiv(n, nb));
+    test_assert(AT.nt() == ceildiv(m, nb));
+    test_assert(AT.op() == slate::Op::ConjTrans);
+
+    for (int j = 0; j < AT.nt(); ++j) {
+        for (int i = 0; i < AT.mt(); ++i) {
+            if (AT.tileIsLocal(i, j)) {
+                int ib = std::min( nb, n - i*nb );
+                int jb = std::min( nb, m - j*nb );
+                test_assert(AT(i,j).data() == &Ad[j*nb + i*nb*lda]);
+                test_assert(AT(i,j).op() == slate::Op::ConjTrans);
+                test_assert(AT(i,j).mb() == AT.tileMb(i));
+                test_assert(AT(i,j).nb() == AT.tileNb(j));
+                test_assert(AT(i,j).mb() == ib);
+                test_assert(AT(i,j).nb() == jb);
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+void test_Matrix_swap()
+{
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+    auto A = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    int ldb = roundup(n, nb);
+    std::vector<double> Bd( ldb*k );
+    auto B = slate::Matrix<double>::fromLAPACK(
+        n, k, Bd.data(), ldb, nb, p, q, mpi_comm );
+
+    slate::Matrix<double> C = transpose( A );
+
+    test_assert(C.mt() == ceildiv(n, nb));
+    test_assert(C.nt() == ceildiv(m, nb));
+    test_assert(C.op() == slate::Op::Trans);
+    test_assert(C(0,0).data() == Ad.data());
+
+    test_assert(B.mt() == ceildiv(n, nb));
+    test_assert(B.nt() == ceildiv(k, nb));
+    test_assert(B.op() == slate::Op::NoTrans);
+    test_assert(B(0,0).data() == Bd.data());
+
+    swap(B, C);
+
+    // swap(B, C) in asserts
+    test_assert(B.mt() == ceildiv(n, nb));
+    test_assert(B.nt() == ceildiv(m, nb));
+    test_assert(B.op() == slate::Op::Trans);
+    test_assert(B(0,0).data() == Ad.data());
+
+    test_assert(C.mt() == ceildiv(n, nb));
+    test_assert(C.nt() == ceildiv(k, nb));
+    test_assert(C.op() == slate::Op::NoTrans);
+    test_assert(C(0,0).data() == Bd.data());
+}
+
+//------------------------------------------------------------------------------
+void test_Matrix_tileInsert_new()
+{
+    auto A = slate::Matrix<double>( m, n, nb, p, q, mpi_comm );
+
+    // Manually insert new tiles, which are allocated by SLATE.
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            int ib = std::min( nb, m - i*nb );
+            int jb = std::min( nb, n - j*nb );
+
+            auto T_ptr = A.tileInsert( i, j );  //, A.hostNum() );
+            test_assert( T_ptr->mb() == ib );
+            test_assert( T_ptr->nb() == jb );
+            test_assert( T_ptr->op() == slate::Op::NoTrans );
+            test_assert( T_ptr->uplo() == slate::Uplo::General );
+
+            T_ptr->at(0, 0) = i + j / 10000.;
+        }
+    }
+
+    // Verify tiles.
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            int ib = std::min( nb, m - i*nb );
+            int jb = std::min( nb, n - j*nb );
+
+            auto T = A(i, j);
+            test_assert( T(0, 0) == i + j / 10000. );
+            test_assert( T.mb() == ib );
+            test_assert( T.nb() == jb );
+            test_assert( T.op() == slate::Op::NoTrans );
+            test_assert( T.uplo() == slate::Uplo::General );
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+void test_Matrix_tileInsert_data()
+{
+    auto A = slate::Matrix<double>( m, n, nb, p, q, mpi_comm );
+
+    // Manually insert tiles from a PLASMA-style tiled matrix.
+    // Section A11 has full nb-by-nb tiles.
+    // Sections A12, A21, A22 have partial tiles.
+    //
+    //          n1      n2
+    //     +----------+---+
+    //     |          |   |    m1 = m - (m % mb)
+    //     |          |   |    m2 = m % mb
+    // m1  |    A11   |A12|    n1 = n - (n % nb)
+    //     |          |   |    n2 = n % nb
+    //     |          |   |
+    //     +----------+---+
+    // m2  |    A21   |A22|
+    //     +----------+---+
+    int m2 = m % nb;
+    int m1 = m - m2;
+    int n2 = n % nb;
+    int n1 = n - n2;
+
+    std::vector<double> Ad( m*n );
+    double *A11 = Ad.data();
+    double *A21 = A11 + m1*n1;
+    double *A12 = A21 + m2*n1;
+    double *A22 = A12 + m1*n2;
+
+    double *Td;
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            int ib = std::min( nb, m - i*nb );
+            int jb = std::min( nb, n - j*nb );
+            if (i*nb < m1) {
+                if (j*nb < n1)
+                    Td = A11 + i*nb*nb + j*m1*nb;
+                else
+                    Td = A12 + i*nb*n2;
+            }
+            else {
+                if (j*nb < n1)
+                    Td = A21 + j*m2*nb;
+                else
+                    Td = A22;
+            }
+            //auto T_ptr = A.tileInsert( i, j, A.hostNum(), Td, ib );
+            auto T_ptr = A.tileInsert( i, j, Td, ib );
+            test_assert( T_ptr->data() == Td );
+            test_assert( T_ptr->mb() == ib );
+            test_assert( T_ptr->nb() == jb );
+            test_assert( T_ptr->op() == slate::Op::NoTrans );
+            test_assert( T_ptr->uplo() == slate::Uplo::General );
+
+            T_ptr->at(0, 0) = i + j / 10000.;
+        }
+    }
+
+    // Verify tiles.
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            int ib = std::min( nb, m - i*nb );
+            int jb = std::min( nb, n - j*nb );
+
+            auto T = A(i, j);
+            test_assert( T(0, 0) == i + j / 10000. );
+            test_assert( T.mb() == ib );
+            test_assert( T.nb() == jb );
+            test_assert( T.op() == slate::Op::NoTrans );
+            test_assert( T.uplo() == slate::Uplo::General );
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+void test_Matrix_tileLife()
+{
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+    auto A = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    const int max_life = 4;
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            A.tileLife(i, j, max_life);
+        }
+    }
+
+    for (int life = max_life; life > 0; --life) {
+        for (int j = 0; j < A.nt(); ++j) {
+            for (int i = 0; i < A.mt(); ++i) {
+                if (! A.tileIsLocal(i, j)) {
+                    // non-local tiles get decremented
+                    test_assert( A.tileLife(i, j) == life );
+                    A.tileTick(i, j);
+                    test_assert( A.tileLife(i, j) == life - 1 );
+                }
+                else {
+                    // local tiles don't get decremented
+                    test_assert( A.tileLife(i, j) == max_life );
+                    A.tileTick(i, j);
+                    test_assert( A.tileLife(i, j) == max_life );
+                }
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+void test_Matrix_tileErase()
+{
+    std::vector<double> Td( nb*nb );
+
+    auto A = slate::Matrix<double>( m, n, nb, p, q, mpi_comm );
+    slate::Tile<double> T;
+
+    int i = rand() % A.mt();
+    int j = rand() % A.nt();
+
+    A.tileInsert( i, j, Td.data(), nb );  //A.hostNum()
+    test_assert_no_throw( T = A( i, j ) );
+    A.tileErase( i, j, A.hostNum() );
+    test_assert_throw_std( T = A( i, j ) );
+
+    // TODO: hard to tell if memory is actually deleted.
+    A.tileInsert( i, j ); //A.hostNum()
+    test_assert_no_throw( T = A( i, j ) );
+    A.tileErase( i, j, A.hostNum() );
+    test_assert_throw_std( T = A( i, j ) );
+}
+
+//------------------------------------------------------------------------------
+void test_Matrix_sub()
+{
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+    auto A = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // mark tiles so they're identifiable
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            A(i, j).at(0, 0) = i + j / 10000.;
+        }
+    }
+
+    auto Asub = A.sub( 0, 0, 0, 0 );
+    test_assert( Asub.mt() == 1 );
+    test_assert( Asub.nt() == 1 );
+    test_assert( Asub.op() == slate::Op::NoTrans );
+    test_assert( Asub(0, 0).op() == slate::Op::NoTrans );
+    test_assert( Asub(0, 0).at(0, 0) == 0.0 );
+
+    // 1st column
+    Asub = A.sub( 0, A.mt()-1, 0, 0 );
+    test_assert( Asub.mt() == A.mt() );
+    test_assert( Asub.nt() == 1 );
+    test_assert( Asub.op() == slate::Op::NoTrans );
+    for (int i = 0; i < Asub.mt(); ++i) {
+        test_assert( Asub(i, 0).at(0, 0) == i );
+        test_assert( Asub(i, 0).op() == slate::Op::NoTrans );
+    }
+
+    // 1st row
+    Asub = A.sub( 0, 0, 0, A.nt()-1 );
+    test_assert( Asub.mt() == 1 );
+    test_assert( Asub.nt() == A.nt() );
+    test_assert( Asub.op() == slate::Op::NoTrans );
+    for (int j = 0; j < Asub.nt(); ++j) {
+        test_assert( Asub(0, j).at(0, 0) == j / 10000. );
+        test_assert( Asub(0, j).op() == slate::Op::NoTrans );
+    }
+
+    // Arbitrary regions. At least 70% of time, set i1 <= i2, j1 <= j2.
+    // i1 > i2 or j1 > j2 are empty matrices.
+    for (int cnt = 0; cnt < 10; ++cnt) {
+        int i1 = rand() % A.mt();
+        int i2 = rand() % A.mt();
+        int j1 = rand() % A.nt();
+        int j2 = rand() % A.nt();
+        if (rand() / double(RAND_MAX) <= 0.7) {
+            if (i2 < i1)
+                std::swap( i1, i2 );
+            if (j2 < j1)
+                std::swap( j1, j2 );
+        }
+        //printf( "sub( %3d, %3d, %3d, %3d )\n", i1, i2, j1, j2 );
+        Asub = A.sub( i1, i2, j1, j2 );
+        test_assert( Asub.mt() == std::max( i2 - i1 + 1, 0 ) );
+        test_assert( Asub.nt() == std::max( j2 - j1 + 1, 0 ) );
+        test_assert( Asub.op() == slate::Op::NoTrans );
+        for (int j = 0; j < Asub.nt(); ++j) {
+            for (int i = 0; i < Asub.mt(); ++i) {
+                test_assert( Asub(i, j).at(0, 0) == (i1 + i) + (j1 + j) / 10000. );
+                test_assert( Asub(i, j).op() == slate::Op::NoTrans );
+            }
+        }
+
+        // sub-matrix of Asub
+        if (Asub.mt() > 0 && Asub.nt() > 0) {
+            int i1_b = rand() % Asub.mt();
+            int i2_b = rand() % Asub.mt();
+            int j1_b = rand() % Asub.nt();
+            int j2_b = rand() % Asub.nt();
+            //printf( "   ( %3d, %3d, %3d, %3d )\n", i1_b, i2_b, j1_b, j2_b );
+            auto Asub_b = Asub.sub( i1_b, i2_b, j1_b, j2_b );
+            test_assert( Asub_b.mt() == std::max( i2_b - i1_b + 1, 0 ) );
+            test_assert( Asub_b.nt() == std::max( j2_b - j1_b + 1, 0 ) );
+            test_assert( Asub_b.op() == slate::Op::NoTrans );
+            for (int j = 0; j < Asub_b.nt(); ++j) {
+                for (int i = 0; i < Asub_b.mt(); ++i) {
+                    test_assert( Asub_b(i, j).at(0, 0) == (i1 + i1_b + i) + (j1 + j1_b + j) / 10000. );
+                    test_assert( Asub_b(i, j).op() == slate::Op::NoTrans );
+                }
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+void test_Matrix_sub_trans()
+{
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+    auto A = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // mark tiles so they're identifiable
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            A(i, j).at(0, 0) = i + j / 10000.;
+        }
+    }
+
+    auto AT = transpose( A );
+
+    auto Asub = AT.sub( 0, 0, 0, 0 );
+    test_assert( Asub.mt() == 1 );
+    test_assert( Asub.nt() == 1 );
+    test_assert( Asub.op() == slate::Op::Trans );
+    test_assert( Asub(0, 0).op() == slate::Op::Trans );
+    test_assert( Asub(0, 0).at(0, 0) == 0.0 );
+
+    // 1st column
+    Asub = AT.sub( 0, AT.mt()-1, 0, 0 );
+    test_assert( Asub.mt() == AT.mt() );
+    test_assert( Asub.nt() == 1 );
+    test_assert( Asub.op() == slate::Op::Trans );
+    for (int i = 0; i < Asub.mt(); ++i) {
+        test_assert( Asub(i, 0).at(0, 0) == i / 10000. );
+        test_assert( Asub(i, 0).op() == slate::Op::Trans );
+    }
+
+    // 1st row
+    Asub = AT.sub( 0, 0, 0, AT.nt()-1 );
+    test_assert( Asub.mt() == 1 );
+    test_assert( Asub.nt() == AT.nt() );
+    test_assert( Asub.op() == slate::Op::Trans );
+    for (int j = 0; j < Asub.nt(); ++j) {
+        test_assert( Asub(0, j).at(0, 0) == j );
+        test_assert( Asub(0, j).op() == slate::Op::Trans );
+    }
+
+    // Arbitrary regions. At least 70% of time, set i1 <= i2, j1 <= j2.
+    // i1 > i2 or j1 > j2 are empty matrices.
+    for (int cnt = 0; cnt < 10; ++cnt) {
+        int i1 = rand() % AT.mt();
+        int i2 = rand() % AT.mt();
+        int j1 = rand() % AT.nt();
+        int j2 = rand() % AT.nt();
+        if (rand() / double(RAND_MAX) <= 0.7) {
+            if (i2 < i1)
+                std::swap( i1, i2 );
+            if (j2 < j1)
+                std::swap( j1, j2 );
+        }
+        //printf( "sub( %3d, %3d, %3d, %3d )\n", i1, i2, j1, j2 );
+        Asub = AT.sub( i1, i2, j1, j2 );
+        test_assert( Asub.mt() == std::max( i2 - i1 + 1, 0 ) );
+        test_assert( Asub.nt() == std::max( j2 - j1 + 1, 0 ) );
+        test_assert( Asub.op() == slate::Op::Trans );
+        for (int j = 0; j < Asub.nt(); ++j) {
+            for (int i = 0; i < Asub.mt(); ++i) {
+                test_assert( Asub(i, j).at(0, 0) == (j1 + j) + (i1 + i) / 10000. );
+                test_assert( Asub(i, j).op() == slate::Op::Trans );
+            }
+        }
+
+        // sub-matrix of Asub
+        auto AsubT = transpose( Asub );
+        if (AsubT.mt() > 0 && AsubT.nt() > 0) {
+            int i1_b = rand() % AsubT.mt();
+            int i2_b = rand() % AsubT.mt();
+            int j1_b = rand() % AsubT.nt();
+            int j2_b = rand() % AsubT.nt();
+            //printf( "   ( %3d, %3d, %3d, %3d )\n", i1_b, i2_b, j1_b, j2_b );
+            auto Asub_b = AsubT.sub( i1_b, i2_b, j1_b, j2_b );
+            test_assert( Asub_b.mt() == std::max( i2_b - i1_b + 1, 0 ) );
+            test_assert( Asub_b.nt() == std::max( j2_b - j1_b + 1, 0 ) );
+            test_assert( Asub_b.op() == slate::Op::NoTrans );
+            for (int j = 0; j < Asub_b.nt(); ++j) {
+                for (int i = 0; i < Asub_b.mt(); ++i) {
+                    test_assert( Asub_b(i, j).at(0, 0) == (j1 + i1_b + i) + (i1 + j1_b + j) / 10000. );
+                    test_assert( Asub_b(i, j).op() == slate::Op::NoTrans );
+                }
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
 void test_TrapezoidMatrix_conversion()
 {
     int lda = roundup(m, nb);
@@ -1402,16 +1850,7 @@ void test_TriangularMatrix_conversion()
 //==============================================================================
 // todo
 // BaseMatrix
-//     swap
-//     transpose
-//     conj_transpose
 //     num_devices
-//     m, n
-//     tileDevice
-//     tileInsert (2)
-//     tileLife (2)
-//     tileTick
-//     tileErase
 //     tileBcast
 //     listBcast
 //     tileCopyToDevice
@@ -1431,8 +1870,8 @@ void test_TriangularMatrix_conversion()
 //
 // Matrix
 //     Matrix(orig, i1, i2, j1, j2)
-//     sub(i1, i2, j1, j2)
-//     swap
+// x   sub(i1, i2, j1, j2)
+// x   swap
 //     getMaxHostTiles
 //     getMaxDeviceTiles
 //     allocateBatchArrays
@@ -1495,6 +1934,15 @@ void run_tests()
 
     if (mpi_rank == 0)
         printf("\nMethods\n");
+    run_test(test_Matrix_transpose,       "transpose",      mpi_comm);
+    run_test(test_Matrix_conj_transpose,  "conj_transpose", mpi_comm);
+    run_test(test_Matrix_swap,            "swap",           mpi_comm);
+    run_test(test_Matrix_tileInsert_new,  "Matrix::tileInsert(i, j, dev) ", mpi_comm);
+    run_test(test_Matrix_tileInsert_data, "Matrix::tileInsert(i, j, dev, data, lda)",  mpi_comm);
+    run_test(test_Matrix_tileLife,        "Matrix::tileLife",  mpi_comm);
+    run_test(test_Matrix_tileErase,       "Matrix::tileErase", mpi_comm);
+    run_test(test_Matrix_sub,             "Matrix::sub",       mpi_comm);
+    run_test(test_Matrix_sub_trans,       "Matrix::sub(A^T)",  mpi_comm);
     run_test(test_TrapezoidMatrix_conversion, "TrapezoidMatrix conversion", mpi_comm);
     run_test(test_TriangularMatrix_conversion, "TriangularMatrix conversion", mpi_comm);
 }
@@ -1515,18 +1963,29 @@ int main(int argc, char** argv)
     // globals
     m  = 200;
     n  = 100;
+    k  = 75;
     nb = 16;
     p  = std::min(2, mpi_size);
     q  = mpi_size / p;
+    unsigned seed = time( nullptr ) % 10000;  // 4 digit
     if (argc > 1) { m  = atoi(argv[1]); }
     if (argc > 2) { n  = atoi(argv[2]); }
-    if (argc > 3) { nb = atoi(argv[3]); }
-    if (argc > 4) { p  = atoi(argv[4]); }
-    if (argc > 5) { q  = atoi(argv[5]); }
+    if (argc > 3) { k  = atoi(argv[3]); }
+    if (argc > 4) { nb = atoi(argv[4]); }
+    if (argc > 5) { p  = atoi(argv[5]); }
+    if (argc > 6) { q  = atoi(argv[6]); }
+    if (argc > 7) { seed = atoi(argv[7]); }
     if (mpi_rank == 0) {
-        printf("m %d, n %d, nb %d, p %d, q %d, num_devices %d\n",
-               m, n, nb, p, q, num_devices);
+        printf("Usage: %s %4s %4s %4s %4s %4s %4s %4s\n"
+               "       %s %4d %4d %4d %4d %4d %4d %4u\n"
+               "num_devices = %d\n",
+               argv[0], "m", "n", "k", "nb", "p", "q", "seed",
+               argv[0], m, n, k, nb, p, q, seed,
+               num_devices);
     }
+
+    MPI_Bcast( &seed, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD );
+    srand( seed );
 
     int err = unit_test_main(mpi_comm);  // which calls run_tests()
 

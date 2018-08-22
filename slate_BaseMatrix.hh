@@ -483,12 +483,19 @@ template <typename scalar_t>
 Tile<scalar_t> BaseMatrix<scalar_t>::operator()(
     int64_t i, int64_t j, int device)
 {
-    if (op_ == Op::NoTrans)
-        return *(storage_->at(globalIndex(i, j, device)));
-    else if (op_ == Op::Trans)
-        return transpose(*(storage_->at(globalIndex(i, j, device))));
-    else    // if (op_ == Op::ConjTrans)
-        return conj_transpose(*(storage_->at(globalIndex(i, j, device))));
+    auto tile = *storage_->at(globalIndex(i, j, device));
+
+    // set uplo on diagonal tile (off-diagonal tiles are always general)
+    if (i == j)
+        tile.uplo(uplo_);
+
+    // apply transpose
+    if (op_ == Op::Trans)
+        tile = transpose(tile);
+    else if (op_ == Op::ConjTrans)
+        tile = conj_transpose(tile);
+
+    return tile;
 }
 
 //------------------------------------------------------------------------------
@@ -562,9 +569,6 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 {
     auto index = globalIndex(i, j, device);
     auto tile = storage_->tileInsert(index);
-    // set uplo on diagonal tiles (global i == j)
-    if (std::get<0>(index) == std::get<1>(index))
-        tile->uplo(uplo_);
     return tile;
 }
 
@@ -595,9 +599,6 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 {
     auto index = globalIndex(i, j, device);
     auto tile = storage_->tileInsert(index, data, ld);
-    // set uplo on diagonal tiles (global i == j)
-    if (std::get<0>(index) == std::get<1>(index))
-        tile->uplo(uplo_);
     return tile;
 }
 

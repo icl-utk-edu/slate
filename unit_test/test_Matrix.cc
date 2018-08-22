@@ -1339,6 +1339,79 @@ void test_HermitianMatrix_fromDevices()
 }
 
 //==============================================================================
+// Methods
+
+//------------------------------------------------------------------------------
+void test_TrapezoidMatrix_conversion()
+{
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+    auto A = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // lower
+    auto L = slate::TrapezoidMatrix<double>(
+        slate::Uplo::Lower, slate::Diag::NonUnit, A );
+
+    for (int j = 0; j < L.nt(); ++j) {
+        for (int i = j; i < L.mt(); ++i) {  // lower
+            if (i == j)
+                test_assert( L(i, j).uplo() == slate::Uplo::Lower );
+            else
+                test_assert( L(i, j).uplo() == slate::Uplo::General );
+        }
+    }
+
+    // upper
+    auto U = slate::TrapezoidMatrix<double>(
+        slate::Uplo::Upper, slate::Diag::NonUnit, A );
+
+    for (int j = 0; j < U.nt(); ++j) {
+        for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
+            if (i == j)
+                test_assert( U(i, j).uplo() == slate::Uplo::Upper );
+            else
+                test_assert( U(i, j).uplo() == slate::Uplo::General );
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+void test_TriangularMatrix_conversion()
+{
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+    auto A = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // lower
+    auto L = slate::TriangularMatrix<double>(
+        slate::Uplo::Lower, slate::Diag::NonUnit, A );
+
+    for (int j = 0; j < L.nt(); ++j) {
+        for (int i = j; i < L.mt(); ++i) {  // lower
+            if (i == j)
+                test_assert( L(i, j).uplo() == slate::Uplo::Lower );
+            else
+                test_assert( L(i, j).uplo() == slate::Uplo::General );
+        }
+    }
+
+    // upper
+    auto U = slate::TriangularMatrix<double>(
+        slate::Uplo::Upper, slate::Diag::NonUnit, A );
+
+    for (int j = 0; j < U.nt(); ++j) {
+        for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
+            if (i == j)
+                test_assert( U(i, j).uplo() == slate::Uplo::Upper );
+            else
+                test_assert( U(i, j).uplo() == slate::Uplo::General );
+        }
+    }
+}
+
+//==============================================================================
 // todo
 // BaseMatrix
 //     swap
@@ -1431,6 +1504,11 @@ void run_tests()
     run_test(test_TriangularMatrix_fromDevices, "TriangularMatrix::fromDevices", mpi_comm);
     run_test(test_SymmetricMatrix_fromDevices,  "SymmetricMatrix::fromDevices",  mpi_comm);
     run_test(test_HermitianMatrix_fromDevices,  "HermitianMatrix::fromDevices",  mpi_comm);
+
+    if (mpi_rank == 0)
+        printf("\nMethods\n");
+    run_test(test_TrapezoidMatrix_conversion, "TrapezoidMatrix conversion", mpi_comm);
+    run_test(test_TriangularMatrix_conversion, "TriangularMatrix conversion", mpi_comm);
 }
 
 //------------------------------------------------------------------------------

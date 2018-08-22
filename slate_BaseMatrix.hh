@@ -113,17 +113,10 @@ public:
     template <typename T>
     friend void swap(BaseMatrix<T>& A, BaseMatrix<T>& B);
 
-    Tile<scalar_t> operator()(int64_t i, int64_t j);
-    Tile<scalar_t> operator()(int64_t i, int64_t j, int device);
+    Tile<scalar_t> operator()(int64_t i, int64_t j, int device=host_num_);
 
     /// Alias of operator().
-    Tile<scalar_t> at(int64_t i, int64_t j)
-    {
-        return (*this)(i, j);
-    }
-
-    /// Alias of operator().
-    Tile<scalar_t> at(int64_t i, int64_t j, int device)
+    Tile<scalar_t> at(int64_t i, int64_t j, int device=host_num_)
     {
         return (*this)(i, j, device);
     }
@@ -164,9 +157,16 @@ public:
     int64_t tileMb(int64_t i) const;
     int64_t tileNb(int64_t j) const;
 
-    Tile<scalar_t>* tileInsert(int64_t i, int64_t j, int device);
+    Tile<scalar_t>* tileInsert(int64_t i, int64_t j, int device=host_num_);
     Tile<scalar_t>* tileInsert(int64_t i, int64_t j, int device,
                                scalar_t* A, int64_t ld);
+
+    /// Insert tile with default device=host_num. @see tileInsert.
+    Tile<scalar_t>* tileInsert(int64_t i, int64_t j,
+                               scalar_t* A, int64_t ld)
+    {
+        return tileInsert(i, j, host_num_, A, ld);
+    }
 
     /// Returns life counter of tile {i, j} of op(A).
     int64_t tileLife(int64_t i, int64_t j) const
@@ -188,7 +188,7 @@ public:
         storage_->tileTick(globalIndex(i, j));
     }
 
-    void tileErase(int64_t i, int64_t j, int device);
+    void tileErase(int64_t i, int64_t j, int device=host_num_);
 
     template <Target target = Target::Host>
     void tileBcast(int64_t i, int64_t j, BaseMatrix const& B);
@@ -213,6 +213,7 @@ public:
     MPI_Comm  mpiComm()  const { return mpi_comm_; }
     int       mpiRank()  const { return mpi_rank_; }
     MPI_Group mpiGroup() const { return mpi_group_; }
+    int       hostNum()  const { return host_num_; }
 
     /// Removes all tiles from matrix.
     void clear()
@@ -446,25 +447,6 @@ void swap(BaseMatrix<scalar_t>& A, BaseMatrix<scalar_t>& B)
 }
 
 //------------------------------------------------------------------------------
-/// Get shallow copy of tile {i, j} of op(A) on host,
-/// with the tile's op flag set to match the matrix's.
-///
-/// @param[in] i
-///     Tile's block row index. 0 <= i < mt.
-///
-/// @param[in] j
-///     Tile's block column index. 0 <= j < nt.
-///
-/// @return Tile {i, j, host}.
-///
-template <typename scalar_t>
-Tile<scalar_t> BaseMatrix<scalar_t>::operator()(
-    int64_t i, int64_t j)
-{
-    return (*this)(i, j, host_num_);
-}
-
-//------------------------------------------------------------------------------
 /// Get shallow copy of tile {i, j} of op(A) on given device,
 /// with the tile's op flag set to match the matrix's.
 ///
@@ -475,7 +457,7 @@ Tile<scalar_t> BaseMatrix<scalar_t>::operator()(
 ///     Tile's block column index. 0 <= j < nt.
 ///
 /// @param[in] device
-///     Tile's device ID.
+///     Tile's device ID; default is host_num.
 ///
 /// @return Tile {i, j, device}.
 ///
@@ -559,7 +541,7 @@ int64_t BaseMatrix<scalar_t>::tileNb(int64_t j) const
 ///     Tile's block column index. 0 <= j < nt.
 ///
 /// @param[in] device
-///     Tile's device ID.
+///     Tile's device ID; default is host_num.
 ///
 /// @return Pointer to new tile.
 ///
@@ -582,7 +564,7 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 ///     Tile's block column index. 0 <= j < nt.
 ///
 /// @param[in] device
-///     Tile's device ID.
+///     Tile's device ID; default is host_num (provided by overloaded function).
 ///
 /// @param[in,out] data
 ///     Tile's data. The matrix uses this pointer directly, it does not copy

@@ -332,10 +332,10 @@ void verify_tile_lapack(
 void test_Matrix_fromLAPACK()
 {
     int lda = roundup(m, nb);
-    double* Ad = new double[ lda*n ];
+    std::vector<double> Ad( lda*n );
 
     auto A = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad, lda, nb, p, q, mpi_comm );
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
 
     test_assert(A.mt() == ceildiv(m, nb));
     test_assert(A.nt() == ceildiv(n, nb));
@@ -343,11 +343,9 @@ void test_Matrix_fromLAPACK()
 
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {
-            verify_tile_lapack(A, i, j, nb, m, n, Ad, lda);
+            verify_tile_lapack(A, i, j, nb, m, n, Ad.data(), lda);
         }
     }
-
-    delete[] Ad;
 }
 
 //------------------------------------------------------------------------------
@@ -356,12 +354,13 @@ void test_Matrix_fromLAPACK()
 void test_TrapezoidMatrix_fromLAPACK()
 {
     int lda = roundup(m, nb);
-    double* Ad = new double[ lda*n ];
+    std::vector<double> Ad( lda*n );
 
     //----------
     // lower
     auto L = slate::TrapezoidMatrix<double>::fromLAPACK(
-        blas::Uplo::Lower, blas::Diag::NonUnit, m, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Lower, blas::Diag::NonUnit, m, n, Ad.data(), lda, nb,
+        p, q, mpi_comm );
 
     test_assert(L.mt() == ceildiv(m, nb));
     test_assert(L.nt() == ceildiv(n, nb));
@@ -371,14 +370,15 @@ void test_TrapezoidMatrix_fromLAPACK()
 
     for (int j = 0; j < L.nt(); ++j) {
         for (int i = j; i < L.mt(); ++i) {  // lower
-            verify_tile_lapack(L, i, j, nb, m, n, Ad, lda);
+            verify_tile_lapack(L, i, j, nb, m, n, Ad.data(), lda);
         }
     }
 
     //----------
     // upper
     auto U = slate::TrapezoidMatrix<double>::fromLAPACK(
-        blas::Uplo::Upper, blas::Diag::Unit, m, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Upper, blas::Diag::Unit, m, n, Ad.data(), lda, nb,
+        p, q, mpi_comm );
 
     test_assert(U.mt() == ceildiv(m, nb));
     test_assert(U.nt() == ceildiv(n, nb));
@@ -388,11 +388,9 @@ void test_TrapezoidMatrix_fromLAPACK()
 
     for (int j = 0; j < U.nt(); ++j) {
         for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
-            verify_tile_lapack(U, i, j, nb, m, n, Ad, lda);
+            verify_tile_lapack(U, i, j, nb, m, n, Ad.data(), lda);
         }
     }
-
-    delete[] Ad;
 }
 
 //------------------------------------------------------------------------------
@@ -401,12 +399,13 @@ void test_TrapezoidMatrix_fromLAPACK()
 void test_TriangularMatrix_fromLAPACK()
 {
     int lda = roundup(n, nb);
-    double* Ad = new double[ lda*n ];
+    std::vector<double> Ad( lda*n );
 
     //----------
     // lower
     auto L = slate::TriangularMatrix<double>::fromLAPACK(
-        blas::Uplo::Lower, blas::Diag::NonUnit, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Lower, blas::Diag::NonUnit, n, Ad.data(), lda, nb,
+        p, q, mpi_comm );
 
     test_assert(L.mt() == ceildiv(n, nb));
     test_assert(L.nt() == ceildiv(n, nb));
@@ -416,14 +415,15 @@ void test_TriangularMatrix_fromLAPACK()
 
     for (int j = 0; j < L.nt(); ++j) {
         for (int i = j; i < L.mt(); ++i) {  // lower
-            verify_tile_lapack(L, i, j, nb, n, n, Ad, lda);
+            verify_tile_lapack(L, i, j, nb, n, n, Ad.data(), lda);
         }
     }
 
     //----------
     // upper
     auto U = slate::TriangularMatrix<double>::fromLAPACK(
-        blas::Uplo::Upper, blas::Diag::Unit, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Upper, blas::Diag::Unit, n, Ad.data(), lda, nb,
+        p, q, mpi_comm );
 
     test_assert(U.mt() == ceildiv(n, nb));
     test_assert(U.nt() == ceildiv(n, nb));
@@ -433,11 +433,9 @@ void test_TriangularMatrix_fromLAPACK()
 
     for (int j = 0; j < U.nt(); ++j) {
         for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
-            verify_tile_lapack(U, i, j, nb, n, n, Ad, lda);
+            verify_tile_lapack(U, i, j, nb, n, n, Ad.data(), lda);
         }
     }
-
-    delete[] Ad;
 }
 
 //------------------------------------------------------------------------------
@@ -446,12 +444,12 @@ void test_TriangularMatrix_fromLAPACK()
 void test_SymmetricMatrix_fromLAPACK()
 {
     int lda = roundup(n, nb);
-    double* Ad = new double[ lda*n ];
+    std::vector<double> Ad( lda*n );
 
     //----------
     // lower
     auto L = slate::SymmetricMatrix<double>::fromLAPACK(
-        blas::Uplo::Lower, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Lower, n, Ad.data(), lda, nb, p, q, mpi_comm );
 
     test_assert(L.mt() == ceildiv(n, nb));
     test_assert(L.nt() == ceildiv(n, nb));
@@ -460,14 +458,14 @@ void test_SymmetricMatrix_fromLAPACK()
 
     for (int j = 0; j < L.nt(); ++j) {
         for (int i = j; i < L.mt(); ++i) {  // lower
-            verify_tile_lapack(L, i, j, nb, n, n, Ad, lda);
+            verify_tile_lapack(L, i, j, nb, n, n, Ad.data(), lda);
         }
     }
 
     //----------
     // upper
     auto U = slate::SymmetricMatrix<double>::fromLAPACK(
-        blas::Uplo::Upper, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Upper, n, Ad.data(), lda, nb, p, q, mpi_comm );
 
     test_assert(U.mt() == ceildiv(n, nb));
     test_assert(U.nt() == ceildiv(n, nb));
@@ -476,11 +474,9 @@ void test_SymmetricMatrix_fromLAPACK()
 
     for (int j = 0; j < U.nt(); ++j) {
         for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
-            verify_tile_lapack(U, i, j, nb, n, n, Ad, lda);
+            verify_tile_lapack(U, i, j, nb, n, n, Ad.data(), lda);
         }
     }
-
-    delete[] Ad;
 }
 
 //------------------------------------------------------------------------------
@@ -489,12 +485,12 @@ void test_SymmetricMatrix_fromLAPACK()
 void test_HermitianMatrix_fromLAPACK()
 {
     int lda = roundup(n, nb);
-    double* Ad = new double[ lda*n ];
+    std::vector<double> Ad( lda*n );
 
     //----------
     // lower
     auto L = slate::HermitianMatrix<double>::fromLAPACK(
-        blas::Uplo::Lower, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Lower, n, Ad.data(), lda, nb, p, q, mpi_comm );
 
     test_assert(L.mt() == ceildiv(n, nb));
     test_assert(L.nt() == ceildiv(n, nb));
@@ -503,14 +499,14 @@ void test_HermitianMatrix_fromLAPACK()
 
     for (int j = 0; j < L.nt(); ++j) {
         for (int i = j; i < L.mt(); ++i) {  // lower
-            verify_tile_lapack(L, i, j, nb, n, n, Ad, lda);
+            verify_tile_lapack(L, i, j, nb, n, n, Ad.data(), lda);
         }
     }
 
     //----------
     // upper
     auto U = slate::HermitianMatrix<double>::fromLAPACK(
-        blas::Uplo::Upper, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Upper, n, Ad.data(), lda, nb, p, q, mpi_comm );
 
     test_assert(U.mt() == ceildiv(n, nb));
     test_assert(U.nt() == ceildiv(n, nb));
@@ -519,11 +515,9 @@ void test_HermitianMatrix_fromLAPACK()
 
     for (int j = 0; j < U.nt(); ++j) {
         for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
-            verify_tile_lapack(U, i, j, nb, n, n, Ad, lda);
+            verify_tile_lapack(U, i, j, nb, n, n, Ad.data(), lda);
         }
     }
-
-    delete[] Ad;
 }
 
 //==============================================================================
@@ -700,10 +694,10 @@ void test_Matrix_fromScaLAPACK()
         mtiles, mtiles_local, m_local,
         ntiles, ntiles_local, n_local, lda );
 
-    double* Ad = new double[ lda*n_local ];
+    std::vector<double> Ad( lda*n_local );
 
     auto A = slate::Matrix<double>::fromScaLAPACK(
-        m, n, Ad, lda, nb, p, q, mpi_comm );
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
 
     test_assert(A.mt() == mtiles);
     test_assert(A.nt() == ntiles);
@@ -711,11 +705,9 @@ void test_Matrix_fromScaLAPACK()
 
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {
-            verify_tile_scalapack(A, i, j, nb, m, n, Ad, lda);
+            verify_tile_scalapack(A, i, j, nb, m, n, Ad.data(), lda);
         }
     }
-
-    delete[] Ad;
 }
 
 //------------------------------------------------------------------------------
@@ -730,12 +722,13 @@ void test_TrapezoidMatrix_fromScaLAPACK()
         mtiles, mtiles_local, m_local,
         ntiles, ntiles_local, n_local, lda );
 
-    double* Ad = new double[ lda*n_local ];
+    std::vector<double> Ad( lda*n_local );
 
     //----------
     // lower
     auto L = slate::TrapezoidMatrix<double>::fromScaLAPACK(
-        blas::Uplo::Lower, blas::Diag::NonUnit, m, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Lower, blas::Diag::NonUnit, m, n, Ad.data(), lda, nb,
+        p, q, mpi_comm );
 
     test_assert(L.mt() == ceildiv(m, nb));
     test_assert(L.nt() == ceildiv(n, nb));
@@ -745,14 +738,15 @@ void test_TrapezoidMatrix_fromScaLAPACK()
 
     for (int j = 0; j < L.nt(); ++j) {
         for (int i = j; i < L.mt(); ++i) {  // lower
-            verify_tile_scalapack(L, i, j, nb, m, n, Ad, lda);
+            verify_tile_scalapack(L, i, j, nb, m, n, Ad.data(), lda);
         }
     }
 
     //----------
     // upper
     auto U = slate::TrapezoidMatrix<double>::fromScaLAPACK(
-        blas::Uplo::Upper, blas::Diag::Unit, m, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Upper, blas::Diag::Unit, m, n, Ad.data(), lda, nb,
+        p, q, mpi_comm );
 
     test_assert(U.mt() == ceildiv(m, nb));
     test_assert(U.nt() == ceildiv(n, nb));
@@ -762,11 +756,9 @@ void test_TrapezoidMatrix_fromScaLAPACK()
 
     for (int j = 0; j < U.nt(); ++j) {
         for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
-            verify_tile_scalapack(U, i, j, nb, m, n, Ad, lda);
+            verify_tile_scalapack(U, i, j, nb, m, n, Ad.data(), lda);
         }
     }
-
-    delete[] Ad;
 }
 
 //------------------------------------------------------------------------------
@@ -781,12 +773,13 @@ void test_TriangularMatrix_fromScaLAPACK()
         mtiles, mtiles_local, m_local,
         ntiles, ntiles_local, n_local, lda );
 
-    double* Ad = new double[ lda*n_local ];
+    std::vector<double> Ad( lda*n_local );
 
     //----------
     // lower
     auto L = slate::TriangularMatrix<double>::fromScaLAPACK(
-        blas::Uplo::Lower, blas::Diag::NonUnit, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Lower, blas::Diag::NonUnit, n, Ad.data(), lda, nb,
+        p, q, mpi_comm );
 
     test_assert(L.mt() == ceildiv(n, nb));
     test_assert(L.nt() == ceildiv(n, nb));
@@ -796,14 +789,15 @@ void test_TriangularMatrix_fromScaLAPACK()
 
     for (int j = 0; j < L.nt(); ++j) {
         for (int i = j; i < L.mt(); ++i) {  // lower
-            verify_tile_scalapack(L, i, j, nb, n, n, Ad, lda);
+            verify_tile_scalapack(L, i, j, nb, n, n, Ad.data(), lda);
         }
     }
 
     //----------
     // upper
     auto U = slate::TriangularMatrix<double>::fromScaLAPACK(
-        blas::Uplo::Upper, blas::Diag::Unit, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Upper, blas::Diag::Unit, n, Ad.data(), lda, nb,
+        p, q, mpi_comm );
 
     test_assert(U.mt() == ceildiv(n, nb));
     test_assert(U.nt() == ceildiv(n, nb));
@@ -813,11 +807,9 @@ void test_TriangularMatrix_fromScaLAPACK()
 
     for (int j = 0; j < U.nt(); ++j) {
         for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
-            verify_tile_scalapack(U, i, j, nb, n, n, Ad, lda);
+            verify_tile_scalapack(U, i, j, nb, n, n, Ad.data(), lda);
         }
     }
-
-    delete[] Ad;
 }
 
 //------------------------------------------------------------------------------
@@ -832,12 +824,12 @@ void test_SymmetricMatrix_fromScaLAPACK()
         mtiles, mtiles_local, m_local,
         ntiles, ntiles_local, n_local, lda );
 
-    double* Ad = new double[ lda*n_local ];
+    std::vector<double> Ad( lda*n_local );
 
     //----------
     // lower
     auto L = slate::SymmetricMatrix<double>::fromScaLAPACK(
-        blas::Uplo::Lower, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Lower, n, Ad.data(), lda, nb, p, q, mpi_comm );
 
     test_assert(L.mt() == ceildiv(n, nb));
     test_assert(L.nt() == ceildiv(n, nb));
@@ -846,14 +838,14 @@ void test_SymmetricMatrix_fromScaLAPACK()
 
     for (int j = 0; j < L.nt(); ++j) {
         for (int i = j; i < L.mt(); ++i) {  // lower
-            verify_tile_scalapack(L, i, j, nb, n, n, Ad, lda);
+            verify_tile_scalapack(L, i, j, nb, n, n, Ad.data(), lda);
         }
     }
 
     //----------
     // upper
     auto U = slate::SymmetricMatrix<double>::fromScaLAPACK(
-        blas::Uplo::Upper, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Upper, n, Ad.data(), lda, nb, p, q, mpi_comm );
 
     test_assert(U.mt() == ceildiv(n, nb));
     test_assert(U.nt() == ceildiv(n, nb));
@@ -862,11 +854,9 @@ void test_SymmetricMatrix_fromScaLAPACK()
 
     for (int j = 0; j < U.nt(); ++j) {
         for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
-            verify_tile_scalapack(U, i, j, nb, n, n, Ad, lda);
+            verify_tile_scalapack(U, i, j, nb, n, n, Ad.data(), lda);
         }
     }
-
-    delete[] Ad;
 }
 
 //------------------------------------------------------------------------------
@@ -881,12 +871,12 @@ void test_HermitianMatrix_fromScaLAPACK()
         mtiles, mtiles_local, m_local,
         ntiles, ntiles_local, n_local, lda );
 
-    double* Ad = new double[ lda*n_local ];
+    std::vector<double> Ad( lda*n_local );
 
     //----------
     // lower
     auto L = slate::HermitianMatrix<double>::fromScaLAPACK(
-        blas::Uplo::Lower, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Lower, n, Ad.data(), lda, nb, p, q, mpi_comm );
 
     test_assert(L.mt() == ceildiv(n, nb));
     test_assert(L.nt() == ceildiv(n, nb));
@@ -895,14 +885,14 @@ void test_HermitianMatrix_fromScaLAPACK()
 
     for (int j = 0; j < L.nt(); ++j) {
         for (int i = j; i < L.mt(); ++i) {  // lower
-            verify_tile_scalapack(L, i, j, nb, n, n, Ad, lda);
+            verify_tile_scalapack(L, i, j, nb, n, n, Ad.data(), lda);
         }
     }
 
     //----------
     // upper
     auto U = slate::HermitianMatrix<double>::fromScaLAPACK(
-        blas::Uplo::Upper, n, Ad, lda, nb, p, q, mpi_comm );
+        blas::Uplo::Upper, n, Ad.data(), lda, nb, p, q, mpi_comm );
 
     test_assert(U.mt() == ceildiv(n, nb));
     test_assert(U.nt() == ceildiv(n, nb));
@@ -911,11 +901,9 @@ void test_HermitianMatrix_fromScaLAPACK()
 
     for (int j = 0; j < U.nt(); ++j) {
         for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
-            verify_tile_scalapack(U, i, j, nb, n, n, Ad, lda);
+            verify_tile_scalapack(U, i, j, nb, n, n, Ad.data(), lda);
         }
     }
-
-    delete[] Ad;
 }
 
 //==============================================================================

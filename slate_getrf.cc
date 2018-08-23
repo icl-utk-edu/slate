@@ -62,7 +62,7 @@ void getrf(slate::internal::TargetType<target>,
            int64_t lookahead)
 {
     // using real_t = blas::real_type<scalar_t>;
-    // using BcastList = typename Matrix<scalar_t>::BcastList;
+    using BcastList = typename Matrix<scalar_t>::BcastList;
 
     const int64_t A_nt = A.nt();
     const int64_t A_mt = A.mt();
@@ -81,13 +81,38 @@ void getrf(slate::internal::TargetType<target>,
             internal::getrf<Target::HostTask>(A.sub(k, A_mt-1, k, k),
                                               ib, max_panel_threads, 1);
 
+            BcastList bcast_list_A;
+            for (int64_t i = k; i < A_mt; ++i) {
+                // send A(i, k) across row A(i, k+1:nt-1)
+                bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
+            }
+            A.template listBcast(bcast_list_A);
         }
         // update lookahead column(s), high priority
         for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[j]) priority(1)
             {
+                auto Akk = A.sub(k, k, k, k);
+                auto Tkk =
+                    TriangularMatrix<scalar_t>(
+                        Uplo::Lower, Diag::Unit, Akk);
 
+                // solve A(k, k) A(k, j) = A(k, j)
+                internal::trsm<Target::HostTask>(
+                    Side::Left,
+                    scalar_t(1.0), std::move(Tkk),
+                                   A.sub(k, k, j, j), 1);
+
+                // send A(k, j) across column A(k+1:mt-1, j)
+                A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j));
+
+
+                // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
+                internal::gemm<Target::HostTask>(
+                    scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
+                                    A.sub(k, k, j, j),
+                    scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j), 1);
             }
         }
         // update trailing submatrix, normal priority
@@ -96,7 +121,30 @@ void getrf(slate::internal::TargetType<target>,
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[A_nt-1])
             {
+                auto Akk = A.sub(k, k, k, k);
+                auto Tkk =
+                    TriangularMatrix<scalar_t>(
+                        Uplo::Lower, Diag::Unit, Akk);
 
+                // solve A(k, k) A(k, kl+1:nt-1) = A(k, kl+1:nt-1)
+                internal::trsm<Target::HostTask>(
+                    Side::Left,
+                    scalar_t(1.0), std::move(Tkk),
+                                   A.sub(k, k, k+1+lookahead, A_nt-1));
+
+                // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
+                BcastList bcast_list_A;
+                for (int64_t j = k+1+lookahead; j < A_nt; ++j) {
+                    // send A(k, j) across column A(k+1:mt-1, j)
+                    bcast_list_A.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}});
+                }
+                A.template listBcast(bcast_list_A);
+
+                // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
+                internal::gemm<Target::HostTask>(
+                    scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
+                                    A.sub(k, k, k+1+lookahead, A_nt-1),
+                    scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1));
             }
         }
     }

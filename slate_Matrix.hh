@@ -133,6 +133,25 @@ Matrix<scalar_t>::Matrix():
 //------------------------------------------------------------------------------
 /// Constructor creates an m-by-n matrix, with no tiles allocated.
 /// Tiles can be added with tileInsert().
+///
+/// @param[in] m
+///     Number of rows of the matrix. m >= 0.
+///
+/// @param[in] n
+///     Number of columns of the matrix. n >= 0.
+///
+/// @param[in] nb
+///     Block size in 2D block-cyclic distribution.
+///
+/// @param[in] p
+///     Number of block rows in 2D block-cyclic distribution. p > 0.
+///
+/// @param[in] q
+///     Number of block columns of 2D block-cyclic distribution. q > 0.
+///
+/// @param[in] mpi_comm
+///     MPI communicator to distribute matrix across.
+///     p*q == MPI_Comm_size(mpi_comm).
 //
 // todo: have allocate flag? If true, allocate data; else user will insert tiles?
 template <typename scalar_t>

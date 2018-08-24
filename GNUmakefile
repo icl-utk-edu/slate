@@ -298,6 +298,7 @@ endif
 
 # unit testers
 unit_src = \
+        unit_test/test_BandMatrix.cc \
         unit_test/test_Tile.cc \
         unit_test/test_Matrix.cc \
         unit_test/test_Memory.cc \

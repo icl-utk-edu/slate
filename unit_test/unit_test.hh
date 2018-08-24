@@ -66,6 +66,9 @@ public:
                 "didn't throw exception; expected: std::exception", \
                 __FILE__, __LINE__); \
         } \
+        catch (AssertError& e) { \
+            throw; \
+        } \
         catch (std::exception& e) {} \
         catch (...) { \
             throw AssertError( \

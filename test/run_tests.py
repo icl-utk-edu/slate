@@ -530,3 +530,5 @@ nfailures = len( failures )
 if (nfailures > 0):
     print( '\n' + str(nfailures) + ' routines FAILED:', ', '.join( failures ),
            file=sys.stderr )
+    exit(1)
+

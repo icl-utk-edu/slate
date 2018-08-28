@@ -56,85 +56,83 @@ namespace scalapack_api {
 // Required CBLACS calls
 extern "C" void Cblacs_gridinfo(int context, int*  np_row, int* np_col, int*  my_row, int*  my_col);
 
-// Declarations
-template<typename scalar_t>
+// Type generic function calls the SLATE routine
+template< typename scalar_t >
 void slate_ppotrf(const char* uplostr, int n, scalar_t* a, int ia, int ja, int* desca, int* info);
 
 // -----------------------------------------------------------------------------
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
-// Each C interface calls the type generic slate_ppotrf
+// Each C interface calls the type generic slate_pher2k
 
-extern "C" void PDPOTRF(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, double* alpha, double* a, int* ia, int* ja, int* desca, int* info)
+extern "C" void PSPOTRF(const char* uplo, int* n, float* a, int* ia, int* ja, int* desca, int* info)
 {
-    slate_ppotrf(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, int* info);
+    slate_ppotrf(uplo, *n, a, *ia, *ja, desca, info);
 }
 
-extern "C" void pdpotrf(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, double* alpha, double* a, int* ia, int* ja, int* desca, int* info)
+extern "C" void pspotrf(const char* uplo, int* n, float* a, int* ia, int* ja, int* desca, int* info)
 {
-    slate_ppotrf(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, int* info);
+    slate_ppotrf(uplo, *n, a, *ia, *ja, desca, info);
 }
 
-extern "C" void pdpotrf_(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, double* alpha, double* a, int* ia, int* ja, int* desca, int* info)
+extern "C" void pspotrf_(const char* uplo, int* n, float* a, int* ia, int* ja, int* desca, int* info)
 {
-    slate_ppotrf(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, int* info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PSPOTRF(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, float* alpha, float* a, int* ia, int* ja, int* desca, int* info)
-{
-    slate_ppotrf(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, int* info);
-}
-
-extern "C" void pspotrf(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, float* alpha, float* a, int* ia, int* ja, int* desca, int* info)
-{
-    slate_ppotrf(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, int* info);
-}
-
-extern "C" void pspotrf_(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, float* alpha, float* a, int* ia, int* ja, int* desca, int* info)
-{
-    slate_ppotrf(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, int* info);
+    slate_ppotrf(uplo, *n, a, *ia, *ja, desca, info);
 }
 
 // -----------------------------------------------------------------------------
 
-extern "C" void PCPOTRF(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, std::complex<float>* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, int* info)
+extern "C" void PDPOTRF(const char* uplo, int* n, double* a, int* ia, int* ja, int* desca, int* info)
 {
-    slate_ppotrf(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, int* info);
+    slate_ppotrf(uplo, *n, a, *ia, *ja, desca, info);
 }
 
-extern "C" void pcpotrf(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, std::complex<float>* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, int* info)
+extern "C" void pdpotrf(const char* uplo, int* n, double* a, int* ia, int* ja, int* desca, int* info)
 {
-    slate_ppotrf(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, int* info);
+    slate_ppotrf(uplo, *n, a, *ia, *ja, desca, info);
 }
 
-extern "C" void pcpotrf_(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, std::complex<float>* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, int* info)
+extern "C" void pdpotrf_(const char* uplo, int* n, double* a, int* ia, int* ja, int* desca, int* info)
 {
-    slate_ppotrf(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, int* info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PZPOTRF(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, std::complex<double>* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, int* info)
-{
-    slate_ppotrf(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, int* info);
-}
-
-extern "C" void pzpotrf(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, std::complex<double>* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, int* info)
-{
-    slate_ppotrf(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, int* info);
-}
-
-extern "C" void pzpotrf_(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, std::complex<double>* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, int* info)
-{
-    slate_ppotrf(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, int* info);
+    slate_ppotrf(uplo, *n, a, *ia, *ja, desca, info);
 }
 
 // -----------------------------------------------------------------------------
 
-// Type generic function calls the SLATE routine
-template<typename scalar_t>
-void slate_ppotrf(const char* uplostr, int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, int* info)
+extern "C" void PCPOTRF(const char* uplo, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, int* info)
+{
+    slate_ppotrf(uplo, *n, a, *ia, *ja, desca, info);
+}
+
+extern "C" void pcpotrf(const char* uplo, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, int* info)
+{
+    slate_ppotrf(uplo, *n, a, *ia, *ja, desca, info);
+}
+
+extern "C" void pcpotrf_(const char* uplo, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, int* info)
+{
+    slate_ppotrf(uplo, *n, a, *ia, *ja, desca, info);
+}
+
+// -----------------------------------------------------------------------------
+
+extern "C" void PZPOTRF(const char* uplo, int* n, std::complex<double>* a, int* ia, int* ja, int* desca, int* info)
+{
+    slate_ppotrf(uplo, *n, a, *ia, *ja, desca, info);
+}
+
+extern "C" void pzpotrf(const char* uplo, int* n, std::complex<double>* a, int* ia, int* ja, int* desca, int* info)
+{
+    slate_ppotrf(uplo, *n, a, *ia, *ja, desca, info);
+}
+
+extern "C" void pzpotrf_(const char* uplo, int* n, std::complex<double>* a, int* ia, int* ja, int* desca, int* info)
+{
+    slate_ppotrf(uplo, *n, a, *ia, *ja, desca, info);
+}
+
+// -----------------------------------------------------------------------------
+template< typename scalar_t >
+void slate_ppotrf(const char* uplostr, int n, scalar_t* a, int ia, int ja, int* desca, int* info)
 {
     // todo: figure out if the pxq grid is in row or column
 
@@ -142,44 +140,32 @@ void slate_ppotrf(const char* uplostr, int n, int nrhs, scalar_t* a, int ia, int
     // todo: does this set the omp num threads correctly
     int saved_num_blas_threads = slate_set_num_blas_threads(1);
 
-    blas::Side side = blas::char2side(sidestr[0]);
     blas::Uplo uplo = blas::char2uplo(uplostr[0]);
-    blas::Op transA = blas::char2op(transastr[0]);
-    blas::Diag diag = blas::char2diag(diagstr[0]);
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     int64_t lookahead = 1;
 
-    // setup so trans(B) is m-by-n
-    int64_t An  = (side == blas::Side::Left ? m : n);
-    int64_t Am  = An;
-    int64_t Bm  = m;
-    int64_t Bn  = n;
+    // Matrix sizes
+    int64_t An = n;
 
     // create SLATE matrices from the ScaLAPACK layouts
     int nprow, npcol, myrow, mycol;
     Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myrow, &mycol);
-    auto A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(desca), a, desc_LLD(desca), desc_MB(desca), nprow, npcol, MPI_COMM_WORLD);
-    A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
-
-    Cblacs_gridinfo(desc_CTXT(descb), &nprow, &npcol, &myrow, &mycol);
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(descb), desc_N(descb), b, desc_LLD(descb), desc_MB(descb), nprow, npcol, MPI_COMM_WORLD);
-    B = slate_scalapack_submatrix(Bm, Bn, B, ib, jb, descb);
-
-    if (transA == Op::Trans)
-        A = transpose(A);
-    else if (transA == Op::ConjTrans)
-        A = conj_transpose(A);
+    auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(desca), a, desc_LLD(desca), desc_MB(desca), nprow, npcol, MPI_COMM_WORLD);
+    A = slate_scalapack_submatrix(An, An, A, ia, ja, desca);
 
     if (verbose && myrow==0 && mycol==0)
         logprintf("%s\n", "potrf");
 
-    slate::potrf(side, diag, alpha, A, B, {
+    slate::potrf (A, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
 
     slate_set_num_blas_threads(saved_num_blas_threads);
+
+    // todo: extract the real info from potrf
+    *info = 0;
 }
 
 } // namespace scalapack_api

@@ -39,16 +39,8 @@
 
 #include "slate.hh"
 #include "lapack_slate.hh"
-#include "slate_cuda.hh"
 #include "blas_fortran.hh"
 #include <complex>
-
-#ifdef SLATE_WITH_MKL
-extern "C" int MKL_Set_Num_Threads(int nt);
-inline int slate_lapack_set_num_blas_threads(const int nt) { return MKL_Set_Num_Threads(nt); }
-#else
-inline int slate_lapack_set_num_blas_threads(const int nt) { return 1; }
-#endif
 
 namespace slate {
 namespace lapack_api {
@@ -57,52 +49,52 @@ namespace lapack_api {
 
 // Local function
 template< typename scalar_t >
-void slate_syr2k(const char* uplostr, const char* transastr, const int n, const int k, const scalar_t alpha, scalar_t* a, const int lda, scalar_t* b, const int ldb, const scalar_t beta, scalar_t* c, const int ldc);
+blas::real_type<scalar_t> slate_lansy(const char* normstr, const char* uplostr, int n, scalar_t* a, int lda, blas::real_type<scalar_t>* work);
 
 // -----------------------------------------------------------------------------
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
 
-#define slate_ssyr2k BLAS_FORTRAN_NAME( slate_ssyr2k, SLATE_SSYR2K )
-#define slate_dsyr2k BLAS_FORTRAN_NAME( slate_dsyr2k, SLATE_DSYR2K )
-#define slate_csyr2k BLAS_FORTRAN_NAME( slate_csyr2k, SLATE_CSYR2K )
-#define slate_zsyr2k BLAS_FORTRAN_NAME( slate_zsyr2k, SLATE_ZSYR2K )
+#define slate_slansy BLAS_FORTRAN_NAME( slate_slansy, SLATE_SLANSY )
+#define slate_dlansy BLAS_FORTRAN_NAME( slate_dlansy, SLATE_DLANSY )
+#define slate_clansy BLAS_FORTRAN_NAME( slate_clansy, SLATE_CLANSY )
+#define slate_zlansy BLAS_FORTRAN_NAME( slate_zlansy, SLATE_ZLANSY )
 
-extern "C" void slate_ssyr2k(const char* uplo, const char* transa, const int* n, const int* k, const float* alpha, float* a, const int* lda, float* b, const int* ldb, const float* beta, float* c, const int* ldc)
+extern "C" float slate_slansy(const char* norm, const char* uplo, int* n, float* a, int* lda, float* work)
 {
-    slate_syr2k(uplo, transa, *n, *k, *alpha, a, *lda, b, *ldb, *beta, c, *ldc);
+    return slate_lansy(norm, uplo, *n, a, *lda, work);
 }
 
-extern "C" void slate_dsyr2k(const char* uplo, const char* transa, const int* n, const int* k, const double* alpha, double* a, const int* lda, double* b, const int* ldb, const double* beta, double* c, const int* ldc)
+extern "C" double slate_dlansy(const char* norm, const char* uplo, int* n, double* a, int* lda, double* work)
 {
-    slate_syr2k(uplo, transa, *n, *k, *alpha, a, *lda, b, *ldb, *beta, c, *ldc);
+    return slate_lansy(norm, uplo, *n, a, *lda, work);
 }
 
-extern "C" void slate_csyr2k(const char* uplo, const char* transa, const int* n, const int* k, const std::complex<float>* alpha, std::complex<float>* a, const int* lda, std::complex<float>* b, const int* ldb, const std::complex<float>* beta, std::complex<float>* c, const int* ldc)
+extern "C" float slate_clansy(const char* norm, const char* uplo, int* n, std::complex<float>* a, int* lda, float* work)
 {
-    slate_syr2k(uplo, transa, *n, *k, *alpha, a, *lda, b, *ldb, *beta, c, *ldc);
+    return slate_lansy(norm, uplo, *n, a, *lda, work);
 }
 
-extern "C" void slate_zsyr2k(const char* uplo, const char* transa, const int* n, const int* k, const std::complex<double>* alpha, std::complex<double>* a, const int* lda, std::complex<double>* b, const int* ldb, const std::complex<double>* beta, std::complex<double>* c, const int* ldc)
+extern "C" double slate_zlansy(const char* norm, const char* uplo, int* n, std::complex<double>* a, int* lda, double* work)
 {
-    slate_syr2k(uplo, transa, *n, *k, *alpha, a, *lda, b, *ldb, *beta, c, *ldc);
+    return slate_lansy(norm, uplo, *n, a, *lda, work);
 }
 
 // -----------------------------------------------------------------------------
 
 // Type generic function calls the SLATE routine
 template< typename scalar_t >
-void slate_syr2k(const char* uplostr, const char* transastr, const int n, const int k, const scalar_t alpha, scalar_t* a, const int lda, scalar_t* b, const int ldb, const scalar_t beta, scalar_t* c, const int ldc)
+blas::real_type<scalar_t> slate_lansy(const char* normstr, const char* uplostr, int n, scalar_t* a, int lda, blas::real_type<scalar_t>* work)
 {
-    // Check and initialize MPI, else SLATE calls to MPI will fail
+    // Need a dummy MPI_Init for SLATE to proceed
     int initialized, provided;
-    assert(MPI_Initialized(&initialized) == MPI_SUCCESS);
-    if (! initialized) assert(MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided) == MPI_SUCCESS);
+    MPI_Initialized(&initialized);
+    if (! initialized) MPI_Init_thread(nullptr, nullptr, MPI_THREAD_SERIALIZED, &provided);
 
     // todo: does this set the omp num threads correctly in all circumstances
     int saved_num_blas_threads = slate_lapack_set_num_blas_threads(1);
 
+    lapack::Norm norm = lapack::char2norm(normstr[0]);
     blas::Uplo uplo = blas::char2uplo(uplostr[0]);
-    blas::Op trans = blas::char2op(transastr[0]);
     int64_t lookahead = 1;
     int64_t p = 1;
     int64_t q = 1;
@@ -110,37 +102,22 @@ void slate_syr2k(const char* uplostr, const char* transastr, const int n, const 
     static int verbose = slate_lapack_set_verbose();
     static int64_t nb = slate_lapack_set_nb(target);
 
-    // setup so op(A) and op(B) are n-by-k
-    int64_t Am = (trans == blas::Op::NoTrans ? n : k);
-    int64_t An = (trans == blas::Op::NoTrans ? k : n);
-    int64_t Bm = Am;
-    int64_t Bn = An;
-    int64_t Cn = n;
+    // sizes of matrices
+    int64_t An = n;
 
-    // create SLATE matrices from the LAPACK data
-    auto A = slate::Matrix<scalar_t>::fromLAPACK(Am, An, a, lda, nb, p, q, MPI_COMM_WORLD);
-    auto B = slate::Matrix<scalar_t>::fromLAPACK(Bm, Bn, b, ldb, nb, p, q, MPI_COMM_WORLD);
-    auto C = slate::SymmetricMatrix<scalar_t>::fromLAPACK(uplo, Cn, c, ldc, nb, p, q, MPI_COMM_WORLD);
+    // create SLATE matrix from the Lapack layouts
+    auto A = slate::SymmetricMatrix<scalar_t>::fromLAPACK(uplo, An, a, lda, nb, p, q, MPI_COMM_WORLD);
 
-    if (trans == blas::Op::Trans) {
-        A = transpose(A);
-        B = transpose(B);
-    }
-    else if (trans == blas::Op::ConjTrans) {
-        A = conj_transpose(A);
-        B = conj_transpose(B);
-    }
-    assert(A.mt() == C.mt());
-    assert(B.mt() == C.mt());
-    assert(A.nt() == B.nt());
-
-    if (verbose) logprintf("%s\n", "syr2k");
-    slate::syr2k(alpha, A, B, beta, C, {
-        {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}
+    if (verbose) logprintf("%s\n", "lansy");
+    blas::real_type<scalar_t> A_norm;
+    A_norm = slate::norm(norm, A, {
+        {slate::Option::Target, target},
+        {slate::Option::Lookahead, lookahead}
     });
 
     slate_lapack_set_num_blas_threads(saved_num_blas_threads);
+
+    return A_norm;
 }
 
 } // namespace lapack_api

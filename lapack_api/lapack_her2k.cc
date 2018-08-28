@@ -57,41 +57,29 @@ namespace lapack_api {
 
 // Local function
 template< typename scalar_t >
-void slate_syr2k(const char* uplostr, const char* transastr, const int n, const int k, const scalar_t alpha, scalar_t* a, const int lda, scalar_t* b, const int ldb, const scalar_t beta, scalar_t* c, const int ldc);
+void slate_her2k(const char* uplostr, const char* transastr, const int n, const int k, const scalar_t alpha, scalar_t* a, const int lda, scalar_t* b, const int ldb, const blas::real_type<scalar_t> beta, scalar_t* c, const int ldc);
 
 // -----------------------------------------------------------------------------
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
 
-#define slate_ssyr2k BLAS_FORTRAN_NAME( slate_ssyr2k, SLATE_SSYR2K )
-#define slate_dsyr2k BLAS_FORTRAN_NAME( slate_dsyr2k, SLATE_DSYR2K )
-#define slate_csyr2k BLAS_FORTRAN_NAME( slate_csyr2k, SLATE_CSYR2K )
-#define slate_zsyr2k BLAS_FORTRAN_NAME( slate_zsyr2k, SLATE_ZSYR2K )
+#define slate_cher2k BLAS_FORTRAN_NAME( slate_cher2k, SLATE_CHER2K )
+#define slate_zher2k BLAS_FORTRAN_NAME( slate_zher2k, SLATE_ZHER2K )
 
-extern "C" void slate_ssyr2k(const char* uplo, const char* transa, const int* n, const int* k, const float* alpha, float* a, const int* lda, float* b, const int* ldb, const float* beta, float* c, const int* ldc)
+extern "C" void slate_cher2k(const char* uplo, const char* transa, const int* n, const int* k, const std::complex<float>* alpha, std::complex<float>* a, const int* lda, std::complex<float>* b, const int* ldb, const float* beta, std::complex<float>* c, const int* ldc)
 {
-    slate_syr2k(uplo, transa, *n, *k, *alpha, a, *lda, b, *ldb, *beta, c, *ldc);
+    slate_her2k(uplo, transa, *n, *k, *alpha, a, *lda, b, *ldb, *beta, c, *ldc);
 }
 
-extern "C" void slate_dsyr2k(const char* uplo, const char* transa, const int* n, const int* k, const double* alpha, double* a, const int* lda, double* b, const int* ldb, const double* beta, double* c, const int* ldc)
+extern "C" void slate_zher2k(const char* uplo, const char* transa, const int* n, const int* k, const std::complex<double>* alpha, std::complex<double>* a, const int* lda, std::complex<double>* b, const int* ldb, const double* beta, std::complex<double>* c, const int* ldc)
 {
-    slate_syr2k(uplo, transa, *n, *k, *alpha, a, *lda, b, *ldb, *beta, c, *ldc);
-}
-
-extern "C" void slate_csyr2k(const char* uplo, const char* transa, const int* n, const int* k, const std::complex<float>* alpha, std::complex<float>* a, const int* lda, std::complex<float>* b, const int* ldb, const std::complex<float>* beta, std::complex<float>* c, const int* ldc)
-{
-    slate_syr2k(uplo, transa, *n, *k, *alpha, a, *lda, b, *ldb, *beta, c, *ldc);
-}
-
-extern "C" void slate_zsyr2k(const char* uplo, const char* transa, const int* n, const int* k, const std::complex<double>* alpha, std::complex<double>* a, const int* lda, std::complex<double>* b, const int* ldb, const std::complex<double>* beta, std::complex<double>* c, const int* ldc)
-{
-    slate_syr2k(uplo, transa, *n, *k, *alpha, a, *lda, b, *ldb, *beta, c, *ldc);
+    slate_her2k(uplo, transa, *n, *k, *alpha, a, *lda, b, *ldb, *beta, c, *ldc);
 }
 
 // -----------------------------------------------------------------------------
 
 // Type generic function calls the SLATE routine
 template< typename scalar_t >
-void slate_syr2k(const char* uplostr, const char* transastr, const int n, const int k, const scalar_t alpha, scalar_t* a, const int lda, scalar_t* b, const int ldb, const scalar_t beta, scalar_t* c, const int ldc)
+void slate_her2k(const char* uplostr, const char* transastr, const int n, const int k, const scalar_t alpha, scalar_t* a, const int lda, scalar_t* b, const int ldb, const blas::real_type<scalar_t> beta, scalar_t* c, const int ldc)
 {
     // Check and initialize MPI, else SLATE calls to MPI will fail
     int initialized, provided;
@@ -120,7 +108,7 @@ void slate_syr2k(const char* uplostr, const char* transastr, const int n, const 
     // create SLATE matrices from the LAPACK data
     auto A = slate::Matrix<scalar_t>::fromLAPACK(Am, An, a, lda, nb, p, q, MPI_COMM_WORLD);
     auto B = slate::Matrix<scalar_t>::fromLAPACK(Bm, Bn, b, ldb, nb, p, q, MPI_COMM_WORLD);
-    auto C = slate::SymmetricMatrix<scalar_t>::fromLAPACK(uplo, Cn, c, ldc, nb, p, q, MPI_COMM_WORLD);
+    auto C = slate::HermitianMatrix<scalar_t>::fromLAPACK(uplo, Cn, c, ldc, nb, p, q, MPI_COMM_WORLD);
 
     if (trans == blas::Op::Trans) {
         A = transpose(A);
@@ -134,8 +122,8 @@ void slate_syr2k(const char* uplostr, const char* transastr, const int n, const 
     assert(B.mt() == C.mt());
     assert(A.nt() == B.nt());
 
-    if (verbose) logprintf("%s\n", "syr2k");
-    slate::syr2k(alpha, A, B, beta, C, {
+    if (verbose) logprintf("%s\n", "her2k");
+    slate::her2k(alpha, A, B, beta, C, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });

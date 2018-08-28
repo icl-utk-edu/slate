@@ -60,9 +60,6 @@ inline slate::Target slate_lapack_set_target()
 {
     // set the SLATE default computational target
     slate::Target target = slate::Target::HostTask;
-    // todo: should the device be set to cude automatically
-    // if (cudaGetDeviceCount(&cudadevcount)==cudaSuccess && cudadevcount>0)
-    //     target = slate::Target::Devices;
     char* targetstr = std::getenv("SLATE_LAPACK_TARGET");
     if (targetstr) {
         char targetchar = (char)(toupper(targetstr[4]));
@@ -70,7 +67,12 @@ inline slate::Target slate_lapack_set_target()
         else if (targetchar=='N') target = slate::Target::HostNest;
         else if (targetchar=='B') target = slate::Target::HostBatch;
         else if (targetchar=='C') target = slate::Target::Devices;
+        return target;
     }
+    // todo: should the device be set to cude automatically
+    int cudadevcount;
+    if (cudaGetDeviceCount(&cudadevcount)==cudaSuccess && cudadevcount>0) 
+        target = slate::Target::Devices;
     return target;
 }
 

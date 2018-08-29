@@ -51,10 +51,12 @@ namespace internal {
 /// LU factorization of a column of tiles.
 /// Dispatches to target implementations.
 template <Target target, typename scalar_t>
-void getrf(Matrix<scalar_t>&& A, int64_t ib, int max_panel_threads,
-           int priority)
+void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
+           std::vector< Pivot<scalar_t> >& pivots,
+           int max_panel_threads, int priority)
 {
-    getrf(internal::TargetType<target>(), A, ib, max_panel_threads, priority);
+    getrf(internal::TargetType<target>(),
+          A, diag_len, ib, pivots, max_panel_threads, priority);
 }
 
 ///-----------------------------------------------------------------------------
@@ -62,8 +64,9 @@ void getrf(Matrix<scalar_t>&& A, int64_t ib, int max_panel_threads,
 /// LU factorization of a column of tiles, host implementation.
 template <typename scalar_t>
 void getrf(internal::TargetType<Target::HostTask>,
-           Matrix<scalar_t>& A, int64_t ib, int max_panel_threads,
-           int priority)
+           Matrix<scalar_t>& A, int64_t diag_len, int64_t ib,
+           std::vector< Pivot<scalar_t> >& pivots,
+           int max_panel_threads, int priority)
 {
     assert(A.nt() == 1);
 
@@ -116,10 +119,7 @@ void getrf(internal::TargetType<Target::HostTask>,
         if (tiles.size() < max_panel_threads)
             thread_size = tiles.size();
 
-        int64_t diagonal_length = std::min(A.tileMb(0), A.tileNb(0));
-        std::vector< Pivot<scalar_t> > pivot_vector(A.tileMb(0));
         ThreadBarrier thread_barrier;
-
         std::vector<scalar_t> max_value(thread_size);
         std::vector<int64_t> max_index(thread_size);
         std::vector<int64_t> max_offset(thread_size);
@@ -128,23 +128,22 @@ void getrf(internal::TargetType<Target::HostTask>,
         // #pragma omp parallel for \
         //     num_threads(thread_size) \
         //     shared(thread_barrier, max_value, max_index, max_offset, \
-                      top_block, pivot_vector)
+        //            top_block, pivots)
         #pragma omp taskloop \
             num_tasks(thread_size) \
             shared(thread_barrier, max_value, max_index, max_offset, \
-                   top_block, pivot_vector)
+                   top_block, pivots)
         for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank)
         {
             // Factor the panel in parallel.
-            getrf(diagonal_length, ib,
+            getrf(diag_len, ib,
                   tiles, tile_indices, tile_offsets,
-                  pivot_vector,
+                  pivots,
                   bcast_rank, bcast_root, bcast_comm,
                   thread_rank, thread_size,
                   thread_barrier,
                   max_value, max_index, max_offset, top_block);
         }
-
         #pragma omp taskwait
     }
 }
@@ -154,26 +153,30 @@ void getrf(internal::TargetType<Target::HostTask>,
 // ----------------------------------------
 template
 void getrf<Target::HostTask, float>(
-    Matrix<float>&& A, int64_t ib, int max_panel_threads,
-    int priority);
+    Matrix<float>&& A, int64_t diag_len, int64_t ib,
+    std::vector< Pivot<float> >& pivots,
+    int max_panel_threads, int priority);
 
 // ----------------------------------------
 template
 void getrf<Target::HostTask, double>(
-    Matrix<double>&& A, int64_t ib, int max_panel_threads,
-    int priority);
+    Matrix<double>&& A, int64_t diag_len, int64_t ib,
+    std::vector< Pivot<double> >& pivots,
+    int max_panel_threads, int priority);
 
 // ----------------------------------------
 template
 void getrf< Target::HostTask, std::complex<float> >(
-    Matrix< std::complex<float> >&& A, int64_t ib, int max_panel_threads,
-    int priority);
+    Matrix< std::complex<float> >&& A, int64_t diag_len, int64_t ib,
+    std::vector< Pivot< std::complex<float> > >& pivots,
+    int max_panel_threads, int priority);
 
 // ----------------------------------------
 template
 void getrf< Target::HostTask, std::complex<double> >(
-    Matrix< std::complex<double> >&& A, int64_t ib, int max_panel_threads,
-    int priority);
+    Matrix< std::complex<double> >&& A, int64_t diag_len, int64_t ib,
+    std::vector< Pivot< std::complex<double> > >& pivots,
+    int max_panel_threads, int priority);
 
 } // namespace internal
 } // namespace slate

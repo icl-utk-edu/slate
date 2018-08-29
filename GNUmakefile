@@ -225,6 +225,7 @@ lib_src += \
        slate_internal_her2k.cc \
        slate_internal_herk.cc \
        slate_internal_potrf.cc \
+       slate_internal_swap.cc \
        slate_internal_symm.cc \
        slate_internal_synorm.cc \
        slate_internal_syr2k.cc \
@@ -506,7 +507,7 @@ lapack_api_obj = $(addsuffix .o, $(basename $(lapack_api_src)))
 dep += $(addsuffix .d, $(basename $(lapack_api_src)))
 
 LAPACK_API_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
-LAPACK_API_LIB     += -lslate 
+LAPACK_API_LIB     += -lslate
 
 lapack_api: lib $(lapack_api)
 

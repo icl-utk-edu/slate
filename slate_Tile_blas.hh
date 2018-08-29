@@ -575,6 +575,16 @@ void swap(int64_t j, int64_t n,
     }
 }
 
+///----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename scalar_t>
+void swap(int64_t j, int64_t n,
+          Tile<scalar_t>&& A, int64_t i1,
+          Tile<scalar_t>&& B, int64_t i2)
+{
+    swap(j, n, A, i1, B, i2);
+}
+
 ///-----------------------------------------------------------------------------
 /// \brief
 /// Swap rows with another process.
@@ -597,6 +607,15 @@ void swap(int64_t j, int64_t n,
 
     for (int64_t k = 0; k < n; ++k)
          A.at(i, j+k) = other_row[k];
+}
+
+///----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename scalar_t>
+void swap(int64_t j, int64_t n,
+          Tile<scalar_t>&& A, int64_t i, int other_rank, MPI_Comm mpi_comm)
+{
+    swap(j, n, A, i, other_rank, mpi_comm);
 }
 
 } // namespace slate

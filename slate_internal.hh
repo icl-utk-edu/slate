@@ -269,6 +269,12 @@ void trsm(Side side,
           int priority=0);
 
 //------------------------------------------------------------------------------
+// Other BLAS
+template <Target target=Target::HostTask, typename scalar_t>
+void swap(Matrix<scalar_t>&& A, std::vector< Pivot<scalar_t> >& pivots,
+          int priority=0);
+
+//------------------------------------------------------------------------------
 // Norms
 template <Target target=Target::HostTask, typename scalar_t>
 void norm(Norm in_norm, Matrix<scalar_t>&& A,
@@ -296,8 +302,9 @@ void norm(Norm in_norm, TrapezoidMatrix<scalar_t>&& A,
 //-----------------------------------------
 // getrf()
 template <Target target=Target::HostTask, typename scalar_t>
-void getrf(Matrix<scalar_t>&& A, int64_t ib, int max_panel_threads,
-           int priority=0);
+void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
+           std::vector< Pivot<scalar_t> >& pivots,
+           int max_panel_threads, int priority=0);
 
 //-----------------------------------------
 // potrf()

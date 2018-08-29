@@ -108,10 +108,11 @@ public:
 template <typename scalar_t>
 class Pivot {
 public:
-    int rank;               ///< rank of the pivot owner
-    scalar_t value;         ///< pivot value
-    int64_t tile_index;     ///< tile index in the local list
-    int64_t element_offset; ///< pivot offset in the tile
+    int rank;                 ///< rank of the pivot owner
+    scalar_t value;           ///< pivot value
+    int64_t tile_index;       ///< tile index in the panel submatrix
+    int64_t local_tile_index; ///< tile index in the local list
+    int64_t element_offset;   ///< pivot offset in the tile
 };
 
 //------------------------------------------------------------------------------

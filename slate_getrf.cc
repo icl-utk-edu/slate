@@ -41,6 +41,7 @@
 #include "slate_Debug.hh"
 #include "slate_Matrix.hh"
 #include "slate_HermitianMatrix.hh"
+#include "slate_Tile_blas.hh"
 #include "slate_TriangularMatrix.hh"
 #include "slate_internal.hh"
 
@@ -66,6 +67,8 @@ void getrf(slate::internal::TargetType<target>,
 
     const int64_t A_nt = A.nt();
     const int64_t A_mt = A.mt();
+    const int64_t min_mt_nt = std::min(A.mt(), A.nt());
+    std::vector< std::vector< Pivot<scalar_t> > > pivots(min_mt_nt);
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
@@ -73,13 +76,18 @@ void getrf(slate::internal::TargetType<target>,
 
     #pragma omp parallel
     #pragma omp master
-    for (int64_t k = 0; k < A_nt; ++k) {
+    for (int64_t k = 0; k < min_mt_nt; ++k) {
+
+        const int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
+        pivots.at(k).resize(diag_len);
+
         // panel, high priority
         #pragma omp task depend(inout:column[k]) priority(1)
         {
             // factor A(k:mt-1, k)
-            internal::getrf<Target::HostTask>(A.sub(k, A_mt-1, k, k),
-                                              ib, max_panel_threads, 1);
+            internal::getrf<Target::HostTask>(
+                A.sub(k, A_mt-1, k, k), diag_len, ib,
+                pivots.at(k), max_panel_threads, 1);
 
             BcastList bcast_list_A;
             for (int64_t i = k; i < A_mt; ++i) {
@@ -87,12 +95,22 @@ void getrf(slate::internal::TargetType<target>,
                 bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
             }
             A.template listBcast(bcast_list_A);
+
+            // Root broadcasts the pivot to all ranks.
+            // todo: Panel ranks send the pivots to the right.
+            MPI_Bcast(pivots.at(k).data(),
+                      sizeof(Pivot<scalar_t>)*pivots.at(k).size(),
+                      MPI_BYTE, A.tileRank(k, k), A.mpiComm());
         }
         // update lookahead column(s), high priority
         for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[j]) priority(1)
             {
+                // swap rows in A(k+1:mt-1, j)
+                internal::swap<Target::HostTask>(
+                    A.sub(k, A_mt-1, j, j), pivots.at(k));
+
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk =
                     TriangularMatrix<scalar_t>(
@@ -107,7 +125,6 @@ void getrf(slate::internal::TargetType<target>,
                 // send A(k, j) across column A(k+1:mt-1, j)
                 A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j));
 
-
                 // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
                 internal::gemm<Target::HostTask>(
                     scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
@@ -121,6 +138,10 @@ void getrf(slate::internal::TargetType<target>,
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[A_nt-1])
             {
+                // swap rows in A(k+1:mt-1, kl+1:nt-1)
+                internal::swap<Target::HostTask>(
+                    A.sub(k, A_mt-1, k+1+lookahead, A_nt-1), pivots.at(k));
+
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk =
                     TriangularMatrix<scalar_t>(

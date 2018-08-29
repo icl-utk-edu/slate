@@ -95,20 +95,22 @@ void getrf_swap(
         // If I am the root.
         if (root) {
             // if pivot not on the diagonal
-            if (pivots[i].tile_index > 0 ||
+            if (pivots[i].local_tile_index > 0 ||
                 pivots[i].element_offset > i)
             {
                 // local swap
                 swap(j, n,
                      tiles.at(0), i,
-                     tiles.at(pivots[i].tile_index), pivots[i].element_offset);
+                     tiles.at(pivots[i].local_tile_index),
+                              pivots[i].element_offset);
             }
         }
         // I am not the root.
         else {
             // MPI swap with the root
             swap(j, n,
-                 tiles.at(pivots[i].tile_index), pivots[i].element_offset,
+                 tiles.at(pivots[i].local_tile_index),
+                 pivots[i].element_offset,
                  mpi_root, mpi_comm);
         }
     }
@@ -128,7 +130,7 @@ void getrf_swap(
 /// \brief
 /// Compute the LU factorization of a panel.
 ///
-/// \param[in] diagonal_length
+/// \param[in] diag_len
 ///     length of the panel diagonal
 ///
 /// \param[in] ib
@@ -180,7 +182,7 @@ void getrf_swap(
 ///     and the top block for the gemm operation.
 ///
 template <typename scalar_t>
-int64_t getrf(int64_t diagonal_length, int64_t ib,
+int64_t getrf(int64_t diag_len, int64_t ib,
               std::vector< Tile<scalar_t> >& tiles,
               std::vector<int64_t>& tile_indices,
               std::vector<int64_t>& tile_offsets,
@@ -199,15 +201,15 @@ int64_t getrf(int64_t diagonal_length, int64_t ib,
     using namespace lapack;
     using real_t = real_type<scalar_t>;
 
-    bool root = mpi_rank == mpi_root;
-    int64_t nb = tiles.at(0).nb();
+    const bool root = mpi_rank == mpi_root;
+    const int64_t nb = tiles.at(0).nb();
 
     // Loop over ib-wide stripes.
-    for (int64_t k = 0; k < diagonal_length; k += ib) {
+    for (int64_t k = 0; k < diag_len; k += ib) {
 
         //=======================
         // ib panel factorization
-        int64_t kb = std::min(diagonal_length-k, ib);
+        int64_t kb = std::min(diag_len-k, ib);
 
         // Loop over ib columns of a stripe.
         for (int64_t j = k; j < k+kb; ++j) {
@@ -287,6 +289,7 @@ int64_t getrf(int64_t diagonal_length, int64_t ib,
                 // Broadcast the pivot information.
                 pivots[j] = {max_loc.loc,
                              max_value[0],
+                             tile_indices[max_index[0]],
                              max_index[0],
                              max_offset[0]};
                 #pragma omp critical(slate_mpi)
@@ -438,12 +441,14 @@ int64_t getrf(int64_t diagonal_length, int64_t ib,
                 auto i_index = tile_indices.at(idx);
 
                 if (i_index == 0) {
-                    gemm(Layout::ColMajor,
-                         Op::NoTrans, Op::NoTrans,
-                         tile.mb()-k-kb, nb-k-kb, kb,
-                         -1.0, &tile.at(k+kb,k   ), tile.stride(),
-                               &tile.at(k,   k+kb), tile.stride(),
-                          1.0, &tile.at(k+kb,k+kb), tile.stride());
+                    if (k+kb < tile.mb()) {
+                        gemm(Layout::ColMajor,
+                             Op::NoTrans, Op::NoTrans,
+                             tile.mb()-k-kb, nb-k-kb, kb,
+                             -1.0, &tile.at(k+kb,k   ), tile.stride(),
+                                   &tile.at(k,   k+kb), tile.stride(),
+                              1.0, &tile.at(k+kb,k+kb), tile.stride());
+                    }
                 }
                 else {
                     gemm(Layout::ColMajor,
@@ -460,9 +465,9 @@ int64_t getrf(int64_t diagonal_length, int64_t ib,
 
     //=====================
     // pivoting to the left
-    for (int64_t k = ib; k < diagonal_length; k += ib) {
+    for (int64_t k = ib; k < diag_len; k += ib) {
         if (thread_rank == 0) {
-            for (int64_t i = k; i < k+ib; ++i) {
+            for (int64_t i = k; i < k+ib && i < diag_len; ++i) {
                 getrf_swap(i, 0, k,
                            tiles, pivots,
                            mpi_rank, mpi_root, mpi_comm);

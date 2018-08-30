@@ -104,8 +104,6 @@ void swap(internal::TargetType<Target::HostTask>,
                          pivots[i].element_offset,
                          A.tileRank(0, j), A.mpiComm());
                 }
-
-
             }
             // I don't own the pivot.
             else {

@@ -107,7 +107,7 @@ void getrf(slate::internal::TargetType<target>,
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[j]) priority(1)
             {
-                // swap rows in A(k+1:mt-1, j)
+                // swap rows in A(k:mt-1, j)
                 internal::swap<Target::HostTask>(
                     A.sub(k, A_mt-1, j, j), pivots.at(k));
 
@@ -138,7 +138,7 @@ void getrf(slate::internal::TargetType<target>,
                              depend(inout:column[k+1+lookahead]) \
                              depend(inout:column[A_nt-1])
             {
-                // swap rows in A(k+1:mt-1, kl+1:nt-1)
+                // swap rows in A(k:mt-1, kl+1:nt-1)
                 internal::swap<Target::HostTask>(
                     A.sub(k, A_mt-1, k+1+lookahead, A_nt-1), pivots.at(k));
 
@@ -167,6 +167,15 @@ void getrf(slate::internal::TargetType<target>,
                                     A.sub(k, k, k+1+lookahead, A_nt-1),
                     scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1));
             }
+        }
+    }
+
+    // Pivot to the left of the panel.
+    for (int64_t k = 0; k < min_mt_nt; ++k) {
+        if (k > 0) {
+            // swap rows in A(k:mt-1, 0:k-1)
+            internal::swap<Target::HostTask>(
+                A.sub(k, A_mt-1, 0, k-1), pivots.at(k));
         }
     }
 

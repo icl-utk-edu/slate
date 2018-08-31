@@ -16,6 +16,9 @@ using libtest::DataType;
 using libtest::char2datatype;
 using libtest::datatype2char;
 using libtest::datatype2str;
+using libtest::ansi_bold;
+using libtest::ansi_red;
+using libtest::ansi_normal;
 
 // -----------------------------------------------------------------------------
 // each section must have a corresponding entry in section_names
@@ -218,7 +221,7 @@ Params::Params():
 
     time      ( "SLATE\ntime (s)",       15, 9, ParamType::Output, libtest::no_data_flag,   0,   0, "time to solution" ),
     gflops    ( "SLATE\nGflop/s",        10, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "Gflop/s rate" ),
-    iters     ( "iters",        6,    ParamType::Output,                     0,   0,   0, "iterations to solution" ),
+    iters     ( "iters",                  6,    ParamType::Output,                     0,   0,   0, "iterations to solution" ),
 
     ref_time  ( "Ref.\ntime (s)",        15, 9, ParamType::Output, libtest::no_data_flag,   0,   0, "reference time to solution" ),
     ref_gflops( "Ref.\nGflop/s",         10, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "reference Gflop/s rate" ),
@@ -242,124 +245,198 @@ Params::Params():
     repeat .value();
     verbose.value();
     cache  .value();
-    target  .value();
+    target .value();
 
     // routine's parameters are marked by the test routine; see main
 }
 
 // -----------------------------------------------------------------------------
+/// Prints an error in an MPI-aware fashion.
+/// If some ranks have a non-empty error message, rank 0 prints one of them
+/// (currently from the lowest rank), and all ranks return non-zero.
+/// If all ranks have an empty error message, nothing is printed,
+/// and all ranks return zero.
+///
+/// @param[in] msg
+///     Error message on each rank. Empty string indicates no error.
+///
+/// @param[in] mpi_rank
+///     MPI rank within comm. Rank 0 prints output.
+///
+/// @param[in] comm
+///     MPI communicator.
+///
+/// @return zero if msg was empty on all ranks, otherwise non-zero.
+///
+int print_reduce_error(
+    const std::string& msg, int mpi_rank, MPI_Comm comm )
+{
+    // reduction to determine first rank with an error
+    typedef struct { int err, rank; } err_rank_t;
+    int err = ! msg.empty();
+    err_rank_t err_rank = { err, mpi_rank };
+    err_rank_t err_first = { 0, 0 };
+    MPI_Allreduce( &err_rank, &err_first, 1, MPI_2INT, MPI_MAXLOC, comm );
+
+    if (err_first.err) {
+        // count ranks with an error
+        int root = 0;
+        int cnt = 0;
+        MPI_Reduce( &err, &cnt, 1, MPI_INT, MPI_SUM, root, comm );
+
+        // first rank with error sends msg to root
+        char buf[ 255 ];
+        if (mpi_rank == err_first.rank) {
+            snprintf( buf, sizeof(buf), "%s", msg.c_str() );
+            // if rank == root, nothing to send
+            if (mpi_rank != root) {
+                slate_mpi_call(
+                    MPI_Send( buf, sizeof(buf), MPI_CHAR, root, 0, comm ));
+            }
+        }
+        else if (mpi_rank == root) {
+            MPI_Status status;
+            slate_mpi_call(
+                MPI_Recv( buf, sizeof(buf), MPI_CHAR, err_first.rank, 0, comm,
+                          &status ));
+        }
+
+        // root prints msg
+        if (mpi_rank == root) {
+            fprintf( stderr,
+                     "\n%s%sError on rank %d: %s. (%d ranks had some error.)%s\n",
+                     ansi_bold, ansi_red,
+                     err_first.rank, buf, cnt,
+                     ansi_normal );
+        }
+    }
+
+    return err_first.err;
+}
+
+// -----------------------------------------------------------------------------
 int main( int argc, char** argv )
 {
+    using libtest::QuitException;
+
     // check that all sections have names
     assert( sizeof(section_names)/sizeof(*section_names) == Section::num_sections );
 
     // MPI initializations
-    int mpi_rank, mpi_size, provided;
-    if (! ( ( MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided) == MPI_SUCCESS ) &&
-            ( provided >= MPI_THREAD_MULTIPLE ) &&
-            ( MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank) == MPI_SUCCESS ) &&
-            ( MPI_Comm_size(MPI_COMM_WORLD, &mpi_size) == MPI_SUCCESS ) ) ) {
-        fprintf( stderr, "Error: MPI could not be initialized (requires MPI_THREAD_MULTIPLE)\n" );
+    int mpi_rank = 0, mpi_size = 0, provided = 0;
+    int err = MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided);
+    if (err != MPI_SUCCESS) {
+        fprintf( stderr, "Error: MPI could not be initialized (err = %d)\n", err );
         return -1;
     }
 
-    // Usage: test routine [params]
-    // find routine to test
-    if (argc < 2 ||
-        strcmp( argv[1], "-h" ) == 0 ||
-        strcmp( argv[1], "--help" ) == 0)
-    {
-        if (mpi_rank == 0)
-            usage( argc, argv, routines, section_names );
-        return 0;
-    }
-
-    const char* routine = argv[1];
-    libtest::test_func_ptr test_routine = find_tester( routine, routines );
-    if (test_routine == nullptr) {
-        if (mpi_rank == 0) {
-            fprintf( stderr, "Error: routine %s not found\n", routine );
-            usage( argc, argv, routines, section_names );
-        }
-        return -1;
-    }
-
-    // mark fields that are used (run=false)
-    Params params;
-    test_routine( params, false );
-
-    // parse parameters after routine name
-    params.parse( routine, argc-2, argv+2 );
-
-    // print input so running `test [input] > out.txt` documents input
-    if (mpi_rank == 0) {
-        printf( "input: %s", argv[0] );
-        for (int i = 1; i < argc; ++i) {
-            printf( " %s", argv[i] );
-        }
-        printf( "\n" );
-    }
-
-    // run tests
     int status = 0;
-    int repeat = params.repeat.value();
-    libtest::DataType last = params.datatype.value();
-    if (mpi_rank == 0)
-        params.header();
-    do {
-        if (params.datatype.value() != last) {
-            last = params.datatype.value();
-            if (mpi_rank == 0)
-                printf("\n");
-        }
-        for (int iter = 0; iter < repeat; ++iter) {
-            try {
-                test_routine( params, true );
+    std::string msg;
+    try {
+        if (provided < MPI_THREAD_MULTIPLE)
+            throw std::runtime_error("SLATE requires MPI_THREAD_MULTIPLE");
+
+        slate_mpi_call(
+            MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank));
+        slate_mpi_call(
+            MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
+        bool print = (mpi_rank == 0);
+
+        // print input so running `test [input] > out.txt` documents input
+        if (print) {
+            printf( "input: %s", argv[0] );
+            for (int i = 1; i < argc; ++i) {
+                printf( " %s", argv[i] );
             }
-            catch (slate::Exception& err) {
-                params.okay.value() = false;
-                printf("rank %d, SLATE error: %s\n", mpi_rank, err.what());
-            }
-            catch (blas::Error& err) {
-                params.okay.value() = false;
-                printf("rank %d, BLAS error: %s\n", mpi_rank, err.what());
-            }
-            catch (lapack::Error& err) {
-                params.okay.value() = false;
-                printf("rank %d, LAPACK error: %s\n",
-                       mpi_rank, err.what());
-            }
-            catch (std::exception& err) {
-                // happens for assert_throw failures
-                params.okay.value() = false;
-                printf("rank %d, Caught std::exception: %s\n",
-                       mpi_rank, err.what());
-            }
-            catch (...) {
-                // happens for assert_throw failures
-                params.okay.value() = false;
-                printf("rank %d, Caught unknown error when calling test routine\n",
-                       mpi_rank);
-            }
-            if (mpi_rank == 0)
-                params.print();
-            status += ! params.okay.value();
-            params.reset_output();
-        }
-        if (repeat > 1 && mpi_rank == 0) {
             printf( "\n" );
         }
-    } while( params.next() );
 
-    MPI_Finalize();
+        // Usage: test routine [params]
+        if (argc < 2 ||
+            strcmp( argv[1], "-h" ) == 0 ||
+            strcmp( argv[1], "--help" ) == 0)
+        {
+            if (print)
+                usage( argc, argv, routines, section_names );
+            throw QuitException();
+        }
 
-    if (mpi_rank == 0) {
-        if (status) {
-            printf( "%d tests FAILED.\n", status );
-        } else {
-            printf( "All tests passed.\n" );
+        // find routine to test
+        const char* routine = argv[1];
+        libtest::test_func_ptr test_routine = find_tester( routine, routines );
+        if (test_routine == nullptr) {
+            if (print)
+                usage( argc, argv, routines, section_names );
+            throw std::runtime_error(
+                std::string("routine ") + routine + " not found" );
+        }
+
+        // mark fields that are used (run=false)
+        Params params;
+        test_routine( params, false );
+
+        // parse parameters after routine name
+        try {
+            params.parse( routine, argc-2, argv+2 );
+        }
+        catch (const std::exception& ex) {
+            if (print)
+                params.help( routine );
+            throw;
+        }
+
+        // run tests
+        int repeat = params.repeat.value();
+        libtest::DataType last = params.datatype.value();
+        if (print)
+            params.header();
+        do {
+            if (params.datatype.value() != last) {
+                last = params.datatype.value();
+                if (print)
+                    printf("\n");
+            }
+            for (int iter = 0; iter < repeat; ++iter) {
+                try {
+                    test_routine( params, true );
+                }
+                catch (const std::exception& ex) {
+                    msg = ex.what();
+                }
+                err = print_reduce_error( msg, mpi_rank, MPI_COMM_WORLD );
+                if (err)
+                    params.okay.value() = false;
+                if (print)
+                    params.print();
+                status += ! params.okay.value();
+                params.reset_output();
+                msg.clear();
+            }
+            if (repeat > 1 && print) {
+                printf( "\n" );
+            }
+        } while( params.next() );
+
+        if (print) {
+            if (status) {
+                printf( "%d tests FAILED.\n", status );
+            }
+            else {
+                printf( "All tests passed.\n" );
+            }
         }
     }
+    catch (const QuitException& ex) {
+        // pass: no error to print
+    }
+    catch (const std::exception& ex) {
+        msg = ex.what();
+    }
+    err = print_reduce_error( msg, mpi_rank, MPI_COMM_WORLD );
+    if (err)
+        status = -1;
+
+    MPI_Finalize();
 
     if (mpi_rank == 0)
         return status;

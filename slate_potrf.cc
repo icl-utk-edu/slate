@@ -58,10 +58,14 @@ namespace specialization {
 /// Panel and lookahead computed on host using Host OpenMP task.
 template <Target target, typename scalar_t>
 void potrf(slate::internal::TargetType<target>,
-           HermitianMatrix<scalar_t>& A, int64_t lookahead)
+           HermitianMatrix<scalar_t> A, int64_t lookahead)
 {
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
+
+    // if upper, change to lower
+    if (A.uplo_logical() == Uplo::Upper)
+        A = transpose(A);
 
     const int64_t A_nt = A.nt();
 
@@ -150,11 +154,15 @@ void potrf(slate::internal::TargetType<target>,
 /// GPU device batched cuBLAS implementation.
 template <typename scalar_t>
 void potrf(slate::internal::TargetType<Target::Devices>,
-           HermitianMatrix<scalar_t>& A, int64_t lookahead)
+           HermitianMatrix<scalar_t> A, int64_t lookahead)
 {
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    // if upper, change to lower
+    if (A.uplo_logical() == Uplo::Upper)
+        A = transpose(A);
+    
     const int64_t A_nt = A.nt();
 
     // OpenMP needs pointer types, but vectors are exception safe

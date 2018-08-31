@@ -439,7 +439,9 @@ Matrix<scalar_t>::Matrix(
     int64_t i1, int64_t i2,
     int64_t j1, int64_t j2)
     : BaseMatrix<scalar_t>(orig, i1, i2, j1, j2)
-{}
+{
+    this->uplo_ = Uplo::General;
+}
 
 //------------------------------------------------------------------------------
 /// Swap contents of matrices A and B.

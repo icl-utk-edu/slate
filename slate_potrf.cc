@@ -64,9 +64,9 @@ void potrf(slate::internal::TargetType<target>,
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // if upper, change to lower
-    if (A.uplo_logical() == Uplo::Upper)
-        A = transpose(A);
-
+    if (A.uplo_logical() == Uplo::Upper){
+        A = conj_transpose(A);
+    }
     const int64_t A_nt = A.nt();
 
     // OpenMP needs pointer types, but vectors are exception safe
@@ -160,9 +160,9 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // if upper, change to lower
-    if (A.uplo_logical() == Uplo::Upper)
-        A = transpose(A);
-    
+    if (A.uplo_logical() == Uplo::Upper){
+        A = conj_transpose(A);
+    }
     const int64_t A_nt = A.nt();
 
     // OpenMP needs pointer types, but vectors are exception safe

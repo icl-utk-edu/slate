@@ -27,6 +27,11 @@ import xml.etree.ElementTree as ET
 # command line arguments
 parser = argparse.ArgumentParser()
 
+group_test = parser.add_argument_group( 'test' )
+group_test.add_argument( '-t', '--test', action='store',
+    help='test command to run, e.g., --test "mpirun -np 4 ./test"; default "%(default)s"',
+    default='./test' )
+
 group_size = parser.add_argument_group( 'matrix dimensions (default is medium)' )
 group_size.add_argument( '-x', '--xsmall', action='store_true', help='run x-small tests' )
 group_size.add_argument( '-s', '--small',  action='store_true', help='run small tests' )
@@ -180,6 +185,7 @@ incy   = ' --incy '   + opts.incy   if (opts.incy)   else ''
 check  = ' --check '  + opts.check  if (opts.check)  else ''
 if (opts.ref):
     check += ' --ref ' + opts.ref
+
 # LAPACK only
 direct = ' --direct ' + opts.direct if (opts.direct) else ''
 storev = ' --storev ' + opts.storev if (opts.storev) else ''
@@ -193,10 +199,12 @@ kd     = ' --kd '     + opts.kd     if (opts.kd)     else ''
 kl     = ' --kl '     + opts.kl     if (opts.kl)     else ''
 ku     = ' --ku '     + opts.ku     if (opts.ku)     else ''
 mtype  = ' --matrixtype ' + opts.matrixtype if (opts.matrixtype) else ''
-nb     = ' --nb ' + opts.nb if (opts.nb) else ''
-nt     = ' --nt ' + opts.nt if (opts.nt) else ''
-p      = ' --p ' + opts.p if (opts.p) else ''
-q      = ' --q ' + opts.q if (opts.q) else ''
+
+# SLATE specific
+nb     = ' --nb '     + opts.nb     if (opts.nb)     else ''
+nt     = ' --nt '     + opts.nt     if (opts.nt)     else ''
+p      = ' --p '      + opts.p      if (opts.p)      else ''
+q      = ' --q '      + opts.q      if (opts.q)      else ''
 
 # ------------------------------------------------------------------------------
 # filters a comma separated list csv based on items in list values.
@@ -499,8 +507,10 @@ if (opts.blas):
 output_redirected = not sys.stdout.isatty()
 
 # ------------------------------------------------------------------------------
+# cmd is a pair of strings: (function, args)
+
 def run_test( cmd ):
-    cmd = './test %-6s%s' % tuple(cmd)
+    cmd = opts.test +' '+ cmd[0] +' '+ cmd[1]
     print( cmd, file=sys.stderr )
     err = os.system( cmd )
     if (err):
@@ -541,8 +551,9 @@ nfailures = len( failures )
 if (nfailures > 0):
     print( '\n' + str(nfailures) + ' routines FAILED:', ', '.join( failures ),
            file=sys.stderr )
-    #exit(1)
 
+# save report.xml
+# todo: make this an option?
 if True:
     root = ET.Element("testsuites")
     doc = ET.SubElement(root, "testsuite",
@@ -565,3 +576,6 @@ if True:
 
     tree = ET.ElementTree(root)
     tree.write("report.xml")
+# end
+
+exit( nfailures )

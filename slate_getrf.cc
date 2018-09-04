@@ -85,9 +85,10 @@ void getrf(slate::internal::TargetType<target>,
         #pragma omp task depend(inout:column[k]) priority(1)
         {
             // factor A(k:mt-1, k)
+            int priority_one = 1;
             internal::getrf<Target::HostTask>(
                 A.sub(k, A_mt-1, k, k), diag_len, ib,
-                pivots.at(k), max_panel_threads, 1);
+                pivots.at(k), max_panel_threads, priority_one);
 
             BcastList bcast_list_A;
             for (int64_t i = k; i < A_mt; ++i) {
@@ -98,9 +99,13 @@ void getrf(slate::internal::TargetType<target>,
 
             // Root broadcasts the pivot to all ranks.
             // todo: Panel ranks send the pivots to the right.
-            MPI_Bcast(pivots.at(k).data(),
-                      sizeof(Pivot<scalar_t>)*pivots.at(k).size(),
-                      MPI_BYTE, A.tileRank(k, k), A.mpiComm());
+            {
+                trace::Block trace_block("MPI_Bcast");
+
+                MPI_Bcast(pivots.at(k).data(),
+                          sizeof(Pivot<scalar_t>)*pivots.at(k).size(),
+                          MPI_BYTE, A.tileRank(k, k), A.mpiComm());
+            }
         }
         // update lookahead column(s), high priority
         for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
@@ -108,28 +113,29 @@ void getrf(slate::internal::TargetType<target>,
                              depend(inout:column[j]) priority(1)
             {
                 // swap rows in A(k:mt-1, j)
+                int priority_one = 1;
+                int tag_j = j;
                 internal::swap<Target::HostTask>(
-                    A.sub(k, A_mt-1, j, j), pivots.at(k));
+                    A.sub(k, A_mt-1, j, j), pivots.at(k), priority_one, tag_j);
 
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk =
-                    TriangularMatrix<scalar_t>(
-                        Uplo::Lower, Diag::Unit, Akk);
+                    TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Akk);
 
                 // solve A(k, k) A(k, j) = A(k, j)
                 internal::trsm<Target::HostTask>(
                     Side::Left,
                     scalar_t(1.0), std::move(Tkk),
-                                   A.sub(k, k, j, j), 1);
+                                   A.sub(k, k, j, j), priority_one);
 
                 // send A(k, j) across column A(k+1:mt-1, j)
-                A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j));
+                A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), tag_j);
 
                 // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
                 internal::gemm<Target::HostTask>(
                     scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
                                     A.sub(k, k, j, j),
-                    scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j), 1);
+                    scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j), priority_one);
             }
         }
         // update trailing submatrix, normal priority
@@ -139,13 +145,15 @@ void getrf(slate::internal::TargetType<target>,
                              depend(inout:column[A_nt-1])
             {
                 // swap rows in A(k:mt-1, kl+1:nt-1)
+                int priority_zero = 0;
+                int tag_kl1 = k+1+lookahead;
                 internal::swap<Target::HostTask>(
-                    A.sub(k, A_mt-1, k+1+lookahead, A_nt-1), pivots.at(k));
+                    A.sub(k, A_mt-1, k+1+lookahead, A_nt-1), pivots.at(k),
+                          priority_zero, tag_kl1);
 
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk =
-                    TriangularMatrix<scalar_t>(
-                        Uplo::Lower, Diag::Unit, Akk);
+                    TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Akk);
 
                 // solve A(k, k) A(k, kl+1:nt-1) = A(k, kl+1:nt-1)
                 internal::trsm<Target::HostTask>(
@@ -159,7 +167,7 @@ void getrf(slate::internal::TargetType<target>,
                     // send A(k, j) across column A(k+1:mt-1, j)
                     bcast_list_A.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}});
                 }
-                A.template listBcast(bcast_list_A);
+                A.template listBcast(bcast_list_A, tag_kl1);
 
                 // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                 internal::gemm<Target::HostTask>(

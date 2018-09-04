@@ -191,15 +191,15 @@ public:
     void tileErase(int64_t i, int64_t j, int device=host_num_);
 
     template <Target target = Target::Host>
-    void tileBcast(int64_t i, int64_t j, BaseMatrix const& B);
+    void tileBcast(int64_t i, int64_t j, BaseMatrix const& B, int tag = 0);
 
     template <Target target = Target::Host>
-    void listBcast(BcastList& bcast_list);
+    void listBcast(BcastList& bcast_list, int tag = 0);
 
 protected:
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set);
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set,
-                        int radix);
+                        int radix, int tag);
 
 public:
     void tileCopyToDevice(int64_t i, int64_t j, int dst_device);
@@ -626,11 +626,11 @@ void BaseMatrix<scalar_t>::tileErase(int64_t i, int64_t j, int device)
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::tileBcast(
-    int64_t i, int64_t j, BaseMatrix<scalar_t> const& B)
+    int64_t i, int64_t j, BaseMatrix<scalar_t> const& B, int tag)
 {
     BcastList bcast_list_B;
     bcast_list_B.push_back({i, j, {B}});
-    listBcast<target>(bcast_list_B);
+    listBcast<target>(bcast_list_B, tag);
 }
 
 //------------------------------------------------------------------------------
@@ -646,7 +646,7 @@ void BaseMatrix<scalar_t>::tileBcast(
 ///
 template <typename scalar_t>
 template <Target target>
-void BaseMatrix<scalar_t>::listBcast(BcastList& bcast_list)
+void BaseMatrix<scalar_t>::listBcast(BcastList& bcast_list, int tag)
 {
     // It is possible that the same tile, with the same data, is sent twice.
     // This happens, e.g., in the hemm and symm routines, where the same tile
@@ -697,7 +697,7 @@ void BaseMatrix<scalar_t>::listBcast(BcastList& bcast_list)
             // Send across MPI ranks.
             // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
             // Currently uses 2D hypercube p2p send.
-            tileBcastToSet(i, j, bcast_set, 2);
+            tileBcastToSet(i, j, bcast_set, 2, tag);
         }
 
         // Copy to devices.
@@ -812,7 +812,7 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileBcastToSet(
-    int64_t i, int64_t j, std::set<int> const& bcast_set, int radix)
+    int64_t i, int64_t j, std::set<int> const& bcast_set, int radix, int tag)
 {
     // Quit if only root in the broadcast set.
     if (bcast_set.size() == 1)
@@ -844,11 +844,11 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
 
     // Receive.
     if (!recv_from.empty())
-        at(i, j).recv(new_vec[recv_from.front()], mpi_comm_);
+        at(i, j).recv(new_vec[recv_from.front()], mpi_comm_, tag);
 
     // Forward.
     for (int dst : send_to)
-        at(i, j).send(new_vec[dst], mpi_comm_);
+        at(i, j).send(new_vec[dst], mpi_comm_, tag);
 }
 
 //------------------------------------------------------------------------------

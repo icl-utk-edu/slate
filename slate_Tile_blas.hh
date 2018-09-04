@@ -591,7 +591,8 @@ void swap(int64_t j, int64_t n,
 ///
 template <typename scalar_t>
 void swap(int64_t j, int64_t n,
-          Tile<scalar_t>& A, int64_t i, int other_rank, MPI_Comm mpi_comm)
+          Tile<scalar_t>& A, int64_t i, int other_rank, MPI_Comm mpi_comm,
+          int tag = 0)
 {
     std::vector<scalar_t> local_row(n);
     std::vector<scalar_t> other_row(n);
@@ -599,7 +600,6 @@ void swap(int64_t j, int64_t n,
     for (int64_t k = 0; k < n; ++k)
         local_row[k] = A(i, j+k);
 
-    int tag = 0;
     MPI_Sendrecv(
         local_row.data(), n, mpi_type<scalar_t>::value, other_rank, tag,
         other_row.data(), n, mpi_type<scalar_t>::value, other_rank, tag,
@@ -613,9 +613,10 @@ void swap(int64_t j, int64_t n,
 /// Converts rvalue refs to lvalue refs.
 template <typename scalar_t>
 void swap(int64_t j, int64_t n,
-          Tile<scalar_t>&& A, int64_t i, int other_rank, MPI_Comm mpi_comm)
+          Tile<scalar_t>&& A, int64_t i, int other_rank, MPI_Comm mpi_comm,
+          int tag = 0)
 {
-    swap(j, n, A, i, other_rank, mpi_comm);
+    swap(j, n, A, i, other_rank, mpi_comm, tag);
 }
 
 } // namespace slate

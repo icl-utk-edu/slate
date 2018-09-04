@@ -115,8 +115,8 @@ public:
     void copyDataToHost(Tile<scalar_t>* dst_tile, cudaStream_t stream) const;
     void copyDataToDevice(Tile<scalar_t>* dst_tile, cudaStream_t stream) const;
 
-    void send(int dst, MPI_Comm mpi_comm) const;
-    void recv(int src, MPI_Comm mpi_comm);
+    void send(int dst, MPI_Comm mpi_comm, int tag = 0) const;
+    void recv(int src, MPI_Comm mpi_comm, int tag = 0);
     void bcast(int bcast_root, MPI_Comm mpi_comm);
 
     /// Returns shallow copy of tile that is transposed.
@@ -459,7 +459,7 @@ void Tile<scalar_t>::copyDataToDevice(
 ///
 // todo need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
-void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm) const
+void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm, int tag) const
 {
     trace::Block trace_block("MPI_Send");
 
@@ -467,7 +467,6 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm) const
     if (stride_ == mb_) {
         // Use simple send.
         int count = mb_*nb_;
-        int tag = 0;
 
         #pragma omp critical(slate_mpi)
         {
@@ -482,7 +481,6 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm) const
         int blocklength = mb_;
         int stride = stride_;
         MPI_Datatype newtype;
-        int tag = 0;
 
         #pragma omp critical(slate_mpi)
         {
@@ -522,7 +520,7 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm) const
 ///
 // todo need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
-void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm)
+void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm, int tag)
 {
     trace::Block trace_block("MPI_Recv");
 
@@ -530,7 +528,6 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm)
     if (stride_ == mb_) {
         // Use simple recv.
         int count = mb_*nb_;
-        int tag = 0;
 
         #pragma omp critical(slate_mpi)
         {
@@ -560,7 +557,6 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm)
                 MPI_Type_commit(&newtype));
         }
 
-        int tag = 0;
         #pragma omp critical(slate_mpi)
         {
             slate_mpi_call(

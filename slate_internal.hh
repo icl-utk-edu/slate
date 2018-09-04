@@ -272,7 +272,7 @@ void trsm(Side side,
 // Other BLAS
 template <Target target=Target::HostTask, typename scalar_t>
 void swap(Matrix<scalar_t>&& A, std::vector< Pivot<scalar_t> >& pivots,
-          int priority=0);
+          int priority=0, int tag=0);
 
 //------------------------------------------------------------------------------
 // Norms

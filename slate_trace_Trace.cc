@@ -81,6 +81,8 @@ std::map<std::string, Color> Trace::function_color_ = {
     {"cudaFree",          Color::LightSalmon},
     {"cudaFreeHost",      Color::Salmon},
 
+    {"internal::swap",  Color::Thistle},
+
     {"lapack::getrf", Color::RosyBrown},
     {"lapack::lange", Color::LightBlue},
     {"lapack::potrf", Color::BurlyWood},

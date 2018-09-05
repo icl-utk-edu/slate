@@ -45,6 +45,8 @@
 
 #include "slate_mpi.hh"
 
+#include <vector>
+
 #include <blas.hh>
 #include <lapack.hh>
 
@@ -123,6 +125,8 @@ private:
     int64_t tile_index_;     ///< tile index in the panel submatrix
     int64_t element_offset_; ///< pivot offset in the tile
 };
+
+using Pivots = std::vector< std::vector<Pivot> >;
 
 //------------------------------------------------------------------------------
 /// gives mpi_type based on actual scalar_t.

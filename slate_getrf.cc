@@ -59,8 +59,8 @@ namespace specialization {
 /// Panel and lookahead computed on host using Host OpenMP task.
 template <Target target, typename scalar_t>
 void getrf(slate::internal::TargetType<target>,
-           Matrix<scalar_t>& A, int64_t ib, int max_panel_threads,
-           int64_t lookahead)
+           Matrix<scalar_t>& A, Pivots& pivots,
+           int64_t ib, int max_panel_threads, int64_t lookahead)
 {
     // using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
@@ -68,7 +68,7 @@ void getrf(slate::internal::TargetType<target>,
     const int64_t A_nt = A.nt();
     const int64_t A_mt = A.mt();
     const int64_t min_mt_nt = std::min(A.mt(), A.nt());
-    std::vector< std::vector<Pivot> > pivots(min_mt_nt);
+    pivots.resize(min_mt_nt);
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
@@ -203,7 +203,7 @@ void getrf(slate::internal::TargetType<target>,
 /// Version with target as template parameter.
 /// @ingroup gesv_comp
 template <Target target, typename scalar_t>
-void getrf(Matrix<scalar_t>& A,
+void getrf(Matrix<scalar_t>& A, Pivots& pivots,
            const std::map<Option, Value>& opts)
 {
     int64_t lookahead;
@@ -234,14 +234,15 @@ void getrf(Matrix<scalar_t>& A,
     }
 
     internal::specialization::getrf(internal::TargetType<target>(),
-                                    A, ib, max_panel_threads, lookahead);
+                                    A, pivots,
+                                    ib, max_panel_threads, lookahead);
 }
 
 //------------------------------------------------------------------------------
 /// Distributed parallel LU factorization.
 ///
 template <typename scalar_t>
-void getrf(Matrix<scalar_t>& A,
+void getrf(Matrix<scalar_t>& A, Pivots& pivots,
            const std::map<Option, Value>& opts)
 {
     Target target;
@@ -255,16 +256,16 @@ void getrf(Matrix<scalar_t>& A,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            getrf<Target::HostTask>(A, opts);
+            getrf<Target::HostTask>(A, pivots, opts);
             break;
         case Target::HostNest:
-            getrf<Target::HostNest>(A, opts);
+            getrf<Target::HostNest>(A, pivots, opts);
             break;
         case Target::HostBatch:
-            getrf<Target::HostBatch>(A, opts);
+            getrf<Target::HostBatch>(A, pivots, opts);
             break;
         case Target::Devices:
-            getrf<Target::Devices>(A, opts);
+            getrf<Target::Devices>(A, pivots, opts);
             break;
     }
     // todo: return value for errors?
@@ -274,22 +275,22 @@ void getrf(Matrix<scalar_t>& A,
 // Explicit instantiations.
 template
 void getrf<float>(
-    Matrix<float>& A,
+    Matrix<float>& A, Pivots& pivots,
     const std::map<Option, Value>& opts);
 
 template
 void getrf<double>(
-    Matrix<double>& A,
+    Matrix<double>& A, Pivots& pivots,
     const std::map<Option, Value>& opts);
 
 template
 void getrf< std::complex<float> >(
-    Matrix< std::complex<float> >& A,
+    Matrix< std::complex<float> >& A, Pivots& pivots,
     const std::map<Option, Value>& opts);
 
 template
 void getrf< std::complex<double> >(
-    Matrix< std::complex<double> >& A,
+    Matrix< std::complex<double> >& A, Pivots& pivots,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

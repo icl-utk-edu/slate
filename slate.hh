@@ -276,11 +276,11 @@ norm(Norm norm, matrix_type& A,
 //-----------------------------------------
 // getrf
 template <typename scalar_t>
-void getrf(Matrix<scalar_t>& A,
+void getrf(Matrix<scalar_t>& A, Pivots& pivots,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template <Target target, typename scalar_t>
-void getrf(Matrix<scalar_t>& A,
+void getrf(Matrix<scalar_t>& A, Pivots& pivots,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------

@@ -102,12 +102,15 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
         slate::trace::Block trace_block ("MPI_Barrier");
         MPI_Barrier (MPI_COMM_WORLD);
     }
+    
+    slate::Pivots pivots;
+
     double time = libtest::get_wtime();
 
     // todo: the example/test call to pgetrf can be removed later
     // int64_t info_tst=0;
     // scalapack_pgetrf (m, n, &A_tst[0], i1, i1, descA_tst, &ipiv_tst[0], &info_tst);
-    slate::getrf (A, {
+    slate::getrf (A, pivots, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });

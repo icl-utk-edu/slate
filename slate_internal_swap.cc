@@ -50,10 +50,10 @@ namespace internal {
 /// Swaps rows according to the pivot vector.
 /// Dispatches to target implementations.
 template <Target target, typename scalar_t>
-void swap(Matrix<scalar_t>&& A, std::vector<Pivot>& pivots,
+void swap(Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
           int priority, int tag)
 {
-    swap(internal::TargetType<target>(), A, pivots, priority, tag);
+    swap(internal::TargetType<target>(), A, pivot, priority, tag);
 }
 
 ///-----------------------------------------------------------------------------
@@ -61,7 +61,7 @@ void swap(Matrix<scalar_t>&& A, std::vector<Pivot>& pivots,
 /// Swaps rows according to the pivot vector, host implementation.
 template <typename scalar_t>
 void swap(internal::TargetType<Target::HostTask>,
-          Matrix<scalar_t>& A, std::vector<Pivot>& pivots,
+          Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
           int priority, int tag)
 {
     for (int64_t i = 0; i < A.mt(); ++i) {
@@ -82,29 +82,29 @@ void swap(internal::TargetType<Target::HostTask>,
         for (int64_t j = 0; j < A.nt(); ++j) {
             bool root = A.mpiRank() == A.tileRank(0, j);
 
-            for (int64_t i = 0; i < pivots.size(); ++i) {
-                int pivot_rank = A.tileRank(pivots[i].tileIndex(), j);
+            for (int64_t i = 0; i < pivot.size(); ++i) {
+                int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
 
                 // If I own the pivot.
                 if (pivot_rank == A.mpiRank()) {
                     // If I am the root.
                     if (root) {
                         // If pivot not on the diagonal.
-                        if (pivots[i].tileIndex() > 0 ||
-                            pivots[i].elementOffset() > i)
+                        if (pivot[i].tileIndex() > 0 ||
+                            pivot[i].elementOffset() > i)
                         {
                             swap(0, A.tileNb(j),
                                  A(0, j), i,
-                                 A(pivots[i].tileIndex(), j),
-                                 pivots[i].elementOffset());
+                                 A(pivot[i].tileIndex(), j),
+                                 pivot[i].elementOffset());
                         }
                     }
                     // I am not the root.
                     else {
                         // MPI swap with the root
                         swap(0, A.tileNb(j),
-                             A(pivots[i].tileIndex(), j),
-                             pivots[i].elementOffset(),
+                             A(pivot[i].tileIndex(), j),
+                             pivot[i].elementOffset(),
                              A.tileRank(0, j), A.mpiComm(),
                              tag);
                     }
@@ -130,27 +130,27 @@ void swap(internal::TargetType<Target::HostTask>,
 // ----------------------------------------
 template
 void swap<Target::HostTask, float>(
-    Matrix<float>&& A, std::vector<Pivot>& pivots,
+    Matrix<float>&& A, std::vector<Pivot>& pivot,
     int priority, int tag);
 
 // ----------------------------------------
 template
 void swap<Target::HostTask, double>(
-    Matrix<double>&& A, std::vector<Pivot>& pivots,
+    Matrix<double>&& A, std::vector<Pivot>& pivot,
     int priority, int tag);
 
 // ----------------------------------------
 template
 void swap< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
-    std::vector<Pivot>& pivots,
+    std::vector<Pivot>& pivot,
     int priority, int tag);
 
 // ----------------------------------------
 template
 void swap< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
-    std::vector<Pivot>& pivots,
+    std::vector<Pivot>& pivot,
     int priority, int tag);
 
 } // namespace internal

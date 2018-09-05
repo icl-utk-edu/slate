@@ -80,6 +80,7 @@ group_opt.add_argument( '--incx',   action='store', help='default=%(default)s', 
 group_opt.add_argument( '--incy',   action='store', help='default=%(default)s', default='1,2,-1,-2' )
 group_opt.add_argument( '--check',  action='store', help='default=y', default='' )  # default in test.cc
 group_opt.add_argument( '--ref',    action='store', help='default=y', default='' )  # default in test.cc
+
 # LAPACK only
 group_opt.add_argument( '--direct', action='store', help='default=%(default)s', default='f,b' )
 group_opt.add_argument( '--storev', action='store', help='default=%(default)s', default='c,r' )
@@ -93,10 +94,12 @@ group_opt.add_argument( '--kd',     action='store', help='default=%(default)s', 
 group_opt.add_argument( '--kl',     action='store', help='default=%(default)s', default='20,100' )
 group_opt.add_argument( '--ku',     action='store', help='default=%(default)s', default='20,100' )
 group_opt.add_argument( '--matrixtype', action='store', help='default=%(default)s', default='g,l,u' )
+
+# SLATE specific
 group_opt.add_argument( '--nb',     action='store', help='default=%(default)s', default='10,100' )
 group_opt.add_argument( '--nt',     action='store', help='default=%(default)s', default='5,10,20' )
-group_opt.add_argument( '--p',      action='store', help='default=%(default)s', default='1' )
-group_opt.add_argument( '--q',      action='store', help='default=%(default)s', default='1' )
+group_opt.add_argument( '--p',      action='store', help='default=%(default)s', default='' )  # default in test.cc
+group_opt.add_argument( '--q',      action='store', help='default=%(default)s', default='' )  # default in test.cc
 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
 opts = parser.parse_args()
@@ -529,10 +532,11 @@ def run_test( cmd ):
 
 # ------------------------------------------------------------------------------
 failures = []
-passes = []
+passed_tests = []
 error_list = []
-ntests = len( opts.tests )
-run_all = ( ntests == 0 )
+ntests = len(opts.tests)
+run_all = (ntests == 0)
+
 for cmd in cmds:
     if (run_all or cmd[0] in opts.tests):
         err = run_test( cmd )
@@ -541,10 +545,10 @@ for cmd in cmds:
             error_num = (err & 0xff00) >> 8
             if error_num is None:
                 error_num = 0
-            error_list.append( error_num )
+            error_list.append(error_num)
         # TODO: add errors/skipped tests
         else:
-            passes.append( cmd[0] )
+            passed_tests.append(cmd[0])
 
 # print summary of failures
 nfailures = len( failures )
@@ -552,8 +556,7 @@ if (nfailures > 0):
     print( '\n' + str(nfailures) + ' routines FAILED:', ', '.join( failures ),
            file=sys.stderr )
 
-# save report.xml
-# todo: make this an option?
+# generate jUnit compatible test report
 if True:
     root = ET.Element("testsuites")
     doc = ET.SubElement(root, "testsuite",
@@ -570,8 +573,8 @@ if True:
         ff.name = failure
         i += 1
 
-    for p in passes:
-        passed_test = ET.SubElement(doc, 'testcase', name=p)
+    for p in passed_tests:
+        passed_test = ET.SubElement( doc, 'testcase', name=p )
         passed_test.text = 'PASSED'
 
     tree = ET.ElementTree(root)

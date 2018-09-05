@@ -40,6 +40,7 @@
 #ifndef SLATE_TILE_GETRF_HH
 #define SLATE_TILE_GETRF_HH
 
+#include "slate_internal.hh"
 #include "slate_Tile.hh"
 #include "slate_Tile_blas.hh"
 #include "slate_Tile_lapack.hh"
@@ -52,6 +53,8 @@
 #include <lapack.hh>
 
 namespace slate {
+namespace internal {
+// todo: Perhaps we should put all Tile routines in "internal".
 
 ///-----------------------------------------------------------------------------
 /// \brief
@@ -85,32 +88,32 @@ template <typename scalar_t>
 void getrf_swap(
     int64_t i, int64_t j, int64_t n,
     std::vector< Tile<scalar_t> >& tiles,
-    std::vector< Pivot<scalar_t> >& pivots,
+    std::vector< AuxPivot<scalar_t> >& pivots,
     int mpi_rank, int mpi_root, MPI_Comm mpi_comm)
 {
     bool root = mpi_rank == mpi_root;
 
     // If I own the pivot.
-    if (pivots[i].rank == mpi_rank) {
+    if (pivots[i].rank() == mpi_rank) {
         // If I am the root.
         if (root) {
             // if pivot not on the diagonal
-            if (pivots[i].local_tile_index > 0 ||
-                pivots[i].element_offset > i)
+            if (pivots[i].localTileIndex() > 0 ||
+                pivots[i].elementOffset() > i)
             {
                 // local swap
                 swap(j, n,
                      tiles.at(0), i,
-                     tiles.at(pivots[i].local_tile_index),
-                              pivots[i].element_offset);
+                     tiles.at(pivots[i].localTileIndex()),
+                              pivots[i].elementOffset());
             }
         }
         // I am not the root.
         else {
             // MPI swap with the root
             swap(j, n,
-                 tiles.at(pivots[i].local_tile_index),
-                 pivots[i].element_offset,
+                 tiles.at(pivots[i].localTileIndex()),
+                 pivots[i].elementOffset(),
                  mpi_root, mpi_comm);
         }
     }
@@ -121,7 +124,7 @@ void getrf_swap(
             // MPI swap with the pivot owner
             swap(j, n,
                  tiles.at(0), i,
-                 pivots[i].rank, mpi_comm);
+                 pivots[i].rank(), mpi_comm);
         }
     }
 }
@@ -186,7 +189,7 @@ int64_t getrf(int64_t diag_len, int64_t ib,
               std::vector< Tile<scalar_t> >& tiles,
               std::vector<int64_t>& tile_indices,
               std::vector<int64_t>& tile_offsets,
-              std::vector< Pivot<scalar_t> >& pivots,
+              std::vector< AuxPivot<scalar_t> >& pivots,
               int mpi_rank, int mpi_root, MPI_Comm mpi_comm,
               int thread_rank, int thread_size,
               ThreadBarrier& thread_barrier,
@@ -287,16 +290,16 @@ int64_t getrf(int64_t diag_len, int64_t ib,
                 }
 
                 // Broadcast the pivot information.
-                pivots[j] = {max_loc.loc,
-                             max_value[0],
-                             tile_indices[max_index[0]],
-                             max_index[0],
-                             max_offset[0]};
+                pivots[j] = AuxPivot<scalar_t>(tile_indices[max_index[0]],
+                                               max_offset[0],
+                                               max_index[0],
+                                               max_value[0],
+                                               max_loc.loc);
                 #pragma omp critical(slate_mpi)
                 {
                     slate_mpi_call(
-                        MPI_Bcast(&pivots[j], sizeof(Pivot<scalar_t>), MPI_BYTE,
-                                  max_loc.loc, mpi_comm));
+                        MPI_Bcast(&pivots[j], sizeof(AuxPivot<scalar_t>),
+                                  MPI_BYTE, max_loc.loc, mpi_comm));
                 }
 
                 // pivot swap
@@ -334,7 +337,7 @@ int64_t getrf(int64_t diag_len, int64_t ib,
 
                 // column scaling
                 real_t sfmin = std::numeric_limits<real_t>::min();
-                if (cabs1(pivots[j].value) >= sfmin) {
+                if (cabs1(pivots[j].value()) >= sfmin) {
                     if (i_index == 0) {
                         // diagonal tile
                         for (int64_t i = j+1; i < tile.mb(); ++i)
@@ -343,7 +346,7 @@ int64_t getrf(int64_t diag_len, int64_t ib,
                     else {
                         // off diagonal tile
                         for (int64_t i = 0; i < tile.mb(); ++i)
-                            tile.at(i, j) /= pivots[j].value;
+                            tile.at(i, j) /= pivots[j].value();
                     }
                 }
                 else {
@@ -357,7 +360,7 @@ int64_t getrf(int64_t diag_len, int64_t ib,
                     else {
                         // off diagonal tile
                         scalar_t one = 1.0;
-                        scalar_t alpha = one / pivots[j].value;
+                        scalar_t alpha = one / pivots[j].value();
                         scal(tile.mb(), alpha, &tile.at(0, j), 1);
                     }
                 }
@@ -476,6 +479,7 @@ int64_t getrf(int64_t diag_len, int64_t ib,
     }
 }
 
+} // namespace internal
 } // namespace slate
 
 #endif // SLATE_TILE_GETRF_HH

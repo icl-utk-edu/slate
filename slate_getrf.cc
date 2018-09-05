@@ -54,7 +54,7 @@ namespace specialization {
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// Distributed parallel Cholesky factorization.
+/// Distributed parallel LU factorization.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
 template <Target target, typename scalar_t>
@@ -179,6 +179,7 @@ void getrf(slate::internal::TargetType<target>,
     }
 
     // Pivot to the left of the panel.
+    // todo: Blend into the factorization.
     for (int64_t k = 0; k < min_mt_nt; ++k) {
         if (k > 0) {
             // swap rows in A(k:mt-1, 0:k-1)

@@ -108,11 +108,21 @@ public:
 template <typename scalar_t>
 class Pivot {
 public:
-    int rank;                 ///< rank of the pivot owner
-    scalar_t value;           ///< pivot value
-    int64_t tile_index;       ///< tile index in the panel submatrix
-    int64_t local_tile_index; ///< tile index in the local list
-    int64_t element_offset;   ///< pivot offset in the tile
+    Pivot()
+    {}
+
+    Pivot(int64_t tile_index,
+          int64_t element_offset)
+        : tile_index_(tile_index),
+          element_offset_(element_offset)
+    {}
+
+    int64_t tileIndex() { return tile_index_; }
+    int64_t elementOffset() { return element_offset_; }
+
+private:
+    int64_t tile_index_;     ///< tile index in the panel submatrix
+    int64_t element_offset_; ///< pivot offset in the tile
 };
 
 //------------------------------------------------------------------------------

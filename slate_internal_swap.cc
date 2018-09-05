@@ -83,28 +83,28 @@ void swap(internal::TargetType<Target::HostTask>,
             bool root = A.mpiRank() == A.tileRank(0, j);
 
             for (int64_t i = 0; i < pivots.size(); ++i) {
-                int pivot_rank = A.tileRank(pivots[i].tile_index, j);
+                int pivot_rank = A.tileRank(pivots[i].tileIndex(), j);
 
                 // If I own the pivot.
                 if (pivot_rank == A.mpiRank()) {
                     // If I am the root.
                     if (root) {
                         // If pivot not on the diagonal.
-                        if (pivots[i].tile_index > 0 ||
-                            pivots[i].element_offset > i)
+                        if (pivots[i].tileIndex() > 0 ||
+                            pivots[i].elementOffset() > i)
                         {
                             swap(0, A.tileNb(j),
                                  A(0, j), i,
-                                 A(pivots[i].tile_index, j),
-                                 pivots[i].element_offset);
+                                 A(pivots[i].tileIndex(), j),
+                                 pivots[i].elementOffset());
                         }
                     }
                     // I am not the root.
                     else {
                         // MPI swap with the root
                         swap(0, A.tileNb(j),
-                             A(pivots[i].tile_index, j),
-                             pivots[i].element_offset,
+                             A(pivots[i].tileIndex(), j),
+                             pivots[i].elementOffset(),
                              A.tileRank(0, j), A.mpiComm(),
                              tag);
                     }

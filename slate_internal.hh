@@ -87,7 +87,7 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 inline CBLAS_TRANSPOSE cblas_trans_const(Op op)
 {
     switch (op) {
@@ -98,7 +98,7 @@ inline CBLAS_TRANSPOSE cblas_trans_const(Op op)
     }
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 inline cublasOperation_t cublas_op_const(Op op)
 {
     switch (op) {
@@ -108,6 +108,41 @@ inline cublasOperation_t cublas_op_const(Op op)
         default: assert(false);
     }
 }
+
+//------------------------------------------------------------------------------
+// Auxiliary class to store and communicate the pivot information internally
+// in the panel factorization routine.
+template <typename scalar_t>
+class AuxPivot {
+public:
+    AuxPivot()
+    {}
+
+    AuxPivot(int64_t tile_index,
+             int64_t element_offset,
+             int64_t local_tile_index,
+             scalar_t value,
+             int rank)
+        : tile_index_(tile_index),
+          element_offset_(element_offset),
+          local_tile_index_(local_tile_index),
+          value_(value),
+          rank_(rank)
+    {}
+
+    int64_t tileIndex() { return tile_index_; }
+    int64_t elementOffset() { return element_offset_; }
+    int64_t localTileIndex() { return local_tile_index_; }
+    scalar_t value() { return value_; }
+    int rank() { return rank_; }
+
+private:
+    int64_t tile_index_;       ///< tile index in the panel submatrix
+    int64_t element_offset_;   ///< pivot offset in the tile
+    int64_t local_tile_index_; ///< tile index in the local list
+    scalar_t value_;           ///< value of the pivot element
+    int rank_;                 ///< rank of the pivot owner
+};
 
 //------------------------------------------------------------------------------
 // BLAS and LAPACK routines that update portions of a matrix on each node,

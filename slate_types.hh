@@ -105,7 +105,6 @@ public:
 };
 
 //------------------------------------------------------------------------------
-template <typename scalar_t>
 class Pivot {
 public:
     Pivot()

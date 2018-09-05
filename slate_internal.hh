@@ -306,7 +306,7 @@ void trsm(Side side,
 //------------------------------------------------------------------------------
 // Other BLAS
 template <Target target=Target::HostTask, typename scalar_t>
-void swap(Matrix<scalar_t>&& A, std::vector< Pivot<scalar_t> >& pivots,
+void swap(Matrix<scalar_t>&& A, std::vector<Pivot>& pivots,
           int priority=0, int tag=0);
 
 //------------------------------------------------------------------------------
@@ -338,7 +338,7 @@ void norm(Norm in_norm, TrapezoidMatrix<scalar_t>&& A,
 // getrf()
 template <Target target=Target::HostTask, typename scalar_t>
 void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
-           std::vector< Pivot<scalar_t> >& pivots,
+           std::vector<Pivot>& pivots,
            int max_panel_threads, int priority=0);
 
 //-----------------------------------------

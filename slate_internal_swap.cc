@@ -50,7 +50,7 @@ namespace internal {
 /// Swaps rows according to the pivot vector.
 /// Dispatches to target implementations.
 template <Target target, typename scalar_t>
-void swap(Matrix<scalar_t>&& A, std::vector< Pivot<scalar_t> >& pivots,
+void swap(Matrix<scalar_t>&& A, std::vector<Pivot>& pivots,
           int priority, int tag)
 {
     swap(internal::TargetType<target>(), A, pivots, priority, tag);
@@ -61,7 +61,7 @@ void swap(Matrix<scalar_t>&& A, std::vector< Pivot<scalar_t> >& pivots,
 /// Swaps rows according to the pivot vector, host implementation.
 template <typename scalar_t>
 void swap(internal::TargetType<Target::HostTask>,
-          Matrix<scalar_t>& A, std::vector< Pivot<scalar_t> >& pivots,
+          Matrix<scalar_t>& A, std::vector<Pivot>& pivots,
           int priority, int tag)
 {
     for (int64_t i = 0; i < A.mt(); ++i) {
@@ -130,27 +130,27 @@ void swap(internal::TargetType<Target::HostTask>,
 // ----------------------------------------
 template
 void swap<Target::HostTask, float>(
-    Matrix<float>&& A, std::vector< Pivot<float> >& pivots,
+    Matrix<float>&& A, std::vector<Pivot>& pivots,
     int priority, int tag);
 
 // ----------------------------------------
 template
 void swap<Target::HostTask, double>(
-    Matrix<double>&& A, std::vector< Pivot<double> >& pivots,
+    Matrix<double>&& A, std::vector<Pivot>& pivots,
     int priority, int tag);
 
 // ----------------------------------------
 template
 void swap< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
-    std::vector< Pivot< std::complex<float> > >& pivots,
+    std::vector<Pivot>& pivots,
     int priority, int tag);
 
 // ----------------------------------------
 template
 void swap< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
-    std::vector< Pivot< std::complex<double> > >& pivots,
+    std::vector<Pivot>& pivots,
     int priority, int tag);
 
 } // namespace internal

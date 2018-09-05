@@ -52,7 +52,7 @@ namespace internal {
 /// Dispatches to target implementations.
 template <Target target, typename scalar_t>
 void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
-           std::vector< Pivot<scalar_t> >& pivot,
+           std::vector<Pivot>& pivot,
            int max_panel_threads, int priority)
 {
     getrf(internal::TargetType<target>(),
@@ -65,7 +65,7 @@ void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
 template <typename scalar_t>
 void getrf(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A, int64_t diag_len, int64_t ib,
-           std::vector< Pivot<scalar_t> >& pivot,
+           std::vector<Pivot>& pivot,
            int max_panel_threads, int priority)
 {
     assert(A.nt() == 1);
@@ -149,8 +149,8 @@ void getrf(internal::TargetType<Target::HostTask>,
 
         // Copy pivot information from aux_pivot to pivot.
         for (int64_t i = 0; i < diag_len; ++i) {
-            pivot[i] = Pivot<scalar_t>(aux_pivot[i].tileIndex(),
-                                       aux_pivot[i].elementOffset());
+            pivot[i] = Pivot(aux_pivot[i].tileIndex(),
+                             aux_pivot[i].elementOffset());
         }
     }
 }
@@ -161,28 +161,28 @@ void getrf(internal::TargetType<Target::HostTask>,
 template
 void getrf<Target::HostTask, float>(
     Matrix<float>&& A, int64_t diag_len, int64_t ib,
-    std::vector< Pivot<float> >& pivot,
+    std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
 
 // ----------------------------------------
 template
 void getrf<Target::HostTask, double>(
     Matrix<double>&& A, int64_t diag_len, int64_t ib,
-    std::vector< Pivot<double> >& pivot,
+    std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
 
 // ----------------------------------------
 template
 void getrf< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A, int64_t diag_len, int64_t ib,
-    std::vector< Pivot< std::complex<float> > >& pivot,
+    std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
 
 // ----------------------------------------
 template
 void getrf< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A, int64_t diag_len, int64_t ib,
-    std::vector< Pivot< std::complex<double> > >& pivot,
+    std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
 
 } // namespace internal

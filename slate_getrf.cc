@@ -68,7 +68,7 @@ void getrf(slate::internal::TargetType<target>,
     const int64_t A_nt = A.nt();
     const int64_t A_mt = A.mt();
     const int64_t min_mt_nt = std::min(A.mt(), A.nt());
-    std::vector< std::vector< Pivot<scalar_t> > > pivots(min_mt_nt);
+    std::vector< std::vector<Pivot> > pivots(min_mt_nt);
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
@@ -103,7 +103,7 @@ void getrf(slate::internal::TargetType<target>,
                 trace::Block trace_block("MPI_Bcast");
 
                 MPI_Bcast(pivots.at(k).data(),
-                          sizeof(Pivot<scalar_t>)*pivots.at(k).size(),
+                          sizeof(Pivot)*pivots.at(k).size(),
                           MPI_BYTE, A.tileRank(k, k), A.mpiComm());
             }
         }

@@ -248,6 +248,7 @@ endif
 lib_src += \
        slate_gemm.cc \
        slate_getrf.cc \
+       slate_getrs.cc \
        slate_hemm.cc \
        slate_her2k.cc \
        slate_herk.cc \

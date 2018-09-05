@@ -284,6 +284,18 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
+// getrs
+template <typename scalar_t>
+void getrs(Matrix<scalar_t>& A, Pivots& pivots,
+           Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void getrs(Matrix<scalar_t>& A, Pivots& pivots,
+           Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
 // potrf
 template <typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>& A,

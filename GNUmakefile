@@ -198,9 +198,9 @@ NVCCFLAGS += $(nv_sm) $(nv_compute_last)
 #-------------------------------------------------------------------------------
 # MacOS needs shared library's path set
 ifeq ($(macos),1)
-   install_name = -install_name @rpath/$(notdir $@)
+    install_name = -install_name @rpath/$(notdir $@)
 else
-   install_name =
+    install_name =
 endif
 
 #-------------------------------------------------------------------------------
@@ -208,77 +208,77 @@ endif
 
 # types and classes
 lib_src += \
-       slate_Debug.cc \
-       slate_Exception.cc \
-       slate_Memory.cc \
-       slate_trace_Trace.cc \
-       slate_types.cc \
+        slate_Debug.cc \
+        slate_Exception.cc \
+        slate_Memory.cc \
+        slate_trace_Trace.cc \
+        slate_types.cc \
 
 # internal
 lib_src += \
-       slate_internal_comm.cc \
-       slate_internal_gemm.cc \
-       slate_internal_genorm.cc \
-       slate_internal_getrf.cc \
-       slate_internal_hemm.cc \
-       slate_internal_henorm.cc \
-       slate_internal_her2k.cc \
-       slate_internal_herk.cc \
-       slate_internal_potrf.cc \
-       slate_internal_swap.cc \
-       slate_internal_symm.cc \
-       slate_internal_synorm.cc \
-       slate_internal_syr2k.cc \
-       slate_internal_syrk.cc \
-       slate_internal_trmm.cc \
-       slate_internal_trsm.cc \
-       slate_internal_trnorm.cc \
-       slate_internal_util.cc \
+        slate_internal_comm.cc \
+        slate_internal_gemm.cc \
+        slate_internal_genorm.cc \
+        slate_internal_getrf.cc \
+        slate_internal_hemm.cc \
+        slate_internal_henorm.cc \
+        slate_internal_her2k.cc \
+        slate_internal_herk.cc \
+        slate_internal_potrf.cc \
+        slate_internal_swap.cc \
+        slate_internal_symm.cc \
+        slate_internal_synorm.cc \
+        slate_internal_syr2k.cc \
+        slate_internal_syrk.cc \
+        slate_internal_trmm.cc \
+        slate_internal_trnorm.cc \
+        slate_internal_trsm.cc \
+        slate_internal_util.cc \
 
 # device
 ifeq ($(cuda),1)
     lib_src += \
-           slate_device_genorm.cu \
-           slate_device_henorm.cu \
-           slate_device_synorm.cu \
-           slate_device_trnorm.cu
+            slate_device_genorm.cu \
+            slate_device_henorm.cu \
+            slate_device_synorm.cu \
+            slate_device_trnorm.cu
 endif
 
 # driver
 lib_src += \
-       slate_gemm.cc \
-       slate_gesv.cc \
-       slate_getrf.cc \
-       slate_getrs.cc \
-       slate_hemm.cc \
-       slate_her2k.cc \
-       slate_herk.cc \
-       slate_norm.cc \
-       slate_potrf.cc \
-       slate_symm.cc \
-       slate_syr2k.cc \
-       slate_syrk.cc \
-       slate_trmm.cc \
-       slate_trsm.cc \
+        slate_gemm.cc \
+        slate_gesv.cc \
+        slate_getrf.cc \
+        slate_getrs.cc \
+        slate_hemm.cc \
+        slate_her2k.cc \
+        slate_herk.cc \
+        slate_norm.cc \
+        slate_potrf.cc \
+        slate_symm.cc \
+        slate_syr2k.cc \
+        slate_syrk.cc \
+        slate_trmm.cc \
+        slate_trsm.cc \
 
 # main tester
 test_src += \
-        test/test.cc       \
-        test/test_gemm.cc  \
-        test/test_trmm.cc  \
-        test/test_symm.cc  \
-        test/test_syrk.cc  \
-        test/test_syr2k.cc \
-        test/test_trsm.cc  \
-        test/test_potrf.cc \
-        test/test_hemm.cc  \
-        test/test_henorm.cc  \
-        test/test_her2k.cc \
-        test/test_herk.cc  \
-        test/test_genorm.cc  \
-        test/test_synorm.cc  \
-        test/test_trnorm.cc  \
+        test/test.cc \
+        test/test_gemm.cc \
+        test/test_genorm.cc \
         test/test_getrf.cc \
+        test/test_hemm.cc \
+        test/test_henorm.cc \
+        test/test_her2k.cc \
+        test/test_herk.cc \
+        test/test_potrf.cc \
+        test/test_symm.cc \
+        test/test_synorm.cc \
+        test/test_syr2k.cc \
+        test/test_syrk.cc \
+        test/test_trmm.cc \
+        test/test_trnorm.cc \
+        test/test_trsm.cc \
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
 # Note that 'make' sets $(FC) to f77 by default.
@@ -302,9 +302,9 @@ endif
 # unit testers
 unit_src = \
         unit_test/test_BandMatrix.cc \
-        unit_test/test_Tile.cc \
         unit_test/test_Matrix.cc \
         unit_test/test_Memory.cc \
+        unit_test/test_Tile.cc \
         unit_test/test_norm.cc \
 
 # unit test framework
@@ -455,19 +455,19 @@ $(unit_test): %: %.o $(unit_test_obj) $(lib)
 scalapack_api = lib/libslate_scalapack_api.so
 
 scalapack_api_src += \
-                     scalapack_api/scalapack_gemm.cc \
-                     scalapack_api/scalapack_syrk.cc \
-                     scalapack_api/scalapack_symm.cc \
-                     scalapack_api/scalapack_trsm.cc \
-                     scalapack_api/scalapack_syr2k.cc \
-                     scalapack_api/scalapack_trmm.cc \
-                     scalapack_api/scalapack_hemm.cc \
-                     scalapack_api/scalapack_herk.cc \
-                     scalapack_api/scalapack_her2k.cc \
-                     scalapack_api/scalapack_lange.cc \
-                     scalapack_api/scalapack_lansy.cc \
-                     scalapack_api/scalapack_lantr.cc \
-                     scalapack_api/scalapack_potrf.cc \
+        scalapack_api/scalapack_gemm.cc \
+        scalapack_api/scalapack_hemm.cc \
+        scalapack_api/scalapack_her2k.cc \
+        scalapack_api/scalapack_herk.cc \
+        scalapack_api/scalapack_lange.cc \
+        scalapack_api/scalapack_lansy.cc \
+        scalapack_api/scalapack_lantr.cc \
+        scalapack_api/scalapack_potrf.cc \
+        scalapack_api/scalapack_symm.cc \
+        scalapack_api/scalapack_syr2k.cc \
+        scalapack_api/scalapack_syrk.cc \
+        scalapack_api/scalapack_trmm.cc \
+        scalapack_api/scalapack_trsm.cc \
 
 scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
 
@@ -490,19 +490,19 @@ $(scalapack_api): $(scalapack_api_obj) $(lib)
 lapack_api = lib/libslate_lapack_api.so
 
 lapack_api_src += \
-		lapack_api/lapack_gemm.cc \
-		lapack_api/lapack_hemm.cc \
-		lapack_api/lapack_her2k.cc \
-		lapack_api/lapack_herk.cc \
-		lapack_api/lapack_symm.cc \
-		lapack_api/lapack_syr2k.cc \
-		lapack_api/lapack_syrk.cc \
-		lapack_api/lapack_trmm.cc \
-		lapack_api/lapack_trsm.cc \
-		lapack_api/lapack_lange.cc \
-		lapack_api/lapack_lantr.cc \
-		lapack_api/lapack_lansy.cc \
-		lapack_api/lapack_potrf.cc \
+        lapack_api/lapack_gemm.cc \
+        lapack_api/lapack_hemm.cc \
+        lapack_api/lapack_her2k.cc \
+        lapack_api/lapack_herk.cc \
+        lapack_api/lapack_lange.cc \
+        lapack_api/lapack_lansy.cc \
+        lapack_api/lapack_lantr.cc \
+        lapack_api/lapack_potrf.cc \
+        lapack_api/lapack_symm.cc \
+        lapack_api/lapack_syr2k.cc \
+        lapack_api/lapack_syrk.cc \
+        lapack_api/lapack_trmm.cc \
+        lapack_api/lapack_trsm.cc \
 
 lapack_api_obj = $(addsuffix .o, $(basename $(lapack_api_src)))
 

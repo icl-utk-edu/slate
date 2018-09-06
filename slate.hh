@@ -274,6 +274,18 @@ norm(Norm norm, matrix_type& A,
 // Factorizations, etc.
 
 //-----------------------------------------
+// getrs
+template <typename scalar_t>
+void gesv(Matrix<scalar_t>& A, Pivots& pivots,
+          Matrix<scalar_t>& B,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void gesv(Matrix<scalar_t>& A, Pivots& pivots,
+          Matrix<scalar_t>& B,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
 // getrf
 template <typename scalar_t>
 void getrf(Matrix<scalar_t>& A, Pivots& pivots,

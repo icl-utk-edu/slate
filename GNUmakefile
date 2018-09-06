@@ -247,6 +247,7 @@ endif
 # driver
 lib_src += \
        slate_gemm.cc \
+       slate_gesv.cc \
        slate_getrf.cc \
        slate_getrs.cc \
        slate_hemm.cc \

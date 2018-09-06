@@ -82,7 +82,7 @@ void swap(internal::TargetType<Target::HostTask>,
         for (int64_t j = 0; j < A.nt(); ++j) {
             bool root = A.mpiRank() == A.tileRank(0, j);
 
-            for (int64_t i = 0; i < pivot.size(); ++i) {
+            for (int64_t i = 0; i < int64_t(pivot.size()); ++i) {
                 int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
 
                 // If I own the pivot.

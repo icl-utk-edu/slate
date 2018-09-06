@@ -116,7 +116,7 @@ void getrf(internal::TargetType<Target::HostTask>,
 
         // Launch the panel tasks.
         int thread_size = max_panel_threads;
-        if (tiles.size() < max_panel_threads)
+        if (int(tiles.size()) < max_panel_threads)
             thread_size = tiles.size();
 
         ThreadBarrier thread_barrier;
@@ -126,9 +126,9 @@ void getrf(internal::TargetType<Target::HostTask>,
         std::vector<scalar_t> top_block(ib*A.tileNb(0));
         std::vector< AuxPivot<scalar_t> > aux_pivot(diag_len);
 
-        // #pragma omp parallel for \
-        //     num_threads(thread_size) \
-        //     shared(thread_barrier, max_value, max_index, max_offset, \
+        // #pragma omp parallel for
+        //     num_threads(thread_size)
+        //     shared(thread_barrier, max_value, max_index, max_offset,
         //            top_block, aux_pivot)
         #pragma omp taskloop \
             num_tasks(thread_size) \

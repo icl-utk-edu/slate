@@ -185,18 +185,19 @@ void getrf_swap(
 ///     and the top block for the gemm operation.
 ///
 template <typename scalar_t>
-int64_t getrf(int64_t diag_len, int64_t ib,
-              std::vector< Tile<scalar_t> >& tiles,
-              std::vector<int64_t>& tile_indices,
-              std::vector<int64_t>& tile_offsets,
-              std::vector< AuxPivot<scalar_t> >& pivot,
-              int mpi_rank, int mpi_root, MPI_Comm mpi_comm,
-              int thread_rank, int thread_size,
-              ThreadBarrier& thread_barrier,
-              std::vector<scalar_t>& max_value,
-              std::vector<int64_t>& max_index,
-              std::vector<int64_t>& max_offset,
-              std::vector<scalar_t>& top_block)
+void getrf(
+    int64_t diag_len, int64_t ib,
+    std::vector< Tile<scalar_t> >& tiles,
+    std::vector<int64_t>& tile_indices,
+    std::vector<int64_t>& tile_offsets,
+    std::vector< AuxPivot<scalar_t> >& pivot,
+    int mpi_rank, int mpi_root, MPI_Comm mpi_comm,
+    int thread_rank, int thread_size,
+    ThreadBarrier& thread_barrier,
+    std::vector<scalar_t>& max_value,
+    std::vector<int64_t>& max_index,
+    std::vector<int64_t>& max_offset,
+    std::vector<scalar_t>& top_block)
 {
     trace::Block trace_block("lapack::getrf");
 
@@ -231,7 +232,7 @@ int64_t getrf(int64_t diag_len, int64_t ib,
             //------------------
             // thread max search
             for (int64_t idx = thread_rank;
-                 idx < tiles.size();
+                 idx < int64_t(tiles.size());
                  idx += thread_size)
             {
                 auto tile = tiles.at(idx);
@@ -329,7 +330,7 @@ int64_t getrf(int64_t diag_len, int64_t ib,
 
             // column scaling and trailing update
             for (int64_t idx = thread_rank;
-                 idx < tiles.size();
+                 idx < int64_t(tiles.size());
                  idx += thread_size)
             {
                 auto tile = tiles.at(idx);
@@ -437,7 +438,7 @@ int64_t getrf(int64_t diag_len, int64_t ib,
             //============================
             // rank-ib update to the right
             for (int64_t idx = thread_rank;
-                 idx < tiles.size();
+                 idx < int64_t(tiles.size());
                  idx += thread_size)
             {
                 auto tile = tiles.at(idx);

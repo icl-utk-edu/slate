@@ -41,6 +41,7 @@
 #define SLATE_HH
 
 #include "slate_Matrix.hh"
+#include "slate_BandMatrix.hh"
 #include "slate_HermitianMatrix.hh"
 #include "slate_SymmetricMatrix.hh"
 #include "slate_TriangularMatrix.hh"
@@ -274,7 +275,17 @@ norm(Norm norm, matrix_type& A,
 // Factorizations, etc.
 
 //-----------------------------------------
-// getrs
+// gbtrf
+template <typename scalar_t>
+void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// gesv
 template <typename scalar_t>
 void gesv(Matrix<scalar_t>& A, Pivots& pivots,
           Matrix<scalar_t>& B,

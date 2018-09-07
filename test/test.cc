@@ -41,7 +41,7 @@ enum Section {
 
 const char* section_names[] = {
    "",  // none
-   "BLAS",
+   "Level 3 BLAS",
    "LU",
    "Cholesky",
    "symmetric indefinite",
@@ -53,370 +53,83 @@ const char* section_names[] = {
    "non-symmetric eigenvalues",
    "singular value decomposition (SVD)",
    "auxiliary",
-   "auxiliary - norms",
+   "matrix norms",
    "auxiliary - Householder",
    "auxiliary - matrix generation",
 };
 
 // { "", nullptr, Section::newline } entries force newline in help
 std::vector< libtest::routines_t > routines = {
-    // BLAS
+    // -----
+    // Level 3 BLAS
     { "gemm",               test_gemm,         Section::blas_section },
-    { "symm",               test_symm,         Section::blas_section },
-    { "syr2k",              test_syr2k,        Section::blas_section },
-    { "syrk",               test_syrk,         Section::blas_section },
-    { "trsm",               test_trsm,         Section::blas_section },
-    { "trmm",               test_trmm,         Section::blas_section },
+    { "",                   nullptr,           Section::newline },
+
     { "hemm",               test_hemm,         Section::blas_section },
-    { "her2k",              test_her2k,        Section::blas_section },
     { "herk",               test_herk,         Section::blas_section },
+    { "her2k",              test_her2k,        Section::blas_section },
+    { "",                   nullptr,           Section::newline },
+
+    { "symm",               test_symm,         Section::blas_section },
+    { "syrk",               test_syrk,         Section::blas_section },
+    { "syr2k",              test_syr2k,        Section::blas_section },
+    { "",                   nullptr,           Section::newline },
+
+    { "trmm",               test_trmm,         Section::blas_section },
+    { "trsm",               test_trsm,         Section::blas_section },
 
     // -----
-  //   // LU
-  //   { "gesv",               test_gesv,      Section::gesv },
-  //   { "gbsv",               test_gbsv,      Section::gesv },
-  //   { "gtsv",               test_gtsv,      Section::gesv },
-  //   { "",                   nullptr,        Section::newline },
+    // LU
+    //{ "gesv",               test_gesv,         Section::gesv },
+    //{ "",                   nullptr,           Section::newline },
 
-  // //{ "gesvx",              test_gesvx,     Section::gesv },
-  // //{ "gbsvx",              test_gbsvx,     Section::gesv },
-  // //{ "gtsvx",              test_gtsvx,     Section::gesv },
-  //   { "",                   nullptr,        Section::newline },
+    //{ "getrs",              test_getrs,        Section::gesv },
+    //{ "",                   nullptr,           Section::newline },
 
-    { "getrf",              test_getrf,     Section::gesv },
-  //   { "gbtrf",              test_gbtrf,     Section::gesv },
-  //   { "gttrf",              test_gttrf,     Section::gesv },
-  //   { "",                   nullptr,        Section::newline },
+    { "getrf",              test_getrf,        Section::gesv },
+    //{ "gbtrf",              test_gbtrf,        Section::gesv },
+    { "",                   nullptr,           Section::newline },
 
-  //   { "getrs",              test_getrs,     Section::gesv },
-  //   { "gbtrs",              test_gbtrs,     Section::gesv },
-  //   { "gttrs",              test_gttrs,     Section::gesv },
-  //   { "",                   nullptr,        Section::newline },
-
-  //   { "getri",              test_getri,     Section::gesv },    // lawn 41 test
-  //   { "",                   nullptr,        Section::newline },
-
-  //   { "gecon",              test_gecon,     Section::gesv },
-  //   { "gbcon",              test_gbcon,     Section::gesv },
-  //   { "gtcon",              test_gtcon,     Section::gesv },
-  //   { "",                   nullptr,        Section::newline },
-
-  //   { "gerfs",              test_gerfs,     Section::gesv },
-  //   { "gbrfs",              test_gbrfs,     Section::gesv },
-  //   { "gtrfs",              test_gtrfs,     Section::gesv },
-  //   { "",                   nullptr,        Section::newline },
-
-  //   { "geequ",              test_geequ,     Section::gesv },
-  //   { "gbequ",              test_gbequ,     Section::gesv },
-  //   { "",                   nullptr,        Section::newline },
-
-  //   // -----
-  //   // Cholesky
-  //   { "posv",               test_posv,      Section::posv },
-  //   { "ppsv",               test_ppsv,      Section::posv },
-  //   { "pbsv",               test_pbsv,      Section::posv },
-  //   { "ptsv",               test_ptsv,      Section::posv },
-  //   { "",                   nullptr,        Section::newline },
-
+    // -----
+    // Cholesky
+    //{ "posv",               test_posv,         Section::posv },
+    //{ "",                   nullptr,           Section::newline },
 
     { "potrf",              test_potrf,        Section::posv },
+    { "",                   nullptr,           Section::newline },
 
-  //   { "pptrf",              test_pptrf,     Section::posv },
-  //   { "pbtrf",              test_pbtrf,     Section::posv },
-  //   { "pttrf",              test_pttrf,     Section::posv },
-    { "",                   nullptr,        Section::newline },
+    //{ "potrs",              test_potrs,        Section::posv },
+    //{ "",                   nullptr,           Section::newline },
 
-  //   { "potrs",              test_potrs,     Section::posv },
-  //   { "pptrs",              test_pptrs,     Section::posv },
-  //   { "pbtrs",              test_pbtrs,     Section::posv },
-  //   { "pttrs",              test_pttrs,     Section::posv },
-  //   { "",                   nullptr,        Section::newline },
+    // -----
+    // symmetric indefinite
+    //{ "sysv",                test_sysv,         Section::sysv },
+    //{ "",                    nullptr,           Section::newline },
 
-  //   { "potri",              test_potri,     Section::posv },    // lawn 41 test
-  //   { "pptri",              test_pptri,     Section::posv },
-  //   { "",                   nullptr,        Section::newline },
+    //{ "sytrf",               test_sytrf,        Section::sysv },
+    //{ "",                    nullptr,           Section::newline },
 
-  //   { "pocon",              test_pocon,     Section::posv },
-  //   { "ppcon",              test_ppcon,     Section::posv },
-  //   { "pbcon",              test_pbcon,     Section::posv },
-  //   { "ptcon",              test_ptcon,     Section::posv },
-  //   { "",                   nullptr,        Section::newline },
+    //{ "sytrs",               test_sytrs,        Section::sysv },
+    //{ "",                    nullptr,           Section::newline },
 
-  //   { "porfs",              test_porfs,     Section::posv },
-  //   { "pprfs",              test_pprfs,     Section::posv },
-  //   { "pbrfs",              test_pbrfs,     Section::posv },
-  //   { "ptrfs",              test_ptrfs,     Section::posv },
-  //   { "",                   nullptr,        Section::newline },
+    // -----
+    // Hermitian indefinite
+    //{ "hesv",                test_hesv,         Section::hesv },
+    //{ "",                    nullptr,           Section::newline },
 
-  //   { "poequ",              test_poequ,     Section::posv },
-  //   { "ppequ",              test_ppequ,     Section::posv },
-  //   { "pbequ",              test_pbequ,     Section::posv },
-  //   { "",                   nullptr,        Section::newline },
+    //{ "hetrf",               test_hetrf,        Section::hesv },
+    //{ "",                    nullptr,           Section::newline },
 
-  //   // -----
-  //   // symmetric indefinite
-  //   { "sysv",               test_sysv,      Section::sysv }, // tested via LAPACKE
-  //   { "spsv",               test_spsv,      Section::sysv }, // tested via LAPACKE
-  //   { "",                   nullptr,        Section::newline },
+    //{ "hetrs",               test_hetrs,        Section::hesv },
+    //{ "",                    nullptr,           Section::newline },
 
-  //   { "sytrf",              test_sytrf,     Section::sysv }, // tested via LAPACKE
-  //   { "sptrf",              test_sptrf,     Section::sysv }, // tested via LAPACKE
-  //   { "",                   nullptr,        Section::newline },
-
-  //   { "sytrs",              test_sytrs,     Section::sysv }, // tested via LAPACKE
-  //   { "sptrs",              test_sptrs,     Section::sysv }, // tested via LAPACKE
-  //   { "",                   nullptr,        Section::newline },
-
-  //   { "sytri",              test_sytri,     Section::sysv }, // tested via LAPACKE
-  //   { "sptri",              test_sptri,     Section::sysv }, // tested via LAPACKE
-  //   { "",                   nullptr,        Section::newline },
-
-  //   { "sycon",              test_sycon,     Section::sysv }, // tested via LAPACKE
-  //   { "spcon",              test_spcon,     Section::sysv }, // tested via LAPACKE
-  //   { "",                   nullptr,        Section::newline },
-
-  //   { "syrfs",              test_syrfs,     Section::sysv }, // tested via LAPACKE
-  //   { "sprfs",              test_sprfs,     Section::sysv }, // tested via LAPACKE
-  //   { "",                   nullptr,        Section::newline },
-
-  //   // -----
-  // //{ "sysv_rook",          test_sysv_rook,          Section::sysv2 },  // requires LAPACK>=3.5
-  // //{ "sysv_aasen",         test_sysv_aasen,         Section::sysv2 },
-  // //{ "sysv_aasen_2stage",  test_sysv_aasen_2stage,  Section::sysv2 },
-  //   { "",                   nullptr,                 Section::newline },
-
-  // //{ "sytrf_rook",         test_sytrf_rook,         Section::sysv2 },
-  // //{ "sytrf_aasen",        test_sytrf_aasen,        Section::sysv2 },
-  // //{ "sytrf_aasen_2stage", test_sytrf_aasen_2stage, Section::sysv2 },
-  //   { "",                   nullptr,                 Section::newline },
-
-  // //{ "sytrs_rook",         test_sytrs_rook,         Section::sysv2 },
-  // //{ "sytrs_aasen",        test_sytrs_aasen,        Section::sysv2 },
-  // //{ "sytrs_aasen_2stage", test_sytrs_aasen_2stage, Section::sysv2 },
-  //   { "",                   nullptr,                 Section::newline },
-
-  // //{ "sytri_rook",         test_sytri_rook,         Section::sysv2 },
-  // //{ "sytri_aasen",        test_sytri_aasen,        Section::sysv2 },
-  // //{ "sytri_aasen_2stage", test_sytri_aasen_2stage, Section::sysv2 },
-  //   { "",                   nullptr,                 Section::newline },
-
-  //   // -----
-  //   // hermetian
-  //   { "hesv",               test_hesv,      Section::hesv }, // tested via LAPACKE
-  //   { "hpsv",               test_hpsv,      Section::hesv }, // tested via LAPACKE
-  //   { "",                   nullptr,        Section::newline },
-
-  //   { "hetrf",              test_hetrf,     Section::hesv }, // tested via LAPACKE
-  //   { "hptrf",              test_hptrf,     Section::hesv }, // tested via LAPACKE
-  //   { "",                   nullptr,        Section::newline },
-
-  //   { "hetrs",              test_hetrs,     Section::hesv }, // tested via LAPACKE
-  //   { "hptrs",              test_hptrs,     Section::hesv }, // tested via LAPACKE
-  //   { "",                   nullptr,        Section::newline },
-
-  //   { "hetri",              test_hetri,     Section::hesv }, // tested via LAPACKE
-  //   { "hptri",              test_hptri,     Section::hesv }, // tested via LAPACKE
-  //   { "",                   nullptr,        Section::newline },
-
-  //   { "hecon",              test_hecon,     Section::hesv }, // tested via LAPACKE
-  //   { "hpcon",              test_hpcon,     Section::hesv }, // tested via LAPACKE, error < 3*eps
-  //   { "",                   nullptr,        Section::newline },
-
-  //   { "herfs",              test_herfs,     Section::hesv }, // tested via LAPACKE
-  //   { "hprfs",              test_hprfs,     Section::hesv }, // tested via LAPACKE, error < 3*eps
-  //   { "",                   nullptr,        Section::newline },
-
-  //   // -----
-  //   // least squares
-  //   { "gels",               test_gels,      Section::gels }, // tested via LAPACKE using gcc/MKL
-  //   { "gelsy",              test_gelsy,     Section::gels }, // tested via LAPACKE using gcc/MKL FIXME jpvt[i]=i rcond=0
-  // //{ "gelsd",              test_gelsd,     Section::gels },
-  //   { "gelss",              test_gelss,     Section::gels }, // tested via LAPACKE using gcc/MKL FIXME rcond=n
-  //   { "getsls",             test_getsls,    Section::gels }, // tested via LAPACKE using gcc/MKL
-  //   { "",                   nullptr,        Section::newline },
-
-  // //{ "gglse",              test_gglse,     Section::gels },
-  // //{ "ggglm",              test_ggglm,     Section::gels },
-  //   { "",                   nullptr,        Section::newline },
-
-  //   // -----
-  //   // QR, LQ, RQ, QL
-  //   { "geqrf",              test_geqrf,     Section::qr }, // tested numerically
-  //   { "gelqf",              test_gelqf,     Section::qr }, // tested numerically
-  //   { "geqlf",              test_geqlf,     Section::qr }, // tested numerically
-  //   { "gerqf",              test_gerqf,     Section::qr }, // tested numerically; R, Q are full sizeof(A), could be smaller
-  //   { "",                   nullptr,        Section::newline },
-
-  //   { "ggqrf",              test_ggqrf,     Section::qr }, // tested via LAPACKE using gcc/MKL, TODO for now use p=param.k
-  // //{ "gglqf",              test_gglqf,     Section::qr },
-  // //{ "ggqlf",              test_ggqlf,     Section::qr },
-  //   { "ggrqf",              test_ggrqf,     Section::qr }, // tested via LAPACKE using gcc/MKL, TODO for now use p=param.k
-  //   { "",                   nullptr,        Section::newline },
-
-  //   { "ungqr",              test_ungqr,     Section::qr }, // tested numerically based on lapack; R, Q full sizes
-  //   { "unglq",              test_unglq,     Section::qr }, // tested numerically based on lapack; R, Q full; m<=n, k<=m
-  //   { "ungql",              test_ungql,     Section::qr }, // tested numerically based on lapack; R, Q full sizes
-  //   { "ungrq",              test_ungrq,     Section::qr }, // tested numerically based on lapack; R, Q full sizes
-  //   { "",                   nullptr,        Section::newline },
-
-  // //{ "unmqr",              test_unmqr,     Section::qr },
-  // //{ "unmlq",              test_unmlq,     Section::qr },
-  // //{ "unmql",              test_unmql,     Section::qr },
-  // //{ "unmrq",              test_unmrq,     Section::qr },
-  //   { "",                   nullptr,        Section::newline },
-
-  //   // -----
-  //   // symmetric/Hermitian eigenvalues
-  //   { "heev",               test_heev,      Section::heev }, // tested via LAPACKE
-  //   { "hpev",               test_hpev,      Section::heev }, // tested via LAPACKE
-  //   { "hbev",               test_hbev,      Section::heev }, // tested via LAPACKE
-  //   { "",                   nullptr,        Section::newline },
-
-  // //{ "heevx",              test_heevx,     Section::heev },
-  // //{ "hpevx",              test_hpevx,     Section::heev },
-  // //{ "hbevx",              test_hbevx,     Section::heev },
-  //   { "",                   nullptr,        Section::newline },
-
-  //   { "heevd",              test_heevd,     Section::heev }, // tested via LAPACKE using gcc/MKL
-  //   { "hpevd",              test_hpevd,     Section::heev }, // tested via LAPACKE using gcc/MKL
-  //   { "hbevd",              test_hbevd,     Section::heev }, // tested via LAPACKE using gcc/MKL
-  //   { "",                   nullptr,        Section::newline },
-
-  // //{ "heevr",              test_heevr,     Section::heev },
-  // //{ "hpevr",              test_hpevr,     Section::heev },
-  // //{ "hbevr",              test_hbevr,     Section::heev },
-  //   { "",                   nullptr,        Section::newline },
-
-  //   { "hetrd",              test_hetrd,     Section::heev }, // tested via LAPACKE using gcc/MKL
-  //   { "hptrd",              test_hptrd,     Section::heev }, // tested via LAPACKE using gcc/MKL
-  // //{ "hbtrd",              test_hbtrd,     Section::heev },
-  //   { "",                   nullptr,        Section::newline },
-
-  //   { "ungtr",              test_ungtr,     Section::heev }, // tested via LAPACKE using gcc/MKL
-  //   { "upgtr",              test_upgtr,     Section::heev }, // tested via LAPACKE using gcc/MKL
-  // //{ "obgtr",              test_obgtr,     Section::heev }, // TODO does this exist
-  //   { "",                   nullptr,        Section::newline },
-
-  //   { "unmtr",              test_unmtr,     Section::heev }, // tested via LAPACKE using gcc/MKL
-  // //{ "upmtr",              test_upmtr,     Section::heev },
-  // //{ "obmtr",              test_obmtr,     Section::heev }, // does this exist
-  //   { "",                   nullptr,        Section::newline },
-
-  //   // -----
-  //   // generalized symmetric eigenvalues
-  // //{ "sygv",               test_sygv,      Section::sygv },
-  // //{ "spgv",               test_spgv,      Section::sygv },
-  // //{ "sbgv",               test_sbgv,      Section::sygv },
-  //   { "",                   nullptr,        Section::newline },
-
-  // //{ "sygvx",              test_sygvx,     Section::sygv },
-  // //{ "spgvx",              test_spgvx,     Section::sygv },
-  // //{ "sbgvx",              test_sbgvx,     Section::sygv },
-  //   { "",                   nullptr,        Section::newline },
-
-  // //{ "sygvd",              test_sygvd,     Section::sygv },
-  // //{ "spgvd",              test_spgvd,     Section::sygv },
-  // //{ "sbgvd",              test_sbgvd,     Section::sygv },
-  //   { "",                   nullptr,        Section::newline },
-
-  // //{ "sygvr",              test_sygvr,     Section::sygv },
-  // //{ "spgvr",              test_spgvr,     Section::sygv },
-  // //{ "sbgvr",              test_sbgvr,     Section::sygv },
-  //   { "",                   nullptr,        Section::newline },
-
-  // //{ "sygst",              test_sygst,     Section::sygv },
-  // //{ "spgst",              test_spgst,     Section::sygv },
-  // //{ "sbgst",              test_sbgst,     Section::sygv },
-  //   { "",                   nullptr,        Section::newline },
-
-  //   // -----
-  //   // non-symmetric eigenvalues
-  //   { "geev",               test_geev,      Section::geev },
-  // //{ "ggev",               test_ggev,      Section::geev },
-  //   { "",                   nullptr,        Section::newline },
-
-  // //{ "geevx",              test_geevx,     Section::geev },
-  // //{ "ggevx",              test_ggevx,     Section::geev },
-  //   { "",                   nullptr,        Section::newline },
-
-  // //{ "gees",               test_gees,      Section::geev },
-  // //{ "gges",               test_gges,      Section::geev },
-  //   { "",                   nullptr,        Section::newline },
-
-  // //{ "geesx",              test_geesx,     Section::geev },
-  // //{ "ggesx",              test_ggesx,     Section::geev },
-  //   { "",                   nullptr,        Section::newline },
-
-  //   { "gehrd",              test_gehrd,     Section::geev },
-  // //{ "orghr",              test_orghr,     Section::geev },
-  // //{ "ormhr",              test_ormhr,     Section::geev },
-  // //{ "hsein",              test_hsein,     Section::geev },
-  // //{ "trevc",              test_trevc,     Section::geev },
-  //   { "",                   nullptr,        Section::newline },
-
-  //   // -----
-  //   // driver: singular value decomposition
-  //   { "gesvd",              test_gesvd,         Section::svd },
-  // //{ "gesvd_2stage",       test_gesvd_2stage,  Section::svd },
-  //   { "",                   nullptr,            Section::newline },
-
-  //   { "gesdd",              test_gesdd,         Section::svd },
-  // //{ "gesdd_2stage",       test_gesdd_2stage,  Section::svd },
-  //   { "",                   nullptr,            Section::newline },
-
-  // //{ "gesvdx",             test_gesvdx,        Section::svd },
-  // //{ "gesvdx_2stage",      test_gesvdx_2stage, Section::svd },
-  //   { "",                   nullptr,            Section::newline },
-
-  // //{ "gejsv",              test_gejsv,     Section::svd },
-  // //{ "gesvj",              test_gesvj,     Section::svd },
-  //   { "",                   nullptr,        Section::newline },
-
-  //   // -----
-  //   // auxiliary
-  //   { "lacpy",              test_lacpy,     Section::aux },
-  //   { "laset",              test_laset,     Section::aux },
-  //   { "laswp",              test_laswp,     Section::aux },
-  //   { "",                   nullptr,        Section::newline },
-
-  //   // auxiliary: Householder
-  //   { "larfg",              test_larfg,     Section::aux_householder },
-  //   { "larf",               test_larf,      Section::aux_householder },
-  //   { "larfx",              test_larfx,     Section::aux_householder },
-  //   { "larfb",              test_larfb,     Section::aux_householder },
-  //   { "larft",              test_larft,     Section::aux_householder },
-  //   { "",                   nullptr,        Section::newline },
-
-    // auxiliary: norms
+    // -----
+    // matrix norms
     { "genorm",             test_genorm,       Section::aux_norm },
     { "henorm",             test_henorm,       Section::aux_norm },
     { "synorm",             test_synorm,       Section::aux_norm },
     { "trnorm",             test_trnorm,       Section::aux_norm },
     { "",                   nullptr,           Section::newline },
-
-  //   { "",                   nullptr,        Section::aux_norm },
-  //   { "lanhp",              test_lanhp,     Section::aux_norm },
-  //   { "lansp",              test_lansp,     Section::aux_norm },
-  // //{ "lantp",              test_lantp,     Section::aux_norm },
-  //   { "",                   nullptr,        Section::newline },
-
-  // //{ "langb",              test_langb,     Section::aux_norm },
-  //   { "lanhb",              test_lanhb,     Section::aux_norm },
-  //   { "lansb",              test_lansb,     Section::aux_norm },
-  // //{ "lantb",              test_lantb,     Section::aux_norm },
-  //   { "",                   nullptr,        Section::newline },
-
-  // //{ "langt",              test_langt,     Section::aux_norm },
-  // //{ "lanht",              test_lanht,     Section::aux_norm },
-  // //{ "lanst",              test_lanst,     Section::aux_norm },
-  //   { "",                   nullptr,        Section::newline },
-
-  //   // auxiliary: matrix generation
-  // //{ "lagge",              test_lagge,     Section::aux_gen },
-  // //{ "lagsy",              test_lagsy,     Section::aux_gen },
-  // //{ "laghe",              test_laghe,     Section::aux_gen },
-  // //{ "lagtr",              test_lagtr,     Section::aux_gen },
-  //   { "",                   nullptr,        Section::newline },
 };
 
 // -----------------------------------------------------------------------------

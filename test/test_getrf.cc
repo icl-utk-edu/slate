@@ -27,7 +27,7 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
     using real_t = blas::real_type<scalar_t>;
 
     // get & mark input values
-    int64_t m = params.dim.n();
+    int64_t m = params.dim.m();
     int64_t n = params.dim.n();
     int64_t p = params.p.value();
     int64_t q = params.q.value();
@@ -45,7 +45,7 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
     params.ref_time.value();
     params.ref_gflops.value();
 
-    if (!run)
+    if (! run)
         return;
 
     int64_t Am = m;

@@ -45,7 +45,7 @@ template <typename scalar_t> void test_potrf_work (Params &params, bool run)
     params.ref_time.value();
     params.ref_gflops.value();
 
-    if (!run)
+    if (! run)
         return;
 
     int64_t Am = n;

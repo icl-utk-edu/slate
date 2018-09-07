@@ -88,9 +88,9 @@ void test_genorm_work(Params& params, bool run)
     for (int64_t j = 0; j < nlocA; ++j)
         lapack::larnv(2, iseeds, mlocA, &A_tst[j*lldA]);
 
-    if (verbose > 1) {
-        print_matrix(mlocA, nlocA, &A_tst[0], lldA, p, q, MPI_COMM_WORLD);
-    }
+    //if (verbose > 1) {
+    //    print_matrix(mlocA, nlocA, &A_tst[0], lldA, p, q, MPI_COMM_WORLD);
+    //}
 
     // todo: work-around to initialize BaseMatrix::num_devices_
     slate::Matrix<scalar_t> A0(Am, An, nb, p, q, MPI_COMM_WORLD);
@@ -129,6 +129,10 @@ void test_genorm_work(Params& params, bool run)
         // Create SLATE matrix from the ScaLAPACK layout.
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
             Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+    }
+
+    if (verbose > 1) {
+        print_matrix("A", A);
     }
 
     if (trace) slate::trace::Trace::on();

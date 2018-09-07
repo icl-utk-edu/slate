@@ -71,11 +71,11 @@ public:
     template <typename T>
     friend void swap(BandMatrix<T>& A, BandMatrix<T>& B);
 
-    /// @return number of subdiagonals within band.
-    int64_t lowerBandwidth() { return (this->op() == Op::NoTrans ? kl_ : ku_); }
+    int64_t lowerBandwidth() const;
+    void    lowerBandwidth(int64_t kl);
 
-    /// @return number of superdiagonals within band.
-    int64_t upperBandwidth() { return (this->op() == Op::NoTrans ? ku_ : kl_); }
+    int64_t upperBandwidth() const;
+    void    upperBandwidth(int64_t ku);
 
     // todo: specialize for band
     // int64_t getMaxHostTiles();
@@ -147,6 +147,44 @@ void swap(BandMatrix<scalar_t>& A, BandMatrix<scalar_t>& B)
          static_cast< Matrix<scalar_t>& >(B));
     swap(A.kl_, B.kl_);
     swap(A.ku_, B.ku_);
+}
+
+//------------------------------------------------------------------------------
+/// @return number of subdiagonals within band.
+template <typename scalar_t>
+int64_t BandMatrix<scalar_t>::lowerBandwidth() const
+{
+    return (this->op() == Op::NoTrans ? kl_ : ku_);
+}
+
+//------------------------------------------------------------------------------
+/// Sets number of subdiagonals within band.
+template <typename scalar_t>
+void BandMatrix<scalar_t>::lowerBandwidth(int64_t kl)
+{
+    if (this->op() == Op::NoTrans)
+        this->kl_ = kl;
+    else
+        this->ku_ = kl;
+}
+
+//------------------------------------------------------------------------------
+/// @return number of superdiagonals within band.
+template <typename scalar_t>
+int64_t BandMatrix<scalar_t>::upperBandwidth() const
+{
+    return (this->op() == Op::NoTrans ? ku_ : kl_);
+}
+
+//------------------------------------------------------------------------------
+/// Sets number of superdiagonals within band.
+template <typename scalar_t>
+void BandMatrix<scalar_t>::upperBandwidth(int64_t ku)
+{
+    if (this->op() == Op::NoTrans)
+        this->ku_ = ku;
+    else
+        this->kl_ = ku;
 }
 
 } // namespace slate

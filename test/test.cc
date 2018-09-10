@@ -375,6 +375,17 @@ int main( int argc, char** argv )
         Params params;
         test_routine( params, false );
 
+        // Make default p x q grid as square as possible.
+        // Worst case is p=1, q=mpi_size.
+        int p = 1, q = 1;
+        for (p = int( sqrt( mpi_size )); p > 0; --p) {
+            q = int( mpi_size / p );
+            if (p*q == mpi_size)
+                break;
+        }
+        params.p.value() = p;
+        params.q.value() = q;
+
         // parse parameters after routine name
         try {
             params.parse( routine, argc-2, argv+2 );

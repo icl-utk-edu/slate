@@ -524,7 +524,7 @@ $(lapack_api): $(lapack_api_obj) $(lib)
 
 #-------------------------------------------------------------------------------
 # general rules
-clean: test/clean unit_test/clean
+clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean
 	rm -f $(lib_a) $(lib_so) $(lib_obj)
 	rm -f trace_*.svg
 

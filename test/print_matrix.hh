@@ -1,6 +1,6 @@
 #include "blas.hh"
 
-#include <mpi.h>
+#include <slate_mpi.hh>
 #include <string>
 #include <cstdio>
 

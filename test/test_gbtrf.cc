@@ -39,6 +39,7 @@ template <typename scalar_t> void test_gbtrf_work(Params &params, bool run)
     int64_t q = params.q.value();
     int64_t nb = params.nb.value();
     int64_t lookahead = params.lookahead.value();
+    int64_t panel_threads = params.panel_threads.value();
     lapack::Norm norm = params.norm.value();  // TODO: probably should be specified
     bool check = params.check.value()=='y';
     bool ref = params.ref.value()=='y';
@@ -148,7 +149,8 @@ template <typename scalar_t> void test_gbtrf_work(Params &params, bool run)
 
     slate::gbtrf(A, pivots, {
         {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}
+        {slate::Option::Target, target},
+        {slate::Option::MaxPanelThreads, panel_threads}
     });
 
     MPI_Barrier(MPI_COMM_WORLD);

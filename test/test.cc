@@ -190,7 +190,9 @@ Params::Params():
     nt        ( "nt",      5,    ParamType::List, 3,       0, 1000000, "nt" ),
     p         ( "p",       4,    ParamType::List, 1,       0, 1000000, "p" ),
     q         ( "q",       4,    ParamType::List, 1,       0, 1000000, "q" ),
-    lookahead ( "lookahead", 9,  ParamType::List, 1,       0, 1000000, "lookahead" ),
+    lookahead ( "lookahead", 5,  ParamType::List, 1,       0, 1000000, "number of lookahead panels" ),
+    panel_threads( "panel-threads",
+                           7,    ParamType::List, 1,       0, 1000000, "max number of threads used in panel" ),
 
     kd        ( "kd",      6,    ParamType::List, 100,     0, 1000000, "bandwidth" ),
     kl        ( "kl",      6,    ParamType::List, 100,     0, 1000000, "lower bandwidth" ),
@@ -231,6 +233,10 @@ Params::Params():
     //          name,     w, type,              def, min, max, help
     okay      ( "status", 6, ParamType::Output,  -1,   0,   0, "success indicator" )
 {
+    // set header different than command line prefix
+    lookahead.name( "look\nahead", "lookahead" );
+    panel_threads.name( "panel\nthreads", "panel-threads" );
+
     // mark standard set of output fields as used
     okay  .value();
     error .value();

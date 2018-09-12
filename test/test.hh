@@ -63,6 +63,7 @@ public:
     libtest::ParamInt    p;
     libtest::ParamInt    q;
     libtest::ParamInt    lookahead;
+    libtest::ParamInt    panel_threads;
 
     libtest::ParamInt    kd;
     libtest::ParamInt    kl;

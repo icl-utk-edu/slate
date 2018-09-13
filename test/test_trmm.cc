@@ -99,7 +99,6 @@ void test_trmm_work (Params &params, bool run)
     // if check is required, copy test data and create a descriptor for it
     std::vector<scalar_t> B_ref;
     if (check || ref) {
-        B_ref.resize (B_tst.size());
         B_ref = B_tst;
         scalapack_descinit (descB_ref, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
         assert (info==0);

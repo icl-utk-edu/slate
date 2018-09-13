@@ -82,7 +82,6 @@ template <typename scalar_t> void test_potrf_work (Params &params, bool run)
     // if check is required, copy test data and create a descriptor for it
     std::vector<scalar_t> A_ref;
     if (check || ref) {
-        A_ref.resize (A_tst.size());
         A_ref = A_tst;
         scalapack_descinit (descA_ref, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
         assert (info==0);

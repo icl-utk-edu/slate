@@ -107,7 +107,6 @@ void test_symm_work (Params &params, bool run)
     // if check is required, copy test data and create a descriptor for it
     std::vector<scalar_t> C_ref;
     if (check || ref) {
-        C_ref.resize (C_tst.size());
         C_ref = C_tst;
         scalapack_descinit (descC_ref, Cm, Cn, nb, nb, i0, i0, ictxt, mlocC, &info);
         assert (info==0);

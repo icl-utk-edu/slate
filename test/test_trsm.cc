@@ -101,7 +101,6 @@ void test_trsm_work (Params &params, bool run)
     if (check || ref) {
         scalapack_descinit (descB_ref, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
         assert (info==0);
-        B_ref.resize (B_tst.size());
         B_ref = B_tst;
     }
 

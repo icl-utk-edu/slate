@@ -88,7 +88,6 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
     std::vector<scalar_t> A_ref;
     std::vector<int> ipiv_ref;
     if (check || ref) {
-        A_ref.resize (A_tst.size());
         A_ref = A_tst;
         scalapack_descinit (descA_ref, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
         assert (info==0);
@@ -131,7 +130,89 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
     params.time.value() = time_tst;
     params.gflops.value() = gflop / time_tst;
 
-    if (check || ref) {
+    //when matrix is square shaped
+    if(check && (Am == An)){
+        //check residual for accuracy by performing a solve
+
+        // todo: The IPIV needs to be checked
+
+        //================================================================
+        // Test results by checking the residual
+        //
+        //                      || B - AX ||_I
+        //                --------------------------- < epsilon
+        //                 || A ||_I * || X ||_I * N
+        //
+        //================================================================
+        int64_t Bm = n;
+        int64_t Bn = n;
+        int descB_tst[9], descB_ref[9];
+        std::vector<scalar_t> B_ref;
+
+        // matrix B, figure out local size, allocate, create descriptor, initialize
+        int64_t mlocB = scalapack_numroc (Bm, nb, myrow, i0, nprow);
+        int64_t nlocB = scalapack_numroc (Bn, nb, mycol, i0, npcol);
+        scalapack_descinit (descB_tst, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
+        assert (info==0);
+        int64_t lldB = (int64_t)descB_tst[8];
+        std::vector<scalar_t> B_tst (lldB * nlocB);
+        scalapack_pplrnt (&B_tst[0], Bm, Bn, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed+2);
+
+        B_ref.resize (B_tst.size());
+        B_ref = B_tst;
+        scalapack_descinit (descB_ref, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
+        assert (info==0);
+
+        //*
+        auto B = slate::Matrix<scalar_t>::fromScaLAPACK (Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+        
+        slate::getrs (A, pivots, B, {
+            {slate::Option::Lookahead, lookahead},
+            {slate::Option::Target, target}
+        });
+        /*/
+        // solving with Scalapack suffers accuracy decline !!
+        // collect the pivots
+        for (int64_t k = 0, ps = pivots.size(), ip_ind = 0; k < ps; ++k) {
+            for (int64_t t = 0, pks = pivots.at(k).size(); t < pks; ++t) {
+                //TODO this is not good when tile size is not uniform
+                ipiv_tst[ip_ind++] = pivots.at(k).at(t).tileIndex() * nb + pivots.at(k).at(t).elementOffset() + 1;
+            }
+        }
+
+        scalapack_pgetrs ("N", Bm, Bn, &A_tst[0], i1, i1, descA_tst, &ipiv_tst[0], &B_tst[0], i1, i1, descB_tst, &info_ref);
+        assert (0 == info_ref);
+        //*/
+
+        // allocate work space
+        std::vector<real_t> worklangeA (std::max ({mlocA, nlocA}));
+        std::vector<real_t> worklangeB (std::max ({mlocB, nlocB}));
+
+        // Norm of the orig matrix: || A ||_I
+        real_t A_norm = scalapack_plange (norm2str (norm), Am, An, &A_ref[0], i1, i1, descA_ref, &worklangeA[0]);
+        // norm of updated rhs matrix: || X ||_I
+        real_t X_norm = scalapack_plange (norm2str (norm), Bm, Bn, &B_tst[0], i1, i1, descB_tst, &worklangeB[0]);
+
+        // B_ref -= Aref*B_tst
+        scalapack_pgemm ("notrans", "notrans", 
+                         Bm, Bn, An, 
+                         scalar_t(-1.0),
+                         &A_ref[0], i1, i1, descA_ref,
+                         &B_tst[0], i1, i1, descB_tst, 
+                         scalar_t(1.0),
+                         &B_ref[0], i1, i1, descB_ref);
+
+        // || B - AX ||_I
+        real_t R_norm = scalapack_plange (norm2str (norm), Bm, Bn, &B_ref[0], i1, i1, descB_ref, &worklangeB[0]);
+
+        double residual = R_norm / (n * A_norm * X_norm);
+        params.error.value() = residual;
+        
+        real_t tol = params.tol.value() * 0.5 * std::numeric_limits<real_t>::epsilon();
+        params.okay.value() = (params.error.value() <= tol);
+    }
+
+    if(ref || (check && (Am != An))){
         // A comparison with a reference routine from ScaLAPACK
 
         // set MKL num threads appropriately for parallel BLAS
@@ -140,88 +221,6 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
         { omp_num_threads = omp_get_num_threads(); }
         int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
         int64_t info_ref=0;
-
-        // todo: The IPIV needs to be checked
-
-        //when matrix is square
-        if(Am == An){
-            //check residual for accuracy by performing a solve
-
-            //================================================================
-            // Test results by checking the residual
-            //
-            //                      || B - AX ||_I
-            //                --------------------------- < epsilon
-            //                 || A ||_I * || X ||_I * N
-            //
-            //================================================================
-            int64_t Bm = n;
-            int64_t Bn = n;
-            int descB_tst[9], descB_ref[9];
-            std::vector<scalar_t> B_ref;
-
-            // matrix B, figure out local size, allocate, create descriptor, initialize
-            int64_t mlocB = scalapack_numroc (Bm, nb, myrow, i0, nprow);
-            int64_t nlocB = scalapack_numroc (Bn, nb, mycol, i0, npcol);
-            scalapack_descinit (descB_tst, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
-            assert (info==0);
-            int64_t lldB = (int64_t)descB_tst[8];
-            std::vector<scalar_t> B_tst (lldB * nlocB);
-            scalapack_pplrnt (&B_tst[0], Bm, Bn, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed+2);
-
-            B_ref.resize (B_tst.size());
-            B_ref = B_tst;
-            scalapack_descinit (descB_ref, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
-            assert (info==0);
-
-            //*
-            auto B = slate::Matrix<scalar_t>::fromScaLAPACK (Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
-            
-            slate::getrs (A, pivots, B, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
-            /*/
-            // solving with Scalapack suffers accuracy decline !!
-            // collect the pivots
-            for (int64_t k = 0, ps = pivots.size(), ip_ind = 0; k < ps; ++k) {
-                for (int64_t t = 0, pks = pivots.at(k).size(); t < pks; ++t) {
-                    //TODO this is not good when tile size is not uniform
-                    ipiv_tst[ip_ind++] = pivots.at(k).at(t).tileIndex() * nb + pivots.at(k).at(t).elementOffset() + 1;
-                }
-            }
-
-            scalapack_pgetrs ("N", Bm, Bn, &A_tst[0], i1, i1, descA_tst, &ipiv_tst[0], &B_tst[0], i1, i1, descB_tst, &info_ref);
-            assert (0 == info_ref);
-            //*/
-
-            // allocate work space
-            std::vector<real_t> worklangeA (std::max ({mlocA, nlocA}));
-            std::vector<real_t> worklangeB (std::max ({mlocB, nlocB}));
-
-            // Norm of the orig matrix: || A ||_I
-            real_t A_norm = scalapack_plange (norm2str (norm), Am, An, &A_ref[0], i1, i1, descA_ref, &worklangeA[0]);
-            // norm of updated rhs matrix: || X ||_I
-            real_t X_norm = scalapack_plange (norm2str (norm), Bm, Bn, &B_tst[0], i1, i1, descB_tst, &worklangeB[0]);
-
-            // B_ref -= Aref*B_tst
-            scalapack_pgemm ("notrans", "notrans", 
-                             Bm, Bn, An, 
-                             scalar_t(-1.0),
-                             &A_ref[0], i1, i1, descA_ref,
-                             &B_tst[0], i1, i1, descB_tst, 
-                             scalar_t(1.0),
-                             &B_ref[0], i1, i1, descB_ref);
-
-            // || B - AX ||_I
-            real_t R_norm = scalapack_plange (norm2str (norm), Bm, Bn, &B_ref[0], i1, i1, descB_ref, &worklangeB[0]);
-
-            double residual = R_norm / (n * A_norm * X_norm);
-            params.error.value() = residual;
-        }
-
-        // allocate work space
-        std::vector<real_t> worklange (std::max ({mlocA, nlocA}));
 
         // Run the reference routine
         MPI_Barrier (MPI_COMM_WORLD);
@@ -235,8 +234,11 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
         params.ref_gflops.value() = gflop / time_ref;
 
         //when matrix is rectangular, we cannot solve
-        if(Am != An){
+        if(check && (Am != An)){
             //compare to reference implementation for accuracy check
+
+            // allocate work space
+            std::vector<real_t> worklange (std::max ({mlocA, nlocA}));
 
             // Norm of the reference result
             real_t A_ref_norm = scalapack_plange (norm2str (norm), Am, An, &A_ref[0], i1, i1, descA_ref, &worklange[0]);
@@ -252,13 +254,12 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
                 error_norm /= A_ref_norm;
             
             params.error.value() = error_norm;
+            
+            real_t tol = params.tol.value() * 0.5 * std::numeric_limits<real_t>::epsilon();
+            params.okay.value() = (params.error.value() <= tol);
         }
 
-
         slate_set_num_blas_threads(saved_num_threads);
-
-        real_t eps = std::numeric_limits<real_t>::epsilon();
-        params.okay.value() = (params.error.value() <= 3*eps);
     }
 
     // Cblacs_exit is commented out because it does not handle re-entering ... some unknown problem

@@ -34,6 +34,7 @@ template <typename scalar_t> void test_gesv_work (Params &params, bool run)
     int64_t q = params.q.value();
     int64_t nb = params.nb.value();
     int64_t lookahead = params.lookahead.value();
+    int64_t panel_threads = params.panel_threads.value();
     lapack::Norm norm = params.norm.value();
     bool check = params.check.value()=='y';
     bool ref = params.ref.value()=='y';
@@ -104,18 +105,16 @@ template <typename scalar_t> void test_gesv_work (Params &params, bool run)
     std::vector<scalar_t> B_orig;
     std::vector<int> ipiv_ref;
     if (check || ref) {
-        A_ref.resize (A_tst.size());
         A_ref = A_tst;
         scalapack_descinit (descA_ref, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
         assert (info==0);
 
-        B_ref.resize (B_tst.size());
         B_ref = B_tst;
         scalapack_descinit (descB_ref, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
         assert (info==0);
 
-        B_orig.resize (B_tst.size());
-        B_orig = B_tst;
+        if (check && ref)
+            B_orig = B_tst;
 
         ipiv_ref.resize(ipiv_tst.size());
     }
@@ -135,7 +134,8 @@ template <typename scalar_t> void test_gesv_work (Params &params, bool run)
 
     slate::gesv (A, pivots, B, {
         {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}
+        {slate::Option::Target, target},
+        {slate::Option::MaxPanelThreads, panel_threads}
     });
 
     MPI_Barrier (MPI_COMM_WORLD);
@@ -152,16 +152,10 @@ template <typename scalar_t> void test_gesv_work (Params &params, bool run)
     params.time.value() = time_tst;
     params.gflops.value() = gflop / time_tst;
     
-    if (check || ref) {
-        // A comparison with a reference routine from ScaLAPACK for timing only
+    if (check) {
         // check residual check for accuracy
 
-        // set MKL num threads appropriately for parallel BLAS
-        int omp_num_threads;
-        #pragma omp parallel
-        { omp_num_threads = omp_get_num_threads(); }
-        int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-        int64_t info_ref=0;
+        // todo: The IPIV needs to be checked
 
         //================================================================
         // Test results by checking the residual
@@ -193,11 +187,28 @@ template <typename scalar_t> void test_gesv_work (Params &params, bool run)
         // || B - AX ||_I
         real_t R_norm = scalapack_plange (norm2str (norm), Bm, Bn, &B_ref[0], i1, i1, descB_ref, &worklangeB[0]);
         double residual = R_norm / (n * A_norm * X_norm);
+        params.error.value() = residual;
 
-        //restore B_ref
-        B_ref = B_orig;
-        scalapack_descinit (descB_ref, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
-        assert (info==0);
+        real_t tol = params.tol.value() * 0.5 * std::numeric_limits<real_t>::epsilon();
+        params.okay.value() = (params.error.value() <= tol);
+    }
+    
+    if(ref){
+        // A comparison with a reference routine from ScaLAPACK for timing only
+        
+        // set MKL num threads appropriately for parallel BLAS
+        int omp_num_threads;
+        #pragma omp parallel
+        { omp_num_threads = omp_get_num_threads(); }
+        int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
+        int64_t info_ref=0;
+
+        if(check){
+            //restore B_ref
+            B_ref = B_orig;
+            scalapack_descinit (descB_ref, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
+            assert (info==0);
+        }
 
         // Run the reference routine
         MPI_Barrier (MPI_COMM_WORLD);
@@ -207,16 +218,10 @@ template <typename scalar_t> void test_gesv_work (Params &params, bool run)
         MPI_Barrier (MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 
-        // todo: The IPIV needs to be checked
-
         params.ref_time.value() = time_ref;
         params.ref_gflops.value() = gflop / time_ref;
-        params.error.value() = residual;
 
         slate_set_num_blas_threads(saved_num_threads);
-
-        real_t eps = std::numeric_limits<real_t>::epsilon();
-        params.okay.value() = (params.error.value() <= 3*eps);
     }
 
     // Cblacs_exit is commented out because it does not handle re-entering ... some unknown problem

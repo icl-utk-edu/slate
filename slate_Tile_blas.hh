@@ -619,6 +619,32 @@ void swap(int64_t j, int64_t n,
     swap(j, n, A, i, other_rank, mpi_comm, tag);
 }
 
+///-----------------------------------------------------------------------------
+/// \brief
+/// Computes Y=A*X+Y.
+///
+template <typename scalar_t>
+void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>& Y)
+{
+    trace::Block trace_block("blas::axpy");
+
+    assert(X.op() == Y.op());
+    assert(X.uplo() == Y.uplo());
+    assert(Y.uplo() == Uplo::General);
+
+    for (int64_t i = 0; i < std::min(X.mb(), Y.mb()); ++i)
+        for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j)
+            Y.at(i, j) += alpha*X(i, j);
+}
+
+///----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename scalar_t>
+void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>&& Y)
+{
+    axpy(alpha, X, Y);
+}
+
 } // namespace slate
 
 #endif // SLATE_TILE_BLAS_HH

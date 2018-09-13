@@ -218,6 +218,7 @@ lib_src += \
 lib_src += \
         slate_internal_comm.cc \
         slate_internal_gemm.cc \
+        slate_internal_gemm_A.cc \
         slate_internal_genorm.cc \
         slate_internal_getrf.cc \
         slate_internal_hemm.cc \

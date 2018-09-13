@@ -161,6 +161,12 @@ void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
           scalar_t beta,  Matrix<scalar_t>&& C,
           int priority=0);
 
+template <Target target=Target::HostTask, typename scalar_t>
+void gemm_A(scalar_t alpha, Matrix<scalar_t>&& A,
+                            Matrix<scalar_t>&& B,
+            scalar_t beta,  Matrix<scalar_t>&& C,
+            int priority=0);
+
 //-----------------------------------------
 // hemm()
 template <Target target=Target::HostTask, typename scalar_t>

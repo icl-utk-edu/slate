@@ -149,5 +149,13 @@ void cubeBcastPattern(int size, int rank, int radix,
     }
 }
 
+//------------------------------------------------------------------------------
+///
+void cubeReducePattern(int size, int rank, int radix,
+                       std::list<int>& recv_from, std::list<int>& send_to)
+{
+    cubeBcastPattern(size, rank, radix, send_to, recv_from);
+}
+
 } // namespace internal
 } // namespace slate

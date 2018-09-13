@@ -58,6 +58,9 @@ MPI_Comm commFromSet(const std::set<int>& bcast_set,
 void cubeBcastPattern(int size, int rank, int radix,
                       std::list<int>& recv_from, std::list<int>& send_to);
 
+void cubeReducePattern(int size, int rank, int radix,
+                       std::list<int>& recv_from, std::list<int>& send_to);
+
 } // namespace internal
 } // namespace slate
 

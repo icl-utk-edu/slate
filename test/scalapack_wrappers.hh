@@ -824,4 +824,108 @@ inline void scalapack_pgetrf (int64_t M , int64_t N , scalar_t *A , int64_t ia ,
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+
+#define scalapack_psgetrs BLAS_FORTRAN_NAME( psgetrs, PSGETRS )
+#define scalapack_pdgetrs BLAS_FORTRAN_NAME( pdgetrs, PDGETRS )
+#define scalapack_pcgetrs BLAS_FORTRAN_NAME( pcgetrs, PCGETRS )
+#define scalapack_pzgetrs BLAS_FORTRAN_NAME( pzgetrs, PZGETRS )
+
+extern "C" void scalapack_psgetrs (const char *trans, blas_int *N , blas_int *NRHS , float *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , float *B , blas_int *ib , blas_int *jb , blas_int *descB , blas_int *info );
+
+extern "C" void scalapack_pdgetrs (const char *trans, blas_int *N , blas_int *NRHS , double *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , double *B , blas_int *ib , blas_int *jb , blas_int *descB , blas_int *info );
+
+extern "C" void scalapack_pcgetrs (const char *trans, blas_int *N , blas_int *NRHS , std::complex<float> *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , std::complex<float> *B , blas_int *ib , blas_int *jb , blas_int *descB , blas_int *info );
+
+extern "C" void scalapack_pzgetrs (const char *trans, blas_int *N , blas_int *NRHS , std::complex<double> *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , std::complex<double> *B , blas_int *ib , blas_int *jb , blas_int *descB , blas_int *info );
+
+// -----------------------------------------------------------------------------
+
+inline void scalapack_pgetrs (const char *trans, blas_int *N , blas_int *NRHS , float *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , float *B , blas_int *ib , blas_int *jb , blas_int *descB , blas_int *info )
+{
+    scalapack_psgetrs (trans, N, NRHS, A, ia, ja, descA, ipiv, B, ib, jb, descB, info);
+}
+
+inline void scalapack_pgetrs (const char *trans, blas_int *N , blas_int *NRHS , double *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , double *B , blas_int *ib , blas_int *jb , blas_int *descB , blas_int *info )
+{
+    scalapack_pdgetrs (trans, N, NRHS, A, ia, ja, descA, ipiv, B, ib, jb, descB, info);
+}
+
+inline void scalapack_pgetrs (const char *trans, blas_int *N , blas_int *NRHS , std::complex<float> *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , std::complex<float> *B , blas_int *ib , blas_int *jb , blas_int *descB , blas_int *info )
+{
+    scalapack_pcgetrs (trans, N, NRHS, A, ia, ja, descA, ipiv, B, ib, jb, descB, info);
+}
+
+inline void scalapack_pgetrs (const char *trans, blas_int *N , blas_int *NRHS , std::complex<double> *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , std::complex<double> *B , blas_int *ib , blas_int *jb , blas_int *descB , blas_int *info )
+{
+    scalapack_pzgetrs (trans, N, NRHS, A, ia, ja, descA, ipiv, B, ib, jb, descB, info);
+}
+
+template <typename scalar_t>
+inline void scalapack_pgetrs (const char *trans, int64_t N , int64_t NRHS , scalar_t *A , int64_t ia , int64_t ja , blas_int *descA , blas_int *ipiv , scalar_t *B , int64_t ib , int64_t jb , blas_int *descB , int64_t *info )
+{
+    blas_int N_ = int64_to_int (N);
+    blas_int NRHS_ = int64_to_int (NRHS);
+    blas_int ia_ = int64_to_int (ia);
+    blas_int ja_ = int64_to_int (ja);
+    blas_int ib_ = int64_to_int (ib);
+    blas_int jb_ = int64_to_int (jb);
+    blas_int info_ = int64_to_int (*info);
+    scalapack_pgetrs (trans, &N_ , &NRHS_ , A , &ia_ , &ja_ , descA , ipiv , B , &ib_ , &jb_ , descB , &info_ );
+    *info = (int64_t)info_;
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+#define scalapack_psgesv BLAS_FORTRAN_NAME( psgesv, PSGESV )
+#define scalapack_pdgesv BLAS_FORTRAN_NAME( pdgesv, PDGESV )
+#define scalapack_pcgesv BLAS_FORTRAN_NAME( pcgesv, PCGESV )
+#define scalapack_pzgesv BLAS_FORTRAN_NAME( pzgesv, PZGESV )
+
+extern "C" void scalapack_psgesv (blas_int *N , blas_int *NRHS , float *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , float *B , blas_int *ib , blas_int *jb , blas_int *descB , blas_int *info );
+
+extern "C" void scalapack_pdgesv (blas_int *N , blas_int *NRHS , double *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , double *B , blas_int *ib , blas_int *jb , blas_int *descB , blas_int *info );
+
+extern "C" void scalapack_pcgesv (blas_int *N , blas_int *NRHS , std::complex<float> *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , std::complex<float> *B , blas_int *ib , blas_int *jb , blas_int *descB , blas_int *info );
+
+extern "C" void scalapack_pzgesv (blas_int *N , blas_int *NRHS , std::complex<double> *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , std::complex<double> *B , blas_int *ib , blas_int *jb , blas_int *descB , blas_int *info );
+
+// -----------------------------------------------------------------------------
+
+inline void scalapack_pgesv (blas_int *N , blas_int *NRHS , float *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , float *B , blas_int *ib , blas_int *jb , blas_int *descB , blas_int *info )
+{
+    scalapack_psgesv (N, NRHS, A, ia, ja, descA, ipiv, B, ib, jb, descB, info);
+}
+
+inline void scalapack_pgesv (blas_int *N , blas_int *NRHS , double *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , double *B , blas_int *ib , blas_int *jb , blas_int *descB , blas_int *info )
+{
+    scalapack_pdgesv (N, NRHS, A, ia, ja, descA, ipiv, B, ib, jb, descB, info);
+}
+
+inline void scalapack_pgesv (blas_int *N , blas_int *NRHS , std::complex<float> *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , std::complex<float> *B , blas_int *ib , blas_int *jb , blas_int *descB , blas_int *info )
+{
+    scalapack_pcgesv (N, NRHS, A, ia, ja, descA, ipiv, B, ib, jb, descB, info);
+}
+
+inline void scalapack_pgesv (blas_int *N , blas_int *NRHS , std::complex<double> *A , blas_int *ia , blas_int *ja , blas_int *descA , blas_int *ipiv , std::complex<double> *B , blas_int *ib , blas_int *jb , blas_int *descB , blas_int *info )
+{
+    scalapack_pzgesv (N, NRHS, A, ia, ja, descA, ipiv, B, ib, jb, descB, info);
+}
+
+template <typename scalar_t>
+inline void scalapack_pgesv (int64_t N , int64_t NRHS , scalar_t *A , int64_t ia , int64_t ja , blas_int *descA , blas_int *ipiv , scalar_t *B , int64_t ib , int64_t jb , blas_int *descB , int64_t *info )
+{
+    blas_int N_ = int64_to_int (N);
+    blas_int NRHS_ = int64_to_int (NRHS);
+    blas_int ia_ = int64_to_int (ia);
+    blas_int ja_ = int64_to_int (ja);
+    blas_int ib_ = int64_to_int (ib);
+    blas_int jb_ = int64_to_int (jb);
+    blas_int info_ = int64_to_int (*info);
+    scalapack_pgesv (&N_ , &NRHS_ , A , &ia_ , &ja_ , descA , ipiv , B , &ib_ , &jb_ , descB , &info_ );
+    *info = (int64_t)info_;
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 #endif // ICL_SLATE_SCALAPACK_WRAPPERS_HH

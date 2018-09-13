@@ -68,26 +68,11 @@ void gesv(slate::internal::TargetType<target>,
            {Option::Lookahead, lookahead},
            {Option::MaxPanelThreads, int64_t(max_panel_threads)},
            {Option::Target, target}});
-
-    // pivoting of B
-    for (int64_t k = 0; k < B.mt(); ++k) {
-        // swap rows in B(k:mt-1, 0:nt-1)
-        internal::swap<Target::HostTask>(
-            B.sub(k, B.mt()-1, 0, B.nt()-1), pivots.at(k));
-    }
-
-    auto L = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, A);
-    auto U = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, A);
-
-    // forward substitution
-    trsm(Side::Left, scalar_t(1.0), L, B,
-         {{Option::Lookahead, lookahead},
-          {Option::Target, target}});
-
-    // backward substitution
-    trsm(Side::Left, scalar_t(1.0), U, B,
-         {{Option::Lookahead, lookahead},
-          {Option::Target, target}});
+    
+    //solve
+    getrs(A, pivots, B, 
+          {{Option::Lookahead, lookahead},
+           {Option::Target, target}});
 }
 
 } // namespace specialization

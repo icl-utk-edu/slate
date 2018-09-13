@@ -148,7 +148,7 @@ template <typename scalar_t> void test_gesv_work (Params &params, bool run)
     if (trace) slate::trace::Trace::finish();
 
     // compute and save timing/performance
-    double gflop = lapack::Gflop<scalar_t>::getrf (m, n);
+    double gflop = lapack::Gflop<scalar_t>::gesv (n, nrhs);
     params.time.value() = time_tst;
     params.gflops.value() = gflop / time_tst;
     

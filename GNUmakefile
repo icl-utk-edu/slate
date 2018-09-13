@@ -256,6 +256,8 @@ lib_src += \
         slate_herk.cc \
         slate_norm.cc \
         slate_potrf.cc \
+        slate_potrs.cc \
+        slate_posv.cc \
         slate_symm.cc \
         slate_syr2k.cc \
         slate_syrk.cc \

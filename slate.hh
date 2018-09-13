@@ -339,6 +339,26 @@ void potrf(SymmetricMatrix<scalar_t>& A,
     potrf(AH);
 }
 
+//-----------------------------------------
+// potrs
+template <typename scalar_t>
+void potrs(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void potrs(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// posv
+template <typename scalar_t>
+void posv(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void posv(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 } // namespace slate
 
 #endif // SLATE_HH

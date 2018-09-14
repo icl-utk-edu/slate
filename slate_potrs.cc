@@ -68,8 +68,7 @@ void potrs(slate::internal::TargetType<target>,
     if (A.uplo_logical() == Uplo::Upper)
         A = conj_transpose(A);
 
-    auto BTM_A = (BaseTrapezoidMatrix<scalar_t>)A;
-    auto L = TriangularMatrix<scalar_t>(Diag::NonUnit, BTM_A);
+    auto L = TriangularMatrix<scalar_t>(Diag::NonUnit, A);
     auto LT = conj_transpose(L);
 
     trsm(Side::Left, scalar_t(1.0), L, B,

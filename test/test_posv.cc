@@ -22,11 +22,12 @@ inline int slate_set_num_blas_threads (const int nt) { return -1; }
 #endif
 
 //------------------------------------------------------------------------------
-template <typename scalar_t> void test_getrs_work (Params &params, bool run)
+template <typename scalar_t> void test_posv_work (Params &params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
 
     // get & mark input values
+    slate::Uplo uplo = params.uplo.value();
     int64_t m = params.dim.n();
     int64_t n = params.dim.n();
     int64_t nrhs = params.nrhs.value();
@@ -34,7 +35,6 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
     int64_t q = params.q.value();
     int64_t nb = params.nb.value();
     int64_t lookahead = params.lookahead.value();
-    int64_t panel_threads = params.panel_threads.value();
     lapack::Norm norm = params.norm.value();
     bool check = params.check.value()=='y';
     bool ref = params.ref.value()=='y';
@@ -79,7 +79,7 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
     assert (info==0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst (lldA * nlocA);
-    scalapack_pplrnt (&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
+    scalapack_pplghe (&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
     int64_t mlocB = scalapack_numroc (Bm, nb, myrow, i0, nprow);
@@ -90,12 +90,8 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
     std::vector<scalar_t> B_tst (lldB * nlocB);
     scalapack_pplrnt (&B_tst[0], Bm, Bn, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed+2);
 
-    // allocate ipiv locally
-    size_t ipiv_size = (size_t) (lldA + nb);
-    std::vector<int> ipiv_tst(ipiv_size);
-
     // Create SLATE matrix from the ScaLAPACK layouts
-    auto A = slate::Matrix<scalar_t>::fromScaLAPACK (Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+    auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK (uplo, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK (Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
     // slate::Matrix<scalar_t> A_orig;
 
@@ -103,7 +99,6 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
     std::vector<scalar_t> A_ref;
     std::vector<scalar_t> B_ref;
     std::vector<scalar_t> B_orig;
-    std::vector<int> ipiv_ref;
     if (check || ref) {
         A_ref = A_tst;
         scalapack_descinit (descA_ref, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
@@ -115,8 +110,6 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
 
         if (check && ref)
             B_orig = B_tst;
-
-        ipiv_ref.resize(ipiv_tst.size());
     }
 
     if (trace) slate::trace::Trace::on();
@@ -127,18 +120,10 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
         slate::trace::Block trace_block ("MPI_Barrier");
         MPI_Barrier (MPI_COMM_WORLD);
     }
-    
-    slate::Pivots pivots;
-
-    slate::getrf (A, pivots, {
-        {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target},
-        {slate::Option::MaxPanelThreads, panel_threads}
-    });
 
     double time = libtest::get_wtime();
 
-    slate::getrs (A, pivots, B, {
+    slate::posv (A, B, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
@@ -153,14 +138,12 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
     if (trace) slate::trace::Trace::finish();
 
     // compute and save timing/performance
-    double gflop = lapack::Gflop<scalar_t>::getrs (n, nrhs);
+    double gflop = lapack::Gflop<scalar_t>::posv (n, nrhs);
     params.time.value() = time_tst;
     params.gflops.value() = gflop / time_tst;
     
     if (check) {
         // check residual for accuracy
-
-        // todo: The IPIV needs to be checked
 
         //================================================================
         // Test results by checking the residual
@@ -215,12 +198,10 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
             assert (info==0);
         }
 
-        scalapack_pgetrf (m, n, &A_ref[0], i1, i1, descA_ref, &ipiv_ref[0], &info_ref);
-
         // Run the reference routine
         MPI_Barrier (MPI_COMM_WORLD);
         time = libtest::get_wtime();
-        scalapack_pgetrs ("N", n, nrhs, &A_ref[0], i1, i1, descA_ref, &ipiv_ref[0], &B_ref[0], i1, i1, descB_ref, &info_ref);
+        scalapack_pposv (uplo2str (uplo), n, nrhs, &A_ref[0], i1, i1, descA_ref, &B_ref[0], i1, i1, descB_ref, &info);
         assert (0 == info_ref);
         MPI_Barrier (MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
@@ -236,7 +217,7 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
 }
 
 // -----------------------------------------------------------------------------
-void test_getrs (Params &params, bool run)
+void test_posv (Params &params, bool run)
 {
     switch (params.datatype.value()) {
     case libtest::DataType::Integer:
@@ -244,19 +225,19 @@ void test_getrs (Params &params, bool run)
         break;
 
     case libtest::DataType::Single:
-        test_getrs_work<float> (params, run);
+        test_posv_work<float> (params, run);
         break;
 
     case libtest::DataType::Double:
-        test_getrs_work<double> (params, run);
+        test_posv_work<double> (params, run);
         break;
 
     case libtest::DataType::SingleComplex:
-        test_getrs_work<std::complex<float>> (params, run);
+        test_posv_work<std::complex<float>> (params, run);
         break;
 
     case libtest::DataType::DoubleComplex:
-        test_getrs_work<std::complex<double>> (params, run);
+        test_posv_work<std::complex<double>> (params, run);
         break;
     }
 }

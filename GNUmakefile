@@ -279,6 +279,8 @@ test_src += \
         test/test_her2k.cc \
         test/test_herk.cc \
         test/test_potrf.cc \
+        test/test_potrs.cc \
+        test/test_posv.cc \
         test/test_symm.cc \
         test/test_synorm.cc \
         test/test_syr2k.cc \

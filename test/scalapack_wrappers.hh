@@ -169,6 +169,100 @@ inline void scalapack_ppotrf (const char *uplo, int64_t n, scalar_t *a, int64_t 
     scalapack_ppotrf (uplo, &n_, a, &ia_, &ja_, desca, info);
 }
 
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+#define scalapack_pspotrs BLAS_FORTRAN_NAME(pspotrs,PSPOTRS)
+#define scalapack_pdpotrs BLAS_FORTRAN_NAME(pdpotrs,PDPOTRS)
+#define scalapack_pcpotrs BLAS_FORTRAN_NAME(pcpotrs,PCPOTRS)
+#define scalapack_pzpotrs BLAS_FORTRAN_NAME(pzpotrs,PZPOTRS)
+
+extern "C" void scalapack_pspotrs (const char *uplo, int *n, int *nrhs, float  *a, int *ia, int *ja, int *desca, float  *b, int *ib, int *jb, int *descb, int *info);
+extern "C" void scalapack_pdpotrs (const char *uplo, int *n, int *nrhs, double *a, int *ia, int *ja, int *desca, double *b, int *ib, int *jb, int *descb, int *info);
+extern "C" void scalapack_pcpotrs (const char *uplo, int *n, int *nrhs, std::complex<float>  *a, int *ia, int *ja, int *desca, std::complex<float>  *b, int *ib, int *jb, int *descb, int *info);
+extern "C" void scalapack_pzpotrs (const char *uplo, int *n, int *nrhs, std::complex<double> *a, int *ia, int *ja, int *desca, std::complex<double> *b, int *ib, int *jb, int *descb, int *info);
+
+// -----------------------------------------------------------------------------
+
+inline void scalapack_ppotrs (const char *uplo, int *n, int *nrhs, float *a, int *ia, int *ja, int *desca, float *b, int *ib, int *jb, int *descb, int *info)
+{
+    scalapack_pspotrs (uplo, n, nrhs, a, ia, ja, desca, b, ib, jb, descb, info);
+}
+
+inline void scalapack_ppotrs (const char *uplo, int *n, int *nrhs, double *a, int *ia, int *ja, int *desca, double *b, int *ib, int *jb, int *descb, int *info)
+{
+    scalapack_pdpotrs (uplo, n, nrhs, a, ia, ja, desca, b, ib, jb, descb, info);
+}
+
+inline void scalapack_ppotrs (const char *uplo, int *n, int *nrhs, std::complex<float> *a, int *ia, int *ja, int *desca, std::complex<float> *b, int *ib, int *jb, int *descb, int *info)
+{
+    scalapack_pcpotrs (uplo, n, nrhs, a, ia, ja, desca, b, ib, jb, descb, info);
+}
+
+inline void scalapack_ppotrs (const char *uplo, int *n, int *nrhs, std::complex<double> *a, int *ia, int *ja, int *desca, std::complex<double> *b, int *ib, int *jb, int *descb, int *info)
+{
+    scalapack_pzpotrs (uplo, n, nrhs, a, ia, ja, desca, b, ib, jb, descb, info);
+}
+
+template <typename scalar_t>
+inline void scalapack_ppotrs (const char *uplo, int64_t n, int64_t nrhs, scalar_t *a, int64_t ia, int64_t ja, int *desca, scalar_t *b, int64_t ib, int64_t jb, int *descb, blas_int *info)
+{
+    int n_ = int64_to_int (n);
+    int nrhs_ = int64_to_int (nrhs);
+    int ia_ = int64_to_int (ia);
+    int ja_ = int64_to_int (ja);
+    int ib_ = int64_to_int (ib);
+    int jb_ = int64_to_int (jb);
+    scalapack_ppotrs (uplo, &n_, &nrhs_, a, &ia_, &ja_, desca, b, &ib_, &jb_, descb, info);
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+#define scalapack_psposv BLAS_FORTRAN_NAME(psposv,PSPOSV)
+#define scalapack_pdposv BLAS_FORTRAN_NAME(pdposv,PDPOSV)
+#define scalapack_pcposv BLAS_FORTRAN_NAME(pcposv,PCPOSV)
+#define scalapack_pzposv BLAS_FORTRAN_NAME(pzposv,PZPOSV)
+
+extern "C" void scalapack_psposv (const char *uplo, int *n, int *nrhs, float  *a, int *ia, int *ja, int *desca, float  *b, int *ib, int *jb, int *descb, int *info);
+extern "C" void scalapack_pdposv (const char *uplo, int *n, int *nrhs, double *a, int *ia, int *ja, int *desca, double *b, int *ib, int *jb, int *descb, int *info);
+extern "C" void scalapack_pcposv (const char *uplo, int *n, int *nrhs, std::complex<float>  *a, int *ia, int *ja, int *desca, std::complex<float>  *b, int *ib, int *jb, int *descb, int *info);
+extern "C" void scalapack_pzposv (const char *uplo, int *n, int *nrhs, std::complex<double> *a, int *ia, int *ja, int *desca, std::complex<double> *b, int *ib, int *jb, int *descb, int *info);
+
+// -----------------------------------------------------------------------------
+
+inline void scalapack_pposv (const char *uplo, int *n, int *nrhs, float *a, int *ia, int *ja, int *desca, float *b, int *ib, int *jb, int *descb, int *info)
+{
+    scalapack_psposv (uplo, n, nrhs, a, ia, ja, desca, b, ib, jb, descb, info);
+}
+
+inline void scalapack_pposv (const char *uplo, int *n, int *nrhs, double *a, int *ia, int *ja, int *desca, double *b, int *ib, int *jb, int *descb, int *info)
+{
+    scalapack_pdposv (uplo, n, nrhs, a, ia, ja, desca, b, ib, jb, descb, info);
+}
+
+inline void scalapack_pposv (const char *uplo, int *n, int *nrhs, std::complex<float> *a, int *ia, int *ja, int *desca, std::complex<float> *b, int *ib, int *jb, int *descb, int *info)
+{
+    scalapack_pcposv (uplo, n, nrhs, a, ia, ja, desca, b, ib, jb, descb, info);
+}
+
+inline void scalapack_pposv (const char *uplo, int *n, int *nrhs, std::complex<double> *a, int *ia, int *ja, int *desca, std::complex<double> *b, int *ib, int *jb, int *descb, int *info)
+{
+    scalapack_pzposv (uplo, n, nrhs, a, ia, ja, desca, b, ib, jb, descb, info);
+}
+
+template <typename scalar_t>
+inline void scalapack_pposv (const char *uplo, int64_t n, int64_t nrhs, scalar_t *a, int64_t ia, int64_t ja, int *desca, scalar_t *b, int64_t ib, int64_t jb, int *descb, blas_int *info)
+{
+    int n_ = int64_to_int (n);
+    int nrhs_ = int64_to_int (nrhs);
+    int ia_ = int64_to_int (ia);
+    int ja_ = int64_to_int (ja);
+    int ib_ = int64_to_int (ib);
+    int jb_ = int64_to_int (jb);
+    scalapack_pposv (uplo, &n_, &nrhs_, a, &ia_, &ja_, desca, b, &ib_, &jb_, descb, info);
+}
+
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -311,27 +405,6 @@ inline void scalapack_pgemm (const char *transa, const char *transb, int64_t M, 
     int ic_ = int64_to_int (ic);
     int jc_ = int64_to_int (jc);
     scalapack_pgemm (transa, transb, &M_, &N_, &K_, &alpha, A, &ia_, &ja_, descA, B, &ib_, &jb_, descB, &beta, C, &ic_, &jc_, descC);
-}
-
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-
-#define scalapack_pspotrs BLAS_FORTRAN_NAME(pspotrs,PSPOTRS)
-#define scalapack_pdpotrs BLAS_FORTRAN_NAME(pdpotrs,PDPOTRS)
-
-extern "C" void scalapack_pspotrs (const char *uplo, int *n, int *nrhs, float  *a, int *ia, int *ja, int *desca, float  *b, int *ib, int *jb, int *descb, int *info);
-extern "C" void scalapack_pdpotrs (const char *uplo, int *n, int *nrhs, double *a, int *ia, int *ja, int *desca, double *b, int *ib, int *jb, int *descb, int *info);
-
-// -----------------------------------------------------------------------------
-
-inline void scalapack_ppotrs (const char *uplo, int *n, int *nrhs, float *a, int *ia, int *ja, int *desca, float *b, int *ib, int *jb, int *descb, int *info)
-{
-    scalapack_pspotrs (uplo, n, nrhs, a, ia, ja, desca, b, ib, jb, descb, info);
-}
-
-inline void scalapack_ppotrs (const char *uplo, int *n, int *nrhs, double *a, int *ia, int *ja, int *desca, double *b, int *ib, int *jb, int *descb, int *info)
-{
-    scalapack_pdpotrs (uplo, n, nrhs, a, ia, ja, desca, b, ib, jb, descb, info);
 }
 
 // -----------------------------------------------------------------------------

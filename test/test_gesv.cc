@@ -153,7 +153,7 @@ template <typename scalar_t> void test_gesv_work (Params &params, bool run)
     params.gflops.value() = gflop / time_tst;
     
     if (check) {
-        // check residual check for accuracy
+        // check residual for accuracy
 
         // todo: The IPIV needs to be checked
 

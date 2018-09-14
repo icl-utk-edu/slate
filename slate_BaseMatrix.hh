@@ -45,6 +45,7 @@
 #include "slate_Memory.hh"
 #include "slate_Storage.hh"
 #include "slate_Tile.hh"
+#include "slate_Tile_blas.hh"
 #include "slate_types.hh"
 
 #include "lapack.hh"
@@ -72,8 +73,13 @@ namespace slate {
 template <typename scalar_t>
 class BaseMatrix {
 public:
-    using BcastList = std::list<std::tuple<int64_t, int64_t,
-                                           std::list<BaseMatrix<scalar_t> > > >;
+    using BcastList =
+        std::list<std::tuple<int64_t, int64_t,
+                             std::list<BaseMatrix<scalar_t> > > >;
+
+    using ReduceList =
+        std::list<std::tuple<int64_t, int64_t,
+                             std::list<BaseMatrix<scalar_t> > > >;
 
     friend class Debug;
 
@@ -196,10 +202,16 @@ public:
     template <Target target = Target::Host>
     void listBcast(BcastList& bcast_list, int tag = 0);
 
+    template <Target target = Target::Host>
+    void listReduce(ReduceList& reduce_list, int tag = 0);
+
 protected:
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set);
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set,
                         int radix, int tag);
+
+    void tileReduceFromSet(int64_t i, int64_t j,
+                           std::set<int> const& reduce_set, int radix, int tag);
 
 public:
     void tileCopyToDevice(int64_t i, int64_t j, int dst_device);
@@ -677,8 +689,7 @@ void BaseMatrix<scalar_t>::listBcast(BcastList& bcast_list, int tag)
             // If receiving the tile.
             if (!tileIsLocal(i, j)) {
 
-                // If receiving the tile, create tile to receive data,
-                // with life span.
+                // Create tile to receive data, with life span.
                 // If tile already exists, add to its life span.
                 LockGuard(storage_->tiles_.get_lock());
                 auto iter = storage_->find(globalIndex(i, j, host_num_));
@@ -711,6 +722,44 @@ void BaseMatrix<scalar_t>::listBcast(BcastList& bcast_list, int tag)
             {
                 for (auto device : dev_set)
                     tileCopyToDevice(i, j, device);
+            }
+        }
+    }
+
+    #pragma omp taskwait
+}
+
+//------------------------------------------------------------------------------
+///
+template <typename scalar_t>
+template <Target target>
+void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, int tag)
+{
+    for (auto reduce : reduce_list) {
+
+        auto i = std::get<0>(reduce);
+        auto j = std::get<1>(reduce);
+        auto submatrices_list = std::get<2>(reduce);
+
+        // Find the set of participating ranks.
+        std::set<int> reduce_set;
+        reduce_set.insert(tileRank(i, j));      // Insert root.
+        for (auto submatrix : submatrices_list) // Insert sources.
+            submatrix.getRanks(&reduce_set);
+
+        // If this rank is in the set.
+        if (reduce_set.find(mpi_rank_) != reduce_set.end()) {
+
+            // Reduce across MPI ranks.
+            // Uses 2D hypercube p2p send.
+            tileReduceFromSet(i, j, reduce_set, 2, tag);
+
+            // If not the tile owner.
+            if (!tileIsLocal(i, j)) {
+
+                // Destroy the tile.
+                LockGuard(storage_->tiles_.get_lock());
+                tileErase(i, j, host_num_);
             }
         }
     }
@@ -849,6 +898,57 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     // Forward.
     for (int dst : send_to)
         at(i, j).send(new_vec[dst], mpi_comm_, tag);
+}
+
+//------------------------------------------------------------------------------
+/// [internal]
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileReduceFromSet(
+    int64_t i, int64_t j, std::set<int> const& reduce_set, int radix, int tag)
+{
+    // Quit if only root in the reduction set.
+    if (reduce_set.size() == 1)
+        return;
+
+    // Convert the set to a vector.
+    std::vector<int> reduce_vec(reduce_set.begin(), reduce_set.end());
+
+    // Sort the ranks.
+    std::sort(reduce_vec.begin(), reduce_vec.end());
+
+    // Find root.
+    int root_rank = tileRank(i, j);
+    auto root_iter = std::find(reduce_vec.begin(), reduce_vec.end(), root_rank);
+
+    // Shift root to position zero.
+    std::vector<int> new_vec(root_iter, reduce_vec.end());
+    new_vec.insert(new_vec.end(), reduce_vec.begin(), root_iter);
+
+    // Find the new rank.
+    auto rank_iter = std::find(new_vec.begin(), new_vec.end(), mpi_rank_);
+    int new_rank = std::distance(new_vec.begin(), rank_iter);
+
+    // Get the send/recv pattern.
+    std::list<int> recv_from;
+    std::list<int> send_to;
+    internal::cubeReducePattern(new_vec.size(), new_rank, radix,
+                                recv_from, send_to);
+
+    std::vector<scalar_t> data(tileMb(i)*tileNb(j));
+    Tile<scalar_t> tile(tileMb(i), tileNb(j), &data[0], tileMb(i), host_num_);
+
+    // Receive, accumulate.
+    for (int src : recv_from) {
+        // Receive.
+        tile.recv(new_vec[src], mpi_comm_, tag);
+        // Accumulate.
+        axpy(scalar_t(1.0), tile, at(i, j));
+    }
+
+    // Forward.
+    if (!send_to.empty())
+        at(i, j).send(new_vec[send_to.front()], mpi_comm_, tag);
 }
 
 //------------------------------------------------------------------------------

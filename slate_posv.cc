@@ -99,24 +99,6 @@ void posv(HermitianMatrix<scalar_t>& A,
         lookahead = 1;
     }
 
-    int64_t ib;
-    try {
-        ib = opts.at(Option::InnerBlocking).i_;
-        assert(ib >= 0);
-    }
-    catch (std::out_of_range) {
-        ib = 1;
-    }
-
-    int64_t max_panel_threads;
-    try {
-        max_panel_threads = opts.at(Option::MaxPanelThreads).i_;
-        assert(max_panel_threads >= 0);
-    }
-    catch (std::out_of_range) {
-        max_panel_threads = std::max(omp_get_max_threads()/2, 1);
-    }
-
     internal::specialization::posv(internal::TargetType<target>(),
                                    A, B,
                                    lookahead);

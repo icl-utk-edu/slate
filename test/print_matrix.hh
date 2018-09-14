@@ -56,6 +56,7 @@ void snprintf_value(
 ///
 template <typename scalar_t>
 void print_matrix(
+    const char* label,
     int64_t mlocal, int64_t nlocal, scalar_t* A, int64_t lda,
     int p, int q, MPI_Comm comm, int width=10, int precision=6)
 {
@@ -76,7 +77,7 @@ void print_matrix(
             int rank = prow + pcol*p;
 
             if (rank == mpi_rank) {
-                snprintf( buf, sizeof(buf), "A%d_%d = [\n", prow, pcol );
+                snprintf( buf, sizeof(buf), "%s%d_%d = [\n", label, prow, pcol );
                 msg += buf;
                 for (int64_t i = 0; i < mlocal; ++i) {
                     for (int64_t j = 0; j < nlocal; ++j) {
@@ -85,7 +86,7 @@ void print_matrix(
                     }
                     msg += "\n";
                 }
-                msg += "]\n\n";
+                msg += "];\n\n";
 
                 if (mpi_rank != 0) {
                     // Send msg to root, which handles actual I/O.
@@ -171,7 +172,7 @@ void print_matrix(
             if (i < A.mt()-1)
                 msg += "\n";
             else
-                msg += "]\n";
+                msg += "];\n";
             printf( "%s", msg.c_str() );
             msg.clear();
 
@@ -212,12 +213,12 @@ void print_matrix(
     // for tiles outside bandwidth
     char outside[ 80 ];
     if (slate::is_complex<scalar_t>::value) {
-        snprintf( outside, sizeof(outside), " %*f   %*s ",
-                  width, NAN, width, "" );
+        snprintf( outside, sizeof(outside), " %*.0f   %*s ",
+                  width, 0., width, "" );
     }
     else {
-        snprintf( outside, sizeof(outside), " %*f",
-                  width, NAN );
+        snprintf( outside, sizeof(outside), " %*.0f",
+                  width, 0. );
     }
 
     // todo: initially, assume fixed size, square tiles for simplicity
@@ -267,7 +268,7 @@ void print_matrix(
             if (i < A.mt()-1)
                 msg += "\n";
             else
-                msg += "]\n";
+                msg += "];\n";
             printf( "%s", msg.c_str() );
             msg.clear();
 
@@ -375,7 +376,7 @@ void print_matrix(
             if (i < A.mt()-1)
                 msg += "\n";
             else
-                msg += "]\n";
+                msg += "];\n";
             printf( "%s", msg.c_str() );
             msg.clear();
 

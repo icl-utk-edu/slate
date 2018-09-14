@@ -89,7 +89,7 @@ void test_genorm_work(Params& params, bool run)
         lapack::larnv(2, iseeds, mlocA, &A_tst[j*lldA]);
 
     //if (verbose > 1) {
-    //    print_matrix(mlocA, nlocA, &A_tst[0], lldA, p, q, MPI_COMM_WORLD);
+    //    print_matrix("A_tst", mlocA, nlocA, &A_tst[0], lldA, p, q, MPI_COMM_WORLD);
     //}
 
     // todo: work-around to initialize BaseMatrix::num_devices_

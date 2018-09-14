@@ -27,6 +27,7 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
     using real_t = blas::real_type<scalar_t>;
 
     // get & mark input values
+    blas::Op trans = params.trans.value();
     int64_t m = params.dim.n();
     int64_t n = params.dim.n();
     int64_t nrhs = params.nrhs.value();
@@ -97,7 +98,11 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
     // Create SLATE matrix from the ScaLAPACK layouts
     auto A = slate::Matrix<scalar_t>::fromScaLAPACK (Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK (Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
-    // slate::Matrix<scalar_t> A_orig;
+
+    if (trans == blas::Op::Trans)
+        A = transpose (A);
+    else if (trans == blas::Op::ConjTrans)
+        A = conj_transpose (A);
 
     // if check is required, copy test data and create a descriptor for it
     std::vector<scalar_t> A_ref;
@@ -220,7 +225,7 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
         // Run the reference routine
         MPI_Barrier (MPI_COMM_WORLD);
         time = libtest::get_wtime();
-        scalapack_pgetrs ("N", n, nrhs, &A_ref[0], i1, i1, descA_ref, &ipiv_ref[0], &B_ref[0], i1, i1, descB_ref, &info_ref);
+        scalapack_pgetrs (op2str( trans ), n, nrhs, &A_ref[0], i1, i1, descA_ref, &ipiv_ref[0], &B_ref[0], i1, i1, descB_ref, &info_ref);
         assert (0 == info_ref);
         MPI_Barrier (MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;

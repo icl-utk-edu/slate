@@ -245,7 +245,7 @@ if (opts.blas3):
     [ 'syr2k', dtype_complex + uplo + trans_nt + mn + nb + p + q ],
     [ 'syrk',  dtype_real    + uplo + trans    + mn + nb + p + q ],
     [ 'syrk',  dtype_complex + uplo + trans_nt + mn + nb + p + q ],
-    [ 'trsm',  dtype         + side + uplo + transA + diag + mn + nb ],
+    [ 'trsm',  dtype         + side + uplo + transA + diag + mn + nb + p + q ],
 
     [ 'hemm',  dtype         + side + uplo + mn + nb + p + q ],
     [ 'herk',  dtype_real    + uplo + trans    + mn + nb + p + q ],
@@ -257,9 +257,10 @@ if (opts.blas3):
 # LU
 if (opts.lu):
     cmds += [
-    #[ 'gesv',  check + dtype + n ],
-    #[ 'getrf', check + dtype + mn ],
-    #[ 'getrs', check + dtype + n + trans ],
+    [ 'gesv',  check + dtype + n + " --lookahead 0" + p + q ],
+    [ 'getrf', check + dtype + mn + " --lookahead 0" + p + q ],
+    [ 'getrs', check + dtype + n + " --lookahead 0" + p + q ],
+    # [ 'getrs', check + dtype + n + trans + " --lookahead 0" + p + q ],
     #[ 'getri', check + dtype + n ],
     #[ 'gecon', check + dtype + n ],
     #[ 'gerfs', check + dtype + n + trans ],
@@ -290,9 +291,9 @@ if (opts.gt):
 # Cholesky
 if (opts.chol):
     cmds += [
-    #[ 'posv',  check + dtype + n + uplo ],
+    [ 'posv',  check + dtype + n + uplo + nb + p + q ],
     [ 'potrf', check + dtype + n + uplo + nb + p + q ],
-    #[ 'potrs', check + dtype + n + uplo ],
+    [ 'potrs', check + dtype + n + uplo + nb + p + q ],
     #[ 'potri', check + dtype + n + uplo ],
     #[ 'pocon', check + dtype + n + uplo ],
     #[ 'porfs', check + dtype + n + uplo ],

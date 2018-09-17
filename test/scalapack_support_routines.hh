@@ -126,7 +126,7 @@ static void scalapack_pplrnt (scalar_t *A,
                               int64_t mb, int64_t nb,
                               int myrow, int mycol,
                               int nprow, int npcol,
-                              int64_t mloc,
+                              int64_t lldA,
                               int64_t seed)
 {
     int i, j;
@@ -139,14 +139,15 @@ static void scalapack_pplrnt (scalar_t *A,
     for (i = 1; i <= m; i += mb) {
         for (j = 1; j <= n; j += nb) {
             if ((myrow == scalapack_indxg2p (&i, &mb_, &idum1, &i0, &nprow)) &&
-                    (mycol == scalapack_indxg2p (&j, &nb_, &idum1, &i0, &npcol))) {
+                (mycol == scalapack_indxg2p (&j, &nb_, &idum1, &i0, &npcol)))
+            {
                 iloc = scalapack_indxg2l (&i, &mb_, &idum1, &idum2, &nprow);
                 jloc = scalapack_indxg2l (&j, &nb_, &idum1, &idum2, &npcol);
 
-                Ab =  &A[ (jloc-1)*mloc + (iloc-1) ];
+                Ab =  &A[ (jloc-1)*lldA + (iloc-1) ];
                 tempm = (m - i +1) > mb ? mb : (m-i + 1);
                 tempn = (n - j +1) > nb ? nb : (n-j + 1);
-                CORE_plrnt (tempm, tempn, Ab, mloc,
+                CORE_plrnt (tempm, tempn, Ab, lldA,
                             m, (i-1), (j-1), seed);
             }
         }
@@ -160,7 +161,7 @@ static void scalapack_pplghe (scalar_t *A,
                               int64_t mb, int64_t nb,
                               int myrow, int mycol,
                               int nprow, int npcol,
-                              int64_t mloc,
+                              int64_t lldA,
                               int64_t seed)
 {
     int i, j;
@@ -174,14 +175,15 @@ static void scalapack_pplghe (scalar_t *A,
     for (i = 1; i <= m; i += mb) {
         for (j = 1; j <= n; j += nb) {
             if ((myrow == scalapack_indxg2p (&i, &mb_, &idum1, &i0, &nprow)) &&
-                    (mycol == scalapack_indxg2p (&j, &nb_, &idum1, &i0, &npcol))) {
+                (mycol == scalapack_indxg2p (&j, &nb_, &idum1, &i0, &npcol)))
+            {
                 iloc = scalapack_indxg2l (&i, &mb_, &idum1, &idum2, &nprow);
                 jloc = scalapack_indxg2l (&j, &nb_, &idum1, &idum2, &npcol);
 
-                Ab =  &A[ (jloc-1)*mloc + (iloc-1) ];
+                Ab =  &A[ (jloc-1)*lldA + (iloc-1) ];
                 tempm = (m - i +1) > mb ? mb : (m-i + 1);
                 tempn = (n - j +1) > nb ? nb : (n-j + 1);
-                CORE_plghe (bump, tempm, tempn, Ab, mloc,
+                CORE_plghe (bump, tempm, tempn, Ab, lldA,
                             m, (i-1), (j-1), seed);
             }
         }

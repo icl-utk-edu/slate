@@ -95,6 +95,7 @@ group_opt.add_argument( '--ku',     action='store', help='default=%(default)s', 
 group_opt.add_argument( '--matrixtype', action='store', help='default=%(default)s', default='g,l,u' )
 
 # SLATE specific
+group_opt.add_argument( '--lookahead', action='store', help='default=%(default)s', default='1' )
 group_opt.add_argument( '--nb',     action='store', help='default=%(default)s', default='10,100' )
 group_opt.add_argument( '--nt',     action='store', help='default=%(default)s', default='5,10,20' )
 group_opt.add_argument( '--p',      action='store', help='default=%(default)s', default='' )  # default in test.cc
@@ -202,6 +203,7 @@ ku     = ' --ku '     + opts.ku     if (opts.ku)     else ''
 mtype  = ' --matrixtype ' + opts.matrixtype if (opts.matrixtype) else ''
 
 # SLATE specific
+la     = ' --lookahead ' + opts.lookahead if (opts.lookahead) else ''
 nb     = ' --nb '     + opts.nb     if (opts.nb)     else ''
 nt     = ' --nt '     + opts.nt     if (opts.nt)     else ''
 p      = ' --p '      + opts.p      if (opts.p)      else ''
@@ -239,22 +241,22 @@ cmds = []
 # Level 3
 if (opts.blas3):
     cmds += [
-    [ 'gemm',  gen + dtype         + transA + transB + mnk ],
+    [ 'gemm',  gen + dtype         + transA + transB + mnk + la ],
 
-    [ 'hemm',  gen + dtype         + side + uplo     + mn ],
-    [ 'herk',  gen + dtype_real    + uplo + trans    + mn ],
-    [ 'herk',  gen + dtype_complex + uplo + trans_nc + mn ],
-    [ 'her2k', gen + dtype_real    + uplo + trans    + mn ],
-    [ 'her2k', gen + dtype_complex + uplo + trans_nc + mn ],
+    [ 'hemm',  gen + dtype         + side + uplo     + mn + la ],
+    [ 'herk',  gen + dtype_real    + uplo + trans    + mn + la ],
+    [ 'herk',  gen + dtype_complex + uplo + trans_nc + mn + la ],
+    [ 'her2k', gen + dtype_real    + uplo + trans    + mn + la ],
+    [ 'her2k', gen + dtype_complex + uplo + trans_nc + mn + la ],
 
-    [ 'symm',  gen + dtype         + side + uplo + mn ],
-    [ 'syr2k', gen + dtype_real    + uplo + trans    + mn ],
-    [ 'syr2k', gen + dtype_complex + uplo + trans_nt + mn ],
-    [ 'syrk',  gen + dtype_real    + uplo + trans    + mn ],
-    [ 'syrk',  gen + dtype_complex + uplo + trans_nt + mn ],
+    [ 'symm',  gen + dtype         + side + uplo     + mn + la ],
+    [ 'syr2k', gen + dtype_real    + uplo + trans    + mn + la ],
+    [ 'syr2k', gen + dtype_complex + uplo + trans_nt + mn + la ],
+    [ 'syrk',  gen + dtype_real    + uplo + trans    + mn + la ],
+    [ 'syrk',  gen + dtype_complex + uplo + trans_nt + mn + la ],
 
-    [ 'trmm',  gen + dtype         + side + uplo + transA + diag + mn ],
-    [ 'trsm',  gen + dtype         + side + uplo + transA + diag + mn ],
+    [ 'trmm',  gen + dtype         + side + uplo + transA + diag + mn + la ],
+    [ 'trsm',  gen + dtype         + side + uplo + transA + diag + mn + la ],
     ]
 
 # LU
@@ -272,12 +274,12 @@ if (opts.lu):
 # General Banded
 if (opts.gb):
     cmds += [
-    #[ 'gbsv',  check + dtype + n + kl + ku ],
-    #[ 'gbtrf', check + dtype + n + kl + ku ],
-    #[ 'gbtrs', check + dtype + n + kl + ku + trans ],
-    #[ 'gbcon', check + dtype + n + kl + ku ],
-    #[ 'gbrfs', check + dtype + n + kl + ku + trans ],
-    #[ 'gbequ', check + dtype + n + kl + ku ],
+    #[ 'gbsv',  gen + dtype + n + kl + ku + la ],
+    #[ 'gbtrf', gen + dtype + n + kl + ku + la ],
+    #[ 'gbtrs', gen + dtype + n + kl + ku + la + trans ],
+    #[ 'gbcon', gen + dtype + n + kl + ku ],
+    #[ 'gbrfs', gen + dtype + n + kl + ku + trans ],
+    #[ 'gbequ', gen + dtype + n + kl + ku ],
     ]
 
 # General Tri-Diagonal
@@ -293,9 +295,9 @@ if (opts.gt):
 # Cholesky
 if (opts.chol):
     cmds += [
-    [ 'posv',  gen + dtype + n + uplo ],
-    [ 'potrf', gen + dtype + n + uplo ],
-    [ 'potrs', gen + dtype + n + uplo ],
+    [ 'posv',  gen + dtype + n + uplo + la ],
+    [ 'potrf', gen + dtype + n + uplo + la ],
+    [ 'potrs', gen + dtype + n + uplo + la ],
     #[ 'potri', gen + dtype + n + uplo ],
     #[ 'pocon', gen + dtype + n + uplo ],
     #[ 'porfs', gen + dtype + n + uplo ],

@@ -258,7 +258,8 @@ if (opts.blas3):
 if (opts.lu):
     cmds += [
     [ 'gesv',  check + dtype + n + " --lookahead 0" + p + q ],
-    [ 'getrf', check + dtype + mn + " --lookahead 0" + p + q ],
+    [ 'getrf', check + dtype + n + " --lookahead 0" + p + q ],
+    # [ 'getrf', check + dtype + mn + " --lookahead 0" + p + q ],
     [ 'getrs', check + dtype + n + " --lookahead 0" + p + q ],
     # [ 'getrs', check + dtype + n + trans + " --lookahead 0" + p + q ],
     #[ 'getri', check + dtype + n ],

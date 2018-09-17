@@ -155,8 +155,6 @@ template <typename scalar_t> void test_gesv_work (Params &params, bool run)
     if (check) {
         // check residual for accuracy
 
-        // todo: The IPIV needs to be checked
-
         //================================================================
         // Test results by checking the residual
         //

@@ -134,8 +134,6 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
     if(check && (Am == An)){
         //check residual for accuracy by performing a solve
 
-        // todo: The IPIV needs to be checked
-
         //================================================================
         // Test results by checking the residual
         //
@@ -163,26 +161,12 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
         scalapack_descinit (descB_ref, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
         assert (info==0);
 
-        //*
         auto B = slate::Matrix<scalar_t>::fromScaLAPACK (Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
         
         slate::getrs (A, pivots, B, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target}
         });
-        /*/
-        // solving with Scalapack suffers accuracy decline !!
-        // collect the pivots
-        for (int64_t k = 0, ps = pivots.size(), ip_ind = 0; k < ps; ++k) {
-            for (int64_t t = 0, pks = pivots.at(k).size(); t < pks; ++t) {
-                //TODO this is not good when tile size is not uniform
-                ipiv_tst[ip_ind++] = pivots.at(k).at(t).tileIndex() * nb + pivots.at(k).at(t).elementOffset() + 1;
-            }
-        }
-
-        scalapack_pgetrs ("N", Bm, Bn, &A_tst[0], i1, i1, descA_tst, &ipiv_tst[0], &B_tst[0], i1, i1, descB_tst, &info_ref);
-        assert (0 == info_ref);
-        //*/
 
         // allocate work space
         std::vector<real_t> worklangeA (std::max ({mlocA, nlocA}));

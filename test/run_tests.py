@@ -37,6 +37,7 @@ group_size.add_argument( '-x', '--xsmall', action='store_true', help='run x-smal
 group_size.add_argument( '-s', '--small',  action='store_true', help='run small tests' )
 group_size.add_argument( '-m', '--medium', action='store_true', help='run medium tests' )
 group_size.add_argument( '-l', '--large',  action='store_true', help='run large tests' )
+group_size.add_argument(       '--square', action='store_true', help='run only square (m = n = k) tests', default=False )
 group_size.add_argument(       '--dim',    action='store',      help='explicitly specify size', default='' )
 
 group_cat = parser.add_argument_group( 'category (default is all)' )
@@ -169,9 +170,14 @@ if (not opts.dim):
         nk_tall += ' --dim 1x2000:10000:2000x1000:5000:1000'
         nk_wide += ' --dim 1x1000:5000:1000x2000:10000:2000'
 
-    mn  = n + tall + wide
-    mnk = mn + mnk
-    nk  = n + nk_tall + nk_wide
+    if (opts.square):
+        mn  = n
+        mnk = n
+        nk  = n
+    else:
+        mn  = n + tall + wide
+        mnk = mn + mnk
+        nk  = n + nk_tall + nk_wide
 # end
 
 # BLAS and LAPACK

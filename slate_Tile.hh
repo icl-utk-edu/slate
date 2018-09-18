@@ -468,12 +468,9 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm, int tag) const
         // Use simple send.
         int count = mb_*nb_;
 
-        #pragma omp critical(slate_mpi)
-        {
-            slate_mpi_call(
-                MPI_Send(data_, count, mpi_type<scalar_t>::value, dst, tag,
-                         mpi_comm));
-        }
+        slate_mpi_call(
+            MPI_Send(data_, count, mpi_type<scalar_t>::value, dst, tag,
+                     mpi_comm));
     }
     else {
         // Otherwise, use strided send.
@@ -482,30 +479,13 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm, int tag) const
         int stride = stride_;
         MPI_Datatype newtype;
 
-        #pragma omp critical(slate_mpi)
-        {
-            slate_mpi_call(
-                MPI_Type_vector(count, blocklength, stride,
-                                mpi_type<scalar_t>::value, &newtype));
-        }
+        slate_mpi_call(
+            MPI_Type_vector(count, blocklength, stride,
+                            mpi_type<scalar_t>::value, &newtype));
 
-        #pragma omp critical(slate_mpi)
-        {
-            slate_mpi_call(
-                MPI_Type_commit(&newtype));
-        }
-
-        #pragma omp critical(slate_mpi)
-        {
-            slate_mpi_call(
-                MPI_Send(data_, 1, newtype, dst, tag, mpi_comm));
-        }
-
-        #pragma omp critical(slate_mpi)
-        {
-            slate_mpi_call(
-                MPI_Type_free(&newtype));
-        }
+        slate_mpi_call(MPI_Type_commit(&newtype));
+        slate_mpi_call(MPI_Send(data_, 1, newtype, dst, tag, mpi_comm));
+        slate_mpi_call(MPI_Type_free(&newtype));
     }
 }
 
@@ -529,12 +509,9 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm, int tag)
         // Use simple recv.
         int count = mb_*nb_;
 
-        #pragma omp critical(slate_mpi)
-        {
-            slate_mpi_call(
-                MPI_Recv(data_, count, mpi_type<scalar_t>::value, src, tag,
-                         mpi_comm, MPI_STATUS_IGNORE));
-        }
+        slate_mpi_call(
+            MPI_Recv(data_, count, mpi_type<scalar_t>::value, src, tag,
+                     mpi_comm, MPI_STATUS_IGNORE));
     }
     else {
         // Otherwise, use strided recv.
@@ -543,32 +520,18 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm, int tag)
         int stride = stride_;
         MPI_Datatype newtype;
 
-        #pragma omp critical(slate_mpi)
-        {
-            slate_mpi_call(
-                MPI_Type_vector(
-                    count, blocklength, stride, mpi_type<scalar_t>::value,
-                    &newtype));
-        }
+        slate_mpi_call(
+            MPI_Type_vector(
+                count, blocklength, stride, mpi_type<scalar_t>::value,
+                &newtype));
 
-        #pragma omp critical(slate_mpi)
-        {
-            slate_mpi_call(
-                MPI_Type_commit(&newtype));
-        }
+        slate_mpi_call(MPI_Type_commit(&newtype));
 
-        #pragma omp critical(slate_mpi)
-        {
-            slate_mpi_call(
-                MPI_Recv(data_, 1, newtype, src, tag, mpi_comm,
-                         MPI_STATUS_IGNORE));
-        }
+        slate_mpi_call(
+            MPI_Recv(data_, 1, newtype, src, tag, mpi_comm,
+                     MPI_STATUS_IGNORE));
 
-        #pragma omp critical(slate_mpi)
-        {
-            slate_mpi_call(
-                MPI_Type_free(&newtype));
-        }
+        slate_mpi_call(MPI_Type_free(&newtype));
     }
 }
 

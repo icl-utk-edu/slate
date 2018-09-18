@@ -37,7 +37,7 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
     lapack::Norm norm = params.norm.value();
     bool ref_only = params.ref.value()=='o';
     bool ref = params.ref.value()=='y' || ref_only;
-    bool check = params.check.value()=='y' && !ref_only;
+    bool check = params.check.value()=='y' && ! ref_only;
     bool trace = params.trace.value()=='y';
     slate::Target target = char2target (params.target.value());
 
@@ -107,7 +107,7 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
     slate::Pivots pivots;
     double gflop = lapack::Gflop<scalar_t>::getrf (m, n);
     
-    if(!ref_only){
+    if (! ref_only) {
         double time = libtest::get_wtime();
 
         // todo: the example/test call to pgetrf can be removed later
@@ -134,7 +134,7 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
     }
 
     //when matrix is square shaped
-    if(check && (Am == An)){
+    if (check && (Am == An)) {
         //check residual for accuracy by performing a solve
 
         //================================================================
@@ -199,7 +199,7 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
         params.okay.value() = (params.error.value() <= tol);
     }
 
-    if(ref || (check && (Am != An))){
+    if (ref || (check && (Am != An))) {
         // A comparison with a reference routine from ScaLAPACK
 
         // set MKL num threads appropriately for parallel BLAS
@@ -221,7 +221,7 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
         params.ref_gflops.value() = gflop / time_ref;
 
         //when matrix is rectangular, we cannot solve
-        if(check && (Am != An)){
+        if (check && (Am != An)) {
             //compare to reference implementation for accuracy check
 
             // allocate work space

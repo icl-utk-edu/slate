@@ -38,7 +38,7 @@ template <typename scalar_t> void test_gesv_work (Params &params, bool run)
     lapack::Norm norm = params.norm.value();
     bool ref_only = params.ref.value()=='o';
     bool ref = params.ref.value()=='y' || ref_only;
-    bool check = params.check.value()=='y' && !ref_only;
+    bool check = params.check.value()=='y' && ! ref_only;
     bool trace = params.trace.value()=='y';
     slate::Target target = char2target (params.target.value());
 
@@ -121,7 +121,7 @@ template <typename scalar_t> void test_gesv_work (Params &params, bool run)
     }
     double gflop = lapack::Gflop<scalar_t>::gesv (n, nrhs);
 
-    if(!ref_only){
+    if (! ref_only) {
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
 
@@ -194,7 +194,7 @@ template <typename scalar_t> void test_gesv_work (Params &params, bool run)
         params.okay.value() = (params.error.value() <= tol);
     }
     
-    if(ref){
+    if (ref) {
         // A comparison with a reference routine from ScaLAPACK for timing only
         
         // set MKL num threads appropriately for parallel BLAS

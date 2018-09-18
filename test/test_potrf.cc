@@ -36,7 +36,7 @@ template <typename scalar_t> void test_potrf_work (Params &params, bool run)
     lapack::Norm norm = params.norm.value();
     bool ref_only = params.ref.value()=='o';
     bool ref = params.ref.value()=='y' || ref_only;
-    bool check = params.check.value()=='y' && !ref_only;
+    bool check = params.check.value()=='y' && ! ref_only;
     bool trace = params.trace.value()=='y';
     slate::Target target = char2target (params.target.value());
 
@@ -90,7 +90,7 @@ template <typename scalar_t> void test_potrf_work (Params &params, bool run)
     }
     double gflop = lapack::Gflop<scalar_t>::potrf (n);
 
-    if(!ref_only){
+    if (! ref_only) {
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
 
@@ -140,7 +140,7 @@ template <typename scalar_t> void test_potrf_work (Params &params, bool run)
         params.ref_time.value() = time_ref;
         params.ref_gflops.value() = gflop / time_ref;
 
-        if(check){
+        if (check) {
             // allocate work space
             size_t ldw = nb * ceil (ceil (mlocA / (double) nb) / (scalapack_ilcm (&nprow, &npcol) / nprow));
             std::vector<real_t> worklansy (2 * nlocA + mlocA + ldw);

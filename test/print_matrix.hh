@@ -57,7 +57,7 @@ void snprintf_value(
 template <typename scalar_t>
 void print_matrix(
     int64_t mlocal, int64_t nlocal, scalar_t* A, int64_t lda,
-    int p, int q, MPI_Comm comm, int width=8, int precision=4)
+    int p, int q, MPI_Comm comm, int width=10, int precision=6)
 {
     using blas::real;
     using blas::imag;
@@ -123,7 +123,7 @@ void print_matrix(
 template <typename scalar_t>
 void print_matrix(
     const char* label,
-    slate::Matrix<scalar_t>& A, int width=8, int precision=4)
+    slate::Matrix<scalar_t>& A, int width=10, int precision=6)
 {
     using blas::real;
     using blas::imag;
@@ -195,7 +195,7 @@ void print_matrix(
 template <typename scalar_t>
 void print_matrix(
     const char* label,
-    slate::BandMatrix<scalar_t>& A, int width=8, int precision=4)
+    slate::BandMatrix<scalar_t>& A, int width=10, int precision=6)
 {
     using blas::real;
     using blas::imag;
@@ -295,7 +295,7 @@ void print_matrix(
 template <typename scalar_t>
 void print_matrix(
     const char* label,
-    slate::BaseTrapezoidMatrix<scalar_t>& A, int width=8, int precision=4)
+    slate::BaseTrapezoidMatrix<scalar_t>& A, int width=10, int precision=6)
 {
     using blas::real;
     using blas::imag;

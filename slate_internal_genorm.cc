@@ -278,6 +278,7 @@ void norm(
 ///-----------------------------------------------------------------------------
 /// General matrix norm.
 /// Host nested OpenMP implementation.
+/// TODO: currently, this does only max norm.
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::HostNest>,
@@ -286,6 +287,8 @@ void norm(
     int priority)
 {
     using real_t = blas::real_type<scalar_t>;
+    if (in_norm != Norm::Max)
+        throw Exception("HostNest has only max norm implemented");
 
     std::vector<real_t> tiles_maxima;
 

@@ -94,7 +94,7 @@ std::map<std::string, Color> Trace::function_color_ = {
     {"MPI_Reduce",            Color::Purple},
     {"MPI_Allreduce",         Color::Purple},
     {"MPI_Barrier",           Color::Black},
-    {"MPI_Bcast",             Color::Crimson},
+    {"MPI_Bcast",             Color::Purple},
     {"MPI_Comm_create_group", Color::DarkRed},
     {"MPI_Recv",              Color::Crimson},
     {"MPI_Send",              Color::LightCoral},

@@ -81,20 +81,21 @@ void getrf(slate::internal::TargetType<target>,
         pivots.at(k).resize(diag_len);
 
         // panel, high priority
-        #pragma omp task depend(inout:column[k]) priority(1)
+        int priority_one = 1;
+        #pragma omp task depend(inout:column[k]) priority(priority_one)
         {
             // factor A(k:mt-1, k)
-            int priority_one = 1;
             internal::getrf<Target::HostTask>(
                 A.sub(k, A_mt-1, k, k), diag_len, ib,
                 pivots.at(k), max_panel_threads, priority_one);
 
             BcastList bcast_list_A;
+            int tag_k = k;
             for (int64_t i = k; i < A_mt; ++i) {
                 // send A(i, k) across row A(i, k+1:nt-1)
                 bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
             }
-            A.template listBcast(bcast_list_A);
+            A.template listBcast(bcast_list_A, tag_k);
 
             // Root broadcasts the pivot to all ranks.
             // todo: Panel ranks send the pivots to the right.
@@ -109,7 +110,7 @@ void getrf(slate::internal::TargetType<target>,
         // update lookahead column(s), high priority
         for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
             #pragma omp task depend(in:column[k]) \
-                             depend(inout:column[j]) priority(1)
+                             depend(inout:column[j]) priority(priority_one)
             {
                 // swap rows in A(k:mt-1, j)
                 int priority_one = 1;
@@ -137,6 +138,20 @@ void getrf(slate::internal::TargetType<target>,
                     scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j), priority_one);
             }
         }
+        // pivot to the left, high priority
+        // if (k > 0) {
+        //     #pragma omp task depend(in:column[k]) \
+        //                      depend(inout:column[0]) \
+        //                      depend(inout:column[k-1])
+        //     {
+        //         // swap rows in A(k:mt-1, 0:k-1)
+        //         int priority_one = 1;
+        //         int tag_km1 = k-1;
+        //         internal::swap<Target::HostTask>(
+        //             A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
+        //             priority_one, tag_km1);
+        //     }
+        // }
         // update trailing submatrix, normal priority
         if (k+1+lookahead < A_nt) {
             #pragma omp task depend(in:column[k]) \
@@ -226,7 +241,7 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
     int64_t max_panel_threads;
     try {
         max_panel_threads = opts.at(Option::MaxPanelThreads).i_;
-        assert(max_panel_threads >= 0);
+        assert(max_panel_threads >= 1);
     }
     catch (std::out_of_range) {
         max_panel_threads = std::max(omp_get_max_threads()/2, 1);

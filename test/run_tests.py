@@ -76,6 +76,8 @@ group_opt.add_argument( '--trans',  action='store', help='default=%(default)s', 
 group_opt.add_argument( '--uplo',   action='store', help='default=%(default)s', default='l,u' )
 group_opt.add_argument( '--diag',   action='store', help='default=%(default)s', default='n,u' )
 group_opt.add_argument( '--side',   action='store', help='default=%(default)s', default='l,r' )
+group_opt.add_argument( '--alpha',  action='store', help='default=%(default)s', default='' )
+group_opt.add_argument( '--beta',   action='store', help='default=%(default)s', default='' )
 group_opt.add_argument( '--incx',   action='store', help='default=%(default)s', default='1,2,-1,-2' )
 group_opt.add_argument( '--incy',   action='store', help='default=%(default)s', default='1,2,-1,-2' )
 group_opt.add_argument( '--check',  action='store', help='default=y', default='' )  # default in test.cc
@@ -188,6 +190,8 @@ trans  = ' --trans '  + opts.trans  if (opts.trans)  else ''
 uplo   = ' --uplo '   + opts.uplo   if (opts.uplo)   else ''
 diag   = ' --diag '   + opts.diag   if (opts.diag)   else ''
 side   = ' --side '   + opts.side   if (opts.side)   else ''
+a      = ' --alpha '  + opts.alpha  if (opts.alpha)  else ''
+ab     = a + ' --beta ' + opts.beta if (opts.beta)   else ''
 incx   = ' --incx '   + opts.incx   if (opts.incx)   else ''
 incy   = ' --incy '   + opts.incy   if (opts.incy)   else ''
 check  = ' --check '  + opts.check  if (opts.check)  else ''
@@ -247,22 +251,22 @@ cmds = []
 # Level 3
 if (opts.blas3):
     cmds += [
-    [ 'gemm',  gen + dtype         + transA + transB + mnk + la ],
+    [ 'gemm',  gen + dtype + transA + transB + mnk + la + ab ],
 
-    [ 'hemm',  gen + dtype         + side + uplo     + mn + la ],
-    [ 'herk',  gen + dtype_real    + uplo + trans    + mn + la ],
-    [ 'herk',  gen + dtype_complex + uplo + trans_nc + mn + la ],
-    [ 'her2k', gen + dtype_real    + uplo + trans    + mn + la ],
-    [ 'her2k', gen + dtype_complex + uplo + trans_nc + mn + la ],
+    [ 'hemm',  gen + dtype         + side + uplo     + mn + la + ab ],
+    [ 'herk',  gen + dtype_real    + uplo + trans    + mn + la + ab ],
+    [ 'herk',  gen + dtype_complex + uplo + trans_nc + mn + la + ab ],
+    [ 'her2k', gen + dtype_real    + uplo + trans    + mn + la + ab ],
+    [ 'her2k', gen + dtype_complex + uplo + trans_nc + mn + la + ab ],
 
-    [ 'symm',  gen + dtype         + side + uplo     + mn + la ],
-    [ 'syr2k', gen + dtype_real    + uplo + trans    + mn + la ],
-    [ 'syr2k', gen + dtype_complex + uplo + trans_nt + mn + la ],
-    [ 'syrk',  gen + dtype_real    + uplo + trans    + mn + la ],
-    [ 'syrk',  gen + dtype_complex + uplo + trans_nt + mn + la ],
+    [ 'symm',  gen + dtype         + side + uplo     + mn + la + ab ],
+    [ 'syr2k', gen + dtype_real    + uplo + trans    + mn + la + ab ],
+    [ 'syr2k', gen + dtype_complex + uplo + trans_nt + mn + la + ab ],
+    [ 'syrk',  gen + dtype_real    + uplo + trans    + mn + la + ab ],
+    [ 'syrk',  gen + dtype_complex + uplo + trans_nt + mn + la + ab ],
 
-    [ 'trmm',  gen + dtype         + side + uplo + transA + diag + mn + la ],
-    [ 'trsm',  gen + dtype         + side + uplo + transA + diag + mn + la ],
+    [ 'trmm',  gen + dtype + side + uplo + transA + diag + mn + la + a ],
+    [ 'trsm',  gen + dtype + side + uplo + transA + diag + mn + la + a ],
     ]
 
 # LU

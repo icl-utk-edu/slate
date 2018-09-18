@@ -71,6 +71,7 @@ std::map<std::string, Color> Trace::function_color_ = {
     {"blas::syrk",  Color::CornflowerBlue},
     {"blas::trmm",  Color::MediumOrchid},
     {"blas::trsm",  Color::MediumPurple},
+    {"blas::scale", Color::Goldenrod},
 
     {"cblas_gemm_batch",  Color::DarkGreen},
     {"cublasGemmBatched", Color::PaleGreen},

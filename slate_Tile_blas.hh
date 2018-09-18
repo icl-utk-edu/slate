@@ -553,6 +553,27 @@ void trsm(
 }
 
 ///-----------------------------------------------------------------------------
+/// Scale by a constant: $A = \alpha A$.
+template <typename scalar_t>
+void scale(
+    scalar_t alpha, Tile<scalar_t>& A)
+{
+    trace::Block trace_block("blas::scale");
+    for (int64_t j = 0; j < A.nb(); ++j)
+        for (int64_t i = 0; i < A.mb(); ++i)
+            A.at(i, j) *= alpha;
+}
+
+///----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename scalar_t>
+void scale(
+    scalar_t alpha, Tile<scalar_t>&& A)
+{
+    scale(alpha, A);
+}
+
+///-----------------------------------------------------------------------------
 /// \brief
 /// Swap rows of two local tiles.
 ///

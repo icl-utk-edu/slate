@@ -107,6 +107,13 @@ group_opt.add_argument( '--q',      action='store', help='default=%(default)s', 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
 opts = parser.parse_args()
 
+for t in opts.tests:
+    if (t.startswith('--')):
+        print( 'Error: option', t, 'must come before any routine names' )
+        print( 'usage:', sys.argv[0], '[options]', '[routines]' )
+        print( '      ', sys.argv[0], '--help' )
+        exit(1)
+
 # by default, run medium sizes
 if (not (opts.xsmall or opts.small or opts.medium or opts.large)):
     opts.medium = True
@@ -554,6 +561,8 @@ run_all = (ntests == 0)
 
 for cmd in cmds:
     if (run_all or cmd[0] in opts.tests):
+        if (not run_all):
+            opts.tests.remove( cmd[0] )
         err = run_test( cmd )
         if (err != 0):
             failures.append( cmd[0] )
@@ -564,6 +573,8 @@ for cmd in cmds:
         # TODO: add errors/skipped tests
         else:
             passed_tests.append(cmd[0])
+if (opts.tests):
+    print( 'Warning: unknown routines:', ' '.join( opts.tests ))
 
 # print summary of failures
 nfailures = len( failures )

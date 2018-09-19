@@ -178,7 +178,7 @@ public:
         return tileRank(ij) == mpi_rank_;
     }
 
-    Tile<scalar_t>* tileInsert(ijdev_tuple ijdev);
+    Tile<scalar_t>* tileInsert(ijdev_tuple ijdev, TileKind );
     Tile<scalar_t>* tileInsert(ijdev_tuple ijdev, scalar_t* data, int64_t lda);
     void tileTick(ij_tuple ij);
 
@@ -453,14 +453,15 @@ void MatrixStorage<scalar_t>::clearWorkspace()
     LockGuard(tiles_.get_lock());
     // incremented below
     for (auto iter = tiles_.begin(); iter != tiles_.end();) {
-        if (! iter->second->origin()) {
+        if (iter->second->workspace()) {
             // Since we can't increment the iterator after deleting the
             // element, use post-fix iter++ to increment it but
             // erase the current value.
             erase((iter++)->first);
         }
-        else
+        else {
             ++iter;
+        }
     }
     memory_.clearHostBlocks();
     for (int device = 0; device < num_devices_; ++device)
@@ -469,7 +470,7 @@ void MatrixStorage<scalar_t>::clearWorkspace()
 
 //------------------------------------------------------------------------------
 /// Remove a tile from the map and delete it.
-/// If tile is workspace, i.e., not origin, then its memory is freed back
+/// If tile's memory was allocated by SLATE, then its memory is freed back
 /// to the allocator memory pool.
 /// Doesn't delete life; see tileTick for deleting life.
 ///
@@ -481,7 +482,7 @@ void MatrixStorage<scalar_t>::erase(ijdev_tuple ijdev)
     auto iter = tiles_.find(ijdev);
     if (iter != tiles_.end()) {
         Tile<scalar_t>* tile = tiles_.at(ijdev);
-        if (! tile->origin())
+        if (tile->allocated())
             memory_.free(tile->data(), tile->device());
         delete tile;
         tiles_.erase(ijdev);
@@ -504,15 +505,18 @@ void MatrixStorage<scalar_t>::clear()
 }
 
 //------------------------------------------------------------------------------
-/// Inserts workspace tile {i, j} on given device, which can be host,
+/// Inserts tile {i, j} on given device, which can be host,
 /// allocating new memory for it.
-/// Sets tile origin = false.
+/// Tile kind should be either TileKind::Workspace or TileKind::SlateOwned.
 /// Does not set tile's life.
 /// @return Pointer to newly inserted Tile.
 ///
 template <typename scalar_t>
-Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(ijdev_tuple ijdev)
+Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
+    ijdev_tuple ijdev, TileKind kind)
 {
+    assert(kind == TileKind::Workspace ||
+           kind == TileKind::SlateOwned);
     assert(tiles_.find(ijdev) == tiles_.end());  // doesn't exist yet
     int64_t i  = std::get<0>(ijdev);
     int64_t j  = std::get<1>(ijdev);
@@ -520,8 +524,8 @@ Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(ijdev_tuple ijdev)
     scalar_t* data = (scalar_t*) memory_.alloc(device);
     int64_t mb = tileMb(i);
     int64_t nb = tileNb(j);
-    Tile<scalar_t>* tile = new Tile<scalar_t>(mb, nb, data, mb,
-                                              device, false);
+    Tile<scalar_t>* tile
+        = new Tile<scalar_t>(mb, nb, data, mb, device, kind);
     tiles_[ijdev] = tile;
     return tile;
 }
@@ -530,7 +534,7 @@ Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(ijdev_tuple ijdev)
 /// This is intended for inserting the original matrix.
 /// Inserts tile {i, j} on given device, which can be host,
 /// wrapping existing memory for it.
-/// Sets tile origin = true.
+/// Sets tile kind = TileKind::UserOwned.
 /// Does not set tile's life.
 /// @return Pointer to newly inserted Tile.
 ///
@@ -544,8 +548,8 @@ Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
     int device = std::get<2>(ijdev);
     int64_t mb = tileMb(i);
     int64_t nb = tileNb(j);
-    Tile<scalar_t>* tile = new Tile<scalar_t>(mb, nb, data, lda,
-                                              device, true);
+    Tile<scalar_t>* tile
+        = new Tile<scalar_t>(mb, nb, data, lda, device, TileKind::UserOwned);
     tiles_[ijdev] = tile;
     return tile;
 }

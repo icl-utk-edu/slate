@@ -70,7 +70,7 @@ public:
                 cudaError_t error = cudaGetDeviceCount(&num_devices_);
                 if (error == cudaSuccess) {
                     host_num_ = -num_devices_;
-                } 
+                }
                 else {
                     num_devices_ = 0;
                     host_num_ = 0;

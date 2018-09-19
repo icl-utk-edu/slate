@@ -164,6 +164,7 @@ public:
     int64_t tileNb(int64_t j) const;
 
     Tile<scalar_t>* tileInsert(int64_t i, int64_t j, int device=host_num_);
+    Tile<scalar_t>* tileInsertWorkspace(int64_t i, int64_t j, int device=host_num_);
     Tile<scalar_t>* tileInsert(int64_t i, int64_t j, int device,
                                scalar_t* A, int64_t ld);
 
@@ -234,7 +235,6 @@ public:
     }
 
     /// Removes all temporary host and device workspace tiles from matrix.
-    /// Leaves origin tiles.
     void clearWorkspace()
     {
         storage_->clearWorkspace();
@@ -562,7 +562,31 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
     int64_t i, int64_t j, int device)
 {
     auto index = globalIndex(i, j, device);
-    auto tile = storage_->tileInsert(index);
+    auto tile = storage_->tileInsert(index, TileKind::SlateOwned);
+    return tile;
+}
+
+//------------------------------------------------------------------------------
+/// Insert a workspace tile {i, j} of op(A) and allocate its data.
+/// The tile will be freed
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] device
+///     Tile's device ID; default is host_num.
+///
+/// @return Pointer to new tile.
+///
+template <typename scalar_t>
+Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsertWorkspace(
+    int64_t i, int64_t j, int device)
+{
+    auto index = globalIndex(i, j, device);
+    auto tile = storage_->tileInsert(index, TileKind::Workspace);
     return tile;
 }
 
@@ -592,13 +616,15 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
     int64_t i, int64_t j, int device, scalar_t* data, int64_t ld)
 {
     auto index = globalIndex(i, j, device);
-    auto tile = storage_->tileInsert(index, data, ld);
+    auto tile = storage_->tileInsert(index, data, ld); // TileKind::UserOwned
     return tile;
 }
 
 //------------------------------------------------------------------------------
 /// Erase tile {i, j} of op(A).
-/// If tile is not origin, then the memory is released to the allocator pool.
+/// If tile's memory was allocated by SLATE,
+/// via tileInsert(i, j, dev) or tileInsertWorkspace(i, j, dev),
+/// then the memory is released to the allocator pool.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -699,7 +725,7 @@ void BaseMatrix<scalar_t>::listBcast(BcastList& bcast_list, int tag)
                     life += submatrix.numLocalTiles();
 
                 if (iter == storage_->end())
-                    tileInsert(i, j, host_num_);
+                    tileInsertWorkspace(i, j, host_num_);
                 else
                     life += tileLife(i, j); // todo: use temp tile to receive
                 tileLife(i, j, life);
@@ -974,7 +1000,7 @@ void BaseMatrix<scalar_t>::tileCopyToDevice(
     if (iter == storage_->end()) {
         // Create a copy on the device.
         Tile<scalar_t>* src_tile = storage_->at(globalIndex(i, j, host_num_));
-        Tile<scalar_t>* dst_tile = tileInsert(i, j, dst_device);
+        Tile<scalar_t>* dst_tile = tileInsertWorkspace(i, j, dst_device);
         src_tile->copyDataToDevice(dst_tile, comm_stream(dst_device));
     }
     else {
@@ -1016,7 +1042,7 @@ void BaseMatrix<scalar_t>::tileCopyToHost(
     if (iter == storage_->end()) {
         // Create a copy on the host.
         Tile<scalar_t>* src_tile = storage_->at(globalIndex(i, j, src_device));
-        Tile<scalar_t>* dst_tile = tileInsert(i, j, host_num_);
+        Tile<scalar_t>* dst_tile = tileInsertWorkspace(i, j, host_num_);
         src_tile->copyDataToHost(dst_tile, comm_stream(src_device));
     }
     else {

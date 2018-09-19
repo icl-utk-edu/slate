@@ -95,6 +95,16 @@ MatrixType conj_transpose(MatrixType& A)
 }
 
 //------------------------------------------------------------------------------
+/// Whether a tile is workspace or origin (local non-workspace),
+/// and who owns (allocated, deallocates) the data.
+enum class TileKind
+{
+    Workspace,   ///< SLATE allocated workspace tile
+    SlateOwned,  ///< SLATE allocated origin tile
+    UserOwned,   ///< User owned origin tile
+};
+
+//------------------------------------------------------------------------------
 /// Tile holding an mb-by-nb matrix, with leading dimension (stride).
 template <typename scalar_t>
 class Tile {
@@ -105,7 +115,7 @@ public:
     Tile();
 
     Tile(int64_t mb, int64_t nb,
-         scalar_t* A, int64_t lda, int device, bool origin=true);
+         scalar_t* A, int64_t lda, int device, TileKind kind);
 
     // defaults okay (tile doesn't own data, doesn't allocate/deallocate data)
     // 1. destructor
@@ -152,9 +162,16 @@ public:
     /// Sets whether this tile is valid (cache coherency protocol).
     void valid(bool val) { valid_ = val; }  // todo: protected?
 
-    /// Returns whether this is a local tile, originally given by the user (true),
-    /// or is a workspace buffer.
-    bool origin() const { return origin_; }
+    /// Returns true if this is an origin (local non-workspace) tile.
+    bool origin() const { return ! workspace(); }
+
+    /// Returns true if this is a workspace tile.
+    bool workspace() const { return kind_ == TileKind::Workspace; }
+
+    /// Returns true if SLATE allocated this tile's memory,
+    /// false if the user provided the tile's memory,
+    /// e.g., via a fromScaLAPACK constructor.
+    bool allocated() const { return kind_ != TileKind::UserOwned; }
 
     /// Returns number of bytes; but NOT consecutive if stride != mb_.
     size_t bytes() const { return sizeof(scalar_t) * size(); }
@@ -188,7 +205,7 @@ protected:
     scalar_t* data_;
 
     bool valid_;
-    bool origin_;
+    TileKind kind_;
 
     int device_;
 };
@@ -204,7 +221,7 @@ Tile<scalar_t>::Tile()
       uplo_(Uplo::General),
       data_(nullptr),
       valid_(false),
-      origin_(true),
+      kind_(TileKind::UserOwned),
       device_(-1)  // todo: host_num
 {}
 
@@ -226,14 +243,16 @@ Tile<scalar_t>::Tile()
 /// @param[in] device
 ///     Tile's device ID.
 ///
-/// @param[in] origin
-///     Whether tile is a local tile, originally given by the user (true),
-///     or is a workspace tile.
+/// @param[in] kind
+///     The kind of tile:
+///     - Workspace:  temporary tile, allocated by SLATE
+///     - SlateOwned: origin tile, allocated by SLATE
+///     - UserOwned:  origin tile, allocated by user
 ///
 template <typename scalar_t>
 Tile<scalar_t>::Tile(
     int64_t mb, int64_t nb,
-    scalar_t* A, int64_t lda, int device, bool origin)
+    scalar_t* A, int64_t lda, int device, TileKind kind)
     : mb_(mb),
       nb_(nb),
       stride_(lda),
@@ -241,7 +260,7 @@ Tile<scalar_t>::Tile(
       uplo_(Uplo::General),
       data_(A),
       valid_(true),
-      origin_(origin),
+      kind_(kind),
       device_(device)
 {
     slate_assert(mb >= 0);

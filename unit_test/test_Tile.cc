@@ -197,8 +197,10 @@ void test_Tile_default()
     test_assert(A.uplo_logical() == blas::Uplo::General);
     test_assert(A.data() == nullptr);
     test_assert(A.valid() == false);
-    test_assert(A.origin() == true);  // ?
-    test_assert(A.device() == -1);  // ?
+    test_assert(A.origin() == true);      // note: TileKind::UserOwned
+    test_assert(A.workspace() == false);  // note
+    test_assert(A.allocated() == false);  // note
+    test_assert(A.device() == -1);        // what should this be?
     test_assert(A.bytes() == 0);
     test_assert(A.size() == 0);
 }
@@ -213,8 +215,8 @@ void test_Tile_data()
     const int lda = roundup(m, 32);
     scalar_t data[ lda * n ];
 
-    // with device = -1, default origin = true
-    slate::Tile<scalar_t> A(m, n, data, lda, -1);
+    // with device = -1, kind = UserOwned
+    slate::Tile<scalar_t> A(m, n, data, lda, -1, slate::TileKind::UserOwned);
 
     test_assert(A.mb() == m);
     test_assert(A.nb() == n);
@@ -224,13 +226,15 @@ void test_Tile_data()
     test_assert(A.uplo_logical() == blas::Uplo::General);
     test_assert(A.data() == data);
     test_assert(A.valid() == true);
-    test_assert(A.origin() == true);  // note
-    test_assert(A.device() == -1);    // note
+    test_assert(A.origin() == true);      // note differences
+    test_assert(A.workspace() == false);  // note
+    test_assert(A.allocated() == false);  // note
+    test_assert(A.device() == -1);        // note
     test_assert(A.bytes() == sizeof(scalar_t) * m * n);
     test_assert(A.size() == size_t(m * n));
 
-    // with device = 1, origin = true
-    slate::Tile<scalar_t> B(m, n, data, lda, 1, true);
+    // with device = 1, kind = UserOwned
+    slate::Tile<scalar_t> B(m, n, data, lda, 1, slate::TileKind::UserOwned);
 
     test_assert(B.mb() == m);
     test_assert(B.nb() == n);
@@ -240,13 +244,15 @@ void test_Tile_data()
     test_assert(B.uplo_logical() == blas::Uplo::General);
     test_assert(B.data() == data);
     test_assert(B.valid() == true);
-    test_assert(B.origin() == true);  // note
-    test_assert(B.device() == 1);     // note
+    test_assert(B.origin() == true);      // note
+    test_assert(B.workspace() == false);  // note
+    test_assert(B.allocated() == false);  // note
+    test_assert(B.device() == 1);         // note
     test_assert(B.bytes() == sizeof(scalar_t) * m * n);
     test_assert(B.size() == size_t(m * n));
 
-    // with device = 2, origin = false
-    slate::Tile<scalar_t> C(m, n, data, lda, 2, false);
+    // with device = 2, kind = Workspace
+    slate::Tile<scalar_t> C(m, n, data, lda, 2, slate::TileKind::Workspace);
 
     test_assert(C.mb() == m);
     test_assert(C.nb() == n);
@@ -256,10 +262,30 @@ void test_Tile_data()
     test_assert(C.uplo_logical() == blas::Uplo::General);
     test_assert(C.data() == data);
     test_assert(C.valid() == true);
-    test_assert(C.origin() == false);  // note
-    test_assert(C.device() == 2);      // note
+    test_assert(C.origin() == false);     // note
+    test_assert(C.workspace() == true);   // note
+    test_assert(C.allocated() == true);   // note
+    test_assert(C.device() == 2);         // note
     test_assert(C.bytes() == sizeof(scalar_t) * m * n);
     test_assert(C.size() == size_t(m * n));
+
+    // with device = 2, kind = SlateOwned
+    slate::Tile<scalar_t> D(m, n, data, lda, 2, slate::TileKind::SlateOwned);
+
+    test_assert(D.mb() == m);
+    test_assert(D.nb() == n);
+    test_assert(D.stride() == lda);
+    test_assert(D.op() == slate::Op::NoTrans);
+    test_assert(D.uplo() == blas::Uplo::General);
+    test_assert(D.uplo_logical() == blas::Uplo::General);
+    test_assert(D.data() == data);
+    test_assert(D.valid() == true);
+    test_assert(D.origin() == true);      // note
+    test_assert(D.workspace() == false);  // note
+    test_assert(D.allocated() == true);   // note
+    test_assert(D.device() == 2);         // note
+    test_assert(D.bytes() == sizeof(scalar_t) * m * n);
+    test_assert(D.size() == size_t(m * n));
 }
 
 void test_Tile_data_double()
@@ -289,7 +315,7 @@ void test_transpose()
     const int n = 30;
     const int lda = roundup(m, 32);
     scalar_t data[ lda * n ];
-    slate::Tile<scalar_t> A(m, n, data, lda, -1);
+    slate::Tile<scalar_t> A(m, n, data, lda, -1, slate::TileKind::UserOwned);
     setup_data(A);
 
     //----- transpose
@@ -348,7 +374,7 @@ void test_conj_transpose()
     const int n = 30;
     const int lda = roundup(m, 32);
     scalar_t data[ lda * n ];
-    slate::Tile<scalar_t> A(m, n, data, lda, -1);
+    slate::Tile<scalar_t> A(m, n, data, lda, -1, slate::TileKind::UserOwned);
     setup_data(A);
 
     //----- conj_transpose
@@ -451,7 +477,7 @@ void test_lower()
     const int n = 30;
     const int lda = roundup(m, 32);
     scalar_t data[ lda * n ];
-    slate::Tile<scalar_t> A(m, n, data, lda, -1);
+    slate::Tile<scalar_t> A(m, n, data, lda, -1, slate::TileKind::UserOwned);
     setup_data(A);
 
     A.uplo(slate::Uplo::Lower);
@@ -494,7 +520,7 @@ void test_upper()
     const int n = 30;
     const int lda = roundup(m, 32);
     scalar_t data[ lda * n ];
-    slate::Tile<scalar_t> A(m, n, data, lda, -1);
+    slate::Tile<scalar_t> A(m, n, data, lda, -1, slate::TileKind::UserOwned);
     setup_data(A);
 
     A.uplo(slate::Uplo::Upper);
@@ -543,7 +569,7 @@ void test_send_recv(int align_src, int align_dst)
     int lda = roundup(m, (mpi_rank % 2 == 0 ? align_src : align_dst));
     double* data = new double[ lda * n ];
     assert(data != nullptr);
-    slate::Tile<double> A(m, n, data, lda, -1);
+    slate::Tile<double> A(m, n, data, lda, -1, slate::TileKind::UserOwned);
     setup_data(A);
 
     int r = int(mpi_rank / 2) * 2;
@@ -599,7 +625,7 @@ void test_bcast(int align_src, int align_dst)
     int lda = roundup(m, (mpi_rank == 0 ? align_dst : align_src));
     double* data = new double[ lda * n ];
     assert(data != nullptr);
-    slate::Tile<double> A(m, n, data, lda, -1);
+    slate::Tile<double> A(m, n, data, lda, -1, slate::TileKind::UserOwned);
     setup_data(A);
 
     // with root = 0
@@ -651,8 +677,8 @@ void test_copyDataToDevice(int align_host, int align_dev)
     int ldda = roundup(m, align_dev);
     double* dataA = new double[ lda * n ];
     double* dataB = new double[ lda * n ];
-    slate::Tile<double> A(m, n, dataA, lda, -1);
-    slate::Tile<double> B(m, n, dataB, lda, -1);
+    slate::Tile<double> A(m, n, dataA, lda, -1, slate::TileKind::UserOwned);
+    slate::Tile<double> B(m, n, dataB, lda, -1, slate::TileKind::UserOwned);
     setup_data(A);
     // set B, including padding, then clear B, excluding padding,
     // so the padding remains setup for verify_data.
@@ -666,7 +692,7 @@ void test_copyDataToDevice(int align_host, int align_dev)
     test_assert(cudaMalloc((void**) &data_dev, sizeof(double)*ldda*n) == cudaSuccess);
     test_assert(data_dev != nullptr);
 
-    slate::Tile<double> dA(m, n, data_dev, ldda, 0);
+    slate::Tile<double> dA(m, n, data_dev, ldda, 0, slate::TileKind::UserOwned);
 
     // copy to device and back, then verify
     A.copyDataToDevice(&dA, stream);

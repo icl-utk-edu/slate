@@ -97,7 +97,7 @@ void test_genorm(Norm norm)
     int n = 30;
     int lda = roundup(m, 8);
     double* dataA = new double[ lda * n ];
-    slate::Tile<double> A(m, n, dataA, lda, -1);
+    slate::Tile<double> A(m, n, dataA, lda, -1, slate::TileKind::UserOwned);
     setup_data(A);
 
     std::vector<double> values;
@@ -185,7 +185,7 @@ void test_genorm_dev(Norm norm)
     int n = 30;
     int lda = roundup(m, 8);
     double* Adata = new double[ lda * n ];
-    slate::Tile<double> A(m, n, Adata, lda, -1);
+    slate::Tile<double> A(m, n, Adata, lda, -1, slate::TileKind::UserOwned);
     setup_data(A);
 
     cudaStream_t stream;
@@ -194,7 +194,7 @@ void test_genorm_dev(Norm norm)
     double* dAdata;
     test_assert(cudaMalloc((void**)&dAdata, sizeof(double) * lda * n) == cudaSuccess);
     test_assert(dAdata != nullptr);
-    slate::Tile<double> dA(m, n, dAdata, lda, 0);
+    slate::Tile<double> dA(m, n, dAdata, lda, 0, slate::TileKind::UserOwned);
     A.copyDataToDevice(&dA, stream);
 
     const int batch_count = 1;
@@ -303,7 +303,7 @@ void test_synorm(Norm norm, Uplo uplo)
     int n = 30;
     int lda = roundup(n, 8);
     double* dataA = new double[ lda * n ];
-    slate::Tile<double> A(n, n, dataA, lda, -1);
+    slate::Tile<double> A(n, n, dataA, lda, -1, slate::TileKind::UserOwned);
     setup_data(A);
     A.uplo(uplo);
 
@@ -396,7 +396,7 @@ void test_synorm_dev(Norm norm, Uplo uplo)
     int n = 30;
     int lda = roundup(n, 8);
     double* Adata = new double[ lda * n ];
-    slate::Tile<double> A(n, n, Adata, lda, -1);
+    slate::Tile<double> A(n, n, Adata, lda, -1, slate::TileKind::UserOwned);
     setup_data(A);
     A.uplo( uplo );
 
@@ -406,7 +406,7 @@ void test_synorm_dev(Norm norm, Uplo uplo)
     double* dAdata;
     test_assert(cudaMalloc((void**)&dAdata, sizeof(double) * lda * n) == cudaSuccess);
     test_assert(dAdata != nullptr);
-    slate::Tile<double> dA(n, n, dAdata, lda, 0);
+    slate::Tile<double> dA(n, n, dAdata, lda, 0, slate::TileKind::UserOwned);
     A.copyDataToDevice(&dA, stream);
 
     const int batch_count = 1;
@@ -515,7 +515,7 @@ void test_synorm_offdiag(Norm norm)
     int n = 30;
     int lda = roundup(m, 8);
     double* dataA = new double[ lda * n ];
-    slate::Tile<double> A(m, n, dataA, lda, -1);
+    slate::Tile<double> A(m, n, dataA, lda, -1, slate::TileKind::UserOwned);
     setup_data(A);
 
     std::vector<double> col_sums( n ), row_sums( m );
@@ -555,7 +555,7 @@ void test_synorm_offdiag_dev(Norm norm)
     int n = 30;
     int lda = roundup(m, 8);
     double* Adata = new double[ lda * n ];
-    slate::Tile<double> A(m, n, Adata, lda, -1);
+    slate::Tile<double> A(m, n, Adata, lda, -1, slate::TileKind::UserOwned);
     setup_data(A);
 
     cudaStream_t stream;
@@ -564,7 +564,7 @@ void test_synorm_offdiag_dev(Norm norm)
     double* dAdata;
     test_assert(cudaMalloc((void**)&dAdata, sizeof(double) * lda * n) == cudaSuccess);
     test_assert(dAdata != nullptr);
-    slate::Tile<double> dA(m, n, dAdata, lda, 0);
+    slate::Tile<double> dA(m, n, dAdata, lda, 0, slate::TileKind::UserOwned);
     A.copyDataToDevice(&dA, stream);
 
     const int batch_count = 1;
@@ -630,7 +630,7 @@ void test_trnorm(Norm norm, Uplo uplo, Diag diag)
 
     int lda = roundup(m, 8);
     double* Adata = new double[ lda * n ];
-    slate::Tile<double> A(m, n, Adata, lda, -1);
+    slate::Tile<double> A(m, n, Adata, lda, -1, slate::TileKind::UserOwned);
     setup_data(A);
     A.uplo( uplo );
 
@@ -790,7 +790,7 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
 
     int lda = roundup(m, 8);
     double* Adata = new double[ lda * n ];
-    slate::Tile<double> A(m, n, Adata, lda, -1);
+    slate::Tile<double> A(m, n, Adata, lda, -1, slate::TileKind::UserOwned);
     setup_data(A);
     A.uplo( uplo );
 
@@ -800,7 +800,7 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
     double* dAdata;
     test_assert(cudaMalloc((void**)&dAdata, sizeof(double) * lda * n) == cudaSuccess);
     test_assert(dAdata != nullptr);
-    slate::Tile<double> dA(m, n, dAdata, lda, 0);
+    slate::Tile<double> dA(m, n, dAdata, lda, 0, slate::TileKind::UserOwned);
     A.copyDataToDevice(&dA, stream);
     dA.uplo( uplo );
 

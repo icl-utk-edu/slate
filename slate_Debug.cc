@@ -152,8 +152,8 @@ void Debug::printTilesLives(BaseMatrix<scalar_t> const& A)
 /// Prints map of all tiles.
 /// Uses
 ///  - "." if tile doesn't exist,
-///  - "o" if it is origin (i.e., local tiles),
-///  - "x" otherwise (i.e., remote tiles).
+///  - "o" if it is origin (local non-workspace)
+///  - "w" if it is workspace.
 ///
 template <typename scalar_t>
 void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
@@ -166,10 +166,10 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
             auto it = A.storage_->tiles_.find({i, j, A.host_num_});
             if (it != A.storage_->tiles_.end()) {
                 auto tile = it->second;
-                if (tile->origin() == true)
+                if (tile->origin())
                     printf("o");
                 else
-                    printf("x");
+                    printf("w");
             }
             else
                 printf(".");
@@ -183,7 +183,7 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
                 auto it = A.storage_->tiles_.find({i, j, device});
                 if (it != A.storage_->tiles_.end()) {
                     auto tile = it->second;
-                    if (tile->origin() == true)
+                    if (tile->origin())
                         printf("o");
                     else
                         printf("x");

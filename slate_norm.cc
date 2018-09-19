@@ -365,4 +365,25 @@ double norm(
     Norm in_norm, TrapezoidMatrix< std::complex<double> >& A,
     const std::map<Option, Value>& opts);
 
+//--------------------
+template
+float norm(
+    Norm in_norm, BandMatrix<float>& A,
+    const std::map<Option, Value>& opts);
+
+template
+double norm(
+    Norm in_norm, BandMatrix<double>& A,
+    const std::map<Option, Value>& opts);
+
+template
+float norm(
+    Norm in_norm, BandMatrix< std::complex<float> >& A,
+    const std::map<Option, Value>& opts);
+
+template
+double norm(
+    Norm in_norm, BandMatrix< std::complex<double> >& A,
+    const std::map<Option, Value>& opts);
+
 } // namespace slate

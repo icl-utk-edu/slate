@@ -162,6 +162,7 @@ void test_hetrf  ( Params& params, bool run );
 void test_hetrs  ( Params& params, bool run );
 
 // matrix norms
+void test_gbnorm ( Params& params, bool run );
 void test_genorm ( Params& params, bool run );
 void test_henorm ( Params& params, bool run );
 void test_synorm ( Params& params, bool run );

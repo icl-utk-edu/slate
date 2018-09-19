@@ -514,8 +514,9 @@ if (opts.svd):
 # auxilary - norms
 if (opts.aux):
     cmds += [
+    [ 'gbnorm', gen + dtype + mn + norm + kl + ku ],
     [ 'genorm', gen + dtype + mn + norm ],
-    #[ 'henorm', gen + dtype + n  + norm + uplo ],
+    [ 'henorm', gen + dtype + n  + norm + uplo ],
     [ 'synorm', gen + dtype + n  + norm + uplo ],
     [ 'trnorm', gen + dtype + mn + norm + uplo + diag ],
     ]

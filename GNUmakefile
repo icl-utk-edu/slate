@@ -217,6 +217,7 @@ lib_src += \
 # internal
 lib_src += \
         slate_internal_comm.cc \
+        slate_internal_gbnorm.cc \
         slate_internal_gemm.cc \
         slate_internal_gemm_A.cc \
         slate_internal_genorm.cc \
@@ -268,6 +269,7 @@ lib_src += \
 # main tester
 test_src += \
         test/test.cc \
+        test/test_gbnorm.cc \
         test/test_gbtrf.cc \
         test/test_gemm.cc \
         test/test_genorm.cc \

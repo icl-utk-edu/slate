@@ -58,6 +58,7 @@
 #include "slate_HermitianMatrix.hh"
 #include "slate_SymmetricMatrix.hh"
 #include "slate_TriangularMatrix.hh"
+#include "slate_BandMatrix.hh"
 
 ///-----------------------------------------------------------------------------
 #define THROW_IF(cond, error) \
@@ -334,6 +335,11 @@ void norm(Norm in_norm, SymmetricMatrix<scalar_t>&& A,
 
 template <Target target=Target::HostTask, typename scalar_t>
 void norm(Norm in_norm, TrapezoidMatrix<scalar_t>&& A,
+          blas::real_type<scalar_t>* values,
+          int priority=0);
+
+template <Target target=Target::HostTask, typename scalar_t>
+void norm(Norm in_norm, BandMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
           int priority=0);
 

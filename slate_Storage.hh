@@ -463,9 +463,16 @@ void MatrixStorage<scalar_t>::clearWorkspace()
             ++iter;
         }
     }
-    memory_.clearHostBlocks();
-    for (int device = 0; device < num_devices_; ++device)
-        memory_.clearDeviceBlocks(device);
+    // Free host & device memory only if there are no unallocated blocks
+    // from non-workspace (SlateOwned) tiles.
+    if (memory_.allocated(host_num_) == 0) {
+        memory_.clearHostBlocks();
+    }
+    for (int device = 0; device < num_devices_; ++device) {
+        if (memory_.allocated(device) == 0) {
+            memory_.clearDeviceBlocks(device);
+        }
+    }
 }
 
 //------------------------------------------------------------------------------

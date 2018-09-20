@@ -109,6 +109,13 @@ public:
         return capacity_.at(device);
     }
 
+    /// @return total number of allocated blocks from device's memory pool,
+    /// which can be host.
+    size_t allocated(int device) const
+    {
+        return capacity(device) - available(device);
+    }
+
     // ----------------------------------------
     // public static variables
     static int host_num_;

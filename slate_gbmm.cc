@@ -70,6 +70,8 @@ void gbmm(slate::internal::TargetType<target>,
     using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    const scalar_t one = scalar_t(1.0);
+
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector(A.nt());
     std::vector<uint8_t>  gemm_vector(A.nt());
@@ -139,11 +141,28 @@ void gbmm(slate::internal::TargetType<target>,
             int64_t i_begin = 0;
             int64_t i_end   = min(0 + klt + 1, A.mt());
 
-            // todo: better to scal C here? then later gemm doesn't need to be split.
             internal::gemm<target>(
                     alpha, A.sub(i_begin, i_end-1, 0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
                     beta,  C.sub(i_begin, i_end-1, 0, C.nt()-1));
+
+            if (beta != one) {
+                // Scale block rows of C below the bandwidth of A:
+                // C(i_end : mt-1, :) = beta * C(i_end : mt-1, :)
+                // todo: make internal::scale routine. This is HostTask.
+                for (int64_t i = i_end; i < C.mt(); ++i) {
+                    for (int64_t j = 0; j < C.nt(); ++j) {
+                        if (C.tileIsLocal(i, j)) {
+                            #pragma omp task shared(C)
+                            {
+                                C.tileMoveToHost(i, j, C.tileDevice(i, j));
+                                scale(beta, C(i, j));
+                            }
+                        }
+                    }
+                }
+                #pragma omp taskwait
+            }
         }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
@@ -176,28 +195,17 @@ void gbmm(slate::internal::TargetType<target>,
             }
 
             int64_t i_begin = max(k - kut, 0);
-            int64_t i_end   = min(k + klt, A.mt());
-            int64_t i_end2  = min(k + klt + 1, A.mt());
+            int64_t i_end   = min(k + klt + 1, A.mt());
 
             // multiply alpha A(:, k) B(k, :) + C, no beta
             #pragma omp task depend(in:bcast[k]) \
                              depend(in:gemm[k-1]) \
                              depend(out:gemm[k])
             {
-                if (i_end-1 >= i_begin) {
-                    // add to previous rows of C without beta
-                    internal::gemm<target>(
-                        alpha,         A.sub(i_begin, i_end-1, k, k),
-                                       B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0), C.sub(i_begin, i_end-1, 0, C.nt()-1));
-                }
-                if (i_end2 > i_end) {
-                    // multiply new row of C by beta
-                    internal::gemm<target>(
-                        alpha,         A.sub(i_end2-1, i_end2-1, k, k),
-                                       B.sub(k, k, 0, B.nt()-1),
-                        beta,          C.sub(i_end2-1, i_end2-1, 0, C.nt()-1));
-                }
+                internal::gemm<target>(
+                    alpha, A.sub(i_begin, i_end-1, k, k),
+                           B.sub(k, k, 0, B.nt()-1),
+                    one,   C.sub(i_begin, i_end-1, 0, C.nt()-1));
             }
         }
     }

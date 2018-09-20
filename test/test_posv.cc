@@ -36,8 +36,9 @@ template <typename scalar_t> void test_posv_work (Params &params, bool run)
     int64_t nb = params.nb.value();
     int64_t lookahead = params.lookahead.value();
     lapack::Norm norm = params.norm.value();
-    bool check = params.check.value()=='y';
-    bool ref = params.ref.value()=='y';
+    bool ref_only = params.ref.value()=='o';
+    bool ref = params.ref.value()=='y' || ref_only;
+    bool check = params.check.value()=='y' && ! ref_only;
     bool trace = params.trace.value()=='y';
     slate::Target target = char2target (params.target.value());
 
@@ -120,28 +121,30 @@ template <typename scalar_t> void test_posv_work (Params &params, bool run)
         slate::trace::Block trace_block ("MPI_Barrier");
         MPI_Barrier (MPI_COMM_WORLD);
     }
-
-    double time = libtest::get_wtime();
-
-    slate::posv (A, B, {
-        {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}
-    });
-
-    MPI_Barrier (MPI_COMM_WORLD);
-    {
-        slate::trace::Block trace_block ("MPI_Barrier");
-        MPI_Barrier (MPI_COMM_WORLD);
-    }
-    double time_tst = libtest::get_wtime() - time;
-
-    if (trace) slate::trace::Trace::finish();
-
-    // compute and save timing/performance
     double gflop = lapack::Gflop<scalar_t>::posv (n, nrhs);
-    params.time.value() = time_tst;
-    params.gflops.value() = gflop / time_tst;
-    
+
+    if (! ref_only) {
+        double time = libtest::get_wtime();
+
+        slate::posv (A, B, {
+            {slate::Option::Lookahead, lookahead},
+            {slate::Option::Target, target}
+        });
+
+        MPI_Barrier (MPI_COMM_WORLD);
+        {
+            slate::trace::Block trace_block ("MPI_Barrier");
+            MPI_Barrier (MPI_COMM_WORLD);
+        }
+        double time_tst = libtest::get_wtime() - time;
+
+        if (trace) slate::trace::Trace::finish();
+
+        // compute and save timing/performance
+        params.time.value() = time_tst;
+        params.gflops.value() = gflop / time_tst;
+    }
+
     if (check) {
         // check residual for accuracy
 
@@ -181,7 +184,7 @@ template <typename scalar_t> void test_posv_work (Params &params, bool run)
         params.okay.value() = (params.error.value() <= tol);
     }
     
-    if(ref){
+    if (ref) {
         // A comparison with a reference routine from ScaLAPACK for timing only
         
         // set MKL num threads appropriately for parallel BLAS
@@ -200,7 +203,7 @@ template <typename scalar_t> void test_posv_work (Params &params, bool run)
 
         // Run the reference routine
         MPI_Barrier (MPI_COMM_WORLD);
-        time = libtest::get_wtime();
+        double time = libtest::get_wtime();
         scalapack_pposv (uplo2str (uplo), n, nrhs, &A_ref[0], i1, i1, descA_ref, &B_ref[0], i1, i1, descB_ref, &info);
         assert (0 == info_ref);
         MPI_Barrier (MPI_COMM_WORLD);

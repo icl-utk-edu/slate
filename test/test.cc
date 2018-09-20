@@ -153,7 +153,7 @@ Params::Params():
     //         name,       w,    type,             def, valid, help
     check     ( "check",   0,    ParamType::Value, 'y', "ny",  "check the results" ),
     error_exit( "error-exit", 0, ParamType::Value, 'n', "ny",  "check error exits" ),
-    ref       ( "ref",     0,    ParamType::Value, 'y', "ny",  "run reference; sometimes check implies ref" ),
+    ref       ( "ref",     0,    ParamType::Value, 'y', "nyo",  "run reference; sometimes check implies ref" ),
     trace     ( "trace",   0,    ParamType::Value, 'n', "ny",  "enable/disable traces" ),
 
     //          name,      w, p, type,             def, min,  max, help

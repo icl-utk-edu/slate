@@ -34,8 +34,9 @@ template <typename scalar_t> void test_potrf_work (Params &params, bool run)
     int64_t nb = params.nb.value();
     int64_t lookahead = params.lookahead.value();
     lapack::Norm norm = params.norm.value();
-    bool check = params.check.value()=='y';
-    bool ref = params.ref.value()=='y';
+    bool ref_only = params.ref.value()=='o';
+    bool ref = params.ref.value()=='y' || ref_only;
+    bool check = params.check.value()=='y' && ! ref_only;
     bool trace = params.trace.value()=='y';
     slate::Target target = char2target (params.target.value());
 
@@ -86,35 +87,37 @@ template <typename scalar_t> void test_potrf_work (Params &params, bool run)
         scalapack_descinit (descA_ref, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
         assert (info==0);
     }
-
-    if (trace) slate::trace::Trace::on();
-    else slate::trace::Trace::off();
-
-    // run test
-    {
-        slate::trace::Block trace_block ("MPI_Barrier");
-        MPI_Barrier (MPI_COMM_WORLD);
-    }
-    double time = libtest::get_wtime();
-
-    slate::potrf (A, {
-        {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}
-    });
-
-    MPI_Barrier (MPI_COMM_WORLD);
-    {
-        slate::trace::Block trace_block ("MPI_Barrier");
-        MPI_Barrier (MPI_COMM_WORLD);
-    }
-    double time_tst = libtest::get_wtime() - time;
-
-    if (trace) slate::trace::Trace::finish();
-
-    // compute and save timing/performance
     double gflop = lapack::Gflop<scalar_t>::potrf (n);
-    params.time.value() = time_tst;
-    params.gflops.value() = gflop / time_tst;
+
+    if (! ref_only) {
+        if (trace) slate::trace::Trace::on();
+        else slate::trace::Trace::off();
+
+        // run test
+        {
+            slate::trace::Block trace_block ("MPI_Barrier");
+            MPI_Barrier (MPI_COMM_WORLD);
+        }
+        double time = libtest::get_wtime();
+
+        slate::potrf (A, {
+            {slate::Option::Lookahead, lookahead},
+            {slate::Option::Target, target}
+        });
+
+        MPI_Barrier (MPI_COMM_WORLD);
+        {
+            slate::trace::Block trace_block ("MPI_Barrier");
+            MPI_Barrier (MPI_COMM_WORLD);
+        }
+        double time_tst = libtest::get_wtime() - time;
+
+        if (trace) slate::trace::Trace::finish();
+        
+        // compute and save timing/performance
+        params.time.value() = time_tst;
+        params.gflops.value() = gflop / time_tst;
+    }
 
     if (check || ref) {
         // A comparison with a reference routine from ScaLAPACK
@@ -128,37 +131,38 @@ template <typename scalar_t> void test_potrf_work (Params &params, bool run)
 
         // Run the reference routine on A_ref
         MPI_Barrier (MPI_COMM_WORLD);
-        time = libtest::get_wtime();
+        double time = libtest::get_wtime();
         scalapack_ppotrf (uplo2str (uplo), n, &A_ref[0], i1, i1, descA_ref, &info);
         assert (0 == info);
         MPI_Barrier (MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
-
-        // allocate work space
-        size_t ldw = nb * ceil (ceil (mlocA / (double) nb) / (scalapack_ilcm (&nprow, &npcol) / nprow));
-        std::vector<real_t> worklansy (2 * nlocA + mlocA + ldw);
-
-        // norm of A
-        real_t A_ref_norm = scalapack_plansy (norm2str (norm), uplo2str (uplo), n, &A_ref[0], i1, i1, descA_ref, &worklansy[0]);
-
-        // local operation: error = A_ref = A_ref - A_tst
-        blas::axpy (A_ref.size(), -1.0, &A_tst[0], 1, &A_ref[0], 1);
-
-        // error = norm(error)
-        real_t error_norm = scalapack_plansy (norm2str (norm), uplo2str (uplo), n, &A_ref[0], i1, i1, descA_ref, &worklansy[0]);
-
-        // error = error / norm;
-        if (error_norm != 0)
-            error_norm /= A_ref_norm;
-
         params.ref_time.value() = time_ref;
         params.ref_gflops.value() = gflop / time_ref;
-        params.error.value() = error_norm;
+
+        if (check) {
+            // allocate work space
+            size_t ldw = nb * ceil (ceil (mlocA / (double) nb) / (scalapack_ilcm (&nprow, &npcol) / nprow));
+            std::vector<real_t> worklansy (2 * nlocA + mlocA + ldw);
+
+            // norm of A
+            real_t A_ref_norm = scalapack_plansy (norm2str (norm), uplo2str (uplo), n, &A_ref[0], i1, i1, descA_ref, &worklansy[0]);
+
+            // local operation: error = A_ref = A_ref - A_tst
+            blas::axpy (A_ref.size(), -1.0, &A_tst[0], 1, &A_ref[0], 1);
+
+            // error = norm(error)
+            real_t error_norm = scalapack_plansy (norm2str (norm), uplo2str (uplo), n, &A_ref[0], i1, i1, descA_ref, &worklansy[0]);
+
+            // error = error / norm;
+            if (error_norm != 0)
+                error_norm /= A_ref_norm;
+
+            params.error.value() = error_norm;
+            real_t eps = std::numeric_limits<real_t>::epsilon();
+            params.okay.value() = (params.error.value() <= 50*eps);
+        }
 
         slate_set_num_blas_threads(saved_num_threads);
-
-        real_t eps = std::numeric_limits<real_t>::epsilon();
-        params.okay.value() = (params.error.value() <= 50*eps);
     }
 
     // Cblacs_exit is commented out because it does not handle re-entering ... some unknown problem

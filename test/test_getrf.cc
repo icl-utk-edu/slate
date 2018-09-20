@@ -35,8 +35,9 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
     int64_t lookahead = params.lookahead.value();
     int64_t panel_threads = params.panel_threads.value();
     lapack::Norm norm = params.norm.value();
-    bool check = params.check.value()=='y';
-    bool ref = params.ref.value()=='y';
+    bool ref_only = params.ref.value()=='o';
+    bool ref = params.ref.value()=='y' || ref_only;
+    bool check = params.check.value()=='y' && ! ref_only;
     bool trace = params.trace.value()=='y';
     slate::Target target = char2target (params.target.value());
 
@@ -104,34 +105,36 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
     }
     
     slate::Pivots pivots;
-
-    double time = libtest::get_wtime();
-
-    // todo: the example/test call to pgetrf can be removed later
-    // int64_t info_tst=0;
-    // scalapack_pgetrf (m, n, &A_tst[0], i1, i1, descA_tst, &ipiv_tst[0], &info_tst);
-    slate::getrf (A, pivots, {
-        {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target},
-        {slate::Option::MaxPanelThreads, panel_threads}
-    });
-
-    MPI_Barrier (MPI_COMM_WORLD);
-    {
-        slate::trace::Block trace_block ("MPI_Barrier");
-        MPI_Barrier (MPI_COMM_WORLD);
-    }
-    double time_tst = libtest::get_wtime() - time;
-
-    if (trace) slate::trace::Trace::finish();
-
-    // compute and save timing/performance
     double gflop = lapack::Gflop<scalar_t>::getrf (m, n);
-    params.time.value() = time_tst;
-    params.gflops.value() = gflop / time_tst;
+    
+    if (! ref_only) {
+        double time = libtest::get_wtime();
+
+        // todo: the example/test call to pgetrf can be removed later
+        // int64_t info_tst=0;
+        // scalapack_pgetrf (m, n, &A_tst[0], i1, i1, descA_tst, &ipiv_tst[0], &info_tst);
+        slate::getrf (A, pivots, {
+            {slate::Option::Lookahead, lookahead},
+            {slate::Option::Target, target},
+            {slate::Option::MaxPanelThreads, panel_threads}
+        });
+
+        MPI_Barrier (MPI_COMM_WORLD);
+        {
+            slate::trace::Block trace_block ("MPI_Barrier");
+            MPI_Barrier (MPI_COMM_WORLD);
+        }
+        double time_tst = libtest::get_wtime() - time;
+
+        if (trace) slate::trace::Trace::finish();
+
+        // compute and save timing/performance
+        params.time.value() = time_tst;
+        params.gflops.value() = gflop / time_tst;
+    }
 
     //when matrix is square shaped
-    if(check && (Am == An)){
+    if (check && (Am == An)) {
         //check residual for accuracy by performing a solve
 
         //================================================================
@@ -196,7 +199,7 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
         params.okay.value() = (params.error.value() <= tol);
     }
 
-    if(ref || (check && (Am != An))){
+    if (ref || (check && (Am != An))) {
         // A comparison with a reference routine from ScaLAPACK
 
         // set MKL num threads appropriately for parallel BLAS
@@ -208,7 +211,7 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
 
         // Run the reference routine
         MPI_Barrier (MPI_COMM_WORLD);
-        time = libtest::get_wtime();
+        double time = libtest::get_wtime();
         scalapack_pgetrf (m, n, &A_ref[0], i1, i1, descA_ref, &ipiv_ref[0], &info_ref);
         assert (0 == info_ref);
         MPI_Barrier (MPI_COMM_WORLD);
@@ -218,7 +221,7 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
         params.ref_gflops.value() = gflop / time_ref;
 
         //when matrix is rectangular, we cannot solve
-        if(check && (Am != An)){
+        if (check && (Am != An)) {
             //compare to reference implementation for accuracy check
 
             // allocate work space

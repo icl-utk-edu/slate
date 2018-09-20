@@ -204,9 +204,9 @@ Params::Params():
     panel_threads( "panel-threads",
                            7,    ParamType::List, 1,       0, 1000000, "max number of threads used in panel" ),
 
-    kd        ( "kd",      6,    ParamType::List, 100,     0, 1000000, "bandwidth" ),
-    kl        ( "kl",      6,    ParamType::List, 100,     0, 1000000, "lower bandwidth" ),
-    ku        ( "ku",      6,    ParamType::List, 100,     0, 1000000, "upper bandwidth" ),
+    kd        ( "kd",      6,    ParamType::List,  10,     0, 1000000, "bandwidth" ),
+    kl        ( "kl",      6,    ParamType::List,  10,     0, 1000000, "lower bandwidth" ),
+    ku        ( "ku",      6,    ParamType::List,  10,     0, 1000000, "upper bandwidth" ),
     nrhs      ( "nrhs",    6,    ParamType::List,  10,     0, 1000000, "number of right hand sides" ),
     vl        ( "vl",      6, 3, ParamType::List,  10,     0, 1000000, "lower bound of eigen/singular values to find; default 10.0" ),
     vu        ( "vu",      6, 3, ParamType::List, 100,     0, 1000000, "upper bound of eigen/singular values to find; default 100.0" ),

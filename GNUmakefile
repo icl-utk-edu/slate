@@ -248,6 +248,7 @@ endif
 
 # driver
 lib_src += \
+        slate_gbmm.cc \
         slate_gbtrf.cc \
         slate_gemm.cc \
         slate_gesv.cc \
@@ -269,6 +270,7 @@ lib_src += \
 # main tester
 test_src += \
         test/test.cc \
+        test/test_gbmm.cc \
         test/test_gbnorm.cc \
         test/test_gbtrf.cc \
         test/test_gemm.cc \

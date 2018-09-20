@@ -53,6 +53,20 @@ namespace slate {
 // Level 3 BLAS
 
 //-----------------------------------------
+// gbmm()
+template <typename scalar_t>
+void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
 // gemm()
 template <typename scalar_t>
 void gemm(scalar_t alpha, Matrix<scalar_t>& A,

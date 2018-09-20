@@ -66,6 +66,7 @@ std::vector< libtest::routines_t > routines = {
     // -----
     // Level 3 BLAS
     { "gemm",               test_gemm,         Section::blas_section },
+    { "gbmm",               test_gbmm,         Section::blas_section },
     { "",                   nullptr,           Section::newline },
 
     { "hemm",               test_hemm,         Section::blas_section },

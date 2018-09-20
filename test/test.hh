@@ -126,6 +126,7 @@ inline T roundup( T x, T y )
 
 // -----------------------------------------------------------------------------
 // Level 3 BLAS
+void test_gbmm   ( Params& params, bool run );
 void test_gemm   ( Params& params, bool run );
 void test_symm   ( Params& params, bool run );
 void test_syr2k  ( Params& params, bool run );

@@ -258,6 +258,7 @@ cmds = []
 # Level 3
 if (opts.blas3):
     cmds += [
+    [ 'gbmm',  gen + dtype + transA + transB + mnk + la + ab + kl + ku ],
     [ 'gemm',  gen + dtype + transA + transB + mnk + la + ab ],
 
     [ 'hemm',  gen + dtype         + side + uplo     + mn + la + ab ],

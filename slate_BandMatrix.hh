@@ -37,8 +37,8 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#ifndef SLATE_BANDMATRIX_HH
-#define SLATE_BANDMATRIX_HH
+#ifndef SLATE_BAND_MATRIX_HH
+#define SLATE_BAND_MATRIX_HH
 
 #include "slate_Matrix.hh"
 #include "slate_Tile.hh"
@@ -189,4 +189,4 @@ void BandMatrix<scalar_t>::upperBandwidth(int64_t ku)
 
 } // namespace slate
 
-#endif // SLATE_BANDMATRIX_HH
+#endif // SLATE_BAND_MATRIX_HH

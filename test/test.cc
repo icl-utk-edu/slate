@@ -85,24 +85,28 @@ std::vector< libtest::routines_t > routines = {
 
     // -----
     // LU
+    { "gesv",               test_gesv,         Section::gesv },
+    //{ "gbsv",               test_gbsv,         Section::gesv },
+    { "",                   nullptr,           Section::newline },
+
     { "getrf",              test_getrf,        Section::gesv },
     { "gbtrf",              test_gbtrf,        Section::gesv },
+    { "",                   nullptr,           Section::newline },
+
     { "getrs",              test_getrs,        Section::gesv },
-    { "gesv",               test_gesv,         Section::gesv },
+    { "gbtrs",              test_gbtrs,        Section::gesv },
     { "",                   nullptr,           Section::newline },
 
     // -----
     // Cholesky
-    //{ "posv",               test_posv,         Section::posv },
-    //{ "",                   nullptr,           Section::newline },
-
-    { "potrf",              test_potrf,        Section::posv },
-    { "potrs",              test_potrs,        Section::posv },
     { "posv",               test_posv,         Section::posv },
     { "",                   nullptr,           Section::newline },
 
-    //{ "potrs",              test_potrs,        Section::posv },
-    //{ "",                   nullptr,           Section::newline },
+    { "potrf",              test_potrf,        Section::posv },
+    { "",                   nullptr,           Section::newline },
+
+    { "potrs",              test_potrs,        Section::posv },
+    { "",                   nullptr,           Section::newline },
 
     // -----
     // symmetric indefinite

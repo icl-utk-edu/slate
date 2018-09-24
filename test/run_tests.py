@@ -312,7 +312,7 @@ if (opts.gb):
     cmds += [
     #[ 'gbsv',  gen + dtype + n + kl + ku + la ],
     [ 'gbtrf', gen + dtype + n + kl + ku + la ],  # todo: mn
-    #[ 'gbtrs', gen + dtype + n + kl + ku + la + trans ],
+    [ 'gbtrs', gen + dtype + n + kl + ku + la + trans ],
     #[ 'gbcon', gen + dtype + n + kl + ku ],
     #[ 'gbrfs', gen + dtype + n + kl + ku + trans ],
     #[ 'gbequ', gen + dtype + n + kl + ku ],

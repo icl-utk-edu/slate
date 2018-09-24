@@ -250,6 +250,7 @@ endif
 lib_src += \
         slate_gbmm.cc \
         slate_gbtrf.cc \
+        slate_gbtrs.cc \
         slate_gemm.cc \
         slate_gesv.cc \
         slate_getrf.cc \
@@ -274,6 +275,7 @@ test_src += \
         test/test_gbmm.cc \
         test/test_gbnorm.cc \
         test/test_gbtrf.cc \
+        test/test_gbtrs.cc \
         test/test_gemm.cc \
         test/test_genorm.cc \
         test/test_getrf.cc \

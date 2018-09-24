@@ -316,6 +316,18 @@ void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
+// gbtrs
+template <typename scalar_t>
+void gbtrs(BandMatrix<scalar_t>& A, Pivots& pivots,
+           Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void gbtrs(BandMatrix<scalar_t>& A, Pivots& pivots,
+           Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
 // gesv
 template <typename scalar_t>
 void gesv(Matrix<scalar_t>& A, Pivots& pivots,

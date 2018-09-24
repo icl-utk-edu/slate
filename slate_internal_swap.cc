@@ -50,10 +50,11 @@ namespace internal {
 /// Swaps rows according to the pivot vector.
 /// Dispatches to target implementations.
 template <Target target, typename scalar_t>
-void swap(Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
+void swap(Direction direction,
+          Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
           int priority, int tag)
 {
-    swap(internal::TargetType<target>(), A, pivot, priority, tag);
+    swap(internal::TargetType<target>(), direction, A, pivot, priority, tag);
 }
 
 ///-----------------------------------------------------------------------------
@@ -61,6 +62,7 @@ void swap(Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
 /// Swaps rows according to the pivot vector, host implementation.
 template <typename scalar_t>
 void swap(internal::TargetType<Target::HostTask>,
+          Direction direction,
           Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
           int priority, int tag)
 {
@@ -82,7 +84,19 @@ void swap(internal::TargetType<Target::HostTask>,
         for (int64_t j = 0; j < A.nt(); ++j) {
             bool root = A.mpiRank() == A.tileRank(0, j);
 
-            for (int64_t i = 0; i < int64_t(pivot.size()); ++i) {
+            // Apply pivots forward (0, ..., k-1) or reverse (k-1, ..., 0)
+            int64_t begin, end, inc;
+            if (direction == Direction::Forward) {
+                begin = 0;
+                end   = pivot.size();
+                inc   = 1;
+            }
+            else {
+                begin = pivot.size() - 1;
+                end   = -1;
+                inc   = -1;
+            }
+            for (int64_t i = begin; i != end; i += inc) {
                 int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
 
                 // If I own the pivot.
@@ -130,18 +144,21 @@ void swap(internal::TargetType<Target::HostTask>,
 // ----------------------------------------
 template
 void swap<Target::HostTask, float>(
+    Direction direction,
     Matrix<float>&& A, std::vector<Pivot>& pivot,
     int priority, int tag);
 
 // ----------------------------------------
 template
 void swap<Target::HostTask, double>(
+    Direction direction,
     Matrix<double>&& A, std::vector<Pivot>& pivot,
     int priority, int tag);
 
 // ----------------------------------------
 template
 void swap< Target::HostTask, std::complex<float> >(
+    Direction direction,
     Matrix< std::complex<float> >&& A,
     std::vector<Pivot>& pivot,
     int priority, int tag);
@@ -149,6 +166,7 @@ void swap< Target::HostTask, std::complex<float> >(
 // ----------------------------------------
 template
 void swap< Target::HostTask, std::complex<double> >(
+    Direction direction,
     Matrix< std::complex<double> >&& A,
     std::vector<Pivot>& pivot,
     int priority, int tag);

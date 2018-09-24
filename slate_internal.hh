@@ -313,7 +313,8 @@ void trsm(Side side,
 //------------------------------------------------------------------------------
 // Other BLAS
 template <Target target=Target::HostTask, typename scalar_t>
-void swap(Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
+void swap(Direction direction,
+          Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
           int priority=0, int tag=0);
 
 //------------------------------------------------------------------------------

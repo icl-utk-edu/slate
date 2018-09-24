@@ -58,6 +58,7 @@ typedef blas::Diag Diag;
 typedef blas::Side Side;
 
 typedef lapack::Norm Norm;
+typedef lapack::Direct Direction;  // todo change LAPACK++
 
 ///-----------------------------------------------------------------------------
 /// \class

@@ -116,7 +116,8 @@ void getrf(slate::internal::TargetType<target>,
                 int priority_one = 1;
                 int tag_j = j;
                 internal::swap<Target::HostTask>(
-                    A.sub(k, A_mt-1, j, j), pivots.at(k), priority_one, tag_j);
+                    Direction::Forward, A.sub(k, A_mt-1, j, j), pivots.at(k),
+                    priority_one, tag_j);
 
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk =
@@ -148,7 +149,7 @@ void getrf(slate::internal::TargetType<target>,
         //         int priority_one = 1;
         //         int tag_km1 = k-1;
         //         internal::swap<Target::HostTask>(
-        //             A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
+        //             Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
         //             priority_one, tag_km1);
         //     }
         // }
@@ -162,8 +163,8 @@ void getrf(slate::internal::TargetType<target>,
                 int priority_zero = 0;
                 int tag_kl1 = k+1+lookahead;
                 internal::swap<Target::HostTask>(
-                    A.sub(k, A_mt-1, k+1+lookahead, A_nt-1), pivots.at(k),
-                          priority_zero, tag_kl1);
+                    Direction::Forward, A.sub(k, A_mt-1, k+1+lookahead, A_nt-1),
+                    pivots.at(k), priority_zero, tag_kl1);
 
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk =
@@ -198,7 +199,7 @@ void getrf(slate::internal::TargetType<target>,
         if (k > 0) {
             // swap rows in A(k:mt-1, 0:k-1)
             internal::swap<Target::HostTask>(
-                A.sub(k, A_mt-1, 0, k-1), pivots.at(k));
+                Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k));
         }
     }
 

@@ -69,7 +69,7 @@ void getrs(slate::internal::TargetType<target>,
     for (int64_t k = 0; k < B.mt(); ++k) {
         // swap rows in B(k:mt-1, 0:nt-1)
         internal::swap<Target::HostTask>(
-            B.sub(k, B.mt()-1, 0, B.nt()-1), pivots.at(k));
+            Direction::Forward, B.sub(k, B.mt()-1, 0, B.nt()-1), pivots.at(k));
     }
 
     auto L = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, A);

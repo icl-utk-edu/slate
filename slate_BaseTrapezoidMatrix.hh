@@ -74,10 +74,10 @@ protected:
                         int p, int q, MPI_Comm mpi_comm);
 
     // conversion
-    BaseTrapezoidMatrix(Uplo uplo, Matrix< scalar_t >& orig);
+    BaseTrapezoidMatrix(Uplo uplo, Matrix<scalar_t>& orig);
 
-    // sub-matrix
-    Matrix< scalar_t > sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
+    // off-diagonal sub-matrix
+    Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
 
     // used by sub-classes' fromLAPACK
     BaseTrapezoidMatrix(Uplo in_uplo, int64_t m, int64_t n,
@@ -481,8 +481,10 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 
 //------------------------------------------------------------------------------
 /// Sub-matrix constructor creates shallow copy view of parent matrix,
-/// A[ i1:i2, j1:j2 ]. Requires i1 == j1. The new view is still a trapezoid
-/// matrix, with the same diagonal as the parent matrix.
+/// A[ i1:i2, j1:j2 ]. The new view is still a trapezoid matrix.
+/// If lower, requires i1 >= j1 and (i2 - i1) >= (j2 - j1).
+/// If upper, requires i1 <= j1 and (i2 - i1) <= (j2 - j1).
+/// If i1 == j1, it has the same diagonal as the parent matrix.
 ///
 /// @param[in] orig
 ///     Original matrix.
@@ -507,8 +509,15 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     : BaseMatrix<scalar_t>(orig, i1, i2, j1, j2)
 {
     this->uplo_ = orig.uplo_;
-    if (i1 != j1)
-        throw std::exception();
+    if (this->uplo_ == Uplo::Lower) {
+        if (i1 < j1 || (i2 - i1) < (j2 - j1))
+            throw std::exception();
+    }
+    else {
+        // Upper
+        if (i1 > j1 || (i2 - i1) > (j2 - j1))
+            throw std::exception();
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -670,7 +679,7 @@ Matrix<scalar_t> BaseTrapezoidMatrix<scalar_t>::sub(
         // bottom-left corner is at or above diagonal
         assert(i2 <= j1);
     }
-    return Matrix< scalar_t >(*this, i1, i2, j1, j2);
+    return Matrix<scalar_t>(*this, i1, i2, j1, j2);
 }
 
 //------------------------------------------------------------------------------

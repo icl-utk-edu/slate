@@ -85,9 +85,10 @@ public:
 
     SymmetricMatrix(Uplo uplo, Matrix<scalar_t>& orig);
 
-    // sub-matrix
+    // on-diagonal sub-matrix
     SymmetricMatrix sub(int64_t i1, int64_t i2);
 
+    // off-diagonal sub-matrix
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
 
 protected:
@@ -106,7 +107,7 @@ protected:
                     scalar_t** Aarray, int num_devices, int64_t lda,
                     int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
-    // used by sub
+    // used by on-diagonal sub(i1, i2)
     SymmetricMatrix(SymmetricMatrix& orig,
                     int64_t i1, int64_t i2);
 

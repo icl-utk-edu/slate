@@ -82,9 +82,18 @@ public:
                                  int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
     // conversion
-    explicit TriangularMatrix(Diag diag, BaseTrapezoidMatrix<scalar_t>& orig);
+    TriangularMatrix(Diag diag, BaseTrapezoidMatrix<scalar_t>& orig);
 
     TriangularMatrix(Uplo uplo, Diag diag, Matrix<scalar_t>& orig);
+
+    // conversion sub-matrix
+    TriangularMatrix(Diag diag, BaseTrapezoidMatrix<scalar_t>& orig,
+                     int64_t i1, int64_t i2,
+                     int64_t j1, int64_t j2);
+
+    TriangularMatrix(Uplo uplo, Diag diag, Matrix<scalar_t>& orig,
+                     int64_t i1, int64_t i2,
+                     int64_t j1, int64_t j2);
 
     // sub-matrix
     TriangularMatrix sub(int64_t i1, int64_t i2);
@@ -318,10 +327,14 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 {}
 
 //------------------------------------------------------------------------------
-/// [explicit]
 /// Conversion from trapezoid, triangular, symmetric, or Hermitian matrix
 /// creates a shallow copy view of the original matrix.
 /// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+///
+/// @param[in] diag
+///     - NonUnit: A does not have unit diagonal.
+///     - Unit:    A has unit diagonal; diagonal elements are not referenced
+///                and are assumed to be one.
 ///
 /// @param[in,out] orig
 ///     Original matrix.
@@ -334,6 +347,42 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
           0, std::min(orig.mt()-1, orig.nt()-1),
           0, std::min(orig.mt()-1, orig.nt()-1))
 {}
+
+//------------------------------------------------------------------------------
+/// Conversion from trapezoid, triangular, symmetric, or Hermitian matrix
+/// creates a shallow copy view of the original matrix, A[ i1:i2, j1:j2 ].
+///
+/// @param[in] diag
+///     - NonUnit: A does not have unit diagonal.
+///     - Unit:    A has unit diagonal; diagonal elements are not referenced
+///                and are assumed to be one.
+///
+/// @param[in,out] orig
+///     Original matrix.
+///
+/// @param[in] i1
+///     Starting block row index. 0 <= i1 < mt.
+///
+/// @param[in] i2
+///     Ending block row index (inclusive). i2 < mt.
+///
+/// @param[in] j1
+///     Starting block column index. 0 <= j1 < nt.
+///
+/// @param[in] j2
+///     Ending block column index (inclusive). j2 < nt.
+///     j2 - j1 = i2 - i1, i.e., it is square.
+///
+template <typename scalar_t>
+TriangularMatrix<scalar_t>::TriangularMatrix(
+    Diag diag, BaseTrapezoidMatrix<scalar_t>& orig,
+    int64_t i1, int64_t i2,
+    int64_t j1, int64_t j2)
+    : TrapezoidMatrix<scalar_t>(diag, orig, i1, i2, j1, j2)
+{
+    if ((i2 - i1) != (j2 - j1))
+        throw std::exception();
+}
 
 //------------------------------------------------------------------------------
 /// Conversion from general matrix
@@ -355,6 +404,42 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
           0, std::min(orig.mt()-1, orig.nt()-1),
           0, std::min(orig.mt()-1, orig.nt()-1))
 {}
+
+//------------------------------------------------------------------------------
+/// Conversion from general matrix, sub-matrix constructor
+/// creates shallow copy view of original matrix, A[ i1:i2, j1:j2 ].
+///
+/// @param[in] diag
+///     - NonUnit: A does not have unit diagonal.
+///     - Unit:    A has unit diagonal; diagonal elements are not referenced
+///                and are assumed to be one.
+///
+/// @param[in,out] orig
+///     Original matrix.
+///
+/// @param[in] i1
+///     Starting block row index. 0 <= i1 < mt.
+///
+/// @param[in] i2
+///     Ending block row index (inclusive). i2 < mt.
+///
+/// @param[in] j1
+///     Starting block column index. 0 <= j1 < nt.
+///
+/// @param[in] j2
+///     Ending block column index (inclusive). j2 < nt.
+///     j2 - j1 = i2 - i1, i.e., it is square.
+///
+template <typename scalar_t>
+TriangularMatrix<scalar_t>::TriangularMatrix(
+    Uplo uplo, Diag diag, Matrix<scalar_t>& orig,
+    int64_t i1, int64_t i2,
+    int64_t j1, int64_t j2)
+    : TrapezoidMatrix<scalar_t>(uplo, diag, orig, i1, i2, j1, j2)
+{
+    if ((i2 - i1) != (j2 - j1))
+        throw std::exception();
+}
 
 //------------------------------------------------------------------------------
 /// Sub-matrix constructor creates shallow copy view of parent matrix,

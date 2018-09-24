@@ -1847,6 +1847,49 @@ void test_TriangularMatrix_conversion()
     }
 }
 
+//------------------------------------------------------------------------------
+void test_Symmetric_to_Triangular()
+{
+    int lda = roundup(n, nb);
+    std::vector<double> Ad( lda*n );
+
+    // ----- Lower
+    auto A = slate::SymmetricMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // okay: square, lower [ 1:mt-1, 0:nt-2 ]
+    auto L1 = slate::TriangularMatrix<double>(
+        slate::Diag::NonUnit, A,   1, A.mt()-1,   0, A.nt()-2 );
+
+    // fail: non-square [ 0:mt-1, 0:nt-2 ]
+    test_assert_throw_std(
+    auto L2 = slate::TriangularMatrix<double>(
+        slate::Diag::NonUnit, A,   0, A.mt()-1,   0, A.nt()-2 ));
+
+    // fail: top-left (0, 1) is upper
+    test_assert_throw_std(
+    auto L3 = slate::TriangularMatrix<double>(
+        slate::Diag::NonUnit, A,   0, A.mt()-2,   1, A.nt()-1 ));
+
+    // ----- Upper
+    auto B = slate::SymmetricMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // okay: square, upper
+    auto U1 = slate::TriangularMatrix<double>(
+        slate::Diag::NonUnit, B,   0, B.mt()-2,   1, B.nt()-1 );
+
+    // fail: non-square
+    test_assert_throw_std(
+    auto U2 = slate::TriangularMatrix<double>(
+        slate::Diag::NonUnit, B,   0, B.mt()-1,   1, B.nt()-1 ));
+
+    // fail: top-left (1, 0) is lower
+    test_assert_throw_std(
+    auto U3 = slate::TriangularMatrix<double>(
+        slate::Diag::NonUnit, B,   1, B.mt()-1,   0, B.nt()-2 ));
+}
+
 //==============================================================================
 // todo
 // BaseMatrix
@@ -1945,6 +1988,7 @@ void run_tests()
     run_test(test_Matrix_sub_trans,       "Matrix::sub(A^T)",  mpi_comm);
     run_test(test_TrapezoidMatrix_conversion, "TrapezoidMatrix conversion", mpi_comm);
     run_test(test_TriangularMatrix_conversion, "TriangularMatrix conversion", mpi_comm);
+    run_test(test_Symmetric_to_Triangular, "Symmetric => Triangular", mpi_comm);
 }
 
 //------------------------------------------------------------------------------

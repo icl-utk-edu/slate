@@ -94,9 +94,10 @@ public:
                     int64_t i1, int64_t i2,
                     int64_t j1, int64_t j2);
 
-    // sub-matrix
+    // on-diagonal sub-matrix
     TrapezoidMatrix sub(int64_t i1, int64_t i2);
 
+    // off-diagonal sub-matrix
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
 
 protected:
@@ -115,7 +116,7 @@ protected:
                     scalar_t** Aarray, int num_devices, int64_t lda, int64_t nb,
                     int p, int q, MPI_Comm mpi_comm);
 
-    // used by sub
+    // used by on-diagonal sub(i1, i2)
     TrapezoidMatrix(TrapezoidMatrix& orig,
                     int64_t i1, int64_t i2,
                     int64_t j1, int64_t j2);
@@ -333,10 +334,8 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 {}
 
 //------------------------------------------------------------------------------
-/// [explicit]
 /// Conversion from trapezoid, triangular, symmetric, or Hermitian matrix
 /// creates a shallow copy view of the original matrix.
-/// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
 ///
 /// @param[in] diag
 ///     - NonUnit: A does not have unit diagonal.
@@ -429,8 +428,10 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 
 //------------------------------------------------------------------------------
 /// Sub-matrix constructor creates shallow copy view of parent matrix,
-/// A[ i1:i2, j1:j2 ]. Requires i1 == j1. The new view is still a trapezoid
-/// matrix, with the same diagonal as the parent matrix.
+/// A[ i1:i2, j1:j2 ]. The new view is still a trapezoid matrix.
+/// If lower, requires i1 >= j1 and (i2 - i1) >= (j2 - j1).
+/// If upper, requires i1 <= j1 and (i2 - i1) <= (j2 - j1).
+/// If i1 == j1, it has the same diagonal as the parent matrix.
 ///
 /// @param[in,out] orig
 ///     Original matrix.

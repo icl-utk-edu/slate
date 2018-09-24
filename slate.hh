@@ -41,10 +41,13 @@
 #define SLATE_HH
 
 #include "slate_Matrix.hh"
-#include "slate_BandMatrix.hh"
 #include "slate_HermitianMatrix.hh"
 #include "slate_SymmetricMatrix.hh"
 #include "slate_TriangularMatrix.hh"
+
+#include "slate_BandMatrix.hh"
+#include "slate_TriangularBandMatrix.hh"
+
 #include "slate_types.hh"
 
 namespace slate {
@@ -241,6 +244,20 @@ void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
     SymmetricMatrix<scalar_t> CS(C);
     syr2k(alpha, A, B, beta, CS, opts);
 }
+
+//-----------------------------------------
+// tbsm()
+template <typename scalar_t>
+void tbsm(blas::Side side,
+          scalar_t alpha, TriangularBandMatrix<scalar_t>& A, Pivots& pivots,
+                          Matrix<scalar_t>& B,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void tbsm(blas::Side side,
+          scalar_t alpha, TriangularBandMatrix<scalar_t>& A, Pivots& pivots,
+                          Matrix<scalar_t>& B,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
 // trmm()

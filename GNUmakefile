@@ -264,6 +264,7 @@ lib_src += \
         slate_symm.cc \
         slate_syr2k.cc \
         slate_syrk.cc \
+        slate_tbsm.cc \
         slate_trmm.cc \
         slate_trsm.cc \
 
@@ -289,6 +290,7 @@ test_src += \
         test/test_synorm.cc \
         test/test_syr2k.cc \
         test/test_syrk.cc \
+        test/test_tbsm.cc \
         test/test_trmm.cc \
         test/test_trnorm.cc \
         test/test_trsm.cc \

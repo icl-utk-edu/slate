@@ -290,6 +290,7 @@ if (opts.blas3):
     [ 'syrk',  gen + dtype_real    + uplo + trans    + mn + la + ab ],
     [ 'syrk',  gen + dtype_complex + uplo + trans_nt + mn + la + ab ],
 
+    [ 'tbsm',  gen + dtype + side + uplo + transA + diag + mn + la + a + kd ],
     [ 'trmm',  gen + dtype + side + uplo + transA + diag + mn + la + a ],
     [ 'trsm',  gen + dtype + side + uplo + transA + diag + mn + la + a ],
     ]

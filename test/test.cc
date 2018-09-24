@@ -81,6 +81,7 @@ std::vector< libtest::routines_t > routines = {
 
     { "trmm",               test_trmm,         Section::blas_section },
     { "trsm",               test_trsm,         Section::blas_section },
+    { "tbsm",               test_tbsm,         Section::blas_section },
 
     // -----
     // LU

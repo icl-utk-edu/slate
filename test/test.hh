@@ -132,6 +132,7 @@ void test_gemm   ( Params& params, bool run );
 void test_symm   ( Params& params, bool run );
 void test_syr2k  ( Params& params, bool run );
 void test_syrk   ( Params& params, bool run );
+void test_tbsm   ( Params& params, bool run );
 void test_trsm   ( Params& params, bool run );
 void test_trmm   ( Params& params, bool run );
 void test_hemm   ( Params& params, bool run );

@@ -310,7 +310,7 @@ if (opts.lu):
 # General Banded
 if (opts.gb):
     cmds += [
-    #[ 'gbsv',  gen + dtype + n + kl + ku + la ],
+    [ 'gbsv',  gen + dtype + n + kl + ku + la ],
     [ 'gbtrf', gen + dtype + n + kl + ku + la ],  # todo: mn
     [ 'gbtrs', gen + dtype + n + kl + ku + la + trans ],
     #[ 'gbcon', gen + dtype + n + kl + ku ],

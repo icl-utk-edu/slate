@@ -249,6 +249,7 @@ endif
 # driver
 lib_src += \
         slate_gbmm.cc \
+        slate_gbsv.cc \
         slate_gbtrf.cc \
         slate_gbtrs.cc \
         slate_gemm.cc \
@@ -259,9 +260,9 @@ lib_src += \
         slate_her2k.cc \
         slate_herk.cc \
         slate_norm.cc \
+        slate_posv.cc \
         slate_potrf.cc \
         slate_potrs.cc \
-        slate_posv.cc \
         slate_symm.cc \
         slate_syr2k.cc \
         slate_syrk.cc \
@@ -274,20 +275,21 @@ test_src += \
         test/test.cc \
         test/test_gbmm.cc \
         test/test_gbnorm.cc \
+        test/test_gbsv.cc \
         test/test_gbtrf.cc \
         test/test_gbtrs.cc \
         test/test_gemm.cc \
         test/test_genorm.cc \
+        test/test_gesv.cc \
         test/test_getrf.cc \
         test/test_getrs.cc \
-        test/test_gesv.cc \
         test/test_hemm.cc \
         test/test_henorm.cc \
         test/test_her2k.cc \
         test/test_herk.cc \
+        test/test_posv.cc \
         test/test_potrf.cc \
         test/test_potrs.cc \
-        test/test_posv.cc \
         test/test_symm.cc \
         test/test_synorm.cc \
         test/test_syr2k.cc \

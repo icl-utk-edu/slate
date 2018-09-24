@@ -47,7 +47,7 @@
 namespace slate {
 
 // specialization namespace differentiates, e.g.,
-// internal::gesv from internal::specialization::gesv
+// internal::gbsv from internal::specialization::gbsv
 namespace internal {
 namespace specialization {
 
@@ -56,8 +56,8 @@ namespace specialization {
 /// Distributed parallel LU factorization and solve.
 /// Generic implementation for any target.
 template <Target target, typename scalar_t>
-void gesv(slate::internal::TargetType<target>,
-          Matrix<scalar_t>& A, Pivots& pivots,
+void gbsv(slate::internal::TargetType<target>,
+          BandMatrix<scalar_t>& A, Pivots& pivots,
           Matrix<scalar_t>& B,
           int64_t ib, int max_panel_threads, int64_t lookahead)
 {
@@ -70,8 +70,8 @@ void gesv(slate::internal::TargetType<target>,
 
     // solve
     getrs(A, pivots, B,
-          {{Option::Lookahead, lookahead},
-           {Option::Target, target}});
+         {{Option::Lookahead, lookahead},
+          {Option::Target, target}});
 }
 
 } // namespace specialization
@@ -79,9 +79,9 @@ void gesv(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup gesv_comp
+/// @ingroup gbsv_comp
 template <Target target, typename scalar_t>
-void gesv(Matrix<scalar_t>& A, Pivots& pivots,
+void gbsv(BandMatrix<scalar_t>& A, Pivots& pivots,
           Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts)
 {
@@ -112,7 +112,7 @@ void gesv(Matrix<scalar_t>& A, Pivots& pivots,
         max_panel_threads = std::max(omp_get_max_threads()/2, 1);
     }
 
-    internal::specialization::gesv(internal::TargetType<target>(),
+    internal::specialization::gbsv(internal::TargetType<target>(),
                                    A, pivots, B,
                                    ib, max_panel_threads, lookahead);
 }
@@ -121,7 +121,7 @@ void gesv(Matrix<scalar_t>& A, Pivots& pivots,
 /// Distributed parallel LU factorization and solve.
 ///
 template <typename scalar_t>
-void gesv(Matrix<scalar_t>& A, Pivots& pivots,
+void gbsv(BandMatrix<scalar_t>& A, Pivots& pivots,
           Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts)
 {
@@ -136,16 +136,16 @@ void gesv(Matrix<scalar_t>& A, Pivots& pivots,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            gesv<Target::HostTask>(A, pivots, B, opts);
+            gbsv<Target::HostTask>(A, pivots, B, opts);
             break;
         case Target::HostNest:
-            gesv<Target::HostNest>(A, pivots, B, opts);
+            gbsv<Target::HostNest>(A, pivots, B, opts);
             break;
         case Target::HostBatch:
-            gesv<Target::HostBatch>(A, pivots, B, opts);
+            gbsv<Target::HostBatch>(A, pivots, B, opts);
             break;
         case Target::Devices:
-            gesv<Target::Devices>(A, pivots, B, opts);
+            gbsv<Target::Devices>(A, pivots, B, opts);
             break;
     }
     // todo: return value for errors?
@@ -154,26 +154,26 @@ void gesv(Matrix<scalar_t>& A, Pivots& pivots,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void gesv<float>(
-    Matrix<float>& A, Pivots& pivots,
+void gbsv<float>(
+    BandMatrix<float>& A, Pivots& pivots,
     Matrix<float>& B,
     const std::map<Option, Value>& opts);
 
 template
-void gesv<double>(
-    Matrix<double>& A, Pivots& pivots,
+void gbsv<double>(
+    BandMatrix<double>& A, Pivots& pivots,
     Matrix<double>& B,
     const std::map<Option, Value>& opts);
 
 template
-void gesv< std::complex<float> >(
-    Matrix< std::complex<float> >& A, Pivots& pivots,
+void gbsv< std::complex<float> >(
+    BandMatrix< std::complex<float> >& A, Pivots& pivots,
     Matrix< std::complex<float> >& B,
     const std::map<Option, Value>& opts);
 
 template
-void gesv< std::complex<double> >(
-    Matrix< std::complex<double> >& A, Pivots& pivots,
+void gbsv< std::complex<double> >(
+    BandMatrix< std::complex<double> >& A, Pivots& pivots,
     Matrix< std::complex<double> >& B,
     const std::map<Option, Value>& opts);
 

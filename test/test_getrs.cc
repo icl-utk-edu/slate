@@ -41,6 +41,8 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
     bool ref = params.ref.value()=='y' || ref_only;
     bool check = params.check.value()=='y' && ! ref_only;
     bool trace = params.trace.value()=='y';
+    int verbose = params.verbose.value();
+    int matrix = params.matrix.value();
     slate::Target target = char2target (params.target.value());
 
     // mark non-standard output values
@@ -100,10 +102,16 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
     auto A = slate::Matrix<scalar_t>::fromScaLAPACK (Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK (Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
 
-    if (trans == blas::Op::Trans)
-        A = transpose (A);
-    else if (trans == blas::Op::ConjTrans)
-        A = conj_transpose (A);
+    if (matrix == 1) {
+        // Make A diagonally dominant to avoid pivoting.
+        printf( "diag dominant\n" );
+        for (int k = 0; k < std::min(A.mt(), A.nt()); ++k) {
+            auto T = A(k, k);
+            for (int i = 0; i < T.nb(); ++i) {
+                T.at(i, i) += n;
+            }
+        }
+    }
 
     // if check is required, copy test data and create a descriptor for it
     std::vector<scalar_t> A_ref;
@@ -135,18 +143,29 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
             slate::trace::Block trace_block ("MPI_Barrier");
             MPI_Barrier (MPI_COMM_WORLD);
         }
-        
+
         slate::Pivots pivots;
 
+        // factor matrix A
         slate::getrf (A, pivots, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target},
             {slate::Option::MaxPanelThreads, panel_threads}
         });
 
+        auto opA = A;
+        if (trans == blas::Op::Trans)
+            opA = transpose(A);
+        else if (trans == blas::Op::ConjTrans)
+            opA = conj_transpose(A);
+
         double time = libtest::get_wtime();
 
-        slate::getrs (A, pivots, B, {
+        //============================================================
+        // Run SLATE test.
+        // Solve op(A) X = B, after factoring A above.
+        //============================================================
+        slate::getrs(opA, pivots, B, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target}
         });
@@ -186,12 +205,12 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
         // norm of updated rhs matrix: || X ||_I
         real_t X_norm = scalapack_plange (norm2str (norm), Bm, Bn, &B_tst[0], i1, i1, descB_tst, &worklangeB[0]);
 
-        // B_ref -= Aref*B_tst
-        scalapack_pgemm ("notrans", "notrans", 
-                         n, nrhs, n, 
+        // B_ref -= op(Aref) * B_tst
+        scalapack_pgemm (op2str(trans), "notrans",
+                         n, nrhs, n,
                          scalar_t(-1.0),
                          &A_ref[0], i1, i1, descA_ref,
-                         &B_tst[0], i1, i1, descB_tst, 
+                         &B_tst[0], i1, i1, descB_tst,
                          scalar_t(1.0),
                          &B_ref[0], i1, i1, descB_ref);
 
@@ -203,10 +222,10 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
         real_t tol = params.tol.value() * 0.5 * std::numeric_limits<real_t>::epsilon();
         params.okay.value() = (params.error.value() <= tol);
     }
-    
+
     if (ref) {
         // A comparison with a reference routine from ScaLAPACK for timing only
-        
+
         // set MKL num threads appropriately for parallel BLAS
         int omp_num_threads;
         #pragma omp parallel

@@ -298,9 +298,9 @@ if (opts.blas3):
 # LU
 if (opts.lu):
     cmds += [
-    [ 'gesv',  gen + dtype + n + ' --lookahead 0 ' ],
-    [ 'getrf', gen + dtype + n + ' --lookahead 0 ' ],  # todo: mn
-    [ 'getrs', gen + dtype + n + ' --lookahead 0 ' ],  # todo: trans
+    [ 'gesv',  gen + dtype + n + la ],
+    [ 'getrf', gen + dtype + n + la ],  # todo: mn
+    [ 'getrs', gen + dtype + n + la + trans ],
     #[ 'getri', gen + dtype + n ],
     #[ 'gecon', gen + dtype + n ],
     #[ 'gerfs', gen + dtype + n + trans ],

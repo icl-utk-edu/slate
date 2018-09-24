@@ -63,27 +63,47 @@ void getrs(slate::internal::TargetType<target>,
     assert(A.mt() == A.nt());
     assert(B.mt() == A.mt());
 
-    // TODO: handle the transpose case
-    
-    // Pivot the right hand side matrix.
-    for (int64_t k = 0; k < B.mt(); ++k) {
-        // swap rows in B(k:mt-1, 0:nt-1)
-        internal::swap<Target::HostTask>(
-            Direction::Forward, B.sub(k, B.mt()-1, 0, B.nt()-1), pivots.at(k));
-    }
-
     auto L = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, A);
     auto U = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, A);
 
-    // forward substitution
-    trsm(Side::Left, scalar_t(1.0), L, B,
-         {{Option::Lookahead, lookahead},
-          {Option::Target, target}});
+    if (A.op() == Op::NoTrans) {
+        // Pivot the right hand side matrix.
+        for (int64_t k = 0; k < B.mt(); ++k) {
+            // swap rows in B(k:mt-1, 0:nt-1)
+            internal::swap<Target::HostTask>(
+                Direction::Forward, B.sub(k, B.mt()-1, 0, B.nt()-1),
+                pivots.at(k));
+        }
 
-    // backward substitution
-    trsm(Side::Left, scalar_t(1.0), U, B,
-         {{Option::Lookahead, lookahead},
-          {Option::Target, target}});
+        // Forward substitution, Y = L^{-1} P B.
+        trsm(Side::Left, scalar_t(1.0), L, B,
+             {{Option::Lookahead, lookahead},
+              {Option::Target, target}});
+
+        // Backward substitution, X = U^{-1} Y.
+        trsm(Side::Left, scalar_t(1.0), U, B,
+             {{Option::Lookahead, lookahead},
+              {Option::Target, target}});
+    }
+    else {
+        // Forward substitution, Y = U^{-T} B.
+        trsm(Side::Left, scalar_t(1.0), U, B,
+             {{Option::Lookahead, lookahead},
+              {Option::Target, target}});
+
+        // Backward substitution, Xhat = L^{-T} Y.
+        trsm(Side::Left, scalar_t(1.0), L, B,
+             {{Option::Lookahead, lookahead},
+              {Option::Target, target}});
+
+        // Pivot the right hand side matrix, X = P^T Xhat
+        for (int64_t k = B.mt()-1; k >= 0; --k) {
+            // swap rows in B(k:mt-1, 0:nt-1)
+            internal::swap<Target::HostTask>(
+                Direction::Backward, B.sub(k, B.mt()-1, 0, B.nt()-1),
+                pivots.at(k));
+        }
+    }
 }
 
 } // namespace specialization

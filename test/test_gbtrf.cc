@@ -119,9 +119,11 @@ template <typename scalar_t> void test_gbtrf_work(Params &params, bool run)
         jj += A.tileNb(j);
     }
 
-    if (verbose > 1) {
+    if (verbose > 0) {
         printf( "rank %d A2 kl %lld, ku %lld\n",
                 A.mpiRank(), A.lowerBandwidth(), A.upperBandwidth() );
+    }
+    if (verbose > 1) {
         print_matrix("A", A);
     }
 
@@ -167,9 +169,11 @@ template <typename scalar_t> void test_gbtrf_work(Params &params, bool run)
     params.time.value() = time_tst;
     ///params.gflops.value() = gflop / time_tst;
 
-    if (verbose > 1) {
+    if (verbose > 0) {
         printf( "rank %d A2 kl %lld, ku %lld\n",
                 A.mpiRank(), A.lowerBandwidth(), A.upperBandwidth() );
+    }
+    if (verbose > 1) {
         print_matrix("A2", A);
     }
 

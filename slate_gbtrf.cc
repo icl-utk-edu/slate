@@ -62,12 +62,14 @@ void gbtrf(slate::internal::TargetType<target>,
            int64_t ib, int max_panel_threads, int64_t lookahead)
 {
     // using real_t = blas::real_type<scalar_t>;
-    ///using BcastList = typename BandMatrix<scalar_t>::BcastList;
+    using BcastList = typename BandMatrix<scalar_t>::BcastList;
 
     const int64_t A_nt = A.nt();
     const int64_t A_mt = A.mt();
     const int64_t min_mt_nt = std::min(A.mt(), A.nt());
     pivots.resize(min_mt_nt);
+
+    const scalar_t zero = 0.0;
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
@@ -83,54 +85,51 @@ void gbtrf(slate::internal::TargetType<target>,
 
     // Insert & zero potential fill above upper bandwidth
     A.upperBandwidth(kl + ku);
+    //printf( "kl %lld, ku %lld, kl+ku %lld, A.lowerBW %lld, A.upperBW %lld\n",
+    //        kl, ku, kl + ku, A.lowerBandwidth(), A.upperBandwidth() );
     for (int64_t i = 0; i < min_mt_nt; ++i) {
         for (int64_t j = i + 1 + kut; j < std::min(i + 1 + ku2t, A.nt()); ++j) {
             if (A.tileIsLocal(i, j)) {
-                try {
-                    // todo: device?
-                    A.tileInsert(i, j);
-                }
-                catch (const std::exception& ex) {
-                    printf( "i %lld, j %lld, ex %s\n", i, j, ex.what() );
-                    // todo: pass?
-                }
+                // todo: device?
+                A.tileInsert(i, j);
                 auto T = A(i, j);
                 lapack::laset(lapack::MatrixType::General, T.mb(), T.nb(),
-                              0, 0, T.data(), T.stride());
+                              zero, zero, T.data(), T.stride());
             }
         }
     }
 
-    /*
     #pragma omp parallel
     #pragma omp master
     for (int64_t k = 0; k < min_mt_nt; ++k) {
 
-        // TODO: isn't there an assumption that tileMb(k) == tileNb(k),
-        // i.e., that the diagonal tile is square? This min() implies that they
-        // might not be.
-        // Perhaps if A is not square, the last diagonal tile is not square.
-
-        // Normally, diagonal tiles are square,
-        // but the last diagonal of a non-square A may be non-square.
         const int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
         pivots.at(k).resize(diag_len);
 
+        // A( k:i_end-1, k ) is the panel
+        // A( k, k+1:j_end-1 ) is the trsm
+        // A( k+1:i_end-1, k+1:j_end-1 ) is the gemm
+        // Compared to getrf, i_end replaces A_mt, j_end replaces A_nt.
+        // "end" in the usual C++ sense of element after the last element.
+        int64_t i_end = std::min(k + klt + 1, A_mt);
+        int64_t j_end = std::min(k + ku2t + 1, A_nt);
+
         // panel, high priority
-        #pragma omp task depend(inout:column[k]) priority(1)
+        int priority_one = 1;
+        #pragma omp task depend(inout:column[k]) priority(priority_one)
         {
             // factor A(k:mt-1, k)
-            int priority_one = 1;
             internal::getrf<Target::HostTask>(
-                A.sub(k, A_mt-1, k, k), diag_len, ib,
+                A.sub(k, i_end-1, k, k), diag_len, ib,
                 pivots.at(k), max_panel_threads, priority_one);
 
             BcastList bcast_list_A;
-            for (int64_t i = k; i < A_mt; ++i) {
+            int tag_k = k;
+            for (int64_t i = k; i < i_end; ++i) {
                 // send A(i, k) across row A(i, k+1:nt-1)
-                bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
+                bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, j_end-1)}});
             }
-            A.template listBcast(bcast_list_A);
+            A.template listBcast(bcast_list_A, tag_k);
 
             // Root broadcasts the pivot to all ranks.
             // todo: Panel ranks send the pivots to the right.
@@ -143,15 +142,16 @@ void gbtrf(slate::internal::TargetType<target>,
             }
         }
         // update lookahead column(s), high priority
-        for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
+        for (int64_t j = k+1; j < k+1+lookahead && j < j_end; ++j) {
             #pragma omp task depend(in:column[k]) \
-                             depend(inout:column[j]) priority(1)
+                             depend(inout:column[j]) priority(priority_one)
             {
                 // swap rows in A(k:mt-1, j)
                 int priority_one = 1;
                 int tag_j = j;
                 internal::swap<Target::HostTask>(
-                    A.sub(k, A_mt-1, j, j), pivots.at(k), priority_one, tag_j);
+                    Direction::Forward, A.sub(k, i_end-1, j, j), pivots.at(k),
+                    priority_one, tag_j);
 
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk =
@@ -164,27 +164,27 @@ void gbtrf(slate::internal::TargetType<target>,
                                    A.sub(k, k, j, j), priority_one);
 
                 // send A(k, j) across column A(k+1:mt-1, j)
-                A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), tag_j);
+                A.tileBcast(k, j, A.sub(k+1, i_end-1, j, j), tag_j);
 
                 // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
                 internal::gemm<Target::HostTask>(
-                    scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
+                    scalar_t(-1.0), A.sub(k+1, i_end-1, k, k),
                                     A.sub(k, k, j, j),
-                    scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j), priority_one);
+                    scalar_t(1.0),  A.sub(k+1, i_end-1, j, j), priority_one);
             }
         }
         // update trailing submatrix, normal priority
-        if (k+1+lookahead < A_nt) {
+        if (k+1+lookahead < j_end) {
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[k+1+lookahead]) \
-                             depend(inout:column[A_nt-1])
+                             depend(inout:column[j_end-1])
             {
                 // swap rows in A(k:mt-1, kl+1:nt-1)
                 int priority_zero = 0;
                 int tag_kl1 = k+1+lookahead;
                 internal::swap<Target::HostTask>(
-                    A.sub(k, A_mt-1, k+1+lookahead, A_nt-1), pivots.at(k),
-                          priority_zero, tag_kl1);
+                    Direction::Forward, A.sub(k, i_end-1, k+1+lookahead, j_end-1),
+                    pivots.at(k), priority_zero, tag_kl1);
 
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk =
@@ -194,34 +194,33 @@ void gbtrf(slate::internal::TargetType<target>,
                 internal::trsm<Target::HostTask>(
                     Side::Left,
                     scalar_t(1.0), std::move(Tkk),
-                                   A.sub(k, k, k+1+lookahead, A_nt-1));
+                                   A.sub(k, k, k+1+lookahead, j_end-1));
 
-                // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
+                // send A(k, kl+1:j_end-1) across A(k+1:mt-1, kl+1:nt-1)
                 BcastList bcast_list_A;
-                for (int64_t j = k+1+lookahead; j < A_nt; ++j) {
+                for (int64_t j = k+1+lookahead; j < j_end; ++j) {
                     // send A(k, j) across column A(k+1:mt-1, j)
-                    bcast_list_A.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}});
+                    bcast_list_A.push_back({k, j, {A.sub(k+1, i_end-1, j, j)}});
                 }
                 A.template listBcast(bcast_list_A, tag_kl1);
 
                 // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                 internal::gemm<Target::HostTask>(
-                    scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
-                                    A.sub(k, k, k+1+lookahead, A_nt-1),
-                    scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1));
+                    scalar_t(-1.0), A.sub(k+1, i_end-1, k, k),
+                                    A.sub(k, k, k+1+lookahead, j_end-1),
+                    scalar_t(1.0),  A.sub(k+1, i_end-1, k+1+lookahead, j_end-1));
             }
         }
     }
-    */
 
     // Band LU does NOT pivot to the left of the panel, since it would
     // introduce fill in the lower triangle. Instead, pivoting is done
-    // during the solve.
+    // during the solve (gbtrs).
 
     // Debug::checkTilesLives(A);
     // Debug::printTilesLives(A);
 
-    //A.clearWorkspace();
+    A.clearWorkspace();
 
     // Debug::printTilesMaps(A);
 }

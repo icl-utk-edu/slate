@@ -37,7 +37,8 @@ void test_tbsm_work(Params &params, bool run)
     blas::Side side = params.side.value();
     lapack::Uplo uplo = params.uplo.value();
     lapack::Op transA = params.transA.value();
-    lapack::Op transB = params.transB.value();
+    // ref. code to check can't do transB; disable for now.
+    //lapack::Op transB = params.transB.value();
     blas::Diag diag = params.diag.value();
     scalar_t alpha = params.alpha.value();
     int64_t m = params.dim.m();
@@ -68,8 +69,8 @@ void test_tbsm_work(Params &params, bool run)
     // setup so trans(B) is m-by-n
     int64_t An  = (side == blas::Side::Left ? m : n);
     int64_t Am  = An;
-    int64_t Bm  = (transB == blas::Op::NoTrans ? m : n);
-    int64_t Bn  = (transB == blas::Op::NoTrans ? n : m);
+    int64_t Bm  = m;  //(transB == blas::Op::NoTrans ? m : n);
+    int64_t Bn  = n;  //(transB == blas::Op::NoTrans ? n : m);
 
     // local values
     const int izero=0, ione=1;
@@ -139,10 +140,10 @@ void test_tbsm_work(Params &params, bool run)
     else if (transA == blas::Op::ConjTrans)
         A = conj_transpose(A);
 
-    if (transB == blas::Op::Trans)
-        B = transpose(B);
-    else if (transB == blas::Op::ConjTrans)
-        B = conj_transpose(B);
+    //if (transB == blas::Op::Trans)
+    //    B = transpose(B);
+    //else if (transB == blas::Op::ConjTrans)
+    //    B = conj_transpose(B);
 
     if (verbose > 1) {
         // todo: print_matrix( A ) calls Matrix version;

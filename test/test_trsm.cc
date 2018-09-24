@@ -31,7 +31,8 @@ void test_trsm_work (Params &params, bool run)
     blas::Side side = params.side.value();
     lapack::Uplo uplo = params.uplo.value();
     lapack::Op transA = params.transA.value();
-    lapack::Op transB = params.transB.value();
+    // ref. code to check can't do transB; disable for now.
+    //lapack::Op transB = params.transB.value();
     blas::Diag diag = params.diag.value();
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
@@ -58,8 +59,8 @@ void test_trsm_work (Params &params, bool run)
     // setup so trans(B) is m-by-n
     int64_t An  = (side == blas::Side::Left ? m : n);
     int64_t Am  = An;
-    int64_t Bm  = (transB == Op::NoTrans ? m : n);
-    int64_t Bn  = (transB == Op::NoTrans ? n : m);
+    int64_t Bm  = m;  //(transB == Op::NoTrans ? m : n);
+    int64_t Bn  = n;  //(transB == Op::NoTrans ? n : m);
 
     // local values
     static int i0=0, i1=1;
@@ -115,10 +116,10 @@ void test_trsm_work (Params &params, bool run)
     else if (transA == Op::ConjTrans)
         A = conj_transpose (A);
 
-    if (transB == Op::Trans)
-        B = transpose (B);
-    else if (transB == Op::ConjTrans)
-        B = conj_transpose (B);
+    //if (transB == Op::Trans)
+    //    B = transpose (B);
+    //else if (transB == Op::ConjTrans)
+    //    B = conj_transpose (B);
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();

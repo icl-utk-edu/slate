@@ -35,7 +35,8 @@ public:
     libtest::ParamInt    verbose;
     libtest::ParamInt    extended;
     libtest::ParamInt    cache;
-    libtest::ParamChar   target;
+    libtest::ParamInt    matrix;  // todo: string + generator
+    libtest::ParamChar   target;  // todo: enum
 
     // ----- routine parameters
     libtest::ParamEnum< libtest::DataType > datatype;

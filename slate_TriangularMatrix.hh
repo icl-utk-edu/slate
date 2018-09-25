@@ -381,7 +381,7 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
     : TrapezoidMatrix<scalar_t>(diag, orig, i1, i2, j1, j2)
 {
     if ((i2 - i1) != (j2 - j1))
-        throw std::exception();
+        throw std::runtime_error("i2 - i1 != j2 - j1, BaseTrapezoid");
 }
 
 //------------------------------------------------------------------------------
@@ -438,7 +438,7 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
     : TrapezoidMatrix<scalar_t>(uplo, diag, orig, i1, i2, j1, j2)
 {
     if ((i2 - i1) != (j2 - j1))
-        throw std::exception();
+        throw std::runtime_error("i2 - i1 != j2 - j1, Matrix");
 }
 
 //------------------------------------------------------------------------------

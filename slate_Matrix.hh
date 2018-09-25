@@ -108,10 +108,6 @@ protected:
            scalar_t** Aarray, int num_devices, int64_t lda, int64_t nb,
            int p, int q, MPI_Comm mpi_comm);
 
-    // used by sub
-    Matrix(Matrix& orig,
-           int64_t i1, int64_t i2, int64_t j1, int64_t j2);
-
 public:
     template <typename T>
     friend void swap(Matrix<T>& A, Matrix<T>& B);
@@ -438,23 +434,10 @@ Matrix<scalar_t> Matrix<scalar_t>::sub(
 }
 
 //------------------------------------------------------------------------------
-/// [internal]
 /// Sub-matrix constructor creates shallow copy view of parent matrix,
 /// A[ i1:i2, j1:j2 ].
-/// @see sub().
-///
-template <typename scalar_t>
-Matrix<scalar_t>::Matrix(
-    Matrix& orig,
-    int64_t i1, int64_t i2,
-    int64_t j1, int64_t j2)
-    : BaseMatrix<scalar_t>(orig, i1, i2, j1, j2)
-{}
-
-//------------------------------------------------------------------------------
-/// Sub-matrix constructor creates shallow copy view of parent matrix,
-/// A[ i1:i2, j1:j2 ].
-/// This version is called for conversion from off-diagonal submatrix of
+/// This is called from Matrix::sub(i1, i2, j1, j2) and
+/// off-diagonal sub(i1, i2, j1, j2) of
 /// TriangularMatrix, SymmetricMatrix, HermitianMatrix, etc.
 ///
 template <typename scalar_t>

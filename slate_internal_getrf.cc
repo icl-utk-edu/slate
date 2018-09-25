@@ -156,6 +156,9 @@ void getrf(internal::TargetType<Target::HostTask>,
             pivot[i] = Pivot(aux_pivot[i].tileIndex(),
                              aux_pivot[i].elementOffset());
         }
+
+        // Free the broadcast communicator.
+        slate_mpi_call(MPI_Comm_free(&bcast_comm));
     }
 }
 

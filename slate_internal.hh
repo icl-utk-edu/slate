@@ -317,6 +317,11 @@ void swap(Direction direction,
           Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
           int priority=0, int tag=0);
 
+template <Target target=Target::HostTask, typename scalar_t>
+void swap(Direction direction,
+          HermitianMatrix<scalar_t>&& A, std::vector<Pivot>& pivot,
+          int priority=0, int tag=0);
+
 //------------------------------------------------------------------------------
 // Norms
 template <Target target=Target::HostTask, typename scalar_t>

@@ -79,6 +79,14 @@ MatrixType transpose(MatrixType& A)
     return AT;
 }
 
+///-------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template<typename MatrixType>
+MatrixType transpose(MatrixType&& A)
+{
+    return transpose(A);
+}
+
 /// @see transpose()
 template<typename MatrixType>
 MatrixType conj_transpose(MatrixType& A)
@@ -92,6 +100,14 @@ MatrixType conj_transpose(MatrixType& A)
         slate_error("unsupported operation, results in conjugate-no-transpose");
 
     return AT;
+}
+
+///-------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template<typename MatrixType>
+MatrixType conj_transpose(MatrixType&& A)
+{
+    return conj_transpose(A);
 }
 
 //------------------------------------------------------------------------------

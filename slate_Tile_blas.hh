@@ -575,45 +575,36 @@ void scale(
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// Swap rows of two local tiles.
+/// Swap rows or columns of two local tiles, depending on op().
 ///
 template <typename scalar_t>
-void swap(int64_t j, int64_t n,
+void swap(int64_t j_offs, int64_t n,
           Tile<scalar_t>& A, int64_t i1,
           Tile<scalar_t>& B, int64_t i2)
 {
-    assert(A.nb() == B.nb());
-    assert(A.op() == B.op());
-
-    if (A.op() == Op::NoTrans) {
-        blas::swap(n,
-                   &A.data()[i1+j*A.stride()], A.stride(),
-                   &B.data()[i2+j*B.stride()], B.stride());
-    }
-    else {
-        // todo: op_ == Op::Trans
-        assert(0);
-    }
+    // todo: size assertions
+    for (int64_t j = j_offs; j < j_offs+n; ++j)
+        std::swap(A.at(i1, j), B.at(i2, j));
 }
 
-///----------------------------------------
+///-------------------------------------
 /// Converts rvalue refs to lvalue refs.
 template <typename scalar_t>
-void swap(int64_t j, int64_t n,
+void swap(int64_t j_offs, int64_t n,
           Tile<scalar_t>&& A, int64_t i1,
           Tile<scalar_t>&& B, int64_t i2)
 {
-    swap(j, n, A, i1, B, i2);
+    swap(j_offs, n, A, i1, B, i2);
 }
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// Swap rows with another process.
+/// Swap rows or columns with another process, depending on op().
 ///
 template <typename scalar_t>
 void swap(int64_t j, int64_t n,
-          Tile<scalar_t>& A, int64_t i, int other_rank, MPI_Comm mpi_comm,
-          int tag = 0)
+          Tile<scalar_t>& A, int64_t i,
+          int other_rank, MPI_Comm mpi_comm, int tag = 0)
 {
     std::vector<scalar_t> local_row(n);
     std::vector<scalar_t> other_row(n);
@@ -630,14 +621,42 @@ void swap(int64_t j, int64_t n,
          A.at(i, j+k) = other_row[k];
 }
 
-///----------------------------------------
+///-------------------------------------
 /// Converts rvalue refs to lvalue refs.
 template <typename scalar_t>
 void swap(int64_t j, int64_t n,
-          Tile<scalar_t>&& A, int64_t i, int other_rank, MPI_Comm mpi_comm,
-          int tag = 0)
+          Tile<scalar_t>&& A, int64_t i,
+          int other_rank, MPI_Comm mpi_comm, int tag = 0)
 {
     swap(j, n, A, i, other_rank, mpi_comm, tag);
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+/// Swap one element with another process.
+///
+template <typename scalar_t>
+void swap(Tile<scalar_t>& A, int64_t i, int64_t j,
+          int other_rank, MPI_Comm mpi_comm, int tag = 0)
+{
+    scalar_t local_element = A(i, j);
+    scalar_t other_element;
+
+    MPI_Sendrecv(
+        &local_element, 1, mpi_type<scalar_t>::value, other_rank, tag,
+        &other_element, 1, mpi_type<scalar_t>::value, other_rank, tag,
+        mpi_comm, MPI_STATUS_IGNORE);
+
+    A.at(i, j) = other_element;
+}
+
+///-------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename scalar_t>
+void swap(Tile<scalar_t>&& A, int64_t i, int64_t j,
+          int other_rank, MPI_Comm mpi_comm, int tag = 0)
+{
+    swap(A, i, j, other_rank, mpi_comm, tag);
 }
 
 ///-----------------------------------------------------------------------------

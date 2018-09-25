@@ -59,6 +59,18 @@ void swap(Direction direction,
 
 ///-----------------------------------------------------------------------------
 /// \brief
+/// Swaps L shapes according to the pivot vector.
+/// Dispatches to target implementations.
+template <Target target, typename scalar_t>
+void swap(Direction direction,
+          HermitianMatrix<scalar_t>&& A, std::vector<Pivot>& pivot,
+          int priority, int tag)
+{
+    swap(internal::TargetType<target>(), direction, A, pivot, priority, tag);
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
 /// Swaps rows according to the pivot vector, host implementation.
 template <typename scalar_t>
 void swap(internal::TargetType<Target::HostTask>,
@@ -107,6 +119,7 @@ void swap(internal::TargetType<Target::HostTask>,
                         if (pivot[i].tileIndex() > 0 ||
                             pivot[i].elementOffset() > i)
                         {
+                            // local swap
                             swap(0, A.tileNb(j),
                                  A(0, j), i,
                                  A(pivot[i].tileIndex(), j),
@@ -139,8 +152,175 @@ void swap(internal::TargetType<Target::HostTask>,
     }
 }
 
+///-----------------------------------------------------------------------------
+template <typename scalar_t>
+void swap(int64_t j_offs, int64_t n,
+          HermitianMatrix<scalar_t>& A,
+          Op op1, std::tuple<int64_t, int64_t>&& ij_tuple_1, int64_t offs_1,
+          Op op2, std::tuple<int64_t, int64_t>&& ij_tuple_2, int64_t offs_2,
+          int tag)
+{
+    int64_t i1 = std::get<0>(ij_tuple_1);
+    int64_t j1 = std::get<1>(ij_tuple_1);
+
+    int64_t i2 = std::get<0>(ij_tuple_2);
+    int64_t j2 = std::get<1>(ij_tuple_2);
+
+    if (A.tileRank(i1, j1) == A.mpiRank()) {
+        if (A.tileRank(i2, j2) == A.mpiRank()) {
+            // local swap
+            swap(j_offs, n,
+                 op1 == Op::NoTrans ? A(i1, j1) : transpose(A(i1, j1)), offs_1,
+                 op2 == Op::NoTrans ? A(i2, j2) : transpose(A(i2, j2)), offs_2);
+        }
+        else {
+            // sending tile 1
+            swap(j_offs, n,
+                 op1 == Op::NoTrans ? A(i1, j1) : transpose(A(i1, j1)), offs_1,
+                 A.tileRank(i2, j2), A.mpiComm(), tag);
+        }
+    }
+    else {
+        if (A.tileRank(i2, j2) == A.mpiRank()) {
+            // sending tile 2
+            swap(j_offs, n,
+                 op2 == Op::NoTrans ? A(i2, j2) : transpose(A(i2, j2)), offs_2,
+                 A.tileRank(i1, j1), A.mpiComm(), tag);
+        }
+    }
+}
+
+///-----------------------------------------------------------------------------
+template <typename scalar_t>
+void swap(HermitianMatrix<scalar_t>& A,
+          std::tuple<int64_t, int64_t>&& ij_tuple_1,
+          int64_t offs_i1, int64_t offs_j1,
+          std::tuple<int64_t, int64_t>&& ij_tuple_2,
+          int64_t offs_i2, int64_t offs_j2,
+          int tag)
+{
+    int64_t i1 = std::get<0>(ij_tuple_1);
+    int64_t j1 = std::get<1>(ij_tuple_1);
+
+    int64_t i2 = std::get<0>(ij_tuple_2);
+    int64_t j2 = std::get<1>(ij_tuple_2);
+
+    if (A.tileRank(i1, j1) == A.mpiRank()) {
+        if (A.tileRank(i2, j2) == A.mpiRank()) {
+            // local swap
+            std::swap(A(i1, j1).at(offs_i1, offs_j1),
+                      A(i2, j2).at(offs_i2, offs_j2));
+        }
+        else {
+            // sending tile 1
+            swap(A(i1, j1), offs_i1, offs_j1,
+                 A.tileRank(i2, j2), A.mpiComm(), tag);
+        }
+    }
+    else {
+        if (A.tileRank(i2, j2) == A.mpiRank()) {
+            // sending tile 2
+            swap(A(i2, j2), offs_i2, offs_j2,
+                 A.tileRank(i1, j1), A.mpiComm(), tag);
+        }
+    }
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+/// Swaps rows according to the pivot vector, host implementation.
+template <typename scalar_t>
+void swap(internal::TargetType<Target::HostTask>,
+          Direction direction,
+          HermitianMatrix<scalar_t>& A, std::vector<Pivot>& pivot,
+          int priority, int tag)
+{
+    assert(A.uplo() == Uplo::Lower);
+
+    for (int64_t i = 0; i < A.mt(); ++i) {
+        for (int64_t j = 0; j <= i; ++j) {
+            if (A.tileIsLocal(i, j)) {
+                #pragma omp task shared(A) priority(priority)
+                {
+                    A.tileMoveToHost(i, j, A.tileDevice(i, j));
+                }
+            }
+        }
+    }
+    #pragma omp taskwait
+
+    {
+        trace::Block trace_block("internal::swap");
+
+        // Apply pivots forward (0, ..., k-1) or reverse (k-1, ..., 0)
+        int64_t begin, end, inc;
+        if (direction == Direction::Forward) {
+            begin = 0;
+            end   = pivot.size();
+            inc   = 1;
+        }
+        else {
+            begin = pivot.size() - 1;
+            end   = -1;
+            inc   = -1;
+        }
+        for (int64_t i1 = begin; i1 != end; i1 += inc) {
+
+            int64_t i2 = pivot[i1].elementOffset();
+            int64_t j2 = pivot[i1].tileIndex();
+
+            // If pivot not on the diagonal.
+            if (j2 > 0 || i2 > i1) {
+
+                int64_t j1 = 0;
+
+                // in the upper band
+                swap(0, i1, A,
+                     Op::NoTrans, {0, j1}, i1,
+                     Op::NoTrans, {j2, j1}, i2, tag);
+
+                swap(i1+1, A.tileNb(j1)-i1-1, A,
+                     Op::Trans, {0, j1}, i1,
+                     Op::NoTrans, {j2, j1}, i2, tag);
+
+                // before the lower band
+                for (++j1; j1 < j2; ++j1) {
+                    swap(0, A.tileNb(j1), A,
+                         Op::Trans, {j1, 0}, i1,
+                         Op::NoTrans, {j2, j1}, i2, tag);
+                }
+
+                // in the lower band
+                swap(0, i2, A,
+                     Op::Trans, {j1, 0}, i1,
+                     Op::NoTrans, {j2, j1}, i2, tag);
+
+                swap(i2+1, A.tileNb(j2)-i2-1, A,
+                    Op::Trans, {j1, 0}, i1,
+                    Op::Trans, {j2, j1}, i2, tag);
+
+                // after the lower band
+                for (++j1; j1 < A.nt(); ++j1) {
+                    swap(0, A.tileNb(j2), A,
+                         Op::Trans, {j1, 0}, i1,
+                         Op::Trans, {j1, j2}, i2, tag);
+                }
+
+                // Conjugate the crossing poing.
+                if (A.tileRank(j2, 0) == A.mpiRank())
+                    A(j2, 0).at(i2, i1) = std::conj(A(j2, 0).at(i2, i1));
+
+                // Swap the corners.
+                swap(A,
+                     {0, 0}, i1, i1,
+                     {j2, j2}, i2, i2, tag);
+            }
+        }
+    }
+}
+
 //------------------------------------------------------------------------------
-// Explicit instantiations.
+// Explicit instantiations for (general) Matrix.
 // ----------------------------------------
 template
 void swap<Target::HostTask, float>(
@@ -168,6 +348,38 @@ template
 void swap< Target::HostTask, std::complex<double> >(
     Direction direction,
     Matrix< std::complex<double> >&& A,
+    std::vector<Pivot>& pivot,
+    int priority, int tag);
+
+//------------------------------------------------------------------------------
+// Explicit instantiations for HermitianMatrix.
+// ----------------------------------------
+template
+void swap<Target::HostTask, float>(
+    Direction direction,
+    HermitianMatrix<float>&& A, std::vector<Pivot>& pivot,
+    int priority, int tag);
+
+// ----------------------------------------
+template
+void swap<Target::HostTask, double>(
+    Direction direction,
+    HermitianMatrix<double>&& A, std::vector<Pivot>& pivot,
+    int priority, int tag);
+
+// ----------------------------------------
+template
+void swap< Target::HostTask, std::complex<float> >(
+    Direction direction,
+    HermitianMatrix< std::complex<float> >&& A,
+    std::vector<Pivot>& pivot,
+    int priority, int tag);
+
+// ----------------------------------------
+template
+void swap< Target::HostTask, std::complex<double> >(
+    Direction direction,
+    HermitianMatrix< std::complex<double> >&& A,
     std::vector<Pivot>& pivot,
     int priority, int tag);
 

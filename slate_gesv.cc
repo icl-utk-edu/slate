@@ -67,9 +67,9 @@ void gesv(slate::internal::TargetType<target>,
            {Option::Lookahead, lookahead},
            {Option::MaxPanelThreads, int64_t(max_panel_threads)},
            {Option::Target, target}});
-    
+
     //solve
-    getrs(A, pivots, B, 
+    getrs(A, pivots, B,
           {{Option::Lookahead, lookahead},
            {Option::Target, target}});
 }

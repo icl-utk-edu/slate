@@ -72,6 +72,8 @@ void swap(Direction direction,
 ///-----------------------------------------------------------------------------
 /// \brief
 /// Swaps rows according to the pivot vector, host implementation.
+/// todo: Restructure similarly to Hermitian swap
+///       (use the auxiliary swap functions).
 template <typename scalar_t>
 void swap(internal::TargetType<Target::HostTask>,
           Direction direction,

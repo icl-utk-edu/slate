@@ -237,6 +237,8 @@ void swap(internal::TargetType<Target::HostTask>,
           HermitianMatrix<scalar_t>& A, std::vector<Pivot>& pivot,
           int priority, int tag)
 {
+    using blas::conj;
+
     assert(A.uplo() == Uplo::Lower);
 
     for (int64_t i = 0; i < A.mt(); ++i) {
@@ -310,7 +312,7 @@ void swap(internal::TargetType<Target::HostTask>,
 
                 // Conjugate the crossing poing.
                 if (A.tileRank(j2, 0) == A.mpiRank())
-                    A(j2, 0).at(i2, i1) = std::conj(A(j2, 0).at(i2, i1));
+                    A(j2, 0).at(i2, i1) = conj(A(j2, 0).at(i2, i1));
 
                 // Swap the corners.
                 swap(A,

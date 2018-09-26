@@ -385,6 +385,7 @@ void potrf(HermitianMatrix<scalar_t>& A,
 
 // forward real-symmetric matrices to potrf;
 // disabled for complex
+// todo: same for potrs and posv?
 template <typename scalar_t>
 void potrf(SymmetricMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>(),

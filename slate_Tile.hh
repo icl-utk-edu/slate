@@ -446,6 +446,7 @@ void Tile<scalar_t>::copyDataToHost(
         slate_cuda_call(
             cudaStreamSynchronize(stream));
     }
+    dst_tile->layout(this->layout());
 }
 
 //------------------------------------------------------------------------------
@@ -501,6 +502,7 @@ void Tile<scalar_t>::copyDataToDevice(
         slate_cuda_call(
             cudaStreamSynchronize(stream));
     }
+    dst_tile->layout(this->layout());
 }
 
 //------------------------------------------------------------------------------
@@ -600,7 +602,7 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm, int tag)
 ///     MPI communicator.
 ///
 // todo: OpenMPI MPI_Bcast seems to have a bug such that either all ranks must
-// Use the simple case, or all ranks use vector case, even though the type
+// use the simple case, or all ranks use vector case, even though the type
 // signatures match.
 // Bug confirmed with OpenMPI folks. All nodes need to make same decision
 // about using a pipelined bcast algorithm (in the contiguous case), and can't.

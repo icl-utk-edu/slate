@@ -198,10 +198,12 @@ public:
     void tileErase(int64_t i, int64_t j, int device=host_num_);
 
     template <Target target = Target::Host>
-    void tileBcast(int64_t i, int64_t j, BaseMatrix const& B, int tag = 0);
+    void tileBcast(int64_t i, int64_t j, BaseMatrix const& B, int tag = 0,
+                   Layout layout = Layout::ColMajor);
 
     template <Target target = Target::Host>
-    void listBcast(BcastList& bcast_list, int tag = 0);
+    void listBcast(BcastList& bcast_list, int tag = 0,
+                   Layout layout = Layout::ColMajor);
 
     template <Target target = Target::Host>
     void listReduce(ReduceList& reduce_list, int tag = 0);
@@ -215,10 +217,10 @@ protected:
                            std::set<int> const& reduce_set, int radix, int tag);
 
 public:
-    void tileCopyToDevice(int64_t i, int64_t j, int dst_device);
-    void tileCopyToHost(  int64_t i, int64_t j, int src_device);
-    void tileMoveToDevice(int64_t i, int64_t j, int dst_device);
-    void tileMoveToHost(  int64_t i, int64_t j, int src_device);
+    void tileCopyToHost(  int64_t i, int64_t j, int src_device, Layout layout = Layout::ColMajor);
+    void tileMoveToHost(  int64_t i, int64_t j, int src_device, Layout layout = Layout::ColMajor);
+    void tileCopyToDevice(int64_t i, int64_t j, int dst_device, Layout layout = Layout::ColMajor);
+    void tileMoveToDevice(int64_t i, int64_t j, int dst_device, Layout layout = Layout::ColMajor);
 
     void getRanks(std::set<int>* bcast_set) const;
     void getLocalDevices(std::set<int>* dev_set) const;
@@ -664,11 +666,11 @@ void BaseMatrix<scalar_t>::tileErase(int64_t i, int64_t j, int device)
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::tileBcast(
-    int64_t i, int64_t j, BaseMatrix<scalar_t> const& B, int tag)
+    int64_t i, int64_t j, BaseMatrix<scalar_t> const& B, int tag, Layout layout)
 {
     BcastList bcast_list_B;
     bcast_list_B.push_back({i, j, {B}});
-    listBcast<target>(bcast_list_B, tag);
+    listBcast<target>(bcast_list_B, tag, layout);
 }
 
 //------------------------------------------------------------------------------
@@ -684,7 +686,8 @@ void BaseMatrix<scalar_t>::tileBcast(
 ///
 template <typename scalar_t>
 template <Target target>
-void BaseMatrix<scalar_t>::listBcast(BcastList& bcast_list, int tag)
+void BaseMatrix<scalar_t>::listBcast(
+    BcastList& bcast_list, int tag, Layout layout)
 {
     // It is possible that the same tile, with the same data, is sent twice.
     // This happens, e.g., in the hemm and symm routines, where the same tile
@@ -739,7 +742,6 @@ void BaseMatrix<scalar_t>::listBcast(BcastList& bcast_list, int tag)
 
         // Copy to devices.
         if (target == Target::Devices) {
-
             std::set<int> dev_set;
             for (auto submatrix : submatrices_list)
                 submatrix.getLocalDevices(&dev_set);
@@ -747,7 +749,7 @@ void BaseMatrix<scalar_t>::listBcast(BcastList& bcast_list, int tag)
             #pragma omp task
             {
                 for (auto device : dev_set)
-                    tileCopyToDevice(i, j, device);
+                    tileCopyToDevice(i, j, device, layout);
             }
         }
     }
@@ -992,27 +994,31 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileCopyToDevice(
-    int64_t i, int64_t j, int dst_device)
+    int64_t i, int64_t j, int dst_device, Layout layout)
 {
     // todo: race condition if multiple threads try to copy tile to device
     // If the tile is not on the device.
+    Tile<scalar_t> *dst_tile, *src_tile;
     auto iter = storage_->find(globalIndex(i, j, dst_device));
     if (iter == storage_->end()) {
         // Create a copy on the device.
-        Tile<scalar_t>* src_tile = storage_->at(globalIndex(i, j, host_num_));
-        Tile<scalar_t>* dst_tile = tileInsertWorkspace(i, j, dst_device);
+        src_tile = storage_->at(globalIndex(i, j, host_num_));
+        dst_tile = tileInsertWorkspace(i, j, dst_device);
         src_tile->copyDataToDevice(dst_tile, comm_stream(dst_device));
     }
     else {
         // If the tile on the device is not valid.
-        Tile<scalar_t>* dst_tile = iter->second;
+        dst_tile = iter->second;
         if (! dst_tile->valid()) {
             // Update the device tile's data.
-            Tile<scalar_t>* src_tile =
-                storage_->at(globalIndex(i, j, host_num_));
+            src_tile = storage_->at(globalIndex(i, j, host_num_));
             src_tile->copyDataToDevice(dst_tile, comm_stream(dst_device));
             dst_tile->valid(true);
         }
+    }
+    // Change ColMajor <=> RowMajor.
+    if (dst_tile->layout() != layout) {
+        convert_layout(dst_tile, comm_stream(dst_device));
     }
 }
 
@@ -1034,27 +1040,31 @@ void BaseMatrix<scalar_t>::tileCopyToDevice(
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileCopyToHost(
-    int64_t i, int64_t j, int src_device)
+    int64_t i, int64_t j, int src_device, Layout layout)
 {
     // todo: race condition if multiple threads try to copy tile to device
     // If the tile is not on the host.
+    Tile<scalar_t> *dst_tile, *src_tile;
     auto iter = storage_->find(globalIndex(i, j, host_num_));
     if (iter == storage_->end()) {
         // Create a copy on the host.
-        Tile<scalar_t>* src_tile = storage_->at(globalIndex(i, j, src_device));
-        Tile<scalar_t>* dst_tile = tileInsertWorkspace(i, j, host_num_);
+        src_tile = storage_->at(globalIndex(i, j, src_device));
+        dst_tile = tileInsertWorkspace(i, j, host_num_);
         src_tile->copyDataToHost(dst_tile, comm_stream(src_device));
     }
     else {
         // If the tile on the host is not valid.
-        Tile<scalar_t>* dst_tile = iter->second;
+        dst_tile = iter->second;
         if (! dst_tile->valid()) {
             // Update the host tile's data.
-            Tile<scalar_t>* src_tile =
-                storage_->at(globalIndex(i, j, src_device));
+            src_tile = storage_->at(globalIndex(i, j, src_device));
             src_tile->copyDataToHost(dst_tile, comm_stream(src_device));
             dst_tile->valid(true);
         }
+    }
+    // Change ColMajor <=> RowMajor.
+    if (dst_tile->layout() != layout) {
+        convert_layout(dst_tile);
     }
 }
 
@@ -1076,13 +1086,12 @@ void BaseMatrix<scalar_t>::tileCopyToHost(
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileMoveToDevice(
-    int64_t i, int64_t j, int dst_device)
+    int64_t i, int64_t j, int dst_device, Layout layout)
 {
     // Copy the tile to the device.
-    tileCopyToDevice(i, j, dst_device);
+    tileCopyToDevice(i, j, dst_device, layout);
 
     // If the host tile exists, invalidate it.
-    // todo: how could host tile not exist?
     // todo: any races here?
     auto iter = storage_->find(globalIndex(i, j, host_num_));
     if (iter != storage_->end())
@@ -1107,16 +1116,15 @@ void BaseMatrix<scalar_t>::tileMoveToDevice(
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileMoveToHost(
-    int64_t i, int64_t j, int src_device)
+    int64_t i, int64_t j, int src_device, Layout layout)
 {
     // If source is not the host.
     // todo: why this if statement here, but not in other copy/move routines?
     if (src_device != host_num_) {
         // Copy the tile to the host.
-        tileCopyToHost(i, j, src_device);
+        tileCopyToHost(i, j, src_device, layout);
 
         // If the device tile exists, invalidate it.
-        // todo: how could device tile not exist?
         // todo: any races here?
         auto iter = storage_->find(globalIndex(i, j, src_device));
         if (iter != storage_->end())

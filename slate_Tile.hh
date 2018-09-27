@@ -210,6 +210,9 @@ public:
 
     /// Returns which host or GPU device tile's data is located on.
     int device() const { return device_; }
+    
+    Layout layout() const { return layout_; }
+    void   layout(Layout in_layout) { layout_ = in_layout; }
 
 protected:
     int64_t mb_;
@@ -222,6 +225,7 @@ protected:
 
     bool valid_;
     TileKind kind_;
+    Layout layout_;
 
     int device_;
 };
@@ -238,6 +242,7 @@ Tile<scalar_t>::Tile()
       data_(nullptr),
       valid_(false),
       kind_(TileKind::UserOwned),
+      layout_(Layout::ColMajor),
       device_(-1)  // todo: host_num
 {}
 
@@ -277,6 +282,7 @@ Tile<scalar_t>::Tile(
       data_(A),
       valid_(true),
       kind_(kind),
+      layout_(Layout::ColMajor),
       device_(device)
 {
     slate_assert(mb >= 0);
@@ -289,6 +295,7 @@ Tile<scalar_t>::Tile(
 /// Returns element {i, j} of op(A).
 /// The actual value is returned, not a reference. Use at() to get a reference.
 /// If op() is ConjTrans, data IS conjugated, unlike with at().
+/// This takes column-major / row-major layout into account.
 ///
 /// @param[in] i
 ///     Row index. 0 <= i < mb.
@@ -302,13 +309,21 @@ scalar_t Tile<scalar_t>::operator()(int64_t i, int64_t j) const
     using blas::conj;
     assert(0 <= i && i < mb());
     assert(0 <= j && j < nb());
-    if (op_ == Op::NoTrans)
+    if (op_ == Op::ConjTrans) {
+        if (layout_ == Layout::ColMajor)
+            return conj(data_[ j + i*stride_ ]);
+        else
+            return conj(data_[ i + j*stride_ ]);
+    }
+    else if ((op_ == Op::NoTrans) == (layout_ == Layout::ColMajor)) {
+        // (NoTrans && ColMajor) ||
+        // (Trans   && RowMajor)
         return data_[ i + j*stride_ ];
-    else if (op_ == Op::Trans)
-        return data_[ j + i*stride_ ];
+    }
     else {
-        assert(op_ == Op::ConjTrans);
-        return conj(data_[ j + i*stride_ ]);
+        // (NoTrans && RowMajor) ||
+        // (Trans   && ColMajor)
+        return data_[ j + i*stride_ ];
     }
 }
 
@@ -317,6 +332,7 @@ scalar_t Tile<scalar_t>::operator()(int64_t i, int64_t j) const
 /// If op() is ConjTrans, data is NOT conjugated,
 /// because a reference is returned.
 /// Use operator() to get the actual value, conjugated if need be.
+/// This takes column-major / row-major layout into account.
 ///
 /// @param[in] i
 ///     Row index. 0 <= i < mb.
@@ -329,10 +345,14 @@ scalar_t const& Tile<scalar_t>::at(int64_t i, int64_t j) const
 {
     assert(0 <= i && i < mb());
     assert(0 <= j && j < nb());
-    if (op_ == Op::NoTrans)
+    if ((op_ == Op::NoTrans) == (layout_ == Layout::ColMajor)) {
+        // (NoTrans && ColMajor) ||
+        // (Trans   && RowMajor)
         return data_[ i + j*stride_ ];
+    }
     else {
-        assert(op_ == Op::Trans || op_ == Op::ConjTrans);
+        // (NoTrans && RowMajor) ||
+        // (Trans   && ColMajor)
         return data_[ j + i*stride_ ];
     }
 }

@@ -685,6 +685,43 @@ void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>&& Y)
     axpy(alpha, X, Y);
 }
 
+///-----------------------------------------------------------------------------
+/// In-place conversion between column and row-major layout for square tiles.
+/// Takes a pointer to the original tile in MatrixStorage, instead of a
+/// reference to a copy of the tile, in order to adjust the tile's layout flag.
+///
+template <typename scalar_t>
+void convert_layout(Tile<scalar_t>* X)
+{
+    trace::Block trace_block("slate::convert_layout");
+    assert(X->mb() == X->nb());
+
+    for (int64_t j = 0; j < X->nb(); ++j) {
+        for (int64_t i = 0; i < j; ++i) { // upper
+            std::swap(X->at(i, j), X->at(j, i));
+        }
+    }
+
+    X->layout(X->layout() == Layout::RowMajor ? Layout::ColMajor
+                                              : Layout::RowMajor);
+}
+
+///-----------------------------------------------------------------------------
+/// In-place conversion between column and row-major layout for square tiles.
+/// Takes a pointer to the original tile in MatrixStorage, instead of a
+/// reference to a copy of the tile, in order to adjust the tile's layout flag.
+///
+template <typename scalar_t>
+void convert_layout(Tile<scalar_t>* X, cudaStream_t stream)
+{
+    trace::Block trace_block("blas::transpose");
+    assert(false);
+    // TODO: launch CUDA kernel
+
+    X->layout(X->layout() == Layout::RowMajor ? Layout::ColMajor
+                                              : Layout::RowMajor);
+}
+
 } // namespace slate
 
 #endif // SLATE_TILE_BLAS_HH

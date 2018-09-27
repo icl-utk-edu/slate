@@ -56,6 +56,7 @@ typedef blas::Op Op;
 typedef blas::Uplo Uplo;
 typedef blas::Diag Diag;
 typedef blas::Side Side;
+typedef blas::Layout Layout;
 
 typedef lapack::Norm Norm;
 typedef lapack::Direct Direction;  // todo change LAPACK++

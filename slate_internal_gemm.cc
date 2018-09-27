@@ -64,7 +64,7 @@ template <Target target, typename scalar_t>
 void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
-          int priority)
+          int priority, Layout layout)
 {
     if (C.is_complex &&
         ((C.op() == Op::Trans &&
@@ -79,7 +79,7 @@ void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
          alpha, A,
                 B,
          beta,  C,
-         priority);
+         priority, layout);
 }
 
 ///-----------------------------------------------------------------------------
@@ -92,8 +92,10 @@ void gemm(internal::TargetType<Target::HostTask>,
           scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          int priority)
+          int priority, Layout layout)
 {
+    // CPU uses ColMajor
+    assert(layout == Layout::ColMajor);
     // check dimensions
     assert(A.nt() == 1);
     assert(B.mt() == 1);
@@ -140,8 +142,10 @@ void gemm(internal::TargetType<Target::HostNest>,
           scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          int priority)
+          int priority, Layout layout)
 {
+    // CPU uses ColMajor
+    assert(layout == Layout::ColMajor);
     // check dimensions
     assert(A.nt() == 1);
     assert(B.mt() == 1);
@@ -191,11 +195,13 @@ void gemm(internal::TargetType<Target::HostBatch>,
           scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          int priority)
+          int priority, Layout layout)
 {
     using blas::conj;
     using std::swap;
 
+    // CPU uses ColMajor
+    assert(layout == Layout::ColMajor);
     // check dimensions
     assert(A.nt() == 1);
     assert(B.mt() == 1);
@@ -337,12 +343,13 @@ void gemm(internal::TargetType<Target::HostBatch>,
 /// General matrix multiply to update trailing matrix,
 /// where A is a single block column and B is a single block row.
 /// GPU device batched cuBLAS implementation.
+/// GPU can use either ColMajor or RowMajor.
 template <typename scalar_t>
 void gemm(internal::TargetType<Target::Devices>,
           scalar_t alpha, Matrix< scalar_t >& A,
                           Matrix< scalar_t >& B,
           scalar_t beta,  Matrix< scalar_t >& C,
-          int priority)
+          int priority, Layout layout)
 {
     using blas::conj;
     using std::swap;
@@ -397,9 +404,9 @@ void gemm(internal::TargetType<Target::Devices>,
                 for (int64_t j = 0; j < C.nt(); ++j) {
                     if (C.tileIsLocal(i, j)) {
                         if (device == C.tileDevice(i, j)) {
-                            A.tileCopyToDevice(i, 0, device);
-                            B.tileCopyToDevice(0, j, device);
-                            C.tileMoveToDevice(i, j, device);
+                            A.tileCopyToDevice(i, 0, device, layout);
+                            B.tileCopyToDevice(0, j, device, layout);
+                            C.tileMoveToDevice(i, j, device, layout);
                         }
                     }
                 }
@@ -551,60 +558,112 @@ void gemm(internal::TargetType<Target::Devices>,
             {
                 trace::Block trace_block("cublasGemmBatched");
                 if (batch_count_00 > 0) {
-                    slate_cublas_call(
-                        cublasGemmBatched(
-                            cublas_handle,  // uses stream
-                            cublas_op_const(opA), cublas_op_const(opB),
-                            mb00, nb00, kb,
-                            &alpha, (const scalar_t**) a_array_dev, lda00,
-                                    (const scalar_t**) b_array_dev, ldb00,
-                            &beta,                     c_array_dev, ldc00,
-                            batch_count_00));
+                    if (layout == Layout::ColMajor) {
+                        slate_cublas_call(
+                            cublasGemmBatched(
+                                cublas_handle,  // uses stream
+                                cublas_op_const(opA), cublas_op_const(opB),
+                                mb00, nb00, kb,
+                                &alpha, (const scalar_t**) a_array_dev, lda00,
+                                        (const scalar_t**) b_array_dev, ldb00,
+                                &beta,                     c_array_dev, ldc00,
+                                batch_count_00));
+                    }
+                    else {
+                        slate_cublas_call(
+                            cublasGemmBatched(
+                                cublas_handle,  // uses stream
+                                cublas_op_const(opB), cublas_op_const(opA),
+                                nb00, mb00, kb,
+                                &alpha, (const scalar_t**) b_array_dev, ldb00,
+                                        (const scalar_t**) a_array_dev, lda00,
+                                &beta,                     c_array_dev, ldc00,
+                                batch_count_00));
+                    }
                     a_array_dev += batch_count_00;
                     b_array_dev += batch_count_00;
                     c_array_dev += batch_count_00;
                 }
 
                 if (batch_count_10 > 0) {
-                    slate_cublas_call(
-                        cublasGemmBatched(
-                            cublas_handle,  // uses stream
-                            cublas_op_const(opA), cublas_op_const(opB),
-                            mb10, nb10, kb,
-                            &alpha, (const scalar_t**) a_array_dev, lda10,
-                                    (const scalar_t**) b_array_dev, ldb10,
-                            &beta,                     c_array_dev, ldc10,
-                            batch_count_10));
+                    if (layout == Layout::ColMajor) {
+                        slate_cublas_call(
+                            cublasGemmBatched(
+                                cublas_handle,  // uses stream
+                                cublas_op_const(opA), cublas_op_const(opB),
+                                mb10, nb10, kb,
+                                &alpha, (const scalar_t**) a_array_dev, lda10,
+                                        (const scalar_t**) b_array_dev, ldb10,
+                                &beta,                     c_array_dev, ldc10,
+                                batch_count_10));
+                    }
+                    else {
+                        slate_cublas_call(
+                            cublasGemmBatched(
+                                cublas_handle,  // uses stream
+                                cublas_op_const(opB), cublas_op_const(opA),
+                                nb10, mb10, kb,
+                                &alpha, (const scalar_t**) b_array_dev, ldb10,
+                                        (const scalar_t**) a_array_dev, lda10,
+                                &beta,                     c_array_dev, ldc10,
+                                batch_count_10));
+                    }
                     a_array_dev += batch_count_10;
                     b_array_dev += batch_count_10;
                     c_array_dev += batch_count_10;
                 }
 
                 if (batch_count_01 > 0) {
-                    slate_cublas_call(
-                        cublasGemmBatched(
-                            cublas_handle,  // uses stream
-                            cublas_op_const(opA), cublas_op_const(opB),
-                            mb01, nb01, kb,
-                            &alpha, (const scalar_t**) a_array_dev, lda01,
-                                    (const scalar_t**) b_array_dev, ldb01,
-                            &beta,                     c_array_dev, ldc01,
-                            batch_count_01));
+                    if (layout == Layout::ColMajor) {
+                        slate_cublas_call(
+                            cublasGemmBatched(
+                                cublas_handle,  // uses stream
+                                cublas_op_const(opA), cublas_op_const(opB),
+                                mb01, nb01, kb,
+                                &alpha, (const scalar_t**) a_array_dev, lda01,
+                                        (const scalar_t**) b_array_dev, ldb01,
+                                &beta,                     c_array_dev, ldc01,
+                                batch_count_01));
+                    }
+                    else {
+                        slate_cublas_call(
+                            cublasGemmBatched(
+                                cublas_handle,  // uses stream
+                                cublas_op_const(opB), cublas_op_const(opA),
+                                nb01, mb01, kb,
+                                &alpha, (const scalar_t**) b_array_dev, ldb01,
+                                        (const scalar_t**) a_array_dev, lda01,
+                                &beta,                     c_array_dev, ldc01,
+                                batch_count_01));
+                    }
                     a_array_dev += batch_count_01;
                     b_array_dev += batch_count_01;
                     c_array_dev += batch_count_01;
                 }
 
                 if (batch_count_11 > 0) {
-                    slate_cublas_call(
-                        cublasGemmBatched(
-                            cublas_handle,  // uses stream
-                            cublas_op_const(opA), cublas_op_const(opB),
-                            mb11, nb11, kb,
-                            &alpha, (const scalar_t**) a_array_dev, lda11,
-                                    (const scalar_t**) b_array_dev, ldb11,
-                            &beta,                     c_array_dev, ldc11,
-                            batch_count_11));
+                    if (layout == Layout::ColMajor) {
+                        slate_cublas_call(
+                            cublasGemmBatched(
+                                cublas_handle,  // uses stream
+                                cublas_op_const(opA), cublas_op_const(opB),
+                                mb11, nb11, kb,
+                                &alpha, (const scalar_t**) a_array_dev, lda11,
+                                        (const scalar_t**) b_array_dev, ldb11,
+                                &beta,                     c_array_dev, ldc11,
+                                batch_count_11));
+                    }
+                    else {
+                        slate_cublas_call(
+                            cublasGemmBatched(
+                                cublas_handle,  // uses stream
+                                cublas_op_const(opB), cublas_op_const(opA),
+                                nb11, mb11, kb,
+                                &alpha, (const scalar_t**) b_array_dev, ldb11,
+                                        (const scalar_t**) a_array_dev, lda11,
+                                &beta,                     c_array_dev, ldc11,
+                                batch_count_11));
+                    }
                 }
 
                 slate_cuda_call(
@@ -642,28 +701,28 @@ void gemm<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int priority);
+    int priority, Layout layout);
 
 template
 void gemm<Target::HostNest, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int priority);
+    int priority, Layout layout);
 
 template
 void gemm<Target::HostBatch, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int priority);
+    int priority, Layout layout);
 
 template
 void gemm<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int priority);
+    int priority, Layout layout);
 
 // ----------------------------------------
 template
@@ -671,28 +730,28 @@ void gemm<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int priority);
+    int priority, Layout layout);
 
 template
 void gemm<Target::HostNest, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int priority);
+    int priority, Layout layout);
 
 template
 void gemm<Target::HostBatch, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int priority);
+    int priority, Layout layout);
 
 template
 void gemm<Target::Devices, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int priority);
+    int priority, Layout layout);
 
 // ----------------------------------------
 template
@@ -700,28 +759,28 @@ void gemm< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int priority);
+    int priority, Layout layout);
 
 template
 void gemm< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int priority);
+    int priority, Layout layout);
 
 template
 void gemm< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int priority);
+    int priority, Layout layout);
 
 template
 void gemm< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int priority);
+    int priority, Layout layout);
 
 // ----------------------------------------
 template
@@ -729,28 +788,28 @@ void gemm< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int priority);
+    int priority, Layout layout);
 
 template
 void gemm< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int priority);
+    int priority, Layout layout);
 
 template
 void gemm< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int priority);
+    int priority, Layout layout);
 
 template
 void gemm< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int priority);
+    int priority, Layout layout);
 
 } // namespace internal
 } // namespace slate

@@ -52,9 +52,10 @@ namespace internal {
 template <Target target, typename scalar_t>
 void swap(Direction direction,
           Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
-          int priority, int tag)
+          int priority, int tag, Layout layout)
 {
-    swap(internal::TargetType<target>(), direction, A, pivot, priority, tag);
+    swap(internal::TargetType<target>(), direction, A, pivot,
+         priority, tag, layout);
 }
 
 ///-----------------------------------------------------------------------------
@@ -66,20 +67,24 @@ void swap(Direction direction,
           HermitianMatrix<scalar_t>&& A, std::vector<Pivot>& pivot,
           int priority, int tag)
 {
-    swap(internal::TargetType<target>(), direction, A, pivot, priority, tag);
+    swap(internal::TargetType<target>(), direction, A, pivot,
+         priority, tag);
 }
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// Swaps rows according to the pivot vector, host implementation.
+/// Swaps rows of a general matrix according to the pivot vector,
+/// host implementation.
 /// todo: Restructure similarly to Hermitian swap
 ///       (use the auxiliary swap functions).
 template <typename scalar_t>
 void swap(internal::TargetType<Target::HostTask>,
           Direction direction,
           Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
-          int priority, int tag)
+          int priority, int tag, Layout layout)
 {
+    // CPU uses ColMajor
+    assert(layout == Layout::ColMajor);
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (A.tileIsLocal(i, j)) {
@@ -230,7 +235,9 @@ void swap(HermitianMatrix<scalar_t>& A,
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// Swaps rows according to the pivot vector, host implementation.
+/// (Symmetric?) Swaps of rows (and columns?) of a Hermitian matrix according to
+/// the pivot vector, host implementation.
+// todo: is this symmetric swapping, both rows & columns?
 template <typename scalar_t>
 void swap(internal::TargetType<Target::HostTask>,
           Direction direction,
@@ -330,14 +337,14 @@ template
 void swap<Target::HostTask, float>(
     Direction direction,
     Matrix<float>&& A, std::vector<Pivot>& pivot,
-    int priority, int tag);
+    int priority, int tag, Layout layout);
 
 // ----------------------------------------
 template
 void swap<Target::HostTask, double>(
     Direction direction,
     Matrix<double>&& A, std::vector<Pivot>& pivot,
-    int priority, int tag);
+    int priority, int tag, Layout layout);
 
 // ----------------------------------------
 template
@@ -345,7 +352,7 @@ void swap< Target::HostTask, std::complex<float> >(
     Direction direction,
     Matrix< std::complex<float> >&& A,
     std::vector<Pivot>& pivot,
-    int priority, int tag);
+    int priority, int tag, Layout layout);
 
 // ----------------------------------------
 template
@@ -353,7 +360,7 @@ void swap< Target::HostTask, std::complex<double> >(
     Direction direction,
     Matrix< std::complex<double> >&& A,
     std::vector<Pivot>& pivot,
-    int priority, int tag);
+    int priority, int tag, Layout layout);
 
 //------------------------------------------------------------------------------
 // Explicit instantiations for HermitianMatrix.

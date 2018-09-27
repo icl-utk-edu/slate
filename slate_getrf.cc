@@ -64,6 +64,18 @@ void getrf(slate::internal::TargetType<target>,
     // using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    // GPU Devices use RowMajor for efficient row swapping.
+    Layout layout = Layout::ColMajor;
+    if (target == Target::Devices)
+        layout = Layout::RowMajor;
+
+    if (target == Target::Devices) {
+        A.allocateBatchArrays();
+        A.reserveDeviceWorkspace();
+    }
+
+    const int priority_one = 1;
+    const int priority_zero = 0;
     const int64_t A_nt = A.nt();
     const int64_t A_mt = A.mt();
     const int64_t min_mt_nt = std::min(A.mt(), A.nt());
@@ -81,7 +93,6 @@ void getrf(slate::internal::TargetType<target>,
         pivots.at(k).resize(diag_len);
 
         // panel, high priority
-        int priority_one = 1;
         #pragma omp task depend(inout:column[k]) priority(priority_one)
         {
             // factor A(k:mt-1, k)
@@ -95,7 +106,7 @@ void getrf(slate::internal::TargetType<target>,
                 // send A(i, k) across row A(i, k+1:nt-1)
                 bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
             }
-            A.template listBcast(bcast_list_A, tag_k);
+            A.template listBcast(bcast_list_A, tag_k, layout);
 
             // Root broadcasts the pivot to all ranks.
             // todo: Panel ranks send the pivots to the right.
@@ -108,12 +119,12 @@ void getrf(slate::internal::TargetType<target>,
             }
         }
         // update lookahead column(s), high priority
+        // Done on CPU, not target.
         for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[j]) priority(priority_one)
             {
                 // swap rows in A(k:mt-1, j)
-                int priority_one = 1;
                 int tag_j = j;
                 internal::swap<Target::HostTask>(
                     Direction::Forward, A.sub(k, A_mt-1, j, j), pivots.at(k),
@@ -160,8 +171,8 @@ void getrf(slate::internal::TargetType<target>,
                              depend(inout:column[A_nt-1])
             {
                 // swap rows in A(k:mt-1, kl+1:nt-1)
-                int priority_zero = 0;
                 int tag_kl1 = k+1+lookahead;
+                // todo: target & layout
                 internal::swap<Target::HostTask>(
                     Direction::Forward, A.sub(k, A_mt-1, k+1+lookahead, A_nt-1),
                     pivots.at(k), priority_zero, tag_kl1);
@@ -171,6 +182,7 @@ void getrf(slate::internal::TargetType<target>,
                     TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Akk);
 
                 // solve A(k, k) A(k, kl+1:nt-1) = A(k, kl+1:nt-1)
+                // todo: target & layout
                 internal::trsm<Target::HostTask>(
                     Side::Left,
                     scalar_t(1.0), std::move(Tkk),
@@ -182,13 +194,14 @@ void getrf(slate::internal::TargetType<target>,
                     // send A(k, j) across column A(k+1:mt-1, j)
                     bcast_list_A.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}});
                 }
-                A.template listBcast(bcast_list_A, tag_kl1);
+                A.template listBcast(bcast_list_A, tag_kl1, layout);
 
                 // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
-                internal::gemm<Target::HostTask>(
+                internal::gemm<target>(
                     scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
                                     A.sub(k, k, k+1+lookahead, A_nt-1),
-                    scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1));
+                    scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
+                    priority_zero, layout);
             }
         }
     }

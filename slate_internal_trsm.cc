@@ -54,13 +54,13 @@ template <Target target, typename scalar_t>
 void trsm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
-          int priority)
+          int priority, Layout layout)
 {
     trsm(internal::TargetType<target>(),
          side,
          alpha, A,
                 B,
-         priority);
+         priority, layout);
 }
 
 ///-----------------------------------------------------------------------------
@@ -72,8 +72,9 @@ void trsm(internal::TargetType<Target::HostTask>,
           Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
-          int priority)
+          int priority, Layout layout)
 {
+    assert(layout == Layout::ColMajor);
     assert(A.mt() == 1);
 
     // alternatively, if (side == right), (conj)-transpose both A and B,
@@ -122,7 +123,7 @@ void trsm<Target::HostTask, float>(
     Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
-    int priority);
+    int priority, Layout layout);
 
 // ----------------------------------------
 template
@@ -130,7 +131,7 @@ void trsm<Target::HostTask, double>(
     Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
-    int priority);
+    int priority, Layout layout);
 
 // ----------------------------------------
 template
@@ -138,7 +139,7 @@ void trsm< Target::HostTask, std::complex<float> >(
     Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
-    int priority);
+    int priority, Layout layout);
 
 // ----------------------------------------
 template
@@ -146,7 +147,7 @@ void trsm< Target::HostTask, std::complex<double> >(
     Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
-    int priority);
+    int priority, Layout layout);
 
 } // namespace internal
 } // namespace slate

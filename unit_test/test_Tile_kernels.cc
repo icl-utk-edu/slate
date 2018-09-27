@@ -31,17 +31,65 @@
 // software, applications, hardware, advanced system engineering and early
 // testbed platforms, in support of the nation's exascale computing imperative.
 //------------------------------------------------------------------------------
-// For assistance with SLATE, email <slate-user@icl.utk.edu>.
-// You can also join the "SLATE User" Google group by going to
-// https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user,
-// signing in with your Google credentials, and then clicking "Join group".
+// Need assistance with the SLATE software? Join the "SLATE User" Google group
+// by going to https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user
+// and clicking "Apply to join group". Upon acceptance, email your questions and
+// comments to <slate-user@icl.utk.edu>.
 //------------------------------------------------------------------------------
 
-#include "test.hh"
 #include "slate_Tile.hh"
 #include "slate_Tile_blas.hh"
+#include "slate_Tile_lapack.hh"
 
-// -----------------------------------------------------------------------------
+#include "unit_test.hh"
+
+//------------------------------------------------------------------------------
+// globals
+int      g_argc        = 0;
+char**   g_argv        = nullptr;
+int      g_verbose     = 0;
+int      g_mpi_rank    = -1;
+int      g_mpi_size    = 0;
+int      g_host_num    = -1;
+int      g_num_devices = 0;
+MPI_Comm g_mpi_comm;
+
+//------------------------------------------------------------------------------
+// type_name<T>() returns string describing type of T.
+// see https://stackoverflow.com/questions/81870/is-it-possible-to-print-a-variables-type-in-standard-c
+
+// for demangling on non-Microsoft platforms
+#ifndef _MSC_VER
+    #include <cxxabi.h>
+#endif
+
+template<typename T>
+std::string type_name()
+{
+    typedef typename std::remove_reference<T>::type TR;
+
+    std::unique_ptr< char, void(*)(void*) > own(
+        #ifndef _MSC_VER
+            abi::__cxa_demangle(typeid(TR).name(), nullptr, nullptr, nullptr),
+        #else
+            nullptr,
+        #endif
+        std::free
+    );
+
+    std::string r = own != nullptr ? own.get() : typeid(TR).name();
+    if (std::is_const<TR>::value)
+        r += " const";
+    if (std::is_volatile<TR>::value)
+        r += " volatile";
+    if (std::is_lvalue_reference<T>::value)
+        r += "&";
+    else if (std::is_rvalue_reference<T>::value)
+        r += "&&";
+    return r;
+}
+
+//------------------------------------------------------------------------------
 // arrays of options to loop over in tests
 blas::Uplo uplos[] = {
     blas::Uplo::Lower,
@@ -64,21 +112,28 @@ blas::Diag diags[] = {
     blas::Diag::Unit
 };
 
-// -----------------------------------------------------------------------------
+lapack::Norm norms[] = {
+    lapack::Norm::Max,
+    lapack::Norm::One,
+    lapack::Norm::Inf,
+    lapack::Norm::Fro
+};
+
+//------------------------------------------------------------------------------
 // conjugates the matrix A, in-place.
 template <typename scalar_t>
-void conjugate( int m, int n, scalar_t* A, int lda )
+void conjugate(int m, int n, scalar_t* A, int lda)
 {
     using blas::conj;
     for (int j = 0; j < n; ++j)
         for (int i = 0; i < m; ++i)
-            A[ i + j*lda ] = conj( A[ i + j*lda ] );
+            A[ i + j*lda ] = conj(A[ i + j*lda ]);
 }
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // conjugates the tile A, in-place.
 template <typename scalar_t>
-void conjugate( slate::Tile< scalar_t >& A )
+void conjugate(slate::Tile< scalar_t >& A)
 {
     using blas::conj;
     for (int j = 0; j < A.nb(); ++j)
@@ -86,7 +141,7 @@ void conjugate( slate::Tile< scalar_t >& A )
             A.at(i,j) = conj( A.at(i,j) );
 }
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // copy op(A) to opAref
 template <typename scalar_t>
 void copy( slate::Tile< scalar_t > const& A, scalar_t* opAref, int lda )
@@ -99,13 +154,15 @@ void copy( slate::Tile< scalar_t > const& A, scalar_t* opAref, int lda )
     }
 }
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // check op(A) == B, within absolute or relative tolerance.
 // Assert aborts on failure.
 template <typename scalar_t>
-void test_assert_equal( slate::Tile< scalar_t > const& A, scalar_t const* B, int ldb,
-                        blas::real_type<scalar_t> abs_tol=0,
-                        blas::real_type<scalar_t> rel_tol=0 )
+void test_assert_equal(
+    slate::Tile< scalar_t > const& A,
+    scalar_t const* B, int ldb,
+    blas::real_type<scalar_t> abs_tol=0,
+    blas::real_type<scalar_t> rel_tol=0 )
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
@@ -144,13 +201,10 @@ void test_assert_equal( slate::Tile< scalar_t > const& A, scalar_t const* B, int
     }
 }
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_gemm()
 {
-    auto msg = __func__ + ("< " + type_name<scalar_t>() + " >");
-    Test name( msg.c_str() );
-
     using blas::real;
     using blas::imag;
     using blas::conj;
@@ -182,7 +236,8 @@ void test_gemm()
         int ldc = Cm + 1;
         std::vector< scalar_t > Cdata( ldc*Cn );
         lapack::larnv( 1, iseed, Cdata.size(), Cdata.data() );
-        slate::Tile< scalar_t > C( Cm, Cn, Cdata.data(), ldc, g_host_num );
+        slate::Tile< scalar_t > C( Cm, Cn, Cdata.data(), ldc, g_host_num,
+                                   slate::TileKind::UserOwned );
         C.op( ops[ic] );
         assert( C.mb() == m );
         assert( C.nb() == n );
@@ -198,7 +253,8 @@ void test_gemm()
         int ldb = Bm + 1;
         std::vector< scalar_t > Bdata( ldb*Bn );
         lapack::larnv( 1, iseed, Bdata.size(), Bdata.data() );
-        slate::Tile< scalar_t > B( Bm, Bn, Bdata.data(), ldb, g_host_num );
+        slate::Tile< scalar_t > B( Bm, Bn, Bdata.data(), ldb, g_host_num,
+                                   slate::TileKind::UserOwned );
         B.op( ops[ib] );
         assert( B.mb() == k );
         assert( B.nb() == n );
@@ -209,19 +265,22 @@ void test_gemm()
         int lda = Am + 1;
         std::vector< scalar_t > Adata( lda*An );
         lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
-        slate::Tile< scalar_t > A( Am, An, Adata.data(), lda, g_host_num );
+        slate::Tile< scalar_t > A( Am, An, Adata.data(), lda, g_host_num,
+                                   slate::TileKind::UserOwned );
         A.op( ops[ia] );
         assert( A.mb() == m );
         assert( A.nb() == k );
 
-        test_message( "gemm( opA=%c, opB=%c, opC=%c )",
-                      char(A.op()), char(B.op()), char(C.op()) );
-
         if (g_verbose) {
-            print( "A", A );
-            print( "B", B );
-            print( "C", C );
+            printf( "gemm( opA=%c, opB=%c, opC=%c )\n",
+                    char(A.op()), char(B.op()), char(C.op()) );
         }
+
+        //if (g_verbose) {
+        //    print( "A", A );
+        //    print( "B", B );
+        //    print( "C", C );
+        //}
 
         // run test
         try {
@@ -236,19 +295,19 @@ void test_gemm()
                         (ic == 2 && (ia == 1 || ib == 1)))) );
         }
         catch (std::exception& e) {
-            printf( "%%      not allowed\n" );
+            //printf( "%%      not allowed\n" );
             assert( slate::is_complex< scalar_t >::value &&
                     ((ic == 1 && (ia == 2 || ib == 2)) ||
                      (ic == 2 && (ia == 1 || ib == 1))) );
             continue;
         }
 
-        if (g_verbose) {
-            print( "Chat", C );
-            print( "Aref", Am, An, Adata.data(), lda );
-            print( "Bref", Bm, Bn, Bdata.data(), ldb );
-            print( "Cref", m, n, opCref.data(), ldopc );
-        }
+        //if (g_verbose) {
+        //    print( "Chat", C );
+        //    print( "Aref", Am, An, Adata.data(), lda );
+        //    print( "Bref", Bm, Bn, Bdata.data(), ldb );
+        //    print( "Cref", m, n, opCref.data(), ldopc );
+        //}
 
         // reference solution
         blas::gemm( blas::Layout::ColMajor, A.op(), B.op(), m, n, k,
@@ -256,21 +315,26 @@ void test_gemm()
                            Bdata.data(), ldb,
                     beta, opCref.data(), ldopc );
 
-        if (g_verbose) {
-            print( "Chat_ref", m, n, opCref.data(), ldopc );
-        }
+        //if (g_verbose) {
+        //    print( "Chat_ref", m, n, opCref.data(), ldopc );
+        //}
 
         test_assert_equal( C, opCref.data(), ldopc, 3*sqrt(k)*eps, 3*sqrt(k)*eps );
     }}}
 }
 
-// -----------------------------------------------------------------------------
+void test_gemm()
+{
+    test_gemm< float  >();
+    test_gemm< double >();
+    test_gemm< std::complex<float>  >();
+    test_gemm< std::complex<double> >();
+}
+
+//------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_syrk()
 {
-    auto msg = __func__ + ("< " + type_name<scalar_t>() + " >");
-    Test name( msg.c_str() );
-
     using blas::real;
     using blas::imag;
     using blas::conj;
@@ -301,7 +365,8 @@ void test_syrk()
         int ldc = n + 1;
         std::vector< scalar_t > Cdata( ldc*n );
         lapack::larnv( 1, iseed, Cdata.size(), Cdata.data() );
-        slate::Tile< scalar_t > C( n, n, Cdata.data(), ldc, g_host_num );
+        slate::Tile< scalar_t > C( n, n, Cdata.data(), ldc, g_host_num,
+                                   slate::TileKind::UserOwned );
         C.uplo( uplo );
         C.op( ops[ic] );
         assert( C.mb() == n );
@@ -328,18 +393,21 @@ void test_syrk()
         int lda = Am + 1;
         std::vector< scalar_t > Adata( lda*An );
         lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
-        slate::Tile< scalar_t > A( Am, An, Adata.data(), lda, g_host_num );
+        slate::Tile< scalar_t > A( Am, An, Adata.data(), lda, g_host_num,
+                                   slate::TileKind::UserOwned );
         A.op( ops[ia] );
         assert( A.mb() == n );
         assert( A.nb() == k );
 
-        test_message( "syrk( uplo=%c, opA=%c, opC=%c )",
-                      char(C.uplo()), char(A.op()), char(C.op()) );
-
         if (g_verbose) {
-            print( "A", A );
-            print( "C", C );
+            printf( "syrk( uplo=%c, opA=%c, opC=%c )\n",
+                    char(C.uplo()), char(A.op()), char(C.op()) );
         }
+
+        //if (g_verbose) {
+        //    print( "A", A );
+        //    print( "C", C );
+        //}
 
         // run test
         try {
@@ -356,17 +424,17 @@ void test_syrk()
                        (ic == 2 || ia == 2)) );
         }
         catch (std::exception& e) {
-            printf( "%%      not allowed\n" );
+            //printf( "%%      not allowed\n" );
             assert( slate::is_complex< scalar_t >::value &&
                     (ic == 2 || ia == 2) );
             continue;
         }
 
-        if (g_verbose) {
-            print( "Chat", C );
-            print( "Aref", Am, An, Adata.data(), lda );
-            print( "Cref", n, n, opCref.data(), ldc );
-        }
+        //if (g_verbose) {
+        //    print( "Chat", C );
+        //    print( "Aref", Am, An, Adata.data(), lda );
+        //    print( "Cref", n, n, opCref.data(), ldc );
+        //}
 
         // reference solution
         // transpose flips uplo
@@ -379,21 +447,26 @@ void test_syrk()
                     alpha, Adata.data(), lda,
                     beta, opCref.data(), ldc );
 
-        if (g_verbose) {
-            print( "Chat_ref", n, n, opCref.data(), ldc );
-        }
+        //if (g_verbose) {
+        //    print( "Chat_ref", n, n, opCref.data(), ldc );
+        //}
 
         test_assert_equal( C, opCref.data(), ldc, 3*sqrt(k)*eps, 3*sqrt(k)*eps );
     }}}
 }
 
-// -----------------------------------------------------------------------------
+void test_syrk()
+{
+    test_syrk< float  >();
+    test_syrk< double >();
+    test_syrk< std::complex<float>  >();
+    test_syrk< std::complex<double> >();
+}
+
+//------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_herk()
 {
-    auto msg = __func__ + ("< " + type_name<scalar_t>() + " >");
-    Test name( msg.c_str() );
-
     using blas::real;
     using blas::imag;
     using blas::conj;
@@ -423,7 +496,8 @@ void test_herk()
         int ldc = n + 1;
         std::vector< scalar_t > Cdata( ldc*n );
         lapack::larnv( 1, iseed, Cdata.size(), Cdata.data() );
-        slate::Tile< scalar_t > C( n, n, Cdata.data(), ldc, g_host_num );
+        slate::Tile< scalar_t > C( n, n, Cdata.data(), ldc, g_host_num,
+                                   slate::TileKind::UserOwned );
         C.uplo( uplo );
         C.op( ops[ic] );
         assert( C.mb() == n );
@@ -450,18 +524,21 @@ void test_herk()
         int lda = Am + 1;
         std::vector< scalar_t > Adata( lda*An );
         lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
-        slate::Tile< scalar_t > A( Am, An, Adata.data(), lda, g_host_num );
+        slate::Tile< scalar_t > A( Am, An, Adata.data(), lda, g_host_num,
+                                   slate::TileKind::UserOwned );
         A.op( ops[ia] );
         assert( A.mb() == n );
         assert( A.nb() == k );
 
-        test_message( "herk( uplo=%c, opA=%c, opC=%c )",
-                      char(C.uplo()), char(A.op()), char(C.op()) );
-
         if (g_verbose) {
-            print( "A", A );
-            print( "C", C );
+            printf( "herk( uplo=%c, opA=%c, opC=%c )\n",
+                    char(C.uplo()), char(A.op()), char(C.op()) );
         }
+
+        //if (g_verbose) {
+        //    print( "A", A );
+        //    print( "C", C );
+        //}
 
         // run test
         try {
@@ -478,17 +555,17 @@ void test_herk()
                        (ic == 1 || ia == 1)) );
         }
         catch (std::exception& e) {
-            printf( "%%      not allowed\n" );
+            //printf( "%%      not allowed\n" );
             assert( slate::is_complex< scalar_t >::value &&
                     (ic == 1 || ia == 1) );
             continue;
         }
 
-        if (g_verbose) {
-            print( "Chat", C );
-            print( "Aref", Am, An, Adata.data(), lda );
-            print( "Cref", n, n, opCref.data(), ldc );
-        }
+        //if (g_verbose) {
+        //    print( "Chat", C );
+        //    print( "Aref", Am, An, Adata.data(), lda );
+        //    print( "Cref", n, n, opCref.data(), ldc );
+        //}
 
         // reference solution
         // transpose flips uplo
@@ -501,101 +578,26 @@ void test_herk()
                     alpha, Adata.data(), lda,
                     beta, opCref.data(), ldc );
 
-        if (g_verbose) {
-            print( "Chat_ref", n, n, opCref.data(), ldc );
-        }
+        //if (g_verbose) {
+        //    print( "Chat_ref", n, n, opCref.data(), ldc );
+        //}
 
         test_assert_equal( C, opCref.data(), ldc, 3*sqrt(k)*eps, 3*sqrt(k)*eps );
     }}}
 }
 
-// -----------------------------------------------------------------------------
-template <typename scalar_t>
-void test_potrf()
+void test_herk()
 {
-    auto msg = __func__ + ("< " + type_name<scalar_t>() + " >");
-    Test name( msg.c_str() );
-
-    using blas::conj;
-    using real_t = blas::real_type<scalar_t>;
-    real_t eps = std::numeric_limits< real_t >::epsilon();
-    int64_t iseed[4] = { 0, 1, 2, 3 };
-
-    int n = 50;
-
-    // test all combinations of op(A), uplo
-    for (int ia = 0; ia < 3; ++ia) {
-    for (int iu = 0; iu < 2; ++iu) {
-        blas::Uplo uplo = uplos[iu];
-
-        // setup A such that op(A) is n-by-n
-        int lda = n + 1;
-        std::vector< scalar_t > Adata(  lda*n );
-        lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
-        slate::Tile< scalar_t > A( n, n, Adata.data(), lda, g_host_num );
-        A.uplo( uplo );
-        A.op( ops[ia] );
-
-        // set unused data to nan
-        scalar_t nan_ = nan("");
-        if (uplo == blas::Uplo::Lower) {
-            lapack::laset( lapack::MatrixType::Upper, n-1, n-1, nan_, nan_,
-                           &Adata[ 0 + 1*lda ], lda );
-        }
-        else {
-            lapack::laset( lapack::MatrixType::Lower, n-1, n-1, nan_, nan_,
-                           &Adata[ 1 + 0*lda ], lda );
-        }
-
-        // brute force positive definiteness
-        for (int j = 0; j < n; ++j)
-            Adata[ j + j*lda ] += n;
-
-        // opAref = op(A) is n-by-n
-        std::vector< scalar_t > opAref( lda*n );
-        copy( A, opAref.data(), lda );
-
-        test_message( "potrf( op=%c, uplo=%c )",
-                      char(A.op()), char(A.uplo()) );
-
-        if (g_verbose) {
-            print( "A", A );
-        }
-
-        // run test
-        int info = potrf( A );
-        test_assert( info == 0 );
-
-        if (g_verbose) {
-            print( "Ahat", A );
-            print( "opA", n, n, opAref.data(), lda );
-        }
-
-        // reference solution
-        // transpose flips uplo
-        blas::Uplo op_uplo = uplo;
-        if (A.op() != blas::Op::NoTrans) {
-            op_uplo = (op_uplo == blas::Uplo::Lower ? blas::Uplo::Upper
-                                                     : blas::Uplo::Lower);
-        }
-        info = lapack::potrf( op_uplo, n, opAref.data(), lda );
-        test_assert( info == 0 );
-
-        if (g_verbose) {
-            print( "opAhat", n, n, opAref.data(), lda );
-        }
-
-        test_assert_equal( A, opAref.data(), lda, 3*eps, 3*eps );
-    }}
+    test_herk< float  >();
+    test_herk< double >();
+    test_herk< std::complex<float>  >();
+    test_herk< std::complex<double> >();
 }
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_trsm()
 {
-    auto msg = __func__ + ("< " + type_name<scalar_t>() + " >");
-    Test name( msg.c_str() );
-
     using blas::real;
     using blas::imag;
     using blas::conj;
@@ -628,7 +630,8 @@ void test_trsm()
         int lda = An + 1;
         std::vector< scalar_t > Adata( lda*An );
         lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
-        slate::Tile< scalar_t > A( An, An, Adata.data(), lda, g_host_num );
+        slate::Tile< scalar_t > A( An, An, Adata.data(), lda, g_host_num,
+                                   slate::TileKind::UserOwned );
         A.uplo( uplo );
         A.op( ops[ia] );
 
@@ -657,7 +660,8 @@ void test_trsm()
         int ldb = Bm + 1;
         std::vector< scalar_t > Bdata( ldb*Bn );
         lapack::larnv( 1, iseed, Bdata.size(), Bdata.data() );
-        slate::Tile< scalar_t > B( Bm, Bn, Bdata.data(), ldb, g_host_num );
+        slate::Tile< scalar_t > B( Bm, Bn, Bdata.data(), ldb, g_host_num,
+                                   slate::TileKind::UserOwned );
         B.op( ops[ib] );
         assert( B.mb() == m );
         assert( B.nb() == n );
@@ -667,13 +671,16 @@ void test_trsm()
         std::vector< scalar_t > opBref( ldopb*n );
         copy( B, opBref.data(), ldopb );
 
-        test_message( "trsm( side=%c, uplo=%c, opA=%c, diag=%c, opB=%c )",
-                      char(side), char(A.uplo()), char(A.op()), char(diag), char(B.op()) );
-
         if (g_verbose) {
-            print( "A", A );
-            print( "B", B );
+            printf( "trsm( side=%c, uplo=%c, opA=%c, diag=%c, opB=%c )\n",
+                    char(side), char(A.uplo()), char(A.op()), char(diag),
+                    char(B.op()) );
         }
+
+        //if (g_verbose) {
+        //    print( "A", A );
+        //    print( "B", B );
+        //}
 
         // run test
         try {
@@ -688,96 +695,388 @@ void test_trsm()
                         (ib == 2 && ia == 1))) );
         }
         catch (std::exception& e) {
-            printf( "%%      not allowed\n" );
+            //printf( "%%      not allowed\n" );
             assert( slate::is_complex< scalar_t >::value &&
                     ((ib == 1 && ia == 2) ||
                      (ib == 2 && ia == 1)) );
             continue;
         }
 
-        if (g_verbose) {
-            print( "Bhat", B );
-            print( "Aref", An, An, Adata.data(), lda );
-            print( "Bref", m, n, opBref.data(), ldopb );
-        }
+        //if (g_verbose) {
+        //    print( "Bhat", B );
+        //    print( "Aref", An, An, Adata.data(), lda );
+        //    print( "Bref", m, n, opBref.data(), ldopb );
+        //}
 
         // reference solution
         blas::trsm( blas::Layout::ColMajor, side, A.uplo(), A.op(), diag, m, n,
                     alpha, Adata.data(), lda,
                            opBref.data(), ldopb );
 
-        if (g_verbose) {
-            print( "Bhat_ref", m, n, opBref.data(), ldopb );
-        }
+        //if (g_verbose) {
+        //    print( "Bhat_ref", m, n, opBref.data(), ldopb );
+        //}
 
         test_assert_equal( B, opBref.data(), ldopb, 3*eps, 3*eps );
     }}}}}
 }
 
-// -----------------------------------------------------------------------------
-int main( int argc, char** argv )
+void test_trsm()
 {
-    MPI_Init( &argc, &argv );
+    test_trsm< float  >();
+    test_trsm< double >();
+    test_trsm< std::complex<float>  >();
+    test_trsm< std::complex<double> >();
+}
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void test_potrf()
+{
+    using blas::conj;
+    using real_t = blas::real_type<scalar_t>;
+    real_t eps = std::numeric_limits< real_t >::epsilon();
+    int64_t iseed[4] = { 0, 1, 2, 3 };
+
+    int n = 50;
+
+    // test all combinations of op(A), uplo
+    for (int ia = 0; ia < 3; ++ia) {
+    for (int iu = 0; iu < 2; ++iu) {
+        blas::Uplo uplo = uplos[iu];
+
+        // setup A such that op(A) is n-by-n
+        int lda = n + 1;
+        std::vector< scalar_t > Adata(  lda*n );
+        lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
+        slate::Tile< scalar_t > A( n, n, Adata.data(), lda, g_host_num,
+                                   slate::TileKind::UserOwned );
+        A.uplo( uplo );
+        A.op( ops[ia] );
+
+        // set unused data to nan
+        scalar_t nan_ = nan("");
+        if (uplo == blas::Uplo::Lower) {
+            lapack::laset( lapack::MatrixType::Upper, n-1, n-1, nan_, nan_,
+                           &Adata[ 0 + 1*lda ], lda );
+        }
+        else {
+            lapack::laset( lapack::MatrixType::Lower, n-1, n-1, nan_, nan_,
+                           &Adata[ 1 + 0*lda ], lda );
+        }
+
+        // brute force positive definiteness
+        for (int j = 0; j < n; ++j)
+            Adata[ j + j*lda ] += n;
+
+        // opAref = op(A) is n-by-n
+        std::vector< scalar_t > opAref( lda*n );
+        copy( A, opAref.data(), lda );
+
+        if (g_verbose) {
+            printf( "potrf( op=%c, uplo=%c )\n",
+                    char(A.op()), char(A.uplo()) );
+        }
+
+        //if (g_verbose) {
+        //    print( "A", A );
+        //}
+
+        // run test
+        int info = potrf( A );
+        test_assert( info == 0 );
+
+        //if (g_verbose) {
+        //    print( "Ahat", A );
+        //    print( "opA", n, n, opAref.data(), lda );
+        //}
+
+        // reference solution
+        // transpose flips uplo
+        blas::Uplo op_uplo = uplo;
+        if (A.op() != blas::Op::NoTrans) {
+            op_uplo = (op_uplo == blas::Uplo::Lower ? blas::Uplo::Upper
+                                                     : blas::Uplo::Lower);
+        }
+        info = lapack::potrf( op_uplo, n, opAref.data(), lda );
+        test_assert( info == 0 );
+
+        //if (g_verbose) {
+        //    print( "opAhat", n, n, opAref.data(), lda );
+        //}
+
+        test_assert_equal( A, opAref.data(), lda, 3*eps, 3*eps );
+    }}
+}
+
+void test_potrf()
+{
+    test_potrf< float  >();
+    test_potrf< double >();
+    test_potrf< std::complex<float>  >();
+    test_potrf< std::complex<double> >();
+}
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void test_genorm()
+{
+    using blas::real;
+    using blas::imag;
+    using blas::conj;
+    using real_t = blas::real_type<scalar_t>;
+    ///real_t eps = std::numeric_limits< real_t >::epsilon();
+    int64_t iseed[4] = { 0, 1, 2, 3 };
+
+    int m = 50;
+    int n = 30;
+
+    // test all combinations of norm
+    for (int in = 0; in < 4; ++in) {
+        lapack::Norm norm = norms[in];
+
+        // setup A
+        int lda = m + 1;
+        std::vector< scalar_t > Adata( lda*n );
+        lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
+        slate::Tile< scalar_t > A( m, n, Adata.data(), lda, g_host_num,
+                                   slate::TileKind::UserOwned );
+        A.at( 3, 5 ) *= 1e6;
+
+        if (g_verbose) {
+            printf( "genorm( norm=%c )\n",
+                    char(norm) );
+        }
+
+        //if (g_verbose) {
+        //    print( "A", A );
+        //}
+
+        // run test
+        std::vector<real_t> values;
+        real_t result = -1;
+        try {
+            // setup values
+            if (norm == lapack::Norm::Max) {
+                values.resize( 1 );
+            }
+            else if (norm == lapack::Norm::One) {
+                values.resize( A.nb() );
+            }
+            else if (norm == lapack::Norm::Inf) {
+                values.resize( A.mb() );
+            }
+            else if (norm == lapack::Norm::Fro) {
+                values.resize( 2 );
+            }
+
+            //---------------------
+            // call kernel
+            slate::genorm( norm, A, values.data() );
+
+            // post-process result
+            if (norm == lapack::Norm::Max) {
+                result = values[0];
+            }
+            else if (norm == lapack::Norm::One) {
+                result = 0;
+                for (int j = 0; j < n; ++j) {
+                    result = std::max( result, values[j] );
+                }
+            }
+            else if (norm == lapack::Norm::Inf) {
+                result = 0;
+                for (int i = 0; i < m; ++i) {
+                    result = std::max( result, values[i] );
+                }
+            }
+            else if (norm == lapack::Norm::Fro) {
+                result = values[0] * sqrt( values[1] );
+            }
+        }
+        catch (const std::exception& ex) {
+            printf( "caught unexpected error: %s\n", ex.what() );
+            continue;
+        }
+
+        //if (g_verbose) {
+        //    print( "values", 1, values.size(), values.data(), 1 );
+        //    printf( "result    %.4f\n", result );
+        //}
+
+        real_t ref = lapack::lange( norm, m, n, A.data(), A.stride() );
+        //if (g_verbose) {
+        //    printf( "reference %.4f\n", ref );
+        //}
+
+        ///test_assert_equal( B, opBref.data(), ldopb, 3*eps, 3*eps );
+    }
+}
+
+void test_genorm()
+{
+    test_genorm< float  >();
+    test_genorm< double >();
+    test_genorm< std::complex<float>  >();
+    test_genorm< std::complex<double> >();
+}
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void test_convert_layout()
+{
+    //printf( "%s\n", __PRETTY_FUNCTION__ );
+    using slate::Layout;
+    int n = 32;
+    int lda = n + 1;
+    int64_t iseed[4] = { 0, 1, 2, 3 };
+    std::vector<scalar_t> Adata( lda*n );
+    lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
+    std::vector<scalar_t> Bdata = Adata;
+    slate::Tile<scalar_t> A( n, n, Adata.data(), lda, g_host_num,
+                             slate::TileKind::UserOwned );
+    slate::Tile<scalar_t> B( n, n, Bdata.data(), lda, g_host_num,
+                             slate::TileKind::UserOwned );
+
+    test_assert(A.layout() == Layout::ColMajor);
+    test_assert(B.layout() == Layout::ColMajor);
+
+    //-----------------------------------------
+    // Run kernel.
+    convert_layout(&A);
+
+    // Verify layout of A changed.
+    test_assert(A.layout() == Layout::RowMajor);
+    test_assert(B.layout() == Layout::ColMajor);
+
+    for (int j = 0; j < n; ++j) {
+        for (int i = 0; i < n; ++i) {
+            // A(i, j) takes col/row-major into account.
+            // Check that actual data is transposed.
+            test_assert(Adata[ j + i*lda ] == Bdata[ i + j*lda ]);
+            test_assert(A(i, j) == B(i, j));
+        }
+    }
+}
+
+void test_convert_layout()
+{
+    test_convert_layout< float  >();
+    test_convert_layout< double >();
+    test_convert_layout< std::complex<float>  >();
+    test_convert_layout< std::complex<double> >();
+}
+
+//------------------------------------------------------------------------------
+// Similar routine list to libtest. No params yet.
+typedef void (*test_func_ptr)();
+
+typedef struct {
+    const char* name;
+    test_func_ptr func;
+    int section;
+} routines_t;
+
+//------------------------------------------------------------------------------
+enum Section {
+    newline = 0,  // zero flag forces newline
+    blas_section,
+    norm,
+    factor,
+    convert,
+};
+
+//------------------------------------------------------------------------------
+std::vector< routines_t > routines = {
+    { "gemm",   test_gemm,   Section::blas_section },
+    { "syrk",   test_syrk,   Section::blas_section },
+    { "herk",   test_herk,   Section::blas_section },
+    { "trsm",   test_trsm,   Section::blas_section },
+    { "",       nullptr,     Section::newline      },
+
+    { "genorm", test_genorm, Section::norm         },
+    { "",       nullptr,     Section::newline      },
+
+    { "potrf",  test_potrf,  Section::factor       },
+    { "",       nullptr,     Section::newline      },
+
+    { "convert_layout", test_convert_layout, Section::convert },
+    { "",               nullptr,             Section::newline },
+};
+
+//------------------------------------------------------------------------------
+// todo: usage as in libtest.
+void usage()
+{
+    printf("Usage: %s [routines]\n", g_argv[0]);
+    int col = 0;
+    int last_section = routines[0].section;
+    for (size_t j = 0; j < routines.size(); ++j) {
+        if (routines[j].section != Section::newline &&
+            routines[j].section != last_section)
+        {
+            last_section = routines[j].section;
+            col = 0;
+            printf("\n");
+        }
+        if (routines[j].name)
+            printf("    %-20s", routines[j].name);
+        col += 1;
+        if (col == 3 || routines[j].section == Section::newline) {
+            col = 0;
+            printf("\n");
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Runs all tests. Called by unit test main().
+void run_tests()
+{
+    if (g_argc == 1) {
+        // run all tests
+        for (size_t j = 0; j < routines.size(); ++j)
+            if (routines[j].func != nullptr)
+                run_test(routines[j].func, routines[j].name, MPI_COMM_WORLD);
+    }
+    else {
+        // run tests mentioned on command line
+        for (int i = 1; i < g_argc; ++i) {
+            std::string arg = g_argv[i];
+            if (arg == "-h" || arg == "--help") {
+                usage();
+                break;
+            }
+            bool found = false;
+            for (size_t j = 0; j < routines.size(); ++j) {
+                if (arg == routines[j].name) {
+                    run_test(routines[j].func, routines[j].name, MPI_COMM_WORLD);
+                    found = true;
+                }
+            }
+            if (! found) {
+                usage();
+                printf("Unknown routine: %s\n", g_argv[i]);
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+int main(int argc, char** argv)
+{
+    g_argc = argc;
+    g_argv = argv;
+    MPI_Init(&argc, &argv);
     g_mpi_comm = MPI_COMM_WORLD;
-    MPI_Comm_rank( g_mpi_comm, &g_mpi_rank );
+    MPI_Comm_rank(g_mpi_comm, &g_mpi_rank);
+    MPI_Comm_size(g_mpi_comm, &g_mpi_size);
 
-    bool do_all   = true;
-    bool do_gemm  = false;
-    bool do_syrk  = false;
-    bool do_herk  = false;
-    bool do_potrf = false;
-    bool do_trsm  = false;
+    cudaGetDeviceCount(&g_num_devices);
+    g_host_num = -g_num_devices;
 
-    // parse options
-    for (int i = 1; i < argc; ++i) {
-        std::string arg( argv[i] );
-        if (arg == "-v") {
-            g_verbose = true;
-        }
-        else if (arg == "gemm") {
-            do_gemm = true;
-            do_all  = false;
-        }
-        else if (arg == "syrk") {
-            do_syrk = true;
-            do_all  = false;
-        }
-        else if (arg == "herk") {
-            do_herk = true;
-            do_all  = false;
-        }
-        else if (arg == "potrf") {
-            do_potrf = true;
-            do_all   = false;
-        }
-        else if (arg == "trsm") {
-            do_trsm = true;
-            do_all  = false;
-        }
-    }
-
-    // run tests
-    if (do_all || do_gemm) {
-        test_gemm< double >();
-        test_gemm< std::complex<double> >();
-    }
-    if (do_all || do_syrk) {
-        test_syrk< double >();
-        test_syrk< std::complex<double> >();
-    }
-    if (do_all || do_herk) {
-        test_herk< double >();
-        test_herk< std::complex<double> >();
-    }
-    if (do_all || do_potrf) {
-        test_potrf< double >();
-        test_potrf< std::complex<double> >();
-    }
-    if (do_all || do_trsm) {
-        test_trsm< double >();
-        test_trsm< std::complex<double> >();
-    }
+    int err = unit_test_main(g_mpi_comm);  // which calls run_tests()
 
     MPI_Finalize();
-    return 0;
+    return err;
 }

@@ -236,6 +236,7 @@ lib_src += \
         slate_internal_trnorm.cc \
         slate_internal_trsm.cc \
         slate_internal_util.cc \
+        slate_internal_transpose.cc \
 
 # device
 ifeq ($(cuda),1)
@@ -243,7 +244,9 @@ ifeq ($(cuda),1)
             slate_device_genorm.cu \
             slate_device_henorm.cu \
             slate_device_synorm.cu \
-            slate_device_trnorm.cu
+            slate_device_trnorm.cu \
+            slate_device_transpose.cu
+
 endif
 
 # driver

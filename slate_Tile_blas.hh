@@ -44,6 +44,7 @@
 
 #include "slate_Tile.hh"
 #include "slate_util.hh"
+#include "slate_device.hh"
 
 #include <list>
 
@@ -714,9 +715,12 @@ void convert_layout(Tile<scalar_t>* X)
 template <typename scalar_t>
 void convert_layout(Tile<scalar_t>* X, cudaStream_t stream)
 {
-    trace::Block trace_block("blas::transpose");
-    assert(false);
-    // TODO: launch CUDA kernel
+    trace::Block trace_block("slate::device::transpose");
+    assert(X->mb() == X->nb());
+    
+    device::transpose(X->mb(), X->data(), X->stride(), stream);
+    slate_cuda_call(
+        cudaStreamSynchronize(stream));
 
     X->layout(X->layout() == Layout::RowMajor ? Layout::ColMajor
                                               : Layout::RowMajor);

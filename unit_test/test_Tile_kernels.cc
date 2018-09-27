@@ -40,6 +40,7 @@
 #include "slate_Tile.hh"
 #include "slate_Tile_blas.hh"
 #include "slate_Tile_lapack.hh"
+#include "slate_device.hh"
 
 #include "unit_test.hh"
 
@@ -968,6 +969,177 @@ void test_convert_layout()
 }
 
 //------------------------------------------------------------------------------
+template <typename scalar_t>
+void test_device_convert_layout()
+{
+    using blas::real;
+
+    int batch_count = 500;
+    int n = 256;
+    int lda = n;
+    int repeat = 1;
+    int device = 0;
+
+    // setup batch A and copy B on CPU
+    int64_t iseed[4] = { 0, 1, 2, 3 };
+    std::vector< scalar_t > Adata( lda * n * batch_count );
+    lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
+    std::vector< scalar_t > Bdata = Adata;
+    std::vector< slate::Tile<scalar_t> > Atiles( batch_count );
+    std::vector< slate::Tile<scalar_t> > Btiles( batch_count );
+    for (int k = 0; k < batch_count; ++k) {
+        Atiles[k] = slate::Tile<scalar_t>( n, n, &Adata[ k*lda*n ], lda, g_host_num, slate::TileKind::UserOwned );
+        Btiles[k] = slate::Tile<scalar_t>( n, n, &Bdata[ k*lda*n ], lda, g_host_num, slate::TileKind::UserOwned );
+    }
+
+    // copy batch A to GPU
+    scalar_t* Adata_dev;
+    
+    slate_cuda_call(
+        cudaSetDevice(device));
+    slate_cuda_call(
+        cudaMalloc(&Adata_dev, Adata.size() * sizeof(scalar_t)));
+    slate_cuda_call(
+        cudaMemcpy(Adata_dev, Adata.data(), Adata.size() * sizeof(scalar_t),
+                   cudaMemcpyHostToDevice));
+
+    std::vector< slate::Tile<scalar_t> > Atiles_dev( batch_count );
+    std::vector< scalar_t* > Aarray( batch_count );
+    for (int k = 0; k < batch_count; ++k) {
+        Atiles_dev[k] = slate::Tile<scalar_t>( n, n, &Adata_dev[ k*lda*n ], lda, device, slate::TileKind::UserOwned );
+        Aarray[k] = &Adata_dev[ k*lda*n ];
+    }
+    scalar_t** Aarray_dev;
+    slate_cuda_call(
+        cudaMalloc(&Aarray_dev, Aarray.size() * sizeof(scalar_t*)));
+    slate_cuda_call(
+        cudaMemcpy(Aarray_dev, Aarray.data(), Aarray.size() * sizeof(scalar_t*),
+                   cudaMemcpyHostToDevice));
+
+    cudaStream_t stream;
+    slate_cuda_call(
+        cudaStreamCreate(&stream));
+
+    if (g_verbose > 1) {
+        printf("A = [\n");
+        for (int k = 0; k < batch_count; ++k) {
+            for (int i = 0; i < n; ++i) {
+                for (int j = 0; j < n; ++j) {
+                    printf(" %5.2f", real(Adata[ i + j*lda + k*lda*n ]));
+                }
+                printf("\n");
+            }
+            printf("\n");
+        }
+        printf("];\n");
+    }
+
+    //-----------------------------------------
+    // Run kernel.
+    for (int i = 0; i < repeat; ++i) {
+        slate_cuda_call(
+            cudaStreamSynchronize(stream));
+        double time = omp_get_wtime();
+
+        slate::device::transpose_batch(n, Aarray_dev, lda, batch_count, stream);
+
+        slate_cuda_call(
+            cudaStreamSynchronize(stream));
+        time = omp_get_wtime() - time;
+        printf( "batch_count %d, n %d, time %.6f, GB/s (read & write) %.4f batch\n",
+                batch_count, n, time, 2 * Adata.size() * sizeof(scalar_t) * 1e-9 / time);
+    }
+    printf( "\n" );
+    slate_cuda_call(
+        cudaMemcpy(Adata.data(), Adata_dev, Adata.size() * sizeof(scalar_t),
+                   cudaMemcpyDeviceToHost));
+
+    //-----------------------------------------
+    // Run kernel.
+    for (int i = 0; i < repeat; ++i) {
+        slate_cuda_call(
+            cudaStreamSynchronize(stream));
+        double time = omp_get_wtime();
+
+        for (int k = 0; k < batch_count; ++k) {
+            slate::device::transpose(n, Aarray[k], lda, stream);
+        }
+
+        slate_cuda_call(
+            cudaStreamSynchronize(stream));
+        time = omp_get_wtime() - time;
+        printf( "batch_count %d, n %d, time %.6f, GB/s (read & write) %.4f 1-by-1\n",
+                batch_count, n, time, 2 * Adata.size() * sizeof(scalar_t) * 1e-9 / time);
+    }
+    printf( "\n" );
+
+    //-----------------------------------------
+    // Run kernel.
+    for (int i = 0; i < repeat; ++i) {
+        slate_cuda_call(
+            cudaStreamSynchronize(stream));
+        double time = omp_get_wtime();
+
+        for (int k = 0; k < batch_count; ++k) {
+            slate::convert_layout(&Atiles_dev[k], stream);
+        }
+
+        slate_cuda_call(
+            cudaStreamSynchronize(stream));
+        time = omp_get_wtime() - time;
+        printf( "batch_count %d, n %d, time %.6f, GB/s (read & write) %.4f 1-by-1\n",
+                batch_count, n, time, 2 * Adata.size() * sizeof(scalar_t) * 1e-9 / time);
+    }
+    printf( "\n" );
+
+    if (g_verbose > 1) {
+        printf("AT = [\n");
+        for (int k = 0; k < batch_count; ++k) {
+            for (int i = 0; i < n; ++i) {
+                for (int j = 0; j < n; ++j) {
+                    printf(" %5.2f", real(Adata[ i + j*lda + k*lda*n ]));
+                }
+                printf("\n");
+            }
+            printf("\n");
+        }
+        printf("];\n");
+    }
+
+    // Verify layout of A changed.
+    for (int k = 0; k < batch_count; ++k) {
+        test_assert(Atiles_dev[k].layout() == slate::Layout::RowMajor);
+        Atiles[k].layout(slate::Layout::RowMajor);
+        for (int j = 0; j < n; ++j) {
+            for (int i = 0; i < n; ++i) {
+                // A(i, j) takes col/row-major into account.
+                // Check that actual data is transposed.
+                if (Adata[ j + i*lda + k*lda*n ] != Bdata[ i + j*lda + k*lda*n ]) {
+                    printf( "Adata[ j(%d) + i(%d)*lda + k(%d)*lda*n ] %5.2f\n"
+                            "Bdata[ i(%d) + j(%d)*lda + k(%d)*lda*n ] %5.2f\n",
+                            j, i, k, real(Adata[ j + i*lda + k*lda*n ]),
+                            i, j, k, real(Bdata[ i + j*lda + k*lda*n ]) );
+                }
+                test_assert(Adata[ j + i*lda + k*lda*n ] == Bdata[ i + j*lda + k*lda*n ]);
+                test_assert(Atiles[k](i, j) == Btiles[k](i, j));
+            }
+        }
+    }
+
+    slate_cuda_call(cudaStreamDestroy(stream));
+    slate_cuda_call(cudaFree(Adata_dev));
+    slate_cuda_call(cudaFree(Aarray_dev));
+}
+
+void test_device_convert_layout()
+{
+    test_device_convert_layout< float  >();
+    test_device_convert_layout< double >();
+    test_device_convert_layout< std::complex<float>  >();
+    test_device_convert_layout< std::complex<double> >();
+}
+
+//------------------------------------------------------------------------------
 // Similar routine list to libtest. No params yet.
 typedef void (*test_func_ptr)();
 
@@ -1000,8 +1172,9 @@ std::vector< routines_t > routines = {
     { "potrf",  test_potrf,  Section::factor       },
     { "",       nullptr,     Section::newline      },
 
-    { "convert_layout", test_convert_layout, Section::convert },
-    { "",               nullptr,             Section::newline },
+    { "convert_layout",        test_convert_layout,        Section::convert },
+    { "device_convert_layout", test_device_convert_layout, Section::convert },
+    { "",                      nullptr,                    Section::newline },
 };
 
 //------------------------------------------------------------------------------

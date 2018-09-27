@@ -100,7 +100,9 @@ std::map<std::string, Color> Trace::function_color_ = {
     {"MPI_Recv",              Color::Crimson},
     {"MPI_Send",              Color::LightCoral},
 
-    {"slate::device::genorm", Color::LightSkyBlue}
+    {"slate::device::genorm",    Color::LightSkyBlue},
+    {"slate::device::transpose", Color::SkyBlue},
+    {"slate::convert_layout",    Color::DeepSkyBlue},
 };
 
 ///-----------------------------------------------------------------------------

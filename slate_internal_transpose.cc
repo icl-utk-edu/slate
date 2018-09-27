@@ -37,101 +37,108 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#ifndef SLATE_DEVICE_HH
-#define SLATE_DEVICE_HH
+#include "slate_device.hh"
+#include "slate_internal_batch.hh"
+#include "slate_internal.hh"
+#include "slate_util.hh"
+#include "slate_Tile_lapack.hh"
+#include "slate_types.hh"
 
-#include "slate_cuda.hh"
-
-#include <blas.hh>
-#include <lapack.hh>
-
-//------------------------------------------------------------------------------
-// Extend BLAS real_type to cover cuComplex
-namespace blas {
-
-template<>
-struct real_type_traits<cuFloatComplex>
-{
-    using real_t = float;
-};
-
-template<>
-struct real_type_traits<cuDoubleComplex>
-{
-    using real_t = double;
-};
-
-} // namespace blas
+#include <vector>
 
 namespace slate {
+
+//------------------------------------------------------------------------------
+// On macOS, nvcc using clang++ generates a different C++ name mangling
+// (std::__1::complex) than g++ for std::complex. This solution is to use
+// cu*Complex in .cu files, and cast from std::complex here.
 namespace device {
 
-//------------------------------------------------------------------------------
-template <typename scalar_t>
-void genorm(
-    lapack::Norm norm,
-    int64_t m, int64_t n,
-    scalar_t const* const* Aarray, int64_t lda,
-    blas::real_type<scalar_t>* values, int64_t ldv,
-    int64_t batch_count,
-    cudaStream_t stream);
-
-//------------------------------------------------------------------------------
-template <typename scalar_t>
-void henorm(
-    lapack::Norm norm, lapack::Uplo uplo,
-    int64_t n,
-    scalar_t const* const* Aarray, int64_t lda,
-    blas::real_type<scalar_t>* values, int64_t ldv,
-    int64_t batch_count,
-    cudaStream_t stream);
-
-//------------------------------------------------------------------------------
-template <typename scalar_t>
-void synorm(
-    lapack::Norm norm, lapack::Uplo uplo,
-    int64_t n,
-    scalar_t const* const* Aarray, int64_t lda,
-    blas::real_type<scalar_t>* values, int64_t ldv,
-    int64_t batch_count,
-    cudaStream_t stream);
-
-//------------------------------------------------------------------------------
-template <typename scalar_t>
-void synormOffdiag(
-    lapack::Norm norm,
-    int64_t m, int64_t n,
-    scalar_t const* const* Aarray, int64_t lda,
-    blas::real_type<scalar_t>* values, int64_t ldv,
-    int64_t batch_count,
-    cudaStream_t stream);
-
-//------------------------------------------------------------------------------
-template <typename scalar_t>
-void trnorm(
-    lapack::Norm norm, lapack::Uplo uplo, lapack::Diag diag,
-    int64_t m, int64_t n,
-    scalar_t const* const* Aarray, int64_t lda,
-    blas::real_type<scalar_t>* values, int64_t ldv,
-    int64_t batch_count,
-    cudaStream_t stream);
-
-//------------------------------------------------------------------------------
-template <typename scalar_t>
+template <>
 void transpose(
     int64_t n,
-    scalar_t* A, int64_t lda,
-    cudaStream_t stream);
+    std::complex<float>* A, int64_t lda,
+    cudaStream_t stream)
+{
+#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
+    transpose(n, (cuFloatComplex*) A, lda, stream);
+#endif
+}
 
-//------------------------------------------------------------------------------
-template <typename scalar_t>
+template <>
+void transpose(
+    int64_t n,
+    std::complex<double>* A, int64_t lda,
+    cudaStream_t stream)
+{
+#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
+    transpose(n, (cuDoubleComplex*) A, lda, stream);
+#endif
+}
+
+//--------------------
+template <>
 void transpose_batch(
     int64_t n,
-    scalar_t** Aarray, int64_t lda,
+    std::complex<float>** Aarray, int64_t lda,
     int64_t batch_count,
-    cudaStream_t stream);
+    cudaStream_t stream)
+{
+#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
+    transpose_batch(n, (cuFloatComplex**) Aarray, lda, batch_count, stream);
+#endif
+}
+
+template <>
+void transpose_batch(
+    int64_t n,
+    std::complex<double>** Aarray, int64_t lda,
+    int64_t batch_count,
+    cudaStream_t stream)
+{
+#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
+    transpose_batch(n, (cuDoubleComplex**) Aarray, lda, batch_count, stream);
+#endif
+}
+
+//------------------------------------------------------------------------------
+#if ! defined(SLATE_WITH_CUDA)
+// Specializations to allow compilation without CUDA.
+template <>
+void transpose(
+    int64_t n,
+    float* A, int64_t lda,
+    cudaStream_t stream)
+{
+}
+
+template <>
+void transpose(
+    int64_t n,
+    double* A, int64_t lda,
+    cudaStream_t stream)
+{
+}
+
+//--------------------
+template <>
+void transpose_batch(
+    int64_t n,
+    float** Aarray, int64_t lda,
+    int64_t batch_count,
+    cudaStream_t stream)
+{
+}
+
+template <>
+void transpose_batch(
+    int64_t n,
+    double** Aarray, int64_t lda,
+    int64_t batch_count,
+    cudaStream_t stream)
+{
+}
+#endif // not SLATE_WITH_CUDA
 
 } // namespace device
 } // namespace slate
-
-#endif // SLATE_DEVICE_HH

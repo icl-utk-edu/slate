@@ -32,6 +32,7 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
     int64_t p = params.p.value();
     int64_t q = params.q.value();
     int64_t nb = params.nb.value();
+    int64_t ib = params.ib.value();
     int64_t lookahead = params.lookahead.value();
     int64_t panel_threads = params.panel_threads.value();
     lapack::Norm norm = params.norm.value();
@@ -116,7 +117,8 @@ template <typename scalar_t> void test_getrf_work (Params &params, bool run)
         slate::getrf (A, pivots, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target},
-            {slate::Option::MaxPanelThreads, panel_threads}
+            {slate::Option::MaxPanelThreads, panel_threads},
+            {slate::Option::InnerBlocking, ib}
         });
 
         MPI_Barrier (MPI_COMM_WORLD);

@@ -61,6 +61,7 @@ public:
     libtest::ParamInt3   dim;
     libtest::ParamInt    nb;
     libtest::ParamInt    nt;
+    libtest::ParamInt    ib;
     libtest::ParamInt    p;
     libtest::ParamInt    q;
     libtest::ParamInt    lookahead;

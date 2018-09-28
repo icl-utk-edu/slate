@@ -286,9 +286,9 @@ void swap(internal::TargetType<Target::Devices>,
                     // I am not the root.
                     else {
                         // MPI swap with the root
-                        swap(0, A.tileNb(j),
+                        swap(0, A.tileNb(j), device,
                              A(pivot[i].tileIndex(), j, device),
-                             pivot[i].elementOffset(), device,
+                             pivot[i].elementOffset(),
                              A.tileRank(0, j), A.mpiComm(),
                              tag);
                     }
@@ -298,8 +298,8 @@ void swap(internal::TargetType<Target::Devices>,
                     // If I am the root.
                     if (root) {
                         // MPI swap with the pivot owner
-                        swap(0,  A.tileNb(j),
-                             A(0, j, device), i, device,
+                        swap(0,  A.tileNb(j), device,
+                             A(0, j, device), i,
                              pivot_rank, A.mpiComm(),
                              tag);
                     }

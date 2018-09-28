@@ -638,7 +638,7 @@ void swap(int64_t j, int64_t n,
 ///
 template <typename scalar_t>
 void swap(int64_t j, int64_t n,
-          Tile<scalar_t>& A, int64_t i, int device,
+          int device, Tile<scalar_t>& A, int64_t i,
           int other_rank, MPI_Comm mpi_comm, int tag = 0)
 {
     std::vector<scalar_t> local_row(n);
@@ -661,10 +661,10 @@ void swap(int64_t j, int64_t n,
 /// Converts rvalue refs to lvalue refs.
 template <typename scalar_t>
 void swap(int64_t j, int64_t n,
-          Tile<scalar_t>&& A, int64_t i, int device,
+          int device, Tile<scalar_t>&& A, int64_t i,
           int other_rank, MPI_Comm mpi_comm, int tag = 0)
 {
-    swap(j, n, A, i, device, other_rank, mpi_comm, tag);
+    swap(j, n, device, A, i, other_rank, mpi_comm, tag);
 }
 
 ///-----------------------------------------------------------------------------

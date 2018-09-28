@@ -634,6 +634,41 @@ void swap(int64_t j, int64_t n,
 
 ///-----------------------------------------------------------------------------
 /// \brief
+/// Swap rows or columns with another process, depending on op().
+///
+template <typename scalar_t>
+void swap(int64_t j, int64_t n,
+          Tile<scalar_t>& A, int64_t i, int device,
+          int other_rank, MPI_Comm mpi_comm, int tag = 0)
+{
+    std::vector<scalar_t> local_row(n);
+    std::vector<scalar_t> other_row(n);
+
+    slate_cuda_call(cudaSetDevice(device));
+    slate_cuda_call(cudaMemcpy(local_row.data(), &A.at(i, j),
+                               sizeof(scalar_t)*n, cudaMemcpyDeviceToHost));
+
+    MPI_Sendrecv(
+        local_row.data(), n, mpi_type<scalar_t>::value, other_rank, tag,
+        other_row.data(), n, mpi_type<scalar_t>::value, other_rank, tag,
+        mpi_comm, MPI_STATUS_IGNORE);
+
+    slate_cuda_call(cudaMemcpy(&A.at(i, j), other_row.data(),
+                               sizeof(scalar_t)*n, cudaMemcpyHostToDevice));
+}
+
+///-------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename scalar_t>
+void swap(int64_t j, int64_t n,
+          Tile<scalar_t>&& A, int64_t i, int device,
+          int other_rank, MPI_Comm mpi_comm, int tag = 0)
+{
+    swap(j, n, A, i, device, other_rank, mpi_comm, tag);
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
 /// Swap one element with another process.
 ///
 template <typename scalar_t>
@@ -717,7 +752,7 @@ void convert_layout(Tile<scalar_t>* X, cudaStream_t stream)
 {
     trace::Block trace_block("slate::device::transpose");
     assert(X->mb() == X->nb());
-    
+
     device::transpose(X->mb(), X->data(), X->stride(), stream);
     slate_cuda_call(
         cudaStreamSynchronize(stream));

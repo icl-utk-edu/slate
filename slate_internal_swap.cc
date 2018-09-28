@@ -159,6 +159,156 @@ void swap(internal::TargetType<Target::HostTask>,
     }
 }
 
+template <typename scalar_t>
+void swap(internal::TargetType<Target::HostNest>,
+          Direction direction,
+          Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
+          int priority, int tag, Layout layout)
+{
+}
+
+template <typename scalar_t>
+void swap(internal::TargetType<Target::HostBatch>,
+          Direction direction,
+          Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
+          int priority, int tag, Layout layout)
+{
+}
+
+///-----------------------------------------------------------------------------
+
+inline cublasStatus_t cublasSwap(
+    cublasHandle_t handle,
+    int n,
+    float *x, int incx,
+    float *y, int incy)
+{
+    return cublasSswap(handle, n, x, incx, y, incy);
+}
+
+inline cublasStatus_t cublasSwap(
+    cublasHandle_t handle,
+    int n,
+    double *x, int incx,
+    double *y, int incy)
+{
+    return cublasDswap(handle, n, x, incx, y, incy);
+}
+
+inline cublasStatus_t cublasSwap(
+    cublasHandle_t handle,
+    int n,
+    std::complex<float> *x, int incx,
+    std::complex<float> *y, int incy)
+{
+    return cublasCswap(handle, n, (cuComplex*) x, incx,
+                                  (cuComplex*) y, incy);
+}
+
+inline cublasStatus_t cublasSwap(
+    cublasHandle_t handle,
+    int n,
+    std::complex<double> *x, int incx,
+    std::complex<double> *y, int incy)
+{
+    return cublasZswap(handle, n, (cuDoubleComplex*) x, incx,
+                                  (cuDoubleComplex*) y, incy);
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+/// Swaps rows of a general matrix according to the pivot vector,
+/// host implementation.
+/// todo: Restructure similarly to Hermitian swap
+///       (use the auxiliary swap functions).
+/// todo: Just one function forwarding target.
+template <typename scalar_t>
+void swap(internal::TargetType<Target::Devices>,
+          Direction direction,
+          Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
+          int priority, int tag, Layout layout)
+{
+    // GPU uses RowMajor
+    assert(layout == Layout::RowMajor);
+    for (int64_t i = 0; i < A.mt(); ++i) {
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            if (A.tileIsLocal(i, j)) {
+                #pragma omp task shared(A) priority(priority)
+                {
+                    A.tileMoveToDevice(i, j, A.tileDevice(i, j), layout);
+                }
+            }
+        }
+    }
+    #pragma omp taskwait
+
+    {
+        trace::Block trace_block("internal::swap");
+
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            bool root = A.mpiRank() == A.tileRank(0, j);
+            int device = A.tileDevice(0, j);
+
+            // Apply pivots forward (0, ..., k-1) or reverse (k-1, ..., 0)
+            int64_t begin, end, inc;
+            if (direction == Direction::Forward) {
+                begin = 0;
+                end   = pivot.size();
+                inc   = 1;
+            }
+            else {
+                begin = pivot.size() - 1;
+                end   = -1;
+                inc   = -1;
+            }
+            for (int64_t i = begin; i != end; i += inc) {
+                int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
+
+                // If I own the pivot.
+                if (pivot_rank == A.mpiRank()) {
+                    // If I am the root.
+                    if (root) {
+                        // If pivot not on the diagonal.
+                        if (pivot[i].tileIndex() > 0 ||
+                            pivot[i].elementOffset() > i)
+                        {
+                            assert(A(0, j, device).layout() == Layout::RowMajor);
+                            int64_t i1 = i;
+                            int64_t i2 = pivot[i].elementOffset();
+                            int64_t idx2 = pivot[i].tileIndex();
+                            slate_cuda_call(cudaSetDevice(device));
+                            cublasSwap(A.cublas_handle(device),
+                                       A.tileNb(j),
+                                       &A(0, j, device).at(i1, 0), 1,
+                                       &A(idx2, j, device).at(i2, 0), 1);
+                        }
+                    }
+                    // I am not the root.
+                    else {
+                        // MPI swap with the root
+                        swap(0, A.tileNb(j),
+                             A(pivot[i].tileIndex(), j, device),
+                             pivot[i].elementOffset(), device,
+                             A.tileRank(0, j), A.mpiComm(),
+                             tag);
+                    }
+                }
+                // I don't own the pivot.
+                else {
+                    // If I am the root.
+                    if (root) {
+                        // MPI swap with the pivot owner
+                        swap(0,  A.tileNb(j),
+                             A(0, j, device), i, device,
+                             pivot_rank, A.mpiComm(),
+                             tag);
+                    }
+                }
+            }
+        }
+    }
+}
+
 ///-----------------------------------------------------------------------------
 template <typename scalar_t>
 void swap(int64_t j_offs, int64_t n,
@@ -339,9 +489,45 @@ void swap<Target::HostTask, float>(
     Matrix<float>&& A, std::vector<Pivot>& pivot,
     int priority, int tag, Layout layout);
 
+template
+void swap<Target::HostNest, float>(
+    Direction direction,
+    Matrix<float>&& A, std::vector<Pivot>& pivot,
+    int priority, int tag, Layout layout);
+
+template
+void swap<Target::HostBatch, float>(
+    Direction direction,
+    Matrix<float>&& A, std::vector<Pivot>& pivot,
+    int priority, int tag, Layout layout);
+
+template
+void swap<Target::Devices, float>(
+    Direction direction,
+    Matrix<float>&& A, std::vector<Pivot>& pivot,
+    int priority, int tag, Layout layout);
+
 // ----------------------------------------
 template
 void swap<Target::HostTask, double>(
+    Direction direction,
+    Matrix<double>&& A, std::vector<Pivot>& pivot,
+    int priority, int tag, Layout layout);
+
+template
+void swap<Target::HostNest, double>(
+    Direction direction,
+    Matrix<double>&& A, std::vector<Pivot>& pivot,
+    int priority, int tag, Layout layout);
+
+template
+void swap<Target::HostBatch, double>(
+    Direction direction,
+    Matrix<double>&& A, std::vector<Pivot>& pivot,
+    int priority, int tag, Layout layout);
+
+template
+void swap<Target::Devices, double>(
     Direction direction,
     Matrix<double>&& A, std::vector<Pivot>& pivot,
     int priority, int tag, Layout layout);
@@ -354,9 +540,51 @@ void swap< Target::HostTask, std::complex<float> >(
     std::vector<Pivot>& pivot,
     int priority, int tag, Layout layout);
 
+template
+void swap< Target::HostNest, std::complex<float> >(
+    Direction direction,
+    Matrix< std::complex<float> >&& A,
+    std::vector<Pivot>& pivot,
+    int priority, int tag, Layout layout);
+
+template
+void swap< Target::HostBatch, std::complex<float> >(
+    Direction direction,
+    Matrix< std::complex<float> >&& A,
+    std::vector<Pivot>& pivot,
+    int priority, int tag, Layout layout);
+
+template
+void swap< Target::Devices, std::complex<float> >(
+    Direction direction,
+    Matrix< std::complex<float> >&& A,
+    std::vector<Pivot>& pivot,
+    int priority, int tag, Layout layout);
+
 // ----------------------------------------
 template
 void swap< Target::HostTask, std::complex<double> >(
+    Direction direction,
+    Matrix< std::complex<double> >&& A,
+    std::vector<Pivot>& pivot,
+    int priority, int tag, Layout layout);
+
+template
+void swap< Target::HostNest, std::complex<double> >(
+    Direction direction,
+    Matrix< std::complex<double> >&& A,
+    std::vector<Pivot>& pivot,
+    int priority, int tag, Layout layout);
+
+template
+void swap< Target::HostBatch, std::complex<double> >(
+    Direction direction,
+    Matrix< std::complex<double> >&& A,
+    std::vector<Pivot>& pivot,
+    int priority, int tag, Layout layout);
+
+template
+void swap< Target::Devices, std::complex<double> >(
     Direction direction,
     Matrix< std::complex<double> >&& A,
     std::vector<Pivot>& pivot,

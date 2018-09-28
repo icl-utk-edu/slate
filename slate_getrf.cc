@@ -173,9 +173,9 @@ void getrf(slate::internal::TargetType<target>,
                 // swap rows in A(k:mt-1, kl+1:nt-1)
                 int tag_kl1 = k+1+lookahead;
                 // todo: target & layout
-                internal::swap<Target::HostTask>(
+                internal::swap<target>(
                     Direction::Forward, A.sub(k, A_mt-1, k+1+lookahead, A_nt-1),
-                    pivots.at(k), priority_zero, tag_kl1);
+                    pivots.at(k), priority_zero, tag_kl1, layout);
 
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk =
@@ -258,7 +258,7 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
         assert(max_panel_threads >= 1);
     }
     catch (std::out_of_range) {
-        max_panel_threads = std::max(omp_get_max_threads()/2, 1);
+        max_panel_threads = std::max(omp_get_max_threads(), 1);
     }
 
     internal::specialization::getrf(internal::TargetType<target>(),

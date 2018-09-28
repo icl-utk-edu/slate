@@ -210,7 +210,7 @@ public:
 
     /// Returns which host or GPU device tile's data is located on.
     int device() const { return device_; }
-    
+
     Layout layout() const { return layout_; }
     void   layout(Layout in_layout) { layout_ = in_layout; }
 

@@ -61,9 +61,9 @@ namespace specialization {
 template <Target target, typename scalar_t>
 void hetrf(slate::internal::TargetType<target>,
            HermitianMatrix<scalar_t>& A, Pivots& pivots,
-                BandMatrix<scalar_t>& T, 
+                BandMatrix<scalar_t>& T, Pivots& pivots2,
                     Matrix<scalar_t>& H,
-           int64_t ib, int max_panel_threads)
+           int64_t ib, int64_t max_panel_threads, int64_t lookahead)
 {
     //using real_t = blas::real_type<scalar_t>;
     using BcastList  = typename Matrix<scalar_t>::BcastList;
@@ -488,6 +488,12 @@ void hetrf(slate::internal::TargetType<target>,
     // Debug::checkTilesLives(A);
     // Debug::printTilesLives(A);
 
+    // second-stage (facorization of band matrix)
+    gbtrf(T, pivots2, {
+        {Option::InnerBlocking, ib},
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::MaxPanelThreads, max_panel_threads}});
+
     A.clearWorkspace();
 
     // Debug::printTilesMaps(A);
@@ -546,7 +552,8 @@ void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
     }
 
     internal::specialization::hetrf(internal::TargetType<target>(),
-                                    A, pivots, T, H, ib, max_panel_threads);
+                                    A, pivots, T, pivots2, 
+                                    H, ib, max_panel_threads, lookahead);
 }
 
 //------------------------------------------------------------------------------

@@ -176,7 +176,7 @@ void swap(internal::TargetType<Target::HostBatch>,
 }
 
 ///-----------------------------------------------------------------------------
-
+// Precision-independent wrappers.
 inline cublasStatus_t cublasSwap(
     cublasHandle_t handle,
     int n,

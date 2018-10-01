@@ -123,6 +123,30 @@ cublasStatus_t cublasZgemmBatched(
     const cuDoubleComplex* beta,        cuDoubleComplex* Carray[], int ldc,
     int batchCount);
 
+cublasStatus_t cublasSswap(
+    cublasHandle_t handle,
+    int n,
+    float *x, int incx,
+    float *y, int incy);
+
+cublasStatus_t cublasDswap(
+    cublasHandle_t handle,
+    int n,
+    double *x, int incx,
+    double *y, int incy);
+
+cublasStatus_t cublasCswap(
+    cublasHandle_t handle,
+    int n,
+    cuComplex *x, int incx,
+    cuComplex *y, int incy);
+
+cublasStatus_t cublasZswap(
+    cublasHandle_t handle,
+    int n,
+    cuDoubleComplex *x, int incx,
+    cuDoubleComplex *y, int incy);
+
 #ifdef __cplusplus
 }
 #endif

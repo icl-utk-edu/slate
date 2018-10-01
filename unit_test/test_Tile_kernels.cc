@@ -998,7 +998,7 @@ void test_device_convert_layout()
     slate_cuda_call(
         cudaSetDevice(device));
     slate_cuda_call(
-        cudaMalloc(&Adata_dev, Adata.size() * sizeof(scalar_t)));
+        cudaMalloc((void**) &Adata_dev, Adata.size() * sizeof(scalar_t)));
     slate_cuda_call(
         cudaMemcpy(Adata_dev, Adata.data(), Adata.size() * sizeof(scalar_t),
                    cudaMemcpyHostToDevice));
@@ -1011,7 +1011,7 @@ void test_device_convert_layout()
     }
     scalar_t** Aarray_dev;
     slate_cuda_call(
-        cudaMalloc(&Aarray_dev, Aarray.size() * sizeof(scalar_t*)));
+        cudaMalloc((void**) &Aarray_dev, Aarray.size() * sizeof(scalar_t*)));
     slate_cuda_call(
         cudaMemcpy(Aarray_dev, Aarray.data(), Aarray.size() * sizeof(scalar_t*),
                    cudaMemcpyHostToDevice));

@@ -128,6 +128,42 @@ cublasStatus_t cublasZgemmBatched(
     assert(0);
 }
 
+cublasStatus_t cublasSswap(
+    cublasHandle_t handle,
+    int n,
+    float *x, int incx,
+    float *y, int incy)
+{
+    assert(0);
+}
+
+cublasStatus_t cublasDswap(
+    cublasHandle_t handle,
+    int n,
+    double *x, int incx,
+    double *y, int incy)
+{
+    assert(0);
+}
+
+cublasStatus_t cublasCswap(
+    cublasHandle_t handle,
+    int n,
+    cuComplex *x, int incx,
+    cuComplex *y, int incy)
+{
+    assert(0);
+}
+
+cublasStatus_t cublasZswap(
+    cublasHandle_t handle,
+    int n,
+    cuDoubleComplex *x, int incx,
+    cuDoubleComplex *y, int incy)
+{
+    assert(0);
+}
+
 #ifdef __cplusplus
 }
 #endif

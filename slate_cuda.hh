@@ -51,11 +51,11 @@
 #include <cstdlib>
 #include <complex>
 
-typedef int cuComplex;
 typedef int cudaError_t;
 typedef void* cudaStream_t;
 typedef int cudaMemcpyKind;
-typedef std::complex<float> cuFloatComplex;
+typedef std::complex<float> cuComplex;
+typedef cuComplex cuFloatComplex;
 typedef std::complex<double> cuDoubleComplex;
 
 enum {

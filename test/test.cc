@@ -8,6 +8,7 @@
 
 #include "test.hh"
 #include "slate_mpi.hh"
+#include "slate_openmp.hh"
 
 
 // -----------------------------------------------------------------------------
@@ -366,6 +367,8 @@ int main( int argc, char** argv )
                 printf( " %s", argv[i] );
             }
             printf( "\n" );
+            printf("MPI size %d, OpenMP threads %d\n",
+                   mpi_size, omp_get_max_threads());
         }
 
         // Usage: test routine [params]

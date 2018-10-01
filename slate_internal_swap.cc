@@ -426,45 +426,37 @@ void swap(internal::TargetType<Target::HostTask>,
             inc   = -1;
         }
         for (int64_t i1 = begin; i1 != end; i1 += inc) {
-
             int64_t i2 = pivot[i1].elementOffset();
             int64_t j2 = pivot[i1].tileIndex();
 
             // If pivot not on the diagonal.
             if (j2 > 0 || i2 > i1) {
 
-                int64_t j1 = 0;
-
                 // in the upper band
                 swap(0, i1, A,
-                     Op::NoTrans, {0, j1}, i1,
-                     Op::NoTrans, {j2, j1}, i2, tag);
+                     Op::NoTrans, {0,  0}, i1,
+                     Op::NoTrans, {j2, 0}, i2, tag);
+                if (j2 == 0) {
+                    swap(i1+1, i2-i1, A,
+                         Op::Trans,   {0, 0}, i1,
+                         Op::NoTrans, {0, 0}, i2, tag);
 
-                swap(i1+1, A.tileNb(j1)-i1-1, A,
-                     Op::Trans, {0, j1}, i1,
-                     Op::NoTrans, {j2, j1}, i2, tag);
+                    swap(i2, A.tileNb(0)-i2, A,
+                         Op::Trans, {0, 0}, i1,
+                         Op::Trans, {0, 0}, i2, tag);
+                } else {
+                    swap(i1+1, A.tileNb(0)-i1-1, A,
+                         Op::Trans,   {0,  0}, i1,
+                         Op::NoTrans, {j2, 0}, i2, tag);
 
-                // before the lower band
-                for (++j1; j1 < j2; ++j1) {
-                    swap(0, A.tileNb(j1), A,
-                         Op::Trans, {j1, 0}, i1,
-                         Op::NoTrans, {j2, j1}, i2, tag);
-                }
+                    // in the lower band
+                    swap(0, i2, A,
+                         Op::Trans,   {j2,  0}, i1,
+                         Op::NoTrans, {j2, j2}, i2, tag+1);
 
-                // in the lower band
-                swap(0, i2, A,
-                     Op::Trans, {j1, 0}, i1,
-                     Op::NoTrans, {j2, j1}, i2, tag);
-
-                swap(i2+1, A.tileNb(j2)-i2-1, A,
-                    Op::Trans, {j1, 0}, i1,
-                    Op::Trans, {j2, j1}, i2, tag);
-
-                // after the lower band
-                for (++j1; j1 < A.nt(); ++j1) {
-                    swap(0, A.tileNb(j2), A,
-                         Op::Trans, {j1, 0}, i1,
-                         Op::Trans, {j1, j2}, i2, tag);
+                    swap(i2+1, A.tileNb(j2)-i2-1, A,
+                         Op::Trans, {j2,  0}, i1,
+                         Op::Trans, {j2, j2}, i2, tag+1);
                 }
 
                 // Conjugate the crossing poing.
@@ -475,6 +467,20 @@ void swap(internal::TargetType<Target::HostTask>,
                 swap(A,
                      {0, 0}, i1, i1,
                      {j2, j2}, i2, i2, tag);
+
+                // before the lower band
+                for (int64_t j1=1; j1 < j2; ++j1) {
+                    swap(0, A.tileNb(j1), A,
+                             Op::Trans,   {j1,  0}, i1,
+                             Op::NoTrans, {j2, j1}, i2, tag+1+j1);
+                }
+
+                // after the lower band
+                for (int64_t j1=j2+1; j1 < A.nt(); ++j1) {
+                    swap(0, A.tileNb(j2), A,
+                         Op::Trans, {j1,  0}, i1,
+                         Op::Trans, {j1, j2}, i2, tag+1+j1);
+                }
             }
         }
     }

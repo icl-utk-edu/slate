@@ -30,6 +30,7 @@ template <typename scalar_t> void test_gbtrs_work(Params &params, bool run)
     using blas::max;
     using blas::real;
     using real_t = blas::real_type<scalar_t>;
+    using lld = long long;
 
     // get & mark input values
     blas::Op trans = params.trans.value();
@@ -109,7 +110,7 @@ template <typename scalar_t> void test_gbtrs_work(Params &params, bool run)
 
     if (matrix == 1) {
         // Make A and Aorig diagonally dominant to avoid pivoting.
-        printf( "diag dominant\n" );
+        printf("diag dominant\n");
         for (int k = 0; k < std::min(A.mt(), A.nt()); ++k) {
             auto T = A(k, k);
             auto T2 = Aorig(k, k);
@@ -121,8 +122,8 @@ template <typename scalar_t> void test_gbtrs_work(Params &params, bool run)
     }
 
     if (verbose > 1) {
-        printf( "%% rank %d A kl %lld, ku %lld\n",
-                A.mpiRank(), A.lowerBandwidth(), A.upperBandwidth() );
+        printf("%% rank %d A kl %lld, ku %lld\n",
+               A.mpiRank(), (lld) A.lowerBandwidth(), (lld) A.upperBandwidth());
         print_matrix("A", A);
         print_matrix("Aorig", Aorig);
         print_matrix("B", B);
@@ -191,21 +192,21 @@ template <typename scalar_t> void test_gbtrs_work(Params &params, bool run)
         //params.gflops.value() = gflop / time_tst;
 
         if (verbose > 1) {
-            printf( "%% rank %d A2 kl %lld, ku %lld\n",
-                    A.mpiRank(), A.lowerBandwidth(), A.upperBandwidth() );
+            printf("%% rank %d A2 kl %lld, ku %lld\n",
+                   A.mpiRank(), (lld) A.lowerBandwidth(), (lld) A.upperBandwidth());
             print_matrix("A2", A);
             print_matrix("B2", B);
 
-            printf( "ipiv = [\n" );
+            printf("ipiv = [\n");
             for (size_t i = 0; i < pivots.size(); ++i) {
                 auto p = pivots[i];
                 for (size_t j = 0; j < p.size(); ++j) {
-                    printf( "%3lld  %% %lld, %lld\n",
-                            (i + p[j].tileIndex())*nb + p[j].elementOffset() + 1,
-                            p[j].tileIndex(), p[j].elementOffset() );
+                    printf("%3lld  %% %lld, %lld\n",
+                           (lld) ((i + p[j].tileIndex())*nb + p[j].elementOffset() + 1),
+                           (lld) p[j].tileIndex(), (lld) p[j].elementOffset());
                 }
                 if (i < pivots.size()-1)
-                    printf( "\n" );
+                    printf("\n");
             }
             printf( "];\n" );
         }

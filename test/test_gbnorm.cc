@@ -31,7 +31,7 @@ void test_gbnorm_work(Params& params, bool run)
     using blas::min;
     using blas::max;
     using slate::ceildiv;
-    using lld = long long;
+    //using lld = long long;
 
     // get & mark input values
     lapack::Norm norm = params.norm.value();

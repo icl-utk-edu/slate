@@ -28,7 +28,7 @@ inline int slate_set_num_blas_threads(const int nt) { return -1; }
 template<typename scalar_t>
 void test_gbmm_work(Params &params, bool run)
 {
-    using lld = long long;
+    //using lld = long long;
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
     using blas::imag;

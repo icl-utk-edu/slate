@@ -29,6 +29,7 @@ template <typename scalar_t> void test_gbtrf_work(Params &params, bool run)
     using blas::max;
     using blas::real;
     using real_t = blas::real_type<scalar_t>;
+    using lld = long long;
 
     // get & mark input values
     int64_t m = params.dim.m();
@@ -121,7 +122,7 @@ template <typename scalar_t> void test_gbtrf_work(Params &params, bool run)
 
     if (verbose > 0) {
         printf( "rank %d A2 kl %lld, ku %lld\n",
-                A.mpiRank(), A.lowerBandwidth(), A.upperBandwidth() );
+                A.mpiRank(), (lld) A.lowerBandwidth(), (lld) A.upperBandwidth() );
     }
     if (verbose > 1) {
         print_matrix("A", A);
@@ -171,7 +172,7 @@ template <typename scalar_t> void test_gbtrf_work(Params &params, bool run)
 
     if (verbose > 0) {
         printf( "rank %d A2 kl %lld, ku %lld\n",
-                A.mpiRank(), A.lowerBandwidth(), A.upperBandwidth() );
+                A.mpiRank(), (lld) A.lowerBandwidth(), (lld) A.upperBandwidth() );
     }
     if (verbose > 1) {
         print_matrix("A2", A);

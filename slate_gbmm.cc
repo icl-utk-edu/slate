@@ -66,7 +66,6 @@ void gbmm(slate::internal::TargetType<target>,
           scalar_t beta,  Matrix<scalar_t>& C,
           int64_t lookahead)
 {
-    using lld = long long;
     using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 

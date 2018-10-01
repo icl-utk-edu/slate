@@ -964,7 +964,7 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
                                 recv_from, send_to);
 
     std::vector<scalar_t> data(tileMb(i)*tileNb(j));
-    Tile<scalar_t> tile(tileMb(i), tileNb(j), &data[0], tileMb(i), host_num_);
+    Tile<scalar_t> tile(tileMb(i), tileNb(j), &data[0], tileMb(i), host_num_, TileKind::Workspace);
 
     // Receive, accumulate.
     for (int src : recv_from) {

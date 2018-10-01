@@ -139,21 +139,20 @@ void gemm_A(internal::TargetType<Target::HostTask>,
         #pragma omp task shared(A, B, C, err) priority(priority)
         {
             try {
+
+                scalar_t beta_j;
+                if (C.tileIsLocal(i, 0))
+                    beta_j = beta;
+                else
+                    beta_j = scalar_t(0.0);
+
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     if (A.tileIsLocal(i, j)) {
-
-                        scalar_t beta_j;
-                        if (j > 0)
-                            beta_j = scalar_t(1.0);
-                        else
-                            if (C.tileIsLocal(i, 0))
-                                beta_j = beta;
-                            else
-                                beta_j = scalar_t(0.0);
-
                         gemm(alpha,  A(i, j),
                                      B(j, 0),
                              beta_j, C(i, 0));
+
+                        beta_j = scalar_t(1.0);
 
                         A.tileTick(i, j);
                         B.tileTick(j, 0);

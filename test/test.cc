@@ -125,7 +125,7 @@ std::vector< libtest::routines_t > routines = {
     //{ "hesv",                test_hesv,         Section::hesv },
     //{ "",                    nullptr,           Section::newline },
 
-    //{ "hetrf",               test_hetrf,        Section::hesv },
+    { "hetrf",               test_hetrf,        Section::hesv },
     //{ "",                    nullptr,           Section::newline },
 
     //{ "hetrs",               test_hetrs,        Section::hesv },

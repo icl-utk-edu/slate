@@ -162,7 +162,7 @@ void test_trmm_work(Params& params, bool run)
         std::vector<real_t> worklange(std::max({ mlocB, nlocB }));
 
         // get norms of the original data
-        real_t A_orig_norm = scalapack_plantr(norm2str(norm), uplo2str(uplo), diag2str(diag), Am, An, &A_tst[0], i1, i1, descA_tst, &worklantr[0]);
+        real_t A_norm = scalapack_plantr(norm2str(norm), uplo2str(uplo), diag2str(diag), Am, An, &A_tst[0], i1, i1, descA_tst, &worklantr[0]);
         real_t B_orig_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_tst[0], i1, i1, descB_tst, &worklange[0]);
 
         // run the reference routine
@@ -182,7 +182,7 @@ void test_trmm_work(Params& params, bool run)
         real_t B_diff_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_ref[0], i1, i1, descB_ref, &worklange[0]);
 
         real_t error = B_diff_norm
-                     / (sqrt(real_t(Am) + 2) * std::abs(alpha) * A_orig_norm * B_orig_norm);
+                     / (sqrt(real_t(Am) + 2) * std::abs(alpha) * A_norm * B_orig_norm);
 
         params.ref_time.value() = time_ref;
         params.ref_gflops.value() = gflop / time_ref;

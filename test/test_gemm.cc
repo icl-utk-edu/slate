@@ -181,8 +181,8 @@ void test_gemm_work(Params& params, bool run)
         std::vector<real_t> worklange(std::max({mlocC, mlocB, mlocA, nlocC, nlocB, nlocA}));
 
         // get norms of the original data
-        real_t A_orig_norm = scalapack_plange(norm2str(norm), Am, An, &A_tst[0], i1, i1, descA_tst, &worklange[0]);
-        real_t B_orig_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_tst[0], i1, i1, descB_tst, &worklange[0]);
+        real_t A_norm = scalapack_plange(norm2str(norm), Am, An, &A_tst[0], i1, i1, descA_tst, &worklange[0]);
+        real_t B_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_tst[0], i1, i1, descB_tst, &worklange[0]);
         real_t C_orig_norm = scalapack_plange(norm2str(norm), Cm, Cn, &C_ref[0], i1, i1, descC_ref, &worklange[0]);
 
         // run the reference routine
@@ -202,7 +202,7 @@ void test_gemm_work(Params& params, bool run)
         real_t C_diff_norm = scalapack_plange(norm2str(norm), Cm, Cn, &C_ref[0], i1, i1, descC_ref, &worklange[0]);
 
         real_t error = C_diff_norm
-                     / (sqrt(real_t(k) + 2) * std::abs(alpha) * A_orig_norm * B_orig_norm
+                     / (sqrt(real_t(k) + 2) * std::abs(alpha) * A_norm * B_norm
                         + 2 * std::abs(beta) * C_orig_norm);
 
         params.ref_time.value() = time_ref;

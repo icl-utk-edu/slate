@@ -93,13 +93,16 @@ template <typename scalar_t> void test_potrf_work(Params& params, bool run)
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
 
-        // run test
         {
             slate::trace::Block trace_block("MPI_Barrier");
             MPI_Barrier(MPI_COMM_WORLD);
         }
         double time = libtest::get_wtime();
 
+        //==================================================
+        // Run SLATE test.
+        // Factor A = LL^H or A = U^H U.
+        //==================================================
         slate::potrf(A, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target}
@@ -128,7 +131,9 @@ template <typename scalar_t> void test_potrf_work(Params& params, bool run)
         { omp_num_threads = omp_get_num_threads(); }
         int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-        // Run the reference routine on A_ref
+        //==================================================
+        // Run ScaLAPACK reference routine.
+        //==================================================
         MPI_Barrier(MPI_COMM_WORLD);
         double time = libtest::get_wtime();
         scalapack_ppotrf(uplo2str(uplo), n, &A_ref[0], ione, ione, descA_ref, &info);

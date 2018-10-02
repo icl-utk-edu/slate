@@ -154,13 +154,14 @@ template <typename scalar_t> void test_gbtrs_work(Params& params, bool run)
 
         slate::Pivots pivots;
 
-        // factor matrix A
+        // Factor matrix A.
         slate::gbtrf(A, pivots, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target},
             {slate::Option::MaxPanelThreads, panel_threads}
         });
 
+        // Take op after factoring, so it gets updated bandwidth.
         auto opA = A;
         if (trans == blas::Op::Trans)
             opA = transpose(A);
@@ -169,10 +170,10 @@ template <typename scalar_t> void test_gbtrs_work(Params& params, bool run)
 
         double time = libtest::get_wtime();
 
-        //============================================================
+        //==================================================
         // Run SLATE test.
         // Solve op(A) X = B, after factoring A above.
-        //============================================================
+        //==================================================
         slate::gbtrs(opA, pivots, B, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target}

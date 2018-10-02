@@ -124,6 +124,7 @@ template <typename scalar_t> void test_potrs_work(Params& params, bool run)
             MPI_Barrier(MPI_COMM_WORLD);
         }
 
+        // Factor matrix A.
         slate::potrf(A, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target}
@@ -131,6 +132,10 @@ template <typename scalar_t> void test_potrs_work(Params& params, bool run)
 
         double time = libtest::get_wtime();
 
+        //==================================================
+        // Run SLATE test.
+        // Solve AX = B, after factoring A above.
+        //==================================================
         slate::potrs(A, B, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target}
@@ -207,7 +212,9 @@ template <typename scalar_t> void test_potrs_work(Params& params, bool run)
 
         scalapack_ppotrf(uplo2str(uplo), n, &A_ref[0], ione, ione, descA_ref, &info);
 
-        // Run the reference routine
+        //==================================================
+        // Run ScaLAPACK reference routine.
+        //==================================================
         MPI_Barrier(MPI_COMM_WORLD);
         double time = libtest::get_wtime();
         scalapack_ppotrs(uplo2str(uplo), n, nrhs, &A_ref[0], ione, ione, descA_ref, &B_ref[0], ione, ione, descB_ref, &info);

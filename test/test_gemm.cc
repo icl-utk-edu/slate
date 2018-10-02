@@ -143,13 +143,16 @@ void test_gemm_work(Params& params, bool run)
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
-    // call the test routine
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
     double time = libtest::get_wtime();
 
+    //==================================================
+    // Run SLATE test.
+    // C = alpha A B + beta C.
+    //==================================================
     slate::gemm(alpha, A, B, beta, C, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
@@ -185,7 +188,9 @@ void test_gemm_work(Params& params, bool run)
         real_t B_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_tst[0], ione, ione, descB_tst, &worklange[0]);
         real_t C_orig_norm = scalapack_plange(norm2str(norm), Cm, Cn, &C_ref[0], ione, ione, descC_ref, &worklange[0]);
 
-        // run the reference routine
+        //==================================================
+        // Run ScaLAPACK reference routine.
+        //==================================================
         MPI_Barrier(MPI_COMM_WORLD);
         time = libtest::get_wtime();
         scalapack_pgemm(op2str(transA), op2str(transB), m, n, k, alpha,

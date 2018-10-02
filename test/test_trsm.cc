@@ -124,13 +124,16 @@ void test_trsm_work(Params& params, bool run)
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
-    // Call the routine using ScaLAPACK layout
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
     double time = libtest::get_wtime();
 
+    //==================================================
+    // Run SLATE test.
+    // Solve AX = alpha B (left) or XA = alpha B (right).
+    //==================================================
     slate::trsm(side, alpha, A, B, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
@@ -165,7 +168,9 @@ void test_trsm_work(Params& params, bool run)
         real_t A_norm = scalapack_plantr(norm2str(norm), uplo2str(uplo), diag2str(diag), Am, An, &A_tst[0], ione, ione, descA_tst, &worklantr[0]);
         real_t B_orig_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_tst[0], ione, ione, descB_tst, &worklange[0]);
 
-        // Run the reference routine
+        //==================================================
+        // Run ScaLAPACK reference routine.
+        //==================================================
         MPI_Barrier(MPI_COMM_WORLD);
         time = libtest::get_wtime();
         scalapack_ptrsm(side2str(side), uplo2str(uplo), op2str(transA), diag2str(diag),

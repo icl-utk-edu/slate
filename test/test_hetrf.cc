@@ -87,7 +87,7 @@ template <typename scalar_t> void test_hetrf_work(Params& params, bool run)
     slate::Pivots pivots;
 
     //---------------------
-    // tridiagonal matrices
+    // band matrix
     int64_t kl = nb;
     int64_t ku = nb;
     slate::Pivots pivots2;
@@ -108,14 +108,16 @@ template <typename scalar_t> void test_hetrf_work(Params& params, bool run)
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
-    //---------------------
-    // run test
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
     double time = libtest::get_wtime();
 
+    //==================================================
+    // Run SLATE test.
+    // Factor A = LTL^H.
+    //==================================================
     slate::hetrf(A, pivots, T, pivots2, H, {
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads}

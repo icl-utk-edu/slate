@@ -146,14 +146,16 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
-    // run test
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
     double time = libtest::get_wtime();
 
-    // factor matrix A and solve AX = B
+    //==================================================
+    // Run SLATE test.
+    // Solve AX = B, including factoring A.
+    //==================================================
     slate::gbsv(A, pivots, B, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
@@ -192,7 +194,9 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
     ///     // allocate work space
     ///     std::vector<real_t> worklange(std::max(mlocA, nlocA));
     ///
-    ///     // Run the reference routine
+    ///     //==================================================
+    ///     // Run ScaLAPACK reference routine.
+    ///     //==================================================
     ///     MPI_Barrier(MPI_COMM_WORLD);
     ///     time = libtest::get_wtime();
     ///     scalapack_pgbsv(n, nrhs, &A_ref[0], ione, ione, descA_ref, &ipiv_ref[0], ... B ..., &info_ref);

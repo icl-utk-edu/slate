@@ -111,9 +111,10 @@ template <typename scalar_t> void test_getrf_work(Params& params, bool run)
     if (! ref_only) {
         double time = libtest::get_wtime();
 
-        // todo: the example/test call to pgetrf can be removed later
-        // int64_t info_tst=0;
-        // scalapack_pgetrf (m, n, &A_tst[0], ione, ione, descA_tst, &ipiv_tst[0], &info_tst);
+        //==================================================
+        // Run SLATE test.
+        // Factor PA = LU.
+        //==================================================
         slate::getrf(A, pivots, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target},
@@ -210,7 +211,9 @@ template <typename scalar_t> void test_getrf_work(Params& params, bool run)
         int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
         int64_t info_ref = 0;
 
-        // Run the reference routine
+        //==================================================
+        // Run ScaLAPACK reference routine.
+        //==================================================
         MPI_Barrier(MPI_COMM_WORLD);
         double time = libtest::get_wtime();
         scalapack_pgetrf(m, n, &A_ref[0], ione, ione, descA_ref, &ipiv_ref[0], &info_ref);

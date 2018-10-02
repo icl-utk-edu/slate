@@ -113,13 +113,16 @@ void test_syrk_work(Params& params, bool run)
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
-    // Call the routine
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
     double time = libtest::get_wtime();
 
+    //==================================================
+    // Run SLATE test.
+    // C = alpha A A^T + beta C.
+    //==================================================
     slate::syrk(alpha, A, beta, C, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
@@ -156,7 +159,9 @@ void test_syrk_work(Params& params, bool run)
         real_t A_norm = scalapack_plange(norm2str(norm), Am, An, &A_tst[0], ione, ione, descA_tst, &worklange[0]);
         real_t C_orig_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn, &C_ref[0], ione, ione, descC_ref, &worklansy[0]);
 
-        // run the reference routine
+        //==================================================
+        // Run ScaLAPACK reference routine.
+        //==================================================
         MPI_Barrier(MPI_COMM_WORLD);
         time = libtest::get_wtime();
         scalapack_psyrk(uplo2str(uplo), op2str(transA), n, k, alpha,

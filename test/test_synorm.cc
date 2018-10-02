@@ -137,13 +137,16 @@ void test_synorm_work(Params& params, bool run)
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
-    // call the test routine
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
     double time = libtest::get_wtime();
 
+    //==================================================
+    // Run SLATE test.
+    // Compute || A ||_norm.
+    //==================================================
     real_t A_norm = slate::norm(norm, A, {
         {slate::Option::Target, target}
     });
@@ -174,7 +177,9 @@ void test_synorm_work(Params& params, bool run)
         int lwork = 2*mlocA + nlocA + ldw;
         std::vector<real_t> worklansy(lwork);
 
-        // run the reference routine
+        //==================================================
+        // Run ScaLAPACK reference routine.
+        //==================================================
         MPI_Barrier(MPI_COMM_WORLD);
         time = libtest::get_wtime();
         real_t A_norm_ref = scalapack_plansy(

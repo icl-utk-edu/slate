@@ -146,7 +146,7 @@ template <typename scalar_t> void test_getrs_work(Params& params, bool run)
 
         slate::Pivots pivots;
 
-        // factor matrix A
+        // Factor matrix A.
         slate::getrf(A, pivots, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target},
@@ -159,12 +159,19 @@ template <typename scalar_t> void test_getrs_work(Params& params, bool run)
         else if (trans == blas::Op::ConjTrans)
             opA = conj_transpose(A);
 
+        if (trace) slate::trace::Trace::on();
+        else slate::trace::Trace::off();
+
+        {
+            slate::trace::Block trace_block("MPI_Barrier");
+            MPI_Barrier(MPI_COMM_WORLD);
+        }
         double time = libtest::get_wtime();
 
-        //============================================================
+        //==================================================
         // Run SLATE test.
         // Solve op(A) X = B, after factoring A above.
-        //============================================================
+        //==================================================
         slate::getrs(opA, pivots, B, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target}
@@ -241,7 +248,9 @@ template <typename scalar_t> void test_getrs_work(Params& params, bool run)
 
         scalapack_pgetrf(m, n, &A_ref[0], ione, ione, descA_ref, &ipiv_ref[0], &info_ref);
 
-        // Run the reference routine
+        //==================================================
+        // Run ScaLAPACK reference routine.
+        //==================================================
         MPI_Barrier(MPI_COMM_WORLD);
         double time = libtest::get_wtime();
         scalapack_pgetrs(op2str(trans), n, nrhs, &A_ref[0], ione, ione, descA_ref, &ipiv_ref[0], &B_ref[0], ione, ione, descB_ref, &info_ref);

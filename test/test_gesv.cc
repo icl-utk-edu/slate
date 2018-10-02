@@ -125,7 +125,6 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
 
-        // run test
         {
             slate::trace::Block trace_block("MPI_Barrier");
             MPI_Barrier(MPI_COMM_WORLD);
@@ -135,6 +134,10 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
 
         double time = libtest::get_wtime();
 
+        //==================================================
+        // Run SLATE test.
+        // Solve AX = B, including factoring A.
+        //==================================================
         slate::gesv(A, pivots, B, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target},
@@ -210,7 +213,9 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
             assert(info == 0);
         }
 
-        // Run the reference routine
+        //==================================================
+        // Run ScaLAPACK reference routine.
+        //==================================================
         MPI_Barrier(MPI_COMM_WORLD);
         double time = libtest::get_wtime();
         scalapack_pgesv(n, nrhs, &A_ref[0], ione, ione, descA_ref, &ipiv_ref[0], &B_ref[0], ione, ione, descB_ref, &info_ref);

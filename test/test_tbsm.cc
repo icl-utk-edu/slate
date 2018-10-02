@@ -164,9 +164,10 @@ void test_tbsm_work(Params& params, bool run)
     }
     double time = libtest::get_wtime();
 
-    //printf("%% tbsm\n");
-    //----------------------------------------
-    // call the routine
+    //==================================================
+    // Run SLATE test.
+    // Solve AX = alpha B (left) or XA = alpha B (right).
+    //==================================================
     slate::tbsm(side, alpha, A, pivots, B, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
@@ -211,8 +212,10 @@ void test_tbsm_work(Params& params, bool run)
             print_matrix("B_ref", mlocB, nlocB, &B_ref[0], lldB, p, q, MPI_COMM_WORLD);
         }
 
-        //----------------------------------------
-        // call the reference routine
+        //==================================================
+        // Run ScaLAPACK reference routine.
+        // Note this is on a FULL matrix, so ignore reference performance!
+        //==================================================
         MPI_Barrier(MPI_COMM_WORLD);
         time = libtest::get_wtime();
         scalapack_ptrsm(side2str(side), uplo2str(uplo), op2str(transA), diag2str(diag),

@@ -178,7 +178,6 @@ template <typename scalar_t> void test_gbtrs_work(Params& params, bool run)
             {slate::Option::Target, target}
         });
 
-        MPI_Barrier(MPI_COMM_WORLD);
         {
             slate::trace::Block trace_block("MPI_Barrier");
             MPI_Barrier(MPI_COMM_WORLD);

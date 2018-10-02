@@ -115,12 +115,12 @@ template <typename scalar_t> void test_hetrf_work(Params& params, bool run)
         MPI_Barrier(MPI_COMM_WORLD);
     }
     double time = libtest::get_wtime();
+
     slate::hetrf(A, pivots, T, pivots2, H, {
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads}
     });
 
-    MPI_Barrier(MPI_COMM_WORLD);
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);

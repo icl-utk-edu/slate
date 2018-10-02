@@ -147,7 +147,6 @@ template <typename scalar_t> void test_gbtrf_work(Params& params, bool run)
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
-
     double time = libtest::get_wtime();
 
     slate::gbtrf(A, pivots, {
@@ -156,7 +155,6 @@ template <typename scalar_t> void test_gbtrf_work(Params& params, bool run)
         {slate::Option::MaxPanelThreads, panel_threads}
     });
 
-    MPI_Barrier(MPI_COMM_WORLD);
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);

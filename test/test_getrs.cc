@@ -101,6 +101,7 @@ template <typename scalar_t> void test_getrs_work(Params& params, bool run)
     // Create SLATE matrix from the ScaLAPACK layouts
     auto A = slate::Matrix<scalar_t>::fromScaLAPACK(Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+    slate::Pivots pivots;
 
     if (matrix == 1) {
         // Make A diagonally dominant to avoid pivoting.
@@ -135,17 +136,6 @@ template <typename scalar_t> void test_getrs_work(Params& params, bool run)
     double gflop = lapack::Gflop<scalar_t>::getrs(n, nrhs);
 
     if (! ref_only) {
-        if (trace) slate::trace::Trace::on();
-        else slate::trace::Trace::off();
-
-        // run test
-        {
-            slate::trace::Block trace_block("MPI_Barrier");
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
-
-        slate::Pivots pivots;
-
         // Factor matrix A.
         slate::getrf(A, pivots, {
             {slate::Option::Lookahead, lookahead},

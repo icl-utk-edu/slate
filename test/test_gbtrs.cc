@@ -100,6 +100,7 @@ template <typename scalar_t> void test_gbtrs_work(Params& params, bool run)
                  n, n, kl, ku, nb, p, q, MPI_COMM_WORLD);
     auto Aorig = slate::BandMatrix<scalar_t>(
                      n, n, kl, ku, nb, p, q, MPI_COMM_WORLD);
+    slate::Pivots pivots;
 
     std::vector<int64_t> iseeds = { myrow, mycol, 2, 3 };
     std::vector<int64_t> iseeds_save = iseeds;
@@ -143,17 +144,6 @@ template <typename scalar_t> void test_gbtrs_work(Params& params, bool run)
     double gflop = lapack::Gflop<scalar_t>::getrs(n, nrhs);
 
     if (! ref_only) {
-        if (trace) slate::trace::Trace::on();
-        else slate::trace::Trace::off();
-
-        // run test
-        {
-            slate::trace::Block trace_block("MPI_Barrier");
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
-
-        slate::Pivots pivots;
-
         // Factor matrix A.
         slate::gbtrf(A, pivots, {
             {slate::Option::Lookahead, lookahead},
@@ -168,6 +158,13 @@ template <typename scalar_t> void test_gbtrs_work(Params& params, bool run)
         else if (trans == blas::Op::ConjTrans)
             opA = conj_transpose(A);
 
+        if (trace) slate::trace::Trace::on();
+        else slate::trace::Trace::off();
+
+        {
+            slate::trace::Block trace_block("MPI_Barrier");
+            MPI_Barrier(MPI_COMM_WORLD);
+        }
         double time = libtest::get_wtime();
 
         //==================================================

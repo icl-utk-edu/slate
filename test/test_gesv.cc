@@ -98,7 +98,7 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
     // Create SLATE matrix from the ScaLAPACK layouts
     auto A = slate::Matrix<scalar_t>::fromScaLAPACK(Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
-    // slate::Matrix<scalar_t> A_orig;
+    slate::Pivots pivots;
 
     // if check is required, copy test data and create a descriptor for it
     std::vector<scalar_t> A_ref;
@@ -129,9 +129,6 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
             slate::trace::Block trace_block("MPI_Barrier");
             MPI_Barrier(MPI_COMM_WORLD);
         }
-
-        slate::Pivots pivots;
-
         double time = libtest::get_wtime();
 
         //==================================================

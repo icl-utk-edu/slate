@@ -85,6 +85,7 @@ template <typename scalar_t> void test_getrf_work(Params& params, bool run)
 
     // Create SLATE matrix from the ScaLAPACK layouts
     auto A = slate::Matrix<scalar_t>::fromScaLAPACK(Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+    slate::Pivots pivots;
 
     // if check is required, copy test data and create a descriptor for it
     std::vector<scalar_t> A_ref;
@@ -96,19 +97,16 @@ template <typename scalar_t> void test_getrf_work(Params& params, bool run)
         ipiv_ref.resize(ipiv_tst.size());
     }
 
-    if (trace) slate::trace::Trace::on();
-    else slate::trace::Trace::off();
-
-    // run test
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-
-    slate::Pivots pivots;
     double gflop = lapack::Gflop<scalar_t>::getrf(m, n);
 
     if (! ref_only) {
+        if (trace) slate::trace::Trace::on();
+        else slate::trace::Trace::off();
+
+        {
+            slate::trace::Block trace_block("MPI_Barrier");
+            MPI_Barrier(MPI_COMM_WORLD);
+        }
         double time = libtest::get_wtime();
 
         //==================================================

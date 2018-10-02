@@ -113,17 +113,16 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
             B_orig = B_tst;
     }
 
-    if (trace) slate::trace::Trace::on();
-    else slate::trace::Trace::off();
-
-    // run test
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
     double gflop = lapack::Gflop<scalar_t>::posv(n, nrhs);
 
     if (! ref_only) {
+        if (trace) slate::trace::Trace::on();
+        else slate::trace::Trace::off();
+
+        {
+            slate::trace::Block trace_block("MPI_Barrier");
+            MPI_Barrier(MPI_COMM_WORLD);
+        }
         double time = libtest::get_wtime();
 
         //==================================================

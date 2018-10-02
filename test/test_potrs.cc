@@ -115,21 +115,19 @@ template <typename scalar_t> void test_potrs_work(Params& params, bool run)
     double gflop = lapack::Gflop<scalar_t>::potrs(n, nrhs);
 
     if (! ref_only) {
-        if (trace) slate::trace::Trace::on();
-        else slate::trace::Trace::off();
-
-        // run test
-        {
-            slate::trace::Block trace_block("MPI_Barrier");
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
-
         // Factor matrix A.
         slate::potrf(A, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target}
         });
 
+        if (trace) slate::trace::Trace::on();
+        else slate::trace::Trace::off();
+
+        {
+            slate::trace::Block trace_block("MPI_Barrier");
+            MPI_Barrier(MPI_COMM_WORLD);
+        }
         double time = libtest::get_wtime();
 
         //==================================================

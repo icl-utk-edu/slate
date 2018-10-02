@@ -57,7 +57,7 @@ void test_gbnorm_work(Params& params, bool run)
         return;
 
     // local values
-    static int i0 = 0, i1 = 1;
+    const int izero = 0, ione = 1;
 
     int mpi_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
@@ -75,10 +75,10 @@ void test_gbnorm_work(Params& params, bool run)
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = scalapack_numroc(m, nb, myrow, i0, nprow);
-    int64_t nlocA = scalapack_numroc(n, nb, mycol, i0, npcol);
+    int64_t mlocA = scalapack_numroc(m, nb, myrow, izero, nprow);
+    int64_t nlocA = scalapack_numroc(n, nb, mycol, izero, npcol);
     int64_t lldA  = std::max(int64_t(1), mlocA);
-    scalapack_descinit(descA_tst, m, n, nb, nb, i0, i0, ictxt, lldA, &info);
+    scalapack_descinit(descA_tst, m, n, nb, nb, izero, izero, ictxt, lldA, &info);
     assert(info == 0);
     std::vector<scalar_t> A_tst(lldA*nlocA);
     // todo: fix the generation
@@ -146,7 +146,7 @@ void test_gbnorm_work(Params& params, bool run)
         time = libtest::get_wtime();
         real_t A_norm_ref = scalapack_plange(
                                 norm2str(norm),
-                                m, n, &A_tst[0], i1, i1, descA_tst, &worklange[0]);
+                                m, n, &A_tst[0], ione, ione, descA_tst, &worklange[0]);
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 

@@ -55,7 +55,7 @@ void test_henorm_work(Params& params, bool run)
     int64_t An = n;
 
     // local values
-    static int i0 = 0, i1 = 1;
+    const int izero = 0, ione = 1;
 
     int mpi_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
@@ -73,10 +73,10 @@ void test_henorm_work(Params& params, bool run)
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = scalapack_numroc(An, nb, myrow, i0, nprow);
-    int64_t nlocA = scalapack_numroc(An, nb, mycol, i0, npcol);
+    int64_t mlocA = scalapack_numroc(An, nb, myrow, izero, nprow);
+    int64_t nlocA = scalapack_numroc(An, nb, mycol, izero, npcol);
     int64_t lldA  = std::max(int64_t(1), mlocA);
-    scalapack_descinit(descA_tst, An, An, nb, nb, i0, i0, ictxt, lldA, &info);
+    scalapack_descinit(descA_tst, An, An, nb, nb, izero, izero, ictxt, lldA, &info);
     assert(info == 0);
     std::vector<scalar_t> A_tst(lldA*nlocA);
     // todo: fix the generation
@@ -99,7 +99,7 @@ void test_henorm_work(Params& params, bool run)
     if (target == slate::Target::Devices) {
         // Distribute local ScaLAPACK data in 1D-cyclic fashion to GPU devices.
         for (int device = 0; device < A.num_devices(); ++device) {
-            int64_t ndevA = scalapack_numroc(nlocA, nb, device, i0, A.num_devices());
+            int64_t ndevA = scalapack_numroc(nlocA, nb, device, izero, A.num_devices());
             size_t len = blas::max((int64_t)sizeof(scalar_t)*lldA*ndevA, 1);
             slate_cuda_call(
                 cudaSetDevice(device));
@@ -179,7 +179,7 @@ void test_henorm_work(Params& params, bool run)
         time = libtest::get_wtime();
         real_t A_norm_ref = scalapack_planhe(
                                 norm2str(norm), uplo2str(A.uplo()),
-                                An, &A_tst[0], i1, i1, descA_tst, &worklanhe[0]);
+                                An, &A_tst[0], ione, ione, descA_tst, &worklanhe[0]);
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 
@@ -293,7 +293,7 @@ void test_henorm_work(Params& params, bool run)
 
                         real_t A_norm_ref = scalapack_planhe(
                                                 norm2str(norm), uplo2str(A.uplo()),
-                                                An, &A_tst[0], i1, i1, descA_tst, &worklanhe[0]);
+                                                An, &A_tst[0], ione, ione, descA_tst, &worklanhe[0]);
 
                         // difference between norms
                         real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;

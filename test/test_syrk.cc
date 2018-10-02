@@ -59,7 +59,7 @@ void test_syrk_work(Params& params, bool run)
     int64_t Cn = n;
 
     // Local values
-    static int i0 = 0, i1 = 1;
+    const int izero = 0, ione = 1;
 
     // BLACS/MPI variables
     int ictxt, nprow, npcol, myrow, mycol, info;
@@ -75,18 +75,18 @@ void test_syrk_work(Params& params, bool run)
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = scalapack_numroc(Am, nb, myrow, i0, nprow);
-    int64_t nlocA = scalapack_numroc(An, nb, mycol, i0, npcol);
-    scalapack_descinit(descA_tst, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
+    int64_t mlocA = scalapack_numroc(Am, nb, myrow, izero, nprow);
+    int64_t nlocA = scalapack_numroc(An, nb, mycol, izero, npcol);
+    scalapack_descinit(descA_tst, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
     assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
     scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
 
     // matrix C, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocC = scalapack_numroc(Cm, nb, myrow, i0, nprow);
-    int64_t nlocC = scalapack_numroc(Cn, nb, mycol, i0, npcol);
-    scalapack_descinit(descC_tst, Cm, Cn, nb, nb, i0, i0, ictxt, mlocC, &info);
+    int64_t mlocC = scalapack_numroc(Cm, nb, myrow, izero, nprow);
+    int64_t nlocC = scalapack_numroc(Cn, nb, mycol, izero, npcol);
+    scalapack_descinit(descC_tst, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
     assert(info == 0);
     int64_t lldC = (int64_t)descC_tst[8];
     std::vector<scalar_t> C_tst(lldC*nlocC);
@@ -96,7 +96,7 @@ void test_syrk_work(Params& params, bool run)
     std::vector<scalar_t> C_ref;
     if (check || ref) {
         C_ref = C_tst;
-        scalapack_descinit(descC_ref, Cm, Cn, nb, nb, i0, i0, ictxt, mlocC, &info);
+        scalapack_descinit(descC_ref, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
         assert(info == 0);
     }
 
@@ -153,15 +153,15 @@ void test_syrk_work(Params& params, bool run)
         std::vector<real_t> worklange(std::max({ mlocA, nlocA }));
 
         // get norms of the original data
-        real_t A_norm = scalapack_plange(norm2str(norm), Am, An, &A_tst[0], i1, i1, descA_tst, &worklange[0]);
-        real_t C_orig_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn, &C_ref[0], i1, i1, descC_ref, &worklansy[0]);
+        real_t A_norm = scalapack_plange(norm2str(norm), Am, An, &A_tst[0], ione, ione, descA_tst, &worklange[0]);
+        real_t C_orig_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn, &C_ref[0], ione, ione, descC_ref, &worklansy[0]);
 
         // run the reference routine
         MPI_Barrier(MPI_COMM_WORLD);
         time = libtest::get_wtime();
         scalapack_psyrk(uplo2str(uplo), op2str(transA), n, k, alpha,
-                        &A_tst[0], i1, i1, descA_tst, beta,
-                        &C_ref[0], i1, i1, descC_ref);
+                        &A_tst[0], ione, ione, descA_tst, beta,
+                        &C_ref[0], ione, ione, descC_ref);
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 
@@ -169,7 +169,7 @@ void test_syrk_work(Params& params, bool run)
         blas::axpy(C_ref.size(), -1.0, &C_tst[0], 1, &C_ref[0], 1);
 
         // norm(C_ref - C_tst)
-        real_t C_diff_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn, &C_ref[0], i1, i1, descC_ref, &worklansy[0]);
+        real_t C_diff_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn, &C_ref[0], ione, ione, descC_ref, &worklansy[0]);
 
         real_t error = C_diff_norm
                      / (sqrt(real_t(k) + 2) * std::abs(alpha) * A_norm * A_norm

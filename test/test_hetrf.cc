@@ -54,7 +54,7 @@ template <typename scalar_t> void test_hetrf_work(Params& params, bool run)
 
     //---------------------
     // Local values
-    static int i0 = 0, i1 = 1;
+    const int izero = 0, ione = 1;
 
     //---------------------
     // BLACS/MPI variables
@@ -73,9 +73,9 @@ template <typename scalar_t> void test_hetrf_work(Params& params, bool run)
 
     //---------------------
     // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = scalapack_numroc(Am, nb, myrow, i0, nprow);
-    int64_t nlocA = scalapack_numroc(An, nb, mycol, i0, npcol);
-    scalapack_descinit(descA_tst, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
+    int64_t mlocA = scalapack_numroc(Am, nb, myrow, izero, nprow);
+    int64_t nlocA = scalapack_numroc(An, nb, mycol, izero, npcol);
+    scalapack_descinit(descA_tst, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
     assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
@@ -102,7 +102,7 @@ template <typename scalar_t> void test_hetrf_work(Params& params, bool run)
     std::vector<scalar_t> A_ref;
     if (check) {
         A_ref = A_tst;
-        scalapack_descinit(descA_ref, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
+        scalapack_descinit(descA_ref, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
     }
 
     if (trace) slate::trace::Trace::on();
@@ -142,9 +142,9 @@ template <typename scalar_t> void test_hetrf_work(Params& params, bool run)
         std::vector<scalar_t> B_ref;
 
         // matrix B, figure out local size, allocate, create descriptor, initialize
-        int64_t mlocB = scalapack_numroc(Bm, nb, myrow, i0, nprow);
-        int64_t nlocB = scalapack_numroc(Bn, nb, mycol, i0, npcol);
-        scalapack_descinit(descB_tst, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
+        int64_t mlocB = scalapack_numroc(Bm, nb, myrow, izero, nprow);
+        int64_t nlocB = scalapack_numroc(Bn, nb, mycol, izero, npcol);
+        scalapack_descinit(descB_tst, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
         assert(info == 0);
         int64_t lldB = (int64_t)descB_tst[8];
         std::vector<scalar_t> B_tst(lldB*nlocB);
@@ -152,7 +152,7 @@ template <typename scalar_t> void test_hetrf_work(Params& params, bool run)
 
         B_ref.resize(B_tst.size());
         B_ref = B_tst;
-        scalapack_descinit(descB_ref, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
+        scalapack_descinit(descB_ref, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
         assert(info == 0);
 
         auto B = slate::Matrix<scalar_t>::fromScaLAPACK(Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
@@ -168,21 +168,21 @@ template <typename scalar_t> void test_hetrf_work(Params& params, bool run)
         std::vector<real_t> worklangeB(std::max({mlocB, nlocB}));
 
         // Norm of the orig matrix: || A ||_I
-        real_t A_norm = scalapack_plange(norm2str(norm), Am, An, &A_ref[0], i1, i1, descA_ref, &worklangeA[0]);
+        real_t A_norm = scalapack_plange(norm2str(norm), Am, An, &A_ref[0], ione, ione, descA_ref, &worklangeA[0]);
         // norm of updated rhs matrix: || X ||_I
-        real_t X_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_tst[0], i1, i1, descB_tst, &worklangeB[0]);
+        real_t X_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_tst[0], ione, ione, descB_tst, &worklangeB[0]);
 
         // B_ref -= Aref*B_tst
         scalapack_phemm("Left", "Lower",
                         Bm, Bn,
                         scalar_t(-1.0),
-                        &A_ref[0], i1, i1, descA_ref,
-                        &B_tst[0], i1, i1, descB_tst,
+                        &A_ref[0], ione, ione, descA_ref,
+                        &B_tst[0], ione, ione, descB_tst,
                         scalar_t(1.0),
-                        &B_ref[0], i1, i1, descB_ref);
+                        &B_ref[0], ione, ione, descB_ref);
 
         // || B - AX ||_I
-        real_t R_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_ref[0], i1, i1, descB_ref, &worklangeB[0]);
+        real_t R_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_ref[0], ione, ione, descB_ref, &worklangeB[0]);
 
         double residual = R_norm / (n*A_norm*X_norm);
         params.error.value() = residual;

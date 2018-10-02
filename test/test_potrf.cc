@@ -53,7 +53,7 @@ template <typename scalar_t> void test_potrf_work(Params& params, bool run)
     int64_t An = n;
 
     // Local values
-    static int i0 = 0, i1 = 1;
+    const int izero = 0, ione = 1;
 
     // BLACS/MPI variables
     int ictxt, nprow, npcol, myrow, mycol, info;
@@ -69,9 +69,9 @@ template <typename scalar_t> void test_potrf_work(Params& params, bool run)
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = scalapack_numroc(Am, nb, myrow, i0, nprow);
-    int64_t nlocA = scalapack_numroc(An, nb, mycol, i0, npcol);
-    scalapack_descinit(descA_tst, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
+    int64_t mlocA = scalapack_numroc(Am, nb, myrow, izero, nprow);
+    int64_t nlocA = scalapack_numroc(An, nb, mycol, izero, npcol);
+    scalapack_descinit(descA_tst, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
     assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
@@ -84,7 +84,7 @@ template <typename scalar_t> void test_potrf_work(Params& params, bool run)
     std::vector<scalar_t> A_ref;
     if (check || ref) {
         A_ref = A_tst;
-        scalapack_descinit(descA_ref, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
+        scalapack_descinit(descA_ref, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
         assert(info == 0);
     }
     double gflop = lapack::Gflop<scalar_t>::potrf(n);
@@ -132,7 +132,7 @@ template <typename scalar_t> void test_potrf_work(Params& params, bool run)
         // Run the reference routine on A_ref
         MPI_Barrier(MPI_COMM_WORLD);
         double time = libtest::get_wtime();
-        scalapack_ppotrf(uplo2str(uplo), n, &A_ref[0], i1, i1, descA_ref, &info);
+        scalapack_ppotrf(uplo2str(uplo), n, &A_ref[0], ione, ione, descA_ref, &info);
         assert(0 == info);
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
@@ -145,13 +145,13 @@ template <typename scalar_t> void test_potrf_work(Params& params, bool run)
             std::vector<real_t> worklansy(2*nlocA + mlocA + ldw);
 
             // norm of A
-            real_t A_ref_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), n, &A_ref[0], i1, i1, descA_ref, &worklansy[0]);
+            real_t A_ref_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), n, &A_ref[0], ione, ione, descA_ref, &worklansy[0]);
 
             // local operation: error = A_ref = A_ref - A_tst
             blas::axpy(A_ref.size(), -1.0, &A_tst[0], 1, &A_ref[0], 1);
 
             // error = norm(error)
-            real_t error_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), n, &A_ref[0], i1, i1, descA_ref, &worklansy[0]);
+            real_t error_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), n, &A_ref[0], ione, ione, descA_ref, &worklansy[0]);
 
             // error = error / norm;
             if (error_norm != 0)

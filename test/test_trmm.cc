@@ -62,7 +62,7 @@ void test_trmm_work(Params& params, bool run)
     int64_t Bn  = (transB == blas::Op::NoTrans ? n : m);
 
     // Local values
-    static int i0 = 0, i1 = 1;
+    const int izero = 0, ione = 1;
 
     // BLACS/MPI variables
     int ictxt, nprow, npcol, myrow, mycol, info;
@@ -79,18 +79,18 @@ void test_trmm_work(Params& params, bool run)
 
     // todo: matrix a is a unit, or non-unit, upper or lower triangular distributed matrix,
     // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = scalapack_numroc(Am, nb, myrow, i0, nprow);
-    int64_t nlocA = scalapack_numroc(An, nb, mycol, i0, npcol);
-    scalapack_descinit(descA_tst, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
+    int64_t mlocA = scalapack_numroc(Am, nb, myrow, izero, nprow);
+    int64_t nlocA = scalapack_numroc(An, nb, mycol, izero, npcol);
+    scalapack_descinit(descA_tst, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
     assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
     scalapack_pplghe(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocB = scalapack_numroc(Bm, nb, myrow, i0, nprow);
-    int64_t nlocB = scalapack_numroc(Bn, nb, mycol, i0, npcol);
-    scalapack_descinit(descB_tst, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
+    int64_t mlocB = scalapack_numroc(Bm, nb, myrow, izero, nprow);
+    int64_t nlocB = scalapack_numroc(Bn, nb, mycol, izero, npcol);
+    scalapack_descinit(descB_tst, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
     assert(info == 0);
     int64_t lldB = (int64_t)descB_tst[8];
     std::vector<scalar_t> B_tst(lldB*nlocB);
@@ -100,7 +100,7 @@ void test_trmm_work(Params& params, bool run)
     std::vector<scalar_t> B_ref;
     if (check || ref) {
         B_ref = B_tst;
-        scalapack_descinit(descB_ref, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
+        scalapack_descinit(descB_ref, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
         assert(info == 0);
     }
 
@@ -162,16 +162,16 @@ void test_trmm_work(Params& params, bool run)
         std::vector<real_t> worklange(std::max({ mlocB, nlocB }));
 
         // get norms of the original data
-        real_t A_norm = scalapack_plantr(norm2str(norm), uplo2str(uplo), diag2str(diag), Am, An, &A_tst[0], i1, i1, descA_tst, &worklantr[0]);
-        real_t B_orig_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_tst[0], i1, i1, descB_tst, &worklange[0]);
+        real_t A_norm = scalapack_plantr(norm2str(norm), uplo2str(uplo), diag2str(diag), Am, An, &A_tst[0], ione, ione, descA_tst, &worklantr[0]);
+        real_t B_orig_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_tst[0], ione, ione, descB_tst, &worklange[0]);
 
         // run the reference routine
         MPI_Barrier(MPI_COMM_WORLD);
         time = libtest::get_wtime();
         scalapack_ptrmm(side2str(side), uplo2str(uplo), op2str(transA), diag2str(diag),
                         m, n, alpha,
-                        &A_tst[0], i1, i1, descA_tst,
-                        &B_ref[0], i1, i1, descB_ref);
+                        &A_tst[0], ione, ione, descA_tst,
+                        &B_ref[0], ione, ione, descB_ref);
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 
@@ -179,7 +179,7 @@ void test_trmm_work(Params& params, bool run)
         blas::axpy(B_ref.size(), -1.0, &B_tst[0], 1, &B_ref[0], 1);
 
         // norm(B_ref - B_tst)
-        real_t B_diff_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_ref[0], i1, i1, descB_ref, &worklange[0]);
+        real_t B_diff_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_ref[0], ione, ione, descB_ref, &worklange[0]);
 
         real_t error = B_diff_norm
                      / (sqrt(real_t(Am) + 2) * std::abs(alpha) * A_norm * B_orig_norm);

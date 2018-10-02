@@ -68,7 +68,7 @@ template <typename scalar_t> void test_gbtrs_work(Params& params, bool run)
     int64_t Bn = nrhs;
 
     // Local values
-    static int i0 = 0, i1 = 1;
+    const int izero = 0, ione = 1;
 
     // BLACS/MPI variables
     int ictxt, nprow, npcol, myrow, mycol, info;
@@ -85,9 +85,9 @@ template <typename scalar_t> void test_gbtrs_work(Params& params, bool run)
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocB = scalapack_numroc(Bm, nb, myrow, i0, nprow);
-    int64_t nlocB = scalapack_numroc(Bn, nb, mycol, i0, npcol);
-    scalapack_descinit(descB_tst, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
+    int64_t mlocB = scalapack_numroc(Bm, nb, myrow, izero, nprow);
+    int64_t nlocB = scalapack_numroc(Bn, nb, mycol, izero, npcol);
+    scalapack_descinit(descB_tst, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
     assert(info == 0);
     int64_t lldB = (int64_t)descB_tst[8];
     std::vector<scalar_t> B_tst(lldB*nlocB);
@@ -134,7 +134,7 @@ template <typename scalar_t> void test_gbtrs_work(Params& params, bool run)
     std::vector<scalar_t> B_ref;
     if (check || ref) {
         B_ref = B_tst;
-        scalapack_descinit(descB_ref, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
+        scalapack_descinit(descB_ref, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
         assert(info == 0);
 
         Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
@@ -234,7 +234,7 @@ template <typename scalar_t> void test_gbtrs_work(Params& params, bool run)
         // Norm of the orig matrix: || A ||_I
         real_t A_norm = slate::norm(norm, Aorig);
         // norm of updated rhs matrix: || X ||_I
-        real_t X_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_tst[0], i1, i1, descB_tst, &worklangeB[0]);
+        real_t X_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_tst[0], ione, ione, descB_tst, &worklangeB[0]);
 
         // B_ref -= op(Aorig)*B
         auto opAorig = Aorig;
@@ -245,7 +245,7 @@ template <typename scalar_t> void test_gbtrs_work(Params& params, bool run)
         slate::gbmm(scalar_t(-1.0), opAorig, B, scalar_t(1.0), Bref);
 
         // || B - AX ||_I
-        real_t R_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_ref[0], i1, i1, descB_ref, &worklangeB[0]);
+        real_t R_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_ref[0], ione, ione, descB_ref, &worklangeB[0]);
         double residual = R_norm / (n*A_norm*X_norm);
         params.error.value() = residual;
 

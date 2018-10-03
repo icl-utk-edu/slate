@@ -36,23 +36,23 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
     int64_t nrhs = params.nrhs();
     int64_t kl = params.kl();
     int64_t ku = params.ku();
-    int64_t p = params.p.value();
-    int64_t q = params.q.value();
-    int64_t nb = params.nb.value();
-    int64_t lookahead = params.lookahead.value();
-    int64_t panel_threads = params.panel_threads.value();
-    lapack::Norm norm = params.norm.value();  // TODO: probably should be specified
-    bool check = params.check.value() == 'y';
-    bool ref = params.ref.value() == 'y';
-    bool trace = params.trace.value() == 'y';
-    int verbose = params.verbose.value();
-    slate::Target target = char2target(params.target.value());  // TODO: enum
+    int64_t p = params.p();
+    int64_t q = params.q();
+    int64_t nb = params.nb();
+    int64_t lookahead = params.lookahead();
+    int64_t panel_threads = params.panel_threads();
+    lapack::Norm norm = params.norm();  // TODO: probably should be specified
+    bool check = params.check() == 'y';
+    bool ref = params.ref() == 'y';
+    bool trace = params.trace() == 'y';
+    int verbose = params.verbose();
+    slate::Target target = char2target(params.target());  // TODO: enum
 
     // mark non-standard output values
-    params.time.value();
-    params.gflops.value();
-    params.ref_time.value();
-    params.ref_gflops.value();
+    params.time();
+    params.gflops();
+    params.ref_time();
+    params.ref_gflops();
 
     if (! run)
         return;
@@ -172,8 +172,8 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
 
     // compute and save timing/performance
     ///double gflop = lapack::Gflop<scalar_t>::gbsv(m, n);
-    params.time.value() = time_tst;
-    ///params.gflops.value() = gflop / time_tst;
+    params.time() = time_tst;
+    ///params.gflops() = gflop / time_tst;
 
     if (verbose > 1) {
         printf("%% rank %d A2 kl %lld, ku %lld\n",
@@ -219,14 +219,14 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
     ///     if (A_ref_norm != 0)
     ///         error_norm /= A_ref_norm;
     ///
-    ///     params.ref_time.value() = time_ref;
-    ///     params.ref_gflops.value() = gflop / time_ref;
-    ///     params.error.value() = error_norm;
+    ///     params.ref_time() = time_ref;
+    ///     params.ref_gflops() = gflop / time_ref;
+    ///     params.error() = error_norm;
     ///
     ///     slate_set_num_blas_threads(saved_num_threads);
     ///
     ///     real_t eps = std::numeric_limits<real_t>::epsilon();
-    ///     params.okay.value() = (params.error.value() <= 3*eps);
+    ///     params.okay() = (params.error() <= 3*eps);
     /// }
 
     // Cblacs_exit is commented out because it does not handle re-entering ... some unknown problem
@@ -236,7 +236,7 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
 // -----------------------------------------------------------------------------
 void test_gbsv(Params& params, bool run)
 {
-    switch (params.datatype.value()) {
+    switch (params.datatype()) {
         case libtest::DataType::Integer:
             throw std::exception();
             break;

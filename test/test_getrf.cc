@@ -29,24 +29,24 @@ template <typename scalar_t> void test_getrf_work(Params& params, bool run)
     // get & mark input values
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
-    int64_t p = params.p.value();
-    int64_t q = params.q.value();
-    int64_t nb = params.nb.value();
-    int64_t ib = params.ib.value();
-    int64_t lookahead = params.lookahead.value();
-    int64_t panel_threads = params.panel_threads.value();
-    lapack::Norm norm = params.norm.value();
-    bool ref_only = params.ref.value() == 'o';
-    bool ref = params.ref.value() == 'y' || ref_only;
-    bool check = params.check.value() == 'y' && ! ref_only;
-    bool trace = params.trace.value() == 'y';
-    slate::Target target = char2target(params.target.value());
+    int64_t p = params.p();
+    int64_t q = params.q();
+    int64_t nb = params.nb();
+    int64_t ib = params.ib();
+    int64_t lookahead = params.lookahead();
+    int64_t panel_threads = params.panel_threads();
+    lapack::Norm norm = params.norm();
+    bool ref_only = params.ref() == 'o';
+    bool ref = params.ref() == 'y' || ref_only;
+    bool check = params.check() == 'y' && ! ref_only;
+    bool trace = params.trace() == 'y';
+    slate::Target target = char2target(params.target());
 
     // mark non-standard output values
-    params.time.value();
-    params.gflops.value();
-    params.ref_time.value();
-    params.ref_gflops.value();
+    params.time();
+    params.gflops();
+    params.ref_time();
+    params.ref_gflops();
 
     if (! run)
         return;
@@ -129,8 +129,8 @@ template <typename scalar_t> void test_getrf_work(Params& params, bool run)
         if (trace) slate::trace::Trace::finish();
 
         // compute and save timing/performance
-        params.time.value() = time_tst;
-        params.gflops.value() = gflop / time_tst;
+        params.time() = time_tst;
+        params.gflops() = gflop / time_tst;
     }
 
     //when matrix is square shaped
@@ -193,10 +193,10 @@ template <typename scalar_t> void test_getrf_work(Params& params, bool run)
         real_t R_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_ref[0], ione, ione, descB_ref, &worklangeB[0]);
 
         double residual = R_norm / (n*A_norm*X_norm);
-        params.error.value() = residual;
+        params.error() = residual;
 
-        real_t tol = params.tol.value() * 0.5 * std::numeric_limits<real_t>::epsilon();
-        params.okay.value() = (params.error.value() <= tol);
+        real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+        params.okay() = (params.error() <= tol);
     }
 
     if (ref || (check && (Am != An))) {
@@ -219,8 +219,8 @@ template <typename scalar_t> void test_getrf_work(Params& params, bool run)
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 
-        params.ref_time.value() = time_ref;
-        params.ref_gflops.value() = gflop / time_ref;
+        params.ref_time() = time_ref;
+        params.ref_gflops() = gflop / time_ref;
 
         //when matrix is rectangular, we cannot solve
         if (check && (Am != An)) {
@@ -242,10 +242,10 @@ template <typename scalar_t> void test_getrf_work(Params& params, bool run)
             if (A_ref_norm != 0)
                 error_norm /= A_ref_norm;
 
-            params.error.value() = error_norm;
+            params.error() = error_norm;
 
-            real_t tol = params.tol.value() * 0.5 * std::numeric_limits<real_t>::epsilon();
-            params.okay.value() = (params.error.value() <= tol);
+            real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+            params.okay() = (params.error() <= tol);
         }
 
         slate_set_num_blas_threads(saved_num_threads);
@@ -258,7 +258,7 @@ template <typename scalar_t> void test_getrf_work(Params& params, bool run)
 // -----------------------------------------------------------------------------
 void test_getrf(Params& params, bool run)
 {
-    switch (params.datatype.value()) {
+    switch (params.datatype()) {
         case libtest::DataType::Integer:
             throw std::exception();
             break;

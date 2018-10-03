@@ -33,31 +33,31 @@ template <typename scalar_t> void test_gbtrs_work(Params& params, bool run)
     using lld = long long;
 
     // get & mark input values
-    blas::Op trans = params.trans.value();
+    blas::Op trans = params.trans();
     int64_t m = params.dim.n();
     int64_t n = params.dim.n();
-    int64_t nrhs = params.nrhs.value();
-    int64_t kl = params.kl.value();
-    int64_t ku = params.ku.value();
-    int64_t p = params.p.value();
-    int64_t q = params.q.value();
-    int64_t nb = params.nb.value();
-    int64_t lookahead = params.lookahead.value();
-    int64_t panel_threads = params.panel_threads.value();
-    lapack::Norm norm = params.norm.value();
-    bool ref_only = params.ref.value() == 'o';
-    bool ref = params.ref.value() == 'y' || ref_only;
-    bool check = params.check.value() == 'y' && ! ref_only;
-    bool trace = params.trace.value() == 'y';
-    int verbose = params.verbose.value();
-    int matrix = params.matrix.value();
-    slate::Target target = char2target(params.target.value());
+    int64_t nrhs = params.nrhs();
+    int64_t kl = params.kl();
+    int64_t ku = params.ku();
+    int64_t p = params.p();
+    int64_t q = params.q();
+    int64_t nb = params.nb();
+    int64_t lookahead = params.lookahead();
+    int64_t panel_threads = params.panel_threads();
+    lapack::Norm norm = params.norm();
+    bool ref_only = params.ref() == 'o';
+    bool ref = params.ref() == 'y' || ref_only;
+    bool check = params.check() == 'y' && ! ref_only;
+    bool trace = params.trace() == 'y';
+    int verbose = params.verbose();
+    int matrix = params.matrix();
+    slate::Target target = char2target(params.target());
 
     // mark non-standard output values
-    params.time.value();
-    //params.gflops.value();
-    //params.ref_time.value();
-    //params.ref_gflops.value();
+    params.time();
+    //params.gflops();
+    //params.ref_time();
+    //params.ref_gflops();
 
     if (!run)
         return;
@@ -185,8 +185,8 @@ template <typename scalar_t> void test_gbtrs_work(Params& params, bool run)
         if (trace) slate::trace::Trace::finish();
 
         // compute and save timing/performance
-        params.time.value() = time_tst;
-        //params.gflops.value() = gflop / time_tst;
+        params.time() = time_tst;
+        //params.gflops() = gflop / time_tst;
 
         if (verbose > 1) {
             printf("%% rank %d A2 kl %lld, ku %lld\n",
@@ -244,7 +244,7 @@ template <typename scalar_t> void test_gbtrs_work(Params& params, bool run)
         // || B - AX ||_I
         real_t R_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_ref[0], ione, ione, descB_ref, &worklangeB[0]);
         double residual = R_norm / (n*A_norm*X_norm);
-        params.error.value() = residual;
+        params.error() = residual;
 
         if (verbose > 0) {
             printf("Anorm = %.4e; Xnorm = %.4e; Rnorm = %.4e; error = %.4e;\n",
@@ -254,8 +254,8 @@ template <typename scalar_t> void test_gbtrs_work(Params& params, bool run)
             print_matrix("Residual", Bm, Bn, &B_ref[0], lldB, p, q, MPI_COMM_WORLD);
         }
 
-        real_t tol = params.tol.value() * 0.5 * std::numeric_limits<real_t>::epsilon();
-        params.okay.value() = (params.error.value() <= tol);
+        real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+        params.okay() = (params.error() <= tol);
     }
 
     // todo: reference solution requires setting up band matrix in ScaLAPACK's
@@ -268,7 +268,7 @@ template <typename scalar_t> void test_gbtrs_work(Params& params, bool run)
 // -----------------------------------------------------------------------------
 void test_gbtrs(Params& params, bool run)
 {
-    switch (params.datatype.value()) {
+    switch (params.datatype()) {
         case libtest::DataType::Integer:
             throw std::exception();
             break;

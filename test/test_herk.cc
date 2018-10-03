@@ -27,27 +27,27 @@ void test_herk_work(Params& params, bool run)
     using real_t = blas::real_type<scalar_t>;
 
     // get & mark input values
-    lapack::Uplo uplo = params.uplo.value();
-    blas::Op transA = params.trans.value();
+    lapack::Uplo uplo = params.uplo();
+    blas::Op transA = params.trans();
     int64_t n = params.dim.n();
     int64_t k = params.dim.k();
-    real_t alpha = params.alpha.value();
-    real_t beta = params.beta.value();
-    int64_t p = params.p.value();
-    int64_t q = params.q.value();
-    int64_t nb = params.nb.value();
-    int64_t lookahead = params.lookahead.value();
-    lapack::Norm norm = params.norm.value();
-    bool check = params.check.value() == 'y';
-    bool ref = params.ref.value() == 'y';
-    bool trace = params.trace.value() == 'y';
-    slate::Target target = char2target(params.target.value());
+    real_t alpha = params.alpha();
+    real_t beta = params.beta();
+    int64_t p = params.p();
+    int64_t q = params.q();
+    int64_t nb = params.nb();
+    int64_t lookahead = params.lookahead();
+    lapack::Norm norm = params.norm();
+    bool check = params.check() == 'y';
+    bool ref = params.ref() == 'y';
+    bool trace = params.trace() == 'y';
+    slate::Target target = char2target(params.target());
 
     // mark non-standard output values
-    params.time.value();
-    params.gflops.value();
-    params.ref_time.value();
-    params.ref_gflops.value();
+    params.time();
+    params.gflops();
+    params.ref_time();
+    params.ref_gflops();
 
     if (! run)
         return;
@@ -138,8 +138,8 @@ void test_herk_work(Params& params, bool run)
 
     // Compute and save timing/performance
     double gflop = blas::Gflop <scalar_t>::herk(n, k);
-    params.time.value() = time_tst;
-    params.gflops.value() = gflop / time_tst;
+    params.time() = time_tst;
+    params.gflops() = gflop / time_tst;
 
     if (check || ref) {
         // comparison with reference routine from ScaLAPACK
@@ -180,14 +180,14 @@ void test_herk_work(Params& params, bool run)
                      / (sqrt(real_t(k) + 2) * std::abs(alpha) * A_norm * A_norm
                         + 2 * std::abs(beta) * C_orig_norm);
 
-        params.ref_time.value() = time_ref;
-        params.ref_gflops.value() = gflop / time_ref;
-        params.error.value() = error;
+        params.ref_time() = time_ref;
+        params.ref_gflops() = gflop / time_ref;
+        params.error() = error;
 
         slate_set_num_blas_threads(saved_num_threads);
 
         real_t eps = std::numeric_limits<real_t>::epsilon();
-        params.okay.value() = (params.error.value() <= 3*eps);
+        params.okay() = (params.error() <= 3*eps);
     }
 
     //Cblacs_exit(1) is commented out because it does not handle re-entering ... some unknown problem
@@ -197,7 +197,7 @@ void test_herk_work(Params& params, bool run)
 // -----------------------------------------------------------------------------
 void test_herk(Params& params, bool run)
 {
-    switch (params.datatype.value()) {
+    switch (params.datatype()) {
         case libtest::DataType::Integer:
             throw std::exception();
             break;

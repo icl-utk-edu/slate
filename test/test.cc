@@ -250,20 +250,20 @@ Params::Params():
     panel_threads.name("panel\nthreads", "panel-threads");
 
     // mark standard set of output fields as used
-    okay  .value();
-    error .value();
-    time  .value();
+    okay();
+    error();
+    time();
 
     // mark framework parameters as used, so they will be accepted on the command line
-    check  .value();
-    error_exit.value();
-    ref    .value();
-    trace  .value();
-    tol    .value();
-    repeat .value();
-    verbose.value();
-    cache  .value();
-    target .value();
+    check();
+    error_exit();
+    ref();
+    trace();
+    tol();
+    repeat();
+    verbose();
+    cache();
+    target();
 
     // routine's parameters are marked by the test routine; see main
 }
@@ -403,8 +403,8 @@ int main(int argc, char** argv)
             if (p*q == mpi_size)
                 break;
         }
-        params.p.value() = p;
-        params.q.value() = q;
+        params.p() = p;
+        params.q() = q;
 
         // parse parameters after routine name
         try {
@@ -417,13 +417,13 @@ int main(int argc, char** argv)
         }
 
         // run tests
-        int repeat = params.repeat.value();
-        libtest::DataType last = params.datatype.value();
+        int repeat = params.repeat();
+        libtest::DataType last = params.datatype();
         if (print)
             params.header();
         do {
-            if (params.datatype.value() != last) {
-                last = params.datatype.value();
+            if (params.datatype() != last) {
+                last = params.datatype();
                 if (print)
                     printf("\n");
             }
@@ -436,10 +436,10 @@ int main(int argc, char** argv)
                 }
                 err = print_reduce_error(msg, mpi_rank, MPI_COMM_WORLD);
                 if (err)
-                    params.okay.value() = false;
+                    params.okay() = false;
                 if (print)
                     params.print();
-                status += ! params.okay.value();
+                status += ! params.okay();
                 params.reset_output();
                 msg.clear();
             }

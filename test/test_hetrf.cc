@@ -29,22 +29,22 @@ template <typename scalar_t> void test_hetrf_work(Params& params, bool run)
 
     //---------------------
     // get & mark input values
-    slate::Uplo uplo = params.uplo.value();
+    slate::Uplo uplo = params.uplo();
     int64_t n = params.dim.n();
-    int64_t p = params.p.value();
-    int64_t q = params.q.value();
-    int64_t nb = params.nb.value();
-    int64_t lookahead = params.lookahead.value();
-    int64_t panel_threads = params.panel_threads.value();
-    lapack::Norm norm = params.norm.value();
-    bool check = params.check.value() == 'y';
-    bool trace = params.trace.value() == 'y';
-    slate::Target target = char2target(params.target.value());
+    int64_t p = params.p();
+    int64_t q = params.q();
+    int64_t nb = params.nb();
+    int64_t lookahead = params.lookahead();
+    int64_t panel_threads = params.panel_threads();
+    lapack::Norm norm = params.norm();
+    bool check = params.check() == 'y';
+    bool trace = params.trace() == 'y';
+    slate::Target target = char2target(params.target());
 
     //---------------------
     // mark non-standard output values
-    params.time.value();
-    params.gflops.value();
+    params.time();
+    params.gflops();
 
     if (! run)
         return;
@@ -134,8 +134,8 @@ template <typename scalar_t> void test_hetrf_work(Params& params, bool run)
     //---------------------
     // compute and save timing/performance
     double gflop = lapack::Gflop<scalar_t>::potrf(n);
-    params.time.value() = time_tst;
-    params.gflops.value() = gflop / time_tst;
+    params.time() = time_tst;
+    params.gflops() = gflop / time_tst;
 
     if (check) {
         int64_t Bm = n;
@@ -187,10 +187,10 @@ template <typename scalar_t> void test_hetrf_work(Params& params, bool run)
         real_t R_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_ref[0], ione, ione, descB_ref, &worklangeB[0]);
 
         double residual = R_norm / (n*A_norm*X_norm);
-        params.error.value() = residual;
+        params.error() = residual;
 
-        real_t tol = params.tol.value() * 0.5 * std::numeric_limits<real_t>::epsilon();
-        params.okay.value() = (params.error.value() <= tol);
+        real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+        params.okay() = (params.error() <= tol);
     }
 
     // Cblacs_exit is commented out because it does not handle re-entering ... some unknown problem
@@ -200,7 +200,7 @@ template <typename scalar_t> void test_hetrf_work(Params& params, bool run)
 // -----------------------------------------------------------------------------
 void test_hetrf(Params& params, bool run)
 {
-    switch (params.datatype.value()) {
+    switch (params.datatype()) {
         case libtest::DataType::Integer:
             throw std::exception();
             break;

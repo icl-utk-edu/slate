@@ -31,22 +31,22 @@ void test_genorm_work(Params& params, bool run)
     using lld = long long;
 
     // get & mark input values
-    lapack::Norm norm = params.norm.value();
+    lapack::Norm norm = params.norm();
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
-    int64_t nb = params.nb.value();
-    int64_t p = params.p.value();
-    int64_t q = params.q.value();
-    bool check = params.check.value() == 'y';
-    bool ref = params.ref.value() == 'y';
-    bool trace = params.trace.value() == 'y';
-    int verbose = params.verbose.value();
-    int extended = params.extended.value();
-    slate::Target target = char2target(params.target.value());
+    int64_t nb = params.nb();
+    int64_t p = params.p();
+    int64_t q = params.q();
+    bool check = params.check() == 'y';
+    bool ref = params.ref() == 'y';
+    bool trace = params.trace() == 'y';
+    int verbose = params.verbose();
+    int extended = params.extended();
+    slate::Target target = char2target(params.target());
 
     // mark non-standard output values
-    params.time.value();
-    params.ref_time.value();
+    params.time();
+    params.ref_time();
 
     if (! run)
         return;
@@ -161,7 +161,7 @@ void test_genorm_work(Params& params, bool run)
     if (trace) slate::trace::Trace::finish();
 
     // compute and save timing/performance
-    params.time.value() = time_tst;
+    params.time() = time_tst;
 
     if (check || ref) {
         // comparison with reference routine from ScaLAPACK
@@ -215,13 +215,13 @@ void test_genorm_work(Params& params, bool run)
         else
             tol = 3*eps;
 
-        params.ref_time.value() = time_ref;
-        params.error.value() = error;
+        params.ref_time() = time_ref;
+        params.error() = error;
 
         slate_set_num_blas_threads(saved_num_threads);
 
         // Allow for difference
-        params.okay.value() = (params.error.value() <= tol);
+        params.okay() = (params.error() <= tol);
     }
 
     //---------- extended tests
@@ -323,7 +323,7 @@ void test_genorm_work(Params& params, bool run)
                             bool okay = (std::isnan(real(peak))
                                          ? std::isnan(A_norm)
                                          : error <= tol);
-                            params.okay.value() = params.okay.value() && okay;
+                            params.okay() = params.okay() && okay;
                             if (verbose || ! okay) {
                                 printf("i %5lld, j %5lld, ii %3lld, jj %3lld, peak %15.8e, norm %15.8e, ref %15.8e, error %9.2e, %s\n",
                                        (lld) i, (lld) j, (lld) ii, (lld) jj,
@@ -362,7 +362,7 @@ void test_genorm_work(Params& params, bool run)
 // -----------------------------------------------------------------------------
 void test_genorm(Params& params, bool run)
 {
-    switch (params.datatype.value()) {
+    switch (params.datatype()) {
         case libtest::DataType::Integer:
             throw std::exception();
             break;

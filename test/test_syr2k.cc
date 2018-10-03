@@ -18,12 +18,12 @@ template< typename scalar_t >
 void test_syr2k_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
-    using blas::Op;
+    using slate::Op;
     using slate::Norm;
 
     // get & mark input values
-    blas::Uplo uplo = params.uplo();
-    blas::Op trans = params.trans();
+    slate::Uplo uplo = params.uplo();
+    slate::Op trans = params.trans();
     int64_t n = params.dim.n();
     int64_t k = params.dim.k();
     scalar_t alpha = params.alpha();
@@ -32,7 +32,7 @@ void test_syr2k_work(Params& params, bool run)
     int64_t q = params.q();
     int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
-    lapack::Norm norm = params.norm();
+    slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
@@ -51,8 +51,8 @@ void test_syr2k_work(Params& params, bool run)
     slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 
     // setup so op(A) and op(B) are n-by-k
-    int64_t Am = (trans == blas::Op::NoTrans ? n : k);
-    int64_t An = (trans == blas::Op::NoTrans ? k : n);
+    int64_t Am = (trans == slate::Op::NoTrans ? n : k);
+    int64_t An = (trans == slate::Op::NoTrans ? k : n);
     int64_t Bm = Am;
     int64_t Bn = An;
     int64_t Cm = n;
@@ -114,11 +114,11 @@ void test_syr2k_work(Params& params, bool run)
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
     auto C = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(uplo, Cn, &C_tst[0], lldC, nb, nprow, npcol, MPI_COMM_WORLD);
 
-    if (trans == blas::Op::Trans) {
+    if (trans == slate::Op::Trans) {
         A = transpose(A);
         B = transpose(B);
     }
-    else if (trans == blas::Op::ConjTrans) {
+    else if (trans == slate::Op::ConjTrans) {
         A = conj_transpose(A);
         B = conj_transpose(B);
     }

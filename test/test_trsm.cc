@@ -18,16 +18,16 @@ template< typename scalar_t >
 void test_trsm_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
-    using blas::Op;
+    using slate::Op;
     using slate::Norm;
 
     // get & mark input values
-    blas::Side side = params.side();
-    lapack::Uplo uplo = params.uplo();
-    lapack::Op transA = params.transA();
+    slate::Side side = params.side();
+    slate::Uplo uplo = params.uplo();
+    slate::Op transA = params.transA();
     // ref. code to check can't do transB; disable for now.
-    //lapack::Op transB = params.transB();
-    blas::Diag diag = params.diag();
+    //slate::Op transB = params.transB();
+    slate::Diag diag = params.diag();
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
     scalar_t alpha = params.alpha();
@@ -35,7 +35,7 @@ void test_trsm_work(Params& params, bool run)
     int64_t q = params.q();
     int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
-    lapack::Norm norm = params.norm();
+    slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
@@ -54,7 +54,7 @@ void test_trsm_work(Params& params, bool run)
     slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 
     // setup so trans(B) is m-by-n
-    int64_t An  = (side == blas::Side::Left ? m : n);
+    int64_t An  = (side == slate::Side::Left ? m : n);
     int64_t Am  = An;
     int64_t Bm  = m;  //(transB == Op::NoTrans ? m : n);
     int64_t Bn  = n;  //(transB == Op::NoTrans ? n : m);

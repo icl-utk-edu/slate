@@ -24,7 +24,7 @@ void test_genorm_work(Params& params, bool run)
     using lld = long long;
 
     // get & mark input values
-    lapack::Norm norm = params.norm();
+    slate::Norm norm = params.norm();
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
     int64_t nb = params.nb();
@@ -185,13 +185,13 @@ void test_genorm_work(Params& params, bool run)
 
         // difference between norms
         real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
-        if (norm == lapack::Norm::One) {
+        if (norm == slate::Norm::One) {
             error /= sqrt(Am);
         }
-        else if (norm == lapack::Norm::Inf) {
+        else if (norm == slate::Norm::Inf) {
             error /= sqrt(An);
         }
-        else if (norm == lapack::Norm::Fro) {
+        else if (norm == slate::Norm::Fro) {
             error /= sqrt(Am*An);
         }
 
@@ -203,7 +203,7 @@ void test_genorm_work(Params& params, bool run)
         // Allow for difference, except max norm in real should be exact.
         real_t eps = std::numeric_limits<real_t>::epsilon();
         real_t tol;
-        if (norm == lapack::Norm::Max && ! slate::is_complex<scalar_t>::value)
+        if (norm == slate::Norm::Max && ! slate::is_complex<scalar_t>::value)
             tol = 0;
         else
             tol = 3*eps;
@@ -293,20 +293,20 @@ void test_genorm_work(Params& params, bool run)
 
                         // difference between norms
                         real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
-                        if (norm == lapack::Norm::One) {
+                        if (norm == slate::Norm::One) {
                             error /= sqrt(Am);
                         }
-                        else if (norm == lapack::Norm::Inf) {
+                        else if (norm == slate::Norm::Inf) {
                             error /= sqrt(An);
                         }
-                        else if (norm == lapack::Norm::Fro) {
+                        else if (norm == slate::Norm::Fro) {
                             error /= sqrt(Am*An);
                         }
 
                         // Allow for difference, except max norm in real should be exact.
                         real_t eps = std::numeric_limits<real_t>::epsilon();
                         real_t tol;
-                        if (norm == lapack::Norm::Max && ! slate::is_complex<scalar_t>::value)
+                        if (norm == slate::Norm::Max && ! slate::is_complex<scalar_t>::value)
                             tol = 0;
                         else
                             tol = 3*eps;

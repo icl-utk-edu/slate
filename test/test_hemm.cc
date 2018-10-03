@@ -21,8 +21,8 @@ void test_hemm_work(Params& params, bool run)
     using slate::Norm;
 
     // get & mark input values
-    blas::Side side = params.side();
-    blas::Uplo uplo = params.uplo();
+    slate::Side side = params.side();
+    slate::Uplo uplo = params.uplo();
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
     scalar_t alpha = params.alpha();
@@ -31,7 +31,7 @@ void test_hemm_work(Params& params, bool run)
     int64_t q = params.q();
     int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
-    lapack::Norm norm = params.norm();
+    slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
@@ -50,7 +50,7 @@ void test_hemm_work(Params& params, bool run)
     slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 
     // sizes of data
-    int64_t An = (side == blas::Side::Left ? m : n);
+    int64_t An = (side == slate::Side::Left ? m : n);
     int64_t Am = An;
     int64_t Bm = m;
     int64_t Bn = n;
@@ -114,7 +114,7 @@ void test_hemm_work(Params& params, bool run)
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
     auto C = slate::Matrix<scalar_t>::fromScaLAPACK(Cm, Cn, &C_tst[0], lldC, nb, nprow, npcol, MPI_COMM_WORLD);
 
-    if (side == blas::Side::Left)
+    if (side == slate::Side::Left)
         assert(A.mt() == C.mt());
     else
         assert(A.mt() == C.nt());

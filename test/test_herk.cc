@@ -21,8 +21,8 @@ void test_herk_work(Params& params, bool run)
     using slate::Norm;
 
     // get & mark input values
-    lapack::Uplo uplo = params.uplo();
-    blas::Op transA = params.trans();
+    slate::Uplo uplo = params.uplo();
+    slate::Op transA = params.trans();
     int64_t n = params.dim.n();
     int64_t k = params.dim.k();
     real_t alpha = params.alpha();
@@ -31,7 +31,7 @@ void test_herk_work(Params& params, bool run)
     int64_t q = params.q();
     int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
-    lapack::Norm norm = params.norm();
+    slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
@@ -50,8 +50,8 @@ void test_herk_work(Params& params, bool run)
     slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 
     // setup so op(A) is n-by-k
-    int64_t Am = (transA == blas::Op::NoTrans ? n : k);
-    int64_t An = (transA == blas::Op::NoTrans ? k : n);
+    int64_t Am = (transA == slate::Op::NoTrans ? n : k);
+    int64_t An = (transA == slate::Op::NoTrans ? k : n);
     int64_t Cm = n;
     int64_t Cn = n;
 
@@ -101,9 +101,9 @@ void test_herk_work(Params& params, bool run)
     auto A = slate::Matrix<scalar_t>::fromScaLAPACK(Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     auto C = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, Cn, &C_tst[0], lldC, nb, nprow, npcol, MPI_COMM_WORLD);
 
-    if (transA == blas::Op::Trans)
+    if (transA == slate::Op::Trans)
         A = transpose(A);
-    else if (transA == blas::Op::ConjTrans)
+    else if (transA == slate::Op::ConjTrans)
         A = conj_transpose(A);
     assert(A.mt() == C.mt());
 

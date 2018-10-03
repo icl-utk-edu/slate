@@ -29,7 +29,7 @@ template <typename scalar_t> void test_hetrf_work(Params& params, bool run)
     int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
     int64_t panel_threads = params.panel_threads();
-    lapack::Norm norm = params.norm();
+    slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
     slate::Target target = char2target(params.target());

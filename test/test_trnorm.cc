@@ -24,9 +24,9 @@ void test_trnorm_work(Params& params, bool run)
     using lld = long long;
 
     // get & mark input values
-    lapack::Norm norm = params.norm();
-    lapack::Uplo uplo = params.uplo();
-    lapack::Diag diag = params.diag();
+    slate::Norm norm = params.norm();
+    slate::Uplo uplo = params.uplo();
+    slate::Diag diag = params.diag();
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
     int64_t nb = params.nb();
@@ -58,8 +58,8 @@ void test_trnorm_work(Params& params, bool run)
 
     // upper requires m <= n,
     // lower requires m >= n
-    if (((uplo == blas::Uplo::Lower) && (m < n)) ||
-        ((uplo == blas::Uplo::Upper) && (m > n))) {
+    if (((uplo == slate::Uplo::Lower) && (m < n)) ||
+        ((uplo == slate::Uplo::Upper) && (m > n))) {
         if (mpi_rank == 0) {
             using lld = long long;
             printf("skipping invalid size: %s, %lld-by-%lld\n", uplo2str(uplo), (lld) m, (lld) n);
@@ -200,13 +200,13 @@ void test_trnorm_work(Params& params, bool run)
 
         // difference between norms
         real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
-        if (norm == lapack::Norm::One) {
+        if (norm == slate::Norm::One) {
             error /= sqrt(Am);
         }
-        else if (norm == lapack::Norm::Inf) {
+        else if (norm == slate::Norm::Inf) {
             error /= sqrt(An);
         }
-        else if (norm == lapack::Norm::Fro) {
+        else if (norm == slate::Norm::Fro) {
             error /= sqrt(Am*An);
         }
 
@@ -218,7 +218,7 @@ void test_trnorm_work(Params& params, bool run)
         // Allow for difference, except max norm in real should be exact.
         real_t eps = std::numeric_limits<real_t>::epsilon();
         real_t tol;
-        if (norm == lapack::Norm::Max && ! slate::is_complex<scalar_t>::value)
+        if (norm == slate::Norm::Max && ! slate::is_complex<scalar_t>::value)
             tol = 0;
         else
             tol = 3*eps;
@@ -260,7 +260,7 @@ void test_trnorm_work(Params& params, bool run)
             for (auto i : i_indices) {
                 // lower requires i >= j
                 // upper requires i <= j
-                if (i < 0 || i >= mt || (uplo == blas::Uplo::Lower ? i < j : i > j))
+                if (i < 0 || i >= mt || (uplo == slate::Uplo::Lower ? i < j : i > j))
                     continue;
                 int64_t ib = std::min(m - i*nb, nb);
                 assert(ib == A.tileMb(i));
@@ -285,7 +285,7 @@ void test_trnorm_work(Params& params, bool run)
 
                     for (auto ii : ii_indices) {
                         if (ii < 0 || ii >= ib ||
-                            (i == j && (uplo == blas::Uplo::Lower ? ii < jj : ii > jj))) {
+                            (i == j && (uplo == slate::Uplo::Lower ? ii < jj : ii > jj))) {
                             continue;
                         }
 
@@ -312,20 +312,20 @@ void test_trnorm_work(Params& params, bool run)
 
                         // difference between norms
                         real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
-                        if (norm == lapack::Norm::One) {
+                        if (norm == slate::Norm::One) {
                             error /= sqrt(Am);
                         }
-                        else if (norm == lapack::Norm::Inf) {
+                        else if (norm == slate::Norm::Inf) {
                             error /= sqrt(An);
                         }
-                        else if (norm == lapack::Norm::Fro) {
+                        else if (norm == slate::Norm::Fro) {
                             error /= sqrt(Am*An);
                         }
 
                         // Allow for difference, except max norm in real should be exact.
                         real_t eps = std::numeric_limits<real_t>::epsilon();
                         real_t tol;
-                        if (norm == lapack::Norm::Max && ! slate::is_complex<scalar_t>::value)
+                        if (norm == slate::Norm::Max && ! slate::is_complex<scalar_t>::value)
                             tol = 0;
                         else
                             tol = 3*eps;
@@ -334,7 +334,7 @@ void test_trnorm_work(Params& params, bool run)
                             // if peak is nan, expect A_norm to be nan,
                             // except in Unit case with i == j and ii == jj,
                             // where peak shouldn't affect A_norm.
-                            bool okay = (std::isnan(real(peak)) && !(diag == blas::Diag::Unit && i == j && ii == jj)
+                            bool okay = (std::isnan(real(peak)) && !(diag == slate::Diag::Unit && i == j && ii == jj)
                                          ? std::isnan(A_norm)
                                          : error <= tol);
                             params.okay() = params.okay() && okay;

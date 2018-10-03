@@ -39,14 +39,14 @@ public:
 
     // ----- routine parameters
     libtest::ParamEnum< libtest::DataType > datatype;
-    libtest::ParamEnum< blas::Layout >      layout;
-    libtest::ParamEnum< lapack::Side >      side;
-    libtest::ParamEnum< lapack::Uplo >      uplo;
-    libtest::ParamEnum< lapack::Op >        trans;
-    libtest::ParamEnum< lapack::Op >        transA;
-    libtest::ParamEnum< lapack::Op >        transB;
-    libtest::ParamEnum< lapack::Diag >      diag;
-    libtest::ParamEnum< lapack::Norm >      norm;
+    libtest::ParamEnum< slate::Layout >     layout;
+    libtest::ParamEnum< slate::Side >       side;
+    libtest::ParamEnum< slate::Uplo >       uplo;
+    libtest::ParamEnum< slate::Op >         trans;
+    libtest::ParamEnum< slate::Op >         transA;
+    libtest::ParamEnum< slate::Op >         transB;
+    libtest::ParamEnum< slate::Diag >       diag;
+    libtest::ParamEnum< slate::Norm >       norm;
     libtest::ParamEnum< lapack::Direct >    direct;
     libtest::ParamEnum< lapack::StoreV >    storev;
     libtest::ParamEnum< lapack::Job >       jobz;   // heev

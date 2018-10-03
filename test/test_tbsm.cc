@@ -28,12 +28,12 @@ void test_tbsm_work(Params& params, bool run)
     using slate::Norm;
 
     // get & mark input values
-    blas::Side side = params.side();
-    lapack::Uplo uplo = params.uplo();
-    lapack::Op transA = params.transA();
+    slate::Side side = params.side();
+    slate::Uplo uplo = params.uplo();
+    slate::Op transA = params.transA();
     // ref. code to check can't do transB; disable for now.
-    //lapack::Op transB = params.transB();
-    blas::Diag diag = params.diag();
+    //slate::Op transB = params.transB();
+    slate::Diag diag = params.diag();
     scalar_t alpha = params.alpha();
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
@@ -42,7 +42,7 @@ void test_tbsm_work(Params& params, bool run)
     int64_t p = params.p();
     int64_t q = params.q();
     int64_t lookahead = params.lookahead();
-    lapack::Norm norm = params.norm();
+    slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
@@ -64,10 +64,10 @@ void test_tbsm_work(Params& params, bool run)
     slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 
     // setup so trans(B) is m-by-n
-    int64_t An  = (side == blas::Side::Left ? m : n);
+    int64_t An  = (side == slate::Side::Left ? m : n);
     int64_t Am  = An;
-    int64_t Bm  = m;  //(transB == blas::Op::NoTrans ? m : n);
-    int64_t Bn  = n;  //(transB == blas::Op::NoTrans ? n : m);
+    int64_t Bm  = m;  //(transB == slate::Op::NoTrans ? m : n);
+    int64_t Bn  = n;  //(transB == slate::Op::NoTrans ? n : m);
 
     // local values
     const int izero = 0, ione = 1;
@@ -132,14 +132,14 @@ void test_tbsm_work(Params& params, bool run)
         }
     }
 
-    if (transA == blas::Op::Trans)
+    if (transA == slate::Op::Trans)
         A = transpose(A);
-    else if (transA == blas::Op::ConjTrans)
+    else if (transA == slate::Op::ConjTrans)
         A = conj_transpose(A);
 
-    //if (transB == blas::Op::Trans)
+    //if (transB == slate::Op::Trans)
     //    B = transpose(B);
-    //else if (transB == blas::Op::ConjTrans)
+    //else if (transB == slate::Op::ConjTrans)
     //    B = conj_transpose(B);
 
     if (verbose > 1) {

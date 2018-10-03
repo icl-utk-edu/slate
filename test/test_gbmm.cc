@@ -30,8 +30,8 @@ void test_gbmm_work(Params& params, bool run)
     using slate::Norm;
 
     // get & mark input values
-    blas::Op transA = params.transA();
-    blas::Op transB = params.transB();
+    slate::Op transA = params.transA();
+    slate::Op transB = params.transB();
     scalar_t alpha = params.alpha();
     scalar_t beta = params.beta();
     int64_t m = params.dim.m();
@@ -43,7 +43,7 @@ void test_gbmm_work(Params& params, bool run)
     int64_t p = params.p();
     int64_t q = params.q();
     int64_t lookahead = params.lookahead();
-    lapack::Norm norm = params.norm();
+    slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
@@ -63,10 +63,10 @@ void test_gbmm_work(Params& params, bool run)
     slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 
     // sizes of A and B
-    int64_t Am = (transA == blas::Op::NoTrans ? m : k);
-    int64_t An = (transA == blas::Op::NoTrans ? k : m);
-    int64_t Bm = (transB == blas::Op::NoTrans ? k : n);
-    int64_t Bn = (transB == blas::Op::NoTrans ? n : k);
+    int64_t Am = (transA == slate::Op::NoTrans ? m : k);
+    int64_t An = (transA == slate::Op::NoTrans ? k : m);
+    int64_t Bm = (transB == slate::Op::NoTrans ? k : n);
+    int64_t Bn = (transB == slate::Op::NoTrans ? n : k);
     int64_t Cm = m;
     int64_t Cn = n;
 
@@ -154,14 +154,14 @@ void test_gbmm_work(Params& params, bool run)
     }
 
     //printf("%% trans\n");
-    if (transA == blas::Op::Trans)
+    if (transA == slate::Op::Trans)
         A = transpose(A);
-    else if (transA == blas::Op::ConjTrans)
+    else if (transA == slate::Op::ConjTrans)
         A = conj_transpose(A);
 
-    if (transB == blas::Op::Trans)
+    if (transB == slate::Op::Trans)
         B = transpose(B);
-    else if (transB == blas::Op::ConjTrans)
+    else if (transB == slate::Op::ConjTrans)
         B = conj_transpose(B);
 
     assert(A.mt() == C.mt());

@@ -24,8 +24,8 @@ void test_synorm_work(Params& params, bool run)
     using lld = long long;
 
     // get & mark input values
-    lapack::Norm norm = params.norm();
-    lapack::Uplo uplo = params.uplo();
+    slate::Norm norm = params.norm();
+    slate::Uplo uplo = params.uplo();
     int64_t n = params.dim.n();
     int64_t nb = params.nb();
     int64_t p = params.p();
@@ -187,10 +187,10 @@ void test_synorm_work(Params& params, bool run)
 
         // difference between norms
         real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
-        if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
+        if (norm == slate::Norm::One || norm == slate::Norm::Inf) {
             error /= sqrt(An);
         }
-        else if (norm == lapack::Norm::Fro) {
+        else if (norm == slate::Norm::Fro) {
             error /= An;  // = sqrt( An*An );
         }
 
@@ -202,7 +202,7 @@ void test_synorm_work(Params& params, bool run)
         // Allow for difference, except max norm in real should be exact.
         real_t eps = std::numeric_limits<real_t>::epsilon();
         real_t tol;
-        if (norm == lapack::Norm::Max && ! slate::is_complex<scalar_t>::value)
+        if (norm == slate::Norm::Max && ! slate::is_complex<scalar_t>::value)
             tol = 0;
         else
             tol = 3*eps;
@@ -244,7 +244,7 @@ void test_synorm_work(Params& params, bool run)
             for (auto i : j_indices) {
                 // lower requires i >= j
                 // upper requires i <= j
-                if (i < 0 || i >= nt || (uplo == blas::Uplo::Lower ? i < j : i > j))
+                if (i < 0 || i >= nt || (uplo == slate::Uplo::Lower ? i < j : i > j))
                     continue;
                 int64_t ib = std::min(n - i*nb, nb);
                 assert(ib == A.tileMb(i));
@@ -269,7 +269,7 @@ void test_synorm_work(Params& params, bool run)
 
                     for (auto ii : ii_indices) {
                         if (ii < 0 || ii >= ib ||
-                            (i == j && (uplo == blas::Uplo::Lower ? ii < jj : ii > jj))) {
+                            (i == j && (uplo == slate::Uplo::Lower ? ii < jj : ii > jj))) {
                             continue;
                         }
 
@@ -295,17 +295,17 @@ void test_synorm_work(Params& params, bool run)
 
                         // difference between norms
                         real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
-                        if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
+                        if (norm == slate::Norm::One || norm == slate::Norm::Inf) {
                             error /= sqrt(An);
                         }
-                        else if (norm == lapack::Norm::Fro) {
+                        else if (norm == slate::Norm::Fro) {
                             error /= sqrt(An*An);
                         }
 
                         // Allow for difference, except max norm in real should be exact.
                         real_t eps = std::numeric_limits<real_t>::epsilon();
                         real_t tol;
-                        if (norm == lapack::Norm::Max && ! slate::is_complex<scalar_t>::value)
+                        if (norm == slate::Norm::Max && ! slate::is_complex<scalar_t>::value)
                             tol = 0;
                         else
                             tol = 3*eps;

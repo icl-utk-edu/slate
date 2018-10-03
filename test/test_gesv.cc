@@ -20,7 +20,7 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
     using real_t = blas::real_type<scalar_t>;
 
     // get & mark input values
-    blas::Op trans = blas::Op::NoTrans;
+    slate::Op trans = slate::Op::NoTrans;
     if (params.routine == "getrs")
         trans = params.trans();
 
@@ -175,9 +175,9 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
         }
         else if (params.routine == "getrs") {
             auto opA = A;
-            if (trans == blas::Op::Trans)
+            if (trans == slate::Op::Trans)
                 opA = transpose(A);
-            else if (trans == blas::Op::ConjTrans)
+            else if (trans == slate::Op::ConjTrans)
                 opA = conj_transpose(A);
 
             slate::getrs(opA, pivots, B, {

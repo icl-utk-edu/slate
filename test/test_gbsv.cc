@@ -35,7 +35,7 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
     int64_t ib = params.ib();
     int64_t lookahead = params.lookahead();
     int64_t panel_threads = params.panel_threads();
-    lapack::Norm norm = params.norm();  // TODO: probably should be specified
+    slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';

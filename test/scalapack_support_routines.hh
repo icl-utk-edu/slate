@@ -12,6 +12,7 @@
 
 #include "scalapack_wrappers.hh"
 
+//------------------------------------------------------------------------------
 // Matrix generation
 #define Rnd64_A  6364136223846793005ULL
 #define Rnd64_C  1ULL
@@ -187,5 +188,14 @@ static void scalapack_pplghe(scalar_t* A,
         }
     }
 }
+
+//------------------------------------------------------------------------------
+// BLAS thread management
+#ifdef SLATE_WITH_MKL
+extern "C" int MKL_Set_Num_Threads(int nt);
+inline int slate_set_num_blas_threads(const int nt) { return MKL_Set_Num_Threads(nt); }
+#else
+inline int slate_set_num_blas_threads(const int nt) { return -1; }
+#endif
 
 #endif  // ICL_SLATE_SCALAPACK_SUPPORT_HH

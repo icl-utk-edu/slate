@@ -13,13 +13,6 @@
 #include <cstdlib>
 #include <utility>
 
-#ifdef SLATE_WITH_MKL
-extern "C" int MKL_Set_Num_Threads(int nt);
-inline int slate_set_num_blas_threads(const int nt) { return MKL_Set_Num_Threads(nt); }
-#else
-inline int slate_set_num_blas_threads(const int nt) { return -1; }
-#endif
-
 //------------------------------------------------------------------------------
 template<typename scalar_t>
 void test_genorm_work(Params& params, bool run)

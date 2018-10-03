@@ -62,14 +62,14 @@ void gbsv(slate::internal::TargetType<target>,
           int64_t ib, int max_panel_threads, int64_t lookahead)
 {
     // factorization
-    getrf(A, pivots,
+    gbtrf(A, pivots,
           {{Option::InnerBlocking, ib},
            {Option::Lookahead, lookahead},
            {Option::MaxPanelThreads, int64_t(max_panel_threads)},
            {Option::Target, target}});
 
     // solve
-    getrs(A, pivots, B,
+    gbtrs(A, pivots, B,
          {{Option::Lookahead, lookahead},
           {Option::Target, target}});
 }

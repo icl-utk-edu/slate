@@ -27,6 +27,7 @@ void test_gbmm_work(Params& params, bool run)
     using blas::imag;
     using blas::max;
     using blas::min;
+    using slate::Norm;
 
     // get & mark input values
     blas::Op transA = params.transA();
@@ -57,6 +58,9 @@ void test_gbmm_work(Params& params, bool run)
 
     if (! run)
         return;
+
+    // Error analysis applies in these norms.
+    slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 
     // sizes of A and B
     int64_t Am = (transA == blas::Op::NoTrans ? m : k);

@@ -18,6 +18,7 @@ template<typename scalar_t>
 void test_herk_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
+    using slate::Norm;
 
     // get & mark input values
     lapack::Uplo uplo = params.uplo();
@@ -44,6 +45,9 @@ void test_herk_work(Params& params, bool run)
 
     if (! run)
         return;
+
+    // Error analysis applies in these norms.
+    slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 
     // setup so op(A) is n-by-k
     int64_t Am = (transA == blas::Op::NoTrans ? n : k);

@@ -19,6 +19,7 @@ void test_trmm_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::Op;
+    using slate::Norm;
 
     // get & mark input values
     blas::Side side = params.side();
@@ -47,6 +48,9 @@ void test_trmm_work(Params& params, bool run)
 
     if (! run)
         return;
+
+    // Error analysis applies in these norms.
+    slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 
     // setup so op(B) is m-by-n
     int64_t An  = (side == blas::Side::Left ? m : n);

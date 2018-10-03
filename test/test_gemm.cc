@@ -20,6 +20,7 @@ template<typename scalar_t>
 void test_gemm_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
+    using slate::Norm;
 
     // get & mark input values
     blas::Op transA = params.transA();
@@ -47,6 +48,9 @@ void test_gemm_work(Params& params, bool run)
 
     if (! run)
         return;
+
+    // Error analysis applies in these norms.
+    slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 
     // sizes of A and B
     int64_t Am = (transA == blas::Op::NoTrans ? m : k);

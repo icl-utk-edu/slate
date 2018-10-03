@@ -19,6 +19,7 @@ void test_her2k_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::Op;
+    using slate::Norm;
 
     // get & mark input values
     blas::Uplo uplo = params.uplo();
@@ -45,6 +46,9 @@ void test_her2k_work(Params& params, bool run)
 
     if (! run)
         return;
+
+    // Error analysis applies in these norms.
+    slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 
     // setup so op(A) and op(B) are n-by-k
     int64_t Am = (trans == blas::Op::NoTrans ? n : k);

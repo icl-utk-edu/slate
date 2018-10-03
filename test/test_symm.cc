@@ -18,6 +18,7 @@ template<typename scalar_t>
 void test_symm_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
+    using slate::Norm;
 
     // get & mark input values
     blas::Side side = params.side();
@@ -44,6 +45,9 @@ void test_symm_work(Params& params, bool run)
 
     if (! run)
         return;
+
+    // Error analysis applies in these norms.
+    slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 
     // sizes of data
     int64_t An = (side == blas::Side::Left ? m : n);

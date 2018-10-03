@@ -57,7 +57,7 @@ void test_gbnorm_work(Params& params, bool run)
         return;
 
     // local values
-    static int i0=0, i1=1;
+    static int i0 = 0, i1 = 1;
 
     int mpi_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
@@ -65,7 +65,7 @@ void test_gbnorm_work(Params& params, bool run)
     // BLACS/MPI variables
     int ictxt, nprow, npcol, myrow, mycol, info;
     int descA_tst[9];
-    int iam=0, nprocs=1;
+    int iam = 0, nprocs = 1;
 
     // initialize BLACS and ScaLAPACK
     Cblacs_pinfo(&iam, &nprocs);
@@ -77,15 +77,15 @@ void test_gbnorm_work(Params& params, bool run)
     // matrix A, figure out local size, allocate, create descriptor, initialize
     int64_t mlocA = scalapack_numroc(m, nb, myrow, i0, nprow);
     int64_t nlocA = scalapack_numroc(n, nb, mycol, i0, npcol);
-    int64_t lldA  = std::max( int64_t(1), mlocA );
+    int64_t lldA  = std::max(int64_t(1), mlocA);
     scalapack_descinit(descA_tst, m, n, nb, nb, i0, i0, ictxt, lldA, &info);
     assert(info == 0);
-    std::vector<scalar_t> A_tst(lldA * nlocA);
+    std::vector<scalar_t> A_tst(lldA*nlocA);
     // todo: fix the generation
     //int iseed = 1;
     //scalapack_pplrnt(&A_tst[0], m, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
     int64_t iseeds[4] = { myrow, mycol, 2, 3 };
-    //lapack::larnv(2, iseeds, lldA * nlocA, &A_tst[0] );
+    //lapack::larnv(2, iseeds, lldA*nlocA, &A_tst[0] );
     for (int64_t j = 0; j < nlocA; ++j)
         lapack::larnv(2, iseeds, mlocA, &A_tst[j*lldA]);
     zeroOutsideBand(&A_tst[0], m, n, kl, ku, nb, nb, myrow, mycol, nprow, npcol, lldA);
@@ -93,7 +93,7 @@ void test_gbnorm_work(Params& params, bool run)
     // Create SLATE matrix from the ScaLAPACK layout.
     // TODO: data origin on GPU
     auto A = BandFromScaLAPACK(
-        m, n, kl, ku, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+                 m, n, kl, ku, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
 
     if (verbose > 2) {
         print_matrix("A_tst", mlocA, nlocA, &A_tst[0], lldA, p, q, MPI_COMM_WORLD);
@@ -145,26 +145,26 @@ void test_gbnorm_work(Params& params, bool run)
         MPI_Barrier(MPI_COMM_WORLD);
         time = libtest::get_wtime();
         real_t A_norm_ref = scalapack_plange(
-            norm2str(norm),
-            m, n, &A_tst[0], i1, i1, descA_tst, &worklange[0]);
+                                norm2str(norm),
+                                m, n, &A_tst[0], i1, i1, descA_tst, &worklange[0]);
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 
         // difference between norms
         real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
         if (norm == lapack::Norm::One) {
-            error /= sqrt( m );
+            error /= sqrt(m);
         }
         else if (norm == lapack::Norm::Inf) {
-            error /= sqrt( n );
+            error /= sqrt(n);
         }
         else if (norm == lapack::Norm::Fro) {
-            error /= sqrt( m*n );
+            error /= sqrt(m*n);
         }
 
         if (verbose && mpi_rank == 0) {
-            printf( "norm %15.8e, ref %15.8e, ref - norm %5.2f, error %9.2e\n",
-                    A_norm, A_norm_ref, A_norm_ref - A_norm, error );
+            printf("norm %15.8e, ref %15.8e, ref - norm %5.2f, error %9.2e\n",
+                   A_norm, A_norm_ref, A_norm_ref - A_norm, error);
         }
 
         // Allow for difference, except max norm in real should be exact.

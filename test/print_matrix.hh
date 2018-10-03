@@ -24,27 +24,27 @@ void snprintf_value(
     if (value == scalar_t( int( real( value )))) {
         // exactly integer, print without digits after decimal point
         if (slate::is_complex<scalar_t>::value) {
-            snprintf( buf, buf_len, " %#*.0f%*s   %*s",
-                      width-precision, real(value), precision, "",
-                      width, "" );
+            snprintf(buf, buf_len, " %#*.0f%*s   %*s",
+                     width - precision, real(value), precision, "",
+                     width, "");
         }
         else {
-            snprintf( buf, buf_len,
-                      " %#*.0f%*s",
-                      width-precision, real(value), precision, "" );
+            snprintf(buf, buf_len,
+                     " %#*.0f%*s",
+                     width - precision, real(value), precision, "");
         }
     }
     else {
         // general case
         if (slate::is_complex<scalar_t>::value) {
-            snprintf( buf, buf_len, " %*.*f + %*.*fi",
-                      width, precision, real(value),
-                      width, precision, imag(value) );
+            snprintf(buf, buf_len, " %*.*f + %*.*fi",
+                     width, precision, real(value),
+                     width, precision, imag(value));
         }
         else {
-            snprintf( buf, buf_len,
-                      " %*.*f",
-                      width, precision, real(value) );
+            snprintf(buf, buf_len,
+                     " %*.*f",
+                     width, precision, real(value));
         }
     }
 }
@@ -58,7 +58,7 @@ template <typename scalar_t>
 void print_matrix(
     const char* label,
     int64_t mlocal, int64_t nlocal, scalar_t* A, int64_t lda,
-    int p, int q, MPI_Comm comm, int width=10, int precision=6)
+    int p, int q, MPI_Comm comm, int width = 10, int precision = 6)
 {
     using blas::real;
     using blas::imag;
@@ -69,7 +69,7 @@ void print_matrix(
     char buf[ 1024 ];
     std::string msg;
 
-    width = std::max( width, precision + 3 );
+    width = std::max(width, precision + 3);
 
     // loop over process rows & cols
     for (int prow = 0; prow < q; ++prow) {
@@ -77,11 +77,11 @@ void print_matrix(
             int rank = prow + pcol*p;
 
             if (rank == mpi_rank) {
-                snprintf( buf, sizeof(buf), "%s%d_%d = [\n", label, prow, pcol );
+                snprintf(buf, sizeof(buf), "%s%d_%d = [\n", label, prow, pcol);
                 msg += buf;
                 for (int64_t i = 0; i < mlocal; ++i) {
                     for (int64_t j = 0; j < nlocal; ++j) {
-                        snprintf_value( buf, sizeof(buf), width, precision, A[i + j*lda] );
+                        snprintf_value(buf, sizeof(buf), width, precision, A[i + j*lda]);
                         msg += buf;
                     }
                     msg += "\n";
@@ -90,30 +90,30 @@ void print_matrix(
 
                 if (mpi_rank != 0) {
                     // Send msg to root, which handles actual I/O.
-                    int len = int( msg.size() );
-                    MPI_Send( &len, 1, MPI_INT, 0, 0, comm );
-                    MPI_Send( msg.c_str(), len, MPI_CHAR, 0, 0, comm );
+                    int len = int(msg.size());
+                    MPI_Send(&len, 1, MPI_INT, 0, 0, comm);
+                    MPI_Send(msg.c_str(), len, MPI_CHAR, 0, 0, comm);
                 }
                 else {
                     // Already on root, just print it.
-                    printf( "%s", msg.c_str() );
+                    printf("%s", msg.c_str());
                 }
             }
             else if (mpi_rank == 0) {
                 // Root receives msg and handles actual I/O.
                 MPI_Status status;
                 int len;
-                MPI_Recv( &len, 1, MPI_INT, rank, 0, comm, &status );
-                msg.resize( len );
-                MPI_Recv( &msg[0], len, MPI_CHAR, rank, 0, comm, &status );
-                printf( "%s", msg.c_str() );
+                MPI_Recv(&len, 1, MPI_INT, rank, 0, comm, &status);
+                msg.resize(len);
+                MPI_Recv(&msg[0], len, MPI_CHAR, rank, 0, comm, &status);
+                printf("%s", msg.c_str());
             }
         }
     }
     if (mpi_rank == 0) {
-        fflush( stdout );
+        fflush(stdout);
     }
-    MPI_Barrier( comm );
+    MPI_Barrier(comm);
 }
 
 //------------------------------------------------------------------------------
@@ -124,7 +124,7 @@ void print_matrix(
 template <typename scalar_t>
 void print_matrix(
     const char* label,
-    slate::Matrix<scalar_t>& A, int width=10, int precision=6)
+    slate::Matrix<scalar_t>& A, int width = 10, int precision = 6)
 {
     using blas::real;
     using blas::imag;
@@ -132,7 +132,7 @@ void print_matrix(
     int mpi_rank = A.mpiRank();
     MPI_Comm comm = A.mpiComm();
 
-    width = std::max( width, precision + 3 );
+    width = std::max(width, precision + 3);
 
     char buf[ 1024 ];
     std::string msg = label;
@@ -145,11 +145,11 @@ void print_matrix(
             if (tile_rank != 0) {
                 if (A.tileIsLocal(i, j)) {
                     auto T = A(i, j);
-                    T.send( 0, comm );
+                    T.send(0, comm);
                 }
                 else if (mpi_rank == 0) {
-                    A.tileInsert( i, j );
-                    A(i, j).recv( tile_rank, comm );
+                    A.tileInsert(i, j);
+                    A(i, j).recv(tile_rank, comm);
                 }
             }
         }
@@ -160,20 +160,20 @@ void print_matrix(
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     auto T = A(i, j);
                     for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-                        snprintf_value( buf, sizeof(buf), width, precision, T(ti, tj) );
+                        snprintf_value(buf, sizeof(buf), width, precision, T(ti, tj));
                         msg += buf;
                     }
-                    if (j < A.nt()-1)
+                    if (j < A.nt() - 1)
                         msg += "    ";
                     else
                         msg += "\n";
                 }
             }
-            if (i < A.mt()-1)
+            if (i < A.mt() - 1)
                 msg += "\n";
             else
                 msg += "];\n";
-            printf( "%s", msg.c_str() );
+            printf("%s", msg.c_str());
             msg.clear();
 
             // cleanup data
@@ -185,7 +185,7 @@ void print_matrix(
         }
     }
 
-    MPI_Barrier( comm );
+    MPI_Barrier(comm);
 }
 
 //------------------------------------------------------------------------------
@@ -196,7 +196,7 @@ void print_matrix(
 template <typename scalar_t>
 void print_matrix(
     const char* label,
-    slate::BandMatrix<scalar_t>& A, int width=10, int precision=6)
+    slate::BandMatrix<scalar_t>& A, int width = 10, int precision = 6)
 {
     using blas::real;
     using blas::imag;
@@ -204,7 +204,7 @@ void print_matrix(
     int mpi_rank = A.mpiRank();
     MPI_Comm comm = A.mpiComm();
 
-    width = std::max( width, precision + 3 );
+    width = std::max(width, precision + 3);
 
     char buf[ 1024 ];
     std::string msg = label;
@@ -213,31 +213,31 @@ void print_matrix(
     // for tiles outside bandwidth
     char outside[ 80 ];
     if (slate::is_complex<scalar_t>::value) {
-        snprintf( outside, sizeof(outside), " %*.0f   %*s ",
-                  width, 0., width, "" );
+        snprintf(outside, sizeof(outside), " %*.0f   %*s ",
+                 width, 0., width, "");
     }
     else {
-        snprintf( outside, sizeof(outside), " %*.0f",
-                  width, 0. );
+        snprintf(outside, sizeof(outside), " %*.0f",
+                 width, 0.);
     }
 
     // todo: initially, assume fixed size, square tiles for simplicity
-    int64_t kl = slate::ceildiv( A.lowerBandwidth(), A.tileNb(0) );
-    int64_t ku = slate::ceildiv( A.upperBandwidth(), A.tileNb(0) );
+    int64_t kl = slate::ceildiv(A.lowerBandwidth(), A.tileNb(0));
+    int64_t ku = slate::ceildiv(A.upperBandwidth(), A.tileNb(0));
 
     for (int64_t i = 0; i < A.mt(); ++i) {
         // gather block row to rank 0
         for (int64_t j = 0; j < A.nt(); ++j) {
-            if (-kl <= j-i && j-i <= ku) { // inside bandwidth
+            if (-kl <= j - i && j - i <= ku) { // inside bandwidth
                 int tile_rank = A.tileRank(i, j);
                 if (tile_rank != 0) {
                     if (A.tileIsLocal(i, j)) {
                         auto T = A(i, j);
-                        T.send( 0, comm );
+                        T.send(0, comm);
                     }
                     else if (mpi_rank == 0) {
-                        A.tileInsert( i, j );
-                        A(i, j).recv( tile_rank, comm );
+                        A.tileInsert(i, j);
+                        A(i, j).recv(tile_rank, comm);
                     }
                 }
             }
@@ -247,10 +247,10 @@ void print_matrix(
             // print block row
             for (int64_t ti = 0; ti < A.tileMb(i); ++ti) {
                 for (int64_t j = 0; j < A.nt(); ++j) {
-                    if (-kl <= j-i && j-i <= ku) { // inside bandwidth
+                    if (-kl <= j - i && j - i <= ku) { // inside bandwidth
                         auto T = A(i, j);
                         for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-                            snprintf_value( buf, sizeof(buf), width, precision, T(ti, tj) );
+                            snprintf_value(buf, sizeof(buf), width, precision, T(ti, tj));
                             msg += buf;
                         }
                     }
@@ -259,17 +259,17 @@ void print_matrix(
                             msg += outside;
                         }
                     }
-                    if (j < A.nt()-1)
+                    if (j < A.nt() - 1)
                         msg += "    ";
                     else
                         msg += "\n";
                 }
             }
-            if (i < A.mt()-1)
+            if (i < A.mt() - 1)
                 msg += "\n";
             else
                 msg += "];\n";
-            printf( "%s", msg.c_str() );
+            printf("%s", msg.c_str());
             msg.clear();
 
             // cleanup data
@@ -281,7 +281,7 @@ void print_matrix(
         }
     }
 
-    MPI_Barrier( comm );
+    MPI_Barrier(comm);
 }
 
 //------------------------------------------------------------------------------
@@ -296,7 +296,7 @@ void print_matrix(
 template <typename scalar_t>
 void print_matrix(
     const char* label,
-    slate::BaseTrapezoidMatrix<scalar_t>& A, int width=10, int precision=6)
+    slate::BaseTrapezoidMatrix<scalar_t>& A, int width = 10, int precision = 6)
 {
     using blas::real;
     using blas::imag;
@@ -304,7 +304,7 @@ void print_matrix(
     int mpi_rank = A.mpiRank();
     MPI_Comm comm = A.mpiComm();
 
-    width = std::max( width, precision + 3 );
+    width = std::max(width, precision + 3);
 
     char buf[ 1024 ];
     std::string msg = label;
@@ -313,12 +313,12 @@ void print_matrix(
     // for entries in opposite triangle from A.uplo
     char opp[ 80 ];
     if (slate::is_complex<scalar_t>::value) {
-        snprintf( opp, sizeof(opp), " %*f   %*s ",
-                  width, NAN, width, "" );
+        snprintf(opp, sizeof(opp), " %*f   %*s ",
+                 width, NAN, width, "");
     }
     else {
-        snprintf( opp, sizeof(opp), " %*f",
-                  width, NAN );
+        snprintf(opp, sizeof(opp), " %*f",
+                 width, NAN);
     }
 
     for (int64_t i = 0; i < A.mt(); ++i) {
@@ -331,11 +331,11 @@ void print_matrix(
                 if (tile_rank != 0) {
                     if (A.tileIsLocal(i, j)) {
                         auto T = A(i, j);
-                        T.send( 0, comm );
+                        T.send(0, comm);
                     }
                     else if (mpi_rank == 0) {
-                        A.tileInsert( i, j );
-                        A(i, j).recv( tile_rank, comm );
+                        A.tileInsert(i, j);
+                        A(i, j).recv(tile_rank, comm);
                     }
                 }
             }
@@ -354,7 +354,7 @@ void print_matrix(
                                 (A.uplo() == slate::Uplo::Lower && ti >= tj) ||
                                 (A.uplo() == slate::Uplo::Upper && ti <= tj))
                             {
-                                snprintf_value( buf, sizeof(buf), width, precision, T(ti, tj) );
+                                snprintf_value(buf, sizeof(buf), width, precision, T(ti, tj));
                                 msg += buf;
                             }
                             else {
@@ -367,17 +367,17 @@ void print_matrix(
                             msg += opp;
                         }
                     }
-                    if (j < A.nt()-1)
+                    if (j < A.nt() - 1)
                         msg += "    ";
                     else
                         msg += "\n";
                 }
             }
-            if (i < A.mt()-1)
+            if (i < A.mt() - 1)
                 msg += "\n";
             else
                 msg += "];\n";
-            printf( "%s", msg.c_str() );
+            printf("%s", msg.c_str());
             msg.clear();
 
             // cleanup data
@@ -389,5 +389,5 @@ void print_matrix(
         }
     }
 
-    MPI_Barrier( comm );
+    MPI_Barrier(comm);
 }

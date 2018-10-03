@@ -15,14 +15,14 @@
 #include <utility>
 
 #ifdef SLATE_WITH_MKL
-extern "C" int MKL_Set_Num_Threads (int nt);
-inline int slate_set_num_blas_threads (const int nt) { return MKL_Set_Num_Threads (nt); }
+extern "C" int MKL_Set_Num_Threads(int nt);
+inline int slate_set_num_blas_threads(const int nt) { return MKL_Set_Num_Threads(nt); }
 #else
-inline int slate_set_num_blas_threads (const int nt) { return -1; }
+inline int slate_set_num_blas_threads(const int nt) { return -1; }
 #endif
 
 //------------------------------------------------------------------------------
-template <typename scalar_t> void test_potrf_work (Params &params, bool run)
+template <typename scalar_t> void test_potrf_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -34,11 +34,11 @@ template <typename scalar_t> void test_potrf_work (Params &params, bool run)
     int64_t nb = params.nb.value();
     int64_t lookahead = params.lookahead.value();
     lapack::Norm norm = params.norm.value();
-    bool ref_only = params.ref.value()=='o';
-    bool ref = params.ref.value()=='y' || ref_only;
-    bool check = params.check.value()=='y' && ! ref_only;
-    bool trace = params.trace.value()=='y';
-    slate::Target target = char2target (params.target.value());
+    bool ref_only = params.ref.value() == 'o';
+    bool ref = params.ref.value() == 'y' || ref_only;
+    bool check = params.check.value() == 'y' && ! ref_only;
+    bool trace = params.trace.value() == 'y';
+    slate::Target target = char2target(params.target.value());
 
     // mark non-standard output values
     params.time.value();
@@ -53,41 +53,41 @@ template <typename scalar_t> void test_potrf_work (Params &params, bool run)
     int64_t An = n;
 
     // Local values
-    static int i0=0, i1=1;
+    static int i0 = 0, i1 = 1;
 
     // BLACS/MPI variables
     int ictxt, nprow, npcol, myrow, mycol, info;
     int descA_tst[9], descA_ref[9];
-    int iam=0, nprocs=1;
+    int iam = 0, nprocs = 1;
     int iseed = 1;
 
     // initialize BLACS and ScaLAPACK
-    Cblacs_pinfo (&iam, &nprocs);
-    assert (p*q <= nprocs);
-    Cblacs_get (-1, 0, &ictxt);
-    Cblacs_gridinit (&ictxt, "Col", p, q);
-    Cblacs_gridinfo (ictxt, &nprow, &npcol, &myrow, &mycol);
+    Cblacs_pinfo(&iam, &nprocs);
+    assert(p*q <= nprocs);
+    Cblacs_get(-1, 0, &ictxt);
+    Cblacs_gridinit(&ictxt, "Col", p, q);
+    Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = scalapack_numroc (Am, nb, myrow, i0, nprow);
-    int64_t nlocA = scalapack_numroc (An, nb, mycol, i0, npcol);
-    scalapack_descinit (descA_tst, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
-    assert (info==0);
+    int64_t mlocA = scalapack_numroc(Am, nb, myrow, i0, nprow);
+    int64_t nlocA = scalapack_numroc(An, nb, mycol, i0, npcol);
+    scalapack_descinit(descA_tst, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
+    assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
-    std::vector<scalar_t> A_tst (lldA * nlocA);
-    scalapack_pplghe (&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
+    std::vector<scalar_t> A_tst(lldA*nlocA);
+    scalapack_pplghe(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
 
     // Create SLATE matrix from the ScaLAPACK layouts
-    auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK (uplo, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+    auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
 
     // if check is required, copy test data and create a descriptor for it
     std::vector<scalar_t> A_ref;
     if (check || ref) {
         A_ref = A_tst;
-        scalapack_descinit (descA_ref, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
-        assert (info==0);
+        scalapack_descinit(descA_ref, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
+        assert(info == 0);
     }
-    double gflop = lapack::Gflop<scalar_t>::potrf (n);
+    double gflop = lapack::Gflop<scalar_t>::potrf(n);
 
     if (! ref_only) {
         if (trace) slate::trace::Trace::on();
@@ -95,25 +95,25 @@ template <typename scalar_t> void test_potrf_work (Params &params, bool run)
 
         // run test
         {
-            slate::trace::Block trace_block ("MPI_Barrier");
-            MPI_Barrier (MPI_COMM_WORLD);
+            slate::trace::Block trace_block("MPI_Barrier");
+            MPI_Barrier(MPI_COMM_WORLD);
         }
         double time = libtest::get_wtime();
 
-        slate::potrf (A, {
+        slate::potrf(A, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target}
         });
 
-        MPI_Barrier (MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD);
         {
-            slate::trace::Block trace_block ("MPI_Barrier");
-            MPI_Barrier (MPI_COMM_WORLD);
+            slate::trace::Block trace_block("MPI_Barrier");
+            MPI_Barrier(MPI_COMM_WORLD);
         }
         double time_tst = libtest::get_wtime() - time;
 
         if (trace) slate::trace::Trace::finish();
-        
+
         // compute and save timing/performance
         params.time.value() = time_tst;
         params.gflops.value() = gflop / time_tst;
@@ -130,28 +130,28 @@ template <typename scalar_t> void test_potrf_work (Params &params, bool run)
         int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
         // Run the reference routine on A_ref
-        MPI_Barrier (MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD);
         double time = libtest::get_wtime();
-        scalapack_ppotrf (uplo2str (uplo), n, &A_ref[0], i1, i1, descA_ref, &info);
-        assert (0 == info);
-        MPI_Barrier (MPI_COMM_WORLD);
+        scalapack_ppotrf(uplo2str(uplo), n, &A_ref[0], i1, i1, descA_ref, &info);
+        assert(0 == info);
+        MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
         params.ref_time.value() = time_ref;
         params.ref_gflops.value() = gflop / time_ref;
 
         if (check) {
             // allocate work space
-            size_t ldw = nb * ceil (ceil (mlocA / (double) nb) / (scalapack_ilcm (&nprow, &npcol) / nprow));
-            std::vector<real_t> worklansy (2 * nlocA + mlocA + ldw);
+            size_t ldw = nb*ceil(ceil(mlocA / (double) nb) / (scalapack_ilcm(&nprow, &npcol) / nprow));
+            std::vector<real_t> worklansy(2*nlocA + mlocA + ldw);
 
             // norm of A
-            real_t A_ref_norm = scalapack_plansy (norm2str (norm), uplo2str (uplo), n, &A_ref[0], i1, i1, descA_ref, &worklansy[0]);
+            real_t A_ref_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), n, &A_ref[0], i1, i1, descA_ref, &worklansy[0]);
 
             // local operation: error = A_ref = A_ref - A_tst
-            blas::axpy (A_ref.size(), -1.0, &A_tst[0], 1, &A_ref[0], 1);
+            blas::axpy(A_ref.size(), -1.0, &A_tst[0], 1, &A_ref[0], 1);
 
             // error = norm(error)
-            real_t error_norm = scalapack_plansy (norm2str (norm), uplo2str (uplo), n, &A_ref[0], i1, i1, descA_ref, &worklansy[0]);
+            real_t error_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), n, &A_ref[0], i1, i1, descA_ref, &worklansy[0]);
 
             // error = error / norm;
             if (error_norm != 0)
@@ -170,27 +170,27 @@ template <typename scalar_t> void test_potrf_work (Params &params, bool run)
 }
 
 // -----------------------------------------------------------------------------
-void test_potrf (Params &params, bool run)
+void test_potrf(Params& params, bool run)
 {
     switch (params.datatype.value()) {
-    case libtest::DataType::Integer:
-        throw std::exception();
-        break;
+        case libtest::DataType::Integer:
+            throw std::exception();
+            break;
 
-    case libtest::DataType::Single:
-        test_potrf_work<float> (params, run);
-        break;
+        case libtest::DataType::Single:
+            test_potrf_work<float> (params, run);
+            break;
 
-    case libtest::DataType::Double:
-        test_potrf_work<double> (params, run);
-        break;
+        case libtest::DataType::Double:
+            test_potrf_work<double> (params, run);
+            break;
 
-    case libtest::DataType::SingleComplex:
-        test_potrf_work<std::complex<float>> (params, run);
-        break;
+        case libtest::DataType::SingleComplex:
+            test_potrf_work<std::complex<float>> (params, run);
+            break;
 
-    case libtest::DataType::DoubleComplex:
-        test_potrf_work<std::complex<double>> (params, run);
-        break;
+        case libtest::DataType::DoubleComplex:
+            test_potrf_work<std::complex<double>> (params, run);
+            break;
     }
 }

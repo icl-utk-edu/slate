@@ -15,14 +15,14 @@
 #include <utility>
 
 #ifdef SLATE_WITH_MKL
-extern "C" int MKL_Set_Num_Threads (int nt);
-inline int slate_set_num_blas_threads (const int nt) { return MKL_Set_Num_Threads (nt); }
+extern "C" int MKL_Set_Num_Threads(int nt);
+inline int slate_set_num_blas_threads(const int nt) { return MKL_Set_Num_Threads(nt); }
 #else
-inline int slate_set_num_blas_threads (const int nt) { return -1; }
+inline int slate_set_num_blas_threads(const int nt) { return -1; }
 #endif
 
 //------------------------------------------------------------------------------
-template <typename scalar_t> void test_getrs_work (Params &params, bool run)
+template <typename scalar_t> void test_getrs_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -37,13 +37,13 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
     int64_t lookahead = params.lookahead.value();
     int64_t panel_threads = params.panel_threads.value();
     lapack::Norm norm = params.norm.value();
-    bool ref_only = params.ref.value()=='o';
-    bool ref = params.ref.value()=='y' || ref_only;
-    bool check = params.check.value()=='y' && ! ref_only;
-    bool trace = params.trace.value()=='y';
+    bool ref_only = params.ref.value() == 'o';
+    bool ref = params.ref.value() == 'y' || ref_only;
+    bool check = params.check.value() == 'y' && ! ref_only;
+    bool trace = params.trace.value() == 'y';
     int verbose = params.verbose.value();
     int matrix = params.matrix.value();
-    slate::Target target = char2target (params.target.value());
+    slate::Target target = char2target(params.target.value());
 
     // mark non-standard output values
     params.time.value();
@@ -60,51 +60,51 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
     int64_t Bn = nrhs;
 
     // Local values
-    static int i0=0, i1=1;
+    static int i0 = 0, i1 = 1;
 
     // BLACS/MPI variables
     int ictxt, nprow, npcol, myrow, mycol, info;
     int descA_tst[9], descA_ref[9];
     int descB_tst[9], descB_ref[9];
-    int iam=0, nprocs=1;
+    int iam = 0, nprocs = 1;
     int iseed = 1;
 
     // initialize BLACS and ScaLAPACK
-    Cblacs_pinfo (&iam, &nprocs);
-    assert (p*q <= nprocs);
-    Cblacs_get (-1, 0, &ictxt);
-    Cblacs_gridinit (&ictxt, "Col", p, q);
-    Cblacs_gridinfo (ictxt, &nprow, &npcol, &myrow, &mycol);
+    Cblacs_pinfo(&iam, &nprocs);
+    assert(p*q <= nprocs);
+    Cblacs_get(-1, 0, &ictxt);
+    Cblacs_gridinit(&ictxt, "Col", p, q);
+    Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = scalapack_numroc (Am, nb, myrow, i0, nprow);
-    int64_t nlocA = scalapack_numroc (An, nb, mycol, i0, npcol);
-    scalapack_descinit (descA_tst, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
-    assert (info==0);
+    int64_t mlocA = scalapack_numroc(Am, nb, myrow, i0, nprow);
+    int64_t nlocA = scalapack_numroc(An, nb, mycol, i0, npcol);
+    scalapack_descinit(descA_tst, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
+    assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
-    std::vector<scalar_t> A_tst (lldA * nlocA);
-    scalapack_pplrnt (&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
+    std::vector<scalar_t> A_tst(lldA*nlocA);
+    scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocB = scalapack_numroc (Bm, nb, myrow, i0, nprow);
-    int64_t nlocB = scalapack_numroc (Bn, nb, mycol, i0, npcol);
-    scalapack_descinit (descB_tst, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
-    assert (info==0);
+    int64_t mlocB = scalapack_numroc(Bm, nb, myrow, i0, nprow);
+    int64_t nlocB = scalapack_numroc(Bn, nb, mycol, i0, npcol);
+    scalapack_descinit(descB_tst, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
+    assert(info == 0);
     int64_t lldB = (int64_t)descB_tst[8];
-    std::vector<scalar_t> B_tst (lldB * nlocB);
-    scalapack_pplrnt (&B_tst[0], Bm, Bn, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed+2);
+    std::vector<scalar_t> B_tst(lldB*nlocB);
+    scalapack_pplrnt(&B_tst[0], Bm, Bn, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 2);
 
     // allocate ipiv locally
-    size_t ipiv_size = (size_t) (lldA + nb);
+    size_t ipiv_size = (size_t)(lldA + nb);
     std::vector<int> ipiv_tst(ipiv_size);
 
     // Create SLATE matrix from the ScaLAPACK layouts
-    auto A = slate::Matrix<scalar_t>::fromScaLAPACK (Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK (Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
 
     if (matrix == 1) {
         // Make A diagonally dominant to avoid pivoting.
-        printf( "diag dominant\n" );
+        printf("diag dominant\n");
         for (int k = 0; k < std::min(A.mt(), A.nt()); ++k) {
             auto T = A(k, k);
             for (int i = 0; i < T.nb(); ++i) {
@@ -120,19 +120,19 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
     std::vector<int> ipiv_ref;
     if (check || ref) {
         A_ref = A_tst;
-        scalapack_descinit (descA_ref, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
-        assert (info==0);
+        scalapack_descinit(descA_ref, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
+        assert(info == 0);
 
         B_ref = B_tst;
-        scalapack_descinit (descB_ref, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
-        assert (info==0);
+        scalapack_descinit(descB_ref, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
+        assert(info == 0);
 
         if (check && ref)
             B_orig = B_tst;
 
         ipiv_ref.resize(ipiv_tst.size());
     }
-    double gflop = lapack::Gflop<scalar_t>::getrs (n, nrhs);
+    double gflop = lapack::Gflop<scalar_t>::getrs(n, nrhs);
 
     if (! ref_only) {
         if (trace) slate::trace::Trace::on();
@@ -140,14 +140,14 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
 
         // run test
         {
-            slate::trace::Block trace_block ("MPI_Barrier");
-            MPI_Barrier (MPI_COMM_WORLD);
+            slate::trace::Block trace_block("MPI_Barrier");
+            MPI_Barrier(MPI_COMM_WORLD);
         }
 
         slate::Pivots pivots;
 
         // factor matrix A
-        slate::getrf (A, pivots, {
+        slate::getrf(A, pivots, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target},
             {slate::Option::MaxPanelThreads, panel_threads}
@@ -170,10 +170,10 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
             {slate::Option::Target, target}
         });
 
-        MPI_Barrier (MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD);
         {
-            slate::trace::Block trace_block ("MPI_Barrier");
-            MPI_Barrier (MPI_COMM_WORLD);
+            slate::trace::Block trace_block("MPI_Barrier");
+            MPI_Barrier(MPI_COMM_WORLD);
         }
         double time_tst = libtest::get_wtime() - time;
 
@@ -197,26 +197,26 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
         //================================================================
 
         // allocate work space
-        std::vector<real_t> worklangeA (std::max ({mlocA, nlocA}));
-        std::vector<real_t> worklangeB (std::max ({mlocB, nlocB}));
+        std::vector<real_t> worklangeA(std::max({mlocA, nlocA}));
+        std::vector<real_t> worklangeB(std::max({mlocB, nlocB}));
 
         // Norm of the orig matrix: || A ||_I
-        real_t A_norm = scalapack_plange (norm2str (norm), Am, An, &A_ref[0], i1, i1, descA_ref, &worklangeA[0]);
+        real_t A_norm = scalapack_plange(norm2str(norm), Am, An, &A_ref[0], i1, i1, descA_ref, &worklangeA[0]);
         // norm of updated rhs matrix: || X ||_I
-        real_t X_norm = scalapack_plange (norm2str (norm), Bm, Bn, &B_tst[0], i1, i1, descB_tst, &worklangeB[0]);
+        real_t X_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_tst[0], i1, i1, descB_tst, &worklangeB[0]);
 
-        // B_ref -= op(Aref) * B_tst
-        scalapack_pgemm (op2str(trans), "notrans",
-                         n, nrhs, n,
-                         scalar_t(-1.0),
-                         &A_ref[0], i1, i1, descA_ref,
-                         &B_tst[0], i1, i1, descB_tst,
-                         scalar_t(1.0),
-                         &B_ref[0], i1, i1, descB_ref);
+        // B_ref -= op(Aref)*B_tst
+        scalapack_pgemm(op2str(trans), "notrans",
+                        n, nrhs, n,
+                        scalar_t(-1.0),
+                        &A_ref[0], i1, i1, descA_ref,
+                        &B_tst[0], i1, i1, descB_tst,
+                        scalar_t(1.0),
+                        &B_ref[0], i1, i1, descB_ref);
 
         // || B - AX ||_I
-        real_t R_norm = scalapack_plange (norm2str (norm), Bm, Bn, &B_ref[0], i1, i1, descB_ref, &worklangeB[0]);
-        double residual = R_norm / (n * A_norm * X_norm);
+        real_t R_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_ref[0], i1, i1, descB_ref, &worklangeB[0]);
+        double residual = R_norm / (n*A_norm*X_norm);
         params.error.value() = residual;
 
         real_t tol = params.tol.value() * 0.5 * std::numeric_limits<real_t>::epsilon();
@@ -231,23 +231,23 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
         #pragma omp parallel
         { omp_num_threads = omp_get_num_threads(); }
         int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-        int64_t info_ref=0;
+        int64_t info_ref = 0;
 
-        if(check){
+        if (check) {
             //restore B_ref
             B_ref = B_orig;
-            scalapack_descinit (descB_ref, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
-            assert (info==0);
+            scalapack_descinit(descB_ref, Bm, Bn, nb, nb, i0, i0, ictxt, mlocB, &info);
+            assert(info == 0);
         }
 
-        scalapack_pgetrf (m, n, &A_ref[0], i1, i1, descA_ref, &ipiv_ref[0], &info_ref);
+        scalapack_pgetrf(m, n, &A_ref[0], i1, i1, descA_ref, &ipiv_ref[0], &info_ref);
 
         // Run the reference routine
-        MPI_Barrier (MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD);
         double time = libtest::get_wtime();
-        scalapack_pgetrs (op2str( trans ), n, nrhs, &A_ref[0], i1, i1, descA_ref, &ipiv_ref[0], &B_ref[0], i1, i1, descB_ref, &info_ref);
-        assert (0 == info_ref);
-        MPI_Barrier (MPI_COMM_WORLD);
+        scalapack_pgetrs(op2str(trans), n, nrhs, &A_ref[0], i1, i1, descA_ref, &ipiv_ref[0], &B_ref[0], i1, i1, descB_ref, &info_ref);
+        assert(0 == info_ref);
+        MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 
         params.ref_time.value() = time_ref;
@@ -261,27 +261,27 @@ template <typename scalar_t> void test_getrs_work (Params &params, bool run)
 }
 
 // -----------------------------------------------------------------------------
-void test_getrs (Params &params, bool run)
+void test_getrs(Params& params, bool run)
 {
     switch (params.datatype.value()) {
-    case libtest::DataType::Integer:
-        throw std::exception();
-        break;
+        case libtest::DataType::Integer:
+            throw std::exception();
+            break;
 
-    case libtest::DataType::Single:
-        test_getrs_work<float> (params, run);
-        break;
+        case libtest::DataType::Single:
+            test_getrs_work<float> (params, run);
+            break;
 
-    case libtest::DataType::Double:
-        test_getrs_work<double> (params, run);
-        break;
+        case libtest::DataType::Double:
+            test_getrs_work<double> (params, run);
+            break;
 
-    case libtest::DataType::SingleComplex:
-        test_getrs_work<std::complex<float>> (params, run);
-        break;
+        case libtest::DataType::SingleComplex:
+            test_getrs_work<std::complex<float>> (params, run);
+            break;
 
-    case libtest::DataType::DoubleComplex:
-        test_getrs_work<std::complex<double>> (params, run);
-        break;
+        case libtest::DataType::DoubleComplex:
+            test_getrs_work<std::complex<double>> (params, run);
+            break;
     }
 }

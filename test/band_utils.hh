@@ -23,7 +23,7 @@ inline int64_t global2local(int64_t i, int64_t nb, int p, int rank)
         iblock += 1;
 
     // local index of i or element after i
-    int64_t ilocal = iblock * nb;
+    int64_t ilocal = iblock*nb;
     if (rank == irank)
         ilocal += i % nb;
     return ilocal;
@@ -154,20 +154,20 @@ slate::BandMatrix<scalar_t> BandFromScaLAPACK(
     int p, int q, MPI_Comm comm)
 {
     auto A = slate::BandMatrix<scalar_t>(
-        m, n, kl, ku, nb, p, q, comm);
+                 m, n, kl, ku, nb, p, q, comm);
     int64_t klt = slate::ceildiv(kl, nb);
     int64_t kut = slate::ceildiv(ku, nb);
     int64_t jj = 0;
     for (int64_t j = 0; j < A.nt(); ++j) {
         int64_t jb = A.tileNb(j);
         // Using Scalapack indxg2l
-        int64_t jj_local = nb*(jj/(nb*q)) + (jj % nb);
+        int64_t jj_local = nb*(jj / (nb*q)) + (jj % nb);
         int64_t ii = 0;
         for (int64_t i = 0; i < A.mt(); ++i) {
             int64_t ib = A.tileMb(i);
             if (A.tileIsLocal(i, j) && i >= j - kut && i <= j + klt) {
                 // Using Scalapack indxg2l
-                int64_t ii_local = nb*(ii/(nb*p)) + (ii % nb);
+                int64_t ii_local = nb*(ii / (nb*p)) + (ii % nb);
                 A.tileInsert(i, j, A.hostNum(),
                              &Adata[ ii_local + jj_local*lldA ], lldA);
             }

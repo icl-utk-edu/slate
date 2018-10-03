@@ -13,8 +13,7 @@
 #include "slate.hh"
 
 // -----------------------------------------------------------------------------
-class Params: public libtest::ParamsBase
-{
+class Params: public libtest::ParamsBase {
 public:
     const double inf = std::numeric_limits<double>::infinity();
     const double nan = std::numeric_limits<double>::quiet_NaN();
@@ -106,9 +105,9 @@ public:
 
 // -----------------------------------------------------------------------------
 template< typename T >
-inline T roundup( T x, T y )
+inline T roundup(T x, T y)
 {
-    return T( (x + y - 1) / y ) * y;
+    return T((x + y - 1) / y)*y;
 }
 
 // -----------------------------------------------------------------------------
@@ -128,60 +127,60 @@ inline T roundup( T x, T y )
 
 // -----------------------------------------------------------------------------
 // Level 3 BLAS
-void test_gbmm   ( Params& params, bool run );
-void test_gemm   ( Params& params, bool run );
-void test_symm   ( Params& params, bool run );
-void test_syr2k  ( Params& params, bool run );
-void test_syrk   ( Params& params, bool run );
-void test_tbsm   ( Params& params, bool run );
-void test_trsm   ( Params& params, bool run );
-void test_trmm   ( Params& params, bool run );
-void test_hemm   ( Params& params, bool run );
-void test_her2k  ( Params& params, bool run );
-void test_herk   ( Params& params, bool run );
+void test_gbmm   (Params& params, bool run);
+void test_gemm   (Params& params, bool run);
+void test_symm   (Params& params, bool run);
+void test_syr2k  (Params& params, bool run);
+void test_syrk   (Params& params, bool run);
+void test_tbsm   (Params& params, bool run);
+void test_trsm   (Params& params, bool run);
+void test_trmm   (Params& params, bool run);
+void test_hemm   (Params& params, bool run);
+void test_her2k  (Params& params, bool run);
+void test_herk   (Params& params, bool run);
 
 // LU, general
-void test_gesv   ( Params& params, bool run );
-void test_getrf  ( Params& params, bool run );
-void test_getrs  ( Params& params, bool run );
+void test_gesv   (Params& params, bool run);
+void test_getrf  (Params& params, bool run);
+void test_getrs  (Params& params, bool run);
 
 // LU, band
-void test_gbsv   ( Params& params, bool run );
-void test_gbtrf  ( Params& params, bool run );
-void test_gbtrs  ( Params& params, bool run );
+void test_gbsv   (Params& params, bool run);
+void test_gbtrf  (Params& params, bool run);
+void test_gbtrs  (Params& params, bool run);
 
 // Cholesky
-void test_posv   ( Params& params, bool run );
-void test_potrf  ( Params& params, bool run );
-void test_potrs  ( Params& params, bool run );
+void test_posv   (Params& params, bool run);
+void test_potrf  (Params& params, bool run);
+void test_potrs  (Params& params, bool run);
 
 // symmetric indefinite
-void test_sysv   ( Params& params, bool run );
-void test_sytrf  ( Params& params, bool run );
-void test_sytrs  ( Params& params, bool run );
+void test_sysv   (Params& params, bool run);
+void test_sytrf  (Params& params, bool run);
+void test_sytrs  (Params& params, bool run);
 
 // Hermitian indefinite
-void test_hesv   ( Params& params, bool run );
-void test_hetrf  ( Params& params, bool run );
-void test_hetrs  ( Params& params, bool run );
+void test_hesv   (Params& params, bool run);
+void test_hetrf  (Params& params, bool run);
+void test_hetrs  (Params& params, bool run);
 
 // matrix norms
-void test_gbnorm ( Params& params, bool run );
-void test_genorm ( Params& params, bool run );
-void test_henorm ( Params& params, bool run );
-void test_synorm ( Params& params, bool run );
-void test_trnorm ( Params& params, bool run );
+void test_gbnorm (Params& params, bool run);
+void test_genorm (Params& params, bool run);
+void test_henorm (Params& params, bool run);
+void test_synorm (Params& params, bool run);
+void test_trnorm (Params& params, bool run);
 
 // -----------------------------------------------------------------------------
 inline slate::Target char2target(char targetchar)
 {
-    if ( targetchar == 't' )
+    if (targetchar == 't')
         return slate::Target::HostTask;
-    else if ( targetchar == 'n' )
+    else if (targetchar == 'n')
         return slate::Target::HostNest;
-    else if ( targetchar == 'b' )
+    else if (targetchar == 'b')
         return slate::Target::HostBatch;
-    else if ( targetchar == 'd' )
+    else if (targetchar == 'd')
         return slate::Target::Devices;
     return slate::Target::HostTask;
 }

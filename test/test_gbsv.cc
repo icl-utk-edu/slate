@@ -24,7 +24,7 @@ inline int slate_set_num_blas_threads(const int nt) { return -1; }
 #endif
 
 //------------------------------------------------------------------------------
-template <typename scalar_t> void test_gbsv_work(Params &params, bool run)
+template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
 {
     using blas::max;
     using blas::real;
@@ -58,12 +58,12 @@ template <typename scalar_t> void test_gbsv_work(Params &params, bool run)
         return;
 
     // Local values
-    static int i0=0, i1=1;
+    static int i0 = 0, i1 = 1;
 
     // BLACS/MPI variables
     int ictxt, nprow, npcol, myrow, mycol, info;
     int descB_tst[9], descB_ref[9];
-    int iam=0, nprocs=1;
+    int iam = 0, nprocs = 1;
     int iseed = 1;
 
     // initialize BLACS and ScaLAPACK
@@ -79,8 +79,8 @@ template <typename scalar_t> void test_gbsv_work(Params &params, bool run)
     scalapack_descinit(descB_tst, n, nrhs, nb, nb, i0, i0, ictxt, mlocB, &info);
     assert(info == 0);
     int64_t lldB = (int64_t)descB_tst[8];
-    std::vector<scalar_t> B_tst(lldB * nlocB);
-    scalapack_pplrnt(&B_tst[0], n, nrhs, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed+1);
+    std::vector<scalar_t> B_tst(lldB*nlocB);
+    scalapack_pplrnt(&B_tst[0], n, nrhs, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 1);
 
     /// // allocate ipiv locally
     /// size_t ipiv_size = (size_t) (lldA + nb);
@@ -88,17 +88,17 @@ template <typename scalar_t> void test_gbsv_work(Params &params, bool run)
 
     // Create SLATE matrix from the ScaLAPACK layouts
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
-        n, nrhs, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+                 n, nrhs, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
 
     int64_t iseeds[4] = { myrow, mycol, 2, 3 };
     auto A = slate::BandMatrix<scalar_t>(
-        n, n, kl, ku, nb, p, q, MPI_COMM_WORLD);
+                 n, n, kl, ku, nb, p, q, MPI_COMM_WORLD);
     auto A_ref = slate::BandMatrix<scalar_t>(
-        n, n, kl, ku, nb, p, q, MPI_COMM_WORLD);
+                     n, n, kl, ku, nb, p, q, MPI_COMM_WORLD);
     slate::Pivots pivots;
 
-    int64_t klt = slate::ceildiv( kl, nb );
-    int64_t kut = slate::ceildiv( ku, nb );
+    int64_t klt = slate::ceildiv(kl, nb);
+    int64_t kut = slate::ceildiv(ku, nb);
     int64_t jj = 0;
     for (int64_t j = 0; j < A.nt(); ++j) {
         int64_t ii = 0;
@@ -112,14 +112,14 @@ template <typename scalar_t> void test_gbsv_work(Params &params, bool run)
                     for (int64_t ti = 0; ti < T.mb(); ++ti) {
                         int64_t j_i = (jj + tj) - (ii + ti);
                         if (-kl > j_i || j_i > ku) {
-                            T.at( ti, tj ) = 0;
+                            T.at(ti, tj) = 0;
                         }
                     }
                 }
                 auto T2 = A_ref(i, j);
                 lapack::lacpy(lapack::MatrixType::General, T.mb(), T.nb(),
                               T.data(), T.stride(),
-                              T2.data(), T2.stride() );
+                              T2.data(), T2.stride());
             }
             ii += A.tileMb(i);
         }
@@ -232,27 +232,27 @@ template <typename scalar_t> void test_gbsv_work(Params &params, bool run)
 }
 
 // -----------------------------------------------------------------------------
-void test_gbsv(Params &params, bool run)
+void test_gbsv(Params& params, bool run)
 {
-    switch(params.datatype.value()) {
-    case libtest::DataType::Integer:
-        throw std::exception();
-        break;
+    switch (params.datatype.value()) {
+        case libtest::DataType::Integer:
+            throw std::exception();
+            break;
 
-    case libtest::DataType::Single:
-        test_gbsv_work<float>(params, run);
-        break;
+        case libtest::DataType::Single:
+            test_gbsv_work<float>(params, run);
+            break;
 
-    case libtest::DataType::Double:
-        test_gbsv_work<double>(params, run);
-        break;
+        case libtest::DataType::Double:
+            test_gbsv_work<double>(params, run);
+            break;
 
-    case libtest::DataType::SingleComplex:
-        test_gbsv_work<std::complex<float>>(params, run);
-        break;
+        case libtest::DataType::SingleComplex:
+            test_gbsv_work<std::complex<float>>(params, run);
+            break;
 
-    case libtest::DataType::DoubleComplex:
-        test_gbsv_work<std::complex<double>>(params, run);
-        break;
+        case libtest::DataType::DoubleComplex:
+            test_gbsv_work<std::complex<double>>(params, run);
+            break;
     }
 }

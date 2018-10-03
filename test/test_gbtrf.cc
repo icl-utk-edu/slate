@@ -24,7 +24,7 @@ inline int slate_set_num_blas_threads(const int nt) { return -1; }
 #endif
 
 //------------------------------------------------------------------------------
-template <typename scalar_t> void test_gbtrf_work(Params &params, bool run)
+template <typename scalar_t> void test_gbtrf_work(Params& params, bool run)
 {
     using blas::max;
     using blas::real;
@@ -42,9 +42,9 @@ template <typename scalar_t> void test_gbtrf_work(Params &params, bool run)
     int64_t lookahead = params.lookahead.value();
     int64_t panel_threads = params.panel_threads.value();
     lapack::Norm norm = params.norm.value();  // TODO: probably should be specified
-    bool check = params.check.value()=='y';
-    bool ref = params.ref.value()=='y';
-    bool trace = params.trace.value()=='y';
+    bool check = params.check.value() == 'y';
+    bool ref = params.ref.value() == 'y';
+    bool trace = params.trace.value() == 'y';
     int verbose = params.verbose.value();
     slate::Target target = char2target(params.target.value());  // TODO: enum
 
@@ -61,12 +61,12 @@ template <typename scalar_t> void test_gbtrf_work(Params &params, bool run)
     int64_t An = n;
 
     // Local values
-    static int i0=0, i1=1;
+    static int i0 = 0, i1 = 1;
 
     /// // BLACS/MPI variables
     int ictxt, nprow, npcol, myrow, mycol, info;
     /// int descA_tst[9], descA_ref[9];
-    int iam=0, nprocs=1;
+    int iam = 0, nprocs = 1;
     /// int iseed = 1;
 
     // initialize BLACS and ScaLAPACK
@@ -82,7 +82,7 @@ template <typename scalar_t> void test_gbtrf_work(Params &params, bool run)
     /// scalapack_descinit(descA_tst, Am, An, nb, nb, i0, i0, ictxt, mlocA, &info);
     /// assert(info==0);
     /// int64_t lldA = (int64_t)descA_tst[8];
-    /// std::vector<scalar_t> A_tst(lldA * nlocA);
+    /// std::vector<scalar_t> A_tst(lldA*nlocA);
     /// scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
 
     /// // allocate ipiv locally
@@ -96,8 +96,8 @@ template <typename scalar_t> void test_gbtrf_work(Params &params, bool run)
     auto A = slate::BandMatrix<scalar_t>(Am, An, kl, ku, nb, p, q, MPI_COMM_WORLD);
     slate::Pivots pivots;
 
-    int64_t klt = slate::ceildiv( kl, nb );
-    int64_t kut = slate::ceildiv( ku, nb );
+    int64_t klt = slate::ceildiv(kl, nb);
+    int64_t kut = slate::ceildiv(ku, nb);
     int64_t jj = 0;
     for (int64_t j = 0; j < A.nt(); ++j) {
         int64_t ii = 0;
@@ -110,7 +110,7 @@ template <typename scalar_t> void test_gbtrf_work(Params &params, bool run)
                     for (int64_t ti = 0; ti < T.mb(); ++ti) {
                         int64_t j_i = (jj + tj) - (ii + ti);
                         if (-kl > j_i || j_i > ku) {
-                            T.at( ti, tj ) = 0;
+                            T.at(ti, tj) = 0;
                         }
                     }
                 }
@@ -121,8 +121,8 @@ template <typename scalar_t> void test_gbtrf_work(Params &params, bool run)
     }
 
     if (verbose > 0) {
-        printf( "rank %d A2 kl %lld, ku %lld\n",
-                A.mpiRank(), (lld) A.lowerBandwidth(), (lld) A.upperBandwidth() );
+        printf("rank %d A2 kl %lld, ku %lld\n",
+               A.mpiRank(), (lld) A.lowerBandwidth(), (lld) A.upperBandwidth());
     }
     if (verbose > 1) {
         print_matrix("A", A);
@@ -171,8 +171,8 @@ template <typename scalar_t> void test_gbtrf_work(Params &params, bool run)
     ///params.gflops.value() = gflop / time_tst;
 
     if (verbose > 0) {
-        printf( "rank %d A2 kl %lld, ku %lld\n",
-                A.mpiRank(), (lld) A.lowerBandwidth(), (lld) A.upperBandwidth() );
+        printf("rank %d A2 kl %lld, ku %lld\n",
+               A.mpiRank(), (lld) A.lowerBandwidth(), (lld) A.upperBandwidth());
     }
     if (verbose > 1) {
         print_matrix("A2", A);
@@ -229,27 +229,27 @@ template <typename scalar_t> void test_gbtrf_work(Params &params, bool run)
 }
 
 // -----------------------------------------------------------------------------
-void test_gbtrf(Params &params, bool run)
+void test_gbtrf(Params& params, bool run)
 {
-    switch(params.datatype.value()) {
-    case libtest::DataType::Integer:
-        throw std::exception();
-        break;
+    switch (params.datatype.value()) {
+        case libtest::DataType::Integer:
+            throw std::exception();
+            break;
 
-    case libtest::DataType::Single:
-        test_gbtrf_work<float> (params, run);
-        break;
+        case libtest::DataType::Single:
+            test_gbtrf_work<float> (params, run);
+            break;
 
-    case libtest::DataType::Double:
-        test_gbtrf_work<double> (params, run);
-        break;
+        case libtest::DataType::Double:
+            test_gbtrf_work<double> (params, run);
+            break;
 
-    case libtest::DataType::SingleComplex:
-        test_gbtrf_work<std::complex<float>> (params, run);
-        break;
+        case libtest::DataType::SingleComplex:
+            test_gbtrf_work<std::complex<float>> (params, run);
+            break;
 
-    case libtest::DataType::DoubleComplex:
-        test_gbtrf_work<std::complex<double>> (params, run);
-        break;
+        case libtest::DataType::DoubleComplex:
+            test_gbtrf_work<std::complex<double>> (params, run);
+            break;
     }
 }

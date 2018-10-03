@@ -26,7 +26,7 @@ inline int slate_set_num_blas_threads(const int nt) { return -1; }
 
 //------------------------------------------------------------------------------
 template<typename scalar_t>
-void test_tbsm_work(Params &params, bool run)
+void test_tbsm_work(Params& params, bool run)
 {
     //using lld = long long;
     using real_t = blas::real_type<scalar_t>;
@@ -49,9 +49,9 @@ void test_tbsm_work(Params &params, bool run)
     int64_t q = params.q.value();
     int64_t lookahead = params.lookahead.value();
     lapack::Norm norm = params.norm.value();
-    bool check = params.check.value()=='y';
-    bool ref = params.ref.value()=='y';
-    bool trace = params.trace.value()=='y';
+    bool check = params.check.value() == 'y';
+    bool ref = params.ref.value() == 'y';
+    bool trace = params.trace.value() == 'y';
     int verbose = params.verbose.value();
     slate::Target target = char2target(params.target.value());
 
@@ -73,12 +73,12 @@ void test_tbsm_work(Params &params, bool run)
     int64_t Bn  = n;  //(transB == blas::Op::NoTrans ? n : m);
 
     // local values
-    const int izero=0, ione=1;
+    const int izero = 0, ione = 1;
 
     // BLACS/MPI variables
     int ictxt, nprow, npcol, myrow, mycol, info;
     int descA_tst[9], descB_tst[9], descB_ref[9];
-    int iam=0, nprocs=1;
+    int iam = 0, nprocs = 1;
     int iseed = 1;
 
     // initialize BLACS and ScaLAPACK
@@ -93,35 +93,35 @@ void test_tbsm_work(Params &params, bool run)
     int64_t mlocA = scalapack_numroc(Am, nb, myrow, izero, nprow);
     int64_t nlocA = scalapack_numroc(An, nb, mycol, izero, npcol);
     scalapack_descinit(descA_tst, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
-    assert(info==0);
+    assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
-    std::vector<scalar_t> A_tst(lldA * nlocA);
-    scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
+    std::vector<scalar_t> A_tst(lldA*nlocA);
+    scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
     zeroOutsideBand(&A_tst[0], Am, An, kd, kd, nb, nb, myrow, mycol, nprow, npcol, mlocA);
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
     int64_t mlocB = scalapack_numroc(Bm, nb, myrow, izero, nprow);
     int64_t nlocB = scalapack_numroc(Bn, nb, mycol, izero, npcol);
     scalapack_descinit(descB_tst, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
-    assert(info==0);
+    assert(info == 0);
     int64_t lldB = (int64_t)descB_tst[8];
-    std::vector<scalar_t> B_tst(lldB * nlocB);
-    scalapack_pplrnt(&B_tst[0], Bm, Bn, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed+2);
+    std::vector<scalar_t> B_tst(lldB*nlocB);
+    scalapack_pplrnt(&B_tst[0], Bm, Bn, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 2);
 
     // if check is required, copy test data and create a descriptor for it
     std::vector< scalar_t > B_ref;
     if (check || ref) {
         scalapack_descinit(descB_ref, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
-        assert(info==0);
+        assert(info == 0);
         B_ref = B_tst;
     }
 
     // create SLATE matrices from the ScaLAPACK layouts
     auto Aband = BandFromScaLAPACK(
-        Am, An, kd, kd, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+                     Am, An, kd, kd, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     auto A = slate::TriangularBandMatrix<scalar_t>(uplo, diag, Aband);
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK
-        (Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+             (Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
     slate::Pivots pivots;
 
     // Make A diagonally dominant to be reasonably well conditioned.
@@ -164,7 +164,7 @@ void test_tbsm_work(Params &params, bool run)
     }
     double time = libtest::get_wtime();
 
-//printf("%% tbsm\n");
+    //printf("%% tbsm\n");
     //----------------------------------------
     // call the routine
     slate::tbsm(side, alpha, A, pivots, B, {
@@ -191,7 +191,7 @@ void test_tbsm_work(Params &params, bool run)
     }
 
     if (check || ref) {
-//printf("%% check & ref\n");
+        //printf("%% check & ref\n");
         // comparison with reference routine from ScaLAPACK
 
         // set MKL num threads appropriately for parallel BLAS
@@ -216,9 +216,9 @@ void test_tbsm_work(Params &params, bool run)
         MPI_Barrier(MPI_COMM_WORLD);
         time = libtest::get_wtime();
         scalapack_ptrsm(side2str(side), uplo2str(uplo), op2str(transA), diag2str(diag),
-                         m, n, alpha,
-                         &A_tst[0], ione, ione, descA_tst,
-                         &B_ref[0], ione, ione, descB_ref);
+                        m, n, alpha,
+                        &A_tst[0], ione, ione, descA_tst,
+                        &B_ref[0], ione, ione, descB_ref);
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 
@@ -235,7 +235,7 @@ void test_tbsm_work(Params &params, bool run)
             print_matrix("B_diff", mlocB, nlocB, &B_ref[0], lldB, p, q, MPI_COMM_WORLD);
         }
         real_t error = B_diff_norm
-                       / (sqrt(real_t(Am)+2) * std::abs(alpha) * A_orig_norm * B_orig_norm);
+                     / (sqrt(real_t(Am) + 2) * std::abs(alpha) * A_orig_norm * B_orig_norm);
 
         params.ref_time.value() = time_ref;
         //params.ref_gflops.value() = gflop / time_ref;
@@ -247,21 +247,21 @@ void test_tbsm_work(Params &params, bool run)
         real_t eps = std::numeric_limits<real_t>::epsilon();
         params.okay.value() = (params.error.value() <= 3*eps);
     }
-//printf("%% done\n");
+    //printf("%% done\n");
 
-#ifdef PIN_MATRICES
+    #ifdef PIN_MATRICES
     cuerror = cudaHostUnregister(&A_tst[0]);
     cuerror = cudaHostUnregister(&B_tst[0]);
-#endif
+    #endif
 
     //Cblacs_exit(1) is commented out because it does not handle re-entering ... some unknown problem
     //Cblacs_exit(1); // 1 means that you can run Cblacs again
 }
 
 // -----------------------------------------------------------------------------
-void test_tbsm(Params &params, bool run)
+void test_tbsm(Params& params, bool run)
 {
-    switch(params.datatype.value()) {
+    switch (params.datatype.value()) {
         case libtest::DataType::Integer:
             throw std::exception();
             break;

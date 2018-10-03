@@ -103,10 +103,10 @@ std::vector< libtest::routines_t > routines = {
     { "posv",               test_posv,         Section::posv },
     { "",                   nullptr,           Section::newline },
 
-    { "potrf",              test_potrf,        Section::posv },
+    { "potrf",              test_posv,         Section::posv },
     { "",                   nullptr,           Section::newline },
 
-    { "potrs",              test_potrs,        Section::posv },
+    { "potrs",              test_posv,         Section::posv },
     { "",                   nullptr,           Section::newline },
 
     // -----

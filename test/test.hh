@@ -143,8 +143,6 @@ void test_herk   (Params& params, bool run);
 
 // LU, general
 void test_gesv   (Params& params, bool run);
-void test_getrf  (Params& params, bool run);
-void test_getrs  (Params& params, bool run);
 
 // LU, band
 void test_gbsv   (Params& params, bool run);
@@ -153,8 +151,6 @@ void test_gbtrs  (Params& params, bool run);
 
 // Cholesky
 void test_posv   (Params& params, bool run);
-void test_potrf  (Params& params, bool run);
-void test_potrs  (Params& params, bool run);
 
 // symmetric indefinite
 void test_sysv   (Params& params, bool run);

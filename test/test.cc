@@ -199,7 +199,7 @@ Params::Params():
     dim       ("dim",     6,    ParamType::List,          0, 1000000, "m x n x k dimensions"),
     nb        ("nb",      5,    ParamType::List, 50,      0, 1000000, "nb"),
     nt        ("nt",      5,    ParamType::List, 3,       0, 1000000, "nt"),
-    ib        ("ib",      5,    ParamType::List, 1,       0, 1000000, "ib"),
+    ib        ("ib",      5,    ParamType::List, 16,      0, 1000000, "ib"),
     p         ("p",       4,    ParamType::List, 1,       0, 1000000, "p"),
     q         ("q",       4,    ParamType::List, 1,       0, 1000000, "q"),
     lookahead ("lookahead", 5,  ParamType::List, 1,       0, 1000000, "number of lookahead panels"),

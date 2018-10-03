@@ -153,7 +153,7 @@ void test_herk_work(Params& params, bool run)
         // allocate workspace for norms
         size_t ldw = nb*ceil(ceil(mlocC / (double) nb) / (scalapack_ilcm(&nprow, &npcol) / nprow));
         std::vector<real_t> worklansy(2*nlocC + mlocC + ldw);
-        std::vector<real_t> worklange(std::max({ mlocA, nlocA }));
+        std::vector<real_t> worklange(std::max(mlocA, nlocA));
 
         // get norms of the original data
         real_t A_norm = scalapack_plange(norm2str(norm), Am, An, &A_tst[0], ione, ione, descA_tst, &worklange[0]);

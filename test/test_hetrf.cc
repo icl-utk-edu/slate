@@ -166,8 +166,8 @@ template <typename scalar_t> void test_hetrf_work(Params& params, bool run)
         });
 
         // allocate work space
-        std::vector<real_t> worklangeA(std::max({mlocA, nlocA}));
-        std::vector<real_t> worklangeB(std::max({mlocB, nlocB}));
+        std::vector<real_t> worklangeA(std::max(mlocA, nlocA));
+        std::vector<real_t> worklangeB(std::max(mlocB, nlocB));
 
         // Norm of the orig matrix: || A ||_I
         real_t A_norm = scalapack_plange(norm2str(norm), Am, An, &A_ref[0], ione, ione, descA_ref, &worklangeA[0]);

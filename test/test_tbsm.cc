@@ -201,8 +201,8 @@ void test_tbsm_work(Params& params, bool run)
         { omp_num_threads = omp_get_num_threads(); }
         int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-        std::vector<real_t> worklantr(std::max({ mlocA, nlocA }));
-        std::vector<real_t> worklange(std::max({ mlocB, nlocB }));
+        std::vector<real_t> worklantr(std::max(mlocA, nlocA));
+        std::vector<real_t> worklange(std::max(mlocB, nlocB));
 
         // get norms of the original data
         real_t A_norm = scalapack_plantr(norm2str(norm), uplo2str(uplo), diag2str(diag), Am, An, &A_tst[0], ione, ione, descA_tst, &worklantr[0]);

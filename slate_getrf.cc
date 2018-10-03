@@ -258,7 +258,7 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
         assert(max_panel_threads >= 1);
     }
     catch (std::out_of_range) {
-        max_panel_threads = std::max(omp_get_max_threads(), 1);
+        max_panel_threads = std::max(omp_get_max_threads()/2, 1);
     }
 
     internal::specialization::getrf(internal::TargetType<target>(),

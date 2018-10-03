@@ -39,6 +39,7 @@ template <typename scalar_t> void test_gbtrf_work(Params& params, bool run)
     int64_t p = params.p();
     int64_t q = params.q();
     int64_t nb = params.nb();
+    int64_t ib = params.ib();
     int64_t lookahead = params.lookahead();
     int64_t panel_threads = params.panel_threads();
     lapack::Norm norm = params.norm();  // TODO: probably should be specified
@@ -155,7 +156,8 @@ template <typename scalar_t> void test_gbtrf_work(Params& params, bool run)
     slate::gbtrf(A, pivots, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
-        {slate::Option::MaxPanelThreads, panel_threads}
+        {slate::Option::MaxPanelThreads, panel_threads},
+        {slate::Option::InnerBlocking, ib}
     });
 
     {

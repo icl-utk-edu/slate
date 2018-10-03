@@ -100,6 +100,8 @@ public:
     libtest::ParamInt        ref_iters;
 
     libtest::ParamOkay       okay;
+
+    std::string              routine;
 };
 
 

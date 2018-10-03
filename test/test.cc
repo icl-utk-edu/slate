@@ -90,11 +90,11 @@ std::vector< libtest::routines_t > routines = {
     { "gbsv",               test_gbsv,         Section::gesv },
     { "",                   nullptr,           Section::newline },
 
-    { "getrf",              test_getrf,        Section::gesv },
+    { "getrf",              test_gesv,         Section::gesv },
     { "gbtrf",              test_gbtrf,        Section::gesv },
     { "",                   nullptr,           Section::newline },
 
-    { "getrs",              test_getrs,        Section::gesv },
+    { "getrs",              test_gesv,         Section::gesv },
     { "gbtrs",              test_gbtrs,        Section::gesv },
     { "",                   nullptr,           Section::newline },
 
@@ -393,6 +393,7 @@ int main(int argc, char** argv)
 
         // mark fields that are used (run=false)
         Params params;
+        params.routine = routine;
         test_routine(params, false);
 
         // Make default p x q grid as square as possible.

@@ -281,8 +281,6 @@ test_src += \
         test/test_gbmm.cc \
         test/test_gbnorm.cc \
         test/test_gbsv.cc \
-        test/test_gbtrf.cc \
-        test/test_gbtrs.cc \
         test/test_gemm.cc \
         test/test_genorm.cc \
         test/test_gesv.cc \

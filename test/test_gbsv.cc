@@ -25,6 +25,16 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
     using lld = long long;
 
     // get & mark input values
+    slate::Op trans = slate::Op::NoTrans;
+    if (params.routine == "gbtrs")
+        trans = params.trans();
+
+    int64_t m;
+    if (params.routine == "gbtrf")
+        m = params.dim.m();
+    else
+        m = params.dim.n();  // square, n-by-n
+
     int64_t n = params.dim.n();
     int64_t nrhs = params.nrhs();
     int64_t kl = params.kl();
@@ -35,18 +45,18 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
     int64_t ib = params.ib();
     int64_t lookahead = params.lookahead();
     int64_t panel_threads = params.panel_threads();
-    slate::Norm norm = params.norm();
-    bool check = params.check() == 'y';
-    bool ref = params.ref() == 'y';
+    bool ref_only = params.ref() == 'o';
+    bool ref = params.ref() == 'y' || ref_only;
+    bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
     slate::Target target = char2target(params.target());  // TODO: enum
 
     // mark non-standard output values
     params.time();
-    params.gflops();
-    params.ref_time();
-    params.ref_gflops();
+    //params.gflops();
+    //params.ref_time();
+    //params.ref_gflops();
 
     if (! run)
         return;
@@ -68,27 +78,21 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocB = scalapack_numroc(n,    nb, myrow, izero, nprow);
+    int64_t mlocB = scalapack_numroc(n, nb, myrow, izero, nprow);
     int64_t nlocB = scalapack_numroc(nrhs, nb, mycol, izero, npcol);
     scalapack_descinit(descB_tst, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
     assert(info == 0);
     int64_t lldB = (int64_t)descB_tst[8];
     std::vector<scalar_t> B_tst(lldB*nlocB);
-    scalapack_pplrnt(&B_tst[0], n, nrhs, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 1);
-
-    /// // allocate ipiv locally
-    /// size_t ipiv_size = (size_t) (lldA + nb);
-    /// std::vector<int> ipiv_tst(ipiv_size);
+    scalapack_pplrnt(&B_tst[0], n, nrhs, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 2);
 
     // Create SLATE matrix from the ScaLAPACK layouts
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
                  n, nrhs, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
 
     int64_t iseeds[4] = { myrow, mycol, 2, 3 };
-    auto A = slate::BandMatrix<scalar_t>(
-                 n, n, kl, ku, nb, p, q, MPI_COMM_WORLD);
-    auto A_ref = slate::BandMatrix<scalar_t>(
-                     n, n, kl, ku, nb, p, q, MPI_COMM_WORLD);
+    auto A     = slate::BandMatrix<scalar_t>(m, n, kl, ku, nb, p, q, MPI_COMM_WORLD);
+    auto Aorig = slate::BandMatrix<scalar_t>(m, n, kl, ku, nb, p, q, MPI_COMM_WORLD);
     slate::Pivots pivots;
 
     int64_t klt = slate::ceildiv(kl, nb);
@@ -99,7 +103,7 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
         for (int64_t i = 0; i < A.mt(); ++i) {
             if (i >= j - kut && i <= j + klt) {
                 A.tileInsert(i, j);
-                A_ref.tileInsert(i, j);
+                Aorig.tileInsert(i, j);
                 auto T = A(i, j);
                 lapack::larnv(2, iseeds, T.size(), T.data());
                 for (int64_t tj = 0; tj < T.nb(); ++tj) {
@@ -110,7 +114,7 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
                         }
                     }
                 }
-                auto T2 = A_ref(i, j);
+                auto T2 = Aorig(i, j);
                 lapack::lacpy(lapack::MatrixType::General, T.mb(), T.nb(),
                               T.data(), T.stride(),
                               T2.data(), T2.stride());
@@ -126,103 +130,159 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
         print_matrix("A", A);
     }
 
-    // TODO: keep copy of A and B for residual check B - AX. Or regenerate A.
-    /// // if check is required, copy test data and create a descriptor for it
-    /// std::vector<scalar_t> A_ref;
-    /// std::vector<int> ipiv_ref;
-    /// if (check || ref) {
-    ///     A_ref = A_tst;
-    ///     scalapack_descinit(descA_ref, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
-    ///     assert(info == 0);
-    ///     ipiv_ref.resize(ipiv_tst.size());
-    /// }
+    // if check is required, copy test data and create a descriptor for it
+    slate::Matrix<scalar_t> Bref;
+    std::vector<scalar_t> B_ref;
+    if (check || ref) {
+        B_ref = B_tst;
+        scalapack_descinit(descB_ref, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
+        assert(info == 0);
 
-    if (trace) slate::trace::Trace::on();
-    else slate::trace::Trace::off();
-
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time = libtest::get_wtime();
-
-    //==================================================
-    // Run SLATE test.
-    // Solve AX = B, including factoring A.
-    //==================================================
-    slate::gbsv(A, pivots, B, {
-        {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target},
-        {slate::Option::MaxPanelThreads, panel_threads},
-        {slate::Option::InnerBlocking, ib}
-    });
-
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time_tst = libtest::get_wtime() - time;
-
-    if (trace) slate::trace::Trace::finish();
-
-    // compute and save timing/performance
-    ///double gflop = lapack::Gflop<scalar_t>::gbsv(m, n);
-    params.time() = time_tst;
-    ///params.gflops() = gflop / time_tst;
-
-    if (verbose > 1) {
-        printf("%% rank %d A2 kl %lld, ku %lld\n",
-               A.mpiRank(), (lld) A.lowerBandwidth(), (lld) A.upperBandwidth());
-        print_matrix("A2", A);
+        Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                   n, nrhs, &B_ref[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
     }
 
-    /// if (check || ref) {
-    ///     // A comparison with a reference routine from ScaLAPACK
-    ///
-    ///     // set MKL num threads appropriately for parallel BLAS
-    ///     int omp_num_threads;
-    ///     #pragma omp parallel
-    ///     { omp_num_threads = omp_get_num_threads(); }
-    ///     int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-    ///     int64_t info_ref=0;
-    ///
-    ///     // allocate work space
-    ///     std::vector<real_t> worklange(std::max(mlocA, nlocA));
-    ///
-    ///     //==================================================
-    ///     // Run ScaLAPACK reference routine.
-    ///     //==================================================
-    ///     MPI_Barrier(MPI_COMM_WORLD);
-    ///     time = libtest::get_wtime();
-    ///     scalapack_pgbsv(n, nrhs, &A_ref[0], ione, ione, descA_ref, &ipiv_ref[0], ... B ..., &info_ref);
-    ///     assert(0 == info_ref);
-    ///     MPI_Barrier(MPI_COMM_WORLD);
-    ///     double time_ref = libtest::get_wtime() - time;
-    ///
-    ///     // todo: The IPIV needs to be checked
-    ///
-    ///     // Norm of the reference result
-    ///     real_t A_ref_norm = scalapack_plange(norm2str(norm), n, n, &A_ref[0], ione, ione, descA_ref, &worklange[0]);
-    ///
-    ///     // local operation: error = A_ref = A_ref - A_tst;   ipiv_ref = ipiv_ref - ipiv_tst
-    ///     blas::axpy(A_ref.size(), -1.0, &A_tst[0], 1, &A_ref[0], 1);
-    ///
-    ///     // error = norm(error)
-    ///     real_t error_norm = scalapack_plange(norm2str(norm), n, n, &A_ref[0], ione, ione, descA_ref, &worklange[0]);
-    ///
-    ///     // error = error / reference;
-    ///     if (A_ref_norm != 0)
-    ///         error_norm /= A_ref_norm;
-    ///
-    ///     params.ref_time() = time_ref;
-    ///     params.ref_gflops() = gflop / time_ref;
-    ///     params.error() = error_norm;
-    ///
-    ///     slate_set_num_blas_threads(saved_num_threads);
-    ///
-    ///     real_t eps = std::numeric_limits<real_t>::epsilon();
-    ///     params.okay() = (params.error() <= 3*eps);
-    /// }
+    // todo: gflops formula for band.
+    //double gflop;
+    //if (params.routine == "getrf")
+    //    gflop = lapack::Gflop<scalar_t>::getrf(m, n);
+    //else if (params.routine == "getrs")
+    //    gflop = lapack::Gflop<scalar_t>::getrs(n, nrhs);
+    //else
+    //    gflop = lapack::Gflop<scalar_t>::gesv(n, nrhs);
+
+    if (! ref_only) {
+        if (params.routine == "gbtrs") {
+            // Factor matrix A.
+            slate::gbtrf(A, pivots, {
+                {slate::Option::Lookahead, lookahead},
+                {slate::Option::Target, target},
+                {slate::Option::MaxPanelThreads, panel_threads},
+                {slate::Option::InnerBlocking, ib}
+            });
+        }
+
+        if (trace) slate::trace::Trace::on();
+        else slate::trace::Trace::off();
+
+        {
+            slate::trace::Block trace_block("MPI_Barrier");
+            MPI_Barrier(MPI_COMM_WORLD);
+        }
+        double time = libtest::get_wtime();
+
+        //==================================================
+        // Run SLATE test.
+        // One of:
+        // gbtrf: Factor PA = LU.
+        // gbtrs: Solve AX = B, after factoring A above.
+        // gbsv:  Solve AX = B, including factoring A.
+        //==================================================
+        if (params.routine == "gbtrf") {
+            slate::gbtrf(A, pivots, {
+                {slate::Option::Lookahead, lookahead},
+                {slate::Option::Target, target},
+                {slate::Option::MaxPanelThreads, panel_threads},
+                {slate::Option::InnerBlocking, ib}
+            });
+        }
+        else if (params.routine == "gbtrs") {
+            auto opA = A;
+            if (trans == slate::Op::Trans)
+                opA = transpose(A);
+            else if (trans == slate::Op::ConjTrans)
+                opA = conj_transpose(A);
+
+            slate::gbtrs(opA, pivots, B, {
+                {slate::Option::Lookahead, lookahead},
+                {slate::Option::Target, target}
+            });
+        }
+        else {
+            slate::gbsv(A, pivots, B, {
+                {slate::Option::Lookahead, lookahead},
+                {slate::Option::Target, target},
+                {slate::Option::MaxPanelThreads, panel_threads},
+                {slate::Option::InnerBlocking, ib}
+            });
+        }
+
+        {
+            slate::trace::Block trace_block("MPI_Barrier");
+            MPI_Barrier(MPI_COMM_WORLD);
+        }
+        double time_tst = libtest::get_wtime() - time;
+
+        if (trace) slate::trace::Trace::finish();
+
+        // compute and save timing/performance
+        params.time() = time_tst;
+        ///params.gflops() = gflop / time_tst;
+
+        if (verbose > 1) {
+            printf("%% rank %d A2 kl %lld, ku %lld\n",
+                   A.mpiRank(), (lld) A.lowerBandwidth(), (lld) A.upperBandwidth());
+            print_matrix("A2", A);
+        }
+    }
+
+    if (check) {
+        //==================================================
+        // Test results by checking the residual
+        //
+        //           || B - AX ||_1
+        //     --------------------------- < tol * epsilon
+        //      || A ||_1 * || X ||_1 * N
+        //
+        //==================================================
+
+        // LAPACK (dget02) does
+        // max_j || A * x_j - b_j ||_1 / (|| A ||_1 * || x_j ||_1).
+        // No N?
+
+        if (params.routine == "gbtrf") {
+            // Solve AX = B.
+            slate::gbtrs(A, pivots, B, {
+                {slate::Option::Lookahead, lookahead},
+                {slate::Option::Target, target}
+            });
+        }
+
+        // allocate work space
+        std::vector<real_t> worklangeB(std::max(mlocB, nlocB));
+
+        // Norm of original matrix: || A ||_1
+        real_t A_norm = slate::norm(slate::Norm::One, Aorig);
+        // Norm of updated rhs matrix: || X ||_1
+        real_t X_norm = scalapack_plange("1", n, nrhs, &B_tst[0], ione, ione, descB_tst, &worklangeB[0]);
+
+        // B_ref -= op(Aref)*B_tst
+        auto opAorig = Aorig;
+        if (trans == slate::Op::Trans)
+            opAorig = transpose(Aorig);
+        else if (trans == slate::Op::ConjTrans)
+            opAorig = conj_transpose(Aorig);
+        slate::gbmm(scalar_t(-1.0), opAorig, B, scalar_t(1.0), Bref);
+
+        // Norm of residual: || B - AX ||_1
+        real_t R_norm = scalapack_plange("1", n, nrhs, &B_ref[0], ione, ione, descB_ref, &worklangeB[0]);
+        double residual = R_norm / (n*A_norm*X_norm);
+        params.error() = residual;
+
+        real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+        params.okay() = (params.error() <= tol);
+
+        if (verbose > 0) {
+            printf("Anorm = %.4e; Xnorm = %.4e; Rnorm = %.4e; error = %.4e;\n",
+                   A_norm, X_norm, R_norm, residual);
+        }
+        if (verbose > 1) {
+            print_matrix("Residual", n, nrhs, &B_ref[0], lldB, p, q, MPI_COMM_WORLD);
+        }
+    }
+
+    // todo: reference solution requires setting up band matrix in ScaLAPACK's
+    // band storage format.
 
     // Cblacs_exit is commented out because it does not handle re-entering ... some unknown problem
     // Cblacs_exit( 1 ); // 1 means that you can run Cblacs again

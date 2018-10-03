@@ -146,8 +146,6 @@ void test_gesv   (Params& params, bool run);
 
 // LU, band
 void test_gbsv   (Params& params, bool run);
-void test_gbtrf  (Params& params, bool run);
-void test_gbtrs  (Params& params, bool run);
 
 // Cholesky
 void test_posv   (Params& params, bool run);

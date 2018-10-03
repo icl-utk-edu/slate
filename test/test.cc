@@ -91,11 +91,11 @@ std::vector< libtest::routines_t > routines = {
     { "",                   nullptr,           Section::newline },
 
     { "getrf",              test_gesv,         Section::gesv },
-    { "gbtrf",              test_gbtrf,        Section::gesv },
+    { "gbtrf",              test_gbsv,         Section::gesv },
     { "",                   nullptr,           Section::newline },
 
     { "getrs",              test_gesv,         Section::gesv },
-    { "gbtrs",              test_gbtrs,        Section::gesv },
+    { "gbtrs",              test_gbsv,         Section::gesv },
     { "",                   nullptr,           Section::newline },
 
     // -----

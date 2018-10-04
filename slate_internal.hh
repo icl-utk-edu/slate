@@ -354,10 +354,19 @@ void norm(Norm in_norm, BandMatrix<scalar_t>&& A,
 
 //-----------------------------------------
 // getrf()
+// todo: Make the signatures of getrf and geqrf uniform.
+//       Probably best to do A, pivot, ib, diag_let, ib, ...
+//       Possibly compute diag_len in internal.
 template <Target target=Target::HostTask, typename scalar_t>
 void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
            std::vector<Pivot>& pivot,
            int max_panel_threads, int priority=0);
+
+//-----------------------------------------
+// geqrf()
+template <Target target=Target::HostTask, typename scalar_t>
+void geqrf(Matrix<scalar_t>&& A, Matrix<scalar_t>&& T,
+           int64_t diag_len, int64_t ib, int max_panel_threads, int priority=0);
 
 //-----------------------------------------
 // potrf()

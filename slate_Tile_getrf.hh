@@ -145,6 +145,7 @@ void getrf_swap(
 /// \param[in] tile_indices
 ///     i indices of the tiles in the panel
 ///
+/// todo: Remove? Seems to be unused.
 /// \param[in] tile_offsets
 ///     i element offsets of the tiles in the panel
 ///

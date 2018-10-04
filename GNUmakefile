@@ -31,7 +31,7 @@
 NVCC ?= nvcc
 
 CXXFLAGS += -O3 -std=c++11 -Wall -pedantic -MMD
-NVCCFLAGS += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
+NVCCFLAGS += -O3 --compiler-options '-Wall -Wno-unused-function'
 
 # auto-detect OS
 # $OSTYPE may not be exported from the shell, so echo it
@@ -221,6 +221,7 @@ lib_src += \
         slate_internal_gemm.cc \
         slate_internal_gemm_A.cc \
         slate_internal_genorm.cc \
+        slate_internal_geqrf.cc \
         slate_internal_getrf.cc \
         slate_internal_hemm.cc \
         slate_internal_henorm.cc \
@@ -257,6 +258,7 @@ lib_src += \
         slate_gbtrs.cc \
         slate_gemm.cc \
         slate_gesv.cc \
+        slate_geqrf.cc \
         slate_getrf.cc \
         slate_getrs.cc \
         slate_hemm.cc \

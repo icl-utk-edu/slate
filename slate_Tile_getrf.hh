@@ -145,10 +145,6 @@ void getrf_swap(
 /// \param[in] tile_indices
 ///     i indices of the tiles in the panel
 ///
-/// todo: Remove? Seems to be unused.
-/// \param[in] tile_offsets
-///     i element offsets of the tiles in the panel
-///
 /// \param[inout] pivot
 ///     pivots produced by the panel factorization
 ///
@@ -190,7 +186,6 @@ void getrf(
     int64_t diag_len, int64_t ib,
     std::vector< Tile<scalar_t> >& tiles,
     std::vector<int64_t>& tile_indices,
-    std::vector<int64_t>& tile_offsets,
     std::vector< AuxPivot<scalar_t> >& pivot,
     int mpi_rank, int mpi_root, MPI_Comm mpi_comm,
     int thread_rank, int thread_size,

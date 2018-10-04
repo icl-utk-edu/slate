@@ -84,7 +84,6 @@ void getrf(internal::TargetType<Target::HostTask>,
     // lists of local tiles, indices, and offsets
     std::vector< Tile<scalar_t> > tiles;
     std::vector<int64_t> tile_indices;
-    std::vector<int64_t> tile_offsets;
 
     // Build the broadcast set.
     // Build lists of local tiles, indices, and offsets.
@@ -95,7 +94,6 @@ void getrf(internal::TargetType<Target::HostTask>,
         if (A.tileIsLocal(i, 0)) {
             tiles.push_back(A(i, 0));
             tile_indices.push_back(i);
-            tile_offsets.push_back(tile_offset);
         }
         tile_offset += A.tileMb(i);
     }
@@ -141,7 +139,7 @@ void getrf(internal::TargetType<Target::HostTask>,
         {
             // Factor the panel in parallel.
             getrf(diag_len, ib,
-                  tiles, tile_indices, tile_offsets,
+                  tiles, tile_indices,
                   aux_pivot,
                   bcast_rank, bcast_root, bcast_comm,
                   thread_rank, thread_size,

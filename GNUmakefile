@@ -485,6 +485,7 @@ scalapack_api_src += \
         scalapack_api/scalapack_lansy.cc \
         scalapack_api/scalapack_lantr.cc \
         scalapack_api/scalapack_potrf.cc \
+        scalapack_api/scalapack_getrf.cc \
         scalapack_api/scalapack_symm.cc \
         scalapack_api/scalapack_syr2k.cc \
         scalapack_api/scalapack_syrk.cc \

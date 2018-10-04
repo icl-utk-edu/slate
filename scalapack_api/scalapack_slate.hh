@@ -40,6 +40,9 @@
 #ifndef SCALAPACK_API_COMMON_HH
 #define SCALAPACK_API_COMMON_HH
 
+// get BLAS_FORTRAN_NAME and blas_int
+#include "blas_fortran.hh"
+
 #include "slate.hh"
 #include <complex>
 
@@ -191,6 +194,33 @@ inline int slate_scalapack_set_verbose()
     }
     return verbose;
 }
+
+// -----------------------------------------------------------------------------
+// helper funtion to check and do type conversion
+// TODO: this is duplicated at the testing module
+inline int int64_to_int(int64_t n)
+{
+    if (sizeof(int64_t) > sizeof(blas_int))
+        assert(n < std::numeric_limits<int>::max());
+    int n_ = (int)n;
+    return n_;
+}
+
+// TODO: this is duplicated at the testing module
+#define scalapack_numroc BLAS_FORTRAN_NAME(numroc,NUMROC)
+extern "C" int scalapack_numroc(int* n, int* nb, int* iproc, int* isrcproc, int* nprocs);
+inline int64_t scalapack_numroc(int64_t n, int64_t nb, int iproc, int isrcproc, int nprocs)
+{
+    int n_ = int64_to_int(n);
+    int nb_ = int64_to_int(nb);
+    int nroc_ = scalapack_numroc(&n_, &nb_, &iproc, &isrcproc, &nprocs);
+    int64_t nroc = (int64_t)nroc_;
+    return nroc;
+}
+
+#define scalapack_indxl2g BLAS_FORTRAN_NAME(indxl2g,INDXL2G)
+extern "C" int scalapack_indxl2g (int *indxloc, int *nb, int *iproc, int *isrcproc, int *nprocs);
+
 
 } // namespace scalapack_api
 } // namespace slate

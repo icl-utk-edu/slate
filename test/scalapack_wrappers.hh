@@ -73,10 +73,6 @@ extern "C" int scalapack_indxg2p(int* indxglob, int* nb, int* iproc, int* isrcpr
 #define scalapack_indxg2l BLAS_FORTRAN_NAME(indxg2l,INDXG2L)
 extern "C" int scalapack_indxg2l(int* indxglob, int* nb, int* iproc, int* isrcproc, int* nprocs);
 
-#define scalapack_indxl2g BLAS_FORTRAN_NAME(indxl2g,INDXL2G)
-extern "C" int scalapack_indxl2g (int *indxloc, int *nb, int *iproc, int *isrcproc, int *nprocs);
-
-
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // Type generic ScaLAPACK wrappers

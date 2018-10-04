@@ -40,7 +40,6 @@
 #include "slate.hh"
 #include "scalapack_slate.hh"
 #include <complex>
-#include "../test/scalapack_wrappers.hh"
 
 #ifdef SLATE_WITH_MKL
 extern "C" int MKL_Set_Num_Threads(int nt);
@@ -152,8 +151,6 @@ void slate_pgetrf(int m, int n, scalar_t* a, int ia, int ja, int* desca, int* ip
     int64_t An = n;
     slate::Pivots pivots;
 
-    int iam=0, nprocs=1;
-    Cblacs_pinfo (&iam, &nprocs);
     // create SLATE matrices from the ScaLAPACK layouts
     int nprow, npcol, myrow, mycol;
     Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myrow, &mycol);

@@ -64,17 +64,17 @@ blas::real_type<scalar_t> slate_plansy(const char* normstr, const char* uplostr,
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
 // Each C interface calls the type generic slate_pher2k
 
-extern "C" blas_float_return PSLANSY(const char* norm, const char* uplo, int* n, float* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float PSLANSY(const char* norm, const char* uplo, int* n, float* a, int* ia, int* ja, int* desca, float* work)
 {
     return slate_plansy(norm, uplo, *n, a, *ia, *ja, desca, work);
 }
 
-extern "C" blas_float_return pslansy(const char* norm, const char* uplo, int* n, float* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float pslansy(const char* norm, const char* uplo, int* n, float* a, int* ia, int* ja, int* desca, float* work)
 {
     return slate_plansy(norm, uplo, *n, a, *ia, *ja, desca, work);
 }
 
-extern "C" blas_float_return pslansy_(const char* norm, const char* uplo, int* n, float* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float pslansy_(const char* norm, const char* uplo, int* n, float* a, int* ia, int* ja, int* desca, float* work)
 {
     return slate_plansy(norm, uplo, *n, a, *ia, *ja, desca, work);
 }
@@ -98,17 +98,17 @@ extern "C" double pdlansy_(const char* norm, const char* uplo, int* n, double* a
 
 // -----------------------------------------------------------------------------
 
-extern "C" blas_float_return PCLANSY(const char* norm, const char* uplo, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float PCLANSY(const char* norm, const char* uplo, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
 {
     return slate_plansy(norm, uplo, *n, a, *ia, *ja, desca, work);
 }
 
-extern "C" blas_float_return pclansy(const char* norm, const char* uplo, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float pclansy(const char* norm, const char* uplo, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
 {
     return slate_plansy(norm, uplo, *n, a, *ia, *ja, desca, work);
 }
 
-extern "C" blas_float_return pclansy_(const char* norm, const char* uplo, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float pclansy_(const char* norm, const char* uplo, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
 {
     return slate_plansy(norm, uplo, *n, a, *ia, *ja, desca, work);
 }

@@ -64,17 +64,17 @@ blas::real_type<scalar_t> slate_plange(const char* normstr, int m, int n, scalar
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
 // Each C interface calls the type generic slate_pher2k
 
-extern "C" blas_float_return PSLANGE(const char* norm, int* m, int* n, float* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float PSLANGE(const char* norm, int* m, int* n, float* a, int* ia, int* ja, int* desca, float* work)
 {
     return slate_plange(norm, *m, *n, a, *ia, *ja, desca, work);
 }
 
-extern "C" blas_float_return pslange(const char* norm, int* m, int* n, float* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float pslange(const char* norm, int* m, int* n, float* a, int* ia, int* ja, int* desca, float* work)
 {
     return slate_plange(norm, *m, *n, a, *ia, *ja, desca, work);
 }
 
-extern "C" blas_float_return pslange_(const char* norm, int* m, int* n, float* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float pslange_(const char* norm, int* m, int* n, float* a, int* ia, int* ja, int* desca, float* work)
 {
     return slate_plange(norm, *m, *n, a, *ia, *ja, desca, work);
 }
@@ -98,17 +98,17 @@ extern "C" double pdlange_(const char* norm, int* m, int* n, double* a, int* ia,
 
 // -----------------------------------------------------------------------------
 
-extern "C" blas_float_return PCLANGE(const char* norm, int* m, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float PCLANGE(const char* norm, int* m, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
 {
     return slate_plange(norm, *m, *n, a, *ia, *ja, desca, work);
 }
 
-extern "C" blas_float_return pclange(const char* norm, int* m, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float pclange(const char* norm, int* m, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
 {
     return slate_plange(norm, *m, *n, a, *ia, *ja, desca, work);
 }
 
-extern "C" blas_float_return pclange_(const char* norm, int* m, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float pclange_(const char* norm, int* m, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
 {
     return slate_plange(norm, *m, *n, a, *ia, *ja, desca, work);
 }

@@ -64,17 +64,17 @@ blas::real_type<scalar_t> slate_plantr(const char* normstr, const char* uplostr,
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
 // Each C interface calls the type generic slate_pher2k
 
-extern "C" blas_float_return PSLANTR(const char* norm, const char* uplo, const char* diag, int* m, int* n, float* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float PSLANTR(const char* norm, const char* uplo, const char* diag, int* m, int* n, float* a, int* ia, int* ja, int* desca, float* work)
 {
     return slate_plantr(norm, uplo, diag, *m, *n, a, *ia, *ja, desca, work);
 }
 
-extern "C" blas_float_return pslantr(const char* norm, const char* uplo, const char* diag, int* m, int* n, float* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float pslantr(const char* norm, const char* uplo, const char* diag, int* m, int* n, float* a, int* ia, int* ja, int* desca, float* work)
 {
     return slate_plantr(norm, uplo, diag, *m, *n, a, *ia, *ja, desca, work);
 }
 
-extern "C" blas_float_return pslantr_(const char* norm, const char* uplo, const char* diag, int* m, int* n, float* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float pslantr_(const char* norm, const char* uplo, const char* diag, int* m, int* n, float* a, int* ia, int* ja, int* desca, float* work)
 {
     return slate_plantr(norm, uplo, diag, *m, *n, a, *ia, *ja, desca, work);
 }
@@ -98,17 +98,17 @@ extern "C" double pdlantr_(const char* norm, const char* uplo, const char* diag,
 
 // -----------------------------------------------------------------------------
 
-extern "C" blas_float_return PCLANTR(const char* norm, const char* uplo, const char* diag, int* m, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float PCLANTR(const char* norm, const char* uplo, const char* diag, int* m, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
 {
     return slate_plantr(norm, uplo, diag, *m, *n, a, *ia, *ja, desca, work);
 }
 
-extern "C" blas_float_return pclantr(const char* norm, const char* uplo, const char* diag, int* m, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float pclantr(const char* norm, const char* uplo, const char* diag, int* m, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
 {
     return slate_plantr(norm, uplo, diag, *m, *n, a, *ia, *ja, desca, work);
 }
 
-extern "C" blas_float_return pclantr_(const char* norm, const char* uplo, const char* diag, int* m, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float pclantr_(const char* norm, const char* uplo, const char* diag, int* m, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
 {
     return slate_plantr(norm, uplo, diag, *m, *n, a, *ia, *ja, desca, work);
 }

@@ -39,7 +39,11 @@ SLATE tile size (nb) is set in this order:
 *  else if Target=Devices, nb=1024
 *  else nb=256
 
-SLATE_SCALAPACK_VERBOSE  0,1 (0: no output,  1: print some minor output)
+SLATE_LAPACK_VERBOSE  0,1 (0: no output,  1: print some minor output)
+
+SLATE_LAPACK_PANELTHREADS integer (number of threads to serve the panel, default (maximum omp threads)/2 )
+
+SLATE_LAPACK_IB integer (inner blocking size useful for some routines, default 16)
 
 
 TESTING

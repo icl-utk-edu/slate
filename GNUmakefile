@@ -521,6 +521,7 @@ lapack_api_src += \
         lapack_api/lapack_lansy.cc \
         lapack_api/lapack_lantr.cc \
         lapack_api/lapack_potrf.cc \
+        lapack_api/lapack_getrf.cc \
         lapack_api/lapack_symm.cc \
         lapack_api/lapack_syr2k.cc \
         lapack_api/lapack_syrk.cc \

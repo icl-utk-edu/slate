@@ -76,6 +76,28 @@ inline slate::Target slate_lapack_set_target()
     return target;
 }
 
+inline int64_t slate_lapack_set_panelthreads()
+{
+    int64_t max_panel_threads = 1;
+    char *thrstr = std::getenv("SLATE_LAPACK_PANELTHREADS");
+    if (thrstr) {
+        max_panel_threads = (int64_t)strtol(thrstr, NULL, 0);
+        if (max_panel_threads!=0) return max_panel_threads;
+    }
+    return std::max(omp_get_max_threads()/2, 1);
+}
+
+inline int64_t slate_lapack_set_ib()
+{
+    int64_t ib = 0;
+    char *ibstr = std::getenv("SLATE_LAPACK_IB");
+    if (ibstr) {
+        ib = (int64_t)strtol(ibstr, NULL, 0);
+        if (ib!=0) return ib;
+    }
+    return 16;
+}
+
 inline int slate_lapack_set_verbose()
 {
     // set the SLATE verbose (specific to lapack_api)

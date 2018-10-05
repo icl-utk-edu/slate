@@ -56,7 +56,7 @@ parameters.
 * SLATE_SCALAPACK_TARGET  HostTask (default), Devices, HostNest, HostBatch (case indifferent)
 * SLATE_SCALAPACK_VERBOSE  0,1 (0: no output,  1: print some minor output)
 * SLATE_SCALAPACK_PANELTHREADS integer (number of threads to serve the panel, default (maximum omp threads)/2 )
-* SLATE_SCALAPACK_IB integer (inner blocking size useful for some routines, default 1)
+* SLATE_SCALAPACK_IB integer (inner blocking size useful for some routines, default 16)
 
 Example on a properly configured SLATE install on a machine with GPUs.
 

@@ -169,7 +169,7 @@ inline int64_t slate_scalapack_set_panelthreads()
         max_panel_threads = (int64_t)strtol(thrstr, NULL, 0);
         if (max_panel_threads!=0) return max_panel_threads;
     }
-    return std::max(omp_get_max_threads(), 1);
+    return std::max(omp_get_max_threads()/2, 1);
 }
 
 inline int64_t slate_scalapack_set_ib()

@@ -438,8 +438,10 @@ int main(int argc, char** argv)
                 err = print_reduce_error(msg, mpi_rank, MPI_COMM_WORLD);
                 if (err)
                     params.okay() = false;
-                if (print)
+                if (print) {
                     params.print();
+                    fflush(stdout);
+                }
                 status += ! params.okay();
                 params.reset_output();
                 msg.clear();

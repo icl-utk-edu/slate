@@ -21,6 +21,7 @@ import sys
 import os
 import re
 import argparse
+import subprocess
 import xml.etree.ElementTree as ET
 
 # ------------------------------------------------------------------------------
@@ -31,6 +32,7 @@ group_test = parser.add_argument_group( 'test' )
 group_test.add_argument( '-t', '--test', action='store',
     help='test command to run, e.g., --test "mpirun -np 4 ./test"; default "%(default)s"',
     default='./test' )
+group_test.add_argument( '--xml', action='store_true', help='generate report.xml for jenkins' )
 
 group_size = parser.add_argument_group( 'matrix dimensions (default is medium)' )
 group_size.add_argument( '-x', '--xsmall', action='store_true', help='run x-small tests' )
@@ -557,25 +559,20 @@ output_redirected = not sys.stdout.isatty()
 def run_test( cmd ):
     cmd = opts.test +' '+ cmd[0] +' '+ cmd[1]
     print( cmd, file=sys.stderr )
-    err = os.system( cmd )
-    if (err):
-        hi = (err & 0xff00) >> 8
-        lo = (err & 0x00ff)
-        if (lo == 2):
-            print( '\nCancelled', file=sys.stderr )
-            exit(1)
-        elif (lo != 0):
-            print( 'FAILED: abnormal exit, signal =', lo, file=sys.stderr )
-        elif (output_redirected):
-            print( hi, 'tests FAILED.', file=sys.stderr )
-    # end
-    return err
+    output = ''
+    p = subprocess.Popen( cmd.split(), stdout=subprocess.PIPE,
+                                       stderr=subprocess.STDOUT )
+    # Read unbuffered ("for line in p.stdout" will buffer).
+    for line in iter(p.stdout.readline, b''):
+        print( line, end='' )
+        output += line
+    err = p.wait()
+    return (err, output)
 # end
 
 # ------------------------------------------------------------------------------
-failures = []
+failed_tests = []
 passed_tests = []
-error_list = []
 ntests = len(opts.tests)
 run_all = (ntests == 0)
 
@@ -583,48 +580,49 @@ for cmd in cmds:
     if (run_all or cmd[0] in opts.tests):
         if (not run_all):
             opts.tests.remove( cmd[0] )
-        err = run_test( cmd )
-        if (err != 0):
-            failures.append( cmd[0] )
-            error_num = (err & 0xff00) >> 8
-            if error_num is None:
-                error_num = 0
-            error_list.append(error_num)
-        # TODO: add errors/skipped tests
+        (err, output) = run_test( cmd )
+        if (err):
+            failed_tests.append( (cmd[0], err, output) )
         else:
-            passed_tests.append(cmd[0])
+            passed_tests.append( cmd[0] )
 if (opts.tests):
     print( 'Warning: unknown routines:', ' '.join( opts.tests ))
 
 # print summary of failures
-nfailures = len( failures )
-if (nfailures > 0):
-    print( '\n' + str(nfailures) + ' routines FAILED:', ', '.join( failures ),
+nfailed = len( failed_tests )
+if (nfailed > 0):
+    print( '\n' + str(nfailed) + ' routines FAILED:',
+           ', '.join( [x[0] for x in failed_tests] ),
            file=sys.stderr )
 
 # generate jUnit compatible test report
-if True:
+if opts.xml:
     root = ET.Element("testsuites")
     doc = ET.SubElement(root, "testsuite",
-                        name="lapackpp_suite",
+                        name="slate_suite",
                         tests=str(ntests),
                         errors="0",
-                        failures=str(nfailures))
+                        failures=str(nfailed))
 
-    i = 0
-    for failure in failures:
-        f = ET.SubElement(doc, "testcase", name=failure)
-        ff = ET.SubElement(f, "failure")
-        ff.text = (str(error_list[i]) + " tests failed")
-        ff.name = failure
-        i += 1
+    for (test, err, output) in failed_tests:
+        testcase = ET.SubElement(doc, "testcase", name=test)
 
-    for p in passed_tests:
-        passed_test = ET.SubElement( doc, 'testcase', name=p )
-        passed_test.text = 'PASSED'
+        failure = ET.SubElement(testcase, "failure")
+        if (err < 0):
+            failure.text = "exit with signal " + str(-err)
+        else:
+            failure.text = str(err) + " tests failed"
+
+        system_out = ET.SubElement(testcase, "system-out")
+        system_out.text = output
+    # end
+
+    for test in passed_tests:
+        testcase = ET.SubElement(doc, 'testcase', name=test)
+        testcase.text = 'PASSED'
 
     tree = ET.ElementTree(root)
     tree.write("report.xml")
 # end
 
-exit( nfailures )
+exit( nfailed )

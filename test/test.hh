@@ -38,34 +38,34 @@ public:
     libtest::ParamChar   target;  // todo: enum
 
     // ----- routine parameters
+    // LAPACK options
+    // The order here matches the order in most LAPACK functions, e.g.,
+    // syevx( jobz, range, uplo, n, ..., vl, vu, il, iu, ... )
+    // larfb( side, trans, direct, storev, m, n, k, ... )
+    // lanhe( norm, uplo, n, ... )
+    // pbsv ( uplo, n, kd, nrhs, ... )
+    // gbsv ( n, kl, ku, nrhs, ... )
+    // trsm ( side, uplo, transa, diag, m, n, alpha, ... )
     libtest::ParamEnum< libtest::DataType > datatype;
     libtest::ParamEnum< slate::Layout >     layout;
-    libtest::ParamEnum< slate::Side >       side;
-    libtest::ParamEnum< slate::Uplo >       uplo;
-    libtest::ParamEnum< slate::Op >         trans;
-    libtest::ParamEnum< slate::Op >         transA;
-    libtest::ParamEnum< slate::Op >         transB;
-    libtest::ParamEnum< slate::Diag >       diag;
-    libtest::ParamEnum< slate::Norm >       norm;
-    libtest::ParamEnum< lapack::Direct >    direct;
-    libtest::ParamEnum< lapack::StoreV >    storev;
     libtest::ParamEnum< lapack::Job >       jobz;   // heev
     libtest::ParamEnum< lapack::Job >       jobvl;  // geev
     libtest::ParamEnum< lapack::Job >       jobvr;  // geev
     libtest::ParamEnum< lapack::Job >       jobu;   // gesvd, gesdd
     libtest::ParamEnum< lapack::Job >       jobvt;  // gesvd
     libtest::ParamEnum< lapack::Range >     range;
+    libtest::ParamEnum< slate::Norm >       norm;
+    libtest::ParamEnum< slate::Side >       side;
+    libtest::ParamEnum< slate::Uplo >       uplo;
+    libtest::ParamEnum< slate::Op >         trans;
+    libtest::ParamEnum< slate::Op >         transA;
+    libtest::ParamEnum< slate::Op >         transB;
+    libtest::ParamEnum< slate::Diag >       diag;
+    libtest::ParamEnum< lapack::Direct >    direct;
+    libtest::ParamEnum< lapack::StoreV >    storev;
     libtest::ParamEnum< lapack::MatrixType > matrixtype;
 
-    libtest::ParamInt3   dim;
-    libtest::ParamInt    nb;
-    libtest::ParamInt    nt;
-    libtest::ParamInt    ib;
-    libtest::ParamInt    p;
-    libtest::ParamInt    q;
-    libtest::ParamInt    lookahead;
-    libtest::ParamInt    panel_threads;
-
+    libtest::ParamInt3   dim;  // m, n, k
     libtest::ParamInt    kd;
     libtest::ParamInt    kl;
     libtest::ParamInt    ku;
@@ -78,6 +78,14 @@ public:
     libtest::ParamDouble beta;
     libtest::ParamInt    incx;
     libtest::ParamInt    incy;
+
+    // SLATE options
+    libtest::ParamInt    nb;
+    libtest::ParamInt    ib;
+    libtest::ParamInt    p;
+    libtest::ParamInt    q;
+    libtest::ParamInt    lookahead;
+    libtest::ParamInt    panel_threads;
     libtest::ParamInt    align;
 
     // ----- output parameters

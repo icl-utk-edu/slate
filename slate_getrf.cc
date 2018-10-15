@@ -255,7 +255,7 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
     int64_t max_panel_threads;
     try {
         max_panel_threads = opts.at(Option::MaxPanelThreads).i_;
-        assert(max_panel_threads >= 1);
+        assert(max_panel_threads >= 1 && max_panel_threads <= omp_get_max_threads());
     }
     catch (std::out_of_range) {
         max_panel_threads = std::max(omp_get_max_threads()/2, 1);

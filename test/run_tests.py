@@ -68,7 +68,6 @@ categories = [
     group_cat.add_argument( '--aux',           action='store_true', help='run auxiliary tests' ),
     group_cat.add_argument( '--aux-house',     action='store_true', help='run auxiliary Householder tests' ),
     group_cat.add_argument( '--aux-norm',      action='store_true', help='run auxiliary norm tests' ),
-    group_cat.add_argument( '--blas',          action='store_true', help='run additional BLAS tests' ),
 ]
 categories = map( lambda x: x.dest, categories ) # map to names: ['lu', 'chol', ...]
 
@@ -217,12 +216,11 @@ uplo   = ' --uplo '   + opts.uplo   if (opts.uplo)   else ''
 diag   = ' --diag '   + opts.diag   if (opts.diag)   else ''
 side   = ' --side '   + opts.side   if (opts.side)   else ''
 a      = ' --alpha '  + opts.alpha  if (opts.alpha)  else ''
-ab     = a + ' --beta ' + opts.beta if (opts.beta)   else ''
+ab     = a+' --beta ' + opts.beta   if (opts.beta)   else a
 incx   = ' --incx '   + opts.incx   if (opts.incx)   else ''
 incy   = ' --incy '   + opts.incy   if (opts.incy)   else ''
 check  = ' --check '  + opts.check  if (opts.check)  else ''
-if (opts.ref):
-    check += ' --ref ' + opts.ref
+ref    = ' --ref '    + opts.ref    if (opts.ref)    else ''
 
 # LAPACK only
 direct = ' --direct ' + opts.direct if (opts.direct) else ''
@@ -246,7 +244,7 @@ p      = ' --p '      + opts.p      if (opts.p)      else ''
 q      = ' --q '      + opts.q      if (opts.q)      else ''
 
 # general options for all routines
-gen = nb + p + q + check
+gen = nb + p + q + check + ref
 
 # ------------------------------------------------------------------------------
 # filters a comma separated list csv based on items in list values.
@@ -262,7 +260,6 @@ def filter_csv( values, csv ):
 # limit options to specific values
 dtype_real    = ' --type ' + filter_csv( ('s', 'd'), opts.type )
 dtype_complex = ' --type ' + filter_csv( ('c', 'z'), opts.type )
-dtype_double  = ' --type ' + filter_csv( ('d'), opts.type )
 
 trans_nt = ' --trans ' + filter_csv( ('n', 't'), opts.trans )
 trans_nc = ' --trans ' + filter_csv( ('n', 'c'), opts.trans )
@@ -277,275 +274,282 @@ cmds = []
 # Level 3
 if (opts.blas3):
     cmds += [
-    [ 'gbmm',  gen + dtype + transA + transB + mnk + la + ab + kl + ku ],
-    [ 'gemm',  gen + dtype + transA + transB + mnk + la + ab ],
+    [ 'gbmm',  gen + dtype + la + transA + transB + mnk + ab + kl + ku ],
+    [ 'gemm',  gen + dtype + la + transA + transB + mnk + ab ],
 
-    [ 'hemm',  gen + dtype         + side + uplo     + mn + la + ab ],
-    [ 'herk',  gen + dtype_real    + uplo + trans    + mn + la + ab ],
-    [ 'herk',  gen + dtype_complex + uplo + trans_nc + mn + la + ab ],
-    [ 'her2k', gen + dtype_real    + uplo + trans    + mn + la + ab ],
-    [ 'her2k', gen + dtype_complex + uplo + trans_nc + mn + la + ab ],
+    [ 'hemm',  gen + dtype         + la + side + uplo     + mn + ab ],
+    [ 'herk',  gen + dtype_real    + la + uplo + trans    + mn + ab ],
+    [ 'herk',  gen + dtype_complex + la + uplo + trans_nc + mn + ab ],
+    [ 'her2k', gen + dtype_real    + la + uplo + trans    + mn + ab ],
+    [ 'her2k', gen + dtype_complex + la + uplo + trans_nc + mn + ab ],
 
-    [ 'symm',  gen + dtype         + side + uplo     + mn + la + ab ],
-    [ 'syr2k', gen + dtype_real    + uplo + trans    + mn + la + ab ],
-    [ 'syr2k', gen + dtype_complex + uplo + trans_nt + mn + la + ab ],
-    [ 'syrk',  gen + dtype_real    + uplo + trans    + mn + la + ab ],
-    [ 'syrk',  gen + dtype_complex + uplo + trans_nt + mn + la + ab ],
+    [ 'symm',  gen + dtype         + la + side + uplo     + mn + ab ],
+    [ 'syr2k', gen + dtype_real    + la + uplo + trans    + mn + ab ],
+    [ 'syr2k', gen + dtype_complex + la + uplo + trans_nt + mn + ab ],
+    [ 'syrk',  gen + dtype_real    + la + uplo + trans    + mn + ab ],
+    [ 'syrk',  gen + dtype_complex + la + uplo + trans_nt + mn + ab ],
 
-    [ 'tbsm',  gen + dtype + side + uplo + transA + diag + mn + la + a + kd ],
-    [ 'trmm',  gen + dtype + side + uplo + transA + diag + mn + la + a ],
-    [ 'trsm',  gen + dtype + side + uplo + transA + diag + mn + la + a ],
+    [ 'tbsm',  gen + dtype + la + side + uplo + transA + diag + mn + a + kd ],
+    [ 'trmm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
+    [ 'trsm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
     ]
 
 # LU
 if (opts.lu):
     cmds += [
-    [ 'gesv',  gen + dtype + n + la ],
-    [ 'getrf', gen + dtype + n + la ],  # todo: mn
-    [ 'getrs', gen + dtype + n + la + trans ],
-    #[ 'getri', gen + dtype + n ],
-    #[ 'gecon', gen + dtype + n ],
-    #[ 'gerfs', gen + dtype + n + trans ],
-    #[ 'geequ', gen + dtype + n ],
+    [ 'gesv',  gen + dtype + la + n ],
+    [ 'getrf', gen + dtype + la + n ],  # todo: mn
+    [ 'getrs', gen + dtype + la + n + trans ],
+    #[ 'getri', gen + dtype + la + n ],
+    #[ 'gecon', gen + dtype + la + n ],
+    #[ 'gerfs', gen + dtype + la + n + trans ],
+    #[ 'geequ', gen + dtype + la + n ],
     ]
 
 # General Banded
 if (opts.gb):
     cmds += [
-    [ 'gbsv',  gen + dtype + n + kl + ku + la ],
-    [ 'gbtrf', gen + dtype + n + kl + ku + la ],  # todo: mn
-    [ 'gbtrs', gen + dtype + n + kl + ku + la + trans ],
-    #[ 'gbcon', gen + dtype + n + kl + ku ],
-    #[ 'gbrfs', gen + dtype + n + kl + ku + trans ],
-    #[ 'gbequ', gen + dtype + n + kl + ku ],
+    [ 'gbsv',  gen + dtype + la + n  + kl + ku ],
+    [ 'gbtrf', gen + dtype + la + n  + kl + ku ],  # todo: mn
+    [ 'gbtrs', gen + dtype + la + n  + kl + ku + trans ],
+    #[ 'gbcon', gen + dtype + la + n  + kl + ku ],
+    #[ 'gbrfs', gen + dtype + la + n  + kl + ku + trans ],
+    #[ 'gbequ', gen + dtype + la + n  + kl + ku ],
     ]
 
 # General Tri-Diagonal
 if (opts.gt):
     cmds += [
-    #[ 'gtsv',  gen + dtype + n ],
-    #[ 'gttrf', gen + dtype +         n ],
-    #[ 'gttrs', gen + dtype + n + trans ],
-    #[ 'gtcon', gen + dtype +         n ],
-    #[ 'gtrfs', gen + dtype + n + trans ],
+    #[ 'gtsv',  gen + dtype + la + n ],
+    #[ 'gttrf', gen + dtype + la + n ],
+    #[ 'gttrs', gen + dtype + la + n + trans ],
+    #[ 'gtcon', gen + dtype + la + n ],
+    #[ 'gtrfs', gen + dtype + la + n + trans ],
     ]
 
 # Cholesky
 if (opts.chol):
     cmds += [
-    [ 'posv',  gen + dtype + n + uplo + la ],
-    [ 'potrf', gen + dtype + n + uplo + la ],
-    [ 'potrs', gen + dtype + n + uplo + la ],
-    #[ 'potri', gen + dtype + n + uplo ],
-    #[ 'pocon', gen + dtype + n + uplo ],
-    #[ 'porfs', gen + dtype + n + uplo ],
-    #[ 'poequ', gen + dtype + n ],  # only diagonal elements (no uplo)
+    [ 'posv',  gen + dtype + la + n + uplo ],
+    [ 'potrf', gen + dtype + la + n + uplo ],
+    [ 'potrs', gen + dtype + la + n + uplo ],
+    #[ 'potri', gen + dtype + la + n + uplo ],
+    #[ 'pocon', gen + dtype + la + n + uplo ],
+    #[ 'porfs', gen + dtype + la + n + uplo ],
+    #[ 'poequ', gen + dtype + la + n ],  # only diagonal elements (no uplo)
 
-    #[ 'ppsv',  gen + dtype + n + uplo ],
-    #[ 'pptrf', gen + dtype +         n + uplo ],
-    #[ 'pptrs', gen + dtype + n + uplo ],
-    #[ 'pptri', gen + dtype +         n + uplo ],
-    #[ 'ppcon', gen + dtype +         n + uplo ],
-    #[ 'pprfs', gen + dtype + n + uplo ],
-    #[ 'ppequ', gen + dtype +         n + uplo ],
+    # Banded
+    #[ 'pbsv',  gen + dtype + la + n + kd + uplo ],
+    #[ 'pbtrf', gen + dtype + la + n + kd + uplo ],
+    #[ 'pbtrs', gen + dtype + la + n + kd + uplo ],
+    #[ 'pbcon', gen + dtype + la + n + kd + uplo ],
+    #[ 'pbrfs', gen + dtype + la + n + kd + uplo ],
+    #[ 'pbequ', gen + dtype + la + n + kd + uplo ],
 
-    #[ 'pbsv',  gen + dtype + n + kd + uplo ],
-    #[ 'pbtrf', gen + dtype + n + kd + uplo ],
-    #[ 'pbtrs', gen + dtype + n + kd + uplo ],
-    #[ 'pbcon', gen + dtype + n + kd + uplo ],
-    #[ 'pbrfs', gen + dtype + n + kd + uplo ],
-    #[ 'pbequ', gen + dtype + n + kd + uplo ],
-
-    #[ 'ptsv',  gen + dtype + n ],
-    #[ 'pttrf', gen + dtype         + n ],
-    #[ 'pttrs', gen + dtype + n + uplo ],
-    #[ 'ptcon', gen + dtype         + n ],
-    #[ 'ptrfs', gen + dtype + n + uplo ],
+    # Tri-diagonal
+    #[ 'ptsv',  gen + dtype + la + n ],
+    #[ 'pttrf', gen + dtype + la + n ],
+    #[ 'pttrs', gen + dtype + la + n + uplo ],
+    #[ 'ptcon', gen + dtype + la + n ],
+    #[ 'ptrfs', gen + dtype + la + n + uplo ],
     ]
 
 # symmetric indefinite, Bunch-Kaufman
 if (opts.sysv):
     cmds += [
-    #[ 'sysv',  gen + dtype + n + uplo ],
-    #[ 'sytrf', gen + dtype + n + uplo ],
-    #[ 'sytrs', gen + dtype + n + uplo ],
-    #[ 'sytri', gen + dtype + n + uplo ],
-    #[ 'sycon', gen + dtype + n + uplo ],
-    #[ 'syrfs', gen + dtype + n + uplo ],
+    #[ 'sysv',  gen + dtype + la + n + uplo ],
+    #[ 'sytrf', gen + dtype + la + n + uplo ],
+    #[ 'sytrs', gen + dtype + la + n + uplo ],
+    #[ 'sytri', gen + dtype + la + n + uplo ],
+    #[ 'sycon', gen + dtype + la + n + uplo ],
+    #[ 'syrfs', gen + dtype + la + n + uplo ],
 
-    #[ 'spsv',  gen + dtype + n + uplo ],
-    #[ 'sptrf', gen + dtype + n + uplo ],
-    #[ 'sptrs', gen + dtype + n + uplo ],
-    #[ 'sptri', gen + dtype + n + uplo ],
-    #[ 'spcon', gen + dtype + n  + uplo ],
-    #[ 'sprfs', gen + dtype + n  + uplo ],
+    # Packed
+    #[ 'spsv',  gen + dtype + la + n + uplo ],
+    #[ 'sptrf', gen + dtype + la + n + uplo ],
+    #[ 'sptrs', gen + dtype + la + n + uplo ],
+    #[ 'sptri', gen + dtype + la + n + uplo ],
+    #[ 'spcon', gen + dtype + la + n + uplo ],
+    #[ 'sprfs', gen + dtype + la + n + uplo ],
     ]
 
 # symmetric indefinite, rook
 if (opts.rook):
     cmds += [
-    #[ 'sysv_rook',  gen + dtype + n + uplo ],
-    #[ 'sytrf_rook', gen + dtype + n + uplo ],
-    #[ 'sytrs_rook', gen + dtype + n + uplo ],
-    #[ 'sytri_rook', gen + dtype + n + uplo ],
+    # original Rook
+    #[ 'sysv_rook',  gen + dtype + la + n + uplo ],
+    #[ 'sytrf_rook', gen + dtype + la + n + uplo ],
+    #[ 'sytrs_rook', gen + dtype + la + n + uplo ],
+    #[ 'sytri_rook', gen + dtype + la + n + uplo ],
+
+    # new Rook
+    #[ 'sysv_rk',    gen + dtype + la + n + uplo ],
+    #[ 'sytrf_rk',   gen + dtype + la + n + uplo ],
+    #[ 'sytrs_rk',   gen + dtype + la + n + uplo ],
+    #[ 'sytri_rk',   gen + dtype + la + n + uplo ],
     ]
 
 # symmetric indefinite, Aasen
 if (opts.aasen):
     cmds += [
-    #[ 'sysv_aasen',  gen + dtype + n + uplo ],
-    #[ 'sytrf_aasen', gen + dtype + n + uplo ],
-    #[ 'sytrs_aasen', gen + dtype + n + uplo ],
-    #[ 'sytri_aasen', gen + dtype + n + uplo ],
-    #[ 'sysv_aasen_2stage',  gen + dtype + n + uplo ],
-    #[ 'sytrf_aasen_2stage', gen + dtype + n + uplo ],
-    #[ 'sytrs_aasen_2stage', gen + dtype + n + uplo ],
-    #[ 'sytri_aasen_2stage', gen + dtype + n + uplo ],
+    #[ 'sysv_aasen',  gen + dtype + la + n + uplo ],
+    #[ 'sytrf_aasen', gen + dtype + la + n + uplo ],
+    #[ 'sytrs_aasen', gen + dtype + la + n + uplo ],
+    #[ 'sytri_aasen', gen + dtype + la + n + uplo ],
+    #[ 'sysv_aasen_2stage',  gen + dtype + la + n + uplo ],
+    #[ 'sytrf_aasen_2stage', gen + dtype + la + n + uplo ],
+    #[ 'sytrs_aasen_2stage', gen + dtype + la + n + uplo ],
+    #[ 'sytri_aasen_2stage', gen + dtype + la + n + uplo ],
     ]
 
 # Hermitian indefinite
 if (opts.hesv):
     cmds += [
-    #[ 'hesv',  gen + dtype + n + uplo ],
-    #[ 'hetrf', gen + dtype + n + uplo ],
-    #[ 'hetrs', gen + dtype + n + uplo ],
-    #[ 'hetri', gen + dtype + n + uplo ],
-    #[ 'hecon', gen + dtype + n + uplo ],
-    #[ 'herfs', gen + dtype + n + uplo ],
-
-    #[ 'hpsv',  gen + dtype + n + uplo ],
-    #[ 'hptrf', gen + dtype + n + uplo ],
-    #[ 'hptrs', gen + dtype + n + uplo ],
-    #[ 'hptri', gen + dtype + n + uplo ],
-    #[ 'hpcon', gen + dtype + n + uplo ],
-    #[ 'hprfs', gen + dtype + n + uplo ],
+    #[ 'hesv',  gen + dtype + la + n + uplo ],
+    #[ 'hetrf', gen + dtype + la + n + uplo ],
+    #[ 'hetrs', gen + dtype + la + n + uplo ],
+    #[ 'hetri', gen + dtype + la + n + uplo ],
+    #[ 'hecon', gen + dtype + la + n + uplo ],
+    #[ 'herfs', gen + dtype + la + n + uplo ],
     ]
 
 # least squares
 if (opts.least_squares):
     cmds += [
-    #[ 'gels',   gen + dtype + mn + trans_nc ],
-    #[ 'gelsy',  gen + dtype + mn ],
-    #[ 'gelsd',  gen + dtype + mn ],
-    #[ 'gelss',  gen + dtype + mn ],
-    #[ 'getsls', gen + dtype + mn + trans_nc ],
+    #[ 'gels',   gen + dtype + la + mn + trans_nc ],
+    #[ 'gelsy',  gen + dtype + la + mn ],
+    #[ 'gelsd',  gen + dtype + la + mn ],
+    #[ 'gelss',  gen + dtype + la + mn ],
+    #[ 'getsls', gen + dtype + la + mn + trans_nc ],
+
+    # Generalized
+    #[ 'gglse', gen + dtype + la + mnk ],
+    #[ 'ggglm', gen + dtype + la + mnk ],
     ]
 
 # QR
 if (opts.qr):
     cmds += [
-    #[ 'geqrf', gen + dtype + n + wide + tall ],
-    #[ 'ggqrf', gen + dtype + mnk ],
-    #[ 'ungqr', gen + dtype + mn ], # n<=m
-    #[ 'unmqr', gen + dtype + mnk + side + trans_nc ],
+    #[ 'geqrf', gen + dtype + la + n + wide + tall ],
+    #[ 'ggqrf', gen + dtype + la + mnk ],
+    #[ 'ungqr', gen + dtype + la + mn ],  # m >= n
+    #[ 'unmqr', gen + dtype_real    + la + mnk + side + trans    ],  # real does trans = N, T, C
+    #[ 'unmqr', gen + dtype_complex + la + mnk + side + trans_nc ],  # complex does trans = N, C, not T
     ]
 
 # LQ
 if (opts.lq):
     cmds += [
-    #[ 'gelqf', gen + dtype + mn ],
-    #[ 'gglqf', gen + dtype + mn ],
-    #[ 'unglq', gen + dtype + mn ],  # m<=n, k<=m  TODO Fix the input sizes to match constraints
-    #[ 'unmlq', gen + dtype + mn ],
+    #[ 'gelqf', gen + dtype + la + mn ],
+    #[ 'gglqf', gen + dtype + la + mn ],
+    #[ 'unglq', gen + dtype + la + mn ],  # m <= n, k <= m  TODO Fix the input sizes to match constraints
+    #[ 'unmlq', gen + dtype_real    + la + mnk + side + trans    ],  # real does trans = N, T, C
+    #[ 'unmlq', gen + dtype_complex + la + mnk + side + trans_nc ],  # complex does trans = N, C, not T
     ]
 
 # QL
 if (opts.ql):
     cmds += [
-    #[ 'geqlf', gen + dtype + mn ],
-    #[ 'ggqlf', gen + dtype + mn ],
-    #[ 'ungql', gen + dtype + mn ],
-    #[ 'unmql', gen + dtype + mn ],
+    #[ 'geqlf', gen + dtype + la + mn ],
+    #[ 'ggqlf', gen + dtype + la + mn ],
+    #[ 'ungql', gen + dtype + la + mn ],
+    #[ 'unmql', gen + dtype_real    + la + mnk + side + trans    ],  # real does trans = N, T, C
+    #[ 'unmql', gen + dtype_complex + la + mnk + side + trans_nc ],  # complex does trans = N, C, not T
     ]
 
 # RQ
 if (opts.rq):
     cmds += [
-    #[ 'gerqf', gen + dtype + mn ],
-    #[ 'ggrqf', gen + dtype + mnk ],
-    #[ 'ungrq', gen + dtype + mnk ],
-    #[ 'unmrq', gen + dtype + mn ],
+    #[ 'gerqf', gen + dtype + la + mn ],
+    #[ 'ggrqf', gen + dtype + la + mnk ],
+    #[ 'ungrq', gen + dtype + la + mnk ],
+    #[ 'unmrq', gen + dtype_real    + la + mnk + side + trans    ],  # real does trans = N, T, C
+    #[ 'unmrq', gen + dtype_complex + la + mnk + side + trans_nc ],  # complex does trans = N, C, not T
     ]
 
- #symmetric eigenvalues
- #todo: add jobs
+# symmetric eigenvalues
 if (opts.syev):
     cmds += [
-    #[ 'heev',  gen + dtype + n + uplo + jobz ],
-    #[ 'heevx', gen + dtype + n + uplo ],
-    #[ 'heevd', gen + dtype + n + uplo + jobz ],
-    #[ 'heevr', gen + dtype + n + uplo + jobz ],
-    #[ 'hetrd', gen + dtype + n + uplo ],
-    #[ 'ungtr', gen + dtype + n + uplo ],
-    #[ 'unmtr', gen + dtype + n + uplo + side + trans_nc ],
+    #[ 'heev',  gen + dtype + la + n + jobz + uplo ],
+    #[ 'heevx', gen + dtype + la + n + jobz + uplo + vl + vu ],
+    #[ 'heevx', gen + dtype + la + n + jobz + uplo + il + iu ],
+    #[ 'heevd', gen + dtype + la + n + jobz + uplo ],
+    #[ 'heevr', gen + dtype + la + n + jobz + uplo + vl + vu ],
+    #[ 'heevr', gen + dtype + la + n + jobz + uplo + il + iu ],
+    #[ 'hetrd', gen + dtype + la + n + uplo ],
+    #[ 'ungtr', gen + dtype + la + n + uplo ],
+    #[ 'unmtr', gen + dtype_real    + la + mn + uplo + side + trans    ],  # real does trans = N, T, C
+    #[ 'unmtr', gen + dtype_complex + la + mn + uplo + side + trans_nc ],  # complex does trans = N, C, not T
 
-    #[ 'hpev',  gen + dtype + n + uplo + jobz ],
-    #[ 'hpevx', gen + dtype + n + uplo + jobz ],
-    #[ 'hpevd', gen + dtype + n + uplo + jobz ],
-    #[ 'hpevr', gen + dtype + n + uplo + jobz ],
-    #[ 'hptrd', gen + dtype + n + uplo ],
-    #[ 'upgtr', gen + dtype + n + uplo ],
-    #[ 'upmtr', gen + dtype + n + uplo ],
-
-    #[ 'hbev',  gen + dtype + n + uplo + jobz ],
-    #[ 'hbevx', gen + dtype + n + uplo + jobz ],
-    #[ 'hbevd', gen + dtype + n + uplo + jobz ],
-    #[ 'hbevr', gen + dtype + n + uplo + jobz ],
-    #[ 'hbtrd', gen + dtype + n + uplo ],
-    #[ 'obgtr', gen + dtype + n + uplo ],
-    #[ 'obmtr', gen + dtype + n + uplo ],
+    # Banded
+    #[ 'hbev',  gen + dtype + la + n + jobz + uplo ],
+    #[ 'hbevx', gen + dtype + la + n + jobz + uplo + vl + vu ],
+    #[ 'hbevx', gen + dtype + la + n + jobz + uplo + il + iu ],
+    #[ 'hbevd', gen + dtype + la + n + jobz + uplo ],
+    #[ 'hbevr', gen + dtype + la + n + jobz + uplo + vl + vu ],
+    #[ 'hbevr', gen + dtype + la + n + jobz + uplo + il + iu ],
+    #[ 'hbtrd', gen + dtype + la + n + uplo ],
+    #[ 'ubgtr', gen + dtype + la + n + uplo ],
+    #[ 'ubmtr', gen + dtype_real    + la + mn + uplo + side + trans    ],
+    #[ 'ubmtr', gen + dtype_complex + la + mn + uplo + side + trans_nc ],
     ]
 
 # generalized symmetric eigenvalues
-# todo: add jobs
 if (opts.sygv):
     cmds += [
-    #[ 'sygv',  gen + dtype + n + uplo ],
-    #[ 'sygvx', gen + dtype + n + uplo ],
-    #[ 'sygvd', gen + dtype + n + uplo ],
-    #[ 'sygvr', gen + dtype + n + uplo ],
-    #[ 'sygst', gen + dtype + n + uplo ],
+    #[ 'hegv',  gen + dtype + la + n + itype + jobz + uplo ],
+    #[ 'hegvx', gen + dtype + la + n + itype + jobz + uplo + vl + vu ],
+    #[ 'hegvx', gen + dtype + la + n + itype + jobz + uplo + il + iu ],
+    #[ 'hegvd', gen + dtype + la + n + itype + jobz + uplo ],
+    #[ 'hegvr', gen + dtype + la + n + itype + jobz + uplo ],
+    #[ 'hegst', gen + dtype + la + n + itype + uplo ],
     ]
 
 # non-symmetric eigenvalues
 if (opts.geev):
     cmds += [
-    #[ 'geev',  gen + dtype + n + jobvl + jobvr ],
-    #[ 'geevx', gen + dtype + n + jobvl + jobvr ],
-    #[ 'gehrd', gen + dtype + n ],
-    #[ 'orghr', gen + dtype + n ],
-    #[ 'unghr', gen + dtype + n ],
-    #[ 'ormhr', gen + dtype + n + side + trans ],
-    #[ 'unmhr', gen + dtype + n + side + trans ],
+    #[ 'geev',  gen + dtype + la + n + jobvl + jobvr ],
+    #[ 'ggev',  gen + dtype + la + n + jobvl + jobvr ],
+    #[ 'geevx', gen + dtype + la + n + balanc + jobvl + jobvr + sense ],
+    #[ 'gehrd', gen + dtype + la + n ],
+    #[ 'unghr', gen + dtype + la + n ],
+    #[ 'unmhr', gen + dtype_real    + la + mn + side + trans    ],  # real does trans = N, T, C
+    #[ 'unmhr', gen + dtype_complex + la + mn + side + trans_nc ],  # complex does trans = N, C, not T
+    #[ 'trevc', gen + dtype + align + n + side + howmany + select ],
+    #[ 'geesx', gen + dtype + align + n + jobvs + sort + select + sense ],
     ]
 
 # svd
 if (opts.svd):
     cmds += [
-    #[ 'gesvd',         gen + dtype + mn + jobu + jobvt ],
-    #[ 'gesdd',         gen + dtype + mn + jobu ],
-    #[ 'gesvdx',        gen + dtype + mn ],
-    #[ 'gesvd_2stage',  gen + dtype + mn ],
-    #[ 'gesdd_2stage',  gen + dtype + mn ],
-    #[ 'gesvdx_2stage', gen + dtype + mn ],
-    #[ 'gejsv',         gen + dtype + mn ],
-    #[ 'gesvj',         gen + dtype + mn ],
+    #[ 'gesvd',         gen + dtype + la + mn + jobu + jobvt ],
+    #[ 'gesdd',         gen + dtype + la + mn + jobu ],
+    #[ 'gesvdx',        gen + dtype + la + mn + jobz + jobvr + vl + vu ],
+    #[ 'gesvdx',        gen + dtype + la + mn + jobz + jobvr + il + iu ],
+    #[ 'gesvd_2stage',  gen + dtype + la + mn ],
+    #[ 'gesdd_2stage',  gen + dtype + la + mn ],
+    #[ 'gesvdx_2stage', gen + dtype + la + mn ],
+    #[ 'gejsv',         gen + dtype + la + mn ],
+    #[ 'gesvj',         gen + dtype + la + mn + joba + jobu + jobv ],
     ]
 
 # auxilary - norms
-if (opts.aux):
+if (opts.aux_norm):
     cmds += [
-    [ 'gbnorm', gen + dtype + mn + norm + kl + ku ],
-    [ 'genorm', gen + dtype + mn + norm ],
-    [ 'henorm', gen + dtype + n  + norm + uplo ],
-    [ 'synorm', gen + dtype + n  + norm + uplo ],
-    [ 'trnorm', gen + dtype + mn + norm + uplo + diag ],
-    ]
+    [ 'genorm', gen + dtype + la + mn + norm ],
+    [ 'henorm', gen + dtype + la + n  + norm + uplo ],
+    [ 'synorm', gen + dtype + la + n  + norm + uplo ],
+    [ 'trnorm', gen + dtype + la + mn + norm + uplo + diag ],
 
-# additional blas
-if (opts.blas):
-    cmds += [
-    #[ 'syr',   gen + dtype + n + uplo ],
+    # Banded
+    [ 'gbnorm', gen + dtype + la + mn + kl + ku + norm ],
+    #[ 'hbnorm', gen + dtype + la + n + kd + norm ],
+    #[ 'sbnorm', gen + dtype + la + n + kd + norm ],
+    #[ 'tbnorm', gen + dtype + la + n + kd + norm ],
+
+    # Tri-diagonal
+    #[ 'gtnorm', gen + dtype + la + n + norm ],
+    #[ 'htnorm', gen + dtype + la + n + norm ],
     ]
 
 # ------------------------------------------------------------------------------
@@ -567,6 +571,8 @@ def run_test( cmd ):
         print( line, end='' )
         output += line
     err = p.wait()
+    if (err < 0):
+        print( 'FAILED: exit with signal', -err )
     return (err, output)
 # end
 

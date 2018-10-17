@@ -124,7 +124,7 @@ void getrf(internal::TargetType<Target::HostTask>,
         std::vector<scalar_t> top_block(ib*A.tileNb(0));
         std::vector< AuxPivot<scalar_t> > aux_pivot(diag_len);
 
-        #if 0
+        #if 1
         omp_set_nested(1);
         // Launching new threads for the panel guarantees progression.
         // This should never deadlock, but may be detrimental to performance.

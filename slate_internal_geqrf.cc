@@ -66,6 +66,9 @@ void geqrf(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A, Matrix<scalar_t>& T,
            int64_t diag_len, int64_t ib, int max_panel_threads, int priority)
 {
+    using namespace blas;
+    using real_t = real_type<scalar_t>;
+
     assert(A.nt() == 1);
 
     // Move the panel to the host.
@@ -79,6 +82,9 @@ void geqrf(internal::TargetType<Target::HostTask>,
     }
     #pragma omp taskwait
 
+    // todo: What about coherency protocol for T?
+    // Should be invalidated in device memory if exists.
+
     // Build lists of local tiles and indices.
     std::vector< Tile<scalar_t> > tiles;
     std::vector<int64_t> tile_indices;
@@ -90,25 +96,43 @@ void geqrf(internal::TargetType<Target::HostTask>,
         }
     }
 
-    // Launch the panel tasks.
-    int thread_size = max_panel_threads;
-    if (int(tiles.size()) < max_panel_threads)
-        thread_size = tiles.size();
+    // If participating in the panel factorization.
+    if (tiles.size() > 0) {
 
-    ThreadBarrier thread_barrier;
+        // Launch the panel tasks.
+        int thread_size = max_panel_threads;
+        if (int(tiles.size()) < max_panel_threads)
+            thread_size = tiles.size();
 
-    #pragma omp taskloop \
-        num_tasks(thread_size) \
-        shared(thread_barrier)
-    for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank)
-    {
-        // Factor the panel in parallel.
-        geqrf(diag_len, ib,
-              tiles, tile_indices,
-              thread_rank, thread_size,
-              thread_barrier);
+        auto T00 = T(0, 0);
+        ThreadBarrier thread_barrier;
+        std::vector<real_t> scale(thread_size);
+        std::vector<real_t> sumsq(thread_size);
+        real_t xnorm;
+        std::vector< std::vector<scalar_t> > W(thread_size);
+
+        #if 1
+        omp_set_nested(1);
+        #pragma omp parallel for \
+            num_threads(thread_size) \
+            shared(thread_barrier, scale, sumsq, xnorm, W)
+        #else
+        #pragma omp taskloop \
+            num_tasks(thread_size) \
+            shared(thread_barrier, scale, sumsq, xnorm, W)
+        #endif
+        for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank)
+        {
+            // Factor the panel in parallel.
+            W.at(thread_rank).resize(diag_len);
+            geqrf(diag_len, ib,
+                  tiles, tile_indices, T00,
+                  thread_rank, thread_size,
+                  thread_barrier,
+                  scale, sumsq, xnorm, W);
+        }
+        #pragma omp taskwait
     }
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

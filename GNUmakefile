@@ -264,6 +264,7 @@ lib_src += \
         slate_hemm.cc \
         slate_her2k.cc \
         slate_herk.cc \
+        slate_hesv.cc \
         slate_hetrf.cc \
         slate_hetrs.cc \
         slate_norm.cc \
@@ -291,7 +292,7 @@ test_src += \
         test/test_henorm.cc \
         test/test_her2k.cc \
         test/test_herk.cc \
-        test/test_hetrf.cc \
+        test/test_hesv.cc \
         test/test_posv.cc \
         test/test_symm.cc \
         test/test_synorm.cc \

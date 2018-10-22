@@ -122,14 +122,14 @@ std::vector< libtest::routines_t > routines = {
 
     // -----
     // Hermitian indefinite
-    //{ "hesv",                test_hesv,         Section::hesv },
-    //{ "",                    nullptr,           Section::newline },
+    { "hesv",                test_hesv,         Section::hesv },
+    { "",                    nullptr,           Section::newline },
 
-    { "hetrf",               test_hetrf,        Section::hesv },
-    //{ "",                    nullptr,           Section::newline },
+    { "hetrf",               test_hesv,         Section::hesv },
+    { "",                    nullptr,           Section::newline },
 
-    //{ "hetrs",               test_hetrs,        Section::hesv },
-    //{ "",                    nullptr,           Section::newline },
+    { "hetrs",               test_hesv,         Section::hesv },
+    { "",                    nullptr,           Section::newline },
 
     // -----
     // QR, LQ, RQ, QL

@@ -285,6 +285,7 @@ test_src += \
         test/test_gbsv.cc \
         test/test_gemm.cc \
         test/test_genorm.cc \
+        test/test_geqrf.cc \
         test/test_gesv.cc \
         test/test_hemm.cc \
         test/test_henorm.cc \
@@ -567,7 +568,7 @@ distclean: clean
 	$(CXX) $(CXXFLAGS) -E $< -o $@
 
 # precompile header to check for errors
-%.gch: %.hh
+%.hh.gch: %.hh
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 -include $(dep)

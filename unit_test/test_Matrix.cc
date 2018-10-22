@@ -1890,6 +1890,48 @@ void test_Symmetric_to_Triangular()
         slate::Diag::NonUnit, B,   1, B.mt()-1,   0, B.nt()-2 ));
 }
 
+//------------------------------------------------------------------------------
+void test_tileSend_tileRecv()
+{
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+
+    auto A = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            int src = A.tileRank(i, j);
+            for (int dst = 0; dst < mpi_size; ++dst) {
+                if (src != dst) {
+                    if (mpi_rank == src) {
+                        //printf( "rank %d: send A(%d, %d) from %d to %d\n",
+                        //        mpi_rank, i, j, src, dst );
+
+                        // Send tile, then receive updated tile back.
+                        auto T = A(i, j);
+                        T.at(0, 0) = i + j/1000. + src*1000.;
+                        A.tileSend(i, j, dst);
+                        A.tileRecv(i, j, dst);
+                        test_assert( T(0, 0) == i + j/1000. + 1000*dst );
+                    }
+                    else if (mpi_rank == dst) {
+                        //printf( "rank %d: recv A(%d, %d) from %d to %d\n",
+                        //        mpi_rank, i, j, src, dst );
+
+                        // Receive tile, update, then send updated tile back.
+                        A.tileRecv(i, j, src);
+                        auto T = A(i, j);
+                        test_assert( T(0, 0) == i + j/1000. + 1000*src );
+                        T.at(0, 0) = i + j/1000. + 1000*dst;
+                        A.tileSend(i, j, src);
+                    }
+                }
+            }
+        }
+    }
+}
+
 //==============================================================================
 // todo
 // BaseMatrix
@@ -1989,6 +2031,8 @@ void run_tests()
     run_test(test_TrapezoidMatrix_conversion, "TrapezoidMatrix conversion", mpi_comm);
     run_test(test_TriangularMatrix_conversion, "TriangularMatrix conversion", mpi_comm);
     run_test(test_Symmetric_to_Triangular, "Symmetric => Triangular", mpi_comm);
+
+    run_test(test_tileSend_tileRecv, "tileSend, tileRecv", mpi_comm);
 }
 
 //------------------------------------------------------------------------------

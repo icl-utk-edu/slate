@@ -168,7 +168,7 @@ void geqrf(
             // todo: Use overflow-safe division (see CLADIV/ZLADIV)
             scalar_t scal_alpha = scalar_t(1.0) / (alpha-beta);
             scalar_t tau = make<scalar_t>((beta-alphr)/beta, -alphi/beta);
-            scalar_t ger_alpha = -std::conj(tau);
+            scalar_t ger_alpha = -conj(tau);
 
             //----------------------------------
             // column scaling and thread local W

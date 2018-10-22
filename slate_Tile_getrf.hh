@@ -245,7 +245,6 @@ void getrf(
                             max_offset[thread_rank] = i;
                         }
                     }
-
                 }
                 // off diagonal tiles
                 else {
@@ -333,6 +332,7 @@ void getrf(
                 auto i_index = tile_indices.at(idx);
 
                 // column scaling
+                // todo: Double check. Equivalent to LAPACK?
                 real_t sfmin = std::numeric_limits<real_t>::min();
                 if (cabs1(pivot[j].value()) >= sfmin) {
                     if (i_index == 0) {

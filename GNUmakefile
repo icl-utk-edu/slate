@@ -276,7 +276,6 @@ lib_src += \
         slate_tbsm.cc \
         slate_trmm.cc \
         slate_trsm.cc \
-        slate_unmqr.cc \
 
 # main tester
 test_src += \

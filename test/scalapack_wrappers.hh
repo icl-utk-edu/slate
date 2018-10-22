@@ -1004,4 +1004,379 @@ inline void scalapack_pgesv(int64_t N, int64_t NRHS, scalar_t* A, int64_t ia, in
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+
+#define scalapack_psgeqrf BLAS_FORTRAN_NAME( psgeqrf, PSGEQRF )
+#define scalapack_pdgeqrf BLAS_FORTRAN_NAME( pdgeqrf, PDGEQRF )
+#define scalapack_pcgeqrf BLAS_FORTRAN_NAME( pcgeqrf, PCGEQRF )
+#define scalapack_pzgeqrf BLAS_FORTRAN_NAME( pzgeqrf, PZGEQRF )
+
+extern "C" void scalapack_psgeqrf(
+    blas_int* M, blas_int* N,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* tau,
+    float* work, blas_int* lwork,
+    blas_int* info);
+
+extern "C" void scalapack_pdgeqrf(
+    blas_int* M, blas_int* N,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* tau,
+    double* work, blas_int* lwork,
+    blas_int* info);
+
+extern "C" void scalapack_pcgeqrf(
+    blas_int* M, blas_int* N,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<float>* tau,
+    std::complex<float>* work, blas_int* lwork,
+    blas_int* info);
+
+extern "C" void scalapack_pzgeqrf(
+    blas_int* M, blas_int* N,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<double>* tau,
+    std::complex<double>* work, blas_int* lwork,
+    blas_int* info);
+
+// -----------------------------------------------------------------------------
+
+inline void scalapack_pgeqrf(
+    blas_int* M, blas_int* N,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* tau,
+    float* work, blas_int* lwork,
+    blas_int* info)
+{
+    scalapack_psgeqrf(M, N, A, ia, ja, descA, tau, work, lwork, info);
+}
+
+inline void scalapack_pgeqrf(
+    blas_int* M, blas_int* N,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* tau,
+    double* work, blas_int* lwork,
+    blas_int* info)
+{
+    scalapack_pdgeqrf(M, N, A, ia, ja, descA, tau, work, lwork, info);
+}
+
+inline void scalapack_pgeqrf(
+    blas_int* M, blas_int* N,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<float>* tau,
+    std::complex<float>* work, blas_int* lwork,
+    blas_int* info)
+{
+    scalapack_pcgeqrf(M, N, A, ia, ja, descA, tau, work, lwork, info);
+}
+
+inline void scalapack_pgeqrf(
+    blas_int* M, blas_int* N,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<double>* tau,
+    std::complex<double>* work, blas_int* lwork,
+    blas_int* info)
+{
+    scalapack_pzgeqrf(M, N, A, ia, ja, descA, tau, work, lwork, info);
+}
+
+template <typename scalar_t>
+inline void scalapack_pgeqrf(
+    int64_t M, int64_t N,
+    scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
+    scalar_t* tau,
+    scalar_t* work, int64_t lwork,
+    int64_t* info)
+{
+    blas_int M_ = int64_to_int(M);
+    blas_int N_ = int64_to_int(N);
+    blas_int ia_ = int64_to_int(ia);
+    blas_int ja_ = int64_to_int(ja);
+    blas_int lwork_ = int64_to_int(lwork);
+    blas_int info_ = int64_to_int(*info);
+    scalapack_pgeqrf(&M_, &N_, A, &ia_, &ja_, descA, tau, work, &lwork_, &info_);
+    *info = (int64_t)info_;
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+#define scalapack_psormqr BLAS_FORTRAN_NAME( psormqr, PSORMQR )
+#define scalapack_pdormqr BLAS_FORTRAN_NAME( pdormqr, PDORMQR )
+#define scalapack_pcunmqr BLAS_FORTRAN_NAME( pcunmqr, PCUNMQR )
+#define scalapack_pzunmqr BLAS_FORTRAN_NAME( pzunmqr, PZUNMQR )
+
+extern "C" void scalapack_psormqr(
+    const char* side, const char* trans,
+    blas_int* M, blas_int* N, blas_int* K,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* tau,
+    float* C, blas_int* ic, blas_int* jc, blas_int* descC,
+    float* work, blas_int* lwork,
+    blas_int* info);
+
+extern "C" void scalapack_pdormqr(
+    const char* side, const char* trans,
+    blas_int* M, blas_int* N, blas_int* K,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* tau,
+    double* C, blas_int* ic, blas_int* jc, blas_int* descC,
+    double* work, blas_int* lwork,
+    blas_int* info);
+
+extern "C" void scalapack_pcunmqr(
+    const char* side, const char* trans,
+    blas_int* M, blas_int* N, blas_int* K,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<float>* tau,
+    std::complex<float>* C, blas_int* ic, blas_int* jc, blas_int* descC,
+    std::complex<float>* work, blas_int* lwork,
+    blas_int* info);
+
+extern "C" void scalapack_pzunmqr(
+    const char* side, const char* trans,
+    blas_int* M, blas_int* N, blas_int* K,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<double>* tau,
+    std::complex<double>* C, blas_int* ic, blas_int* jc, blas_int* descC,
+    std::complex<double>* work, blas_int* lwork,
+    blas_int* info);
+
+// -----------------------------------------------------------------------------
+
+inline void scalapack_punmqr(
+    const char* side, const char* trans,
+    blas_int* M, blas_int* N, blas_int* K,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* tau,
+    float* C, blas_int* ic, blas_int* jc, blas_int* descC,
+    float* work, blas_int* lwork,
+    blas_int* info)
+{
+    scalapack_psormqr(side, trans, M, N, K, A, ia, ja, descA, tau,
+                      C, ic, jc, descC, work, lwork, info);
+}
+
+inline void scalapack_punmqr(
+    const char* side, const char* trans,
+    blas_int* M, blas_int* N, blas_int* K,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* tau,
+    double* C, blas_int* ic, blas_int* jc, blas_int* descC,
+    double* work, blas_int* lwork,
+    blas_int* info)
+{
+    scalapack_pdormqr(side, trans, M, N, K, A, ia, ja, descA, tau,
+                      C, ic, jc, descC, work, lwork, info);
+}
+
+inline void scalapack_punmqr(
+    const char* side, const char* trans,
+    blas_int* M, blas_int* N, blas_int* K,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<float>* tau,
+    std::complex<float>* C, blas_int* ic, blas_int* jc, blas_int* descC,
+    std::complex<float>* work, blas_int* lwork,
+    blas_int* info)
+{
+    scalapack_pcunmqr(side, trans, M, N, K, A, ia, ja, descA, tau,
+                      C, ic, jc, descC, work, lwork, info);
+}
+
+inline void scalapack_punmqr(
+    const char* side, const char* trans,
+    blas_int* M, blas_int* N, blas_int* K,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<double>* tau,
+    std::complex<double>* C, blas_int* ic, blas_int* jc, blas_int* descC,
+    std::complex<double>* work, blas_int* lwork,
+    blas_int* info)
+{
+    scalapack_pzunmqr(side, trans, M, N, K, A, ia, ja, descA, tau,
+                      C, ic, jc, descC, work, lwork, info);
+}
+
+template <typename scalar_t>
+inline void scalapack_punmqr(
+    const char* side, const char* trans,
+    int64_t M, int64_t N, int64_t K,
+    scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
+    scalar_t* tau,
+    scalar_t* C, int64_t ic, int64_t jc, blas_int* descC,
+    scalar_t* work, int64_t lwork,
+    int64_t* info)
+{
+    blas_int M_ = int64_to_int(M);
+    blas_int N_ = int64_to_int(N);
+    blas_int K_ = int64_to_int(K);
+    blas_int ia_ = int64_to_int(ia);
+    blas_int ja_ = int64_to_int(ja);
+    blas_int ic_ = int64_to_int(ic);
+    blas_int jc_ = int64_to_int(jc);
+    blas_int lwork_ = int64_to_int(lwork);
+    blas_int info_ = int64_to_int(*info);
+    scalapack_punmqr(side, trans, &M_, &N_, &K_, A, &ia_, &ja_, descA, tau,
+                     C, &ic_, &jc_, descC, work, &lwork_, &info_);
+    *info = (int64_t)info_;
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+#define scalapack_pslaset BLAS_FORTRAN_NAME( pslaset, PSLASET )
+#define scalapack_pdlaset BLAS_FORTRAN_NAME( pdlaset, PDLASET )
+#define scalapack_pclaset BLAS_FORTRAN_NAME( pclaset, PCLASET )
+#define scalapack_pzlaset BLAS_FORTRAN_NAME( pzlaset, PZLASET )
+
+extern "C" void scalapack_pslaset(
+    const char* uplo, blas_int* M, blas_int* N,
+    float* offdiag, float* diag,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA);
+
+extern "C" void scalapack_pdlaset(
+    const char* uplo, blas_int* M, blas_int* N,
+    double* offdiag, double* diag,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA);
+
+extern "C" void scalapack_pclaset(
+    const char* uplo, blas_int* M, blas_int* N,
+    std::complex<float>* offdiag, std::complex<float>* diag,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA);
+
+extern "C" void scalapack_pzlaset(
+    const char* uplo, blas_int* M, blas_int* N,
+    std::complex<double>* offdiag, std::complex<double>* diag,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA);
+
+// -----------------------------------------------------------------------------
+
+inline void scalapack_plaset(
+    const char* uplo, blas_int* M, blas_int* N,
+    float* offdiag, float* diag,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA)
+{
+    scalapack_pslaset(uplo, M, N, offdiag, diag, A, ia, ja, descA);
+}
+
+inline void scalapack_plaset(
+    const char* uplo, blas_int* M, blas_int* N,
+    double* offdiag, double* diag,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA)
+{
+    scalapack_pdlaset(uplo, M, N, offdiag, diag, A, ia, ja, descA);
+}
+
+inline void scalapack_plaset(
+    const char* uplo, blas_int* M, blas_int* N,
+    std::complex<float>* offdiag, std::complex<float>* diag,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA)
+{
+    scalapack_pclaset(uplo, M, N, offdiag, diag, A, ia, ja, descA);
+}
+
+inline void scalapack_plaset(
+    const char* uplo, blas_int* M, blas_int* N,
+    std::complex<double>* offdiag, std::complex<double>* diag,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA)
+{
+    scalapack_pzlaset(uplo, M, N, offdiag, diag, A, ia, ja, descA);
+}
+
+template <typename scalar_t>
+inline void scalapack_plaset(
+    const char* uplo, int64_t M, int64_t N,
+    scalar_t offdiag, scalar_t diag,
+    scalar_t* A, int64_t ia, int64_t ja, blas_int* descA)
+{
+    blas_int M_ = int64_to_int(M);
+    blas_int N_ = int64_to_int(N);
+    blas_int ia_ = int64_to_int(ia);
+    blas_int ja_ = int64_to_int(ja);
+    scalapack_plaset(uplo, &M_, &N_, &offdiag, &diag, A, &ia_, &ja_, descA);
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+#define scalapack_pslacpy BLAS_FORTRAN_NAME( pslacpy, PSLACPY )
+#define scalapack_pdlacpy BLAS_FORTRAN_NAME( pdlacpy, PDLACPY )
+#define scalapack_pclacpy BLAS_FORTRAN_NAME( pclacpy, PCLACPY )
+#define scalapack_pzlacpy BLAS_FORTRAN_NAME( pzlacpy, PZLACPY )
+
+extern "C" void scalapack_pslacpy(
+    const char* uplo, blas_int* M, blas_int* N,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* B, blas_int* ib, blas_int* jb, blas_int* descB);
+
+extern "C" void scalapack_pdlacpy(
+    const char* uplo, blas_int* M, blas_int* N,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* B, blas_int* ib, blas_int* jb, blas_int* descB);
+
+extern "C" void scalapack_pclacpy(
+    const char* uplo, blas_int* M, blas_int* N,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<float>* B, blas_int* ib, blas_int* jb, blas_int* descB);
+
+extern "C" void scalapack_pzlacpy(
+    const char* uplo, blas_int* M, blas_int* N,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<double>* B, blas_int* ib, blas_int* jb, blas_int* descB);
+
+// -----------------------------------------------------------------------------
+
+inline void scalapack_placpy(
+    const char* uplo, blas_int* M, blas_int* N,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* B, blas_int* ib, blas_int* jb, blas_int* descB)
+{
+    scalapack_pslacpy(uplo, M, N, A, ia, ja, descA,
+                                  B, ib, jb, descB);
+}
+
+inline void scalapack_placpy(
+    const char* uplo, blas_int* M, blas_int* N,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* B, blas_int* ib, blas_int* jb, blas_int* descB)
+{
+    scalapack_pdlacpy(uplo, M, N, A, ia, ja, descA,
+                                  B, ib, jb, descB);
+}
+
+inline void scalapack_placpy(
+    const char* uplo, blas_int* M, blas_int* N,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<float>* B, blas_int* ib, blas_int* jb, blas_int* descB)
+{
+    scalapack_pclacpy(uplo, M, N, A, ia, ja, descA,
+                                  B, ib, jb, descB);
+}
+
+inline void scalapack_placpy(
+    const char* uplo, blas_int* M, blas_int* N,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<double>* B, blas_int* ib, blas_int* jb, blas_int* descB)
+{
+    scalapack_pzlacpy(uplo, M, N, A, ia, ja, descA,
+                                  B, ib, jb, descB);
+}
+
+template <typename scalar_t>
+inline void scalapack_placpy(
+    const char* uplo, int64_t M, int64_t N,
+    scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
+    scalar_t* B, int64_t ib, int64_t jb, blas_int* descB)
+{
+    blas_int M_ = int64_to_int(M);
+    blas_int N_ = int64_to_int(N);
+    blas_int ia_ = int64_to_int(ia);
+    blas_int ja_ = int64_to_int(ja);
+    blas_int ib_ = int64_to_int(ib);
+    blas_int jb_ = int64_to_int(jb);
+    scalapack_placpy(uplo, &M_, &N_, A, &ia_, &ja_, descA,
+                                     B, &ib_, &jb_, descB);
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 #endif // ICL_SLATE_SCALAPACK_WRAPPERS_HH

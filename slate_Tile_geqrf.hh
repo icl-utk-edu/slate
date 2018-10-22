@@ -300,34 +300,41 @@ void geqrf(
 
                     if (i_index == 0) {
                         // diagonal tile
+                        // Thread 0 accumulates directly in T.
                         blas::gemv(Layout::ColMajor, Op::ConjTrans,
                                    tile.mb()-j, j,
                                    -tau,       &tile.at(j, 0), tile.stride(),
                                                &tile.at(j, j), 1,
-                                    gemv_beta, W.at(thread_rank).data(), 1);
+                                    gemv_beta, &T.at(0, j), 1);
                     }
                     else {
                         // off diagonal tile
+                        // Thread 0 accumulates directly in T.
+                        // Other threads accumulate in W.
+                        scalar_t* gemv_y;
+                        if (thread_rank == 0)
+                            gemv_y = &T.at(0, j);
+                        else
+                            gemv_y = W.at(thread_rank).data();
+
                         blas::gemv(Layout::ColMajor, Op::ConjTrans,
                                    tile.mb(), j,
                                    -tau,       &tile.at(0, 0), tile.stride(),
                                                &tile.at(0, j), 1,
-                                    gemv_beta, W.at(thread_rank).data(), 1);
+                                    gemv_beta, gemv_y, 1);
                     }
                 }
             }
             thread_barrier.wait(thread_size);
 
-            //-------------------------
-            // gemv reducttion and trmv
+            //------------------------------------
+            // column of T gemv reduction and trmv
             if (thread_rank == 0) {
                 if (j > 0) {
                     for (int rank = 1; rank < thread_size; ++rank)
                         blas::axpy(j, scalar_t(1.0),
                                    W.at(rank).data(), 1,
-                                   W.at(0).data(), 1);
-
-                    memcpy(&T.at(0, j), W.at(0).data(), sizeof(scalar_t)*j);
+                                   &T.at(0, j), 1);
 
                     blas::trmv(Layout::ColMajor,
                                Uplo::Upper, Op::NoTrans, Diag::NonUnit,

@@ -536,13 +536,13 @@ if (opts.svd):
 # auxilary - norms
 if (opts.aux_norm):
     cmds += [
-    [ 'genorm', gen + dtype + la + mn + norm ],
-    [ 'henorm', gen + dtype + la + n  + norm + uplo ],
-    [ 'synorm', gen + dtype + la + n  + norm + uplo ],
-    [ 'trnorm', gen + dtype + la + mn + norm + uplo + diag ],
+    [ 'genorm', gen + dtype + mn + norm ],
+    [ 'henorm', gen + dtype + n  + norm + uplo ],
+    [ 'synorm', gen + dtype + n  + norm + uplo ],
+    [ 'trnorm', gen + dtype + mn + norm + uplo + diag ],
 
     # Banded
-    [ 'gbnorm', gen + dtype + la + mn + kl + ku + norm ],
+    [ 'gbnorm', gen + dtype + mn + kl + ku + norm ],
     #[ 'hbnorm', gen + dtype + la + n + kd + norm ],
     #[ 'sbnorm', gen + dtype + la + n + kd + norm ],
     #[ 'tbnorm', gen + dtype + la + n + kd + norm ],

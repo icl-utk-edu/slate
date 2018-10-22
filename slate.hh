@@ -305,7 +305,8 @@ norm(Norm norm, matrix_type& A,
 // -----------------------------------------------------------------------------
 // Factorizations, etc.
 
-//-----------------------------------------
+//------------------------------------------------------------------------------
+// Band LU
 // gbsv
 template <typename scalar_t>
 void gbsv(BandMatrix<scalar_t>& A, Pivots& pivots,
@@ -339,7 +340,8 @@ void gbtrs(BandMatrix<scalar_t>& A, Pivots& pivots,
            Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-//-----------------------------------------
+//------------------------------------------------------------------------------
+// LU
 // gesv
 template <typename scalar_t>
 void gesv(Matrix<scalar_t>& A, Pivots& pivots,
@@ -362,16 +364,6 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
-// geqrf
-template <typename scalar_t>
-void geqrf(Matrix<scalar_t>& A, Matrix<scalar_t>& T,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-void geqrf(Matrix<scalar_t>& A, Matrix<scalar_t>& T,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-//-----------------------------------------
 // getrs
 template <typename scalar_t>
 void getrs(Matrix<scalar_t>& A, Pivots& pivots,
@@ -383,7 +375,55 @@ void getrs(Matrix<scalar_t>& A, Pivots& pivots,
            Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
+//------------------------------------------------------------------------------
+// QR
+// geqrf
+template <typename scalar_t>
+void geqrf(Matrix<scalar_t>& A, Matrix<scalar_t>& T,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void geqrf(Matrix<scalar_t>& A, Matrix<scalar_t>& T,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 //-----------------------------------------
+// unmqr
+template <typename scalar_t>
+void unmqr(Side side,
+           Matrix<scalar_t>& A,
+           Matrix<scalar_t>& T,
+           Matrix<scalar_t>& C,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void unmqr(Side side,
+           Matrix<scalar_t>& A,
+           Matrix<scalar_t>& T,
+           Matrix<scalar_t>& C,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//------------------------------------------------------------------------------
+// Cholesky
+// posv
+template <typename scalar_t>
+void posv(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void posv(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+// forward real-symmetric matrices to potrf;
+// disabled for complex
+template <typename scalar_t>
+void posv(SymmetricMatrix<scalar_t>& A, Matrix<scalar_t>& B,
+          const std::map<Option, Value>& opts = std::map<Option, Value>(),
+          enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    HermitianMatrix<scalar_t> AH(A);
+    posv(AH, B, opts);
+}
+
 // potrf
 template <typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>& A,
@@ -395,14 +435,13 @@ void potrf(HermitianMatrix<scalar_t>& A,
 
 // forward real-symmetric matrices to potrf;
 // disabled for complex
-// todo: same for potrs and posv?
 template <typename scalar_t>
 void potrf(SymmetricMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>(),
            enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> AH(A);
-    potrf(AH);
+    potrf(AH, opts);
 }
 
 //-----------------------------------------
@@ -415,15 +454,20 @@ template <Target target, typename scalar_t>
 void potrs(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-//-----------------------------------------
-// posv
+// forward real-symmetric matrices to potrs;
+// disabled for complex
 template <typename scalar_t>
-void posv(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
+void potrs(SymmetricMatrix<scalar_t>& A, Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>(),
+           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    HermitianMatrix<scalar_t> AH(A);
+    potrs(AH, B, opts);
+}
 
-template <Target target, typename scalar_t>
-void posv(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
+//------------------------------------------------------------------------------
+// Symmetric indefinite -- block Aasen's
+// hesv
 
 //-----------------------------------------
 // hetrf
@@ -449,7 +493,7 @@ void hetrf(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
            enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> AH(A);
-    hetrf(AH, T, H);
+    hetrf(AH, T, H, opts);
 }
 
 //-----------------------------------------
@@ -465,6 +509,19 @@ void hetrs(HermitianMatrix<scalar_t>& A, Pivots& pivots,
                 BandMatrix<scalar_t>& T, Pivots& pivots2,
                     Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+// forward real-symmetric matrices to hetrs;
+// disabled for complex
+template <typename scalar_t>
+void hetrs(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
+                BandMatrix<scalar_t>& T, Pivots& pivots2,
+                    Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>(),
+           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    HermitianMatrix<scalar_t> AH(A);
+    hetrf(AH, T, B, opts);
+}
 
 } // namespace slate
 

@@ -132,6 +132,26 @@ std::vector< libtest::routines_t > routines = {
     //{ "",                    nullptr,           Section::newline },
 
     // -----
+    // QR, LQ, RQ, QL
+    { "geqrf",              test_geqrf,     Section::qr },
+    //{ "gelqf",              test_gelqf,     Section::qr },
+    //{ "geqlf",              test_geqlf,     Section::qr },
+    //{ "gerqf",              test_gerqf,     Section::qr },
+    { "",                   nullptr,        Section::newline },
+
+    //{ "ungqr",              test_ungqr,     Section::qr },
+    //{ "unglq",              test_unglq,     Section::qr },
+    //{ "ungql",              test_ungql,     Section::qr },
+    //{ "ungrq",              test_ungrq,     Section::qr },
+    //{ "",                   nullptr,        Section::newline },
+
+    //{ "unmqr",              test_unmqr,     Section::qr }, // TODO segfaults
+    //{ "unmlq",              test_unmlq,     Section::qr },
+    //{ "unmql",              test_unmql,     Section::qr },
+    //{ "unmrq",              test_unmrq,     Section::qr },
+    //{ "",                   nullptr,        Section::newline },
+
+    // -----
     // matrix norms
     { "genorm",             test_genorm,       Section::aux_norm },
     { "gbnorm",             test_gbnorm,       Section::aux_norm },
@@ -194,7 +214,7 @@ Params::Params():
     matrixtype( "matrixtype", 10, ParamType::List, lapack::MatrixType::General,
                 lapack::char2matrixtype, lapack::matrixtype2char, lapack::matrixtype2str,
                 "matrix type: g=general, l=lower, u=upper, h=Hessenberg, z=band-general, b=band-lower, q=band-upper" ),
-                 
+
     //         name,      w, p, type,            def,   min,     max, help
     dim       ("dim",     6,    ParamType::List,          0, 1000000, "m x n x k dimensions"),
     kd        ("kd",      6,    ParamType::List,  10,     0, 1000000, "bandwidth"),

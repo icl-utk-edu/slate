@@ -430,7 +430,7 @@ if (opts.least_squares):
 # QR
 if (opts.qr):
     cmds += [
-    #[ 'geqrf', gen + dtype + la + n + wide + tall ],
+    [ 'geqrf', gen + dtype + la + n + wide + tall ],
     #[ 'ggqrf', gen + dtype + la + mnk ],
     #[ 'ungqr', gen + dtype + la + mn ],  # m >= n
     #[ 'unmqr', gen + dtype_real    + la + mnk + side + trans    ],  # real does trans = N, T, C

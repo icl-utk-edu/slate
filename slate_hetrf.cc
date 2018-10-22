@@ -95,7 +95,6 @@ void hetrf(slate::internal::TargetType<target>,
 
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    // NOTE: H(i, j) is stored in H(j, i-1)
     #pragma omp parallel
     #pragma omp master
     for (int64_t k = 0; k < A_mt; ++k) {
@@ -107,8 +106,8 @@ void hetrf(slate::internal::TargetType<target>,
         int tag3 = 1+k+A_mt*3;
         int tag4 = 1+k+A_mt*4;
 
-        // compute H(i, k) = T(i, [i-1, i, i+1]) * L(k, [i-1, i, i+1])^T, for i = 1, .., k-1
-        // i.e., H(0:k-1, k) := T(0:k-1, 1:k) * L(k, 1:k)^T
+        // compute H(k, i) := L(k, [i-1, i, i+1]) * T([i-1, i, i+1], i), for i = 1, .., k-1
+        // i.e., H(k, 0:k-1) := L(k, 1:k) * T(0:k-1, 1:k)
         // H(1, k) not needed, and thus not computed
         if (k > 1) {
             #pragma omp task depend(in:columnT[k])   \
@@ -116,8 +115,8 @@ void hetrf(slate::internal::TargetType<target>,
                              depend(out:columnH1[k]) \
                              priority(1)
             {
-                //printf( " >> compute H(%d:%ld, %ld) on rank-%d <<\n", 0,k-1, k, rank); fflush(stdout);
-                // going by row, H(i, k) = T(i, :)*L(k, :) for i=0,..,k+1
+                //printf( " >> compute H(%ld, %d:%ld) on rank-%d <<\n", k, 0,k-1, rank); fflush(stdout);
+                // going by row, H(k, i) = L(k, :) * T(:, i) for i=0,..,k+1
                 // send L(k, j) that are needed to compute H(:, k)
                 for (int64_t j=0; j<k; j++) {
                     //printf( " %d: >> receiving A(%ld,:%ld) <<\n",rank,k,j  );
@@ -140,7 +139,7 @@ void hetrf(slate::internal::TargetType<target>,
                     }
                 }
                 #pragma omp taskwait
-                //printf( " >> compute H(%d:%ld, %ld) on rank-%d done <<\n", 0,k-1, k, rank); fflush(stdout);
+                //printf( " >> compute H(%ld, %d:%ld) on rank-%d done <<\n", k, 0,k-1, rank); fflush(stdout);
             }
         }
 
@@ -295,7 +294,7 @@ void hetrf(slate::internal::TargetType<target>,
                     }
                 }
 
-                // Big left-looking Gemm: A(k+1:mt, k) -= L(k+1:mt, 1:k) * H(2:k, k)
+                // Big left-looking Gemm: A(k+1:mt, k) -= L(k+1:mt, 1:k-2) * H(k, 2:k-2)^T
                 if (k > 1) {
                     #pragma omp task depend(in:columnH1[k])   \
                                      depend(in:columnL[k-1])  \
@@ -354,7 +353,7 @@ void hetrf(slate::internal::TargetType<target>,
                         }
                     }
                 }
-                // Big left-looking Gemm: A(k+1:mt, k) -= L(k+1:mt, 1:k) * H(2:k, k)
+                // Big left-looking Gemm: A(k+1:mt, k) -= L(k+1:mt, k-1) * H(k, k-1)^T
                 #pragma omp task depend(in:columnH2[k])   \
                                  depend(inout:columnL[k]) \
                                  priority(1)
@@ -443,7 +442,7 @@ void hetrf(slate::internal::TargetType<target>,
                     }
                 }
                 if (k > 0 && k+1 < A_mt) {
-                    // send T(i, j) that are needed to compute H(:, k)
+                    // send T(i, j) that are needed to compute H(k, :)
                     T.tileBcast(k, k+1, H.sub(k+1, A_mt-1, k,   k), tag);
 
                     //T.tileBcast(k+1, k, H.sub(k+1, A_mt-1, k-1, k-1), tag);
@@ -557,28 +556,34 @@ void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel Cholesky factorization.
-/// Performs the Cholesky factorization of a Hermitian
-/// (or symmetric, in the real case) positive definite
-/// matrix A. The factorization has the form
+/// Distributed parallel LTLt factorization.
+/// Performs the LTLt factorization of a Hermitian
+/// (or symmetric, in the real case) matrix A. 
+/// The factorization has the form
 /// \[
-///     A = L L^H,
+///     P A P^H = L T L^H,
 /// \]
-/// if A is stored lower, where L is a lower triangular matrix, or
+/// if A is stored lower, where L is a lower triangular matrix, 
+/// and T is symmetric band matrix (block tri-diagonal matrix), or
 /// \[
-///     A = U^H U,
+///     P A P^H = U^H T U,
 /// \]
-/// if A is stored upper, where U is an upper triangular matrix.
+/// if A is stored upper, where U is an upper triangular matrix,
+/// and T is symmetric band matrix.
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
 /// @param[in,out] A
-///     On entry, the Hermitian positive definite matrix A.
-///     On exit, if return value = 0, the factor U or L from the Cholesky
-///     factorization $A = U^H U$ or $A = L L^H$.
+///     On entry, the Hermitian matrix A.
+///     On exit, if return value = 0, the factor U or L from the LTLt
+///     factorization $P A P^H = U^H T U$ or $P A P^H = L T L^H$.
 ///     If scalar_t is real, A can be a SymmetricMatrix object.
+///
+/// @param[out] T
+///     On exit, if return value = 0, the LU factors of the band matrix T 
+///     from the LTLt factorization $P A P^H = U^H T U$ or $P A P^H = L T L^H$.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:

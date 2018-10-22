@@ -12,6 +12,10 @@
 #include "blas_fortran.hh"
 
 #include <complex>
+#include <limits>
+#include <cassert>
+
+#include <blas.hh>
 
 // -----------------------------------------------------------------------------
 // helper funtion to check and do type conversion
@@ -83,17 +87,17 @@ extern "C" int scalapack_indxg2l(int* indxglob, int* nb, int* iproc, int* isrcpr
 #define scalapack_pclange BLAS_FORTRAN_NAME( pclange, PCLANGE )
 #define scalapack_pzlange BLAS_FORTRAN_NAME( pzlange, PZLANGE )
 
-extern "C" blas_float_return scalapack_pslange(const char* norm, blas_int* m, blas_int* n, float* A, blas_int* ia, blas_int* ja, blas_int* descA, float* work);
+extern "C" float scalapack_pslange(const char* norm, blas_int* m, blas_int* n, float* A, blas_int* ia, blas_int* ja, blas_int* descA, float* work);
 
 extern "C" double scalapack_pdlange(const char* norm, blas_int* m, blas_int* n, double* A, blas_int* ia, blas_int* ja, blas_int* descA, double* work);
 
-extern "C" blas_float_return scalapack_pclange(const char* norm, blas_int* m, blas_int* n, std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA, float* work);
+extern "C" float scalapack_pclange(const char* norm, blas_int* m, blas_int* n, std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA, float* work);
 
 extern "C" double scalapack_pzlange(const char* norm, blas_int* m, blas_int* n, std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA, double* work);
 
 // -----------------------------------------------------------------------------
 
-inline blas_float_return scalapack_plange(const char* norm, blas_int* m, blas_int* n, float* A, blas_int* ia, blas_int* ja, blas_int* descA, float* work)
+inline float scalapack_plange(const char* norm, blas_int* m, blas_int* n, float* A, blas_int* ia, blas_int* ja, blas_int* descA, float* work)
 {
     return scalapack_pslange(norm, m, n, A, ia, ja, descA, work);
 }
@@ -101,7 +105,7 @@ inline double scalapack_plange(const char* norm, blas_int* m, blas_int* n, doubl
 {
     return scalapack_pdlange(norm, m, n, A, ia, ja, descA, work);
 }
-inline blas_float_return scalapack_plange(const char* norm, blas_int* m, blas_int* n, std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA, float* work)
+inline float scalapack_plange(const char* norm, blas_int* m, blas_int* n, std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA, float* work)
 {
     return scalapack_pclange(norm, m, n, A, ia, ja, descA, work);
 }
@@ -670,17 +674,17 @@ inline void scalapack_ptrsm(const char* side, const char* uplo, const char* tran
 #define scalapack_pclantr BLAS_FORTRAN_NAME( pclantr, PCLANTR )
 #define scalapack_pzlantr BLAS_FORTRAN_NAME( pzlantr, PZLANTR )
 
-extern "C" blas_float_return scalapack_pslantr(const char* norm, const char* uplo, const char* diag, blas_int* m, blas_int* n, float* A, blas_int* ia, blas_int* ja, blas_int* descA, float* work);
+extern "C" float scalapack_pslantr(const char* norm, const char* uplo, const char* diag, blas_int* m, blas_int* n, float* A, blas_int* ia, blas_int* ja, blas_int* descA, float* work);
 
 extern "C" double scalapack_pdlantr(const char* norm, const char* uplo, const char* diag, blas_int* m, blas_int* n, double* A, blas_int* ia, blas_int* ja, blas_int* descA, double* work);
 
-extern "C" blas_float_return scalapack_pclantr(const char* norm, const char* uplo, const char* diag, blas_int* m, blas_int* n, std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA, float* work);
+extern "C" float scalapack_pclantr(const char* norm, const char* uplo, const char* diag, blas_int* m, blas_int* n, std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA, float* work);
 
 extern "C" double scalapack_pzlantr(const char* norm, const char* uplo, const char* diag, blas_int* m, blas_int* n, std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA, double* work);
 
 // -----------------------------------------------------------------------------
 
-inline blas_float_return scalapack_plantr(const char* norm, const char* uplo, const char* diag, blas_int* m, blas_int* n, float* A, blas_int* ia, blas_int* ja, blas_int* descA, float* work)
+inline float scalapack_plantr(const char* norm, const char* uplo, const char* diag, blas_int* m, blas_int* n, float* A, blas_int* ia, blas_int* ja, blas_int* descA, float* work)
 {
     return scalapack_pslantr(norm, uplo, diag, m, n, A, ia, ja, descA, work);
 }
@@ -688,7 +692,7 @@ inline double scalapack_plantr(const char* norm, const char* uplo, const char* d
 {
     return scalapack_pdlantr(norm, uplo, diag, m, n, A, ia, ja, descA, work);
 }
-inline blas_float_return scalapack_plantr(const char* norm, const char* uplo, const char* diag, blas_int* m, blas_int* n, std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA, float* work)
+inline float scalapack_plantr(const char* norm, const char* uplo, const char* diag, blas_int* m, blas_int* n, std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA, float* work)
 {
     return scalapack_pclantr(norm, uplo, diag, m, n, A, ia, ja, descA, work);
 }

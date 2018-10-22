@@ -198,6 +198,13 @@ public:
     void tileErase(int64_t i, int64_t j, int device=host_num_);
 
     template <Target target = Target::Host>
+    void tileSend(int64_t i, int64_t j, int dst_rank, int tag = 0);
+
+    template <Target target = Target::Host>
+    void tileRecv(int64_t i, int64_t j, int dst_rank, int tag = 0,
+                  Layout layout = Layout::ColMajor);
+
+    template <Target target = Target::Host>
     void tileBcast(int64_t i, int64_t j, BaseMatrix const& B, int tag = 0,
                    Layout layout = Layout::ColMajor);
 
@@ -645,6 +652,94 @@ void BaseMatrix<scalar_t>::tileErase(int64_t i, int64_t j, int device)
 }
 
 //------------------------------------------------------------------------------
+/// Send tile {i, j} of op(A) to the given MPI rank.
+/// Destination rank must call tileRecv().
+///
+/// @tparam target
+///     Destination to target; either Host (default) or Device.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] dst_rank
+///     Destination MPI rank. If dst_rank == mpiRank, this is a no-op.
+///
+/// @param[in] tag
+///     MPI tag, default 0.
+///
+template <typename scalar_t>
+template <Target target>
+void BaseMatrix<scalar_t>::tileSend(
+    int64_t i, int64_t j, int dst_rank, int tag)
+{
+    if (dst_rank != mpiRank()) {
+        at(i, j).send(dst_rank, mpiComm(), tag);
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Receive tile {i, j} of op(A) to the given MPI rank.
+/// Tile is allocated as workspace with life = 1 if it doesn't yet exist,
+/// or 1 is added to life if it does exist.
+/// Source rank must call tileSend().
+///
+/// @tparam target
+///     Destination to target; either Host (default) or Device.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] src_rank
+///     Source MPI rank. If src_rank == mpiRank, this is a no-op.
+///
+/// @param[in] tag
+///     MPI tag, default 0.
+///
+/// @param[in] layout
+///     Layout of final tile.
+///     - Layout::ColMajor (default) or
+///     - Layout::RowMajor.
+///
+template <typename scalar_t>
+template <Target target>
+void BaseMatrix<scalar_t>::tileRecv(
+    int64_t i, int64_t j, int src_rank, int tag, Layout layout)
+{
+    if (src_rank != mpiRank()) {
+        if (! tileIsLocal(i, j)) {
+            // Create tile to receive data, with life span.
+            // If tile already exists, add to its life span.
+            LockGuard(storage_->tiles_.get_lock());
+            auto iter = storage_->find(globalIndex(i, j, host_num_));
+        
+            int64_t life = 1;
+            if (iter == storage_->end())
+                tileInsertWorkspace(i, j, host_num_);
+            else
+                life += tileLife(i, j);
+            tileLife(i, j, life);
+        }
+    
+        // Receive data.
+        at(i, j).recv(src_rank, mpiComm(), tag);
+    
+        // Copy to devices.
+        if (target == Target::Devices) {
+            #pragma omp task
+            {
+                tileCopyToDevice(i, j, tileDevice(i, j), layout);
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
 /// Send tile {i, j} of op(A) to all MPI ranks in matrix B.
 /// If target is Devices, also copies tile to all devices on each MPI rank.
 /// This should be called by at least all ranks with local tiles in B;
@@ -662,6 +757,14 @@ void BaseMatrix<scalar_t>::tileErase(int64_t i, int64_t j, int device)
 /// @param[in] B
 ///     Sub-matrix B defines the MPI ranks to send to.
 ///     Usually it is the portion of the matrix to be updated by tile {i, j}.
+///
+/// @param[in] tag
+///     MPI tag, default 0.
+///
+/// @param[in] layout
+///     Layout of final tile.
+///     - Layout::ColMajor (default) or
+///     - Layout::RowMajor.
 ///
 template <typename scalar_t>
 template <Target target>
@@ -683,6 +786,14 @@ void BaseMatrix<scalar_t>::tileBcast(
 /// @param[in] bcast_list
 ///     List of submatrices defining the MPI ranks to send to.
 ///     Usually it is the portion of the matrix to be updated by tile {i, j}.
+///
+/// @param[in] tag
+///     MPI tag, default 0.
+///
+/// @param[in] layout
+///     Layout of final tile.
+///     - Layout::ColMajor (default) or
+///     - Layout::RowMajor.
 ///
 template <typename scalar_t>
 template <Target target>
@@ -716,7 +827,7 @@ void BaseMatrix<scalar_t>::listBcast(
         if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
 
             // If receiving the tile.
-            if (!tileIsLocal(i, j)) {
+            if (! tileIsLocal(i, j)) {
 
                 // Create tile to receive data, with life span.
                 // If tile already exists, add to its life span.
@@ -741,6 +852,7 @@ void BaseMatrix<scalar_t>::listBcast(
         }
 
         // Copy to devices.
+        // TODO: should this be inside above if-then?
         if (target == Target::Devices) {
             std::set<int> dev_set;
             for (auto submatrix : submatrices_list)
@@ -783,7 +895,7 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, int tag)
             tileReduceFromSet(i, j, reduce_set, 2, tag);
 
             // If not the tile owner.
-            if (!tileIsLocal(i, j)) {
+            if (! tileIsLocal(i, j)) {
 
                 // Destroy the tile.
                 LockGuard(storage_->tiles_.get_lock());
@@ -898,6 +1010,7 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     // Convert the set to a vector.
     std::vector<int> bcast_vec(bcast_set.begin(), bcast_set.end());
 
+    // TODO: std::set is already sorted (it's really an ordered_set), no need to sort again?
     // Sort the ranks.
     std::sort(bcast_vec.begin(), bcast_vec.end());
 
@@ -920,7 +1033,7 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
                                recv_from, send_to);
 
     // Receive.
-    if (!recv_from.empty())
+    if (! recv_from.empty())
         at(i, j).recv(new_vec[recv_from.front()], mpi_comm_, tag);
 
     // Forward.
@@ -975,7 +1088,7 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
     }
 
     // Forward.
-    if (!send_to.empty())
+    if (! send_to.empty())
         at(i, j).send(new_vec[send_to.front()], mpi_comm_, tag);
 }
 

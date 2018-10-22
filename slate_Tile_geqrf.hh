@@ -41,6 +41,7 @@
 #define SLATE_TILE_GEQRF_HH
 
 #include "slate_internal.hh"
+#include "slate_internal_util.hh"
 #include "slate_Tile.hh"
 #include "slate_Tile_blas.hh"
 #include "slate_Tile_lapack.hh"
@@ -57,40 +58,6 @@
 namespace slate {
 namespace internal {
 // todo: Perhaps we should put all Tile routines in "internal".
-
-//-----------------------------------
-float real(float val) { return val; }
-double real(double val) { return val; }
-float real(std::complex<float> val) { return val.real(); }
-double real(std::complex<double> val) { return val.real(); }
-
-//-----------------------------------
-float imag(float val) { return 0.0; }
-double imag(double val) { return 0.0; }
-float imag(std::complex<float> val) { return val.imag(); }
-double imag(std::complex<double> val) { return val.imag(); }
-
-//--------------------------
-template <typename scalar_t>
-scalar_t make(blas::real_type<scalar_t> real, blas::real_type<scalar_t> imag);
-
-template <>
-float make<float>(float real, float imag) { return real; }
-
-template <>
-double make<double>(double real, double imag) { return real; }
-
-template <>
-std::complex<float> make<std::complex<float>>(float real, float imag)
-{
-    return std::complex<float>(real, imag);
-}
-
-template <>
-std::complex<double> make<std::complex<double>>(double real, double imag)
-{
-    return std::complex<double>(real, imag);
-}
 
 ///-----------------------------------------------------------------------------
 /// \brief

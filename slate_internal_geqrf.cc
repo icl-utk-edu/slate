@@ -104,6 +104,7 @@ void geqrf(internal::TargetType<Target::HostTask>,
         if (int(tiles.size()) < max_panel_threads)
             thread_size = tiles.size();
 
+        T.tileInsert(0, 0);
         auto T00 = T(0, 0);
         ThreadBarrier thread_barrier;
         std::vector<real_t> scale(thread_size);

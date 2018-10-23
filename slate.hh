@@ -377,13 +377,19 @@ void getrs(Matrix<scalar_t>& A, Pivots& pivots,
 
 //------------------------------------------------------------------------------
 // QR
+// auxiliary type for T factors
+template <typename scalar_t>
+using TriangularFactors = std::vector< Matrix<scalar_t> >;
+
 // geqrf
 template <typename scalar_t>
-void geqrf(Matrix<scalar_t>& A, Matrix<scalar_t>& T,
+void geqrf(Matrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template <Target target, typename scalar_t>
-void geqrf(Matrix<scalar_t>& A, Matrix<scalar_t>& T,
+void geqrf(Matrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
@@ -391,14 +397,14 @@ void geqrf(Matrix<scalar_t>& A, Matrix<scalar_t>& T,
 template <typename scalar_t>
 void unmqr(Side side, Op op,
            Matrix<scalar_t>& A,
-           Matrix<scalar_t>& T,
+           TriangularFactors<scalar_t>& T,
            Matrix<scalar_t>& C,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template <Target target, typename scalar_t>
 void unmqr(Side side, Op op,
            Matrix<scalar_t>& A,
-           Matrix<scalar_t>& T,
+           TriangularFactors<scalar_t>& T,
            Matrix<scalar_t>& C,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 

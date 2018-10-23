@@ -198,6 +198,12 @@ public:
     {
         lives_[ij] = life;
     }
+    
+    //--------------------------------------------------------------------------
+    /// Return p, q of 2D block-cyclic distribution.
+    /// These will eventually disappear when distributions are generalized.
+    int p() const { return p_; }
+    int q() const { return q_; }
 
 private:
     int64_t m_;
@@ -205,6 +211,7 @@ private:
     int64_t mt_;
     int64_t nt_;
     int64_t nb_;
+    int p_, q_;
 
     TilesMap tiles_;        ///< map of tiles
     LivesMap lives_;        ///< map of tiles' lives
@@ -240,6 +247,8 @@ MatrixStorage<scalar_t>::MatrixStorage(
       mt_(ceildiv(m, nb)),
       nt_(ceildiv(n, nb)),
       nb_(nb),
+      p_(p),
+      q_(q),
       tiles_(),
       lives_(),
       memory_(sizeof(scalar_t) * nb * nb)  // block size in bytes

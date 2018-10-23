@@ -81,6 +81,9 @@ public:
                        scalar_t** Aarray, int num_devices, int64_t lda,
                        int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
+    static
+    Matrix emptyLike(Matrix const& B);
+
     // conversion sub-matrix
     Matrix(BaseMatrix<scalar_t>& orig,
            int64_t i1, int64_t i2,
@@ -296,6 +299,30 @@ Matrix<scalar_t> Matrix<scalar_t>::fromDevices(
     int64_t nb, int p, int q, MPI_Comm mpi_comm)
 {
     return Matrix<scalar_t>(m, n, Aarray, num_devices, lda, nb, p, q, mpi_comm);
+}
+
+//------------------------------------------------------------------------------
+/// [static]
+/// Named constructor returns a new, empty Matrix with the same structure
+/// (size and distribution) as the matrix B. Tiles are not allocated.
+///
+/// @param[in] B
+///     Matrix to copy structure of.
+///
+template <typename scalar_t>
+Matrix<scalar_t> Matrix<scalar_t>::emptyLike(Matrix<scalar_t> const& B)
+{
+    int64_t m = 0;
+    for (int64_t i = 0; i < B.mt(); ++i)
+        m += B.tileMb(i);
+
+    int64_t n = 0;
+    for (int64_t i = 0; i < B.nt(); ++i)
+        n += B.tileNb(i);
+
+    int p = B.storage_->p();
+    int q = B.storage_->q();
+    return Matrix<scalar_t>(m, n, B.tileNb(0), p, q, B.mpiComm());
 }
 
 //------------------------------------------------------------------------------

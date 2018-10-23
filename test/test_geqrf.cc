@@ -97,7 +97,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
 
     // Create SLATE matrix from the ScaLAPACK layouts
     auto A = slate::Matrix<scalar_t>::fromScaLAPACK(m, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-    auto T = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
+    slate::TriangularFactors<scalar_t> T;
 
     if (verbose > 1) {
         print_matrix( "A", A );

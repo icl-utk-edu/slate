@@ -140,7 +140,7 @@ void tpmqrt(
         assert(A.nb() == k);
         assert(V.mb() == n);
     }
-
+    
     int64_t ib = T.mb();
     assert(k >= ib);
     assert(T.nb() == k);

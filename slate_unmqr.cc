@@ -60,7 +60,7 @@ void unmqr(
     slate::internal::TargetType<target>,
     Side side, Op op,
     Matrix<scalar_t>& A,
-    Matrix<scalar_t>& T,
+    TriangularFactors<scalar_t>& T,
     Matrix<scalar_t>& C,
     int64_t ib, int64_t lookahead)
 {
@@ -68,6 +68,10 @@ void unmqr(
 
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
+
+    assert(T.size() == 2);
+    auto Tlocal  = T[0];
+    auto Treduce = T[1];
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
@@ -93,7 +97,7 @@ void unmqr(
                         // Apply triangle-triangle reduction reflectors
                         internal::ttmqr(side, op,
                                         A.sub(k, A_mt-1, k, k),
-                                        T.sub(k, A_mt-1, k, k),
+                                        Treduce.sub(k, A_mt-1, k, k),
                                         C.sub(k, A_mt-1, 0, C.nt()-1));
 
                         // Apply local reflectors
@@ -140,7 +144,7 @@ template <Target target, typename scalar_t>
 void unmqr(
     Side side, Op op,
     Matrix<scalar_t>& A,
-    Matrix<scalar_t>& T,
+    TriangularFactors<scalar_t>& T,
     Matrix<scalar_t>& C,
     const std::map<Option, Value>& opts)
 {
@@ -166,7 +170,7 @@ template <typename scalar_t>
 void unmqr(
     Side side, Op op,
     Matrix<scalar_t>& A,
-    Matrix<scalar_t>& T,
+    TriangularFactors<scalar_t>& T,
     Matrix<scalar_t>& C,
     const std::map<Option, Value>& opts)
 {
@@ -202,7 +206,7 @@ template
 void unmqr<float>(
     Side side, Op op,
     Matrix<float>& A,
-    Matrix<float>& T,
+    TriangularFactors<float>& T,
     Matrix<float>& C,
     const std::map<Option, Value>& opts);
 
@@ -210,7 +214,7 @@ template
 void unmqr<double>(
     Side side, Op op,
     Matrix<double>& A,
-    Matrix<double>& T,
+    TriangularFactors<double>& T,
     Matrix<double>& C,
     const std::map<Option, Value>& opts);
 
@@ -218,7 +222,7 @@ template
 void unmqr< std::complex<float> >(
     Side side, Op op,
     Matrix< std::complex<float> >& A,
-    Matrix< std::complex<float> >& T,
+    TriangularFactors< std::complex<float> >& T,
     Matrix< std::complex<float> >& C,
     const std::map<Option, Value>& opts);
 
@@ -226,7 +230,7 @@ template
 void unmqr< std::complex<double> >(
     Side side, Op op,
     Matrix< std::complex<double> >& A,
-    Matrix< std::complex<double> >& T,
+    TriangularFactors< std::complex<double> >& T,
     Matrix< std::complex<double> >& C,
     const std::map<Option, Value>& opts);
 

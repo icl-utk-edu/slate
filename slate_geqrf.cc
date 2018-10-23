@@ -56,7 +56,7 @@ namespace specialization {
 template <Target target, typename scalar_t>
 void geqrf(slate::internal::TargetType<target>,
            Matrix<scalar_t>& A,
-           Matrix<scalar_t>& T,
+           TriangularFactors<scalar_t>& T,
            int64_t ib, int max_panel_threads, int64_t lookahead)
 {
     using blas::real;
@@ -65,6 +65,12 @@ void geqrf(slate::internal::TargetType<target>,
 
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
+
+    T.clear();
+    T.push_back(A.emptyLike(A));
+    T.push_back(A.emptyLike(A));
+    auto Tlocal  = T[0];
+    auto Treduce = T[1];
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
@@ -80,13 +86,13 @@ void geqrf(slate::internal::TargetType<target>,
             {
                 // local panel factorization
                 internal::geqrf<Target::HostTask>(
-                    A.sub(k, A_mt-1, k, k), T.sub(k, k, k, k),
+                    A.sub(k, A_mt-1, k, k), Tlocal.sub(k, k, k, k),
                     diag_len, ib, max_panel_threads, priority_one);
                 // TODO: bcast V & T across row for trailing matrix update
 
                 // triangle-triangle reductions
                 internal::ttqrt<Target::HostTask>(
-                    A.sub(k, A_mt-1, k, k), T.sub(k, A_mt-1, k, k));
+                    A.sub(k, A_mt-1, k, k), Treduce.sub(k, A_mt-1, k, k));
                 // TODO: bcast V's & T's across rows for trailing matrix update
             }
 
@@ -110,7 +116,8 @@ void geqrf(slate::internal::TargetType<target>,
 /// Version with target as template parameter.
 /// @ingroup gesv_comp
 template <Target target, typename scalar_t>
-void geqrf(Matrix<scalar_t>& A, Matrix<scalar_t>& T,
+void geqrf(Matrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
            const std::map<Option, Value>& opts)
 {
     int64_t lookahead;
@@ -149,7 +156,8 @@ void geqrf(Matrix<scalar_t>& A, Matrix<scalar_t>& T,
 /// Distributed parallel QR factorization.
 ///
 template <typename scalar_t>
-void geqrf(Matrix<scalar_t>& A, Matrix<scalar_t>& T,
+void geqrf(Matrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
            const std::map<Option, Value>& opts)
 {
     Target target;
@@ -182,22 +190,26 @@ void geqrf(Matrix<scalar_t>& A, Matrix<scalar_t>& T,
 // Explicit instantiations.
 template
 void geqrf<float>(
-    Matrix<float>& A, Matrix<float>& T,
+    Matrix<float>& A,
+    TriangularFactors<float>& T,
     const std::map<Option, Value>& opts);
 
 template
 void geqrf<double>(
-    Matrix<double>& A, Matrix<double>& T,
+    Matrix<double>& A,
+    TriangularFactors<double>& T,
     const std::map<Option, Value>& opts);
 
 template
 void geqrf< std::complex<float> >(
-    Matrix< std::complex<float> >& A, Matrix< std::complex<float> >& T,
+    Matrix< std::complex<float> >& A,
+    TriangularFactors< std::complex<float> >& T,
     const std::map<Option, Value>& opts);
 
 template
 void geqrf< std::complex<double> >(
-    Matrix< std::complex<double> >& A, Matrix< std::complex<double> >& T,
+    Matrix< std::complex<double> >& A,
+    TriangularFactors< std::complex<double> >& T,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

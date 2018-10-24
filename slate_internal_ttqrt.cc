@@ -138,7 +138,8 @@ void ttqrt(internal::TargetType<Target::HostTask>,
 
                 // Factor tiles, which eliminates local tile A(i, 0).
                 T.tileInsert(i, 0);
-                tpqrt(A.tileNb(0), A(i_src, 0), A(i, 0), T(i, 0));
+                int64_t l = std::min(A.tileMb(i), A.tileNb(0));
+                tpqrt(l, A(i_src, 0), A(i, 0), T(i, 0));
 
                 // Send updated tile back. This rank is done!
                 A.tileSend(i_src, 0, src);

@@ -40,27 +40,30 @@
 #include "slate.hh"
 #include "slate_Debug.hh"
 #include "slate_Matrix.hh"
+#include "slate_Tile_tpmqrt.hh"
 #include "slate_internal.hh"
+#include "slate_internal_util.hh"
 
 namespace slate {
 
 // specialization namespace differentiates, e.g.,
-// internal::geqrf from internal::specialization::geqrf
+// internal::unmqr from internal::specialization::unmqr
 namespace internal {
 namespace specialization {
 
 ///-----------------------------------------------------------------------------
-/// Distributed parallel QR factorization.
+/// \brief
+/// Distributed parallel multiply by Q from QR factorization.
 /// Generic implementation for any target.
-/// Panel and lookahead computed on host using Host OpenMP task.
 template <Target target, typename scalar_t>
-void geqrf(slate::internal::TargetType<target>,
-           Matrix<scalar_t>& A,
-           Matrix<scalar_t>& T,
-           int64_t ib, int max_panel_threads, int64_t lookahead)
+void unmqr(
+    slate::internal::TargetType<target>,
+    Side side, Op op,
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& T,
+    Matrix<scalar_t>& C,
+    int64_t ib, int64_t lookahead)
 {
-    using blas::real;
-
     const int priority_one = 1;
 
     int64_t A_mt = A.mt();
@@ -73,32 +76,56 @@ void geqrf(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
-        for (int64_t k = 0; k < A_nt; ++k) {
-            const int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
+        if (side == Side::Left) {
+            if (op == Op::NoTrans) {
+                // NoTrans: multiply by Q = Q_1 ... Q_K,
+                // i.e., in reverse order of how Q_k's were created.
 
-            #pragma omp task depend(inout:column[k])
-            {
-                // local panel factorization
-                internal::geqrf<Target::HostTask>(
-                    A.sub(k, A_mt-1, k, k), T.sub(k, k, k, k),
-                    diag_len, ib, max_panel_threads, priority_one);
-                // TODO: bcast V & T across row for trailing matrix update
+                // for k = A_nt-1, lastk = A_nt-1 (no previous column to depend on);
+                // for k < A_nt,   lastk = k + 1.
+                int64_t lastk = A_nt-1;
+                for (int64_t k = A_nt-1; k >= 0; --k) {
+                    const int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
 
-                // triangle-triangle reductions
-                internal::ttqrt<Target::HostTask>(
-                    A.sub(k, A_mt-1, k, k), T.sub(k, A_mt-1, k, k));
-                // TODO: bcast V's & T's across rows for trailing matrix update
-            }
+                    #pragma omp task depend(inout:column[k]) \
+                                     depend(in:column[lastk])
+                    {
+                        // Apply triangle-triangle reduction reflectors
+                        internal::ttmqr(side, op,
+                                        A.sub(k, A_mt-1, k, k),
+                                        T.sub(k, A_mt-1, k, k),
+                                        C.sub(k, A_mt-1, 0, C.nt()-1));
 
-            // trailing matrix update
-            for (int64_t j = k+1; j < A_nt; ++j) {
-                #pragma omp task depend(in:column[k]) \
-                                 depend(inout:column[j])
-                {
-                    // TODO unmqr
-                    // TODO ttmqr
+                        // Apply local reflectors
+                        // TODO unmqr
+                    }
+
+                    lastk = k;
                 }
             }
+            else {
+                // Trans or ConjTrans: multiply by Q^H = Q_K^H ... Q_1^H.
+                // i.e., in same order as Q_k's were created.
+
+                // for k = 0, lastk = 0 (no previous column to depend on);
+                // for k > 0, lastk = k - 1.
+                int64_t lastk = 0;
+                for (int64_t k = 0; k < A_nt; ++k) {
+                    const int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
+
+                    // Apply local reflectors
+                    // TODO unmqr
+
+                    // Apply triangle-triangle reduction reflectors
+                    // TODO ttmqr
+
+                    lastk = k;
+                    assert(lastk == k);  // TMP to silence unused variable warnings
+                }
+            }
+        }
+        else {
+            // TODO: side == Side::Right
         }
     }
 }
@@ -110,47 +137,38 @@ void geqrf(slate::internal::TargetType<target>,
 /// Version with target as template parameter.
 /// @ingroup gesv_comp
 template <Target target, typename scalar_t>
-void geqrf(Matrix<scalar_t>& A, Matrix<scalar_t>& T,
-           const std::map<Option, Value>& opts)
+void unmqr(
+    Side side, Op op,
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& T,
+    Matrix<scalar_t>& C,
+    const std::map<Option, Value>& opts)
 {
-    int64_t lookahead;
-    try {
-        lookahead = opts.at(Option::Lookahead).i_;
-        assert(lookahead >= 0);
-    }
-    catch (std::out_of_range) {
-        lookahead = 1;
-    }
-
-    int64_t ib;
-    try {
+    int64_t ib = 16;
+    if (opts.count(Option::InnerBlocking) > 0)
         ib = opts.at(Option::InnerBlocking).i_;
-        assert(ib >= 0);
-    }
-    catch (std::out_of_range) {
-        ib = 1;
-    }
+    assert(ib >= 0);
 
-    int64_t max_panel_threads;
-    try {
-        max_panel_threads = opts.at(Option::MaxPanelThreads).i_;
-        assert(max_panel_threads >= 1);
-    }
-    catch (std::out_of_range) {
-        max_panel_threads = std::max(omp_get_max_threads()/2, 1);
-    }
+    int64_t lookahead = 1;
+    if (opts.count(Option::Lookahead) > 0)
+        lookahead = opts.at(Option::Lookahead).i_;
+    assert(lookahead >= 0);
 
-    internal::specialization::geqrf(internal::TargetType<target>(),
-                                    A, T,
-                                    ib, max_panel_threads, lookahead);
+    internal::specialization::unmqr(internal::TargetType<target>(),
+                                    side, op, A, T, C,
+                                    ib, lookahead);
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel QR factorization.
+/// Distributed parallel multiply by Q from QR factorization.
 ///
 template <typename scalar_t>
-void geqrf(Matrix<scalar_t>& A, Matrix<scalar_t>& T,
-           const std::map<Option, Value>& opts)
+void unmqr(
+    Side side, Op op,
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& T,
+    Matrix<scalar_t>& C,
+    const std::map<Option, Value>& opts)
 {
     Target target;
     try {
@@ -163,16 +181,16 @@ void geqrf(Matrix<scalar_t>& A, Matrix<scalar_t>& T,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            geqrf<Target::HostTask>(A, T, opts);
+            unmqr<Target::HostTask>(side, op, A, T, C, opts);
             break;
         case Target::HostNest:
-            geqrf<Target::HostNest>(A, T, opts);
+            unmqr<Target::HostNest>(side, op, A, T, C, opts);
             break;
         case Target::HostBatch:
-            geqrf<Target::HostBatch>(A, T, opts);
+            unmqr<Target::HostBatch>(side, op, A, T, C, opts);
             break;
         case Target::Devices:
-            geqrf<Target::Devices>(A, T, opts);
+            unmqr<Target::Devices>(side, op, A, T, C, opts);
             break;
     }
     // todo: return value for errors?
@@ -181,23 +199,35 @@ void geqrf(Matrix<scalar_t>& A, Matrix<scalar_t>& T,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void geqrf<float>(
-    Matrix<float>& A, Matrix<float>& T,
+void unmqr<float>(
+    Side side, Op op,
+    Matrix<float>& A,
+    Matrix<float>& T,
+    Matrix<float>& C,
     const std::map<Option, Value>& opts);
 
 template
-void geqrf<double>(
-    Matrix<double>& A, Matrix<double>& T,
+void unmqr<double>(
+    Side side, Op op,
+    Matrix<double>& A,
+    Matrix<double>& T,
+    Matrix<double>& C,
     const std::map<Option, Value>& opts);
 
 template
-void geqrf< std::complex<float> >(
-    Matrix< std::complex<float> >& A, Matrix< std::complex<float> >& T,
+void unmqr< std::complex<float> >(
+    Side side, Op op,
+    Matrix< std::complex<float> >& A,
+    Matrix< std::complex<float> >& T,
+    Matrix< std::complex<float> >& C,
     const std::map<Option, Value>& opts);
 
 template
-void geqrf< std::complex<double> >(
-    Matrix< std::complex<double> >& A, Matrix< std::complex<double> >& T,
+void unmqr< std::complex<double> >(
+    Side side, Op op,
+    Matrix< std::complex<double> >& A,
+    Matrix< std::complex<double> >& T,
+    Matrix< std::complex<double> >& C,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

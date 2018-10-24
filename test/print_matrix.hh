@@ -131,6 +131,7 @@ void print_matrix(
 
     int mpi_rank = A.mpiRank();
     MPI_Comm comm = A.mpiComm();
+    MPI_Barrier(comm);
 
     width = std::max(width, precision + 3);
 
@@ -203,6 +204,7 @@ void print_matrix(
 
     int mpi_rank = A.mpiRank();
     MPI_Comm comm = A.mpiComm();
+    MPI_Barrier(comm);
 
     width = std::max(width, precision + 3);
 
@@ -303,6 +305,7 @@ void print_matrix(
 
     int mpi_rank = A.mpiRank();
     MPI_Comm comm = A.mpiComm();
+    MPI_Barrier(comm);
 
     width = std::max(width, precision + 3);
 

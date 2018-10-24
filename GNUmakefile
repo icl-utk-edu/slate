@@ -236,6 +236,8 @@ lib_src += \
         slate_internal_trmm.cc \
         slate_internal_trnorm.cc \
         slate_internal_trsm.cc \
+        slate_internal_ttmqr.cc \
+        slate_internal_ttqrt.cc \
         slate_internal_util.cc \
         slate_internal_transpose.cc \
 
@@ -276,6 +278,7 @@ lib_src += \
         slate_tbsm.cc \
         slate_trmm.cc \
         slate_trsm.cc \
+        slate_unmqr.cc \
 
 # main tester
 test_src += \

@@ -81,7 +81,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
     scalapack_pplrnt(&A_tst[0], m, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
-    
+
     // matrix QR, for checking result
     std::vector<scalar_t> QR_tst(1);
     scalapack_descinit(descQR_tst, m, n, nb, nb, izero, izero, ictxt, mlocA, &info);
@@ -97,7 +97,11 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
 
     // Create SLATE matrix from the ScaLAPACK layouts
     auto A = slate::Matrix<scalar_t>::fromScaLAPACK(m, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-    auto T = slate::Matrix<scalar_t>();
+    auto T = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
+
+    if (verbose > 1) {
+        print_matrix( "A", A );
+    }
 
     // if check is required, copy test data and create a descriptor for it
     std::vector<scalar_t> A_ref;
@@ -106,6 +110,9 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         A_ref = A_tst;
         scalapack_descinit(descA_ref, m, n, nb, nb, izero, izero, ictxt, mlocA, &info);
         assert(info == 0);
+
+        Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
+            m, n, &A_ref[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     }
 
     double gflop = lapack::Gflop<scalar_t>::geqrf(m, n);
@@ -123,7 +130,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        #if 0
+        #if 1
             slate::geqrf(A, T, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target},
@@ -165,6 +172,11 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         // compute and save timing/performance
         params.time() = time_tst;
         params.gflops() = gflop / time_tst;
+
+        if (verbose > 1) {
+            print_matrix( "A_factored", A );
+            // todo: print T, which is block-sparse
+        }
     }
 
     if (check) {
@@ -178,22 +190,20 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         //==================================================
 
         // Norm of original matrix: || A ||_1
-        Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
-            m, n, &A_ref[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
         real_t A_norm = slate::norm(slate::Norm::One, Aref);
 
-        // Copy R, stored in upper triangle of A_tst, to QR,
-        // and zero out below diagonal.
+        // Zero out QR, then copy R, stored in upper triangle of A_tst.
         // todo: replace with slate set/copy functions.
         QR_tst = std::vector<scalar_t>(A_tst.size(), zero);
         scalapack_placpy("Upper", std::min(m, n), n,
                          &A_tst[0], ione, ione, descA_tst,
                          &QR_tst[0], ione, ione, descQR_tst);
 
-        // Alternatively:
+        // Alternatively, copy all of A_tst to QR, then zero out below diagonal.
         //QR_tst = A_tst;
         //scalapack_plaset("Lower", m-1, n, zero, zero,
         //                 &QR_tst[0], ione+1, ione, descQR_tst);
+
         auto QR = slate::Matrix<scalar_t>::fromScaLAPACK(
             m, n, &QR_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
 
@@ -202,8 +212,8 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         }
 
         // Form QR, where Q's representation is in A and T, and R is in QR.
-        #if 0
-            slate::unmqr(Side::Left, Op::NoTrans, A, T, QR);
+        #if 1
+            slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, T, QR);
         #else
             // TMP: call scalapack
             int64_t info_ref = 0;
@@ -215,7 +225,6 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         #endif
 
         if (verbose > 1) {
-            print_matrix( "Factored", A );
             print_matrix( "QR", QR );
             print_matrix( "A", Aref );
         }
@@ -224,6 +233,10 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         // todo: slate::geadd(scalar_t(-1.0), Aref, QR);
         // using axpy assumes A_ref and QR_tst have same lda.
         blas::axpy(QR_tst.size(), scalar_t(-1.0), &A_ref[0], ione, &QR_tst[0], ione);
+
+        if (verbose > 1) {
+            print_matrix( "QR - A", QR );
+        }
 
         // Norm of backwards error: || QA - R ||_1
         real_t R_norm = slate::norm(slate::Norm::One, QR);

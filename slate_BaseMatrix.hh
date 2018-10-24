@@ -717,7 +717,7 @@ void BaseMatrix<scalar_t>::tileRecv(
             // If tile already exists, add to its life span.
             LockGuard(storage_->tiles_.get_lock());
             auto iter = storage_->find(globalIndex(i, j, host_num_));
-        
+
             int64_t life = 1;
             if (iter == storage_->end())
                 tileInsertWorkspace(i, j, host_num_);
@@ -725,10 +725,10 @@ void BaseMatrix<scalar_t>::tileRecv(
                 life += tileLife(i, j);
             tileLife(i, j, life);
         }
-    
+
         // Receive data.
         at(i, j).recv(src_rank, mpiComm(), tag);
-    
+
         // Copy to devices.
         if (target == Target::Devices) {
             #pragma omp task

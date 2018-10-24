@@ -389,14 +389,14 @@ void geqrf(Matrix<scalar_t>& A, Matrix<scalar_t>& T,
 //-----------------------------------------
 // unmqr
 template <typename scalar_t>
-void unmqr(Side side,
+void unmqr(Side side, Op op,
            Matrix<scalar_t>& A,
            Matrix<scalar_t>& T,
            Matrix<scalar_t>& C,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template <Target target, typename scalar_t>
-void unmqr(Side side,
+void unmqr(Side side, Op op,
            Matrix<scalar_t>& A,
            Matrix<scalar_t>& T,
            Matrix<scalar_t>& C,

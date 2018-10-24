@@ -369,6 +369,20 @@ void geqrf(Matrix<scalar_t>&& A, Matrix<scalar_t>&& T,
            int64_t diag_len, int64_t ib, int max_panel_threads, int priority=0);
 
 //-----------------------------------------
+// ttqrt()
+template <Target target=Target::HostTask, typename scalar_t>
+void ttqrt(Matrix<scalar_t>&& A,
+           Matrix<scalar_t>&& T);
+
+//-----------------------------------------
+// ttmqr()
+template <Target target=Target::HostTask, typename scalar_t>
+void ttmqr(Side side, Op op,
+           Matrix<scalar_t>&& A,
+           Matrix<scalar_t>&& T,
+           Matrix<scalar_t>&& C);
+
+//-----------------------------------------
 // potrf()
 template <Target target=Target::HostTask, typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>&& A,

@@ -91,6 +91,15 @@ inline std::complex<double> make<std::complex<double>>(double real, double imag)
     return std::complex<double>(real, imag);
 }
 
+//------------------------------------------------------------------------------
+/// Helper function to sort rank_rows by row (see ttqrt, ttmqr).
+inline bool compare_rank_rows(
+    std::pair<int, int64_t> const& a,
+    std::pair<int, int64_t> const& b)
+{
+    return a.second < b.second;
+}
+
 } // namespace internal
 } // namespace slate
 

@@ -45,7 +45,7 @@ namespace internal {
 
 //------------------------------------------------------------------------------
 /// [internal]
-/// Computes the power function.
+/// Computes the power function for integer arguments.
 ///
 template <typename T>
 T pow(T base, T exp)

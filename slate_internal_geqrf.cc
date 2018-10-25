@@ -125,7 +125,8 @@ void geqrf(internal::TargetType<Target::HostTask>,
         for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank)
         {
             // Factor the panel in parallel.
-            W.at(thread_rank).resize(diag_len);
+            // todo: double check the size of W.
+            W.at(thread_rank).resize(ib*A.tileNb(0));
             geqrf(diag_len, ib,
                   tiles, tile_indices, T00,
                   thread_rank, thread_size,

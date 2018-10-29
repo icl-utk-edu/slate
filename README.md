@@ -1,5 +1,5 @@
       __| |      \__ __| __|
-    \__ \ |     _ \  |   _| 
+    \__ \ |     _ \  |   _|
     ____/____|_/  _\_|  ___|
 
 **Software for Linear Algebra Targeting Exascale**

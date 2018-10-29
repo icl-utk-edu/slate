@@ -88,13 +88,12 @@ Contributing
 
 The SLATE project welcomes contributions from new developers.
 Contributions can be offered through the standard Bitbucket pull request model.
-We strongly encourage you to coordinate large contributions with the SLATE development team early in the process.
-
 We ask that you complete and submit a contributor agreement.
 There are two versions of the agreement,
 one for [individuals](https://bitbucket.org/icl/slate/downloads/slate-individual-contributor-agreement-v02.doc),
 and one for [organizations](https://bitbucket.org/icl/slate/downloads/slate-corporate-contributor-agreement-v02.doc).
 Please look at both to determine which is right for you.
+We strongly encourage you to coordinate large contributions with the SLATE development team early in the process.
 
 * * *
 

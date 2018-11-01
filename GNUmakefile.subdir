@@ -15,9 +15,10 @@ ifneq (${MAKECMDGOALS},)
 # If arguments are given, presumably files like test.o, forward them to top
 # with cdir prefix.
 # All files are forwarded as one rule, based on first; rest are quietly ignored.
-forward := ${addprefix ${cdir}/, ${MAKECMDGOALS}}
-first   := ${firstword ${MAKECMDGOALS}}
-rest    := ${wordlist 2, ${words ${MAKECMDGOALS}}, ${MAKECMDGOALS}}
+goals   := ${filter-out echo ${DONT_FORWARD}, ${MAKECMDGOALS}}
+forward := ${addprefix ${cdir}/, ${goals}}
+first   := ${firstword ${goals}}
+rest    := ${wordlist 2, ${words ${goals}}, ${goals}}
 
 ${first}: force
 	cd ${top} && ${MAKE} ${forward}

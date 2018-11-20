@@ -327,8 +327,12 @@ endif
 # unit testers
 unit_src = \
         unit_test/test_BandMatrix.cc \
+        unit_test/test_HermitianMatrix.cc \
         unit_test/test_Matrix.cc \
         unit_test/test_Memory.cc \
+        unit_test/test_SymmetricMatrix.cc \
+        unit_test/test_TrapezoidMatrix.cc \
+        unit_test/test_TriangularMatrix.cc \
         unit_test/test_Tile.cc \
         unit_test/test_Tile_kernels.cc \
         unit_test/test_norm.cc \

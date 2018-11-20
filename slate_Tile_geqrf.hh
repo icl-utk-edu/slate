@@ -76,7 +76,7 @@ namespace internal {
 ///     i indices of the tiles in the panel
 ///
 /// \param[out] T
-///     uppert triangular factor of the block reflector
+///     upper triangular factor of the block reflector
 ///
 /// \param[in] thread_rank
 ///     rank of this thread

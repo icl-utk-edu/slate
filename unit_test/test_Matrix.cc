@@ -140,6 +140,11 @@ void test_Matrix_fromScaLAPACK()
 /// Test Matrix::fromDevices, A(i, j), tileIsLocal, tileMb, tileNb.
 void test_Matrix_fromDevices()
 {
+    if (num_devices == 0) {
+        printf("%s: skipping, num_devices = 0\n", __func__);
+        return;
+    }
+
     int mtiles, mtiles_local, m_local, lda;
     int ntiles, ntiles_local, n_local;
     get_2d_cyclic_dimensions(
@@ -177,6 +182,79 @@ void test_Matrix_fromDevices()
         cudaFree(Aarray[dev]);
     }
     delete[] Aarray;
+}
+
+//------------------------------------------------------------------------------
+/// emptyLike
+void test_Matrix_emptyLike()
+{
+    int mtiles, mtiles_local, m_local, lda;
+    int ntiles, ntiles_local, n_local;
+    get_2d_cyclic_dimensions(
+        m, n, nb,
+        mtiles, mtiles_local, m_local,
+        ntiles, ntiles_local, n_local, lda );
+
+    std::vector<double> Ad( lda*n_local );
+
+    auto A = slate::Matrix<double>::fromScaLAPACK(
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    test_assert(A.mt() == mtiles);
+    test_assert(A.nt() == ntiles);
+    test_assert(A.op() == blas::Op::NoTrans);
+
+    auto B = A.emptyLike();
+
+    test_assert(B.m() == A.m());
+    test_assert(B.n() == A.n());
+    test_assert(B.mt() == A.mt());
+    test_assert(B.nt() == A.nt());
+
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            test_assert( A.tileIsLocal(i, j) == B.tileIsLocal(i, j) );
+            test_assert( A.tileMb(i) == B.tileMb(i) );
+            test_assert( A.tileNb(j) == B.tileNb(j) );
+            test_assert_throw_std( B(i, j) );  // tiles don't exist
+        }
+    }
+    
+    // ----------
+    auto Asub = A.sub( 1, 3, 1, 4 );
+    auto Bsub = Asub.emptyLike();
+
+    test_assert(Bsub.m() == Asub.m());
+    test_assert(Bsub.n() == Asub.n());
+    test_assert(Bsub.mt() == Asub.mt());
+    test_assert(Bsub.nt() == Asub.nt());
+
+    for (int j = 0; j < Asub.nt(); ++j) {
+        for (int i = 0; i < Asub.mt(); ++i) {
+            test_assert( Asub.tileIsLocal(i, j) == Bsub.tileIsLocal(i, j) );
+            test_assert( Asub.tileMb(i) == Bsub.tileMb(i) );
+            test_assert( Asub.tileNb(j) == Bsub.tileNb(j) );
+            test_assert_throw_std( Bsub(i, j) );  // tiles don't exist
+        }
+    }
+    
+    // ----------
+    auto Atrans = transpose( A );
+    auto Btrans = Atrans.emptyLike();
+
+    test_assert(Btrans.m() == Atrans.m());
+    test_assert(Btrans.n() == Atrans.n());
+    test_assert(Btrans.mt() == Atrans.mt());
+    test_assert(Btrans.nt() == Atrans.nt());
+
+    for (int j = 0; j < Atrans.nt(); ++j) {
+        for (int i = 0; i < Atrans.mt(); ++i) {
+            test_assert( Atrans.tileIsLocal(i, j) == Btrans.tileIsLocal(i, j) );
+            test_assert( Atrans.tileMb(i) == Btrans.tileMb(i) );
+            test_assert( Atrans.tileNb(j) == Btrans.tileNb(j) );
+            test_assert_throw_std( Btrans(i, j) );  // tiles don't exist
+        }
+    }
 }
 
 //==============================================================================
@@ -755,7 +833,7 @@ void test_Matrix_to_Trapezoid()
             }
         }
     }
-    
+
     // ----------
     // sub-matrix
     int i1 = rand() % A.mt();
@@ -824,7 +902,7 @@ void test_Matrix_to_Triangular()
             }
         }
     }
-    
+
     // ----------
     // sub-matrix, must be square
     int i1 = rand() % A.mt();
@@ -1013,6 +1091,7 @@ void run_tests()
     run_test(test_Matrix_fromLAPACK,      "Matrix::fromLAPACK",    mpi_comm);
     run_test(test_Matrix_fromScaLAPACK,   "Matrix::fromScaLAPACK", mpi_comm);
     run_test(test_Matrix_fromDevices,     "Matrix::fromDevices",   mpi_comm);
+    run_test(test_Matrix_emptyLike,       "Matrix::emptyLike",     mpi_comm);
 
     if (mpi_rank == 0)
         printf("\nMethods\n");

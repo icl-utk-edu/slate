@@ -303,17 +303,33 @@ Matrix<scalar_t> Matrix<scalar_t>::fromDevices(
 template <typename scalar_t>
 Matrix<scalar_t> Matrix<scalar_t>::emptyLike()
 {
-    // First create parent matrix, then return sub-matrix.
+    // First create parent matrix, apply op, then return sub-matrix.
     // TODO: currently assumes 2DBC and fixed mb == nb.
     int64_t nb = this->tileNb(0);
     assert(nb == this->tileMb(0));
     int64_t ioffset = this->ioffset();
     int64_t joffset = this->joffset();
-    int64_t m = ioffset*nb + this->m();
-    int64_t n = joffset*nb + this->n();
+    int64_t m = ioffset*nb;
+    int64_t n = joffset*nb;
+    if (this->op() == Op::NoTrans) {
+        m += this->m();
+        n += this->n();
+    }
+    else {
+        m += this->n();
+        n += this->m();
+    }
     int p = this->storage_->p();
     int q = this->storage_->q();
-    auto B =  Matrix<scalar_t>(m, n, nb, p, q, this->mpiComm());
+    auto B = Matrix<scalar_t>(m, n, nb, p, q, this->mpiComm());
+    if (this->op() == Op::Trans) {
+        B = transpose( B );
+        std::swap(ioffset, joffset);
+    }
+    else if (this->op() == Op::ConjTrans) {
+        B = conj_transpose( B );
+        std::swap(ioffset, joffset);
+    }
     return B.sub(ioffset, ioffset + this->mt() - 1,
                  joffset, joffset + this->nt() - 1);
 }

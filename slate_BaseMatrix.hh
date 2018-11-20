@@ -238,18 +238,24 @@ public:
     int       hostNum()  const { return host_num_; }
 
     /// Removes all tiles from matrix.
+    /// WARNING: currently this clears the entire parent matrix,
+    /// not just a sub-matrix.
     void clear()
     {
         storage_->clear();
     }
 
     /// Removes all temporary host and device workspace tiles from matrix.
+    /// WARNING: currently this clears the entire parent matrix,
+    /// not just a sub-matrix.
     void clearWorkspace()
     {
         storage_->clearWorkspace();
     }
 
     /// Removes batch arrays from matrix for all devices.
+    /// WARNING: currently this clears the entire parent matrix,
+    /// not just a sub-matrix.
     void clearBatchArrays()
     {
         storage_->clearBatchArrays();

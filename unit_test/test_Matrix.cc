@@ -219,7 +219,7 @@ void test_Matrix_emptyLike()
             test_assert_throw_std( B(i, j) );  // tiles don't exist
         }
     }
-    
+
     // ----------
     auto Asub = A.sub( 1, 3, 1, 4 );
     auto Bsub = Asub.emptyLike();
@@ -237,7 +237,7 @@ void test_Matrix_emptyLike()
             test_assert_throw_std( Bsub(i, j) );  // tiles don't exist
         }
     }
-    
+
     // ----------
     auto Atrans = transpose( A );
     auto Btrans = Atrans.emptyLike();
@@ -253,6 +253,24 @@ void test_Matrix_emptyLike()
             test_assert( Atrans.tileMb(i) == Btrans.tileMb(i) );
             test_assert( Atrans.tileNb(j) == Btrans.tileNb(j) );
             test_assert_throw_std( Btrans(i, j) );  // tiles don't exist
+        }
+    }
+
+    // ----------
+    auto Asub_trans = transpose( Asub );
+    auto Bsub_trans = Asub_trans.emptyLike();
+
+    test_assert(Bsub_trans.m() == Asub_trans.m());
+    test_assert(Bsub_trans.n() == Asub_trans.n());
+    test_assert(Bsub_trans.mt() == Asub_trans.mt());
+    test_assert(Bsub_trans.nt() == Asub_trans.nt());
+
+    for (int j = 0; j < Asub_trans.nt(); ++j) {
+        for (int i = 0; i < Asub_trans.mt(); ++i) {
+            test_assert( Asub_trans.tileIsLocal(i, j) == Bsub_trans.tileIsLocal(i, j) );
+            test_assert( Asub_trans.tileMb(i) == Bsub_trans.tileMb(i) );
+            test_assert( Asub_trans.tileNb(j) == Bsub_trans.tileNb(j) );
+            test_assert_throw_std( Bsub_trans(i, j) );  // tiles don't exist
         }
     }
 }

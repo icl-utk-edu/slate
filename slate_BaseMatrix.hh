@@ -316,6 +316,12 @@ protected:
     std::tuple<int64_t, int64_t, int>
         globalIndex(int64_t i, int64_t j, int device) const;
 
+    /// block row offset with respect to original matrix
+    int64_t ioffset() const { return ioffset_; }
+
+    /// block col offset with respect to original matrix
+    int64_t joffset() const { return joffset_; }
+
 private:
     ///-------------------------------------------------------------------------
     int64_t ioffset_;   ///< block row offset with respect to original matrix

@@ -81,8 +81,7 @@ public:
                        scalar_t** Aarray, int num_devices, int64_t lda,
                        int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
-    static
-    Matrix emptyLike(Matrix const& B);
+    Matrix emptyLike();
 
     // conversion sub-matrix
     Matrix(BaseMatrix<scalar_t>& orig,
@@ -302,27 +301,25 @@ Matrix<scalar_t> Matrix<scalar_t>::fromDevices(
 }
 
 //------------------------------------------------------------------------------
-/// [static]
 /// Named constructor returns a new, empty Matrix with the same structure
-/// (size and distribution) as the matrix B. Tiles are not allocated.
-///
-/// @param[in] B
-///     Matrix to copy structure of.
+/// (size and distribution) as this matrix. Tiles are not allocated.
 ///
 template <typename scalar_t>
-Matrix<scalar_t> Matrix<scalar_t>::emptyLike(Matrix<scalar_t> const& B)
+Matrix<scalar_t> Matrix<scalar_t>::emptyLike()
 {
-    int64_t m = 0;
-    for (int64_t i = 0; i < B.mt(); ++i)
-        m += B.tileMb(i);
-
-    int64_t n = 0;
-    for (int64_t i = 0; i < B.nt(); ++i)
-        n += B.tileNb(i);
-
-    int p = B.storage_->p();
-    int q = B.storage_->q();
-    return Matrix<scalar_t>(m, n, B.tileNb(0), p, q, B.mpiComm());
+    // First create parent matrix, then return sub-matrix.
+    // TODO: currently assumes 2DBC and fixed mb == nb.
+    int64_t nb = this->tileNb(0);
+    assert(nb == this->tileMb(0));
+    int64_t ioffset = this->ioffset();
+    int64_t joffset = this->joffset();
+    int64_t m = ioffset*nb + this->m();
+    int64_t n = joffset*nb + this->n();
+    int p = this->storage_->p();
+    int q = this->storage_->q();
+    auto B =  Matrix<scalar_t>(m, n, nb, p, q, this->mpiComm());
+    return B.sub(ioffset, ioffset + this->mt() - 1,
+                 joffset, joffset + this->nt() - 1);
 }
 
 //------------------------------------------------------------------------------

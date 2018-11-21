@@ -16,7 +16,7 @@
 #include <utility>
 
 //------------------------------------------------------------------------------
-template <typename scalar_t> void test_hetrf_work(Params& params, bool run)
+template <typename scalar_t> void test_hesv_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -91,6 +91,29 @@ template <typename scalar_t> void test_hetrf_work(Params& params, bool run)
     auto H = slate::Matrix<scalar_t> (n, n, nb, p, q, MPI_COMM_WORLD);
 
     //---------------------
+    // right-hand-side and solution vectors
+    int64_t Bm = n;
+    int64_t Bn = n;
+    int descB_tst[9], descB_ref[9];
+    std::vector<scalar_t> B_ref;
+
+    // matrix B, figure out local size, allocate, create descriptor, initialize
+    int64_t mlocB = scalapack_numroc(Bm, nb, myrow, izero, nprow);
+    int64_t nlocB = scalapack_numroc(Bn, nb, mycol, izero, npcol);
+    scalapack_descinit(descB_tst, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
+    assert(info == 0);
+    int64_t lldB = (int64_t)descB_tst[8];
+    std::vector<scalar_t> B_tst(lldB*nlocB);
+    scalapack_pplrnt(&B_tst[0], Bm, Bn, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 2);
+
+    B_ref.resize(B_tst.size());
+    B_ref = B_tst;
+    scalapack_descinit(descB_ref, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
+    assert(info == 0);
+
+    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+
+    //---------------------
     // if check is required, copy test data and create a descriptor for it
     std::vector<scalar_t> A_ref;
     if (check) {
@@ -105,16 +128,35 @@ template <typename scalar_t> void test_hetrf_work(Params& params, bool run)
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
-    double time = libtest::get_wtime();
+
+    if (params.routine == "hetrs") {
+        slate::hetrf(A, pivots, T, pivots2, H, {
+            {slate::Option::Target, target},
+            {slate::Option::MaxPanelThreads, panel_threads}
+        });
+    }
 
     //==================================================
     // Run SLATE test.
     // Factor A = LTL^H.
     //==================================================
-    slate::hetrf(A, pivots, T, pivots2, H, {
-        {slate::Option::Target, target},
-        {slate::Option::MaxPanelThreads, panel_threads}
-    });
+    double time = libtest::get_wtime();
+    if (params.routine == "hetrf") {
+        slate::hetrf(A, pivots, T, pivots2, H, {
+            {slate::Option::Target, target},
+            {slate::Option::MaxPanelThreads, panel_threads}
+        });
+    } else if (params.routine == "hetrs") {
+        slate::hetrs(A, pivots, T, pivots2, B, {
+            {slate::Option::Lookahead, lookahead},
+            {slate::Option::Target, target}
+        });
+    } else {
+        slate::hesv(A, pivots, T, pivots2, H, B, {
+            {slate::Option::Lookahead, lookahead},
+            {slate::Option::Target, target}
+        });
+    }
 
     {
         slate::trace::Block trace_block("MPI_Barrier");
@@ -126,37 +168,24 @@ template <typename scalar_t> void test_hetrf_work(Params& params, bool run)
 
     //---------------------
     // compute and save timing/performance
-    double gflop = lapack::Gflop<scalar_t>::potrf(n);
+    double gflop;
+    if (params.routine == "hetrf")
+        gflop = lapack::Gflop<scalar_t>::potrf(n);
+    else if (params.routine == "hetrs")
+        gflop = lapack::Gflop<scalar_t>::potrs(n, Bn);
+    else
+        gflop = lapack::Gflop<scalar_t>::posv(n, Bn);
     params.time() = time_tst;
     params.gflops() = gflop / time_tst;
 
     if (check) {
-        int64_t Bm = n;
-        int64_t Bn = n;
-        int descB_tst[9], descB_ref[9];
-        std::vector<scalar_t> B_ref;
-
-        // matrix B, figure out local size, allocate, create descriptor, initialize
-        int64_t mlocB = scalapack_numroc(Bm, nb, myrow, izero, nprow);
-        int64_t nlocB = scalapack_numroc(Bn, nb, mycol, izero, npcol);
-        scalapack_descinit(descB_tst, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
-        assert(info == 0);
-        int64_t lldB = (int64_t)descB_tst[8];
-        std::vector<scalar_t> B_tst(lldB*nlocB);
-        scalapack_pplrnt(&B_tst[0], Bm, Bn, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 2);
-
-        B_ref.resize(B_tst.size());
-        B_ref = B_tst;
-        scalapack_descinit(descB_ref, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
-        assert(info == 0);
-
-        auto B = slate::Matrix<scalar_t>::fromScaLAPACK(Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
-
-        // solve
-        slate::hetrs(A, pivots, T, pivots2, B, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target}
-        });
+        if (params.routine == "hetrf") {
+            // solve
+            slate::hetrs(A, pivots, T, pivots2, B, {
+                {slate::Option::Lookahead, lookahead},
+                {slate::Option::Target, target}
+            });
+        }
 
         // allocate work space
         std::vector<real_t> worklangeA(std::max(mlocA, nlocA));
@@ -191,7 +220,7 @@ template <typename scalar_t> void test_hetrf_work(Params& params, bool run)
 }
 
 // -----------------------------------------------------------------------------
-void test_hetrf(Params& params, bool run)
+void test_hesv(Params& params, bool run)
 {
     switch (params.datatype()) {
         case libtest::DataType::Integer:
@@ -199,19 +228,19 @@ void test_hetrf(Params& params, bool run)
             break;
 
         case libtest::DataType::Single:
-            test_hetrf_work<float> (params, run);
+            test_hesv_work<float> (params, run);
             break;
 
         case libtest::DataType::Double:
-            test_hetrf_work<double> (params, run);
+            test_hesv_work<double> (params, run);
             break;
 
         case libtest::DataType::SingleComplex:
-            test_hetrf_work<std::complex<float>> (params, run);
+            test_hesv_work<std::complex<float>> (params, run);
             break;
 
         case libtest::DataType::DoubleComplex:
-            test_hetrf_work<std::complex<double>> (params, run);
+            test_hesv_work<std::complex<double>> (params, run);
             break;
     }
 }

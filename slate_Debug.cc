@@ -163,7 +163,7 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
     printf("host\n");
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
-            auto it = A.storage_->tiles_.find({i, j, A.host_num_});
+            auto it = A.storage_->tiles_.find(A.globalIndex(i, j, A.host_num_));
             if (it != A.storage_->tiles_.end()) {
                 auto tile = it->second;
                 if (tile->origin())
@@ -180,7 +180,7 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
         printf("device %d\n", device);
         for (int64_t i = 0; i < A.mt(); ++i) {
             for (int64_t j = 0; j < A.nt(); ++j) {
-                auto it = A.storage_->tiles_.find({i, j, device});
+                auto it = A.storage_->tiles_.find(A.globalIndex(i, j, device));
                 if (it != A.storage_->tiles_.end()) {
                     auto tile = it->second;
                     if (tile->origin())

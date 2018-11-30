@@ -202,6 +202,10 @@ void test_TrapezoidMatrix_fromScaLAPACK()
 /// Similar to test_Matrix_fromDevices, but adds lower and upper.
 void test_TrapezoidMatrix_fromDevices()
 {
+    if (num_devices == 0) {
+        test_skip("requires num_devices > 0");
+    }
+
     int mtiles, mtiles_local, m_local, lda;
     int ntiles, ntiles_local, n_local;
     get_2d_cyclic_dimensions(
@@ -272,22 +276,25 @@ void test_TrapezoidMatrix_fromDevices()
 /// Tests A.sub( i1, i2, j1, j2 ).
 void test_TrapezoidMatrix_sub()
 {
-
     int lda = roundup(m, nb);
     std::vector<double> Ad( lda*n );
+
+    // --------------------
+    // Lower
     auto A = slate::TrapezoidMatrix<double>::fromLAPACK(
         slate::Uplo::Lower, slate::Diag::NonUnit,
         m, n, Ad.data(), lda, nb, p, q, mpi_comm );
 
     // mark tiles so they're identifiable
     for (int j = 0; j < A.nt(); ++j) {
-        for (int i = 0; i < A.mt(); ++i) {
+        for (int i = j; i < A.mt(); ++i) { // lower
             if (A.tileIsLocal(i, j)) {
                 A(i, j).at(0, 0) = i + j / 10000.;
             }
         }
     }
 
+    // 1st tile
     auto Asub = A.sub( 0, 0, 0, 0 );
     test_assert( Asub.mt() == 1 );
     test_assert( Asub.nt() == 1 );
@@ -309,7 +316,102 @@ void test_TrapezoidMatrix_sub()
         }
     }
 
-    // 1st row
+    // 1st row -- outside lower triangle, should throw error
+    test_assert_throw( Asub = A.sub( 0, 0, 0, A.nt()-1 ), slate::Exception );
+
+    // Arbitrary regions. 70% of time, set i1 <= i2, j1 <= j2, and i1 >= j2.
+    // i1 > i2 or j1 > j2 are empty matrices.
+    // i1 < j2 is invalid due to overlapping upper triangle.
+    for (int cnt = 0; cnt < 10; ++cnt) {
+        int i1 = rand() % A.mt();
+        int i2 = rand() % A.mt();
+        int j1 = rand() % A.nt();
+        int j2 = rand() % A.nt();
+        if (rand() / double(RAND_MAX) <= 0.7) {
+            if (i2 < i1)
+                std::swap( i1, i2 );
+            if (j2 < j1)
+                std::swap( j1, j2 );
+            if (i1 < j2)
+                j2 = i1;
+        }
+        //printf( "sub( %3d, %3d, %3d, %3d ) ", i1, i2, j1, j2 );
+        if (i1 < j2) {
+            //printf( "invalid\n" );
+            test_assert_throw( Asub = A.sub( i1, i2, j1, j2 ), slate::Exception );
+        }
+        else {
+            //if (i2 < i1 || j2 < j1)
+            //    printf( "empty\n" );
+            //else
+            //    printf( "valid\n" );
+            Asub = A.sub( i1, i2, j1, j2 );
+            test_assert( Asub.mt() == std::max( i2 - i1 + 1, 0 ) );
+            test_assert( Asub.nt() == std::max( j2 - j1 + 1, 0 ) );
+            test_assert( Asub.op() == slate::Op::NoTrans );
+            for (int j = 0; j < Asub.nt(); ++j) {
+                for (int i = 0; i < Asub.mt(); ++i) {
+                    if (Asub.tileIsLocal(i, j)) {
+                        test_assert( Asub(i, j).at(0, 0)
+                                == (i1 + i) + (j1 + j) / 10000. );
+                        test_assert( Asub(i, j).op() == slate::Op::NoTrans );
+                    }
+                }
+            }
+
+            // sub-matrix of Asub
+            if (Asub.mt() > 0 && Asub.nt() > 0) {
+                int i1_b = rand() % Asub.mt();
+                int i2_b = rand() % Asub.mt();
+                int j1_b = rand() % Asub.nt();
+                int j2_b = rand() % Asub.nt();
+                //printf( "   ( %3d, %3d, %3d, %3d )\n", i1_b, i2_b, j1_b, j2_b );
+                auto Asub_b = Asub.sub( i1_b, i2_b, j1_b, j2_b );
+                test_assert( Asub_b.mt() == std::max( i2_b - i1_b + 1, 0 ) );
+                test_assert( Asub_b.nt() == std::max( j2_b - j1_b + 1, 0 ) );
+                test_assert( Asub_b.op() == slate::Op::NoTrans );
+                for (int j = 0; j < Asub_b.nt(); ++j) {
+                    for (int i = 0; i < Asub_b.mt(); ++i) {
+                        if (Asub_b.tileIsLocal(i, j)) {
+                            test_assert( Asub_b(i, j).at(0, 0)
+                                    == (i1 + i1_b + i) + (j1 + j1_b + j) / 10000. );
+                            test_assert( Asub_b(i, j).op() == slate::Op::NoTrans );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // --------------------
+    // Upper
+    A = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper, slate::Diag::NonUnit,
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // mark tiles so they're identifiable
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i <= j && i < A.mt(); ++i) { // upper
+            if (A.tileIsLocal(i, j)) {
+                A(i, j).at(0, 0) = i + j / 10000.;
+            }
+        }
+    }
+
+    // 1st tile
+    Asub = A.sub( 0, 0, 0, 0 );
+    test_assert( Asub.mt() == 1 );
+    test_assert( Asub.nt() == 1 );
+    test_assert( Asub.op() == slate::Op::NoTrans );
+    if (Asub.tileIsLocal(0, 0)) {
+        test_assert( Asub(0, 0).op() == slate::Op::NoTrans );
+        test_assert( Asub(0, 0).at(0, 0) == 0.0 );
+    }
+
+    // 1st column
+    test_assert_throw( Asub = A.sub( 0, A.mt()-1, 0, 0 ), slate::Exception );
+
+    // 1st row -- outside lower triangle, should throw error
     Asub = A.sub( 0, 0, 0, A.nt()-1 );
     test_assert( Asub.mt() == 1 );
     test_assert( Asub.nt() == A.nt() );
@@ -321,8 +423,9 @@ void test_TrapezoidMatrix_sub()
         }
     }
 
-    // Arbitrary regions. At least 70% of time, set i1 <= i2, j1 <= j2.
+    // Arbitrary regions. 70% of time, set i1 <= i2, j1 <= j2, and i2 <= j1.
     // i1 > i2 or j1 > j2 are empty matrices.
+    // i2 > j1 is invalid due to overlapping lower triangle.
     for (int cnt = 0; cnt < 10; ++cnt) {
         int i1 = rand() % A.mt();
         int i2 = rand() % A.mt();
@@ -333,39 +436,51 @@ void test_TrapezoidMatrix_sub()
                 std::swap( i1, i2 );
             if (j2 < j1)
                 std::swap( j1, j2 );
+            if (i2 > j1)
+                i2 = j1;
         }
-        //printf( "sub( %3d, %3d, %3d, %3d )\n", i1, i2, j1, j2 );
-        Asub = A.sub( i1, i2, j1, j2 );
-        test_assert( Asub.mt() == std::max( i2 - i1 + 1, 0 ) );
-        test_assert( Asub.nt() == std::max( j2 - j1 + 1, 0 ) );
-        test_assert( Asub.op() == slate::Op::NoTrans );
-        for (int j = 0; j < Asub.nt(); ++j) {
-            for (int i = 0; i < Asub.mt(); ++i) {
-                if (Asub.tileIsLocal(i, j)) {
-                    test_assert( Asub(i, j).at(0, 0)
-                            == (i1 + i) + (j1 + j) / 10000. );
-                    test_assert( Asub(i, j).op() == slate::Op::NoTrans );
+        //printf( "sub( %3d, %3d, %3d, %3d ) ", i1, i2, j1, j2 );
+        if (i2 > j1) {
+            //printf( "invalid\n" );
+            test_assert_throw( Asub = A.sub( i1, i2, j1, j2 ), slate::Exception );
+        }
+        else {
+            //if (i2 < i1 || j2 < j1)
+            //    printf( "empty\n" );
+            //else
+            //    printf( "valid\n" );
+            Asub = A.sub( i1, i2, j1, j2 );
+            test_assert( Asub.mt() == std::max( i2 - i1 + 1, 0 ) );
+            test_assert( Asub.nt() == std::max( j2 - j1 + 1, 0 ) );
+            test_assert( Asub.op() == slate::Op::NoTrans );
+            for (int j = 0; j < Asub.nt(); ++j) {
+                for (int i = 0; i < Asub.mt(); ++i) {
+                    if (Asub.tileIsLocal(i, j)) {
+                        test_assert( Asub(i, j).at(0, 0)
+                                == (i1 + i) + (j1 + j) / 10000. );
+                        test_assert( Asub(i, j).op() == slate::Op::NoTrans );
+                    }
                 }
             }
-        }
 
-        // sub-matrix of Asub
-        if (Asub.mt() > 0 && Asub.nt() > 0) {
-            int i1_b = rand() % Asub.mt();
-            int i2_b = rand() % Asub.mt();
-            int j1_b = rand() % Asub.nt();
-            int j2_b = rand() % Asub.nt();
-            //printf( "   ( %3d, %3d, %3d, %3d )\n", i1_b, i2_b, j1_b, j2_b );
-            auto Asub_b = Asub.sub( i1_b, i2_b, j1_b, j2_b );
-            test_assert( Asub_b.mt() == std::max( i2_b - i1_b + 1, 0 ) );
-            test_assert( Asub_b.nt() == std::max( j2_b - j1_b + 1, 0 ) );
-            test_assert( Asub_b.op() == slate::Op::NoTrans );
-            for (int j = 0; j < Asub_b.nt(); ++j) {
-                for (int i = 0; i < Asub_b.mt(); ++i) {
-                    if (Asub_b.tileIsLocal(i, j)) {
-                        test_assert( Asub_b(i, j).at(0, 0)
-                                == (i1 + i1_b + i) + (j1 + j1_b + j) / 10000. );
-                        test_assert( Asub_b(i, j).op() == slate::Op::NoTrans );
+            // sub-matrix of Asub
+            if (Asub.mt() > 0 && Asub.nt() > 0) {
+                int i1_b = rand() % Asub.mt();
+                int i2_b = rand() % Asub.mt();
+                int j1_b = rand() % Asub.nt();
+                int j2_b = rand() % Asub.nt();
+                //printf( "   ( %3d, %3d, %3d, %3d )\n", i1_b, i2_b, j1_b, j2_b );
+                auto Asub_b = Asub.sub( i1_b, i2_b, j1_b, j2_b );
+                test_assert( Asub_b.mt() == std::max( i2_b - i1_b + 1, 0 ) );
+                test_assert( Asub_b.nt() == std::max( j2_b - j1_b + 1, 0 ) );
+                test_assert( Asub_b.op() == slate::Op::NoTrans );
+                for (int j = 0; j < Asub_b.nt(); ++j) {
+                    for (int i = 0; i < Asub_b.mt(); ++i) {
+                        if (Asub_b.tileIsLocal(i, j)) {
+                            test_assert( Asub_b(i, j).at(0, 0)
+                                    == (i1 + i1_b + i) + (j1 + j1_b + j) / 10000. );
+                            test_assert( Asub_b(i, j).op() == slate::Op::NoTrans );
+                        }
                     }
                 }
             }

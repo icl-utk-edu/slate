@@ -141,8 +141,7 @@ void test_Matrix_fromScaLAPACK()
 void test_Matrix_fromDevices()
 {
     if (num_devices == 0) {
-        printf("%s: skipping, num_devices = 0\n", __func__);
-        return;
+        test_skip("requires num_devices > 0");
     }
 
     int mtiles, mtiles_local, m_local, lda;

@@ -672,12 +672,14 @@ Matrix<scalar_t> BaseTrapezoidMatrix<scalar_t>::sub(
     int64_t i1, int64_t i2, int64_t j1, int64_t j2)
 {
     if (this->uplo_logical() == Uplo::Lower) {
-        // top-right corner is at or below diagonal
-        assert(i1 >= j2);
+        // require top-right corner (i1, j2) to be at or below diagonal
+        if (i1 < j2)
+            slate_error("submatrix outside lower triangle; requires i1 >= j2");
     }
     else {
-        // bottom-left corner is at or above diagonal
-        assert(i2 <= j1);
+        // require bottom-left corner (i2, j1) to be at or above diagonal
+        if (i2 > j1)
+            slate_error("submatrix outside upper triangle; requires i2 <= j1");
     }
     return Matrix<scalar_t>(*this, i1, i2, j1, j2);
 }

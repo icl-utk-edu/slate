@@ -48,6 +48,7 @@ using slate::roundup;
 // global variables
 int mpi_rank;
 int mpi_size;
+int num_devices;
 
 //------------------------------------------------------------------------------
 /// Sets Aij = (mpi_rank + 1)*1000 + i + j/1000, for all i, j.
@@ -671,6 +672,10 @@ void test_bcast_ss()
 /// host/device lda is rounded up to multiple of align_host/dev, respectively.
 void test_copyDataToDevice(int align_host, int align_dev)
 {
+    if (num_devices == 0) {
+        test_skip("requires num_devices > 0");
+    }
+
     const int m = 20;
     const int n = 30;
     int lda = roundup(m, align_host);
@@ -813,6 +818,8 @@ int main(int argc, char** argv)
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+
+    cudaGetDeviceCount(&num_devices);
 
     int err = unit_test_main(MPI_COMM_WORLD);  // which calls run_tests()
 

@@ -972,6 +972,10 @@ void test_convert_layout()
 template <typename scalar_t>
 void test_device_convert_layout()
 {
+    if (g_num_devices == 0) {
+        test_skip("requires num_devices > 0");
+    }
+
     using blas::real;
 
     int batch_count = 500;
@@ -994,7 +998,7 @@ void test_device_convert_layout()
 
     // copy batch A to GPU
     scalar_t* Adata_dev;
-    
+
     slate_cuda_call(
         cudaSetDevice(device));
     slate_cuda_call(

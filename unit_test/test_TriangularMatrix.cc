@@ -202,6 +202,10 @@ void test_TriangularMatrix_fromScaLAPACK()
 /// Similar to test_TrapezoidMatrix_fromDevices, but uses n-by-n matrix.
 void test_TriangularMatrix_fromDevices()
 {
+    if (num_devices == 0) {
+        test_skip("requires num_devices > 0");
+    }
+
     int mtiles, mtiles_local, m_local, lda;
     int ntiles, ntiles_local, n_local;
     get_2d_cyclic_dimensions(

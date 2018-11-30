@@ -55,6 +55,7 @@ using slate::Diag;
 int mpi_rank;
 int mpi_size;
 int verbose;
+int num_devices;
 
 lapack::Norm norms[] = {
     lapack::Norm::Max,
@@ -180,6 +181,10 @@ void test_genorm_fro()
 //------------------------------------------------------------------------------
 void test_genorm_dev(Norm norm)
 {
+    if (num_devices == 0) {
+        test_skip("requires num_devices > 0");
+    }
+
     double eps = std::numeric_limits<double>::epsilon();
     int m = 20;
     int n = 30;
@@ -392,6 +397,10 @@ void test_synorm_fro_upper()
 //------------------------------------------------------------------------------
 void test_synorm_dev(Norm norm, Uplo uplo)
 {
+    if (num_devices == 0) {
+        test_skip("requires num_devices > 0");
+    }
+
     double eps = std::numeric_limits<double>::epsilon();
     int n = 30;
     int lda = roundup(n, 8);
@@ -550,6 +559,10 @@ void test_synorm_offdiag_one()
 //------------------------------------------------------------------------------
 void test_synorm_offdiag_dev(Norm norm)
 {
+    if (num_devices == 0) {
+        test_skip("requires num_devices > 0");
+    }
+
     double eps = std::numeric_limits<double>::epsilon();
     int m = 20;
     int n = 30;
@@ -781,6 +794,10 @@ void test_trnorm_fro_upper_nonunit()
 //------------------------------------------------------------------------------
 void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
 {
+    if (num_devices == 0) {
+        test_skip("requires num_devices > 0");
+    }
+
     double eps = std::numeric_limits<double>::epsilon();
     // upper: m <= n, lower: m >= n
     int m = 20;
@@ -1122,6 +1139,8 @@ int main(int argc, char** argv)
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+
+    cudaGetDeviceCount(&num_devices);
 
     verbose = 0;
     for (int i = 1; i < argc; ++i)

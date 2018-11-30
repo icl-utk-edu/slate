@@ -139,7 +139,7 @@ void geqrf(
                 auto i_index = tile_indices.at(idx);
 
                 // if diagonal tile
-                if (i_index == 0) {
+                if (i_index == tile_indices.at(0)) {
                     if (j+1 < tile.mb())
                         lapack::lassq(tile.mb()-j-1, &tile.at(j+1, j), 1,
                                       &scale[thread_rank], &sumsq[thread_rank]);
@@ -187,7 +187,7 @@ void geqrf(
                 scalar_t gemv_beta = idx == thread_rank ? 0.0 : 1.0;
 
                 // column scaling
-                if (i_index == 0) {
+                if (i_index == tile_indices.at(0)) {
                     // diagonal tile
                     if (j+1 < tile.mb())
                         blas::scal(tile.mb()-j-1,
@@ -200,7 +200,7 @@ void geqrf(
 
                 // thread local W
                 if (j+1 < diag_len) {
-                    if (i_index == 0) {
+                    if (i_index == tile_indices.at(0)) {
                         // diagonal tile
                         blas::gemv(Layout::ColMajor, Op::ConjTrans,
                                    tile.mb()-j, k+kb-j-1,
@@ -240,7 +240,7 @@ void geqrf(
                     auto tile = tiles.at(idx);
                     auto i_index = tile_indices.at(idx);
 
-                    if (i_index == 0) {
+                    if (i_index == tile_indices.at(0)) {
                         // diagonal tile
                         blas::ger(Layout::ColMajor,
                                   tile.mb()-j, k+kb-j-1,
@@ -275,7 +275,7 @@ void geqrf(
                 auto i_index = tile_indices.at(idx);
                 scalar_t gemm_beta = idx == thread_rank ? 0.0 : 1.0;
 
-                if (i_index == 0) {
+                if (i_index == tile_indices.at(0)) {
                     // diagonal tile
                     // accumulating in T
                     if (k+kb < tile.mb()) {
@@ -359,7 +359,7 @@ void geqrf(
             auto i_index = tile_indices.at(idx);
             scalar_t gemv_beta = idx == thread_rank ? 0.0 : 1.0;
 
-            if (i_index == 0) {
+            if (i_index == tile_indices.at(0)) {
                 // diagonal tile
                 // accumulating in T
                 for (int64_t j = k; j < k+kb; ++j) {
@@ -451,7 +451,7 @@ void geqrf(
                 auto i_index = tile_indices.at(idx);
                 scalar_t gemm_beta = idx == thread_rank ? 0.0 : 1.0;
 
-                if (i_index == 0) {
+                if (i_index == tile_indices.at(0)) {
                     // W <- C1'
                     for (int64_t j = 0; j < nb-k-kb; ++j)
                         for (int64_t i = 0; i < kb; ++i)
@@ -520,7 +520,7 @@ void geqrf(
                 auto tile = tiles.at(idx);
                 auto i_index = tile_indices.at(idx);
 
-                if (i_index == 0) {
+                if (i_index == tile_indices.at(0)) {
                     // diagonal tile
                     if (k+kb < tile.mb()) {
                         blas::gemm(

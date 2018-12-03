@@ -68,6 +68,16 @@ int omp_get_thread_num(void)
     return 0;
 }
 
+int omp_get_num_threads(void)
+{
+    return 1;
+}
+
+void omp_set_nested(int nested)
+{
+    nested;
+}
+
 double omp_get_wtime()
 {
     struct timeval  time;

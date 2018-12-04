@@ -156,12 +156,38 @@ void geqrf(slate::internal::TargetType<target>,
                                 std::move(Tr_panel));
             }
 
-            // update trailing submatrix, normal priority
-            if (k+1 < A_nt) {
-                int64_t j = k+1;
+            // TODO works for lookahead = 1, support lookahead > 1
+            // TODO set priority
+            for (int64_t j = k+1; j < (k+1+lookahead) && j < A_nt; ++j) {
+                auto A_trail_j = A.sub(k, A_mt-1, j, j);
 
                 #pragma omp task depend(in:column[k]) \
-                                 depend(inout:column[k+1]) \
+                                 depend(inout:column[j])
+                {
+                    // Apply local reflectors
+                    internal::unmqr<Target::HostTask>(
+                                    Side::Left, Op::ConjTrans,
+                                    std::move(A_panel),
+                                    std::move(Tl_panel),
+                                    std::move(A_trail_j),
+                                    W.sub(k, A_mt-1, j, j));
+
+                    // Apply triangle-triangle reduction reflectors
+                    // ttmqr handles the tile broadcasting internally
+                    internal::ttmqr<Target::HostTask>(
+                                    Side::Left, Op::ConjTrans,
+                                    std::move(A_panel),
+                                    std::move(Tr_panel),
+                                    std::move(A_trail_j));
+                }
+            }
+
+            // update trailing submatrix, normal priority
+            if (k+1+lookahead < A_nt) {
+                int64_t j = k+1+lookahead;
+
+                #pragma omp task depend(in:column[k]) \
+                                 depend(inout:column[k+1+lookahead]) \
                                  depend(inout:column[A_nt-1])
                 {
                     // Apply local reflectors

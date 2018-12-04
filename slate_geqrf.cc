@@ -59,18 +59,24 @@ void geqrf(slate::internal::TargetType<target>,
            TriangularFactors<scalar_t>& T,
            int64_t ib, int max_panel_threads, int64_t lookahead)
 {
+    using BcastList = typename Matrix<scalar_t>::BcastList;
+
     using blas::real;
 
     const int priority_one = 1;
 
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
+    // int64_t A_min_mtnt = std::min(A_mt, A_nt);
 
     T.clear();
     T.push_back(A.emptyLike());
     T.push_back(A.emptyLike());
     auto Tlocal  = T[0];
     auto Treduce = T[1];
+
+    // workspace
+    auto W = A.emptyLike();
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
@@ -79,30 +85,100 @@ void geqrf(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
+        omp_set_nested(1);
         for (int64_t k = 0; k < A_nt; ++k) {
             const int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
+
+            auto A_panel = A.sub(k, A_mt-1, k, k);
+            auto A_trail = A.sub(k, A_mt-1, k+1, A_nt-1);
+            auto Tl_panel = Tlocal.sub(k, A_mt-1, k, k);
+            auto Tl_trail = Tlocal.sub(k, A_mt-1, k+1, A_nt-1);
+            auto Tr_panel = Treduce.sub(k, A_mt-1, k, k);
+            auto Tr_trail = Treduce.sub(k, A_mt-1, k+1, A_nt-1);
+
+            // Find ranks in this column.
+            std::set<int> ranks_set;
+            A_panel.getRanks(&ranks_set);
+
+            assert(ranks_set.size() > 0);
+
+            // Find each rank's top-most row in this panel,
+            // where the triangular tile (resulting from local geqrf panel)
+            // will reside.
+            std::vector< int64_t > top_rows;
+            top_rows.reserve(ranks_set.size());
+            for (int r: ranks_set) {
+                for (int64_t i = 0; i < A_panel.mt(); ++i) {
+                    if (A_panel.tileRank(i, 0) == r) {
+                        top_rows.push_back(i+k);
+                        break;
+                    }
+                }
+            }
 
             #pragma omp task depend(inout:column[k])
             {
                 // local panel factorization
                 internal::geqrf<Target::HostTask>(
-                    A.sub(k, A_mt-1, k, k), Tlocal.sub(k, k, k, k),
-                    diag_len, ib, max_panel_threads, priority_one);
-                // TODO: bcast V & T across row for trailing matrix update
+                                std::move(A_panel),
+                                std::move(Tl_panel),
+                                diag_len, ib, max_panel_threads, priority_one);
+
+                if (k < A_nt-1){
+
+                    // bcast V across row for trailing matrix update
+                    if (k < A_mt){
+                        BcastList bcast_list_A;
+
+                        for (int64_t i = k; i < A_mt; ++i) {
+                            // send A(i, k) across row A(i, k+1:nt-1)
+                            bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
+                        }
+                        A.template listBcast(bcast_list_A, 0, Layout::ColMajor, 2);// TODO is column major safe?
+                    }
+
+                    // bcast T across row for trailing matrix update
+                    if (top_rows.size() > 0){
+                        BcastList bcast_list_T;
+
+                        for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
+                            int64_t row = *it;
+                            bcast_list_T.push_back({row, k, {Tlocal.sub(row, row, k+1, A_nt-1)}});
+                        }
+                        Tlocal.template listBcast(bcast_list_T, 0, Layout::ColMajor, 2);// TODO is column major safe?
+                    }
+                }
 
                 // triangle-triangle reductions
+                // ttqrt handles tile transfers internally
                 internal::ttqrt<Target::HostTask>(
-                    A.sub(k, A_mt-1, k, k), Treduce.sub(k, A_mt-1, k, k));
-                // TODO: bcast V's & T's across rows for trailing matrix update
+                                std::move(A_panel),
+                                std::move(Tr_panel));
             }
 
-            // trailing matrix update
-            for (int64_t j = k+1; j < A_nt; ++j) {
+            // update trailing submatrix, normal priority
+            if (k+1 < A_nt) {
+                int64_t j = k+1;
+
                 #pragma omp task depend(in:column[k]) \
-                                 depend(inout:column[j])
+                                 depend(inout:column[k+1]) \
+                                 depend(inout:column[A_nt-1])
                 {
-                    // TODO unmqr
-                    // TODO ttmqr
+                    // Apply local reflectors
+                    internal::unmqr<Target::HostTask>(
+                                    Side::Left, Op::ConjTrans,
+                                    std::move(A_panel),
+                                    std::move(Tl_panel),
+                                    A.sub(k, A_mt-1, j, A_nt-1),
+                                    W.sub(k, A_mt-1, j, A_nt-1));
+
+                    // Apply triangle-triangle reduction reflectors
+                    // ttmqr handles the tile broadcasting internally
+                    internal::ttmqr<Target::HostTask>(
+                                    Side::Left, Op::ConjTrans,
+                                    std::move(A_panel),
+                                    std::move(Tr_panel),
+                                    A.sub(k, A_mt-1, j, A_nt-1));
                 }
             }
         }

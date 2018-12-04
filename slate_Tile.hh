@@ -214,6 +214,9 @@ public:
     Layout layout() const { return layout_; }
     void   layout(Layout in_layout) { layout_ = in_layout; }
 
+    void set(scalar_t alpha);
+    void set(scalar_t alpha, scalar_t beta);
+
 protected:
     int64_t mb_;
     int64_t nb_;
@@ -658,6 +661,37 @@ void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm mpi_comm)
         }
     }
 }
+
+//------------------------------------------------------------------------------
+/// Set tile data
+///
+/// @param[in] alpha
+///     value set on diagonals.
+///
+/// @param[in] beta
+///     value set on off-diagonals.
+///
+template <typename scalar_t>
+void Tile<scalar_t>::set(scalar_t alpha, scalar_t beta)
+{
+    lapack::MatrixType mt = (lapack::MatrixType)uplo_;// TODO is this safe?
+    lapack::laset(mt, mb(), nb(),
+                  alpha, beta,
+                  data(), stride());
+}
+
+//------------------------------------------------------------------------------
+/// Set tile data
+///
+/// @param[in] alpha
+///     value for both diagonals and off-diagonals
+///
+template <typename scalar_t>
+void Tile<scalar_t>::set(scalar_t alpha)
+{
+    set(alpha, alpha);
+}
+
 
 } // namespace slate
 

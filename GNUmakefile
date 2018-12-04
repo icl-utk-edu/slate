@@ -239,6 +239,7 @@ lib_src += \
         slate_internal_trsm.cc \
         slate_internal_ttmqr.cc \
         slate_internal_ttqrt.cc \
+        slate_internal_unmqr.cc \
         slate_internal_util.cc \
         slate_internal_transpose.cc \
 

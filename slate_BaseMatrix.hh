@@ -205,12 +205,12 @@ public:
                   Layout layout = Layout::ColMajor);
 
     template <Target target = Target::Host>
-    void tileBcast(int64_t i, int64_t j, BaseMatrix const& B, int tag = 0,
+    void tileBcast(int64_t i, int64_t j, BaseMatrix const& B, int tag = 0, int life_factor = 1,
                    Layout layout = Layout::ColMajor);
 
     template <Target target = Target::Host>
     void listBcast(BcastList& bcast_list, int tag = 0,
-                   Layout layout = Layout::ColMajor);
+                   Layout layout = Layout::ColMajor, int64_t life_factor = 1);
 
     template <Target target = Target::Host>
     void listReduce(ReduceList& reduce_list, int tag = 0);
@@ -781,11 +781,11 @@ void BaseMatrix<scalar_t>::tileRecv(
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::tileBcast(
-    int64_t i, int64_t j, BaseMatrix<scalar_t> const& B, int tag, Layout layout)
+    int64_t i, int64_t j, BaseMatrix<scalar_t> const& B, int tag, int life_factor, Layout layout)
 {
     BcastList bcast_list_B;
     bcast_list_B.push_back({i, j, {B}});
-    listBcast<target>(bcast_list_B, tag, layout);
+    listBcast<target>(bcast_list_B, tag, layout, life_factor);
 }
 
 //------------------------------------------------------------------------------
@@ -810,7 +810,7 @@ void BaseMatrix<scalar_t>::tileBcast(
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::listBcast(
-    BcastList& bcast_list, int tag, Layout layout)
+    BcastList& bcast_list, int tag, Layout layout, int64_t life_factor)
 {
     // It is possible that the same tile, with the same data, is sent twice.
     // This happens, e.g., in the hemm and symm routines, where the same tile
@@ -848,7 +848,7 @@ void BaseMatrix<scalar_t>::listBcast(
 
                 int64_t life = 0;
                 for (auto submatrix : submatrices_list)
-                    life += submatrix.numLocalTiles();
+                    life += submatrix.numLocalTiles() * life_factor;
 
                 if (iter == storage_->end())
                     tileInsertWorkspace(i, j, host_num_);

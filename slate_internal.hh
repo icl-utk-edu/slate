@@ -323,6 +323,12 @@ void swap(Direction direction,
           int priority=0, int tag=0);
 
 //------------------------------------------------------------------------------
+template <Target target=Target::HostTask, typename scalar_t>
+void geadd(scalar_t alpha, Matrix<scalar_t>&& A,
+           scalar_t beta, Matrix<scalar_t>&& B,
+           int priority=0);
+
+//------------------------------------------------------------------------------
 // Norms
 template <Target target=Target::HostTask, typename scalar_t>
 void norm(Norm in_norm, Matrix<scalar_t>&& A,

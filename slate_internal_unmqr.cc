@@ -188,6 +188,7 @@ void unmqr(internal::TargetType<Target::HostTask>,
         // op(Q) x C = C - V x W
         if(row_indices.size() > 1){
             // C2 <- GEMM(V2, W, C2)
+            // TODO combine in one internal gemm with lists of input
             for (int64_t ri = 1; ri < row_indices.size(); ++ri)
             {
                 int64_t row = row_indices[ri];
@@ -214,11 +215,11 @@ void unmqr(internal::TargetType<Target::HostTask>,
     }
 
     // TODO should we free workspace?
-    // for (int j = 0; j < Wr.nt(); ++j)
-    // {
-    //     if(Wr.tileIsLocal(0, j))
-    //         Wr.tileErase(0, j);
-    // }
+    for (int j = 0; j < Wr.nt(); ++j)
+    {
+        if(Wr.tileIsLocal(0, j))
+            Wr.tileErase(0, j);
+    }
 
     #pragma omp taskwait
 }

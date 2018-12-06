@@ -91,13 +91,25 @@ void ttmqr(internal::TargetType<Target::HostTask>,
     std::sort(rank_rows.begin(), rank_rows.end(), compare_rank_rows);
 
     int nranks = rank_rows.size();
-
-    // At each level, scan rows of C for local tiles.
-    // TODO: the j loop can be parallelized, but care needs to be
-    // taken so that MPI makes progress.
     int nlevels = int( ceil( log2( nranks ) ) );
-    int step = pow(2, nlevels - 1);
-    for (int level = nlevels - 1; level >= 0; --level) {
+
+    // Apply reduction tree from leaves down (NoTrans) or from root up (Trans).
+    // if NoTrans, levels go from nlevels-1 down to 0 (inclusive)
+    // if Trans,   levels go from 0 up to nlevels-1 (inclusive)
+    int level_begin, level_end, level_step, step;
+    if (op == Op::NoTrans) {
+        level_begin = nlevels - 1;
+        level_end   = -1;
+        level_step  = -1;
+        step        = pow(2, nlevels - 1);
+    }
+    else {
+        level_begin = 0;
+        level_end   = nlevels;
+        level_step  = 1;
+        step        = 1;
+    }
+    for (int level = level_begin; level != level_end; level += level_step) {
         for (int index = 0; index < nranks; index += step) {
             int64_t i = rank_rows[ index ].second;
             // Send V and T across row of C.
@@ -105,6 +117,9 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                 A.tileBcast(i, 0, C.sub(i, i, 0, C.nt()-1));
                 T.tileBcast(i, 0, C.sub(i, i, 0, C.nt()-1));
             }
+            // At each level, scan rows of C for local tiles.
+            // TODO: the j loop can be parallelized, but care needs to be
+            // taken so that MPI makes progress.
             for (int64_t j = 0; j < C.nt(); ++j) {
                 if (C.tileIsLocal(i, j)) {
                     if (index % (2*step) == 0) {
@@ -134,7 +149,10 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                 }
             }
         }
-        step /= 2;
+        if (op == Op::NoTrans)
+            step /= 2;
+        else
+            step *= 2;
     }
 }
 

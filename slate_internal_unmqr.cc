@@ -115,10 +115,11 @@ void unmqr(internal::TargetType<Target::HostTask>,
 
     // pick one row of W matching the curent panel top row distribution
     auto Wr = W.sub(r_top, r_top, 0, C_nt-1);
-    for (int j = 0; j < Wr.nt(); ++j)
+    for (int64_t j = 0; j < Wr.nt(); ++j)
     {
         if(Wr.tileIsLocal(0, j)){
-            Wr.tileInsert(0, j);
+            // if ( ! Wr.tileExists(0, j))
+                Wr.tileInsert(0, j);
         }
     }
 

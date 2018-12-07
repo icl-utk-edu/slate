@@ -124,17 +124,15 @@ void unmqr(
                                      depend(in:column[lastk])
                     {
 
-                        #if 1
                         // Apply triangle-triangle reduction reflectors
                         internal::ttmqr(side, op,
                                         std::move(A_panel),
                                         Treduce.sub(k, A_mt-1, k, k),
                                         C.sub(k, C_mt-1, 0, C_nt-1));
-                        #endif
 
                         BcastList bcast_list_A;
                         for (int64_t i = k; i < A_mt; ++i) {
-                            // send A(i, k) across row A(i, k+1:nt-1)
+                            // send A(i, k) across row C(i, 0:nt-1)
                             bcast_list_A.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
                         }
                         A.template listBcast(bcast_list_A, 0, Layout::ColMajor, 2);// TODO is column major safe?

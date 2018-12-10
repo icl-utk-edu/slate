@@ -477,7 +477,7 @@ void swap(internal::TargetType<Target::HostTask>,
 
                 // after the lower band
                 for (int64_t j1=j2+1; j1 < A.nt(); ++j1) {
-                    swap(0, A.tileNb(j2), A,
+                    swap(0, A.tileNb(j1), A,
                          Op::Trans, {j1,  0}, i1,
                          Op::Trans, {j1, j2}, i2, tag+1+j1);
                 }

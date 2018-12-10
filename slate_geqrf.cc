@@ -115,14 +115,22 @@ void geqrf(slate::internal::TargetType<target>,
                     }
                 }
             }
+            std::vector< int64_t >::iterator min_row_it = std::min_element(std::begin(top_rows), std::end(top_rows));
 
-            #pragma omp task depend(inout:column[k])
+            // panel, high priority
+            #pragma omp task depend(inout:column[k]) priority(priority_one)
             {
                 // local panel factorization
                 internal::geqrf<Target::HostTask>(
                                 std::move(A_panel),
                                 std::move(Tl_panel),
                                 diag_len, ib, max_panel_threads, priority_one);
+
+                // triangle-triangle reductions
+                // ttqrt handles tile transfers internally
+                internal::ttqrt<Target::HostTask>(
+                                std::move(A_panel),
+                                std::move(Tr_panel));
 
                 if (k < A_nt-1){
 
@@ -137,7 +145,7 @@ void geqrf(slate::internal::TargetType<target>,
                         A.template listBcast(bcast_list_A, 0, Layout::ColMajor, 2);// TODO is column major safe?
                     }
 
-                    // bcast T across row for trailing matrix update
+                    // bcast Tlocal across row for trailing matrix update
                     if (top_rows.size() > 0){
                         BcastList bcast_list_T;
 
@@ -145,24 +153,33 @@ void geqrf(slate::internal::TargetType<target>,
                             int64_t row = *it;
                             bcast_list_T.push_back({row, k, {Tlocal.sub(row, row, k+1, A_nt-1)}});
                         }
-                        Tlocal.template listBcast(bcast_list_T, 0, Layout::ColMajor, 2);// TODO is column major safe?
+                        Tlocal.template listBcast(bcast_list_T);// TODO is column major safe?
+                        // Tlocal.template listBcast(bcast_list_T, 0, Layout::ColMajor, 2);// TODO is column major safe?
+                    }
+
+                    // bcast Treduce across row for trailing matrix update
+                    if (top_rows.size() > 1){
+                        BcastList bcast_list_T;
+
+                        for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
+                            int64_t row = *it;
+                            if(row > *min_row_it)//exclude the first row of this panel that has no Treduce tile
+                                bcast_list_T.push_back({row, k, {Treduce.sub(row, row, k+1, A_nt-1)}});
+                        }
+                        Treduce.template listBcast(bcast_list_T);
                     }
                 }
-
-                // triangle-triangle reductions
-                // ttqrt handles tile transfers internally
-                internal::ttqrt<Target::HostTask>(
-                                std::move(A_panel),
-                                std::move(Tr_panel));
             }
 
+            // update lookahead column(s), high priority
             // TODO works for lookahead = 1, support lookahead > 1
             // TODO set priority
             for (int64_t j = k+1; j < (k+1+lookahead) && j < A_nt; ++j) {
                 auto A_trail_j = A.sub(k, A_mt-1, j, j);
 
                 #pragma omp task depend(in:column[k]) \
-                                 depend(inout:column[j])
+                                 depend(inout:column[j]) \
+                                 priority(priority_one)
                 {
                     // Apply local reflectors
                     internal::unmqr<Target::HostTask>(

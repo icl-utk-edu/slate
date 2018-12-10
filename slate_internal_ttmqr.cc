@@ -113,10 +113,10 @@ void ttmqr(internal::TargetType<Target::HostTask>,
         for (int index = 0; index < nranks; index += step) {
             int64_t i = rank_rows[ index ].second;
             // Send V and T across row of C.
-            if (index % (2*step) != 0) {
-                A.tileBcast(i, 0, C.sub(i, i, 0, C.nt()-1));
-                T.tileBcast(i, 0, C.sub(i, i, 0, C.nt()-1));
-            }
+            // if (index % (2*step) != 0) {
+            //     A.tileBcast(i, 0, C.sub(i, i, 0, C.nt()-1));
+            //     T.tileBcast(i, 0, C.sub(i, i, 0, C.nt()-1));
+            // }
             // At each level, scan rows of C for local tiles.
             // TODO: the j loop can be parallelized, but care needs to be
             // taken so that MPI makes progress.

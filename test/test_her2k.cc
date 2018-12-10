@@ -6,7 +6,6 @@
 #include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 
-#include <cassert>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -69,7 +68,7 @@ void test_her2k_work(Params& params, bool run)
 
     // initialize BLACS and ScaLAPACK
     Cblacs_pinfo(&iam, &nprocs);
-    assert(p*q <= nprocs);
+    slate_assert(p*q <= nprocs);
     Cblacs_get(-1, 0, &ictxt);
     Cblacs_gridinit(&ictxt, "Col", p, q);
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
@@ -78,7 +77,7 @@ void test_her2k_work(Params& params, bool run)
     int64_t mlocA = scalapack_numroc(Am, nb, myrow, izero, nprow);
     int64_t nlocA = scalapack_numroc(An, nb, mycol, izero, npcol);
     scalapack_descinit(descA_tst, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
-    assert(info == 0);
+    slate_assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector< scalar_t > A_tst(lldA*nlocA);
     scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
@@ -87,7 +86,7 @@ void test_her2k_work(Params& params, bool run)
     int64_t mlocB = scalapack_numroc(Bm, nb, myrow, izero, nprow);
     int64_t nlocB = scalapack_numroc(Bn, nb, mycol, izero, npcol);
     scalapack_descinit(descB_tst, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
-    assert(info == 0);
+    slate_assert(info == 0);
     int64_t lldB = (int64_t)descB_tst[8];
     std::vector< scalar_t > B_tst(lldB*nlocB);
     scalapack_pplrnt(&B_tst[0], Bm, Bn, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 1);
@@ -96,7 +95,7 @@ void test_her2k_work(Params& params, bool run)
     int64_t mlocC = scalapack_numroc(Cm, nb, myrow, izero, nprow);
     int64_t nlocC = scalapack_numroc(Cn, nb, mycol, izero, npcol);
     scalapack_descinit(descC_tst, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
-    assert(info == 0);
+    slate_assert(info == 0);
     int64_t lldC = (int64_t)descC_tst[8];
     std::vector< scalar_t > C_tst(lldC*nlocC);
     scalapack_pplrnt(&C_tst[0], Cm, Cn, nb, nb, myrow, mycol, nprow, npcol, mlocC, iseed + 1);
@@ -106,7 +105,7 @@ void test_her2k_work(Params& params, bool run)
     if (check || ref) {
         C_ref = C_tst;
         scalapack_descinit(descC_ref, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
-        assert(info == 0);
+        slate_assert(info == 0);
     }
 
     slate::Matrix<scalar_t> A, B;
@@ -140,9 +139,9 @@ void test_her2k_work(Params& params, bool run)
         A = conj_transpose(A);
         B = conj_transpose(B);
     }
-    assert(A.mt() == C.mt());
-    assert(B.mt() == C.mt());
-    assert(A.nt() == B.nt());
+    slate_assert(A.mt() == C.mt());
+    slate_assert(B.mt() == C.mt());
+    slate_assert(A.nt() == B.nt());
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();

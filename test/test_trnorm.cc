@@ -6,7 +6,6 @@
 #include "scalapack_copy.hh"
 #include "print_matrix.hh"
 
-#include <cassert>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -73,7 +72,7 @@ void test_trnorm_work(Params& params, bool run)
 
     // initialize BLACS and ScaLAPACK
     Cblacs_pinfo(&iam, &nprocs);
-    assert(p*q <= nprocs);
+    slate_assert(p*q <= nprocs);
     Cblacs_get(-1, 0, &ictxt);
     Cblacs_gridinit(&ictxt, "Col", p, q);
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
@@ -85,7 +84,7 @@ void test_trnorm_work(Params& params, bool run)
     scalapack_descinit(descA_tst, Am, An, nb, nb, izero, izero, ictxt, lldA, &info);
     if (info != 0)
         printf("scalapack_descinit info %d\n", info);
-    assert(info == 0);
+    slate_assert(info == 0);
     std::vector<scalar_t> A_tst(lldA*nlocA);
     // todo: fix the generation
     //int iseed = 1;
@@ -231,7 +230,7 @@ void test_trnorm_work(Params& params, bool run)
             if (j < 0 || j >= nt)
                 continue;
             int64_t jb = std::min(n - j*nb, nb);
-            assert(jb == A.tileNb(j));
+            slate_assert(jb == A.tileNb(j));
 
             for (auto i : i_indices) {
                 // lower requires i >= j
@@ -239,7 +238,7 @@ void test_trnorm_work(Params& params, bool run)
                 if (i < 0 || i >= mt || (uplo == slate::Uplo::Lower ? i < j : i > j))
                     continue;
                 int64_t ib = std::min(m - i*nb, nb);
-                assert(ib == A.tileMb(i));
+                slate_assert(ib == A.tileMb(i));
 
                 // Test entries in 2x2 in all 4 corners, and 1 other random row and col,
                 // up to 25 entries per tile.
@@ -271,7 +270,7 @@ void test_trnorm_work(Params& params, bool run)
                             A.tileGetForWriting(i, j);
                             auto T = A(i, j);
                             save = T(ii, jj);
-                            assert(A_tst[ ilocal + jlocal*lldA ] == save);
+                            slate_assert(A_tst[ ilocal + jlocal*lldA ] == save);
                             T.at(ii, jj) = peak;
                             A_tst[ ilocal + jlocal*lldA ] = peak;
                             // todo: this move shouldn't be required -- the trnorm should copy data itself.

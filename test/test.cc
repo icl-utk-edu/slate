@@ -367,7 +367,7 @@ int main(int argc, char** argv)
     using libtest::QuitException;
 
     // check that all sections have names
-    assert(sizeof(section_names) / sizeof(*section_names) == Section::num_sections);
+    slate_assert(sizeof(section_names) / sizeof(*section_names) == Section::num_sections);
 
     // MPI initializations
     int mpi_rank = 0, mpi_size = 0, provided = 0;
@@ -445,6 +445,8 @@ int main(int argc, char** argv)
                 params.help(routine);
             throw;
         }
+
+        slate_assert(params.p() * params.q() == mpi_size);
 
         // run tests
         int repeat = params.repeat();

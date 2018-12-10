@@ -116,7 +116,7 @@ void zeroOutsideBand(
     using blas::max;
     using blas::min;
 
-    assert(mb == nb);  // todo: allow different?
+    slate_assert(mb == nb);  // todo: allow different?
 
     // Zero out data outside bandwidth in A for ScaLAPACK.
     // Since ScaLAPACK lacks gbmm and gbmv, we will use gemm.

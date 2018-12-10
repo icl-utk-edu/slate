@@ -181,13 +181,13 @@ template <typename scalar_t> void test_gels_work(Params& params, bool run)
     if (check || ref) {
         A_ref = A_tst;
         scalapack_descinit(descA_ref, m, n, nb, nb, izero, izero, ictxt, mlocA, &info);
-        assert(info == 0);
+        slate_assert(info == 0);
         Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
             m, n, &A_ref[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
 
         BX_ref = BX_tst;
         scalapack_descinit(descBX_ref, maxmn, nrhs, nb, nb, izero, izero, ictxt, mlocBX, &info);
-        assert(info == 0);
+        slate_assert(info == 0);
         BXref = slate::Matrix<scalar_t>::fromScaLAPACK(
             maxmn, nrhs, &BX_ref[0], lldBX, nb, nprow, npcol, MPI_COMM_WORLD);
 
@@ -404,7 +404,7 @@ template <typename scalar_t> void test_gels_work(Params& params, bool run)
                         &A_ref[0],  ione, ione, descA_ref,
                         &BX_ref[0], ione, ione, descBX_ref,
                         &dummy, -1, &info_ref);
-        assert(info_ref == 0);
+        slate_assert(info_ref == 0);
         lwork = int64_t( real( dummy ) );
         work.resize(lwork);
 
@@ -417,7 +417,7 @@ template <typename scalar_t> void test_gels_work(Params& params, bool run)
                         &A_ref[0],  ione, ione, descA_ref,
                         &BX_ref[0], ione, ione, descBX_ref,
                         work.data(), lwork, &info_ref);
-        assert(info_ref == 0);
+        slate_assert(info_ref == 0);
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 

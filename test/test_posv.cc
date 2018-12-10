@@ -7,7 +7,6 @@
 #include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 
-#include <cassert>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -71,7 +70,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
 
     // initialize BLACS and ScaLAPACK
     Cblacs_pinfo(&iam, &nprocs);
-    assert(p*q <= nprocs);
+    slate_assert(p*q <= nprocs);
     Cblacs_get(-1, 0, &ictxt);
     Cblacs_gridinit(&ictxt, "Col", p, q);
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
@@ -80,7 +79,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
     int64_t mlocA = scalapack_numroc(n, nb, myrow, izero, nprow);
     int64_t nlocA = scalapack_numroc(n, nb, mycol, izero, npcol);
     scalapack_descinit(descA_tst, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
-    assert(info == 0);
+    slate_assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
     scalapack_pplghe(&A_tst[0], n, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
@@ -89,7 +88,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
     int64_t mlocB = scalapack_numroc(n, nb, myrow, izero, nprow);
     int64_t nlocB = scalapack_numroc(nrhs, nb, mycol, izero, npcol);
     scalapack_descinit(descB_tst, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
-    assert(info == 0);
+    slate_assert(info == 0);
     int64_t lldB = (int64_t)descB_tst[8];
     std::vector<scalar_t> B_tst(lldB*nlocB);
     scalapack_pplrnt(&B_tst[0], n, nrhs, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 2);
@@ -138,11 +137,11 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
     if (check || ref) {
         A_ref = A_tst;
         scalapack_descinit(descA_ref, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
-        assert(info == 0);
+        slate_assert(info == 0);
 
         B_ref = B_tst;
         scalapack_descinit(descB_ref, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
-        assert(info == 0);
+        slate_assert(info == 0);
 
         if (check && ref)
             B_orig = B_tst;
@@ -210,7 +209,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
             }
         }
         else {
-            assert("Unknown routine!");
+            slate_assert("Unknown routine!");
         }
 
         {
@@ -314,13 +313,13 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
             // restore B_ref
             B_ref = B_orig;
             scalapack_descinit(descB_ref, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
-            assert(info == 0);
+            slate_assert(info == 0);
         }
 
         if (params.routine == "potrs") {
             // Factor matrix A.
             scalapack_ppotrf(uplo2str(uplo), n, &A_ref[0], ione, ione, descA_ref, &info);
-            assert(info == 0);
+            slate_assert(info == 0);
         }
 
         //==================================================
@@ -337,7 +336,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
         else {
             scalapack_pposv(uplo2str(uplo), n, nrhs, &A_ref[0], ione, ione, descA_ref, &B_ref[0], ione, ione, descB_ref, &info);
         }
-        assert(info == 0);
+        slate_assert(info == 0);
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 

@@ -99,7 +99,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
     slate::TriangularFactors<scalar_t> T;
 
     if (verbose > 1) {
-        print_matrix( "A", A );
+        print_matrix("A", A);
     }
 
     // if check is required, copy test data and create a descriptor for it
@@ -158,6 +158,12 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
                              work.data(), lwork, &info_ref);
             assert(info_ref == 0);
         #endif
+
+        if (verbose > 1) {
+            print_matrix("Tlocal",  T[0]);
+            print_matrix("Treduce", T[1]);
+        }
+
         //--------------------------------------------------
         {
             slate::trace::Block trace_block("MPI_Barrier");
@@ -172,7 +178,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         params.gflops() = gflop / time_tst;
 
         if (verbose > 1) {
-            print_matrix( "A_factored", A );
+            print_matrix("A_factored", A);
         }
     }
 
@@ -205,7 +211,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
             m, n, &QR_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
 
         if (verbose > 1) {
-            print_matrix( "R", QR );
+            print_matrix("R", QR);
         }
 
         // Form QR, where Q's representation is in A and T, and R is in QR.
@@ -224,7 +230,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         #endif
 
         if (verbose > 1) {
-            print_matrix( "QR", QR );
+            print_matrix("QR", QR);
         }
 
         // Form QR - A, where A is in Aref.
@@ -233,7 +239,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         blas::axpy(QR_tst.size(), scalar_t(-1.0), &A_ref[0], ione, &QR_tst[0], ione);
 
         if (verbose > 1) {
-            print_matrix( "QR - A", QR );
+            print_matrix("QR - A", QR);
         }
 
         // Norm of backwards error: || QR - A ||_1

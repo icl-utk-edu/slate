@@ -117,9 +117,93 @@ void print_matrix(
 }
 
 //------------------------------------------------------------------------------
+/// Sends tiles A(i, j) and receives it on rank 0.
+/// If rank != 0 and tile A(i, j) is local, sends it to rank 0.
+/// If rank == 0, inserts and receives tile A(i, j),
+/// unless tile didn't exist on sender.
+///
+template <typename scalar_t>
+void send_recv_tile(
+    slate::BaseMatrix<scalar_t>& A, int64_t i, int64_t j,
+    int mpi_rank, MPI_Comm comm)
+{
+    int flag_exist   = 0;
+    int flag_missing = 1;
+    int flag;
+    int err;
+    MPI_Status status;
+
+    int tile_rank = A.tileRank(i, j);
+    if (tile_rank != 0) {
+        if (A.tileIsLocal(i, j)) {
+            try {
+                auto T = A(i, j);
+                err = MPI_Send( &flag_exist, 1, MPI_INT, 0, 0, comm);
+                slate_assert(err == 0);
+                T.send(0, comm);
+            }
+            catch (std::out_of_range const& ex) {
+                err = MPI_Send( &flag_missing, 1, MPI_INT, 0, 0, comm);
+                slate_assert(err == 0);
+            }
+        }
+        else if (mpi_rank == 0) {
+            err = MPI_Recv(&flag, 1, MPI_INT, tile_rank, 0, comm, &status);
+            slate_assert(err == 0);
+            if (flag == flag_exist) {
+                A.tileInsert(i, j);
+                A(i, j).recv(tile_rank, comm);
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Returns string for row ti of tile A(i, j).
+/// If tile doesn't exist, returns string with NAN values.
+/// For upper or lower tiles, uses opposite for values in the opposite
+/// (lower or upper, respectively) triangle.
+/// Works for all matrix types.
+///
+template <typename scalar_t>
+std::string tile_row_string(
+    slate::BaseMatrix<scalar_t>& A, int64_t i, int64_t j, int64_t ti,
+    int width, int precision,
+    const char* opposite="")
+{
+    char buf[ 80 ];
+    std::string msg;
+    try {
+        auto T = A(i, j);
+        for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
+            slate::Uplo uplo = T.uplo();
+            if ((uplo == slate::Uplo::General) ||
+                (uplo == slate::Uplo::Lower && ti >= tj) ||
+                (uplo == slate::Uplo::Upper && ti <= tj))
+            {
+                snprintf_value(buf, sizeof(buf), width, precision, T(ti, tj));
+                msg += buf;
+            }
+            else {
+                msg += opposite;
+            }
+        }
+    }
+    catch (std::out_of_range const& ex) {
+        // tile missing: print NAN
+        snprintf_value(buf, sizeof(buf), width, precision, NAN);
+        for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
+            msg += buf;
+        }
+    }
+    return msg;
+}
+
+//------------------------------------------------------------------------------
 /// Print a SLATE distributed matrix.
 /// Rank 0 does the printing, and must have enough memory to fit one entire
 /// block row of the matrix.
+/// For block-sparse matrices, missing tiles are print as "nan".
 ///
 template <typename scalar_t>
 void print_matrix(
@@ -135,35 +219,20 @@ void print_matrix(
 
     width = std::max(width, precision + 3);
 
-    char buf[ 1024 ];
     std::string msg = label;
     msg += " = [\n";
 
     for (int64_t i = 0; i < A.mt(); ++i) {
         // gather block row to rank 0
         for (int64_t j = 0; j < A.nt(); ++j) {
-            int tile_rank = A.tileRank(i, j);
-            if (tile_rank != 0) {
-                if (A.tileIsLocal(i, j)) {
-                    auto T = A(i, j);
-                    T.send(0, comm);
-                }
-                else if (mpi_rank == 0) {
-                    A.tileInsert(i, j);
-                    A(i, j).recv(tile_rank, comm);
-                }
-            }
+            send_recv_tile(A, i, j, mpi_rank, comm);
         }
 
         if (mpi_rank == 0) {
             // print block row
             for (int64_t ti = 0; ti < A.tileMb(i); ++ti) {
                 for (int64_t j = 0; j < A.nt(); ++j) {
-                    auto T = A(i, j);
-                    for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-                        snprintf_value(buf, sizeof(buf), width, precision, T(ti, tj));
-                        msg += buf;
-                    }
+                    msg += tile_row_string(A, i, j, ti, width, precision);
                     if (j < A.nt() - 1)
                         msg += "    ";
                     else
@@ -190,9 +259,11 @@ void print_matrix(
 }
 
 //------------------------------------------------------------------------------
-/// Print a SLATE distributed matrix.
+/// Print a SLATE distributed band matrix.
 /// Rank 0 does the printing, and must have enough memory to fit one entire
 /// block row of the matrix.
+/// Tiles outside the bandwidth are printed as "0", with no trailing decimals.
+/// For block-sparse matrices, missing tiles are print as "nan".
 ///
 template <typename scalar_t>
 void print_matrix(
@@ -208,7 +279,6 @@ void print_matrix(
 
     width = std::max(width, precision + 3);
 
-    char buf[ 1024 ];
     std::string msg = label;
     msg += " = [\n";
 
@@ -231,17 +301,7 @@ void print_matrix(
         // gather block row to rank 0
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (-kl <= j - i && j - i <= ku) { // inside bandwidth
-                int tile_rank = A.tileRank(i, j);
-                if (tile_rank != 0) {
-                    if (A.tileIsLocal(i, j)) {
-                        auto T = A(i, j);
-                        T.send(0, comm);
-                    }
-                    else if (mpi_rank == 0) {
-                        A.tileInsert(i, j);
-                        A(i, j).recv(tile_rank, comm);
-                    }
-                }
+                send_recv_tile(A, i, j, mpi_rank, comm);
             }
         }
 
@@ -250,11 +310,7 @@ void print_matrix(
             for (int64_t ti = 0; ti < A.tileMb(i); ++ti) {
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     if (-kl <= j - i && j - i <= ku) { // inside bandwidth
-                        auto T = A(i, j);
-                        for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-                            snprintf_value(buf, sizeof(buf), width, precision, T(ti, tj));
-                            msg += buf;
-                        }
+                        msg += tile_row_string(A, i, j, ti, width, precision);
                     }
                     else {
                         for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
@@ -287,9 +343,10 @@ void print_matrix(
 }
 
 //------------------------------------------------------------------------------
-/// Print a SLATE distributed matrix.
+/// Print a SLATE distributed trapezoid matrix.
 /// Rank 0 does the printing, and must have enough memory to fit one entire
 /// block row of the matrix.
+/// For block-sparse matrices, missing tiles are print as "nan".
 ///
 /// This version handles trapezoid, triangular, symmetric, and Hermitian
 /// matrices. Entries in the A.uplo triangle are printed; entries in the
@@ -309,18 +366,17 @@ void print_matrix(
 
     width = std::max(width, precision + 3);
 
-    char buf[ 1024 ];
     std::string msg = label;
     msg += " = [\n";
 
     // for entries in opposite triangle from A.uplo
-    char opp[ 80 ];
+    char opposite[ 80 ];
     if (slate::is_complex<scalar_t>::value) {
-        snprintf(opp, sizeof(opp), " %*f   %*s ",
+        snprintf(opposite, sizeof(opposite), " %*f   %*s ",
                  width, NAN, width, "");
     }
     else {
-        snprintf(opp, sizeof(opp), " %*f",
+        snprintf(opposite, sizeof(opposite), " %*f",
                  width, NAN);
     }
 
@@ -330,17 +386,7 @@ void print_matrix(
             if ((A.uplo() == slate::Uplo::Lower && i >= j) ||
                 (A.uplo() == slate::Uplo::Upper && i <= j))
             {
-                int tile_rank = A.tileRank(i, j);
-                if (tile_rank != 0) {
-                    if (A.tileIsLocal(i, j)) {
-                        auto T = A(i, j);
-                        T.send(0, comm);
-                    }
-                    else if (mpi_rank == 0) {
-                        A.tileInsert(i, j);
-                        A(i, j).recv(tile_rank, comm);
-                    }
-                }
+                send_recv_tile(A, i, j, mpi_rank, comm);
             }
         }
 
@@ -351,23 +397,13 @@ void print_matrix(
                     if ((A.uplo() == slate::Uplo::Lower && i >= j) ||
                         (A.uplo() == slate::Uplo::Upper && i <= j))
                     {
-                        auto T = A(i, j);
-                        for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-                            if (i != j ||
-                                (A.uplo() == slate::Uplo::Lower && ti >= tj) ||
-                                (A.uplo() == slate::Uplo::Upper && ti <= tj))
-                            {
-                                snprintf_value(buf, sizeof(buf), width, precision, T(ti, tj));
-                                msg += buf;
-                            }
-                            else {
-                                msg += opp;
-                            }
-                        }
+                        // tile in stored triangle
+                        msg += tile_row_string(A, i, j, ti, width, precision, opposite);
                     }
                     else {
+                        // tile in opposite triangle
                         for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-                            msg += opp;
+                            msg += opposite;
                         }
                     }
                     if (j < A.nt() - 1)

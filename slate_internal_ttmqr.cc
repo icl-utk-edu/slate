@@ -54,10 +54,11 @@ template <Target target, typename scalar_t>
 void ttmqr(Side side, Op op,
            Matrix<scalar_t>&& A,
            Matrix<scalar_t>&& T,
-           Matrix<scalar_t>&& C)
+           Matrix<scalar_t>&& C,
+           int tag)
 {
     ttmqr(internal::TargetType<target>(),
-          side, op, A, T, C);
+          side, op, A, T, C, tag);
 }
 
 ///-----------------------------------------------------------------------------
@@ -67,7 +68,8 @@ void ttmqr(internal::TargetType<Target::HostTask>,
            Side side, Op op,
            Matrix<scalar_t>& A,
            Matrix<scalar_t>& T,
-           Matrix<scalar_t>& C)
+           Matrix<scalar_t>& C,
+           int tag)
 {
     int64_t A_mt = A.mt();
 
@@ -128,15 +130,15 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                             // Send tile to dst, then receive updated tile back.
                             int64_t i_dst = rank_rows[ index + step ].second;
                             int dst = C.tileRank(i_dst, j);
-                            C.tileSend(i, j, dst);
-                            C.tileRecv(i, j, dst);
+                            C.tileSend(i, j, dst, tag);
+                            C.tileRecv(i, j, dst, tag);
                         }
                     }
                     else {
                         // Receive tile from src.
                         int64_t i_src = rank_rows[ index - step ].second;
                         int     src   = C.tileRank(i_src, j);
-                        C.tileRecv(i_src, j, src);
+                        C.tileRecv(i_src, j, src, tag);
 
                         // Apply Q
                         tpmqrt(side, op, A.tileNb(0), A(i, 0),
@@ -146,7 +148,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                         A.tileTick(i, 0);
                         T.tileTick(i, 0);
                         // Send updated tile back.
-                        C.tileSend(i_src, j, src);
+                        C.tileSend(i_src, j, src, tag);
                         C.tileTick(i_src, j);
                     }
                 }
@@ -167,7 +169,8 @@ void ttmqr<Target::HostTask, float>(
     Side side, Op op,
     Matrix<float>&& A,
     Matrix<float>&& T,
-    Matrix<float>&& C);
+    Matrix<float>&& C,
+    int tag);
 
 // ----------------------------------------
 template
@@ -175,7 +178,8 @@ void ttmqr<Target::HostTask, double>(
     Side side, Op op,
     Matrix<double>&& A,
     Matrix<double>&& T,
-    Matrix<double>&& C);
+    Matrix<double>&& C,
+    int tag);
 
 // ----------------------------------------
 template
@@ -183,7 +187,8 @@ void ttmqr< Target::HostTask, std::complex<float> >(
     Side side, Op op,
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& T,
-    Matrix< std::complex<float> >&& C);
+    Matrix< std::complex<float> >&& C,
+    int tag);
 
 // ----------------------------------------
 template
@@ -191,7 +196,8 @@ void ttmqr< Target::HostTask, std::complex<double> >(
     Side side, Op op,
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& T,
-    Matrix< std::complex<double> >&& C);
+    Matrix< std::complex<double> >&& C,
+    int tag);
 
 } // namespace internal
 } // namespace slate

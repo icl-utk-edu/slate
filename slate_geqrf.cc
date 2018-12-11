@@ -197,7 +197,8 @@ void geqrf(slate::internal::TargetType<target>,
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tr_panel),
-                                    std::move(A_trail_j));
+                                    std::move(A_trail_j),
+                                    j);
                 }
             }
 
@@ -223,7 +224,8 @@ void geqrf(slate::internal::TargetType<target>,
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tr_panel),
-                                    A.sub(k, A_mt-1, j, A_nt-1));
+                                    A.sub(k, A_mt-1, j, A_nt-1),
+                                    j);
                 }
             }
         }

@@ -119,30 +119,51 @@ void unmqr(
                             }
                         }
                     }
+                    int64_t min_row = k;
 
                     #pragma omp task depend(inout:column[k]) \
                                      depend(in:column[lastk])
                     {
+
+                        // bcast V across row of C
+                        BcastList bcast_list_V_top;
+                        BcastList bcast_list_V;
+                        for (int64_t i = k; i < A_mt; ++i) {
+                            // send A(i, k) across row C(i, 0:nt-1)
+                            if (std::find(top_rows.begin(), top_rows.end(), i) != top_rows.end() && i > min_row)
+                                bcast_list_V_top.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
+                            else
+                                bcast_list_V.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
+                        }
+                        A.template listBcast(bcast_list_V_top, 0, Layout::ColMajor, 3);// TODO is column major safe?
+                        A.template listBcast(bcast_list_V, 0, Layout::ColMajor, 2);
+
+                        // bcast Tlocal across row of C
+                        if (top_rows.size() > 0){
+                            BcastList bcast_list_T;
+                            for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
+                                int64_t row = *it;
+                                bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
+                            }
+                            Tlocal.template listBcast(bcast_list_T);
+                        }
+
+                        // bcast Treduce across row of C
+                        if (top_rows.size() > 1){
+                            BcastList bcast_list_T;
+                            for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
+                                int64_t row = *it;
+                                if(row > min_row)//exclude the first row of this panel that has no Treduce tile
+                                    bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
+                            }
+                            Treduce.template listBcast(bcast_list_T);
+                        }
 
                         // Apply triangle-triangle reduction reflectors
                         internal::ttmqr(side, op,
                                         std::move(A_panel),
                                         Treduce.sub(k, A_mt-1, k, k),
                                         C.sub(k, C_mt-1, 0, C_nt-1));
-
-                        BcastList bcast_list_A;
-                        for (int64_t i = k; i < A_mt; ++i) {
-                            // send A(i, k) across row C(i, 0:nt-1)
-                            bcast_list_A.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
-                        }
-                        A.template listBcast(bcast_list_A, 0, Layout::ColMajor, 2);// TODO is column major safe?
-
-                        BcastList bcast_list_T;
-                        for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
-                            int64_t row = *it;
-                            bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
-                        }
-                        Tlocal.template listBcast(bcast_list_T);
 
                         // Apply local reflectors
                         internal::unmqr(side, op,
@@ -184,24 +205,44 @@ void unmqr(
                             }
                         }
                     }
+                    int64_t min_row = k;
 
                     #pragma omp task depend(inout:column[k]) \
                                      depend(in:column[lastk])
                     {
 
-                        BcastList bcast_list_A;
+                        // bcast V across row of C
+                        BcastList bcast_list_V_top;
+                        BcastList bcast_list_V;
                         for (int64_t i = k; i < A_mt; ++i) {
-                            // send A(i, k) across row A(i, k+1:nt-1)
-                            bcast_list_A.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
+                            // send A(i, k) across row C(i, 0:nt-1)
+                            // top_rows' V's (except the top-most one) need three lives
+                            if (std::find(top_rows.begin(), top_rows.end(), i) != top_rows.end() && i > min_row)
+                                bcast_list_V_top.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
+                            else
+                                bcast_list_V.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
                         }
-                        A.template listBcast(bcast_list_A, 0, Layout::ColMajor, 2);// TODO is column major safe?
+                        A.template listBcast(bcast_list_V_top, 0, Layout::ColMajor, 3);// TODO is column major safe?
+                        A.template listBcast(bcast_list_V, 0, Layout::ColMajor, 2);
 
+                        // bcast Tlocal across row of C
                         BcastList bcast_list_T;
                         for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
                             int64_t row = *it;
                             bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
                         }
                         Tlocal.template listBcast(bcast_list_T);
+
+                        // bcast Treduce across row of C
+                        if (top_rows.size() > 1){
+                            BcastList bcast_list_T;
+                            for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
+                                int64_t row = *it;
+                                if(row > min_row)//exclude the first row of this panel that has no Treduce tile
+                                    bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
+                            }
+                            Treduce.template listBcast(bcast_list_T);
+                        }
 
                         // Apply local reflectors
                         internal::unmqr(side, op,

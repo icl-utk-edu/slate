@@ -115,7 +115,7 @@ void geqrf(slate::internal::TargetType<target>,
                     }
                 }
             }
-            std::vector< int64_t >::iterator min_row_it = std::min_element(std::begin(top_rows), std::end(top_rows));
+            int64_t min_row = k;
 
             // panel, high priority
             #pragma omp task depend(inout:column[k]) priority(priority_one)
@@ -132,23 +132,28 @@ void geqrf(slate::internal::TargetType<target>,
                                 std::move(A_panel),
                                 std::move(Tr_panel));
 
+                // if a trailing matrix exists
                 if (k < A_nt-1){
 
                     // bcast V across row for trailing matrix update
                     if (k < A_mt){
-                        BcastList bcast_list_A;
-
+                        BcastList bcast_list_V_top;
+                        BcastList bcast_list_V;
                         for (int64_t i = k; i < A_mt; ++i) {
                             // send A(i, k) across row A(i, k+1:nt-1)
-                            bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
+                            // top_rows' V's (except the top-most one) need three lives
+                            if ((std::find(top_rows.begin(), top_rows.end(), i) != top_rows.end()) && (i > min_row))
+                                bcast_list_V_top.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
+                            else
+                                bcast_list_V.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
                         }
-                        A.template listBcast(bcast_list_A, 0, Layout::ColMajor, 2);// TODO is column major safe?
+                        A.template listBcast(bcast_list_V_top, 0, Layout::ColMajor, 3);// TODO is column major safe?
+                        A.template listBcast(bcast_list_V, 0, Layout::ColMajor, 2);
                     }
 
                     // bcast Tlocal across row for trailing matrix update
                     if (top_rows.size() > 0){
                         BcastList bcast_list_T;
-
                         for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
                             int64_t row = *it;
                             bcast_list_T.push_back({row, k, {Tlocal.sub(row, row, k+1, A_nt-1)}});
@@ -160,20 +165,17 @@ void geqrf(slate::internal::TargetType<target>,
                     // bcast Treduce across row for trailing matrix update
                     if (top_rows.size() > 1){
                         BcastList bcast_list_T;
-
                         for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
                             int64_t row = *it;
-                            if(row > *min_row_it)//exclude the first row of this panel that has no Treduce tile
+                            if(row > min_row)//exclude the first row of this panel that has no Treduce tile
                                 bcast_list_T.push_back({row, k, {Treduce.sub(row, row, k+1, A_nt-1)}});
                         }
                         Treduce.template listBcast(bcast_list_T);
                     }
                 }
             }
-
             // update lookahead column(s), high priority
             // TODO works for lookahead = 1, support lookahead > 1
-            // TODO set priority
             for (int64_t j = k+1; j < (k+1+lookahead) && j < A_nt; ++j) {
                 auto A_trail_j = A.sub(k, A_mt-1, j, j);
 

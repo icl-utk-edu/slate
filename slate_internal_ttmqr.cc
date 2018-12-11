@@ -113,6 +113,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
         for (int index = 0; index < nranks; index += step) {
             int64_t i = rank_rows[ index ].second;
             // Send V and T across row of C.
+            // todo: cleanup, this communication has migrated to the calling routine
             // if (index % (2*step) != 0) {
             //     A.tileBcast(i, 0, C.sub(i, i, 0, C.nt()-1));
             //     T.tileBcast(i, 0, C.sub(i, i, 0, C.nt()-1));
@@ -142,6 +143,8 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                                T(i, 0),
                                C(i_src, j), C(i, j));
 
+                        A.tileTick(i, 0);
+                        T.tileTick(i, 0);
                         // Send updated tile back.
                         C.tileSend(i_src, j, src);
                         C.tileTick(i_src, j);

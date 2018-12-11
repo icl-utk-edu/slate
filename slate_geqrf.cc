@@ -158,8 +158,7 @@ void geqrf(slate::internal::TargetType<target>,
                             int64_t row = *it;
                             bcast_list_T.push_back({row, k, {Tlocal.sub(row, row, k+1, A_nt-1)}});
                         }
-                        Tlocal.template listBcast(bcast_list_T);// TODO is column major safe?
-                        // Tlocal.template listBcast(bcast_list_T, 0, Layout::ColMajor, 2);// TODO is column major safe?
+                        Tlocal.template listBcast(bcast_list_T);
                     }
 
                     // bcast Treduce across row for trailing matrix update

@@ -533,29 +533,6 @@ Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
 {
     assert(kind == TileKind::Workspace ||
            kind == TileKind::SlateOwned);
-    #if 1
-    // assert(tiles_.find(ijdev) == tiles_.end());  // doesn't exist yet
-    // TODO should check kind before returning existing tile
-    auto tileIter = tiles_.find(ijdev);
-    if (tileIter != tiles_.end()){
-        printf("tile(%d,%d,%d) re-inserted\n", std::get<0>(ijdev),std::get<1>(ijdev),kind);
-        Tile<scalar_t>* tile = tiles_[ijdev];
-        // TODO assert(kind == tile->kind_)
-        return tile;
-    }
-    else{
-        int64_t i  = std::get<0>(ijdev);
-        int64_t j  = std::get<1>(ijdev);
-        int device = std::get<2>(ijdev);
-        scalar_t* data = (scalar_t*) memory_.alloc(device);
-        int64_t mb = tileMb(i);
-        int64_t nb = tileNb(j);
-        Tile<scalar_t>* tile
-            = new Tile<scalar_t>(mb, nb, data, mb, device, kind);
-        tiles_[ijdev] = tile;
-        return tile;
-    }
-    #else
     assert(tiles_.find(ijdev) == tiles_.end());  // doesn't exist yet
     int64_t i  = std::get<0>(ijdev);
     int64_t j  = std::get<1>(ijdev);
@@ -567,7 +544,6 @@ Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
         = new Tile<scalar_t>(mb, nb, data, mb, device, kind);
     tiles_[ijdev] = tile;
     return tile;
-    #endif
 }
 
 //------------------------------------------------------------------------------

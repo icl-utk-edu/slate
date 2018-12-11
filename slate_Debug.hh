@@ -96,20 +96,6 @@ private:
 
 };
 
-#define DBG_MSG
-#ifdef DBG_MSG
-#define ECHO_I(_val) printf("%s(%d) ", #_val, (_val));fflush( stdout );
-#define ECHO_f(_val) printf("%s(%e) ", #_val, (_val));fflush( stdout );
-#define ECHO_p(_val) printf("%s(%p) ", #_val, (_val));fflush( stdout );
-#define ECHO_s(_val) printf("%s ", _val);fflush( stdout );
-#define ECHO_LN printf("line %d\n", __LINE__);fflush( stdout );
-#else
-#define ECHO_I(_val)
-#define ECHO_f(_val)
-#define ECHO_p(_val)
-#define ECHO_s(_val)
-#define ECHO_LN
-#endif
 } // namespace slate
 
 #endif // SLATE_DEBUG_HH

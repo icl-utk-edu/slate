@@ -215,7 +215,7 @@ void unmqr(internal::TargetType<Target::HostTask>,
         // TODO
     }
 
-    // TODO should we free workspace?
+    // free workspace
     for (int j = 0; j < Wr.nt(); ++j)
     {
         if(Wr.tileIsLocal(0, j))

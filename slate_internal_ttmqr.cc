@@ -123,6 +123,10 @@ void ttmqr(internal::TargetType<Target::HostTask>,
             // At each level, scan rows of C for local tiles.
             // TODO: the j loop can be parallelized, but care needs to be
             // taken so that MPI makes progress.
+            // todo: for better performance, split into three tasks:
+            //      - send-receive task,
+            //      - update task-loop,
+            //      - send-receive task
             for (int64_t j = 0; j < C.nt(); ++j) {
                 if (C.tileIsLocal(i, j)) {
                     if (index % (2*step) == 0) {

@@ -107,12 +107,17 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
     std::vector<scalar_t> A_ref;
     slate::Matrix<scalar_t> Aref;
     if (check || ref) {
+        A_ref.resize(A_tst.size());
         A_ref = A_tst;
         scalapack_descinit(descA_ref, m, n, nb, nb, izero, izero, ictxt, mlocA, &info);
         assert(info == 0);
 
         Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
             m, n, &A_ref[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+
+        if (verbose > 1) {
+            print_matrix( "Aref", Aref );
+        }
     }
 
     double gflop = lapack::Gflop<scalar_t>::geqrf(m, n);
@@ -175,7 +180,6 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
 
         if (verbose > 1) {
             print_matrix( "A_factored", A );
-            // todo: print T, which is block-sparse
         }
     }
 
@@ -213,20 +217,22 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
 
         // Form QR, where Q's representation is in A and T, and R is in QR.
         #if 1
+            // if (trace) slate::trace::Trace::on();
             slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, T, QR);
+            // if (trace) slate::trace::Trace::finish();
         #else
             // TMP: call scalapack
-            int64_t info_ref = 0;
-            scalapack_punmqr("left", "notrans", m, n, std::min(m, n),
-                             &A_tst[0], ione, ione, descA_tst, tau.data(),
-                             &QR_tst[0], ione, ione, descQR_tst,
-                             work.data(), lwork, &info_ref);
-            assert(info_ref == 0);
+            // int64_t info_ref = 0;
+            // scalapack_punmqr("left", "notrans", m, n, std::min(m, n),
+            //                  &A_tst[0], ione, ione, descA_tst, tau.data(),
+            //                  &QR_tst[0], ione, ione, descQR_tst,
+            //                  work.data(), lwork, &info_ref);
+            // assert(info_ref == 0);
         #endif
 
         if (verbose > 1) {
             print_matrix( "QR", QR );
-            print_matrix( "A", Aref );
+            // print_matrix( "A", Aref );
         }
 
         // Form QR - A, where A is in Aref.
@@ -238,11 +244,11 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
             print_matrix( "QR - A", QR );
         }
 
-        // Norm of backwards error: || QA - R ||_1
+        // Norm of backwards error: || QR - A ||_1
         real_t R_norm = slate::norm(slate::Norm::One, QR);
+
         double residual = R_norm / (m*A_norm);
         params.error() = residual;
-
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= tol);
     }
@@ -275,9 +281,23 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 
+        if (verbose > 1) {
+            print_matrix( "A_ref factored", Aref );
+        }
+
         params.ref_time() = time_ref;
         params.ref_gflops() = gflop / time_ref;
 
+        if(check){
+            blas::axpy(A_tst.size(), scalar_t(-1.0), &A_ref[0], ione, &A_tst[0], ione);
+            if (verbose > 0) {
+                real_t D_norm = slate::norm(slate::Norm::One, A);
+                printf("||A-Aref||_1 %e",D_norm);
+            }
+            if (verbose > 1) {
+                print_matrix( "A - Aref", A );
+            }
+        }
         slate_set_num_blas_threads(saved_num_threads);
     }
 

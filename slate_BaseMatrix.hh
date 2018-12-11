@@ -142,11 +142,10 @@ public:
     /// Returns transposition operation op(A) as NoTrans, Trans, or ConjTrans.
     Op op() const { return op_; }
 
-    /// returns true if tile exists on host
-    /// TODO what about device?
-    bool tileExists(int64_t i, int64_t j)
+    /// returns true if tile exists on specified device
+    bool tileExists(int64_t i, int64_t j, int device=host_num_)
     {
-    	return storage_->find(globalIndex(i, j, host_num_)) != storage_->end();
+    	return storage_->find(globalIndex(i, j, device)) != storage_->end();
     }
 
     /// Returns MPI rank of tile {i, j} of op(A).

@@ -175,7 +175,6 @@ void geqrf(slate::internal::TargetType<target>,
                 }
             }
             // update lookahead column(s), high priority
-            // TODO works for lookahead = 1, support lookahead > 1
             for (int64_t j = k+1; j < (k+1+lookahead) && j < A_nt; ++j) {
                 auto A_trail_j = A.sub(k, A_mt-1, j, j);
 

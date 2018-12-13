@@ -78,6 +78,13 @@ void geqrf(slate::internal::TargetType<target>,
     // workspace
     auto W = A.emptyLike();
 
+    if (target == Target::Devices) {
+        A.allocateBatchArrays();
+        A.reserveDeviceWorkspace();
+        W.allocateBatchArrays();
+        W.reserveDeviceWorkspace();
+    }
+
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
@@ -90,11 +97,8 @@ void geqrf(slate::internal::TargetType<target>,
             const int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
 
             auto A_panel = A.sub(k, A_mt-1, k, k);
-            auto A_trail = A.sub(k, A_mt-1, k+1, A_nt-1);
             auto Tl_panel = Tlocal.sub(k, A_mt-1, k, k);
-            auto Tl_trail = Tlocal.sub(k, A_mt-1, k+1, A_nt-1);
             auto Tr_panel = Treduce.sub(k, A_mt-1, k, k);
-            auto Tr_trail = Treduce.sub(k, A_mt-1, k+1, A_nt-1);
 
             // Find ranks in this column.
             std::set<int> ranks_set;
@@ -173,7 +177,8 @@ void geqrf(slate::internal::TargetType<target>,
                     }
                 }
             }
-            // update lookahead column(s), high priority
+
+            // update lookahead column(s) on CPU, high priority
             for (int64_t j = k+1; j < (k+1+lookahead) && j < A_nt; ++j) {
                 auto A_trail_j = A.sub(k, A_mt-1, j, j);
 
@@ -203,17 +208,18 @@ void geqrf(slate::internal::TargetType<target>,
             // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
                 int64_t j = k+1+lookahead;
+                auto A_trail_j = A.sub(k, A_mt-1, j, A_nt-1);
 
                 #pragma omp task depend(in:column[k]) \
                                  depend(inout:column[k+1+lookahead]) \
                                  depend(inout:column[A_nt-1])
                 {
                     // Apply local reflectors
-                    internal::unmqr<Target::HostTask>(
+                    internal::unmqr<target>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tl_panel),
-                                    A.sub(k, A_mt-1, j, A_nt-1),
+                                    std::move(A_trail_j),
                                     W.sub(k, A_mt-1, j, A_nt-1));
 
                     // Apply triangle-triangle reduction reflectors
@@ -222,12 +228,15 @@ void geqrf(slate::internal::TargetType<target>,
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tr_panel),
-                                    A.sub(k, A_mt-1, j, A_nt-1),
+                                    std::move(A_trail_j),
                                     j);
                 }
             }
         }
     }
+
+    A.clearWorkspace();
+
 }
 
 } // namespace specialization

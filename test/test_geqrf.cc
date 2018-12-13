@@ -159,7 +159,6 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
                              work.data(), lwork, &info_ref);
             assert(info_ref == 0);
         #endif
-
         //--------------------------------------------------
         {
             slate::trace::Block trace_block("MPI_Barrier");
@@ -212,7 +211,9 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
 
         // Form QR, where Q's representation is in A and T, and R is in QR.
         #if 1
-            slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, T, QR);
+            slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, T, QR, {
+                {slate::Option::Target, target}
+            });
         #else
             // TMP: call scalapack
             int64_t info_ref = 0;

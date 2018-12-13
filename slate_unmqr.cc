@@ -61,8 +61,7 @@ void unmqr(
     Side side, Op op,
     Matrix<scalar_t>& A,
     TriangularFactors<scalar_t>& T,
-    Matrix<scalar_t>& C,
-    int64_t ib, int64_t lookahead)
+    Matrix<scalar_t>& C)
 {
     // trace::Block trace_block("unmqr");
     // const int priority_one = 1;
@@ -72,6 +71,11 @@ void unmqr(
     int64_t A_nt = A.nt();
     int64_t C_mt = C.mt();
     int64_t C_nt = C.nt();
+
+    if (target == Target::Devices) {
+        C.allocateBatchArrays();
+        C.reserveDeviceWorkspace();
+    }
 
     assert(T.size() == 2);
     auto Tlocal  = T[0];
@@ -89,6 +93,11 @@ void unmqr(
 
             // Reserve workspace
             auto W = C.emptyLike();
+
+            if (target == Target::Devices) {
+                W.allocateBatchArrays();
+                W.reserveDeviceWorkspace();
+            }
 
             if (op == Op::NoTrans) {
                 // NoTrans: multiply by Q = Q_1 ... Q_K,
@@ -159,14 +168,23 @@ void unmqr(
                             Treduce.template listBcast(bcast_list_T);
                         }
 
+                        if (target == Target::Devices){
+                            for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
+                                int64_t row = *it;
+                                C.sub(row, row, 0, C_nt-1).moveAllToOrigin();
+                            }
+                        }
+
                         // Apply triangle-triangle reduction reflectors
-                        internal::ttmqr(side, op,
+                        internal::ttmqr<Target::HostTask>(
+                                        side, op,
                                         std::move(A_panel),
                                         Treduce.sub(k, A_mt-1, k, k),
                                         C.sub(k, C_mt-1, 0, C_nt-1));
 
                         // Apply local reflectors
-                        internal::unmqr(side, op,
+                        internal::unmqr<target>(
+                                        side, op,
                                         std::move(A_panel),
                                         Tlocal.sub(k, A_mt-1, k, k),
                                         C.sub(k, C_mt-1, 0, C_nt-1),
@@ -245,14 +263,16 @@ void unmqr(
                         }
 
                         // Apply local reflectors
-                        internal::unmqr(side, op,
+                        internal::unmqr<target>(
+                                        side, op,
                                         std::move(A_panel),
                                         Tlocal.sub(k, A_mt-1, k, k),
                                         C.sub(k, C_mt-1, 0, C_nt-1),
                                         W.sub(k, C_mt-1, 0, C_nt-1));
 
                         // Apply triangle-triangle reduction reflectors
-                        internal::ttmqr(side, op,
+                        internal::ttmqr<Target::HostTask>(
+                                        side, op,
                                         std::move(A_panel),
                                         Treduce.sub(k, A_mt-1, k, k),
                                         C.sub(k, C_mt-1, 0, C_nt-1));
@@ -265,6 +285,7 @@ void unmqr(
             // TODO: side == Side::Right
         }
     }
+    C.clearWorkspace();
 }
 
 } // namespace specialization
@@ -281,19 +302,8 @@ void unmqr(
     Matrix<scalar_t>& C,
     const std::map<Option, Value>& opts)
 {
-    int64_t ib = 16;
-    if (opts.count(Option::InnerBlocking) > 0)
-        ib = opts.at(Option::InnerBlocking).i_;
-    assert(ib >= 0);
-
-    int64_t lookahead = 1;
-    if (opts.count(Option::Lookahead) > 0)
-        lookahead = opts.at(Option::Lookahead).i_;
-    assert(lookahead >= 0);
-
     internal::specialization::unmqr(internal::TargetType<target>(),
-                                    side, op, A, T, C,
-                                    ib, lookahead);
+                                    side, op, A, T, C);
 }
 
 //------------------------------------------------------------------------------

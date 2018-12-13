@@ -59,7 +59,7 @@ void unmqr(Side side, Op op,
            Matrix<scalar_t>&& C,
            Matrix<scalar_t>&& W)
 {
-    unmqr(internal::TargetType<target>(),
+    unmqr<target>(internal::TargetType<target>(),
           side, op, A, T, C, W);
 }
 
@@ -67,8 +67,8 @@ void unmqr(Side side, Op op,
 /// Distributed QR triangle-triangle factorization, host implementation.
 /// Assumes A and T are single block-column
 /// Assumes W and C have same dimensions and distribution
-template <typename scalar_t>
-void unmqr(internal::TargetType<Target::HostTask>,
+template <Target target, typename scalar_t>
+void unmqr(internal::TargetType<target>,
            Side side, Op op,
            Matrix<scalar_t>& A,
            Matrix<scalar_t>& T,
@@ -113,7 +113,7 @@ void unmqr(internal::TargetType<Target::HostTask>,
     assert(r_top < A_mt);
     assert(r_top >= 0);
 
-    // pick one row of W matching the curent panel top row distribution
+    // pick one row of W matching the local matrix top row distribution
     auto Wr = W.sub(r_top, r_top, 0, C_nt-1);
     for (int64_t j = 0; j < Wr.nt(); ++j)
     {
@@ -157,6 +157,7 @@ void unmqr(internal::TargetType<Target::HostTask>,
         // op(Q) x C = C - V x op(T) x (V**H x C)
         // W = V**H x C
         // W <- C1
+        C1.moveAllToOrigin();// todo: issue omp tasks for copy to host
         Wr.copy(C1);
 
         internal::trmm<Target::HostTask, scalar_t>(
@@ -170,7 +171,7 @@ void unmqr(internal::TargetType<Target::HostTask>,
                 int64_t row = row_indices[ri];
                 auto ViT = conj_transpose(A.sub(row, row, 0, 0));
                 auto Ci = C.sub(row, row, 0, C_nt-1);
-                internal::gemm<Target::HostTask>(
+                internal::gemm<target>(
                         scalar_t(1.0), std::move(ViT),
                                        std::move(Ci),
                         scalar_t(1.0), std::move(Wr));
@@ -195,7 +196,7 @@ void unmqr(internal::TargetType<Target::HostTask>,
                 int64_t row = row_indices[ri];
                 auto Vi = A.sub(row, row, 0, 0);
                 auto Ci = C.sub(row, row, 0, C_nt-1);
-                internal::gemm<Target::HostTask>(
+                internal::gemm<target>(
                         scalar_t(-1.0), std::move(Vi),
                                         std::move(Wr),
                         scalar_t(1.0),  std::move(Ci));
@@ -210,6 +211,11 @@ void unmqr(internal::TargetType<Target::HostTask>,
         internal::geadd<Target::HostTask>(
                         scalar_t(1.0), std::move(Wr),
                         scalar_t(1.0), std::move(C1));
+
+        // todo: need to optimize out this communication,
+        // possibly by maintaining workspace on device
+        // (letting internal::gemm preserve local workspace)
+        C.moveAllToOrigin();
     }else
     if(side == Side::Right){
         // TODO
@@ -236,9 +242,57 @@ void unmqr<Target::HostTask, float>(
     Matrix<float>&& C,
     Matrix<float>&& W);
 
+template
+void unmqr<Target::HostNest, float>(
+    Side side, Op op,
+    Matrix<float>&& A,
+    Matrix<float>&& T,
+    Matrix<float>&& C,
+    Matrix<float>&& W);
+
+template
+void unmqr<Target::HostBatch, float>(
+    Side side, Op op,
+    Matrix<float>&& A,
+    Matrix<float>&& T,
+    Matrix<float>&& C,
+    Matrix<float>&& W);
+
+template
+void unmqr<Target::Devices, float>(
+    Side side, Op op,
+    Matrix<float>&& A,
+    Matrix<float>&& T,
+    Matrix<float>&& C,
+    Matrix<float>&& W);
+
 // ----------------------------------------
 template
 void unmqr<Target::HostTask, double>(
+    Side side, Op op,
+    Matrix<double>&& A,
+    Matrix<double>&& T,
+    Matrix<double>&& C,
+    Matrix<double>&& W);
+
+template
+void unmqr<Target::HostNest, double>(
+    Side side, Op op,
+    Matrix<double>&& A,
+    Matrix<double>&& T,
+    Matrix<double>&& C,
+    Matrix<double>&& W);
+
+template
+void unmqr<Target::HostBatch, double>(
+    Side side, Op op,
+    Matrix<double>&& A,
+    Matrix<double>&& T,
+    Matrix<double>&& C,
+    Matrix<double>&& W);
+
+template
+void unmqr<Target::Devices, double>(
     Side side, Op op,
     Matrix<double>&& A,
     Matrix<double>&& T,
@@ -254,9 +308,57 @@ void unmqr< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& C,
     Matrix< std::complex<float> >&& W);
 
+template
+void unmqr< Target::HostNest, std::complex<float> >(
+    Side side, Op op,
+    Matrix< std::complex<float> >&& A,
+    Matrix< std::complex<float> >&& T,
+    Matrix< std::complex<float> >&& C,
+    Matrix< std::complex<float> >&& W);
+
+template
+void unmqr< Target::HostBatch, std::complex<float> >(
+    Side side, Op op,
+    Matrix< std::complex<float> >&& A,
+    Matrix< std::complex<float> >&& T,
+    Matrix< std::complex<float> >&& C,
+    Matrix< std::complex<float> >&& W);
+
+template
+void unmqr< Target::Devices, std::complex<float> >(
+    Side side, Op op,
+    Matrix< std::complex<float> >&& A,
+    Matrix< std::complex<float> >&& T,
+    Matrix< std::complex<float> >&& C,
+    Matrix< std::complex<float> >&& W);
+
 // ----------------------------------------
 template
 void unmqr< Target::HostTask, std::complex<double> >(
+    Side side, Op op,
+    Matrix< std::complex<double> >&& A,
+    Matrix< std::complex<double> >&& T,
+    Matrix< std::complex<double> >&& C,
+    Matrix< std::complex<double> >&& W);
+
+template
+void unmqr< Target::HostNest, std::complex<double> >(
+    Side side, Op op,
+    Matrix< std::complex<double> >&& A,
+    Matrix< std::complex<double> >&& T,
+    Matrix< std::complex<double> >&& C,
+    Matrix< std::complex<double> >&& W);
+
+template
+void unmqr< Target::HostBatch, std::complex<double> >(
+    Side side, Op op,
+    Matrix< std::complex<double> >&& A,
+    Matrix< std::complex<double> >&& T,
+    Matrix< std::complex<double> >&& C,
+    Matrix< std::complex<double> >&& W);
+
+template
+void unmqr< Target::Devices, std::complex<double> >(
     Side side, Op op,
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& T,

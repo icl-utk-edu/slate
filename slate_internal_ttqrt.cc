@@ -60,6 +60,7 @@ void ttqrt(Matrix<scalar_t>&& A,
 
 ///-----------------------------------------------------------------------------
 /// Distributed QR triangle-triangle factorization, host implementation.
+/// assumes panel tiles reside on host
 template <typename scalar_t>
 void ttqrt(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A,

@@ -628,7 +628,7 @@ void Matrix<scalar_t>::copy(Matrix<scalar_t>& A)
 
         for (int64_t i = 0; i < A_mt; ++i) {
 
-            if (A.tileIsLocal(i, j)) {
+            if (this->tileIsLocal(i, j)) {
                 int64_t ib = A.tileMb(i);
                 assert(ib == this->tileMb(i));
 

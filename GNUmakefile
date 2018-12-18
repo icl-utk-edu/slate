@@ -260,6 +260,7 @@ lib_src += \
         slate_gbsv.cc \
         slate_gbtrf.cc \
         slate_gbtrs.cc \
+        slate_gels.cc \
         slate_gemm.cc \
         slate_gesv.cc \
         slate_geqrf.cc \
@@ -289,6 +290,7 @@ test_src += \
         test/test_gbmm.cc \
         test/test_gbnorm.cc \
         test/test_gbsv.cc \
+        test/test_gels.cc \
         test/test_gemm.cc \
         test/test_genorm.cc \
         test/test_geqrf.cc \
@@ -578,7 +580,7 @@ distclean: clean
 	$(CXX) $(CXXFLAGS) -E $< -o $@
 
 # precompile header to check for errors
-%.hh.gch: %.hh
+%.gch: %.hh
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 -include $(dep)

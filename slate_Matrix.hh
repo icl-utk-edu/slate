@@ -309,8 +309,9 @@ Matrix<scalar_t> Matrix<scalar_t>::emptyLike()
 {
     // First create parent matrix, apply op, then return sub-matrix.
     // TODO: currently assumes 2DBC and fixed mb == nb.
-    int64_t nb = this->tileNb(0);
-    assert(nb == this->tileMb(0));
+    int64_t nb = std::max(this->tileMb(0), this->tileNb(0));
+    assert(nb == this->tileMb(0) || this->m() == this->tileMb(0));
+    assert(nb == this->tileNb(0) || this->n() == this->tileNb(0));
     int64_t ioffset = this->ioffset();
     int64_t joffset = this->joffset();
     int64_t m = ioffset*nb;

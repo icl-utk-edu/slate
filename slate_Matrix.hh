@@ -642,18 +642,18 @@ void Matrix<scalar_t>::copy(Matrix<scalar_t>& A)
 {
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
-    assert(A_mt == this->mt());
-    assert(A_nt == this->nt());
+    assert(A_mt <= this->mt());
+    assert(A_nt <= this->nt());
 
     for (int64_t j = 0; j < A_nt; ++j) {
         int64_t jb = A.tileNb(j);
-        assert(jb == this->tileNb(j));
+        assert(jb <= this->tileNb(j));
 
         for (int64_t i = 0; i < A_mt; ++i) {
 
             if (this->tileIsLocal(i, j)) {
                 int64_t ib = A.tileMb(i);
-                assert(ib == this->tileMb(i));
+                assert(ib <= this->tileMb(i));
 
                 #pragma omp task
                 {

@@ -67,7 +67,7 @@ void geqrf(slate::internal::TargetType<target>,
 
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
-    // int64_t A_min_mtnt = std::min(A_mt, A_nt);
+    int64_t A_min_mtnt = std::min(A_mt, A_nt);
 
     T.clear();
     T.push_back(A.emptyLike());
@@ -93,7 +93,7 @@ void geqrf(slate::internal::TargetType<target>,
     #pragma omp master
     {
         omp_set_nested(1);
-        for (int64_t k = 0; k < A_nt; ++k) {
+        for (int64_t k = 0; k < A_min_mtnt; ++k) {
             const int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
 
             auto A_panel = A.sub(k, A_mt-1, k, k);

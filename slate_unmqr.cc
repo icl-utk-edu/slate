@@ -69,6 +69,7 @@ void unmqr(
 
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
+    int64_t A_min_mtnt = std::min(A_mt, A_nt);
     int64_t C_mt = C.mt();
     int64_t C_nt = C.nt();
 
@@ -105,8 +106,8 @@ void unmqr(
 
                 // for k = A_nt-1, lastk = A_nt-1 (no previous column to depend on);
                 // for k < A_nt,   lastk = k + 1.
-                int64_t lastk = A_nt-1;
-                for (int64_t k = A_nt-1; k >= 0; --k) {
+                int64_t lastk = A_min_mtnt-1;
+                for (int64_t k = A_min_mtnt-1; k >= 0; --k) {
 
                     auto A_panel = A.sub(k, A_mt-1, k, k);
 
@@ -201,7 +202,7 @@ void unmqr(
                 // for k = 0, lastk = 0 (no previous column to depend on);
                 // for k > 0, lastk = k - 1.
                 int64_t lastk = 0;
-                for (int64_t k = 0; k < A_nt; ++k) {
+                for (int64_t k = 0; k < A_min_mtnt; ++k) {
 
                     auto A_panel = A.sub(k, A_mt-1, k, k);
 

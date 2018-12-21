@@ -115,6 +115,8 @@ void gemm(internal::TargetType<Target::HostTask>,
                         gemm(alpha, A(i, 0),
                                     B(0, j),
                              beta,  C(i, j));
+                        // mark this tile modified
+                        C.tileState(i, j, C.hostNum(), MOSI::Modified);
                         A.tileTick(i, 0);
                         B.tileTick(0, j);
                     }
@@ -155,7 +157,7 @@ void gemm(internal::TargetType<Target::HostNest>,
     int err = 0;
     const int64_t C_mt = C.mt();
     const int64_t C_nt = C.nt();
-//  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
+    //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
     #pragma omp parallel for collapse(2) schedule(dynamic, 1) shared(err)
     for (int64_t i = 0; i < C_mt; ++i) {
         for (int64_t j = 0; j < C_nt; ++j) {
@@ -167,6 +169,8 @@ void gemm(internal::TargetType<Target::HostNest>,
                     gemm(alpha, A(i, 0),
                                 B(0, j),
                          beta,  C(i, j));
+                    // mark this tile modified
+                    C.tileState(i, j, C.hostNum(), MOSI::Modified);
                     A.tileTick(i, 0);
                     B.tileTick(0, j);
                 }
@@ -328,6 +332,8 @@ void gemm(internal::TargetType<Target::HostBatch>,
         for (int64_t i = 0; i < C.mt(); ++i) {
             for (int64_t j = 0; j < C.nt(); ++j) {
                 if (C.tileIsLocal(i, j)) {
+                    // mark this tile modified
+                    C.tileState(i, j, C.hostNum(), MOSI::Modified);
                     A.tileTick(i, 0);
                     B.tileTick(0, j);
                 }
@@ -674,10 +680,12 @@ void gemm(internal::TargetType<Target::Devices>,
                 for (int64_t j = 0; j < C.nt(); ++j) {
                     if (C.tileIsLocal(i, j)) {
                         if (device == C.tileDevice(i, j)) {
+                            // mark this tile modified
+                            C.tileState(i, j, device, MOSI::Modified);
                             // erase tmp local and remote device tiles;
-                            // decrement life for remote tiles
                             A.tileErase(i, 0, device);
                             B.tileErase(0, j, device);
+                            // decrement life for remote tiles
                             A.tileTick(i, 0);
                             B.tileTick(0, j);
                         }

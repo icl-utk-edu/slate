@@ -79,6 +79,12 @@ public:
     template <typename scalar_t>
     static void printTilesMaps(BaseMatrix<scalar_t> const& A);
 
+    template <typename scalar_t>
+    static void printTilesMOSI(BaseMatrix<scalar_t> const& A, char* name);
+
+    #define PRINTTILESMOSI(A) \
+            printTilesMOSI(A, #A);
+
     //-------------
     // Memory class
     static void printNumFreeMemBlocks(Memory const& m);

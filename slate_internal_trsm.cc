@@ -90,6 +90,8 @@ void trsm(internal::TargetType<Target::HostTask>,
                     trsm(side, A.diag(),
                          alpha, A(0, 0),
                                 B(i, 0));
+                    // mark this tile modified
+                    B.tileState(i, 0, B.hostNum(), MOSI::Modified);
                     A.tileTick(0, 0);
                 }
             }
@@ -106,6 +108,8 @@ void trsm(internal::TargetType<Target::HostTask>,
                     trsm(side, A.diag(),
                          alpha, A(0, 0),
                                 B(0, j));
+                    // mark this tile modified
+                    B.tileState(0, j, B.hostNum(), MOSI::Modified);
                     A.tileTick(0, 0);
                 }
             }

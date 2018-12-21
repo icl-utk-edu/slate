@@ -79,6 +79,25 @@ void slateCudaMallocHost(value_type** ptr, size_t nelements)
 }
 
 //------------------------------------------------------------------------------
+/// A tile state in the MOSI coherency protocol
+enum class MOSI
+{
+    Modified,   ///< tile data is modified, other instances should be Invalid, cannot be purged
+    Owned,  ///< tile data is owned by this tile instance, other instances may be Shared or Invalid, cannot be purged
+    Shared,   ///< tile data is up-to-date, other instances may be Owned, Shared, or Invalid, may be purged
+    Invalid,   ///< tile data is obsolete, other instances may be Owned, Shared, or Invalid, may be purged
+};
+
+//------------------------------------------------------------------------------
+///
+template <typename scalar_t>
+struct  TileState
+{
+    Tile<scalar_t>* tile_;
+    MOSI state_;
+};
+
+//------------------------------------------------------------------------------
 /// @brief Slate::MatrixStorage class
 /// @details Used to store the map of distributed tiles.
 /// @tparam scalar_t Data type for the elements of the matrix
@@ -94,8 +113,10 @@ public:
     using ijdev_tuple = std::tuple<int64_t, int64_t, int>;
     using ij_tuple    = std::tuple<int64_t, int64_t>;
 
-    /// Map of tiles is indexed by {i, j, device}.
-    using TilesMap = slate::Map< ijdev_tuple, Tile<scalar_t>* >;
+    typedef TileState<scalar_t> TileState_t;
+
+    /// Map of tiles and states indexed by {i, j, device}.
+    using TilesMap = slate::Map< ijdev_tuple, TileState_t >;
 
     /// Map of lives is indexed by {i, j}. The life applies to all devices.
     using LivesMap = slate::Map<ij_tuple, int64_t>;
@@ -152,7 +173,7 @@ public:
     // at() doesn't create new (null) entries in map as operator[] would
     Tile<scalar_t>* at(ijdev_tuple ijdev)
     {
-        return tiles_.at(ijdev);
+        return tiles_.at(ijdev).tile_;
     }
 
     void erase(ijdev_tuple ijdev);
@@ -213,7 +234,7 @@ private:
     int64_t nb_;
     int p_, q_;
 
-    TilesMap tiles_;        ///< map of tiles
+    TilesMap tiles_;        ///< map of tiles and associated states
     LivesMap lives_;        ///< map of tiles' lives
     slate::Memory memory_;  ///< memory allocator
 
@@ -462,7 +483,8 @@ void MatrixStorage<scalar_t>::clearWorkspace()
     LockGuard(tiles_.get_lock());
     // incremented below
     for (auto iter = tiles_.begin(); iter != tiles_.end();) {
-        if (iter->second->workspace()) {
+        if (iter->second.tile_->workspace()) {
+            assert(iter->second.state_ != MOSI::Modified && iter->second.state_ != MOSI::Owned);
             // Since we can't increment the iterator after deleting the
             // element, use post-fix iter++ to increment it but
             // erase the current value.
@@ -497,7 +519,11 @@ void MatrixStorage<scalar_t>::erase(ijdev_tuple ijdev)
     LockGuard(tiles_.get_lock());
     auto iter = tiles_.find(ijdev);
     if (iter != tiles_.end()) {
-        Tile<scalar_t>* tile = tiles_.at(ijdev);
+        MOSI state = iter->second.state_;
+        Tile<scalar_t>* tile = iter->second.tile_;
+        if(tile->workspace() && (state == MOSI::Modified || state == MOSI::Owned))
+            // todo: should we assert here?
+            return;
         if (tile->allocated())
             memory_.free(tile->data(), tile->device());
         delete tile;
@@ -514,8 +540,9 @@ void MatrixStorage<scalar_t>::clear()
     for (auto iter = tiles_.begin(); iter != tiles_.end();) {
         // erasing the element invalidates the iterator,
         // so use iter++ to erase the current value but increment it first.
-        erase((iter++)->first);
+        erase((iter++)->first); // todo: in-efficient
     }
+    // todo: what if some tiles were not erased
     assert(tiles_.size() == 0);  // should be empty now
     lives_.clear();
 }
@@ -542,7 +569,7 @@ Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
     int64_t nb = tileNb(j);
     Tile<scalar_t>* tile
         = new Tile<scalar_t>(mb, nb, data, mb, device, kind);
-    tiles_[ijdev] = tile;
+    tiles_[ijdev] = {tile, MOSI::Invalid};
     return tile;
 }
 
@@ -566,7 +593,7 @@ Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
     int64_t nb = tileNb(j);
     Tile<scalar_t>* tile
         = new Tile<scalar_t>(mb, nb, data, lda, device, TileKind::UserOwned);
-    tiles_[ijdev] = tile;
+    tiles_[ijdev] = {tile, MOSI::Shared};
     return tile;
 }
 

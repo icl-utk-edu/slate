@@ -1,6 +1,7 @@
 #include "slate.hh"
 #include "test.hh"
 #include "blas_flops.hh"
+#include "print_matrix.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
@@ -38,6 +39,7 @@ void test_gemm_work(Params& params, bool run)
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
+    int verbose = params.verbose();
     slate::Target target = char2target(params.target());
 
     // mark non-standard output values
@@ -159,6 +161,7 @@ void test_gemm_work(Params& params, bool run)
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
+
     double time_tst = libtest::get_wtime() - time;
 
     if (trace) slate::trace::Trace::finish();

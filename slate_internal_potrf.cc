@@ -71,6 +71,8 @@ void potrf(internal::TargetType<Target::HostTask>,
         {
             A.tileMoveToHost(0, 0, A.tileDevice(0, 0));
             potrf(A(0, 0));
+            // mark this tile modified
+            A.tileState(0, 0, A.hostNum(), MOSI::Modified);
         }
 
     #pragma omp taskwait

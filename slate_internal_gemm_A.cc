@@ -158,6 +158,8 @@ void gemm_A(internal::TargetType<Target::HostTask>,
                         B.tileTick(j, 0);
                     }
                 }
+                // mark this tile modified
+                C.tileState(i, 0, C.hostNum(), MOSI::Modified);
             }
             catch (std::exception& e) {
                 err = __LINE__;

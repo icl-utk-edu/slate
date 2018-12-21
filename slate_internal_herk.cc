@@ -103,6 +103,8 @@ void herk(internal::TargetType<Target::HostTask>,
                             C.tileMoveToHost(j, j, C.tileDevice(j, j));
                             herk(alpha, A(j, 0),
                                  beta,  C(j, j));
+                            // mark this tile modified
+                            C.tileState(j, j, C.hostNum(), MOSI::Modified);
                             A.tileTick(j, 0);
                             A.tileTick(j, 0);
                         }
@@ -122,6 +124,8 @@ void herk(internal::TargetType<Target::HostTask>,
                             gemm(alpha_, A(i, 0),
                                          conj_transpose(Aj0),
                                  beta_,  C(i, j));
+                            // mark this tile modified
+                            C.tileState(i, j, C.hostNum(), MOSI::Modified);
                             A.tileTick(i, 0);
                             A.tileTick(j, 0);
                         }
@@ -165,6 +169,8 @@ void herk(internal::TargetType<Target::HostNest>,
                     C.tileMoveToHost(j, j, C.tileDevice(j, j));
                     herk(alpha, A(j, 0),
                          beta,  C(j, j));
+                    // mark this tile modified
+                    C.tileState(j, j, C.hostNum(), MOSI::Modified);
                     A.tileTick(j, 0);
                     A.tileTick(j, 0);
                 }
@@ -178,7 +184,7 @@ void herk(internal::TargetType<Target::HostNest>,
     const int64_t C_nt = C.nt();
     const int64_t C_mt = C.mt();
 
-//  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
+    // #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
     #pragma omp parallel for collapse(2) schedule(dynamic, 1)
     for (int64_t j = 0; j < C_nt; ++j) {
         for (int64_t i = 0; i < C_mt; ++i) {  // full
@@ -192,6 +198,8 @@ void herk(internal::TargetType<Target::HostNest>,
                         gemm(alpha_, A(i, 0),
                                      conj_transpose(Aj0),
                              beta_,  C(i, j));
+                        // mark this tile modified
+                        C.tileState(i, j, C.hostNum(), MOSI::Modified);
                         A.tileTick(i, 0);
                         A.tileTick(j, 0);
                     }
@@ -231,6 +239,8 @@ void herk(internal::TargetType<Target::HostBatch>,
                     C.tileMoveToHost(j, j, C.tileDevice(j, j));
                     herk(alpha, A(j, 0),
                          beta,  C(j, j));
+                    // mark this tile modified
+                    C.tileState(j, j, C.hostNum(), MOSI::Modified);
                     A.tileTick(j, 0);
                     A.tileTick(j, 0);
                 }
@@ -345,6 +355,8 @@ void herk(internal::TargetType<Target::HostBatch>,
         for (int64_t j = 0; j < C.nt(); ++j) {
             for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                 if (C.tileIsLocal(i, j)) {
+                    // mark this tile modified
+                    C.tileState(i, j, C.hostNum(), MOSI::Modified);
                     A.tileTick(i, 0);
                     A.tileTick(j, 0);
                 }
@@ -547,10 +559,12 @@ void herk(internal::TargetType<Target::Devices>,
                     for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
+                                // mark this tile modified
+                                C.tileState(i, j, device, MOSI::Modified);
                                 // erase tmp local and remote device tiles;
-                                // decrement life for remote tiles
                                 A.tileErase(i, 0, device);
                                 A.tileErase(j, 0, device);
+                                // decrement life for remote tiles
                                 A.tileTick(i, 0);
                                 A.tileTick(j, 0);
                             }
@@ -574,6 +588,8 @@ void herk(internal::TargetType<Target::Devices>,
                     C.tileMoveToHost(j, j, C.tileDevice(j, j));
                     herk(alpha, A(j, 0),
                          beta,  C(j, j));
+                    // mark this tile modified
+                    C.tileState(j, j, C.hostNum(), MOSI::Modified);
                     A.tileTick(j, 0);
                     A.tileTick(j, 0);
                 }

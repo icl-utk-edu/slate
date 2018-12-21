@@ -107,14 +107,14 @@ void Debug::checkTilesLives(BaseMatrix<scalar_t> const& A)
 
         if (! A.tileIsLocal(i, j)) {
             if (A.storage_->lives_[{i, j}] != 0 ||
-                it->second->data() != nullptr) {
+                it->second.tile_->data() != nullptr) {
 
                 std::cout << "RANK "  << std::setw(3) << A.mpi_rank_
                           << " TILE " << std::setw(3) << std::get<0>(it->first)
                           << " "      << std::setw(3) << std::get<1>(it->first)
                           << " LIFE " << std::setw(3)
                           << A.storage_->lives_[{i, j}]
-                          << " data " << it->second->data()
+                          << " data " << it->second.tile_->data()
                           << " DEV "  << std::get<2>(it->first) << "\n";
             }
         }
@@ -165,7 +165,7 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
         for (int64_t j = 0; j < A.nt(); ++j) {
             auto it = A.storage_->tiles_.find(A.globalIndex(i, j, A.host_num_));
             if (it != A.storage_->tiles_.end()) {
-                auto tile = it->second;
+                auto tile = it->second.tile_;
                 if (tile->origin())
                     printf("o");
                 else
@@ -182,7 +182,7 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
             for (int64_t j = 0; j < A.nt(); ++j) {
                 auto it = A.storage_->tiles_.find(A.globalIndex(i, j, device));
                 if (it != A.storage_->tiles_.end()) {
-                    auto tile = it->second;
+                    auto tile = it->second.tile_;
                     if (tile->origin())
                         printf("o");
                     else
@@ -190,6 +190,72 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
                 }
                 else
                     printf(".");
+            }
+            printf("\n");
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Prints map of all tiles.
+/// Uses
+///  - "." if tile doesn't exist,
+///  - "o" if it is origin (local non-workspace)
+///  - "w" if it is workspace.
+///
+template <typename scalar_t>
+void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, char* name)
+{
+    if (! debug_) return;
+    // i, j are tile indices
+    printf("%s on host\n", name);
+    for (int64_t i = 0; i < A.mt(); ++i) {
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            auto it = A.storage_->tiles_.find(A.globalIndex(i, j, A.host_num_));
+            if (it != A.storage_->tiles_.end()) {
+                auto tile = it->second.tile_;
+                if (tile->origin())
+                    printf("o");
+                else
+                    printf("w");
+
+                auto mosi = it->second.state_;
+                switch(mosi){
+                    case MOSI::Modified:  printf("m"); break;
+                    case MOSI::Owned:     printf("o"); break;
+                    case MOSI::Shared:    printf("s"); break;
+                    case MOSI::Invalid:   printf("i"); break;
+                }
+                printf(" ");
+            }
+            else
+                printf(".  ");
+        }
+        printf("\n");
+    }
+    for (int device = 0; device < A.num_devices_; ++device) {
+        printf("%s on device %d\n", name, device);
+        for (int64_t i = 0; i < A.mt(); ++i) {
+            for (int64_t j = 0; j < A.nt(); ++j) {
+                auto it = A.storage_->tiles_.find(A.globalIndex(i, j, device));
+                if (it != A.storage_->tiles_.end()) {
+                    auto tile = it->second.tile_;
+                    if (tile->origin())
+                        printf("o");
+                    else
+                        printf("x");
+
+                    auto mosi = it->second.state_;
+                    switch(mosi){
+                        case MOSI::Modified:  printf("m"); break;
+                        case MOSI::Owned:     printf("o"); break;
+                        case MOSI::Shared:    printf("s"); break;
+                        case MOSI::Invalid:   printf("i"); break;
+                    }
+                    printf(" ");
+                }
+                else
+                    printf(".  ");
             }
             printf("\n");
         }
@@ -264,6 +330,9 @@ void Debug::printTilesLives(BaseMatrix<float> const& A);
 template
 void Debug::printTilesMaps(BaseMatrix<float> const& A);
 
+template
+void Debug::printTilesMOSI(BaseMatrix<float> const& A, char* name);
+
 //------------------------------------------------------------------------------
 template
 void Debug::diffLapackMatrices(int64_t m, int64_t n,
@@ -278,6 +347,9 @@ void Debug::printTilesLives(BaseMatrix<double> const& A);
 
 template
 void Debug::printTilesMaps(BaseMatrix<double> const& A);
+
+template
+void Debug::printTilesMOSI(BaseMatrix<double> const& A, char* name);
 
 //------------------------------------------------------------------------------
 template
@@ -294,6 +366,9 @@ void Debug::printTilesLives(BaseMatrix< std::complex<float> > const& A);
 template
 void Debug::printTilesMaps(BaseMatrix< std::complex<float> > const& A);
 
+template
+void Debug::printTilesMOSI(BaseMatrix< std::complex<float> > const& A, char* name);
+
 //------------------------------------------------------------------------------
 template
 void Debug::diffLapackMatrices(int64_t m, int64_t n,
@@ -308,6 +383,9 @@ void Debug::printTilesLives(BaseMatrix< std::complex<double> > const& A);
 
 template
 void Debug::printTilesMaps(BaseMatrix< std::complex<double> > const& A);
+
+template
+void Debug::printTilesMOSI(BaseMatrix< std::complex<double> > const& A, char* name);
 
 
 } // namespace slate

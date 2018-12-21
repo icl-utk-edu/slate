@@ -7,7 +7,6 @@
 #include "scalapack_support_routines.hh"
 
 #include "slate_mpi.hh"
-#include "slate_Debug.hh"
 
 #include <cassert>
 #include <cmath>
@@ -163,12 +162,6 @@ void test_gemm_work(Params& params, bool run)
         MPI_Barrier(MPI_COMM_WORLD);
     }
 
-    if(verbose > 1){
-        slate::Debug::PRINTTILESMOSI(A);
-        slate::Debug::PRINTTILESMOSI(B);
-        slate::Debug::PRINTTILESMOSI(C);
-    }
-
     double time_tst = libtest::get_wtime() - time;
 
     if (trace) slate::trace::Trace::finish();
@@ -220,14 +213,6 @@ void test_gemm_work(Params& params, bool run)
         params.ref_time() = time_ref;
         params.ref_gflops() = gflop / time_ref;
         params.error() = error;
-
-        if(check){
-            if (verbose > 1) {
-                auto Cref = slate::Matrix<scalar_t>::fromScaLAPACK(m, n, &C_ref[0], lldC, nb, nprow, npcol, MPI_COMM_WORLD);
-                // blas::axpy(C_tst.size(), scalar_t(-1.0), &C_ref[0], ione, &C_tst[0], ione);
-                print_matrix( "C - Cref", Cref );
-            }
-        }
 
         slate_set_num_blas_threads(saved_num_threads);
 

@@ -810,7 +810,6 @@ void BaseMatrix<scalar_t>::tileRecv(
 
         // Receive data.
         at(i, j).recv(src_rank, mpiComm(), tag);
-        printf("received at line %d\n", __LINE__);
         if (tileIsLocal(i, j))
             tileState(i, j, MOSI::Modified);
         else
@@ -1122,7 +1121,6 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     // Receive.
     if (! recv_from.empty()){
         at(i, j).recv(new_vec[recv_from.front()], mpi_comm_, tag);
-        // printf("received bcast line %d\n", __LINE__);
         if (tileIsLocal(i, j))
             tileState(i, j, MOSI::Modified);
         else

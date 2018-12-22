@@ -764,6 +764,7 @@ void BaseMatrix<scalar_t>::tileSend(
     int64_t i, int64_t j, int dst_rank, int tag)
 {
     if (dst_rank != mpiRank()) {
+        tileCopyToHost(i, j, tileDevice(i, j));
         at(i, j).send(dst_rank, mpiComm(), tag);
     }
 }
@@ -813,6 +814,7 @@ void BaseMatrix<scalar_t>::tileRecv(
                 life += tileLife(i, j);
             tileLife(i, j, life);
         }
+        tileMoveToHost(i, j, tileDevice(i, j));
 
         // Receive data.
         at(i, j).recv(src_rank, mpiComm(), tag);

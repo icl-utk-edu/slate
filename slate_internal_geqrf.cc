@@ -77,6 +77,7 @@ void geqrf(internal::TargetType<Target::HostTask>,
             #pragma omp task shared(A) priority(priority)
             {
                 A.tileMoveToHost(i, 0, A.tileDevice(i, 0));
+                A.tileState(i, 0, MOSI::Modified);
             }
         }
     }
@@ -105,6 +106,7 @@ void geqrf(internal::TargetType<Target::HostTask>,
             thread_size = tiles.size();
 
         T.tileInsert(tile_indices[0], 0);
+        T.tileState(tile_indices[0], 0, MOSI::Modified);
         auto T00 = T(tile_indices[0], 0);
 
         ThreadBarrier thread_barrier;

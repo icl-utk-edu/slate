@@ -142,6 +142,9 @@ void ttqrt(internal::TargetType<Target::HostTask>,
                 int64_t l = std::min(A.tileMb(i), A.tileNb(0));
                 tpqrt(l, A(i_src, 0), A(i, 0), T(i, 0));
 
+                A.tileState(i, 0, MOSI::Modified);
+                T.tileState(i, 0, MOSI::Modified);
+
                 // Send updated tile back. This rank is done!
                 A.tileSend(i_src, 0, src);
                 A.tileTick(i_src, 0);

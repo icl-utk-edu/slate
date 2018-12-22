@@ -134,6 +134,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                             // Send tile to dst, then receive updated tile back.
                             int64_t i_dst = rank_rows[ index + step ].second;
                             int dst = C.tileRank(i_dst, j);
+                            C.tileMoveToHost(i, j, C.tileDevice(i, j));
                             C.tileSend(i, j, dst, tag);
                             C.tileRecv(i, j, dst, tag);
                         }
@@ -148,6 +149,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                         tpmqrt(side, op, A.tileNb(0), A(i, 0),
                                T(i, 0),
                                C(i_src, j), C(i, j));
+                        C.tileState(i, j, MOSI::Modified);
 
                         A.tileTick(i, 0);
                         T.tileTick(i, 0);

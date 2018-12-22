@@ -89,6 +89,7 @@ void geadd(internal::TargetType<Target::HostTask>,
                     B.tileMoveToHost(i, j, B.tileDevice(i, j));
                     axby(alpha, A(i, j),
                          beta,  B(i, j));
+                    B.tileState(i, j, MOSI::Modified);
                     A.tileTick(i, j);// TODO is this correct here?
                 }
             }

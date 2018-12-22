@@ -89,6 +89,7 @@ void trmm(internal::TargetType<Target::HostTask>,
                     trmm(side, A.diag(),
                          alpha, A(0, 0),
                                 B(i, 0));
+                    B.tileState(i, 0, MOSI::Modified);
                     A.tileTick(0, 0);
                 }
             }
@@ -105,6 +106,7 @@ void trmm(internal::TargetType<Target::HostTask>,
                     trmm(side, A.diag(),
                          alpha, A(0, 0),
                                 B(0, j));
+                    B.tileState(0, j, MOSI::Modified);
                     A.tileTick(0, 0);
                 }
             }

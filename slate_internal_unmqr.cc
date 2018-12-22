@@ -157,7 +157,7 @@ void unmqr(internal::TargetType<target>,
         // op(Q) x C = C - V x op(T) x (V**H x C)
         // W = V**H x C
         // W <- C1
-        C1.moveAllToOrigin();// todo: issue omp tasks for copy to host
+        C1.moveAllToHost();// todo: issue omp tasks for copy to host
         Wr.copy(C1);
 
         internal::trmm<Target::HostTask, scalar_t>(
@@ -212,10 +212,6 @@ void unmqr(internal::TargetType<target>,
                         scalar_t(1.0), std::move(Wr),
                         scalar_t(1.0), std::move(C1));
 
-        // todo: need to optimize out this communication,
-        // possibly by maintaining workspace on device
-        // (letting internal::gemm preserve local workspace)
-        C.moveAllToOrigin();
     }else
     if(side == Side::Right){
         // TODO
@@ -224,8 +220,9 @@ void unmqr(internal::TargetType<target>,
     // free workspace
     for (int j = 0; j < Wr.nt(); ++j)
     {
-        if(Wr.tileIsLocal(0, j))
+        if(Wr.tileIsLocal(0, j)){
             Wr.tileErase(0, j);
+        }
     }
 
     #pragma omp taskwait

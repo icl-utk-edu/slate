@@ -172,7 +172,7 @@ void unmqr(
                         if (target == Target::Devices){
                             for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
                                 int64_t row = *it;
-                                C.sub(row, row, 0, C_nt-1).moveAllToOrigin();
+                                C.sub(row, row, 0, C_nt-1).moveAllToHost();
                             }
                         }
 
@@ -286,6 +286,7 @@ void unmqr(
             // TODO: side == Side::Right
         }
     }
+    C.moveAllToHost();
     C.clearWorkspace();
 }
 

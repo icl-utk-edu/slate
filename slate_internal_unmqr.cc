@@ -165,12 +165,14 @@ void unmqr(internal::TargetType<target>,
                         scalar_t(1.0), std::move(V1T),
                                        std::move(Wr));
 
-        if(row_indices.size() > 1){
+        if (row_indices.size() > 1){
             // W <- GEMM(V2T, C2, W)
             for (int64_t ri = 1; ri < row_indices.size(); ++ri) {
                 int64_t row = row_indices[ri];
                 auto ViT = conj_transpose(A.sub(row, row, 0, 0));
                 auto Ci = C.sub(row, row, 0, C_nt-1);
+                if (target == Target::Devices)
+                    Ci.moveAllToDevices();
                 internal::gemm<target>(
                         scalar_t(1.0), std::move(ViT),
                                        std::move(Ci),

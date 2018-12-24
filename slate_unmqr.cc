@@ -169,12 +169,13 @@ void unmqr(
                             Treduce.template listBcast(bcast_list_T);
                         }
 
-                        if (target == Target::Devices){
-                            for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
-                                int64_t row = *it;
-                                C.sub(row, row, 0, C_nt-1).moveAllToHost();
-                            }
-                        }
+                        // //
+                        // if (target == Target::Devices){
+                        //     for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
+                        //         int64_t row = *it;
+                        //         C.sub(row, row, 0, C_nt-1).moveAllToHost();
+                        //     }
+                        // }
 
                         // Apply triangle-triangle reduction reflectors
                         internal::ttmqr<Target::HostTask>(

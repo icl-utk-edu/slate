@@ -252,6 +252,7 @@ public:
     {
         moveAllTo(host_num_);
     }
+    void moveAllToDevices();
 
     void tileCopyToHost(  int64_t i, int64_t j, int src_device, Layout layout = Layout::ColMajor);
     void tileMoveToHost(  int64_t i, int64_t j, int src_device, Layout layout = Layout::ColMajor);
@@ -1483,6 +1484,18 @@ void BaseMatrix<scalar_t>::moveAllTo(int dst_device)
         for (int64_t i = 0; i < mt(); ++i)
             if (tileIsLocal(i, j))
                 tileMoveTo(i, j, dst_device);
+}
+
+//------------------------------------------------------------------------------
+/// Move all tiles to a destination host/device.
+//
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::moveAllToDevices()
+{
+    for (int64_t j = 0; j < nt(); ++j)
+        for (int64_t i = 0; i < mt(); ++i)
+            if (tileIsLocal(i, j))
+                tileMoveTo(i, j, tileDevice(i, j));
 }
 
 //------------------------------------------------------------------------------

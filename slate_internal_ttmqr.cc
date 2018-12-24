@@ -145,6 +145,10 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                         int     src   = C.tileRank(i_src, j);
                         C.tileRecv(i_src, j, src, tag);
 
+                        A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
+                        T.tileCopyToHost(i, 0, T.tileDevice(i, 0));
+                        C.tileMoveToHost(i, j, C.tileDevice(i, j));
+
                         // Apply Q
                         tpmqrt(side, op, A.tileNb(0), A(i, 0),
                                T(i, 0),

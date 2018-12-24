@@ -115,23 +115,21 @@ void unmqr(internal::TargetType<target>,
 
     // pick one row of W matching the local matrix top row distribution
     auto Wr = W.sub(r_top, r_top, 0, C_nt-1);
-    for (int64_t j = 0; j < Wr.nt(); ++j)
-    {
+    for (int64_t j = 0; j < Wr.nt(); ++j){
         if(Wr.tileIsLocal(0, j)){
-            // if ( ! Wr.tileExists(0, j))
-                Wr.tileInsert(0, j);
+            Wr.tileInsert(0, j);
         }
     }
 
     // Q = I - V x T x V**H
 
-    if(side == Side::Left){
+    if (side == Side::Left){
 
         // op(Q) = I - V x op(T) x V**H
 
         auto T00 = T.sub(r_top, r_top, 0, 0);
         auto T0 = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T00);
-        if(op != Op::NoTrans){
+        if (op != Op::NoTrans){
             T0 = conj_transpose(T0);
         }
         // V = A(:,0), V is a one block column
@@ -171,8 +169,9 @@ void unmqr(internal::TargetType<target>,
                 int64_t row = row_indices[ri];
                 auto ViT = conj_transpose(A.sub(row, row, 0, 0));
                 auto Ci = C.sub(row, row, 0, C_nt-1);
-                if (target == Target::Devices)
+                if (target == Target::Devices){
                     Ci.moveAllToDevices();
+                }
                 internal::gemm<target>(
                         scalar_t(1.0), std::move(ViT),
                                        std::move(Ci),
@@ -190,11 +189,10 @@ void unmqr(internal::TargetType<target>,
 
         // --------------------
         // op(Q) x C = C - V x W
-        if(row_indices.size() > 1){
+        if (row_indices.size() > 1){
             // C2 <- GEMM(V2, W, C2)
             // TODO combine in one internal gemm with lists of input
-            for (int64_t ri = 1; ri < row_indices.size(); ++ri)
-            {
+            for (int64_t ri = 1; ri < row_indices.size(); ++ri){
                 int64_t row = row_indices[ri];
                 auto Vi = A.sub(row, row, 0, 0);
                 auto Ci = C.sub(row, row, 0, C_nt-1);
@@ -215,13 +213,12 @@ void unmqr(internal::TargetType<target>,
                         scalar_t(1.0), std::move(C1));
 
     }else
-    if(side == Side::Right){
+    if (side == Side::Right){
         // TODO
     }
 
     // free workspace
-    for (int j = 0; j < Wr.nt(); ++j)
-    {
+    for (int j = 0; j < Wr.nt(); ++j){
         if(Wr.tileIsLocal(0, j)){
             Wr.tileErase(0, j);
         }

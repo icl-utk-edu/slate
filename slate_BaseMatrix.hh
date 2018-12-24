@@ -726,9 +726,8 @@ void BaseMatrix<scalar_t>::tileState(int64_t i, int64_t j, int device, MOSI mosi
                 otherIter->second.state_ = MOSI::Invalid;
             }
         }
-        for (int d = 0; d < num_devices(); ++d)
-        {
-            if(d == device) continue;
+        for (int d = 0; d < num_devices(); ++d){
+            if (d == device) continue;
 
             auto otherIter = storage_->find(globalIndex(i, j, d));
             if (otherIter != storage_->end()){
@@ -1417,7 +1416,7 @@ void BaseMatrix<scalar_t>::tileMoveTo(
             if (src_device == inv_device || own_device == inv_device){
                 for (int d = 0; d < num_devices(); ++d)
                 {
-                    if(dst_device == d) continue;
+                    if (dst_device == d) continue;
 
                     auto iter = storage_->find(globalIndex(i, j, d));
                     if (iter != storage_->end()){
@@ -1487,7 +1486,7 @@ void BaseMatrix<scalar_t>::moveAllTo(int dst_device)
 }
 
 //------------------------------------------------------------------------------
-/// Move all tiles to a destination host/device.
+/// Move all tiles to its assigned device.
 //
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::moveAllToDevices()

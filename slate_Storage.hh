@@ -91,7 +91,7 @@ enum class MOSI
 //------------------------------------------------------------------------------
 ///
 template <typename scalar_t>
-struct  TileState
+struct  TileEntry
 {
     Tile<scalar_t>* tile_;
     MOSI state_;
@@ -113,10 +113,10 @@ public:
     using ijdev_tuple = std::tuple<int64_t, int64_t, int>;
     using ij_tuple    = std::tuple<int64_t, int64_t>;
 
-    typedef TileState<scalar_t> TileState_t;
+    typedef TileEntry<scalar_t> TileEntry_t;
 
     /// Map of tiles and states indexed by {i, j, device}.
-    using TilesMap = slate::Map< ijdev_tuple, TileState_t >;
+    using TilesMap = slate::Map< ijdev_tuple, TileEntry_t >;
 
     /// Map of lives is indexed by {i, j}. The life applies to all devices.
     using LivesMap = slate::Map<ij_tuple, int64_t>;

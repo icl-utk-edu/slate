@@ -151,7 +151,7 @@ void unmqr(
                         // bcast Tlocal across row of C
                         if (top_rows.size() > 0){
                             BcastList bcast_list_T;
-                            for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
+                            for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
                                 int64_t row = *it;
                                 bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
                             }
@@ -161,7 +161,7 @@ void unmqr(
                         // bcast Treduce across row of C
                         if (top_rows.size() > 1){
                             BcastList bcast_list_T;
-                            for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
+                            for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
                                 int64_t row = *it;
                                 if(row > min_row)//exclude the first row of this panel that has no Treduce tile
                                     bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
@@ -247,7 +247,7 @@ void unmqr(
 
                         // bcast Tlocal across row of C
                         BcastList bcast_list_T;
-                        for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
+                        for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
                             int64_t row = *it;
                             bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
                         }
@@ -256,7 +256,7 @@ void unmqr(
                         // bcast Treduce across row of C
                         if (top_rows.size() > 1){
                             BcastList bcast_list_T;
-                            for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
+                            for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
                                 int64_t row = *it;
                                 if(row > min_row)//exclude the first row of this panel that has no Treduce tile
                                     bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});

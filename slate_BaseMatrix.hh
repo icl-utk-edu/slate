@@ -713,24 +713,24 @@ void BaseMatrix<scalar_t>::tileState(int64_t i, int64_t j, int device, MOSI mosi
     assert(tileIter != storage_->end());
 
 
-    if (mosi == MOSI::Modified){
+    if (mosi == MOSI::Modified) {
         if (tileIter->second.state_ == mosi)
             // no need to update
             return;
 
         // set all other instances to Invalid
-        if (device != host_num_){
+        if (device != host_num_) {
             auto otherIter = storage_->find(globalIndex(i, j, host_num_));
-            if (otherIter != storage_->end()){
+            if (otherIter != storage_->end()) {
                 assert(otherIter->second.state_ != MOSI::Modified);
                 otherIter->second.state_ = MOSI::Invalid;
             }
         }
-        for (int d = 0; d < num_devices(); ++d){
+        for (int d = 0; d < num_devices(); ++d) {
             if (d == device) continue;
 
             auto otherIter = storage_->find(globalIndex(i, j, d));
-            if (otherIter != storage_->end()){
+            if (otherIter != storage_->end()) {
                 assert(otherIter->second.state_ != MOSI::Modified);
                 otherIter->second.state_ = MOSI::Invalid;
             }
@@ -1127,7 +1127,7 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
                                recv_from, send_to);
 
     // Receive.
-    if (! recv_from.empty()){
+    if (! recv_from.empty()) {
         at(i, j).recv(new_vec[recv_from.front()], mpi_comm_, tag);
         if (tileIsLocal(i, j))
             tileState(i, j, MOSI::Modified);
@@ -1370,7 +1370,7 @@ void BaseMatrix<scalar_t>::tileMoveToHost(
 ///     Tile's block column index. 0 <= j < nt.
 ///
 /// @param[in] dst_device
-///     Tile's destination hist/device ID.
+///     Tile's destination host/device ID.
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileMoveTo(
@@ -1390,7 +1390,7 @@ void BaseMatrix<scalar_t>::tileMoveTo(
         }
         // sanity check, do not copy data to a modified tile
         if (dst_iter->second.state_ == MOSI::Owned ||
-            dst_iter->second.state_ == MOSI::Modified){
+            dst_iter->second.state_ == MOSI::Modified) {
             break;
         }
 
@@ -1400,32 +1400,31 @@ void BaseMatrix<scalar_t>::tileMoveTo(
         int src_device = inv_device, own_device = inv_device;
         {
             // check host
-            if (dst_device != host_num_){
+            if (dst_device != host_num_) {
                 auto iter = storage_->find(globalIndex(i, j, host_num_));
-                if (iter != storage_->end()){
-                    if (iter->second.state_ != MOSI::Invalid){
+                if (iter != storage_->end()) {
+                    if (iter->second.state_ != MOSI::Invalid) {
                         src_device = host_num_;
                     }
                     if (iter->second.state_ == MOSI::Owned ||
-                        iter->second.state_ == MOSI::Modified){
+                        iter->second.state_ == MOSI::Modified) {
                         own_device = host_num_;
                     }
                 }
             }
             // check other devices
-            if (src_device == inv_device || own_device == inv_device){
-                for (int d = 0; d < num_devices(); ++d)
-                {
+            if (src_device == inv_device || own_device == inv_device) {
+                for (int d = 0; d < num_devices(); ++d) {
                     if (dst_device == d) continue;
 
                     auto iter = storage_->find(globalIndex(i, j, d));
-                    if (iter != storage_->end()){
+                    if (iter != storage_->end()) {
                         if (iter->second.state_ != MOSI::Invalid &&
-                            src_device != inv_device){
+                            src_device != inv_device) {
                             src_device = d;
                         }
                         if (iter->second.state_ == MOSI::Owned ||
-                            iter->second.state_ == MOSI::Modified){
+                            iter->second.state_ == MOSI::Modified) {
                             own_device = d;
                         }
                     }
@@ -1436,24 +1435,23 @@ void BaseMatrix<scalar_t>::tileMoveTo(
 
         // update destination
         if (src_device != dst_device &&
-            src_device != inv_device){
+            src_device != inv_device) {
 
             auto src_iter = storage_->find(globalIndex(i, j, src_device));
             src_tile = src_iter->second.tile_;
 
             // if destination data is not valid
-            if (dst_iter->second.state_ == MOSI::Invalid)
-            {
+            if (dst_iter->second.state_ == MOSI::Invalid) {
                 // Update the destination tile's data.
-                if (dst_device != host_num_ && src_device != host_num_){
+                if (dst_device != host_num_ && src_device != host_num_) {
                     // todo device to device copy
                     assert("Not implemented yet");
                 }
                 else
-                if (dst_device == host_num_){
+                if (dst_device == host_num_) {
                     src_tile->copyDataToHost(dst_tile, comm_stream(src_device));
                 }
-                else{
+                else {
                     src_tile->copyDataToDevice(dst_tile, comm_stream(dst_device));
                 }
             }

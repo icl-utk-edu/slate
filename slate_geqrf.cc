@@ -137,7 +137,7 @@ void geqrf(slate::internal::TargetType<target>,
                                 std::move(Tr_panel));
 
                 // if a trailing matrix exists
-                if (k < A_nt-1){
+                if (k < A_nt-1) {
 
                     // bcast V across row for trailing matrix update
                     if (k < A_mt){
@@ -156,9 +156,9 @@ void geqrf(slate::internal::TargetType<target>,
                     }
 
                     // bcast Tlocal across row for trailing matrix update
-                    if (top_rows.size() > 0){
+                    if (top_rows.size() > 0) {
                         BcastList bcast_list_T;
-                        for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
+                        for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
                             int64_t row = *it;
                             bcast_list_T.push_back({row, k, {Tlocal.sub(row, row, k+1, A_nt-1)}});
                         }
@@ -166,9 +166,9 @@ void geqrf(slate::internal::TargetType<target>,
                     }
 
                     // bcast Treduce across row for trailing matrix update
-                    if (top_rows.size() > 1){
+                    if (top_rows.size() > 1) {
                         BcastList bcast_list_T;
-                        for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
+                        for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
                             int64_t row = *it;
                             if(row > min_row)//exclude the first row of this panel that has no Treduce tile
                                 bcast_list_T.push_back({row, k, {Treduce.sub(row, row, k+1, A_nt-1)}});

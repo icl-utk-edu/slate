@@ -191,16 +191,10 @@ void unmqr(internal::TargetType<target>,
         // op(Q) x C = C - V x W
         if (row_indices.size() > 1) {
             // C2 <- GEMM(V2, W, C2)
-            // TODO combine in one internal gemm with lists of input
-            for (int64_t ri = 1; ri < row_indices.size(); ++ri) {
-                int64_t row = row_indices[ri];
-                auto Vi = A.sub(row, row, 0, 0);
-                auto Ci = C.sub(row, row, 0, C_nt-1);
-                internal::gemm<target>(
-                        scalar_t(-1.0), std::move(Vi),
-                                        std::move(Wr),
-                        scalar_t(1.0),  std::move(Ci));
-            }
+            internal::gemm<target>(
+                    scalar_t(-1.0), A.sub(row_indices[1], A_mt-1, 0, 0),
+                                    std::move(Wr),
+                    scalar_t(1.0),  C.sub(row_indices[1], C_mt-1, 0, C_nt-1));
         }
         // W <- TRMM(V1,W)
         internal::trmm<Target::HostTask, scalar_t>(

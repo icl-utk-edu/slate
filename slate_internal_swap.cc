@@ -71,6 +71,8 @@ void swap(Direction direction,
          priority, tag);
 }
 
+// TODO: apply MOSI by setting tiles' states when modified
+
 ///-----------------------------------------------------------------------------
 /// \brief
 /// Swaps rows of a general matrix according to the pivot vector,

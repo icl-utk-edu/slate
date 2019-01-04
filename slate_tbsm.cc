@@ -122,6 +122,7 @@ void tbsm(slate::internal::TargetType<target>,
                         if (B.tileIsLocal(i, j)) {
                             B.tileMoveToHost(i, j, B.tileDevice(i, j));
                             scale(alpha, B(i, j));
+                            B.tileState(i, j, MOSI::Modified);
                         }
                     }
                     #pragma omp taskwait

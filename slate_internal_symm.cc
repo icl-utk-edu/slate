@@ -118,6 +118,7 @@ void symm(internal::TargetType<Target::HostTask>,
                              alpha, A(0, 0),
                                     B(0, j),
                              beta,  C(0, j));
+                        C.tileState(0, j, MOSI::Modified);
                         A.tileTick(0, 0);
                         B.tileTick(0, j);
                     }
@@ -142,6 +143,7 @@ void symm(internal::TargetType<Target::HostTask>,
                              alpha, A(0, 0),
                                     B(i, 0),
                              beta,  C(i, 0));
+                        C.tileState(i, 0, MOSI::Modified);
                         A.tileTick(0, 0);
                         B.tileTick(i, 0);
                     }
@@ -184,6 +186,7 @@ void symm(internal::TargetType<Target::HostNest>,
                          alpha, A(0, 0),
                                 B(0, j),
                          beta,  C(0, j));
+                    C.tileState(0, j, MOSI::Modified);
                     A.tileTick(0, 0);
                     B.tileTick(0, j);
                 }
@@ -208,6 +211,7 @@ void symm(internal::TargetType<Target::HostNest>,
                              alpha, A(0, 0),
                                     B(i, 0),
                              beta,  C(i, 0));
+                        C.tileState(i, 0, MOSI::Modified);
                         A.tileTick(0, 0);
                         B.tileTick(i, 0);
                     }

@@ -156,6 +156,7 @@ void gbmm(slate::internal::TargetType<target>,
                             {
                                 C.tileMoveToHost(i, j, C.tileDevice(i, j));
                                 scale(beta, C(i, j));
+                                C.tileState(i, j, MOSI::Modified);
                             }
                         }
                     }

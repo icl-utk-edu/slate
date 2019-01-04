@@ -80,7 +80,7 @@ public:
     static void printTilesMaps(BaseMatrix<scalar_t> const& A);
 
     template <typename scalar_t>
-    static void printTilesMOSI(BaseMatrix<scalar_t> const& A, char* name);
+    static void printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name);
 
     #define PRINTTILESMOSI(A) \
             printTilesMOSI(A, #A);

@@ -204,7 +204,7 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
 ///  - "w" if it is workspace.
 ///
 template <typename scalar_t>
-void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, char* name)
+void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name)
 {
     if (! debug_) return;
     // i, j are tile indices
@@ -331,7 +331,7 @@ template
 void Debug::printTilesMaps(BaseMatrix<float> const& A);
 
 template
-void Debug::printTilesMOSI(BaseMatrix<float> const& A, char* name);
+void Debug::printTilesMOSI(BaseMatrix<float> const& A, const char* name);
 
 //------------------------------------------------------------------------------
 template
@@ -349,7 +349,7 @@ template
 void Debug::printTilesMaps(BaseMatrix<double> const& A);
 
 template
-void Debug::printTilesMOSI(BaseMatrix<double> const& A, char* name);
+void Debug::printTilesMOSI(BaseMatrix<double> const& A, const char* name);
 
 //------------------------------------------------------------------------------
 template
@@ -367,7 +367,7 @@ template
 void Debug::printTilesMaps(BaseMatrix< std::complex<float> > const& A);
 
 template
-void Debug::printTilesMOSI(BaseMatrix< std::complex<float> > const& A, char* name);
+void Debug::printTilesMOSI(BaseMatrix< std::complex<float> > const& A, const char* name);
 
 //------------------------------------------------------------------------------
 template
@@ -385,7 +385,7 @@ template
 void Debug::printTilesMaps(BaseMatrix< std::complex<double> > const& A);
 
 template
-void Debug::printTilesMOSI(BaseMatrix< std::complex<double> > const& A, char* name);
+void Debug::printTilesMOSI(BaseMatrix< std::complex<double> > const& A, const char* name);
 
 
 } // namespace slate

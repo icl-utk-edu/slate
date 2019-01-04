@@ -55,20 +55,20 @@ ifeq ($(openmp),1)
 	CXXFLAGS += -fopenmp
 	LDFLAGS  += -fopenmp
 else
-	lib_src += slate_openmp_stubs.cc
+	libslate_src += slate_openmp_stubs.cc
 endif
 
 #-------------------------------------------------------------------------------
 # if MPI
 ifeq ($(mpi),1)
 	FLAGS += -DSLATE_WITH_MPI
-	LIB += -lmpi
+	LIBS  += -lmpi
 # if Spectrum MPI
 else ifeq ($(spectrum),1)
 	FLAGS += -DSLATE_WITH_MPI
-	LIB += -lmpi_ibm
+	LIBS  += -lmpi_ibm
 else
-	lib_src += slate_mpi_stubs.cc
+	libslate_src += slate_mpi_stubs.cc
 endif
 
 #-------------------------------------------------------------------------------
@@ -97,34 +97,34 @@ ifeq ($(mkl),1)
 	ifeq ($(mkl_intel),1)
 		# use Intel Fortran conventions
 		ifeq ($(ilp64),1)
-			LIB += -lmkl_intel_ilp64
+			LIBS += -lmkl_intel_ilp64
 		else
-			LIB += -lmkl_intel_lp64
+			LIBS += -lmkl_intel_lp64
 		endif
 
 		# if threaded, use Intel OpenMP (iomp5)
 		ifeq ($(mkl_threaded),1)
-			LIB += -lmkl_intel_thread
+			LIBS += -lmkl_intel_thread
 		else
-			LIB += -lmkl_sequential
+			LIBS += -lmkl_sequential
 		endif
 	else
 		# use GNU Fortran conventions
 		ifeq ($(ilp64),1)
-			LIB += -lmkl_gf_ilp64
+			LIBS += -lmkl_gf_ilp64
 		else
-			LIB += -lmkl_gf_lp64
+			LIBS += -lmkl_gf_lp64
 		endif
 
 		# if threaded, use GNU OpenMP (gomp)
 		ifeq ($(mkl_threaded),1)
-			LIB += -lmkl_gnu_thread
+			LIBS += -lmkl_gnu_thread
 		else
-			LIB += -lmkl_sequential
+			LIBS += -lmkl_sequential
 		endif
 	endif
 
-	LIB += -lmkl_core -lpthread -lm -ldl
+	LIBS += -lmkl_core -lpthread -lm -ldl
 
 	# MKL on MacOS doesn't include ScaLAPACK; use default
 	ifneq ($(macos),1)
@@ -137,21 +137,21 @@ ifeq ($(mkl),1)
 # if ESSL
 else ifeq ($(essl),1)
 	FLAGS += -DSLATE_WITH_ESSL
-	LIB += -lessl -llapack
+	LIBS += -lessl -llapack
 # if OpenBLAS
 else ifeq ($(openblas),1)
 	FLAGS += -DSLATE_WITH_OPENBLAS
-	LIB += -lopenblas
+	LIBS += -lopenblas
 endif
 
 #-------------------------------------------------------------------------------
 # if CUDA
 ifeq ($(cuda),1)
 	FLAGS += -DSLATE_WITH_CUDA
-	LIB += -lcublas -lcudart
+	LIBS += -lcublas -lcudart
 else
-	lib_src += slate_cuda_stubs.cc
-	lib_src += slate_cublas_stubs.cc
+	libslate_src += slate_cuda_stubs.cc
+	libslate_src += slate_cublas_stubs.cc
 endif
 
 #-------------------------------------------------------------------------------
@@ -207,7 +207,7 @@ endif
 # Files
 
 # types and classes
-lib_src += \
+libslate_src += \
         slate_Debug.cc \
         slate_Exception.cc \
         slate_Memory.cc \
@@ -215,7 +215,7 @@ lib_src += \
         slate_types.cc \
 
 # internal
-lib_src += \
+libslate_src += \
         slate_internal_comm.cc \
         slate_internal_gbnorm.cc \
         slate_internal_gemm.cc \
@@ -243,7 +243,7 @@ lib_src += \
 
 # device
 ifeq ($(cuda),1)
-    lib_src += \
+    libslate_src += \
             slate_device_genorm.cu \
             slate_device_henorm.cu \
             slate_device_synorm.cu \
@@ -253,7 +253,7 @@ ifeq ($(cuda),1)
 endif
 
 # driver
-lib_src += \
+libslate_src += \
         slate_gbmm.cc \
         slate_gbsv.cc \
         slate_gbtrf.cc \
@@ -342,11 +342,11 @@ unit_src = \
 unit_test_obj = \
         unit_test/unit_test.o
 
-lib_obj   = $(addsuffix .o, $(basename $(lib_src)))
-test_obj  = $(addsuffix .o, $(basename $(test_src)))
-unit_obj  = $(addsuffix .o, $(basename $(unit_src)))
-dep       = $(addsuffix .d, $(basename $(lib_src) $(test_src) $(unit_src) \
-                                       $(unit_test_obj)))
+libslate_obj = $(addsuffix .o, $(basename $(libslate_src)))
+test_obj     = $(addsuffix .o, $(basename $(test_src)))
+unit_obj     = $(addsuffix .o, $(basename $(unit_src)))
+dep          = $(addsuffix .d, $(basename $(libslate_src) $(test_src) \
+                                          $(unit_src) $(unit_test_obj)))
 
 test      = test/test
 unit_test = $(basename $(unit_src))
@@ -364,7 +364,7 @@ NVCCFLAGS += $(FLAGS)
 # libraries to create libslate.so
 LDFLAGS  += -L./blaspp/lib -Wl,-rpath,$(abspath ./blaspp/lib)
 LDFLAGS  += -L./lapackpp/lib -Wl,-rpath,$(abspath ./lapackpp/lib)
-LIB      := -lblaspp -llapackpp $(LIB)
+LIBS     := -lblaspp -llapackpp $(LIBS)
 
 # additional flags and libraries for testers
 $(test_obj): CXXFLAGS += -I./blaspp/test    # for blas_flops.hh
@@ -373,10 +373,10 @@ $(test_obj): CXXFLAGS += -I./libtest
 
 TEST_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 TEST_LDFLAGS += -L./libtest -Wl,-rpath,$(abspath ./libtest)
-TEST_LIB     += -lslate -ltest $(scalapack)
+TEST_LIBS    += -lslate -ltest $(scalapack)
 
 UNIT_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
-UNIT_LIB     += -lslate
+UNIT_LIBS    += -lslate
 
 #-------------------------------------------------------------------------------
 # Rules
@@ -435,29 +435,29 @@ $(libtest): $(libtest_src)
 
 #-------------------------------------------------------------------------------
 # libslate library
-lib_a  = ./lib/libslate.a
-lib_so = ./lib/libslate.so
+libslate_a  = ./lib/libslate.a
+libslate_so = ./lib/libslate.so
 
-$(lib_a): $(lib_obj) $(libblaspp) $(liblapackpp)
+$(libslate_a): $(libslate_obj) $(libblaspp) $(liblapackpp)
 	mkdir -p lib
 	-rm $@
-	ar cr $@ $(lib_obj)
+	ar cr $@ $(libslate_obj)
 	ranlib $@
 
-$(lib_so): $(lib_obj) $(libblaspp) $(liblapackpp)
+$(libslate_so): $(libslate_obj) $(libblaspp) $(liblapackpp)
 	mkdir -p lib
 	$(CXX) $(LDFLAGS) \
-		$(lib_obj) \
-		$(LIB) \
+		$(libslate_obj) \
+		$(LIBS) \
 		-shared $(install_name) -o $@
 
 ifeq ($(static),1)
-    lib = $(lib_a)
+	libslate = $(libslate_a)
 else
-    lib = $(lib_so)
+	libslate = $(libslate_so)
 endif
 
-lib: $(lib)
+lib: $(libslate)
 
 #-------------------------------------------------------------------------------
 # main tester
@@ -466,9 +466,10 @@ test: $(test)
 test/clean:
 	rm -f $(test) $(test_obj)
 
-$(test): $(test_obj) $(lib) $(libtest)
+$(test): $(test_obj) $(libslate) $(libtest)
 	$(CXX) $(TEST_LDFLAGS) $(LDFLAGS) $(test_obj) \
-		$(TEST_LIB) $(LIB) -o $@
+		$(TEST_LIBS) $(LIBS) \
+		-o $@
 
 #-------------------------------------------------------------------------------
 # unit testers
@@ -477,9 +478,10 @@ unit_test: $(unit_test)
 unit_test/clean:
 	rm -f $(unit_test) $(unit_obj) $(unit_test_obj)
 
-$(unit_test): %: %.o $(unit_test_obj) $(lib)
+$(unit_test): %: %.o $(unit_test_obj) $(libslate)
 	$(CXX) $(UNIT_LDFLAGS) $(LDFLAGS) $< \
-		$(unit_test_obj) $(UNIT_LIB) $(LIB) -o $@
+		$(unit_test_obj) $(UNIT_LIBS) $(LIBS)  \
+		-o $@
 
 #-------------------------------------------------------------------------------
 # scalapack_api library
@@ -506,7 +508,7 @@ scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
 dep += $(addsuffix .d, $(basename $(scalapack_api_src)))
 
 SCALAPACK_API_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
-SCALAPACK_API_LIB     += -lslate $(scalapack)
+SCALAPACK_API_LIBS    += -lslate $(scalapack)
 
 scalapack_api: lib $(scalapack_api)
 
@@ -515,7 +517,7 @@ scalapack_api/clean:
 
 $(scalapack_api): $(scalapack_api_obj) $(lib)
 	$(CXX) $(SCALAPACK_API_LDFLAGS) $(LDFLAGS) $(scalapack_api_obj) \
-		$(SCALAPACK_API_LIB) $(LIB) -shared $(install_name) -o $@
+		$(SCALAPACK_API_LIBS) $(LIBS) -shared $(install_name) -o $@
 
 #-------------------------------------------------------------------------------
 # lapack_api library
@@ -542,7 +544,7 @@ lapack_api_obj = $(addsuffix .o, $(basename $(lapack_api_src)))
 dep += $(addsuffix .d, $(basename $(lapack_api_src)))
 
 LAPACK_API_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
-LAPACK_API_LIB     += -lslate
+LAPACK_API_LIBS    += -lslate
 
 lapack_api: lib $(lapack_api)
 
@@ -551,12 +553,12 @@ lapack_api/clean:
 
 $(lapack_api): $(lapack_api_obj) $(lib)
 	$(CXX) $(LAPACK_API_LDFLAGS) $(LDFLAGS) $(lapack_api_obj) \
-		$(LAPACK_API_LIB) $(LIB) -shared $(install_name) -o $@
+		$(LAPACK_API_LIBS) $(LIBS) -shared $(install_name) -o $@
 
 #-------------------------------------------------------------------------------
 # general rules
 clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean
-	rm -f $(lib_a) $(lib_so) $(lib_obj)
+	rm -f $(libslate_a) $(libslate_so) $(libslate_obj)
 	rm -f trace_*.svg
 
 distclean: clean
@@ -576,7 +578,7 @@ distclean: clean
 	$(CXX) $(CXXFLAGS) -E $< -o $@
 
 # precompile header to check for errors
-%.hh.gch: %.hh
+%.gch: %.hh
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 -include $(dep)
@@ -596,11 +598,15 @@ echo:
 	@echo "cuda          = '$(cuda)'"
 	@echo "static        = '$(static)'"
 	@echo
-	@echo "lib_a         = $(lib_a)"
-	@echo "lib_so        = $(lib_so)"
-	@echo "lib           = $(lib)"
+	@echo "libblaspp     = $(libblaspp)"
+	@echo "liblapackpp   = $(liblapackpp)"
+	@echo "libtest       = $(libtest)"
 	@echo
-	@echo "lib_obj       = $(lib_obj)"
+	@echo "libslate_a    = $(libslate_a)"
+	@echo "libslate_so   = $(libslate_so)"
+	@echo "libslate      = $(libslate)"
+	@echo
+	@echo "libslate_obj  = $(libslate_obj)"
 	@echo
 	@echo "test_src      = $(test_src)"
 	@echo
@@ -636,10 +642,10 @@ echo:
 	@echo "FCFLAGS       = $(FCFLAGS)"
 	@echo
 	@echo "LDFLAGS       = $(LDFLAGS)"
-	@echo "LIB           = $(LIB)"
+	@echo "LIBS          = $(LIBS)"
 	@echo
 	@echo "TEST_LDFLAGS  = $(TEST_LDFLAGS)"
-	@echo "TEST_LIB      = $(TEST_LIB)"
+	@echo "TEST_LIBS     = $(TEST_LIBS)"
 	@echo
 	@echo "UNIT_LDFLAGS  = $(UNIT_LDFLAGS)"
-	@echo "UNIT_LIB      = $(UNIT_LIB)"
+	@echo "UNIT_LIBS     = $(UNIT_LIBS)"

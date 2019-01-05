@@ -37,38 +37,38 @@ NVCCFLAGS += -O3 --compiler-options '-Wall -Wno-unused-function'
 # $OSTYPE may not be exported from the shell, so echo it
 ostype = $(shell echo $${OSTYPE})
 ifneq ($(findstring darwin, $(ostype)),)
-	# MacOS is darwin
-	macos = 1
+    # MacOS is darwin
+    macos = 1
 endif
 
 #-------------------------------------------------------------------------------
 # if shared
 ifneq ($(static),1)
-	CXXFLAGS += -fPIC
-	LDFLAGS  += -fPIC
-	NVCCFLAGS += --compiler-options '-fPIC'
+    CXXFLAGS += -fPIC
+    LDFLAGS  += -fPIC
+    NVCCFLAGS += --compiler-options '-fPIC'
 endif
 
 #-------------------------------------------------------------------------------
 # if OpenMP
 ifeq ($(openmp),1)
-	CXXFLAGS += -fopenmp
-	LDFLAGS  += -fopenmp
+    CXXFLAGS += -fopenmp
+    LDFLAGS  += -fopenmp
 else
-	libslate_src += slate_openmp_stubs.cc
+    libslate_src += slate_openmp_stubs.cc
 endif
 
 #-------------------------------------------------------------------------------
 # if MPI
 ifeq ($(mpi),1)
-	FLAGS += -DSLATE_WITH_MPI
-	LIBS  += -lmpi
+    FLAGS += -DSLATE_WITH_MPI
+    LIBS  += -lmpi
 # if Spectrum MPI
 else ifeq ($(spectrum),1)
-	FLAGS += -DSLATE_WITH_MPI
-	LIBS  += -lmpi_ibm
+    FLAGS += -DSLATE_WITH_MPI
+    LIBS  += -lmpi_ibm
 else
-	libslate_src += slate_mpi_stubs.cc
+    libslate_src += slate_mpi_stubs.cc
 endif
 
 #-------------------------------------------------------------------------------
@@ -78,80 +78,80 @@ scalapack = -lscalapack
 # BLAS and LAPACK
 # if MKL
 ifeq ($(mkl_threaded),1)
-	mkl = 1
+    mkl = 1
 endif
 ifeq ($(mkl_intel),1)
-	mkl = 1
+    mkl = 1
 endif
 ifeq ($(mkl),1)
-	FLAGS += -DSLATE_WITH_MKL
-	# Auto-detect whether to use Intel or GNU conventions.
-	# Won't detect if CXX = mpicxx.
-	ifeq ($(CXX),icpc)
-		mkl_intel = 1
-	endif
-	ifeq ($(macos),1)
-		# MKL on MacOS (version 20180001) has only Intel Fortran version
-		mkl_intel = 1
-	endif
-	ifeq ($(mkl_intel),1)
-		# use Intel Fortran conventions
-		ifeq ($(ilp64),1)
-			LIBS += -lmkl_intel_ilp64
-		else
-			LIBS += -lmkl_intel_lp64
-		endif
+    FLAGS += -DSLATE_WITH_MKL
+    # Auto-detect whether to use Intel or GNU conventions.
+    # Won't detect if CXX = mpicxx.
+    ifeq ($(CXX),icpc)
+        mkl_intel = 1
+    endif
+    ifeq ($(macos),1)
+        # MKL on MacOS (version 20180001) has only Intel Fortran version
+        mkl_intel = 1
+    endif
+    ifeq ($(mkl_intel),1)
+        # use Intel Fortran conventions
+        ifeq ($(ilp64),1)
+            LIBS += -lmkl_intel_ilp64
+        else
+            LIBS += -lmkl_intel_lp64
+        endif
 
-		# if threaded, use Intel OpenMP (iomp5)
-		ifeq ($(mkl_threaded),1)
-			LIBS += -lmkl_intel_thread
-		else
-			LIBS += -lmkl_sequential
-		endif
-	else
-		# use GNU Fortran conventions
-		ifeq ($(ilp64),1)
-			LIBS += -lmkl_gf_ilp64
-		else
-			LIBS += -lmkl_gf_lp64
-		endif
+        # if threaded, use Intel OpenMP (iomp5)
+        ifeq ($(mkl_threaded),1)
+            LIBS += -lmkl_intel_thread
+        else
+            LIBS += -lmkl_sequential
+        endif
+    else
+        # use GNU Fortran conventions
+        ifeq ($(ilp64),1)
+            LIBS += -lmkl_gf_ilp64
+        else
+            LIBS += -lmkl_gf_lp64
+        endif
 
-		# if threaded, use GNU OpenMP (gomp)
-		ifeq ($(mkl_threaded),1)
-			LIBS += -lmkl_gnu_thread
-		else
-			LIBS += -lmkl_sequential
-		endif
-	endif
+        # if threaded, use GNU OpenMP (gomp)
+        ifeq ($(mkl_threaded),1)
+            LIBS += -lmkl_gnu_thread
+        else
+            LIBS += -lmkl_sequential
+        endif
+    endif
 
-	LIBS += -lmkl_core -lpthread -lm -ldl
+    LIBS += -lmkl_core -lpthread -lm -ldl
 
-	# MKL on MacOS doesn't include ScaLAPACK; use default
-	ifneq ($(macos),1)
-		ifeq ($(ilp64),1)
-			scalapack = -lmkl_scalapack_ilp64 -lmkl_blacs_intelmpi_ilp64
-		else
-			scalapack = -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64
-		endif
-	endif
+    # MKL on MacOS doesn't include ScaLAPACK; use default
+    ifneq ($(macos),1)
+        ifeq ($(ilp64),1)
+            scalapack = -lmkl_scalapack_ilp64 -lmkl_blacs_intelmpi_ilp64
+        else
+            scalapack = -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64
+        endif
+    endif
 # if ESSL
 else ifeq ($(essl),1)
-	FLAGS += -DSLATE_WITH_ESSL
-	LIBS += -lessl -llapack
+    FLAGS += -DSLATE_WITH_ESSL
+    LIBS += -lessl -llapack
 # if OpenBLAS
 else ifeq ($(openblas),1)
-	FLAGS += -DSLATE_WITH_OPENBLAS
-	LIBS += -lopenblas
+    FLAGS += -DSLATE_WITH_OPENBLAS
+    LIBS += -lopenblas
 endif
 
 #-------------------------------------------------------------------------------
 # if CUDA
 ifeq ($(cuda),1)
-	FLAGS += -DSLATE_WITH_CUDA
-	LIBS += -lcublas -lcudart
+    FLAGS += -DSLATE_WITH_CUDA
+    LIBS += -lcublas -lcudart
 else
-	libslate_src += slate_cuda_stubs.cc
-	libslate_src += slate_cublas_stubs.cc
+    libslate_src += slate_cuda_stubs.cc
+    libslate_src += slate_cublas_stubs.cc
 endif
 
 #-------------------------------------------------------------------------------
@@ -160,16 +160,16 @@ endif
 cuda_arch ?= kepler pascal
 cuda_arch_ = $(cuda_arch)
 ifneq ($(findstring kepler, $(cuda_arch_)),)
-	cuda_arch_ += sm_30
+    cuda_arch_ += sm_30
 endif
 ifneq ($(findstring maxwell, $(cuda_arch_)),)
-	cuda_arch_ += sm_50
+    cuda_arch_ += sm_50
 endif
 ifneq ($(findstring pascal, $(cuda_arch_)),)
-	cuda_arch_ += sm_60
+    cuda_arch_ += sm_60
 endif
 ifneq ($(findstring volta, $(cuda_arch_)),)
-	cuda_arch_ += sm_70
+    cuda_arch_ += sm_70
 endif
 
 # CUDA architectures that nvcc supports
@@ -186,10 +186,10 @@ nv_compute = $(filter %, $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda
 ifeq ($(nv_sm),)
     $(warning No valid CUDA architectures found in cuda_arch = $(cuda_arch).)
 else
-	# Get last option (last 2 words) of nv_compute.
-	nwords  = $(words $(nv_compute))
-	nwords_1 = $(shell expr $(nwords) - 1)
-	nv_compute_last = $(wordlist $(nwords_1), $(nwords), $(nv_compute))
+    # Get last option (last 2 words) of nv_compute.
+    nwords  = $(words $(nv_compute))
+    nwords_1 = $(shell expr $(nwords) - 1)
+    nv_compute_last = $(wordlist $(nwords_1), $(nwords), $(nv_compute))
 endif
 
 # Use all sm_XX (binary), and the last compute_XX (PTX) for forward compatibility.
@@ -397,9 +397,9 @@ liblapackpp_src = $(wildcard lapackpp/include/*.h \
                              lapackpp/src/*.cc)
 
 ifeq ($(static),1)
-	liblapackpp = lapackpp/lib/liblapackpp.a
+    liblapackpp = lapackpp/lib/liblapackpp.a
 else
-	liblapackpp = lapackpp/lib/liblapackpp.so
+    liblapackpp = lapackpp/lib/liblapackpp.so
 endif
 
 $(liblapackpp): $(liblapackpp_src)
@@ -412,9 +412,9 @@ libblaspp_src = $(wildcard blaspp/include/*.h \
                            blaspp/src/*.cc)
 
 ifeq ($(static),1)
-	libblaspp = blaspp/lib/libblaspp.a
+    libblaspp = blaspp/lib/libblaspp.a
 else
-	libblaspp = blaspp/lib/libblaspp.so
+    libblaspp = blaspp/lib/libblaspp.so
 endif
 
 $(libblaspp): $(libblaspp_src)
@@ -425,9 +425,9 @@ $(libblaspp): $(libblaspp_src)
 libtest_src = $(wildcard libtest/*.hh libtest/*.cc)
 
 ifeq ($(static),1)
-	libtest = libtest/libtest.a
+    libtest = libtest/libtest.a
 else
-	libtest = libtest/libtest.so
+    libtest = libtest/libtest.so
 endif
 
 $(libtest): $(libtest_src)
@@ -452,9 +452,9 @@ $(libslate_so): $(libslate_obj) $(libblaspp) $(liblapackpp)
 		-shared $(install_name) -o $@
 
 ifeq ($(static),1)
-	libslate = $(libslate_a)
+    libslate = $(libslate_a)
 else
-	libslate = $(libslate_so)
+    libslate = $(libslate_so)
 endif
 
 lib: $(libslate)

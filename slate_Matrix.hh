@@ -92,6 +92,10 @@ public:
     Matrix sub(int64_t i1, int64_t i2,
                int64_t j1, int64_t j2);
 
+    // sliced matrix
+    Matrix slice(int64_t row1, int64_t row2,
+                 int64_t col1, int64_t col2);
+
 protected:
     // used by fromLAPACK
     Matrix(int64_t m, int64_t n,
@@ -107,6 +111,10 @@ protected:
     Matrix(int64_t m, int64_t n,
            scalar_t** Aarray, int num_devices, int64_t lda, int64_t nb,
            int p, int q, MPI_Comm mpi_comm);
+
+    // used by slice
+    Matrix(BaseMatrix<scalar_t>& orig,
+           typename BaseMatrix<scalar_t>::Slice slice);
 
 public:
     template <typename T>
@@ -438,8 +446,52 @@ Matrix<scalar_t>::Matrix(
 }
 
 //------------------------------------------------------------------------------
+/// Sub-matrix constructor creates shallow copy view of parent matrix,
+/// A[ i1:i2, j1:j2 ].
+/// This is called from Matrix::sub(i1, i2, j1, j2) and
+/// off-diagonal sub(i1, i2, j1, j2) of
+/// TriangularMatrix, SymmetricMatrix, HermitianMatrix, etc.
+///
+/// @param[in] orig
+///     Original matrix of which to make sub-matrix.
+///
+/// @param[in] i1
+///     Starting block-row index. 0 <= i1 < mt.
+///
+/// @param[in] i2
+///     Ending block-row index (inclusive). i2 < mt.
+///
+/// @param[in] j1
+///     Starting block-column index. 0 <= j1 < nt.
+///
+/// @param[in] j2
+///     Ending block-column index (inclusive). j2 < nt.
+///
+template <typename scalar_t>
+Matrix<scalar_t>::Matrix(
+    BaseMatrix< scalar_t >& orig,
+    int64_t i1, int64_t i2,
+    int64_t j1, int64_t j2)
+    : BaseMatrix<scalar_t>(orig, i1, i2, j1, j2)
+{
+    this->uplo_ = Uplo::General;
+}
+
+//------------------------------------------------------------------------------
 /// Returns sub-matrix that is a shallow copy view of the
 /// parent matrix, A[ i1:i2, j1:j2 ].
+///
+/// @param[in] i1
+///     Starting block-row index. 0 <= i1 < mt.
+///
+/// @param[in] i2
+///     Ending block-row index (inclusive). i2 < mt.
+///
+/// @param[in] j1
+///     Starting block-column index. 0 <= j1 < nt.
+///
+/// @param[in] j2
+///     Ending block-column index (inclusive). j2 < nt.
 ///
 template <typename scalar_t>
 Matrix<scalar_t> Matrix<scalar_t>::sub(
@@ -450,20 +502,48 @@ Matrix<scalar_t> Matrix<scalar_t>::sub(
 }
 
 //------------------------------------------------------------------------------
-/// Sub-matrix constructor creates shallow copy view of parent matrix,
-/// A[ i1:i2, j1:j2 ].
-/// This is called from Matrix::sub(i1, i2, j1, j2) and
-/// off-diagonal sub(i1, i2, j1, j2) of
-/// TriangularMatrix, SymmetricMatrix, HermitianMatrix, etc.
+/// Sliced matrix constructor creates shallow copy view of parent matrix,
+/// A[ row1:row2, col1:col2 ].
+/// This takes row & col indices instead of block row & block col indices.
+///
+/// @param[in] orig
+///     Original matrix of which to make sub-matrix.
+///
+/// @param[in] slice
+///     Contains start and end row and column indices.
 ///
 template <typename scalar_t>
 Matrix<scalar_t>::Matrix(
-    BaseMatrix< scalar_t >& orig,
-    int64_t i1, int64_t i2,
-    int64_t j1, int64_t j2)
-    : BaseMatrix<scalar_t>(orig, i1, i2, j1, j2)
+    BaseMatrix<scalar_t>& orig, typename BaseMatrix<scalar_t>::Slice slice)
+    : BaseMatrix<scalar_t>(orig, slice)
 {
     this->uplo_ = Uplo::General;
+}
+
+//------------------------------------------------------------------------------
+/// Returns sliced matrix that is a shallow copy view of the
+/// parent matrix, A[ row1:row2, col1:col2 ].
+/// This takes row & col indices instead of block row & block col indices.
+///
+/// @param[in] row1
+///     Starting row index. 0 <= row1 < m.
+///
+/// @param[in] row2
+///     Ending row index (inclusive). row2 < m.
+///
+/// @param[in] col1
+///     Starting column index. 0 <= col1 < n.
+///
+/// @param[in] col2
+///     Ending column index (inclusive). col2 < n.
+///
+template <typename scalar_t>
+Matrix<scalar_t> Matrix<scalar_t>::slice(
+    int64_t row1, int64_t row2,
+    int64_t col1, int64_t col2)
+{
+    return Matrix<scalar_t>(*this,
+        typename BaseMatrix<scalar_t>::Slice(row1, row2, col1, col2));
 }
 
 //------------------------------------------------------------------------------

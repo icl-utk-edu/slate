@@ -105,6 +105,30 @@ protected:
                int64_t i1, int64_t i2,
                int64_t j1, int64_t j2);
 
+    // internal utility class to differentiate slicing (row/col indices)
+    // from sub-matrix (tile indices)
+    class Slice {
+    public:
+        Slice( int64_t in_row1, int64_t in_row2,
+               int64_t in_col1, int64_t in_col2 )
+        : row1( in_row1 ),
+          row2( in_row2 ),
+          col1( in_col1 ),
+          col2( in_col2 )
+        {}
+        int64_t row1, row2, col1, col2;
+    };
+
+    BaseMatrix(BaseMatrix& orig, Slice slice);
+
+private:
+    void initSubmatrix(
+        int64_t i1, int64_t i2,
+        int64_t j1, int64_t j2);
+
+    void initSlice(int64_t row0_offset, int64_t col0_offset,
+                   int64_t last_mb, int64_t last_nb);
+
 public:
     /// Returns shallow copy of op(A) that is transposed.
     /// @see conj_transpose
@@ -162,7 +186,11 @@ public:
 
     int64_t tileMb(int64_t i) const;
     int64_t tileNb(int64_t j) const;
+private:
+    int64_t tileMbInternal(int64_t i) const;
+    int64_t tileNbInternal(int64_t j) const;
 
+public:
     Tile<scalar_t>* tileInsert(int64_t i, int64_t j, int device=host_num_);
     Tile<scalar_t>* tileInsertWorkspace(int64_t i, int64_t j, int device=host_num_);
     Tile<scalar_t>* tileInsert(int64_t i, int64_t j, int device,
@@ -339,6 +367,18 @@ protected:
     std::tuple<int64_t, int64_t, int>
         globalIndex(int64_t i, int64_t j, int device) const;
 
+    /// row offset of first block row.
+    int64_t row0_offset() const { return row0_offset_; }
+
+    /// col offset of first block col.
+    int64_t col0_offset() const { return col0_offset_; }
+
+    /// rows in last block row.
+    int64_t last_mb() const { return last_mb_; }
+
+    /// cols in last block col.
+    int64_t last_nb() const { return last_nb_; }
+
     /// block row offset with respect to original matrix
     int64_t ioffset() const { return ioffset_; }
 
@@ -347,6 +387,10 @@ protected:
 
 private:
     ///-------------------------------------------------------------------------
+    int64_t row0_offset_;  ///< row offset in first block row
+    int64_t col0_offset_;  ///< col offset in first block col
+    int64_t last_mb_;      ///< size of last block row
+    int64_t last_nb_;      ///< size of last block col
     int64_t ioffset_;   ///< block row offset with respect to original matrix
     int64_t joffset_;   ///< block col offset with respect to original matrix
     int64_t mt_;        ///< number of local block rows in this view
@@ -375,7 +419,11 @@ protected:
 ///
 template <typename scalar_t>
 BaseMatrix<scalar_t>::BaseMatrix()
-    : ioffset_(0),
+    : row0_offset_(0),
+      col0_offset_(0),
+      last_mb_(0),
+      last_nb_(0),
+      ioffset_(0),
       joffset_(0),
       mt_(0),
       nt_(0),
@@ -413,7 +461,11 @@ BaseMatrix<scalar_t>::BaseMatrix()
 template <typename scalar_t>
 BaseMatrix<scalar_t>::BaseMatrix(
     int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
-    : ioffset_(0),
+    : row0_offset_(0),
+      col0_offset_(0),
+      last_mb_(m % nb == 0 ? nb : m % nb),
+      last_nb_(n % nb == 0 ? nb : n % nb),
+      ioffset_(0),
       joffset_(0),
       mt_(ceildiv(m, nb)),
       nt_(ceildiv(n, nb)),
@@ -464,6 +516,20 @@ BaseMatrix<scalar_t>::BaseMatrix(
     int64_t j1, int64_t j2)
     : BaseMatrix(B)
 {
+    initSubmatrix(i1, i2, j1, j2);
+}
+
+//------------------------------------------------------------------------------
+/// [private]
+/// Sub-matrix constructor implementation used by
+/// BaseMatrix( orig, i1, i2, j1, j2 ) and
+/// BaseMatrix( orig, Slice( row1, row2, col1, col2 ) ).
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::initSubmatrix(
+    int64_t i1, int64_t i2,
+    int64_t j1, int64_t j2)
+{
     assert((0 <= i1 && i1 < mt()) || (i1 > i2));  // todo: remove || ... clause?
     assert((0 <= i2 && i2 < mt()) || (i1 > i2));
     assert((0 <= j1 && j1 < nt()) || (j1 > j2));  // todo: remove || ... clause?
@@ -474,17 +540,143 @@ BaseMatrix<scalar_t>::BaseMatrix(
     j2 = std::max(j2, j1 - 1);
 
     if (op_ == Op::NoTrans) {
+        last_mb_ = tileMb(i2);
+        last_nb_ = tileNb(j2);
         ioffset_ += i1;
         joffset_ += j1;
         mt_ = i2 - i1 + 1;
         nt_ = j2 - j1 + 1;
     }
     else {
+        last_nb_ = tileMb(i2);
+        last_mb_ = tileNb(j2);
         ioffset_ += j1;
         joffset_ += i1;
         mt_ = j2 - j1 + 1;
         nt_ = i2 - i1 + 1;
     }
+}
+
+//------------------------------------------------------------------------------
+/// [internal]
+/// Sliced matrix constructor
+/// creates shallow copy view of parent matrix, B[ row1:row2, col1:col2 ].
+/// This takes row & col indices instead of block row & block col indices.
+/// B[ 0:m-1, 0:n-1 ] is the entire B matrix.
+/// If row2 < row1 or col2 < col1, produces empty matrix.
+/// See Matrix::slice().
+///
+/// @param[in,out] B
+///     Parent matrix B.
+///
+/// @param[in] slice
+///     Start and end row and column indices:
+///
+///     - slice.row1: Starting row index. 0 <= row1 < m.
+///
+///     - slice.row2: Ending row index (inclusive). row2 < m.
+///
+///     - slice.col1: Starting column index. 0 <= col1 < n.
+///
+///     - slice.col2: Ending column index (inclusive). col2 < n.
+///
+template <typename scalar_t>
+BaseMatrix<scalar_t>::BaseMatrix(
+    BaseMatrix<scalar_t>& B, Slice slice)
+    : BaseMatrix(B)
+{
+    int64_t row1 = slice.row1;
+    int64_t row2 = slice.row2;
+    int64_t col1 = slice.col1;
+    int64_t col2 = slice.col2;
+    assert(0 <= row1 && row1 < m());
+    assert(0 <= col1 && col1 < n());
+    assert(row2 < m());
+    assert(col2 < n());
+
+    // Map row indices (row1, row2) => block-row indices (i1, i2).
+    int64_t i1 = 0;
+    int64_t i2;
+    int64_t row = tileMb( i1 );  // past end of tile i1
+    while (row <= row1) {
+        ++i1;
+        row += tileMb( i1 );
+    }
+    int64_t new_row0_offset = row1 - (row - tileMb( i1 ));  // beginning of tile i1
+    i2 = i1;
+    while (row <= row2) {
+        ++i2;
+        row += tileMb( i2 );
+    }
+    int64_t new_last_mb = row2 - (row - tileMb( i2 )) + 1;
+    if (i1 == i2)
+        new_last_mb -= new_row0_offset;
+
+    // Map col indices (col1, col2) => block-col indices (j1, j2).
+    int64_t j1 = 0;
+    int64_t j2;
+    int64_t col = tileNb( j1 );  // past end of tile j1
+    while (col <= col1) {
+        ++j1;
+        col += tileNb( j1 );
+    }
+    int64_t new_col0_offset = col1 - (col - tileNb( j1 ));  // beginning of tile j1
+    j2 = j1;
+    while (col <= col2) {
+        ++j2;
+        col += tileNb( j2 );
+    }
+    int64_t new_last_nb = col2 - (col - tileNb( j2 )) + 1;
+    if (j1 == j2)
+        new_last_nb -= new_col0_offset;
+
+    // Create sub-matrix of tiles A[ i1:i2, j1:j2 ]
+    initSubmatrix(i1, i2, j1, j2);
+
+    // Adjust offsets & sizes of first & last block rows & columns.
+    if (op_ == Op::NoTrans) {
+        if (i1 == 0)
+            new_row0_offset += row0_offset_;
+        if (j1 == 0)
+            new_col0_offset += col0_offset_;
+        initSlice(new_row0_offset, new_col0_offset, new_last_mb, new_last_nb);
+    }
+    else {
+        if (i1 == 0)
+            new_row0_offset += col0_offset_;
+        if (j1 == 0)
+            new_col0_offset += row0_offset_;
+        initSlice(new_col0_offset, new_row0_offset, new_last_nb, new_last_mb);
+    }
+}
+
+//------------------------------------------------------------------------------
+/// [private]
+/// Used by BaseMatrix( orig, Slice( row1, row2, col1, col2 ) ) constructor to set
+/// offsets and sizes for the first and last block row and block col.
+/// This ignores transposition, which is handled in the constructor.
+///
+/// @param[in] row0_offset
+///     Row offset in first block-row of A.
+///
+/// @param[in] col0_offset
+///     Col offset in first block-col of A.
+///
+/// @param[in] last_mb
+///     Size of last block-row of A.
+///
+/// @param[in] last_nb
+///     Size of last block-col of A.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::initSlice(
+    int64_t row0_offset, int64_t col0_offset,
+    int64_t last_mb, int64_t last_nb)
+{
+    row0_offset_ = row0_offset;
+    col0_offset_ = col0_offset;
+    last_mb_ = last_mb;
+    last_nb_ = last_nb;
 }
 
 //------------------------------------------------------------------------------
@@ -523,15 +715,26 @@ Tile<scalar_t> BaseMatrix<scalar_t>::operator()(
 {
     auto tile = *storage_->at(globalIndex(i, j, device));
 
-    // set uplo on diagonal tile (off-diagonal tiles are always general)
+    // Set op first, before setting offset, mb, nb!
+    tile.op(op_);
+
+    // Set row & col offset within first block-row & block-col; before mb, nb!
+    if (op_ == Op::NoTrans) {
+        tile.offset(i == 0 ? row0_offset_ : 0,
+                    j == 0 ? col0_offset_ : 0);
+    }
+    else {
+        tile.offset(i == 0 ? col0_offset_ : 0,
+                    j == 0 ? row0_offset_ : 0);
+    }
+
+    // Set tile size.
+    tile.mb(tileMb(i));
+    tile.nb(tileNb(j));
+
+    // Set uplo on diagonal tile (off-diagonal tiles are always general).
     if (i == j)
         tile.uplo(uplo_);
-
-    // apply transpose
-    if (op_ == Op::Trans)
-        tile = transpose(tile);
-    else if (op_ == Op::ConjTrans)
-        tile = conj_transpose(tile);
 
     return tile;
 }
@@ -567,9 +770,9 @@ template <typename scalar_t>
 int64_t BaseMatrix<scalar_t>::tileMb(int64_t i) const
 {
     if (op_ == Op::NoTrans)
-        return storage_->tileMb(ioffset_ + i);
+        return tileMbInternal(i);
     else
-        return storage_->tileNb(joffset_ + i);
+        return tileNbInternal(i);
 }
 
 //------------------------------------------------------------------------------
@@ -582,9 +785,49 @@ template <typename scalar_t>
 int64_t BaseMatrix<scalar_t>::tileNb(int64_t j) const
 {
     if (op_ == Op::NoTrans)
-        return storage_->tileNb(joffset_ + j);
+        return tileNbInternal(j);
     else
-        return storage_->tileMb(ioffset_ + j);
+        return tileMbInternal(j);
+}
+
+//------------------------------------------------------------------------------
+/// [internal]
+/// Returns number of rows (mb) in block row i of A,
+/// ignoring transposition, which is handled in tileMb().
+/// This handles the first and last block rows for slicing.
+///
+/// @param[in] i
+///     Tile's block row index.
+///
+template <typename scalar_t>
+int64_t BaseMatrix<scalar_t>::tileMbInternal(int64_t i) const
+{
+    if (i == mt_ - 1)
+        return last_mb_;
+    else if (i == 0)
+        return storage_->tileMb(ioffset_ + i) - row0_offset_;
+    else
+        return storage_->tileMb(ioffset_ + i);
+}
+
+//------------------------------------------------------------------------------
+/// [internal]
+/// Returns number of cols (nb) in block col j of A,
+/// ignoring transposition, which is handled in tileNb().
+/// This handles the first and last block columns for slicing.
+///
+/// @param[in] j
+///     Tile's block column index.
+///
+template <typename scalar_t>
+int64_t BaseMatrix<scalar_t>::tileNbInternal(int64_t j) const
+{
+    if (j == nt_ - 1)
+        return last_nb_;
+    else if (j == 0)
+        return storage_->tileNb(joffset_ + j) - col0_offset_;
+    else
+        return storage_->tileNb(joffset_ + j);
 }
 
 //------------------------------------------------------------------------------
@@ -1197,6 +1440,9 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
 /// @param[in] j
 ///     Tile's block column index. 0 <= j < nt.
 ///
+/// @param[in] dst_device
+///     Tile's destination device ID.
+///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileCopyToDevice(
     int64_t i, int64_t j, int dst_device, Layout layout)
@@ -1291,7 +1537,7 @@ void BaseMatrix<scalar_t>::tileCopyTo(
 }
 
 //------------------------------------------------------------------------------
-/// Copy all tiles to destination (host/device).
+/// Copy all local tiles to destination (host/device).
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::copyAllTo(int dst_device)
 {

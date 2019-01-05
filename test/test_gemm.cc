@@ -139,6 +139,12 @@ void test_gemm_work(Params& params, bool run)
     assert(B.nt() == C.nt());
     assert(A.nt() == B.mt());
 
+    if (verbose >= 2) {
+        print_matrix("A", A);
+        print_matrix("B", B);
+        print_matrix("C", C);
+    }
+
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
@@ -156,6 +162,10 @@ void test_gemm_work(Params& params, bool run)
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
+
+    if (verbose >= 2) {
+        print_matrix("C2", C);
+    }
 
     {
         slate::trace::Block trace_block("MPI_Barrier");
@@ -193,6 +203,10 @@ void test_gemm_work(Params& params, bool run)
         //==================================================
         MPI_Barrier(MPI_COMM_WORLD);
         time = libtest::get_wtime();
+        if (verbose >= 2) {
+            print_matrix("Cref", mlocC, nlocC, &C_ref[0], lldC, p, q, MPI_COMM_WORLD);
+        }
+
         scalapack_pgemm(op2str(transA), op2str(transB), m, n, k, alpha,
                         &A_tst[0], ione, ione, descA_tst,
                         &B_tst[0], ione, ione, descB_tst, beta,
@@ -200,8 +214,16 @@ void test_gemm_work(Params& params, bool run)
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 
+        if (verbose >= 2) {
+            print_matrix("Cref2", mlocC, nlocC, &C_ref[0], lldC, p, q, MPI_COMM_WORLD);
+        }
+
         // perform a local operation to get differences C_ref = C_ref - C_tst
         blas::axpy(C_ref.size(), -1.0, &C_tst[0], 1, &C_ref[0], 1);
+
+        if (verbose >= 2) {
+            print_matrix("Diff", mlocC, nlocC, &C_ref[0], lldC, p, q, MPI_COMM_WORLD);
+        }
 
         // norm(C_ref - C_tst)
         real_t C_diff_norm = scalapack_plange(norm2str(norm), Cm, Cn, &C_ref[0], ione, ione, descC_ref, &worklange[0]);

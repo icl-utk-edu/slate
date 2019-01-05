@@ -57,6 +57,7 @@ int mpi_rank;
 int mpi_size;
 MPI_Comm mpi_comm;
 int host_num, num_devices;
+int verbose = 0;
 
 //==============================================================================
 // Constructors
@@ -1155,18 +1156,36 @@ int main(int argc, char** argv)
     nb = 16;
     init_process_grid(mpi_size, &p, &q);
     unsigned seed = time( nullptr ) % 10000;  // 4 digit
-    if (argc > 1) { m  = atoi(argv[1]); }
-    if (argc > 2) { n  = atoi(argv[2]); }
-    if (argc > 3) { k  = atoi(argv[3]); }
-    if (argc > 4) { nb = atoi(argv[4]); }
-    if (argc > 5) { p  = atoi(argv[5]); }
-    if (argc > 6) { q  = atoi(argv[6]); }
-    if (argc > 7) { seed = atoi(argv[7]); }
+
+    // parse command line
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "-m" && i+1 < argc)
+            m = atoi( argv[++i] );
+        else if (arg == "-m" && i+1 < argc)
+            m = atoi( argv[++i] );
+        else if (arg == "-n" && i+1 < argc)
+            n = atoi( argv[++i] );
+        else if (arg == "-k" && i+1 < argc)
+            k = atoi( argv[++i] );
+        else if (arg == "-nb" && i+1 < argc)
+            nb = atoi( argv[++i] );
+        else if (arg == "-p" && i+1 < argc)
+            p = atoi( argv[++i] );
+        else if (arg == "-q" && i+1 < argc)
+            q = atoi( argv[++i] );
+        else if (arg == "-seed" && i+1 < argc)
+            seed = atoi( argv[++i] );
+        else if (arg == "-v")
+            verbose++;
+        else {
+            printf( "unknown argument: %s\n", argv[i] );
+            return 1;
+        }
+    }
     if (mpi_rank == 0) {
-        printf("Usage: %s %4s %4s %4s %4s %4s %4s %4s\n"
-               "       %s %4d %4d %4d %4d %4d %4d %4u\n"
+        printf("Usage: %s [-m %d] [-n %d] [-k %d] [-nb %d] [-p %d] [-q %d] [-seed %d] [-v]\n"
                "num_devices = %d\n",
-               argv[0], "m", "n", "k", "nb", "p", "q", "seed",
                argv[0], m, n, k, nb, p, q, seed,
                num_devices);
     }

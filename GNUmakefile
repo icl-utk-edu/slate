@@ -510,12 +510,12 @@ dep += $(addsuffix .d, $(basename $(scalapack_api_src)))
 SCALAPACK_API_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 SCALAPACK_API_LIBS    += -lslate $(scalapack)
 
-scalapack_api: lib $(scalapack_api)
+scalapack_api: $(scalapack_api)
 
 scalapack_api/clean:
 	rm -f $(scalapack_api) $(scalapack_api_obj)
 
-$(scalapack_api): $(scalapack_api_obj) $(lib)
+$(scalapack_api): $(scalapack_api_obj) $(libslate)
 	$(CXX) $(SCALAPACK_API_LDFLAGS) $(LDFLAGS) $(scalapack_api_obj) \
 		$(SCALAPACK_API_LIBS) $(LIBS) -shared $(install_name) -o $@
 
@@ -546,12 +546,12 @@ dep += $(addsuffix .d, $(basename $(lapack_api_src)))
 LAPACK_API_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 LAPACK_API_LIBS    += -lslate
 
-lapack_api: lib $(lapack_api)
+lapack_api: $(lapack_api)
 
 lapack_api/clean:
 	rm -f $(lapack_api) $(lapack_api_obj)
 
-$(lapack_api): $(lapack_api_obj) $(lib)
+$(lapack_api): $(lapack_api_obj) $(libslate)
 	$(CXX) $(LAPACK_API_LDFLAGS) $(LDFLAGS) $(lapack_api_obj) \
 		$(LAPACK_API_LIBS) $(LIBS) -shared $(install_name) -o $@
 

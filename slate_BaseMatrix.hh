@@ -1396,8 +1396,8 @@ void BaseMatrix<scalar_t>::tileMoveTo(
 
         // find source tile
         // find Owned/Modified device, otherwise a valid Shared source
-        const int inv_device = host_num_-1; // invalid device number
-        int src_device = inv_device, own_device = inv_device;
+        const int INVALID_DEV = host_num_-1; // invalid device number
+        int src_device = INVALID_DEV, own_device = INVALID_DEV;
         {
             // check host
             if (dst_device != host_num_) {
@@ -1413,14 +1413,14 @@ void BaseMatrix<scalar_t>::tileMoveTo(
                 }
             }
             // check other devices
-            if (src_device == inv_device || own_device == inv_device) {
+            if (src_device == INVALID_DEV || own_device == INVALID_DEV) {
                 for (int d = 0; d < num_devices(); ++d) {
                     if (dst_device == d) continue;
 
                     auto iter = storage_->find(globalIndex(i, j, d));
                     if (iter != storage_->end()) {
                         if (iter->second.state_ != MOSI::Invalid &&
-                            src_device != inv_device) {
+                            src_device != INVALID_DEV) {
                             src_device = d;
                         }
                         if (iter->second.state_ == MOSI::Owned ||
@@ -1430,12 +1430,12 @@ void BaseMatrix<scalar_t>::tileMoveTo(
                     }
                 }
             }
-            src_device = (own_device == inv_device) ? src_device : own_device;
+            src_device = (own_device == INVALID_DEV) ? src_device : own_device;
         }
 
         // update destination
         if (src_device != dst_device &&
-            src_device != inv_device) {
+            src_device != INVALID_DEV) {
 
             auto src_iter = storage_->find(globalIndex(i, j, src_device));
             src_tile = src_iter->second.tile_;

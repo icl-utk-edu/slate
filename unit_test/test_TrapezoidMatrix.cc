@@ -269,6 +269,58 @@ void test_TrapezoidMatrix_fromDevices()
 //==============================================================================
 // Methods
 
+//------------------------------------------------------------------------------
+/// Tests insertLocalTiles on host.
+void test_TrapezoidMatrix_insertLocalTiles()
+{
+    slate::TrapezoidMatrix<double> L(
+        slate::Uplo::Lower, slate::Diag::NonUnit,
+        m, n, nb, p, q, mpi_comm);
+
+    test_assert(L.mt() == ceildiv(m, nb));
+    test_assert(L.nt() == ceildiv(n, nb));
+    test_assert(L.op() == blas::Op::NoTrans);
+
+    L.insertLocalTiles();
+    for (int j = 0; j < L.nt(); ++j) {
+        for (int i = 0; i < L.mt(); ++i) {
+            if (i < j) { // upper tiles don't exist
+                test_assert(! L.tileExists(i, j));
+            }
+            else if (L.tileIsLocal(i, j)) {
+                auto T = L(i, j);
+                test_assert(T.mb() == L.tileMb(i));
+                test_assert(T.nb() == L.tileNb(j));
+                test_assert(T.stride() == L.tileMb(i));
+            }
+        }
+    }
+
+    //--------------------
+    slate::TrapezoidMatrix<double> U(
+        slate::Uplo::Upper, slate::Diag::NonUnit,
+        m, n, nb, p, q, mpi_comm);
+
+    test_assert(U.mt() == ceildiv(m, nb));
+    test_assert(U.nt() == ceildiv(n, nb));
+    test_assert(U.op() == blas::Op::NoTrans);
+
+    U.insertLocalTiles();
+    for (int j = 0; j < U.nt(); ++j) {
+        for (int i = 0; i < U.mt(); ++i) {
+            if (i > j) { // lower tiles don't exist
+                test_assert(! U.tileExists(i, j));
+            }
+            else if (U.tileIsLocal(i, j)) {
+                auto T = U(i, j);
+                test_assert(T.mb() == U.tileMb(i));
+                test_assert(T.nb() == U.tileNb(j));
+                test_assert(T.stride() == U.tileMb(i));
+            }
+        }
+    }
+}
+
 //==============================================================================
 // Sub-matrices and conversions
 
@@ -762,6 +814,7 @@ void run_tests()
 
     if (mpi_rank == 0)
         printf("\nMethods\n");
+    run_test(test_TrapezoidMatrix_insertLocalTiles, "TrapezoidMatrix::insertLocalTiles", mpi_comm);
 
     if (mpi_rank == 0)
         printf("\nSub-matrices and conversions\n");

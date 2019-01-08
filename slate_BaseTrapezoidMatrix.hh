@@ -117,6 +117,7 @@ public:
     Uplo uplo() const;
     Uplo uplo_logical() const;
     void moveAllToOrigin();
+    void insertLocalTiles(bool on_devices=false);
 };
 
 //--------------------------------------------------------------------------
@@ -728,6 +729,30 @@ void BaseTrapezoidMatrix<scalar_t>::moveAllToOrigin()
             for (int64_t i = 0; i <= j && i < this->mt(); ++i)  // upper
                 if (this->tileIsLocal(i, j))
                     this->tileMoveToHost(i, j, this->tileDevice(i, j));
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Inserts all local tiles into an empty matrix.
+///
+/// @param[in] on_devices
+///     If on_devices, inserts tiles on appropriate GPU devices,
+///     otherwise inserts tiles on CPU host.
+///
+template <typename scalar_t>
+void BaseTrapezoidMatrix<scalar_t>::insertLocalTiles(bool on_devices)
+{
+    int64_t mt = this->mt();
+    for (int64_t j = 0; j < this->nt(); ++j) {
+        int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);
+        int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
+        for (int64_t i = istart; i < iend; ++i) {
+            if (this->tileIsLocal(i, j)) {
+                int dev = (on_devices ? this->tileDevice(i, j)
+                                      : this->host_num_);
+                this->tileInsert(i, j, dev);
+            }
+        }
     }
 }
 

@@ -612,7 +612,7 @@ void Matrix<scalar_t>::gather(scalar_t* A, int64_t lda)
 }
 
 //------------------------------------------------------------------------------
-/// Inserts all local tiles into on empty matrix.
+/// Inserts all local tiles into an empty matrix.
 ///
 /// @param[in] on_devices
 ///     If on_devices, inserts tiles on appropriate GPU devices,

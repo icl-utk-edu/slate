@@ -1270,18 +1270,66 @@ void BaseMatrix<scalar_t>::tileCopyTo(
         if (dst_iter->second.state_ != MOSI::Invalid)
             break;
 
+        typename MatrixStorage<scalar_t>::TilesMap::iterator src_iter;
         // find source tile
-        int src_device = (dst_device == host_num_) ? tileDevice(i, j) : host_num_;
-        auto src_iter = storage_->find(globalIndex(i, j, src_device));
-        if (src_iter == storage_->end())
-            // todo: handle error or find another source whith valid copy
-            break;
-        if (src_iter->second.state_ == MOSI::Invalid)
-            // todo: handle error or find another source whith valid copy
-            break;
+        // find a valid source (Owned/Modified/Shared) device
+        const int invalid_dev = host_num_-1; // invalid device number
+        int src_device = invalid_dev;
+        {
+            // check host
+            if (dst_device != host_num_) {
+                auto iter = storage_->find(globalIndex(i, j, host_num_));
+                if (iter != storage_->end()) {
+                    if (iter->second.state_ != MOSI::Invalid) {
+                        src_device = host_num_;
+                        src_iter = iter;
+                    }
+                }
+            }
+            // check assigned device
+            if (src_device == invalid_dev) {
+                auto iter = storage_->find(globalIndex(i, j, tileDevice(i, j)));
+                if (iter != storage_->end()) {
+                    if (iter->second.state_ != MOSI::Invalid) {
+                        src_device = tileDevice(i, j);
+                        src_iter = iter;
+                    }
+                }
+            }
+            // check other devices
+            for (int d = 0; src_device == invalid_dev && d < num_devices(); ++d) {
+                if (dst_device == d || tileDevice(i, j) == d) continue;
+
+                auto iter = storage_->find(globalIndex(i, j, d));
+                if (iter != storage_->end()) {
+                    if (iter->second.state_ != MOSI::Invalid) {
+                        src_device = d;
+                        src_iter = iter;
+                    }
+                }
+            }
+            // todo: find the shortest path / closest source
+            // including possibility of device peer-to-peer copy
+        }
+        assert(src_device != invalid_dev);
         src_tile = src_iter->second.tile_;
 
         // Update the destination tile's data.
+        if (dst_device != host_num_ && src_device != host_num_) {
+            // todo: device to device copy
+            Tile<scalar_t> *host_tile;
+            auto host_iter = storage_->find(globalIndex(i, j, host_num_));
+            if (host_iter == storage_->end()) {
+                // Create a copy on the host.
+                host_tile = tileInsertWorkspace(i, j, host_num_);
+            }else{
+                host_tile = host_iter->second.tile_;
+            }
+            src_tile->copyDataToHost(host_tile, comm_stream(src_device));
+            host_tile->copyDataToDevice(dst_tile, comm_stream(dst_device));
+            host_iter->second.state_ = MOSI::Shared;
+        }
+        else
         if (dst_device == host_num_)
             src_tile->copyDataToHost(dst_tile, comm_stream(src_device));
         else
@@ -1447,7 +1495,17 @@ void BaseMatrix<scalar_t>::tileMoveTo(
                 // Update the destination tile's data.
                 if (dst_device != host_num_ && src_device != host_num_) {
                     // todo device to device copy
-                    assert("Not implemented yet");
+                    Tile<scalar_t> *host_tile;
+                    auto host_iter = storage_->find(globalIndex(i, j, host_num_));
+                    if (host_iter == storage_->end()) {
+                        // Create a copy on the host.
+                        host_tile = tileInsertWorkspace(i, j, host_num_);
+                    }else{
+                        host_tile = host_iter->second.tile_;
+                    }
+                    src_tile->copyDataToHost(host_tile, comm_stream(src_device));
+                    host_tile->copyDataToDevice(dst_tile, comm_stream(dst_device));
+                    host_iter->second.state_ = MOSI::Shared;
                 }
                 else
                 if (dst_device == host_num_) {

@@ -386,7 +386,7 @@ template <typename scalar_t>
 void gels(Matrix<scalar_t>& A,
           TriangularFactors<scalar_t>& T,
           Matrix<scalar_t>& BX,
-          const std::map<Option, Value>& opts);
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
 // geqrf

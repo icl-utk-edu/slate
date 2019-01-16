@@ -93,6 +93,9 @@ public:
     Value()
     {}
 
+    Value(int i) : i_(i)
+    {}
+
     Value(int64_t i) : i_(i)
     {}
 

@@ -139,15 +139,15 @@ void geqrf(
                 auto i_index = tile_indices.at(idx);
 
                 // if diagonal tile
-                if (i_index == 0) {
+                if (i_index == tile_indices.at(0)) {
                     if (j+1 < tile.mb())
-                        lapack::lassq(tile.mb()-j-1, &tile.at(j+1, j), 1,
-                                      &scale[thread_rank], &sumsq[thread_rank]);
+                        lassq(tile.mb()-j-1, &tile.at(j+1, j), 1,
+                              &scale[thread_rank], &sumsq[thread_rank]);
                 }
                 // off diagonal tile
                 else {
-                    lapack::lassq(tile.mb(), &tile.at(0, j), 1,
-                                  &scale[thread_rank], &sumsq[thread_rank]);
+                    lassq(tile.mb(), &tile.at(0, j), 1,
+                          &scale[thread_rank], &sumsq[thread_rank]);
                 }
             }
             thread_barrier.wait(thread_size);
@@ -165,7 +165,7 @@ void geqrf(
             thread_barrier.wait(thread_size);
 
             real_t beta =
-                -std::copysign(lapack::lapy3(alphr, alphi, xnorm), alphr);
+                -std::copysign(lapy3(alphr, alphi, xnorm), alphr);
             // todo: IF( ABS( BETA ).LT.SAFMIN ) THEN
 
             // todo: Use overflow-safe division (see CLADIV/ZLADIV)
@@ -187,34 +187,34 @@ void geqrf(
                 scalar_t gemv_beta = idx == thread_rank ? 0.0 : 1.0;
 
                 // column scaling
-                if (i_index == 0) {
+                if (i_index == tile_indices.at(0)) {
                     // diagonal tile
                     if (j+1 < tile.mb())
-                        blas::scal(tile.mb()-j-1,
-                                   scal_alpha, &tile.at(j+1, j), 1);
+                        scal(tile.mb()-j-1,
+                             scal_alpha, &tile.at(j+1, j), 1);
                 }
                 else {
                     // off diagonal tiles
-                    blas::scal(tile.mb(), scal_alpha, &tile.at(0, j), 1);
+                    scal(tile.mb(), scal_alpha, &tile.at(0, j), 1);
                 }
 
                 // thread local W
                 if (j+1 < diag_len) {
-                    if (i_index == 0) {
+                    if (i_index == tile_indices.at(0)) {
                         // diagonal tile
-                        blas::gemv(Layout::ColMajor, Op::ConjTrans,
-                                   tile.mb()-j, k+kb-j-1,
-                                   scalar_t(1.0), &tile.at(j, j+1), tile.stride(),
-                                                  &tile.at(j, j), 1,
-                                   gemv_beta,     W.at(thread_rank).data(), 1);
+                        gemv(Layout::ColMajor, Op::ConjTrans,
+                             tile.mb()-j, k+kb-j-1,
+                             scalar_t(1.0), &tile.at(j, j+1), tile.stride(),
+                                            &tile.at(j, j), 1,
+                             gemv_beta,     W.at(thread_rank).data(), 1);
                     }
                     else {
                         // off diagonal tile
-                        blas::gemv(Layout::ColMajor, Op::ConjTrans,
-                                   tile.mb(), k+kb-j-1,
-                                   scalar_t(1.0), &tile.at(0, j+1), tile.stride(),
-                                                  &tile.at(0, j), 1,
-                                   gemv_beta,     W.at(thread_rank).data(), 1);
+                        gemv(Layout::ColMajor, Op::ConjTrans,
+                             tile.mb(), k+kb-j-1,
+                             scalar_t(1.0), &tile.at(0, j+1), tile.stride(),
+                                            &tile.at(0, j), 1,
+                             gemv_beta,     W.at(thread_rank).data(), 1);
                     }
                 }
             }
@@ -240,21 +240,21 @@ void geqrf(
                     auto tile = tiles.at(idx);
                     auto i_index = tile_indices.at(idx);
 
-                    if (i_index == 0) {
+                    if (i_index == tile_indices.at(0)) {
                         // diagonal tile
-                        blas::ger(Layout::ColMajor,
-                                  tile.mb()-j, k+kb-j-1,
-                                  ger_alpha, &tile.at(j, j), 1,
-                                             W.at(0).data(), 1,
-                                             &tile.at(j, j+1), tile.stride());
+                        ger(Layout::ColMajor,
+                            tile.mb()-j, k+kb-j-1,
+                            ger_alpha, &tile.at(j, j), 1,
+                                       W.at(0).data(), 1,
+                                       &tile.at(j, j+1), tile.stride());
                     }
                     else {
                         // off diagonal tile
-                        blas::ger(Layout::ColMajor,
-                                  tile.mb(), k+kb-j-1,
-                                  ger_alpha, &tile.at(0, j), 1,
-                                             W.at(0).data(), 1,
-                                             &tile.at(0, j+1), tile.stride());
+                        ger(Layout::ColMajor,
+                            tile.mb(), k+kb-j-1,
+                            ger_alpha, &tile.at(0, j), 1,
+                                       W.at(0).data(), 1,
+                                       &tile.at(0, j+1), tile.stride());
                     }
                 }
             }
@@ -275,23 +275,22 @@ void geqrf(
                 auto i_index = tile_indices.at(idx);
                 scalar_t gemm_beta = idx == thread_rank ? 0.0 : 1.0;
 
-                if (i_index == 0) {
+                if (i_index == tile_indices.at(0)) {
                     // diagonal tile
                     // accumulating in T
                     if (k+kb < tile.mb()) {
-                        blas::gemm(
-                            Layout::ColMajor,
-                            Op::ConjTrans, Op::NoTrans,
-                            k, kb, tile.mb()-k-kb,
-                            scalar_t(1.0), &tile.at(k+kb, 0), tile.stride(),
-                                           &tile.at(k+kb, k), tile.stride(),
-                            gemm_beta,     &T.at(0, k), T.stride());
+                        gemm(Layout::ColMajor,
+                             Op::ConjTrans, Op::NoTrans,
+                             k, kb, tile.mb()-k-kb,
+                             scalar_t(1.0), &tile.at(k+kb, 0), tile.stride(),
+                                            &tile.at(k+kb, k), tile.stride(),
+                             gemm_beta,     &T.at(0, k), T.stride());
                     }
                     else{
                         // set this block column to zero, for later updates.
-                        lapack::laset(lapack::MatrixType::General, k, kb,
-                                      scalar_t(0), scalar_t(0),
-                                      &T.at(0, k), T.stride());
+                        laset(lapack::MatrixType::General, k, kb,
+                              scalar_t(0), scalar_t(0),
+                              &T.at(0, k), T.stride());
                     }
                 }
                 else {
@@ -309,12 +308,12 @@ void geqrf(
                         c_stride = k;
                     }
 
-                    blas::gemm(Layout::ColMajor,
-                               Op::ConjTrans, Op::NoTrans,
-                               k, kb, tile.mb(),
-                               scalar_t(1.0), &tile.at(0, 0), tile.stride(),
-                                              &tile.at(0, k), tile.stride(),
-                               gemm_beta,     gemm_c, c_stride);
+                    gemm(Layout::ColMajor,
+                         Op::ConjTrans, Op::NoTrans,
+                         k, kb, tile.mb(),
+                         scalar_t(1.0), &tile.at(0, 0), tile.stride(),
+                                        &tile.at(0, k), tile.stride(),
+                         gemm_beta,     gemm_c, c_stride);
                 }
             }
             thread_barrier.wait(thread_size);
@@ -328,7 +327,7 @@ void geqrf(
 
                 // scaling by tau
                 for (int64_t j = k; j < k+kb; ++j) {
-                    blas::scal(k, -taus.at(j), &T.at(0, j), 1);
+                    scal(k, -taus.at(j), &T.at(0, j), 1);
                 }
             }
             thread_barrier.wait(thread_size);
@@ -339,11 +338,11 @@ void geqrf(
                 for (int64_t j = k; j < k+kb; ++j) {
                     auto& tile = diag_tile;
                     tile.at(j, j) = scalar_t(1.0);
-                    blas::gemv(Layout::ColMajor, Op::ConjTrans,
-                               k+kb-j, k,
-                               -taus.at(j),   &tile.at(j, 0), tile.stride(),
-                                              &tile.at(j, j), 1,
-                               scalar_t(1.0), &T.at(0, j), 1);
+                    gemv(Layout::ColMajor, Op::ConjTrans,
+                         k+kb-j, k,
+                         -taus.at(j),   &tile.at(j, 0), tile.stride(),
+                                        &tile.at(j, j), 1,
+                         scalar_t(1.0), &T.at(0, j), 1);
                 }
             }
             thread_barrier.wait(thread_size);
@@ -359,15 +358,15 @@ void geqrf(
             auto i_index = tile_indices.at(idx);
             scalar_t gemv_beta = idx == thread_rank ? 0.0 : 1.0;
 
-            if (i_index == 0) {
+            if (i_index == tile_indices.at(0)) {
                 // diagonal tile
                 // accumulating in T
                 for (int64_t j = k; j < k+kb; ++j) {
-                    blas::gemv(Layout::ColMajor, Op::ConjTrans,
-                               tile.mb()-j, j-k,
-                               -taus.at(j), &tile.at(j, k), tile.stride(),
-                                            &tile.at(j, j), 1,
-                               gemv_beta,   &T.at(k, j), 1);
+                    gemv(Layout::ColMajor, Op::ConjTrans,
+                         tile.mb()-j, j-k,
+                         -taus.at(j), &tile.at(j, k), tile.stride(),
+                                      &tile.at(j, j), 1,
+                         gemv_beta,   &T.at(k, j), 1);
                 }
             }
             else {
@@ -382,11 +381,11 @@ void geqrf(
                     else
                         gemv_y = &W.at(thread_rank).data()[(j-k)*kb];
 
-                    blas::gemv(Layout::ColMajor, Op::ConjTrans,
-                               tile.mb(), j-k,
-                               -taus.at(j), &tile.at(0, k), tile.stride(),
-                                            &tile.at(0, j), 1,
-                               gemv_beta,   gemv_y, 1);
+                    gemv(Layout::ColMajor, Op::ConjTrans,
+                         tile.mb(), j-k,
+                         -taus.at(j), &tile.at(0, k), tile.stride(),
+                                      &tile.at(0, j), 1,
+                         gemv_beta,   gemv_y, 1);
                 }
             }
         }
@@ -408,27 +407,27 @@ void geqrf(
 
             //------------------------------------------
             // T(1:i-1,i) := T(1:i-1,1:i-1) * T(1:i-1,i)
-            blas::trmm(Layout::ColMajor,
-                       Side::Left, Uplo::Upper,
-                       Op::NoTrans, Diag::NonUnit,
-                       k, kb,
-                       scalar_t(1.0), &T.at(0, 0), T.stride(),
-                                      &T.at(0, k), T.stride());
+            trmm(Layout::ColMajor,
+                 Side::Left, Uplo::Upper,
+                 Op::NoTrans, Diag::NonUnit,
+                 k, kb,
+                 scalar_t(1.0), &T.at(0, 0), T.stride(),
+                                &T.at(0, k), T.stride());
 
             for (int64_t j = k; j < k+kb; ++j) {
-                blas::gemv(Layout::ColMajor, Op::NoTrans,
-                           k, j-k,
-                           scalar_t(1.0), &T.at(0, k), T.stride(),
-                                          &T.at(k, j), 1,
-                           scalar_t(1.0), &T.at(0, j), 1);
+                gemv(Layout::ColMajor, Op::NoTrans,
+                     k, j-k,
+                     scalar_t(1.0), &T.at(0, k), T.stride(),
+                                    &T.at(k, j), 1,
+                     scalar_t(1.0), &T.at(0, j), 1);
             }
 
             for (int64_t j = k; j < k+kb; ++j) {
-                blas::trmv(Layout::ColMajor,
-                           Uplo::Upper, Op::NoTrans, Diag::NonUnit,
-                           j-k,
-                           &T.at(k, k), T.stride(),
-                           &T.at(k, j), 1);
+                trmv(Layout::ColMajor,
+                     Uplo::Upper, Op::NoTrans, Diag::NonUnit,
+                     j-k,
+                     &T.at(k, k), T.stride(),
+                     &T.at(k, j), 1);
             }
 
             // Put betas on the diagonal of V.
@@ -451,7 +450,7 @@ void geqrf(
                 auto i_index = tile_indices.at(idx);
                 scalar_t gemm_beta = idx == thread_rank ? 0.0 : 1.0;
 
-                if (i_index == 0) {
+                if (i_index == tile_indices.at(0)) {
                     // W <- C1'
                     for (int64_t j = 0; j < nb-k-kb; ++j)
                         for (int64_t i = 0; i < kb; ++i)
@@ -459,36 +458,31 @@ void geqrf(
                                 conj(tile.at(k+i, k+kb+j));
 
                     // W = W*V1
-                    blas::trmm(
-                        Layout::ColMajor,
-                        Side::Right, Uplo::Lower,
-                        Op::NoTrans, Diag::Unit,
-                        nb-k-kb, kb,
-                        scalar_t(1.0), &tile.at(k, k), tile.stride(),
-                                       W.at(thread_rank).data(), nb-k-kb);
+                    trmm(Layout::ColMajor,
+                         Side::Right, Uplo::Lower,
+                         Op::NoTrans, Diag::Unit,
+                         nb-k-kb, kb,
+                         scalar_t(1.0), &tile.at(k, k), tile.stride(),
+                                        W.at(thread_rank).data(), nb-k-kb);
 
                     // W = W + C2'*V2
                     if (k+kb < tile.mb()) {
-                        blas::gemm(
-                            Layout::ColMajor,
-                            Op::ConjTrans, Op::NoTrans,
-                            nb-k-kb, kb, tile.mb()-k-kb,
-                            scalar_t(1.0),
-                                &tile.at(k+kb, k+kb), tile.stride(),
-                                &tile.at(k+kb, k), tile.stride(),
-                            scalar_t(1.0),
-                                W.at(thread_rank).data(), nb-k-kb);
+                        gemm(Layout::ColMajor,
+                             Op::ConjTrans, Op::NoTrans,
+                             nb-k-kb, kb, tile.mb()-k-kb,
+                             scalar_t(1.0), &tile.at(k+kb, k+kb), tile.stride(),
+                                            &tile.at(k+kb, k), tile.stride(),
+                             scalar_t(1.0), W.at(thread_rank).data(), nb-k-kb);
                     }
                 }
                 else {
                     // W = W + C2'*V2
-                    blas::gemm(
-                        Layout::ColMajor,
-                        Op::ConjTrans, Op::NoTrans,
-                        nb-k-kb, kb, tile.mb(),
-                        scalar_t(1.0), &tile.at(0, k+kb), tile.stride(),
-                                       &tile.at(0, k), tile.stride(),
-                        gemm_beta,     W.at(thread_rank).data(), nb-k-kb);
+                    gemm(Layout::ColMajor,
+                         Op::ConjTrans, Op::NoTrans,
+                         nb-k-kb, kb, tile.mb(),
+                         scalar_t(1.0), &tile.at(0, k+kb), tile.stride(),
+                                        &tile.at(0, k), tile.stride(),
+                         gemm_beta,     W.at(thread_rank).data(), nb-k-kb);
                 }
             }
             thread_barrier.wait(thread_size);
@@ -503,11 +497,11 @@ void geqrf(
                                               W.at(0).data(), 1);
 
                 // trmm
-                blas::trmm(Layout::ColMajor,
-                           Side::Right, Uplo::Upper, Op::NoTrans, Diag::NonUnit,
-                           nb-k-kb, kb,
-                           scalar_t(1.0), &T.at(k, k), T.stride(),
-                                          W.at(thread_rank).data(), nb-k-kb);
+                trmm(Layout::ColMajor,
+                     Side::Right, Uplo::Upper, Op::NoTrans, Diag::NonUnit,
+                     nb-k-kb, kb,
+                     scalar_t(1.0), &T.at(k, k), T.stride(),
+                                    W.at(thread_rank).data(), nb-k-kb);
             }
             thread_barrier.wait(thread_size);
 
@@ -520,28 +514,26 @@ void geqrf(
                 auto tile = tiles.at(idx);
                 auto i_index = tile_indices.at(idx);
 
-                if (i_index == 0) {
+                if (i_index == tile_indices.at(0)) {
                     // diagonal tile
                     if (k+kb < tile.mb()) {
-                        blas::gemm(
-                           Layout::ColMajor,
-                           Op::NoTrans, Op::ConjTrans,
-                           tile.mb()-k-kb, nb-k-kb, kb,
-                           scalar_t(-1.0), &tile.at(k+kb, k), tile.stride(),
-                                           W.at(0).data(), nb-k-kb,
-                           scalar_t(1.0),  &tile.at(k+kb, k+kb), tile.stride());
+                        gemm(Layout::ColMajor,
+                             Op::NoTrans, Op::ConjTrans,
+                             tile.mb()-k-kb, nb-k-kb, kb,
+                             scalar_t(-1.0), &tile.at(k+kb, k), tile.stride(),
+                                             W.at(0).data(), nb-k-kb,
+                             scalar_t(1.0),  &tile.at(k+kb, k+kb), tile.stride());
                     }
                 }
                 else
                 {
                     // off diagonal tile
-                    blas::gemm(
-                       Layout::ColMajor,
-                       Op::NoTrans, Op::ConjTrans,
-                       tile.mb(), nb-k-kb, kb,
-                       scalar_t(-1.0), &tile.at(0, k), tile.stride(),
-                                       W.at(0).data(), nb-k-kb,
-                       scalar_t(1.0),  &tile.at(0, k+kb), tile.stride());
+                    gemm(Layout::ColMajor,
+                         Op::NoTrans, Op::ConjTrans,
+                         tile.mb(), nb-k-kb, kb,
+                         scalar_t(-1.0), &tile.at(0, k), tile.stride(),
+                                         W.at(0).data(), nb-k-kb,
+                         scalar_t(1.0),  &tile.at(0, k+kb), tile.stride());
                 }
             }
             thread_barrier.wait(thread_size);
@@ -552,11 +544,11 @@ void geqrf(
             if (thread_rank == 0) {
                 // W = W*V1'
                 auto& tile = diag_tile;
-                blas::trmm(Layout::ColMajor,
-                           Side::Right, Uplo::Lower, Op::ConjTrans, Diag::Unit,
-                           nb-k-kb, kb,
-                           scalar_t(1.0), &tile.at(k, k), tile.stride(),
-                                          W.at(thread_rank).data(), nb-k-kb);
+                trmm(Layout::ColMajor,
+                     Side::Right, Uplo::Lower, Op::ConjTrans, Diag::Unit,
+                     nb-k-kb, kb,
+                     scalar_t(1.0), &tile.at(k, k), tile.stride(),
+                                    W.at(thread_rank).data(), nb-k-kb);
 
                 // C1 = C1 - W'
                 for (int64_t j = 0; j < nb-k-kb; ++j)

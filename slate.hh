@@ -381,6 +381,14 @@ void getrs(Matrix<scalar_t>& A, Pivots& pivots,
 template <typename scalar_t>
 using TriangularFactors = std::vector< Matrix<scalar_t> >;
 
+// gels
+template <typename scalar_t>
+void gels(Matrix<scalar_t>& A,
+          TriangularFactors<scalar_t>& T,
+          Matrix<scalar_t>& BX,
+          const std::map<Option, Value>& opts);
+
+//-----------------------------------------
 // geqrf
 template <typename scalar_t>
 void geqrf(Matrix<scalar_t>& A,

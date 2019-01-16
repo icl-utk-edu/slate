@@ -48,66 +48,49 @@ namespace internal {
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// Triangular matrix multiply.
+/// General matrix add.
 /// Dispatches to target implementations.
 template <Target target, typename scalar_t>
-void trmm(Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>&& A,
-                                    Matrix<scalar_t>&& B,
-          int priority)
+void geadd(scalar_t alpha, Matrix<scalar_t>&& A,
+           scalar_t beta, Matrix<scalar_t>&& B,
+           int priority)
 {
-    trmm(internal::TargetType<target>(),
-         side,
-         alpha, A,
-                B,
-         priority);
+    geadd(internal::TargetType<target>(),
+          alpha, A,
+          beta,  B,
+          priority);
 }
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// Triangular matrix multiply.
+/// General matrix add.
+/// assumes A & B have same tile layout and dimensions, and have same distribution
+/// TODO handle transpose A case
 /// Host OpenMP task implementation.
 template <typename scalar_t>
-void trmm(internal::TargetType<Target::HostTask>,
-          Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                    Matrix<scalar_t>& B,
-          int priority)
+void geadd(internal::TargetType<Target::HostTask>,
+           scalar_t alpha, Matrix<scalar_t>& A,
+           scalar_t beta, Matrix<scalar_t>& B,
+           int priority)
 {
-    assert(A.mt() == 1);
+    // trace::Block trace_block("geadd");
 
-    // alternatively, if (side == right), (conj)-transpose both A and B,
-    // then assume side == left; see slate::trmm
-    if (side == Side::Right) {
-        assert(B.nt() == 1);
-        for (int64_t i = 0; i < B.mt(); ++i) {
-            if (B.tileIsLocal(i, 0)) {
-                #pragma omp task shared(A, B)
+    int64_t A_mt = A.mt();
+    int64_t A_nt = A.nt();
+    assert(A_mt == B.mt());
+    assert(A_nt == B.nt());
+
+    for (int64_t i = 0; i < A_mt; ++i) {
+        for (int64_t j = 0; j < A_nt; ++j) {
+            if (B.tileIsLocal(i, j)) {
+                #pragma omp task shared(A, B) priority(priority)
                 {
-                    A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
-                    B.tileMoveToHost(i, 0, B.tileDevice(i, 0));
-                    trmm(side, A.diag(),
-                         alpha, A(0, 0),
-                                B(i, 0));
-                    B.tileState(i, 0, MOSI::Modified);
-                    A.tileTick(0, 0);
-                }
-            }
-        }
-    }
-    else {
-        assert(B.mt() == 1);
-        for (int64_t j = 0; j < B.nt(); ++j) {
-            if (B.tileIsLocal(0, j)) {
-                #pragma omp task shared(A, B)
-                {
-                    A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
-                    B.tileMoveToHost(0, j, B.tileDevice(0, j));
-                    trmm(side, A.diag(),
-                         alpha, A(0, 0),
-                                B(0, j));
-                    B.tileState(0, j, MOSI::Modified);
-                    A.tileTick(0, 0);
+                    A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                    B.tileMoveToHost(i, j, B.tileDevice(i, j));
+                    axby(alpha, A(i, j),
+                         beta,  B(i, j));
+                    B.tileState(i, j, MOSI::Modified);
+                    A.tileTick(i, j);// TODO is this correct here?
                 }
             }
         }
@@ -120,34 +103,30 @@ void trmm(internal::TargetType<Target::HostTask>,
 // Explicit instantiations.
 // ----------------------------------------
 template
-void trmm<Target::HostTask, float>(
-    Side side,
-    float alpha, TriangularMatrix<float>&& A,
-                           Matrix<float>&& B,
+void geadd<Target::HostTask, float>(
+    float alpha, Matrix<float>&& A,
+    float beta, Matrix<float>&& B,
     int priority);
 
 // ----------------------------------------
 template
-void trmm<Target::HostTask, double>(
-    Side side,
-    double alpha, TriangularMatrix<double>&& A,
-                            Matrix<double>&& B,
+void geadd<Target::HostTask, double>(
+    double alpha, Matrix<double>&& A,
+    double beta, Matrix<double>&& B,
     int priority);
 
 // ----------------------------------------
 template
-void trmm< Target::HostTask, std::complex<float> >(
-    Side side,
-    std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
-                                         Matrix< std::complex<float> >&& B,
+void geadd< Target::HostTask, std::complex<float> >(
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+    std::complex<float>  beta, Matrix< std::complex<float> >&& B,
     int priority);
 
 // ----------------------------------------
 template
-void trmm< Target::HostTask, std::complex<double> >(
-    Side side,
-    std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
-                                          Matrix< std::complex<double> >&& B,
+void geadd< Target::HostTask, std::complex<double> >(
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+    std::complex<double> beta, Matrix< std::complex<double> >&& B,
     int priority);
 
 } // namespace internal

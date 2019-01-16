@@ -132,6 +132,11 @@ std::vector< libtest::routines_t > routines = {
     { "",                    nullptr,           Section::newline },
 
     // -----
+    // least squares
+    { "gels",                test_gels,         Section::gels },
+    { "",                    nullptr,           Section::newline },
+
+    // -----
     // QR, LQ, RQ, QL
     { "geqrf",              test_geqrf,     Section::qr },
     //{ "gelqf",              test_gelqf,     Section::qr },
@@ -145,7 +150,7 @@ std::vector< libtest::routines_t > routines = {
     //{ "ungrq",              test_ungrq,     Section::qr },
     //{ "",                   nullptr,        Section::newline },
 
-    //{ "unmqr",              test_unmqr,     Section::qr }, // TODO segfaults
+    //{ "unmqr",              test_unmqr,     Section::qr },
     //{ "unmlq",              test_unmlq,     Section::qr },
     //{ "unmql",              test_unmql,     Section::qr },
     //{ "unmrq",              test_unmrq,     Section::qr },

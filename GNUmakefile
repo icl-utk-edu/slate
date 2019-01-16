@@ -218,6 +218,7 @@ libslate_src += \
 libslate_src += \
         slate_internal_comm.cc \
         slate_internal_gbnorm.cc \
+        slate_internal_geadd.cc \
         slate_internal_gemm.cc \
         slate_internal_gemm_A.cc \
         slate_internal_genorm.cc \
@@ -238,6 +239,7 @@ libslate_src += \
         slate_internal_trsm.cc \
         slate_internal_ttmqr.cc \
         slate_internal_ttqrt.cc \
+        slate_internal_unmqr.cc \
         slate_internal_util.cc \
         slate_internal_transpose.cc \
 
@@ -258,6 +260,7 @@ libslate_src += \
         slate_gbsv.cc \
         slate_gbtrf.cc \
         slate_gbtrs.cc \
+        slate_gels.cc \
         slate_gemm.cc \
         slate_gesv.cc \
         slate_geqrf.cc \
@@ -287,6 +290,7 @@ test_src += \
         test/test_gbmm.cc \
         test/test_gbnorm.cc \
         test/test_gbsv.cc \
+        test/test_gels.cc \
         test/test_gemm.cc \
         test/test_genorm.cc \
         test/test_geqrf.cc \

@@ -77,6 +77,7 @@ void geqrf(internal::TargetType<Target::HostTask>,
             #pragma omp task shared(A) priority(priority)
             {
                 A.tileMoveToHost(i, 0, A.tileDevice(i, 0));
+                A.tileState(i, 0, MOSI::Modified);
             }
         }
     }
@@ -104,8 +105,10 @@ void geqrf(internal::TargetType<Target::HostTask>,
         if (int(tiles.size()) < max_panel_threads)
             thread_size = tiles.size();
 
-        T.tileInsert(0, 0);
-        auto T00 = T(0, 0);
+        T.tileInsert(tile_indices[0], 0);
+        T.tileState(tile_indices[0], 0, MOSI::Modified);
+        auto T00 = T(tile_indices[0], 0);
+
         ThreadBarrier thread_barrier;
         std::vector<real_t> scale(thread_size);
         std::vector<real_t> sumsq(thread_size);

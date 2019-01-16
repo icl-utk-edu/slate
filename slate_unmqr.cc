@@ -61,13 +61,22 @@ void unmqr(
     Side side, Op op,
     Matrix<scalar_t>& A,
     TriangularFactors<scalar_t>& T,
-    Matrix<scalar_t>& C,
-    int64_t ib, int64_t lookahead)
+    Matrix<scalar_t>& C)
 {
-    const int priority_one = 1;
+    // trace::Block trace_block("unmqr");
+    // const int priority_one = 1;
+    using BcastList = typename Matrix<scalar_t>::BcastList;
 
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
+    int64_t A_min_mtnt = std::min(A_mt, A_nt);
+    int64_t C_mt = C.mt();
+    int64_t C_nt = C.nt();
+
+    if (target == Target::Devices) {
+        C.allocateBatchArrays();
+        C.reserveDeviceWorkspace();
+    }
 
     assert(T.size() == 2);
     auto Tlocal  = T[0];
@@ -80,28 +89,108 @@ void unmqr(
     #pragma omp parallel
     #pragma omp master
     {
+        omp_set_nested(1);
         if (side == Side::Left) {
+
+            // Reserve workspace
+            auto W = C.emptyLike();
+
+            if (target == Target::Devices) {
+                W.allocateBatchArrays();
+                W.reserveDeviceWorkspace();
+            }
+
             if (op == Op::NoTrans) {
                 // NoTrans: multiply by Q = Q_1 ... Q_K,
                 // i.e., in reverse order of how Q_k's were created.
 
                 // for k = A_nt-1, lastk = A_nt-1 (no previous column to depend on);
                 // for k < A_nt,   lastk = k + 1.
-                int64_t lastk = A_nt-1;
-                for (int64_t k = A_nt-1; k >= 0; --k) {
-                    const int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
+                int64_t lastk = A_min_mtnt-1;
+                for (int64_t k = A_min_mtnt-1; k >= 0; --k) {
+
+                    auto A_panel = A.sub(k, A_mt-1, k, k);
+
+                    // Find ranks in this column.
+                    std::set<int> ranks_set;
+                    A_panel.getRanks(&ranks_set);
+
+                    assert(ranks_set.size() > 0);
+
+                    // Find each rank's top-most row in this panel,
+                    // where the triangular tile resulting from local geqrf panel will reside.
+                    std::vector< int64_t > top_rows;
+                    top_rows.reserve(ranks_set.size());
+                    for (int r: ranks_set) {
+                        for (int64_t i = 0; i < A_panel.mt(); ++i) {
+                            if (A_panel.tileRank(i, 0) == r) {
+                                top_rows.push_back(i+k);
+                                break;
+                            }
+                        }
+                    }
+                    int64_t min_row = k;
 
                     #pragma omp task depend(inout:column[k]) \
                                      depend(in:column[lastk])
                     {
+
+                        // bcast V across row of C
+                        BcastList bcast_list_V_top;
+                        BcastList bcast_list_V;
+                        for (int64_t i = k; i < A_mt; ++i) {
+                            // send A(i, k) across row C(i, 0:nt-1)
+                            if (std::find(top_rows.begin(), top_rows.end(), i) != top_rows.end() && i > min_row)
+                                bcast_list_V_top.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
+                            else
+                                bcast_list_V.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
+                        }
+                        A.template listBcast(bcast_list_V_top, 0, Layout::ColMajor, 3);// TODO is column major safe?
+                        A.template listBcast(bcast_list_V, 0, Layout::ColMajor, 2);
+
+                        // bcast Tlocal across row of C
+                        if (top_rows.size() > 0){
+                            BcastList bcast_list_T;
+                            for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
+                                int64_t row = *it;
+                                bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
+                            }
+                            Tlocal.template listBcast(bcast_list_T);
+                        }
+
+                        // bcast Treduce across row of C
+                        if (top_rows.size() > 1){
+                            BcastList bcast_list_T;
+                            for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
+                                int64_t row = *it;
+                                if(row > min_row)//exclude the first row of this panel that has no Treduce tile
+                                    bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
+                            }
+                            Treduce.template listBcast(bcast_list_T);
+                        }
+
+                        // //
+                        // if (target == Target::Devices){
+                        //     for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
+                        //         int64_t row = *it;
+                        //         C.sub(row, row, 0, C_nt-1).moveAllToHost();
+                        //     }
+                        // }
+
                         // Apply triangle-triangle reduction reflectors
-                        internal::ttmqr(side, op,
-                                        A.sub(k, A_mt-1, k, k),
+                        internal::ttmqr<Target::HostTask>(
+                                        side, op,
+                                        std::move(A_panel),
                                         Treduce.sub(k, A_mt-1, k, k),
-                                        C.sub(k, A_mt-1, 0, C.nt()-1));
+                                        C.sub(k, C_mt-1, 0, C_nt-1));
 
                         // Apply local reflectors
-                        // TODO unmqr
+                        internal::unmqr<target>(
+                                        side, op,
+                                        std::move(A_panel),
+                                        Tlocal.sub(k, A_mt-1, k, k),
+                                        C.sub(k, C_mt-1, 0, C_nt-1),
+                                        W.sub(k, C_mt-1, 0, C_nt-1));
                     }
 
                     lastk = k;
@@ -114,17 +203,83 @@ void unmqr(
                 // for k = 0, lastk = 0 (no previous column to depend on);
                 // for k > 0, lastk = k - 1.
                 int64_t lastk = 0;
-                for (int64_t k = 0; k < A_nt; ++k) {
-                    const int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
+                for (int64_t k = 0; k < A_min_mtnt; ++k) {
 
-                    // Apply local reflectors
-                    // TODO unmqr
+                    auto A_panel = A.sub(k, A_mt-1, k, k);
 
-                    // Apply triangle-triangle reduction reflectors
-                    // TODO ttmqr
+                    // Find ranks in this column.
+                    std::set<int> ranks_set;
+                    A_panel.getRanks(&ranks_set);
 
+                    assert(ranks_set.size() > 0);
+
+                    // Find each rank's top-most row in this panel,
+                    // where the triangular tile resulting from local geqrf panel will reside.
+                    std::vector< int64_t > top_rows;
+                    top_rows.reserve(ranks_set.size());
+                    for (int r: ranks_set) {
+                        for (int64_t i = 0; i < A_panel.mt(); ++i) {
+                            if (A_panel.tileRank(i, 0) == r) {
+                                top_rows.push_back(i+k);
+                                break;
+                            }
+                        }
+                    }
+                    int64_t min_row = k;
+
+                    #pragma omp task depend(inout:column[k]) \
+                                     depend(in:column[lastk])
+                    {
+
+                        // bcast V across row of C
+                        BcastList bcast_list_V_top;
+                        BcastList bcast_list_V;
+                        for (int64_t i = k; i < A_mt; ++i) {
+                            // send A(i, k) across row C(i, 0:nt-1)
+                            // top_rows' V's (except the top-most one) need three lives
+                            if (std::find(top_rows.begin(), top_rows.end(), i) != top_rows.end() && i > min_row)
+                                bcast_list_V_top.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
+                            else
+                                bcast_list_V.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
+                        }
+                        A.template listBcast(bcast_list_V_top, 0, Layout::ColMajor, 3);// TODO is column major safe?
+                        A.template listBcast(bcast_list_V, 0, Layout::ColMajor, 2);
+
+                        // bcast Tlocal across row of C
+                        BcastList bcast_list_T;
+                        for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
+                            int64_t row = *it;
+                            bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
+                        }
+                        Tlocal.template listBcast(bcast_list_T);
+
+                        // bcast Treduce across row of C
+                        if (top_rows.size() > 1){
+                            BcastList bcast_list_T;
+                            for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
+                                int64_t row = *it;
+                                if(row > min_row)//exclude the first row of this panel that has no Treduce tile
+                                    bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
+                            }
+                            Treduce.template listBcast(bcast_list_T);
+                        }
+
+                        // Apply local reflectors
+                        internal::unmqr<target>(
+                                        side, op,
+                                        std::move(A_panel),
+                                        Tlocal.sub(k, A_mt-1, k, k),
+                                        C.sub(k, C_mt-1, 0, C_nt-1),
+                                        W.sub(k, C_mt-1, 0, C_nt-1));
+
+                        // Apply triangle-triangle reduction reflectors
+                        internal::ttmqr<Target::HostTask>(
+                                        side, op,
+                                        std::move(A_panel),
+                                        Treduce.sub(k, A_mt-1, k, k),
+                                        C.sub(k, C_mt-1, 0, C_nt-1));
+                    }
                     lastk = k;
-                    assert(lastk == k);  // TMP to silence unused variable warnings
                 }
             }
         }
@@ -132,6 +287,8 @@ void unmqr(
             // TODO: side == Side::Right
         }
     }
+    C.moveAllToOrigin();
+    C.clearWorkspace();
 }
 
 } // namespace specialization
@@ -148,19 +305,8 @@ void unmqr(
     Matrix<scalar_t>& C,
     const std::map<Option, Value>& opts)
 {
-    int64_t ib = 16;
-    if (opts.count(Option::InnerBlocking) > 0)
-        ib = opts.at(Option::InnerBlocking).i_;
-    assert(ib >= 0);
-
-    int64_t lookahead = 1;
-    if (opts.count(Option::Lookahead) > 0)
-        lookahead = opts.at(Option::Lookahead).i_;
-    assert(lookahead >= 0);
-
     internal::specialization::unmqr(internal::TargetType<target>(),
-                                    side, op, A, T, C,
-                                    ib, lookahead);
+                                    side, op, A, T, C);
 }
 
 //------------------------------------------------------------------------------

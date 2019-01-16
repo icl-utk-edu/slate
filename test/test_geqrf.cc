@@ -159,7 +159,6 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
                              work.data(), lwork, &info_ref);
             assert(info_ref == 0);
         #endif
-
         //--------------------------------------------------
         {
             slate::trace::Block trace_block("MPI_Barrier");
@@ -175,7 +174,6 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
 
         if (verbose > 1) {
             print_matrix( "A_factored", A );
-            // todo: print T, which is block-sparse
         }
     }
 
@@ -213,7 +211,9 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
 
         // Form QR, where Q's representation is in A and T, and R is in QR.
         #if 1
-            slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, T, QR);
+            slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, T, QR, {
+                {slate::Option::Target, target}
+            });
         #else
             // TMP: call scalapack
             int64_t info_ref = 0;
@@ -226,7 +226,6 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
 
         if (verbose > 1) {
             print_matrix( "QR", QR );
-            print_matrix( "A", Aref );
         }
 
         // Form QR - A, where A is in Aref.
@@ -238,11 +237,11 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
             print_matrix( "QR - A", QR );
         }
 
-        // Norm of backwards error: || QA - R ||_1
+        // Norm of backwards error: || QR - A ||_1
         real_t R_norm = slate::norm(slate::Norm::One, QR);
+
         double residual = R_norm / (m*A_norm);
         params.error() = residual;
-
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= tol);
     }

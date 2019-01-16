@@ -107,6 +107,7 @@ void syr2k(internal::TargetType<Target::HostTask>,
                             syr2k(alpha, A(j, 0),
                                          B(j, 0),
                                   beta,  C(j, j));
+                            C.tileState(j, j, MOSI::Modified);
                             A.tileTick(j, 0);
                             B.tileTick(j, 0);
                         }
@@ -132,6 +133,7 @@ void syr2k(internal::TargetType<Target::HostTask>,
                             gemm(alpha, B(i, 0),
                                         transpose(Aj0),
                                  scalar_t(1.0), C(i, j));
+                            C.tileState(i, j, MOSI::Modified);
                             A.tileTick(i, 0);
                             A.tileTick(j, 0);
                             B.tileTick(i, 0);
@@ -177,6 +179,7 @@ void syr2k(internal::TargetType<Target::HostNest>,
                     syr2k(alpha, A(j, 0),
                                  B(j, 0),
                           beta,  C(j, j));
+                    C.tileState(j, j, MOSI::Modified);
                     A.tileTick(j, 0);
                     B.tileTick(j, 0);
                 }
@@ -208,6 +211,7 @@ void syr2k(internal::TargetType<Target::HostNest>,
                         gemm(alpha, B(i, 0),
                                     transpose(Aj0),
                              scalar_t(1.0), C(i, j));
+                        C.tileState(i, j, MOSI::Modified);
                         A.tileTick(i, 0);
                         A.tileTick(j, 0);
                         B.tileTick(i, 0);
@@ -252,6 +256,7 @@ void syr2k(internal::TargetType<Target::HostBatch>,
                     syr2k(alpha, A(j, 0),
                                  B(j, 0),
                           beta,  C(j, j));
+                    C.tileState(j, j, MOSI::Modified);
                     A.tileTick(j, 0);
                     B.tileTick(j, 0);
                 }
@@ -388,6 +393,7 @@ void syr2k(internal::TargetType<Target::HostBatch>,
         for (int64_t j = 0; j < C.nt(); ++j) {
             for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                 if (C.tileIsLocal(i, j)) {
+                    C.tileState(i, j, MOSI::Modified);
                     A.tileTick(i, 0);
                     A.tileTick(j, 0);
                     B.tileTick(i, 0);
@@ -696,12 +702,13 @@ void syr2k(internal::TargetType<Target::Devices>,
                     for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
+                                C.tileState(i, j, device, MOSI::Modified);
                                 // erase tmp local and remote device tiles;
-                                // decrement life for remote tiles
                                 A.tileErase(i, 0, device);
                                 A.tileErase(j, 0, device);
                                 B.tileErase(i, 0, device);
                                 B.tileErase(j, 0, device);
+                                // decrement life for remote tiles
                                 A.tileTick(i, 0);
                                 A.tileTick(j, 0);
                                 B.tileTick(i, 0);
@@ -729,6 +736,7 @@ void syr2k(internal::TargetType<Target::Devices>,
                     syr2k(alpha, A(j, 0),
                                  B(j, 0),
                           beta,  C(j, j));
+                    C.tileState(j, j, MOSI::Modified);
                     A.tileTick(j, 0);
                     B.tileTick(j, 0);
                 }

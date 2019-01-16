@@ -25,6 +25,7 @@ void test_genorm_work(Params& params, bool run)
 
     // get & mark input values
     slate::Norm norm = params.norm();
+    slate::Op trans = params.trans();
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
     int64_t nb = params.nb();
@@ -124,6 +125,11 @@ void test_genorm_work(Params& params, bool run)
                 Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     }
 
+    if (trans == slate::Op::Trans)
+        A = transpose(A);
+    else if (trans == slate::Op::ConjTrans)
+        A = conj_transpose(A);
+
     if (verbose > 1) {
         print_matrix("A", A);
     }
@@ -168,30 +174,39 @@ void test_genorm_work(Params& params, bool run)
         // allocate work space
         std::vector<real_t> worklange(std::max(mlocA, nlocA));
 
+        // (Sca)LAPACK norms don't support trans; map One <=> Inf norm.
+        slate::Norm op_norm = norm;
+        if (trans == slate::Op::Trans || trans == slate::Op::ConjTrans) {
+            if (norm == slate::Norm::One)
+                op_norm = slate::Norm::Inf;
+            else if (norm == slate::Norm::Inf)
+                op_norm = slate::Norm::One;
+        }
+
         //==================================================
         // Run ScaLAPACK reference routine.
         //==================================================
         MPI_Barrier(MPI_COMM_WORLD);
         time = libtest::get_wtime();
         real_t A_norm_ref = scalapack_plange(
-                                norm2str(norm),
-                                Am, An, &A_tst[0], ione, ione, descA_tst, &worklange[0]);
+            norm2str(op_norm),
+            Am, An, &A_tst[0], ione, ione, descA_tst, &worklange[0]);
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 
         //A_norm_ref = lapack::lange(
-        //    norm,
+        //    op_norm,
         //    Am, An, &A_tst[0], lldA);
 
         // difference between norms
         real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
-        if (norm == slate::Norm::One) {
+        if (op_norm == slate::Norm::One) {
             error /= sqrt(Am);
         }
-        else if (norm == slate::Norm::Inf) {
+        else if (op_norm == slate::Norm::Inf) {
             error /= sqrt(An);
         }
-        else if (norm == slate::Norm::Fro) {
+        else if (op_norm == slate::Norm::Fro) {
             error /= sqrt(Am*An);
         }
 

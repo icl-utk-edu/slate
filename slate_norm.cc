@@ -60,10 +60,22 @@ namespace specialization {
 template <Target target, typename matrix_type>
 blas::real_type<typename matrix_type::value_type>
 norm(slate::internal::TargetType<target>,
-     Norm in_norm, matrix_type& A)
+     Norm in_norm, matrix_type A)
 {
     using scalar_t = typename matrix_type::value_type;
     using real_t = blas::real_type<scalar_t>;
+
+    // Undo any transpose, which switches one <=> inf norms.
+    if (A.op() == Op::ConjTrans || A.op() == Op::Trans) {
+        if (in_norm == Norm::One)
+            in_norm = Norm::Inf;
+        else if (in_norm == Norm::Inf)
+            in_norm = Norm::One;
+    }
+    if (A.op() == Op::ConjTrans)
+        A = conj_transpose(A);
+    else if (A.op() == Op::Trans)
+        A = transpose(A);
 
     //---------
     // max norm

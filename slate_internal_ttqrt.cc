@@ -60,6 +60,7 @@ void ttqrt(Matrix<scalar_t>&& A,
 
 ///-----------------------------------------------------------------------------
 /// Distributed QR triangle-triangle factorization, host implementation.
+/// assumes panel tiles reside on host
 template <typename scalar_t>
 void ttqrt(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A,
@@ -140,6 +141,9 @@ void ttqrt(internal::TargetType<Target::HostTask>,
                 T.tileInsert(i, 0);
                 int64_t l = std::min(A.tileMb(i), A.tileNb(0));
                 tpqrt(l, A(i_src, 0), A(i, 0), T(i, 0));
+
+                A.tileState(i, 0, MOSI::Modified);
+                T.tileState(i, 0, MOSI::Modified);
 
                 // Send updated tile back. This rank is done!
                 A.tileSend(i_src, 0, src);

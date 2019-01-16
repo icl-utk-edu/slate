@@ -564,6 +564,52 @@ void test_Matrix_tileErase()
     test_assert_throw_std( T = A( i, j ) );
 }
 
+//------------------------------------------------------------------------------
+/// Tests Matrix(), mt, nt, op, insertLocalTiles on host.
+void test_Matrix_insertLocalTiles()
+{
+    slate::Matrix<double> A(m, n, nb, p, q, mpi_comm);
+
+    test_assert(A.mt() == ceildiv(m, nb));
+    test_assert(A.nt() == ceildiv(n, nb));
+    test_assert(A.op() == blas::Op::NoTrans);
+
+    A.insertLocalTiles();
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            if (A.tileIsLocal(i, j)) {
+                auto T = A(i, j);
+                test_assert(T.mb() == A.tileMb(i));
+                test_assert(T.nb() == A.tileNb(j));
+                test_assert(T.stride() == A.tileMb(i));
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Tests Matrix(), mt, nt, op, insertLocalTiles on devices.
+void test_Matrix_insertLocalTiles_dev()
+{
+    slate::Matrix<double> A(m, n, nb, p, q, mpi_comm);
+
+    test_assert(A.mt() == ceildiv(m, nb));
+    test_assert(A.nt() == ceildiv(n, nb));
+    test_assert(A.op() == blas::Op::NoTrans);
+
+    A.insertLocalTiles( true );
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            if (A.tileIsLocal(i, j)) {
+                auto T = A(i, j, A.tileDevice(i, j));
+                test_assert(T.mb() == A.tileMb(i));
+                test_assert(T.nb() == A.tileNb(j));
+                test_assert(T.stride() == A.tileMb(i));
+            }
+        }
+    }
+}
+
 //==============================================================================
 // Sub-matrices and conversions
 
@@ -1120,6 +1166,8 @@ void run_tests()
     run_test(test_Matrix_tileInsert_data, "Matrix::tileInsert(i, j, dev, data, lda)",  mpi_comm);
     run_test(test_Matrix_tileLife,        "Matrix::tileLife",  mpi_comm);
     run_test(test_Matrix_tileErase,       "Matrix::tileErase", mpi_comm);
+    run_test(test_Matrix_insertLocalTiles,     "Matrix::insertLocalTiles()",           mpi_comm);
+    run_test(test_Matrix_insertLocalTiles_dev, "Matrix::insertLocalTiles(on_devices)", mpi_comm);
 
     if (mpi_rank == 0)
         printf("\nSub-matrices and conversions\n");

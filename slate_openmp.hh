@@ -57,17 +57,17 @@ extern "C" {
 int omp_get_initial_device();
 int omp_get_max_threads();
 int omp_get_num_devices();
-int omp_get_thread_num(void);
 int omp_get_num_threads(void);
+int omp_get_thread_num(void);
 
 double omp_get_wtime();
 
 void omp_destroy_lock(omp_lock_t* lock);
 void omp_init_lock(omp_lock_t* lock);
 void omp_set_lock(omp_lock_t* lock);
+void omp_set_nested(int nested);
 void omp_unset_lock(omp_lock_t* lock);
 
-void omp_set_nested(int nested);
 void omp_destroy_nest_lock(omp_nest_lock_t* lock);
 void omp_init_nest_lock(omp_nest_lock_t* lock);
 void omp_set_nest_lock(omp_nest_lock_t* lock);

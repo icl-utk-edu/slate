@@ -146,14 +146,15 @@ void hetrf(slate::internal::TargetType<target>,
         // > T(k, k) := A(k, k)
         if (T.tileIsLocal(k, k)) {
             #pragma omp task depend(in:columnL[std::max(izero, k-1)]) \
-                             depend(out:columnT[k]) 
+                             depend(out:columnT[k])
             {
                 //printf( " >> copy A(%ld, %ld) into T(%ld, %ld) <<\n", k, k, k, k); fflush(stdout);
                 T.tileInsert(k, k);
-                lapack::lacpy(lapack::MatrixType::Lower, 
+                lapack::lacpy(lapack::MatrixType::Lower,
                       A(k, k).mb(), A(k, k).nb(),
                       A(k, k).data(), A(k, k).stride(),
                       T(k, k).data(), T(k, k).stride() );
+                T.tileState(k, k, MOSI::Modified);
 
                 if (k == 0) {
                     //printf( " ++ expanding ++\n" ); fflush(stdout);
@@ -236,6 +237,7 @@ void hetrf(slate::internal::TargetType<target>,
                         itype, lapack::Uplo::Lower, Lkk(0, 0).mb(),
                         T(k, k).data(),   T(k, k).stride(),
                         Lkk(0, 0).data(), Lkk(0, 0).stride());
+                    Lkk.tileState(0, 0, MOSI::Modified);
 
                     //printf( " ++ expanding ++\n" ); fflush(stdout);
                     int64_t ldt = T(k, k).stride();
@@ -245,6 +247,7 @@ void hetrf(slate::internal::TargetType<target>,
                             tkk[i + j*ldt] = tkk[j + i*ldt];
                         }
                     }
+                    T.tileState(k, k, MOSI::Modified);
                 }
                 if (k+1 < A_mt) {
                     // send T(k, k) for computing H(k, k), moved from below?
@@ -387,20 +390,22 @@ void hetrf(slate::internal::TargetType<target>,
                 //printf( " >> compute T(%ld,%ld) on rank-%d <<\n", k+1, k, rank); fflush(stdout);
                 if (T.tileIsLocal(k+1, k)) {
                     T.tileInsert(k+1, k);
-                    lapack::lacpy(lapack::MatrixType::Upper, 
+                    lapack::lacpy(lapack::MatrixType::Upper,
                         A(k+1, k).mb(), A(k+1, k).nb(),
                         A(k+1, k).data(), A(k+1, k).stride(),
                         T(k+1, k).data(), T(k+1, k).stride() );
-                    lapack::laset(lapack::MatrixType::Lower, 
+                    lapack::laset(lapack::MatrixType::Lower,
                         T(k+1, k).mb()-1, T(k+1, k).nb()-1,
                         scalar_t(0.0), scalar_t(0.0),
                         T(k+1, k).data()+1, T(k+1, k).stride());
+                    T.tileState(k+1, k, MOSI::Modified);
 
                     // zero out upper-triangular of L(k, k)
-                    lapack::laset(lapack::MatrixType::Upper, 
+                    lapack::laset(lapack::MatrixType::Upper,
                           A(k+1, k).mb(), A(k+1, k).nb(),
                           scalar_t(0.0), scalar_t(1.0),
                           A(k+1, k).data(), A(k+1, k).stride());
+                    A.tileState(k+1, k, MOSI::Modified);
                 }
             }
 
@@ -440,6 +445,7 @@ void hetrf(slate::internal::TargetType<target>,
                             tkk2[j + i*ldt2] = tkk1[i + j*ldt1];
                         }
                     }
+                    T.tileState(k, k+1, MOSI::Modified);
                 }
                 if (k > 0 && k+1 < A_mt) {
                     // send T(i, j) that are needed to compute H(k, :)
@@ -551,19 +557,19 @@ void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
     }
 
     internal::specialization::hetrf(internal::TargetType<target>(),
-                                    A, pivots, T, pivots2, 
+                                    A, pivots, T, pivots2,
                                     H, ib, max_panel_threads, lookahead);
 }
 
 //------------------------------------------------------------------------------
 /// Distributed parallel LTLt factorization.
 /// Performs the LTLt factorization of a Hermitian
-/// (or symmetric, in the real case) matrix A. 
+/// (or symmetric, in the real case) matrix A.
 /// The factorization has the form
 /// \[
 ///     P A P^H = L T L^H,
 /// \]
-/// if A is stored lower, where L is a lower triangular matrix, 
+/// if A is stored lower, where L is a lower triangular matrix,
 /// and T is symmetric band matrix (block tri-diagonal matrix), or
 /// \[
 ///     P A P^H = U^H T U,
@@ -582,7 +588,7 @@ void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
 ///     If scalar_t is real, A can be a SymmetricMatrix object.
 ///
 /// @param[out] T
-///     On exit, if return value = 0, the LU factors of the band matrix T 
+///     On exit, if return value = 0, the LU factors of the band matrix T
 ///     from the LTLt factorization $P A P^H = U^H T U$ or $P A P^H = L T L^H$.
 ///
 /// @param[in] opts

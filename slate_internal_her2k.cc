@@ -110,6 +110,7 @@ void her2k(internal::TargetType<Target::HostTask>,
                             her2k(alpha, A(j, 0),
                                          B(j, 0),
                                   beta,  C(j, j));
+                            C.tileState(j, j, MOSI::Modified);
                             A.tileTick(j, 0);
                             B.tileTick(j, 0);
                         }
@@ -135,6 +136,7 @@ void her2k(internal::TargetType<Target::HostTask>,
                             gemm(conj(alpha),   B(i, 0),
                                                 conj_transpose(Aj0),
                                  scalar_t(1.0), C(i, j));
+                            C.tileState(i, j, MOSI::Modified);
                             A.tileTick(i, 0);
                             A.tileTick(j, 0);
                             B.tileTick(i, 0);
@@ -182,6 +184,7 @@ void her2k(internal::TargetType<Target::HostNest>,
                     her2k(alpha, A(j, 0),
                                  B(j, 0),
                           beta,  C(j, j));
+                    C.tileState(j, j, MOSI::Modified);
                     A.tileTick(j, 0);
                     B.tileTick(j, 0);
                 }
@@ -213,6 +216,7 @@ void her2k(internal::TargetType<Target::HostNest>,
                         gemm(conj(alpha),   B(i, 0),
                                             conj_transpose(Aj0),
                              scalar_t(1.0), C(i, j));
+                        C.tileState(i, j, MOSI::Modified);
                         A.tileTick(i, 0);
                         A.tileTick(j, 0);
                         B.tileTick(i, 0);
@@ -259,6 +263,7 @@ void her2k(internal::TargetType<Target::HostBatch>,
                     her2k(alpha, A(j, 0),
                                  B(j, 0),
                           beta,  C(j, j));
+                    C.tileState(j, j, MOSI::Modified);
                     A.tileTick(j, 0);
                     B.tileTick(j, 0);
                 }
@@ -401,6 +406,7 @@ void her2k(internal::TargetType<Target::HostBatch>,
         for (int64_t j = 0; j < C.nt(); ++j) {
             for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                 if (C.tileIsLocal(i, j)) {
+                    C.tileState(i, j, MOSI::Modified);
                     A.tileTick(i, 0);
                     A.tileTick(j, 0);
                     B.tileTick(i, 0);
@@ -713,12 +719,13 @@ void her2k(internal::TargetType<Target::Devices>,
                     for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
+                                C.tileState(i, j, device, MOSI::Modified);
                                 // erase tmp local and remote device tiles;
-                                // decrement life for remote tiles
                                 A.tileErase(i, 0, device);
                                 A.tileErase(j, 0, device);
                                 B.tileErase(i, 0, device);
                                 B.tileErase(j, 0, device);
+                                // decrement life for remote tiles
                                 A.tileTick(i, 0);
                                 A.tileTick(j, 0);
                                 B.tileTick(i, 0);
@@ -746,6 +753,7 @@ void her2k(internal::TargetType<Target::Devices>,
                     her2k(alpha, A(j, 0),
                                  B(j, 0),
                           beta,  C(j, j));
+                    C.tileState(j, j, MOSI::Modified);
                     A.tileTick(j, 0);
                     B.tileTick(j, 0);
                 }

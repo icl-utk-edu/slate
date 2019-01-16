@@ -1223,6 +1223,125 @@ inline void scalapack_punmqr(
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
+#define scalapack_psgels BLAS_FORTRAN_NAME( psgels, PSGELS )
+#define scalapack_pdgels BLAS_FORTRAN_NAME( pdgels, PDGELS )
+#define scalapack_pcgels BLAS_FORTRAN_NAME( pcgels, PCGELS )
+#define scalapack_pzgels BLAS_FORTRAN_NAME( pzgels, PZGELS )
+
+extern "C" void scalapack_psgels(
+    const char* trans,
+    blas_int* M, blas_int* N, blas_int* NRHS,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* B, blas_int* ib, blas_int* jb, blas_int* descB,
+    float* work, blas_int* lwork,
+    blas_int* info);
+
+extern "C" void scalapack_pdgels(
+    const char* trans,
+    blas_int* M, blas_int* N, blas_int* NRHS,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* B, blas_int* ib, blas_int* jb, blas_int* descB,
+    double* work, blas_int* lwork,
+    blas_int* info);
+
+extern "C" void scalapack_pcgels(
+    const char* trans,
+    blas_int* M, blas_int* N, blas_int* NRHS,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<float>* B, blas_int* ib, blas_int* jb, blas_int* descB,
+    std::complex<float>* work, blas_int* lwork,
+    blas_int* info);
+
+extern "C" void scalapack_pzgels(
+    const char* trans,
+    blas_int* M, blas_int* N, blas_int* NRHS,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<double>* B, blas_int* ib, blas_int* jb, blas_int* descB,
+    std::complex<double>* work, blas_int* lwork,
+    blas_int* info);
+
+// -----------------------------------------------------------------------------
+
+inline void scalapack_pgels(
+    const char* trans,
+    blas_int* M, blas_int* N, blas_int* NRHS,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* B, blas_int* ib, blas_int* jb, blas_int* descB,
+    float* work, blas_int* lwork,
+    blas_int* info)
+{
+    char trans2 = *trans;
+    if (trans2 == 'c' || trans2 == 'C')
+        trans2 = 't';
+    scalapack_psgels(&trans2, M, N, NRHS, A, ia, ja, descA,
+                      B, ib, jb, descB, work, lwork, info);
+}
+
+inline void scalapack_pgels(
+    const char* trans,
+    blas_int* M, blas_int* N, blas_int* NRHS,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* B, blas_int* ib, blas_int* jb, blas_int* descB,
+    double* work, blas_int* lwork,
+    blas_int* info)
+{
+    char trans2 = *trans;
+    if (trans2 == 'c' || trans2 == 'C')
+        trans2 = 't';
+    scalapack_pdgels(&trans2, M, N, NRHS, A, ia, ja, descA,
+                      B, ib, jb, descB, work, lwork, info);
+}
+
+inline void scalapack_pgels(
+    const char* trans,
+    blas_int* M, blas_int* N, blas_int* NRHS,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<float>* B, blas_int* ib, blas_int* jb, blas_int* descB,
+    std::complex<float>* work, blas_int* lwork,
+    blas_int* info)
+{
+    scalapack_pcgels(trans, M, N, NRHS, A, ia, ja, descA,
+                      B, ib, jb, descB, work, lwork, info);
+}
+
+inline void scalapack_pgels(
+    const char* trans,
+    blas_int* M, blas_int* N, blas_int* NRHS,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<double>* B, blas_int* ib, blas_int* jb, blas_int* descB,
+    std::complex<double>* work, blas_int* lwork,
+    blas_int* info)
+{
+    scalapack_pzgels(trans, M, N, NRHS, A, ia, ja, descA,
+                      B, ib, jb, descB, work, lwork, info);
+}
+
+template <typename scalar_t>
+inline void scalapack_pgels(
+    const char* trans,
+    int64_t M, int64_t N, int64_t NRHS,
+    scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
+    scalar_t* B, int64_t ib, int64_t jb, blas_int* descB,
+    scalar_t* work, int64_t lwork,
+    int64_t* info)
+{
+    blas_int M_     = int64_to_int(M);
+    blas_int N_     = int64_to_int(N);
+    blas_int NRHS_  = int64_to_int(NRHS);
+    blas_int ia_    = int64_to_int(ia);
+    blas_int ja_    = int64_to_int(ja);
+    blas_int ib_    = int64_to_int(ib);
+    blas_int jb_    = int64_to_int(jb);
+    blas_int lwork_ = int64_to_int(lwork);
+    blas_int info_  = int64_to_int(*info);
+    scalapack_pgels(trans, &M_, &N_, &NRHS_, A, &ia_, &ja_, descA,
+                     B, &ib_, &jb_, descB, work, &lwork_, &info_);
+    *info = (int64_t)info_;
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
 #define scalapack_pslaset BLAS_FORTRAN_NAME( pslaset, PSLASET )
 #define scalapack_pdlaset BLAS_FORTRAN_NAME( pdlaset, PDLASET )
 #define scalapack_pclaset BLAS_FORTRAN_NAME( pclaset, PCLASET )

@@ -119,6 +119,10 @@ public:
     void reserveDeviceWorkspace();
     void moveAllToOrigin();
     void gather(scalar_t* A, int64_t lda);
+    void insertLocalTiles(bool on_devices=false);
+
+    // copy local data of op(A).
+    void copy(Matrix& A);
 };
 
 //------------------------------------------------------------------------------
@@ -305,8 +309,9 @@ Matrix<scalar_t> Matrix<scalar_t>::emptyLike()
 {
     // First create parent matrix, apply op, then return sub-matrix.
     // TODO: currently assumes 2DBC and fixed mb == nb.
-    int64_t nb = this->tileNb(0);
-    assert(nb == this->tileMb(0));
+    int64_t nb = std::max(this->tileMb(0), this->tileNb(0));
+    assert(nb == this->tileMb(0) || this->m() == this->tileMb(0));
+    assert(nb == this->tileNb(0) || this->n() == this->tileNb(0));
     int64_t ioffset = this->ioffset();
     int64_t joffset = this->joffset();
     int64_t m = ioffset*nb;
@@ -604,6 +609,66 @@ void Matrix<scalar_t>::gather(scalar_t* A, int64_t lda)
     }
 
     this->op_ = op_save;
+}
+
+//------------------------------------------------------------------------------
+/// Inserts all local tiles into on empty matrix.
+///
+/// @param[in] on_devices
+///     If on_devices, inserts tiles on appropriate GPU devices,
+///     otherwise inserts tiles on CPU host.
+///
+template <typename scalar_t>
+void Matrix<scalar_t>::insertLocalTiles(bool on_devices)
+{
+    for (int64_t j = 0; j < this->nt(); ++j) {
+        for (int64_t i = 0; i < this->mt(); ++i) {
+            if (this->tileIsLocal(i, j)) {
+                int dev = (on_devices ? this->tileDevice(i, j)
+                                      : this->host_num_);
+                this->tileInsert(i, j, dev);
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// copy local data of op(A).
+/// assumes A has the same distribution, and local tiles are already allocated.
+/// TODO this variant copies the Host data only, need to take care of device data
+/// TODO handle the op(A) case
+template <typename scalar_t>
+void Matrix<scalar_t>::copy(Matrix<scalar_t>& A)
+{
+    int64_t A_mt = A.mt();
+    int64_t A_nt = A.nt();
+    assert(A_mt <= this->mt());
+    assert(A_nt <= this->nt());
+
+    for (int64_t j = 0; j < A_nt; ++j) {
+        int64_t jb = A.tileNb(j);
+        assert(jb <= this->tileNb(j));
+
+        for (int64_t i = 0; i < A_mt; ++i) {
+
+            if (this->tileIsLocal(i, j)) {
+                int64_t ib = A.tileMb(i);
+                assert(ib <= this->tileMb(i));
+
+                #pragma omp task
+                {
+                    auto Aij = A.at(i, j);
+                    // TODO verify this tile exist, instead throw exception if not
+                    auto Bij = this->at(i, j);
+                    lapack::lacpy(lapack::MatrixType::General, ib, jb,
+                                  Aij.data(), Aij.stride(),
+                                  Bij.data(), Bij.stride());
+                    this->tileState(i, j, MOSI::Modified);
+                }
+            }
+        }
+    }
+    #pragma omp taskwait
 }
 
 } // namespace slate

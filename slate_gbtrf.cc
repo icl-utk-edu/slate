@@ -95,6 +95,7 @@ void gbtrf(slate::internal::TargetType<target>,
                 auto T = A(i, j);
                 lapack::laset(lapack::MatrixType::General, T.mb(), T.nb(),
                               zero, zero, T.data(), T.stride());
+                A.tileState(i, j, MOSI::Modified);
             }
         }
     }

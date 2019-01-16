@@ -63,19 +63,14 @@ int omp_get_num_devices()
     return 0;
 }
 
-int omp_get_thread_num(void)
-{
-    return 0;
-}
-
 int omp_get_num_threads(void)
 {
     return 1;
 }
 
-void omp_set_nested(int nested)
+int omp_get_thread_num(void)
 {
-    nested;
+    return 0;
 }
 
 double omp_get_wtime()
@@ -104,6 +99,11 @@ void omp_init_lock(omp_lock_t* lock)
 void omp_set_lock(omp_lock_t* lock)
 {
     return;
+}
+
+void omp_set_nested(int nested)
+{
+    nested;
 }
 
 void omp_unset_lock(omp_lock_t* lock)

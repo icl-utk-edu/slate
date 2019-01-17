@@ -241,7 +241,7 @@ void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
         lookahead = opts.at(Option::Lookahead).i_;
     }
 
-    int64_t ib = 1;
+    int64_t ib = 16;
     if (opts.count(Option::InnerBlocking) > 0) {
         ib = opts.at(Option::InnerBlocking).i_;
     }

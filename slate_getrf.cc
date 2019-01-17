@@ -249,7 +249,7 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
         assert(ib >= 0);
     }
     catch (std::out_of_range) {
-        ib = 1;
+        ib = 16;
     }
 
     int64_t max_panel_threads;

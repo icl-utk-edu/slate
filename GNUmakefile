@@ -371,8 +371,6 @@ LDFLAGS  += -L./lapackpp/lib -Wl,-rpath,$(abspath ./lapackpp/lib)
 LIBS     := -lblaspp -llapackpp $(LIBS)
 
 # additional flags and libraries for testers
-$(test_obj): CXXFLAGS += -I./blaspp/test    # for blas_flops.hh
-$(test_obj): CXXFLAGS += -I./lapackpp/test  # for lapack_flops.hh
 $(test_obj): CXXFLAGS += -I./libtest
 
 TEST_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)

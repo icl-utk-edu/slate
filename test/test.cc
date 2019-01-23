@@ -25,7 +25,7 @@ using libtest::ansi_normal;
 // each section must have a corresponding entry in section_names
 enum Section {
     newline = 0,  // zero flag forces newline
-    blas_section,
+    blas3,
     gesv,
     posv,
     sysv,
@@ -66,23 +66,23 @@ const char* section_names[] = {
 std::vector< libtest::routines_t > routines = {
     // -----
     // Level 3 BLAS
-    { "gemm",               test_gemm,         Section::blas_section },
-    { "gbmm",               test_gbmm,         Section::blas_section },
+    { "gemm",               test_gemm,         Section::blas3 },
+    { "gbmm",               test_gbmm,         Section::blas3 },
     { "",                   nullptr,           Section::newline },
 
-    { "hemm",               test_hemm,         Section::blas_section },
-    { "herk",               test_herk,         Section::blas_section },
-    { "her2k",              test_her2k,        Section::blas_section },
+    { "hemm",               test_hemm,         Section::blas3 },
+    { "herk",               test_herk,         Section::blas3 },
+    { "her2k",              test_her2k,        Section::blas3 },
     { "",                   nullptr,           Section::newline },
 
-    { "symm",               test_symm,         Section::blas_section },
-    { "syrk",               test_syrk,         Section::blas_section },
-    { "syr2k",              test_syr2k,        Section::blas_section },
+    { "symm",               test_symm,         Section::blas3 },
+    { "syrk",               test_syrk,         Section::blas3 },
+    { "syr2k",              test_syr2k,        Section::blas3 },
     { "",                   nullptr,           Section::newline },
 
-    { "trmm",               test_trmm,         Section::blas_section },
-    { "trsm",               test_trsm,         Section::blas_section },
-    { "tbsm",               test_tbsm,         Section::blas_section },
+    { "trmm",               test_trmm,         Section::blas3 },
+    { "trsm",               test_trsm,         Section::blas3 },
+    { "tbsm",               test_tbsm,         Section::blas3 },
 
     // -----
     // LU
@@ -288,7 +288,6 @@ Params::Params():
     repeat();
     verbose();
     cache();
-    target();
 
     // routine's parameters are marked by the test routine; see main
 }

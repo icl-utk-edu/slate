@@ -85,10 +85,11 @@ std::map<std::string, Color> Trace::function_color_ = {
 
     {"internal::swap",  Color::Thistle},
 
-    {"lapack::geqrf", Color::RosyBrown},
-    {"lapack::getrf", Color::RosyBrown},
-    {"lapack::lange", Color::LightBlue},
-    {"lapack::potrf", Color::BurlyWood},
+    {"lapack::geqrf",  Color::RosyBrown},
+    {"lapack::getrf",  Color::RosyBrown},
+    {"lapack::lange",  Color::LightBlue},
+    {"lapack::potrf",  Color::BurlyWood},
+    {"lapack::tpmqrt", Color::RoyalBlue},
 
     {"Memory::alloc", Color::Aqua},
     {"Memory::free",  Color::Aquamarine},

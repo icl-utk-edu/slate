@@ -819,10 +819,10 @@ void BaseMatrix<scalar_t>::tileRecv(
 
         // Receive data.
         at(i, j).recv(src_rank, mpiComm(), tag);
-        if (tileIsLocal(i, j))
+        // if (tileIsLocal(i, j))
             tileState(i, j, MOSI::Modified);
-        else
-            tileState(i, j, MOSI::Shared);
+        // else
+        //     tileState(i, j, MOSI::Shared);
 
         // Copy to devices.
         if (target == Target::Devices) {
@@ -996,6 +996,9 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, int tag)
                 LockGuard(storage_->tiles_.get_lock());// todo is this needed here?
                 tileErase(i, j, host_num_);
             }
+            else {
+                tileState(i, j, MOSI::Modified);
+            }
         }
     }
 
@@ -1130,10 +1133,10 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     // Receive.
     if (! recv_from.empty()) {
         at(i, j).recv(new_vec[recv_from.front()], mpi_comm_, tag);
-        if (tileIsLocal(i, j))
+        // if (tileIsLocal(i, j))
             tileState(i, j, MOSI::Modified);
-        else
-            tileState(i, j, MOSI::Shared);
+        // else
+        //     tileState(i, j, MOSI::Shared);
     }
 
     // Forward.
@@ -1186,7 +1189,6 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
         // Accumulate.
         axpy(scalar_t(1.0), tile, at(i, j));
     }
-    // todo: should we set tileStatus here?
 
     // Forward.
     if (! send_to.empty())

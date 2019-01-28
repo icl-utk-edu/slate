@@ -898,8 +898,8 @@ void BaseMatrix<scalar_t>::listBcast(
     // It is possible that the same tile, with the same data, is sent twice.
     // This happens, e.g., in the hemm and symm routines, where the same tile
     // is sent once as part of A and once as part of A^T.
-    // This cannot be avoided without violating the upper bound on the size of
-    // communication buffers.
+    // This cannot be avoided without violating the upper bound on the buffer size
+    // used for hosting communicated tiles.
     // Due to dynamic scheduling, the second communication may occur before the
     // first tile has been discarded.
     // If that happens, instead of creating the tile, the life of the existing
@@ -1026,6 +1026,9 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileBcastToSet(
     int64_t i, int64_t j, std::set<int> const& bcast_set)
 {
+    // this function does not use tags, kept for reference
+    assert("This variant of tileBcastToSet() is deprecated");
+
     // Quit if only root in the broadcast set.
     if (bcast_set.size() == 1)
         return;

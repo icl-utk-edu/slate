@@ -87,6 +87,9 @@ void swap(internal::TargetType<Target::HostTask>,
 {
     // CPU uses ColMajor
     assert(layout == Layout::ColMajor);
+
+    // todo: for performance optimization, merge with the loops below,
+    // at least with lookahead, probably selectively
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (A.tileIsLocal(i, j)) {
@@ -102,6 +105,7 @@ void swap(internal::TargetType<Target::HostTask>,
     {
         trace::Block trace_block("internal::swap");
 
+        // todo: what about parallelizing this? MPI blocking?
         for (int64_t j = 0; j < A.nt(); ++j) {
             bool root = A.mpiRank() == A.tileRank(0, j);
 
@@ -236,6 +240,9 @@ void swap(internal::TargetType<Target::Devices>,
 {
     // GPU uses RowMajor
     assert(layout == Layout::RowMajor);
+
+    // todo: for performance optimization, merge with the loops below,
+    // at least with lookahead, probably selectively
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (A.tileIsLocal(i, j)) {

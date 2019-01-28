@@ -236,6 +236,7 @@ protected:
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set,
                         int radix, int tag);
 
+    // todo: should this be private?
     void tileReduceFromSet(int64_t i, int64_t j,
                            std::set<int> const& reduce_set, int radix, int tag);
 
@@ -1311,7 +1312,7 @@ void BaseMatrix<scalar_t>::tileCopyTo(
             // todo: find the shortest path / closest source
             // including possibility of device peer-to-peer copy
         }
-        assert(src_device != invalid_dev);
+        assert(src_device != invalid_dev);// todo: should that be a break?
         src_tile = src_iter->second.tile_;
 
         // Update the destination tile's data.

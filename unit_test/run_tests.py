@@ -32,7 +32,7 @@ group_test = parser.add_argument_group( 'test' )
 group_test.add_argument( '-t', '--test', action='store',
     help='test command to run, e.g., --test "mpirun -np 4"; default "%(default)s"',
     default='' )
-group_test.add_argument( '--xml', action='store_true', help='generate report.xml for jenkins' )
+group_test.add_argument( '--xml', help='XML file to generate for jenkins' )
 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
 opts = parser.parse_args()
@@ -100,6 +100,7 @@ if (nfailed > 0):
 
 # generate jUnit compatible test report
 if opts.xml:
+    print( 'writing XML file', opts.xml )
     root = ET.Element("testsuites")
     doc = ET.SubElement(root, "testsuite",
                         name="slate_suite",
@@ -125,7 +126,7 @@ if opts.xml:
         testcase.text = 'PASSED'
 
     tree = ET.ElementTree(root)
-    tree.write("report.xml")
+    tree.write( opts.xml )
 # end
 
 exit( nfailed )

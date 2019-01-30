@@ -97,6 +97,10 @@ void unmqr(
 
             if (target == Target::Devices) {
                 W.allocateBatchArrays();
+                // todo: this is demanding too much device workspace memory
+                // only one tile-row of matrix W per MPI process is going to be used,
+                // but W with size of whole C is being allocated
+                // thus limiting the matrix size that can be processed
                 W.reserveDeviceWorkspace();
             }
 

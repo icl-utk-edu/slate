@@ -484,6 +484,7 @@ void MatrixStorage<scalar_t>::clearWorkspace()
     // incremented below
     for (auto iter = tiles_.begin(); iter != tiles_.end();) {
         if (iter->second.tile_->workspace()) {
+            // todo: should not assert but check instead
             assert(iter->second.state_ != MOSI::Modified && iter->second.state_ != MOSI::Owned);
             // Since we can't increment the iterator after deleting the
             // element, use post-fix iter++ to increment it but
@@ -523,6 +524,7 @@ void MatrixStorage<scalar_t>::erase(ijdev_tuple ijdev)
         Tile<scalar_t>* tile = iter->second.tile_;
         if(tile->workspace() && (state == MOSI::Modified || state == MOSI::Owned))
             // todo: should we assert here?
+            // todo: this check should be moved from this function to its caller
             return;
         if (tile->allocated())
             memory_.free(tile->data(), tile->device());

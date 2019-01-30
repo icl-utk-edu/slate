@@ -82,15 +82,10 @@ protected:
     // off-diagonal sub-matrix
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
 
-    // used by sub-classes' fromLAPACK
+    // used by sub-classes' fromLAPACK and fromScaLAPACK
     BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
                         scalar_t* A, int64_t lda, int64_t nb,
-                        int p, int q, MPI_Comm mpi_comm);
-
-    // used by sub-classes' fromScaLAPACK
-    BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
-                        scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
-                        int p, int q, MPI_Comm mpi_comm);
+                        int p, int q, MPI_Comm mpi_comm, bool is_scalapack);
 
     // used by sub-classes' fromDevices
     BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
@@ -158,107 +153,17 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 }
 
 //------------------------------------------------------------------------------
-/// Used by subclasses' fromLAPACK.
+/// Used by subclasses' fromLAPACK and fromScaLAPACK.
 /// Construct matrix by wrapping existing memory of an m-by-n lower
-/// or upper trapezoidal storage LAPACK matrix. Triangular, symmetric, and
+/// or upper trapezoidal storage (Sca)LAPACK matrix. Triangular, symmetric, and
 /// Hermitian matrices all use this storage scheme (with m = n).
 /// The caller must ensure that the memory remains valid for the lifetime
 /// of the Matrix object and any shallow copies of it.
-/// Input format is an LAPACK-style column-major matrix with leading
-/// dimension (column stride) lda >= m, that is replicated across all nodes.
-/// Matrix gets tiled with square nb-by-nb tiles.
-///
-/// @param[in] uplo
-///     - Upper: upper triangle of A is stored.
-///     - Lower: lower triangle of A is stored.
-///
-/// @param[in] m
-///     Number of rows of the matrix. m >= 0.
-///
-/// @param[in] n
-///     Number of columns of the matrix. n >= 0.
-///
-/// @param[in,out] A
-///     The m-by-n matrix A, stored in an lda-by-n array.
-///
-/// @param[in] lda
-///     Leading dimension of the array A. lda >= m.
-///
-/// @param[in] nb
-///     Block size in 2D block-cyclic distribution.
-///
-/// @param[in] p
-///     Number of block rows in 2D block-cyclic distribution. p > 0.
-///
-/// @param[in] q
-///     Number of block columns of 2D block-cyclic distribution. q > 0.
-///
-/// @param[in] mpi_comm
-///     MPI communicator to distribute matrix across.
-///     p*q == MPI_Comm_size(mpi_comm).
-///
-template <typename scalar_t>
-BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
-    Uplo uplo, int64_t m, int64_t n,
-    scalar_t* A, int64_t lda, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm)
-    : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
-{
-    slate_error_if(uplo == Uplo::General);
-    this->uplo_ = uplo;
-
-    // ii, jj are row, col indices
-    // i, j are tile (block row, block col) indices
-    if (this->uplo() == Uplo::Lower) {
-        int64_t jj = 0;
-        for (int64_t j = 0; j < this->nt(); ++j) {
-            int64_t jb = this->tileNb(j);
-
-            int64_t ii = j*nb;
-            for (int64_t i = j; i < this->mt(); ++i) {  // lower
-                int64_t ib = this->tileMb(i);
-
-                if (this->tileIsLocal(i, j)) {
-                    this->tileInsert(i, j, this->host_num_,
-                                     &A[ii + jj*lda], lda);
-                }
-                ii += ib;
-            }
-            jj += jb;
-        }
-    }
-    else {  // Upper
-        int64_t jj = 0;
-        for (int64_t j = 0; j < this->nt(); ++j) {
-            int64_t jb = this->tileNb(j);
-
-            int64_t ii = 0;
-            for (int64_t i = 0; i <= j && i < this->mt(); ++i) {  // upper
-                int64_t ib = this->tileMb(i);
-
-                if (this->tileIsLocal(i, j)) {
-                    this->tileInsert(i, j, this->host_num_,
-                                     &A[ii + jj*lda], lda);
-                }
-                ii += ib;
-            }
-            jj += jb;
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
-/// Used by subclasses' fromScaLAPACK.
-/// Construct matrix by wrapping existing memory of an m-by-n lower
-/// or upper trapezoidal storage ScaLAPACK matrix. Triangular, symmetric, and
-/// Hermitian matrices all use this storage scheme (with m = n).
-/// The caller must ensure that the memory remains valid for the lifetime
-/// of the Matrix object and any shallow copies of it.
-/// Input format is a ScaLAPACK-style 2D block-cyclic column-major matrix
+/// Input format is an LAPACK-style column-major matrix or
+/// ScaLAPACK-style 2D block-cyclic column-major matrix
 /// with local leading dimension (column stride) lda,
 /// p block rows and q block columns.
 /// Matrix gets tiled with square nb-by-nb tiles.
-/// This differs from LAPACK constructor by adding mb.
 ///
 /// @param[in] m
 ///     Number of rows of the matrix. m >= 0.
@@ -273,9 +178,6 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 /// @param[in] lda
 ///     Local leading dimension of the array A. lda >= local number of rows.
 ///
-/// @param[in] mb
-///     Same as nb; used to differentiate from LAPACK constructor.
-///
 /// @param[in] nb
 ///     Block size in 2D block-cyclic distribution. nb > 0.
 ///
@@ -289,14 +191,17 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 ///     MPI communicator to distribute matrix across.
 ///     p*q == MPI_Comm_size(mpi_comm).
 ///
+/// @param[in] is_scalapack
+///     If true,  A is a ScaLAPACK matrix.
+///     If false, A is an LAPACK matrix.
+///
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     Uplo uplo, int64_t m, int64_t n,
-    scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm)
+    scalar_t* A, int64_t lda, int64_t nb,
+    int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
     : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
 {
-    assert(mb == nb);
     slate_error_if(uplo == Uplo::General);
     this->uplo_ = uplo;
 
@@ -306,12 +211,18 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
         int64_t jj = 0;
         for (int64_t j = 0; j < this->nt(); ++j) {
             int64_t jb = this->tileNb(j);
-            int64_t jj_local = indexGlobal2Local(jj, nb, q);
+            int64_t jj_local = jj;
+            if (is_scalapack) {
+                jj_local = indexGlobal2Local(jj, nb, q);
+            }
 
             int64_t ii = j*nb;
             for (int64_t i = j; i < this->mt(); ++i) {  // lower
                 int64_t ib = this->tileMb(i);
-                int64_t ii_local = indexGlobal2Local(ii, mb, p);
+                int64_t ii_local = ii;
+                if (is_scalapack) {
+                    ii_local = indexGlobal2Local(ii, nb, p);
+                }
 
                 if (this->tileIsLocal(i, j)) {
                     this->tileInsert(i, j, this->host_num_,
@@ -326,12 +237,18 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
         int64_t jj = 0;
         for (int64_t j = 0; j < this->nt(); ++j) {
             int64_t jb = this->tileNb(j);
-            int64_t jj_local = indexGlobal2Local(jj, nb, q);
+            int64_t jj_local = jj;
+            if (is_scalapack) {
+                jj_local = indexGlobal2Local(jj, nb, q);
+            }
 
             int64_t ii = 0;
             for (int64_t i = 0; i <= j && i < this->mt(); ++i) {  // upper
                 int64_t ib = this->tileMb(i);
-                int64_t ii_local = indexGlobal2Local(ii, mb, p);
+                int64_t ii_local = ii;
+                if (is_scalapack) {
+                    ii_local = indexGlobal2Local(ii, nb, p);
+                }
 
                 if (this->tileIsLocal(i, j)) {
                     this->tileInsert(i, j, this->host_num_,
@@ -392,9 +309,9 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     this->uplo_ = uplo;
 
     // ii, jj are row, col indices
-    // ii_local and jj_local are the local array indices in a
+    // ii_local and jj_local are the local array indices in A
     // 2D block-cyclic layout.
-    // jj_dev is the local array index for the current device in a
+    // jj_dev is the local array index for the current device in A
     // 1D block-cyclic layout within a node.
     // i, j are tile (block row, block col) indices
     if (this->uplo() == Uplo::Lower) {

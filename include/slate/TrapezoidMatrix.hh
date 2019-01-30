@@ -101,15 +101,10 @@ public:
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
 
 protected:
-    // used by fromLAPACK
+    // used by fromLAPACK and fromScaLAPACK
     TrapezoidMatrix(Uplo uplo, Diag diag, int64_t m, int64_t n,
                     scalar_t* A, int64_t lda, int64_t nb,
-                    int p, int q, MPI_Comm mpi_comm);
-
-    // used by fromScaLAPACK
-    TrapezoidMatrix(Uplo uplo, Diag diag, int64_t m, int64_t n,
-                    scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
-                    int p, int q, MPI_Comm mpi_comm);
+                    int p, int q, MPI_Comm mpi_comm, bool is_scalapack);
 
     // used by fromDevices
     TrapezoidMatrix(Uplo uplo, Diag diag, int64_t m, int64_t n,
@@ -196,7 +191,7 @@ TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromLAPACK(
     int p, int q, MPI_Comm mpi_comm)
 {
     return TrapezoidMatrix<scalar_t>(uplo, diag, m, n, A, lda, nb,
-                                     p, q, mpi_comm);
+                                     p, q, mpi_comm, false);
 }
 
 //------------------------------------------------------------------------------
@@ -244,9 +239,8 @@ TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromScaLAPACK(
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
-    // note extra nb
-    return TrapezoidMatrix<scalar_t>(uplo, diag, m, n, A, lda, nb, nb,
-                                     p, q, mpi_comm);
+    return TrapezoidMatrix<scalar_t>(uplo, diag, m, n, A, lda, nb,
+                                     p, q, mpi_comm, true);
 }
 
 //------------------------------------------------------------------------------
@@ -300,24 +294,19 @@ TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromDevices(
 
 //------------------------------------------------------------------------------
 /// @see fromLAPACK
+/// @see fromScaLAPACK
+///
+/// @param[in] is_scalapack
+///     If true,  A is a ScaLAPACK matrix.
+///     If false, A is an LAPACK matrix.
+///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
     Uplo uplo, Diag diag, int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm)
-    : BaseTrapezoidMatrix<scalar_t>(uplo, m, n, A, lda, nb, p, q, mpi_comm),
-      diag_(diag)
-{}
-
-//------------------------------------------------------------------------------
-/// @see fromScaLAPACK
-/// This differs from LAPACK constructor by adding mb.
-template <typename scalar_t>
-TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
-    Uplo uplo, Diag diag, int64_t m, int64_t n,
-    scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm)
-    : BaseTrapezoidMatrix<scalar_t>(uplo, m, n, A, lda, mb, nb, p, q, mpi_comm),
+    int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, m, n, A, lda, nb, p, q, mpi_comm,
+                                    is_scalapack),
       diag_(diag)
 {}
 

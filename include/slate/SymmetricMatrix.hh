@@ -92,15 +92,10 @@ public:
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
 
 protected:
-    // used by fromLAPACK
+    // used by fromLAPACK and fromScaLAPACK
     SymmetricMatrix(Uplo uplo, int64_t n,
                     scalar_t* A, int64_t lda, int64_t nb,
-                    int p, int q, MPI_Comm mpi_comm);
-
-    // used by fromScaLAPACK
-    SymmetricMatrix(Uplo uplo, int64_t n,
-                    scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
-                    int p, int q, MPI_Comm mpi_comm);
+                    int p, int q, MPI_Comm mpi_comm, bool is_scalapack);
 
     // used by fromDevices
     SymmetricMatrix(Uplo uplo, int64_t n,
@@ -154,7 +149,7 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
 ///     Leading dimension of the array A. lda >= m.
 ///
 /// @param[in] nb
-///     Block size in 2D block-cyclic distribution.
+///     Block size in 2D block-cyclic distribution. nb > 0.
 ///
 /// @param[in] p
 ///     Number of block rows in 2D block-cyclic distribution. p > 0.
@@ -172,7 +167,7 @@ SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::fromLAPACK(
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
-    return SymmetricMatrix<scalar_t>(uplo, n, A, lda, nb, p, q, mpi_comm);
+    return SymmetricMatrix<scalar_t>(uplo, n, A, lda, nb, p, q, mpi_comm, false);
 }
 
 //------------------------------------------------------------------------------
@@ -215,8 +210,7 @@ SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::fromScaLAPACK(
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
-    // note extra nb
-    return SymmetricMatrix<scalar_t>(uplo, n, A, lda, nb, nb, p, q, mpi_comm);
+    return SymmetricMatrix<scalar_t>(uplo, n, A, lda, nb, p, q, mpi_comm, true);
 }
 
 //------------------------------------------------------------------------------
@@ -270,24 +264,19 @@ SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::fromDevices(
 
 //------------------------------------------------------------------------------
 /// @see fromLAPACK
-template <typename scalar_t>
-SymmetricMatrix<scalar_t>::SymmetricMatrix(
-    Uplo uplo, int64_t n,
-    scalar_t* A, int64_t lda, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm)
-    : BaseTrapezoidMatrix<scalar_t>(uplo, n, n, A, lda, nb, p, q, mpi_comm)
-{}
-
-//------------------------------------------------------------------------------
 /// @see fromScaLAPACK
-/// This differs from LAPACK constructor by adding mb.
+///
+/// @param[in] is_scalapack
+///     If true,  A is a ScaLAPACK matrix.
+///     If false, A is an LAPACK matrix.
 ///
 template <typename scalar_t>
 SymmetricMatrix<scalar_t>::SymmetricMatrix(
     Uplo uplo, int64_t n,
-    scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm)
-    : BaseTrapezoidMatrix<scalar_t>(uplo, n, n, A, lda, mb, nb, p, q, mpi_comm)
+    scalar_t* A, int64_t lda, int64_t nb,
+    int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, n, n, A, lda, nb, p, q, mpi_comm,
+                                    is_scalapack)
 {}
 
 //------------------------------------------------------------------------------

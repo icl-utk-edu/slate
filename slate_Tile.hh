@@ -146,11 +146,11 @@ public:
     void bcast(int bcast_root, MPI_Comm mpi_comm);
 
     /// Returns shallow copy of tile that is transposed.
-    template<typename TileType>
+    template <typename TileType>
     friend TileType transpose(TileType& A);
 
     /// Returns shallow copy of tile that is conjugate-transposed.
-    template<typename TileType>
+    template <typename TileType>
     friend TileType conj_transpose(TileType& A);
 
     /// Returns number of rows of op(A), where A is this tile
@@ -218,6 +218,14 @@ public:
     void set(scalar_t alpha, scalar_t beta);
 
 protected:
+    // BaseMatrix sets mb, nb, offset.
+    template <typename T>
+    friend class BaseMatrix;
+
+    void mb(int64_t in_mb);
+    void nb(int64_t in_nb);
+    void offset(int64_t i, int64_t j);
+
     int64_t mb_;
     int64_t nb_;
     int64_t stride_;
@@ -379,7 +387,7 @@ scalar_t& Tile<scalar_t>::at(int64_t i, int64_t j)
     return const_cast<scalar_t&>(static_cast<const Tile>(*this).at(i, j));
 }
 
-//--------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Returns whether op(A) is logically Upper, Lower, or General storage,
 /// taking the transposition operation into account.
 /// @see uplo()
@@ -394,6 +402,62 @@ Uplo Tile<scalar_t>::uplo_logical() const
         return Uplo::Lower;
     else
         return Uplo::Upper;
+}
+
+//------------------------------------------------------------------------------
+/// Sets number of rows of op(A), where A is this tile.
+///
+/// @param[in] in_mb
+///     New number of rows. 0 <= in_mb <= mb.
+///
+template <typename scalar_t>
+void Tile<scalar_t>::mb(int64_t in_mb)
+{
+    assert(0 <= in_mb && in_mb <= mb());
+    if (op_ == Op::NoTrans)
+        mb_ = in_mb;
+    else
+        nb_ = in_mb;
+}
+
+//------------------------------------------------------------------------------
+/// Sets number of cols of op(A), where A is this tile.
+///
+/// @param[in] in_nb
+///     New number of cols. 0 <= in_nb <= nb.
+///
+template <typename scalar_t>
+void Tile<scalar_t>::nb(int64_t in_nb)
+{
+    assert(0 <= in_nb && in_nb <= nb());
+    if (op_ == Op::NoTrans)
+        nb_ = in_nb;
+    else
+        mb_ = in_nb;
+}
+
+//------------------------------------------------------------------------------
+/// Offsets data pointer to op(A)(i, j), where A is this tile.
+///
+/// @param[in] i
+///     Row offset. 0 <= i < mb.
+///
+/// @param[in] j
+///     Col offset. 0 <= j < nb.
+///
+template <typename scalar_t>
+void Tile<scalar_t>::offset(int64_t i, int64_t j)
+{
+    if (! (0 <= i && i < mb()))
+        fprintf( stderr, "i %lld, mb %lld\n", i, mb() );
+    if (! (0 <= j && j < nb()))
+        fprintf( stderr, "j %lld, nb %lld\n", j, nb() );
+    assert(0 <= i && i < mb());
+    assert(0 <= j && j < nb());
+    if (op_ == Op::NoTrans)
+        data_ = &data_[ i + j*stride_ ];
+    else
+        data_ = &data_[ j + i*stride_ ];
 }
 
 //------------------------------------------------------------------------------

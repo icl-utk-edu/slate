@@ -820,6 +820,201 @@ void test_Matrix_sub_trans()
     }
 }
 
+//==============================================================================
+// To access BaseMatrix protected members, stick these in the slate::Debug class.
+// Admittedly a hack, since this is different than the Debug class in slate_Debug.hh.
+namespace slate {
+class Debug {
+public:
+
+//------------------------------------------------------------------------------
+// verify that B == op( A( row1 : row2, col1 : col2 ) )
+static void verify_slice(
+    slate::Matrix<double>& A,
+    int row1, int row2, int col1, int col2,
+    int nb, slate::Op trans )
+{
+    int ib = 0, jb = 0;
+    if (trans == slate::Op::NoTrans) {
+        test_assert( A.m() == row2 - row1 + 1 );
+        test_assert( A.n() == col2 - col1 + 1 );
+        test_assert( A.row0_offset() == row1 % nb );
+        test_assert( A.col0_offset() == col1 % nb );
+        test_assert( A.mt() == ceildiv( int(A.row0_offset() + row2 - row1 + 1), nb ) );
+        test_assert( A.nt() == ceildiv( int(A.col0_offset() + col2 - col1 + 1), nb ) );
+        int n = col1;  // start of tile j
+        for (int j = 0; j < A.nt(); ++j) {
+            int m = row1;  // start of tile i
+            for (int i = 0; i < A.mt(); ++i) {
+                if (A.tileIsLocal( i, j )) {
+                    auto T = A.at( i, j );
+                    test_assert( T.mb() == A.tileMb( i ) );
+                    test_assert( T.nb() == A.tileNb( j ) );
+                    for (int jj = 0; jj < T.nb(); ++jj) {
+                        for (int ii = 0; ii < T.mb(); ++ii) {
+                            test_assert( T.at( ii, jj ) == (ii + m) + (jj + n)/100. );
+                        }
+                    }
+                }
+                m += A.tileMb( i );
+            }
+            n += A.tileNb( j );
+        }
+    }
+    else {
+        test_assert( A.n() == row2 - row1 + 1 );
+        test_assert( A.m() == col2 - col1 + 1 );
+        test_assert( A.row0_offset() == row1 % nb );
+        test_assert( A.col0_offset() == col1 % nb );
+        test_assert( A.mt() == ceildiv( int(A.col0_offset() + col2 - col1 + 1), nb ) );
+        test_assert( A.nt() == ceildiv( int(A.row0_offset() + row2 - row1 + 1), nb ) );
+        int n = row1;  // start of tile j
+        for (int j = 0; j < A.nt(); ++j) {
+            int m = col1;  // start of tile i
+            for (int i = 0; i < A.mt(); ++i) {
+                if (A.tileIsLocal( i, j )) {
+                    auto T = A.at( i, j );
+                    test_assert( T.mb() == A.tileMb( i ) );
+                    test_assert( T.nb() == A.tileNb( j ) );
+                    for (int jj = 0; jj < T.nb(); ++jj) {
+                        for (int ii = 0; ii < T.mb(); ++ii) {
+                            test_assert( T.at( ii, jj ) == (jj + n) + (ii + m)/100. );
+                        }
+                    }
+                }
+                m += A.tileMb( i );
+            }
+            n += A.tileNb( j );
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Tests A.slice( row1, row2, col1, col2 ).
+static void test_Matrix_slice()
+{
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+    auto A = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // mark tiles so they're identifiable
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            if (A.tileIsLocal(i, j)) {
+                auto T = A(i, j);
+                for (int jj = 0; jj < T.nb(); ++jj)
+                    for (int ii = 0; ii < T.mb(); ++ii)
+                        T.at(ii, jj) = i*nb + ii + (j*nb + jj)/100.;
+            }
+        }
+    }
+
+    auto AT = transpose( A );
+
+    for (int cnt = 0; cnt < 100; ++cnt) {
+        //printf( "----- cnt %2d\n", cnt );
+        int row1, row2, col1, col2;
+        row1 = rand() % m;
+        row2 = rand() % m;
+        col1 = rand() % n;
+        col2 = rand() % n;
+        if (row1 > row2)
+            std::swap( row1, row2 );
+        if (col1 > col2)
+            std::swap( col1, col2 );
+        //printf( "B = A.slice( %2d : %2d, %2d : %2d )\n", row1, row2, col1, col2 );
+        auto B = A.slice( row1, row2, col1, col2 );
+
+        int m2 = row2 - row1 + 1;
+        int n2 = col2 - col1 + 1;
+
+        test_assert( B.m() == m2 );
+        test_assert( B.n() == n2 );
+        test_assert( B.row0_offset() == row1 % nb );
+        test_assert( B.col0_offset() == col1 % nb );
+        test_assert( B.ioffset() == int(row1 / nb) );
+        test_assert( B.joffset() == int(col1 / nb) );
+        test_assert( B.mt() == ceildiv( int(B.row0_offset() + B.m()), nb ) );
+        test_assert( B.nt() == ceildiv( int(B.col0_offset() + B.n()), nb ) );
+
+        verify_slice( B, row1, row2, col1, col2, nb, slate::Op::NoTrans );
+
+        //printf( "BT = AT.slice( ... )\n" );
+        auto BT = AT.slice( col1, col2, row1, row2 );
+
+        test_assert( BT.op() == slate::Op::Trans );
+        test_assert( BT.m() == n2 );  // trans
+        test_assert( BT.n() == m2 );  // trans
+        test_assert( BT.row0_offset() == row1 % nb );
+        test_assert( BT.col0_offset() == col1 % nb );
+        test_assert( BT.ioffset() == int(row1 / nb) );
+        test_assert( BT.joffset() == int(col1 / nb) );
+        // trans col, row
+        test_assert( BT.mt() == ceildiv( int(BT.col0_offset() + BT.m()), nb ) );
+        test_assert( BT.nt() == ceildiv( int(BT.row0_offset() + BT.n()), nb ) );
+
+        verify_slice( BT, row1, row2, col1, col2, nb, slate::Op::Trans );
+
+        //printf( "BT2 = transpose( B )\n" );
+        auto BT2 = transpose( B );
+
+        int row3, row4, col3, col4;
+        row3 = rand() % m2;
+        row4 = rand() % m2;
+        col3 = rand() % n2;
+        col4 = rand() % n2;
+        if (row3 > row4)
+            std::swap( row3, row4 );
+        if (col3 > col4)
+            std::swap( col3, col4 );
+        //printf( "C = B.slice( %2d : %2d, %2d : %2d ) => ( %2d : %2d, %2d : %2d )\n",
+        //        row3, row4, col3, col4,
+        //        row1 + row3, row1 + row4,
+        //        col1 + col3, col1 + col4 );
+        auto C = B.slice( row3, row4, col3, col4 );
+
+        int m3 = row4 - row3 + 1;
+        int n3 = col4 - col3 + 1;
+
+        test_assert( C.op() == slate::Op::NoTrans );
+        test_assert( C.m() == m3 );
+        test_assert( C.n() == n3 );
+        test_assert( C.row0_offset() == (row1 + row3) % nb );
+        test_assert( C.col0_offset() == (col1 + col3) % nb );
+        test_assert( C.ioffset() == int((row1 + row3) / nb) );
+        test_assert( C.joffset() == int((col1 + col3) / nb) );
+        test_assert( C.mt() == ceildiv( int(C.row0_offset() + C.m()), nb ) );
+        test_assert( C.nt() == ceildiv( int(C.col0_offset() + C.n()), nb ) );
+
+        verify_slice( C, row1 + row3, row1 + row4, col1 + col3, col1 + col4,
+                      nb, slate::Op::NoTrans );
+
+        //printf( "CT = BT.slice( ... )\n" );
+        auto CT = BT.slice( col3, col4, row3, row4 );
+
+        test_assert( CT.op() == slate::Op::Trans );
+        test_assert( CT.m() == n3 );  // trans
+        test_assert( CT.n() == m3 );  // trans
+        test_assert( CT.row0_offset() == (row1 + row3) % nb );
+        test_assert( CT.col0_offset() == (col1 + col3) % nb );
+        test_assert( CT.ioffset() == int((row1 + row3) / nb) );
+        test_assert( CT.joffset() == int((col1 + col3) / nb) );
+        // col, row trans
+        test_assert( CT.mt() == ceildiv( int(CT.col0_offset() + CT.m()), nb ) );
+        test_assert( CT.nt() == ceildiv( int(CT.row0_offset() + CT.n()), nb ) );
+
+        verify_slice( CT, row1 + row3, row1 + row4, col1 + col3, col1 + col4,
+                      nb, slate::Op::Trans );
+    }
+}
+
+}; // class Debug
+}  // namespace slate
+
+//==============================================================================
+// Conversions
+
 //------------------------------------------------------------------------------
 /// Tests Matrix( orig, i1, i2, j1, j2 ).
 /// Does the same thing as A.sub( i1, i2, j1, j2 ), just more verbose.
@@ -1170,9 +1365,13 @@ void run_tests()
     run_test(test_Matrix_insertLocalTiles_dev, "Matrix::insertLocalTiles(on_devices)", mpi_comm);
 
     if (mpi_rank == 0)
-        printf("\nSub-matrices and conversions\n");
+        printf("\nSub-matrices and slices\n");
     run_test(test_Matrix_sub,             "Matrix::sub",       mpi_comm);
     run_test(test_Matrix_sub_trans,       "Matrix::sub(A^T)",  mpi_comm);
+    run_test(slate::Debug::test_Matrix_slice, "Matrix::slice", mpi_comm);
+
+    if (mpi_rank == 0)
+        printf("\nConversions\n");
     run_test(test_Matrix_to_Matrix,       "Matrix => Matrix",  mpi_comm);
     run_test(test_Matrix_to_Trapezoid,    "Matrix => TrapezoidMatrix",  mpi_comm);
     run_test(test_Matrix_to_Triangular,   "Matrix => TriangularMatrix", mpi_comm);

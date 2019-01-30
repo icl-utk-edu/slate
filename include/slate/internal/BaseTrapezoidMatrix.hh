@@ -449,6 +449,10 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 /// Conversion from general matrix
 /// creates shallow copy view of original matrix.
 ///
+/// Requires the original matrix to have mb == nb, so that diagonal tiles are
+/// square (except perhaps the last one). Currently this is enforced for
+/// only the (0, 0) tile when there are more than one block rows and columns.
+///
 /// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
 ///     - Lower: lower triangle of A is stored.
@@ -462,12 +466,18 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     : BaseMatrix<scalar_t>(orig)
 {
     slate_error_if(uplo == Uplo::General);
+    slate_assert(orig.mt() <= 1 || orig.nt() <= 1 ||
+                 orig.tileMb(0) == orig.tileNb(0));
     this->uplo_ = uplo;
 }
 
 //------------------------------------------------------------------------------
 /// Conversion from general matrix, sub-matrix constructor
 /// creates shallow copy view of original matrix, A[ i1:i2, j1:j2 ].
+///
+/// Requires the original matrix to have mb == nb, so that diagonal tiles are
+/// square (except perhaps the last one). Currently this is enforced for
+/// only the (0, 0) tile when there are more than one block rows and columns.
 ///
 /// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
@@ -496,6 +506,8 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     : BaseMatrix<scalar_t>(orig, i1, i2, j1, j2)
 {
     slate_error_if(uplo == Uplo::General);
+    slate_assert(orig.mt() <= 1 || orig.nt() <= 1 ||
+                 orig.tileMb(0) == orig.tileNb(0));
     this->uplo_ = uplo;
 }
 

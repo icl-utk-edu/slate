@@ -188,7 +188,7 @@ public:
     /// Map of lives is indexed by {i, j}. The life applies to all devices.
     using LivesMap = slate::Map<ij_tuple, int64_t>;
 
-    MatrixStorage(int64_t m, int64_t n, int64_t nb,
+    MatrixStorage(int64_t m, int64_t n, int64_t mb, int64_t nb,
                   int p, int q, MPI_Comm mpi_comm);
     ~MatrixStorage();
 
@@ -315,6 +315,7 @@ private:
     int64_t n_;
     int64_t mt_;
     int64_t nt_;
+    int64_t mb_;
     int64_t nb_;
     int p_, q_;
 
@@ -347,18 +348,19 @@ private:
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 MatrixStorage<scalar_t>::MatrixStorage(
-    int64_t m, int64_t n, int64_t nb,
+    int64_t m, int64_t n, int64_t mb, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
     : m_(m),
       n_(n),
-      mt_(ceildiv(m, nb)),
+      mt_(ceildiv(m, mb)),
       nt_(ceildiv(n, nb)),
+      mb_(mb),
       nb_(nb),
       p_(p),
       q_(q),
       tiles_(),
       lives_(),
-      memory_(sizeof(scalar_t) * nb * nb),  // block size in bytes
+      memory_(sizeof(scalar_t) * mb * nb),  // block size in bytes
       batch_array_size(0)
 {
     slate_mpi_call(
@@ -369,10 +371,10 @@ MatrixStorage<scalar_t>::MatrixStorage(
     host_num_    = memory_.host_num_;
     num_devices_ = memory_.num_devices_;
 
-    // TODO: these all assume 2D block cyclic with fixed size tiles (nb)
-    // lambdas that capture m, n, nb for
+    // TODO: these all assume 2D block cyclic with fixed size tiles (mb x nb)
+    // lambdas that capture m, n, mb, nb for
     // computing tile's mb (rows) and nb (cols)
-    tileMb = [=](int64_t i) { return (i + 1)*nb > m ? m%nb : nb; };
+    tileMb = [=](int64_t i) { return (i + 1)*mb > m ? m%mb : mb; };
     tileNb = [=](int64_t j) { return (j + 1)*nb > n ? n%nb : nb; };
 
     // lambda that captures p, q for computing tile's rank,

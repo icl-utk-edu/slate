@@ -102,8 +102,14 @@ protected:
     // 4. copy assignment
     // 5. move assignment
 
-    BaseMatrix(int64_t m, int64_t n, int64_t nb, int p, int q,
-               MPI_Comm mpi_comm);
+    BaseMatrix(int64_t m, int64_t n, int64_t mb, int64_t nb,
+               int p, int q, MPI_Comm mpi_comm);
+
+    /// With mb = nb.
+    BaseMatrix(int64_t m, int64_t n, int64_t nb,
+               int p, int q, MPI_Comm mpi_comm)
+        : BaseMatrix(m, n, nb, nb, p, q, mpi_comm)
+    {}
 
     BaseMatrix(BaseMatrix& orig,
                int64_t i1, int64_t i2,
@@ -625,7 +631,7 @@ BaseMatrix<scalar_t>::BaseMatrix()
 //------------------------------------------------------------------------------
 /// [internal]
 /// Construct matrix with
-/// mt = ceil( m / nb ) block rows and
+/// mt = ceil( m / mb ) block rows and
 /// nt = ceil( n / nb ) block columns.
 /// No tiles are allocated. Creates empty matrix storage.
 ///
@@ -635,8 +641,11 @@ BaseMatrix<scalar_t>::BaseMatrix()
 /// @param[in] n
 ///     Number of columns of the matrix. n >= 0
 ///
+/// @param[in] mb
+///     Row block size in 2D block-cyclic distribution. mb > 0.
+///
 /// @param[in] nb
-///     Block size in 2D block-cyclic distribution. n > 0.
+///     Column block size in 2D block-cyclic distribution. nb > 0.
 ///
 /// @param[in] p
 ///     Number of block rows in 2D block-cyclic distribution. p > 0.
@@ -650,19 +659,19 @@ BaseMatrix<scalar_t>::BaseMatrix()
 ///
 template <typename scalar_t>
 BaseMatrix<scalar_t>::BaseMatrix(
-    int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+    int64_t m, int64_t n, int64_t mb, int64_t nb, int p, int q, MPI_Comm mpi_comm)
     : row0_offset_(0),
       col0_offset_(0),
-      last_mb_(m % nb == 0 ? nb : m % nb),
+      last_mb_(m % mb == 0 ? mb : m % mb),
       last_nb_(n % nb == 0 ? nb : n % nb),
       ioffset_(0),
       joffset_(0),
-      mt_(ceildiv(m, nb)),
+      mt_(ceildiv(m, mb)),
       nt_(ceildiv(n, nb)),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
       storage_(std::make_shared< MatrixStorage< scalar_t > >(
-          m, n, nb, p, q, mpi_comm)),
+          m, n, mb, nb, p, q, mpi_comm)),
       mpi_comm_(mpi_comm),
       layout_(Layout::ColMajor)
 {
@@ -2051,7 +2060,7 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
 /// Gets tile(i, j) for on device.
 /// Will copy-in the tile if it does not exist or its state is MOSI::Invalid.
 /// Finds a source tile whose state is valid (Modified|Shared) by
-///     looping on existing tile instances.
+/// looping on existing tile instances.
 /// Updates source tile's state to shared if copied-in.
 /// If 'modify' param is true, marks the destination tile as MOSI::Modified,
 ///     and invalidates other instances. Otherwise, sets destination tile state
@@ -2319,7 +2328,7 @@ void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set, int d
 /// Will copy-in the tile if it does not exist or its state is MOSI::Invalid.
 /// Other instances will be invalidated.
 /// Finds a source tile whose state is valid (Modified|Shared) by
-///     scanning existing tile instances.
+/// scanning existing tile instances.
 /// Converts destination Layout based on 'layout' param.
 ///
 /// @param[in] i

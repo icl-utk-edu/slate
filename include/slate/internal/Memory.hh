@@ -57,7 +57,7 @@ namespace slate {
 //------------------------------------------------------------------------------
 /// Allocates workspace blocks for host and GPU devices.
 /// Currently assumes a fixed-size block of block_size bytes,
-/// e.g., block_size = sizeof(scalar_t) * nb * nb.
+/// e.g., block_size = sizeof(scalar_t) * mb * nb.
 class Memory {
 public:
     friend class Debug;

@@ -569,7 +569,7 @@ Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
     int64_t nb = tileNb(j);
     Tile<scalar_t>* tile
         = new Tile<scalar_t>(mb, nb, data, mb, device, kind);
-    tiles_[ijdev] = {tile, MOSI::Invalid};
+    tiles_[ijdev] = {tile, kind == TileKind::Workspace ? MOSI::Invalid : MOSI::Shared};
     return tile;
 }
 

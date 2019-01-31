@@ -389,9 +389,14 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 /// creates a shallow copy view of the original matrix.
 /// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
 ///
-/// @param[in] in_uplo
+/// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
 ///     - Lower: lower triangle of A is stored.
+///
+/// @param[in] diag
+///     - NonUnit: A does not have unit diagonal.
+///     - Unit:    A has unit diagonal; diagonal elements are not referenced
+///                and are assumed to be one.
 ///
 /// @param[in,out] orig
 ///     Original matrix.

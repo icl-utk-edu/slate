@@ -842,9 +842,9 @@ static void verify_slice(
         test_assert( A.col0_offset() == col1 % nb );
         test_assert( A.mt() == ceildiv( int(A.row0_offset() + row2 - row1 + 1), nb ) );
         test_assert( A.nt() == ceildiv( int(A.col0_offset() + col2 - col1 + 1), nb ) );
-        int n = col1;  // start of tile j
+        int n_ = col1;  // start of tile j
         for (int j = 0; j < A.nt(); ++j) {
-            int m = row1;  // start of tile i
+            int m_ = row1;  // start of tile i
             for (int i = 0; i < A.mt(); ++i) {
                 if (A.tileIsLocal( i, j )) {
                     auto T = A.at( i, j );
@@ -852,13 +852,13 @@ static void verify_slice(
                     test_assert( T.nb() == A.tileNb( j ) );
                     for (int jj = 0; jj < T.nb(); ++jj) {
                         for (int ii = 0; ii < T.mb(); ++ii) {
-                            test_assert( T.at( ii, jj ) == (ii + m) + (jj + n)/100. );
+                            test_assert( T.at( ii, jj ) == (ii + m_) + (jj + n_)/100. );
                         }
                     }
                 }
-                m += A.tileMb( i );
+                m_ += A.tileMb( i );
             }
-            n += A.tileNb( j );
+            n_ += A.tileNb( j );
         }
     }
     else {
@@ -868,9 +868,9 @@ static void verify_slice(
         test_assert( A.col0_offset() == col1 % nb );
         test_assert( A.mt() == ceildiv( int(A.col0_offset() + col2 - col1 + 1), nb ) );
         test_assert( A.nt() == ceildiv( int(A.row0_offset() + row2 - row1 + 1), nb ) );
-        int n = row1;  // start of tile j
+        int n_ = row1;  // start of tile j
         for (int j = 0; j < A.nt(); ++j) {
-            int m = col1;  // start of tile i
+            int m_ = col1;  // start of tile i
             for (int i = 0; i < A.mt(); ++i) {
                 if (A.tileIsLocal( i, j )) {
                     auto T = A.at( i, j );
@@ -878,13 +878,13 @@ static void verify_slice(
                     test_assert( T.nb() == A.tileNb( j ) );
                     for (int jj = 0; jj < T.nb(); ++jj) {
                         for (int ii = 0; ii < T.mb(); ++ii) {
-                            test_assert( T.at( ii, jj ) == (jj + n) + (ii + m)/100. );
+                            test_assert( T.at( ii, jj ) == (jj + n_) + (ii + m_)/100. );
                         }
                     }
                 }
-                m += A.tileMb( i );
+                m_ += A.tileMb( i );
             }
-            n += A.tileNb( j );
+            n_ += A.tileNb( j );
         }
     }
 }
@@ -1166,9 +1166,9 @@ void test_Matrix_to_Triangular()
     // sub-matrix, must be square
     int i1 = rand() % A.mt();
     int j1 = rand() % A.nt();
-    int n  = rand() % std::min( A.mt() - i1, A.nt() - j1 );
-    int i2 = i1 + n - 1;
-    int j2 = j1 + n - 1;
+    int n2 = rand() % std::min( A.mt() - i1, A.nt() - j1 );
+    int i2 = i1 + n2 - 1;
+    int j2 = j1 + n2 - 1;
 
     // lower, sub-matrix
     auto L2 = slate::TriangularMatrix<double>(

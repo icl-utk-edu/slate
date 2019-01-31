@@ -153,7 +153,7 @@ void test_TrapezoidMatrix_fromScaLAPACK()
     int mtiles, mtiles_local, m_local, lda;
     int ntiles, ntiles_local, n_local;
     get_2d_cyclic_dimensions(
-        m, n, nb,
+        m, n, nb, nb,
         mtiles, mtiles_local, m_local,
         ntiles, ntiles_local, n_local, lda );
 
@@ -209,7 +209,7 @@ void test_TrapezoidMatrix_fromDevices()
     int mtiles, mtiles_local, m_local, lda;
     int ntiles, ntiles_local, n_local;
     get_2d_cyclic_dimensions(
-        m, n, nb,
+        m, n, nb, nb,
         mtiles, mtiles_local, m_local,
         ntiles, ntiles_local, n_local, lda );
 

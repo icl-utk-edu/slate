@@ -52,7 +52,7 @@ using slate::roundup;
 
 //------------------------------------------------------------------------------
 // global variables
-int m, n, k, nb, p, q;
+int m, n, k, mb, nb, p, q;
 int mpi_rank;
 int mpi_size;
 MPI_Comm mpi_comm;
@@ -76,16 +76,22 @@ void test_Matrix()
 }
 
 //------------------------------------------------------------------------------
-/// m-by-n, no-data constructor
+/// m-by-n, no-data constructor, both square and rectangular tiles
 /// Tests Matrix(), mt, nt, op.
 void test_Matrix_empty()
 {
     slate::Matrix<double> A(m, n, nb, p, q, mpi_comm);
+    slate::Matrix<double> B(m, n, mb, nb, p, q, mpi_comm);
 
     test_assert(A.mt() == ceildiv(m, nb));
     test_assert(A.nt() == ceildiv(n, nb));
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
+
+    test_assert(B.mt() == ceildiv(m, mb));
+    test_assert(B.nt() == ceildiv(n, nb));
+    test_assert(B.op() == blas::Op::NoTrans);
+    test_assert(B.uplo() == slate::Uplo::General);
 }
 
 //------------------------------------------------------------------------------
@@ -112,6 +118,28 @@ void test_Matrix_fromLAPACK()
 }
 
 //------------------------------------------------------------------------------
+/// fromLAPACK with rectangular tiles
+/// Test Matrix::fromLAPACK, A(i, j), tileIsLocal, tileMb, tileNb.
+void test_Matrix_fromLAPACK_rect()
+{
+    int lda = roundup(m, mb);
+    std::vector<double> Ad( lda*n );
+
+    auto A = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
+
+    test_assert(A.mt() == ceildiv(m, mb));
+    test_assert(A.nt() == ceildiv(n, nb));
+    test_assert(A.op() == blas::Op::NoTrans);
+
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            verify_tile_lapack(A, i, j, mb, nb, m, n, Ad.data(), lda);
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
 /// fromScaLAPACK
 /// Test Matrix::fromScaLAPACK, A(i, j), tileIsLocal, tileMb, tileNb.
 void test_Matrix_fromScaLAPACK()
@@ -119,7 +147,7 @@ void test_Matrix_fromScaLAPACK()
     int mtiles, mtiles_local, m_local, lda;
     int ntiles, ntiles_local, n_local;
     get_2d_cyclic_dimensions(
-        m, n, nb,
+        m, n, nb, nb,
         mtiles, mtiles_local, m_local,
         ntiles, ntiles_local, n_local, lda );
 
@@ -141,6 +169,34 @@ void test_Matrix_fromScaLAPACK()
 }
 
 //------------------------------------------------------------------------------
+/// fromScaLAPACK with rectangular tiles
+/// Test Matrix::fromScaLAPACK, A(i, j), tileIsLocal, tileMb, tileNb.
+void test_Matrix_fromScaLAPACK_rect()
+{
+    int mtiles, mtiles_local, m_local, lda;
+    int ntiles, ntiles_local, n_local;
+    get_2d_cyclic_dimensions(
+        m, n, mb, nb,
+        mtiles, mtiles_local, m_local,
+        ntiles, ntiles_local, n_local, lda );
+
+    std::vector<double> Ad( lda*n_local );
+
+    auto A = slate::Matrix<double>::fromScaLAPACK(
+        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
+
+    test_assert(A.mt() == mtiles);
+    test_assert(A.nt() == ntiles);
+    test_assert(A.op() == blas::Op::NoTrans);
+
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            verify_tile_scalapack(A, i, j, mb, nb, m, n, Ad.data(), lda);
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
 /// fromDevices
 /// Test Matrix::fromDevices, A(i, j), tileIsLocal, tileMb, tileNb.
 void test_Matrix_fromDevices()
@@ -152,7 +208,7 @@ void test_Matrix_fromDevices()
     int mtiles, mtiles_local, m_local, lda;
     int ntiles, ntiles_local, n_local;
     get_2d_cyclic_dimensions(
-        m, n, nb,
+        m, n, nb, nb,
         mtiles, mtiles_local, m_local,
         ntiles, ntiles_local, n_local, lda );
 
@@ -160,7 +216,7 @@ void test_Matrix_fromDevices()
     for (int dev = 0; dev < num_devices; ++dev) {
         int ntiles_local2, ntiles_dev, n_dev;
         get_cyclic_dimensions(num_devices, dev, n_local, nb,
-                               ntiles_local2, ntiles_dev, n_dev);
+                              ntiles_local2, ntiles_dev, n_dev);
         assert(ntiles_local == ntiles_local2);
 
         // cudaMalloc returns null if len = 0, so make it at least 1.
@@ -190,20 +246,20 @@ void test_Matrix_fromDevices()
 }
 
 //------------------------------------------------------------------------------
-/// emptyLike
+/// emptyLike with rectangular tiles
 void test_Matrix_emptyLike()
 {
     int mtiles, mtiles_local, m_local, lda;
     int ntiles, ntiles_local, n_local;
     get_2d_cyclic_dimensions(
-        m, n, nb,
+        m, n, mb, nb,
         mtiles, mtiles_local, m_local,
         ntiles, ntiles_local, n_local, lda );
 
     std::vector<double> Ad( lda*n_local );
 
     auto A = slate::Matrix<double>::fromScaLAPACK(
-        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
 
     test_assert(A.mt() == mtiles);
     test_assert(A.nt() == ntiles);
@@ -288,15 +344,15 @@ void test_Matrix_emptyLike()
 /// Test transpose(A).
 void test_Matrix_transpose()
 {
-    int lda = roundup(m, nb);
+    int lda = roundup(m, mb);
     std::vector<double> Ad( lda*n );
     auto A = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
 
     auto AT = transpose( A );
 
     test_assert(AT.mt() == ceildiv(n, nb));
-    test_assert(AT.nt() == ceildiv(m, nb));
+    test_assert(AT.nt() == ceildiv(m, mb));
     test_assert(AT.op() == slate::Op::Trans);
     test_assert(AT.uplo() == slate::Uplo::General);
 
@@ -304,8 +360,8 @@ void test_Matrix_transpose()
         for (int i = 0; i < AT.mt(); ++i) {
             if (AT.tileIsLocal(i, j)) {
                 int ib = std::min( nb, n - i*nb );
-                int jb = std::min( nb, m - j*nb );
-                test_assert(AT(i, j).data() == &Ad[j*nb + i*nb*lda]);
+                int jb = std::min( mb, m - j*mb );
+                test_assert(AT(i, j).data() == &Ad[j*mb + i*nb*lda]);
                 test_assert(AT(i, j).op() == slate::Op::Trans);
                 test_assert(AT(i, j).uplo() == slate::Uplo::General);
                 test_assert(AT(i, j).mb() == AT.tileMb(i));
@@ -321,15 +377,15 @@ void test_Matrix_transpose()
 /// Test conj_transpose(A).
 void test_Matrix_conj_transpose()
 {
-    int lda = roundup(m, nb);
+    int lda = roundup(m, mb);
     std::vector<double> Ad( lda*n );
     auto A = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
 
     auto AT = conj_transpose( A );
 
     test_assert(AT.mt() == ceildiv(n, nb));
-    test_assert(AT.nt() == ceildiv(m, nb));
+    test_assert(AT.nt() == ceildiv(m, mb));
     test_assert(AT.op() == slate::Op::ConjTrans);
     test_assert(AT.uplo() == slate::Uplo::General);
 
@@ -337,8 +393,8 @@ void test_Matrix_conj_transpose()
         for (int i = 0; i < AT.mt(); ++i) {
             if (AT.tileIsLocal(i, j)) {
                 int ib = std::min( nb, n - i*nb );
-                int jb = std::min( nb, m - j*nb );
-                test_assert(AT(i, j).data() == &Ad[j*nb + i*nb*lda]);
+                int jb = std::min( mb, m - j*mb );
+                test_assert(AT(i, j).data() == &Ad[j*mb + i*nb*lda]);
                 test_assert(AT(i, j).op() == slate::Op::ConjTrans);
                 test_assert(AT(i, j).uplo() == slate::Uplo::General);
                 test_assert(AT(i, j).mb() == AT.tileMb(i));
@@ -354,20 +410,22 @@ void test_Matrix_conj_transpose()
 /// Test swap(A, B).
 void test_Matrix_swap()
 {
-    int lda = roundup(m, nb);
+    // A has rectangular mb x nb tiles
+    int lda = roundup(m, mb);
     std::vector<double> Ad( lda*n );
     auto A = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
 
+    // B has square nb x nb tiles
     int ldb = roundup(n, nb);
     std::vector<double> Bd( ldb*k );
     auto B = slate::Matrix<double>::fromLAPACK(
-        n, k, Bd.data(), ldb, nb, p, q, mpi_comm );
+        n, k, Bd.data(), ldb, nb, nb, p, q, mpi_comm );
 
     slate::Matrix<double> C = transpose( A );
 
     test_assert(C.mt() == ceildiv(n, nb));
-    test_assert(C.nt() == ceildiv(m, nb));
+    test_assert(C.nt() == ceildiv(m, mb));
     test_assert(C.op() == slate::Op::Trans);
     test_assert(C.uplo() == slate::Uplo::General);
     if (C.tileIsLocal(0, 0))
@@ -377,17 +435,17 @@ void test_Matrix_swap()
     test_assert(B.nt() == ceildiv(k, nb));
     test_assert(B.op() == slate::Op::NoTrans);
     test_assert(B.uplo() == slate::Uplo::General);
-    if (C.tileIsLocal(0, 0))
+    if (B.tileIsLocal(0, 0))
         test_assert(B(0, 0).data() == Bd.data());
 
     swap(B, C);
 
-    // swap(B, C) in asserts
+    // Compared to above asserts, swap B <=> C in asserts.
     test_assert(B.mt() == ceildiv(n, nb));
-    test_assert(B.nt() == ceildiv(m, nb));
+    test_assert(B.nt() == ceildiv(m, mb));
     test_assert(B.op() == slate::Op::Trans);
     test_assert(B.uplo() == slate::Uplo::General);
-    if (C.tileIsLocal(0, 0))
+    if (B.tileIsLocal(0, 0))
         test_assert(B(0, 0).data() == Ad.data());
 
     test_assert(C.mt() == ceildiv(n, nb));
@@ -402,12 +460,12 @@ void test_Matrix_swap()
 /// Test tileInsert( i, j ).
 void test_Matrix_tileInsert_new()
 {
-    auto A = slate::Matrix<double>( m, n, nb, p, q, mpi_comm );
+    auto A = slate::Matrix<double>( m, n, mb, nb, p, q, mpi_comm );
 
     // Manually insert new tiles, which are allocated by SLATE.
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {
-            int ib = std::min( nb, m - i*nb );
+            int ib = std::min( mb, m - i*mb );
             int jb = std::min( nb, n - j*nb );
 
             auto T_ptr = A.tileInsert( i, j );  //, A.hostNum() );
@@ -426,7 +484,7 @@ void test_Matrix_tileInsert_new()
     // Verify tiles.
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {
-            int ib = std::min( nb, m - i*nb );
+            int ib = std::min( mb, m - i*mb );
             int jb = std::min( nb, n - j*nb );
 
             auto T = A(i, j);
@@ -443,10 +501,10 @@ void test_Matrix_tileInsert_new()
 /// Test tileInsert( i, j, data ).
 void test_Matrix_tileInsert_data()
 {
-    auto A = slate::Matrix<double>( m, n, nb, p, q, mpi_comm );
+    auto A = slate::Matrix<double>( m, n, mb, nb, p, q, mpi_comm );
 
     // Manually insert tiles from a PLASMA-style tiled matrix.
-    // Section A11 has full nb-by-nb tiles.
+    // Section A11 has full mb-by-nb tiles.
     // Sections A12, A21, A22 have partial tiles.
     //
     //          n1      n2
@@ -459,7 +517,7 @@ void test_Matrix_tileInsert_data()
     //     +----------+---+
     // m2  |    A21   |A22|
     //     +----------+---+
-    int m2 = m % nb;
+    int m2 = m % mb;
     int m1 = m - m2;
     int n2 = n % nb;
     int n1 = n - n2;
@@ -473,13 +531,13 @@ void test_Matrix_tileInsert_data()
     double *Td;
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {
-            int ib = std::min( nb, m - i*nb );
+            int ib = std::min( mb, m - i*mb );
             int jb = std::min( nb, n - j*nb );
-            if (i*nb < m1) {
+            if (i*mb < m1) {
                 if (j*nb < n1)
-                    Td = A11 + i*nb*nb + j*m1*nb;
+                    Td = A11 + i*mb*nb + j*m1*nb;
                 else
-                    Td = A12 + i*nb*n2;
+                    Td = A12 + i*mb*n2;
             }
             else {
                 if (j*nb < n1)
@@ -505,7 +563,7 @@ void test_Matrix_tileInsert_data()
     // Verify tiles.
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {
-            int ib = std::min( nb, m - i*nb );
+            int ib = std::min( mb, m - i*mb );
             int jb = std::min( nb, n - j*nb );
 
             auto T = A(i, j);
@@ -522,10 +580,10 @@ void test_Matrix_tileInsert_data()
 /// Test tileLife.
 void test_Matrix_tileLife()
 {
-    int lda = roundup(m, nb);
+    int lda = roundup(m, mb);
     std::vector<double> Ad( lda*n );
     auto A = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
 
     const int max_life = 4;
     for (int j = 0; j < A.nt(); ++j) {
@@ -558,15 +616,15 @@ void test_Matrix_tileLife()
 /// Test tileErase.
 void test_Matrix_tileErase()
 {
-    std::vector<double> Td( nb*nb );
+    std::vector<double> Td( mb*nb );
 
-    auto A = slate::Matrix<double>( m, n, nb, p, q, mpi_comm );
+    auto A = slate::Matrix<double>( m, n, mb, nb, p, q, mpi_comm );
     slate::Tile<double> T;
 
     int i = rand() % A.mt();
     int j = rand() % A.nt();
 
-    A.tileInsert( i, j, Td.data(), nb );  //A.hostNum()
+    A.tileInsert( i, j, Td.data(), mb );  //A.hostNum()
     test_assert_no_throw( T = A( i, j ) );
     A.tileErase( i, j, A.hostNum() );
     test_assert_throw_std( T = A( i, j ) );
@@ -582,9 +640,9 @@ void test_Matrix_tileErase()
 /// Tests Matrix(), mt, nt, op, insertLocalTiles on host.
 void test_Matrix_insertLocalTiles()
 {
-    slate::Matrix<double> A(m, n, nb, p, q, mpi_comm);
+    slate::Matrix<double> A(m, n, mb, nb, p, q, mpi_comm);
 
-    test_assert(A.mt() == ceildiv(m, nb));
+    test_assert(A.mt() == ceildiv(m, mb));
     test_assert(A.nt() == ceildiv(n, nb));
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
@@ -606,9 +664,9 @@ void test_Matrix_insertLocalTiles()
 /// Tests Matrix(), mt, nt, op, insertLocalTiles on devices.
 void test_Matrix_insertLocalTiles_dev()
 {
-    slate::Matrix<double> A(m, n, nb, p, q, mpi_comm);
+    slate::Matrix<double> A(m, n, mb, nb, p, q, mpi_comm);
 
-    test_assert(A.mt() == ceildiv(m, nb));
+    test_assert(A.mt() == ceildiv(m, mb));
     test_assert(A.nt() == ceildiv(n, nb));
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
@@ -633,10 +691,10 @@ void test_Matrix_insertLocalTiles_dev()
 /// Tests A.sub( i1, i2, j1, j2 ).
 void test_Matrix_sub()
 {
-    int lda = roundup(m, nb);
+    int lda = roundup(m, mb);
     std::vector<double> Ad( lda*n );
     auto A = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
 
     // mark tiles so they're identifiable
     for (int j = 0; j < A.nt(); ++j) {
@@ -746,10 +804,10 @@ void test_Matrix_sub()
 /// Tests transpose( A ).sub( i1, i2, j1, j2 ).
 void test_Matrix_sub_trans()
 {
-    int lda = roundup(m, nb);
+    int lda = roundup(m, mb);
     std::vector<double> Ad( lda*n );
     auto A = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
 
     // mark tiles so they're identifiable
     for (int j = 0; j < A.nt(); ++j) {
@@ -868,14 +926,14 @@ public:
 static void verify_slice(
     slate::Matrix<double>& A,
     int row1, int row2, int col1, int col2,
-    int nb, slate::Op trans )
+    int mb, int nb, slate::Op trans )
 {
     if (trans == slate::Op::NoTrans) {
         test_assert( A.m() == row2 - row1 + 1 );
         test_assert( A.n() == col2 - col1 + 1 );
-        test_assert( A.row0_offset() == row1 % nb );
+        test_assert( A.row0_offset() == row1 % mb );
         test_assert( A.col0_offset() == col1 % nb );
-        test_assert( A.mt() == ceildiv( int(A.row0_offset() + row2 - row1 + 1), nb ) );
+        test_assert( A.mt() == ceildiv( int(A.row0_offset() + row2 - row1 + 1), mb ) );
         test_assert( A.nt() == ceildiv( int(A.col0_offset() + col2 - col1 + 1), nb ) );
         int n_ = col1;  // start of tile j
         for (int j = 0; j < A.nt(); ++j) {
@@ -899,10 +957,10 @@ static void verify_slice(
     else {
         test_assert( A.n() == row2 - row1 + 1 );
         test_assert( A.m() == col2 - col1 + 1 );
-        test_assert( A.row0_offset() == row1 % nb );
+        test_assert( A.row0_offset() == row1 % mb );  // todo: nb?
         test_assert( A.col0_offset() == col1 % nb );
         test_assert( A.mt() == ceildiv( int(A.col0_offset() + col2 - col1 + 1), nb ) );
-        test_assert( A.nt() == ceildiv( int(A.row0_offset() + row2 - row1 + 1), nb ) );
+        test_assert( A.nt() == ceildiv( int(A.row0_offset() + row2 - row1 + 1), mb ) );
         int n_ = row1;  // start of tile j
         for (int j = 0; j < A.nt(); ++j) {
             int m_ = col1;  // start of tile i
@@ -928,10 +986,10 @@ static void verify_slice(
 /// Tests A.slice( row1, row2, col1, col2 ).
 static void test_Matrix_slice()
 {
-    int lda = roundup(m, nb);
+    int lda = roundup(m, mb);
     std::vector<double> Ad( lda*n );
     auto A = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
 
     // mark tiles so they're identifiable
     for (int j = 0; j < A.nt(); ++j) {
@@ -940,7 +998,7 @@ static void test_Matrix_slice()
                 auto T = A(i, j);
                 for (int jj = 0; jj < T.nb(); ++jj)
                     for (int ii = 0; ii < T.mb(); ++ii)
-                        T.at(ii, jj) = i*nb + ii + (j*nb + jj)/100.;
+                        T.at(ii, jj) = i*mb + ii + (j*nb + jj)/100.;
             }
         }
     }
@@ -966,14 +1024,14 @@ static void test_Matrix_slice()
 
         test_assert( B.m() == m2 );
         test_assert( B.n() == n2 );
-        test_assert( B.row0_offset() == row1 % nb );
+        test_assert( B.row0_offset() == row1 % mb );
         test_assert( B.col0_offset() == col1 % nb );
-        test_assert( B.ioffset() == int(row1 / nb) );
+        test_assert( B.ioffset() == int(row1 / mb) );
         test_assert( B.joffset() == int(col1 / nb) );
-        test_assert( B.mt() == ceildiv( int(B.row0_offset() + B.m()), nb ) );
+        test_assert( B.mt() == ceildiv( int(B.row0_offset() + B.m()), mb ) );
         test_assert( B.nt() == ceildiv( int(B.col0_offset() + B.n()), nb ) );
 
-        verify_slice( B, row1, row2, col1, col2, nb, slate::Op::NoTrans );
+        verify_slice( B, row1, row2, col1, col2, mb, nb, slate::Op::NoTrans );
 
         //printf( "BT = AT.slice( ... )\n" );
         auto BT = AT.slice( col1, col2, row1, row2 );
@@ -982,15 +1040,15 @@ static void test_Matrix_slice()
         test_assert( BT.uplo() == slate::Uplo::General );
         test_assert( BT.m() == n2 );  // trans
         test_assert( BT.n() == m2 );  // trans
-        test_assert( BT.row0_offset() == row1 % nb );
+        test_assert( BT.row0_offset() == row1 % mb );
         test_assert( BT.col0_offset() == col1 % nb );
-        test_assert( BT.ioffset() == int(row1 / nb) );
+        test_assert( BT.ioffset() == int(row1 / mb) );
         test_assert( BT.joffset() == int(col1 / nb) );
         // trans col, row
         test_assert( BT.mt() == ceildiv( int(BT.col0_offset() + BT.m()), nb ) );
-        test_assert( BT.nt() == ceildiv( int(BT.row0_offset() + BT.n()), nb ) );
+        test_assert( BT.nt() == ceildiv( int(BT.row0_offset() + BT.n()), mb ) );
 
-        verify_slice( BT, row1, row2, col1, col2, nb, slate::Op::Trans );
+        verify_slice( BT, row1, row2, col1, col2, mb, nb, slate::Op::Trans );
 
         //printf( "BT2 = transpose( B )\n" );
         auto BT2 = transpose( B );
@@ -1017,15 +1075,15 @@ static void test_Matrix_slice()
         test_assert( C.uplo() == slate::Uplo::General );
         test_assert( C.m() == m3 );
         test_assert( C.n() == n3 );
-        test_assert( C.row0_offset() == (row1 + row3) % nb );
+        test_assert( C.row0_offset() == (row1 + row3) % mb );
         test_assert( C.col0_offset() == (col1 + col3) % nb );
-        test_assert( C.ioffset() == int((row1 + row3) / nb) );
+        test_assert( C.ioffset() == int((row1 + row3) / mb) );
         test_assert( C.joffset() == int((col1 + col3) / nb) );
-        test_assert( C.mt() == ceildiv( int(C.row0_offset() + C.m()), nb ) );
+        test_assert( C.mt() == ceildiv( int(C.row0_offset() + C.m()), mb ) );
         test_assert( C.nt() == ceildiv( int(C.col0_offset() + C.n()), nb ) );
 
         verify_slice( C, row1 + row3, row1 + row4, col1 + col3, col1 + col4,
-                      nb, slate::Op::NoTrans );
+                      mb, nb, slate::Op::NoTrans );
 
         //printf( "CT = BT.slice( ... )\n" );
         auto CT = BT.slice( col3, col4, row3, row4 );
@@ -1034,16 +1092,16 @@ static void test_Matrix_slice()
         test_assert( CT.uplo() == slate::Uplo::General );
         test_assert( CT.m() == n3 );  // trans
         test_assert( CT.n() == m3 );  // trans
-        test_assert( CT.row0_offset() == (row1 + row3) % nb );
+        test_assert( CT.row0_offset() == (row1 + row3) % mb );
         test_assert( CT.col0_offset() == (col1 + col3) % nb );
-        test_assert( CT.ioffset() == int((row1 + row3) / nb) );
+        test_assert( CT.ioffset() == int((row1 + row3) / mb) );
         test_assert( CT.joffset() == int((col1 + col3) / nb) );
         // col, row trans
         test_assert( CT.mt() == ceildiv( int(CT.col0_offset() + CT.m()), nb ) );
-        test_assert( CT.nt() == ceildiv( int(CT.row0_offset() + CT.n()), nb ) );
+        test_assert( CT.nt() == ceildiv( int(CT.row0_offset() + CT.n()), mb ) );
 
         verify_slice( CT, row1 + row3, row1 + row4, col1 + col3, col1 + col4,
-                      nb, slate::Op::Trans );
+                      mb, nb, slate::Op::Trans );
     }
 }
 
@@ -1058,10 +1116,10 @@ static void test_Matrix_slice()
 /// Does the same thing as A.sub( i1, i2, j1, j2 ), just more verbose.
 void test_Matrix_to_Matrix()
 {
-    int lda = roundup(m, nb);
+    int lda = roundup(m, mb);
     std::vector<double> Ad( lda*n );
     auto A = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
 
     int i1 = rand() % A.mt();
     int i2 = rand() % A.mt();
@@ -1154,6 +1212,16 @@ void test_Matrix_to_Trapezoid()
         slate::Uplo::Upper , slate::Diag::NonUnit, A, i1, i2, j1, j2 );
     test_assert( U2.mt() == i2 - i1 + 1 );
     test_assert( U2.nt() == j2 - j1 + 1 );
+
+    // ----------
+    // rectangular tile should fail
+    auto Arect = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
+
+    test_assert_throw(
+        auto Lrect = slate::TrapezoidMatrix<double>(
+            slate::Uplo::Lower, slate::Diag::NonUnit, Arect ),
+        slate::Exception);
 }
 
 //------------------------------------------------------------------------------
@@ -1221,6 +1289,16 @@ void test_Matrix_to_Triangular()
 
     test_assert( U2.mt() == i2 - i1 + 1 );
     test_assert( U2.nt() == j2 - j1 + 1 );
+
+    // ----------
+    // rectangular tile should fail
+    auto Arect = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
+
+    test_assert_throw(
+        auto Lrect = slate::TriangularMatrix<double>(
+            slate::Uplo::Lower, slate::Diag::NonUnit, Arect ),
+        slate::Exception);
 }
 
 //------------------------------------------------------------------------------
@@ -1261,6 +1339,16 @@ void test_Matrix_to_Symmetric()
             }
         }
     }
+
+    // ----------
+    // rectangular tile should fail
+    auto Arect = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
+
+    test_assert_throw(
+        auto Lrect = slate::SymmetricMatrix<double>(
+            slate::Uplo::Lower, Arect ),
+        slate::Exception);
 }
 
 //------------------------------------------------------------------------------
@@ -1301,6 +1389,16 @@ void test_Matrix_to_Hermitian()
             }
         }
     }
+
+    // ----------
+    // rectangular tile should fail
+    auto Arect = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
+
+    test_assert_throw(
+        auto Lrect = slate::HermitianMatrix<double>(
+            slate::Uplo::Lower, Arect ),
+        slate::Exception);
 }
 
 //------------------------------------------------------------------------------
@@ -1603,36 +1701,38 @@ void run_tests()
 {
     if (mpi_rank == 0)
         printf("\nConstructors\n");
-    run_test(test_Matrix,                 "Matrix()",              mpi_comm);
-    run_test(test_Matrix_empty,           "Matrix(m, n, ...)",     mpi_comm);
-    run_test(test_Matrix_fromLAPACK,      "Matrix::fromLAPACK",    mpi_comm);
-    run_test(test_Matrix_fromScaLAPACK,   "Matrix::fromScaLAPACK", mpi_comm);
-    run_test(test_Matrix_fromDevices,     "Matrix::fromDevices",   mpi_comm);
-    run_test(test_Matrix_emptyLike,       "Matrix::emptyLike",     mpi_comm);
+    run_test(test_Matrix,                    "Matrix()",                   mpi_comm);
+    run_test(test_Matrix_empty,              "Matrix(m, n, ...)",          mpi_comm);
+    run_test(test_Matrix_fromLAPACK,         "Matrix::fromLAPACK",         mpi_comm);
+    run_test(test_Matrix_fromLAPACK_rect,    "Matrix::fromLAPACK_rect",    mpi_comm);
+    run_test(test_Matrix_fromScaLAPACK,      "Matrix::fromScaLAPACK",      mpi_comm);
+    run_test(test_Matrix_fromScaLAPACK_rect, "Matrix::fromScaLAPACK_rect", mpi_comm);
+    run_test(test_Matrix_fromDevices,        "Matrix::fromDevices",        mpi_comm);
+    run_test(test_Matrix_emptyLike,          "Matrix::emptyLike",          mpi_comm);
 
     if (mpi_rank == 0)
         printf("\nMethods\n");
-    run_test(test_Matrix_transpose,       "transpose",      mpi_comm);
-    run_test(test_Matrix_conj_transpose,  "conj_transpose", mpi_comm);
-    run_test(test_Matrix_swap,            "swap",           mpi_comm);
-    run_test(test_Matrix_tileInsert_new,  "Matrix::tileInsert(i, j, dev) ", mpi_comm);
-    run_test(test_Matrix_tileInsert_data, "Matrix::tileInsert(i, j, dev, data, lda)",  mpi_comm);
-    run_test(test_Matrix_tileLife,        "Matrix::tileLife",  mpi_comm);
-    run_test(test_Matrix_tileErase,       "Matrix::tileErase", mpi_comm);
-    run_test(test_Matrix_insertLocalTiles,     "Matrix::insertLocalTiles()",           mpi_comm);
-    run_test(test_Matrix_insertLocalTiles_dev, "Matrix::insertLocalTiles(on_devices)", mpi_comm);
+    run_test(test_Matrix_transpose,            "transpose",                                mpi_comm);
+    run_test(test_Matrix_conj_transpose,       "conj_transpose",                           mpi_comm);
+    run_test(test_Matrix_swap,                 "swap",                                     mpi_comm);
+    run_test(test_Matrix_tileInsert_new,       "Matrix::tileInsert(i, j, dev) ",           mpi_comm);
+    run_test(test_Matrix_tileInsert_data,      "Matrix::tileInsert(i, j, dev, data, lda)", mpi_comm);
+    run_test(test_Matrix_tileLife,             "Matrix::tileLife",                         mpi_comm);
+    run_test(test_Matrix_tileErase,            "Matrix::tileErase",                        mpi_comm);
+    run_test(test_Matrix_insertLocalTiles,     "Matrix::insertLocalTiles()",               mpi_comm);
+    run_test(test_Matrix_insertLocalTiles_dev, "Matrix::insertLocalTiles(on_devices)",     mpi_comm);
     run_test(test_Matrix_MOSI, "Matrix::tileMOSI", mpi_comm);
     run_test(test_Matrix_tileLayoutConvert, "Matrix::tileLayoutConvert", mpi_comm);
 
     if (mpi_rank == 0)
         printf("\nSub-matrices and slices\n");
-    run_test(test_Matrix_sub,             "Matrix::sub",       mpi_comm);
-    run_test(test_Matrix_sub_trans,       "Matrix::sub(A^T)",  mpi_comm);
-    run_test(slate::Debug::test_Matrix_slice, "Matrix::slice", mpi_comm);
+    run_test(test_Matrix_sub,                 "Matrix::sub",      mpi_comm);
+    run_test(test_Matrix_sub_trans,           "Matrix::sub(A^T)", mpi_comm);
+    run_test(slate::Debug::test_Matrix_slice, "Matrix::slice",    mpi_comm);
 
     if (mpi_rank == 0)
         printf("\nConversions\n");
-    run_test(test_Matrix_to_Matrix,       "Matrix => Matrix",  mpi_comm);
+    run_test(test_Matrix_to_Matrix,       "Matrix => Matrix",           mpi_comm);
     run_test(test_Matrix_to_Trapezoid,    "Matrix => TrapezoidMatrix",  mpi_comm);
     run_test(test_Matrix_to_Triangular,   "Matrix => TriangularMatrix", mpi_comm);
     run_test(test_Matrix_to_Symmetric,    "Matrix => SymmetricMatrix",  mpi_comm);
@@ -1660,6 +1760,7 @@ int main(int argc, char** argv)
     m  = 200;
     n  = 100;
     k  = 75;
+    mb = 24;
     nb = 16;
     init_process_grid(mpi_size, &p, &q);
     unsigned seed = time( nullptr ) % 10000;  // 4 digit
@@ -1669,12 +1770,12 @@ int main(int argc, char** argv)
         std::string arg = argv[i];
         if (arg == "-m" && i+1 < argc)
             m = atoi( argv[++i] );
-        else if (arg == "-m" && i+1 < argc)
-            m = atoi( argv[++i] );
         else if (arg == "-n" && i+1 < argc)
             n = atoi( argv[++i] );
         else if (arg == "-k" && i+1 < argc)
             k = atoi( argv[++i] );
+        else if (arg == "-mb" && i+1 < argc)
+            mb = atoi( argv[++i] );
         else if (arg == "-nb" && i+1 < argc)
             nb = atoi( argv[++i] );
         else if (arg == "-p" && i+1 < argc)

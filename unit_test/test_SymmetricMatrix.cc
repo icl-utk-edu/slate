@@ -145,7 +145,7 @@ void test_SymmetricMatrix_fromScaLAPACK()
     int mtiles, mtiles_local, m_local, lda;
     int ntiles, ntiles_local, n_local;
     get_2d_cyclic_dimensions(
-        n, n, nb, // square
+        n, n, nb, nb, // square
         mtiles, mtiles_local, m_local,
         ntiles, ntiles_local, n_local, lda );
 
@@ -197,7 +197,7 @@ void test_SymmetricMatrix_fromDevices()
     int mtiles, mtiles_local, m_local, lda;
     int ntiles, ntiles_local, n_local;
     get_2d_cyclic_dimensions(
-        n, n, nb, // square
+        n, n, nb, nb, // square
         mtiles, mtiles_local, m_local,
         ntiles, ntiles_local, n_local, lda );
 

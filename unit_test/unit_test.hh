@@ -41,6 +41,9 @@ public:
                 __FILE__, __LINE__); \
         } \
         catch (expect& e) {} \
+        catch (AssertError& e) { \
+            throw; \
+        } \
         catch (std::exception& e) { \
             throw AssertError( \
                 "threw wrong exception: " + std::string(e.what()) + \

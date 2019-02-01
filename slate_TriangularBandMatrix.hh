@@ -58,7 +58,7 @@
 namespace slate {
 
 //==============================================================================
-/// General banded, triangular, n-by-n, distributed, tiled matrices.
+/// Triangular banded, n-by-n, distributed, tiled matrices.
 template <typename scalar_t>
 class TriangularBandMatrix: public TriangularMatrix<scalar_t> {
 public:
@@ -148,7 +148,9 @@ template <typename scalar_t>
 TriangularBandMatrix<scalar_t>::TriangularBandMatrix(
     Uplo uplo, Diag diag, BandMatrix<scalar_t>& orig)
     : TriangularMatrix<scalar_t>(uplo, diag, orig),
-      kd_(uplo == Uplo::Lower ? orig.lowerBandwidth() : orig.upperBandwidth())
+      kd_((uplo == Uplo::Lower) == (orig.op() == Op::NoTrans)
+            ? orig.lowerBandwidth()
+            : orig.upperBandwidth())
 {}
 
 //------------------------------------------------------------------------------

@@ -103,7 +103,7 @@ if opts.xml:
     print( 'writing XML file', opts.xml )
     root = ET.Element("testsuites")
     doc = ET.SubElement(root, "testsuite",
-                        name="slate_suite",
+                        name="slate_unit_test_suite",
                         tests=str(ntests),
                         errors="0",
                         failures=str(nfailed))

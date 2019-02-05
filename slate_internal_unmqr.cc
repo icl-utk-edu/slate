@@ -165,7 +165,7 @@ void unmqr(internal::TargetType<target>,
 
         if (row_indices.size() > 1) {
             // W <- GEMM(V2T, C2, W)
-            for (int64_t ri = 1; ri < row_indices.size(); ++ri) {
+            for (int64_t ri = 1; ri < int64_t(row_indices.size()); ++ri) {
                 int64_t row = row_indices[ri];
                 auto ViT = conj_transpose(A.sub(row, row, 0, 0));
                 auto Ci = C.sub(row, row, 0, C_nt-1);

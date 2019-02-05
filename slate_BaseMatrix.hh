@@ -933,8 +933,16 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileErase(int64_t i, int64_t j, int device)
 {
-    // todo: erase only workspace tiles? if so, rename with "Workspace"?
-    storage_->erase(globalIndex(i, j, device));
+    auto iter = storage_->find(globalIndex(i, j, device));
+    if (iter != storage_->end()) {
+        MOSI state = iter->second.state_;
+        Tile<scalar_t>* tile = iter->second.tile_;
+        if(tile->workspace() && state == MOSI::Owned)
+            return;
+        else
+            // todo: erase only workspace tiles? if so, rename with "Workspace"?
+            storage_->erase(globalIndex(i, j, device));
+    }
 }
 
 

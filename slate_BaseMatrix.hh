@@ -1590,12 +1590,17 @@ void BaseMatrix<scalar_t>::tileCopyTo(
         dst_iter->second.state_ = MOSI::Shared;
         if (src_iter->second.state_ == MOSI::Modified)
             src_iter->second.state_ = MOSI::Owned;
-    }while(0);
 
-    // Change ColMajor <=> RowMajor.
-    if (dst_tile->layout() != layout) {
-        convert_layout(dst_tile);
-    }
+        // Change ColMajor <=> RowMajor.
+        if (dst_tile->layout() != layout) {
+            if (dst_device == host_num_) {
+                convert_layout(dst_tile);
+            }
+            else{
+                convert_layout(dst_tile, comm_stream(dst_device));
+            }
+        }
+    }while(0);
 }
 
 //------------------------------------------------------------------------------
@@ -1775,12 +1780,16 @@ void BaseMatrix<scalar_t>::tileMoveTo(
         // destination device now owns the data
         dst_iter->second.state_ = MOSI::Owned;
 
+        // Change ColMajor <=> RowMajor.
+        if (dst_tile->layout() != layout) {
+            if (dst_device == host_num_) {
+                convert_layout(dst_tile);
+            }
+            else{
+                convert_layout(dst_tile, comm_stream(dst_device));
+            }
+        }
     }while(0);
-
-    // Change ColMajor <=> RowMajor.
-    if (dst_tile->layout() != layout) {
-        convert_layout(dst_tile);
-    }
 }
 
 //------------------------------------------------------------------------------

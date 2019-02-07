@@ -937,7 +937,7 @@ void BaseMatrix<scalar_t>::tileErase(int64_t i, int64_t j, int device)
     if (iter != storage_->end()) {
         MOSI state = iter->second.state_;
         Tile<scalar_t>* tile = iter->second.tile_;
-        if(tile->workspace() && state == MOSI::Owned)
+        if(tile->workspace() && (state == MOSI::Owned || state == MOSI::Modified))
             return;
         else
             // todo: erase only workspace tiles? if so, rename with "Workspace"?

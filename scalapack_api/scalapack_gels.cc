@@ -136,9 +136,11 @@ void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int 
 {
     using real_t = blas::real_type<scalar_t>;
 
+    // Respond to workspace query with a minimal value (1); workspace
+    // is allocated within the SLATE routine.
     if (lwork == -1) {
         work[0] = (real_t)1.0;
-        info = 0;
+        *info = 0;
         return;
     }
 

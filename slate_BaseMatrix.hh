@@ -198,7 +198,6 @@ private:
 
 public:
     Tile<scalar_t>* tileInsert(int64_t i, int64_t j, int device=host_num_);
-    Tile<scalar_t>* tileInsertWorkspace(int64_t i, int64_t j, int device=host_num_);
     Tile<scalar_t>* tileInsert(int64_t i, int64_t j, int device,
                                scalar_t* A, int64_t ld);
 
@@ -209,7 +208,9 @@ public:
         return tileInsert(i, j, host_num_, A, ld);
     }
 
-    // returns tile state on device (defaults to host)
+    TileEntry<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, int device=host_num_);
+
+    // Returns tile(i, j)'s state on device (defaults to host).
     MOSI tileState(int64_t i, int64_t j, int device=host_num_);
     // set tile state on device
     void tileState(int64_t i, int64_t j, int device, MOSI mosi);
@@ -721,7 +722,7 @@ template <typename scalar_t>
 Tile<scalar_t> BaseMatrix<scalar_t>::operator()(
     int64_t i, int64_t j, int device)
 {
-    auto tile = *storage_->at(globalIndex(i, j, device));
+    auto tile = *(storage_->at(globalIndex(i, j, device)).tile_);
 
     // Set op first, before setting offset, mb, nb!
     tile.op(op_);
@@ -857,8 +858,8 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
     int64_t i, int64_t j, int device)
 {
     auto index = globalIndex(i, j, device);
-    auto tile = storage_->tileInsert(index, TileKind::SlateOwned);
-    return tile;
+    auto tileEntry = storage_->tileInsert(index, TileKind::SlateOwned);
+    return tileEntry.tile_;
 }
 
 //------------------------------------------------------------------------------
@@ -877,12 +878,12 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 /// @return Pointer to new tile.
 ///
 template <typename scalar_t>
-Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsertWorkspace(
+TileEntry<scalar_t>& BaseMatrix<scalar_t>::tileInsertWorkspace(
     int64_t i, int64_t j, int device)
 {
     auto index = globalIndex(i, j, device);
-    auto tile = storage_->tileInsert(index, TileKind::Workspace);
-    return tile;
+    auto tileEntry = storage_->tileInsert(index, TileKind::Workspace);
+    return tileEntry;
 }
 
 //------------------------------------------------------------------------------
@@ -911,8 +912,8 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
     int64_t i, int64_t j, int device, scalar_t* data, int64_t ld)
 {
     auto index = globalIndex(i, j, device);
-    auto tile = storage_->tileInsert(index, data, ld); // TileKind::UserOwned
-    return tile;
+    auto tileEntry = storage_->tileInsert(index, data, ld); // TileKind::UserOwned
+    return tileEntry.tile_;
 }
 
 //------------------------------------------------------------------------------

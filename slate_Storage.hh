@@ -214,11 +214,13 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    /// @return pointer to single tile. Throws exception if tile doesn't exist.
+    /// @return pointer to single tile entry. Throws exception if entry doesn't exist.
     // at() doesn't create new (null) entries in map as operator[] would
-    Tile<scalar_t>* at(ijdev_tuple ijdev)
+    // Tile<scalar_t>* at(ijdev_tuple ijdev)
+    TileEntry_t& at(ijdev_tuple ijdev)
     {
-        return tiles_.at(ijdev).tile_;
+        // return tiles_.at(ijdev).tile_;
+        return tiles_.at(ijdev);
     }
 
     void erase(ijdev_tuple ijdev);
@@ -244,8 +246,9 @@ public:
         return tileRank(ij) == mpi_rank_;
     }
 
-    Tile<scalar_t>* tileInsert(ijdev_tuple ijdev, TileKind );
-    Tile<scalar_t>* tileInsert(ijdev_tuple ijdev, scalar_t* data, int64_t lda);
+    TileEntry<scalar_t>& tileInsert(ijdev_tuple ijdev, TileKind );
+    TileEntry<scalar_t>& tileInsert(ijdev_tuple ijdev, scalar_t* data, int64_t lda);
+
     void tileTick(ij_tuple ij);
 
     //--------------------------------------------------------------------------
@@ -592,10 +595,10 @@ void MatrixStorage<scalar_t>::clear()
 /// allocating new memory for it.
 /// Tile kind should be either TileKind::Workspace or TileKind::SlateOwned.
 /// Does not set tile's life.
-/// @return Pointer to newly inserted Tile.
+/// @return Pointer to newly inserted TileEntry.
 ///
 template <typename scalar_t>
-Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
+TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
     ijdev_tuple ijdev, TileKind kind)
 {
     assert(kind == TileKind::Workspace ||
@@ -610,7 +613,7 @@ Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
     Tile<scalar_t>* tile
         = new Tile<scalar_t>(mb, nb, data, mb, device, kind);
     tiles_[ijdev] = {tile, kind == TileKind::Workspace ? MOSI::Invalid : MOSI::Shared};
-    return tile;
+    return tiles_[ijdev];
 }
 
 //------------------------------------------------------------------------------
@@ -619,10 +622,10 @@ Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
 /// wrapping existing memory for it.
 /// Sets tile kind = TileKind::UserOwned.
 /// Does not set tile's life.
-/// @return Pointer to newly inserted Tile.
+/// @return Pointer to newly inserted TileEntry.
 ///
 template <typename scalar_t>
-Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
+TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
     ijdev_tuple ijdev, scalar_t* data, int64_t lda)
 {
     assert(tiles_.find(ijdev) == tiles_.end());  // doesn't exist yet
@@ -634,7 +637,7 @@ Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
     Tile<scalar_t>* tile
         = new Tile<scalar_t>(mb, nb, data, lda, device, TileKind::UserOwned);
     tiles_[ijdev] = {tile, MOSI::Shared};
-    return tile;
+    return tiles_[ijdev];
 }
 
 //------------------------------------------------------------------------------

@@ -80,12 +80,16 @@ void slateCudaMallocHost(value_type** ptr, size_t nelements)
 
 //------------------------------------------------------------------------------
 /// A tile state in the MOSI coherency protocol
-enum class MOSI
+enum MOSI
 {
-    Modified,   ///< tile data is modified, other instances should be Invalid, cannot be purged
-    Owned,  ///< tile data is owned by this tile instance, other instances may be Shared or Invalid, cannot be purged
-    Shared,   ///< tile data is up-to-date, other instances may be Owned, Shared, or Invalid, may be purged
-    Invalid,   ///< tile data is obsolete, other instances may be Owned, Shared, or Invalid, may be purged
+    // Modified,   ///< tile data is modified, other instances should be Invalid, cannot be purged
+    // Owned,  ///< tile data is owned by this tile instance, other instances may be Shared or Invalid, cannot be purged
+    // Shared,   ///< tile data is up-to-date, other instances may be Owned, Shared, or Invalid, may be purged
+    // Invalid,   ///< tile data is obsolete, other instances may be Owned, Shared, or Invalid, may be purged
+    Modified = 0x100,
+    OnHold = 0x1000,
+    Shared = 0x010,
+    Invalid = 0x001,
 };
 
 //------------------------------------------------------------------------------
@@ -94,7 +98,48 @@ template <typename scalar_t>
 struct  TileEntry
 {
     Tile<scalar_t>* tile_;
-    MOSI state_;
+    short state_;
+
+    void setState(short stateIn){
+        switch(stateIn){
+            case MOSI::Modified:
+            case MOSI::Shared:
+            case MOSI::Invalid:
+                state_ &= stateIn;
+                break;
+            case MOSI::OnHold:
+                state_ |= stateIn;
+                break;
+            case ~MOSI::OnHold:
+                state_ &= stateIn;
+                break;
+            default:
+                assert("Unkown state!");
+                break;
+        }
+    }
+
+    MOSI getState(){
+        return state_ & ~MOSI::OnHold;
+    }
+
+    bool stateOn(short stateIn){
+        switch(stateIn){
+            case MOSI::Modified:
+            case MOSI::Shared:
+            case MOSI::Invalid:
+                return (state_ & ~MOSI::OnHold) == stateIn;
+                break;
+            case MOSI::OnHold:
+                return (state_ & MOSI::OnHold) == stateIn;
+                break;
+            default:
+                assert("Unkown state!");
+                break;
+        }
+    }
+
+
 };
 
 //------------------------------------------------------------------------------

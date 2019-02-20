@@ -222,7 +222,7 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name)
                 auto mosi = it->second.state_;
                 switch(mosi){
                     case MOSI::Modified:  printf("m"); break;
-                    case MOSI::Owned:     printf("o"); break;
+                    case MOSI::OnHold:     printf("o"); break;
                     case MOSI::Shared:    printf("s"); break;
                     case MOSI::Invalid:   printf("i"); break;
                 }
@@ -248,7 +248,7 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name)
                     auto mosi = it->second.state_;
                     switch(mosi){
                         case MOSI::Modified:  printf("m"); break;
-                        case MOSI::Owned:     printf("o"); break;
+                        case MOSI::OnHold:     printf("o"); break;
                         case MOSI::Shared:    printf("s"); break;
                         case MOSI::Invalid:   printf("i"); break;
                     }

@@ -212,13 +212,58 @@ public:
 
     // Returns tile(i, j)'s state on device (defaults to host).
     MOSI tileState(int64_t i, int64_t j, int device=host_num_);
-    // set tile state on device
+
+    // Sets tile(i, j)'s state on device.
     void tileState(int64_t i, int64_t j, int device, MOSI mosi);
-    // set tile state on host
+
+    // Sets tile(i, j)'s state on host.
     void tileState(int64_t i, int64_t j, MOSI mosi)
     {
         tileState(i, j, host_num_, mosi);
     }
+
+    // Returns whether tile(i, j) is on hold on device (defaults to host).
+    bool tileOnHold(int64_t i, int64_t j, int device=host_num_);
+
+    /// Unsets tile(i, j)'s hold on device.
+    void tileUnsetHold(int64_t i, int64_t j, int device=host_num_);
+
+    void tileModified(int64_t i, int64_t j, int device);
+
+    /// Gets tile(i, j) for reading on device.
+    /// Will copy-in the tile if it does not exist or its state is Invalid.
+    /// Sets tile state to Shared if copied-in.
+    /// Updates source tile's state to shared if copied-in.
+    void tileGetForReading(int64_t i, int64_t j, int device=host_num_);
+
+    /// Gets all local tile for reading on device.
+    void tileGetAllForReading(int device=host_num_);
+
+    /// Gets all local tile for reading on corresponding devices.
+    void tileGetAllForReadingOnDevices();
+
+    /// Gets tile(i, j) for writing on device.
+    /// Sets state to Modified.
+    /// Will copy tile in if not exists or state is Invalid.
+    /// Other instances will be invalidated.
+    void tileGetForWriting(int64_t i, int64_t j, int device=host_num_);
+
+    /// Gets all local tile for writing on device.
+    void tileGetAllForWriting(int device=host_num_);
+
+    /// Gets all local tile for writing on corresponding devices.
+    void tileGetAllForWritingOnDevices();
+
+    /// Gets tile(i, j) on device and marks it as OnHold.
+    /// Will copy tile in if it does not exist or its state is Invalid.
+    /// Updates the source tile's state to Shared if copied-in.
+    void tileGetAndHold(int64_t i, int64_t j, int device=host_num_);
+
+    /// Gets all local tiles on device and marks them as OnHold.
+    void tileGetAndHoldAll(int device=host_num_);
+
+    /// Gets all local tiles on corresponding devices and marks them as OnHold.
+    void tileGetAndHoldAllOnDevices();
 
     /// Returns life counter of tile {i, j} of op(A).
     int64_t tileLife(int64_t i, int64_t j) const
@@ -241,6 +286,10 @@ public:
     }
 
     void tileErase(int64_t i, int64_t j, int device=host_num_);
+
+    /// Deletes the tile(i, j)'s instance on device if it is a workspace tile
+    /// that is not modified and no hold is set on it.
+    void tileRelease(int64_t i, int64_t j, int device=host_num_);
 
     template <Target target = Target::Host>
     void tileSend(int64_t i, int64_t j, int dst_rank, int tag = 0);
@@ -270,24 +319,6 @@ protected:
                            std::set<int> const& reduce_set, int radix, int tag);
 
 public:
-    void tileCopyTo( int64_t i, int64_t j, int dest, Layout layout = Layout::ColMajor);
-    void copyAllTo( int dst_device);
-    void copyAllToHost()
-    {
-        copyAllTo(host_num_);
-    }
-    void tileMoveTo( int64_t i, int64_t j, int dest, Layout layout = Layout::ColMajor);
-    void moveAllTo( int dst_device);
-    void moveAllToHost()
-    {
-        moveAllTo(host_num_);
-    }
-    void moveAllToDevices();
-
-    void tileCopyToHost(  int64_t i, int64_t j, int src_device, Layout layout = Layout::ColMajor);
-    void tileMoveToHost(  int64_t i, int64_t j, int src_device, Layout layout = Layout::ColMajor);
-    void tileCopyToDevice(int64_t i, int64_t j, int dst_device, Layout layout = Layout::ColMajor);
-    void tileMoveToDevice(int64_t i, int64_t j, int dst_device, Layout layout = Layout::ColMajor);
 
     void getRanks(std::set<int>* bcast_set) const;
     void getLocalDevices(std::set<int>* dev_set) const;
@@ -934,62 +965,162 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileErase(int64_t i, int64_t j, int device)
 {
-    auto iter = storage_->find(globalIndex(i, j, device));
-    if (iter != storage_->end()) {
-        MOSI state = iter->second.state_;
-        Tile<scalar_t>* tile = iter->second.tile_;
-        if(tile->workspace() && (state == MOSI::Owned || state == MOSI::Modified))
-            return;
-        else
-            // todo: erase only workspace tiles? if so, rename with "Workspace"?
-            storage_->erase(globalIndex(i, j, device));
-    }
+    // todo: erase only workspace tiles? if so, rename with "Workspace"?
+    storage_->erase(globalIndex(i, j, device));
 }
 
 
 //------------------------------------------------------------------------------
+/// Erase the tile {i, j}'s instance on device if it is a workspace tile
+/// that is not modified and no hold is set on it.
+/// If tile's memory was allocated by SLATE,
+/// via tileInsert(i, j, dev) or tileInsertWorkspace(i, j, dev),
+/// then the memory is released to the allocator pool.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] device
+///     Tile's device ID.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileRelease(int64_t i, int64_t j, int device)
+{
+    auto tileEntry = storage_->at(globalIndex(i, j, device));
+    if(  tileEntry.tile_->workspace() &&
+        (tileEntry.stateOn(MOSI::OnHold) || tileEntry.stateOn(MOSI::Modified))
+      )
+        return;
+    else
+        // todo: erase only workspace tiles? if so, rename with "Workspace"?
+        storage_->erase(globalIndex(i, j, device));
+}
+
+
+//------------------------------------------------------------------------------
+/// Returns tile(i, j)'s state on device (defaults to host).
+/// Asserts if tile does not exist.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] device
+///     Tile's device ID.
+///
 template <typename scalar_t>
 MOSI BaseMatrix<scalar_t>::tileState(int64_t i, int64_t j, int device)
 {
     auto iter = storage_->find(globalIndex(i, j, device));
     assert(iter != storage_->end());
-    return iter->second.state_;
+
+    return iter->second.getState();
 }
 
 //------------------------------------------------------------------------------
-// assumes current state is coherent
-// maintains coherency on exit
+/// Sets tile(i, j)'s state on device (defaults to host).
+/// Asserts if tile does not exist.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] device
+///     Tile's device ID.
+///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileState(int64_t i, int64_t j, int device, MOSI mosi)
 {
     auto tileIter = storage_->find(globalIndex(i, j, device));
     assert(tileIter != storage_->end());
 
+    tileIter->second.setState(mosi);
+}
 
-    if (mosi == MOSI::Modified) {
-        if (tileIter->second.state_ == mosi)
-            // no need to update
-            return;
+//------------------------------------------------------------------------------
+/// Returns whether tile(i, j) is OnHold on device (defaults to host).
+/// Asserts if tile does not exist.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] device
+///     Tile's device ID.
+///
+template <typename scalar_t>
+bool BaseMatrix<scalar_t>::tileOnHold(int64_t i, int64_t j, int device)
+{
+    auto iter = storage_->find(globalIndex(i, j, device));
+    assert(iter != storage_->end());
 
-        // set all other instances to Invalid
-        if (device != host_num_) {
-            auto otherIter = storage_->find(globalIndex(i, j, host_num_));
-            if (otherIter != storage_->end()) {
-                assert(otherIter->second.state_ != MOSI::Modified);
-                otherIter->second.state_ = MOSI::Invalid;
-            }
-        }
-        for (int d = 0; d < num_devices(); ++d) {
-            if (d == device) continue;
+    return iter->second.stateOn(MOSI::OnHold);
+}
 
-            auto otherIter = storage_->find(globalIndex(i, j, d));
-            if (otherIter != storage_->end()) {
-                assert(otherIter->second.state_ != MOSI::Modified);
-                otherIter->second.state_ = MOSI::Invalid;
-            }
+//------------------------------------------------------------------------------
+/// Unsets the hold of tile(i, j) on device (defaults to host) if it was OnHold.
+/// Asserts if tile does not exist.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] device
+///     Tile's device ID.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileUnsetHold(int64_t i, int64_t j, int device)
+{
+    auto iter = storage_->find(globalIndex(i, j, device));
+    assert(iter != storage_->end());
+
+    iter->second.setState(~MOSI::OnHold);
+}
+
+
+//------------------------------------------------------------------------------
+// assumes current state is coherent
+// maintains coherency on exit
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileModified(int64_t i, int64_t j, int device)
+{
+    auto tileEntry = storage_->at(globalIndex(i, j, device));
+    // auto tileIter = storage_->find(globalIndex(i, j, device));
+    // assert(tileIter != storage_->end());
+
+    if (tileEntry.stateOn(MOSI::Modified))
+        // no need to update
+        return;
+    tileEntry.setState(MOSI::Modified);
+
+    // set all other instances to Invalid
+    if (device != host_num_) {
+        auto otherIter = storage_->find(globalIndex(i, j, host_num_));
+        if (otherIter != storage_->end()) {
+            assert(otherIter->second.stateOn(MOSI::Modified) == false);
+            otherIter->second.setState(MOSI::Invalid);
         }
     }
-    tileIter->second.state_ = mosi;
+    for (int d = 0; d < num_devices(); ++d) {
+        if (d == device) continue;
+
+        auto otherIter = storage_->find(globalIndex(i, j, d));
+        if (otherIter != storage_->end()) {
+            assert(otherIter->second.stateOn(MOSI::Modified) == false);
+            otherIter->second.setState(MOSI::Invalid);
+        }
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -1451,11 +1582,12 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
 }
 
 //------------------------------------------------------------------------------
-/// Copy a tile to a device.
-/// If the tile is not on the device, copy the tile to the device.
-/// If the tile is on the device, but is not valid,
-/// update the device tile's data to make it valid.
-/// Do not invalidate the host source tile.
+/// Gets tile(i, j) for reading on device.
+/// Will copy-in the tile if it does not exist or its state is Invalid.
+/// Sets tile state to Shared if copied-in.
+/// Finds a source tile whose state is valid (Modified|Shared) by
+/// looping on existing tile instances.
+/// Updates source tile's state to shared if copied-in.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -1464,76 +1596,27 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
 ///     Tile's block column index. 0 <= j < nt.
 ///
 /// @param[in] dst_device
-///     Tile's destination device ID.
+///     Tile's destination: host or device ID, defaults to host.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileCopyToDevice(
-    int64_t i, int64_t j, int dst_device, Layout layout)
+void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_device)
 {
-    tileCopyTo(i, j, dst_device, layout);
-}
-
-//------------------------------------------------------------------------------
-/// Copy a tile to the host.
-/// If the tile is not on the host, copy the tile to the host.
-/// If the tile is on the host, but is not valid,
-/// update the host tile's data to make it valid.
-/// Do not invalidate the device source tile.
-///
-/// @param[in] i
-///     Tile's block row index. 0 <= i < mt.
-///
-/// @param[in] j
-///     Tile's block column index. 0 <= j < nt.
-///
-/// @param[in] src_device
-///     Tile's source device ID.
-///
-template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileCopyToHost(
-    int64_t i, int64_t j, int src_device, Layout layout)
-{
-    tileCopyTo(i, j, host_num_, layout);
-}
-
-//------------------------------------------------------------------------------
-/// Copy a tile to host/device.
-/// If the tile is not on the host, copy the tile to the host.
-/// If the tile is on the host, but is not valid,
-/// update the host tile's data to make it valid.
-/// Do not invalidate the device source tile.
-///
-/// @param[in] i
-///     Tile's block row index. 0 <= i < mt.
-///
-/// @param[in] j
-///     Tile's block column index. 0 <= j < nt.
-///
-/// @param[in] dst_device
-///     Tile's destination: host or device ID.
-///
-template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileCopyTo(
-    int64_t i, int64_t j, int dst_device, Layout layout)
-{
-    Tile<scalar_t> *dst_tile, *src_tile;
+    TileEntry<scalar_t> &dst_tileEntry, &src_tileEntry;
     do{
         // find tile on destination
         auto dst_iter = storage_->find(globalIndex(i, j, dst_device));
         if (dst_iter == storage_->end()) {
             // Create a copy on the destination.
-            dst_tile = tileInsertWorkspace(i, j, dst_device);
-            dst_iter = storage_->find(globalIndex(i, j, dst_device));
+            dst_tileEntry = tileInsertWorkspace(i, j, dst_device);
         }
         else {
-            dst_tile = dst_iter->second.tile_;
+            dst_tileEntry = dst_iter->second;
         }
-        if (dst_iter->second.state_ != MOSI::Invalid)
+        if (dst_tileEntry.getState() != MOSI::Invalid)
             break;
 
-        typename MatrixStorage<scalar_t>::TilesMap::iterator src_iter;
         // find source tile
-        // find a valid source (Owned/Modified/Shared) device
+        // find a valid source (Modified/Shared) device
         const int invalid_dev = host_num_-1; // invalid device number
         int src_device = invalid_dev;
         {
@@ -1541,9 +1624,9 @@ void BaseMatrix<scalar_t>::tileCopyTo(
             if (dst_device != host_num_) {
                 auto iter = storage_->find(globalIndex(i, j, host_num_));
                 if (iter != storage_->end()) {
-                    if (iter->second.state_ != MOSI::Invalid) {
+                    if (iter->second.getState() != MOSI::Invalid) {
                         src_device = host_num_;
-                        src_iter = iter;
+                        src_tileEntry = iter->second;
                     }
                 }
             }
@@ -1551,9 +1634,9 @@ void BaseMatrix<scalar_t>::tileCopyTo(
             if (src_device == invalid_dev) {
                 auto iter = storage_->find(globalIndex(i, j, tileDevice(i, j)));
                 if (iter != storage_->end()) {
-                    if (iter->second.state_ != MOSI::Invalid) {
+                    if (iter->second.getState() != MOSI::Invalid) {
                         src_device = tileDevice(i, j);
-                        src_iter = iter;
+                        src_tileEntry = iter->second;
                     }
                 }
             }
@@ -1563,119 +1646,53 @@ void BaseMatrix<scalar_t>::tileCopyTo(
 
                 auto iter = storage_->find(globalIndex(i, j, d));
                 if (iter != storage_->end()) {
-                    if (iter->second.state_ != MOSI::Invalid) {
+                    if (iter->second.getState() != MOSI::Invalid) {
                         src_device = d;
-                        src_iter = iter;
+                        src_tileEntry = iter->second;
                     }
                 }
             }
             // todo: find the shortest path / closest source
             // including possibility of device peer-to-peer copy
         }
-        assert(src_device != invalid_dev);// todo: should that be a break?
-        src_tile = src_iter->second.tile_;
+        assert(src_device != invalid_dev);
 
         // Update the destination tile's data.
         if (dst_device != host_num_ && src_device != host_num_) {
             // todo: device to device copy
-            Tile<scalar_t> *host_tile;
+            Tile<scalar_t> *host_tileEntry;
             auto host_iter = storage_->find(globalIndex(i, j, host_num_));
             if (host_iter == storage_->end()) {
                 // Create a copy on the host.
-                host_tile = tileInsertWorkspace(i, j, host_num_);
+                host_tileEntry = tileInsertWorkspace(i, j, host_num_);
             }else{
-                host_tile = host_iter->second.tile_;
+                host_tileEntry = host_iter->second;
             }
-            src_tile->copyDataToHost(host_tile, comm_stream(src_device));
-            host_tile->copyDataToDevice(dst_tile, comm_stream(dst_device));
-            host_iter->second.state_ = MOSI::Shared;
+            src_tileEntry.tile_->copyDataToHost(host_tileEntry.tile_, comm_stream(src_device));
+            host_tileEntry.tile_->copyDataToDevice(dst_tileEntry.tile_, comm_stream(dst_device));
+            host_tileEntry.setState(MOSI::Shared);
         }
         else
         if (dst_device == host_num_)
-            src_tile->copyDataToHost(dst_tile, comm_stream(src_device));
+            src_tileEntry.tile_->copyDataToHost(dst_tileEntry.tile_, comm_stream(src_device));
         else
-            src_tile->copyDataToDevice(dst_tile, comm_stream(dst_device));
+            src_tileEntry.tile_->copyDataToDevice(dst_tileEntry.tile_, comm_stream(dst_device));
 
-        dst_iter->second.state_ = MOSI::Shared;
-        if (src_iter->second.state_ == MOSI::Modified)
-            src_iter->second.state_ = MOSI::Owned;
+        dst_tileEntry.setState(MOSI::Shared);
+        if (src_tileEntry.stateOn(MOSI::Modified))
+            src_tileEntry.setState(MOSI::Shared);
 
-        // Change ColMajor <=> RowMajor.
-        if (dst_tile->layout() != layout) {
-            if (dst_device == host_num_) {
-                convert_layout(dst_tile);
-            }
-            else{
-                convert_layout(dst_tile, comm_stream(dst_device));
-            }
-        }
     }while(0);
 }
 
-//------------------------------------------------------------------------------
-/// Copy all local tiles to destination (host/device).
-template <typename scalar_t>
-void BaseMatrix<scalar_t>::copyAllTo(int dst_device)
-{
-    for (int64_t j = 0; j < nt(); ++j)
-        for (int64_t i = 0; i < mt(); ++i)
-            if (tileIsLocal(i, j))
-                tileCopyTo(i, j, dst_device);
-}
 
 //------------------------------------------------------------------------------
-/// Move a tile to a device.
-/// If the tile is not on the device, copy the tile to the device.
-/// If the tile is on the device, but is not valid,
-/// update the device tile's data to make it valid.
-/// Invalidate the host source tile.
-///
-/// @param[in] i
-///     Tile's block row index. 0 <= i < mt.
-///
-/// @param[in] j
-///     Tile's block column index. 0 <= j < nt.
-///
-/// @param[in] src_device
-///     Tile's destination device ID.
-///
-template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileMoveToDevice(
-    int64_t i, int64_t j, int dst_device, Layout layout)
-{
-    tileMoveTo(i, j, dst_device, layout);
-}
-
-//------------------------------------------------------------------------------
-/// Move a tile to the host.
-/// If the tile is not on the host, copy the tile to the host.
-/// If the tile is on the host, but is not valid,
-/// update the host tile's data to make it valid.
-/// Invalidate the device source tile.
-///
-/// @param[in] i
-///     Tile's block row index. 0 <= i < mt.
-///
-/// @param[in] j
-///     Tile's block column index. 0 <= j < nt.
-///
-/// @param[in] src_device
-///     Tile's source device ID.
-///
-template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileMoveToHost(
-    int64_t i, int64_t j, int src_device, Layout layout)
-{
-    tileMoveTo(i, j, host_num_, layout);
-}
-
-//------------------------------------------------------------------------------
-/// Move a tile to a destination host/device.
-/// If the tile is not on the destination, copy the tile to the destination.
-/// If the tile is on the device, but is not valid,
-/// find the owner of the data, otherwise a valid source
-/// update the tile's data to make it valid.
-/// mark the destination as Owner and source as Shared
+/// Gets tile(i, j) for writing on device.
+/// Sets state to Modified.
+/// Will copy-in the tile if it does not exist or its state is Invalid.
+/// Other instances will be invalidated.
+/// Finds a source tile whose state is valid (Modified|Shared) by
+/// scanning existing tile instances.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -1684,145 +1701,120 @@ void BaseMatrix<scalar_t>::tileMoveToHost(
 ///     Tile's block column index. 0 <= j < nt.
 ///
 /// @param[in] dst_device
-///     Tile's destination host/device ID.
+///     Tile's destination: host or device ID, defaults to host.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileMoveTo(
-    int64_t i, int64_t j, int dst_device, Layout layout)
+void BaseMatrix<scalar_t>::tileGetForWriting(int64_t i, int64_t j, int device)
 {
-    Tile<scalar_t> *dst_tile, *src_tile;
-    do{
-        // find tile on destination
-        auto dst_iter = storage_->find(globalIndex(i, j, dst_device));
-        if (dst_iter == storage_->end()) {
-            // Create a copy on the destination.
-            dst_tile = tileInsertWorkspace(i, j, dst_device);
-            dst_iter = storage_->find(globalIndex(i, j, dst_device));
-        }
-        else {
-            dst_tile = dst_iter->second.tile_;
-        }
-        // sanity check, do not copy data to a modified tile
-        if (dst_iter->second.state_ == MOSI::Owned ||
-            dst_iter->second.state_ == MOSI::Modified) {
-            break;
-        }
+    tileGetForReading(i, j, device);
+    tileModified(i, j, device);
+}
 
-        // find source tile
-        // find Owned/Modified device, otherwise a valid Shared source
-        const int invalid_dev = host_num_-1; // invalid device number
-        int src_device = invalid_dev, own_device = invalid_dev;
-        {
-            // check host
-            if (dst_device != host_num_) {
-                auto iter = storage_->find(globalIndex(i, j, host_num_));
-                if (iter != storage_->end()) {
-                    if (iter->second.state_ != MOSI::Invalid) {
-                        src_device = host_num_;
-                    }
-                    if (iter->second.state_ == MOSI::Owned ||
-                        iter->second.state_ == MOSI::Modified) {
-                        own_device = host_num_;
-                    }
-                }
-            }
-            // check other devices
-            if (src_device == invalid_dev || own_device == invalid_dev) {
-                for (int d = 0; d < num_devices(); ++d) {
-                    if (dst_device == d) continue;
 
-                    auto iter = storage_->find(globalIndex(i, j, d));
-                    if (iter != storage_->end()) {
-                        if (iter->second.state_ != MOSI::Invalid &&
-                            src_device != invalid_dev) {
-                            src_device = d;
-                        }
-                        if (iter->second.state_ == MOSI::Owned ||
-                            iter->second.state_ == MOSI::Modified) {
-                            own_device = d;
-                        }
-                    }
-                }
-            }
-            src_device = (own_device == invalid_dev) ? src_device : own_device;
-            // todo: find the shortest path / closest source
-            // including possibility of device peer-to-peer copy
-        }
+//------------------------------------------------------------------------------
+/// Gets tile(i, j) on device and marks it as OnHold.
+/// Will copy tile in if it does not exist or its state is Invalid.
+/// Updates the source tile's state to Shared if copied-in.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] dst_device
+///     Tile's destination: host or device ID, defaults to host.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileGetAndHold(int64_t i, int64_t j, int device)
+{
+    tileGetForReading(i, j, device);
 
-        // update destination
-        if (src_device != dst_device &&
-            src_device != invalid_dev) {
+    auto tileIter = storage_->find(globalIndex(i, j, device));
+    assert(tileIter != storage_->end());
 
-            auto src_iter = storage_->find(globalIndex(i, j, src_device));
-            src_tile = src_iter->second.tile_;
-
-            // if destination data is not valid
-            if (dst_iter->second.state_ == MOSI::Invalid) {
-                // Update the destination tile's data.
-                if (dst_device != host_num_ && src_device != host_num_) {
-                    // todo device to device copy
-                    Tile<scalar_t> *host_tile;
-                    auto host_iter = storage_->find(globalIndex(i, j, host_num_));
-                    if (host_iter == storage_->end()) {
-                        // Create a copy on the host.
-                        host_tile = tileInsertWorkspace(i, j, host_num_);
-                    }else{
-                        host_tile = host_iter->second.tile_;
-                    }
-                    src_tile->copyDataToHost(host_tile, comm_stream(src_device));
-                    host_tile->copyDataToDevice(dst_tile, comm_stream(dst_device));
-                    host_iter->second.state_ = MOSI::Shared;
-                }
-                else
-                if (dst_device == host_num_) {
-                    src_tile->copyDataToHost(dst_tile, comm_stream(src_device));
-                }
-                else {
-                    src_tile->copyDataToDevice(dst_tile, comm_stream(dst_device));
-                }
-            }
-            // update source tile state
-            if (src_iter->second.state_ == MOSI::Modified ||
-                src_iter->second.state_ == MOSI::Owned)
-                src_iter->second.state_ = MOSI::Shared;
-        }
-        // destination device now owns the data
-        dst_iter->second.state_ = MOSI::Owned;
-
-        // Change ColMajor <=> RowMajor.
-        if (dst_tile->layout() != layout) {
-            if (dst_device == host_num_) {
-                convert_layout(dst_tile);
-            }
-            else{
-                convert_layout(dst_tile, comm_stream(dst_device));
-            }
-        }
-    }while(0);
+    tileIter->second.setState(MOSI::OnHold);
 }
 
 //------------------------------------------------------------------------------
-/// Move all tiles to a destination host/device.
-//
+/// Gets all local tiles for reading on device.
+///
+/// @param[in] device
+///     Tile's destination: host or device ID, defaults to host.
+///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::moveAllTo(int dst_device)
+void BaseMatrix<scalar_t>::tileGetAllForReading(int device)
 {
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
             if (tileIsLocal(i, j))
-                tileMoveTo(i, j, dst_device);
+                tileGetForReading(i, j, device);
 }
 
 //------------------------------------------------------------------------------
-/// Move all tiles to its assigned device.
-//
+/// Gets all local tiles for reading on device.
+///
+/// @param[in] device
+///     Tile's destination: host or device ID, defaults to host.
+///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::moveAllToDevices()
+void BaseMatrix<scalar_t>::tileGetAllForWriting(int device)
 {
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
             if (tileIsLocal(i, j))
-                tileMoveTo(i, j, tileDevice(i, j));
+                tileGetForWriting(i, j, device);
+}
+
+//------------------------------------------------------------------------------
+/// Gets all local tiles on device and marks them as OnHold.
+///
+/// @param[in] device
+///     Tile's destination: host or device ID, defaults to host.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileGetAndHoldAll(int device)
+{
+    for (int64_t j = 0; j < nt(); ++j)
+        for (int64_t i = 0; i < mt(); ++i)
+            if (tileIsLocal(i, j))
+                tileGetAndHold(i, j, device);
+}
+
+//------------------------------------------------------------------------------
+/// Gets all local tiles for reading on corresponding devices.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileGetAllForReadingOnDevices()
+{
+    for (int64_t j = 0; j < nt(); ++j)
+        for (int64_t i = 0; i < mt(); ++i)
+            if (tileIsLocal(i, j))
+                tileGetForReading(i, j, tileDevice(i, j));
+}
+
+//------------------------------------------------------------------------------
+/// Gets all local tiles for reading on corresponding devices.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileGetAllForWritingOnDevices()
+{
+    for (int64_t j = 0; j < nt(); ++j)
+        for (int64_t i = 0; i < mt(); ++i)
+            if (tileIsLocal(i, j))
+                tileGetForWriting(i, j, tileDevice(i, j));
+}
+
+//------------------------------------------------------------------------------
+/// Gets all local tiles on corresponding devices and marks them as OnHold.
+//
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileGetAndHoldAllOnDevices()
+{
+    for (int64_t j = 0; j < nt(); ++j)
+        for (int64_t i = 0; i < mt(); ++i)
+            if (tileIsLocal(i, j))
+                tileGetAndHold(i, j, tileDevice(i, j));
 }
 
 //------------------------------------------------------------------------------

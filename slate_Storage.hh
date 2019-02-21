@@ -120,7 +120,7 @@ struct  TileEntry
     }
 
     MOSI getState(){
-        return state_ & ~MOSI::OnHold;
+        return MOSI(state_ & short(~MOSI::OnHold));
     }
 
     bool stateOn(short stateIn){
@@ -137,9 +137,8 @@ struct  TileEntry
                 assert("Unkown state!");
                 break;
         }
+        return false;
     }
-
-
 };
 
 //------------------------------------------------------------------------------

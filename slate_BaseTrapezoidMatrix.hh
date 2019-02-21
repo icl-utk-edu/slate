@@ -116,7 +116,7 @@ public:
     void gather(scalar_t* A, int64_t lda);
     Uplo uplo() const;
     Uplo uplo_logical() const;
-    void moveAllToOrigin();
+    void tileUpdateAllOrigin();
     void insertLocalTiles(bool on_devices=false);
 };
 
@@ -716,19 +716,19 @@ Uplo BaseTrapezoidMatrix<scalar_t>::uplo_logical() const
 //
 // todo: currently assumes origin == host.
 template <typename scalar_t>
-void BaseTrapezoidMatrix<scalar_t>::moveAllToOrigin()
+void BaseTrapezoidMatrix<scalar_t>::tileUpdateAllOrigin()
 {
     if (this->uplo_logical() == Uplo::Lower) {
         for (int64_t j = 0; j < this->nt(); ++j)
             for (int64_t i = j; i < this->mt(); ++i)  // lower
                 if (this->tileIsLocal(i, j))
-                    this->tileMoveToHost(i, j, this->tileDevice(i, j));
+                    this->tileUpdateOrigin(i, j);
     }
     else {
         for (int64_t j = 0; j < this->nt(); ++j)
             for (int64_t i = 0; i <= j && i < this->mt(); ++i)  // upper
                 if (this->tileIsLocal(i, j))
-                    this->tileMoveToHost(i, j, this->tileDevice(i, j));
+                    this->tileUpdateOrigin(i, j);
     }
 }
 

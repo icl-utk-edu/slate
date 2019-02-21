@@ -86,7 +86,7 @@ public:
     // void allocateBatchArrays();
     // void reserveHostWorkspace();
     // void reserveDeviceWorkspace();
-    // todo: void moveAllToOrigin();
+    // todo: void tileUpdateAllOrigin();
     // void gather(scalar_t* A, int64_t lda);
 
 protected:

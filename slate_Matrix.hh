@@ -125,7 +125,6 @@ public:
     void allocateBatchArrays();
     void reserveHostWorkspace();
     void reserveDeviceWorkspace();
-    void moveAllToOrigin();
     void gather(scalar_t* A, int64_t lda);
     void insertLocalTiles(bool on_devices=false);
 
@@ -627,19 +626,6 @@ void Matrix<scalar_t>::reserveDeviceWorkspace()
 }
 
 //------------------------------------------------------------------------------
-/// Move all tiles back to their origin.
-//
-// todo: currently assumes origin == host.
-template <typename scalar_t>
-void Matrix<scalar_t>::moveAllToOrigin()
-{
-    for (int64_t j = 0; j < this->nt(); ++j)
-        for (int64_t i = 0; i < this->mt(); ++i)
-            if (this->tileIsLocal(i, j))
-                this->tileMoveToHost(i, j, this->tileDevice(i, j));
-}
-
-//------------------------------------------------------------------------------
 /// Gathers the entire matrix to the LAPACK-style matrix A on MPI rank 0.
 /// Primarily for debugging purposes.
 ///
@@ -743,7 +729,7 @@ void Matrix<scalar_t>::copy(Matrix<scalar_t>& A)
                     lapack::lacpy(lapack::MatrixType::General, ib, jb,
                                   Aij.data(), Aij.stride(),
                                   Bij.data(), Bij.stride());
-                    this->tileState(i, j, MOSI::Modified);
+                    this->tileModified(i, j);
                 }
             }
         }

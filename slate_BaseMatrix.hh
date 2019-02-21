@@ -228,7 +228,9 @@ public:
     /// Unsets tile(i, j)'s hold on device.
     void tileUnsetHold(int64_t i, int64_t j, int device=host_num_);
 
-    void tileModified(int64_t i, int64_t j, int device);
+    /// Marks tile(i, j) as Modified on device.
+    /// Other instances will be invalidated.
+    void tileModified(int64_t i, int64_t j, int device=host_num_);
 
     /// Gets tile(i, j) for reading on device.
     /// Will copy-in the tile if it does not exist or its state is Invalid.
@@ -236,10 +238,10 @@ public:
     /// Updates source tile's state to shared if copied-in.
     void tileGetForReading(int64_t i, int64_t j, int device=host_num_);
 
-    /// Gets all local tile for reading on device.
+    /// Gets all local tiles for reading on device.
     void tileGetAllForReading(int device=host_num_);
 
-    /// Gets all local tile for reading on corresponding devices.
+    /// Gets all local tiles for reading on corresponding devices.
     void tileGetAllForReadingOnDevices();
 
     /// Gets tile(i, j) for writing on device.
@@ -248,10 +250,10 @@ public:
     /// Other instances will be invalidated.
     void tileGetForWriting(int64_t i, int64_t j, int device=host_num_);
 
-    /// Gets all local tile for writing on device.
+    /// Gets all local tiles for writing on device.
     void tileGetAllForWriting(int device=host_num_);
 
-    /// Gets all local tile for writing on corresponding devices.
+    /// Gets all local tiles for writing on corresponding devices.
     void tileGetAllForWritingOnDevices();
 
     /// Gets tile(i, j) on device and marks it as OnHold.
@@ -264,6 +266,12 @@ public:
 
     /// Gets all local tiles on corresponding devices and marks them as OnHold.
     void tileGetAndHoldAllOnDevices();
+
+    /// Updates the origin instance of tile(i, j) if not MOSI::Shared
+    void tileUpdateOrigin(int64_t i, int64_t j);
+
+    /// Updates all origin instances of tiles if not MOSI::Shared
+    void tileUpdateAllOrigin();
 
     /// Returns life counter of tile {i, j} of op(A).
     int64_t tileLife(int64_t i, int64_t j) const
@@ -1090,8 +1098,18 @@ void BaseMatrix<scalar_t>::tileUnsetHold(int64_t i, int64_t j, int device)
 
 
 //------------------------------------------------------------------------------
-// assumes current state is coherent
-// maintains coherency on exit
+/// Marks tile(i, j) as Modified on device.
+/// Other instances will be invalidated.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] device
+///     Tile's device ID, defaults to host.
+///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileModified(int64_t i, int64_t j, int device)
 {
@@ -1148,7 +1166,7 @@ void BaseMatrix<scalar_t>::tileSend(
     int64_t i, int64_t j, int dst_rank, int tag)
 {
     if (dst_rank != mpiRank()) {
-        tileCopyToHost(i, j, tileDevice(i, j));
+        tileGetForReading(i, j);
         at(i, j).send(dst_rank, mpiComm(), tag);
     }
 }
@@ -1198,20 +1216,20 @@ void BaseMatrix<scalar_t>::tileRecv(
                 life += tileLife(i, j);
             tileLife(i, j, life);
         }
-        tileMoveToHost(i, j, tileDevice(i, j));
+        // todo: no need for copying,
+        // should make sure the tile exists only
+        // then mark modified after receiving
+        tileGetForWriting(i, j);
 
         // Receive data.
         at(i, j).recv(src_rank, mpiComm(), tag);
-        // if (tileIsLocal(i, j))
-            tileState(i, j, MOSI::Modified);
-        // else
-        //     tileState(i, j, MOSI::Shared);
 
         // Copy to devices.
         if (target == Target::Devices) {
             #pragma omp task
             {
-                tileCopyToDevice(i, j, tileDevice(i, j), layout);
+                tileGetForReading(i, j, tileDevice(i, j));
+                // todo: handle layout
             }
         }
     }
@@ -1339,7 +1357,8 @@ void BaseMatrix<scalar_t>::listBcast(
             #pragma omp task
             {
                 for (auto device : dev_set)
-                    tileCopyToDevice(i, j, device, layout);
+                    tileGetForReading(i, j, device);
+                    // todo: handle layout
             }
         }
     }
@@ -1380,7 +1399,7 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, int tag)
                 tileErase(i, j, host_num_);
             }
             else {
-                tileState(i, j, MOSI::Modified);
+                tileModified(i, j);
             }
         }
     }
@@ -1519,10 +1538,7 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     // Receive.
     if (! recv_from.empty()) {
         at(i, j).recv(new_vec[recv_from.front()], mpi_comm_, tag);
-        // if (tileIsLocal(i, j))
-            tileState(i, j, MOSI::Modified);
-        // else
-        //     tileState(i, j, MOSI::Shared);
+        tileModified(i, j);
     }
 
     // Forward.
@@ -1601,18 +1617,18 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_device)
 {
-    TileEntry<scalar_t> &dst_tileEntry, &src_tileEntry;
+    TileEntry<scalar_t> *dst_tileEntry, *src_tileEntry;
     do{
         // find tile on destination
         auto dst_iter = storage_->find(globalIndex(i, j, dst_device));
         if (dst_iter == storage_->end()) {
             // Create a copy on the destination.
-            dst_tileEntry = tileInsertWorkspace(i, j, dst_device);
+            dst_tileEntry = &tileInsertWorkspace(i, j, dst_device);
         }
         else {
-            dst_tileEntry = dst_iter->second;
+            dst_tileEntry = &dst_iter->second;
         }
-        if (dst_tileEntry.getState() != MOSI::Invalid)
+        if (dst_tileEntry->getState() != MOSI::Invalid)
             break;
 
         // find source tile
@@ -1626,7 +1642,7 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
                 if (iter != storage_->end()) {
                     if (iter->second.getState() != MOSI::Invalid) {
                         src_device = host_num_;
-                        src_tileEntry = iter->second;
+                        src_tileEntry = &iter->second;
                     }
                 }
             }
@@ -1636,7 +1652,7 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
                 if (iter != storage_->end()) {
                     if (iter->second.getState() != MOSI::Invalid) {
                         src_device = tileDevice(i, j);
-                        src_tileEntry = iter->second;
+                        src_tileEntry = &iter->second;
                     }
                 }
             }
@@ -1648,7 +1664,7 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
                 if (iter != storage_->end()) {
                     if (iter->second.getState() != MOSI::Invalid) {
                         src_device = d;
-                        src_tileEntry = iter->second;
+                        src_tileEntry = &iter->second;
                     }
                 }
             }
@@ -1660,27 +1676,27 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
         // Update the destination tile's data.
         if (dst_device != host_num_ && src_device != host_num_) {
             // todo: device to device copy
-            Tile<scalar_t> *host_tileEntry;
+            TileEntry<scalar_t> *host_tileEntry;
             auto host_iter = storage_->find(globalIndex(i, j, host_num_));
             if (host_iter == storage_->end()) {
                 // Create a copy on the host.
-                host_tileEntry = tileInsertWorkspace(i, j, host_num_);
+                host_tileEntry = &tileInsertWorkspace(i, j, host_num_);
             }else{
-                host_tileEntry = host_iter->second;
+                host_tileEntry = &host_iter->second;
             }
-            src_tileEntry.tile_->copyDataToHost(host_tileEntry.tile_, comm_stream(src_device));
-            host_tileEntry.tile_->copyDataToDevice(dst_tileEntry.tile_, comm_stream(dst_device));
-            host_tileEntry.setState(MOSI::Shared);
+            src_tileEntry->tile_->copyDataToHost(host_tileEntry->tile_, comm_stream(src_device));
+            host_tileEntry->tile_->copyDataToDevice(dst_tileEntry->tile_, comm_stream(dst_device));
+            host_tileEntry->setState(MOSI::Shared);
         }
         else
         if (dst_device == host_num_)
-            src_tileEntry.tile_->copyDataToHost(dst_tileEntry.tile_, comm_stream(src_device));
+            src_tileEntry->tile_->copyDataToHost(dst_tileEntry->tile_, comm_stream(src_device));
         else
-            src_tileEntry.tile_->copyDataToDevice(dst_tileEntry.tile_, comm_stream(dst_device));
+            src_tileEntry->tile_->copyDataToDevice(dst_tileEntry->tile_, comm_stream(dst_device));
 
-        dst_tileEntry.setState(MOSI::Shared);
-        if (src_tileEntry.stateOn(MOSI::Modified))
-            src_tileEntry.setState(MOSI::Shared);
+        dst_tileEntry->setState(MOSI::Shared);
+        if (src_tileEntry->stateOn(MOSI::Modified))
+            src_tileEntry->setState(MOSI::Shared);
 
     }while(0);
 }
@@ -1815,6 +1831,45 @@ void BaseMatrix<scalar_t>::tileGetAndHoldAllOnDevices()
         for (int64_t i = 0; i < mt(); ++i)
             if (tileIsLocal(i, j))
                 tileGetAndHold(i, j, tileDevice(i, j));
+}
+
+//------------------------------------------------------------------------------
+/// Updates the origin instance of tile(i, j) if not MOSI::Shared
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileUpdateOrigin(int64_t i, int64_t j)
+{
+    // find on host
+    auto iter = storage_->find(globalIndex(i, j, host_num_));
+    if (iter != storage_->end() && iter->second.tile_->origin() ){
+        if ( iter->second.stateOn(MOSI::Invalid) )
+            tileGetForReading(i, j);
+    }
+    else {
+        iter = storage_->find(globalIndex(i, j, tileDevice(i, j)));
+        if (iter != storage_->end() && iter->second.tile_->origin() ){
+            if ( iter->second.stateOn(MOSI::Invalid) )
+                tileGetForReading(i, j);
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Updates all origin instances of local tiles if not MOSI::Shared
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
+{
+    for (int64_t j = 0; j < this->nt(); ++j)
+        for (int64_t i = 0; i < this->mt(); ++i)
+            if (this->tileIsLocal(i, j))
+                this->tileUpdateOrigin(i, j);
 }
 
 //------------------------------------------------------------------------------

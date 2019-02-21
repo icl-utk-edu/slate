@@ -508,6 +508,7 @@ scalapack_api_src += \
         scalapack_api/scalapack_gesv.cc \
         scalapack_api/scalapack_lanhe.cc \
         scalapack_api/scalapack_posv.cc \
+        scalapack_api/scalapack_gels.cc \
 
 
 scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))

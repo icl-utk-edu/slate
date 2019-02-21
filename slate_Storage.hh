@@ -105,7 +105,7 @@ struct  TileEntry
             case MOSI::Modified:
             case MOSI::Shared:
             case MOSI::Invalid:
-                state_ &= stateIn;
+                state_ = (state_ & MOSI::OnHold) | stateIn;
                 break;
             case MOSI::OnHold:
                 state_ |= stateIn;

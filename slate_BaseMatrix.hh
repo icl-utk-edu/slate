@@ -230,7 +230,7 @@ public:
 
     /// Marks tile(i, j) as Modified on device.
     /// Other instances will be invalidated.
-    void tileModified(int64_t i, int64_t j, int device=host_num_);
+    void tileModified(int64_t i, int64_t j, int device=host_num_, bool permissive=false);
 
     /// Gets tile(i, j) for reading on device.
     /// Will copy-in the tile if it does not exist or its state is Invalid.
@@ -1111,22 +1111,23 @@ void BaseMatrix<scalar_t>::tileUnsetHold(int64_t i, int64_t j, int device)
 ///     Tile's device ID, defaults to host.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileModified(int64_t i, int64_t j, int device)
+void BaseMatrix<scalar_t>::tileModified(int64_t i, int64_t j, int device, bool permissive)
 {
-    auto tileEntry = storage_->at(globalIndex(i, j, device));
+    auto tileEntry = &storage_->at(globalIndex(i, j, device));
     // auto tileIter = storage_->find(globalIndex(i, j, device));
     // assert(tileIter != storage_->end());
 
-    if (tileEntry.stateOn(MOSI::Modified))
+    if (tileEntry->stateOn(MOSI::Modified))
         // no need to update
         return;
-    tileEntry.setState(MOSI::Modified);
+    tileEntry->setState(MOSI::Modified);
 
     // set all other instances to Invalid
     if (device != host_num_) {
         auto otherIter = storage_->find(globalIndex(i, j, host_num_));
         if (otherIter != storage_->end()) {
-            assert(otherIter->second.stateOn(MOSI::Modified) == false);
+            if(!permissive)
+                assert(otherIter->second.stateOn(MOSI::Modified) == false);
             otherIter->second.setState(MOSI::Invalid);
         }
     }
@@ -1135,7 +1136,8 @@ void BaseMatrix<scalar_t>::tileModified(int64_t i, int64_t j, int device)
 
         auto otherIter = storage_->find(globalIndex(i, j, d));
         if (otherIter != storage_->end()) {
-            assert(otherIter->second.stateOn(MOSI::Modified) == false);
+            if(!permissive)
+                assert(otherIter->second.stateOn(MOSI::Modified) == false);
             otherIter->second.setState(MOSI::Invalid);
         }
     }
@@ -1216,13 +1218,11 @@ void BaseMatrix<scalar_t>::tileRecv(
                 life += tileLife(i, j);
             tileLife(i, j, life);
         }
-        // todo: no need for copying,
-        // should make sure the tile exists only
-        // then mark modified after receiving
-        tileGetForWriting(i, j);
 
         // Receive data.
         at(i, j).recv(src_rank, mpiComm(), tag);
+
+        tileModified(i, j, hostNum(), true);
 
         // Copy to devices.
         if (target == Target::Devices) {

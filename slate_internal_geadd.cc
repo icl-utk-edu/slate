@@ -85,11 +85,10 @@ void geadd(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(i, j)) {
                 #pragma omp task shared(A, B) priority(priority)
                 {
-                    A.tileCopyToHost(i, j, A.tileDevice(i, j));
-                    B.tileMoveToHost(i, j, B.tileDevice(i, j));
+                    A.tileGetForReading(i, j);
+                    B.tileGetForWriting(i, j);
                     axby(alpha, A(i, j),
                          beta,  B(i, j));
-                    B.tileState(i, j, MOSI::Modified);
                     A.tileTick(i, j);// TODO is this correct here?
                 }
             }

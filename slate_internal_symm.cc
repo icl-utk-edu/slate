@@ -111,14 +111,14 @@ void symm(internal::TargetType<Target::HostTask>,
                 #pragma omp task shared(A, B, C, err) priority(priority)
                 {
                     try {
-                        A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
-                        B.tileCopyToHost(0, j, B.tileDevice(0, j));
-                        C.tileMoveToHost(0, j, C.tileDevice(0, j));
+                        A.tileGetForReading(0, 0);
+                        B.tileGetForReading(0, j);
+                        C.tileGetForWriting(0, j);
                         symm(side,
                              alpha, A(0, 0),
                                     B(0, j),
                              beta,  C(0, j));
-                        C.tileState(0, j, MOSI::Modified);
+                        // todo: should tileRelease()?
                         A.tileTick(0, 0);
                         B.tileTick(0, j);
                     }
@@ -136,14 +136,14 @@ void symm(internal::TargetType<Target::HostTask>,
                 #pragma omp task shared(A, B, C, err) priority(priority)
                 {
                     try {
-                        A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
-                        B.tileCopyToHost(i, 0, B.tileDevice(i, 0));
-                        C.tileMoveToHost(i, 0, C.tileDevice(i, 0));
+                        A.tileGetForReading(0, 0);
+                        B.tileGetForReading(i, 0);
+                        C.tileGetForWriting(i, 0);
                         symm(side,
                              alpha, A(0, 0),
                                     B(i, 0),
                              beta,  C(i, 0));
-                        C.tileState(i, 0, MOSI::Modified);
+                        // todo: should tileRelease()?
                         A.tileTick(0, 0);
                         B.tileTick(i, 0);
                     }
@@ -179,14 +179,14 @@ void symm(internal::TargetType<Target::HostNest>,
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(0, j)) {
                 try {
-                    A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
-                    B.tileCopyToHost(0, j, B.tileDevice(0, j));
-                    C.tileMoveToHost(0, j, C.tileDevice(0, j));
+                    A.tileGetForReading(0, 0);
+                    B.tileGetForReading(0, j);
+                    C.tileGetForWriting(0, j);
                     symm(side,
                          alpha, A(0, 0),
                                 B(0, j),
                          beta,  C(0, j));
-                    C.tileState(0, j, MOSI::Modified);
+                    // todo: should tileRelease()?
                     A.tileTick(0, 0);
                     B.tileTick(0, j);
                 }
@@ -204,14 +204,14 @@ void symm(internal::TargetType<Target::HostNest>,
                 #pragma omp task shared(A, B, C, err) priority(priority)
                 {
                     try {
-                        A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
-                        B.tileCopyToHost(i, 0, B.tileDevice(i, 0));
-                        C.tileMoveToHost(i, 0, C.tileDevice(i, 0));
+                        A.tileGetForReading(0, 0);
+                        B.tileGetForReading(i, 0);
+                        C.tileGetForWriting(i, 0);
                         symm(side,
                              alpha, A(0, 0),
                                     B(i, 0),
                              beta,  C(i, 0));
-                        C.tileState(i, 0, MOSI::Modified);
+                        // todo: should tileRelease()?
                         A.tileTick(0, 0);
                         B.tileTick(i, 0);
                     }

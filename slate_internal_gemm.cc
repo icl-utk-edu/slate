@@ -109,14 +109,13 @@ void gemm(internal::TargetType<Target::HostTask>,
                 #pragma omp task shared(A, B, C, err) priority(priority)
                 {
                     try {
-                        A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
-                        B.tileCopyToHost(0, j, B.tileDevice(0, j));
-                        C.tileMoveToHost(i, j, C.tileDevice(i, j));
+                        A.tileGetForReading(i, 0);
+                        B.tileGetForReading(0, j);
+                        C.tileGetForWriting(i, j);
                         gemm(alpha, A(i, 0),
                                     B(0, j),
                              beta,  C(i, j));
-                        // mark this tile modified
-                        C.tileState(i, j, C.hostNum(), MOSI::Modified);
+                        // todo: shouldn't tileRelease()?
                         A.tileTick(i, 0);
                         B.tileTick(0, j);
                     }
@@ -163,14 +162,13 @@ void gemm(internal::TargetType<Target::HostNest>,
         for (int64_t j = 0; j < C_nt; ++j) {
             if (C.tileIsLocal(i, j)) {
                 try {
-                    A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
-                    B.tileCopyToHost(0, j, B.tileDevice(0, j));
-                    C.tileMoveToHost(i, j, C.tileDevice(i, j));
+                    A.tileGetForReading(i, 0);
+                    B.tileGetForReading(0, j);
+                    C.tileGetForWriting(i, j);
                     gemm(alpha, A(i, 0),
                                 B(0, j),
                          beta,  C(i, j));
-                    // mark this tile modified
-                    C.tileState(i, j, C.hostNum(), MOSI::Modified);
+                    // todo: shouldn't tileRelease()?
                     A.tileTick(i, 0);
                     B.tileTick(0, j);
                 }
@@ -218,9 +216,9 @@ void gemm(internal::TargetType<Target::HostBatch>,
     for (int64_t i = 0; i < C.mt(); ++i) {
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(i, j)) {
-                A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
-                B.tileCopyToHost(0, j, B.tileDevice(0, j));
-                C.tileMoveToHost(i, j, C.tileDevice(i, j));
+                A.tileGetForReading(i, 0);
+                B.tileGetForReading(0, j);
+                C.tileGetForWriting(i, j);
                 ++batch_count;
             }
         }
@@ -332,8 +330,7 @@ void gemm(internal::TargetType<Target::HostBatch>,
         for (int64_t i = 0; i < C.mt(); ++i) {
             for (int64_t j = 0; j < C.nt(); ++j) {
                 if (C.tileIsLocal(i, j)) {
-                    // mark this tile modified
-                    C.tileState(i, j, C.hostNum(), MOSI::Modified);
+                    // todo: shouldn't tileRelease()?
                     A.tileTick(i, 0);
                     B.tileTick(0, j);
                 }
@@ -410,13 +407,14 @@ void gemm(internal::TargetType<Target::Devices>,
                 for (int64_t j = 0; j < C.nt(); ++j) {
                     if (C.tileIsLocal(i, j)) {
                         if (device == C.tileDevice(i, j)) {
-                            A.tileCopyToDevice(i, 0, device, layout);
-                            B.tileCopyToDevice(0, j, device, layout);
-                            C.tileMoveToDevice(i, j, device, layout);
+                            A.tileGetForReading(i, 0, device);
+                            B.tileGetForReading(0, j, device);
+                            C.tileGetForWriting(i, j, device);
                         }
                     }
                 }
             }
+            // todo: convert layout
 
             scalar_t** a_array_host = C.a_array_host(device);
             scalar_t** b_array_host = C.b_array_host(device);
@@ -680,11 +678,9 @@ void gemm(internal::TargetType<Target::Devices>,
                 for (int64_t j = 0; j < C.nt(); ++j) {
                     if (C.tileIsLocal(i, j)) {
                         if (device == C.tileDevice(i, j)) {
-                            // mark this tile modified
-                            C.tileState(i, j, device, MOSI::Modified);
                             // erase tmp local and remote device tiles;
-                            A.tileErase(i, 0, device);
-                            B.tileErase(0, j, device);
+                            A.tileRelease(i, 0, device);
+                            B.tileRelease(0, j, device);
                             // decrement life for remote tiles
                             A.tileTick(i, 0);
                             B.tileTick(0, j);

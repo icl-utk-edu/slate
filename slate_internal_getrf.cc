@@ -75,8 +75,7 @@ void getrf(internal::TargetType<Target::HostTask>,
         if (A.tileIsLocal(i, 0)) {
             #pragma omp task shared(A) priority(priority)
             {
-                A.tileMoveToHost(i, 0, A.tileDevice(i, 0));
-                A.tileState(i, 0, MOSI::Modified);
+                A.tileGetForWriting(i, 0);
             }
         }
     }

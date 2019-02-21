@@ -180,7 +180,7 @@ void her2k(slate::internal::TargetType<target>,
         }
     }
 
-    C.moveAllToOrigin();
+    C.tileUpdateAllOrigin();
     C.clearWorkspace();
 }
 

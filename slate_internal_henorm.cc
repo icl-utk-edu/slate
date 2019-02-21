@@ -163,7 +163,7 @@ void norm(
             if (j < A.mt() && A.tileIsLocal(j, j)) {
                 #pragma omp task shared(A, tiles_maxima) priority(priority)
                 {
-                    A.tileCopyToHost(j, j, A.tileDevice(j, j));
+                    A.tileGetForReading(j, j);
                     real_t tile_max;
                     henorm(in_norm, A(j, j), &tile_max);
                     #pragma omp critical
@@ -178,7 +178,7 @@ void norm(
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, tiles_maxima) priority(priority)
                         {
-                            A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                            A.tileGetForReading(i, j);
                             real_t tile_max;
                             genorm(in_norm, A(i, j), &tile_max);
                             #pragma omp critical
@@ -194,7 +194,7 @@ void norm(
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, tiles_maxima) priority(priority)
                         {
-                            A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                            A.tileGetForReading(i, j);
                             real_t tile_max;
                             genorm(in_norm, A(i, j), &tile_max);
                             #pragma omp critical
@@ -226,7 +226,7 @@ void norm(
             if (j < A.mt() && A.tileIsLocal(j, j)) {
                 #pragma omp task shared(A, tiles_sums) priority(priority)
                 {
-                    A.tileCopyToHost(j, j, A.tileDevice(j, j));
+                    A.tileGetForReading(j, j);
                     henorm(in_norm, A(j, j), &tiles_sums[A.n()*j + jj]);
                 }
             }
@@ -237,7 +237,7 @@ void norm(
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, tiles_sums) priority(priority)
                         {
-                            A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                            A.tileGetForReading(i, j);
                             synormOffdiag(in_norm, A(i, j),
                                           &tiles_sums[A.n()*i + jj],
                                           &tiles_sums[A.n()*j + ii]);
@@ -252,7 +252,7 @@ void norm(
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, tiles_sums) priority(priority)
                         {
-                            A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                            A.tileGetForReading(i, j);
                             synormOffdiag(in_norm, A(i, j),
                                           &tiles_sums[A.n()*i + jj],
                                           &tiles_sums[A.n()*j + ii]);
@@ -273,7 +273,7 @@ void norm(
         // by summing up local contributions only.
         std::fill_n(values, A.n(), 0.0);
         for (int64_t i = 0; i < A.mt(); ++i)
-            #pragma omp taskloop shared(A, tiles_sums, values) priority(priority) 
+            #pragma omp taskloop shared(A, tiles_sums, values) priority(priority)
             for (int64_t jj = 0; jj < A.n(); ++jj)
                 values[jj] += tiles_sums[A.n()*i + jj];
     }
@@ -287,7 +287,7 @@ void norm(
         for (int64_t j = 0; j < A.nt(); ++j) {
             // diagonal tile
             if (j < A.mt() && A.tileIsLocal(j, j)) {
-                A.tileCopyToHost(j, j, A.tileDevice(j, j));
+                A.tileGetForReading(j, j);
                 real_t tile_values[2];
                 henorm(in_norm, A(j, j), tile_values);
                 #pragma omp critical
@@ -302,7 +302,7 @@ void norm(
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, values) priority(priority)
                         {
-                            A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                            A.tileGetForReading(i, j);
                             real_t tile_values[2];
                             genorm(in_norm, A(i, j), tile_values);
                             // double for symmetric entries
@@ -321,7 +321,7 @@ void norm(
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, values) priority(priority)
                         {
-                            A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                            A.tileGetForReading(i, j);
                             real_t tile_values[2];
                             genorm(in_norm, A(i, j), tile_values);
                             // double for symmetric entries
@@ -440,7 +440,7 @@ void norm(
                         ( (A.uplo() == Uplo::Lower && i > j) ||
                           (A.uplo() == Uplo::Upper && i < j) ))
                     {
-                        A.tileCopyToDevice(i, j, device);
+                        A.tileGetForReading(i, j, device);
                     }
                 }
             }

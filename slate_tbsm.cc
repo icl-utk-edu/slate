@@ -120,9 +120,8 @@ void tbsm(slate::internal::TargetType<target>,
                     #pragma omp parallel for schedule(dynamic, 1)
                     for (int64_t j = 0; j < B_nt; ++j) {
                         if (B.tileIsLocal(i, j)) {
-                            B.tileMoveToHost(i, j, B.tileDevice(i, j));
+                            B.tileGetForWriting(i, j);
                             scale(alpha, B(i, j));
-                            B.tileState(i, j, MOSI::Modified);
                         }
                     }
                     #pragma omp taskwait
@@ -282,7 +281,7 @@ void tbsm(slate::internal::TargetType<target>,
         }
     }
 
-    B.moveAllToOrigin();
+    B.tileUpdateAllOrigin();
     B.clearWorkspace();
 }
 

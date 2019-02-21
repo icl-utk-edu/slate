@@ -69,10 +69,8 @@ void potrf(internal::TargetType<Target::HostTask>,
     if (A.tileIsLocal(0, 0))
         #pragma omp task shared(A) priority(priority)
         {
-            A.tileMoveToHost(0, 0, A.tileDevice(0, 0));
+            A.tileGetForWriting(0, 0);
             potrf(A(0, 0));
-            // mark this tile modified
-            A.tileState(0, 0, A.hostNum(), MOSI::Modified);
         }
 
     #pragma omp taskwait

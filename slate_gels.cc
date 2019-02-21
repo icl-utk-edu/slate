@@ -137,7 +137,7 @@ void gels(Matrix<scalar_t>& opA,
                         lapack::laset(lapack::MatrixType::General,
                                       T.mb() - ioffset, T.nb(), zero, zero,
                                       &T.at(ioffset, 0), T.stride());
-                        BX.tileState(i, j, MOSI::Modified);
+                        BX.tileModified(i, j);
                     }
                 }
                 ioffset = 0; // no offset for subsequent block rows

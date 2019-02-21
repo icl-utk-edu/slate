@@ -432,7 +432,7 @@ void test_gemm(slate::Target target)
                     // move data back to host
                     for (int j = 0; j < C.nt(); ++j)
                         for (int i = 0; i < C.mt(); ++i)
-                            C.tileCopyToHost(i, j, C.tileDevice(i, j));
+                            C.tileGetForReading(i, j);
                     break;
             }
 
@@ -592,7 +592,7 @@ void test_syrk(slate::Target target)
                     // assume Lower, NoTrans or Upper, Trans
                     for (int j = 0; j < C.nt(); ++j)
                         for (int i = j; i < C.mt(); ++i)  // lower
-                            C.tileCopyToHost(i, j, C.tileDevice(i, j));
+                            C.tileGetForReading(i, j);
                     break;
             }
             //if (C.op() == Op::ConjTrans)  // TODO
@@ -756,7 +756,7 @@ void test_herk(slate::Target target)
                     // assume Lower, NoTrans or Upper, Trans
                     for (int j = 0; j < C.nt(); ++j)
                         for (int i = j; i < C.mt(); ++i)  // lower
-                            C.tileCopyToHost(i, j, C.tileDevice(i, j));
+                            C.tileGetForReading(i, j);
                     break;
             }
             //if (C.op() == Op::ConjTrans)  // TODO

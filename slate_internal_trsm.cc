@@ -85,13 +85,12 @@ void trsm(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(i, 0)) {
                 #pragma omp task shared(A, B) priority(priority)
                 {
-                    A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
-                    B.tileMoveToHost(i, 0, B.tileDevice(i, 0));
+                    A.tileGetForReading(0, 0);
+                    B.tileGetForWriting(i, 0);
                     trsm(side, A.diag(),
                          alpha, A(0, 0),
                                 B(i, 0));
-                    // mark this tile modified
-                    B.tileState(i, 0, B.hostNum(), MOSI::Modified);
+                    // todo: should tileRelease()?
                     A.tileTick(0, 0);
                 }
             }
@@ -103,13 +102,12 @@ void trsm(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(0, j)) {
                 #pragma omp task shared(A, B) priority(priority)
                 {
-                    A.tileCopyToHost(0, 0, A.tileDevice(0, 0));
-                    B.tileMoveToHost(0, j, B.tileDevice(0, j));
+                    A.tileGetForReading(0, 0);
+                    B.tileGetForWriting(0, j);
                     trsm(side, A.diag(),
                          alpha, A(0, 0),
                                 B(0, j));
-                    // mark this tile modified
-                    B.tileState(0, j, B.hostNum(), MOSI::Modified);
+                    // todo: should tileRelease()?
                     A.tileTick(0, 0);
                 }
             }

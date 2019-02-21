@@ -155,7 +155,7 @@ void unmqr(internal::TargetType<target>,
         // op(Q) x C = C - V x op(T) x (V**H x C)
         // W = V**H x C
         // W <- C1
-        C1.moveAllToHost();// todo: issue omp tasks for copy to host
+        C1.tileGetAllForWriting(C1.hostNum());// todo: issue omp tasks for copy to host
         Wr.copy(C1);
 
         internal::trmm<Target::HostTask, scalar_t>(
@@ -170,7 +170,7 @@ void unmqr(internal::TargetType<target>,
                 auto ViT = conj_transpose(A.sub(row, row, 0, 0));
                 auto Ci = C.sub(row, row, 0, C_nt-1);
                 if (target == Target::Devices) {
-                    Ci.moveAllToDevices();
+                    Ci.tileGetAndHoldAllOnDevices();// todo: release the hold later
                 }
                 internal::gemm<target>(
                         scalar_t(1.0), std::move(ViT),

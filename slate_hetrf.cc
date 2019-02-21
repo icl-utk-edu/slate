@@ -154,7 +154,7 @@ void hetrf(slate::internal::TargetType<target>,
                       A(k, k).mb(), A(k, k).nb(),
                       A(k, k).data(), A(k, k).stride(),
                       T(k, k).data(), T(k, k).stride() );
-                T.tileState(k, k, MOSI::Modified);
+                T.tileModified(k, k);
 
                 if (k == 0) {
                     //printf( " ++ expanding ++\n" ); fflush(stdout);
@@ -237,7 +237,7 @@ void hetrf(slate::internal::TargetType<target>,
                         itype, lapack::Uplo::Lower, Lkk(0, 0).mb(),
                         T(k, k).data(),   T(k, k).stride(),
                         Lkk(0, 0).data(), Lkk(0, 0).stride());
-                    Lkk.tileState(0, 0, MOSI::Modified);
+                    Lkk.tileModified(0, 0);
 
                     //printf( " ++ expanding ++\n" ); fflush(stdout);
                     int64_t ldt = T(k, k).stride();
@@ -247,7 +247,7 @@ void hetrf(slate::internal::TargetType<target>,
                             tkk[i + j*ldt] = tkk[j + i*ldt];
                         }
                     }
-                    T.tileState(k, k, MOSI::Modified);
+                    T.tileModified(k, k);
                 }
                 if (k+1 < A_mt) {
                     // send T(k, k) for computing H(k, k), moved from below?
@@ -398,14 +398,14 @@ void hetrf(slate::internal::TargetType<target>,
                         T(k+1, k).mb()-1, T(k+1, k).nb()-1,
                         scalar_t(0.0), scalar_t(0.0),
                         T(k+1, k).data()+1, T(k+1, k).stride());
-                    T.tileState(k+1, k, MOSI::Modified);
+                    T.tileModified(k+1, k);
 
                     // zero out upper-triangular of L(k, k)
                     lapack::laset(lapack::MatrixType::Upper,
                           A(k+1, k).mb(), A(k+1, k).nb(),
                           scalar_t(0.0), scalar_t(1.0),
                           A(k+1, k).data(), A(k+1, k).stride());
-                    A.tileState(k+1, k, MOSI::Modified);
+                    A.tileModified(k+1, k);
                 }
             }
 
@@ -445,7 +445,7 @@ void hetrf(slate::internal::TargetType<target>,
                             tkk2[j + i*ldt2] = tkk1[i + j*ldt1];
                         }
                     }
-                    T.tileState(k, k+1, MOSI::Modified);
+                    T.tileModified(k, k+1);
                 }
                 if (k > 0 && k+1 < A_mt) {
                     // send T(i, j) that are needed to compute H(k, :)

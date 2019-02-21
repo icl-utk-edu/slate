@@ -229,7 +229,7 @@ void trsm(slate::internal::TargetType<target>,
         }
     }
 
-    B.moveAllToOrigin();
+    B.tileUpdateAllOrigin();
     B.clearWorkspace();
 }
 

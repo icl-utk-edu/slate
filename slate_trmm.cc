@@ -304,7 +304,7 @@ void trmm(slate::internal::TargetType<target>,
         } // end Lower/NoTrans
     } // end omp master
 
-    B.moveAllToOrigin();
+    B.tileUpdateAllOrigin();
     B.clearWorkspace();
 }
 

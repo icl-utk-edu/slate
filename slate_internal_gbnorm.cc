@@ -108,7 +108,7 @@ void norm(
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, tiles_maxima) priority(priority)
                     {
-                        A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                        A.tileGetForReading(i, j);
                         real_t tile_max;
                         genorm(in_norm, A(i, j), &tile_max);
                         #pragma omp critical
@@ -143,7 +143,7 @@ void norm(
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, tiles_sums) priority(priority)
                     {
-                        A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                        A.tileGetForReading(i, j);
                         genorm(in_norm, A(i, j), &tiles_sums[A.n()*i+jj]);
                     }
                 }
@@ -179,7 +179,7 @@ void norm(
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, tiles_sums) priority(priority)
                     {
-                        A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                        A.tileGetForReading(i, j);
                         genorm(in_norm, A(i, j), &tiles_sums[A.m()*j + ii]);
                     }
                 }
@@ -215,7 +215,7 @@ void norm(
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, values) priority(priority)
                     {
-                        A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                        A.tileGetForReading(i, j);
                         real_t tile_values[2];
                         genorm(in_norm, A(i, j), tile_values);
                         #pragma omp critical
@@ -266,7 +266,7 @@ void norm(
         int64_t i_end   = min(j + klt + 1, A.mt());
         for (int64_t i = i_begin; i < i_end; ++i) {
             if (A.tileIsLocal(i, j)) {
-                A.tileCopyToHost(i, j, A.tileDevice(i, j));
+                A.tileGetForReading(i, j);
                 real_t tile_max;
                 genorm(in_norm, A(i, j), &tile_max);
                 #pragma omp critical

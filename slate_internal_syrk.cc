@@ -96,11 +96,11 @@ void syrk(internal::TargetType<Target::HostTask>,
                     #pragma omp task shared(A, C, err) priority(priority)
                     {
                         try {
-                            A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
-                            C.tileMoveToHost(j, j, C.tileDevice(j, j));
+                            A.tileGetForReading(j, 0);
+                            C.tileGetForWriting(j, j);
                             syrk(alpha, A(j, 0),
                                  beta,  C(j, j));
-                            C.tileState(j, j, MOSI::Modified);
+                            // todo: should tileRelease()?
                             A.tileTick(j, 0);
                             A.tileTick(j, 0);
                         }
@@ -113,14 +113,14 @@ void syrk(internal::TargetType<Target::HostTask>,
                     #pragma omp task shared(A, C, err) priority(priority)
                     {
                         try {
-                            A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
-                            A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
-                            C.tileMoveToHost(i, j, C.tileDevice(i, j));
+                            A.tileGetForReading(i, 0);
+                            A.tileGetForReading(j, 0);
+                            C.tileGetForWriting(i, j);
                             auto Aj0 = A(j, 0);
                             gemm(alpha, A(i, 0),
                                         transpose(Aj0),
                                  beta,  C(i, j));
-                            C.tileState(i, j, MOSI::Modified);
+                            // todo: should tileRelease()?
                             A.tileTick(i, 0);
                             A.tileTick(j, 0);
                         }
@@ -157,11 +157,11 @@ void syrk(internal::TargetType<Target::HostNest>,
             #pragma omp task shared(A, C, err)
             {
                 try {
-                    A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
-                    C.tileMoveToHost(j, j, C.tileDevice(j, j));
+                    A.tileGetForReading(j, 0);
+                    C.tileGetForWriting(j, j);
                     syrk(alpha, A(j, 0),
                          beta,  C(j, j));
-                    C.tileState(j, j, MOSI::Modified);
+                    // todo: should tileRelease()?
                     A.tileTick(j, 0);
                     A.tileTick(j, 0);
                 }
@@ -182,14 +182,14 @@ void syrk(internal::TargetType<Target::HostNest>,
             if (i >= j+1) {                     // strictly lower
                 if (C.tileIsLocal(i, j)) {
                     try {
-                        A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
-                        A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
-                        C.tileMoveToHost(i, j, C.tileDevice(i, j));
+                        A.tileGetForReading(i, 0);
+                        A.tileGetForReading(j, 0);
+                        C.tileGetForWriting(i, j);
                         auto Aj0 = A(j, 0);
                         gemm(alpha, A(i, 0),
                                     transpose(Aj0),
                              beta,  C(i, j));
-                        C.tileState(i, j, MOSI::Modified);
+                        // todo: should tileRelease()?
                         A.tileTick(i, 0);
                         A.tileTick(j, 0);
                     }
@@ -225,11 +225,11 @@ void syrk(internal::TargetType<Target::HostBatch>,
             #pragma omp task shared(A, C, err)
             {
                 try {
-                    A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
-                    C.tileMoveToHost(j, j, C.tileDevice(j, j));
+                    A.tileGetForReading(j, 0);
+                    C.tileGetForWriting(j, j);
                     syrk(alpha, A(j, 0),
                          beta,  C(j, j));
-                    C.tileState(j, j, MOSI::Modified);
+                    // todo: should tileRelease()?
                     A.tileTick(j, 0);
                     A.tileTick(j, 0);
                 }
@@ -246,9 +246,9 @@ void syrk(internal::TargetType<Target::HostBatch>,
     for (int64_t j = 0; j < C.nt(); ++j) {
         for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
             if (C.tileIsLocal(i, j)) {
-                A.tileCopyToHost(i, 0, A.tileDevice(i, 0));
-                A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
-                C.tileMoveToHost(i, j, C.tileDevice(i, j));
+                A.tileGetForReading(i, 0);
+                A.tileGetForReading(j, 0);
+                C.tileGetForWriting(i, j);
                 ++batch_count;
             }
         }
@@ -345,7 +345,7 @@ void syrk(internal::TargetType<Target::HostBatch>,
         for (int64_t j = 0; j < C.nt(); ++j) {
             for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                 if (C.tileIsLocal(i, j)) {
-                    C.tileState(i, j, MOSI::Modified);
+                    // todo: should tileRelease()?
                     A.tileTick(i, 0);
                     A.tileTick(j, 0);
                 }
@@ -400,9 +400,9 @@ void syrk(internal::TargetType<Target::Devices>,
                     for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
-                                A.tileCopyToDevice(i, 0, device);
-                                A.tileCopyToDevice(j, 0, device);
-                                C.tileMoveToDevice(i, j, device);
+                                A.tileGetForReading(i, 0, device);
+                                A.tileGetForReading(j, 0, device);
+                                C.tileGetForWriting(i, j, device);
                             }
                         }
                     }
@@ -545,11 +545,11 @@ void syrk(internal::TargetType<Target::Devices>,
                     for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
-                                C.tileState(i, j, device, MOSI::Modified);
                                 // erase tmp local and remote device tiles;
-                                A.tileErase(i, 0, device);
-                                A.tileErase(j, 0, device);
+                                A.tileRelease(i, 0, device);
+                                A.tileRelease(j, 0, device);
                                 // decrement life for remote tiles
+                                // todo: should tileRelease()?
                                 A.tileTick(i, 0);
                                 A.tileTick(j, 0);
                             }
@@ -569,11 +569,11 @@ void syrk(internal::TargetType<Target::Devices>,
             #pragma omp task shared(A, C, err)
             {
                 try {
-                    A.tileCopyToHost(j, 0, A.tileDevice(j, 0));
-                    C.tileMoveToHost(j, j, C.tileDevice(j, j));
+                    A.tileGetForReading(j, 0);
+                    C.tileGetForWriting(j, j);
                     syrk(alpha, A(j, 0),
                          beta,  C(j, j));
-                    C.tileState(j, j, MOSI::Modified);
+                    // todo: should tileRelease()?
                     A.tileTick(j, 0);
                     A.tileTick(j, 0);
                 }

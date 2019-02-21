@@ -154,9 +154,8 @@ void gbmm(slate::internal::TargetType<target>,
                         if (C.tileIsLocal(i, j)) {
                             #pragma omp task shared(C)
                             {
-                                C.tileMoveToHost(i, j, C.tileDevice(i, j));
+                                C.tileGetForWriting(i, j);
                                 scale(beta, C(i, j));
-                                C.tileState(i, j, MOSI::Modified);
                             }
                         }
                     }
@@ -210,7 +209,7 @@ void gbmm(slate::internal::TargetType<target>,
         }
     }
 
-    C.moveAllToOrigin();
+    C.tileUpdateAllOrigin();
     C.clearWorkspace();
 }
 

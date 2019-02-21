@@ -95,7 +95,7 @@ void swap(internal::TargetType<Target::HostTask>,
             if (A.tileIsLocal(i, j)) {
                 #pragma omp task shared(A) priority(priority)
                 {
-                    A.tileMoveToHost(i, j, A.tileDevice(i, j));
+                    A.tileGetForWriting(i, j);
                 }
             }
         }
@@ -137,8 +137,6 @@ void swap(internal::TargetType<Target::HostTask>,
                                  A(0, j), i,
                                  A(pivot[i].tileIndex(), j),
                                  pivot[i].elementOffset());
-                            A.tileState(0, j, MOSI::Modified);
-                            A.tileState(pivot[i].tileIndex(), j, MOSI::Modified);
                         }
                     }
                     // I am not the root.
@@ -149,7 +147,6 @@ void swap(internal::TargetType<Target::HostTask>,
                              pivot[i].elementOffset(),
                              A.tileRank(0, j), A.mpiComm(),
                              tag);
-                        A.tileState(pivot[i].tileIndex(), j, MOSI::Modified);
                     }
                 }
                 // I don't own the pivot.
@@ -161,7 +158,6 @@ void swap(internal::TargetType<Target::HostTask>,
                              A(0, j), i,
                              pivot_rank, A.mpiComm(),
                              tag);
-                        A.tileState(0, j, MOSI::Modified);
                     }
                 }
             }
@@ -248,7 +244,8 @@ void swap(internal::TargetType<Target::Devices>,
             if (A.tileIsLocal(i, j)) {
                 #pragma omp task shared(A) priority(priority)
                 {
-                    A.tileMoveToDevice(i, j, A.tileDevice(i, j), layout);
+                    A.tileGetForWriting(i, j, A.tileDevice(i, j));
+                    // todo: handle layout
                 }
             }
         }
@@ -294,8 +291,6 @@ void swap(internal::TargetType<Target::Devices>,
                                        A.tileNb(j),
                                        &A(0, j, device).at(i1, 0), 1,
                                        &A(idx2, j, device).at(i2, 0), 1);
-                            A.tileState(0, j, device, MOSI::Modified);
-                            A.tileState(idx2, j, device, MOSI::Modified);
                         }
                     }
                     // I am not the root.
@@ -306,7 +301,6 @@ void swap(internal::TargetType<Target::Devices>,
                              pivot[i].elementOffset(),
                              A.tileRank(0, j), A.mpiComm(),
                              tag);
-                        A.tileState(pivot[i].tileIndex(), j, device, MOSI::Modified);
                     }
                 }
                 // I don't own the pivot.
@@ -318,7 +312,6 @@ void swap(internal::TargetType<Target::Devices>,
                              A(0, j, device), i,
                              pivot_rank, A.mpiComm(),
                              tag);
-                        A.tileState(0, j, device, MOSI::Modified);
                     }
                 }
             }
@@ -346,7 +339,6 @@ void swap(int64_t j_offs, int64_t n,
             swap(j_offs, n,
                  op1 == Op::NoTrans ? A(i1, j1) : transpose(A(i1, j1)), offs_1,
                  op2 == Op::NoTrans ? A(i2, j2) : transpose(A(i2, j2)), offs_2);
-            A.tileState(i2, j2, MOSI::Modified);
         }
         else {
             // sending tile 1
@@ -354,7 +346,6 @@ void swap(int64_t j_offs, int64_t n,
                  op1 == Op::NoTrans ? A(i1, j1) : transpose(A(i1, j1)), offs_1,
                  A.tileRank(i2, j2), A.mpiComm(), tag);
         }
-        A.tileState(i1, j1, MOSI::Modified);
     }
     else {
         if (A.tileRank(i2, j2) == A.mpiRank()) {
@@ -362,7 +353,6 @@ void swap(int64_t j_offs, int64_t n,
             swap(j_offs, n,
                  op2 == Op::NoTrans ? A(i2, j2) : transpose(A(i2, j2)), offs_2,
                  A.tileRank(i1, j1), A.mpiComm(), tag);
-            A.tileState(i2, j2, MOSI::Modified);
         }
     }
 }
@@ -423,7 +413,7 @@ void swap(internal::TargetType<Target::HostTask>,
             if (A.tileIsLocal(i, j)) {
                 #pragma omp task shared(A) priority(priority)
                 {
-                    A.tileMoveToHost(i, j, A.tileDevice(i, j));
+                    A.tileGetForWriting(i, j);
                 }
             }
         }

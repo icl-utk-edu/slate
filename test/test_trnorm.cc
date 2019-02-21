@@ -292,14 +292,14 @@ void test_trnorm_work(Params& params, bool run)
                         int64_t ilocal = int(i / p)*nb + ii;
                         int64_t jlocal = int(j / q)*nb + jj;
                         if (A.tileIsLocal(i, j)) {
-                            A.tileMoveToHost(i, j, A.tileDevice(i, j));
+                            A.tileGetForWriting(i, j);
                             auto T = A(i, j);
                             save = T(ii, jj);
                             assert(A_tst[ ilocal + jlocal*lldA ] == save);
                             T.at(ii, jj) = peak;
                             A_tst[ ilocal + jlocal*lldA ] = peak;
                             // todo: this move shouldn't be required -- the trnorm should copy data itself.
-                            A.tileMoveToDevice(i, j, A.tileDevice(i, j));
+                            A.tileGetForWriting(i, j, A.tileDevice(i, j));
                         }
 
                         real_t A_norm = slate::norm(norm, A, {
@@ -347,12 +347,12 @@ void test_trnorm_work(Params& params, bool run)
                         }
 
                         if (A.tileIsLocal(i, j)) {
-                            A.tileMoveToHost(i, j, A.tileDevice(i, j));
+                            A.tileGetForWriting(i, j);
                             auto T = A(i, j);
                             T.at(ii, jj) = save;
                             A_tst[ ilocal + jlocal*lldA ] = save;
                             // todo: this move shouldn't be required -- the trnorm should copy data itself.
-                            A.tileMoveToDevice(i, j, A.tileDevice(i, j));
+                            A.tileGetForWriting(i, j, A.tileDevice(i, j));
                         }
                     }
                 }

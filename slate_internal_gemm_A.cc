@@ -107,11 +107,11 @@ void gemm_A(internal::TargetType<Target::HostTask>,
                 #pragma omp task shared(A, B, C, err) priority(priority)
                 {
                     try {
-                        A.tileCopyToHost(i, j, A.tileDevice(i, j));
-                        B.tileCopyToHost(j, 0, B.tileDevice(j, 0));
+                        A.tileGetForReading(i, j);
+                        B.tileGetForReading(j, 0);
 
                         if (C.tileIsLocal(i, 0)) {
-                            C.tileMoveToHost(i, 0, C.tileDevice(i, 0));
+                            C.tileGetForWriting(i, 0);
                         }
                         else {
                             #pragma omp critical
@@ -120,6 +120,7 @@ void gemm_A(internal::TargetType<Target::HostTask>,
                                     C.at(i, 0);
                                 }
                                 catch (std::out_of_range) {
+                                    // todo: should be tileInsertWorkspace()
                                     C.tileInsert(i, 0);
                                 }
                             }
@@ -159,7 +160,7 @@ void gemm_A(internal::TargetType<Target::HostTask>,
                     }
                 }
                 // mark this tile modified
-                C.tileState(i, 0, C.hostNum(), MOSI::Modified);
+                C.tileModified(i, 0);
             }
             catch (std::exception& e) {
                 err = __LINE__;

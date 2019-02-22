@@ -1630,14 +1630,11 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
         auto dst_iter = storage_->find(globalIndex(i, j, dst_device));
         if (dst_iter == storage_->end()) {
             // Create a copy on the destination.
-            // dst_tileEntry = &tileInsertWorkspace(i, j, dst_device);
             tileInsertWorkspace(i, j, dst_device);
             dst_iter = storage_->find(globalIndex(i, j, dst_device));
-            dst_tileEntry = &dst_iter->second;
         }
-        else {
-            dst_tileEntry = &dst_iter->second;
-        }
+        dst_tileEntry = &dst_iter->second;
+
         if (dst_tileEntry->getState() != MOSI::Invalid)
             break;
 
@@ -1690,10 +1687,11 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
             auto host_iter = storage_->find(globalIndex(i, j, host_num_));
             if (host_iter == storage_->end()) {
                 // Create a copy on the host.
-                host_tileEntry = &tileInsertWorkspace(i, j, host_num_);
-            }else{
-                host_tileEntry = &host_iter->second;
+                tileInsertWorkspace(i, j, host_num_);
+                host_iter = storage_->find(globalIndex(i, j, host_num_));
             }
+            host_tileEntry = &host_iter->second;
+
             src_tileEntry->tile_->copyDataToHost(host_tileEntry->tile_, comm_stream(src_device));
             host_tileEntry->tile_->copyDataToDevice(dst_tileEntry->tile_, comm_stream(dst_device));
             host_tileEntry->setState(MOSI::Shared);

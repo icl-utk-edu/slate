@@ -207,13 +207,13 @@ void tbsm(slate::internal::TargetType<target>,
                 }
             }
         }
-        else {
+        else if (pivots.empty()) {
             // ----------------------------------------
-            // Upper/NoTrans or Lower/Trans, Left case
+            // Upper/NoTrans or Lower/Trans, Left case, no pivoting case
             // Backward sweep
             for (int64_t k = mt-1; k >= 0; --k) {
                 // A( i_begin:k, k ) is the panel
-                int64_t i_begin = max(k - kdt, 0);  // todo: was: min(k - kdt, mt);
+                int64_t i_begin = max(k - kdt, 0);
 
                 // panel (Akk tile)
                 #pragma omp task depend(inout:row[k]) priority(1)
@@ -238,16 +238,6 @@ void tbsm(slate::internal::TargetType<target>,
                     for (int64_t j = 0; j < nt; ++j)
                         bcast_list_B.push_back({k, j, {B.sub(i_begin, k-1, j, j)}});
                     B.template listBcast<target>(bcast_list_B);
-                }
-
-                if (! pivots.empty()) {
-                    // swap rows in B(k:mt-1, 0:nt-1)
-                    // Swaps need to lock the whole rest of the B matrix.
-                    #pragma omp taskwait
-                    internal::swap<Target::HostTask>(
-                        Direction::Backward, B.sub(k, B.mt()-1, 0, B.nt()-1),
-                        pivots.at(k));
-                    #pragma omp taskwait
                 }
 
                 // lookahead update, B(k-la:k-1, :) -= A(k-la:k-1, k) B(k, :)
@@ -276,6 +266,63 @@ void tbsm(slate::internal::TargetType<target>,
                                   B.sub(k, k, 0, nt-1),
                             one,  B.sub(i_begin, k-1-lookahead, 0, nt-1));
                     }
+                }
+            }
+        }
+        else {
+            // ----------------------------------------
+            // Upper/NoTrans or Lower/Trans, Left case, with pivoting between panels.
+            // Backward sweep
+            //
+            // Because pivoting needs to be applied between each panel of
+            // A = L^T, the RHS updates are organized differently than in
+            // the no-pivoting case above. Due to dependencies, there is no
+            // lookahead or top-level tasks, only the nested tasks inside
+            // internal routines.
+            for (int64_t k = mt-1; k >= 0; --k) {
+                // update RHS
+                {
+                    // A( k, k : k_end-1 ) is k-th row
+                    // Typically, A is L^T, so the k-th row is the
+                    // k-th panel (transposed) from gbtrf.
+                    int64_t k_end = min(k + kdt + 1, A.nt());
+
+                    for (int64_t i = k+1; i < k_end; ++i) {
+                        // send A(k, i) across to ranks owning B(k, :)
+                        A.template tileBcast<target>(k, i, B.sub(k, k, 0, nt-1));
+
+                        // for all j:
+                        //     send B(i, j) up to rank owning B(k, j)
+                        BcastList bcast_list_B;
+                        for (int64_t j = 0; j < nt; ++j)
+                            bcast_list_B.push_back({i, j, {B.sub(k, k, j, j)}});
+                        B.template listBcast<target>(bcast_list_B);
+
+                        // multiply B(k, :) -= A(k, k+1 : k+kdt) * B(k+1 : k+kdt, :)
+                        internal::gemm<target>(
+                                    -one, A.sub(k, k, i, i),
+                                          B.sub(i, i, 0, nt-1),
+                                    one,  B.sub(k, k, 0, nt-1), 1);
+                    }
+                }
+
+                // solve diagonal block (Akk tile)
+                {
+                    // send A(k, k) to ranks owning block row B(k, :)
+                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1));
+
+                    // solve A(k, k) B(k, :) = B(k, :)
+                    internal::trsm<Target::HostTask>(
+                        Side::Left,
+                        one, A.sub(k, k),
+                             B.sub(k, k, 0, nt-1), 1);
+                }
+
+                // swap rows in B(k:mt-1, 0:nt-1)
+                {
+                    internal::swap<Target::HostTask>(
+                        Direction::Backward, B.sub(k, B.mt()-1, 0, B.nt()-1),
+                        pivots.at(k));
                 }
             }
         }

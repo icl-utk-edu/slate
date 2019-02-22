@@ -124,22 +124,23 @@ inline constexpr T roundup(T x, T y)
 
 //------------------------------------------------------------------------------
 /// @return abs(r) + abs(i)
-inline constexpr float cabs1(float x)
+// std::abs is not yet labeled constexpr in C++ standard.
+inline /*constexpr*/ float cabs1(float x)
 {
     return std::abs(x);
 }
 
-inline constexpr double cabs1(double x)
+inline /*constexpr*/ double cabs1(double x)
 {
     return std::abs(x);
 }
 
-inline constexpr float cabs1(std::complex<float> x)
+inline /*constexpr*/ float cabs1(std::complex<float> x)
 {
     return float(std::abs(x.real()) + std::abs(x.imag()));
 }
 
-inline constexpr double cabs1(std::complex<double> x)
+inline /*constexpr*/ double cabs1(std::complex<double> x)
 {
     return double(std::abs(x.real()) + std::abs(x.imag()));
 }

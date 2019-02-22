@@ -230,6 +230,7 @@ public:
 
     /// Marks tile(i, j) as Modified on device.
     /// Other instances will be invalidated.
+    /// Unless permissive, asserts if other instances are in Modified state.
     void tileModified(int64_t i, int64_t j, int device=host_num_, bool permissive=false);
 
     /// Gets tile(i, j) for reading on device.
@@ -1102,6 +1103,7 @@ void BaseMatrix<scalar_t>::tileUnsetHold(int64_t i, int64_t j, int device)
 //------------------------------------------------------------------------------
 /// Marks tile(i, j) as Modified on device.
 /// Other instances will be invalidated.
+/// Unless permissive, asserts if other instances are in Modified state.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -1111,6 +1113,9 @@ void BaseMatrix<scalar_t>::tileUnsetHold(int64_t i, int64_t j, int device)
 ///
 /// @param[in] device
 ///     Tile's device ID, defaults to host.
+///
+/// @param[in] permissive
+///     Defaults to false.
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileModified(int64_t i, int64_t j, int device, bool permissive)

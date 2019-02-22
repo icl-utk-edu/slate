@@ -82,14 +82,10 @@ void slateCudaMallocHost(value_type** ptr, size_t nelements)
 /// A tile state in the MOSI coherency protocol
 enum MOSI
 {
-    // Modified,   ///< tile data is modified, other instances should be Invalid, cannot be purged
-    // Owned,  ///< tile data is owned by this tile instance, other instances may be Shared or Invalid, cannot be purged
-    // Shared,   ///< tile data is up-to-date, other instances may be Owned, Shared, or Invalid, may be purged
-    // Invalid,   ///< tile data is obsolete, other instances may be Owned, Shared, or Invalid, may be purged
-    Modified = 0x100,
-    OnHold = 0x1000,
-    Shared = 0x010,
-    Invalid = 0x001,
+    Modified = 0x100,   ///< tile data is modified, other instances should be Invalid, cannot be purged
+    OnHold = 0x1000,  ///< a hold is placed on this tile instance, cannot be purged
+    Shared = 0x010,   ///< tile data is up-to-date, other instances may be Shared, or Invalid, may be purged
+    Invalid = 0x001,   ///< tile data is obsolete, other instances may be Modified, Shared, or Invalid, may be purged
 };
 
 //------------------------------------------------------------------------------

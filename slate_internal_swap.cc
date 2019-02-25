@@ -244,7 +244,7 @@ void swap(internal::TargetType<Target::Devices>,
             if (A.tileIsLocal(i, j)) {
                 #pragma omp task shared(A) priority(priority)
                 {
-                    A.tileGetForWriting(i, j, A.tileDevice(i, j));
+                    A.tileGetForWriting(i, j, A.tileDevice(i, j), LayoutConvert(layout));
                     // todo: handle layout
                 }
             }

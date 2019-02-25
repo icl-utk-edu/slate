@@ -237,7 +237,8 @@ public:
     /// Will copy-in the tile if it does not exist or its state is Invalid.
     /// Sets tile state to Shared if copied-in.
     /// Updates source tile's state to shared if copied-in.
-    void tileGetForReading(int64_t i, int64_t j, int device=host_num_);
+    void tileGetForReading(int64_t i, int64_t j, int device=host_num_,
+                            LayoutConvert layout=LayoutConvert::ColMajor);
 
     /// Gets all local tiles for reading on device.
     void tileGetAllForReading(int device=host_num_);
@@ -249,7 +250,8 @@ public:
     /// Sets state to Modified.
     /// Will copy tile in if not exists or state is Invalid.
     /// Other instances will be invalidated.
-    void tileGetForWriting(int64_t i, int64_t j, int device=host_num_);
+    void tileGetForWriting(int64_t i, int64_t j, int device=host_num_,
+                            LayoutConvert layout=LayoutConvert::ColMajor);
 
     /// Gets all local tiles for writing on device.
     void tileGetAllForWriting(int device=host_num_);
@@ -260,7 +262,8 @@ public:
     /// Gets tile(i, j) on device and marks it as OnHold.
     /// Will copy tile in if it does not exist or its state is Invalid.
     /// Updates the source tile's state to Shared if copied-in.
-    void tileGetAndHold(int64_t i, int64_t j, int device=host_num_);
+    void tileGetAndHold(int64_t i, int64_t j, int device=host_num_,
+                            LayoutConvert layout=LayoutConvert::ColMajor);
 
     /// Gets all local tiles on device and marks them as OnHold.
     void tileGetAndHoldAll(int device=host_num_);
@@ -1235,7 +1238,7 @@ void BaseMatrix<scalar_t>::tileRecv(
         if (target == Target::Devices) {
             #pragma omp task
             {
-                tileGetForReading(i, j, tileDevice(i, j));
+                tileGetForReading(i, j, tileDevice(i, j), LayoutConvert(layout));
                 // todo: handle layout
             }
         }
@@ -1364,7 +1367,7 @@ void BaseMatrix<scalar_t>::listBcast(
             #pragma omp task
             {
                 for (auto device : dev_set)
-                    tileGetForReading(i, j, device);
+                    tileGetForReading(i, j, device, LayoutConvert(layout));
                     // todo: handle layout
             }
         }
@@ -1622,7 +1625,8 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
 ///     Tile's destination: host or device ID, defaults to host.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_device)
+void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_device,
+                                             LayoutConvert layout)
 {
     TileEntry<scalar_t> *dst_tileEntry, *src_tileEntry;
     do{
@@ -1706,6 +1710,17 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
         if (src_tileEntry->stateOn(MOSI::Modified))
             src_tileEntry->setState(MOSI::Shared);
 
+        // Change ColMajor <=> RowMajor if needed.
+        if (layout != LayoutConvert::None &&
+            dst_tileEntry->tile_->layout() != Layout(layout)) {
+            if (dst_device == host_num_) {
+                convert_layout(dst_tileEntry->tile_);
+            }
+            else{
+                convert_layout(dst_tileEntry->tile_, comm_stream(dst_device));
+            }
+        }
+
     }while(0);
 }
 
@@ -1728,9 +1743,9 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
 ///     Tile's destination: host or device ID, defaults to host.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetForWriting(int64_t i, int64_t j, int device)
+void BaseMatrix<scalar_t>::tileGetForWriting(int64_t i, int64_t j, int device, LayoutConvert layout)
 {
-    tileGetForReading(i, j, device);
+    tileGetForReading(i, j, device, layout);
     tileModified(i, j, device);
 }
 
@@ -1750,9 +1765,9 @@ void BaseMatrix<scalar_t>::tileGetForWriting(int64_t i, int64_t j, int device)
 ///     Tile's destination: host or device ID, defaults to host.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetAndHold(int64_t i, int64_t j, int device)
+void BaseMatrix<scalar_t>::tileGetAndHold(int64_t i, int64_t j, int device, LayoutConvert layout)
 {
-    tileGetForReading(i, j, device);
+    tileGetForReading(i, j, device, layout);
 
     auto tileIter = storage_->find(globalIndex(i, j, device));
     assert(tileIter != storage_->end());

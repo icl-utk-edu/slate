@@ -407,9 +407,9 @@ void gemm(internal::TargetType<Target::Devices>,
                 for (int64_t j = 0; j < C.nt(); ++j) {
                     if (C.tileIsLocal(i, j)) {
                         if (device == C.tileDevice(i, j)) {
-                            A.tileGetForReading(i, 0, device);
-                            B.tileGetForReading(0, j, device);
-                            C.tileGetForWriting(i, j, device);
+                            A.tileGetForReading(i, 0, device, LayoutConvert(layout));
+                            B.tileGetForReading(0, j, device, LayoutConvert(layout));
+                            C.tileGetForWriting(i, j, device, LayoutConvert(layout));
                         }
                     }
                 }

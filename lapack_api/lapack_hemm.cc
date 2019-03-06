@@ -39,7 +39,6 @@
 
 #include "slate.hh"
 #include "lapack_slate.hh"
-#include "slate_cuda.hh"
 #include "blas_fortran.hh"
 #include <complex>
 

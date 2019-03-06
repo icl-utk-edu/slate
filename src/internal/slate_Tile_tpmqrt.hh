@@ -40,12 +40,8 @@
 #ifndef SLATE_TILE_TPMQRT_HH
 #define SLATE_TILE_TPMQRT_HH
 
-#include "slate_internal.hh"
 #include "slate_Tile.hh"
-#include "slate_Tile_blas.hh"
-#include "slate_Tile_lapack.hh"
 #include "slate_types.hh"
-#include "slate_util.hh"
 
 #include <list>
 #include <vector>
@@ -140,7 +136,7 @@ void tpmqrt(
         assert(A.nb() == k);
         assert(V.mb() == n);
     }
-    
+
     int64_t ib = T.mb();
     assert(k >= ib);
     assert(T.nb() == k);

@@ -40,21 +40,21 @@
 #ifndef SLATE_BASE_TRAPEZOID_MATRIX_HH
 #define SLATE_BASE_TRAPEZOID_MATRIX_HH
 
-#include "slate/internal/slate_BaseMatrix.hh"
-#include "slate/slate_Matrix.hh"
-#include "slate/slate_Tile.hh"
-#include "slate/slate_types.hh"
-#include "slate/slate_Exception.hh"
+#include "slate/internal/BaseMatrix.hh"
+#include "slate/Matrix.hh"
+#include "slate/Tile.hh"
+#include "slate/types.hh"
+#include "slate/Exception.hh"
 
 #include "lapack.hh"
 
 #include <algorithm>
 #include <utility>
 
-#include "slate/internal/slate_cuda.hh"
-#include "slate/internal/slate_cublas.hh"
-#include "slate/internal/slate_mpi.hh"
-#include "slate/internal/slate_openmp.hh"
+#include "slate/internal/cuda.hh"
+#include "slate/internal/cublas.hh"
+#include "slate/internal/mpi.hh"
+#include "slate/internal/openmp.hh"
 
 namespace slate {
 

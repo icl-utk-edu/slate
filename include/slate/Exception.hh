@@ -43,9 +43,9 @@
 #include <string>
 #include <exception>
 
-#include "slate/internal/slate_cuda.hh"
-#include "slate/internal/slate_cublas.hh"
-#include "slate/internal/slate_mpi.hh"
+#include "slate/internal/cuda.hh"
+#include "slate/internal/cublas.hh"
+#include "slate/internal/mpi.hh"
 
 namespace slate {
 

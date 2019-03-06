@@ -43,10 +43,10 @@
 #ifndef SLATE_INTERNAL_HH
 #define SLATE_INTERNAL_HH
 
-#include "slate/slate_types.hh"
+#include "slate/types.hh"
 
-#include "slate/internal/slate_cuda.hh"
-#include "slate/internal/slate_cublas.hh"
+#include "slate/internal/cuda.hh"
+#include "slate/internal/cublas.hh"
 
 #ifdef SLATE_WITH_MKL
     #include <mkl_cblas.h>
@@ -54,11 +54,11 @@
     #include <cblas.h>
 #endif
 
-#include "slate/slate_Matrix.hh"
-#include "slate/slate_HermitianMatrix.hh"
-#include "slate/slate_SymmetricMatrix.hh"
-#include "slate/slate_TriangularMatrix.hh"
-#include "slate/slate_BandMatrix.hh"
+#include "slate/Matrix.hh"
+#include "slate/HermitianMatrix.hh"
+#include "slate/SymmetricMatrix.hh"
+#include "slate/TriangularMatrix.hh"
+#include "slate/BandMatrix.hh"
 
 ///-----------------------------------------------------------------------------
 #define THROW_IF(cond, error) \

@@ -1,7 +1,7 @@
 #ifndef BAND_UTILS_HH
 #define BAND_UTILS_HH
 
-#include "slate/slate_BandMatrix.hh"
+#include "slate/BandMatrix.hh"
 
 //------------------------------------------------------------------------------
 // Returns local index for element i, or the next element after i if this rank

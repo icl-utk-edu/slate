@@ -38,7 +38,7 @@
 //------------------------------------------------------------------------------
 
 #include "test.hh"
-#include "slate/slate_Matrix.hh"
+#include "slate/Matrix.hh"
 #include "internal/slate_internal.hh"
 
 // -----------------------------------------------------------------------------

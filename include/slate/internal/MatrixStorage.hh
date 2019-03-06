@@ -40,11 +40,11 @@
 #ifndef SLATE_STORAGE_HH
 #define SLATE_STORAGE_HH
 
-#include "slate/internal/slate_Map.hh"
-#include "slate/internal/slate_Memory.hh"
-#include "slate/slate_Tile.hh"
-#include "slate/slate_types.hh"
-#include "slate/internal/slate_util.hh"
+#include "slate/internal/Map.hh"
+#include "slate/internal/Memory.hh"
+#include "slate/Tile.hh"
+#include "slate/types.hh"
+#include "slate/internal/util.hh"
 
 #include "lapack.hh"
 
@@ -55,10 +55,10 @@
 #include <utility>
 #include <vector>
 
-#include "slate/internal/slate_cuda.hh"
-#include "slate/internal/slate_cublas.hh"
-#include "slate/internal/slate_mpi.hh"
-#include "slate/internal/slate_openmp.hh"
+#include "slate/internal/cuda.hh"
+#include "slate/internal/cublas.hh"
+#include "slate/internal/mpi.hh"
+#include "slate/internal/openmp.hh"
 
 namespace slate {
 

@@ -6,9 +6,6 @@
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
 
-#include "slate/internal/slate_mpi.hh"
-// #include "../test.hh"
-
 #include <cassert>
 #include <cmath>
 #include <cstdio>

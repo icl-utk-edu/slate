@@ -40,7 +40,7 @@
 ///-----------------------------------------------------------------------------
 /// \file
 ///
-#include "slate/internal/slate_openmp.hh"
+#include "slate/internal/openmp.hh"
 
 #include <sys/time.h>
 

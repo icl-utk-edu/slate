@@ -40,19 +40,19 @@
 #ifndef SLATE_BAND_MATRIX_HH
 #define SLATE_BAND_MATRIX_HH
 
-#include "slate/slate_Matrix.hh"
-#include "slate/slate_Tile.hh"
-#include "slate/slate_types.hh"
+#include "slate/Matrix.hh"
+#include "slate/Tile.hh"
+#include "slate/types.hh"
 
 #include "lapack.hh"
 
 #include <algorithm>
 #include <utility>
 
-#include "slate/internal/slate_cuda.hh"
-#include "slate/internal/slate_cublas.hh"
-#include "slate/internal/slate_mpi.hh"
-#include "slate/internal/slate_openmp.hh"
+#include "slate/internal/cuda.hh"
+#include "slate/internal/cublas.hh"
+#include "slate/internal/mpi.hh"
+#include "slate/internal/openmp.hh"
 
 namespace slate {
 

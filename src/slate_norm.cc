@@ -40,7 +40,7 @@
 #include "slate/slate.hh"
 #include "internal/slate_internal.hh"
 #include "internal/slate_internal_util.hh"
-#include "slate/internal/slate_mpi.hh"
+#include "slate/internal/mpi.hh"
 
 #include <list>
 #include <tuple>

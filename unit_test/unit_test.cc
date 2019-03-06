@@ -6,7 +6,7 @@
 #include <assert.h>
 #include <stdarg.h>
 
-#include "slate/internal/slate_mpi.hh"
+#include "slate/internal/mpi.hh"
 
 static int g_total = 0;
 static int g_pass  = 0;

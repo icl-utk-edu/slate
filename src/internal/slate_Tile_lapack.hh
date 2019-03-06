@@ -42,8 +42,8 @@
 
 #include <blas.hh>
 
-#include "slate/slate_Tile.hh"
-#include "slate/internal/slate_util.hh"
+#include "slate/Tile.hh"
+#include "slate/internal/util.hh"
 
 #include <list>
 

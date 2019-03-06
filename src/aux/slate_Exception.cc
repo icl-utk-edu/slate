@@ -37,7 +37,7 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate/slate_Exception.hh"
+#include "slate/Exception.hh"
 
 namespace slate {
 

@@ -38,8 +38,8 @@
 //------------------------------------------------------------------------------
 
 #include "slate/slate.hh"
-#include "slate/slate_Matrix.hh"
-#include "slate/slate_types.hh"
+#include "slate/Matrix.hh"
+#include "slate/types.hh"
 #include "internal/slate_Tile_tpmqrt.hh"
 #include "internal/slate_internal.hh"
 #include "internal/slate_internal_util.hh"

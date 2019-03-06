@@ -37,9 +37,9 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate/slate_Matrix.hh"
-#include "slate/slate_HermitianMatrix.hh"
-#include "slate/slate_types.hh"
+#include "slate/Matrix.hh"
+#include "slate/HermitianMatrix.hh"
+#include "slate/types.hh"
 #include "internal/slate_Tile_geqrf.hh"
 #include "internal/slate_internal.hh"
 

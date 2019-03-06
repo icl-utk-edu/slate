@@ -39,9 +39,9 @@
 
 #include "slate/slate.hh"
 #include "aux/slate_Debug.hh"
-#include "slate/slate_Matrix.hh"
-#include "slate/slate_Tile_blas.hh"
-#include "slate/slate_TriangularMatrix.hh"
+#include "slate/Matrix.hh"
+#include "slate/Tile_blas.hh"
+#include "slate/TriangularMatrix.hh"
 #include "internal/slate_internal.hh"
 
 namespace slate {

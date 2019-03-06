@@ -45,8 +45,8 @@
 #include <vector>
 #include <cstring>
 
-#include "slate/internal/slate_mpi.hh"
-#include "slate/internal/slate_openmp.hh"
+#include "slate/internal/mpi.hh"
+#include "slate/internal/openmp.hh"
 
 namespace slate {
 namespace trace {

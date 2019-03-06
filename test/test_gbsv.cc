@@ -1,5 +1,5 @@
 #include "slate/slate.hh"
-#include "slate/slate_BandMatrix.hh"
+#include "slate/BandMatrix.hh"
 #include "test.hh"
 #include "blas_flops.hh"
 #include "lapack_flops.hh"
@@ -7,8 +7,6 @@
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
 #include "print_matrix.hh"
-
-#include "slate/internal/slate_mpi.hh"
 
 #include <cassert>
 #include <cmath>

@@ -37,10 +37,10 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate/slate_Exception.hh"
-#include "slate/internal/slate_internal_comm.hh"
+#include "slate/Exception.hh"
+#include "slate/internal/comm.hh"
 #include "internal/slate_internal_util.hh"
-#include "slate/internal/slate_trace_Trace.hh"
+#include "slate/internal/Trace.hh"
 
 #include <cassert>
 #include <vector>

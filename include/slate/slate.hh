@@ -40,15 +40,15 @@
 #ifndef SLATE_HH
 #define SLATE_HH
 
-#include "slate/slate_Matrix.hh"
-#include "slate/slate_HermitianMatrix.hh"
-#include "slate/slate_SymmetricMatrix.hh"
-#include "slate/slate_TriangularMatrix.hh"
+#include "slate/Matrix.hh"
+#include "slate/HermitianMatrix.hh"
+#include "slate/SymmetricMatrix.hh"
+#include "slate/TriangularMatrix.hh"
 
-#include "slate/slate_BandMatrix.hh"
-#include "slate/slate_TriangularBandMatrix.hh"
+#include "slate/BandMatrix.hh"
+#include "slate/TriangularBandMatrix.hh"
 
-#include "slate/slate_types.hh"
+#include "slate/types.hh"
 
 namespace slate {
 

@@ -43,7 +43,7 @@
 #ifndef SLATE_TYPES_HH
 #define SLATE_TYPES_HH
 
-#include "slate/internal/slate_mpi.hh"
+#include "slate/internal/mpi.hh"
 
 #include <vector>
 

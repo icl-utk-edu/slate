@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <string>
 
-#include "slate/internal/slate_mpi.hh"
+#include "slate/internal/mpi.hh"
 
 //==============================================================================
 /// Exception class thrown by test_assert, test_assert_throw,

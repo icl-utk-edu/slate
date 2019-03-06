@@ -146,9 +146,9 @@ endif
 #-------------------------------------------------------------------------------
 # if CUDA
 ifeq ($(cuda),1)
-    FLAGS += -DSLATE_WITH_CUDA
     LIBS += -lcublas -lcudart
 else
+    FLAGS += -DSLATE_NO_CUDA
     libslate_src += src/stubs/slate_cuda_stubs.cc
     libslate_src += src/stubs/slate_cublas_stubs.cc
 endif

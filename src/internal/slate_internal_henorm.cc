@@ -66,7 +66,7 @@ void henorm(
     int64_t batch_count,
     cudaStream_t stream)
 {
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
+#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     henorm(in_norm, uplo, n, (cuFloatComplex**) Aarray, lda,
            values, ldv, batch_count, stream);
 #endif
@@ -81,13 +81,13 @@ void henorm(
     int64_t batch_count,
     cudaStream_t stream)
 {
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
+#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     henorm(in_norm, uplo, n, (cuDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, stream);
 #endif
 }
 
-#if ! defined(SLATE_WITH_CUDA)
+#if defined(SLATE_NO_CUDA)
 // Specializations to allow compilation without CUDA.
 template <>
 void henorm(
@@ -110,7 +110,7 @@ void henorm(
     cudaStream_t stream)
 {
 }
-#endif // not SLATE_WITH_CUDA
+#endif // not SLATE_NO_CUDA
 
 } // namespace device
 

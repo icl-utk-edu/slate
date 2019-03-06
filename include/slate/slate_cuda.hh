@@ -43,7 +43,7 @@
 #ifndef SLATE_CUDA_HH
 #define SLATE_CUDA_HH
 
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
+#if (!defined(SLATE_NO_CUDA)) || defined(__NVCC__)
     #include <cuda_runtime.h>
     #include <cuComplex.h>
 #else
@@ -103,6 +103,6 @@ char* cudaGetErrorString(cudaError_t error);
 }
 #endif
 
-#endif // not SLATE_WITH_CUDA
+#endif // SLATE_NO_CUDA
 
 #endif // SLATE_CUDA_HH

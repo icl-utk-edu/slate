@@ -65,7 +65,7 @@ void synorm(
     int64_t batch_count,
     cudaStream_t stream)
 {
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
+#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     synorm(in_norm, uplo, n, (cuFloatComplex**) Aarray, lda,
            values, ldv, batch_count, stream);
 #endif
@@ -80,7 +80,7 @@ void synorm(
     int64_t batch_count,
     cudaStream_t stream)
 {
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
+#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     synorm(in_norm, uplo, n, (cuDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, stream);
 #endif
@@ -95,7 +95,7 @@ void synormOffdiag(
     int64_t batch_count,
     cudaStream_t stream)
 {
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
+#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     synormOffdiag(in_norm, m, n, (cuFloatComplex**) Aarray, lda,
                   values, ldv, batch_count, stream);
 #endif
@@ -110,13 +110,13 @@ void synormOffdiag(
     int64_t batch_count,
     cudaStream_t stream)
 {
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
+#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     synormOffdiag(in_norm, m, n, (cuDoubleComplex**) Aarray, lda,
                   values, ldv, batch_count, stream);
 #endif
 }
 
-#if ! defined(SLATE_WITH_CUDA)
+#if defined(SLATE_NO_CUDA)
 // Specializations to allow compilation without CUDA.
 template <>
 void synorm(
@@ -161,7 +161,7 @@ void synormOffdiag(
     cudaStream_t stream)
 {
 }
-#endif // not SLATE_WITH_CUDA
+#endif // not SLATE_NO_CUDA
 
 } // namespace device
 

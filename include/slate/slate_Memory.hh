@@ -66,7 +66,7 @@ public:
     static struct StaticConstructor {
         StaticConstructor()
         {
-            #ifdef SLATE_WITH_CUDA
+            #ifndef SLATE_NO_CUDA
                 cudaError_t error = cudaGetDeviceCount(&num_devices_);
                 if (error == cudaSuccess) {
                     host_num_ = -num_devices_;

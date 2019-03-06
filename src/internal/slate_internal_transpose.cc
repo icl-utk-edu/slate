@@ -60,7 +60,7 @@ void transpose(
     std::complex<float>* A, int64_t lda,
     cudaStream_t stream)
 {
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
+#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     transpose(n, (cuFloatComplex*) A, lda, stream);
 #endif
 }
@@ -71,7 +71,7 @@ void transpose(
     std::complex<double>* A, int64_t lda,
     cudaStream_t stream)
 {
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
+#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     transpose(n, (cuDoubleComplex*) A, lda, stream);
 #endif
 }
@@ -84,7 +84,7 @@ void transpose_batch(
     int64_t batch_count,
     cudaStream_t stream)
 {
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
+#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     transpose_batch(n, (cuFloatComplex**) Aarray, lda, batch_count, stream);
 #endif
 }
@@ -96,13 +96,13 @@ void transpose_batch(
     int64_t batch_count,
     cudaStream_t stream)
 {
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
+#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     transpose_batch(n, (cuDoubleComplex**) Aarray, lda, batch_count, stream);
 #endif
 }
 
 //------------------------------------------------------------------------------
-#if ! defined(SLATE_WITH_CUDA)
+#if defined(SLATE_NO_CUDA)
 // Specializations to allow compilation without CUDA.
 template <>
 void transpose(
@@ -138,7 +138,7 @@ void transpose_batch(
     cudaStream_t stream)
 {
 }
-#endif // not SLATE_WITH_CUDA
+#endif // not SLATE_NO_CUDA
 
 } // namespace device
 } // namespace slate

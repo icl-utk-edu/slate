@@ -64,7 +64,7 @@ void trnorm(
     int64_t batch_count,
     cudaStream_t stream)
 {
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
+#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     trnorm(in_norm, uplo, diag, m, n, (cuFloatComplex**) Aarray, lda,
            values, ldv, batch_count, stream);
 #endif
@@ -79,13 +79,13 @@ void trnorm(
     int64_t batch_count,
     cudaStream_t stream)
 {
-#if defined(SLATE_WITH_CUDA) || defined(__NVCC__)
+#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     trnorm(in_norm, uplo, diag, m, n, (cuDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, stream);
 #endif
 }
 
-#if ! defined(SLATE_WITH_CUDA)
+#if defined(SLATE_NO_CUDA)
 // Specializations to allow compilation without CUDA.
 template <>
 void trnorm(
@@ -108,7 +108,7 @@ void trnorm(
     cudaStream_t stream)
 {
 }
-#endif // not SLATE_WITH_CUDA
+#endif // not SLATE_NO_CUDA
 
 } // namespace device
 

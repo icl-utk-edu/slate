@@ -43,7 +43,7 @@
 #ifndef SLATE_CUBLAS_HH
 #define SLATE_CUBLAS_HH
 
-#ifdef SLATE_WITH_CUDA
+#ifndef SLATE_NO_CUDA
     #include <cublas_v2.h>
 #else
 
@@ -151,6 +151,6 @@ cublasStatus_t cublasZswap(
 }
 #endif
 
-#endif // not SLATE_WITH_CUDA
+#endif // SLATE_NO_CUDA
 
 #endif // SLATE_CUBLAS_HH

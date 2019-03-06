@@ -38,7 +38,7 @@
 //------------------------------------------------------------------------------
 
 #include "slate_BandMatrix.hh"
-#include "slate_util.hh"
+#include "slate/slate_util.hh"
 
 #include "unit_test.hh"
 

@@ -37,11 +37,11 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate_device.hh"
-#include "slate_internal_batch.hh"
-#include "slate_internal.hh"
-#include "slate_util.hh"
-#include "slate_Tile_lapack.hh"
+#include "slate/slate_device.hh"
+#include "internal/slate_internal_batch.hh"
+#include "internal/slate_internal.hh"
+#include "slate/slate_util.hh"
+#include "internal/slate_Tile_lapack.hh"
 #include "slate_types.hh"
 
 #include <vector>

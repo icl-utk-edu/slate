@@ -37,8 +37,8 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate_util.hh"
-#include "slate_internal_util.hh"
+#include "slate/slate_util.hh"
+#include "internal/slate_internal_util.hh"
 
 namespace slate {
 namespace internal {

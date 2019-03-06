@@ -49,8 +49,8 @@
 #include <map>
 #include <stack>
 
-#include "slate_cuda.hh"
-#include "slate_openmp.hh"
+#include "slate/slate_cuda.hh"
+#include "slate/slate_openmp.hh"
 
 namespace slate {
 

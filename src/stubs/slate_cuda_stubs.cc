@@ -40,7 +40,7 @@
 ///-----------------------------------------------------------------------------
 /// \file
 ///
-#include "slate_cuda.hh"
+#include "slate/slate_cuda.hh"
 
 #include <cassert>
 

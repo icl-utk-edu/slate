@@ -42,7 +42,7 @@
 #include "slate_SymmetricMatrix.hh"
 #include "slate_TrapezoidMatrix.hh"
 #include "slate_TriangularMatrix.hh"
-#include "slate_util.hh"
+#include "slate/slate_util.hh"
 
 #include "unit_test.hh"
 #include "util_matrix.hh"

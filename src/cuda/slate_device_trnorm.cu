@@ -37,7 +37,7 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate_device.hh"
+#include "slate/slate_device.hh"
 #include "slate_device_util.cuh"
 
 #include <cstdio>

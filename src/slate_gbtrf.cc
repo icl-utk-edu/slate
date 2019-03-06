@@ -38,11 +38,11 @@
 //------------------------------------------------------------------------------
 
 #include "slate.hh"
-#include "slate_Debug.hh"
+#include "aux/slate_Debug.hh"
 #include "slate_BandMatrix.hh"
 #include "slate_Tile_blas.hh"
 #include "slate_TriangularMatrix.hh"
-#include "slate_internal.hh"
+#include "internal/slate_internal.hh"
 
 namespace slate {
 

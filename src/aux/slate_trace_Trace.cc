@@ -37,7 +37,7 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate_trace_Trace.hh"
+#include "slate/slate_trace_Trace.hh"
 
 #include <algorithm>
 #include <cassert>

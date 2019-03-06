@@ -6,7 +6,7 @@
 #include "print_matrix.hh"
 #include "band_utils.hh"
 
-#include "slate_mpi.hh"
+#include "slate/slate_mpi.hh"
 
 #include <cassert>
 #include <cmath>

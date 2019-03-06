@@ -38,9 +38,9 @@
 //------------------------------------------------------------------------------
 
 #include "slate.hh"
-#include "slate_internal.hh"
-#include "slate_internal_util.hh"
-#include "slate_mpi.hh"
+#include "internal/slate_internal.hh"
+#include "internal/slate_internal_util.hh"
+#include "slate/slate_mpi.hh"
 
 #include <list>
 #include <tuple>

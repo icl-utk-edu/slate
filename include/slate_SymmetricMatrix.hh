@@ -40,7 +40,7 @@
 #ifndef SLATE_SYMMETRIC_MATRIX_HH
 #define SLATE_SYMMETRIC_MATRIX_HH
 
-#include "slate_BaseTrapezoidMatrix.hh"
+#include "slate/slate_BaseTrapezoidMatrix.hh"
 #include "slate_Matrix.hh"
 #include "slate_Tile.hh"
 #include "slate_types.hh"
@@ -50,7 +50,7 @@
 #include <algorithm>
 #include <utility>
 
-#include "slate_mpi.hh"
+#include "slate/slate_mpi.hh"
 
 namespace slate {
 

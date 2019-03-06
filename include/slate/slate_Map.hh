@@ -42,7 +42,7 @@
 
 #include <map>
 
-#include "slate_openmp.hh"
+#include "slate/slate_openmp.hh"
 
 namespace slate {
 

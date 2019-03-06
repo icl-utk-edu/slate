@@ -37,7 +37,7 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate_Debug.hh"
+#include "aux/slate_Debug.hh"
 
 namespace slate {
 

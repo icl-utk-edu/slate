@@ -1,11 +1,11 @@
 #include "blas.hh"
 
-#include <slate_mpi.hh>
+#include <slate/slate_mpi.hh>
 #include <string>
 #include <cstdio>
 
 #include <slate_Matrix.hh>
-#include <slate_BaseTrapezoidMatrix.hh>
+#include <slate/slate_BaseTrapezoidMatrix.hh>
 #include <slate_BandMatrix.hh>
 
 //------------------------------------------------------------------------------

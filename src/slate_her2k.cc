@@ -38,7 +38,7 @@
 //------------------------------------------------------------------------------
 
 #include "slate.hh"
-#include "slate_internal.hh"
+#include "internal/slate_internal.hh"
 
 namespace slate {
 

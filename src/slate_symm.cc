@@ -38,10 +38,10 @@
 //------------------------------------------------------------------------------
 
 #include "slate.hh"
-#include "slate_Debug.hh"
+#include "aux/slate_Debug.hh"
 #include "slate_Matrix.hh"
 #include "slate_SymmetricMatrix.hh"
-#include "slate_internal.hh"
+#include "internal/slate_internal.hh"
 
 namespace slate {
 

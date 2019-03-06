@@ -40,8 +40,8 @@
 #include "slate_Matrix.hh"
 #include "slate_HermitianMatrix.hh"
 #include "slate_types.hh"
-#include "slate_Tile_geqrf.hh"
-#include "slate_internal.hh"
+#include "internal/slate_Tile_geqrf.hh"
+#include "internal/slate_internal.hh"
 
 namespace slate {
 namespace internal {

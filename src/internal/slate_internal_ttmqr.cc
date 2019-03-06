@@ -39,9 +39,9 @@
 
 #include "slate_Matrix.hh"
 #include "slate_types.hh"
-#include "slate_Tile_tpmqrt.hh"
-#include "slate_internal.hh"
-#include "slate_internal_util.hh"
+#include "internal/slate_Tile_tpmqrt.hh"
+#include "internal/slate_internal.hh"
+#include "internal/slate_internal_util.hh"
 
 namespace slate {
 namespace internal {

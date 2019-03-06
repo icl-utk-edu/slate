@@ -7,8 +7,8 @@
 
 
 #include "test.hh"
-#include "slate_mpi.hh"
-#include "slate_openmp.hh"
+#include "slate/slate_mpi.hh"
+#include "slate/slate_openmp.hh"
 
 
 // -----------------------------------------------------------------------------

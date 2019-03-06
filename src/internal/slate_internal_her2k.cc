@@ -41,8 +41,8 @@
 #include "slate_HermitianMatrix.hh"
 #include "slate_types.hh"
 #include "slate_Tile_blas.hh"
-#include "slate_internal.hh"
-#include "slate_internal_batch.hh"
+#include "internal/slate_internal.hh"
+#include "internal/slate_internal_batch.hh"
 
 #ifdef SLATE_WITH_MKL
     #include <mkl_cblas.h>

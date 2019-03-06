@@ -43,7 +43,7 @@
 #ifndef SLATE_UTIL_HH
 #define SLATE_UTIL_HH
 
-#include "slate_mpi.hh"
+#include "slate/slate_mpi.hh"
 
 #include <cmath>
 

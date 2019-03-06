@@ -38,10 +38,10 @@
 //------------------------------------------------------------------------------
 
 #include "slate_Tile.hh"
-#include "slate_Tile_lapack.hh"
-#include "slate_Tile_synorm.hh"
-#include "slate_device.hh"
-#include "slate_util.hh"
+#include "internal/slate_Tile_lapack.hh"
+#include "internal/slate_Tile_synorm.hh"
+#include "slate/slate_device.hh"
+#include "slate/slate_util.hh"
 
 #include "unit_test.hh"
 

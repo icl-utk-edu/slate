@@ -45,8 +45,8 @@
 
 #include "slate_types.hh"
 
-#include "slate_cuda.hh"
-#include "slate_cublas.hh"
+#include "slate/slate_cuda.hh"
+#include "slate/slate_cublas.hh"
 
 #ifdef SLATE_WITH_MKL
     #include <mkl_cblas.h>

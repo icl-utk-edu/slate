@@ -55,7 +55,7 @@ ifeq ($(openmp),1)
     CXXFLAGS += -fopenmp
     LDFLAGS  += -fopenmp
 else
-    libslate_src += slate_openmp_stubs.cc
+    libslate_src += src/stubs/slate_openmp_stubs.cc
 endif
 
 #-------------------------------------------------------------------------------
@@ -68,7 +68,7 @@ else ifeq ($(spectrum),1)
     FLAGS += -DSLATE_WITH_MPI
     LIBS  += -lmpi_ibm
 else
-    libslate_src += slate_mpi_stubs.cc
+    libslate_src += src/stubs/slate_mpi_stubs.cc
 endif
 
 #-------------------------------------------------------------------------------
@@ -150,8 +150,8 @@ ifeq ($(cuda),1)
     FLAGS += -DSLATE_WITH_CUDA
     LIBS += -lcublas -lcudart
 else
-    libslate_src += slate_cuda_stubs.cc
-    libslate_src += slate_cublas_stubs.cc
+    libslate_src += src/stubs/slate_cuda_stubs.cc
+    libslate_src += src/stubs/slate_cublas_stubs.cc
 endif
 
 #-------------------------------------------------------------------------------
@@ -208,81 +208,81 @@ endif
 
 # types and classes
 libslate_src += \
-        slate_Debug.cc \
-        slate_Exception.cc \
-        slate_Memory.cc \
-        slate_trace_Trace.cc \
-        slate_types.cc \
+        src/aux/slate_Debug.cc \
+        src/aux/slate_Exception.cc \
+        src/core/slate_Memory.cc \
+        src/aux/slate_trace_Trace.cc \
+        src/core/slate_types.cc \
 
 # internal
 libslate_src += \
-        slate_internal_comm.cc \
-        slate_internal_gbnorm.cc \
-        slate_internal_geadd.cc \
-        slate_internal_gemm.cc \
-        slate_internal_gemm_A.cc \
-        slate_internal_genorm.cc \
-        slate_internal_geqrf.cc \
-        slate_internal_getrf.cc \
-        slate_internal_hemm.cc \
-        slate_internal_henorm.cc \
-        slate_internal_her2k.cc \
-        slate_internal_herk.cc \
-        slate_internal_potrf.cc \
-        slate_internal_swap.cc \
-        slate_internal_symm.cc \
-        slate_internal_synorm.cc \
-        slate_internal_syr2k.cc \
-        slate_internal_syrk.cc \
-        slate_internal_trmm.cc \
-        slate_internal_trnorm.cc \
-        slate_internal_trsm.cc \
-        slate_internal_ttmqr.cc \
-        slate_internal_ttqrt.cc \
-        slate_internal_unmqr.cc \
-        slate_internal_util.cc \
-        slate_internal_transpose.cc \
+        src/internal/slate_internal_comm.cc \
+        src/internal/slate_internal_gbnorm.cc \
+        src/internal/slate_internal_geadd.cc \
+        src/internal/slate_internal_gemm.cc \
+        src/internal/slate_internal_gemm_A.cc \
+        src/internal/slate_internal_genorm.cc \
+        src/internal/slate_internal_geqrf.cc \
+        src/internal/slate_internal_getrf.cc \
+        src/internal/slate_internal_hemm.cc \
+        src/internal/slate_internal_henorm.cc \
+        src/internal/slate_internal_her2k.cc \
+        src/internal/slate_internal_herk.cc \
+        src/internal/slate_internal_potrf.cc \
+        src/internal/slate_internal_swap.cc \
+        src/internal/slate_internal_symm.cc \
+        src/internal/slate_internal_synorm.cc \
+        src/internal/slate_internal_syr2k.cc \
+        src/internal/slate_internal_syrk.cc \
+        src/internal/slate_internal_trmm.cc \
+        src/internal/slate_internal_trnorm.cc \
+        src/internal/slate_internal_trsm.cc \
+        src/internal/slate_internal_ttmqr.cc \
+        src/internal/slate_internal_ttqrt.cc \
+        src/internal/slate_internal_unmqr.cc \
+        src/internal/slate_internal_util.cc \
+        src/internal/slate_internal_transpose.cc \
 
 # device
 ifeq ($(cuda),1)
     libslate_src += \
-            slate_device_genorm.cu \
-            slate_device_henorm.cu \
-            slate_device_synorm.cu \
-            slate_device_trnorm.cu \
-            slate_device_transpose.cu
+            src/cuda/slate_device_genorm.cu \
+            src/cuda/slate_device_henorm.cu \
+            src/cuda/slate_device_synorm.cu \
+            src/cuda/slate_device_trnorm.cu \
+            src/cuda/slate_device_transpose.cu
 
 endif
 
 # driver
 libslate_src += \
-        slate_gbmm.cc \
-        slate_gbsv.cc \
-        slate_gbtrf.cc \
-        slate_gbtrs.cc \
-        slate_gels.cc \
-        slate_gemm.cc \
-        slate_gesv.cc \
-        slate_geqrf.cc \
-        slate_getrf.cc \
-        slate_getrs.cc \
-        slate_hemm.cc \
-        slate_her2k.cc \
-        slate_herk.cc \
-        slate_hesv.cc \
-        slate_hetrf.cc \
-        slate_hetrs.cc \
-        slate_norm.cc \
-        slate_posv.cc \
-        slate_potrf.cc \
-        slate_potrs.cc \
-        slate_symm.cc \
-        slate_syr2k.cc \
-        slate_syrk.cc \
-        slate_tbsm.cc \
-        slate_trmm.cc \
-        slate_trsm.cc \
-        slate_unmqr.cc \
+        src/slate_gbmm.cc \
+        src/slate_gbsv.cc \
+        src/slate_gbtrf.cc \
+        src/slate_gbtrs.cc \
+        src/slate_gels.cc \
+        src/slate_gemm.cc \
+        src/slate_geqrf.cc \
+        src/slate_gesv.cc \
+        src/slate_getrf.cc \
+        src/slate_getrs.cc \
+        src/slate_hemm.cc \
+        src/slate_her2k.cc \
+        src/slate_herk.cc \
+        src/slate_hesv.cc \
+        src/slate_hetrf.cc \
+        src/slate_hetrs.cc \
+        src/slate_norm.cc \
+        src/slate_posv.cc \
+        src/slate_potrf.cc \
+        src/slate_potrs.cc \
+        src/slate_symm.cc \
+        src/slate_syr2k.cc \
+        src/slate_syrk.cc \
+        src/slate_tbsm.cc \
+        src/slate_trmm.cc \
+        src/slate_trsm.cc \
+        src/slate_unmqr.cc \
 
 # main tester
 test_src += \
@@ -358,9 +358,12 @@ unit_test = $(basename $(unit_src))
 #-------------------------------------------------------------------------------
 # SLATE specific flags and libraries
 # FLAGS accumulates definitions, include dirs, etc. for both CXX and NVCC.
-FLAGS += -I.
+# FLAGS += -I.
 FLAGS += -I./blaspp/include
 FLAGS += -I./lapackpp/include
+FLAGS += -I./include
+FLAGS += -I./src
+# FLAGS += -I./src/internal
 
 CXXFLAGS  += $(FLAGS)
 NVCCFLAGS += $(FLAGS)

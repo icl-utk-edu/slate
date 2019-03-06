@@ -41,7 +41,7 @@
 #include "slate_TriangularMatrix.hh"
 #include "slate_types.hh"
 #include "slate_Tile_blas.hh"
-#include "slate_internal.hh"
+#include "internal/slate_internal.hh"
 
 namespace slate {
 namespace internal {

@@ -40,15 +40,15 @@
 #ifndef SLATE_DEBUG_HH
 #define SLATE_DEBUG_HH
 
-#include "slate_BaseMatrix.hh"
-#include "slate_Memory.hh"
-#include "slate_Map.hh"
+#include "slate/slate_BaseMatrix.hh"
+#include "slate/slate_Memory.hh"
+#include "slate/slate_Map.hh"
 
 #include <iostream>
 
-#include "slate_cuda.hh"
-#include "slate_mpi.hh"
-#include "slate_openmp.hh"
+#include "slate/slate_cuda.hh"
+#include "slate/slate_mpi.hh"
+#include "slate/slate_openmp.hh"
 
 namespace slate {
 

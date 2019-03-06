@@ -40,10 +40,10 @@
 #ifndef SLATE_BASE_MATRIX_HH
 #define SLATE_BASE_MATRIX_HH
 
-#include "slate_internal_comm.hh"
-#include "slate_Map.hh"
-#include "slate_Memory.hh"
-#include "slate_Storage.hh"
+#include "slate/slate_internal_comm.hh"
+#include "slate/slate_Map.hh"
+#include "slate/slate_Memory.hh"
+#include "slate/slate_Storage.hh"
 #include "slate_Tile.hh"
 #include "slate_Tile_blas.hh"
 #include "slate_types.hh"
@@ -58,10 +58,10 @@
 #include <utility>
 #include <vector>
 
-#include "slate_cuda.hh"
-#include "slate_cublas.hh"
-#include "slate_mpi.hh"
-#include "slate_openmp.hh"
+#include "slate/slate_cuda.hh"
+#include "slate/slate_cublas.hh"
+#include "slate/slate_mpi.hh"
+#include "slate/slate_openmp.hh"
 
 namespace slate {
 

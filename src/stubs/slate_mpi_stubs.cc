@@ -40,7 +40,7 @@
 ///-----------------------------------------------------------------------------
 /// \file
 ///
-#include "slate_mpi.hh"
+#include "slate/slate_mpi.hh"
 
 #include <cassert>
 #include <complex>

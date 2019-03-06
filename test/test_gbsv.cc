@@ -8,7 +8,7 @@
 #include "scalapack_support_routines.hh"
 #include "print_matrix.hh"
 
-#include "slate_mpi.hh"
+#include "slate/slate_mpi.hh"
 
 #include <cassert>
 #include <cmath>

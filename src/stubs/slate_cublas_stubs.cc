@@ -40,7 +40,7 @@
 ///-----------------------------------------------------------------------------
 /// \file
 ///
-#include "slate_cublas.hh"
+#include "slate/slate_cublas.hh"
 
 #include <cassert>
 

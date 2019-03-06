@@ -40,8 +40,8 @@
 #ifndef SLATE_TILE_TPMQRT_HH
 #define SLATE_TILE_TPMQRT_HH
 
-#include "slate_Tile.hh"
-#include "slate_types.hh"
+#include "slate/slate_Tile.hh"
+#include "slate/slate_types.hh"
 
 #include <list>
 #include <vector>

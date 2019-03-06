@@ -37,7 +37,7 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate/slate_Memory.hh"
+#include "slate/internal/slate_Memory.hh"
 
 #include "unit_test.hh"
 

@@ -37,15 +37,15 @@
 // comments to <slate-user@icl.utk.edu>.
 //------------------------------------------------------------------------------
 
-#include "slate/slate_device.hh"
+#include "slate/internal/slate_device.hh"
 #include "internal/slate_internal_batch.hh"
 #include "internal/slate_internal.hh"
-#include "slate/slate_util.hh"
-#include "slate_HermitianMatrix.hh"
+#include "slate/internal/slate_util.hh"
+#include "slate/slate_HermitianMatrix.hh"
 #include "internal/slate_Tile_lapack.hh"
 #include "internal/slate_Tile_henorm.hh"
 #include "internal/slate_Tile_synorm.hh"
-#include "slate_types.hh"
+#include "slate/slate_types.hh"
 
 #include <vector>
 

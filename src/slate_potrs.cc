@@ -37,12 +37,12 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate.hh"
+#include "slate/slate.hh"
 #include "aux/slate_Debug.hh"
-#include "slate_Matrix.hh"
-#include "slate_HermitianMatrix.hh"
-#include "slate_Tile_blas.hh"
-#include "slate_TriangularMatrix.hh"
+#include "slate/slate_Matrix.hh"
+#include "slate/slate_HermitianMatrix.hh"
+#include "slate/slate_Tile_blas.hh"
+#include "slate/slate_TriangularMatrix.hh"
 #include "internal/slate_internal.hh"
 
 namespace slate {
@@ -87,7 +87,7 @@ void potrs(slate::internal::TargetType<target>,
 /// Version with target as template parameter.
 /// @ingroup gesv_comp
 template <Target target, typename scalar_t>
-void potrs(HermitianMatrix<scalar_t>& A, 
+void potrs(HermitianMatrix<scalar_t>& A,
            Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts)
 {
@@ -108,7 +108,7 @@ void potrs(HermitianMatrix<scalar_t>& A,
 /// Distributed parallel LU factorization.
 ///
 template <typename scalar_t>
-void potrs(HermitianMatrix<scalar_t>& A, 
+void potrs(HermitianMatrix<scalar_t>& A,
            Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts)
 {
@@ -142,7 +142,7 @@ void potrs(HermitianMatrix<scalar_t>& A,
 // Explicit instantiations.
 template
 void potrs<float>(
-    HermitianMatrix<float>& A, 
+    HermitianMatrix<float>& A,
     Matrix<float>& B,
     const std::map<Option, Value>& opts);
 
@@ -154,13 +154,13 @@ void potrs<double>(
 
 template
 void potrs< std::complex<float> >(
-    HermitianMatrix< std::complex<float> >& A, 
+    HermitianMatrix< std::complex<float> >& A,
     Matrix< std::complex<float> >& B,
     const std::map<Option, Value>& opts);
 
 template
 void potrs< std::complex<double> >(
-    HermitianMatrix< std::complex<double> >& A, 
+    HermitianMatrix< std::complex<double> >& A,
     Matrix< std::complex<double> >& B,
     const std::map<Option, Value>& opts);
 

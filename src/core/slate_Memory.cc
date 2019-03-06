@@ -38,7 +38,7 @@
 //------------------------------------------------------------------------------
 
 #include "aux/slate_Debug.hh"
-#include "slate/slate_Memory.hh"
+#include "slate/internal/slate_Memory.hh"
 
 namespace slate {
 

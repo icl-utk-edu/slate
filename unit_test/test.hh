@@ -40,11 +40,11 @@
 #ifndef TEST_HH
 #define TEST_HH
 
-#include "slate_mpi.hh"
-#include "slate_openmp.hh"
+#include "slate/internal/slate_mpi.hh"
+#include "slate/internal/slate_openmp.hh"
 
-#include "slate_Matrix.hh"
-#include "slate_BaseTrapezoidMatrix.hh"
+#include "slate/slate_Matrix.hh"
+#include "slate/internal/slate_BaseTrapezoidMatrix.hh"
 
 #include <iostream>
 #include <iomanip>

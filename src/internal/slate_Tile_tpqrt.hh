@@ -41,11 +41,11 @@
 #define SLATE_TILE_TPQRT_HH
 
 #include "internal/slate_internal.hh"
-#include "slate_Tile.hh"
-#include "slate_Tile_blas.hh"
+#include "slate/slate_Tile.hh"
+#include "slate/slate_Tile_blas.hh"
 #include "internal/slate_Tile_lapack.hh"
-#include "slate_types.hh"
-#include "slate/slate_util.hh"
+#include "slate/slate_types.hh"
+#include "slate/internal/slate_util.hh"
 
 #include <list>
 #include <vector>

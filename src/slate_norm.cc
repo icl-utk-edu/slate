@@ -37,10 +37,10 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate.hh"
+#include "slate/slate.hh"
 #include "internal/slate_internal.hh"
 #include "internal/slate_internal_util.hh"
-#include "slate/slate_mpi.hh"
+#include "slate/internal/slate_mpi.hh"
 
 #include <list>
 #include <tuple>

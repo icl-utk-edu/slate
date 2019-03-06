@@ -38,9 +38,9 @@
 //------------------------------------------------------------------------------
 
 #include "slate/slate_Exception.hh"
-#include "slate/slate_internal_comm.hh"
+#include "slate/internal/slate_internal_comm.hh"
 #include "internal/slate_internal_util.hh"
-#include "slate/slate_trace_Trace.hh"
+#include "slate/internal/slate_trace_Trace.hh"
 
 #include <cassert>
 #include <vector>

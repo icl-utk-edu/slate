@@ -40,7 +40,7 @@
 #ifndef SLATE_DEVICE_HH
 #define SLATE_DEVICE_HH
 
-#include "slate/slate_cuda.hh"
+#include "slate/internal/slate_cuda.hh"
 
 #include <blas.hh>
 #include <lapack.hh>

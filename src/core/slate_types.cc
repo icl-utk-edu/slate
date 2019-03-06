@@ -37,7 +37,7 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate_types.hh"
+#include "slate/slate_types.hh"
 
 namespace slate {
 

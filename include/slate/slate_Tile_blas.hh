@@ -42,9 +42,9 @@
 
 #include <blas.hh>
 
-#include "slate_Tile.hh"
-#include "slate/slate_util.hh"
-#include "slate/slate_device.hh"
+#include "slate/slate_Tile.hh"
+#include "slate/internal/slate_util.hh"
+#include "slate/internal/slate_device.hh"
 
 #include <list>
 
@@ -726,7 +726,7 @@ void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>&& Y)
 /// Computes Y=a*X+b*Y.
 ///
 template <typename scalar_t>
-void axby(scalar_t alpha, Tile<scalar_t> const& X, 
+void axby(scalar_t alpha, Tile<scalar_t> const& X,
           scalar_t beta, Tile<scalar_t>& Y)
 {
     // trace::Block trace_block("blas::axby");
@@ -734,7 +734,7 @@ void axby(scalar_t alpha, Tile<scalar_t> const& X,
     // TODO should be able to loosen these restriction
     assert(X.op() == Y.op());
     assert(X.uplo() == Y.uplo());
-    assert(Y.uplo() == Uplo::General); 
+    assert(Y.uplo() == Uplo::General);
 
     for (int64_t i = 0; i < std::min(X.mb(), Y.mb()); ++i)
         for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j)
@@ -744,7 +744,7 @@ void axby(scalar_t alpha, Tile<scalar_t> const& X,
 ///----------------------------------------
 /// Converts rvalue refs to lvalue refs.
 template <typename scalar_t>
-void axby(scalar_t alpha, Tile<scalar_t> const& X, 
+void axby(scalar_t alpha, Tile<scalar_t> const& X,
           scalar_t beta, Tile<scalar_t>&& Y)
 {
     axby(alpha, X, beta, Y);

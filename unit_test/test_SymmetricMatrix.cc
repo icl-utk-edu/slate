@@ -37,12 +37,12 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate_Matrix.hh"
-#include "slate_HermitianMatrix.hh"
-#include "slate_SymmetricMatrix.hh"
-#include "slate_TrapezoidMatrix.hh"
-#include "slate_TriangularMatrix.hh"
-#include "slate/slate_util.hh"
+#include "slate/slate_Matrix.hh"
+#include "slate/slate_HermitianMatrix.hh"
+#include "slate/slate_SymmetricMatrix.hh"
+#include "slate/slate_TrapezoidMatrix.hh"
+#include "slate/slate_TriangularMatrix.hh"
+#include "slate/internal/slate_util.hh"
 
 #include "unit_test.hh"
 #include "util_matrix.hh"

@@ -37,9 +37,9 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate.hh"
+#include "slate/slate.hh"
 #include "aux/slate_Debug.hh"
-#include "slate_Matrix.hh"
+#include "slate/slate_Matrix.hh"
 #include "internal/slate_Tile_tpmqrt.hh"
 #include "internal/slate_internal.hh"
 // #include "slate_internal_util.hh"

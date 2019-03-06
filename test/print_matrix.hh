@@ -1,12 +1,12 @@
 #include "blas.hh"
 
-#include <slate/slate_mpi.hh>
+#include <slate/internal/slate_mpi.hh>
 #include <string>
 #include <cstdio>
 
-#include <slate_Matrix.hh>
-#include <slate/slate_BaseTrapezoidMatrix.hh>
-#include <slate_BandMatrix.hh>
+#include <slate/slate_Matrix.hh>
+#include <slate/internal/slate_BaseTrapezoidMatrix.hh>
+#include <slate/slate_BandMatrix.hh>
 
 //------------------------------------------------------------------------------
 /// Print value to a buffer buf of length buf_len.

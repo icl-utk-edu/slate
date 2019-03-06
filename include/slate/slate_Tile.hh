@@ -40,10 +40,10 @@
 #ifndef SLATE_TILE_HH
 #define SLATE_TILE_HH
 
-#include "slate/slate_Memory.hh"
-#include "slate/slate_trace_Trace.hh"
-#include "slate_types.hh"
-#include "slate_Exception.hh"
+#include "slate/internal/slate_Memory.hh"
+#include "slate/internal/slate_trace_Trace.hh"
+#include "slate/slate_types.hh"
+#include "slate/slate_Exception.hh"
 
 #include <blas.hh>
 #include <lapack.hh>
@@ -54,9 +54,9 @@
 #include <cstring>
 #include <memory>
 
-#include "slate/slate_cuda.hh"
-#include "slate/slate_mpi.hh"
-#include "slate/slate_openmp.hh"
+#include "slate/internal/slate_cuda.hh"
+#include "slate/internal/slate_mpi.hh"
+#include "slate/internal/slate_openmp.hh"
 
 namespace slate {
 

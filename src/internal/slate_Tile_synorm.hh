@@ -42,7 +42,7 @@
 
 #include <blas.hh>
 
-#include "slate_Tile.hh"
+#include "slate/slate_Tile.hh"
 
 namespace slate {
 

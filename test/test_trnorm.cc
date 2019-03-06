@@ -1,11 +1,11 @@
-#include "slate.hh"
+#include "slate/slate.hh"
 #include "test.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
 #include "print_matrix.hh"
 
-#include "slate/slate_mpi.hh"
+#include "slate/internal/slate_mpi.hh"
 
 #include <cassert>
 #include <cmath>

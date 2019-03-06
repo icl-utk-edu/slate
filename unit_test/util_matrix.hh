@@ -40,12 +40,12 @@
 #ifndef UTIL_MATRIX_HH
 #define UTIL_MATRIX_HH
 
-#include "slate_Matrix.hh"
-#include "slate_HermitianMatrix.hh"
-#include "slate_SymmetricMatrix.hh"
-#include "slate_TrapezoidMatrix.hh"
-#include "slate_TriangularMatrix.hh"
-#include "slate/slate_util.hh"
+#include "slate/slate_Matrix.hh"
+#include "slate/slate_HermitianMatrix.hh"
+#include "slate/slate_SymmetricMatrix.hh"
+#include "slate/slate_TrapezoidMatrix.hh"
+#include "slate/slate_TriangularMatrix.hh"
+#include "slate/internal/slate_util.hh"
 
 #include "unit_test.hh"
 

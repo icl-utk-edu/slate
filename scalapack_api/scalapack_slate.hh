@@ -43,7 +43,7 @@
 // get BLAS_FORTRAN_NAME and blas_int
 #include "blas_fortran.hh"
 
-#include "slate.hh"
+#include "slate/slate.hh"
 #include <complex>
 
 namespace slate {

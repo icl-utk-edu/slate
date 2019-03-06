@@ -37,7 +37,7 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate.hh"
+#include "slate/slate.hh"
 #include "scalapack_slate.hh"
 #include <complex>
 
@@ -123,7 +123,7 @@ blas::real_type<scalar_t> slate_planhe(const char* normstr, const char* uplostr,
     Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myrow, &mycol);
     auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(desca), a, desc_LLD(desca), desc_MB(desca), nprow, npcol, MPI_COMM_WORLD);
     A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
-    
+
     if (verbose && myrow==0 && mycol==0)
         logprintf("%s\n", "lanhe");
 

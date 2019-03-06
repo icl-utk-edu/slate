@@ -40,20 +40,20 @@
 #ifndef SLATE_TRIANGULAR_BAND_MATRIX_HH
 #define SLATE_TRIANGULAR_BAND_MATRIX_HH
 
-#include "slate_BandMatrix.hh"
-#include "slate_TriangularMatrix.hh"
-#include "slate_Tile.hh"
-#include "slate_types.hh"
+#include "slate/slate_BandMatrix.hh"
+#include "slate/slate_TriangularMatrix.hh"
+#include "slate/slate_Tile.hh"
+#include "slate/slate_types.hh"
 
 #include "lapack.hh"
 
 #include <algorithm>
 #include <utility>
 
-#include "slate/slate_cuda.hh"
-#include "slate/slate_cublas.hh"
-#include "slate/slate_mpi.hh"
-#include "slate/slate_openmp.hh"
+#include "slate/internal/slate_cuda.hh"
+#include "slate/internal/slate_cublas.hh"
+#include "slate/internal/slate_mpi.hh"
+#include "slate/internal/slate_openmp.hh"
 
 namespace slate {
 

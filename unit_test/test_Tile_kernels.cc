@@ -37,10 +37,10 @@
 // comments to <slate-user@icl.utk.edu>.
 //------------------------------------------------------------------------------
 
-#include "slate_Tile.hh"
-#include "slate_Tile_blas.hh"
+#include "slate/slate_Tile.hh"
+#include "slate/slate_Tile_blas.hh"
 #include "internal/slate_Tile_lapack.hh"
-#include "slate/slate_device.hh"
+#include "slate/internal/slate_device.hh"
 
 #include "unit_test.hh"
 

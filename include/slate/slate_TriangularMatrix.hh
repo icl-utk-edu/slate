@@ -40,18 +40,18 @@
 #ifndef SLATE_TRIANGULAR_MATRIX_HH
 #define SLATE_TRIANGULAR_MATRIX_HH
 
-#include "slate/slate_BaseTrapezoidMatrix.hh"
-#include "slate_TrapezoidMatrix.hh"
-#include "slate_Matrix.hh"
-#include "slate_Tile.hh"
-#include "slate_types.hh"
+#include "slate/internal/slate_BaseTrapezoidMatrix.hh"
+#include "slate/slate_TrapezoidMatrix.hh"
+#include "slate/slate_Matrix.hh"
+#include "slate/slate_Tile.hh"
+#include "slate/slate_types.hh"
 
 #include "lapack.hh"
 
 #include <algorithm>
 #include <utility>
 
-#include "slate/slate_mpi.hh"
+#include "slate/internal/slate_mpi.hh"
 
 namespace slate {
 

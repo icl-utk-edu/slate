@@ -46,7 +46,7 @@
 #include <list>
 #include <set>
 
-#include "slate/slate_mpi.hh"
+#include "slate/internal/slate_mpi.hh"
 
 namespace slate {
 namespace internal {

@@ -37,7 +37,7 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate/slate_device.hh"
+#include "slate/internal/slate_device.hh"
 #include "slate_device_util.cuh"
 
 #include <cstdio>
@@ -93,7 +93,7 @@ __device__ void transpose_func(
     // ii, jj are row & column offsets within each block.
     int ii = threadIdx.x;
     int jj = threadIdx.y;
-    
+
     int i, j;
     if (gridDim.y - 1 == gridDim.z*2) {
         // Even number of blocks.
@@ -208,7 +208,7 @@ void transpose(
 
     transpose_kernel<<< blocks, threads, 0, stream >>>
         (n, A, lda);
-    
+
     // check that launch succeeded (could still have async errors)
     cudaError_t error = cudaGetLastError();
     if (error != cudaSuccess) {
@@ -267,7 +267,7 @@ void transpose_batch(
 
     transpose_batch_kernel<<< blocks, threads, 0, stream >>>
         (n, Aarray, lda);
-    
+
     // check that launch succeeded (could still have async errors)
     cudaError_t error = cudaGetLastError();
     if (error != cudaSuccess) {

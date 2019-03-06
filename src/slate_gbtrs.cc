@@ -37,11 +37,11 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate.hh"
+#include "slate/slate.hh"
 #include "aux/slate_Debug.hh"
-#include "slate_Matrix.hh"
-#include "slate_Tile_blas.hh"
-#include "slate_TriangularBandMatrix.hh"
+#include "slate/slate_Matrix.hh"
+#include "slate/slate_Tile_blas.hh"
+#include "slate/slate_TriangularBandMatrix.hh"
 #include "internal/slate_internal.hh"
 
 namespace slate {

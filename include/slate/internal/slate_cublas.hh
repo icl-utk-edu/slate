@@ -47,7 +47,7 @@
     #include <cublas_v2.h>
 #else
 
-#include "slate/slate_cuda.hh"
+#include "slate/internal/slate_cuda.hh"
 
 #include <complex>
 

@@ -44,8 +44,8 @@
 #ifndef SLATE_INTERNAL_BATCH_HH
 #define SLATE_INTERNAL_BATCH_HH
 
-#include "slate/slate_cuda.hh"
-#include "slate/slate_cublas.hh"
+#include "slate/internal/slate_cuda.hh"
+#include "slate/internal/slate_cublas.hh"
 
 #ifdef SLATE_WITH_MKL
     #include <mkl_cblas.h>

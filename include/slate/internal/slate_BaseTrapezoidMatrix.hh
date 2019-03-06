@@ -44,7 +44,7 @@
 #include "slate_Matrix.hh"
 #include "slate_Tile.hh"
 #include "slate_types.hh"
-#include "slate/slate_Exception.hh"
+#include "slate_Exception.hh"
 
 #include "lapack.hh"
 

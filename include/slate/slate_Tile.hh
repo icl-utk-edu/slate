@@ -43,7 +43,7 @@
 #include "slate/slate_Memory.hh"
 #include "slate/slate_trace_Trace.hh"
 #include "slate_types.hh"
-#include "slate/slate_Exception.hh"
+#include "slate_Exception.hh"
 
 #include <blas.hh>
 #include <lapack.hh>

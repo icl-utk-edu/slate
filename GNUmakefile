@@ -61,13 +61,12 @@ endif
 #-------------------------------------------------------------------------------
 # if MPI
 ifeq ($(mpi),1)
-    FLAGS += -DSLATE_WITH_MPI
     LIBS  += -lmpi
 # if Spectrum MPI
 else ifeq ($(spectrum),1)
-    FLAGS += -DSLATE_WITH_MPI
     LIBS  += -lmpi_ibm
 else
+    FLAGS += -DSLATE_NO_MPI
     libslate_src += src/stubs/slate_mpi_stubs.cc
 endif
 
@@ -363,7 +362,6 @@ FLAGS += -I./blaspp/include
 FLAGS += -I./lapackpp/include
 FLAGS += -I./include
 FLAGS += -I./src
-# FLAGS += -I./src/internal
 
 CXXFLAGS  += $(FLAGS)
 NVCCFLAGS += $(FLAGS)

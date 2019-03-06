@@ -43,7 +43,7 @@
 #ifndef SLATE_MPI_HH
 #define SLATE_MPI_HH
 
-#ifdef SLATE_WITH_MPI
+#ifndef SLATE_NO_MPI
     #include <mpi.h>
 #else
 
@@ -85,8 +85,8 @@ enum {
 
 extern int* MPI_STATUS_IGNORE;
 
-typedef void (MPI_User_function) ( void * a, 
-                                   void * b, int * len, MPI_Datatype * ); 
+typedef void (MPI_User_function) ( void * a,
+                                   void * b, int * len, MPI_Datatype * );
 
 #ifdef __cplusplus
 extern "C" {
@@ -165,6 +165,6 @@ int MPI_Finalize(void);
 }
 #endif
 
-#endif // not SLATE_WITH_MPI
+#endif // SLATE_NO_MPI
 
 #endif // SLATE_MPI_HH

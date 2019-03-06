@@ -43,7 +43,7 @@
 #include "slate/slate_internal_comm.hh"
 #include "slate/slate_Map.hh"
 #include "slate/slate_Memory.hh"
-#include "slate/slate_Storage.hh"
+#include "slate/slate_MatrixStorage.hh"
 #include "slate_Tile.hh"
 #include "slate_Tile_blas.hh"
 #include "slate_types.hh"

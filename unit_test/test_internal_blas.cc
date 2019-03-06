@@ -39,7 +39,7 @@
 
 #include "test.hh"
 #include "slate/Matrix.hh"
-#include "internal/slate_internal.hh"
+#include "internal/internal.hh"
 
 // -----------------------------------------------------------------------------
 // arrays of options to loop over in tests

@@ -39,7 +39,7 @@
 
 #include "slate/Tile.hh"
 #include "slate/Tile_blas.hh"
-#include "internal/slate_Tile_lapack.hh"
+#include "internal/Tile_lapack.hh"
 #include "slate/internal/device.hh"
 
 #include "unit_test.hh"

@@ -55,7 +55,7 @@ ifeq ($(openmp),1)
     CXXFLAGS += -fopenmp
     LDFLAGS  += -fopenmp
 else
-    libslate_src += src/stubs/slate_openmp_stubs.cc
+    libslate_src += src/stubs/openmp_stubs.cc
 endif
 
 #-------------------------------------------------------------------------------
@@ -67,7 +67,7 @@ else ifeq ($(spectrum),1)
     LIBS  += -lmpi_ibm
 else
     FLAGS += -DSLATE_NO_MPI
-    libslate_src += src/stubs/slate_mpi_stubs.cc
+    libslate_src += src/stubs/mpi_stubs.cc
 endif
 
 #-------------------------------------------------------------------------------
@@ -149,8 +149,8 @@ ifeq ($(cuda),1)
     LIBS += -lcublas -lcudart
 else
     FLAGS += -DSLATE_NO_CUDA
-    libslate_src += src/stubs/slate_cuda_stubs.cc
-    libslate_src += src/stubs/slate_cublas_stubs.cc
+    libslate_src += src/stubs/cuda_stubs.cc
+    libslate_src += src/stubs/cublas_stubs.cc
 endif
 
 #-------------------------------------------------------------------------------
@@ -207,81 +207,81 @@ endif
 
 # types and classes
 libslate_src += \
-        src/aux/slate_Debug.cc \
-        src/aux/slate_Exception.cc \
-        src/core/slate_Memory.cc \
-        src/aux/slate_trace_Trace.cc \
-        src/core/slate_types.cc \
+        src/aux/Debug.cc \
+        src/aux/Exception.cc \
+        src/core/Memory.cc \
+        src/aux/Trace.cc \
+        src/core/types.cc \
 
 # internal
 libslate_src += \
-        src/internal/slate_internal_comm.cc \
-        src/internal/slate_internal_gbnorm.cc \
-        src/internal/slate_internal_geadd.cc \
-        src/internal/slate_internal_gemm.cc \
-        src/internal/slate_internal_gemm_A.cc \
-        src/internal/slate_internal_genorm.cc \
-        src/internal/slate_internal_geqrf.cc \
-        src/internal/slate_internal_getrf.cc \
-        src/internal/slate_internal_hemm.cc \
-        src/internal/slate_internal_henorm.cc \
-        src/internal/slate_internal_her2k.cc \
-        src/internal/slate_internal_herk.cc \
-        src/internal/slate_internal_potrf.cc \
-        src/internal/slate_internal_swap.cc \
-        src/internal/slate_internal_symm.cc \
-        src/internal/slate_internal_synorm.cc \
-        src/internal/slate_internal_syr2k.cc \
-        src/internal/slate_internal_syrk.cc \
-        src/internal/slate_internal_trmm.cc \
-        src/internal/slate_internal_trnorm.cc \
-        src/internal/slate_internal_trsm.cc \
-        src/internal/slate_internal_ttmqr.cc \
-        src/internal/slate_internal_ttqrt.cc \
-        src/internal/slate_internal_unmqr.cc \
-        src/internal/slate_internal_util.cc \
-        src/internal/slate_internal_transpose.cc \
+        src/internal/internal_comm.cc \
+        src/internal/internal_gbnorm.cc \
+        src/internal/internal_geadd.cc \
+        src/internal/internal_gemm.cc \
+        src/internal/internal_gemm_A.cc \
+        src/internal/internal_genorm.cc \
+        src/internal/internal_geqrf.cc \
+        src/internal/internal_getrf.cc \
+        src/internal/internal_hemm.cc \
+        src/internal/internal_henorm.cc \
+        src/internal/internal_her2k.cc \
+        src/internal/internal_herk.cc \
+        src/internal/internal_potrf.cc \
+        src/internal/internal_swap.cc \
+        src/internal/internal_symm.cc \
+        src/internal/internal_synorm.cc \
+        src/internal/internal_syr2k.cc \
+        src/internal/internal_syrk.cc \
+        src/internal/internal_trmm.cc \
+        src/internal/internal_trnorm.cc \
+        src/internal/internal_trsm.cc \
+        src/internal/internal_ttmqr.cc \
+        src/internal/internal_ttqrt.cc \
+        src/internal/internal_unmqr.cc \
+        src/internal/internal_util.cc \
+        src/internal/internal_transpose.cc \
 
 # device
 ifeq ($(cuda),1)
     libslate_src += \
-            src/cuda/slate_device_genorm.cu \
-            src/cuda/slate_device_henorm.cu \
-            src/cuda/slate_device_synorm.cu \
-            src/cuda/slate_device_trnorm.cu \
-            src/cuda/slate_device_transpose.cu
+            src/cuda/device_genorm.cu \
+            src/cuda/device_henorm.cu \
+            src/cuda/device_synorm.cu \
+            src/cuda/device_trnorm.cu \
+            src/cuda/device_transpose.cu
 
 endif
 
 # driver
 libslate_src += \
-        src/slate_gbmm.cc \
-        src/slate_gbsv.cc \
-        src/slate_gbtrf.cc \
-        src/slate_gbtrs.cc \
-        src/slate_gels.cc \
-        src/slate_gemm.cc \
-        src/slate_geqrf.cc \
-        src/slate_gesv.cc \
-        src/slate_getrf.cc \
-        src/slate_getrs.cc \
-        src/slate_hemm.cc \
-        src/slate_her2k.cc \
-        src/slate_herk.cc \
-        src/slate_hesv.cc \
-        src/slate_hetrf.cc \
-        src/slate_hetrs.cc \
-        src/slate_norm.cc \
-        src/slate_posv.cc \
-        src/slate_potrf.cc \
-        src/slate_potrs.cc \
-        src/slate_symm.cc \
-        src/slate_syr2k.cc \
-        src/slate_syrk.cc \
-        src/slate_tbsm.cc \
-        src/slate_trmm.cc \
-        src/slate_trsm.cc \
-        src/slate_unmqr.cc \
+        src/gbmm.cc \
+        src/gbsv.cc \
+        src/gbtrf.cc \
+        src/gbtrs.cc \
+        src/gels.cc \
+        src/gemm.cc \
+        src/geqrf.cc \
+        src/gesv.cc \
+        src/getrf.cc \
+        src/getrs.cc \
+        src/hemm.cc \
+        src/her2k.cc \
+        src/herk.cc \
+        src/hesv.cc \
+        src/hetrf.cc \
+        src/hetrs.cc \
+        src/norm.cc \
+        src/posv.cc \
+        src/potrf.cc \
+        src/potrs.cc \
+        src/symm.cc \
+        src/syr2k.cc \
+        src/syrk.cc \
+        src/tbsm.cc \
+        src/trmm.cc \
+        src/trsm.cc \
+        src/unmqr.cc \
 
 # main tester
 test_src += \

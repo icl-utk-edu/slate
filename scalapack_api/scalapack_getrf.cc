@@ -37,7 +37,7 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate.hh"
+#include "slate/slate.hh"
 #include "scalapack_slate.hh"
 #include <complex>
 
@@ -172,7 +172,7 @@ void slate_pgetrf(int m, int n, scalar_t* a, int ia, int ja, int* desca, int* ip
         int64_t p_count = 0;
         int nb = desc_MB(desca);
 
-        
+
         // NOTE: this is not the most efficient way, instead use local tile index directly to avoid looping over tiles
         // const int64_t A_nt = A.nt();
         // const int64_t A_mt = A.mt();
@@ -195,12 +195,12 @@ void slate_pgetrf(int m, int n, scalar_t* a, int ia, int ja, int* desca, int* ip
             int64_t g_rindx = scalapack_indxl2g(&l_rindx, &nb, &myrow, &ZERO, &nprow);
             int64_t g_tile_indx = g_rindx / nb; //assuming uniform tile size from Scalapack
             // extract this tile pivots
-            for (auto p_iter = pivots[g_tile_indx].begin(); 
-                 p_iter != pivots[g_tile_indx].end(); 
+            for (auto p_iter = pivots[g_tile_indx].begin();
+                 p_iter != pivots[g_tile_indx].end();
                  ++p_iter) {
                 ipiv[p_count++] = p_iter->tileIndex() * nb + p_iter->elementOffset() + 1;
             }
-            //next tile 
+            //next tile
             l_rindx += nb;
         }
     }

@@ -40,7 +40,7 @@
 #ifndef SLATE_LAPACK_API_COMMON_HH
 #define SLATE_LAPACK_API_COMMON_HH
 
-#include "slate.hh"
+#include "slate/slate.hh"
 #include <complex>
 
 namespace slate {
@@ -71,7 +71,7 @@ inline slate::Target slate_lapack_set_target()
     }
     // todo: should the device be set to cude automatically
     int cudadevcount;
-    if (cudaGetDeviceCount(&cudadevcount)==cudaSuccess && cudadevcount>0) 
+    if (cudaGetDeviceCount(&cudadevcount)==cudaSuccess && cudadevcount>0)
         target = slate::Target::Devices;
     return target;
 }

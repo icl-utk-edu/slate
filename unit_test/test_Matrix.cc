@@ -37,12 +37,12 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate_Matrix.hh"
-#include "slate_HermitianMatrix.hh"
-#include "slate_SymmetricMatrix.hh"
-#include "slate_TrapezoidMatrix.hh"
-#include "slate_TriangularMatrix.hh"
-#include "slate_util.hh"
+#include "slate/Matrix.hh"
+#include "slate/HermitianMatrix.hh"
+#include "slate/SymmetricMatrix.hh"
+#include "slate/TrapezoidMatrix.hh"
+#include "slate/TriangularMatrix.hh"
+#include "slate/internal/util.hh"
 
 #include "unit_test.hh"
 #include "util_matrix.hh"
@@ -822,7 +822,7 @@ void test_Matrix_sub_trans()
 
 //==============================================================================
 // To access BaseMatrix protected members, stick these in the slate::Debug class.
-// Admittedly a hack, since this is different than the Debug class in slate_Debug.hh.
+// Admittedly a hack, since this is different than the Debug class in Debug.hh.
 namespace slate {
 class Debug {
 public:

@@ -6,7 +6,7 @@
 #include <assert.h>
 #include <stdarg.h>
 
-#include "slate_mpi.hh"
+#include "slate/internal/mpi.hh"
 
 static int g_total = 0;
 static int g_pass  = 0;
@@ -110,7 +110,7 @@ std::string output_skip(SkipException& e)
 /// Root node prints string str from all MPI ranks.
 void printf_gather(int root, MPI_Comm comm, const std::string& str)
 {
-#ifdef SLATE_WITH_MPI
+#ifndef SLATE_NO_MPI
     int mpi_rank, mpi_size;
     MPI_Comm_rank(comm, &mpi_rank);
     MPI_Comm_size(comm, &mpi_size);
@@ -195,7 +195,7 @@ void run_test(test_function* func, const char* name)
 /// Rank 0 prints output from all ranks.
 void run_test(test_function* func, const char* name, MPI_Comm comm)
 {
-#ifdef SLATE_WITH_MPI
+#ifndef SLATE_NO_MPI
     int mpi_rank;
     MPI_Comm_rank(comm, &mpi_rank);
 
@@ -232,7 +232,7 @@ void run_test(test_function* func, const char* name, MPI_Comm comm)
     MPI_Barrier(comm);
 #else
     run_test(func, name);
-#endif // not SLATE_WITH_MPI
+#endif // SLATE_NO_MPI
 }
 
 //------------------------------------------------------------------------------
@@ -272,7 +272,7 @@ int unit_test_main()
 /// @retval -1 if any failed.
 int unit_test_main(MPI_Comm comm)
 {
-#ifdef SLATE_WITH_MPI
+#ifndef SLATE_NO_MPI
     run_tests();
 
     int mpi_rank;
@@ -310,5 +310,5 @@ int unit_test_main(MPI_Comm comm)
     }
 #else
     return unit_test_main();
-#endif  // not SLATE_WITH_MPI
+#endif  // SLATE_NO_MPI
 }

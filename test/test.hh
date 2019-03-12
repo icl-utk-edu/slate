@@ -10,7 +10,7 @@
 #include "libtest.hh"
 #include "blas.hh"
 #include "lapack.hh"
-#include "slate.hh"
+#include "slate/slate.hh"
 
 // -----------------------------------------------------------------------------
 class Params: public libtest::ParamsBase {

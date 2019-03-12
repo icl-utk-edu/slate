@@ -1,4 +1,4 @@
-#include "slate.hh"
+#include "slate/slate.hh"
 #include "test.hh"
 #include "blas_flops.hh"
 #include "lapack_flops.hh"
@@ -6,8 +6,6 @@
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
-
-#include "slate_mpi.hh"
 
 #include <cassert>
 #include <cmath>

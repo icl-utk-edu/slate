@@ -37,13 +37,71 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate/Matrix.hh"
-#include "slate/TriangularMatrix.hh"
-#include "slate/types.hh"
-#include "slate/Tile_blas.hh"
+#include "slate/internal/device.hh"
+#include "internal/internal_batch.hh"
 #include "internal/internal.hh"
+#include "slate/internal/util.hh"
+#include "slate/Matrix.hh"
+#include "internal/Tile_lapack.hh"
+#include "slate/types.hh"
 
 namespace slate {
+
+namespace device {
+
+template <>
+void geadd(
+    int64_t m, int64_t n,
+    std::complex<float> alpha, std::complex<float>** Aarray, int64_t lda,
+    std::complex<float> beta, std::complex<float>** Barray, int64_t ldb,
+    int64_t batch_count, cudaStream_t stream)
+{
+#if !defined(SLATE_NO_CUDA)
+    geadd(m, n,
+          make_cuFloatComplex(alpha.real(), alpha.imag()), (cuFloatComplex**) Aarray, lda,
+          make_cuFloatComplex(beta.real(), beta.imag()), (cuFloatComplex**) Barray, ldb,
+          batch_count, stream);
+#endif
+}
+
+template <>
+void geadd(
+    int64_t m, int64_t n,
+    std::complex<double> alpha, std::complex<double>** Aarray, int64_t lda,
+    std::complex<double> beta, std::complex<double>** Barray, int64_t ldb,
+    int64_t batch_count, cudaStream_t stream)
+{
+#if !defined(SLATE_NO_CUDA)
+    geadd(m, n,
+          make_cuDoubleComplex(alpha.real(), alpha.imag()) , (cuDoubleComplex**) Aarray, lda,
+          make_cuDoubleComplex(beta.real(), beta.imag()), (cuDoubleComplex**) Barray, ldb,
+          batch_count, stream);
+#endif
+}
+
+#if defined(SLATE_NO_CUDA)
+// Specializations to allow compilation without CUDA.
+template <>
+void geadd(
+    int64_t m, int64_t n,
+    double alpha, double** Aarray, int64_t lda,
+    double beta, double** Barray, int64_t ldb,
+    int64_t batch_count, cudaStream_t stream)
+{
+}
+
+template <>
+void geadd(
+    int64_t m, int64_t n,
+    float alpha, float** Aarray, int64_t lda,
+    float beta, float** Barray, int64_t ldb,
+    int64_t batch_count, cudaStream_t stream)
+{
+}
+#endif // not SLATE_WITH_CUDA
+
+} // namespace device
+
 namespace internal {
 
 ///-----------------------------------------------------------------------------
@@ -98,11 +156,159 @@ void geadd(internal::TargetType<Target::HostTask>,
     #pragma omp taskwait
 }
 
+///-----------------------------------------------------------------------------
+template <typename scalar_t>
+void geadd(internal::TargetType<Target::HostNest>,
+           scalar_t alpha, Matrix<scalar_t>& A,
+           scalar_t beta, Matrix<scalar_t>& B,
+           int priority)
+{
+    throw Exception("HostNest not yet implemented");
+}
+
+///-----------------------------------------------------------------------------
+template <typename scalar_t>
+void geadd(internal::TargetType<Target::HostBatch>,
+           scalar_t alpha, Matrix<scalar_t>& A,
+           scalar_t beta, Matrix<scalar_t>& B,
+           int priority)
+{
+    throw Exception("HostBatch not yet implemented");
+}
+
+///-----------------------------------------------------------------------------
+/// \brief
+/// General matrix add.
+/// assumes A & B have same tile layout and dimensions, and have same distribution
+/// TODO handle transpose A case
+/// GPU device implementation.
+template <typename scalar_t>
+void geadd(internal::TargetType<Target::Devices>,
+           scalar_t alpha, Matrix<scalar_t>& A,
+           scalar_t beta, Matrix<scalar_t>& B,
+           int priority)
+{
+    int64_t irange[4][2] = {
+        { 0,        B.mt()-1 },
+        { B.mt()-1, B.mt()   },
+        { 0,        B.mt()-1 },
+        { B.mt()-1, B.mt()   }
+    };
+    int64_t jrange[4][2] = {
+        { 0,        B.nt()-1 },
+        { 0,        B.nt()-1 },
+        { B.nt()-1, B.nt()   },
+        { B.nt()-1, B.nt()   }
+    };
+
+    for (int device = 0; device < B.num_devices(); ++device) {
+        #pragma omp task shared(A, B) priority(priority)
+        {
+            for (int64_t i = 0; i < B.mt(); ++i)
+                for (int64_t j = 0; j < B.nt(); ++j)
+                    if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
+                        A.tileGetForReading(i, j, device);
+                        B.tileGetForWriting(i, j, device);
+                    }
+
+            scalar_t** a_array_host = B.a_array_host(device);
+            scalar_t** b_array_host = B.b_array_host(device);
+
+            int64_t batch_count = 0;
+            int64_t mb[4], nb[4], lda[4], ldb[4], group_count[4];
+            for (int q = 0; q < 4; ++q) {
+                group_count[q] = 0;
+                lda[q] = 0;
+                ldb[q] = 0;
+                mb[q] = B.tileMb(irange[q][0]);
+                nb[q] = B.tileNb(jrange[q][0]);
+                for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
+                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
+                        if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j))
+                        {
+                            a_array_host[batch_count] = A(i, j, device).data();
+                            b_array_host[batch_count] = B(i, j, device).data();
+                            lda[q] = A(i, j, device).stride();
+                            ldb[q] = B(i, j, device).stride();
+                            ++group_count[q];
+                            ++batch_count;
+                        }
+                    }
+                }
+            }
+
+            scalar_t** a_array_dev = B.a_array_device(device);
+            scalar_t** b_array_dev = B.b_array_device(device);
+
+            slate_cuda_call(cudaSetDevice(device));
+
+            cudaStream_t stream = B.compute_stream(device);
+            cublasHandle_t cublas_handle = B.cublas_handle(device);
+
+            slate_cuda_call(
+                cudaMemcpyAsync(a_array_dev, a_array_host,
+                                sizeof(scalar_t*)*batch_count,
+                                cudaMemcpyHostToDevice,
+                                stream));
+
+            slate_cuda_call(
+                cudaMemcpyAsync(b_array_dev, b_array_host,
+                                sizeof(scalar_t*)*batch_count,
+                                cudaMemcpyHostToDevice,
+                                stream));
+
+            for (int q = 0; q < 4; ++q) {
+                if (group_count[q] > 0) {
+                    device::geadd(mb[q], nb[q],
+                                  alpha, a_array_dev, lda[q],
+                                  beta, b_array_dev, ldb[q],
+                                  group_count[q], stream);
+                    a_array_dev += group_count[q];
+                    b_array_dev += group_count[q];
+                }
+            }
+
+            slate_cuda_call(cudaStreamSynchronize(stream));
+
+            for (int64_t i = 0; i < B.mt(); ++i) {
+                for (int64_t j = 0; j < B.nt(); ++j) {
+                    if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
+                        // erase tmp local and remote device tiles;
+                        A.tileRelease(i, j, device);
+                        // decrement life for remote tiles
+                        A.tileTick(i, j);
+                    }
+                }
+            }
+        }
+    }
+
+    #pragma omp taskwait
+}
+
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 // ----------------------------------------
 template
 void geadd<Target::HostTask, float>(
+    float alpha, Matrix<float>&& A,
+    float beta, Matrix<float>&& B,
+    int priority);
+
+template
+void geadd<Target::HostNest, float>(
+    float alpha, Matrix<float>&& A,
+    float beta, Matrix<float>&& B,
+    int priority);
+
+template
+void geadd<Target::HostBatch, float>(
+    float alpha, Matrix<float>&& A,
+    float beta, Matrix<float>&& B,
+    int priority);
+
+template
+void geadd<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
     float beta, Matrix<float>&& B,
     int priority);
@@ -114,6 +320,24 @@ void geadd<Target::HostTask, double>(
     double beta, Matrix<double>&& B,
     int priority);
 
+template
+void geadd<Target::HostNest, double>(
+    double alpha, Matrix<double>&& A,
+    double beta, Matrix<double>&& B,
+    int priority);
+
+template
+void geadd<Target::HostBatch, double>(
+    double alpha, Matrix<double>&& A,
+    double beta, Matrix<double>&& B,
+    int priority);
+
+template
+void geadd<Target::Devices, double>(
+    double alpha, Matrix<double>&& A,
+    double beta, Matrix<double>&& B,
+    int priority);
+
 // ----------------------------------------
 template
 void geadd< Target::HostTask, std::complex<float> >(
@@ -121,9 +345,45 @@ void geadd< Target::HostTask, std::complex<float> >(
     std::complex<float>  beta, Matrix< std::complex<float> >&& B,
     int priority);
 
+template
+void geadd< Target::HostNest, std::complex<float> >(
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+    std::complex<float>  beta, Matrix< std::complex<float> >&& B,
+    int priority);
+
+template
+void geadd< Target::HostBatch, std::complex<float> >(
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+    std::complex<float>  beta, Matrix< std::complex<float> >&& B,
+    int priority);
+
+template
+void geadd< Target::Devices, std::complex<float> >(
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+    std::complex<float>  beta, Matrix< std::complex<float> >&& B,
+    int priority);
+
 // ----------------------------------------
 template
 void geadd< Target::HostTask, std::complex<double> >(
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+    std::complex<double> beta, Matrix< std::complex<double> >&& B,
+    int priority);
+
+template
+void geadd< Target::HostNest, std::complex<double> >(
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+    std::complex<double> beta, Matrix< std::complex<double> >&& B,
+    int priority);
+
+template
+void geadd< Target::HostBatch, std::complex<double> >(
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+    std::complex<double> beta, Matrix< std::complex<double> >&& B,
+    int priority);
+
+template
+void geadd< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
     std::complex<double> beta, Matrix< std::complex<double> >&& B,
     int priority);

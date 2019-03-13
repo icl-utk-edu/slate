@@ -68,6 +68,14 @@ namespace device {
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
+void geadd(
+    int64_t m, int64_t n,
+    scalar_t alpha, scalar_t** Aarray, int64_t lda,
+    scalar_t beta, scalar_t** Barray, int64_t ldb,
+    int64_t batch_count, cudaStream_t stream);
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
 void genorm(
     lapack::Norm norm,
     int64_t m, int64_t n,

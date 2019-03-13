@@ -70,6 +70,18 @@ void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
+// geadd()
+template <typename scalar_t>
+void geadd(scalar_t alpha, Matrix<scalar_t>& A,
+           scalar_t beta,  Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void geadd(scalar_t alpha, Matrix<scalar_t>& A,
+           scalar_t beta,  Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
 // gemm()
 template <typename scalar_t>
 void gemm(scalar_t alpha, Matrix<scalar_t>& A,

@@ -356,6 +356,8 @@ void norm(
         devices_values.resize(A.num_devices() * 2);
     }
 
+    // TODO: Why are we doing this?
+    // Use the batch arrays in the matrix class.
     for (int device = 0; device < A.num_devices(); ++device) {
 
         slate_cuda_call(

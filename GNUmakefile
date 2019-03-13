@@ -245,6 +245,7 @@ libslate_src += \
 # device
 ifeq ($(cuda),1)
     libslate_src += \
+            src/cuda/device_geadd.cu \
             src/cuda/device_genorm.cu \
             src/cuda/device_henorm.cu \
             src/cuda/device_synorm.cu \
@@ -259,6 +260,7 @@ libslate_src += \
         src/gbsv.cc \
         src/gbtrf.cc \
         src/gbtrs.cc \
+        src/geadd.cc \
         src/gels.cc \
         src/gemm.cc \
         src/geqrf.cc \

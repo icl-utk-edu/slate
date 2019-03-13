@@ -85,6 +85,7 @@ norm(slate::internal::TargetType<target>,
         real_t local_max;
         real_t global_max;
 
+        // TODO: Allocate batch arrays here, not in internal.
         if (target == Target::Devices)
             A.reserveDeviceWorkspace();
 

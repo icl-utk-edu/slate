@@ -40,6 +40,7 @@
 #include "slate/slate.hh"
 #include "lapack_slate.hh"
 #include "blas_fortran.hh"
+#include "lapack_fortran.h"
 #include <complex>
 
 namespace slate {
@@ -54,29 +55,29 @@ void slate_getrf(const int m, const int n, scalar_t* a, const int lda, int* ipiv
 // -----------------------------------------------------------------------------
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
 
-#define slate_sgetrf BLAS_FORTRAN_NAME( slate_sgetrf, SLATE_SGETRF )
-#define slate_dgetrf BLAS_FORTRAN_NAME( slate_dgetrf, SLATE_DGETRF )
-#define slate_cgetrf BLAS_FORTRAN_NAME( slate_cgetrf, SLATE_CGETRF )
-#define slate_zgetrf BLAS_FORTRAN_NAME( slate_zgetrf, SLATE_ZGETRF )
+#define slate_sgetrf LAPACK_GLOBAL( slate_sgetrf, SLATE_SGETRF )
+#define slate_dgetrf LAPACK_GLOBAL( slate_dgetrf, SLATE_DGETRF )
+#define slate_cgetrf LAPACK_GLOBAL( slate_cgetrf, SLATE_CGETRF )
+#define slate_zgetrf LAPACK_GLOBAL( slate_zgetrf, SLATE_ZGETRF )
 
 extern "C" void slate_sgetrf(const int* m, const int* n, float* a, const int* lda, int* ipiv, int* info)
 {
-    return slate_getrf(*m, *n, a, *lda, ipiv, info);
+    slate_getrf(*m, *n, a, *lda, ipiv, info);
 }
 
 extern "C" void slate_dgetrf(const int* m, const int* n, double* a, const int* lda, int* ipiv, int* info)
 {
-    return slate_getrf(*m, *n, a, *lda, ipiv, info);
+    slate_getrf(*m, *n, a, *lda, ipiv, info);
 }
 
 extern "C" void slate_cgetrf(const int* m, const int* n, std::complex<float>* a, const int* lda, int* ipiv, int* info)
 {
-    return slate_getrf(*m, *n, a, *lda, ipiv, info);
+    slate_getrf(*m, *n, a, *lda, ipiv, info);
 }
 
 extern "C" void slate_zgetrf(const int* m, const int* n, std::complex<double>* a, const int* lda, int* ipiv, int* info)
 {
-    return slate_getrf(*m, *n, a, *lda, ipiv, info);
+    slate_getrf(*m, *n, a, *lda, ipiv, info);
 }
 
 // -----------------------------------------------------------------------------
@@ -85,31 +86,51 @@ extern "C" void slate_zgetrf(const int* m, const int* n, std::complex<double>* a
 template< typename scalar_t >
 void slate_getrf(const int m, const int n, scalar_t* a, const int lda, int* ipiv, int* info)
 {
+    using lld = long long int;
+
+    // Start timing
+    static int verbose = slate_lapack_set_verbose();
+    double timestart = 0.0;
+    if (verbose) timestart = omp_get_wtime();
+
     int initialized, provided;
     MPI_Initialized(&initialized);
     if (! initialized) MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided);
 
+    // Test the input parameters
+    *info = 0;
+    if (m < 0)
+        *info = -1;
+    else if (n < 0)
+        *info = -2;
+    else if (lda < std::max(1, m))
+        *info = -4;
+    if (*info != 0)
+        return;
+
+    // Quick return if possible
+    if (m == 0 || n == 0)
+        return;
+
     // todo: does this set the omp num threads correctly in all circumstances
     int saved_num_blas_threads = slate_lapack_set_num_blas_threads(1);
 
-    int64_t lookahead = 1;
-    int64_t panel_threads = slate_lapack_set_panelthreads();
-    int64_t ib = slate_lapack_set_ib();
     int64_t p = 1;
     int64_t q = 1;
+    int64_t lookahead = 1;
     static slate::Target target = slate_lapack_set_target();
-    static int verbose = slate_lapack_set_verbose();
-    static int64_t nb = slate_lapack_set_nb(target);
+    static int64_t panel_threads = slate_lapack_set_panelthreads();
 
-    // sizes of data
     int64_t Am = m;
     int64_t An = n;
+    static int64_t nb = slate_lapack_set_nb(target);
+    static int64_t ib = std::min({slate_lapack_set_ib(), nb});
     slate::Pivots pivots;
 
     // create SLATE matrices from the Lapack layouts
     auto A = slate::Matrix<scalar_t>::fromLAPACK(Am, An, a, lda, nb, p, q, MPI_COMM_WORLD);
 
-    if (verbose) logprintf("%s\n", "getrf");
+    // factorize using slate
     slate::getrf(A, pivots, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
@@ -117,21 +138,28 @@ void slate_getrf(const int m, const int n, scalar_t* a, const int lda, int* ipiv
         {slate::Option::InnerBlocking, ib}
     });
 
-    // Extract pivots from SLATE's Pivots structure into LAPACK ipiv array
+    // extract pivots from SLATE's Pivots structure into LAPACK ipiv array
     {
         int64_t p_count = 0;
+        int64_t t_iter_add = 0;
         for (auto t_iter = pivots.begin(); t_iter != pivots.end(); ++t_iter) {
             for (auto p_iter = t_iter->begin(); p_iter != t_iter->end(); ++p_iter) {
-                ipiv[p_count++] = p_iter->tileIndex() * nb + p_iter->elementOffset();
+                ipiv[p_count] = p_iter->tileIndex() * nb + p_iter->elementOffset() + 1 + t_iter_add;
+                p_count++;
             }
+            t_iter_add += nb;
         }
     }
 
     slate_lapack_set_num_blas_threads(saved_num_blas_threads);
 
-    // todo get a real value for info
+    // todo: get a real value for info
     *info = 0;
+
+    if (verbose) std::cout << "slate_lapack_api: " << slate_lapack_scalar_t_to_char(a) << "getrf(" <<  m << "," <<  n << "," << (void*)a << "," <<  lda << "," << (void*)ipiv << "," << *info << ") " << (omp_get_wtime()-timestart) << " sec " << "nb:" << nb << " max_threads:" << omp_get_max_threads() << "\n";
+
 }
 
 } // namespace lapack_api
 } // namespace slate
+

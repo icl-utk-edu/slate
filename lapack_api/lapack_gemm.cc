@@ -85,6 +85,11 @@ extern "C" void slate_zgemm(const char* transa, const char* transb, int* m, int*
 template< typename scalar_t >
 void slate_gemm(const char* transastr, const char* transbstr, int m, int n, int k, scalar_t alpha, scalar_t* a, int lda, scalar_t* b, int ldb, scalar_t beta, scalar_t* c, int ldc)
 {
+    // Start timing
+    static int verbose = slate_lapack_set_verbose();
+    double timestart = 0.0;
+    if (verbose) timestart = omp_get_wtime();
+
     // Need a dummy MPI_Init for SLATE to proceed
     int initialized, provided;
     MPI_Initialized(&initialized);
@@ -93,22 +98,21 @@ void slate_gemm(const char* transastr, const char* transbstr, int m, int n, int 
     // todo: does this set the omp num threads correctly in all circumstances
     int saved_num_blas_threads = slate_lapack_set_num_blas_threads(1);
 
-    blas::Op transA = blas::char2op(transastr[0]);
-    blas::Op transB = blas::char2op(transbstr[0]);
-    int64_t lookahead = 1;
     int64_t p = 1;
     int64_t q = 1;
+    int64_t lookahead = 1;
     static slate::Target target = slate_lapack_set_target();
-    static int verbose = slate_lapack_set_verbose();
-    static int64_t nb = slate_lapack_set_nb(target);
 
-    // sizes of A and B
+    // sizes
+    blas::Op transA = blas::char2op(transastr[0]);
+    blas::Op transB = blas::char2op(transbstr[0]);
     int64_t Am = (transA == blas::Op::NoTrans ? m : k);
     int64_t An = (transA == blas::Op::NoTrans ? k : m);
     int64_t Bm = (transB == blas::Op::NoTrans ? k : n);
     int64_t Bn = (transB == blas::Op::NoTrans ? n : k);
     int64_t Cm = m;
     int64_t Cn = n;
+    static int64_t nb = slate_lapack_set_nb(target);
 
     // create SLATE matrices from the Lapack layouts
     auto A = slate::Matrix<scalar_t>::fromLAPACK(Am, An, a, lda, nb, p, q, MPI_COMM_WORLD);
@@ -125,13 +129,15 @@ void slate_gemm(const char* transastr, const char* transbstr, int m, int n, int 
     else if (transB == blas::Op::ConjTrans)
         B = conj_transpose(B);
 
-    if (verbose) logprintf("%s\n", "gemm");
     slate::gemm(alpha, A, B, beta, C, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
 
     slate_lapack_set_num_blas_threads(saved_num_blas_threads);
+
+    if (verbose) std::cout << "slate_lapack_api: " << slate_lapack_scalar_t_to_char(a) << "gemm(" << transastr[0] << "," << transbstr[0] << "," <<  m << "," <<  n << "," <<  k << "," <<  alpha << "," << (void*)a << "," <<  lda << "," << (void*)b << "," << ldb << "," << beta << "," << (void*)c << "," << ldc << ") " << (omp_get_wtime()-timestart) << " sec " << "nb:" << nb << " max_threads:" << omp_get_max_threads() << "\n";
+
 }
 
 } // namespace lapack_api

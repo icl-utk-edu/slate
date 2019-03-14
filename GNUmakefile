@@ -504,7 +504,7 @@ scalapack_api_src += \
         scalapack_api/scalapack_syr2k.cc \
         scalapack_api/scalapack_syrk.cc \
         scalapack_api/scalapack_trmm.cc \
-	scalapack_api/scalapack_trsm.cc \
+        scalapack_api/scalapack_trsm.cc \
         scalapack_api/scalapack_getrs.cc \
         scalapack_api/scalapack_gesv.cc \
         scalapack_api/scalapack_lanhe.cc \
@@ -547,6 +547,10 @@ lapack_api_src += \
         lapack_api/lapack_syrk.cc \
         lapack_api/lapack_trmm.cc \
         lapack_api/lapack_trsm.cc \
+        lapack_api/lapack_slate.cc \
+        lapack_api/lapack_getrs.cc \
+        lapack_api/lapack_lanhe.cc \
+
 
 lapack_api_obj = $(addsuffix .o, $(basename $(lapack_api_src)))
 

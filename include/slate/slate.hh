@@ -53,6 +53,12 @@
 namespace slate {
 
 // -----------------------------------------------------------------------------
+// Auxiliary
+template <typename src_scalar_t, typename dst_scalar_t>
+void copy(Matrix<src_scalar_t>& A, Matrix<dst_scalar_t>& B,
+          const std::map<Option, Value>& opts);
+
+// -----------------------------------------------------------------------------
 // Level 3 BLAS
 
 //-----------------------------------------

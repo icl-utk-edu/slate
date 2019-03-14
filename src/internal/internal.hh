@@ -152,6 +152,15 @@ private:
 // trailing matrix. These operations can be mapped to batch BLAS.
 
 //------------------------------------------------------------------------------
+// Auxiliary
+
+template <Target target=Target::HostTask,
+          typename src_scalar_t, typename dst_scalar_t>
+void copy(Matrix<src_scalar_t>&& A,
+          Matrix<dst_scalar_t>&& B,
+          int priority=0);
+
+//------------------------------------------------------------------------------
 // Level 3 BLAS
 
 //-----------------------------------------

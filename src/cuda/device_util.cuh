@@ -175,6 +175,60 @@ inline cuDoubleComplex axpby(cuDoubleComplex alpha, cuDoubleComplex x,
     return cuCadd(cuCmul(alpha, x), cuCmul(beta, y));
 }
 
+//------------------------------------------------------------------------------
+/// Overloaded copy and precision conversion.
+__host__ __device__
+inline void copy(float a, float &b)
+{
+    b = a;
+}
+
+__host__ __device__
+inline void copy(float a, double &b)
+{
+    b = a;
+}
+
+__host__ __device__
+inline void copy(double a, double &b)
+{
+    b = a;
+}
+
+__host__ __device__
+inline void copy(double a, float &b)
+{
+    b = a;
+}
+
+__host__ __device__
+inline void copy(cuFloatComplex a, cuFloatComplex &b)
+{
+    b.x = a.x;
+    b.y = a.y;
+}
+
+__host__ __device__
+inline void copy(cuFloatComplex a, cuDoubleComplex &b)
+{
+    b.x = a.x;
+    b.y = a.y;
+}
+
+__host__ __device__
+inline void copy(cuDoubleComplex a, cuDoubleComplex &b)
+{
+    b.x = a.x;
+    b.y = a.y;
+}
+
+__host__ __device__
+inline void copy(cuDoubleComplex a, cuFloatComplex &b)
+{
+    b.x = a.x;
+    b.y = a.y;
+}
+
 ///-----------------------------------------------------------------------------
 /// Square of number.
 /// @return x^2

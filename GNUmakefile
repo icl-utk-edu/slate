@@ -211,11 +211,12 @@ libslate_src += \
         src/aux/Exception.cc \
         src/core/Memory.cc \
         src/aux/Trace.cc \
-        src/core/types.cc \
+        src/core/types.cc
 
 # internal
 libslate_src += \
         src/internal/internal_comm.cc \
+        src/internal/internal_copy.cc \
         src/internal/internal_gbnorm.cc \
         src/internal/internal_geadd.cc \
         src/internal/internal_gemm.cc \
@@ -240,22 +241,23 @@ libslate_src += \
         src/internal/internal_ttqrt.cc \
         src/internal/internal_unmqr.cc \
         src/internal/internal_util.cc \
-        src/internal/internal_transpose.cc \
+        src/internal/internal_transpose.cc
 
 # device
 ifeq ($(cuda),1)
     libslate_src += \
+            src/cuda/device_copy.cu \
             src/cuda/device_geadd.cu \
             src/cuda/device_genorm.cu \
             src/cuda/device_henorm.cu \
             src/cuda/device_synorm.cu \
             src/cuda/device_trnorm.cu \
             src/cuda/device_transpose.cu
-
 endif
 
 # driver
 libslate_src += \
+        src/copy.cc \
         src/gbmm.cc \
         src/gbsv.cc \
         src/gbtrf.cc \
@@ -283,7 +285,7 @@ libslate_src += \
         src/tbsm.cc \
         src/trmm.cc \
         src/trsm.cc \
-        src/unmqr.cc \
+        src/unmqr.cc
 
 # main tester
 test_src += \
@@ -309,7 +311,7 @@ test_src += \
         test/test_tbsm.cc \
         test/test_trmm.cc \
         test/test_trnorm.cc \
-        test/test_trsm.cc \
+        test/test_trsm.cc
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
 # Note that 'make' sets $(FC) to f77 by default.
@@ -511,8 +513,7 @@ scalapack_api_src += \
         scalapack_api/scalapack_gesv.cc \
         scalapack_api/scalapack_lanhe.cc \
         scalapack_api/scalapack_posv.cc \
-        scalapack_api/scalapack_gels.cc \
-
+        scalapack_api/scalapack_gels.cc
 
 scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
 
@@ -548,7 +549,7 @@ lapack_api_src += \
         lapack_api/lapack_syr2k.cc \
         lapack_api/lapack_syrk.cc \
         lapack_api/lapack_trmm.cc \
-        lapack_api/lapack_trsm.cc \
+        lapack_api/lapack_trsm.cc
 
 lapack_api_obj = $(addsuffix .o, $(basename $(lapack_api_src)))
 

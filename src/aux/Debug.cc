@@ -67,13 +67,13 @@ void Debug::diffLapackMatrices(int64_t m, int64_t n,
     if (! debug_) return;
     for (int64_t i = 0; i < m; ++i) {
 
-        // if (i%mb == 2)
-        //     i += mb-4;
+        if (i%mb == 2)
+            i += mb-4;
 
         for (int64_t j = 0; j < n; ++j) {
 
-            // if (j%nb == 2)
-            //     j += nb-4;
+            if (j%nb == 2)
+                j += nb-4;
 
             real_t error = std::abs(A[(size_t)lda*j+i] - B[(size_t)ldb*j+i])
                          / std::abs(A[(size_t)lda*j+i]);

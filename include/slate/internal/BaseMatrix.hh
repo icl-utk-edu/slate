@@ -925,8 +925,7 @@ TileEntry<scalar_t>& BaseMatrix<scalar_t>::tileInsertWorkspace(
     int64_t i, int64_t j, int device)
 {
     auto index = globalIndex(i, j, device);
-    auto tileEntry = storage_->tileInsert(index, TileKind::Workspace);
-    return tileEntry;
+    return storage_->tileInsert(index, TileKind::Workspace);
 }
 
 //------------------------------------------------------------------------------

@@ -346,9 +346,11 @@ void norm(
         devices_values.resize(A.num_devices());
     }
     else if (in_norm == Norm::One) {
+        // todo: this assumes all tiles with uniform nb
         ldv = A.tileNb(0);
     }
     else if (in_norm == Norm::Inf) {
+        // todo: this assumes all tiles with uniform mb
         ldv = A.tileMb(0);
     }
     else if (in_norm == Norm::Fro) {

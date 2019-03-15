@@ -90,6 +90,9 @@ public:
 
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
 
+    template <typename out_scalar_t=scalar_t>
+    HermitianMatrix<out_scalar_t> emptyLike();
+
 protected:
     // used by fromLAPACK
     HermitianMatrix(Uplo uplo, int64_t n,
@@ -421,6 +424,36 @@ void swap(HermitianMatrix<scalar_t>& A, HermitianMatrix<scalar_t>& B)
     using std::swap;
     swap(static_cast< BaseTrapezoidMatrix<scalar_t>& >(A),
          static_cast< BaseTrapezoidMatrix<scalar_t>& >(B));
+}
+
+//------------------------------------------------------------------------------
+/// Named constructor returns a new, empty Matrix with the same structure
+/// (size and distribution) as this matrix. Tiles are not allocated.
+///
+template <typename scalar_t>
+template <typename out_scalar_t>
+HermitianMatrix<out_scalar_t> HermitianMatrix<scalar_t>::emptyLike()
+{
+    // First create parent matrix, apply op, then return sub-matrix.
+    // TODO: currently assumes 2DBC and fixed mb == nb.
+    int64_t nb = std::max(this->tileMb(0), this->tileNb(0));
+    assert(nb == this->tileMb(0) || this->m() == this->tileMb(0));
+    assert(nb == this->tileNb(0) || this->n() == this->tileNb(0));
+    int64_t ioffset = this->ioffset();
+    int64_t joffset = this->joffset();
+    assert(ioffset == joffset);
+    int64_t n = joffset*nb;
+    int p = this->storage_->p();
+    int q = this->storage_->q();
+    auto B = HermitianMatrix<out_scalar_t>(
+                            this->uplo(), n, nb, p, q, this->mpiComm());
+    if (this->op() == Op::Trans) {
+        B = transpose( B );
+    }
+    else if (this->op() == Op::ConjTrans) {
+        B = conj_transpose( B );
+    }
+    return B.sub(ioffset, ioffset + this->nt() - 1);
 }
 
 } // namespace slate

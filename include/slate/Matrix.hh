@@ -81,7 +81,8 @@ public:
                        scalar_t** Aarray, int num_devices, int64_t lda,
                        int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
-    Matrix emptyLike();
+    template <typename out_scalar_t=scalar_t>
+    Matrix<out_scalar_t> emptyLike();
 
     // conversion sub-matrix
     Matrix(BaseMatrix<scalar_t>& orig,
@@ -312,7 +313,8 @@ Matrix<scalar_t> Matrix<scalar_t>::fromDevices(
 /// (size and distribution) as this matrix. Tiles are not allocated.
 ///
 template <typename scalar_t>
-Matrix<scalar_t> Matrix<scalar_t>::emptyLike()
+template <typename out_scalar_t>
+Matrix<out_scalar_t> Matrix<scalar_t>::emptyLike()
 {
     // First create parent matrix, apply op, then return sub-matrix.
     // TODO: currently assumes 2DBC and fixed mb == nb.
@@ -333,7 +335,7 @@ Matrix<scalar_t> Matrix<scalar_t>::emptyLike()
     }
     int p = this->storage_->p();
     int q = this->storage_->q();
-    auto B = Matrix<scalar_t>(m, n, nb, p, q, this->mpiComm());
+    auto B = Matrix<out_scalar_t>(m, n, nb, p, q, this->mpiComm());
     if (this->op() == Op::Trans) {
         B = transpose( B );
         std::swap(ioffset, joffset);

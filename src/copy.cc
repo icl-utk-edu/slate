@@ -55,9 +55,9 @@ namespace specialization {
 /// Copy and precision conversion.
 /// Generic implementation for any target.
 /// @ingroup copy
-template <Target target, typename src_scalar_t, typename dst_scalar_t>
+template <Target target, typename src_matrix_type, typename dst_matrix_type>
 void copy(slate::internal::TargetType<target>,
-          Matrix<src_scalar_t>& A, Matrix<dst_scalar_t>& B,
+          src_matrix_type A, dst_matrix_type B,
           int64_t lookahead)
 {
     using namespace blas;
@@ -86,8 +86,8 @@ void copy(slate::internal::TargetType<target>,
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
 /// @ingroup copy
-template <Target target, typename src_scalar_t, typename dst_scalar_t>
-void copy(Matrix<src_scalar_t>& A, Matrix<dst_scalar_t>& B,
+template <Target target, typename src_matrix_type, typename dst_matrix_type>
+void copy(src_matrix_type& A, dst_matrix_type& B,
           const std::map<Option, Value>& opts)
 {
     int64_t lookahead;
@@ -105,26 +105,23 @@ void copy(Matrix<src_scalar_t>& A, Matrix<dst_scalar_t>& B,
 }
 
 //------------------------------------------------------------------------------
-/// Cooy and precision conversion.
+/// Copy and precision conversion.
 /// Assuming the same distribution of source and destination.
 /// Transposition is currently ignored.
 /// TODO: Inspect transposition?
-///
 //------------------------------------------------------------------------------
-/// @tparam src_scalar_t
-///         Type of the source matrix.
-///         One of float, double, std::complex<float>, std::complex<double>.
+/// @tparam src_matrix_type
+///     Source matrix type: Matrix, HermitianMatrix.
 ///
-/// @tparam dst_scalar_t
-///         Type of the destination matrix.
-///         One of float, double, std::complex<float>, std::complex<double>.
+/// @tparam dst_matrix_type
+///     Destination matrix type: Matrix, HermitianMatrix.
 //------------------------------------------------------------------------------
 /// @param[in] A
 ///         The m-by-n matrix A.
 ///
 /// @param[in,out] B
 ///         On entry, the m-by-n matrix B.
-///         On exit, overwritten by dst_scalar_t(A).
+///         On exit, overwritten by dst_matrix_type(A).
 ///
 /// @param[in] opts
 ///         Additional options, as map of name = value pairs. Possible options:
@@ -139,8 +136,8 @@ void copy(Matrix<src_scalar_t>& A, Matrix<dst_scalar_t>& B,
 ///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup copy
-template <typename src_scalar_t, typename dst_scalar_t>
-void copy(Matrix<src_scalar_t>& A, Matrix<dst_scalar_t>& B,
+template <typename src_matrix_type, typename dst_matrix_type>
+void copy(src_matrix_type& A, dst_matrix_type& B,
           const std::map<Option, Value>& opts)
 {
     Target target;
@@ -171,42 +168,42 @@ void copy(Matrix<src_scalar_t>& A, Matrix<dst_scalar_t>& B,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void copy<float, float>(
+void copy(
     Matrix<float>& A, Matrix<float>& B,
     const std::map<Option, Value>& opts);
 
 template
-void copy<float, double>(
+void copy(
     Matrix<float>& A, Matrix<double>& B,
     const std::map<Option, Value>& opts);
 
 template
-void copy<double, float>(
+void copy(
     Matrix<double>& A, Matrix<float>& B,
     const std::map<Option, Value>& opts);
 
 template
-void copy<double, double>(
+void copy(
     Matrix<double>& A, Matrix<double>& B,
     const std::map<Option, Value>& opts);
 
 template
-void copy<std::complex<float>, std::complex<float> >(
+void copy(
     Matrix<std::complex<float> >& A, Matrix<std::complex<float> >& B,
     const std::map<Option, Value>& opts);
 
 template
-void copy<std::complex<float>, std::complex<double> >(
+void copy(
     Matrix<std::complex<float> >& A, Matrix<std::complex<double> >& B,
     const std::map<Option, Value>& opts);
 
 template
-void copy<std::complex<double>, std::complex<float> >(
+void copy(
     Matrix<std::complex<double> >& A, Matrix<std::complex<float> >& B,
     const std::map<Option, Value>& opts);
 
 template
-void copy<std::complex<double>, std::complex<double> >(
+void copy(
     Matrix<std::complex<double> >& A, Matrix<std::complex<double> >& B,
     const std::map<Option, Value>& opts);
 

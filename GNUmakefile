@@ -216,7 +216,7 @@ libslate_src += \
 # internal
 libslate_src += \
         src/internal/internal_comm.cc \
-        src/internal/internal_copy.cc \
+        src/internal/internal_gecopy.cc \
         src/internal/internal_gbnorm.cc \
         src/internal/internal_geadd.cc \
         src/internal/internal_gemm.cc \

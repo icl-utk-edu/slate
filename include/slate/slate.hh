@@ -54,8 +54,8 @@ namespace slate {
 
 // -----------------------------------------------------------------------------
 // Auxiliary
-template <typename src_scalar_t, typename dst_scalar_t>
-void copy(Matrix<src_scalar_t>& A, Matrix<dst_scalar_t>& B,
+template <typename src_matrix_type, typename dst_matrix_type>
+void copy(src_matrix_type& A, dst_matrix_type& B,
           const std::map<Option, Value>& opts);
 
 // -----------------------------------------------------------------------------

@@ -211,12 +211,13 @@ libslate_src += \
         src/aux/Exception.cc \
         src/core/Memory.cc \
         src/aux/Trace.cc \
-        src/core/types.cc
+        src/core/types.cc \
 
 # internal
 libslate_src += \
         src/internal/internal_comm.cc \
         src/internal/internal_gecopy.cc \
+        src/internal/internal_tzcopy.cc \
         src/internal/internal_gbnorm.cc \
         src/internal/internal_geadd.cc \
         src/internal/internal_gemm.cc \
@@ -241,18 +242,20 @@ libslate_src += \
         src/internal/internal_ttqrt.cc \
         src/internal/internal_unmqr.cc \
         src/internal/internal_util.cc \
-        src/internal/internal_transpose.cc
+        src/internal/internal_transpose.cc \
 
 # device
 ifeq ($(cuda),1)
     libslate_src += \
-            src/cuda/device_copy.cu \
             src/cuda/device_geadd.cu \
+            src/cuda/device_gecopy.cu \
+            src/cuda/device_tzcopy.cu \
             src/cuda/device_genorm.cu \
             src/cuda/device_henorm.cu \
             src/cuda/device_synorm.cu \
             src/cuda/device_trnorm.cu \
-            src/cuda/device_transpose.cu
+            src/cuda/device_transpose.cu \
+
 endif
 
 # driver
@@ -285,7 +288,7 @@ libslate_src += \
         src/tbsm.cc \
         src/trmm.cc \
         src/trsm.cc \
-        src/unmqr.cc
+        src/unmqr.cc \
 
 # main tester
 test_src += \
@@ -311,7 +314,7 @@ test_src += \
         test/test_tbsm.cc \
         test/test_trmm.cc \
         test/test_trnorm.cc \
-        test/test_trsm.cc
+        test/test_trsm.cc \
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
 # Note that 'make' sets $(FC) to f77 by default.
@@ -329,7 +332,8 @@ ifneq ($(FORTRAN),)
         test/pslantr.f \
         test/pdlantr.f \
         test/pclantr.f \
-        test/pzlantr.f
+        test/pzlantr.f \
+
 endif
 
 # unit testers

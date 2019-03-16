@@ -160,6 +160,12 @@ void copy(Matrix<src_scalar_t>&& A,
           Matrix<dst_scalar_t>&& B,
           int priority=0);
 
+template <Target target=Target::HostTask,
+          typename src_scalar_t, typename dst_scalar_t>
+void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
+          BaseTrapezoidMatrix<dst_scalar_t>&& B,
+          int priority=0);
+
 //------------------------------------------------------------------------------
 // Level 3 BLAS
 

@@ -50,7 +50,7 @@ namespace device {
 /// Kernel implementing copy and precision conversions.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row.
-/// Launched by copy().
+/// Launched by gecopy().
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 1.
@@ -75,7 +75,7 @@ namespace device {
 ///     Leading dimension of each tile in Btiles. ldb >= m.
 ///
 template <typename src_scalar_t, typename dst_scalar_t>
-__global__ void copyKernel(
+__global__ void gecopyKernel(
     int64_t m, int64_t n,
     src_scalar_t** tilesA, int64_t lda,
     dst_scalar_t** tilesB, int64_t ldb)
@@ -121,7 +121,7 @@ __global__ void copyKernel(
 ///     CUDA stream to execute in.
 ///
 template <typename src_scalar_t, typename dst_scalar_t>
-void copy(
+void gecopy(
     int64_t m, int64_t n,
     src_scalar_t** Aarray, int64_t lda,
     dst_scalar_t** Barray, int64_t ldb,
@@ -131,10 +131,10 @@ void copy(
     if (batch_count == 0)
         return;
 
-    copyKernel<<<batch_count, m, 0, stream>>>(
-        m, n,
-        Aarray, lda,
-        Barray, ldb);
+    gecopyKernel<<<batch_count, m, 0, stream>>>(
+          m, n,
+          Aarray, lda,
+          Barray, ldb);
 
     // check that launch succeeded (could still have async errors)
     cudaError_t error = cudaGetLastError();
@@ -146,56 +146,56 @@ void copy(
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void copy(
+void gecopy(
     int64_t m, int64_t n,
     float** Aarray, int64_t lda,
     float** Barray, int64_t ldb,
     int64_t batch_count, cudaStream_t stream);
 
 template
-void copy(
+void gecopy(
     int64_t m, int64_t n,
     float** Aarray, int64_t lda,
     double** Barray, int64_t ldb,
     int64_t batch_count, cudaStream_t stream);
 
 template
-void copy(
+void gecopy(
     int64_t m, int64_t n,
     double** Aarray, int64_t lda,
     double** Barray, int64_t ldb,
     int64_t batch_count, cudaStream_t stream);
 
 template
-void copy(
+void gecopy(
     int64_t m, int64_t n,
     double** Aarray, int64_t lda,
     float** Barray, int64_t ldb,
     int64_t batch_count, cudaStream_t stream);
 
 template
-void copy(
+void gecopy(
     int64_t m, int64_t n,
     cuFloatComplex** Aarray, int64_t lda,
     cuFloatComplex** Barray, int64_t ldb,
     int64_t batch_count, cudaStream_t stream);
 
 template
-void copy(
+void gecopy(
     int64_t m, int64_t n,
     cuFloatComplex** Aarray, int64_t lda,
     cuDoubleComplex** Barray, int64_t ldb,
     int64_t batch_count, cudaStream_t stream);
 
 template
-void copy(
+void gecopy(
     int64_t m, int64_t n,
     cuDoubleComplex** Aarray, int64_t lda,
     cuDoubleComplex** Barray, int64_t ldb,
     int64_t batch_count, cudaStream_t stream);
 
 template
-void copy(
+void gecopy(
     int64_t m, int64_t n,
     cuDoubleComplex** Aarray, int64_t lda,
     cuFloatComplex** Barray, int64_t ldb,

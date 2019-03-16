@@ -68,7 +68,16 @@ namespace device {
 
 //------------------------------------------------------------------------------
 template <typename src_scalar_t, typename dst_scalar_t>
-void copy(
+void gecopy(
+    int64_t m, int64_t n,
+    src_scalar_t** Aarray, int64_t lda,
+    dst_scalar_t** Barray, int64_t ldb,
+    int64_t batch_count, cudaStream_t stream);
+
+//------------------------------------------------------------------------------
+template <typename src_scalar_t, typename dst_scalar_t>
+void tzcopy(
+    lapack::Uplo uplo,
     int64_t m, int64_t n,
     src_scalar_t** Aarray, int64_t lda,
     dst_scalar_t** Barray, int64_t ldb,

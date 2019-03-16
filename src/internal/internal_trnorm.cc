@@ -479,6 +479,7 @@ void norm(
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     if (A.tileIsLocal(i, j) &&
                         device == A.tileDevice(i, j) &&
+                        // TODO: Aren't we missing diagonal tiles here?
                         ( (A.uplo() == Uplo::Lower && i > j) ||
                           (A.uplo() == Uplo::Upper && i < j) ))
                     {

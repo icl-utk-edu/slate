@@ -49,62 +49,62 @@ namespace slate {
 namespace device {
 
 template <>
-void copy(
+void gecopy(
     int64_t m, int64_t n,
     std::complex<float>** Aarray, int64_t lda,
     std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, cudaStream_t stream)
 {
 #if !defined(SLATE_NO_CUDA)
-    copy(m, n,
-         (cuFloatComplex**) Aarray, lda,
-         (cuFloatComplex**) Barray, ldb,
-         batch_count, stream);
+    gecopy(m, n,
+           (cuFloatComplex**) Aarray, lda,
+           (cuFloatComplex**) Barray, ldb,
+           batch_count, stream);
 #endif
 }
 
 template <>
-void copy(
+void gecopy(
     int64_t m, int64_t n,
     std::complex<float>** Aarray, int64_t lda,
     std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, cudaStream_t stream)
 {
 #if !defined(SLATE_NO_CUDA)
-    copy(m, n,
-         (cuFloatComplex**) Aarray, lda,
-         (cuDoubleComplex**) Barray, ldb,
-         batch_count, stream);
+    gecopy(m, n,
+           (cuFloatComplex**) Aarray, lda,
+           (cuDoubleComplex**) Barray, ldb,
+           batch_count, stream);
 #endif
 }
 
 template <>
-void copy(
+void gecopy(
     int64_t m, int64_t n,
     std::complex<double>** Aarray, int64_t lda,
     std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, cudaStream_t stream)
 {
 #if !defined(SLATE_NO_CUDA)
-    copy(m, n,
-         (cuDoubleComplex**) Aarray, lda,
-         (cuDoubleComplex**) Barray, ldb,
-         batch_count, stream);
+    gecopy(m, n,
+           (cuDoubleComplex**) Aarray, lda,
+           (cuDoubleComplex**) Barray, ldb,
+           batch_count, stream);
 #endif
 }
 
 template <>
-void copy(
+void gecopy(
     int64_t m, int64_t n,
     std::complex<double>** Aarray, int64_t lda,
     std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, cudaStream_t stream)
 {
 #if !defined(SLATE_NO_CUDA)
-    copy(m, n,
-         (cuDoubleComplex**) Aarray, lda,
-         (cuFloatComplex**) Barray, ldb,
-         batch_count, stream);
+    gecopy(m, n,
+           (cuDoubleComplex**) Aarray, lda,
+           (cuFloatComplex**) Barray, ldb,
+           batch_count, stream);
 #endif
 }
 
@@ -112,7 +112,7 @@ void copy(
 #if defined(SLATE_NO_CUDA)
 // Specializations to allow compilation without CUDA.
 template <>
-void copy(
+void gecopy(
     int64_t m, int64_t n,
     double** Aarray, int64_t lda,
     double** Barray, int64_t ldb,
@@ -121,7 +121,7 @@ void copy(
 }
 
 template <>
-void copy(
+void gecopy(
     int64_t m, int64_t n,
     double** Aarray, int64_t lda,
     float** Barray, int64_t ldb,
@@ -130,7 +130,7 @@ void copy(
 }
 
 template <>
-void copy(
+void gecopy(
     int64_t m, int64_t n,
     float** Aarray, int64_t lda,
     float** Barray, int64_t ldb,
@@ -138,7 +138,7 @@ void copy(
 {
 }
 template <>
-void copy(
+void gecopy(
     int64_t m, int64_t n,
     float** Aarray, int64_t lda,
     double** Barray, int64_t ldb,
@@ -161,8 +161,8 @@ void copy(Matrix<src_scalar_t>&& A,
           int priority)
 {
     copy(internal::TargetType<target>(),
-            A, B,
-            priority);
+         A, B,
+         priority);
 }
 
 ///-----------------------------------------------------------------------------
@@ -191,7 +191,7 @@ void copy(internal::TargetType<Target::HostTask>,
                 {
                     A.tileGetForReading(i, j);
                     B.tileGetForWriting(i, j);
-                    copy(A(i, j), B(i, j));
+                    gecopy(A(i, j), B(i, j));
                     A.tileTick(i, j);// TODO is this correct here?
                 }
             }
@@ -289,10 +289,10 @@ void copy(internal::TargetType<Target::Devices>,
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
-                    device::copy(mb[q], nb[q],
-                                 a_array_dev, lda[q],
-                                 b_array_dev, ldb[q],
-                                 group_count[q], stream);
+                    device::gecopy(mb[q], nb[q],
+                                   a_array_dev, lda[q],
+                                   b_array_dev, ldb[q],
+                                   group_count[q], stream);
                     a_array_dev += group_count[q];
                     b_array_dev += group_count[q];
                 }

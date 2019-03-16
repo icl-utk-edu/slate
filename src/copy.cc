@@ -169,42 +169,99 @@ void copy(src_matrix_type& A, dst_matrix_type& B,
 // Explicit instantiations.
 template
 void copy(
-    Matrix<float>& A, Matrix<float>& B,
+    Matrix<float>& A,
+    Matrix<float>& B,
     const std::map<Option, Value>& opts);
 
 template
 void copy(
-    Matrix<float>& A, Matrix<double>& B,
+    Matrix<float>& A,
+    Matrix<double>& B,
     const std::map<Option, Value>& opts);
 
 template
 void copy(
-    Matrix<double>& A, Matrix<float>& B,
+    Matrix<double>& A,
+    Matrix<float>& B,
     const std::map<Option, Value>& opts);
 
 template
 void copy(
-    Matrix<double>& A, Matrix<double>& B,
+    Matrix<double>& A,
+    Matrix<double>& B,
     const std::map<Option, Value>& opts);
 
 template
 void copy(
-    Matrix<std::complex<float> >& A, Matrix<std::complex<float> >& B,
+    Matrix<std::complex<float> >& A,
+    Matrix<std::complex<float> >& B,
     const std::map<Option, Value>& opts);
 
 template
 void copy(
-    Matrix<std::complex<float> >& A, Matrix<std::complex<double> >& B,
+    Matrix<std::complex<float> >& A,
+    Matrix<std::complex<double> >& B,
     const std::map<Option, Value>& opts);
 
 template
 void copy(
-    Matrix<std::complex<double> >& A, Matrix<std::complex<float> >& B,
+    Matrix<std::complex<double> >& A,
+    Matrix<std::complex<float> >& B,
     const std::map<Option, Value>& opts);
 
 template
 void copy(
-    Matrix<std::complex<double> >& A, Matrix<std::complex<double> >& B,
+    Matrix<std::complex<double> >& A,
+    Matrix<std::complex<double> >& B,
+    const std::map<Option, Value>& opts);
+
+//---------------------------------------
+template
+void copy(
+    BaseTrapezoidMatrix<float>& A,
+    BaseTrapezoidMatrix<float>& B,
+    const std::map<Option, Value>& opts);
+
+template
+void copy(
+    BaseTrapezoidMatrix<float>& A,
+    BaseTrapezoidMatrix<double>& B,
+    const std::map<Option, Value>& opts);
+
+template
+void copy(
+    BaseTrapezoidMatrix<double>& A,
+    BaseTrapezoidMatrix<float>& B,
+    const std::map<Option, Value>& opts);
+
+template
+void copy(
+    BaseTrapezoidMatrix<double>& A,
+    BaseTrapezoidMatrix<double>& B,
+    const std::map<Option, Value>& opts);
+
+template
+void copy(
+    BaseTrapezoidMatrix<std::complex<float> >& A,
+    BaseTrapezoidMatrix<std::complex<float> >& B,
+    const std::map<Option, Value>& opts);
+
+template
+void copy(
+    BaseTrapezoidMatrix<std::complex<float> >& A,
+    BaseTrapezoidMatrix<std::complex<double> >& B,
+    const std::map<Option, Value>& opts);
+
+template
+void copy(
+    BaseTrapezoidMatrix<std::complex<double> >& A,
+    BaseTrapezoidMatrix<std::complex<float> >& B,
+    const std::map<Option, Value>& opts);
+
+template
+void copy(
+    BaseTrapezoidMatrix<std::complex<double> >& A,
+    BaseTrapezoidMatrix<std::complex<double> >& B,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

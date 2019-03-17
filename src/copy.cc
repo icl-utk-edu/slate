@@ -67,6 +67,7 @@ void copy(slate::internal::TargetType<target>,
     if (target == Target::Devices) {
         A.allocateBatchArrays();
         B.allocateBatchArrays();
+        // todo: is this needed here when the matrix is already on devices?
         B.reserveDeviceWorkspace();
     }
 

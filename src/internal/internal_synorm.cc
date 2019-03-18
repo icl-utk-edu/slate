@@ -488,8 +488,8 @@ void norm(
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     if (A.tileIsLocal(i, j) &&
                         device == A.tileDevice(i, j) &&
-                        ( (A.uplo() == Uplo::Lower && i > j) ||
-                          (A.uplo() == Uplo::Upper && i < j) ))
+                        ( (A.uplo() == Uplo::Lower && i >= j) ||
+                          (A.uplo() == Uplo::Upper && i <= j) ))
                     {
                         A.tileGetForReading(i, j, device);
                         // todo: should tileRelease() after?

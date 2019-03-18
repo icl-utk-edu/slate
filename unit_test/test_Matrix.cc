@@ -204,7 +204,7 @@ void test_Matrix_emptyLike()
     test_assert(A.nt() == ntiles);
     test_assert(A.op() == blas::Op::NoTrans);
 
-    auto B = A.emptyLike();
+    auto B = A.template emptyLike<float>();
 
     test_assert(B.m() == A.m());
     test_assert(B.n() == A.n());

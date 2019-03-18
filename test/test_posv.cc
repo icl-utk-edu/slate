@@ -12,6 +12,27 @@
 #include <cstdlib>
 #include <utility>
 
+
+template <typename T>
+struct is_double:
+    std::integral_constant<bool, true>
+{};
+
+template <>
+struct is_double<float>:
+    std::integral_constant<bool, false>
+{};
+
+template <>
+struct is_double<std::complex<double>>:
+    std::integral_constant<bool, true>
+{};
+
+template <>
+struct is_double<std::complex<float>>:
+    std::integral_constant<bool, false>
+{};
+
 //------------------------------------------------------------------------------
 template <typename scalar_t> void test_posv_work(Params& params, bool run)
 {
@@ -37,6 +58,10 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
     params.gflops();
     params.ref_time();
     params.ref_gflops();
+
+    if (params.routine == "posvmixed"){
+        params.iters();
+    }
 
     if (! run)
         return;
@@ -80,6 +105,18 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
     auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
 
+    slate::Matrix<scalar_t> X;
+    std::vector<scalar_t> X_tst;
+    if (params.routine == "posvmixed"){
+        if (is_double<scalar_t>::value){
+            X_tst.resize(lldB*nlocB);
+            X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+        }
+        else {
+            assert("Unsupported mixed precision");
+        }
+    }
+
     // if check is required, copy test data and create a descriptor for it
     std::vector<scalar_t> A_ref;
     std::vector<scalar_t> B_ref;
@@ -96,6 +133,8 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
         if (check && ref)
             B_orig = B_tst;
     }
+
+    int iters;
 
     double gflop;
     if (params.routine == "potrf")
@@ -142,11 +181,21 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
                 {slate::Option::Target, target}
             });
         }
-        else {
+        else if (params.routine == "posv") {
             slate::posv(A, B, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
+        }
+        else if (params.routine == "posvmixed") {
+            if (is_double<scalar_t>::value){
+                slate::posvMixed(A, B, X, iters, {
+                    {slate::Option::Lookahead, lookahead},
+                    {slate::Option::Target, target}
+                });
+            }
+        } else {
+            assert("Unknown routine!");
         }
 
         {
@@ -156,6 +205,10 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
         double time_tst = libtest::get_wtime() - time;
 
         if (trace) slate::trace::Trace::finish();
+
+        if (params.routine == "posvmixed") {
+            params.iters() = iters;
+        }
 
         // compute and save timing/performance
         params.time() = time_tst;
@@ -191,13 +244,26 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
         real_t X_norm = scalapack_plange("1", n, nrhs, &B_tst[0], ione, ione, descB_tst, &worklangeB[0]);
 
         // B_ref -= Aref*B_tst
-        scalapack_psymm("left", uplo2str(uplo),
-                        n, nrhs,
-                        scalar_t(-1.0),
-                        &A_ref[0], ione, ione, descA_ref,
-                        &B_tst[0], ione, ione, descB_tst,
-                        scalar_t(1.0),
-                        &B_ref[0], ione, ione, descB_ref);
+        if (params.routine == "posvmixed") {
+            if (is_double<scalar_t>::value){
+                scalapack_psymm("left", uplo2str(uplo),
+                                n, nrhs,
+                                scalar_t(-1.0),
+                                &A_ref[0], ione, ione, descA_ref,
+                                &X_tst[0], ione, ione, descB_tst,
+                                scalar_t(1.0),
+                                &B_ref[0], ione, ione, descB_ref);
+            }
+        }
+        else {
+            scalapack_psymm("left", uplo2str(uplo),
+                            n, nrhs,
+                            scalar_t(-1.0),
+                            &A_ref[0], ione, ione, descA_ref,
+                            &B_tst[0], ione, ione, descB_tst,
+                            scalar_t(1.0),
+                            &B_ref[0], ione, ione, descB_ref);
+        }
 
         // Norm of residual: || B - AX ||_1
         real_t R_norm = scalapack_plange("1", n, nrhs, &B_ref[0], ione, ione, descB_ref, &worklangeB[0]);

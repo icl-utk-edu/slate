@@ -456,6 +456,21 @@ void posv(SymmetricMatrix<scalar_t>& A, Matrix<scalar_t>& B,
     posv(AH, B, opts);
 }
 
+template <typename scalar_t>
+void posvMixed( HermitianMatrix<scalar_t>& A,
+                Matrix<scalar_t>& B,
+                Matrix<scalar_t>& X,
+                int& iter,
+                const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <typename scalar_hi, typename scalar_lo>
+void posvMixed( HermitianMatrix<scalar_hi>& A,
+                Matrix<scalar_hi>& B,
+                Matrix<scalar_hi>& X,
+                int& iter,
+                const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
 // potrf
 template <typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>& A,

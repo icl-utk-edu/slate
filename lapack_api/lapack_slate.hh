@@ -43,18 +43,27 @@
 #include "slate/slate.hh"
 #include <complex>
 
+#ifdef SLATE_WITH_MKL
+    extern "C" int MKL_Set_Num_Threads(int nt);
+#endif
+
 namespace slate {
 namespace lapack_api {
 
-#ifdef SLATE_WITH_MKL
-extern "C" int MKL_Set_Num_Threads(int nt);
-inline int slate_lapack_set_num_blas_threads(const int nt) { return MKL_Set_Num_Threads(nt); }
-#else
-inline int slate_lapack_set_num_blas_threads(const int nt) { return 1; }
-#endif
-
 #define logprintf(fmt, ...)                                             \
-    do { fprintf(stderr, "%s:%d %s(): " fmt, __FILE__, __LINE__, __func__, __VA_ARGS__); } while (0)
+    do { fprintf(stdout, "slate_lapack_api: " fmt, __VA_ARGS__); } while (0)
+
+//    do { fprintf(stdout, "%s:%d %s(): " fmt, __FILE__, __LINE__, __func__, __VA_ARGS__); } while (0)
+
+inline int slate_lapack_set_num_blas_threads(const int nt)
+{
+    #ifdef SLATE_WITH_MKL
+    return MKL_Set_Num_Threads(nt);
+    #endif
+    return 1;
+}
+
+template< typename scalar_t > char slate_lapack_scalar_t_to_char(scalar_t* a);
 
 inline slate::Target slate_lapack_set_target()
 {
@@ -79,18 +88,20 @@ inline slate::Target slate_lapack_set_target()
 inline int64_t slate_lapack_set_panelthreads()
 {
     int64_t max_panel_threads = 1;
-    char *thrstr = std::getenv("SLATE_LAPACK_PANELTHREADS");
+    int max_omp_threads = 1;
+    char* thrstr = std::getenv("SLATE_LAPACK_PANELTHREADS");
     if (thrstr) {
         max_panel_threads = (int64_t)strtol(thrstr, NULL, 0);
         if (max_panel_threads!=0) return max_panel_threads;
     }
-    return std::max(omp_get_max_threads()/2, 1);
+    max_omp_threads = omp_get_max_threads();
+    return std::max(max_omp_threads/4, 1);
 }
 
 inline int64_t slate_lapack_set_ib()
 {
     int64_t ib = 0;
-    char *ibstr = std::getenv("SLATE_LAPACK_IB");
+    char* ibstr = std::getenv("SLATE_LAPACK_IB");
     if (ibstr) {
         ib = (int64_t)strtol(ibstr, NULL, 0);
         if (ib!=0) return ib;
@@ -115,7 +126,7 @@ inline int64_t slate_lapack_set_nb(slate::Target target)
 {
     // set nb if not already done
     int64_t nb = 0;
-    char *nbstr = std::getenv("SLATE_LAPACK_NB");
+    char* nbstr = std::getenv("SLATE_LAPACK_NB");
     if (nbstr) {
         nb = (int64_t)strtol(nbstr, NULL, 0);
         if (nb!=0) return nb;

@@ -42,13 +42,6 @@
 #include "blas_fortran.hh"
 #include <complex>
 
-#ifdef SLATE_WITH_MKL
-extern "C" int MKL_Set_Num_Threads(int nt);
-inline int slate_lapack_set_num_blas_threads(const int nt) { return MKL_Set_Num_Threads(nt); }
-#else
-inline int slate_lapack_set_num_blas_threads(const int nt) { return 1; }
-#endif
-
 namespace slate {
 namespace lapack_api {
 
@@ -80,6 +73,12 @@ extern "C" void slate_zhemm(const char* side, const char* uplo, const int* m, co
 template< typename scalar_t >
 void slate_hemm(const char* sidestr, const char* uplostr, const int m, const int n, const scalar_t alpha, scalar_t* a, const int lda, scalar_t* b, const int ldb, const scalar_t beta, scalar_t* c, const int ldc)
 {
+    // Start timing
+    static int verbose = slate_lapack_set_verbose();
+    double timestart = 0.0;
+    if (verbose) timestart = omp_get_wtime();
+
+    // Check and initialize MPI, else SLATE calls to MPI will fail
     int initialized, provided;
     MPI_Initialized(&initialized);
     if (! initialized) MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided);
@@ -93,7 +92,6 @@ void slate_hemm(const char* sidestr, const char* uplostr, const int m, const int
     int64_t p = 1;
     int64_t q = 1;
     static slate::Target target = slate_lapack_set_target();
-    static int verbose = slate_lapack_set_verbose();
     static int64_t nb = slate_lapack_set_nb(target);
 
     // sizes of data
@@ -115,13 +113,15 @@ void slate_hemm(const char* sidestr, const char* uplostr, const int m, const int
     assert(B.mt() == C.mt());
     assert(B.nt() == C.nt());
 
-    if (verbose) logprintf("%s\n", "hemm");
     slate::hemm(side, alpha, A, B, beta, C, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
 
     slate_lapack_set_num_blas_threads(saved_num_blas_threads);
+
+    if (verbose) std::cout << "slate_lapack_api: " << slate_lapack_scalar_t_to_char(a) << "hemm(" << sidestr[0] << "," << uplostr[0] << "," <<  m << "," <<  n << "," <<  alpha << "," << (void*)a << "," <<  lda << "," << (void*)b << "," << ldb << "," << beta << "," << (void*)c << "," << ldc << ") " << (omp_get_wtime()-timestart) << " sec " << "nb:" << nb << " max_threads:" << omp_get_max_threads() << "\n";
+
 }
 
 } // namespace lapack_api

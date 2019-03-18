@@ -136,6 +136,27 @@ inline T roundup(T x, T y)
 
 
 // -----------------------------------------------------------------------------
+template <typename T>
+struct is_double:
+    std::integral_constant<bool, true>
+{};
+
+template <>
+struct is_double<float>:
+    std::integral_constant<bool, false>
+{};
+
+template <>
+struct is_double<std::complex<double>>:
+    std::integral_constant<bool, true>
+{};
+
+template <>
+struct is_double<std::complex<float>>:
+    std::integral_constant<bool, false>
+{};
+
+// -----------------------------------------------------------------------------
 // Level 3 BLAS
 void test_gbmm   (Params& params, bool run);
 void test_gemm   (Params& params, bool run);

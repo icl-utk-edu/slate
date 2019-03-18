@@ -12,27 +12,6 @@
 #include <cstdlib>
 #include <utility>
 
-
-template <typename T>
-struct is_double:
-    std::integral_constant<bool, true>
-{};
-
-template <>
-struct is_double<float>:
-    std::integral_constant<bool, false>
-{};
-
-template <>
-struct is_double<std::complex<double>>:
-    std::integral_constant<bool, true>
-{};
-
-template <>
-struct is_double<std::complex<float>>:
-    std::integral_constant<bool, false>
-{};
-
 //------------------------------------------------------------------------------
 template <typename scalar_t> void test_posv_work(Params& params, bool run)
 {
@@ -141,7 +120,10 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
         gflop = lapack::Gflop<scalar_t>::potrf(n);
     else if (params.routine == "potrs")
         gflop = lapack::Gflop<scalar_t>::potrs(n, nrhs);
+    else if (params.routine == "posv")
+        gflop = lapack::Gflop<scalar_t>::posv(n, nrhs);
     else
+        // todo: flops should not be reported for posvmixed
         gflop = lapack::Gflop<scalar_t>::posv(n, nrhs);
 
     if (! ref_only) {

@@ -50,6 +50,10 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
 
+    if (params.routine == "posvmixed"){
+        params.iters();
+    }
+
     if (! run)
         return;
 
@@ -108,6 +112,18 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
         }
     }
 
+    slate::Matrix<scalar_t> X;
+    std::vector<scalar_t> X_tst;
+    if (params.routine == "gesvmixed"){
+        if (is_double<scalar_t>::value){
+            X_tst.resize(lldB*nlocB);
+            X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+        }
+        else {
+            assert("Unsupported mixed precision");
+        }
+    }
+
     // if check is required, copy test data and create a descriptor for it
     std::vector<scalar_t> A_ref;
     std::vector<scalar_t> B_ref;
@@ -128,12 +144,17 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
         ipiv_ref.resize(ipiv_tst.size());
     }
 
+    int iters;
+
     double gflop;
     if (params.routine == "getrf")
         gflop = lapack::Gflop<scalar_t>::getrf(m, n);
     else if (params.routine == "getrs")
         gflop = lapack::Gflop<scalar_t>::getrs(n, nrhs);
+    else if (params.routine == "gesv")
+        gflop = lapack::Gflop<scalar_t>::gesv(n, nrhs);
     else
+        // todo: flops should not be reported for gesvmixed
         gflop = lapack::Gflop<scalar_t>::gesv(n, nrhs);
 
     if (! ref_only) {
@@ -183,13 +204,25 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
                 {slate::Option::Target, target}
             });
         }
-        else {
+        else if (params.routine == "gesv") {
             slate::gesv(A, pivots, B, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target},
                 {slate::Option::MaxPanelThreads, panel_threads},
                 {slate::Option::InnerBlocking, ib}
             });
+        }
+        else if (params.routine == "gesvmixed") {
+            if (is_double<scalar_t>::value){
+                slate::gesvMixed(A, pivots, B, X, iters, {
+                    {slate::Option::Lookahead, lookahead},
+                    {slate::Option::Target, target},
+                    {slate::Option::MaxPanelThreads, panel_threads},
+                    {slate::Option::InnerBlocking, ib}
+                });
+            }
+        } else {
+            assert("Unknown routine!");
         }
 
         {
@@ -199,6 +232,10 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
         double time_tst = libtest::get_wtime() - time;
 
         if (trace) slate::trace::Trace::finish();
+
+        if (params.routine == "gesvmixed") {
+            params.iters() = iters;
+        }
 
         // compute and save timing/performance
         params.time() = time_tst;
@@ -233,13 +270,26 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
         real_t X_norm = scalapack_plange("1", n, nrhs, &B_tst[0], ione, ione, descB_tst, &worklangeB[0]);
 
         // B_ref -= op(Aref)*B_tst
-        scalapack_pgemm(op2str(trans), "notrans",
-                        n, nrhs, n,
-                        scalar_t(-1.0),
-                        &A_ref[0], ione, ione, descA_ref,
-                        &B_tst[0], ione, ione, descB_tst,
-                        scalar_t(1.0),
-                        &B_ref[0], ione, ione, descB_ref);
+        if (params.routine == "posvmixed") {
+            if (is_double<scalar_t>::value){
+                scalapack_pgemm(op2str(trans), "notrans",
+                                n, nrhs, n,
+                                scalar_t(-1.0),
+                                &A_ref[0], ione, ione, descA_ref,
+                                &X_tst[0], ione, ione, descB_tst,
+                                scalar_t(1.0),
+                                &B_ref[0], ione, ione, descB_ref);
+            }
+        }
+        else {
+            scalapack_pgemm(op2str(trans), "notrans",
+                            n, nrhs, n,
+                            scalar_t(-1.0),
+                            &A_ref[0], ione, ione, descA_ref,
+                            &B_tst[0], ione, ione, descB_tst,
+                            scalar_t(1.0),
+                            &B_ref[0], ione, ione, descB_ref);
+        }
 
         // Norm of residual: || B - AX ||_1
         real_t R_norm = scalapack_plange("1", n, nrhs, &B_ref[0], ione, ione, descB_ref, &worklangeB[0]);

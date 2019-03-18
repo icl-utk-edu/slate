@@ -270,6 +270,7 @@ libslate_src += \
         src/gemm.cc \
         src/geqrf.cc \
         src/gesv.cc \
+        src/gesvMixed.cc \
         src/getrf.cc \
         src/getrs.cc \
         src/hemm.cc \
@@ -280,6 +281,7 @@ libslate_src += \
         src/hetrs.cc \
         src/norm.cc \
         src/posv.cc \
+        src/posvMixed.cc \
         src/potrf.cc \
         src/potrs.cc \
         src/symm.cc \

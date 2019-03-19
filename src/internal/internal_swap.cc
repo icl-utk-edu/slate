@@ -171,6 +171,9 @@ void swap(internal::TargetType<Target::HostNest>,
           Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
           int priority, int tag, Layout layout)
 {
+    // forward to HostTask
+    swap(internal::TargetType<Target::HostTask>(),
+         direction, A, pivot, priority, tag, layout);
 }
 
 template <typename scalar_t>
@@ -179,6 +182,9 @@ void swap(internal::TargetType<Target::HostBatch>,
           Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
           int priority, int tag, Layout layout)
 {
+    // forward to HostTask
+    swap(internal::TargetType<Target::HostTask>(),
+         direction, A, pivot, priority, tag, layout);
 }
 
 ///-----------------------------------------------------------------------------

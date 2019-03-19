@@ -220,10 +220,11 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name)
                     printf("w");
 
                 auto mosi = it->second.getState();
-                switch(mosi){
+                switch (mosi) {
                     case MOSI::Modified:  printf("m"); break;
                     case MOSI::Shared:    printf("s"); break;
                     case MOSI::Invalid:   printf("i"); break;
+                    case MOSI::OnHold: break;  // below
                 }
                 if (it->second.stateOn(MOSI::OnHold))
                     printf("h ");
@@ -248,10 +249,11 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name)
                         printf("x");
 
                     auto mosi = it->second.getState();
-                    switch(mosi){
+                    switch (mosi) {
                         case MOSI::Modified:  printf("m"); break;
                         case MOSI::Shared:    printf("s"); break;
                         case MOSI::Invalid:   printf("i"); break;
+                        case MOSI::OnHold: break;  // below
                     }
                     if (it->second.stateOn(MOSI::OnHold))
                         printf("h ");

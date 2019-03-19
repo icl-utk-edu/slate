@@ -110,6 +110,8 @@ void unmqr(
                 // for k = A_nt-1, lastk = A_nt-1 (no previous column to depend on);
                 // for k < A_nt,   lastk = k + 1.
                 int64_t lastk = A_min_mtnt-1;
+                // OpenMP uses lastk; compiler doesn't, so warns it is unused.
+                SLATE_UNUSED(lastk);
                 for (int64_t k = A_min_mtnt-1; k >= 0; --k) {
 
                     auto A_panel = A.sub(k, A_mt-1, k, k);
@@ -152,7 +154,7 @@ void unmqr(
                         A.template listBcast(bcast_list_V, 0, Layout::ColMajor, 2);
 
                         // bcast Tlocal across row of C
-                        if (top_rows.size() > 0){
+                        if (top_rows.size() > 0) {
                             BcastList bcast_list_T;
                             for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
                                 int64_t row = *it;
@@ -162,19 +164,19 @@ void unmqr(
                         }
 
                         // bcast Treduce across row of C
-                        if (top_rows.size() > 1){
+                        if (top_rows.size() > 1) {
                             BcastList bcast_list_T;
                             for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
                                 int64_t row = *it;
-                                if(row > min_row)//exclude the first row of this panel that has no Treduce tile
+                                if (row > min_row) // exclude the first row of this panel that has no Treduce tile
                                     bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
                             }
                             Treduce.template listBcast(bcast_list_T);
                         }
 
                         // //
-                        // if (target == Target::Devices){
-                        //     for (auto it = top_rows.begin(); it < top_rows.end(); ++it){
+                        // if (target == Target::Devices) {
+                        //     for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
                         //         int64_t row = *it;
                         //         C.sub(row, row, 0, C_nt-1).moveAllToHost();
                         //     }
@@ -206,6 +208,8 @@ void unmqr(
                 // for k = 0, lastk = 0 (no previous column to depend on);
                 // for k > 0, lastk = k - 1.
                 int64_t lastk = 0;
+                // OpenMP uses lastk; compiler doesn't, so warns it is unused.
+                SLATE_UNUSED(lastk);
                 for (int64_t k = 0; k < A_min_mtnt; ++k) {
 
                     auto A_panel = A.sub(k, A_mt-1, k, k);
@@ -257,11 +261,11 @@ void unmqr(
                         Tlocal.template listBcast(bcast_list_T);
 
                         // bcast Treduce across row of C
-                        if (top_rows.size() > 1){
+                        if (top_rows.size() > 1) {
                             BcastList bcast_list_T;
                             for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
                                 int64_t row = *it;
-                                if(row > min_row)//exclude the first row of this panel that has no Treduce tile
+                                if (row > min_row) // exclude the first row of this panel that has no Treduce tile
                                     bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
                             }
                             Treduce.template listBcast(bcast_list_T);

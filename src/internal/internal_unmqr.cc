@@ -116,7 +116,7 @@ void unmqr(internal::TargetType<target>,
     // pick one row of W matching the local matrix top row distribution
     auto Wr = W.sub(r_top, r_top, 0, C_nt-1);
     for (int64_t j = 0; j < Wr.nt(); ++j) {
-        if(Wr.tileIsLocal(0, j)){
+        if (Wr.tileIsLocal(0, j)) {
             Wr.tileInsert(0, j);
         }
     }
@@ -207,13 +207,13 @@ void unmqr(internal::TargetType<target>,
                         scalar_t(1.0), std::move(C1));
 
     }else
-    if (side == Side::Right){
+    if (side == Side::Right) {
         // TODO
     }
 
     // free workspace
-    for (int j = 0; j < Wr.nt(); ++j){
-        if(Wr.tileIsLocal(0, j)){
+    for (int j = 0; j < Wr.nt(); ++j) {
+        if (Wr.tileIsLocal(0, j)) {
             Wr.tileErase(0, j);
         }
     }

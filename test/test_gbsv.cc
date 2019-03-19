@@ -99,16 +99,16 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
     for (int64_t j = 0; j < A.nt(); ++j) {
         int64_t ii = 0;
         for (int64_t i = 0; i < A.mt(); ++i) {
-            if (i >= j - kut && i <= j + klt) {
+            if (A.tileIsLocal(i, j) && i >= j - kut && i <= j + klt) {
                 A.tileInsert(i, j);
                 Aorig.tileInsert(i, j);
                 auto T = A(i, j);
                 lapack::larnv(2, iseeds, T.size(), T.data());
-                for (int64_t tj = 0; tj < T.nb(); ++tj) {
-                    for (int64_t ti = 0; ti < T.mb(); ++ti) {
-                        int64_t j_i = (jj + tj) - (ii + ti);
-                        if (-kl > j_i || j_i > ku) {
-                            T.at(ti, tj) = 0;
+                for (int64_t tj = jj; tj < jj + T.nb(); ++tj) {
+                    for (int64_t ti = ii; ti < ii + T.mb(); ++ti) {
+                        if (-kl > tj-ti || tj-ti > ku) {
+                            // set outside band to zero
+                            T.at(ti - ii, tj - jj) = 0;
                         }
                     }
                 }
@@ -126,6 +126,7 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
         printf("%% rank %d A kl %lld, ku %lld\n",
                A.mpiRank(), (lld) A.lowerBandwidth(), (lld) A.upperBandwidth());
         print_matrix("A", A);
+        print_matrix("B", B);
     }
 
     // if check is required, copy test data and create a descriptor for it
@@ -221,6 +222,19 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
             printf("%% rank %d A2 kl %lld, ku %lld\n",
                    A.mpiRank(), (lld) A.lowerBandwidth(), (lld) A.upperBandwidth());
             print_matrix("A2", A);
+            print_matrix("B2", B);
+            printf( "nb = %lld;\n", nb );
+            printf( "pivots = [\n" );
+            int ii = 0;
+            for (auto p1: pivots) {
+                int i = ii / nb;
+                for (auto p: p1) {
+                    printf( "  %d*nb + %lld*nb + %lld\n", i, p.tileIndex(), p.elementOffset() );
+                    ++ii;
+                }
+                printf( "\n" );
+            }
+            printf( "] + 1;\n" );
         }
     }
 

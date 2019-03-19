@@ -91,13 +91,14 @@ enum MOSI
 //------------------------------------------------------------------------------
 ///
 template <typename scalar_t>
-struct  TileEntry
+struct TileEntry
 {
     Tile<scalar_t>* tile_;
     short state_;
 
-    void setState(short stateIn){
-        switch(stateIn){
+    void setState(short stateIn)
+    {
+        switch (stateIn) {
             case MOSI::Modified:
             case MOSI::Shared:
             case MOSI::Invalid:
@@ -115,12 +116,14 @@ struct  TileEntry
         }
     }
 
-    MOSI getState(){
+    MOSI getState()
+    {
         return MOSI(state_ & short(~MOSI::OnHold));
     }
 
-    bool stateOn(short stateIn){
-        switch(stateIn){
+    bool stateOn(short stateIn)
+    {
+        switch (stateIn) {
             case MOSI::Modified:
             case MOSI::Shared:
             case MOSI::Invalid:

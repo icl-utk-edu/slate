@@ -448,10 +448,6 @@ void Tile<scalar_t>::nb(int64_t in_nb)
 template <typename scalar_t>
 void Tile<scalar_t>::offset(int64_t i, int64_t j)
 {
-    if (! (0 <= i && i < mb()))
-        fprintf( stderr, "i %lld, mb %lld\n", i, mb() );
-    if (! (0 <= j && j < nb()))
-        fprintf( stderr, "j %lld, nb %lld\n", j, nb() );
     assert(0 <= i && i < mb());
     assert(0 <= j && j < nb());
     if (op_ == Op::NoTrans)

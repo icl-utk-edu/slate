@@ -103,7 +103,7 @@ void omp_set_lock(omp_lock_t* lock)
 
 void omp_set_nested(int nested)
 {
-    nested;
+    return;
 }
 
 void omp_unset_lock(omp_lock_t* lock)

@@ -285,7 +285,7 @@ void geqrf(
                                             &tile.at(k+kb, k), tile.stride(),
                              gemm_beta,     &T.at(0, k), T.stride());
                     }
-                    else{
+                    else {
                         // set this block column to zero, for later updates.
                         laset(lapack::MatrixType::General, k, kb,
                               scalar_t(0), scalar_t(0),

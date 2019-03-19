@@ -110,6 +110,8 @@ void unmqr(
                 // for k = A_nt-1, lastk = A_nt-1 (no previous column to depend on);
                 // for k < A_nt,   lastk = k + 1.
                 int64_t lastk = A_min_mtnt-1;
+                // OpenMP uses lastk; compiler doesn't, so warns it is unused.
+                SLATE_UNUSED(lastk);
                 for (int64_t k = A_min_mtnt-1; k >= 0; --k) {
 
                     auto A_panel = A.sub(k, A_mt-1, k, k);
@@ -206,6 +208,8 @@ void unmqr(
                 // for k = 0, lastk = 0 (no previous column to depend on);
                 // for k > 0, lastk = k - 1.
                 int64_t lastk = 0;
+                // OpenMP uses lastk; compiler doesn't, so warns it is unused.
+                SLATE_UNUSED(lastk);
                 for (int64_t k = 0; k < A_min_mtnt; ++k) {
 
                     auto A_panel = A.sub(k, A_mt-1, k, k);

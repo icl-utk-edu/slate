@@ -426,7 +426,7 @@ void norm(
     // devices_values used for max and Frobenius norms.
     std::vector<real_t> devices_values;
 
-    int64_t ldv;
+    int64_t ldv = 0;
     if (in_norm == Norm::Max) {
         ldv = 1;
         devices_values.resize(A.num_devices());

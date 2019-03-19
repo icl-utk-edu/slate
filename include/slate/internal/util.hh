@@ -169,6 +169,10 @@ private:
     volatile int passed_;
 };
 
+//------------------------------------------------------------------------------
+/// Use to silence compiler warnings regarding an unused variable var.
+#define SLATE_UNUSED(var)  ((void)var)
+
 } // namespace slate
 
 #endif // SLATE_UTIL_HH

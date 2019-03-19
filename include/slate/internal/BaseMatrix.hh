@@ -1627,7 +1627,7 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_device,
                                              LayoutConvert layout)
 {
-    TileEntry<scalar_t> *dst_tileEntry, *src_tileEntry;
+    TileEntry<scalar_t> *dst_tileEntry = nullptr, *src_tileEntry = nullptr;
     do {
         // find tile on destination
         auto dst_iter = storage_->find(globalIndex(i, j, dst_device));

@@ -19,11 +19,11 @@
 template<typename scalar_t>
 void test_tbsm_work(Params& params, bool run)
 {
-    //using lld = long long;
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
     using blas::imag;
     using slate::Norm;
+    //using llong = long long;
 
     // get & mark input values
     slate::Side side = params.side();

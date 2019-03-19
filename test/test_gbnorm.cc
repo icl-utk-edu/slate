@@ -22,7 +22,7 @@ void test_gbnorm_work(Params& params, bool run)
     using blas::min;
     using blas::max;
     using slate::ceildiv;
-    //using lld = long long;
+    //using llong = long long;
 
     // get & mark input values
     slate::Norm norm = params.norm();

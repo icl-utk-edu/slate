@@ -19,13 +19,13 @@
 template<typename scalar_t>
 void test_gbmm_work(Params& params, bool run)
 {
-    //using lld = long long;
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
     using blas::imag;
     using blas::max;
     using blas::min;
     using slate::Norm;
+    //using llong = long long;
 
     // get & mark input values
     slate::Op transA = params.transA();

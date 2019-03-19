@@ -20,7 +20,7 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
     using blas::max;
     using blas::real;
     using real_t = blas::real_type<scalar_t>;
-    using lld = long long;
+    using llong = long long;
 
     // get & mark input values
     slate::Op trans = slate::Op::NoTrans;
@@ -124,7 +124,7 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
 
     if (verbose > 1) {
         printf("%% rank %d A kl %lld, ku %lld\n",
-               A.mpiRank(), (lld) A.lowerBandwidth(), (lld) A.upperBandwidth());
+               A.mpiRank(), llong( A.lowerBandwidth( )), llong( A.upperBandwidth( )));
         print_matrix("A", A);
         print_matrix("B", B);
     }
@@ -220,16 +220,16 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
 
         if (verbose > 1) {
             printf("%% rank %d A2 kl %lld, ku %lld\n",
-                   A.mpiRank(), (lld) A.lowerBandwidth(), (lld) A.upperBandwidth());
+                   A.mpiRank(), llong( A.lowerBandwidth( )), llong( A.upperBandwidth( )));
             print_matrix("A2", A);
             print_matrix("B2", B);
-            printf( "nb = %lld;\n", nb );
+            printf( "nb = %lld;\n", llong( nb ) );
             printf( "pivots = [\n" );
             int ii = 0;
             for (auto p1: pivots) {
                 int i = ii / nb;
                 for (auto p: p1) {
-                    printf( "  %d*nb + %lld*nb + %lld\n", i, p.tileIndex(), p.elementOffset() );
+                    printf( "  %d*nb + %lld*nb + %lld\n", i, llong( p.tileIndex( )), llong( p.elementOffset( )) );
                     ++ii;
                 }
                 printf( "\n" );

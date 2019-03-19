@@ -18,6 +18,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
+    using llong = long long;
 
     // get & mark input values
     int64_t m = params.dim.m();
@@ -66,7 +67,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         if (iam == 0) {
             printf("\nskipping: ScaLAPACK requires that all ranks have some rows & columns; "
                    "i.e., m > (p-1)*nb = %lld and n > (q-1)*nb = %lld\n",
-                   (p-1)*nb, (q-1)*nb);
+                   llong( (p-1)*nb ), llong( (q-1)*nb ));
         }
         return;
     }

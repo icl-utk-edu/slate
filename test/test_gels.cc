@@ -17,7 +17,7 @@ template <typename scalar_t> void test_gels_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
-    using ll = long long;
+    using llong = long long;
 
     // get & mark input values
     slate::Op trans = params.trans();
@@ -80,7 +80,7 @@ template <typename scalar_t> void test_gels_work(Params& params, bool run)
         if (iam == 0) {
             printf("\nskipping: ScaLAPACK requires that all ranks have some rows & columns; "
                    "i.e., m > (p-1)*nb = %lld and n > (q-1)*nb = %lld\n",
-                   ll( (p-1)*nb ), ll( (q-1)*nb ) );
+                   llong( (p-1)*nb ), llong( (q-1)*nb ) );
         }
         return;
     }
@@ -153,12 +153,12 @@ template <typename scalar_t> void test_gels_work(Params& params, bool run)
         opA = conj_transpose(A);
 
     if (verbose >= 1) {
-        printf( "%% A   %6lld-by-%6lld\n", ll(   A.m() ), ll(   A.n() ) );
-        printf( "%% opA %6lld-by-%6lld\n", ll( opA.m() ), ll( opA.n() ) );
-        printf( "%% X0  %6lld-by-%6lld\n", ll(  X0.m() ), ll(  X0.n() ) );
-        printf( "%% B   %6lld-by-%6lld\n", ll(   B.m() ), ll(   B.n() ) );
-        printf( "%% X   %6lld-by-%6lld\n", ll(   X.m() ), ll(   X.n() ) );
-        printf( "%% BX  %6lld-by-%6lld\n", ll(  BX.m() ), ll(  BX.n() ) );
+        printf( "%% A   %6lld-by-%6lld\n", llong(   A.m() ), llong(   A.n() ) );
+        printf( "%% opA %6lld-by-%6lld\n", llong( opA.m() ), llong( opA.n() ) );
+        printf( "%% X0  %6lld-by-%6lld\n", llong(  X0.m() ), llong(  X0.n() ) );
+        printf( "%% B   %6lld-by-%6lld\n", llong(   B.m() ), llong(   B.n() ) );
+        printf( "%% X   %6lld-by-%6lld\n", llong(   X.m() ), llong(   X.n() ) );
+        printf( "%% BX  %6lld-by-%6lld\n", llong(  BX.m() ), llong(  BX.n() ) );
     }
 
     // Form consistent RHS, B = A * X0.
@@ -324,7 +324,7 @@ template <typename scalar_t> void test_gels_work(Params& params, bool run)
             DX.copy(X);
 
             if (verbose >= 1)
-                printf( "%% D %lld-by-%lld\n", D.mt(), D.nt() );
+                printf( "%% D %lld-by-%lld\n", llong( D.mt() ), llong( D.nt() ) );
             if (verbose > 1)
                 print_matrix("D", D);
 

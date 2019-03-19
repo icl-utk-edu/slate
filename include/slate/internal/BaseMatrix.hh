@@ -1003,7 +1003,7 @@ void BaseMatrix<scalar_t>::tileRelease(int64_t i, int64_t j, int device)
     auto iter = storage_->find(globalIndex(i, j, device));
     if (iter != storage_->end()) {
         // auto tileEntry = storage_->at(globalIndex(i, j, device));
-        if(  iter->second.tile_->workspace() &&
+        if (iter->second.tile_->workspace() &&
             (iter->second.stateOn(MOSI::OnHold) || iter->second.stateOn(MOSI::Modified)) )
             return;
         else
@@ -1135,7 +1135,7 @@ void BaseMatrix<scalar_t>::tileModified(int64_t i, int64_t j, int device, bool p
     if (device != host_num_) {
         auto otherIter = storage_->find(globalIndex(i, j, host_num_));
         if (otherIter != storage_->end()) {
-            if(!permissive)
+            if (! permissive)
                 assert(otherIter->second.stateOn(MOSI::Modified) == false);
             otherIter->second.setState(MOSI::Invalid);
         }
@@ -1145,7 +1145,7 @@ void BaseMatrix<scalar_t>::tileModified(int64_t i, int64_t j, int device, bool p
 
         auto otherIter = storage_->find(globalIndex(i, j, d));
         if (otherIter != storage_->end()) {
-            if(!permissive)
+            if (! permissive)
                 assert(otherIter->second.stateOn(MOSI::Modified) == false);
             otherIter->second.setState(MOSI::Invalid);
         }
@@ -1628,7 +1628,7 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
                                              LayoutConvert layout)
 {
     TileEntry<scalar_t> *dst_tileEntry, *src_tileEntry;
-    do{
+    do {
         // find tile on destination
         auto dst_iter = storage_->find(globalIndex(i, j, dst_device));
         if (dst_iter == storage_->end()) {
@@ -1715,12 +1715,11 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
             if (dst_device == host_num_) {
                 convert_layout(dst_tileEntry->tile_);
             }
-            else{
+            else {
                 convert_layout(dst_tileEntry->tile_, comm_stream(dst_device));
             }
         }
-
-    }while(0);
+    } while(0);
 }
 
 
@@ -1869,13 +1868,13 @@ void BaseMatrix<scalar_t>::tileUpdateOrigin(int64_t i, int64_t j)
 {
     // find on host
     auto iter = storage_->find(globalIndex(i, j, host_num_));
-    if (iter != storage_->end() && iter->second.tile_->origin() ){
+    if (iter != storage_->end() && iter->second.tile_->origin()) {
         if ( iter->second.stateOn(MOSI::Invalid) )
             tileGetForReading(i, j);
     }
     else {
         iter = storage_->find(globalIndex(i, j, tileDevice(i, j)));
-        if (iter != storage_->end() && iter->second.tile_->origin() ){
+        if (iter != storage_->end() && iter->second.tile_->origin()) {
             if ( iter->second.stateOn(MOSI::Invalid) )
                 tileGetForReading(i, j, tileDevice(i, j));
         }

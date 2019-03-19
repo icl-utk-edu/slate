@@ -78,7 +78,7 @@ void gesvMixed( slate::internal::TargetType<target>,
                 Matrix<scalar_hi>& B,
                 Matrix<scalar_hi>& X,
                 int& iter,
-                int64_t lookahead)
+                int64_t ib, int max_panel_threads, int64_t lookahead)
 {
     const int itermax = 30;
     using real_hi = blas::real_type<scalar_hi>;
@@ -120,7 +120,9 @@ void gesvMixed( slate::internal::TargetType<target>,
 
     // Compute the LU factorization of A_lo.
     getrf(A_lo, pivots,
-          {{Option::Lookahead, lookahead},
+          {{Option::InnerBlocking, ib},
+           {Option::Lookahead, lookahead},
+           {Option::MaxPanelThreads, int64_t(max_panel_threads)},
            {Option::Target, target}});
 
 
@@ -206,7 +208,9 @@ void gesvMixed( slate::internal::TargetType<target>,
 
     // Compute the Cholesky factorization of A.
     getrf(A, pivots,
-          {{Option::Lookahead, lookahead},
+          {{Option::InnerBlocking, ib},
+           {Option::Lookahead, lookahead},
+           {Option::MaxPanelThreads, int64_t(max_panel_threads)},
            {Option::Target, target}});
 
     // Solve the system A * X = B.
@@ -240,10 +244,28 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
         lookahead = 1;
     }
 
+    int64_t ib;
+    try {
+        ib = opts.at(Option::InnerBlocking).i_;
+        assert(ib >= 0);
+    }
+    catch (std::out_of_range) {
+        ib = 16;
+    }
+
+    int64_t max_panel_threads;
+    try {
+        max_panel_threads = opts.at(Option::MaxPanelThreads).i_;
+        assert(max_panel_threads >= 0);
+    }
+    catch (std::out_of_range) {
+        max_panel_threads = std::max(omp_get_max_threads()/2, 1);
+    }
+
     internal::specialization::gesvMixed<target, scalar_hi, scalar_lo>(
                                         internal::TargetType<target>(),
                                         A, pivots, B, X, iter,
-                                        lookahead);
+                                        ib, max_panel_threads, lookahead);
 }
 
 //------------------------------------------------------------------------------

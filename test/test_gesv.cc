@@ -50,7 +50,7 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
 
-    if (params.routine == "posvmixed"){
+    if (params.routine == "gesvmixed"){
         params.iters();
     }
 
@@ -270,7 +270,7 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
         real_t X_norm = scalapack_plange("1", n, nrhs, &B_tst[0], ione, ione, descB_tst, &worklangeB[0]);
 
         // B_ref -= op(Aref)*B_tst
-        if (params.routine == "posvmixed") {
+        if (params.routine == "gesvmixed") {
             if (is_double<scalar_t>::value){
                 scalapack_pgemm(op2str(trans), "notrans",
                                 n, nrhs, n,

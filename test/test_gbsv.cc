@@ -296,8 +296,8 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
     // todo: reference solution requires setting up band matrix in ScaLAPACK's
     // band storage format.
 
-    // Cblacs_exit is commented out because it does not handle re-entering ... some unknown problem
-    // Cblacs_exit( 1 ); // 1 means that you can run Cblacs again
+    Cblacs_gridexit(ictxt);
+    //Cblacs_exit(1) does not handle re-entering
 }
 
 // -----------------------------------------------------------------------------

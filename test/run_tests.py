@@ -274,6 +274,7 @@ cmds = []
 # Level 3
 if (opts.blas3):
     cmds += [
+    [ 'gbmm',  gen + dtype + la + transA + transB + mnk + ab + kl + ku ],
     [ 'gemm',  gen + dtype + la + transA + transB + mnk + ab ],
 
     [ 'hemm',  gen + dtype         + la + side + uplo     + mn + ab ],
@@ -288,19 +289,9 @@ if (opts.blas3):
     [ 'syrk',  gen + dtype_real    + la + uplo + trans    + mn + ab ],
     [ 'syrk',  gen + dtype_complex + la + uplo + trans_nt + mn + ab ],
 
+    [ 'tbsm',  gen + dtype + la + side + uplo + transA + diag + mn + a + kd ],
     [ 'trmm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
     [ 'trsm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
-
-    # gbmm and tbsm have so many cases, they cause MPI to fail:
-    #     MPI_Comm_dup(...) failed
-    #     Too many communicators (0/16384 free on this process; ignore_id=0)
-    # Perhaps because Cblacs_exit is being skipped.
-    # Workaround is to test [sd] and [cz] separately.
-    [ 'gbmm',  gen + dtype_real    + la + transA + transB + mnk + ab + kl + ku ],
-    [ 'gbmm',  gen + dtype_complex + la + transA + transB + mnk + ab + kl + ku ],
-
-    [ 'tbsm',  gen + dtype_real    + la + side + uplo + transA + diag + mn + a + kd ],
-    [ 'tbsm',  gen + dtype_complex + la + side + uplo + transA + diag + mn + a + kd ],
     ]
 
 # LU

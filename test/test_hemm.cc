@@ -202,8 +202,8 @@ void test_hemm_work(Params& params, bool run)
         params.okay() = (params.error() <= 3*eps);
     }
 
-    //Cblacs_exit(1) is commented out because it does not handle re-entering ... some unknown problem
-    //Cblacs_exit(1); // 1 means that you can run Cblacs again
+    Cblacs_gridexit(ictxt);
+    //Cblacs_exit(1) does not handle re-entering
 }
 
 // -----------------------------------------------------------------------------

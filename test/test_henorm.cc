@@ -345,8 +345,8 @@ void test_henorm_work(Params& params, bool run)
         }
     }
 
-    //Cblacs_exit(1) is commented out because it does not handle re-entering ... some unknown problem
-    //Cblacs_exit(1); // 1 means that you can run Cblacs again
+    Cblacs_gridexit(ictxt);
+    //Cblacs_exit(1) does not handle re-entering
 }
 
 // -----------------------------------------------------------------------------

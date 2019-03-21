@@ -300,11 +300,18 @@ void norm(
 
             // Find max of each column.
             // we are looking for absolute value, thus it is safe to initialize to 0.
-            // todo: optimize out for zero blocks
+            // optimized out for zero blocks
             std::fill_n(values, A.n(), 0.0);
-            for (int64_t i = 0; i < A.mt(); ++i)
-                for (int64_t jj = 0; jj < A.n(); ++jj)
-                    values[jj] = max_nan(values[jj], cols_maxima[A.n()*i + jj]);
+            for (int64_t i = 0; i < A.mt(); ++i) {
+                int64_t jj = 0;
+                for (int64_t j = 0; j < A.nt(); ++j) {
+                    if (A.tileIsLocal(i, j)) {
+                        for (int64_t ll = 0; ll < A.tileNb(j); ++ll)
+                            values[ll + jj] = max_nan(values[ll + jj], cols_maxima[A.n()*i + ll + jj]);
+                    }
+                    jj += A.tileNb(j);
+                }
+            }
 
         }
         else {
@@ -381,11 +388,18 @@ void norm(
 
         // Find max of each column.
         // we are looking for absolute value, thus it is safe to initialize to 0.
-        // todo: optimize out for zero blocks
+        // optimized out for zero blocks
         std::fill_n(values, A.n(), 0.0);
-        for (int64_t i = 0; i < A.mt(); ++i)
-            for (int64_t jj = 0; jj < A.n(); ++jj)
-                values[jj] = max_nan(values[jj], cols_maxima[A.n()*i + jj]);
+        for (int64_t i = 0; i < A.mt(); ++i) {
+            int64_t jj = 0;
+            for (int64_t j = 0; j < A.nt(); ++j) {
+                if (A.tileIsLocal(i, j)) {
+                    for (int64_t ll = 0; ll < A.tileNb(j); ++ll)
+                        values[ll + jj] = max_nan(values[ll + jj], cols_maxima[A.n()*i + ll + jj]);
+                }
+                jj += A.tileNb(j);
+            }
+        }
 
     }
     else {

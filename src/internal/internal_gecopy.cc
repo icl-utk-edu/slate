@@ -234,6 +234,7 @@ void copy(internal::TargetType<Target::Devices>,
                     if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j))
                     {
                         A.tileGetForReading(i, j, device);
+                        // todo: should tileAcquire() instead to avoid un-needed copy
                         B.tileGetForWriting(i, j, device);
                     }
 

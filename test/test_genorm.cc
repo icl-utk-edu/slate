@@ -155,7 +155,7 @@ void test_genorm_work(Params& params, bool run)
     // Run SLATE test.
     // Compute || A ||_norm.
     //==================================================
-    real_t A_norm;
+    real_t A_norm = 0;
 
     if (scope == slate::NormScope::Matrix) {
         A_norm = slate::norm(norm, A, {
@@ -210,7 +210,7 @@ void test_genorm_work(Params& params, bool run)
 
         // difference between norms
         real_t error = 0.;
-        real_t A_norm_ref;
+        real_t A_norm_ref = 0;
 
         //==================================================
         // Run ScaLAPACK reference routine.
@@ -227,7 +227,6 @@ void test_genorm_work(Params& params, bool run)
         if (scope == slate::NormScope::Columns) {
             for (int64_t c = 0; c < An; ++c)
             {
-                int descA_tst_1col[9];
                 int64_t c_1 = c+1;
                 A_norm_ref = scalapack_plange(
                     norm2str(norm),

@@ -29,7 +29,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
+    int verbose = params.verbose(); SLATE_UNUSED(verbose);
     slate::Target target = char2target(params.target());
 
     // mark non-standard output values
@@ -113,7 +113,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
             B_orig = B_tst;
     }
 
-    int iters;
+    int iters = 0;
 
     double gflop;
     if (params.routine == "potrf")
@@ -264,7 +264,6 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
         #pragma omp parallel
         { omp_num_threads = omp_get_num_threads(); }
         int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-        int64_t info_ref = 0;
 
         if (check) {
             // restore B_ref

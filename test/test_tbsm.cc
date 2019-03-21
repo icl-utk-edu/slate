@@ -82,7 +82,6 @@ void test_tbsm_work(Params& params, bool run)
     Cblacs_get(-1, 0, &ictxt);
     Cblacs_gridinit(&ictxt, "Col", p, q);
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
-    int mpirank = mycol*nprow + myrow;
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
     int64_t mlocA = scalapack_numroc(Am, nb, myrow, izero, nprow);

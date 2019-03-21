@@ -59,8 +59,9 @@ bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
 {
     assert(colnorms_X.size() == colnorms_R.size());
     bool value = true;
+    int64_t size = colnorms_X.size();
 
-    for (int64_t i = 0; i < colnorms_X.size(); i++) {
+    for (int64_t i = 0; i < size; i++) {
         if (colnorms_R[i] > colnorms_X[i] * cte) {
             value = false;
             break;

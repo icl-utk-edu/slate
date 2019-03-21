@@ -40,7 +40,7 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
+    int verbose = params.verbose(); SLATE_UNUSED(verbose);
     int matrix = params.matrix();
     slate::Target target = char2target(params.target());
 
@@ -144,7 +144,7 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
         ipiv_ref.resize(ipiv_tst.size());
     }
 
-    int iters;
+    int iters = 0;
 
     double gflop;
     if (params.routine == "getrf")

@@ -147,9 +147,9 @@ void gesvMixed( slate::internal::TargetType<target>,
 
     // Check whether the nrhs normwise backward error satisfies the
     // stopping criterion. If yes, set iter=0 and return.
-    amax_norms( X, colnorms_X.data(),
+    colNorms( Norm::Max, X, colnorms_X.data(),
                 {{Option::Target, target}});
-    amax_norms( R, colnorms_R.data(),
+    colNorms( Norm::Max, R, colnorms_R.data(),
                 {{Option::Target, target}});
 
     if (iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
@@ -189,9 +189,9 @@ void gesvMixed( slate::internal::TargetType<target>,
 
         // Check whether nrhs normwise backward error satisfies the
         // stopping criterion. If yes, set iter = iiter > 0 and return.
-        amax_norms( X, colnorms_X.data(),
+        colNorms( Norm::Max, X, colnorms_X.data(),
                     {{Option::Target, target}});
-        amax_norms( R, colnorms_R.data(),
+        colNorms( Norm::Max, R, colnorms_R.data(),
                     {{Option::Target, target}});
 
         if (iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {

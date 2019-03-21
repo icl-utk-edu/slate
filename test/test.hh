@@ -55,6 +55,7 @@ public:
     libtest::ParamEnum< lapack::Job >       jobvt;  // gesvd
     libtest::ParamEnum< lapack::Range >     range;
     libtest::ParamEnum< slate::Norm >       norm;
+    libtest::ParamEnum< slate::NormScope >  scope;
     libtest::ParamEnum< slate::Side >       side;
     libtest::ParamEnum< slate::Uplo >       uplo;
     libtest::ParamEnum< slate::Op >         trans;
@@ -212,6 +213,32 @@ inline slate::Target char2target(char targetchar)
     else if (targetchar == 'd')
         return slate::Target::Devices;
     return slate::Target::HostTask;
+}
+// -----------------------------------------------------------------------------
+inline slate::NormScope char2scope(char scopechar)
+{
+    if (scopechar == 'm')
+        return slate::NormScope::Matrix;
+    else if (scopechar == 'c')
+        return slate::NormScope::Columns;
+    else if (scopechar == 'b')
+        return slate::NormScope::Rows;
+    return slate::NormScope::Matrix;
+}
+
+inline char scope2char( slate::NormScope scope )
+{
+    return char( scope );
+}
+
+inline const char* scope2str( slate::NormScope scope )
+{
+    switch (scope) {
+        case slate::NormScope::Matrix: return "Matrix";
+        case slate::NormScope::Columns: return "Columns";
+        case slate::NormScope::Rows: return "Rows";
+    }
+    return "?";
 }
 
 #endif  //  #ifndef TEST_HH

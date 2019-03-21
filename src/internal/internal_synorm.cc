@@ -180,12 +180,12 @@ namespace internal {
 ///
 template <Target target, typename scalar_t>
 void norm(
-    Norm in_norm, SymmetricMatrix<scalar_t>&& A,
+    Norm in_norm, NormScope scope, SymmetricMatrix<scalar_t>&& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
     norm(internal::TargetType<target>(),
-         in_norm, A, values,
+         in_norm, scope, A, values,
          priority);
 }
 
@@ -195,11 +195,15 @@ void norm(
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::HostTask>,
-    Norm in_norm, SymmetricMatrix<scalar_t>& A,
+    Norm in_norm, NormScope scope, SymmetricMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
     using real_t = blas::real_type<scalar_t>;
+
+    if (scope != NormScope::Matrix) {
+        assert("Not implemented yet");
+    }
 
     // i, j are tile row, tile col indices; ii, jj are row, col indices.
     //---------
@@ -231,7 +235,7 @@ void norm(
                         {
                             A.tileGetForReading(i, j);
                             real_t tile_max;
-                            genorm(in_norm, A(i, j), &tile_max);
+                            genorm(in_norm, NormScope::Matrix, A(i, j), &tile_max);
                             #pragma omp critical
                             {
                                 tiles_maxima.push_back(tile_max);
@@ -247,7 +251,7 @@ void norm(
                         {
                             A.tileGetForReading(i, j);
                             real_t tile_max;
-                            genorm(in_norm, A(i, j), &tile_max);
+                            genorm(in_norm, NormScope::Matrix, A(i, j), &tile_max);
                             #pragma omp critical
                             {
                                 tiles_maxima.push_back(tile_max);
@@ -355,7 +359,7 @@ void norm(
                         {
                             A.tileGetForReading(i, j);
                             real_t tile_values[2];
-                            genorm(in_norm, A(i, j), tile_values);
+                            genorm(in_norm, NormScope::Matrix, A(i, j), tile_values);
                             // double for symmetric entries
                             tile_values[1] *= 2;
                             #pragma omp critical
@@ -374,7 +378,7 @@ void norm(
                         {
                             A.tileGetForReading(i, j);
                             real_t tile_values[2];
-                            genorm(in_norm, A(i, j), tile_values);
+                            genorm(in_norm, NormScope::Matrix, A(i, j), tile_values);
                             // double for symmetric entries
                             tile_values[1] *= 2;
                             #pragma omp critical
@@ -396,7 +400,7 @@ void norm(
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::HostNest>,
-    Norm in_norm, SymmetricMatrix<scalar_t>& A,
+    Norm in_norm, NormScope scope, SymmetricMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
@@ -409,11 +413,15 @@ void norm(
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::Devices>,
-    Norm in_norm, SymmetricMatrix<scalar_t>& A,
+    Norm in_norm, NormScope scope, SymmetricMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
     using real_t = blas::real_type<scalar_t>;
+
+    if (scope != NormScope::Matrix) {
+        assert("Not implemented yet");
+    }
 
     assert(A.num_devices() > 0);
 
@@ -570,7 +578,7 @@ void norm(
                                                   group_count[q], stream);
                         }
                         else {
-                            device::genorm(in_norm,
+                            device::genorm(in_norm, NormScope::Matrix,
                                            mb[q], nb[q],
                                            a_dev_array, lda[q],
                                            vals_dev_array, ldv,
@@ -709,76 +717,76 @@ void norm(
 // ----------------------------------------
 template
 void norm<Target::HostTask, float>(
-    Norm in_norm, SymmetricMatrix<float>&& A,
+    Norm in_norm, NormScope scope, SymmetricMatrix<float>&& A,
     float* values,
     int priority);
 
 template
 void norm<Target::HostNest, float>(
-    Norm in_norm, SymmetricMatrix<float>&& A,
+    Norm in_norm, NormScope scope, SymmetricMatrix<float>&& A,
     float* values,
     int priority);
 
 template
 void norm<Target::Devices, float>(
-    Norm in_norm, SymmetricMatrix<float>&& A,
+    Norm in_norm, NormScope scope, SymmetricMatrix<float>&& A,
     float* values,
     int priority);
 
 // ----------------------------------------
 template
 void norm<Target::HostTask, double>(
-    Norm in_norm, SymmetricMatrix<double>&& A,
+    Norm in_norm, NormScope scope, SymmetricMatrix<double>&& A,
     double* values,
     int priority);
 
 template
 void norm<Target::HostNest, double>(
-    Norm in_norm, SymmetricMatrix<double>&& A,
+    Norm in_norm, NormScope scope, SymmetricMatrix<double>&& A,
     double* values,
     int priority);
 
 template
 void norm<Target::Devices, double>(
-    Norm in_norm, SymmetricMatrix<double>&& A,
+    Norm in_norm, NormScope scope, SymmetricMatrix<double>&& A,
     double* values,
     int priority);
 
 // ----------------------------------------
 template
 void norm< Target::HostTask, std::complex<float> >(
-    Norm in_norm, SymmetricMatrix< std::complex<float> >&& A,
+    Norm in_norm, NormScope scope, SymmetricMatrix< std::complex<float> >&& A,
     float* values,
     int priority);
 
 template
 void norm< Target::HostNest, std::complex<float> >(
-    Norm in_norm, SymmetricMatrix< std::complex<float> >&& A,
+    Norm in_norm, NormScope scope, SymmetricMatrix< std::complex<float> >&& A,
     float* values,
     int priority);
 
 template
 void norm< Target::Devices, std::complex<float> >(
-    Norm in_norm, SymmetricMatrix< std::complex<float> >&& A,
+    Norm in_norm, NormScope scope, SymmetricMatrix< std::complex<float> >&& A,
     float* values,
     int priority);
 
 // ----------------------------------------
 template
 void norm< Target::HostTask, std::complex<double> >(
-    Norm in_norm, SymmetricMatrix< std::complex<double> >&& A,
+    Norm in_norm, NormScope scope, SymmetricMatrix< std::complex<double> >&& A,
     double* values,
     int priority);
 
 template
 void norm< Target::HostNest, std::complex<double> >(
-    Norm in_norm, SymmetricMatrix< std::complex<double> >&& A,
+    Norm in_norm, NormScope scope, SymmetricMatrix< std::complex<double> >&& A,
     double* values,
     int priority);
 
 template
 void norm< Target::Devices, std::complex<double> >(
-    Norm in_norm, SymmetricMatrix< std::complex<double> >&& A,
+    Norm in_norm, NormScope scope, SymmetricMatrix< std::complex<double> >&& A,
     double* values,
     int priority);
 

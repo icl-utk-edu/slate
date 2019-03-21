@@ -346,27 +346,27 @@ void geadd(scalar_t alpha, Matrix<scalar_t>&& A,
 //------------------------------------------------------------------------------
 // Norms
 template <Target target=Target::HostTask, typename scalar_t>
-void norm(Norm in_norm, Matrix<scalar_t>&& A,
+void norm(Norm in_norm, NormScope scope, Matrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
           int priority=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
-void norm(Norm in_norm, HermitianMatrix<scalar_t>&& A,
+void norm(Norm in_norm, NormScope scope, HermitianMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
           int priority=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
-void norm(Norm in_norm, SymmetricMatrix<scalar_t>&& A,
+void norm(Norm in_norm, NormScope scope, SymmetricMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
           int priority=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
-void norm(Norm in_norm, TrapezoidMatrix<scalar_t>&& A,
+void norm(Norm in_norm, NormScope scope, TrapezoidMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
           int priority=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
-void norm(Norm in_norm, BandMatrix<scalar_t>&& A,
+void norm(Norm in_norm, NormScope scope, BandMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
           int priority=0);
 

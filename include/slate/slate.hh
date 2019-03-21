@@ -320,6 +320,18 @@ blas::real_type<typename matrix_type::value_type>
 norm(Norm norm, matrix_type& A,
      const std::map<Option, Value>& opts = std::map<Option, Value>());
 
+//-----------------------------------------
+// all cols max norm
+template <typename matrix_type>
+void colNorms(Norm norm, matrix_type& A,
+              blas::real_type<typename matrix_type::value_type>* values,
+              const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename matrix_type>
+void colNorms(Norm norm, matrix_type& A,
+              blas::real_type<typename matrix_type::value_type>* values,
+              const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 // -----------------------------------------------------------------------------
 // Factorizations, etc.
 

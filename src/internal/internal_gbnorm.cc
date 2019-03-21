@@ -63,12 +63,12 @@ namespace internal {
 ///
 template <Target target, typename scalar_t>
 void norm(
-    Norm in_norm, BandMatrix<scalar_t>&& A,
+    Norm in_norm, NormScope scope, BandMatrix<scalar_t>&& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
     norm(internal::TargetType<target>(),
-         in_norm, A, values,
+         in_norm, scope, A, values,
          priority);
 }
 
@@ -78,13 +78,17 @@ void norm(
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::HostTask>,
-    Norm in_norm, BandMatrix<scalar_t>& A,
+    Norm in_norm, NormScope scope, BandMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
     using blas::max;
     using blas::min;
     using real_t = blas::real_type<scalar_t>;
+
+    if (scope != NormScope::Matrix) {
+        assert("Not implemented yet");
+    }
 
     int64_t kl = A.lowerBandwidth();
     int64_t ku = A.upperBandwidth();
@@ -110,7 +114,7 @@ void norm(
                     {
                         A.tileGetForReading(i, j);
                         real_t tile_max;
-                        genorm(in_norm, A(i, j), &tile_max);
+                        genorm(in_norm, NormScope::Matrix, A(i, j), &tile_max);
                         #pragma omp critical
                         {
                             tiles_maxima.push_back(tile_max);
@@ -144,7 +148,7 @@ void norm(
                     #pragma omp task shared(A, tiles_sums) priority(priority)
                     {
                         A.tileGetForReading(i, j);
-                        genorm(in_norm, A(i, j), &tiles_sums[A.n()*i+jj]);
+                        genorm(in_norm, NormScope::Matrix, A(i, j), &tiles_sums[A.n()*i+jj]);
                     }
                 }
             }
@@ -180,7 +184,7 @@ void norm(
                     #pragma omp task shared(A, tiles_sums) priority(priority)
                     {
                         A.tileGetForReading(i, j);
-                        genorm(in_norm, A(i, j), &tiles_sums[A.m()*j + ii]);
+                        genorm(in_norm, NormScope::Matrix, A(i, j), &tiles_sums[A.m()*j + ii]);
                     }
                 }
             }
@@ -217,7 +221,7 @@ void norm(
                     {
                         A.tileGetForReading(i, j);
                         real_t tile_values[2];
-                        genorm(in_norm, A(i, j), tile_values);
+                        genorm(in_norm, NormScope::Matrix, A(i, j), tile_values);
                         #pragma omp critical
                         {
                             add_sumsq(values[0], values[1],
@@ -237,7 +241,7 @@ void norm(
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::HostNest>,
-    Norm in_norm, BandMatrix<scalar_t>& A,
+    Norm in_norm, NormScope scope, BandMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
@@ -268,7 +272,7 @@ void norm(
             if (A.tileIsLocal(i, j)) {
                 A.tileGetForReading(i, j);
                 real_t tile_max;
-                genorm(in_norm, A(i, j), &tile_max);
+                genorm(in_norm, NormScope::Matrix, A(i, j), &tile_max);
                 #pragma omp critical
                 {
                     tiles_maxima.push_back(tile_max);
@@ -292,7 +296,7 @@ void norm(
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::Devices>,
-    Norm in_norm, BandMatrix<scalar_t>& A,
+    Norm in_norm, NormScope scope, BandMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
@@ -302,7 +306,7 @@ void norm(
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::Devices>,
-    Norm in_norm, BandMatrix<scalar_t>& A,
+    Norm in_norm, NormScope scope, BandMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority)
 {
@@ -544,76 +548,76 @@ void norm(
 // ----------------------------------------
 template
 void norm<Target::HostTask, float>(
-    Norm in_norm, BandMatrix<float>&& A,
+    Norm in_norm, NormScope scope, BandMatrix<float>&& A,
     float* values,
     int priority);
 
 template
 void norm<Target::HostNest, float>(
-    Norm in_norm, BandMatrix<float>&& A,
+    Norm in_norm, NormScope scope, BandMatrix<float>&& A,
     float* values,
     int priority);
 
 template
 void norm<Target::Devices, float>(
-    Norm in_norm, BandMatrix<float>&& A,
+    Norm in_norm, NormScope scope, BandMatrix<float>&& A,
     float* values,
     int priority);
 
 // ----------------------------------------
 template
 void norm<Target::HostTask, double>(
-    Norm in_norm, BandMatrix<double>&& A,
+    Norm in_norm, NormScope scope, BandMatrix<double>&& A,
     double* values,
     int priority);
 
 template
 void norm<Target::HostNest, double>(
-    Norm in_norm, BandMatrix<double>&& A,
+    Norm in_norm, NormScope scope, BandMatrix<double>&& A,
     double* values,
     int priority);
 
 template
 void norm<Target::Devices, double>(
-    Norm in_norm, BandMatrix<double>&& A,
+    Norm in_norm, NormScope scope, BandMatrix<double>&& A,
     double* values,
     int priority);
 
 // ----------------------------------------
 template
 void norm< Target::HostTask, std::complex<float> >(
-    Norm in_norm, BandMatrix< std::complex<float> >&& A,
+    Norm in_norm, NormScope scope, BandMatrix< std::complex<float> >&& A,
     float* values,
     int priority);
 
 template
 void norm< Target::HostNest, std::complex<float> >(
-    Norm in_norm, BandMatrix< std::complex<float> >&& A,
+    Norm in_norm, NormScope scope, BandMatrix< std::complex<float> >&& A,
     float* values,
     int priority);
 
 template
 void norm< Target::Devices, std::complex<float> >(
-    Norm in_norm, BandMatrix< std::complex<float> >&& A,
+    Norm in_norm, NormScope scope, BandMatrix< std::complex<float> >&& A,
     float* values,
     int priority);
 
 // ----------------------------------------
 template
 void norm< Target::HostTask, std::complex<double> >(
-    Norm in_norm, BandMatrix< std::complex<double> >&& A,
+    Norm in_norm, NormScope scope, BandMatrix< std::complex<double> >&& A,
     double* values,
     int priority);
 
 template
 void norm< Target::HostNest, std::complex<double> >(
-    Norm in_norm, BandMatrix< std::complex<double> >&& A,
+    Norm in_norm, NormScope scope, BandMatrix< std::complex<double> >&& A,
     double* values,
     int priority);
 
 template
 void norm< Target::Devices, std::complex<double> >(
-    Norm in_norm, BandMatrix< std::complex<double> >&& A,
+    Norm in_norm, NormScope scope, BandMatrix< std::complex<double> >&& A,
     double* values,
     int priority);
 

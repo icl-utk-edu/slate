@@ -873,7 +873,7 @@ void test_genorm()
 
             //---------------------
             // call kernel
-            slate::genorm( norm, A, values.data() );
+            slate::genorm( norm, slate::NormScope::Matrix, A, values.data() );
 
             // post-process result
             if (norm == lapack::Norm::Max) {

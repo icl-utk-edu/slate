@@ -209,6 +209,7 @@ Params::Params():
     jobvt     ("jobvt",   9,    ParamType::List, lapack::Job::NoVec, lapack::char2job, lapack::job2char, lapack::job2str, "right singular vectors (V^T): n=no vectors, s=some vectors, o=overwrite, a=all vectors"),
     range     ("range",   9,    ParamType::List, lapack::Range::All, lapack::char2range, lapack::range2char, lapack::range2str, "find: a=all eigen/singular values, v=values in (vl, vu], i=il-th through iu-th values"),
     norm      ("norm",    7,    ParamType::List, slate::Norm::One,        lapack::char2norm, lapack::norm2char, lapack::norm2str, "norm: o=one, 2=two, i=inf, f=fro, m=max"),
+    scope     ("scope",   7,    ParamType::List, slate::NormScope::Matrix, char2scope, scope2char, scope2str, "norm scope: m=matrix, r=rows, c=columns"),
     side      ("side",    6,    ParamType::List, slate::Side::Left,       blas::char2side,   blas::side2char,   blas::side2str,   "side: l=left, r=right"),
     uplo      ("uplo",    6,    ParamType::List, slate::Uplo::Lower,      blas::char2uplo,   blas::uplo2char,   blas::uplo2str,   "triangle: l=lower, u=upper"),
     trans     ("trans",   7,    ParamType::List, slate::Op::NoTrans,      blas::char2op,     blas::op2char,     blas::op2str,     "transpose: n=no-trans, t=trans, c=conj-trans"),

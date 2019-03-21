@@ -23,6 +23,7 @@ void test_genorm_work(Params& params, bool run)
 
     // get & mark input values
     slate::Norm norm = params.norm();
+    slate::NormScope scope = params.scope();
     slate::Op trans = params.trans();
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
@@ -123,6 +124,15 @@ void test_genorm_work(Params& params, bool run)
                 Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     }
 
+    std::vector<real_t> values;
+    if (scope == slate::NormScope::Columns) {
+        values.resize(A.n());
+    }
+    else
+    if (scope == slate::NormScope::Rows) {
+        values.resize(A.m());
+    }
+
     if (trans == slate::Op::Trans)
         A = transpose(A);
     else if (trans == slate::Op::ConjTrans)
@@ -145,9 +155,26 @@ void test_genorm_work(Params& params, bool run)
     // Run SLATE test.
     // Compute || A ||_norm.
     //==================================================
-    real_t A_norm = slate::norm(norm, A, {
-        {slate::Option::Target, target}
-    });
+    real_t A_norm;
+
+    if (scope == slate::NormScope::Matrix) {
+        A_norm = slate::norm(norm, A, {
+            {slate::Option::Target, target}
+        });
+    }
+    else
+    if (scope == slate::NormScope::Columns) {
+        slate::colNorms(norm, A, values.data(), {
+            {slate::Option::Target, target}
+        });
+    }
+    else
+    if (scope == slate::NormScope::Rows) {
+        assert("Not implemented yet");
+        // slate::rowNorms(norm, A, values.data(), {
+        //     {slate::Option::Target, target}
+        // });
+    }
 
     {
         slate::trace::Block trace_block("MPI_Barrier");
@@ -181,36 +208,61 @@ void test_genorm_work(Params& params, bool run)
                 op_norm = slate::Norm::One;
         }
 
+        // difference between norms
+        real_t error = 0.;
+        real_t A_norm_ref;
+
         //==================================================
         // Run ScaLAPACK reference routine.
         //==================================================
         MPI_Barrier(MPI_COMM_WORLD);
         time = libtest::get_wtime();
-        real_t A_norm_ref = scalapack_plange(
-            norm2str(op_norm),
-            Am, An, &A_tst[0], ione, ione, descA_tst, &worklange[0]);
-        MPI_Barrier(MPI_COMM_WORLD);
+        if (scope == slate::NormScope::Matrix) {
+            A_norm_ref = scalapack_plange(
+                norm2str(op_norm),
+                Am, An, &A_tst[0], ione, ione, descA_tst, &worklange[0]);
+            MPI_Barrier(MPI_COMM_WORLD);
+        }
+        else
+        if (scope == slate::NormScope::Columns) {
+            for (int64_t c = 0; c < An; ++c)
+            {
+                int descA_tst_1col[9];
+                int64_t c_1 = c+1;
+                A_norm_ref = scalapack_plange(
+                    norm2str(norm),
+                    Am, 1, &A_tst[0], ione, c_1, descA_tst, &worklange[0]);
+                MPI_Barrier(MPI_COMM_WORLD);
+                error += std::abs(values[c] - A_norm_ref) / A_norm_ref;
+            }
+        }
+        else
+        if (scope == slate::NormScope::Rows) {
+            // todo
+        }
         double time_ref = libtest::get_wtime() - time;
 
         //A_norm_ref = lapack::lange(
         //    op_norm,
         //    Am, An, &A_tst[0], lldA);
 
-        // difference between norms
-        real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
-        if (op_norm == slate::Norm::One) {
-            error /= sqrt(Am);
-        }
-        else if (op_norm == slate::Norm::Inf) {
-            error /= sqrt(An);
-        }
-        else if (op_norm == slate::Norm::Fro) {
-            error /= sqrt(Am*An);
-        }
+        if (scope == slate::NormScope::Matrix) {
+            // difference between norms
+            error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
+            if (op_norm == slate::Norm::One) {
+                error /= sqrt(Am);
+            }
+            else if (op_norm == slate::Norm::Inf) {
+                error /= sqrt(An);
+            }
+            else if (op_norm == slate::Norm::Fro) {
+                error /= sqrt(Am*An);
+            }
 
-        if (verbose && mpi_rank == 0) {
-            printf("norm %15.8e, ref %15.8e, ref - norm %5.2f, error %9.2e\n",
-                   A_norm, A_norm_ref, A_norm_ref - A_norm, error);
+            if (verbose && mpi_rank == 0) {
+                printf("norm %15.8e, ref %15.8e, ref - norm %5.2f, error %9.2e\n",
+                       A_norm, A_norm_ref, A_norm_ref - A_norm, error);
+            }
         }
 
         // Allow for difference, except max norm in real should be exact.
@@ -231,7 +283,7 @@ void test_genorm_work(Params& params, bool run)
     }
 
     //---------- extended tests
-    if (extended) {
+    if (extended && scope == slate::NormScope::Matrix) {
         // allocate work space
         std::vector<real_t> worklange(std::max(mlocA, nlocA));
 

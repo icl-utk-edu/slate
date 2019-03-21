@@ -58,19 +58,21 @@ namespace specialization {
 /// Generic implementation for any target.
 /// @ingroup norm
 template <Target target, typename matrix_type>
-blas::real_type<typename matrix_type::value_type>
-norm(slate::internal::TargetType<target>,
-     Norm in_norm, matrix_type A)
+void colNorms(slate::internal::TargetType<target>,
+              Norm in_norm,
+              matrix_type A,
+              blas::real_type<typename matrix_type::value_type>* values)
 {
     using scalar_t = typename matrix_type::value_type;
     using real_t = blas::real_type<scalar_t>;
 
-    // Undo any transpose, which switches one <=> inf norms.
+    // Undo any transpose.
     if (A.op() == Op::ConjTrans || A.op() == Op::Trans) {
-        if (in_norm == Norm::One)
-            in_norm = Norm::Inf;
-        else if (in_norm == Norm::Inf)
-            in_norm = Norm::One;
+        // todo:
+        // if (in_norm == Norm::One)
+        //     in_norm = Norm::Inf;
+        // else if (in_norm == Norm::Inf)
+        //     in_norm = Norm::One;
     }
     if (A.op() == Op::ConjTrans)
         A = conj_transpose(A);
@@ -78,21 +80,19 @@ norm(slate::internal::TargetType<target>,
         A = transpose(A);
 
     //---------
-    // max norm
+    // all max norm (max of each column)
     // max_{i,j} abs( A_{i,j} )
     if (in_norm == Norm::Max) {
 
-        real_t local_max;
-        real_t global_max;
+        std::vector<real_t> local_maxes(A.n());
 
-        // TODO: Allocate batch arrays here, not in internal.
         if (target == Target::Devices)
             A.reserveDeviceWorkspace();
 
         #pragma omp parallel
         #pragma omp master
         {
-            internal::norm<target>(in_norm, NormScope::Matrix, std::move(A), &local_max);
+            internal::norm<target>(in_norm, NormScope::Columns, std::move(A), local_maxes.data());
         }
 
         MPI_Op op_max_nan;
@@ -106,8 +106,8 @@ norm(slate::internal::TargetType<target>,
         {
             trace::Block trace_block("MPI_Allreduce");
             slate_mpi_call(
-                MPI_Allreduce(&local_max, &global_max,
-                              1, mpi_type<real_t>::value,
+                MPI_Allreduce(local_maxes.data(), values,
+                              A.n(), mpi_type<real_t>::value,
                               op_max_nan, A.mpiComm()));
         }
 
@@ -116,109 +116,31 @@ norm(slate::internal::TargetType<target>,
             slate_mpi_call(
                 MPI_Op_free(&op_max_nan));
         }
-
-        A.clearWorkspace();
-
-        return global_max;
     }
     //---------
     // one norm
     // max col sum = max_j sum_i abs( A_{i,j} )
     else if (in_norm == Norm::One) {
-
-        std::vector<real_t> local_sums(A.n());
-
-        if (target == Target::Devices)
-            A.reserveDeviceWorkspace();
-
-        #pragma omp parallel
-        #pragma omp master
-        {
-            internal::norm<target>(in_norm, NormScope::Matrix, std::move(A), local_sums.data());
-        }
-
-        std::vector<real_t> global_sums(A.n());
-
-        #pragma omp critical(slate_mpi)
-        {
-            trace::Block trace_block("MPI_Allreduce");
-            slate_mpi_call(
-                MPI_Allreduce(local_sums.data(), global_sums.data(),
-                              A.n(), mpi_type<real_t>::value,
-                              MPI_SUM, A.mpiComm()));
-        }
-
-        A.clearWorkspace();
-
-        return lapack::lange(Norm::Max, 1, A.n(), global_sums.data(), 1);
+        assert("Not implemented yet");
     }
     //---------
     // inf norm
     // max row sum = max_i sum_j abs( A_{i,j} )
     else if (in_norm == Norm::Inf) {
-
-        std::vector<real_t> local_sums(A.m());
-
-        if (target == Target::Devices)
-            A.reserveDeviceWorkspace();
-
-        #pragma omp parallel
-        #pragma omp master
-        {
-            internal::norm<target>(in_norm, NormScope::Matrix, std::move(A), local_sums.data());
-        }
-
-        std::vector<real_t> global_sums(A.m());
-
-        #pragma omp critical(slate_mpi)
-        {
-            trace::Block trace_block("MPI_Allreduce");
-            slate_mpi_call(
-                MPI_Allreduce(local_sums.data(), global_sums.data(),
-                              A.m(), mpi_type<real_t>::value,
-                              MPI_SUM, A.mpiComm()));
-        }
-
-        A.clearWorkspace();
-
-        return lapack::lange(Norm::Max, 1, A.m(), global_sums.data(), 1);
+        assert("Not implemented yet");
     }
     //---------
     // Frobenius norm
     // sqrt( sum_{i,j} abs( A_{i,j} )^2 )
     else if (in_norm == Norm::Fro) {
-
-        real_t local_values[2];
-        real_t local_sumsq;
-        real_t global_sumsq;
-
-        if (target == Target::Devices)
-            A.reserveDeviceWorkspace();
-
-        #pragma omp parallel
-        #pragma omp master
-        {
-            internal::norm<target>(in_norm, NormScope::Matrix, std::move(A), local_values);
-        }
-
-        #pragma omp critical(slate_mpi)
-        {
-            trace::Block trace_block("MPI_Allreduce");
-            // todo: propogate scale
-            local_sumsq = local_values[0] * local_values[0] * local_values[1];
-            slate_mpi_call(
-                MPI_Allreduce(&local_sumsq, &global_sumsq,
-                              1, mpi_type<real_t>::value,
-                              MPI_SUM, A.mpiComm()));
-        }
-
-        A.clearWorkspace();
-
-        return sqrt(global_sumsq);
+        assert("Not implemented yet");
     }
     else {
-        throw std::exception();  // todo: invalid norm
+        assert("invalid norm");
     }
+
+    A.clearWorkspace();
+
 }
 
 } // namespace specialization
@@ -228,12 +150,14 @@ norm(slate::internal::TargetType<target>,
 /// Version with target as template parameter.
 /// @ingroup norm
 template <Target target, typename matrix_type>
-blas::real_type<typename matrix_type::value_type>
-norm(Norm norm, matrix_type& A,
-     const std::map<Option, Value>& opts)
+void colNorms(Norm in_norm,
+              matrix_type& A,
+              blas::real_type<typename matrix_type::value_type>* values,
+              const std::map<Option, Value>& opts)
 {
-    return internal::specialization::norm(internal::TargetType<target>(),
-                                          norm, A);
+    return internal::specialization::colNorms(internal::TargetType<target>(),
+                                              in_norm, A,
+                                              values);
 }
 
 //------------------------------------------------------------------------------
@@ -265,9 +189,10 @@ norm(Norm norm, matrix_type& A,
 ///
 /// @ingroup norm
 template <typename matrix_type>
-blas::real_type<typename matrix_type::value_type>
-norm(Norm in_norm, matrix_type& A,
-     const std::map<Option, Value>& opts)
+void colNorms(Norm in_norm,
+              matrix_type& A,
+              blas::real_type<typename matrix_type::value_type>* values,
+              const std::map<Option, Value>& opts)
 {
     Target target;
     try {
@@ -280,14 +205,14 @@ norm(Norm in_norm, matrix_type& A,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            return norm<Target::HostTask>(in_norm, A, opts);
+            return colNorms<Target::HostTask>(in_norm, A, values, opts);
             break;
         case Target::HostBatch:
         case Target::HostNest:
-            return norm<Target::HostNest>(in_norm, A, opts);
+            return colNorms<Target::HostNest>(in_norm, A, values, opts);
             break;
         case Target::Devices:
-            return norm<Target::Devices>(in_norm, A, opts);
+            return colNorms<Target::Devices>(in_norm, A, values, opts);
             break;
     }
     throw std::exception();  // todo: invalid target
@@ -296,107 +221,27 @@ norm(Norm in_norm, matrix_type& A,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-float norm(
-    Norm in_norm, Matrix<float>& A,
-    const std::map<Option, Value>& opts);
+void colNorms(Norm in_norm,
+              Matrix<float>& A,
+              float* values,
+              const std::map<Option, Value>& opts);
 
 template
-double norm(
-    Norm in_norm, Matrix<double>& A,
-    const std::map<Option, Value>& opts);
+void colNorms(Norm in_norm,
+              Matrix<double>& A,
+              double* values,
+              const std::map<Option, Value>& opts);
 
 template
-float norm(
-    Norm in_norm, Matrix< std::complex<float> >& A,
-    const std::map<Option, Value>& opts);
+void colNorms(Norm in_norm,
+              Matrix< std::complex<float> >& A,
+              float* values,
+              const std::map<Option, Value>& opts);
 
 template
-double norm(
-    Norm in_norm, Matrix< std::complex<double> >& A,
-    const std::map<Option, Value>& opts);
-
-//--------------------
-template
-float norm(
-    Norm in_norm, HermitianMatrix<float>& A,
-    const std::map<Option, Value>& opts);
-
-template
-double norm(
-    Norm in_norm, HermitianMatrix<double>& A,
-    const std::map<Option, Value>& opts);
-
-template
-float norm(
-    Norm in_norm, HermitianMatrix< std::complex<float> >& A,
-    const std::map<Option, Value>& opts);
-
-template
-double norm(
-    Norm in_norm, HermitianMatrix< std::complex<double> >& A,
-    const std::map<Option, Value>& opts);
-
-//--------------------
-template
-float norm(
-    Norm in_norm, SymmetricMatrix<float>& A,
-    const std::map<Option, Value>& opts);
-
-template
-double norm(
-    Norm in_norm, SymmetricMatrix<double>& A,
-    const std::map<Option, Value>& opts);
-
-template
-float norm(
-    Norm in_norm, SymmetricMatrix< std::complex<float> >& A,
-    const std::map<Option, Value>& opts);
-
-template
-double norm(
-    Norm in_norm, SymmetricMatrix< std::complex<double> >& A,
-    const std::map<Option, Value>& opts);
-
-//--------------------
-template
-float norm(
-    Norm in_norm, TrapezoidMatrix<float>& A,
-    const std::map<Option, Value>& opts);
-
-template
-double norm(
-    Norm in_norm, TrapezoidMatrix<double>& A,
-    const std::map<Option, Value>& opts);
-
-template
-float norm(
-    Norm in_norm, TrapezoidMatrix< std::complex<float> >& A,
-    const std::map<Option, Value>& opts);
-
-template
-double norm(
-    Norm in_norm, TrapezoidMatrix< std::complex<double> >& A,
-    const std::map<Option, Value>& opts);
-
-//--------------------
-template
-float norm(
-    Norm in_norm, BandMatrix<float>& A,
-    const std::map<Option, Value>& opts);
-
-template
-double norm(
-    Norm in_norm, BandMatrix<double>& A,
-    const std::map<Option, Value>& opts);
-
-template
-float norm(
-    Norm in_norm, BandMatrix< std::complex<float> >& A,
-    const std::map<Option, Value>& opts);
-
-template
-double norm(
-    Norm in_norm, BandMatrix< std::complex<double> >& A,
-    const std::map<Option, Value>& opts);
+void colNorms(Norm in_norm,
+              Matrix< std::complex<double> >& A,
+              double* values,
+              const std::map<Option, Value>& opts);
 
 } // namespace slate

@@ -41,6 +41,7 @@
 #define SLATE_DEVICE_HH
 
 #include "slate/internal/cuda.hh"
+#include "slate/enums.hh"
 
 #include <blas.hh>
 #include <lapack.hh>
@@ -94,7 +95,7 @@ void geadd(
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void genorm(
-    lapack::Norm norm,
+    lapack::Norm norm, NormScope scope,
     int64_t m, int64_t n,
     scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* values, int64_t ldv,

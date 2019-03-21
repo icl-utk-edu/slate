@@ -291,6 +291,41 @@ __global__ void genormFroKernel(
     }
 }
 
+
+template <typename scalar_t>
+__global__ void geColNormsMaxKernel(
+    int64_t m, int64_t n,
+    scalar_t const* const* tiles, int64_t lda,
+    blas::real_type<scalar_t>* col_max, int64_t ldv)
+{
+    using real_t = blas::real_type<scalar_t>;
+    scalar_t const* tile = tiles[blockIdx.x];
+    extern __shared__ char dynamic_data[];
+    real_t* shmem_tile = (real_t*)dynamic_data;
+    const int idx = threadIdx.x;
+
+    for (int64_t jj = 0; jj < n; jj += one_ib) {
+        real_t max = 0.0;
+        for (int64_t ii = 0; ii < m; ii += one_ib) {
+            // Read 32x32 sub-tile into shared memory.
+            // This does coalesced reads of one column at a time in parallel.
+            for (int64_t j = 0; j < one_ib; ++j)
+                if (jj+j < n && ii+idx < m)
+                    shmem_tile[j*one_ib1 + idx] = abs(tile[(jj+j)*lda + ii+idx]);
+            __syncthreads();  // shmem_tile loaded
+
+            // Each thread compute max of one column.
+            for (int64_t i = 0; i < one_ib; ++i)
+                if (jj+idx < n && ii+i < m)
+                    max = max_nan(shmem_tile[idx*one_ib1 + i], max);
+            __syncthreads();  // done with shmem_tile
+        }
+
+        if (jj+idx < n)
+            col_max[blockIdx.x*ldv + jj+idx] = max;
+    }
+}
+
 //------------------------------------------------------------------------------
 /// Batched routine that returns the largest absolute value of elements for
 /// each tile in Aarray. Sets
@@ -347,7 +382,7 @@ __global__ void genormFroKernel(
 ///
 template <typename scalar_t>
 void genorm(
-    lapack::Norm norm,
+    lapack::Norm norm, NormScope scope,
     int64_t m, int64_t n,
     scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* values, int64_t ldv, int64_t batch_count,
@@ -359,58 +394,81 @@ void genorm(
     if (batch_count == 0)
         return;
 
-    //---------
-    // max norm
-    if (norm == lapack::Norm::Max) {
-        if (m == 0 || n == 0) {
-            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count, stream);
+    if (scope == NormScope::Matrix) {
+
+        //---------
+        // max norm
+        if (norm == lapack::Norm::Max) {
+            if (m == 0 || n == 0) {
+                cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count, stream);
+            }
+            else {
+                assert(m <= 1024);
+                assert(ldv == 1);
+                // Max 1024 threads * 8 bytes = 8 KiB shared memory in double [complex].
+                genormMaxKernel<<<batch_count, m, sizeof(real_t) * m, stream>>>
+                    (m, n, Aarray, lda, values);
+            }
         }
-        else {
-            assert(m <= 1024);
-            assert(ldv == 1);
-            // Max 1024 threads * 8 bytes = 8 KiB shared memory in double [complex].
-            genormMaxKernel<<<batch_count, m, sizeof(real_t) * m, stream>>>
-                (m, n, Aarray, lda, values);
+        //---------
+        // one norm
+        else if (norm == lapack::Norm::One) {
+            if (m == 0 || n == 0) {
+                cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * n, stream);
+            }
+            else {
+                assert(ldv >= n);
+                genormOneKernel<<<batch_count, one_ib, sizeof(real_t)*one_ib*one_ib1, stream>>>
+                    (m, n, Aarray, lda, values, ldv);
+            }
+        }
+        //---------
+        // inf norm
+        else if (norm == lapack::Norm::Inf) {
+            if (m == 0 || n == 0) {
+                cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * m, stream);
+            }
+            else {
+                assert(m <= 1024);
+                assert(ldv >= m);
+                genormInfKernel<<<batch_count, m, 0, stream>>>
+                    (m, n, Aarray, lda, values, ldv);
+            }
+        }
+        //---------
+        // Frobenius norm
+        else if (norm == lapack::Norm::Fro) {
+            if (m == 0 || n == 0) {
+                cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * 2, stream);
+            }
+            else {
+                assert(m <= 1024);
+                assert(ldv == 2);
+                // Max 1024 threads * 16 bytes = 16 KiB shared memory in double [complex].
+                genormFroKernel<<<batch_count, m, sizeof(real_t) * m * 2, stream>>>
+                    (m, n, Aarray, lda, values);
+            }
         }
     }
-    //---------
-    // one norm
-    else if (norm == lapack::Norm::One) {
-        if (m == 0 || n == 0) {
-            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * n, stream);
+    else if (scope == NormScope::Columns) {
+
+        if (norm == Norm::Max) {
+
+            if (m == 0 || n == 0) {
+                cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * n, stream);
+            }
+            else {
+                assert(ldv >= n);
+                geColNormsMaxKernel<<<batch_count, one_ib, sizeof(real_t)*one_ib*one_ib1, stream>>>
+                    (m, n, Aarray, lda, values, ldv);
+            }
         }
         else {
-            assert(ldv >= n);
-            genormOneKernel<<<batch_count, one_ib, sizeof(real_t)*one_ib*one_ib1, stream>>>
-                (m, n, Aarray, lda, values, ldv);
+            assert("Not implemented yet");
         }
     }
-    //---------
-    // inf norm
-    else if (norm == lapack::Norm::Inf) {
-        if (m == 0 || n == 0) {
-            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * m, stream);
-        }
-        else {
-            assert(m <= 1024);
-            assert(ldv >= m);
-            genormInfKernel<<<batch_count, m, 0, stream>>>
-                (m, n, Aarray, lda, values, ldv);
-        }
-    }
-    //---------
-    // Frobenius norm
-    else if (norm == lapack::Norm::Fro) {
-        if (m == 0 || n == 0) {
-            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * 2, stream);
-        }
-        else {
-            assert(m <= 1024);
-            assert(ldv == 2);
-            // Max 1024 threads * 16 bytes = 16 KiB shared memory in double [complex].
-            genormFroKernel<<<batch_count, m, sizeof(real_t) * m * 2, stream>>>
-                (m, n, Aarray, lda, values);
-        }
+    else {
+        assert("Not implemented yet");
     }
 
     // check that launch succeeded (could still have async errors)
@@ -424,7 +482,7 @@ void genorm(
 // Explicit instantiations.
 template
 void genorm(
-    lapack::Norm norm,
+    lapack::Norm norm, NormScope scope,
     int64_t m, int64_t n,
     float const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
@@ -432,7 +490,7 @@ void genorm(
 
 template
 void genorm(
-    lapack::Norm norm,
+    lapack::Norm norm, NormScope scope,
     int64_t m, int64_t n,
     double const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
@@ -440,7 +498,7 @@ void genorm(
 
 template
 void genorm(
-    lapack::Norm norm,
+    lapack::Norm norm, NormScope scope,
     int64_t m, int64_t n,
     cuFloatComplex const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
@@ -448,7 +506,7 @@ void genorm(
 
 template
 void genorm(
-    lapack::Norm norm,
+    lapack::Norm norm, NormScope scope,
     int64_t m, int64_t n,
     cuDoubleComplex const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,

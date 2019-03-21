@@ -217,7 +217,6 @@ libslate_src += \
 libslate_src += \
         src/internal/internal_comm.cc \
         src/internal/internal_gecopy.cc \
-        src/internal/internal_tzcopy.cc \
         src/internal/internal_gbnorm.cc \
         src/internal/internal_geadd.cc \
         src/internal/internal_gemm.cc \
@@ -243,23 +242,25 @@ libslate_src += \
         src/internal/internal_unmqr.cc \
         src/internal/internal_util.cc \
         src/internal/internal_transpose.cc \
+        src/internal/internal_tzcopy.cc \
 
 # device
 ifeq ($(cuda),1)
     libslate_src += \
             src/cuda/device_geadd.cu \
             src/cuda/device_gecopy.cu \
-            src/cuda/device_tzcopy.cu \
             src/cuda/device_genorm.cu \
             src/cuda/device_henorm.cu \
             src/cuda/device_synorm.cu \
             src/cuda/device_trnorm.cu \
             src/cuda/device_transpose.cu \
+            src/cuda/device_tzcopy.cu \
 
 endif
 
 # driver
 libslate_src += \
+        src/colNorms.cc \
         src/copy.cc \
         src/gbmm.cc \
         src/gbsv.cc \

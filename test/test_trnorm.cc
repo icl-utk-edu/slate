@@ -19,7 +19,7 @@ void test_trnorm_work(Params& params, bool run)
     using blas::real;
     using blas::imag;
     using slate::ceildiv;
-    using lld = long long;
+    using llong = long long;
 
     // get & mark input values
     slate::Norm norm = params.norm();
@@ -59,8 +59,7 @@ void test_trnorm_work(Params& params, bool run)
     if (((uplo == slate::Uplo::Lower) && (m < n)) ||
         ((uplo == slate::Uplo::Upper) && (m > n))) {
         if (mpi_rank == 0) {
-            using lld = long long;
-            printf("skipping invalid size: %s, %lld-by-%lld\n", uplo2str(uplo), (lld) m, (lld) n);
+            printf("skipping invalid size: %s, %lld-by-%lld\n", uplo2str(uplo), llong( m ), llong( n ));
         }
         return;
     }
@@ -338,7 +337,7 @@ void test_trnorm_work(Params& params, bool run)
                             params.okay() = params.okay() && okay;
                             if (verbose || ! okay) {
                                 printf("i %5lld, j %5lld, ii %3lld, jj %3lld, peak %15.8e, norm %15.8e, ref %15.8e, error %9.2e, %s\n",
-                                       (lld) i, (lld) j, (lld) ii, (lld) jj,
+                                       llong( i ), llong( j ), llong( ii ), llong( jj ),
                                        real(peak), A_norm, A_norm_ref, error,
                                        (okay ? "pass" : "failed"));
                             }
@@ -367,8 +366,8 @@ void test_trnorm_work(Params& params, bool run)
         }
     }
 
-    //Cblacs_exit(1) is commented out because it does not handle re-entering ... some unknown problem
-    //Cblacs_exit(1); // 1 means that you can run Cblacs again
+    Cblacs_gridexit(ictxt);
+    //Cblacs_exit(1) does not handle re-entering
 }
 
 // -----------------------------------------------------------------------------

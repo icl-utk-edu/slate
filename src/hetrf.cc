@@ -145,7 +145,9 @@ void hetrf(slate::internal::TargetType<target>,
 
         // > T(k, k) := A(k, k)
         if (T.tileIsLocal(k, k)) {
-            #pragma omp task depend(in:columnL[std::max(izero, k-1)]) \
+            // Intel icpc doesn't like std::max in omp task depend clause.
+            int64_t k_1 = std::max(izero, k-1);
+            #pragma omp task depend(in:columnL[k_1]) \
                              depend(out:columnT[k])
             {
                 //printf( " >> copy A(%ld, %ld) into T(%ld, %ld) <<\n", k, k, k, k); fflush(stdout);

@@ -595,17 +595,18 @@ passed_tests = []
 ntests = len(opts.tests)
 run_all = (ntests == 0)
 
+seen = set()
 for cmd in cmds:
     if (run_all or cmd[0] in opts.tests):
-        if (not run_all):
-            opts.tests.remove( cmd[0] )
+        seen.add( cmd[0] )
         (err, output) = run_test( cmd )
         if (err):
             failed_tests.append( (cmd[0], err, output) )
         else:
             passed_tests.append( cmd[0] )
-if (opts.tests):
-    print_tee( 'Warning: unknown routines:', ' '.join( opts.tests ))
+not_seen = filter( lambda x: x not in seen, opts.tests )
+if (not_seen):
+    print_tee( 'Warning: unknown routines:', ' '.join( not_seen ))
 
 # print summary of failures
 nfailed = len( failed_tests )

@@ -47,94 +47,22 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::gesv from internal::specialization::gesv
-namespace internal {
-namespace specialization {
-
-///-----------------------------------------------------------------------------
-/// \brief
-/// Distributed parallel LU factorization and solve.
-/// Generic implementation for any target.
-template <Target target, typename scalar_t>
-void posv(slate::internal::TargetType<target>,
-          HermitianMatrix<scalar_t>& A,
-          Matrix<scalar_t>& B,
-          int64_t lookahead)
-{
-    assert(B.mt() == A.mt());
-
-    // if upper, change to lower
-    if (A.uplo() == Uplo::Upper)
-        A = conj_transpose(A);
-
-    // factorization
-    potrf(A,
-          {{Option::Lookahead, lookahead},
-           {Option::Target, target}});
-
-    // solve
-    potrs(A, B,
-          {{Option::Lookahead, lookahead},
-           {Option::Target, target}});
-}
-
-} // namespace specialization
-} // namespace internal
-
 //------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup gesv_comp
-template <Target target, typename scalar_t>
-void posv(HermitianMatrix<scalar_t>& A,
-          Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts)
-{
-    int64_t lookahead;
-    try {
-        lookahead = opts.at(Option::Lookahead).i_;
-        assert(lookahead >= 0);
-    }
-    catch (std::out_of_range) {
-        lookahead = 1;
-    }
-
-    internal::specialization::posv(internal::TargetType<target>(),
-                                   A, B,
-                                   lookahead);
-}
-
-//------------------------------------------------------------------------------
-/// Distributed parallel LU factorization and solve.
+/// Distributed parallel Cholesky factorization and solve.
 ///
 template <typename scalar_t>
 void posv(HermitianMatrix<scalar_t>& A,
           Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts)
 {
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range) {
-        target = Target::HostTask;
-    }
+    slate_assert(B.mt() == A.mt());
 
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-            posv<Target::HostTask>(A, B, opts);
-            break;
-        case Target::HostNest:
-            posv<Target::HostNest>(A, B, opts);
-            break;
-        case Target::HostBatch:
-            posv<Target::HostBatch>(A, B, opts);
-            break;
-        case Target::Devices:
-            posv<Target::Devices>(A, B, opts);
-            break;
-    }
+    // factorization
+    potrf(A, opts);
+
+    // solve
+    potrs(A, B, opts);
+
     // todo: return value for errors?
 }
 

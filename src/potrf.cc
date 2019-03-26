@@ -244,7 +244,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     // Debug::printTilesLives(A);
 
     A.tileUpdateAllOrigin();
-    A.clearWorkspace();
+    A.releaseWorkspace();
 
     // Debug::printTilesMaps(A);
 }

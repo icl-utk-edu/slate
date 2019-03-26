@@ -354,6 +354,11 @@ public:
         storage_->clear();
     }
 
+    void releaseWorkspace()
+    {
+        storage_->releaseWorkspace();
+    }
+
     /// Removes all temporary host and device workspace tiles from matrix.
     /// WARNING: currently this clears the entire parent matrix,
     /// not just a sub-matrix.

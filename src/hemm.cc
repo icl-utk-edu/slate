@@ -369,7 +369,7 @@ void hemm(slate::internal::TargetType<target>,
     }
 
     C.tileUpdateAllOrigin();
-    C.clearWorkspace();
+    C.releaseWorkspace();
 }
 
 } // namespace specialization

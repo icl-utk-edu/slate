@@ -1007,10 +1007,9 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileRelease(int64_t i, int64_t j, int device)
 {
     auto iter = storage_->find(globalIndex(i, j, device));
-    if (iter != storage_->end()) {
+    if (iter != storage_->end() && iter->second.tile_->workspace()) {
         // auto tileEntry = storage_->at(globalIndex(i, j, device));
-        if (iter->second.tile_->workspace() &&
-            (iter->second.stateOn(MOSI::OnHold) || iter->second.stateOn(MOSI::Modified)) )
+        if ( iter->second.stateOn(MOSI::OnHold) || iter->second.stateOn(MOSI::Modified) )
             return;
         else
             // todo: erase only workspace tiles? if so, rename with "Workspace"?

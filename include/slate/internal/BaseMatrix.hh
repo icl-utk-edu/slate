@@ -228,6 +228,12 @@ public:
     /// Unsets tile(i, j)'s hold on device.
     void tileUnsetHold(int64_t i, int64_t j, int device=host_num_);
 
+    /// Unsets all local tiles' hold on device.
+    void tileUnsetHoldAll(int device=host_num_);
+
+    /// Unsets all local tiles' hold on all devices.
+    void tileUnsetHoldAllOnDevices();
+
     /// Marks tile(i, j) as Modified on device.
     /// Other instances will be invalidated.
     /// Unless permissive, asserts if other instances are in Modified state.
@@ -1101,6 +1107,33 @@ void BaseMatrix<scalar_t>::tileUnsetHold(int64_t i, int64_t j, int device)
     iter->second.setState(~MOSI::OnHold);
 }
 
+//------------------------------------------------------------------------------
+/// Unsets all local tiles' hold on device.
+///
+/// @param[in] device
+///     Tile's device ID.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileUnsetHoldAll(int device)
+{
+    for (int64_t j = 0; j < nt(); ++j)
+        for (int64_t i = 0; i < mt(); ++i)
+            if (tileIsLocal(i, j))
+                tileUnsetHold(i, j, device);
+}
+
+//------------------------------------------------------------------------------
+/// Unsets all local tiles' hold on all devices.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileUnsetHoldAllOnDevices()
+{
+    for (int64_t j = 0; j < nt(); ++j)
+        for (int64_t i = 0; i < mt(); ++i)
+            if (tileIsLocal(i, j))
+                tileUnsetHold(i, j, tileDevice(i, j));
+}
+
 
 //------------------------------------------------------------------------------
 /// Marks tile(i, j) as Modified on device.
@@ -1789,7 +1822,7 @@ void BaseMatrix<scalar_t>::tileGetAllForReading(int device)
 }
 
 //------------------------------------------------------------------------------
-/// Gets all local tiles for reading on device.
+/// Gets all local tiles for writing on device.
 ///
 /// @param[in] device
 ///     Tile's destination: host or device ID, defaults to host.
@@ -1831,7 +1864,7 @@ void BaseMatrix<scalar_t>::tileGetAllForReadingOnDevices()
 }
 
 //------------------------------------------------------------------------------
-/// Gets all local tiles for reading on corresponding devices.
+/// Gets all local tiles for writing on corresponding devices.
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetAllForWritingOnDevices()

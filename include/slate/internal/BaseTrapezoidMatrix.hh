@@ -116,8 +116,18 @@ public:
     void gather(scalar_t* A, int64_t lda);
     Uplo uplo() const;
     Uplo uplo_logical() const;
-    void tileUpdateAllOrigin();
     void insertLocalTiles(bool on_devices=false);
+
+    void tileGetAllForReading(int device=hostNum());
+    void tileGetAllForReadingOnDevices();
+    void tileGetAllForWriting(int device=hostNum());
+    void tileGetAllForWritingOnDevices();
+    void tileGetAndHoldAll(int device=hostNum());
+    void tileGetAndHoldAllOnDevices();
+    void tileUnsetHoldAll(int device=hostNum());
+    void tileUnsetHoldAllOnDevices();
+    void tileUpdateAllOrigin();
+    int  hostNum()  const { return this->host_num_; }
 };
 
 //--------------------------------------------------------------------------
@@ -718,17 +728,14 @@ Uplo BaseTrapezoidMatrix<scalar_t>::uplo_logical() const
 template <typename scalar_t>
 void BaseTrapezoidMatrix<scalar_t>::tileUpdateAllOrigin()
 {
-    if (this->uplo_logical() == Uplo::Lower) {
-        for (int64_t j = 0; j < this->nt(); ++j)
-            for (int64_t i = j; i < this->mt(); ++i)  // lower
-                if (this->tileIsLocal(i, j))
-                    this->tileUpdateOrigin(i, j);
-    }
-    else {
-        for (int64_t j = 0; j < this->nt(); ++j)
-            for (int64_t i = 0; i <= j && i < this->mt(); ++i)  // upper
-                if (this->tileIsLocal(i, j))
-                    this->tileUpdateOrigin(i, j);
+    int64_t mt = this->mt();
+    for (int64_t j = 0; j < this->nt(); ++j) {
+        int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);
+        int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
+        for (int64_t i = istart; i < iend; ++i) {
+            if (this->tileIsLocal(i, j))
+                this->tileUpdateOrigin(i, j);
+        }
     }
 }
 
@@ -752,6 +759,154 @@ void BaseTrapezoidMatrix<scalar_t>::insertLocalTiles(bool on_devices)
                                       : this->host_num_);
                 this->tileInsert(i, j, dev);
             }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Gets all local tiles for reading on device.
+///
+/// @param[in] device
+///     Tile's destination: host or device ID, defaults to host.
+///
+template <typename scalar_t>
+void BaseTrapezoidMatrix<scalar_t>::tileGetAllForReading(int device)
+{
+    int64_t mt = this->mt();
+    for (int64_t j = 0; j < this->nt(); ++j) {
+        int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);
+        int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
+        for (int64_t i = istart; i < iend; ++i) {
+            if (this->tileIsLocal(i, j))
+                this->tileGetForReading(i, j, device);
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Gets all local tiles for writing on device.
+///
+/// @param[in] device
+///     Tile's destination: host or device ID, defaults to host.
+///
+template <typename scalar_t>
+void BaseTrapezoidMatrix<scalar_t>::tileGetAllForWriting(int device)
+{
+    int64_t mt = this->mt();
+    for (int64_t j = 0; j < this->nt(); ++j) {
+        int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);
+        int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
+        for (int64_t i = istart; i < iend; ++i) {
+            if (this->tileIsLocal(i, j))
+                this->tileGetForWriting(i, j, device);
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Gets all local tiles on device and marks them as OnHold.
+///
+/// @param[in] device
+///     Tile's destination: host or device ID, defaults to host.
+///
+template <typename scalar_t>
+void BaseTrapezoidMatrix<scalar_t>::tileGetAndHoldAll(int device)
+{
+    int64_t mt = this->mt();
+    for (int64_t j = 0; j < this->nt(); ++j) {
+        int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);
+        int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
+        for (int64_t i = istart; i < iend; ++i) {
+            if (this->tileIsLocal(i, j))
+                this->tileGetAndHold(i, j, device);
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Gets all local tiles for reading on corresponding devices.
+///
+template <typename scalar_t>
+void BaseTrapezoidMatrix<scalar_t>::tileGetAllForReadingOnDevices()
+{
+    int64_t mt = this->mt();
+    for (int64_t j = 0; j < this->nt(); ++j) {
+        int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);
+        int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
+        for (int64_t i = istart; i < iend; ++i) {
+            if (this->tileIsLocal(i, j))
+                this->tileGetForReading(i, j, this->tileDevice(i, j));
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Gets all local tiles for reading on corresponding devices.
+///
+template <typename scalar_t>
+void BaseTrapezoidMatrix<scalar_t>::tileGetAllForWritingOnDevices()
+{
+    int64_t mt = this->mt();
+    for (int64_t j = 0; j < this->nt(); ++j) {
+        int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);
+        int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
+        for (int64_t i = istart; i < iend; ++i) {
+            if (this->tileIsLocal(i, j))
+                this->tileGetForWriting(i, j, this->tileDevice(i, j));
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Gets all local tiles on corresponding devices and marks them as OnHold.
+//
+template <typename scalar_t>
+void BaseTrapezoidMatrix<scalar_t>::tileGetAndHoldAllOnDevices()
+{
+    int64_t mt = this->mt();
+    for (int64_t j = 0; j < this->nt(); ++j) {
+        int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);
+        int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
+        for (int64_t i = istart; i < iend; ++i) {
+            if (this->tileIsLocal(i, j))
+                this->tileGetAndHold(i, j, this->tileDevice(i, j));
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Unsets all local tiles' hold on device.
+///
+/// @param[in] device
+///     Tile's device ID.
+///
+template <typename scalar_t>
+void BaseTrapezoidMatrix<scalar_t>::tileUnsetHoldAll(int device)
+{
+    int64_t mt = this->mt();
+    for (int64_t j = 0; j < this->nt(); ++j) {
+        int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);
+        int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
+        for (int64_t i = istart; i < iend; ++i) {
+            if (this->tileIsLocal(i, j))
+                this->tileUnsetHold(i, j, device);
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Unsets all local tiles' hold on all devices.
+///
+template <typename scalar_t>
+void BaseTrapezoidMatrix<scalar_t>::tileUnsetHoldAllOnDevices()
+{
+    int64_t mt = this->mt();
+    for (int64_t j = 0; j < this->nt(); ++j) {
+        int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);
+        int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
+        for (int64_t i = istart; i < iend; ++i) {
+            if (this->tileIsLocal(i, j))
+                this->tileUnsetHold(i, j, this->tileDevice(i, j));
         }
     }
 }

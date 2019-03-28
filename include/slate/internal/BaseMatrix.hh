@@ -1727,7 +1727,12 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
             // todo: find the shortest path / closest source
             // including possibility of device peer-to-peer copy
         }
-        assert(src_device != invalid_dev);
+        if(src_device == invalid_dev){
+            slate_error(std::string("Error copying tile(")
+                         + std::to_string(i) + ", " + std::to_string(j)
+                         + "), invalid source " + std::to_string(src_device)
+                         + " -> " + std::to_string(dst_device) );
+        }
 
         // Update the destination tile's data.
         if (dst_device != host_num_ && src_device != host_num_) {

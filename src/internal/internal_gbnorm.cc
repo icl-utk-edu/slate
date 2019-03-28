@@ -267,7 +267,7 @@ void norm(
     #pragma omp parallel for schedule(dynamic, 1)
     for (int64_t j = 0; j < A_nt; ++j) {
         int64_t i_begin = max(j - kut, 0);
-        int64_t i_end   = min(j + klt + 1, A.mt());
+        int64_t i_end   = min(j + klt + 1, A_mt);
         for (int64_t i = i_begin; i < i_end; ++i) {
             if (A.tileIsLocal(i, j)) {
                 A.tileGetForReading(i, j);

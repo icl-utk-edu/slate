@@ -274,7 +274,7 @@ void copy(internal::TargetType<Target::Devices>,
             slate_cuda_call(cudaSetDevice(device));
 
             cudaStream_t stream = B.compute_stream(device);
-            cublasHandle_t cublas_handle = B.cublas_handle(device);
+            // cublasHandle_t cublas_handle = B.cublas_handle(device);
 
             slate_cuda_call(
                 cudaMemcpyAsync(a_array_dev, a_array_host,

@@ -179,7 +179,7 @@ norm(slate::internal::TargetType<target>,
                               MPI_SUM, A.mpiComm()));
         }
 
-        A.clearWorkspace();
+        A.releaseWorkspace();
 
         return lapack::lange(Norm::Max, 1, A.m(), global_sums.data(), 1);
     }

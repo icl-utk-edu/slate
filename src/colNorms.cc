@@ -139,7 +139,8 @@ void colNorms(slate::internal::TargetType<target>,
         assert("invalid norm");
     }
 
-    A.clearWorkspace();
+    // todo: is this correct here?
+    A.releaseWorkspace();
 
 }
 

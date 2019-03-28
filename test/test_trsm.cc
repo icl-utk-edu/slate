@@ -161,7 +161,7 @@ void test_trsm_work(Params& params, bool run)
 
         // get norms of the original data
         real_t A_norm = scalapack_plantr(norm2str(norm), uplo2str(uplo), diag2str(diag), Am, An, &A_tst[0], ione, ione, descA_tst, &worklantr[0]);
-        real_t B_orig_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_tst[0], ione, ione, descB_tst, &worklange[0]);
+        real_t B_orig_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_ref[0], ione, ione, descB_tst, &worklange[0]);
 
         //==================================================
         // Run ScaLAPACK reference routine.

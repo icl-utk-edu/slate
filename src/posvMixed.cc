@@ -110,6 +110,7 @@ void posvMixed( slate::internal::TargetType<target>,
                 int& iter,
                 int64_t lookahead)
 {
+    bool converged = false;
     const int itermax = 30;
     using real_hi = blas::real_type<scalar_hi>;
     const real_hi eps = std::numeric_limits<real_hi>::epsilon();
@@ -121,10 +122,6 @@ void posvMixed( slate::internal::TargetType<target>,
     if (A.uplo_logical() == Uplo::Upper)
         A = conj_transpose(A);
 
-    if (target == Target::Devices){
-
-    }
-
     // workspace
     auto R    = B.emptyLike();
     auto A_lo = A.template emptyLike<scalar_lo>();
@@ -134,13 +131,15 @@ void posvMixed( slate::internal::TargetType<target>,
     std::vector<real_hi> colnorms_R(R.n());
 
     // insert local tiles
-    X_lo.insertLocalTiles();
-    R.insertLocalTiles();
-    A_lo.insertLocalTiles();
-    // todo: improve data transfer as below
-    // X_lo.insertLocalTiles(target == Target::Devices);
-    // R.insertLocalTiles(target == Target::Devices);
-    // A_lo.insertLocalTiles(target == Target::Devices);
+    X_lo.insertLocalTiles(target == Target::Devices);
+    R.insertLocalTiles(target == Target::Devices);
+    A_lo.insertLocalTiles(target == Target::Devices);
+
+    if (target == Target::Devices){
+        A.tileGetAndHoldAllOnDevices();
+        B.tileGetAndHoldAllOnDevices();
+        X.tileGetAndHoldAllOnDevices();
+    }
 
     // norm of A
     real_hi Anorm = norm(Norm::Inf, A,
@@ -191,11 +190,11 @@ void posvMixed( slate::internal::TargetType<target>,
 
     if (iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
         iter = 0;
-        return;
+        converged = true;
     }
 
     // iterative refinement
-    for (int iiter = 0; iiter < itermax; iiter++) {
+    for (int iiter = 0; iiter < itermax && !converged; iiter++) {
         // Convert R from high to low precision, store result in X_lo.
         copy(R, X_lo,
              {{Option::Target, target}});
@@ -234,28 +233,36 @@ void posvMixed( slate::internal::TargetType<target>,
 
         if (iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
             iter = iiter+1;
-            return;
+            converged = true;
         }
     }
 
-    // If we are at this place of the code, this is because we have performed
-    // iter = itermax iterations and never satisfied the stopping criterion,
-    // set up the iter flag accordingly and follow up with double precision
-    // routine.
-    iter = -itermax - 1;
+    if ( ! converged ) {
+        // If we are at this place of the code, this is because we have performed
+        // iter = itermax iterations and never satisfied the stopping criterion,
+        // set up the iter flag accordingly and follow up with double precision
+        // routine.
+        iter = -itermax - 1;
 
-    // Compute the Cholesky factorization of A.
-    potrf(A,
-          {{Option::Lookahead, lookahead},
-           {Option::Target, target}});
+        // Compute the Cholesky factorization of A.
+        potrf(A,
+              {{Option::Lookahead, lookahead},
+               {Option::Target, target}});
 
-    // Solve the system A * X = B.
-    copy(B, X,
-         {{Option::Target, target}});
-    potrs(A, X,
-          {{Option::Lookahead, lookahead},
-           {Option::Target, target}});
+        // Solve the system A * X = B.
+        copy(B, X,
+             {{Option::Target, target}});
+        potrs(A, X,
+              {{Option::Lookahead, lookahead},
+               {Option::Target, target}});
+    }
 
+    if (target == Target::Devices) {
+        // clear instead of release due to previous hold
+        A.clearWorkspace();
+        B.clearWorkspace();
+        X.clearWorkspace();
+    }
 }
 
 } // namespace specialization

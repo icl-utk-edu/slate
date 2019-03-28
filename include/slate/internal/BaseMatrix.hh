@@ -1386,6 +1386,12 @@ void BaseMatrix<scalar_t>::listBcast(
                     life += tileLife(i, j); // todo: use temp tile to receive
                 tileLife(i, j, life);
             }
+            else
+            // sending the tile
+            {
+                // make sure it exists on host
+                tileGetForReading(i, j);
+            }
 
             // Send across MPI ranks.
             // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
@@ -1395,6 +1401,9 @@ void BaseMatrix<scalar_t>::listBcast(
 
         // Copy to devices.
         // TODO: should this be inside above if-then?
+        // todo: this is incuring extra communication,
+        //       tile(i,j) is not needed on all devices where this matrix resides
+        // todo: only distribute to devices if receiving
         if (target == Target::Devices) {
             std::set<int> dev_set;
             for (auto submatrix : submatrices_list)

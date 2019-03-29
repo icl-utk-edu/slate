@@ -199,6 +199,7 @@ Params::Params():
 
     // ----- routine parameters
     //         name,      w,    type,            def,                    char2enum,         enum2char,         enum2str,         help
+    origin    ("origin",  6,    ParamType::List, 'h', "hd",   "origin: h=Host, d=Devices"),
     target    ("target",  6,    ParamType::List, 't', "tnbd", "target: t=HostTask n=HostNest b=HostBatch d=Devices"),
     datatype  ("type",    4,    ParamType::List, DataType::Double,        char2datatype,     datatype2char,     datatype2str,     "s=single (float), d=double, c=complex-single, z=complex-double"),
     layout    ("layout",  6,    ParamType::List, slate::Layout::ColMajor, blas::char2layout, blas::layout2char, blas::layout2str, "layout: r=row major, c=column major"),

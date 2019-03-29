@@ -4,6 +4,7 @@
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
+#include "print_matrix.hh"
 
 #include <cassert>
 #include <cmath>
@@ -23,8 +24,6 @@ void test_trsm_work(Params& params, bool run)
     slate::Side side = params.side();
     slate::Uplo uplo = params.uplo();
     slate::Op transA = params.transA();
-    // ref. code to check can't do transB; disable for now.
-    //slate::Op transB = params.transB();
     slate::Diag diag = params.diag();
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
@@ -37,6 +36,8 @@ void test_trsm_work(Params& params, bool run)
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
+    int verbose = params.verbose();
+    slate::Target origin = char2target(params.origin());
     slate::Target target = char2target(params.target());
 
     // mark non-standard output values
@@ -51,11 +52,11 @@ void test_trsm_work(Params& params, bool run)
     // Error analysis applies in these norms.
     slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 
-    // setup so trans(B) is m-by-n
+    // setup so B is m-by-n
     int64_t An  = (side == slate::Side::Left ? m : n);
     int64_t Am  = An;
-    int64_t Bm  = m;  //(transB == Op::NoTrans ? m : n);
-    int64_t Bn  = n;  //(transB == Op::NoTrans ? n : m);
+    int64_t Bm  = m;
+    int64_t Bn  = n;
 
     // local values
     const int izero = 0, ione = 1;
@@ -100,21 +101,73 @@ void test_trsm_work(Params& params, bool run)
         B_ref = B_tst;
     }
 
-    // create SLATE matrices from the ScaLAPACK layouts
-    auto A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK
-             (uplo, diag, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK
-             (Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+    if (verbose >= 2) {
+        print_matrix( "A", mlocA, nlocA, &A_tst[0], lldA, p, q, MPI_COMM_WORLD);
+        print_matrix( "B", mlocB, nlocB, &B_tst[0], lldB, p, q, MPI_COMM_WORLD);
+    }
 
+    // todo: work-around to initialize BaseMatrix::num_devices_
+    slate::HermitianMatrix<scalar_t> A0(uplo, n, nb, p, q, MPI_COMM_WORLD);
+
+    slate::TriangularMatrix<scalar_t> A;
+    slate::Matrix<scalar_t> B;
+    if (origin == slate::Target::Devices) {
+        // todo: refactor this code
+        // Distribute local ScaLAPACK data to tiles on GPU devices.
+        A = slate::TriangularMatrix<scalar_t>
+                (uplo, diag, An, nb, nprow, npcol, MPI_COMM_WORLD);
+        A.insertLocalTiles( true );
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            int64_t jj_local = int64_t( j / q )*nb;
+            int64_t ibegin = (A.uplo() == slate::Uplo::Lower ? j : 0);
+            int64_t iend   = (A.uplo() == slate::Uplo::Lower ? A.mt() : std::min( j+1, A.mt() ));
+            for (int64_t i = ibegin; i < iend; ++i) {
+                int64_t ii_local = int64_t( i / p )*nb;
+                if (A.tileIsLocal(i, j)) {
+                    auto Aij = A(i, j, A.tileDevice(i, j));
+                    slate_cuda_call(
+                        cudaSetDevice(A.tileDevice(i, j)));
+                    slate_cublas_call(
+                        cublasSetMatrix(
+                            Aij.mb(), Aij.nb(), sizeof(scalar_t),
+                            &A_tst[ ii_local + jj_local*lldA ], lldA,
+                            Aij.data(), Aij.stride()));
+                }
+            }
+        }
+
+        // Distribute local ScaLAPACK data to tiles on GPU devices.
+        B = slate::Matrix<scalar_t>
+                 (Bm, Bn, nb, nprow, npcol, MPI_COMM_WORLD);
+        B.insertLocalTiles( true );
+        for (int64_t j = 0; j < B.nt(); ++j) {
+            int64_t jj_local = int64_t( j / q )*nb;
+            for (int64_t i = 0; i < B.mt(); ++i) {
+                int64_t ii_local = int64_t( i / p )*nb;
+                if (B.tileIsLocal(i, j)) {
+                    auto Bij = B(i, j, B.tileDevice(i, j));
+                    slate_cuda_call(
+                        cudaSetDevice(B.tileDevice(i, j)));
+                    slate_cublas_call(
+                        cublasSetMatrix(
+                            Bij.mb(), Bij.nb(), sizeof(scalar_t),
+                            &B_tst[ ii_local + jj_local*lldB ], lldB,
+                            Bij.data(), Bij.stride()));
+                }
+            }
+        }
+    }
+    else {
+        // create SLATE matrices from the ScaLAPACK layouts
+        A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK
+                 (uplo, diag, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+        B = slate::Matrix<scalar_t>::fromScaLAPACK
+                 (Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+    }
     if (transA == Op::Trans)
         A = transpose(A);
     else if (transA == Op::ConjTrans)
         A = conj_transpose(A);
-
-    //if (transB == Op::Trans)
-    //    B = transpose (B);
-    //else if (transB == Op::ConjTrans)
-    //    B = conj_transpose (B);
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
@@ -149,6 +202,26 @@ void test_trsm_work(Params& params, bool run)
 
     if (check || ref) {
         // comparison with reference routine from ScaLAPACK
+
+        if (origin == slate::Target::Devices) {
+            // Copy data back from GPUs.
+            for (int64_t j = 0; j < B.nt(); ++j) {
+                int64_t jj_local = int64_t( j / q )*nb;
+                for (int64_t i = 0; i < B.mt(); ++i) {
+                    int64_t ii_local = int64_t( i / p )*nb;
+                    if (B.tileIsLocal(i, j)) {
+                        auto Bij = B(i, j, B.tileDevice(i, j));
+                        slate_cuda_call(
+                            cudaSetDevice(B.tileDevice(i, j)));
+                        slate_cublas_call(
+                            cublasGetMatrix(
+                                Bij.mb(), Bij.nb(), sizeof(scalar_t),
+                                Bij.data(), Bij.stride(),
+                                &B_tst[ ii_local + jj_local*lldB ], lldB));
+                    }
+                }
+            }
+        }
 
         // set MKL num threads appropriately for parallel BLAS
         int omp_num_threads;

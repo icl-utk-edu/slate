@@ -35,6 +35,7 @@ public:
     libtest::ParamInt    extended;
     libtest::ParamInt    cache;
     libtest::ParamInt    matrix;  // todo: string + generator
+    libtest::ParamChar   origin;  // todo: enum
     libtest::ParamChar   target;  // todo: enum
 
     // ----- routine parameters
@@ -212,6 +213,8 @@ inline slate::Target char2target(char targetchar)
         return slate::Target::HostBatch;
     else if (targetchar == 'd')
         return slate::Target::Devices;
+    else if (targetchar == 'h')
+        return slate::Target::Host;
     return slate::Target::HostTask;
 }
 // -----------------------------------------------------------------------------

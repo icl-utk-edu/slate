@@ -1386,12 +1386,6 @@ void BaseMatrix<scalar_t>::listBcast(
                     life += tileLife(i, j); // todo: use temp tile to receive
                 tileLife(i, j, life);
             }
-            else
-            // sending the tile
-            {
-                // make sure it exists on host
-                tileGetForReading(i, j);
-            }
 
             // Send across MPI ranks.
             // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
@@ -1405,15 +1399,18 @@ void BaseMatrix<scalar_t>::listBcast(
         //       tile(i,j) is not needed on all devices where this matrix resides
         // todo: only distribute to devices if receiving
         if (target == Target::Devices) {
-            std::set<int> dev_set;
-            for (auto submatrix : submatrices_list)
-                submatrix.getLocalDevices(&dev_set);
+            // If receiving the tile.
+            if (! tileIsLocal(i, j)) {
+                std::set<int> dev_set;
+                for (auto submatrix : submatrices_list)
+                    submatrix.getLocalDevices(&dev_set);
 
-            #pragma omp task
-            {
-                for (auto device : dev_set)
-                    tileGetForReading(i, j, device, LayoutConvert(layout));
-                    // todo: handle layout
+                #pragma omp task
+                {
+                    for (auto device : dev_set)
+                        tileGetForReading(i, j, device, LayoutConvert(layout));
+                        // todo: handle layout
+                }
             }
         }
     }
@@ -1596,9 +1593,13 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
         tileModified(i, j);
     }
 
-    // Forward.
-    for (int dst : send_to)
-        at(i, j).send(new_vec[dst], mpi_comm_, tag);
+    if (! send_to.empty()) {
+        // read tile on host memory
+        tileGetForReading(i, j);
+        // Forward.
+        for (int dst : send_to)
+            at(i, j).send(new_vec[dst], mpi_comm_, tag);
+    }
 }
 
 //------------------------------------------------------------------------------

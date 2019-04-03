@@ -553,7 +553,7 @@ void MatrixStorage<scalar_t>::clearWorkspace()
 }
 
 //------------------------------------------------------------------------------
-/// Clears all host and device workspace tiles.
+/// Clears all host and device workspace tiles that are not OnHold nor Modified.
 /// Also clears life.
 ///
 template <typename scalar_t>

@@ -5,7 +5,7 @@
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
-
+#include "scalapack_copy.hh"
 
 #include <cassert>
 #include <cmath>
@@ -120,10 +120,27 @@ void test_gemm_work(Params& params, bool run)
         assert(info == 0);
     }
 
-    // create SLATE matrices from the ScaLAPACK layouts
-    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
-    auto C = slate::Matrix<scalar_t>::fromScaLAPACK(m, n, &C_tst[0], lldC, nb, nprow, npcol, MPI_COMM_WORLD);
+    slate::Matrix<scalar_t> A, B, C;
+    if (origin == slate::Target::Devices) {
+        // Copy local ScaLAPACK data to tiles on GPU devices.
+        A = slate::Matrix<scalar_t>(Am, An, nb, nprow, npcol, MPI_COMM_WORLD);
+        A.insertLocalTiles(origin);
+        copy(&A_tst[0], descA_tst, A);
+
+        B = slate::Matrix<scalar_t>(Bm, Bn, nb, nprow, npcol, MPI_COMM_WORLD);
+        B.insertLocalTiles(origin);
+        copy(&B_tst[0], descB_tst, B);
+
+        C = slate::Matrix<scalar_t>(Cm, Cn, nb, nprow, npcol, MPI_COMM_WORLD);
+        C.insertLocalTiles(origin);
+        copy(&C_tst[0], descC_tst, C);
+    }
+    else {
+        // create SLATE matrices from the ScaLAPACK layouts
+        A = slate::Matrix<scalar_t>::fromScaLAPACK(Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+        B = slate::Matrix<scalar_t>::fromScaLAPACK(Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+        C = slate::Matrix<scalar_t>::fromScaLAPACK( m,  n, &C_tst[0], lldC, nb, nprow, npcol, MPI_COMM_WORLD);
+    }
 
     if (transA == slate::Op::Trans)
         A = transpose(A);
@@ -183,6 +200,11 @@ void test_gemm_work(Params& params, bool run)
 
     if (check || ref) {
         // comparison with reference routine from ScaLAPACK
+
+        if (origin == slate::Target::Devices) {
+            // Copy SLATE result back from GPUs.
+            copy(C, &C_tst[0], descC_tst);
+        }
 
         // set MKL num threads appropriately for parallel BLAS
         int omp_num_threads;

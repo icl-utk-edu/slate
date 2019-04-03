@@ -42,7 +42,7 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
     bool trace = params.trace() == 'y';
     int verbose = params.verbose(); SLATE_UNUSED(verbose);
     int matrix = params.matrix();
-    slate::Target target = char2target(params.target());
+    slate::Target target = params.target();
 
     // mark non-standard output values
     params.time();

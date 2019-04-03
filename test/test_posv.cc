@@ -30,7 +30,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose(); SLATE_UNUSED(verbose);
-    slate::Target target = char2target(params.target());
+    slate::Target target = params.target();
 
     // mark non-standard output values
     params.time();

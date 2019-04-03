@@ -45,7 +45,7 @@ void test_tbsm_work(Params& params, bool run)
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
-    slate::Target target = char2target(params.target());
+    slate::Target target = params.target();
 
     // mark non-standard output values
     params.time();

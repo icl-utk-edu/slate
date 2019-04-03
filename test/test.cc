@@ -14,8 +14,7 @@
 // -----------------------------------------------------------------------------
 using libtest::ParamType;
 using libtest::DataType;
-using libtest::char2datatype;
-using libtest::datatype2char;
+using libtest::str2datatype;
 using libtest::datatype2str;
 using libtest::ansi_bold;
 using libtest::ansi_red;
@@ -183,13 +182,13 @@ Params::Params():
     // p = precision
     // def = default
     // ----- test framework parameters
-    //         name,       w,    type,             def, valid, help
+    //         name,       w,    type,        default, valid, help
     check     ("check",   0,    ParamType::Value, 'y', "ny",  "check the results"),
     error_exit("error-exit", 0, ParamType::Value, 'n', "ny",  "check error exits"),
     ref       ("ref",     0,    ParamType::Value, 'y', "nyo",  "run reference; sometimes check implies ref"),
     trace     ("trace",   0,    ParamType::Value, 'n', "ny",  "enable/disable traces"),
 
-    //         name,      w, p, type,             def, min,  max, help
+    //         name,      w, p, type,         default, min,  max, help
     tol       ("tol",     0, 0, ParamType::Value,  50,   1, 1000, "tolerance (e.g., error < tol*epsilon to pass)"),
     repeat    ("repeat",  0,    ParamType::Value,   1,   1, 1000, "number of times to repeat each test"),
     verbose   ("verbose", 0,    ParamType::Value,   0,   0,   10, "verbose level"),
@@ -198,10 +197,12 @@ Params::Params():
     matrix    ("matrix",  0,    ParamType::List,    0,   0,    1, "matrix type; 0=rand, 1=diag dominant"),
 
     // ----- routine parameters
-    //         name,      w,    type,            def,                    char2enum,         enum2char,         enum2str,         help
-    origin    ("origin",  6,    ParamType::List, 'h', "hd",   "origin: h=Host, d=Devices"),
-    target    ("target",  6,    ParamType::List, 't', "tnbd", "target: t=HostTask n=HostNest b=HostBatch d=Devices"),
-    datatype  ("type",    4,    ParamType::List, DataType::Double,        char2datatype,     datatype2char,     datatype2str,     "s=single (float), d=double, c=complex-single, z=complex-double"),
+    //         name,      w,    type,            default,                 str2enum,     enum2str,     help
+    datatype  ("type",    4,    ParamType::List, DataType::Double,        str2datatype, datatype2str, "s=single (float), d=double, c=complex-single, z=complex-double"),
+    origin    ("origin",  7,    ParamType::List, slate::Target::Host,     str2target,   target2str,   "origin: h=Host, d=Devices"),
+    target    ("target",  7,    ParamType::List, slate::Target::HostTask, str2target,   target2str,   "target: t=HostTask n=HostNest b=HostBatch d=Devices"),
+
+    //         name,      w,    type,            default,                 char2enum,         enum2char,         enum2str,         help
     layout    ("layout",  6,    ParamType::List, slate::Layout::ColMajor, blas::char2layout, blas::layout2char, blas::layout2str, "layout: r=row major, c=column major"),
     jobz      ("jobz",    5,    ParamType::List, lapack::Job::NoVec, lapack::char2job, lapack::job2char, lapack::job2str, "eigenvectors: n=no vectors, v=vectors"),
     jobvl     ("jobvl",   5,    ParamType::List, lapack::Job::NoVec, lapack::char2job, lapack::job2char, lapack::job2str, "left eigenvectors: n=no vectors, v=vectors"),
@@ -210,7 +211,7 @@ Params::Params():
     jobvt     ("jobvt",   9,    ParamType::List, lapack::Job::NoVec, lapack::char2job, lapack::job2char, lapack::job2str, "right singular vectors (V^T): n=no vectors, s=some vectors, o=overwrite, a=all vectors"),
     range     ("range",   9,    ParamType::List, lapack::Range::All, lapack::char2range, lapack::range2char, lapack::range2str, "find: a=all eigen/singular values, v=values in (vl, vu], i=il-th through iu-th values"),
     norm      ("norm",    7,    ParamType::List, slate::Norm::One,        lapack::char2norm, lapack::norm2char, lapack::norm2str, "norm: o=one, 2=two, i=inf, f=fro, m=max"),
-    scope     ("scope",   7,    ParamType::List, slate::NormScope::Matrix, char2scope, scope2char, scope2str, "norm scope: m=matrix, r=rows, c=columns"),
+    scope     ("scope",   7,    ParamType::List, slate::NormScope::Matrix, str2scope, scope2str, "norm scope: m=matrix, r=rows, c=columns"),
     side      ("side",    6,    ParamType::List, slate::Side::Left,       blas::char2side,   blas::side2char,   blas::side2str,   "side: l=left, r=right"),
     uplo      ("uplo",    6,    ParamType::List, slate::Uplo::Lower,      blas::char2uplo,   blas::uplo2char,   blas::uplo2str,   "triangle: l=lower, u=upper"),
     trans     ("trans",   7,    ParamType::List, slate::Op::NoTrans,      blas::char2op,     blas::op2char,     blas::op2str,     "transpose: n=no-trans, t=trans, c=conj-trans"),
@@ -224,7 +225,7 @@ Params::Params():
                 lapack::char2matrixtype, lapack::matrixtype2char, lapack::matrixtype2str,
                 "matrix type: g=general, l=lower, u=upper, h=Hessenberg, z=band-general, b=band-lower, q=band-upper" ),
 
-    //         name,      w, p, type,            def,   min,     max, help
+    //         name,      w, p, type,        default,   min,     max, help
     dim       ("dim",     6,    ParamType::List,          0, 1000000, "m x n x k dimensions"),
     kd        ("kd",      6,    ParamType::List,  10,     0, 1000000, "bandwidth"),
     kl        ("kl",      6,    ParamType::List,  10,     0, 1000000, "lower bandwidth"),
@@ -271,7 +272,7 @@ Params::Params():
     ref_iters ("Ref.\niters",            6,    ParamType::Output,                     0,   0,   0, "reference iterations to solution"),
 
     // default -1 means "no check"
-    //         name,     w, type,              def, min, max, help
+    //         name,     w, type,          default, min, max, help
     okay      ("status", 6, ParamType::Output,  -1,   0,   0, "success indicator")
 {
     // set header different than command line prefix

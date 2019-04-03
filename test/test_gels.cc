@@ -35,7 +35,7 @@ template <typename scalar_t> void test_gels_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
-    slate::Target target = char2target(params.target());
+    slate::Target target = params.target();
     bool consistent = true;
 
     // mark non-standard output values

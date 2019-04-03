@@ -63,7 +63,13 @@ typedef lapack::Direct Direction;  // todo change LAPACK++
 /// \class
 /// \brief
 ///
-enum class Target {Host, HostTask, HostNest, HostBatch, Devices};
+enum class Target : char {
+    Host      = 'H',
+    HostTask  = 'T',
+    HostNest  = 'N',
+    HostBatch = 'B',
+    Devices   = 'D',
+};
 
 namespace internal {
 template <Target> class TargetType {};
@@ -86,15 +92,14 @@ enum class Option {
 enum class LayoutConvert : char {
     ColMajor = 'C',
     RowMajor = 'R',
-    None = 'N'
+    None     = 'N',
 };
 
-
 //------------------------------------------------------------------------------
-enum class NormScope {
-    Columns = 'c',
-    Rows = 'r',
-    Matrix = 'm'
+enum class NormScope : char {
+    Columns = 'C',
+    Rows    = 'R',
+    Matrix  = 'M',
 };
 
 } // namespace slate

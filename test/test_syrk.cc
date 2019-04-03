@@ -33,7 +33,7 @@ void test_syrk_work(Params& params, bool run)
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
-    slate::Target target = char2target(params.target());
+    slate::Target target = params.target();
 
     // mark non-standard output values
     params.time();

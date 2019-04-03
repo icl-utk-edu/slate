@@ -33,7 +33,7 @@ void test_synorm_work(Params& params, bool run)
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
     int extended = params.extended();
-    slate::Target target = char2target(params.target());
+    slate::Target target = params.target();
 
     // mark non-standard output values
     params.time();

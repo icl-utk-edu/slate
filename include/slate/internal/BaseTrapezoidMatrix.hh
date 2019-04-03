@@ -116,7 +116,8 @@ public:
     void gather(scalar_t* A, int64_t lda);
     Uplo uplo() const;
     Uplo uplo_logical() const;
-    void insertLocalTiles(bool on_devices=false);
+    void insertLocalTiles(Target origin=Target::Host);
+    void insertLocalTiles(bool on_devices);
 
     void tileGetAllForReading(int device=hostNum());
     void tileGetAllForReadingOnDevices();
@@ -742,13 +743,14 @@ void BaseTrapezoidMatrix<scalar_t>::tileUpdateAllOrigin()
 //------------------------------------------------------------------------------
 /// Inserts all local tiles into an empty matrix.
 ///
-/// @param[in] on_devices
-///     If on_devices, inserts tiles on appropriate GPU devices,
-///     otherwise inserts tiles on CPU host.
+/// @param[in] target
+///     - if target = Devices, inserts tiles on appropriate GPU devices, or
+///     - if target = Host, inserts on tiles on CPU host.
 ///
 template <typename scalar_t>
-void BaseTrapezoidMatrix<scalar_t>::insertLocalTiles(bool on_devices)
+void BaseTrapezoidMatrix<scalar_t>::insertLocalTiles(Target origin)
 {
+    bool on_devices = (origin == Target::Devices);
     int64_t mt = this->mt();
     for (int64_t j = 0; j < this->nt(); ++j) {
         int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);
@@ -761,6 +763,21 @@ void BaseTrapezoidMatrix<scalar_t>::insertLocalTiles(bool on_devices)
             }
         }
     }
+}
+
+//------------------------------------------------------------------------------
+/// @deprecated
+///
+/// Inserts all local tiles into an empty matrix.
+///
+/// @param[in] on_devices
+///     If on_devices, inserts tiles on appropriate GPU devices,
+///     otherwise inserts tiles on CPU host.
+///
+template <typename scalar_t>
+void BaseTrapezoidMatrix<scalar_t>::insertLocalTiles(bool on_devices)
+{
+    insertLocalTiles(on_devices ? Target::Devices : Target::Host);
 }
 
 //------------------------------------------------------------------------------

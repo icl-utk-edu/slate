@@ -87,7 +87,7 @@ std::vector< libtest::routines_t > routines = {
     // -----
     // LU
     { "gesv",               test_gesv,         Section::gesv },
-    { "gesvmixed",          test_gesv,         Section::gesv },
+    { "gesvMixed",          test_gesv,         Section::gesv },
     { "gbsv",               test_gbsv,         Section::gesv },
     { "",                   nullptr,           Section::newline },
 
@@ -102,7 +102,7 @@ std::vector< libtest::routines_t > routines = {
     // -----
     // Cholesky
     { "posv",               test_posv,         Section::posv },
-    { "posvmixed",          test_posv,         Section::posv },
+    { "posvMixed",          test_posv,         Section::posv },
     { "",                   nullptr,           Section::newline },
 
     { "potrf",              test_posv,         Section::posv },

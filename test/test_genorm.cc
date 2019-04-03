@@ -128,8 +128,7 @@ void test_genorm_work(Params& params, bool run)
     if (scope == slate::NormScope::Columns) {
         values.resize(A.n());
     }
-    else
-    if (scope == slate::NormScope::Rows) {
+    else if (scope == slate::NormScope::Rows) {
         values.resize(A.m());
     }
 
@@ -162,14 +161,12 @@ void test_genorm_work(Params& params, bool run)
             {slate::Option::Target, target}
         });
     }
-    else
-    if (scope == slate::NormScope::Columns) {
+    else if (scope == slate::NormScope::Columns) {
         slate::colNorms(norm, A, values.data(), {
             {slate::Option::Target, target}
         });
     }
-    else
-    if (scope == slate::NormScope::Rows) {
+    else if (scope == slate::NormScope::Rows) {
         assert("Not implemented yet");
         // slate::rowNorms(norm, A, values.data(), {
         //     {slate::Option::Target, target}
@@ -223,8 +220,7 @@ void test_genorm_work(Params& params, bool run)
                 Am, An, &A_tst[0], ione, ione, descA_tst, &worklange[0]);
             MPI_Barrier(MPI_COMM_WORLD);
         }
-        else
-        if (scope == slate::NormScope::Columns) {
+        else if (scope == slate::NormScope::Columns) {
             for (int64_t c = 0; c < An; ++c)
             {
                 int64_t c_1 = c+1;
@@ -235,8 +231,7 @@ void test_genorm_work(Params& params, bool run)
                 error += std::abs(values[c] - A_norm_ref) / A_norm_ref;
             }
         }
-        else
-        if (scope == slate::NormScope::Rows) {
+        else if (scope == slate::NormScope::Rows) {
             // todo
         }
         double time_ref = libtest::get_wtime() - time;

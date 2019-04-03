@@ -38,7 +38,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
 
-    if (params.routine == "posvmixed"){
+    if (params.routine == "posvMixed") {
         params.iters();
     }
 
@@ -86,8 +86,8 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
 
     slate::Matrix<scalar_t> X;
     std::vector<scalar_t> X_tst;
-    if (params.routine == "posvmixed"){
-        if (is_double<scalar_t>::value){
+    if (params.routine == "posvMixed") {
+        if (is_double<scalar_t>::value) {
             X_tst.resize(lldB*nlocB);
             X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
         }
@@ -169,8 +169,8 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
                 {slate::Option::Target, target}
             });
         }
-        else if (params.routine == "posvmixed") {
-            if (is_double<scalar_t>::value){
+        else if (params.routine == "posvMixed") {
+            if (is_double<scalar_t>::value) {
                 slate::posvMixed(A, B, X, iters, {
                     {slate::Option::Lookahead, lookahead},
                     {slate::Option::Target, target}
@@ -188,7 +188,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
 
         if (trace) slate::trace::Trace::finish();
 
-        if (params.routine == "posvmixed") {
+        if (params.routine == "posvMixed") {
             params.iters() = iters;
         }
 
@@ -226,8 +226,8 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
         real_t X_norm = scalapack_plange("1", n, nrhs, &B_tst[0], ione, ione, descB_tst, &worklangeB[0]);
 
         // B_ref -= Aref*B_tst
-        if (params.routine == "posvmixed") {
-            if (is_double<scalar_t>::value){
+        if (params.routine == "posvMixed") {
+            if (is_double<scalar_t>::value) {
                 scalapack_psymm("left", uplo2str(uplo),
                                 n, nrhs,
                                 scalar_t(-1.0),

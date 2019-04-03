@@ -169,7 +169,7 @@ public:
     /// returns true if tile exists on specified device
     bool tileExists(int64_t i, int64_t j, int device=host_num_)
     {
-    	return storage_->find(globalIndex(i, j, device)) != storage_->end();
+        return storage_->find(globalIndex(i, j, device)) != storage_->end();
     }
 
     /// Returns MPI rank of tile {i, j} of op(A).

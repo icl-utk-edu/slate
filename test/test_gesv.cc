@@ -50,7 +50,7 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
 
-    if (params.routine == "gesvmixed"){
+    if (params.routine == "gesvMixed") {
         params.iters();
     }
 
@@ -114,8 +114,8 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
 
     slate::Matrix<scalar_t> X;
     std::vector<scalar_t> X_tst;
-    if (params.routine == "gesvmixed"){
-        if (is_double<scalar_t>::value){
+    if (params.routine == "gesvMixed") {
+        if (is_double<scalar_t>::value) {
             X_tst.resize(lldB*nlocB);
             X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
         }
@@ -212,8 +212,8 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
                 {slate::Option::InnerBlocking, ib}
             });
         }
-        else if (params.routine == "gesvmixed") {
-            if (is_double<scalar_t>::value){
+        else if (params.routine == "gesvMixed") {
+            if (is_double<scalar_t>::value) {
                 slate::gesvMixed(A, pivots, B, X, iters, {
                     {slate::Option::Lookahead, lookahead},
                     {slate::Option::Target, target},
@@ -233,7 +233,7 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
 
         if (trace) slate::trace::Trace::finish();
 
-        if (params.routine == "gesvmixed") {
+        if (params.routine == "gesvMixed") {
             params.iters() = iters;
         }
 
@@ -270,8 +270,8 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
         real_t X_norm = scalapack_plange("1", n, nrhs, &B_tst[0], ione, ione, descB_tst, &worklangeB[0]);
 
         // B_ref -= op(Aref)*B_tst
-        if (params.routine == "gesvmixed") {
-            if (is_double<scalar_t>::value){
+        if (params.routine == "gesvMixed") {
+            if (is_double<scalar_t>::value) {
                 scalapack_pgemm(op2str(trans), "notrans",
                                 n, nrhs, n,
                                 scalar_t(-1.0),

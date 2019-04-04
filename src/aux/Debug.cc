@@ -197,11 +197,19 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
 }
 
 //------------------------------------------------------------------------------
-/// Prints map of all tiles.
+/// Prints map of all tiles with MOSI state.
 /// Uses
 ///  - "." if tile doesn't exist,
 ///  - "o" if it is origin (local non-workspace)
 ///  - "w" if it is workspace.
+///
+/// Prints 2 chars for MOSI. First char:
+///  - "m" if modified
+///  - "s" if shared
+///  - "i" if invalid
+/// Second char:
+///  - "h" if on hold
+///  - " " otherwise
 ///
 template <typename scalar_t>
 void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name)

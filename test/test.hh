@@ -211,7 +211,7 @@ inline slate::Target str2target(const char* target)
         return slate::Target::HostTask;
     else if (target_ == "n" || target_ == "nest")
         return slate::Target::HostNest;
-    else if (target_ == "n" || target_ == "batch")
+    else if (target_ == "b" || target_ == "batch")
         return slate::Target::HostBatch;
     else if (target_ == "d" || target_ == "dev" || target_ == "device" ||
              target_ == "devices")

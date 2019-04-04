@@ -131,9 +131,9 @@ void posvMixed( slate::internal::TargetType<target>,
     std::vector<real_hi> colnorms_R(R.n());
 
     // insert local tiles
-    X_lo.insertLocalTiles(target == Target::Devices);
-    R.insertLocalTiles(target == Target::Devices);
-    A_lo.insertLocalTiles(target == Target::Devices);
+    X_lo.insertLocalTiles(target);
+    R.   insertLocalTiles(target);
+    A_lo.insertLocalTiles(target);
 
     if (target == Target::Devices){
         A.tileGetAndHoldAllOnDevices();

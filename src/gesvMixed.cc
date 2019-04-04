@@ -57,8 +57,9 @@ bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
 {
     assert(colnorms_X.size() == colnorms_R.size());
     bool value = true;
+    int64_t size = colnorms_X.size();
 
-    for (int64_t i = 0; i < colnorms_X.size(); i++) {
+    for (int64_t i = 0; i < size; i++) {
         if (colnorms_R[i] > colnorms_X[i] * cte) {
             value = false;
             break;
@@ -80,6 +81,7 @@ void gesvMixed( slate::internal::TargetType<target>,
                 int& iter,
                 int64_t ib, int max_panel_threads, int64_t lookahead)
 {
+    bool converged = false;
     const int itermax = 30;
     using real_hi = blas::real_type<scalar_hi>;
     const real_hi eps = std::numeric_limits<real_hi>::epsilon();
@@ -88,24 +90,27 @@ void gesvMixed( slate::internal::TargetType<target>,
     assert(B.mt() == A.mt());
 
     // workspace
-    auto X_lo = X.template emptyLike<scalar_lo>();
     auto R    = B.emptyLike();
     auto A_lo = A.template emptyLike<scalar_lo>();
+    auto X_lo = X.template emptyLike<scalar_lo>();
 
     std::vector<real_hi> colnorms_X(X.n());
     std::vector<real_hi> colnorms_R(R.n());
 
     // insert local tiles
-    X_lo.insertLocalTiles();
-    R.insertLocalTiles();
-    A_lo.insertLocalTiles();
-    // X_lo.insertLocalTiles(target == Target::Devices);
-    // R.insertLocalTiles(target == Target::Devices);
-    // A_lo.insertLocalTiles(target == Target::Devices);
+    X_lo.insertLocalTiles(target);
+    R.   insertLocalTiles(target);
+    A_lo.insertLocalTiles(target);
+
+    if (target == Target::Devices){
+        A.tileGetAndHoldAllOnDevices();
+        B.tileGetAndHoldAllOnDevices();
+        X.tileGetAndHoldAllOnDevices();
+    }
 
     // norm of A
-    auto Anorm = norm(Norm::Inf, A,
-                      {{Option::Target, target}});
+    real_hi Anorm = norm(Norm::Inf, A,
+                         {{Option::Target, target}});
 
     // stopping criteria
     real_hi cte = Anorm * eps * std::sqrt(A.n());
@@ -154,11 +159,11 @@ void gesvMixed( slate::internal::TargetType<target>,
 
     if (iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
         iter = 0;
-        return;
+        converged = true;
     }
 
     // iterative refinement
-    for (int iiter = 0; iiter < itermax; iiter++) {
+    for (int iiter = 0; iiter < itermax && !converged; iiter++) {
         // Convert R from high to low precision, store result in X_lo.
         copy(R, X_lo,
              {{Option::Target, target}});
@@ -196,30 +201,38 @@ void gesvMixed( slate::internal::TargetType<target>,
 
         if (iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
             iter = iiter+1;
-            return;
+            converged = true;
         }
     }
 
-    // If we are at this place of the code, this is because we have performed
-    // iter = itermax iterations and never satisfied the stopping criterion,
-    // set up the iter flag accordingly and follow up with double precision
-    // routine.
-    iter = -itermax - 1;
+    if ( ! converged ) {
+        // If we are at this place of the code, this is because we have performed
+        // iter = itermax iterations and never satisfied the stopping criterion,
+        // set up the iter flag accordingly and follow up with double precision
+        // routine.
+        iter = -itermax - 1;
 
-    // Compute the Cholesky factorization of A.
-    getrf(A, pivots,
-          {{Option::InnerBlocking, ib},
-           {Option::Lookahead, lookahead},
-           {Option::MaxPanelThreads, int64_t(max_panel_threads)},
-           {Option::Target, target}});
+        // Compute the LU factorization of A.
+        getrf(A, pivots,
+              {{Option::InnerBlocking, ib},
+               {Option::Lookahead, lookahead},
+               {Option::MaxPanelThreads, int64_t(max_panel_threads)},
+               {Option::Target, target}});
 
-    // Solve the system A * X = B.
-    copy(B, X,
-         {{Option::Target, target}});
-    getrs(A, pivots, X,
-          {{Option::Lookahead, lookahead},
-           {Option::Target, target}});
+        // Solve the system A * X = B.
+        copy(B, X,
+             {{Option::Target, target}});
+        getrs(A, pivots, X,
+              {{Option::Lookahead, lookahead},
+               {Option::Target, target}});
+    }
 
+    if (target == Target::Devices) {
+        // clear instead of release due to previous hold
+        A.clearWorkspace();
+        B.clearWorkspace();
+        X.clearWorkspace();
+    }
 }
 
 } // namespace specialization

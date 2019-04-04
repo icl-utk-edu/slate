@@ -115,12 +115,14 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
     slate::Matrix<scalar_t> X;
     std::vector<scalar_t> X_tst;
     if (params.routine == "gesvMixed") {
-        if (is_double<scalar_t>::value) {
+        if (std::is_same<real_t, double>::value) {
             X_tst.resize(lldB*nlocB);
             X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
         }
         else {
-            assert("Unsupported mixed precision");
+            printf("Unsupported mixed precision\n");
+            Cblacs_exit(ictxt);
+            exit(-1);
         }
     }
 
@@ -213,7 +215,7 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
             });
         }
         else if (params.routine == "gesvMixed") {
-            if (is_double<scalar_t>::value) {
+            if (std::is_same<real_t, double>::value) {
                 slate::gesvMixed(A, pivots, B, X, iters, {
                     {slate::Option::Lookahead, lookahead},
                     {slate::Option::Target, target},
@@ -271,7 +273,7 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
 
         // B_ref -= op(Aref)*B_tst
         if (params.routine == "gesvMixed") {
-            if (is_double<scalar_t>::value) {
+            if (std::is_same<real_t, double>::value) {
                 scalapack_pgemm(op2str(trans), "notrans",
                                 n, nrhs, n,
                                 scalar_t(-1.0),

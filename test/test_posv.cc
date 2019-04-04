@@ -100,13 +100,15 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
         copy(&B_tst[0], descB_tst, B);
 
         if (params.routine == "posvMixed") {
-            if (is_double<scalar_t>::value) {
+            if (std::is_same<real_t, double>::value) {
                 X_tst.resize(lldB*nlocB);
                 X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
                 X.insertLocalTiles(origin);
             }
             else {
-                assert("Unsupported mixed precision");
+                printf("Unsupported mixed precision\n");
+                Cblacs_exit(ictxt);
+                exit(-1);
             }
         }
     }
@@ -115,12 +117,14 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
         A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
         B = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
         if (params.routine == "posvMixed"){
-            if (is_double<scalar_t>::value){
+            if (std::is_same<real_t, double>::value){
                 X_tst.resize(lldB*nlocB);
                 X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
             }
             else {
-                assert("Unsupported mixed precision");
+                printf("Unsupported mixed precision\n");
+                Cblacs_exit(ictxt);
+                exit(-1);
             }
         }
     }
@@ -199,7 +203,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
             });
         }
         else if (params.routine == "posvMixed") {
-            if (is_double<scalar_t>::value) {
+            if (std::is_same<real_t, double>::value) {
                 slate::posvMixed(A, B, X, iters, {
                     {slate::Option::Lookahead, lookahead},
                     {slate::Option::Target, target}
@@ -247,7 +251,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
         if (origin == slate::Target::Devices) {
             // Copy data back from GPUs.
             if (params.routine == "posvMixed") {
-                if (is_double<scalar_t>::value){
+                if (std::is_same<real_t, double>::value){
                     copy(X, &X_tst[0], descB_tst);
                 }
             }
@@ -268,7 +272,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
 
         // B_ref -= Aref*B_tst
         if (params.routine == "posvMixed") {
-            if (is_double<scalar_t>::value) {
+            if (std::is_same<real_t, double>::value) {
                 scalapack_psymm("left", uplo2str(uplo),
                                 n, nrhs,
                                 scalar_t(-1.0),
@@ -345,6 +349,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
 
     Cblacs_gridexit(ictxt);
     //Cblacs_exit(1) does not handle re-entering
+
 }
 
 // -----------------------------------------------------------------------------

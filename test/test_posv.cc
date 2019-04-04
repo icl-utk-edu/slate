@@ -2,10 +2,10 @@
 #include "test.hh"
 #include "blas_flops.hh"
 #include "lapack_flops.hh"
-#include "scalapack_copy.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
+#include "scalapack_copy.hh"
 
 #include <cassert>
 #include <cmath>
@@ -114,7 +114,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
         // Create SLATE matrix from the ScaLAPACK layouts
         A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
         B = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
-        if (params.routine == "posvmixed"){
+        if (params.routine == "posvMixed"){
             if (is_double<scalar_t>::value){
                 X_tst.resize(lldB*nlocB);
                 X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);

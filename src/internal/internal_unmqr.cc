@@ -206,8 +206,8 @@ void unmqr(internal::TargetType<target>,
                         scalar_t(1.0), std::move(Wr),
                         scalar_t(1.0), std::move(C1));
 
-    }else
-    if (side == Side::Right) {
+    }
+    else if (side == Side::Right) {
         // TODO
     }
 

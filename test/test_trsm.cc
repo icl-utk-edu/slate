@@ -4,6 +4,7 @@
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
+#include "scalapack_copy.hh"
 #include "print_matrix.hh"
 
 #include <cassert>
@@ -37,8 +38,8 @@ void test_trsm_work(Params& params, bool run)
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
-    slate::Target origin = char2target(params.origin());
-    slate::Target target = char2target(params.target());
+    slate::Target origin = params.origin();
+    slate::Target target = params.target();
 
     // mark non-standard output values
     params.time();
@@ -80,7 +81,7 @@ void test_trsm_work(Params& params, bool run)
     int64_t nlocA = scalapack_numroc(An, nb, mycol, izero, npcol);
     scalapack_descinit(descA_tst, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
     assert(info == 0);
-    int64_t lldA = (int64_t)descA_tst[8];
+    int64_t lldA = descA_tst[8];
     std::vector< scalar_t > A_tst(lldA*nlocA);
     scalapack_pplghe(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
 
@@ -89,7 +90,7 @@ void test_trsm_work(Params& params, bool run)
     int64_t nlocB = scalapack_numroc(Bn, nb, mycol, izero, npcol);
     scalapack_descinit(descB_tst, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
     assert(info == 0);
-    int64_t lldB = (int64_t)descB_tst[8];
+    int64_t lldB = descB_tst[8];
     std::vector< scalar_t > B_tst(lldB*nlocB);
     scalapack_pplrnt(&B_tst[0], Bm, Bn, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 1);
 
@@ -112,50 +113,16 @@ void test_trsm_work(Params& params, bool run)
     slate::TriangularMatrix<scalar_t> A;
     slate::Matrix<scalar_t> B;
     if (origin == slate::Target::Devices) {
-        // todo: refactor this code
         // Distribute local ScaLAPACK data to tiles on GPU devices.
         A = slate::TriangularMatrix<scalar_t>
                 (uplo, diag, An, nb, nprow, npcol, MPI_COMM_WORLD);
-        A.insertLocalTiles( true );
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            int64_t jj_local = int64_t( j / q )*nb;
-            int64_t ibegin = (A.uplo() == slate::Uplo::Lower ? j : 0);
-            int64_t iend   = (A.uplo() == slate::Uplo::Lower ? A.mt() : std::min( j+1, A.mt() ));
-            for (int64_t i = ibegin; i < iend; ++i) {
-                int64_t ii_local = int64_t( i / p )*nb;
-                if (A.tileIsLocal(i, j)) {
-                    auto Aij = A(i, j, A.tileDevice(i, j));
-                    slate_cuda_call(
-                        cudaSetDevice(A.tileDevice(i, j)));
-                    slate_cublas_call(
-                        cublasSetMatrix(
-                            Aij.mb(), Aij.nb(), sizeof(scalar_t),
-                            &A_tst[ ii_local + jj_local*lldA ], lldA,
-                            Aij.data(), Aij.stride()));
-                }
-            }
-        }
+        A.insertLocalTiles(origin);
+        copy(&A_tst[0], descA_tst, A);
 
-        // Distribute local ScaLAPACK data to tiles on GPU devices.
         B = slate::Matrix<scalar_t>
                  (Bm, Bn, nb, nprow, npcol, MPI_COMM_WORLD);
-        B.insertLocalTiles( true );
-        for (int64_t j = 0; j < B.nt(); ++j) {
-            int64_t jj_local = int64_t( j / q )*nb;
-            for (int64_t i = 0; i < B.mt(); ++i) {
-                int64_t ii_local = int64_t( i / p )*nb;
-                if (B.tileIsLocal(i, j)) {
-                    auto Bij = B(i, j, B.tileDevice(i, j));
-                    slate_cuda_call(
-                        cudaSetDevice(B.tileDevice(i, j)));
-                    slate_cublas_call(
-                        cublasSetMatrix(
-                            Bij.mb(), Bij.nb(), sizeof(scalar_t),
-                            &B_tst[ ii_local + jj_local*lldB ], lldB,
-                            Bij.data(), Bij.stride()));
-                }
-            }
-        }
+        B.insertLocalTiles(origin);
+        copy(&B_tst[0], descB_tst, B);
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
@@ -204,23 +171,8 @@ void test_trsm_work(Params& params, bool run)
         // comparison with reference routine from ScaLAPACK
 
         if (origin == slate::Target::Devices) {
-            // Copy data back from GPUs.
-            for (int64_t j = 0; j < B.nt(); ++j) {
-                int64_t jj_local = int64_t( j / q )*nb;
-                for (int64_t i = 0; i < B.mt(); ++i) {
-                    int64_t ii_local = int64_t( i / p )*nb;
-                    if (B.tileIsLocal(i, j)) {
-                        auto Bij = B(i, j, B.tileDevice(i, j));
-                        slate_cuda_call(
-                            cudaSetDevice(B.tileDevice(i, j)));
-                        slate_cublas_call(
-                            cublasGetMatrix(
-                                Bij.mb(), Bij.nb(), sizeof(scalar_t),
-                                Bij.data(), Bij.stride(),
-                                &B_tst[ ii_local + jj_local*lldB ], lldB));
-                    }
-                }
-            }
+            // Copy SLATE result back from GPUs.
+            copy(B, &B_tst[0], descB_tst);
         }
 
         // set MKL num threads appropriately for parallel BLAS

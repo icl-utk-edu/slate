@@ -2,6 +2,7 @@
 #include "test.hh"
 #include "blas_flops.hh"
 #include "lapack_flops.hh"
+#include "scalapack_copy.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
@@ -30,8 +31,8 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose(); SLATE_UNUSED(verbose);
-    slate::Target origin = char2target(params.origin());
-    slate::Target target = char2target(params.target());
+    slate::Target origin = params.origin();
+    slate::Target target = params.target();
 
     // mark non-standard output values
     params.time();
@@ -39,7 +40,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
 
-    if (params.routine == "posvmixed"){
+    if (params.routine == "posvMixed") {
         params.iters();
     }
 
@@ -86,62 +87,23 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
     slate::HermitianMatrix<scalar_t> A0(uplo, n, nb, p, q, MPI_COMM_WORLD);
 
     slate::HermitianMatrix<scalar_t> A;
-    slate::Matrix<scalar_t> B;
-
-    slate::Matrix<scalar_t> X;
+    slate::Matrix<scalar_t> B, X;
     std::vector<scalar_t> X_tst;
-
     if (origin == slate::Target::Devices) {
-        // todo: refactor this code
-        // Distribute local ScaLAPACK data to tiles on GPU devices.
-        A = slate::HermitianMatrix<scalar_t>
-                (uplo, n, nb, nprow, npcol, MPI_COMM_WORLD);
-        A.insertLocalTiles( true );
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            int64_t jj_local = int64_t( j / q )*nb;
-            int64_t ibegin = (A.uplo() == slate::Uplo::Lower ? j : 0);
-            int64_t iend   = (A.uplo() == slate::Uplo::Lower ? A.mt() : std::min( j+1, A.mt() ));
-            for (int64_t i = ibegin; i < iend; ++i) {
-                int64_t ii_local = int64_t( i / p )*nb;
-                if (A.tileIsLocal(i, j)) {
-                    auto Aij = A(i, j, A.tileDevice(i, j));
-                    slate_cuda_call(
-                        cudaSetDevice(A.tileDevice(i, j)));
-                    slate_cublas_call(
-                        cublasSetMatrix(
-                            Aij.mb(), Aij.nb(), sizeof(scalar_t),
-                            &A_tst[ ii_local + jj_local*lldA ], lldA,
-                            Aij.data(), Aij.stride()));
-                }
-            }
-        }
+        // Copy local ScaLAPACK data to tiles on GPU devices.
+        A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, nprow, npcol, MPI_COMM_WORLD);
+        A.insertLocalTiles(origin);
+        copy(&A_tst[0], descA_tst, A);
 
-        // Distribute local ScaLAPACK data to tiles on GPU devices.
-        B = slate::Matrix<scalar_t>
-                 (n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
-        B.insertLocalTiles( true );
-        for (int64_t j = 0; j < B.nt(); ++j) {
-            int64_t jj_local = int64_t( j / q )*nb;
-            for (int64_t i = 0; i < B.mt(); ++i) {
-                int64_t ii_local = int64_t( i / p )*nb;
-                if (B.tileIsLocal(i, j)) {
-                    auto Bij = B(i, j, B.tileDevice(i, j));
-                    slate_cuda_call(
-                        cudaSetDevice(B.tileDevice(i, j)));
-                    slate_cublas_call(
-                        cublasSetMatrix(
-                            Bij.mb(), Bij.nb(), sizeof(scalar_t),
-                            &B_tst[ ii_local + jj_local*lldB ], lldB,
-                            Bij.data(), Bij.stride()));
-                }
-            }
-        }
-        if (params.routine == "posvmixed"){
-            if (is_double<scalar_t>::value){
+        B = slate::Matrix<scalar_t>(n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
+        B.insertLocalTiles(origin);
+        copy(&B_tst[0], descB_tst, B);
+
+        if (params.routine == "posvMixed") {
+            if (is_double<scalar_t>::value) {
                 X_tst.resize(lldB*nlocB);
-                X = slate::Matrix<scalar_t>
-                         (n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
-                X.insertLocalTiles( true );
+                X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+                X.insertLocalTiles(origin);
             }
             else {
                 assert("Unsupported mixed precision");
@@ -150,15 +112,12 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layouts
-        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK
-                 (uplo, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-        B = slate::Matrix<scalar_t>::fromScaLAPACK
-                 (n, nrhs, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+        B = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
         if (params.routine == "posvmixed"){
             if (is_double<scalar_t>::value){
                 X_tst.resize(lldB*nlocB);
-                X = slate::Matrix<scalar_t>::fromScaLAPACK
-                         (n, nrhs, &X_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+                X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
             }
             else {
                 assert("Unsupported mixed precision");
@@ -239,8 +198,8 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
                 {slate::Option::Target, target}
             });
         }
-        else if (params.routine == "posvmixed") {
-            if (is_double<scalar_t>::value){
+        else if (params.routine == "posvMixed") {
+            if (is_double<scalar_t>::value) {
                 slate::posvMixed(A, B, X, iters, {
                     {slate::Option::Lookahead, lookahead},
                     {slate::Option::Target, target}
@@ -258,7 +217,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
 
         if (trace) slate::trace::Trace::finish();
 
-        if (params.routine == "posvmixed") {
+        if (params.routine == "posvMixed") {
             params.iters() = iters;
         }
 
@@ -287,43 +246,13 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
 
         if (origin == slate::Target::Devices) {
             // Copy data back from GPUs.
-            if (params.routine == "posvmixed") {
+            if (params.routine == "posvMixed") {
                 if (is_double<scalar_t>::value){
-                    for (int64_t j = 0; j < X.nt(); ++j) {
-                        int64_t jj_local = int64_t( j / q )*nb;
-                        for (int64_t i = 0; i < X.mt(); ++i) {
-                            int64_t ii_local = int64_t( i / p )*nb;
-                            if (X.tileIsLocal(i, j)) {
-                                auto Xij = X(i, j, X.tileDevice(i, j));
-                                slate_cuda_call(
-                                    cudaSetDevice(X.tileDevice(i, j)));
-                                slate_cublas_call(
-                                    cublasGetMatrix(
-                                        Xij.mb(), Xij.nb(), sizeof(scalar_t),
-                                        Xij.data(), Xij.stride(),
-                                        &X_tst[ ii_local + jj_local*lldB ], lldB));
-                            }
-                        }
-                    }
+                    copy(X, &X_tst[0], descB_tst);
                 }
             }
             else {
-                for (int64_t j = 0; j < B.nt(); ++j) {
-                    int64_t jj_local = int64_t( j / q )*nb;
-                    for (int64_t i = 0; i < B.mt(); ++i) {
-                        int64_t ii_local = int64_t( i / p )*nb;
-                        if (B.tileIsLocal(i, j)) {
-                            auto Bij = B(i, j, B.tileDevice(i, j));
-                            slate_cuda_call(
-                                cudaSetDevice(B.tileDevice(i, j)));
-                            slate_cublas_call(
-                                cublasGetMatrix(
-                                    Bij.mb(), Bij.nb(), sizeof(scalar_t),
-                                    Bij.data(), Bij.stride(),
-                                    &B_tst[ ii_local + jj_local*lldB ], lldB));
-                        }
-                    }
-                }
+                copy(B, &B_tst[0], descB_tst);
             }
         }
 
@@ -338,8 +267,8 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
         real_t X_norm = scalapack_plange("1", n, nrhs, &B_tst[0], ione, ione, descB_tst, &worklangeB[0]);
 
         // B_ref -= Aref*B_tst
-        if (params.routine == "posvmixed") {
-            if (is_double<scalar_t>::value){
+        if (params.routine == "posvMixed") {
+            if (is_double<scalar_t>::value) {
                 scalapack_psymm("left", uplo2str(uplo),
                                 n, nrhs,
                                 scalar_t(-1.0),

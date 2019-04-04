@@ -3,6 +3,7 @@
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
+#include "scalapack_copy.hh"
 #include "print_matrix.hh"
 
 #include <cassert>
@@ -35,7 +36,8 @@ void test_genorm_work(Params& params, bool run)
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
     int extended = params.extended();
-    slate::Target target = char2target(params.target());
+    slate::Target origin = params.origin();
+    slate::Target target = params.target();
 
     // mark non-standard output values
     params.time();
@@ -89,34 +91,11 @@ void test_genorm_work(Params& params, bool run)
     slate::Matrix<scalar_t> A0(Am, An, nb, p, q, MPI_COMM_WORLD);
 
     slate::Matrix<scalar_t> A;
-    std::vector<scalar_t*> Aarray(A.num_devices());
-    if (target == slate::Target::Devices) {
-        // Distribute local ScaLAPACK data in 1D-cyclic fashion to GPU devices.
-        for (int device = 0; device < A.num_devices(); ++device) {
-            int64_t ndevA = scalapack_numroc(nlocA, nb, device, izero, A.num_devices());
-            size_t len = blas::max((int64_t)sizeof(scalar_t)*lldA*ndevA, 1);
-            slate_cuda_call(
-                cudaSetDevice(device));
-            slate_cuda_call(
-                cudaMalloc((void**)&Aarray[device], len));
-            assert(Aarray[device] != nullptr);
-            int64_t jj_dev = 0;
-            for (int64_t jj_local = nb*device; jj_local < nlocA;
-                 jj_local += nb*A.num_devices())
-            {
-                int64_t jb = std::min(nb, nlocA - jj_local);
-                slate_cublas_call(
-                    cublasSetMatrix(
-                        mlocA, jb, sizeof(scalar_t),
-                        &A_tst[ jj_local*lldA ], lldA,
-                        &Aarray[device][ jj_dev*lldA ], lldA));
-                jj_dev += nb;
-            }
-        }
-        // Create SLATE matrix from the device layout.
-        A = slate::Matrix<scalar_t>::fromDevices(
-                Am, An, Aarray.data(), Aarray.size(), lldA, nb,
-                nprow, npcol, MPI_COMM_WORLD);
+    if (origin == slate::Target::Devices) {
+        // Copy local ScaLAPACK data to tiles on GPU devices.
+        A = slate::Matrix<scalar_t>(Am, An, nb, nprow, npcol, MPI_COMM_WORLD);
+        A.insertLocalTiles(origin);
+        copy(&A_tst[0], descA_tst, A);
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layout.
@@ -128,8 +107,7 @@ void test_genorm_work(Params& params, bool run)
     if (scope == slate::NormScope::Columns) {
         values.resize(A.n());
     }
-    else
-    if (scope == slate::NormScope::Rows) {
+    else if (scope == slate::NormScope::Rows) {
         values.resize(A.m());
     }
 
@@ -162,14 +140,12 @@ void test_genorm_work(Params& params, bool run)
             {slate::Option::Target, target}
         });
     }
-    else
-    if (scope == slate::NormScope::Columns) {
+    else if (scope == slate::NormScope::Columns) {
         slate::colNorms(norm, A, values.data(), {
             {slate::Option::Target, target}
         });
     }
-    else
-    if (scope == slate::NormScope::Rows) {
+    else if (scope == slate::NormScope::Rows) {
         assert("Not implemented yet");
         // slate::rowNorms(norm, A, values.data(), {
         //     {slate::Option::Target, target}
@@ -223,8 +199,7 @@ void test_genorm_work(Params& params, bool run)
                 Am, An, &A_tst[0], ione, ione, descA_tst, &worklange[0]);
             MPI_Barrier(MPI_COMM_WORLD);
         }
-        else
-        if (scope == slate::NormScope::Columns) {
+        else if (scope == slate::NormScope::Columns) {
             for (int64_t c = 0; c < An; ++c)
             {
                 int64_t c_1 = c+1;
@@ -235,8 +210,7 @@ void test_genorm_work(Params& params, bool run)
                 error += std::abs(values[c] - A_norm_ref) / A_norm_ref;
             }
         }
-        else
-        if (scope == slate::NormScope::Rows) {
+        else if (scope == slate::NormScope::Rows) {
             // todo
         }
         double time_ref = libtest::get_wtime() - time;
@@ -400,15 +374,6 @@ void test_genorm_work(Params& params, bool run)
                     }
                 }
             }
-        }
-    }
-
-    //---------- cleanup
-    if (target == slate::Target::Devices) {
-        for (int device = 0; device < A.num_devices(); ++device) {
-            slate_cuda_call(
-                cudaFree(Aarray[device]));
-            Aarray[device] = nullptr;
         }
     }
 

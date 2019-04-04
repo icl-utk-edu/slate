@@ -190,6 +190,11 @@ public:
         return storage_->tileIsLocal(globalIndex(i, j));
     }
 
+    /// Returns whether op(A) is logically Lower, Upper, or General.
+    Uplo uplo() const { return uploLogical(); }
+    Uplo uploLogical() const;
+    Uplo uploPhysical() const;
+
     int64_t tileMb(int64_t i) const;
     int64_t tileNb(int64_t j) const;
 private:
@@ -836,6 +841,29 @@ int64_t BaseMatrix<scalar_t>::tileMb(int64_t i) const
         return tileMbInternal(i);
     else
         return tileNbInternal(i);
+}
+
+//------------------------------------------------------------------------------
+/// Returns whether op(A) is logically Lower, Upper, or General storage,
+/// taking the transposition operation into account.
+///
+template <typename scalar_t>
+Uplo BaseMatrix<scalar_t>::uploLogical() const
+{
+    if ((uplo_ == Uplo::Lower) == (op_ == Op::NoTrans))
+        return Uplo::Lower;
+    else
+        return Uplo::Upper;
+}
+
+//------------------------------------------------------------------------------
+/// Returns whether A is physically Lower, Upper, or General storage,
+/// ignoring the transposition operation.
+///
+template <typename scalar_t>
+Uplo BaseMatrix<scalar_t>::uploPhysical() const
+{
+    return uplo_;
 }
 
 //------------------------------------------------------------------------------

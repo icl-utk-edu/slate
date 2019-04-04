@@ -65,7 +65,7 @@ void synorm(Norm norm, Tile<scalar_t> const& A,
     if (norm == Norm::Max) {
         // max norm
         // values[0] = max_{i,j} A_{i,j}
-        *values = lapack::lansy(norm, A.uplo(),
+        *values = lapack::lansy(norm, A.uploPhysical(),
                                 A.nb(),
                                 A.data(), A.stride());
     }

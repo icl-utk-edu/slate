@@ -195,9 +195,11 @@ public:
     /// Returns number of elements; but NOT consecutive if stride != mb_.
     size_t size()  const { return (size_t) mb_ * nb_; }
 
-    /// Returns upper, lower, or general storage flag.
-    Uplo uplo() const { return uplo_; }
-    Uplo uplo_logical() const;
+    /// Returns whether op(A) is logically Lower, Upper, or General storage.
+    Uplo uplo() const { return uploLogical(); }
+    Uplo uploLogical() const;
+    Uplo uploPhysical() const;
+    Uplo uplo_logical() const { return uploLogical(); }  ///< @deprecated
 
     /// Sets upper, lower, or general storage flag.
     void uplo(Uplo uplo) { uplo_ = uplo; }  // todo: protected?
@@ -389,19 +391,30 @@ scalar_t& Tile<scalar_t>::at(int64_t i, int64_t j)
 
 //------------------------------------------------------------------------------
 /// Returns whether op(A) is logically Upper, Lower, or General storage,
-/// taking the transposition operation into account.
-/// @see uplo()
+/// taking the transposition operation into account. Same as uplo().
+/// @see uploPhysical()
 ///
 template <typename scalar_t>
-Uplo Tile<scalar_t>::uplo_logical() const
+Uplo Tile<scalar_t>::uploLogical() const
 {
-    if (this->uplo() == Uplo::General)
+    if (this->uplo_ == Uplo::General)
         return Uplo::General;
-    else if ((this->uplo() == Uplo::Lower && this->op() == Op::NoTrans) ||
-             (this->uplo() == Uplo::Upper && this->op() != Op::NoTrans))
+    else if ((this->uplo_ == Uplo::Lower) == (this->op_ == Op::NoTrans))
         return Uplo::Lower;
     else
         return Uplo::Upper;
+}
+
+//------------------------------------------------------------------------------
+/// Returns whether A is Upper, Lower, or General storage,
+/// ignoring the transposition operation.
+/// @see uplo()
+/// @see uploLogical()
+///
+template <typename scalar_t>
+Uplo Tile<scalar_t>::uploPhysical() const
+{
+   return this->uplo_;
 }
 
 //------------------------------------------------------------------------------

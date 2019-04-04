@@ -114,8 +114,7 @@ public:
     void reserveHostWorkspace();
     void reserveDeviceWorkspace();
     void gather(scalar_t* A, int64_t lda);
-    Uplo uplo() const;
-    Uplo uplo_logical() const;
+    Uplo uplo_logical() const { return this->uploLogical(); }  ///< @deprecated
     void insertLocalTiles(Target origin=Target::Host);
     void insertLocalTiles(bool on_devices);
 
@@ -204,7 +203,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 
     // ii, jj are row, col indices
     // i, j are tile (block row, block col) indices
-    if (uplo() == Uplo::Lower) {
+    if (this->uplo() == Uplo::Lower) {
         int64_t jj = 0;
         for (int64_t j = 0; j < this->nt(); ++j) {
             int64_t jb = this->tileNb(j);
@@ -296,7 +295,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 
     // ii, jj are row, col indices
     // i, j are tile (block row, block col) indices
-    if (uplo() == Uplo::Lower) {
+    if (this->uplo() == Uplo::Lower) {
         int64_t jj = 0;
         for (int64_t j = 0; j < this->nt(); ++j) {
             int64_t jb = this->tileNb(j);
@@ -391,7 +390,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     // jj_dev is the local array index for the current device in a
     // 1D block-cyclic layout within a node.
     // i, j are tile (block row, block col) indices
-    if (uplo() == Uplo::Lower) {
+    if (this->uplo() == Uplo::Lower) {
         int64_t jj = 0;
         for (int64_t j = 0; j < this->nt(); ++j) {
             int64_t jb = this->tileNb(j);
@@ -638,8 +637,8 @@ void BaseTrapezoidMatrix<scalar_t>::gather(scalar_t* A, int64_t lda)
         for (int64_t i = 0; i < this->mt(); ++i) {
             int64_t ib = this->tileMb(i);
 
-            if ((uplo() == Uplo::Lower && i >= j) ||
-                (uplo() == Uplo::Upper && i <= j)) {
+            if ((this->uplo() == Uplo::Lower && i >= j) ||
+                (this->uplo() == Uplo::Upper && i <= j)) {
                 if (this->mpi_rank_ == 0) {
                     if (! this->tileIsLocal(i, j)) {
                         // erase any existing non-local tile and insert new one
@@ -696,32 +695,6 @@ Matrix<scalar_t> BaseTrapezoidMatrix<scalar_t>::sub(
             slate_error("submatrix outside upper triangle; requires i2 <= j1");
     }
     return Matrix<scalar_t>(*this, i1, i2, j1, j2);
-}
-
-//------------------------------------------------------------------------------
-/// Returns whether A is physically Lower or Upper storage,
-///         ignoring the transposition operation.
-/// @see uplo_logical()
-///
-template <typename scalar_t>
-Uplo BaseTrapezoidMatrix<scalar_t>::uplo() const
-{
-    return this->uplo_;
-}
-
-//------------------------------------------------------------------------------
-/// Returns whether op(A) is logically Lower or Upper storage,
-///         taking the transposition operation into account.
-/// @see uplo()
-///
-template <typename scalar_t>
-Uplo BaseTrapezoidMatrix<scalar_t>::uplo_logical() const
-{
-    if ((this->uplo() == Uplo::Lower && this->op() == Op::NoTrans) ||
-        (this->uplo() == Uplo::Upper && this->op() != Op::NoTrans))
-        return Uplo::Lower;
-    else
-        return Uplo::Upper;
 }
 
 //------------------------------------------------------------------------------

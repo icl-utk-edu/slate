@@ -5,6 +5,7 @@
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
+#include "scalapack_copy.hh"
 
 #include <cassert>
 #include <cmath>
@@ -42,6 +43,7 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
     bool trace = params.trace() == 'y';
     int verbose = params.verbose(); SLATE_UNUSED(verbose);
     int matrix = params.matrix();
+    slate::Target origin = params.origin();
     slate::Target target = params.target();
 
     // mark non-standard output values
@@ -96,9 +98,51 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
     size_t ipiv_size = (size_t)(lldA + nb);
     std::vector<int> ipiv_tst(ipiv_size);
 
-    // Create SLATE matrix from the ScaLAPACK layouts
-    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(m, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+    // todo: work-around to initialize BaseMatrix::num_devices_
+    slate::Matrix<scalar_t> A0(m, n, nb, p, q, MPI_COMM_WORLD);
+
+    slate::Matrix<scalar_t> A, B, X;
+    std::vector<scalar_t> X_tst;
+    if (origin == slate::Target::Devices) {
+        // Copy local ScaLAPACK data to tiles on GPU devices.
+        A = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
+        A.insertLocalTiles(origin);
+        copy(&A_tst[0], descA_tst, A);
+
+        B = slate::Matrix<scalar_t>(n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
+        B.insertLocalTiles(origin);
+        copy(&B_tst[0], descB_tst, B);
+
+        if (params.routine == "gesvMixed") {
+            if (std::is_same<real_t, double>::value) {
+                X_tst.resize(lldB*nlocB);
+                X = slate::Matrix<scalar_t>(n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
+                X.insertLocalTiles(origin);
+            }
+            else {
+                printf("Unsupported mixed precision\n");
+                Cblacs_exit(ictxt);
+                exit(-1);
+            }
+        }
+    }
+    else {
+        // Create SLATE matrix from the ScaLAPACK layouts
+        A = slate::Matrix<scalar_t>::fromScaLAPACK(m, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+        B = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+        if (params.routine == "gesvMixed"){
+            if (std::is_same<real_t, double>::value){
+                X_tst.resize(lldB*nlocB);
+                X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+            }
+            else {
+                printf("Unsupported mixed precision\n");
+                Cblacs_exit(ictxt);
+                exit(-1);
+            }
+        }
+    }
+
     slate::Pivots pivots;
 
     if (matrix == 1) {
@@ -109,20 +153,6 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
             for (int i = 0; i < T.nb(); ++i) {
                 T.at(i, i) += n;
             }
-        }
-    }
-
-    slate::Matrix<scalar_t> X;
-    std::vector<scalar_t> X_tst;
-    if (params.routine == "gesvMixed") {
-        if (std::is_same<real_t, double>::value) {
-            X_tst.resize(lldB*nlocB);
-            X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
-        }
-        else {
-            printf("Unsupported mixed precision\n");
-            Cblacs_exit(ictxt);
-            exit(-1);
         }
     }
 
@@ -260,6 +290,18 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
+        }
+
+        if (origin == slate::Target::Devices) {
+            // Copy data back from GPUs.
+            if (params.routine == "gesvMixed") {
+                if (std::is_same<real_t, double>::value){
+                    copy(X, &X_tst[0], descB_tst);
+                }
+            }
+            else {
+                copy(B, &B_tst[0], descB_tst);
+            }
         }
 
         // allocate work space

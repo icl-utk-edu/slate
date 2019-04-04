@@ -102,7 +102,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
         if (params.routine == "posvMixed") {
             if (std::is_same<real_t, double>::value) {
                 X_tst.resize(lldB*nlocB);
-                X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+                X = slate::Matrix<scalar_t>(n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
                 X.insertLocalTiles(origin);
             }
             else {

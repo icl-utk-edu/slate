@@ -59,10 +59,14 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
     if (! run)
         return;
 
+    int mpi_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+
     if (params.routine == "gesvMixed"){
         if (! std::is_same<real_t, double>::value){
-            assert("Unsupported mixed precision");
-            params.okay() = false;
+            if (mpi_rank == 0) {
+                printf("Unsupported mixed precision\n");
+            }
             return;
         }
     }

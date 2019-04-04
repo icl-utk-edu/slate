@@ -47,6 +47,14 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
     if (! run)
         return;
 
+    if (params.routine == "posvMixed"){
+        if (! std::is_same<real_t, double>::value){
+            assert("Unsupported mixed precision");
+            params.okay() = false;
+            return;
+        }
+    }
+
     // Local values
     const int izero = 0, ione = 1;
 
@@ -105,11 +113,6 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
                 X = slate::Matrix<scalar_t>(n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
                 X.insertLocalTiles(origin);
             }
-            else {
-                printf("Unsupported mixed precision\n");
-                Cblacs_exit(ictxt);
-                exit(-1);
-            }
         }
     }
     else {
@@ -120,11 +123,6 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
             if (std::is_same<real_t, double>::value){
                 X_tst.resize(lldB*nlocB);
                 X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
-            }
-            else {
-                printf("Unsupported mixed precision\n");
-                Cblacs_exit(ictxt);
-                exit(-1);
             }
         }
     }

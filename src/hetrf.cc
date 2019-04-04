@@ -314,32 +314,34 @@ void hetrf(slate::internal::TargetType<target>,
                             auto Hj = H.sub(k, k, 0, k-2);
                             Hj = conj_transpose(Hj);
 
-#if 1
-                            slate::internal::gemm_A<Target::HostTask>(
-                                scalar_t(-1.0), A.sub(k+1, A_mt-1, 0, k-2),
-                                                Hj.sub(0, k-2, 0, 0),
-                                scalar_t( 1.0), A.sub(k+1, A_mt-1, k, k));
-#else
-                            if (A_mt - (k+1) > max_panel_threads) {
+                            #if 1
                                 slate::internal::gemm_A<Target::HostTask>(
                                     scalar_t(-1.0), A.sub(k+1, A_mt-1, 0, k-2),
                                                     Hj.sub(0, k-2, 0, 0),
                                     scalar_t( 1.0), A.sub(k+1, A_mt-1, k, k));
-                            } else {
-                                slate::internal::gemm_W<Target::HostTask>(
-                                    scalar_t(-1.0),  A.sub(k+1, A_mt-1, 0, k-2),
-                                                    Hj.sub(0, k-2, 0, 0),
-                                    scalar_t( 1.0),  A.sub(k+1, A_mt-1, k, k),
-                                    ind2,           W2.sub(k+1, A_mt-1, 0, W2.nt()-1));
-                            }
-#endif
+                            #else
+                                if (A_mt - (k+1) > max_panel_threads) {
+                                    slate::internal::gemm_A<Target::HostTask>(
+                                        scalar_t(-1.0), A.sub(k+1, A_mt-1, 0, k-2),
+                                                        Hj.sub(0, k-2, 0, 0),
+                                        scalar_t( 1.0), A.sub(k+1, A_mt-1, k, k));
+                                }
+                                else {
+                                    slate::internal::gemm_W<Target::HostTask>(
+                                        scalar_t(-1.0),  A.sub(k+1, A_mt-1, 0, k-2),
+                                                        Hj.sub(0, k-2, 0, 0),
+                                        scalar_t( 1.0),  A.sub(k+1, A_mt-1, k, k),
+                                        ind2,           W2.sub(k+1, A_mt-1, 0, W2.nt()-1));
+                                }
+                            #endif
 
                             ReduceList reduce_list;
                             for (int i = k+1; i < A_mt; ++i) {
                                 reduce_list.push_back({i, k, {A.sub(i, i, 0, k-2)}});
                             }
                             A.template listReduce<target>(reduce_list, tag1);
-                        } else {
+                        }
+                        else {
                             for (int64_t j = 0; j < k-1; j++) {
                                 for (int64_t i = k+1; i < A_mt; i++) {
                                     A.tileBcast(i, j, A.sub(i, i, k, k), tag1);

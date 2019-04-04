@@ -73,8 +73,8 @@ void gels(Matrix<scalar_t>& opA,
           const std::map<Option, Value>& opts)
 {
     // m, n of op(A) as in docs above.
-    int64_t m = opA.m();
-    int64_t n = opA.n();
+    // int64_t m = opA.m();
+    // int64_t n = opA.n();
 
     scalar_t one  = 1;
     scalar_t zero = 0;

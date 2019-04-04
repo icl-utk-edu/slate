@@ -460,7 +460,8 @@ void swap(internal::TargetType<Target::HostTask>,
                     swap(i2, A.tileNb(0)-i2, A,
                          Op::Trans, {0, 0}, i1,
                          Op::Trans, {0, 0}, i2, tag);
-                } else {
+                }
+                else {
                     swap(i1+1, A.tileNb(0)-i1-1, A,
                          Op::Trans,   {0,  0}, i1,
                          Op::NoTrans, {j2, 0}, i2, tag);

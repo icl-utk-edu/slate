@@ -105,6 +105,7 @@ void herk(internal::TargetType<Target::HostTask>,
                                  beta,  C(j, j));
                             // todo: should tileRelease()?
                             A.tileTick(j, 0);
+                            // todo: why the second tick?
                             A.tileTick(j, 0);
                         }
                         catch (std::exception& e) {
@@ -583,6 +584,7 @@ void herk(internal::TargetType<Target::Devices>,
                          beta,  C(j, j));
                     // todo: should tileRelease()?
                     A.tileTick(j, 0);
+                    // todo: why the second tick?
                     A.tileTick(j, 0);
                 }
                 catch (std::exception& e) {

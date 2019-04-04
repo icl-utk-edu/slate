@@ -53,7 +53,7 @@ namespace slate {
 /// \brief
 /// General matrix norm.
 template <typename scalar_t>
-void genorm(Norm norm, Tile<scalar_t> const& A,
+void genorm(Norm norm, NormScope scope, Tile<scalar_t> const& A,
             blas::real_type<scalar_t>* values)
 {
     trace::Block trace_block("lapack::lange");
@@ -61,57 +61,79 @@ void genorm(Norm norm, Tile<scalar_t> const& A,
     assert(A.uplo() == Uplo::General);
     assert(A.op() == Op::NoTrans);
 
-    // max norm
-    // values[0] = max_{i,j} A_{i,j}
-    if (norm == Norm::Max) {
-        *values = lapack::lange(norm,
-                                A.mb(), A.nb(),
-                                A.data(), A.stride());
-    }
-    // one norm
-    // values[j] = sum_i abs( A_{i,j} )
-    else if (norm == Norm::One) {
-        for (int64_t j = 0; j < A.nb(); ++j) {
-            values[j] = std::abs(A(0, j));
-            for (int64_t i = 1; i < A.mb(); ++i) {
-                values[j] += std::abs(A(i, j));
+    if (scope == NormScope::Matrix) {
+
+        // max norm
+        // values[0] = max_{i,j} A_{i,j}
+        if (norm == Norm::Max) {
+            *values = lapack::lange(norm,
+                                    A.mb(), A.nb(),
+                                    A.data(), A.stride());
+        }
+        // one norm
+        // values[j] = sum_i abs( A_{i,j} )
+        else if (norm == Norm::One) {
+            for (int64_t j = 0; j < A.nb(); ++j) {
+                values[j] = std::abs(A(0, j));
+                for (int64_t i = 1; i < A.mb(); ++i) {
+                    values[j] += std::abs(A(i, j));
+                }
             }
         }
-    }
-    // inf norm
-    // values[i] = sum_j abs( A_{i,j} )
-    else if (norm == Norm::Inf) {
-        for (int64_t i = 0; i < A.mb(); ++i) {
-            values[i] = std::abs( A(i, 0) );
-        }
-        for (int64_t j = 1; j < A.nb(); ++j) {
+        // inf norm
+        // values[i] = sum_j abs( A_{i,j} )
+        else if (norm == Norm::Inf) {
             for (int64_t i = 0; i < A.mb(); ++i) {
-                values[i] += std::abs( A(i, j) );
+                values[i] = std::abs( A(i, 0) );
+            }
+            for (int64_t j = 1; j < A.nb(); ++j) {
+                for (int64_t i = 0; i < A.mb(); ++i) {
+                    values[i] += std::abs( A(i, j) );
+                }
             }
         }
+        // Frobenius norm
+        // values[0] = scale, values[1] = sumsq such that
+        // scale^2 * sumsq = sum_{i,j} abs( A_{i,j} )^2
+        else if (norm == Norm::Fro) {
+            values[0] = 0;  // scale
+            values[1] = 1;  // sumsq
+            for (int64_t j = 0; j < A.nb(); ++j) {
+                lapack::lassq(A.mb(), &A.at(0, j), 1, &values[0], &values[1]);
+            }
+        }
+        else {
+            throw std::exception();  // invalid norm
+        }
     }
-    // Frobenius norm
-    // values[0] = scale, values[1] = sumsq such that
-    // scale^2 * sumsq = sum_{i,j} abs( A_{i,j} )^2
-    else if (norm == Norm::Fro) {
-        values[0] = 0;  // scale
-        values[1] = 1;  // sumsq
-        for (int64_t j = 0; j < A.nb(); ++j) {
-            lapack::lassq(A.mb(), &A.at(0, j), 1, &values[0], &values[1]);
+    else if (scope == NormScope::Columns) {
+
+        if (norm == Norm::Max) {
+            // All max norm
+            // values[j] = max_j abs( A_{i,j} )
+            // todo: parallel for ??
+            for (int64_t j = 0; j < A.nb(); ++j) {
+                values[j] = lapack::lange(norm,
+                                          A.mb(), 1,
+                                          A.data() + j*A.stride(), A.stride());
+            }
+        }
+        else {
+            assert("Not implemented yet");
         }
     }
     else {
-        throw std::exception();  // invalid norm
+        assert("Not implemented yet");
     }
 }
 
 ///----------------------------------------
 /// Converts rvalue refs to lvalue refs.
 template <typename scalar_t>
-void genorm(Norm norm, Tile<scalar_t> const&& A,
+void genorm(Norm norm, NormScope scope, Tile<scalar_t> const&& A,
             blas::real_type<scalar_t>* values)
 {
-    return genorm(norm, A, values);
+    return genorm(norm, scope, A, values);
 }
 
 ///-----------------------------------------------------------------------------

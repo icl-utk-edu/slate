@@ -4,6 +4,8 @@
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
+#include "scalapack_copy.hh"
+#include "print_matrix.hh"
 
 #include <cassert>
 #include <cmath>
@@ -23,8 +25,6 @@ void test_trsm_work(Params& params, bool run)
     slate::Side side = params.side();
     slate::Uplo uplo = params.uplo();
     slate::Op transA = params.transA();
-    // ref. code to check can't do transB; disable for now.
-    //slate::Op transB = params.transB();
     slate::Diag diag = params.diag();
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
@@ -37,7 +37,9 @@ void test_trsm_work(Params& params, bool run)
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
-    slate::Target target = char2target(params.target());
+    int verbose = params.verbose();
+    slate::Target origin = params.origin();
+    slate::Target target = params.target();
 
     // mark non-standard output values
     params.time();
@@ -51,11 +53,11 @@ void test_trsm_work(Params& params, bool run)
     // Error analysis applies in these norms.
     slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 
-    // setup so trans(B) is m-by-n
+    // setup so B is m-by-n
     int64_t An  = (side == slate::Side::Left ? m : n);
     int64_t Am  = An;
-    int64_t Bm  = m;  //(transB == Op::NoTrans ? m : n);
-    int64_t Bn  = n;  //(transB == Op::NoTrans ? n : m);
+    int64_t Bm  = m;
+    int64_t Bn  = n;
 
     // local values
     const int izero = 0, ione = 1;
@@ -79,7 +81,7 @@ void test_trsm_work(Params& params, bool run)
     int64_t nlocA = scalapack_numroc(An, nb, mycol, izero, npcol);
     scalapack_descinit(descA_tst, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
     assert(info == 0);
-    int64_t lldA = (int64_t)descA_tst[8];
+    int64_t lldA = descA_tst[8];
     std::vector< scalar_t > A_tst(lldA*nlocA);
     scalapack_pplghe(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
 
@@ -88,7 +90,7 @@ void test_trsm_work(Params& params, bool run)
     int64_t nlocB = scalapack_numroc(Bn, nb, mycol, izero, npcol);
     scalapack_descinit(descB_tst, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
     assert(info == 0);
-    int64_t lldB = (int64_t)descB_tst[8];
+    int64_t lldB = descB_tst[8];
     std::vector< scalar_t > B_tst(lldB*nlocB);
     scalapack_pplrnt(&B_tst[0], Bm, Bn, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 1);
 
@@ -100,21 +102,39 @@ void test_trsm_work(Params& params, bool run)
         B_ref = B_tst;
     }
 
-    // create SLATE matrices from the ScaLAPACK layouts
-    auto A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK
-             (uplo, diag, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK
-             (Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+    if (verbose >= 2) {
+        print_matrix( "A", mlocA, nlocA, &A_tst[0], lldA, p, q, MPI_COMM_WORLD);
+        print_matrix( "B", mlocB, nlocB, &B_tst[0], lldB, p, q, MPI_COMM_WORLD);
+    }
 
+    // todo: work-around to initialize BaseMatrix::num_devices_
+    slate::HermitianMatrix<scalar_t> A0(uplo, n, nb, p, q, MPI_COMM_WORLD);
+
+    slate::TriangularMatrix<scalar_t> A;
+    slate::Matrix<scalar_t> B;
+    if (origin == slate::Target::Devices) {
+        // Distribute local ScaLAPACK data to tiles on GPU devices.
+        A = slate::TriangularMatrix<scalar_t>
+                (uplo, diag, An, nb, nprow, npcol, MPI_COMM_WORLD);
+        A.insertLocalTiles(origin);
+        copy(&A_tst[0], descA_tst, A);
+
+        B = slate::Matrix<scalar_t>
+                 (Bm, Bn, nb, nprow, npcol, MPI_COMM_WORLD);
+        B.insertLocalTiles(origin);
+        copy(&B_tst[0], descB_tst, B);
+    }
+    else {
+        // create SLATE matrices from the ScaLAPACK layouts
+        A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK
+                 (uplo, diag, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+        B = slate::Matrix<scalar_t>::fromScaLAPACK
+                 (Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+    }
     if (transA == Op::Trans)
         A = transpose(A);
     else if (transA == Op::ConjTrans)
         A = conj_transpose(A);
-
-    //if (transB == Op::Trans)
-    //    B = transpose (B);
-    //else if (transB == Op::ConjTrans)
-    //    B = conj_transpose (B);
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
@@ -150,6 +170,11 @@ void test_trsm_work(Params& params, bool run)
     if (check || ref) {
         // comparison with reference routine from ScaLAPACK
 
+        if (origin == slate::Target::Devices) {
+            // Copy SLATE result back from GPUs.
+            copy(B, &B_tst[0], descB_tst);
+        }
+
         // set MKL num threads appropriately for parallel BLAS
         int omp_num_threads;
         #pragma omp parallel
@@ -161,7 +186,7 @@ void test_trsm_work(Params& params, bool run)
 
         // get norms of the original data
         real_t A_norm = scalapack_plantr(norm2str(norm), uplo2str(uplo), diag2str(diag), Am, An, &A_tst[0], ione, ione, descA_tst, &worklantr[0]);
-        real_t B_orig_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_tst[0], ione, ione, descB_tst, &worklange[0]);
+        real_t B_orig_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_ref[0], ione, ione, descB_tst, &worklange[0]);
 
         //==================================================
         // Run ScaLAPACK reference routine.

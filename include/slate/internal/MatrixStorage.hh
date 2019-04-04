@@ -179,6 +179,7 @@ public:
     void reserveHostWorkspace(int64_t num_tiles);
     void reserveDeviceWorkspace(int64_t num_tiles);
     void clearWorkspace();
+    void releaseWorkspace();
 
     //--------------------------------------------------------------------------
     // 2. copy constructor -- not allowed; object is shared
@@ -534,6 +535,41 @@ void MatrixStorage<scalar_t>::clearWorkspace()
             // element, use post-fix iter++ to increment it but
             // erase the current value.
             erase((iter++)->first);
+        }
+        else {
+            ++iter;
+        }
+    }
+    // Free host & device memory only if there are no unallocated blocks
+    // from non-workspace (SlateOwned) tiles.
+    if (memory_.allocated(host_num_) == 0) {
+        memory_.clearHostBlocks();
+    }
+    for (int device = 0; device < num_devices_; ++device) {
+        if (memory_.allocated(device) == 0) {
+            memory_.clearDeviceBlocks(device);
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Clears all host and device workspace tiles that are not OnHold nor Modified.
+/// Also clears life.
+///
+template <typename scalar_t>
+void MatrixStorage<scalar_t>::releaseWorkspace()
+{
+    LockGuard(tiles_.get_lock());
+    // incremented below
+    for (auto iter = tiles_.begin(); iter != tiles_.end();) {
+        if (iter->second.tile_->workspace()) {
+            // Since we can't increment the iterator after deleting the
+            // element, use post-fix iter++ to increment it but
+            // erase the current value.
+            if (iter->second.stateOn(MOSI::OnHold) || iter->second.stateOn(MOSI::Modified))
+                iter++;
+            else
+                erase((iter++)->first);
         }
         else {
             ++iter;

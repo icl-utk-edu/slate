@@ -81,7 +81,8 @@ public:
                        scalar_t** Aarray, int num_devices, int64_t lda,
                        int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
-    Matrix emptyLike();
+    template <typename out_scalar_t=scalar_t>
+    Matrix<out_scalar_t> emptyLike();
 
     // conversion sub-matrix
     Matrix(BaseMatrix<scalar_t>& orig,
@@ -126,7 +127,8 @@ public:
     void reserveHostWorkspace();
     void reserveDeviceWorkspace();
     void gather(scalar_t* A, int64_t lda);
-    void insertLocalTiles(bool on_devices=false);
+    void insertLocalTiles(Target origin=Target::Host);
+    void insertLocalTiles(bool on_devices);
 
     // copy local data of op(A).
     void copy(Matrix& A);
@@ -312,7 +314,8 @@ Matrix<scalar_t> Matrix<scalar_t>::fromDevices(
 /// (size and distribution) as this matrix. Tiles are not allocated.
 ///
 template <typename scalar_t>
-Matrix<scalar_t> Matrix<scalar_t>::emptyLike()
+template <typename out_scalar_t>
+Matrix<out_scalar_t> Matrix<scalar_t>::emptyLike()
 {
     // First create parent matrix, apply op, then return sub-matrix.
     // TODO: currently assumes 2DBC and fixed mb == nb.
@@ -333,7 +336,7 @@ Matrix<scalar_t> Matrix<scalar_t>::emptyLike()
     }
     int p = this->storage_->p();
     int q = this->storage_->q();
-    auto B = Matrix<scalar_t>(m, n, nb, p, q, this->mpiComm());
+    auto B = Matrix<out_scalar_t>(m, n, nb, p, q, this->mpiComm());
     if (this->op() == Op::Trans) {
         B = transpose( B );
         std::swap(ioffset, joffset);
@@ -680,13 +683,14 @@ void Matrix<scalar_t>::gather(scalar_t* A, int64_t lda)
 //------------------------------------------------------------------------------
 /// Inserts all local tiles into an empty matrix.
 ///
-/// @param[in] on_devices
-///     If on_devices, inserts tiles on appropriate GPU devices,
-///     otherwise inserts tiles on CPU host.
+/// @param[in] target
+///     - if target = Devices, inserts tiles on appropriate GPU devices, or
+///     - if target = Host, inserts on tiles on CPU host.
 ///
 template <typename scalar_t>
-void Matrix<scalar_t>::insertLocalTiles(bool on_devices)
+void Matrix<scalar_t>::insertLocalTiles(Target origin)
 {
+    bool on_devices = (origin == Target::Devices);
     for (int64_t j = 0; j < this->nt(); ++j) {
         for (int64_t i = 0; i < this->mt(); ++i) {
             if (this->tileIsLocal(i, j)) {
@@ -696,6 +700,21 @@ void Matrix<scalar_t>::insertLocalTiles(bool on_devices)
             }
         }
     }
+}
+
+//------------------------------------------------------------------------------
+/// @deprecated
+///
+/// Inserts all local tiles into an empty matrix.
+///
+/// @param[in] on_devices
+///     If on_devices, inserts tiles on appropriate GPU devices,
+///     otherwise inserts tiles on CPU host.
+///
+template <typename scalar_t>
+void Matrix<scalar_t>::insertLocalTiles(bool on_devices)
+{
+    insertLocalTiles(on_devices ? Target::Devices : Target::Host);
 }
 
 //------------------------------------------------------------------------------

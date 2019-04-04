@@ -4,6 +4,7 @@
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
+#include "scalapack_copy.hh"
 
 #include <cassert>
 #include <cmath>
@@ -36,7 +37,8 @@ void test_trmm_work(Params& params, bool run)
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
-    slate::Target target = char2target(params.target());
+    slate::Target origin = params.origin();
+    slate::Target target = params.target();
 
     // mark non-standard output values
     params.time();
@@ -99,11 +101,25 @@ void test_trmm_work(Params& params, bool run)
         assert(info == 0);
     }
 
-    // create SLATE matrices from the ScaLAPACK layouts
-    auto A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
-                 uplo, diag, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK
-             (Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+    slate::TriangularMatrix<scalar_t> A;
+    slate::Matrix<scalar_t> B;
+    if (origin == slate::Target::Devices) {
+        // Copy local ScaLAPACK data to tiles on GPU devices.
+        A = slate::TriangularMatrix<scalar_t>(uplo, diag, An, nb, nprow, npcol, MPI_COMM_WORLD);
+        A.insertLocalTiles(origin);
+        copy(&A_tst[0], descA_tst, A);
+
+        B = slate::Matrix<scalar_t>(Bm, Bn, nb, nprow, npcol, MPI_COMM_WORLD);
+        B.insertLocalTiles(origin);
+        copy(&B_tst[0], descB_tst, B);
+    }
+    else {
+        // Create SLATE matrices from the ScaLAPACK layouts.
+        A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
+                uplo, diag, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+        B = slate::Matrix<scalar_t>::fromScaLAPACK
+                (Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+    }
 
     if (transA == Op::Trans)
         A = transpose(A);
@@ -149,6 +165,11 @@ void test_trmm_work(Params& params, bool run)
     if (check || ref) {
         // comparison with reference routine from ScaLAPACK
 
+        if (origin == slate::Target::Devices) {
+            // Copy SLATE result back from GPUs.
+            copy(B, &B_tst[0], descB_tst);
+        }
+
         // set MKL num threads appropriately for parallel BLAS
         int omp_num_threads;
         #pragma omp parallel
@@ -161,7 +182,7 @@ void test_trmm_work(Params& params, bool run)
 
         // get norms of the original data
         real_t A_norm = scalapack_plantr(norm2str(norm), uplo2str(uplo), diag2str(diag), Am, An, &A_tst[0], ione, ione, descA_tst, &worklantr[0]);
-        real_t B_orig_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_tst[0], ione, ione, descB_tst, &worklange[0]);
+        real_t B_orig_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_ref[0], ione, ione, descB_tst, &worklange[0]);
 
         //==================================================
         // Run ScaLAPACK reference routine.

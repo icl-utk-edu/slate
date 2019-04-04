@@ -29,7 +29,7 @@ template <typename scalar_t> void test_hesv_work(Params& params, bool run)
     slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
-    slate::Target target = char2target(params.target());
+    slate::Target target = params.target();
 
     //---------------------
     // mark non-standard output values

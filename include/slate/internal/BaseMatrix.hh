@@ -169,7 +169,7 @@ public:
     /// returns true if tile exists on specified device
     bool tileExists(int64_t i, int64_t j, int device=host_num_)
     {
-    	return storage_->find(globalIndex(i, j, device)) != storage_->end();
+        return storage_->find(globalIndex(i, j, device)) != storage_->end();
     }
 
     /// Returns MPI rank of tile {i, j} of op(A).
@@ -227,6 +227,12 @@ public:
 
     /// Unsets tile(i, j)'s hold on device.
     void tileUnsetHold(int64_t i, int64_t j, int device=host_num_);
+
+    /// Unsets all local tiles' hold on device.
+    void tileUnsetHoldAll(int device=host_num_);
+
+    /// Unsets all local tiles' hold on all devices.
+    void tileUnsetHoldAllOnDevices();
 
     /// Marks tile(i, j) as Modified on device.
     /// Other instances will be invalidated.
@@ -346,6 +352,11 @@ public:
     void clear()
     {
         storage_->clear();
+    }
+
+    void releaseWorkspace()
+    {
+        storage_->releaseWorkspace();
     }
 
     /// Removes all temporary host and device workspace tiles from matrix.
@@ -1001,10 +1012,9 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileRelease(int64_t i, int64_t j, int device)
 {
     auto iter = storage_->find(globalIndex(i, j, device));
-    if (iter != storage_->end()) {
+    if (iter != storage_->end() && iter->second.tile_->workspace()) {
         // auto tileEntry = storage_->at(globalIndex(i, j, device));
-        if (iter->second.tile_->workspace() &&
-            (iter->second.stateOn(MOSI::OnHold) || iter->second.stateOn(MOSI::Modified)) )
+        if ( iter->second.stateOn(MOSI::OnHold) || iter->second.stateOn(MOSI::Modified) )
             return;
         else
             // todo: erase only workspace tiles? if so, rename with "Workspace"?
@@ -1099,6 +1109,33 @@ void BaseMatrix<scalar_t>::tileUnsetHold(int64_t i, int64_t j, int device)
     assert(iter != storage_->end());
 
     iter->second.setState(~MOSI::OnHold);
+}
+
+//------------------------------------------------------------------------------
+/// Unsets all local tiles' hold on device.
+///
+/// @param[in] device
+///     Tile's device ID.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileUnsetHoldAll(int device)
+{
+    for (int64_t j = 0; j < nt(); ++j)
+        for (int64_t i = 0; i < mt(); ++i)
+            if (tileIsLocal(i, j))
+                tileUnsetHold(i, j, device);
+}
+
+//------------------------------------------------------------------------------
+/// Unsets all local tiles' hold on all devices.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileUnsetHoldAllOnDevices()
+{
+    for (int64_t j = 0; j < nt(); ++j)
+        for (int64_t i = 0; i < mt(); ++i)
+            if (tileIsLocal(i, j))
+                tileUnsetHold(i, j, tileDevice(i, j));
 }
 
 
@@ -1358,16 +1395,22 @@ void BaseMatrix<scalar_t>::listBcast(
 
         // Copy to devices.
         // TODO: should this be inside above if-then?
+        // todo: this is incuring extra communication,
+        //       tile(i,j) is not needed on all devices where this matrix resides
+        // todo: only distribute to devices if receiving
         if (target == Target::Devices) {
-            std::set<int> dev_set;
-            for (auto submatrix : submatrices_list)
-                submatrix.getLocalDevices(&dev_set);
+            // If receiving the tile.
+            if (! tileIsLocal(i, j)) {
+                std::set<int> dev_set;
+                for (auto submatrix : submatrices_list)
+                    submatrix.getLocalDevices(&dev_set);
 
-            #pragma omp task
-            {
-                for (auto device : dev_set)
-                    tileGetForReading(i, j, device, LayoutConvert(layout));
-                    // todo: handle layout
+                #pragma omp task
+                {
+                    for (auto device : dev_set)
+                        tileGetForReading(i, j, device, LayoutConvert(layout));
+                        // todo: handle layout
+                }
             }
         }
     }
@@ -1550,9 +1593,13 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
         tileModified(i, j);
     }
 
-    // Forward.
-    for (int dst : send_to)
-        at(i, j).send(new_vec[dst], mpi_comm_, tag);
+    if (! send_to.empty()) {
+        // read tile on host memory
+        tileGetForReading(i, j);
+        // Forward.
+        for (int dst : send_to)
+            at(i, j).send(new_vec[dst], mpi_comm_, tag);
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -1681,7 +1728,12 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
             // todo: find the shortest path / closest source
             // including possibility of device peer-to-peer copy
         }
-        assert(src_device != invalid_dev);
+        if(src_device == invalid_dev){
+            slate_error(std::string("Error copying tile(")
+                         + std::to_string(i) + ", " + std::to_string(j)
+                         + "), invalid source " + std::to_string(src_device)
+                         + " -> " + std::to_string(dst_device) );
+        }
 
         // Update the destination tile's data.
         if (dst_device != host_num_ && src_device != host_num_) {
@@ -1789,7 +1841,7 @@ void BaseMatrix<scalar_t>::tileGetAllForReading(int device)
 }
 
 //------------------------------------------------------------------------------
-/// Gets all local tiles for reading on device.
+/// Gets all local tiles for writing on device.
 ///
 /// @param[in] device
 ///     Tile's destination: host or device ID, defaults to host.
@@ -1831,7 +1883,7 @@ void BaseMatrix<scalar_t>::tileGetAllForReadingOnDevices()
 }
 
 //------------------------------------------------------------------------------
-/// Gets all local tiles for reading on corresponding devices.
+/// Gets all local tiles for writing on corresponding devices.
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetAllForWritingOnDevices()

@@ -42,63 +42,110 @@
 #include "internal/internal.hh"
 #include "slate/internal/util.hh"
 #include "slate/Matrix.hh"
-#include "internal/Tile_lapack.hh"
+#include "slate/Tile_blas.hh"
 #include "slate/types.hh"
 
 namespace slate {
-
 namespace device {
 
 template <>
-void geadd(
+void gecopy(
     int64_t m, int64_t n,
-    std::complex<float> alpha, std::complex<float>** Aarray, int64_t lda,
-    std::complex<float> beta, std::complex<float>** Barray, int64_t ldb,
+    std::complex<float>** Aarray, int64_t lda,
+    std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, cudaStream_t stream)
 {
 #if !defined(SLATE_NO_CUDA)
-    geadd(m, n,
-          make_cuFloatComplex(alpha.real(), alpha.imag()), (cuFloatComplex**) Aarray, lda,
-          make_cuFloatComplex(beta.real(), beta.imag()), (cuFloatComplex**) Barray, ldb,
-          batch_count, stream);
+    gecopy(m, n,
+           (cuFloatComplex**) Aarray, lda,
+           (cuFloatComplex**) Barray, ldb,
+           batch_count, stream);
 #endif
 }
 
 template <>
-void geadd(
+void gecopy(
     int64_t m, int64_t n,
-    std::complex<double> alpha, std::complex<double>** Aarray, int64_t lda,
-    std::complex<double> beta, std::complex<double>** Barray, int64_t ldb,
+    std::complex<float>** Aarray, int64_t lda,
+    std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, cudaStream_t stream)
 {
 #if !defined(SLATE_NO_CUDA)
-    geadd(m, n,
-          make_cuDoubleComplex(alpha.real(), alpha.imag()) , (cuDoubleComplex**) Aarray, lda,
-          make_cuDoubleComplex(beta.real(), beta.imag()), (cuDoubleComplex**) Barray, ldb,
-          batch_count, stream);
+    gecopy(m, n,
+           (cuFloatComplex**) Aarray, lda,
+           (cuDoubleComplex**) Barray, ldb,
+           batch_count, stream);
 #endif
 }
 
+template <>
+void gecopy(
+    int64_t m, int64_t n,
+    std::complex<double>** Aarray, int64_t lda,
+    std::complex<double>** Barray, int64_t ldb,
+    int64_t batch_count, cudaStream_t stream)
+{
+#if !defined(SLATE_NO_CUDA)
+    gecopy(m, n,
+           (cuDoubleComplex**) Aarray, lda,
+           (cuDoubleComplex**) Barray, ldb,
+           batch_count, stream);
+#endif
+}
+
+template <>
+void gecopy(
+    int64_t m, int64_t n,
+    std::complex<double>** Aarray, int64_t lda,
+    std::complex<float>** Barray, int64_t ldb,
+    int64_t batch_count, cudaStream_t stream)
+{
+#if !defined(SLATE_NO_CUDA)
+    gecopy(m, n,
+           (cuDoubleComplex**) Aarray, lda,
+           (cuFloatComplex**) Barray, ldb,
+           batch_count, stream);
+#endif
+}
+
+//---------------------------------------------------
 #if defined(SLATE_NO_CUDA)
 // Specializations to allow compilation without CUDA.
 template <>
-void geadd(
+void gecopy(
     int64_t m, int64_t n,
-    double alpha, double** Aarray, int64_t lda,
-    double beta, double** Barray, int64_t ldb,
+    double** Aarray, int64_t lda,
+    double** Barray, int64_t ldb,
     int64_t batch_count, cudaStream_t stream)
 {
 }
 
 template <>
-void geadd(
+void gecopy(
     int64_t m, int64_t n,
-    float alpha, float** Aarray, int64_t lda,
-    float beta, float** Barray, int64_t ldb,
+    double** Aarray, int64_t lda,
+    float** Barray, int64_t ldb,
     int64_t batch_count, cudaStream_t stream)
 {
 }
-#endif // not SLATE_WITH_CUDA
+
+template <>
+void gecopy(
+    int64_t m, int64_t n,
+    float** Aarray, int64_t lda,
+    float** Barray, int64_t ldb,
+    int64_t batch_count, cudaStream_t stream)
+{
+}
+template <>
+void gecopy(
+    int64_t m, int64_t n,
+    float** Aarray, int64_t lda,
+    double** Barray, int64_t ldb,
+    int64_t batch_count, cudaStream_t stream)
+{
+}
+#endif // not SLATE_NO_CUDA
 
 } // namespace device
 
@@ -106,32 +153,31 @@ namespace internal {
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// General matrix add.
+/// Copy and precision conversion.
 /// Dispatches to target implementations.
-template <Target target, typename scalar_t>
-void geadd(scalar_t alpha, Matrix<scalar_t>&& A,
-           scalar_t beta, Matrix<scalar_t>&& B,
-           int priority)
+template <Target target, typename src_scalar_t, typename dst_scalar_t>
+void copy(Matrix<src_scalar_t>&& A,
+          Matrix<dst_scalar_t>&& B,
+          int priority)
 {
-    geadd(internal::TargetType<target>(),
-          alpha, A,
-          beta,  B,
-          priority);
+    copy(internal::TargetType<target>(),
+         A, B,
+         priority);
 }
 
 ///-----------------------------------------------------------------------------
 /// \brief
-/// General matrix add.
+/// Copy and precision conversion.
 /// assumes A & B have same tile layout and dimensions, and have same distribution
 /// TODO handle transpose A case
 /// Host OpenMP task implementation.
-template <typename scalar_t>
-void geadd(internal::TargetType<Target::HostTask>,
-           scalar_t alpha, Matrix<scalar_t>& A,
-           scalar_t beta, Matrix<scalar_t>& B,
-           int priority)
+template <typename src_scalar_t, typename dst_scalar_t>
+void copy(internal::TargetType<Target::HostTask>,
+          Matrix<src_scalar_t>& A,
+          Matrix<dst_scalar_t>& B,
+          int priority)
 {
-    // trace::Block trace_block("geadd");
+    // trace::Block trace_block("copy");
 
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
@@ -145,8 +191,7 @@ void geadd(internal::TargetType<Target::HostTask>,
                 {
                     A.tileGetForReading(i, j);
                     B.tileGetForWriting(i, j);
-                    axby(alpha, A(i, j),
-                         beta,  B(i, j));
+                    gecopy(A(i, j), B(i, j));
                     A.tileTick(i, j);// TODO is this correct here?
                 }
             }
@@ -157,36 +202,16 @@ void geadd(internal::TargetType<Target::HostTask>,
 }
 
 ///-----------------------------------------------------------------------------
-template <typename scalar_t>
-void geadd(internal::TargetType<Target::HostNest>,
-           scalar_t alpha, Matrix<scalar_t>& A,
-           scalar_t beta, Matrix<scalar_t>& B,
-           int priority)
-{
-    throw Exception("HostNest not yet implemented");
-}
-
-///-----------------------------------------------------------------------------
-template <typename scalar_t>
-void geadd(internal::TargetType<Target::HostBatch>,
-           scalar_t alpha, Matrix<scalar_t>& A,
-           scalar_t beta, Matrix<scalar_t>& B,
-           int priority)
-{
-    throw Exception("HostBatch not yet implemented");
-}
-
-///-----------------------------------------------------------------------------
 /// \brief
-/// General matrix add.
+/// Copy and precision conversion.
 /// assumes A & B have same tile layout and dimensions, and have same distribution
-/// TODO handle transpose A case
+/// TODO: Inspect transposition?
 /// GPU device implementation.
-template <typename scalar_t>
-void geadd(internal::TargetType<Target::Devices>,
-           scalar_t alpha, Matrix<scalar_t>& A,
-           scalar_t beta, Matrix<scalar_t>& B,
-           int priority)
+template <typename src_scalar_t, typename dst_scalar_t>
+void copy(internal::TargetType<Target::Devices>,
+          Matrix<src_scalar_t>& A,
+          Matrix<dst_scalar_t>& B,
+          int priority)
 {
     int64_t irange[4][2] = {
         { 0,        B.mt()-1 },
@@ -206,13 +231,17 @@ void geadd(internal::TargetType<Target::Devices>,
         {
             for (int64_t i = 0; i < B.mt(); ++i)
                 for (int64_t j = 0; j < B.nt(); ++j)
-                    if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
+                    if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j))
+                    {
                         A.tileGetForReading(i, j, device);
+                        // todo: should tileAcquire() instead to avoid un-needed copy
                         B.tileGetForWriting(i, j, device);
                     }
 
-            scalar_t** a_array_host = B.a_array_host(device);
-            scalar_t** b_array_host = B.b_array_host(device);
+            // Usually the output matrix (B) provides all the batch arrays.
+            // Here we are using A, because of the differen types.
+            src_scalar_t** a_array_host = A.a_array_host(device);
+            dst_scalar_t** b_array_host = B.b_array_host(device);
 
             int64_t batch_count = 0;
             int64_t mb[4], nb[4], lda[4], ldb[4], group_count[4];
@@ -237,8 +266,10 @@ void geadd(internal::TargetType<Target::Devices>,
                 }
             }
 
-            scalar_t** a_array_dev = B.a_array_device(device);
-            scalar_t** b_array_dev = B.b_array_device(device);
+            // Usually the output matrix (B) provides all the batch arrays.
+            // Here we are using A, because of the differen types.
+            src_scalar_t** a_array_dev = A.a_array_device(device);
+            dst_scalar_t** b_array_dev = B.b_array_device(device);
 
             slate_cuda_call(cudaSetDevice(device));
 
@@ -247,22 +278,22 @@ void geadd(internal::TargetType<Target::Devices>,
 
             slate_cuda_call(
                 cudaMemcpyAsync(a_array_dev, a_array_host,
-                                sizeof(scalar_t*)*batch_count,
+                                sizeof(src_scalar_t*)*batch_count,
                                 cudaMemcpyHostToDevice,
                                 stream));
 
             slate_cuda_call(
                 cudaMemcpyAsync(b_array_dev, b_array_host,
-                                sizeof(scalar_t*)*batch_count,
+                                sizeof(dst_scalar_t*)*batch_count,
                                 cudaMemcpyHostToDevice,
                                 stream));
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
-                    device::geadd(mb[q], nb[q],
-                                  alpha, a_array_dev, lda[q],
-                                  beta, b_array_dev, ldb[q],
-                                  group_count[q], stream);
+                    device::gecopy(mb[q], nb[q],
+                                   a_array_dev, lda[q],
+                                   b_array_dev, ldb[q],
+                                   group_count[q], stream);
                     a_array_dev += group_count[q];
                     b_array_dev += group_count[q];
                 }
@@ -290,102 +321,86 @@ void geadd(internal::TargetType<Target::Devices>,
 // Explicit instantiations.
 // ----------------------------------------
 template
-void geadd<Target::HostTask, float>(
-    float alpha, Matrix<float>&& A,
-    float beta, Matrix<float>&& B,
+void copy<Target::HostTask, float, float>(
+    Matrix<float>&& A, Matrix<float>&& B,
     int priority);
 
 template
-void geadd<Target::HostNest, float>(
-    float alpha, Matrix<float>&& A,
-    float beta, Matrix<float>&& B,
+void copy<Target::HostTask, float, double>(
+    Matrix<float>&& A, Matrix<double>&& B,
     int priority);
 
 template
-void geadd<Target::HostBatch, float>(
-    float alpha, Matrix<float>&& A,
-    float beta, Matrix<float>&& B,
+void copy<Target::Devices, float, float>(
+    Matrix<float>&& A, Matrix<float>&& B,
     int priority);
 
 template
-void geadd<Target::Devices, float>(
-    float alpha, Matrix<float>&& A,
-    float beta, Matrix<float>&& B,
+void copy<Target::Devices, float, double>(
+    Matrix<float>&& A, Matrix<double>&& B,
     int priority);
 
 // ----------------------------------------
 template
-void geadd<Target::HostTask, double>(
-    double alpha, Matrix<double>&& A,
-    double beta, Matrix<double>&& B,
+void copy<Target::HostTask, double, double>(
+    Matrix<double>&& A, Matrix<double>&& B,
     int priority);
 
 template
-void geadd<Target::HostNest, double>(
-    double alpha, Matrix<double>&& A,
-    double beta, Matrix<double>&& B,
+void copy<Target::HostTask, double, float>(
+    Matrix<double>&& A, Matrix<float>&& B,
     int priority);
 
 template
-void geadd<Target::HostBatch, double>(
-    double alpha, Matrix<double>&& A,
-    double beta, Matrix<double>&& B,
+void copy<Target::Devices, double, double>(
+    Matrix<double>&& A, Matrix<double>&& B,
     int priority);
 
 template
-void geadd<Target::Devices, double>(
-    double alpha, Matrix<double>&& A,
-    double beta, Matrix<double>&& B,
+void copy<Target::Devices, double, float>(
+    Matrix<double>&& A, Matrix<float>&& B,
     int priority);
 
 // ----------------------------------------
 template
-void geadd< Target::HostTask, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
-    std::complex<float>  beta, Matrix< std::complex<float> >&& B,
+void copy< Target::HostTask, std::complex<float>, std::complex<float> >(
+    Matrix< std::complex<float> >&& A, Matrix< std::complex<float> >&& B,
     int priority);
 
 template
-void geadd< Target::HostNest, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
-    std::complex<float>  beta, Matrix< std::complex<float> >&& B,
+void copy< Target::HostTask, std::complex<float>, std::complex<double> >(
+    Matrix< std::complex<float> >&& A, Matrix< std::complex<double> >&& B,
     int priority);
 
 template
-void geadd< Target::HostBatch, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
-    std::complex<float>  beta, Matrix< std::complex<float> >&& B,
+void copy< Target::Devices, std::complex<float>, std::complex<float>  >(
+    Matrix< std::complex<float> >&& A, Matrix< std::complex<float> >&& B,
     int priority);
 
 template
-void geadd< Target::Devices, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
-    std::complex<float>  beta, Matrix< std::complex<float> >&& B,
+void copy< Target::Devices, std::complex<float>, std::complex<double>  >(
+    Matrix< std::complex<float> >&& A, Matrix< std::complex<double> >&& B,
     int priority);
 
 // ----------------------------------------
 template
-void geadd< Target::HostTask, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
-    std::complex<double> beta, Matrix< std::complex<double> >&& B,
+void copy< Target::HostTask, std::complex<double>, std::complex<double> >(
+    Matrix< std::complex<double> >&& A, Matrix< std::complex<double> >&& B,
     int priority);
 
 template
-void geadd< Target::HostNest, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
-    std::complex<double> beta, Matrix< std::complex<double> >&& B,
+void copy< Target::HostTask, std::complex<double>, std::complex<float> >(
+    Matrix< std::complex<double> >&& A, Matrix< std::complex<float> >&& B,
     int priority);
 
 template
-void geadd< Target::HostBatch, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
-    std::complex<double> beta, Matrix< std::complex<double> >&& B,
+void copy< Target::Devices, std::complex<double>, std::complex<double> >(
+    Matrix< std::complex<double> >&& A, Matrix< std::complex<double> >&& B,
     int priority);
 
 template
-void geadd< Target::Devices, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
-    std::complex<double> beta, Matrix< std::complex<double> >&& B,
+void copy< Target::Devices, std::complex<double>, std::complex<float> >(
+    Matrix< std::complex<double> >&& A, Matrix< std::complex<float> >&& B,
     int priority);
 
 } // namespace internal

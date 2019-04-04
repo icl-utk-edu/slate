@@ -37,8 +37,8 @@ void test_gbnorm_work(Params& params, bool run)
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
-    int extended = params.extended();
-    slate::Target target = char2target(params.target());
+    int extended = params.extended(); SLATE_UNUSED(extended);
+    slate::Target target = params.target();
 
     // mark non-standard output values
     params.time();

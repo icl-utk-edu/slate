@@ -216,6 +216,7 @@ libslate_src += \
 # internal
 libslate_src += \
         src/internal/internal_comm.cc \
+        src/internal/internal_gecopy.cc \
         src/internal/internal_gbnorm.cc \
         src/internal/internal_geadd.cc \
         src/internal/internal_gemm.cc \
@@ -241,28 +242,36 @@ libslate_src += \
         src/internal/internal_unmqr.cc \
         src/internal/internal_util.cc \
         src/internal/internal_transpose.cc \
+        src/internal/internal_tzcopy.cc \
 
 # device
 ifeq ($(cuda),1)
     libslate_src += \
+            src/cuda/device_geadd.cu \
+            src/cuda/device_gecopy.cu \
             src/cuda/device_genorm.cu \
             src/cuda/device_henorm.cu \
             src/cuda/device_synorm.cu \
             src/cuda/device_trnorm.cu \
-            src/cuda/device_transpose.cu
+            src/cuda/device_transpose.cu \
+            src/cuda/device_tzcopy.cu \
 
 endif
 
 # driver
 libslate_src += \
+        src/colNorms.cc \
+        src/copy.cc \
         src/gbmm.cc \
         src/gbsv.cc \
         src/gbtrf.cc \
         src/gbtrs.cc \
+        src/geadd.cc \
         src/gels.cc \
         src/gemm.cc \
         src/geqrf.cc \
         src/gesv.cc \
+        src/gesvMixed.cc \
         src/getrf.cc \
         src/getrs.cc \
         src/hemm.cc \
@@ -273,6 +282,7 @@ libslate_src += \
         src/hetrs.cc \
         src/norm.cc \
         src/posv.cc \
+        src/posvMixed.cc \
         src/potrf.cc \
         src/potrs.cc \
         src/symm.cc \
@@ -325,7 +335,8 @@ ifneq ($(FORTRAN),)
         test/pslantr.f \
         test/pdlantr.f \
         test/pclantr.f \
-        test/pzlantr.f
+        test/pzlantr.f \
+
 endif
 
 # unit testers
@@ -509,8 +520,7 @@ scalapack_api_src += \
         scalapack_api/scalapack_gesv.cc \
         scalapack_api/scalapack_lanhe.cc \
         scalapack_api/scalapack_posv.cc \
-        scalapack_api/scalapack_gels.cc \
-
+        scalapack_api/scalapack_gels.cc
 
 scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
 

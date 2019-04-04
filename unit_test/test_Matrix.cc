@@ -204,7 +204,7 @@ void test_Matrix_emptyLike()
     test_assert(A.nt() == ntiles);
     test_assert(A.op() == blas::Op::NoTrans);
 
-    auto B = A.emptyLike();
+    auto B = A.template emptyLike<float>();
 
     test_assert(B.m() == A.m());
     test_assert(B.n() == A.n());
@@ -834,7 +834,6 @@ static void verify_slice(
     int row1, int row2, int col1, int col2,
     int nb, slate::Op trans )
 {
-    int ib = 0, jb = 0;
     if (trans == slate::Op::NoTrans) {
         test_assert( A.m() == row2 - row1 + 1 );
         test_assert( A.n() == col2 - col1 + 1 );

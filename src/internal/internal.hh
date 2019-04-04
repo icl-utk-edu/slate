@@ -152,6 +152,21 @@ private:
 // trailing matrix. These operations can be mapped to batch BLAS.
 
 //------------------------------------------------------------------------------
+// Auxiliary
+
+template <Target target=Target::HostTask,
+          typename src_scalar_t, typename dst_scalar_t>
+void copy(Matrix<src_scalar_t>&& A,
+          Matrix<dst_scalar_t>&& B,
+          int priority=0);
+
+template <Target target=Target::HostTask,
+          typename src_scalar_t, typename dst_scalar_t>
+void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
+          BaseTrapezoidMatrix<dst_scalar_t>&& B,
+          int priority=0);
+
+//------------------------------------------------------------------------------
 // Level 3 BLAS
 
 //-----------------------------------------
@@ -331,27 +346,27 @@ void geadd(scalar_t alpha, Matrix<scalar_t>&& A,
 //------------------------------------------------------------------------------
 // Norms
 template <Target target=Target::HostTask, typename scalar_t>
-void norm(Norm in_norm, Matrix<scalar_t>&& A,
+void norm(Norm in_norm, NormScope scope, Matrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
           int priority=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
-void norm(Norm in_norm, HermitianMatrix<scalar_t>&& A,
+void norm(Norm in_norm, NormScope scope, HermitianMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
           int priority=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
-void norm(Norm in_norm, SymmetricMatrix<scalar_t>&& A,
+void norm(Norm in_norm, NormScope scope, SymmetricMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
           int priority=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
-void norm(Norm in_norm, TrapezoidMatrix<scalar_t>&& A,
+void norm(Norm in_norm, NormScope scope, TrapezoidMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
           int priority=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
-void norm(Norm in_norm, BandMatrix<scalar_t>&& A,
+void norm(Norm in_norm, NormScope scope, BandMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
           int priority=0);
 

@@ -46,7 +46,7 @@ void test_gbmm_work(Params& params, bool run)
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
-    slate::Target target = char2target(params.target());
+    slate::Target target = params.target();
 
     // mark non-standard output values
     params.time();
@@ -83,7 +83,7 @@ void test_gbmm_work(Params& params, bool run)
     Cblacs_get(-1, 0, &ictxt);
     Cblacs_gridinit(&ictxt, "Col", p, q);
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
-    int mpirank = mycol*nprow + myrow;
+    // int mpirank = mycol*nprow + myrow;
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
     int64_t mlocA = scalapack_numroc(Am, nb, myrow, izero, nprow);

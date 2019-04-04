@@ -147,6 +147,88 @@ inline double abs(cuDoubleComplex x)
     return cuCabs(x);
 }
 
+//------------------------------------------------------------------------------
+/// Overloaded versions of Ax+By on device.
+__host__ __device__
+inline float axpby(float alpha, float x, float beta, float y)
+{
+    return alpha*x+beta*y;
+}
+
+__host__ __device__
+inline double axpby(double alpha, double x, double beta, double y)
+{
+    return alpha*x+beta*y;
+}
+
+__host__ __device__
+inline cuFloatComplex axpby(cuFloatComplex alpha, cuFloatComplex x,
+                            cuFloatComplex beta, cuFloatComplex y)
+{
+    return cuCaddf(cuCmulf(alpha, x), cuCmulf(beta, y));
+}
+
+__host__ __device__
+inline cuDoubleComplex axpby(cuDoubleComplex alpha, cuDoubleComplex x,
+                             cuDoubleComplex beta, cuDoubleComplex y)
+{
+    return cuCadd(cuCmul(alpha, x), cuCmul(beta, y));
+}
+
+//------------------------------------------------------------------------------
+/// Overloaded copy and precision conversion.
+__host__ __device__
+inline void copy(float a, float &b)
+{
+    b = a;
+}
+
+__host__ __device__
+inline void copy(float a, double &b)
+{
+    b = a;
+}
+
+__host__ __device__
+inline void copy(double a, double &b)
+{
+    b = a;
+}
+
+__host__ __device__
+inline void copy(double a, float &b)
+{
+    b = a;
+}
+
+__host__ __device__
+inline void copy(cuFloatComplex a, cuFloatComplex &b)
+{
+    b.x = a.x;
+    b.y = a.y;
+}
+
+__host__ __device__
+inline void copy(cuFloatComplex a, cuDoubleComplex &b)
+{
+    b.x = a.x;
+    b.y = a.y;
+}
+
+__host__ __device__
+inline void copy(cuDoubleComplex a, cuDoubleComplex &b)
+{
+    b.x = a.x;
+    b.y = a.y;
+}
+
+__host__ __device__
+inline void copy(cuDoubleComplex a, cuFloatComplex &b)
+{
+    b.x = a.x;
+    b.y = a.y;
+}
+
 ///-----------------------------------------------------------------------------
 /// Square of number.
 /// @return x^2

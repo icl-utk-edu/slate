@@ -102,6 +102,8 @@ group_opt.add_argument( '--ku',     action='store', help='default=%(default)s', 
 group_opt.add_argument( '--matrixtype', action='store', help='default=%(default)s', default='g,l,u' )
 
 # SLATE specific
+group_opt.add_argument( '--origin', action='store', help='default=%(default)s', default='h' )
+group_opt.add_argument( '--target', action='store', help='default=%(default)s', default='t' )
 group_opt.add_argument( '--lookahead', action='store', help='default=%(default)s', default='1' )
 group_opt.add_argument( '--nb',     action='store', help='default=%(default)s', default='10,100' )
 group_opt.add_argument( '--nt',     action='store', help='default=%(default)s', default='5,10,20' )
@@ -237,6 +239,8 @@ ku     = ' --ku '     + opts.ku     if (opts.ku)     else ''
 mtype  = ' --matrixtype ' + opts.matrixtype if (opts.matrixtype) else ''
 
 # SLATE specific
+origin = ' --origin ' + opts.origin if (opts.origin) else ''
+target = ' --target ' + opts.target if (opts.target) else ''
 la     = ' --lookahead ' + opts.lookahead if (opts.lookahead) else ''
 nb     = ' --nb '     + opts.nb     if (opts.nb)     else ''
 nt     = ' --nt '     + opts.nt     if (opts.nt)     else ''
@@ -244,7 +248,7 @@ p      = ' --p '      + opts.p      if (opts.p)      else ''
 q      = ' --q '      + opts.q      if (opts.q)      else ''
 
 # general options for all routines
-gen = nb + p + q + check + ref
+gen = target + nb + p + q + check + ref
 
 # ------------------------------------------------------------------------------
 # filters a comma separated list csv based on items in list values.
@@ -274,24 +278,24 @@ cmds = []
 # Level 3
 if (opts.blas3):
     cmds += [
-    [ 'gbmm',  gen + dtype + la + transA + transB + mnk + ab + kl + ku ],
-    [ 'gemm',  gen + dtype + la + transA + transB + mnk + ab ],
+    [ 'gbmm',  gen          + dtype + la + transA + transB + mnk + ab + kl + ku ],
+    [ 'gemm',  gen + origin + dtype + la + transA + transB + mnk + ab ],
 
-    [ 'hemm',  gen + dtype         + la + side + uplo     + mn + ab ],
-    [ 'herk',  gen + dtype_real    + la + uplo + trans    + mn + ab ],
-    [ 'herk',  gen + dtype_complex + la + uplo + trans_nc + mn + ab ],
-    [ 'her2k', gen + dtype_real    + la + uplo + trans    + mn + ab ],
-    [ 'her2k', gen + dtype_complex + la + uplo + trans_nc + mn + ab ],
+    [ 'hemm',  gen + origin + dtype         + la + side + uplo     + mn + ab ],
+    [ 'herk',  gen + origin + dtype_real    + la + uplo + trans    + mn + ab ],
+    [ 'herk',  gen + origin + dtype_complex + la + uplo + trans_nc + mn + ab ],
+    [ 'her2k', gen + origin + dtype_real    + la + uplo + trans    + mn + ab ],
+    [ 'her2k', gen + origin + dtype_complex + la + uplo + trans_nc + mn + ab ],
 
-    [ 'symm',  gen + dtype         + la + side + uplo     + mn + ab ],
-    [ 'syr2k', gen + dtype_real    + la + uplo + trans    + mn + ab ],
-    [ 'syr2k', gen + dtype_complex + la + uplo + trans_nt + mn + ab ],
-    [ 'syrk',  gen + dtype_real    + la + uplo + trans    + mn + ab ],
-    [ 'syrk',  gen + dtype_complex + la + uplo + trans_nt + mn + ab ],
+    [ 'symm',  gen + origin + dtype         + la + side + uplo     + mn + ab ],
+    [ 'syr2k', gen + origin + dtype_real    + la + uplo + trans    + mn + ab ],
+    [ 'syr2k', gen + origin + dtype_complex + la + uplo + trans_nt + mn + ab ],
+    [ 'syrk',  gen + origin + dtype_real    + la + uplo + trans    + mn + ab ],
+    [ 'syrk',  gen + origin + dtype_complex + la + uplo + trans_nt + mn + ab ],
 
-    [ 'tbsm',  gen + dtype + la + side + uplo + transA + diag + mn + a + kd ],
-    [ 'trmm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
-    [ 'trsm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
+    [ 'tbsm',  gen          + dtype + la + side + uplo + transA + diag + mn + a + kd ],
+    [ 'trmm',  gen + origin + dtype + la + side + uplo + transA + diag + mn + a ],
+    [ 'trsm',  gen + origin + dtype + la + side + uplo + transA + diag + mn + a ],
     ]
 
 # LU
@@ -536,10 +540,10 @@ if (opts.svd):
 # auxilary - norms
 if (opts.aux_norm):
     cmds += [
-    [ 'genorm', gen + dtype + mn + norm ],
-    [ 'henorm', gen + dtype + n  + norm + uplo ],
-    [ 'synorm', gen + dtype + n  + norm + uplo ],
-    [ 'trnorm', gen + dtype + mn + norm + uplo + diag ],
+    [ 'genorm', gen + origin + dtype + mn + norm ],
+    [ 'henorm', gen + origin + dtype + n  + norm + uplo ],
+    [ 'synorm', gen + origin + dtype + n  + norm + uplo ],
+    [ 'trnorm', gen + origin + dtype + mn + norm + uplo + diag ],
 
     # Banded
     [ 'gbnorm', gen + dtype + mn + kl + ku + norm ],

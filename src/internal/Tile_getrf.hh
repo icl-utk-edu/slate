@@ -308,9 +308,9 @@ void getrf(
                     if (root) {
                         auto top_tile = tiles.at(0);
                         // todo: make it a tile operation
-                        copy(k+kb-j-1,
-                             &top_tile.at(j, j+1), top_tile.stride(),
-                             top_block.data(), 1);
+                        blas::copy(k+kb-j-1,
+                                   &top_tile.at(j, j+1), top_tile.stride(),
+                                   top_block.data(), 1);
                     }
                     #pragma omp critical(slate_mpi)
                     {

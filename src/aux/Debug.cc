@@ -208,7 +208,7 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name)
 {
     if (! debug_) return;
     // i, j are tile indices
-    printf("%s on host\n", name);
+    printf("%s on host, rank %d\n", name, A.mpiRank());
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             auto it = A.storage_->tiles_.find(A.globalIndex(i, j, A.host_num_));
@@ -237,7 +237,7 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name)
         printf("\n");
     }
     for (int device = 0; device < A.num_devices_; ++device) {
-        printf("%s on device %d\n", name, device);
+        printf("%s on device %d, rank %d\n", name, device, A.mpiRank());
         for (int64_t i = 0; i < A.mt(); ++i) {
             for (int64_t j = 0; j < A.nt(); ++j) {
                 auto it = A.storage_->tiles_.find(A.globalIndex(i, j, device));

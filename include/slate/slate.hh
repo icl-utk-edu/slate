@@ -53,6 +53,12 @@
 namespace slate {
 
 // -----------------------------------------------------------------------------
+// Auxiliary
+template <typename src_matrix_type, typename dst_matrix_type>
+void copy(src_matrix_type& A, dst_matrix_type& B,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+// -----------------------------------------------------------------------------
 // Level 3 BLAS
 
 //-----------------------------------------
@@ -68,6 +74,18 @@ void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// geadd()
+template <typename scalar_t>
+void geadd(scalar_t alpha, Matrix<scalar_t>& A,
+           scalar_t beta,  Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void geadd(scalar_t alpha, Matrix<scalar_t>& A,
+           scalar_t beta,  Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
 // gemm()
@@ -302,6 +320,18 @@ blas::real_type<typename matrix_type::value_type>
 norm(Norm norm, matrix_type& A,
      const std::map<Option, Value>& opts = std::map<Option, Value>());
 
+//-----------------------------------------
+// all cols max norm
+template <typename matrix_type>
+void colNorms(Norm norm, matrix_type& A,
+              blas::real_type<typename matrix_type::value_type>* values,
+              const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename matrix_type>
+void colNorms(Norm norm, matrix_type& A,
+              blas::real_type<typename matrix_type::value_type>* values,
+              const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 // -----------------------------------------------------------------------------
 // Factorizations, etc.
 
@@ -352,6 +382,21 @@ template <Target target, typename scalar_t>
 void gesv(Matrix<scalar_t>& A, Pivots& pivots,
           Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <typename scalar_t>
+void gesvMixed( Matrix<scalar_t>& A, Pivots& pivots,
+                Matrix<scalar_t>& B,
+                Matrix<scalar_t>& X,
+                int& iter,
+                const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <typename scalar_hi, typename scalar_lo>
+void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
+                Matrix<scalar_hi>& B,
+                Matrix<scalar_hi>& X,
+                int& iter,
+                const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 
 //-----------------------------------------
 // getrf
@@ -438,6 +483,21 @@ void posv(SymmetricMatrix<scalar_t>& A, Matrix<scalar_t>& B,
     posv(AH, B, opts);
 }
 
+template <typename scalar_t>
+void posvMixed( HermitianMatrix<scalar_t>& A,
+                Matrix<scalar_t>& B,
+                Matrix<scalar_t>& X,
+                int& iter,
+                const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <typename scalar_hi, typename scalar_lo>
+void posvMixed( HermitianMatrix<scalar_hi>& A,
+                Matrix<scalar_hi>& B,
+                Matrix<scalar_hi>& X,
+                int& iter,
+                const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
 // potrf
 template <typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>& A,

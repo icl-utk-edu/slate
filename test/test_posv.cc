@@ -5,6 +5,7 @@
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
+#include "scalapack_copy.hh"
 
 #include <cassert>
 #include <cmath>
@@ -29,8 +30,9 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
-    slate::Target target = char2target(params.target());
+    int verbose = params.verbose(); SLATE_UNUSED(verbose);
+    slate::Target origin = params.origin();
+    slate::Target target = params.target();
 
     // mark non-standard output values
     params.time();
@@ -38,8 +40,24 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
 
+    if (params.routine == "posvMixed") {
+        params.iters();
+    }
+
     if (! run)
         return;
+
+    int mpi_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+
+    if (params.routine == "posvMixed"){
+        if (! std::is_same<real_t, double>::value){
+            if (mpi_rank == 0) {
+                printf("Unsupported mixed precision\n");
+            }
+            return;
+        }
+    }
 
     // Local values
     const int izero = 0, ione = 1;
@@ -76,9 +94,42 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
     std::vector<scalar_t> B_tst(lldB*nlocB);
     scalapack_pplrnt(&B_tst[0], n, nrhs, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 2);
 
-    // Create SLATE matrix from the ScaLAPACK layouts
-    auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+
+    // todo: work-around to initialize BaseMatrix::num_devices_
+    slate::HermitianMatrix<scalar_t> A0(uplo, n, nb, p, q, MPI_COMM_WORLD);
+
+    slate::HermitianMatrix<scalar_t> A;
+    slate::Matrix<scalar_t> B, X;
+    std::vector<scalar_t> X_tst;
+    if (origin == slate::Target::Devices) {
+        // Copy local ScaLAPACK data to tiles on GPU devices.
+        A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, nprow, npcol, MPI_COMM_WORLD);
+        A.insertLocalTiles(origin);
+        copy(&A_tst[0], descA_tst, A);
+
+        B = slate::Matrix<scalar_t>(n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
+        B.insertLocalTiles(origin);
+        copy(&B_tst[0], descB_tst, B);
+
+        if (params.routine == "posvMixed") {
+            if (std::is_same<real_t, double>::value) {
+                X_tst.resize(lldB*nlocB);
+                X = slate::Matrix<scalar_t>(n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
+                X.insertLocalTiles(origin);
+            }
+        }
+    }
+    else {
+        // Create SLATE matrix from the ScaLAPACK layouts
+        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+        B = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+        if (params.routine == "posvMixed"){
+            if (std::is_same<real_t, double>::value){
+                X_tst.resize(lldB*nlocB);
+                X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+            }
+        }
+    }
 
     // if check is required, copy test data and create a descriptor for it
     std::vector<scalar_t> A_ref;
@@ -97,12 +148,17 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
             B_orig = B_tst;
     }
 
+    int iters = 0;
+
     double gflop;
     if (params.routine == "potrf")
         gflop = lapack::Gflop<scalar_t>::potrf(n);
     else if (params.routine == "potrs")
         gflop = lapack::Gflop<scalar_t>::potrs(n, nrhs);
+    else if (params.routine == "posv")
+        gflop = lapack::Gflop<scalar_t>::posv(n, nrhs);
     else
+        // todo: flops should not be reported for posvmixed
         gflop = lapack::Gflop<scalar_t>::posv(n, nrhs);
 
     if (! ref_only) {
@@ -142,11 +198,21 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
                 {slate::Option::Target, target}
             });
         }
-        else {
+        else if (params.routine == "posv") {
             slate::posv(A, B, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
+        }
+        else if (params.routine == "posvMixed") {
+            if (std::is_same<real_t, double>::value) {
+                slate::posvMixed(A, B, X, iters, {
+                    {slate::Option::Lookahead, lookahead},
+                    {slate::Option::Target, target}
+                });
+            }
+        } else {
+            assert("Unknown routine!");
         }
 
         {
@@ -156,6 +222,10 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
         double time_tst = libtest::get_wtime() - time;
 
         if (trace) slate::trace::Trace::finish();
+
+        if (params.routine == "posvMixed") {
+            params.iters() = iters;
+        }
 
         // compute and save timing/performance
         params.time() = time_tst;
@@ -180,6 +250,18 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
             });
         }
 
+        if (origin == slate::Target::Devices) {
+            // Copy data back from GPUs.
+            if (params.routine == "posvMixed") {
+                if (std::is_same<real_t, double>::value){
+                    copy(X, &X_tst[0], descB_tst);
+                }
+            }
+            else {
+                copy(B, &B_tst[0], descB_tst);
+            }
+        }
+
         // allocate work space
         size_t ldw = nb*ceil(ceil(mlocA / (double) nb) / (scalapack_ilcm(&nprow, &npcol) / nprow));
         std::vector<real_t> worklansyA(2*nlocA + mlocA + ldw);
@@ -191,13 +273,26 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
         real_t X_norm = scalapack_plange("1", n, nrhs, &B_tst[0], ione, ione, descB_tst, &worklangeB[0]);
 
         // B_ref -= Aref*B_tst
-        scalapack_psymm("left", uplo2str(uplo),
-                        n, nrhs,
-                        scalar_t(-1.0),
-                        &A_ref[0], ione, ione, descA_ref,
-                        &B_tst[0], ione, ione, descB_tst,
-                        scalar_t(1.0),
-                        &B_ref[0], ione, ione, descB_ref);
+        if (params.routine == "posvMixed") {
+            if (std::is_same<real_t, double>::value) {
+                scalapack_psymm("left", uplo2str(uplo),
+                                n, nrhs,
+                                scalar_t(-1.0),
+                                &A_ref[0], ione, ione, descA_ref,
+                                &X_tst[0], ione, ione, descB_tst,
+                                scalar_t(1.0),
+                                &B_ref[0], ione, ione, descB_ref);
+            }
+        }
+        else {
+            scalapack_psymm("left", uplo2str(uplo),
+                            n, nrhs,
+                            scalar_t(-1.0),
+                            &A_ref[0], ione, ione, descA_ref,
+                            &B_tst[0], ione, ione, descB_tst,
+                            scalar_t(1.0),
+                            &B_ref[0], ione, ione, descB_ref);
+        }
 
         // Norm of residual: || B - AX ||_1
         real_t R_norm = scalapack_plange("1", n, nrhs, &B_ref[0], ione, ione, descB_ref, &worklangeB[0]);
@@ -216,7 +311,6 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
         #pragma omp parallel
         { omp_num_threads = omp_get_num_threads(); }
         int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-        int64_t info_ref = 0;
 
         if (check) {
             // restore B_ref
@@ -257,6 +351,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
 
     Cblacs_gridexit(ictxt);
     //Cblacs_exit(1) does not handle re-entering
+
 }
 
 // -----------------------------------------------------------------------------

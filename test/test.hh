@@ -35,7 +35,6 @@ public:
     libtest::ParamInt    extended;
     libtest::ParamInt    cache;
     libtest::ParamInt    matrix;  // todo: string + generator
-    libtest::ParamChar   target;  // todo: enum
 
     // ----- routine parameters
     // LAPACK options
@@ -47,6 +46,8 @@ public:
     // gbsv ( n, kl, ku, nrhs, ... )
     // trsm ( side, uplo, transa, diag, m, n, alpha, ... )
     libtest::ParamEnum< libtest::DataType > datatype;
+    libtest::ParamEnum< slate::Target >     origin;
+    libtest::ParamEnum< slate::Target >     target;
     libtest::ParamEnum< slate::Layout >     layout;
     libtest::ParamEnum< lapack::Job >       jobz;   // heev
     libtest::ParamEnum< lapack::Job >       jobvl;  // geev
@@ -55,6 +56,7 @@ public:
     libtest::ParamEnum< lapack::Job >       jobvt;  // gesvd
     libtest::ParamEnum< lapack::Range >     range;
     libtest::ParamEnum< slate::Norm >       norm;
+    libtest::ParamEnum< slate::NormScope >  scope;
     libtest::ParamEnum< slate::Side >       side;
     libtest::ParamEnum< slate::Uplo >       uplo;
     libtest::ParamEnum< slate::Op >         trans;
@@ -134,7 +136,6 @@ inline T roundup(T x, T y)
         } \
     }
 
-
 // -----------------------------------------------------------------------------
 // Level 3 BLAS
 void test_gbmm   (Params& params, bool run);
@@ -180,17 +181,60 @@ void test_synorm (Params& params, bool run);
 void test_trnorm (Params& params, bool run);
 
 // -----------------------------------------------------------------------------
-inline slate::Target char2target(char targetchar)
+inline slate::Target str2target(const char* target)
 {
-    if (targetchar == 't')
+    std::string target_ = target;
+    std::transform(target_.begin(), target_.end(), target_.begin(), ::tolower);
+    if (target_ == "t" || target_ == "task")
         return slate::Target::HostTask;
-    else if (targetchar == 'n')
+    else if (target_ == "n" || target_ == "nest")
         return slate::Target::HostNest;
-    else if (targetchar == 'b')
+    else if (target_ == "b" || target_ == "batch")
         return slate::Target::HostBatch;
-    else if (targetchar == 'd')
+    else if (target_ == "d" || target_ == "dev" || target_ == "device" ||
+             target_ == "devices")
         return slate::Target::Devices;
-    return slate::Target::HostTask;
+    else if (target_ == "h" || target_ == "host")
+        return slate::Target::Host;
+    else
+        throw slate::Exception("unknown target");
+}
+
+inline const char* target2str(slate::Target target)
+{
+    switch (target) {
+        case slate::Target::HostTask:  return "task";
+        case slate::Target::HostNest:  return "nest";
+        case slate::Target::HostBatch: return "batch";
+        case slate::Target::Devices:   return "devices";
+        case slate::Target::Host:      return "host";
+    }
+    return "?";
+}
+
+// -----------------------------------------------------------------------------
+inline slate::NormScope str2scope(const char* scope)
+{
+    std::string scope_ = scope;
+    std::transform(scope_.begin(), scope_.end(), scope_.begin(), ::tolower);
+    if (scope_ == "m" || scope_ == "matrix")
+        return slate::NormScope::Matrix;
+    else if (scope_ == "c" || scope_ == "cols" || scope_ == "columns")
+        return slate::NormScope::Columns;
+    else if (scope_ == "r" || scope_ == "rows")
+        return slate::NormScope::Rows;
+    else
+        throw slate::Exception("unknown scope");
+}
+
+inline const char* scope2str(slate::NormScope scope)
+{
+    switch (scope) {
+        case slate::NormScope::Matrix:  return "matrix";
+        case slate::NormScope::Columns: return "columns";
+        case slate::NormScope::Rows:    return "rows";
+    }
+    return "?";
 }
 
 #endif  //  #ifndef TEST_HH

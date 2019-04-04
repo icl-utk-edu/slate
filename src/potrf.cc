@@ -143,7 +143,10 @@ void potrf(slate::internal::TargetType<target>,
     // Debug::checkTilesLives(A);
     // Debug::printTilesLives(A);
 
-    A.clearWorkspace();
+    // A.clearWorkspace();
+
+    A.tileUpdateAllOrigin();
+    A.releaseWorkspace();
 
     // Debug::printTilesMaps(A);
 }
@@ -243,7 +246,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     // Debug::checkTilesLives(A);
     // Debug::printTilesLives(A);
 
-    A.clearWorkspace();
+    A.tileUpdateAllOrigin();
+    A.releaseWorkspace();
 
     // Debug::printTilesMaps(A);
 }

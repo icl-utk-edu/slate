@@ -111,7 +111,7 @@ void test_genorm(Norm norm)
     else if (norm == lapack::Norm::Fro)
         values.resize( 2 );
 
-    slate::genorm( norm, A, &values[0] );
+    slate::genorm( norm, slate::NormScope::Matrix, A, &values[0] );
 
     // check column & row sum results
     if (norm == lapack::Norm::One) {
@@ -227,7 +227,7 @@ void test_genorm_dev(Norm norm)
     test_assert(cudaMalloc((void**)&dvalues, sizeof(double) * ldv * batch_count) == cudaSuccess);
     test_assert(dvalues != nullptr);
 
-    slate::device::genorm( norm, m, n, dAarray, lda,
+    slate::device::genorm( norm, slate::NormScope::Matrix, m, n, dAarray, lda,
                            dvalues, ldv, batch_count, stream );
     cudaStreamSynchronize( stream );
     test_assert(cudaMemcpy( &values[0], dvalues, sizeof(double) * values.size(),

@@ -751,6 +751,75 @@ void axby(scalar_t alpha, Tile<scalar_t> const& X,
 }
 
 ///-----------------------------------------------------------------------------
+/// Copy and precision conversion.
+/// TODO: Move functiona that are not really BLAS to Tile_aux.hh.
+///
+template <typename src_scalar_t, typename dst_scalar_t>
+void gecopy(Tile<src_scalar_t> const& A, Tile<dst_scalar_t>& B)
+{
+//  trace::Block trace_block("aux::copy");
+
+    assert(A.mb() == B.mb());
+    assert(A.nb() == B.nb());
+
+    for (int64_t j = 0; j < B.nb(); ++j)
+        for (int64_t i = 0; i < B.mb(); ++i)
+            B.at(i, j) = A.at(i, j);
+}
+
+///----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename src_scalar_t, typename dst_scalar_t>
+void gecopy(Tile<src_scalar_t> const&& A, Tile<dst_scalar_t>&& B)
+{
+    gecopy(A, B);
+}
+
+///-----------------------------------------------------------------------------
+/// Copy and precision conversion.
+/// TODO: Move functiona that are not really BLAS to Tile_aux.hh.
+///
+template <typename src_scalar_t, typename dst_scalar_t>
+void tzcopy(Tile<src_scalar_t> const& A, Tile<dst_scalar_t>& B)
+{
+//  trace::Block trace_block("aux::copy");
+
+    // TODO: Can be loosened?
+    assert(A.uplo() != Uplo::General);
+    assert(B.uplo() == A.uplo());
+
+    assert(A.op() == Op::NoTrans);
+    assert(B.op() == A.op());
+
+    assert(A.mb() == B.mb());
+    assert(A.nb() == B.nb());
+
+    for (int64_t j = 0; j < B.nb(); ++j) {
+        if (j < B.mb()) {
+            B.at(j, j) = A.at(j, j);
+        }
+        if (B.uplo() == Uplo::Lower) {
+            for (int64_t i = j; i < B.mb(); ++i) {
+                B.at(i, j) = A.at(i, j);
+            }
+        }
+        else {
+            for (int64_t i = 0; i <= j && i < B.mb(); ++i) {
+                B.at(i, j) = A.at(i, j);
+            }
+        }
+    }
+}
+
+///----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+template <typename src_scalar_t, typename dst_scalar_t>
+void tzcopy(Tile<src_scalar_t> const&& A, Tile<dst_scalar_t>&& B)
+{
+    tzcopy(A, B);
+}
+
+///-----------------------------------------------------------------------------
 /// In-place conversion between column and row-major layout for square tiles.
 /// Takes a pointer to the original tile in MatrixStorage, instead of a
 /// reference to a copy of the tile, in order to adjust the tile's layout flag.

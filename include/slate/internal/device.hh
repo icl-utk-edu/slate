@@ -41,6 +41,7 @@
 #define SLATE_DEVICE_HH
 
 #include "slate/internal/cuda.hh"
+#include "slate/enums.hh"
 
 #include <blas.hh>
 #include <lapack.hh>
@@ -67,9 +68,34 @@ namespace slate {
 namespace device {
 
 //------------------------------------------------------------------------------
+template <typename src_scalar_t, typename dst_scalar_t>
+void gecopy(
+    int64_t m, int64_t n,
+    src_scalar_t** Aarray, int64_t lda,
+    dst_scalar_t** Barray, int64_t ldb,
+    int64_t batch_count, cudaStream_t stream);
+
+//------------------------------------------------------------------------------
+template <typename src_scalar_t, typename dst_scalar_t>
+void tzcopy(
+    lapack::Uplo uplo,
+    int64_t m, int64_t n,
+    src_scalar_t** Aarray, int64_t lda,
+    dst_scalar_t** Barray, int64_t ldb,
+    int64_t batch_count, cudaStream_t stream);
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void geadd(
+    int64_t m, int64_t n,
+    scalar_t alpha, scalar_t** Aarray, int64_t lda,
+    scalar_t beta, scalar_t** Barray, int64_t ldb,
+    int64_t batch_count, cudaStream_t stream);
+
+//------------------------------------------------------------------------------
 template <typename scalar_t>
 void genorm(
-    lapack::Norm norm,
+    lapack::Norm norm, NormScope scope,
     int64_t m, int64_t n,
     scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* values, int64_t ldv,

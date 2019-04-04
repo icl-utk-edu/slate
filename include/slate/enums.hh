@@ -40,11 +40,8 @@
 ///-----------------------------------------------------------------------------
 /// \file
 ///
-#ifndef SLATE_TYPES_HH
-#define SLATE_TYPES_HH
-
-#include "slate/enums.hh"
-#include "slate/internal/mpi.hh"
+#ifndef SLATE_ENUMS_HH
+#define SLATE_ENUMS_HH
 
 #include <vector>
 
@@ -53,123 +50,58 @@
 
 namespace slate {
 
-//------------------------------------------------------------------------------
-/// Slate::internal::Value class
+typedef blas::Op Op;
+typedef blas::Uplo Uplo;
+typedef blas::Diag Diag;
+typedef blas::Side Side;
+typedef blas::Layout Layout;
+
+typedef lapack::Norm Norm;
+typedef lapack::Direct Direction;  // todo change LAPACK++
+
+///-----------------------------------------------------------------------------
+/// \class
 /// \brief
 ///
-class Value {
-public:
-    Value()
-    {}
+enum class Target : char {
+    Host      = 'H',
+    HostTask  = 'T',
+    HostNest  = 'N',
+    HostBatch = 'B',
+    Devices   = 'D',
+};
 
-    Value(int i) : i_(i)
-    {}
+namespace internal {
+template <Target> class TargetType {};
+} // namespace internal
 
-    Value(int64_t i) : i_(i)
-    {}
-
-    Value(double d) : d_(d)
-    {}
-
-    Value(Target t) : i_(int(t))
-    {}
-
-    union {
-        int64_t i_;
-        double d_;
-    };
+//------------------------------------------------------------------------------
+/// \class
+/// \brief
+///
+enum class Option {
+    Lookahead,
+    BlockSize,
+    InnerBlocking,
+    MaxPanelThreads,
+    Tolerance,
+    Target,
 };
 
 //------------------------------------------------------------------------------
-class Pivot {
-public:
-    Pivot()
-    {}
-
-    Pivot(int64_t tile_index,
-          int64_t element_offset)
-        : tile_index_(tile_index),
-          element_offset_(element_offset)
-    {}
-
-    int64_t tileIndex() { return tile_index_; }
-    int64_t elementOffset() { return element_offset_; }
-
-private:
-    int64_t tile_index_;     ///< tile index in the panel submatrix
-    int64_t element_offset_; ///< pivot offset in the tile
-};
-
-using Pivots = std::vector< std::vector<Pivot> >;
-
-//------------------------------------------------------------------------------
-/// gives mpi_type based on actual scalar_t.
-//  constants are initialized in slate_types.cc
-template <typename scalar_t>
-class mpi_type {};
-
-template<>
-class mpi_type<float> {
-public:
-    static MPI_Datatype value; // = MPI_FLOAT
-};
-
-template<>
-class mpi_type<double> {
-public:
-    static MPI_Datatype value; // = MPI_DOUBLE
-};
-
-template<>
-class mpi_type< std::complex<float> > {
-public:
-    static MPI_Datatype value; // = MPI_C_COMPLEX
-};
-
-template<>
-class mpi_type< std::complex<double> > {
-public:
-    static MPI_Datatype value; // = MPI_C_DOUBLE_COMPLEX
-};
-
-// for type-generic maxloc operations
-template <typename real_t>
-struct max_loc_type { real_t x; int i; };
-
-template<>
-class mpi_type< max_loc_type<float> > {
-public:
-    static MPI_Datatype value; // = MPI_FLOAT_INT
-};
-
-template<>
-class mpi_type< max_loc_type<double> > {
-public:
-    static MPI_Datatype value; // = MPI_DOUBLE_INT
+enum class LayoutConvert : char {
+    ColMajor = 'C',
+    RowMajor = 'R',
+    None     = 'N',
 };
 
 //------------------------------------------------------------------------------
-/// True if T is std::complex<T2> for some type T2.
-template <typename T>
-struct is_complex:
-    std::integral_constant<bool, false>
-{};
-
-// specialize for std::complex
-template <typename T>
-struct is_complex< std::complex<T> >:
-    std::integral_constant<bool, true>
-{};
-
-//------------------------------------------------------------------------------
-// define enable_if_t if not using c++14
-#if __cplusplus >= 201402L
-    using std::enable_if_t;
-#else
-    template<bool B, class T = void>
-    using enable_if_t = typename std::enable_if<B, T>::type;
-#endif
+enum class NormScope : char {
+    Columns = 'C',
+    Rows    = 'R',
+    Matrix  = 'M',
+};
 
 } // namespace slate
 
-#endif // SLATE_TYPES_HH
+#endif // SLATE_ENUMS_HH

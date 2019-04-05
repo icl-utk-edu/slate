@@ -20,6 +20,8 @@ void test_trsm_work(Params& params, bool run)
     using real_t = blas::real_type<scalar_t>;
     using slate::Op;
     using slate::Norm;
+    using blas::real;
+    using llong = long long;
 
     // get & mark input values
     slate::Side side = params.side();
@@ -75,7 +77,7 @@ void test_trsm_work(Params& params, bool run)
     Cblacs_gridinit(&ictxt, "Col", p, q);
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
-    // todo: A is a unit, or non-unit, upper or lower triangular distributed matrix,
+    // pplghe generates a diagonally dominant matrix.
     // matrix A, figure out local size, allocate, create descriptor, initialize
     int64_t mlocA = scalapack_numroc(Am, nb, myrow, izero, nprow);
     int64_t nlocA = scalapack_numroc(An, nb, mycol, izero, npcol);
@@ -96,10 +98,13 @@ void test_trsm_work(Params& params, bool run)
 
     // if check is required, copy test data and create a descriptor for it
     std::vector< scalar_t > B_ref;
+    slate::Matrix<scalar_t> Bref;
     if (check || ref) {
         scalapack_descinit(descB_ref, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
         assert(info == 0);
         B_ref = B_tst;
+        Bref = slate::Matrix<scalar_t>::fromScaLAPACK
+                   (Bm, Bn, &B_ref[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
     }
 
     if (verbose >= 2) {
@@ -107,8 +112,12 @@ void test_trsm_work(Params& params, bool run)
         print_matrix( "B", mlocB, nlocB, &B_tst[0], lldB, p, q, MPI_COMM_WORLD);
     }
 
-    // todo: work-around to initialize BaseMatrix::num_devices_
-    slate::HermitianMatrix<scalar_t> A0(uplo, n, nb, p, q, MPI_COMM_WORLD);
+    // Cholesky factor of A to get a well conditioned triangular matrix.
+    // Even when we replace the diagonal with unit diagonal,
+    // it seems to still be well conditioned.
+    slate::HermitianMatrix<scalar_t> AH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK
+        (uplo, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+    slate::potrf(AH);
 
     slate::TriangularMatrix<scalar_t> A;
     slate::Matrix<scalar_t> B;
@@ -167,26 +176,45 @@ void test_trsm_work(Params& params, bool run)
     params.time() = time_tst;
     params.gflops() = gflop / time_tst;
 
-    if (check || ref) {
-        // comparison with reference routine from ScaLAPACK
+    if (verbose >= 2) {
+        print_matrix( "B_out", B, 24, 16 );
+    }
 
-        if (origin == slate::Target::Devices) {
-            // Copy SLATE result back from GPUs.
-            copy(B, &B_tst[0], descB_tst);
-        }
+    if (check) {
+        //==================================================
+        // Test results by checking the residual
+        //
+        //      || B - 1/alpha AX ||_1
+        //     ------------------------ < epsilon
+        //      || A ||_1 * N
+        //
+        //==================================================
+
+        // get norms of the original data
+        // todo: add TriangularMatrix norm
+        auto AZ = static_cast< slate::TrapezoidMatrix<scalar_t> >( A );
+        real_t A_norm = slate::norm(norm, AZ);
+
+        scalar_t one = 1;
+        slate::trmm(side, one/alpha, A, B);
+        slate::geadd(-one, Bref, one, B);
+        real_t error = slate::norm(norm, B);
+        error = error / (Am * A_norm);
+        params.error() = error;
+
+        // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.
+        real_t eps = std::numeric_limits<real_t>::epsilon();
+        params.okay() = (params.error() <= 3*eps);
+    }
+
+    if (ref) {
+        // comparison with reference routine from ScaLAPACK for timing only
 
         // set MKL num threads appropriately for parallel BLAS
         int omp_num_threads;
         #pragma omp parallel
         { omp_num_threads = omp_get_num_threads(); }
         int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
-        std::vector<real_t> worklantr(std::max(mlocA, nlocA));
-        std::vector<real_t> worklange(std::max(mlocB, nlocB));
-
-        // get norms of the original data
-        real_t A_norm = scalapack_plantr(norm2str(norm), uplo2str(uplo), diag2str(diag), Am, An, &A_tst[0], ione, ione, descA_tst, &worklantr[0]);
-        real_t B_orig_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_ref[0], ione, ione, descB_tst, &worklange[0]);
 
         //==================================================
         // Run ScaLAPACK reference routine.
@@ -200,24 +228,14 @@ void test_trsm_work(Params& params, bool run)
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 
-        // local operation: error = B_ref - B_tst
-        blas::axpy(B_ref.size(), -1.0, &B_tst[0], 1, &B_ref[0], 1);
-
-        // norm(B_ref - B_tst)
-        real_t B_diff_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_ref[0], ione, ione, descB_ref, &worklange[0]);
-
-        real_t error = B_diff_norm
-                     / (sqrt(real_t(Am) + 2) * std::abs(alpha) * A_norm * B_orig_norm);
+        if (verbose >= 2) {
+            print_matrix( "B_ref", mlocB, nlocB, &B_ref[0], lldB, p, q, MPI_COMM_WORLD, 24, 16 );
+        }
 
         params.ref_time() = time_ref;
         params.ref_gflops() = gflop / time_ref;
-        params.error() = error;
 
         slate_set_num_blas_threads(saved_num_threads);
-
-        // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.
-        real_t eps = std::numeric_limits<real_t>::epsilon();
-        params.okay() = (params.error() <= 3*eps);
     }
 
     Cblacs_gridexit(ictxt);

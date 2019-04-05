@@ -62,8 +62,8 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
     int mpi_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
 
-    if (params.routine == "gesvMixed"){
-        if (! std::is_same<real_t, double>::value){
+    if (params.routine == "gesvMixed") {
+        if (! std::is_same<real_t, double>::value) {
             if (mpi_rank == 0) {
                 printf("Unsupported mixed precision\n");
             }
@@ -137,8 +137,8 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
         // Create SLATE matrix from the ScaLAPACK layouts
         A = slate::Matrix<scalar_t>::fromScaLAPACK(m, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
         B = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
-        if (params.routine == "gesvMixed"){
-            if (std::is_same<real_t, double>::value){
+        if (params.routine == "gesvMixed") {
+            if (std::is_same<real_t, double>::value) {
                 X_tst.resize(lldB*nlocB);
                 X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
             }
@@ -185,10 +185,7 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
         gflop = lapack::Gflop<scalar_t>::getrf(m, n);
     else if (params.routine == "getrs")
         gflop = lapack::Gflop<scalar_t>::getrs(n, nrhs);
-    else if (params.routine == "gesv")
-        gflop = lapack::Gflop<scalar_t>::gesv(n, nrhs);
     else
-        // todo: flops should not be reported for gesvmixed
         gflop = lapack::Gflop<scalar_t>::gesv(n, nrhs);
 
     if (! ref_only) {
@@ -255,7 +252,8 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
                     {slate::Option::InnerBlocking, ib}
                 });
             }
-        } else {
+        }
+        else {
             assert("Unknown routine!");
         }
 
@@ -297,7 +295,7 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
         if (origin == slate::Target::Devices) {
             // Copy data back from GPUs.
             if (params.routine == "gesvMixed") {
-                if (std::is_same<real_t, double>::value){
+                if (std::is_same<real_t, double>::value) {
                     copy(X, &X_tst[0], descB_tst);
                 }
             }

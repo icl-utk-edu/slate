@@ -105,7 +105,7 @@ group_opt.add_argument( '--matrixtype', action='store', help='default=%(default)
 group_opt.add_argument( '--origin', action='store', help='default=%(default)s', default='h' )
 group_opt.add_argument( '--target', action='store', help='default=%(default)s', default='t' )
 group_opt.add_argument( '--lookahead', action='store', help='default=%(default)s', default='1' )
-group_opt.add_argument( '--nb',     action='store', help='default=%(default)s', default='10,100' )
+group_opt.add_argument( '--nb',     action='store', help='default=%(default)s', default='64,100' )
 group_opt.add_argument( '--nt',     action='store', help='default=%(default)s', default='5,10,20' )
 group_opt.add_argument( '--p',      action='store', help='default=%(default)s', default='' )  # default in test.cc
 group_opt.add_argument( '--q',      action='store', help='default=%(default)s', default='' )  # default in test.cc
@@ -151,6 +151,9 @@ nk_tall  = dim
 nk_wide  = dim
 nk       = dim
 
+# for xsmall and small, use smaller nb, but not with medium or large
+is_default_nb = (opts.nb == parser.get_default('nb'))
+
 if (not opts.dim):
     if (opts.xsmall):
         n       += ' --dim 10'
@@ -161,6 +164,8 @@ if (not opts.dim):
                 +  ' --dim 20x10x15 --dim 20x15x10'
         nk_tall += ' --dim 1x20x10'
         nk_wide += ' --dim 1x10x20'
+        if (is_default_nb):
+            opts.nb = '5,8'
 
     if (opts.small):
         n       += ' --dim 25:100:25'
@@ -171,6 +176,8 @@ if (not opts.dim):
                 +  ' --dim 75x25x50 --dim 75x50x25'
         nk_tall += ' --dim 1x50:200:50x25:100:25'
         nk_wide += ' --dim 1x25:100:25x50:200:50'
+        if (is_default_nb):
+            opts.nb = '25,32'
 
     if (opts.medium):
         n       += ' --dim 100:500:100'
@@ -181,6 +188,8 @@ if (not opts.dim):
                 +  ' --dim 600x100x300 --dim 600x300x100'
         nk_tall += ' --dim 1x200:1000:200x100:500:100'
         nk_wide += ' --dim 1x100:500:100x200:1000:200'
+        if (is_default_nb):
+            opts.nb = parser.get_default('nb')
 
     if (opts.large):
         n       += ' --dim 1000:5000:1000'
@@ -191,6 +200,8 @@ if (not opts.dim):
                 +  ' --dim 6000x1000x3000 --dim 6000x3000x1000'
         nk_tall += ' --dim 1x2000:10000:2000x1000:5000:1000'
         nk_wide += ' --dim 1x1000:5000:1000x2000:10000:2000'
+        if (is_default_nb):
+            opts.nb = parser.get_default('nb')
 
     mn  = ''
     nk  = ''

@@ -174,7 +174,7 @@ void norm(
                 }
             }
             // off-diagonal tiles
-            if (A.uplo_logical() == Uplo::Lower) {
+            if (A.uplo() == Uplo::Lower) {
                 for (int64_t i = j+1; i < A.mt(); ++i) {  // strictly lower
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, tiles_maxima) priority(priority)

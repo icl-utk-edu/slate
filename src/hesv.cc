@@ -67,7 +67,7 @@ void hesv(slate::internal::TargetType<target>,
     assert(B.mt() == A.mt());
 
     // if upper, change to lower
-    if (A.uplo_logical() == Uplo::Upper)
+    if (A.uplo() == Uplo::Upper)
         A = conj_transpose(A);
 
     // factorization

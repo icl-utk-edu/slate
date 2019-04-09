@@ -102,7 +102,7 @@ void trmm(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
-        if (A.uplo_logical() == Uplo::Upper) {
+        if (A.uplo() == Uplo::Upper) {
             // ----------------------------------------
             // Left, Upper/NoTrans or Lower/Trans case
             // Forward sweep

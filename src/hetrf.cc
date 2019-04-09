@@ -89,7 +89,7 @@ void hetrf(slate::internal::TargetType<target>,
     int64_t ione  = 1;
     int64_t izero = 0;
     int priority_one = 1;
-    assert(A.uplo_logical() == Uplo::Lower); // upper not implemented, yet
+    assert(A.uplo() == Uplo::Lower); // upper not implemented, yet
 
     pivots.resize(A_mt);
 

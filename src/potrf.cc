@@ -64,7 +64,7 @@ void potrf(slate::internal::TargetType<target>,
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // if upper, change to lower
-    if (A.uplo_logical() == Uplo::Upper) {
+    if (A.uplo() == Uplo::Upper) {
         A = conj_transpose(A);
     }
     const int64_t A_nt = A.nt();
@@ -163,7 +163,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // if upper, change to lower
-    if (A.uplo_logical() == Uplo::Upper) {
+    if (A.uplo() == Uplo::Upper) {
         A = conj_transpose(A);
     }
     const int64_t A_nt = A.nt();

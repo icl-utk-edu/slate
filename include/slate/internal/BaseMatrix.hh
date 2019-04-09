@@ -190,6 +190,9 @@ public:
         return storage_->tileIsLocal(globalIndex(i, j));
     }
 
+    /// Returns the origin tile instance of tile(i, j)
+    Tile<scalar_t>* originTile(int64_t i, int64_t j);
+
     int64_t tileMb(int64_t i) const;
     int64_t tileNb(int64_t j) const;
 private:
@@ -1975,6 +1978,31 @@ void BaseMatrix<scalar_t>::getRanks(std::set<int>* bcast_set) const
     for (int64_t i = 0; i < mt(); ++i)
         for (int64_t j = 0; j < nt(); ++j)
             bcast_set->insert(tileRank(i, j));
+}
+
+//------------------------------------------------------------------------------
+/// Returns the origin tile instance of tile(i, j)
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+template <typename scalar_t>
+Tile<scalar_t>* BaseMatrix<scalar_t>::originTile(int64_t i, int64_t j)
+{
+    // find on host
+    auto iter = storage_->find(globalIndex(i, j, host_num_));
+    if (iter != storage_->end() && iter->second.tile_->origin() ){
+        return iter->second.tile_;
+    }
+    else {
+        iter = storage_->find(globalIndex(i, j, tileDevice(i, j)));
+        if (iter != storage_->end() && iter->second.tile_->origin() ){
+            return iter->second.tile_;
+        }
+    }
 }
 
 //------------------------------------------------------------------------------

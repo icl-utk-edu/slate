@@ -80,17 +80,17 @@ protected:
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
 
     // used by sub-classes' fromLAPACK
-    BaseTrapezoidMatrix(Uplo in_uplo, int64_t m, int64_t n,
+    BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
                         scalar_t* A, int64_t lda, int64_t nb,
                         int p, int q, MPI_Comm mpi_comm);
 
     // used by sub-classes' fromScaLAPACK
-    BaseTrapezoidMatrix(Uplo in_uplo, int64_t m, int64_t n,
+    BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
                         scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
                         int p, int q, MPI_Comm mpi_comm);
 
     // used by sub-classes' fromDevices
-    BaseTrapezoidMatrix(Uplo in_uplo, int64_t m, int64_t n,
+    BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
                         scalar_t** Aarray, int num_devices, int64_t lda,
                         int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
@@ -149,6 +149,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     Uplo uplo, int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
     : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
 {
+    slate_error_if(uplo == Uplo::General);
     this->uplo_ = uplo;
 }
 
@@ -163,7 +164,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 /// dimension (column stride) lda >= m, that is replicated across all nodes.
 /// Matrix gets tiled with square nb-by-nb tiles.
 ///
-/// @param[in] in_uplo
+/// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
 ///     - Lower: lower triangle of A is stored.
 ///
@@ -194,12 +195,13 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 ///
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
-    Uplo in_uplo, int64_t m, int64_t n,
+    Uplo uplo, int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
     : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
 {
-    this->uplo_ = in_uplo;
+    slate_error_if(uplo == Uplo::General);
+    this->uplo_ = uplo;
 
     // ii, jj are row, col indices
     // i, j are tile (block row, block col) indices
@@ -285,13 +287,14 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 ///
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
-    Uplo in_uplo, int64_t m, int64_t n,
+    Uplo uplo, int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
     : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
 {
     assert(mb == nb);
-    this->uplo_ = in_uplo;
+    slate_error_if(uplo == Uplo::General);
+    this->uplo_ = uplo;
 
     // ii, jj are row, col indices
     // i, j are tile (block row, block col) indices
@@ -375,14 +378,14 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 ///
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
-    Uplo in_uplo, int64_t m, int64_t n,
+    Uplo uplo, int64_t m, int64_t n,
     scalar_t** Aarray, int num_devices, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
     : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
 {
     slate_error_if(this->num_devices() != num_devices);
-
-    this->uplo_ = in_uplo;
+    slate_error_if(uplo == Uplo::General);
+    this->uplo_ = uplo;
 
     // ii, jj are row, col indices
     // ii_local and jj_local are the local array indices in a
@@ -454,6 +457,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     Uplo uplo, Matrix<scalar_t>& orig)
     : BaseMatrix<scalar_t>(orig)
 {
+    slate_error_if(uplo == Uplo::General);
     this->uplo_ = uplo;
 }
 
@@ -487,6 +491,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     int64_t j1, int64_t j2)
     : BaseMatrix<scalar_t>(orig, i1, i2, j1, j2)
 {
+    slate_error_if(uplo == Uplo::General);
     this->uplo_ = uplo;
 }
 
@@ -548,7 +553,7 @@ template <typename scalar_t>
 int64_t BaseTrapezoidMatrix<scalar_t>::getMaxHostTiles()
 {
     int64_t num_tiles = 0;
-    if (this->uplo_logical() == Uplo::Lower) {
+    if (this->uplo() == Uplo::Lower) {
         for (int64_t j = 0; j < this->nt(); ++j)
             for (int64_t i = j; i < this->mt(); ++i)  // lower
                 if (this->tileIsLocal(i, j))
@@ -571,7 +576,7 @@ template <typename scalar_t>
 int64_t BaseTrapezoidMatrix<scalar_t>::getMaxDeviceTiles(int device)
 {
     int64_t num_tiles = 0;
-    if (this->uplo_logical() == Uplo::Lower) {
+    if (this->uplo() == Uplo::Lower) {
         for (int64_t j = 0; j < this->nt(); ++j)
             for (int64_t i = j; i < this->mt(); ++i)  // lower
                 if (this->tileIsLocal(i, j) && this->tileDevice(i, j) == device)
@@ -684,7 +689,7 @@ template <typename scalar_t>
 Matrix<scalar_t> BaseTrapezoidMatrix<scalar_t>::sub(
     int64_t i1, int64_t i2, int64_t j1, int64_t j2)
 {
-    if (this->uplo_logical() == Uplo::Lower) {
+    if (this->uplo() == Uplo::Lower) {
         // require top-right corner (i1, j2) to be at or below diagonal
         if (i1 < j2)
             slate_error("submatrix outside lower triangle; requires i1 >= j2");

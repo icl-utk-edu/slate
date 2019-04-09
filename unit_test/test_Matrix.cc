@@ -72,6 +72,7 @@ void test_Matrix()
     test_assert(A.mt() == 0);
     test_assert(A.nt() == 0);
     test_assert(A.op() == blas::Op::NoTrans);
+    test_assert(A.uplo() == slate::Uplo::General);
 }
 
 //------------------------------------------------------------------------------
@@ -84,6 +85,7 @@ void test_Matrix_empty()
     test_assert(A.mt() == ceildiv(m, nb));
     test_assert(A.nt() == ceildiv(n, nb));
     test_assert(A.op() == blas::Op::NoTrans);
+    test_assert(A.uplo() == slate::Uplo::General);
 }
 
 //------------------------------------------------------------------------------
@@ -100,6 +102,7 @@ void test_Matrix_fromLAPACK()
     test_assert(A.mt() == ceildiv(m, nb));
     test_assert(A.nt() == ceildiv(n, nb));
     test_assert(A.op() == blas::Op::NoTrans);
+    test_assert(A.uplo() == slate::Uplo::General);
 
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {
@@ -128,6 +131,7 @@ void test_Matrix_fromScaLAPACK()
     test_assert(A.mt() == mtiles);
     test_assert(A.nt() == ntiles);
     test_assert(A.op() == blas::Op::NoTrans);
+    test_assert(A.uplo() == slate::Uplo::General);
 
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {
@@ -171,6 +175,7 @@ void test_Matrix_fromDevices()
     test_assert(A.mt() == mtiles);
     test_assert(A.nt() == ntiles);
     test_assert(A.op() == blas::Op::NoTrans);
+    test_assert(A.uplo() == slate::Uplo::General);
 
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {
@@ -203,6 +208,7 @@ void test_Matrix_emptyLike()
     test_assert(A.mt() == mtiles);
     test_assert(A.nt() == ntiles);
     test_assert(A.op() == blas::Op::NoTrans);
+    test_assert(A.uplo() == slate::Uplo::General);
 
     auto B = A.template emptyLike<float>();
 
@@ -292,6 +298,7 @@ void test_Matrix_transpose()
     test_assert(AT.mt() == ceildiv(n, nb));
     test_assert(AT.nt() == ceildiv(m, nb));
     test_assert(AT.op() == slate::Op::Trans);
+    test_assert(AT.uplo() == slate::Uplo::General);
 
     for (int j = 0; j < AT.nt(); ++j) {
         for (int i = 0; i < AT.mt(); ++i) {
@@ -300,6 +307,7 @@ void test_Matrix_transpose()
                 int jb = std::min( nb, m - j*nb );
                 test_assert(AT(i, j).data() == &Ad[j*nb + i*nb*lda]);
                 test_assert(AT(i, j).op() == slate::Op::Trans);
+                test_assert(AT(i, j).uplo() == slate::Uplo::General);
                 test_assert(AT(i, j).mb() == AT.tileMb(i));
                 test_assert(AT(i, j).nb() == AT.tileNb(j));
                 test_assert(AT(i, j).mb() == ib);
@@ -323,6 +331,7 @@ void test_Matrix_conj_transpose()
     test_assert(AT.mt() == ceildiv(n, nb));
     test_assert(AT.nt() == ceildiv(m, nb));
     test_assert(AT.op() == slate::Op::ConjTrans);
+    test_assert(AT.uplo() == slate::Uplo::General);
 
     for (int j = 0; j < AT.nt(); ++j) {
         for (int i = 0; i < AT.mt(); ++i) {
@@ -331,6 +340,7 @@ void test_Matrix_conj_transpose()
                 int jb = std::min( nb, m - j*nb );
                 test_assert(AT(i, j).data() == &Ad[j*nb + i*nb*lda]);
                 test_assert(AT(i, j).op() == slate::Op::ConjTrans);
+                test_assert(AT(i, j).uplo() == slate::Uplo::General);
                 test_assert(AT(i, j).mb() == AT.tileMb(i));
                 test_assert(AT(i, j).nb() == AT.tileNb(j));
                 test_assert(AT(i, j).mb() == ib);
@@ -359,12 +369,14 @@ void test_Matrix_swap()
     test_assert(C.mt() == ceildiv(n, nb));
     test_assert(C.nt() == ceildiv(m, nb));
     test_assert(C.op() == slate::Op::Trans);
+    test_assert(C.uplo() == slate::Uplo::General);
     if (C.tileIsLocal(0, 0))
         test_assert(C(0, 0).data() == Ad.data());
 
     test_assert(B.mt() == ceildiv(n, nb));
     test_assert(B.nt() == ceildiv(k, nb));
     test_assert(B.op() == slate::Op::NoTrans);
+    test_assert(B.uplo() == slate::Uplo::General);
     if (C.tileIsLocal(0, 0))
         test_assert(B(0, 0).data() == Bd.data());
 
@@ -374,12 +386,14 @@ void test_Matrix_swap()
     test_assert(B.mt() == ceildiv(n, nb));
     test_assert(B.nt() == ceildiv(m, nb));
     test_assert(B.op() == slate::Op::Trans);
+    test_assert(B.uplo() == slate::Uplo::General);
     if (C.tileIsLocal(0, 0))
         test_assert(B(0, 0).data() == Ad.data());
 
     test_assert(C.mt() == ceildiv(n, nb));
     test_assert(C.nt() == ceildiv(k, nb));
     test_assert(C.op() == slate::Op::NoTrans);
+    test_assert(C.uplo() == slate::Uplo::General);
     if (C.tileIsLocal(0, 0))
         test_assert(C(0, 0).data() == Bd.data());
 }
@@ -573,6 +587,7 @@ void test_Matrix_insertLocalTiles()
     test_assert(A.mt() == ceildiv(m, nb));
     test_assert(A.nt() == ceildiv(n, nb));
     test_assert(A.op() == blas::Op::NoTrans);
+    test_assert(A.uplo() == slate::Uplo::General);
 
     A.insertLocalTiles();
     for (int j = 0; j < A.nt(); ++j) {
@@ -596,6 +611,7 @@ void test_Matrix_insertLocalTiles_dev()
     test_assert(A.mt() == ceildiv(m, nb));
     test_assert(A.nt() == ceildiv(n, nb));
     test_assert(A.op() == blas::Op::NoTrans);
+    test_assert(A.uplo() == slate::Uplo::General);
 
     A.insertLocalTiles( true );
     for (int j = 0; j < A.nt(); ++j) {
@@ -635,9 +651,11 @@ void test_Matrix_sub()
     test_assert( Asub.mt() == 1 );
     test_assert( Asub.nt() == 1 );
     test_assert( Asub.op() == slate::Op::NoTrans );
+    test_assert( Asub.uplo() == slate::Uplo::General );
     if (Asub.tileIsLocal(0, 0)) {
-        test_assert( Asub(0, 0).op() == slate::Op::NoTrans );
         test_assert( Asub(0, 0).at(0, 0) == 0.0 );
+        test_assert( Asub(0, 0).op() == slate::Op::NoTrans );
+        test_assert( Asub(0, 0).uplo() == slate::Uplo::General);
     }
 
     // 1st column
@@ -645,10 +663,12 @@ void test_Matrix_sub()
     test_assert( Asub.mt() == A.mt() );
     test_assert( Asub.nt() == 1 );
     test_assert( Asub.op() == slate::Op::NoTrans );
+    test_assert( Asub.uplo() == slate::Uplo::General );
     for (int i = 0; i < Asub.mt(); ++i) {
         if (Asub.tileIsLocal(i, 0)) {
             test_assert( Asub(i, 0).at(0, 0) == i );
             test_assert( Asub(i, 0).op() == slate::Op::NoTrans );
+            test_assert( Asub(i, 0).uplo() == slate::Uplo::General );
         }
     }
 
@@ -657,10 +677,12 @@ void test_Matrix_sub()
     test_assert( Asub.mt() == 1 );
     test_assert( Asub.nt() == A.nt() );
     test_assert( Asub.op() == slate::Op::NoTrans );
+    test_assert( Asub.uplo() == slate::Uplo::General );
     for (int j = 0; j < Asub.nt(); ++j) {
         if (Asub.tileIsLocal(0, j)) {
             test_assert( Asub(0, j).at(0, 0) == j / 10000. );
             test_assert( Asub(0, j).op() == slate::Op::NoTrans );
+            test_assert( Asub(0, j).uplo() == slate::Uplo::General );
         }
     }
 
@@ -682,12 +704,14 @@ void test_Matrix_sub()
         test_assert( Asub.mt() == std::max( i2 - i1 + 1, 0 ) );
         test_assert( Asub.nt() == std::max( j2 - j1 + 1, 0 ) );
         test_assert( Asub.op() == slate::Op::NoTrans );
+        test_assert( Asub.uplo() == slate::Uplo::General );
         for (int j = 0; j < Asub.nt(); ++j) {
             for (int i = 0; i < Asub.mt(); ++i) {
                 if (Asub.tileIsLocal(i, j)) {
                     test_assert( Asub(i, j).at(0, 0)
                             == (i1 + i) + (j1 + j) / 10000. );
                     test_assert( Asub(i, j).op() == slate::Op::NoTrans );
+                    test_assert( Asub(i, j).uplo() == slate::Uplo::General );
                 }
             }
         }
@@ -703,12 +727,14 @@ void test_Matrix_sub()
             test_assert( Asub_b.mt() == std::max( i2_b - i1_b + 1, 0 ) );
             test_assert( Asub_b.nt() == std::max( j2_b - j1_b + 1, 0 ) );
             test_assert( Asub_b.op() == slate::Op::NoTrans );
+            test_assert( Asub_b.uplo() == slate::Uplo::General );
             for (int j = 0; j < Asub_b.nt(); ++j) {
                 for (int i = 0; i < Asub_b.mt(); ++i) {
                     if (Asub_b.tileIsLocal(i, j)) {
                         test_assert( Asub_b(i, j).at(0, 0)
                                 == (i1 + i1_b + i) + (j1 + j1_b + j) / 10000. );
                         test_assert( Asub_b(i, j).op() == slate::Op::NoTrans );
+                        test_assert( Asub_b(i, j).uplo() == slate::Uplo::General );
                     }
                 }
             }
@@ -740,9 +766,11 @@ void test_Matrix_sub_trans()
     test_assert( Asub.mt() == 1 );
     test_assert( Asub.nt() == 1 );
     test_assert( Asub.op() == slate::Op::Trans );
+    test_assert( Asub.uplo() == slate::Uplo::General );
     if (Asub.tileIsLocal(0, 0)) {
-        test_assert( Asub(0, 0).op() == slate::Op::Trans );
         test_assert( Asub(0, 0).at(0, 0) == 0.0 );
+        test_assert( Asub(0, 0).op() == slate::Op::Trans );
+        test_assert( Asub(0, 0).uplo() == slate::Uplo::General );
     }
 
     // 1st column
@@ -750,10 +778,12 @@ void test_Matrix_sub_trans()
     test_assert( Asub.mt() == AT.mt() );
     test_assert( Asub.nt() == 1 );
     test_assert( Asub.op() == slate::Op::Trans );
+    test_assert( Asub.uplo() == slate::Uplo::General );
     for (int i = 0; i < Asub.mt(); ++i) {
         if (Asub.tileIsLocal(i, 0)) {
             test_assert( Asub(i, 0).at(0, 0) == i / 10000. );
             test_assert( Asub(i, 0).op() == slate::Op::Trans );
+            test_assert( Asub(i, 0).uplo() == slate::Uplo::General );
         }
     }
 
@@ -762,10 +792,12 @@ void test_Matrix_sub_trans()
     test_assert( Asub.mt() == 1 );
     test_assert( Asub.nt() == AT.nt() );
     test_assert( Asub.op() == slate::Op::Trans );
+    test_assert( Asub.uplo() == slate::Uplo::General );
     for (int j = 0; j < Asub.nt(); ++j) {
         if (Asub.tileIsLocal(0, j)) {
             test_assert( Asub(0, j).at(0, 0) == j );
             test_assert( Asub(0, j).op() == slate::Op::Trans );
+            test_assert( Asub(0, j).uplo() == slate::Uplo::General );
         }
     }
 
@@ -787,11 +819,13 @@ void test_Matrix_sub_trans()
         test_assert( Asub.mt() == std::max( i2 - i1 + 1, 0 ) );
         test_assert( Asub.nt() == std::max( j2 - j1 + 1, 0 ) );
         test_assert( Asub.op() == slate::Op::Trans );
+        test_assert( Asub.uplo() == slate::Uplo::General );
         for (int j = 0; j < Asub.nt(); ++j) {
             for (int i = 0; i < Asub.mt(); ++i) {
                 if (Asub.tileIsLocal(i, j)) {
                     test_assert( Asub(i, j).at(0, 0) == (j1 + j) + (i1 + i) / 10000. );
                     test_assert( Asub(i, j).op() == slate::Op::Trans );
+                    test_assert( Asub(i, j).uplo() == slate::Uplo::General );
                 }
             }
         }
@@ -808,11 +842,13 @@ void test_Matrix_sub_trans()
             test_assert( Asub_b.mt() == std::max( i2_b - i1_b + 1, 0 ) );
             test_assert( Asub_b.nt() == std::max( j2_b - j1_b + 1, 0 ) );
             test_assert( Asub_b.op() == slate::Op::NoTrans );
+            test_assert( Asub_b.uplo() == slate::Uplo::General );
             for (int j = 0; j < Asub_b.nt(); ++j) {
                 for (int i = 0; i < Asub_b.mt(); ++i) {
                     if (Asub_b.tileIsLocal(i, j)) {
                         test_assert( Asub_b(i, j).at(0, 0) == (j1 + i1_b + i) + (i1 + j1_b + j) / 10000. );
                         test_assert( Asub_b(i, j).op() == slate::Op::NoTrans );
+                        test_assert( Asub_b(i, j).uplo() == slate::Uplo::General );
                     }
                 }
             }
@@ -943,6 +979,7 @@ static void test_Matrix_slice()
         auto BT = AT.slice( col1, col2, row1, row2 );
 
         test_assert( BT.op() == slate::Op::Trans );
+        test_assert( BT.uplo() == slate::Uplo::General );
         test_assert( BT.m() == n2 );  // trans
         test_assert( BT.n() == m2 );  // trans
         test_assert( BT.row0_offset() == row1 % nb );
@@ -977,6 +1014,7 @@ static void test_Matrix_slice()
         int n3 = col4 - col3 + 1;
 
         test_assert( C.op() == slate::Op::NoTrans );
+        test_assert( C.uplo() == slate::Uplo::General );
         test_assert( C.m() == m3 );
         test_assert( C.n() == n3 );
         test_assert( C.row0_offset() == (row1 + row3) % nb );
@@ -993,6 +1031,7 @@ static void test_Matrix_slice()
         auto CT = BT.slice( col3, col4, row3, row4 );
 
         test_assert( CT.op() == slate::Op::Trans );
+        test_assert( CT.uplo() == slate::Uplo::General );
         test_assert( CT.m() == n3 );  // trans
         test_assert( CT.n() == m3 );  // trans
         test_assert( CT.row0_offset() == (row1 + row3) % nb );

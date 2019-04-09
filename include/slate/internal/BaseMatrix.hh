@@ -850,7 +850,9 @@ int64_t BaseMatrix<scalar_t>::tileMb(int64_t i) const
 template <typename scalar_t>
 Uplo BaseMatrix<scalar_t>::uploLogical() const
 {
-    if ((uplo_ == Uplo::Lower) == (op_ == Op::NoTrans))
+    if (uplo_ == Uplo::General)
+        return uplo_;
+    else if ((uplo_ == Uplo::Lower) == (op_ == Op::NoTrans))
         return Uplo::Lower;
     else
         return Uplo::Upper;

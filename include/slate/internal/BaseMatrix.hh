@@ -496,8 +496,8 @@ BaseMatrix<scalar_t>::BaseMatrix()
       nt_(0),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
-      layout_(Layout::ColMajor),
-      storage_(nullptr)
+      storage_(nullptr),
+      layout_(Layout::ColMajor)
 {}
 
 //------------------------------------------------------------------------------
@@ -539,10 +539,10 @@ BaseMatrix<scalar_t>::BaseMatrix(
       nt_(ceildiv(n, nb)),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
-      layout_(Layout::ColMajor),
       storage_(std::make_shared< MatrixStorage< scalar_t > >(
           m, n, nb, p, q, mpi_comm)),
-      mpi_comm_(mpi_comm)
+      mpi_comm_(mpi_comm),
+      layout_(Layout::ColMajor)
 {
     slate_mpi_call(
         MPI_Comm_rank(mpi_comm_, &mpi_rank_));

@@ -131,7 +131,7 @@ public:
     Tile();
 
     Tile(int64_t mb, int64_t nb,
-         scalar_t* A, int64_t lda, int device, TileKind kind);
+         scalar_t* A, int64_t lda, int device, TileKind kind, Layout layout=Layout::ColMajor);
 
     // defaults okay (tile doesn't own data, doesn't allocate/deallocate data)
     // 1. destructor
@@ -284,7 +284,7 @@ Tile<scalar_t>::Tile()
 template <typename scalar_t>
 Tile<scalar_t>::Tile(
     int64_t mb, int64_t nb,
-    scalar_t* A, int64_t lda, int device, TileKind kind)
+    scalar_t* A, int64_t lda, int device, TileKind kind, Layout layout)
     : mb_(mb),
       nb_(nb),
       stride_(lda),
@@ -293,7 +293,7 @@ Tile<scalar_t>::Tile(
       data_(A),
       valid_(true),
       kind_(kind),
-      layout_(Layout::ColMajor),
+      layout_(layout),
       device_(device)
 {
     slate_assert(mb >= 0);

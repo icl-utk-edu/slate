@@ -245,8 +245,8 @@ public:
         return tileRank(ij) == mpi_rank_;
     }
 
-    TileEntry<scalar_t>& tileInsert(ijdev_tuple ijdev, TileKind );
-    TileEntry<scalar_t>& tileInsert(ijdev_tuple ijdev, scalar_t* data, int64_t lda);
+    TileEntry<scalar_t>& tileInsert(ijdev_tuple ijdev, TileKind, Layout layout=Layout::ColMajor);
+    TileEntry<scalar_t>& tileInsert(ijdev_tuple ijdev, scalar_t* data, int64_t lda, Layout layout=Layout::ColMajor);
 
     void tileTick(ij_tuple ij);
 
@@ -633,7 +633,7 @@ void MatrixStorage<scalar_t>::clear()
 ///
 template <typename scalar_t>
 TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
-    ijdev_tuple ijdev, TileKind kind)
+    ijdev_tuple ijdev, TileKind kind, Layout layout)
 {
     assert(kind == TileKind::Workspace ||
            kind == TileKind::SlateOwned);
@@ -645,7 +645,7 @@ TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
     int64_t mb = tileMb(i);
     int64_t nb = tileNb(j);
     Tile<scalar_t>* tile
-        = new Tile<scalar_t>(mb, nb, data, mb, device, kind);
+        = new Tile<scalar_t>(mb, nb, data, mb, device, kind, layout);
     tiles_[ijdev] = {tile, kind == TileKind::Workspace ? MOSI::Invalid : MOSI::Shared};
     return tiles_[ijdev];
 }
@@ -660,7 +660,7 @@ TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
 ///
 template <typename scalar_t>
 TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
-    ijdev_tuple ijdev, scalar_t* data, int64_t lda)
+    ijdev_tuple ijdev, scalar_t* data, int64_t lda, Layout layout)
 {
     assert(tiles_.find(ijdev) == tiles_.end());  // doesn't exist yet
     int64_t i  = std::get<0>(ijdev);
@@ -669,7 +669,7 @@ TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
     int64_t mb = tileMb(i);
     int64_t nb = tileNb(j);
     Tile<scalar_t>* tile
-        = new Tile<scalar_t>(mb, nb, data, lda, device, TileKind::UserOwned);
+        = new Tile<scalar_t>(mb, nb, data, lda, device, TileKind::UserOwned, layout);
     tiles_[ijdev] = {tile, MOSI::Shared};
     return tiles_[ijdev];
 }

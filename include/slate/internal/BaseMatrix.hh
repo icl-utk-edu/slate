@@ -473,6 +473,7 @@ protected:
     MPI_Comm  mpi_comm_;
     MPI_Group mpi_group_;
     int mpi_rank_;
+    Layout layout_;
 };
 
 //------------------------------------------------------------------------------
@@ -492,6 +493,7 @@ BaseMatrix<scalar_t>::BaseMatrix()
       nt_(0),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
+      layout_(Layout::ColMajor),
       storage_(nullptr)
 {}
 
@@ -534,6 +536,7 @@ BaseMatrix<scalar_t>::BaseMatrix(
       nt_(ceildiv(n, nb)),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
+      layout_(Layout::ColMajor),
       storage_(std::make_shared< MatrixStorage< scalar_t > >(
           m, n, nb, p, q, mpi_comm)),
       mpi_comm_(mpi_comm)
@@ -912,7 +915,7 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
     int64_t i, int64_t j, int device)
 {
     auto index = globalIndex(i, j, device);
-    auto tileEntry = storage_->tileInsert(index, TileKind::SlateOwned);
+    auto tileEntry = storage_->tileInsert(index, TileKind::SlateOwned, layout_);
     return tileEntry.tile_;
 }
 
@@ -936,7 +939,7 @@ TileEntry<scalar_t>& BaseMatrix<scalar_t>::tileInsertWorkspace(
     int64_t i, int64_t j, int device)
 {
     auto index = globalIndex(i, j, device);
-    return storage_->tileInsert(index, TileKind::Workspace);
+    return storage_->tileInsert(index, TileKind::Workspace, layout_);
 }
 
 //------------------------------------------------------------------------------
@@ -965,7 +968,7 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
     int64_t i, int64_t j, int device, scalar_t* data, int64_t ld)
 {
     auto index = globalIndex(i, j, device);
-    auto tileEntry = storage_->tileInsert(index, data, ld); // TileKind::UserOwned
+    auto tileEntry = storage_->tileInsert(index, data, ld, layout_); // TileKind::UserOwned
     return tileEntry.tile_;
 }
 

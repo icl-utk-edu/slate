@@ -1264,6 +1264,10 @@ void BaseMatrix<scalar_t>::tileRecv(
                 life += tileLife(i, j);
             tileLife(i, j, life);
         }
+        else {
+            // todo: tileAquire()
+            tileGetForReading(i, j);
+        }
 
         // Receive data.
         at(i, j).recv(src_rank, mpiComm(), tag);
@@ -1446,6 +1450,7 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, int tag)
             // If not the tile owner.
             if (! tileIsLocal(i, j)) {
 
+                // todo: should we check its life count before erasing?
                 // Destroy the tile.
                 LockGuard(storage_->tiles_.get_lock());// todo is this needed here?
                 tileErase(i, j, host_num_);// todo: should it be a tileRelease()?
@@ -1589,6 +1594,10 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
 
     // Receive.
     if (! recv_from.empty()) {
+        // read tile on host memory
+        // todo: tileAquire()
+        tileGetForReading(i, j);
+
         at(i, j).recv(new_vec[recv_from.front()], mpi_comm_, tag);
         tileModified(i, j);
     }
@@ -1636,6 +1645,11 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
     std::list<int> send_to;
     internal::cubeReducePattern(new_vec.size(), new_rank, radix,
                                 recv_from, send_to);
+
+    if (! (send_to.empty() && recv_from.empty()) ) {
+        // read tile on host memory
+        tileGetForReading(i, j);
+    }
 
     std::vector<scalar_t> data(tileMb(i)*tileNb(j));
     Tile<scalar_t> tile(tileMb(i), tileNb(j), &data[0], tileMb(i), host_num_, TileKind::Workspace);

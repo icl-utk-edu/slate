@@ -280,8 +280,9 @@ public:
     /// Gets all local tiles on corresponding devices and marks them as OnHold.
     void tileGetAndHoldAllOnDevices();
 
-    /// Updates the origin instance of tile(i, j) if not MOSI::Shared
-    void tileUpdateOrigin(int64_t i, int64_t j);
+    /// Updates the origin instance of tile(i, j) if not MOSI::Shared.
+    /// @return Pointer to origin instance of tile(i, j).
+    Tile<scalar_t>* tileUpdateOrigin(int64_t i, int64_t j);
 
     /// Updates all origin instances of tiles if not MOSI::Shared
     void tileUpdateAllOrigin();
@@ -1928,6 +1929,7 @@ void BaseMatrix<scalar_t>::tileGetAndHoldAllOnDevices()
 
 //------------------------------------------------------------------------------
 /// Updates the origin instance of tile(i, j) if not MOSI::Shared
+/// tile must be local
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -1935,8 +1937,10 @@ void BaseMatrix<scalar_t>::tileGetAndHoldAllOnDevices()
 /// @param[in] j
 ///     Tile's block column index. 0 <= j < nt.
 ///
+/// @return Pointer to origin instance of tile(i, j)
+///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileUpdateOrigin(int64_t i, int64_t j)
+Tile<scalar_t>* BaseMatrix<scalar_t>::tileUpdateOrigin(int64_t i, int64_t j)
 {
     // find on host
     auto iter = storage_->find(globalIndex(i, j, host_num_));
@@ -1950,7 +1954,11 @@ void BaseMatrix<scalar_t>::tileUpdateOrigin(int64_t i, int64_t j)
             if ( iter->second.stateOn(MOSI::Invalid) )
                 tileGetForReading(i, j, tileDevice(i, j));
         }
+        else
+            slate_error( std::string("Origin tile not found! tile(")
+                        +std::to_string(i)+","+std::to_string(j)+")");
     }
+    return iter->second.tile_;
 }
 
 //------------------------------------------------------------------------------

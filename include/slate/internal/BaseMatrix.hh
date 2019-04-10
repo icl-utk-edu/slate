@@ -1795,7 +1795,7 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
                 convert_layout(dst_tileEntry->tile_);
             }
             else {
-                convert_layout(dst_tileEntry->tile_, comm_stream(dst_device));
+                convert_layout(dst_tileEntry->tile_, compute_stream(dst_device));
             }
         }
     } while(0);

@@ -217,6 +217,15 @@ public:
     void set(scalar_t alpha);
     void set(scalar_t alpha, scalar_t beta);
 
+    /// Returns whether this tile can be safely transposed
+    /// based on its 'TileKind', buffer size, and stride.
+    bool isTransposable ()
+    {
+        return ! (kind_ == TileKind::UserOwned
+               && mb_ != nb_
+               && stride_ != mb_);
+    }
+
 protected:
     // BaseMatrix sets mb, nb, offset.
     template <typename T>

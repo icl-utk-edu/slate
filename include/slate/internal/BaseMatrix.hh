@@ -331,6 +331,12 @@ public:
     template <Target target = Target::Host>
     void listReduce(ReduceList& reduce_list, int tag = 0);
 
+public:
+    /// Returns whether tile(i, j, device) can be safely transposed.
+    /// based on its 'TileKind', buffer size, and stride.
+    /// Tile instance on 'device' should exist.
+    bool tileIsTransposable(int64_t i, int64_t j, int device=host_num_);
+
 protected:
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set);
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set,
@@ -1972,6 +1978,28 @@ void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
             if (this->tileIsLocal(i, j))
                 this->tileUpdateOrigin(i, j);
 }
+
+//------------------------------------------------------------------------------
+/// Returns whether tile(i, j, device) can be safely transposed.
+/// based on its 'TileKind', buffer size, and stride.
+/// Tile instance on 'device' should exist.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] device
+///     Tile's host or device ID, defaults to host.
+///
+template <typename scalar_t>
+bool BaseMatrix<scalar_t>::tileIsTransposable(int64_t i, int64_t j, int device)
+{
+    return storage_->at(globalIndex(i, j, device)).tile_->isTransposable();
+}
+
+
 
 //------------------------------------------------------------------------------
 /// Puts all MPI ranks that have tiles in the matrix into the set.

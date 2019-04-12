@@ -297,6 +297,8 @@ void swap(internal::TargetType<Target::Devices>,
                                        A.tileNb(j),
                                        &A(0, j, device).at(i1, 0), 1,
                                        &A(idx2, j, device).at(i2, 0), 1);
+                            slate_cuda_call(
+                                cudaStreamSynchronize(A.compute_stream(device)));
                         }
                     }
                     // I am not the root.

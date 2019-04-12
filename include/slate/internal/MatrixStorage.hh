@@ -388,6 +388,7 @@ void MatrixStorage<scalar_t>::initCudaStreams()
         slate_cuda_call(
             cudaStreamCreate(&compute_streams_[device]));
         // todo: should this be a non-blocking stream
+        // todo: need to have seperate in/out streams (at least), or multiple streams
         slate_cuda_call(
             cudaStreamCreate(&comm_streams_[device]));
 

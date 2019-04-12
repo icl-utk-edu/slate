@@ -645,6 +645,7 @@ void swap(int64_t j, int64_t n,
     std::vector<scalar_t> other_row(n);
 
     slate_cuda_call(cudaSetDevice(device));
+    // todo: should this be an Async copy?
     slate_cuda_call(cudaMemcpy(local_row.data(), &A.at(i, j),
                                sizeof(scalar_t)*n, cudaMemcpyDeviceToHost));
 

@@ -235,12 +235,17 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name)
                     case MOSI::OnHold: break;  // below
                 }
                 if (it->second.stateOn(MOSI::OnHold))
-                    printf("h ");
+                    printf("h");
                 else
-                    printf("  ");
+                    printf(" ");
+                if (tile->layout() == Layout::ColMajor)
+                    printf("|");
+                else
+                    printf("-");
+                printf(" ");
             }
             else
-                printf(".   ");
+                printf(".    ");
         }
         printf("\n");
     }
@@ -264,12 +269,17 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name)
                         case MOSI::OnHold: break;  // below
                     }
                     if (it->second.stateOn(MOSI::OnHold))
-                        printf("h ");
+                        printf("h");
                     else
-                        printf("  ");
+                        printf(" ");
+                    if (tile->layout() == Layout::ColMajor)
+                        printf("|");
+                    else
+                        printf("-");
+                    printf(" ");
                 }
                 else
-                    printf(".   ");
+                    printf(".    ");
             }
             printf("\n");
         }

@@ -261,9 +261,14 @@ void swap(internal::TargetType<Target::Devices>,
     {
         trace::Block trace_block("internal::swap");
 
+        std::set<int> dev_set;
+
         for (int64_t j = 0; j < A.nt(); ++j) {
             bool root = A.mpiRank() == A.tileRank(0, j);
+
+            // todo: relax the assumption of 1-D block cyclic distribution on devices
             int device = A.tileDevice(0, j);
+            dev_set.insert(device);
 
             // Apply pivots forward (0, ..., k-1) or reverse (k-1, ..., 0)
             int64_t begin, end, inc;
@@ -306,7 +311,7 @@ void swap(internal::TargetType<Target::Devices>,
                              A(pivot[i].tileIndex(), j, device),
                              pivot[i].elementOffset(),
                              A.tileRank(0, j), A.mpiComm(),
-                             tag);
+                             A.compute_stream(device), tag);
                     }
                 }
                 // I don't own the pivot.
@@ -317,10 +322,16 @@ void swap(internal::TargetType<Target::Devices>,
                         swap(0,  A.tileNb(j), device,
                              A(0, j, device), i,
                              pivot_rank, A.mpiComm(),
-                             tag);
+                             A.compute_stream(device), tag);
                     }
                 }
             }
+        }
+
+        for (int device : dev_set) {
+            slate_cuda_call(cudaSetDevice(device));
+            slate_cuda_call(
+                cudaStreamSynchronize(A.compute_stream(device)));
         }
     }
 }

@@ -640,22 +640,26 @@ void swap(int64_t j, int64_t n,
 template <typename scalar_t>
 void swap(int64_t j, int64_t n,
           int device, Tile<scalar_t>& A, int64_t i,
-          int other_rank, MPI_Comm mpi_comm, int tag = 0)
+          int other_rank, MPI_Comm mpi_comm, cudaStream_t stream, int tag = 0)
 {
     std::vector<scalar_t> local_row(n);
     std::vector<scalar_t> other_row(n);
 
     slate_cuda_call(cudaSetDevice(device));
-    slate_cuda_call(cudaMemcpy(local_row.data(), &A.at(i, j),
-                               sizeof(scalar_t)*n, cudaMemcpyDeviceToHost));
+    slate_cuda_call(cudaMemcpyAsync(local_row.data(), &A.at(i, j),
+                                    sizeof(scalar_t)*n, cudaMemcpyDeviceToHost,
+                                    stream));
+    slate_cuda_call(cudaStreamSynchronize(stream));
 
     MPI_Sendrecv(
         local_row.data(), n, mpi_type<scalar_t>::value, other_rank, tag,
         other_row.data(), n, mpi_type<scalar_t>::value, other_rank, tag,
         mpi_comm, MPI_STATUS_IGNORE);
 
-    slate_cuda_call(cudaMemcpy(&A.at(i, j), other_row.data(),
-                               sizeof(scalar_t)*n, cudaMemcpyHostToDevice));
+    slate_cuda_call(cudaMemcpyAsync(&A.at(i, j), other_row.data(),
+                                    sizeof(scalar_t)*n, cudaMemcpyHostToDevice,
+                                    stream));
+    slate_cuda_call(cudaStreamSynchronize(stream));
 }
 
 ///-------------------------------------
@@ -663,9 +667,9 @@ void swap(int64_t j, int64_t n,
 template <typename scalar_t>
 void swap(int64_t j, int64_t n,
           int device, Tile<scalar_t>&& A, int64_t i,
-          int other_rank, MPI_Comm mpi_comm, int tag = 0)
+          int other_rank, MPI_Comm mpi_comm, cudaStream_t stream, int tag = 0)
 {
-    swap(j, n, device, A, i, other_rank, mpi_comm, tag);
+    swap(j, n, device, A, i, other_rank, mpi_comm, stream, tag);
 }
 
 ///-----------------------------------------------------------------------------

@@ -906,6 +906,7 @@ void test_genorm()
         //}
 
         real_t ref = lapack::lange( norm, m, n, A.data(), A.stride() );
+        SLATE_UNUSED(ref);
         //if (g_verbose) {
         //    printf( "reference %.4f\n", ref );
         //}

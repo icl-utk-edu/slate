@@ -152,6 +152,7 @@ void copy(src_matrix_type& A, dst_matrix_type& B,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
+        default: // todo: this is to silence a warning, should err otherwise
             copy<Target::HostTask>(A, B, opts);
             break;
 //      case Target::HostNest:

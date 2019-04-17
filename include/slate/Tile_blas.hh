@@ -67,9 +67,9 @@ void gemm(
 
     using blas::conj;
 
-    assert(A.uplo() == Uplo::General);
-    assert(B.uplo() == Uplo::General);
-    assert(C.uplo() == Uplo::General);
+    assert(A.uploPhysical() == Uplo::General);
+    assert(B.uploPhysical() == Uplo::General);
+    assert(C.uploPhysical() == Uplo::General);
     assert(C.mb() == A.mb());  // m
     assert(C.nb() == B.nb());  // n
     assert(A.nb() == B.mb());  // k
@@ -166,7 +166,7 @@ void hemm(
     // A.op can be ignored, since A == A^T
     if (B.op() == Op::NoTrans) {
         blas::hemm(blas::Layout::ColMajor,
-                   side, A.uplo(),
+                   side, A.uploPhysical(),
                    C.mb(), C.nb(),
                    alpha, A.data(), A.stride(),
                           B.data(), B.stride(),
@@ -177,7 +177,7 @@ void hemm(
         // undo transpose by swapping left <=> right, m <=> n, conj alpha & beta
         side = (side == Side::Left ? Side::Right : Side::Left);
         blas::hemm(blas::Layout::ColMajor,
-                   side, A.uplo(),
+                   side, A.uploPhysical(),
                    C.nb(), C.mb(),
                    conj(alpha), A.data(), A.stride(),
                                 B.data(), B.stride(),
@@ -210,14 +210,14 @@ void herk(
 {
     trace::Block trace_block("blas::herk");
 
-    assert(A.uplo() == Uplo::General);
+    assert(A.uploPhysical() == Uplo::General);
     assert(C.mb() == C.nb());  // square
     assert(C.mb() == A.mb());  // n
     if (C.is_complex && C.op() == Op::Trans)
         throw std::exception();
 
     blas::herk(blas::Layout::ColMajor,
-               C.uplo(), A.op(),
+               C.uploPhysical(), A.op(),
                C.nb(), A.nb(),
                alpha, A.data(), A.stride(),
                beta,  C.data(), C.stride());
@@ -251,8 +251,8 @@ void her2k(
     using blas::conj;
 
     assert(A.op() == B.op());
-    assert(A.uplo() == Uplo::General);
-    assert(B.uplo() == Uplo::General);
+    assert(A.uploPhysical() == Uplo::General);
+    assert(B.uploPhysical() == Uplo::General);
     assert(C.mb() == C.nb());  // square
     assert(C.mb() == A.mb());  // n
     assert(C.mb() == B.mb());  // n
@@ -260,7 +260,7 @@ void her2k(
         throw std::exception();
 
     blas::her2k(blas::Layout::ColMajor,
-                C.uplo(), A.op(),
+                C.uploPhysical(), A.op(),
                 C.nb(), A.nb(),
                 alpha, A.data(), A.stride(),
                        B.data(), B.stride(),
@@ -310,7 +310,7 @@ void symm(
     // A.op can be ignored, since A == A^T
     if (B.op() == Op::NoTrans) {
         blas::symm(blas::Layout::ColMajor,
-                   side, A.uplo(),
+                   side, A.uploPhysical(),
                    C.mb(), C.nb(),
                    alpha, A.data(), A.stride(),
                           B.data(), B.stride(),
@@ -321,7 +321,7 @@ void symm(
         // undo transpose by swapping left <=> right, m <=> n
         side = (side == Side::Left ? Side::Right : Side::Left);
         blas::symm(blas::Layout::ColMajor,
-                   side, A.uplo(),
+                   side, A.uploPhysical(),
                    C.nb(), C.mb(),
                    alpha, A.data(), A.stride(),
                           B.data(), B.stride(),
@@ -356,14 +356,14 @@ void syrk(
 
     using blas::conj;
 
-    assert(A.uplo() == Uplo::General);
+    assert(A.uploPhysical() == Uplo::General);
     assert(C.mb() == C.nb());  // square
     assert(C.mb() == A.mb());  // n
     if (C.is_complex && C.op() == Op::ConjTrans)
         throw std::exception();
 
     blas::syrk(blas::Layout::ColMajor,
-               C.uplo(), A.op(),
+               C.uploPhysical(), A.op(),
                C.nb(), A.nb(),
                alpha, A.data(), A.stride(),
                beta,  C.data(), C.stride());
@@ -397,8 +397,8 @@ void syr2k(
     using blas::conj;
 
     assert(A.op() == B.op());
-    assert(A.uplo() == Uplo::General);
-    assert(B.uplo() == Uplo::General);
+    assert(A.uploPhysical() == Uplo::General);
+    assert(B.uploPhysical() == Uplo::General);
     assert(C.mb() == C.nb());  // square
     assert(C.mb() == A.mb());  // n
     assert(C.mb() == B.mb());  // n
@@ -406,7 +406,7 @@ void syr2k(
         throw std::exception();
 
     blas::syr2k(blas::Layout::ColMajor,
-                C.uplo(), A.op(),
+                C.uploPhysical(), A.op(),
                 C.nb(), A.nb(),
                 alpha, A.data(), A.stride(),
                        B.data(), B.stride(),
@@ -436,13 +436,13 @@ void trmm(
 
     using blas::conj;
 
-    assert(B.uplo() == Uplo::General);
+    assert(B.uploPhysical() == Uplo::General);
     assert(A.mb() == A.nb());  // square
     assert(side == Side::Left ? A.mb() == B.mb()    // m
                               : A.mb() == B.nb());  // n
     if (B.op() == Op::NoTrans) {
         blas::trmm(blas::Layout::ColMajor,
-                   side, A.uplo(), A.op(), diag,
+                   side, A.uploPhysical(), A.op(), diag,
                    B.mb(), B.nb(),
                    alpha, A.data(), A.stride(),
                           B.data(), B.stride());
@@ -468,7 +468,7 @@ void trmm(
             alpha = conj(alpha);
 
         blas::trmm(blas::Layout::ColMajor,
-                   side2, A.uplo(), opA, diag,
+                   side2, A.uploPhysical(), opA, diag,
                    B.nb(), B.mb(),
                    alpha, A.data(), A.stride(),
                           B.data(), B.stride());
@@ -503,13 +503,13 @@ void trsm(
 
     using blas::conj;
 
-    assert(B.uplo() == Uplo::General);
+    assert(B.uploPhysical() == Uplo::General);
     assert(A.mb() == A.nb());  // square
     assert(side == Side::Left ? A.mb() == B.mb()    // m
                               : A.mb() == B.nb());  // n
     if (B.op() == Op::NoTrans) {
         blas::trsm(blas::Layout::ColMajor,
-                   side, A.uplo(), A.op(), diag,
+                   side, A.uploPhysical(), A.op(), diag,
                    B.mb(), B.nb(),
                    alpha, A.data(), A.stride(),
                           B.data(), B.stride());
@@ -535,7 +535,7 @@ void trsm(
             alpha = conj(alpha);
 
         blas::trsm(blas::Layout::ColMajor,
-                   side2, A.uplo(), opA, diag,
+                   side2, A.uploPhysical(), opA, diag,
                    B.nb(), B.mb(),
                    alpha, A.data(), A.stride(),
                           B.data(), B.stride());
@@ -710,8 +710,8 @@ void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>& Y)
     trace::Block trace_block("blas::axpy");
 
     assert(X.op() == Y.op());
-    assert(X.uplo() == Y.uplo());
-    assert(Y.uplo() == Uplo::General);
+    assert(X.uploPhysical() == Uplo::General);
+    assert(Y.uploPhysical() == Uplo::General);
 
     for (int64_t i = 0; i < std::min(X.mb(), Y.mb()); ++i)
         for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j)
@@ -738,8 +738,8 @@ void axby(scalar_t alpha, Tile<scalar_t> const& X,
 
     // TODO should be able to loosen these restriction
     assert(X.op() == Y.op());
-    assert(X.uplo() == Y.uplo());
-    assert(Y.uplo() == Uplo::General);
+    assert(X.uploPhysical() == Uplo::General);
+    assert(Y.uploPhysical() == Uplo::General);
 
     for (int64_t i = 0; i < std::min(X.mb(), Y.mb()); ++i)
         for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j)

@@ -68,7 +68,7 @@ void henorm(Norm norm, Tile<scalar_t> const& A,
     if (norm == Norm::Max) {
         // max norm
         // values[0] = max_{i,j} A_{i,j}
-        *values = lapack::lanhe(norm, A.uplo(),
+        *values = lapack::lanhe(norm, A.uploPhysical(),
                                 A.nb(),
                                 A.data(), A.stride());
     }

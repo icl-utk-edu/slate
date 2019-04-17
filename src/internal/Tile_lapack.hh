@@ -58,7 +58,7 @@ void genorm(Norm norm, NormScope scope, Tile<scalar_t> const& A,
 {
     trace::Block trace_block("lapack::lange");
 
-    assert(A.uplo() == Uplo::General);
+    assert(A.uploPhysical() == Uplo::General);
     assert(A.op() == Op::NoTrans);
 
     if (scope == NormScope::Matrix) {
@@ -147,13 +147,13 @@ void trnorm(Norm norm, Diag diag, Tile<scalar_t> const& A,
 
     trace::Block trace_block("lapack::lantr");
 
-    assert(A.uplo() != Uplo::General);
+    assert(A.uploPhysical() != Uplo::General);
     assert(A.op() == Op::NoTrans);
 
     if (norm == Norm::Max) {
         // max norm
         // values[0] = max_{i,j} A_{i,j}
-        *values = lapack::lantr(norm, A.uplo(), diag,
+        *values = lapack::lantr(norm, A.uploPhysical(), diag,
                                 A.mb(), A.nb(),
                                 A.data(), A.stride());
     }
@@ -283,7 +283,7 @@ int64_t potrf(Tile<scalar_t>& A)
 {
     trace::Block trace_block("lapack::potrf");
 
-    return lapack::potrf(A.uplo(),
+    return lapack::potrf(A.uploPhysical(),
                          A.nb(),
                          A.data(), A.stride());
 }

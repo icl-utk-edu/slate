@@ -191,6 +191,9 @@ void copy(internal::TargetType<Target::HostTask>,
 {
     // trace::Block trace_block("copy");
 
+    slate_error_if(A.uplo() != B.uplo());
+    bool lower = (B.uplo() == Uplo::Lower);
+
     assert(A.mt() == B.mt());
     assert(A.nt() == B.nt());
 
@@ -201,7 +204,7 @@ void copy(internal::TargetType<Target::HostTask>,
             tzcopy(A(j, j), B(j, j));
             A.tileTick(j, j);
         }
-        if (B.uplo_logical() == Uplo::Lower) {
+        if (lower) {
             for (int64_t i = j+1; i < B.mt(); ++i) {
                 if (B.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, B) priority(priority)
@@ -244,6 +247,9 @@ void copy(internal::TargetType<Target::Devices>,
           BaseTrapezoidMatrix<dst_scalar_t>& B,
           int priority)
 {
+    slate_error_if(A.uplo() != B.uplo());
+    bool lower = (B.uplo() == Uplo::Lower);
+
     // Define index ranges for quadrants of matrix.
     // Tiles in each quadrant are all the same size.
     int64_t irange[6][2] = {
@@ -274,8 +280,8 @@ void copy(internal::TargetType<Target::Devices>,
                 for (int64_t j = 0; j < B.nt(); ++j)
                     if (B.tileIsLocal(i, j) &&
                         device == B.tileDevice(i, j) &&
-                        ( (B.uplo() == Uplo::Lower && i >= j) ||
-                          (B.uplo() == Uplo::Upper && i <= j) ) )
+                        ( (  lower && i >= j) ||
+                          (! lower && i <= j) ) )
                     {
                         A.tileGetForReading(i, j, device);
                         B.tileGetForWriting(i, j, device);
@@ -299,8 +305,8 @@ void copy(internal::TargetType<Target::Devices>,
                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                         if (B.tileIsLocal(i, j) &&
                             device == B.tileDevice(i, j) &&
-                            ( (B.uplo() == Uplo::Lower && i > j) ||
-                              (B.uplo() == Uplo::Upper && i < j) ) )
+                            ( (  lower && i > j) ||
+                              (! lower && i < j) ) )
                         {
                             a_array_host[batch_count] = A(i, j, device).data();
                             b_array_host[batch_count] = B(i, j, device).data();
@@ -383,8 +389,8 @@ void copy(internal::TargetType<Target::Devices>,
                 for (int64_t j = 0; j < B.nt(); ++j) {
                     if (B.tileIsLocal(i, j) &&
                         device == B.tileDevice(i, j) &&
-                        ( (B.uplo() == Uplo::Lower && i >= j) ||
-                          (B.uplo() == Uplo::Upper && i <= j) ) )
+                        ( (  lower && i >= j) ||
+                          (! lower && i <= j) ) )
                     {
                         // erase tmp local and remote device tiles;
                         A.tileRelease(i, j, device);

@@ -64,10 +64,10 @@ void syrk(scalar_t alpha, Matrix<scalar_t>&& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>&& C,
           int priority)
 {
-    if (!((C.uplo_logical() == Uplo::Lower)
-          &&
-          (C.is_real || (C.op() != Op::ConjTrans &&
-                         A.op() != Op::ConjTrans))))
+    if (! ((C.uplo() == Uplo::Lower)
+           &&
+           (C.is_real || (C.op() != Op::ConjTrans &&
+                          A.op() != Op::ConjTrans))))
         throw std::exception();
 
     syrk(internal::TargetType<target>(),

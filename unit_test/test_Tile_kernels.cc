@@ -170,14 +170,10 @@ void test_assert_equal(
     using blas::imag;
     using blas::conj;
 
-    // whether uplo(A) is general, lower, or upper
+    // whether op(A) is general, lower, or upper
     bool general = (A.uplo() == blas::Uplo::General);
-    bool lower =
-        (A.uplo() == blas::Uplo::Lower && A.op() == blas::Op::NoTrans) ||
-        (A.uplo() == blas::Uplo::Upper && A.op() != blas::Op::NoTrans);
-    bool upper =
-        (A.uplo() == blas::Uplo::Upper && A.op() == blas::Op::NoTrans) ||
-        (A.uplo() == blas::Uplo::Lower && A.op() != blas::Op::NoTrans);
+    bool lower = (A.uplo() == blas::Uplo::Lower);
+    bool upper = (A.uplo() == blas::Uplo::Upper);
     assert( general || lower || upper );
 
     for (int j = 0; j < A.nb(); ++j) {
@@ -652,7 +648,7 @@ void test_trsm()
             Adata[ j + j*lda ] += An;
 
         // factor to get well-conditioned triangle
-        int info = lapack::potrf( A.uplo(), An, Adata.data(), lda );
+        int info = lapack::potrf( A.uploPhysical(), An, Adata.data(), lda );
         assert( info == 0 );
 
         // setup B such that op(B) is m-by-n
@@ -710,7 +706,7 @@ void test_trsm()
         //}
 
         // reference solution
-        blas::trsm( blas::Layout::ColMajor, side, A.uplo(), A.op(), diag, m, n,
+        blas::trsm( blas::Layout::ColMajor, side, A.uploPhysical(), A.op(), diag, m, n,
                     alpha, Adata.data(), lda,
                            opBref.data(), ldopb );
 
@@ -797,7 +793,7 @@ void test_potrf()
         blas::Uplo op_uplo = uplo;
         if (A.op() != blas::Op::NoTrans) {
             op_uplo = (op_uplo == blas::Uplo::Lower ? blas::Uplo::Upper
-                                                     : blas::Uplo::Lower);
+                                                    : blas::Uplo::Lower);
         }
         info = lapack::potrf( op_uplo, n, opAref.data(), lda );
         test_assert( info == 0 );
@@ -979,7 +975,7 @@ void test_device_convert_layout()
 
     using blas::real;
 
-    int batch_count = 500;
+    int batch_count = 100;
     int n = 256;
     int lda = n;
     int repeat = 1;

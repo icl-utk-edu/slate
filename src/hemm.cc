@@ -107,7 +107,7 @@ void hemm(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
-        if (A.uplo_logical() == Uplo::Lower) {
+        if (A.uplo() == Uplo::Lower) {
             // ----------------------------------------
             // Left, Lower/NoTrans or Upper/ConjTrans case
 

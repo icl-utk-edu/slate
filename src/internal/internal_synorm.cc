@@ -205,6 +205,8 @@ void norm(
         assert("Not implemented yet");
     }
 
+    bool lower = (A.uploLogical() == Uplo::Lower);
+
     // i, j are tile row, tile col indices; ii, jj are row, col indices.
     //---------
     // max norm
@@ -228,7 +230,7 @@ void norm(
                 }
             }
             // off-diagonal tiles
-            if (A.uplo_logical() == Uplo::Lower) {
+            if (lower) {
                 for (int64_t i = j+1; i < A.mt(); ++i) {  // strictly lower
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, tiles_maxima) priority(priority)
@@ -286,7 +288,7 @@ void norm(
                 }
             }
             // off-diagonal tiles
-            if (A.uplo() == Uplo::Lower) {
+            if (lower) {
                 int64_t ii = jj + A.tileNb(j);
                 for (int64_t i = j+1; i < A.mt(); ++i) { // strictly lower
                     if (A.tileIsLocal(i, j)) {
@@ -352,7 +354,7 @@ void norm(
                 }
             }
             // off-diagonal tiles
-            if (A.uplo() == Uplo::Lower) {
+            if (lower) {
                 for (int64_t i = j+1; i < A.mt(); ++i) { // strictly lower
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, values) priority(priority)
@@ -422,6 +424,8 @@ void norm(
     if (scope != NormScope::Matrix) {
         assert("Not implemented yet");
     }
+
+    bool lower = (A.uploLogical() == Uplo::Lower);
 
     assert(A.num_devices() > 0);
 
@@ -496,8 +500,8 @@ void norm(
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     if (A.tileIsLocal(i, j) &&
                         device == A.tileDevice(i, j) &&
-                        ( (A.uplo() == Uplo::Lower && i >= j) ||
-                          (A.uplo() == Uplo::Upper && i <= j) ))
+                        ( (  lower && i >= j) ||
+                          (! lower && i <= j) ))
                     {
                         A.tileGetForReading(i, j, device);
                         // todo: should tileRelease() after?
@@ -521,8 +525,8 @@ void norm(
                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                         if (A.tileIsLocal(i, j) &&
                             device == A.tileDevice(i, j) &&
-                            ( (A.uplo() == Uplo::Lower && i > j) ||
-                              (A.uplo() == Uplo::Upper && i < j) ))
+                            ( (  lower && i > j) ||
+                              (! lower && i < j) ))
                         {
                             a_host_array[batch_count] = A(i, j, device).data();
                             lda[q] = A(i, j, device).stride();
@@ -591,7 +595,7 @@ void norm(
                 // diagonal blocks
                 for (int q = 4; q < 6; ++q) {
                     if (group_count[q] > 0) {
-                        device::synorm(in_norm, A.uplo(),
+                        device::synorm(in_norm, A.uploPhysical(),
                                        nb[q],
                                        a_dev_array, lda[q],
                                        vals_dev_array, ldv,
@@ -666,8 +670,8 @@ void norm(
                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                         if (A.tileIsLocal(i, j) &&
                             device == A.tileDevice(i, j) &&
-                            ( (A.uplo() == Uplo::Lower && i > j) ||
-                              (A.uplo() == Uplo::Upper && i < j) ))
+                            ( (  lower && i > j) ||
+                              (! lower && i < j) ))
                         {
                             // col sums
                             blas::axpy(

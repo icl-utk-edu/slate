@@ -129,7 +129,7 @@ void tbsm(slate::internal::TargetType<target>,
             }
         }
 
-        if (A.uplo_logical() == Uplo::Lower) {
+        if (A.uplo() == Uplo::Lower) {
             // ----------------------------------------
             // Lower/NoTrans or Upper/Trans, Left case
             // Forward sweep

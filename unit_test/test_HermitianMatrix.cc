@@ -92,6 +92,10 @@ void test_HermitianMatrix_empty()
     test_assert(U.nt() == ceildiv(n, nb));
     test_assert(U.op() == blas::Op::NoTrans);
     test_assert(U.uplo() == blas::Uplo::Upper);
+
+    test_assert_throw(
+        slate::HermitianMatrix<double> A(blas::Uplo::General, n, nb, p, q, mpi_comm),
+        slate::Exception);
 }
 
 //------------------------------------------------------------------------------
@@ -134,6 +138,13 @@ void test_HermitianMatrix_fromLAPACK()
             verify_tile_lapack(U, i, j, nb, n, n, Ad.data(), lda);
         }
     }
+
+    //----------
+    // general
+    test_assert_throw(
+        slate::HermitianMatrix<double>::fromLAPACK(
+            blas::Uplo::General, n, Ad.data(), lda, nb, p, q, mpi_comm ),
+        slate::Exception);
 }
 
 //------------------------------------------------------------------------------
@@ -182,6 +193,13 @@ void test_HermitianMatrix_fromScaLAPACK()
             verify_tile_scalapack(U, i, j, nb, n, n, Ad.data(), lda);
         }
     }
+
+    //----------
+    // general
+    test_assert_throw(
+        slate::HermitianMatrix<double>::fromScaLAPACK(
+            blas::Uplo::General, n, Ad.data(), lda, nb, p, q, mpi_comm ),
+        slate::Exception);
 }
 
 //------------------------------------------------------------------------------
@@ -250,6 +268,13 @@ void test_HermitianMatrix_fromDevices()
         cudaFree(Aarray[dev]);
     }
     delete[] Aarray;
+
+    //----------
+    // general
+    test_assert_throw(
+        slate::HermitianMatrix<double>::fromDevices(
+            blas::Uplo::General, n, Aarray, num_devices, lda, nb, p, q, mpi_comm ),
+        slate::Exception);
 }
 
 //==============================================================================

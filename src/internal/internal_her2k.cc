@@ -66,12 +66,12 @@ void her2k(scalar_t alpha,                  Matrix<scalar_t>&& A,
            blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>&& C,
            int priority)
 {
-    if (!((C.uplo_logical() == Uplo::Lower)
-          &&
-          (C.is_real || (C.op() != Op::Trans &&
-                         A.op() != Op::Trans))
-          &&
-          (A.op() == B.op())))
+    if (! ((C.uplo() == Uplo::Lower)
+           &&
+           (C.is_real || (C.op() != Op::Trans &&
+                          A.op() != Op::Trans))
+           &&
+           (A.op() == B.op())))
         throw std::exception();
 
     her2k(internal::TargetType<target>(),

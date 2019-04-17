@@ -70,7 +70,7 @@ void her2k(slate::internal::TargetType<target>,
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // if upper, change to lower
-    if (C.uplo_logical() == Uplo::Upper)
+    if (C.uplo() == Uplo::Upper)
         C = conj_transpose(C);
 
     // A is mt-by-nt, C is mt-by-mt

@@ -66,12 +66,12 @@ void syr2k(scalar_t alpha, Matrix<scalar_t>&& A,
            scalar_t beta,  SymmetricMatrix<scalar_t>&& C,
            int priority)
 {
-    if (!((C.uplo_logical() == Uplo::Lower)
-          &&
-          (C.is_real || (C.op() != Op::ConjTrans &&
-                         A.op() != Op::ConjTrans))
-          &&
-          (A.op() == B.op())))
+    if (! ((C.uplo() == Uplo::Lower)
+           &&
+           (C.is_real || (C.op() != Op::ConjTrans &&
+                          A.op() != Op::ConjTrans))
+           &&
+           (A.op() == B.op())))
         throw std::exception();
 
     syr2k(internal::TargetType<target>(),

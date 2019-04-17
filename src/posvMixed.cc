@@ -118,10 +118,6 @@ void posvMixed( slate::internal::TargetType<target>,
 
     assert(B.mt() == A.mt());
 
-    // if upper, change to lower
-    if (A.uplo() == Uplo::Upper)
-        A = conj_transpose(A);
-
     // workspace
     auto R    = B.emptyLike();
     auto A_lo = A.template emptyLike<scalar_lo>();

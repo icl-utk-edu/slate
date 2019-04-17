@@ -1735,18 +1735,17 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
                                              LayoutConvert layout)
 {
     TileEntry<scalar_t> *dst_tileEntry = nullptr, *src_tileEntry = nullptr;
-    do {
-        // find tile on destination
-        auto dst_iter = storage_->find(globalIndex(i, j, dst_device));
-        if (dst_iter == storage_->end()) {
-            // Create a copy on the destination.
-            tileInsertWorkspace(i, j, dst_device);
-            dst_iter = storage_->find(globalIndex(i, j, dst_device));
-        }
-        dst_tileEntry = &dst_iter->second;
 
-        if (dst_tileEntry->getState() != MOSI::Invalid)
-            break;
+    // find tile on destination
+    auto dst_iter = storage_->find(globalIndex(i, j, dst_device));
+    if (dst_iter == storage_->end()) {
+        // Create a copy on the destination.
+        tileInsertWorkspace(i, j, dst_device);
+        dst_iter = storage_->find(globalIndex(i, j, dst_device));
+    }
+    dst_tileEntry = &dst_iter->second;
+
+    if (dst_tileEntry->getState() == MOSI::Invalid) {
 
         // find source tile
         // find a valid source (Modified/Shared) device
@@ -1820,18 +1819,18 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
         dst_tileEntry->setState(MOSI::Shared);
         if (src_tileEntry->stateOn(MOSI::Modified))
             src_tileEntry->setState(MOSI::Shared);
+    }
 
-        // Change ColMajor <=> RowMajor if needed.
-        if (layout != LayoutConvert::None &&
-            dst_tileEntry->tile_->layout() != Layout(layout)) {
-            if (dst_device == host_num_) {
-                convert_layout(dst_tileEntry->tile_);
-            }
-            else {
-                convert_layout(dst_tileEntry->tile_, compute_stream(dst_device));
-            }
+    // Change ColMajor <=> RowMajor if needed.
+    if (layout != LayoutConvert::None &&
+        dst_tileEntry->tile_->layout() != Layout(layout)) {
+        if (dst_device == host_num_) {
+            convert_layout(dst_tileEntry->tile_);
         }
-    } while(0);
+        else {
+            convert_layout(dst_tileEntry->tile_, compute_stream(dst_device));
+        }
+    }
 }
 
 

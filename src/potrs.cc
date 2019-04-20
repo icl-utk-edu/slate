@@ -108,6 +108,39 @@ void potrs(HermitianMatrix<scalar_t>& A,
 
 //------------------------------------------------------------------------------
 /// Distributed parallel Cholesky solve.
+///
+/// Solves a system of linear equations
+/// \[
+///     A X = B
+/// \]
+/// with a Hermitian positive definite matrix $A$ using the Cholesky
+/// factorization $A = U^H U$ or $A = L L^H$ computed by potrf.
+///
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///     One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in] A
+///     The n-by-n triangular factor $U$ or $L$ from the Cholesky
+///     factorization $A = U^H U$ or $A = L L^H$, computed by potrf.
+///     If scalar_t is real, $A$ can be a SymmetricMatrix object.
+///
+/// @param[in,out] B
+///     On entry, the n-by-nrhs right hand side matrix $B$.
+///     On exit, the n-by-nrhs solution matrix $X$.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Lookahead:
+///       Number of panels to overlap with matrix updates.
+///       lookahead >= 0. Default 1.
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
 /// @ingroup posv_computational
 ///
 template <typename scalar_t>

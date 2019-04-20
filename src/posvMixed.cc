@@ -271,9 +271,12 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
 //------------------------------------------------------------------------------
 /// Distributed parallel iterative-refinement Cholesky factorization and solve.
 ///
-/// Computes the solution to a system of linear equations $AX = B$, where $A$ is
-/// an n-by-n Hermitian positive definite matrix and $X$ and $B$ are n-by-nrhs
-/// matrices.
+/// Computes the solution to a system of linear equations
+/// \[
+///     A X = B,
+/// \]
+/// where $A$ is an n-by-n Hermitian positive definite matrix and $X$ and $B$
+/// are n-by-nrhs matrices.
 ///
 /// posvMixed first factorizes the matrix using potrf in low precision (single)
 /// and uses this factorization within an iterative refinement procedure to
@@ -299,6 +302,52 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
 /// - $\epsilon$ is the machine epsilon.
 ///
 /// The value itermax is fixed to 30.
+///
+//------------------------------------------------------------------------------
+/// @tparam scalar_hi
+///     One of double, std::complex<double>.
+///
+/// @tparam scalar_lo
+///     One of float, std::complex<float>.
+//------------------------------------------------------------------------------
+/// @param[in,out] A
+///     On entry, the n-by-n Hermitian positive definite matrix $A$.
+///     On exit, if iterative refinement has been successfully used
+///     (return value = 0 and iter >= 0, see description below), then $A$ is
+///     unchanged. If high precision (double) factorization has been used
+///     (return value = 0 and iter < 0, see description below), then the
+///     array $A$ contains the factor $U$ or $L$ from the Cholesky
+///     factorization $A = U^H U$ or $A = L L^H$.
+///     If scalar_t is real, $A$ can be a SymmetricMatrix object.
+///
+/// @param[in] B
+///     On entry, the n-by-nrhs right hand side matrix $B$.
+///
+/// @param[out] X
+///     On exit, if return value = 0, the n-by-nrhs solution matrix $X$.
+///
+/// @param[out] iter
+///     The number of the iterations in the iterative refinement
+///     process, needed for the convergence. If failed, it is set
+///     to be -(1+itermax), where itermax = 30.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Lookahead:
+///       Number of panels to overlap with matrix updates.
+///       lookahead >= 0. Default 1.
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
+/// TODO: return value
+/// @retval 0 successful exit
+/// @retval >0 for return value = $i$, the leading minor of order $i$ of $A$ is not
+///         positive definite, so the factorization could not
+///         be completed, and the solution has not been computed.
 ///
 /// @ingroup posv
 ///

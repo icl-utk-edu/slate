@@ -284,7 +284,87 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel LU factorization and solve.
+/// Distributed parallel iterative-refinement LU factorization and solve.
+///
+/// Computes the solution to a system of linear equations
+/// \[
+///     A X = B,
+/// \]
+/// where $A$ is an n-by-n matrix and $X$ and $B$ are n-by-nrhs matrices.
+///
+/// gesvMixed first factorizes the matrix using getrf in low precision (single)
+/// and uses this factorization within an iterative refinement procedure to
+/// produce a solution with high precision (double) normwise backward error
+/// quality (see below). If the approach fails, the method falls back to a
+/// high precision (double) factorization and solve.
+///
+/// The iterative refinement is not going to be a winning strategy if
+/// the ratio of low-precision performance over high-precision performance is
+/// too small. A reasonable strategy should take the number of right-hand
+/// sides and the size of the matrix into account. This might be automated
+/// in the future. Up to now, we always try iterative refinement.
+///
+/// The iterative refinement process is stopped if iter > itermax or
+/// for all the RHS, $1 \le j \le nrhs$, we have:
+///     $\norm{r_j}_{inf} < \sqrt{n} \norm{x_j}_{inf} \norm{A}_{inf} \epsilon,$
+/// where:
+/// - iter is the number of the current iteration in the iterative refinement
+///    process
+/// - $\norm{r_j}_{inf}$ is the infinity-norm of the residual, $r_j = Ax_j - b_j$
+/// - $\norm{x_j}_{inf}$ is the infinity-norm of the solution
+/// - $\norm{A}_{inf}$ is the infinity-operator-norm of the matrix $A$
+/// - $\epsilon$ is the machine epsilon.
+///
+/// The value itermax is fixed to 30.
+///
+//------------------------------------------------------------------------------
+/// @tparam scalar_hi
+///     One of double, std::complex<double>.
+///
+/// @tparam scalar_lo
+///     One of float, std::complex<float>.
+//------------------------------------------------------------------------------
+/// @param[in,out] A
+///     On entry, the n-by-n matrix $A$.
+///     On exit, if iterative refinement has been successfully used
+///     (return value = 0 and iter >= 0, see description below), then $A$ is
+///     unchanged. If high precision (double) factorization has been used
+///     (return value = 0 and iter < 0, see description below), then the
+///     array $A$ contains the factors $L$ and $U$ from the
+///     factorization $A = P L U$.
+///
+/// @param[out] pivots
+///     The pivot indices that define the permutation matrix $P$.
+///
+/// @param[in] B
+///     On entry, the n-by-nrhs right hand side matrix $B$.
+///
+/// @param[out] X
+///     On exit, if return value = 0, the n-by-nrhs solution matrix $X$.
+///
+/// @param[out] iter
+///     The number of the iterations in the iterative refinement
+///     process, needed for the convergence. If failed, it is set
+///     to be -(1+itermax), where itermax = 30.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Lookahead:
+///       Number of panels to overlap with matrix updates.
+///       lookahead >= 0. Default 1.
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
+/// TODO: return value
+/// @retval 0 successful exit
+/// @retval >0 for return value = $i$, the computed $U(i,i)$ is exactly zero.
+///         The factorization has been completed, but the factor U is exactly
+///         singular, so the solution could not be computed.
+///
 /// @ingroup gesv
 ///
 template <typename scalar_hi, typename scalar_lo>

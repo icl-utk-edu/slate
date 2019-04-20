@@ -58,7 +58,8 @@ namespace specialization {
 /// - bcast communications are serialized,
 /// - gemm operations are serialized,
 /// - bcasts can get ahead of gemms by the value of lookahead.
-/// @ingroup gbmm
+/// @ingroup gbmm_specialization
+///
 template <Target target, typename scalar_t>
 void gbmm(slate::internal::TargetType<target>,
           scalar_t alpha, BandMatrix<scalar_t>& A,
@@ -218,7 +219,8 @@ void gbmm(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup gbmm
+/// @ingroup gbmm_specialization
+///
 template <Target target, typename scalar_t>
 void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
@@ -288,6 +290,7 @@ void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
 ///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup gbmm
+///
 template <typename scalar_t>
 void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,

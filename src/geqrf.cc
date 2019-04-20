@@ -49,10 +49,12 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Distributed parallel QR factorization.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
+/// @ingroup geqrf_specialization
+///
 template <Target target, typename scalar_t>
 void geqrf(slate::internal::TargetType<target>,
            Matrix<scalar_t>& A,
@@ -248,7 +250,8 @@ void geqrf(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup gesv_comp
+/// @ingroup geqrf_specialization
+///
 template <Target target, typename scalar_t>
 void geqrf(Matrix<scalar_t>& A,
            TriangularFactors<scalar_t>& T,
@@ -288,6 +291,7 @@ void geqrf(Matrix<scalar_t>& A,
 
 //------------------------------------------------------------------------------
 /// Distributed parallel QR factorization.
+/// @ingroup geqrf_computational
 ///
 template <typename scalar_t>
 void geqrf(Matrix<scalar_t>& A,

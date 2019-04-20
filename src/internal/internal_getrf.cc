@@ -46,10 +46,11 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// LU factorization of a column of tiles.
 /// Dispatches to target implementations.
+/// @ingroup gesv_internal
+///
 template <Target target, typename scalar_t>
 void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
            std::vector<Pivot>& pivot,
@@ -59,9 +60,10 @@ void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
           A, diag_len, ib, pivot, max_panel_threads, priority);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// LU factorization of a column of tiles, host implementation.
+/// @ingroup gesv_internal
+///
 template <typename scalar_t>
 void getrf(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A, int64_t diag_len, int64_t ib,

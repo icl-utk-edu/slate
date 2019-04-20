@@ -51,10 +51,11 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Distributed parallel LU solve.
 /// Generic implementation for any target.
+/// @ingroup gesv_specialization
+///
 template <Target target, typename scalar_t>
 void getrs(slate::internal::TargetType<target>,
            Matrix<scalar_t>& A, Pivots& pivots,
@@ -111,7 +112,8 @@ void getrs(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup gesv_comp
+/// @ingroup gesv_specialization
+///
 template <Target target, typename scalar_t>
 void getrs(Matrix<scalar_t>& A, Pivots& pivots,
            Matrix<scalar_t>& B,
@@ -132,6 +134,7 @@ void getrs(Matrix<scalar_t>& A, Pivots& pivots,
 
 //------------------------------------------------------------------------------
 /// Distributed parallel LU factorization.
+/// @ingroup gesv_computational
 ///
 template <typename scalar_t>
 void getrs(Matrix<scalar_t>& A, Pivots& pivots,

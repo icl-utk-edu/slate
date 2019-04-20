@@ -46,10 +46,11 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Triangular solve matrix (multiple right-hand sides).
 /// Dispatches to target implementations.
+/// @ingroup trsm_internal
+///
 template <Target target, typename scalar_t>
 void trsm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
@@ -63,10 +64,11 @@ void trsm(Side side,
          priority, layout);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Triangular solve matrix (multiple right-hand sides).
 /// Host OpenMP task implementation.
+/// @ingroup trsm_internal
+///
 template <typename scalar_t>
 void trsm(internal::TargetType<Target::HostTask>,
           Side side,

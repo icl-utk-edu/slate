@@ -51,11 +51,12 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Distributed parallel Cholesky factorization.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
+/// @ingroup posv_specialization
+///
 template <Target target, typename scalar_t>
 void potrf(slate::internal::TargetType<target>,
            HermitianMatrix<scalar_t> A, int64_t lookahead)
@@ -151,10 +152,11 @@ void potrf(slate::internal::TargetType<target>,
     // Debug::printTilesMaps(A);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Distributed parallel Cholesky factorization.
 /// GPU device batched cuBLAS implementation.
+/// @ingroup posv_specialization
+///
 template <typename scalar_t>
 void potrf(slate::internal::TargetType<Target::Devices>,
            HermitianMatrix<scalar_t> A, int64_t lookahead)
@@ -257,7 +259,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup posv_comp
+/// @ingroup posv_specialization
+///
 template <Target target, typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts)
@@ -311,7 +314,8 @@ void potrf(HermitianMatrix<scalar_t>& A,
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// @ingroup posv_comp
+/// @ingroup posv_computational
+///
 template <typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts)

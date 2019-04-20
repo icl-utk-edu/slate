@@ -69,10 +69,11 @@ bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
     return value;
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Distributed parallel LU factorization and solve.
 /// Generic implementation for any target.
+/// @ingroup gesv_specialization
+///
 template <Target target, typename scalar_hi, typename scalar_lo>
 void gesvMixed( slate::internal::TargetType<target>,
                 Matrix<scalar_hi>& A, Pivots& pivots,
@@ -240,7 +241,8 @@ void gesvMixed( slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup gesv_comp
+/// @ingroup gesv_specialization
+///
 template <Target target, typename scalar_hi, typename scalar_lo>
 void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
                 Matrix<scalar_hi>& B,
@@ -283,6 +285,7 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
 
 //------------------------------------------------------------------------------
 /// Distributed parallel LU factorization and solve.
+/// @ingroup gesv
 ///
 template <typename scalar_hi, typename scalar_lo>
 void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,

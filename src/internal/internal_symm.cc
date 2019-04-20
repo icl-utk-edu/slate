@@ -53,8 +53,7 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Symmetric matrix multiply to update trailing matrix,
 /// where A is a single tile.
 /// If side = left,  B and C are each a single block row;
@@ -62,6 +61,8 @@ namespace internal {
 /// Unlike most BLAS operations, here op(B) and op(C) must be
 /// both the same, either both NoTrans or both Trans.
 /// Dispatches to target implementations.
+/// @ingroup symm_internal
+///
 template <Target target, typename scalar_t>
 void symm(Side side,
           scalar_t alpha, SymmetricMatrix<scalar_t>&& A,
@@ -92,10 +93,11 @@ void symm(Side side,
          priority);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Symmetric matrix multiply to update trailing matrix.
 /// Host OpenMP task implementation.
+/// @ingroup symm_internal
+///
 template <typename scalar_t>
 void symm(internal::TargetType<Target::HostTask>,
           Side side,
@@ -161,10 +163,11 @@ void symm(internal::TargetType<Target::HostTask>,
         throw std::exception();
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Symmetric matrix multiply to update trailing matrix.
 /// Host nested OpenMP implementation.
+/// @ingroup symm_internal
+///
 template <typename scalar_t>
 void symm(internal::TargetType<Target::HostNest>,
           Side side,

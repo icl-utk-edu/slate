@@ -50,10 +50,11 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Distributed parallel multiply by Q from QR factorization.
 /// Generic implementation for any target.
+/// @ingroup geqrf_specialization
+///
 template <Target target, typename scalar_t>
 void unmqr(
     slate::internal::TargetType<target>,
@@ -303,7 +304,8 @@ void unmqr(
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup gesv_comp
+/// @ingroup geqrf_specialization
+///
 template <Target target, typename scalar_t>
 void unmqr(
     Side side, Op op,
@@ -318,6 +320,7 @@ void unmqr(
 
 //------------------------------------------------------------------------------
 /// Distributed parallel multiply by Q from QR factorization.
+/// @ingroup geqrf_computational
 ///
 template <typename scalar_t>
 void unmqr(

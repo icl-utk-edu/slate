@@ -53,12 +53,13 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Symmetric rank-k update of single block column (i.e., k = nb).
 /// Dispatches to target implementations.
 /// C is Lower, NoTrans or Upper, Trans/ConjTrans.
 /// In complex case, A and C cannot be ConjTrans.
+/// @ingroup syrk_internal
+///
 template <Target target, typename scalar_t>
 void syrk(scalar_t alpha, Matrix<scalar_t>&& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>&& C,
@@ -76,11 +77,12 @@ void syrk(scalar_t alpha, Matrix<scalar_t>&& A,
          priority);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Symmetric rank-k update of single block column (i.e., k = nb).
 /// Host OpenMP task implementation.
 /// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
+/// @ingroup syrk_internal
+///
 template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostTask>,
           scalar_t alpha, Matrix<scalar_t>& A,
@@ -139,11 +141,12 @@ void syrk(internal::TargetType<Target::HostTask>,
         throw std::exception();
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Symmetric rank-k update of single block column (i.e., k = nb).
 /// Host nested OpenMP implementation.
 /// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
+/// @ingroup syrk_internal
+///
 template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostNest>,
           scalar_t alpha, Matrix<scalar_t>& A,
@@ -207,11 +210,12 @@ void syrk(internal::TargetType<Target::HostNest>,
         throw std::exception();
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Symmetric rank-k update of single block column (i.e., k = nb).
 /// Host batched implementation.
 /// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
+/// @ingroup syrk_internal
+///
 template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostBatch>,
           scalar_t alpha, Matrix<scalar_t>& A,
@@ -359,11 +363,12 @@ void syrk(internal::TargetType<Target::HostBatch>,
         throw std::exception();
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Symmetric rank-k update of single block column (i.e., k = nb).
 /// GPU device batched cuBLAS implementation.
 /// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
+/// @ingroup syrk_internal
+///
 template <typename scalar_t>
 void syrk(internal::TargetType<Target::Devices>,
           scalar_t alpha, Matrix<scalar_t>& A,

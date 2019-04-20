@@ -46,10 +46,11 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Triangular matrix multiply.
 /// Dispatches to target implementations.
+/// @ingroup trmm_internal
+///
 template <Target target, typename scalar_t>
 void trmm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
@@ -63,10 +64,11 @@ void trmm(Side side,
          priority);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Triangular matrix multiply.
 /// Host OpenMP task implementation.
+/// @ingroup trmm_internal
+///
 template <typename scalar_t>
 void trmm(internal::TargetType<Target::HostTask>,
           Side side,

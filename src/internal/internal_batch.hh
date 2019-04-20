@@ -37,8 +37,8 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-///-----------------------------------------------------------------------------
-/// \file
+//------------------------------------------------------------------------------
+/// @file
 /// Provides simple precision-independent wrappers around MKL and cuBLAS batch
 /// routines. Eventually to be replaced by blaspp batch routines.
 #ifndef SLATE_INTERNAL_BATCH_HH
@@ -59,7 +59,7 @@ namespace slate {
 namespace internal {
 
 #ifdef SLATE_WITH_MKL
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 inline void cblas_gemm_batch(
     const CBLAS_LAYOUT layout,
     const CBLAS_TRANSPOSE* transA_array,
@@ -86,7 +86,7 @@ inline void cblas_gemm_batch(
                       group_count, group_size);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 inline void cblas_gemm_batch(
     const CBLAS_LAYOUT layout,
     const CBLAS_TRANSPOSE* transA_array,
@@ -113,7 +113,7 @@ inline void cblas_gemm_batch(
                       group_count, group_size);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 inline void cblas_gemm_batch(
     const CBLAS_LAYOUT layout,
     const CBLAS_TRANSPOSE* transA_array,
@@ -140,7 +140,7 @@ inline void cblas_gemm_batch(
                       group_count, group_size);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 inline void cblas_gemm_batch(
     const CBLAS_LAYOUT layout,
     const CBLAS_TRANSPOSE* transA_array,
@@ -168,7 +168,7 @@ inline void cblas_gemm_batch(
 }
 #endif // SLATE_WITH_MKL
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 inline cublasStatus_t cublasGemmBatched(
     cublasHandle_t handle,
     cublasOperation_t transa,
@@ -193,7 +193,7 @@ inline cublasStatus_t cublasGemmBatched(
                               batchCount);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 inline cublasStatus_t cublasGemmBatched(
     cublasHandle_t handle,
     cublasOperation_t transa,
@@ -218,7 +218,7 @@ inline cublasStatus_t cublasGemmBatched(
                               batchCount);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 inline cublasStatus_t cublasGemmBatched(
     cublasHandle_t handle,
     cublasOperation_t transa,
@@ -245,7 +245,7 @@ inline cublasStatus_t cublasGemmBatched(
                               batchCount);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 inline cublasStatus_t cublasGemmBatched(
     cublasHandle_t handle,
     cublasOperation_t transa,

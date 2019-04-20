@@ -60,7 +60,8 @@ namespace specialization {
 /// - bcasts can get ahead of symms by the value of lookahead.
 /// Note A, B, and C are passed by value, so we can transpose if needed
 /// (for side = right) without affecting caller.
-/// @ingroup symm
+/// @ingroup symm_specialization
+///
 template <Target target, typename scalar_t>
 void symm(slate::internal::TargetType<target>,
           Side side,
@@ -378,7 +379,8 @@ void symm(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup symm
+/// @ingroup symm_specialization
+///
 template <Target target, typename scalar_t>
 void symm(Side side,
           scalar_t alpha, SymmetricMatrix<scalar_t>& A,
@@ -455,6 +457,7 @@ void symm(Side side,
 ///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup symm
+///
 template <typename scalar_t>
 void symm(Side side,
           scalar_t alpha, SymmetricMatrix<scalar_t>& A,

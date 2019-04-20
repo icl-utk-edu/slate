@@ -57,7 +57,8 @@ namespace specialization {
 /// - bcasts can get ahead of herks by the value of lookahead.
 /// Note A and C are passed by value, so we can transpose if needed
 /// (for uplo = Upper) without affecting caller.
-/// @ingroup herk
+/// @ingroup herk_specialization
+///
 template <Target target, typename scalar_t>
 void herk(slate::internal::TargetType<target>,
           blas::real_type<scalar_t> alpha, Matrix<scalar_t> A,
@@ -169,7 +170,8 @@ void herk(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup herk
+/// @ingroup herk_specialization
+///
 template <Target target, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
@@ -234,6 +236,7 @@ void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
 ///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup herk
+///
 template <typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,

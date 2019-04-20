@@ -52,10 +52,11 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Distributed parallel Cholesky solve.
 /// Generic implementation for any target.
+/// @ingroup posv_specialization
+///
 template <Target target, typename scalar_t>
 void potrs(slate::internal::TargetType<target>,
            HermitianMatrix<scalar_t>& A,
@@ -85,7 +86,8 @@ void potrs(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup gesv_comp
+/// @ingroup posv_specialization
+///
 template <Target target, typename scalar_t>
 void potrs(HermitianMatrix<scalar_t>& A,
            Matrix<scalar_t>& B,
@@ -105,7 +107,8 @@ void potrs(HermitianMatrix<scalar_t>& A,
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel LU factorization.
+/// Distributed parallel Cholesky solve.
+/// @ingroup posv_computational
 ///
 template <typename scalar_t>
 void potrs(HermitianMatrix<scalar_t>& A,

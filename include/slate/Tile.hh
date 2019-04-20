@@ -60,7 +60,7 @@
 
 namespace slate {
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Transpose returns Tile, Matrix, SymmetricMatrix, etc.
 /// Making a template avoids repeating the code ad nauseum in each class.
 /// Tile and BaseMatrix make this a friend, to change op.
@@ -79,7 +79,7 @@ MatrixType transpose(MatrixType& A)
     return AT;
 }
 
-///-------------------------------------
+//--------------------------------------
 /// Converts rvalue refs to lvalue refs.
 template<typename MatrixType>
 MatrixType transpose(MatrixType&& A)
@@ -102,7 +102,7 @@ MatrixType conj_transpose(MatrixType& A)
     return AT;
 }
 
-///-------------------------------------
+//--------------------------------------
 /// Converts rvalue refs to lvalue refs.
 template<typename MatrixType>
 MatrixType conj_transpose(MatrixType&& A)
@@ -113,6 +113,8 @@ MatrixType conj_transpose(MatrixType&& A)
 //------------------------------------------------------------------------------
 /// Whether a tile is workspace or origin (local non-workspace),
 /// and who owns (allocated, deallocates) the data.
+/// @ingroup enum
+///
 enum class TileKind
 {
     Workspace,   ///< SLATE allocated workspace tile

@@ -62,7 +62,6 @@ Memory::Memory(size_t block_size):
 }
 
 //------------------------------------------------------------------------------
-/// \brief
 /// Destructor frees all allocations on host and devices.
 Memory::~Memory()
 {
@@ -74,7 +73,6 @@ Memory::~Memory()
 }
 
 //------------------------------------------------------------------------------
-/// \brief
 /// Allocates num_blocks in host memory
 /// and adds them to the pool of free blocks.
 ///
@@ -91,7 +89,6 @@ void Memory::addHostBlocks(int64_t num_blocks)
 }
 
 //------------------------------------------------------------------------------
-/// \brief
 /// Allocates num_blocks in given device's memory
 /// and adds them to the pool of free blocks.
 ///
@@ -107,7 +104,6 @@ void Memory::addDeviceBlocks(int device, int64_t num_blocks)
 }
 
 //------------------------------------------------------------------------------
-/// \brief
 /// Empties the pool of free blocks of host memory and frees the allocations.
 ///
 // todo: merge with clearDeviceBlocks by recognizing host_num_?
@@ -127,7 +123,6 @@ void Memory::clearHostBlocks()
 }
 
 //------------------------------------------------------------------------------
-/// \brief
 /// Empties the pool of free blocks of given device's memory and frees the
 /// allocations.
 ///
@@ -147,7 +142,6 @@ void Memory::clearDeviceBlocks(int device)
 }
 
 //------------------------------------------------------------------------------
-/// \brief
 /// @return single block of memory on the given device, which can be host,
 /// either from free blocks or by allocating a new block.
 ///
@@ -168,7 +162,6 @@ void* Memory::alloc(int device)
 }
 
 //------------------------------------------------------------------------------
-/// \brief
 /// Puts a single block of memory back into the pool of free blocks
 /// for the given device, which can be host.
 ///
@@ -181,7 +174,6 @@ void Memory::free(void* block, int device)
 }
 
 //------------------------------------------------------------------------------
-/// \brief
 /// Allocates a single block of memory on the given device, which can be host.
 ///
 void* Memory::allocBlock(int device)
@@ -197,7 +189,6 @@ void* Memory::allocBlock(int device)
 }
 
 //------------------------------------------------------------------------------
-/// \brief
 /// Allocates host memory of given size.
 ///
 void* Memory::allocHostMemory(size_t size)
@@ -213,7 +204,6 @@ void* Memory::allocHostMemory(size_t size)
 }
 
 //------------------------------------------------------------------------------
-/// \brief
 /// Allocates GPU device memory of given size.
 ///
 void* Memory::allocDeviceMemory(int device, size_t size)
@@ -230,7 +220,6 @@ void* Memory::allocDeviceMemory(int device, size_t size)
 }
 
 //------------------------------------------------------------------------------
-/// \brief
 /// Frees host memory.
 ///
 void Memory::freeHostMemory(void* host_mem)
@@ -241,7 +230,6 @@ void Memory::freeHostMemory(void* host_mem)
 }
 
 //------------------------------------------------------------------------------
-/// \brief
 /// Frees GPU device memory.
 ///
 void Memory::freeDeviceMemory(int device, void* dev_mem)

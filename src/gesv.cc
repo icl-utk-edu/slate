@@ -48,6 +48,7 @@ namespace slate {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel LU factorization and solve.
+/// @ingroup gesv
 ///
 template <typename scalar_t>
 void gesv(Matrix<scalar_t>& A, Pivots& pivots,

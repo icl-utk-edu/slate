@@ -56,7 +56,8 @@ namespace specialization {
 /// Generic implementation for any target.
 /// Note A and B are passed by value, so we can transpose if needed
 /// (for side = right) without affecting caller.
-/// @ingroup tbsm
+/// @ingroup tbsm_specialization
+///
 template <Target target, typename scalar_t>
 void tbsm(slate::internal::TargetType<target>,
           Side side,
@@ -337,7 +338,8 @@ void tbsm(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup tbsm
+/// @ingroup tbsm_specialization
+///
 template <Target target, typename scalar_t>
 void tbsm(blas::Side side,
           scalar_t alpha,
@@ -416,6 +418,7 @@ void tbsm(blas::Side side,
 ///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup tbsm
+///
 template <typename scalar_t>
 void tbsm(blas::Side side,
           scalar_t alpha,

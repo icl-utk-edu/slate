@@ -52,10 +52,11 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
-/// Distributed parallel LTLt factorization and solve.
+//------------------------------------------------------------------------------
+/// Distributed parallel symmetric indefinite $LTL^T$ factorization and solve.
 /// Generic implementation for any target.
+/// @ingroup hesv_specialization
+///
 template <Target target, typename scalar_t>
 void hesv(slate::internal::TargetType<target>,
           HermitianMatrix<scalar_t>& A, Pivots& pivots,
@@ -88,7 +89,8 @@ void hesv(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup gesv_comp
+/// @ingroup hesv_specialization
+///
 template <Target target, typename scalar_t>
 void hesv(HermitianMatrix<scalar_t>& A, Pivots& pivots,
                BandMatrix<scalar_t>& T, Pivots& pivots2,
@@ -129,7 +131,8 @@ void hesv(HermitianMatrix<scalar_t>& A, Pivots& pivots,
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel LTLt factorization and solve.
+/// Distributed parallel symmetric indefinite $LTL^T$ factorization and solve.
+/// @ingroup hesv
 ///
 template <typename scalar_t>
 void hesv(HermitianMatrix<scalar_t>& A, Pivots& pivots,

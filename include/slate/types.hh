@@ -37,8 +37,8 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-///-----------------------------------------------------------------------------
-/// \file
+//------------------------------------------------------------------------------
+/// @file
 ///
 #ifndef SLATE_TYPES_HH
 #define SLATE_TYPES_HH
@@ -54,8 +54,13 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
-/// Slate::internal::Value class
-/// \brief
+/// Values for options to pass to SLATE routines.
+/// Value can be:
+/// - int
+/// - int64_t
+/// - double
+/// - Target enum
+/// @see Option
 ///
 class Value {
 public:
@@ -103,8 +108,8 @@ private:
 using Pivots = std::vector< std::vector<Pivot> >;
 
 //------------------------------------------------------------------------------
-/// gives mpi_type based on actual scalar_t.
-//  constants are initialized in slate_types.cc
+/// Gives mpi_type based on actual scalar_t.
+//  Constants are initialized in slate_types.cc
 template <typename scalar_t>
 class mpi_type {};
 

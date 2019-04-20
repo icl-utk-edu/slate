@@ -65,6 +65,9 @@ struct real_type_traits<cuDoubleComplex>
 } // namespace blas
 
 namespace slate {
+
+/// @namespace slate::device
+/// GPU device implementations of kernels.
 namespace device {
 
 //------------------------------------------------------------------------------

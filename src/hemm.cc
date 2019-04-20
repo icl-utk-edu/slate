@@ -57,7 +57,8 @@ namespace specialization {
 /// - bcasts can get ahead of hemms by the value of lookahead.
 /// Note A, B, and C are passed by value, so we can transpose if needed
 /// (for side = right) without affecting caller.
-/// @ingroup hemm
+/// @ingroup hemm_specialization
+///
 template <Target target, typename scalar_t>
 void hemm(slate::internal::TargetType<target>,
           Side side,
@@ -377,7 +378,8 @@ void hemm(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup hemm
+/// @ingroup hemm_specialization
+///
 template <Target target, typename scalar_t>
 void hemm(Side side,
           scalar_t alpha, HermitianMatrix<scalar_t>& A,
@@ -455,6 +457,7 @@ void hemm(Side side,
 ///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup hemm
+///
 template <typename scalar_t>
 void hemm(Side side,
           scalar_t alpha, HermitianMatrix<scalar_t>& A,

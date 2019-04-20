@@ -52,6 +52,10 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
+//------------------------------------------------------------------------------
+/// todo: replicated in gesvMixed.cc; move to common header.
+/// @ingroup posv_specialization
+///
 template <typename scalar_t>
 bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
                       std::vector<scalar_t>& colnorms_X,
@@ -71,37 +75,11 @@ bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
     return value;
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Distributed parallel iterative-refinement Cholesky factorization and solve.
-///
-/// Computes the solution to a system of linear equations A * X = B, where A is
-/// an n-by-n Hermitian positive definite matrix and X and B are n-by-nrhs matrices.
-///
-/// posvMixed first factorizes the matrix using potrf on lower precision and uses
-/// this factorization within an iterative refinement procedure to produce a
-/// solution with ?? normwise backward error quality (see below). If
-/// the approach fails the method falls back to a full precision factorization and
-/// solve.
-///
-/// The iterative refinement is not going to be a winning strategy if
-/// the ratio COMPLEX performance over COMPLEX*16 performance is too
-/// small. A reasonable strategy should take the number of right-hand
-/// sides and the size of the matrix into account. This might be done
-/// with a call to ILAENV in the future. Up to now, we always try
-/// iterative refinement.
-///
-/// The iterative refinement process is stopped if iter > itermax or
-/// for all the RHS we have: Rnorm < sqrt(n)*Xnorm*Anorm*eps, where:
-///
-/// - iter is the number of the current iteration in the iterative refinement
-///    process
-/// - Rnorm is the Infinity-norm of the residual
-/// - Xnorm is the Infinity-norm of the solution
-/// - Anorm is the Infinity-operator-norm of the matrix A
-/// - eps is the machine epsilon.
-/// The values itermax is fixed to 30.
 /// Generic implementation for any target.
+/// @ingroup posv_specialization
+///
 template <Target target, typename scalar_hi, typename scalar_lo>
 void posvMixed( slate::internal::TargetType<target>,
                 HermitianMatrix<scalar_hi>& A,
@@ -190,7 +168,7 @@ void posvMixed( slate::internal::TargetType<target>,
     }
 
     // iterative refinement
-    for (int iiter = 0; iiter < itermax && !converged; iiter++) {
+    for (int iiter = 0; iiter < itermax && ! converged; iiter++) {
         // Convert R from high to low precision, store result in X_lo.
         copy(R, X_lo,
              {{Option::Target, target}});
@@ -266,7 +244,8 @@ void posvMixed( slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup gesv_comp
+/// @ingroup posv_specialization
+///
 template <Target target, typename scalar_hi, typename scalar_lo>
 void posvMixed( HermitianMatrix<scalar_hi>& A,
                 Matrix<scalar_hi>& B,
@@ -291,6 +270,37 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
 
 //------------------------------------------------------------------------------
 /// Distributed parallel iterative-refinement Cholesky factorization and solve.
+///
+/// Computes the solution to a system of linear equations $AX = B$, where $A$ is
+/// an n-by-n Hermitian positive definite matrix and $X$ and $B$ are n-by-nrhs
+/// matrices.
+///
+/// posvMixed first factorizes the matrix using potrf in low precision (single)
+/// and uses this factorization within an iterative refinement procedure to
+/// produce a solution with high precision (double) normwise backward error
+/// quality (see below). If the approach fails, the method falls back to a
+/// high precision (double) factorization and solve.
+///
+/// The iterative refinement is not going to be a winning strategy if
+/// the ratio of low-precision performance over high-precision performance is
+/// too small. A reasonable strategy should take the number of right-hand
+/// sides and the size of the matrix into account. This might be automated
+/// in the future. Up to now, we always try iterative refinement.
+///
+/// The iterative refinement process is stopped if iter > itermax or
+/// for all the RHS, $1 \le j \le nrhs$, we have:
+///     $\norm{r_j}_{inf} < \sqrt{n} \norm{x_j}_{inf} \norm{A}_{inf} \epsilon,$
+/// where:
+/// - iter is the number of the current iteration in the iterative refinement
+///    process
+/// - $\norm{r_j}_{inf}$ is the infinity-norm of the residual, $r_j = Ax_j - b_j$
+/// - $\norm{x_j}_{inf}$ is the infinity-norm of the solution
+/// - $\norm{A}_{inf}$ is the infinity-operator-norm of the matrix $A$
+/// - $\epsilon$ is the machine epsilon.
+///
+/// The value itermax is fixed to 30.
+///
+/// @ingroup posv
 ///
 template <typename scalar_hi, typename scalar_lo>
 void posvMixed( HermitianMatrix<scalar_hi>& A,

@@ -52,10 +52,11 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
-/// Distributed parallel Cholesky solve.
+//------------------------------------------------------------------------------
+/// Distributed parallel symmetric indefinite $LTL^T$ solve.
 /// Generic implementation for any target.
+/// @ingroup hesv_specialization
+///
 template <Target target, typename scalar_t>
 void hetrs(slate::internal::TargetType<target>,
            HermitianMatrix<scalar_t>& A, Pivots& pivots,
@@ -119,7 +120,8 @@ void hetrs(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup gesv_comp
+/// @ingroup hesv_specialization
+///
 template <Target target, typename scalar_t>
 void hetrs(HermitianMatrix<scalar_t>& A, Pivots& pivots,
                 BandMatrix<scalar_t>& T, Pivots& pivots2,
@@ -140,7 +142,8 @@ void hetrs(HermitianMatrix<scalar_t>& A, Pivots& pivots,
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel LU factorization.
+/// Distributed parallel symmetric indefinite $LTL^T$ factorization.
+/// @ingroup hesv_computational
 ///
 template <typename scalar_t>
 void hetrs(HermitianMatrix<scalar_t>& A, Pivots& pivots,

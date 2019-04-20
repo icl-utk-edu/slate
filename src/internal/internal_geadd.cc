@@ -104,10 +104,11 @@ void geadd(
 
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// General matrix add.
 /// Dispatches to target implementations.
+/// @ingroup geadd_internal
+///
 template <Target target, typename scalar_t>
 void geadd(scalar_t alpha, Matrix<scalar_t>&& A,
            scalar_t beta, Matrix<scalar_t>&& B,
@@ -119,12 +120,13 @@ void geadd(scalar_t alpha, Matrix<scalar_t>&& A,
           priority);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// General matrix add.
 /// assumes A & B have same tile layout and dimensions, and have same distribution
 /// TODO handle transpose A case
 /// Host OpenMP task implementation.
+/// @ingroup geadd_internal
+///
 template <typename scalar_t>
 void geadd(internal::TargetType<Target::HostTask>,
            scalar_t alpha, Matrix<scalar_t>& A,
@@ -145,8 +147,8 @@ void geadd(internal::TargetType<Target::HostTask>,
                 {
                     A.tileGetForReading(i, j);
                     B.tileGetForWriting(i, j);
-                    axby(alpha, A(i, j),
-                         beta,  B(i, j));
+                    axpby(alpha, A(i, j),
+                          beta,  B(i, j));
                     A.tileTick(i, j);// TODO is this correct here?
                 }
             }
@@ -156,7 +158,7 @@ void geadd(internal::TargetType<Target::HostTask>,
     #pragma omp taskwait
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 template <typename scalar_t>
 void geadd(internal::TargetType<Target::HostNest>,
            scalar_t alpha, Matrix<scalar_t>& A,
@@ -166,7 +168,7 @@ void geadd(internal::TargetType<Target::HostNest>,
     throw Exception("HostNest not yet implemented");
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 template <typename scalar_t>
 void geadd(internal::TargetType<Target::HostBatch>,
            scalar_t alpha, Matrix<scalar_t>& A,
@@ -176,12 +178,13 @@ void geadd(internal::TargetType<Target::HostBatch>,
     throw Exception("HostBatch not yet implemented");
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// General matrix add.
 /// assumes A & B have same tile layout and dimensions, and have same distribution
 /// TODO handle transpose A case
 /// GPU device implementation.
+/// @ingroup geadd_internal
+///
 template <typename scalar_t>
 void geadd(internal::TargetType<Target::Devices>,
            scalar_t alpha, Matrix<scalar_t>& A,

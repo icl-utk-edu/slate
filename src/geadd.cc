@@ -54,7 +54,8 @@ namespace specialization {
 /// @internal
 /// Distributed parallel general matrix-matrix addition.
 /// Generic implementation for any target.
-/// @ingroup geadd
+/// @ingroup geadd_specialization
+///
 template <Target target, typename scalar_t>
 void geadd(slate::internal::TargetType<target>,
           scalar_t alpha, Matrix<scalar_t>& A,
@@ -84,7 +85,8 @@ void geadd(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup geadd
+/// @ingroup geadd_specialization
+///
 template <Target target, typename scalar_t>
 void geadd(scalar_t alpha, Matrix<scalar_t>& A,
            scalar_t beta,  Matrix<scalar_t>& B,
@@ -146,6 +148,7 @@ void geadd(scalar_t alpha, Matrix<scalar_t>& A,
 ///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup geadd
+///
 template <typename scalar_t>
 void geadd(scalar_t alpha, Matrix<scalar_t>& A,
            scalar_t beta,  Matrix<scalar_t>& B,

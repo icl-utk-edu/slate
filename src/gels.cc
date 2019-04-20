@@ -63,8 +63,10 @@ namespace slate {
 /// On input, B is first m rows of BX.
 /// On output, X is all n rows of BX.
 ///
-/// Note these (m, n) differ from (Sca)LAPACK, where A is M-by-N,
+/// Note these (m, n) differ from (Sca)LAPACK, where A itself is M-by-N,
 /// while here op(A) is m-by-n.
+///
+/// @ingroup gels
 ///
 template <typename scalar_t>
 void gels(Matrix<scalar_t>& opA,

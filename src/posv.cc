@@ -49,6 +49,7 @@ namespace slate {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel Cholesky factorization and solve.
+/// @ingroup posv
 ///
 template <typename scalar_t>
 void posv(HermitianMatrix<scalar_t>& A,

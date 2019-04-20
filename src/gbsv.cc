@@ -51,10 +51,11 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
-/// Distributed parallel LU factorization and solve.
+//------------------------------------------------------------------------------
+/// Distributed parallel band LU factorization and solve.
 /// Generic implementation for any target.
+/// @ingroup gbsv_specialization
+///
 template <Target target, typename scalar_t>
 void gbsv(slate::internal::TargetType<target>,
           BandMatrix<scalar_t>& A, Pivots& pivots,
@@ -79,7 +80,8 @@ void gbsv(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup gbsv_comp
+/// @ingroup gbsv_specialization
+///
 template <Target target, typename scalar_t>
 void gbsv(BandMatrix<scalar_t>& A, Pivots& pivots,
           Matrix<scalar_t>& B,
@@ -118,7 +120,8 @@ void gbsv(BandMatrix<scalar_t>& A, Pivots& pivots,
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel LU factorization and solve.
+/// Distributed parallel band LU factorization and solve.
+/// @ingroup gbsv
 ///
 template <typename scalar_t>
 void gbsv(BandMatrix<scalar_t>& A, Pivots& pivots,

@@ -53,12 +53,13 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Hermitian rank-k update of single block column (i.e., k = nb).
 /// Dispatches to target implementations.
 /// C is Lower, NoTrans or Upper, Trans/ConjTrans.
 /// In complex case, A and C cannot be Trans.
+/// @ingroup herk_internal
+///
 template <Target target, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>&& C,
@@ -76,11 +77,12 @@ void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
          priority);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Hermitian rank-k update of single block column (i.e., k = nb).
 /// Host OpenMP task implementation.
 /// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
+/// @ingroup herk_internal
+///
 template <typename scalar_t>
 void herk(internal::TargetType<Target::HostTask>,
           blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
@@ -143,11 +145,12 @@ void herk(internal::TargetType<Target::HostTask>,
         throw std::exception();
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Hermitian rank-k update of single block column (i.e., k = nb).
 /// Host nested OpenMP implementation.
 /// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
+/// @ingroup herk_internal
+///
 template <typename scalar_t>
 void herk(internal::TargetType<Target::HostNest>,
           blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
@@ -214,11 +217,12 @@ void herk(internal::TargetType<Target::HostNest>,
         throw std::exception();
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Hermitian rank-k update of single block column (i.e., k = nb).
 /// Host batched implementation.
 /// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
+/// @ingroup herk_internal
+///
 template <typename scalar_t>
 void herk(internal::TargetType<Target::HostBatch>,
           blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
@@ -365,11 +369,12 @@ void herk(internal::TargetType<Target::HostBatch>,
         throw std::exception();
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Hermitian rank-k update of single block column (i.e., k = nb).
 /// GPU device batched cuBLAS implementation.
 /// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
+/// @ingroup herk_internal
+///
 template <typename scalar_t>
 void herk(internal::TargetType<Target::Devices>,
           blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,

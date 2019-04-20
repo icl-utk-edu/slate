@@ -45,10 +45,11 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Swaps rows according to the pivot vector.
 /// Dispatches to target implementations.
+/// @ingroup swap_internal
+///
 template <Target target, typename scalar_t>
 void swap(Direction direction,
           Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
@@ -58,10 +59,11 @@ void swap(Direction direction,
          priority, tag, layout);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Swaps L shapes according to the pivot vector.
 /// Dispatches to target implementations.
+/// @ingroup swap_internal
+///
 template <Target target, typename scalar_t>
 void swap(Direction direction,
           HermitianMatrix<scalar_t>&& A, std::vector<Pivot>& pivot,
@@ -73,12 +75,13 @@ void swap(Direction direction,
 
 // TODO: apply MOSI by setting tiles' states when modified
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Swaps rows of a general matrix according to the pivot vector,
 /// host implementation.
 /// todo: Restructure similarly to Hermitian swap
 ///       (use the auxiliary swap functions).
+/// @ingroup swap_internal
+///
 template <typename scalar_t>
 void swap(internal::TargetType<Target::HostTask>,
           Direction direction,
@@ -187,7 +190,7 @@ void swap(internal::TargetType<Target::HostBatch>,
          direction, A, pivot, priority, tag, layout);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Precision-independent wrappers.
 inline cublasStatus_t cublasSwap(
     cublasHandle_t handle,
@@ -227,13 +230,14 @@ inline cublasStatus_t cublasSwap(
                                   (cuDoubleComplex*) y, incy);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Swaps rows of a general matrix according to the pivot vector,
 /// host implementation.
 /// todo: Restructure similarly to Hermitian swap
 ///       (use the auxiliary swap functions).
 /// todo: Just one function forwarding target.
+/// @ingroup swap_internal
+///
 template <typename scalar_t>
 void swap(internal::TargetType<Target::Devices>,
           Direction direction,
@@ -327,7 +331,7 @@ void swap(internal::TargetType<Target::Devices>,
     }
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 template <typename scalar_t>
 void swap(int64_t j_offs, int64_t n,
           HermitianMatrix<scalar_t>& A,
@@ -365,7 +369,7 @@ void swap(int64_t j_offs, int64_t n,
     }
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 template <typename scalar_t>
 void swap(HermitianMatrix<scalar_t>& A,
           std::tuple<int64_t, int64_t>&& ij_tuple_1,
@@ -401,10 +405,11 @@ void swap(HermitianMatrix<scalar_t>& A,
     }
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// (Symmetric?) Swaps of rows (and columns?) of a Hermitian matrix according to
 /// the pivot vector, host implementation.
+/// @ingroup swap_internal
+///
 // todo: is this symmetric swapping, both rows & columns?
 template <typename scalar_t>
 void swap(internal::TargetType<Target::HostTask>,

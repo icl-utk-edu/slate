@@ -51,11 +51,12 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Distributed parallel LU factorization.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
+/// @ingroup gesv_specialization
+///
 template <Target target, typename scalar_t>
 void getrf(slate::internal::TargetType<target>,
            Matrix<scalar_t>& A, Pivots& pivots,
@@ -229,7 +230,8 @@ void getrf(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup gesv_comp
+/// @ingroup gesv_specialization
+///
 template <Target target, typename scalar_t>
 void getrf(Matrix<scalar_t>& A, Pivots& pivots,
            const std::map<Option, Value>& opts)
@@ -268,6 +270,7 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
 
 //------------------------------------------------------------------------------
 /// Distributed parallel LU factorization.
+/// @ingroup gesv_computational
 ///
 template <typename scalar_t>
 void getrf(Matrix<scalar_t>& A, Pivots& pivots,

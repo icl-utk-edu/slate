@@ -55,7 +55,7 @@ namespace internal {
 namespace specialization {
 
 //------------------------------------------------------------------------------
-/// Distributed parallel symmetric indefinite $LDL^T$ factorization.
+/// Distributed parallel Hermitian indefinite $LTL^T$ factorization.
 /// Generic implementation for any target.
 /// @ingroup hesv_specialization
 ///
@@ -510,7 +510,7 @@ void hetrf(slate::internal::TargetType<target>,
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel symmetric indefinite $LDL^T$ factorization.
+/// Distributed parallel Hermitian indefinite $LTL^T$ factorization.
 /// GPU device batched cuBLAS implementation.
 /// <b>GPU version not yet implemented.</b>
 /// @ingroup hesv_specialization
@@ -571,34 +571,46 @@ void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel symmetric indefinite $LDL^T$ factorization.
-/// Performs the $LTL^T$ factorization of a Hermitian
-/// (or symmetric, in the real case) matrix A.
-/// The factorization has the form
+/// Distributed parallel Hermitian indefinite $LTL^T$ factorization.
+///
+/// Computes the factorization of a Hermitian matrix $A$
+/// using Aasen's 2-stage algorithm.  The form of the factorization is
 /// \[
-///     P A P^H = L T L^H,
+///     A = L T L^H,
 /// \]
-/// if A is stored lower, where L is a lower triangular matrix,
-/// and T is symmetric band matrix (block tri-diagonal matrix), or
+/// if $A$ is stored lower, where $L$ is a product of permutation and unit
+/// lower triangular matrices, or
 /// \[
 ///     P A P^H = U^H T U,
 /// \]
-/// if A is stored upper, where U is an upper triangular matrix,
-/// and T is symmetric band matrix.
+/// if $A$ is stored upper, where $U$ is a product of permutation and unit
+/// upper triangular matrices.
+/// $T$ is a Hermitian band matrix that is LU factorized with partial pivoting.
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
 /// @param[in,out] A
-///     On entry, the Hermitian matrix A.
-///     On exit, if return value = 0, the factor U or L from the $LTL^T$
-///     factorization $P A P^H = U^H T U$ or $P A P^H = L T L^H$.
-///     If scalar_t is real, A can be a SymmetricMatrix object.
+///     On entry, the n-by-n Hermitian matrix $A$.
+///     On exit, if return value = 0, overwritten by the factor $U$ or $L$ from
+///     the factorization $A = U^H T U$ or $A = L T L^H$.
+///     If scalar_t is real, $A$ can be a SymmetricMatrix object.
+///
+/// @param[out] pivots
+///     On exit, details of the interchanges applied to $A$, i.e.,
+///     row and column k of $A$ were swapped with row and column pivots(k).
 ///
 /// @param[out] T
-///     On exit, if return value = 0, the LU factors of the band matrix T
-///     from the $LTL^T$ factorization $P A P^H = U^H T U$ or $P A P^H = L T L^H$.
+///     On exit, details of the LU factorization of the band matrix.
+///
+/// @param[out] pivots2
+///     On exit, details of the interchanges applied to $T$, i.e.,
+///     row and column k of $T$ were swapped with row and column pivots2(k).
+///
+/// @param[out] H
+///     Auxiliary matrix used during the factorization.
+///     TODO: can this be made internal?
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:

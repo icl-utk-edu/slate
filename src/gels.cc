@@ -48,80 +48,137 @@ namespace slate {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel least squares solve via QR or LQ factorization.
-/// op(A) is either A, or A^H, or A^T (only if A is real).
-/// op(A) is m-by-n, X is n-by-nrhs, B is m-by-nrhs, BX is max(m, n)-by-nrhs.
 ///
-/// If m >= n, solves over-determined op(A) X = B
-/// with least squares solution X that minimizes || op(A) X - B ||_2.
-/// BX is m-by-nrhs.
-/// On input, B is all m rows of BX.
-/// On output, X is first n rows of BX.
+/// Solves overdetermined or underdetermined complex linear systems
+/// involving an m-by-n matrix $A$, using a QR
+/// or LQ factorization of $A$.  It is assumed that $A$ has full rank.
+/// $X$ is n-by-nrhs, $B$ is m-by-nrhs, $BX$ is max(m, n)-by-nrhs.
 ///
-/// If m < n, solves under-determined op(A) X = B
-/// with minimum norm solution X that minimizes || X ||_2.
-/// BX is n-by-nrhs.
-/// On input, B is first m rows of BX.
-/// On output, X is all n rows of BX.
+/// If m >= n, solves over-determined $A X = B$
+/// with least squares solution $X$ that minimizes $\norm{ A X - B }_2$.
+/// $BX$ is m-by-nrhs.
+/// On input, $B$ is all m rows of $BX$.
+/// On output, $X$ is first n rows of $BX$.
+/// Currently in this case $A$ must be not transposed.
 ///
-/// Note these (m, n) differ from (Sca)LAPACK, where A itself is M-by-N,
-/// while here op(A) is m-by-n.
+/// If m < n, solves under-determined $A X = B$
+/// with minimum norm solution $X$ that minimizes $\norm{ X }_2$.
+/// $BX$ is n-by-nrhs.
+/// On input, $B$ is first m rows of $BX$.
+/// On output, $X$ is all n rows of $BX$.
+/// Currently in this case $A$ must be transposed (only if real) or
+/// conjugate-transposed.
+///
+/// Several right hand side vectors $b$ and solution vectors $x$ can be
+/// handled in a single call; they are stored as the columns of the
+/// m-by-nrhs right hand side matrix $B$ and the n-by-nrhs solution
+/// matrix $X$.
+///
+/// Note these (m, n) differ from (M, N) in (Sca)LAPACK, where the original
+/// $A$ is M-by-N, _before_ appyling any transpose,
+/// while here $A$ is m-by-n, _after_ applying any transpose,.
+///
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///     One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in,out] A
+///     On entry, the m-by-n matrix $A$.
+///     On exit:
+///     <br>
+///     If (m >= n and $A$ is not transposed) or
+///        (m <  n and $A$ is (conjugate) transposed),
+///     $A$ is overwritten by details of its QR factorization
+///     as returned by geqrf.
+///     <br>
+///     If (m >= n and $A$ is (conjugate) transposed) or
+///        (m <  n and $A$ is not transposed),
+///     $A$ is overwritten by details of its LQ factorization
+///     as returned by gelqf (todo: not currently supported).
+///
+/// @param[out] T
+///     The triangular matrices of the block reflectors from the
+///     QR or LQ factorization, as returned by geqrf or gelqf.
+///
+/// @param[in,out] BX
+///     Matrix of size max(m,n)-by-nrhs.
+///     On entry, the m-by-nrhs right hand side matrix $B$.
+///     On exit, if return value = 0, the n-by-nrhs solution matrix $X$.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Lookahead:
+///       Number of panels to overlap with matrix updates.
+///       lookahead >= 0. Default 1.
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
+/// TODO: return value
+/// @retval 0 successful exit
+/// @retval >0 for return value = $i$, in the computed triangular factor,
+///         $R(i,i)$ is exactly zero, so that $A$ does not have full rank;
+///         the least squares solution could not be computed.
 ///
 /// @ingroup gels
 ///
 template <typename scalar_t>
-void gels(Matrix<scalar_t>& opA,
+void gels(Matrix<scalar_t>& A,
           TriangularFactors<scalar_t>& T,
           Matrix<scalar_t>& BX,
           const std::map<Option, Value>& opts)
 {
     // m, n of op(A) as in docs above.
-    // int64_t m = opA.m();
-    // int64_t n = opA.n();
+    // int64_t m = A.m();
+    // int64_t n = A.n();
 
     scalar_t one  = 1;
     scalar_t zero = 0;
 
-    // Get original, un-transposed matrix A.
-    slate::Matrix<scalar_t> A;
-    if (opA.op() == Op::NoTrans)
-        A = opA;
-    else if (opA.op() == Op::ConjTrans)
-        A = conj_transpose(opA);
-    else if (opA.op() == Op::Trans && opA.is_real)
-        A = transpose(opA);
+    // Get original, un-transposed matrix A0.
+    slate::Matrix<scalar_t> A0;
+    if (A.op() == Op::NoTrans)
+        A0 = A;
+    else if (A.op() == Op::ConjTrans)
+        A0 = conj_transpose(A);
+    else if (A.op() == Op::Trans && A.is_real)
+        A0 = transpose(A);
     else
         slate_error("Unsupported op(A)");
 
-    if (A.m() >= A.n()) {
-        // A itself is tall: QR factorization
-        geqrf(A, T, opts);
+    if (A0.m() >= A0.n()) {
+        // A0 itself is tall: QR factorization
+        geqrf(A0, T, opts);
         // todo: need to take submatrix that splits tiles.
-        auto R = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, A);
+        auto R = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, A0);
 
-        if (opA.op() == Op::NoTrans) {
-            // Solve A X = (QR) X = B.
+        if (A.op() == Op::NoTrans) {
+            // Solve A0 X = (QR) X = B.
             // Least squares solution X = R^{-1} Y = R^{-1} (Q^H B).
 
             // Y = Q^H B
             // B is all m rows of BX.
-            unmqr(Side::Left, Op::ConjTrans, A, T, BX, opts);
+            unmqr(Side::Left, Op::ConjTrans, A0, T, BX, opts);
 
             // X is only first n rows of BX.
             // todo: need to take submatrix that splits tiles.
-            slate_assert(BX.tileMb(opA.nt()-1) == A.tileNb(A.nt()-1));
-            auto X = BX.sub(0, opA.nt()-1, 0, BX.nt()-1);
+            slate_assert(BX.tileMb(A.nt()-1) == A0.tileNb(A0.nt()-1));
+            auto X = BX.sub(0, A.nt()-1, 0, BX.nt()-1);
 
             // X = R^{-1} Y
             trsm(Side::Left, one, R, X, opts);
         }
         else {
-            // Solve A^H X = (QR)^H X = B.
+            // Solve A0^H X = (QR)^H X = B.
             // Minimum norm solution X = Q Y = Q (R^{-H} B).
 
             // B is only first m rows of BX.
             // todo: need to take submatrix that splits tiles.
-            slate_assert(BX.tileMb(opA.mt()-1) == opA.tileMb(opA.mt()-1));
-            auto B = BX.sub(0, opA.mt()-1, 0, BX.nt()-1);
+            slate_assert(BX.tileMb(A.mt()-1) == A.tileMb(A.mt()-1));
+            auto B = BX.sub(0, A.mt()-1, 0, BX.nt()-1);
 
             // Y = R^{-H} B
             auto RH = conj_transpose(R);
@@ -130,8 +187,8 @@ void gels(Matrix<scalar_t>& opA,
             // X is all n rows of BX.
             // Zero out rows m:n-1 of BX.
             // todo: istart/ioffset assumes fixed nb
-            int64_t istart  = opA.m() / BX.tileMb(0); // row m's tile
-            int64_t ioffset = opA.m() % BX.tileMb(0); // row m's offset in tile
+            int64_t istart  = A.m() / BX.tileMb(0); // row m's tile
+            int64_t ioffset = A.m() % BX.tileMb(0); // row m's offset in tile
             for (int64_t i = istart; i < BX.mt(); ++i) {
                 for (int64_t j = 0; j < BX.nt(); ++j) {
                     if (BX.tileIsLocal(i, j)) {
@@ -146,7 +203,7 @@ void gels(Matrix<scalar_t>& opA,
             }
 
             // X = Q Y
-            unmqr(Side::Left, Op::NoTrans, A, T, BX, opts);
+            unmqr(Side::Left, Op::NoTrans, A0, T, BX, opts);
         }
     }
     else {

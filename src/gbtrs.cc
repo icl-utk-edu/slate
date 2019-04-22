@@ -121,7 +121,43 @@ void gbtrs(BandMatrix<scalar_t>& A, Pivots& pivots,
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel band LU factorization.
+/// Distributed parallel band LU solve.
+///
+/// Solves a system of linear equations
+/// \[
+///     A X = B
+/// \]
+/// with a general n-by-n band matrix $A$ using the LU factorization computed
+/// by gbtrf. $A$ can be transposed or conjugate-transposed.
+///
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///     One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in] A
+///     The factors $L$ and $U$ from the factorization $A = L U$
+///     as computed by gbtrf.
+///
+/// @param[in] pivots
+///     The pivot indices that define the permutations
+///     as computed by gbtrf.
+///
+/// @param[in,out] B
+///     On entry, the n-by-nrhs right hand side matrix $B$.
+///     On exit, the n-by-nrhs solution matrix $X$.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Lookahead:
+///       Number of panels to overlap with matrix updates.
+///       lookahead >= 0. Default 1.
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
 /// @ingroup gbsv_computational
 ///
 template <typename scalar_t>

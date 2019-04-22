@@ -260,6 +260,58 @@ void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
 
 //------------------------------------------------------------------------------
 /// Distributed parallel band LU factorization.
+///
+/// Computes an LU factorization of a general band m-by-n matrix $A$
+/// using partial pivoting with row interchanges.
+///
+/// The factorization has the form
+/// \[
+///     A = L U
+/// \]
+/// where $L$ is a product of permutation and unit lower triangular matrices,
+/// and $U$ is upper triangular.
+///
+/// This is the right-looking Level 3 BLAS version of the algorithm.
+///
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///     One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in,out] A
+///     On entry, the band matrix $A$ to be factored.
+///     Tiles outside the bandwidth do not need to exist.
+///     For tiles that are partially outside the bandwidth,
+///     data outside the bandwidth should be explicitly set to zero.
+///     On exit, the factors $L$ and $U$ from the factorization $A = L U$;
+///     the unit diagonal elements of $L$ are not stored.
+///     The upper bandwidth is increased to accomodate fill-in of $U$.
+///
+/// @param[out] pivots
+///     The pivot indices that define the permutations.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Lookahead:
+///       Number of panels to overlap with matrix updates.
+///       lookahead >= 0. Default 1.
+///     - Option::InnerBlocking:
+///       Inner blocking to use for panel. Default 16.
+///     - Option::MaxPanelThreads:
+///       Number of threads to use for panel. Default omp_get_max_threads()/2.
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
+/// TODO: return value
+/// @retval 0 successful exit
+/// @retval >0 for return value = $i$, $U(i,i)$ is exactly zero. The
+///         factorization has been completed, but the factor $U$ is exactly
+///         singular, and division by zero will occur if it is used
+///         to solve a system of equations.
+///
 /// @ingroup gbsv_computational
 ///
 template <typename scalar_t>

@@ -133,7 +133,43 @@ void getrs(Matrix<scalar_t>& A, Pivots& pivots,
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel LU factorization.
+/// Distributed parallel LU solve.
+///
+/// Solves a system of linear equations
+/// \[
+///     A X = B
+/// \]
+/// with a general n-by-n matrix $A$ using the LU factorization computed
+/// by getrf. $A$ can be transposed or conjugate-transposed.
+///
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///     One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in] A
+///     The factors $L$ and $U$ from the factorization $A = P L U$
+///     as computed by getrf.
+///
+/// @param[in] pivots
+///     The pivot indices that define the permutation matrix $P$
+///     as computed by gbtrf.
+///
+/// @param[in,out] B
+///     On entry, the n-by-nrhs right hand side matrix $B$.
+///     On exit, the n-by-nrhs solution matrix $X$.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Lookahead:
+///       Number of panels to overlap with matrix updates.
+///       lookahead >= 0. Default 1.
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
 /// @ingroup gesv_computational
 ///
 template <typename scalar_t>

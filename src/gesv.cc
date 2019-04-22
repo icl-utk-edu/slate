@@ -48,6 +48,60 @@ namespace slate {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel LU factorization and solve.
+///
+/// Computes the solution to a system of linear equations
+/// \[
+///     A X = B,
+/// \]
+/// where $A$ is an n-by-n matrix and $X$ and $B$ are n-by-nrhs matrices.
+///
+/// The LU decomposition with partial pivoting and row interchanges is
+/// used to factor $A$ as
+/// \[
+///     A = P L U,
+/// \]
+/// where $P$ is a permutation matrix, $L$ is unit lower triangular, and $U$ is
+/// upper triangular.  The factored form of $A$ is then used to solve the
+/// system of equations $A X = B$.
+///
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///     One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in,out] A
+///     On entry, the n-by-n matrix $A$ to be factored.
+///     On exit, the factors $L$ and $U$ from the factorization $A = P L U$;
+///     the unit diagonal elements of $L$ are not stored.
+///
+/// @param[out] pivots
+///     The pivot indices that define the permutation matrix $P$.
+///
+/// @param[in,out] B
+///     On entry, the n-by-nrhs right hand side matrix $B$.
+///     On exit, if return value = 0, the n-by-nrhs solution matrix $X$.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Lookahead:
+///       Number of panels to overlap with matrix updates.
+///       lookahead >= 0. Default 1.
+///     - Option::InnerBlocking:
+///       Inner blocking to use for panel. Default 16.
+///     - Option::MaxPanelThreads:
+///       Number of threads to use for panel. Default omp_get_max_threads()/2.
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
+/// TODO: return value
+/// @retval 0 successful exit
+/// @retval >0 for return value = $i$, the computed $U(i,i)$ is exactly zero.
+///         The factorization has been completed, but the factor U is exactly
+///         singular, so the solution could not be computed.
+///
 /// @ingroup gesv
 ///
 template <typename scalar_t>

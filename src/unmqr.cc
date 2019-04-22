@@ -319,7 +319,59 @@ void unmqr(
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel multiply by Q from QR factorization.
+/// Distributed parallel multiply by $Q$ from QR factorization.
+///
+/// Multiplies the general m-by-n matrix $C$ by $Q$ from QR factorization,
+/// according to:
+///
+/// op              |  side = Left  |  side = Right
+/// --------------- | ------------- | --------------
+/// op = NoTrans    |  $Q C  $      |  $C Q  $
+/// op = ConjTrans  |  $Q^H C$      |  $C Q^H$
+///
+/// where $Q$ is a unitary matrix defined as the product of k
+/// elementary reflectors
+/// \[
+///     Q = H(1) H(2) . . . H(k)
+/// \]
+/// as returned by geqrf. $Q$ is of order m if side = Left
+/// and of order n if side = Right.
+///
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///     One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in] side
+///     - Side::Left:  apply $Q$ or $Q^H$ from the left;
+///     - Side::Right: apply $Q$ or $Q^H$ from the right.
+///
+/// @param[in] op
+///     - Op::NoTrans    apply $Q$;
+///     - Op::ConjTrans: apply $Q^H$;
+///     - Op::Trans:     apply $Q^T$ (only if real).
+///       In the real case, Op::Trans is equivalent to Op::ConjTrans.
+///       In the complex case, Op::Trans is not allowed.
+///
+/// @param[in] A
+///     Details of the QR factorization of the original matrix $A$ as returned
+///     by geqrf.
+///
+/// @param[in] T
+///     Triangular matrices of the block reflectors as returned by geqrf.
+///
+/// @param[in,out] C
+///     On entry, the m-by-n matrix $C$.
+///     On exit, $C$ is overwritten by $Q C$, $Q^H C$, $C Q$, or $C Q^H$.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
 /// @ingroup geqrf_computational
 ///
 template <typename scalar_t>

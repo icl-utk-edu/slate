@@ -291,6 +291,45 @@ void geqrf(Matrix<scalar_t>& A,
 
 //------------------------------------------------------------------------------
 /// Distributed parallel QR factorization.
+///
+/// Computes a QR factorization of an m-by-n matrix $A$.
+/// The factorization has the form
+/// \[
+///     A = Q R,
+/// \]
+/// where $Q$ is a matrix with orthonormal columns and $R$ is upper triangular
+/// (or upper trapezoidal if m < n).
+///
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///     One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in,out] A
+///     On entry, the m-by-n matrix $A$.
+///     On exit, the elements on and above the diagonal of the array contain
+///     the min(m,n)-by-n upper trapezoidal matrix $R$ (upper triangular
+///     if m >= n); the elements below the diagonal represent the orthogonal
+///     matrix $Q$ as a product of elementary reflectors.
+///
+/// @param[out] T
+///     On exit, triangular matrices of the block reflectors.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Lookahead:
+///       Number of panels to overlap with matrix updates.
+///       lookahead >= 0. Default 1.
+///     - Option::InnerBlocking:
+///       Inner blocking to use for panel. Default 16.
+///     - Option::MaxPanelThreads:
+///       Number of threads to use for panel. Default omp_get_max_threads()/2.
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
 /// @ingroup geqrf_computational
 ///
 template <typename scalar_t>

@@ -115,7 +115,7 @@ public:
     }
 
     template <typename out_scalar_t=scalar_t>
-    Matrix<out_scalar_t> emptyLike();
+    Matrix<out_scalar_t> emptyLike(int64_t mb=0, int64_t nb=0);
 
     // conversion sub-matrix
     Matrix(BaseMatrix<scalar_t>& orig,
@@ -351,27 +351,58 @@ Matrix<scalar_t> Matrix<scalar_t>::fromDevices(
 
 //------------------------------------------------------------------------------
 /// Named constructor returns a new, empty Matrix with the same structure
-/// (size and distribution) as this matrix. Tiles are not allocated.
+/// (distribution and number of tiles) as this matrix. Tiles are not allocated.
 ///
 /// todo: currently assumes 2DBC and fixed mb, nb.
 ///
+/// @param[in] mb
+///     Row block size of new matrix.
+///     If mb = 0, uses the same mb and m as this matrix;
+///     otherwise, m = mb * mt.
+///
+/// @param[in] nb
+///     Column block size of new matrix.
+///     If nb = 0, uses the same nb and n as this matrix;
+///     otherwise, n = nb * nt.
+///
 template <typename scalar_t>
 template <typename out_scalar_t>
-Matrix<out_scalar_t> Matrix<scalar_t>::emptyLike()
+Matrix<out_scalar_t> Matrix<scalar_t>::emptyLike(int64_t mb, int64_t nb)
 {
     // First create no-trans parent matrix, apply op, then return sub-matrix.
-    int64_t mb, nb, m, n;
+    int64_t m, n;
     if (this->op() == Op::NoTrans) {
-        mb = this->tileMb(0);
-        nb = this->tileNb(0);
-        m  = this->m();
-        n  = this->n();
+        if (mb == 0) {
+            mb = this->tileMb(0);
+            m  = this->m();
+        }
+        else {
+            m = mb * this->mt();
+        }
+        if (nb == 0) {
+            nb = this->tileNb(0);
+            n  = this->n();
+        }
+        else {
+            n = nb * this->nt();
+        }
     }
     else {
-        mb = this->tileNb(0);
-        nb = this->tileMb(0);
-        m  = this->n();
-        n  = this->m();
+        std::swap(mb, nb);
+        if (mb == 0) {
+            mb = this->tileNb(0);
+            m  = this->n();
+        }
+        else {
+            m = mb * this->nt();
+        }
+        if (nb == 0) {
+            nb = this->tileMb(0);
+            n  = this->m();
+        }
+        else {
+            n = nb * this->mt();
+        }
     }
     int64_t ioffset = this->ioffset();
     int64_t joffset = this->joffset();

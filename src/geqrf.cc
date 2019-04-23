@@ -79,7 +79,7 @@ void geqrf(slate::internal::TargetType<target>,
 
     T.clear();
     T.push_back(A.emptyLike());
-    T.push_back(A.emptyLike());
+    T.push_back(A.emptyLike(ib, 0));
     auto Tlocal  = T[0];
     auto Treduce = T[1];
 

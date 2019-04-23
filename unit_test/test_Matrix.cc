@@ -337,6 +337,88 @@ void test_Matrix_emptyLike()
     }
 }
 
+//------------------------------------------------------------------------------
+/// emptyLike with mb, nb overriding size.
+void test_Matrix_emptyLikeMbNb()
+{
+    int mtiles, mtiles_local, m_local, lda;
+    int ntiles, ntiles_local, n_local;
+    get_2d_cyclic_dimensions(
+        m, n, mb, nb,
+        mtiles, mtiles_local, m_local,
+        ntiles, ntiles_local, n_local, lda );
+
+    std::vector<double> Ad( lda*n_local );
+
+    auto A = slate::Matrix<double>::fromScaLAPACK(
+        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
+
+    auto Asub = A.sub( 1, 3, 1, 4 );
+    auto Asub_trans = transpose( Asub );
+    if (verbose) {
+        printf( "A  m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
+                Asub.m(), Asub.mt(),
+                Asub.n(), Asub.nt(),
+                Asub.tileMb(0), Asub.tileNb(0) );
+        printf( "AT m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
+                Asub_trans.m(), Asub_trans.mt(),
+                Asub_trans.n(), Asub_trans.nt(),
+                Asub_trans.tileMb(0), Asub_trans.tileNb(0) );
+    }
+
+    for (int mb2: std::vector<int>({ 0, 7 })) {
+        for (int nb2: std::vector<int>({ 0, 5 })) {
+            // ----- no trans
+            auto B = Asub.emptyLike( mb2, nb2 );
+
+            if (verbose) {
+                printf( "B  m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld (mb2 %3d, nb2 %3d)\n",
+                        B.m(), B.mt(),
+                        B.n(), B.nt(),
+                        B.tileMb(0), B.tileNb(0),
+                        mb2, nb2 );
+            }
+            test_assert(B.m() == (mb2 == 0 ? Asub.m() : Asub.mt() * mb2));
+            test_assert(B.n() == (nb2 == 0 ? Asub.n() : Asub.nt() * nb2));
+            test_assert(B.mt() == Asub.mt());
+            test_assert(B.nt() == Asub.nt());
+
+            for (int j = 0; j < Asub.nt(); ++j) {
+                for (int i = 0; i < Asub.mt(); ++i) {
+                    test_assert( B.tileIsLocal(i, j) == Asub.tileIsLocal(i, j) );
+                    test_assert( B.tileMb(i) == (mb2 == 0 ? Asub.tileMb(i) : mb2) );
+                    test_assert( B.tileNb(j) == (nb2 == 0 ? Asub.tileNb(j) : nb2) );
+                    test_assert_throw_std( B(i, j) );  // tiles don't exist
+                }
+            }
+
+            // ----- trans
+            auto BT = Asub_trans.emptyLike( mb2, nb2 );
+
+            if (verbose) {
+                printf( "BT m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld (mb2 %3d, nb2 %3d)\n",
+                        BT.m(), BT.mt(),
+                        BT.n(), BT.nt(),
+                        BT.tileMb(0), BT.tileNb(0),
+                        mb2, nb2 );
+            }
+            test_assert(BT.m() == (mb2 == 0 ? Asub_trans.m() : Asub_trans.mt() * mb2));
+            test_assert(BT.n() == (nb2 == 0 ? Asub_trans.n() : Asub_trans.nt() * nb2));
+            test_assert(BT.mt() == Asub_trans.mt());
+            test_assert(BT.nt() == Asub_trans.nt());
+
+            for (int j = 0; j < Asub_trans.nt(); ++j) {
+                for (int i = 0; i < Asub_trans.mt(); ++i) {
+                    test_assert( BT.tileIsLocal(i, j) == Asub_trans.tileIsLocal(i, j) );
+                    test_assert( BT.tileMb(i) == (mb2 == 0 ? Asub_trans.tileMb(i) : mb2) );
+                    test_assert( BT.tileNb(j) == (nb2 == 0 ? Asub_trans.tileNb(j) : nb2) );
+                    test_assert_throw_std( BT(i, j) );  // tiles don't exist
+                }
+            }
+        }
+    }
+}
+
 //==============================================================================
 // Methods
 
@@ -1709,6 +1791,7 @@ void run_tests()
     run_test(test_Matrix_fromScaLAPACK_rect, "Matrix::fromScaLAPACK_rect", mpi_comm);
     run_test(test_Matrix_fromDevices,        "Matrix::fromDevices",        mpi_comm);
     run_test(test_Matrix_emptyLike,          "Matrix::emptyLike",          mpi_comm);
+    run_test(test_Matrix_emptyLikeMbNb,      "Matrix::emptyLikeMbNb",      mpi_comm);
 
     if (mpi_rank == 0)
         printf("\nMethods\n");

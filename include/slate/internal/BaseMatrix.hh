@@ -541,6 +541,8 @@ protected:
     MPI_Comm  mpi_comm_;
     MPI_Group mpi_group_;
     int mpi_rank_;
+
+    /// intended layout of the matrix. defaults to ColMajor.
     Layout layout_;
 };
 

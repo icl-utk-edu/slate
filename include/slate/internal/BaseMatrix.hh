@@ -1501,9 +1501,8 @@ void BaseMatrix<scalar_t>::listBcast(
 
         // Copy to devices.
         // TODO: should this be inside above if-then?
-        // todo: this is incuring extra communication,
-        //       tile(i,j) is not needed on all devices where this matrix resides
-        // todo: only distribute to devices if receiving
+        // todo: this may incur extra communication,
+        //       tile(i,j) is not necessarily needed on all devices where this matrix resides
         if (target == Target::Devices) {
             // If receiving the tile.
             if (! tileIsLocal(i, j)) {
@@ -1511,6 +1510,7 @@ void BaseMatrix<scalar_t>::listBcast(
                 for (auto submatrix : submatrices_list)
                     submatrix.getLocalDevices(&dev_set);
 
+                // todo: should each read be an omp task instead?
                 #pragma omp task
                 {
                     for (auto device : dev_set)
@@ -2160,6 +2160,7 @@ void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
 /// @param[in] device
 ///     Tile's host or device ID, defaults to host.
 ///
+/// todo: validate working for sub- and sliced- matrix
 template <typename scalar_t>
 bool BaseMatrix<scalar_t>::tileIsTransposable(int64_t i, int64_t j, int device)
 {

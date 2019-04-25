@@ -706,7 +706,6 @@ Matrix<scalar_t> BaseTrapezoidMatrix<scalar_t>::sub(
 //------------------------------------------------------------------------------
 /// Move all tiles back to their origin.
 //
-// todo: currently assumes origin == host.
 template <typename scalar_t>
 void BaseTrapezoidMatrix<scalar_t>::tileUpdateAllOrigin()
 {

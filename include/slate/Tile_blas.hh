@@ -709,6 +709,7 @@ void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>& Y)
 {
     trace::Block trace_block("blas::axpy");
 
+    // todo: relax these assumptions, by adjusting the loops below
     assert(X.op() == Y.op());
     assert(X.uploPhysical() == Uplo::General);
     assert(Y.uploPhysical() == Uplo::General);
@@ -736,7 +737,7 @@ void axby(scalar_t alpha, Tile<scalar_t> const& X,
 {
     // trace::Block trace_block("blas::axby");
 
-    // TODO should be able to loosen these restriction
+    // TODO should be able to loosen these restrictions
     assert(X.op() == Y.op());
     assert(X.uploPhysical() == Uplo::General);
     assert(Y.uploPhysical() == Uplo::General);

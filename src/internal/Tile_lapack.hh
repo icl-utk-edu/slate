@@ -110,7 +110,8 @@ void genorm(Norm norm, NormScope scope, Tile<scalar_t> const& A,
 
         if (norm == Norm::Max) {
             // All max norm
-            // values[j] = max_j abs( A_{i,j} )
+            // values[j] = max_i abs( A_{i,j} )
+            // todo: handle layout and transpose, also sliced matrices
             // todo: parallel for ??
             for (int64_t j = 0; j < A.nb(); ++j) {
                 values[j] = lapack::lange(norm,

@@ -221,6 +221,7 @@ public:
 
     /// Returns whether this tile can be safely transposed
     /// based on its 'TileKind', buffer size, and stride.
+    /// todo: validate and handle sliced-matrix
     bool isTransposable ()
     {
         return ! (kind_ == TileKind::UserOwned
@@ -637,6 +638,8 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm, int tag) const
         slate_mpi_call(MPI_Send(data_, 1, newtype, dst, tag, mpi_comm));
         slate_mpi_call(MPI_Type_free(&newtype));
     }
+    // todo: would specializing to Triangular / Band tiles improve performance
+    // by receiving less / compacted data
 }
 
 //------------------------------------------------------------------------------
@@ -690,6 +693,8 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm, Layout layout, int tag)
     }
     // set this tile layout to match the received data layout
     this->layout(layout);
+    // todo: would specializing to Triangular / Band tiles improve performance
+    // by receiving less / compacted data
 }
 
 //------------------------------------------------------------------------------

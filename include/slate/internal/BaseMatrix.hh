@@ -337,6 +337,28 @@ public:
     void listReduce(ReduceList& reduce_list, int tag = 0);
 
 public:
+
+    /// Returns matrix layout flag
+    Layout layout() const { return layout_; }
+
+    /// Returns Layout of tile(i, j, device)
+    Layout tileLayout(int64_t i, int64_t j, int device=host_num_)
+    {
+        return storage_->at(globalIndex(i, j, device)).tile_->layout();
+    }
+
+    /// Sets Layout of tile(i, j, device)
+    void tileLayout(int64_t i, int64_t j, int device, Layout layout)
+    {
+        storage_->at(globalIndex(i, j, device)).tile_->layout(layout);
+    }
+
+    /// Sets Layout of tile(i, j, host)
+    void tileLayout(int64_t i, int64_t j, Layout layout)
+    {
+        storage_->at(globalIndex(i, j, host_num_)).tile_->layout(layout);
+    }
+
     /// Returns whether tile(i, j, device) can be safely transposed.
     /// based on its 'TileKind', buffer size, and stride.
     /// Tile instance on 'device' should exist.

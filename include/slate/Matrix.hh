@@ -751,6 +751,7 @@ void Matrix<scalar_t>::copy(Matrix<scalar_t>& A)
                     lapack::lacpy(lapack::MatrixType::General, ib, jb,
                                   Aij.data(), Aij.stride(),
                                   Bij.data(), Bij.stride());
+                    this->tileLayout(i, j, Aij.layout());
                 }
             }
         }

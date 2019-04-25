@@ -224,7 +224,7 @@ public:
     /// Returns whether this tile can be safely transposed
     /// based on its 'TileKind', buffer size, and stride.
     /// todo: validate and handle sliced-matrix
-    bool isTransposable ()
+    bool isTransposable()
     {
         return ! (kind_ == TileKind::UserOwned
                && mb_ != nb_

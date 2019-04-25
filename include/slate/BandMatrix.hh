@@ -201,8 +201,8 @@ void BandMatrix<scalar_t>::tileUpdateAllOrigin()
     int64_t klt = ceildiv( this->kl_, this->tileNb(0) );
     int64_t kut = ceildiv( this->ku_, this->tileNb(0) );
     for (int64_t j = 0; j < nt; ++j) {
-        int64_t istart = std::max( int64_t(0), j-kut );
-        int64_t iend   = std::min( j+klt+1, mt );
+        int64_t istart = blas::max( 0, j-kut );
+        int64_t iend   = blas::min( j+klt+1, mt );
         for (int64_t i = istart; i < iend; ++i) {
             if (this->tileIsLocal(i, j)) {
                 this->tileUpdateOrigin(i, j);

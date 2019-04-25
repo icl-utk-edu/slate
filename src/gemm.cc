@@ -58,9 +58,9 @@ namespace specialization {
 /// - bcast communications are serialized,
 /// - gemm operations are serialized,
 /// - bcasts can get ahead of gemms by the value of lookahead.
-/// @ingroup gemm_specialization
-///
 /// ColMajor layout is assumed
+///
+/// @ingroup gemm_specialization
 ///
 template <Target target, typename scalar_t>
 void gemm(slate::internal::TargetType<target>,

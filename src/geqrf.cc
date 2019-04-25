@@ -53,9 +53,10 @@ namespace specialization {
 /// Distributed parallel QR factorization.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
-/// @ingroup geqrf_specialization
 ///
 /// ColMajor layout is assumed
+///
+/// @ingroup geqrf_specialization
 ///
 template <Target target, typename scalar_t>
 void geqrf(slate::internal::TargetType<target>,

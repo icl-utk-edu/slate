@@ -247,6 +247,9 @@ protected:
 
     bool valid_;
     TileKind kind_;
+    /// layout_: The physical ordering of elements in the data buffer:
+    ///          - ColMajor: elements of a column are 1-strided
+    ///          - RowMajor: elements of a row are 1-strided
     Layout layout_;
 
     int device_;
@@ -291,6 +294,11 @@ Tile<scalar_t>::Tile()
 ///     - Workspace:  temporary tile, allocated by SLATE
 ///     - SlateOwned: origin tile, allocated by SLATE
 ///     - UserOwned:  origin tile, allocated by user
+///
+/// @param[in] layout
+///     The physical ordering of elements in the data buffer:
+///     - ColMajor: elements of a column are 1-strided
+///     - RowMajor: elements of a row are 1-strided
 ///
 template <typename scalar_t>
 Tile<scalar_t>::Tile(

@@ -253,45 +253,51 @@ public:
     /// Will copy-in the tile if it does not exist or its state is Invalid.
     /// Sets tile state to Shared if copied-in.
     /// Updates source tile's state to shared if copied-in.
-    void tileGetForReading(int64_t i, int64_t j, int device=host_num_,
-                            LayoutConvert layout=LayoutConvert::ColMajor);
+    /// May convert destination tile Layout based on 'layout' param.
+    void tileGetForReading(int64_t i, int64_t j, LayoutConvert layout, int device=host_num_);
 
     /// Gets all local tiles for reading on device.
-    void tileGetAllForReading(int device=host_num_);
+    /// May convert destination tiles' Layout based on 'layout' param.
+    void tileGetAllForReading(LayoutConvert layout, int device=host_num_);
 
     /// Gets all local tiles for reading on corresponding devices.
-    void tileGetAllForReadingOnDevices();
+    /// May convert destination tiles' Layout based on 'layout' param.
+    void tileGetAllForReadingOnDevices(LayoutConvert layout);
 
     /// Gets tile(i, j) for writing on device.
-    /// Sets state to Modified.
-    /// Will copy tile in if not exists or state is Invalid.
+    /// Sets state to MOSI::Modified.
+    /// Will copy tile in if not exists or state is MOSI::Invalid.
     /// Other instances will be invalidated.
-    void tileGetForWriting(int64_t i, int64_t j, int device=host_num_,
-                            LayoutConvert layout=LayoutConvert::ColMajor);
+    /// May convert destination tile Layout based on 'layout' param.
+    void tileGetForWriting(int64_t i, int64_t j, LayoutConvert layout, int device=host_num_);
 
     /// Gets all local tiles for writing on device.
-    void tileGetAllForWriting(int device=host_num_);
+    /// May convert destination tiles' Layout based on 'layout' param.
+    void tileGetAllForWriting(LayoutConvert layout, int device=host_num_);
 
     /// Gets all local tiles for writing on corresponding devices.
-    void tileGetAllForWritingOnDevices();
+    /// May convert destination tiles' Layout based on 'layout' param.
+    void tileGetAllForWritingOnDevices(LayoutConvert layout);
 
     /// Gets tile(i, j) on device and marks it as OnHold.
     /// Will copy tile in if it does not exist or its state is Invalid.
     /// Updates the source tile's state to Shared if copied-in.
-    void tileGetAndHold(int64_t i, int64_t j, int device=host_num_,
-                            LayoutConvert layout=LayoutConvert::ColMajor);
+    /// May convert destination tile Layout based on 'layout' param.
+    void tileGetAndHold(int64_t i, int64_t j, LayoutConvert layout, int device=host_num_);
 
     /// Gets all local tiles on device and marks them as OnHold.
-    void tileGetAndHoldAll(int device=host_num_);
+    /// May convert destination tiles' Layout based on 'layout' param.
+    void tileGetAndHoldAll(LayoutConvert layout, int device=host_num_);
 
     /// Gets all local tiles on corresponding devices and marks them as OnHold.
-    void tileGetAndHoldAllOnDevices();
+    /// May convert destination tiles' Layout based on 'layout' param.
+    void tileGetAndHoldAllOnDevices(LayoutConvert layout);
 
-    /// Updates the origin instance of tile(i, j) if not MOSI::Shared.
+    /// Updates the origin instance of tile(i, j) if MOSI::Invalid.
     /// @return Pointer to origin instance of tile(i, j).
     Tile<scalar_t>* tileUpdateOrigin(int64_t i, int64_t j);
 
-    /// Updates all origin instances of tiles if not MOSI::Shared
+    /// Updates all origin instances of tiles if MOSI::Invalid.
     void tileUpdateAllOrigin();
 
     /// Returns life counter of tile {i, j} of op(A).
@@ -1761,11 +1767,12 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
 
 //------------------------------------------------------------------------------
 /// Gets tile(i, j) for reading on device.
-/// Will copy-in the tile if it does not exist or its state is Invalid.
-/// Sets tile state to Shared if copied-in.
+/// Will copy-in the tile if it does not exist or its state is MOSI::Invalid.
+/// Sets tile state to MOSI::Shared if copied-in.
 /// Finds a source tile whose state is valid (Modified|Shared) by
 /// looping on existing tile instances.
 /// Updates source tile's state to shared if copied-in.
+/// Converts destination Layout based on 'layout' param.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -1773,12 +1780,19 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
 /// @param[in] j
 ///     Tile's block column index. 0 <= j < nt.
 ///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
 /// @param[in] dst_device
 ///     Tile's destination: host or device ID, defaults to host.
 ///
+// todo: async version
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_device,
-                                             LayoutConvert layout)
+void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j,
+                                             LayoutConvert layout, int dst_device)
 {
     TileEntry<scalar_t> *dst_tileEntry = nullptr, *src_tileEntry = nullptr;
 
@@ -1882,11 +1896,12 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
 
 //------------------------------------------------------------------------------
 /// Gets tile(i, j) for writing on device.
-/// Sets state to Modified.
-/// Will copy-in the tile if it does not exist or its state is Invalid.
+/// Sets destination tile's state to MOSI::Modified.
+/// Will copy-in the tile if it does not exist or its state is MOSI::Invalid.
 /// Other instances will be invalidated.
 /// Finds a source tile whose state is valid (Modified|Shared) by
-/// scanning existing tile instances.
+///     scanning existing tile instances.
+/// Converts destination Layout based on 'layout' param.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -1894,21 +1909,29 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
 /// @param[in] j
 ///     Tile's block column index. 0 <= j < nt.
 ///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
 /// @param[in] dst_device
 ///     Tile's destination: host or device ID, defaults to host.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetForWriting(int64_t i, int64_t j, int device, LayoutConvert layout)
+void BaseMatrix<scalar_t>::tileGetForWriting(int64_t i, int64_t j,
+                                             LayoutConvert layout, int device)
 {
-    tileGetForReading(i, j, device, layout);
+    tileGetForReading(i, j, layout, device);
     tileModified(i, j, device);
 }
 
 
 //------------------------------------------------------------------------------
-/// Gets tile(i, j) on device and marks it as OnHold.
-/// Will copy tile in if it does not exist or its state is Invalid.
+/// Gets tile(i, j) on device and marks it as MOSI::OnHold.
+/// Will copy tile in if it does not exist or its state is MOSI::Invalid.
 /// Updates the source tile's state to Shared if copied-in.
+/// Converts destination Layout based on 'layout' param.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -1916,13 +1939,20 @@ void BaseMatrix<scalar_t>::tileGetForWriting(int64_t i, int64_t j, int device, L
 /// @param[in] j
 ///     Tile's block column index. 0 <= j < nt.
 ///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
 /// @param[in] dst_device
 ///     Tile's destination: host or device ID, defaults to host.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetAndHold(int64_t i, int64_t j, int device, LayoutConvert layout)
+void BaseMatrix<scalar_t>::tileGetAndHold(int64_t i, int64_t j,
+                                          LayoutConvert layout, int device)
 {
-    tileGetForReading(i, j, device, layout);
+    tileGetForReading(i, j, layout, device);
 
     auto tileIter = storage_->find(globalIndex(i, j, device));
     assert(tileIter != storage_->end());
@@ -1932,83 +1962,125 @@ void BaseMatrix<scalar_t>::tileGetAndHold(int64_t i, int64_t j, int device, Layo
 
 //------------------------------------------------------------------------------
 /// Gets all local tiles for reading on device.
+/// @see tileGetForReading.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
 ///
 /// @param[in] device
 ///     Tile's destination: host or device ID, defaults to host.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetAllForReading(int device)
+void BaseMatrix<scalar_t>::tileGetAllForReading(LayoutConvert layout, int device)
 {
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
             if (tileIsLocal(i, j))
-                tileGetForReading(i, j, device);
+                tileGetForReading(i, j, layout, device);
 }
 
 //------------------------------------------------------------------------------
 /// Gets all local tiles for writing on device.
+/// @see tileGetForWriting.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
 ///
 /// @param[in] device
 ///     Tile's destination: host or device ID, defaults to host.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetAllForWriting(int device)
+void BaseMatrix<scalar_t>::tileGetAllForWriting(LayoutConvert layout, int device)
 {
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
             if (tileIsLocal(i, j))
-                tileGetForWriting(i, j, device);
+                tileGetForWriting(i, j, layout, device);
 }
 
 //------------------------------------------------------------------------------
-/// Gets all local tiles on device and marks them as OnHold.
+/// Gets all local tiles on device and marks them as MOSI::OnHold.
+/// @see tileGetAndHold.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
 ///
 /// @param[in] device
 ///     Tile's destination: host or device ID, defaults to host.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetAndHoldAll(int device)
+void BaseMatrix<scalar_t>::tileGetAndHoldAll(LayoutConvert layout, int device)
 {
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
             if (tileIsLocal(i, j))
-                tileGetAndHold(i, j, device);
+                tileGetAndHold(i, j, layout, device);
 }
 
 //------------------------------------------------------------------------------
 /// Gets all local tiles for reading on corresponding devices.
+/// @see tileGetForReading.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetAllForReadingOnDevices()
+void BaseMatrix<scalar_t>::tileGetAllForReadingOnDevices(LayoutConvert layout)
 {
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
             if (tileIsLocal(i, j))
-                tileGetForReading(i, j, tileDevice(i, j));
+                tileGetForReading(i, j, layout, tileDevice(i, j));
 }
 
 //------------------------------------------------------------------------------
 /// Gets all local tiles for writing on corresponding devices.
+/// @see tileGetForWriting.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetAllForWritingOnDevices()
+void BaseMatrix<scalar_t>::tileGetAllForWritingOnDevices(LayoutConvert layout)
 {
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
             if (tileIsLocal(i, j))
-                tileGetForWriting(i, j, tileDevice(i, j));
+                tileGetForWriting(i, j, layout, tileDevice(i, j));
 }
 
 //------------------------------------------------------------------------------
-/// Gets all local tiles on corresponding devices and marks them as OnHold.
+/// Gets all local tiles on corresponding devices and marks them as MOSI::OnHold.
+/// @see tileGetAndHold.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
 //
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetAndHoldAllOnDevices()
+void BaseMatrix<scalar_t>::tileGetAndHoldAllOnDevices(LayoutConvert layout)
 {
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
             if (tileIsLocal(i, j))
-                tileGetAndHold(i, j, tileDevice(i, j));
+                tileGetAndHold(i, j, layout, tileDevice(i, j));
 }
 
 //------------------------------------------------------------------------------
@@ -2046,7 +2118,7 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileUpdateOrigin(int64_t i, int64_t j)
 }
 
 //------------------------------------------------------------------------------
-/// Updates all origin instances of local tiles if not MOSI::Shared
+/// Updates all origin instances of local tiles if MOSI::Invalid.
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileUpdateAllOrigin()

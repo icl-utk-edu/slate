@@ -118,12 +118,12 @@ public:
     void insertLocalTiles(Target origin=Target::Host);
     void insertLocalTiles(bool on_devices);
 
-    void tileGetAllForReading(int device=hostNum());
-    void tileGetAllForReadingOnDevices();
-    void tileGetAllForWriting(int device=hostNum());
-    void tileGetAllForWritingOnDevices();
-    void tileGetAndHoldAll(int device=hostNum());
-    void tileGetAndHoldAllOnDevices();
+    void tileGetAllForReading(LayoutConvert layout, int device=hostNum());
+    void tileGetAllForReadingOnDevices(LayoutConvert layout);
+    void tileGetAllForWriting(LayoutConvert layout, int device=hostNum());
+    void tileGetAllForWritingOnDevices(LayoutConvert layout);
+    void tileGetAndHoldAll(LayoutConvert layout, int device=hostNum());
+    void tileGetAndHoldAllOnDevices(LayoutConvert layout);
     void tileUnsetHoldAll(int device=hostNum());
     void tileUnsetHoldAllOnDevices();
     void tileUpdateAllOrigin();
@@ -762,12 +762,19 @@ void BaseTrapezoidMatrix<scalar_t>::insertLocalTiles(bool on_devices)
 
 //------------------------------------------------------------------------------
 /// Gets all local tiles for reading on device.
+/// @see tileGetForReading.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
 ///
 /// @param[in] device
 ///     Tile's destination: host or device ID, defaults to host.
 ///
 template <typename scalar_t>
-void BaseTrapezoidMatrix<scalar_t>::tileGetAllForReading(int device)
+void BaseTrapezoidMatrix<scalar_t>::tileGetAllForReading(LayoutConvert layout, int device)
 {
     int64_t mt = this->mt();
     for (int64_t j = 0; j < this->nt(); ++j) {
@@ -775,19 +782,26 @@ void BaseTrapezoidMatrix<scalar_t>::tileGetAllForReading(int device)
         int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
         for (int64_t i = istart; i < iend; ++i) {
             if (this->tileIsLocal(i, j))
-                this->tileGetForReading(i, j, device);
+                this->tileGetForReading(i, j, layout, device);
         }
     }
 }
 
 //------------------------------------------------------------------------------
 /// Gets all local tiles for writing on device.
+/// @see tileGetForWriting.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
 ///
 /// @param[in] device
 ///     Tile's destination: host or device ID, defaults to host.
 ///
 template <typename scalar_t>
-void BaseTrapezoidMatrix<scalar_t>::tileGetAllForWriting(int device)
+void BaseTrapezoidMatrix<scalar_t>::tileGetAllForWriting(LayoutConvert layout, int device)
 {
     int64_t mt = this->mt();
     for (int64_t j = 0; j < this->nt(); ++j) {
@@ -795,19 +809,26 @@ void BaseTrapezoidMatrix<scalar_t>::tileGetAllForWriting(int device)
         int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
         for (int64_t i = istart; i < iend; ++i) {
             if (this->tileIsLocal(i, j))
-                this->tileGetForWriting(i, j, device);
+                this->tileGetForWriting(i, j, layout, device);
         }
     }
 }
 
 //------------------------------------------------------------------------------
-/// Gets all local tiles on device and marks them as OnHold.
+/// Gets all local tiles on device and marks them as MOSI::OnHold.
+/// @see tileGetAndHold.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
 ///
 /// @param[in] device
 ///     Tile's destination: host or device ID, defaults to host.
 ///
 template <typename scalar_t>
-void BaseTrapezoidMatrix<scalar_t>::tileGetAndHoldAll(int device)
+void BaseTrapezoidMatrix<scalar_t>::tileGetAndHoldAll(LayoutConvert layout, int device)
 {
     int64_t mt = this->mt();
     for (int64_t j = 0; j < this->nt(); ++j) {
@@ -815,16 +836,23 @@ void BaseTrapezoidMatrix<scalar_t>::tileGetAndHoldAll(int device)
         int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
         for (int64_t i = istart; i < iend; ++i) {
             if (this->tileIsLocal(i, j))
-                this->tileGetAndHold(i, j, device);
+                this->tileGetAndHold(i, j, layout, device);
         }
     }
 }
 
 //------------------------------------------------------------------------------
 /// Gets all local tiles for reading on corresponding devices.
+/// @see tileGetForReading.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
 ///
 template <typename scalar_t>
-void BaseTrapezoidMatrix<scalar_t>::tileGetAllForReadingOnDevices()
+void BaseTrapezoidMatrix<scalar_t>::tileGetAllForReadingOnDevices(LayoutConvert layout)
 {
     int64_t mt = this->mt();
     for (int64_t j = 0; j < this->nt(); ++j) {
@@ -832,16 +860,23 @@ void BaseTrapezoidMatrix<scalar_t>::tileGetAllForReadingOnDevices()
         int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
         for (int64_t i = istart; i < iend; ++i) {
             if (this->tileIsLocal(i, j))
-                this->tileGetForReading(i, j, this->tileDevice(i, j));
+                this->tileGetForReading(i, j, layout, this->tileDevice(i, j));
         }
     }
 }
 
 //------------------------------------------------------------------------------
-/// Gets all local tiles for reading on corresponding devices.
+/// Gets all local tiles for writing on corresponding devices.
+/// @see tileGetForWriting.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
 ///
 template <typename scalar_t>
-void BaseTrapezoidMatrix<scalar_t>::tileGetAllForWritingOnDevices()
+void BaseTrapezoidMatrix<scalar_t>::tileGetAllForWritingOnDevices(LayoutConvert layout)
 {
     int64_t mt = this->mt();
     for (int64_t j = 0; j < this->nt(); ++j) {
@@ -849,16 +884,23 @@ void BaseTrapezoidMatrix<scalar_t>::tileGetAllForWritingOnDevices()
         int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
         for (int64_t i = istart; i < iend; ++i) {
             if (this->tileIsLocal(i, j))
-                this->tileGetForWriting(i, j, this->tileDevice(i, j));
+                this->tileGetForWriting(i, j, layout, this->tileDevice(i, j));
         }
     }
 }
 
 //------------------------------------------------------------------------------
-/// Gets all local tiles on corresponding devices and marks them as OnHold.
+/// Gets all local tiles on corresponding devices and marks them as MOSI::OnHold.
+/// @see tileGetAndHold.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
 //
 template <typename scalar_t>
-void BaseTrapezoidMatrix<scalar_t>::tileGetAndHoldAllOnDevices()
+void BaseTrapezoidMatrix<scalar_t>::tileGetAndHoldAllOnDevices(LayoutConvert layout)
 {
     int64_t mt = this->mt();
     for (int64_t j = 0; j < this->nt(); ++j) {
@@ -866,7 +908,7 @@ void BaseTrapezoidMatrix<scalar_t>::tileGetAndHoldAllOnDevices()
         int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
         for (int64_t i = istart; i < iend; ++i) {
             if (this->tileIsLocal(i, j))
-                this->tileGetAndHold(i, j, this->tileDevice(i, j));
+                this->tileGetAndHold(i, j, layout, this->tileDevice(i, j));
         }
     }
 }

@@ -430,7 +430,7 @@ void gemm(internal::TargetType<Target::Devices>,
                             A.tileGetForReading(i, 0, device, LayoutConvert::None);
                             B_tiles_set.insert({0, j});
                             B.tileGetForReading(0, j, device, LayoutConvert::None);
-                            B_tiles_set.insert({i, j});
+                            C_tiles_set.insert({i, j});
                             C.tileGetForWriting(i, j, device, LayoutConvert::None);
                         }
                     }

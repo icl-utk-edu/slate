@@ -81,6 +81,8 @@ public:
         std::list<std::tuple<int64_t, int64_t,
                              std::list<BaseMatrix<scalar_t> > > >;
 
+    using ij_tuple    = std::tuple<int64_t, int64_t>;
+
     friend class Debug;
 
     static constexpr bool is_complex = slate::is_complex<scalar_t>::value;
@@ -363,6 +365,28 @@ public:
     /// based on its 'TileKind', buffer size, and stride.
     /// Tile instance on 'device' should exist.
     bool tileIsTransposable(int64_t i, int64_t j, int device=host_num_);
+
+    /// Converts tile(i, j, device) into 'layout'.
+    /// Tile should exist on 'device', will assert otherwise.
+    void tileConvertLayout(int64_t i, int64_t j, int device, Layout layout);
+
+    /// Converts tiles indicated in 'tileSet' that exist on 'device' into 'layout'.
+    /// Tiles should exist on 'device', will assert otherwise.
+    /// Operates in batch mode.
+    void tileConvertLayout(std::set<ij_tuple> tileSet, int device, Layout layout);
+
+    /// Converts all existing tile instances on 'device' into 'layout'.
+    /// Operates in batch mode.
+    void tileConvertLayout(int device, Layout layout);
+
+    /// Converts all existing tile instances on available devices into 'layout'.
+    /// Tiles sould exist already on devices.
+    /// Operates in batch mode.
+    void tileConvertLayoutOnDevices(Layout layout);
+
+    /// Converts all origin tiles into current matrix-layout.
+    /// Operates in batch mode.
+    void resetTilesLayout();
 
 protected:
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set);
@@ -2054,6 +2078,171 @@ bool BaseMatrix<scalar_t>::tileIsTransposable(int64_t i, int64_t j, int device)
 }
 
 
+//------------------------------------------------------------------------------
+/// Converts tile(i, j, device) into 'layout'.
+/// Tile should exist on 'device', will assert otherwise.
+/// Tile will be made transposable if it was not.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] device
+///     Tile's host or device ID.
+///
+/// @param[in] layout
+///     Intended Layout of tile:
+///     - Layout::ColMajor or
+///     - Layout::RowMajor.
+///
+/// todo: handle op(A), sub-matrix, and sliced-matrix
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileConvertLayout(int64_t i, int64_t j, int device, Layout layout)
+{
+    auto tile = storage_->at(globalIndex(i, j, device)).tile_;
+    if (tile->layout() != layout ) {
+        if (! tile->isTransposable() ) {
+            // todo: make transposable
+            assert(0);
+        }
+        if (device == host_num_) {
+            convert_layout(tile);
+        }
+        else{
+            slate_cuda_call(
+                cudaSetDevice(device));
+            convert_layout(tile, compute_stream(device));
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Converts tiles indicated in 'tileSet' that exist on 'device' into 'layout'.
+/// Tiles should exist on 'device', will assert otherwise.
+/// Operates in batch mode.
+///
+/// @param[in] tileSet
+///     Set of (i, j) tuples indicating indices of Tiles' to be converted.
+///
+/// @param[in] device
+///     Tiles' host or device ID.
+///
+/// @param[in] layout
+///     Intended Layout of tiles:
+///     - Layout::ColMajor or
+///     - Layout::RowMajor.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileConvertLayout(std::set<ij_tuple> tileSet, int device, Layout layout)
+{
+    for (auto iter = tileSet.begin(); iter != tileSet.end(); iter++){
+        int64_t i = std::get<0>(*iter);
+        int64_t j = std::get<1>(*iter);
+        tileConvertLayout(i, j, device, layout);
+    }
+    // todo: handle batched layout
+}
+
+//------------------------------------------------------------------------------
+/// Converts all existing tile instances on 'device' into 'layout'
+/// Operates in batch mode.
+///
+/// @param[in] device
+///     Tiles' host or device ID.
+///
+/// @param[in] layout
+///     Intended Layout of tiles:
+///     - Layout::ColMajor or
+///     - Layout::RowMajor.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileConvertLayout(int device, Layout layout)
+{
+    // todo: handle batched layout
+    for (auto iter = storage_->tiles_.begin(); iter != storage_->tiles_.end(); iter++) {
+        auto tile = iter->second.tile_;
+        if (tile->device() == device) {
+            if (tile->layout() != layout ) {
+                if (! tile->isTransposable() ) {
+                    // todo: make transposable
+                    assert(0);
+                }
+                if (device == host_num_) {
+                    convert_layout(tile);
+                }
+                else{
+                    slate_cuda_call(
+                        cudaSetDevice(device));
+                    convert_layout(tile, compute_stream(device));
+                }
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Converts all existing tile instances on available devices into 'layout'.
+/// Host tiles are not affected.
+/// Tiles should exist already on devices.
+/// Operates in batch mode.
+///
+/// @param[in] layout
+///     Intended Layout of tiles:
+///     - Layout::ColMajor or
+///     - Layout::RowMajor.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileConvertLayoutOnDevices(Layout layout)
+{
+    // todo: handle batched layout
+    for (auto iter = storage_->tiles_.begin(); iter != storage_->tiles_.end(); iter++) {
+        auto tile = iter->second.tile_;
+        if (tile->device() != host_num_) {
+            if (tile->layout() != layout ) {
+                if (! tile->isTransposable() ) {
+                    // todo: make transposable
+                    assert(0);
+                }
+                slate_cuda_call(cudaSetDevice(tile->device()));
+                convert_layout(tile, compute_stream(tile->device()));
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Converts all origin tiles into current matrix-layout.
+/// Operates in batch mode.
+///
+// todo: override on BaseTrapezoidMatrix, or iterate on maps entries
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::resetTilesLayout()
+{
+    // todo: handle batched layout
+    for (int64_t i = 0; i < mt(); ++i) {
+        for (int64_t j = 0; j < nt(); ++j) {
+            if ( tileIsLocal(i, j) ) {
+
+                auto tile = tileUpdateOrigin(i, j);
+                if (tile->layout() != this->layout_ ) {
+                    if (! tile->isTransposable() ) {
+                        // todo: make transposable
+                    }
+                    if (tile->device() == host_num_) {
+                        convert_layout(tile);
+                    }
+                    else{
+                        slate_cuda_call(
+                            cudaSetDevice(tile->device()));
+                        convert_layout(tile, compute_stream(tile->device()));
+                    }
+                }
+            }
+        }
+    }
+}
 
 //------------------------------------------------------------------------------
 /// Puts all MPI ranks that have tiles in the matrix into the set.

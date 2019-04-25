@@ -220,9 +220,9 @@ void geadd(internal::TargetType<Target::Devices>,
                 for (int64_t j = 0; j < B.nt(); ++j) {
                     if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
                         A_tiles_set.insert({i, j});
-                        A.tileGetForReading(i, j, LayoutConvert::None, device);
+                        A.tileGetForReading(i, j, device, LayoutConvert::None);
                         B_tiles_set.insert({i, j});
-                        B.tileGetForWriting(i, j, LayoutConvert::None, device);
+                        B.tileGetForWriting(i, j, device, LayoutConvert::None);
                     }
                 }
             }

@@ -289,8 +289,8 @@ void copy(internal::TargetType<Target::Devices>,
                         ( (  lower && i >= j) ||
                           (! lower && i <= j) ) )
                     {
-                        A.tileGetForReading(i, j, LayoutConvert::None, device);
-                        B.tileGetForWriting(i, j, LayoutConvert::None, device);
+                        A.tileGetForReading(i, j, device, LayoutConvert::None);
+                        B.tileGetForWriting(i, j, device, LayoutConvert::None);
                     }
 
             // Usually the output matrix (B) provides all the batch arrays.

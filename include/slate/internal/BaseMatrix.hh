@@ -249,12 +249,12 @@ public:
     /// Unless permissive, asserts if other instances are in Modified state.
     void tileModified(int64_t i, int64_t j, int device=host_num_, bool permissive=false);
 
-    /// Gets tile(i, j) for reading on device.
-    /// Will copy-in the tile if it does not exist or its state is Invalid.
-    /// Sets tile state to Shared if copied-in.
-    /// Updates source tile's state to shared if copied-in.
-    /// May convert destination tile Layout based on 'layout' param.
-    void tileGetForReading(int64_t i, int64_t j, LayoutConvert layout, int device=host_num_);
+    void tileGetForReading(int64_t i, int64_t j, int device, LayoutConvert layout);
+
+    void tileGetForReading(int64_t i, int64_t j, LayoutConvert layout)
+    {
+        tileGetForReading(i, j, host_num_, layout);
+    }
 
     /// Gets all local tiles for reading on device.
     /// May convert destination tiles' Layout based on 'layout' param.
@@ -264,12 +264,12 @@ public:
     /// May convert destination tiles' Layout based on 'layout' param.
     void tileGetAllForReadingOnDevices(LayoutConvert layout);
 
-    /// Gets tile(i, j) for writing on device.
-    /// Sets state to MOSI::Modified.
-    /// Will copy tile in if not exists or state is MOSI::Invalid.
-    /// Other instances will be invalidated.
-    /// May convert destination tile Layout based on 'layout' param.
-    void tileGetForWriting(int64_t i, int64_t j, LayoutConvert layout, int device=host_num_);
+    void tileGetForWriting(int64_t i, int64_t j, int device, LayoutConvert layout);
+
+    void tileGetForWriting(int64_t i, int64_t j, LayoutConvert layout)
+    {
+        tileGetForWriting(i, j, host_num_, layout);
+    }
 
     /// Gets all local tiles for writing on device.
     /// May convert destination tiles' Layout based on 'layout' param.
@@ -1377,7 +1377,7 @@ void BaseMatrix<scalar_t>::tileRecv(
         if (target == Target::Devices) {
             #pragma omp task
             {
-                tileGetForReading(i, j, LayoutConvert::None, tileDevice(i, j));
+                tileGetForReading(i, j, tileDevice(i, j), LayoutConvert::None);
             }
         }
     }
@@ -1516,7 +1516,7 @@ void BaseMatrix<scalar_t>::listBcast(
                 #pragma omp task
                 {
                     for (auto device : dev_set)
-                        tileGetForReading(i, j, LayoutConvert::None, device);
+                        tileGetForReading(i, j, device, LayoutConvert::None);
                 }
             }
         }
@@ -1810,8 +1810,8 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
 ///
 // todo: async version
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j,
-                                             LayoutConvert layout, int dst_device)
+void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_device,
+                                             LayoutConvert layout)
 {
     TileEntry<scalar_t> *dst_tileEntry = nullptr, *src_tileEntry = nullptr;
 
@@ -1938,10 +1938,10 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j,
 ///     Tile's destination: host or device ID, defaults to host.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetForWriting(int64_t i, int64_t j,
-                                             LayoutConvert layout, int device)
+void BaseMatrix<scalar_t>::tileGetForWriting(int64_t i, int64_t j, int device,
+                                             LayoutConvert layout)
 {
-    tileGetForReading(i, j, layout, device);
+    tileGetForReading(i, j, device, layout);
     tileModified(i, j, device);
 }
 
@@ -1971,7 +1971,7 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetAndHold(int64_t i, int64_t j,
                                           LayoutConvert layout, int device)
 {
-    tileGetForReading(i, j, layout, device);
+    tileGetForReading(i, j, device, layout);
 
     auto tileIter = storage_->find(globalIndex(i, j, device));
     assert(tileIter != storage_->end());
@@ -1998,7 +1998,7 @@ void BaseMatrix<scalar_t>::tileGetAllForReading(LayoutConvert layout, int device
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
             if (tileIsLocal(i, j))
-                tileGetForReading(i, j, layout, device);
+                tileGetForReading(i, j, device, layout);
 }
 
 //------------------------------------------------------------------------------
@@ -2020,7 +2020,7 @@ void BaseMatrix<scalar_t>::tileGetAllForWriting(LayoutConvert layout, int device
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
             if (tileIsLocal(i, j))
-                tileGetForWriting(i, j, layout, device);
+                tileGetForWriting(i, j, device, layout);
 }
 
 //------------------------------------------------------------------------------
@@ -2061,7 +2061,7 @@ void BaseMatrix<scalar_t>::tileGetAllForReadingOnDevices(LayoutConvert layout)
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
             if (tileIsLocal(i, j))
-                tileGetForReading(i, j, layout, tileDevice(i, j));
+                tileGetForReading(i, j, tileDevice(i, j), layout);
 }
 
 //------------------------------------------------------------------------------
@@ -2080,7 +2080,7 @@ void BaseMatrix<scalar_t>::tileGetAllForWritingOnDevices(LayoutConvert layout)
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
             if (tileIsLocal(i, j))
-                tileGetForWriting(i, j, layout, tileDevice(i, j));
+                tileGetForWriting(i, j, tileDevice(i, j), layout);
 }
 
 //------------------------------------------------------------------------------
@@ -2127,7 +2127,7 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileUpdateOrigin(int64_t i, int64_t j)
         iter = storage_->find(globalIndex(i, j, tileDevice(i, j)));
         if (iter != storage_->end() && iter->second.tile_->origin()) {
             if ( iter->second.stateOn(MOSI::Invalid) )
-                tileGetForReading(i, j, LayoutConvert::None, tileDevice(i, j));
+                tileGetForReading(i, j, tileDevice(i, j), LayoutConvert::None);
         }
         else
             slate_error( std::string("Origin tile not found! tile(")

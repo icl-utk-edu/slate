@@ -258,7 +258,7 @@ void test_synorm_work(Params& params, bool run)
                             T.at(ii, jj) = peak;
                             A_tst[ ilocal + jlocal*lldA ] = peak;
                             // todo: this move shouldn't be required -- the trnorm should copy data itself.
-                            A.tileGetForWriting(i, j, slate::LayoutConvert::ColMajor, A.tileDevice(i, j));
+                            A.tileGetForWriting(i, j, A.tileDevice(i, j), slate::LayoutConvert::ColMajor);
                         }
 
                         real_t A_norm = slate::norm(norm, A, {
@@ -306,7 +306,7 @@ void test_synorm_work(Params& params, bool run)
                             T.at(ii, jj) = save;
                             A_tst[ ilocal + jlocal*lldA ] = save;
                             // todo: this move shouldn't be required -- the trnorm should copy data itself.
-                            A.tileGetForWriting(i, j, slate::LayoutConvert::ColMajor, A.tileDevice(i, j));
+                            A.tileGetForWriting(i, j, A.tileDevice(i, j), slate::LayoutConvert::ColMajor);
                         }
                     }
                 }

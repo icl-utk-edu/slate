@@ -470,7 +470,7 @@ void norm(
                           (! lower && i <= j) ))
                     {
                         A_tiles_set.insert({i, j});
-                        A.tileGetForReading(i, j, LayoutConvert::None, device);
+                        A.tileGetForReading(i, j, device, LayoutConvert::None);
                     }
                 }
             }

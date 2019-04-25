@@ -427,11 +427,11 @@ void gemm(internal::TargetType<Target::Devices>,
                     if (C.tileIsLocal(i, j)) {
                         if (device == C.tileDevice(i, j)) {
                             A_tiles_set.insert({i, 0});
-                            A.tileGetForReading(i, 0, LayoutConvert::None, device);
+                            A.tileGetForReading(i, 0, device, LayoutConvert::None);
                             B_tiles_set.insert({0, j});
-                            B.tileGetForReading(0, j, LayoutConvert::None, device);
+                            B.tileGetForReading(0, j, device, LayoutConvert::None);
                             B_tiles_set.insert({i, j});
-                            C.tileGetForWriting(i, j, LayoutConvert::None, device);
+                            C.tileGetForWriting(i, j, device, LayoutConvert::None);
                         }
                     }
                 }

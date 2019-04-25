@@ -441,11 +441,11 @@ void herk(internal::TargetType<Target::Devices>,
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
                                 A_tiles_set.insert({i, 0});
-                                A.tileGetForReading(i, 0, LayoutConvert::None, device);
+                                A.tileGetForReading(i, 0, device, LayoutConvert::None);
                                 A_tiles_set.insert({j, 0});
-                                A.tileGetForReading(j, 0, LayoutConvert::None, device);
+                                A.tileGetForReading(j, 0, device, LayoutConvert::None);
                                 C_tiles_set.insert({i, j});
-                                C.tileGetForWriting(i, j, LayoutConvert::None, device);
+                                C.tileGetForWriting(i, j, device, LayoutConvert::None);
                             }
                         }
                     }

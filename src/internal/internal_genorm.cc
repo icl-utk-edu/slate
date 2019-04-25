@@ -528,7 +528,7 @@ void norm(
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
                         A_tiles_set.insert({i, j});
-                        A.tileGetForReading(i, j, LayoutConvert::None, device);
+                        A.tileGetForReading(i, j, device, LayoutConvert::None);
                     }
                 }
             }

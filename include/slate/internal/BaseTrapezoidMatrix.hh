@@ -782,7 +782,7 @@ void BaseTrapezoidMatrix<scalar_t>::tileGetAllForReading(LayoutConvert layout, i
         int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
         for (int64_t i = istart; i < iend; ++i) {
             if (this->tileIsLocal(i, j))
-                this->tileGetForReading(i, j, layout, device);
+                this->tileGetForReading(i, j, device, layout);
         }
     }
 }
@@ -809,7 +809,7 @@ void BaseTrapezoidMatrix<scalar_t>::tileGetAllForWriting(LayoutConvert layout, i
         int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
         for (int64_t i = istart; i < iend; ++i) {
             if (this->tileIsLocal(i, j))
-                this->tileGetForWriting(i, j, layout, device);
+                this->tileGetForWriting(i, j, device, layout);
         }
     }
 }
@@ -860,7 +860,7 @@ void BaseTrapezoidMatrix<scalar_t>::tileGetAllForReadingOnDevices(LayoutConvert 
         int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
         for (int64_t i = istart; i < iend; ++i) {
             if (this->tileIsLocal(i, j))
-                this->tileGetForReading(i, j, layout, this->tileDevice(i, j));
+                this->tileGetForReading(i, j, this->tileDevice(i, j), layout);
         }
     }
 }
@@ -884,7 +884,7 @@ void BaseTrapezoidMatrix<scalar_t>::tileGetAllForWritingOnDevices(LayoutConvert 
         int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
         for (int64_t i = istart; i < iend; ++i) {
             if (this->tileIsLocal(i, j))
-                this->tileGetForWriting(i, j, layout, this->tileDevice(i, j));
+                this->tileGetForWriting(i, j, this->tileDevice(i, j), layout);
         }
     }
 }

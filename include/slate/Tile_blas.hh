@@ -65,6 +65,10 @@ void gemm(
 {
     trace::Block trace_block("blas::gemm");
 
+    // assumes column major for now
+    // todo: relax this assumption
+    const blas::Layout layout = blas::Layout::ColMajor;
+
     using blas::conj;
 
     assert(A.uploPhysical() == Uplo::General);
@@ -73,9 +77,13 @@ void gemm(
     assert(C.mb() == A.mb());  // m
     assert(C.nb() == B.nb());  // n
     assert(A.nb() == B.mb());  // k
+    assert(A.layout() == layout);
+    assert(B.layout() == layout);
+    assert(C.layout() == layout);
+
     if (C.op() == Op::NoTrans) {
         // C = opA(A) opB(B) + C
-        blas::gemm(blas::Layout::ColMajor,
+        blas::gemm(layout,
                    A.op(), B.op(),
                    C.mb(), C.nb(), A.nb(),
                    alpha, A.data(), A.stride(),
@@ -114,7 +122,7 @@ void gemm(
             beta  = conj(beta);
         }
 
-        blas::gemm(blas::Layout::ColMajor,
+        blas::gemm(layout,
                    opB, opA,
                    C.nb(), C.mb(), A.nb(),
                    alpha, B.data(), B.stride(),

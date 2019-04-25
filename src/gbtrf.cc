@@ -220,8 +220,8 @@ void gbtrf(slate::internal::TargetType<target>,
 
     // Debug::checkTilesLives(A);
     // Debug::printTilesLives(A);
-
-    A.clearWorkspace();
+    A.tileUpdateAllOrigin();
+    A.releaseWorkspace();
 
     // Debug::printTilesMaps(A);
 }

@@ -83,8 +83,9 @@ public:
     // void allocateBatchArrays();
     // void reserveHostWorkspace();
     // void reserveDeviceWorkspace();
-    // todo: void tileUpdateAllOrigin();
     // void gather(scalar_t* A, int64_t lda);
+
+    void tileUpdateAllOrigin();
 
 protected:
     int64_t kl_, ku_;
@@ -185,6 +186,29 @@ void BandMatrix<scalar_t>::upperBandwidth(int64_t ku)
         this->ku_ = ku;
     else
         this->kl_ = ku;
+}
+
+//------------------------------------------------------------------------------
+/// Move all tiles back to their origin.
+//
+// Assuming fixed size, square tiles for simplicity
+// todo: generalize
+template <typename scalar_t>
+void BandMatrix<scalar_t>::tileUpdateAllOrigin()
+{
+    int64_t mt = this->mt();
+    int64_t nt = this->nt();
+    int64_t klt = ceildiv( this->kl_, this->tileNb(0) );
+    int64_t kut = ceildiv( this->ku_, this->tileNb(0) );
+    for (int64_t j = 0; j < nt; ++j) {
+        int64_t istart = std::max( int64_t(0), j-kut );
+        int64_t iend   = std::min( j+klt+1, mt );
+        for (int64_t i = istart; i < iend; ++i) {
+            if (this->tileIsLocal(i, j)) {
+                this->tileUpdateOrigin(i, j);
+            }
+        }
+    }
 }
 
 } // namespace slate

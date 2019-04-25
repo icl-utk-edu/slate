@@ -66,6 +66,9 @@ void unmqr(
     // const int priority_one = 1;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
     int64_t A_min_mtnt = std::min(A_mt, A_nt);
@@ -150,8 +153,8 @@ void unmqr(
                             else
                                 bcast_list_V.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
                         }
-                        A.template listBcast(bcast_list_V_top, 0, Layout::ColMajor, 3);// TODO is column major safe?
-                        A.template listBcast(bcast_list_V, 0, Layout::ColMajor, 2);
+                        A.template listBcast(bcast_list_V_top, layout, 0, 3);
+                        A.template listBcast(bcast_list_V, layout, 0, 2);
 
                         // bcast Tlocal across row of C
                         if (top_rows.size() > 0) {
@@ -160,7 +163,7 @@ void unmqr(
                                 int64_t row = *it;
                                 bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
                             }
-                            Tlocal.template listBcast(bcast_list_T);
+                            Tlocal.template listBcast(bcast_list_T, layout);
                         }
 
                         // bcast Treduce across row of C
@@ -171,7 +174,7 @@ void unmqr(
                                 if (row > min_row) // exclude the first row of this panel that has no Treduce tile
                                     bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
                             }
-                            Treduce.template listBcast(bcast_list_T);
+                            Treduce.template listBcast(bcast_list_T, layout);
                         }
 
                         // //
@@ -249,8 +252,8 @@ void unmqr(
                             else
                                 bcast_list_V.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
                         }
-                        A.template listBcast(bcast_list_V_top, 0, Layout::ColMajor, 3);// TODO is column major safe?
-                        A.template listBcast(bcast_list_V, 0, Layout::ColMajor, 2);
+                        A.template listBcast(bcast_list_V_top, layout, 0, 3);
+                        A.template listBcast(bcast_list_V, layout, 0, 2);
 
                         // bcast Tlocal across row of C
                         BcastList bcast_list_T;
@@ -258,7 +261,7 @@ void unmqr(
                             int64_t row = *it;
                             bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
                         }
-                        Tlocal.template listBcast(bcast_list_T);
+                        Tlocal.template listBcast(bcast_list_T, layout);
 
                         // bcast Treduce across row of C
                         if (top_rows.size() > 1) {
@@ -268,7 +271,7 @@ void unmqr(
                                 if (row > min_row) // exclude the first row of this panel that has no Treduce tile
                                     bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
                             }
-                            Treduce.template listBcast(bcast_list_T);
+                            Treduce.template listBcast(bcast_list_T, layout);
                         }
 
                         // Apply local reflectors

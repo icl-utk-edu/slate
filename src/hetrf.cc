@@ -69,6 +69,9 @@ void hetrf(slate::internal::TargetType<target>,
     using BcastList  = typename Matrix<scalar_t>::BcastList;
     using ReduceList = typename Matrix<scalar_t>::ReduceList;
 
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+
     const int64_t A_mt = A.mt();
 
     std::vector< uint8_t > column_vectorL(A_mt);
@@ -99,7 +102,6 @@ void hetrf(slate::internal::TargetType<target>,
     #pragma omp master
     for (int64_t k = 0; k < A_mt; ++k) {
         //printf( "\n == k = %ld on rank-%d ==\n",k,rank ); fflush(stdout);
-
         int tag  = 1+k;
         int tag1 = 1+k+A_mt*1;
         int tag2 = 1+k+A_mt*2;
@@ -120,7 +122,7 @@ void hetrf(slate::internal::TargetType<target>,
                 // send L(k, j) that are needed to compute H(:, k)
                 for (int64_t j=0; j<k; j++) {
                     //printf( " %d: >> receiving A(%ld,:%ld) <<\n",rank,k,j  );
-                    A.tileBcast(k, j, H.sub(k, k, std::max(j, ione)-1, std::min(j+2, k-1)-1), tag);
+                    A.tileBcast(k, j, H.sub(k, k, std::max(j, ione)-1, std::min(j+2, k-1)-1), layout, tag);
                 }
                 for (int64_t i = 1; i < k; i++) {
                     if (H.tileIsLocal(k, i-1)) {
@@ -195,14 +197,14 @@ void hetrf(slate::internal::TargetType<target>,
 
                 ReduceList reduce_list;
                 reduce_list.push_back({k, k, {A.sub(k, k, 0, k-2)}});
-                T.template listReduce<target>(reduce_list, tag);
+                T.template listReduce<target>(reduce_list, layout, tag);
 
                 // T(k, k) -= L(k, k)*T(k, k-1)* L(k,k-1)'
                 // using H(k, k) as workspace
                 // > both L(k, k) and L(k, k-1) have been sent to (k, k)-th process
                 //   for updating T(k, k)
-                A.tileBcast(k, k-2, H.sub(k, k, k, k), tag);
-                A.tileBcast(k, k-1, T.sub(k, k, k, k), tag);
+                A.tileBcast(k, k-2, H.sub(k, k, k, k), layout, tag);
+                A.tileBcast(k, k-1, T.sub(k, k, k, k), layout, tag);
                 if (T.tileIsLocal(k, k)) {
                     H.tileInsert(k, k);
                     auto Lkj = A.sub(k, k, k-2, k-2);
@@ -228,7 +230,7 @@ void hetrf(slate::internal::TargetType<target>,
                 //printf( " trsm for T(%ld, %ld) <<\n", k, k); fflush(stdout);
                 if (k == 1) {
                     // > otherwise L(k, k) has been already sent to T(k, k) for updating A(k, k)
-                    A.tileBcast(k, k-1, T.sub(k, k, k, k), tag);
+                    A.tileBcast(k, k-1, T.sub(k, k, k, k), layout, tag);
                 }
                 if (T.tileIsLocal(k, k)) {
                     auto Akk = A.sub(k, k, k-1, k-1);
@@ -254,7 +256,7 @@ void hetrf(slate::internal::TargetType<target>,
                 if (k+1 < A_mt) {
                     // send T(k, k) for computing H(k, k), moved from below?
                     //printf( " tileBcast(T(%ld,%ld) to H(%ld,%ld) )\n",k,k,k,k-1 );
-                    T.tileBcast(k, k, H.sub(k, k, k-1, k-1), tag);
+                    T.tileBcast(k, k, H.sub(k, k, k-1, k-1), layout, tag);
                 }
             }
 
@@ -265,7 +267,7 @@ void hetrf(slate::internal::TargetType<target>,
                 {
                    // send T(k, k) that are needed to compute H(k+1:mt-1, k-1)
                    //printf( " %d: Bcast( T(%ld,%ld) )\n",rank,k,k ); fflush(stdout);
-                   T.tileBcast(k, k, H.sub(k+1, A_mt-1, k-1, k-1), tag2);
+                   T.tileBcast(k, k, H.sub(k+1, A_mt-1, k-1, k-1), layout, tag2);
                 }
             }
         }
@@ -289,7 +291,7 @@ void hetrf(slate::internal::TargetType<target>,
                     }
                     if (k > 1) {
                         // compute H(k, k) += T(k, k-1) * L(k, k-1)^T
-                        A.tileBcast(k, k-2, H.sub(k, k, k-1, k-1), tag);
+                        A.tileBcast(k, k-2, H.sub(k, k, k-1, k-1), layout, tag);
                         if (H.tileIsLocal(k, k-1)) {
                             slate::gemm<scalar_t>(
                                 scalar_t(1.0), A(k,   k-2),
@@ -309,7 +311,7 @@ void hetrf(slate::internal::TargetType<target>,
                         //printf( " >> update A1(%ld:%ld, %ld) on rank-%d <<\n", k+1,A_mt-1, k, rank); fflush(stdout);
                         if (k > 2) {
                             for (int64_t j = 0; j < k-1; j++) {
-                                H.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), tag1);
+                                H.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), layout, tag1);
                             }
                             auto Hj = H.sub(k, k, 0, k-2);
                             Hj = conj_transpose(Hj);
@@ -339,14 +341,14 @@ void hetrf(slate::internal::TargetType<target>,
                             for (int i = k+1; i < A_mt; ++i) {
                                 reduce_list.push_back({i, k, {A.sub(i, i, 0, k-2)}});
                             }
-                            A.template listReduce<target>(reduce_list, tag1);
+                            A.template listReduce<target>(reduce_list, layout, tag1);
                         }
                         else {
                             for (int64_t j = 0; j < k-1; j++) {
                                 for (int64_t i = k+1; i < A_mt; i++) {
-                                    A.tileBcast(i, j, A.sub(i, i, k, k), tag1);
+                                    A.tileBcast(i, j, A.sub(i, i, k, k), layout, tag1);
                                 }
-                                H.tileBcast(k, j, A.sub(k+1, A_mt-1, k, k), tag1);
+                                H.tileBcast(k, j, A.sub(k+1, A_mt-1, k, k), layout, tag1);
                             }
                             for (int64_t j = 0; j < k-1; j++) {
                                 auto Hj = H.sub(k, k, j, j);
@@ -355,7 +357,7 @@ void hetrf(slate::internal::TargetType<target>,
                                     scalar_t(-1.0), A.sub(k+1, A_mt-1, j, j),
                                                     Hj.sub(0, 0, 0, 0),
                                     scalar_t( 1.0), A.sub(k+1, A_mt-1, k, k),
-                                    priority_one);
+                                    layout, priority_one);
                             }
                         }
                     }
@@ -367,9 +369,9 @@ void hetrf(slate::internal::TargetType<target>,
                 {
                     //printf( " >> update A2(%ld:%ld, %ld) on rank-%d <<\n", k+1,A_mt-1, k, rank); fflush(stdout);
                     for (int64_t i2 = k+1; i2 < A_mt; i2++) {
-                        A.tileBcast(i2, k-1, A.sub(i2, i2, k, k), tag1);
+                        A.tileBcast(i2, k-1, A.sub(i2, i2, k, k), layout, tag1);
                     }
-                    H.tileBcast(k, k-1, A.sub(k+1, A_mt-1, k, k), tag1);
+                    H.tileBcast(k, k-1, A.sub(k+1, A_mt-1, k, k), layout, tag1);
 
                     auto Hj = H.sub(k, k, k-1, k-1);
                     Hj = conj_transpose(Hj);
@@ -377,7 +379,7 @@ void hetrf(slate::internal::TargetType<target>,
                         scalar_t(-1.0), A.sub(k+1, A_mt-1, k-1, k-1),
                                         Hj.sub(0,   0,     0, 0),
                         scalar_t( 1.0), A.sub(k+1, A_mt-1, k, k),
-                        priority_one);
+                        layout, priority_one);
                 }
             }
 
@@ -419,7 +421,7 @@ void hetrf(slate::internal::TargetType<target>,
                 if (k > 0) {
                     // T(k+1,k) /= L(k,k)^T
                     //printf( " >> update T(%ld,%ld) on rank-%d <<\n", k+1, k, rank); fflush(stdout);
-                    A.tileBcast(k, k-1, T.sub(k+1, k+1, k, k), tag);
+                    A.tileBcast(k, k-1, T.sub(k+1, k+1, k, k), layout, tag);
 
                     if (T.tileIsLocal(k+1, k)) {
                         auto Akk = A.sub(k, k, k-1, k-1);
@@ -434,7 +436,7 @@ void hetrf(slate::internal::TargetType<target>,
                 }
                 // copy T(k+1, k)^T into T(k, k+1)
                 //printf( " >> copy T(%ld,%ld) on rank-%d <<\n", k, k+1, rank); fflush(stdout);
-                T.tileBcast(k+1, k, T.sub(k, k, k+1, k+1), tag);
+                T.tileBcast(k+1, k, T.sub(k, k, k+1, k+1), layout, tag);
                 if (T.tileIsLocal(k, k+1)) {
                     T.tileInsert(k, k+1);
                     int64_t ldt1 = T(k+1, k).stride();
@@ -453,7 +455,7 @@ void hetrf(slate::internal::TargetType<target>,
                 }
                 if (k > 0 && k+1 < A_mt) {
                     // send T(i, j) that are needed to compute H(k, :)
-                    T.tileBcast(k, k+1, H.sub(k+1, A_mt-1, k,   k), tag);
+                    T.tileBcast(k, k+1, H.sub(k+1, A_mt-1, k,   k), layout, tag);
 
                     //T.tileBcast(k+1, k, H.sub(k+1, A_mt-1, k-1, k-1), tag);
                     BcastList bcast_list_T;
@@ -461,7 +463,7 @@ void hetrf(slate::internal::TargetType<target>,
                     bcast_list_T.push_back({k+1, k, {A.sub(k+1, A_mt-1, k-1, k-1)}});
                     // for computing T(j, j)
                     bcast_list_T.push_back({k+1, k, {A.sub(k+1, k+1,    k+1, k+1)}});
-                    T.template listBcast(bcast_list_T, tag);
+                    T.template listBcast(bcast_list_T, layout, tag);
                 }
             }
             #pragma omp task depend(inout:columnL[k])
@@ -479,7 +481,8 @@ void hetrf(slate::internal::TargetType<target>,
                     #pragma omp task
                     {
                         internal::swap<Target::HostTask>(
-                            Direction::Forward, A.sub(k+1, A_mt-1, 0, k-1), pivots.at(k+1), 1, tag3);
+                            Direction::Forward, A.sub(k+1, A_mt-1, 0, k-1), pivots.at(k+1),
+                            layout, 1, tag3);
                     }
                 }
                 // symmetric swap of A(k+1:mt-1, k+1:mt-1)
@@ -487,7 +490,8 @@ void hetrf(slate::internal::TargetType<target>,
                 #pragma omp task
                 {
                     internal::swap<Target::HostTask>(
-                        Direction::Forward, A.sub(k+1, A_mt-1), pivots.at(k+1), 1, tag4);
+                        Direction::Forward, A.sub(k+1, A_mt-1), pivots.at(k+1),
+                        1, tag4);
                 }
                 #pragma omp taskwait
             }

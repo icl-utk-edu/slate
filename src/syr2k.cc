@@ -71,6 +71,9 @@ void syr2k(slate::internal::TargetType<target>,
     using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+
     // if upper, change to lower
     if (C.uplo() == Uplo::Upper)
         C = transpose(C);
@@ -108,8 +111,8 @@ void syr2k(slate::internal::TargetType<target>,
                 bcast_list_B.push_back({i, 0, {C.sub(i, i, 0, i),
                                                C.sub(i, C.mt()-1, i, i)}});
             }
-            A.template listBcast<target>(bcast_list_A);
-            B.template listBcast<target>(bcast_list_B);
+            A.template listBcast<target>(bcast_list_A, layout);
+            B.template listBcast<target>(bcast_list_B, layout);
         }
 
         // send next lookahead block cols of A
@@ -127,8 +130,8 @@ void syr2k(slate::internal::TargetType<target>,
                     bcast_list_B.push_back({i, k, {C.sub(i, i, 0, i),
                                                    C.sub(i, C.mt()-1, i, i)}});
                 }
-                A.template listBcast<target>(bcast_list_A);
-                B.template listBcast<target>(bcast_list_B);
+                A.template listBcast<target>(bcast_list_A, layout);
+                B.template listBcast<target>(bcast_list_B, layout);
             }
         }
 
@@ -162,8 +165,8 @@ void syr2k(slate::internal::TargetType<target>,
                             {i, k+lookahead, {C.sub(i, i, 0, i),
                                               C.sub(i, C.mt()-1, i, i)}});
                     }
-                    A.template listBcast<target>(bcast_list_A);
-                    B.template listBcast<target>(bcast_list_B);
+                    A.template listBcast<target>(bcast_list_A, layout);
+                    B.template listBcast<target>(bcast_list_B, layout);
                 }
             }
 

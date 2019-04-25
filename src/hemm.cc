@@ -57,6 +57,9 @@ namespace specialization {
 /// - bcasts can get ahead of hemms by the value of lookahead.
 /// Note A, B, and C are passed by value, so we can transpose if needed
 /// (for side = right) without affecting caller.
+///
+/// ColMajor layout is assumed
+///
 /// @ingroup hemm
 template <Target target, typename scalar_t>
 void hemm(slate::internal::TargetType<target>,
@@ -76,6 +79,9 @@ void hemm(slate::internal::TargetType<target>,
 
     using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
+
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
 
     // if on right, change to left by transposing A, B, C to get
     // op(C) = op(A)*op(B)
@@ -118,13 +124,13 @@ void hemm(slate::internal::TargetType<target>,
                 BcastList bcast_list_A;
                 for (int64_t i = 0; i < A.mt(); ++i)
                     bcast_list_A.push_back({i, 0, {C.sub(i, i, 0, C.nt()-1)}});
-                A.template listBcast<target>(bcast_list_A);
+                A.template listBcast<target>(bcast_list_A, layout);
 
                 // broadcast B(0, j) to ranks owning block col C(:, j)
                 BcastList bcast_list_B;
                 for (int64_t j = 0; j < B.nt(); ++j)
                     bcast_list_B.push_back({0, j, {C.sub(0, C.mt()-1, j, j)}});
-                B.template listBcast<target>(bcast_list_B);
+                B.template listBcast<target>(bcast_list_B, layout);
             }
 
             // send next lookahead block cols of A and block rows of B
@@ -143,7 +149,7 @@ void hemm(slate::internal::TargetType<target>,
                         bcast_list_A.push_back(
                             {i, k, {C.sub(i, i, 0, C.nt()-1)}});
                     }
-                    A.template listBcast<target>(bcast_list_A);
+                    A.template listBcast<target>(bcast_list_A, layout);
 
                     // broadcast B(k, j) to ranks owning block col C(0:k, j)
                     BcastList bcast_list_B;
@@ -151,7 +157,7 @@ void hemm(slate::internal::TargetType<target>,
                         bcast_list_B.push_back(
                             {k, j, {C.sub(0, C.mt()-1, j, j)}});
                     }
-                    B.template listBcast<target>(bcast_list_B);
+                    B.template listBcast<target>(bcast_list_B, layout);
                 }
             }
 
@@ -171,7 +177,8 @@ void hemm(slate::internal::TargetType<target>,
                     internal::gemm<target>(
                         alpha, A.sub(1, A.mt()-1, 0, 0),
                                B.sub(0, 0, 0, B.nt()-1),
-                        beta,  C.sub(1, C.mt()-1, 0, C.nt()-1));
+                        beta,  C.sub(1, C.mt()-1, 0, C.nt()-1),
+                        layout);
                 }
             }
 
@@ -194,7 +201,7 @@ void hemm(slate::internal::TargetType<target>,
                             bcast_list_A.push_back(
                                 {i, k+lookahead, {C.sub(i, i, 0, C.nt()-1)}});
                         }
-                        A.template listBcast<target>(bcast_list_A);
+                        A.template listBcast<target>(bcast_list_A, layout);
 
                         // broadcast B(k+la, j) to ranks
                         // owning block col C(0:k+la, j)
@@ -203,7 +210,7 @@ void hemm(slate::internal::TargetType<target>,
                             bcast_list_B.push_back(
                                 {k+lookahead, j, {C.sub(0, C.mt()-1, j, j)}});
                         }
-                        B.template listBcast<target>(bcast_list_B);
+                        B.template listBcast<target>(bcast_list_B, layout);
                     }
                 }
 
@@ -219,7 +226,8 @@ void hemm(slate::internal::TargetType<target>,
                     internal::gemm<target>(
                         alpha,         conj_transpose(Arow_k),
                                        B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0), C.sub(0, k-1, 0, C.nt()-1));
+                        scalar_t(1.0), C.sub(0, k-1, 0, C.nt()-1),
+                        layout);
 
                     internal::hemm<Target::HostTask>(
                         Side::Left,
@@ -231,7 +239,8 @@ void hemm(slate::internal::TargetType<target>,
                         internal::gemm<target>(
                             alpha,         A.sub(k+1, A.mt()-1, k, k),
                                            B.sub(k, k, 0, B.nt()-1),
-                            scalar_t(1.0), C.sub(k+1, C.mt()-1, 0, C.nt()-1));
+                            scalar_t(1.0), C.sub(k+1, C.mt()-1, 0, C.nt()-1),
+                            layout);
                     }
                 }
             }
@@ -247,13 +256,13 @@ void hemm(slate::internal::TargetType<target>,
                 BcastList bcast_list_A;
                 for (int64_t i = 0; i < A.mt(); ++i)
                     bcast_list_A.push_back({0, i, {C.sub(i, i, 0, C.nt()-1)}});
-                A.template listBcast<target>(bcast_list_A);
+                A.template listBcast<target>(bcast_list_A, layout);
 
                 BcastList bcast_list_B;
                 // broadcast B(0, j) to ranks owning block col C(:, j)
                 for (int64_t j = 0; j < B.nt(); ++j)
                     bcast_list_B.push_back({0, j, {C.sub(0, C.mt()-1, j, j)}});
-                B.template listBcast<target>(bcast_list_B);
+                B.template listBcast<target>(bcast_list_B, layout);
             }
 
             // send next lookahead block cols of A and block rows of B
@@ -272,7 +281,7 @@ void hemm(slate::internal::TargetType<target>,
                         bcast_list_A.push_back(
                             {k, i, {C.sub(i, i, 0, C.nt()-1)}});
                     }
-                    A.template listBcast<target>(bcast_list_A);
+                    A.template listBcast<target>(bcast_list_A, layout);
 
                     // broadcast B(k, j) to ranks owning block col C(0:k, j)
                     BcastList bcast_list_B;
@@ -280,7 +289,7 @@ void hemm(slate::internal::TargetType<target>,
                         bcast_list_B.push_back(
                             {k, j, {C.sub(0, C.mt()-1, j, j)}});
                     }
-                    B.template listBcast<target>(bcast_list_B);
+                    B.template listBcast<target>(bcast_list_B, layout);
                 }
             }
 
@@ -301,7 +310,8 @@ void hemm(slate::internal::TargetType<target>,
                     internal::gemm<target>(
                         alpha, conj_transpose(Arow_k),
                                B.sub(0, 0, 0, B.nt()-1),
-                        beta,  C.sub(1, C.mt()-1, 0, C.nt()-1));
+                        beta,  C.sub(1, C.mt()-1, 0, C.nt()-1),
+                        layout);
                 }
             }
 
@@ -324,7 +334,7 @@ void hemm(slate::internal::TargetType<target>,
                             bcast_list_A.push_back(
                                 {k+lookahead, i, {C.sub(i, i, 0, C.nt()-1)}});
                         }
-                        A.template listBcast<target>(bcast_list_A);
+                        A.template listBcast<target>(bcast_list_A, layout);
 
                         // broadcast B(k+la, j) to ranks
                         // owning block col C(0:k+la, j)
@@ -333,7 +343,7 @@ void hemm(slate::internal::TargetType<target>,
                             bcast_list_B.push_back(
                                 {k+lookahead, j, {C.sub(0, C.mt()-1, j, j)}});
                         }
-                        B.template listBcast<target>(bcast_list_B);
+                        B.template listBcast<target>(bcast_list_B, layout);
                     }
                 }
 
@@ -348,7 +358,8 @@ void hemm(slate::internal::TargetType<target>,
                     internal::gemm<target>(
                         alpha,         A.sub(0, k-1, k, k),
                                        B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0), C.sub(0, k-1, 0, C.nt()-1));
+                        scalar_t(1.0), C.sub(0, k-1, 0, C.nt()-1),
+                        layout);
 
                     internal::hemm<Target::HostTask>(
                         Side::Left,
@@ -361,7 +372,8 @@ void hemm(slate::internal::TargetType<target>,
                         internal::gemm<target>(
                             alpha,         conj_transpose(Arow_k),
                                            B.sub(k, k, 0, B.nt()-1),
-                            scalar_t(1.0), C.sub(k+1, C.mt()-1, 0, C.nt()-1));
+                            scalar_t(1.0), C.sub(k+1, C.mt()-1, 0, C.nt()-1),
+                            layout);
                     }
                 }
             }

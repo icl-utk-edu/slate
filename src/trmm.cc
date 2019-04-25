@@ -67,6 +67,9 @@ void trmm(slate::internal::TargetType<target>,
     using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+
     // if on right, change to left by (conj)-transposing A and B to get
     // op(B) = op(A)*op(B)
     if (side == Side::Right) {
@@ -112,14 +115,14 @@ void trmm(slate::internal::TargetType<target>,
             {
                 // broadcast A(i, 0) to ranks owning block row B(i, :),
                 // for i = 0
-                A.template tileBcast<target>(0, 0, B.sub(0, 0, 0, nt-1));
+                A.template tileBcast<target>(0, 0, B.sub(0, 0, 0, nt-1), layout);
 
                 // broadcast B(0, j) to ranks owning block col B(0:0, j)
                 // todo: nowhere to send?
                 BcastList bcast_list_B;
                 for (int64_t j = 0; j < nt; ++j)
                     bcast_list_B.push_back({0, j, {B.sub(0, 0, j, j)}});
-                B.template listBcast<target>(bcast_list_B);
+                B.template listBcast<target>(bcast_list_B, layout);
             }
 
             // send next lookahead block cols of A and block rows of B
@@ -131,13 +134,13 @@ void trmm(slate::internal::TargetType<target>,
                     BcastList bcast_list_A;
                     for (int64_t i = 0; i <= k; ++i) // upper
                         bcast_list_A.push_back({i, k, {B.sub(i, i, 0, nt-1)}});
-                    A.template listBcast<target>(bcast_list_A);
+                    A.template listBcast<target>(bcast_list_A, layout);
 
                     // broadcast B(k, j) to ranks owning block col B(0:k, j)
                     BcastList bcast_list_B;
                     for (int64_t j = 0; j < nt; ++j)
                         bcast_list_B.push_back({k, j, {B.sub(0, k, j, j)}});
-                    B.template listBcast<target>(bcast_list_B);
+                    B.template listBcast<target>(bcast_list_B, layout);
                 }
             }
 
@@ -166,7 +169,7 @@ void trmm(slate::internal::TargetType<target>,
                             bcast_list_A.push_back(
                                 {i, k+lookahead, {B.sub(i, i, 0, nt-1)}});
                         }
-                        A.template listBcast<target>(bcast_list_A);
+                        A.template listBcast<target>(bcast_list_A, layout);
 
                         // broadcast B(k+la, j) to ranks owning
                         // block col B(0:k+la, j)
@@ -176,7 +179,7 @@ void trmm(slate::internal::TargetType<target>,
                                 {k+lookahead, j,
                                  {B.sub(0, k+lookahead, j, j)}});
                         }
-                        B.template listBcast<target>(bcast_list_B);
+                        B.template listBcast<target>(bcast_list_B, layout);
                     }
                 }
 
@@ -190,7 +193,8 @@ void trmm(slate::internal::TargetType<target>,
                     internal::gemm<target>(
                         alpha,         A.sub(0, k-1, k, k),
                                        B.sub(k, k, 0, nt-1),
-                        scalar_t(1.0), B.sub(0, k-1, 0, nt-1));
+                        scalar_t(1.0), B.sub(0, k-1, 0, nt-1),
+                        layout);
 
                     // todo: target? needs batch trmm
                     internal::trmm<Target::HostTask>(
@@ -211,7 +215,7 @@ void trmm(slate::internal::TargetType<target>,
                 // broadcast A(i, 0) to ranks owning block row B(i, :),
                 // for i = m-1
                 A.template tileBcast<target>(
-                    mt-1, mt-1, B.sub(mt-1, mt-1, 0, nt-1));
+                    mt-1, mt-1, B.sub(mt-1, mt-1, 0, nt-1), layout);
 
                 // broadcast B(m-1, j) to ranks owning block col B(m-1:m-1, j)
                 // todo: nowhere to send?
@@ -220,7 +224,7 @@ void trmm(slate::internal::TargetType<target>,
                     bcast_list_B.push_back(
                         {mt-1, j, {B.sub(mt-1, mt-1, j, j)}});
                 }
-                B.template listBcast<target>(bcast_list_B);
+                B.template listBcast<target>(bcast_list_B, layout);
             }
 
             // send next lookahead block cols of A and block rows of B
@@ -232,13 +236,13 @@ void trmm(slate::internal::TargetType<target>,
                     BcastList bcast_list_A;
                     for (int64_t i = k; i < mt; ++i)  // lower
                         bcast_list_A.push_back({i, k, {B.sub(i, i, 0, nt-1)}});
-                    A.template listBcast<target>(bcast_list_A);
+                    A.template listBcast<target>(bcast_list_A, layout);
 
                     // broadcast B(k, j) to ranks owning block col B(k:m-1, j)
                     BcastList bcast_list_B;
                     for (int64_t j = 0; j < nt; ++j)
                         bcast_list_B.push_back({k, j, {B.sub(k, mt-1, j, j)}});
-                    B.template listBcast<target>(bcast_list_B);
+                    B.template listBcast<target>(bcast_list_B, layout);
                 }
             }
 
@@ -268,7 +272,7 @@ void trmm(slate::internal::TargetType<target>,
                             bcast_list_A.push_back(
                                 {i, k-lookahead, {B.sub(i, i, 0, nt-1)}});
                         }
-                        A.template listBcast<target>(bcast_list_A);
+                        A.template listBcast<target>(bcast_list_A, layout);
 
                         // broadcast B(k-la, j) to ranks
                         // owning block col B(k-la:m-1, j)
@@ -278,7 +282,7 @@ void trmm(slate::internal::TargetType<target>,
                                 {k-lookahead, j,
                                  {B.sub(k-lookahead, mt-1, j, j)}});
                         }
-                        B.template listBcast<target>(bcast_list_B);
+                        B.template listBcast<target>(bcast_list_B, layout);
                     }
                 }
 
@@ -292,7 +296,8 @@ void trmm(slate::internal::TargetType<target>,
                     internal::gemm<target>(
                         alpha,         A.sub(k+1, mt-1, k, k),
                                        B.sub(k, k, 0, nt-1),
-                        scalar_t(1.0), B.sub(k+1, mt-1, 0, nt-1));
+                        scalar_t(1.0), B.sub(k+1, mt-1, 0, nt-1),
+                        layout);
 
                     // todo: target? needs batch trmm
                     internal::trmm<Target::HostTask>(

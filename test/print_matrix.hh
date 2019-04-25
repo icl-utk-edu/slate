@@ -150,7 +150,7 @@ void print_matrix(
                 }
                 else if (mpi_rank == 0) {
                     A.tileInsert(i, j);
-                    A(i, j).recv(tile_rank, comm);
+                    A(i, j).recv(tile_rank, comm, A.layout());
                 }
             }
         }
@@ -239,7 +239,7 @@ void print_matrix(
                     }
                     else if (mpi_rank == 0) {
                         A.tileInsert(i, j);
-                        A(i, j).recv(tile_rank, comm);
+                        A(i, j).recv(tile_rank, comm, A.layout());
                     }
                 }
             }
@@ -338,7 +338,7 @@ void print_matrix(
                     }
                     else if (mpi_rank == 0) {
                         A.tileInsert(i, j);
-                        A(i, j).recv(tile_rank, comm);
+                        A(i, j).recv(tile_rank, comm, A.layout());
                     }
                 }
             }

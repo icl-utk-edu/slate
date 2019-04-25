@@ -590,7 +590,7 @@ void test_send_recv(int align_src, int align_dst)
             A.send(r+1, MPI_COMM_WORLD);
         }
         else {
-            A.recv(r, MPI_COMM_WORLD);
+            A.recv(r, MPI_COMM_WORLD, A.layout());
         }
         verify_data(A, r);
     }

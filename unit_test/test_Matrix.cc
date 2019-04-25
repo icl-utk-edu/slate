@@ -1325,7 +1325,7 @@ void test_tileSend_tileRecv()
                         auto T = A(i, j);
                         T.at(0, 0) = i + j/1000. + src*1000.;
                         A.tileSend(i, j, dst);
-                        A.tileRecv(i, j, dst);
+                        A.tileRecv(i, j, dst, A.layout());
                         test_assert( T(0, 0) == i + j/1000. + 1000*dst );
                     }
                     else if (mpi_rank == dst) {
@@ -1333,7 +1333,7 @@ void test_tileSend_tileRecv()
                         //        mpi_rank, i, j, src, dst );
 
                         // Receive tile, update, then send updated tile back.
-                        A.tileRecv(i, j, src);
+                        A.tileRecv(i, j, src, A.layout());
                         auto T = A(i, j);
                         test_assert( T(0, 0) == i + j/1000. + 1000*src );
                         T.at(0, 0) = i + j/1000. + 1000*dst;

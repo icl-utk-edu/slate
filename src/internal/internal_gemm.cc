@@ -60,11 +60,17 @@ namespace internal {
 /// In the complex case,
 /// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conj_transpose;
 /// if $op(C)$ is conj_transpose, then $op(A)$ and $op(B)$ cannot be transpose.
+///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) to operate with.
+///     Local tiles of matrix C and corresponding tiles of A & B
+///        on target devices will be converted to layout.
+///
 template <Target target, typename scalar_t>
 void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
-          int priority, Layout layout)
+          Layout layout, int priority)
 {
     if (C.is_complex &&
         ((C.op() == Op::Trans &&
@@ -79,7 +85,7 @@ void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
          alpha, A,
                 B,
          beta,  C,
-         priority, layout);
+         layout, priority);
 }
 
 ///-----------------------------------------------------------------------------
@@ -92,7 +98,7 @@ void gemm(internal::TargetType<Target::HostTask>,
           scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          int priority, Layout layout)
+          Layout layout, int priority)
 {
     // CPU uses ColMajor
     assert(layout == Layout::ColMajor);
@@ -143,7 +149,7 @@ void gemm(internal::TargetType<Target::HostNest>,
           scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          int priority, Layout layout)
+          Layout layout, int priority)
 {
     // CPU uses ColMajor
     assert(layout == Layout::ColMajor);
@@ -197,7 +203,7 @@ void gemm(internal::TargetType<Target::HostBatch>,
           scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          int priority, Layout layout)
+          Layout layout, int priority)
 {
     using blas::conj;
     using std::swap;
@@ -352,7 +358,7 @@ void gemm(internal::TargetType<Target::Devices>,
           scalar_t alpha, Matrix< scalar_t >& A,
                           Matrix< scalar_t >& B,
           scalar_t beta,  Matrix< scalar_t >& C,
-          int priority, Layout layout)
+          Layout layout, int priority)
 {
     using blas::conj;
     using std::swap;
@@ -705,28 +711,28 @@ void gemm<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int priority, Layout layout);
+    Layout layout, int priority);
 
 template
 void gemm<Target::HostNest, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int priority, Layout layout);
+    Layout layout, int priority);
 
 template
 void gemm<Target::HostBatch, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int priority, Layout layout);
+    Layout layout, int priority);
 
 template
 void gemm<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int priority, Layout layout);
+    Layout layout, int priority);
 
 // ----------------------------------------
 template
@@ -734,28 +740,28 @@ void gemm<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int priority, Layout layout);
+    Layout layout, int priority);
 
 template
 void gemm<Target::HostNest, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int priority, Layout layout);
+    Layout layout, int priority);
 
 template
 void gemm<Target::HostBatch, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int priority, Layout layout);
+    Layout layout, int priority);
 
 template
 void gemm<Target::Devices, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int priority, Layout layout);
+    Layout layout, int priority);
 
 // ----------------------------------------
 template
@@ -763,28 +769,28 @@ void gemm< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int priority, Layout layout);
+    Layout layout, int priority);
 
 template
 void gemm< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int priority, Layout layout);
+    Layout layout, int priority);
 
 template
 void gemm< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int priority, Layout layout);
+    Layout layout, int priority);
 
 template
 void gemm< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int priority, Layout layout);
+    Layout layout, int priority);
 
 // ----------------------------------------
 template
@@ -792,28 +798,28 @@ void gemm< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int priority, Layout layout);
+    Layout layout, int priority);
 
 template
 void gemm< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int priority, Layout layout);
+    Layout layout, int priority);
 
 template
 void gemm< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int priority, Layout layout);
+    Layout layout, int priority);
 
 template
 void gemm< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int priority, Layout layout);
+    Layout layout, int priority);
 
 } // namespace internal
 } // namespace slate

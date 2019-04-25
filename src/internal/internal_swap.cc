@@ -49,13 +49,18 @@ namespace internal {
 /// \brief
 /// Swaps rows according to the pivot vector.
 /// Dispatches to target implementations.
+///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) to operate with.
+///     Local tiles of matrix on target devices will be converted to layout.
+///
 template <Target target, typename scalar_t>
 void swap(Direction direction,
           Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
-          int priority, int tag, Layout layout)
+          Layout layout, int priority, int tag)
 {
     swap(internal::TargetType<target>(), direction, A, pivot,
-         priority, tag, layout);
+         layout, priority, tag);
 }
 
 ///-----------------------------------------------------------------------------
@@ -83,7 +88,7 @@ template <typename scalar_t>
 void swap(internal::TargetType<Target::HostTask>,
           Direction direction,
           Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
-          int priority, int tag, Layout layout)
+          Layout layout, int priority, int tag)
 {
     // CPU uses ColMajor
     assert(layout == Layout::ColMajor);
@@ -169,22 +174,22 @@ template <typename scalar_t>
 void swap(internal::TargetType<Target::HostNest>,
           Direction direction,
           Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
-          int priority, int tag, Layout layout)
+          Layout layout, int priority, int tag)
 {
     // forward to HostTask
     swap(internal::TargetType<Target::HostTask>(),
-         direction, A, pivot, priority, tag, layout);
+         direction, A, pivot, layout, priority, tag);
 }
 
 template <typename scalar_t>
 void swap(internal::TargetType<Target::HostBatch>,
           Direction direction,
           Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
-          int priority, int tag, Layout layout)
+          Layout layout, int priority, int tag)
 {
     // forward to HostTask
     swap(internal::TargetType<Target::HostTask>(),
-         direction, A, pivot, priority, tag, layout);
+         direction, A, pivot, layout, priority, tag);
 }
 
 ///-----------------------------------------------------------------------------
@@ -238,7 +243,7 @@ template <typename scalar_t>
 void swap(internal::TargetType<Target::Devices>,
           Direction direction,
           Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
-          int priority, int tag, Layout layout)
+          Layout layout, int priority, int tag)
 {
     // GPU uses RowMajor
     assert(layout == Layout::RowMajor);
@@ -521,50 +526,50 @@ template
 void swap<Target::HostTask, float>(
     Direction direction,
     Matrix<float>&& A, std::vector<Pivot>& pivot,
-    int priority, int tag, Layout layout);
+    Layout layout, int priority, int tag);
 
 template
 void swap<Target::HostNest, float>(
     Direction direction,
     Matrix<float>&& A, std::vector<Pivot>& pivot,
-    int priority, int tag, Layout layout);
+    Layout layout, int priority, int tag);
 
 template
 void swap<Target::HostBatch, float>(
     Direction direction,
     Matrix<float>&& A, std::vector<Pivot>& pivot,
-    int priority, int tag, Layout layout);
+    Layout layout, int priority, int tag);
 
 template
 void swap<Target::Devices, float>(
     Direction direction,
     Matrix<float>&& A, std::vector<Pivot>& pivot,
-    int priority, int tag, Layout layout);
+    Layout layout, int priority, int tag);
 
 // ----------------------------------------
 template
 void swap<Target::HostTask, double>(
     Direction direction,
     Matrix<double>&& A, std::vector<Pivot>& pivot,
-    int priority, int tag, Layout layout);
+    Layout layout, int priority, int tag);
 
 template
 void swap<Target::HostNest, double>(
     Direction direction,
     Matrix<double>&& A, std::vector<Pivot>& pivot,
-    int priority, int tag, Layout layout);
+    Layout layout, int priority, int tag);
 
 template
 void swap<Target::HostBatch, double>(
     Direction direction,
     Matrix<double>&& A, std::vector<Pivot>& pivot,
-    int priority, int tag, Layout layout);
+    Layout layout, int priority, int tag);
 
 template
 void swap<Target::Devices, double>(
     Direction direction,
     Matrix<double>&& A, std::vector<Pivot>& pivot,
-    int priority, int tag, Layout layout);
+    Layout layout, int priority, int tag);
 
 // ----------------------------------------
 template
@@ -572,28 +577,28 @@ void swap< Target::HostTask, std::complex<float> >(
     Direction direction,
     Matrix< std::complex<float> >&& A,
     std::vector<Pivot>& pivot,
-    int priority, int tag, Layout layout);
+    Layout layout, int priority, int tag);
 
 template
 void swap< Target::HostNest, std::complex<float> >(
     Direction direction,
     Matrix< std::complex<float> >&& A,
     std::vector<Pivot>& pivot,
-    int priority, int tag, Layout layout);
+    Layout layout, int priority, int tag);
 
 template
 void swap< Target::HostBatch, std::complex<float> >(
     Direction direction,
     Matrix< std::complex<float> >&& A,
     std::vector<Pivot>& pivot,
-    int priority, int tag, Layout layout);
+    Layout layout, int priority, int tag);
 
 template
 void swap< Target::Devices, std::complex<float> >(
     Direction direction,
     Matrix< std::complex<float> >&& A,
     std::vector<Pivot>& pivot,
-    int priority, int tag, Layout layout);
+    Layout layout, int priority, int tag);
 
 // ----------------------------------------
 template
@@ -601,28 +606,28 @@ void swap< Target::HostTask, std::complex<double> >(
     Direction direction,
     Matrix< std::complex<double> >&& A,
     std::vector<Pivot>& pivot,
-    int priority, int tag, Layout layout);
+    Layout layout, int priority, int tag);
 
 template
 void swap< Target::HostNest, std::complex<double> >(
     Direction direction,
     Matrix< std::complex<double> >&& A,
     std::vector<Pivot>& pivot,
-    int priority, int tag, Layout layout);
+    Layout layout, int priority, int tag);
 
 template
 void swap< Target::HostBatch, std::complex<double> >(
     Direction direction,
     Matrix< std::complex<double> >&& A,
     std::vector<Pivot>& pivot,
-    int priority, int tag, Layout layout);
+    Layout layout, int priority, int tag);
 
 template
 void swap< Target::Devices, std::complex<double> >(
     Direction direction,
     Matrix< std::complex<double> >&& A,
     std::vector<Pivot>& pivot,
-    int priority, int tag, Layout layout);
+    Layout layout, int priority, int tag);
 
 //------------------------------------------------------------------------------
 // Explicit instantiations for HermitianMatrix.

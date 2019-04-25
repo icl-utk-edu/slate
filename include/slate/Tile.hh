@@ -142,7 +142,7 @@ public:
     void copyDataToDevice(Tile<scalar_t>* dst_tile, cudaStream_t stream) const;
 
     void send(int dst, MPI_Comm mpi_comm, int tag = 0) const;
-    void recv(int src, MPI_Comm mpi_comm, int tag = 0);
+    void recv(int src, MPI_Comm mpi_comm, Layout layout, int tag = 0);
     void bcast(int bcast_root, MPI_Comm mpi_comm);
 
     /// Returns shallow copy of tile that is transposed.
@@ -648,9 +648,14 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm, int tag) const
 /// @param[in] mpi_comm
 ///     MPI communicator.
 ///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) of the received data.
+///     WARNING: need to call tileLayout(...) to properly set the layout of the
+///              origin matrix tile afterwards.
+///
 // todo need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
-void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm, int tag)
+void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm, Layout layout, int tag)
 {
     trace::Block trace_block("MPI_Recv");
 
@@ -683,6 +688,8 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm, int tag)
 
         slate_mpi_call(MPI_Type_free(&newtype));
     }
+    // set this tile layout to match the received data layout
+    this->layout(layout);
 }
 
 //------------------------------------------------------------------------------

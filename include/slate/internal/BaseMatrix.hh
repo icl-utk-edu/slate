@@ -330,19 +330,19 @@ public:
     void tileSend(int64_t i, int64_t j, int dst_rank, int tag = 0);
 
     template <Target target = Target::Host>
-    void tileRecv(int64_t i, int64_t j, int dst_rank, int tag = 0,
-                  Layout layout = Layout::ColMajor);
+    void tileRecv(int64_t i, int64_t j, int dst_rank,
+                  Layout layout, int tag = 0);
 
     template <Target target = Target::Host>
-    void tileBcast(int64_t i, int64_t j, BaseMatrix const& B, int tag = 0, int life_factor = 1,
-                   Layout layout = Layout::ColMajor);
+    void tileBcast(int64_t i, int64_t j, BaseMatrix const& B,
+                   Layout layout, int tag = 0, int64_t life_factor = 1);
 
     template <Target target = Target::Host>
-    void listBcast(BcastList& bcast_list, int tag = 0,
-                   Layout layout = Layout::ColMajor, int64_t life_factor = 1);
+    void listBcast(BcastList& bcast_list,
+                   Layout layout, int tag = 0, int64_t life_factor = 1);
 
     template <Target target = Target::Host>
-    void listReduce(ReduceList& reduce_list, int tag = 0);
+    void listReduce(ReduceList& reduce_list, Layout layout, int tag = 0);
 
 public:
 
@@ -397,11 +397,12 @@ public:
 protected:
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set);
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set,
-                        int radix, int tag);
+                        int radix, int tag, Layout layout);
 
     // todo: should this be private?
     void tileReduceFromSet(int64_t i, int64_t j,
-                           std::set<int> const& reduce_set, int radix, int tag);
+                           std::set<int> const& reduce_set, int radix, int tag,
+                           Layout layout);
 
 public:
 
@@ -1319,6 +1320,7 @@ void BaseMatrix<scalar_t>::tileSend(
 /// Tile is allocated as workspace with life = 1 if it doesn't yet exist,
 /// or 1 is added to life if it does exist.
 /// Source rank must call tileSend().
+/// Data received must be in 'layout' (ColMajor/RowMajor) major.
 ///
 /// @tparam target
 ///     Destination to target; either Host (default) or Device.
@@ -1332,18 +1334,17 @@ void BaseMatrix<scalar_t>::tileSend(
 /// @param[in] src_rank
 ///     Source MPI rank. If src_rank == mpiRank, this is a no-op.
 ///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) of the received data.
+///     WARNING: must match the layout of the tile in the sender MPI rank.
+///
 /// @param[in] tag
 ///     MPI tag, default 0.
-///
-/// @param[in] layout
-///     Layout of final tile.
-///     - Layout::ColMajor (default) or
-///     - Layout::RowMajor.
 ///
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::tileRecv(
-    int64_t i, int64_t j, int src_rank, int tag, Layout layout)
+    int64_t i, int64_t j, int src_rank, Layout layout, int tag)
 {
     if (src_rank != mpiRank()) {
         if (! tileIsLocal(i, j)) {
@@ -1365,8 +1366,9 @@ void BaseMatrix<scalar_t>::tileRecv(
         }
 
         // Receive data.
-        at(i, j).recv(src_rank, mpiComm(), tag);
+        at(i, j).recv(src_rank, mpiComm(), layout, tag);
 
+        tileLayout(i, j, layout);
         tileModified(i, j, hostNum(), true);
 
         // Copy to devices.
@@ -1385,6 +1387,7 @@ void BaseMatrix<scalar_t>::tileRecv(
 /// If target is Devices, also copies tile to all devices on each MPI rank.
 /// This should be called by at least all ranks with local tiles in B;
 /// ones that do not have any local tiles are excluded from the broadcast.
+/// Data received must be in 'layout' (ColMajor/RowMajor) major.
 ///
 /// @tparam target
 ///     Destination to target; either Host (default) or Device.
@@ -1399,27 +1402,30 @@ void BaseMatrix<scalar_t>::tileRecv(
 ///     Sub-matrix B defines the MPI ranks to send to.
 ///     Usually it is the portion of the matrix to be updated by tile {i, j}.
 ///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) of the broadcasted data.
+///     WARNING: must match the layout of the tile in the sender MPI rank.
+///
 /// @param[in] tag
 ///     MPI tag, default 0.
 ///
-/// @param[in] layout
-///     Layout of final tile.
-///     - Layout::ColMajor (default) or
-///     - Layout::RowMajor.
+/// @param[in] life_factor
+///     A multiplier for the life count of the broadcasted tile workspace.
 ///
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::tileBcast(
-    int64_t i, int64_t j, BaseMatrix<scalar_t> const& B, int tag, int life_factor, Layout layout)
+    int64_t i, int64_t j, BaseMatrix<scalar_t> const& B, Layout layout, int tag, int64_t life_factor)
 {
     BcastList bcast_list_B;
     bcast_list_B.push_back({i, j, {B}});
-    listBcast<target>(bcast_list_B, tag, layout, life_factor);
+    listBcast<target>(bcast_list_B, layout, tag, life_factor);
 }
 
 //------------------------------------------------------------------------------
 /// Send tile {i, j} of op(A) to all MPI ranks in the list of submatrices
 /// bcast_list.
+/// Data received must be in 'layout' (ColMajor/RowMajor) major.
 ///
 /// @tparam target
 ///     Destination to target; either Host (default) or Device.
@@ -1428,18 +1434,20 @@ void BaseMatrix<scalar_t>::tileBcast(
 ///     List of submatrices defining the MPI ranks to send to.
 ///     Usually it is the portion of the matrix to be updated by tile {i, j}.
 ///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) of the broadcasted data.
+///     WARNING: must match the layout of the tile in the sender MPI rank.
+///
 /// @param[in] tag
 ///     MPI tag, default 0.
 ///
-/// @param[in] layout
-///     Layout of final tile.
-///     - Layout::ColMajor (default) or
-///     - Layout::RowMajor.
+/// @param[in] life_factor
+///     A multiplier for the life count of the broadcasted tile workspace.
 ///
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::listBcast(
-    BcastList& bcast_list, int tag, Layout layout, int64_t life_factor)
+    BcastList& bcast_list, Layout layout, int tag, int64_t life_factor)
 {
     // It is possible that the same tile, with the same data, is sent twice.
     // This happens, e.g., in the hemm and symm routines, where the same tile
@@ -1489,7 +1497,7 @@ void BaseMatrix<scalar_t>::listBcast(
             // Send across MPI ranks.
             // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
             // Currently uses 2D hypercube p2p send.
-            tileBcastToSet(i, j, bcast_set, 2, tag);
+            tileBcastToSet(i, j, bcast_set, 2, tag, layout);
         }
 
         // Copy to devices.
@@ -1521,7 +1529,7 @@ void BaseMatrix<scalar_t>::listBcast(
 ///
 template <typename scalar_t>
 template <Target target>
-void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, int tag)
+void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, Layout layout, int tag)
 {
     for (auto reduce : reduce_list) {
 
@@ -1540,7 +1548,7 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, int tag)
 
             // Reduce across MPI ranks.
             // Uses 2D hypercube p2p send.
-            tileReduceFromSet(i, j, reduce_set, 2, tag);
+            tileReduceFromSet(i, j, reduce_set, 2, tag, layout);
 
             // If not the tile owner.
             if (! tileIsLocal(i, j)) {
@@ -1641,6 +1649,7 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
 /// This should be called by all (and only) ranks that are in bcast_set,
 /// as either the root sender or a receiver.
 /// This function implements a custom pattern using sends and receives.
+/// Data received must be in 'layout' (ColMajor/RowMajor) major.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -1654,9 +1663,16 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
 /// @param[in] radix
 ///     Radix of the communication pattern.
 ///
+/// @param[in] tag
+///     MPI tag, default 0.
+///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) of the received data.
+///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileBcastToSet(
-    int64_t i, int64_t j, std::set<int> const& bcast_set, int radix, int tag)
+    int64_t i, int64_t j, std::set<int> const& bcast_set,
+    int radix, int tag, Layout layout)
 {
     // Quit if only root in the broadcast set.
     if (bcast_set.size() == 1)
@@ -1696,7 +1712,8 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
         // disable temporarily
         // tileGetForReading(i, j);
 
-        at(i, j).recv(new_vec[recv_from.front()], mpi_comm_, tag);
+        at(i, j).recv(new_vec[recv_from.front()], mpi_comm_, layout, tag);
+        tileLayout(i, j, layout);
         tileModified(i, j);
     }
 
@@ -1711,10 +1728,12 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
 
 //------------------------------------------------------------------------------
 /// [internal]
+/// WARNING: Sent and Recevied tiles are converted to 'layout' major.
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileReduceFromSet(
-    int64_t i, int64_t j, std::set<int> const& reduce_set, int radix, int tag)
+    int64_t i, int64_t j, std::set<int> const& reduce_set, int radix, int tag,
+    Layout layout)
 {
     // Quit if only root in the reduction set.
     if (reduce_set.size() == 1)
@@ -1755,7 +1774,7 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
     // Receive, accumulate.
     for (int src : recv_from) {
         // Receive.
-        tile.recv(new_vec[src], mpi_comm_, tag);
+        tile.recv(new_vec[src], mpi_comm_, layout, tag);
         // Accumulate.
         axpy(scalar_t(1.0), tile, at(i, j));
     }
@@ -2084,8 +2103,8 @@ void BaseMatrix<scalar_t>::tileGetAndHoldAllOnDevices(LayoutConvert layout)
 }
 
 //------------------------------------------------------------------------------
-/// Updates the origin instance of tile(i, j) if not MOSI::Shared
-/// tile must be local
+/// Updates the origin instance of tile(i, j) if MOSI::Invalid
+/// tile must be local.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.

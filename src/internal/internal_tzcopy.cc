@@ -199,9 +199,10 @@ void copy(internal::TargetType<Target::HostTask>,
 
     for (int64_t j = 0; j < B.nt(); ++j) {
         if (j < B.mt() && B.tileIsLocal(j, j)) {
-            A.tileGetForReading(j, j);
-            B.tileGetForWriting(j, j);
+            A.tileGetForReading(j, j, LayoutConvert::None);
+            B.tileGetForWriting(j, j, LayoutConvert::None);
             tzcopy(A(j, j), B(j, j));
+            B.tileLayout(j, j, A.tileLayout(j, j));
             A.tileTick(j, j);
         }
         if (lower) {
@@ -209,9 +210,10 @@ void copy(internal::TargetType<Target::HostTask>,
                 if (B.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, B) priority(priority)
                     {
-                        A.tileGetForReading(i, j);
-                        B.tileGetForWriting(i, j);
+                        A.tileGetForReading(i, j, LayoutConvert::None);
+                        B.tileGetForWriting(i, j, LayoutConvert::None);
                         gecopy(A(i, j), B(i, j));
+                        B.tileLayout(i, j, A.tileLayout(i, j));
                         A.tileTick(i, j);// TODO is this correct here?
                     }
                 }
@@ -222,9 +224,10 @@ void copy(internal::TargetType<Target::HostTask>,
                 if (B.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, B) priority(priority)
                     {
-                        A.tileGetForReading(i, j);
-                        B.tileGetForWriting(i, j);
+                        A.tileGetForReading(i, j, LayoutConvert::None);
+                        B.tileGetForWriting(i, j, LayoutConvert::None);
                         gecopy(A(i, j), B(i, j));
+                        B.tileLayout(i, j, A.tileLayout(i, j));
                         A.tileTick(i, j);// TODO is this correct here?
                     }
                 }
@@ -283,8 +286,8 @@ void copy(internal::TargetType<Target::Devices>,
                         ( (  lower && i >= j) ||
                           (! lower && i <= j) ) )
                     {
-                        A.tileGetForReading(i, j, device);
-                        B.tileGetForWriting(i, j, device);
+                        A.tileGetForReading(i, j, LayoutConvert::None, device);
+                        B.tileGetForWriting(i, j, LayoutConvert::None, device);
                     }
 
             // Usually the output matrix (B) provides all the batch arrays.
@@ -392,6 +395,7 @@ void copy(internal::TargetType<Target::Devices>,
                         ( (  lower && i >= j) ||
                           (! lower && i <= j) ) )
                     {
+                        B.tileLayout(i, j, device, A.tileLayout(i, j, device));
                         // erase tmp local and remote device tiles;
                         A.tileRelease(i, j, device);
                         // decrement life for remote tiles

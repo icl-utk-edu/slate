@@ -76,8 +76,6 @@ void swap(Direction direction,
          priority, tag);
 }
 
-// TODO: apply MOSI by setting tiles' states when modified
-
 ///-----------------------------------------------------------------------------
 /// \brief
 /// Swaps rows of a general matrix according to the pivot vector,
@@ -100,7 +98,7 @@ void swap(internal::TargetType<Target::HostTask>,
             if (A.tileIsLocal(i, j)) {
                 #pragma omp task shared(A) priority(priority)
                 {
-                    A.tileGetForWriting(i, j);
+                    A.tileGetForWriting(i, j, LayoutConvert(layout));
                 }
             }
         }
@@ -255,13 +253,15 @@ void swap(internal::TargetType<Target::Devices>,
             if (A.tileIsLocal(i, j)) {
                 #pragma omp task shared(A) priority(priority)
                 {
-                    A.tileGetForWriting(i, j, A.tileDevice(i, j), LayoutConvert(layout));
-                    // todo: handle layout
+                    A.tileGetForWriting(i, j, LayoutConvert::None, A.tileDevice(i, j));
                 }
             }
         }
     }
     #pragma omp taskwait
+
+    // todo: use set api
+    A.tileConvertLayoutOnDevices(layout);
 
     {
         trace::Block trace_block("internal::swap");
@@ -435,7 +435,7 @@ void swap(internal::TargetType<Target::HostTask>,
             if (A.tileIsLocal(i, j)) {
                 #pragma omp task shared(A) priority(priority)
                 {
-                    A.tileGetForWriting(i, j);
+                    A.tileGetForWriting(i, j, LayoutConvert::ColMajor);
                 }
             }
         }

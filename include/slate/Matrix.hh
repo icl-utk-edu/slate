@@ -660,7 +660,7 @@ void Matrix<scalar_t>::gather(scalar_t* A, int64_t lda)
                     tileLayout(i, j, this->layout_);
                 }
                 else {
-                    this->tileGetForReading(i, j);
+                    this->tileGetForReading(i, j, this->layout_);
                     // copy local tiles if needed.
                     auto Aij = this->at(i, j);
                     if (Aij.data() != &A[(size_t)lda*jj + ii]) {
@@ -671,7 +671,7 @@ void Matrix<scalar_t>::gather(scalar_t* A, int64_t lda)
                 }
             }
             else if (this->tileIsLocal(i, j)) {
-                this->tileGetForReading(i, j);
+                this->tileGetForReading(i, j, this->layout_);
                 auto Aij = this->at(i, j);
                 Aij.send(0, this->mpi_comm_);
             }
@@ -745,9 +745,9 @@ void Matrix<scalar_t>::copy(Matrix<scalar_t>& A)
 
                 #pragma omp task
                 {
-                    A.tileGetForReading(i, j);
+                    A.tileGetForReading(i, j, LayoutConvert::None);
                     auto Aij = A.at(i, j);
-                    this->tileGetForWriting(i, j);
+                    this->tileGetForWriting(i, j, LayoutConvert::None);
                     auto Bij = this->at(i, j);
                     lapack::lacpy(lapack::MatrixType::General, ib, jb,
                                   Aij.data(), Aij.stride(),

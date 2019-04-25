@@ -189,9 +189,10 @@ void copy(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(i, j)) {
                 #pragma omp task shared(A, B) priority(priority)
                 {
-                    A.tileGetForReading(i, j);
-                    B.tileGetForWriting(i, j);
+                    A.tileGetForReading(i, j, LayoutConvert::None);
+                    B.tileGetForWriting(i, j, LayoutConvert::None);
                     gecopy(A(i, j), B(i, j));
+                    B.tileLayout(i, j, A.tileLayout(i, j));
                     A.tileTick(i, j);// TODO is this correct here?
                 }
             }
@@ -229,14 +230,16 @@ void copy(internal::TargetType<Target::Devices>,
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task shared(A, B) priority(priority)
         {
-            for (int64_t i = 0; i < B.mt(); ++i)
-                for (int64_t j = 0; j < B.nt(); ++j)
+            for (int64_t i = 0; i < B.mt(); ++i) {
+                for (int64_t j = 0; j < B.nt(); ++j) {
                     if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j))
                     {
-                        A.tileGetForReading(i, j, device);
+                        A.tileGetForReading(i, j, LayoutConvert::None, device);
                         // todo: should tileAcquire() instead to avoid un-needed copy
-                        B.tileGetForWriting(i, j, device);
+                        B.tileGetForWriting(i, j, LayoutConvert::None, device);
                     }
+                }
+            }
 
             // Usually the output matrix (B) provides all the batch arrays.
             // Here we are using A, because of the differen types.
@@ -304,6 +307,8 @@ void copy(internal::TargetType<Target::Devices>,
             for (int64_t i = 0; i < B.mt(); ++i) {
                 for (int64_t j = 0; j < B.nt(); ++j) {
                     if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
+                        // update output tile layout
+                        B.tileLayout(i, j, device, A.tileLayout(i, j, device));
                         // erase tmp local and remote device tiles;
                         A.tileRelease(i, j, device);
                         // decrement life for remote tiles

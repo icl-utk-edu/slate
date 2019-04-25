@@ -1310,7 +1310,7 @@ void BaseMatrix<scalar_t>::tileSend(
     int64_t i, int64_t j, int dst_rank, int tag)
 {
     if (dst_rank != mpiRank()) {
-        tileGetForReading(i, j);
+        tileGetForReading(i, j, LayoutConvert::None);
         at(i, j).send(dst_rank, mpiComm(), tag);
     }
 }
@@ -1362,7 +1362,7 @@ void BaseMatrix<scalar_t>::tileRecv(
         }
         else {
             // todo: tileAquire()
-            tileGetForReading(i, j);
+            tileGetForReading(i, j, LayoutConvert::None);
         }
 
         // Receive data.
@@ -1375,8 +1375,7 @@ void BaseMatrix<scalar_t>::tileRecv(
         if (target == Target::Devices) {
             #pragma omp task
             {
-                tileGetForReading(i, j, tileDevice(i, j), LayoutConvert(layout));
-                // todo: handle layout
+                tileGetForReading(i, j, LayoutConvert::None, tileDevice(i, j));
             }
         }
     }
@@ -1515,8 +1514,7 @@ void BaseMatrix<scalar_t>::listBcast(
                 #pragma omp task
                 {
                     for (auto device : dev_set)
-                        tileGetForReading(i, j, device, LayoutConvert(layout));
-                        // todo: handle layout
+                        tileGetForReading(i, j, LayoutConvert::None, device);
                 }
             }
         }
@@ -1719,7 +1717,7 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
 
     if (! send_to.empty()) {
         // read tile on host memory
-        tileGetForReading(i, j);
+        tileGetForReading(i, j, LayoutConvert(layout));
         // Forward.
         for (int dst : send_to)
             at(i, j).send(new_vec[dst], mpi_comm_, tag);
@@ -1765,7 +1763,7 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
 
     if (! (send_to.empty() && recv_from.empty()) ) {
         // read tile on host memory
-        tileGetForReading(i, j);
+        tileGetForReading(i, j, LayoutConvert(layout));
     }
 
     std::vector<scalar_t> data(tileMb(i)*tileNb(j));
@@ -2121,13 +2119,13 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileUpdateOrigin(int64_t i, int64_t j)
     auto iter = storage_->find(globalIndex(i, j, host_num_));
     if (iter != storage_->end() && iter->second.tile_->origin()) {
         if ( iter->second.stateOn(MOSI::Invalid) )
-            tileGetForReading(i, j);
+            tileGetForReading(i, j, LayoutConvert::None);
     }
     else {
         iter = storage_->find(globalIndex(i, j, tileDevice(i, j)));
         if (iter != storage_->end() && iter->second.tile_->origin()) {
             if ( iter->second.stateOn(MOSI::Invalid) )
-                tileGetForReading(i, j, tileDevice(i, j));
+                tileGetForReading(i, j, LayoutConvert::None, tileDevice(i, j));
         }
         else
             slate_error( std::string("Origin tile not found! tile(")

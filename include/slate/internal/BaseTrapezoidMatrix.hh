@@ -655,7 +655,7 @@ void BaseTrapezoidMatrix<scalar_t>::gather(scalar_t* A, int64_t lda)
                         tileLayout(i, j, this->layout_);
                     }
                     else {
-                        this->tileGetForReading(i, j);
+                        this->tileGetForReading(i, j, this->layout_);
                         // copy local tiles if needed.
                         auto Aij = this->at(i, j);
                         if (Aij.data() != &A[(size_t)lda*jj + ii]) {
@@ -666,7 +666,7 @@ void BaseTrapezoidMatrix<scalar_t>::gather(scalar_t* A, int64_t lda)
                     }
                 }
                 else if (this->tileIsLocal(i, j)) {
-                    this->tileGetForReading(i, j);
+                    this->tileGetForReading(i, j, this->layout_);
                     auto Aij = this->at(i, j);
                     Aij.send(0, this->mpi_comm_);
                 }

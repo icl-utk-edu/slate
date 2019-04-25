@@ -74,6 +74,10 @@ void trsm(internal::TargetType<Target::HostTask>,
                                     Matrix<scalar_t>& B,
           int priority, Layout layout)
 {
+    // CPU assumes column major
+    // todo: relax this assumption, by allowing Tile_blas.hh::trsm() to take layout param
+    // todo: optimize for the number of layout conversions,
+    //       by watching 'layout' and 'B(i, j).layout()'
     assert(layout == Layout::ColMajor);
     assert(A.mt() == 1);
 
@@ -85,8 +89,10 @@ void trsm(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(i, 0)) {
                 #pragma omp task shared(A, B) priority(priority)
                 {
-                    A.tileGetForReading(0, 0);
-                    B.tileGetForWriting(i, 0);
+                    // todo: would this result in a race?
+                    // or multiple fetches of same tile?
+                    A.tileGetForReading(0, 0, LayoutConvert(layout));
+                    B.tileGetForWriting(i, 0, LayoutConvert(layout));
                     trsm(side, A.diag(),
                          alpha, A(0, 0),
                                 B(i, 0));
@@ -102,8 +108,8 @@ void trsm(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(0, j)) {
                 #pragma omp task shared(A, B) priority(priority)
                 {
-                    A.tileGetForReading(0, 0);
-                    B.tileGetForWriting(0, j);
+                    A.tileGetForReading(0, 0, LayoutConvert(layout));
+                    B.tileGetForWriting(0, j, LayoutConvert(layout));
                     trsm(side, A.diag(),
                          alpha, A(0, 0),
                                 B(0, j));

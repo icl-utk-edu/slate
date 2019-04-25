@@ -71,6 +71,9 @@ void ttmqr(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& C,
            int tag)
 {
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+
     int64_t A_mt = A.mt();
 
     // Find ranks in this column.
@@ -135,18 +138,18 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                             int64_t i_dst = rank_rows[ index + step ].second;
                             int dst = C.tileRank(i_dst, j);
                             C.tileSend(i, j, dst, tag);
-                            C.tileRecv(i, j, dst, tag);
+                            C.tileRecv(i, j, dst, layout, tag);
                         }
                     }
                     else {
                         // Receive tile from src.
                         int64_t i_src = rank_rows[ index - step ].second;
                         int     src   = C.tileRank(i_src, j);
-                        C.tileRecv(i_src, j, src, tag);
+                        C.tileRecv(i_src, j, src, layout, tag);
 
-                        A.tileGetForReading(i, 0);
-                        T.tileGetForReading(i, 0);
-                        C.tileGetForWriting(i, j);
+                        A.tileGetForReading(i, 0, LayoutConvert(layout));
+                        T.tileGetForReading(i, 0, LayoutConvert(layout));
+                        C.tileGetForWriting(i, j, LayoutConvert(layout));
 
                         // Apply Q
                         tpmqrt(side, op, A.tileNb(0), A(i, 0),

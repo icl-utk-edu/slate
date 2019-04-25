@@ -95,6 +95,12 @@ void her2k(internal::TargetType<Target::HostTask>,
 {
     using blas::conj;
 
+    // CPU assumes column major
+    // todo: relax this assumption, by allowing Tile_blas.hh::her2k() to take layout param
+    // todo: optimize for the number of layout conversions,
+    //       by watching 'layout' and 'C(i, j).layout()'
+    const Layout layout = Layout::ColMajor;
+
     scalar_t beta_ = beta;
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j) {
@@ -104,9 +110,9 @@ void her2k(internal::TargetType<Target::HostTask>,
                     #pragma omp task shared(A, B, C, err) priority(priority)
                     {
                         try {
-                            A.tileGetForReading(j, 0);
-                            B.tileGetForReading(j, 0);
-                            C.tileGetForWriting(j, j);
+                            A.tileGetForReading(j, 0, LayoutConvert(layout));
+                            B.tileGetForReading(j, 0, LayoutConvert(layout));
+                            C.tileGetForWriting(j, j, LayoutConvert(layout));
                             her2k(alpha, A(j, 0),
                                          B(j, 0),
                                   beta,  C(j, j));
@@ -123,11 +129,11 @@ void her2k(internal::TargetType<Target::HostTask>,
                     #pragma omp task shared(A, B, C, err) priority(priority)
                     {
                         try {
-                            A.tileGetForReading(i, 0);
-                            A.tileGetForReading(j, 0);
-                            B.tileGetForReading(i, 0);
-                            B.tileGetForReading(j, 0);
-                            C.tileGetForWriting(i, j);
+                            A.tileGetForReading(i, 0, LayoutConvert(layout));
+                            A.tileGetForReading(j, 0, LayoutConvert(layout));
+                            B.tileGetForReading(i, 0, LayoutConvert(layout));
+                            B.tileGetForReading(j, 0, LayoutConvert(layout));
+                            C.tileGetForWriting(i, j, LayoutConvert(layout));
                             auto Aj0 = A(j, 0);
                             auto Bj0 = B(j, 0);
                             gemm(alpha, A(i, 0),
@@ -171,6 +177,12 @@ void her2k(internal::TargetType<Target::HostNest>,
 {
     using blas::conj;
 
+    // CPU assumes column major
+    // todo: relax this assumption, by allowing Tile_blas.hh::her2k() to take layout param
+    // todo: optimize for the number of layout conversions,
+    //       by watching 'layout' and 'C(i, j).layout()'
+    const Layout layout = Layout::ColMajor;
+
     scalar_t beta_ = beta;
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j) {
@@ -178,9 +190,9 @@ void her2k(internal::TargetType<Target::HostNest>,
             #pragma omp task shared(A, B, C, err)
             {
                 try {
-                    A.tileGetForReading(j, 0);
-                    B.tileGetForReading(j, 0);
-                    C.tileGetForWriting(j, j);
+                    A.tileGetForReading(j, 0, LayoutConvert(layout));
+                    B.tileGetForReading(j, 0, LayoutConvert(layout));
+                    C.tileGetForWriting(j, j, LayoutConvert(layout));
                     her2k(alpha, A(j, 0),
                                  B(j, 0),
                           beta,  C(j, j));
@@ -205,9 +217,9 @@ void her2k(internal::TargetType<Target::HostNest>,
             if (i >= j+1) {                     // strictly lower
                 if (C.tileIsLocal(i, j)) {
                     try {
-                        A.tileGetForReading(i, 0);
-                        B.tileGetForReading(j, 0);
-                        C.tileGetForWriting(i, j);
+                        A.tileGetForReading(i, 0, LayoutConvert(layout));
+                        B.tileGetForReading(j, 0, LayoutConvert(layout));
+                        C.tileGetForWriting(i, j, LayoutConvert(layout));
                         auto Aj0 = A(j, 0);
                         auto Bj0 = B(j, 0);
                         gemm(alpha, A(i, 0),
@@ -250,6 +262,12 @@ void her2k(internal::TargetType<Target::HostBatch>,
 {
     using blas::conj;
 
+    // CPU assumes column major
+    // todo: relax this assumption, by allowing Tile_blas.hh::her2k() to take layout param
+    // todo: optimize for the number of layout conversions,
+    //       by watching 'layout' and 'C(i, j).layout()'
+    const Layout layout = Layout::ColMajor;
+
     // diagonal tiles by her2k on host
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j) {
@@ -257,9 +275,9 @@ void her2k(internal::TargetType<Target::HostBatch>,
             #pragma omp task shared(A, B, C, err)
             {
                 try {
-                    A.tileGetForReading(j, 0);
-                    B.tileGetForReading(j, 0);
-                    C.tileGetForWriting(j, j);
+                    A.tileGetForReading(j, 0, LayoutConvert(layout));
+                    B.tileGetForReading(j, 0, LayoutConvert(layout));
+                    C.tileGetForWriting(j, j, LayoutConvert(layout));
                     her2k(alpha, A(j, 0),
                                  B(j, 0),
                           beta,  C(j, j));
@@ -280,9 +298,9 @@ void her2k(internal::TargetType<Target::HostBatch>,
     for (int64_t j = 0; j < C.nt(); ++j) {
         for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
             if (C.tileIsLocal(i, j)) {
-                A.tileGetForReading(i, 0);
-                B.tileGetForReading(j, 0);
-                C.tileGetForWriting(i, j);
+                A.tileGetForReading(i, 0, LayoutConvert(layout));
+                B.tileGetForReading(j, 0, LayoutConvert(layout));
+                C.tileGetForWriting(i, j, LayoutConvert(layout));
                 ++batch_count;
             }
         }
@@ -436,6 +454,15 @@ void her2k(internal::TargetType<Target::Devices>,
 {
     using std::swap;
     using blas::conj;
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
+
+    // assumes column major for now
+    // todo: relax this assumption,
+    //       by allowing Tile_blas.hh::her2k() to take layout param
+    //       look at internal::gemm()
+    // todo: optimize for the number of layout conversions,
+    //       by watching 'layout' and 'C(i, j).layout()'
+    const Layout layout = Layout::ColMajor;
 
     assert(C.num_devices() > 0);
 
@@ -464,19 +491,28 @@ void her2k(internal::TargetType<Target::Devices>,
 
                 Op opB = (opA == Op::NoTrans ? Op::ConjTrans : Op::NoTrans);
 
+                std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;
                 for (int64_t j = 0; j < C.nt()-1; ++j) {
                     for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
-                                A.tileGetForReading(i, 0, device);
-                                A.tileGetForReading(j, 0, device);
-                                B.tileGetForReading(i, 0, device);
-                                B.tileGetForReading(j, 0, device);
-                                C.tileGetForWriting(i, j, device);
+                                A_tiles_set.insert({i, 0});
+                                A.tileGetForReading(i, 0, LayoutConvert::None, device);
+                                A_tiles_set.insert({j, 0});
+                                A.tileGetForReading(j, 0, LayoutConvert::None, device);
+                                B_tiles_set.insert({i, 0});
+                                B.tileGetForReading(i, 0, LayoutConvert::None, device);
+                                B_tiles_set.insert({j, 0});
+                                B.tileGetForReading(j, 0, LayoutConvert::None, device);
+                                C_tiles_set.insert({i, j});
+                                C.tileGetForWriting(i, j, LayoutConvert::None, device);
                             }
                         }
                     }
                 }
+                A.tileConvertLayout(A_tiles_set, device, layout);
+                B.tileConvertLayout(B_tiles_set, device, layout);
+                C.tileConvertLayout(C_tiles_set, device, layout);
 
                 scalar_t** a_array_host = C.a_array_host(device);
                 scalar_t** b_array_host = C.b_array_host(device);
@@ -746,9 +782,9 @@ void her2k(internal::TargetType<Target::Devices>,
             #pragma omp task shared(A, B, C, err)
             {
                 try {
-                    A.tileGetForReading(j, 0);
-                    B.tileGetForReading(j, 0);
-                    C.tileGetForWriting(j, j);
+                    A.tileGetForReading(j, 0, LayoutConvert(layout));
+                    B.tileGetForReading(j, 0, LayoutConvert(layout));
+                    C.tileGetForWriting(j, j, LayoutConvert(layout));
                     her2k(alpha, A(j, 0),
                                  B(j, 0),
                           beta,  C(j, j));

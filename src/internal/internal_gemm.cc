@@ -101,7 +101,11 @@ void gemm(internal::TargetType<Target::HostTask>,
           Layout layout, int priority)
 {
     // CPU uses ColMajor
+    // todo: relax this assumption, by allowing Tile_blas.hh::gemm() to take layout param
+    // todo: optimize for the number of layout conversions,
+    //       by watching 'layout' and 'C(i, j).layout()'
     assert(layout == Layout::ColMajor);
+
     // check dimensions
     assert(A.nt() == 1);
     assert(B.mt() == 1);
@@ -115,9 +119,9 @@ void gemm(internal::TargetType<Target::HostTask>,
                 #pragma omp task shared(A, B, C, err) priority(priority)
                 {
                     try {
-                        A.tileGetForReading(i, 0);
-                        B.tileGetForReading(0, j);
-                        C.tileGetForWriting(i, j);
+                        A.tileGetForReading(i, 0, LayoutConvert(layout));
+                        B.tileGetForReading(0, j, LayoutConvert(layout));
+                        C.tileGetForWriting(i, j, LayoutConvert(layout));
                         gemm(alpha, A(i, 0),
                                     B(0, j),
                              beta,  C(i, j));
@@ -168,9 +172,9 @@ void gemm(internal::TargetType<Target::HostNest>,
         for (int64_t j = 0; j < C_nt; ++j) {
             if (C.tileIsLocal(i, j)) {
                 try {
-                    A.tileGetForReading(i, 0);
-                    B.tileGetForReading(0, j);
-                    C.tileGetForWriting(i, j);
+                    A.tileGetForReading(i, 0, LayoutConvert(layout));
+                    B.tileGetForReading(0, j, LayoutConvert(layout));
+                    C.tileGetForWriting(i, j, LayoutConvert(layout));
                     gemm(alpha, A(i, 0),
                                 B(0, j),
                          beta,  C(i, j));
@@ -210,6 +214,7 @@ void gemm(internal::TargetType<Target::HostBatch>,
 
     // CPU uses ColMajor
     assert(layout == Layout::ColMajor);
+
     // check dimensions
     assert(A.nt() == 1);
     assert(B.mt() == 1);
@@ -222,9 +227,10 @@ void gemm(internal::TargetType<Target::HostBatch>,
     for (int64_t i = 0; i < C.mt(); ++i) {
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(i, j)) {
-                A.tileGetForReading(i, 0);
-                B.tileGetForReading(0, j);
-                C.tileGetForWriting(i, j);
+                // todo: wrap into a omp task??
+                A.tileGetForReading(i, 0, LayoutConvert(layout));
+                B.tileGetForReading(0, j, LayoutConvert(layout));
+                C.tileGetForWriting(i, j, LayoutConvert(layout));
                 ++batch_count;
             }
         }
@@ -362,6 +368,7 @@ void gemm(internal::TargetType<Target::Devices>,
 {
     using blas::conj;
     using std::swap;
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
     // check dimensions
     assert(A.nt() == 1);
@@ -409,18 +416,24 @@ void gemm(internal::TargetType<Target::Devices>,
                 beta  = conj(beta);
             }
 
+            std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;
             for (int64_t i = 0; i < C.mt(); ++i) {
                 for (int64_t j = 0; j < C.nt(); ++j) {
                     if (C.tileIsLocal(i, j)) {
                         if (device == C.tileDevice(i, j)) {
-                            A.tileGetForReading(i, 0, device, LayoutConvert(layout));
-                            B.tileGetForReading(0, j, device, LayoutConvert(layout));
-                            C.tileGetForWriting(i, j, device, LayoutConvert(layout));
+                            A_tiles_set.insert({i, 0});
+                            A.tileGetForReading(i, 0, LayoutConvert::None, device);
+                            B_tiles_set.insert({0, j});
+                            B.tileGetForReading(0, j, LayoutConvert::None, device);
+                            B_tiles_set.insert({i, j});
+                            C.tileGetForWriting(i, j, LayoutConvert::None, device);
                         }
                     }
                 }
             }
-            // todo: convert layout
+            A.tileConvertLayout(A_tiles_set, device, layout);
+            B.tileConvertLayout(B_tiles_set, device, layout);
+            C.tileConvertLayout(C_tiles_set, device, layout);
 
             scalar_t** a_array_host = C.a_array_host(device);
             scalar_t** b_array_host = C.b_array_host(device);

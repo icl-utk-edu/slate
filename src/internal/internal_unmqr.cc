@@ -85,6 +85,9 @@ void unmqr(internal::TargetType<target>,
     assert(C_nt >= 1);
     assert(W.nt() == C_nt);
 
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+
     // Build a list of local tile's row indices in current matrix C.
     std::vector<int64_t> row_indices;
 
@@ -155,7 +158,7 @@ void unmqr(internal::TargetType<target>,
         // op(Q) x C = C - V x op(T) x (V**H x C)
         // W = V**H x C
         // W <- C1
-        C1.tileGetAllForWriting(C1.hostNum());// todo: issue omp tasks for copy to host
+        C1.tileGetAllForWriting(LayoutConvert(layout), C1.hostNum());// todo: issue omp tasks for copy to host
         Wr.copy(C1);
 
         internal::trmm<Target::HostTask, scalar_t>(
@@ -170,12 +173,13 @@ void unmqr(internal::TargetType<target>,
                 auto ViT = conj_transpose(A.sub(row, row, 0, 0));
                 auto Ci = C.sub(row, row, 0, C_nt-1);
                 if (target == Target::Devices) {
-                    Ci.tileGetAndHoldAllOnDevices();// todo: release the hold later
+                    Ci.tileGetAndHoldAllOnDevices(LayoutConvert(layout));// todo: release the hold later
                 }
                 internal::gemm<target>(
                         scalar_t(1.0), std::move(ViT),
                                        std::move(Ci),
-                        scalar_t(1.0), std::move(Wr));
+                        scalar_t(1.0), std::move(Wr),
+                        layout);
             }
         }
 
@@ -194,7 +198,8 @@ void unmqr(internal::TargetType<target>,
             internal::gemm<target>(
                     scalar_t(-1.0), A.sub(row_indices[1], A_mt-1, 0, 0),
                                     std::move(Wr),
-                    scalar_t(1.0),  C.sub(row_indices[1], C_mt-1, 0, C_nt-1));
+                    scalar_t(1.0),  C.sub(row_indices[1], C_mt-1, 0, C_nt-1),
+                    layout);
         }
         // W <- TRMM(V1,W)
         internal::trmm<Target::HostTask, scalar_t>(

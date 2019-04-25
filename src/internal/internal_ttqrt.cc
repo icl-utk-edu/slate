@@ -46,10 +46,12 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Distributed QR triangle-triangle factorization of column of tiles.
 /// Each rank has one triangular tile, the result of local geqrf panel.
 /// Dispatches to target implementations.
+/// @ingroup geqrf_internal
+///
 template <Target target, typename scalar_t>
 void ttqrt(Matrix<scalar_t>&& A,
            Matrix<scalar_t>&& T)
@@ -58,9 +60,11 @@ void ttqrt(Matrix<scalar_t>&& A,
           A, T);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Distributed QR triangle-triangle factorization, host implementation.
 /// assumes panel tiles reside on host
+/// @ingroup geqrf_internal
+///
 template <typename scalar_t>
 void ttqrt(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A,

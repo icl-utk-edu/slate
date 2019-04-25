@@ -46,10 +46,12 @@
 
 namespace slate {
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Hermitian matrix norm.
 /// The only difference from symmetric matrix norm is the diagonal is assumed
 /// to be real.
+/// @ingroup norm_tile
+///
 template <typename scalar_t>
 void henorm(Norm norm, Tile<scalar_t> const& A,
             blas::real_type<scalar_t>* values)
@@ -127,8 +129,10 @@ void henorm(Norm norm, Tile<scalar_t> const& A,
     }
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup norm_tile
+///
 template <typename scalar_t>
 void henorm(Norm norm, Tile<scalar_t> const&& A,
             blas::real_type<scalar_t>* values)

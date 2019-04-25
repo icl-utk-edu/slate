@@ -151,10 +151,11 @@ void gecopy(
 
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Copy and precision conversion.
 /// Dispatches to target implementations.
+/// @ingroup copy_internal
+///
 template <Target target, typename src_scalar_t, typename dst_scalar_t>
 void copy(Matrix<src_scalar_t>&& A,
           Matrix<dst_scalar_t>&& B,
@@ -165,12 +166,13 @@ void copy(Matrix<src_scalar_t>&& A,
          priority);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Copy and precision conversion.
 /// assumes A & B have same tile layout and dimensions, and have same distribution
 /// TODO handle transpose A case
 /// Host OpenMP task implementation.
+/// @ingroup copy_internal
+///
 template <typename src_scalar_t, typename dst_scalar_t>
 void copy(internal::TargetType<Target::HostTask>,
           Matrix<src_scalar_t>& A,
@@ -202,12 +204,13 @@ void copy(internal::TargetType<Target::HostTask>,
     #pragma omp taskwait
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Copy and precision conversion.
 /// assumes A & B have same tile layout and dimensions, and have same distribution
 /// TODO: Inspect transposition?
 /// GPU device implementation.
+/// @ingroup copy_internal
+///
 template <typename src_scalar_t, typename dst_scalar_t>
 void copy(internal::TargetType<Target::Devices>,
           Matrix<src_scalar_t>& A,

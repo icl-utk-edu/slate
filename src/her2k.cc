@@ -57,7 +57,8 @@ namespace specialization {
 /// - bcasts can get ahead of her2ks by the value of lookahead.
 /// Note A, B, and C are passed by value, so we can transpose if needed
 /// (for uplo = Upper) without affecting caller.
-/// @ingroup her2k
+/// @ingroup her2k_specialization
+///
 template <Target target, typename scalar_t>
 void her2k(slate::internal::TargetType<target>,
            scalar_t alpha,                  Matrix<scalar_t> A,
@@ -192,7 +193,8 @@ void her2k(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup her2k
+/// @ingroup her2k_specialization
+///
 template <Target target, typename scalar_t>
 void her2k(scalar_t alpha,                  Matrix<scalar_t>& A,
                                             Matrix<scalar_t>& B,
@@ -263,6 +265,7 @@ void her2k(scalar_t alpha,                  Matrix<scalar_t>& A,
 ///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup her2k
+///
 template <typename scalar_t>
 void her2k(scalar_t alpha,                 Matrix<scalar_t>& A,
                                            Matrix<scalar_t>& B,

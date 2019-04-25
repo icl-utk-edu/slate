@@ -193,7 +193,7 @@ inline void copy(cuDoubleComplex a, cuFloatComplex& b)
     b.y = a.y;
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Square of number.
 /// @return x^2
 template <typename scalar_t>

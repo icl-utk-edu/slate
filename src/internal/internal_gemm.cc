@@ -52,8 +52,7 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// General matrix multiply to update trailing matrix,
 /// where A is a single block column and B is a single block row.
 /// Dispatches to target implementations.
@@ -65,6 +64,8 @@ namespace internal {
 ///     Indicates the Layout (ColMajor/RowMajor) to operate with.
 ///     Local tiles of matrix C and corresponding tiles of A & B
 ///        on target devices will be converted to layout.
+///
+/// @ingroup gemm_internal
 ///
 template <Target target, typename scalar_t>
 void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
@@ -88,11 +89,12 @@ void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
          layout, priority);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// General matrix multiply to update trailing matrix,
 /// where A is a single block column and B is a single block row.
 /// Host OpenMP task implementation.
+/// @ingroup gemm_internal
+///
 template <typename scalar_t>
 void gemm(internal::TargetType<Target::HostTask>,
           scalar_t alpha, Matrix<scalar_t>& A,
@@ -143,11 +145,12 @@ void gemm(internal::TargetType<Target::HostTask>,
         throw std::exception();
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// General matrix multiply to update trailing matrix,
 /// where A is a single block column and B is a single block row.
 /// Host nested OpenMP implementation.
+/// @ingroup gemm_internal
+///
 template <typename scalar_t>
 void gemm(internal::TargetType<Target::HostNest>,
           scalar_t alpha, Matrix<scalar_t>& A,
@@ -195,13 +198,14 @@ void gemm(internal::TargetType<Target::HostNest>,
         throw std::exception();
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// General matrix multiply to update trailing matrix,
 /// where A is a single block col (mt tiles by 1 tile)
 /// and   B is a single block row (1 tile by nt tiles)
 /// and   C is mt tiles by nt tiles.
 /// Host batched implementation.
+/// @ingroup gemm_internal
+///
 template <typename scalar_t>
 void gemm(internal::TargetType<Target::HostBatch>,
           scalar_t alpha, Matrix<scalar_t>& A,
@@ -353,12 +357,13 @@ void gemm(internal::TargetType<Target::HostBatch>,
     #pragma omp taskwait
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// General matrix multiply to update trailing matrix,
 /// where A is a single block column and B is a single block row.
 /// GPU device batched cuBLAS implementation.
 /// GPU can use either ColMajor or RowMajor.
+/// @ingroup gemm_internal
+///
 template <typename scalar_t>
 void gemm(internal::TargetType<Target::Devices>,
           scalar_t alpha, Matrix< scalar_t >& A,

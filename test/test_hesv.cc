@@ -6,7 +6,6 @@
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
 
-#include <cassert>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -56,7 +55,7 @@ template <typename scalar_t> void test_hesv_work(Params& params, bool run)
     //---------------------
     // initialize BLACS and ScaLAPACK
     Cblacs_pinfo(&iam, &nprocs);
-    assert(p*q <= nprocs);
+    slate_assert(p*q <= nprocs);
     Cblacs_get(-1, 0, &ictxt);
     Cblacs_gridinit(&ictxt, "Col", p, q);
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
@@ -66,7 +65,7 @@ template <typename scalar_t> void test_hesv_work(Params& params, bool run)
     int64_t mlocA = scalapack_numroc(Am, nb, myrow, izero, nprow);
     int64_t nlocA = scalapack_numroc(An, nb, mycol, izero, npcol);
     scalapack_descinit(descA_tst, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
-    assert(info == 0);
+    slate_assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
     scalapack_pplghe(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
@@ -98,7 +97,7 @@ template <typename scalar_t> void test_hesv_work(Params& params, bool run)
     int64_t mlocB = scalapack_numroc(Bm, nb, myrow, izero, nprow);
     int64_t nlocB = scalapack_numroc(Bn, nb, mycol, izero, npcol);
     scalapack_descinit(descB_tst, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
-    assert(info == 0);
+    slate_assert(info == 0);
     int64_t lldB = (int64_t)descB_tst[8];
     std::vector<scalar_t> B_tst(lldB*nlocB);
     scalapack_pplrnt(&B_tst[0], Bm, Bn, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 2);
@@ -106,7 +105,7 @@ template <typename scalar_t> void test_hesv_work(Params& params, bool run)
     B_ref.resize(B_tst.size());
     B_ref = B_tst;
     scalapack_descinit(descB_ref, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
-    assert(info == 0);
+    slate_assert(info == 0);
 
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
 

@@ -60,7 +60,8 @@ namespace specialization {
 /// - bcasts can get ahead of syrks by the value of lookahead.
 /// Note A and C are passed by value, so we can transpose if needed
 /// (for uplo = Upper) without affecting caller.
-/// @ingroup syrk
+/// @ingroup syrk_specialization
+///
 template <Target target, typename scalar_t>
 void syrk(slate::internal::TargetType<target>,
           scalar_t alpha, Matrix<scalar_t> A,
@@ -174,7 +175,8 @@ void syrk(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup syrk
+/// @ingroup syrk_specialization
+///
 template <Target target, typename scalar_t>
 void syrk(scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
@@ -239,6 +241,7 @@ void syrk(scalar_t alpha, Matrix<scalar_t>& A,
 ///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup syrk
+///
 template <typename scalar_t>
 void syrk(scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,

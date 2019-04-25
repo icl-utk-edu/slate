@@ -56,7 +56,8 @@ namespace specialization {
 /// Generic implementation for any target.
 /// Note A and B are passed by value, so we can transpose if needed
 /// (for side = right) without affecting caller.
-/// @ingroup trmm
+/// @ingroup trmm_specialization
+///
 template <Target target, typename scalar_t>
 void trmm(slate::internal::TargetType<target>,
           Side side,
@@ -318,7 +319,8 @@ void trmm(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup trmm
+/// @ingroup trmm_specialization
+///
 template <Target target, typename scalar_t>
 void trmm(blas::Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
@@ -391,6 +393,7 @@ void trmm(blas::Side side,
 ///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup trmm
+///
 template <typename scalar_t>
 void trmm(blas::Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,

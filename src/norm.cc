@@ -56,7 +56,8 @@ namespace specialization {
 /// @internal
 /// Distributed parallel general matrix norm.
 /// Generic implementation for any target.
-/// @ingroup norm
+/// @ingroup norm_specialization
+///
 template <Target target, typename matrix_type>
 blas::real_type<typename matrix_type::value_type>
 norm(slate::internal::TargetType<target>,
@@ -226,7 +227,8 @@ norm(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup norm
+/// @ingroup norm_specialization
+///
 template <Target target, typename matrix_type>
 blas::real_type<typename matrix_type::value_type>
 norm(Norm norm, matrix_type& A,
@@ -244,13 +246,13 @@ norm(Norm norm, matrix_type& A,
 ///     Any SLATE matrix type: Matrix, SymmetricMatrix, HermitianMatrix,
 ///     TriangularMatrix, etc.
 //------------------------------------------------------------------------------
-/// @param[in] norm
+/// @param[in] in_norm
 ///     Norm to compute:
-///     - Norm::Max: maximum element,    $\max_{i, j}   \abs( A_{i, j} )$
-///     - Norm::One: maximum column sum, $\max_j \sum_i \abs( A_{i, j} )$
-///     - Norm::Inf: maximum row sum,    $\max_i \sum_j \abs( A_{i, j} )$
+///     - Norm::Max: maximum element,    $\max_{i, j}   \abs{ A_{i, j} }$
+///     - Norm::One: maximum column sum, $\max_j \sum_i \abs{ A_{i, j} }$
+///     - Norm::Inf: maximum row sum,    $\max_i \sum_j \abs{ A_{i, j} }$
 ///       For symmetric and Hermitian matrices, the One and Inf norms are the same.
-///     - Norm::Fro: Frobenius norm, $\sqrt( \sum_{i, j} \abs( A_{i, j} )^2 )$
+///     - Norm::Fro: Frobenius norm, $\sqrt{ \sum_{i, j} \abs{ A_{i, j} }^2 }$
 ///
 /// @param[in] A
 ///     The matrix A.
@@ -264,6 +266,7 @@ norm(Norm norm, matrix_type& A,
 ///       - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup norm
+///
 template <typename matrix_type>
 blas::real_type<typename matrix_type::value_type>
 norm(Norm in_norm, matrix_type& A,

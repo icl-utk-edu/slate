@@ -52,10 +52,11 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
-/// Distributed parallel Cholesky solve.
+//------------------------------------------------------------------------------
+/// Distributed parallel Hermitian indefinite $LTL^T$ solve.
 /// Generic implementation for any target.
+/// @ingroup hesv_specialization
+///
 template <Target target, typename scalar_t>
 void hetrs(slate::internal::TargetType<target>,
            HermitianMatrix<scalar_t>& A, Pivots& pivots,
@@ -119,7 +120,8 @@ void hetrs(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup gesv_comp
+/// @ingroup hesv_specialization
+///
 template <Target target, typename scalar_t>
 void hetrs(HermitianMatrix<scalar_t>& A, Pivots& pivots,
                 BandMatrix<scalar_t>& T, Pivots& pivots2,
@@ -140,7 +142,46 @@ void hetrs(HermitianMatrix<scalar_t>& A, Pivots& pivots,
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel LU factorization.
+/// Distributed parallel Hermitian indefinite $LTL^T$ solve.
+///
+/// Solves a system of linear equations $A X = B$ with a
+/// Hermitian matrix $A$ using the factorization $A = U^H T U$ or
+/// $A = L T L^H$ computed by hetrf.
+///
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///     One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in,out] A
+///     Details of the factors $U$ or $L$ as computed by hetrf.
+///     If scalar_t is real, $A$ can be a SymmetricMatrix object.
+///
+/// @param[out] pivots
+///     Details of the interchanges applied to $A$ as computed by hetrf.
+///
+/// @param[out] T
+///     Details of the LU factorization of the band matrix as computed by hetrf.
+///
+/// @param[out] pivots2
+///     Details of the interchanges applied to $T$ as computed by hetrf.
+///
+/// @param[in,out] B
+///     On entry, the n-by-nrhs right hand side matrix $B$.
+///     On exit, if return value = 0, the n-by-nrhs solution matrix $X$.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Lookahead:
+///       Number of panels to overlap with matrix updates.
+///       lookahead >= 0. Default 1.
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
+/// @ingroup hesv_computational
 ///
 template <typename scalar_t>
 void hetrs(HermitianMatrix<scalar_t>& A, Pivots& pivots,

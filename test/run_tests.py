@@ -275,6 +275,7 @@ def filter_csv( values, csv ):
 # limit options to specific values
 dtype_real    = ' --type ' + filter_csv( ('s', 'd'), opts.type )
 dtype_complex = ' --type ' + filter_csv( ('c', 'z'), opts.type )
+dtype_double  = ' --type ' + filter_csv( ('d', 'z'), opts.type )
 
 trans_nt = ' --trans ' + filter_csv( ('n', 't'), opts.trans )
 trans_nc = ' --trans ' + filter_csv( ('n', 'c'), opts.trans )
@@ -319,6 +320,7 @@ if (opts.lu):
     #[ 'gecon', gen + dtype + la + n ],
     #[ 'gerfs', gen + dtype + la + n + trans ],
     #[ 'geequ', gen + dtype + la + n ],
+    [ 'gesvMixed',  gen + dtype_double + la + n ],
     ]
 
 # General Banded
@@ -352,6 +354,7 @@ if (opts.chol):
     #[ 'pocon', gen + dtype + la + n + uplo ],
     #[ 'porfs', gen + dtype + la + n + uplo ],
     #[ 'poequ', gen + dtype + la + n ],  # only diagonal elements (no uplo)
+    [ 'posvMixed',  gen + dtype_double + la + n + uplo ],
 
     # Banded
     #[ 'pbsv',  gen + dtype + la + n + kd + uplo ],

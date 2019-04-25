@@ -53,8 +53,7 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Hermitian matrix multiply to update trailing matrix,
 /// where A is a single tile.
 /// If side = left,  B and C are each a single block row;
@@ -62,6 +61,8 @@ namespace internal {
 /// Unlike most BLAS operations, here op(B) and op(C) must be
 /// both the same, either both NoTrans or both ConjTrans.
 /// Dispatches to target implementations.
+/// @ingroup hemm_internal
+///
 template <Target target, typename scalar_t>
 void hemm(Side side,
           scalar_t alpha, HermitianMatrix<scalar_t>&& A,
@@ -92,10 +93,11 @@ void hemm(Side side,
          priority);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Hermitian matrix multiply to update trailing matrix.
 /// Host OpenMP task implementation.
+/// @ingroup hemm_internal
+///
 template <typename scalar_t>
 void hemm(internal::TargetType<Target::HostTask>,
           Side side,
@@ -167,10 +169,11 @@ void hemm(internal::TargetType<Target::HostTask>,
         throw std::exception();
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Hermitian matrix multiply to update trailing matrix.
 /// Host nested OpenMP implementation.
+/// @ingroup hemm_internal
+///
 template <typename scalar_t>
 void hemm(internal::TargetType<Target::HostNest>,
           Side side,

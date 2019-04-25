@@ -167,6 +167,7 @@ public:
 ///     catch (MpiException& e) {
 ///         ...
 ///     }
+///
 #define slate_mpi_call(call) \
     do { \
         int slate_mpi_call_ = call; \
@@ -204,6 +205,7 @@ public:
 ///     catch (CudaException& e) {
 ///         ...
 ///     }
+///
 #define slate_cuda_call(call) \
     do { \
         cudaError_t slate_cuda_call_ = call; \
@@ -243,6 +245,7 @@ public:
 ///     catch (CublasException& e) {
 ///         ...
 ///     }
+///
 #define slate_cublas_call(call) \
     do { \
         cublasStatus_t slate_cublas_call_ = call; \

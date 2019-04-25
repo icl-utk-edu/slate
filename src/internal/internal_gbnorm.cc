@@ -50,7 +50,7 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// General banded matrix norm.
 /// Dispatches to target implementations.
 ///
@@ -60,6 +60,8 @@ namespace internal {
 /// - Norm::Inf: values is dimension m and contains the local row sum.
 /// - Norm::Fro: values is dimension 2 and contains the local scale and
 ///              sum-of-squares.
+///
+/// @ingroup norm_internal
 ///
 template <Target target, typename scalar_t>
 void norm(
@@ -72,9 +74,11 @@ void norm(
          priority);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// General banded matrix norm.
 /// Host OpenMP task implementation.
+/// @ingroup norm_internal
+///
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::HostTask>,
@@ -238,10 +242,12 @@ void norm(
     }
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// General banded matrix norm.
 /// Host nested OpenMP implementation.
 /// TODO: currently, this does only max norm.
+/// @ingroup norm_internal
+///
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::HostNest>,
@@ -296,10 +302,12 @@ void norm(
                             tiles_maxima.data(), 1);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// General banded matrix norm.
 /// GPU device implementation.
 /// TODO
+/// @ingroup norm_internal
+///
 #if 1
 template <typename scalar_t>
 void norm(

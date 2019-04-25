@@ -37,8 +37,8 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-///-----------------------------------------------------------------------------
-/// \file
+//------------------------------------------------------------------------------
+/// @file
 ///
 #ifndef SLATE_ENUMS_HH
 #define SLATE_ENUMS_HH
@@ -59,16 +59,16 @@ typedef blas::Layout Layout;
 typedef lapack::Norm Norm;
 typedef lapack::Direct Direction;  // todo change LAPACK++
 
-///-----------------------------------------------------------------------------
-/// \class
-/// \brief
+//------------------------------------------------------------------------------
+/// Location and method of computation.
+/// @ingroup enum
 ///
 enum class Target : char {
-    Host      = 'H',
-    HostTask  = 'T',
-    HostNest  = 'N',
-    HostBatch = 'B',
-    Devices   = 'D',
+    Host      = 'H',    ///< data resides on host
+    HostTask  = 'T',    ///< computation using OpenMP nested tasks on host
+    HostNest  = 'N',    ///< computation using OpenMP nested parallel for loops on host
+    HostBatch = 'B',    ///< computation using batch BLAS on host (Intel MKL)
+    Devices   = 'D',    ///< computation using batch BLAS on devices (cuBLAS)
 };
 
 namespace internal {
@@ -76,30 +76,36 @@ template <Target> class TargetType {};
 } // namespace internal
 
 //------------------------------------------------------------------------------
-/// \class
-/// \brief
+/// Keys for options to pass to SLATE routines.
+/// @ingroup enum
 ///
-enum class Option {
-    Lookahead,
-    BlockSize,
-    InnerBlocking,
-    MaxPanelThreads,
-    Tolerance,
-    Target,
+enum class Option : char {
+    Lookahead,          ///< Lookahead depth, >= 0
+    BlockSize,          ///< BlockSize, >= 1
+    InnerBlocking,      ///< Inner blocking size, >= 1
+    MaxPanelThreads,    ///< Max number of threads for panel, >= 1
+    Tolerance,          ///< Tolerance for iterative methods, default epsilon
+    Target,             ///< Computation method. @see Target
 };
 
 //------------------------------------------------------------------------------
+/// To convert matrix between column-major and row-major.
+/// @ingroup enum
+///
 enum class LayoutConvert : char {
-    ColMajor = 'C',
-    RowMajor = 'R',
-    None     = 'N',
+    ColMajor = 'C',     ///< Convert to column-major
+    RowMajor = 'R',     ///< Convert to row-major
+    None     = 'N',     ///< No conversion
 };
 
 //------------------------------------------------------------------------------
+/// Whether computing matrix norm, column norms, or row norms.
+/// @ingroup enum
+///
 enum class NormScope : char {
-    Columns = 'C',
-    Rows    = 'R',
-    Matrix  = 'M',
+    Columns = 'C',      ///< Compute column norms
+    Rows    = 'R',      ///< Compute row norms
+    Matrix  = 'M',      ///< Compute matrix norm
 };
 
 } // namespace slate

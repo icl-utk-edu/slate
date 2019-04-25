@@ -49,9 +49,10 @@
 
 namespace slate {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// General matrix norm.
+/// @ingroup norm_tile
+///
 template <typename scalar_t>
 void genorm(Norm norm, NormScope scope, Tile<scalar_t> const& A,
             blas::real_type<scalar_t>* values)
@@ -128,8 +129,10 @@ void genorm(Norm norm, NormScope scope, Tile<scalar_t> const& A,
     }
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup norm_tile
+///
 template <typename scalar_t>
 void genorm(Norm norm, NormScope scope, Tile<scalar_t> const&& A,
             blas::real_type<scalar_t>* values)
@@ -137,8 +140,10 @@ void genorm(Norm norm, NormScope scope, Tile<scalar_t> const&& A,
     return genorm(norm, scope, A, values);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Trapezoid and triangular matrix norm.
+/// @ingroup norm_tile
+///
 template <typename scalar_t>
 void trnorm(Norm norm, Diag diag, Tile<scalar_t> const& A,
             blas::real_type<scalar_t>* values)
@@ -266,8 +271,10 @@ void trnorm(Norm norm, Diag diag, Tile<scalar_t> const& A,
     }
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup norm_tile
+///
 template <typename scalar_t>
 void trnorm(Norm norm, Tile<scalar_t> const&& A,
             blas::real_type<scalar_t>* values)
@@ -275,10 +282,11 @@ void trnorm(Norm norm, Tile<scalar_t> const&& A,
     return trnorm(norm, A, values);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Cholesky factorization of tile: $L L^H = A$ or $U^H U = A$.
 /// uplo is set in the tile.
+/// @ingroup posv_tile
+///
 template <typename scalar_t>
 int64_t potrf(Tile<scalar_t>& A)
 {
@@ -289,8 +297,10 @@ int64_t potrf(Tile<scalar_t>& A)
                          A.data(), A.stride());
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup posv_tile
+///
 template <typename scalar_t>
 int64_t potrf(Tile<scalar_t>&& A)
 {

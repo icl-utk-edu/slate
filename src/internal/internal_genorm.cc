@@ -49,7 +49,7 @@
 
 namespace slate {
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // On macOS, nvcc using clang++ generates a different C++ name mangling
 // (std::__1::complex) than g++ for std::complex. This solution is to use
 // cu*Complex in .cu files, and cast from std::complex here.
@@ -114,7 +114,7 @@ void genorm(
 
 namespace internal {
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// General matrix norm.
 /// Dispatches to target implementations.
 ///
@@ -136,9 +136,11 @@ void norm(
          priority);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// General matrix norm.
 /// Host OpenMP task implementation.
+/// @ingroup norm_internal
+///
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::HostTask>,
@@ -327,10 +329,12 @@ void norm(
     }
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// General matrix norm.
 /// Host nested OpenMP implementation.
 /// TODO: currently, this does only max norm.
+/// @ingroup norm_internal
+///
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::HostNest>,
@@ -416,9 +420,11 @@ void norm(
 
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// General matrix norm.
 /// GPU device implementation.
+/// @ingroup norm_internal
+///
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::Devices>,

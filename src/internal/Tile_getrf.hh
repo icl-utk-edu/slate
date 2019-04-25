@@ -56,32 +56,31 @@ namespace slate {
 namespace internal {
 // todo: Perhaps we should put all Tile routines in "internal".
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Swap a single row in the panel factorization.
 ///
-/// \param[in] i
+/// @param[in] i
 ///     pivot index
 ///
-/// \param[in] j
+/// @param[in] j
 ///     first column of the swap
 ///
-/// \param[in] n
+/// @param[in] n
 ///     length of the swap
 ///
-/// \param[inout] tiles
+/// @param[inout] tiles
 ///     vector of local panel tiles
 ///
-/// \param[in] pivot
+/// @param[in] pivot
 ///     vector of pivot indices for the diagonal tile
 ///
-/// \param[in] mpi_rank
+/// @param[in] mpi_rank
 ///     MPI rank in the panel factorization
 ///
-/// \param[in] mpi_root
+/// @param[in] mpi_root
 ///     MPI rank of the root for the panel factorization
 ///
-/// \param[in] mpi_comm
+/// @param[in] mpi_comm
 ///     MPI subcommunicator for the panel factorization
 ///
 template <typename scalar_t>
@@ -129,57 +128,58 @@ void getrf_swap(
     }
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Compute the LU factorization of a panel.
 ///
-/// \param[in] diag_len
+/// @param[in] diag_len
 ///     length of the panel diagonal
 ///
-/// \param[in] ib
+/// @param[in] ib
 ///     internal blocking in the panel
 ///
-/// \param[inout] tiles
+/// @param[inout] tiles
 ///     local tiles in the panel
 ///
-/// \param[in] tile_indices
+/// @param[in] tile_indices
 ///     i indices of the tiles in the panel
 ///
-/// \param[inout] pivot
+/// @param[inout] pivot
 ///     pivots produced by the panel factorization
 ///
-/// \param[in] mpi_rank
+/// @param[in] mpi_rank
 ///     MPI rank in the panel factorization
 ///
-/// \param[in] mpi_root
+/// @param[in] mpi_root
 ///     MPI rank of the root for the panel factorization
 ///
-/// \param[in] mpi_comm
+/// @param[in] mpi_comm
 ///     MPI subcommunicator for the panel factorization
 ///
-/// \param[in] thread_rank
+/// @param[in] thread_rank
 ///     rank of this thread
 ///
-/// \param[in] thread_size
+/// @param[in] thread_size
 ///     number of local threads
 ///
-/// \param[in] thread_barrier
+/// @param[in] thread_barrier
 ///     barrier for synchronizing local threads
 ///
-/// \param[out] max_value
+/// @param[out] max_value
 ///     workspace for per-thread pivot value
 ///
-/// \param[in] max_index
+/// @param[in] max_index
 ///     workspace for per-thread pivot index
 //      (local index of the tile containing the pivot)
 ///
-/// \param[in] max_offset
+/// @param[in] max_offset
 ///     workspace for per-thread pivot offset
 ///     (pivot offset in the tile)
 ///
-/// \param[in] tob_block
+/// @param[in] tob_block
 ///     workspace for broadcasting the top row for the geru operation
 ///     and the top block for the gemm operation.
+///
+/// @ingroup getrf_tile
 ///
 template <typename scalar_t>
 void getrf(

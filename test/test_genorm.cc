@@ -6,7 +6,6 @@
 #include "scalapack_copy.hh"
 #include "print_matrix.hh"
 
-#include <cassert>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -63,7 +62,7 @@ void test_genorm_work(Params& params, bool run)
 
     // initialize BLACS and ScaLAPACK
     Cblacs_pinfo(&iam, &nprocs);
-    assert(p*q <= nprocs);
+    slate_assert(p*q <= nprocs);
     Cblacs_get(-1, 0, &ictxt);
     Cblacs_gridinit(&ictxt, "Col", p, q);
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
@@ -73,7 +72,7 @@ void test_genorm_work(Params& params, bool run)
     int64_t nlocA = scalapack_numroc(An, nb, mycol, izero, npcol);
     int64_t lldA  = std::max(int64_t(1), mlocA);
     scalapack_descinit(descA_tst, Am, An, nb, nb, izero, izero, ictxt, lldA, &info);
-    assert(info == 0);
+    slate_assert(info == 0);
     std::vector<scalar_t> A_tst(lldA*nlocA);
     // todo: fix the generation
     //int iseed = 1;
@@ -146,7 +145,7 @@ void test_genorm_work(Params& params, bool run)
         });
     }
     else if (scope == slate::NormScope::Rows) {
-        assert("Not implemented yet");
+        slate_assert("Not implemented yet");
         // slate::rowNorms(norm, A, values.data(), {
         //     {slate::Option::Target, target}
         // });
@@ -278,13 +277,13 @@ void test_genorm_work(Params& params, bool run)
             if (j < 0 || j >= nt)
                 continue;
             int64_t jb = std::min(n - j*nb, nb);
-            assert(jb == A.tileNb(j));
+            slate_assert(jb == A.tileNb(j));
 
             for (auto i : i_indices) {
                 if (i < 0 || i >= mt)
                     continue;
                 int64_t ib = std::min(m - i*nb, nb);
-                assert(ib == A.tileMb(i));
+                slate_assert(ib == A.tileMb(i));
 
                 // Test entries in 2x2 in all 4 corners, and 1 other random row and col,
                 // up to 25 entries per tile.

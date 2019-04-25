@@ -51,7 +51,7 @@
 
 namespace slate {
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Multiply the matrix C by the unitary matrix Q obtained from a
 /// "triangular-pentagonal" block reflector H.
 /// C consists of two tiles, A and B.
@@ -73,23 +73,23 @@ namespace slate {
 ///
 /// See Further Details in tpqrt.
 ///
-/// \param[in] side
+/// @param[in] side
 ///     - Side::Left:  Multiply from the left:  $C = op(Q) C$.
 ///     - Side::Right: Multiply from the right: $C = C op(Q)$.
 ///
-/// \param[in] op
+/// @param[in] op
 ///     - Op::NoTrans:   Multiply by $op(Q) = Q$.
 ///     - Op::Trans:     Multiply by $op(Q) = Q^T$ (only in real case).
 ///     - Op::ConjTrans: Multiply by $op(Q) = Q^H$.
 ///
-/// \param[in] l
+/// @param[in] l
 ///     The number of rows of the upper trapezoidal part of V.
 ///     k >= l >= 0.
 ///     If l = 0, V is rectangular.
 ///     If l = k, V is triangular.
 ///     (Note n in tpqrt is k here.)
 ///
-/// \param[in] V
+/// @param[in] V
 ///     - If side == Left,  the m-by-k pentagonal tile V.
 ///     - If side == Right, the n-by-k pentagonal tile V.
 ///     The i-th column must contain the vector which defines the
@@ -98,20 +98,22 @@ namespace slate {
 ///     The top (m-l)-by-k or (n-l)-by-k portion is rectangular,
 ///     the bottom l-by-k portion is upper trapezoidal.
 ///
-/// \param[in] T
+/// @param[in] T
 ///     The upper triangular factors of the block reflectors
 ///     as returned by tpqrt, stored as an ib-by-k tile.
 ///
-/// \param[in,out] A
+/// @param[in,out] A
 ///     - If side == Left,  the k-by-n tile A.
 ///     - If side == Right, the m-by-k tile A.
 ///     On exit, A is overwritten by the corresponding block of
 ///     $op(Q) C$ or $C op(Q)$.
 ///
-/// \param[in,out] B
+/// @param[in,out] B
 ///     The m-by-n tile B.
 ///     On exit, B is overwritten by the corresponding block of
 ///     $op(Q) C$ or $C op(Q)$.
+///
+/// @ingroup geqrf_tile
 ///
 template <typename scalar_t>
 void tpmqrt(

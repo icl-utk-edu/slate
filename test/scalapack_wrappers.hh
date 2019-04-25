@@ -13,7 +13,6 @@
 
 #include <complex>
 #include <limits>
-#include <cassert>
 
 #include <blas.hh>
 
@@ -22,7 +21,7 @@
 inline int int64_to_int(int64_t n)
 {
     if (sizeof(int64_t) > sizeof(blas_int))
-        assert(n < std::numeric_limits<int>::max());
+        slate_assert(n < std::numeric_limits<int>::max());
     int n_ = (int)n;
     return n_;
 }

@@ -55,7 +55,6 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
-/// \brief
 /// Allocates workspace blocks for host and GPU devices.
 /// Currently assumes a fixed-size block of block_size bytes,
 /// e.g., block_size = sizeof(scalar_t) * nb * nb.

@@ -37,8 +37,8 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-///-----------------------------------------------------------------------------
-/// \file
+//------------------------------------------------------------------------------
+/// @file
 ///
 #ifndef SLATE_INTERNAL_HH
 #define SLATE_INTERNAL_HH
@@ -60,7 +60,7 @@
 #include "slate/TriangularMatrix.hh"
 #include "slate/BandMatrix.hh"
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 #define THROW_IF(cond, error) \
     if (cond) \
         throw TrueConditionException( \
@@ -86,7 +86,24 @@
 }
 
 namespace slate {
+
+//------------------------------------------------------------------------------
+/// @namespace slate::internal
+/// Namespace used for SLATE internal implementation.
+/// It is intended that application code would not call any internal SLATE
+/// functions.
 namespace internal {
+
+/// @namespace slate::internal::specialization
+/// Namespace used for target implementations.
+/// This differentiates, for example:
+/// - internal::specialization::gemm, which is target implementation of the
+///   slate::gemm PBLAS, from
+/// - internal::gemm, which is one step (one block outer-product) of
+///   internal::specialization::gemm.
+namespace specialization {
+    // here just for documentation
+}
 
 //------------------------------------------------------------------------------
 inline CBLAS_TRANSPOSE cblas_trans_const(Op op)

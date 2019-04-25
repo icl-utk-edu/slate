@@ -7,7 +7,6 @@
 #include "print_matrix.hh"
 #include "band_utils.hh"
 
-#include <cassert>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -79,7 +78,7 @@ void test_gbmm_work(Params& params, bool run)
 
     // initialize BLACS and ScaLAPACK
     Cblacs_pinfo(&iam, &nprocs);
-    assert(p*q <= nprocs);
+    slate_assert(p*q <= nprocs);
     Cblacs_get(-1, 0, &ictxt);
     Cblacs_gridinit(&ictxt, "Col", p, q);
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
@@ -89,7 +88,7 @@ void test_gbmm_work(Params& params, bool run)
     int64_t mlocA = scalapack_numroc(Am, nb, myrow, izero, nprow);
     int64_t nlocA = scalapack_numroc(An, nb, mycol, izero, npcol);
     scalapack_descinit(descA_tst, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
-    assert(info == 0);
+    slate_assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
     scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, lldA, iseed + 1);
@@ -103,7 +102,7 @@ void test_gbmm_work(Params& params, bool run)
     int64_t mlocB = scalapack_numroc(Bm, nb, myrow, izero, nprow);
     int64_t nlocB = scalapack_numroc(Bn, nb, mycol, izero, npcol);
     scalapack_descinit(descB_tst, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
-    assert(info == 0);
+    slate_assert(info == 0);
     int64_t lldB = (int64_t)descB_tst[8];
     std::vector<scalar_t> B_tst(lldB*nlocB);
     scalapack_pplrnt(&B_tst[0], Bm, Bn, nb, nb, myrow, mycol, nprow, npcol, lldB, iseed + 2);
@@ -112,7 +111,7 @@ void test_gbmm_work(Params& params, bool run)
     int64_t mlocC = scalapack_numroc(m, nb, myrow, izero, nprow);
     int64_t nlocC = scalapack_numroc(n, nb, mycol, izero, npcol);
     scalapack_descinit(descC_tst, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
-    assert(info == 0);
+    slate_assert(info == 0);
     int64_t lldC = (int64_t)descC_tst[8];
     std::vector<scalar_t> C_tst(lldC*nlocC);
     scalapack_pplrnt(&C_tst[0], m, n, nb, nb, myrow, mycol, nprow, npcol, mlocC, iseed + 3);
@@ -129,7 +128,7 @@ void test_gbmm_work(Params& params, bool run)
     if (check || ref) {
         C_ref = C_tst;
         scalapack_descinit(descC_ref, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
-        assert(info == 0);
+        slate_assert(info == 0);
     }
 
     // create SLATE matrices from the ScaLAPACK layouts
@@ -162,9 +161,9 @@ void test_gbmm_work(Params& params, bool run)
     else if (transB == slate::Op::ConjTrans)
         B = conj_transpose(B);
 
-    assert(A.mt() == C.mt());
-    assert(B.nt() == C.nt());
-    assert(A.nt() == B.mt());
+    slate_assert(A.mt() == C.mt());
+    slate_assert(B.nt() == C.nt());
+    slate_assert(A.nt() == B.mt());
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();

@@ -51,11 +51,12 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Distributed parallel Cholesky factorization.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
+/// @ingroup posv_specialization
+///
 template <Target target, typename scalar_t>
 void potrf(slate::internal::TargetType<target>,
            HermitianMatrix<scalar_t> A, int64_t lookahead)
@@ -152,10 +153,11 @@ void potrf(slate::internal::TargetType<target>,
     // Debug::printTilesMaps(A);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Distributed parallel Cholesky factorization.
 /// GPU device batched cuBLAS implementation.
+/// @ingroup posv_specialization
+///
 template <typename scalar_t>
 void potrf(slate::internal::TargetType<Target::Devices>,
            HermitianMatrix<scalar_t> A, int64_t lookahead)
@@ -262,7 +264,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup posv_comp
+/// @ingroup posv_specialization
+///
 template <Target target, typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts)
@@ -282,27 +285,29 @@ void potrf(HermitianMatrix<scalar_t>& A,
 
 //------------------------------------------------------------------------------
 /// Distributed parallel Cholesky factorization.
-/// Performs the Cholesky factorization of a Hermitian
-/// (or symmetric, in the real case) positive definite
-/// matrix A. The factorization has the form
+///
+/// Performs the Cholesky factorization of a Hermitian positive definite
+/// matrix $A$.
+///
+/// The factorization has the form
 /// \[
 ///     A = L L^H,
 /// \]
-/// if A is stored lower, where L is a lower triangular matrix, or
+/// if $A$ is stored lower, where $L$ is a lower triangular matrix, or
 /// \[
 ///     A = U^H U,
 /// \]
-/// if A is stored upper, where U is an upper triangular matrix.
+/// if $A$ is stored upper, where $U$ is an upper triangular matrix.
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
 /// @param[in,out] A
-///     On entry, the Hermitian positive definite matrix A.
-///     On exit, if return value = 0, the factor U or L from the Cholesky
+///     On entry, the n-by-n Hermitian positive definite matrix $A$.
+///     On exit, if return value = 0, the factor $U$ or $L$ from the Cholesky
 ///     factorization $A = U^H U$ or $A = L L^H$.
-///     If scalar_t is real, A can be a SymmetricMatrix object.
+///     If scalar_t is real, $A$ can be a SymmetricMatrix object.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
@@ -316,7 +321,14 @@ void potrf(HermitianMatrix<scalar_t>& A,
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// @ingroup posv_comp
+/// TODO: return value
+/// @retval 0 successful exit
+/// @retval >0 for return value = $i$, the leading minor of order $i$ of $A$ is not
+///         positive definite, so the factorization could not
+///         be completed, and the solution has not been computed.
+///
+/// @ingroup posv_computational
+///
 template <typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts)

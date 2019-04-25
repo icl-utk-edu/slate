@@ -51,11 +51,12 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Distributed parallel LU factorization.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
+/// @ingroup gesv_specialization
+///
 template <Target target, typename scalar_t>
 void getrf(slate::internal::TargetType<target>,
            Matrix<scalar_t>& A, Pivots& pivots,
@@ -232,7 +233,8 @@ void getrf(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup gesv_comp
+/// @ingroup gesv_specialization
+///
 template <Target target, typename scalar_t>
 void getrf(Matrix<scalar_t>& A, Pivots& pivots,
            const std::map<Option, Value>& opts)
@@ -271,6 +273,56 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
 
 //------------------------------------------------------------------------------
 /// Distributed parallel LU factorization.
+///
+/// Computes an LU factorization of a general m-by-n matrix $A$
+/// using partial pivoting with row interchanges.
+///
+/// The factorization has the form
+/// \[
+///     A = P L U
+/// \]
+/// where $P$ is a permutation matrix, $L$ is lower triangular with unit
+/// diagonal elements (lower trapezoidal if m > n), and $U$ is upper
+/// triangular (upper trapezoidal if m < n).
+///
+/// This is the right-looking Level 3 BLAS version of the algorithm.
+///
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///     One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in,out] A
+///     On entry, the matrix $A$ to be factored.
+///     On exit, the factors $L$ and $U$ from the factorization $A = P L U$;
+///     the unit diagonal elements of $L$ are not stored.
+///
+/// @param[out] pivots
+///     The pivot indices that define the permutation matrix $P$.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Lookahead:
+///       Number of panels to overlap with matrix updates.
+///       lookahead >= 0. Default 1.
+///     - Option::InnerBlocking:
+///       Inner blocking to use for panel. Default 16.
+///     - Option::MaxPanelThreads:
+///       Number of threads to use for panel. Default omp_get_max_threads()/2.
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
+/// TODO: return value
+/// @retval 0 successful exit
+/// @retval >0 for return value = $i$, $U(i,i)$ is exactly zero. The
+///         factorization has been completed, but the factor $U$ is exactly
+///         singular, and division by zero will occur if it is used
+///         to solve a system of equations.
+///
+/// @ingroup gesv_computational
 ///
 template <typename scalar_t>
 void getrf(Matrix<scalar_t>& A, Pivots& pivots,

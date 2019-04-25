@@ -54,10 +54,11 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
-/// Distributed parallel Cholesky factorization.
+//------------------------------------------------------------------------------
+/// Distributed parallel Hermitian indefinite $LTL^T$ factorization.
 /// Generic implementation for any target.
+/// @ingroup hesv_specialization
+///
 template <Target target, typename scalar_t>
 void hetrf(slate::internal::TargetType<target>,
            HermitianMatrix<scalar_t>& A, Pivots& pivots,
@@ -182,18 +183,18 @@ void hetrf(slate::internal::TargetType<target>,
                 auto Hj = H.sub(k, k, 0, k-2);
                 Hj = conj_transpose(Hj);
 
-#if 0
+                #if 0
                 slate::internal::gemm_W<Target::HostTask>(
                     scalar_t(-1.0),  A.sub(k, k,   0, k-2),
                                     Hj.sub(0, k-2, 0, 0),
                     scalar_t( 1.0),  T.sub(k, k,   k, k),
                               ind1, std::move(W1));
-#else
+                #else
                 slate::internal::gemm_A<Target::HostTask>(
                     scalar_t(-1.0), A.sub(k, k,   0, k-2),
                                    Hj.sub(0, k-2, 0, 0),
                     scalar_t( 1.0), T.sub(k, k,   k, k));
-#endif
+                #endif
 
                 ReduceList reduce_list;
                 reduce_list.push_back({k, k, {A.sub(k, k, 0, k-2)}});
@@ -512,16 +513,19 @@ void hetrf(slate::internal::TargetType<target>,
     // Debug::printTilesMaps(A);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
-/// Distributed parallel Cholesky factorization.
+//------------------------------------------------------------------------------
+/// Distributed parallel Hermitian indefinite $LTL^T$ factorization.
 /// GPU device batched cuBLAS implementation.
+/// <b>GPU version not yet implemented.</b>
+/// @ingroup hesv_specialization
+///
 template <typename scalar_t>
 void hetrf(slate::internal::TargetType<Target::Devices>,
            HermitianMatrix<scalar_t>& A, Pivots& pivots,
                 BandMatrix<scalar_t>& T,
                     Matrix<scalar_t>& H)
 {
+    slate_assert(false);  // GPU not yet implemented
 }
 
 } // namespace specialization
@@ -529,7 +533,8 @@ void hetrf(slate::internal::TargetType<Target::Devices>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup posv_comp
+/// @ingroup hesv_specialization
+///
 template <Target target, typename scalar_t>
 void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
                 BandMatrix<scalar_t>& T, Pivots& pivots2,
@@ -570,34 +575,46 @@ void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel LTLt factorization.
-/// Performs the LTLt factorization of a Hermitian
-/// (or symmetric, in the real case) matrix A.
-/// The factorization has the form
+/// Distributed parallel Hermitian indefinite $LTL^T$ factorization.
+///
+/// Computes the factorization of a Hermitian matrix $A$
+/// using Aasen's 2-stage algorithm.  The form of the factorization is
 /// \[
-///     P A P^H = L T L^H,
+///     A = L T L^H,
 /// \]
-/// if A is stored lower, where L is a lower triangular matrix,
-/// and T is symmetric band matrix (block tri-diagonal matrix), or
+/// if $A$ is stored lower, where $L$ is a product of permutation and unit
+/// lower triangular matrices, or
 /// \[
 ///     P A P^H = U^H T U,
 /// \]
-/// if A is stored upper, where U is an upper triangular matrix,
-/// and T is symmetric band matrix.
+/// if $A$ is stored upper, where $U$ is a product of permutation and unit
+/// upper triangular matrices.
+/// $T$ is a Hermitian band matrix that is LU factorized with partial pivoting.
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
 /// @param[in,out] A
-///     On entry, the Hermitian matrix A.
-///     On exit, if return value = 0, the factor U or L from the LTLt
-///     factorization $P A P^H = U^H T U$ or $P A P^H = L T L^H$.
-///     If scalar_t is real, A can be a SymmetricMatrix object.
+///     On entry, the n-by-n Hermitian matrix $A$.
+///     On exit, if return value = 0, overwritten by the factor $U$ or $L$ from
+///     the factorization $A = U^H T U$ or $A = L T L^H$.
+///     If scalar_t is real, $A$ can be a SymmetricMatrix object.
+///
+/// @param[out] pivots
+///     On exit, details of the interchanges applied to $A$, i.e.,
+///     row and column k of $A$ were swapped with row and column pivots(k).
 ///
 /// @param[out] T
-///     On exit, if return value = 0, the LU factors of the band matrix T
-///     from the LTLt factorization $P A P^H = U^H T U$ or $P A P^H = L T L^H$.
+///     On exit, details of the LU factorization of the band matrix.
+///
+/// @param[out] pivots2
+///     On exit, details of the interchanges applied to $T$, i.e.,
+///     row and column k of $T$ were swapped with row and column pivots2(k).
+///
+/// @param[out] H
+///     Auxiliary matrix used during the factorization.
+///     TODO: can this be made internal?
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
@@ -611,7 +628,8 @@ void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// @ingroup posv_comp
+/// @ingroup hesv_computational
+///
 template <typename scalar_t>
 void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
                 BandMatrix<scalar_t>& T, Pivots& pivots2,

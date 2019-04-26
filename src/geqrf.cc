@@ -106,8 +106,6 @@ void geqrf(slate::internal::TargetType<target>,
     {
         omp_set_nested(1);
         for (int64_t k = 0; k < A_min_mtnt; ++k) {
-            const int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
-
             auto A_panel = A.sub(k, A_mt-1, k, k);
             auto Tl_panel = Tlocal.sub(k, A_mt-1, k, k);
             auto Tr_panel = Treduce.sub(k, A_mt-1, k, k);
@@ -140,7 +138,7 @@ void geqrf(slate::internal::TargetType<target>,
                 internal::geqrf<Target::HostTask>(
                                 std::move(A_panel),
                                 std::move(Tl_panel),
-                                diag_len, ib, max_panel_threads, priority_one);
+                                ib, max_panel_threads, priority_one);
 
                 // triangle-triangle reductions
                 // ttqrt handles tile transfers internally

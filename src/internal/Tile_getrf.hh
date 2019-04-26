@@ -68,7 +68,7 @@ namespace internal {
 /// @param[in] n
 ///     length of the swap
 ///
-/// @param[inout] tiles
+/// @param[in,out] tiles
 ///     vector of local panel tiles
 ///
 /// @param[in] pivot
@@ -137,13 +137,13 @@ void getrf_swap(
 /// @param[in] ib
 ///     internal blocking in the panel
 ///
-/// @param[inout] tiles
+/// @param[in,out] tiles
 ///     local tiles in the panel
 ///
 /// @param[in] tile_indices
 ///     i indices of the tiles in the panel
 ///
-/// @param[inout] pivot
+/// @param[in,out] pivot
 ///     pivots produced by the panel factorization
 ///
 /// @param[in] mpi_rank

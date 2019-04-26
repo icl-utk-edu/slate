@@ -64,7 +64,7 @@ namespace internal {
 /// @param[in] ib
 ///     internal blocking in the panel
 ///
-/// @param[inout] tiles
+/// @param[in,out] tiles
 ///     local tiles in the panel
 ///
 /// @param[in] tile_indices

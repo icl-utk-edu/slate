@@ -211,6 +211,10 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
 ///  - "h" if on hold
 ///  - " " otherwise
 ///
+/// Prints aditional char for Layout:
+///  - "|" if ColMajor
+///  - "-" if RowMajor
+///
 template <typename scalar_t>
 void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name)
 {

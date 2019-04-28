@@ -683,7 +683,7 @@ void swap(int64_t j, int64_t n,
 /// Swap rows or columns with another process, depending on op().
 /// @ingroup swap_tile
 ///
-/// todo: implement with a GPUDirect call
+// todo: implement with a GPUDirect call
 template <typename scalar_t>
 void swap(int64_t j, int64_t n,
           int device, Tile<scalar_t>& A, int64_t i,

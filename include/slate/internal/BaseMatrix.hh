@@ -443,6 +443,12 @@ public:
         storage_->clearBatchArrays();
     }
 
+    /// @return currently allocated batch array size
+    int64_t batchArraySize()
+    {
+        return storage_->batchArraySize();
+    }
+
     //--------------------------------------------------------------------------
     /// @return batch arrays for the A, B, or C matrices,
     /// on host, to send to device

@@ -273,6 +273,13 @@ public:
     int p() const { return p_; }
     int q() const { return q_; }
 
+    //--------------------------------------------------------------------------
+    /// @return currently allocated batch array size
+    int64_t batchArraySize()
+    {
+        return batch_array_size;
+    }
+
 private:
     int64_t m_;
     int64_t n_;
@@ -288,6 +295,8 @@ private:
     int mpi_rank_;
     static int host_num_;
     static int num_devices_;
+
+    int64_t batch_array_size;
 
     // CUDA streams and cuBLAS handles
     std::vector<cudaStream_t> compute_streams_;
@@ -319,7 +328,8 @@ MatrixStorage<scalar_t>::MatrixStorage(
       q_(q),
       tiles_(),
       lives_(),
-      memory_(sizeof(scalar_t) * nb * nb)  // block size in bytes
+      memory_(sizeof(scalar_t) * nb * nb),  // block size in bytes
+      batch_array_size(0)
 {
     slate_mpi_call(
         MPI_Comm_rank(mpi_comm, &mpi_rank_));
@@ -437,6 +447,8 @@ template <typename scalar_t>
 void MatrixStorage<scalar_t>::allocateBatchArrays(int64_t max_batch_size)
 {
     assert(max_batch_size >= 0);
+
+    batch_array_size = max_batch_size;
 
     a_array_host_.resize(num_devices_);
     b_array_host_.resize(num_devices_);

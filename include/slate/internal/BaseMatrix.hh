@@ -2172,12 +2172,15 @@ void BaseMatrix<scalar_t>::tileGetAndHold(std::set<ij_tuple>& tile_set, int devi
 ///     - RowMajor: convert layout to row major.
 ///     - None: do not convert layout.
 ///
+// todo: should this take into consideration the local tiles distribution on devices?
+//       currently, this will cram all local tiles into specified device.
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetAllForReading(int device, LayoutConvert layout)
 {
     std::set<ij_tuple> tiles_set;
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
+            // todo: if (tileIsLocal(i, j) && (device == host_num_ || device == tileDevice(i, j))) {
             if (tileIsLocal(i, j)) {
                 tiles_set.insert({i, j});
             }
@@ -2198,12 +2201,15 @@ void BaseMatrix<scalar_t>::tileGetAllForReading(int device, LayoutConvert layout
 ///     - RowMajor: convert layout to row major.
 ///     - None: do not convert layout.
 ///
+// todo: should this take into consideration the local tiles distribution on devices?
+//       currently, this will cram all local tiles into specified device.
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetAllForWriting(int device, LayoutConvert layout)
 {
     std::set<ij_tuple> tiles_set;
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
+            // todo: if (tileIsLocal(i, j) && (device == host_num_ || device == tileDevice(i, j))) {
             if (tileIsLocal(i, j)) {
                 tiles_set.insert({i, j});
             }
@@ -2224,12 +2230,15 @@ void BaseMatrix<scalar_t>::tileGetAllForWriting(int device, LayoutConvert layout
 ///     - RowMajor: convert layout to row major.
 ///     - None: do not convert layout.
 ///
+// todo: should this take into consideration the local tiles distribution on devices?
+//       currently, this will cram all local tiles into specified device.
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetAndHoldAll(int device, LayoutConvert layout)
 {
     std::set<ij_tuple> tiles_set;
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
+            // todo: if (tileIsLocal(i, j) && (device == host_num_ || device == tileDevice(i, j))) {
             if (tileIsLocal(i, j)) {
                 tiles_set.insert({i, j});
             }
@@ -2257,7 +2266,7 @@ void BaseMatrix<scalar_t>::tileGetAllForReadingOnDevices(LayoutConvert layout)
                 tiles_set[tileDevice(i, j)].insert({i, j});
             }
 
-    // todo: omp parallel for?
+    // todo: omp tasks?
     for (int d = 0; d < num_devices(); ++d) {
         tileGetForReading(tiles_set[d], d, layout);
     }
@@ -2283,7 +2292,7 @@ void BaseMatrix<scalar_t>::tileGetAllForWritingOnDevices(LayoutConvert layout)
                 tiles_set[tileDevice(i, j)].insert({i, j});
             }
 
-    // todo: omp parallel for?
+    // todo: omp tasks?
     for (int d = 0; d < num_devices(); ++d) {
         tileGetForWriting(tiles_set[d], d, layout);
     }
@@ -2309,7 +2318,7 @@ void BaseMatrix<scalar_t>::tileGetAndHoldAllOnDevices(LayoutConvert layout)
                 tiles_set[tileDevice(i, j)].insert({i, j});
             }
 
-    // todo: omp parallel for?
+    // todo: omp tasks?
     for (int d = 0; d < num_devices(); ++d) {
         tileGetAndHold(tiles_set[d], d, layout);
     }

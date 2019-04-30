@@ -81,7 +81,7 @@ public:
         std::list<std::tuple<int64_t, int64_t,
                              std::list<BaseMatrix<scalar_t> > > >;
 
-    using ij_tuple    = std::tuple<int64_t, int64_t>;
+    using ij_tuple = std::tuple<int64_t, int64_t>;
 
     friend class Debug;
 
@@ -220,77 +220,103 @@ public:
 
     TileEntry<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, int device=host_num_);
 
-    // Returns tile(i, j)'s state on device (defaults to host).
+    //--------------------------------------------------------------------------
+    // MOSI
+private:
+    void tileGet(int64_t i, int64_t j, int dst_device,
+                 LayoutConvert layout, bool modify, bool hold,
+                 bool async);
+
+    void tileGet(std::set<ij_tuple>& tile_set, int dst_device,
+                 LayoutConvert layout, bool modify, bool hold,
+                 bool async);
+
+public:
+
     MOSI tileState(int64_t i, int64_t j, int device=host_num_);
 
-    // Sets tile(i, j)'s state on device.
     void tileState(int64_t i, int64_t j, int device, MOSI mosi);
 
-    // Sets tile(i, j)'s state on host.
+    /// Sets tile(i, j)'s state on host.
     void tileState(int64_t i, int64_t j, MOSI mosi)
     {
         tileState(i, j, host_num_, mosi);
     }
 
-    // Returns whether tile(i, j) is on hold on device (defaults to host).
     bool tileOnHold(int64_t i, int64_t j, int device=host_num_);
 
-    /// Unsets tile(i, j)'s hold on device.
     void tileUnsetHold(int64_t i, int64_t j, int device=host_num_);
 
-    /// Unsets all local tiles' hold on device.
     void tileUnsetHoldAll(int device=host_num_);
 
-    /// Unsets all local tiles' hold on all devices.
     void tileUnsetHoldAllOnDevices();
 
-    /// Marks tile(i, j) as Modified on device.
-    /// Other instances will be invalidated.
-    /// Unless permissive, asserts if other instances are in Modified state.
     void tileModified(int64_t i, int64_t j, int device=host_num_, bool permissive=false);
 
     void tileGetForReading(int64_t i, int64_t j, int device, LayoutConvert layout);
 
+    void tileGetForReading(std::set<ij_tuple>& tile_set, int device, LayoutConvert layout);
+
+    /// Gets tile(i, j) for reading on host.
+    /// @see tileGetForReading
     void tileGetForReading(int64_t i, int64_t j, LayoutConvert layout)
     {
         tileGetForReading(i, j, host_num_, layout);
     }
 
-    /// Gets all local tiles for reading on device.
-    /// May convert destination tiles' Layout based on 'layout' param.
-    void tileGetAllForReading(LayoutConvert layout, int device=host_num_);
+    /// Gets a set of tiles for reading on host.
+    /// @see tileGetForReading
+    void tileGetForReading(std::set<ij_tuple>& tile_set, LayoutConvert layout)
+    {
+        tileGetForReading(tile_set, host_num_, layout);
+    }
 
-    /// Gets all local tiles for reading on corresponding devices.
-    /// May convert destination tiles' Layout based on 'layout' param.
+    void tileGetAllForReading(int device, LayoutConvert layout);
+
     void tileGetAllForReadingOnDevices(LayoutConvert layout);
 
     void tileGetForWriting(int64_t i, int64_t j, int device, LayoutConvert layout);
 
+    void tileGetForWriting(std::set<ij_tuple>& tile_set, int device, LayoutConvert layout);
+
+    /// Gets tile(i, j) for writing on host.
+    /// @see tileGetForWriting
     void tileGetForWriting(int64_t i, int64_t j, LayoutConvert layout)
     {
         tileGetForWriting(i, j, host_num_, layout);
     }
 
-    /// Gets all local tiles for writing on device.
-    /// May convert destination tiles' Layout based on 'layout' param.
-    void tileGetAllForWriting(LayoutConvert layout, int device=host_num_);
+    /// Gets a set of tiles for writing on host.
+    /// @see tileGetForWriting
+    void tileGetForWriting(std::set<ij_tuple>& tile_set, LayoutConvert layout)
+    {
+        tileGetForWriting(tile_set, host_num_, layout);
+    }
 
-    /// Gets all local tiles for writing on corresponding devices.
-    /// May convert destination tiles' Layout based on 'layout' param.
+    void tileGetAllForWriting(int device, LayoutConvert layout);
+
     void tileGetAllForWritingOnDevices(LayoutConvert layout);
 
-    /// Gets tile(i, j) on device and marks it as OnHold.
-    /// Will copy tile in if it does not exist or its state is Invalid.
-    /// Updates the source tile's state to Shared if copied-in.
-    /// May convert destination tile Layout based on 'layout' param.
-    void tileGetAndHold(int64_t i, int64_t j, LayoutConvert layout, int device=host_num_);
+    void tileGetAndHold(int64_t i, int64_t j, int device, LayoutConvert layout);
 
-    /// Gets all local tiles on device and marks them as OnHold.
-    /// May convert destination tiles' Layout based on 'layout' param.
-    void tileGetAndHoldAll(LayoutConvert layout, int device=host_num_);
+    /// Gets tile(i, j) on host for reading and marks it as MOSI::OnHold.
+    /// @see tileGetAndHold
+    void tileGetAndHold(int64_t i, int64_t j, LayoutConvert layout)
+    {
+        tileGetAndHold(i, j, host_num_, layout);
+    }
 
-    /// Gets all local tiles on corresponding devices and marks them as OnHold.
-    /// May convert destination tiles' Layout based on 'layout' param.
+    void tileGetAndHold(std::set<ij_tuple>& tile_set, int device, LayoutConvert layout);
+
+    /// Gets a set of tiles for reading on host and marks them as MOSI::OnHold.
+    /// @see tileGetAndHold
+    void tileGetAndHold(std::set<ij_tuple>& tile_set, LayoutConvert layout)
+    {
+        tileGetAndHold(tile_set, host_num_, layout);
+    }
+
+    void tileGetAndHoldAll(int device, LayoutConvert layout);
+
     void tileGetAndHoldAllOnDevices(LayoutConvert layout);
 
     /// Updates the origin instance of tile(i, j) if MOSI::Invalid.
@@ -326,6 +352,7 @@ public:
     /// that is not modified and no hold is set on it.
     void tileRelease(int64_t i, int64_t j, int device=host_num_);
 
+    //--------------------------------------------------------------------------
     template <Target target = Target::Host>
     void tileSend(int64_t i, int64_t j, int dst_rank, int tag = 0);
 
@@ -1150,7 +1177,7 @@ MOSI BaseMatrix<scalar_t>::tileState(int64_t i, int64_t j, int device)
 }
 
 //------------------------------------------------------------------------------
-/// Sets tile(i, j)'s state on device (defaults to host).
+/// Sets tile(i, j)'s state on device.
 /// Asserts if tile does not exist.
 ///
 /// @param[in] i
@@ -1791,12 +1818,14 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
 }
 
 //------------------------------------------------------------------------------
-/// Gets tile(i, j) for reading on device.
+/// Gets tile(i, j) for on device.
 /// Will copy-in the tile if it does not exist or its state is MOSI::Invalid.
-/// Sets tile state to MOSI::Shared if copied-in.
 /// Finds a source tile whose state is valid (Modified|Shared) by
-/// looping on existing tile instances.
+///     looping on existing tile instances.
 /// Updates source tile's state to shared if copied-in.
+/// If 'modify' param is true, marks the destination tile as MOSI::Modified,
+///     and invalidates other instances. Otherwise, sets destination tile state
+///     to MOSI::Shared if copied-in.
 /// Converts destination Layout based on 'layout' param.
 ///
 /// @param[in] i
@@ -1805,19 +1834,30 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
 /// @param[in] j
 ///     Tile's block column index. 0 <= j < nt.
 ///
+/// @param[in] dst_device
+///     Tile's destination: host or device ID.
+///
 /// @param[in] layout
 ///     Indicates whether to convert the Layout of the received data:
 ///     - ColMajor: convert layout to column major.
 ///     - RowMajor: convert layout to row major.
 ///     - None: do not convert layout.
 ///
-/// @param[in] dst_device
-///     Tile's destination: host or device ID, defaults to host.
+/// @param[in] modify
+///     true: marks the destination tile as MOSI::Modified and invalidates other instances.
+///     false: marks the destination tile as MOSI::Shared.
+///
+/// @param[in] hold
+///     true: marks the destination tile as MOSI::OnHold.
+///
+/// @param[in] async
+///     true: does not synchronize with device stream.
 ///
 // todo: async version
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_device,
-                                             LayoutConvert layout)
+void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
+                                   LayoutConvert layout, bool modify, bool hold,
+                                   bool async)
 {
     TileEntry<scalar_t> *dst_tileEntry = nullptr, *src_tileEntry = nullptr;
 
@@ -1905,6 +1945,12 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
         if (src_tileEntry->stateOn(MOSI::Modified))
             src_tileEntry->setState(MOSI::Shared);
     }
+    if (modify) {
+        tileModified(i, j, dst_device);
+    }
+    if (hold) {
+        dst_tileEntry->setState(MOSI::OnHold);
+    }
 
     // Change ColMajor <=> RowMajor if needed.
     if (layout != LayoutConvert::None &&
@@ -1918,6 +1964,95 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
     }
 }
 
+//------------------------------------------------------------------------------
+/// Gets tile(i, j) for reading on device.
+/// Will copy-in the tile if it does not exist or its state is MOSI::Invalid.
+/// Sets tile state to MOSI::Shared if copied-in.
+/// Finds a source tile whose state is valid (Modified|Shared) by
+/// looping on existing tile instances.
+/// Updates source tile's state to shared if copied-in.
+/// Converts destination Layout based on 'layout' param.
+///
+/// @param[in] tile_set
+///     Set of (i, j) tuples indicating indices of Tiles' to be converted.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
+/// @param[in] device
+///     Tile's destination: host or device ID, defaults to host.
+///
+// todo: async version
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileGet(std::set<ij_tuple>& tile_set, int device,
+                                   LayoutConvert in_layoutConvert, bool modify, bool hold,
+                                   bool async)
+{
+    for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
+        int64_t i = std::get<0>(*iter);
+        int64_t j = std::get<1>(*iter);
+        tileGet(i, j, device, in_layoutConvert, modify, hold, async);
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Gets tile(i, j) for reading on device.
+/// Will copy-in the tile if it does not exist or its state is MOSI::Invalid.
+/// Sets tile state to MOSI::Shared if copied-in.
+/// Finds a source tile whose state is valid (Modified|Shared) by
+/// looping on existing tile instances.
+/// Updates source tile's state to shared if copied-in.
+/// Converts destination Layout based on 'layout' param.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] device
+///     Tile's destination: host or device ID, defaults to host.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
+// todo: async version
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int device,
+                                             LayoutConvert layout)
+{
+    tileGet(i, j, device, layout, false, false, false);
+}
+
+//------------------------------------------------------------------------------
+/// Gets a set of tiles for reading on device.
+/// @see tileGetForReading
+///
+/// @param[in] tile_set
+///     Set of (i, j) tuples indicating indices of Tiles' to be acquired.
+///
+/// @param[in] device
+///     Tile's destination: host or device ID.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
+// todo: async version
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set, int device,
+                                             LayoutConvert layout)
+{
+    tileGet(tile_set, device, layout, false, false, false);
+}
 
 //------------------------------------------------------------------------------
 /// Gets tile(i, j) for writing on device.
@@ -1934,28 +2069,49 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
 /// @param[in] j
 ///     Tile's block column index. 0 <= j < nt.
 ///
+/// @param[in] device
+///     Tile's destination: host or device ID, defaults to host.
+///
 /// @param[in] layout
 ///     Indicates whether to convert the Layout of the received data:
 ///     - ColMajor: convert layout to column major.
 ///     - RowMajor: convert layout to row major.
 ///     - None: do not convert layout.
 ///
-/// @param[in] dst_device
-///     Tile's destination: host or device ID, defaults to host.
-///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetForWriting(int64_t i, int64_t j, int device,
                                              LayoutConvert layout)
 {
-    tileGetForReading(i, j, device, layout);
-    tileModified(i, j, device);
+    tileGet(i, j, device, layout, true, false, false);
 }
 
+//------------------------------------------------------------------------------
+/// Gets a set of tiles for writing on device.
+/// @see tileGetForWriting
+///
+/// @param[in] tile_set
+///     Set of (i, j) tuples indicating indices of Tiles' to be acquired.
+///
+/// @param[in] device
+///     Tile's destination: host or device ID, defaults to host.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileGetForWriting(std::set<ij_tuple>& tile_set,
+                                             int device, LayoutConvert layout)
+{
+    tileGet(tile_set, device, layout, true, false, false);
+}
 
 //------------------------------------------------------------------------------
-/// Gets tile(i, j) on device and marks it as MOSI::OnHold.
+/// Gets tile(i, j) on device for reading and marks it as MOSI::OnHold.
 /// Will copy tile in if it does not exist or its state is MOSI::Invalid.
-/// Updates the source tile's state to Shared if copied-in.
+/// Updates the source tile's state to MOSI::Shared if copied-in.
 /// Converts destination Layout based on 'layout' param.
 ///
 /// @param[in] i
@@ -1964,91 +2120,121 @@ void BaseMatrix<scalar_t>::tileGetForWriting(int64_t i, int64_t j, int device,
 /// @param[in] j
 ///     Tile's block column index. 0 <= j < nt.
 ///
+/// @param[in] device
+///     Tile's destination: host or device ID, defaults to host.
+///
 /// @param[in] layout
 ///     Indicates whether to convert the Layout of the received data:
 ///     - ColMajor: convert layout to column major.
 ///     - RowMajor: convert layout to row major.
 ///     - None: do not convert layout.
 ///
-/// @param[in] dst_device
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileGetAndHold(int64_t i, int64_t j, int device,
+                                          LayoutConvert layout)
+{
+    tileGet(i, j, device, layout, false, true, false);
+}
+
+//------------------------------------------------------------------------------
+/// Gets a set of tiles for reading on device and marks them as MOSI::OnHold.
+/// @see tileGetAndHold
+///
+/// @param[in] tile_set
+///     Set of (i, j) tuples indicating indices of Tiles' to be acquired.
+///
+/// @param[in] device
 ///     Tile's destination: host or device ID, defaults to host.
 ///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetAndHold(int64_t i, int64_t j,
-                                          LayoutConvert layout, int device)
+void BaseMatrix<scalar_t>::tileGetAndHold(std::set<ij_tuple>& tile_set, int device,
+                                          LayoutConvert layout)
 {
-    tileGetForReading(i, j, device, layout);
-
-    auto tileIter = storage_->find(globalIndex(i, j, device));
-    assert(tileIter != storage_->end());
-
-    tileIter->second.setState(MOSI::OnHold);
+    tileGet(tile_set, device, layout, false, true, false);
 }
 
 //------------------------------------------------------------------------------
 /// Gets all local tiles for reading on device.
 /// @see tileGetForReading.
 ///
+/// @param[in] device
+///     Tile's destination: host or device ID, defaults to host.
+///
 /// @param[in] layout
 ///     Indicates whether to convert the Layout of the received data:
 ///     - ColMajor: convert layout to column major.
 ///     - RowMajor: convert layout to row major.
 ///     - None: do not convert layout.
 ///
-/// @param[in] device
-///     Tile's destination: host or device ID, defaults to host.
-///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetAllForReading(LayoutConvert layout, int device)
+void BaseMatrix<scalar_t>::tileGetAllForReading(int device, LayoutConvert layout)
 {
+    std::set<ij_tuple> tiles_set;
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
-            if (tileIsLocal(i, j))
-                tileGetForReading(i, j, device, layout);
+            if (tileIsLocal(i, j)) {
+                tiles_set.insert({i, j});
+            }
+
+    tileGetForReading(tiles_set, device, layout);
 }
 
 //------------------------------------------------------------------------------
 /// Gets all local tiles for writing on device.
 /// @see tileGetForWriting.
 ///
+/// @param[in] device
+///     Tile's destination: host or device ID, defaults to host.
+///
 /// @param[in] layout
 ///     Indicates whether to convert the Layout of the received data:
 ///     - ColMajor: convert layout to column major.
 ///     - RowMajor: convert layout to row major.
 ///     - None: do not convert layout.
 ///
-/// @param[in] device
-///     Tile's destination: host or device ID, defaults to host.
-///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetAllForWriting(LayoutConvert layout, int device)
+void BaseMatrix<scalar_t>::tileGetAllForWriting(int device, LayoutConvert layout)
 {
+    std::set<ij_tuple> tiles_set;
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
-            if (tileIsLocal(i, j))
-                tileGetForWriting(i, j, device, layout);
+            if (tileIsLocal(i, j)) {
+                tiles_set.insert({i, j});
+            }
+
+    tileGetForWriting(tiles_set, device, layout);
 }
 
 //------------------------------------------------------------------------------
 /// Gets all local tiles on device and marks them as MOSI::OnHold.
 /// @see tileGetAndHold.
 ///
+/// @param[in] device
+///     Tile's destination: host or device ID, defaults to host.
+///
 /// @param[in] layout
 ///     Indicates whether to convert the Layout of the received data:
 ///     - ColMajor: convert layout to column major.
 ///     - RowMajor: convert layout to row major.
 ///     - None: do not convert layout.
 ///
-/// @param[in] device
-///     Tile's destination: host or device ID, defaults to host.
-///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetAndHoldAll(LayoutConvert layout, int device)
+void BaseMatrix<scalar_t>::tileGetAndHoldAll(int device, LayoutConvert layout)
 {
+    std::set<ij_tuple> tiles_set;
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
-            if (tileIsLocal(i, j))
-                tileGetAndHold(i, j, layout, device);
+            if (tileIsLocal(i, j)) {
+                tiles_set.insert({i, j});
+            }
+
+    tileGetAndHold(tiles_set, layout, device);
 }
 
 //------------------------------------------------------------------------------
@@ -2064,10 +2250,17 @@ void BaseMatrix<scalar_t>::tileGetAndHoldAll(LayoutConvert layout, int device)
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetAllForReadingOnDevices(LayoutConvert layout)
 {
+    std::vector< std::set<ij_tuple> > tiles_set(num_devices());
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
-            if (tileIsLocal(i, j))
-                tileGetForReading(i, j, tileDevice(i, j), layout);
+            if (tileIsLocal(i, j)) {
+                tiles_set[tileDevice(i, j)].insert({i, j});
+            }
+
+    // todo: omp parallel for?
+    for (int d = 0; d < num_devices(); ++d) {
+        tileGetForReading(tiles_set[d], d, layout);
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -2083,10 +2276,17 @@ void BaseMatrix<scalar_t>::tileGetAllForReadingOnDevices(LayoutConvert layout)
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetAllForWritingOnDevices(LayoutConvert layout)
 {
+    std::vector< std::set<ij_tuple> > tiles_set(num_devices());
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
-            if (tileIsLocal(i, j))
-                tileGetForWriting(i, j, tileDevice(i, j), layout);
+            if (tileIsLocal(i, j)) {
+                tiles_set[tileDevice(i, j)].insert({i, j});
+            }
+
+    // todo: omp parallel for?
+    for (int d = 0; d < num_devices(); ++d) {
+        tileGetForWriting(tiles_set[d], d, layout);
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -2102,10 +2302,17 @@ void BaseMatrix<scalar_t>::tileGetAllForWritingOnDevices(LayoutConvert layout)
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetAndHoldAllOnDevices(LayoutConvert layout)
 {
+    std::vector< std::set<ij_tuple> > tiles_set(num_devices());
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
-            if (tileIsLocal(i, j))
-                tileGetAndHold(i, j, layout, tileDevice(i, j));
+            if (tileIsLocal(i, j)) {
+                tiles_set[tileDevice(i, j)].insert({i, j});
+            }
+
+    // todo: omp parallel for?
+    for (int d = 0; d < num_devices(); ++d) {
+        tileGetAndHold(tiles_set[d], d, layout);
+    }
 }
 
 //------------------------------------------------------------------------------

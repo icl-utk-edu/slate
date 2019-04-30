@@ -130,6 +130,7 @@ public:
     void tileUnsetHoldAll(int device=hostNum());
     void tileUnsetHoldAllOnDevices();
     void tileUpdateAllOrigin();
+    void resetTilesLayout();
     int  hostNum()  const { return this->host_num_; }
 };
 
@@ -982,6 +983,52 @@ void BaseTrapezoidMatrix<scalar_t>::tileUnsetHoldAllOnDevices()
         for (int64_t i = istart; i < iend; ++i) {
             if (this->tileIsLocal(i, j))
                 this->tileUnsetHold(i, j, this->tileDevice(i, j));
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Converts all origin tiles into current matrix-layout.
+/// Operates in batch mode.
+///
+// todo: override on BaseTrapezoidMatrix, or iterate on maps entries
+///
+template <typename scalar_t>
+void BaseTrapezoidMatrix<scalar_t>::resetTilesLayout()
+{
+    std::set<ij_tuple> tiles_set_host;
+    std::vector< std::set<ij_tuple> > tiles_set_dev(this->num_devices());
+
+    int64_t mt = this->mt();
+    for (int64_t j = 0; j < this->nt(); ++j) {
+        int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);
+        int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
+        for (int64_t i = istart; i < iend; ++i) {
+            if (this->tileIsLocal(i, j)) {
+
+                auto tile = this->tileUpdateOrigin(i, j);
+                if (tile->layout() != this->layout() ) {
+                    if (! tile->isTransposable() ) {
+                        // todo: make transposable
+                    }
+                    if (tile->device() == hostNum()) {
+                        tiles_set_host.insert({i, j});
+                    }
+                    else{
+                        tiles_set_dev[tile->device()].insert({i, j});
+                    }
+                }
+            }
+        }
+    }
+
+    if (! tiles_set_host.empty()) {
+        this->tileConvertLayout(tiles_set_host, hostNum(), this->layout());
+    }
+    // todo: omp tasks?
+    for (int d = 0; d < this->num_devices(); ++d) {
+        if (! tiles_set_dev[d].empty()) {
+            this->tileConvertLayout(tiles_set_dev[d], d, this->layout());
         }
     }
 }

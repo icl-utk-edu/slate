@@ -433,7 +433,7 @@ void test_gemm(slate::Target target)
                     // move data back to host
                     for (int j = 0; j < C.nt(); ++j)
                         for (int i = 0; i < C.mt(); ++i)
-                            C.tileGetForReading(i, j, layout);
+                            C.tileGetForReading(i, j, LayoutConvert(layout));
                     break;
             }
 

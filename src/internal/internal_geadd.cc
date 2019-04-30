@@ -220,14 +220,12 @@ void geadd(internal::TargetType<Target::Devices>,
                 for (int64_t j = 0; j < B.nt(); ++j) {
                     if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
                         A_tiles_set.insert({i, j});
-                        A.tileGetForReading(i, j, device, LayoutConvert::None);
                         B_tiles_set.insert({i, j});
-                        B.tileGetForWriting(i, j, device, LayoutConvert::None);
                     }
                 }
             }
-            A.tileConvertLayout(A_tiles_set, device, layout);
-            B.tileConvertLayout(B_tiles_set, device, layout);
+            A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+            B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
 
             scalar_t** a_array_host = B.a_array_host(device);
             scalar_t** b_array_host = B.b_array_host(device);

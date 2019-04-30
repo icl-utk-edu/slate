@@ -521,12 +521,11 @@ void norm(
                           (! lower && i <= j) ))
                     {
                         A_tiles_set.insert({i, j});
-                        A.tileGetForReading(i, j, device, LayoutConvert::None);
                         // todo: should tileRelease() after?
                     }
                 }
             }
-            A.tileConvertLayout(A_tiles_set, device, layout);
+            A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
 
             // Setup batched arguments.
             scalar_t** a_host_array = a_host_arrays[device].data();

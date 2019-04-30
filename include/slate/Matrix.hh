@@ -656,11 +656,11 @@ void Matrix<scalar_t>::gather(scalar_t* A, int64_t lda)
                     this->tileInsert(i, j, this->host_num_,
                                      &A[(size_t)lda*jj + ii], lda);
                     auto Aij = this->at(i, j);
-                    Aij.recv(this->tileRank(i, j), this->mpi_comm_, this->layout_);
+                    Aij.recv(this->tileRank(i, j), this->mpi_comm_, this->layout());
                     tileLayout(i, j, this->layout_);
                 }
                 else {
-                    this->tileGetForReading(i, j, this->layout_);
+                    this->tileGetForReading(i, j, LayoutConvert(this->layout()));
                     // copy local tiles if needed.
                     auto Aij = this->at(i, j);
                     if (Aij.data() != &A[(size_t)lda*jj + ii]) {
@@ -671,7 +671,7 @@ void Matrix<scalar_t>::gather(scalar_t* A, int64_t lda)
                 }
             }
             else if (this->tileIsLocal(i, j)) {
-                this->tileGetForReading(i, j, this->layout_);
+                this->tileGetForReading(i, j, LayoutConvert(this->layout()));
                 auto Aij = this->at(i, j);
                 Aij.send(0, this->mpi_comm_);
             }

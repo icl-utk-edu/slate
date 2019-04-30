@@ -96,17 +96,7 @@ void swap(internal::TargetType<Target::HostTask>,
 
     // todo: for performance optimization, merge with the loops below,
     // at least with lookahead, probably selectively
-    for (int64_t i = 0; i < A.mt(); ++i) {
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            if (A.tileIsLocal(i, j)) {
-                #pragma omp task shared(A) priority(priority)
-                {
-                    A.tileGetForWriting(i, j, LayoutConvert(layout));
-                }
-            }
-        }
-    }
-    #pragma omp taskwait
+    A.tileGetAllForWriting(A.hostNum(), LayoutConvert(layout));
 
     {
         trace::Block trace_block("internal::swap");
@@ -252,20 +242,7 @@ void swap(internal::TargetType<Target::Devices>,
 
     // todo: for performance optimization, merge with the loops below,
     // at least with lookahead, probably selectively
-    for (int64_t i = 0; i < A.mt(); ++i) {
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            if (A.tileIsLocal(i, j)) {
-                #pragma omp task shared(A) priority(priority)
-                {
-                    A.tileGetForWriting(i, j, A.tileDevice(i, j), LayoutConvert::None);
-                }
-            }
-        }
-    }
-    #pragma omp taskwait
-
-    // todo: use set api
-    A.tileConvertLayoutOnDevices(layout);
+    A.tileGetAllForWritingOnDevices(LayoutConvert(layout));
 
     {
         trace::Block trace_block("internal::swap");

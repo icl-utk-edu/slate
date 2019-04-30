@@ -162,7 +162,7 @@ void unmqr(internal::TargetType<target>,
         // op(Q) x C = C - V x op(T) x (V**H x C)
         // W = V**H x C
         // W <- C1
-        C1.tileGetAllForWriting(LayoutConvert(layout), C1.hostNum());// todo: issue omp tasks for copy to host
+        C1.tileGetAllForWriting(C1.hostNum(), LayoutConvert(layout));// todo: issue omp tasks for copy to host
         Wr.copy(C1);
 
         internal::trmm<Target::HostTask, scalar_t>(

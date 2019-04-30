@@ -237,6 +237,7 @@ void copy(internal::TargetType<Target::Devices>,
                 for (int64_t j = 0; j < B.nt(); ++j) {
                     if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j))
                     {
+                        // no need to convert layout.
                         A.tileGetForReading(i, j, device, LayoutConvert::None);
                         // todo: should tileAcquire() instead to avoid un-needed copy
                         B.tileGetForWriting(i, j, device, LayoutConvert::None);

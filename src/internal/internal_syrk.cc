@@ -435,17 +435,14 @@ void syrk(internal::TargetType<Target::Devices>,
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
                                 A_tiles_set.insert({i, 0});
-                                A.tileGetForReading(i, 0, device, LayoutConvert::None);
                                 A_tiles_set.insert({j, 0});
-                                A.tileGetForReading(j, 0, device, LayoutConvert::None);
                                 C_tiles_set.insert({i, j});
-                                C.tileGetForWriting(i, j, device, LayoutConvert::None);
                             }
                         }
                     }
                 }
-                A.tileConvertLayout(A_tiles_set, device, layout);
-                C.tileConvertLayout(C_tiles_set, device, layout);
+                A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+                C.tileGetForWriting(C_tiles_set, device, LayoutConvert(layout));
 
                 scalar_t** a_array_host = C.a_array_host(device);
                 scalar_t** b_array_host = C.b_array_host(device);

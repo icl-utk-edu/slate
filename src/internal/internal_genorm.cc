@@ -528,11 +528,10 @@ void norm(
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
                         A_tiles_set.insert({i, j});
-                        A.tileGetForReading(i, j, device, LayoutConvert::None);
                     }
                 }
             }
-            A.tileConvertLayout(A_tiles_set, device, layout);
+            A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
 
             // Setup batched arguments.
             scalar_t** a_host_array = a_host_arrays[device].data();

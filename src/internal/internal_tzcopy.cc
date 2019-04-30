@@ -289,6 +289,7 @@ void copy(internal::TargetType<Target::Devices>,
                         ( (  lower && i >= j) ||
                           (! lower && i <= j) ) )
                     {
+                        // no need to convert layout
                         A.tileGetForReading(i, j, device, LayoutConvert::None);
                         B.tileGetForWriting(i, j, device, LayoutConvert::None);
                     }

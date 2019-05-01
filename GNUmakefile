@@ -14,6 +14,8 @@
 #                   GNU conventions. Auto-detected if CXX=icpc or on MacOS.
 #   mkl_threaded=1  for multi-threaded Intel MKL.
 #   ilp64=1         for ILP64. Currently only with Intel MKL.
+#   openmpi=1       for OpenMPI BLACS.
+#   intelmpi=1      for Intel MPI BLACS (default).
 # essl=1          for IBM ESSL.
 # openblas=1      for OpenBLAS.
 #
@@ -125,12 +127,21 @@ ifeq ($(mkl),1)
 
     LIBS += -lmkl_core -lpthread -lm -ldl
 
-    # MKL on MacOS doesn't include ScaLAPACK; use default
+    # MKL on MacOS doesn't include ScaLAPACK; use default.
+    # For others, link with appropriate version of ScaLAPACK and BLACS.
     ifneq ($(macos),1)
-        ifeq ($(ilp64),1)
-            scalapack = -lmkl_scalapack_ilp64 -lmkl_blacs_intelmpi_ilp64
+        ifeq ($(openmpi),1)
+            ifeq ($(ilp64),1)
+                scalapack = -lmkl_scalapack_ilp64 -lmkl_blacs_openmpi_ilp64
+            else
+                scalapack = -lmkl_scalapack_lp64 -lmkl_blacs_openmpi_lp64
+            endif
         else
-            scalapack = -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64
+            ifeq ($(ilp64),1)
+                scalapack = -lmkl_scalapack_ilp64 -lmkl_blacs_intelmpi_ilp64
+            else
+                scalapack = -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64
+            endif
         endif
     endif
 # if ESSL

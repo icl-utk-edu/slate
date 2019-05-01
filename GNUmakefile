@@ -25,15 +25,15 @@
 #                 otherwise shared library (libslate.so).
 #
 # cuda_arch="ARCH" for CUDA architectures, where ARCH is one or more of:
-#                     kepler maxwell pascal volta sm_XX
+#                     kepler maxwell pascal volta turing sm_XX
 #                  and sm_XX is a CUDA architecture (see nvcc -h).
 
 -include make.inc
 
 NVCC ?= nvcc
 
-CXXFLAGS += -O3 -std=c++11 -Wall -pedantic -MMD
-NVCCFLAGS += -O3 --compiler-options '-Wall -Wno-unused-function'
+CXXFLAGS  += -O3 -std=c++11 -Wall -pedantic -MMD
+NVCCFLAGS += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
 
 # auto-detect OS
 # $OSTYPE may not be exported from the shell, so echo it
@@ -181,9 +181,12 @@ endif
 ifneq ($(findstring volta, $(cuda_arch_)),)
     cuda_arch_ += sm_70
 endif
+ifneq ($(findstring turing, $(cuda_arch_)),)
+    cuda_arch_ += sm_75
+endif
 
 # CUDA architectures that nvcc supports
-sms = 30 32 35 37 50 52 53 60 61 62 70 72
+sms = 30 32 35 37 50 52 53 60 61 62 70 72 75
 
 # code=sm_XX is binary, code=compute_XX is PTX
 gencode_sm      = -gencode arch=compute_$(sm),code=sm_$(sm)

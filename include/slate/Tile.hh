@@ -253,10 +253,15 @@ protected:
     int64_t mb_;
     int64_t nb_;
     int64_t stride_;
+    int64_t user_stride_; // Temporarily store user-provided memory stride
+    int64_t ext_stride_; // upon transposing the tile.
+
     Op op_;
     Uplo uplo_;
 
     scalar_t* data_;
+    scalar_t* user_data_; // Temporarily point to user-provided memory buffer.
+    scalar_t* ext_data_; // Points to auxiliary buffer.
 
     bool valid_;
     TileKind kind_;
@@ -264,6 +269,7 @@ protected:
     ///          - ColMajor: elements of a column are 1-strided
     ///          - RowMajor: elements of a row are 1-strided
     Layout layout_;
+    bool extended_;
 
     int device_;
 };
@@ -275,12 +281,17 @@ Tile<scalar_t>::Tile()
     : mb_(0),
       nb_(0),
       stride_(0),
+      user_stride_(0),
+      ext_stride_(0),
       op_(Op::NoTrans),
       uplo_(Uplo::General),
       data_(nullptr),
+      user_data_(nullptr),
+      ext_data_(nullptr),
       valid_(false),
       kind_(TileKind::UserOwned),
       layout_(Layout::ColMajor),
+      extended_(false),
       device_(-1)  // todo: host_num
 {}
 
@@ -320,12 +331,17 @@ Tile<scalar_t>::Tile(
     : mb_(mb),
       nb_(nb),
       stride_(lda),
+      user_stride_(lda),
+      ext_stride_(0),
       op_(Op::NoTrans),
       uplo_(Uplo::General),
       data_(A),
+      user_data_(nullptr),
+      ext_data_(nullptr),
       valid_(true),
       kind_(kind),
       layout_(layout),
+      extended_(false),
       device_(device)
 {
     slate_assert(mb >= 0);

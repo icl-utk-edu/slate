@@ -681,7 +681,7 @@ void test_bcast_ss()
 //------------------------------------------------------------------------------
 /// Tests copyData().
 /// host/device lda is rounded up to multiple of align_host/dev, respectively.
-void test_copyDataToDevice(int align_host, int align_dev)
+void test_copyData(int align_host, int align_dev)
 {
     if (num_devices == 0) {
         test_skip("requires num_devices > 0");
@@ -733,27 +733,27 @@ void test_copyDataToDevice(int align_host, int align_dev)
 }
 
 // contiguous => contiguous
-void test_copyDataToDevice_cc()
+void test_copyData_cc()
 {
-    test_copyDataToDevice(1, 1);
+    test_copyData(1, 1);
 }
 
 // contiguous => strided
-void test_copyDataToDevice_cs()
+void test_copyData_cs()
 {
-    test_copyDataToDevice(1, 32);
+    test_copyData(1, 32);
 }
 
 // strided => contiguous
-void test_copyDataToDevice_sc()
+void test_copyData_sc()
 {
-    test_copyDataToDevice(32, 1);
+    test_copyData(32, 1);
 }
 
 // strided => strided
-void test_copyDataToDevice_ss()
+void test_copyData_ss()
 {
-    test_copyDataToDevice(32, 32);
+    test_copyData(32, 32);
 }
 
 //------------------------------------------------------------------------------
@@ -795,16 +795,16 @@ void run_tests()
             test_upper_complex,
             "uplo(upper)");
         run_test(
-            test_copyDataToDevice_cc,
+            test_copyData_cc,
             "copyData: (H2D, D2D, D2H, H2H) contiguous => contiguous");
         run_test(
-            test_copyDataToDevice_cs,
+            test_copyData_cs,
             "copyData: (H2D, D2D, D2H, H2H) contiguous => strided");
         run_test(
-            test_copyDataToDevice_sc,
+            test_copyData_sc,
             "copyData: (H2D, D2D, D2H, H2H) strided => contiguous");
         run_test(
-            test_copyDataToDevice_ss,
+            test_copyData_ss,
             "copyData: (H2D, D2D, D2H, H2H) strided => strided");
     }
     run_test(

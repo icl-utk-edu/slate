@@ -621,6 +621,8 @@ void MatrixStorage<scalar_t>::erase(ijdev_tuple ijdev)
         Tile<scalar_t>* tile = iter->second.tile_;
         if (tile->allocated())
             memory_.free(tile->data(), tile->device());
+        if (tile->extended())
+            memory_.free(tile->layoutExtData(), tile->device());
         delete tile;
         tiles_.erase(ijdev);
     }

@@ -395,11 +395,7 @@ public:
         storage_->at(globalIndex(i, j, host_num_)).tile_->layout(layout);
     }
 
-    bool tileIsTransposable(int64_t i, int64_t j, int device=host_num_);
-
-    void tileConvertLayout(int64_t i, int64_t j, int device, Layout layout);
-
-    void tileConvertLayout(std::set<ij_tuple>& tile_set, int device, Layout layout);
+    bool tileLayoutIsConvertible(int64_t i, int64_t j, int device=host_num_);
 
     void tileConvertLayout(int device, Layout layout);
 
@@ -2372,7 +2368,7 @@ void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
 
 //------------------------------------------------------------------------------
 /// Returns whether tile(i, j, device) can be safely transposed.
-/// based on its 'TileKind', buffer size, and stride.
+/// based on its 'TileKind', buffer size, Layout, and stride.
 /// Tile instance on 'device' should exist.
 ///
 /// @param[in] i
@@ -2386,9 +2382,9 @@ void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
 ///
 // todo: validate working for sub- and sliced- matrix
 template <typename scalar_t>
-bool BaseMatrix<scalar_t>::tileIsTransposable(int64_t i, int64_t j, int device)
+bool BaseMatrix<scalar_t>::tileLayoutIsConvertible(int64_t i, int64_t j, int device)
 {
-    return storage_->at(globalIndex(i, j, device)).tile_->isTransposable();
+    return storage_->at(globalIndex(i, j, device)).tile_->layoutIsConvertible();
 }
 
 

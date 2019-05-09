@@ -248,6 +248,9 @@ public:
     TileEntry<scalar_t>& tileInsert(ijdev_tuple ijdev, TileKind, Layout layout=Layout::ColMajor);
     TileEntry<scalar_t>& tileInsert(ijdev_tuple ijdev, scalar_t* data, int64_t lda, Layout layout=Layout::ColMajor);
 
+    void tileLayoutMakeConvertible(Tile<scalar_t>* tile);
+    void tileLayoutReset(Tile<scalar_t>* tile);
+
     void tileTick(ij_tuple ij);
 
     //--------------------------------------------------------------------------
@@ -687,6 +690,43 @@ TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
         = new Tile<scalar_t>(mb, nb, data, lda, device, TileKind::UserOwned, layout);
     tiles_[ijdev] = {tile, MOSI::Shared};
     return tiles_[ijdev];
+}
+
+//------------------------------------------------------------------------------
+/// Makes tile layout convertible by extending its data buffer.
+/// Attaches an auxiliary buffer to hold the transposed data when needed.
+///
+/// @param[in,out] tile
+///     Pointer to tile to extend its data buffer.
+///
+template <typename scalar_t>
+void MatrixStorage<scalar_t>::tileLayoutMakeConvertible(Tile<scalar_t>* tile)
+{
+    if (tile->layoutIsConvertible())
+        // early return
+        return;
+
+    int device = tile->device();
+    scalar_t* data = (scalar_t*) memory_.alloc(device);
+
+    tile->layoutMakeConvertible(data);
+}
+
+//------------------------------------------------------------------------------
+/// Resets the extended tile.
+/// Frees the extended buffer and returns to memory manager
+///     then resets the tile's extended member fields
+///
+/// @param[in,out] tile
+///     Pointer to extended tile.
+///
+template <typename scalar_t>
+void MatrixStorage<scalar_t>::tileLayoutReset(Tile<scalar_t>* tile)
+{
+    if (tile->extended()) {
+        memory_.free(tile->layoutExtData(), tile->device());
+        tile->layoutReset();
+    }
 }
 
 //------------------------------------------------------------------------------

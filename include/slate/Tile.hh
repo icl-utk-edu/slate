@@ -232,14 +232,27 @@ public:
     void set(scalar_t alpha, scalar_t beta);
 
     /// Returns whether this tile can be safely transposed
-    /// based on its 'TileKind', buffer size, and stride.
+    /// based on its 'TileKind', buffer size, Layout, and stride.
     /// todo: validate and handle sliced-matrix
-    bool isTransposable()
+    bool layoutIsConvertible()
     {
-        return ! (kind_ == TileKind::UserOwned
-               && mb_ != nb_
-               && stride_ != mb_);
+        // temporarily, a rectangular tile will be considered non-transposable
+        // (because in-place transposition is is not implemented)
+        // and will require an auxiliary buffer.
+        return extended_
+               || mb_ == nb_
+               // || kind_ != TileKind::UserOwned
+               // || (layout_ == Layout::ColMajor && stride_ == mb_)
+               // || (layout_ == Layout::RowMajor && stride_ == nb_)
+               ;
     }
+
+    void layoutMakeConvertible(scalar_t* data);
+    void layoutReset();
+
+    bool extended() const { return extended_; }
+
+    scalar_t* layoutExtData() { return ext_data_; }
 
 protected:
     // BaseMatrix sets mb, nb, offset.
@@ -513,6 +526,36 @@ void Tile<scalar_t>::offset(int64_t i, int64_t j)
         data_ = &data_[ i + j*stride_ ];
     else
         data_ = &data_[ j + i*stride_ ];
+}
+
+//------------------------------------------------------------------------------
+/// Attaches the new_data buffer to hold the transposed data of rectangular tiles
+/// Marks the tile extended
+///
+template <typename scalar_t>
+void Tile<scalar_t>::layoutMakeConvertible(scalar_t* new_data)
+{
+    assert(! layoutIsConvertible());
+
+    // preserve currrent data pointer and stride
+    user_data_ = data_;
+    user_stride_ = stride_;
+    ext_data_ = new_data;
+
+    extended_ = true;
+}
+
+//------------------------------------------------------------------------------
+/// Resets the tile's member fields related to being extended
+/// WARNING: should be called within MatrixStorage::tileLayoutReset() only
+///
+template <typename scalar_t>
+void Tile<scalar_t>::layoutReset()
+{
+    user_data_ = nullptr;
+    ext_data_ = nullptr;
+
+    extended_ = false;
 }
 
 //------------------------------------------------------------------------------

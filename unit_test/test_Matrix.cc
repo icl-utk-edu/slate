@@ -1346,6 +1346,98 @@ void test_tileSend_tileRecv()
 }
 
 //==============================================================================
+// tile MOSI
+
+//------------------------------------------------------------------------------
+/// compare tiles data.
+void test_Tile_compare_layout(slate::Tile<double> const& Atile,
+                              slate::Tile<double> const& Btile,
+                              bool same_layout)
+{
+    test_assert( (Atile.layout() == Btile.layout()) == same_layout );
+
+    const double* Adata = Atile.data();
+    const double* Bdata = Btile.data();
+    int64_t Astride = Atile.stride();
+    int64_t Bstride = Btile.stride();
+
+    for (int jj = 0; jj < Atile.nb(); ++jj) {
+        for (int ii = 0; ii < Atile.mb(); ++ii) {
+            // Check that actual data is transposed.
+            if (same_layout)
+                test_assert(Adata[ ii + jj*Astride ] == Bdata[ ii + jj*Bstride ]);
+            else
+                test_assert(Adata[ jj + ii*Astride ] == Bdata[ ii + jj*Bstride ]);
+            // Atile(i, j) takes col/row-major into account.
+            test_assert(Atile(ii, jj) == Btile(ii, jj));
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+//
+void test_Matrix_MOSI()
+{
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+
+    int64_t iseed[4] = { 0, 1, 2, 3 };
+    lapack::larnv( 1, iseed, Ad.size(), Ad.data() );
+
+    auto A = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    std::vector<double> Bd = Ad;
+    auto B = slate::Matrix<double>::fromLAPACK(
+        m, n, Bd.data(), lda, nb, p, q, mpi_comm );
+
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            if (A.tileIsLocal(i, j)) {
+                test_assert(A.tileState(i, j) == slate::MOSI::Shared);
+            }
+        }
+    }
+
+    A.reserveDeviceWorkspace();
+
+    A.tileGetAllForReadingOnDevices(slate::LayoutConvert::None);
+
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            if (A.tileIsLocal(i, j)) {
+                test_assert(A.tileState(i, j) == slate::MOSI::Shared);
+                test_assert(A.tileState(i, j, A.tileDevice(i, j)) == slate::MOSI::Shared);
+            }
+        }
+    }
+
+    A.tileGetAllForWritingOnDevices(slate::LayoutConvert::None);
+
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            if (A.tileIsLocal(i, j)) {
+                test_assert(A.tileState(i, j) == slate::MOSI::Invalid);
+                test_assert(A.tileState(i, j, A.tileDevice(i, j)) == slate::MOSI::Modified);
+            }
+        }
+    }
+
+    A.tileUpdateAllOrigin();
+
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            if (A.tileIsLocal(i, j)) {
+                test_assert(A.tileState(i, j) == slate::MOSI::Shared);
+                test_assert(A.tileState(i, j, A.tileDevice(i, j)) == slate::MOSI::Shared);
+                // verify data is still correct
+                test_Tile_compare_layout(A(i, j), B(i, j), true);
+            }
+        }
+    }
+}
+
+//==============================================================================
 // todo
 // BaseMatrix
 //     num_devices
@@ -1401,6 +1493,7 @@ void run_tests()
     run_test(test_Matrix_tileErase,       "Matrix::tileErase", mpi_comm);
     run_test(test_Matrix_insertLocalTiles,     "Matrix::insertLocalTiles()",           mpi_comm);
     run_test(test_Matrix_insertLocalTiles_dev, "Matrix::insertLocalTiles(on_devices)", mpi_comm);
+    run_test(test_Matrix_MOSI, "Matrix::tileMOSI", mpi_comm);
 
     if (mpi_rank == 0)
         printf("\nSub-matrices and slices\n");

@@ -38,6 +38,7 @@
 //------------------------------------------------------------------------------
 
 #include "slate/Tile.hh"
+#include "slate/Tile_blas.hh"
 #include "internal/Tile_lapack.hh"
 #include "internal/Tile_synorm.hh"
 #include "slate/internal/device.hh"
@@ -200,7 +201,7 @@ void test_genorm_dev(Norm norm)
     test_assert(cudaMalloc((void**)&dAdata, sizeof(double) * lda * n) == cudaSuccess);
     test_assert(dAdata != nullptr);
     slate::Tile<double> dA(m, n, dAdata, lda, 0, slate::TileKind::UserOwned);
-    A.copyDataToDevice(&dA, stream);
+    A.copyData(&dA, stream);
 
     const int batch_count = 1;
     double* Aarray[batch_count];
@@ -416,7 +417,7 @@ void test_synorm_dev(Norm norm, Uplo uplo)
     test_assert(cudaMalloc((void**)&dAdata, sizeof(double) * lda * n) == cudaSuccess);
     test_assert(dAdata != nullptr);
     slate::Tile<double> dA(n, n, dAdata, lda, 0, slate::TileKind::UserOwned);
-    A.copyDataToDevice(&dA, stream);
+    A.copyData(&dA, stream);
 
     const int batch_count = 1;
     double* Aarray[batch_count];
@@ -578,7 +579,7 @@ void test_synorm_offdiag_dev(Norm norm)
     test_assert(cudaMalloc((void**)&dAdata, sizeof(double) * lda * n) == cudaSuccess);
     test_assert(dAdata != nullptr);
     slate::Tile<double> dA(m, n, dAdata, lda, 0, slate::TileKind::UserOwned);
-    A.copyDataToDevice(&dA, stream);
+    A.copyData(&dA, stream);
 
     const int batch_count = 1;
     double* Aarray[batch_count];
@@ -818,7 +819,7 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
     test_assert(cudaMalloc((void**)&dAdata, sizeof(double) * lda * n) == cudaSuccess);
     test_assert(dAdata != nullptr);
     slate::Tile<double> dA(m, n, dAdata, lda, 0, slate::TileKind::UserOwned);
-    A.copyDataToDevice(&dA, stream);
+    A.copyData(&dA, stream);
     dA.uplo( uplo );
 
     const int batch_count = 1;

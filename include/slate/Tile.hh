@@ -142,6 +142,16 @@ public:
 
     void copyDataToHost(Tile<scalar_t>* dst_tile, cudaStream_t stream) const;
     void copyDataToDevice(Tile<scalar_t>* dst_tile, cudaStream_t stream) const;
+    void copyData(Tile<scalar_t>* dst_tile, cudaStream_t stream) const;
+
+    /// copies this tile's data to dst_tile data, both assumed on host
+    void copyData(Tile<scalar_t>* dst_tile) const
+    {
+        assert(this->device_ < 0);
+        assert(dst_tile->device() < 0);
+        // forward
+        copyData(dst_tile, nullptr);
+    }
 
     void send(int dst, MPI_Comm mpi_comm, int tag = 0) const;
     void recv(int src, MPI_Comm mpi_comm, Layout layout, int tag = 0);
@@ -490,6 +500,7 @@ void Tile<scalar_t>::offset(int64_t i, int64_t j)
 }
 
 //------------------------------------------------------------------------------
+/// @deprecated
 /// Copies data from this tile on device to dst_tile on host.
 ///
 /// @param[in] dst_tile
@@ -503,6 +514,10 @@ template <typename scalar_t>
 void Tile<scalar_t>::copyDataToHost(
     Tile<scalar_t>* dst_tile, cudaStream_t stream) const
 {
+    // sizes has to match
+    assert(mb_ == dst_tile->mb_);
+    assert(nb_ == dst_tile->nb_);
+
     slate_cuda_call(
         cudaSetDevice(device_));
 
@@ -546,6 +561,7 @@ void Tile<scalar_t>::copyDataToHost(
 }
 
 //------------------------------------------------------------------------------
+/// @deprecated
 /// Copies data from this tile on host to dst_tile on device.
 ///
 /// @param[in] dst_tile
@@ -559,6 +575,10 @@ template <typename scalar_t>
 void Tile<scalar_t>::copyDataToDevice(
     Tile<scalar_t>* dst_tile, cudaStream_t stream) const
 {
+    // sizes has to match
+    assert(mb_ == dst_tile->mb_);
+    assert(nb_ == dst_tile->nb_);
+
     slate_cuda_call(
         cudaSetDevice(dst_tile->device_));
 
@@ -597,6 +617,109 @@ void Tile<scalar_t>::copyDataToDevice(
 
         slate_cuda_call(
             cudaStreamSynchronize(stream));
+    }
+    dst_tile->layout(this->layout());
+}
+
+//------------------------------------------------------------------------------
+/// Copies data from this tile to dst_tile.
+/// Figures out the direction of copy and the source and destination devices
+///     from the destination tile and this tile.
+/// WARNING: device ID set in device_ of both tiles should be properly set.
+///
+/// @param[in] dst_tile
+///     Destination tile.
+///
+/// @param[in] stream
+///     CUDA stream for copy if needed.
+///
+// todo: need to copy or verify metadata (sizes, op, uplo, ...)
+template <typename scalar_t>
+void Tile<scalar_t>::copyData(
+    Tile<scalar_t>* dst_tile, cudaStream_t stream) const
+{
+    // sizes has to match
+    assert(mb_ == dst_tile->mb_);
+    assert(nb_ == dst_tile->nb_);
+
+    int device = -1;
+    cudaMemcpyKind memcpy_kind;
+
+    // figure out copy direction and device
+    if (this->device_ >= 0 && dst_tile->device() < 0) {
+        // device to host copy
+        device = this->device_;
+        memcpy_kind = cudaMemcpyDeviceToHost;
+    }
+    else
+    if (this->device_ < 0 && dst_tile->device() >= 0) {
+        // host to device copy
+        device = dst_tile->device();
+        memcpy_kind = cudaMemcpyHostToDevice;
+    }
+    else
+    if (this->device_ < 0 && dst_tile->device() < 0) {
+        // host to host copy
+        device = -1;
+        memcpy_kind = cudaMemcpyHostToHost;
+    }
+    else
+    if (this->device_ >= 0 && dst_tile->device() >= 0) {
+        // device to device copy
+        device = this->device_;
+        memcpy_kind = cudaMemcpyDeviceToDevice;
+        // todo: handle peer to peer copy
+        if (this->device_ != dst_tile->device())
+            assert(0);
+    }
+
+    if (device >= 0) {
+        slate_cuda_call(
+            cudaSetDevice(device));
+    }
+
+    if ( memcpy_kind == cudaMemcpyHostToHost ) {
+        gecopy(*this, *dst_tile);
+    }
+    else {
+        assert(stream != nullptr);
+
+        // If no stride on both sides.
+        if (stride_ == mb_ &&
+            dst_tile->stride_ == dst_tile->mb_) {
+
+            // Use simple copy.
+            trace::Block trace_block("cudaMemcpyAsync");
+
+            slate_cuda_call(
+                cudaMemcpyAsync(
+                        dst_tile->data_, data_, bytes(),
+                        memcpy_kind, stream));
+
+            slate_cuda_call(
+                cudaStreamSynchronize(stream));
+        }
+        else {
+            // Otherwise, use 2D copy.
+            trace::Block trace_block("cudaMemcpy2DAsync");
+
+            void* dst = dst_tile->data_;
+            const void* src = data_;
+            size_t dpitch = sizeof(scalar_t)*dst_tile->stride_;
+            size_t spitch = sizeof(scalar_t)*stride_;
+            size_t width  = sizeof(scalar_t)*mb_;
+            size_t height = nb_;
+
+            slate_cuda_call(
+                cudaMemcpy2DAsync(
+                        dst, dpitch,
+                        src, spitch,
+                        width, height,
+                        memcpy_kind, stream));
+
+            slate_cuda_call(
+                cudaStreamSynchronize(stream));
+        }
     }
     dst_tile->layout(this->layout());
 }

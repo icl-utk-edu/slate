@@ -704,15 +704,19 @@ void test_copyDataToDevice(int align_host, int align_dev)
     cudaStream_t stream;
     test_assert(cudaStreamCreate(&stream) == cudaSuccess);
 
-    double* data_dev;
-    test_assert(cudaMalloc((void**) &data_dev, sizeof(double)*ldda*n) == cudaSuccess);
-    test_assert(data_dev != nullptr);
+    double *Adata_dev, *Bdata_dev;
+    test_assert(cudaMalloc((void**) &Adata_dev, sizeof(double)*ldda*n) == cudaSuccess);
+    test_assert(Adata_dev != nullptr);
+    test_assert(cudaMalloc((void**) &Bdata_dev, sizeof(double)*ldda*n) == cudaSuccess);
+    test_assert(Bdata_dev != nullptr);
 
-    slate::Tile<double> dA(m, n, data_dev, ldda, 0, slate::TileKind::UserOwned);
+    slate::Tile<double> dA(m, n, Adata_dev, ldda, 0, slate::TileKind::UserOwned);
+    slate::Tile<double> dB(m, n, Bdata_dev, ldda, 0, slate::TileKind::UserOwned);
 
-    // copy to device and back, then verify
+    // copy H2D->D2D->D2H, then verify
     A.copyData(&dA, stream);
-    dA.copyData(&B, stream);
+    dA.copyData(&dB, stream);
+    dB.copyData(&B, stream);
     verify_data(B, mpi_rank);
 
     // copy host to host, then verify
@@ -720,7 +724,8 @@ void test_copyDataToDevice(int align_host, int align_dev)
     A.copyData(&B);
     verify_data(B, mpi_rank);
 
-    test_assert(cudaFree(data_dev) == cudaSuccess);
+    test_assert(cudaFree(Adata_dev) == cudaSuccess);
+    test_assert(cudaFree(Bdata_dev) == cudaSuccess);
     test_assert(cudaStreamDestroy(stream) == cudaSuccess);
 
     delete[] dataA;
@@ -791,16 +796,16 @@ void run_tests()
             "uplo(upper)");
         run_test(
             test_copyDataToDevice_cc,
-            "copyData: (H2D, D2H, H2H) contiguous => contiguous");
+            "copyData: (H2D, D2D, D2H, H2H) contiguous => contiguous");
         run_test(
             test_copyDataToDevice_cs,
-            "copyData: (H2D, D2H, H2H) contiguous => strided");
+            "copyData: (H2D, D2D, D2H, H2H) contiguous => strided");
         run_test(
             test_copyDataToDevice_sc,
-            "copyData: (H2D, D2H, H2H) strided => contiguous");
+            "copyData: (H2D, D2D, D2H, H2H) strided => contiguous");
         run_test(
             test_copyDataToDevice_ss,
-            "copyData: (H2D, D2H, H2H) strided => strided");
+            "copyData: (H2D, D2D, D2H, H2H) strided => strided");
     }
     run_test(
         test_send_recv_cc,

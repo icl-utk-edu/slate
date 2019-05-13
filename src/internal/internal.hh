@@ -184,7 +184,7 @@ void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
           int priority=0);
 
 //------------------------------------------------------------------------------
-// Level 3 BLAS
+// Level 3 BLAS and LAPACK auxiliary
 
 //-----------------------------------------
 // gemm()
@@ -341,6 +341,12 @@ void trsm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
           int priority=0, Layout layout=Layout::ColMajor);
+
+//-----------------------------------------
+// trtri()
+template <Target target=Target::HostTask, typename scalar_t>
+void trtri(TriangularMatrix<scalar_t>&& A,
+           int priority=0);
 
 //------------------------------------------------------------------------------
 // Other BLAS

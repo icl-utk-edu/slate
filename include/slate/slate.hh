@@ -63,7 +63,7 @@ void copy(src_matrix_type& A, dst_matrix_type& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //------------------------------------------------------------------------------
-// Level 3 BLAS
+// Level 3 BLAS and LAPACK auxiliary
 
 //-----------------------------------------
 // gbmm()
@@ -308,6 +308,16 @@ void trsm(blas::Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// trtri()
+template <typename scalar_t>
+void trtri(TriangularMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void trtri(TriangularMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //------------------------------------------------------------------------------
 // Norms

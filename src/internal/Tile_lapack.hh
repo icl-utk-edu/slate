@@ -306,6 +306,31 @@ int64_t potrf(Tile<scalar_t>&& A)
     return potrf(A);
 }
 
+//------------------------------------------------------------------------------
+/// Triangular inversion of tile.
+/// uplo is set in the tile.
+/// @ingroup trtri_tile
+///
+template <typename scalar_t>
+int64_t trtri(Diag diag, Tile<scalar_t>& A)
+{
+    trace::Block trace_block("lapack::trtri");
+
+    return lapack::trtri(A.uploPhysical(), diag,
+                         A.nb(),
+                         A.data(), A.stride());
+}
+
+//-----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+/// @ingroup posv_tile
+///
+template <typename scalar_t>
+int64_t trtri(Diag diag, Tile<scalar_t>&& A)
+{
+    return trtri(diag, A);
+}
+
 } // namespace slate
 
 #endif // SLATE_TILE_LAPACK_HH

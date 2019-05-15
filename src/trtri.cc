@@ -80,14 +80,14 @@ void trtri(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
-        // first column trsm
+        // trsm the first column
         if (A_nt > 1) {
             #pragma omp task depend(inout:col[0]) firstprivate(tag)
             {
                 // send A(0, 0) down col A(1:nt-1, 0)
                 A.tileBcast(0, 0, A.sub(1, A_nt-1, 0, 0), tag);
 
-                // first column trsm, A(1:nt-1, 0) * A(0, 0)^{-H}
+                // A(1:nt-1, 0) * A(0, 0)^{-H}
                 internal::trsm<Target::HostTask>(
                     Side::Right,
                     scalar_t(-1.0), A.sub(0, 0),
@@ -101,6 +101,7 @@ void trtri(slate::internal::TargetType<target>,
             #pragma omp task depend(in:col[0]) \
                              depend(out:row[1]) firstprivate(tag)
             {
+                // send A(1, 0) down col A(2:nt-1, 0)
                 A.tileBcast(1, 0, A.sub(2, A_nt-1, 0, 0), tag);
             }
             ++tag;
@@ -112,7 +113,7 @@ void trtri(slate::internal::TargetType<target>,
             internal::trtri<Target::HostTask>(A.sub(0, 0));
         }
 
-        // next lookahead column trsms
+        // next lookahead columns trsms
         for (int64_t k = 1; k < lookahead+1 && k+1 < A_nt; ++k) {
             #pragma omp task depend(inout:col[k]) \
                              depend(inout:row[k+1]) firstprivate(tag)
@@ -138,10 +139,10 @@ void trtri(slate::internal::TargetType<target>,
         }
 
         for (int64_t k = 1; k < A_nt; ++k) {
-
             // next leading column trsm
             if (k+1+lookahead < A_nt) {
-                #pragma omp task depend(inout:col[k+lookahead]) \
+                #pragma omp task depend(in:col[k-1]) \
+                                 depend(inout:col[k+lookahead]) \
                                  depend(inout:row[k+1+lookahead]) \
                                  firstprivate(tag)
                 {
@@ -176,7 +177,7 @@ void trtri(slate::internal::TargetType<target>,
                                  depend(in:row[k]) \
                                  depend(inout:row[i]) firstprivate(tag)
                 {
-                    // update the row
+                    // A(i, 0:k-1) += A(i, k) * A(k, 0:k-1)
                     internal::gemm<Target::HostTask>(
                         scalar_t(1.0), A.sub(i, i, k, k),
                                        A.sub(k, k, 0, k-1),
@@ -186,7 +187,7 @@ void trtri(slate::internal::TargetType<target>,
                         // send the row down
                         BcastList bcast_list_B;
                         for (int64_t j = 0; j < k+1; ++j) {
-                            // send A(i, j) down column A(i+1:nt-1, j)
+                            // send A(i, j) down col A(i+1:nt-1, j)
                             bcast_list_B.push_back(
                                 {i, j, {A.sub(i+1, A_nt-1, j, j)}});
                         }
@@ -196,13 +197,14 @@ void trtri(slate::internal::TargetType<target>,
                 ++tag;
             }
 
+            // update the remaining block
             #pragma omp task depend(in:col[k]) \
                              depend(in:row[k]) \
                              depend(inout:row[k+1+lookahead]) \
                              depend(inout:row[A_nt-1]) firstprivate(tag)
             {
-                // update the remaining block
                 if (k+1+lookahead < A_nt) {
+                    // A(k+1+la:nt-1) += A(k+1+la:nt-1, k) * A(k, 0:k-1)
                     internal::gemm<Target::HostTask>(
                         scalar_t(1.0), A.sub(k+1+lookahead, A_nt-1, k, k),
                                        A.sub(k, k, 0, k-1),
@@ -213,7 +215,7 @@ void trtri(slate::internal::TargetType<target>,
                     // send the top row down
                     BcastList bcast_list_B;
                     for (int64_t j = 0; j < k+1; ++j) {
-                        // send A(k, j) down column A(k+1:nt-1, j)
+                        // send A(k, j) down col A(k+1:nt-1, j)
                         bcast_list_B.push_back(
                             {k+1+lookahead, j, {A.sub(k+2+lookahead, A_nt-1, j, j)}});
                     }
@@ -222,6 +224,7 @@ void trtri(slate::internal::TargetType<target>,
             }
             ++tag;
 
+            // invert the diagonal triangle
             #pragma omp task depend(inout:row[k]) firstprivate(tag)
             {
                 // send A(k, k) across row A(k, 0:k-1)

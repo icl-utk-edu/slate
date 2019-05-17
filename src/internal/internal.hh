@@ -348,6 +348,12 @@ template <Target target=Target::HostTask, typename scalar_t>
 void trtri(TriangularMatrix<scalar_t>&& A,
            int priority=0);
 
+//-----------------------------------------
+// trtrm()
+template <Target target=Target::HostTask, typename scalar_t>
+void trtrm(TriangularMatrix<scalar_t>&& A,
+           int priority=0);
+
 //------------------------------------------------------------------------------
 // Other BLAS
 template <Target target=Target::HostTask, typename scalar_t>

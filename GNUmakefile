@@ -252,6 +252,7 @@ libslate_src += \
         src/internal/internal_trnorm.cc \
         src/internal/internal_trsm.cc \
         src/internal/internal_trtri.cc \
+        src/internal/internal_trtrm.cc \
         src/internal/internal_ttmqr.cc \
         src/internal/internal_ttqrt.cc \
         src/internal/internal_unmqr.cc \
@@ -307,6 +308,7 @@ libslate_src += \
         src/trmm.cc \
         src/trsm.cc \
         src/trtri.cc \
+        src/trtrm.cc \
         src/unmqr.cc \
 
 # main tester

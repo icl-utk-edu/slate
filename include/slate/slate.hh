@@ -319,6 +319,16 @@ template <Target target, typename scalar_t>
 void trtri(TriangularMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
+//-----------------------------------------
+// trtrm()
+template <typename scalar_t>
+void trtrm(TriangularMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void trtrm(TriangularMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 //------------------------------------------------------------------------------
 // Norms
 

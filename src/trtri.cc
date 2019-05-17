@@ -77,6 +77,9 @@ void trtri(slate::internal::TargetType<target>,
 
     int tag = 0;
 
+    A.allocateBatchArrays();
+    A.reserveDeviceWorkspace();
+
     #pragma omp parallel
     #pragma omp master
     {
@@ -133,7 +136,7 @@ void trtri(slate::internal::TargetType<target>,
                     // send A(i, k) across row A(i, 0:k-1)
                     bcast_list_A.push_back({i, k, {A.sub(i, i, 0, k-1)}});
                 }
-                A.template listBcast(bcast_list_A, tag+1);
+                A.template listBcast<target>(bcast_list_A, tag+1);
             }
             tag += 2;
         }
@@ -166,7 +169,7 @@ void trtri(slate::internal::TargetType<target>,
                         bcast_list_A.push_back(
                             {i, k+lookahead, {A.sub(i, i, 0, k+lookahead-1)}});
                     }
-                    A.template listBcast(bcast_list_A, tag+1);
+                    A.template listBcast<target>(bcast_list_A, tag+1);
                 }
                 tag += 2;
             }
@@ -191,7 +194,7 @@ void trtri(slate::internal::TargetType<target>,
                             bcast_list_B.push_back(
                                 {i, j, {A.sub(i+1, A_nt-1, j, j)}});
                         }
-                        A.template listBcast(bcast_list_B, tag);
+                        A.template listBcast<target>(bcast_list_B, tag);
                     }
                 }
                 ++tag;
@@ -205,7 +208,7 @@ void trtri(slate::internal::TargetType<target>,
             {
                 if (k+1+lookahead < A_nt) {
                     // A(k+1+la:nt-1) += A(k+1+la:nt-1, k) * A(k, 0:k-1)
-                    internal::gemm<Target::HostTask>(
+                    internal::gemm<target>(
                         scalar_t(1.0), A.sub(k+1+lookahead, A_nt-1, k, k),
                                        A.sub(k, k, 0, k-1),
                         scalar_t(1.0), A.sub(k+1+lookahead, A_nt-1, 0, k-1));
@@ -219,7 +222,7 @@ void trtri(slate::internal::TargetType<target>,
                         bcast_list_B.push_back(
                             {k+1+lookahead, j, {A.sub(k+2+lookahead, A_nt-1, j, j)}});
                     }
-                    A.template listBcast(bcast_list_B, tag);
+                    A.template listBcast<target>(bcast_list_B, tag);
                 }
             }
             ++tag;

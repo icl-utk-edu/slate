@@ -73,6 +73,9 @@ void trtrm(slate::internal::TargetType<target>,
     std::vector< uint8_t > row_vector(A_nt);
     uint8_t* row = row_vector.data();
 
+    A.allocateBatchArrays();
+    A.reserveDeviceWorkspace();
+
     #pragma omp parallel
     #pragma omp master
     {
@@ -107,7 +110,7 @@ void trtrm(slate::internal::TargetType<target>,
                 auto Ak = A.sub(k, k, 0, k-1);
                 Ak = conj_transpose(Ak);
 
-                internal::herk<Target::HostTask>(
+                internal::herk<target>(
                     real_t(1.0), std::move(Ak),
                     real_t(1.0), std::move(H0));
             }

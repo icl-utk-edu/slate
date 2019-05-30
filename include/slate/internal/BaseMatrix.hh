@@ -219,7 +219,19 @@ public:
         return tileInsert(i, j, host_num_, A, ld);
     }
 
-    TileEntry<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, int device=host_num_);
+    TileEntry<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, int device, Layout layout);
+    TileEntry<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, int device)
+    {
+        return tileInsertWorkspace(i, j, device, layout_);
+    }
+    TileEntry<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, Layout layout)
+    {
+        return tileInsertWorkspace(i, j, host_num_, layout);
+    }
+    TileEntry<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j)
+    {
+        return tileInsertWorkspace(i, j, host_num_, layout_);
+    }
 
     //--------------------------------------------------------------------------
     // MOSI
@@ -1048,10 +1060,10 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 ///
 template <typename scalar_t>
 TileEntry<scalar_t>& BaseMatrix<scalar_t>::tileInsertWorkspace(
-    int64_t i, int64_t j, int device)
+    int64_t i, int64_t j, int device, Layout layout)
 {
     auto index = globalIndex(i, j, device);
-    return storage_->tileInsert(index, TileKind::Workspace, layout_);
+    return storage_->tileInsert(index, TileKind::Workspace, layout);
 }
 
 //------------------------------------------------------------------------------
@@ -1080,6 +1092,7 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
     int64_t i, int64_t j, int device, scalar_t* data, int64_t ld)
 {
     auto index = globalIndex(i, j, device);
+    // tile layout must match the matrix layout
     auto tileEntry = storage_->tileInsert(index, data, ld, layout_); // TileKind::UserOwned
     return tileEntry.tile_;
 }

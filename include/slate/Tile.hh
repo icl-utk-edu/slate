@@ -235,17 +235,12 @@ public:
     /// Returns whether this tile can be safely transposed
     /// based on its 'TileKind', buffer size, Layout, and stride.
     /// todo: validate and handle sliced-matrix
-    bool layoutIsConvertible()
+    bool isTransposable()
     {
-        // temporarily, a rectangular tile will be considered non-transposable
-        // (because in-place transposition is is not implemented)
-        // and will require an auxiliary buffer.
-        return extended_
-               || mb_ == nb_
-               // || kind_ != TileKind::UserOwned
-               // || (layout_ == Layout::ColMajor && stride_ == mb_)
-               // || (layout_ == Layout::RowMajor && stride_ == nb_)
-               ;
+        return    extended_                     // already extended buffer
+               || mb_ == nb_                    // square tile
+               || kind_ != TileKind::UserOwned  // SLATE allocated
+               || isContiguous();               // contiguous
     }
 
     void layoutMakeConvertible(scalar_t* data);
@@ -536,7 +531,7 @@ void Tile<scalar_t>::offset(int64_t i, int64_t j)
 template <typename scalar_t>
 void Tile<scalar_t>::layoutMakeConvertible(scalar_t* new_data)
 {
-    assert(! layoutIsConvertible());
+    assert(! isTransposable());
 
     // preserve currrent data pointer and stride
     user_data_ = data_;

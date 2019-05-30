@@ -704,7 +704,7 @@ TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::tileLayoutMakeConvertible(Tile<scalar_t>* tile)
 {
-    if (tile->layoutIsConvertible())
+    if (tile->isTransposable())
         // early return
         return;
 

@@ -2385,7 +2385,7 @@ void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
 template <typename scalar_t>
 bool BaseMatrix<scalar_t>::tileLayoutIsConvertible(int64_t i, int64_t j, int device)
 {
-    return storage_->at(globalIndex(i, j, device)).tile_->layoutIsConvertible();
+    return storage_->at(globalIndex(i, j, device)).tile_->isTransposable();
 }
 
 

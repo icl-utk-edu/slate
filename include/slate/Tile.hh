@@ -232,7 +232,14 @@ public:
     void set(scalar_t alpha);
     void set(scalar_t alpha, scalar_t beta);
 
-    /// Returns whether this tile can be safely transposed
+    /// @return Whether the front memory buffer is contiguous
+    bool isContiguous() const
+    {
+        return (layout_ == Layout::ColMajor && stride_ == mb_)
+            || (layout_ == Layout::RowMajor && stride_ == nb_);
+    }
+
+    /// Returns whether this tile can safely store its data in transposed form
     /// based on its 'TileKind', buffer size, Layout, and stride.
     /// todo: validate and handle sliced-matrix
     bool isTransposable()
@@ -740,8 +747,8 @@ void Tile<scalar_t>::copyData(
         assert(stream != nullptr);
 
         // If no stride on both sides.
-        if (stride_ == mb_ &&
-            dst_tile->stride_ == dst_tile->mb_) {
+        if (this->isContiguous() &&
+            dst_tile->isContiguous()) {
 
             // Use simple copy.
             trace::Block trace_block("cudaMemcpyAsync");
@@ -795,7 +802,7 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm, int tag) const
     trace::Block trace_block("MPI_Send");
 
     // If no stride.
-    if (stride_ == mb_) {
+    if (this->isContiguous()) {
         // Use simple send.
         int count = mb_*nb_;
 
@@ -843,7 +850,7 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm, Layout layout, int tag)
     trace::Block trace_block("MPI_Recv");
 
     // If no stride.
-    if (stride_ == mb_) {
+    if (this->isContiguous()) {
         // Use simple recv.
         int count = mb_*nb_;
 

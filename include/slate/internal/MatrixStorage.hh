@@ -251,7 +251,7 @@ public:
     TileEntry<scalar_t>& tileInsert(ijdev_tuple ijdev, TileKind, Layout layout=Layout::ColMajor);
     TileEntry<scalar_t>& tileInsert(ijdev_tuple ijdev, scalar_t* data, int64_t lda, Layout layout=Layout::ColMajor);
 
-    void tileLayoutMakeConvertible(Tile<scalar_t>* tile);
+    void tileMakeTransposable(Tile<scalar_t>* tile);
     void tileLayoutReset(Tile<scalar_t>* tile);
 
     void tileTick(ij_tuple ij);
@@ -625,7 +625,7 @@ void MatrixStorage<scalar_t>::erase(ijdev_tuple ijdev)
         if (tile->allocated())
             memory_.free(tile->data(), tile->device());
         if (tile->extended())
-            memory_.free(tile->layoutExtData(), tile->device());
+            memory_.free(tile->extData(), tile->device());
         delete tile;
         tiles_.erase(ijdev);
     }
@@ -723,7 +723,7 @@ TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
 ///     Pointer to tile to extend its data buffer.
 ///
 template <typename scalar_t>
-void MatrixStorage<scalar_t>::tileLayoutMakeConvertible(Tile<scalar_t>* tile)
+void MatrixStorage<scalar_t>::tileMakeTransposable(Tile<scalar_t>* tile)
 {
     if (tile->isTransposable())
         // early return
@@ -732,7 +732,7 @@ void MatrixStorage<scalar_t>::tileLayoutMakeConvertible(Tile<scalar_t>* tile)
     int device = tile->device();
     scalar_t* data = (scalar_t*) memory_.alloc(device);
 
-    tile->layoutMakeConvertible(data);
+    tile->makeTransposable(data);
 }
 
 //------------------------------------------------------------------------------
@@ -747,7 +747,7 @@ template <typename scalar_t>
 void MatrixStorage<scalar_t>::tileLayoutReset(Tile<scalar_t>* tile)
 {
     if (tile->extended()) {
-        memory_.free(tile->layoutExtData(), tile->device());
+        memory_.free(tile->extData(), tile->device());
         tile->layoutReset();
     }
 }

@@ -228,6 +228,7 @@ public:
 
     Layout layout() const { return layout_; }
     void   layout(Layout in_layout) { layout_ = in_layout; }
+    Layout userLayout() const { return user_layout_; }
 
     void set(scalar_t alpha);
     void set(scalar_t alpha, scalar_t beta);
@@ -250,12 +251,36 @@ public:
                || isContiguous();               // contiguous
     }
 
-    void layoutMakeConvertible(scalar_t* data);
+    void makeTransposable(scalar_t* data);
     void layoutReset();
 
+    /// @return Whether this tile has extended buffer
     bool extended() const { return extended_; }
 
-    scalar_t* layoutExtData() { return ext_data_; }
+    /// @return Pointer to the extended buffer
+    scalar_t* extData() { return ext_data_; }
+
+    /// @return Pointer to the user allocated buffer
+    scalar_t* userData() { return user_data_; }
+
+    void layoutSetFrontDataExt(bool front = true);
+
+    /// @return Pointer to the back buffer
+    scalar_t* layoutBackData()
+    {
+        if (data_ == user_data_)
+            return ext_data_;
+        else
+            return user_data_;
+    }
+    /// @return Stride of the back buffer
+    int64_t layoutBackStride() const
+    {
+        if (data_ == user_data_)
+            return stride_; // todo: validate
+        else
+            return user_stride_;
+    }
 
 protected:
     // BaseMatrix sets mb, nb, offset.
@@ -269,8 +294,7 @@ protected:
     int64_t mb_;
     int64_t nb_;
     int64_t stride_;
-    int64_t user_stride_; // Temporarily store user-provided memory stride
-    int64_t ext_stride_; // upon transposing the tile.
+    int64_t user_stride_; // Temporarily store user-provided-memory's stride
 
     Op op_;
     Uplo uplo_;
@@ -285,7 +309,8 @@ protected:
     ///          - ColMajor: elements of a column are 1-strided
     ///          - RowMajor: elements of a row are 1-strided
     Layout layout_;
-    bool extended_;
+    Layout user_layout_; // Temporarily store user-provided-memory's layout
+    bool extended_; // indicates tile has an extended buffer
 
     int device_;
 };
@@ -298,7 +323,6 @@ Tile<scalar_t>::Tile()
       nb_(0),
       stride_(0),
       user_stride_(0),
-      ext_stride_(0),
       op_(Op::NoTrans),
       uplo_(Uplo::General),
       data_(nullptr),
@@ -307,6 +331,7 @@ Tile<scalar_t>::Tile()
       valid_(false),
       kind_(TileKind::UserOwned),
       layout_(Layout::ColMajor),
+      user_layout_(Layout::ColMajor),
       extended_(false),
       device_(-1)  // todo: host_num
 {}
@@ -352,7 +377,6 @@ Tile<scalar_t>::Tile(
       nb_(nb),
       stride_(lda),
       user_stride_(lda),
-      ext_stride_(0),
       op_(Op::NoTrans),
       uplo_(Uplo::General),
       data_(A),
@@ -361,6 +385,7 @@ Tile<scalar_t>::Tile(
       valid_(true),
       kind_(kind),
       layout_(layout),
+      user_layout_(layout),
       extended_(false),
       device_(device)
 {
@@ -537,29 +562,58 @@ void Tile<scalar_t>::offset(int64_t i, int64_t j)
 }
 
 //------------------------------------------------------------------------------
-/// Attaches the new_data buffer to hold the transposed data of rectangular tiles
-/// Marks the tile extended
+/// Attaches the new_data buffer to this tile as an extended buffer
+/// extended buffer to be used to hold the transposed data of rectangular tiles
+/// Marks the tile as extended
+/// NOTE: does not set the front buffer to be the extended one
+/// NOTE: asserts if already transposable
 ///
 template <typename scalar_t>
-void Tile<scalar_t>::layoutMakeConvertible(scalar_t* new_data)
+void Tile<scalar_t>::makeTransposable(scalar_t* new_data)
 {
     assert(! isTransposable());
 
     // preserve currrent data pointer and stride
     user_data_ = data_;
     user_stride_ = stride_;
+    user_layout_ = layout_;
     ext_data_ = new_data;
 
     extended_ = true;
 }
 
 //------------------------------------------------------------------------------
-/// Resets the tile's member fields related to being extended
-/// WARNING: should be called within MatrixStorage::tileLayoutReset() only
+/// Sets the front buffer of the extended tile,
+/// and adjusts stride accordingly.
+/// NOTE: tile should be already extended, asserts otherwise.
+///
+template <typename scalar_t>
+void Tile<scalar_t>::layoutSetFrontDataExt(bool front)
+{
+    assert(extended_);
+
+    if (front) {
+        data_ = ext_data_;
+        stride_ = user_layout_ == Layout::RowMajor ?
+                  mb_ : nb_;
+    }
+    else {
+        data_ = user_data_;
+        stride_ = user_stride_;
+        layout_ = user_layout_;
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Resets the tile's member fields related to being extended.
+/// WARNING: should be called within MatrixStorage::tileLayoutReset() only.
+/// NOTE: the front buffer should be already swapped to be the user buffer,
+///       asserts otherwise.
 ///
 template <typename scalar_t>
 void Tile<scalar_t>::layoutReset()
 {
+    assert(data_ == user_data_);
     user_data_ = nullptr;
     ext_data_ = nullptr;
 

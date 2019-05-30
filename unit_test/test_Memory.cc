@@ -40,6 +40,7 @@
 #include "slate/internal/Memory.hh"
 
 #include "unit_test.hh"
+#include "slate/Exception.hh"
 
 using std::max;
 
@@ -173,9 +174,10 @@ void test_alloc_device()
             test_assert(int(mem.capacity (dev)) == max(cnt, i+1));
 
             // Touch memory to verify it is valid.
-            cudaSetDevice(dev);
-            cudaMemcpy(dx[i], hx, sizeof(double) * nb * nb,
-                       cudaMemcpyDeviceToHost);
+            slate_cuda_call( cudaSetDevice(dev) );
+            slate_cuda_call(
+                cudaMemcpy(dx[i], hx, sizeof(double) * nb * nb,
+                           cudaMemcpyDeviceToHost) );
         }
 
         // Free some.

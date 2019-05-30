@@ -163,7 +163,7 @@ void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int 
     int64_t Am = (trans == slate::Op::NoTrans ? m : n);
     int64_t An = (trans == slate::Op::NoTrans ? n : m);
     int64_t Bm = (trans == slate::Op::NoTrans ? m : n);
-    int64_t Bn = (trans == slate::Op::NoTrans ? nrhs : nrhs);
+    int64_t Bn = nrhs;
 
     // create SLATE matrices from the ScaLAPACK layouts
     int nprow, npcol, myrow, mycol;

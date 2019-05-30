@@ -215,6 +215,10 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
 ///  - "|" if ColMajor
 ///  - "-" if RowMajor
 ///
+/// Prints aditional char for extended buffer:
+///  - "e" if extended
+///  - " " otherwise
+///
 template <typename scalar_t>
 void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name)
 {
@@ -246,6 +250,10 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name)
                     printf("|");
                 else
                     printf("-");
+                if (tile->extended())
+                    printf("e");
+                else
+                    printf(" ");
                 printf(" ");
             }
             else
@@ -280,6 +288,10 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name)
                         printf("|");
                     else
                         printf("-");
+                    if (tile->extended())
+                        printf("e");
+                    else
+                        printf(" ");
                     printf(" ");
                 }
                 else

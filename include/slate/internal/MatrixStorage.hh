@@ -648,6 +648,12 @@ void MatrixStorage<scalar_t>::clear()
 }
 
 //------------------------------------------------------------------------------
+/// Allocates a memory block on device to be used as a workspace buffer,
+///     to be released with call to releaseWorkspaceBuffer()
+/// @returns pointer to memory block on device
+///
+/// @param[in] device
+///     Device ID (GPU or Host) where the memory block is needed.
 ///
 template <typename scalar_t>
 scalar_t* MatrixStorage<scalar_t>::allocWorkspaceBuffer(int device)
@@ -657,6 +663,13 @@ scalar_t* MatrixStorage<scalar_t>::allocWorkspaceBuffer(int device)
 }
 
 //------------------------------------------------------------------------------
+/// Release the memory block indicated by data on device to the memory manager
+///
+/// @param[in] data
+///     Pointer to memory block to be released.
+///
+/// @param[in] device
+///     Device ID (GPU or Host) where the memory block is.
 ///
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::releaseWorkspaceBuffer(scalar_t* data, int device)

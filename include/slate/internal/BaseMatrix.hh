@@ -46,6 +46,7 @@
 #include "slate/internal/MatrixStorage.hh"
 #include "slate/Tile.hh"
 #include "slate/Tile_blas.hh"
+// #include "slate/Tile_aux.hh"
 #include "slate/types.hh"
 
 #include "lapack.hh"

@@ -44,6 +44,7 @@
 #include "slate/internal/Trace.hh"
 #include "slate/types.hh"
 #include "slate/Exception.hh"
+#include "slate/Tile_aux.hh"
 
 #include <blas.hh>
 #include <lapack.hh>

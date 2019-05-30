@@ -43,6 +43,7 @@
 #include "slate/internal/util.hh"
 #include "slate/Matrix.hh"
 #include "slate/Tile_blas.hh"
+#include "slate/Tile_aux.hh"
 #include "slate/types.hh"
 
 namespace slate {

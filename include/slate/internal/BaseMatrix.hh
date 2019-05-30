@@ -43,6 +43,7 @@
 #include "slate/internal/comm.hh"
 #include "slate/internal/Map.hh"
 #include "slate/internal/Memory.hh"
+#include "slate/internal/device.hh"
 #include "slate/internal/MatrixStorage.hh"
 #include "slate/Tile.hh"
 #include "slate/Tile_blas.hh"
@@ -243,6 +244,10 @@ private:
     void tileGet(std::set<ij_tuple>& tile_set, int dst_device,
                  LayoutConvert layout, bool modify, bool hold,
                  bool async);
+
+    void tileCopyDataLayout(Tile<scalar_t>* src_tile,
+                            Tile<scalar_t>* dst_tile,
+                            Layout target_layout);
 
 public:
 
@@ -1619,6 +1624,7 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, Layout layout, in
 }
 
 //------------------------------------------------------------------------------
+/// @deprecated
 /// [internal]
 /// Broadcast tile {i, j} to all MPI ranks in the bcast_set.
 /// This should be called by all (and only) ranks that are in bcast_set,
@@ -1833,6 +1839,212 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
     // Forward.
     if (! send_to.empty())
         at(i, j).send(new_vec[send_to.front()], mpi_comm_, tag);
+}
+
+//------------------------------------------------------------------------------
+/// [internal]
+/// Copies data from src_tile into dst_tile and converts into target_layout
+/// Handles all cases of:
+///     - Square tiles.
+///     - Rectangular contiguous tiles.
+///     - Rectangular extended tiles.
+/// assumes at least one of src_tile and dst_tile is device resident
+/// assumes at most one of src_tile and dst_tile is TileKind::UserOwned
+/// attempts to make layout conversion on the device whenever possible
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
+                                              Tile<scalar_t>* dst_tile,
+                                              Layout target_layout)
+{
+    bool src_userOwned = ! src_tile->allocated();
+    bool dst_userOwned = ! dst_tile->allocated();
+    assert(! (src_userOwned && dst_userOwned));
+
+    // todo: handle square
+    bool is_square = src_tile->mb() == src_tile->nb();
+    // if (!is_square) return;
+
+    // make sure dst_tile can fit the data in its target_layout
+    if (   (! is_square)                         // rectangular tile
+        && (  dst_userOwned)                     // TileKind::UserOwned
+        && (! dst_tile->extended())              // not extended
+        && (  dst_tile->layout() != target_layout) ) // but need to store a non-compatible layout
+    {
+        // extend its data storage
+        storage_->tileMakeTransposable(dst_tile);
+    }
+
+    scalar_t* src_data = src_tile->data();
+    scalar_t* dst_data = dst_tile->data();
+    scalar_t* work_data = nullptr;
+
+    bool need_convert = false;
+    bool need_workspace = false;
+    bool copy_first = false;
+
+    bool src_extended  = src_tile->extended();
+    bool dst_extended  = dst_tile->extended();
+
+    int work_device = host_num_;
+
+    // do we need to convert layout? then, setup workspace
+    if (src_tile->layout() != target_layout) {
+        need_convert = true;
+
+        if (! is_square) {
+            if (  (dst_userOwned && ! dst_extended)
+               || (src_userOwned && ! src_extended)
+               || (! dst_userOwned && ! src_userOwned) ) {
+
+                need_workspace = true;
+                if (dst_tile->device() == host_num_) {
+                    work_device = src_tile->device();
+                }
+                else {
+                    work_device = dst_tile->device();
+                    copy_first = true;
+                }
+            }
+            else
+            if (dst_userOwned && dst_extended) {
+                if (target_layout == dst_tile->userLayout()) {
+                    dst_tile->layoutSetFrontDataExt(false);
+                    dst_data = dst_tile->userData();
+
+                    if (dst_tile->device() == host_num_) {
+                        work_device = src_tile->device();
+                        need_workspace = true;
+                    }
+                    else {
+                        work_data = dst_tile->extData();
+                        work_device = dst_tile->device();
+                        copy_first = true;
+                    }
+                }
+                else {
+                    dst_tile->layoutSetFrontDataExt(true);
+                    dst_data = dst_tile->extData();
+
+                    if (dst_tile->device() == host_num_) {
+                        work_device = src_tile->device();
+                        need_workspace = true;
+                    }
+                    else {
+                        work_data = dst_tile->userData();
+                        work_device = dst_tile->device();
+                        copy_first = true;
+                    }
+                }
+            }
+            else
+            if (src_userOwned && src_extended) {
+                if (src_tile->device() == host_num_) {
+                    work_device = dst_tile->device();
+                    copy_first = true;
+                    need_workspace = true;
+                }
+                else {
+                    work_device = src_tile->device();
+                    if (src_tile->layout() == src_tile->userLayout()) {
+                        work_data = src_tile->extData();
+                    }
+                    else {
+                        work_data = src_tile->userData();
+                    }
+                }
+            }
+        }
+    }
+    else
+    if ( dst_userOwned && dst_extended ) {
+        if (target_layout == dst_tile->userLayout()) {
+            dst_tile->layoutSetFrontDataExt(false);
+            dst_data = dst_tile->userData();
+        }
+        else {
+            dst_tile->layoutSetFrontDataExt(true);
+            dst_data = dst_tile->extData();
+        }
+    }
+
+    if (need_convert && (! is_square)) {
+        assert(work_device != host_num_);
+        slate_cuda_call(
+            cudaSetDevice(work_device));
+    }
+
+    if (need_workspace) {
+        work_data = storage_->allocWorkspaceBuffer(work_device);
+        // printf("%p\n", work_data);
+    }
+
+    cudaStream_t stream = compute_stream( dst_tile->device() == host_num_ ?
+                                          src_tile->device() :
+                                          dst_tile->device());
+    if (is_square || (! need_convert)) {
+        src_tile->copyData(dst_tile, stream);
+    }
+
+    if (need_convert) {
+        if (is_square) {
+            dst_tile->layoutConvert(stream);
+        }
+        else
+        if (copy_first) {
+            int64_t work_stride = src_tile->stride();
+
+            Tile<scalar_t> work_tile(src_tile->mb(), src_tile->nb(), work_data,
+                                     work_stride, work_device,
+                                     TileKind::Workspace, src_tile->layout());
+            src_tile->copyData(&work_tile, compute_stream(work_device));
+
+            if (dst_tile->isContiguous())
+                dst_tile->stride( src_tile->layout() == Layout::ColMajor ?
+                                  src_tile->nb() :
+                                  src_tile->mb());
+            int64_t phys_mb = src_tile->layout() == Layout::ColMajor ?
+                              src_tile->mb() :
+                              src_tile->nb();
+            int64_t phys_nb = src_tile->layout() == Layout::ColMajor ?
+                              src_tile->nb() :
+                              src_tile->mb();
+            device::transpose(phys_mb, phys_nb,
+                              work_data, work_stride,
+                              dst_data, dst_tile->stride(),
+                              compute_stream(work_device));
+            slate_cuda_call(
+                cudaStreamSynchronize(compute_stream(work_device)));
+        }
+        else {
+            int64_t work_stride = src_tile->layout() == Layout::ColMajor ?
+                                  src_tile->nb() :
+                                  src_tile->mb();
+            int64_t phys_mb = src_tile->layout() == Layout::ColMajor ?
+                              src_tile->mb() :
+                              src_tile->nb();
+            int64_t phys_nb = src_tile->layout() == Layout::ColMajor ?
+                              src_tile->nb() :
+                              src_tile->mb();
+
+            device::transpose(phys_mb, phys_nb,
+                              src_data, src_tile->stride(),
+                              work_data, work_stride,
+                              compute_stream(work_device));
+            Tile<scalar_t> work_tile(src_tile->mb(), src_tile->nb(), work_data,
+                                     work_stride, work_device,
+                                     TileKind::Workspace, target_layout);
+            if (dst_tile->isContiguous())
+                dst_tile->stride(work_stride);
+            work_tile.copyData(dst_tile, compute_stream(work_device));
+            slate_cuda_call(
+                cudaStreamSynchronize(compute_stream(work_device)));
+        }
+    }
+
+    if (need_workspace) {
+        storage_->releaseWorkspaceBuffer(work_data, work_device);
+    }
 }
 
 //------------------------------------------------------------------------------

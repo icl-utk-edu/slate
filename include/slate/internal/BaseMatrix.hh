@@ -425,6 +425,18 @@ public:
     void tileLayoutConvert(int device, Layout layout, bool reset = false);
     void tileLayoutConvertOnDevices(Layout layout, bool reset = false);
 
+    void tileLayoutReset(int64_t i, int64_t j, int device, Layout layout);
+    void tileLayoutReset(int64_t i, int64_t j, Layout layout)
+    {
+        tileLayoutReset(i, j, host_num_, layout);
+    }
+    void tileLayoutReset(std::set<ij_tuple>& tile_set, int device, Layout layout);
+    void tileLayoutReset(std::set<ij_tuple>& tile_set, Layout layout)
+    {
+        tileLayoutReset(tile_set, host_num_, layout);;
+    }
+    void tileLayoutReset();
+
     //--------------------------------------------------------------------------
 protected:
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set);
@@ -2430,6 +2442,9 @@ bool BaseMatrix<scalar_t>::tileLayoutIsConvertible(int64_t i, int64_t j, int dev
 ///     - Layout::ColMajor or
 ///     - Layout::RowMajor.
 ///
+/// @param[in] reset
+///     Optinally resets the tile extended buffers.
+///
 /// todo: handle op(A), sub-matrix, and sliced-matrix
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileLayoutConvert(int64_t i, int64_t j, int device,
@@ -2438,9 +2453,10 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(int64_t i, int64_t j, int device,
     auto tile = storage_->at(globalIndex(i, j, device)).tile_;
     if (tile->layout() != layout ) {
         if (! tile->isTransposable() ) {
-            assert(! reset);
+            assert(! reset); // cannot reset if not transposable
             storage_->tileMakeTransposable(tile);
         }
+
         scalar_t* work_data = nullptr;
         // if rectangular and not extended, need a workspace buffer
         if (tile->mb() != tile->nb() && (! tile->extended()))
@@ -2478,6 +2494,9 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(int64_t i, int64_t j, int device,
 ///     Intended Layout of tiles:
 ///     - Layout::ColMajor or
 ///     - Layout::RowMajor.
+///
+/// @param[in] reset
+///     Optinally resets the tiles extended buffers.
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
@@ -2632,6 +2651,18 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
         }
         slate_cuda_call(
             cudaStreamSynchronize(stream));
+
+        if (reset) {
+            for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
+                // #pragma omp task
+                {
+                    int64_t i = std::get<0>(*iter);
+                    int64_t j = std::get<1>(*iter);
+                    auto tile = storage_->at(globalIndex(i, j, device)).tile_;
+                    storage_->tileLayoutReset(tile);
+                }
+            }
+        }
     }
 }
 
@@ -2646,6 +2677,9 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
 ///     Intended Layout of tiles:
 ///     - Layout::ColMajor or
 ///     - Layout::RowMajor.
+///
+/// @param[in] reset
+///     Optinally resets the tiles extended buffers.
 ///
 // todo: override on BaseTrapezoidMatrix and BandMatrix
 template <typename scalar_t>
@@ -2675,6 +2709,9 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(int device, Layout layout, bool res
 ///     - Layout::ColMajor or
 ///     - Layout::RowMajor.
 ///
+/// @param[in] reset
+///     Optinally resets the tile extended buffers.
+///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileLayoutConvertOnDevices(Layout layout, bool reset)
 {
@@ -2696,11 +2733,57 @@ void BaseMatrix<scalar_t>::tileLayoutConvertOnDevices(Layout layout, bool reset)
 }
 
 //------------------------------------------------------------------------------
+/// Converts tile(i, j) into current layout and resets its extended buffer.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] device
+///     Tile's device ID; default is host_num.
+///
+/// @param[in] layout
+///     Intended Layout of tiles:
+///     - Layout::ColMajor or
+///     - Layout::RowMajor.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileLayoutReset(int64_t i, int64_t j, int device,
+                                           Layout layout)
+{
+    tileLayoutConvert(i, j, device, layout, true);
+}
+
+//------------------------------------------------------------------------------
+/// Converts set of tiles into current layout and resets their extended buffers.
+/// Operates in batch mode.
+///
+/// @param[in] tile_set
+///     Set of (i, j) indices of tiles to be converted and reset.
+///
+/// @param[in] device
+///     Tile's device ID; default is host_num.
+///
+/// @param[in] layout
+///     Intended Layout of tiles:
+///     - Layout::ColMajor or
+///     - Layout::RowMajor.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileLayoutReset(std::set<ij_tuple>& tile_set,
+                                           int device, Layout layout)
+{
+    tileLayoutConvert(tile_set, device, layout, true);
+}
+
+//------------------------------------------------------------------------------
 /// Converts all origin tiles into current matrix-layout.
 /// Operates in batch mode.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::resetTilesLayout()
+void BaseMatrix<scalar_t>::tileLayoutReset()
 {
     std::set<ij_tuple> tiles_set_host;
     std::vector< std::set<ij_tuple> > tiles_set_dev(num_devices());
@@ -2711,27 +2794,26 @@ void BaseMatrix<scalar_t>::resetTilesLayout()
 
                 auto tile = tileUpdateOrigin(i, j);
                 if (tile->layout() != this->layout() ) {
-                    if (! tile->isTransposable() ) {
-                        // todo: make transposable
-                    }
-                    if (tile->device() == host_num_) {
-                        tiles_set_host.insert({i, j});
-                    }
-                    else{
-                        tiles_set_dev[tile->device()].insert({i, j});
-                    }
+                    assert(tile->isTransposable());
+                }
+
+                if (tile->device() == host_num_) {
+                    tiles_set_host.insert({i, j});
+                }
+                else{
+                    tiles_set_dev[tile->device()].insert({i, j});
                 }
             }
         }
     }
 
     if (! tiles_set_host.empty()) {
-        tileConvertLayout(tiles_set_host, host_num_, this->layout());
+        tileLayoutReset(tiles_set_host, host_num_, this->layout());
     }
     // todo: omp tasks?
     for (int d = 0; d < num_devices(); ++d) {
         if (! tiles_set_dev[d].empty()) {
-            tileConvertLayout(tiles_set_dev[d], d, this->layout());
+            tileLayoutReset(tiles_set_dev[d], d, this->layout());
         }
     }
 }

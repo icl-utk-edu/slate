@@ -181,6 +181,9 @@ public:
     void clearWorkspace();
     void releaseWorkspace();
 
+    scalar_t* allocWorkspaceBuffer(int device);
+    void      releaseWorkspaceBuffer(scalar_t* data, int device);
+
     //--------------------------------------------------------------------------
     // 2. copy constructor -- not allowed; object is shared
     // 3. move constructor -- not allowed; object is shared
@@ -642,6 +645,23 @@ void MatrixStorage<scalar_t>::clear()
     // todo: what if some tiles were not erased
     assert(tiles_.size() == 0);  // should be empty now
     lives_.clear();
+}
+
+//------------------------------------------------------------------------------
+///
+template <typename scalar_t>
+scalar_t* MatrixStorage<scalar_t>::allocWorkspaceBuffer(int device)
+{
+    scalar_t* data = (scalar_t*) memory_.alloc(device);
+    return data;
+}
+
+//------------------------------------------------------------------------------
+///
+template <typename scalar_t>
+void MatrixStorage<scalar_t>::releaseWorkspaceBuffer(scalar_t* data, int device)
+{
+    memory_.free(data, device);
 }
 
 //------------------------------------------------------------------------------

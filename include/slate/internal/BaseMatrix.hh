@@ -2090,58 +2090,57 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
                                    bool async)
 {
     TileEntry<scalar_t> *dst_tileEntry = nullptr, *src_tileEntry = nullptr;
+    bool dst_found = true;
+    Layout target_layout;
 
     // find tile on destination
     auto dst_iter = storage_->find(globalIndex(i, j, dst_device));
     if (dst_iter == storage_->end()) {
-        // Create a copy on the destination.
-        tileInsertWorkspace(i, j, dst_device);
-        dst_iter = storage_->find(globalIndex(i, j, dst_device));
+        dst_found = false;
     }
-    dst_tileEntry = &dst_iter->second;
+    else
+        dst_tileEntry = &dst_iter->second;
 
-    if (dst_tileEntry->getState() == MOSI::Invalid) {
+    const int invalid_dev = host_num_-1; // invalid device number
+    int src_device = invalid_dev;
+    if ((! dst_found) || (dst_tileEntry->getState() == MOSI::Invalid)) {
 
         // find source tile
         // find a valid source (Modified/Shared) device
-        const int invalid_dev = host_num_-1; // invalid device number
-        int src_device = invalid_dev;
-        {
-            // check host
-            if (dst_device != host_num_) {
-                auto iter = storage_->find(globalIndex(i, j, host_num_));
-                if (iter != storage_->end()) {
-                    if (iter->second.getState() != MOSI::Invalid) {
-                        src_device = host_num_;
-                        src_tileEntry = &iter->second;
-                    }
+        // check host
+        if (dst_device != host_num_) {
+            auto iter = storage_->find(globalIndex(i, j, host_num_));
+            if (iter != storage_->end()) {
+                if (iter->second.getState() != MOSI::Invalid) {
+                    src_device = host_num_;
+                    src_tileEntry = &iter->second;
                 }
             }
-            // check assigned device
-            if (src_device == invalid_dev) {
-                auto iter = storage_->find(globalIndex(i, j, tileDevice(i, j)));
-                if (iter != storage_->end()) {
-                    if (iter->second.getState() != MOSI::Invalid) {
-                        src_device = tileDevice(i, j);
-                        src_tileEntry = &iter->second;
-                    }
-                }
-            }
-            // check other devices
-            for (int d = 0; src_device == invalid_dev && d < num_devices(); ++d) {
-                if (dst_device == d || tileDevice(i, j) == d) continue;
-
-                auto iter = storage_->find(globalIndex(i, j, d));
-                if (iter != storage_->end()) {
-                    if (iter->second.getState() != MOSI::Invalid) {
-                        src_device = d;
-                        src_tileEntry = &iter->second;
-                    }
-                }
-            }
-            // todo: find the shortest path / closest source
-            // including possibility of device peer-to-peer copy
         }
+        // check assigned device
+        if (src_device == invalid_dev) {
+            auto iter = storage_->find(globalIndex(i, j, tileDevice(i, j)));
+            if (iter != storage_->end()) {
+                if (iter->second.getState() != MOSI::Invalid) {
+                    src_device = tileDevice(i, j);
+                    src_tileEntry = &iter->second;
+                }
+            }
+        }
+        // check other devices
+        for (int d = 0; src_device == invalid_dev && d < num_devices(); ++d) {
+            if (dst_device == d || tileDevice(i, j) == d) continue;
+
+            auto iter = storage_->find(globalIndex(i, j, d));
+            if (iter != storage_->end()) {
+                if (iter->second.getState() != MOSI::Invalid) {
+                    src_device = d;
+                    src_tileEntry = &iter->second;
+                }
+            }
+        }
+        // todo: find the shortest path / closest source
+        // including possibility of device peer-to-peer copy
         if(src_device == invalid_dev){
             slate_error(std::string("Error copying tile(")
                          + std::to_string(i) + ", " + std::to_string(j)
@@ -2149,6 +2148,19 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
                          + " -> " + std::to_string(dst_device) );
         }
 
+        target_layout = layout == LayoutConvert::None ?
+                        src_tileEntry->tile_->layout() :
+                        Layout(layout);
+    }
+
+    if (! dst_found) {
+        // Create a copy on the destination.
+        tileInsertWorkspace(i, j, dst_device, target_layout);
+        dst_iter = storage_->find(globalIndex(i, j, dst_device));
+        dst_tileEntry = &dst_iter->second;
+    }
+
+    if ( dst_tileEntry->getState() == MOSI::Invalid ) {
         // Update the destination tile's data.
         if (dst_device != host_num_ && src_device != host_num_) {
             // todo: device to device copy
@@ -2156,20 +2168,24 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
             auto host_iter = storage_->find(globalIndex(i, j, host_num_));
             if (host_iter == storage_->end()) {
                 // Create a copy on the host.
-                tileInsertWorkspace(i, j, host_num_);
+                tileInsertWorkspace(i, j, host_num_, target_layout);
                 host_iter = storage_->find(globalIndex(i, j, host_num_));
             }
             host_tileEntry = &host_iter->second;
 
-            src_tileEntry->tile_->copyDataToHost(host_tileEntry->tile_, comm_stream(src_device));
-            host_tileEntry->tile_->copyDataToDevice(dst_tileEntry->tile_, comm_stream(dst_device));
+            tileCopyDataLayout( src_tileEntry->tile_,
+                                host_tileEntry->tile_,
+                                target_layout);
+            tileCopyDataLayout( host_tileEntry->tile_,
+                                dst_tileEntry->tile_,
+                                target_layout);
             host_tileEntry->setState(MOSI::Shared);
         }
-        else
-        if (dst_device == host_num_)
-            src_tileEntry->tile_->copyDataToHost(dst_tileEntry->tile_, comm_stream(src_device));
-        else
-            src_tileEntry->tile_->copyDataToDevice(dst_tileEntry->tile_, comm_stream(dst_device));
+        else {
+            tileCopyDataLayout( src_tileEntry->tile_,
+                                dst_tileEntry->tile_,
+                                target_layout);
+        }
 
         dst_tileEntry->setState(MOSI::Shared);
         if (src_tileEntry->stateOn(MOSI::Modified))
@@ -2185,12 +2201,7 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
     // Change ColMajor <=> RowMajor if needed.
     if (layout != LayoutConvert::None &&
         dst_tileEntry->tile_->layout() != Layout(layout)) {
-        if (dst_device == host_num_) {
-            convert_layout(dst_tileEntry->tile_);
-        }
-        else {
-            convert_layout(dst_tileEntry->tile_, compute_stream(dst_device));
-        }
+        tileLayoutConvert(i, j, dst_device, Layout(layout), false);
     }
 }
 
@@ -2236,6 +2247,7 @@ void BaseMatrix<scalar_t>::tileGet(std::set<ij_tuple>& tile_set, int device,
         tileGet(i, j, device, layoutConvert, modify, hold, async);
     }
 
+    // todo: if modify and target is host, batch convert on device first
     if (device != host_num_ && in_layoutConvert != LayoutConvert::None) {
         tileLayoutConvert(tile_set, device, Layout(in_layoutConvert));
     }
@@ -2633,7 +2645,6 @@ bool BaseMatrix<scalar_t>::tileLayoutIsConvertible(int64_t i, int64_t j, int dev
 {
     return storage_->at(globalIndex(i, j, device)).tile_->isTransposable();
 }
-
 
 //------------------------------------------------------------------------------
 /// Converts tile(i, j, device) into 'layout'.

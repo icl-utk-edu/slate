@@ -664,8 +664,9 @@ TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
     scalar_t* data = (scalar_t*) memory_.alloc(device);
     int64_t mb = tileMb(i);
     int64_t nb = tileNb(j);
+    int64_t stride = layout == Layout::ColMajor ? mb : nb;
     Tile<scalar_t>* tile
-        = new Tile<scalar_t>(mb, nb, data, mb, device, kind, layout);
+        = new Tile<scalar_t>(mb, nb, data, stride, device, kind, layout);
     tiles_[ijdev] = {tile, kind == TileKind::Workspace ? MOSI::Invalid : MOSI::Shared};
     return tiles_[ijdev];
 }

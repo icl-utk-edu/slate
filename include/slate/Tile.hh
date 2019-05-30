@@ -321,10 +321,14 @@ Tile<scalar_t>::Tile()
 ///     Number of columns of the tile. nb >= 0.
 ///
 /// @param[in,out] A
-///     The mb-by-nb tile A, stored in an lda-by-nb array.
+///     The mb-by-nb tile A, stored in an
+///     lda-by-nb array if ColMajor, or
+///     lda-by-mb array if RowMajor.
 ///
 /// @param[in] lda
-///     Leading dimension of the array A. lda >= mb.
+///     Leading dimension of the array A.
+///     lda >= mb if ColMajor.
+///     lda >= nb if RowMajor.
 ///
 /// @param[in] device
 ///     Tile's device ID.
@@ -363,7 +367,8 @@ Tile<scalar_t>::Tile(
     slate_assert(mb >= 0);
     slate_assert(nb >= 0);
     slate_assert(A != nullptr);
-    slate_assert(lda >= mb);
+    slate_assert( (layout == Layout::ColMajor && lda >= mb)
+               || (layout == Layout::RowMajor && lda >= nb));
 }
 
 //------------------------------------------------------------------------------
@@ -769,8 +774,8 @@ void Tile<scalar_t>::copyData(
             const void* src = data_;
             size_t dpitch = sizeof(scalar_t)*dst_tile->stride_;
             size_t spitch = sizeof(scalar_t)*stride_;
-            size_t width  = sizeof(scalar_t)*mb_;
-            size_t height = nb_;
+            size_t width  = sizeof(scalar_t)*(this->layout() == Layout::ColMajor ? mb_ : nb_);
+            size_t height = (this->layout() == Layout::ColMajor ? nb_ : mb_);
 
             slate_cuda_call(
                 cudaMemcpy2DAsync(
@@ -812,8 +817,8 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm, int tag) const
     }
     else {
         // Otherwise, use strided send.
-        int count = nb_;
-        int blocklength = mb_;
+        int count = layout_ == Layout::ColMajor ? nb_ : mb_;
+        int blocklength = layout_ == Layout::ColMajor ? mb_ : nb_;
         int stride = stride_;
         MPI_Datatype newtype;
 
@@ -860,8 +865,8 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm, Layout layout, int tag)
     }
     else {
         // Otherwise, use strided recv.
-        int count = nb_;
-        int blocklength = mb_;
+        int count = layout_ == Layout::ColMajor ? nb_ : mb_;
+        int blocklength = layout_ == Layout::ColMajor ? mb_ : nb_;
         int stride = stride_;
         MPI_Datatype newtype;
 
@@ -917,9 +922,9 @@ void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm mpi_comm)
     {
         // Otherwise, use strided bcast.
         trace::Block trace_block("MPI_Bcast");
-
-        int count = nb_;
-        int blocklength = mb_;
+        // todo: layout
+        int count = layout_ == Layout::ColMajor ? nb_ : mb_;
+        int blocklength = layout_ == Layout::ColMajor ? mb_ : nb_;
         int stride = stride_;
         MPI_Datatype newtype;
 

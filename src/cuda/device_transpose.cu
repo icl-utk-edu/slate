@@ -404,6 +404,9 @@ void transpose_batch(
 /// @param[in] ldat
 ///     Leading dimension of dAT. ldat >= n.
 ///
+/// @param[in] batch_count
+///     Size of Aarray. batch_count >= 0.
+///
 /// @param[in] stream
 ///     CUDA stream to execute in.
 ///
@@ -428,6 +431,12 @@ void transpose(
     dim3 threads( NX, NY );
     transpose_kernel<scalar_t, NX><<< grid, threads, 0, stream >>>
         ( m, n, dA, lda, dAT, ldat );
+
+    // check that launch succeeded (could still have async errors)
+    cudaError_t error = cudaGetLastError();
+    if (error != cudaSuccess) {
+        throw std::exception();
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -485,6 +494,12 @@ void transpose_batch(
     dim3 threads( NX, NY, 1 );
     transpose_batch_kernel<scalar_t, NX><<< grid, threads, 0, stream >>>
         ( m, n, dA_array, lda, dAT_array, ldat );
+
+    // check that launch succeeded (could still have async errors)
+    cudaError_t error = cudaGetLastError();
+    if (error != cudaSuccess) {
+        throw std::exception();
+    }
 }
 
 //------------------------------------------------------------------------------

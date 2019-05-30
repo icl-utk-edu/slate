@@ -167,6 +167,67 @@ void convert_layout(Tile<scalar_t>* X, cudaStream_t stream)
                                               : Layout::RowMajor);
 }
 
+//------------------------------------------------------------------------------
+/// Transpose a square data in-place.
+/// Host implementation
+///
+/// @param[in] n
+///     Number of rows and columns of matrix.
+///
+/// @param[in,out] A
+///     Buffer holding input data.
+///     On output: holds the transposed data.
+///
+/// @param[in] lda
+///     Leading dimension of matrix A.
+///
+template <typename scalar_t>
+void transpose( int64_t n,
+                scalar_t* A, int64_t lda)
+{
+    // square in-place transpose
+    for (int64_t j = 0; j < n; ++j) {
+        for (int64_t i = 0; i < j; ++i) { // upper
+            std::swap(A[i + j*lda], A[j + i*lda]);
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Transpose a rectangular data out-of-place.
+/// Host implementation
+///
+/// @param[in] m
+///     Number of rows.
+///
+/// @param[in] n
+///     Number of columns.
+///
+/// @param[in] A
+///     Buffer holding input data.
+///
+/// @param[in] lda
+///     Leading dimension of matrix A.
+///
+/// @param[out] AT
+///     On output: holds the transposed data.
+///
+/// @param[in] ldat
+///     Leading dimension of matrix AT.
+///
+template <typename scalar_t>
+void transpose( int64_t m, int64_t n,
+                scalar_t* A, int64_t lda,
+                scalar_t* AT, int64_t ldat)
+{
+    // rectangular out-of-place transpose
+    for (int64_t j = 0; j < n; ++j) {
+        for (int64_t i = 0; i < m; ++i) {
+            AT[j + i*ldat] = A[i + j*lda];
+        }
+    }
+}
+
 } // namespace slate
 
 #endif // SLATE_TILE_AUX_HH

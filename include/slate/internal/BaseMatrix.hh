@@ -410,11 +410,20 @@ public:
 
     bool tileLayoutIsConvertible(int64_t i, int64_t j, int device=host_num_);
 
-    void tileConvertLayout(int device, Layout layout);
-
-    void tileConvertLayoutOnDevices(Layout layout);
-
-    void resetTilesLayout();
+    void tileLayoutConvert(int64_t i, int64_t j, int device, Layout layout, bool reset = false);
+    /// Convert layout of tile(i, j) to layout on host, optionally reset
+    void tileLayoutConvert(int64_t i, int64_t j, Layout layout, bool reset = false)
+    {
+        tileLayoutConvert(i, j, host_num_, layout, reset);
+    }
+    void tileLayoutConvert(std::set<ij_tuple>& tile_set, int device, Layout layout, bool reset = false);
+    /// Convert layout of a set of tiles to layout on host, optionally reset
+    void tileLayoutConvert(std::set<ij_tuple>& tile_set, Layout layout, bool reset = false)
+    {
+        tileLayoutConvert(tile_set, host_num_, layout, reset);
+    }
+    void tileLayoutConvert(int device, Layout layout, bool reset = false);
+    void tileLayoutConvertOnDevices(Layout layout, bool reset = false);
 
     //--------------------------------------------------------------------------
 protected:
@@ -1964,7 +1973,7 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
 //------------------------------------------------------------------------------
 /// Gets a set of tiles on device.
 /// If destination device is host, forwards LayoutConvert param to tileGet()
-///     otherwise, calls tileConvertLayout() to process layout conversion in batch mode.
+///     otherwise, calls tileLayoutConvert() to process layout conversion in batch mode.
 /// @see tileGet
 ///
 /// @param[in] tile_set
@@ -2004,7 +2013,7 @@ void BaseMatrix<scalar_t>::tileGet(std::set<ij_tuple>& tile_set, int device,
     }
 
     if (device != host_num_ && in_layoutConvert != LayoutConvert::None) {
-        tileConvertLayout(tile_set, device, Layout(in_layoutConvert));
+        tileLayoutConvert(tile_set, device, Layout(in_layoutConvert));
     }
 }
 
@@ -2405,7 +2414,7 @@ bool BaseMatrix<scalar_t>::tileLayoutIsConvertible(int64_t i, int64_t j, int dev
 //------------------------------------------------------------------------------
 /// Converts tile(i, j, device) into 'layout'.
 /// Tile should exist on 'device', will assert otherwise.
-/// Tile will be made transposable if it was not.
+/// Tile will be made Convertible if it was not.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -2423,22 +2432,31 @@ bool BaseMatrix<scalar_t>::tileLayoutIsConvertible(int64_t i, int64_t j, int dev
 ///
 /// todo: handle op(A), sub-matrix, and sliced-matrix
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileConvertLayout(int64_t i, int64_t j, int device, Layout layout)
+void BaseMatrix<scalar_t>::tileLayoutConvert(int64_t i, int64_t j, int device,
+                                             Layout layout, bool reset)
 {
     auto tile = storage_->at(globalIndex(i, j, device)).tile_;
     if (tile->layout() != layout ) {
         if (! tile->isTransposable() ) {
-            // todo: make transposable
-            assert(0);
+            assert(! reset);
+            storage_->tileMakeTransposable(tile);
         }
-        if (device == host_num_) {
-            convert_layout(tile);
-        }
-        else{
-            slate_cuda_call(
-                cudaSetDevice(device));
-            convert_layout(tile, compute_stream(device));
-        }
+        scalar_t* work_data = nullptr;
+        // if rectangular and not extended, need a workspace buffer
+        if (tile->mb() != tile->nb() && (! tile->extended()))
+            work_data = storage_->allocWorkspaceBuffer(tile->device());
+
+        tile->layoutConvert(work_data,
+                            tile->device() == host_num_ ?
+                                              nullptr :
+                                              compute_stream(tile->device()));
+
+        // release the workspace buffer if allocated
+        if (tile->mb() != tile->nb() && (! tile->extended()))
+            storage_->releaseWorkspaceBuffer(work_data, tile->device());
+    }
+    if (reset) {
+        storage_->tileLayoutReset(tile);
     }
 }
 
@@ -2446,7 +2464,7 @@ void BaseMatrix<scalar_t>::tileConvertLayout(int64_t i, int64_t j, int device, L
 /// Converts tiles indicated in 'tile_set' that exist on 'device' into 'layout' if
 ///     not alread in 'layout' major.
 /// Tiles should exist on 'device', will assert otherwise.
-/// Operates in batch mode.
+/// Operates in batch mode when tiles are on devices.
 /// If device is not Host, will bucket tiles into uniform size and stride batches,
 ///     then launches each batch transpose.
 ///
@@ -2462,29 +2480,33 @@ void BaseMatrix<scalar_t>::tileConvertLayout(int64_t i, int64_t j, int device, L
 ///     - Layout::RowMajor.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileConvertLayout(std::set<ij_tuple>& tile_set,
-                                             int device, Layout layout)
+void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
+                                             int device, Layout layout,
+                                             bool reset)
 {
     if (device == host_num_) {
-        for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++){
+        for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
             // #pragma omp task
             {
                 int64_t i = std::get<0>(*iter);
                 int64_t j = std::get<1>(*iter);
-                tileConvertLayout(i, j, device, layout);
+                tileLayoutConvert(i, j, device, layout, reset);
             }
         }
         // #pragma omp taskwait
     }
     else {
 
-        using mns_tuple = std::tuple<int64_t, int64_t, int64_t>; // m, n, stride
+        // map key tuple: m, n, extended, stride, work_stride
+        using mnss_tuple = std::tuple<int64_t, int64_t, bool, int64_t, int64_t>;
+        // map value tuple: data and extended data buffers
+        using data_tuple = std::pair<std::vector<scalar_t*>, std::vector<scalar_t*>>;
 
-        using BatchedTilesBuckets = slate::Map< mns_tuple, std::vector<scalar_t*> >;
+        using BatchedTilesBuckets = slate::Map< mnss_tuple, data_tuple >;
 
         BatchedTilesBuckets tilesBuckets;
 
-        for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++){
+        for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
             int64_t i = std::get<0>(*iter);
             int64_t j = std::get<1>(*iter);
 
@@ -2492,17 +2514,46 @@ void BaseMatrix<scalar_t>::tileConvertLayout(std::set<ij_tuple>& tile_set,
 
             // if we need to convert layout
             if ( tile->layout() != layout ) {
-                // todo: is this stil needed?
-                assert( tile->isTransposable() );
+                // make sure tile is transposable
+                if (! tile->isTransposable() ) {
+                    storage_->tileMakeTransposable(tile);
+                }
 
-                mns_tuple mns = {tile->mb(),tile->nb(),tile->stride()};
-                // typename BatchedTilesBuckets::iterator pair = tilesBuckets.find(mns);
-                // if (pair == tilesBuckets.end())
-                //     tilesBuckets[mns] = {};
+                // prepare tile for batch conversion
+                if (tile->extended()) {
+                    tile->layoutSetFrontDataExt(layout != tile->userLayout());
+                }
+                int64_t target_stride = layout == Layout::ColMajor ?
+                                        tile->mb() :
+                                        tile->nb();
+
+                // bucket index
+                mnss_tuple mns = {tile->mb(), tile->nb(),
+                                  tile->extended(),
+                                  tile->stride(),
+                                  tile->mb() != tile->nb() ?
+                                    (tile->extended() ?
+                                        tile->layoutBackStride() :
+                                        target_stride) :
+                                    0};
+
                 // add this tile's data to the corrsponding bucket of batch array
-                tilesBuckets[mns].push_back(tile->data());
+                tilesBuckets[mns].first.push_back(tile->data());
 
-                // update tile layout
+                // if rectangular, prepare a workspace
+                if (tile->mb() != tile->nb()) {
+                    if (tile->extended())
+                        tilesBuckets[mns].second.push_back(tile->layoutBackData());
+                    else
+                        tilesBuckets[mns].second.push_back(storage_->allocWorkspaceBuffer(device));
+                }
+
+                // adjust stride if need be
+                if (! tile->extended()) {
+                    tile->stride(target_stride);
+                }
+
+                // adjust layout
                 tile->layout(layout);
             }
         }
@@ -2512,29 +2563,71 @@ void BaseMatrix<scalar_t>::tileConvertLayout(std::set<ij_tuple>& tile_set,
             cudaSetDevice(device));
 
         // for each bucket
-        for (auto iter = tilesBuckets.begin(); iter != tilesBuckets.end(); iter++){
+        for (auto bucket = tilesBuckets.begin(); bucket != tilesBuckets.end(); bucket++) {
 
-            scalar_t** array_dev  = this->c_array_device(device);
-            int64_t batch_count = iter->second.size();
+            scalar_t** array_dev  = this->a_array_device(device);
+            scalar_t** work_array_dev  = this->b_array_device(device);
+
+            int64_t batch_count = bucket->second.first.size();
             assert(batch_count <=  this->batchArraySize());
 
-            int64_t mb     = std::get<0>(iter->first);
-            int64_t nb     = std::get<1>(iter->first);
-            int64_t stride = std::get<2>(iter->first);
+            int64_t mb       = std::get<0>(bucket->first);
+            int64_t nb       = std::get<1>(bucket->first);
+            int64_t extended = std::get<2>(bucket->first);
+            int64_t stride   = std::get<3>(bucket->first);
+            int64_t work_stride = std::get<4>(bucket->first);
 
-            slate_cuda_call(
-                cudaMemcpyAsync(array_dev, iter->second.data(),
-                                sizeof(scalar_t*)*batch_count,
-                                cudaMemcpyHostToDevice,
-                                stream));
+            // todo: should we handle batch of size one differently?
+            //       will need to store the (i,j) tuple with the batch array!
+            // if (batch_count == 1) {
+            //     tileLayoutConvert(i, j, device, layout);
+            // }
+            // else
+            {
+                slate_cuda_call(
+                    cudaMemcpyAsync(array_dev, bucket->second.first.data(),
+                                    sizeof(scalar_t*)*batch_count,
+                                    cudaMemcpyHostToDevice,
+                                    stream));
 
-            if (mb == nb) {
-                device::transpose_batch(nb, array_dev, stride,
+                if (mb == nb) {
+                    // in-place transpose
+                    device::transpose_batch(nb,
+                                            array_dev, stride,
+                                            batch_count, stream);
+                }
+                else {
+                    // rectangular tiles: out-of-place transpose
+                    slate_cuda_call(
+                        cudaMemcpyAsync(work_array_dev, bucket->second.second.data(),
+                                        sizeof(scalar_t*)*batch_count,
+                                        cudaMemcpyHostToDevice,
+                                        stream));
+
+                    device::transpose_batch(layout == Layout::ColMajor ? nb : mb,
+                                            layout == Layout::ColMajor ? mb : nb,
+                                            array_dev, stride,
+                                            work_array_dev, work_stride,
+                                            batch_count, stream);
+
+                    if (! extended) {
+                        // copy back to data buffer
+                        device::gecopy( layout == Layout::ColMajor ? mb : nb,
+                                        layout == Layout::ColMajor ? nb : mb,
+                                        work_array_dev, work_stride,
+                                        array_dev, work_stride,
                                         batch_count, stream);
+                    }
+                }
             }
-            else {
-                // todo: rectangular tiles transpose
-                assert(0);
+
+            // release workspace buffer if allocated
+            if ((mb != nb) && (! extended)) {
+                slate_cuda_call(
+                    cudaStreamSynchronize(stream));
+                for (auto iter = bucket->second.second.begin(); iter != bucket->second.second.end(); iter++) {
+                    storage_->releaseWorkspaceBuffer(*iter, device);
+                }
             }
         }
         slate_cuda_call(
@@ -2556,17 +2649,19 @@ void BaseMatrix<scalar_t>::tileConvertLayout(std::set<ij_tuple>& tile_set,
 ///
 // todo: override on BaseTrapezoidMatrix and BandMatrix
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileConvertLayout(int device, Layout layout)
+void BaseMatrix<scalar_t>::tileLayoutConvert(int device, Layout layout, bool reset)
 {
     std::set<ij_tuple> tiles_set;
-    for (int64_t j = 0; j < nt(); ++j)
-        for (int64_t i = 0; i < mt(); ++i)
+    for (int64_t j = 0; j < nt(); ++j) {
+        for (int64_t i = 0; i < mt(); ++i) {
             // if ( tileIsLocal(i, j) && device == tileDevice(i, j) && tileExists(i, j, device))
             if ( tileExists(i, j, device)) {
                 tiles_set.insert({i, j});
             }
+        }
+    }
 
-    tileConvertLayout(tiles_set, device, layout);
+    tileLayoutConvert(tiles_set, device, layout, reset);
 }
 
 //------------------------------------------------------------------------------
@@ -2581,7 +2676,7 @@ void BaseMatrix<scalar_t>::tileConvertLayout(int device, Layout layout)
 ///     - Layout::RowMajor.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileConvertLayoutOnDevices(Layout layout)
+void BaseMatrix<scalar_t>::tileLayoutConvertOnDevices(Layout layout, bool reset)
 {
     std::vector< std::set<ij_tuple> > tiles_set(num_devices());
     for (int64_t j = 0; j < nt(); ++j) {
@@ -2593,10 +2688,10 @@ void BaseMatrix<scalar_t>::tileConvertLayoutOnDevices(Layout layout)
             }
         }
     }
-
     // todo: omp tasks?
     for (int d = 0; d < num_devices(); ++d) {
-        tileConvertLayout(tiles_set[d], d, layout);
+        if (! tiles_set[d].empty())
+            tileLayoutConvert(tiles_set[d], d, layout, reset);
     }
 }
 

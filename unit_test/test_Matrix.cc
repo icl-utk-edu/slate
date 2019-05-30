@@ -1346,7 +1346,7 @@ void test_tileSend_tileRecv()
 }
 
 //==============================================================================
-// tile MOSI
+// tile MOSI & Layout conversion
 
 //------------------------------------------------------------------------------
 /// compare tiles data.
@@ -1435,6 +1435,129 @@ void test_Matrix_MOSI()
             }
         }
     }
+
+    A.releaseWorkspace();
+
+    A.tileGetAllForReading(A.hostNum(), slate::LayoutConvert::RowMajor);
+
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            if (A.tileIsLocal(i, j)) {
+                test_assert(A.tileLayout(i, j) == slate::Layout::RowMajor);
+                test_assert(A(i, j).extended() != (A.tileMb(i) == A.tileNb(j)));
+                test_Tile_compare_layout(A(i, j), B(i, j), false);
+            }
+        }
+    }
+
+    A.tileGetAllForWritingOnDevices(slate::LayoutConvert::None);
+
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            if (A.tileIsLocal(i, j)) {
+                test_assert(A.tileLayout(i, j, A.tileDevice(i, j)) == slate::Layout::RowMajor);
+                test_assert(! A(i, j, A.tileDevice(i, j)).extended());
+            }
+        }
+    }
+
+    A.tileGetAllForWriting(A.hostNum(), slate::LayoutConvert::ColMajor);
+
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            if (A.tileIsLocal(i, j)) {
+                test_assert(A.tileLayout(i, j) == slate::Layout::ColMajor);
+                // verify data is still correct
+                test_Tile_compare_layout(A(i, j), B(i, j), true);
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Test tileLayoutConvert.
+void test_Matrix_tileLayoutConvert()
+{
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+
+    int64_t iseed[4] = { 0, 1, 2, 3 };
+    lapack::larnv( 1, iseed, Ad.size(), Ad.data() );
+
+    auto A = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    std::vector<double> Bd = Ad;
+    auto B = slate::Matrix<double>::fromLAPACK(
+        m, n, Bd.data(), lda, nb, p, q, mpi_comm );
+
+    slate::Layout newLayout = A.layout() == slate::Layout::ColMajor ?
+                                slate::Layout::RowMajor :
+                                slate::Layout::ColMajor;
+
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            if (A.tileIsLocal(i, j)) {
+                test_assert(A.tileLayout(i, j) == A.layout());
+                if (i < A.mt()-1 && j < A.nt()-1) {
+                    test_assert( A.tileLayoutIsConvertible(i, j) );
+                }
+                else {
+                    test_assert(! A.tileLayoutIsConvertible(i, j) );
+                }
+                A.tileLayoutConvert(i, j, newLayout);
+                test_assert(A.tileLayout(i, j) == newLayout);
+
+                test_Tile_compare_layout(A(i, j), B(i, j), false);
+            }
+        }
+    }
+    A.allocateBatchArrays();
+    A.reserveDeviceWorkspace();
+
+    A.tileGetAllForWritingOnDevices(slate::LayoutConvert::None);
+
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            if (A.tileIsLocal(i, j)) {
+                test_assert(A.tileLayout(i, j, A.tileDevice(i, j)) == newLayout);
+            }
+        }
+    }
+
+    A.tileLayoutConvertOnDevices(A.layout(), false);
+
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            if (A.tileIsLocal(i, j)) {
+                test_assert(A.tileLayout(i, j, A.tileDevice(i, j)) == A.layout());
+            }
+        }
+    }
+
+    A.tileGetAllForReading(A.hostNum(), slate::LayoutConvert::None);
+
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            if (A.tileIsLocal(i, j)) {
+                test_assert(A.tileLayout(i, j) == A.layout());
+                test_Tile_compare_layout(A(i, j), B(i, j), true);
+            }
+        }
+    }
+
+    A.tileLayoutReset();
+
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            if (A.tileIsLocal(i, j)) {
+                test_assert(A.tileLayout(i, j) == A.layout());
+                test_Tile_compare_layout(A(i, j), B(i, j), true);
+                test_assert(! A(i, j).extended() );
+            }
+        }
+    }
+    A.releaseWorkspace();
 }
 
 //==============================================================================
@@ -1494,6 +1617,7 @@ void run_tests()
     run_test(test_Matrix_insertLocalTiles,     "Matrix::insertLocalTiles()",           mpi_comm);
     run_test(test_Matrix_insertLocalTiles_dev, "Matrix::insertLocalTiles(on_devices)", mpi_comm);
     run_test(test_Matrix_MOSI, "Matrix::tileMOSI", mpi_comm);
+    run_test(test_Matrix_tileLayoutConvert, "Matrix::tileLayoutConvert", mpi_comm);
 
     if (mpi_rank == 0)
         printf("\nSub-matrices and slices\n");

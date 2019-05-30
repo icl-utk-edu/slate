@@ -991,8 +991,6 @@ void BaseTrapezoidMatrix<scalar_t>::tileUnsetHoldAllOnDevices()
 /// Converts all origin tiles into current matrix-layout.
 /// Operates in batch mode.
 ///
-// todo: override on BaseTrapezoidMatrix, or iterate on maps entries
-///
 template <typename scalar_t>
 void BaseTrapezoidMatrix<scalar_t>::tileLayoutReset()
 {
@@ -1016,7 +1014,6 @@ void BaseTrapezoidMatrix<scalar_t>::tileLayoutReset()
                 }
                 else{
                     tiles_set_dev[tile->device()].insert({i, j});
-                }
                 }
             }
         }

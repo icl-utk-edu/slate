@@ -58,6 +58,7 @@ output_redirected = not sys.stdout.isatty()
 
 # ------------------------------------------------------------------------------
 def run_test( cmd ):
+    print( '-' * 80 )
     cmd = opts.test +' ./' + cmd
     print( cmd, file=sys.stderr )
     output = ''

@@ -57,7 +57,8 @@ namespace specialization {
 /// - bcasts can get ahead of herks by the value of lookahead.
 /// Note A and C are passed by value, so we can transpose if needed
 /// (for uplo = Upper) without affecting caller.
-/// @ingroup herk
+/// @ingroup herk_specialization
+///
 template <Target target, typename scalar_t>
 void herk(slate::internal::TargetType<target>,
           blas::real_type<scalar_t> alpha, Matrix<scalar_t> A,
@@ -68,8 +69,11 @@ void herk(slate::internal::TargetType<target>,
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+
     // if upper, change to lower
-    if (C.uplo_logical() == Uplo::Upper)
+    if (C.uplo() == Uplo::Upper)
         C = conj_transpose(C);
 
     // A is mt-by-nt, C is mt-by-mt
@@ -100,7 +104,7 @@ void herk(slate::internal::TargetType<target>,
                 bcast_list_A.push_back({i, 0, {C.sub(i, i, 0, i),
                                                C.sub(i, C.mt()-1, i, i)}});
             }
-            A.template listBcast<target>(bcast_list_A);
+            A.template listBcast<target>(bcast_list_A, layout);
         }
 
         // send next lookahead block cols of A
@@ -115,7 +119,7 @@ void herk(slate::internal::TargetType<target>,
                     bcast_list_A.push_back({i, k, {C.sub(i, i, 0, i),
                                                    C.sub(i, C.mt()-1, i, i)}});
                 }
-                A.template listBcast<target>(bcast_list_A);
+                A.template listBcast<target>(bcast_list_A, layout);
             }
         }
 
@@ -144,7 +148,7 @@ void herk(slate::internal::TargetType<target>,
                             {i, k+lookahead, {C.sub(i, i, 0, i),
                                               C.sub(i, C.mt()-1, i, i)}});
                     }
-                    A.template listBcast<target>(bcast_list_A);
+                    A.template listBcast<target>(bcast_list_A, layout);
                 }
             }
 
@@ -169,7 +173,8 @@ void herk(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup herk
+/// @ingroup herk_specialization
+///
 template <Target target, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
@@ -234,6 +239,7 @@ void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
 ///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup herk
+///
 template <typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,

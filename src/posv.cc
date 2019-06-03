@@ -47,94 +47,73 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::gesv from internal::specialization::gesv
-namespace internal {
-namespace specialization {
-
-///-----------------------------------------------------------------------------
-/// \brief
-/// Distributed parallel LU factorization and solve.
-/// Generic implementation for any target.
-template <Target target, typename scalar_t>
-void posv(slate::internal::TargetType<target>,
-          HermitianMatrix<scalar_t>& A,
-          Matrix<scalar_t>& B,
-          int64_t lookahead)
-{
-    assert(B.mt() == A.mt());
-
-    // if upper, change to lower
-    if (A.uplo_logical() == Uplo::Upper)
-        A = conj_transpose(A);
-
-    // factorization
-    potrf(A,
-          {{Option::Lookahead, lookahead},
-           {Option::Target, target}});
-
-    // solve
-    potrs(A, B,
-          {{Option::Lookahead, lookahead},
-           {Option::Target, target}});
-}
-
-} // namespace specialization
-} // namespace internal
-
 //------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup gesv_comp
-template <Target target, typename scalar_t>
-void posv(HermitianMatrix<scalar_t>& A,
-          Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts)
-{
-    int64_t lookahead;
-    try {
-        lookahead = opts.at(Option::Lookahead).i_;
-        assert(lookahead >= 0);
-    }
-    catch (std::out_of_range) {
-        lookahead = 1;
-    }
-
-    internal::specialization::posv(internal::TargetType<target>(),
-                                   A, B,
-                                   lookahead);
-}
-
+/// Distributed parallel Cholesky factorization and solve.
+///
+/// Computes the solution to a system of linear equations
+/// \[
+///     A X = B,
+/// \]
+/// where $A$ is an n-by-n Hermitian positive definite matrix and $X$ and $B$ are
+/// n-by-nrhs matrices. The Cholesky decomposition is used to factor $A$ as
+/// \[
+///     A = L L^H,
+/// \]
+/// if $A$ is stored lower, where $L$ is a lower triangular matrix, or
+/// \[
+///     A = U^H U,
+/// \]
+/// if $A$ is stored upper, where $U$ is an upper triangular matrix.
+/// The factored form of $A$ is then used to solve the system of equations
+/// $A X = B$.
+///
 //------------------------------------------------------------------------------
-/// Distributed parallel LU factorization and solve.
+/// @tparam scalar_t
+///     One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in,out] A
+///     On entry, the n-by-n Hermitian positive definite matrix $A$.
+///     On exit, if return value = 0, overwritten by the factor $U$ or $L$ from
+///     the Cholesky factorization $A = U^H U$ or $A = L L^H$.
+///     If scalar_t is real, $A$ can be a SymmetricMatrix object.
+///
+/// @param[in,out] B
+///     On entry, the n-by-nrhs right hand side matrix $B$.
+///     On exit, if return value = 0, the n-by-nrhs solution matrix $X$.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Lookahead:
+///       Number of panels to overlap with matrix updates.
+///       lookahead >= 0. Default 1.
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
+/// TODO: return value
+/// @retval 0 successful exit
+/// @retval >0 for return value = $i$, the leading minor of order $i$ of $A$ is not
+///         positive definite, so the factorization could not
+///         be completed, and the solution has not been computed.
+///
+/// @ingroup posv
 ///
 template <typename scalar_t>
 void posv(HermitianMatrix<scalar_t>& A,
           Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts)
 {
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range) {
-        target = Target::HostTask;
-    }
+    slate_assert(B.mt() == A.mt());
 
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-            posv<Target::HostTask>(A, B, opts);
-            break;
-        case Target::HostNest:
-            posv<Target::HostNest>(A, B, opts);
-            break;
-        case Target::HostBatch:
-            posv<Target::HostBatch>(A, B, opts);
-            break;
-        case Target::Devices:
-            posv<Target::Devices>(A, B, opts);
-            break;
-    }
+    // factorization
+    potrf(A, opts);
+
+    // solve
+    potrs(A, B, opts);
+
     // todo: return value for errors?
 }
 

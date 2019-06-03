@@ -8,7 +8,6 @@
 #include "scalapack_support_routines.hh"
 #include "print_matrix.hh"
 
-#include <cassert>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -70,7 +69,7 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
 
     // initialize BLACS and ScaLAPACK
     Cblacs_pinfo(&iam, &nprocs);
-    assert(p*q <= nprocs);
+    slate_assert(p*q <= nprocs);
     Cblacs_get(-1, 0, &ictxt);
     Cblacs_gridinit(&ictxt, "Col", p, q);
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
@@ -79,7 +78,7 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
     int64_t mlocB = scalapack_numroc(n, nb, myrow, izero, nprow);
     int64_t nlocB = scalapack_numroc(nrhs, nb, mycol, izero, npcol);
     scalapack_descinit(descB_tst, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
-    assert(info == 0);
+    slate_assert(info == 0);
     int64_t lldB = (int64_t)descB_tst[8];
     std::vector<scalar_t> B_tst(lldB*nlocB);
     scalapack_pplrnt(&B_tst[0], n, nrhs, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 2);
@@ -135,7 +134,7 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
     if (check || ref) {
         B_ref = B_tst;
         scalapack_descinit(descB_ref, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
-        assert(info == 0);
+        slate_assert(info == 0);
 
         Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
                    n, nrhs, &B_ref[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);

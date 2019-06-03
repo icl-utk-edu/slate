@@ -53,8 +53,7 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Hermitian matrix multiply to update trailing matrix,
 /// where A is a single tile.
 /// If side = left,  B and C are each a single block row;
@@ -62,6 +61,8 @@ namespace internal {
 /// Unlike most BLAS operations, here op(B) and op(C) must be
 /// both the same, either both NoTrans or both ConjTrans.
 /// Dispatches to target implementations.
+/// @ingroup hemm_internal
+///
 template <Target target, typename scalar_t>
 void hemm(Side side,
           scalar_t alpha, HermitianMatrix<scalar_t>&& A,
@@ -92,10 +93,11 @@ void hemm(Side side,
          priority);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Hermitian matrix multiply to update trailing matrix.
 /// Host OpenMP task implementation.
+/// @ingroup hemm_internal
+///
 template <typename scalar_t>
 void hemm(internal::TargetType<Target::HostTask>,
           Side side,
@@ -104,6 +106,12 @@ void hemm(internal::TargetType<Target::HostTask>,
           scalar_t beta,  Matrix<scalar_t>& C,
           int priority)
 {
+    // CPU uses ColMajor
+    // todo: relax this assumption, by allowing Tile_blas.hh::hemm() to take layout param
+    // todo: optimize for the number of layout conversions,
+    //       by watching 'layout' and 'C(i, j).layout()'
+    const Layout layout = Layout::ColMajor;
+
     int err = 0;
     if (side == Side::Left) {
         for (int64_t j = 0; j < C.nt(); ++j) {
@@ -111,9 +119,9 @@ void hemm(internal::TargetType<Target::HostTask>,
                 #pragma omp task shared(A, B, C, err) priority(priority)
                 {
                     try {
-                        A.tileGetForReading(0, 0);
-                        B.tileGetForReading(0, j);
-                        C.tileGetForWriting(0, j);
+                        A.tileGetForReading(0, 0, LayoutConvert(layout));
+                        B.tileGetForReading(0, j, LayoutConvert(layout));
+                        C.tileGetForWriting(0, j, LayoutConvert(layout));
                         hemm(side,
                              alpha, A(0, 0),
                                     B(0, j),
@@ -136,9 +144,9 @@ void hemm(internal::TargetType<Target::HostTask>,
                 #pragma omp task shared(A, B, C, err) priority(priority)
                 {
                     try {
-                        A.tileGetForReading(0, 0);
-                        B.tileGetForReading(i, 0);
-                        C.tileGetForWriting(i, 0);
+                        A.tileGetForReading(0, 0, LayoutConvert(layout));
+                        B.tileGetForReading(i, 0, LayoutConvert(layout));
+                        C.tileGetForWriting(i, 0, LayoutConvert(layout));
                         hemm(side,
                              alpha, A(0, 0),
                                     B(i, 0),
@@ -161,10 +169,11 @@ void hemm(internal::TargetType<Target::HostTask>,
         throw std::exception();
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Hermitian matrix multiply to update trailing matrix.
 /// Host nested OpenMP implementation.
+/// @ingroup hemm_internal
+///
 template <typename scalar_t>
 void hemm(internal::TargetType<Target::HostNest>,
           Side side,
@@ -173,15 +182,21 @@ void hemm(internal::TargetType<Target::HostNest>,
           scalar_t beta,  Matrix<scalar_t>& C,
           int priority)
 {
+    // CPU uses ColMajor
+    // todo: relax this assumption, by allowing Tile_blas.hh::hemm() to take layout param
+    // todo: optimize for the number of layout conversions,
+    //       by watching 'layout' and 'C(i, j).layout()'
+    const Layout layout = Layout::ColMajor;
+
     int err = 0;
     if (side == Side::Left) {
         #pragma omp parallel for schedule(dynamic, 1) shared(err)
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(0, j)) {
                 try {
-                    A.tileGetForReading(0, 0);
-                    B.tileGetForReading(0, j);
-                    C.tileGetForWriting(0, j);
+                    A.tileGetForReading(0, 0, LayoutConvert(layout));
+                    B.tileGetForReading(0, j, LayoutConvert(layout));
+                    C.tileGetForWriting(0, j, LayoutConvert(layout));
                     hemm(side,
                          alpha, A(0, 0),
                                 B(0, j),
@@ -204,9 +219,9 @@ void hemm(internal::TargetType<Target::HostNest>,
                 #pragma omp task shared(A, B, C, err) priority(priority)
                 {
                     try {
-                        A.tileGetForReading(0, 0);
-                        B.tileGetForReading(i, 0);
-                        C.tileGetForWriting(i, 0);
+                        A.tileGetForReading(0, 0, LayoutConvert(layout));
+                        B.tileGetForReading(i, 0, LayoutConvert(layout));
+                        C.tileGetForWriting(i, 0, LayoutConvert(layout));
                         hemm(side,
                              alpha, A(0, 0),
                                     B(i, 0),

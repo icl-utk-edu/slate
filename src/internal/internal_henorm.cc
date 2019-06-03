@@ -51,7 +51,7 @@
 
 namespace slate {
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // On macOS, nvcc using clang++ generates a different C++ name mangling
 // (std::__1::complex) than g++ for std::complex. This solution is to use
 // cu*Complex in .cu files, and cast from std::complex here.
@@ -116,7 +116,7 @@ void henorm(
 
 namespace internal {
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Hermitian matrix norm.
 /// Dispatches to target implementations.
 ///
@@ -138,9 +138,11 @@ void norm(
          priority);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Hermitian matrix norm.
 /// Host OpenMP task implementation.
+/// @ingroup norm_internal
+///
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::HostTask>,
@@ -150,9 +152,15 @@ void norm(
 {
     using real_t = blas::real_type<scalar_t>;
 
+    // norms assumes column major
+    // todo: relax this assumption, a few cases need to be adjusted only
+    const Layout layout = Layout::ColMajor;
+
     if (scope != NormScope::Matrix) {
         assert("Not implemented yet");
     }
+
+    bool lower = (A.uploLogical() == Uplo::Lower);
 
     // i, j are tile row, tile col indices; ii, jj are row, col indices.
     //---------
@@ -167,7 +175,7 @@ void norm(
             if (j < A.mt() && A.tileIsLocal(j, j)) {
                 #pragma omp task shared(A, tiles_maxima) priority(priority)
                 {
-                    A.tileGetForReading(j, j);
+                    A.tileGetForReading(j, j, LayoutConvert(layout));
                     real_t tile_max;
                     henorm(in_norm, A(j, j), &tile_max);
                     #pragma omp critical
@@ -177,12 +185,12 @@ void norm(
                 }
             }
             // off-diagonal tiles
-            if (A.uplo_logical() == Uplo::Lower) {
+            if (lower) {
                 for (int64_t i = j+1; i < A.mt(); ++i) {  // strictly lower
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, tiles_maxima) priority(priority)
                         {
-                            A.tileGetForReading(i, j);
+                            A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_max;
                             genorm(in_norm, NormScope::Matrix, A(i, j), &tile_max);
                             #pragma omp critical
@@ -198,7 +206,7 @@ void norm(
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, tiles_maxima) priority(priority)
                         {
-                            A.tileGetForReading(i, j);
+                            A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_max;
                             genorm(in_norm, NormScope::Matrix, A(i, j), &tile_max);
                             #pragma omp critical
@@ -230,18 +238,18 @@ void norm(
             if (j < A.mt() && A.tileIsLocal(j, j)) {
                 #pragma omp task shared(A, tiles_sums) priority(priority)
                 {
-                    A.tileGetForReading(j, j);
+                    A.tileGetForReading(j, j, LayoutConvert(layout));
                     henorm(in_norm, A(j, j), &tiles_sums[A.n()*j + jj]);
                 }
             }
             // off-diagonal tiles (same as synorm)
-            if (A.uplo() == Uplo::Lower) {
+            if (lower) {
                 int64_t ii = jj + A.tileNb(j);
                 for (int64_t i = j+1; i < A.mt(); ++i) { // strictly lower
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, tiles_sums) priority(priority)
                         {
-                            A.tileGetForReading(i, j);
+                            A.tileGetForReading(i, j, LayoutConvert(layout));
                             synormOffdiag(in_norm, A(i, j),
                                           &tiles_sums[A.n()*i + jj],
                                           &tiles_sums[A.n()*j + ii]);
@@ -256,7 +264,7 @@ void norm(
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, tiles_sums) priority(priority)
                         {
-                            A.tileGetForReading(i, j);
+                            A.tileGetForReading(i, j, LayoutConvert(layout));
                             synormOffdiag(in_norm, A(i, j),
                                           &tiles_sums[A.n()*i + jj],
                                           &tiles_sums[A.n()*j + ii]);
@@ -291,7 +299,7 @@ void norm(
         for (int64_t j = 0; j < A.nt(); ++j) {
             // diagonal tile
             if (j < A.mt() && A.tileIsLocal(j, j)) {
-                A.tileGetForReading(j, j);
+                A.tileGetForReading(j, j, LayoutConvert(layout));
                 real_t tile_values[2];
                 henorm(in_norm, A(j, j), tile_values);
                 #pragma omp critical
@@ -301,12 +309,12 @@ void norm(
                 }
             }
             // off-diagonal tiles
-            if (A.uplo() == Uplo::Lower) {
+            if (lower) {
                 for (int64_t i = j+1; i < A.mt(); ++i) { // strictly lower
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, values) priority(priority)
                         {
-                            A.tileGetForReading(i, j);
+                            A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_values[2];
                             genorm(in_norm, NormScope::Matrix, A(i, j), tile_values);
                             // double for symmetric entries
@@ -325,7 +333,7 @@ void norm(
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, values) priority(priority)
                         {
-                            A.tileGetForReading(i, j);
+                            A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_values[2];
                             genorm(in_norm, NormScope::Matrix, A(i, j), tile_values);
                             // double for symmetric entries
@@ -343,9 +351,11 @@ void norm(
     }
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Hermitian matrix norm.
 /// Host nested OpenMP implementation.
+/// @ingroup norm_internal
+///
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::HostNest>,
@@ -356,9 +366,11 @@ void norm(
     throw Exception("HostNested not yet implemented");
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Hermitian matrix norm.
 /// GPU device implementation.
+/// @ingroup norm_internal
+///
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::Devices>,
@@ -368,9 +380,16 @@ void norm(
 {
     using real_t = blas::real_type<scalar_t>;
 
+    // norms assumes column major
+    // todo: relax this assumption, a few cases need to be adjusted only
+    const Layout layout = Layout::ColMajor;
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
+
     if (scope != NormScope::Matrix) {
         assert("Not implemented yet");
     }
+
+    bool lower = (A.uploLogical() == Uplo::Lower);
 
     assert(A.num_devices() > 0);
 
@@ -441,17 +460,20 @@ void norm(
         #pragma omp task shared(A, devices_values, vals_host_arrays) \
                          priority(priority)
         {
+            std::set<ij_tuple> A_tiles_set;
+
             for (int64_t i = 0; i < A.mt(); ++i) {
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     if (A.tileIsLocal(i, j) &&
                         device == A.tileDevice(i, j) &&
-                        ( (A.uplo() == Uplo::Lower && i >= j) ||
-                          (A.uplo() == Uplo::Upper && i <= j) ))
+                        ( (  lower && i >= j) ||
+                          (! lower && i <= j) ))
                     {
-                        A.tileGetForReading(i, j, device);
+                        A_tiles_set.insert({i, j});
                     }
                 }
             }
+            A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
 
             // Setup batched arguments.
             scalar_t** a_host_array = a_host_arrays[device].data();
@@ -469,8 +491,8 @@ void norm(
                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                         if (A.tileIsLocal(i, j) &&
                             device == A.tileDevice(i, j) &&
-                            ( (A.uplo() == Uplo::Lower && i > j) ||
-                              (A.uplo() == Uplo::Upper && i < j) ))
+                            ( (  lower && i > j) ||
+                              (! lower && i < j) ))
                         {
                             a_host_array[batch_count] = A(i, j, device).data();
                             lda[q] = A(i, j, device).stride();
@@ -539,7 +561,7 @@ void norm(
                 // diagonal blocks
                 for (int q = 4; q < 6; ++q) {
                     if (group_count[q] > 0) {
-                        device::henorm(in_norm, A.uplo(),
+                        device::henorm(in_norm, A.uploPhysical(),
                                        nb[q],
                                        a_dev_array, lda[q],
                                        vals_dev_array, ldv,
@@ -614,8 +636,8 @@ void norm(
                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                         if (A.tileIsLocal(i, j) &&
                             device == A.tileDevice(i, j) &&
-                            ( (A.uplo() == Uplo::Lower && i > j) ||
-                              (A.uplo() == Uplo::Upper && i < j) ))
+                            ( (  lower && i > j) ||
+                              (! lower && i < j) ))
                         {
                             // col sums
                             blas::axpy(

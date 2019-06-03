@@ -54,10 +54,11 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
-/// Distributed parallel Cholesky factorization.
+//------------------------------------------------------------------------------
+/// Distributed parallel Hermitian indefinite $LTL^T$ factorization.
 /// Generic implementation for any target.
+/// @ingroup hesv_specialization
+///
 template <Target target, typename scalar_t>
 void hetrf(slate::internal::TargetType<target>,
            HermitianMatrix<scalar_t>& A, Pivots& pivots,
@@ -68,6 +69,9 @@ void hetrf(slate::internal::TargetType<target>,
     //using real_t = blas::real_type<scalar_t>;
     using BcastList  = typename Matrix<scalar_t>::BcastList;
     using ReduceList = typename Matrix<scalar_t>::ReduceList;
+
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
 
     const int64_t A_mt = A.mt();
 
@@ -89,7 +93,7 @@ void hetrf(slate::internal::TargetType<target>,
     int64_t ione  = 1;
     int64_t izero = 0;
     int priority_one = 1;
-    assert(A.uplo_logical() == Uplo::Lower); // upper not implemented, yet
+    assert(A.uplo() == Uplo::Lower); // upper not implemented, yet
 
     pivots.resize(A_mt);
 
@@ -99,7 +103,6 @@ void hetrf(slate::internal::TargetType<target>,
     #pragma omp master
     for (int64_t k = 0; k < A_mt; ++k) {
         //printf( "\n == k = %ld on rank-%d ==\n",k,rank ); fflush(stdout);
-
         int tag  = 1+k;
         int tag1 = 1+k+A_mt*1;
         int tag2 = 1+k+A_mt*2;
@@ -120,7 +123,7 @@ void hetrf(slate::internal::TargetType<target>,
                 // send L(k, j) that are needed to compute H(:, k)
                 for (int64_t j=0; j<k; j++) {
                     //printf( " %d: >> receiving A(%ld,:%ld) <<\n",rank,k,j  );
-                    A.tileBcast(k, j, H.sub(k, k, std::max(j, ione)-1, std::min(j+2, k-1)-1), tag);
+                    A.tileBcast(k, j, H.sub(k, k, std::max(j, ione)-1, std::min(j+2, k-1)-1), layout, tag);
                 }
                 for (int64_t i = 1; i < k; i++) {
                     if (H.tileIsLocal(k, i-1)) {
@@ -180,29 +183,29 @@ void hetrf(slate::internal::TargetType<target>,
                 auto Hj = H.sub(k, k, 0, k-2);
                 Hj = conj_transpose(Hj);
 
-#if 0
+                #if 0
                 slate::internal::gemm_W<Target::HostTask>(
                     scalar_t(-1.0),  A.sub(k, k,   0, k-2),
                                     Hj.sub(0, k-2, 0, 0),
                     scalar_t( 1.0),  T.sub(k, k,   k, k),
                               ind1, std::move(W1));
-#else
+                #else
                 slate::internal::gemm_A<Target::HostTask>(
                     scalar_t(-1.0), A.sub(k, k,   0, k-2),
                                    Hj.sub(0, k-2, 0, 0),
                     scalar_t( 1.0), T.sub(k, k,   k, k));
-#endif
+                #endif
 
                 ReduceList reduce_list;
                 reduce_list.push_back({k, k, {A.sub(k, k, 0, k-2)}});
-                T.template listReduce<target>(reduce_list, tag);
+                T.template listReduce<target>(reduce_list, layout, tag);
 
                 // T(k, k) -= L(k, k)*T(k, k-1)* L(k,k-1)'
                 // using H(k, k) as workspace
                 // > both L(k, k) and L(k, k-1) have been sent to (k, k)-th process
                 //   for updating T(k, k)
-                A.tileBcast(k, k-2, H.sub(k, k, k, k), tag);
-                A.tileBcast(k, k-1, T.sub(k, k, k, k), tag);
+                A.tileBcast(k, k-2, H.sub(k, k, k, k), layout, tag);
+                A.tileBcast(k, k-1, T.sub(k, k, k, k), layout, tag);
                 if (T.tileIsLocal(k, k)) {
                     H.tileInsert(k, k);
                     auto Lkj = A.sub(k, k, k-2, k-2);
@@ -228,7 +231,7 @@ void hetrf(slate::internal::TargetType<target>,
                 //printf( " trsm for T(%ld, %ld) <<\n", k, k); fflush(stdout);
                 if (k == 1) {
                     // > otherwise L(k, k) has been already sent to T(k, k) for updating A(k, k)
-                    A.tileBcast(k, k-1, T.sub(k, k, k, k), tag);
+                    A.tileBcast(k, k-1, T.sub(k, k, k, k), layout, tag);
                 }
                 if (T.tileIsLocal(k, k)) {
                     auto Akk = A.sub(k, k, k-1, k-1);
@@ -254,7 +257,7 @@ void hetrf(slate::internal::TargetType<target>,
                 if (k+1 < A_mt) {
                     // send T(k, k) for computing H(k, k), moved from below?
                     //printf( " tileBcast(T(%ld,%ld) to H(%ld,%ld) )\n",k,k,k,k-1 );
-                    T.tileBcast(k, k, H.sub(k, k, k-1, k-1), tag);
+                    T.tileBcast(k, k, H.sub(k, k, k-1, k-1), layout, tag);
                 }
             }
 
@@ -265,7 +268,7 @@ void hetrf(slate::internal::TargetType<target>,
                 {
                    // send T(k, k) that are needed to compute H(k+1:mt-1, k-1)
                    //printf( " %d: Bcast( T(%ld,%ld) )\n",rank,k,k ); fflush(stdout);
-                   T.tileBcast(k, k, H.sub(k+1, A_mt-1, k-1, k-1), tag2);
+                   T.tileBcast(k, k, H.sub(k+1, A_mt-1, k-1, k-1), layout, tag2);
                 }
             }
         }
@@ -289,7 +292,7 @@ void hetrf(slate::internal::TargetType<target>,
                     }
                     if (k > 1) {
                         // compute H(k, k) += T(k, k-1) * L(k, k-1)^T
-                        A.tileBcast(k, k-2, H.sub(k, k, k-1, k-1), tag);
+                        A.tileBcast(k, k-2, H.sub(k, k, k-1, k-1), layout, tag);
                         if (H.tileIsLocal(k, k-1)) {
                             slate::gemm<scalar_t>(
                                 scalar_t(1.0), A(k,   k-2),
@@ -309,7 +312,7 @@ void hetrf(slate::internal::TargetType<target>,
                         //printf( " >> update A1(%ld:%ld, %ld) on rank-%d <<\n", k+1,A_mt-1, k, rank); fflush(stdout);
                         if (k > 2) {
                             for (int64_t j = 0; j < k-1; j++) {
-                                H.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), tag1);
+                                H.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), layout, tag1);
                             }
                             auto Hj = H.sub(k, k, 0, k-2);
                             Hj = conj_transpose(Hj);
@@ -339,14 +342,14 @@ void hetrf(slate::internal::TargetType<target>,
                             for (int i = k+1; i < A_mt; ++i) {
                                 reduce_list.push_back({i, k, {A.sub(i, i, 0, k-2)}});
                             }
-                            A.template listReduce<target>(reduce_list, tag1);
+                            A.template listReduce<target>(reduce_list, layout, tag1);
                         }
                         else {
                             for (int64_t j = 0; j < k-1; j++) {
                                 for (int64_t i = k+1; i < A_mt; i++) {
-                                    A.tileBcast(i, j, A.sub(i, i, k, k), tag1);
+                                    A.tileBcast(i, j, A.sub(i, i, k, k), layout, tag1);
                                 }
-                                H.tileBcast(k, j, A.sub(k+1, A_mt-1, k, k), tag1);
+                                H.tileBcast(k, j, A.sub(k+1, A_mt-1, k, k), layout, tag1);
                             }
                             for (int64_t j = 0; j < k-1; j++) {
                                 auto Hj = H.sub(k, k, j, j);
@@ -355,7 +358,7 @@ void hetrf(slate::internal::TargetType<target>,
                                     scalar_t(-1.0), A.sub(k+1, A_mt-1, j, j),
                                                     Hj.sub(0, 0, 0, 0),
                                     scalar_t( 1.0), A.sub(k+1, A_mt-1, k, k),
-                                    priority_one);
+                                    layout, priority_one);
                             }
                         }
                     }
@@ -367,9 +370,9 @@ void hetrf(slate::internal::TargetType<target>,
                 {
                     //printf( " >> update A2(%ld:%ld, %ld) on rank-%d <<\n", k+1,A_mt-1, k, rank); fflush(stdout);
                     for (int64_t i2 = k+1; i2 < A_mt; i2++) {
-                        A.tileBcast(i2, k-1, A.sub(i2, i2, k, k), tag1);
+                        A.tileBcast(i2, k-1, A.sub(i2, i2, k, k), layout, tag1);
                     }
-                    H.tileBcast(k, k-1, A.sub(k+1, A_mt-1, k, k), tag1);
+                    H.tileBcast(k, k-1, A.sub(k+1, A_mt-1, k, k), layout, tag1);
 
                     auto Hj = H.sub(k, k, k-1, k-1);
                     Hj = conj_transpose(Hj);
@@ -377,7 +380,7 @@ void hetrf(slate::internal::TargetType<target>,
                         scalar_t(-1.0), A.sub(k+1, A_mt-1, k-1, k-1),
                                         Hj.sub(0,   0,     0, 0),
                         scalar_t( 1.0), A.sub(k+1, A_mt-1, k, k),
-                        priority_one);
+                        layout, priority_one);
                 }
             }
 
@@ -419,7 +422,7 @@ void hetrf(slate::internal::TargetType<target>,
                 if (k > 0) {
                     // T(k+1,k) /= L(k,k)^T
                     //printf( " >> update T(%ld,%ld) on rank-%d <<\n", k+1, k, rank); fflush(stdout);
-                    A.tileBcast(k, k-1, T.sub(k+1, k+1, k, k), tag);
+                    A.tileBcast(k, k-1, T.sub(k+1, k+1, k, k), layout, tag);
 
                     if (T.tileIsLocal(k+1, k)) {
                         auto Akk = A.sub(k, k, k-1, k-1);
@@ -434,7 +437,7 @@ void hetrf(slate::internal::TargetType<target>,
                 }
                 // copy T(k+1, k)^T into T(k, k+1)
                 //printf( " >> copy T(%ld,%ld) on rank-%d <<\n", k, k+1, rank); fflush(stdout);
-                T.tileBcast(k+1, k, T.sub(k, k, k+1, k+1), tag);
+                T.tileBcast(k+1, k, T.sub(k, k, k+1, k+1), layout, tag);
                 if (T.tileIsLocal(k, k+1)) {
                     T.tileInsert(k, k+1);
                     int64_t ldt1 = T(k+1, k).stride();
@@ -453,7 +456,7 @@ void hetrf(slate::internal::TargetType<target>,
                 }
                 if (k > 0 && k+1 < A_mt) {
                     // send T(i, j) that are needed to compute H(k, :)
-                    T.tileBcast(k, k+1, H.sub(k+1, A_mt-1, k,   k), tag);
+                    T.tileBcast(k, k+1, H.sub(k+1, A_mt-1, k,   k), layout, tag);
 
                     //T.tileBcast(k+1, k, H.sub(k+1, A_mt-1, k-1, k-1), tag);
                     BcastList bcast_list_T;
@@ -461,7 +464,7 @@ void hetrf(slate::internal::TargetType<target>,
                     bcast_list_T.push_back({k+1, k, {A.sub(k+1, A_mt-1, k-1, k-1)}});
                     // for computing T(j, j)
                     bcast_list_T.push_back({k+1, k, {A.sub(k+1, k+1,    k+1, k+1)}});
-                    T.template listBcast(bcast_list_T, tag);
+                    T.template listBcast(bcast_list_T, layout, tag);
                 }
             }
             #pragma omp task depend(inout:columnL[k])
@@ -479,7 +482,8 @@ void hetrf(slate::internal::TargetType<target>,
                     #pragma omp task
                     {
                         internal::swap<Target::HostTask>(
-                            Direction::Forward, A.sub(k+1, A_mt-1, 0, k-1), pivots.at(k+1), 1, tag3);
+                            Direction::Forward, A.sub(k+1, A_mt-1, 0, k-1), pivots.at(k+1),
+                            layout, 1, tag3);
                     }
                 }
                 // symmetric swap of A(k+1:mt-1, k+1:mt-1)
@@ -487,7 +491,8 @@ void hetrf(slate::internal::TargetType<target>,
                 #pragma omp task
                 {
                     internal::swap<Target::HostTask>(
-                        Direction::Forward, A.sub(k+1, A_mt-1), pivots.at(k+1), 1, tag4);
+                        Direction::Forward, A.sub(k+1, A_mt-1), pivots.at(k+1),
+                        1, tag4);
                 }
                 #pragma omp taskwait
             }
@@ -508,16 +513,19 @@ void hetrf(slate::internal::TargetType<target>,
     // Debug::printTilesMaps(A);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
-/// Distributed parallel Cholesky factorization.
+//------------------------------------------------------------------------------
+/// Distributed parallel Hermitian indefinite $LTL^T$ factorization.
 /// GPU device batched cuBLAS implementation.
+/// <b>GPU version not yet implemented.</b>
+/// @ingroup hesv_specialization
+///
 template <typename scalar_t>
 void hetrf(slate::internal::TargetType<Target::Devices>,
            HermitianMatrix<scalar_t>& A, Pivots& pivots,
                 BandMatrix<scalar_t>& T,
                     Matrix<scalar_t>& H)
 {
+    slate_assert(false);  // GPU not yet implemented
 }
 
 } // namespace specialization
@@ -525,7 +533,8 @@ void hetrf(slate::internal::TargetType<Target::Devices>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup posv_comp
+/// @ingroup hesv_specialization
+///
 template <Target target, typename scalar_t>
 void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
                 BandMatrix<scalar_t>& T, Pivots& pivots2,
@@ -566,34 +575,46 @@ void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel LTLt factorization.
-/// Performs the LTLt factorization of a Hermitian
-/// (or symmetric, in the real case) matrix A.
-/// The factorization has the form
+/// Distributed parallel Hermitian indefinite $LTL^T$ factorization.
+///
+/// Computes the factorization of a Hermitian matrix $A$
+/// using Aasen's 2-stage algorithm.  The form of the factorization is
 /// \[
-///     P A P^H = L T L^H,
+///     A = L T L^H,
 /// \]
-/// if A is stored lower, where L is a lower triangular matrix,
-/// and T is symmetric band matrix (block tri-diagonal matrix), or
+/// if $A$ is stored lower, where $L$ is a product of permutation and unit
+/// lower triangular matrices, or
 /// \[
 ///     P A P^H = U^H T U,
 /// \]
-/// if A is stored upper, where U is an upper triangular matrix,
-/// and T is symmetric band matrix.
+/// if $A$ is stored upper, where $U$ is a product of permutation and unit
+/// upper triangular matrices.
+/// $T$ is a Hermitian band matrix that is LU factorized with partial pivoting.
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
 /// @param[in,out] A
-///     On entry, the Hermitian matrix A.
-///     On exit, if return value = 0, the factor U or L from the LTLt
-///     factorization $P A P^H = U^H T U$ or $P A P^H = L T L^H$.
-///     If scalar_t is real, A can be a SymmetricMatrix object.
+///     On entry, the n-by-n Hermitian matrix $A$.
+///     On exit, if return value = 0, overwritten by the factor $U$ or $L$ from
+///     the factorization $A = U^H T U$ or $A = L T L^H$.
+///     If scalar_t is real, $A$ can be a SymmetricMatrix object.
+///
+/// @param[out] pivots
+///     On exit, details of the interchanges applied to $A$, i.e.,
+///     row and column k of $A$ were swapped with row and column pivots(k).
 ///
 /// @param[out] T
-///     On exit, if return value = 0, the LU factors of the band matrix T
-///     from the LTLt factorization $P A P^H = U^H T U$ or $P A P^H = L T L^H$.
+///     On exit, details of the LU factorization of the band matrix.
+///
+/// @param[out] pivots2
+///     On exit, details of the interchanges applied to $T$, i.e.,
+///     row and column k of $T$ were swapped with row and column pivots2(k).
+///
+/// @param[out] H
+///     Auxiliary matrix used during the factorization.
+///     TODO: can this be made internal?
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
@@ -607,7 +628,8 @@ void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// @ingroup posv_comp
+/// @ingroup hesv_computational
+///
 template <typename scalar_t>
 void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
                 BandMatrix<scalar_t>& T, Pivots& pivots2,

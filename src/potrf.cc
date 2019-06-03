@@ -51,11 +51,12 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Distributed parallel Cholesky factorization.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
+/// @ingroup posv_specialization
+///
 template <Target target, typename scalar_t>
 void potrf(slate::internal::TargetType<target>,
            HermitianMatrix<scalar_t> A, int64_t lookahead)
@@ -63,8 +64,11 @@ void potrf(slate::internal::TargetType<target>,
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+
     // if upper, change to lower
-    if (A.uplo_logical() == Uplo::Upper) {
+    if (A.uplo() == Uplo::Upper) {
         A = conj_transpose(A);
     }
     const int64_t A_nt = A.nt();
@@ -84,7 +88,7 @@ void potrf(slate::internal::TargetType<target>,
 
             // send A(k, k) down col A(k+1:nt-1, k)
             if (k+1 <= A_nt-1)
-                A.tileBcast(k, k, A.sub(k+1, A_nt-1, k, k));
+                A.tileBcast(k, k, A.sub(k+1, A_nt-1, k, k), layout);
 
             // A(k+1:nt-1, k) * A(k, k)^{-H}
             if (k+1 <= A_nt-1) {
@@ -102,7 +106,7 @@ void potrf(slate::internal::TargetType<target>,
                 bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, i),
                                                A.sub(i, A_nt-1, i, i)}});
             }
-            A.template listBcast(bcast_list_A);
+            A.template listBcast(bcast_list_A, layout);
         }
         // update lookahead column(s), high priority
         for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
@@ -120,7 +124,8 @@ void potrf(slate::internal::TargetType<target>,
                     internal::gemm<Target::HostTask>(
                         scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
                                         conj_transpose(Ajk),
-                        scalar_t(1.0), A.sub(j+1, A_nt-1, j, j), 1);
+                        scalar_t(1.0), A.sub(j+1, A_nt-1, j, j),
+                        layout, 1);
                 }
             }
         }
@@ -142,19 +147,17 @@ void potrf(slate::internal::TargetType<target>,
 
     // Debug::checkTilesLives(A);
     // Debug::printTilesLives(A);
-
-    // A.clearWorkspace();
-
     A.tileUpdateAllOrigin();
     A.releaseWorkspace();
 
     // Debug::printTilesMaps(A);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Distributed parallel Cholesky factorization.
 /// GPU device batched cuBLAS implementation.
+/// @ingroup posv_specialization
+///
 template <typename scalar_t>
 void potrf(slate::internal::TargetType<Target::Devices>,
            HermitianMatrix<scalar_t> A, int64_t lookahead)
@@ -162,8 +165,11 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+
     // if upper, change to lower
-    if (A.uplo_logical() == Uplo::Upper) {
+    if (A.uplo() == Uplo::Upper) {
         A = conj_transpose(A);
     }
     const int64_t A_nt = A.nt();
@@ -186,7 +192,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 
             // send A(k, k) down col A(k+1:nt-1, k)
             if (k+1 <= A_nt-1)
-                A.tileBcast(k, k, A.sub(k+1, A_nt-1, k, k));
+                A.tileBcast(k, k, A.sub(k+1, A_nt-1, k, k), layout);
 
             // A(k+1:nt-1, k) * A(k, k)^{-H}
             if (k+1 <= A_nt-1) {
@@ -204,7 +210,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, i),
                                                A.sub(i, A_nt-1, i, i)}});
             }
-            A.template listBcast<Target::Devices>(bcast_list_A);
+            A.template listBcast<Target::Devices>(bcast_list_A, layout);
         }
         // update trailing submatrix, normal priority
         if (k+1+lookahead < A_nt) {
@@ -237,7 +243,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     internal::gemm<Target::HostTask>(
                         scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
                                         conj_transpose(Ajk),
-                        scalar_t( 1.0), A.sub(j+1, A_nt-1, j, j));
+                        scalar_t( 1.0), A.sub(j+1, A_nt-1, j, j),
+                        layout);
                 }
             }
         }
@@ -257,7 +264,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup posv_comp
+/// @ingroup posv_specialization
+///
 template <Target target, typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts)
@@ -277,27 +285,29 @@ void potrf(HermitianMatrix<scalar_t>& A,
 
 //------------------------------------------------------------------------------
 /// Distributed parallel Cholesky factorization.
-/// Performs the Cholesky factorization of a Hermitian
-/// (or symmetric, in the real case) positive definite
-/// matrix A. The factorization has the form
+///
+/// Performs the Cholesky factorization of a Hermitian positive definite
+/// matrix $A$.
+///
+/// The factorization has the form
 /// \[
 ///     A = L L^H,
 /// \]
-/// if A is stored lower, where L is a lower triangular matrix, or
+/// if $A$ is stored lower, where $L$ is a lower triangular matrix, or
 /// \[
 ///     A = U^H U,
 /// \]
-/// if A is stored upper, where U is an upper triangular matrix.
+/// if $A$ is stored upper, where $U$ is an upper triangular matrix.
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
 /// @param[in,out] A
-///     On entry, the Hermitian positive definite matrix A.
-///     On exit, if return value = 0, the factor U or L from the Cholesky
+///     On entry, the n-by-n Hermitian positive definite matrix $A$.
+///     On exit, if return value = 0, the factor $U$ or $L$ from the Cholesky
 ///     factorization $A = U^H U$ or $A = L L^H$.
-///     If scalar_t is real, A can be a SymmetricMatrix object.
+///     If scalar_t is real, $A$ can be a SymmetricMatrix object.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
@@ -311,7 +321,14 @@ void potrf(HermitianMatrix<scalar_t>& A,
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// @ingroup posv_comp
+/// TODO: return value
+/// @retval 0 successful exit
+/// @retval >0 for return value = $i$, the leading minor of order $i$ of $A$ is not
+///         positive definite, so the factorization could not
+///         be completed, and the solution has not been computed.
+///
+/// @ingroup posv_computational
+///
 template <typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts)

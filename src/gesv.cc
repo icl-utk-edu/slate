@@ -46,108 +46,78 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::gesv from internal::specialization::gesv
-namespace internal {
-namespace specialization {
-
-///-----------------------------------------------------------------------------
-/// \brief
-/// Distributed parallel LU factorization and solve.
-/// Generic implementation for any target.
-template <Target target, typename scalar_t>
-void gesv(slate::internal::TargetType<target>,
-          Matrix<scalar_t>& A, Pivots& pivots,
-          Matrix<scalar_t>& B,
-          int64_t ib, int max_panel_threads, int64_t lookahead)
-{
-    // factorization
-    getrf(A, pivots,
-          {{Option::InnerBlocking, ib},
-           {Option::Lookahead, lookahead},
-           {Option::MaxPanelThreads, int64_t(max_panel_threads)},
-           {Option::Target, target}});
-
-    // solve
-    getrs(A, pivots, B,
-          {{Option::Lookahead, lookahead},
-           {Option::Target, target}});
-}
-
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup gesv_comp
-template <Target target, typename scalar_t>
-void gesv(Matrix<scalar_t>& A, Pivots& pivots,
-          Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts)
-{
-    int64_t lookahead;
-    try {
-        lookahead = opts.at(Option::Lookahead).i_;
-        assert(lookahead >= 0);
-    }
-    catch (std::out_of_range) {
-        lookahead = 1;
-    }
-
-    int64_t ib;
-    try {
-        ib = opts.at(Option::InnerBlocking).i_;
-        assert(ib >= 0);
-    }
-    catch (std::out_of_range) {
-        ib = 16;
-    }
-
-    int64_t max_panel_threads;
-    try {
-        max_panel_threads = opts.at(Option::MaxPanelThreads).i_;
-        assert(max_panel_threads >= 0);
-    }
-    catch (std::out_of_range) {
-        max_panel_threads = std::max(omp_get_max_threads()/2, 1);
-    }
-
-    internal::specialization::gesv(internal::TargetType<target>(),
-                                   A, pivots, B,
-                                   ib, max_panel_threads, lookahead);
-}
-
 //------------------------------------------------------------------------------
 /// Distributed parallel LU factorization and solve.
+///
+/// Computes the solution to a system of linear equations
+/// \[
+///     A X = B,
+/// \]
+/// where $A$ is an n-by-n matrix and $X$ and $B$ are n-by-nrhs matrices.
+///
+/// The LU decomposition with partial pivoting and row interchanges is
+/// used to factor $A$ as
+/// \[
+///     A = P L U,
+/// \]
+/// where $P$ is a permutation matrix, $L$ is unit lower triangular, and $U$ is
+/// upper triangular.  The factored form of $A$ is then used to solve the
+/// system of equations $A X = B$.
+///
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///     One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in,out] A
+///     On entry, the n-by-n matrix $A$ to be factored.
+///     On exit, the factors $L$ and $U$ from the factorization $A = P L U$;
+///     the unit diagonal elements of $L$ are not stored.
+///
+/// @param[out] pivots
+///     The pivot indices that define the permutation matrix $P$.
+///
+/// @param[in,out] B
+///     On entry, the n-by-nrhs right hand side matrix $B$.
+///     On exit, if return value = 0, the n-by-nrhs solution matrix $X$.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Lookahead:
+///       Number of panels to overlap with matrix updates.
+///       lookahead >= 0. Default 1.
+///     - Option::InnerBlocking:
+///       Inner blocking to use for panel. Default 16.
+///     - Option::MaxPanelThreads:
+///       Number of threads to use for panel. Default omp_get_max_threads()/2.
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
+/// TODO: return value
+/// @retval 0 successful exit
+/// @retval >0 for return value = $i$, the computed $U(i,i)$ is exactly zero.
+///         The factorization has been completed, but the factor U is exactly
+///         singular, so the solution could not be computed.
+///
+/// @ingroup gesv
 ///
 template <typename scalar_t>
 void gesv(Matrix<scalar_t>& A, Pivots& pivots,
           Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts)
 {
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range) {
-        target = Target::HostTask;
-    }
+    slate_assert(A.mt() == A.nt());  // square
+    slate_assert(B.mt() == A.mt());
 
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-            gesv<Target::HostTask>(A, pivots, B, opts);
-            break;
-        case Target::HostNest:
-            gesv<Target::HostNest>(A, pivots, B, opts);
-            break;
-        case Target::HostBatch:
-            gesv<Target::HostBatch>(A, pivots, B, opts);
-            break;
-        case Target::Devices:
-            gesv<Target::Devices>(A, pivots, B, opts);
-            break;
-    }
+    // factorization
+    getrf(A, pivots, opts);
+
+    // solve
+    getrs(A, pivots, B, opts);
+
     // todo: return value for errors?
 }
 

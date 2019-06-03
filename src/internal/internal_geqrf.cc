@@ -46,10 +46,11 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// QR factorization of a column of tiles.
 /// Dispatches to target implementations.
+/// @ingroup geqrf_internal
+///
 template <Target target, typename scalar_t>
 void geqrf(Matrix<scalar_t>&& A, Matrix<scalar_t>&& T,
            int64_t diag_len, int64_t ib, int max_panel_threads, int priority)
@@ -58,9 +59,10 @@ void geqrf(Matrix<scalar_t>&& A, Matrix<scalar_t>&& T,
           A, T, diag_len, ib, max_panel_threads, priority);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// QR factorization of a column of tiles, host implementation.
+/// @ingroup geqrf_internal
+///
 template <typename scalar_t>
 void geqrf(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A, Matrix<scalar_t>& T,
@@ -76,7 +78,7 @@ void geqrf(internal::TargetType<Target::HostTask>,
         if (A.tileIsLocal(i, 0)) {
             #pragma omp task shared(A) priority(priority)
             {
-                A.tileGetForWriting(i, 0);
+                A.tileGetForWriting(i, 0, LayoutConvert::ColMajor);
             }
         }
     }

@@ -5,8 +5,6 @@
 #include <complex>
 #include <ctype.h>
 
-#include <assert.h>
-
 #include "libtest.hh"
 #include "blas.hh"
 #include "lapack.hh"
@@ -121,20 +119,6 @@ inline T roundup(T x, T y)
 {
     return T((x + y - 1) / y)*y;
 }
-
-// -----------------------------------------------------------------------------
-#define assert_throw( expr, exception_type ) \
-    try { \
-        expr; \
-        fprintf( stderr, "Error: didn't throw expected exception at %s:%d\n", \
-                 __FILE__, __LINE__ ); \
-        throw std::exception(); \
-    } \
-    catch (exception_type& err) { \
-        if (verbose >= 3) { \
-            printf( "Caught expected exception: %s\n", err.what() ); \
-        } \
-    }
 
 // -----------------------------------------------------------------------------
 // Level 3 BLAS

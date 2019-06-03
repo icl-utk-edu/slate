@@ -54,7 +54,8 @@ namespace specialization {
 /// @internal
 /// Copy and precision conversion.
 /// Generic implementation for any target.
-/// @ingroup copy
+/// @ingroup copy_specialization
+///
 template <Target target, typename src_matrix_type, typename dst_matrix_type>
 void copy(slate::internal::TargetType<target>,
           src_matrix_type A, dst_matrix_type B,
@@ -86,7 +87,8 @@ void copy(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup copy
+/// @ingroup copy_specialization
+///
 template <Target target, typename src_matrix_type, typename dst_matrix_type>
 void copy(src_matrix_type& A, dst_matrix_type& B,
           const std::map<Option, Value>& opts)
@@ -137,6 +139,7 @@ void copy(src_matrix_type& A, dst_matrix_type& B,
 ///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup copy
+///
 template <typename src_matrix_type, typename dst_matrix_type>
 void copy(src_matrix_type& A, dst_matrix_type& B,
           const std::map<Option, Value>& opts)
@@ -152,6 +155,7 @@ void copy(src_matrix_type& A, dst_matrix_type& B,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
+        default: // todo: this is to silence a warning, should err otherwise
             copy<Target::HostTask>(A, B, opts);
             break;
 //      case Target::HostNest:

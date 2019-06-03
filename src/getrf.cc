@@ -51,11 +51,12 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Distributed parallel LU factorization.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
+/// @ingroup gesv_specialization
+///
 template <Target target, typename scalar_t>
 void getrf(slate::internal::TargetType<target>,
            Matrix<scalar_t>& A, Pivots& pivots,
@@ -106,7 +107,7 @@ void getrf(slate::internal::TargetType<target>,
                 // send A(i, k) across row A(i, k+1:nt-1)
                 bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
             }
-            A.template listBcast(bcast_list_A, tag_k, layout);
+            A.template listBcast(bcast_list_A, Layout::ColMajor, tag_k);
 
             // Root broadcasts the pivot to all ranks.
             // todo: Panel ranks send the pivots to the right.
@@ -128,7 +129,7 @@ void getrf(slate::internal::TargetType<target>,
                 int tag_j = j;
                 internal::swap<Target::HostTask>(
                     Direction::Forward, A.sub(k, A_mt-1, j, j), pivots.at(k),
-                    priority_one, tag_j);
+                    Layout::ColMajor, priority_one, tag_j);
 
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk =
@@ -141,13 +142,14 @@ void getrf(slate::internal::TargetType<target>,
                                    A.sub(k, k, j, j), priority_one);
 
                 // send A(k, j) across column A(k+1:mt-1, j)
-                A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), tag_j);
+                A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), Layout::ColMajor, tag_j);
 
                 // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
                 internal::gemm<Target::HostTask>(
                     scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
                                     A.sub(k, k, j, j),
-                    scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j), priority_one);
+                    scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j),
+                    Layout::ColMajor, priority_one);
             }
         }
         // pivot to the left, high priority
@@ -172,17 +174,17 @@ void getrf(slate::internal::TargetType<target>,
             {
                 // swap rows in A(k:mt-1, kl+1:nt-1)
                 int tag_kl1 = k+1+lookahead;
-                // todo: target & layout
+                // todo: target
                 internal::swap<target>(
                     Direction::Forward, A.sub(k, A_mt-1, k+1+lookahead, A_nt-1),
-                    pivots.at(k), priority_zero, tag_kl1, layout);
+                    pivots.at(k), layout, priority_zero, tag_kl1);
 
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk =
                     TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Akk);
 
                 // solve A(k, k) A(k, kl+1:nt-1) = A(k, kl+1:nt-1)
-                // todo: target & layout
+                // todo: target
                 internal::trsm<Target::HostTask>(
                     Side::Left,
                     scalar_t(1.0), std::move(Tkk),
@@ -194,14 +196,14 @@ void getrf(slate::internal::TargetType<target>,
                     // send A(k, j) across column A(k+1:mt-1, j)
                     bcast_list_A.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}});
                 }
-                A.template listBcast(bcast_list_A, tag_kl1, layout);
+                A.template listBcast(bcast_list_A, Layout::ColMajor, tag_kl1);
 
                 // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                 internal::gemm<target>(
                     scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
                                     A.sub(k, k, k+1+lookahead, A_nt-1),
                     scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
-                    priority_zero, layout);
+                    layout, priority_zero);
             }
         }
     }
@@ -212,14 +214,16 @@ void getrf(slate::internal::TargetType<target>,
         if (k > 0) {
             // swap rows in A(k:mt-1, 0:k-1)
             internal::swap<Target::HostTask>(
-                Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k));
+                Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
+                Layout::ColMajor);
         }
     }
 
     // Debug::checkTilesLives(A);
     // Debug::printTilesLives(A);
 
-    A.clearWorkspace();
+    A.tileUpdateAllOrigin();
+    A.releaseWorkspace();
 
     // Debug::printTilesMaps(A);
 }
@@ -229,7 +233,8 @@ void getrf(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup gesv_comp
+/// @ingroup gesv_specialization
+///
 template <Target target, typename scalar_t>
 void getrf(Matrix<scalar_t>& A, Pivots& pivots,
            const std::map<Option, Value>& opts)
@@ -268,6 +273,56 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
 
 //------------------------------------------------------------------------------
 /// Distributed parallel LU factorization.
+///
+/// Computes an LU factorization of a general m-by-n matrix $A$
+/// using partial pivoting with row interchanges.
+///
+/// The factorization has the form
+/// \[
+///     A = P L U
+/// \]
+/// where $P$ is a permutation matrix, $L$ is lower triangular with unit
+/// diagonal elements (lower trapezoidal if m > n), and $U$ is upper
+/// triangular (upper trapezoidal if m < n).
+///
+/// This is the right-looking Level 3 BLAS version of the algorithm.
+///
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///     One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in,out] A
+///     On entry, the matrix $A$ to be factored.
+///     On exit, the factors $L$ and $U$ from the factorization $A = P L U$;
+///     the unit diagonal elements of $L$ are not stored.
+///
+/// @param[out] pivots
+///     The pivot indices that define the permutation matrix $P$.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Lookahead:
+///       Number of panels to overlap with matrix updates.
+///       lookahead >= 0. Default 1.
+///     - Option::InnerBlocking:
+///       Inner blocking to use for panel. Default 16.
+///     - Option::MaxPanelThreads:
+///       Number of threads to use for panel. Default omp_get_max_threads()/2.
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
+/// TODO: return value
+/// @retval 0 successful exit
+/// @retval >0 for return value = $i$, $U(i,i)$ is exactly zero. The
+///         factorization has been completed, but the factor $U$ is exactly
+///         singular, and division by zero will occur if it is used
+///         to solve a system of equations.
+///
+/// @ingroup gesv_computational
 ///
 template <typename scalar_t>
 void getrf(Matrix<scalar_t>& A, Pivots& pivots,

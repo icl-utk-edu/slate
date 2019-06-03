@@ -53,21 +53,22 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Hermitian rank-k update of single block column (i.e., k = nb).
 /// Dispatches to target implementations.
 /// C is Lower, NoTrans or Upper, Trans/ConjTrans.
 /// In complex case, A and C cannot be Trans.
+/// @ingroup herk_internal
+///
 template <Target target, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>&& C,
           int priority)
 {
-    if (!((C.uplo_logical() == Uplo::Lower)
-          &&
-          (C.is_real || (C.op() != Op::Trans &&
-                         A.op() != Op::Trans))))
+    if (! ((C.uplo() == Uplo::Lower)
+           &&
+           (C.is_real || (C.op() != Op::Trans &&
+                          A.op() != Op::Trans))))
         throw std::exception();
 
     herk(internal::TargetType<target>(),
@@ -76,11 +77,12 @@ void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
          priority);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Hermitian rank-k update of single block column (i.e., k = nb).
 /// Host OpenMP task implementation.
 /// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
+/// @ingroup herk_internal
+///
 template <typename scalar_t>
 void herk(internal::TargetType<Target::HostTask>,
           blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
@@ -89,6 +91,12 @@ void herk(internal::TargetType<Target::HostTask>,
 {
     scalar_t alpha_ = scalar_t(alpha);
     scalar_t beta_  = scalar_t(beta);
+
+    // CPU assumes column major
+    // todo: relax this assumption, by updating Tile_blas.hh::herk() to operate in row major
+    // todo: optimize for the number of layout conversions,
+    //       by watching 'layout' and 'C(i, j).layout()'
+    const Layout layout = Layout::ColMajor;
 
     // Lower, NoTrans
     int err = 0;
@@ -99,8 +107,8 @@ void herk(internal::TargetType<Target::HostTask>,
                     #pragma omp task shared(A, C, err) priority(priority)
                     {
                         try {
-                            A.tileGetForReading(j, 0);
-                            C.tileGetForWriting(j, j);
+                            A.tileGetForReading(j, 0, LayoutConvert(layout));
+                            C.tileGetForWriting(j, j, LayoutConvert(layout));
                             herk(alpha, A(j, 0),
                                  beta,  C(j, j));
                             // todo: should tileRelease()?
@@ -117,9 +125,9 @@ void herk(internal::TargetType<Target::HostTask>,
                     #pragma omp task shared(A, C, err) priority(priority)
                     {
                         try {
-                            A.tileGetForReading(i, 0);
-                            A.tileGetForReading(j, 0);
-                            C.tileGetForWriting(i, j);
+                            A.tileGetForReading(i, 0, LayoutConvert(layout));
+                            A.tileGetForReading(j, 0, LayoutConvert(layout));
+                            C.tileGetForWriting(i, j, LayoutConvert(layout));
                             auto Aj0 = A(j, 0);
                             gemm(alpha_, A(i, 0),
                                          conj_transpose(Aj0),
@@ -143,11 +151,12 @@ void herk(internal::TargetType<Target::HostTask>,
         throw std::exception();
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Hermitian rank-k update of single block column (i.e., k = nb).
 /// Host nested OpenMP implementation.
 /// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
+/// @ingroup herk_internal
+///
 template <typename scalar_t>
 void herk(internal::TargetType<Target::HostNest>,
           blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
@@ -157,6 +166,12 @@ void herk(internal::TargetType<Target::HostNest>,
     scalar_t alpha_ = scalar_t(alpha);
     scalar_t beta_  = scalar_t(beta);
 
+    // CPU assumes column major
+    // todo: relax this assumption, by allowing Tile_blas.hh::her2k() to take layout param
+    // todo: optimize for the number of layout conversions,
+    //       by watching 'layout' and 'C(i, j).layout()'
+    const Layout layout = Layout::ColMajor;
+
     // Lower, NoTrans
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j) {
@@ -164,8 +179,8 @@ void herk(internal::TargetType<Target::HostNest>,
             #pragma omp task shared(A, C, err)
             {
                 try {
-                    A.tileGetForReading(j, 0);
-                    C.tileGetForWriting(j, j);
+                    A.tileGetForReading(j, 0, LayoutConvert(layout));
+                    C.tileGetForWriting(j, j, LayoutConvert(layout));
                     herk(alpha, A(j, 0),
                          beta,  C(j, j));
                     // todo: should tileRelease()?
@@ -189,9 +204,9 @@ void herk(internal::TargetType<Target::HostNest>,
             if (i >= j+1) {                    // strictly lower
                 if (C.tileIsLocal(i, j)) {
                     try {
-                        A.tileGetForReading(i, 0);
-                        A.tileGetForReading(j, 0);
-                        C.tileGetForWriting(i, j);
+                        A.tileGetForReading(i, 0, LayoutConvert(layout));
+                        A.tileGetForReading(j, 0, LayoutConvert(layout));
+                        C.tileGetForWriting(i, j, LayoutConvert(layout));
                         auto Aj0 = A(j, 0);
                         gemm(alpha_, A(i, 0),
                                      conj_transpose(Aj0),
@@ -214,17 +229,24 @@ void herk(internal::TargetType<Target::HostNest>,
         throw std::exception();
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Hermitian rank-k update of single block column (i.e., k = nb).
 /// Host batched implementation.
 /// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
+/// @ingroup herk_internal
+///
 template <typename scalar_t>
 void herk(internal::TargetType<Target::HostBatch>,
           blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
           int priority)
 {
+    // CPU assumes column major
+    // todo: relax this assumption, by allowing Tile_blas.hh::her2k() to take layout param
+    // todo: optimize for the number of layout conversions,
+    //       by watching 'layout' and 'C(i, j).layout()'
+    const Layout layout = Layout::ColMajor;
+
     // diagonal tiles by herk on host
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j) {
@@ -232,8 +254,8 @@ void herk(internal::TargetType<Target::HostBatch>,
             #pragma omp task shared(A, C, err)
             {
                 try {
-                    A.tileGetForReading(j, 0);
-                    C.tileGetForWriting(j, j);
+                    A.tileGetForReading(j, 0, LayoutConvert(layout));
+                    C.tileGetForWriting(j, j, LayoutConvert(layout));
                     herk(alpha, A(j, 0),
                          beta,  C(j, j));
                     // todo: should tileRelease()?
@@ -253,9 +275,10 @@ void herk(internal::TargetType<Target::HostBatch>,
     for (int64_t j = 0; j < C.nt(); ++j) {
         for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
             if (C.tileIsLocal(i, j)) {
-                A.tileGetForReading(i, 0);
-                A.tileGetForReading(j, 0);
-                C.tileGetForWriting(i, j);
+                // todo: omp task?
+                A.tileGetForReading(i, 0, LayoutConvert(layout));
+                A.tileGetForReading(j, 0, LayoutConvert(layout));
+                C.tileGetForWriting(i, j, LayoutConvert(layout));
                 ++batch_count;
             }
         }
@@ -365,11 +388,12 @@ void herk(internal::TargetType<Target::HostBatch>,
         throw std::exception();
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Hermitian rank-k update of single block column (i.e., k = nb).
 /// GPU device batched cuBLAS implementation.
 /// Assumes A is NoTrans or ConjTrans; C is Lower, NoTrans or Upper, ConjTrans.
+/// @ingroup herk_internal
+///
 template <typename scalar_t>
 void herk(internal::TargetType<Target::Devices>,
           blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
@@ -378,6 +402,15 @@ void herk(internal::TargetType<Target::Devices>,
 {
     int err = 0;
     using std::swap;
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
+
+    // assumes column major for now
+    // todo: relax this assumption,
+    //       by allowing Tile_blas.hh::herk() to take layout param
+    //       look at internal::gemm()
+    // todo: optimize for the number of layout conversions,
+    //       by watching 'layout' and 'C(i, j).layout()'
+    const Layout layout = Layout::ColMajor;
 
     assert(C.num_devices() > 0);
 
@@ -402,17 +435,20 @@ void herk(internal::TargetType<Target::Devices>,
 
                 Op opB = (opA == Op::NoTrans ? Op::ConjTrans : Op::NoTrans);
 
+                std::set<ij_tuple> A_tiles_set, C_tiles_set;
                 for (int64_t j = 0; j < C.nt(); ++j) {
                     for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
-                                A.tileGetForReading(i, 0, device);
-                                A.tileGetForReading(j, 0, device);
-                                C.tileGetForWriting(i, j, device);
+                                A_tiles_set.insert({i, 0});
+                                A_tiles_set.insert({j, 0});
+                                C_tiles_set.insert({i, j});
                             }
                         }
                     }
                 }
+                A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+                C.tileGetForWriting(C_tiles_set, device, LayoutConvert(layout));
 
                 scalar_t** a_array_host = C.a_array_host(device);
                 scalar_t** b_array_host = C.b_array_host(device);
@@ -578,8 +614,8 @@ void herk(internal::TargetType<Target::Devices>,
             #pragma omp task shared(A, C, err)
             {
                 try {
-                    A.tileGetForReading(j, 0);
-                    C.tileGetForWriting(j, j);
+                    A.tileGetForReading(j, 0, LayoutConvert(layout));
+                    C.tileGetForWriting(j, j, LayoutConvert(layout));
                     herk(alpha, A(j, 0),
                          beta,  C(j, j));
                     // todo: should tileRelease()?

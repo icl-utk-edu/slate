@@ -60,7 +60,8 @@ namespace specialization {
 /// - bcasts can get ahead of syrks by the value of lookahead.
 /// Note A and C are passed by value, so we can transpose if needed
 /// (for uplo = Upper) without affecting caller.
-/// @ingroup syrk
+/// @ingroup syrk_specialization
+///
 template <Target target, typename scalar_t>
 void syrk(slate::internal::TargetType<target>,
           scalar_t alpha, Matrix<scalar_t> A,
@@ -70,8 +71,11 @@ void syrk(slate::internal::TargetType<target>,
     using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+
     // if upper, change to lower
-    if (C.uplo_logical() == Uplo::Upper)
+    if (C.uplo() == Uplo::Upper)
         C = transpose(C);
 
     // A is mt-by-nt, C is mt-by-mt
@@ -102,7 +106,7 @@ void syrk(slate::internal::TargetType<target>,
                 bcast_list_A.push_back({i, 0, {C.sub(i, i, 0, i),
                                                C.sub(i, C.mt()-1, i, i)}});
             }
-            A.template listBcast<target>(bcast_list_A);
+            A.template listBcast<target>(bcast_list_A, layout);
         }
 
         // send next lookahead block cols of A
@@ -117,7 +121,7 @@ void syrk(slate::internal::TargetType<target>,
                     bcast_list_A.push_back({i, k, {C.sub(i, i, 0, i),
                                                    C.sub(i, C.mt()-1, i, i)}});
                 }
-                A.template listBcast<target>(bcast_list_A);
+                A.template listBcast<target>(bcast_list_A, layout);
             }
         }
 
@@ -146,7 +150,7 @@ void syrk(slate::internal::TargetType<target>,
                             {i, k+lookahead, {C.sub(i, i, 0, i),
                                               C.sub(i, C.mt()-1, i, i)}});
                     }
-                    A.template listBcast<target>(bcast_list_A);
+                    A.template listBcast<target>(bcast_list_A, layout);
                 }
             }
 
@@ -171,7 +175,8 @@ void syrk(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup syrk
+/// @ingroup syrk_specialization
+///
 template <Target target, typename scalar_t>
 void syrk(scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
@@ -236,6 +241,7 @@ void syrk(scalar_t alpha, Matrix<scalar_t>& A,
 ///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup syrk
+///
 template <typename scalar_t>
 void syrk(scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,

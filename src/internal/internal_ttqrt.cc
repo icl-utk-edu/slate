@@ -46,10 +46,12 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Distributed QR triangle-triangle factorization of column of tiles.
 /// Each rank has one triangular tile, the result of local geqrf panel.
 /// Dispatches to target implementations.
+/// @ingroup geqrf_internal
+///
 template <Target target, typename scalar_t>
 void ttqrt(Matrix<scalar_t>&& A,
            Matrix<scalar_t>&& T)
@@ -58,14 +60,19 @@ void ttqrt(Matrix<scalar_t>&& A,
           A, T);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Distributed QR triangle-triangle factorization, host implementation.
 /// assumes panel tiles reside on host
+/// @ingroup geqrf_internal
+///
 template <typename scalar_t>
 void ttqrt(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A,
            Matrix<scalar_t>& T)
 {
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+
     int64_t A_mt = A.mt();
 
     // Find ranks in this column.
@@ -128,23 +135,23 @@ void ttqrt(internal::TargetType<Target::HostTask>,
                     // Send tile to dst, then receive updated tile back.
                     int dst = rank_rows[ index + step ].first;
                     A.tileSend(i, 0, dst);
-                    A.tileRecv(i, 0, dst);
+                    A.tileRecv(i, 0, dst, layout);
                 }
             }
             else {
                 // Receive tile from src.
                 int     src   = rank_rows[ index - step ].first;
                 int64_t i_src = rank_rows[ index - step ].second;
-                A.tileRecv(i_src, 0, src);
+                A.tileRecv(i_src, 0, src, layout);
 
-                A.tileGetForWriting(i, 0);
+                A.tileGetForWriting(i, 0, LayoutConvert(layout));
 
                 // Factor tiles, which eliminates local tile A(i, 0).
                 T.tileInsert(i, 0);
                 int64_t l = std::min(A.tileMb(i), A.tileNb(0));
                 tpqrt(l, A(i_src, 0), A(i, 0), T(i, 0));
 
-                T.tileModified(i, 0);// todo: is this needed?
+                T.tileModified(i, 0);
 
                 // Send updated tile back. This rank is done!
                 A.tileSend(i_src, 0, src);

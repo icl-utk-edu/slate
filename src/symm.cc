@@ -60,7 +60,8 @@ namespace specialization {
 /// - bcasts can get ahead of symms by the value of lookahead.
 /// Note A, B, and C are passed by value, so we can transpose if needed
 /// (for side = right) without affecting caller.
-/// @ingroup symm
+/// @ingroup symm_specialization
+///
 template <Target target, typename scalar_t>
 void symm(slate::internal::TargetType<target>,
           Side side,
@@ -80,6 +81,8 @@ void symm(slate::internal::TargetType<target>,
     using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
     // if on right, change to left by transposing A, B, C to get
     // op(C) = op(A)*op(B)
     if (side == Side::Right) {
@@ -108,7 +111,7 @@ void symm(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
-        if (A.uplo_logical() == Uplo::Lower) {
+        if (A.uplo() == Uplo::Lower) {
             // ----------------------------------------
             // Left, Lower/NoTrans or Upper/Trans case
 
@@ -119,13 +122,13 @@ void symm(slate::internal::TargetType<target>,
                 BcastList bcast_list_A;
                 for (int64_t i = 0; i < A.mt(); ++i)
                     bcast_list_A.push_back({i, 0, {C.sub(i, i, 0, C.nt()-1)}});
-                A.template listBcast<target>(bcast_list_A);
+                A.template listBcast<target>(bcast_list_A, layout);
 
                 // broadcast B(0, j) to ranks owning block col C(:, j)
                 BcastList bcast_list_B;
                 for (int64_t j = 0; j < B.nt(); ++j)
                     bcast_list_B.push_back({0, j, {C.sub(0, C.mt()-1, j, j)}});
-                B.template listBcast<target>(bcast_list_B);
+                B.template listBcast<target>(bcast_list_B, layout);
             }
 
             // send next lookahead block cols of A and block rows of B
@@ -144,7 +147,7 @@ void symm(slate::internal::TargetType<target>,
                         bcast_list_A.push_back(
                             {i, k, {C.sub(i, i, 0, C.nt()-1)}});
                     }
-                    A.template listBcast<target>(bcast_list_A);
+                    A.template listBcast<target>(bcast_list_A, layout);
 
                     // broadcast B(k, j) to ranks owning block col C(0:k, j)
                     BcastList bcast_list_B;
@@ -152,7 +155,7 @@ void symm(slate::internal::TargetType<target>,
                         bcast_list_B.push_back(
                             {k, j, {C.sub(0, C.mt()-1, j, j)}});
                     }
-                    B.template listBcast<target>(bcast_list_B);
+                    B.template listBcast<target>(bcast_list_B, layout);
                 }
             }
 
@@ -172,7 +175,8 @@ void symm(slate::internal::TargetType<target>,
                     internal::gemm<target>(
                         alpha, A.sub(1, A.mt()-1, 0, 0),
                                B.sub(0, 0, 0, B.nt()-1),
-                        beta,  C.sub(1, C.mt()-1, 0, C.nt()-1));
+                        beta,  C.sub(1, C.mt()-1, 0, C.nt()-1),
+                        layout);
                 }
             }
 
@@ -195,7 +199,7 @@ void symm(slate::internal::TargetType<target>,
                             bcast_list_A.push_back(
                                 {i, k+lookahead, {C.sub(i, i, 0, C.nt()-1)}});
                         }
-                        A.template listBcast<target>(bcast_list_A);
+                        A.template listBcast<target>(bcast_list_A, layout);
 
                         // broadcast B(k+la, j) to ranks
                         // owning block col C(0:k+la, j)
@@ -204,7 +208,7 @@ void symm(slate::internal::TargetType<target>,
                             bcast_list_B.push_back(
                                 {k+lookahead, j, {C.sub(0, C.mt()-1, j, j)}});
                         }
-                        B.template listBcast<target>(bcast_list_B);
+                        B.template listBcast<target>(bcast_list_B, layout);
                     }
                 }
 
@@ -220,7 +224,8 @@ void symm(slate::internal::TargetType<target>,
                     internal::gemm<target>(
                         alpha,         transpose(Arow_k),
                                        B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0), C.sub(0, k-1, 0, C.nt()-1));
+                        scalar_t(1.0), C.sub(0, k-1, 0, C.nt()-1),
+                        layout);
 
                     internal::symm<Target::HostTask>(
                         Side::Left,
@@ -232,7 +237,8 @@ void symm(slate::internal::TargetType<target>,
                         internal::gemm<target>(
                             alpha,         A.sub(k+1, A.mt()-1, k, k),
                                            B.sub(k, k, 0, B.nt()-1),
-                            scalar_t(1.0), C.sub(k+1, C.mt()-1, 0, C.nt()-1));
+                            scalar_t(1.0), C.sub(k+1, C.mt()-1, 0, C.nt()-1),
+                            layout);
                     }
                 }
             }
@@ -248,13 +254,13 @@ void symm(slate::internal::TargetType<target>,
                 BcastList bcast_list_A;
                 for (int64_t i = 0; i < A.mt(); ++i)
                     bcast_list_A.push_back({0, i, {C.sub(i, i, 0, C.nt()-1)}});
-                A.template listBcast<target>(bcast_list_A);
+                A.template listBcast<target>(bcast_list_A, layout);
 
                 BcastList bcast_list_B;
                 // broadcast B(0, j) to ranks owning block col C(:, j)
                 for (int64_t j = 0; j < B.nt(); ++j)
                     bcast_list_B.push_back({0, j, {C.sub(0, C.mt()-1, j, j)}});
-                B.template listBcast<target>(bcast_list_B);
+                B.template listBcast<target>(bcast_list_B, layout);
             }
 
             // send next lookahead block cols of A and block rows of B
@@ -273,7 +279,7 @@ void symm(slate::internal::TargetType<target>,
                         bcast_list_A.push_back(
                             {k, i, {C.sub(i, i, 0, C.nt()-1)}});
                     }
-                    A.template listBcast<target>(bcast_list_A);
+                    A.template listBcast<target>(bcast_list_A, layout);
 
                     // broadcast B(k, j) to ranks owning block col C(0:k, j)
                     BcastList bcast_list_B;
@@ -281,7 +287,7 @@ void symm(slate::internal::TargetType<target>,
                         bcast_list_B.push_back(
                             {k, j, {C.sub(0, C.mt()-1, j, j)}});
                     }
-                    B.template listBcast<target>(bcast_list_B);
+                    B.template listBcast<target>(bcast_list_B, layout);
                 }
             }
 
@@ -302,7 +308,8 @@ void symm(slate::internal::TargetType<target>,
                     internal::gemm<target>(
                         alpha, transpose(Arow_k),
                                B.sub(0, 0, 0, B.nt()-1),
-                        beta,  C.sub(1, C.mt()-1, 0, C.nt()-1));
+                        beta,  C.sub(1, C.mt()-1, 0, C.nt()-1),
+                        layout);
                 }
             }
 
@@ -325,7 +332,7 @@ void symm(slate::internal::TargetType<target>,
                             bcast_list_A.push_back(
                                 {k+lookahead, i, {C.sub(i, i, 0, C.nt()-1)}});
                         }
-                        A.template listBcast<target>(bcast_list_A);
+                        A.template listBcast<target>(bcast_list_A, layout);
 
                         // broadcast B(k+la, j) to ranks
                         // owning block col C(0:k+la, j)
@@ -334,7 +341,7 @@ void symm(slate::internal::TargetType<target>,
                             bcast_list_B.push_back(
                                 {k+lookahead, j, {C.sub(0, C.mt()-1, j, j)}});
                         }
-                        B.template listBcast<target>(bcast_list_B);
+                        B.template listBcast<target>(bcast_list_B, layout);
                     }
                 }
 
@@ -349,7 +356,8 @@ void symm(slate::internal::TargetType<target>,
                     internal::gemm<target>(
                         alpha,         A.sub(0, k-1, k, k),
                                        B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0), C.sub(0, k-1, 0, C.nt()-1));
+                        scalar_t(1.0), C.sub(0, k-1, 0, C.nt()-1),
+                        layout);
 
                     internal::symm<Target::HostTask>(
                         Side::Left,
@@ -362,7 +370,8 @@ void symm(slate::internal::TargetType<target>,
                         internal::gemm<target>(
                             alpha,         transpose(Arow_k),
                                            B.sub(k, k, 0, B.nt()-1),
-                            scalar_t(1.0), C.sub(k+1, C.mt()-1, 0, C.nt()-1));
+                            scalar_t(1.0), C.sub(k+1, C.mt()-1, 0, C.nt()-1),
+                            layout);
                     }
                 }
             }
@@ -378,7 +387,8 @@ void symm(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup symm
+/// @ingroup symm_specialization
+///
 template <Target target, typename scalar_t>
 void symm(Side side,
           scalar_t alpha, SymmetricMatrix<scalar_t>& A,
@@ -455,6 +465,7 @@ void symm(Side side,
 ///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup symm
+///
 template <typename scalar_t>
 void symm(Side side,
           scalar_t alpha, SymmetricMatrix<scalar_t>& A,

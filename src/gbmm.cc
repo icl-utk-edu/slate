@@ -58,7 +58,10 @@ namespace specialization {
 /// - bcast communications are serialized,
 /// - gemm operations are serialized,
 /// - bcasts can get ahead of gemms by the value of lookahead.
-/// @ingroup gbmm
+/// ColMajor layout is assumed
+///
+/// @ingroup gbmm_specialization
+///
 template <Target target, typename scalar_t>
 void gbmm(slate::internal::TargetType<target>,
           scalar_t alpha, BandMatrix<scalar_t>& A,
@@ -68,6 +71,11 @@ void gbmm(slate::internal::TargetType<target>,
 {
     using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
+
+    // Assumes column major
+    // todo: relax this assumption, by ?
+    //       or pass as parameter
+    const Layout layout = Layout::ColMajor;
 
     const scalar_t one = scalar_t(1.0);
 
@@ -102,13 +110,13 @@ void gbmm(slate::internal::TargetType<target>,
             BcastList bcast_list_A;
             for (int64_t i = i_begin; i < i_end; ++i)
                 bcast_list_A.push_back({i, 0, {C.sub(i, i, 0, C.nt()-1)}});
-            A.template listBcast<target>(bcast_list_A);
+            A.template listBcast<target>(bcast_list_A, layout);
 
             // broadcast B(0, j) to ranks owning block col C(:, j)
             BcastList bcast_list_B;
             for (int64_t j = 0; j < B.nt(); ++j)
                 bcast_list_B.push_back({0, j, {C.sub(i_begin, i_end-1, j, j)}});
-            B.template listBcast<target>(bcast_list_B);
+            B.template listBcast<target>(bcast_list_B, layout);
         }
 
         // send next lookahead block cols of A and block rows of B
@@ -123,13 +131,13 @@ void gbmm(slate::internal::TargetType<target>,
                 BcastList bcast_list_A;
                 for (int64_t i = i_begin; i < i_end; ++i)
                     bcast_list_A.push_back({i, k, {C.sub(i, i, 0, C.nt()-1)}});
-                A.template listBcast<target>(bcast_list_A);
+                A.template listBcast<target>(bcast_list_A, layout);
 
                 // broadcast B(k, j) to ranks owning block col C(:, j)
                 BcastList bcast_list_B;
                 for (int64_t j = 0; j < B.nt(); ++j)
                     bcast_list_B.push_back({k, j, {C.sub(i_begin, i_end-1, j, j)}});
-                B.template listBcast<target>(bcast_list_B);
+                B.template listBcast<target>(bcast_list_B, layout);
             }
         }
 
@@ -143,7 +151,8 @@ void gbmm(slate::internal::TargetType<target>,
             internal::gemm<target>(
                     alpha, A.sub(i_begin, i_end-1, 0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
-                    beta,  C.sub(i_begin, i_end-1, 0, C.nt()-1));
+                    beta,  C.sub(i_begin, i_end-1, 0, C.nt()-1),
+                    layout);
 
             if (beta != one) {
                 // Scale block rows of C below the bandwidth of A:
@@ -154,7 +163,7 @@ void gbmm(slate::internal::TargetType<target>,
                         if (C.tileIsLocal(i, j)) {
                             #pragma omp task shared(C)
                             {
-                                C.tileGetForWriting(i, j);
+                                C.tileGetForWriting(i, j, LayoutConvert(layout));
                                 scale(beta, C(i, j));
                             }
                         }
@@ -181,7 +190,7 @@ void gbmm(slate::internal::TargetType<target>,
                         bcast_list_A.push_back(
                             {i, k+lookahead, {C.sub(i, i, 0, C.nt()-1)}});
                     }
-                    A.template listBcast<target>(bcast_list_A);
+                    A.template listBcast<target>(bcast_list_A, layout);
 
                     // broadcast B(k+la, j) to ranks owning block col C(:, j)
                     BcastList bcast_list_B;
@@ -189,7 +198,7 @@ void gbmm(slate::internal::TargetType<target>,
                         bcast_list_B.push_back(
                             {k+lookahead, j, {C.sub(i_begin, i_end-1, j, j)}});
                     }
-                    B.template listBcast<target>(bcast_list_B);
+                    B.template listBcast<target>(bcast_list_B, layout);
                 }
             }
 
@@ -204,7 +213,8 @@ void gbmm(slate::internal::TargetType<target>,
                 internal::gemm<target>(
                     alpha, A.sub(i_begin, i_end-1, k, k),
                            B.sub(k, k, 0, B.nt()-1),
-                    one,   C.sub(i_begin, i_end-1, 0, C.nt()-1));
+                    one,   C.sub(i_begin, i_end-1, 0, C.nt()-1),
+                    layout);
             }
         }
     }
@@ -218,7 +228,8 @@ void gbmm(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup gbmm
+/// @ingroup gbmm_specialization
+///
 template <Target target, typename scalar_t>
 void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
@@ -288,6 +299,7 @@ void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
 ///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup gbmm
+///
 template <typename scalar_t>
 void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,

@@ -50,10 +50,11 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Distributed parallel multiply by Q from QR factorization.
 /// Generic implementation for any target.
+/// @ingroup geqrf_specialization
+///
 template <Target target, typename scalar_t>
 void unmqr(
     slate::internal::TargetType<target>,
@@ -65,6 +66,9 @@ void unmqr(
     // trace::Block trace_block("unmqr");
     // const int priority_one = 1;
     using BcastList = typename Matrix<scalar_t>::BcastList;
+
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
 
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
@@ -150,8 +154,8 @@ void unmqr(
                             else
                                 bcast_list_V.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
                         }
-                        A.template listBcast(bcast_list_V_top, 0, Layout::ColMajor, 3);// TODO is column major safe?
-                        A.template listBcast(bcast_list_V, 0, Layout::ColMajor, 2);
+                        A.template listBcast(bcast_list_V_top, layout, 0, 3);
+                        A.template listBcast(bcast_list_V, layout, 0, 2);
 
                         // bcast Tlocal across row of C
                         if (top_rows.size() > 0) {
@@ -160,7 +164,7 @@ void unmqr(
                                 int64_t row = *it;
                                 bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
                             }
-                            Tlocal.template listBcast(bcast_list_T);
+                            Tlocal.template listBcast(bcast_list_T, layout);
                         }
 
                         // bcast Treduce across row of C
@@ -171,7 +175,7 @@ void unmqr(
                                 if (row > min_row) // exclude the first row of this panel that has no Treduce tile
                                     bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
                             }
-                            Treduce.template listBcast(bcast_list_T);
+                            Treduce.template listBcast(bcast_list_T, layout);
                         }
 
                         // //
@@ -249,8 +253,8 @@ void unmqr(
                             else
                                 bcast_list_V.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
                         }
-                        A.template listBcast(bcast_list_V_top, 0, Layout::ColMajor, 3);// TODO is column major safe?
-                        A.template listBcast(bcast_list_V, 0, Layout::ColMajor, 2);
+                        A.template listBcast(bcast_list_V_top, layout, 0, 3);
+                        A.template listBcast(bcast_list_V, layout, 0, 2);
 
                         // bcast Tlocal across row of C
                         BcastList bcast_list_T;
@@ -258,7 +262,7 @@ void unmqr(
                             int64_t row = *it;
                             bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
                         }
-                        Tlocal.template listBcast(bcast_list_T);
+                        Tlocal.template listBcast(bcast_list_T, layout);
 
                         // bcast Treduce across row of C
                         if (top_rows.size() > 1) {
@@ -268,7 +272,7 @@ void unmqr(
                                 if (row > min_row) // exclude the first row of this panel that has no Treduce tile
                                     bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
                             }
-                            Treduce.template listBcast(bcast_list_T);
+                            Treduce.template listBcast(bcast_list_T, layout);
                         }
 
                         // Apply local reflectors
@@ -303,7 +307,8 @@ void unmqr(
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup gesv_comp
+/// @ingroup geqrf_specialization
+///
 template <Target target, typename scalar_t>
 void unmqr(
     Side side, Op op,
@@ -317,7 +322,60 @@ void unmqr(
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel multiply by Q from QR factorization.
+/// Distributed parallel multiply by $Q$ from QR factorization.
+///
+/// Multiplies the general m-by-n matrix $C$ by $Q$ from QR factorization,
+/// according to:
+///
+/// op              |  side = Left  |  side = Right
+/// --------------- | ------------- | --------------
+/// op = NoTrans    |  $Q C  $      |  $C Q  $
+/// op = ConjTrans  |  $Q^H C$      |  $C Q^H$
+///
+/// where $Q$ is a unitary matrix defined as the product of k
+/// elementary reflectors
+/// \[
+///     Q = H(1) H(2) . . . H(k)
+/// \]
+/// as returned by geqrf. $Q$ is of order m if side = Left
+/// and of order n if side = Right.
+///
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///     One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in] side
+///     - Side::Left:  apply $Q$ or $Q^H$ from the left;
+///     - Side::Right: apply $Q$ or $Q^H$ from the right.
+///
+/// @param[in] op
+///     - Op::NoTrans    apply $Q$;
+///     - Op::ConjTrans: apply $Q^H$;
+///     - Op::Trans:     apply $Q^T$ (only if real).
+///       In the real case, Op::Trans is equivalent to Op::ConjTrans.
+///       In the complex case, Op::Trans is not allowed.
+///
+/// @param[in] A
+///     Details of the QR factorization of the original matrix $A$ as returned
+///     by geqrf.
+///
+/// @param[in] T
+///     Triangular matrices of the block reflectors as returned by geqrf.
+///
+/// @param[in,out] C
+///     On entry, the m-by-n matrix $C$.
+///     On exit, $C$ is overwritten by $Q C$, $Q^H C$, $C Q$, or $C Q^H$.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
+/// @ingroup geqrf_computational
 ///
 template <typename scalar_t>
 void unmqr(

@@ -14,6 +14,8 @@
 #                   GNU conventions. Auto-detected if CXX=icpc or on MacOS.
 #   mkl_threaded=1  for multi-threaded Intel MKL.
 #   ilp64=1         for ILP64. Currently only with Intel MKL.
+#   openmpi=1       for OpenMPI BLACS.
+#   intelmpi=1      for Intel MPI BLACS (default).
 # essl=1          for IBM ESSL.
 # openblas=1      for OpenBLAS.
 #
@@ -23,15 +25,15 @@
 #                 otherwise shared library (libslate.so).
 #
 # cuda_arch="ARCH" for CUDA architectures, where ARCH is one or more of:
-#                     kepler maxwell pascal volta sm_XX
+#                     kepler maxwell pascal volta turing sm_XX
 #                  and sm_XX is a CUDA architecture (see nvcc -h).
 
 -include make.inc
 
 NVCC ?= nvcc
 
-CXXFLAGS += -O3 -std=c++11 -Wall -pedantic -MMD
-NVCCFLAGS += -O3 --compiler-options '-Wall -Wno-unused-function'
+CXXFLAGS  += -O3 -std=c++11 -Wall -pedantic -MMD
+NVCCFLAGS += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
 
 # auto-detect OS
 # $OSTYPE may not be exported from the shell, so echo it
@@ -125,12 +127,21 @@ ifeq ($(mkl),1)
 
     LIBS += -lmkl_core -lpthread -lm -ldl
 
-    # MKL on MacOS doesn't include ScaLAPACK; use default
+    # MKL on MacOS doesn't include ScaLAPACK; use default.
+    # For others, link with appropriate version of ScaLAPACK and BLACS.
     ifneq ($(macos),1)
-        ifeq ($(ilp64),1)
-            scalapack = -lmkl_scalapack_ilp64 -lmkl_blacs_intelmpi_ilp64
+        ifeq ($(openmpi),1)
+            ifeq ($(ilp64),1)
+                scalapack = -lmkl_scalapack_ilp64 -lmkl_blacs_openmpi_ilp64
+            else
+                scalapack = -lmkl_scalapack_lp64 -lmkl_blacs_openmpi_lp64
+            endif
         else
-            scalapack = -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64
+            ifeq ($(ilp64),1)
+                scalapack = -lmkl_scalapack_ilp64 -lmkl_blacs_intelmpi_ilp64
+            else
+                scalapack = -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64
+            endif
         endif
     endif
 # if ESSL
@@ -170,9 +181,12 @@ endif
 ifneq ($(findstring volta, $(cuda_arch_)),)
     cuda_arch_ += sm_70
 endif
+ifneq ($(findstring turing, $(cuda_arch_)),)
+    cuda_arch_ += sm_75
+endif
 
 # CUDA architectures that nvcc supports
-sms = 30 32 35 37 50 52 53 60 61 62 70 72
+sms = 30 32 35 37 50 52 53 60 61 62 70 72 75
 
 # code=sm_XX is binary, code=compute_XX is PTX
 gencode_sm      = -gencode arch=compute_$(sm),code=sm_$(sm)

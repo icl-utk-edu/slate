@@ -50,15 +50,19 @@
 
 #include "slate/types.hh"
 
+//------------------------------------------------------------------------------
+/// @namespace slate
+/// SLATE's top-level namespace.
+///
 namespace slate {
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Auxiliary
 template <typename src_matrix_type, typename dst_matrix_type>
 void copy(src_matrix_type& A, dst_matrix_type& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Level 3 BLAS
 
 //-----------------------------------------
@@ -332,7 +336,7 @@ void colNorms(Norm norm, matrix_type& A,
               blas::real_type<typename matrix_type::value_type>* values,
               const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Factorizations, etc.
 
 //------------------------------------------------------------------------------

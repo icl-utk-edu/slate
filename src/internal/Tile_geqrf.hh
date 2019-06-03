@@ -58,35 +58,36 @@ namespace slate {
 namespace internal {
 // todo: Perhaps we should put all Tile routines in "internal".
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Compute the QR factorization of a panel.
 ///
-/// \param[in] diag_len
+/// @param[in] diag_len
 ///     length of the panel diagonal
 ///
-/// \param[in] ib
+/// @param[in] ib
 ///     internal blocking in the panel
 ///
-/// \param[inout] tiles
+/// @param[inout] tiles
 ///     local tiles in the panel
 ///
-/// \param[in] tile_indices
+/// @param[in] tile_indices
 ///     i indices of the tiles in the panel
 ///
-/// \param[out] T
+/// @param[out] T
 ///     upper triangular factor of the block reflector
 ///
-/// \param[in] thread_rank
+/// @param[in] thread_rank
 ///     rank of this thread
 ///
-/// \param[in] thread_size
+/// @param[in] thread_size
 ///     number of local threads
 ///
-/// \param[in] thread_barrier
+/// @param[in] thread_barrier
 ///     barrier for synchronizing local threads
 ///
 /// todo: add missing params
+///
+/// @ingroup geqrf_tile
 ///
 template <typename scalar_t>
 void geqrf(

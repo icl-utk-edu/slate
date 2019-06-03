@@ -53,8 +53,7 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Symmetric matrix multiply to update trailing matrix,
 /// where A is a single tile.
 /// If side = left,  B and C are each a single block row;
@@ -62,6 +61,8 @@ namespace internal {
 /// Unlike most BLAS operations, here op(B) and op(C) must be
 /// both the same, either both NoTrans or both Trans.
 /// Dispatches to target implementations.
+/// @ingroup symm_internal
+///
 template <Target target, typename scalar_t>
 void symm(Side side,
           scalar_t alpha, SymmetricMatrix<scalar_t>&& A,
@@ -92,10 +93,11 @@ void symm(Side side,
          priority);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Symmetric matrix multiply to update trailing matrix.
 /// Host OpenMP task implementation.
+/// @ingroup symm_internal
+///
 template <typename scalar_t>
 void symm(internal::TargetType<Target::HostTask>,
           Side side,
@@ -104,6 +106,12 @@ void symm(internal::TargetType<Target::HostTask>,
           scalar_t beta,  Matrix<scalar_t>& C,
           int priority)
 {
+    // CPU assumes column major
+    // todo: relax this assumption, by allowing Tile_blas.hh::symm() to take layout param
+    // todo: optimize for the number of layout conversions,
+    //       by watching 'layout' and 'C(i, j).layout()'
+    const Layout layout = Layout::ColMajor;
+
     int err = 0;
     if (side == Side::Left) {
         for (int64_t j = 0; j < C.nt(); ++j) {
@@ -111,9 +119,9 @@ void symm(internal::TargetType<Target::HostTask>,
                 #pragma omp task shared(A, B, C, err) priority(priority)
                 {
                     try {
-                        A.tileGetForReading(0, 0);
-                        B.tileGetForReading(0, j);
-                        C.tileGetForWriting(0, j);
+                        A.tileGetForReading(0, 0, LayoutConvert(layout));
+                        B.tileGetForReading(0, j, LayoutConvert(layout));
+                        C.tileGetForWriting(0, j, LayoutConvert(layout));
                         symm(side,
                              alpha, A(0, 0),
                                     B(0, j),
@@ -136,9 +144,9 @@ void symm(internal::TargetType<Target::HostTask>,
                 #pragma omp task shared(A, B, C, err) priority(priority)
                 {
                     try {
-                        A.tileGetForReading(0, 0);
-                        B.tileGetForReading(i, 0);
-                        C.tileGetForWriting(i, 0);
+                        A.tileGetForReading(0, 0, LayoutConvert(layout));
+                        B.tileGetForReading(i, 0, LayoutConvert(layout));
+                        C.tileGetForWriting(i, 0, LayoutConvert(layout));
                         symm(side,
                              alpha, A(0, 0),
                                     B(i, 0),
@@ -161,10 +169,11 @@ void symm(internal::TargetType<Target::HostTask>,
         throw std::exception();
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Symmetric matrix multiply to update trailing matrix.
 /// Host nested OpenMP implementation.
+/// @ingroup symm_internal
+///
 template <typename scalar_t>
 void symm(internal::TargetType<Target::HostNest>,
           Side side,
@@ -173,15 +182,21 @@ void symm(internal::TargetType<Target::HostNest>,
           scalar_t beta,  Matrix<scalar_t>& C,
           int priority)
 {
+    // CPU assumes column major
+    // todo: relax this assumption, by allowing Tile_blas.hh::symm() to take layout param
+    // todo: optimize for the number of layout conversions,
+    //       by watching 'layout' and 'C(i, j).layout()'
+    const Layout layout = Layout::ColMajor;
+
     int err = 0;
     if (side == Side::Left) {
         #pragma omp parallel for schedule(dynamic, 1) shared(err)
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(0, j)) {
                 try {
-                    A.tileGetForReading(0, 0);
-                    B.tileGetForReading(0, j);
-                    C.tileGetForWriting(0, j);
+                    A.tileGetForReading(0, 0, LayoutConvert(layout));
+                    B.tileGetForReading(0, j, LayoutConvert(layout));
+                    C.tileGetForWriting(0, j, LayoutConvert(layout));
                     symm(side,
                          alpha, A(0, 0),
                                 B(0, j),
@@ -204,9 +219,9 @@ void symm(internal::TargetType<Target::HostNest>,
                 #pragma omp task shared(A, B, C, err) priority(priority)
                 {
                     try {
-                        A.tileGetForReading(0, 0);
-                        B.tileGetForReading(i, 0);
-                        C.tileGetForWriting(i, 0);
+                        A.tileGetForReading(0, 0, LayoutConvert(layout));
+                        B.tileGetForReading(i, 0, LayoutConvert(layout));
+                        C.tileGetForWriting(i, 0, LayoutConvert(layout));
                         symm(side,
                              alpha, A(0, 0),
                                     B(i, 0),

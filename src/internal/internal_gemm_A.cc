@@ -52,14 +52,15 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// General matrix multiply for a left-looking update,
 /// where B and C are single block columns.
 /// Dispatches to target implementations.
 /// In the complex case,
 /// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conj_transpose;
 /// if $op(C)$ is conj_transpose, then $op(A)$ and $op(B)$ cannot be transpose.
+/// @ingroup gemm_internal
+///
 template <Target target, typename scalar_t>
 void gemm_A(scalar_t alpha, Matrix<scalar_t>&& A,
                             Matrix<scalar_t>&& B,
@@ -82,11 +83,12 @@ void gemm_A(scalar_t alpha, Matrix<scalar_t>&& A,
            priority);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// General matrix multiply for a left-looking update,
 /// where B and C are single block columns.
 /// Host OpenMP task implementation.
+/// @ingroup gemm_internal
+///
 template <typename scalar_t>
 void gemm_A(internal::TargetType<Target::HostTask>,
             scalar_t alpha, Matrix<scalar_t>& A,
@@ -94,6 +96,9 @@ void gemm_A(internal::TargetType<Target::HostTask>,
             scalar_t beta,  Matrix<scalar_t>& C,
             int priority)
 {
+    // todo: relax this assumption, and optimize, check internal::gemm
+    const Layout layout = Layout::ColMajor;
+
     // check dimensions
     assert(B.nt() == 1);
     assert(C.nt() == 1);
@@ -107,11 +112,11 @@ void gemm_A(internal::TargetType<Target::HostTask>,
                 #pragma omp task shared(A, B, C, err) priority(priority)
                 {
                     try {
-                        A.tileGetForReading(i, j);
-                        B.tileGetForReading(j, 0);
+                        A.tileGetForReading(i, j, LayoutConvert(layout));
+                        B.tileGetForReading(j, 0, LayoutConvert(layout));
 
                         if (C.tileIsLocal(i, 0)) {
-                            C.tileGetForWriting(i, 0);
+                            C.tileGetForWriting(i, 0, LayoutConvert(layout));
                         }
                         else {
                             #pragma omp critical

@@ -66,6 +66,9 @@ namespace slate {
 ///
 template <typename scalar_t>
 class BaseTrapezoidMatrix: public BaseMatrix<scalar_t> {
+public:
+    using ij_tuple = std::tuple<int64_t, int64_t>;
+
 protected:
     // constructors
     BaseTrapezoidMatrix();
@@ -80,17 +83,17 @@ protected:
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
 
     // used by sub-classes' fromLAPACK
-    BaseTrapezoidMatrix(Uplo in_uplo, int64_t m, int64_t n,
+    BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
                         scalar_t* A, int64_t lda, int64_t nb,
                         int p, int q, MPI_Comm mpi_comm);
 
     // used by sub-classes' fromScaLAPACK
-    BaseTrapezoidMatrix(Uplo in_uplo, int64_t m, int64_t n,
+    BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
                         scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
                         int p, int q, MPI_Comm mpi_comm);
 
     // used by sub-classes' fromDevices
-    BaseTrapezoidMatrix(Uplo in_uplo, int64_t m, int64_t n,
+    BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
                         scalar_t** Aarray, int num_devices, int64_t lda,
                         int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
@@ -114,20 +117,20 @@ public:
     void reserveHostWorkspace();
     void reserveDeviceWorkspace();
     void gather(scalar_t* A, int64_t lda);
-    Uplo uplo() const;
-    Uplo uplo_logical() const;
+    Uplo uplo_logical() const { return this->uploLogical(); }  ///< @deprecated
     void insertLocalTiles(Target origin=Target::Host);
     void insertLocalTiles(bool on_devices);
 
-    void tileGetAllForReading(int device=hostNum());
-    void tileGetAllForReadingOnDevices();
-    void tileGetAllForWriting(int device=hostNum());
-    void tileGetAllForWritingOnDevices();
-    void tileGetAndHoldAll(int device=hostNum());
-    void tileGetAndHoldAllOnDevices();
+    void tileGetAllForReading(int device, LayoutConvert layout);
+    void tileGetAllForReadingOnDevices(LayoutConvert layout);
+    void tileGetAllForWriting(int device, LayoutConvert layout);
+    void tileGetAllForWritingOnDevices(LayoutConvert layout);
+    void tileGetAndHoldAll(int device, LayoutConvert layout);
+    void tileGetAndHoldAllOnDevices(LayoutConvert layout);
     void tileUnsetHoldAll(int device=hostNum());
     void tileUnsetHoldAllOnDevices();
     void tileUpdateAllOrigin();
+    void tileLayoutReset();
     int  hostNum()  const { return this->host_num_; }
 };
 
@@ -150,6 +153,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     Uplo uplo, int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
     : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
 {
+    slate_error_if(uplo == Uplo::General);
     this->uplo_ = uplo;
 }
 
@@ -164,7 +168,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 /// dimension (column stride) lda >= m, that is replicated across all nodes.
 /// Matrix gets tiled with square nb-by-nb tiles.
 ///
-/// @param[in] in_uplo
+/// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
 ///     - Lower: lower triangle of A is stored.
 ///
@@ -195,16 +199,17 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 ///
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
-    Uplo in_uplo, int64_t m, int64_t n,
+    Uplo uplo, int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
     : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
 {
-    this->uplo_ = in_uplo;
+    slate_error_if(uplo == Uplo::General);
+    this->uplo_ = uplo;
 
     // ii, jj are row, col indices
     // i, j are tile (block row, block col) indices
-    if (uplo() == Uplo::Lower) {
+    if (this->uplo() == Uplo::Lower) {
         int64_t jj = 0;
         for (int64_t j = 0; j < this->nt(); ++j) {
             int64_t jb = this->tileNb(j);
@@ -286,17 +291,18 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 ///
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
-    Uplo in_uplo, int64_t m, int64_t n,
+    Uplo uplo, int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
     : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
 {
     assert(mb == nb);
-    this->uplo_ = in_uplo;
+    slate_error_if(uplo == Uplo::General);
+    this->uplo_ = uplo;
 
     // ii, jj are row, col indices
     // i, j are tile (block row, block col) indices
-    if (uplo() == Uplo::Lower) {
+    if (this->uplo() == Uplo::Lower) {
         int64_t jj = 0;
         for (int64_t j = 0; j < this->nt(); ++j) {
             int64_t jb = this->tileNb(j);
@@ -376,14 +382,14 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 ///
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
-    Uplo in_uplo, int64_t m, int64_t n,
+    Uplo uplo, int64_t m, int64_t n,
     scalar_t** Aarray, int num_devices, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
     : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
 {
     slate_error_if(this->num_devices() != num_devices);
-
-    this->uplo_ = in_uplo;
+    slate_error_if(uplo == Uplo::General);
+    this->uplo_ = uplo;
 
     // ii, jj are row, col indices
     // ii_local and jj_local are the local array indices in a
@@ -391,7 +397,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     // jj_dev is the local array index for the current device in a
     // 1D block-cyclic layout within a node.
     // i, j are tile (block row, block col) indices
-    if (uplo() == Uplo::Lower) {
+    if (this->uplo() == Uplo::Lower) {
         int64_t jj = 0;
         for (int64_t j = 0; j < this->nt(); ++j) {
             int64_t jb = this->tileNb(j);
@@ -455,6 +461,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     Uplo uplo, Matrix<scalar_t>& orig)
     : BaseMatrix<scalar_t>(orig)
 {
+    slate_error_if(uplo == Uplo::General);
     this->uplo_ = uplo;
 }
 
@@ -488,6 +495,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     int64_t j1, int64_t j2)
     : BaseMatrix<scalar_t>(orig, i1, i2, j1, j2)
 {
+    slate_error_if(uplo == Uplo::General);
     this->uplo_ = uplo;
 }
 
@@ -549,7 +557,7 @@ template <typename scalar_t>
 int64_t BaseTrapezoidMatrix<scalar_t>::getMaxHostTiles()
 {
     int64_t num_tiles = 0;
-    if (this->uplo_logical() == Uplo::Lower) {
+    if (this->uplo() == Uplo::Lower) {
         for (int64_t j = 0; j < this->nt(); ++j)
             for (int64_t i = j; i < this->mt(); ++i)  // lower
                 if (this->tileIsLocal(i, j))
@@ -572,7 +580,7 @@ template <typename scalar_t>
 int64_t BaseTrapezoidMatrix<scalar_t>::getMaxDeviceTiles(int device)
 {
     int64_t num_tiles = 0;
-    if (this->uplo_logical() == Uplo::Lower) {
+    if (this->uplo() == Uplo::Lower) {
         for (int64_t j = 0; j < this->nt(); ++j)
             for (int64_t i = j; i < this->mt(); ++i)  // lower
                 if (this->tileIsLocal(i, j) && this->tileDevice(i, j) == device)
@@ -638,8 +646,8 @@ void BaseTrapezoidMatrix<scalar_t>::gather(scalar_t* A, int64_t lda)
         for (int64_t i = 0; i < this->mt(); ++i) {
             int64_t ib = this->tileMb(i);
 
-            if ((uplo() == Uplo::Lower && i >= j) ||
-                (uplo() == Uplo::Upper && i <= j)) {
+            if ((this->uplo() == Uplo::Lower && i >= j) ||
+                (this->uplo() == Uplo::Upper && i <= j)) {
                 if (this->mpi_rank_ == 0) {
                     if (! this->tileIsLocal(i, j)) {
                         // erase any existing non-local tile and insert new one
@@ -647,10 +655,11 @@ void BaseTrapezoidMatrix<scalar_t>::gather(scalar_t* A, int64_t lda)
                         this->tileInsert(i, j, this->host_num_,
                                          &A[(size_t)lda*jj + ii], lda);
                         auto Aij = this->at(i, j);
-                        Aij.recv(this->tileRank(i, j), this->mpi_comm_);
+                        Aij.recv(this->tileRank(i, j), this->mpi_comm_, this->layout());
+                        tileLayout(i, j, this->layout_);
                     }
                     else {
-                        this->tileGetForReading(i, j);
+                        this->tileGetForReading(i, j, LayoutConvert(this->layout()));
                         // copy local tiles if needed.
                         auto Aij = this->at(i, j);
                         if (Aij.data() != &A[(size_t)lda*jj + ii]) {
@@ -661,7 +670,7 @@ void BaseTrapezoidMatrix<scalar_t>::gather(scalar_t* A, int64_t lda)
                     }
                 }
                 else if (this->tileIsLocal(i, j)) {
-                    this->tileGetForReading(i, j);
+                    this->tileGetForReading(i, j, LayoutConvert(this->layout()));
                     auto Aij = this->at(i, j);
                     Aij.send(0, this->mpi_comm_);
                 }
@@ -685,7 +694,7 @@ template <typename scalar_t>
 Matrix<scalar_t> BaseTrapezoidMatrix<scalar_t>::sub(
     int64_t i1, int64_t i2, int64_t j1, int64_t j2)
 {
-    if (this->uplo_logical() == Uplo::Lower) {
+    if (this->uplo() == Uplo::Lower) {
         // require top-right corner (i1, j2) to be at or below diagonal
         if (i1 < j2)
             slate_error("submatrix outside lower triangle; requires i1 >= j2");
@@ -699,35 +708,8 @@ Matrix<scalar_t> BaseTrapezoidMatrix<scalar_t>::sub(
 }
 
 //------------------------------------------------------------------------------
-/// Returns whether A is physically Lower or Upper storage,
-///         ignoring the transposition operation.
-/// @see uplo_logical()
-///
-template <typename scalar_t>
-Uplo BaseTrapezoidMatrix<scalar_t>::uplo() const
-{
-    return this->uplo_;
-}
-
-//------------------------------------------------------------------------------
-/// Returns whether op(A) is logically Lower or Upper storage,
-///         taking the transposition operation into account.
-/// @see uplo()
-///
-template <typename scalar_t>
-Uplo BaseTrapezoidMatrix<scalar_t>::uplo_logical() const
-{
-    if ((this->uplo() == Uplo::Lower && this->op() == Op::NoTrans) ||
-        (this->uplo() == Uplo::Upper && this->op() != Op::NoTrans))
-        return Uplo::Lower;
-    else
-        return Uplo::Upper;
-}
-
-//------------------------------------------------------------------------------
 /// Move all tiles back to their origin.
 //
-// todo: currently assumes origin == host.
 template <typename scalar_t>
 void BaseTrapezoidMatrix<scalar_t>::tileUpdateAllOrigin()
 {
@@ -784,112 +766,187 @@ void BaseTrapezoidMatrix<scalar_t>::insertLocalTiles(bool on_devices)
 
 //------------------------------------------------------------------------------
 /// Gets all local tiles for reading on device.
+/// @see tileGetForReading.
 ///
 /// @param[in] device
 ///     Tile's destination: host or device ID, defaults to host.
 ///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
 template <typename scalar_t>
-void BaseTrapezoidMatrix<scalar_t>::tileGetAllForReading(int device)
+void BaseTrapezoidMatrix<scalar_t>::tileGetAllForReading(int device, LayoutConvert layout)
 {
+    std::set<ij_tuple> tiles_set;
     int64_t mt = this->mt();
     for (int64_t j = 0; j < this->nt(); ++j) {
         int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);
         int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
         for (int64_t i = istart; i < iend; ++i) {
-            if (this->tileIsLocal(i, j))
-                this->tileGetForReading(i, j, device);
+            if (this->tileIsLocal(i, j)) {
+                tiles_set.insert({i, j});
+            }
         }
     }
+
+    this->tileGetForReading(tiles_set, device, layout);
 }
 
 //------------------------------------------------------------------------------
 /// Gets all local tiles for writing on device.
+/// @see tileGetForWriting.
 ///
 /// @param[in] device
 ///     Tile's destination: host or device ID, defaults to host.
 ///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
 template <typename scalar_t>
-void BaseTrapezoidMatrix<scalar_t>::tileGetAllForWriting(int device)
+void BaseTrapezoidMatrix<scalar_t>::tileGetAllForWriting(int device, LayoutConvert layout)
 {
+    std::set<ij_tuple> tiles_set;
     int64_t mt = this->mt();
     for (int64_t j = 0; j < this->nt(); ++j) {
         int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);
         int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
         for (int64_t i = istart; i < iend; ++i) {
-            if (this->tileIsLocal(i, j))
-                this->tileGetForWriting(i, j, device);
+            if (this->tileIsLocal(i, j)) {
+                tiles_set.insert({i, j});
+            }
         }
     }
+
+    this->tileGetForWriting(tiles_set, device, layout);
 }
 
 //------------------------------------------------------------------------------
-/// Gets all local tiles on device and marks them as OnHold.
+/// Gets all local tiles on device and marks them as MOSI::OnHold.
+/// @see tileGetAndHold.
 ///
 /// @param[in] device
 ///     Tile's destination: host or device ID, defaults to host.
 ///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
 template <typename scalar_t>
-void BaseTrapezoidMatrix<scalar_t>::tileGetAndHoldAll(int device)
+void BaseTrapezoidMatrix<scalar_t>::tileGetAndHoldAll(int device, LayoutConvert layout)
 {
+    std::set<ij_tuple> tiles_set;
     int64_t mt = this->mt();
     for (int64_t j = 0; j < this->nt(); ++j) {
         int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);
         int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
         for (int64_t i = istart; i < iend; ++i) {
-            if (this->tileIsLocal(i, j))
-                this->tileGetAndHold(i, j, device);
+            if (this->tileIsLocal(i, j)) {
+                tiles_set.insert({i, j});
+            }
         }
     }
+
+    this->tileGetAndHold(tiles_set, layout, device);
 }
 
 //------------------------------------------------------------------------------
 /// Gets all local tiles for reading on corresponding devices.
+/// @see tileGetForReading.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
 ///
 template <typename scalar_t>
-void BaseTrapezoidMatrix<scalar_t>::tileGetAllForReadingOnDevices()
+void BaseTrapezoidMatrix<scalar_t>::tileGetAllForReadingOnDevices(LayoutConvert layout)
 {
+    std::vector< std::set<ij_tuple> > tiles_set(this->num_devices());
     int64_t mt = this->mt();
     for (int64_t j = 0; j < this->nt(); ++j) {
         int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);
         int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
         for (int64_t i = istart; i < iend; ++i) {
-            if (this->tileIsLocal(i, j))
-                this->tileGetForReading(i, j, this->tileDevice(i, j));
+            if (this->tileIsLocal(i, j)) {
+                tiles_set[this->tileDevice(i, j)].insert({i, j});
+            }
         }
+    }
+
+    // todo: omp parallel for?
+    for (int d = 0; d < this->num_devices(); ++d) {
+        this->tileGetForReading(tiles_set[d], d, layout);
     }
 }
 
 //------------------------------------------------------------------------------
-/// Gets all local tiles for reading on corresponding devices.
+/// Gets all local tiles for writing on corresponding devices.
+/// @see tileGetForWriting.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
 ///
 template <typename scalar_t>
-void BaseTrapezoidMatrix<scalar_t>::tileGetAllForWritingOnDevices()
+void BaseTrapezoidMatrix<scalar_t>::tileGetAllForWritingOnDevices(LayoutConvert layout)
 {
+    std::vector< std::set<ij_tuple> > tiles_set(this->num_devices());
     int64_t mt = this->mt();
     for (int64_t j = 0; j < this->nt(); ++j) {
         int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);
         int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
         for (int64_t i = istart; i < iend; ++i) {
-            if (this->tileIsLocal(i, j))
-                this->tileGetForWriting(i, j, this->tileDevice(i, j));
+            if (this->tileIsLocal(i, j)) {
+                tiles_set[this->tileDevice(i, j)].insert({i, j});
+            }
         }
+    }
+
+    // todo: omp parallel for?
+    for (int d = 0; d < this->num_devices(); ++d) {
+        this->tileGetForWriting(tiles_set[d], d, layout);
     }
 }
 
 //------------------------------------------------------------------------------
-/// Gets all local tiles on corresponding devices and marks them as OnHold.
+/// Gets all local tiles on corresponding devices and marks them as MOSI::OnHold.
+/// @see tileGetAndHold.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
 //
 template <typename scalar_t>
-void BaseTrapezoidMatrix<scalar_t>::tileGetAndHoldAllOnDevices()
+void BaseTrapezoidMatrix<scalar_t>::tileGetAndHoldAllOnDevices(LayoutConvert layout)
 {
+    std::vector< std::set<ij_tuple> > tiles_set(this->num_devices());
     int64_t mt = this->mt();
     for (int64_t j = 0; j < this->nt(); ++j) {
         int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);
         int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
         for (int64_t i = istart; i < iend; ++i) {
-            if (this->tileIsLocal(i, j))
-                this->tileGetAndHold(i, j, this->tileDevice(i, j));
+            if (this->tileIsLocal(i, j)) {
+                tiles_set[this->tileDevice(i, j)].insert({i, j});
+            }
         }
+    }
+
+    // todo: omp parallel for?
+    for (int d = 0; d < this->num_devices(); ++d) {
+        this->tileGetAndHold(tiles_set[d], d, layout);
     }
 }
 
@@ -926,6 +983,49 @@ void BaseTrapezoidMatrix<scalar_t>::tileUnsetHoldAllOnDevices()
         for (int64_t i = istart; i < iend; ++i) {
             if (this->tileIsLocal(i, j))
                 this->tileUnsetHold(i, j, this->tileDevice(i, j));
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Converts all origin tiles into current matrix-layout.
+/// Operates in batch mode.
+///
+template <typename scalar_t>
+void BaseTrapezoidMatrix<scalar_t>::tileLayoutReset()
+{
+    std::set<ij_tuple> tiles_set_host;
+    std::vector< std::set<ij_tuple> > tiles_set_dev(this->num_devices());
+
+    int64_t mt = this->mt();
+    for (int64_t j = 0; j < this->nt(); ++j) {
+        int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);
+        int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
+        for (int64_t i = istart; i < iend; ++i) {
+            if (this->tileIsLocal(i, j)) {
+
+                auto tile = this->tileUpdateOrigin(i, j);
+                if (tile->layout() != this->layout() ) {
+                    assert(tile->isTransposable());
+                }
+
+                if (tile->device() == hostNum()) {
+                    tiles_set_host.insert({i, j});
+                }
+                else{
+                    tiles_set_dev[tile->device()].insert({i, j});
+                }
+            }
+        }
+    }
+
+    if (! tiles_set_host.empty()) {
+        this->tileLayoutReset(tiles_set_host, hostNum(), this->layout());
+    }
+    // todo: omp tasks?
+    for (int d = 0; d < this->num_devices(); ++d) {
+        if (! tiles_set_dev[d].empty()) {
+            this->tileLayoutReset(tiles_set_dev[d], d, this->layout());
         }
     }
 }

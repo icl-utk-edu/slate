@@ -43,6 +43,7 @@
 #include "slate/internal/util.hh"
 #include "slate/Matrix.hh"
 #include "slate/Tile_blas.hh"
+#include "slate/Tile_aux.hh"
 #include "slate/types.hh"
 
 namespace slate {
@@ -151,10 +152,11 @@ void gecopy(
 
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Copy and precision conversion.
 /// Dispatches to target implementations.
+/// @ingroup copy_internal
+///
 template <Target target, typename src_scalar_t, typename dst_scalar_t>
 void copy(Matrix<src_scalar_t>&& A,
           Matrix<dst_scalar_t>&& B,
@@ -165,12 +167,13 @@ void copy(Matrix<src_scalar_t>&& A,
          priority);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Copy and precision conversion.
 /// assumes A & B have same tile layout and dimensions, and have same distribution
 /// TODO handle transpose A case
 /// Host OpenMP task implementation.
+/// @ingroup copy_internal
+///
 template <typename src_scalar_t, typename dst_scalar_t>
 void copy(internal::TargetType<Target::HostTask>,
           Matrix<src_scalar_t>& A,
@@ -189,9 +192,10 @@ void copy(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(i, j)) {
                 #pragma omp task shared(A, B) priority(priority)
                 {
-                    A.tileGetForReading(i, j);
-                    B.tileGetForWriting(i, j);
+                    A.tileGetForReading(i, j, LayoutConvert::None);
+                    B.tileGetForWriting(i, j, LayoutConvert::None);
                     gecopy(A(i, j), B(i, j));
+                    B.tileLayout(i, j, A.tileLayout(i, j));
                     A.tileTick(i, j);// TODO is this correct here?
                 }
             }
@@ -201,12 +205,13 @@ void copy(internal::TargetType<Target::HostTask>,
     #pragma omp taskwait
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Copy and precision conversion.
 /// assumes A & B have same tile layout and dimensions, and have same distribution
 /// TODO: Inspect transposition?
 /// GPU device implementation.
+/// @ingroup copy_internal
+///
 template <typename src_scalar_t, typename dst_scalar_t>
 void copy(internal::TargetType<Target::Devices>,
           Matrix<src_scalar_t>& A,
@@ -229,17 +234,20 @@ void copy(internal::TargetType<Target::Devices>,
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task shared(A, B) priority(priority)
         {
-            for (int64_t i = 0; i < B.mt(); ++i)
-                for (int64_t j = 0; j < B.nt(); ++j)
+            for (int64_t i = 0; i < B.mt(); ++i) {
+                for (int64_t j = 0; j < B.nt(); ++j) {
                     if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j))
                     {
-                        A.tileGetForReading(i, j, device);
+                        // no need to convert layout.
+                        A.tileGetForReading(i, j, device, LayoutConvert::None);
                         // todo: should tileAcquire() instead to avoid un-needed copy
-                        B.tileGetForWriting(i, j, device);
+                        B.tileGetForWriting(i, j, device, LayoutConvert::None);
                     }
+                }
+            }
 
             // Usually the output matrix (B) provides all the batch arrays.
-            // Here we are using A, because of the differen types.
+            // Here we are using A, because of the possibly different types.
             src_scalar_t** a_array_host = A.a_array_host(device);
             dst_scalar_t** b_array_host = B.b_array_host(device);
 
@@ -304,6 +312,8 @@ void copy(internal::TargetType<Target::Devices>,
             for (int64_t i = 0; i < B.mt(); ++i) {
                 for (int64_t j = 0; j < B.nt(); ++j) {
                     if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
+                        // update output tile layout
+                        B.tileLayout(i, j, device, A.tileLayout(i, j, device));
                         // erase tmp local and remote device tiles;
                         A.tileRelease(i, j, device);
                         // decrement life for remote tiles

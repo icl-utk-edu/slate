@@ -170,14 +170,10 @@ void test_assert_equal(
     using blas::imag;
     using blas::conj;
 
-    // whether uplo(A) is general, lower, or upper
+    // whether op(A) is general, lower, or upper
     bool general = (A.uplo() == blas::Uplo::General);
-    bool lower =
-        (A.uplo() == blas::Uplo::Lower && A.op() == blas::Op::NoTrans) ||
-        (A.uplo() == blas::Uplo::Upper && A.op() != blas::Op::NoTrans);
-    bool upper =
-        (A.uplo() == blas::Uplo::Upper && A.op() == blas::Op::NoTrans) ||
-        (A.uplo() == blas::Uplo::Lower && A.op() != blas::Op::NoTrans);
+    bool lower = (A.uplo() == blas::Uplo::Lower);
+    bool upper = (A.uplo() == blas::Uplo::Upper);
     assert( general || lower || upper );
 
     for (int j = 0; j < A.nb(); ++j) {
@@ -652,7 +648,7 @@ void test_trsm()
             Adata[ j + j*lda ] += An;
 
         // factor to get well-conditioned triangle
-        int info = lapack::potrf( A.uplo(), An, Adata.data(), lda );
+        int info = lapack::potrf( A.uploPhysical(), An, Adata.data(), lda );
         assert( info == 0 );
 
         // setup B such that op(B) is m-by-n
@@ -710,7 +706,7 @@ void test_trsm()
         //}
 
         // reference solution
-        blas::trsm( blas::Layout::ColMajor, side, A.uplo(), A.op(), diag, m, n,
+        blas::trsm( blas::Layout::ColMajor, side, A.uploPhysical(), A.op(), diag, m, n,
                     alpha, Adata.data(), lda,
                            opBref.data(), ldopb );
 
@@ -797,7 +793,7 @@ void test_potrf()
         blas::Uplo op_uplo = uplo;
         if (A.op() != blas::Op::NoTrans) {
             op_uplo = (op_uplo == blas::Uplo::Lower ? blas::Uplo::Upper
-                                                     : blas::Uplo::Lower);
+                                                    : blas::Uplo::Lower);
         }
         info = lapack::potrf( op_uplo, n, opAref.data(), lda );
         test_assert( info == 0 );
@@ -906,6 +902,7 @@ void test_genorm()
         //}
 
         real_t ref = lapack::lange( norm, m, n, A.data(), A.stride() );
+        SLATE_UNUSED(ref);
         //if (g_verbose) {
         //    printf( "reference %.4f\n", ref );
         //}
@@ -923,12 +920,13 @@ void test_genorm()
 }
 
 //------------------------------------------------------------------------------
+// square tiles
 template <typename scalar_t>
-void test_convert_layout()
+void test_convert_layout(int n)
 {
     //printf( "%s\n", __PRETTY_FUNCTION__ );
     using slate::Layout;
-    int n = 32;
+
     int lda = n + 1;
     int64_t iseed[4] = { 0, 1, 2, 3 };
     std::vector<scalar_t> Adata( lda*n );
@@ -944,7 +942,7 @@ void test_convert_layout()
 
     //-----------------------------------------
     // Run kernel.
-    convert_layout(&A);
+    A.layoutConvert();
 
     // Verify layout of A changed.
     test_assert(A.layout() == Layout::RowMajor);
@@ -952,9 +950,77 @@ void test_convert_layout()
 
     for (int j = 0; j < n; ++j) {
         for (int i = 0; i < n; ++i) {
-            // A(i, j) takes col/row-major into account.
             // Check that actual data is transposed.
             test_assert(Adata[ j + i*lda ] == Bdata[ i + j*lda ]);
+            // A(i, j) takes col/row-major into account.
+            test_assert(A(i, j) == B(i, j));
+        }
+    }
+}
+
+// rectangular tiles
+template <typename scalar_t>
+void test_convert_layout(int m, int n)
+{
+    //printf( "%s\n", __PRETTY_FUNCTION__ );
+    using slate::Layout;
+
+    int lda = m + 1;
+    int ldae = n;
+    int64_t iseed[4] = { 0, 1, 2, 3 };
+    std::vector<scalar_t> Adata( lda*n );
+    std::vector<scalar_t> A_extData( lda*n );
+    lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
+    std::vector<scalar_t> Bdata = Adata;
+    slate::Tile<scalar_t> A( m, n, Adata.data(), lda, g_host_num,
+                             slate::TileKind::UserOwned );
+    slate::Tile<scalar_t> B( m, n, Bdata.data(), lda, g_host_num,
+                             slate::TileKind::UserOwned );
+
+    test_assert(A.layout() == Layout::ColMajor);
+    test_assert(B.layout() == Layout::ColMajor);
+
+    if (m != n) {
+        A.makeTransposable(A_extData.data());
+    }
+
+    //-----------------------------------------
+    // Run kernel.
+    double time = omp_get_wtime();
+    A.layoutConvert();
+    time = omp_get_wtime() - time;
+    printf( "m %d, n %d, time %.6f\n",
+            m, n, time);
+
+    // Verify layout of A changed.
+    test_assert(A.layout() == Layout::RowMajor);
+    test_assert(B.layout() == Layout::ColMajor);
+
+    for (int j = 0; j < n; ++j) {
+        for (int i = 0; i < m; ++i) {
+            // Check that actual data is transposed.
+            if (m != n)
+                test_assert(A_extData[ j + i*ldae ] == Bdata[ i + j*lda ]);
+            else
+                test_assert(Adata[ j + i*lda ] == Bdata[ i + j*lda ]);
+            // A(i, j) takes col/row-major into account.
+            test_assert(A(i, j) == B(i, j));
+        }
+    }
+
+    // convert back
+    //-----------------------------------------
+    // Run kernel.
+    A.layoutConvert();
+
+    // Verify layout of A changed.
+    test_assert(A.layout() == Layout::ColMajor);
+
+    for (int j = 0; j < n; ++j) {
+        for (int i = 0; i < m; ++i) {
+            // Check that actual data is transposed back.
+            test_assert(Adata[ i + j*lda ] == Bdata[ i + j*lda ]);
+            // A(i, j) takes col/row-major into account.
             test_assert(A(i, j) == B(i, j));
         }
     }
@@ -962,15 +1028,28 @@ void test_convert_layout()
 
 void test_convert_layout()
 {
-    test_convert_layout< float  >();
-    test_convert_layout< double >();
-    test_convert_layout< std::complex<float>  >();
-    test_convert_layout< std::complex<double> >();
+    int n = 256;
+    test_convert_layout< float  >(n);
+    test_convert_layout< double >(n);
+    test_convert_layout< std::complex<float>  >(n);
+    test_convert_layout< std::complex<double> >(n);
+
+    int m = 256;
+    test_convert_layout< float  >(m, n);
+    test_convert_layout< double >(m, n);
+    test_convert_layout< std::complex<float>  >(m, n);
+    test_convert_layout< std::complex<double> >(m, n);
+
+    m = 128;
+    test_convert_layout< float  >(m, n);
+    test_convert_layout< double >(m, n);
+    test_convert_layout< std::complex<float>  >(m, n);
+    test_convert_layout< std::complex<double> >(m, n);
 }
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void test_device_convert_layout()
+void test_device_convert_layout(int m, int n)
 {
     if (g_num_devices == 0) {
         test_skip("requires num_devices > 0");
@@ -978,9 +1057,9 @@ void test_device_convert_layout()
 
     using blas::real;
 
-    int batch_count = 500;
-    int n = 256;
-    int lda = n;
+    int batch_count = 100;
+    int lda = m;
+    int ldat = n;
     int repeat = 1;
     int device = 0;
 
@@ -992,13 +1071,12 @@ void test_device_convert_layout()
     std::vector< slate::Tile<scalar_t> > Atiles( batch_count );
     std::vector< slate::Tile<scalar_t> > Btiles( batch_count );
     for (int k = 0; k < batch_count; ++k) {
-        Atiles[k] = slate::Tile<scalar_t>( n, n, &Adata[ k*lda*n ], lda, g_host_num, slate::TileKind::UserOwned );
-        Btiles[k] = slate::Tile<scalar_t>( n, n, &Bdata[ k*lda*n ], lda, g_host_num, slate::TileKind::UserOwned );
+        Atiles[k] = slate::Tile<scalar_t>( m, n, &Adata[ k*lda*n ], lda, g_host_num, slate::TileKind::UserOwned );
+        Btiles[k] = slate::Tile<scalar_t>( m, n, &Bdata[ k*lda*n ], lda, g_host_num, slate::TileKind::UserOwned );
     }
 
     // copy batch A to GPU
     scalar_t* Adata_dev;
-
     slate_cuda_call(
         cudaSetDevice(device));
     slate_cuda_call(
@@ -1007,17 +1085,32 @@ void test_device_convert_layout()
         cudaMemcpy(Adata_dev, Adata.data(), Adata.size() * sizeof(scalar_t),
                    cudaMemcpyHostToDevice));
 
+    scalar_t* Adata_dev_ext;
+    slate_cuda_call(
+        cudaSetDevice(device));
+    slate_cuda_call(
+        cudaMalloc((void**) &Adata_dev_ext, Adata.size() * sizeof(scalar_t)));
+
     std::vector< slate::Tile<scalar_t> > Atiles_dev( batch_count );
     std::vector< scalar_t* > Aarray( batch_count );
+    std::vector< scalar_t* > Aarray_ext( batch_count );
     for (int k = 0; k < batch_count; ++k) {
-        Atiles_dev[k] = slate::Tile<scalar_t>( n, n, &Adata_dev[ k*lda*n ], lda, device, slate::TileKind::UserOwned );
+        Atiles_dev[k] = slate::Tile<scalar_t>( m, n, &Adata_dev[ k*lda*n ], lda, device, slate::TileKind::UserOwned );
         Aarray[k] = &Adata_dev[ k*lda*n ];
+        Aarray_ext[k] = &Adata_dev_ext[ k*lda*n ];
     }
     scalar_t** Aarray_dev;
     slate_cuda_call(
         cudaMalloc((void**) &Aarray_dev, Aarray.size() * sizeof(scalar_t*)));
     slate_cuda_call(
         cudaMemcpy(Aarray_dev, Aarray.data(), Aarray.size() * sizeof(scalar_t*),
+                   cudaMemcpyHostToDevice));
+
+    scalar_t** Aarray_dev_ext;
+    slate_cuda_call(
+        cudaMalloc((void**) &Aarray_dev_ext, Aarray_ext.size() * sizeof(scalar_t*)));
+    slate_cuda_call(
+        cudaMemcpy(Aarray_dev_ext, Aarray_ext.data(), Aarray_ext.size() * sizeof(scalar_t*),
                    cudaMemcpyHostToDevice));
 
     cudaStream_t stream;
@@ -1027,7 +1120,7 @@ void test_device_convert_layout()
     if (g_verbose > 1) {
         printf("A = [\n");
         for (int k = 0; k < batch_count; ++k) {
-            for (int i = 0; i < n; ++i) {
+            for (int i = 0; i < m; ++i) {
                 for (int j = 0; j < n; ++j) {
                     printf(" %5.2f", real(Adata[ i + j*lda + k*lda*n ]));
                 }
@@ -1045,17 +1138,20 @@ void test_device_convert_layout()
             cudaStreamSynchronize(stream));
         double time = omp_get_wtime();
 
-        slate::device::transpose_batch(n, Aarray_dev, lda, batch_count, stream);
+        if (m == n)
+            slate::device::transpose_batch(n, Aarray_dev, lda, batch_count, stream);
+        else
+            slate::device::transpose_batch(m, n, Aarray_dev, lda, Aarray_dev_ext, ldat, batch_count, stream);
 
         slate_cuda_call(
             cudaStreamSynchronize(stream));
         time = omp_get_wtime() - time;
-        printf( "batch_count %d, n %d, time %.6f, GB/s (read & write) %.4f batch\n",
-                batch_count, n, time, 2 * Adata.size() * sizeof(scalar_t) * 1e-9 / time);
+        printf( "batch_count %d, m %d, n %d, time %.6f, GB/s (read & write) %.4f batch\n",
+                batch_count, m, n, time, 2 * Adata.size() * sizeof(scalar_t) * 1e-9 / time);
     }
     printf( "\n" );
     slate_cuda_call(
-        cudaMemcpy(Adata.data(), Adata_dev, Adata.size() * sizeof(scalar_t),
+        cudaMemcpy(Adata.data(), (m == n ? Adata_dev : Adata_dev_ext), Adata.size() * sizeof(scalar_t),
                    cudaMemcpyDeviceToHost));
 
     //-----------------------------------------
@@ -1065,15 +1161,23 @@ void test_device_convert_layout()
             cudaStreamSynchronize(stream));
         double time = omp_get_wtime();
 
-        for (int k = 0; k < batch_count; ++k) {
-            slate::device::transpose(n, Aarray[k], lda, stream);
+        if (m == n) {
+            for (int k = 0; k < batch_count; ++k) {
+                slate::device::transpose(n, Aarray[k], lda, stream);
+            }
+        }
+        else {
+            for (int k = 0; k < batch_count; ++k) {
+                slate::device::transpose(m, n, Aarray[k], lda, Aarray_ext[k], ldat, stream);
+                // Atiles[k].stride(ldat);
+            }
         }
 
         slate_cuda_call(
             cudaStreamSynchronize(stream));
         time = omp_get_wtime() - time;
-        printf( "batch_count %d, n %d, time %.6f, GB/s (read & write) %.4f 1-by-1\n",
-                batch_count, n, time, 2 * Adata.size() * sizeof(scalar_t) * 1e-9 / time);
+        printf( "batch_count %d, m %d, n %d, time %.6f, GB/s (read & write) %.4f 1-by-1\n",
+                batch_count, m, n, time, 2 * Adata.size() * sizeof(scalar_t) * 1e-9 / time);
     }
     printf( "\n" );
 
@@ -1085,21 +1189,27 @@ void test_device_convert_layout()
         double time = omp_get_wtime();
 
         for (int k = 0; k < batch_count; ++k) {
-            slate::convert_layout(&Atiles_dev[k], stream);
+            if (m == n)
+                Atiles_dev[k].layoutConvert(stream);
+            else
+                Atiles_dev[k].layoutConvert(Aarray_ext[k], stream);
         }
 
         slate_cuda_call(
             cudaStreamSynchronize(stream));
         time = omp_get_wtime() - time;
-        printf( "batch_count %d, n %d, time %.6f, GB/s (read & write) %.4f 1-by-1\n",
-                batch_count, n, time, 2 * Adata.size() * sizeof(scalar_t) * 1e-9 / time);
+        printf( "batch_count %d, m %d, n %d, time %.6f, GB/s (read & write) %.4f 1-by-1\n",
+                batch_count, m, n, time, 2 * Adata.size() * sizeof(scalar_t) * 1e-9 / time);
     }
     printf( "\n" );
+    slate_cuda_call(
+        cudaMemcpy(Adata.data(), (m == n ? Adata_dev : Adata_dev_ext), Adata.size() * sizeof(scalar_t),
+                   cudaMemcpyDeviceToHost));
 
     if (g_verbose > 1) {
         printf("AT = [\n");
         for (int k = 0; k < batch_count; ++k) {
-            for (int i = 0; i < n; ++i) {
+            for (int i = 0; i < m; ++i) {
                 for (int j = 0; j < n; ++j) {
                     printf(" %5.2f", real(Adata[ i + j*lda + k*lda*n ]));
                 }
@@ -1114,17 +1224,23 @@ void test_device_convert_layout()
     for (int k = 0; k < batch_count; ++k) {
         test_assert(Atiles_dev[k].layout() == slate::Layout::RowMajor);
         Atiles[k].layout(slate::Layout::RowMajor);
+        Atiles[k].stride(ldat);
         for (int j = 0; j < n; ++j) {
-            for (int i = 0; i < n; ++i) {
+            for (int i = 0; i < m; ++i) {
                 // A(i, j) takes col/row-major into account.
                 // Check that actual data is transposed.
-                if (Adata[ j + i*lda + k*lda*n ] != Bdata[ i + j*lda + k*lda*n ]) {
+                int Adata_lda;
+                if (m == n)
+                    Adata_lda = lda;
+                else
+                    Adata_lda = ldat;
+                if (Adata[ j + i*Adata_lda + k*lda*n ] != Bdata[ i + j*lda + k*lda*n ]) {
                     printf( "Adata[ j(%d) + i(%d)*lda + k(%d)*lda*n ] %5.2f\n"
                             "Bdata[ i(%d) + j(%d)*lda + k(%d)*lda*n ] %5.2f\n",
-                            j, i, k, real(Adata[ j + i*lda + k*lda*n ]),
+                            j, i, k, real(Adata[ j + i*Adata_lda + k*lda*n ]),
                             i, j, k, real(Bdata[ i + j*lda + k*lda*n ]) );
                 }
-                test_assert(Adata[ j + i*lda + k*lda*n ] == Bdata[ i + j*lda + k*lda*n ]);
+                test_assert(Adata[ j + i*Adata_lda + k*lda*n ] == Bdata[ i + j*lda + k*lda*n ]);
                 test_assert(Atiles[k](i, j) == Btiles[k](i, j));
             }
         }
@@ -1132,15 +1248,23 @@ void test_device_convert_layout()
 
     slate_cuda_call(cudaStreamDestroy(stream));
     slate_cuda_call(cudaFree(Adata_dev));
+    slate_cuda_call(cudaFree(Adata_dev_ext));
     slate_cuda_call(cudaFree(Aarray_dev));
 }
 
 void test_device_convert_layout()
 {
-    test_device_convert_layout< float  >();
-    test_device_convert_layout< double >();
-    test_device_convert_layout< std::complex<float>  >();
-    test_device_convert_layout< std::complex<double> >();
+    int m = 256, n = 256;
+    test_device_convert_layout< float  >(m, n);
+    test_device_convert_layout< double >(m, n);
+    test_device_convert_layout< std::complex<float>  >(m, n);
+    test_device_convert_layout< std::complex<double> >(m, n);
+
+    m = 128;
+    test_device_convert_layout< float  >(m, n);
+    test_device_convert_layout< double >(m, n);
+    test_device_convert_layout< std::complex<float>  >(m, n);
+    test_device_convert_layout< std::complex<double> >(m, n);
 }
 
 //------------------------------------------------------------------------------

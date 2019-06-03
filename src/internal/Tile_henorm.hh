@@ -46,10 +46,12 @@
 
 namespace slate {
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Hermitian matrix norm.
 /// The only difference from symmetric matrix norm is the diagonal is assumed
 /// to be real.
+/// @ingroup norm_tile
+///
 template <typename scalar_t>
 void henorm(Norm norm, Tile<scalar_t> const& A,
             blas::real_type<scalar_t>* values)
@@ -68,7 +70,7 @@ void henorm(Norm norm, Tile<scalar_t> const& A,
     if (norm == Norm::Max) {
         // max norm
         // values[0] = max_{i,j} A_{i,j}
-        *values = lapack::lanhe(norm, A.uplo(),
+        *values = lapack::lanhe(norm, A.uploPhysical(),
                                 A.nb(),
                                 A.data(), A.stride());
     }
@@ -127,8 +129,10 @@ void henorm(Norm norm, Tile<scalar_t> const& A,
     }
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup norm_tile
+///
 template <typename scalar_t>
 void henorm(Norm norm, Tile<scalar_t> const&& A,
             blas::real_type<scalar_t>* values)

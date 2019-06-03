@@ -50,7 +50,7 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// General banded matrix norm.
 /// Dispatches to target implementations.
 ///
@@ -60,6 +60,8 @@ namespace internal {
 /// - Norm::Inf: values is dimension m and contains the local row sum.
 /// - Norm::Fro: values is dimension 2 and contains the local scale and
 ///              sum-of-squares.
+///
+/// @ingroup norm_internal
 ///
 template <Target target, typename scalar_t>
 void norm(
@@ -72,9 +74,11 @@ void norm(
          priority);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// General banded matrix norm.
 /// Host OpenMP task implementation.
+/// @ingroup norm_internal
+///
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::HostTask>,
@@ -85,6 +89,10 @@ void norm(
     using blas::max;
     using blas::min;
     using real_t = blas::real_type<scalar_t>;
+
+    // norms assume column major
+    // todo: relax this assumption, a few cases need to be adjusted only
+    const Layout layout = Layout::ColMajor;
 
     if (scope != NormScope::Matrix) {
         assert("Not implemented yet");
@@ -112,7 +120,7 @@ void norm(
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, tiles_maxima) priority(priority)
                     {
-                        A.tileGetForReading(i, j);
+                        A.tileGetForReading(i, j, LayoutConvert(layout));
                         real_t tile_max;
                         genorm(in_norm, NormScope::Matrix, A(i, j), &tile_max);
                         #pragma omp critical
@@ -147,7 +155,7 @@ void norm(
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, tiles_sums) priority(priority)
                     {
-                        A.tileGetForReading(i, j);
+                        A.tileGetForReading(i, j, LayoutConvert(layout));
                         genorm(in_norm, NormScope::Matrix, A(i, j), &tiles_sums[A.n()*i+jj]);
                     }
                 }
@@ -183,7 +191,7 @@ void norm(
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, tiles_sums) priority(priority)
                     {
-                        A.tileGetForReading(i, j);
+                        A.tileGetForReading(i, j, LayoutConvert(layout));
                         genorm(in_norm, NormScope::Matrix, A(i, j), &tiles_sums[A.m()*j + ii]);
                     }
                 }
@@ -219,7 +227,7 @@ void norm(
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, values) priority(priority)
                     {
-                        A.tileGetForReading(i, j);
+                        A.tileGetForReading(i, j, LayoutConvert(layout));
                         real_t tile_values[2];
                         genorm(in_norm, NormScope::Matrix, A(i, j), tile_values);
                         #pragma omp critical
@@ -234,10 +242,12 @@ void norm(
     }
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// General banded matrix norm.
 /// Host nested OpenMP implementation.
 /// TODO: currently, this does only max norm.
+/// @ingroup norm_internal
+///
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::HostNest>,
@@ -250,6 +260,10 @@ void norm(
     using real_t = blas::real_type<scalar_t>;
     if (in_norm != Norm::Max)
         throw Exception("HostNest has only max norm implemented");
+
+    // norms assume column major
+    // todo: relax this assumption, a few cases need to be adjusted only
+    const Layout layout = Layout::ColMajor;
 
     std::vector<real_t> tiles_maxima;
 
@@ -270,7 +284,7 @@ void norm(
         int64_t i_end   = min(j + klt + 1, A_mt);
         for (int64_t i = i_begin; i < i_end; ++i) {
             if (A.tileIsLocal(i, j)) {
-                A.tileGetForReading(i, j);
+                A.tileGetForReading(i, j, LayoutConvert(layout));
                 real_t tile_max;
                 genorm(in_norm, NormScope::Matrix, A(i, j), &tile_max);
                 #pragma omp critical
@@ -288,10 +302,12 @@ void norm(
                             tiles_maxima.data(), 1);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// General banded matrix norm.
 /// GPU device implementation.
 /// TODO
+/// @ingroup norm_internal
+///
 #if 1
 template <typename scalar_t>
 void norm(

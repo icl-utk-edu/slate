@@ -65,6 +65,9 @@ struct real_type_traits<cuDoubleComplex>
 } // namespace blas
 
 namespace slate {
+
+/// @namespace slate::device
+/// GPU device implementations of kernels.
 namespace device {
 
 //------------------------------------------------------------------------------
@@ -154,6 +157,23 @@ template <typename scalar_t>
 void transpose_batch(
     int64_t n,
     scalar_t** Aarray, int64_t lda,
+    int64_t batch_count,
+    cudaStream_t stream);
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void transpose(
+    int64_t m, int64_t n,
+    scalar_t* dA,  int64_t lda,
+    scalar_t* dAT, int64_t ldat,
+    cudaStream_t stream);
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void transpose_batch(
+    int64_t m, int64_t n,
+    scalar_t **dA_array,  int64_t lda,
+    scalar_t **dAT_array, int64_t ldat,
     int64_t batch_count,
     cudaStream_t stream);
 

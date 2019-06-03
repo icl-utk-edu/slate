@@ -38,6 +38,7 @@
 //------------------------------------------------------------------------------
 
 #include "slate/Tile.hh"
+#include "slate/Tile_blas.hh"
 #include "slate/internal/util.hh"
 
 #include "unit_test.hh"
@@ -195,7 +196,7 @@ void test_Tile_default()
     test_assert(A.nb() == 0);
     test_assert(A.op() == slate::Op::NoTrans);
     test_assert(A.uplo() == blas::Uplo::General);
-    test_assert(A.uplo_logical() == blas::Uplo::General);
+    test_assert(A.uploLogical() == blas::Uplo::General);
     test_assert(A.data() == nullptr);
     test_assert(A.valid() == false);
     test_assert(A.origin() == true);      // note: TileKind::UserOwned
@@ -224,7 +225,7 @@ void test_Tile_data()
     test_assert(A.stride() == lda);
     test_assert(A.op() == slate::Op::NoTrans);
     test_assert(A.uplo() == blas::Uplo::General);
-    test_assert(A.uplo_logical() == blas::Uplo::General);
+    test_assert(A.uploLogical() == blas::Uplo::General);
     test_assert(A.data() == data);
     test_assert(A.valid() == true);
     test_assert(A.origin() == true);      // note differences
@@ -242,7 +243,7 @@ void test_Tile_data()
     test_assert(B.stride() == lda);
     test_assert(B.op() == slate::Op::NoTrans);
     test_assert(B.uplo() == blas::Uplo::General);
-    test_assert(B.uplo_logical() == blas::Uplo::General);
+    test_assert(B.uploLogical() == blas::Uplo::General);
     test_assert(B.data() == data);
     test_assert(B.valid() == true);
     test_assert(B.origin() == true);      // note
@@ -260,7 +261,7 @@ void test_Tile_data()
     test_assert(C.stride() == lda);
     test_assert(C.op() == slate::Op::NoTrans);
     test_assert(C.uplo() == blas::Uplo::General);
-    test_assert(C.uplo_logical() == blas::Uplo::General);
+    test_assert(C.uploLogical() == blas::Uplo::General);
     test_assert(C.data() == data);
     test_assert(C.valid() == true);
     test_assert(C.origin() == false);     // note
@@ -278,7 +279,7 @@ void test_Tile_data()
     test_assert(D.stride() == lda);
     test_assert(D.op() == slate::Op::NoTrans);
     test_assert(D.uplo() == blas::Uplo::General);
-    test_assert(D.uplo_logical() == blas::Uplo::General);
+    test_assert(D.uploLogical() == blas::Uplo::General);
     test_assert(D.data() == data);
     test_assert(D.valid() == true);
     test_assert(D.origin() == true);      // note
@@ -327,7 +328,7 @@ void test_transpose()
     test_assert(AT.stride() == lda);
     test_assert(AT.op() == blas::Op::Trans);  // trans
     test_assert(AT.uplo() == blas::Uplo::General);
-    test_assert(AT.uplo_logical() == blas::Uplo::General);
+    test_assert(AT.uploLogical() == blas::Uplo::General);
     test_assert(AT.data() == data);
     test_assert(AT.valid() == true);
     test_assert(AT.origin() == true);
@@ -345,7 +346,7 @@ void test_transpose()
     test_assert(ATT.stride() == lda);
     test_assert(ATT.op() == blas::Op::NoTrans);  // restored
     test_assert(ATT.uplo() == blas::Uplo::General);
-    test_assert(ATT.uplo_logical() == blas::Uplo::General);
+    test_assert(ATT.uploLogical() == blas::Uplo::General);
     test_assert(ATT.data() == data);
     test_assert(ATT.valid() == true);
     test_assert(ATT.origin() == true);
@@ -386,7 +387,7 @@ void test_conj_transpose()
     test_assert(AC.stride() == lda);
     test_assert(AC.op() == blas::Op::ConjTrans);  // conj-trans
     test_assert(AC.uplo() == blas::Uplo::General);
-    test_assert(AC.uplo_logical() == blas::Uplo::General);
+    test_assert(AC.uploLogical() == blas::Uplo::General);
     test_assert(AC.data() == data);
     test_assert(AC.valid() == true);
     test_assert(AC.origin() == true);
@@ -404,7 +405,7 @@ void test_conj_transpose()
     test_assert(ACC.stride() == lda);
     test_assert(ACC.op() == blas::Op::NoTrans);  // restored
     test_assert(ACC.uplo() == blas::Uplo::General);
-    test_assert(ACC.uplo_logical() == blas::Uplo::General);
+    test_assert(ACC.uploLogical() == blas::Uplo::General);
     test_assert(ACC.data() == data);
     test_assert(ACC.valid() == true);
     test_assert(ACC.origin() == true);
@@ -424,7 +425,7 @@ void test_conj_transpose()
         test_assert(ATC.stride() == lda);
         test_assert(ATC.op() == blas::Op::NoTrans);  // restored
         test_assert(ATC.uplo() == blas::Uplo::General);
-        test_assert(ATC.uplo_logical() == blas::Uplo::General);
+        test_assert(ATC.uploLogical() == blas::Uplo::General);
         test_assert(ATC.data() == data);
         test_assert(ATC.valid() == true);
         test_assert(ATC.origin() == true);
@@ -442,7 +443,7 @@ void test_conj_transpose()
         test_assert(ACT.stride() == lda);
         test_assert(ACT.op() == blas::Op::NoTrans);  // restored
         test_assert(ACT.uplo() == blas::Uplo::General);
-        test_assert(ACT.uplo_logical() == blas::Uplo::General);
+        test_assert(ACT.uploLogical() == blas::Uplo::General);
         test_assert(ACT.data() == data);
         test_assert(ACT.valid() == true);
         test_assert(ACT.origin() == true);
@@ -470,7 +471,7 @@ void test_conj_transpose_complex()
 }
 
 //------------------------------------------------------------------------------
-/// Tests setting uplo, getting uplo and uplo_logical with transposes.
+/// Tests setting uplo, getting uplo and uploLogical with transposes.
 template <typename scalar_t>
 void test_lower()
 {
@@ -482,24 +483,29 @@ void test_lower()
     setup_data(A);
 
     A.uplo(slate::Uplo::Lower);
-    test_assert(A.uplo() == blas::Uplo::Lower);
-    test_assert(A.uplo_logical() == blas::Uplo::Lower);
+    test_assert(A.uplo()         == blas::Uplo::Lower);
+    test_assert(A.uploLogical()  == blas::Uplo::Lower);
+    test_assert(A.uploPhysical() == blas::Uplo::Lower);
 
     auto AT = transpose(A);
-    test_assert(AT.uplo() == blas::Uplo::Lower);
-    test_assert(AT.uplo_logical() == blas::Uplo::Upper);
+    test_assert(AT.uplo()         == blas::Uplo::Upper);
+    test_assert(AT.uploLogical()  == blas::Uplo::Upper);
+    test_assert(AT.uploPhysical() == blas::Uplo::Lower);
 
     auto ATT = transpose(AT);
-    test_assert(ATT.uplo() == blas::Uplo::Lower);
-    test_assert(ATT.uplo_logical() == blas::Uplo::Lower);
+    test_assert(ATT.uplo()         == blas::Uplo::Lower);
+    test_assert(ATT.uploLogical()  == blas::Uplo::Lower);
+    test_assert(ATT.uploPhysical() == blas::Uplo::Lower);
 
     auto AC = conj_transpose(A);
-    test_assert(AC.uplo() == blas::Uplo::Lower);
-    test_assert(AC.uplo_logical() == blas::Uplo::Upper);
+    test_assert(AC.uplo()         == blas::Uplo::Upper);
+    test_assert(AC.uploLogical()  == blas::Uplo::Upper);
+    test_assert(AC.uploPhysical() == blas::Uplo::Lower);
 
     auto ACC = conj_transpose(AC);
-    test_assert(ACC.uplo() == blas::Uplo::Lower);
-    test_assert(ACC.uplo_logical() == blas::Uplo::Lower);
+    test_assert(ACC.uplo()         == blas::Uplo::Lower);
+    test_assert(ACC.uploLogical()  == blas::Uplo::Lower);
+    test_assert(ACC.uploPhysical() == blas::Uplo::Lower);
 }
 
 void test_lower_double()
@@ -513,7 +519,7 @@ void test_lower_complex()
 }
 
 //------------------------------------------------------------------------------
-/// Tests setting uplo, getting uplo and uplo_logical with transposes.
+/// Tests setting uplo, getting uplo and uploLogical with transposes.
 template <typename scalar_t>
 void test_upper()
 {
@@ -525,24 +531,29 @@ void test_upper()
     setup_data(A);
 
     A.uplo(slate::Uplo::Upper);
-    test_assert(A.uplo() == blas::Uplo::Upper);
-    test_assert(A.uplo_logical() == blas::Uplo::Upper);
+    test_assert(A.uplo()         == blas::Uplo::Upper);
+    test_assert(A.uploLogical()  == blas::Uplo::Upper);
+    test_assert(A.uploPhysical() == blas::Uplo::Upper);
 
     auto AT = transpose(A);
-    test_assert(AT.uplo() == blas::Uplo::Upper);
-    test_assert(AT.uplo_logical() == blas::Uplo::Lower);
+    test_assert(AT.uplo()         == blas::Uplo::Lower);
+    test_assert(AT.uploLogical()  == blas::Uplo::Lower);
+    test_assert(AT.uploPhysical() == blas::Uplo::Upper);
 
     auto ATT = transpose(AT);
-    test_assert(ATT.uplo() == blas::Uplo::Upper);
-    test_assert(ATT.uplo_logical() == blas::Uplo::Upper);
+    test_assert(ATT.uplo()         == blas::Uplo::Upper);
+    test_assert(ATT.uploLogical()  == blas::Uplo::Upper);
+    test_assert(ATT.uploPhysical() == blas::Uplo::Upper);
 
     auto AC = conj_transpose(A);
-    test_assert(AC.uplo() == blas::Uplo::Upper);
-    test_assert(AC.uplo_logical() == blas::Uplo::Lower);
+    test_assert(AC.uplo()         == blas::Uplo::Lower);
+    test_assert(AC.uploLogical()  == blas::Uplo::Lower);
+    test_assert(AC.uploPhysical() == blas::Uplo::Upper);
 
     auto ACC = conj_transpose(AC);
-    test_assert(ACC.uplo() == blas::Uplo::Upper);
-    test_assert(ACC.uplo_logical() == blas::Uplo::Upper);
+    test_assert(ACC.uplo()         == blas::Uplo::Upper);
+    test_assert(ACC.uploLogical()  == blas::Uplo::Upper);
+    test_assert(ACC.uploPhysical() == blas::Uplo::Upper);
 }
 
 void test_upper_double()
@@ -580,7 +591,7 @@ void test_send_recv(int align_src, int align_dst)
             A.send(r+1, MPI_COMM_WORLD);
         }
         else {
-            A.recv(r, MPI_COMM_WORLD);
+            A.recv(r, MPI_COMM_WORLD, A.layout());
         }
         verify_data(A, r);
     }
@@ -668,9 +679,9 @@ void test_bcast_ss()
 }
 
 //------------------------------------------------------------------------------
-/// Tests copyDataToDevice() and copyDataToHost().
+/// Tests copyData().
 /// host/device lda is rounded up to multiple of align_host/dev, respectively.
-void test_copyDataToDevice(int align_host, int align_dev)
+void test_copyData(int align_host, int align_dev)
 {
     if (num_devices == 0) {
         test_skip("requires num_devices > 0");
@@ -693,18 +704,28 @@ void test_copyDataToDevice(int align_host, int align_dev)
     cudaStream_t stream;
     test_assert(cudaStreamCreate(&stream) == cudaSuccess);
 
-    double* data_dev;
-    test_assert(cudaMalloc((void**) &data_dev, sizeof(double)*ldda*n) == cudaSuccess);
-    test_assert(data_dev != nullptr);
+    double *Adata_dev, *Bdata_dev;
+    test_assert(cudaMalloc((void**) &Adata_dev, sizeof(double)*ldda*n) == cudaSuccess);
+    test_assert(Adata_dev != nullptr);
+    test_assert(cudaMalloc((void**) &Bdata_dev, sizeof(double)*ldda*n) == cudaSuccess);
+    test_assert(Bdata_dev != nullptr);
 
-    slate::Tile<double> dA(m, n, data_dev, ldda, 0, slate::TileKind::UserOwned);
+    slate::Tile<double> dA(m, n, Adata_dev, ldda, 0, slate::TileKind::UserOwned);
+    slate::Tile<double> dB(m, n, Bdata_dev, ldda, 0, slate::TileKind::UserOwned);
 
-    // copy to device and back, then verify
-    A.copyDataToDevice(&dA, stream);
-    dA.copyDataToHost(&B, stream);
+    // copy H2D->D2D->D2H, then verify
+    A.copyData(&dA, stream);
+    dA.copyData(&dB, stream);
+    dB.copyData(&B, stream);
     verify_data(B, mpi_rank);
 
-    test_assert(cudaFree(data_dev) == cudaSuccess);
+    // copy host to host, then verify
+    clear_data(B);
+    A.copyData(&B);
+    verify_data(B, mpi_rank);
+
+    test_assert(cudaFree(Adata_dev) == cudaSuccess);
+    test_assert(cudaFree(Bdata_dev) == cudaSuccess);
     test_assert(cudaStreamDestroy(stream) == cudaSuccess);
 
     delete[] dataA;
@@ -712,27 +733,27 @@ void test_copyDataToDevice(int align_host, int align_dev)
 }
 
 // contiguous => contiguous
-void test_copyDataToDevice_cc()
+void test_copyData_cc()
 {
-    test_copyDataToDevice(1, 1);
+    test_copyData(1, 1);
 }
 
 // contiguous => strided
-void test_copyDataToDevice_cs()
+void test_copyData_cs()
 {
-    test_copyDataToDevice(1, 32);
+    test_copyData(1, 32);
 }
 
 // strided => contiguous
-void test_copyDataToDevice_sc()
+void test_copyData_sc()
 {
-    test_copyDataToDevice(32, 1);
+    test_copyData(32, 1);
 }
 
 // strided => strided
-void test_copyDataToDevice_ss()
+void test_copyData_ss()
 {
-    test_copyDataToDevice(32, 32);
+    test_copyData(32, 32);
 }
 
 //------------------------------------------------------------------------------
@@ -774,17 +795,17 @@ void run_tests()
             test_upper_complex,
             "uplo(upper)");
         run_test(
-            test_copyDataToDevice_cc,
-            "copyDataToDevice, copyDataToHost, contiguous => contiguous");
+            test_copyData_cc,
+            "copyData: (H2D, D2D, D2H, H2H) contiguous => contiguous");
         run_test(
-            test_copyDataToDevice_cs,
-            "copyDataToDevice, copyDataToHost, contiguous => strided");
+            test_copyData_cs,
+            "copyData: (H2D, D2D, D2H, H2H) contiguous => strided");
         run_test(
-            test_copyDataToDevice_sc,
-            "copyDataToDevice, copyDataToHost, strided => contiguous");
+            test_copyData_sc,
+            "copyData: (H2D, D2D, D2H, H2H) strided => contiguous");
         run_test(
-            test_copyDataToDevice_ss,
-            "copyDataToDevice, copyDataToHost, strided => strided");
+            test_copyData_ss,
+            "copyData: (H2D, D2D, D2H, H2H) strided => strided");
     }
     run_test(
         test_send_recv_cc,

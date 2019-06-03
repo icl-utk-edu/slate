@@ -57,7 +57,8 @@ namespace specialization {
 /// - bcasts can get ahead of her2ks by the value of lookahead.
 /// Note A, B, and C are passed by value, so we can transpose if needed
 /// (for uplo = Upper) without affecting caller.
-/// @ingroup her2k
+/// @ingroup her2k_specialization
+///
 template <Target target, typename scalar_t>
 void her2k(slate::internal::TargetType<target>,
            scalar_t alpha,                  Matrix<scalar_t> A,
@@ -69,8 +70,11 @@ void her2k(slate::internal::TargetType<target>,
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+
     // if upper, change to lower
-    if (C.uplo_logical() == Uplo::Upper)
+    if (C.uplo() == Uplo::Upper)
         C = conj_transpose(C);
 
     // A is mt-by-nt, C is mt-by-mt
@@ -108,8 +112,8 @@ void her2k(slate::internal::TargetType<target>,
                                                C.sub(i, C.mt()-1, i, i)
                                               }});
             }
-            A.template listBcast<target>(bcast_list_A);
-            B.template listBcast<target>(bcast_list_B);
+            A.template listBcast<target>(bcast_list_A, layout);
+            B.template listBcast<target>(bcast_list_B, layout);
         }
 
         // send next lookahead block cols of A
@@ -127,8 +131,8 @@ void her2k(slate::internal::TargetType<target>,
                     bcast_list_B.push_back({i, k, {C.sub(i, i, 0, i),
                                                    C.sub(i, C.mt()-1, i, i)}});
                 }
-                A.template listBcast<target>(bcast_list_A);
-                B.template listBcast<target>(bcast_list_B);
+                A.template listBcast<target>(bcast_list_A, layout);
+                B.template listBcast<target>(bcast_list_B, layout);
             }
         }
 
@@ -162,8 +166,8 @@ void her2k(slate::internal::TargetType<target>,
                             {i, k+lookahead, {C.sub(i, i, 0, i),
                                               C.sub(i, C.mt()-1, i, i)}});
                     }
-                    A.template listBcast<target>(bcast_list_A);
-                    B.template listBcast<target>(bcast_list_B);
+                    A.template listBcast<target>(bcast_list_A, layout);
+                    B.template listBcast<target>(bcast_list_B, layout);
                 }
             }
 
@@ -189,7 +193,8 @@ void her2k(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup her2k
+/// @ingroup her2k_specialization
+///
 template <Target target, typename scalar_t>
 void her2k(scalar_t alpha,                  Matrix<scalar_t>& A,
                                             Matrix<scalar_t>& B,
@@ -260,6 +265,7 @@ void her2k(scalar_t alpha,                  Matrix<scalar_t>& A,
 ///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup her2k
+///
 template <typename scalar_t>
 void her2k(scalar_t alpha,                 Matrix<scalar_t>& A,
                                            Matrix<scalar_t>& B,

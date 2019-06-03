@@ -51,11 +51,13 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
-///-----------------------------------------------------------------------------
-/// \brief
-/// Distributed parallel LU factorization.
+//------------------------------------------------------------------------------
+/// Distributed parallel band LU factorization.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
+///
+/// Warning: ColMajor layout is assumed
+///
 template <Target target, typename scalar_t>
 void gbtrf(slate::internal::TargetType<target>,
            BandMatrix<scalar_t>& A, Pivots& pivots,
@@ -63,6 +65,9 @@ void gbtrf(slate::internal::TargetType<target>,
 {
     // using real_t = blas::real_type<scalar_t>;
     using BcastList = typename BandMatrix<scalar_t>::BcastList;
+
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
 
     const int64_t A_nt = A.nt();
     const int64_t A_mt = A.mt();
@@ -130,7 +135,7 @@ void gbtrf(slate::internal::TargetType<target>,
                 // send A(i, k) across row A(i, k+1:nt-1)
                 bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, j_end-1)}});
             }
-            A.template listBcast(bcast_list_A, tag_k);
+            A.template listBcast(bcast_list_A, layout, tag_k);
 
             // Root broadcasts the pivot to all ranks.
             // todo: Panel ranks send the pivots to the right.
@@ -152,7 +157,7 @@ void gbtrf(slate::internal::TargetType<target>,
                 int tag_j = j;
                 internal::swap<Target::HostTask>(
                     Direction::Forward, A.sub(k, i_end-1, j, j), pivots.at(k),
-                    priority_one, tag_j);
+                    layout, priority_one, tag_j);
 
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk =
@@ -165,13 +170,14 @@ void gbtrf(slate::internal::TargetType<target>,
                                    A.sub(k, k, j, j), priority_one);
 
                 // send A(k, j) across column A(k+1:mt-1, j)
-                A.tileBcast(k, j, A.sub(k+1, i_end-1, j, j), tag_j);
+                A.tileBcast(k, j, A.sub(k+1, i_end-1, j, j), layout, tag_j);
 
                 // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
                 internal::gemm<Target::HostTask>(
                     scalar_t(-1.0), A.sub(k+1, i_end-1, k, k),
                                     A.sub(k, k, j, j),
-                    scalar_t(1.0),  A.sub(k+1, i_end-1, j, j), priority_one);
+                    scalar_t(1.0),  A.sub(k+1, i_end-1, j, j),
+                    layout, priority_one);
             }
         }
         // update trailing submatrix, normal priority
@@ -185,7 +191,7 @@ void gbtrf(slate::internal::TargetType<target>,
                 int tag_kl1 = k+1+lookahead;
                 internal::swap<Target::HostTask>(
                     Direction::Forward, A.sub(k, i_end-1, k+1+lookahead, j_end-1),
-                    pivots.at(k), priority_zero, tag_kl1);
+                    pivots.at(k), layout, priority_zero, tag_kl1);
 
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk =
@@ -203,13 +209,14 @@ void gbtrf(slate::internal::TargetType<target>,
                     // send A(k, j) across column A(k+1:mt-1, j)
                     bcast_list_A.push_back({k, j, {A.sub(k+1, i_end-1, j, j)}});
                 }
-                A.template listBcast(bcast_list_A, tag_kl1);
+                A.template listBcast(bcast_list_A, layout, tag_kl1);
 
                 // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                 internal::gemm<Target::HostTask>(
                     scalar_t(-1.0), A.sub(k+1, i_end-1, k, k),
                                     A.sub(k, k, k+1+lookahead, j_end-1),
-                    scalar_t(1.0),  A.sub(k+1, i_end-1, k+1+lookahead, j_end-1));
+                    scalar_t(1.0),  A.sub(k+1, i_end-1, k+1+lookahead, j_end-1),
+                    layout);
             }
         }
     }
@@ -220,8 +227,8 @@ void gbtrf(slate::internal::TargetType<target>,
 
     // Debug::checkTilesLives(A);
     // Debug::printTilesLives(A);
-
-    A.clearWorkspace();
+    A.tileUpdateAllOrigin();
+    A.releaseWorkspace();
 
     // Debug::printTilesMaps(A);
 }
@@ -231,7 +238,8 @@ void gbtrf(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup gesv_comp
+/// @ingroup gbsv_specialization
+///
 template <Target target, typename scalar_t>
 void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
            const std::map<Option, Value>& opts)
@@ -257,7 +265,60 @@ void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel LU factorization.
+/// Distributed parallel band LU factorization.
+///
+/// Computes an LU factorization of a general band m-by-n matrix $A$
+/// using partial pivoting with row interchanges.
+///
+/// The factorization has the form
+/// \[
+///     A = L U
+/// \]
+/// where $L$ is a product of permutation and unit lower triangular matrices,
+/// and $U$ is upper triangular.
+///
+/// This is the right-looking Level 3 BLAS version of the algorithm.
+///
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///     One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in,out] A
+///     On entry, the band matrix $A$ to be factored.
+///     Tiles outside the bandwidth do not need to exist.
+///     For tiles that are partially outside the bandwidth,
+///     data outside the bandwidth should be explicitly set to zero.
+///     On exit, the factors $L$ and $U$ from the factorization $A = L U$;
+///     the unit diagonal elements of $L$ are not stored.
+///     The upper bandwidth is increased to accomodate fill-in of $U$.
+///
+/// @param[out] pivots
+///     The pivot indices that define the permutations.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Lookahead:
+///       Number of panels to overlap with matrix updates.
+///       lookahead >= 0. Default 1.
+///     - Option::InnerBlocking:
+///       Inner blocking to use for panel. Default 16.
+///     - Option::MaxPanelThreads:
+///       Number of threads to use for panel. Default omp_get_max_threads()/2.
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
+/// TODO: return value
+/// @retval 0 successful exit
+/// @retval >0 for return value = $i$, $U(i,i)$ is exactly zero. The
+///         factorization has been completed, but the factor $U$ is exactly
+///         singular, and division by zero will occur if it is used
+///         to solve a system of equations.
+///
+/// @ingroup gbsv_computational
 ///
 template <typename scalar_t>
 void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,

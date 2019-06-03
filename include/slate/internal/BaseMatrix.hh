@@ -43,9 +43,11 @@
 #include "slate/internal/comm.hh"
 #include "slate/internal/Map.hh"
 #include "slate/internal/Memory.hh"
+#include "slate/internal/device.hh"
 #include "slate/internal/MatrixStorage.hh"
 #include "slate/Tile.hh"
 #include "slate/Tile_blas.hh"
+// #include "slate/Tile_aux.hh"
 #include "slate/types.hh"
 
 #include "lapack.hh"
@@ -80,6 +82,8 @@ public:
     using ReduceList =
         std::list<std::tuple<int64_t, int64_t,
                              std::list<BaseMatrix<scalar_t> > > >;
+
+    using ij_tuple = std::tuple<int64_t, int64_t>;
 
     friend class Debug;
 
@@ -190,6 +194,14 @@ public:
         return storage_->tileIsLocal(globalIndex(i, j));
     }
 
+    /// Returns whether op(A) is logically Lower, Upper, or General.
+    Uplo uplo() const { return uploLogical(); }
+    Uplo uploLogical() const;
+    Uplo uploPhysical() const;
+
+    /// Returns the origin tile instance of tile(i, j)
+    Tile<scalar_t>* originTile(int64_t i, int64_t j);
+
     int64_t tileMb(int64_t i) const;
     int64_t tileNb(int64_t j) const;
 private:
@@ -208,79 +220,128 @@ public:
         return tileInsert(i, j, host_num_, A, ld);
     }
 
-    TileEntry<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, int device=host_num_);
+    TileEntry<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, int device, Layout layout);
+    TileEntry<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, int device)
+    {
+        return tileInsertWorkspace(i, j, device, layout_);
+    }
+    TileEntry<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, Layout layout)
+    {
+        return tileInsertWorkspace(i, j, host_num_, layout);
+    }
+    TileEntry<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j)
+    {
+        return tileInsertWorkspace(i, j, host_num_, layout_);
+    }
 
-    // Returns tile(i, j)'s state on device (defaults to host).
+    //--------------------------------------------------------------------------
+    // MOSI
+private:
+    void tileGet(int64_t i, int64_t j, int dst_device,
+                 LayoutConvert layout, bool modify, bool hold,
+                 bool async);
+
+    void tileGet(std::set<ij_tuple>& tile_set, int dst_device,
+                 LayoutConvert layout, bool modify, bool hold,
+                 bool async);
+
+    void tileCopyDataLayout(Tile<scalar_t>* src_tile,
+                            Tile<scalar_t>* dst_tile,
+                            Layout target_layout);
+
+public:
+
     MOSI tileState(int64_t i, int64_t j, int device=host_num_);
 
-    // Sets tile(i, j)'s state on device.
     void tileState(int64_t i, int64_t j, int device, MOSI mosi);
 
-    // Sets tile(i, j)'s state on host.
+    /// Sets tile(i, j)'s state on host.
     void tileState(int64_t i, int64_t j, MOSI mosi)
     {
         tileState(i, j, host_num_, mosi);
     }
 
-    // Returns whether tile(i, j) is on hold on device (defaults to host).
     bool tileOnHold(int64_t i, int64_t j, int device=host_num_);
 
-    /// Unsets tile(i, j)'s hold on device.
     void tileUnsetHold(int64_t i, int64_t j, int device=host_num_);
 
-    /// Unsets all local tiles' hold on device.
     void tileUnsetHoldAll(int device=host_num_);
 
-    /// Unsets all local tiles' hold on all devices.
     void tileUnsetHoldAllOnDevices();
 
-    /// Marks tile(i, j) as Modified on device.
-    /// Other instances will be invalidated.
-    /// Unless permissive, asserts if other instances are in Modified state.
     void tileModified(int64_t i, int64_t j, int device=host_num_, bool permissive=false);
 
-    /// Gets tile(i, j) for reading on device.
-    /// Will copy-in the tile if it does not exist or its state is Invalid.
-    /// Sets tile state to Shared if copied-in.
-    /// Updates source tile's state to shared if copied-in.
-    void tileGetForReading(int64_t i, int64_t j, int device=host_num_,
-                            LayoutConvert layout=LayoutConvert::ColMajor);
+    void tileGetForReading(int64_t i, int64_t j, int device, LayoutConvert layout);
 
-    /// Gets all local tiles for reading on device.
-    void tileGetAllForReading(int device=host_num_);
+    void tileGetForReading(std::set<ij_tuple>& tile_set, int device, LayoutConvert layout);
 
-    /// Gets all local tiles for reading on corresponding devices.
-    void tileGetAllForReadingOnDevices();
+    /// Gets tile(i, j) for reading on host.
+    /// @see tileGetForReading
+    void tileGetForReading(int64_t i, int64_t j, LayoutConvert layout)
+    {
+        tileGetForReading(i, j, host_num_, layout);
+    }
 
-    /// Gets tile(i, j) for writing on device.
-    /// Sets state to Modified.
-    /// Will copy tile in if not exists or state is Invalid.
-    /// Other instances will be invalidated.
-    void tileGetForWriting(int64_t i, int64_t j, int device=host_num_,
-                            LayoutConvert layout=LayoutConvert::ColMajor);
+    /// Gets a set of tiles for reading on host.
+    /// @see tileGetForReading
+    void tileGetForReading(std::set<ij_tuple>& tile_set, LayoutConvert layout)
+    {
+        tileGetForReading(tile_set, host_num_, layout);
+    }
 
-    /// Gets all local tiles for writing on device.
-    void tileGetAllForWriting(int device=host_num_);
+    void tileGetAllForReading(int device, LayoutConvert layout);
 
-    /// Gets all local tiles for writing on corresponding devices.
-    void tileGetAllForWritingOnDevices();
+    void tileGetAllForReadingOnDevices(LayoutConvert layout);
 
-    /// Gets tile(i, j) on device and marks it as OnHold.
-    /// Will copy tile in if it does not exist or its state is Invalid.
-    /// Updates the source tile's state to Shared if copied-in.
-    void tileGetAndHold(int64_t i, int64_t j, int device=host_num_,
-                            LayoutConvert layout=LayoutConvert::ColMajor);
+    void tileGetForWriting(int64_t i, int64_t j, int device, LayoutConvert layout);
 
-    /// Gets all local tiles on device and marks them as OnHold.
-    void tileGetAndHoldAll(int device=host_num_);
+    void tileGetForWriting(std::set<ij_tuple>& tile_set, int device, LayoutConvert layout);
 
-    /// Gets all local tiles on corresponding devices and marks them as OnHold.
-    void tileGetAndHoldAllOnDevices();
+    /// Gets tile(i, j) for writing on host.
+    /// @see tileGetForWriting
+    void tileGetForWriting(int64_t i, int64_t j, LayoutConvert layout)
+    {
+        tileGetForWriting(i, j, host_num_, layout);
+    }
 
-    /// Updates the origin instance of tile(i, j) if not MOSI::Shared
-    void tileUpdateOrigin(int64_t i, int64_t j);
+    /// Gets a set of tiles for writing on host.
+    /// @see tileGetForWriting
+    void tileGetForWriting(std::set<ij_tuple>& tile_set, LayoutConvert layout)
+    {
+        tileGetForWriting(tile_set, host_num_, layout);
+    }
 
-    /// Updates all origin instances of tiles if not MOSI::Shared
+    void tileGetAllForWriting(int device, LayoutConvert layout);
+
+    void tileGetAllForWritingOnDevices(LayoutConvert layout);
+
+    void tileGetAndHold(int64_t i, int64_t j, int device, LayoutConvert layout);
+
+    /// Gets tile(i, j) on host for reading and marks it as MOSI::OnHold.
+    /// @see tileGetAndHold
+    void tileGetAndHold(int64_t i, int64_t j, LayoutConvert layout)
+    {
+        tileGetAndHold(i, j, host_num_, layout);
+    }
+
+    void tileGetAndHold(std::set<ij_tuple>& tile_set, int device, LayoutConvert layout);
+
+    /// Gets a set of tiles for reading on host and marks them as MOSI::OnHold.
+    /// @see tileGetAndHold
+    void tileGetAndHold(std::set<ij_tuple>& tile_set, LayoutConvert layout)
+    {
+        tileGetAndHold(tile_set, host_num_, layout);
+    }
+
+    void tileGetAndHoldAll(int device, LayoutConvert layout);
+
+    void tileGetAndHoldAllOnDevices(LayoutConvert layout);
+
+    /// Updates the origin instance of tile(i, j) if MOSI::Invalid.
+    /// @return Pointer to origin instance of tile(i, j).
+    Tile<scalar_t>* tileUpdateOrigin(int64_t i, int64_t j);
+
+    /// Updates all origin instances of tiles if MOSI::Invalid.
     void tileUpdateAllOrigin();
 
     /// Returns life counter of tile {i, j} of op(A).
@@ -309,32 +370,88 @@ public:
     /// that is not modified and no hold is set on it.
     void tileRelease(int64_t i, int64_t j, int device=host_num_);
 
+    //--------------------------------------------------------------------------
     template <Target target = Target::Host>
     void tileSend(int64_t i, int64_t j, int dst_rank, int tag = 0);
 
     template <Target target = Target::Host>
-    void tileRecv(int64_t i, int64_t j, int dst_rank, int tag = 0,
-                  Layout layout = Layout::ColMajor);
+    void tileRecv(int64_t i, int64_t j, int dst_rank,
+                  Layout layout, int tag = 0);
 
     template <Target target = Target::Host>
-    void tileBcast(int64_t i, int64_t j, BaseMatrix const& B, int tag = 0, int life_factor = 1,
-                   Layout layout = Layout::ColMajor);
+    void tileBcast(int64_t i, int64_t j, BaseMatrix const& B,
+                   Layout layout, int tag = 0, int64_t life_factor = 1);
 
     template <Target target = Target::Host>
-    void listBcast(BcastList& bcast_list, int tag = 0,
-                   Layout layout = Layout::ColMajor, int64_t life_factor = 1);
+    void listBcast(BcastList& bcast_list,
+                   Layout layout, int tag = 0, int64_t life_factor = 1);
 
     template <Target target = Target::Host>
-    void listReduce(ReduceList& reduce_list, int tag = 0);
+    void listReduce(ReduceList& reduce_list, Layout layout, int tag = 0);
 
+    //--------------------------------------------------------------------------
+    // LAYOUT
+public:
+    /// Returns matrix layout flag
+    Layout layout() const { return layout_; }
+
+    /// Returns Layout of tile(i, j, device)
+    Layout tileLayout(int64_t i, int64_t j, int device=host_num_)
+    {
+        return storage_->at(globalIndex(i, j, device)).tile_->layout();
+    }
+
+    /// Sets Layout of tile(i, j, device)
+    void tileLayout(int64_t i, int64_t j, int device, Layout layout)
+    {
+        storage_->at(globalIndex(i, j, device)).tile_->layout(layout);
+    }
+
+    /// Sets Layout of tile(i, j, host)
+    void tileLayout(int64_t i, int64_t j, Layout layout)
+    {
+        storage_->at(globalIndex(i, j, host_num_)).tile_->layout(layout);
+    }
+
+    bool tileLayoutIsConvertible(int64_t i, int64_t j, int device=host_num_);
+
+    void tileLayoutConvert(int64_t i, int64_t j, int device, Layout layout, bool reset = false);
+    /// Convert layout of tile(i, j) to layout on host, optionally reset
+    void tileLayoutConvert(int64_t i, int64_t j, Layout layout, bool reset = false)
+    {
+        tileLayoutConvert(i, j, host_num_, layout, reset);
+    }
+    void tileLayoutConvert(std::set<ij_tuple>& tile_set, int device, Layout layout, bool reset = false);
+    /// Convert layout of a set of tiles to layout on host, optionally reset
+    void tileLayoutConvert(std::set<ij_tuple>& tile_set, Layout layout, bool reset = false)
+    {
+        tileLayoutConvert(tile_set, host_num_, layout, reset);
+    }
+    void tileLayoutConvert(int device, Layout layout, bool reset = false);
+    void tileLayoutConvertOnDevices(Layout layout, bool reset = false);
+
+    void tileLayoutReset(int64_t i, int64_t j, int device, Layout layout);
+    void tileLayoutReset(int64_t i, int64_t j, Layout layout)
+    {
+        tileLayoutReset(i, j, host_num_, layout);
+    }
+    void tileLayoutReset(std::set<ij_tuple>& tile_set, int device, Layout layout);
+    void tileLayoutReset(std::set<ij_tuple>& tile_set, Layout layout)
+    {
+        tileLayoutReset(tile_set, host_num_, layout);;
+    }
+    void tileLayoutReset();
+
+    //--------------------------------------------------------------------------
 protected:
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set);
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set,
-                        int radix, int tag);
+                        int radix, int tag, Layout layout);
 
     // todo: should this be private?
     void tileReduceFromSet(int64_t i, int64_t j,
-                           std::set<int> const& reduce_set, int radix, int tag);
+                           std::set<int> const& reduce_set, int radix, int tag,
+                           Layout layout);
 
 public:
 
@@ -373,6 +490,12 @@ public:
     void clearBatchArrays()
     {
         storage_->clearBatchArrays();
+    }
+
+    /// @return currently allocated batch array size
+    int64_t batchArraySize()
+    {
+        return storage_->batchArraySize();
     }
 
     //--------------------------------------------------------------------------
@@ -473,6 +596,9 @@ protected:
     MPI_Comm  mpi_comm_;
     MPI_Group mpi_group_;
     int mpi_rank_;
+
+    /// intended layout of the matrix. defaults to ColMajor.
+    Layout layout_;
 };
 
 //------------------------------------------------------------------------------
@@ -492,7 +618,8 @@ BaseMatrix<scalar_t>::BaseMatrix()
       nt_(0),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
-      storage_(nullptr)
+      storage_(nullptr),
+      layout_(Layout::ColMajor)
 {}
 
 //------------------------------------------------------------------------------
@@ -536,7 +663,8 @@ BaseMatrix<scalar_t>::BaseMatrix(
       op_(Op::NoTrans),
       storage_(std::make_shared< MatrixStorage< scalar_t > >(
           m, n, nb, p, q, mpi_comm)),
-      mpi_comm_(mpi_comm)
+      mpi_comm_(mpi_comm),
+      layout_(Layout::ColMajor)
 {
     slate_mpi_call(
         MPI_Comm_rank(mpi_comm_, &mpi_rank_));
@@ -839,6 +967,31 @@ int64_t BaseMatrix<scalar_t>::tileMb(int64_t i) const
 }
 
 //------------------------------------------------------------------------------
+/// Returns whether op(A) is logically Lower, Upper, or General storage,
+/// taking the transposition operation into account.
+///
+template <typename scalar_t>
+Uplo BaseMatrix<scalar_t>::uploLogical() const
+{
+    if (uplo_ == Uplo::General)
+        return uplo_;
+    else if ((uplo_ == Uplo::Lower) == (op_ == Op::NoTrans))
+        return Uplo::Lower;
+    else
+        return Uplo::Upper;
+}
+
+//------------------------------------------------------------------------------
+/// Returns whether A is physically Lower, Upper, or General storage,
+/// ignoring the transposition operation.
+///
+template <typename scalar_t>
+Uplo BaseMatrix<scalar_t>::uploPhysical() const
+{
+    return uplo_;
+}
+
+//------------------------------------------------------------------------------
 /// Returns number of cols (nb) in block col j of op(A).
 ///
 /// @param[in] j
@@ -912,7 +1065,7 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
     int64_t i, int64_t j, int device)
 {
     auto index = globalIndex(i, j, device);
-    auto tileEntry = storage_->tileInsert(index, TileKind::SlateOwned);
+    auto tileEntry = storage_->tileInsert(index, TileKind::SlateOwned, layout_);
     return tileEntry.tile_;
 }
 
@@ -933,10 +1086,10 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 ///
 template <typename scalar_t>
 TileEntry<scalar_t>& BaseMatrix<scalar_t>::tileInsertWorkspace(
-    int64_t i, int64_t j, int device)
+    int64_t i, int64_t j, int device, Layout layout)
 {
     auto index = globalIndex(i, j, device);
-    return storage_->tileInsert(index, TileKind::Workspace);
+    return storage_->tileInsert(index, TileKind::Workspace, layout);
 }
 
 //------------------------------------------------------------------------------
@@ -965,7 +1118,8 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
     int64_t i, int64_t j, int device, scalar_t* data, int64_t ld)
 {
     auto index = globalIndex(i, j, device);
-    auto tileEntry = storage_->tileInsert(index, data, ld); // TileKind::UserOwned
+    // tile layout must match the matrix layout
+    auto tileEntry = storage_->tileInsert(index, data, ld, layout_); // TileKind::UserOwned
     return tileEntry.tile_;
 }
 
@@ -1046,7 +1200,7 @@ MOSI BaseMatrix<scalar_t>::tileState(int64_t i, int64_t j, int device)
 }
 
 //------------------------------------------------------------------------------
-/// Sets tile(i, j)'s state on device (defaults to host).
+/// Sets tile(i, j)'s state on device.
 /// Asserts if tile does not exist.
 ///
 /// @param[in] i
@@ -1214,7 +1368,7 @@ void BaseMatrix<scalar_t>::tileSend(
     int64_t i, int64_t j, int dst_rank, int tag)
 {
     if (dst_rank != mpiRank()) {
-        tileGetForReading(i, j);
+        tileGetForReading(i, j, LayoutConvert::None);
         at(i, j).send(dst_rank, mpiComm(), tag);
     }
 }
@@ -1224,6 +1378,7 @@ void BaseMatrix<scalar_t>::tileSend(
 /// Tile is allocated as workspace with life = 1 if it doesn't yet exist,
 /// or 1 is added to life if it does exist.
 /// Source rank must call tileSend().
+/// Data received must be in 'layout' (ColMajor/RowMajor) major.
 ///
 /// @tparam target
 ///     Destination to target; either Host (default) or Device.
@@ -1237,18 +1392,17 @@ void BaseMatrix<scalar_t>::tileSend(
 /// @param[in] src_rank
 ///     Source MPI rank. If src_rank == mpiRank, this is a no-op.
 ///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) of the received data.
+///     WARNING: must match the layout of the tile in the sender MPI rank.
+///
 /// @param[in] tag
 ///     MPI tag, default 0.
-///
-/// @param[in] layout
-///     Layout of final tile.
-///     - Layout::ColMajor (default) or
-///     - Layout::RowMajor.
 ///
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::tileRecv(
-    int64_t i, int64_t j, int src_rank, int tag, Layout layout)
+    int64_t i, int64_t j, int src_rank, Layout layout, int tag)
 {
     if (src_rank != mpiRank()) {
         if (! tileIsLocal(i, j)) {
@@ -1266,20 +1420,20 @@ void BaseMatrix<scalar_t>::tileRecv(
         }
         else {
             // todo: tileAquire()
-            tileGetForReading(i, j);
+            tileGetForReading(i, j, LayoutConvert::None);
         }
 
         // Receive data.
-        at(i, j).recv(src_rank, mpiComm(), tag);
+        at(i, j).recv(src_rank, mpiComm(), layout, tag);
 
+        tileLayout(i, j, layout);
         tileModified(i, j, hostNum(), true);
 
         // Copy to devices.
         if (target == Target::Devices) {
             #pragma omp task
             {
-                tileGetForReading(i, j, tileDevice(i, j), LayoutConvert(layout));
-                // todo: handle layout
+                tileGetForReading(i, j, tileDevice(i, j), LayoutConvert::None);
             }
         }
     }
@@ -1290,6 +1444,7 @@ void BaseMatrix<scalar_t>::tileRecv(
 /// If target is Devices, also copies tile to all devices on each MPI rank.
 /// This should be called by at least all ranks with local tiles in B;
 /// ones that do not have any local tiles are excluded from the broadcast.
+/// Data received must be in 'layout' (ColMajor/RowMajor) major.
 ///
 /// @tparam target
 ///     Destination to target; either Host (default) or Device.
@@ -1304,27 +1459,30 @@ void BaseMatrix<scalar_t>::tileRecv(
 ///     Sub-matrix B defines the MPI ranks to send to.
 ///     Usually it is the portion of the matrix to be updated by tile {i, j}.
 ///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) of the broadcasted data.
+///     WARNING: must match the layout of the tile in the sender MPI rank.
+///
 /// @param[in] tag
 ///     MPI tag, default 0.
 ///
-/// @param[in] layout
-///     Layout of final tile.
-///     - Layout::ColMajor (default) or
-///     - Layout::RowMajor.
+/// @param[in] life_factor
+///     A multiplier for the life count of the broadcasted tile workspace.
 ///
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::tileBcast(
-    int64_t i, int64_t j, BaseMatrix<scalar_t> const& B, int tag, int life_factor, Layout layout)
+    int64_t i, int64_t j, BaseMatrix<scalar_t> const& B, Layout layout, int tag, int64_t life_factor)
 {
     BcastList bcast_list_B;
     bcast_list_B.push_back({i, j, {B}});
-    listBcast<target>(bcast_list_B, tag, layout, life_factor);
+    listBcast<target>(bcast_list_B, layout, tag, life_factor);
 }
 
 //------------------------------------------------------------------------------
 /// Send tile {i, j} of op(A) to all MPI ranks in the list of submatrices
 /// bcast_list.
+/// Data received must be in 'layout' (ColMajor/RowMajor) major.
 ///
 /// @tparam target
 ///     Destination to target; either Host (default) or Device.
@@ -1333,18 +1491,20 @@ void BaseMatrix<scalar_t>::tileBcast(
 ///     List of submatrices defining the MPI ranks to send to.
 ///     Usually it is the portion of the matrix to be updated by tile {i, j}.
 ///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) of the broadcasted data.
+///     WARNING: must match the layout of the tile in the sender MPI rank.
+///
 /// @param[in] tag
 ///     MPI tag, default 0.
 ///
-/// @param[in] layout
-///     Layout of final tile.
-///     - Layout::ColMajor (default) or
-///     - Layout::RowMajor.
+/// @param[in] life_factor
+///     A multiplier for the life count of the broadcasted tile workspace.
 ///
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::listBcast(
-    BcastList& bcast_list, int tag, Layout layout, int64_t life_factor)
+    BcastList& bcast_list, Layout layout, int tag, int64_t life_factor)
 {
     // It is possible that the same tile, with the same data, is sent twice.
     // This happens, e.g., in the hemm and symm routines, where the same tile
@@ -1394,14 +1554,13 @@ void BaseMatrix<scalar_t>::listBcast(
             // Send across MPI ranks.
             // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
             // Currently uses 2D hypercube p2p send.
-            tileBcastToSet(i, j, bcast_set, 2, tag);
+            tileBcastToSet(i, j, bcast_set, 2, tag, layout);
         }
 
         // Copy to devices.
         // TODO: should this be inside above if-then?
-        // todo: this is incuring extra communication,
-        //       tile(i,j) is not needed on all devices where this matrix resides
-        // todo: only distribute to devices if receiving
+        // todo: this may incur extra communication,
+        //       tile(i,j) is not necessarily needed on all devices where this matrix resides
         if (target == Target::Devices) {
             // If receiving the tile.
             if (! tileIsLocal(i, j)) {
@@ -1409,11 +1568,11 @@ void BaseMatrix<scalar_t>::listBcast(
                 for (auto submatrix : submatrices_list)
                     submatrix.getLocalDevices(&dev_set);
 
+                // todo: should each read be an omp task instead?
                 #pragma omp task
                 {
                     for (auto device : dev_set)
-                        tileGetForReading(i, j, device, LayoutConvert(layout));
-                        // todo: handle layout
+                        tileGetForReading(i, j, device, LayoutConvert::None);
                 }
             }
         }
@@ -1426,7 +1585,7 @@ void BaseMatrix<scalar_t>::listBcast(
 ///
 template <typename scalar_t>
 template <Target target>
-void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, int tag)
+void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, Layout layout, int tag)
 {
     for (auto reduce : reduce_list) {
 
@@ -1445,7 +1604,7 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, int tag)
 
             // Reduce across MPI ranks.
             // Uses 2D hypercube p2p send.
-            tileReduceFromSet(i, j, reduce_set, 2, tag);
+            tileReduceFromSet(i, j, reduce_set, 2, tag, layout);
 
             // If not the tile owner.
             if (! tileIsLocal(i, j)) {
@@ -1465,6 +1624,7 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, int tag)
 }
 
 //------------------------------------------------------------------------------
+/// @deprecated
 /// [internal]
 /// Broadcast tile {i, j} to all MPI ranks in the bcast_set.
 /// This should be called by all (and only) ranks that are in bcast_set,
@@ -1546,6 +1706,7 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
 /// This should be called by all (and only) ranks that are in bcast_set,
 /// as either the root sender or a receiver.
 /// This function implements a custom pattern using sends and receives.
+/// Data received must be in 'layout' (ColMajor/RowMajor) major.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -1559,9 +1720,16 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
 /// @param[in] radix
 ///     Radix of the communication pattern.
 ///
+/// @param[in] tag
+///     MPI tag, default 0.
+///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) of the received data.
+///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileBcastToSet(
-    int64_t i, int64_t j, std::set<int> const& bcast_set, int radix, int tag)
+    int64_t i, int64_t j, std::set<int> const& bcast_set,
+    int radix, int tag, Layout layout)
 {
     // Quit if only root in the broadcast set.
     if (bcast_set.size() == 1)
@@ -1601,13 +1769,14 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
         // disable temporarily
         // tileGetForReading(i, j);
 
-        at(i, j).recv(new_vec[recv_from.front()], mpi_comm_, tag);
+        at(i, j).recv(new_vec[recv_from.front()], mpi_comm_, layout, tag);
+        tileLayout(i, j, layout);
         tileModified(i, j);
     }
 
     if (! send_to.empty()) {
         // read tile on host memory
-        tileGetForReading(i, j);
+        tileGetForReading(i, j, LayoutConvert(layout));
         // Forward.
         for (int dst : send_to)
             at(i, j).send(new_vec[dst], mpi_comm_, tag);
@@ -1616,10 +1785,12 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
 
 //------------------------------------------------------------------------------
 /// [internal]
+/// WARNING: Sent and Recevied tiles are converted to 'layout' major.
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileReduceFromSet(
-    int64_t i, int64_t j, std::set<int> const& reduce_set, int radix, int tag)
+    int64_t i, int64_t j, std::set<int> const& reduce_set, int radix, int tag,
+    Layout layout)
 {
     // Quit if only root in the reduction set.
     if (reduce_set.size() == 1)
@@ -1651,7 +1822,7 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
 
     if (! (send_to.empty() && recv_from.empty()) ) {
         // read tile on host memory
-        tileGetForReading(i, j);
+        tileGetForReading(i, j, LayoutConvert(layout));
     }
 
     std::vector<scalar_t> data(tileMb(i)*tileNb(j));
@@ -1660,7 +1831,7 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
     // Receive, accumulate.
     for (int src : recv_from) {
         // Receive.
-        tile.recv(new_vec[src], mpi_comm_, tag);
+        tile.recv(new_vec[src], mpi_comm_, layout, tag);
         // Accumulate.
         axpy(scalar_t(1.0), tile, at(i, j));
     }
@@ -1671,12 +1842,221 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
 }
 
 //------------------------------------------------------------------------------
-/// Gets tile(i, j) for reading on device.
-/// Will copy-in the tile if it does not exist or its state is Invalid.
-/// Sets tile state to Shared if copied-in.
+/// [internal]
+/// Copies data from src_tile into dst_tile and converts into target_layout
+/// Handles all cases of:
+///     - Square tiles.
+///     - Rectangular contiguous tiles.
+///     - Rectangular extended tiles.
+/// assumes at least one of src_tile and dst_tile is device resident
+/// assumes at most one of src_tile and dst_tile is TileKind::UserOwned
+/// attempts to make layout conversion on the device whenever possible
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
+                                              Tile<scalar_t>* dst_tile,
+                                              Layout target_layout)
+{
+    bool src_userOwned = ! src_tile->allocated();
+    bool dst_userOwned = ! dst_tile->allocated();
+    assert(! (src_userOwned && dst_userOwned));
+
+    // todo: handle square
+    bool is_square = src_tile->mb() == src_tile->nb();
+    // if (!is_square) return;
+
+    // make sure dst_tile can fit the data in its target_layout
+    if (   (! is_square)                         // rectangular tile
+        && (  dst_userOwned)                     // TileKind::UserOwned
+        && (! dst_tile->extended())              // not extended
+        && (  dst_tile->layout() != target_layout) ) // but need to store a non-compatible layout
+    {
+        // extend its data storage
+        storage_->tileMakeTransposable(dst_tile);
+    }
+
+    scalar_t* src_data = src_tile->data();
+    scalar_t* dst_data = dst_tile->data();
+    scalar_t* work_data = nullptr;
+
+    bool need_convert = false;
+    bool need_workspace = false;
+    bool copy_first = false;
+
+    bool src_extended  = src_tile->extended();
+    bool dst_extended  = dst_tile->extended();
+
+    int work_device = host_num_;
+
+    // do we need to convert layout? then, setup workspace
+    if (src_tile->layout() != target_layout) {
+        need_convert = true;
+
+        if (! is_square) {
+            if (  (dst_userOwned && ! dst_extended)
+               || (src_userOwned && ! src_extended)
+               || (! dst_userOwned && ! src_userOwned) ) {
+
+                need_workspace = true;
+                if (dst_tile->device() == host_num_) {
+                    work_device = src_tile->device();
+                }
+                else {
+                    work_device = dst_tile->device();
+                    copy_first = true;
+                }
+            }
+            else
+            if (dst_userOwned && dst_extended) {
+                if (target_layout == dst_tile->userLayout()) {
+                    dst_tile->layoutSetFrontDataExt(false);
+                    dst_data = dst_tile->userData();
+
+                    if (dst_tile->device() == host_num_) {
+                        work_device = src_tile->device();
+                        need_workspace = true;
+                    }
+                    else {
+                        work_data = dst_tile->extData();
+                        work_device = dst_tile->device();
+                        copy_first = true;
+                    }
+                }
+                else {
+                    dst_tile->layoutSetFrontDataExt(true);
+                    dst_data = dst_tile->extData();
+
+                    if (dst_tile->device() == host_num_) {
+                        work_device = src_tile->device();
+                        need_workspace = true;
+                    }
+                    else {
+                        work_data = dst_tile->userData();
+                        work_device = dst_tile->device();
+                        copy_first = true;
+                    }
+                }
+            }
+            else
+            if (src_userOwned && src_extended) {
+                if (src_tile->device() == host_num_) {
+                    work_device = dst_tile->device();
+                    copy_first = true;
+                    need_workspace = true;
+                }
+                else {
+                    work_device = src_tile->device();
+                    if (src_tile->layout() == src_tile->userLayout()) {
+                        work_data = src_tile->extData();
+                    }
+                    else {
+                        work_data = src_tile->userData();
+                    }
+                }
+            }
+        }
+    }
+    else
+    if ( dst_userOwned && dst_extended ) {
+        if (target_layout == dst_tile->userLayout()) {
+            dst_tile->layoutSetFrontDataExt(false);
+            dst_data = dst_tile->userData();
+        }
+        else {
+            dst_tile->layoutSetFrontDataExt(true);
+            dst_data = dst_tile->extData();
+        }
+    }
+
+    if (need_convert && (! is_square)) {
+        assert(work_device != host_num_);
+        slate_cuda_call(
+            cudaSetDevice(work_device));
+    }
+
+    if (need_workspace) {
+        work_data = storage_->allocWorkspaceBuffer(work_device);
+        // printf("%p\n", work_data);
+    }
+
+    cudaStream_t stream = compute_stream( dst_tile->device() == host_num_ ?
+                                          src_tile->device() :
+                                          dst_tile->device());
+    if (is_square || (! need_convert)) {
+        src_tile->copyData(dst_tile, stream);
+    }
+
+    if (need_convert) {
+        if (is_square) {
+            dst_tile->layoutConvert(stream);
+        }
+        else
+        if (copy_first) {
+            int64_t work_stride = src_tile->stride();
+
+            Tile<scalar_t> work_tile(src_tile->mb(), src_tile->nb(), work_data,
+                                     work_stride, work_device,
+                                     TileKind::Workspace, src_tile->layout());
+            src_tile->copyData(&work_tile, compute_stream(work_device));
+
+            if (dst_tile->isContiguous())
+                dst_tile->stride( src_tile->layout() == Layout::ColMajor ?
+                                  src_tile->nb() :
+                                  src_tile->mb());
+            int64_t phys_mb = src_tile->layout() == Layout::ColMajor ?
+                              src_tile->mb() :
+                              src_tile->nb();
+            int64_t phys_nb = src_tile->layout() == Layout::ColMajor ?
+                              src_tile->nb() :
+                              src_tile->mb();
+            device::transpose(phys_mb, phys_nb,
+                              work_data, work_stride,
+                              dst_data, dst_tile->stride(),
+                              compute_stream(work_device));
+            slate_cuda_call(
+                cudaStreamSynchronize(compute_stream(work_device)));
+        }
+        else {
+            int64_t work_stride = src_tile->layout() == Layout::ColMajor ?
+                                  src_tile->nb() :
+                                  src_tile->mb();
+            int64_t phys_mb = src_tile->layout() == Layout::ColMajor ?
+                              src_tile->mb() :
+                              src_tile->nb();
+            int64_t phys_nb = src_tile->layout() == Layout::ColMajor ?
+                              src_tile->nb() :
+                              src_tile->mb();
+
+            device::transpose(phys_mb, phys_nb,
+                              src_data, src_tile->stride(),
+                              work_data, work_stride,
+                              compute_stream(work_device));
+            Tile<scalar_t> work_tile(src_tile->mb(), src_tile->nb(), work_data,
+                                     work_stride, work_device,
+                                     TileKind::Workspace, target_layout);
+            if (dst_tile->isContiguous())
+                dst_tile->stride(work_stride);
+            work_tile.copyData(dst_tile, compute_stream(work_device));
+            slate_cuda_call(
+                cudaStreamSynchronize(compute_stream(work_device)));
+        }
+    }
+
+    if (need_workspace) {
+        storage_->releaseWorkspaceBuffer(work_data, work_device);
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Gets tile(i, j) for on device.
+/// Will copy-in the tile if it does not exist or its state is MOSI::Invalid.
 /// Finds a source tile whose state is valid (Modified|Shared) by
-/// looping on existing tile instances.
+///     looping on existing tile instances.
 /// Updates source tile's state to shared if copied-in.
+/// If 'modify' param is true, marks the destination tile as MOSI::Modified,
+///     and invalidates other instances. Otherwise, sets destination tile state
+///     to MOSI::Shared if copied-in.
+/// Converts destination Layout based on 'layout' param.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -1685,66 +2065,82 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
 ///     Tile's block column index. 0 <= j < nt.
 ///
 /// @param[in] dst_device
-///     Tile's destination: host or device ID, defaults to host.
+///     Tile's destination: host or device ID.
 ///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
+/// @param[in] modify
+///     true: marks the destination tile as MOSI::Modified and invalidates other instances.
+///     false: marks the destination tile as MOSI::Shared.
+///
+/// @param[in] hold
+///     true: marks the destination tile as MOSI::OnHold.
+///
+/// @param[in] async
+///     true: does not synchronize with device stream.
+///
+// todo: async version
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_device,
-                                             LayoutConvert layout)
+void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
+                                   LayoutConvert layout, bool modify, bool hold,
+                                   bool async)
 {
     TileEntry<scalar_t> *dst_tileEntry = nullptr, *src_tileEntry = nullptr;
-    do {
-        // find tile on destination
-        auto dst_iter = storage_->find(globalIndex(i, j, dst_device));
-        if (dst_iter == storage_->end()) {
-            // Create a copy on the destination.
-            tileInsertWorkspace(i, j, dst_device);
-            dst_iter = storage_->find(globalIndex(i, j, dst_device));
-        }
+    bool dst_found = true;
+    Layout target_layout;
+
+    // find tile on destination
+    auto dst_iter = storage_->find(globalIndex(i, j, dst_device));
+    if (dst_iter == storage_->end()) {
+        dst_found = false;
+    }
+    else
         dst_tileEntry = &dst_iter->second;
 
-        if (dst_tileEntry->getState() != MOSI::Invalid)
-            break;
+    const int invalid_dev = host_num_-1; // invalid device number
+    int src_device = invalid_dev;
+    if ((! dst_found) || (dst_tileEntry->getState() == MOSI::Invalid)) {
 
         // find source tile
         // find a valid source (Modified/Shared) device
-        const int invalid_dev = host_num_-1; // invalid device number
-        int src_device = invalid_dev;
-        {
-            // check host
-            if (dst_device != host_num_) {
-                auto iter = storage_->find(globalIndex(i, j, host_num_));
-                if (iter != storage_->end()) {
-                    if (iter->second.getState() != MOSI::Invalid) {
-                        src_device = host_num_;
-                        src_tileEntry = &iter->second;
-                    }
+        // check host
+        if (dst_device != host_num_) {
+            auto iter = storage_->find(globalIndex(i, j, host_num_));
+            if (iter != storage_->end()) {
+                if (iter->second.getState() != MOSI::Invalid) {
+                    src_device = host_num_;
+                    src_tileEntry = &iter->second;
                 }
             }
-            // check assigned device
-            if (src_device == invalid_dev) {
-                auto iter = storage_->find(globalIndex(i, j, tileDevice(i, j)));
-                if (iter != storage_->end()) {
-                    if (iter->second.getState() != MOSI::Invalid) {
-                        src_device = tileDevice(i, j);
-                        src_tileEntry = &iter->second;
-                    }
-                }
-            }
-            // check other devices
-            for (int d = 0; src_device == invalid_dev && d < num_devices(); ++d) {
-                if (dst_device == d || tileDevice(i, j) == d) continue;
-
-                auto iter = storage_->find(globalIndex(i, j, d));
-                if (iter != storage_->end()) {
-                    if (iter->second.getState() != MOSI::Invalid) {
-                        src_device = d;
-                        src_tileEntry = &iter->second;
-                    }
-                }
-            }
-            // todo: find the shortest path / closest source
-            // including possibility of device peer-to-peer copy
         }
+        // check assigned device
+        if (src_device == invalid_dev) {
+            auto iter = storage_->find(globalIndex(i, j, tileDevice(i, j)));
+            if (iter != storage_->end()) {
+                if (iter->second.getState() != MOSI::Invalid) {
+                    src_device = tileDevice(i, j);
+                    src_tileEntry = &iter->second;
+                }
+            }
+        }
+        // check other devices
+        for (int d = 0; src_device == invalid_dev && d < num_devices(); ++d) {
+            if (dst_device == d || tileDevice(i, j) == d) continue;
+
+            auto iter = storage_->find(globalIndex(i, j, d));
+            if (iter != storage_->end()) {
+                if (iter->second.getState() != MOSI::Invalid) {
+                    src_device = d;
+                    src_tileEntry = &iter->second;
+                }
+            }
+        }
+        // todo: find the shortest path / closest source
+        // including possibility of device peer-to-peer copy
         if(src_device == invalid_dev){
             slate_error(std::string("Error copying tile(")
                          + std::to_string(i) + ", " + std::to_string(j)
@@ -1752,6 +2148,19 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
                          + " -> " + std::to_string(dst_device) );
         }
 
+        target_layout = layout == LayoutConvert::None ?
+                        src_tileEntry->tile_->layout() :
+                        Layout(layout);
+    }
+
+    if (! dst_found) {
+        // Create a copy on the destination.
+        tileInsertWorkspace(i, j, dst_device, target_layout);
+        dst_iter = storage_->find(globalIndex(i, j, dst_device));
+        dst_tileEntry = &dst_iter->second;
+    }
+
+    if ( dst_tileEntry->getState() == MOSI::Invalid ) {
         // Update the destination tile's data.
         if (dst_device != host_num_ && src_device != host_num_) {
             // todo: device to device copy
@@ -1759,46 +2168,155 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
             auto host_iter = storage_->find(globalIndex(i, j, host_num_));
             if (host_iter == storage_->end()) {
                 // Create a copy on the host.
-                tileInsertWorkspace(i, j, host_num_);
+                tileInsertWorkspace(i, j, host_num_, target_layout);
                 host_iter = storage_->find(globalIndex(i, j, host_num_));
             }
             host_tileEntry = &host_iter->second;
 
-            src_tileEntry->tile_->copyDataToHost(host_tileEntry->tile_, comm_stream(src_device));
-            host_tileEntry->tile_->copyDataToDevice(dst_tileEntry->tile_, comm_stream(dst_device));
+            tileCopyDataLayout( src_tileEntry->tile_,
+                                host_tileEntry->tile_,
+                                target_layout);
+            tileCopyDataLayout( host_tileEntry->tile_,
+                                dst_tileEntry->tile_,
+                                target_layout);
             host_tileEntry->setState(MOSI::Shared);
         }
-        else
-        if (dst_device == host_num_)
-            src_tileEntry->tile_->copyDataToHost(dst_tileEntry->tile_, comm_stream(src_device));
-        else
-            src_tileEntry->tile_->copyDataToDevice(dst_tileEntry->tile_, comm_stream(dst_device));
+        else {
+            tileCopyDataLayout( src_tileEntry->tile_,
+                                dst_tileEntry->tile_,
+                                target_layout);
+        }
 
         dst_tileEntry->setState(MOSI::Shared);
         if (src_tileEntry->stateOn(MOSI::Modified))
             src_tileEntry->setState(MOSI::Shared);
+    }
+    if (modify) {
+        tileModified(i, j, dst_device);
+    }
+    if (hold) {
+        dst_tileEntry->setState(MOSI::OnHold);
+    }
 
-        // Change ColMajor <=> RowMajor if needed.
-        if (layout != LayoutConvert::None &&
-            dst_tileEntry->tile_->layout() != Layout(layout)) {
-            if (dst_device == host_num_) {
-                convert_layout(dst_tileEntry->tile_);
-            }
-            else {
-                convert_layout(dst_tileEntry->tile_, comm_stream(dst_device));
-            }
-        }
-    } while(0);
+    // Change ColMajor <=> RowMajor if needed.
+    if (layout != LayoutConvert::None &&
+        dst_tileEntry->tile_->layout() != Layout(layout)) {
+        tileLayoutConvert(i, j, dst_device, Layout(layout), false);
+    }
 }
 
+//------------------------------------------------------------------------------
+/// Gets a set of tiles on device.
+/// If destination device is host, forwards LayoutConvert param to tileGet()
+///     otherwise, calls tileLayoutConvert() to process layout conversion in batch mode.
+/// @see tileGet
+///
+/// @param[in] tile_set
+///     Set of (i, j) tuples indicating indices of Tiles' to be converted.
+///
+/// @param[in] device
+///     Tile's destination: host or device ID, defaults to host.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
+/// @param[in] modify
+///     true: marks the destination tiles as MOSI::Modified and invalidates other instances.
+///     false: marks the destination tiles as MOSI::Shared.
+///
+/// @param[in] hold
+///     true: marks the destination tiles as MOSI::OnHold.
+///
+/// @param[in] async
+///     if true, does not synchronize with device stream.
+///
+// todo: async version
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileGet(std::set<ij_tuple>& tile_set, int device,
+                                   LayoutConvert in_layoutConvert, bool modify, bool hold,
+                                   bool async)
+{
+    LayoutConvert layoutConvert = (device == host_num_) ? in_layoutConvert : LayoutConvert::None;
+
+    for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
+        int64_t i = std::get<0>(*iter);
+        int64_t j = std::get<1>(*iter);
+        tileGet(i, j, device, layoutConvert, modify, hold, async);
+    }
+
+    // todo: if modify and target is host, batch convert on device first
+    if (device != host_num_ && in_layoutConvert != LayoutConvert::None) {
+        tileLayoutConvert(tile_set, device, Layout(in_layoutConvert));
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Gets tile(i, j) for reading on device.
+/// Will copy-in the tile if it does not exist or its state is MOSI::Invalid.
+/// Sets tile state to MOSI::Shared if copied-in.
+/// Finds a source tile whose state is valid (Modified|Shared) by
+/// looping on existing tile instances.
+/// Updates source tile's state to shared if copied-in.
+/// Converts destination Layout based on 'layout' param.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] device
+///     Tile's destination: host or device ID, defaults to host.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
+// todo: async version
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int device,
+                                             LayoutConvert layout)
+{
+    tileGet(i, j, device, layout, false, false, false);
+}
+
+//------------------------------------------------------------------------------
+/// Gets a set of tiles for reading on device.
+/// @see tileGetForReading
+///
+/// @param[in] tile_set
+///     Set of (i, j) tuples indicating indices of Tiles' to be acquired.
+///
+/// @param[in] device
+///     Tile's destination: host or device ID.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
+// todo: async version
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set, int device,
+                                             LayoutConvert layout)
+{
+    tileGet(tile_set, device, layout, false, false, false);
+}
 
 //------------------------------------------------------------------------------
 /// Gets tile(i, j) for writing on device.
-/// Sets state to Modified.
-/// Will copy-in the tile if it does not exist or its state is Invalid.
+/// Sets destination tile's state to MOSI::Modified.
+/// Will copy-in the tile if it does not exist or its state is MOSI::Invalid.
 /// Other instances will be invalidated.
 /// Finds a source tile whose state is valid (Modified|Shared) by
-/// scanning existing tile instances.
+///     scanning existing tile instances.
+/// Converts destination Layout based on 'layout' param.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -1806,21 +2324,50 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int dst_devic
 /// @param[in] j
 ///     Tile's block column index. 0 <= j < nt.
 ///
-/// @param[in] dst_device
+/// @param[in] device
 ///     Tile's destination: host or device ID, defaults to host.
 ///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetForWriting(int64_t i, int64_t j, int device, LayoutConvert layout)
+void BaseMatrix<scalar_t>::tileGetForWriting(int64_t i, int64_t j, int device,
+                                             LayoutConvert layout)
 {
-    tileGetForReading(i, j, device, layout);
-    tileModified(i, j, device);
+    tileGet(i, j, device, layout, true, false, false);
 }
 
+//------------------------------------------------------------------------------
+/// Gets a set of tiles for writing on device.
+/// @see tileGetForWriting
+///
+/// @param[in] tile_set
+///     Set of (i, j) tuples indicating indices of Tiles' to be acquired.
+///
+/// @param[in] device
+///     Tile's destination: host or device ID, defaults to host.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileGetForWriting(std::set<ij_tuple>& tile_set,
+                                             int device, LayoutConvert layout)
+{
+    tileGet(tile_set, device, layout, true, false, false);
+}
 
 //------------------------------------------------------------------------------
-/// Gets tile(i, j) on device and marks it as OnHold.
-/// Will copy tile in if it does not exist or its state is Invalid.
-/// Updates the source tile's state to Shared if copied-in.
+/// Gets tile(i, j) on device for reading and marks it as MOSI::OnHold.
+/// Will copy tile in if it does not exist or its state is MOSI::Invalid.
+/// Updates the source tile's state to MOSI::Shared if copied-in.
+/// Converts destination Layout based on 'layout' param.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -1828,103 +2375,213 @@ void BaseMatrix<scalar_t>::tileGetForWriting(int64_t i, int64_t j, int device, L
 /// @param[in] j
 ///     Tile's block column index. 0 <= j < nt.
 ///
-/// @param[in] dst_device
+/// @param[in] device
 ///     Tile's destination: host or device ID, defaults to host.
 ///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetAndHold(int64_t i, int64_t j, int device, LayoutConvert layout)
+void BaseMatrix<scalar_t>::tileGetAndHold(int64_t i, int64_t j, int device,
+                                          LayoutConvert layout)
 {
-    tileGetForReading(i, j, device, layout);
+    tileGet(i, j, device, layout, false, true, false);
+}
 
-    auto tileIter = storage_->find(globalIndex(i, j, device));
-    assert(tileIter != storage_->end());
-
-    tileIter->second.setState(MOSI::OnHold);
+//------------------------------------------------------------------------------
+/// Gets a set of tiles for reading on device and marks them as MOSI::OnHold.
+/// @see tileGetAndHold
+///
+/// @param[in] tile_set
+///     Set of (i, j) tuples indicating indices of Tiles' to be acquired.
+///
+/// @param[in] device
+///     Tile's destination: host or device ID, defaults to host.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileGetAndHold(std::set<ij_tuple>& tile_set, int device,
+                                          LayoutConvert layout)
+{
+    tileGet(tile_set, device, layout, false, true, false);
 }
 
 //------------------------------------------------------------------------------
 /// Gets all local tiles for reading on device.
+/// @see tileGetForReading.
 ///
 /// @param[in] device
 ///     Tile's destination: host or device ID, defaults to host.
 ///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
+// todo: should this take into consideration the local tiles distribution on devices?
+//       currently, this will cram all local tiles into specified device.
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetAllForReading(int device)
+void BaseMatrix<scalar_t>::tileGetAllForReading(int device, LayoutConvert layout)
 {
+    std::set<ij_tuple> tiles_set;
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
-            if (tileIsLocal(i, j))
-                tileGetForReading(i, j, device);
+            // todo: if (tileIsLocal(i, j) && (device == host_num_ || device == tileDevice(i, j))) {
+            if (tileIsLocal(i, j)) {
+                tiles_set.insert({i, j});
+            }
+
+    tileGetForReading(tiles_set, device, layout);
 }
 
 //------------------------------------------------------------------------------
 /// Gets all local tiles for writing on device.
+/// @see tileGetForWriting.
 ///
 /// @param[in] device
 ///     Tile's destination: host or device ID, defaults to host.
 ///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
+// todo: should this take into consideration the local tiles distribution on devices?
+//       currently, this will cram all local tiles into specified device.
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetAllForWriting(int device)
+void BaseMatrix<scalar_t>::tileGetAllForWriting(int device, LayoutConvert layout)
 {
+    std::set<ij_tuple> tiles_set;
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
-            if (tileIsLocal(i, j))
-                tileGetForWriting(i, j, device);
+            // todo: if (tileIsLocal(i, j) && (device == host_num_ || device == tileDevice(i, j))) {
+            if (tileIsLocal(i, j)) {
+                tiles_set.insert({i, j});
+            }
+
+    tileGetForWriting(tiles_set, device, layout);
 }
 
 //------------------------------------------------------------------------------
-/// Gets all local tiles on device and marks them as OnHold.
+/// Gets all local tiles on device and marks them as MOSI::OnHold.
+/// @see tileGetAndHold.
 ///
 /// @param[in] device
 ///     Tile's destination: host or device ID, defaults to host.
 ///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
+///
+// todo: should this take into consideration the local tiles distribution on devices?
+//       currently, this will cram all local tiles into specified device.
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetAndHoldAll(int device)
+void BaseMatrix<scalar_t>::tileGetAndHoldAll(int device, LayoutConvert layout)
 {
+    std::set<ij_tuple> tiles_set;
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
-            if (tileIsLocal(i, j))
-                tileGetAndHold(i, j, device);
+            // todo: if (tileIsLocal(i, j) && (device == host_num_ || device == tileDevice(i, j))) {
+            if (tileIsLocal(i, j)) {
+                tiles_set.insert({i, j});
+            }
+
+    tileGetAndHold(tiles_set, layout, device);
 }
 
 //------------------------------------------------------------------------------
 /// Gets all local tiles for reading on corresponding devices.
+/// @see tileGetForReading.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetAllForReadingOnDevices()
+void BaseMatrix<scalar_t>::tileGetAllForReadingOnDevices(LayoutConvert layout)
 {
+    std::vector< std::set<ij_tuple> > tiles_set(num_devices());
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
-            if (tileIsLocal(i, j))
-                tileGetForReading(i, j, tileDevice(i, j));
+            if (tileIsLocal(i, j)) {
+                tiles_set[tileDevice(i, j)].insert({i, j});
+            }
+
+    // todo: omp tasks?
+    for (int d = 0; d < num_devices(); ++d) {
+        tileGetForReading(tiles_set[d], d, layout);
+    }
 }
 
 //------------------------------------------------------------------------------
 /// Gets all local tiles for writing on corresponding devices.
+/// @see tileGetForWriting.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetAllForWritingOnDevices()
+void BaseMatrix<scalar_t>::tileGetAllForWritingOnDevices(LayoutConvert layout)
 {
+    std::vector< std::set<ij_tuple> > tiles_set(num_devices());
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
-            if (tileIsLocal(i, j))
-                tileGetForWriting(i, j, tileDevice(i, j));
+            if (tileIsLocal(i, j)) {
+                tiles_set[tileDevice(i, j)].insert({i, j});
+            }
+
+    // todo: omp tasks?
+    for (int d = 0; d < num_devices(); ++d) {
+        tileGetForWriting(tiles_set[d], d, layout);
+    }
 }
 
 //------------------------------------------------------------------------------
-/// Gets all local tiles on corresponding devices and marks them as OnHold.
+/// Gets all local tiles on corresponding devices and marks them as MOSI::OnHold.
+/// @see tileGetAndHold.
+///
+/// @param[in] layout
+///     Indicates whether to convert the Layout of the received data:
+///     - ColMajor: convert layout to column major.
+///     - RowMajor: convert layout to row major.
+///     - None: do not convert layout.
 //
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetAndHoldAllOnDevices()
+void BaseMatrix<scalar_t>::tileGetAndHoldAllOnDevices(LayoutConvert layout)
 {
+    std::vector< std::set<ij_tuple> > tiles_set(num_devices());
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
-            if (tileIsLocal(i, j))
-                tileGetAndHold(i, j, tileDevice(i, j));
+            if (tileIsLocal(i, j)) {
+                tiles_set[tileDevice(i, j)].insert({i, j});
+            }
+
+    // todo: omp tasks?
+    for (int d = 0; d < num_devices(); ++d) {
+        tileGetAndHold(tiles_set[d], d, layout);
+    }
 }
 
 //------------------------------------------------------------------------------
-/// Updates the origin instance of tile(i, j) if not MOSI::Shared
+/// Updates the origin instance of tile(i, j) if MOSI::Invalid
+/// tile must be local.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -1932,26 +2589,32 @@ void BaseMatrix<scalar_t>::tileGetAndHoldAllOnDevices()
 /// @param[in] j
 ///     Tile's block column index. 0 <= j < nt.
 ///
+/// @return Pointer to origin instance of tile(i, j)
+///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileUpdateOrigin(int64_t i, int64_t j)
+Tile<scalar_t>* BaseMatrix<scalar_t>::tileUpdateOrigin(int64_t i, int64_t j)
 {
     // find on host
     auto iter = storage_->find(globalIndex(i, j, host_num_));
     if (iter != storage_->end() && iter->second.tile_->origin()) {
         if ( iter->second.stateOn(MOSI::Invalid) )
-            tileGetForReading(i, j);
+            tileGetForReading(i, j, LayoutConvert::None);
     }
     else {
         iter = storage_->find(globalIndex(i, j, tileDevice(i, j)));
         if (iter != storage_->end() && iter->second.tile_->origin()) {
             if ( iter->second.stateOn(MOSI::Invalid) )
-                tileGetForReading(i, j, tileDevice(i, j));
+                tileGetForReading(i, j, tileDevice(i, j), LayoutConvert::None);
         }
+        else
+            slate_error( std::string("Origin tile not found! tile(")
+                        +std::to_string(i)+","+std::to_string(j)+")");
     }
+    return iter->second.tile_;
 }
 
 //------------------------------------------------------------------------------
-/// Updates all origin instances of local tiles if not MOSI::Shared
+/// Updates all origin instances of local tiles if MOSI::Invalid.
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
@@ -1960,6 +2623,422 @@ void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
         for (int64_t i = 0; i < this->mt(); ++i)
             if (this->tileIsLocal(i, j))
                 this->tileUpdateOrigin(i, j);
+}
+
+//------------------------------------------------------------------------------
+/// Returns whether tile(i, j, device) can be safely transposed.
+/// based on its 'TileKind', buffer size, Layout, and stride.
+/// Tile instance on 'device' should exist.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] device
+///     Tile's host or device ID, defaults to host.
+///
+// todo: validate working for sub- and sliced- matrix
+template <typename scalar_t>
+bool BaseMatrix<scalar_t>::tileLayoutIsConvertible(int64_t i, int64_t j, int device)
+{
+    return storage_->at(globalIndex(i, j, device)).tile_->isTransposable();
+}
+
+//------------------------------------------------------------------------------
+/// Converts tile(i, j, device) into 'layout'.
+/// Tile should exist on 'device', will assert otherwise.
+/// Tile will be made Convertible if it was not.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] device
+///     Tile's host or device ID.
+///
+/// @param[in] layout
+///     Intended Layout of tile:
+///     - Layout::ColMajor or
+///     - Layout::RowMajor.
+///
+/// @param[in] reset
+///     Optinally resets the tile extended buffers.
+///
+/// todo: handle op(A), sub-matrix, and sliced-matrix
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileLayoutConvert(int64_t i, int64_t j, int device,
+                                             Layout layout, bool reset)
+{
+    auto tile = storage_->at(globalIndex(i, j, device)).tile_;
+    if (tile->layout() != layout ) {
+        if (! tile->isTransposable() ) {
+            assert(! reset); // cannot reset if not transposable
+            storage_->tileMakeTransposable(tile);
+        }
+
+        scalar_t* work_data = nullptr;
+        // if rectangular and not extended, need a workspace buffer
+        if (tile->mb() != tile->nb() && (! tile->extended()))
+            work_data = storage_->allocWorkspaceBuffer(tile->device());
+
+        tile->layoutConvert(work_data,
+                            tile->device() == host_num_ ?
+                                              nullptr :
+                                              compute_stream(tile->device()));
+
+        // release the workspace buffer if allocated
+        if (tile->mb() != tile->nb() && (! tile->extended()))
+            storage_->releaseWorkspaceBuffer(work_data, tile->device());
+    }
+    if (reset) {
+        storage_->tileLayoutReset(tile);
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Converts tiles indicated in 'tile_set' that exist on 'device' into 'layout' if
+///     not alread in 'layout' major.
+/// Tiles should exist on 'device', will assert otherwise.
+/// Operates in batch mode when tiles are on devices.
+/// If device is not Host, will bucket tiles into uniform size and stride batches,
+///     then launches each batch transpose.
+///
+/// @param[in] tile_set
+///     Set of (i, j) tuples indicating indices of Tiles' to be converted.
+///
+/// @param[in] device
+///     Tiles' host or device ID.
+///
+/// @param[in] layout
+///     Intended Layout of tiles:
+///     - Layout::ColMajor or
+///     - Layout::RowMajor.
+///
+/// @param[in] reset
+///     Optinally resets the tiles extended buffers.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
+                                             int device, Layout layout,
+                                             bool reset)
+{
+    if (device == host_num_) {
+        for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
+            // #pragma omp task
+            {
+                int64_t i = std::get<0>(*iter);
+                int64_t j = std::get<1>(*iter);
+                tileLayoutConvert(i, j, device, layout, reset);
+            }
+        }
+        // #pragma omp taskwait
+    }
+    else {
+
+        // map key tuple: m, n, extended, stride, work_stride
+        using mnss_tuple = std::tuple<int64_t, int64_t, bool, int64_t, int64_t>;
+        // map value tuple: data and extended data buffers
+        using data_tuple = std::pair<std::vector<scalar_t*>, std::vector<scalar_t*>>;
+
+        using BatchedTilesBuckets = slate::Map< mnss_tuple, data_tuple >;
+
+        BatchedTilesBuckets tilesBuckets;
+
+        for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
+            int64_t i = std::get<0>(*iter);
+            int64_t j = std::get<1>(*iter);
+
+            auto tile = storage_->at(globalIndex(i, j, device)).tile_;
+
+            // if we need to convert layout
+            if ( tile->layout() != layout ) {
+                // make sure tile is transposable
+                if (! tile->isTransposable() ) {
+                    storage_->tileMakeTransposable(tile);
+                }
+
+                // prepare tile for batch conversion
+                if (tile->extended()) {
+                    tile->layoutSetFrontDataExt(layout != tile->userLayout());
+                }
+                int64_t target_stride = layout == Layout::ColMajor ?
+                                        tile->mb() :
+                                        tile->nb();
+
+                // bucket index
+                mnss_tuple mns = {tile->mb(), tile->nb(),
+                                  tile->extended(),
+                                  tile->stride(),
+                                  tile->mb() != tile->nb() ?
+                                    (tile->extended() ?
+                                        tile->layoutBackStride() :
+                                        target_stride) :
+                                    0};
+
+                // add this tile's data to the corrsponding bucket of batch array
+                tilesBuckets[mns].first.push_back(tile->data());
+
+                // if rectangular, prepare a workspace
+                if (tile->mb() != tile->nb()) {
+                    if (tile->extended())
+                        tilesBuckets[mns].second.push_back(tile->layoutBackData());
+                    else
+                        tilesBuckets[mns].second.push_back(storage_->allocWorkspaceBuffer(device));
+                }
+
+                // adjust stride if need be
+                if (! tile->extended()) {
+                    tile->stride(target_stride);
+                }
+
+                // adjust layout
+                tile->layout(layout);
+            }
+        }
+
+        cudaStream_t stream = compute_stream(device);
+        slate_cuda_call(
+            cudaSetDevice(device));
+
+        // for each bucket
+        for (auto bucket = tilesBuckets.begin(); bucket != tilesBuckets.end(); bucket++) {
+
+            scalar_t** array_dev  = this->a_array_device(device);
+            scalar_t** work_array_dev  = this->b_array_device(device);
+
+            int64_t batch_count = bucket->second.first.size();
+            assert(batch_count <=  this->batchArraySize());
+
+            int64_t mb       = std::get<0>(bucket->first);
+            int64_t nb       = std::get<1>(bucket->first);
+            int64_t extended = std::get<2>(bucket->first);
+            int64_t stride   = std::get<3>(bucket->first);
+            int64_t work_stride = std::get<4>(bucket->first);
+
+            // todo: should we handle batch of size one differently?
+            //       will need to store the (i,j) tuple with the batch array!
+            // if (batch_count == 1) {
+            //     tileLayoutConvert(i, j, device, layout);
+            // }
+            // else
+            {
+                slate_cuda_call(
+                    cudaMemcpyAsync(array_dev, bucket->second.first.data(),
+                                    sizeof(scalar_t*)*batch_count,
+                                    cudaMemcpyHostToDevice,
+                                    stream));
+
+                if (mb == nb) {
+                    // in-place transpose
+                    device::transpose_batch(nb,
+                                            array_dev, stride,
+                                            batch_count, stream);
+                }
+                else {
+                    // rectangular tiles: out-of-place transpose
+                    slate_cuda_call(
+                        cudaMemcpyAsync(work_array_dev, bucket->second.second.data(),
+                                        sizeof(scalar_t*)*batch_count,
+                                        cudaMemcpyHostToDevice,
+                                        stream));
+
+                    device::transpose_batch(layout == Layout::ColMajor ? nb : mb,
+                                            layout == Layout::ColMajor ? mb : nb,
+                                            array_dev, stride,
+                                            work_array_dev, work_stride,
+                                            batch_count, stream);
+
+                    if (! extended) {
+                        // copy back to data buffer
+                        device::gecopy( layout == Layout::ColMajor ? mb : nb,
+                                        layout == Layout::ColMajor ? nb : mb,
+                                        work_array_dev, work_stride,
+                                        array_dev, work_stride,
+                                        batch_count, stream);
+                    }
+                }
+            }
+
+            // release workspace buffer if allocated
+            if ((mb != nb) && (! extended)) {
+                slate_cuda_call(
+                    cudaStreamSynchronize(stream));
+                for (auto iter = bucket->second.second.begin(); iter != bucket->second.second.end(); iter++) {
+                    storage_->releaseWorkspaceBuffer(*iter, device);
+                }
+            }
+        }
+        slate_cuda_call(
+            cudaStreamSynchronize(stream));
+
+        if (reset) {
+            for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
+                // #pragma omp task
+                {
+                    int64_t i = std::get<0>(*iter);
+                    int64_t j = std::get<1>(*iter);
+                    auto tile = storage_->at(globalIndex(i, j, device)).tile_;
+                    storage_->tileLayoutReset(tile);
+                }
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Converts all existing tile instances on 'device' into 'layout'
+/// Operates in batch mode.
+///
+/// @param[in] device
+///     Tiles' host or device ID.
+///
+/// @param[in] layout
+///     Intended Layout of tiles:
+///     - Layout::ColMajor or
+///     - Layout::RowMajor.
+///
+/// @param[in] reset
+///     Optinally resets the tiles extended buffers.
+///
+// todo: override on BaseTrapezoidMatrix and BandMatrix
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileLayoutConvert(int device, Layout layout, bool reset)
+{
+    std::set<ij_tuple> tiles_set;
+    for (int64_t j = 0; j < nt(); ++j) {
+        for (int64_t i = 0; i < mt(); ++i) {
+            // if ( tileIsLocal(i, j) && device == tileDevice(i, j) && tileExists(i, j, device))
+            if ( tileExists(i, j, device)) {
+                tiles_set.insert({i, j});
+            }
+        }
+    }
+
+    tileLayoutConvert(tiles_set, device, layout, reset);
+}
+
+//------------------------------------------------------------------------------
+/// Converts all existing tile instances on available devices into 'layout'.
+/// Host tiles are not affected.
+/// Tiles should exist already on devices.
+/// Operates in batch mode.
+///
+/// @param[in] layout
+///     Intended Layout of tiles:
+///     - Layout::ColMajor or
+///     - Layout::RowMajor.
+///
+/// @param[in] reset
+///     Optinally resets the tile extended buffers.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileLayoutConvertOnDevices(Layout layout, bool reset)
+{
+    std::vector< std::set<ij_tuple> > tiles_set(num_devices());
+    for (int64_t j = 0; j < nt(); ++j) {
+        for (int64_t i = 0; i < mt(); ++i) {
+            for (int d = 0; d < num_devices(); ++d) {
+                if (tileExists(i, j, d)) {
+                    tiles_set[d].insert({i, j});
+                }
+            }
+        }
+    }
+    // todo: omp tasks?
+    for (int d = 0; d < num_devices(); ++d) {
+        if (! tiles_set[d].empty())
+            tileLayoutConvert(tiles_set[d], d, layout, reset);
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Converts tile(i, j) into current layout and resets its extended buffer.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] device
+///     Tile's device ID; default is host_num.
+///
+/// @param[in] layout
+///     Intended Layout of tiles:
+///     - Layout::ColMajor or
+///     - Layout::RowMajor.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileLayoutReset(int64_t i, int64_t j, int device,
+                                           Layout layout)
+{
+    tileLayoutConvert(i, j, device, layout, true);
+}
+
+//------------------------------------------------------------------------------
+/// Converts set of tiles into current layout and resets their extended buffers.
+/// Operates in batch mode.
+///
+/// @param[in] tile_set
+///     Set of (i, j) indices of tiles to be converted and reset.
+///
+/// @param[in] device
+///     Tile's device ID; default is host_num.
+///
+/// @param[in] layout
+///     Intended Layout of tiles:
+///     - Layout::ColMajor or
+///     - Layout::RowMajor.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileLayoutReset(std::set<ij_tuple>& tile_set,
+                                           int device, Layout layout)
+{
+    tileLayoutConvert(tile_set, device, layout, true);
+}
+
+//------------------------------------------------------------------------------
+/// Converts all origin tiles into current matrix-layout.
+/// Operates in batch mode.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileLayoutReset()
+{
+    std::set<ij_tuple> tiles_set_host;
+    std::vector< std::set<ij_tuple> > tiles_set_dev(num_devices());
+
+    for (int64_t i = 0; i < mt(); ++i) {
+        for (int64_t j = 0; j < nt(); ++j) {
+            if ( tileIsLocal(i, j) ) {
+
+                auto tile = tileUpdateOrigin(i, j);
+                if (tile->layout() != this->layout() ) {
+                    assert(tile->isTransposable());
+                }
+
+                if (tile->device() == host_num_) {
+                    tiles_set_host.insert({i, j});
+                }
+                else{
+                    tiles_set_dev[tile->device()].insert({i, j});
+                }
+            }
+        }
+    }
+
+    if (! tiles_set_host.empty()) {
+        tileLayoutReset(tiles_set_host, host_num_, this->layout());
+    }
+    // todo: omp tasks?
+    for (int d = 0; d < num_devices(); ++d) {
+        if (! tiles_set_dev[d].empty()) {
+            tileLayoutReset(tiles_set_dev[d], d, this->layout());
+        }
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -1975,6 +3054,31 @@ void BaseMatrix<scalar_t>::getRanks(std::set<int>* bcast_set) const
     for (int64_t i = 0; i < mt(); ++i)
         for (int64_t j = 0; j < nt(); ++j)
             bcast_set->insert(tileRank(i, j));
+}
+
+//------------------------------------------------------------------------------
+/// Returns the origin tile instance of tile(i, j)
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+template <typename scalar_t>
+Tile<scalar_t>* BaseMatrix<scalar_t>::originTile(int64_t i, int64_t j)
+{
+    // find on host
+    auto iter = storage_->find(globalIndex(i, j, host_num_));
+    if (iter != storage_->end() && iter->second.tile_->origin() ){
+        return iter->second.tile_;
+    }
+    else {
+        iter = storage_->find(globalIndex(i, j, tileDevice(i, j)));
+        if (iter != storage_->end() && iter->second.tile_->origin() ){
+            return iter->second.tile_;
+        }
+    }
 }
 
 //------------------------------------------------------------------------------

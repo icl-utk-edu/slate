@@ -43,6 +43,7 @@
 #include "slate/internal/util.hh"
 #include "slate/Matrix.hh"
 #include "slate/Tile_blas.hh"
+#include "slate/Tile_aux.hh"
 #include "slate/types.hh"
 
 namespace slate {
@@ -163,10 +164,11 @@ void tzcopy(
 
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Copy and precision conversion.
 /// Dispatches to target implementations.
+/// @ingroup copy_internal
+///
 template <Target target, typename src_scalar_t, typename dst_scalar_t>
 void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
           BaseTrapezoidMatrix<dst_scalar_t>&& B,
@@ -177,12 +179,13 @@ void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
             priority);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Copy and precision conversion.
 /// assumes A & B have same tile layout and dimensions, and have same distribution
 /// TODO handle transpose A case
 /// Host OpenMP task implementation.
+/// @ingroup copy_internal
+///
 template <typename src_scalar_t, typename dst_scalar_t>
 void copy(internal::TargetType<Target::HostTask>,
           BaseTrapezoidMatrix<src_scalar_t>& A,
@@ -191,24 +194,29 @@ void copy(internal::TargetType<Target::HostTask>,
 {
     // trace::Block trace_block("copy");
 
+    slate_error_if(A.uplo() != B.uplo());
+    bool lower = (B.uplo() == Uplo::Lower);
+
     assert(A.mt() == B.mt());
     assert(A.nt() == B.nt());
 
     for (int64_t j = 0; j < B.nt(); ++j) {
         if (j < B.mt() && B.tileIsLocal(j, j)) {
-            A.tileGetForReading(j, j);
-            B.tileGetForWriting(j, j);
+            A.tileGetForReading(j, j, LayoutConvert::None);
+            B.tileGetForWriting(j, j, LayoutConvert::None);
             tzcopy(A(j, j), B(j, j));
+            B.tileLayout(j, j, A.tileLayout(j, j));
             A.tileTick(j, j);
         }
-        if (B.uplo_logical() == Uplo::Lower) {
+        if (lower) {
             for (int64_t i = j+1; i < B.mt(); ++i) {
                 if (B.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, B) priority(priority)
                     {
-                        A.tileGetForReading(i, j);
-                        B.tileGetForWriting(i, j);
+                        A.tileGetForReading(i, j, LayoutConvert::None);
+                        B.tileGetForWriting(i, j, LayoutConvert::None);
                         gecopy(A(i, j), B(i, j));
+                        B.tileLayout(i, j, A.tileLayout(i, j));
                         A.tileTick(i, j);// TODO is this correct here?
                     }
                 }
@@ -219,9 +227,10 @@ void copy(internal::TargetType<Target::HostTask>,
                 if (B.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, B) priority(priority)
                     {
-                        A.tileGetForReading(i, j);
-                        B.tileGetForWriting(i, j);
+                        A.tileGetForReading(i, j, LayoutConvert::None);
+                        B.tileGetForWriting(i, j, LayoutConvert::None);
                         gecopy(A(i, j), B(i, j));
+                        B.tileLayout(i, j, A.tileLayout(i, j));
                         A.tileTick(i, j);// TODO is this correct here?
                     }
                 }
@@ -232,18 +241,22 @@ void copy(internal::TargetType<Target::HostTask>,
     #pragma omp taskwait
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Copy and precision conversion.
 /// assumes A & B have same tile layout and dimensions, and have same distribution
 /// TODO: Inspect transposition?
 /// GPU device implementation.
+/// @ingroup copy_internal
+///
 template <typename src_scalar_t, typename dst_scalar_t>
 void copy(internal::TargetType<Target::Devices>,
           BaseTrapezoidMatrix<src_scalar_t>& A,
           BaseTrapezoidMatrix<dst_scalar_t>& B,
           int priority)
 {
+    slate_error_if(A.uplo() != B.uplo());
+    bool lower = (B.uplo() == Uplo::Lower);
+
     // Define index ranges for quadrants of matrix.
     // Tiles in each quadrant are all the same size.
     int64_t irange[6][2] = {
@@ -274,11 +287,12 @@ void copy(internal::TargetType<Target::Devices>,
                 for (int64_t j = 0; j < B.nt(); ++j)
                     if (B.tileIsLocal(i, j) &&
                         device == B.tileDevice(i, j) &&
-                        ( (B.uplo() == Uplo::Lower && i >= j) ||
-                          (B.uplo() == Uplo::Upper && i <= j) ) )
+                        ( (  lower && i >= j) ||
+                          (! lower && i <= j) ) )
                     {
-                        A.tileGetForReading(i, j, device);
-                        B.tileGetForWriting(i, j, device);
+                        // no need to convert layout
+                        A.tileGetForReading(i, j, device, LayoutConvert::None);
+                        B.tileGetForWriting(i, j, device, LayoutConvert::None);
                     }
 
             // Usually the output matrix (B) provides all the batch arrays.
@@ -299,8 +313,8 @@ void copy(internal::TargetType<Target::Devices>,
                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                         if (B.tileIsLocal(i, j) &&
                             device == B.tileDevice(i, j) &&
-                            ( (B.uplo() == Uplo::Lower && i > j) ||
-                              (B.uplo() == Uplo::Upper && i < j) ) )
+                            ( (  lower && i > j) ||
+                              (! lower && i < j) ) )
                         {
                             a_array_host[batch_count] = A(i, j, device).data();
                             b_array_host[batch_count] = B(i, j, device).data();
@@ -383,9 +397,10 @@ void copy(internal::TargetType<Target::Devices>,
                 for (int64_t j = 0; j < B.nt(); ++j) {
                     if (B.tileIsLocal(i, j) &&
                         device == B.tileDevice(i, j) &&
-                        ( (B.uplo() == Uplo::Lower && i >= j) ||
-                          (B.uplo() == Uplo::Upper && i <= j) ) )
+                        ( (  lower && i >= j) ||
+                          (! lower && i <= j) ) )
                     {
+                        B.tileLayout(i, j, device, A.tileLayout(i, j, device));
                         // erase tmp local and remote device tiles;
                         A.tileRelease(i, j, device);
                         // decrement life for remote tiles

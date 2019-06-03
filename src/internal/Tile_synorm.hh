@@ -46,8 +46,10 @@
 
 namespace slate {
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Symmetric matrix norm.
+/// @ingroup norm_tile
+///
 template <typename scalar_t>
 void synorm(Norm norm, Tile<scalar_t> const& A,
             blas::real_type<scalar_t>* values)
@@ -65,7 +67,7 @@ void synorm(Norm norm, Tile<scalar_t> const& A,
     if (norm == Norm::Max) {
         // max norm
         // values[0] = max_{i,j} A_{i,j}
-        *values = lapack::lansy(norm, A.uplo(),
+        *values = lapack::lansy(norm, A.uploPhysical(),
                                 A.nb(),
                                 A.data(), A.stride());
     }
@@ -121,8 +123,10 @@ void synorm(Norm norm, Tile<scalar_t> const& A,
     }
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup norm_tile
+///
 template <typename scalar_t>
 void synorm(Norm norm, Tile<scalar_t> const&& A,
             blas::real_type<scalar_t>* values)
@@ -130,8 +134,10 @@ void synorm(Norm norm, Tile<scalar_t> const&& A,
     return synorm(norm, A, values);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Symmetric matrix norm, off-diagonal tiles.
+/// @ingroup norm_tile
+///
 template <typename scalar_t>
 void synormOffdiag(Norm norm, Tile<scalar_t> const& A,
                     blas::real_type<scalar_t>* col_sums,
@@ -165,8 +171,10 @@ void synormOffdiag(Norm norm, Tile<scalar_t> const& A,
     }
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup norm_tile
+///
 template <typename scalar_t>
 void synormOffdiag(Norm norm, Tile<scalar_t> const&& A,
                     blas::real_type<scalar_t>* col_sums,

@@ -450,7 +450,7 @@ HermitianMatrix<out_scalar_t> HermitianMatrix<scalar_t>::emptyLike()
     int q = this->storage_->q();
 
     auto B = HermitianMatrix<out_scalar_t>(
-                            this->uplo(), n, nb, p, q, this->mpiComm());
+                this->uploPhysical(), n, nb, p, q, this->mpiComm());
     if (this->op() == Op::Trans) {
         B = transpose( B );
     }

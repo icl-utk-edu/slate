@@ -46,10 +46,11 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// LU factorization of a column of tiles.
 /// Dispatches to target implementations.
+/// @ingroup gesv_internal
+///
 template <Target target, typename scalar_t>
 void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
            std::vector<Pivot>& pivot,
@@ -59,27 +60,27 @@ void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
           A, diag_len, ib, pivot, max_panel_threads, priority);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// LU factorization of a column of tiles, host implementation.
+/// @ingroup gesv_internal
+///
 template <typename scalar_t>
 void getrf(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A, int64_t diag_len, int64_t ib,
            std::vector<Pivot>& pivot,
            int max_panel_threads, int priority)
 {
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
     assert(A.nt() == 1);
 
     // Move the panel to the host.
+    std::set<ij_tuple> A_tiles_set;
     for (int64_t i = 0; i < A.mt(); ++i) {
         if (A.tileIsLocal(i, 0)) {
-            #pragma omp task shared(A) priority(priority)
-            {
-                A.tileGetForWriting(i, 0);
-            }
+            A_tiles_set.insert({i, 0});
         }
     }
-    #pragma omp taskwait
+    A.tileGetForWriting(A_tiles_set, LayoutConvert::ColMajor);
 
     // lists of local tiles, indices, and offsets
     std::vector< Tile<scalar_t> > tiles;

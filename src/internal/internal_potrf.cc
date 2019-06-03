@@ -46,19 +46,21 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Cholesky factorization of single tile.
 /// Dispatches to target implementations.
+/// @ingroup posv_internal
+///
 template <Target target, typename scalar_t>
 void potrf(HermitianMatrix< scalar_t >&& A, int priority)
 {
     potrf(internal::TargetType<target>(), A, priority);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Cholesky factorization of single tile, host implementation.
+/// @ingroup posv_internal
+///
 template <typename scalar_t>
 void potrf(internal::TargetType<Target::HostTask>,
            HermitianMatrix<scalar_t>& A, int priority)
@@ -69,7 +71,7 @@ void potrf(internal::TargetType<Target::HostTask>,
     if (A.tileIsLocal(0, 0))
         #pragma omp task shared(A) priority(priority)
         {
-            A.tileGetForWriting(0, 0);
+            A.tileGetForWriting(0, 0, LayoutConvert::ColMajor);
             potrf(A(0, 0));
         }
 

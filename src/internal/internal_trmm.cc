@@ -46,10 +46,11 @@
 namespace slate {
 namespace internal {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Triangular matrix multiply.
 /// Dispatches to target implementations.
+/// @ingroup trmm_internal
+///
 template <Target target, typename scalar_t>
 void trmm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
@@ -63,10 +64,11 @@ void trmm(Side side,
          priority);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Triangular matrix multiply.
 /// Host OpenMP task implementation.
+/// @ingroup trmm_internal
+///
 template <typename scalar_t>
 void trmm(internal::TargetType<Target::HostTask>,
           Side side,
@@ -74,6 +76,12 @@ void trmm(internal::TargetType<Target::HostTask>,
                                     Matrix<scalar_t>& B,
           int priority)
 {
+    // CPU assumes column major
+    // todo: relax this assumption, by allowing Tile_blas.hh::trmm() to take layout param
+    // todo: optimize for the number of layout conversions,
+    //       by watching 'layout' and 'C(i, j).layout()'
+    const Layout layout = Layout::ColMajor;
+
     assert(A.mt() == 1);
 
     // alternatively, if (side == right), (conj)-transpose both A and B,
@@ -84,8 +92,8 @@ void trmm(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(i, 0)) {
                 #pragma omp task shared(A, B)
                 {
-                    A.tileGetForReading(0, 0);
-                    B.tileGetForWriting(i, 0);
+                    A.tileGetForReading(0, 0, LayoutConvert(layout));
+                    B.tileGetForWriting(i, 0, LayoutConvert(layout));
                     trmm(side, A.diag(),
                          alpha, A(0, 0),
                                 B(i, 0));
@@ -101,8 +109,8 @@ void trmm(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(0, j)) {
                 #pragma omp task shared(A, B)
                 {
-                    A.tileGetForReading(0, 0);
-                    B.tileGetForWriting(0, j);
+                    A.tileGetForReading(0, 0, LayoutConvert(layout));
+                    B.tileGetForWriting(0, j, LayoutConvert(layout));
                     trmm(side, A.diag(),
                          alpha, A(0, 0),
                                 B(0, j));

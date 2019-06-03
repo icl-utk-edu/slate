@@ -55,28 +55,28 @@
 
 namespace slate {
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Compute the triangle-pentagonal factorization of 2 tiles.
 ///
 /// On exit, the pentagonal portion of B has been eliminated.
 ///
-/// \param[in] l
+/// @param[in] l
 ///     The number of rows of the upper trapezoidal part of B.
 ///     min(m, n) >= l >= 0.  See Further Details.
 ///     If l = 0, B is rectangular.
 ///     If l = n, B is triangular.
 ///
-/// \param[in,out] A
+/// @param[in,out] A
 ///     On entry, the k-by-n upper triangular tile A.
 ///     Only the upper n-by-n portion is accessed. k >= n; otherwise k is unused.
 ///
-/// \param[in,out] B
+/// @param[in,out] B
 ///     On entry, the m-by-n pentagonal tile B.
 ///     On exit, the columns represent the Householder reflectors.
 ///     The top (m-l)-by-n portion is rectangular,
 ///     the bottom l-by-n portion is upper trapezoidal.
 ///
-/// \param[out] T
+/// @param[out] T
 ///     Tile of size ib-by-n, where ib is the internal blocking to use. ib >= n.
 ///     On exit, stores a sequence of ib-by-ib upper triangular T matrices
 ///     representing the block Householder reflectors. See Further Details.
@@ -119,6 +119,8 @@ namespace slate {
 /// for the last block) T's are stored in the ib-by-n matrix T as
 ///
 ///     T = [ T1 T2 ... Tr ]
+///
+/// @ingroup geqrf_tile
 ///
 template <typename scalar_t>
 void tpqrt(

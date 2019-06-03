@@ -54,9 +54,10 @@ namespace specialization {
 
 //------------------------------------------------------------------------------
 /// @internal
-/// Distributed parallel general matrix norm.
+/// Distributed parallel matrix norm.
 /// Generic implementation for any target.
-/// @ingroup norm
+/// @ingroup norm_specialization
+///
 template <Target target, typename matrix_type>
 void colNorms(slate::internal::TargetType<target>,
               Norm in_norm,
@@ -149,7 +150,8 @@ void colNorms(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup norm
+/// @ingroup norm_specialization
+///
 template <Target target, typename matrix_type>
 void colNorms(Norm in_norm,
               matrix_type& A,
@@ -162,23 +164,26 @@ void colNorms(Norm in_norm,
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel general matrix norm.
+/// Distributed parallel matrix norm.
 ///
 //------------------------------------------------------------------------------
 /// @tparam matrix_type
 ///     Any SLATE matrix type: Matrix, SymmetricMatrix, HermitianMatrix,
 ///     TriangularMatrix, etc.
 //------------------------------------------------------------------------------
-/// @param[in] norm
+/// @param[in] in_norm
 ///     Norm to compute:
-///     - Norm::Max: maximum element,    $\max_{i, j}   \abs( A_{i, j} )$
-///     - Norm::One: maximum column sum, $\max_j \sum_i \abs( A_{i, j} )$
-///     - Norm::Inf: maximum row sum,    $\max_i \sum_j \abs( A_{i, j} )$
+///     - Norm::Max: maximum element,    $\max_{i, j}   \abs{ A_{i, j} }$
+///     - Norm::One: maximum column sum, $\max_j \sum_i \abs{ A_{i, j} }$
+///     - Norm::Inf: maximum row sum,    $\max_i \sum_j \abs{ A_{i, j} }$
 ///       For symmetric and Hermitian matrices, the One and Inf norms are the same.
-///     - Norm::Fro: Frobenius norm, $\sqrt( \sum_{i, j} \abs( A_{i, j} )^2 )$
+///     - Norm::Fro: Frobenius norm, $\sqrt{ \sum_{i, j} \abs{ A_{i, j} }^2 }$
 ///
 /// @param[in] A
 ///     The matrix A.
+///
+/// @param[out] values
+///     todo: undocumented.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
@@ -189,6 +194,7 @@ void colNorms(Norm in_norm,
 ///       - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup norm
+///
 template <typename matrix_type>
 void colNorms(Norm in_norm,
               matrix_type& A,

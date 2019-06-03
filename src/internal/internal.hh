@@ -37,8 +37,8 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-///-----------------------------------------------------------------------------
-/// \file
+//------------------------------------------------------------------------------
+/// @file
 ///
 #ifndef SLATE_INTERNAL_HH
 #define SLATE_INTERNAL_HH
@@ -60,7 +60,7 @@
 #include "slate/TriangularMatrix.hh"
 #include "slate/BandMatrix.hh"
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 #define THROW_IF(cond, error) \
     if (cond) \
         throw TrueConditionException( \
@@ -86,7 +86,24 @@
 }
 
 namespace slate {
+
+//------------------------------------------------------------------------------
+/// @namespace slate::internal
+/// Namespace used for SLATE internal implementation.
+/// It is intended that application code would not call any internal SLATE
+/// functions.
 namespace internal {
+
+/// @namespace slate::internal::specialization
+/// Namespace used for target implementations.
+/// This differentiates, for example:
+/// - internal::specialization::gemm, which is target implementation of the
+///   slate::gemm PBLAS, from
+/// - internal::gemm, which is one step (one block outer-product) of
+///   internal::specialization::gemm.
+namespace specialization {
+    // here just for documentation
+}
 
 //------------------------------------------------------------------------------
 inline CBLAS_TRANSPOSE cblas_trans_const(Op op)
@@ -175,7 +192,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
-          int priority=0, Layout layout=Layout::ColMajor);
+          Layout layout, int priority=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void gemm_A(scalar_t alpha, Matrix<scalar_t>&& A,
@@ -330,7 +347,7 @@ void trsm(Side side,
 template <Target target=Target::HostTask, typename scalar_t>
 void swap(Direction direction,
           Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
-          int priority=0, int tag=0, Layout layout=Layout::ColMajor);
+          Layout layout, int priority=0, int tag=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void swap(Direction direction,

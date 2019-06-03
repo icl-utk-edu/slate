@@ -50,13 +50,14 @@
 
 namespace slate {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// General matrix multiply: $op(C) = \alpha op(A) op(B) + \beta C$.
 /// Use transpose() or conj_transpose() to set $op(A)$, $op(B)$, and $op(C)$.
 /// In the complex case,
 /// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conj_transpose;
 /// if $op(C)$ is conj_transpose, then $op(A)$ and $op(B)$ cannot be transpose.
+/// @ingroup gemm_tile
+///
 template <typename scalar_t>
 void gemm(
     scalar_t alpha, Tile<scalar_t> const& A,
@@ -65,17 +66,25 @@ void gemm(
 {
     trace::Block trace_block("blas::gemm");
 
+    // assumes column major for now
+    // todo: relax this assumption
+    const blas::Layout layout = blas::Layout::ColMajor;
+
     using blas::conj;
 
-    assert(A.uplo() == Uplo::General);
-    assert(B.uplo() == Uplo::General);
-    assert(C.uplo() == Uplo::General);
+    assert(A.uploPhysical() == Uplo::General);
+    assert(B.uploPhysical() == Uplo::General);
+    assert(C.uploPhysical() == Uplo::General);
     assert(C.mb() == A.mb());  // m
     assert(C.nb() == B.nb());  // n
     assert(A.nb() == B.mb());  // k
+    assert(A.layout() == layout);
+    assert(B.layout() == layout);
+    assert(C.layout() == layout);
+
     if (C.op() == Op::NoTrans) {
         // C = opA(A) opB(B) + C
-        blas::gemm(blas::Layout::ColMajor,
+        blas::gemm(layout,
                    A.op(), B.op(),
                    C.mb(), C.nb(), A.nb(),
                    alpha, A.data(), A.stride(),
@@ -114,7 +123,7 @@ void gemm(
             beta  = conj(beta);
         }
 
-        blas::gemm(blas::Layout::ColMajor,
+        blas::gemm(layout,
                    opB, opA,
                    C.nb(), C.mb(), A.nb(),
                    alpha, B.data(), B.stride(),
@@ -123,8 +132,10 @@ void gemm(
     }
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup gemm_tile
+///
 template <typename scalar_t>
 void gemm(
     scalar_t alpha, Tile<scalar_t> const&& A,
@@ -134,13 +145,14 @@ void gemm(
     gemm(alpha, A, B, beta, C);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Hermitian matrix multiply: $C = \alpha A op(B) + \beta op(C)$
 ///                         or $C = \alpha op(B) A + \beta op(C)$,
 /// where $A$ is Hermitian.
 /// Unlike most BLAS operations, here op(B) and op(C) must be
 /// both the same, either both NoTrans or both ConjTrans.
+/// @ingroup hemm_tile
+///
 template <typename scalar_t>
 void hemm(
     Side side,
@@ -166,7 +178,7 @@ void hemm(
     // A.op can be ignored, since A == A^T
     if (B.op() == Op::NoTrans) {
         blas::hemm(blas::Layout::ColMajor,
-                   side, A.uplo(),
+                   side, A.uploPhysical(),
                    C.mb(), C.nb(),
                    alpha, A.data(), A.stride(),
                           B.data(), B.stride(),
@@ -177,7 +189,7 @@ void hemm(
         // undo transpose by swapping left <=> right, m <=> n, conj alpha & beta
         side = (side == Side::Left ? Side::Right : Side::Left);
         blas::hemm(blas::Layout::ColMajor,
-                   side, A.uplo(),
+                   side, A.uploPhysical(),
                    C.nb(), C.mb(),
                    conj(alpha), A.data(), A.stride(),
                                 B.data(), B.stride(),
@@ -185,8 +197,10 @@ void hemm(
     }
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup hemm_tile
+///
 template <typename scalar_t>
 void hemm(
     Side side,
@@ -197,11 +211,12 @@ void hemm(
     hemm(side, alpha, A, B, beta, C);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Hermitian rank-k update: $C = \alpha op(A) op(A)^H + \beta C$.
 /// Use conj_transpose to set $op(A)$.
 /// In the complex case, C cannot be transpose.
+/// @ingroup herk_tile
+///
 // Allowing C^T would require two conjugations: conj( conj(C) + A*A^H ).
 template <typename scalar_t>
 void herk(
@@ -210,21 +225,23 @@ void herk(
 {
     trace::Block trace_block("blas::herk");
 
-    assert(A.uplo() == Uplo::General);
+    assert(A.uploPhysical() == Uplo::General);
     assert(C.mb() == C.nb());  // square
     assert(C.mb() == A.mb());  // n
     if (C.is_complex && C.op() == Op::Trans)
         throw std::exception();
 
     blas::herk(blas::Layout::ColMajor,
-               C.uplo(), A.op(),
+               C.uploPhysical(), A.op(),
                C.nb(), A.nb(),
                alpha, A.data(), A.stride(),
                beta,  C.data(), C.stride());
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup herk_tile
+///
 template <typename scalar_t>
 void herk(
     blas::real_type<scalar_t> alpha, Tile<scalar_t> const&& A,
@@ -233,12 +250,13 @@ void herk(
     herk(alpha, A, beta, C);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Hermitian rank-2k update:
 ///     $C = \alpha op(A) op(B)^T + \alpha op(B) op(A)^T + \beta C$.
 /// Use transpose or conj_transpose to set $op(A)$ and $op(B)$.
 /// In the complex case, C cannot be transpose.
+/// @ingroup her2k_tile
+///
 // Allowing C^H would require two conjugations: conj( conj(C) + A*A^T ).
 template <typename scalar_t>
 void her2k(
@@ -251,8 +269,8 @@ void her2k(
     using blas::conj;
 
     assert(A.op() == B.op());
-    assert(A.uplo() == Uplo::General);
-    assert(B.uplo() == Uplo::General);
+    assert(A.uploPhysical() == Uplo::General);
+    assert(B.uploPhysical() == Uplo::General);
     assert(C.mb() == C.nb());  // square
     assert(C.mb() == A.mb());  // n
     assert(C.mb() == B.mb());  // n
@@ -260,15 +278,17 @@ void her2k(
         throw std::exception();
 
     blas::her2k(blas::Layout::ColMajor,
-                C.uplo(), A.op(),
+                C.uploPhysical(), A.op(),
                 C.nb(), A.nb(),
                 alpha, A.data(), A.stride(),
                        B.data(), B.stride(),
                 beta,  C.data(), C.stride());
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup her2k_tile
+///
 template <typename scalar_t>
 void her2k(
     scalar_t alpha,                 Tile<scalar_t> const&& A,
@@ -278,13 +298,14 @@ void her2k(
     her2k(alpha, A, B, beta, C);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Symmetric matrix multiply: $C = \alpha A op(B) + \beta op(C)$
 ///                         or $C = \alpha op(B) A + \beta op(C)$,
 /// where $A$ is symmetric.
 /// Unlike most BLAS operations, here op(B) and op(C) must be
 /// both the same, either both NoTrans or both Trans.
+/// @ingroup symm_tile
+///
 template <typename scalar_t>
 void symm(
     Side side,
@@ -310,7 +331,7 @@ void symm(
     // A.op can be ignored, since A == A^T
     if (B.op() == Op::NoTrans) {
         blas::symm(blas::Layout::ColMajor,
-                   side, A.uplo(),
+                   side, A.uploPhysical(),
                    C.mb(), C.nb(),
                    alpha, A.data(), A.stride(),
                           B.data(), B.stride(),
@@ -321,7 +342,7 @@ void symm(
         // undo transpose by swapping left <=> right, m <=> n
         side = (side == Side::Left ? Side::Right : Side::Left);
         blas::symm(blas::Layout::ColMajor,
-                   side, A.uplo(),
+                   side, A.uploPhysical(),
                    C.nb(), C.mb(),
                    alpha, A.data(), A.stride(),
                           B.data(), B.stride(),
@@ -329,8 +350,10 @@ void symm(
     }
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup symm_tile
+///
 template <typename scalar_t>
 void symm(
     Side side,
@@ -341,11 +364,12 @@ void symm(
     symm(side, alpha, A, B, beta, C);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Symmetric rank-k update: $C = \alpha op(A) op(A)^T + \beta C$.
 /// Use transpose or conj_transpose to set $op(A)$.
 /// In the complex case, C cannot be conj_transpose.
+/// @ingroup syrk_tile
+///
 // Allowing C^H would require two conjugations: conj( conj(C) + A*A^T ).
 template <typename scalar_t>
 void syrk(
@@ -356,21 +380,23 @@ void syrk(
 
     using blas::conj;
 
-    assert(A.uplo() == Uplo::General);
+    assert(A.uploPhysical() == Uplo::General);
     assert(C.mb() == C.nb());  // square
     assert(C.mb() == A.mb());  // n
     if (C.is_complex && C.op() == Op::ConjTrans)
         throw std::exception();
 
     blas::syrk(blas::Layout::ColMajor,
-               C.uplo(), A.op(),
+               C.uploPhysical(), A.op(),
                C.nb(), A.nb(),
                alpha, A.data(), A.stride(),
                beta,  C.data(), C.stride());
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup syrk_tile
+///
 template <typename scalar_t>
 void syrk(
     scalar_t alpha, Tile<scalar_t> const&& A,
@@ -379,12 +405,13 @@ void syrk(
     syrk(alpha, A, beta, C);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Symmetric rank-2k update:
 ///     $C = \alpha op(A) op(B)^T + \alpha op(B) op(A)^T + \beta C$.
 /// Use transpose or conj_transpose to set $op(A)$ and $op(B)$.
 /// In the complex case, C cannot be conj_transpose.
+/// @ingroup syr2k_tile
+///
 // Allowing C^H would require two conjugations: conj( conj(C) + A*A^T ).
 template <typename scalar_t>
 void syr2k(
@@ -397,8 +424,8 @@ void syr2k(
     using blas::conj;
 
     assert(A.op() == B.op());
-    assert(A.uplo() == Uplo::General);
-    assert(B.uplo() == Uplo::General);
+    assert(A.uploPhysical() == Uplo::General);
+    assert(B.uploPhysical() == Uplo::General);
     assert(C.mb() == C.nb());  // square
     assert(C.mb() == A.mb());  // n
     assert(C.mb() == B.mb());  // n
@@ -406,15 +433,17 @@ void syr2k(
         throw std::exception();
 
     blas::syr2k(blas::Layout::ColMajor,
-                C.uplo(), A.op(),
+                C.uploPhysical(), A.op(),
                 C.nb(), A.nb(),
                 alpha, A.data(), A.stride(),
                        B.data(), B.stride(),
                 beta,  C.data(), C.stride());
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup syr2k_tile
+///
 template <typename scalar_t>
 void syr2k(
     scalar_t alpha, Tile<scalar_t> const&& A,
@@ -424,8 +453,13 @@ void syr2k(
     syr2k(alpha, A, B, beta, C);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
+/// Triangular matrix-matrix multiply:
+///     $B = \alpha op(A) B$ or
+///     $B = \alpha B op(A)$
+/// where $A$ is triangular.
+/// @ingroup trmm_tile
+///
 template <typename scalar_t>
 void trmm(
     Side side, Diag diag,
@@ -436,13 +470,13 @@ void trmm(
 
     using blas::conj;
 
-    assert(B.uplo() == Uplo::General);
+    assert(B.uploPhysical() == Uplo::General);
     assert(A.mb() == A.nb());  // square
     assert(side == Side::Left ? A.mb() == B.mb()    // m
                               : A.mb() == B.nb());  // n
     if (B.op() == Op::NoTrans) {
         blas::trmm(blas::Layout::ColMajor,
-                   side, A.uplo(), A.op(), diag,
+                   side, A.uploPhysical(), A.op(), diag,
                    B.mb(), B.nb(),
                    alpha, A.data(), A.stride(),
                           B.data(), B.stride());
@@ -468,15 +502,17 @@ void trmm(
             alpha = conj(alpha);
 
         blas::trmm(blas::Layout::ColMajor,
-                   side2, A.uplo(), opA, diag,
+                   side2, A.uploPhysical(), opA, diag,
                    B.nb(), B.mb(),
                    alpha, A.data(), A.stride(),
                           B.data(), B.stride());
     }
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup trmm_tile
+///
 template <typename scalar_t>
 void trmm(
     Side side, Diag diag,
@@ -486,13 +522,14 @@ void trmm(
     trmm(side, diag, alpha, A, B);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Triangular solve: $B = \alpha op(A)^{-1} B$ or $B = \alpha B op(A)^{-1}$.
 /// Use transpose/conj_transpose to set op(A). uplo is set in the tile.
 /// In the complex case,
 /// if $op(B)$ is transpose, then $op(A)$ cannot be conj_transpose;
 /// if $op(B)$ is conj_transpose, then $op(A)$ cannot be transpose.
+/// @ingroup trsm_tile
+///
 template <typename scalar_t>
 void trsm(
     Side side, Diag diag,
@@ -503,13 +540,13 @@ void trsm(
 
     using blas::conj;
 
-    assert(B.uplo() == Uplo::General);
+    assert(B.uploPhysical() == Uplo::General);
     assert(A.mb() == A.nb());  // square
     assert(side == Side::Left ? A.mb() == B.mb()    // m
                               : A.mb() == B.nb());  // n
     if (B.op() == Op::NoTrans) {
         blas::trsm(blas::Layout::ColMajor,
-                   side, A.uplo(), A.op(), diag,
+                   side, A.uploPhysical(), A.op(), diag,
                    B.mb(), B.nb(),
                    alpha, A.data(), A.stride(),
                           B.data(), B.stride());
@@ -535,15 +572,17 @@ void trsm(
             alpha = conj(alpha);
 
         blas::trsm(blas::Layout::ColMajor,
-                   side2, A.uplo(), opA, diag,
+                   side2, A.uploPhysical(), opA, diag,
                    B.nb(), B.mb(),
                    alpha, A.data(), A.stride(),
                           B.data(), B.stride());
     }
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup trsm_tile
+///
 template <typename scalar_t>
 void trsm(
     Side side, Diag diag,
@@ -553,8 +592,10 @@ void trsm(
     trsm(side, diag, alpha, A, B);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Scale by a constant: $A = \alpha A$.
+/// @ingroup scale_tile
+///
 template <typename scalar_t>
 void scale(
     scalar_t alpha, Tile<scalar_t>& A)
@@ -565,8 +606,10 @@ void scale(
             A.at(i, j) *= alpha;
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup scale_tile
+///
 template <typename scalar_t>
 void scale(
     scalar_t alpha, Tile<scalar_t>&& A)
@@ -574,9 +617,9 @@ void scale(
     scale(alpha, A);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Swap rows or columns of two local tiles, depending on op().
+/// @ingroup swap_tile
 ///
 template <typename scalar_t>
 void swap(int64_t j_offs, int64_t n,
@@ -588,8 +631,10 @@ void swap(int64_t j_offs, int64_t n,
         std::swap(A.at(i1, j), B.at(i2, j));
 }
 
-///-------------------------------------
+//--------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup swap_tile
+///
 template <typename scalar_t>
 void swap(int64_t j_offs, int64_t n,
           Tile<scalar_t>&& A, int64_t i1,
@@ -598,9 +643,9 @@ void swap(int64_t j_offs, int64_t n,
     swap(j_offs, n, A, i1, B, i2);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Swap rows or columns with another process, depending on op().
+/// @ingroup swap_tile
 ///
 template <typename scalar_t>
 void swap(int64_t j, int64_t n,
@@ -622,8 +667,10 @@ void swap(int64_t j, int64_t n,
          A.at(i, j+k) = other_row[k];
 }
 
-///-------------------------------------
+//--------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup swap_tile
+///
 template <typename scalar_t>
 void swap(int64_t j, int64_t n,
           Tile<scalar_t>&& A, int64_t i,
@@ -632,45 +679,51 @@ void swap(int64_t j, int64_t n,
     swap(j, n, A, i, other_rank, mpi_comm, tag);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Swap rows or columns with another process, depending on op().
+/// @ingroup swap_tile
 ///
+// todo: implement with a GPUDirect call
 template <typename scalar_t>
 void swap(int64_t j, int64_t n,
           int device, Tile<scalar_t>& A, int64_t i,
-          int other_rank, MPI_Comm mpi_comm, int tag = 0)
+          int other_rank, MPI_Comm mpi_comm, cudaStream_t stream, int tag = 0)
 {
     std::vector<scalar_t> local_row(n);
     std::vector<scalar_t> other_row(n);
 
     slate_cuda_call(cudaSetDevice(device));
-    // todo: should this be an Async copy?
-    slate_cuda_call(cudaMemcpy(local_row.data(), &A.at(i, j),
-                               sizeof(scalar_t)*n, cudaMemcpyDeviceToHost));
+    slate_cuda_call(cudaMemcpyAsync(local_row.data(), &A.at(i, j),
+                                    sizeof(scalar_t)*n, cudaMemcpyDeviceToHost,
+                                    stream));
+    slate_cuda_call(cudaStreamSynchronize(stream));
 
     MPI_Sendrecv(
         local_row.data(), n, mpi_type<scalar_t>::value, other_rank, tag,
         other_row.data(), n, mpi_type<scalar_t>::value, other_rank, tag,
         mpi_comm, MPI_STATUS_IGNORE);
 
-    slate_cuda_call(cudaMemcpy(&A.at(i, j), other_row.data(),
-                               sizeof(scalar_t)*n, cudaMemcpyHostToDevice));
+    slate_cuda_call(cudaMemcpyAsync(&A.at(i, j), other_row.data(),
+                                    sizeof(scalar_t)*n, cudaMemcpyHostToDevice,
+                                    stream));
+    slate_cuda_call(cudaStreamSynchronize(stream));
 }
 
-///-------------------------------------
+//--------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup swap_tile
+///
 template <typename scalar_t>
 void swap(int64_t j, int64_t n,
           int device, Tile<scalar_t>&& A, int64_t i,
-          int other_rank, MPI_Comm mpi_comm, int tag = 0)
+          int other_rank, MPI_Comm mpi_comm, cudaStream_t stream, int tag = 0)
 {
-    swap(j, n, device, A, i, other_rank, mpi_comm, tag);
+    swap(j, n, device, A, i, other_rank, mpi_comm, stream, tag);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Swap one element with another process.
+/// @ingroup swap_tile
 ///
 template <typename scalar_t>
 void swap(Tile<scalar_t>& A, int64_t i, int64_t j,
@@ -687,8 +740,10 @@ void swap(Tile<scalar_t>& A, int64_t i, int64_t j,
     A.at(i, j) = other_element;
 }
 
-///-------------------------------------
+//--------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup swap_tile
+///
 template <typename scalar_t>
 void swap(Tile<scalar_t>&& A, int64_t i, int64_t j,
           int other_rank, MPI_Comm mpi_comm, int tag = 0)
@@ -696,168 +751,64 @@ void swap(Tile<scalar_t>&& A, int64_t i, int64_t j,
     swap(A, i, j, other_rank, mpi_comm, tag);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
-/// Computes Y=A*X+Y.
+//------------------------------------------------------------------------------
+/// Computes $Y = \alpha X + Y$.
+/// @ingroup geadd_tile
 ///
 template <typename scalar_t>
 void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>& Y)
 {
     trace::Block trace_block("blas::axpy");
 
+    // todo: relax these assumptions, by adjusting the loops below
     assert(X.op() == Y.op());
-    assert(X.uplo() == Y.uplo());
-    assert(Y.uplo() == Uplo::General);
+    assert(X.uploPhysical() == Uplo::General);
+    assert(Y.uploPhysical() == Uplo::General);
 
     for (int64_t i = 0; i < std::min(X.mb(), Y.mb()); ++i)
         for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j)
             Y.at(i, j) += alpha*X(i, j);
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup geadd_tile
+///
 template <typename scalar_t>
 void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>&& Y)
 {
     axpy(alpha, X, Y);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
-/// Computes Y=a*X+b*Y.
+//------------------------------------------------------------------------------
+/// Computes $Y = \alpha X + \beta Y$.
+/// @ingroup geadd_tile
 ///
 template <typename scalar_t>
-void axby(scalar_t alpha, Tile<scalar_t> const& X,
-          scalar_t beta, Tile<scalar_t>& Y)
+void axpby(scalar_t alpha, Tile<scalar_t> const& X,
+           scalar_t beta, Tile<scalar_t>& Y)
 {
-    // trace::Block trace_block("blas::axby");
+    // trace::Block trace_block("blas::axpby");
 
-    // TODO should be able to loosen these restriction
+    // TODO should be able to loosen these restrictions
     assert(X.op() == Y.op());
-    assert(X.uplo() == Y.uplo());
-    assert(Y.uplo() == Uplo::General);
+    assert(X.uploPhysical() == Uplo::General);
+    assert(Y.uploPhysical() == Uplo::General);
 
     for (int64_t i = 0; i < std::min(X.mb(), Y.mb()); ++i)
         for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j)
             Y.at(i, j) = alpha*X(i, j) + beta*Y(i, j);
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
-template <typename scalar_t>
-void axby(scalar_t alpha, Tile<scalar_t> const& X,
-          scalar_t beta, Tile<scalar_t>&& Y)
-{
-    axby(alpha, X, beta, Y);
-}
-
-///-----------------------------------------------------------------------------
-/// Copy and precision conversion.
-/// TODO: Move functiona that are not really BLAS to Tile_aux.hh.
-///
-template <typename src_scalar_t, typename dst_scalar_t>
-void gecopy(Tile<src_scalar_t> const& A, Tile<dst_scalar_t>& B)
-{
-//  trace::Block trace_block("aux::copy");
-
-    assert(A.mb() == B.mb());
-    assert(A.nb() == B.nb());
-
-    for (int64_t j = 0; j < B.nb(); ++j)
-        for (int64_t i = 0; i < B.mb(); ++i)
-            B.at(i, j) = A.at(i, j);
-}
-
-///----------------------------------------
-/// Converts rvalue refs to lvalue refs.
-template <typename src_scalar_t, typename dst_scalar_t>
-void gecopy(Tile<src_scalar_t> const&& A, Tile<dst_scalar_t>&& B)
-{
-    gecopy(A, B);
-}
-
-///-----------------------------------------------------------------------------
-/// Copy and precision conversion.
-/// TODO: Move functiona that are not really BLAS to Tile_aux.hh.
-///
-template <typename src_scalar_t, typename dst_scalar_t>
-void tzcopy(Tile<src_scalar_t> const& A, Tile<dst_scalar_t>& B)
-{
-//  trace::Block trace_block("aux::copy");
-
-    // TODO: Can be loosened?
-    assert(A.uplo() != Uplo::General);
-    assert(B.uplo() == A.uplo());
-
-    assert(A.op() == Op::NoTrans);
-    assert(B.op() == A.op());
-
-    assert(A.mb() == B.mb());
-    assert(A.nb() == B.nb());
-
-    for (int64_t j = 0; j < B.nb(); ++j) {
-        if (j < B.mb()) {
-            B.at(j, j) = A.at(j, j);
-        }
-        if (B.uplo() == Uplo::Lower) {
-            for (int64_t i = j; i < B.mb(); ++i) {
-                B.at(i, j) = A.at(i, j);
-            }
-        }
-        else {
-            for (int64_t i = 0; i <= j && i < B.mb(); ++i) {
-                B.at(i, j) = A.at(i, j);
-            }
-        }
-    }
-}
-
-///----------------------------------------
-/// Converts rvalue refs to lvalue refs.
-template <typename src_scalar_t, typename dst_scalar_t>
-void tzcopy(Tile<src_scalar_t> const&& A, Tile<dst_scalar_t>&& B)
-{
-    tzcopy(A, B);
-}
-
-///-----------------------------------------------------------------------------
-/// In-place conversion between column and row-major layout for square tiles.
-/// Takes a pointer to the original tile in MatrixStorage, instead of a
-/// reference to a copy of the tile, in order to adjust the tile's layout flag.
+/// @ingroup geadd_tile
 ///
 template <typename scalar_t>
-void convert_layout(Tile<scalar_t>* X)
+void axpby(scalar_t alpha, Tile<scalar_t> const& X,
+           scalar_t beta, Tile<scalar_t>&& Y)
 {
-    trace::Block trace_block("slate::convert_layout");
-    assert(X->mb() == X->nb());
-
-    for (int64_t j = 0; j < X->nb(); ++j) {
-        for (int64_t i = 0; i < j; ++i) { // upper
-            std::swap(X->at(i, j), X->at(j, i));
-        }
-    }
-
-    X->layout(X->layout() == Layout::RowMajor ? Layout::ColMajor
-                                              : Layout::RowMajor);
-}
-
-///-----------------------------------------------------------------------------
-/// In-place conversion between column and row-major layout for square tiles.
-/// Takes a pointer to the original tile in MatrixStorage, instead of a
-/// reference to a copy of the tile, in order to adjust the tile's layout flag.
-///
-template <typename scalar_t>
-void convert_layout(Tile<scalar_t>* X, cudaStream_t stream)
-{
-    trace::Block trace_block("slate::device::transpose");
-    assert(X->mb() == X->nb());
-
-    device::transpose(X->mb(), X->data(), X->stride(), stream);
-    slate_cuda_call(
-        cudaStreamSynchronize(stream));
-
-    X->layout(X->layout() == Layout::RowMajor ? Layout::ColMajor
-                                              : Layout::RowMajor);
+    axpby(alpha, X, beta, Y);
 }
 
 } // namespace slate

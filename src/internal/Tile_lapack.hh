@@ -49,16 +49,17 @@
 
 namespace slate {
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// General matrix norm.
+/// @ingroup norm_tile
+///
 template <typename scalar_t>
 void genorm(Norm norm, NormScope scope, Tile<scalar_t> const& A,
             blas::real_type<scalar_t>* values)
 {
     trace::Block trace_block("lapack::lange");
 
-    assert(A.uplo() == Uplo::General);
+    assert(A.uploPhysical() == Uplo::General);
     assert(A.op() == Op::NoTrans);
 
     if (scope == NormScope::Matrix) {
@@ -110,7 +111,8 @@ void genorm(Norm norm, NormScope scope, Tile<scalar_t> const& A,
 
         if (norm == Norm::Max) {
             // All max norm
-            // values[j] = max_j abs( A_{i,j} )
+            // values[j] = max_i abs( A_{i,j} )
+            // todo: handle layout and transpose, also sliced matrices
             // todo: parallel for ??
             for (int64_t j = 0; j < A.nb(); ++j) {
                 values[j] = lapack::lange(norm,
@@ -127,8 +129,10 @@ void genorm(Norm norm, NormScope scope, Tile<scalar_t> const& A,
     }
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup norm_tile
+///
 template <typename scalar_t>
 void genorm(Norm norm, NormScope scope, Tile<scalar_t> const&& A,
             blas::real_type<scalar_t>* values)
@@ -136,8 +140,10 @@ void genorm(Norm norm, NormScope scope, Tile<scalar_t> const&& A,
     return genorm(norm, scope, A, values);
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Trapezoid and triangular matrix norm.
+/// @ingroup norm_tile
+///
 template <typename scalar_t>
 void trnorm(Norm norm, Diag diag, Tile<scalar_t> const& A,
             blas::real_type<scalar_t>* values)
@@ -147,13 +153,13 @@ void trnorm(Norm norm, Diag diag, Tile<scalar_t> const& A,
 
     trace::Block trace_block("lapack::lantr");
 
-    assert(A.uplo() != Uplo::General);
+    assert(A.uploPhysical() != Uplo::General);
     assert(A.op() == Op::NoTrans);
 
     if (norm == Norm::Max) {
         // max norm
         // values[0] = max_{i,j} A_{i,j}
-        *values = lapack::lantr(norm, A.uplo(), diag,
+        *values = lapack::lantr(norm, A.uploPhysical(), diag,
                                 A.mb(), A.nb(),
                                 A.data(), A.stride());
     }
@@ -265,8 +271,10 @@ void trnorm(Norm norm, Diag diag, Tile<scalar_t> const& A,
     }
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup norm_tile
+///
 template <typename scalar_t>
 void trnorm(Norm norm, Tile<scalar_t> const&& A,
             blas::real_type<scalar_t>* values)
@@ -274,22 +282,25 @@ void trnorm(Norm norm, Tile<scalar_t> const&& A,
     return trnorm(norm, A, values);
 }
 
-///-----------------------------------------------------------------------------
-/// \brief
+//------------------------------------------------------------------------------
 /// Cholesky factorization of tile: $L L^H = A$ or $U^H U = A$.
 /// uplo is set in the tile.
+/// @ingroup posv_tile
+///
 template <typename scalar_t>
 int64_t potrf(Tile<scalar_t>& A)
 {
     trace::Block trace_block("lapack::potrf");
 
-    return lapack::potrf(A.uplo(),
+    return lapack::potrf(A.uploPhysical(),
                          A.nb(),
                          A.data(), A.stride());
 }
 
-///----------------------------------------
+//-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
+/// @ingroup posv_tile
+///
 template <typename scalar_t>
 int64_t potrf(Tile<scalar_t>&& A)
 {

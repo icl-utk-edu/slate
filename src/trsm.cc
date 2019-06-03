@@ -56,7 +56,8 @@ namespace specialization {
 /// Generic implementation for any target.
 /// Note A and B are passed by value, so we can transpose if needed
 /// (for side = right) without affecting caller.
-/// @ingroup trsm
+/// @ingroup trsm_specialization
+///
 template <Target target, typename scalar_t>
 void trsm(slate::internal::TargetType<target>,
           Side side,
@@ -66,6 +67,9 @@ void trsm(slate::internal::TargetType<target>,
 {
     using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
+
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
 
     // if on right, change to left by (conj)-transposing A and B to get
     // op(B) = op(A)^{-1} * op(B)
@@ -100,7 +104,7 @@ void trsm(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
-        if (A.uplo_logical() == Uplo::Lower) {
+        if (A.uplo() == Uplo::Lower) {
             // ----------------------------------------
             // Lower/NoTrans or Upper/Trans, Left case
             // Forward sweep
@@ -111,7 +115,7 @@ void trsm(slate::internal::TargetType<target>,
                 #pragma omp task depend(inout:row[k]) priority(1)
                 {
                     // send A(k, k) to ranks owning block row B(k, :)
-                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1));
+                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
 
                     // solve A(k, k) B(k, :) = alpha B(k, :)
                     internal::trsm<Target::HostTask>(
@@ -123,7 +127,7 @@ void trsm(slate::internal::TargetType<target>,
                     BcastList bcast_list_A;
                     for (int64_t i = k+1; i < mt; ++i)
                         bcast_list_A.push_back({i, k, {B.sub(i, i, 0, nt-1)}});
-                    A.template listBcast<target>(bcast_list_A);
+                    A.template listBcast<target>(bcast_list_A, layout);
 
                     // send B(k, j=0:nt-1) to ranks owning
                     // block col B(k+1:mt-1, j)
@@ -132,7 +136,7 @@ void trsm(slate::internal::TargetType<target>,
                         bcast_list_B.push_back(
                             {k, j, {B.sub(k+1, mt-1, j, j)}});
                     }
-                    B.template listBcast<target>(bcast_list_B);
+                    B.template listBcast<target>(bcast_list_B, layout);
                 }
 
                 // lookahead update, B(k+1:k+la, :) -= A(k+1:k+la, k) B(k, :)
@@ -143,7 +147,8 @@ void trsm(slate::internal::TargetType<target>,
                         internal::gemm<Target::HostTask>(
                             scalar_t(-1.0), A.sub(i, i, k, k),
                                             B.sub(k, k, 0, nt-1),
-                            alph,           B.sub(i, i, 0, nt-1), 1);
+                            alph,           B.sub(i, i, 0, nt-1),
+                            layout, 1);
                     }
                 }
 
@@ -160,8 +165,8 @@ void trsm(slate::internal::TargetType<target>,
                         internal::gemm<target>(
                             scalar_t(-1.0), A.sub(k+1+lookahead, mt-1, k, k),
                                             B.sub(k, k, 0, nt-1),
-                            alph,           B.sub(k+1+lookahead, mt-1, 0,
-                                                  nt-1));
+                            alph,           B.sub(k+1+lookahead, mt-1, 0, nt-1),
+                            layout);
                     }
                 }
             }
@@ -177,7 +182,7 @@ void trsm(slate::internal::TargetType<target>,
                 #pragma omp task depend(inout:row[k]) priority(1)
                 {
                     // send A(k, k) to ranks owning block row B(k, :)
-                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1));
+                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
 
                     // solve A(k, k) B(k, :) = alpha B(k, :)
                     internal::trsm<Target::HostTask>(
@@ -189,13 +194,13 @@ void trsm(slate::internal::TargetType<target>,
                     BcastList bcast_list_A;
                     for (int64_t i = 0; i < k; ++i)
                         bcast_list_A.push_back({i, k, {B.sub(i, i, 0, nt-1)}});
-                    A.template listBcast<target>(bcast_list_A);
+                    A.template listBcast<target>(bcast_list_A, layout);
 
                     // send B(k, j=0:nt-1) to ranks owning block col B(0:k-1, j)
                     BcastList bcast_list_B;
                     for (int64_t j = 0; j < nt; ++j)
                         bcast_list_B.push_back({k, j, {B.sub(0, k-1, j, j)}});
-                    B.template listBcast<target>(bcast_list_B);
+                    B.template listBcast<target>(bcast_list_B, layout);
                 }
 
                 // lookahead update, B(k-la:k-1, :) -= A(k-la:k-1, k) B(k, :)
@@ -206,7 +211,8 @@ void trsm(slate::internal::TargetType<target>,
                         internal::gemm<Target::HostTask>(
                             scalar_t(-1.0), A.sub(i, i, k, k),
                                             B.sub(k, k, 0, nt-1),
-                            alph,           B.sub(i, i, 0, nt-1), 1);
+                            alph,           B.sub(i, i, 0, nt-1),
+                            layout, 1);
                     }
                 }
 
@@ -222,7 +228,8 @@ void trsm(slate::internal::TargetType<target>,
                         internal::gemm<target>(
                             scalar_t(-1.0), A.sub(0, k-1-lookahead, k, k),
                                             B.sub(k, k, 0, nt-1),
-                            alph,           B.sub(0, k-1-lookahead, 0, nt-1));
+                            alph,           B.sub(0, k-1-lookahead, 0, nt-1),
+                            layout);
                     }
                 }
             }
@@ -238,7 +245,8 @@ void trsm(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup trsm
+/// @ingroup trsm_specialization
+///
 template <Target target, typename scalar_t>
 void trsm(blas::Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
@@ -311,6 +319,7 @@ void trsm(blas::Side side,
 ///           - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup trsm
+///
 template <typename scalar_t>
 void trsm(blas::Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,

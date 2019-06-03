@@ -279,6 +279,7 @@ void swap(internal::TargetType<Target::Devices>,
                         if (pivot[i].tileIndex() > 0 ||
                             pivot[i].elementOffset() > i)
                         {
+                            // todo: assumes 1-D block cyclic
                             assert(A(0, j, device).layout() == Layout::RowMajor);
                             int64_t i1 = i;
                             int64_t i2 = pivot[i].elementOffset();

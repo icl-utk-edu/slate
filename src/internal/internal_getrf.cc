@@ -70,18 +70,17 @@ void getrf(internal::TargetType<Target::HostTask>,
            std::vector<Pivot>& pivot,
            int max_panel_threads, int priority)
 {
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
     assert(A.nt() == 1);
 
     // Move the panel to the host.
+    std::set<ij_tuple> A_tiles_set;
     for (int64_t i = 0; i < A.mt(); ++i) {
         if (A.tileIsLocal(i, 0)) {
-            #pragma omp task shared(A) priority(priority)
-            {
-                A.tileGetForWriting(i, 0);
-            }
+            A_tiles_set.insert({i, 0});
         }
     }
-    #pragma omp taskwait
+    A.tileGetForWriting(A_tiles_set, LayoutConvert::ColMajor);
 
     // lists of local tiles, indices, and offsets
     std::vector< Tile<scalar_t> > tiles;

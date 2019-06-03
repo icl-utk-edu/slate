@@ -42,8 +42,10 @@
 
 #include "slate/internal/Memory.hh"
 #include "slate/internal/Trace.hh"
+#include "slate/internal/device.hh"
 #include "slate/types.hh"
 #include "slate/Exception.hh"
+#include "slate/Tile_aux.hh"
 
 #include <blas.hh>
 #include <lapack.hh>
@@ -133,7 +135,7 @@ public:
     Tile();
 
     Tile(int64_t mb, int64_t nb,
-         scalar_t* A, int64_t lda, int device, TileKind kind);
+         scalar_t* A, int64_t lda, int device, TileKind kind, Layout layout=Layout::ColMajor);
 
     // defaults okay (tile doesn't own data, doesn't allocate/deallocate data)
     // 1. destructor
@@ -142,9 +144,19 @@ public:
 
     void copyDataToHost(Tile<scalar_t>* dst_tile, cudaStream_t stream) const;
     void copyDataToDevice(Tile<scalar_t>* dst_tile, cudaStream_t stream) const;
+    void copyData(Tile<scalar_t>* dst_tile, cudaStream_t stream) const;
+
+    /// copies this tile's data to dst_tile data, both assumed on host
+    void copyData(Tile<scalar_t>* dst_tile) const
+    {
+        assert(this->device_ < 0);
+        assert(dst_tile->device() < 0);
+        // forward
+        copyData(dst_tile, nullptr);
+    }
 
     void send(int dst, MPI_Comm mpi_comm, int tag = 0) const;
-    void recv(int src, MPI_Comm mpi_comm, int tag = 0);
+    void recv(int src, MPI_Comm mpi_comm, Layout layout, int tag = 0);
     void bcast(int bcast_root, MPI_Comm mpi_comm);
 
     /// Returns shallow copy of tile that is transposed.
@@ -163,6 +175,9 @@ public:
 
     /// Returns column stride of this tile
     int64_t stride() const { return stride_; }
+
+    /// Sets column stride of this tile
+    void stride(int64_t in_stride) { stride_ = in_stride; }
 
     /// Returns const pointer to data, i.e., A(0,0), where A is this tile
     scalar_t const* data() const { return data_; }
@@ -217,9 +232,69 @@ public:
 
     Layout layout() const { return layout_; }
     void   layout(Layout in_layout) { layout_ = in_layout; }
+    Layout userLayout() const { return user_layout_; }
 
     void set(scalar_t alpha);
     void set(scalar_t alpha, scalar_t beta);
+
+    /// @return Whether the front memory buffer is contiguous
+    bool isContiguous() const
+    {
+        return (layout_ == Layout::ColMajor && stride_ == mb_)
+            || (layout_ == Layout::RowMajor && stride_ == nb_);
+    }
+
+    /// Returns whether this tile can safely store its data in transposed form
+    /// based on its 'TileKind', buffer size, Layout, and stride.
+    /// todo: validate and handle sliced-matrix
+    bool isTransposable()
+    {
+        return    extended_                     // already extended buffer
+               || mb_ == nb_                    // square tile
+               || kind_ != TileKind::UserOwned  // SLATE allocated
+               || isContiguous();               // contiguous
+    }
+
+    void makeTransposable(scalar_t* data);
+    void layoutReset();
+
+    /// @return Whether this tile has extended buffer
+    bool extended() const { return extended_; }
+
+    /// @return Pointer to the extended buffer
+    scalar_t* extData() { return ext_data_; }
+
+    /// @return Pointer to the user allocated buffer
+    scalar_t* userData() { return user_data_; }
+
+    void layoutSetFrontDataExt(bool front = true);
+
+    /// @return Pointer to the back buffer
+    scalar_t* layoutBackData()
+    {
+        if (data_ == user_data_)
+            return ext_data_;
+        else
+            return user_data_;
+    }
+    /// @return Stride of the back buffer
+    int64_t layoutBackStride() const
+    {
+        if (data_ == user_data_)
+            return stride_; // todo: validate
+        else
+            return user_stride_;
+    }
+
+    void layoutConvert(scalar_t* work_data, cudaStream_t stream = nullptr);
+
+    /// Convert layout of this tile (assuming no workspace is needed)
+    /// CUDA stream must be provided if conversion is to happen on device
+    void layoutConvert(cudaStream_t stream = nullptr)
+    {
+        assert(mb() == nb() || extended_);
+        layoutConvert(nullptr, stream);
+    }
 
 protected:
     // BaseMatrix sets mb, nb, offset.
@@ -233,14 +308,23 @@ protected:
     int64_t mb_;
     int64_t nb_;
     int64_t stride_;
+    int64_t user_stride_; // Temporarily store user-provided-memory's stride
+
     Op op_;
     Uplo uplo_;
 
     scalar_t* data_;
+    scalar_t* user_data_; // Temporarily point to user-provided memory buffer.
+    scalar_t* ext_data_; // Points to auxiliary buffer.
 
     bool valid_;
     TileKind kind_;
+    /// layout_: The physical ordering of elements in the data buffer:
+    ///          - ColMajor: elements of a column are 1-strided
+    ///          - RowMajor: elements of a row are 1-strided
     Layout layout_;
+    Layout user_layout_; // Temporarily store user-provided-memory's layout
+    bool extended_; // indicates tile has an extended buffer
 
     int device_;
 };
@@ -252,12 +336,17 @@ Tile<scalar_t>::Tile()
     : mb_(0),
       nb_(0),
       stride_(0),
+      user_stride_(0),
       op_(Op::NoTrans),
       uplo_(Uplo::General),
       data_(nullptr),
+      user_data_(nullptr),
+      ext_data_(nullptr),
       valid_(false),
       kind_(TileKind::UserOwned),
       layout_(Layout::ColMajor),
+      user_layout_(Layout::ColMajor),
+      extended_(false),
       device_(-1)  // todo: host_num
 {}
 
@@ -271,10 +360,14 @@ Tile<scalar_t>::Tile()
 ///     Number of columns of the tile. nb >= 0.
 ///
 /// @param[in,out] A
-///     The mb-by-nb tile A, stored in an lda-by-nb array.
+///     The mb-by-nb tile A, stored in an
+///     lda-by-nb array if ColMajor, or
+///     lda-by-mb array if RowMajor.
 ///
 /// @param[in] lda
-///     Leading dimension of the array A. lda >= mb.
+///     Leading dimension of the array A.
+///     lda >= mb if ColMajor.
+///     lda >= nb if RowMajor.
 ///
 /// @param[in] device
 ///     Tile's device ID.
@@ -285,25 +378,36 @@ Tile<scalar_t>::Tile()
 ///     - SlateOwned: origin tile, allocated by SLATE
 ///     - UserOwned:  origin tile, allocated by user
 ///
+/// @param[in] layout
+///     The physical ordering of elements in the data buffer:
+///     - ColMajor: elements of a column are 1-strided
+///     - RowMajor: elements of a row are 1-strided
+///
 template <typename scalar_t>
 Tile<scalar_t>::Tile(
     int64_t mb, int64_t nb,
-    scalar_t* A, int64_t lda, int device, TileKind kind)
+    scalar_t* A, int64_t lda, int device, TileKind kind, Layout layout)
     : mb_(mb),
       nb_(nb),
       stride_(lda),
+      user_stride_(lda),
       op_(Op::NoTrans),
       uplo_(Uplo::General),
       data_(A),
+      user_data_(nullptr),
+      ext_data_(nullptr),
       valid_(true),
       kind_(kind),
-      layout_(Layout::ColMajor),
+      layout_(layout),
+      user_layout_(layout),
+      extended_(false),
       device_(device)
 {
     slate_assert(mb >= 0);
     slate_assert(nb >= 0);
     slate_assert(A != nullptr);
-    slate_assert(lda >= mb);
+    slate_assert( (layout == Layout::ColMajor && lda >= mb)
+               || (layout == Layout::RowMajor && lda >= nb));
 }
 
 //------------------------------------------------------------------------------
@@ -472,6 +576,187 @@ void Tile<scalar_t>::offset(int64_t i, int64_t j)
 }
 
 //------------------------------------------------------------------------------
+/// Attaches the new_data buffer to this tile as an extended buffer
+/// extended buffer to be used to hold the transposed data of rectangular tiles
+/// Marks the tile as extended
+/// NOTE: does not set the front buffer to be the extended one
+/// NOTE: asserts if already transposable
+///
+template <typename scalar_t>
+void Tile<scalar_t>::makeTransposable(scalar_t* new_data)
+{
+    assert(! isTransposable());
+
+    // preserve currrent data pointer and stride
+    user_data_ = data_;
+    user_stride_ = stride_;
+    user_layout_ = layout_;
+    ext_data_ = new_data;
+
+    extended_ = true;
+}
+
+//------------------------------------------------------------------------------
+/// Sets the front buffer of the extended tile,
+/// and adjusts stride accordingly.
+/// NOTE: tile should be already extended, asserts otherwise.
+///
+template <typename scalar_t>
+void Tile<scalar_t>::layoutSetFrontDataExt(bool front)
+{
+    assert(extended_);
+
+    if (front) {
+        data_ = ext_data_;
+        stride_ = user_layout_ == Layout::RowMajor ?
+                  mb_ : nb_;
+    }
+    else {
+        data_ = user_data_;
+        stride_ = user_stride_;
+        layout_ = user_layout_;
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Resets the tile's member fields related to being extended.
+/// WARNING: should be called within MatrixStorage::tileLayoutReset() only.
+/// NOTE: the front buffer should be already swapped to be the user buffer,
+///       asserts otherwise.
+///
+template <typename scalar_t>
+void Tile<scalar_t>::layoutReset()
+{
+    assert(data_ == user_data_);
+    user_data_ = nullptr;
+    ext_data_ = nullptr;
+
+    extended_ = false;
+}
+
+//------------------------------------------------------------------------------
+/// Convert layout (Column / Row major) of this tile.
+/// Performs:
+///     - In-place conversion for square tiles
+///     - In-place conversion for contiguous rectangular tiles, using a workspace.
+///     - Out-of-place conversion if extended tile, swaps front buffer accordingly.
+///
+/// Tile must be transposable already, should call makeTransposable() if not.
+/// A CUDA stream should be provided if tile instance is on a GPU device.
+///
+/// @param[in] work_data
+///     Pointer to a workspace buffer, needed for out-of-place transpose.
+///
+/// @param[in] stream
+///     CUDA stream to run the kernels on if conversion is carried on the device.
+///
+/// @ingroup convert_tile
+///
+template <typename scalar_t>
+void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream)
+{
+    assert(device_ < 0 || stream != nullptr);
+    assert(isTransposable());
+
+    trace::Block trace_block("slate::convertLayout");
+    // square tile
+    if (mb() == nb()) {
+        // in-place convert
+        if (device_ < 0)
+            transpose(nb(), data_, stride_);
+        else {
+            slate_cuda_call(
+                cudaSetDevice(device_));
+            device::transpose(mb(), data(), stride(), stream);
+            slate_cuda_call(
+                cudaStreamSynchronize(stream));
+        }
+    }
+    // rectangular tile
+    else {
+        // if tile made Convertible
+        if (extended_)
+        {
+            // out-of-place convert
+            scalar_t* src_data;
+            int64_t src_stride = 0;
+
+            if (user_data_ == data_) {
+                // need to convert into ext_data_
+                data_ = ext_data_;
+                src_data = user_data_;
+                src_stride = user_stride_;
+                stride_ = user_layout_ == Layout::RowMajor ?
+                          mb_ : nb_;
+            }
+            else
+            if (ext_data_ == data_) {
+                // need to convert into user_data_
+                data_ = user_data_;
+                src_data = ext_data_;
+                src_stride = stride_;
+                stride_ = user_stride_;
+            }
+            else {
+                assert(0);
+            }
+            if (device_ < 0)
+                transpose(layout() == Layout::ColMajor ? mb_ : nb_,
+                          layout() == Layout::ColMajor ? nb_ : mb_,
+                          src_data, src_stride,
+                          data_, stride_);
+            else {
+                slate_cuda_call(
+                    cudaSetDevice(device_));
+                device::transpose(layout() == Layout::ColMajor ? mb_ : nb_,
+                                  layout() == Layout::ColMajor ? nb_ : mb_,
+                                  src_data, src_stride,
+                                  data_, stride_,
+                                  stream);
+                slate_cuda_call(
+                    cudaStreamSynchronize(stream));
+            }
+        }
+        else {
+            // tile already Convertible
+            assert(isContiguous());
+            // need a workspace buffer
+            assert(work_data != nullptr);
+
+            // out-of-place convert
+            int64_t work_stride = layout() == Layout::ColMajor ?
+                                  nb() : mb();
+            if (device_ < 0) {
+                transpose(layout() == Layout::ColMajor ? mb_ : nb_,
+                          layout() == Layout::ColMajor ? nb_ : mb_,
+                          data_, stride_,
+                          work_data, work_stride);
+                std::memcpy(data_, work_data, bytes());
+            }
+            else {
+                slate_cuda_call(
+                    cudaSetDevice(device_));
+                device::transpose(layout() == Layout::ColMajor ? mb_ : nb_,
+                                  layout() == Layout::ColMajor ? nb_ : mb_,
+                                  data_, stride_,
+                                  work_data, work_stride,
+                                  stream);
+                slate_cuda_call(
+                    cudaMemcpyAsync(
+                            data_, work_data, bytes(),
+                            cudaMemcpyDeviceToDevice, stream));
+                slate_cuda_call(
+                    cudaStreamSynchronize(stream));
+            }
+            stride_ = work_stride;
+        }
+    }
+    layout(layout() == Layout::RowMajor ? Layout::ColMajor : Layout::RowMajor);
+}
+
+
+//------------------------------------------------------------------------------
+/// @deprecated
 /// Copies data from this tile on device to dst_tile on host.
 ///
 /// @param[in] dst_tile
@@ -485,6 +770,10 @@ template <typename scalar_t>
 void Tile<scalar_t>::copyDataToHost(
     Tile<scalar_t>* dst_tile, cudaStream_t stream) const
 {
+    // sizes has to match
+    assert(mb_ == dst_tile->mb_);
+    assert(nb_ == dst_tile->nb_);
+
     slate_cuda_call(
         cudaSetDevice(device_));
 
@@ -528,6 +817,7 @@ void Tile<scalar_t>::copyDataToHost(
 }
 
 //------------------------------------------------------------------------------
+/// @deprecated
 /// Copies data from this tile on host to dst_tile on device.
 ///
 /// @param[in] dst_tile
@@ -541,6 +831,10 @@ template <typename scalar_t>
 void Tile<scalar_t>::copyDataToDevice(
     Tile<scalar_t>* dst_tile, cudaStream_t stream) const
 {
+    // sizes has to match
+    assert(mb_ == dst_tile->mb_);
+    assert(nb_ == dst_tile->nb_);
+
     slate_cuda_call(
         cudaSetDevice(dst_tile->device_));
 
@@ -584,6 +878,114 @@ void Tile<scalar_t>::copyDataToDevice(
 }
 
 //------------------------------------------------------------------------------
+/// Copies data from this tile to dst_tile.
+/// Figures out the direction of copy and the source and destination devices
+///     from the destination tile and this tile.
+/// WARNING: device ID set in device_ of both tiles should be properly set.
+///
+/// @param[in] dst_tile
+///     Destination tile.
+///
+/// @param[in] stream
+///     CUDA stream for copy if needed.
+///
+// todo: need to copy or verify metadata (sizes, op, uplo, ...)
+template <typename scalar_t>
+void Tile<scalar_t>::copyData(
+    Tile<scalar_t>* dst_tile, cudaStream_t stream) const
+{
+    // sizes has to match
+    assert(mb_ == dst_tile->mb_);
+    assert(nb_ == dst_tile->nb_);
+
+    int device = -1;
+    cudaMemcpyKind memcpy_kind;
+
+    // figure out copy direction and device
+    if (this->device_ >= 0 && dst_tile->device() < 0) {
+        // device to host copy
+        device = this->device_;
+        memcpy_kind = cudaMemcpyDeviceToHost;
+    }
+    else
+    if (this->device_ < 0 && dst_tile->device() >= 0) {
+        // host to device copy
+        device = dst_tile->device();
+        memcpy_kind = cudaMemcpyHostToDevice;
+    }
+    else
+    if (this->device_ < 0 && dst_tile->device() < 0) {
+        // host to host copy
+        device = -1;
+        memcpy_kind = cudaMemcpyHostToHost;
+    }
+    else
+    if (this->device_ >= 0 && dst_tile->device() >= 0) {
+        // device to device copy
+        device = this->device_;
+        memcpy_kind = cudaMemcpyDeviceToDevice;
+        // todo: handle peer to peer copy
+        if (this->device_ != dst_tile->device())
+            assert(0);
+    }
+
+    if (device >= 0) {
+        slate_cuda_call(
+            cudaSetDevice(device));
+    }
+
+    // adjust stride if not UserOwned
+    if (dst_tile->kind_ != TileKind::UserOwned) {
+        dst_tile->stride_ = this->layout() == Layout::ColMajor ? mb_ : nb_;
+    }
+
+    if ( memcpy_kind == cudaMemcpyHostToHost ) {
+        gecopy(*this, *dst_tile);
+    }
+    else {
+        assert(stream != nullptr);
+
+        // If no stride on both sides.
+        if (this->isContiguous() &&
+            dst_tile->isContiguous()) {
+
+            // Use simple copy.
+            trace::Block trace_block("cudaMemcpyAsync");
+
+            slate_cuda_call(
+                cudaMemcpyAsync(
+                        dst_tile->data_, data_, bytes(),
+                        memcpy_kind, stream));
+
+            slate_cuda_call(
+                cudaStreamSynchronize(stream));
+        }
+        else {
+            // Otherwise, use 2D copy.
+            trace::Block trace_block("cudaMemcpy2DAsync");
+
+            void* dst = dst_tile->data_;
+            const void* src = data_;
+            size_t dpitch = sizeof(scalar_t)*dst_tile->stride_;
+            size_t spitch = sizeof(scalar_t)*stride_;
+            size_t width  = sizeof(scalar_t)*(this->layout() == Layout::ColMajor ? mb_ : nb_);
+            size_t height = (this->layout() == Layout::ColMajor ? nb_ : mb_);
+
+            slate_cuda_call(
+                cudaMemcpy2DAsync(
+                        dst, dpitch,
+                        src, spitch,
+                        width, height,
+                        memcpy_kind, stream));
+
+            slate_cuda_call(
+                cudaStreamSynchronize(stream));
+        }
+    }
+    dst_tile->layout(this->layout());
+}
+
+//------------------------------------------------------------------------------
 /// Sends tile to MPI rank dst.
 ///
 /// @param[in] dst
@@ -599,7 +1001,7 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm, int tag) const
     trace::Block trace_block("MPI_Send");
 
     // If no stride.
-    if (stride_ == mb_) {
+    if (this->isContiguous()) {
         // Use simple send.
         int count = mb_*nb_;
 
@@ -609,8 +1011,8 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm, int tag) const
     }
     else {
         // Otherwise, use strided send.
-        int count = nb_;
-        int blocklength = mb_;
+        int count = layout_ == Layout::ColMajor ? nb_ : mb_;
+        int blocklength = layout_ == Layout::ColMajor ? mb_ : nb_;
         int stride = stride_;
         MPI_Datatype newtype;
 
@@ -622,6 +1024,8 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm, int tag) const
         slate_mpi_call(MPI_Send(data_, 1, newtype, dst, tag, mpi_comm));
         slate_mpi_call(MPI_Type_free(&newtype));
     }
+    // todo: would specializing to Triangular / Band tiles improve performance
+    // by receiving less / compacted data
 }
 
 //------------------------------------------------------------------------------
@@ -633,14 +1037,19 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm, int tag) const
 /// @param[in] mpi_comm
 ///     MPI communicator.
 ///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) of the received data.
+///     WARNING: need to call tileLayout(...) to properly set the layout of the
+///              origin matrix tile afterwards.
+///
 // todo need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
-void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm, int tag)
+void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm, Layout layout, int tag)
 {
     trace::Block trace_block("MPI_Recv");
 
     // If no stride.
-    if (stride_ == mb_) {
+    if (this->isContiguous()) {
         // Use simple recv.
         int count = mb_*nb_;
 
@@ -650,8 +1059,8 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm, int tag)
     }
     else {
         // Otherwise, use strided recv.
-        int count = nb_;
-        int blocklength = mb_;
+        int count = layout_ == Layout::ColMajor ? nb_ : mb_;
+        int blocklength = layout_ == Layout::ColMajor ? mb_ : nb_;
         int stride = stride_;
         MPI_Datatype newtype;
 
@@ -668,6 +1077,10 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm, int tag)
 
         slate_mpi_call(MPI_Type_free(&newtype));
     }
+    // set this tile layout to match the received data layout
+    this->layout(layout);
+    // todo: would specializing to Triangular / Band tiles improve performance
+    // by receiving less / compacted data
 }
 
 //------------------------------------------------------------------------------
@@ -703,9 +1116,9 @@ void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm mpi_comm)
     {
         // Otherwise, use strided bcast.
         trace::Block trace_block("MPI_Bcast");
-
-        int count = nb_;
-        int blocklength = mb_;
+        // todo: layout
+        int count = layout_ == Layout::ColMajor ? nb_ : mb_;
+        int blocklength = layout_ == Layout::ColMajor ? mb_ : nb_;
         int stride = stride_;
         MPI_Datatype newtype;
 

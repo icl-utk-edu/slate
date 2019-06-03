@@ -69,6 +69,9 @@ void tbsm(slate::internal::TargetType<target>,
     using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+
     // if on right, change to left by (conj)-transposing A and B to get
     // op(B) = op(A)^{-1} * op(B)
     if (side == Side::Right) {
@@ -121,7 +124,7 @@ void tbsm(slate::internal::TargetType<target>,
                     #pragma omp parallel for schedule(dynamic, 1)
                     for (int64_t j = 0; j < B_nt; ++j) {
                         if (B.tileIsLocal(i, j)) {
-                            B.tileGetForWriting(i, j);
+                            B.tileGetForWriting(i, j, LayoutConvert(layout));
                             scale(alpha, B(i, j));
                         }
                     }
@@ -146,7 +149,7 @@ void tbsm(slate::internal::TargetType<target>,
                     #pragma omp taskwait
                     internal::swap<Target::HostTask>(
                         Direction::Forward, B.sub(k, B.mt()-1, 0, B.nt()-1),
-                        pivots.at(k));
+                        pivots.at(k), layout);
                     #pragma omp taskwait
                 }
 
@@ -154,7 +157,7 @@ void tbsm(slate::internal::TargetType<target>,
                 #pragma omp task depend(inout:row[k]) priority(1)
                 {
                     // send A(k, k) to ranks owning block row B(k, :)
-                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1));
+                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
 
                     // solve A(k, k) B(k, :) = B(k, :)
                     internal::trsm<Target::HostTask>(
@@ -166,7 +169,7 @@ void tbsm(slate::internal::TargetType<target>,
                     BcastList bcast_list_A;
                     for (int64_t i = k+1; i < i_end; ++i)
                         bcast_list_A.push_back({i, k, {B.sub(i, i, 0, nt-1)}});
-                    A.template listBcast<target>(bcast_list_A);
+                    A.template listBcast<target>(bcast_list_A, layout);
 
                     // send B(k, j=0:nt-1) to ranks owning
                     // block col B(k+1:i_end-1, j)
@@ -175,7 +178,7 @@ void tbsm(slate::internal::TargetType<target>,
                         bcast_list_B.push_back(
                             {k, j, {B.sub(k+1, i_end-1, j, j)}});
                     }
-                    B.template listBcast<target>(bcast_list_B);
+                    B.template listBcast<target>(bcast_list_B, layout);
                 }
 
                 // lookahead update, B(k+1:k+la, :) -= A(k+1:k+la, k) B(k, :)
@@ -186,7 +189,8 @@ void tbsm(slate::internal::TargetType<target>,
                         internal::gemm<Target::HostTask>(
                             -one, A.sub(i, i, k, k),
                                   B.sub(k, k, 0, nt-1),
-                            one,  B.sub(i, i, 0, nt-1), 1);
+                            one,  B.sub(i, i, 0, nt-1),
+                            layout, 1);
                     }
                 }
 
@@ -203,7 +207,8 @@ void tbsm(slate::internal::TargetType<target>,
                         internal::gemm<target>(
                             -one, A.sub(k+1+lookahead, i_end-1, k, k),
                                   B.sub(k, k, 0, nt-1),
-                            one,  B.sub(k+1+lookahead, i_end-1, 0, nt-1));
+                            one,  B.sub(k+1+lookahead, i_end-1, 0, nt-1),
+                            layout);
                     }
                 }
             }
@@ -220,7 +225,7 @@ void tbsm(slate::internal::TargetType<target>,
                 #pragma omp task depend(inout:row[k]) priority(1)
                 {
                     // send A(k, k) to ranks owning block row B(k, :)
-                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1));
+                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
 
                     // solve A(k, k) B(k, :) = B(k, :)
                     internal::trsm<Target::HostTask>(
@@ -232,13 +237,13 @@ void tbsm(slate::internal::TargetType<target>,
                     BcastList bcast_list_A;
                     for (int64_t i = i_begin; i < k; ++i)
                         bcast_list_A.push_back({i, k, {B.sub(i, i, 0, nt-1)}});
-                    A.template listBcast<target>(bcast_list_A);
+                    A.template listBcast<target>(bcast_list_A, layout);
 
                     // send B(k, j=0:nt-1) to ranks owning block col B(k-kdt:k-1, j)
                     BcastList bcast_list_B;
                     for (int64_t j = 0; j < nt; ++j)
                         bcast_list_B.push_back({k, j, {B.sub(i_begin, k-1, j, j)}});
-                    B.template listBcast<target>(bcast_list_B);
+                    B.template listBcast<target>(bcast_list_B, layout);
                 }
 
                 // lookahead update, B(k-la:k-1, :) -= A(k-la:k-1, k) B(k, :)
@@ -249,7 +254,8 @@ void tbsm(slate::internal::TargetType<target>,
                         internal::gemm<Target::HostTask>(
                             -one, A.sub(i, i, k, k),
                                   B.sub(k, k, 0, nt-1),
-                            one,  B.sub(i, i, 0, nt-1), 1);
+                            one,  B.sub(i, i, 0, nt-1),
+                            layout, 1);
                     }
                 }
 
@@ -265,7 +271,8 @@ void tbsm(slate::internal::TargetType<target>,
                         internal::gemm<target>(
                             -one, A.sub(i_begin, k-1-lookahead, k, k),
                                   B.sub(k, k, 0, nt-1),
-                            one,  B.sub(i_begin, k-1-lookahead, 0, nt-1));
+                            one,  B.sub(i_begin, k-1-lookahead, 0, nt-1),
+                            layout);
                     }
                 }
             }
@@ -290,27 +297,28 @@ void tbsm(slate::internal::TargetType<target>,
 
                     for (int64_t i = k+1; i < k_end; ++i) {
                         // send A(k, i) across to ranks owning B(k, :)
-                        A.template tileBcast<target>(k, i, B.sub(k, k, 0, nt-1));
+                        A.template tileBcast<target>(k, i, B.sub(k, k, 0, nt-1), layout);
 
                         // for all j:
                         //     send B(i, j) up to rank owning B(k, j)
                         BcastList bcast_list_B;
                         for (int64_t j = 0; j < nt; ++j)
                             bcast_list_B.push_back({i, j, {B.sub(k, k, j, j)}});
-                        B.template listBcast<target>(bcast_list_B);
+                        B.template listBcast<target>(bcast_list_B, layout);
 
                         // multiply B(k, :) -= A(k, k+1 : k+kdt) * B(k+1 : k+kdt, :)
                         internal::gemm<target>(
                                     -one, A.sub(k, k, i, i),
                                           B.sub(i, i, 0, nt-1),
-                                    one,  B.sub(k, k, 0, nt-1), 1);
+                                    one,  B.sub(k, k, 0, nt-1),
+                                    layout, 1);
                     }
                 }
 
                 // solve diagonal block (Akk tile)
                 {
                     // send A(k, k) to ranks owning block row B(k, :)
-                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1));
+                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
 
                     // solve A(k, k) B(k, :) = B(k, :)
                     internal::trsm<Target::HostTask>(
@@ -323,7 +331,7 @@ void tbsm(slate::internal::TargetType<target>,
                 {
                     internal::swap<Target::HostTask>(
                         Direction::Backward, B.sub(k, B.mt()-1, 0, B.nt()-1),
-                        pivots.at(k));
+                        pivots.at(k), layout);
                 }
             }
         }

@@ -78,7 +78,7 @@ void geqrf(internal::TargetType<Target::HostTask>,
         if (A.tileIsLocal(i, 0)) {
             #pragma omp task shared(A) priority(priority)
             {
-                A.tileGetForWriting(i, 0);
+                A.tileGetForWriting(i, 0, LayoutConvert::ColMajor);
             }
         }
     }

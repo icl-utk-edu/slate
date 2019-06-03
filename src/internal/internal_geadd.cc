@@ -145,10 +145,10 @@ void geadd(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(i, j)) {
                 #pragma omp task shared(A, B) priority(priority)
                 {
-                    A.tileGetForReading(i, j);
-                    B.tileGetForWriting(i, j);
+                    A.tileGetForReading(i, j, LayoutConvert::None);
+                    B.tileGetForWriting(i, j, LayoutConvert::None);
                     axpby(alpha, A(i, j),
-                          beta,  B(i, j));
+                         beta,  B(i, j));
                     A.tileTick(i, j);// TODO is this correct here?
                 }
             }
@@ -191,6 +191,8 @@ void geadd(internal::TargetType<Target::Devices>,
            scalar_t beta, Matrix<scalar_t>& B,
            int priority)
 {
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
+
     int64_t irange[4][2] = {
         { 0,        B.mt()-1 },
         { B.mt()-1, B.mt()   },
@@ -207,12 +209,23 @@ void geadd(internal::TargetType<Target::Devices>,
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task shared(A, B) priority(priority)
         {
-            for (int64_t i = 0; i < B.mt(); ++i)
-                for (int64_t j = 0; j < B.nt(); ++j)
+            // temporarily, convert both into same layout
+            // todo: this is in-efficient, because both matrices may have same layout already
+            //       and possibly wrong, because an input matrix is being altered
+            // todo: best, handle directly through the CUDA kernels
+            auto layout = Layout::ColMajor;
+            std::set<ij_tuple> A_tiles_set, B_tiles_set;
+
+            for (int64_t i = 0; i < B.mt(); ++i) {
+                for (int64_t j = 0; j < B.nt(); ++j) {
                     if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
-                        A.tileGetForReading(i, j, device);
-                        B.tileGetForWriting(i, j, device);
+                        A_tiles_set.insert({i, j});
+                        B_tiles_set.insert({i, j});
                     }
+                }
+            }
+            A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+            B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
 
             scalar_t** a_array_host = B.a_array_host(device);
             scalar_t** b_array_host = B.b_array_host(device);

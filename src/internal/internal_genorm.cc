@@ -150,6 +150,10 @@ void norm(
 {
     using real_t = blas::real_type<scalar_t>;
 
+    // norms assume column major
+    // todo: relax this assumption, a few cases need to be adjusted only
+    const Layout layout = Layout::ColMajor;
+
     // i, j are tile row, tile col indices; ii, jj are row, col indices.
     //---------
     // max norm
@@ -165,7 +169,7 @@ void norm(
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, tiles_maxima) priority(priority)
                         {
-                            A.tileGetForReading(i, j);
+                            A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_max;
                             genorm(in_norm, scope, A(i, j), &tile_max);
                             #pragma omp critical
@@ -198,7 +202,7 @@ void norm(
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, tiles_sums) priority(priority)
                         {
-                            A.tileGetForReading(i, j);
+                            A.tileGetForReading(i, j, LayoutConvert(layout));
                             genorm(in_norm, scope, A(i, j), &tiles_sums[A.n()*i+jj]);
                         }
                     }
@@ -231,7 +235,7 @@ void norm(
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, tiles_sums) priority(priority)
                         {
-                            A.tileGetForReading(i, j);
+                            A.tileGetForReading(i, j, LayoutConvert(layout));
                             genorm(in_norm, scope, A(i, j), &tiles_sums[A.m()*j + ii]);
                         }
                     }
@@ -265,7 +269,7 @@ void norm(
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, values) priority(priority)
                         {
-                            A.tileGetForReading(i, j);
+                            A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_values[2];
                             genorm(in_norm, scope, A(i, j), tile_values);
                             #pragma omp critical
@@ -290,7 +294,7 @@ void norm(
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, cols_maxima) priority(priority)
                         {
-                            A.tileGetForReading(i, j);
+                            A.tileGetForReading(i, j, LayoutConvert(layout));
                             genorm(in_norm, scope, A(i, j), &cols_maxima[A.n()*i+jj]);
                         }
                     }
@@ -342,6 +346,10 @@ void norm(
     if (in_norm != Norm::Max)
         throw Exception("HostNest has only max norm implemented");
 
+    // norms assumes column major
+    // todo: relax this assumption, a few cases need to be adjusted only
+    const Layout layout = Layout::ColMajor;
+
     const int64_t A_mt = A.mt();
     const int64_t A_nt = A.nt();
 
@@ -353,7 +361,7 @@ void norm(
         for (int64_t i = 0; i < A_mt; ++i) {
             for (int64_t j = 0; j < A_nt; ++j) {
                 if (A.tileIsLocal(i, j)) {
-                    A.tileGetForReading(i, j);
+                    A.tileGetForReading(i, j, LayoutConvert(layout));
                     real_t tile_max;
                     genorm(in_norm, scope, A(i, j), &tile_max);
                     #pragma omp critical
@@ -381,7 +389,7 @@ void norm(
             int64_t jj = 0;
             for (int64_t j = 0; j < A_nt; ++j) {
                 if (A.tileIsLocal(i, j)) {
-                    A.tileGetForReading(i, j);
+                    A.tileGetForReading(i, j, LayoutConvert(layout));
                     genorm(in_norm, scope, A(i, j), &cols_maxima[A.n()*i+jj]);
                 }
                 jj += A.tileNb(j);
@@ -425,6 +433,11 @@ void norm(
     int priority)
 {
     using real_t = blas::real_type<scalar_t>;
+
+    // norms assume column major
+    // todo: relax this assumption, a few cases need to be adjusted only
+    const Layout layout = Layout::ColMajor;
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
     assert(A.num_devices() > 0);
 
@@ -509,10 +522,16 @@ void norm(
         #pragma omp task shared(A, devices_values, vals_host_arrays) \
                          priority(priority)
         {
-            for (int64_t i = 0; i < A.mt(); ++i)
-                for (int64_t j = 0; j < A.nt(); ++j)
-                    if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j))
-                        A.tileGetForReading(i, j, device);
+            std::set<ij_tuple> A_tiles_set;
+
+            for (int64_t i = 0; i < A.mt(); ++i) {
+                for (int64_t j = 0; j < A.nt(); ++j) {
+                    if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
+                        A_tiles_set.insert({i, j});
+                    }
+                }
+            }
+            A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
 
             // Setup batched arguments.
             scalar_t** a_host_array = a_host_arrays[device].data();

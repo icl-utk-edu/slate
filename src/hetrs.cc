@@ -81,7 +81,7 @@ void hetrs(slate::internal::TargetType<target>,
             // swap rows in B(k:mt-1, 0:nt-1)
             internal::swap<Target::HostTask>(
                 Direction::Forward, B.sub(k, B.mt()-1, 0, B.nt()-1),
-                pivots.at(k));
+                pivots.at(k), Layout::ColMajor);
         }
 
         // forward substitution with L from Aasen's
@@ -110,7 +110,7 @@ void hetrs(slate::internal::TargetType<target>,
             // swap rows in B(k:mt-1, 0:nt-1)
             internal::swap<Target::HostTask>(
                 Direction::Backward, B.sub(k, B.mt()-1, 0, B.nt()-1),
-                pivots.at(k));
+                pivots.at(k), Layout::ColMajor);
         }
     }
 }

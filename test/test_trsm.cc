@@ -20,7 +20,7 @@ void test_trsm_work(Params& params, bool run)
     using slate::Op;
     using slate::Norm;
     using blas::real;
-    using llong = long long;
+    // using llong = long long;
 
     // get & mark input values
     slate::Side side = params.side();

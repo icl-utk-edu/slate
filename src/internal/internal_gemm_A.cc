@@ -96,6 +96,9 @@ void gemm_A(internal::TargetType<Target::HostTask>,
             scalar_t beta,  Matrix<scalar_t>& C,
             int priority)
 {
+    // todo: relax this assumption, and optimize, check internal::gemm
+    const Layout layout = Layout::ColMajor;
+
     // check dimensions
     assert(B.nt() == 1);
     assert(C.nt() == 1);
@@ -109,11 +112,11 @@ void gemm_A(internal::TargetType<Target::HostTask>,
                 #pragma omp task shared(A, B, C, err) priority(priority)
                 {
                     try {
-                        A.tileGetForReading(i, j);
-                        B.tileGetForReading(j, 0);
+                        A.tileGetForReading(i, j, LayoutConvert(layout));
+                        B.tileGetForReading(j, 0, LayoutConvert(layout));
 
                         if (C.tileIsLocal(i, 0)) {
-                            C.tileGetForWriting(i, 0);
+                            C.tileGetForWriting(i, 0, LayoutConvert(layout));
                         }
                         else {
                             #pragma omp critical

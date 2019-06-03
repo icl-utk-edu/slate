@@ -88,6 +88,9 @@ void posvMixed( slate::internal::TargetType<target>,
                 int& iter,
                 int64_t lookahead)
 {
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+
     bool converged = false;
     const int itermax = 30;
     using real_hi = blas::real_type<scalar_hi>;
@@ -110,9 +113,9 @@ void posvMixed( slate::internal::TargetType<target>,
     A_lo.insertLocalTiles(target);
 
     if (target == Target::Devices){
-        A.tileGetAndHoldAllOnDevices();
-        B.tileGetAndHoldAllOnDevices();
-        X.tileGetAndHoldAllOnDevices();
+        A.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
+        B.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
+        X.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
     }
 
     // norm of A

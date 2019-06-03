@@ -66,6 +66,10 @@ void gemm(
 {
     trace::Block trace_block("blas::gemm");
 
+    // assumes column major for now
+    // todo: relax this assumption
+    const blas::Layout layout = blas::Layout::ColMajor;
+
     using blas::conj;
 
     assert(A.uploPhysical() == Uplo::General);
@@ -74,9 +78,13 @@ void gemm(
     assert(C.mb() == A.mb());  // m
     assert(C.nb() == B.nb());  // n
     assert(A.nb() == B.mb());  // k
+    assert(A.layout() == layout);
+    assert(B.layout() == layout);
+    assert(C.layout() == layout);
+
     if (C.op() == Op::NoTrans) {
         // C = opA(A) opB(B) + C
-        blas::gemm(blas::Layout::ColMajor,
+        blas::gemm(layout,
                    A.op(), B.op(),
                    C.mb(), C.nb(), A.nb(),
                    alpha, A.data(), A.stride(),
@@ -115,7 +123,7 @@ void gemm(
             beta  = conj(beta);
         }
 
-        blas::gemm(blas::Layout::ColMajor,
+        blas::gemm(layout,
                    opB, opA,
                    C.nb(), C.mb(), A.nb(),
                    alpha, B.data(), B.stride(),
@@ -675,26 +683,30 @@ void swap(int64_t j, int64_t n,
 /// Swap rows or columns with another process, depending on op().
 /// @ingroup swap_tile
 ///
+// todo: implement with a GPUDirect call
 template <typename scalar_t>
 void swap(int64_t j, int64_t n,
           int device, Tile<scalar_t>& A, int64_t i,
-          int other_rank, MPI_Comm mpi_comm, int tag = 0)
+          int other_rank, MPI_Comm mpi_comm, cudaStream_t stream, int tag = 0)
 {
     std::vector<scalar_t> local_row(n);
     std::vector<scalar_t> other_row(n);
 
     slate_cuda_call(cudaSetDevice(device));
-    // todo: should this be an Async copy?
-    slate_cuda_call(cudaMemcpy(local_row.data(), &A.at(i, j),
-                               sizeof(scalar_t)*n, cudaMemcpyDeviceToHost));
+    slate_cuda_call(cudaMemcpyAsync(local_row.data(), &A.at(i, j),
+                                    sizeof(scalar_t)*n, cudaMemcpyDeviceToHost,
+                                    stream));
+    slate_cuda_call(cudaStreamSynchronize(stream));
 
     MPI_Sendrecv(
         local_row.data(), n, mpi_type<scalar_t>::value, other_rank, tag,
         other_row.data(), n, mpi_type<scalar_t>::value, other_rank, tag,
         mpi_comm, MPI_STATUS_IGNORE);
 
-    slate_cuda_call(cudaMemcpy(&A.at(i, j), other_row.data(),
-                               sizeof(scalar_t)*n, cudaMemcpyHostToDevice));
+    slate_cuda_call(cudaMemcpyAsync(&A.at(i, j), other_row.data(),
+                                    sizeof(scalar_t)*n, cudaMemcpyHostToDevice,
+                                    stream));
+    slate_cuda_call(cudaStreamSynchronize(stream));
 }
 
 //--------------------------------------
@@ -704,9 +716,9 @@ void swap(int64_t j, int64_t n,
 template <typename scalar_t>
 void swap(int64_t j, int64_t n,
           int device, Tile<scalar_t>&& A, int64_t i,
-          int other_rank, MPI_Comm mpi_comm, int tag = 0)
+          int other_rank, MPI_Comm mpi_comm, cudaStream_t stream, int tag = 0)
 {
-    swap(j, n, device, A, i, other_rank, mpi_comm, tag);
+    swap(j, n, device, A, i, other_rank, mpi_comm, stream, tag);
 }
 
 //------------------------------------------------------------------------------
@@ -748,6 +760,7 @@ void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>& Y)
 {
     trace::Block trace_block("blas::axpy");
 
+    // todo: relax these assumptions, by adjusting the loops below
     assert(X.op() == Y.op());
     assert(X.uploPhysical() == Uplo::General);
     assert(Y.uploPhysical() == Uplo::General);
@@ -777,7 +790,7 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
 {
     // trace::Block trace_block("blas::axpby");
 
-    // TODO should be able to loosen these restriction
+    // TODO should be able to loosen these restrictions
     assert(X.op() == Y.op());
     assert(X.uploPhysical() == Uplo::General);
     assert(Y.uploPhysical() == Uplo::General);
@@ -796,123 +809,6 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
            scalar_t beta, Tile<scalar_t>&& Y)
 {
     axpby(alpha, X, beta, Y);
-}
-
-//------------------------------------------------------------------------------
-/// Copy and precision conversion.
-/// TODO: Move functiona that are not really BLAS to Tile_aux.hh.
-/// @ingroup copy_tile
-///
-template <typename src_scalar_t, typename dst_scalar_t>
-void gecopy(Tile<src_scalar_t> const& A, Tile<dst_scalar_t>& B)
-{
-//  trace::Block trace_block("aux::copy");
-
-    assert(A.mb() == B.mb());
-    assert(A.nb() == B.nb());
-
-    for (int64_t j = 0; j < B.nb(); ++j)
-        for (int64_t i = 0; i < B.mb(); ++i)
-            B.at(i, j) = A.at(i, j);
-}
-
-//-----------------------------------------
-/// Converts rvalue refs to lvalue refs.
-/// @ingroup copy_tile
-///
-template <typename src_scalar_t, typename dst_scalar_t>
-void gecopy(Tile<src_scalar_t> const&& A, Tile<dst_scalar_t>&& B)
-{
-    gecopy(A, B);
-}
-
-//------------------------------------------------------------------------------
-/// Copy and precision conversion.
-/// TODO: Move functiona that are not really BLAS to Tile_aux.hh.
-/// @ingroup copy_tile
-///
-template <typename src_scalar_t, typename dst_scalar_t>
-void tzcopy(Tile<src_scalar_t> const& A, Tile<dst_scalar_t>& B)
-{
-//  trace::Block trace_block("aux::copy");
-
-    // TODO: Can be loosened?
-    assert(A.uplo() != Uplo::General);
-    assert(B.uplo() == A.uplo());
-
-    assert(A.op() == Op::NoTrans);
-    assert(B.op() == A.op());
-
-    assert(A.mb() == B.mb());
-    assert(A.nb() == B.nb());
-
-    for (int64_t j = 0; j < B.nb(); ++j) {
-        if (j < B.mb()) {
-            B.at(j, j) = A.at(j, j);
-        }
-        if (B.uplo() == Uplo::Lower) {
-            for (int64_t i = j; i < B.mb(); ++i) {
-                B.at(i, j) = A.at(i, j);
-            }
-        }
-        else {
-            for (int64_t i = 0; i <= j && i < B.mb(); ++i) {
-                B.at(i, j) = A.at(i, j);
-            }
-        }
-    }
-}
-
-//-----------------------------------------
-/// Converts rvalue refs to lvalue refs.
-/// @ingroup copy_tile
-///
-template <typename src_scalar_t, typename dst_scalar_t>
-void tzcopy(Tile<src_scalar_t> const&& A, Tile<dst_scalar_t>&& B)
-{
-    tzcopy(A, B);
-}
-
-//------------------------------------------------------------------------------
-/// In-place conversion between column and row-major layout for square tiles.
-/// Takes a pointer to the original tile in MatrixStorage, instead of a
-/// reference to a copy of the tile, in order to adjust the tile's layout flag.
-/// @ingroup convert_tile
-///
-template <typename scalar_t>
-void convert_layout(Tile<scalar_t>* X)
-{
-    trace::Block trace_block("slate::convert_layout");
-    assert(X->mb() == X->nb());
-
-    for (int64_t j = 0; j < X->nb(); ++j) {
-        for (int64_t i = 0; i < j; ++i) { // upper
-            std::swap(X->at(i, j), X->at(j, i));
-        }
-    }
-
-    X->layout(X->layout() == Layout::RowMajor ? Layout::ColMajor
-                                              : Layout::RowMajor);
-}
-
-//------------------------------------------------------------------------------
-/// In-place conversion between column and row-major layout for square tiles.
-/// Takes a pointer to the original tile in MatrixStorage, instead of a
-/// reference to a copy of the tile, in order to adjust the tile's layout flag.
-/// @ingroup convert_tile
-///
-template <typename scalar_t>
-void convert_layout(Tile<scalar_t>* X, cudaStream_t stream)
-{
-    trace::Block trace_block("slate::device::transpose");
-    assert(X->mb() == X->nb());
-
-    device::transpose(X->mb(), X->data(), X->stride(), stream);
-    slate_cuda_call(
-        cudaStreamSynchronize(stream));
-
-    X->layout(X->layout() == Layout::RowMajor ? Layout::ColMajor
-                                              : Layout::RowMajor);
 }
 
 } // namespace slate

@@ -53,6 +53,9 @@ namespace specialization {
 /// Distributed parallel QR factorization.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
+///
+/// ColMajor layout is assumed
+///
 /// @ingroup geqrf_specialization
 ///
 template <Target target, typename scalar_t>
@@ -64,6 +67,9 @@ void geqrf(slate::internal::TargetType<target>,
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     using blas::real;
+
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
 
     const int priority_one = 1;
 
@@ -157,8 +163,8 @@ void geqrf(slate::internal::TargetType<target>,
                             else
                                 bcast_list_V.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
                         }
-                        A.template listBcast(bcast_list_V_top, 0, Layout::ColMajor, 3);// TODO is column major safe?
-                        A.template listBcast(bcast_list_V, 0, Layout::ColMajor, 2);
+                        A.template listBcast(bcast_list_V_top, layout, 0, 3);
+                        A.template listBcast(bcast_list_V, layout, 0, 2);
                     }
 
                     // bcast Tlocal across row for trailing matrix update
@@ -168,7 +174,7 @@ void geqrf(slate::internal::TargetType<target>,
                             int64_t row = *it;
                             bcast_list_T.push_back({row, k, {Tlocal.sub(row, row, k+1, A_nt-1)}});
                         }
-                        Tlocal.template listBcast(bcast_list_T);
+                        Tlocal.template listBcast(bcast_list_T, layout);
                     }
 
                     // bcast Treduce across row for trailing matrix update
@@ -179,7 +185,7 @@ void geqrf(slate::internal::TargetType<target>,
                             if (row > min_row) // exclude the first row of this panel that has no Treduce tile
                                 bcast_list_T.push_back({row, k, {Treduce.sub(row, row, k+1, A_nt-1)}});
                         }
-                        Treduce.template listBcast(bcast_list_T);
+                        Treduce.template listBcast(bcast_list_T, layout);
                     }
                 }
             }

@@ -181,6 +181,9 @@ public:
     void clearWorkspace();
     void releaseWorkspace();
 
+    scalar_t* allocWorkspaceBuffer(int device);
+    void      releaseWorkspaceBuffer(scalar_t* data, int device);
+
     //--------------------------------------------------------------------------
     // 2. copy constructor -- not allowed; object is shared
     // 3. move constructor -- not allowed; object is shared
@@ -245,8 +248,11 @@ public:
         return tileRank(ij) == mpi_rank_;
     }
 
-    TileEntry<scalar_t>& tileInsert(ijdev_tuple ijdev, TileKind );
-    TileEntry<scalar_t>& tileInsert(ijdev_tuple ijdev, scalar_t* data, int64_t lda);
+    TileEntry<scalar_t>& tileInsert(ijdev_tuple ijdev, TileKind, Layout layout=Layout::ColMajor);
+    TileEntry<scalar_t>& tileInsert(ijdev_tuple ijdev, scalar_t* data, int64_t lda, Layout layout=Layout::ColMajor);
+
+    void tileMakeTransposable(Tile<scalar_t>* tile);
+    void tileLayoutReset(Tile<scalar_t>* tile);
 
     void tileTick(ij_tuple ij);
 
@@ -273,6 +279,13 @@ public:
     int p() const { return p_; }
     int q() const { return q_; }
 
+    //--------------------------------------------------------------------------
+    /// @return currently allocated batch array size
+    int64_t batchArraySize()
+    {
+        return batch_array_size;
+    }
+
 private:
     int64_t m_;
     int64_t n_;
@@ -288,6 +301,8 @@ private:
     int mpi_rank_;
     static int host_num_;
     static int num_devices_;
+
+    int64_t batch_array_size;
 
     // CUDA streams and cuBLAS handles
     std::vector<cudaStream_t> compute_streams_;
@@ -319,7 +334,8 @@ MatrixStorage<scalar_t>::MatrixStorage(
       q_(q),
       tiles_(),
       lives_(),
-      memory_(sizeof(scalar_t) * nb * nb)  // block size in bytes
+      memory_(sizeof(scalar_t) * nb * nb),  // block size in bytes
+      batch_array_size(0)
 {
     slate_mpi_call(
         MPI_Comm_rank(mpi_comm, &mpi_rank_));
@@ -437,6 +453,8 @@ template <typename scalar_t>
 void MatrixStorage<scalar_t>::allocateBatchArrays(int64_t max_batch_size)
 {
     assert(max_batch_size >= 0);
+
+    batch_array_size = max_batch_size;
 
     a_array_host_.resize(num_devices_);
     b_array_host_.resize(num_devices_);
@@ -606,6 +624,8 @@ void MatrixStorage<scalar_t>::erase(ijdev_tuple ijdev)
         Tile<scalar_t>* tile = iter->second.tile_;
         if (tile->allocated())
             memory_.free(tile->data(), tile->device());
+        if (tile->extended())
+            memory_.free(tile->extData(), tile->device());
         delete tile;
         tiles_.erase(ijdev);
     }
@@ -628,6 +648,36 @@ void MatrixStorage<scalar_t>::clear()
 }
 
 //------------------------------------------------------------------------------
+/// Allocates a memory block on device to be used as a workspace buffer,
+///     to be released with call to releaseWorkspaceBuffer()
+/// @returns pointer to memory block on device
+///
+/// @param[in] device
+///     Device ID (GPU or Host) where the memory block is needed.
+///
+template <typename scalar_t>
+scalar_t* MatrixStorage<scalar_t>::allocWorkspaceBuffer(int device)
+{
+    scalar_t* data = (scalar_t*) memory_.alloc(device);
+    return data;
+}
+
+//------------------------------------------------------------------------------
+/// Release the memory block indicated by data on device to the memory manager
+///
+/// @param[in] data
+///     Pointer to memory block to be released.
+///
+/// @param[in] device
+///     Device ID (GPU or Host) where the memory block is.
+///
+template <typename scalar_t>
+void MatrixStorage<scalar_t>::releaseWorkspaceBuffer(scalar_t* data, int device)
+{
+    memory_.free(data, device);
+}
+
+//------------------------------------------------------------------------------
 /// Inserts tile {i, j} on given device, which can be host,
 /// allocating new memory for it.
 /// Tile kind should be either TileKind::Workspace or TileKind::SlateOwned.
@@ -636,7 +686,7 @@ void MatrixStorage<scalar_t>::clear()
 ///
 template <typename scalar_t>
 TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
-    ijdev_tuple ijdev, TileKind kind)
+    ijdev_tuple ijdev, TileKind kind, Layout layout)
 {
     assert(kind == TileKind::Workspace ||
            kind == TileKind::SlateOwned);
@@ -647,8 +697,9 @@ TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
     scalar_t* data = (scalar_t*) memory_.alloc(device);
     int64_t mb = tileMb(i);
     int64_t nb = tileNb(j);
+    int64_t stride = layout == Layout::ColMajor ? mb : nb;
     Tile<scalar_t>* tile
-        = new Tile<scalar_t>(mb, nb, data, mb, device, kind);
+        = new Tile<scalar_t>(mb, nb, data, stride, device, kind, layout);
     tiles_[ijdev] = {tile, kind == TileKind::Workspace ? MOSI::Invalid : MOSI::Shared};
     return tiles_[ijdev];
 }
@@ -663,7 +714,7 @@ TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
 ///
 template <typename scalar_t>
 TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
-    ijdev_tuple ijdev, scalar_t* data, int64_t lda)
+    ijdev_tuple ijdev, scalar_t* data, int64_t lda, Layout layout)
 {
     assert(tiles_.find(ijdev) == tiles_.end());  // doesn't exist yet
     int64_t i  = std::get<0>(ijdev);
@@ -672,9 +723,46 @@ TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
     int64_t mb = tileMb(i);
     int64_t nb = tileNb(j);
     Tile<scalar_t>* tile
-        = new Tile<scalar_t>(mb, nb, data, lda, device, TileKind::UserOwned);
+        = new Tile<scalar_t>(mb, nb, data, lda, device, TileKind::UserOwned, layout);
     tiles_[ijdev] = {tile, MOSI::Shared};
     return tiles_[ijdev];
+}
+
+//------------------------------------------------------------------------------
+/// Makes tile layout convertible by extending its data buffer.
+/// Attaches an auxiliary buffer to hold the transposed data when needed.
+///
+/// @param[in,out] tile
+///     Pointer to tile to extend its data buffer.
+///
+template <typename scalar_t>
+void MatrixStorage<scalar_t>::tileMakeTransposable(Tile<scalar_t>* tile)
+{
+    if (tile->isTransposable())
+        // early return
+        return;
+
+    int device = tile->device();
+    scalar_t* data = (scalar_t*) memory_.alloc(device);
+
+    tile->makeTransposable(data);
+}
+
+//------------------------------------------------------------------------------
+/// Resets the extended tile.
+/// Frees the extended buffer and returns to memory manager
+///     then resets the tile's extended member fields
+///
+/// @param[in,out] tile
+///     Pointer to extended tile.
+///
+template <typename scalar_t>
+void MatrixStorage<scalar_t>::tileLayoutReset(Tile<scalar_t>* tile)
+{
+    if (tile->extended()) {
+        memory_.free(tile->extData(), tile->device());
+        tile->layoutReset();
+    }
 }
 
 //------------------------------------------------------------------------------

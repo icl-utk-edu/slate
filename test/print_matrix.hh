@@ -152,7 +152,7 @@ void send_recv_tile(
             slate_assert(err == 0);
             if (flag == flag_exist) {
                 A.tileInsert(i, j);
-                A(i, j).recv(tile_rank, comm);
+                A(i, j).recv(tile_rank, comm, A.layout());
             }
         }
     }

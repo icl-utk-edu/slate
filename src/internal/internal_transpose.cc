@@ -101,6 +101,59 @@ void transpose_batch(
 #endif
 }
 
+//--------------------
+template <>
+void transpose(
+    int64_t m, int64_t n,
+    std::complex<float>* A, int64_t lda,
+    std::complex<float>* AT, int64_t ldat,
+    cudaStream_t stream)
+{
+#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+    transpose(m, n, (cuFloatComplex*) A, lda, (cuFloatComplex*) AT, ldat, stream);
+#endif
+}
+
+template <>
+void transpose(
+    int64_t m, int64_t n,
+    std::complex<double>* A, int64_t lda,
+    std::complex<double>* AT, int64_t ldat,
+    cudaStream_t stream)
+{
+#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+    transpose(m, n, (cuDoubleComplex*) A, lda, (cuDoubleComplex*) AT, ldat, stream);
+#endif
+}
+
+//--------------------
+template <>
+void transpose_batch(
+    int64_t m, int64_t n,
+    std::complex<float>** Aarray, int64_t lda,
+    std::complex<float>** ATarray, int64_t ldat,
+    int64_t batch_count,
+    cudaStream_t stream)
+{
+#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+    transpose_batch(m, n, (cuFloatComplex**) Aarray, lda, (cuFloatComplex**) ATarray, ldat, batch_count, stream);
+#endif
+}
+
+template <>
+void transpose_batch(
+    int64_t m, int64_t n,
+    std::complex<double>** Aarray, int64_t lda,
+    std::complex<double>** ATarray, int64_t ldat,
+    int64_t batch_count,
+    cudaStream_t stream)
+{
+#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+    transpose_batch(m, n, (cuDoubleComplex**) Aarray, lda, (cuDoubleComplex**) ATarray, ldat, batch_count, stream);
+#endif
+}
+
+
 //------------------------------------------------------------------------------
 #if defined(SLATE_NO_CUDA)
 // Specializations to allow compilation without CUDA.
@@ -134,6 +187,46 @@ template <>
 void transpose_batch(
     int64_t n,
     double** Aarray, int64_t lda,
+    int64_t batch_count,
+    cudaStream_t stream)
+{
+}
+
+//--------------------
+template <>
+void transpose(
+    int64_t m, int64_t n,
+    float* A, int64_t lda,
+    float* AT, int64_t ldat,
+    cudaStream_t stream)
+{
+}
+
+template <>
+void transpose(
+    int64_t m, int64_t n,
+    double* A, int64_t lda,
+    double* AT, int64_t ldat,
+    cudaStream_t stream)
+{
+}
+
+//--------------------
+template <>
+void transpose_batch(
+    int64_t m, int64_t n,
+    float** Aarray, int64_t lda,
+    float** ATarray, int64_t ldat,
+    int64_t batch_count,
+    cudaStream_t stream)
+{
+}
+
+template <>
+void transpose_batch(
+    int64_t m, int64_t n,
+    double** Aarray, int64_t lda,
+    double** ATarray, int64_t ldat,
     int64_t batch_count,
     cudaStream_t stream)
 {

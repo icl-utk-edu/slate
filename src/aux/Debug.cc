@@ -211,6 +211,14 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
 ///  - "h" if on hold
 ///  - " " otherwise
 ///
+/// Prints aditional char for Layout:
+///  - "|" if ColMajor
+///  - "-" if RowMajor
+///
+/// Prints aditional char for extended buffer:
+///  - "e" if extended
+///  - " " otherwise
+///
 template <typename scalar_t>
 void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name)
 {
@@ -235,12 +243,21 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name)
                     case MOSI::OnHold: break;  // below
                 }
                 if (it->second.stateOn(MOSI::OnHold))
-                    printf("h ");
+                    printf("h");
                 else
-                    printf("  ");
+                    printf(" ");
+                if (tile->layout() == Layout::ColMajor)
+                    printf("|");
+                else
+                    printf("-");
+                if (tile->extended())
+                    printf("e");
+                else
+                    printf(" ");
+                printf(" ");
             }
             else
-                printf(".   ");
+                printf(".    ");
         }
         printf("\n");
     }
@@ -264,12 +281,21 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name)
                         case MOSI::OnHold: break;  // below
                     }
                     if (it->second.stateOn(MOSI::OnHold))
-                        printf("h ");
+                        printf("h");
                     else
-                        printf("  ");
+                        printf(" ");
+                    if (tile->layout() == Layout::ColMajor)
+                        printf("|");
+                    else
+                        printf("-");
+                    if (tile->extended())
+                        printf("e");
+                    else
+                        printf(" ");
+                    printf(" ");
                 }
                 else
-                    printf(".   ");
+                    printf(".    ");
             }
             printf("\n");
         }

@@ -55,7 +55,8 @@ namespace specialization {
 /// Distributed parallel band LU factorization.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
-/// @ingroup gbsv_specialization
+///
+/// Warning: ColMajor layout is assumed
 ///
 template <Target target, typename scalar_t>
 void gbtrf(slate::internal::TargetType<target>,
@@ -64,6 +65,9 @@ void gbtrf(slate::internal::TargetType<target>,
 {
     // using real_t = blas::real_type<scalar_t>;
     using BcastList = typename BandMatrix<scalar_t>::BcastList;
+
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
 
     const int64_t A_nt = A.nt();
     const int64_t A_mt = A.mt();
@@ -131,7 +135,7 @@ void gbtrf(slate::internal::TargetType<target>,
                 // send A(i, k) across row A(i, k+1:nt-1)
                 bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, j_end-1)}});
             }
-            A.template listBcast(bcast_list_A, tag_k);
+            A.template listBcast(bcast_list_A, layout, tag_k);
 
             // Root broadcasts the pivot to all ranks.
             // todo: Panel ranks send the pivots to the right.
@@ -153,7 +157,7 @@ void gbtrf(slate::internal::TargetType<target>,
                 int tag_j = j;
                 internal::swap<Target::HostTask>(
                     Direction::Forward, A.sub(k, i_end-1, j, j), pivots.at(k),
-                    priority_one, tag_j);
+                    layout, priority_one, tag_j);
 
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk =
@@ -166,13 +170,14 @@ void gbtrf(slate::internal::TargetType<target>,
                                    A.sub(k, k, j, j), priority_one);
 
                 // send A(k, j) across column A(k+1:mt-1, j)
-                A.tileBcast(k, j, A.sub(k+1, i_end-1, j, j), tag_j);
+                A.tileBcast(k, j, A.sub(k+1, i_end-1, j, j), layout, tag_j);
 
                 // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
                 internal::gemm<Target::HostTask>(
                     scalar_t(-1.0), A.sub(k+1, i_end-1, k, k),
                                     A.sub(k, k, j, j),
-                    scalar_t(1.0),  A.sub(k+1, i_end-1, j, j), priority_one);
+                    scalar_t(1.0),  A.sub(k+1, i_end-1, j, j),
+                    layout, priority_one);
             }
         }
         // update trailing submatrix, normal priority
@@ -186,7 +191,7 @@ void gbtrf(slate::internal::TargetType<target>,
                 int tag_kl1 = k+1+lookahead;
                 internal::swap<Target::HostTask>(
                     Direction::Forward, A.sub(k, i_end-1, k+1+lookahead, j_end-1),
-                    pivots.at(k), priority_zero, tag_kl1);
+                    pivots.at(k), layout, priority_zero, tag_kl1);
 
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk =
@@ -204,13 +209,14 @@ void gbtrf(slate::internal::TargetType<target>,
                     // send A(k, j) across column A(k+1:mt-1, j)
                     bcast_list_A.push_back({k, j, {A.sub(k+1, i_end-1, j, j)}});
                 }
-                A.template listBcast(bcast_list_A, tag_kl1);
+                A.template listBcast(bcast_list_A, layout, tag_kl1);
 
                 // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                 internal::gemm<Target::HostTask>(
                     scalar_t(-1.0), A.sub(k+1, i_end-1, k, k),
                                     A.sub(k, k, k+1+lookahead, j_end-1),
-                    scalar_t(1.0),  A.sub(k+1, i_end-1, k+1+lookahead, j_end-1));
+                    scalar_t(1.0),  A.sub(k+1, i_end-1, k+1+lookahead, j_end-1),
+                    layout);
             }
         }
     }
@@ -221,8 +227,8 @@ void gbtrf(slate::internal::TargetType<target>,
 
     // Debug::checkTilesLives(A);
     // Debug::printTilesLives(A);
-
-    A.clearWorkspace();
+    A.tileUpdateAllOrigin();
+    A.releaseWorkspace();
 
     // Debug::printTilesMaps(A);
 }

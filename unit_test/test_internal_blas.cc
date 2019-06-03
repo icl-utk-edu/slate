@@ -317,6 +317,7 @@ void test_gemm(slate::Target target)
     using blas::imag;
     using blas::conj;
     using real_t = blas::real_type<scalar_t>;
+    const blas::Layout layout = blas::Layout::ColMajor;
     int64_t iseed[4] = { 0, 1, 2, 3 };
 
     int nb = 16;
@@ -413,26 +414,26 @@ void test_gemm(slate::Target target)
                 case slate::Target::HostTask:
                     slate::internal::gemm<slate::Target::HostTask>(
                             alpha, std::move(A), std::move(B),
-                            beta,  std::move(C));
+                            beta,  std::move(C), layout);
                     break;
                 case slate::Target::HostNest:
                     slate::internal::gemm<slate::Target::HostNest>(
                             alpha, std::move(A), std::move(B),
-                            beta,  std::move(C));
+                            beta,  std::move(C), layout);
                     break;
                 case slate::Target::HostBatch:
                     slate::internal::gemm<slate::Target::HostBatch>(
                             alpha, std::move(A), std::move(B),
-                            beta,  std::move(C));
+                            beta,  std::move(C), layout);
                     break;
                 case slate::Target::Devices:
                     slate::internal::gemm<slate::Target::Devices>(
                             alpha, std::move(A), std::move(B),
-                            beta,  std::move(C));
+                            beta,  std::move(C), layout);
                     // move data back to host
                     for (int j = 0; j < C.nt(); ++j)
                         for (int i = 0; i < C.mt(); ++i)
-                            C.tileGetForReading(i, j);
+                            C.tileGetForReading(i, j, LayoutConvert(layout));
                     break;
             }
 
@@ -592,7 +593,7 @@ void test_syrk(slate::Target target)
                     // assume Lower, NoTrans or Upper, Trans
                     for (int j = 0; j < C.nt(); ++j)
                         for (int i = j; i < C.mt(); ++i)  // lower
-                            C.tileGetForReading(i, j);
+                            C.tileGetForReading(i, j, slate::LayoutConvert::ColMajor);
                     break;
             }
             //if (C.op() == Op::ConjTrans)  // TODO
@@ -756,7 +757,7 @@ void test_herk(slate::Target target)
                     // assume Lower, NoTrans or Upper, Trans
                     for (int j = 0; j < C.nt(); ++j)
                         for (int i = j; i < C.mt(); ++i)  // lower
-                            C.tileGetForReading(i, j);
+                            C.tileGetForReading(i, j, slate::LayoutConvert::ColMajor);
                     break;
             }
             //if (C.op() == Op::ConjTrans)  // TODO

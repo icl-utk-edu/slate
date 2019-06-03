@@ -73,7 +73,7 @@ void getrs(slate::internal::TargetType<target>,
             // swap rows in B(k:mt-1, 0:nt-1)
             internal::swap<Target::HostTask>(
                 Direction::Forward, B.sub(k, B.mt()-1, 0, B.nt()-1),
-                pivots.at(k));
+                pivots.at(k), Layout::ColMajor);
         }
 
         // Forward substitution, Y = L^{-1} P B.
@@ -102,7 +102,7 @@ void getrs(slate::internal::TargetType<target>,
             // swap rows in B(k:mt-1, 0:nt-1)
             internal::swap<Target::HostTask>(
                 Direction::Backward, B.sub(k, B.mt()-1, 0, B.nt()-1),
-                pivots.at(k));
+                pivots.at(k), Layout::ColMajor);
         }
     }
 }

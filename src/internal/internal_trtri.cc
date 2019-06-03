@@ -71,7 +71,7 @@ void trtri(internal::TargetType<Target::HostTask>,
     if (A.tileIsLocal(0, 0))
         #pragma omp task shared(A) priority(priority)
         {
-            A.tileGetForWriting(0, 0);
+            A.tileGetForWriting(0, 0, LayoutConvert::ColMajor);
             trtri(A.diag(), A(0, 0));
         }
 

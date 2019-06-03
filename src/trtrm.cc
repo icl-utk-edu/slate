@@ -63,6 +63,9 @@ void trtrm(slate::internal::TargetType<target>,
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+
     // if upper, change to lower
     if (A.uplo() == Uplo::Upper) {
         A = conj_transpose(A);
@@ -98,7 +101,7 @@ void trtrm(slate::internal::TargetType<target>,
                     bcast_list_A.push_back({k, j, {A.sub(j, k-1, j, j),
                                                    A.sub(j, j, 0, j)}});
                 }
-                A.template listBcast(bcast_list_A);
+                A.template listBcast(bcast_list_A, layout);
             }
 
             // update tailing submatrix
@@ -119,7 +122,7 @@ void trtrm(slate::internal::TargetType<target>,
             #pragma omp task depend(inout:row[0])
             {
                 // send A(k, k) across row A(k, 0:k-1)
-                A.tileBcast(k, k, A.sub(k, k, 0, k-1));
+                A.tileBcast(k, k, A.sub(k, k, 0, k-1), layout);
 
                 // A(k, 0:k-1) = A(k, 0:k-1) * A(k, k)^H
                 auto Akk = A.sub(k, k);

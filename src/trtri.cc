@@ -63,6 +63,9 @@ void trtri(slate::internal::TargetType<target>,
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+
     // if upper, change to lower
     if (A.uplo() == Uplo::Upper) {
         A = conj_transpose(A);
@@ -88,7 +91,7 @@ void trtri(slate::internal::TargetType<target>,
             #pragma omp task depend(inout:col[0]) firstprivate(tag)
             {
                 // send A(0, 0) down col A(1:nt-1, 0)
-                A.tileBcast(0, 0, A.sub(1, A_nt-1, 0, 0), tag);
+                A.tileBcast(0, 0, A.sub(1, A_nt-1, 0, 0), layout, tag);
 
                 // A(1:nt-1, 0) * A(0, 0)^{-H}
                 internal::trsm<Target::HostTask>(
@@ -105,7 +108,7 @@ void trtri(slate::internal::TargetType<target>,
                              depend(out:row[1]) firstprivate(tag)
             {
                 // send A(1, 0) down col A(2:nt-1, 0)
-                A.tileBcast(1, 0, A.sub(2, A_nt-1, 0, 0), tag);
+                A.tileBcast(1, 0, A.sub(2, A_nt-1, 0, 0), layout, tag);
             }
             ++tag;
         }
@@ -122,7 +125,7 @@ void trtri(slate::internal::TargetType<target>,
                              depend(inout:row[k+1]) firstprivate(tag)
             {
                 // send A(k, k) down col A(k+1:nt-1, k)
-                A.tileBcast(k, k, A.sub(k+1, A_nt-1, k, k), tag);
+                A.tileBcast(k, k, A.sub(k+1, A_nt-1, k, k), layout, tag);
 
                 // leading column trsm, A(k+1:nt-1, k) * A(k, k)^{-H}
                 internal::trsm<Target::HostTask>(
@@ -136,7 +139,7 @@ void trtri(slate::internal::TargetType<target>,
                     // send A(i, k) across row A(i, 0:k-1)
                     bcast_list_A.push_back({i, k, {A.sub(i, i, 0, k-1)}});
                 }
-                A.template listBcast<target>(bcast_list_A, tag+1);
+                A.template listBcast<target>(bcast_list_A, layout, tag+1);
             }
             tag += 2;
         }
@@ -152,7 +155,7 @@ void trtri(slate::internal::TargetType<target>,
                     // send A(k+la, k+la) down col A(k+1+la:nt-1, k)
                     A.tileBcast(k+lookahead, k+lookahead,
                                 A.sub(k+1+lookahead, A_nt-1,
-                                      k+lookahead, k+lookahead), tag);
+                                      k+lookahead, k+lookahead), layout, tag);
 
                     // leading column trsm,
                     // A(k+1+la:nt-1, k+la) * A(k+la, k+la)^{-H}
@@ -169,7 +172,7 @@ void trtri(slate::internal::TargetType<target>,
                         bcast_list_A.push_back(
                             {i, k+lookahead, {A.sub(i, i, 0, k+lookahead-1)}});
                     }
-                    A.template listBcast<target>(bcast_list_A, tag+1);
+                    A.template listBcast<target>(bcast_list_A, layout, tag+1);
                 }
                 tag += 2;
             }
@@ -184,7 +187,8 @@ void trtri(slate::internal::TargetType<target>,
                     internal::gemm<Target::HostTask>(
                         scalar_t(1.0), A.sub(i, i, k, k),
                                        A.sub(k, k, 0, k-1),
-                        scalar_t(1.0), A.sub(i, i, 0, k-1));
+                        scalar_t(1.0), A.sub(i, i, 0, k-1),
+                        layout);
 
                     if (i+1 < A_nt) {
                         // send the row down
@@ -194,7 +198,7 @@ void trtri(slate::internal::TargetType<target>,
                             bcast_list_B.push_back(
                                 {i, j, {A.sub(i+1, A_nt-1, j, j)}});
                         }
-                        A.template listBcast<target>(bcast_list_B, tag);
+                        A.template listBcast<target>(bcast_list_B, layout, tag);
                     }
                 }
                 ++tag;
@@ -211,7 +215,8 @@ void trtri(slate::internal::TargetType<target>,
                     internal::gemm<target>(
                         scalar_t(1.0), A.sub(k+1+lookahead, A_nt-1, k, k),
                                        A.sub(k, k, 0, k-1),
-                        scalar_t(1.0), A.sub(k+1+lookahead, A_nt-1, 0, k-1));
+                        scalar_t(1.0), A.sub(k+1+lookahead, A_nt-1, 0, k-1),
+                        layout);
                 }
 
                 if (k+2+lookahead < A_nt) {
@@ -222,7 +227,7 @@ void trtri(slate::internal::TargetType<target>,
                         bcast_list_B.push_back(
                             {k+1+lookahead, j, {A.sub(k+2+lookahead, A_nt-1, j, j)}});
                     }
-                    A.template listBcast<target>(bcast_list_B, tag);
+                    A.template listBcast<target>(bcast_list_B, layout, tag);
                 }
             }
             ++tag;
@@ -231,7 +236,7 @@ void trtri(slate::internal::TargetType<target>,
             #pragma omp task depend(inout:row[k]) firstprivate(tag)
             {
                 // send A(k, k) across row A(k, 0:k-1)
-                A.tileBcast(k, k, A.sub(k, k, 0, k-1), tag);
+                A.tileBcast(k, k, A.sub(k, k, 0, k-1), layout, tag);
 
                 // solve A(k, k) A(k, :) = A(k, 0:k-1)
                 internal::trsm<Target::HostTask>(

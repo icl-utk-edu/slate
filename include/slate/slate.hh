@@ -521,6 +521,8 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
                 int& iter,
                 const std::map<Option, Value>& opts = std::map<Option, Value>());
 
+// todo: forward real-symmetric matrices to posvMixed?
+
 //-----------------------------------------
 // potrf
 template <typename scalar_t>
@@ -562,6 +564,18 @@ void potrs(SymmetricMatrix<scalar_t>& A, Matrix<scalar_t>& B,
     HermitianMatrix<scalar_t> AH(A);
     potrs(AH, B, opts);
 }
+
+//-----------------------------------------
+// potri
+template <typename scalar_t>
+void potri(HermitianMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void potri(HermitianMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+// todo: forward real-symmetric matrices to potri?
 
 //------------------------------------------------------------------------------
 // Symmetric indefinite -- block Aasen's

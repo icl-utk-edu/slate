@@ -300,6 +300,7 @@ libslate_src += \
         src/posv.cc \
         src/posvMixed.cc \
         src/potrf.cc \
+        src/potri.cc \
         src/potrs.cc \
         src/symm.cc \
         src/syr2k.cc \

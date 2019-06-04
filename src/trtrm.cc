@@ -197,8 +197,6 @@ void trtrm(TriangularMatrix<scalar_t>& A,
 ///
 /// TODO: return value
 /// @retval 0 successful exit
-/// @retval >0 for return value = $i$, $A(i,i)$ is exactly zero. The triangular
-///         matrix is singular and its inverse can not be computed.
 ///
 /// @ingroup trtrm
 ///

@@ -6,6 +6,7 @@
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
+#include "scalapack_copy.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -35,6 +36,7 @@ template <typename scalar_t> void test_gels_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
+    slate::Origin origin = params.origin();
     slate::Target target = params.target();
     bool consistent = true;
 
@@ -121,10 +123,29 @@ template <typename scalar_t> void test_gels_work(Params& params, bool run)
     int64_t lwork;
     std::vector<scalar_t> work;
 
+    slate::Matrix<scalar_t> A, X0, BX;
+    if (origin != slate::Origin::ScaLAPACK) {
+        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        slate::Target origin_target = origin2target(origin);
+        A = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
+        A.insertLocalTiles(origin_target);
+        copy(&A_tst[0], descA_tst, A);
+
+        X0 = slate::Matrix<scalar_t>(opAn, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
+        X0.insertLocalTiles(origin_target);
+        copy(&X0_tst[0], descX0_tst, X0);
+
+        BX = slate::Matrix<scalar_t>(maxmn, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
+        BX.insertLocalTiles(origin_target);
+        copy(&BX_tst[0], descBX_tst, BX);
+    }
+    else {
+        // create SLATE matrices from the ScaLAPACK layouts
+        A  = slate::Matrix<scalar_t>::fromScaLAPACK(m,     n,    &A_tst[0],  lldA,  nb, nprow, npcol, MPI_COMM_WORLD);
+        X0 = slate::Matrix<scalar_t>::fromScaLAPACK(opAn,  nrhs, &X0_tst[0], lldX0, nb, nprow, npcol, MPI_COMM_WORLD);
+        BX = slate::Matrix<scalar_t>::fromScaLAPACK(maxmn, nrhs, &BX_tst[0], lldBX, nb, nprow, npcol, MPI_COMM_WORLD);
+    }
     // Create SLATE matrix from the ScaLAPACK layouts
-    auto A  = slate::Matrix<scalar_t>::fromScaLAPACK(m,     n,    &A_tst[0],  lldA,  nb, nprow, npcol, MPI_COMM_WORLD);
-    auto X0 = slate::Matrix<scalar_t>::fromScaLAPACK(opAn,  nrhs, &X0_tst[0], lldX0, nb, nprow, npcol, MPI_COMM_WORLD);
-    auto BX = slate::Matrix<scalar_t>::fromScaLAPACK(maxmn, nrhs, &BX_tst[0], lldBX, nb, nprow, npcol, MPI_COMM_WORLD);
     slate::TriangularFactors<scalar_t> T;
 
     // In square case, B = X = BX. In rectangular cases, B or X is sub-matrix.
@@ -158,6 +179,10 @@ template <typename scalar_t> void test_gels_work(Params& params, bool run)
     // Form consistent RHS, B = A * X0.
     if (consistent) {
         slate::gemm(one, opA, X0, zero, B);
+        if (origin != slate::Origin::ScaLAPACK) {
+            // refresh ScaLAPACK data; B is sub-matrix of BX
+            copy(BX, &BX_tst[0], descBX_tst);
+        }
     }
 
     if (verbose > 1) {
@@ -226,7 +251,7 @@ template <typename scalar_t> void test_gels_work(Params& params, bool run)
             slate::trace::Block trace_block("MPI_Barrier");
             MPI_Barrier(MPI_COMM_WORLD);
         }
-        double time_tst = libtest:: get_wtime() - time;
+        double time_tst = libtest::get_wtime() - time;
 
         if (trace) slate::trace::Trace::finish();
 

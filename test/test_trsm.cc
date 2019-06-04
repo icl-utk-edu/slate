@@ -39,7 +39,7 @@ void test_trsm_work(Params& params, bool run)
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
-    slate::Target origin = params.origin();
+    slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
     // mark non-standard output values
@@ -120,16 +120,17 @@ void test_trsm_work(Params& params, bool run)
 
     slate::TriangularMatrix<scalar_t> A;
     slate::Matrix<scalar_t> B;
-    if (origin == slate::Target::Devices) {
-        // Distribute local ScaLAPACK data to tiles on GPU devices.
+    if (origin != slate::Origin::ScaLAPACK) {
+        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        slate::Target origin_target = origin2target(origin);
         A = slate::TriangularMatrix<scalar_t>
                 (uplo, diag, An, nb, nprow, npcol, MPI_COMM_WORLD);
-        A.insertLocalTiles(origin);
+        A.insertLocalTiles(origin_target);
         copy(&A_tst[0], descA_tst, A);
 
         B = slate::Matrix<scalar_t>
                  (Bm, Bn, nb, nprow, npcol, MPI_COMM_WORLD);
-        B.insertLocalTiles(origin);
+        B.insertLocalTiles(origin_target);
         copy(&B_tst[0], descB_tst, B);
     }
     else {

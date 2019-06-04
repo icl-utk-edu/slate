@@ -45,6 +45,7 @@ void test_gbmm_work(Params& params, bool run)
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
+    slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
     // mark non-standard output values
@@ -55,6 +56,11 @@ void test_gbmm_work(Params& params, bool run)
 
     if (! run)
         return;
+
+    if (origin != slate::Origin::ScaLAPACK) {
+        printf("skipping: currently only origin=scalapack is supported\n");
+        return;
+    }
 
     // Error analysis applies in these norms.
     slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);

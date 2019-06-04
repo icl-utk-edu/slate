@@ -6,6 +6,7 @@
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
+#include "scalapack_copy.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -33,6 +34,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
+    slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
     // mark non-standard output values
@@ -93,8 +95,18 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
     int64_t lwork;
     std::vector<scalar_t> work(1);
 
-    // Create SLATE matrix from the ScaLAPACK layouts
-    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(m, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+    slate::Matrix<scalar_t> A;
+    if (origin != slate::Origin::ScaLAPACK) {
+        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        slate::Target origin_target = origin2target(origin);
+        A = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
+        A.insertLocalTiles(origin_target);
+        copy(&A_tst[0], descA_tst, A);
+    }
+    else {
+        // create SLATE matrices from the ScaLAPACK layouts
+        A = slate::Matrix<scalar_t>::fromScaLAPACK(m, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+    }
     slate::TriangularFactors<scalar_t> T;
 
     if (verbose > 1) {
@@ -128,47 +140,18 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        #if 1
-            slate::geqrf(A, T, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target},
-                {slate::Option::MaxPanelThreads, panel_threads},
-                {slate::Option::InnerBlocking, ib}
-            });
-        #else
-            // TMP: call scalapack
-            // query for workspace size
-            int64_t info_ref = 0;
-            scalar_t dummy;
-            scalapack_pgeqrf(m, n, &A_tst[0], ione, ione, descA_tst, tau.data(),
-                             &dummy, -1, &info_ref);
-            slate_assert(info_ref == 0);
-            lwork = int64_t( real( dummy ) );
+        slate::geqrf(A, T, {
+            {slate::Option::Lookahead, lookahead},
+            {slate::Option::Target, target},
+            {slate::Option::MaxPanelThreads, panel_threads},
+            {slate::Option::InnerBlocking, ib}
+        });
 
-            scalapack_punmqr("left", "notrans", m, n, std::min(m, n),
-                             &A_tst[0], ione, ione, descA_tst, tau.data(),
-                             &QR_tst[0], ione, ione, descQR_tst,
-                             &dummy, -1, &info_ref);
-            slate_assert(info_ref == 0);
-            lwork = std::max( lwork, int64_t( real( dummy ) ) );
-            work.resize(lwork);
-
-            scalapack_pgeqrf(m, n, &A_tst[0], ione, ione, descA_tst, tau.data(),
-                             work.data(), lwork, &info_ref);
-            slate_assert(info_ref == 0);
-        #endif
-
-        if (verbose > 1) {
-            print_matrix("Tlocal",  T[0]);
-            print_matrix("Treduce", T[1]);
-        }
-
-        //--------------------------------------------------
         {
             slate::trace::Block trace_block("MPI_Barrier");
             MPI_Barrier(MPI_COMM_WORLD);
         }
-        double time_tst = libtest:: get_wtime() - time;
+        double time_tst = libtest::get_wtime() - time;
 
         if (trace) slate::trace::Trace::finish();
 
@@ -178,6 +161,8 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
 
         if (verbose > 1) {
             print_matrix("A_factored", A);
+            print_matrix("Tlocal",  T[0]);
+            print_matrix("Treduce", T[1]);
         }
     }
 
@@ -190,6 +175,11 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         //      || A ||_1 * m
         //
         //==================================================
+
+        if (origin != slate::Origin::ScaLAPACK) {
+            // Copy SLATE result back from GPU or CPU tiles.
+            copy(A, &A_tst[0], descA_tst);
+        }
 
         // Norm of original matrix: || A ||_1
         real_t A_norm = slate::norm(slate::Norm::One, Aref);
@@ -214,19 +204,9 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         }
 
         // Form QR, where Q's representation is in A and T, and R is in QR.
-        #if 1
-            slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, T, QR, {
-                {slate::Option::Target, target}
-            });
-        #else
-            // TMP: call scalapack
-            int64_t info_ref = 0;
-            scalapack_punmqr("left", "notrans", m, n, std::min(m, n),
-                             &A_tst[0], ione, ione, descA_tst, tau.data(),
-                             &QR_tst[0], ione, ione, descQR_tst,
-                             work.data(), lwork, &info_ref);
-            slate_assert(info_ref == 0);
-        #endif
+        slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, T, QR, {
+            {slate::Option::Target, target}
+        });
 
         if (verbose > 1) {
             print_matrix("QR", QR);

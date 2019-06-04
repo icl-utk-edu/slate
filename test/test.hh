@@ -11,6 +11,17 @@
 #include "slate/slate.hh"
 
 // -----------------------------------------------------------------------------
+namespace slate {
+
+enum class Origin {
+    Host,
+    ScaLAPACK,
+    Devices,
+};
+
+} // namespace slate
+
+// -----------------------------------------------------------------------------
 class Params: public libtest::ParamsBase {
 public:
     const double inf = std::numeric_limits<double>::infinity();
@@ -44,7 +55,7 @@ public:
     // gbsv ( n, kl, ku, nrhs, ... )
     // trsm ( side, uplo, transa, diag, m, n, alpha, ... )
     libtest::ParamEnum< libtest::DataType > datatype;
-    libtest::ParamEnum< slate::Target >     origin;
+    libtest::ParamEnum< slate::Origin >     origin;
     libtest::ParamEnum< slate::Target >     target;
     libtest::ParamEnum< slate::Layout >     layout;
     libtest::ParamEnum< lapack::Job >       jobz;   // heev
@@ -167,6 +178,47 @@ void test_trnorm (Params& params, bool run);
 // Inverse
 void test_potri  (Params& params, bool run);
 void test_getri  (Params& params, bool run);
+
+// -----------------------------------------------------------------------------
+inline slate::Origin str2origin(const char* origin)
+{
+    std::string origin_ = origin;
+    std::transform(origin_.begin(), origin_.end(), origin_.begin(), ::tolower);
+    if (origin_ == "d" || origin_ == "dev" || origin_ == "device" ||
+        origin_ == "devices")
+        return slate::Origin::Devices;
+    else if (origin_ == "h" || origin_ == "host")
+        return slate::Origin::Host;
+    else if (origin_ == "s" || origin_ == "scalapack")
+        return slate::Origin::ScaLAPACK;
+    else
+        throw slate::Exception("unknown origin");
+}
+
+inline const char* origin2str(slate::Origin origin)
+{
+    switch (origin) {
+        case slate::Origin::Devices:   return "devices";
+        case slate::Origin::Host:      return "host";
+        case slate::Origin::ScaLAPACK: return "scalapack";
+    }
+    return "?";
+}
+
+inline slate::Target origin2target(slate::Origin origin)
+{
+    switch (origin) {
+        case slate::Origin::Host:
+        case slate::Origin::ScaLAPACK:
+            return slate::Target::Host;
+
+        case slate::Origin::Devices:
+            return slate::Target::Devices;
+
+        default:
+            throw slate::Exception("unknown origin");
+    }
+}
 
 // -----------------------------------------------------------------------------
 inline slate::Target str2target(const char* target)

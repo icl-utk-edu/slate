@@ -101,6 +101,7 @@ void copyTile(
             A.tileState(i, j) != slate::MOSI::Invalid)
         {
             // Copy from ScaLAPACK to host tile, if it exists.
+            A.tileGetForWriting(i, j, slate::LayoutConvert::ColMajor);
             auto Aij = A(i, j);
             lapack::lacpy(
                 lapack::MatrixType::General,
@@ -112,6 +113,7 @@ void copyTile(
                  A.tileState(i, j, dev) != slate::MOSI::Invalid)
         {
             // Copy from ScaLAPACK to device tile, if it exists.
+            A.tileGetForWriting(i, j, dev, slate::LayoutConvert::ColMajor);
             auto Aij = A(i, j, dev);
             slate_cuda_call(
                 cudaSetDevice(dev));

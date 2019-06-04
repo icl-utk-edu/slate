@@ -28,6 +28,7 @@ template <typename scalar_t> void test_hesv_work(Params& params, bool run)
     slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
+    slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
     //---------------------
@@ -37,6 +38,23 @@ template <typename scalar_t> void test_hesv_work(Params& params, bool run)
 
     if (! run)
         return;
+
+    if (origin != slate::Origin::ScaLAPACK) {
+        printf("skipping: currently only origin=scalapack is supported\n");
+        return;
+    }
+    if (target == slate::Target::Devices) {
+        printf("skipping: currently target=devices is not supported\n");
+        return;
+    }
+    if (n % nb != 0) {
+        printf("skipping: currently only (n %% nb == 0) is supported\n");
+        return;
+    }
+    if (uplo != slate::Uplo::Lower) {
+        printf("skipping: currently only uplo=lower is supported\n");
+        return;
+    }
 
     int64_t Am = n;
     int64_t An = n;

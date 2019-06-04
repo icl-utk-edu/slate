@@ -35,7 +35,7 @@ void test_trnorm_work(Params& params, bool run)
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
     int extended = params.extended();
-    slate::Target origin = params.origin();
+    slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
     // mark non-standard output values
@@ -102,10 +102,11 @@ void test_trnorm_work(Params& params, bool run)
     slate::TrapezoidMatrix<scalar_t> A0(uplo, diag, Am, An, nb, p, q, MPI_COMM_WORLD);
 
     slate::TrapezoidMatrix<scalar_t> A;
-    if (origin == slate::Target::Devices) {
-        // Copy local ScaLAPACK data to tiles on GPU devices.
+    if (origin != slate::Origin::ScaLAPACK) {
+        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        slate::Target origin_target = origin2target(origin);
         A = slate::TrapezoidMatrix<scalar_t>(uplo, diag, Am, An, nb, nprow, npcol, MPI_COMM_WORLD);
-        A.insertLocalTiles(origin);
+        A.insertLocalTiles(origin_target);
         copy(&A_tst[0], descA_tst, A);
     }
     else {

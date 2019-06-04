@@ -38,7 +38,7 @@ void test_gemm_work(Params& params, bool run)
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
-    slate::Target origin = params.origin();
+    slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
     // mark non-standard output values
@@ -120,18 +120,19 @@ void test_gemm_work(Params& params, bool run)
     }
 
     slate::Matrix<scalar_t> A, B, C;
-    if (origin == slate::Target::Devices) {
-        // Copy local ScaLAPACK data to tiles on GPU devices.
+    if (origin != slate::Origin::ScaLAPACK) {
+        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(Am, An, nb, nprow, npcol, MPI_COMM_WORLD);
-        A.insertLocalTiles(origin);
+        A.insertLocalTiles(origin_target);
         copy(&A_tst[0], descA_tst, A);
 
         B = slate::Matrix<scalar_t>(Bm, Bn, nb, nprow, npcol, MPI_COMM_WORLD);
-        B.insertLocalTiles(origin);
+        B.insertLocalTiles(origin_target);
         copy(&B_tst[0], descB_tst, B);
 
         C = slate::Matrix<scalar_t>(Cm, Cn, nb, nprow, npcol, MPI_COMM_WORLD);
-        C.insertLocalTiles(origin);
+        C.insertLocalTiles(origin_target);
         copy(&C_tst[0], descC_tst, C);
     }
     else {
@@ -200,8 +201,8 @@ void test_gemm_work(Params& params, bool run)
     if (check || ref) {
         // comparison with reference routine from ScaLAPACK
 
-        if (origin == slate::Target::Devices) {
-            // Copy SLATE result back from GPUs.
+        if (origin != slate::Origin::ScaLAPACK) {
+            // Copy SLATE result back from GPU or CPU tiles.
             copy(C, &C_tst[0], descC_tst);
         }
 

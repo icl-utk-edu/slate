@@ -205,8 +205,8 @@ Params::Params():
     // ----- routine parameters
     //         name,      w,    type,            default,                 str2enum,     enum2str,     help
     datatype  ("type",    4,    ParamType::List, DataType::Double,        str2datatype, datatype2str, "s=single (float), d=double, c=complex-single, z=complex-double"),
-    origin    ("origin",  7,    ParamType::List, slate::Target::Host,     str2target,   target2str,   "origin: h=Host, d=Devices"),
-    target    ("target",  7,    ParamType::List, slate::Target::HostTask, str2target,   target2str,   "target: t=HostTask n=HostNest b=HostBatch d=Devices"),
+    origin    ("origin",  9,    ParamType::List, slate::Origin::Host,     str2origin,   origin2str,   "origin: h=Host, s=ScaLAPACK, d=Devices"),
+    target    ("target",  7,    ParamType::List, slate::Target::HostTask, str2target,   target2str,   "target: t=HostTask, n=HostNes,t b=HostBatch, d=Devices"),
 
     //         name,      w,    type,            default,                 char2enum,         enum2char,         enum2str,         help
     layout    ("layout",  6,    ParamType::List, slate::Layout::ColMajor, blas::char2layout, blas::layout2char, blas::layout2str, "layout: r=row major, c=column major"),
@@ -368,20 +368,17 @@ int print_reduce_error(
 }
 
 // -----------------------------------------------------------------------------
-int main(int argc, char** argv)
+int run(int argc, char** argv)
 {
     using libtest::QuitException;
 
     // check that all sections have names
-    slate_assert(sizeof(section_names) / sizeof(*section_names) == Section::num_sections);
+    assert(sizeof(section_names) / sizeof(*section_names) == Section::num_sections);
 
     // MPI initializations
     int mpi_rank = 0, mpi_size = 0, provided = 0;
-    int err = MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided);
-    if (err != MPI_SUCCESS) {
-        fprintf(stderr, "Error: MPI could not be initialized (err = %d)\n", err);
-        return -1;
-    }
+    slate_mpi_call(
+        MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided));
 
     int status = 0;
     std::string msg;
@@ -472,7 +469,7 @@ int main(int argc, char** argv)
                 catch (const std::exception& ex) {
                     msg = ex.what();
                 }
-                err = print_reduce_error(msg, mpi_rank, MPI_COMM_WORLD);
+                int err = print_reduce_error(msg, mpi_rank, MPI_COMM_WORLD);
                 if (err)
                     params.okay() = false;
                 if (print) {
@@ -503,14 +500,33 @@ int main(int argc, char** argv)
     catch (const std::exception& ex) {
         msg = ex.what();
     }
-    err = print_reduce_error(msg, mpi_rank, MPI_COMM_WORLD);
+    int err = print_reduce_error(msg, mpi_rank, MPI_COMM_WORLD);
     if (err)
         status = -1;
 
-    MPI_Finalize();
+    slate_mpi_call(
+        MPI_Finalize());
 
     if (mpi_rank == 0)
         return status;
     else
         return 0;
+}
+
+// -----------------------------------------------------------------------------
+int main(int argc, char** argv)
+{
+    int status = 0;
+    try {
+        status = run(argc, argv);
+    }
+    catch (const std::exception& ex) {
+        fprintf(stderr, "Error: %s\n", ex.what());
+        status = -1;
+    }
+    catch (...) {
+        fprintf(stderr, "Unknown error\n");
+        status = -2;
+    }
+    return status;
 }

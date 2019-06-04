@@ -30,7 +30,7 @@ template <typename scalar_t> void test_getri_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose(); SLATE_UNUSED(verbose);
-    slate::Target origin = params.origin();
+    slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
     // mark non-standard output values
@@ -76,10 +76,11 @@ template <typename scalar_t> void test_getri_work(Params& params, bool run)
 
     // Setup SLATE matrix A based on scalapack matrix/data in A_tst
     slate::Matrix<scalar_t> A;
-    if (origin == slate::Target::Devices) {
-        // Copy local ScaLAPACK data to tiles on GPU devices.
+    if (origin != slate::Origin::ScaLAPACK) {
+        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(n, n, nb, nprow, npcol, MPI_COMM_WORLD);
-        A.insertLocalTiles(origin);
+        A.insertLocalTiles(origin_target);
         copy(&A_tst[0], descA_tst, A);
     }
     else {
@@ -113,10 +114,11 @@ template <typename scalar_t> void test_getri_work(Params& params, bool run)
     // todo: Select correct times to use out-of-place getri, currently always use
     if (params.routine == "getriOOP") {
         // setup SLATE matrix C based on scalapack matrix/data in C_chk
-        if (origin == slate::Target::Devices) {
-            // Copy local ScaLAPACK data to tiles on GPU devices.
+        if (origin != slate::Origin::ScaLAPACK) {
+            // Copy local ScaLAPACK data to GPU or CPU tiles.
+            slate::Target origin_target = origin2target(origin);
             C = slate::Matrix<scalar_t>(n, n, nb, nprow, npcol, MPI_COMM_WORLD);
-            C.insertLocalTiles(origin);
+            C.insertLocalTiles(origin_target);
             copy(&C_chk[0], descC_chk, C);
         }
         else {
@@ -182,8 +184,8 @@ template <typename scalar_t> void test_getri_work(Params& params, bool run)
         //==================================================
         // Check  || I - inv(A)*A || / ( || A || * N ) <=  tol * eps
 
-        // Copy data back from GPUs.
-        if (origin == slate::Target::Devices) {
+        if (origin != slate::Origin::ScaLAPACK) {
+            // Copy SLATE result back from GPU or CPU tiles.
             copy(A, &A_tst[0], descA_tst);
             copy(C, &C_chk[0], descC_chk);
         }

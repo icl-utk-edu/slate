@@ -99,8 +99,8 @@ cudaError_t cudaStreamCreate(cudaStream_t* pStream);
 cudaError_t cudaStreamSynchronize(cudaStream_t stream);
 cudaError_t cudaStreamDestroy(cudaStream_t pStream);
 
-char* cudaGetErrorName(cudaError_t error);
-char* cudaGetErrorString(cudaError_t error);
+const char* cudaGetErrorName(cudaError_t error);
+const char* cudaGetErrorString(cudaError_t error);
 
 #ifdef __cplusplus
 }

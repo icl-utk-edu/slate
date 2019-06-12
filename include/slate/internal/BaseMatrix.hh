@@ -2677,6 +2677,7 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileLayoutConvert(int64_t i, int64_t j, int device,
                                              Layout layout, bool reset)
 {
+    LockGuard guard(storage_->at(globalIndex(i, j, device)).get_lock());
     auto tile = storage_->at(globalIndex(i, j, device)).tile_;
     if (tile->layout() != layout ) {
         if (! tile->isTransposable() ) {
@@ -2699,6 +2700,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(int64_t i, int64_t j, int device,
             storage_->releaseWorkspaceBuffer(work_data, tile->device());
     }
     if (reset) {
+        assert(tile->layout() == this->layout());
         storage_->tileLayoutReset(tile);
     }
 }

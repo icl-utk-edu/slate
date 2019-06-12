@@ -91,9 +91,6 @@ void swap(internal::TargetType<Target::HostTask>,
           Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
           Layout layout, int priority, int tag)
 {
-    // CPU uses ColMajor
-    assert(layout == Layout::ColMajor);
-
     // todo: for performance optimization, merge with the loops below,
     // at least with lookahead, probably selectively
     A.tileGetAllForWriting(A.hostNum(), LayoutConvert(layout));

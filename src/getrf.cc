@@ -65,10 +65,13 @@ void getrf(slate::internal::TargetType<target>,
     // using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    // Host can use Col/RowMajor for row swapping,
+    // RowMajor is slightly more efficient.
+    Layout host_layout = Layout::RowMajor;
+    Layout target_layout = Layout::RowMajor;
     // GPU Devices use RowMajor for efficient row swapping.
-    Layout layout = Layout::ColMajor;
     if (target == Target::Devices)
-        layout = Layout::RowMajor;
+        target_layout = Layout::RowMajor;
 
     if (target == Target::Devices) {
         A.allocateBatchArrays();
@@ -129,7 +132,7 @@ void getrf(slate::internal::TargetType<target>,
                 int tag_j = j;
                 internal::swap<Target::HostTask>(
                     Direction::Forward, A.sub(k, A_mt-1, j, j), pivots.at(k),
-                    Layout::ColMajor, priority_one, tag_j);
+                    host_layout, priority_one, tag_j);
 
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk =
@@ -142,6 +145,7 @@ void getrf(slate::internal::TargetType<target>,
                                    A.sub(k, k, j, j), priority_one);
 
                 // send A(k, j) across column A(k+1:mt-1, j)
+                // todo: trsm still operates in ColMajor
                 A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), Layout::ColMajor, tag_j);
 
                 // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
@@ -149,7 +153,7 @@ void getrf(slate::internal::TargetType<target>,
                     scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
                                     A.sub(k, k, j, j),
                     scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j),
-                    Layout::ColMajor, priority_one);
+                    host_layout, priority_one);
             }
         }
         // pivot to the left, high priority
@@ -177,7 +181,7 @@ void getrf(slate::internal::TargetType<target>,
                 // todo: target
                 internal::swap<target>(
                     Direction::Forward, A.sub(k, A_mt-1, k+1+lookahead, A_nt-1),
-                    pivots.at(k), layout, priority_zero, tag_kl1);
+                    pivots.at(k), target_layout, priority_zero, tag_kl1);
 
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk =
@@ -196,6 +200,7 @@ void getrf(slate::internal::TargetType<target>,
                     // send A(k, j) across column A(k+1:mt-1, j)
                     bcast_list_A.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}});
                 }
+                // todo: trsm still operates in ColMajor
                 A.template listBcast(bcast_list_A, Layout::ColMajor, tag_kl1);
 
                 // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
@@ -203,7 +208,7 @@ void getrf(slate::internal::TargetType<target>,
                     scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
                                     A.sub(k, k, k+1+lookahead, A_nt-1),
                     scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
-                    layout, priority_zero);
+                    target_layout, priority_zero);
             }
         }
     }
@@ -215,14 +220,13 @@ void getrf(slate::internal::TargetType<target>,
             // swap rows in A(k:mt-1, 0:k-1)
             internal::swap<Target::HostTask>(
                 Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
-                Layout::ColMajor);
+                host_layout);
         }
     }
 
     // Debug::checkTilesLives(A);
     // Debug::printTilesLives(A);
-
-    A.tileUpdateAllOrigin();
+    A.tileLayoutReset();
     A.releaseWorkspace();
 
     // Debug::printTilesMaps(A);

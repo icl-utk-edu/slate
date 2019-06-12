@@ -1499,7 +1499,7 @@ void test_Matrix_tileLayoutConvert()
         for (int i = 0; i < A.mt(); ++i) {
             if (A.tileIsLocal(i, j)) {
                 test_assert(A.tileLayout(i, j) == A.layout());
-                if (i < A.mt()-1 && j < A.nt()-1) {
+                if (A.tileMb(i) == A.tileNb(j)) {
                     test_assert( A.tileLayoutIsConvertible(i, j) );
                 }
                 else {
@@ -1512,41 +1512,46 @@ void test_Matrix_tileLayoutConvert()
             }
         }
     }
-    A.allocateBatchArrays();
-    A.reserveDeviceWorkspace();
 
-    A.tileGetAllForWritingOnDevices(slate::LayoutConvert::None);
+    #pragma omp parallel
+    #pragma omp master
+    {
+        A.allocateBatchArrays();
+        A.reserveDeviceWorkspace();
 
-    for (int j = 0; j < A.nt(); ++j) {
-        for (int i = 0; i < A.mt(); ++i) {
-            if (A.tileIsLocal(i, j)) {
-                test_assert(A.tileLayout(i, j, A.tileDevice(i, j)) == newLayout);
+        A.tileGetAllForWritingOnDevices(slate::LayoutConvert::None);
+
+        for (int j = 0; j < A.nt(); ++j) {
+            for (int i = 0; i < A.mt(); ++i) {
+                if (A.tileIsLocal(i, j)) {
+                    test_assert(A.tileLayout(i, j, A.tileDevice(i, j)) == newLayout);
+                }
             }
         }
-    }
 
-    A.tileLayoutConvertOnDevices(A.layout(), false);
+        A.tileLayoutConvertOnDevices(A.layout(), false);
 
-    for (int j = 0; j < A.nt(); ++j) {
-        for (int i = 0; i < A.mt(); ++i) {
-            if (A.tileIsLocal(i, j)) {
-                test_assert(A.tileLayout(i, j, A.tileDevice(i, j)) == A.layout());
+        for (int j = 0; j < A.nt(); ++j) {
+            for (int i = 0; i < A.mt(); ++i) {
+                if (A.tileIsLocal(i, j)) {
+                    test_assert(A.tileLayout(i, j, A.tileDevice(i, j)) == A.layout());
+                }
             }
         }
-    }
 
-    A.tileGetAllForReading(A.hostNum(), slate::LayoutConvert::None);
+        A.tileGetAllForReading(A.hostNum(), slate::LayoutConvert::None);
 
-    for (int j = 0; j < A.nt(); ++j) {
-        for (int i = 0; i < A.mt(); ++i) {
-            if (A.tileIsLocal(i, j)) {
-                test_assert(A.tileLayout(i, j) == A.layout());
-                test_Tile_compare_layout(A(i, j), B(i, j), true);
+        for (int j = 0; j < A.nt(); ++j) {
+            for (int i = 0; i < A.mt(); ++i) {
+                if (A.tileIsLocal(i, j)) {
+                    test_assert(A.tileLayout(i, j) == A.layout());
+                    test_Tile_compare_layout(A(i, j), B(i, j), true);
+                }
             }
         }
-    }
 
-    A.tileLayoutReset();
+        A.tileLayoutReset();
+    }
 
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {

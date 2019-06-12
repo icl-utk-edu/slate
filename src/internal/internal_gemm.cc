@@ -102,11 +102,8 @@ void gemm(internal::TargetType<Target::HostTask>,
           scalar_t beta,  Matrix<scalar_t>& C,
           Layout layout, int priority)
 {
-    // CPU uses ColMajor
-    // todo: relax this assumption, by allowing Tile_blas.hh::gemm() to take layout param
     // todo: optimize for the number of layout conversions,
     //       by watching 'layout' and 'C(i, j).layout()'
-    assert(layout == Layout::ColMajor);
 
     // check dimensions
     assert(A.nt() == 1);

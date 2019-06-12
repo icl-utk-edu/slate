@@ -83,6 +83,9 @@ void trsm(internal::TargetType<Target::HostTask>,
     assert(layout == Layout::ColMajor);
     assert(A.mt() == 1);
 
+    if (B.numLocalTiles() > 0) {
+        A.tileGetForReading(0, 0, LayoutConvert(layout));
+    }
     // alternatively, if (side == right), (conj)-transpose both A and B,
     // then assume side == left; see slate::trsm
     if (side == Side::Right) {
@@ -91,9 +94,6 @@ void trsm(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(i, 0)) {
                 #pragma omp task shared(A, B) priority(priority)
                 {
-                    // todo: would this result in a race?
-                    // or multiple fetches of same tile?
-                    A.tileGetForReading(0, 0, LayoutConvert(layout));
                     B.tileGetForWriting(i, 0, LayoutConvert(layout));
                     trsm(side, A.diag(),
                          alpha, A(0, 0),
@@ -110,7 +110,6 @@ void trsm(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(0, j)) {
                 #pragma omp task shared(A, B) priority(priority)
                 {
-                    A.tileGetForReading(0, 0, LayoutConvert(layout));
                     B.tileGetForWriting(0, j, LayoutConvert(layout));
                     trsm(side, A.diag(),
                          alpha, A(0, 0),

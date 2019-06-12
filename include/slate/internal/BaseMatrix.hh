@@ -2244,8 +2244,12 @@ void BaseMatrix<scalar_t>::tileGet(std::set<ij_tuple>& tile_set, int device,
     for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
         int64_t i = std::get<0>(*iter);
         int64_t j = std::get<1>(*iter);
-        tileGet(i, j, device, layoutConvert, modify, hold, async);
+        #pragma omp task
+        {
+            tileGet(i, j, device, layoutConvert, modify, hold, async);
+        }
     }
+    #pragma omp taskwait
 
     // todo: if modify and target is host, batch convert on device first
     if (device != host_num_ && in_layoutConvert != LayoutConvert::None) {
@@ -2728,14 +2732,14 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
 {
     if (device == host_num_) {
         for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
-            // #pragma omp task
-            {
                 int64_t i = std::get<0>(*iter);
                 int64_t j = std::get<1>(*iter);
+            #pragma omp task
+            {
                 tileLayoutConvert(i, j, device, layout, reset);
             }
         }
-        // #pragma omp taskwait
+        #pragma omp taskwait
     }
     else {
 
@@ -3031,14 +3035,21 @@ void BaseMatrix<scalar_t>::tileLayoutReset()
     }
 
     if (! tiles_set_host.empty()) {
-        tileLayoutReset(tiles_set_host, host_num_, this->layout());
+        #pragma omp task
+        {
+            tileLayoutReset(tiles_set_host, host_num_, this->layout());
+        }
     }
     // todo: omp tasks?
     for (int d = 0; d < num_devices(); ++d) {
         if (! tiles_set_dev[d].empty()) {
-            tileLayoutReset(tiles_set_dev[d], d, this->layout());
+            #pragma omp task
+            {
+                tileLayoutReset(tiles_set_dev[d], d, this->layout());
+            }
         }
     }
+    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

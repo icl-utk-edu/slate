@@ -228,6 +228,54 @@ void transpose( int64_t m, int64_t n,
     }
 }
 
+//------------------------------------------------------------------------------
+/// Copy a row of a tile to a vector.
+///
+template <typename scalar_t>
+void copyRow(int64_t n,
+             Tile<scalar_t>& A, int64_t i_offs, int64_t j_offs,
+             scalar_t* V)
+{
+    // todo: size assertions
+    for (int64_t j = 0; j < n; ++j)
+        V[j] = A(i_offs, j_offs+j);
+}
+
+//-----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+///
+template <typename scalar_t>
+void copyRow(int64_t n,
+             Tile<scalar_t>&& A, int64_t i_offs, int64_t j_offs,
+             scalar_t* V)
+{
+    copyRow(n, A, i_offs, j_offs, V);
+}
+
+//------------------------------------------------------------------------------
+/// Copy a vector to a row of a tile.
+///
+template <typename scalar_t>
+void copyRow(int64_t n,
+             scalar_t* V,
+             Tile<scalar_t>& A, int64_t i_offs, int64_t j_offs)
+{
+    // todo: size assertions
+    for (int64_t j = 0; j < n; ++j)
+        A.at(i_offs, j_offs+j) = V[j];
+}
+
+//-----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+///
+template <typename scalar_t>
+void copyRow(int64_t n,
+             scalar_t* V,
+             Tile<scalar_t>&& A, int64_t i_offs, int64_t j_offs)
+{
+    copyRow(n, V, A, i_offs, j_offs);
+}
+
 } // namespace slate
 
 #endif // SLATE_TILE_AUX_HH

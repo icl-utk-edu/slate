@@ -72,11 +72,11 @@ public:
                 }
                 else {
                     num_devices_ = 0;
-                    host_num_ = 0;
+                    host_num_ = -1;
                 }
             #else
                 num_devices_ = 0;
-                host_num_ = 0;
+                host_num_ = -1;
             #endif
         }
     } static_constructor_;

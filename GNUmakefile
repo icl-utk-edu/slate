@@ -289,6 +289,7 @@ libslate_src += \
         src/gesv.cc \
         src/gesvMixed.cc \
         src/getrf.cc \
+        src/getri.cc \
         src/getrs.cc \
         src/hemm.cc \
         src/her2k.cc \

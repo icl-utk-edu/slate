@@ -124,6 +124,44 @@ void tzcopy(Tile<src_scalar_t> const&& A, Tile<dst_scalar_t>&& B)
 }
 
 //------------------------------------------------------------------------------
+/// Set entries in the matrix $A$ to the value of $\alpha$.
+/// Only set the strictly-lower of the strictly-upper part.
+/// @ingroup tzset
+///
+template <typename scalar_t>
+void tzset(scalar_t alpha, Tile<scalar_t>& A)
+{
+//  trace::Block trace_block("aux::tzset");
+
+    // TODO: Can be loosened?
+    assert(A.uplo() != Uplo::General);
+    assert(A.op() == Op::NoTrans);
+
+    for (int64_t j = 0; j < A.nb(); ++j) {
+        if (A.uplo() == Uplo::Lower) {
+            for (int64_t i = j+1; i < A.mb(); ++i) {
+                A.at(i, j) = alpha;
+            }
+        }
+        else {
+            for (int64_t i = 0; i < j && i < A.mb(); ++i) {
+                A.at(i, j) = alpha;
+            }
+        }
+    }
+}
+
+//-----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+/// @ingroup tzset
+///
+template <typename scalar_t>
+void tzset(scalar_t alpha, Tile<scalar_t>&& A)
+{
+    tzset(alpha, A);
+}
+
+//------------------------------------------------------------------------------
 /// @deprecated
 /// In-place conversion between column and row-major layout for square tiles.
 /// Takes a pointer to the original tile in MatrixStorage, instead of a

@@ -168,8 +168,6 @@ void gemm(internal::TargetType<Target::HostNest>,
           scalar_t beta,  Matrix<scalar_t>& C,
           Layout layout, int priority)
 {
-    // CPU uses ColMajor
-    assert(layout == Layout::ColMajor);
     // check dimensions
     assert(A.nt() == 1);
     assert(B.mt() == 1);
@@ -177,10 +175,11 @@ void gemm(internal::TargetType<Target::HostNest>,
     assert(B.nt() == C.nt());
 
     int err = 0;
+    std::string err_msg;
     const int64_t C_mt = C.mt();
     const int64_t C_nt = C.nt();
     //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
-    #pragma omp parallel for collapse(2) schedule(dynamic, 1) shared(err)
+    #pragma omp parallel for collapse(2) schedule(dynamic, 1) shared(A, B, C, err, err_msg)
     for (int64_t i = 0; i < C_mt; ++i) {
         for (int64_t j = 0; j < C_nt; ++j) {
             if (C.tileIsLocal(i, j)) {
@@ -197,15 +196,16 @@ void gemm(internal::TargetType<Target::HostNest>,
                 }
                 catch (std::exception& e) {
                     err = __LINE__;
+                    err_msg = std::string(e.what());
                 }
             }
         }
     }
 
-    #pragma omp taskwait
+    // #pragma omp taskwait
 
     if (err)
-        throw std::exception();
+        slate_error(err_msg+", line "+std::to_string(err));
 }
 
 //------------------------------------------------------------------------------

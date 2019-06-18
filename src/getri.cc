@@ -61,7 +61,11 @@ void getri(slate::internal::TargetType<target>,
            Matrix<scalar_t>& A, Pivots& pivots,
            int64_t lookahead)
 {
-    assert(A.mt() == A.nt());
+    using BcastList = typename Matrix<scalar_t>::BcastList;
+    using ReduceList = typename Matrix<scalar_t>::ReduceList;
+
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
 
     // auto U = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, A);
     auto L = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, A);
@@ -77,11 +81,16 @@ void getri(slate::internal::TargetType<target>,
 
             // Copy A(k, k) to W.
             // todo: Copy L(k, k) to W.
-            copy(Akk, W, {{Option::Target, target}});
+            internal::copy<Target::HostTask>(std::move(Akk), std::move(W));
 
             // Zero L(k, k).
-            auto Lkk = L(k, k);
-            tzset(scalar_t(0.0), Lkk);
+            if (L.tileIsLocal(k, k)) {
+                auto Lkk = L(k, k);
+                tzset(scalar_t(0.0), Lkk);
+            }
+
+            // send W down col A(0:nt-1, k)
+            W.tileBcast(0, 0, A.sub(0, A.nt()-1, k, k), layout);
 
             auto Wkk = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, W);
             internal::trsm<Target::HostTask>(
@@ -97,22 +106,45 @@ void getri(slate::internal::TargetType<target>,
             W.insertLocalTiles(target);
 
             // Copy L(:, k) to W.
-            copy(Lk, W, {{Option::Target, target}});
+            internal::copy<Target::HostTask>(std::move(Lk), std::move(W));
 
             // Zero L(k, k).
-            auto Lkk = L(k, k);
-            tzset(scalar_t(0.0), Lkk);
+            if (L.tileIsLocal(k, k)) {
+                auto Lkk = L(k, k);
+                tzset(scalar_t(0.0), Lkk);
+            }
 
             // Zero L(k+1:A_nt-1, k).
             for (int64_t i = k+1; i < A.nt(); ++i) {
-                L(i, k).set(0.0);
+                if (L.tileIsLocal(i, k)) {
+                    L(i, k).set(0.0);
+                }
             }
 
-            // A(:, k) -= A(:, k+1:A_nt) * W.
+            // send W across A
+            BcastList bcast_list_W;
+            for (int64_t i = 1; i < W.mt(); ++i) {
+                // send W(i) down column A(0:nt-1, k+i)
+                bcast_list_W.push_back({i, 0, {A.sub(0, A.nt()-1, k+i, k+i)}});
+            }
+            W.template listBcast(bcast_list_W, layout);
+
+            // A(:, k) -= A(:, k+1:nt-1) * W
             internal::gemm_A<Target::HostTask>(
                 scalar_t(-1.0), A.sub(0, A.nt()-1, k+1, A.nt()-1),
                                 W.sub(1, W.mt()-1, 0, 0),
                 scalar_t(1.0),  A.sub(0, A.nt()-1, k, k));
+
+            // reduce A(0:nt-1, k)
+            ReduceList reduce_list_A;
+            for (int64_t i = 0; i < A.nt(); ++i) {
+                // recude A(i, k) across A(i, k+1:nt-1)
+                reduce_list_A.push_back({i, k, {A.sub(i, i, k+1, A.nt()-1)}});
+            }
+            A.template listReduce(reduce_list_A, layout);
+
+            // send W down col A(0:nt-1, k)
+            W.tileBcast(0, 0, A.sub(0, A.nt()-1, k, k), layout);
 
             auto Wkk = W.sub(0, 0, 0, 0);
             auto Tkk = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Wkk);
@@ -141,6 +173,8 @@ template <Target target, typename scalar_t>
 void getri(Matrix<scalar_t>& A, Pivots& pivots,
            const std::map<Option, Value>& opts)
 {
+    slate_assert(A.mt() == A.nt());  // square
+
     int64_t lookahead;
     try {
         lookahead = opts.at(Option::Lookahead).i_;

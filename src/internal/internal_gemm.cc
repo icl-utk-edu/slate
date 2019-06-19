@@ -247,15 +247,15 @@ void gemm(internal::TargetType<Target::HostBatch>,
             }
         }
     }
-    #pragma omp task
+    #pragma omp task default(shared)
     {
         A.tileGetForReading(A_tiles_set, LayoutConvert(layout));
     }
-    #pragma omp task
+    #pragma omp task default(shared)
     {
         B.tileGetForReading(B_tiles_set, LayoutConvert(layout));
     }
-    #pragma omp task
+    #pragma omp task default(shared)
     {
         C.tileGetForReading(C_tiles_set, LayoutConvert(layout));
     }

@@ -100,15 +100,20 @@ struct TileEntry
     /// Constructor for TileEntry class
     TileEntry(Tile<scalar_t>* tile,
               short state)
+              : tile_(tile), state_(state)
     {
-        tile_ = tile;
-        state_ = state;
         omp_init_nest_lock(&lock_);
     }
-    TileEntry() { omp_init_nest_lock(&lock_); }
+    TileEntry() : tile_(nullptr), state_(MOSI::Invalid)
+    {
+        omp_init_nest_lock(&lock_);
+    }
 
     /// Destructor for TileEntry class
-    ~TileEntry() { omp_destroy_nest_lock(&lock_); }
+    ~TileEntry()
+    {
+        omp_destroy_nest_lock(&lock_);
+    }
 
     omp_nest_lock_t* get_lock()
     {

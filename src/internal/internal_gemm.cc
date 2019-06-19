@@ -257,7 +257,7 @@ void gemm(internal::TargetType<Target::HostBatch>,
     }
     #pragma omp task default(shared)
     {
-        C.tileGetForReading(C_tiles_set, LayoutConvert(layout));
+        C.tileGetForWriting(C_tiles_set, LayoutConvert(layout));
     }
     #pragma omp taskwait
 

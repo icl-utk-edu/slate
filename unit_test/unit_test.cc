@@ -15,6 +15,7 @@ static int g_skip  = 0;
 
 //------------------------------------------------------------------------------
 // ANSI color codes
+#ifndef NO_COLOR
 const char *ansi_esc     = "\x1b[";
 const char *ansi_red     = "\x1b[31m";
 const char *ansi_green   = "\x1b[92m";
@@ -26,7 +27,19 @@ const char *ansi_white   = "\x1b[37m";
 const char *ansi_gray    = "\x1b[90m";  // "bright black"
 const char *ansi_bold    = "\x1b[1m";
 const char *ansi_normal  = "\x1b[0m";
-
+#else
+const char *ansi_esc     = "";
+const char *ansi_red     = "";
+const char *ansi_green   = "";
+const char *ansi_blue    = "";
+const char *ansi_cyan    = "";
+const char *ansi_magenta = "";
+const char *ansi_yellow  = "";
+const char *ansi_white   = "";
+const char *ansi_gray    = "";
+const char *ansi_bold    = "";
+const char *ansi_normal  = "";
+#endif
 //------------------------------------------------------------------------------
 /// Returns a string that is sprintf formatted.
 std::string string_printf(const char* format, ...)

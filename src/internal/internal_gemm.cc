@@ -225,6 +225,7 @@ void gemm(internal::TargetType<Target::HostBatch>,
 {
     using blas::conj;
     using std::swap;
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
     // CPU uses ColMajor
     assert(layout == Layout::ColMajor);
@@ -238,17 +239,30 @@ void gemm(internal::TargetType<Target::HostBatch>,
     // load off-diagonal tiles to host, if not there
     // also count tiles
     int batch_count = 0;
+    std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;
     for (int64_t i = 0; i < C.mt(); ++i) {
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(i, j)) {
-                // todo: wrap into a omp task??
-                A.tileGetForReading(i, 0, LayoutConvert(layout));
-                B.tileGetForReading(0, j, LayoutConvert(layout));
-                C.tileGetForWriting(i, j, LayoutConvert(layout));
+                A_tiles_set.insert({i, 0});
+                B_tiles_set.insert({0, j});
+                C_tiles_set.insert({i, j});
                 ++batch_count;
             }
         }
     }
+    #pragma omp task
+    {
+        A.tileGetForReading(A_tiles_set, LayoutConvert(layout));
+    }
+    #pragma omp task
+    {
+        B.tileGetForReading(B_tiles_set, LayoutConvert(layout));
+    }
+    #pragma omp task
+    {
+        C.tileGetForReading(C_tiles_set, LayoutConvert(layout));
+    }
+    #pragma omp taskwait
 
     if (batch_count > 0) {
         // if op(C) is NoTrans, invert opA, opB if possible

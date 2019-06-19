@@ -151,7 +151,7 @@ void gemm_A(internal::TargetType<Target::HostTask>,
                     beta_j = beta;
                 else
                     beta_j = scalar_t(0.0);
-
+                bool Ci0_modified = false;
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     if (A.tileIsLocal(i, j)) {
                         gemm(alpha,  A(i, j),
@@ -162,10 +162,12 @@ void gemm_A(internal::TargetType<Target::HostTask>,
 
                         A.tileTick(i, j);
                         B.tileTick(j, 0);
+                        Ci0_modified = true;
                     }
                 }
-                // mark this tile modified
-                C.tileModified(i, 0);
+                if (Ci0_modified)
+                    // mark this tile modified
+                    C.tileModified(i, 0);
             }
             catch (std::exception& e) {
                 err = __LINE__;

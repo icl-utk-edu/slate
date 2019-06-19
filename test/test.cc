@@ -110,6 +110,8 @@ std::vector< libtest::routines_t > routines = {
     { "potrs",              test_posv,         Section::posv },
     { "",                   nullptr,           Section::newline },
 
+    { "potri",              test_potri,        Section::posv },
+    { "",                   nullptr,           Section::newline },
     // -----
     // symmetric indefinite
     //{ "sysv",                test_sysv,         Section::sysv },

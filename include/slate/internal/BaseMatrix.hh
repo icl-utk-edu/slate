@@ -3036,22 +3036,25 @@ void BaseMatrix<scalar_t>::tileLayoutReset()
         }
     }
 
-    if (! tiles_set_host.empty()) {
-        #pragma omp task
-        {
-            tileLayoutReset(tiles_set_host, host_num_, this->layout());
-        }
-    }
-    // todo: omp tasks?
-    for (int d = 0; d < num_devices(); ++d) {
-        if (! tiles_set_dev[d].empty()) {
+    #pragma omp parallel
+    #pragma omp master
+    {
+        omp_set_nested(1);
+        if (! tiles_set_host.empty()) {
             #pragma omp task
             {
-                tileLayoutReset(tiles_set_dev[d], d, this->layout());
+                tileLayoutReset(tiles_set_host, host_num_, this->layout());
+            }
+        }
+        for (int d = 0; d < num_devices(); ++d) {
+            if (! tiles_set_dev[d].empty()) {
+                #pragma omp task
+                {
+                    tileLayoutReset(tiles_set_dev[d], d, this->layout());
+                }
             }
         }
     }
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

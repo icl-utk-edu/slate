@@ -227,9 +227,6 @@ void gemm(internal::TargetType<Target::HostBatch>,
     using std::swap;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    // CPU uses ColMajor
-    assert(layout == Layout::ColMajor);
-
     // check dimensions
     assert(A.nt() == 1);
     assert(B.mt() == 1);
@@ -353,14 +350,26 @@ void gemm(internal::TargetType<Target::HostBatch>,
             trace::Block trace_block("cblas_gemm_batch");
             #ifdef SLATE_WITH_MKL
                 // mkl_set_num_threads_local(...);
-                cblas_gemm_batch(
-                    CblasColMajor,
-                    opA_array.data(), opB_array.data(),
-                    m_array.data(), n_array.data(), k_array.data(),
-                    alpha_array.data(), a_array.data(), lda_array.data(),
-                                        b_array.data(), ldb_array.data(),
-                    beta_array.data(),  c_array.data(), ldc_array.data(),
-                    batch_count, group_size.data());
+                if (layout == Layout::ColMajor) {
+                    cblas_gemm_batch(
+                        CblasColMajor,
+                        opA_array.data(), opB_array.data(),
+                        m_array.data(), n_array.data(), k_array.data(),
+                        alpha_array.data(), a_array.data(), lda_array.data(),
+                                            b_array.data(), ldb_array.data(),
+                        beta_array.data(),  c_array.data(), ldc_array.data(),
+                        batch_count, group_size.data());
+                }
+                else {
+                    cblas_gemm_batch(
+                        CblasColMajor,
+                        opB_array.data(), opA_array.data(),
+                        n_array.data(), m_array.data(), k_array.data(),
+                        alpha_array.data(), b_array.data(), ldb_array.data(),
+                                            a_array.data(), lda_array.data(),
+                        beta_array.data(),  c_array.data(), ldc_array.data(),
+                        batch_count, group_size.data());
+                }
                 // mkl_set_num_threads_local(1);
             #else
                 assert(false);

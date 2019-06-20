@@ -77,7 +77,7 @@ void getri(slate::internal::TargetType<target>,
         {
             auto Akk = A.sub(k, k, k, k);
             auto W = Akk.template emptyLike<scalar_t>();
-            W.insertLocalTiles(target);
+            W.insertLocalTiles(Target::HostTask);
 
             // Copy A(k, k) to W.
             // todo: Copy L(k, k) to W.
@@ -90,7 +90,8 @@ void getri(slate::internal::TargetType<target>,
             }
 
             // send W down col A(0:nt-1, k)
-            W.tileBcast(0, 0, A.sub(0, A.nt()-1, k, k), layout);
+            W.template tileBcast(
+                0, 0, A.sub(0, A.nt()-1, k, k), layout);
 
             auto Wkk = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, W);
             internal::trsm<Target::HostTask>(
@@ -103,7 +104,7 @@ void getri(slate::internal::TargetType<target>,
 
             auto Lk = A.sub(k, A.nt()-1, k, k);
             auto W = Lk.template emptyLike<scalar_t>();
-            W.insertLocalTiles(target);
+            W.insertLocalTiles(Target::HostTask);
 
             // Copy L(:, k) to W.
             internal::copy<Target::HostTask>(std::move(Lk), std::move(W));
@@ -133,7 +134,7 @@ void getri(slate::internal::TargetType<target>,
             internal::gemm_A<Target::HostTask>(
                 scalar_t(-1.0), A.sub(0, A.nt()-1, k+1, A.nt()-1),
                                 W.sub(1, W.mt()-1, 0, 0),
-                scalar_t(1.0),  A.sub(0, A.nt()-1, k, k));
+                scalar_t(1.0),  A.sub(0, A.nt()-1, k, k), layout);
 
             // reduce A(0:nt-1, k)
             ReduceList reduce_list_A;
@@ -143,7 +144,7 @@ void getri(slate::internal::TargetType<target>,
             }
             A.template listReduce(reduce_list_A, layout);
 
-            // send W down col A(0:nt-1, k)
+            // send W(0, 0) down col A(0:nt-1, k)
             W.tileBcast(0, 0, A.sub(0, A.nt()-1, k, k), layout);
 
             auto Wkk = W.sub(0, 0, 0, 0);

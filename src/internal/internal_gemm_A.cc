@@ -65,7 +65,7 @@ template <Target target, typename scalar_t>
 void gemm_A(scalar_t alpha, Matrix<scalar_t>&& A,
                             Matrix<scalar_t>&& B,
             scalar_t beta,  Matrix<scalar_t>&& C,
-            int priority)
+            Layout layout, int priority)
 {
     if (C.is_complex &&
         ((C.op() == Op::Trans &&
@@ -80,7 +80,7 @@ void gemm_A(scalar_t alpha, Matrix<scalar_t>&& A,
            alpha, A,
                   B,
            beta,  C,
-           priority);
+           layout, priority);
 }
 
 //------------------------------------------------------------------------------
@@ -94,11 +94,8 @@ void gemm_A(internal::TargetType<Target::HostTask>,
             scalar_t alpha, Matrix<scalar_t>& A,
                             Matrix<scalar_t>& B,
             scalar_t beta,  Matrix<scalar_t>& C,
-            int priority)
+            Layout layout, int priority)
 {
-    // todo: relax this assumption, and optimize, check internal::gemm
-    const Layout layout = Layout::ColMajor;
-
     // check dimensions
     assert(B.nt() == 1);
     assert(C.nt() == 1);
@@ -189,28 +186,28 @@ void gemm_A<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int priority);
+    Layout layout, int priority);
 
 template
 void gemm_A<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int priority);
+    Layout layout, int priority);
 
 template
 void gemm_A< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int priority);
+    Layout layout, int priority);
 
 template
 void gemm_A< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int priority);
+    Layout layout, int priority);
 
 } // namespace internal
 } // namespace slate

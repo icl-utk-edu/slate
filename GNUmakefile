@@ -237,6 +237,7 @@ libslate_src += \
         src/internal/internal_gemm_A.cc \
         src/internal/internal_genorm.cc \
         src/internal/internal_geqrf.cc \
+        src/internal/internal_geset.cc \
         src/internal/internal_getrf.cc \
         src/internal/internal_hemm.cc \
         src/internal/internal_henorm.cc \
@@ -266,6 +267,7 @@ ifeq ($(cuda),1)
             src/cuda/device_geadd.cu \
             src/cuda/device_gecopy.cu \
             src/cuda/device_genorm.cu \
+            src/cuda/device_geset.cu \
             src/cuda/device_henorm.cu \
             src/cuda/device_synorm.cu \
             src/cuda/device_trnorm.cu \

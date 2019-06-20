@@ -109,6 +109,7 @@ namespace internal {
 /// Dispatches to target implementations.
 /// @ingroup geadd_internal
 ///
+/// todo: this function should just be named "add".
 template <Target target, typename scalar_t>
 void geadd(scalar_t alpha, Matrix<scalar_t>&& A,
            scalar_t beta, Matrix<scalar_t>&& B,
@@ -127,6 +128,7 @@ void geadd(scalar_t alpha, Matrix<scalar_t>&& A,
 /// Host OpenMP task implementation.
 /// @ingroup geadd_internal
 ///
+/// todo: this function should just be named "add".
 template <typename scalar_t>
 void geadd(internal::TargetType<Target::HostTask>,
            scalar_t alpha, Matrix<scalar_t>& A,
@@ -159,6 +161,7 @@ void geadd(internal::TargetType<Target::HostTask>,
 }
 
 //------------------------------------------------------------------------------
+/// todo: this function should just be named "add".
 template <typename scalar_t>
 void geadd(internal::TargetType<Target::HostNest>,
            scalar_t alpha, Matrix<scalar_t>& A,
@@ -169,6 +172,7 @@ void geadd(internal::TargetType<Target::HostNest>,
 }
 
 //------------------------------------------------------------------------------
+/// todo: this function should just be named "add".
 template <typename scalar_t>
 void geadd(internal::TargetType<Target::HostBatch>,
            scalar_t alpha, Matrix<scalar_t>& A,
@@ -185,6 +189,7 @@ void geadd(internal::TargetType<Target::HostBatch>,
 /// GPU device implementation.
 /// @ingroup geadd_internal
 ///
+/// todo: this function should just be named "add".
 template <typename scalar_t>
 void geadd(internal::TargetType<Target::Devices>,
            scalar_t alpha, Matrix<scalar_t>& A,
@@ -304,6 +309,7 @@ void geadd(internal::TargetType<Target::Devices>,
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
+/// todo: these functions should just be named "add".
 // ----------------------------------------
 template
 void geadd<Target::HostTask, float>(

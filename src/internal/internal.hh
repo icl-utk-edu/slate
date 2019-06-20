@@ -171,6 +171,8 @@ private:
 //------------------------------------------------------------------------------
 // Auxiliary
 
+//-----------------------------------------
+// copy()
 template <Target target=Target::HostTask,
           typename src_scalar_t, typename dst_scalar_t>
 void copy(Matrix<src_scalar_t>&& A,
@@ -182,6 +184,13 @@ template <Target target=Target::HostTask,
 void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
           BaseTrapezoidMatrix<dst_scalar_t>&& B,
           int priority=0);
+
+//-----------------------------------------
+// set()
+template <Target target=Target::HostTask, typename scalar_t>
+void set(scalar_t alpha, scalar_t beta,
+         Matrix<scalar_t>&& A,
+         int priority=0);
 
 //------------------------------------------------------------------------------
 // Level 3 BLAS and LAPACK auxiliary

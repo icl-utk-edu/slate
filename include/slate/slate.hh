@@ -457,6 +457,16 @@ template <typename scalar_t>
 void getri(Matrix<scalar_t>& A, Pivots& pivots,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
+template <Target target, typename scalar_t>
+void getri(Matrix<scalar_t>& A, Pivots& pivots,
+           Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <typename scalar_t>
+void getri(Matrix<scalar_t>& A, Pivots& pivots,
+           Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 //------------------------------------------------------------------------------
 // QR
 // auxiliary type for T factors

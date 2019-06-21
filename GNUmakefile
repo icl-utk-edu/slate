@@ -292,6 +292,7 @@ libslate_src += \
         src/gesvMixed.cc \
         src/getrf.cc \
         src/getri.cc \
+        src/getriOOP.cc \
         src/getrs.cc \
         src/hemm.cc \
         src/her2k.cc \
@@ -305,6 +306,7 @@ libslate_src += \
         src/potrf.cc \
         src/potri.cc \
         src/potrs.cc \
+        src/set.cc \
         src/symm.cc \
         src/syr2k.cc \
         src/syrk.cc \

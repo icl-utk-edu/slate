@@ -52,9 +52,15 @@ namespace internal {
 namespace specialization {
 
 //------------------------------------------------------------------------------
-/// Distributed parallel LU solve.
+/// Distributed parallel inverse of a general matrix.
 /// Generic implementation for any target.
 /// @ingroup getri_specialization
+///
+/// todo: This routine is in-place and does not support GPUs.
+///       There is another one (out-of-place) that does.
+///       What if this one is called with Target::Devices?
+///       a) execute on CPUs,
+///       b) error out (not supported)?
 ///
 template <Target target, typename scalar_t>
 void getri(slate::internal::TargetType<target>,

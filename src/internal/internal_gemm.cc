@@ -102,12 +102,10 @@ void gemm(internal::TargetType<Target::HostTask>,
           scalar_t beta,  Matrix<scalar_t>& C,
           Layout layout, int priority)
 {
-    // CPU uses ColMajor
-    // todo: relax this assumption, by allowing Tile_blas.hh::gemm() to take layout param
     // todo: optimize for the number of layout conversions,
     //       by watching 'layout' and 'C(i, j).layout()'
-    assert(layout == Layout::ColMajor);
 
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
     // check dimensions
     assert(A.nt() == 1);
     assert(B.mt() == 1);
@@ -115,14 +113,25 @@ void gemm(internal::TargetType<Target::HostTask>,
     assert(B.nt() == C.nt());
 
     int err = 0;
+    std::string err_msg;
+    std::set<ij_tuple> A_tiles_set, B_tiles_set;
     for (int64_t i = 0; i < C.mt(); ++i) {
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(i, j)) {
-                #pragma omp task shared(A, B, C, err) priority(priority)
+                A_tiles_set.insert({i, 0});
+                B_tiles_set.insert({0, j});
+            }
+        }
+    }
+    A.tileGetForReading(A_tiles_set, LayoutConvert(layout));
+    B.tileGetForReading(B_tiles_set, LayoutConvert(layout));
+
+    for (int64_t i = 0; i < C.mt(); ++i) {
+        for (int64_t j = 0; j < C.nt(); ++j) {
+            if (C.tileIsLocal(i, j)) {
+                #pragma omp task shared(A, B, C, err, err_msg) priority(priority)
                 {
                     try {
-                        A.tileGetForReading(i, 0, LayoutConvert(layout));
-                        B.tileGetForReading(0, j, LayoutConvert(layout));
                         C.tileGetForWriting(i, j, LayoutConvert(layout));
                         gemm(alpha, A(i, 0),
                                     B(0, j),
@@ -133,6 +142,7 @@ void gemm(internal::TargetType<Target::HostTask>,
                     }
                     catch (std::exception& e) {
                         err = __LINE__;
+                        err_msg = std::string(e.what());
                     }
                 }
             }
@@ -142,7 +152,7 @@ void gemm(internal::TargetType<Target::HostTask>,
     #pragma omp taskwait
 
     if (err)
-        throw std::exception();
+        slate_error(err_msg+", line "+std::to_string(err));
 }
 
 //------------------------------------------------------------------------------
@@ -158,8 +168,6 @@ void gemm(internal::TargetType<Target::HostNest>,
           scalar_t beta,  Matrix<scalar_t>& C,
           Layout layout, int priority)
 {
-    // CPU uses ColMajor
-    assert(layout == Layout::ColMajor);
     // check dimensions
     assert(A.nt() == 1);
     assert(B.mt() == 1);
@@ -167,10 +175,11 @@ void gemm(internal::TargetType<Target::HostNest>,
     assert(B.nt() == C.nt());
 
     int err = 0;
+    std::string err_msg;
     const int64_t C_mt = C.mt();
     const int64_t C_nt = C.nt();
     //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
-    #pragma omp parallel for collapse(2) schedule(dynamic, 1) shared(err)
+    #pragma omp parallel for collapse(2) schedule(dynamic, 1) shared(A, B, C, err, err_msg)
     for (int64_t i = 0; i < C_mt; ++i) {
         for (int64_t j = 0; j < C_nt; ++j) {
             if (C.tileIsLocal(i, j)) {
@@ -187,15 +196,16 @@ void gemm(internal::TargetType<Target::HostNest>,
                 }
                 catch (std::exception& e) {
                     err = __LINE__;
+                    err_msg = std::string(e.what());
                 }
             }
         }
     }
 
-    #pragma omp taskwait
+    // #pragma omp taskwait
 
     if (err)
-        throw std::exception();
+        slate_error(err_msg+", line "+std::to_string(err));
 }
 
 //------------------------------------------------------------------------------
@@ -215,9 +225,7 @@ void gemm(internal::TargetType<Target::HostBatch>,
 {
     using blas::conj;
     using std::swap;
-
-    // CPU uses ColMajor
-    assert(layout == Layout::ColMajor);
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
     // check dimensions
     assert(A.nt() == 1);
@@ -228,17 +236,30 @@ void gemm(internal::TargetType<Target::HostBatch>,
     // load off-diagonal tiles to host, if not there
     // also count tiles
     int batch_count = 0;
+    std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;
     for (int64_t i = 0; i < C.mt(); ++i) {
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(i, j)) {
-                // todo: wrap into a omp task??
-                A.tileGetForReading(i, 0, LayoutConvert(layout));
-                B.tileGetForReading(0, j, LayoutConvert(layout));
-                C.tileGetForWriting(i, j, LayoutConvert(layout));
+                A_tiles_set.insert({i, 0});
+                B_tiles_set.insert({0, j});
+                C_tiles_set.insert({i, j});
                 ++batch_count;
             }
         }
     }
+    #pragma omp task default(shared)
+    {
+        A.tileGetForReading(A_tiles_set, LayoutConvert(layout));
+    }
+    #pragma omp task default(shared)
+    {
+        B.tileGetForReading(B_tiles_set, LayoutConvert(layout));
+    }
+    #pragma omp task default(shared)
+    {
+        C.tileGetForWriting(C_tiles_set, LayoutConvert(layout));
+    }
+    #pragma omp taskwait
 
     if (batch_count > 0) {
         // if op(C) is NoTrans, invert opA, opB if possible
@@ -329,14 +350,26 @@ void gemm(internal::TargetType<Target::HostBatch>,
             trace::Block trace_block("cblas_gemm_batch");
             #ifdef SLATE_WITH_MKL
                 // mkl_set_num_threads_local(...);
-                cblas_gemm_batch(
-                    CblasColMajor,
-                    opA_array.data(), opB_array.data(),
-                    m_array.data(), n_array.data(), k_array.data(),
-                    alpha_array.data(), a_array.data(), lda_array.data(),
-                                        b_array.data(), ldb_array.data(),
-                    beta_array.data(),  c_array.data(), ldc_array.data(),
-                    batch_count, group_size.data());
+                if (layout == Layout::ColMajor) {
+                    cblas_gemm_batch(
+                        CblasColMajor,
+                        opA_array.data(), opB_array.data(),
+                        m_array.data(), n_array.data(), k_array.data(),
+                        alpha_array.data(), a_array.data(), lda_array.data(),
+                                            b_array.data(), ldb_array.data(),
+                        beta_array.data(),  c_array.data(), ldc_array.data(),
+                        batch_count, group_size.data());
+                }
+                else {
+                    cblas_gemm_batch(
+                        CblasColMajor,
+                        opB_array.data(), opA_array.data(),
+                        n_array.data(), m_array.data(), k_array.data(),
+                        alpha_array.data(), b_array.data(), ldb_array.data(),
+                                            a_array.data(), lda_array.data(),
+                        beta_array.data(),  c_array.data(), ldc_array.data(),
+                        batch_count, group_size.data());
+                }
                 // mkl_set_num_threads_local(1);
             #else
                 assert(false);

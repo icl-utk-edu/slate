@@ -95,6 +95,30 @@ struct TileEntry
 {
     Tile<scalar_t>* tile_;
     short state_;
+    omp_nest_lock_t lock_;
+
+    /// Constructor for TileEntry class
+    TileEntry(Tile<scalar_t>* tile,
+              short state)
+              : tile_(tile), state_(state)
+    {
+        omp_init_nest_lock(&lock_);
+    }
+    TileEntry() : tile_(nullptr), state_(MOSI::Invalid)
+    {
+        omp_init_nest_lock(&lock_);
+    }
+
+    /// Destructor for TileEntry class
+    ~TileEntry()
+    {
+        omp_destroy_nest_lock(&lock_);
+    }
+
+    omp_nest_lock_t* get_lock()
+    {
+        return &lock_;
+    }
 
     void setState(short stateIn)
     {
@@ -700,7 +724,7 @@ TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
     int64_t stride = layout == Layout::ColMajor ? mb : nb;
     Tile<scalar_t>* tile
         = new Tile<scalar_t>(mb, nb, data, stride, device, kind, layout);
-    tiles_[ijdev] = {tile, kind == TileKind::Workspace ? MOSI::Invalid : MOSI::Shared};
+    tiles_[ijdev] = TileEntry<scalar_t>(tile, kind == TileKind::Workspace ? MOSI::Invalid : MOSI::Shared);
     return tiles_[ijdev];
 }
 
@@ -724,7 +748,7 @@ TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
     int64_t nb = tileNb(j);
     Tile<scalar_t>* tile
         = new Tile<scalar_t>(mb, nb, data, lda, device, TileKind::UserOwned, layout);
-    tiles_[ijdev] = {tile, MOSI::Shared};
+    tiles_[ijdev] = TileEntry<scalar_t>(tile, MOSI::Shared);
     return tiles_[ijdev];
 }
 

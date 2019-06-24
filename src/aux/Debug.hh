@@ -80,10 +80,11 @@ public:
     static void printTilesMaps(BaseMatrix<scalar_t> const& A);
 
     template <typename scalar_t>
-    static void printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name);
+    static void printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name,
+                               const char* func, const char* file, int line);
 
     #define PRINTTILESMOSI(A) \
-            printTilesMOSI(A, #A);
+            printTilesMOSI(A, #A, __func__, __FILE__, __LINE__);
 
     //-------------
     // Memory class

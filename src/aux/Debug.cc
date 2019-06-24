@@ -220,11 +220,12 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
 ///  - " " otherwise
 ///
 template <typename scalar_t>
-void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name)
+void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name,
+                           const char* func, const char* file, int line)
 {
     if (! debug_) return;
     // i, j are tile indices
-    printf("%s on host, rank %d\n", name, A.mpiRank());
+    printf("%s on host, rank %d, %s, %s, %d\n", name, A.mpiRank(), func, file, line);
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             auto it = A.storage_->tiles_.find(A.globalIndex(i, j, A.host_num_));
@@ -250,8 +251,12 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name)
                     printf("|");
                 else
                     printf("-");
-                if (tile->extended())
-                    printf("e");
+                if (tile->extended()) {
+                    if (tile->userData() == tile->data())
+                        printf("u");
+                    else
+                        printf("e");
+                }
                 else
                     printf(" ");
                 printf(" ");
@@ -262,7 +267,7 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name)
         printf("\n");
     }
     for (int device = 0; device < A.num_devices_; ++device) {
-        printf("%s on device %d, rank %d\n", name, device, A.mpiRank());
+        printf("%s on device %d, rank %d, %s, %s, %d\n", name, device, A.mpiRank(), func, file, line);
         for (int64_t i = 0; i < A.mt(); ++i) {
             for (int64_t j = 0; j < A.nt(); ++j) {
                 auto it = A.storage_->tiles_.find(A.globalIndex(i, j, device));
@@ -371,7 +376,8 @@ template
 void Debug::printTilesMaps(BaseMatrix<float> const& A);
 
 template
-void Debug::printTilesMOSI(BaseMatrix<float> const& A, const char* name);
+void Debug::printTilesMOSI(BaseMatrix<float> const& A, const char* name,
+                           const char* func, const char* file, int line);
 
 //------------------------------------------------------------------------------
 template
@@ -389,7 +395,8 @@ template
 void Debug::printTilesMaps(BaseMatrix<double> const& A);
 
 template
-void Debug::printTilesMOSI(BaseMatrix<double> const& A, const char* name);
+void Debug::printTilesMOSI(BaseMatrix<double> const& A, const char* name,
+                           const char* func, const char* file, int line);
 
 //------------------------------------------------------------------------------
 template
@@ -407,7 +414,8 @@ template
 void Debug::printTilesMaps(BaseMatrix< std::complex<float> > const& A);
 
 template
-void Debug::printTilesMOSI(BaseMatrix< std::complex<float> > const& A, const char* name);
+void Debug::printTilesMOSI(BaseMatrix< std::complex<float> > const& A, const char* name,
+                           const char* func, const char* file, int line);
 
 //------------------------------------------------------------------------------
 template
@@ -425,7 +433,8 @@ template
 void Debug::printTilesMaps(BaseMatrix< std::complex<double> > const& A);
 
 template
-void Debug::printTilesMOSI(BaseMatrix< std::complex<double> > const& A, const char* name);
+void Debug::printTilesMOSI(BaseMatrix< std::complex<double> > const& A, const char* name,
+                           const char* func, const char* file, int line);
 
 
 } // namespace slate

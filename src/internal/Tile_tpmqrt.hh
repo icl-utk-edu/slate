@@ -54,22 +54,22 @@ namespace slate {
 //------------------------------------------------------------------------------
 /// Multiply the matrix C by the unitary matrix Q obtained from a
 /// "triangular-pentagonal" block reflector H.
-/// C consists of two tiles, A and B.
+/// C consists of two tiles, C0 and C1.
 ///
 /// If side == Left:
 ///
-///     C = [ A ]
-///         [ B ]
+///     C = [ C0 ]
+///         [ C1 ]
 ///
 /// and on exit, $C = op(Q) C$.
-/// C is (k+m)-by-n, A is k-by-n, B is m-by-n, and V is m-by-k.
+/// C is (k+m)-by-n, C0 is k-by-n, C1 is m-by-n, and V1 is m-by-k.
 ///
 /// If side == Right:
 ///
-///     C = [ A  B ]
+///     C = [ C0  C1 ]
 ///
 /// and on exit, $C = C op(Q)$.
-/// C is m-by-(k+n), A is m-by-k, B is m-by-n, and V is n-by-k.
+/// C is m-by-(k+n), C0 is m-by-k, C1 is m-by-n, and V1 is n-by-k.
 ///
 /// See Further Details in tpqrt.
 ///
@@ -83,18 +83,18 @@ namespace slate {
 ///     - Op::ConjTrans: Multiply by $op(Q) = Q^H$.
 ///
 /// @param[in] l
-///     The number of rows of the upper trapezoidal part of V.
-///     k >= l >= 0.
-///     If l = 0, V is rectangular.
-///     If l = k, V is triangular.
+///     The number of rows of the upper trapezoidal part of V1.
+///     min(m, k) >= l >= 0.
+///     If l = 0, V1 is rectangular.
+///     If l = k, V1 is triangular.
 ///     (Note n in tpqrt is k here.)
 ///
-/// @param[in] V
-///     - If side == Left,  the m-by-k pentagonal tile V.
-///     - If side == Right, the n-by-k pentagonal tile V.
+/// @param[in] V1
+///     - If side == Left,  the m-by-k pentagonal tile V1.
+///     - If side == Right, the n-by-k pentagonal tile V1.
 ///     The i-th column must contain the vector which defines the
 ///     elementary reflector H(i), for i = 1, 2, ..., k, as returned by
-///     tpqrt in B.  See Further Details in tpqrt.
+///     tpqrt in A1.  See Further Details in tpqrt.
 ///     The top (m-l)-by-k or (n-l)-by-k portion is rectangular,
 ///     the bottom l-by-k portion is upper trapezoidal.
 ///
@@ -102,41 +102,43 @@ namespace slate {
 ///     The upper triangular factors of the block reflectors
 ///     as returned by tpqrt, stored as an ib-by-k tile.
 ///
-/// @param[in,out] A
-///     - If side == Left,  the k-by-n tile A.
-///     - If side == Right, the m-by-k tile A.
-///     On exit, A is overwritten by the corresponding block of
+/// @param[in,out] C0
+///     - If side == Left,  the k-by-n tile C0.
+///     - If side == Right, the m-by-k tile C0.
+///     On exit, C0 is overwritten by the corresponding block of
 ///     $op(Q) C$ or $C op(Q)$.
 ///
-/// @param[in,out] B
-///     The m-by-n tile B.
-///     On exit, B is overwritten by the corresponding block of
+/// @param[in,out] C1
+///     The m-by-n tile C1.
+///     On exit, C1 is overwritten by the corresponding block of
 ///     $op(Q) C$ or $C op(Q)$.
+///
+/// Note in LAPACK, A = C0, B = C1, V = V1.
 ///
 /// @ingroup geqrf_tile
 ///
 template <typename scalar_t>
 void tpmqrt(
     Side side, Op op, int64_t l,
-    Tile<scalar_t> V,
+    Tile<scalar_t> V1,
     Tile<scalar_t> T,
-    Tile<scalar_t> A,
-    Tile<scalar_t> B)
+    Tile<scalar_t> C0,
+    Tile<scalar_t> C1)
 {
     trace::Block trace_block("lapack::tpmqrt");
 
-    int64_t k = V.nb();
-    int64_t m = B.mb();
-    int64_t n = B.nb();
+    int64_t k = V1.nb();
+    int64_t m = C1.mb();
+    int64_t n = C1.nb();
     if (side == Side::Left) {
-        assert(A.mb() == k);
-        assert(A.nb() == n);
-        assert(V.mb() == m);
+        assert(C0.mb() == k);
+        assert(C0.nb() == n);
+        assert(V1.mb() == m);
     }
     else {
-        assert(A.mb() == m);
-        assert(A.nb() == k);
-        assert(V.mb() == n);
+        assert(C0.mb() == m);
+        assert(C0.nb() == k);
+        assert(V1.mb() == n);
     }
 
     int64_t ib = T.mb();
@@ -145,10 +147,10 @@ void tpmqrt(
     assert(m >= l);
 
     lapack::tpmqrt(side, op, m, n, k, l, ib,
-                   V.data(), V.stride(),
+                   V1.data(), V1.stride(),
                    T.data(), T.stride(),
-                   A.data(), A.stride(),
-                   B.data(), B.stride());
+                   C0.data(), C0.stride(),
+                   C1.data(), C1.stride());
 }
 
 } // namespace slate

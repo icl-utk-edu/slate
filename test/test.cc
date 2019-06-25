@@ -98,6 +98,9 @@ std::vector< libtest::routines_t > routines = {
     { "gbtrs",              test_gbsv,         Section::gesv },
     { "",                   nullptr,           Section::newline },
 
+    { "getri",              test_getri,        Section::gesv },
+    { "",                   nullptr,           Section::newline },    
+
     // -----
     // Cholesky
     { "posv",               test_posv,         Section::posv },

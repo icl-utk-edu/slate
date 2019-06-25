@@ -434,7 +434,8 @@ if (opts.hesv):
 # least squares
 if (opts.least_squares):
     cmds += [
-    #[ 'gels',   gen + dtype + la + mn + trans_nc ],
+    # todo: mn (i.e., add wide)
+    [ 'gels',   gen + dtype + la + n + tall + trans_nc ],
     #[ 'gelsy',  gen + dtype + la + mn ],
     #[ 'gelsd',  gen + dtype + la + mn ],
     #[ 'gelss',  gen + dtype + la + mn ],

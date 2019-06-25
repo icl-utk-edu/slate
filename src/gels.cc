@@ -132,8 +132,9 @@ void gels(Matrix<scalar_t>& A,
           const std::map<Option, Value>& opts)
 {
     // m, n of op(A) as in docs above.
-    // int64_t m = A.m();
-    // int64_t n = A.n();
+    int64_t m = A.m();
+    int64_t n = A.n();
+    int64_t nrhs = BX.n();
 
     scalar_t one  = 1;
     scalar_t zero = 0;
@@ -149,11 +150,16 @@ void gels(Matrix<scalar_t>& A,
     else
         slate_error("Unsupported op(A)");
 
-    if (A0.m() >= A0.n()) {
+    int64_t A0_M = (A.op() == Op::NoTrans ? m : n);
+    int64_t A0_N = (A.op() == Op::NoTrans ? n : m);
+    if (A0_M >= A0_N) {
+        assert(A0.m() >= A0.n());
         // A0 itself is tall: QR factorization
         geqrf(A0, T, opts);
-        // todo: need to take submatrix that splits tiles.
-        auto R = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, A0);
+
+        int64_t min_mn = std::min(m, n);
+        auto R_ = A0.slice(0, min_mn-1, 0, min_mn-1);
+        auto R = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, R_);
 
         if (A.op() == Op::NoTrans) {
             // Solve A0 X = (QR) X = B.
@@ -164,9 +170,7 @@ void gels(Matrix<scalar_t>& A,
             unmqr(Side::Left, Op::ConjTrans, A0, T, BX, opts);
 
             // X is only first n rows of BX.
-            // todo: need to take submatrix that splits tiles.
-            slate_assert(BX.tileMb(A.nt()-1) == A0.tileNb(A0.nt()-1));
-            auto X = BX.sub(0, A.nt()-1, 0, BX.nt()-1);
+            auto X = BX.slice(0, n-1, 0, nrhs-1);
 
             // X = R^{-1} Y
             trsm(Side::Left, one, R, X, opts);
@@ -176,9 +180,7 @@ void gels(Matrix<scalar_t>& A,
             // Minimum norm solution X = Q Y = Q (R^{-H} B).
 
             // B is only first m rows of BX.
-            // todo: need to take submatrix that splits tiles.
-            slate_assert(BX.tileMb(A.mt()-1) == A.tileMb(A.mt()-1));
-            auto B = BX.sub(0, A.mt()-1, 0, BX.nt()-1);
+            auto B = BX.slice(0, m-1, 0, nrhs-1);
 
             // Y = R^{-H} B
             auto RH = conj_transpose(R);
@@ -186,20 +188,17 @@ void gels(Matrix<scalar_t>& A,
 
             // X is all n rows of BX.
             // Zero out rows m:n-1 of BX.
-            // todo: istart/ioffset assumes fixed nb
-            int64_t istart  = A.m() / BX.tileMb(0); // row m's tile
-            int64_t ioffset = A.m() % BX.tileMb(0); // row m's offset in tile
-            for (int64_t i = istart; i < BX.mt(); ++i) {
-                for (int64_t j = 0; j < BX.nt(); ++j) {
-                    if (BX.tileIsLocal(i, j)) {
-                        auto T = BX(i, j);
-                        lapack::laset(lapack::MatrixType::General,
-                                      T.mb() - ioffset, T.nb(), zero, zero,
-                                      &T.at(ioffset, 0), T.stride());
-                        BX.tileModified(i, j);
+            if (m < n) {
+                auto Z = BX.slice(m, n-1, 0, nrhs-1);
+                // todo: replace with Matrix set(zero, Z)
+                for (int64_t j = 0; j < Z.nt(); ++j) {
+                    for (int64_t i = 0; i < Z.mt(); ++i) {
+                        if (Z.tileIsLocal(i, j)) {
+                            Z.tileGetForWriting(i, j, slate::LayoutConvert::None);
+                            Z(i, j).set(zero);
+                        }
                     }
                 }
-                ioffset = 0; // no offset for subsequent block rows
             }
 
             // X = Q Y

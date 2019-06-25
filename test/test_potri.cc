@@ -127,10 +127,6 @@ template <typename scalar_t> void test_potri_work(Params& params, bool run)
 
         //==================================================
         // Run SLATE test.
-        // One of:
-        // potrf: Factor A = LL^H or A = U^H U.
-        // potrs: Solve AX = B, after factoring A above.
-        // posv:  Solve AX = B, including factoring A.
         //==================================================
         if (params.routine == "potri") {
             // factor then invert; measure time for both 
@@ -187,8 +183,7 @@ template <typename scalar_t> void test_potri_work(Params& params, bool run)
     }
 
     if (ref) {
-        // Not implemented yet
-        // A comparison with a reference routine from ScaLAPACK
+        // todo: call to reference potri from ScaLAPACK not implemented
     }
     
     Cblacs_gridexit(ictxt);

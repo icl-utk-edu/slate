@@ -156,7 +156,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                         C.tileGetForWriting(i, j, LayoutConvert(layout));
 
                         // Apply Q
-                        tpmqrt(side, op, A.tileNb(0), A(i, 0),
+                        tpmqrt(side, op, std::min( A.tileMb(i), A.tileNb(0) ), A(i, 0),
                                T(i, 0),
                                C(i_src, j), C(i, j));
 

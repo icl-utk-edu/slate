@@ -142,6 +142,7 @@ void tpmqrt(
     int64_t ib = T.mb();
     assert(k >= ib);
     assert(T.nb() == k);
+    assert(m >= l);
 
     lapack::tpmqrt(side, op, m, n, k, l, ib,
                    V.data(), V.stride(),

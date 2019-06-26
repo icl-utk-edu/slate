@@ -40,7 +40,7 @@
 #ifndef SLATE_MATRIX_HH
 #define SLATE_MATRIX_HH
 
-#include "slate/internal/BaseMatrix.hh"
+#include "slate/BaseMatrix.hh"
 #include "slate/Tile.hh"
 #include "slate/types.hh"
 

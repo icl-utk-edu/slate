@@ -40,7 +40,7 @@
 #ifndef SLATE_DEBUG_HH
 #define SLATE_DEBUG_HH
 
-#include "slate/internal/BaseMatrix.hh"
+#include "slate/BaseMatrix.hh"
 #include "slate/internal/Memory.hh"
 
 #include <iostream>

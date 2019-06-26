@@ -303,12 +303,8 @@ template <typename scalar_t> void test_gels_work(Params& params, bool run)
             D.insertLocalTiles();
 
             // zero D.
-            // todo: only need to zero padding tiles in D.
-            for (int64_t j = 0; j < D.nt(); ++j) {
-                for (int64_t i = 0; i < D.mt(); ++i)
-                    if (D.tileIsLocal(i, j))
-                        D(i, j).set(zero);
-            }
+            // todo: only need to zero the padding tiles in D.
+            set(zero, D);
 
             // copy op(A)^H -> D
             // todo: support op(A)^H = A^H. Requires distributed copy of A^H to D.

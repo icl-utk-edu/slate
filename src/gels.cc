@@ -190,15 +190,7 @@ void gels(Matrix<scalar_t>& A,
             // Zero out rows m:n-1 of BX.
             if (m < n) {
                 auto Z = BX.slice(m, n-1, 0, nrhs-1);
-                // todo: replace with Matrix set(zero, Z)
-                for (int64_t j = 0; j < Z.nt(); ++j) {
-                    for (int64_t i = 0; i < Z.mt(); ++i) {
-                        if (Z.tileIsLocal(i, j)) {
-                            Z.tileGetForWriting(i, j, slate::LayoutConvert::None);
-                            Z(i, j).set(zero);
-                        }
-                    }
-                }
+                set(zero, Z);
             }
 
             // X = Q Y

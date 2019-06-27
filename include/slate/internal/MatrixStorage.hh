@@ -603,28 +603,30 @@ MatrixStorage<scalar_t>::MatrixStorage(
     // TODO: these all assume 2D block cyclic with fixed size tiles (mb x nb)
     // lambdas that capture m, n, mb, nb for
     // computing tile's mb (rows) and nb (cols)
-    tileMb = [=](int64_t i) { return (i + 1)*mb > m ? m%mb : mb; };
-    tileNb = [=](int64_t j) { return (j + 1)*nb > n ? n%nb : nb; };
+    tileMb = [m, mb](int64_t i) { return (i + 1)*mb > m ? m%mb : mb; };
+    tileNb = [n, nb](int64_t j) { return (j + 1)*nb > n ? n%nb : nb; };
 
     // lambda that captures p, q for computing tile's rank,
     // assuming 2D block cyclic
-    tileRank = [=](ij_tuple ij) {
+    tileRank = [p, q](ij_tuple ij) {
         int64_t i = std::get<0>(ij);
         int64_t j = std::get<1>(ij);
         return int(i%p + (j%q)*p);
     };
 
-    // lambda that captures q, num_devices_ to distribute local matrix
+    // lambda that captures q, num_devices to distribute local matrix
     // in 1D column block cyclic fashion among devices
     if (num_devices_ > 0) {
-        tileDevice = [=](ij_tuple ij) {
+        int num_devices = num_devices_;  // local copy to capture
+        tileDevice = [q, num_devices](ij_tuple ij) {
             int64_t j = std::get<1>(ij);
-            return int(j/q)%num_devices_;
+            return int(j/q)%num_devices;
         };
     }
     else {
-        tileDevice = [=](ij_tuple ij) {
-            return host_num_;
+        int host_num = host_num_;  // local copy to capture
+        tileDevice = [host_num](ij_tuple ij) {
+            return host_num;
         };
     }
 

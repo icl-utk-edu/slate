@@ -88,7 +88,6 @@ void verify_tile_lapack(
         test_assert(tile.op()     == blas::Op::NoTrans);
         test_assert(tile.uplo()   == blas::Uplo::General);
         test_assert(tile.origin() == true);
-        test_assert(tile.valid()  == true);
         test_assert(tile.device() == host_num);
         test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
@@ -102,7 +101,6 @@ void verify_tile_lapack(
         test_assert(tile.op()     == tile2.op()    );
         test_assert(tile.uplo()   == tile2.uplo()  );
         test_assert(tile.origin() == tile2.origin());
-        test_assert(tile.valid()  == tile2.valid() );
         test_assert(tile.device() == tile2.device());
         test_assert(tile.size()   == tile2.size()  );
         test_assert(tile.bytes()  == tile2.bytes() );
@@ -151,7 +149,6 @@ void verify_tile_lapack(
         else
             test_assert(tile.uplo() == blas::Uplo::General);
         test_assert(tile.origin() == true);
-        test_assert(tile.valid()  == true);
         test_assert(tile.device() == host_num);
         test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
@@ -165,7 +162,6 @@ void verify_tile_lapack(
         test_assert(tile.op()     == tile2.op()    );
         test_assert(tile.uplo()   == tile2.uplo()  );
         test_assert(tile.origin() == tile2.origin());
-        test_assert(tile.valid()  == tile2.valid() );
         test_assert(tile.device() == tile2.device());
         test_assert(tile.size()   == tile2.size()  );
         test_assert(tile.bytes()  == tile2.bytes() );
@@ -259,7 +255,6 @@ void verify_tile_scalapack(
         test_assert(tile.op()     == blas::Op::NoTrans);
         test_assert(tile.uplo()   == blas::Uplo::General);
         test_assert(tile.origin() == true);
-        test_assert(tile.valid()  == true);
         test_assert(tile.device() == host_num);
         test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
@@ -273,7 +268,6 @@ void verify_tile_scalapack(
         test_assert(tile.op()     == tile2.op()    );
         test_assert(tile.uplo()   == tile2.uplo()  );
         test_assert(tile.origin() == tile2.origin());
-        test_assert(tile.valid()  == tile2.valid() );
         test_assert(tile.device() == tile2.device());
         test_assert(tile.size()   == tile2.size()  );
         test_assert(tile.bytes()  == tile2.bytes() );
@@ -322,7 +316,6 @@ void verify_tile_scalapack(
         else
             test_assert(tile.uplo() == blas::Uplo::General);
         test_assert(tile.origin() == true);
-        test_assert(tile.valid()  == true);
         test_assert(tile.device() == host_num);
         test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
@@ -336,7 +329,6 @@ void verify_tile_scalapack(
         test_assert(tile.op()     == tile2.op()    );
         test_assert(tile.uplo()   == tile2.uplo()  );
         test_assert(tile.origin() == tile2.origin());
-        test_assert(tile.valid()  == tile2.valid() );
         test_assert(tile.device() == tile2.device());
         test_assert(tile.size()   == tile2.size()  );
         test_assert(tile.bytes()  == tile2.bytes() );
@@ -383,7 +375,6 @@ void verify_tile_device(
         test_assert(tile.op()     == blas::Op::NoTrans);
         test_assert(tile.uplo()   == blas::Uplo::General);
         test_assert(tile.origin() == true);
-        test_assert(tile.valid()  == true);
         test_assert(tile.device() == dev);
         test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
@@ -397,7 +388,6 @@ void verify_tile_device(
         test_assert(tile.op()     == tile2.op()    );
         test_assert(tile.uplo()   == tile2.uplo()  );
         test_assert(tile.origin() == tile2.origin());
-        test_assert(tile.valid()  == tile2.valid() );
         test_assert(tile.device() == tile2.device());
         test_assert(tile.size()   == tile2.size()  );
         test_assert(tile.bytes()  == tile2.bytes() );
@@ -451,7 +441,6 @@ void verify_tile_device(
         else
             test_assert(tile.uplo() == blas::Uplo::General);
         test_assert(tile.origin() == true);
-        test_assert(tile.valid()  == true);
         test_assert(tile.device() == dev);
         test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
@@ -465,7 +454,6 @@ void verify_tile_device(
         test_assert(tile.op()     == tile2.op()    );
         test_assert(tile.uplo()   == tile2.uplo()  );
         test_assert(tile.origin() == tile2.origin());
-        test_assert(tile.valid()  == tile2.valid() );
         test_assert(tile.device() == tile2.device());
         test_assert(tile.size()   == tile2.size()  );
         test_assert(tile.bytes()  == tile2.bytes() );

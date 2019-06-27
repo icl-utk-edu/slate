@@ -188,12 +188,6 @@ public:
     scalar_t const& at(int64_t i, int64_t j) const;
     scalar_t&       at(int64_t i, int64_t j);
 
-    /// Returns whether this tile is valid (cache coherency protocol).
-    bool valid() const { return valid_; }
-
-    /// Sets whether this tile is valid (cache coherency protocol).
-    void valid(bool val) { valid_ = val; }  // todo: protected?
-
     /// Returns true if this is an origin (local non-workspace) tile.
     bool origin() const { return ! workspace(); }
 
@@ -317,7 +311,6 @@ protected:
     scalar_t* user_data_; // Temporarily point to user-provided memory buffer.
     scalar_t* ext_data_; // Points to auxiliary buffer.
 
-    bool valid_; // todo: deprecate
     TileKind kind_;
     /// layout_: The physical ordering of elements in the data buffer:
     ///          - ColMajor: elements of a column are 1-strided
@@ -341,7 +334,6 @@ Tile<scalar_t>::Tile()
       data_(nullptr),
       user_data_(nullptr),
       ext_data_(nullptr),
-      valid_(false),
       kind_(TileKind::UserOwned),
       layout_(Layout::ColMajor),
       user_layout_(Layout::ColMajor),
@@ -394,7 +386,6 @@ Tile<scalar_t>::Tile(
       data_(A),
       user_data_(nullptr),
       ext_data_(nullptr),
-      valid_(true),
       kind_(kind),
       layout_(layout),
       user_layout_(layout),

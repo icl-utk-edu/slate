@@ -315,6 +315,9 @@ void test_Matrix_fromDevices()
     delete[] Aarray;
 }
 
+//==============================================================================
+// Methods
+
 //------------------------------------------------------------------------------
 /// emptyLike with rectangular tiles
 void test_Matrix_emptyLike()
@@ -338,10 +341,12 @@ void test_Matrix_emptyLike()
 
     auto B = A.template emptyLike<float>();
 
-    test_assert(B.m() == A.m());
-    test_assert(B.n() == A.n());
-    test_assert(B.mt() == A.mt());
-    test_assert(B.nt() == A.nt());
+    test_assert(B.m()    == A.m());
+    test_assert(B.n()    == A.n());
+    test_assert(B.mt()   == A.mt());
+    test_assert(B.nt()   == A.nt());
+    test_assert(B.op()   == A.op());
+    test_assert(B.uplo() == A.uplo());
 
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {
@@ -356,10 +361,12 @@ void test_Matrix_emptyLike()
     auto Asub = A.sub( 1, 3, 1, 4 );
     auto Bsub = Asub.emptyLike();
 
-    test_assert(Bsub.m() == Asub.m());
-    test_assert(Bsub.n() == Asub.n());
-    test_assert(Bsub.mt() == Asub.mt());
-    test_assert(Bsub.nt() == Asub.nt());
+    test_assert(Bsub.m()    == Asub.m());
+    test_assert(Bsub.n()    == Asub.n());
+    test_assert(Bsub.mt()   == Asub.mt());
+    test_assert(Bsub.nt()   == Asub.nt());
+    test_assert(Bsub.op()   == Asub.op());
+    test_assert(Bsub.uplo() == Asub.uplo());
 
     for (int j = 0; j < Asub.nt(); ++j) {
         for (int i = 0; i < Asub.mt(); ++i) {
@@ -374,10 +381,12 @@ void test_Matrix_emptyLike()
     auto Atrans = transpose( A );
     auto Btrans = Atrans.emptyLike();
 
-    test_assert(Btrans.m() == Atrans.m());
-    test_assert(Btrans.n() == Atrans.n());
-    test_assert(Btrans.mt() == Atrans.mt());
-    test_assert(Btrans.nt() == Atrans.nt());
+    test_assert(Btrans.m()    == Atrans.m());
+    test_assert(Btrans.n()    == Atrans.n());
+    test_assert(Btrans.mt()   == Atrans.mt());
+    test_assert(Btrans.nt()   == Atrans.nt());
+    test_assert(Btrans.op()   == Atrans.op());
+    test_assert(Btrans.uplo() == Atrans.uplo());
 
     for (int j = 0; j < Atrans.nt(); ++j) {
         for (int i = 0; i < Atrans.mt(); ++i) {
@@ -392,10 +401,12 @@ void test_Matrix_emptyLike()
     auto Asub_trans = transpose( Asub );
     auto Bsub_trans = Asub_trans.emptyLike();
 
-    test_assert(Bsub_trans.m() == Asub_trans.m());
-    test_assert(Bsub_trans.n() == Asub_trans.n());
-    test_assert(Bsub_trans.mt() == Asub_trans.mt());
-    test_assert(Bsub_trans.nt() == Asub_trans.nt());
+    test_assert(Bsub_trans.m()    == Asub_trans.m());
+    test_assert(Bsub_trans.n()    == Asub_trans.n());
+    test_assert(Bsub_trans.mt()   == Asub_trans.mt());
+    test_assert(Bsub_trans.nt()   == Asub_trans.nt());
+    test_assert(Bsub_trans.op()   == Asub_trans.op());
+    test_assert(Bsub_trans.uplo() == Asub_trans.uplo());
 
     for (int j = 0; j < Asub_trans.nt(); ++j) {
         for (int i = 0; i < Asub_trans.mt(); ++i) {
@@ -509,8 +520,111 @@ void test_Matrix_emptyLikeMbNb()
     }
 }
 
-//==============================================================================
-// Methods
+//------------------------------------------------------------------------------
+/// emptyLike with mb, nb overriding size, and op to deep transpose.
+void test_Matrix_emptyLikeOp()
+{
+    int mtiles, mtiles_local, m_local, lda;
+    int ntiles, ntiles_local, n_local;
+    get_2d_cyclic_dimensions(
+        m, n, mb, nb,
+        mtiles, mtiles_local, m_local,
+        ntiles, ntiles_local, n_local, lda );
+
+    std::vector<double> Ad( lda*n_local );
+
+    auto A = slate::Matrix<double>::fromScaLAPACK(
+        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
+
+    auto Asub = A.sub( 1, 3, 1, 4 );
+    auto Asub_trans = transpose( Asub );
+    if (verbose) {
+        printf( "A     m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
+                A.m(), A.mt(),
+                A.n(), A.nt(),
+                A.tileMb(0), A.tileNb(0) );
+        printf( "Asub  m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
+                Asub.m(), Asub.mt(),
+                Asub.n(), Asub.nt(),
+                Asub.tileMb(0), Asub.tileNb(0) );
+        printf( "AsubT m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
+                Asub_trans.m(), Asub_trans.mt(),
+                Asub_trans.n(), Asub_trans.nt(),
+                Asub_trans.tileMb(0), Asub_trans.tileNb(0) );
+    }
+
+    for (int mb2: std::vector<int>({ 0, 7 })) {
+        for (int nb2: std::vector<int>({ 0, 5 })) {
+            // ----- no trans
+            auto B = Asub.emptyLike( mb2, nb2, slate::Op::Trans );
+
+            // just like test_Matrix_emptyLikeMbNb,
+            // but swap B's (m, n), (mt, nt), etc.
+            if (verbose) {
+                printf( "\n" );
+                printf( "A  m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
+                        Asub.m(), Asub.mt(),
+                        Asub.n(), Asub.nt(),
+                        Asub.tileMb(0), Asub.tileNb(0) );
+                printf( "AT m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
+                        Asub_trans.m(), Asub_trans.mt(),
+                        Asub_trans.n(), Asub_trans.nt(),
+                        Asub_trans.tileMb(0), Asub_trans.tileNb(0) );
+                printf( "B  m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld (mb2 %3d, nb2 %3d)\n",
+                        B.m(), B.mt(),
+                        B.n(), B.nt(),
+                        B.tileMb(0), B.tileNb(0),
+                        mb2, nb2 );
+            }
+            test_assert(B.n() == (mb2 == 0 ? Asub.m() : Asub.mt() * mb2));
+            test_assert(B.m() == (nb2 == 0 ? Asub.n() : Asub.nt() * nb2));
+            test_assert(B.nt() == Asub.mt());
+            test_assert(B.mt() == Asub.nt());
+
+            for (int j = 0; j < Asub.nt(); ++j) {
+                for (int i = 0; i < Asub.mt(); ++i) {
+                    test_assert( B.tileIsLocal(j, i) == Asub.tileIsLocal(i, j) );
+                    test_assert( B.tileNb(i) == (mb2 == 0 ? Asub.tileMb(i) : mb2) );
+                    test_assert( B.tileMb(j) == (nb2 == 0 ? Asub.tileNb(j) : nb2) );
+                    test_assert_throw_std( B(j, i) );  // tiles don't exist
+                }
+            }
+
+            // ----- trans
+            auto BT = Asub_trans.emptyLike( mb2, nb2, slate::Op::Trans );
+
+            if (verbose) {
+                printf( "\n" );
+                printf( "A  m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
+                        Asub.m(), Asub.mt(),
+                        Asub.n(), Asub.nt(),
+                        Asub.tileMb(0), Asub.tileNb(0) );
+                printf( "AT m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
+                        Asub_trans.m(), Asub_trans.mt(),
+                        Asub_trans.n(), Asub_trans.nt(),
+                        Asub_trans.tileMb(0), Asub_trans.tileNb(0) );
+                printf( "BT m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld (mb2 %3d, nb2 %3d)\n",
+                        BT.m(), BT.mt(),
+                        BT.n(), BT.nt(),
+                        BT.tileMb(0), BT.tileNb(0),
+                        mb2, nb2 );
+            }
+            test_assert(BT.n() == (mb2 == 0 ? Asub_trans.m() : Asub_trans.mt() * mb2));
+            test_assert(BT.m() == (nb2 == 0 ? Asub_trans.n() : Asub_trans.nt() * nb2));
+            test_assert(BT.nt() == Asub_trans.mt());
+            test_assert(BT.mt() == Asub_trans.nt());
+
+            for (int j = 0; j < Asub_trans.nt(); ++j) {
+                for (int i = 0; i < Asub_trans.mt(); ++i) {
+                    test_assert( BT.tileIsLocal(j, i) == Asub_trans.tileIsLocal(i, j) );
+                    test_assert( BT.tileNb(j) == (mb2 == 0 ? Asub_trans.tileMb(i) : mb2) );
+                    test_assert( BT.tileMb(i) == (nb2 == 0 ? Asub_trans.tileNb(j) : nb2) );
+                    test_assert_throw_std( BT(j, i) );  // tiles don't exist
+                }
+            }
+        }
+    }
+}
 
 //------------------------------------------------------------------------------
 /// Test transpose(A).
@@ -940,7 +1054,7 @@ void test_Matrix_allocateBatchArrays()
 }
 
 //==============================================================================
-// Sub-matrices and conversions
+// Sub-matrices
 
 //------------------------------------------------------------------------------
 /// Tests A.sub( i1, i2, j1, j2 ).
@@ -1713,11 +1827,12 @@ void run_tests()
     run_test(test_Matrix_fromScaLAPACK,      "Matrix::fromScaLAPACK",      mpi_comm);
     run_test(test_Matrix_fromScaLAPACK_rect, "Matrix::fromScaLAPACK_rect", mpi_comm);
     run_test(test_Matrix_fromDevices,        "Matrix::fromDevices",        mpi_comm);
-    run_test(test_Matrix_emptyLike,          "Matrix::emptyLike",          mpi_comm);
-    run_test(test_Matrix_emptyLikeMbNb,      "Matrix::emptyLikeMbNb",      mpi_comm);
 
     if (mpi_rank == 0)
         printf("\nMethods\n");
+    run_test(test_Matrix_emptyLike,            "Matrix::emptyLike",                        mpi_comm);
+    run_test(test_Matrix_emptyLikeMbNb,        "Matrix::emptyLikeMbNb",                    mpi_comm);
+    run_test(test_Matrix_emptyLikeOp,          "Matrix::emptyLikeOp",                      mpi_comm);
     run_test(test_Matrix_transpose,            "transpose",                                mpi_comm);
     run_test(test_Matrix_conj_transpose,       "conj_transpose",                           mpi_comm);
     run_test(test_Matrix_swap,                 "swap",                                     mpi_comm);

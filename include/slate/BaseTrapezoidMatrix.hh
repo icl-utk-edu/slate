@@ -83,7 +83,7 @@ protected:
                         int p, int q, MPI_Comm mpi_comm);
 
     // conversion
-    BaseTrapezoidMatrix(Uplo uplo, Matrix<scalar_t>& orig);
+    BaseTrapezoidMatrix(Uplo uplo, BaseMatrix<scalar_t>& orig);
 
     // off-diagonal sub-matrix
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
@@ -99,7 +99,7 @@ protected:
                         int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
     // used by sub-classes' off-diagonal sub
-    BaseTrapezoidMatrix(Uplo uplo, Matrix<scalar_t>& orig,
+    BaseTrapezoidMatrix(Uplo uplo, BaseMatrix<scalar_t>& orig,
                         int64_t i1, int64_t i2,
                         int64_t j1, int64_t j2);
 
@@ -107,6 +107,10 @@ protected:
     BaseTrapezoidMatrix(BaseTrapezoidMatrix& orig,
                         int64_t i1, int64_t i2,
                         int64_t j1, int64_t j2);
+
+    // used by sub-classes' emptyLike
+    template <typename out_scalar_t>
+    Matrix<out_scalar_t> emptyLike();
 
 public:
     template <typename T>
@@ -404,7 +408,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 ///
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
-    Uplo uplo, Matrix<scalar_t>& orig)
+    Uplo uplo, BaseMatrix<scalar_t>& orig)
     : BaseMatrix<scalar_t>(orig)
 {
     slate_error_if(uplo == Uplo::General);
@@ -442,7 +446,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 ///
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
-    Uplo uplo, Matrix<scalar_t>& orig,
+    Uplo uplo, BaseMatrix<scalar_t>& orig,
     int64_t i1, int64_t i2,
     int64_t j1, int64_t j2)
     : BaseMatrix<scalar_t>(orig, i1, i2, j1, j2)

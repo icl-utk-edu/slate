@@ -69,7 +69,7 @@ public:
                     std::function<int (ij_tuple ij)>& inTileRank,
                     std::function<int (ij_tuple ij)>& inTileDevice,
                     MPI_Comm mpi_comm);
-    
+
     TrapezoidMatrix(Uplo uplo, Diag diag, int64_t m, int64_t n, int64_t nb,
                     int p, int q, MPI_Comm mpi_comm);
 
@@ -91,7 +91,7 @@ public:
     // conversion
     TrapezoidMatrix(Diag diag, BaseTrapezoidMatrix< scalar_t >& orig);
 
-    TrapezoidMatrix(Uplo uplo, Diag diag, Matrix<scalar_t>& orig);
+    TrapezoidMatrix(Uplo uplo, Diag diag, BaseMatrix<scalar_t>& orig);
 
     // conversion sub-matrix
     TrapezoidMatrix(Diag diag, BaseTrapezoidMatrix<scalar_t>& orig,
@@ -107,6 +107,10 @@ public:
 
     // off-diagonal sub-matrix
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
+
+    template <typename out_scalar_t=scalar_t>
+    TrapezoidMatrix<out_scalar_t> emptyLike(int64_t nb=0,
+                                            Op deepOp=Op::NoTrans);
 
 protected:
     // used by fromLAPACK and fromScaLAPACK
@@ -402,7 +406,7 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 ///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
-    Uplo uplo, Diag diag, Matrix<scalar_t>& orig)
+    Uplo uplo, Diag diag, BaseMatrix<scalar_t>& orig)
     : BaseTrapezoidMatrix<scalar_t>(uplo, orig),
       diag_(diag)
 {}
@@ -529,6 +533,19 @@ void swap(TrapezoidMatrix<scalar_t>& A, TrapezoidMatrix<scalar_t>& B)
     swap(static_cast< BaseTrapezoidMatrix<scalar_t>& >(A),
          static_cast< BaseTrapezoidMatrix<scalar_t>& >(B));
     swap(A.diag_, B.diag_);
+}
+
+//------------------------------------------------------------------------------
+/// Named constructor returns a new, empty Matrix with the same structure
+/// (size and distribution) as this matrix. Tiles are not allocated.
+///
+template <typename scalar_t>
+template <typename out_scalar_t>
+TrapezoidMatrix<out_scalar_t> TrapezoidMatrix<scalar_t>::emptyLike(
+    int64_t nb, Op deepOp)
+{
+    auto B = this->template baseEmptyLike<out_scalar_t>(nb, nb, deepOp);
+    return TrapezoidMatrix<out_scalar_t>(this->uplo(), this->diag(), B);
 }
 
 } // namespace slate

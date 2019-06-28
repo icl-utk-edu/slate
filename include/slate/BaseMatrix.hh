@@ -86,6 +86,10 @@ public:
 
     friend class Debug;
 
+    // Make every class BaseMatrix<T2> a friend of BaseMatrix<scalar_t>.
+    template <typename T2>
+    friend class BaseMatrix;
+
     static constexpr bool is_complex = slate::is_complex<scalar_t>::value;
     static constexpr bool is_real    = ! is_complex;
 
@@ -136,6 +140,10 @@ protected:
     };
 
     BaseMatrix(BaseMatrix& orig, Slice slice);
+
+    template <typename out_scalar_t>
+    BaseMatrix<out_scalar_t> baseEmptyLike(int64_t mb, int64_t nb,
+                                           Op deepOp);
 
 private:
     void initSubmatrix(
@@ -991,6 +999,91 @@ void BaseMatrix<scalar_t>::initSlice(
     col0_offset_ = col0_offset;
     last_mb_ = last_mb;
     last_nb_ = last_nb;
+}
+
+//------------------------------------------------------------------------------
+///
+template <typename scalar_t>
+template <typename out_scalar_t>
+BaseMatrix<out_scalar_t> BaseMatrix<scalar_t>::baseEmptyLike(
+    int64_t mb, int64_t nb, Op deepOp)
+{
+    // tileMb, tileNb are of A instead of op(A).
+    auto newMb = this->storage_->tileMb;
+    auto newNb = this->storage_->tileNb;
+
+    // m, n, mt, nt are of op(A).
+    int64_t m  = this->m();
+    int64_t n  = this->n();
+    int64_t mt = this->mt();
+    int64_t nt = this->nt();
+
+    // Undo transpose to get m, n, mt, nt, mb, nb of A instead of op(A).
+    if (this->op() != Op::NoTrans) {
+        std::swap(m, n);
+        std::swap(mt, nt);
+        std::swap(mb, nb);
+    }
+
+    // Override mb, nb if requested.
+    if (mb != 0) {
+        newMb = [mb](int64_t i) { return mb; };
+        m = mb * mt;
+    }
+    if (nb != 0) {
+        newNb = [nb](int64_t j) { return nb; };
+        n = nb * nt;
+    }
+
+    // Adjust size to include parent matrix outside this sub-matrix.
+    int64_t ioffset = this->ioffset();
+    int64_t joffset = this->joffset();
+    int64_t parent_m = m;
+    for (int i = 0; i < ioffset; ++i) {
+        parent_m += newMb(i);
+    }
+    int64_t parent_n = n;
+    for (int j = 0; j < joffset; ++j) {
+        parent_n += newNb(j);
+    }
+
+    // Create new parent matrix B.
+    BaseMatrix<out_scalar_t> B;
+    if (deepOp == Op::NoTrans) {
+        B = BaseMatrix<out_scalar_t>(
+            parent_m, parent_n, newMb, newNb,
+            this->storage_->tileRank, this->storage_->tileDevice, this->mpiComm());
+    }
+    else {
+        // todo: just swap and redefine newRank? then use above B constructor.
+        auto oldRank = this->storage_->tileRank;
+        std::function<int (ij_tuple ij)> newRank = [oldRank](ij_tuple ij) {
+            int64_t i = std::get<0>(ij);
+            int64_t j = std::get<1>(ij);
+            return oldRank( ij_tuple({ j, i }) );
+        };
+        // todo: what about tileDevice?
+        B = BaseMatrix<out_scalar_t>(
+            parent_n, parent_m, newNb, newMb,  // transposed
+            newRank, this->storage_->tileDevice, this->mpiComm());
+        std::swap(ioffset, joffset);
+        std::swap(mt, nt);
+    }
+
+    // Apply operation and return sub-matrix.
+    if (this->op() == Op::Trans) {
+        B = transpose( B );
+        std::swap(ioffset, joffset);
+        std::swap(mt, nt);
+    }
+    else if (this->op() == Op::ConjTrans) {
+        B = conj_transpose( B );
+        std::swap(ioffset, joffset);
+        std::swap(mt, nt);
+    }
+    B.initSubmatrix(ioffset, ioffset + mt - 1,
+                    joffset, joffset + nt - 1);
+    return B;
 }
 
 //------------------------------------------------------------------------------

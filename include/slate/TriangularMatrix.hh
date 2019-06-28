@@ -94,7 +94,7 @@ public:
 
     TriangularMatrix(Diag diag, BaseTrapezoidMatrix<scalar_t>& orig);
 
-    TriangularMatrix(Uplo uplo, Diag diag, Matrix<scalar_t>& orig);
+    TriangularMatrix(Uplo uplo, Diag diag, BaseMatrix<scalar_t>& orig);
 
     // conversion sub-matrix
     TriangularMatrix(Diag diag, BaseTrapezoidMatrix<scalar_t>& orig,
@@ -109,6 +109,10 @@ public:
     TriangularMatrix sub(int64_t i1, int64_t i2);
 
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
+
+    template <typename out_scalar_t=scalar_t>
+    TriangularMatrix<out_scalar_t> emptyLike(int64_t nb=0,
+                                             Op deepOp=Op::NoTrans);
 
 protected:
     // used by fromLAPACK and fromScaLAPACK
@@ -376,10 +380,7 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
     Diag diag, BaseTrapezoidMatrix<scalar_t>& orig)
-    : TrapezoidMatrix<scalar_t>(
-          diag, orig,
-          0, orig.mt()-1,
-          0, orig.nt()-1)
+    : TrapezoidMatrix<scalar_t>(diag, orig)
 {
     slate_assert(orig.mt() == orig.nt());
     slate_assert(orig.m() == orig.n());
@@ -439,11 +440,8 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 ///
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
-    Uplo uplo, Diag diag, Matrix<scalar_t>& orig)
-    : TrapezoidMatrix<scalar_t>(
-          uplo, diag, orig,
-          0, orig.mt()-1,
-          0, orig.nt()-1)
+    Uplo uplo, Diag diag, BaseMatrix<scalar_t>& orig)
+    : TrapezoidMatrix<scalar_t>(uplo, diag, orig)
 {
     slate_assert(orig.mt() == orig.nt());
     slate_assert(orig.m() == orig.n());
@@ -566,6 +564,19 @@ void swap(TriangularMatrix<scalar_t>& A, TriangularMatrix<scalar_t>& B)
     using std::swap;
     swap(static_cast< TrapezoidMatrix<scalar_t>& >(A),
          static_cast< TrapezoidMatrix<scalar_t>& >(B));
+}
+
+//------------------------------------------------------------------------------
+/// Named constructor returns a new, empty Matrix with the same structure
+/// (size and distribution) as this matrix. Tiles are not allocated.
+///
+template <typename scalar_t>
+template <typename out_scalar_t>
+TriangularMatrix<out_scalar_t> TriangularMatrix<scalar_t>::emptyLike(
+    int64_t nb, Op deepOp)
+{
+    auto B = this->template baseEmptyLike<out_scalar_t>(nb, nb, deepOp);
+    return TriangularMatrix<out_scalar_t>(this->uplo(), this->diag(), B);
 }
 
 } // namespace slate

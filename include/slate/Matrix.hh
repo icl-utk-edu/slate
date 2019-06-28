@@ -124,7 +124,8 @@ public:
     }
 
     template <typename out_scalar_t=scalar_t>
-    Matrix<out_scalar_t> emptyLike(int64_t mb=0, int64_t nb=0);
+    Matrix<out_scalar_t> emptyLike(int64_t mb=0, int64_t nb=0,
+                                   Op deepOp=Op::NoTrans);
 
     // conversion sub-matrix
     Matrix(BaseMatrix<scalar_t>& orig,
@@ -398,8 +399,6 @@ Matrix<scalar_t> Matrix<scalar_t>::fromDevices(
 /// Named constructor returns a new, empty Matrix with the same structure
 /// (distribution and number of tiles) as this matrix. Tiles are not allocated.
 ///
-/// todo: currently assumes 2DBC and fixed mb, nb.
-///
 /// @param[in] mb
 ///     Row block size of new matrix.
 ///     If mb = 0, uses the same mb and m as this matrix;
@@ -410,62 +409,23 @@ Matrix<scalar_t> Matrix<scalar_t>::fromDevices(
 ///     If nb = 0, uses the same nb and n as this matrix;
 ///     otherwise, n = nb * nt.
 ///
+/// @param[in] deepOp
+///     Additional deep-transposition operation to apply. If deepOp=Trans, the
+///     new matrix has the transposed structure (distribution and number of
+///     tiles) of this matrix, but its shallow-transpose op() flag is set to
+///     NoTrans. For a 1x4 matrix A, compare:
+///     - transpose(A).emptyLike() creates a new 1x4 matrix, then transposes it
+///       to return a 4x1 matrix with its op set to Trans.
+///     - A.emptyLike(mb, nb, Op::Trans) creates and returns a new 4x1 matrix
+///       with its op set to NoTrans.
+///
 template <typename scalar_t>
 template <typename out_scalar_t>
-Matrix<out_scalar_t> Matrix<scalar_t>::emptyLike(int64_t mb, int64_t nb)
+Matrix<out_scalar_t> Matrix<scalar_t>::emptyLike(
+    int64_t mb, int64_t nb, Op deepOp)
 {
-    // First create no-trans parent matrix, apply op, then return sub-matrix.
-    int64_t m, n;
-    if (this->op() == Op::NoTrans) {
-        if (mb == 0) {
-            mb = this->tileMb(0);
-            m  = this->m();
-        }
-        else {
-            m = mb * this->mt();
-        }
-        if (nb == 0) {
-            nb = this->tileNb(0);
-            n  = this->n();
-        }
-        else {
-            n = nb * this->nt();
-        }
-    }
-    else {
-        std::swap(mb, nb);
-        if (mb == 0) {
-            mb = this->tileNb(0);
-            m  = this->n();
-        }
-        else {
-            m = mb * this->nt();
-        }
-        if (nb == 0) {
-            nb = this->tileMb(0);
-            n  = this->m();
-        }
-        else {
-            n = nb * this->mt();
-        }
-    }
-    int64_t ioffset = this->ioffset();
-    int64_t joffset = this->joffset();
-    m += ioffset*mb;
-    n += joffset*nb;
-    int p = this->storage_->p();
-    int q = this->storage_->q();
-    auto B = Matrix<out_scalar_t>(m, n, mb, nb, p, q, this->mpiComm());
-    if (this->op() == Op::Trans) {
-        B = transpose( B );
-        std::swap(ioffset, joffset);
-    }
-    else if (this->op() == Op::ConjTrans) {
-        B = conj_transpose( B );
-        std::swap(ioffset, joffset);
-    }
-    return B.sub(ioffset, ioffset + this->mt() - 1,
-                 joffset, joffset + this->nt() - 1);
+    auto B = this->template baseEmptyLike<out_scalar_t>(mb, nb, deepOp);
+    return Matrix<out_scalar_t>(B, 0, B.mt()-1, 0, B.nt()-1);
 }
 
 //------------------------------------------------------------------------------

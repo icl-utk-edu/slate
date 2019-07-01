@@ -541,15 +541,7 @@ public:
         tiles_.at(ij)->lives() = life;
     }
 
-    //--------------------------------------------------------------------------
-    /// Return p, q of 2D block-cyclic distribution.
-    /// These will eventually disappear when distributions are generalized.
-    int p() const { return p_; }
-    int q() const { return q_; }
-
 private:
-    int p_, q_;
-
     TilesMap tiles_;        ///< map of tiles and associated states
     mutable omp_nest_lock_t lock_;
     slate::Memory memory_;  ///< memory allocator
@@ -581,9 +573,7 @@ template <typename scalar_t>
 MatrixStorage<scalar_t>::MatrixStorage(
     int64_t m, int64_t n, int64_t mb, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : p_(p),
-      q_(q),
-      tiles_(),
+    : tiles_(),
       memory_(sizeof(scalar_t) * mb * nb),  // block size in bytes
       batch_array_size_(0)
 {

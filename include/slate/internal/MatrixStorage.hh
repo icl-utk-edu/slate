@@ -486,7 +486,7 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    /// @return True if Tile is empty, False otherwise.
+    /// @return True if map has no tiles.
     bool empty() const { return size() == 0; }
 
     //--------------------------------------------------------------------------

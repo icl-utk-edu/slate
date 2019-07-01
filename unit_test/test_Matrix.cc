@@ -81,14 +81,19 @@ void test_Matrix()
 /// Tests Matrix(), mt, nt, op.
 void test_Matrix_empty()
 {
+    // square tiles
     slate::Matrix<double> A(m, n, nb, p, q, mpi_comm);
-    slate::Matrix<double> B(m, n, mb, nb, p, q, mpi_comm);
-
+    test_assert(A.m() == m);
+    test_assert(A.n() == n);
     test_assert(A.mt() == ceildiv(m, nb));
     test_assert(A.nt() == ceildiv(n, nb));
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
 
+    // rectangular tiles
+    slate::Matrix<double> B(m, n, mb, nb, p, q, mpi_comm);
+    test_assert(B.m() == m);
+    test_assert(B.n() == n);
     test_assert(B.mt() == ceildiv(m, mb));
     test_assert(B.nt() == ceildiv(n, nb));
     test_assert(B.op() == blas::Op::NoTrans);

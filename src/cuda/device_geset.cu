@@ -60,6 +60,12 @@ namespace device {
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
 ///
+/// @param[in] diag_value
+///     The value to set on the diagonal.
+///
+/// @param[in] offdiag_value
+///     The value to set outside of the diagonal.
+///
 /// @param[in] Atiles
 ///     Array of tiles of dimension gridDim.x,
 ///     where each Atiles[k] is an m-by-n matrix stored in an lda-by-n array.
@@ -70,14 +76,14 @@ namespace device {
 template <typename scalar_t>
 __global__ void gesetKernel(
     int64_t m, int64_t n,
-    scalar_t alpha, scalar_t beta, scalar_t** tilesA, int64_t lda)
+    scalar_t diag_value, scalar_t offdiag_value, scalar_t** tilesA, int64_t lda)
 {
     scalar_t* tileA = tilesA[blockIdx.x];
     int idx = threadIdx.x;
     scalar_t* rowA = &tileA[idx];
 
     for (int64_t j = 0; j < n; ++j)
-        rowA[j*lda] = (j != idx) ? alpha : beta;
+        rowA[j*lda] = (j != idx) ? diag_value : offdiag_value;
 }
 
 //------------------------------------------------------------------------------
@@ -89,6 +95,12 @@ __global__ void gesetKernel(
 /// @param[in] n
 ///     Number of columns of each tile. n >= 0.
 ///     Currently, n <= 1024 due to CUDA implementation.
+///
+/// @param[in] diag_value
+///     The value to set on the diagonal.
+///
+/// @param[in] offdiag_value
+///     The value to set outside of the diagonal.
 ///
 /// @param[in] Aarray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
@@ -106,7 +118,7 @@ __global__ void gesetKernel(
 template <typename scalar_t>
 void geset(
     int64_t m, int64_t n,
-    scalar_t alpha, scalar_t beta, scalar_t** Aarray, int64_t lda,
+    scalar_t diag_value, scalar_t offdiag_value, scalar_t** Aarray, int64_t lda,
     int64_t batch_count, cudaStream_t stream)
 {
     // quick return
@@ -115,7 +127,7 @@ void geset(
 
     gesetKernel<<<batch_count, m, 0, stream>>>(
         m, n,
-        alpha, beta, Aarray, lda);
+        diag_value, offdiag_value, Aarray, lda);
 
     // check that launch succeeded (could still have async errors)
     cudaError_t error = cudaGetLastError();
@@ -129,26 +141,26 @@ void geset(
 template
 void geset(
     int64_t m, int64_t n,
-    float alpha, float beta, float** Aarray, int64_t lda,
+    float diag_value, float offdiag_value, float** Aarray, int64_t lda,
     int64_t batch_count, cudaStream_t stream);
 
 template
 void geset(
     int64_t m, int64_t n,
-    double alpha, double beta, double** Aarray, int64_t lda,
+    double diag_value, double offdiag_value, double** Aarray, int64_t lda,
     int64_t batch_count, cudaStream_t stream);
 
 template
 void geset(
     int64_t m, int64_t n,
-    cuFloatComplex alpha, cuFloatComplex beta,
+    cuFloatComplex diag_value, cuFloatComplex offdiag_value,
     cuFloatComplex** Aarray, int64_t lda,
     int64_t batch_count, cudaStream_t stream);
 
 template
 void geset(
     int64_t m, int64_t n,
-    cuDoubleComplex alpha, cuDoubleComplex beta,
+    cuDoubleComplex diag_value, cuDoubleComplex offdiag_value,
     cuDoubleComplex** Aarray, int64_t lda,
     int64_t batch_count, cudaStream_t stream);
 

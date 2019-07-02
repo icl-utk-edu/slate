@@ -211,7 +211,7 @@ void set(internal::TargetType<Target::Devices>,
             scalar_t** a_array_host = A.a_array_host(device);
 
             int64_t batch_count = 0;
-            int64_t mb[4], nb[4], lda[4], ldb[4], group_count[8];
+            int64_t mb[8], nb[8], lda[8], group_count[8];
             for (int q = 0; q < 4; ++q) {
                 group_count[q] = 0;
                 lda[q] = 0;

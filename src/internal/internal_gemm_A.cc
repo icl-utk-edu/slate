@@ -103,6 +103,7 @@ void gemm_A(internal::TargetType<Target::HostTask>,
     assert(A.mt() == C.mt());
 
     int err = 0;
+    std::string err_msg;
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (A.tileIsLocal(i, j)) {
@@ -139,7 +140,7 @@ void gemm_A(internal::TargetType<Target::HostTask>,
     #pragma omp taskwait
 
     for (int64_t i = 0; i < A.mt(); ++i) {
-        #pragma omp task shared(A, B, C, err) priority(priority)
+        #pragma omp task shared(A, B, C, err, err_msg) priority(priority)
         {
             try {
 
@@ -168,6 +169,7 @@ void gemm_A(internal::TargetType<Target::HostTask>,
             }
             catch (std::exception& e) {
                 err = __LINE__;
+                err_msg = std::string(e.what())+", ("+std::to_string(i)+",0)";
             }
         }
     }
@@ -175,7 +177,7 @@ void gemm_A(internal::TargetType<Target::HostTask>,
     #pragma omp taskwait
 
     if (err)
-        throw std::exception();
+        slate_error(err_msg+", rank "+std::to_string(C.mpiRank())+", line "+std::to_string(err));
 }
 
 //------------------------------------------------------------------------------

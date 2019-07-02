@@ -171,6 +171,8 @@ private:
 //------------------------------------------------------------------------------
 // Auxiliary
 
+//-----------------------------------------
+// copy()
 template <Target target=Target::HostTask,
           typename src_scalar_t, typename dst_scalar_t>
 void copy(Matrix<src_scalar_t>&& A,
@@ -183,8 +185,15 @@ void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
           BaseTrapezoidMatrix<dst_scalar_t>&& B,
           int priority=0);
 
+//-----------------------------------------
+// set()
+template <Target target=Target::HostTask, typename scalar_t>
+void set(scalar_t alpha, scalar_t beta,
+         Matrix<scalar_t>&& A,
+         int priority=0);
+
 //------------------------------------------------------------------------------
-// Level 3 BLAS
+// Level 3 BLAS and LAPACK auxiliary
 
 //-----------------------------------------
 // gemm()
@@ -198,7 +207,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void gemm_A(scalar_t alpha, Matrix<scalar_t>&& A,
                             Matrix<scalar_t>&& B,
             scalar_t beta,  Matrix<scalar_t>&& C,
-            int priority=0);
+            Layout layout, int priority=0);
 
 //-----------------------------------------
 // hemm()
@@ -341,6 +350,18 @@ void trsm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
           int priority=0, Layout layout=Layout::ColMajor);
+
+//-----------------------------------------
+// trtri()
+template <Target target=Target::HostTask, typename scalar_t>
+void trtri(TriangularMatrix<scalar_t>&& A,
+           int priority=0);
+
+//-----------------------------------------
+// trtrm()
+template <Target target=Target::HostTask, typename scalar_t>
+void trtrm(TriangularMatrix<scalar_t>&& A,
+           int priority=0);
 
 //------------------------------------------------------------------------------
 // Other BLAS

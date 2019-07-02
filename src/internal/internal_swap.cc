@@ -46,6 +46,172 @@ namespace slate {
 namespace internal {
 
 //------------------------------------------------------------------------------
+/// Converts serial pivot vector to parallel pivot map.
+///
+/// @param[in] direction
+///     Direction of pivoting:
+///     - Direction::Forward,
+///     - Direction::Backward.
+///
+/// @param[in] in_pivot
+///     Serial (LAPACK-style) pivot vector.
+///
+/// @param[in,out] pivot
+///     Parallel pivot for out-of-place pivoting.
+///
+void makeParallelPivot(Direction direction,
+                       std::vector<Pivot> const& pivot,
+                       std::map<Pivot, Pivot>& pivot_map)
+{
+    int64_t begin, end, inc;
+    if (direction == Direction::Forward) {
+        begin = 0;
+        end = pivot.size();
+        inc = 1;
+    }
+    else {
+        begin = pivot.size()-1;
+        end = -1;
+        inc = -1;
+    }
+
+    // Put the participating rows in the map.
+    for (int64_t i = begin; i != end; i += inc) {
+        if (pivot[i] != Pivot(0, i)) {
+            pivot_map[Pivot(0, i)] = Pivot(0, i);
+            pivot_map[pivot[i]] = pivot[i];
+        }
+    }
+
+    // Perform pivoting in the map.
+    for (int64_t i = begin; i != end; i += inc)
+        if (pivot[i] != Pivot(0, i))
+            std::swap(pivot_map[pivot[i]], pivot_map[Pivot(0, i)]);
+/*
+    std::cout << std::endl;
+    for (int64_t i = begin; i != end; i += inc)
+        std::cout << pivot[i].tileIndex() << "\t"
+                  << pivot[i].elementOffset() << std::endl;
+
+    std::cout << std::endl;
+    for (auto it : pivot_map)
+        std::cout << it.first.tileIndex() << "\t"
+                  << it.first.elementOffset() << "\t\t"
+                  << it.second.tileIndex() << "\t"
+                  << it.second.elementOffset() << std::endl;
+
+    std::cout << "---------------------------" << std::endl;
+*/
+}
+/*
+//------------------------------------------------------------------------------
+template <Target target, typename scalar_t>
+void swap(Direction direction,
+          Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
+          Layout layout, int priority, int tag)
+{
+    swap(internal::TargetType<target>(), direction, A, pivot,
+         layout, priority, tag);
+}
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void swap(internal::TargetType<Target::HostTask>,
+          Direction direction,
+          Matrix<scalar_t>& A, std::vector<Pivot>& pivot_vec,
+          Layout layout, int priority, int tag)
+{
+    // CPU uses ColMajor
+    assert(layout == Layout::ColMajor);
+
+    std::map<Pivot, Pivot> pivot_map;
+    makeParallelPivot(direction, pivot_vec, pivot_map);
+
+    // todo: for performance optimization, merge with the loops below,
+    // at least with lookahead, probably selectively
+    A.tileGetAllForWriting(A.hostNum(), LayoutConvert(layout));
+    {
+        trace::Block trace_block("internal::swap");
+
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            int64_t nb = A.tileNb(j);
+
+            std::vector<MPI_Request> requests;
+            std::vector<MPI_Status> statuses;
+
+            // Make copies of src rows.
+            // Make room for dst rows.
+            std::map<Pivot, std::vector<scalar_t> > src_rows;
+            std::map<Pivot, std::vector<scalar_t> > dst_rows;
+            for (auto const& pivot : pivot_map) {
+
+                bool src_local = A.tileIsLocal(pivot.second.tileIndex(), j);
+                if (src_local) {
+                    src_rows[pivot.second].resize(nb);
+                    copyRow(nb, A(pivot.second.tileIndex(), j),
+                            pivot.second.elementOffset(), 0,
+                            src_rows[pivot.second].data());
+                }
+                bool dst_local = A.tileIsLocal(pivot.first.tileIndex(), j);
+                if (dst_local)
+                    dst_rows[pivot.first].resize(nb);
+            }
+
+            // Local swap.
+            for (auto const& pivot : pivot_map) {
+
+                bool src_local = A.tileIsLocal(pivot.second.tileIndex(), j);
+                bool dst_local = A.tileIsLocal(pivot.first.tileIndex(), j);
+
+                if (src_local && dst_local) {
+                    memcpy(dst_rows[pivot.first].data(),
+                           src_rows[pivot.second].data(),
+                           sizeof(scalar_t)*nb);
+                }
+            }
+
+            // Launch all MPI.
+            for (auto const& pivot : pivot_map) {
+
+                bool src_local = A.tileIsLocal(pivot.second.tileIndex(), j);
+                bool dst_local = A.tileIsLocal(pivot.first.tileIndex(), j);
+
+                if (src_local && !dst_local) {
+
+                    requests.resize(requests.size()+1);
+                    int dest = A.tileRank(pivot.first.tileIndex(), j);
+                    MPI_Isend(src_rows[pivot.second].data(), nb,
+                              mpi_type<scalar_t>::value, dest, tag, A.mpiComm(),
+                              &requests[requests.size()-1]);
+                }
+                if (!src_local && dst_local) {
+
+                    requests.resize(requests.size()+1);
+                    int source = A.tileRank(pivot.second.tileIndex(), j);
+                    MPI_Irecv(dst_rows[pivot.first].data(), nb,
+                              mpi_type<scalar_t>::value, source, tag,
+                              A.mpiComm(), &requests[requests.size()-1]);
+                }
+            }
+
+            // Waitall.
+            statuses.resize(requests.size());
+            MPI_Waitall(requests.size(), requests.data(), statuses.data());
+
+            for (auto const& pivot : pivot_map) {
+                bool dst_local = A.tileIsLocal(pivot.first.tileIndex(), j);
+                if (dst_local) {
+                    copyRow(nb, dst_rows[pivot.first].data(),
+                            A(pivot.first.tileIndex(), j),
+                            pivot.first.elementOffset(), 0);
+                }
+            }
+        }
+    }
+}
+*/
+
+//------------------------------------------------------------------------------
 /// Swaps rows according to the pivot vector.
 /// Dispatches to target implementations.
 ///
@@ -62,20 +228,6 @@ void swap(Direction direction,
 {
     swap(internal::TargetType<target>(), direction, A, pivot,
          layout, priority, tag);
-}
-
-//------------------------------------------------------------------------------
-/// Swaps L shapes according to the pivot vector.
-/// Dispatches to target implementations.
-/// @ingroup swap_internal
-///
-template <Target target, typename scalar_t>
-void swap(Direction direction,
-          HermitianMatrix<scalar_t>&& A, std::vector<Pivot>& pivot,
-          int priority, int tag)
-{
-    swap(internal::TargetType<target>(), direction, A, pivot,
-         priority, tag);
 }
 
 //------------------------------------------------------------------------------
@@ -318,6 +470,20 @@ void swap(internal::TargetType<Target::Devices>,
                 cudaStreamSynchronize(A.compute_stream(device)));
         }
     }
+}
+
+//------------------------------------------------------------------------------
+/// Swaps L shapes according to the pivot vector.
+/// Dispatches to target implementations.
+/// @ingroup swap_internal
+///
+template <Target target, typename scalar_t>
+void swap(Direction direction,
+          HermitianMatrix<scalar_t>&& A, std::vector<Pivot>& pivot,
+          int priority, int tag)
+{
+    swap(internal::TargetType<target>(), direction, A, pivot,
+         priority, tag);
 }
 
 //------------------------------------------------------------------------------

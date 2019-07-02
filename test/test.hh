@@ -164,6 +164,10 @@ void test_henorm (Params& params, bool run);
 void test_synorm (Params& params, bool run);
 void test_trnorm (Params& params, bool run);
 
+// Inverse
+void test_potri  (Params& params, bool run);
+void test_getri  (Params& params, bool run);
+
 // -----------------------------------------------------------------------------
 inline slate::Target str2target(const char* target)
 {

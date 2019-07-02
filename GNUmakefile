@@ -237,6 +237,7 @@ libslate_src += \
         src/internal/internal_gemm_A.cc \
         src/internal/internal_genorm.cc \
         src/internal/internal_geqrf.cc \
+        src/internal/internal_geset.cc \
         src/internal/internal_getrf.cc \
         src/internal/internal_hemm.cc \
         src/internal/internal_henorm.cc \
@@ -251,6 +252,8 @@ libslate_src += \
         src/internal/internal_trmm.cc \
         src/internal/internal_trnorm.cc \
         src/internal/internal_trsm.cc \
+        src/internal/internal_trtri.cc \
+        src/internal/internal_trtrm.cc \
         src/internal/internal_ttmqr.cc \
         src/internal/internal_ttqrt.cc \
         src/internal/internal_unmqr.cc \
@@ -264,6 +267,7 @@ ifeq ($(cuda),1)
             src/cuda/device_geadd.cu \
             src/cuda/device_gecopy.cu \
             src/cuda/device_genorm.cu \
+            src/cuda/device_geset.cu \
             src/cuda/device_henorm.cu \
             src/cuda/device_synorm.cu \
             src/cuda/device_trnorm.cu \
@@ -287,6 +291,8 @@ libslate_src += \
         src/gesv.cc \
         src/gesvMixed.cc \
         src/getrf.cc \
+        src/getri.cc \
+        src/getriOOP.cc \
         src/getrs.cc \
         src/hemm.cc \
         src/her2k.cc \
@@ -298,13 +304,17 @@ libslate_src += \
         src/posv.cc \
         src/posvMixed.cc \
         src/potrf.cc \
+        src/potri.cc \
         src/potrs.cc \
+        src/set.cc \
         src/symm.cc \
         src/syr2k.cc \
         src/syrk.cc \
         src/tbsm.cc \
         src/trmm.cc \
         src/trsm.cc \
+        src/trtri.cc \
+        src/trtrm.cc \
         src/unmqr.cc \
 
 # main tester
@@ -332,6 +342,8 @@ test_src += \
         test/test_trmm.cc \
         test/test_trnorm.cc \
         test/test_trsm.cc \
+        test/test_potri.cc \
+        test/test_getri.cc
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
 # Note that 'make' sets $(FC) to f77 by default.

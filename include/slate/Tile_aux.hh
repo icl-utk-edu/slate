@@ -124,6 +124,44 @@ void tzcopy(Tile<src_scalar_t> const&& A, Tile<dst_scalar_t>&& B)
 }
 
 //------------------------------------------------------------------------------
+/// Set entries in the matrix $A$ to the value of $\alpha$.
+/// Only set the strictly-lower or the strictly-upper part.
+/// @ingroup tzset
+///
+template <typename scalar_t>
+void tzset(scalar_t alpha, Tile<scalar_t>& A)
+{
+//  trace::Block trace_block("aux::tzset");
+
+    // TODO: Can be loosened?
+    assert(A.uplo() != Uplo::General);
+    assert(A.op() == Op::NoTrans);
+
+    for (int64_t j = 0; j < A.nb(); ++j) {
+        if (A.uplo() == Uplo::Lower) {
+            for (int64_t i = j+1; i < A.mb(); ++i) {
+                A.at(i, j) = alpha;
+            }
+        }
+        else {
+            for (int64_t i = 0; i < j && i < A.mb(); ++i) {
+                A.at(i, j) = alpha;
+            }
+        }
+    }
+}
+
+//-----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+/// @ingroup tzset
+///
+template <typename scalar_t>
+void tzset(scalar_t alpha, Tile<scalar_t>&& A)
+{
+    tzset(alpha, A);
+}
+
+//------------------------------------------------------------------------------
 /// @deprecated
 /// In-place conversion between column and row-major layout for square tiles.
 /// Takes a pointer to the original tile in MatrixStorage, instead of a
@@ -226,6 +264,54 @@ void transpose( int64_t m, int64_t n,
             AT[j + i*ldat] = A[i + j*lda];
         }
     }
+}
+
+//------------------------------------------------------------------------------
+/// Copy a row of a tile to a vector.
+///
+template <typename scalar_t>
+void copyRow(int64_t n,
+             Tile<scalar_t>& A, int64_t i_offs, int64_t j_offs,
+             scalar_t* V)
+{
+    // todo: size assertions
+    for (int64_t j = 0; j < n; ++j)
+        V[j] = A(i_offs, j_offs+j);
+}
+
+//-----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+///
+template <typename scalar_t>
+void copyRow(int64_t n,
+             Tile<scalar_t>&& A, int64_t i_offs, int64_t j_offs,
+             scalar_t* V)
+{
+    copyRow(n, A, i_offs, j_offs, V);
+}
+
+//------------------------------------------------------------------------------
+/// Copy a vector to a row of a tile.
+///
+template <typename scalar_t>
+void copyRow(int64_t n,
+             scalar_t* V,
+             Tile<scalar_t>& A, int64_t i_offs, int64_t j_offs)
+{
+    // todo: size assertions
+    for (int64_t j = 0; j < n; ++j)
+        A.at(i_offs, j_offs+j) = V[j];
+}
+
+//-----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+///
+template <typename scalar_t>
+void copyRow(int64_t n,
+             scalar_t* V,
+             Tile<scalar_t>&& A, int64_t i_offs, int64_t j_offs)
+{
+    copyRow(n, V, A, i_offs, j_offs);
 }
 
 } // namespace slate

@@ -62,8 +62,12 @@ template <typename src_matrix_type, typename dst_matrix_type>
 void copy(src_matrix_type& A, dst_matrix_type& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
+template <typename scalar_t>
+void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
+         const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 //------------------------------------------------------------------------------
-// Level 3 BLAS
+// Level 3 BLAS and LAPACK auxiliary
 
 //-----------------------------------------
 // gbmm()
@@ -309,6 +313,26 @@ void trsm(blas::Side side,
                           Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
+//-----------------------------------------
+// trtri()
+template <typename scalar_t>
+void trtri(TriangularMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void trtri(TriangularMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// trtrm()
+template <typename scalar_t>
+void trtrm(TriangularMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void trtrm(TriangularMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 //------------------------------------------------------------------------------
 // Norms
 
@@ -401,7 +425,6 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
                 int& iter,
                 const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-
 //-----------------------------------------
 // getrf
 template <typename scalar_t>
@@ -421,6 +444,26 @@ void getrs(Matrix<scalar_t>& A, Pivots& pivots,
 
 template <Target target, typename scalar_t>
 void getrs(Matrix<scalar_t>& A, Pivots& pivots,
+           Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// getri
+template <Target target, typename scalar_t>
+void getri(Matrix<scalar_t>& A, Pivots& pivots,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <typename scalar_t>
+void getri(Matrix<scalar_t>& A, Pivots& pivots,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void getri(Matrix<scalar_t>& A, Pivots& pivots,
+           Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <typename scalar_t>
+void getri(Matrix<scalar_t>& A, Pivots& pivots,
            Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
@@ -501,6 +544,8 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
                 int& iter,
                 const std::map<Option, Value>& opts = std::map<Option, Value>());
 
+// todo: forward real-symmetric matrices to posvMixed?
+
 //-----------------------------------------
 // potrf
 template <typename scalar_t>
@@ -542,6 +587,18 @@ void potrs(SymmetricMatrix<scalar_t>& A, Matrix<scalar_t>& B,
     HermitianMatrix<scalar_t> AH(A);
     potrs(AH, B, opts);
 }
+
+//-----------------------------------------
+// potri
+template <typename scalar_t>
+void potri(HermitianMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void potri(HermitianMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+// todo: forward real-symmetric matrices to potri?
 
 //------------------------------------------------------------------------------
 // Symmetric indefinite -- block Aasen's

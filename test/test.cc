@@ -98,6 +98,9 @@ std::vector< libtest::routines_t > routines = {
     { "gbtrs",              test_gbsv,         Section::gesv },
     { "",                   nullptr,           Section::newline },
 
+    { "getri",              test_getri,        Section::gesv },
+    { "",                   nullptr,           Section::newline },    
+
     // -----
     // Cholesky
     { "posv",               test_posv,         Section::posv },
@@ -110,6 +113,8 @@ std::vector< libtest::routines_t > routines = {
     { "potrs",              test_posv,         Section::posv },
     { "",                   nullptr,           Section::newline },
 
+    { "potri",              test_potri,        Section::posv },
+    { "",                   nullptr,           Section::newline },
     // -----
     // symmetric indefinite
     //{ "sysv",                test_sysv,         Section::sysv },

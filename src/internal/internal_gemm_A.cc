@@ -65,7 +65,7 @@ template <Target target, typename scalar_t>
 void gemm_A(scalar_t alpha, Matrix<scalar_t>&& A,
                             Matrix<scalar_t>&& B,
             scalar_t beta,  Matrix<scalar_t>&& C,
-            int priority)
+            Layout layout, int priority)
 {
     if (C.is_complex &&
         ((C.op() == Op::Trans &&
@@ -80,7 +80,7 @@ void gemm_A(scalar_t alpha, Matrix<scalar_t>&& A,
            alpha, A,
                   B,
            beta,  C,
-           priority);
+           layout, priority);
 }
 
 //------------------------------------------------------------------------------
@@ -94,11 +94,8 @@ void gemm_A(internal::TargetType<Target::HostTask>,
             scalar_t alpha, Matrix<scalar_t>& A,
                             Matrix<scalar_t>& B,
             scalar_t beta,  Matrix<scalar_t>& C,
-            int priority)
+            Layout layout, int priority)
 {
-    // todo: relax this assumption, and optimize, check internal::gemm
-    const Layout layout = Layout::ColMajor;
-
     // check dimensions
     assert(B.nt() == 1);
     assert(C.nt() == 1);
@@ -106,6 +103,7 @@ void gemm_A(internal::TargetType<Target::HostTask>,
     assert(A.mt() == C.mt());
 
     int err = 0;
+    std::string err_msg;
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (A.tileIsLocal(i, j)) {
@@ -142,7 +140,7 @@ void gemm_A(internal::TargetType<Target::HostTask>,
     #pragma omp taskwait
 
     for (int64_t i = 0; i < A.mt(); ++i) {
-        #pragma omp task shared(A, B, C, err) priority(priority)
+        #pragma omp task shared(A, B, C, err, err_msg) priority(priority)
         {
             try {
 
@@ -151,7 +149,7 @@ void gemm_A(internal::TargetType<Target::HostTask>,
                     beta_j = beta;
                 else
                     beta_j = scalar_t(0.0);
-
+                bool Ci0_modified = false;
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     if (A.tileIsLocal(i, j)) {
                         gemm(alpha,  A(i, j),
@@ -162,13 +160,16 @@ void gemm_A(internal::TargetType<Target::HostTask>,
 
                         A.tileTick(i, j);
                         B.tileTick(j, 0);
+                        Ci0_modified = true;
                     }
                 }
-                // mark this tile modified
-                C.tileModified(i, 0);
+                if (Ci0_modified)
+                    // mark this tile modified
+                    C.tileModified(i, 0);
             }
             catch (std::exception& e) {
                 err = __LINE__;
+                err_msg = std::string(e.what())+", ("+std::to_string(i)+",0)";
             }
         }
     }
@@ -176,7 +177,7 @@ void gemm_A(internal::TargetType<Target::HostTask>,
     #pragma omp taskwait
 
     if (err)
-        throw std::exception();
+        slate_error(err_msg+", rank "+std::to_string(C.mpiRank())+", line "+std::to_string(err));
 }
 
 //------------------------------------------------------------------------------
@@ -187,28 +188,28 @@ void gemm_A<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int priority);
+    Layout layout, int priority);
 
 template
 void gemm_A<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int priority);
+    Layout layout, int priority);
 
 template
 void gemm_A< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int priority);
+    Layout layout, int priority);
 
 template
 void gemm_A< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int priority);
+    Layout layout, int priority);
 
 } // namespace internal
 } // namespace slate

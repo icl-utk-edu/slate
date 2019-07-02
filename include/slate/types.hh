@@ -97,13 +97,27 @@ public:
           element_offset_(element_offset)
     {}
 
-    int64_t tileIndex() { return tile_index_; }
-    int64_t elementOffset() { return element_offset_; }
+    int64_t tileIndex() const { return tile_index_; }
+    int64_t elementOffset() const { return element_offset_; }
 
 private:
     int64_t tile_index_;     ///< tile index in the panel submatrix
     int64_t element_offset_; ///< pivot offset in the tile
 };
+
+inline bool operator< (Pivot const& lhs, Pivot const& rhs)
+{
+    std::pair<int64_t, int64_t> lhs_pair(lhs.tileIndex(), lhs.elementOffset());
+    std::pair<int64_t, int64_t> rhs_pair(rhs.tileIndex(), rhs.elementOffset());
+    return lhs_pair < rhs_pair;
+}
+
+inline bool operator!= (Pivot const& lhs, Pivot const& rhs)
+{
+    std::pair<int64_t, int64_t> lhs_pair(lhs.tileIndex(), lhs.elementOffset());
+    std::pair<int64_t, int64_t> rhs_pair(rhs.tileIndex(), rhs.elementOffset());
+    return lhs_pair != rhs_pair;
+}
 
 using Pivots = std::vector< std::vector<Pivot> >;
 

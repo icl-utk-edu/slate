@@ -316,7 +316,7 @@ if (opts.lu):
     [ 'gesv',  gen + dtype + la + n ],
     [ 'getrf', gen + dtype + la + n ],  # todo: mn
     [ 'getrs', gen + dtype + la + n + trans ],
-    #[ 'getri', gen + dtype + la + n ],
+    [ 'getri', gen + dtype + la + n ],
     #[ 'gecon', gen + dtype + la + n ],
     #[ 'gerfs', gen + dtype + la + n + trans ],
     #[ 'geequ', gen + dtype + la + n ],
@@ -350,7 +350,7 @@ if (opts.chol):
     [ 'posv',  gen + dtype + la + n + uplo ],
     [ 'potrf', gen + dtype + la + n + uplo ],
     [ 'potrs', gen + dtype + la + n + uplo ],
-    #[ 'potri', gen + dtype + la + n + uplo ],
+    [ 'potri', gen + dtype + la + n + uplo ],
     #[ 'pocon', gen + dtype + la + n + uplo ],
     #[ 'porfs', gen + dtype + la + n + uplo ],
     #[ 'poequ', gen + dtype + la + n ],  # only diagonal elements (no uplo)

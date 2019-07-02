@@ -185,15 +185,15 @@ void hetrf(slate::internal::TargetType<target>,
 
                 #if 0
                 slate::internal::gemm_W<Target::HostTask>(
-                    scalar_t(-1.0),  A.sub(k, k,   0, k-2),
+                    scalar_t(-1.0), A.sub(k, k,   0, k-2),
                                     Hj.sub(0, k-2, 0, 0),
-                    scalar_t( 1.0),  T.sub(k, k,   k, k),
+                    scalar_t( 1.0), T.sub(k, k,   k, k),
                               ind1, std::move(W1));
                 #else
                 slate::internal::gemm_A<Target::HostTask>(
                     scalar_t(-1.0), A.sub(k, k,   0, k-2),
-                                   Hj.sub(0, k-2, 0, 0),
-                    scalar_t( 1.0), T.sub(k, k,   k, k));
+                                    Hj.sub(0, k-2, 0, 0),
+                    scalar_t( 1.0), T.sub(k, k,   k, k), layout);
                 #endif
 
                 ReduceList reduce_list;
@@ -321,7 +321,7 @@ void hetrf(slate::internal::TargetType<target>,
                                 slate::internal::gemm_A<Target::HostTask>(
                                     scalar_t(-1.0), A.sub(k+1, A_mt-1, 0, k-2),
                                                     Hj.sub(0, k-2, 0, 0),
-                                    scalar_t( 1.0), A.sub(k+1, A_mt-1, k, k));
+                                    scalar_t( 1.0), A.sub(k+1, A_mt-1, k, k), layout);
                             #else
                                 if (A_mt - (k+1) > max_panel_threads) {
                                     slate::internal::gemm_A<Target::HostTask>(
@@ -331,9 +331,9 @@ void hetrf(slate::internal::TargetType<target>,
                                 }
                                 else {
                                     slate::internal::gemm_W<Target::HostTask>(
-                                        scalar_t(-1.0),  A.sub(k+1, A_mt-1, 0, k-2),
+                                        scalar_t(-1.0), A.sub(k+1, A_mt-1, 0, k-2),
                                                         Hj.sub(0, k-2, 0, 0),
-                                        scalar_t( 1.0),  A.sub(k+1, A_mt-1, k, k),
+                                        scalar_t( 1.0), A.sub(k+1, A_mt-1, k, k),
                                         ind2,           W2.sub(k+1, A_mt-1, 0, W2.nt()-1));
                                 }
                             #endif

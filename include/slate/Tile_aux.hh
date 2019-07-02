@@ -125,7 +125,7 @@ void tzcopy(Tile<src_scalar_t> const&& A, Tile<dst_scalar_t>&& B)
 
 //------------------------------------------------------------------------------
 /// Set entries in the matrix $A$ to the value of $\alpha$.
-/// Only set the strictly-lower of the strictly-upper part.
+/// Only set the strictly-lower or the strictly-upper part.
 /// @ingroup tzset
 ///
 template <typename scalar_t>

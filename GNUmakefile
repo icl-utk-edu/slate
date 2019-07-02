@@ -342,7 +342,8 @@ test_src += \
         test/test_trmm.cc \
         test/test_trnorm.cc \
         test/test_trsm.cc \
-        test/test_potri.cc
+        test/test_potri.cc \
+        test/test_getri.cc
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
 # Note that 'make' sets $(FC) to f77 by default.

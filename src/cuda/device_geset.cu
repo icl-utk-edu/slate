@@ -60,11 +60,11 @@ namespace device {
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
 ///
-/// @param[in] diag_value
-///     The value to set on the diagonal.
-///
 /// @param[in] offdiag_value
 ///     The value to set outside of the diagonal.
+///
+/// @param[in] diag_value
+///     The value to set on the diagonal.
 ///
 /// @param[in] Atiles
 ///     Array of tiles of dimension gridDim.x,
@@ -76,14 +76,14 @@ namespace device {
 template <typename scalar_t>
 __global__ void gesetKernel(
     int64_t m, int64_t n,
-    scalar_t diag_value, scalar_t offdiag_value, scalar_t** tilesA, int64_t lda)
+    scalar_t offdiag_value, scalar_t diag_value, scalar_t** tilesA, int64_t lda)
 {
     scalar_t* tileA = tilesA[blockIdx.x];
     int idx = threadIdx.x;
     scalar_t* rowA = &tileA[idx];
 
     for (int64_t j = 0; j < n; ++j)
-        rowA[j*lda] = (j != idx) ? diag_value : offdiag_value;
+        rowA[j*lda] = (j != idx) ? offdiag_value : diag_value;
 }
 
 //------------------------------------------------------------------------------

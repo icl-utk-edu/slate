@@ -76,8 +76,10 @@ void trtrm(slate::internal::TargetType<target>,
     std::vector< uint8_t > row_vector(A_nt);
     uint8_t* row = row_vector.data();
 
-    A.allocateBatchArrays();
-    A.reserveDeviceWorkspace();
+    if (target == Target::Devices) {
+        A.allocateBatchArrays();
+        A.reserveDeviceWorkspace();
+    }
 
     #pragma omp parallel
     #pragma omp master

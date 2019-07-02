@@ -80,8 +80,10 @@ void trtri(slate::internal::TargetType<target>,
 
     int tag = 0;
 
-    A.allocateBatchArrays();
-    A.reserveDeviceWorkspace();
+    if (target == Target::Devices) {
+        A.allocateBatchArrays();
+        A.reserveDeviceWorkspace();
+    }
 
     #pragma omp parallel
     #pragma omp master

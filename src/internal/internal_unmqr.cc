@@ -241,7 +241,12 @@ void unmqr(internal::TargetType<target>,
     }
 
     // free workspace
-    Wr.clear();
+    // todo: Wr.clear();
+    for (int j = 0; j < Wr.nt(); ++j) {
+        if (Wr.tileIsLocal(0, j)) {
+            Wr.tileErase(0, j);
+        }
+    }
 
     #pragma omp taskwait
 }

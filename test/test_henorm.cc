@@ -43,9 +43,6 @@ void test_henorm_work(Params& params, bool run)
     if (! run)
         return;
 
-    // Sizes of data
-    int64_t An = n;
-
     // local values
     const int izero = 0, ione = 1;
 
@@ -65,15 +62,15 @@ void test_henorm_work(Params& params, bool run)
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = scalapack_numroc(An, nb, myrow, izero, nprow);
-    int64_t nlocA = scalapack_numroc(An, nb, mycol, izero, npcol);
+    int64_t mlocA = scalapack_numroc(n, nb, myrow, izero, nprow);
+    int64_t nlocA = scalapack_numroc(n, nb, mycol, izero, npcol);
     int64_t lldA  = std::max(int64_t(1), mlocA);
-    scalapack_descinit(descA_tst, An, An, nb, nb, izero, izero, ictxt, lldA, &info);
+    scalapack_descinit(descA_tst, n, n, nb, nb, izero, izero, ictxt, lldA, &info);
     slate_assert(info == 0);
     std::vector<scalar_t> A_tst(lldA*nlocA);
     // todo: fix the generation
     // int iseed = 1;
-    // scalapack_pplrnt(&A_tst[0], An, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
+    // scalapack_pplrnt(&A_tst[0], n, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
     int64_t iseeds[4] = { myrow, mycol, 2, 3 };
     //lapack::larnv(2, iseeds, lldA*nlocA, &A_tst[0] );
     for (int64_t j = 0; j < nlocA; ++j)
@@ -84,20 +81,20 @@ void test_henorm_work(Params& params, bool run)
     //}
 
     // todo: work-around to initialize BaseMatrix::num_devices_
-    slate::HermitianMatrix<scalar_t> A0(uplo, An, nb, p, q, MPI_COMM_WORLD);
+    slate::HermitianMatrix<scalar_t> A0(uplo, n, nb, p, q, MPI_COMM_WORLD);
 
     slate::HermitianMatrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy local ScaLAPACK data to GPU or CPU tiles.
         slate::Target origin_target = origin2target(origin);
-        A = slate::HermitianMatrix<scalar_t>(uplo, An, nb, nprow, npcol, MPI_COMM_WORLD);
+        A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, nprow, npcol, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
         copy(&A_tst[0], descA_tst, A);
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layout.
         A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-                uplo, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+                uplo, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     }
 
     if (verbose > 1) {
@@ -154,21 +151,21 @@ void test_henorm_work(Params& params, bool run)
         time = libtest::get_wtime();
         real_t A_norm_ref = scalapack_planhe(
                                 norm2str(norm), uplo2str(A.uplo()),
-                                An, &A_tst[0], ione, ione, descA_tst, &worklanhe[0]);
+                                n, &A_tst[0], ione, ione, descA_tst, &worklanhe[0]);
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 
         //A_norm_ref = lapack::lanhe(
         //    norm, A.uplo(),
-        //    An, &A_tst[0], lldA);
+        //    n, &A_tst[0], lldA);
 
         // difference between norms
         real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
         if (norm == slate::Norm::One || norm == slate::Norm::Inf) {
-            error /= sqrt(An);
+            error /= sqrt(n);
         }
         else if (norm == slate::Norm::Fro) {
-            error /= An;  // = sqrt( An*An );
+            error /= n;  // = sqrt( n*n );
         }
 
         if (verbose && mpi_rank == 0) {
@@ -268,15 +265,15 @@ void test_henorm_work(Params& params, bool run)
 
                         real_t A_norm_ref = scalapack_planhe(
                                                 norm2str(norm), uplo2str(A.uplo()),
-                                                An, &A_tst[0], ione, ione, descA_tst, &worklanhe[0]);
+                                                n, &A_tst[0], ione, ione, descA_tst, &worklanhe[0]);
 
                         // difference between norms
                         real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
                         if (norm == slate::Norm::One || norm == slate::Norm::Inf) {
-                            error /= sqrt(An);
+                            error /= sqrt(n);
                         }
                         else if (norm == slate::Norm::Fro) {
-                            error /= sqrt(An*An);
+                            error /= sqrt(n*n);
                         }
 
                         // Allow for difference, except max norm in real should be exact.

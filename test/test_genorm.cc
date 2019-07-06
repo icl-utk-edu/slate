@@ -45,10 +45,6 @@ void test_genorm_work(Params& params, bool run)
     if (! run)
         return;
 
-    // Sizes of data
-    int64_t Am = m;
-    int64_t An = n;
-
     // local values
     const int izero = 0, ione = 1;
 
@@ -68,15 +64,15 @@ void test_genorm_work(Params& params, bool run)
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = scalapack_numroc(Am, nb, myrow, izero, nprow);
-    int64_t nlocA = scalapack_numroc(An, nb, mycol, izero, npcol);
+    int64_t mlocA = scalapack_numroc(m, nb, myrow, izero, nprow);
+    int64_t nlocA = scalapack_numroc(n, nb, mycol, izero, npcol);
     int64_t lldA  = std::max(int64_t(1), mlocA);
-    scalapack_descinit(descA_tst, Am, An, nb, nb, izero, izero, ictxt, lldA, &info);
+    scalapack_descinit(descA_tst, m, n, nb, nb, izero, izero, ictxt, lldA, &info);
     slate_assert(info == 0);
     std::vector<scalar_t> A_tst(lldA*nlocA);
     // todo: fix the generation
     //int iseed = 1;
-    //scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
+    //scalapack_pplrnt(&A_tst[0], m, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
     int64_t iseeds[4] = { myrow, mycol, 2, 3 };
     //lapack::larnv(2, iseeds, lldA*nlocA, &A_tst[0] );
     for (int64_t j = 0; j < nlocA; ++j)
@@ -87,20 +83,20 @@ void test_genorm_work(Params& params, bool run)
     //}
 
     // todo: work-around to initialize BaseMatrix::num_devices_
-    slate::Matrix<scalar_t> A0(Am, An, nb, p, q, MPI_COMM_WORLD);
+    slate::Matrix<scalar_t> A0(m, n, nb, p, q, MPI_COMM_WORLD);
 
     slate::Matrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy local ScaLAPACK data to GPU or CPU tiles.
         slate::Target origin_target = origin2target(origin);
-        A = slate::Matrix<scalar_t>(Am, An, nb, nprow, npcol, MPI_COMM_WORLD);
+        A = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
         copy(&A_tst[0], descA_tst, A);
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layout.
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
-                Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+                m, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     }
 
     std::vector<real_t> values;
@@ -196,16 +192,16 @@ void test_genorm_work(Params& params, bool run)
         if (scope == slate::NormScope::Matrix) {
             A_norm_ref = scalapack_plange(
                 norm2str(op_norm),
-                Am, An, &A_tst[0], ione, ione, descA_tst, &worklange[0]);
+                m, n, &A_tst[0], ione, ione, descA_tst, &worklange[0]);
             MPI_Barrier(MPI_COMM_WORLD);
         }
         else if (scope == slate::NormScope::Columns) {
-            for (int64_t c = 0; c < An; ++c)
+            for (int64_t c = 0; c < n; ++c)
             {
                 int64_t c_1 = c+1;
                 A_norm_ref = scalapack_plange(
                     norm2str(norm),
-                    Am, 1, &A_tst[0], ione, c_1, descA_tst, &worklange[0]);
+                    m, 1, &A_tst[0], ione, c_1, descA_tst, &worklange[0]);
                 MPI_Barrier(MPI_COMM_WORLD);
                 error += std::abs(values[c] - A_norm_ref) / A_norm_ref;
             }
@@ -217,19 +213,19 @@ void test_genorm_work(Params& params, bool run)
 
         //A_norm_ref = lapack::lange(
         //    op_norm,
-        //    Am, An, &A_tst[0], lldA);
+        //    m, n, &A_tst[0], lldA);
 
         if (scope == slate::NormScope::Matrix) {
             // difference between norms
             error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
             if (op_norm == slate::Norm::One) {
-                error /= sqrt(Am);
+                error /= sqrt(m);
             }
             else if (op_norm == slate::Norm::Inf) {
-                error /= sqrt(An);
+                error /= sqrt(n);
             }
             else if (op_norm == slate::Norm::Fro) {
-                error /= sqrt(Am*An);
+                error /= sqrt(m*n);
             }
 
             if (verbose && mpi_rank == 0) {
@@ -327,18 +323,18 @@ void test_genorm_work(Params& params, bool run)
 
                         real_t A_norm_ref = scalapack_plange(
                                                 norm2str(norm),
-                                                Am, An, &A_tst[0], ione, ione, descA_tst, &worklange[0]);
+                                                m, n, &A_tst[0], ione, ione, descA_tst, &worklange[0]);
 
                         // difference between norms
                         real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
                         if (norm == slate::Norm::One) {
-                            error /= sqrt(Am);
+                            error /= sqrt(m);
                         }
                         else if (norm == slate::Norm::Inf) {
-                            error /= sqrt(An);
+                            error /= sqrt(n);
                         }
                         else if (norm == slate::Norm::Fro) {
-                            error /= sqrt(Am*An);
+                            error /= sqrt(m*n);
                         }
 
                         // Allow for difference, except max norm in real should be exact.

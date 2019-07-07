@@ -249,7 +249,7 @@ public:
     /// todo: validate and handle sliced-matrix
     bool isTransposable()
     {
-        return    extended_                     // already extended buffer
+        return    extended()                    // already extended buffer
                || mb_ == nb_                    // square tile
                || kind_ != TileKind::UserOwned  // SLATE allocated
                || isContiguous();               // contiguous
@@ -259,7 +259,7 @@ public:
     void layoutReset();
 
     /// @return Whether this tile has extended buffer
-    bool extended() const { return extended_; }
+    bool extended() const { return ext_data_ != nullptr; }
 
     /// @return Pointer to the extended buffer
     scalar_t* extData() { return ext_data_; }
@@ -292,7 +292,7 @@ public:
     /// CUDA stream must be provided if conversion is to happen on device
     void layoutConvert(cudaStream_t stream = nullptr)
     {
-        assert(mb() == nb() || extended_);
+        assert(mb() == nb() || extended());
         layoutConvert(nullptr, stream);
     }
 
@@ -324,7 +324,6 @@ protected:
     ///          - RowMajor: elements of a row are 1-strided
     Layout layout_;
     Layout user_layout_; // Temporarily store user-provided-memory's layout
-    bool extended_; // indicates tile has an extended buffer
 
     int device_;
 };
@@ -346,7 +345,6 @@ Tile<scalar_t>::Tile()
       kind_(TileKind::UserOwned),
       layout_(Layout::ColMajor),
       user_layout_(Layout::ColMajor),
-      extended_(false),
       device_(-1)  // todo: host_num
 {}
 
@@ -400,7 +398,6 @@ Tile<scalar_t>::Tile(
       kind_(kind),
       layout_(layout),
       user_layout_(layout),
-      extended_(false),
       device_(device)
 {
     slate_assert(mb >= 0);
@@ -592,8 +589,6 @@ void Tile<scalar_t>::makeTransposable(scalar_t* new_data)
     user_stride_ = stride_;
     user_layout_ = layout_;
     ext_data_ = new_data;
-
-    extended_ = true;
 }
 
 //------------------------------------------------------------------------------
@@ -604,7 +599,7 @@ void Tile<scalar_t>::makeTransposable(scalar_t* new_data)
 template <typename scalar_t>
 void Tile<scalar_t>::layoutSetFrontDataExt(bool front)
 {
-    assert(extended_);
+    assert(extended());
 
     if (front) {
         data_ = ext_data_;
@@ -630,8 +625,6 @@ void Tile<scalar_t>::layoutReset()
     assert(data_ == user_data_);
     user_data_ = nullptr;
     ext_data_ = nullptr;
-
-    extended_ = false;
 }
 
 //------------------------------------------------------------------------------
@@ -675,7 +668,7 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream)
     // rectangular tile
     else {
         // if tile made Convertible
-        if (extended_)
+        if (extended())
         {
             // out-of-place convert
             scalar_t* src_data;

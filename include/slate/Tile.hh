@@ -423,8 +423,8 @@ template <typename scalar_t>
 scalar_t Tile<scalar_t>::operator()(int64_t i, int64_t j) const
 {
     using blas::conj;
-    assert(0 <= i && i < mb());
-    assert(0 <= j && j < nb());
+    slate_assert(0 <= i && i < mb());
+    slate_assert(0 <= j && j < nb());
     if (op_ == Op::ConjTrans) {
         if (layout_ == Layout::ColMajor)
             return conj(data_[ j + i*stride_ ]);
@@ -459,8 +459,8 @@ scalar_t Tile<scalar_t>::operator()(int64_t i, int64_t j) const
 template <typename scalar_t>
 scalar_t const& Tile<scalar_t>::at(int64_t i, int64_t j) const
 {
-    assert(0 <= i && i < mb());
-    assert(0 <= j && j < nb());
+    slate_assert(0 <= i && i < mb());
+    slate_assert(0 <= j && j < nb());
     if ((op_ == Op::NoTrans) == (layout_ == Layout::ColMajor)) {
         // (NoTrans && ColMajor) ||
         // (Trans   && RowMajor)
@@ -529,7 +529,7 @@ Uplo Tile<scalar_t>::uploPhysical() const
 template <typename scalar_t>
 void Tile<scalar_t>::mb(int64_t in_mb)
 {
-    assert(0 <= in_mb && in_mb <= mb());
+    slate_assert(0 <= in_mb && in_mb <= mb());
     if (op_ == Op::NoTrans)
         mb_ = in_mb;
     else
@@ -545,7 +545,7 @@ void Tile<scalar_t>::mb(int64_t in_mb)
 template <typename scalar_t>
 void Tile<scalar_t>::nb(int64_t in_nb)
 {
-    assert(0 <= in_nb && in_nb <= nb());
+    slate_assert(0 <= in_nb && in_nb <= nb());
     if (op_ == Op::NoTrans)
         nb_ = in_nb;
     else
@@ -564,8 +564,8 @@ void Tile<scalar_t>::nb(int64_t in_nb)
 template <typename scalar_t>
 void Tile<scalar_t>::offset(int64_t i, int64_t j)
 {
-    assert(0 <= i && i < mb());
-    assert(0 <= j && j < nb());
+    slate_assert(0 <= i && i < mb());
+    slate_assert(0 <= j && j < nb());
     if (op_ == Op::NoTrans)
         data_ = &data_[ i + j*stride_ ];
     else
@@ -582,7 +582,7 @@ void Tile<scalar_t>::offset(int64_t i, int64_t j)
 template <typename scalar_t>
 void Tile<scalar_t>::makeTransposable(scalar_t* new_data)
 {
-    assert(! isTransposable());
+    slate_assert(! isTransposable());
 
     // preserve currrent data pointer and stride
     user_data_ = data_;
@@ -599,7 +599,7 @@ void Tile<scalar_t>::makeTransposable(scalar_t* new_data)
 template <typename scalar_t>
 void Tile<scalar_t>::layoutSetFrontDataExt(bool front)
 {
-    assert(extended());
+    slate_assert(extended());
 
     if (front) {
         data_ = ext_data_;
@@ -622,7 +622,7 @@ void Tile<scalar_t>::layoutSetFrontDataExt(bool front)
 template <typename scalar_t>
 void Tile<scalar_t>::layoutReset()
 {
-    assert(data_ == user_data_);
+    slate_assert(data_ == user_data_);
     user_data_ = nullptr;
     ext_data_ = nullptr;
 }
@@ -648,8 +648,8 @@ void Tile<scalar_t>::layoutReset()
 template <typename scalar_t>
 void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream)
 {
-    assert(device_ < 0 || stream != nullptr);
-    assert(isTransposable());
+    slate_assert(device_ < 0 || stream != nullptr);
+    slate_assert(isTransposable());
 
     trace::Block trace_block("slate::convertLayout");
     // square tile
@@ -712,9 +712,9 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream)
         }
         else {
             // tile already Convertible
-            assert(isContiguous());
+            slate_assert(isContiguous());
             // need a workspace buffer
-            assert(work_data != nullptr);
+            slate_assert(work_data != nullptr);
 
             // out-of-place convert
             int64_t work_stride = layout() == Layout::ColMajor ?
@@ -764,8 +764,8 @@ void Tile<scalar_t>::copyDataToHost(
     Tile<scalar_t>* dst_tile, cudaStream_t stream) const
 {
     // sizes has to match
-    assert(mb_ == dst_tile->mb_);
-    assert(nb_ == dst_tile->nb_);
+    slate_assert(mb_ == dst_tile->mb_);
+    slate_assert(nb_ == dst_tile->nb_);
 
     slate_cuda_call(
         cudaSetDevice(device_));
@@ -825,8 +825,8 @@ void Tile<scalar_t>::copyDataToDevice(
     Tile<scalar_t>* dst_tile, cudaStream_t stream) const
 {
     // sizes has to match
-    assert(mb_ == dst_tile->mb_);
-    assert(nb_ == dst_tile->nb_);
+    slate_assert(mb_ == dst_tile->mb_);
+    slate_assert(nb_ == dst_tile->nb_);
 
     slate_cuda_call(
         cudaSetDevice(dst_tile->device_));
@@ -888,8 +888,8 @@ void Tile<scalar_t>::copyData(
     Tile<scalar_t>* dst_tile, cudaStream_t stream) const
 {
     // sizes has to match
-    assert(mb_ == dst_tile->mb_);
-    assert(nb_ == dst_tile->nb_);
+    slate_assert(mb_ == dst_tile->mb_);
+    slate_assert(nb_ == dst_tile->nb_);
 
     int device = -1;
     cudaMemcpyKind memcpy_kind;

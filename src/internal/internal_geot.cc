@@ -102,21 +102,15 @@ void geot(internal::TargetType<Target::HostTask>,
     v.at(0) = scalar_t(1.0);
 
     // W = C^T * V
-    std::vector<scalar_t> w(A.n());
-    scalar_t* w_ptr = w.data();
     auto AT = transpose(A);
+    std::vector<scalar_t> w(AT.m());
 
+    scalar_t* w_ptr = w.data();
     for (int64_t i = 0; i < AT.mt(); ++i) {
         v_ptr = v.data();
         for (int64_t j = 0; j < AT.nt(); ++j) {
-            auto tile = AT.at(i, j);
-            blas::gemv(tile.layout(),
-                       tile.op(),
-                       tile.nb(), tile.mb(), // inverted!
-                       scalar_t(1.0), tile.data(), tile.stride(),
-                                      v_ptr, 1,
-                       j == 0 ? scalar_t(0.0) : scalar_t(1.0),
-                                      w_ptr, 1);
+            gemv(scalar_t(1.0), AT.at(i, j), v_ptr,
+                 j == 0 ? scalar_t(0.0) : scalar_t(1.0), w_ptr);
             v_ptr += AT.tileNb(j);
         }
         w_ptr += AT.tileMb(i);
@@ -127,12 +121,7 @@ void geot(internal::TargetType<Target::HostTask>,
     for (int64_t i = 0; i < A.mt(); ++i) {
         w_ptr = w.data();
         for (int64_t j = 0; j < A.nt(); ++j) {
-            auto tile = A.at(i, j);
-            blas::ger(tile.layout(),
-                      tile.mb(), tile.nb(),
-                      -tau, v_ptr, 1,
-                            w_ptr, 1,
-                            tile.data(), tile.stride());
+            ger(-tau, v_ptr, w_ptr, A.at(i, j));
             w_ptr += A.tileNb(j);
         }
         v_ptr += A.tileMb(i);

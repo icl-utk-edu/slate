@@ -141,6 +141,94 @@ void gemm(
 }
 
 //------------------------------------------------------------------------------
+///
+/// @ingroup gemv_tile
+///
+template <typename scalar_t>
+void gemv(scalar_t alpha, Tile<scalar_t> const& A,
+                          scalar_t const* x,
+          scalar_t beta,  scalar_t* y)
+{
+//  trace::Block trace_block("blas::gemv");
+
+    assert(A.uploPhysical() == Uplo::General);
+
+    if (A.op() == Op::NoTrans) {
+        // y = Ax+y
+        blas::gemv(A.layout(),
+                   A.op(),
+                   A.mb(), A.nb(),
+                   alpha, A.data(), A.stride(),
+                          x, 1,
+                   beta,  y, 1);
+    }
+    else {
+        // y' = xA'+y'
+        blas::gemv(A.layout(),
+                   A.op(),
+                   A.nb(), A.mb(),
+                   alpha, A.data(), A.stride(),
+                          x, 1,
+                   beta,  y, 1);
+    }
+}
+
+//-----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+/// @ingroup gemv_tile
+///
+template <typename scalar_t>
+void gemv(scalar_t alpha, Tile<scalar_t> const&& A,
+                          scalar_t const* x,
+          scalar_t beta,  scalar_t* y)
+{
+    gemv(alpha, A, x, beta, y);
+}
+
+//------------------------------------------------------------------------------
+///
+/// @ingroup ger_tile
+///
+template <typename scalar_t>
+void ger(scalar_t alpha, scalar_t const* x,
+                         scalar_t const* y,
+                         Tile<scalar_t>& A)
+{
+//  trace::Block trace_block("blas::ger");
+
+    assert(A.uploPhysical() == Uplo::General);
+
+    if (A.op() == Op::NoTrans) {
+        // A = xy'+A
+        blas::ger(A.layout(),
+                  A.mb(), A.nb(),
+                  alpha, x, 1,
+                         y, 1,
+                         A.data(), A.stride());
+    }
+    else {
+        // A' = yx'+A'
+        blas::ger(A.layout(),
+                  A.nb(), A.mb(),
+                  alpha, y, 1,
+                         x, 1,
+                         A.data(), A.stride());
+    }
+}
+
+//-----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+/// @ingroup gemv_tile
+///
+template <typename scalar_t>
+void ger(scalar_t alpha, scalar_t const* x,
+                         scalar_t const* y,
+                         Tile<scalar_t>&& A)
+{
+    ger(alpha, x, y, A);
+}
+
+//------------------------------------------------------------------------------
 /// Hermitian matrix multiply: $C = \alpha A op(B) + \beta op(C)$
 ///                         or $C = \alpha op(B) A + \beta op(C)$,
 /// where $A$ is Hermitian.

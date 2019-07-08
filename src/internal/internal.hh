@@ -364,7 +364,7 @@ void trtrm(TriangularMatrix<scalar_t>&& A,
            int priority=0);
 
 //------------------------------------------------------------------------------
-// Other BLAS
+// Other BLAS-like
 template <Target target=Target::HostTask, typename scalar_t>
 void swap(Direction direction,
           Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
@@ -375,11 +375,13 @@ void swap(Direction direction,
           HermitianMatrix<scalar_t>&& A, std::vector<Pivot>& pivot,
           int priority=0, int tag=0);
 
-//------------------------------------------------------------------------------
 template <Target target=Target::HostTask, typename scalar_t>
 void geadd(scalar_t alpha, Matrix<scalar_t>&& A,
            scalar_t beta, Matrix<scalar_t>&& B,
            int priority=0);
+
+template <Target target=Target::HostTask, typename scalar_t>
+void geot(Matrix<scalar_t>&& A, int priority=0);
 
 //------------------------------------------------------------------------------
 // Norms

@@ -236,6 +236,7 @@ libslate_src += \
         src/internal/internal_gemm.cc \
         src/internal/internal_gemm_A.cc \
         src/internal/internal_genorm.cc \
+        src/internal/internal_geot.cc \
         src/internal/internal_geqrf.cc \
         src/internal/internal_geset.cc \
         src/internal/internal_getrf.cc \
@@ -310,6 +311,7 @@ libslate_src += \
         src/symm.cc \
         src/syr2k.cc \
         src/syrk.cc \
+        src/tb2bd.cc \
         src/tbsm.cc \
         src/trmm.cc \
         src/trsm.cc \
@@ -328,12 +330,14 @@ test_src += \
         test/test_genorm.cc \
         test/test_geqrf.cc \
         test/test_gesv.cc \
+        test/test_getri.cc \
         test/test_hemm.cc \
         test/test_henorm.cc \
         test/test_her2k.cc \
         test/test_herk.cc \
         test/test_hesv.cc \
         test/test_posv.cc \
+        test/test_potri.cc \
         test/test_symm.cc \
         test/test_synorm.cc \
         test/test_syr2k.cc \
@@ -342,8 +346,6 @@ test_src += \
         test/test_trmm.cc \
         test/test_trnorm.cc \
         test/test_trsm.cc \
-        test/test_potri.cc \
-        test/test_getri.cc
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
 # Note that 'make' sets $(FC) to f77 by default.
@@ -371,12 +373,12 @@ unit_src = \
         unit_test/test_HermitianMatrix.cc \
         unit_test/test_Matrix.cc \
         unit_test/test_Memory.cc \
+        unit_test/test_norm.cc \
         unit_test/test_SymmetricMatrix.cc \
         unit_test/test_TrapezoidMatrix.cc \
         unit_test/test_TriangularMatrix.cc \
         unit_test/test_Tile.cc \
         unit_test/test_Tile_kernels.cc \
-        unit_test/test_norm.cc \
 
 # unit test framework
 unit_test_obj = \

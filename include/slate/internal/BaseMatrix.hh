@@ -271,6 +271,8 @@ public:
 
     void tileModified(int64_t i, int64_t j, int device=host_num_, bool permissive=false);
 
+    void tileAcquire(int64_t i, int64_t j, int device, Layout layout);
+
     void tileGetForReading(int64_t i, int64_t j, int device, LayoutConvert layout);
 
     void tileGetForReading(std::set<ij_tuple>& tile_set, int device, LayoutConvert layout);
@@ -2048,7 +2050,52 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
 }
 
 //------------------------------------------------------------------------------
-/// Gets tile(i, j) for on device.
+/// Acquire tile(i, j) on device without copying data.
+/// This is used when the destination tile's data will be overriden.
+/// Converts destination Layout to 'layout' param.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] device
+///     Tile's destination: host or device ID.
+///
+/// @param[in] layout
+///     Indicates the required Layout of the received tile:
+///     - ColMajor: column major.
+///     - RowMajor: row major.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileAcquire(int64_t i, int64_t j, int device,
+                                       Layout layout)
+{
+    // find tile on destination
+    auto iter = storage_->find(globalIndex(i, j, device));
+    if (iter == storage_->end()) {
+        // Create a copy on the destination.
+        tileInsertWorkspace(i, j, device, layout);
+        iter = storage_->find(globalIndex(i, j, device));
+    }
+
+    auto tile = iter->second.tile_;
+
+    // Change ColMajor <=> RowMajor if needed.
+    if (tile->layout() != layout) {
+        if (! tile->isTransposable() ) {
+            storage_->tileMakeTransposable(tile);
+        }
+        if (tile->extended())
+            tile->layoutSetFrontDataExt(tile->layout() == tile->userLayout());
+        tile->layout(layout);
+        // tileLayoutConvert(i, j, device, Layout(layout), false);
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Gets tile(i, j) on device.
 /// Will copy-in the tile if it does not exist or its state is MOSI::Invalid.
 /// Finds a source tile whose state is valid (Modified|Shared) by
 ///     looping on existing tile instances.

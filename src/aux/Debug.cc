@@ -277,8 +277,12 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name,
                     printf("|");
                 else
                     printf("-");
-                if (tile->extended())
-                    printf("e");
+                if (tile->extended()) {
+                    if (tile->userData() == tile->data())
+                        printf("u");
+                    else
+                        printf("e");
+                }
                 else
                     printf(" ");
                 printf(" ");

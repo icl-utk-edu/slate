@@ -37,190 +37,211 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate/slate.hh"
 #include "slate/Matrix.hh"
 #include "slate/types.hh"
 #include "internal/Tile_tpmqrt.hh"
 #include "internal/internal.hh"
 #include "internal/internal_util.hh"
-#include "aux/Debug.hh"
 
 namespace slate {
 namespace internal {
 
 //------------------------------------------------------------------------------
-/// Distributed QR triangle-triangle factorization of column of tiles.
-/// Each rank has one triangular tile, the result of local geqrf panel.
-/// Dispatches to target implementations.
+/// Multiply matrix by Q from local QR factorization.
 /// @ingroup geqrf_internal
 ///
 template <Target target, typename scalar_t>
 void unmqr(Side side, Op op,
-           Matrix<scalar_t>&& A,
+           Matrix<scalar_t>&& V,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,
            Matrix<scalar_t>&& W)
 {
     unmqr<target>(internal::TargetType<target>(),
-          side, op, A, T, C, W);
+          side, op, V, T, C, W);
 }
 
 //------------------------------------------------------------------------------
-/// Distributed QR triangle-triangle factorization, host implementation.
-/// Assumes A and T are single block-column
-/// Assumes W and C have same dimensions and distribution
+/// Multiply matrix by Q from local QR factorization.
+/// C = op(Q) C for side = left, or
+/// C = C op(Q) for side = right.
+/// Assumes V and T are each a single block-column.
+/// Assumes W and C have the same dimensions and distribution.
+/// This corresponds to larfb( ..., direct=Forward, storev=Columnwise, ... ).
 /// @ingroup geqrf_internal
 ///
 template <Target target, typename scalar_t>
 void unmqr(internal::TargetType<target>,
            Side side, Op op,
-           Matrix<scalar_t>& A,
+           Matrix<scalar_t>  V,  // pass by value, not reference, for slicing
            Matrix<scalar_t>& T,
            Matrix<scalar_t>& C,
            Matrix<scalar_t>& W)
 {
-    int64_t A_mt = A.mt();
-    int64_t C_mt = C.mt();
-    int64_t C_nt = C.nt();
+    int64_t mt = C.mt();
+    int64_t nt = C.nt();
 
-    assert(A_mt >= 1);
-    assert(A.nt() == 1);
-    assert(C_mt == A_mt);
-    assert(C_nt >= 1);
-    assert(W.nt() == C_nt);
+    assert(mt >= 1);
+    assert(nt >= 1);
+    assert(V.mt() == mt);
+    assert(V.nt() == 1);
+    assert(W.nt() == nt);
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
     // Build a list of local tile's row indices in current matrix C.
     std::vector<int64_t> row_indices;
-
-    for (int64_t i = 0; i < C_mt; ++i) {
-        for (int64_t j = 0; j < C_nt; ++j) {
+    for (int64_t i = 0; i < mt; ++i) {
+        for (int64_t j = 0; j < nt; ++j) {
             if (C.tileIsLocal(i, j)) {
                 row_indices.push_back(i);
                 break;
             }
         }
     }
-
     if (row_indices.size() < 1)
         return;
 
-    // Verification step
-    // Build a set of panel tiles ranks correspoding to my row_indices
-    // std::set<int64_t> panel_ranks;
-    // for (auto r: row_indices) {
-    //     panel_ranks.insert(A.tileRank(r, 0));
-    // }
-    // assert(panel_ranks.size() == 1);
-
-    // this rank's top most row in this column of A holding the triangular tile
+    // this rank's top-most row in this column of V holding the triangular tile
     int64_t r_top = row_indices[0];
-    assert(r_top < A_mt);
+    assert(r_top < mt);
     assert(r_top >= 0);
 
     // pick one row of W matching the local matrix top row distribution
-    auto Wr = W.sub(r_top, r_top, 0, C_nt-1);
-    for (int64_t j = 0; j < Wr.nt(); ++j) {
-        if (Wr.tileIsLocal(0, j)) {
-            Wr.tileInsert(0, j);
-        }
-    }
-
-    // Q = I - V x T x V**H
+    auto Wr = W.sub(r_top, r_top, 0, nt-1);
+    Wr.insertLocalTiles();
 
     if (side == Side::Left) {
-
-        // op(Q) = I - V x op(T) x V**H
-
-        auto T00 = T.sub(r_top, r_top, 0, 0);
-        auto T0 = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T00);
-        if (op != Op::NoTrans) {
-            T0 = conj_transpose(T0);
-        }
-        // V = A(:,0), V is a one block column
-
         // Need to compute:
-        // op(Q) x C = C - V x op(T) x V**H x C
+        // op(Q) C = (I - V op(T) V^H) C = C - V op(T) V^H C
 
-        // C = |C1|
-        //     |C2|
-        // C1 = C(0,:)
-        auto C1 = C.sub(r_top, r_top, 0, C_nt-1);
-        // C2 = C(1:,:)
+        // V = | V0  |  triangular part (nb x nb)
+        //     | V0b |  rectangular part, only if V0 is trapezoid (mb > nb)
+        //     | V1  |  full tiles
+        auto V0 = V.sub(r_top, r_top, 0, 0);
+        int64_t mb = V0(0, 0).mb();
+        int64_t nb = V0(0, 0).nb();
 
-        // V = |V1|
-        //     |V2|
-        // V1 = V(0)
-        auto A00 = A.sub(r_top, r_top, 0,0);
-        auto V1 = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, A00);
-        auto V1T = conj_transpose(V1);
-        // V2 = V(1:)
+        auto T0 = T.sub(r_top, r_top, 0, 0);
 
-        // --------------------
-        // op(Q) x C = C - V x op(T) x (V**H x C)
-        // W = V**H x C
-        // W <- C1
-        C1.tileGetAllForWriting(C1.hostNum(), LayoutConvert(layout));// todo: issue omp tasks for copy to host
-        Wr.copy(C1);
+        // C = | C0  |
+        //     | C0b |  only if V0 is trapezoid
+        //     | C1  |
+        auto C0 = C.sub(r_top, r_top, 0, nt-1);
+        C0.tileGetAllForWriting(C0.hostNum(), LayoutConvert(layout));// todo: issue omp tasks for copy to host
 
-        internal::trmm<Target::HostTask, scalar_t>(
-                        Side::Left,
-                        scalar_t(1.0), std::move(V1T),
-                                       std::move(Wr));
+        // Householder vectors are only min( mb, nb ) columns in lower
+        // triangular part of V.
+        // If V0 tile is wide, slice V to first mb columns, and T to mb x mb.
+        if (mb < nb) {
+            V = V.slice(0, V.m()-1, 0, mb-1);  // first mb cols
+            V0 = V.sub(r_top, r_top, 0, 0);
+            T0 = T0.slice(0, mb-1, 0, mb-1);  // first mb x mb part
+            nb = mb;
+        }
 
-        if (row_indices.size() > 1) {
-            // W <- GEMM(V2T, C2, W)
-            for (int64_t ri = 1; ri < int64_t(row_indices.size()); ++ri) {
-                int64_t row = row_indices[ri];
-                auto ViT = conj_transpose(A.sub(row, row, 0, 0));
-                auto Ci = C.sub(row, row, 0, C_nt-1);
-                if (target == Target::Devices) {
-                    Ci.tileGetAndHoldAllOnDevices(LayoutConvert(layout));// todo: release the hold later
-                }
-                internal::gemm<target>(
-                        scalar_t(1.0), std::move(ViT),
-                                       std::move(Ci),
-                        scalar_t(1.0), std::move(Wr),
-                        layout);
-            }
+        // If V0 tile is a tall trapezoid, slice V0 into triangular and
+        // rectangular parts, and slice T, C, and Wr correspondingly.
+        bool trapezoid = (mb > nb);
+        Matrix<scalar_t> V0b, C0b;
+        if (trapezoid) {
+            int64_t n = C0.n();
+            V0b = V0.slice(nb, mb-1, 0, nb-1);  // last mb - nb rows
+            V0  = V0.slice(0,  nb-1, 0, nb-1);  // first nb rows
+            T0  = T0.slice(0,  nb-1, 0, nb-1);  // first nb x nb part
+            C0b = C0.slice(nb, mb-1, 0, n-1);   // last mb - nb rows
+            C0  = C0.slice(0,  nb-1, 0, n-1);   // first nb rows
+            Wr  = Wr.slice(0,  nb-1, 0, n-1);   // first nb rows
+        }
+
+        // Interpret as triangular matrices.
+        auto V0tr = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, V0);
+        auto T0tr = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);
+        if (op != Op::NoTrans) {
+            T0tr = conj_transpose(T0tr);
         }
 
         // --------------------
-        // op(Q) x C = C - V x (op(T) x W)
-        // W <- TRMM(T0,W)
-        internal::trmm<Target::HostTask, scalar_t>(
-                        Side::Left,
-                        scalar_t(1.0), std::move(T0),
-                                       std::move(Wr));
+        // op(Q) C = C - V op(T) (V^H C)
+        // W = V^H C
 
-        // --------------------
-        // op(Q) x C = C - V x W
-        if (row_indices.size() > 1) {
-            // C2 <- GEMM(V2, W, C2)
-            internal::gemm<target>(
-                    scalar_t(-1.0), A.sub(row_indices[1], A_mt-1, 0, 0),
-                                    std::move(Wr),
-                    scalar_t(1.0),  C.sub(row_indices[1], C_mt-1, 0, C_nt-1),
+        // W <- C0
+        // W <- V0^H W
+        Wr.copy(C0);
+        internal::trmm<Target::HostTask>(
+                Side::Left,
+                scalar_t(1.0), conj_transpose(V0tr),
+                               std::move(Wr));
+
+        if (trapezoid) {
+            // W <- V0b^H C0b
+            internal::gemm<Target::HostTask>(
+                    scalar_t(1.0), conj_transpose(V0b),
+                                   std::move(C0b),
+                    scalar_t(1.0), std::move(Wr),
                     layout);
         }
-        // W <- TRMM(V1,W)
-        internal::trmm<Target::HostTask, scalar_t>(
-                        Side::Left,
-                        scalar_t(-1.0), std::move(V1),
-                                        std::move(Wr));
-        // C1 <- GEADD(W, C1)
-        internal::geadd<Target::HostTask>(
-                        scalar_t(1.0), std::move(Wr),
-                        scalar_t(1.0), std::move(C1));
 
+        // W <- V1^H C1 + W
+        for (int64_t ri = 1; ri < int64_t(row_indices.size()); ++ri) {
+            int64_t row = row_indices[ri];
+            auto Ci = C.sub(row, row, 0, nt-1);
+            if (target == Target::Devices) {
+                // todo: release the hold later
+                Ci.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
+            }
+            internal::gemm<target>(
+                    scalar_t(1.0), conj_transpose(V.sub(row, row, 0, 0)),
+                                   std::move(Ci),
+                    scalar_t(1.0), std::move(Wr),
+                    layout);
+        }
+
+        // --------------------
+        // op(Q) C = C - V (op(T) W)
+        // W <- T0^{op} W
+        internal::trmm<Target::HostTask>(
+                Side::Left,
+                scalar_t(1.0), std::move(T0tr),
+                               std::move(Wr));
+
+        // --------------------
+        // op(Q) C = C - V W
+        if (row_indices.size() > 1) {
+            // C1 <- C1 - V1 W
+            internal::gemm<target>(
+                    scalar_t(-1.0), V.sub(row_indices[1], mt-1, 0, 0),
+                                    std::move(Wr),
+                    scalar_t(1.0),  C.sub(row_indices[1], mt-1, 0, nt-1),
+                    layout);
+        }
+
+        if (trapezoid) {
+            // C0b <- C0b - V0b W
+            internal::gemm<Target::HostTask>(
+                    scalar_t(-1.0), std::move(V0b),
+                                    std::move(Wr),
+                    scalar_t(1.0),  std::move(C0b),
+                    layout);
+        }
+
+        // W <- V0 W
+        internal::trmm<Target::HostTask>(
+                Side::Left,
+                scalar_t(1.0), std::move(V0tr),
+                               std::move(Wr));
+        // C0 <- C0 - W
+        internal::geadd<Target::HostTask>(
+                scalar_t(-1.0), std::move(Wr),
+                scalar_t(1.0),  std::move(C0));
     }
     else if (side == Side::Right) {
         // TODO
     }
 
     // free workspace
+    // todo: Wr.clear();
     for (int j = 0; j < Wr.nt(); ++j) {
         if (Wr.tileIsLocal(0, j)) {
             Wr.tileErase(0, j);
@@ -236,7 +257,7 @@ void unmqr(internal::TargetType<target>,
 template
 void unmqr<Target::HostTask, float>(
     Side side, Op op,
-    Matrix<float>&& A,
+    Matrix<float>&& V,
     Matrix<float>&& T,
     Matrix<float>&& C,
     Matrix<float>&& W);
@@ -244,7 +265,7 @@ void unmqr<Target::HostTask, float>(
 template
 void unmqr<Target::HostNest, float>(
     Side side, Op op,
-    Matrix<float>&& A,
+    Matrix<float>&& V,
     Matrix<float>&& T,
     Matrix<float>&& C,
     Matrix<float>&& W);
@@ -252,7 +273,7 @@ void unmqr<Target::HostNest, float>(
 template
 void unmqr<Target::HostBatch, float>(
     Side side, Op op,
-    Matrix<float>&& A,
+    Matrix<float>&& V,
     Matrix<float>&& T,
     Matrix<float>&& C,
     Matrix<float>&& W);
@@ -260,7 +281,7 @@ void unmqr<Target::HostBatch, float>(
 template
 void unmqr<Target::Devices, float>(
     Side side, Op op,
-    Matrix<float>&& A,
+    Matrix<float>&& V,
     Matrix<float>&& T,
     Matrix<float>&& C,
     Matrix<float>&& W);
@@ -269,7 +290,7 @@ void unmqr<Target::Devices, float>(
 template
 void unmqr<Target::HostTask, double>(
     Side side, Op op,
-    Matrix<double>&& A,
+    Matrix<double>&& V,
     Matrix<double>&& T,
     Matrix<double>&& C,
     Matrix<double>&& W);
@@ -277,7 +298,7 @@ void unmqr<Target::HostTask, double>(
 template
 void unmqr<Target::HostNest, double>(
     Side side, Op op,
-    Matrix<double>&& A,
+    Matrix<double>&& V,
     Matrix<double>&& T,
     Matrix<double>&& C,
     Matrix<double>&& W);
@@ -285,7 +306,7 @@ void unmqr<Target::HostNest, double>(
 template
 void unmqr<Target::HostBatch, double>(
     Side side, Op op,
-    Matrix<double>&& A,
+    Matrix<double>&& V,
     Matrix<double>&& T,
     Matrix<double>&& C,
     Matrix<double>&& W);
@@ -293,7 +314,7 @@ void unmqr<Target::HostBatch, double>(
 template
 void unmqr<Target::Devices, double>(
     Side side, Op op,
-    Matrix<double>&& A,
+    Matrix<double>&& V,
     Matrix<double>&& T,
     Matrix<double>&& C,
     Matrix<double>&& W);
@@ -302,7 +323,7 @@ void unmqr<Target::Devices, double>(
 template
 void unmqr< Target::HostTask, std::complex<float> >(
     Side side, Op op,
-    Matrix< std::complex<float> >&& A,
+    Matrix< std::complex<float> >&& V,
     Matrix< std::complex<float> >&& T,
     Matrix< std::complex<float> >&& C,
     Matrix< std::complex<float> >&& W);
@@ -310,7 +331,7 @@ void unmqr< Target::HostTask, std::complex<float> >(
 template
 void unmqr< Target::HostNest, std::complex<float> >(
     Side side, Op op,
-    Matrix< std::complex<float> >&& A,
+    Matrix< std::complex<float> >&& V,
     Matrix< std::complex<float> >&& T,
     Matrix< std::complex<float> >&& C,
     Matrix< std::complex<float> >&& W);
@@ -318,7 +339,7 @@ void unmqr< Target::HostNest, std::complex<float> >(
 template
 void unmqr< Target::HostBatch, std::complex<float> >(
     Side side, Op op,
-    Matrix< std::complex<float> >&& A,
+    Matrix< std::complex<float> >&& V,
     Matrix< std::complex<float> >&& T,
     Matrix< std::complex<float> >&& C,
     Matrix< std::complex<float> >&& W);
@@ -326,7 +347,7 @@ void unmqr< Target::HostBatch, std::complex<float> >(
 template
 void unmqr< Target::Devices, std::complex<float> >(
     Side side, Op op,
-    Matrix< std::complex<float> >&& A,
+    Matrix< std::complex<float> >&& V,
     Matrix< std::complex<float> >&& T,
     Matrix< std::complex<float> >&& C,
     Matrix< std::complex<float> >&& W);
@@ -335,7 +356,7 @@ void unmqr< Target::Devices, std::complex<float> >(
 template
 void unmqr< Target::HostTask, std::complex<double> >(
     Side side, Op op,
-    Matrix< std::complex<double> >&& A,
+    Matrix< std::complex<double> >&& V,
     Matrix< std::complex<double> >&& T,
     Matrix< std::complex<double> >&& C,
     Matrix< std::complex<double> >&& W);
@@ -343,7 +364,7 @@ void unmqr< Target::HostTask, std::complex<double> >(
 template
 void unmqr< Target::HostNest, std::complex<double> >(
     Side side, Op op,
-    Matrix< std::complex<double> >&& A,
+    Matrix< std::complex<double> >&& V,
     Matrix< std::complex<double> >&& T,
     Matrix< std::complex<double> >&& C,
     Matrix< std::complex<double> >&& W);
@@ -351,7 +372,7 @@ void unmqr< Target::HostNest, std::complex<double> >(
 template
 void unmqr< Target::HostBatch, std::complex<double> >(
     Side side, Op op,
-    Matrix< std::complex<double> >&& A,
+    Matrix< std::complex<double> >&& V,
     Matrix< std::complex<double> >&& T,
     Matrix< std::complex<double> >&& C,
     Matrix< std::complex<double> >&& W);
@@ -359,7 +380,7 @@ void unmqr< Target::HostBatch, std::complex<double> >(
 template
 void unmqr< Target::Devices, std::complex<double> >(
     Side side, Op op,
-    Matrix< std::complex<double> >&& A,
+    Matrix< std::complex<double> >&& V,
     Matrix< std::complex<double> >&& T,
     Matrix< std::complex<double> >&& C,
     Matrix< std::complex<double> >&& W);

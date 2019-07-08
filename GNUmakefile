@@ -410,13 +410,16 @@ LIBS     := -lblaspp -llapackpp $(LIBS)
 
 # additional flags and libraries for testers
 $(test_obj): CXXFLAGS += -I./libtest
+$(unit_obj): CXXFLAGS += -I./libtest
+$(unit_test_obj): CXXFLAGS += -I./libtest
 
 TEST_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 TEST_LDFLAGS += -L./libtest -Wl,-rpath,$(abspath ./libtest)
 TEST_LIBS    += -lslate -ltest $(scalapack)
 
 UNIT_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
-UNIT_LIBS    += -lslate
+UNIT_LDFLAGS += -L./libtest -Wl,-rpath,$(abspath ./libtest)
+UNIT_LIBS    += -lslate -ltest
 
 #-------------------------------------------------------------------------------
 # Rules

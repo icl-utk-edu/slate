@@ -57,21 +57,20 @@ namespace slate {
 
 //------------------------------------------------------------------------------
 /// Compute the triangle-pentagonal factorization of 2 tiles.
-///
-/// On exit, the pentagonal portion of B has been eliminated.
+/// On exit, the pentagonal portion of tile A1 has been eliminated.
 ///
 /// @param[in] l
-///     The number of rows of the upper trapezoidal part of B.
+///     The number of rows of the upper trapezoidal part of A1.
 ///     min(m, n) >= l >= 0.  See Further Details.
-///     If l = 0, B is rectangular.
-///     If l = n, B is triangular.
+///     If l = 0, A1 is rectangular.
+///     If l = n, A1 is triangular.
 ///
-/// @param[in,out] A
-///     On entry, the k-by-n upper triangular tile A.
+/// @param[in,out] A0
+///     On entry, the k-by-n upper triangular tile A0.
 ///     Only the upper n-by-n portion is accessed. k >= n; otherwise k is unused.
 ///
-/// @param[in,out] B
-///     On entry, the m-by-n pentagonal tile B.
+/// @param[in,out] A1
+///     On entry, the m-by-n pentagonal tile A1.
 ///     On exit, the columns represent the Householder reflectors.
 ///     The top (m-l)-by-n portion is rectangular,
 ///     the bottom l-by-n portion is upper trapezoidal.
@@ -84,33 +83,33 @@ namespace slate {
 /// Further Details
 /// ---------------
 ///
-/// Let C be the (n + m)-by-n matrix
+/// Let A be the (n + m)-by-n matrix
 ///
-///     C = [ A ]
-///         [ B ]
+///     A = [ A0 ]
+///         [ A1 ]
 ///
-/// For example, with m = 5, n = 4, l = 3, the non-zeros of A and B are
+/// For example, with m = 5, n = 4, l = 3, the non-zeros of A0 and A1 are
 ///
-///     A = [ . . . . ]  <- n-by-n upper triangular
-///         [   . . . ]
-///         [     . . ]
-///         [       . ]
+///     A0 = [ . . . . ]  <- n-by-n upper triangular
+///          [   . . . ]
+///          [     . . ]
+///          [       . ]
 ///
-///     B = [ . . . . ]  <- (m - l)-by-n rectangular
-///         [ . . . . ]
-///         [---------]
-///         [ . . . . ]  <- l-by-n upper trapezoidal
-///         [   . . . ]
-///         [     . . ]
+///     A1 = [ . . . . ]  <- (m - l)-by-n rectangular
+///          [ . . . . ]
+///          [---------]
+///          [ . . . . ]  <- l-by-n upper trapezoidal
+///          [   . . . ]
+///          [     . . ]
 ///
 /// After factoring, the vector representing the elementary reflector H(i) is in
-/// the i-th column of the (m + n)-by-n matrix W:
+/// the i-th column of the (m + n)-by-n matrix V:
 ///
-///     W = [ I ] <- n-by-n identity
-///         [ V ] <- m-by-n pentagonal, same form as B.
+///     V = [ I  ] <- n-by-n identity
+///         [ V1 ] <- m-by-n pentagonal, same form as A1.
 ///
-/// Thus, all of the information needed for W is contained in V, which
-/// overwrites B on exit.
+/// Thus, all of the information needed for V is contained in V1, which
+/// overwrites A1 on exit.
 ///
 /// The number of blocks is r = ceiling(n/ib), where each
 /// block is of order ib except for the last block, which is of order
@@ -120,21 +119,23 @@ namespace slate {
 ///
 ///     T = [ T1 T2 ... Tr ]
 ///
+/// Note in LAPACK, A = A0, B = A1, V = V1.
+///
 /// @ingroup geqrf_tile
 ///
 template <typename scalar_t>
 void tpqrt(
     int64_t l,
-    Tile<scalar_t> A,
-    Tile<scalar_t> B,
+    Tile<scalar_t> A0,
+    Tile<scalar_t> A1,
     Tile<scalar_t> T)
 {
     trace::Block trace_block("lapack::tpqrt");
 
-    int64_t m = B.mb();
-    int64_t n = B.nb();
-    assert(A.mb() >= n);
-    assert(A.nb() == n);
+    int64_t m = A1.mb();
+    int64_t n = A1.nb();
+    assert(A0.mb() >= n);
+    assert(A0.nb() == n);
     assert(std::min(m, n) >= l);
 
     int64_t ib = T.mb();
@@ -142,8 +143,8 @@ void tpqrt(
     assert(T.nb() == n);
 
     lapack::tpqrt(m, n, l, ib,
-                  A.data(), A.stride(),
-                  B.data(), B.stride(),
+                  A0.data(), A0.stride(),
+                  A1.data(), A1.stride(),
                   T.data(), T.stride());
 }
 

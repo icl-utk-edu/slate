@@ -64,25 +64,58 @@ public:
     // constructors
     Matrix();
 
-    Matrix(int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+    Matrix(int64_t m, int64_t n, int64_t mb, int64_t nb,
+           int p, int q, MPI_Comm mpi_comm);
+
+    /// With mb = nb.
+    Matrix(int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+        : Matrix( m, n, nb, nb, p, q, mpi_comm )
+    {}
 
     static
     Matrix fromLAPACK(int64_t m, int64_t n,
-                      scalar_t* A, int64_t lda, int64_t nb,
+                      scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
                       int p, int q, MPI_Comm mpi_comm);
+
+    /// With mb = nb.
+    static
+    Matrix fromLAPACK(int64_t m, int64_t n,
+                      scalar_t* A, int64_t lda, int64_t nb,
+                      int p, int q, MPI_Comm mpi_comm)
+    {
+        return fromLAPACK(m, n, A, lda, nb, nb, p, q, mpi_comm);
+    }
 
     static
     Matrix fromScaLAPACK(int64_t m, int64_t n,
-                         scalar_t* A, int64_t lda, int64_t nb,
+                         scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
                          int p, int q, MPI_Comm mpi_comm);
+
+    /// With mb = nb.
+    static
+    Matrix fromScaLAPACK(int64_t m, int64_t n,
+                         scalar_t* A, int64_t lda, int64_t nb,
+                         int p, int q, MPI_Comm mpi_comm)
+    {
+        return fromScaLAPACK(m, n, A, lda, nb, nb, p, q, mpi_comm);
+    }
 
     static
     Matrix fromDevices(int64_t m, int64_t n,
                        scalar_t** Aarray, int num_devices, int64_t lda,
-                       int64_t nb, int p, int q, MPI_Comm mpi_comm);
+                       int64_t mb, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
+    /// With mb = nb.
+    static
+    Matrix fromDevices(int64_t m, int64_t n,
+                       scalar_t** Aarray, int num_devices, int64_t lda,
+                       int64_t nb, int p, int q, MPI_Comm mpi_comm)
+    {
+        return fromDevices(m, n, Aarray, num_devices, lda, nb, nb, p, q, mpi_comm);
+    }
 
     template <typename out_scalar_t=scalar_t>
-    Matrix<out_scalar_t> emptyLike();
+    Matrix<out_scalar_t> emptyLike(int64_t mb=0, int64_t nb=0);
 
     // conversion sub-matrix
     Matrix(BaseMatrix<scalar_t>& orig,
@@ -98,19 +131,14 @@ public:
                  int64_t col1, int64_t col2);
 
 protected:
-    // used by fromLAPACK
-    Matrix(int64_t m, int64_t n,
-           scalar_t* A, int64_t lda, int64_t nb,
-           int p, int q, MPI_Comm mpi_comm);
-
-    // used by fromScaLAPACK
+    // used by fromLAPACK and fromScaLAPACK
     Matrix(int64_t m, int64_t n,
            scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
-           int p, int q, MPI_Comm mpi_comm);
+           int p, int q, MPI_Comm mpi_comm, bool is_scalapack);
 
     // used by fromDevices
-    Matrix(int64_t m, int64_t n,
-           scalar_t** Aarray, int num_devices, int64_t lda, int64_t nb,
+    Matrix(int64_t m, int64_t n, scalar_t** Aarray,
+           int num_devices, int64_t lda, int64_t mb, int64_t nb,
            int p, int q, MPI_Comm mpi_comm);
 
     // used by slice
@@ -151,8 +179,11 @@ Matrix<scalar_t>::Matrix():
 /// @param[in] n
 ///     Number of columns of the matrix. n >= 0.
 ///
+/// @param[in] mb
+///     Row block size in 2D block-cyclic distribution. mb > 0.
+///
 /// @param[in] nb
-///     Block size in 2D block-cyclic distribution.
+///     Column block size in 2D block-cyclic distribution. nb > 0.
 ///
 /// @param[in] p
 ///     Number of block rows in 2D block-cyclic distribution. p > 0.
@@ -167,8 +198,8 @@ Matrix<scalar_t>::Matrix():
 // todo: have allocate flag? If true, allocate data; else user will insert tiles?
 template <typename scalar_t>
 Matrix<scalar_t>::Matrix(
-    int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
-    : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
+    int64_t m, int64_t n, int64_t mb, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+    : BaseMatrix<scalar_t>(m, n, mb, nb, p, q, mpi_comm)
 {}
 
 //------------------------------------------------------------------------------
@@ -193,8 +224,11 @@ Matrix<scalar_t>::Matrix(
 /// @param[in] lda
 ///     Leading dimension of the array A. lda >= m.
 ///
+/// @param[in] mb
+///     Row block size in 2D block-cyclic distribution. mb > 0.
+///
 /// @param[in] nb
-///     Block size in 2D block-cyclic distribution.
+///     Column block size in 2D block-cyclic distribution. nb > 0.
 ///
 /// @param[in] p
 ///     Number of block rows in 2D block-cyclic distribution. p > 0.
@@ -209,10 +243,10 @@ Matrix<scalar_t>::Matrix(
 template <typename scalar_t>
 Matrix<scalar_t> Matrix<scalar_t>::fromLAPACK(
     int64_t m, int64_t n,
-    scalar_t* A, int64_t lda, int64_t nb,
+    scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
-    return Matrix<scalar_t>(m, n, A, lda, nb, p, q, mpi_comm);
+    return Matrix<scalar_t>(m, n, A, lda, mb, nb, p, q, mpi_comm, false);
 }
 
 //------------------------------------------------------------------------------
@@ -239,8 +273,11 @@ Matrix<scalar_t> Matrix<scalar_t>::fromLAPACK(
 /// @param[in] lda
 ///     Local leading dimension of the array A. lda >= local number of rows.
 ///
+/// @param[in] mb
+///     Row block size in 2D block-cyclic distribution. mb > 0.
+///
 /// @param[in] nb
-///     Block size in 2D block-cyclic distribution. nb > 0.
+///     Column block size in 2D block-cyclic distribution. nb > 0.
 ///
 /// @param[in] p
 ///     Number of block rows in 2D block-cyclic distribution. p > 0.
@@ -255,11 +292,10 @@ Matrix<scalar_t> Matrix<scalar_t>::fromLAPACK(
 template <typename scalar_t>
 Matrix<scalar_t> Matrix<scalar_t>::fromScaLAPACK(
     int64_t m, int64_t n,
-    scalar_t* A, int64_t lda, int64_t nb,
+    scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
-    // note extra nb
-    return Matrix<scalar_t>(m, n, A, lda, nb, nb, p, q, mpi_comm);
+    return Matrix<scalar_t>(m, n, A, lda, mb, nb, p, q, mpi_comm, true);
 }
 
 //------------------------------------------------------------------------------
@@ -287,8 +323,11 @@ Matrix<scalar_t> Matrix<scalar_t>::fromScaLAPACK(
 /// @param[in] lda
 ///     Local leading dimension of the array A. lda >= local number of rows.
 ///
+/// @param[in] mb
+///     Row block size in 2D block-cyclic distribution. mb > 0.
+///
 /// @param[in] nb
-///     Block size in 2D block-cyclic distribution. nb > 0.
+///     Column block size in 2D block-cyclic distribution. nb > 0.
 ///
 /// @param[in] p
 ///     Number of block rows in 2D block-cyclic distribution. p > 0.
@@ -304,39 +343,74 @@ template <typename scalar_t>
 Matrix<scalar_t> Matrix<scalar_t>::fromDevices(
     int64_t m, int64_t n,
     scalar_t** Aarray, int num_devices, int64_t lda,
-    int64_t nb, int p, int q, MPI_Comm mpi_comm)
+    int64_t mb, int64_t nb, int p, int q, MPI_Comm mpi_comm)
 {
-    return Matrix<scalar_t>(m, n, Aarray, num_devices, lda, nb, p, q, mpi_comm);
+    return Matrix<scalar_t>(m, n, Aarray, num_devices, lda, mb, nb,
+                            p, q, mpi_comm);
 }
 
 //------------------------------------------------------------------------------
 /// Named constructor returns a new, empty Matrix with the same structure
-/// (size and distribution) as this matrix. Tiles are not allocated.
+/// (distribution and number of tiles) as this matrix. Tiles are not allocated.
+///
+/// todo: currently assumes 2DBC and fixed mb, nb.
+///
+/// @param[in] mb
+///     Row block size of new matrix.
+///     If mb = 0, uses the same mb and m as this matrix;
+///     otherwise, m = mb * mt.
+///
+/// @param[in] nb
+///     Column block size of new matrix.
+///     If nb = 0, uses the same nb and n as this matrix;
+///     otherwise, n = nb * nt.
 ///
 template <typename scalar_t>
 template <typename out_scalar_t>
-Matrix<out_scalar_t> Matrix<scalar_t>::emptyLike()
+Matrix<out_scalar_t> Matrix<scalar_t>::emptyLike(int64_t mb, int64_t nb)
 {
-    // First create parent matrix, apply op, then return sub-matrix.
-    // TODO: currently assumes 2DBC and fixed mb == nb.
-    int64_t nb = std::max(this->tileMb(0), this->tileNb(0));
-    assert(nb == this->tileMb(0) || this->m() == this->tileMb(0));
-    assert(nb == this->tileNb(0) || this->n() == this->tileNb(0));
-    int64_t ioffset = this->ioffset();
-    int64_t joffset = this->joffset();
-    int64_t m = ioffset*nb;
-    int64_t n = joffset*nb;
+    // First create no-trans parent matrix, apply op, then return sub-matrix.
+    int64_t m, n;
     if (this->op() == Op::NoTrans) {
-        m += this->m();
-        n += this->n();
+        if (mb == 0) {
+            mb = this->tileMb(0);
+            m  = this->m();
+        }
+        else {
+            m = mb * this->mt();
+        }
+        if (nb == 0) {
+            nb = this->tileNb(0);
+            n  = this->n();
+        }
+        else {
+            n = nb * this->nt();
+        }
     }
     else {
-        m += this->n();
-        n += this->m();
+        std::swap(mb, nb);
+        if (mb == 0) {
+            mb = this->tileNb(0);
+            m  = this->n();
+        }
+        else {
+            m = mb * this->nt();
+        }
+        if (nb == 0) {
+            nb = this->tileMb(0);
+            n  = this->m();
+        }
+        else {
+            n = nb * this->mt();
+        }
     }
+    int64_t ioffset = this->ioffset();
+    int64_t joffset = this->joffset();
+    m += ioffset*mb;
+    n += joffset*nb;
     int p = this->storage_->p();
     int q = this->storage_->q();
-    auto B = Matrix<out_scalar_t>(m, n, nb, p, q, this->mpiComm());
+    auto B = Matrix<out_scalar_t>(m, n, mb, nb, p, q, this->mpiComm());
     if (this->op() == Op::Trans) {
         B = transpose( B );
         std::swap(ioffset, joffset);
@@ -352,58 +426,40 @@ Matrix<out_scalar_t> Matrix<scalar_t>::emptyLike()
 //------------------------------------------------------------------------------
 /// [internal]
 /// @see fromLAPACK
-///
-template <typename scalar_t>
-Matrix<scalar_t>::Matrix(
-    int64_t m, int64_t n,
-    scalar_t* A, int64_t lda, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm)
-    : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
-{
-    // ii, jj are row, col indices
-    // i, j are tile (block row, block col) indices
-    int64_t jj = 0;
-    for (int64_t j = 0; j < this->nt(); ++j) {
-        int64_t jb = this->tileNb(j);
-        int64_t ii = 0;
-        for (int64_t i = 0; i < this->mt(); ++i) {
-            int64_t ib = this->tileMb(i);
-            if (this->tileIsLocal(i, j))
-                this->tileInsert(i, j, this->host_num_, &A[ ii + jj*lda ], lda);
-            ii += ib;
-        }
-        jj += jb;
-    }
-}
-
-//------------------------------------------------------------------------------
-/// [internal]
 /// @see fromScaLAPACK
-/// This differs from LAPACK constructor by adding mb.
+///
+/// @param[in] is_scalapack
+///     If true,  A is a ScaLAPACK matrix.
+///     If false, A is an LAPACK matrix.
 ///
 template <typename scalar_t>
 Matrix<scalar_t>::Matrix(
     int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm)
-    : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
+    int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
+    : BaseMatrix<scalar_t>(m, n, mb, nb, p, q, mpi_comm)
 {
-    assert(mb == nb);
     // ii, jj are row, col indices
-    // ii_local and jj_local are the local array indices in a
+    // ii_local and jj_local are the local array indices in A
     // block-cyclic layout (indxg2l)
     // i, j are tile (block row, block col) indices
     int64_t jj = 0;
     for (int64_t j = 0; j < this->nt(); ++j) {
         int64_t jb = this->tileNb(j);
-        // Using Scalapack indxg2l
-        int64_t jj_local = nb*(jj/(nb*q)) + (jj % nb);
+        int64_t jj_local = jj;
+        if (is_scalapack) {
+            jj_local = indexGlobal2Local(jj, nb, q);
+        }
+
         int64_t ii = 0;
         for (int64_t i = 0; i < this->mt(); ++i) {
             int64_t ib = this->tileMb(i);
             if (this->tileIsLocal(i, j)) {
-                // Using Scalapack indxg2l
-                int64_t ii_local = mb*(ii/(mb*p)) + (ii % mb);
+                int64_t ii_local = ii;
+                if (is_scalapack) {
+                    ii_local = indexGlobal2Local(ii, mb, p);
+                }
+
                 this->tileInsert(i, j, this->host_num_,
                                  &A[ ii_local + jj_local*lda ], lda);
             }
@@ -421,15 +477,15 @@ template <typename scalar_t>
 Matrix<scalar_t>::Matrix(
     int64_t m, int64_t n,
     scalar_t** Aarray, int num_devices, int64_t lda,
-    int64_t nb, int p, int q, MPI_Comm mpi_comm)
-    : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
+    int64_t mb, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+    : BaseMatrix<scalar_t>(m, n, mb, nb, p, q, mpi_comm)
 {
     slate_error_if(this->num_devices() != num_devices);
 
     // ii, jj are row, col indices
-    // ii_local and jj_local are the local array indices in a
+    // ii_local and jj_local are the local array indices in A
     // 2D block-cyclic layout.
-    // jj_dev is the local array index for the current device in a
+    // jj_dev is the local array index for the current device in A
     // 1D block-cyclic layout within a node.
     // i, j are tile (block row, block col) indices
     int64_t jj = 0;
@@ -440,7 +496,7 @@ Matrix<scalar_t>::Matrix(
         for (int64_t i = 0; i < this->mt(); ++i) {
             int64_t ib = this->tileMb(i);
             if (this->tileIsLocal(i, j)) {
-                int64_t ii_local = indexGlobal2Local(ii, nb, p);
+                int64_t ii_local = indexGlobal2Local(ii, mb, p);
                 int dev = this->tileDevice(i, j);
                 int64_t jj_dev = indexGlobal2Local(jj_local, nb, num_devices);
                 this->tileInsert(i, j, dev,

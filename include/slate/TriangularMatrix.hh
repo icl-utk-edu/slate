@@ -101,15 +101,10 @@ public:
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
 
 protected:
-    // used by fromLAPACK
+    // used by fromLAPACK and fromScaLAPACK
     TriangularMatrix(Uplo uplo, Diag diag, int64_t n,
                      scalar_t* A, int64_t lda, int64_t nb,
-                     int p, int q, MPI_Comm mpi_comm);
-
-    // used by fromScaLAPACK
-    TriangularMatrix(Uplo uplo, Diag diag, int64_t n,
-                     scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
-                     int p, int q, MPI_Comm mpi_comm);
+                     int p, int q, MPI_Comm mpi_comm, bool is_scalapack);
 
     // used by fromDevices
     TriangularMatrix(Uplo uplo, Diag diag, int64_t n,
@@ -168,7 +163,7 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 ///     Leading dimension of the array A. lda >= m.
 ///
 /// @param[in] nb
-///     Block size in 2D block-cyclic distribution.
+///     Block size in 2D block-cyclic distribution. nb > 0.
 ///
 /// @param[in] p
 ///     Number of block rows in 2D block-cyclic distribution. p > 0.
@@ -186,7 +181,8 @@ TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::fromLAPACK(
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
-    return TriangularMatrix(uplo, diag, n, A, lda, nb, p, q, mpi_comm);
+    return TriangularMatrix<scalar_t>(uplo, diag, n, A, lda, nb, p, q, mpi_comm,
+                                      false);
 }
 
 //------------------------------------------------------------------------------
@@ -234,8 +230,8 @@ TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::fromScaLAPACK(
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
-    // note extra nb
-    return TriangularMatrix<scalar_t>(uplo, diag, n, A, lda, nb, nb, p, q, mpi_comm);
+    return TriangularMatrix<scalar_t>(uplo, diag, n, A, lda, nb, p, q, mpi_comm,
+                                      true);
 }
 
 //------------------------------------------------------------------------------
@@ -294,24 +290,19 @@ TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::fromDevices(
 
 //------------------------------------------------------------------------------
 /// @see fromLAPACK
-template <typename scalar_t>
-TriangularMatrix<scalar_t>::TriangularMatrix(
-    Uplo uplo, Diag diag, int64_t n,
-    scalar_t* A, int64_t lda, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm)
-    : TrapezoidMatrix<scalar_t>(uplo, diag, n, n, A, lda, nb, p, q, mpi_comm)
-{}
-
-//------------------------------------------------------------------------------
 /// @see fromScaLAPACK
-/// This differs from LAPACK constructor by adding mb.
+///
+/// @param[in] is_scalapack
+///     If true,  A is a ScaLAPACK matrix.
+///     If false, A is an LAPACK matrix.
 ///
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
     Uplo uplo, Diag diag, int64_t n,
-    scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm)
-    : TrapezoidMatrix<scalar_t>(uplo, diag, n, n, A, lda, mb, nb, p, q, mpi_comm)
+    scalar_t* A, int64_t lda, int64_t nb,
+    int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
+    : TrapezoidMatrix<scalar_t>(uplo, diag, n, n, A, lda, nb, p, q, mpi_comm,
+                                is_scalapack)
 {}
 
 //------------------------------------------------------------------------------

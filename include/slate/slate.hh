@@ -63,8 +63,15 @@ void copy(src_matrix_type& A, dst_matrix_type& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template <typename scalar_t>
-void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
+void set(scalar_t offdiag_value, scalar_t diag_value, Matrix<scalar_t>& A,
          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <typename scalar_t>
+void set(scalar_t value, Matrix<scalar_t>& A,
+         const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    set(value, value, A, opts);
+}
 
 //------------------------------------------------------------------------------
 // Level 3 BLAS and LAPACK auxiliary

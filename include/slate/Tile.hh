@@ -1145,35 +1145,34 @@ void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm mpi_comm)
 }
 
 //------------------------------------------------------------------------------
-/// Set tile data
+/// Set tile data to constants.
 ///
-/// @param[in] alpha
-///     value set on diagonals.
+/// @param[in] offdiag_value
+///     Value set on off-diagonal elements.
 ///
-/// @param[in] beta
-///     value set on off-diagonals.
+/// @param[in] diag_value
+///     Value set on diagonal elements.
 ///
 template <typename scalar_t>
-void Tile<scalar_t>::set(scalar_t alpha, scalar_t beta)
+void Tile<scalar_t>::set(scalar_t offdiag_value, scalar_t diag_value)
 {
-    lapack::MatrixType mt = (lapack::MatrixType)uplo_;// TODO is this safe?
-    lapack::laset(mt, mb(), nb(),
-                  alpha, beta,
+    lapack::MatrixType mtype = (lapack::MatrixType)uplo_;// TODO is this safe?
+    lapack::laset(mtype, mb(), nb(),
+                  offdiag_value, diag_value,
                   data(), stride());
 }
 
 //------------------------------------------------------------------------------
-/// Set tile data
+/// Set tile data to constant.
 ///
-/// @param[in] alpha
-///     value for both diagonals and off-diagonals
+/// @param[in] value
+///     Value set on both diagonal and off-diagonal elements.
 ///
 template <typename scalar_t>
-void Tile<scalar_t>::set(scalar_t alpha)
+void Tile<scalar_t>::set(scalar_t value)
 {
-    set(alpha, alpha);
+    set(value, value);
 }
-
 
 } // namespace slate
 

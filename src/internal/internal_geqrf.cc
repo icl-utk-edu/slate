@@ -53,10 +53,10 @@ namespace internal {
 ///
 template <Target target, typename scalar_t>
 void geqrf(Matrix<scalar_t>&& A, Matrix<scalar_t>&& T,
-           int64_t diag_len, int64_t ib, int max_panel_threads, int priority)
+           int64_t ib, int max_panel_threads, int priority)
 {
     geqrf(internal::TargetType<target>(),
-          A, T, diag_len, ib, max_panel_threads, priority);
+          A, T, ib, max_panel_threads, priority);
 }
 
 //------------------------------------------------------------------------------
@@ -66,7 +66,7 @@ void geqrf(Matrix<scalar_t>&& A, Matrix<scalar_t>&& T,
 template <typename scalar_t>
 void geqrf(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A, Matrix<scalar_t>& T,
-           int64_t diag_len, int64_t ib, int max_panel_threads, int priority)
+           int64_t ib, int max_panel_threads, int priority)
 {
     using namespace blas;
     using real_t = real_type<scalar_t>;
@@ -131,7 +131,7 @@ void geqrf(internal::TargetType<Target::HostTask>,
             // Factor the panel in parallel.
             // todo: double check the size of W.
             W.at(thread_rank).resize(ib*A.tileNb(0));
-            geqrf(diag_len, ib,
+            geqrf(ib,
                   tiles, tile_indices, T00,
                   thread_rank, thread_size,
                   thread_barrier,
@@ -147,25 +147,25 @@ void geqrf(internal::TargetType<Target::HostTask>,
 template
 void geqrf<Target::HostTask, float>(
     Matrix<float>&& A, Matrix<float>&& T,
-    int64_t diag_len, int64_t ib, int max_panel_threads, int priority);
+    int64_t ib, int max_panel_threads, int priority);
 
 // ----------------------------------------
 template
 void geqrf<Target::HostTask, double>(
     Matrix<double>&& A, Matrix<double>&& T,
-    int64_t diag_len, int64_t ib, int max_panel_threads, int priority);
+    int64_t ib, int max_panel_threads, int priority);
 
 // ----------------------------------------
 template
 void geqrf< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A, Matrix< std::complex<float> >&& T,
-    int64_t diag_len, int64_t ib, int max_panel_threads, int priority);
+    int64_t ib, int max_panel_threads, int priority);
 
 // ----------------------------------------
 template
 void geqrf< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A, Matrix< std::complex<double> >&& T,
-    int64_t diag_len, int64_t ib, int max_panel_threads, int priority);
+    int64_t ib, int max_panel_threads, int priority);
 
 } // namespace internal
 } // namespace slate

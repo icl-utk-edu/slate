@@ -122,7 +122,7 @@ template <typename scalar_t> void test_gels_work(Params& params, bool run)
     std::vector<scalar_t> work;
 
     // Create SLATE matrix from the ScaLAPACK layouts
-    auto A  = slate::Matrix<scalar_t>::fromScaLAPACK(m,     n,    &A_tst[0], lldA,  nb, nprow, npcol, MPI_COMM_WORLD);
+    auto A  = slate::Matrix<scalar_t>::fromScaLAPACK(m,     n,    &A_tst[0],  lldA,  nb, nprow, npcol, MPI_COMM_WORLD);
     auto X0 = slate::Matrix<scalar_t>::fromScaLAPACK(opAn,  nrhs, &X0_tst[0], lldX0, nb, nprow, npcol, MPI_COMM_WORLD);
     auto BX = slate::Matrix<scalar_t>::fromScaLAPACK(maxmn, nrhs, &BX_tst[0], lldBX, nb, nprow, npcol, MPI_COMM_WORLD);
     slate::TriangularFactors<scalar_t> T;
@@ -132,17 +132,11 @@ template <typename scalar_t> void test_gels_work(Params& params, bool run)
     auto X = BX;
     if (opAm > opAn) {
         // over-determined
-        // todo: currently assumes opAn is even number of tiles;
-        // need to slice at arbitrary number of rows (opAn).
-        slate_assert(opAn % nb == 0);
-        X = BX.sub(0, slate::ceildiv(opAn, nb)-1, 0, BX.nt()-1);
+        X = BX.slice(0, opAn-1, 0, nrhs-1);
     }
     else if (opAm < opAn) {
         // under-determined
-        // todo: currently assumes opAm is even number of tiles;
-        // need to slice at arbitrary number of rows (opAm).
-        slate_assert(opAm % nb == 0);
-        B = BX.sub(0, slate::ceildiv(opAm, nb)-1, 0, BX.nt()-1);
+        B = BX.slice(0, opAm-1, 0, nrhs-1);
     }
 
     // Apply trans
@@ -195,7 +189,7 @@ template <typename scalar_t> void test_gels_work(Params& params, bool run)
             Bref = BXref;
         }
         else if (opAm < opAn) {
-            Bref = BXref.sub(0, slate::ceildiv(opAm, nb)-1, 0, BX.nt()-1);
+            Bref = BXref.slice(0, opAm-1, 0, nrhs-1);
         }
 
         // Apply trans
@@ -309,12 +303,8 @@ template <typename scalar_t> void test_gels_work(Params& params, bool run)
             D.insertLocalTiles();
 
             // zero D.
-            // todo: only need to zero padding tiles in D.
-            for (int64_t j = 0; j < D.nt(); ++j) {
-                for (int64_t i = 0; i < D.mt(); ++i)
-                    if (D.tileIsLocal(i, j))
-                        D(i, j).set(zero);
-            }
+            // todo: only need to zero the padding tiles in D.
+            set(zero, D);
 
             // copy op(A)^H -> D
             // todo: support op(A)^H = A^H. Requires distributed copy of A^H to D.

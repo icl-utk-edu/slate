@@ -60,7 +60,6 @@ template <Target target, typename scalar_t>
 void trtri(slate::internal::TargetType<target>,
            TriangularMatrix<scalar_t> A, int64_t lookahead)
 {
-    using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // Assumes column major

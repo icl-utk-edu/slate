@@ -67,14 +67,14 @@ extern int host_num, num_devices;
 /// Verifies that tile A(i, j) has the expected properties.
 /// Ad is the original LAPACK-style matrix that A is created from.
 void verify_tile_lapack(
-    slate::BaseMatrix<double>& A, int i, int j, int nb,
+    slate::BaseMatrix<double>& A, int i, int j, int mb, int nb,
     int m, int n, double* Ad, int lda )
 {
     int rank = (i % p) + (j % q) * p;
     test_assert(A.tileRank(i, j) == rank);
 
     int jb = (j == A.nt()-1 ? n - j*nb : nb);
-    int ib = (i == A.mt()-1 ? m - i*nb : nb);
+    int ib = (i == A.mt()-1 ? m - i*mb : mb);
 
     if (mpi_rank == rank) {
         test_assert(A.tileIsLocal(i, j));
@@ -84,7 +84,7 @@ void verify_tile_lapack(
         test_assert(tile.mb()     == ib);
         test_assert(tile.nb()     == jb);
         test_assert(tile.stride() == lda);
-        test_assert(tile.data()   == &Ad[ i*nb + j*nb*lda ]);
+        test_assert(tile.data()   == &Ad[ i*mb + j*nb*lda ]);
         test_assert(tile.op()     == blas::Op::NoTrans);
         test_assert(tile.uplo()   == blas::Uplo::General);
         test_assert(tile.origin() == true);
@@ -113,6 +113,14 @@ void verify_tile_lapack(
 
     test_assert(A.tileMb(i) == ib);
     test_assert(A.tileNb(j) == jb);
+}
+
+/// With mb = nb.
+void verify_tile_lapack(
+    slate::BaseMatrix<double>& A, int i, int j, int nb,
+    int m, int n, double* Ad, int lda )
+{
+    verify_tile_lapack( A, i, j, nb, nb, m, n, Ad, lda );
 }
 
 //------------------------------------------------------------------------------
@@ -205,7 +213,7 @@ void get_cyclic_dimensions(
 /// ntiles, ntiles_local, n_local,
 /// lda.
 void get_2d_cyclic_dimensions(
-    int m, int n, int nb,
+    int m, int n, int mb, int nb,
     int& mtiles, int& mtiles_local, int& m_local,
     int& ntiles, int& ntiles_local, int& n_local,
     int& lda )
@@ -220,9 +228,9 @@ void get_2d_cyclic_dimensions(
     int p_rank = (columnwise ? mpi_rank % p : mpi_rank / q);
     int q_rank = (columnwise ? mpi_rank / p : mpi_rank % q);
 
-    get_cyclic_dimensions(p, p_rank, m, nb, mtiles, mtiles_local, m_local);
+    get_cyclic_dimensions(p, p_rank, m, mb, mtiles, mtiles_local, m_local);
     get_cyclic_dimensions(q, q_rank, n, nb, ntiles, ntiles_local, n_local);
-    lda = roundup(m_local, nb);
+    lda = roundup(m_local, mb);
 }
 
 //------------------------------------------------------------------------------
@@ -230,14 +238,14 @@ void get_2d_cyclic_dimensions(
 /// Ad is the original ScaLAPACK-style matrix that A is created from.
 /// Similar to verify_tile_lapack, with different formula for Ad[ i, j ].
 void verify_tile_scalapack(
-    slate::BaseMatrix<double>& A, int i, int j, int nb,
+    slate::BaseMatrix<double>& A, int i, int j, int mb, int nb,
     int m, int n, double* Ad, int lda )
 {
     int rank = (i % p) + (j % q) * p;
     test_assert(A.tileRank(i, j) == rank);
 
     int jb = (j == A.nt()-1 ? n - j*nb : nb);
-    int ib = (i == A.mt()-1 ? m - i*nb : nb);
+    int ib = (i == A.mt()-1 ? m - i*mb : mb);
 
     if (mpi_rank == rank) {
         test_assert(A.tileIsLocal(i, j));
@@ -247,7 +255,7 @@ void verify_tile_scalapack(
         test_assert(tile.mb()     == ib);
         test_assert(tile.nb()     == jb);
         test_assert(tile.stride() == lda);
-        test_assert(tile.data()   == &Ad[ int(i/p)*nb + int(j/q)*nb*lda ]);
+        test_assert(tile.data()   == &Ad[ int(i/p)*mb + int(j/q)*nb*lda ]);
         test_assert(tile.op()     == blas::Op::NoTrans);
         test_assert(tile.uplo()   == blas::Uplo::General);
         test_assert(tile.origin() == true);
@@ -276,6 +284,14 @@ void verify_tile_scalapack(
 
     test_assert(A.tileMb(i) == ib);
     test_assert(A.tileNb(j) == jb);
+}
+
+/// With mb = nb.
+void verify_tile_scalapack(
+    slate::BaseMatrix<double>& A, int i, int j, int nb,
+    int m, int n, double* Ad, int lda )
+{
+    verify_tile_scalapack( A, i, j, nb, nb, m, n, Ad, lda );
 }
 
 //------------------------------------------------------------------------------
@@ -342,7 +358,7 @@ void verify_tile_scalapack(
 /// Similar to verify_tile_lapack, but with Aarray[ dev ][ i, j ]
 /// and device().
 void verify_tile_device(
-    slate::BaseMatrix<double>& A, int i, int j, int nb,
+    slate::BaseMatrix<double>& A, int i, int j, int mb, int nb,
     int m, int n, double** Aarray, int lda )
 {
     int rank = (i % p) + (j % q) * p;
@@ -352,7 +368,7 @@ void verify_tile_device(
     test_assert(A.tileDevice(i, j) == dev);
 
     int jb = (j == A.nt()-1 ? n - j*nb : nb);
-    int ib = (i == A.mt()-1 ? m - i*nb : nb);
+    int ib = (i == A.mt()-1 ? m - i*mb : mb);
 
     if (mpi_rank == rank) {
         test_assert(A.tileIsLocal(i, j));
@@ -363,7 +379,7 @@ void verify_tile_device(
         test_assert(tile.nb()     == jb);
         test_assert(tile.stride() == lda);
         test_assert(tile.data()   ==
-            &Aarray[ dev ][ int(i/p)*nb + int(int(j/q)/num_devices)*nb*lda ]);
+            &Aarray[ dev ][ int(i/p)*mb + int(int(j/q)/num_devices)*nb*lda ]);
         test_assert(tile.op()     == blas::Op::NoTrans);
         test_assert(tile.uplo()   == blas::Uplo::General);
         test_assert(tile.origin() == true);
@@ -392,6 +408,14 @@ void verify_tile_device(
 
     test_assert(A.tileMb(i) == ib);
     test_assert(A.tileNb(j) == jb);
+}
+
+/// With mb = nb.
+void verify_tile_device(
+    slate::BaseMatrix<double>& A, int i, int j, int nb,
+    int m, int n, double** Aarray, int lda )
+{
+    verify_tile_device( A, i, j, nb, nb, m, n, Aarray, lda );
 }
 
 //------------------------------------------------------------------------------

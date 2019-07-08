@@ -424,8 +424,8 @@ void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
 //-----------------------------------------
 // geqrf()
 template <Target target=Target::HostTask, typename scalar_t>
-void geqrf(Matrix<scalar_t>&& A, Matrix<scalar_t>&& T,
-           int64_t diag_len, int64_t ib, int max_panel_threads, int priority=0);
+void geqrf(Matrix<scalar_t>&& A, Matrix<scalar_t>&& T, int64_t ib,
+           int max_panel_threads, int priority=0);
 
 //-----------------------------------------
 // ttqrt()

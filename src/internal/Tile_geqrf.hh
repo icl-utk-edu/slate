@@ -61,9 +61,6 @@ namespace internal {
 //------------------------------------------------------------------------------
 /// Compute the QR factorization of a panel.
 ///
-/// @param[in] diag_len
-///     length of the panel diagonal
-///
 /// @param[in] ib
 ///     internal blocking in the panel
 ///
@@ -91,7 +88,7 @@ namespace internal {
 ///
 template <typename scalar_t>
 void geqrf(
-    int64_t diag_len, int64_t ib,
+    int64_t ib,
     std::vector< Tile<scalar_t> >& tiles,
     std::vector<int64_t>& tile_indices,
     Tile<scalar_t>& T,
@@ -109,6 +106,8 @@ void geqrf(
     using real_t = real_type<scalar_t>;
 
     Tile<scalar_t>& diag_tile = tiles.at(0);
+    int64_t diag_len = std::min( diag_tile.mb(), diag_tile.nb() );
+
     std::vector<scalar_t> taus(diag_len);
     std::vector<real_t> betas(diag_len);
     const int64_t nb = diag_tile.nb();

@@ -68,14 +68,14 @@ void gemm(
 
     using blas::conj;
 
-    assert(A.uploPhysical() == Uplo::General);
-    assert(B.uploPhysical() == Uplo::General);
-    assert(C.uploPhysical() == Uplo::General);
-    assert(C.mb() == A.mb());  // m
-    assert(C.nb() == B.nb());  // n
-    assert(A.nb() == B.mb());  // k
-    assert(A.layout() == C.layout());
-    assert(B.layout() == C.layout());
+    slate_assert(A.uploPhysical() == Uplo::General);
+    slate_assert(B.uploPhysical() == Uplo::General);
+    slate_assert(C.uploPhysical() == Uplo::General);
+    slate_assert(C.mb() == A.mb());  // m
+    slate_assert(C.nb() == B.nb());  // n
+    slate_assert(A.nb() == B.mb());  // k
+    slate_assert(A.layout() == C.layout());
+    slate_assert(B.layout() == C.layout());
 
     if (C.op() == Op::NoTrans) {
         // C = opA(A) opB(B) + C

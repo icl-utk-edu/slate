@@ -118,13 +118,7 @@ void gemm_A(internal::TargetType<Target::HostTask>,
                         else {
                             #pragma omp critical
                             {
-                                try {
-                                    C.at(i, 0);
-                                }
-                                catch (std::out_of_range) {
-                                    // todo: should be tileInsertWorkspace()
-                                    C.tileInsert(i, 0);
-                                }
+                                C.tileAcquire(i, 0, C.hostNum(), layout);
                             }
                         }
                     }

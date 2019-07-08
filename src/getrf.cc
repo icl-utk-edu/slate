@@ -227,7 +227,7 @@ void getrf(slate::internal::TargetType<target>,
     // Debug::checkTilesLives(A);
     // Debug::printTilesLives(A);
     A.tileLayoutReset();
-    A.releaseWorkspace();
+    A.clearWorkspace();
 
     // Debug::printTilesMaps(A);
 }

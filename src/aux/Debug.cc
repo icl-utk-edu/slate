@@ -284,7 +284,7 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name,
                 printf(" ");
             }
             else
-                printf(".    ");
+                printf(".     ");
         }
         printf("\n");
     }
@@ -322,7 +322,7 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name,
                     printf(" ");
                 }
                 else
-                    printf(".    ");
+                    printf(".     ");
             }
             printf("\n");
         }

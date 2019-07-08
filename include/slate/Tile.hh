@@ -231,6 +231,7 @@ public:
     int device() const { return device_; }
 
     Layout layout() const { return layout_; }
+    // todo: set front buffer inside layout(...)
     void   layout(Layout in_layout) { layout_ = in_layout; }
     Layout userLayout() const { return user_layout_; }
 

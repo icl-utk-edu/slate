@@ -120,8 +120,8 @@ void unmqr(internal::TargetType<target>,
         //     | V0b |  rectangular part, only if V0 is trapezoid (mb > nb)
         //     | V1  |  full tiles
         auto V0 = V.sub(r_top, r_top, 0, 0);
-        int64_t mb = V0(0, 0).mb();
-        int64_t nb = V0(0, 0).nb();
+        int64_t mb = V0.tileMb(0);
+        int64_t nb = V0.tileNb(0);
 
         auto T0 = T.sub(r_top, r_top, 0, 0);
 

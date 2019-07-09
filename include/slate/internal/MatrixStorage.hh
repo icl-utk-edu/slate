@@ -574,7 +574,7 @@ void MatrixStorage<scalar_t>::reserveDeviceWorkspace(int64_t num_tiles)
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::clearWorkspace()
 {
-    LockGuard(tiles_.get_lock());
+    LockGuard guard(tiles_.get_lock());
     // incremented below
     for (auto iter = tiles_.begin(); iter != tiles_.end();) {
         if (iter->second.tile_->workspace()) {
@@ -606,7 +606,7 @@ void MatrixStorage<scalar_t>::clearWorkspace()
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::releaseWorkspace()
 {
-    LockGuard(tiles_.get_lock());
+    LockGuard guard(tiles_.get_lock());
     // incremented below
     for (auto iter = tiles_.begin(); iter != tiles_.end();) {
         if (iter->second.tile_->workspace()) {
@@ -644,7 +644,7 @@ void MatrixStorage<scalar_t>::releaseWorkspace()
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::erase(ijdev_tuple ijdev)
 {
-    LockGuard(tiles_.get_lock());
+    LockGuard guard(tiles_.get_lock());
     auto iter = tiles_.find(ijdev);
     if (iter != tiles_.end()) {
         Tile<scalar_t>* tile = iter->second.tile_;
@@ -800,7 +800,7 @@ template <typename scalar_t>
 void MatrixStorage<scalar_t>::tileTick(ij_tuple ij)
 {
     if (! tileIsLocal(ij)) {
-        LockGuard(lives_.get_lock());
+        LockGuard guard(lives_.get_lock());
         int64_t life = --lives_.at(ij);
         if (life == 0) {
             int64_t i = std::get<0>(ij);

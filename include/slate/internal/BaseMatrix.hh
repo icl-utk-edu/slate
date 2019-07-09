@@ -205,7 +205,6 @@ public:
     Uplo uploLogical() const;
     Uplo uploPhysical() const;
 
-    /// Returns the origin tile instance of tile(i, j)
     Tile<scalar_t>* originTile(int64_t i, int64_t j);
 
     int64_t tileMb(int64_t i) const;
@@ -345,11 +344,8 @@ public:
 
     void tileGetAndHoldAllOnDevices(LayoutConvert layout);
 
-    /// Updates the origin instance of tile(i, j) if MOSI::Invalid.
-    /// @return Pointer to origin instance of tile(i, j).
     Tile<scalar_t>* tileUpdateOrigin(int64_t i, int64_t j);
 
-    /// Updates all origin instances of tiles if MOSI::Invalid.
     void tileUpdateAllOrigin();
 
     /// Returns life counter of tile {i, j} of op(A).
@@ -374,8 +370,6 @@ public:
 
     void tileErase(int64_t i, int64_t j, int device=host_num_);
 
-    /// Deletes the tile(i, j)'s instance on device if it is a workspace tile
-    /// that is not modified and no hold is set on it.
     void tileRelease(int64_t i, int64_t j, int device=host_num_);
 
     //--------------------------------------------------------------------------

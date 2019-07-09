@@ -91,26 +91,26 @@ enum MOSI
 //------------------------------------------------------------------------------
 ///
 template <typename scalar_t>
-struct TileEntry
+struct TileInstance
 {
     Tile<scalar_t>* tile_;
     short state_;
     omp_nest_lock_t lock_;
 
-    /// Constructor for TileEntry class
-    TileEntry(Tile<scalar_t>* tile,
+    /// Constructor for TileInstance class
+    TileInstance(Tile<scalar_t>* tile,
               short state)
               : tile_(tile), state_(state)
     {
         omp_init_nest_lock(&lock_);
     }
-    TileEntry() : tile_(nullptr), state_(MOSI::Invalid)
+    TileInstance() : tile_(nullptr), state_(MOSI::Invalid)
     {
         omp_init_nest_lock(&lock_);
     }
 
-    /// Destructor for TileEntry class
-    ~TileEntry()
+    /// Destructor for TileInstance class
+    ~TileInstance()
     {
         omp_destroy_nest_lock(&lock_);
     }
@@ -180,10 +180,10 @@ public:
     using ijdev_tuple = std::tuple<int64_t, int64_t, int>;
     using ij_tuple    = std::tuple<int64_t, int64_t>;
 
-    typedef TileEntry<scalar_t> TileEntry_t;
+    typedef TileInstance<scalar_t> TileInstance_t;
 
     /// Map of tiles and states indexed by {i, j, device}.
-    using TilesMap = slate::Map< ijdev_tuple, TileEntry_t >;
+    using TilesMap = slate::Map< ijdev_tuple, TileInstance_t >;
 
     /// Map of lives is indexed by {i, j}. The life applies to all devices.
     using LivesMap = slate::Map<ij_tuple, int64_t>;
@@ -256,7 +256,7 @@ public:
     /// @return pointer to single tile entry. Throws exception if entry doesn't exist.
     // at() doesn't create new (null) entries in map as operator[] would
     // Tile<scalar_t>* at(ijdev_tuple ijdev)
-    TileEntry_t& at(ijdev_tuple ijdev)
+    TileInstance_t& at(ijdev_tuple ijdev)
     {
         // return tiles_.at(ijdev).tile_;
         return tiles_.at(ijdev);
@@ -285,8 +285,8 @@ public:
         return tileRank(ij) == mpi_rank_;
     }
 
-    TileEntry<scalar_t>& tileInsert(ijdev_tuple ijdev, TileKind, Layout layout=Layout::ColMajor);
-    TileEntry<scalar_t>& tileInsert(ijdev_tuple ijdev, scalar_t* data, int64_t lda, Layout layout=Layout::ColMajor);
+    TileInstance<scalar_t>& tileInsert(ijdev_tuple ijdev, TileKind, Layout layout=Layout::ColMajor);
+    TileInstance<scalar_t>& tileInsert(ijdev_tuple ijdev, scalar_t* data, int64_t lda, Layout layout=Layout::ColMajor);
 
     void tileMakeTransposable(Tile<scalar_t>* tile);
     void tileLayoutReset(Tile<scalar_t>* tile);
@@ -741,10 +741,10 @@ void MatrixStorage<scalar_t>::releaseWorkspaceBuffer(scalar_t* data, int device)
 /// allocating new memory for it.
 /// Tile kind should be either TileKind::Workspace or TileKind::SlateOwned.
 /// Does not set tile's life.
-/// @return Pointer to newly inserted TileEntry.
+/// @return Pointer to newly inserted TileInstance.
 ///
 template <typename scalar_t>
-TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
+TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
     ijdev_tuple ijdev, TileKind kind, Layout layout)
 {
     assert(kind == TileKind::Workspace ||
@@ -759,7 +759,7 @@ TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
     int64_t stride = layout == Layout::ColMajor ? mb : nb;
     Tile<scalar_t>* tile
         = new Tile<scalar_t>(mb, nb, data, stride, device, kind, layout);
-    tiles_[ijdev] = TileEntry<scalar_t>(tile, kind == TileKind::Workspace ? MOSI::Invalid : MOSI::Shared);
+    tiles_[ijdev] = TileInstance<scalar_t>(tile, kind == TileKind::Workspace ? MOSI::Invalid : MOSI::Shared);
     return tiles_[ijdev];
 }
 
@@ -769,10 +769,10 @@ TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
 /// wrapping existing memory for it.
 /// Sets tile kind = TileKind::UserOwned.
 /// Does not set tile's life.
-/// @return Pointer to newly inserted TileEntry.
+/// @return Pointer to newly inserted TileInstance.
 ///
 template <typename scalar_t>
-TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
+TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
     ijdev_tuple ijdev, scalar_t* data, int64_t lda, Layout layout)
 {
     assert(tiles_.find(ijdev) == tiles_.end());  // doesn't exist yet
@@ -783,7 +783,7 @@ TileEntry<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
     int64_t nb = tileNb(j);
     Tile<scalar_t>* tile
         = new Tile<scalar_t>(mb, nb, data, lda, device, TileKind::UserOwned, layout);
-    tiles_[ijdev] = TileEntry<scalar_t>(tile, MOSI::Shared);
+    tiles_[ijdev] = TileInstance<scalar_t>(tile, MOSI::Shared);
     return tiles_[ijdev];
 }
 

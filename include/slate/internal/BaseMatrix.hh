@@ -225,16 +225,16 @@ public:
         return tileInsert(i, j, host_num_, A, ld);
     }
 
-    TileEntry<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, int device, Layout layout);
-    TileEntry<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, int device)
+    TileInstance<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, int device, Layout layout);
+    TileInstance<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, int device)
     {
         return tileInsertWorkspace(i, j, device, layout_);
     }
-    TileEntry<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, Layout layout)
+    TileInstance<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, Layout layout)
     {
         return tileInsertWorkspace(i, j, host_num_, layout);
     }
-    TileEntry<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j)
+    TileInstance<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j)
     {
         return tileInsertWorkspace(i, j, host_num_, layout_);
     }
@@ -1080,8 +1080,8 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
     int64_t i, int64_t j, int device)
 {
     auto index = globalIndex(i, j, device);
-    auto tileEntry = storage_->tileInsert(index, TileKind::SlateOwned, layout_);
-    return tileEntry.tile_;
+    auto tileInstance = storage_->tileInsert(index, TileKind::SlateOwned, layout_);
+    return tileInstance.tile_;
 }
 
 //------------------------------------------------------------------------------
@@ -1100,7 +1100,7 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 /// @return Pointer to new tile.
 ///
 template <typename scalar_t>
-TileEntry<scalar_t>& BaseMatrix<scalar_t>::tileInsertWorkspace(
+TileInstance<scalar_t>& BaseMatrix<scalar_t>::tileInsertWorkspace(
     int64_t i, int64_t j, int device, Layout layout)
 {
     auto index = globalIndex(i, j, device);
@@ -1134,8 +1134,8 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 {
     auto index = globalIndex(i, j, device);
     // tile layout must match the matrix layout
-    auto tileEntry = storage_->tileInsert(index, data, ld, layout_); // TileKind::UserOwned
-    return tileEntry.tile_;
+    auto tileInstance = storage_->tileInsert(index, data, ld, layout_); // TileKind::UserOwned
+    return tileInstance.tile_;
 }
 
 //------------------------------------------------------------------------------
@@ -1182,7 +1182,7 @@ void BaseMatrix<scalar_t>::tileRelease(int64_t i, int64_t j, int device)
 {
     auto iter = storage_->find(globalIndex(i, j, device));
     if (iter != storage_->end() && iter->second.tile_->workspace()) {
-        // auto tileEntry = storage_->at(globalIndex(i, j, device));
+        // auto tileInstance = storage_->at(globalIndex(i, j, device));
         if ( iter->second.stateOn(MOSI::OnHold) || iter->second.stateOn(MOSI::Modified) )
             return;
         else
@@ -1332,11 +1332,10 @@ void BaseMatrix<scalar_t>::tileModified(int64_t i, int64_t j, int device, bool p
     // auto tileIter = storage_->find(globalIndex(i, j, device));
     // assert(tileIter != storage_->end());
 
-    if (tileEntry->stateOn(MOSI::Modified))
+    if (tileInstance->stateOn(MOSI::Modified))
         // no need to update
         return;
-    tileEntry->setState(MOSI::Modified);
-
+    tileInstance->setState(MOSI::Modified);
     // set all other instances to Invalid
     if (device != host_num_) {
         auto otherIter = storage_->find(globalIndex(i, j, host_num_));
@@ -2163,11 +2162,11 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
         dst_found = false;
     }
     else
-        dst_tileEntry = &dst_iter->second;
+        dst_tileInstance = &dst_iter->second;
 
     const int invalid_dev = host_num_-1; // invalid device number
     int src_device = invalid_dev;
-    if ((! dst_found) || (dst_tileEntry->getState() == MOSI::Invalid)) {
+    if ((! dst_found) || (dst_tileInstance->getState() == MOSI::Invalid)) {
 
         // find source tile
         // find a valid source (Modified/Shared) device
@@ -2177,7 +2176,7 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
             if (iter != storage_->end()) {
                 if (iter->second.getState() != MOSI::Invalid) {
                     src_device = host_num_;
-                    src_tileEntry = &iter->second;
+                    src_tileInstance = &iter->second;
                 }
             }
         }
@@ -2187,7 +2186,7 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
             if (iter != storage_->end()) {
                 if (iter->second.getState() != MOSI::Invalid) {
                     src_device = tileDevice(i, j);
-                    src_tileEntry = &iter->second;
+                    src_tileInstance = &iter->second;
                 }
             }
         }
@@ -2199,7 +2198,7 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
             if (iter != storage_->end()) {
                 if (iter->second.getState() != MOSI::Invalid) {
                     src_device = d;
-                    src_tileEntry = &iter->second;
+                    src_tileInstance = &iter->second;
                 }
             }
         }
@@ -2213,7 +2212,7 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
         }
 
         target_layout = layout == LayoutConvert::None ?
-                        src_tileEntry->tile_->layout() :
+                        src_tileInstance->tile_->layout() :
                         Layout(layout);
     }
 
@@ -2221,50 +2220,50 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
         // Create a copy on the destination.
         tileInsertWorkspace(i, j, dst_device, target_layout);
         dst_iter = storage_->find(globalIndex(i, j, dst_device));
-        dst_tileEntry = &dst_iter->second;
+        dst_tileInstance = &dst_iter->second;
     }
 
-    if ( dst_tileEntry->getState() == MOSI::Invalid ) {
+    if ( dst_tileInstance->getState() == MOSI::Invalid ) {
         // Update the destination tile's data.
         if (dst_device != host_num_ && src_device != host_num_) {
             // todo: device to device copy
-            TileEntry<scalar_t> *host_tileEntry;
+            TileInstance<scalar_t> *host_tileInstance;
             auto host_iter = storage_->find(globalIndex(i, j, host_num_));
             if (host_iter == storage_->end()) {
                 // Create a copy on the host.
                 tileInsertWorkspace(i, j, host_num_, target_layout);
                 host_iter = storage_->find(globalIndex(i, j, host_num_));
             }
-            host_tileEntry = &host_iter->second;
+            host_tileInstance = &host_iter->second;
 
-            tileCopyDataLayout( src_tileEntry->tile_,
-                                host_tileEntry->tile_,
+            tileCopyDataLayout( src_tileInstance->tile_,
+                                host_tileInstance->tile_,
                                 target_layout);
-            tileCopyDataLayout( host_tileEntry->tile_,
-                                dst_tileEntry->tile_,
+            tileCopyDataLayout( host_tileInstance->tile_,
+                                dst_tileInstance->tile_,
                                 target_layout);
-            host_tileEntry->setState(MOSI::Shared);
+            host_tileInstance->setState(MOSI::Shared);
         }
         else {
-            tileCopyDataLayout( src_tileEntry->tile_,
-                                dst_tileEntry->tile_,
+            tileCopyDataLayout( src_tileInstance->tile_,
+                                dst_tileInstance->tile_,
                                 target_layout);
         }
 
-        dst_tileEntry->setState(MOSI::Shared);
-        if (src_tileEntry->stateOn(MOSI::Modified))
-            src_tileEntry->setState(MOSI::Shared);
+        dst_tileInstance->setState(MOSI::Shared);
+        if (src_tileInstance->stateOn(MOSI::Modified))
+            src_tileInstance->setState(MOSI::Shared);
     }
     if (modify) {
         tileModified(i, j, dst_device);
     }
     if (hold) {
-        dst_tileEntry->setState(MOSI::OnHold);
+        dst_tileInstance->setState(MOSI::OnHold);
     }
 
     // Change ColMajor <=> RowMajor if needed.
     if (layout != LayoutConvert::None &&
-        dst_tileEntry->tile_->layout() != Layout(layout)) {
+        dst_tileInstance->tile_->layout() != Layout(layout)) {
         tileLayoutConvert(i, j, dst_device, Layout(layout), false);
     }
 }

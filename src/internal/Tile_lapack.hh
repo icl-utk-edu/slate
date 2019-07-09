@@ -121,11 +121,11 @@ void genorm(Norm norm, NormScope scope, Tile<scalar_t> const& A,
             }
         }
         else {
-            assert("Not implemented yet");
+            slate_error("Not implemented yet");
         }
     }
     else {
-        assert("Not implemented yet");
+        slate_error("Not implemented yet");
     }
 }
 

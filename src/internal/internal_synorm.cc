@@ -208,7 +208,7 @@ void norm(
     const Layout layout = Layout::ColMajor;
 
     if (scope != NormScope::Matrix) {
-        assert("Not implemented yet");
+        slate_error("Not implemented yet");
     }
 
     bool lower = (A.uploLogical() == Uplo::Lower);
@@ -437,7 +437,7 @@ void norm(
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
     if (scope != NormScope::Matrix) {
-        assert("Not implemented yet");
+        slate_error("Not implemented yet");
     }
 
     bool lower = (A.uploLogical() == Uplo::Lower);

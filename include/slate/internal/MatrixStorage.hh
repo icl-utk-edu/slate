@@ -135,7 +135,7 @@ struct TileEntry
                 state_ &= stateIn;
                 break;
             default:
-                assert("Unkown state!");
+                assert(false);  // Unknown state
                 break;
         }
     }
@@ -157,7 +157,7 @@ struct TileEntry
                 return (state_ & MOSI::OnHold) == stateIn;
                 break;
             default:
-                assert("Unkown state!");
+                assert(false);  // Unknown state
                 break;
         }
         return false;

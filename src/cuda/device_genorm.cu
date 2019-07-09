@@ -464,11 +464,11 @@ void genorm(
             }
         }
         else {
-            assert("Not implemented yet");
+            throw std::runtime_error("Not implemented yet");
         }
     }
     else {
-        assert("Not implemented yet");
+        throw std::runtime_error("Not implemented yet");
     }
 
     // check that launch succeeded (could still have async errors)

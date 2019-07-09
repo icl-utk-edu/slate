@@ -155,7 +155,7 @@ void norm(
     const Layout layout = Layout::ColMajor;
 
     if (scope != NormScope::Matrix) {
-        assert("Not implemented yet");
+        slate_error("Not implemented yet");
     }
 
     // i, j are tile row, tile col indices; ii, jj are row, col indices.

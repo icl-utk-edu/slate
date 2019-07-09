@@ -142,7 +142,7 @@ void test_genorm_work(Params& params, bool run)
         });
     }
     else if (scope == slate::NormScope::Rows) {
-        slate_assert("Not implemented yet");
+        slate_error("Not implemented yet");
         // slate::rowNorms(norm, A, values.data(), {
         //     {slate::Option::Target, target}
         // });

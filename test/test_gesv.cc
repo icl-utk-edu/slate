@@ -254,7 +254,7 @@ template <typename scalar_t> void test_gesv_work(Params& params, bool run)
             }
         }
         else {
-            slate_assert("Unknown routine!");
+            slate_error("Unknown routine!");
         }
 
         {

@@ -321,11 +321,11 @@ void norm(
 
         }
         else {
-            assert("Not implemented yet");
+            slate_error("Not implemented yet");
         }
     }
     else {
-        assert("Not implemented yet");
+        slate_error("Not implemented yet");
     }
 }
 
@@ -415,7 +415,7 @@ void norm(
 
     }
     else {
-        assert("Not implemented yet");
+        slate_error("Not implemented yet");
     }
 
 }
@@ -475,11 +475,11 @@ void norm(
             ldv = A.tileNb(0);
         }
         else {
-            assert("Not implemented yet");
+            slate_error("Not implemented yet");
         }
     }
     else {
-        assert("Not implemented yet");
+        slate_error("Not implemented yet");
     }
 
     // TODO: Why are we doing this?
@@ -727,11 +727,11 @@ void norm(
             }
         }
         else {
-            assert("Not implemented yet");
+            slate_error("Not implemented yet");
         }
     }
     else {
-        assert("Not implemented yet");
+        slate_error("Not implemented yet");
     }
 }
 

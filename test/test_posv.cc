@@ -210,7 +210,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
             }
         }
         else {
-            slate_assert("Unknown routine!");
+            slate_error("Unknown routine!");
         }
 
         {

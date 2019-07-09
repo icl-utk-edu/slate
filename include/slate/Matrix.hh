@@ -156,7 +156,6 @@ public:
     void reserveDeviceWorkspace();
     void gather(scalar_t* A, int64_t lda);
     void insertLocalTiles(Target origin=Target::Host);
-    void insertLocalTiles(bool on_devices);
 
     // copy local data of op(A).
     void copy(Matrix& A);
@@ -759,21 +758,6 @@ void Matrix<scalar_t>::insertLocalTiles(Target origin)
             }
         }
     }
-}
-
-//------------------------------------------------------------------------------
-/// @deprecated
-///
-/// Inserts all local tiles into an empty matrix.
-///
-/// @param[in] on_devices
-///     If on_devices, inserts tiles on appropriate GPU devices,
-///     otherwise inserts tiles on CPU host.
-///
-template <typename scalar_t>
-void Matrix<scalar_t>::insertLocalTiles(bool on_devices)
-{
-    insertLocalTiles(on_devices ? Target::Devices : Target::Host);
 }
 
 //------------------------------------------------------------------------------

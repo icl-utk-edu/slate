@@ -753,7 +753,7 @@ void test_Matrix_insertLocalTiles_dev()
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
 
-    A.insertLocalTiles( true );
+    A.insertLocalTiles( slate::Target::Devices );
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {
             if (A.tileIsLocal(i, j)) {

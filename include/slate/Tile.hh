@@ -318,7 +318,7 @@ protected:
     scalar_t* user_data_; // Temporarily point to user-provided memory buffer.
     scalar_t* ext_data_; // Points to auxiliary buffer.
 
-    bool valid_;
+    bool valid_; // todo: deprecate
     TileKind kind_;
     /// layout_: The physical ordering of elements in the data buffer:
     ///          - ColMajor: elements of a column are 1-strided

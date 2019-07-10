@@ -98,20 +98,31 @@ template <typename scalar_t> void test_getri_work(Params& params, bool run)
         slate_assert(info == 0);
     }
 
-    // If check is required: keep the norm(A original); create C_chk = identity matrix to hold A*inv(A)
-    std::vector<scalar_t> C_chk;
+    // If check is required: record the norm(A original)
     real_t A_norm = 0.0;
-    if (check) { 
-        // If check is required, record the norm of the original matrix
-        A_norm = slate::norm(slate::Norm::One, A);
-        // if check is required, create identity matrix to check the result of multiplying A and A_inv
-        // C_chk starts with the same size/dimensions as A_tst
-        C_chk = A_tst;
-        scalapack_descinit(descC_chk, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
-        slate_assert(info == 0);
-        // Make C_chk into an identity matrix
-        scalar_t zero = 0.0; scalar_t one = 1.0;
-        scalapack_plaset("All", n, n, zero, one, &C_chk[0], ione, ione, descC_chk);
+    if (check) A_norm = slate::norm(slate::Norm::One, A);
+
+    // initialize C_chk; space to hold A*inv(A); also used for out-of-place algorithm
+    std::vector<scalar_t> C_chk;
+    C_chk = A_tst;
+    scalapack_descinit(descC_chk, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+    slate_assert(info == 0);
+
+    // C will be used as storage for out-of-place algorithm
+    slate::Matrix<scalar_t> C;
+    // todo: Select correct times to use out-of-place getri, currently always use
+    if (params.routine == "getriOOP") {
+        // setup SLATE matrix C based on scalapack matrix/data in C_chk
+        if (origin == slate::Target::Devices) {
+            // Copy local ScaLAPACK data to tiles on GPU devices.
+            C = slate::Matrix<scalar_t>(n, n, nb, nprow, npcol, MPI_COMM_WORLD);
+            C.insertLocalTiles(origin);
+            copy(&C_chk[0], descC_chk, C);
+        }
+        else {
+            // Create SLATE matrix from the ScaLAPACK layouts
+            C = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &C_chk[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+        }
     }
 
     // the timing includes getrf and getri
@@ -130,21 +141,28 @@ template <typename scalar_t> void test_getri_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
+        // factor then invert; measure time for both
+        slate::getrf(A, pivots, {
+            {slate::Option::Lookahead, lookahead},
+            {slate::Option::Target, target},
+            {slate::Option::MaxPanelThreads, panel_threads},
+            {slate::Option::InnerBlocking, ib}
+        });
         if (params.routine == "getri") {
-            // factor then invert; measure time for both 
-            slate::getrf(A, pivots, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target},
-                {slate::Option::MaxPanelThreads, panel_threads},
-                {slate::Option::InnerBlocking, ib}
-            });
+            // call in-place inversion
             slate::getri(A, pivots, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
         }
-        else {
-            slate_assert("Unknown routine!");
+        else if (params.routine == "getriOOP") {
+            // Call the out-of-place version; on exit, C = inv(A), A unchanged
+            slate::getri(A, pivots, C, {
+                {slate::Option::Lookahead, lookahead},
+                {slate::Option::Target, target},
+                {slate::Option::MaxPanelThreads, panel_threads},
+                {slate::Option::InnerBlocking, ib}
+            });
         }
 
         {
@@ -164,10 +182,21 @@ template <typename scalar_t> void test_getri_work(Params& params, bool run)
         //==================================================
         // Check  || I - inv(A)*A || / ( || A || * N ) <=  tol * eps
 
+        // Copy data back from GPUs.
         if (origin == slate::Target::Devices) {
-            // Copy data back from GPUs.
             copy(A, &A_tst[0], descA_tst);
+            copy(C, &C_chk[0], descC_chk);
         }
+
+        // Copy inv(A) from oop vector storage C_chk to expected location A_tst
+        // After this, A_tst contains the inv(A)
+        if (params.routine == "getriOOP") {
+            A_tst = C_chk;
+        }
+
+        // For check make C_chk a identity matrix to check the result of multiplying A and A_inv
+        scalar_t zero = 0.0; scalar_t one = 1.0;
+        scalapack_plaset("All", n, n, zero, one, &C_chk[0], ione, ione, descC_chk);
 
         // C_chk has been setup as an identity matrix; C_chk = C_chk - inv(A)*A
         scalar_t alpha = -1.0; scalar_t beta = 1.0;
@@ -175,7 +204,7 @@ template <typename scalar_t> void test_getri_work(Params& params, bool run)
                         &A_tst[0], ione, ione, descA_tst,
                         &A_ref[0], ione, ione, descA_ref, beta,
                         &C_chk[0], ione, ione, descC_chk);
-        
+
         // Norm of C_chk ( = I - inv(A) * A )
         std::vector<real_t> worklange(n);
         real_t C_norm = scalapack_plange("One", n, n, &C_chk[0], ione, ione, descC_chk, &worklange[0]);
@@ -190,7 +219,7 @@ template <typename scalar_t> void test_getri_work(Params& params, bool run)
     if (ref) {
         // todo: call to reference getri from ScaLAPACK not implemented
     }
-    
+
     Cblacs_gridexit(ictxt);
     //Cblacs_exit(1) does not handle re-entering
 }

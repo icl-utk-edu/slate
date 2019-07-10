@@ -99,6 +99,7 @@ std::vector< libtest::routines_t > routines = {
     { "",                   nullptr,           Section::newline },
 
     { "getri",              test_getri,        Section::gesv },
+    { "getriOOP",           test_getri,        Section::gesv },
     { "",                   nullptr,           Section::newline },    
 
     // -----

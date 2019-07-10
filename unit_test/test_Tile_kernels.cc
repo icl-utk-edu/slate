@@ -1374,7 +1374,7 @@ int main(int argc, char** argv)
     MPI_Comm_size(g_mpi_comm, &g_mpi_size);
 
     cudaGetDeviceCount(&g_num_devices);
-    g_host_num = -g_num_devices;
+    g_host_num = (g_num_devices == 0 ? -1 : -g_num_devices);
 
     int err = unit_test_main(g_mpi_comm);  // which calls run_tests()
 

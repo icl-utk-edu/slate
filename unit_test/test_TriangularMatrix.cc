@@ -302,7 +302,7 @@ int main(int argc, char** argv)
     MPI_Comm_size(mpi_comm, &mpi_size);
 
     cudaGetDeviceCount(&num_devices);
-    host_num = -num_devices;
+    host_num = (num_devices == 0 ? -1 : -num_devices);
 
     // globals
     m  = 200;

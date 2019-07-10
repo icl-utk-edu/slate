@@ -86,7 +86,7 @@ extern "C" void slate_zgetrf(const int* m, const int* n, std::complex<double>* a
 template< typename scalar_t >
 void slate_getrf(const int m, const int n, scalar_t* a, const int lda, int* ipiv, int* info)
 {
-    using lld = long long int;
+    using llong = long long;
 
     // Start timing
     static int verbose = slate_lapack_set_verbose();

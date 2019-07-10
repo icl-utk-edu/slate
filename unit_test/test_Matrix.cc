@@ -341,6 +341,8 @@ void test_Matrix_emptyLike()
 /// emptyLike with mb, nb overriding size.
 void test_Matrix_emptyLikeMbNb()
 {
+    using llong = long long;
+
     int mtiles, mtiles_local, m_local, lda;
     int ntiles, ntiles_local, n_local;
     get_2d_cyclic_dimensions(
@@ -357,13 +359,13 @@ void test_Matrix_emptyLikeMbNb()
     auto Asub_trans = transpose( Asub );
     if (verbose) {
         printf( "A  m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
-                Asub.m(), Asub.mt(),
-                Asub.n(), Asub.nt(),
-                Asub.tileMb(0), Asub.tileNb(0) );
+                llong( Asub.m() ), llong( Asub.mt() ),
+                llong( Asub.n() ), llong( Asub.nt() ),
+                llong( Asub.tileMb(0) ), llong( Asub.tileNb(0) ) );
         printf( "AT m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
-                Asub_trans.m(), Asub_trans.mt(),
-                Asub_trans.n(), Asub_trans.nt(),
-                Asub_trans.tileMb(0), Asub_trans.tileNb(0) );
+                llong( Asub_trans.m() ), llong( Asub_trans.mt() ),
+                llong( Asub_trans.n() ), llong( Asub_trans.nt() ),
+                llong( Asub_trans.tileMb(0) ), llong( Asub_trans.tileNb(0) ) );
     }
 
     for (int mb2: std::vector<int>({ 0, 7 })) {
@@ -373,9 +375,9 @@ void test_Matrix_emptyLikeMbNb()
 
             if (verbose) {
                 printf( "B  m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld (mb2 %3d, nb2 %3d)\n",
-                        B.m(), B.mt(),
-                        B.n(), B.nt(),
-                        B.tileMb(0), B.tileNb(0),
+                        llong( B.m() ), llong( B.mt() ),
+                        llong( B.n() ), llong( B.nt() ),
+                        llong( B.tileMb(0) ), llong( B.tileNb(0) ),
                         mb2, nb2 );
             }
             test_assert(B.m() == (mb2 == 0 ? Asub.m() : Asub.mt() * mb2));
@@ -397,9 +399,9 @@ void test_Matrix_emptyLikeMbNb()
 
             if (verbose) {
                 printf( "BT m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld (mb2 %3d, nb2 %3d)\n",
-                        BT.m(), BT.mt(),
-                        BT.n(), BT.nt(),
-                        BT.tileMb(0), BT.tileNb(0),
+                        llong( BT.m() ), llong( BT.mt() ),
+                        llong( BT.n() ), llong( BT.nt() ),
+                        llong( BT.tileMb(0) ), llong( BT.tileNb(0) ),
                         mb2, nb2 );
             }
             test_assert(BT.m() == (mb2 == 0 ? Asub_trans.m() : Asub_trans.mt() * mb2));

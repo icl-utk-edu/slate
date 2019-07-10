@@ -317,6 +317,7 @@ if (opts.lu):
     [ 'getrf', gen + dtype + la + n ],  # todo: mn
     [ 'getrs', gen + dtype + la + n + trans ],
     [ 'getri', gen + dtype + la + n ],
+    [ 'getriOOP', gen + dtype + la + n ],
     #[ 'gecon', gen + dtype + la + n ],
     #[ 'gerfs', gen + dtype + la + n + trans ],
     #[ 'geequ', gen + dtype + la + n ],

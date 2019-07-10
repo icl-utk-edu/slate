@@ -380,8 +380,25 @@ void geadd(scalar_t alpha, Matrix<scalar_t>&& A,
            scalar_t beta, Matrix<scalar_t>&& B,
            int priority=0);
 
-template <Target target=Target::HostTask, typename scalar_t>
-void geot(Matrix<scalar_t>&& A, int priority=0);
+//------------------------------------------------------------------------------
+// Band reduction
+template <Target target, typename scalar_t>
+void gebr1(Matrix<scalar_t>&& A,
+           std::vector<scalar_t>& v1,
+           std::vector<scalar_t>& v2,
+           int priority=0);
+
+template <Target target, typename scalar_t>
+void gebr2(std::vector<scalar_t> const& v1,
+           Matrix<scalar_t>&& A,
+           std::vector<scalar_t>& v2,
+           int priority=0);
+
+template <Target target, typename scalar_t>
+void gebr3(std::vector<scalar_t> const& v1,
+           Matrix<scalar_t>&& A,
+           std::vector<scalar_t>& v2,
+           int priority=0);
 
 //------------------------------------------------------------------------------
 // Norms

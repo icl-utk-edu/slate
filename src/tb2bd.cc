@@ -60,33 +60,39 @@ template <Target target, typename scalar_t>
 void tb2bd(slate::internal::TargetType<target>,
            Matrix<scalar_t>& A, int64_t band, int64_t lookahead)
 {
-
     for (int64_t k = 0; k < std::min(A.m(), A.n())-2; ++k) {
 
         int64_t i = k;
         int64_t j = k+1;
 
-        internal::geot<Target::HostTask>(
-            transpose(A.slice(i, std::min(i+band-1, A.m()-1),
-                              j, std::min(j+band-2, A.n()-1))));
+        std::map<std::pair<int64_t, int64_t>,
+                 std::vector<scalar_t>> reflectors;
+
+        internal::gebr1<Target::HostTask>(
+            A.slice(i, std::min(i+band-1, A.m()-1),
+                    j, std::min(j+band-2, A.n()-1)),
+            reflectors[{i, j}],
+            reflectors[{i+1, j}]);
+
         ++i;
-
-        internal::geot<Target::HostTask>(
-            A.slice(i, std::min(i+band-2, A.m()-1),
-                    j, std::min(j+2*band-3, A.n()-1)));
-        j += (band-1);
-
         for (; i < A.m() && j < A.n();) {
-
-            internal::geot<Target::HostTask>(
-                transpose(A.slice(i, std::min(i+2*band-3, A.m()-1),
-                                  j, std::min(j+band-2, A.n()-1))));
-            i += (band-1);
-
-            internal::geot<Target::HostTask>(
-                A.slice(i, std::min(i+band-2, A.m()-1),
-                        j, std::min(j+2*band-3, A.n()-1)));
             j += (band-1);
+            if (j < A.n()) {
+                internal::gebr2<Target::HostTask>(
+                    reflectors[{i, j-(band-1)}],
+                    A.slice(i, std::min(i+band-2, A.m()-1),
+                            j, std::min(j+band-2, A.n()-1)),
+                    reflectors[{i, j}]);
+
+                i += (band-1);
+                if (i < A.m()) {
+                    internal::gebr3<Target::HostTask>(
+                        reflectors[{i-(band-1), j}],
+                        A.slice(i, std::min(i+band-2, A.m()-1),
+                                j, std::min(j+band-2, A.n()-1)),
+                        reflectors[{i, j}]);
+                }
+            }
         }
     }
 }

@@ -49,44 +49,14 @@ namespace slate {
 namespace internal {
 
 //------------------------------------------------------------------------------
-/// Eliminates the first row or column of a matrix using orthogonal
-/// transformation.
-/// Dispatches to target implementations.
-/// @ingroup geot_internal
-///
-template <Target target, typename scalar_t>
-void geot(Matrix<scalar_t>&& A, int priority)
-{
-    geot(internal::TargetType<target>(),
-         A, priority);
-}
-
-//------------------------------------------------------------------------------
-/// Eliminates the first row or column of a matrix using orthogonal
-/// transformation.
-/// Host OpenMP task implementation.
-/// @ingroup geot_internal
+/// Generates a single Householder reflector.
+/// todo: Use const for A.
 ///
 template <typename scalar_t>
-void geot(internal::TargetType<Target::HostTask>,
-          Matrix<scalar_t>& A, int priority)
+void gerfg(Matrix<scalar_t>& A, std::vector<scalar_t>& v)
 {
-
-    for (int64_t i = 0; i < A.mt(); ++i) {
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            if (A.tileIsLocal(i, j)) {
-                #pragma omp task shared(A) priority(priority)
-                {
-                    A.tileGetForWriting(i, j, LayoutConvert::None);
-                }
-            }
-        }
-    }
-
-    #pragma omp taskwait
-
     // V <- A[:, 0]
-    std::vector<scalar_t> v(A.m());
+    v.resize(A.m());
     scalar_t* v_ptr = v.data();
     for (int64_t i = 0; i < A.mt(); ++i) {
         auto tile = A.at(i, 0);
@@ -97,8 +67,21 @@ void geot(internal::TargetType<Target::HostTask>,
     }
 
     // Compute the reflector in V.
+    // Store tau in V[0].
     scalar_t tau;
     lapack::larfg(A.m(), v.data(), v.data()+1, 1, &tau);
+    v.at(0) = tau;
+}
+
+//------------------------------------------------------------------------------
+/// Applies a single Householder reflector.
+///
+template <typename scalar_t>
+void gerf(std::vector<scalar_t> const& in_v, Matrix<scalar_t>& A)
+{
+    // Replace tau with 1.0 in V[0].
+    auto v = in_v;
+    scalar_t tau = v.at(0);
     v.at(0) = scalar_t(1.0);
 
     // W = C^T * V
@@ -107,7 +90,7 @@ void geot(internal::TargetType<Target::HostTask>,
 
     scalar_t* w_ptr = w.data();
     for (int64_t i = 0; i < AT.mt(); ++i) {
-        v_ptr = v.data();
+        scalar_t* v_ptr = v.data();
         for (int64_t j = 0; j < AT.nt(); ++j) {
             gemv(scalar_t(1.0), AT.at(i, j), v_ptr,
                  j == 0 ? scalar_t(0.0) : scalar_t(1.0), w_ptr);
@@ -117,7 +100,7 @@ void geot(internal::TargetType<Target::HostTask>,
     }
 
     // C = C - V * W^T
-    v_ptr = v.data();
+    scalar_t* v_ptr = v.data();
     for (int64_t i = 0; i < A.mt(); ++i) {
         w_ptr = w.data();
         for (int64_t j = 0; j < A.nt(); ++j) {
@@ -129,23 +112,179 @@ void geot(internal::TargetType<Target::HostTask>,
 }
 
 //------------------------------------------------------------------------------
+///
+template <Target target, typename scalar_t>
+void gebr1(Matrix<scalar_t>&& A,
+           std::vector<scalar_t>& v1,
+           std::vector<scalar_t>& v2,
+           int priority)
+{
+    gebr1(internal::TargetType<target>(),
+          A, v1, v2, priority);
+}
+
+//------------------------------------------------------------------------------
+///
+template <typename scalar_t>
+void gebr1(internal::TargetType<Target::HostTask>,
+           Matrix<scalar_t>& A,
+           std::vector<scalar_t>& v1,
+           std::vector<scalar_t>& v2,
+           int priority)
+{
+    auto A1 = transpose(A);
+    gerfg(A1, v1);
+    gerf(v1, A1);
+
+    auto A2 = A.slice(1, A.m()-1, 0, A.n()-1);
+    gerfg(A2, v2);
+    gerf(v2, A2);
+}
+
+//------------------------------------------------------------------------------
+///
+template <Target target, typename scalar_t>
+void gebr2(std::vector<scalar_t> const& v1,
+           Matrix<scalar_t>&& A,
+           std::vector<scalar_t>& v2,
+           int priority)
+{
+    gebr2(internal::TargetType<target>(),
+          v1, A, v2, priority);
+}
+
+//------------------------------------------------------------------------------
+///
+template <typename scalar_t>
+void gebr2(internal::TargetType<Target::HostTask>,
+           std::vector<scalar_t> const& v1,
+           Matrix<scalar_t>& A,
+           std::vector<scalar_t>& v2,
+           int priority)
+{
+    gerf(v1, A);
+
+    auto AT = transpose(A);
+    gerfg(AT, v2);
+    gerf(v2, AT);
+}
+
+//------------------------------------------------------------------------------
+///
+template <Target target, typename scalar_t>
+void gebr3(std::vector<scalar_t> const& v1,
+           Matrix<scalar_t>&& A,
+           std::vector<scalar_t>& v2,
+           int priority)
+{
+    gebr3(internal::TargetType<target>(),
+          v1, A, v2, priority);
+}
+
+//------------------------------------------------------------------------------
+///
+template <typename scalar_t>
+void gebr3(internal::TargetType<Target::HostTask>,
+           std::vector<scalar_t> const& v1,
+           Matrix<scalar_t>& A,
+           std::vector<scalar_t>& v2,
+           int priority)
+{
+    auto AT = transpose(A);
+    gerf(v1, AT);
+
+    gerfg(A, v2);
+    gerf(v2, A);
+}
+
+//------------------------------------------------------------------------------
 // Explicit instantiations.
 // ----------------------------------------
 template
-void geot<Target::HostTask, float>(
-    Matrix<float>&& A, int priority);
+void gebr1<Target::HostTask, float>(
+    Matrix<float>&& A,
+    std::vector<float>& v1,
+    std::vector<float>& v2,
+    int priority);
 
 template
-void geot<Target::HostTask, double>(
-    Matrix<double>&& A,  int priority);
+void gebr1<Target::HostTask, double>(
+    Matrix<double>&& A,
+    std::vector<double>& v1,
+    std::vector<double>& v2,
+    int priority);
 
 template
-void geot< Target::HostTask, std::complex<float> >(
-    Matrix< std::complex<float> >&& A,  int priority);
+void gebr1< Target::HostTask, std::complex<float> >(
+    Matrix< std::complex<float> >&& A,
+    std::vector< std::complex<float> >& v1,
+    std::vector< std::complex<float> >& v2,
+    int priority);
 
 template
-void geot< Target::HostTask, std::complex<double> >(
-    Matrix< std::complex<double> >&& A,  int priority);
+void gebr1< Target::HostTask, std::complex<double> >(
+    Matrix< std::complex<double> >&& A,
+    std::vector< std::complex<double> >& v1,
+    std::vector< std::complex<double> >& v2,
+    int priority);
+
+// ----------------------------------------
+template
+void gebr2<Target::HostTask, float>(
+    std::vector<float> const& v1,
+    Matrix<float>&& A,
+    std::vector<float>& v2,
+    int priority);
+
+template
+void gebr2<Target::HostTask, double>(
+    std::vector<double> const& v1,
+    Matrix<double>&& A,
+    std::vector<double>& v2,
+    int priority);
+
+template
+void gebr2< Target::HostTask, std::complex<float> >(
+    std::vector< std::complex<float> > const& v1,
+    Matrix< std::complex<float> >&& A,
+    std::vector< std::complex<float> >& v2,
+    int priority);
+
+template
+void gebr2< Target::HostTask, std::complex<double> >(
+    std::vector< std::complex<double> > const& v1,
+    Matrix< std::complex<double> >&& A,
+    std::vector< std::complex<double> >& v2,
+    int priority);
+
+// ----------------------------------------
+template
+void gebr3<Target::HostTask, float>(
+    std::vector<float> const& v1,
+    Matrix<float>&& A,
+    std::vector<float>& v2,
+    int priority);
+
+template
+void gebr3<Target::HostTask, double>(
+    std::vector<double> const& v1,
+    Matrix<double>&& A,
+    std::vector<double>& v2,
+    int priority);
+
+template
+void gebr3< Target::HostTask, std::complex<float> >(
+    std::vector< std::complex<float> > const& v1,
+    Matrix< std::complex<float> >&& A,
+    std::vector< std::complex<float> >& v2,
+    int priority);
+
+template
+void gebr3< Target::HostTask, std::complex<double> >(
+    std::vector< std::complex<double> > const& v1,
+    Matrix< std::complex<double> >&& A,
+    std::vector< std::complex<double> >& v2,
+    int priority);
 
 } // namespace internal
 } // namespace slate

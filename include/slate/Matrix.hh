@@ -151,7 +151,7 @@ public:
 
     int64_t getMaxHostTiles();
     int64_t getMaxDeviceTiles(int device);
-    void allocateBatchArrays();
+    void allocateBatchArrays(int64_t batch_size=0);
     void reserveHostWorkspace();
     void reserveDeviceWorkspace();
     void gather(scalar_t* A, int64_t lda);
@@ -655,13 +655,20 @@ int64_t Matrix<scalar_t>::getMaxDeviceTiles(int device)
 
 //------------------------------------------------------------------------------
 /// Allocates batch arrays for all devices.
+/// This overrides BaseMatrix::allocateBatchArrays.
+///
+/// @param[in] batch_size
+///     On exit, size of batch arrays >= batch_size >= 0.
+///     If batch_size = 0 (default), uses batch_size = getMaxDeviceTiles.
+///
 template <typename scalar_t>
-void Matrix<scalar_t>::allocateBatchArrays()
+void Matrix<scalar_t>::allocateBatchArrays(int64_t batch_size)
 {
-    int64_t num_tiles = 0;
-    for (int device = 0; device < this->num_devices_; ++device)
-        num_tiles = std::max(num_tiles, getMaxDeviceTiles(device));
-    this->storage_->allocateBatchArrays(num_tiles);
+    if (batch_size == 0) {
+        for (int device = 0; device < this->num_devices_; ++device)
+            batch_size = std::max(batch_size, getMaxDeviceTiles(device));
+    }
+    this->storage_->allocateBatchArrays(batch_size);
 }
 
 //------------------------------------------------------------------------------

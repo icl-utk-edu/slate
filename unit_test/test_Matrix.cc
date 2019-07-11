@@ -773,6 +773,80 @@ void test_Matrix_insertLocalTiles_dev()
     }
 }
 
+//------------------------------------------------------------------------------
+/// Test allocateBatchArrays, clearBatchArrays, batchArraySize.
+///
+void test_Matrix_allocateBatchArrays()
+{
+    if (num_devices == 0) {
+        test_skip("requires num_devices > 0");
+    }
+
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+
+    int64_t iseed[4] = { 0, 1, 2, 3 };
+    lapack::larnv( 1, iseed, Ad.size(), Ad.data() );
+
+    auto A = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // initially, batch arrays are null
+    test_assert( A.batchArraySize() == 0 );
+    for (int device = 0; device < num_devices; ++device) {
+        test_assert( A.a_array_host(device) == nullptr );
+        test_assert( A.b_array_host(device) == nullptr );
+        test_assert( A.c_array_host(device) == nullptr );
+
+        test_assert( A.a_array_device(device) == nullptr );
+        test_assert( A.b_array_device(device) == nullptr );
+        test_assert( A.c_array_device(device) == nullptr );
+    }
+
+    // allocate size 10
+    A.allocateBatchArrays( 10 );
+    test_assert( A.batchArraySize() == 10 );
+    for (int device = 0; device < num_devices; ++device) {
+        test_assert( A.a_array_host(device) != nullptr );
+        test_assert( A.b_array_host(device) != nullptr );
+        test_assert( A.c_array_host(device) != nullptr );
+
+        test_assert( A.a_array_device(device) != nullptr );
+        test_assert( A.b_array_device(device) != nullptr );
+        test_assert( A.c_array_device(device) != nullptr );
+    }
+
+    // increase to size 20
+    A.allocateBatchArrays( 20 );
+    test_assert( A.batchArraySize() == 20 );
+
+    // requesting 15 should leave it at 20
+    A.allocateBatchArrays( 15 );
+    test_assert( A.batchArraySize() == 20 );
+
+    int num = 0;
+    for (int device = 0; device < num_devices; ++device) {
+        num = blas::max( num, A.getMaxDeviceTiles( device ) );
+    }
+
+    // request enough for local tiles
+    A.allocateBatchArrays();
+    test_assert( A.batchArraySize() == blas::max( num, 20 ) );
+
+    // clear should free arrays
+    A.clearBatchArrays();
+    test_assert( A.batchArraySize() == 0 );
+    for (int device = 0; device < num_devices; ++device) {
+        test_assert( A.a_array_host(device) == nullptr );
+        test_assert( A.b_array_host(device) == nullptr );
+        test_assert( A.c_array_host(device) == nullptr );
+
+        test_assert( A.a_array_device(device) == nullptr );
+        test_assert( A.b_array_device(device) == nullptr );
+        test_assert( A.c_array_device(device) == nullptr );
+    }
+}
+
 //==============================================================================
 // Sub-matrices and conversions
 
@@ -1787,7 +1861,6 @@ void test_Matrix_tileLayoutConvert()
 // x   swap
 //     getMaxHostTiles
 //     getMaxDeviceTiles
-//     allocateBatchArrays
 //     reserveHostWorkspace
 //     reserveDeviceWorkspace
 //     gather
@@ -1819,6 +1892,7 @@ void run_tests()
     run_test(test_Matrix_tileErase,            "Matrix::tileErase",                        mpi_comm);
     run_test(test_Matrix_insertLocalTiles,     "Matrix::insertLocalTiles()",               mpi_comm);
     run_test(test_Matrix_insertLocalTiles_dev, "Matrix::insertLocalTiles(on_devices)",     mpi_comm);
+    run_test(test_Matrix_allocateBatchArrays,  "Matrix::allocateBatchArrays",              mpi_comm);
     run_test(test_Matrix_MOSI,                 "Matrix::tileMOSI",                         mpi_comm);
     run_test(test_Matrix_tileLayoutConvert,    "Matrix::tileLayoutConvert",                mpi_comm);
 

@@ -486,6 +486,18 @@ public:
         storage_->clearWorkspace();
     }
 
+    /// Allocates batch arrays.
+    /// Matrix classes override this with versions that can also allocate based
+    /// on the number of local tiles.
+    ///
+    /// @param[in] batch_size
+    ///     On exit, size of batch arrays >= batch_size >= 0.
+    ///
+    void allocateBatchArrays(int64_t batch_size)
+    {
+        storage_->allocateBatchArrays(batch_size);
+    }
+
     /// Removes batch arrays from matrix for all devices.
     /// WARNING: currently this clears the entire parent matrix,
     /// not just a sub-matrix.
@@ -503,7 +515,6 @@ public:
     //--------------------------------------------------------------------------
     /// @return batch arrays for the A, B, or C matrices,
     /// on host, to send to device
-    /// Throws error if arrays were not allocated with allocateBatchArrays.
     scalar_t** a_array_host(int device)
     {
         return storage_->a_array_host_.at(device);
@@ -519,7 +530,6 @@ public:
 
     //--------------------------------------------------------------------------
     /// @return batch arrays for the A, B, or C matrices, on device
-    /// Throws error if arrays were not allocated with allocateBatchArrays.
     scalar_t** a_array_device(int device)
     {
         return storage_->a_array_dev_.at(device);
@@ -2864,14 +2874,19 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
         slate_cuda_call(
             cudaSetDevice(device));
 
+        // Allocate batch arrays, if not done already.
+        int64_t batch_count = 0;
+        for (auto bucket = tilesBuckets.begin(); bucket != tilesBuckets.end(); bucket++) {
+            batch_count = std::max(batch_count, int64_t(bucket->second.first.size()));
+        }
+        allocateBatchArrays(batch_count);
+
         // for each bucket
         for (auto bucket = tilesBuckets.begin(); bucket != tilesBuckets.end(); bucket++) {
+            batch_count = bucket->second.first.size();
 
-            scalar_t** array_dev  = this->a_array_device(device);
-            scalar_t** work_array_dev  = this->b_array_device(device);
-
-            int64_t batch_count = bucket->second.first.size();
-            assert(batch_count <=  this->batchArraySize());
+            scalar_t** array_dev = this->a_array_device(device);
+            scalar_t** work_array_dev = this->b_array_device(device);
 
             int64_t mb       = std::get<0>(bucket->first);
             int64_t nb       = std::get<1>(bucket->first);

@@ -958,20 +958,6 @@ int64_t BaseMatrix<scalar_t>::n() const
 }
 
 //------------------------------------------------------------------------------
-/// Returns number of rows (mb) in block row i of op(A).
-///
-/// @param[in] i
-///     Tile's block row index. 0 <= i < mt.
-template <typename scalar_t>
-int64_t BaseMatrix<scalar_t>::tileMb(int64_t i) const
-{
-    if (op_ == Op::NoTrans)
-        return tileMbInternal(i);
-    else
-        return tileNbInternal(i);
-}
-
-//------------------------------------------------------------------------------
 /// Returns whether op(A) is logically Lower, Upper, or General storage,
 /// taking the transposition operation into account.
 ///
@@ -994,6 +980,20 @@ template <typename scalar_t>
 Uplo BaseMatrix<scalar_t>::uploPhysical() const
 {
     return uplo_;
+}
+
+//------------------------------------------------------------------------------
+/// Returns number of rows (mb) in block row i of op(A).
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+template <typename scalar_t>
+int64_t BaseMatrix<scalar_t>::tileMb(int64_t i) const
+{
+    if (op_ == Op::NoTrans)
+        return tileMbInternal(i);
+    else
+        return tileNbInternal(i);
 }
 
 //------------------------------------------------------------------------------

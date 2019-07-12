@@ -175,24 +175,20 @@ void tb2bd(slate::internal::TargetType<target>,
     for (int64_t pass = 0; pass < diag_len-2; pass += chunk) {
 
         int64_t width = diag_len-1-pass;
-        int64_t num_blocks;
-        if (width % (band-1) == 0)
-            num_blocks = width / (band-1);
-        else
-            num_blocks = width / (band-1) + 1;
+        int64_t num_blocks = width / (band-1);
+        if (width % (band-1) > 0)
+            ++ num_blocks;
 
         for (int64_t i = 0; i < num_blocks+chunk-1; ++i) {
             for (int64_t j = 0; j <= i && j < chunk; ++j) {
-                if (i-j <= chunk+1) {
-                    int64_t inner_pass = pass+j;
-                    int64_t block = i-j;
-                    if (block == 0) {
-                        tb2bd_step(A, band, inner_pass, block, reflectors);
-                    }
-                    else {
-                        tb2bd_step(A, band, inner_pass, 2*block-1, reflectors);
-                        tb2bd_step(A, band, inner_pass, 2*block  , reflectors);
-                    }
+                int64_t inner_pass = pass+j;
+                int64_t block = i-j;
+                if (block == 0) {
+                    tb2bd_step(A, band, inner_pass, block, reflectors);
+                }
+                else {
+                    tb2bd_step(A, band, inner_pass, 2*block-1, reflectors);
+                    tb2bd_step(A, band, inner_pass, 2*block  , reflectors);
                 }
             }
         }

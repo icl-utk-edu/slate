@@ -1703,32 +1703,10 @@ void test_Matrix_tileLayoutConvert()
             }
         }
     }
-}
 
-//------------------------------------------------------------------------------
-/// Test tileLayoutConvert.
-void test_Matrix_tileLayoutConvert_dev()
-{
     if (num_devices == 0) {
-        test_skip("requires num_devices > 0");
+        test_skip("remainder of test requires num_devices > 0");
     }
-
-    int lda = roundup(m, nb);
-    std::vector<double> Ad( lda*n );
-
-    int64_t iseed[4] = { 0, 1, 2, 3 };
-    lapack::larnv( 1, iseed, Ad.size(), Ad.data() );
-
-    auto A = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
-
-    std::vector<double> Bd = Ad;
-    auto B = slate::Matrix<double>::fromLAPACK(
-        m, n, Bd.data(), lda, nb, p, q, mpi_comm );
-
-    slate::Layout newLayout = A.layout() == slate::Layout::ColMajor ?
-                                slate::Layout::RowMajor :
-                                slate::Layout::ColMajor;
 
     #pragma omp parallel
     #pragma omp master
@@ -1843,7 +1821,6 @@ void run_tests()
     run_test(test_Matrix_insertLocalTiles_dev, "Matrix::insertLocalTiles(on_devices)",     mpi_comm);
     run_test(test_Matrix_MOSI,                 "Matrix::tileMOSI",                         mpi_comm);
     run_test(test_Matrix_tileLayoutConvert,    "Matrix::tileLayoutConvert",                mpi_comm);
-    run_test(test_Matrix_tileLayoutConvert_dev,"Matrix::tileLayoutConvert_dev",            mpi_comm);
 
     if (mpi_rank == 0)
         printf("\nSub-matrices and slices\n");

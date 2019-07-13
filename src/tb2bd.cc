@@ -58,7 +58,7 @@ using Reflectors = std::map< std::pair<int64_t, int64_t>,
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void tb2bd_step(Matrix<scalar_t>& A, int64_t band,
-                int64_t pass, int64_t step,
+                int64_t sweep, int64_t step,
                 Reflectors<scalar_t>& reflectors)
 {
     int64_t task = step == 0 ? 0 : (step+1)%2 + 1;
@@ -67,8 +67,8 @@ void tb2bd_step(Matrix<scalar_t>& A, int64_t band,
     int64_t j;
     switch (task) {
         case 0:
-            i =   pass;
-            j = 1+pass;
+            i =   sweep;
+            j = 1+sweep;
             if (i < A.m() && j < A.n()) {
                 internal::gebr1<Target::HostTask>(
                     A.slice(i, std::min(i+band-1, A.m()-1),
@@ -78,8 +78,8 @@ void tb2bd_step(Matrix<scalar_t>& A, int64_t band,
             }
             break;
         case 1:
-            i = (block-1)*(band-1)+1+pass;
-            j =  block   *(band-1)+1+pass;
+            i = (block-1)*(band-1)+1+sweep;
+            j =  block   *(band-1)+1+sweep;
             if (i < A.m() && j < A.n()) {
                 internal::gebr2<Target::HostTask>(
                     reflectors[{i, j-(band-1)}],
@@ -89,8 +89,8 @@ void tb2bd_step(Matrix<scalar_t>& A, int64_t band,
             }
             break;
         case 2:
-            i = block*(band-1)+1+pass;
-            j = block*(band-1)+1+pass;
+            i = block*(band-1)+1+sweep;
+            j = block*(band-1)+1+sweep;
             if (i < A.m() && j < A.n()) {
                 internal::gebr3<Target::HostTask>(
                     reflectors[{i-(band-1), j}],
@@ -103,96 +103,49 @@ void tb2bd_step(Matrix<scalar_t>& A, int64_t band,
 }
 
 //------------------------------------------------------------------------------
+template <typename scalar_t>
+void tb2bd_run(Matrix<scalar_t>& A, int64_t band, int64_t chunk_size,
+               Reflectors<scalar_t>& reflectors)
+{
+    int64_t diag_len = std::min(A.m(), A.n());
+    int64_t num_passes = (diag_len-2) / chunk_size;
+    if ((diag_len-2) % chunk_size > 0)
+        ++num_passes;
+
+    for (int64_t pass = 0; pass < num_passes; ++pass) {
+
+        int64_t width = diag_len-1-(pass*chunk_size);
+        int64_t num_blocks = width / (band-1);
+        if (width % (band-1) > 0)
+            ++num_blocks;
+
+        for (int64_t i = 0; i < num_blocks+chunk_size-1; ++i) {
+            for (int64_t j = 0; j <= i && j < chunk_size; ++j) {
+                int64_t sweep = (pass*chunk_size)+j;
+                int64_t block = i-j;
+                if (block == 0) {
+                    tb2bd_step(A, band, sweep, block, reflectors);
+                }
+                else {
+                    tb2bd_step(A, band, sweep, 2*block-1, reflectors);
+                    tb2bd_step(A, band, sweep, 2*block  , reflectors);
+                }
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
 /// Reduced a block-bidiagonal (triangular-band) matrix to a bidiagonal form.
 /// Generic implementation for any target.
 /// @ingroup tb2bd_specialization
 ///
 template <Target target, typename scalar_t>
 void tb2bd(slate::internal::TargetType<target>,
-           Matrix<scalar_t>& A, int64_t band, int64_t lookahead)
+           Matrix<scalar_t>& A, int64_t band, int64_t chunk_size)
 {
-/*
     Reflectors<scalar_t> reflectors;
-    for (int64_t k = 0; k < std::min(A.m(), A.n())-2; ++k) {
-
-        int64_t i = k;
-        int64_t j = k+1;
-        internal::gebr1<Target::HostTask>(
-            A.slice(i, std::min(i+band-1, A.m()-1),
-                    j, std::min(j+band-2, A.n()-1)),
-            reflectors[{i, j}],
-            reflectors[{i+1, j}]);
-
-        ++i;
-        for (; i < A.m() && j < A.n();) {
-            j += (band-1);
-            if (j < A.n()) {
-                internal::gebr2<Target::HostTask>(
-                    reflectors[{i, j-(band-1)}],
-                    A.slice(i, std::min(i+band-2, A.m()-1),
-                            j, std::min(j+band-2, A.n()-1)),
-                    reflectors[{i, j}]);
-
-                i += (band-1);
-                if (i < A.m()) {
-                    internal::gebr3<Target::HostTask>(
-                        reflectors[{i-(band-1), j}],
-                        A.slice(i, std::min(i+band-2, A.m()-1),
-                                j, std::min(j+band-2, A.n()-1)),
-                        reflectors[{i, j}]);
-                }
-            }
-        }
-    }
-*/
-/*
-    Reflectors<scalar_t> reflectors;
-
-    int64_t diag_len = std::min(A.m(), A.n());
-    for (int64_t pass = 0; pass < diag_len-2; ++pass) {
-
-        int64_t pass_width = diag_len-1-pass;
-        int64_t num_blocks;
-        if (pass_width % (band-1) == 0)
-            num_blocks = pass_width / (band-1);
-        else
-            num_blocks = pass_width / (band-1) + 1;
-
-        int64_t block = 0;
-        int64_t step = 0;
-        while (block < num_blocks) {
-            tb2bd_step(A, band, pass, step, reflectors);
-            ++step;
-            if (step%3 == 0)
-                ++block;
-        }
-    }
-*/
-    Reflectors<scalar_t> reflectors;
-
-    int64_t diag_len = std::min(A.m(), A.n());
-    int64_t chunk = 4;
-    for (int64_t pass = 0; pass < diag_len-2; pass += chunk) {
-
-        int64_t width = diag_len-1-pass;
-        int64_t num_blocks = width / (band-1);
-        if (width % (band-1) > 0)
-            ++ num_blocks;
-
-        for (int64_t i = 0; i < num_blocks+chunk-1; ++i) {
-            for (int64_t j = 0; j <= i && j < chunk; ++j) {
-                int64_t inner_pass = pass+j;
-                int64_t block = i-j;
-                if (block == 0) {
-                    tb2bd_step(A, band, inner_pass, block, reflectors);
-                }
-                else {
-                    tb2bd_step(A, band, inner_pass, 2*block-1, reflectors);
-                    tb2bd_step(A, band, inner_pass, 2*block  , reflectors);
-                }
-            }
-        }
-    }
+    tb2bd_run(A, band, chunk_size, reflectors);
 }
 
 } // namespace specialization
@@ -206,17 +159,17 @@ template <Target target, typename scalar_t>
 void tb2bd(Matrix<scalar_t>& A, int64_t band,
            const std::map<Option, Value>& opts)
 {
-    int64_t lookahead;
+    int64_t chunk_size;
     try {
-        lookahead = opts.at(Option::Lookahead).i_;
-        assert(lookahead >= 0);
+        chunk_size = opts.at(Option::ChunkSize).i_;
+        assert(chunk_size >= 1);
     }
     catch (std::out_of_range) {
-        lookahead = 1;
+        chunk_size = 1;
     }
 
     internal::specialization::tb2bd(internal::TargetType<target>(),
-                                    A, band, lookahead);
+                                    A, band, chunk_size);
 }
 
 //------------------------------------------------------------------------------

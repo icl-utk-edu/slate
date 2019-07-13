@@ -80,12 +80,13 @@ template <Target> class TargetType {};
 /// @ingroup enum
 ///
 enum class Option : char {
-    Lookahead,          ///< Lookahead depth, >= 0
-    BlockSize,          ///< BlockSize, >= 1
-    InnerBlocking,      ///< Inner blocking size, >= 1
-    MaxPanelThreads,    ///< Max number of threads for panel, >= 1
-    Tolerance,          ///< Tolerance for iterative methods, default epsilon
-    Target,             ///< Computation method. @see Target
+    ChunkSize,          ///< chunk size, >= 1
+    Lookahead,          ///< lookahead depth, >= 0
+    BlockSize,          ///< block size, >= 1
+    InnerBlocking,      ///< inner blocking size, >= 1
+    MaxPanelThreads,    ///< max number of threads for panel, >= 1
+    Tolerance,          ///< tolerance for iterative methods, default epsilon
+    Target,             ///< computation method (@see Target)
 };
 
 //------------------------------------------------------------------------------

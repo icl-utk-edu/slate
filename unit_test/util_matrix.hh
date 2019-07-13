@@ -364,7 +364,7 @@ void verify_tile_device(
     int rank = (i % p) + (j % q) * p;
     test_assert(A.tileRank(i, j) == rank);
 
-    int dev = (j / p) % num_devices;
+    int dev = (j / q) % num_devices;
     test_assert(A.tileDevice(i, j) == dev);
 
     int jb = (j == A.nt()-1 ? n - j*nb : nb);
@@ -429,7 +429,7 @@ void verify_tile_device(
     int rank = (i % p) + (j % q) * p;
     test_assert(A.tileRank(i, j) == rank);
 
-    int dev = (j / p) % num_devices;
+    int dev = (j / q) % num_devices;
     test_assert(A.tileDevice(i, j) == dev);
 
     int jb = (j == A.nt()-1 ? n - j*nb : nb);

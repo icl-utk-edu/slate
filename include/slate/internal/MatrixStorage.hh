@@ -190,7 +190,19 @@ public:
 
     MatrixStorage(int64_t m, int64_t n, int64_t mb, int64_t nb,
                   int p, int q, MPI_Comm mpi_comm);
+
+    // 1. destructor
     ~MatrixStorage();
+
+    //--------------------------------------------------------------------------
+    // 2. copy constructor -- not allowed; object is shared
+    // 3. move constructor -- not allowed; object is shared
+    // 4. copy assignment  -- not allowed; object is shared
+    // 5. move assignment  -- not allowed; object is shared
+    MatrixStorage(MatrixStorage&  orig) = delete;
+    MatrixStorage(MatrixStorage&& orig) = delete;
+    MatrixStorage& operator = (MatrixStorage&  orig) = delete;
+    MatrixStorage& operator = (MatrixStorage&& orig) = delete;
 
 protected:
     // used in constructor and destructor
@@ -218,16 +230,6 @@ public:
 
     scalar_t* allocWorkspaceBuffer(int device);
     void      releaseWorkspaceBuffer(scalar_t* data, int device);
-
-    //--------------------------------------------------------------------------
-    // 2. copy constructor -- not allowed; object is shared
-    // 3. move constructor -- not allowed; object is shared
-    // 4. copy assignment  -- not allowed; object is shared
-    // 5. move assignment  -- not allowed; object is shared
-    MatrixStorage(MatrixStorage&  orig) = delete;
-    MatrixStorage(MatrixStorage&& orig) = delete;
-    MatrixStorage& operator = (MatrixStorage&  orig) = delete;
-    MatrixStorage& operator = (MatrixStorage&& orig) = delete;
 
     //--------------------------------------------------------------------------
     /// @return
@@ -415,7 +417,8 @@ MatrixStorage<scalar_t>::MatrixStorage(
 }
 
 //------------------------------------------------------------------------------
-// 1. destructor: deletes all tiles and frees workspace buffers
+/// Destructor deletes all tiles and frees workspace buffers.
+///
 template <typename scalar_t>
 MatrixStorage<scalar_t>::~MatrixStorage()
 {

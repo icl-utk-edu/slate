@@ -51,6 +51,9 @@ ifneq ($(static),1)
     CXXFLAGS += -fPIC
     LDFLAGS  += -fPIC
     NVCCFLAGS += --compiler-options '-fPIC'
+    lib_ext = so
+else
+    lib_ext = a
 endif
 
 #-------------------------------------------------------------------------------
@@ -452,11 +455,7 @@ liblapackpp_src = $(wildcard lapackpp/include/*.h \
                              lapackpp/include/*.hh \
                              lapackpp/src/*.cc)
 
-ifeq ($(static),1)
-    liblapackpp = lapackpp/lib/liblapackpp.a
-else
-    liblapackpp = lapackpp/lib/liblapackpp.so
-endif
+liblapackpp = lapackpp/lib/liblapackpp.$(lib_ext)
 
 $(liblapackpp): $(liblapackpp_src)
 	cd lapackpp && $(MAKE) lib
@@ -467,11 +466,7 @@ libblaspp_src = $(wildcard blaspp/include/*.h \
                            blaspp/include/*.hh \
                            blaspp/src/*.cc)
 
-ifeq ($(static),1)
-    libblaspp = blaspp/lib/libblaspp.a
-else
-    libblaspp = blaspp/lib/libblaspp.so
-endif
+libblaspp = blaspp/lib/libblaspp.$(lib_ext)
 
 $(libblaspp): $(libblaspp_src)
 	cd blaspp && $(MAKE) lib
@@ -480,19 +475,16 @@ $(libblaspp): $(libblaspp_src)
 # libtest library
 libtest_src = $(wildcard libtest/*.hh libtest/*.cc)
 
-ifeq ($(static),1)
-    libtest = libtest/libtest.a
-else
-    libtest = libtest/libtest.so
-endif
+libtest = libtest/libtest.$(lib_ext)
 
 $(libtest): $(libtest_src)
 	cd libtest && $(MAKE) lib
 
 #-------------------------------------------------------------------------------
 # libslate library
-libslate_a  = ./lib/libslate.a
-libslate_so = ./lib/libslate.so
+libslate_a  = lib/libslate.a
+libslate_so = lib/libslate.so
+libslate    = lib/libslate.$(lib_ext)
 
 $(libslate_a): $(libslate_obj) $(libblaspp) $(liblapackpp)
 	mkdir -p lib
@@ -506,12 +498,6 @@ $(libslate_so): $(libslate_obj) $(libblaspp) $(liblapackpp)
 		$(libslate_obj) \
 		$(LIBS) \
 		-shared $(install_name) -o $@
-
-ifeq ($(static),1)
-    libslate = $(libslate_a)
-else
-    libslate = $(libslate_so)
-endif
 
 lib: $(libslate)
 
@@ -541,7 +527,9 @@ $(unit_test): %: %.o $(unit_test_obj) $(libslate)
 
 #-------------------------------------------------------------------------------
 # scalapack_api library
-scalapack_api = lib/libslate_scalapack_api.so
+scalapack_api_a  = lib/libslate_scalapack_api.a
+scalapack_api_so = lib/libslate_scalapack_api.so
+scalapack_api    = lib/libslate_scalapack_api.$(lib_ext)
 
 scalapack_api_src += \
         scalapack_api/scalapack_gemm.cc \
@@ -577,13 +565,20 @@ scalapack_api: $(scalapack_api)
 scalapack_api/clean:
 	rm -f $(scalapack_api) $(scalapack_api_obj)
 
-$(scalapack_api): $(scalapack_api_obj) $(libslate)
+$(scalapack_api_a): $(scalapack_api_obj) $(libslate)
+	-rm $@
+	ar cr $@ $(scalapack_api_obj)
+	ranlib $@
+
+$(scalapack_api_so): $(scalapack_api_obj) $(libslate)
 	$(CXX) $(SCALAPACK_API_LDFLAGS) $(LDFLAGS) $(scalapack_api_obj) \
 		$(SCALAPACK_API_LIBS) $(LIBS) -shared $(install_name) -o $@
 
 #-------------------------------------------------------------------------------
 # lapack_api library
-lapack_api = lib/libslate_lapack_api.so
+lapack_api_a  = lib/libslate_lapack_api.a
+lapack_api_so = lib/libslate_lapack_api.so
+lapack_api    = lib/libslate_lapack_api.$(lib_ext)
 
 lapack_api_src += \
         lapack_api/lapack_gemm.cc \
@@ -621,7 +616,12 @@ lapack_api: $(lapack_api)
 lapack_api/clean:
 	rm -f $(lapack_api) $(lapack_api_obj)
 
-$(lapack_api): $(lapack_api_obj) $(libslate)
+$(lapack_api_a): $(lapack_api_obj) $(libslate)
+	-rm $@
+	ar cr $@ $(lapack_api_obj)
+	ranlib $@
+
+$(lapack_api_so): $(lapack_api_obj) $(libslate)
 	$(CXX) $(LAPACK_API_LDFLAGS) $(LDFLAGS) $(lapack_api_obj) \
 		$(LAPACK_API_LIBS) $(LIBS) -shared $(install_name) -o $@
 

@@ -6,6 +6,8 @@
 # or on MacOS, $DYLD_LIBRARY_PATH, or set as rpaths in $LDFLAGS.
 #
 # Set options on command line or in make.inc file:
+# CXX=mpicxx      or
+# CXX=mpic++      for MPI using compiler wrapper.
 # mpi=1           for MPI (-lmpi).
 # spectrum=1      for IBM Spectrum MPI (-lmpi_ibm).
 #
@@ -19,7 +21,6 @@
 # essl=1          for IBM ESSL.
 # openblas=1      for OpenBLAS.
 #
-# cuda=1          for CUDA.
 # openmp=1        for OpenMP.
 # static=1        for static library (libslate.a);
 #                 otherwise shared library (libslate.so).
@@ -27,6 +28,7 @@
 # cuda_arch="ARCH" for CUDA architectures, where ARCH is one or more of:
 #                     kepler maxwell pascal volta turing sm_XX
 #                  and sm_XX is a CUDA architecture (see nvcc -h).
+# Setting cuda=1 will set cuda_arch="kepler pascal" by default.
 
 -include make.inc
 
@@ -62,10 +64,14 @@ endif
 
 #-------------------------------------------------------------------------------
 # if MPI
-ifeq ($(mpi),1)
+ifneq (,$(filter ${CXX},mpicxx mpic++))
+    # CXX = mpicxx or mpic++
+    # Generic MPI via compiler wrapper. No flags to set.
+else ifeq ($(mpi),1)
+    # Generic MPI.
     LIBS  += -lmpi
-# if Spectrum MPI
 else ifeq ($(spectrum),1)
+    # IBM Spectrum MPI
     LIBS  += -lmpi_ibm
 else
     FLAGS += -DSLATE_NO_MPI
@@ -155,58 +161,63 @@ else ifeq ($(openblas),1)
 endif
 
 #-------------------------------------------------------------------------------
+# cuda_arch implies cuda
+ifneq ($(cuda_arch),)
+    cuda ?= 1
+endif
+
 # if CUDA
 ifeq ($(cuda),1)
+    # Set default cuda_arch if not already set.
+    cuda_arch ?= kepler pascal
+
+    # Generate flags for which CUDA architectures to build.
+    # cuda_arch_ is a local copy to modify.
+    cuda_arch_ = $(cuda_arch)
+    ifneq ($(findstring kepler, $(cuda_arch_)),)
+        cuda_arch_ += sm_30
+    endif
+    ifneq ($(findstring maxwell, $(cuda_arch_)),)
+        cuda_arch_ += sm_50
+    endif
+    ifneq ($(findstring pascal, $(cuda_arch_)),)
+        cuda_arch_ += sm_60
+    endif
+    ifneq ($(findstring volta, $(cuda_arch_)),)
+        cuda_arch_ += sm_70
+    endif
+    ifneq ($(findstring turing, $(cuda_arch_)),)
+        cuda_arch_ += sm_75
+    endif
+
+    # CUDA architectures that nvcc supports
+    sms = 30 32 35 37 50 52 53 60 61 62 70 72 75
+
+    # code=sm_XX is binary, code=compute_XX is PTX
+    gencode_sm      = -gencode arch=compute_$(sm),code=sm_$(sm)
+    gencode_compute = -gencode arch=compute_$(sm),code=compute_$(sm)
+
+    # Get gencode options for all sm_XX in cuda_arch_.
+    nv_sm      = $(filter %, $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_sm))))
+    nv_compute = $(filter %, $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_compute))))
+
+    ifeq ($(nv_sm),)
+        $(error ERROR: set cuda_arch, currently '$(cuda_arch)', to one of kepler, maxwell, pascal, volta, turing, or valid sm_XX from nvcc -h)
+    else
+        # Get last option (last 2 words) of nv_compute.
+        nwords  = $(words $(nv_compute))
+        nwords_1 = $(shell expr $(nwords) - 1)
+        nv_compute_last = $(wordlist $(nwords_1), $(nwords), $(nv_compute))
+    endif
+
+    # Use all sm_XX (binary), and the last compute_XX (PTX) for forward compatibility.
+    NVCCFLAGS += $(nv_sm) $(nv_compute_last)
     LIBS += -lcublas -lcudart
 else
     FLAGS += -DSLATE_NO_CUDA
     libslate_src += src/stubs/cuda_stubs.cc
     libslate_src += src/stubs/cublas_stubs.cc
 endif
-
-#-------------------------------------------------------------------------------
-# Generate flags for which CUDA architectures to build.
-# cuda_arch_ is a local copy to modify.
-cuda_arch ?= kepler pascal
-cuda_arch_ = $(cuda_arch)
-ifneq ($(findstring kepler, $(cuda_arch_)),)
-    cuda_arch_ += sm_30
-endif
-ifneq ($(findstring maxwell, $(cuda_arch_)),)
-    cuda_arch_ += sm_50
-endif
-ifneq ($(findstring pascal, $(cuda_arch_)),)
-    cuda_arch_ += sm_60
-endif
-ifneq ($(findstring volta, $(cuda_arch_)),)
-    cuda_arch_ += sm_70
-endif
-ifneq ($(findstring turing, $(cuda_arch_)),)
-    cuda_arch_ += sm_75
-endif
-
-# CUDA architectures that nvcc supports
-sms = 30 32 35 37 50 52 53 60 61 62 70 72 75
-
-# code=sm_XX is binary, code=compute_XX is PTX
-gencode_sm      = -gencode arch=compute_$(sm),code=sm_$(sm)
-gencode_compute = -gencode arch=compute_$(sm),code=compute_$(sm)
-
-# Get gencode options for all sm_XX in cuda_arch_.
-nv_sm      = $(filter %, $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_sm))))
-nv_compute = $(filter %, $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_compute))))
-
-ifeq ($(nv_sm),)
-    $(warning No valid CUDA architectures found in cuda_arch = $(cuda_arch).)
-else
-    # Get last option (last 2 words) of nv_compute.
-    nwords  = $(words $(nv_compute))
-    nwords_1 = $(shell expr $(nwords) - 1)
-    nv_compute_last = $(wordlist $(nwords_1), $(nwords), $(nv_compute))
-endif
-
-# Use all sm_XX (binary), and the last compute_XX (PTX) for forward compatibility.
-NVCCFLAGS += $(nv_sm) $(nv_compute_last)
 
 #-------------------------------------------------------------------------------
 # MacOS needs shared library's path set

@@ -69,11 +69,12 @@ your own testing.
 '''shell
 
 # Set up BLAS_DIR
-BLAS_DIR=<directory for lapack-release/BLAS>
+export LAPACK_DIR=<$HOME/lapack-release>
+export BLAS_DIR=<directory for lapack-release/BLAS>
 
 # Prepend known routines with SLATE_ prefix
 for precision in 'D' 'S' 'C' 'Z'; do
-   for routine in 'GEMM' 'HEMM' 'HERK' 'HER2K' 'SYMM' 'SYR2K' 'SYRK' 'TRMM' 'TRSM' 'LANGE' 'LANTR' 'LANSY'; do
+   for routine in 'GEMM' 'HEMM' 'HERK' 'HER2K' 'SYMM' 'SYR2K' 'SYRK' 'TRMM' 'TRSM' 'POTRF' 'LANGE' 'LANSY' 'LANTR'; do
        lcprec=`echo $precision | tr A-Z a-z`
        # Add slate prefix
        sed -i 's/\b$precision$routine\b/SLATE_$precision$routine/' $BLAS_DIR/TESTING/${lcprec}blat3.f
@@ -114,7 +115,20 @@ done
 # Prepend known routines with SLATE_ prefix
 for precision in 'D' 'S' 'C' 'Z'; do
    lcprec=`echo $precision | tr A-Z a-z`
-   for routine in 'GEMM' 'HEMM' 'HERK' 'HER2K' 'SYMM' 'SYR2K' 'SYRK' 'TRMM' 'TRSM' 'POTRF' 'LANGE' 'LANSY' 'LANTR'; do
+   for routine in 'GEMM' 'HEMM' 'HERK' 'HER2K' 'SYMM' 'SYR2K' 'SYRK' 'TRMM' 'TRSM' 'POTRF' 'LANGE' 'LANSY' 'LANTR' 'GETRF' 'GETRS' 'GELS' 'GESV' 'POSV' 'POTRI'; do
+     echo $precision$routine
+     for file in $LAPACK_DIR/TESTING/LIN/${lcprec}*.f; do
+       # Add slate prefix
+       sed -i "s/\b${precision}${routine}\b/SLATE_${precision}${routine}/" ${file}
+       # Remove prefix from string names that got prefix 
+       sed -i "s/'SLATE_${precision}${routine}/'${precision}${routine}/" ${file}
+     done
+   done
+done
+
+# Mixed precision
+for precision in 'DS' 'ZC'; do
+   for routine in 'GESV'; do
      echo $precision$routine
      for file in $LAPACK_DIR/TESTING/LIN/${lcprec}*.f; do
        # Add slate prefix
@@ -131,7 +145,7 @@ for precision in 'D' 'S' 'C' 'Z'; do
      # disable error exit tests
      sed -i 's/T                      Put T to test the error exits/F                      Put T to test the error exits/' $LAPACK_DIR/TESTING/${lcprec}test.in
      # remove N=0 as a choice
-     sed -i 's/0 1 2/100 1 2/' $LAPACK_DIR/TESTING/${lcprec}test.in
+     sed -i 's/\b0 1 2/100 1 2/' $LAPACK_DIR/TESTING/${lcprec}test.in
 done
 
 # Recompile. Manually change make.inc to disable fixed line length
@@ -144,7 +158,7 @@ done
 # SLATE_LAPACK_VERBOSE=1 will cause a line to be printed on lapack_api call
 for precision in 'D' 'S' 'C' 'Z'; do
     lcprec=`echo $precision | tr A-Z a-z`
-    (cd $LAPACK_DIR/TESTING && env SLATE_LAPACK_VERBOSE=0 ./LIN/xlintst$lcprec < ${lcprec}test.in 2>&1 | uniq )
+    (cd $LAPACK_DIR/TESTING && env SLATE_LAPACK_VERBOSE=1 ./LIN/xlintst$lcprec < ${lcprec}test.in 2>&1 | uniq )
 done
 
 '''

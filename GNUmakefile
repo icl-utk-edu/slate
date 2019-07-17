@@ -343,7 +343,9 @@ test_src += \
         test/test_trnorm.cc \
         test/test_trsm.cc \
         test/test_potri.cc \
-        test/test_getri.cc
+        test/test_getri.cc \
+        test/test_trtri.cc \
+
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
 # Note that 'make' sets $(FC) to f77 by default.
@@ -549,7 +551,8 @@ scalapack_api_src += \
         scalapack_api/scalapack_gesv.cc \
         scalapack_api/scalapack_lanhe.cc \
         scalapack_api/scalapack_posv.cc \
-        scalapack_api/scalapack_gels.cc
+        scalapack_api/scalapack_gels.cc \
+        scalapack_api/scalapack_potri.cc 
 
 scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
 
@@ -586,9 +589,13 @@ lapack_api_src += \
         lapack_api/lapack_syrk.cc \
         lapack_api/lapack_trmm.cc \
         lapack_api/lapack_trsm.cc \
-        lapack_api/lapack_slate.cc \
         lapack_api/lapack_getrs.cc \
         lapack_api/lapack_lanhe.cc \
+        lapack_api/lapack_gels.cc \
+        lapack_api/lapack_gesv.cc \
+        lapack_api/lapack_gesvMixed.cc \
+        lapack_api/lapack_posv.cc \
+        lapack_api/lapack_potri.cc \
 
 
 lapack_api_obj = $(addsuffix .o, $(basename $(lapack_api_src)))

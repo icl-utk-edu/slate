@@ -308,6 +308,7 @@ libslate_src += \
         src/gels.cc \
         src/gemm.cc \
         src/geqrf.cc \
+        src/gelqf.cc \
         src/gesv.cc \
         src/gesvMixed.cc \
         src/getrf.cc \

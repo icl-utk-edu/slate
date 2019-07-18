@@ -93,10 +93,12 @@ enum MOSI
 template <typename scalar_t>
 struct TileInstance
 {
+private:
     Tile<scalar_t>* tile_;
     short state_;
     omp_nest_lock_t lock_;
 
+public:
     /// Constructor for TileInstance class
     TileInstance(Tile<scalar_t>* tile,
               short state)
@@ -115,6 +117,10 @@ struct TileInstance
         omp_destroy_nest_lock(&lock_);
     }
 
+    //--------------------------------------------------------------------------
+    Tile<scalar_t>* tile() { return tile_;}
+
+    //--------------------------------------------------------------------------
     omp_nest_lock_t* get_lock()
     {
         return &lock_;
@@ -680,7 +686,7 @@ void MatrixStorage<scalar_t>::erase(ijdev_tuple ijdev)
     LockGuard guard(tiles_.get_lock());
     auto iter = tiles_.find(ijdev);
     if (iter != tiles_.end()) {
-        Tile<scalar_t>* tile = iter->second.tile_;
+        Tile<scalar_t>* tile = iter->second.tile();
         if (tile->allocated())
             memory_.free(tile->data(), tile->device());
         if (tile->extended())

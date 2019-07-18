@@ -107,14 +107,14 @@ void Debug::checkTilesLives(BaseMatrix<scalar_t> const& A)
 
         if (! A.tileIsLocal(i, j)) {
             if (A.storage_->lives_[{i, j}] != 0 ||
-                it->second.tile_->data() != nullptr) {
+                it->second.tile()->data() != nullptr) {
 
                 std::cout << "RANK "  << std::setw(3) << A.mpi_rank_
                           << " TILE " << std::setw(3) << std::get<0>(it->first)
                           << " "      << std::setw(3) << std::get<1>(it->first)
                           << " LIFE " << std::setw(3)
                           << A.storage_->lives_[{i, j}]
-                          << " data " << it->second.tile_->data()
+                          << " data " << it->second.tile()->data()
                           << " DEV "  << std::get<2>(it->first) << "\n";
             }
         }
@@ -139,7 +139,7 @@ bool Debug::checkTilesLayout(BaseMatrix<scalar_t> const& A)
                 index = A.globalIndex(i, j, A.host_num_);
                 tmp_tile = A.storage_->tiles_.find(index);
                 if (tmp_tile != tile_end)
-                    if ( tmp_tile->second.tile_->layout() != A.layout() )
+                    if ( tmp_tile->second.tile()->layout() != A.layout() )
                         return false;
             }
         }
@@ -157,13 +157,13 @@ void Debug::printTilesLives(BaseMatrix<scalar_t> const& A)
     // i, j are tile indices
     if (A.mpi_rank_ == 0) {
         auto index = A.globalIndex(0, 0, A.host_num_);
-        auto tmp_tile = A.storage_->tiles_.find(index);
-        auto tile_end = A.storage_->tiles_.end();
+        auto tmp_tile = A.storage_->find(index);
+        auto tile_end = A.storage_->end();
 
         for (int64_t i = 0; i < A.mt(); ++i) {
             for (int64_t j = 0; j < A.nt(); j++) {
                 index = A.globalIndex(i, j, A.host_num_);
-                tmp_tile = A.storage_->tiles_.find(index);
+                tmp_tile = A.storage_->find(index);
                 if (tmp_tile == tile_end)
                     printf("  .");
                 else
@@ -189,9 +189,9 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
     printf("host\n");
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
-            auto it = A.storage_->tiles_.find(A.globalIndex(i, j, A.host_num_));
-            if (it != A.storage_->tiles_.end()) {
-                auto tile = it->second.tile_;
+            auto it = A.storage_->find(A.globalIndex(i, j, A.host_num_));
+            if (it != A.storage_->end()) {
+                auto tile = it->second.tile();
                 if (tile->origin())
                     printf("o");
                 else
@@ -206,9 +206,9 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
         printf("device %d\n", device);
         for (int64_t i = 0; i < A.mt(); ++i) {
             for (int64_t j = 0; j < A.nt(); ++j) {
-                auto it = A.storage_->tiles_.find(A.globalIndex(i, j, device));
-                if (it != A.storage_->tiles_.end()) {
-                    auto tile = it->second.tile_;
+                auto it = A.storage_->find(A.globalIndex(i, j, device));
+                if (it != A.storage_->end()) {
+                    auto tile = it->second.tile();
                     if (tile->origin())
                         printf("o");
                     else
@@ -254,9 +254,9 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name,
     printf("%s on host, rank %d, %s, %s, %d\n", name, A.mpiRank(), func, file, line);
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
-            auto it = A.storage_->tiles_.find(A.globalIndex(i, j, A.host_num_));
-            if (it != A.storage_->tiles_.end()) {
-                auto tile = it->second.tile_;
+            auto it = A.storage_->find(A.globalIndex(i, j, A.host_num_));
+            if (it != A.storage_->end()) {
+                auto tile = it->second.tile();
                 if (tile->origin())
                     printf("o");
                 else
@@ -296,9 +296,9 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name,
         printf("%s on device %d, rank %d, %s, %s, %d\n", name, device, A.mpiRank(), func, file, line);
         for (int64_t i = 0; i < A.mt(); ++i) {
             for (int64_t j = 0; j < A.nt(); ++j) {
-                auto it = A.storage_->tiles_.find(A.globalIndex(i, j, device));
-                if (it != A.storage_->tiles_.end()) {
-                    auto tile = it->second.tile_;
+                auto it = A.storage_->find(A.globalIndex(i, j, device));
+                if (it != A.storage_->end()) {
+                    auto tile = it->second.tile();
                     if (tile->origin())
                         printf("o");
                     else

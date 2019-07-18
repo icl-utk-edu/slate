@@ -132,6 +132,8 @@ void gebr1(internal::TargetType<Target::HostTask>,
            std::vector<scalar_t>& v2,
            int priority)
 {
+    trace::Block trace_block("internal::gebr1");
+
     auto A1 = transpose(A);
     gerfg(A1, v1);
     gerf(v1, A1);
@@ -162,6 +164,8 @@ void gebr2(internal::TargetType<Target::HostTask>,
            std::vector<scalar_t>& v2,
            int priority)
 {
+    trace::Block trace_block("internal::gebr2");
+
     gerf(v1, A);
 
     auto AT = transpose(A);
@@ -190,6 +194,8 @@ void gebr3(internal::TargetType<Target::HostTask>,
            std::vector<scalar_t>& v2,
            int priority)
 {
+    trace::Block trace_block("internal::gebr3");
+
     auto AT = transpose(A);
     gerf(v1, AT);
 

@@ -44,6 +44,8 @@
 #include "slate/TriangularMatrix.hh"
 #include "internal/internal.hh"
 
+#include <atomic>
+
 namespace slate {
 
 // specialization namespace differentiates, e.g.,
@@ -55,48 +57,62 @@ template <typename scalar_t>
 using Reflectors = std::map< std::pair<int64_t, int64_t>,
                              std::vector<scalar_t> >;
 
+using Progress = std::vector< std::atomic<int64_t> >;
+
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void tb2bd_step(Matrix<scalar_t>& A, int64_t band,
                 int64_t sweep, int64_t step,
-                Reflectors<scalar_t>& reflectors)
+                Reflectors<scalar_t>& reflectors, omp_lock_t& lock)
 {
     int64_t task = step == 0 ? 0 : (step+1)%2 + 1;
     int64_t block = (step+1)/2;
     int64_t i;
     int64_t j;
+
     switch (task) {
         case 0:
             i =   sweep;
             j = 1+sweep;
             if (i < A.m() && j < A.n()) {
+                omp_set_lock(&lock);
+                auto& v1 = reflectors[{i, j}];
+                auto& v2 = reflectors[{i+1, j}];
+                omp_unset_lock(&lock);
                 internal::gebr1<Target::HostTask>(
                     A.slice(i, std::min(i+band-1, A.m()-1),
                             j, std::min(j+band-2, A.n()-1)),
-                    reflectors[{i, j}],
-                    reflectors[{i+1, j}]);
+                    v1, v2);
             }
             break;
         case 1:
             i = (block-1)*(band-1)+1+sweep;
             j =  block   *(band-1)+1+sweep;
             if (i < A.m() && j < A.n()) {
+                omp_set_lock(&lock);
+                auto& v1 = reflectors[{i, j-(band-1)}];
+                auto& v2 = reflectors[{i, j}];
+                omp_unset_lock(&lock);
                 internal::gebr2<Target::HostTask>(
-                    reflectors[{i, j-(band-1)}],
+                    v1,
                     A.slice(i, std::min(i+band-2, A.m()-1),
                             j, std::min(j+band-2, A.n()-1)),
-                    reflectors[{i, j}]);
+                    v2);
             }
             break;
         case 2:
             i = block*(band-1)+1+sweep;
             j = block*(band-1)+1+sweep;
             if (i < A.m() && j < A.n()) {
+                omp_set_lock(&lock);
+                auto& v1 = reflectors[{i-(band-1), j}];
+                auto& v2 = reflectors[{i, j}];
+                omp_unset_lock(&lock);
                 internal::gebr3<Target::HostTask>(
-                    reflectors[{i-(band-1), j}],
+                    v1,
                     A.slice(i, std::min(i+band-2, A.m()-1),
                             j, std::min(j+band-2, A.n()-1)),
-                    reflectors[{i, j}]);
+                    v2);
             }
             break;
     }
@@ -104,14 +120,13 @@ void tb2bd_step(Matrix<scalar_t>& A, int64_t band,
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void tb2bd_run(Matrix<scalar_t>& A, int64_t band, int64_t chunk_size,
-               Reflectors<scalar_t>& reflectors)
+void tb2bd_run(Matrix<scalar_t>& A,
+               int64_t band, int64_t diag_len,
+               int64_t num_passes, int64_t chunk_size,
+               int thread_rank, int thread_size,
+               Reflectors<scalar_t>& reflectors, omp_lock_t& lock,
+               Progress& progress)
 {
-    int64_t diag_len = std::min(A.m(), A.n());
-    int64_t num_passes = (diag_len-2) / chunk_size;
-    if ((diag_len-2) % chunk_size > 0)
-        ++num_passes;
-
     for (int64_t pass = 0; pass < num_passes; ++pass) {
 
         int64_t width = diag_len-1-(pass*chunk_size);
@@ -121,14 +136,60 @@ void tb2bd_run(Matrix<scalar_t>& A, int64_t band, int64_t chunk_size,
 
         for (int64_t i = 0; i < num_blocks+chunk_size-1; ++i) {
             for (int64_t j = 0; j <= i && j < chunk_size; ++j) {
+
                 int64_t sweep = (pass*chunk_size)+j;
                 int64_t block = i-j;
-                if (block == 0) {
-                    tb2bd_step(A, band, sweep, block, reflectors);
-                }
-                else {
-                    tb2bd_step(A, band, sweep, 2*block-1, reflectors);
-                    tb2bd_step(A, band, sweep, 2*block  , reflectors);
+                if (block < num_blocks) {
+                    if (block == 0) {
+                        int64_t step = 0;
+                        if (step % thread_size == thread_rank) {
+
+                            // Wait until sweep-1 is two tasks ahead.
+                            if (sweep > 0 && block < num_blocks-1)
+                                while (progress.at(sweep-1).load() < step+2);
+
+                            tb2bd_step(A, band, sweep, step,
+                                       reflectors, lock);
+
+                            // Mark step as done.
+                            progress.at(sweep).store(step);
+                        }
+                    }
+                    else {
+                        int64_t step = 2*block-1;
+                        if (step % thread_size == thread_rank) {
+
+                            // Wait until step-1 is done in this sweep.
+                            while (progress.at(sweep).load() < step-1);
+
+                            // Wait until sweep-1 is two tasks ahead.
+                            if (sweep > 0 && block < num_blocks-1)
+                                while (progress.at(sweep-1).load() < step+2);
+
+                            tb2bd_step(A, band, sweep, step,
+                                       reflectors, lock);
+
+                            // Mark step as done.
+                            progress.at(sweep).store(step);
+                        }
+
+                        step = 2*block;
+                        if (step % thread_size == thread_rank) {
+
+                            // Wait until step-1 is done in this sweep.
+                            while (progress.at(sweep).load() < step-1);
+
+                            // Wait until sweep-1 is two tasks ahead.
+                            if (sweep > 0 && block < num_blocks-1)
+                                while (progress.at(sweep-1).load() < step+2);
+
+                            tb2bd_step(A, band, sweep, step,
+                                       reflectors, lock);
+
+                            // Mark step as done.
+                            progress.at(sweep).store(step);
+                        }
+                    }
                 }
             }
         }
@@ -144,8 +205,48 @@ template <Target target, typename scalar_t>
 void tb2bd(slate::internal::TargetType<target>,
            Matrix<scalar_t>& A, int64_t band, int64_t chunk_size)
 {
+    int64_t diag_len = std::min(A.m(), A.n());
+    int64_t num_passes = (diag_len-2) / chunk_size;
+    if ((diag_len-2) % chunk_size > 0)
+        ++num_passes;
+
+    omp_lock_t lock;
+    omp_init_lock(&lock);
     Reflectors<scalar_t> reflectors;
-    tb2bd_run(A, band, chunk_size, reflectors);
+
+    Progress progress(num_passes*chunk_size);
+    for (int64_t i = 0; i < num_passes*chunk_size; ++i)
+        progress.at(i).store(-1);
+
+    #pragma omp parallel
+    #pragma omp master
+    {
+        int thread_size = omp_get_max_threads();
+        #if 1
+        // Launching new threads for the band reduction guarantees progression.
+        // This should never deadlock, but may be detrimental to performance.
+        omp_set_nested(1);
+        #pragma omp parallel for \
+            num_threads(thread_size) \
+            shared(reflectors, lock, progress)
+        #else
+        // Issuing panel operation as tasks may cause a deadlock.
+        #pragma omp taskloop \
+            num_tasks(thread_size) \
+            shared(reflectors, lock, progress)
+        #endif
+        for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank)
+        {
+            tb2bd_run(A,
+                      band, diag_len,
+                      num_passes, chunk_size,
+                      thread_rank, thread_size,
+                      reflectors, lock, progress);
+        }
+        #pragma omp taskwait
+    }
+
+    omp_destroy_lock(&lock);
 }
 
 } // namespace specialization

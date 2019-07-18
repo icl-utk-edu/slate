@@ -3250,7 +3250,7 @@ std::tuple<int64_t, int64_t, int>
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-int BaseMatrix<scalar_t>::host_num_ = -1;
+int BaseMatrix<scalar_t>::host_num_ = HOST_NUM;
 
 template <typename scalar_t>
 int BaseMatrix<scalar_t>::num_devices_ = 0;

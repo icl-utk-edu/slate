@@ -49,6 +49,7 @@
 #include <map>
 #include <stack>
 
+#include "slate/enums.hh"
 #include "slate/internal/cuda.hh"
 #include "slate/internal/openmp.hh"
 
@@ -68,15 +69,15 @@ public:
             #ifndef SLATE_NO_CUDA
                 cudaError_t error = cudaGetDeviceCount(&num_devices_);
                 if (error == cudaSuccess) {
-                    host_num_ = -num_devices_;
+                    host_num_ = HOST_NUM;
                 }
                 else {
                     num_devices_ = 0;
-                    host_num_ = -1;
+                    host_num_ = HOST_NUM;
                 }
             #else
                 num_devices_ = 0;
-                host_num_ = -1;
+                host_num_ = HOST_NUM;
             #endif
         }
     } static_constructor_;

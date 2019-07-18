@@ -56,7 +56,7 @@ int m, n, k, nb, p, q;
 int mpi_rank;
 int mpi_size;
 MPI_Comm mpi_comm;
-int host_num = -1;
+int host_num = HOST_NUM;
 int num_devices = 0;
 
 //==============================================================================
@@ -959,7 +959,7 @@ int main(int argc, char** argv)
     MPI_Comm_size(mpi_comm, &mpi_size);
 
     cudaGetDeviceCount(&num_devices);
-    host_num = (num_devices == 0 ? -1 : -num_devices);
+    host_num = HOST_NUM;
 
     // globals
     m  = 200;

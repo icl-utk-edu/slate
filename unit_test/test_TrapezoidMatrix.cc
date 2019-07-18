@@ -322,6 +322,125 @@ void test_TrapezoidMatrix_insertLocalTiles()
     }
 }
 
+//------------------------------------------------------------------------------
+/// Test allocateBatchArrays, clearBatchArrays, batchArraySize.
+///
+void test_TrapezoidMatrix_allocateBatchArrays()
+{
+    if (num_devices == 0) {
+        test_skip("requires num_devices > 0");
+    }
+
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+
+    int64_t iseed[4] = { 0, 1, 2, 3 };
+    lapack::larnv( 1, iseed, Ad.size(), Ad.data() );
+
+    auto L = slate::TrapezoidMatrix<double>::fromLAPACK(
+        blas::Uplo::Lower, blas::Diag::NonUnit,
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto U = slate::TrapezoidMatrix<double>::fromLAPACK(
+        blas::Uplo::Upper, blas::Diag::Unit,
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // initially, batch arrays are null
+    test_assert( L.batchArraySize() == 0 );
+    test_assert( U.batchArraySize() == 0 );
+    for (int device = 0; device < num_devices; ++device) {
+        test_assert( L.a_array_host(device) == nullptr );
+        test_assert( L.b_array_host(device) == nullptr );
+        test_assert( L.c_array_host(device) == nullptr );
+
+        test_assert( L.a_array_device(device) == nullptr );
+        test_assert( L.b_array_device(device) == nullptr );
+        test_assert( L.c_array_device(device) == nullptr );
+
+        // -----
+        test_assert( U.a_array_host(device) == nullptr );
+        test_assert( U.b_array_host(device) == nullptr );
+        test_assert( U.c_array_host(device) == nullptr );
+
+        test_assert( U.a_array_device(device) == nullptr );
+        test_assert( U.b_array_device(device) == nullptr );
+        test_assert( U.c_array_device(device) == nullptr );
+    }
+
+    // allocate size 10
+    L.allocateBatchArrays( 10 );
+    U.allocateBatchArrays( 10 );
+    test_assert( L.batchArraySize() == 10 );
+    test_assert( U.batchArraySize() == 10 );
+    for (int device = 0; device < num_devices; ++device) {
+        test_assert( L.a_array_host(device) != nullptr );
+        test_assert( L.b_array_host(device) != nullptr );
+        test_assert( L.c_array_host(device) != nullptr );
+
+        test_assert( L.a_array_device(device) != nullptr );
+        test_assert( L.b_array_device(device) != nullptr );
+        test_assert( L.c_array_device(device) != nullptr );
+
+        // -----
+        test_assert( U.a_array_host(device) != nullptr );
+        test_assert( U.b_array_host(device) != nullptr );
+        test_assert( U.c_array_host(device) != nullptr );
+
+        test_assert( U.a_array_device(device) != nullptr );
+        test_assert( U.b_array_device(device) != nullptr );
+        test_assert( U.c_array_device(device) != nullptr );
+    }
+
+    // increase to size 20
+    L.allocateBatchArrays( 20 );
+    U.allocateBatchArrays( 20 );
+    test_assert( L.batchArraySize() == 20 );
+    test_assert( U.batchArraySize() == 20 );
+
+    // requesting 15 should leave it at 20
+    L.allocateBatchArrays( 15 );
+    U.allocateBatchArrays( 15 );
+    test_assert( L.batchArraySize() == 20 );
+    test_assert( U.batchArraySize() == 20 );
+
+    int numL = 0;
+    int numU = 0;
+    for (int device = 0; device < num_devices; ++device) {
+        numL = blas::max( numL, L.getMaxDeviceTiles( device ) );
+        numU = blas::max( numU, U.getMaxDeviceTiles( device ) );
+    }
+
+    // request enough for local tiles
+    L.allocateBatchArrays();
+    U.allocateBatchArrays();
+    test_assert( L.batchArraySize() == blas::max( numL, 20 ) );
+    test_assert( U.batchArraySize() == blas::max( numU, 20 ) );
+
+    // clear should free arrays
+    L.clearBatchArrays();
+    U.clearBatchArrays();
+    test_assert( L.batchArraySize() == 0 );
+    test_assert( U.batchArraySize() == 0 );
+    for (int device = 0; device < num_devices; ++device) {
+        test_assert( L.a_array_host(device) == nullptr );
+        test_assert( L.b_array_host(device) == nullptr );
+        test_assert( L.c_array_host(device) == nullptr );
+
+        test_assert( L.a_array_device(device) == nullptr );
+        test_assert( L.b_array_device(device) == nullptr );
+        test_assert( L.c_array_device(device) == nullptr );
+
+        // -----
+        test_assert( U.a_array_host(device) == nullptr );
+        test_assert( U.b_array_host(device) == nullptr );
+        test_assert( U.c_array_host(device) == nullptr );
+
+        test_assert( U.a_array_device(device) == nullptr );
+        test_assert( U.b_array_device(device) == nullptr );
+        test_assert( U.c_array_device(device) == nullptr );
+    }
+}
+
 //==============================================================================
 // Sub-matrices and conversions
 
@@ -816,6 +935,7 @@ void run_tests()
     if (mpi_rank == 0)
         printf("\nMethods\n");
     run_test(test_TrapezoidMatrix_insertLocalTiles, "TrapezoidMatrix::insertLocalTiles", mpi_comm);
+    run_test(test_TrapezoidMatrix_allocateBatchArrays, "TrapezoidMatrix::allocateBatchArrays", mpi_comm);
 
     if (mpi_rank == 0)
         printf("\nSub-matrices and conversions\n");

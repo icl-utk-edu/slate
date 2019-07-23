@@ -59,7 +59,7 @@ typedef cuComplex cuFloatComplex;
 typedef std::complex<double> cuDoubleComplex;
 
 enum {
-    cudaSuccess
+    cudaSuccess,
     cudaStreamNonBlocking,
     cudaMemcpyHostToHost,
     cudaMemcpyHostToDevice,

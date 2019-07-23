@@ -164,6 +164,13 @@ cublasStatus_t cublasZswap(
     assert(0);
 }
 
+cublasStatus_t cublasGetMatrix(
+    int rows, int cols, int elemSize,
+    const void *A, int lda, void *B, int ldb)
+{
+    assert(0);
+}
+
 #ifdef __cplusplus
 }
 #endif

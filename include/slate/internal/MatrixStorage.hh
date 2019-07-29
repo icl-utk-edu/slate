@@ -92,7 +92,7 @@ typedef short MOSI_State;
 //------------------------------------------------------------------------------
 ///
 template <typename scalar_t>
-struct TileInstance
+class TileInstance
 {
 private:
     Tile<scalar_t>* tile_;
@@ -100,13 +100,6 @@ private:
     omp_nest_lock_t lock_;
 
 public:
-    /// Constructor for TileInstance class
-    TileInstance(Tile<scalar_t>* tile,
-              short state)
-              : tile_(tile), state_(state)
-    {
-        omp_init_nest_lock(&lock_);
-    }
     TileInstance() : tile_(nullptr), state_(MOSI::Invalid)
     {
         omp_init_nest_lock(&lock_);
@@ -119,7 +112,14 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    Tile<scalar_t>* tile() { return tile_;}
+    // 2. copy constructor -- not allowed; lock_ is not copyable
+    // 3. move constructor -- not allowed; lock_ is not copyable
+    // 4. copy assignment  -- not allowed; lock_ is not copyable
+    // 5. move assignment  -- not allowed; lock_ is not copyable
+    TileInstance(TileInstance&  orig) = delete;
+    TileInstance(TileInstance&& orig) = delete;
+    TileInstance& operator = (TileInstance&  orig) = delete;
+    TileInstance& operator = (TileInstance&& orig) = delete;
 
     //--------------------------------------------------------------------------
     omp_nest_lock_t* getLock()

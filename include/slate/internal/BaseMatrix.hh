@@ -278,6 +278,11 @@ public:
 
     void tileAcquire(int64_t i, int64_t j, int device, Layout layout);
 
+    void tileAcquire(int64_t i, int64_t j, Layout layout)
+    {
+        tileAcquire(i, j, host_num_, layout);
+    }
+
     void tileGetForReading(int64_t i, int64_t j, int device, LayoutConvert layout);
 
     void tileGetForReading(std::set<ij_tuple>& tile_set, int device, LayoutConvert layout);
@@ -1433,8 +1438,7 @@ void BaseMatrix<scalar_t>::tileRecv(
             tileLife(i, j, life);
         }
         else {
-            // todo: tileAquire()
-            tileGetForReading(i, j, LayoutConvert::None);
+            tileAcquire(i, j, layout);
         }
 
         // Receive data.
@@ -1776,11 +1780,7 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     // Receive.
     if (! recv_from.empty()) {
         // read tile on host memory
-        // todo: tileAquire()
-        // todo: this fixed the device origin but corrupted host origin,
-        // really need tileAquire()
-        // disable temporarily
-        // tileGetForReading(i, j);
+        tileAcquire(i, j, layout);
 
         at(i, j).recv(new_vec[recv_from.front()], mpi_comm_, layout, tag);
         tileLayout(i, j, layout);

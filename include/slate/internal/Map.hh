@@ -94,7 +94,7 @@ public:
     /// Destructor for Map class
     ~Map() { omp_destroy_nest_lock(&lock_); }
 
-    omp_nest_lock_t* get_lock()
+    omp_nest_lock_t* getLock()
     {
         return &lock_;
     }

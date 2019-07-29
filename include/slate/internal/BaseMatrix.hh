@@ -1422,7 +1422,7 @@ void BaseMatrix<scalar_t>::tileRecv(
         if (! tileIsLocal(i, j)) {
             // Create tile to receive data, with life span.
             // If tile already exists, add to its life span.
-            LockGuard guard(storage_->tiles_.get_lock());
+            LockGuard guard(storage_->tiles_.getLock());
             auto iter = storage_->find(globalIndex(i, j, host_num_));
 
             int64_t life = 1;
@@ -1551,7 +1551,7 @@ void BaseMatrix<scalar_t>::listBcast(
 
                 // Create tile to receive data, with life span.
                 // If tile already exists, add to its life span.
-                LockGuard guard(storage_->tiles_.get_lock());
+                LockGuard guard(storage_->tiles_.getLock());
                 auto iter = storage_->find(globalIndex(i, j, host_num_));
 
                 int64_t life = 0;
@@ -1625,7 +1625,6 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, Layout layout, in
 
                 // todo: should we check its life count before erasing?
                 // Destroy the tile.
-                LockGuard guard(storage_->tiles_.get_lock());// todo is this needed here?
                 tileErase(i, j, host_num_);// todo: should it be a tileRelease()?
             }
             else {
@@ -2084,7 +2083,7 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileAcquire(int64_t i, int64_t j, int device,
                                        Layout layout)
 {
-    LockGuard guard(storage_->tiles_.get_lock());
+    LockGuard guard(storage_->tiles_.getLock());
 
     // find tile on destination
     auto iter = storage_->find(globalIndex(i, j, device));
@@ -2150,7 +2149,7 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
                                    LayoutConvert layout, bool modify, bool hold,
                                    bool async)
 {
-    LockGuard guard(storage_->tiles_.get_lock());
+    LockGuard guard(storage_->tiles_.getLock());
 
     TileEntry<scalar_t> *dst_tileEntry = nullptr, *src_tileEntry = nullptr;
     bool dst_found = true;
@@ -2740,7 +2739,7 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileLayoutConvert(int64_t i, int64_t j, int device,
                                              Layout layout, bool reset)
 {
-    LockGuard guard(storage_->at(globalIndex(i, j, device)).get_lock());
+    LockGuard guard(storage_->at(globalIndex(i, j, device)).getLock());
     auto tile = storage_->at(globalIndex(i, j, device)).tile();
     if (tile->layout() != layout ) {
         if (! tile->isTransposable() ) {

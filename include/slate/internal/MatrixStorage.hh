@@ -121,7 +121,7 @@ public:
     Tile<scalar_t>* tile() { return tile_;}
 
     //--------------------------------------------------------------------------
-    omp_nest_lock_t* get_lock()
+    omp_nest_lock_t* getLock()
     {
         return &lock_;
     }
@@ -613,7 +613,7 @@ void MatrixStorage<scalar_t>::reserveDeviceWorkspace(int64_t num_tiles)
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::clearWorkspace()
 {
-    LockGuard guard(tiles_.get_lock());
+    LockGuard guard(tiles_.getLock());
     // incremented below
     for (auto iter = tiles_.begin(); iter != tiles_.end();) {
         if (iter->second.tile_->workspace()) {
@@ -645,7 +645,7 @@ void MatrixStorage<scalar_t>::clearWorkspace()
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::releaseWorkspace()
 {
-    LockGuard guard(tiles_.get_lock());
+    LockGuard guard(tiles_.getLock());
     // incremented below
     for (auto iter = tiles_.begin(); iter != tiles_.end();) {
         if (iter->second.tile_->workspace()) {
@@ -683,7 +683,7 @@ void MatrixStorage<scalar_t>::releaseWorkspace()
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::erase(ijdev_tuple ijdev)
 {
-    LockGuard guard(tiles_.get_lock());
+    LockGuard guard(tiles_.getLock());
     auto iter = tiles_.find(ijdev);
     if (iter != tiles_.end()) {
         Tile<scalar_t>* tile = iter->second.tile();
@@ -839,7 +839,7 @@ template <typename scalar_t>
 void MatrixStorage<scalar_t>::tileTick(ij_tuple ij)
 {
     if (! tileIsLocal(ij)) {
-        LockGuard guard(lives_.get_lock());
+        LockGuard guard(tiles_.getLock());
         int64_t life = --lives_.at(ij);
         if (life == 0) {
             int64_t i = std::get<0>(ij);

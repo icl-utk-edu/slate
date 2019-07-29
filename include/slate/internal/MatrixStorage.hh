@@ -87,6 +87,7 @@ enum MOSI
     Shared = 0x010,   ///< tile data is up-to-date, other instances may be Shared, or Invalid, may be purged
     Invalid = 0x001,   ///< tile data is obsolete, other instances may be Modified, Shared, or Invalid, may be purged
 };
+typedef short MOSI_State;
 
 //------------------------------------------------------------------------------
 ///
@@ -95,7 +96,7 @@ struct TileInstance
 {
 private:
     Tile<scalar_t>* tile_;
-    short state_;
+    MOSI_State state_;
     omp_nest_lock_t lock_;
 
 public:
@@ -126,7 +127,7 @@ public:
         return &lock_;
     }
 
-    void setState(short stateIn)
+    void setState(MOSI_State stateIn)
     {
         switch (stateIn) {
             case MOSI::Modified:
@@ -148,10 +149,10 @@ public:
 
     MOSI getState()
     {
-        return MOSI(state_ & short(~MOSI::OnHold));
+        return MOSI(state_ & MOSI_State(~MOSI::OnHold));
     }
 
-    bool stateOn(short stateIn)
+    bool stateOn(MOSI_State stateIn) const
     {
         switch (stateIn) {
             case MOSI::Modified:

@@ -225,16 +225,16 @@ public:
         return tileInsert(i, j, host_num_, A, ld);
     }
 
-    TileInstance<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, int device, Layout layout);
-    TileInstance<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, int device)
+    Tile<scalar_t>* tileInsertWorkspace(int64_t i, int64_t j, int device, Layout layout);
+    Tile<scalar_t>* tileInsertWorkspace(int64_t i, int64_t j, int device)
     {
         return tileInsertWorkspace(i, j, device, layout_);
     }
-    TileInstance<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, Layout layout)
+    Tile<scalar_t>* tileInsertWorkspace(int64_t i, int64_t j, Layout layout)
     {
         return tileInsertWorkspace(i, j, host_num_, layout);
     }
-    TileInstance<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j)
+    Tile<scalar_t>* tileInsertWorkspace(int64_t i, int64_t j)
     {
         return tileInsertWorkspace(i, j, host_num_, layout_);
     }
@@ -1100,7 +1100,7 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 /// @return Pointer to new tile.
 ///
 template <typename scalar_t>
-TileInstance<scalar_t>& BaseMatrix<scalar_t>::tileInsertWorkspace(
+Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsertWorkspace(
     int64_t i, int64_t j, int device, Layout layout)
 {
     auto index = globalIndex(i, j, device);

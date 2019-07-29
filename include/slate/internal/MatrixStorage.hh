@@ -195,6 +195,124 @@ public:
 };
 
 //------------------------------------------------------------------------------
+///
+template <typename scalar_t>
+class TileNode
+{
+private:
+    typedef TileInstance<scalar_t> TileInstance_t;
+    /// vector of tile instances indexed by device id.
+    using TileInstances = std::vector< std::unique_ptr<TileInstance_t> >;
+
+    TileInstances tile_instances_;
+    int num_instances_;
+    int64_t life_;
+
+    /// OMP lock used to protect operations that modify the TileInstances within
+    mutable omp_nest_lock_t lock_;
+
+public:
+    /// Constructor for TileNode class
+    TileNode(int num_devices)
+        : num_instances_(0), life_(0)
+    {
+        slate_assert(num_devices >= 0);
+        omp_init_nest_lock(&lock_);
+        for (int d = 0; d < num_devices+1; ++d) {
+            tile_instances_.push_back(std::unique_ptr<TileInstance_t>( new TileInstance_t() ));
+        }
+    }
+
+    /// Destructor for TileNode class
+    ~TileNode()
+    {
+        // for debug mode
+        assert(num_instances_ == 0);
+        omp_destroy_nest_lock(&lock_);
+    }
+
+    //--------------------------------------------------------------------------
+    // 2. copy constructor -- not allowed; lock_ and tile_instances_ are not copyable
+    // 3. move constructor -- not allowed; lock_ and tile_instances_ are not copyable
+    // 4. copy assignment  -- not allowed; lock_ and tile_instances_ are not copyable
+    // 5. move assignment  -- not allowed; lock_ and tile_instances_ are not copyable
+    TileNode(TileNode&  orig) = delete;
+    TileNode(TileNode&& orig) = delete;
+    TileNode& operator = (TileNode&  orig) = delete;
+    TileNode& operator = (TileNode&& orig) = delete;
+
+    //--------------------------------------------------------------------------
+    /// Retrun pointer to tile instance OMP lock
+    omp_nest_lock_t* getLock()
+    {
+        return &lock_;
+    }
+
+    //--------------------------------------------------------------------------
+    /// Inserts a tile instance at device and increments the number of resident instances
+    void insertOn(int device, Tile<scalar_t>* tile, MOSI_State state)
+    {
+        slate_assert(device >= -1 && device+1 < int(tile_instances_.size()));
+        slate_assert(! tile_instances_[device+1]->valid());
+        tile_instances_[device+1]->init(tile, state);
+        ++num_instances_;
+    }
+
+    //--------------------------------------------------------------------------
+    /// Returns whether a tile instance exists at device
+    bool existsOn(int device) const
+    {
+        slate_assert(device >= -1 && device+1 < int(tile_instances_.size()));
+        return tile_instances_[device+1]->valid();
+    }
+
+    //--------------------------------------------------------------------------
+    /// Deletes the tile instance at device
+    // CAUTION: tile's memory must have been already released to MatrixStorage Memory
+    void eraseOn(int device)
+    {
+        slate_assert(device >= -1 && device+1 < int(tile_instances_.size()));
+        if (tile_instances_[device+1]->valid()) {
+            tile_instances_[device+1]->setState(MOSI::Invalid);
+            delete tile_instances_[device+1]->tile();
+            tile_instances_[device+1]->tile(nullptr);
+            --num_instances_;
+        }
+    }
+
+    //--------------------------------------------------------------------------
+    /// Returns a reference to the tile instance at device
+    TileInstance_t& operator[](int device) const
+    {
+        slate_assert(device >= -1 && device+1 < int(tile_instances_.size()));
+        return *(tile_instances_[device+1]);
+    }
+
+    //--------------------------------------------------------------------------
+    /// Returns a reference to the tile instance at device
+    TileInstance_t& at(int dev) const
+    {
+        slate_assert(dev >= -1 && dev+1 < int(tile_instances_.size()));
+        return *(tile_instances_[dev+1]);
+    }
+
+    int numInstances() const
+    {
+        return num_instances_;
+    }
+
+    int64_t& lives()
+    {
+        return life_;
+    }
+
+    bool empty() const
+    {
+        return num_instances_ == 0;
+    }
+};
+
+//------------------------------------------------------------------------------
 /// @brief Slate::MatrixStorage class
 /// @details Used to store the map of distributed tiles.
 /// @tparam scalar_t Data type for the elements of the matrix

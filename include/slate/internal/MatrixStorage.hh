@@ -97,7 +97,7 @@ class TileInstance
 private:
     Tile<scalar_t>* tile_;
     MOSI_State state_;
-    omp_nest_lock_t lock_;
+    mutable omp_nest_lock_t lock_;
 
 public:
     TileInstance() : tile_(nullptr), state_(MOSI::Invalid)
@@ -122,11 +122,31 @@ public:
     TileInstance& operator = (TileInstance&& orig) = delete;
 
     //--------------------------------------------------------------------------
+    /// Get and Set tile pointer
+    Tile<scalar_t>* tile() const { return tile_;}
+    void tile(Tile<scalar_t>* tile) { tile_ = tile; }
+
+    //--------------------------------------------------------------------------
+    /// Returns whether this tile instance is valid (Tile instance exists)
+    bool valid() const { return tile_ != nullptr;}
+
+    //--------------------------------------------------------------------------
+    /// Initialize tile pointer and MOSI state
+    void init(Tile<scalar_t>* tile, MOSI_State state)
+    {
+        tile_ = tile;
+        state_ = state;
+    }
+
+    //--------------------------------------------------------------------------
+    /// Retrun pointer to tile instance OMP lock
     omp_nest_lock_t* getLock()
     {
         return &lock_;
     }
 
+    //--------------------------------------------------------------------------
+    /// Set the state to: Modified/Shared/Invalid, or set On/Off the OnHold flag
     void setState(MOSI_State stateIn)
     {
         switch (stateIn) {
@@ -147,11 +167,14 @@ public:
         }
     }
 
-    MOSI getState()
+    /// Returns the current MOSI state (Modified/Shared/Invalid)
+    /// to check the OnHold flag use @stateOn
+    MOSI getState() const
     {
         return MOSI(state_ & MOSI_State(~MOSI::OnHold));
     }
 
+    /// returns whether the Modified/Shared/Invalid state or the OnHold flag is On
     bool stateOn(MOSI_State stateIn) const
     {
         switch (stateIn) {

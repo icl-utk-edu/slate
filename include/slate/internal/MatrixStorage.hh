@@ -466,6 +466,7 @@ public:
 
     TileInstance<scalar_t>& tileInsert(ijdev_tuple ijdev, TileKind, Layout layout=Layout::ColMajor);
     TileInstance<scalar_t>& tileInsert(ijdev_tuple ijdev, scalar_t* data, int64_t lda, Layout layout=Layout::ColMajor);
+    TileInstance<scalar_t>& tileAcquire(ijdev_tuple ijdev, Layout layout);
 
     void tileMakeTransposable(Tile<scalar_t>* tile);
     void tileLayoutReset(Tile<scalar_t>* tile);
@@ -1000,6 +1001,39 @@ template <typename scalar_t>
 void MatrixStorage<scalar_t>::releaseWorkspaceBuffer(scalar_t* data, int device)
 {
     memory_.free(data, device);
+}
+
+//------------------------------------------------------------------------------
+/// Acquires tile {i, j} on given device, which can be host,
+/// allocating new memory for it.
+/// TileNode(i, j) is assumed to pre-exist (equivalently the origin tile),
+/// thus, tile kind is set to TileKind::Workspace,
+///
+/// @return Reference to newly inserted TileInstance.
+///
+template <typename scalar_t>
+TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileAcquire(
+                        ijdev_tuple ijdev, Layout layout)
+{
+    int64_t i  = std::get<0>(ijdev);
+    int64_t j  = std::get<1>(ijdev);
+    int device = std::get<2>(ijdev);
+
+    auto& tile_node = this->at({i, j});
+
+    LockGuard guard(tile_node.getLock());
+
+    // if tile instance does not exist, insert new instance
+    if (! tile_node.existsOn(device)) {
+        scalar_t* data = (scalar_t*) memory_.alloc(device);
+        int64_t mb = tileMb(i);
+        int64_t nb = tileNb(j);
+        int64_t stride = layout == Layout::ColMajor ? mb : nb;
+        Tile<scalar_t>* tile
+            = new Tile<scalar_t>(mb, nb, data, stride, device, TileKind::Workspace, layout);
+        tile_node.insertOn(device, tile, MOSI::Invalid);
+    }
+    return tile_node[device];
 }
 
 //------------------------------------------------------------------------------

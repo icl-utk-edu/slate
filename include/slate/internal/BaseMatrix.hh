@@ -1419,7 +1419,7 @@ void BaseMatrix<scalar_t>::tileRecv(
 
             int64_t life = 1;
             if (iter == storage_->end())
-                tileInsertWorkspace(i, j, host_num_);
+                tileInsertWorkspace(i, j, host_num_, layout);
             else
                 life += tileLife(i, j);
             tileLife(i, j, life);
@@ -3088,14 +3088,14 @@ void BaseMatrix<scalar_t>::tileLayoutReset()
     {
         omp_set_nested(1);
         if (! tiles_set_host.empty()) {
-            #pragma omp task
+            #pragma omp task default(shared)
             {
                 tileLayoutReset(tiles_set_host, host_num_, this->layout());
             }
         }
         for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set_dev[d].empty()) {
-                #pragma omp task
+                #pragma omp task default(shared)
                 {
                     tileLayoutReset(tiles_set_dev[d], d, this->layout());
                 }

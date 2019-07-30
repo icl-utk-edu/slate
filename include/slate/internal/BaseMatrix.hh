@@ -1373,6 +1373,7 @@ void BaseMatrix<scalar_t>::tileSend(
     int64_t i, int64_t j, int dst_rank, int tag)
 {
     if (dst_rank != mpiRank()) {
+        // todo: need to acquire read access lock to TileNode(i, j)
         tileGetForReading(i, j, LayoutConvert::None);
         at(i, j).send(dst_rank, mpiComm(), tag);
     }

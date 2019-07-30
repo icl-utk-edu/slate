@@ -402,6 +402,7 @@ public:
     /// @return begin iterator of TileNode map
     typename TilesMap::iterator begin()
     {
+        LockGuard guard(tiles_.getLock());
         return tiles_.begin();
     }
 
@@ -409,6 +410,7 @@ public:
     /// @return begin iterator of TileNode map
     typename TilesMap::iterator end()
     {
+        LockGuard guard(tiles_.getLock());
         return tiles_.end();
     }
 
@@ -445,8 +447,12 @@ public:
     void clear();
 
     //--------------------------------------------------------------------------
-    /// @return number of allocated tiles (size of tiles map).
-    size_t size() const { return tiles_.size(); }
+    /// @return number of allocated tile nodes (size of tiles map).
+    size_t size() const
+    {
+        LockGuard guard(tiles_.getLock());
+        return tiles_.size();
+    }
 
     /// @return True if Tile is empty, False otherwise.
     bool empty() const { return size() == 0; }
@@ -962,6 +968,8 @@ void MatrixStorage<scalar_t>::erase(ij_tuple ij)
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::clear()
 {
+    LockGuard guard(tiles_.getLock());
+
     // incremented below
     for (auto iter = begin(); iter != end();) {
         // erasing the element invalidates the iterator,

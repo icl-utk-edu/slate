@@ -1414,7 +1414,7 @@ void BaseMatrix<scalar_t>::tileRecv(
         if (! tileIsLocal(i, j)) {
             // Create tile to receive data, with life span.
             // If tile already exists, add to its life span.
-            LockGuard guard(storage_->tiles_.getLock());
+            LockGuard guard(storage_->getTilesMapLock());
             auto iter = storage_->find(globalIndex(i, j, host_num_));
 
             int64_t life = 1;
@@ -1542,7 +1542,7 @@ void BaseMatrix<scalar_t>::listBcast(
 
                 // Create tile to receive data, with life span.
                 // If tile already exists, add to its life span.
-                LockGuard guard(storage_->tiles_.getLock());
+                LockGuard guard(storage_->getTilesMapLock());
                 auto iter = storage_->find(globalIndex(i, j, host_num_));
 
                 int64_t life = 0;
@@ -2785,7 +2785,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
         // two calls on different devices will be serialized,
         // ideally, two concurrent read accesses to the TilesMap should be allowed
         // but not a concurrent read and write.
-        LockGuard guard(storage_->tiles_.getLock());
+        LockGuard guard(storage_->getTilesMapLock());
 
         // map key tuple: m, n, extended, stride, work_stride
         using mnss_tuple = std::tuple<int64_t, int64_t, bool, int64_t, int64_t>;

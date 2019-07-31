@@ -457,8 +457,16 @@ public:
         return tiles_.size();
     }
 
+    //--------------------------------------------------------------------------
     /// @return True if Tile is empty, False otherwise.
     bool empty() const { return size() == 0; }
+
+    //--------------------------------------------------------------------------
+    /// Retrun pointer to tiles-map OMP lock
+    omp_nest_lock_t* getTilesMapLock()
+    {
+        return tiles_.getLock();
+    }
 
     //--------------------------------------------------------------------------
     std::function <int (ij_tuple ij)> tileRank;
@@ -1034,6 +1042,7 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileAcquire(
 
     // find the tileNode
     // if not found, insert new-entry in TilesMap
+    // todo: is this needed?
     if (find({i, j}) == end()) {
         tiles_[{i, j}] = std::unique_ptr<TileNode_t>( new TileNode_t( num_devices_ ) );
     }

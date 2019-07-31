@@ -109,6 +109,7 @@ public:
     ~TileInstance()
     {
         omp_destroy_nest_lock(&lock_);
+        assert(tile_ == nullptr);
     }
 
     //--------------------------------------------------------------------------
@@ -134,6 +135,8 @@ public:
     /// Initialize tile pointer and MOSI state
     void init(Tile<scalar_t>* tile, MOSI_State state)
     {
+        slate_assert(tile_ == nullptr);
+        slate_assert(tile  != nullptr);
         tile_ = tile;
         state_ = state;
     }
@@ -226,9 +229,9 @@ public:
     /// Destructor for TileNode class
     ~TileNode()
     {
+        omp_destroy_nest_lock(&lock_);
         // for debug mode
         assert(num_instances_ == 0);
-        omp_destroy_nest_lock(&lock_);
     }
 
     //--------------------------------------------------------------------------
@@ -788,6 +791,7 @@ void MatrixStorage<scalar_t>::reserveDeviceWorkspace(int64_t num_tiles)
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::freeTileMemory(Tile<scalar_t>* tile)
 {
+    slate_assert(tile != nullptr);
     if (tile->allocated())
         memory_.free(tile->data(), tile->device());
     if (tile->extended())
@@ -953,8 +957,7 @@ void MatrixStorage<scalar_t>::erase(ij_tuple ij)
         auto& tile_node = iter->second;
 
         for (int d = host_num_; (! tile_node->empty()) && d < num_devices_; ++d) {
-            if (tile_node->existsOn(d))
-            {
+            if (tile_node->existsOn(d)) {
                 freeTileMemory(tile_node->at(d).tile());
                 tile_node->eraseOn(d);
             }
@@ -978,7 +981,7 @@ void MatrixStorage<scalar_t>::clear()
     }
 
     // todo: what if some tiles were not erased
-    assert(tiles_.size() == 0);  // should be empty now
+    slate_assert(tiles_.size() == 0);  // should be empty now
 }
 
 //------------------------------------------------------------------------------

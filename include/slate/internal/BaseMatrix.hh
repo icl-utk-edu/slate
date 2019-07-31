@@ -41,7 +41,6 @@
 #define SLATE_BASE_MATRIX_HH
 
 #include "slate/internal/comm.hh"
-#include "slate/internal/Map.hh"
 #include "slate/internal/Memory.hh"
 #include "slate/internal/device.hh"
 #include "slate/internal/MatrixStorage.hh"
@@ -2792,7 +2791,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
         // map value tuple: data and extended data buffers
         using data_tuple = std::pair<std::vector<scalar_t*>, std::vector<scalar_t*>>;
 
-        using BatchedTilesBuckets = slate::Map< mnss_tuple, data_tuple >;
+        using BatchedTilesBuckets = std::map< mnss_tuple, data_tuple >;
 
         BatchedTilesBuckets tilesBuckets;
 

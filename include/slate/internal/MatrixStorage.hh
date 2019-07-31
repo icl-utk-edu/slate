@@ -40,7 +40,6 @@
 #ifndef SLATE_STORAGE_HH
 #define SLATE_STORAGE_HH
 
-#include "slate/internal/Map.hh"
 #include "slate/internal/Memory.hh"
 #include "slate/Tile.hh"
 #include "slate/types.hh"
@@ -61,6 +60,36 @@
 #include "slate/internal/openmp.hh"
 
 namespace slate {
+
+//------------------------------------------------------------------------------
+/// Constructor acquires lock; destructor releases lock.
+/// This provides safety in case an exception is thrown, which would otherwise
+/// by-pass the unlock. Like std::lock_guard, but for OpenMP locks.
+///
+class LockGuard {
+public:
+    LockGuard(omp_nest_lock_t* lock)
+        : lock_(lock), locked_(true)
+    {
+        omp_set_nest_lock(lock_);
+    }
+
+    ~LockGuard()
+    {
+        if (locked_)
+            omp_unset_nest_lock(lock_);
+    }
+
+    void unlock()
+    {
+        locked_ = false;
+        omp_unset_nest_lock(lock_);
+    }
+
+private:
+    omp_nest_lock_t* lock_;
+    bool locked_;
+};
 
 //------------------------------------------------------------------------------
 /// Type-safe wrapper for cudaMalloc. Throws errors.
@@ -333,7 +362,7 @@ public:
 
     using ijdev_tuple = std::tuple<int64_t, int64_t, int>;
     using ij_tuple    = std::tuple<int64_t, int64_t>;
-    using TilesMap = slate::Map< ij_tuple, std::unique_ptr<TileNode_t> >;
+    using TilesMap = std::map< ij_tuple, std::unique_ptr<TileNode_t> >;
 
     MatrixStorage(int64_t m, int64_t n, int64_t mb, int64_t nb,
                   int p, int q, MPI_Comm mpi_comm);
@@ -382,7 +411,7 @@ public:
     /// @return TileNode(i, j) if it has instance on device, end() otherwise
     typename TilesMap::iterator find(ijdev_tuple ijdev)
     {
-        LockGuard guard(tiles_.getLock());
+        LockGuard guard(getTilesMapLock());
         int64_t i  = std::get<0>(ijdev);
         int64_t j  = std::get<1>(ijdev);
         int device = std::get<2>(ijdev);
@@ -397,7 +426,7 @@ public:
     /// @return TileNode(i, j) if found, end() otherwise
     typename TilesMap::iterator find(ij_tuple ij)
     {
-        LockGuard guard(tiles_.getLock());
+        LockGuard guard(getTilesMapLock());
         return tiles_.find(ij);
     }
 
@@ -405,7 +434,7 @@ public:
     /// @return begin iterator of TileNode map
     typename TilesMap::iterator begin()
     {
-        LockGuard guard(tiles_.getLock());
+        LockGuard guard(getTilesMapLock());
         return tiles_.begin();
     }
 
@@ -413,7 +442,7 @@ public:
     /// @return begin iterator of TileNode map
     typename TilesMap::iterator end()
     {
-        LockGuard guard(tiles_.getLock());
+        LockGuard guard(getTilesMapLock());
         return tiles_.end();
     }
 
@@ -423,8 +452,7 @@ public:
     // at() doesn't create new (null) entries in map as operator[] would
     TileInstance_t& at(ijdev_tuple ijdev)
     {
-        // return tiles_.at(ijdev).tile_;
-        LockGuard guard(tiles_.getLock());
+        LockGuard guard(getTilesMapLock());
         int64_t i  = std::get<0>(ijdev);
         int64_t j  = std::get<1>(ijdev);
         int device = std::get<2>(ijdev);
@@ -439,7 +467,7 @@ public:
     // at() doesn't create new (null) entries in map as operator[] would
     TileNode_t& at(ij_tuple ij)
     {
-        LockGuard guard(tiles_.getLock());
+        LockGuard guard(getTilesMapLock());
         return *(tiles_.at(ij));
     }
 
@@ -453,7 +481,7 @@ public:
     /// @return number of allocated tile nodes (size of tiles map).
     size_t size() const
     {
-        LockGuard guard(tiles_.getLock());
+        LockGuard guard(getTilesMapLock());
         return tiles_.size();
     }
 
@@ -465,7 +493,7 @@ public:
     /// Retrun pointer to tiles-map OMP lock
     omp_nest_lock_t* getTilesMapLock()
     {
-        return tiles_.getLock();
+        return &lock_;
     }
 
     //--------------------------------------------------------------------------
@@ -494,7 +522,7 @@ public:
     /// @return tile's life counter.
     int64_t tileLife(ij_tuple ij)
     {
-        LockGuard guard(tiles_.getLock());
+        LockGuard guard(getTilesMapLock());
         return tiles_.at(ij)->lives();
     }
 
@@ -502,7 +530,7 @@ public:
     /// Set tile's life counter.
     void tileLife(ij_tuple ij, int64_t life)
     {
-        LockGuard guard(tiles_.getLock());
+        LockGuard guard(getTilesMapLock());
         tiles_.at(ij)->lives() = life;
     }
 
@@ -522,6 +550,7 @@ private:
     int p_, q_;
 
     TilesMap tiles_;        ///< map of tiles and associated states
+    mutable omp_nest_lock_t lock_;
     slate::Memory memory_;  ///< memory allocator
 
     int mpi_rank_;
@@ -608,6 +637,8 @@ MatrixStorage<scalar_t>::MatrixStorage(
     c_array_dev_.resize(num_devices_, nullptr);
 
     initCudaStreams();
+
+    omp_init_nest_lock(&lock_);
 }
 
 //------------------------------------------------------------------------------
@@ -620,6 +651,7 @@ MatrixStorage<scalar_t>::~MatrixStorage()
         clear();
         destroyCudaStreams();
         clearBatchArrays();
+        omp_destroy_nest_lock(&lock_);
     }
     catch (std::exception const& ex) {
         // If debugging, die on exceptions.
@@ -812,7 +844,7 @@ void MatrixStorage<scalar_t>::freeTileMemory(Tile<scalar_t>* tile)
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::clearWorkspace()
 {
-    LockGuard guard(tiles_.getLock());
+    LockGuard guard(getTilesMapLock());
     // incremented below
     for (auto iter = begin(); iter != end();) {
         auto& tile_node = *(iter->second);
@@ -850,7 +882,7 @@ void MatrixStorage<scalar_t>::clearWorkspace()
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::releaseWorkspace()
 {
-    LockGuard guard(tiles_.getLock());
+    LockGuard guard(getTilesMapLock());
     // incremented below
     for (auto iter = begin(); iter != end();) {
         auto& tile_node = *(iter->second);
@@ -895,7 +927,7 @@ void MatrixStorage<scalar_t>::releaseWorkspace()
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::erase(ijdev_tuple ijdev)
 {
-    LockGuard guard(tiles_.getLock());
+    LockGuard guard(getTilesMapLock());
 
     auto iter = find(ijdev);
     if (iter != end()) {
@@ -925,7 +957,7 @@ void MatrixStorage<scalar_t>::erase(ijdev_tuple ijdev)
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::release(ijdev_tuple ijdev)
 {
-    LockGuard guard(tiles_.getLock());
+    LockGuard guard(getTilesMapLock());
 
     auto iter = find(ijdev);
     if (iter != end()) {
@@ -957,7 +989,7 @@ void MatrixStorage<scalar_t>::release(ijdev_tuple ijdev)
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::erase(ij_tuple ij)
 {
-    LockGuard guard(tiles_.getLock());
+    LockGuard guard(getTilesMapLock());
 
     auto iter = tiles_.find(ij);
     if (iter != tiles_.end()) {
@@ -979,7 +1011,7 @@ void MatrixStorage<scalar_t>::erase(ij_tuple ij)
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::clear()
 {
-    LockGuard guard(tiles_.getLock());
+    LockGuard guard(getTilesMapLock());
 
     // incremented below
     for (auto iter = begin(); iter != end();) {
@@ -1038,7 +1070,7 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileAcquire(
     int64_t j  = std::get<1>(ijdev);
     int device = std::get<2>(ijdev);
 
-    LockGuard tiles_guard(tiles_.getLock());
+    LockGuard tiles_guard(getTilesMapLock());
 
     // find the tileNode
     // if not found, insert new-entry in TilesMap
@@ -1080,7 +1112,7 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
     int64_t j  = std::get<1>(ijdev);
     int device = std::get<2>(ijdev);
 
-    LockGuard tiles_guard(tiles_.getLock());
+    LockGuard tiles_guard(getTilesMapLock());
 
     // find the tileNode
     // if not found, insert new-entry in TilesMap
@@ -1121,7 +1153,7 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
     int device = std::get<2>(ijdev);
     slate_assert(host_num_ <= device && device < num_devices_);
 
-    LockGuard guard(tiles_.getLock());
+    LockGuard guard(getTilesMapLock());
 
     assert(find({i, j}) == end());
     // insert new-entry in map
@@ -1186,7 +1218,7 @@ template <typename scalar_t>
 void MatrixStorage<scalar_t>::tileTick(ij_tuple ij)
 {
     if (! tileIsLocal(ij)) {
-        LockGuard guard(tiles_.getLock());
+        LockGuard guard(getTilesMapLock());
         int64_t life = --(tiles_.at(ij)->lives());
         if (life == 0) {
             erase(ij);

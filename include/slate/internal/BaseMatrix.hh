@@ -2848,19 +2848,20 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
             }
         }
 
+        // Allocate batch arrays, if not done already.
+        int64_t batch_count = 0;
+        for (auto bucket = tilesBuckets.begin(); bucket != tilesBuckets.end(); ++bucket) {
+            batch_count = std::max(batch_count, int64_t(bucket->second.first.size()));
+        }
+        // todo: shouldn't we allocate for the current device only?
+        allocateBatchArrays(batch_count);
+
         cudaStream_t stream = compute_stream(device);
         slate_cuda_call(
             cudaSetDevice(device));
 
-        // Allocate batch arrays, if not done already.
-        int64_t batch_count = 0;
-        for (auto bucket = tilesBuckets.begin(); bucket != tilesBuckets.end(); bucket++) {
-            batch_count = std::max(batch_count, int64_t(bucket->second.first.size()));
-        }
-        allocateBatchArrays(batch_count);
-
         // for each bucket
-        for (auto bucket = tilesBuckets.begin(); bucket != tilesBuckets.end(); bucket++) {
+        for (auto bucket = tilesBuckets.begin(); bucket != tilesBuckets.end(); ++bucket) {
             batch_count = bucket->second.first.size();
 
             scalar_t** array_dev = this->a_array_device(device);

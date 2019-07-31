@@ -1178,7 +1178,7 @@ void MatrixStorage<scalar_t>::tileTick(ij_tuple ij)
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-int MatrixStorage<scalar_t>::host_num_ = HOST_NUM;
+int MatrixStorage<scalar_t>::host_num_ = HostNum;
 
 template <typename scalar_t>
 int MatrixStorage<scalar_t>::num_devices_ = 0;

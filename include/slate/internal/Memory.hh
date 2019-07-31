@@ -69,15 +69,15 @@ public:
             #ifndef SLATE_NO_CUDA
                 cudaError_t error = cudaGetDeviceCount(&num_devices_);
                 if (error == cudaSuccess) {
-                    host_num_ = HOST_NUM;
+                    host_num_ = HostNum;
                 }
                 else {
                     num_devices_ = 0;
-                    host_num_ = HOST_NUM;
+                    host_num_ = HostNum;
                 }
             #else
                 num_devices_ = 0;
-                host_num_ = HOST_NUM;
+                host_num_ = HostNum;
             #endif
         }
     } static_constructor_;

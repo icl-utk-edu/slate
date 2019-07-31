@@ -1030,9 +1030,15 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileAcquire(
     int64_t j  = std::get<1>(ijdev);
     int device = std::get<2>(ijdev);
 
-    auto& tile_node = this->at({i, j});
+    LockGuard tiles_guard(tiles_.getLock());
 
-    LockGuard guard(tile_node.getLock());
+    // find the tileNode
+    // if not found, insert new-entry in TilesMap
+    if (find({i, j}) == end()) {
+        tiles_[{i, j}] = std::unique_ptr<TileNode_t>( new TileNode_t( num_devices_ ) );
+    }
+
+    auto& tile_node = this->at({i, j});
 
     // if tile instance does not exist, insert new instance
     if (! tile_node.existsOn(device)) {

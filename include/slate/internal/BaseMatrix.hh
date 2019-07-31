@@ -753,11 +753,11 @@ void BaseMatrix<scalar_t>::initSubmatrix(
         mt_ = i2 - i1 + 1;
         nt_ = j2 - j1 + 1;
         // only if first tile remains in sub we have to keep row/col offset
-        if( i1 > 0 ) { 
-          row0_offset_ = 0; 
+        if(i1 > 0) { 
+            row0_offset_ = 0; 
         }
-        if( j1 > 0 ) { 
-          col0_offset_ = 0; 
+        if(j1 > 0) { 
+            col0_offset_ = 0; 
         }
     }
     else {
@@ -768,11 +768,11 @@ void BaseMatrix<scalar_t>::initSubmatrix(
         mt_ = j2 - j1 + 1;
         nt_ = i2 - i1 + 1;
         // only if first tile remains in sub we have to keep row/col offset
-        if( j1 > 0 ) { 
-          row0_offset_ = 0; 
+        if(j1 > 0) { 
+            row0_offset_ = 0; 
         }
-        if( i1 > 0 ) { 
-          col0_offset_ = 0; 
+        if(i1 > 0) { 
+            col0_offset_ = 0; 
         }
     }
 }

@@ -38,6 +38,7 @@ public:
     libtest::ParamChar   error_exit;
     libtest::ParamChar   ref;
     libtest::ParamChar   trace;
+    libtest::ParamDouble trace_scale;
     libtest::ParamDouble tol;
     libtest::ParamInt    repeat;
     libtest::ParamInt    verbose;

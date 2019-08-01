@@ -100,7 +100,7 @@ std::vector< libtest::routines_t > routines = {
 
     { "getri",              test_getri,        Section::gesv },
     { "getriOOP",           test_getri,        Section::gesv },
-    { "",                   nullptr,           Section::newline },    
+    { "",                   nullptr,           Section::newline },
 
     // -----
     // Cholesky
@@ -191,8 +191,9 @@ Params::Params():
     //         name,       w,    type,        default, valid, help
     check     ("check",   0,    ParamType::Value, 'y', "ny",  "check the results"),
     error_exit("error-exit", 0, ParamType::Value, 'n', "ny",  "check error exits"),
-    ref       ("ref",     0,    ParamType::Value, 'y', "nyo",  "run reference; sometimes check implies ref"),
+    ref       ("ref",     0,    ParamType::Value, 'y', "nyo", "run reference; sometimes check implies ref"),
     trace     ("trace",   0,    ParamType::Value, 'n', "ny",  "enable/disable traces"),
+    trace_scale("trace-scale", 0, 0, ParamType::Value, 1000, 1e-3, 1e6, "horizontal scale for traces, in pixels per sec"),
 
     //         name,      w, p, type,         default, min,  max, help
     tol       ("tol",     0, 0, ParamType::Value,  50,   1, 1000, "tolerance (e.g., error < tol*epsilon to pass)"),
@@ -295,6 +296,7 @@ Params::Params():
     error_exit();
     ref();
     trace();
+    trace_scale();
     tol();
     repeat();
     verbose();
@@ -394,13 +396,17 @@ int run(int argc, char** argv)
 
         // print input so running `test [input] > out.txt` documents input
         if (print) {
-            printf("input: %s", argv[0]);
+            std::string args = "input: ";
+            args += argv[0];
             for (int i = 1; i < argc; ++i) {
-                printf(" %s", argv[i]);
+                args += ' ';
+                args += argv[i];
             }
-            printf("\n");
-            printf("MPI size %d, OpenMP threads %d\n",
-                   mpi_size, omp_get_max_threads());
+            args += "\nMPI size " + std::to_string(mpi_size)
+                 + ", OpenMP threads " + std::to_string(omp_get_max_threads())
+                 + "\n";
+            printf("%s", args.c_str());
+            slate::trace::Trace::comment(args);
         }
 
         // Usage: test routine [params]
@@ -450,6 +456,8 @@ int run(int argc, char** argv)
         }
 
         slate_assert(params.p() * params.q() == mpi_size);
+
+        slate::trace::Trace::pixels_per_second(params.trace_scale());
 
         // run tests
         int repeat = params.repeat();

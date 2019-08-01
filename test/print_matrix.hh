@@ -50,6 +50,34 @@ void snprintf_value(
 }
 
 //------------------------------------------------------------------------------
+/// Print an LAPACK matrix. Should be called from only one rank.
+///
+template <typename scalar_t>
+void print_matrix(
+    const char* label,
+    int64_t m, int64_t n, scalar_t* A, int64_t lda,
+    int width = 10, int precision = 6)
+{
+    using blas::real;
+    using blas::imag;
+
+    char buf[ 1024 ];
+    std::string msg;
+
+    width = std::max(width, precision + 3);
+
+    printf("%s = [\n", label);
+    for (int64_t i = 0; i < m; ++i) {
+        msg = "";
+        for (int64_t j = 0; j < n; ++j) {
+            snprintf_value(buf, sizeof(buf), width, precision, A[i + j*lda]);
+            msg += buf;
+        }
+        printf( "%s\n", msg.c_str() );
+    }
+}
+
+//------------------------------------------------------------------------------
 /// Print a ScaLAPACK distributed matrix.
 /// Prints each rank's data as a contiguous block, numbered by the block row &
 /// column indices. Rank 0 does the printing.

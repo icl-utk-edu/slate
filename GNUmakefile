@@ -342,6 +342,7 @@ test_src += \
         test/test_synorm.cc \
         test/test_syr2k.cc \
         test/test_syrk.cc \
+        test/test_tb2bd.cc \
         test/test_tbsm.cc \
         test/test_trmm.cc \
         test/test_trnorm.cc \

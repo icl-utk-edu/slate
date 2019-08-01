@@ -168,6 +168,9 @@ void test_trnorm (Params& params, bool run);
 void test_potri  (Params& params, bool run);
 void test_getri  (Params& params, bool run);
 
+// SVD
+void test_tb2bd  (Params& params, bool run);
+
 // -----------------------------------------------------------------------------
 inline slate::Target str2target(const char* target)
 {

@@ -174,6 +174,10 @@ std::vector< libtest::routines_t > routines = {
 
     { "trnorm",             test_trnorm,       Section::aux_norm },
     { "",                   nullptr,           Section::newline },
+
+    // -----
+    // SVD
+    { "tb2bd",              test_tb2bd,        Section::svd },
 };
 
 // -----------------------------------------------------------------------------

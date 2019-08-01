@@ -1,0 +1,167 @@
+
+#include "slate/slate.hh"
+#include "blas.hh"
+#include "test.hh"
+#include "print_matrix.hh"
+
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <utility>
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void test_tb2bd_work(
+    Params& params, bool run)
+{
+    using real_t = blas::real_type<scalar_t>;
+    using blas::real;
+    using blas::imag;
+    typedef long long llong;
+
+    // get & mark input values
+    int64_t m = params.dim.m();
+    int64_t n = params.dim.n();
+    int64_t ku = params.ku();  // upper band
+    int64_t nb = params.nb();
+    int64_t p = params.p();
+    int64_t q = params.q();
+    bool check = params.check() == 'y';
+    bool trace = params.trace() == 'y';
+    int verbose = params.verbose();
+
+    // mark non-standard output values
+    params.time();
+    params.gflops();
+    params.ref_time();
+    params.ref_gflops();
+
+    if (! run)
+        return;
+
+    int mpi_rank, mpi_size;
+    slate_mpi_call(
+        MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank));
+    slate_mpi_call(
+        MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
+
+    int64_t lda = m;
+    int64_t seed[] = {0, 1, 2, 3};
+
+    std::vector<scalar_t> A1( lda*n );
+    lapack::larnv(1, seed, A1.size(), &A1[0]);
+
+    // zero outside the upper band
+    for (int64_t j = 0; j < n; ++j) {
+        for (int64_t i = 0; i < m; ++i) {
+            if (j > i+ku || j < i)
+                A1[i + j*lda] = 0;
+        }
+    }
+
+    if (verbose && mpi_rank == 0)
+        print_matrix( "A1", m, n, &A1[0], lda, 5, 2 );
+
+    std::vector<real_t> S1( std::min(m, n) );
+    if (check) {
+        //==================================================
+        // For checking results, compute SVD of original matrix A.
+        //==================================================
+        if (mpi_rank == 0) {
+            std::vector<scalar_t> A2 = A1;
+            std::vector<scalar_t> U ( 1 );  // ( lda*n );  // U, VT not needed for NoVec
+            std::vector<scalar_t> VT( 1 );  // ( lda*n );
+            lapack::gesvd(lapack::Job::NoVec, lapack::Job::NoVec,
+                          m, n, &A2[0], lda, &S1[0], &U[0], lda, &VT[0], lda);
+        }
+    }
+
+    auto A = slate::Matrix<scalar_t>::fromLAPACK(
+        m, n, &A1[0], lda, nb, p, q, MPI_COMM_WORLD);
+
+    //---------
+    // run test
+    if (trace)
+        slate::trace::Trace::on();
+    {
+        slate::trace::Block trace_block("MPI_Barrier");
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+    double time = libtest::get_wtime();
+
+    //==================================================
+    // Run SLATE test.
+    //==================================================
+    slate::tb2bd(A, ku+1);
+
+    {
+        slate::trace::Block trace_block("MPI_Barrier");
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+    params.time() = libtest::get_wtime() - time;
+
+    if (trace)
+        slate::trace::Trace::finish();
+
+    if (check) {
+        //==================================================
+        // Test results
+        // Check that the singular values of A match the singular values of the original A.
+        // Gather the whole matrix onto rank 0.
+        //==================================================
+        A.gather(&A1[0], lda);
+
+        if (mpi_rank == 0) {
+            if (verbose)
+                print_matrix( "A1_out", m, n, &A1[0], lda, 5, 2 );
+
+            real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+            std::vector<real_t> S2( std::min(m, n) );
+            std::vector<scalar_t> A2 = A1;
+            std::vector<scalar_t> U ( 1 );  // U, VT not needed for NoVec
+            std::vector<scalar_t> VT( 1 );
+            lapack::gesvd(lapack::Job::NoVec, lapack::Job::NoVec,
+                          m, n, &A2[0], lda, &S2[0], &U[0], lda, &VT[0], lda);
+            if (verbose) {
+                printf( "%9s  %9s\n", "S1", "S2" );
+                for (int64_t i = 0; i < std::min(m, n); ++i) {
+                    if (i < 20 || i > std::min(m, n)-20) {
+                        bool okay = std::abs( S1[i] - S2[i] ) < tol;
+                        printf( "%9.6f  %9.6f%s\n",
+                                S1[i], S2[i], (okay ? "" : " !!") );
+                    }
+                }
+                printf( "\n" );
+            }
+            blas::axpy(S2.size(), -1.0, &S1[0], 1, &S2[0], 1);
+            params.error() = blas::nrm2(S2.size(), &S2[0], 1) / S1[0];
+            params.okay() = (params.error() <= tol);
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+void test_tb2bd(Params& params, bool run)
+{
+    switch (params.datatype()) {
+        case libtest::DataType::Integer:
+            throw std::exception();
+            break;
+
+        case libtest::DataType::Single:
+            test_tb2bd_work<float> (params, run);
+            break;
+
+        case libtest::DataType::Double:
+            test_tb2bd_work<double> (params, run);
+            break;
+
+        case libtest::DataType::SingleComplex:
+            test_tb2bd_work<std::complex<float>> (params, run);
+            break;
+
+        case libtest::DataType::DoubleComplex:
+            test_tb2bd_work<std::complex<double>> (params, run);
+            break;
+    }
+}

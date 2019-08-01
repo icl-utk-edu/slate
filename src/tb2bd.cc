@@ -122,82 +122,48 @@ void tb2bd_step(Matrix<scalar_t>& A, int64_t band,
 template <typename scalar_t>
 void tb2bd_run(Matrix<scalar_t>& A,
                int64_t band, int64_t diag_len,
-               int64_t num_passes, int64_t chunk_size,
+               int64_t pass_size,
                int thread_rank, int thread_size,
                Reflectors<scalar_t>& reflectors, omp_lock_t& lock,
                Progress& progress)
 {
-    for (int64_t pass = 0; pass < num_passes; ++pass) {
+    // Thread that starts each pass.
+    int64_t start_thread = 0;
 
-        int64_t width = diag_len-1-(pass*chunk_size);
-        int64_t num_blocks = width / (band-1);
-        if (width % (band-1) > 0)
-            ++num_blocks;
+    // Pass is indexed by the sweep that starts each pass.
+    for (int64_t pass = 0; pass < diag_len-2; pass += pass_size) {
+        int64_t sweep_end = std::min(pass + pass_size, diag_len-2);
+        // Steps in first sweep of this pass; later sweeps may have fewer steps.
+        int64_t nsteps_pass = 2*ceildiv(diag_len - 1 - pass, band-1) - 1;
+        // Step that this thread starts on, in this pass.
+        int64_t step_begin = (thread_rank - start_thread + thread_size) % thread_size;
+        for (int64_t step = step_begin; step < nsteps_pass; step += thread_size) {
+            for (int64_t sweep = pass; sweep < sweep_end; ++sweep) {
+                int64_t nsteps_sweep = 2*ceildiv(diag_len - 1 - sweep, band-1) - 1;
+                int64_t nsteps_last  = 2*ceildiv(diag_len - 1 - (sweep-1), band-1) - 1;
 
-        for (int64_t i = 0; i < num_blocks+chunk_size-1; ++i) {
-            for (int64_t j = 0; j <= i && j < chunk_size; ++j) {
-
-                int64_t sweep = (pass*chunk_size)+j;
-                int64_t block = i-j;
-                int64_t num_steps_last
-                    = 2*ceildiv(diag_len - 1 - (sweep - 1), band-1) - 1;
-                if (block < num_blocks) {
-                    if (block == 0) {
-                        int64_t step = 0;
-                        if (step % thread_size == thread_rank) {
-
-                            // Wait until sweep-1 is two tasks ahead,
-                            // or sweep-1 is finished.
-                            if (sweep > 0) {
-                                int64_t depend = std::min(step+2, num_steps_last-1);
-                                while (progress.at(sweep-1).load() < depend) {}
-                            }
-
-                            tb2bd_step(A, band, sweep, step,
-                                       reflectors, lock);
-
-                            // Mark step as done.
-                            progress.at(sweep).store(step);
-                        }
+                if (step < nsteps_sweep) {
+                    if (sweep > 0) {
+                        // Wait until sweep-1 is two tasks ahead,
+                        // or sweep-1 is finished.
+                        int64_t depend = std::min(step+2, nsteps_last-1);
+                        while (progress.at(sweep-1).load() < depend) {}
                     }
-                    else {
-                        int64_t step = 2*block-1;
-                        if (step % thread_size == thread_rank) {
-
-                            // Wait until step-1 is done in this sweep.
-                            while (progress.at(sweep).load() < step-1);
-
-                            // Wait until sweep-1 is two tasks ahead.
-                            if (sweep > 0 && block < num_blocks-1)
-                                while (progress.at(sweep-1).load() < step+2);
-
-                            tb2bd_step(A, band, sweep, step,
-                                       reflectors, lock);
-
-                            // Mark step as done.
-                            progress.at(sweep).store(step);
-                        }
-
-                        step = 2*block;
-                        if (step % thread_size == thread_rank) {
-
-                            // Wait until step-1 is done in this sweep.
-                            while (progress.at(sweep).load() < step-1);
-
-                            // Wait until sweep-1 is two tasks ahead.
-                            if (sweep > 0 && block < num_blocks-1)
-                                while (progress.at(sweep-1).load() < step+2);
-
-                            tb2bd_step(A, band, sweep, step,
-                                       reflectors, lock);
-
-                            // Mark step as done.
-                            progress.at(sweep).store(step);
-                        }
+                    if (step > 0) {
+                        // Wait until step-1 is done in this sweep.
+                        while (progress.at(sweep).load() < step-1) {}
                     }
+                    ///printf( "tid %d pass %lld, task %lld, %lld\n", thread_rank, pass, sweep, step );
+                    tb2bd_step(A, band, sweep, step,
+                               reflectors, lock);
+
+                    // Mark step as done.
+                    progress.at(sweep).store(step);
                 }
             }
         }
+        // Update start thread for next pass.
+        start_thread = (start_thread + nsteps_pass) % thread_size;
     }
 }
 
@@ -208,43 +174,41 @@ void tb2bd_run(Matrix<scalar_t>& A,
 ///
 template <Target target, typename scalar_t>
 void tb2bd(slate::internal::TargetType<target>,
-           Matrix<scalar_t>& A, int64_t band, int64_t chunk_size)
+           Matrix<scalar_t>& A, int64_t band)
 {
     int64_t diag_len = std::min(A.m(), A.n());
-    int64_t num_passes = (diag_len-2) / chunk_size;
-    if ((diag_len-2) % chunk_size > 0)
-        ++num_passes;
 
     omp_lock_t lock;
     omp_init_lock(&lock);
     Reflectors<scalar_t> reflectors;
 
-    Progress progress(num_passes*chunk_size);
-    for (int64_t i = 0; i < num_passes*chunk_size; ++i)
+    Progress progress(diag_len-2);
+    for (int64_t i = 0; i < diag_len-2; ++i)
         progress.at(i).store(-1);
 
     #pragma omp parallel
     #pragma omp master
     {
         int thread_size = omp_get_max_threads();
+        int64_t pass_size = ceildiv(thread_size, 3);
+
         #if 1
-        // Launching new threads for the band reduction guarantees progression.
-        // This should never deadlock, but may be detrimental to performance.
-        omp_set_nested(1);
-        #pragma omp parallel for \
-            num_threads(thread_size) \
-            shared(reflectors, lock, progress)
+            // Launching new threads for the band reduction guarantees progression.
+            // This should never deadlock, but may be detrimental to performance.
+            omp_set_nested(1);
+            #pragma omp parallel for \
+                num_threads(thread_size) \
+                shared(reflectors, lock, progress)
         #else
-        // Issuing panel operation as tasks may cause a deadlock.
-        #pragma omp taskloop \
-            num_tasks(thread_size) \
-            shared(reflectors, lock, progress)
+            // Issuing panel operation as tasks may cause a deadlock.
+            #pragma omp taskloop \
+                num_tasks(thread_size) \
+                shared(reflectors, lock, progress)
         #endif
-        for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank)
-        {
+        for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank) {
             tb2bd_run(A,
                       band, diag_len,
-                      num_passes, chunk_size,
+                      pass_size,
                       thread_rank, thread_size,
                       reflectors, lock, progress);
         }
@@ -265,17 +229,8 @@ template <Target target, typename scalar_t>
 void tb2bd(Matrix<scalar_t>& A, int64_t band,
            const std::map<Option, Value>& opts)
 {
-    int64_t chunk_size;
-    try {
-        chunk_size = opts.at(Option::ChunkSize).i_;
-        assert(chunk_size >= 1);
-    }
-    catch (std::out_of_range) {
-        chunk_size = 1;
-    }
-
     internal::specialization::tb2bd(internal::TargetType<target>(),
-                                    A, band, chunk_size);
+                                    A, band);
 }
 
 //------------------------------------------------------------------------------

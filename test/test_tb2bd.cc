@@ -35,6 +35,7 @@ void test_tb2bd_work(
     params.gflops();
     params.ref_time();
     params.ref_gflops();
+    params.error2();
 
     if (! run)
         return;
@@ -106,7 +107,6 @@ void test_tb2bd_work(
     if (check) {
         //==================================================
         // Test results
-        // Check that the singular values of A match the singular values of the original A.
         // Gather the whole matrix onto rank 0.
         //==================================================
         A.gather(&A1[0], lda);
@@ -115,6 +115,18 @@ void test_tb2bd_work(
             if (verbose)
                 print_matrix( "A1_out", m, n, &A1[0], lda, 5, 2 );
 
+            // Check that updated A is bidiagonal by finding max value outside bidiagonal.
+            real_t max_value = 0;
+            for (int64_t j = 0; j < n; ++j) {
+                for (int64_t i = 0; i < m; ++i) {
+                    if (j > i+1 || j < i)
+                        max_value = std::max( std::abs( A1[i + j*lda] ), max_value );
+                }
+            }
+            params.error2() = max_value;
+
+            // Check that the singular values of updated A
+            // match the singular values of the original A.
             real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
             std::vector<real_t> S2( std::min(m, n) );
             std::vector<scalar_t> A2 = A1;
@@ -135,7 +147,7 @@ void test_tb2bd_work(
             }
             blas::axpy(S2.size(), -1.0, &S1[0], 1, &S2[0], 1);
             params.error() = blas::nrm2(S2.size(), &S2[0], 1) / S1[0];
-            params.okay() = (params.error() <= tol);
+            params.okay() = (params.error() <= tol && params.error2() <= tol);
         }
     }
 }

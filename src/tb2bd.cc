@@ -139,14 +139,19 @@ void tb2bd_run(Matrix<scalar_t>& A,
 
                 int64_t sweep = (pass*chunk_size)+j;
                 int64_t block = i-j;
+                int64_t num_steps_last
+                    = 2*ceildiv(diag_len - 1 - (sweep - 1), band-1) - 1;
                 if (block < num_blocks) {
                     if (block == 0) {
                         int64_t step = 0;
                         if (step % thread_size == thread_rank) {
 
-                            // Wait until sweep-1 is two tasks ahead.
-                            if (sweep > 0 && block < num_blocks-1)
-                                while (progress.at(sweep-1).load() < step+2);
+                            // Wait until sweep-1 is two tasks ahead,
+                            // or sweep-1 is finished.
+                            if (sweep > 0) {
+                                int64_t depend = std::min(step+2, num_steps_last-1);
+                                while (progress.at(sweep-1).load() < depend) {}
+                            }
 
                             tb2bd_step(A, band, sweep, step,
                                        reflectors, lock);

@@ -41,7 +41,6 @@
 #define SLATE_BASE_MATRIX_HH
 
 #include "slate/internal/comm.hh"
-#include "slate/internal/Map.hh"
 #include "slate/internal/Memory.hh"
 #include "slate/internal/device.hh"
 #include "slate/internal/MatrixStorage.hh"
@@ -225,16 +224,16 @@ public:
         return tileInsert(i, j, host_num_, A, ld);
     }
 
-    TileEntry<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, int device, Layout layout);
-    TileEntry<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, int device)
+    Tile<scalar_t>* tileInsertWorkspace(int64_t i, int64_t j, int device, Layout layout);
+    Tile<scalar_t>* tileInsertWorkspace(int64_t i, int64_t j, int device)
     {
         return tileInsertWorkspace(i, j, device, layout_);
     }
-    TileEntry<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j, Layout layout)
+    Tile<scalar_t>* tileInsertWorkspace(int64_t i, int64_t j, Layout layout)
     {
         return tileInsertWorkspace(i, j, host_num_, layout);
     }
-    TileEntry<scalar_t>& tileInsertWorkspace(int64_t i, int64_t j)
+    Tile<scalar_t>* tileInsertWorkspace(int64_t i, int64_t j)
     {
         return tileInsertWorkspace(i, j, host_num_, layout_);
     }
@@ -277,6 +276,11 @@ public:
     void tileModified(int64_t i, int64_t j, int device=host_num_, bool permissive=false);
 
     void tileAcquire(int64_t i, int64_t j, int device, Layout layout);
+
+    void tileAcquire(int64_t i, int64_t j, Layout layout)
+    {
+        tileAcquire(i, j, host_num_, layout);
+    }
 
     void tileGetForReading(int64_t i, int64_t j, int device, LayoutConvert layout);
 
@@ -400,19 +404,19 @@ public:
     /// Returns Layout of tile(i, j, device)
     Layout tileLayout(int64_t i, int64_t j, int device=host_num_)
     {
-        return storage_->at(globalIndex(i, j, device)).tile_->layout();
+        return storage_->at(globalIndex(i, j, device)).tile()->layout();
     }
 
     /// Sets Layout of tile(i, j, device)
     void tileLayout(int64_t i, int64_t j, int device, Layout layout)
     {
-        storage_->at(globalIndex(i, j, device)).tile_->layout(layout);
+        storage_->at(globalIndex(i, j, device)).tile()->layout(layout);
     }
 
     /// Sets Layout of tile(i, j, host)
     void tileLayout(int64_t i, int64_t j, Layout layout)
     {
-        storage_->at(globalIndex(i, j, host_num_)).tile_->layout(layout);
+        storage_->at(globalIndex(i, j, host_num_)).tile()->layout(layout);
     }
 
     bool tileLayoutIsConvertible(int64_t i, int64_t j, int device=host_num_);
@@ -933,7 +937,7 @@ template <typename scalar_t>
 Tile<scalar_t> BaseMatrix<scalar_t>::operator()(
     int64_t i, int64_t j, int device)
 {
-    auto tile = *(storage_->at(globalIndex(i, j, device)).tile_);
+    auto tile = *(storage_->at(globalIndex(i, j, device)).tile());
 
     // Set op first, before setting offset, mb, nb!
     tile.op(op_);
@@ -1094,8 +1098,8 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
     int64_t i, int64_t j, int device)
 {
     auto index = globalIndex(i, j, device);
-    auto tileEntry = storage_->tileInsert(index, TileKind::SlateOwned, layout_);
-    return tileEntry.tile_;
+    auto& tile_instance = storage_->tileInsert(index, TileKind::SlateOwned, layout_);
+    return tile_instance.tile();
 }
 
 //------------------------------------------------------------------------------
@@ -1114,11 +1118,12 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 /// @return Pointer to new tile.
 ///
 template <typename scalar_t>
-TileEntry<scalar_t>& BaseMatrix<scalar_t>::tileInsertWorkspace(
+Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsertWorkspace(
     int64_t i, int64_t j, int device, Layout layout)
 {
     auto index = globalIndex(i, j, device);
-    return storage_->tileInsert(index, TileKind::Workspace, layout);
+    auto& tile_instance = storage_->tileInsert(index, TileKind::Workspace, layout);
+    return tile_instance.tile();
 }
 
 //------------------------------------------------------------------------------
@@ -1148,8 +1153,8 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 {
     auto index = globalIndex(i, j, device);
     // tile layout must match the matrix layout
-    auto tileEntry = storage_->tileInsert(index, data, ld, layout_); // TileKind::UserOwned
-    return tileEntry.tile_;
+    auto& tile_instance = storage_->tileInsert(index, data, ld, layout_); // TileKind::UserOwned
+    return tile_instance.tile();
 }
 
 //------------------------------------------------------------------------------
@@ -1194,15 +1199,7 @@ void BaseMatrix<scalar_t>::tileErase(int64_t i, int64_t j, int device)
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileRelease(int64_t i, int64_t j, int device)
 {
-    auto iter = storage_->find(globalIndex(i, j, device));
-    if (iter != storage_->end() && iter->second.tile_->workspace()) {
-        // auto tileEntry = storage_->at(globalIndex(i, j, device));
-        if ( iter->second.stateOn(MOSI::OnHold) || iter->second.stateOn(MOSI::Modified) )
-            return;
-        else
-            // todo: erase only workspace tiles? if so, rename with "Workspace"?
-            storage_->erase(globalIndex(i, j, device));
-    }
+    storage_->release(globalIndex(i, j, device));
 }
 
 
@@ -1225,7 +1222,7 @@ MOSI BaseMatrix<scalar_t>::tileState(int64_t i, int64_t j, int device)
     auto iter = storage_->find(globalIndex(i, j, device));
     assert(iter != storage_->end());
 
-    return iter->second.getState();
+    return iter->second->at(device).getState();
 }
 
 //------------------------------------------------------------------------------
@@ -1247,7 +1244,7 @@ void BaseMatrix<scalar_t>::tileState(int64_t i, int64_t j, int device, MOSI mosi
     auto tileIter = storage_->find(globalIndex(i, j, device));
     assert(tileIter != storage_->end());
 
-    tileIter->second.setState(mosi);
+    tileIter->second->at(device).setState(mosi);
 }
 
 //------------------------------------------------------------------------------
@@ -1269,7 +1266,7 @@ bool BaseMatrix<scalar_t>::tileOnHold(int64_t i, int64_t j, int device)
     auto iter = storage_->find(globalIndex(i, j, device));
     assert(iter != storage_->end());
 
-    return iter->second.stateOn(MOSI::OnHold);
+    return iter->second->at(device).stateOn(MOSI::OnHold);
 }
 
 //------------------------------------------------------------------------------
@@ -1291,7 +1288,7 @@ void BaseMatrix<scalar_t>::tileUnsetHold(int64_t i, int64_t j, int device)
     auto iter = storage_->find(globalIndex(i, j, device));
     assert(iter != storage_->end());
 
-    iter->second.setState(~MOSI::OnHold);
+    iter->second->at(device).setState(~MOSI::OnHold);
 }
 
 //------------------------------------------------------------------------------
@@ -1342,32 +1339,24 @@ void BaseMatrix<scalar_t>::tileUnsetHoldAllOnDevices()
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileModified(int64_t i, int64_t j, int device, bool permissive)
 {
-    auto tileEntry = &storage_->at(globalIndex(i, j, device));
-    // auto tileIter = storage_->find(globalIndex(i, j, device));
-    // assert(tileIter != storage_->end());
+    auto& tile_node = storage_->at(globalIndex(i, j));
 
-    if (tileEntry->stateOn(MOSI::Modified))
-        // no need to update
+    LockGuard guard(tile_node.getLock());
+
+    auto& tile_instance = tile_node[device];
+
+    // if no need to update
+    if (tile_instance.stateOn(MOSI::Modified))
         return;
-    tileEntry->setState(MOSI::Modified);
 
-    // set all other instances to Invalid
-    if (device != host_num_) {
-        auto otherIter = storage_->find(globalIndex(i, j, host_num_));
-        if (otherIter != storage_->end()) {
-            if (! permissive)
-                assert(otherIter->second.stateOn(MOSI::Modified) == false);
-            otherIter->second.setState(MOSI::Invalid);
-        }
-    }
-    for (int d = 0; d < num_devices(); ++d) {
-        if (d == device) continue;
+    tile_instance.setState(MOSI::Modified);
 
-        auto otherIter = storage_->find(globalIndex(i, j, d));
-        if (otherIter != storage_->end()) {
+    for (int d = hostNum(); d < num_devices(); ++d) {
+        if (d != device && tile_node.existsOn(d))
+        {
             if (! permissive)
-                assert(otherIter->second.stateOn(MOSI::Modified) == false);
-            otherIter->second.setState(MOSI::Invalid);
+                slate_assert(tile_node[d].stateOn(MOSI::Modified) == false);
+            tile_node[d].setState(MOSI::Invalid);
         }
     }
 }
@@ -1397,6 +1386,7 @@ void BaseMatrix<scalar_t>::tileSend(
     int64_t i, int64_t j, int dst_rank, int tag)
 {
     if (dst_rank != mpiRank()) {
+        // todo: need to acquire read access lock to TileNode(i, j)
         tileGetForReading(i, j, LayoutConvert::None);
         at(i, j).send(dst_rank, mpiComm(), tag);
     }
@@ -1437,19 +1427,18 @@ void BaseMatrix<scalar_t>::tileRecv(
         if (! tileIsLocal(i, j)) {
             // Create tile to receive data, with life span.
             // If tile already exists, add to its life span.
-            LockGuard guard(storage_->tiles_.get_lock());
+            LockGuard guard(storage_->getTilesMapLock());
             auto iter = storage_->find(globalIndex(i, j, host_num_));
 
             int64_t life = 1;
             if (iter == storage_->end())
-                tileInsertWorkspace(i, j, host_num_);
+                tileInsertWorkspace(i, j, host_num_, layout);
             else
                 life += tileLife(i, j);
             tileLife(i, j, life);
         }
         else {
-            // todo: tileAquire()
-            tileGetForReading(i, j, LayoutConvert::None);
+            tileAcquire(i, j, layout);
         }
 
         // Receive data.
@@ -1566,7 +1555,7 @@ void BaseMatrix<scalar_t>::listBcast(
 
                 // Create tile to receive data, with life span.
                 // If tile already exists, add to its life span.
-                LockGuard guard(storage_->tiles_.get_lock());
+                LockGuard guard(storage_->getTilesMapLock());
                 auto iter = storage_->find(globalIndex(i, j, host_num_));
 
                 int64_t life = 0;
@@ -1640,7 +1629,6 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, Layout layout, in
 
                 // todo: should we check its life count before erasing?
                 // Destroy the tile.
-                LockGuard guard(storage_->tiles_.get_lock());// todo is this needed here?
                 tileErase(i, j, host_num_);// todo: should it be a tileRelease()?
             }
             else {
@@ -1792,11 +1780,7 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     // Receive.
     if (! recv_from.empty()) {
         // read tile on host memory
-        // todo: tileAquire()
-        // todo: this fixed the device origin but corrupted host origin,
-        // really need tileAquire()
-        // disable temporarily
-        // tileGetForReading(i, j);
+        tileAcquire(i, j, layout);
 
         at(i, j).recv(new_vec[recv_from.front()], mpi_comm_, layout, tag);
         tileLayout(i, j, layout);
@@ -2077,9 +2061,10 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
 }
 
 //------------------------------------------------------------------------------
-/// Acquire tile(i, j) on device without copying data.
+/// Acquire tile(i, j) on device without copying data if not already exists.
 /// This is used when the destination tile's data will be overriden.
 /// Converts destination Layout to 'layout' param.
+/// Assumes the TileNode(i, j) already exists.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -2099,17 +2084,8 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileAcquire(int64_t i, int64_t j, int device,
                                        Layout layout)
 {
-    LockGuard guard(storage_->tiles_.get_lock());
-
-    // find tile on destination
-    auto iter = storage_->find(globalIndex(i, j, device));
-    if (iter == storage_->end()) {
-        // Create a copy on the destination.
-        tileInsertWorkspace(i, j, device, layout);
-        iter = storage_->find(globalIndex(i, j, device));
-    }
-
-    auto tile = iter->second.tile_;
+    auto& tile_instance = storage_->tileAcquire(globalIndex(i, j, device), layout);
+    auto tile = tile_instance.tile();
 
     // Change ColMajor <=> RowMajor if needed.
     if (tile->layout() != layout) {
@@ -2165,120 +2141,106 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
                                    LayoutConvert layout, bool modify, bool hold,
                                    bool async)
 {
-    LockGuard guard(storage_->tiles_.get_lock());
+    // todo: need to acquire read access to the TilesMap
+    // LockGuard guard(storage_->tiles_.get_lock());
 
-    TileEntry<scalar_t> *dst_tileEntry = nullptr, *src_tileEntry = nullptr;
-    bool dst_found = true;
-    Layout target_layout;
-
-    // find tile on destination
-    auto dst_iter = storage_->find(globalIndex(i, j, dst_device));
-    if (dst_iter == storage_->end()) {
-        dst_found = false;
-    }
-    else
-        dst_tileEntry = &dst_iter->second;
+    TileInstance<scalar_t> *src_tile_instance = nullptr;
+    Layout target_layout = Layout::ColMajor; // default value to silence compiler warning
+                                             // it will be ovverriden below
 
     const int invalid_dev = host_num_-1; // invalid device number
     int src_device = invalid_dev;
-    if ((! dst_found) || (dst_tileEntry->getState() == MOSI::Invalid)) {
 
-        // find source tile
-        // find a valid source (Modified/Shared) device
-        // check host
-        if (dst_device != host_num_) {
-            auto iter = storage_->find(globalIndex(i, j, host_num_));
-            if (iter != storage_->end()) {
-                if (iter->second.getState() != MOSI::Invalid) {
-                    src_device = host_num_;
-                    src_tileEntry = &iter->second;
-                }
-            }
-        }
-        // check assigned device
-        if (src_device == invalid_dev) {
-            auto iter = storage_->find(globalIndex(i, j, tileDevice(i, j)));
-            if (iter != storage_->end()) {
-                if (iter->second.getState() != MOSI::Invalid) {
-                    src_device = tileDevice(i, j);
-                    src_tileEntry = &iter->second;
-                }
-            }
-        }
-        // check other devices
-        for (int d = 0; src_device == invalid_dev && d < num_devices(); ++d) {
-            if (dst_device == d || tileDevice(i, j) == d) continue;
+    // find tile on destination
+    auto& tile_node = storage_->at(globalIndex(i, j));
+    auto dst_tile_instance = &(tile_node[dst_device]);
 
-            auto iter = storage_->find(globalIndex(i, j, d));
-            if (iter != storage_->end()) {
-                if (iter->second.getState() != MOSI::Invalid) {
+    // acquire write access to the (i, j) TileNode
+    LockGuard guard(tile_node.getLock());
+    // LockGuard dst_guard(tile_node[dst_device].getLock());
+
+    if ( (! tile_node.existsOn(dst_device)) ||
+         (  tile_node[dst_device].getState() == MOSI::Invalid)) {
+
+        // find a valid source (Modified/Shared) tile
+
+        for (int d = hostNum(); d < num_devices(); ++d) {
+            if (d != dst_device && tile_node.existsOn(d))
+            {
+                if (tile_node[d].getState() != MOSI::Invalid) {
                     src_device = d;
-                    src_tileEntry = &iter->second;
+                    src_tile_instance = &(tile_node[d]);
+                    break;
                 }
             }
         }
+
         // todo: find the shortest path / closest source
         // including possibility of device peer-to-peer copy
         if(src_device == invalid_dev){
             slate_error(std::string("Error copying tile(")
                          + std::to_string(i) + ", " + std::to_string(j)
+                         + "), rank(" + std::to_string(this->mpiRank())
                          + "), invalid source " + std::to_string(src_device)
-                         + " -> " + std::to_string(dst_device) );
+                         + " -> " + std::to_string(dst_device));
         }
 
         target_layout = layout == LayoutConvert::None ?
-                        src_tileEntry->tile_->layout() :
+                        src_tile_instance->tile()->layout() :
                         Layout(layout);
     }
 
-    if (! dst_found) {
+    if (! tile_node.existsOn(dst_device)) {
         // Create a copy on the destination.
-        tileInsertWorkspace(i, j, dst_device, target_layout);
-        dst_iter = storage_->find(globalIndex(i, j, dst_device));
-        dst_tileEntry = &dst_iter->second;
+        storage_->tileAcquire(globalIndex(i, j, dst_device), target_layout);
     }
 
-    if ( dst_tileEntry->getState() == MOSI::Invalid ) {
+    if ( dst_tile_instance->getState() == MOSI::Invalid ) {
         // Update the destination tile's data.
         if (dst_device != host_num_ && src_device != host_num_) {
             // todo: device to device copy
-            TileEntry<scalar_t> *host_tileEntry;
-            auto host_iter = storage_->find(globalIndex(i, j, host_num_));
-            if (host_iter == storage_->end()) {
-                // Create a copy on the host.
-                tileInsertWorkspace(i, j, host_num_, target_layout);
-                host_iter = storage_->find(globalIndex(i, j, host_num_));
-            }
-            host_tileEntry = &host_iter->second;
+            auto host_tile_instance = &(tile_node[host_num_]);
+            {
+                // LockGuard host_guard(host_tile_instance->getLock());
 
-            tileCopyDataLayout( src_tileEntry->tile_,
-                                host_tileEntry->tile_,
-                                target_layout);
-            tileCopyDataLayout( host_tileEntry->tile_,
-                                dst_tileEntry->tile_,
-                                target_layout);
-            host_tileEntry->setState(MOSI::Shared);
+                if (! tile_node.existsOn(host_num_)) {
+                    // Create a copy on the host.
+                    storage_->tileAcquire(globalIndex(i, j, host_num_), target_layout);
+                }
+
+                if (tile_node[host_num_].getState() == MOSI::Invalid) {
+                    tileCopyDataLayout( src_tile_instance->tile(),
+                                        host_tile_instance->tile(),
+                                        target_layout);
+                    host_tile_instance->setState(MOSI::Shared);
+                }
+
+                tileCopyDataLayout( host_tile_instance->tile(),
+                                    dst_tile_instance->tile(),
+                                    target_layout);
+            }
         }
         else {
-            tileCopyDataLayout( src_tileEntry->tile_,
-                                dst_tileEntry->tile_,
+            // LockGuard guard(src_tile_instance->get_lock());
+            tileCopyDataLayout( src_tile_instance->tile(),
+                                dst_tile_instance->tile(),
                                 target_layout);
         }
 
-        dst_tileEntry->setState(MOSI::Shared);
-        if (src_tileEntry->stateOn(MOSI::Modified))
-            src_tileEntry->setState(MOSI::Shared);
+        dst_tile_instance->setState(MOSI::Shared);
+        if (src_tile_instance->stateOn(MOSI::Modified))
+            src_tile_instance->setState(MOSI::Shared);
     }
     if (modify) {
         tileModified(i, j, dst_device);
     }
     if (hold) {
-        dst_tileEntry->setState(MOSI::OnHold);
+        dst_tile_instance->setState(MOSI::OnHold);
     }
 
     // Change ColMajor <=> RowMajor if needed.
     if (layout != LayoutConvert::None &&
-        dst_tileEntry->tile_->layout() != Layout(layout)) {
+        dst_tile_instance->tile()->layout() != Layout(layout)) {
         tileLayoutConvert(i, j, dst_device, Layout(layout), false);
     }
 }
@@ -2676,23 +2638,33 @@ void BaseMatrix<scalar_t>::tileGetAndHoldAllOnDevices(LayoutConvert layout)
 template <typename scalar_t>
 Tile<scalar_t>* BaseMatrix<scalar_t>::tileUpdateOrigin(int64_t i, int64_t j)
 {
+    auto& tile_node = storage_->at(globalIndex(i, j));
+
+    LockGuard guard(tile_node.getLock());
+
     // find on host
-    auto iter = storage_->find(globalIndex(i, j, host_num_));
-    if (iter != storage_->end() && iter->second.tile_->origin()) {
-        if ( iter->second.stateOn(MOSI::Invalid) )
+    if (tile_node.existsOn(hostNum()) &&
+        tile_node[hostNum()].tile()->origin()) {
+        if ( tile_node[hostNum()].stateOn(MOSI::Invalid) ) {
+            // todo: should this request Layout conversion to this->layout() ?
             tileGetForReading(i, j, LayoutConvert::None);
+        }
+        return tile_node[hostNum()].tile();
     }
     else {
-        iter = storage_->find(globalIndex(i, j, tileDevice(i, j)));
-        if (iter != storage_->end() && iter->second.tile_->origin()) {
-            if ( iter->second.stateOn(MOSI::Invalid) )
-                tileGetForReading(i, j, tileDevice(i, j), LayoutConvert::None);
+        auto device = tileDevice(i, j);
+        if (tile_node.existsOn(device) &&
+            tile_node[device].tile()->origin()) {
+            if ( tile_node[device].stateOn(MOSI::Invalid) ) {
+                // todo: should this request Layout conversion to this->layout() ?
+                tileGetForReading(i, j, device, LayoutConvert::None);
+            }
         }
         else
             slate_error( std::string("Origin tile not found! tile(")
                         +std::to_string(i)+","+std::to_string(j)+")");
+        return tile_node[device].tile();
     }
-    return iter->second.tile_;
 }
 
 //------------------------------------------------------------------------------
@@ -2725,7 +2697,7 @@ void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
 template <typename scalar_t>
 bool BaseMatrix<scalar_t>::tileLayoutIsConvertible(int64_t i, int64_t j, int device)
 {
-    return storage_->at(globalIndex(i, j, device)).tile_->isTransposable();
+    return storage_->at(globalIndex(i, j, device)).tile()->isTransposable();
 }
 
 //------------------------------------------------------------------------------
@@ -2755,8 +2727,8 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileLayoutConvert(int64_t i, int64_t j, int device,
                                              Layout layout, bool reset)
 {
-    LockGuard guard(storage_->at(globalIndex(i, j, device)).get_lock());
-    auto tile = storage_->at(globalIndex(i, j, device)).tile_;
+    LockGuard guard(storage_->at(globalIndex(i, j, device)).getLock());
+    auto tile = storage_->at(globalIndex(i, j, device)).tile();
     if (tile->layout() != layout ) {
         if (! tile->isTransposable() ) {
             assert(! reset); // cannot reset if not transposable
@@ -2822,21 +2794,26 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
         #pragma omp taskwait
     }
     else {
+        // todo: this is not an optimal lock,
+        // two calls on different devices will be serialized,
+        // ideally, two concurrent read accesses to the TilesMap should be allowed
+        // but not a concurrent read and write.
+        LockGuard guard(storage_->getTilesMapLock());
 
         // map key tuple: m, n, extended, stride, work_stride
         using mnss_tuple = std::tuple<int64_t, int64_t, bool, int64_t, int64_t>;
         // map value tuple: data and extended data buffers
         using data_tuple = std::pair<std::vector<scalar_t*>, std::vector<scalar_t*>>;
 
-        using BatchedTilesBuckets = slate::Map< mnss_tuple, data_tuple >;
+        using BatchedTilesBuckets = std::map< mnss_tuple, data_tuple >;
 
         BatchedTilesBuckets tilesBuckets;
 
-        for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
+        for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
             int64_t i = std::get<0>(*iter);
             int64_t j = std::get<1>(*iter);
 
-            auto tile = storage_->at(globalIndex(i, j, device)).tile_;
+            auto tile = storage_->at(globalIndex(i, j, device)).tile();
 
             // if we need to convert layout
             if ( tile->layout() != layout ) {
@@ -2884,19 +2861,20 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
             }
         }
 
+        // Allocate batch arrays, if not done already.
+        int64_t batch_count = 0;
+        for (auto bucket = tilesBuckets.begin(); bucket != tilesBuckets.end(); ++bucket) {
+            batch_count = std::max(batch_count, int64_t(bucket->second.first.size()));
+        }
+        // todo: shouldn't we allocate for the current device only?
+        allocateBatchArrays(batch_count);
+
         cudaStream_t stream = compute_stream(device);
         slate_cuda_call(
             cudaSetDevice(device));
 
-        // Allocate batch arrays, if not done already.
-        int64_t batch_count = 0;
-        for (auto bucket = tilesBuckets.begin(); bucket != tilesBuckets.end(); bucket++) {
-            batch_count = std::max(batch_count, int64_t(bucket->second.first.size()));
-        }
-        allocateBatchArrays(batch_count);
-
         // for each bucket
-        for (auto bucket = tilesBuckets.begin(); bucket != tilesBuckets.end(); bucket++) {
+        for (auto bucket = tilesBuckets.begin(); bucket != tilesBuckets.end(); ++bucket) {
             batch_count = bucket->second.first.size();
 
             scalar_t** array_dev = this->a_array_device(device);
@@ -2970,7 +2948,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
                 {
                     int64_t i = std::get<0>(*iter);
                     int64_t j = std::get<1>(*iter);
-                    auto tile = storage_->at(globalIndex(i, j, device)).tile_;
+                    auto tile = storage_->at(globalIndex(i, j, device)).tile();
                     storage_->tileLayoutReset(tile);
                 }
             }
@@ -3124,14 +3102,14 @@ void BaseMatrix<scalar_t>::tileLayoutReset()
     {
         omp_set_nested(1);
         if (! tiles_set_host.empty()) {
-            #pragma omp task
+            #pragma omp task default(shared)
             {
                 tileLayoutReset(tiles_set_host, host_num_, this->layout());
             }
         }
         for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set_dev[d].empty()) {
-                #pragma omp task
+                #pragma omp task default(shared)
                 {
                     tileLayoutReset(tiles_set_dev[d], d, this->layout());
                 }
@@ -3167,16 +3145,22 @@ void BaseMatrix<scalar_t>::getRanks(std::set<int>* bcast_set) const
 template <typename scalar_t>
 Tile<scalar_t>* BaseMatrix<scalar_t>::originTile(int64_t i, int64_t j)
 {
+    auto& tile_node = storage_->at(globalIndex(i, j));
+
     // find on host
-    auto iter = storage_->find(globalIndex(i, j, host_num_));
-    if (iter != storage_->end() && iter->second.tile_->origin() ){
-        return iter->second.tile_;
+    if (tile_node.existsOn(hostNum()) &&
+        tile_node[hostNum()].tile()->origin()) {
+        return tile_node[hostNum()].tile();
     }
     else {
-        iter = storage_->find(globalIndex(i, j, tileDevice(i, j)));
-        if (iter != storage_->end() && iter->second.tile_->origin() ){
-            return iter->second.tile_;
+        auto device = tileDevice(i, j);
+        if (tile_node.existsOn(hostNum()) &&
+            tile_node[device].tile()->origin()) {
+            return tile_node[device].tile();
         }
+        else
+            slate_error( std::string("Origin tile not found! tile(")
+                        +std::to_string(i)+","+std::to_string(j)+")");
     }
 }
 
@@ -3265,7 +3249,7 @@ std::tuple<int64_t, int64_t, int>
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-int BaseMatrix<scalar_t>::host_num_ = -1;
+int BaseMatrix<scalar_t>::host_num_ = HostNum;
 
 template <typename scalar_t>
 int BaseMatrix<scalar_t>::num_devices_ = 0;

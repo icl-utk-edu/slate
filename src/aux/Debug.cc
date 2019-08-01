@@ -106,16 +106,20 @@ void Debug::checkTilesLives(BaseMatrix<scalar_t> const& A)
         int64_t j = std::get<1>(it->first);
 
         if (! A.tileIsLocal(i, j)) {
-            if (A.storage_->lives_[{i, j}] != 0 ||
-                it->second.tile_->data() != nullptr) {
+            if (it->second->lives() != 0 ||
+                it->second->numInstances() != 0) {
 
                 std::cout << "RANK "  << std::setw(3) << A.mpi_rank_
                           << " TILE " << std::setw(3) << std::get<0>(it->first)
                           << " "      << std::setw(3) << std::get<1>(it->first)
                           << " LIFE " << std::setw(3)
-                          << A.storage_->lives_[{i, j}]
-                          << " data " << it->second.tile_->data()
-                          << " DEV "  << std::get<2>(it->first) << "\n";
+                          << it->second->lives();
+                for (int d = A.hostNum(); d < A.num_devices(); ++d) {
+                    if (it->second->existsOn(d)) {
+                        std::cout << " DEV "  << d
+                                  << " data " << it->second->at(d).tile()->data() << "\n";
+                    }
+                }
             }
         }
     }
@@ -130,16 +134,17 @@ bool Debug::checkTilesLayout(BaseMatrix<scalar_t> const& A)
     // i, j are tile indices
     // if (A.mpi_rank_ == 0)
     {
-        auto index = A.globalIndex(0, 0, A.host_num_);
+        auto index = A.globalIndex(0, 0);
         auto tmp_tile = A.storage_->tiles_.find(index);
         auto tile_end = A.storage_->tiles_.end();
 
         for (int64_t i = 0; i < A.mt(); ++i) {
             for (int64_t j = 0; j < A.nt(); j++) {
-                index = A.globalIndex(i, j, A.host_num_);
+                index = A.globalIndex(i, j);
                 tmp_tile = A.storage_->tiles_.find(index);
                 if (tmp_tile != tile_end)
-                    if ( tmp_tile->second.tile_->layout() != A.layout() )
+                    if ( tmp_tile->second->at(A.host_num_).valid()
+                      && tmp_tile->second->at(A.host_num_).tile()->layout() != A.layout() )
                         return false;
             }
         }
@@ -156,14 +161,14 @@ void Debug::printTilesLives(BaseMatrix<scalar_t> const& A)
     if (! debug_) return;
     // i, j are tile indices
     if (A.mpi_rank_ == 0) {
-        auto index = A.globalIndex(0, 0, A.host_num_);
-        auto tmp_tile = A.storage_->tiles_.find(index);
-        auto tile_end = A.storage_->tiles_.end();
+        auto index = A.globalIndex(0, 0);
+        auto tmp_tile = A.storage_->find(index);
+        auto tile_end = A.storage_->end();
 
         for (int64_t i = 0; i < A.mt(); ++i) {
             for (int64_t j = 0; j < A.nt(); j++) {
-                index = A.globalIndex(i, j, A.host_num_);
-                tmp_tile = A.storage_->tiles_.find(index);
+                index = A.globalIndex(i, j);
+                tmp_tile = A.storage_->find(index);
                 if (tmp_tile == tile_end)
                     printf("  .");
                 else
@@ -189,9 +194,9 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
     printf("host\n");
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
-            auto it = A.storage_->tiles_.find(A.globalIndex(i, j, A.host_num_));
-            if (it != A.storage_->tiles_.end()) {
-                auto tile = it->second.tile_;
+            auto it = A.storage_->find(A.globalIndex(i, j, A.host_num_));
+            if (it != A.storage_->end()) {
+                auto tile = it->second->at(A.host_num_).tile();
                 if (tile->origin())
                     printf("o");
                 else
@@ -206,9 +211,9 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
         printf("device %d\n", device);
         for (int64_t i = 0; i < A.mt(); ++i) {
             for (int64_t j = 0; j < A.nt(); ++j) {
-                auto it = A.storage_->tiles_.find(A.globalIndex(i, j, device));
-                if (it != A.storage_->tiles_.end()) {
-                    auto tile = it->second.tile_;
+                auto it = A.storage_->find(A.globalIndex(i, j, device));
+                if (it != A.storage_->end()) {
+                    auto tile = it->second->at(device).tile();
                     if (tile->origin())
                         printf("o");
                     else
@@ -254,22 +259,22 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name,
     printf("%s on host, rank %d, %s, %s, %d\n", name, A.mpiRank(), func, file, line);
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
-            auto it = A.storage_->tiles_.find(A.globalIndex(i, j, A.host_num_));
-            if (it != A.storage_->tiles_.end()) {
-                auto tile = it->second.tile_;
+            auto it = A.storage_->find(A.globalIndex(i, j, A.host_num_));
+            if (it != A.storage_->end()) {
+                auto tile = it->second->at(A.host_num_).tile();
                 if (tile->origin())
                     printf("o");
                 else
                     printf("w");
 
-                auto mosi = it->second.getState();
+                auto mosi = it->second->at(A.host_num_).getState();
                 switch (mosi) {
                     case MOSI::Modified:  printf("m"); break;
                     case MOSI::Shared:    printf("s"); break;
                     case MOSI::Invalid:   printf("i"); break;
                     case MOSI::OnHold: break;  // below
                 }
-                if (it->second.stateOn(MOSI::OnHold))
+                if (it->second->at(A.host_num_).stateOn(MOSI::OnHold))
                     printf("h");
                 else
                     printf(" ");
@@ -277,8 +282,12 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name,
                     printf("|");
                 else
                     printf("-");
-                if (tile->extended())
-                    printf("e");
+                if (tile->extended()) {
+                    if (tile->userData() == tile->data())
+                        printf("u");
+                    else
+                        printf("e");
+                }
                 else
                     printf(" ");
                 printf(" ");
@@ -292,22 +301,22 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name,
         printf("%s on device %d, rank %d, %s, %s, %d\n", name, device, A.mpiRank(), func, file, line);
         for (int64_t i = 0; i < A.mt(); ++i) {
             for (int64_t j = 0; j < A.nt(); ++j) {
-                auto it = A.storage_->tiles_.find(A.globalIndex(i, j, device));
-                if (it != A.storage_->tiles_.end()) {
-                    auto tile = it->second.tile_;
+                auto it = A.storage_->find(A.globalIndex(i, j, device));
+                if (it != A.storage_->end()) {
+                    auto tile = it->second->at(device).tile();
                     if (tile->origin())
                         printf("o");
                     else
                         printf("x");
 
-                    auto mosi = it->second.getState();
+                    auto mosi = it->second->at(device).getState();
                     switch (mosi) {
                         case MOSI::Modified:  printf("m"); break;
                         case MOSI::Shared:    printf("s"); break;
                         case MOSI::Invalid:   printf("i"); break;
                         case MOSI::OnHold: break;  // below
                     }
-                    if (it->second.stateOn(MOSI::OnHold))
+                    if (it->second->at(device).stateOn(MOSI::OnHold))
                         printf("h");
                     else
                         printf(" ");

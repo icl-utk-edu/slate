@@ -318,7 +318,7 @@ protected:
     scalar_t* user_data_; // Temporarily point to user-provided memory buffer.
     scalar_t* ext_data_; // Points to auxiliary buffer.
 
-    bool valid_;
+    bool valid_; // todo: deprecate
     TileKind kind_;
     /// layout_: The physical ordering of elements in the data buffer:
     ///          - ColMajor: elements of a column are 1-strided
@@ -346,7 +346,7 @@ Tile<scalar_t>::Tile()
       kind_(TileKind::UserOwned),
       layout_(Layout::ColMajor),
       user_layout_(Layout::ColMajor),
-      device_(-1)  // todo: host_num
+      device_(HostNum)
 {}
 
 //------------------------------------------------------------------------------
@@ -649,14 +649,14 @@ void Tile<scalar_t>::layoutReset()
 template <typename scalar_t>
 void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream)
 {
-    slate_assert(device_ < 0 || stream != nullptr);
+    slate_assert(device_ == HostNum || stream != nullptr);
     slate_assert(isTransposable());
 
     trace::Block trace_block("slate::convertLayout");
     // square tile
     if (mb() == nb()) {
         // in-place convert
-        if (device_ < 0)
+        if (device_ == HostNum)
             transpose(nb(), data_, stride_);
         else {
             slate_cuda_call(
@@ -694,7 +694,7 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream)
             else {
                 assert(0);
             }
-            if (device_ < 0)
+            if (device_ == HostNum)
                 transpose(layout() == Layout::ColMajor ? mb_ : nb_,
                           layout() == Layout::ColMajor ? nb_ : mb_,
                           src_data, src_stride,
@@ -720,7 +720,7 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream)
             // out-of-place convert
             int64_t work_stride = layout() == Layout::ColMajor ?
                                   nb() : mb();
-            if (device_ < 0) {
+            if (device_ == HostNum) {
                 transpose(layout() == Layout::ColMajor ? mb_ : nb_,
                           layout() == Layout::ColMajor ? nb_ : mb_,
                           data_, stride_,
@@ -892,23 +892,23 @@ void Tile<scalar_t>::copyData(
     slate_assert(mb_ == dst_tile->mb_);
     slate_assert(nb_ == dst_tile->nb_);
 
-    int device = -1;
+    int device;
     cudaMemcpyKind memcpy_kind;
 
     // figure out copy direction and device
-    if (this->device_ >= 0 && dst_tile->device() < 0) {
+    if (this->device_ >= 0 && dst_tile->device() == HostNum) {
         // device to host copy
         device = this->device_;
         memcpy_kind = cudaMemcpyDeviceToHost;
     }
     else
-    if (this->device_ < 0 && dst_tile->device() >= 0) {
+    if (this->device_ == HostNum && dst_tile->device() >= 0) {
         // host to device copy
         device = dst_tile->device();
         memcpy_kind = cudaMemcpyHostToDevice;
     }
     else
-    if (this->device_ < 0 && dst_tile->device() < 0) {
+    if (this->device_ == HostNum && dst_tile->device() == HostNum) {
         // host to host copy
         device = -1;
         memcpy_kind = cudaMemcpyHostToHost;
@@ -921,6 +921,11 @@ void Tile<scalar_t>::copyData(
         // todo: handle peer to peer copy
         if (this->device_ != dst_tile->device())
             assert(0);
+    }
+    else {
+        device = HostNum; // silence a compiler warning
+        memcpy_kind = cudaMemcpyHostToHost; // silence a compiler warning
+        slate_error("illegal combination of source and destination devices");
     }
 
     if (device >= 0) {

@@ -42,7 +42,6 @@
 
 #include "slate/internal/BaseMatrix.hh"
 #include "slate/internal/Memory.hh"
-#include "slate/internal/Map.hh"
 
 #include <iostream>
 

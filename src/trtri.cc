@@ -234,7 +234,9 @@ void trtri(slate::internal::TargetType<target>,
             ++tag;
 
             // invert the diagonal triangle
-            #pragma omp task depend(inout:row[k]) firstprivate(tag)
+            #pragma omp task depend(inout:row[k]) \
+                             depend(in:col[k-1]) \
+                             firstprivate(tag)
             {
                 // send A(k, k) across row A(k, 0:k-1)
                 A.tileBcast(k, k, A.sub(k, k, 0, k-1), layout, tag);

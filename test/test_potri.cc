@@ -171,7 +171,9 @@ template <typename scalar_t> void test_potri_work(Params& params, bool run)
         std::vector<real_t> worklange(n);
         real_t C_norm = scalapack_plange("One", n, n, &C_chk[0], ione, ione, descC_chk, &worklange[0]);
 
-        double residual = C_norm / (A_norm * n);
+        real_t A_inv_norm = scalapack_plange("One", n, n, &A_tst[0], ione, ione, descA_tst, &worklange[0]);
+
+        double residual = C_norm / (A_norm * n * A_inv_norm);
         params.error() = residual;
 
         real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon();

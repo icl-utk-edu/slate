@@ -1060,13 +1060,23 @@ void BaseTrapezoidMatrix<scalar_t>::tileLayoutReset()
         }
     }
 
-    if (! tiles_set_host.empty()) {
-        this->tileLayoutReset(tiles_set_host, hostNum(), this->layout());
-    }
-    // todo: omp tasks?
-    for (int d = 0; d < this->num_devices(); ++d) {
-        if (! tiles_set_dev[d].empty()) {
-            this->tileLayoutReset(tiles_set_dev[d], d, this->layout());
+    #pragma omp parallel
+    #pragma omp master
+    {
+        omp_set_nested(1);
+        if (! tiles_set_host.empty()) {
+            #pragma omp task default(shared)
+            {
+                this->tileLayoutReset(tiles_set_host, hostNum(), this->layout());
+            }
+        }
+        for (int d = 0; d < this->num_devices(); ++d) {
+            if (! tiles_set_dev[d].empty()) {
+                #pragma omp task default(shared)
+                {
+                    this->tileLayoutReset(tiles_set_dev[d], d, this->layout());
+                }
+            }
         }
     }
 }

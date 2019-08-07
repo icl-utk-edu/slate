@@ -369,19 +369,32 @@ void Trace::finish()
 
     // Print header.
     if (mpi_rank == 0) {
-        double line_height = tick_font_size_ * 1.2;
-        int lines = std::count(comment_.begin(), comment_.end(), '\n') + 1;
         trace_file = fopen(file_name.c_str(), "w");
         assert(trace_file != nullptr);
+
         // viewBox includes tick marks and legend, plus a margin.
         // Hopefully chars*legend_font_size_ is over estimate of string width.
         int max_legend_width = 24; // chars
         int w = width_ + 3*legend_space_ + max_legend_width*legend_font_size_;
+
+        // Height h needs to include tick marks and comment lines.
+        double line_height = tick_font_size_ * 1.2;
+        int lines = std::count(comment_.begin(), comment_.end(), '\n') + 1;
         int h = height_ + 2*tick_height_ + line_height*(lines + 2);
+
+        // Height h also needs to be large enough for all legend entries.
+        // Build the set of labels.
+        // todo: replicated from printLegend().
+        std::set<std::string> legend_set;
+        for (auto& thread : events_)
+            for (auto& event : thread)
+                legend_set.insert(event.name_);
+        h = std::max(h, int(legend_set.size() * 2 * legend_space_));
+
         fprintf(trace_file, header,
                 hscale_, vscale_,
-                -legend_space_, -legend_space_, w, h,
-                w+legend_space_, h+legend_space_,
+                -margin_, -margin_, w + margin_, h + margin_,
+                w + 2*margin_, h + 2*margin_,
                 legend_font_size_, tick_font_size_);
 
         // Print CSS entries.

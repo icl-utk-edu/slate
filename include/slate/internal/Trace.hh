@@ -115,6 +115,8 @@ private:
     static const int legend_space_ = 28;
     static const int legend_font_size_ = 24;
 
+    static const int margin_ = 28;
+
     static double vscale_;
     static double hscale_;
 

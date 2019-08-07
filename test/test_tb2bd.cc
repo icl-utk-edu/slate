@@ -49,6 +49,7 @@ void test_tb2bd_work(
 
     int64_t lda = m;
     int64_t seed[] = {0, 1, 2, 3};
+    int64_t min_mn = std::min(m, n);
 
     std::vector<scalar_t> A1( lda*n );
     lapack::larnv(1, seed, A1.size(), &A1[0]);
@@ -64,7 +65,7 @@ void test_tb2bd_work(
     if (verbose && mpi_rank == 0)
         print_matrix( "A1", m, n, &A1[0], lda, 5, 2 );
 
-    std::vector<real_t> S1( std::min(m, n) );
+    std::vector<real_t> S1(min_mn);
     if (check) {
         //==================================================
         // For checking results, compute SVD of original matrix A.
@@ -143,12 +144,42 @@ void test_tb2bd_work(
             // Check that the singular values of updated A
             // match the singular values of the original A.
             real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-            std::vector<real_t> S2( std::min(m, n) );
-            std::vector<scalar_t> A2 = A1;
-            std::vector<scalar_t> U ( 1 );  // U, VT not needed for NoVec
-            std::vector<scalar_t> VT( 1 );
-            lapack::gesvd(lapack::Job::NoVec, lapack::Job::NoVec,
-                          m, n, &A2[0], lda, &S2[0], &U[0], lda, &VT[0], lda);
+            std::vector<real_t> S2(min_mn);
+            std::vector<real_t> E(min_mn - 1);  // super-diagonal
+            scalar_t dummy[1];  // U, VT, C not needed for NoVec
+
+            // Copy diagonal & super-diagonal.
+            int64_t D_index = 0;
+            int64_t E_index = 0;
+            for (int64_t i = 0; i < std::min(A.mt(), A.nt()); ++i) {
+                // Copy 1 element from super-diagonal tile to E.
+                if (i > 0) {
+                    auto T = A(i-1, i);
+                    E[E_index] = real( T(T.mb()-1, 0) );
+                    E_index += 1;
+                }
+
+                // Copy main diagonal to S2.
+                auto T = A(i, i);
+                auto len = std::min(T.mb(), T.nb());
+                for (int j = 0; j < len; ++j) {
+                    S2[D_index + j] = real( T(j, j) );
+                }
+                D_index += len;
+
+                // Copy super-diagonal to E.
+                for (int j = 0; j < len-1; ++j) {
+                    E[E_index + j] = real( T(j, j+1) );
+                }
+                E_index += len-1;
+            }
+            if (verbose) {
+                print_matrix("D", min_mn, 1, &S2[0], min_mn);
+                print_matrix("E", min_mn-1, 1, &E[0], min_mn-1);
+            }
+
+            lapack::bdsqr(lapack::Uplo::Upper, min_mn, 0, 0, 0,
+                          &S2[0], &E[0], dummy, 1, dummy, 1, dummy, 1);
             slate_set_num_blas_threads(saved_num_threads);
 
             if (verbose) {

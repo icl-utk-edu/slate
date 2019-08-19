@@ -44,6 +44,7 @@ void test_tbsm_work(Params& params, bool run)
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
+    slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
     // mark non-standard output values
@@ -53,7 +54,13 @@ void test_tbsm_work(Params& params, bool run)
     //params.ref_gflops();
 
     if (! run) {
-        printf("%% This does NOT test pivoting in tbsm. See gbtrs for that.\n");
+        // Note is printed before table header.
+        printf("%% Note this does NOT test pivoting in tbsm. See gbtrs for that.\n");
+        return;
+    }
+
+    if (origin != slate::Origin::ScaLAPACK) {
+        printf("skipping: currently only origin=scalapack is supported\n");
         return;
     }
 

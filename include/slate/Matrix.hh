@@ -151,12 +151,11 @@ public:
 
     int64_t getMaxHostTiles();
     int64_t getMaxDeviceTiles(int device);
-    void allocateBatchArrays();
+    void allocateBatchArrays(int64_t batch_size=0);
     void reserveHostWorkspace();
     void reserveDeviceWorkspace();
     void gather(scalar_t* A, int64_t lda);
     void insertLocalTiles(Target origin=Target::Host);
-    void insertLocalTiles(bool on_devices);
 
     // copy local data of op(A).
     void copy(Matrix& A);
@@ -656,13 +655,20 @@ int64_t Matrix<scalar_t>::getMaxDeviceTiles(int device)
 
 //------------------------------------------------------------------------------
 /// Allocates batch arrays for all devices.
+/// This overrides BaseMatrix::allocateBatchArrays.
+///
+/// @param[in] batch_size
+///     On exit, size of batch arrays >= batch_size >= 0.
+///     If batch_size = 0 (default), uses batch_size = getMaxDeviceTiles.
+///
 template <typename scalar_t>
-void Matrix<scalar_t>::allocateBatchArrays()
+void Matrix<scalar_t>::allocateBatchArrays(int64_t batch_size)
 {
-    int64_t num_tiles = 0;
-    for (int device = 0; device < this->num_devices_; ++device)
-        num_tiles = std::max(num_tiles, getMaxDeviceTiles(device));
-    this->storage_->allocateBatchArrays(num_tiles);
+    if (batch_size == 0) {
+        for (int device = 0; device < this->num_devices_; ++device)
+            batch_size = std::max(batch_size, getMaxDeviceTiles(device));
+    }
+    this->storage_->allocateBatchArrays(batch_size);
 }
 
 //------------------------------------------------------------------------------
@@ -759,21 +765,6 @@ void Matrix<scalar_t>::insertLocalTiles(Target origin)
             }
         }
     }
-}
-
-//------------------------------------------------------------------------------
-/// @deprecated
-///
-/// Inserts all local tiles into an empty matrix.
-///
-/// @param[in] on_devices
-///     If on_devices, inserts tiles on appropriate GPU devices,
-///     otherwise inserts tiles on CPU host.
-///
-template <typename scalar_t>
-void Matrix<scalar_t>::insertLocalTiles(bool on_devices)
-{
-    insertLocalTiles(on_devices ? Target::Devices : Target::Host);
 }
 
 //------------------------------------------------------------------------------

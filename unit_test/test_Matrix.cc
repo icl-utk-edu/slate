@@ -56,7 +56,8 @@ int m, n, k, mb, nb, p, q;
 int mpi_rank;
 int mpi_size;
 MPI_Comm mpi_comm;
-int host_num, num_devices;
+int host_num = slate::HostNum;
+int num_devices = 0;
 int verbose = 0;
 
 //==============================================================================
@@ -341,6 +342,8 @@ void test_Matrix_emptyLike()
 /// emptyLike with mb, nb overriding size.
 void test_Matrix_emptyLikeMbNb()
 {
+    using llong = long long;
+
     int mtiles, mtiles_local, m_local, lda;
     int ntiles, ntiles_local, n_local;
     get_2d_cyclic_dimensions(
@@ -357,13 +360,13 @@ void test_Matrix_emptyLikeMbNb()
     auto Asub_trans = transpose( Asub );
     if (verbose) {
         printf( "A  m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
-                Asub.m(), Asub.mt(),
-                Asub.n(), Asub.nt(),
-                Asub.tileMb(0), Asub.tileNb(0) );
+                llong( Asub.m() ), llong( Asub.mt() ),
+                llong( Asub.n() ), llong( Asub.nt() ),
+                llong( Asub.tileMb(0) ), llong( Asub.tileNb(0) ) );
         printf( "AT m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
-                Asub_trans.m(), Asub_trans.mt(),
-                Asub_trans.n(), Asub_trans.nt(),
-                Asub_trans.tileMb(0), Asub_trans.tileNb(0) );
+                llong( Asub_trans.m() ), llong( Asub_trans.mt() ),
+                llong( Asub_trans.n() ), llong( Asub_trans.nt() ),
+                llong( Asub_trans.tileMb(0) ), llong( Asub_trans.tileNb(0) ) );
     }
 
     for (int mb2: std::vector<int>({ 0, 7 })) {
@@ -373,9 +376,9 @@ void test_Matrix_emptyLikeMbNb()
 
             if (verbose) {
                 printf( "B  m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld (mb2 %3d, nb2 %3d)\n",
-                        B.m(), B.mt(),
-                        B.n(), B.nt(),
-                        B.tileMb(0), B.tileNb(0),
+                        llong( B.m() ), llong( B.mt() ),
+                        llong( B.n() ), llong( B.nt() ),
+                        llong( B.tileMb(0) ), llong( B.tileNb(0) ),
                         mb2, nb2 );
             }
             test_assert(B.m() == (mb2 == 0 ? Asub.m() : Asub.mt() * mb2));
@@ -397,9 +400,9 @@ void test_Matrix_emptyLikeMbNb()
 
             if (verbose) {
                 printf( "BT m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld (mb2 %3d, nb2 %3d)\n",
-                        BT.m(), BT.mt(),
-                        BT.n(), BT.nt(),
-                        BT.tileMb(0), BT.tileNb(0),
+                        llong( BT.m() ), llong( BT.mt() ),
+                        llong( BT.n() ), llong( BT.nt() ),
+                        llong( BT.tileMb(0) ), llong( BT.tileNb(0) ),
                         mb2, nb2 );
             }
             test_assert(BT.m() == (mb2 == 0 ? Asub_trans.m() : Asub_trans.mt() * mb2));
@@ -746,6 +749,10 @@ void test_Matrix_insertLocalTiles()
 /// Tests Matrix(), mt, nt, op, insertLocalTiles on devices.
 void test_Matrix_insertLocalTiles_dev()
 {
+    if (num_devices == 0) {
+        test_skip("requires num_devices > 0");
+    }
+
     slate::Matrix<double> A(m, n, mb, nb, p, q, mpi_comm);
 
     test_assert(A.mt() == ceildiv(m, mb));
@@ -753,7 +760,7 @@ void test_Matrix_insertLocalTiles_dev()
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
 
-    A.insertLocalTiles( true );
+    A.insertLocalTiles( slate::Target::Devices );
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {
             if (A.tileIsLocal(i, j)) {
@@ -763,6 +770,80 @@ void test_Matrix_insertLocalTiles_dev()
                 test_assert(T.stride() == A.tileMb(i));
             }
         }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Test allocateBatchArrays, clearBatchArrays, batchArraySize.
+///
+void test_Matrix_allocateBatchArrays()
+{
+    if (num_devices == 0) {
+        test_skip("requires num_devices > 0");
+    }
+
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+
+    int64_t iseed[4] = { 0, 1, 2, 3 };
+    lapack::larnv( 1, iseed, Ad.size(), Ad.data() );
+
+    auto A = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // initially, batch arrays are null
+    test_assert( A.batchArraySize() == 0 );
+    for (int device = 0; device < num_devices; ++device) {
+        test_assert( A.a_array_host(device) == nullptr );
+        test_assert( A.b_array_host(device) == nullptr );
+        test_assert( A.c_array_host(device) == nullptr );
+
+        test_assert( A.a_array_device(device) == nullptr );
+        test_assert( A.b_array_device(device) == nullptr );
+        test_assert( A.c_array_device(device) == nullptr );
+    }
+
+    // allocate size 10
+    A.allocateBatchArrays( 10 );
+    test_assert( A.batchArraySize() == 10 );
+    for (int device = 0; device < num_devices; ++device) {
+        test_assert( A.a_array_host(device) != nullptr );
+        test_assert( A.b_array_host(device) != nullptr );
+        test_assert( A.c_array_host(device) != nullptr );
+
+        test_assert( A.a_array_device(device) != nullptr );
+        test_assert( A.b_array_device(device) != nullptr );
+        test_assert( A.c_array_device(device) != nullptr );
+    }
+
+    // increase to size 20
+    A.allocateBatchArrays( 20 );
+    test_assert( A.batchArraySize() == 20 );
+
+    // requesting 15 should leave it at 20
+    A.allocateBatchArrays( 15 );
+    test_assert( A.batchArraySize() == 20 );
+
+    int num = 0;
+    for (int device = 0; device < num_devices; ++device) {
+        num = blas::max( num, A.getMaxDeviceTiles( device ) );
+    }
+
+    // request enough for local tiles
+    A.allocateBatchArrays();
+    test_assert( A.batchArraySize() == blas::max( num, 20 ) );
+
+    // clear should free arrays
+    A.clearBatchArrays();
+    test_assert( A.batchArraySize() == 0 );
+    for (int device = 0; device < num_devices; ++device) {
+        test_assert( A.a_array_host(device) == nullptr );
+        test_assert( A.b_array_host(device) == nullptr );
+        test_assert( A.c_array_host(device) == nullptr );
+
+        test_assert( A.a_array_device(device) == nullptr );
+        test_assert( A.b_array_device(device) == nullptr );
+        test_assert( A.c_array_device(device) == nullptr );
     }
 }
 
@@ -1558,6 +1639,10 @@ void test_Tile_compare_layout(slate::Tile<double> const& Atile,
 //
 void test_Matrix_MOSI()
 {
+    if (num_devices == 0) {
+        test_skip("requires num_devices > 0");
+    }
+
     int lda = roundup(m, nb);
     std::vector<double> Ad( lda*n );
 
@@ -1693,6 +1778,10 @@ void test_Matrix_tileLayoutConvert()
         }
     }
 
+    if (num_devices == 0) {
+        test_skip("remainder of test requires num_devices > 0");
+    }
+
     #pragma omp parallel
     #pragma omp master
     {
@@ -1772,7 +1861,6 @@ void test_Matrix_tileLayoutConvert()
 // x   swap
 //     getMaxHostTiles
 //     getMaxDeviceTiles
-//     allocateBatchArrays
 //     reserveHostWorkspace
 //     reserveDeviceWorkspace
 //     gather
@@ -1804,8 +1892,9 @@ void run_tests()
     run_test(test_Matrix_tileErase,            "Matrix::tileErase",                        mpi_comm);
     run_test(test_Matrix_insertLocalTiles,     "Matrix::insertLocalTiles()",               mpi_comm);
     run_test(test_Matrix_insertLocalTiles_dev, "Matrix::insertLocalTiles(on_devices)",     mpi_comm);
-    run_test(test_Matrix_MOSI, "Matrix::tileMOSI", mpi_comm);
-    run_test(test_Matrix_tileLayoutConvert, "Matrix::tileLayoutConvert", mpi_comm);
+    run_test(test_Matrix_allocateBatchArrays,  "Matrix::allocateBatchArrays",              mpi_comm);
+    run_test(test_Matrix_MOSI,                 "Matrix::tileMOSI",                         mpi_comm);
+    run_test(test_Matrix_tileLayoutConvert,    "Matrix::tileLayoutConvert",                mpi_comm);
 
     if (mpi_rank == 0)
         printf("\nSub-matrices and slices\n");
@@ -1837,7 +1926,7 @@ int main(int argc, char** argv)
     MPI_Comm_size(mpi_comm, &mpi_size);
 
     cudaGetDeviceCount(&num_devices);
-    host_num = -num_devices;
+    host_num = slate::HostNum;
 
     // globals
     m  = 200;

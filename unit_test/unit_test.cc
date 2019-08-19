@@ -7,6 +7,7 @@
 #include <stdarg.h>
 
 #include "slate/internal/mpi.hh"
+#include "libtest.hh"
 
 static int g_total = 0;
 static int g_pass  = 0;
@@ -15,31 +16,18 @@ static int g_skip  = 0;
 
 //------------------------------------------------------------------------------
 // ANSI color codes
-#ifndef NO_COLOR
-const char *ansi_esc     = "\x1b[";
-const char *ansi_red     = "\x1b[31m";
-const char *ansi_green   = "\x1b[92m";
-const char *ansi_blue    = "\x1b[34m";
-const char *ansi_cyan    = "\x1b[36m";
-const char *ansi_magenta = "\x1b[35m";
-const char *ansi_yellow  = "\x1b[33m";
-const char *ansi_white   = "\x1b[37m";
-const char *ansi_gray    = "\x1b[90m";  // "bright black"
-const char *ansi_bold    = "\x1b[1m";
-const char *ansi_normal  = "\x1b[0m";
-#else
-const char *ansi_esc     = "";
-const char *ansi_red     = "";
-const char *ansi_green   = "";
-const char *ansi_blue    = "";
-const char *ansi_cyan    = "";
-const char *ansi_magenta = "";
-const char *ansi_yellow  = "";
-const char *ansi_white   = "";
-const char *ansi_gray    = "";
-const char *ansi_bold    = "";
-const char *ansi_normal  = "";
-#endif
+using libtest::ansi_esc;
+using libtest::ansi_red;
+using libtest::ansi_green;
+using libtest::ansi_blue;
+using libtest::ansi_cyan;
+using libtest::ansi_magenta;
+using libtest::ansi_yellow;
+using libtest::ansi_white;
+using libtest::ansi_gray;
+using libtest::ansi_bold;
+using libtest::ansi_normal;
+
 //------------------------------------------------------------------------------
 /// Returns a string that is sprintf formatted.
 std::string string_printf(const char* format, ...)

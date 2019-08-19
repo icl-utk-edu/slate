@@ -99,7 +99,8 @@ std::vector< libtest::routines_t > routines = {
     { "",                   nullptr,           Section::newline },
 
     { "getri",              test_getri,        Section::gesv },
-    { "",                   nullptr,           Section::newline },    
+    { "getriOOP",           test_getri,        Section::gesv },
+    { "",                   nullptr,           Section::newline },
 
     // -----
     // Cholesky
@@ -194,8 +195,9 @@ Params::Params():
     //         name,       w,    type,        default, valid, help
     check     ("check",   0,    ParamType::Value, 'y', "ny",  "check the results"),
     error_exit("error-exit", 0, ParamType::Value, 'n', "ny",  "check error exits"),
-    ref       ("ref",     0,    ParamType::Value, 'y', "nyo",  "run reference; sometimes check implies ref"),
+    ref       ("ref",     0,    ParamType::Value, 'y', "nyo", "run reference; sometimes check implies ref"),
     trace     ("trace",   0,    ParamType::Value, 'n', "ny",  "enable/disable traces"),
+    trace_scale("trace-scale", 0, 0, ParamType::Value, 1000, 1e-3, 1e6, "horizontal scale for traces, in pixels per sec"),
 
     //         name,      w, p, type,         default, min,  max, help
     tol       ("tol",     0, 0, ParamType::Value,  50,   1, 1000, "tolerance (e.g., error < tol*epsilon to pass)"),
@@ -208,8 +210,8 @@ Params::Params():
     // ----- routine parameters
     //         name,      w,    type,            default,                 str2enum,     enum2str,     help
     datatype  ("type",    4,    ParamType::List, DataType::Double,        str2datatype, datatype2str, "s=single (float), d=double, c=complex-single, z=complex-double"),
-    origin    ("origin",  7,    ParamType::List, slate::Target::Host,     str2target,   target2str,   "origin: h=Host, d=Devices"),
-    target    ("target",  7,    ParamType::List, slate::Target::HostTask, str2target,   target2str,   "target: t=HostTask n=HostNest b=HostBatch d=Devices"),
+    origin    ("origin",  9,    ParamType::List, slate::Origin::Host,     str2origin,   origin2str,   "origin: h=Host, s=ScaLAPACK, d=Devices"),
+    target    ("target",  7,    ParamType::List, slate::Target::HostTask, str2target,   target2str,   "target: t=HostTask, n=HostNes,t b=HostBatch, d=Devices"),
 
     //         name,      w,    type,            default,                 char2enum,         enum2char,         enum2str,         help
     layout    ("layout",  6,    ParamType::List, slate::Layout::ColMajor, blas::char2layout, blas::layout2char, blas::layout2str, "layout: r=row major, c=column major"),
@@ -298,6 +300,7 @@ Params::Params():
     error_exit();
     ref();
     trace();
+    trace_scale();
     tol();
     repeat();
     verbose();
@@ -371,20 +374,17 @@ int print_reduce_error(
 }
 
 // -----------------------------------------------------------------------------
-int main(int argc, char** argv)
+int run(int argc, char** argv)
 {
     using libtest::QuitException;
 
     // check that all sections have names
-    slate_assert(sizeof(section_names) / sizeof(*section_names) == Section::num_sections);
+    assert(sizeof(section_names) / sizeof(*section_names) == Section::num_sections);
 
     // MPI initializations
     int mpi_rank = 0, mpi_size = 0, provided = 0;
-    int err = MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided);
-    if (err != MPI_SUCCESS) {
-        fprintf(stderr, "Error: MPI could not be initialized (err = %d)\n", err);
-        return -1;
-    }
+    slate_mpi_call(
+        MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided));
 
     int status = 0;
     std::string msg;
@@ -400,13 +400,17 @@ int main(int argc, char** argv)
 
         // print input so running `test [input] > out.txt` documents input
         if (print) {
-            printf("input: %s", argv[0]);
+            std::string args = "input: ";
+            args += argv[0];
             for (int i = 1; i < argc; ++i) {
-                printf(" %s", argv[i]);
+                args += ' ';
+                args += argv[i];
             }
-            printf("\n");
-            printf("MPI size %d, OpenMP threads %d\n",
-                   mpi_size, omp_get_max_threads());
+            args += "\nMPI size " + std::to_string(mpi_size)
+                 + ", OpenMP threads " + std::to_string(omp_get_max_threads())
+                 + "\n";
+            printf("%s", args.c_str());
+            slate::trace::Trace::comment(args);
         }
 
         // Usage: test routine [params]
@@ -457,6 +461,8 @@ int main(int argc, char** argv)
 
         slate_assert(params.p() * params.q() == mpi_size);
 
+        slate::trace::Trace::pixels_per_second(params.trace_scale());
+
         // run tests
         int repeat = params.repeat();
         libtest::DataType last = params.datatype();
@@ -475,7 +481,7 @@ int main(int argc, char** argv)
                 catch (const std::exception& ex) {
                     msg = ex.what();
                 }
-                err = print_reduce_error(msg, mpi_rank, MPI_COMM_WORLD);
+                int err = print_reduce_error(msg, mpi_rank, MPI_COMM_WORLD);
                 if (err)
                     params.okay() = false;
                 if (print) {
@@ -506,14 +512,33 @@ int main(int argc, char** argv)
     catch (const std::exception& ex) {
         msg = ex.what();
     }
-    err = print_reduce_error(msg, mpi_rank, MPI_COMM_WORLD);
+    int err = print_reduce_error(msg, mpi_rank, MPI_COMM_WORLD);
     if (err)
         status = -1;
 
-    MPI_Finalize();
+    slate_mpi_call(
+        MPI_Finalize());
 
     if (mpi_rank == 0)
         return status;
     else
         return 0;
+}
+
+// -----------------------------------------------------------------------------
+int main(int argc, char** argv)
+{
+    int status = 0;
+    try {
+        status = run(argc, argv);
+    }
+    catch (const std::exception& ex) {
+        fprintf(stderr, "Error: %s\n", ex.what());
+        status = -1;
+    }
+    catch (...) {
+        fprintf(stderr, "Unknown error\n");
+        status = -2;
+    }
+    return status;
 }

@@ -46,14 +46,14 @@
 
 //------------------------------------------------------------------------------
 // globals
-int      g_argc        = 0;
-char**   g_argv        = nullptr;
-int      g_verbose     = 0;
-int      g_mpi_rank    = -1;
-int      g_mpi_size    = 0;
-int      g_host_num    = -1;
-int      g_num_devices = 0;
-MPI_Comm g_mpi_comm;
+int      g_argc      = 0;
+char**   g_argv      = nullptr;
+int      verbose     = 0;
+int      mpi_rank    = -1;
+int      mpi_size    = 0;
+int      host_num    = slate::HostNum;
+int      num_devices = 0;
+MPI_Comm mpi_comm;
 
 //------------------------------------------------------------------------------
 // type_name<T>() returns string describing type of T.
@@ -216,7 +216,7 @@ void test_gemm()
     scalar_t alpha, beta;
     lapack::larnv( 1, iseed, 1, &alpha );
     lapack::larnv( 1, iseed, 1, &beta  );
-    if (g_verbose) {
+    if (verbose) {
         printf( "alpha = %.4f + %.4fi;\n"
                 "beta  = %.4f + %.4fi;\n",
                 real(alpha), imag(alpha),
@@ -233,7 +233,7 @@ void test_gemm()
         int ldc = Cm + 1;
         std::vector< scalar_t > Cdata( ldc*Cn );
         lapack::larnv( 1, iseed, Cdata.size(), Cdata.data() );
-        slate::Tile< scalar_t > C( Cm, Cn, Cdata.data(), ldc, g_host_num,
+        slate::Tile< scalar_t > C( Cm, Cn, Cdata.data(), ldc, host_num,
                                    slate::TileKind::UserOwned );
         C.op( ops[ic] );
         assert( C.mb() == m );
@@ -250,7 +250,7 @@ void test_gemm()
         int ldb = Bm + 1;
         std::vector< scalar_t > Bdata( ldb*Bn );
         lapack::larnv( 1, iseed, Bdata.size(), Bdata.data() );
-        slate::Tile< scalar_t > B( Bm, Bn, Bdata.data(), ldb, g_host_num,
+        slate::Tile< scalar_t > B( Bm, Bn, Bdata.data(), ldb, host_num,
                                    slate::TileKind::UserOwned );
         B.op( ops[ib] );
         assert( B.mb() == k );
@@ -262,18 +262,18 @@ void test_gemm()
         int lda = Am + 1;
         std::vector< scalar_t > Adata( lda*An );
         lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
-        slate::Tile< scalar_t > A( Am, An, Adata.data(), lda, g_host_num,
+        slate::Tile< scalar_t > A( Am, An, Adata.data(), lda, host_num,
                                    slate::TileKind::UserOwned );
         A.op( ops[ia] );
         assert( A.mb() == m );
         assert( A.nb() == k );
 
-        if (g_verbose) {
+        if (verbose) {
             printf( "gemm( opA=%c, opB=%c, opC=%c )\n",
                     char(A.op()), char(B.op()), char(C.op()) );
         }
 
-        //if (g_verbose) {
+        //if (verbose) {
         //    print( "A", A );
         //    print( "B", B );
         //    print( "C", C );
@@ -299,7 +299,7 @@ void test_gemm()
             continue;
         }
 
-        //if (g_verbose) {
+        //if (verbose) {
         //    print( "Chat", C );
         //    print( "Aref", Am, An, Adata.data(), lda );
         //    print( "Bref", Bm, Bn, Bdata.data(), ldb );
@@ -312,7 +312,7 @@ void test_gemm()
                            Bdata.data(), ldb,
                     beta, opCref.data(), ldopc );
 
-        //if (g_verbose) {
+        //if (verbose) {
         //    print( "Chat_ref", m, n, opCref.data(), ldopc );
         //}
 
@@ -345,7 +345,7 @@ void test_syrk()
     scalar_t alpha, beta;
     lapack::larnv( 1, iseed, 1, &alpha );
     lapack::larnv( 1, iseed, 1, &beta  );
-    if (g_verbose) {
+    if (verbose) {
         printf( "alpha = %.4f + %.4fi;\n"
                 "beta  = %.4f + %.4fi;\n",
                 real(alpha), imag(alpha),
@@ -362,7 +362,7 @@ void test_syrk()
         int ldc = n + 1;
         std::vector< scalar_t > Cdata( ldc*n );
         lapack::larnv( 1, iseed, Cdata.size(), Cdata.data() );
-        slate::Tile< scalar_t > C( n, n, Cdata.data(), ldc, g_host_num,
+        slate::Tile< scalar_t > C( n, n, Cdata.data(), ldc, host_num,
                                    slate::TileKind::UserOwned );
         C.uplo( uplo );
         C.op( ops[ic] );
@@ -390,18 +390,18 @@ void test_syrk()
         int lda = Am + 1;
         std::vector< scalar_t > Adata( lda*An );
         lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
-        slate::Tile< scalar_t > A( Am, An, Adata.data(), lda, g_host_num,
+        slate::Tile< scalar_t > A( Am, An, Adata.data(), lda, host_num,
                                    slate::TileKind::UserOwned );
         A.op( ops[ia] );
         assert( A.mb() == n );
         assert( A.nb() == k );
 
-        if (g_verbose) {
+        if (verbose) {
             printf( "syrk( uplo=%c, opA=%c, opC=%c )\n",
                     char(C.uplo()), char(A.op()), char(C.op()) );
         }
 
-        //if (g_verbose) {
+        //if (verbose) {
         //    print( "A", A );
         //    print( "C", C );
         //}
@@ -427,7 +427,7 @@ void test_syrk()
             continue;
         }
 
-        //if (g_verbose) {
+        //if (verbose) {
         //    print( "Chat", C );
         //    print( "Aref", Am, An, Adata.data(), lda );
         //    print( "Cref", n, n, opCref.data(), ldc );
@@ -444,7 +444,7 @@ void test_syrk()
                     alpha, Adata.data(), lda,
                     beta, opCref.data(), ldc );
 
-        //if (g_verbose) {
+        //if (verbose) {
         //    print( "Chat_ref", n, n, opCref.data(), ldc );
         //}
 
@@ -477,7 +477,7 @@ void test_herk()
     real_t alpha, beta;
     lapack::larnv( 1, iseed, 1, &alpha );
     lapack::larnv( 1, iseed, 1, &beta  );
-    if (g_verbose) {
+    if (verbose) {
         printf( "alpha = %.4f;\n"
                 "beta  = %.4f;\n",
                 alpha, beta );
@@ -493,7 +493,7 @@ void test_herk()
         int ldc = n + 1;
         std::vector< scalar_t > Cdata( ldc*n );
         lapack::larnv( 1, iseed, Cdata.size(), Cdata.data() );
-        slate::Tile< scalar_t > C( n, n, Cdata.data(), ldc, g_host_num,
+        slate::Tile< scalar_t > C( n, n, Cdata.data(), ldc, host_num,
                                    slate::TileKind::UserOwned );
         C.uplo( uplo );
         C.op( ops[ic] );
@@ -521,18 +521,18 @@ void test_herk()
         int lda = Am + 1;
         std::vector< scalar_t > Adata( lda*An );
         lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
-        slate::Tile< scalar_t > A( Am, An, Adata.data(), lda, g_host_num,
+        slate::Tile< scalar_t > A( Am, An, Adata.data(), lda, host_num,
                                    slate::TileKind::UserOwned );
         A.op( ops[ia] );
         assert( A.mb() == n );
         assert( A.nb() == k );
 
-        if (g_verbose) {
+        if (verbose) {
             printf( "herk( uplo=%c, opA=%c, opC=%c )\n",
                     char(C.uplo()), char(A.op()), char(C.op()) );
         }
 
-        //if (g_verbose) {
+        //if (verbose) {
         //    print( "A", A );
         //    print( "C", C );
         //}
@@ -558,7 +558,7 @@ void test_herk()
             continue;
         }
 
-        //if (g_verbose) {
+        //if (verbose) {
         //    print( "Chat", C );
         //    print( "Aref", Am, An, Adata.data(), lda );
         //    print( "Cref", n, n, opCref.data(), ldc );
@@ -575,7 +575,7 @@ void test_herk()
                     alpha, Adata.data(), lda,
                     beta, opCref.data(), ldc );
 
-        //if (g_verbose) {
+        //if (verbose) {
         //    print( "Chat_ref", n, n, opCref.data(), ldc );
         //}
 
@@ -607,7 +607,7 @@ void test_trsm()
 
     scalar_t alpha;
     lapack::larnv( 1, iseed, 1, &alpha );
-    if (g_verbose) {
+    if (verbose) {
         printf( "alpha = %.4f + %.4fi;\n",
                 real(alpha), imag(alpha) );
     }
@@ -627,7 +627,7 @@ void test_trsm()
         int lda = An + 1;
         std::vector< scalar_t > Adata( lda*An );
         lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
-        slate::Tile< scalar_t > A( An, An, Adata.data(), lda, g_host_num,
+        slate::Tile< scalar_t > A( An, An, Adata.data(), lda, host_num,
                                    slate::TileKind::UserOwned );
         A.uplo( uplo );
         A.op( ops[ia] );
@@ -657,7 +657,7 @@ void test_trsm()
         int ldb = Bm + 1;
         std::vector< scalar_t > Bdata( ldb*Bn );
         lapack::larnv( 1, iseed, Bdata.size(), Bdata.data() );
-        slate::Tile< scalar_t > B( Bm, Bn, Bdata.data(), ldb, g_host_num,
+        slate::Tile< scalar_t > B( Bm, Bn, Bdata.data(), ldb, host_num,
                                    slate::TileKind::UserOwned );
         B.op( ops[ib] );
         assert( B.mb() == m );
@@ -668,13 +668,13 @@ void test_trsm()
         std::vector< scalar_t > opBref( ldopb*n );
         copy( B, opBref.data(), ldopb );
 
-        if (g_verbose) {
+        if (verbose) {
             printf( "trsm( side=%c, uplo=%c, opA=%c, diag=%c, opB=%c )\n",
                     char(side), char(A.uplo()), char(A.op()), char(diag),
                     char(B.op()) );
         }
 
-        //if (g_verbose) {
+        //if (verbose) {
         //    print( "A", A );
         //    print( "B", B );
         //}
@@ -699,7 +699,7 @@ void test_trsm()
             continue;
         }
 
-        //if (g_verbose) {
+        //if (verbose) {
         //    print( "Bhat", B );
         //    print( "Aref", An, An, Adata.data(), lda );
         //    print( "Bref", m, n, opBref.data(), ldopb );
@@ -710,7 +710,7 @@ void test_trsm()
                     alpha, Adata.data(), lda,
                            opBref.data(), ldopb );
 
-        //if (g_verbose) {
+        //if (verbose) {
         //    print( "Bhat_ref", m, n, opBref.data(), ldopb );
         //}
 
@@ -746,7 +746,7 @@ void test_potrf()
         int lda = n + 1;
         std::vector< scalar_t > Adata(  lda*n );
         lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
-        slate::Tile< scalar_t > A( n, n, Adata.data(), lda, g_host_num,
+        slate::Tile< scalar_t > A( n, n, Adata.data(), lda, host_num,
                                    slate::TileKind::UserOwned );
         A.uplo( uplo );
         A.op( ops[ia] );
@@ -770,12 +770,12 @@ void test_potrf()
         std::vector< scalar_t > opAref( lda*n );
         copy( A, opAref.data(), lda );
 
-        if (g_verbose) {
+        if (verbose) {
             printf( "potrf( op=%c, uplo=%c )\n",
                     char(A.op()), char(A.uplo()) );
         }
 
-        //if (g_verbose) {
+        //if (verbose) {
         //    print( "A", A );
         //}
 
@@ -783,7 +783,7 @@ void test_potrf()
         int info = potrf( A );
         test_assert( info == 0 );
 
-        //if (g_verbose) {
+        //if (verbose) {
         //    print( "Ahat", A );
         //    print( "opA", n, n, opAref.data(), lda );
         //}
@@ -798,7 +798,7 @@ void test_potrf()
         info = lapack::potrf( op_uplo, n, opAref.data(), lda );
         test_assert( info == 0 );
 
-        //if (g_verbose) {
+        //if (verbose) {
         //    print( "opAhat", n, n, opAref.data(), lda );
         //}
 
@@ -836,16 +836,16 @@ void test_genorm()
         int lda = m + 1;
         std::vector< scalar_t > Adata( lda*n );
         lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
-        slate::Tile< scalar_t > A( m, n, Adata.data(), lda, g_host_num,
+        slate::Tile< scalar_t > A( m, n, Adata.data(), lda, host_num,
                                    slate::TileKind::UserOwned );
         A.at( 3, 5 ) *= 1e6;
 
-        if (g_verbose) {
+        if (verbose) {
             printf( "genorm( norm=%c )\n",
                     char(norm) );
         }
 
-        //if (g_verbose) {
+        //if (verbose) {
         //    print( "A", A );
         //}
 
@@ -896,14 +896,14 @@ void test_genorm()
             continue;
         }
 
-        //if (g_verbose) {
+        //if (verbose) {
         //    print( "values", 1, values.size(), values.data(), 1 );
         //    printf( "result    %.4f\n", result );
         //}
 
         real_t ref = lapack::lange( norm, m, n, A.data(), A.stride() );
         SLATE_UNUSED(ref);
-        //if (g_verbose) {
+        //if (verbose) {
         //    printf( "reference %.4f\n", ref );
         //}
 
@@ -932,9 +932,9 @@ void test_convert_layout(int n)
     std::vector<scalar_t> Adata( lda*n );
     lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
     std::vector<scalar_t> Bdata = Adata;
-    slate::Tile<scalar_t> A( n, n, Adata.data(), lda, g_host_num,
+    slate::Tile<scalar_t> A( n, n, Adata.data(), lda, host_num,
                              slate::TileKind::UserOwned );
-    slate::Tile<scalar_t> B( n, n, Bdata.data(), lda, g_host_num,
+    slate::Tile<scalar_t> B( n, n, Bdata.data(), lda, host_num,
                              slate::TileKind::UserOwned );
 
     test_assert(A.layout() == Layout::ColMajor);
@@ -972,9 +972,9 @@ void test_convert_layout(int m, int n)
     std::vector<scalar_t> A_extData( lda*n );
     lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
     std::vector<scalar_t> Bdata = Adata;
-    slate::Tile<scalar_t> A( m, n, Adata.data(), lda, g_host_num,
+    slate::Tile<scalar_t> A( m, n, Adata.data(), lda, host_num,
                              slate::TileKind::UserOwned );
-    slate::Tile<scalar_t> B( m, n, Bdata.data(), lda, g_host_num,
+    slate::Tile<scalar_t> B( m, n, Bdata.data(), lda, host_num,
                              slate::TileKind::UserOwned );
 
     test_assert(A.layout() == Layout::ColMajor);
@@ -1051,7 +1051,7 @@ void test_convert_layout()
 template <typename scalar_t>
 void test_device_convert_layout(int m, int n)
 {
-    if (g_num_devices == 0) {
+    if (num_devices == 0) {
         test_skip("requires num_devices > 0");
     }
 
@@ -1071,8 +1071,8 @@ void test_device_convert_layout(int m, int n)
     std::vector< slate::Tile<scalar_t> > Atiles( batch_count );
     std::vector< slate::Tile<scalar_t> > Btiles( batch_count );
     for (int k = 0; k < batch_count; ++k) {
-        Atiles[k] = slate::Tile<scalar_t>( m, n, &Adata[ k*lda*n ], lda, g_host_num, slate::TileKind::UserOwned );
-        Btiles[k] = slate::Tile<scalar_t>( m, n, &Bdata[ k*lda*n ], lda, g_host_num, slate::TileKind::UserOwned );
+        Atiles[k] = slate::Tile<scalar_t>( m, n, &Adata[ k*lda*n ], lda, host_num, slate::TileKind::UserOwned );
+        Btiles[k] = slate::Tile<scalar_t>( m, n, &Bdata[ k*lda*n ], lda, host_num, slate::TileKind::UserOwned );
     }
 
     // copy batch A to GPU
@@ -1117,7 +1117,7 @@ void test_device_convert_layout(int m, int n)
     slate_cuda_call(
         cudaStreamCreate(&stream));
 
-    if (g_verbose > 1) {
+    if (verbose > 1) {
         printf("A = [\n");
         for (int k = 0; k < batch_count; ++k) {
             for (int i = 0; i < m; ++i) {
@@ -1206,7 +1206,7 @@ void test_device_convert_layout(int m, int n)
         cudaMemcpy(Adata.data(), (m == n ? Adata_dev : Adata_dev_ext), Adata.size() * sizeof(scalar_t),
                    cudaMemcpyDeviceToHost));
 
-    if (g_verbose > 1) {
+    if (verbose > 1) {
         printf("AT = [\n");
         for (int k = 0; k < batch_count; ++k) {
             for (int i = 0; i < m; ++i) {
@@ -1369,14 +1369,14 @@ int main(int argc, char** argv)
     g_argc = argc;
     g_argv = argv;
     MPI_Init(&argc, &argv);
-    g_mpi_comm = MPI_COMM_WORLD;
-    MPI_Comm_rank(g_mpi_comm, &g_mpi_rank);
-    MPI_Comm_size(g_mpi_comm, &g_mpi_size);
+    mpi_comm = MPI_COMM_WORLD;
+    MPI_Comm_rank(mpi_comm, &mpi_rank);
+    MPI_Comm_size(mpi_comm, &mpi_size);
 
-    cudaGetDeviceCount(&g_num_devices);
-    g_host_num = -g_num_devices;
+    cudaGetDeviceCount(&num_devices);
+    host_num = slate::HostNum;
 
-    int err = unit_test_main(g_mpi_comm);  // which calls run_tests()
+    int err = unit_test_main(mpi_comm);  // which calls run_tests()
 
     MPI_Finalize();
     return err;

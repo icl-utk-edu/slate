@@ -59,10 +59,13 @@ typedef cuComplex cuFloatComplex;
 typedef std::complex<double> cuDoubleComplex;
 
 enum {
-    cudaMemcpyDeviceToHost,
-    cudaMemcpyHostToDevice,
+    cudaSuccess,
     cudaStreamNonBlocking,
-    cudaSuccess
+    cudaMemcpyHostToHost,
+    cudaMemcpyHostToDevice,
+    cudaMemcpyDeviceToHost,
+    cudaMemcpyDeviceToDevice,
+    cudaMemcpyDefault
 };
 
 #ifdef __cplusplus

@@ -147,6 +147,10 @@ cublasStatus_t cublasZswap(
     cuDoubleComplex *x, int incx,
     cuDoubleComplex *y, int incy);
 
+cublasStatus_t cublasGetMatrix(
+    int rows, int cols, int elemSize,
+    const void *A, int lda, void *B, int ldb);
+
 #ifdef __cplusplus
 }
 #endif

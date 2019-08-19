@@ -36,7 +36,7 @@ void test_gbnorm_work(Params& params, bool run)
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
-    int extended = params.extended(); SLATE_UNUSED(extended);
+    slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
     // mark non-standard output values
@@ -45,6 +45,15 @@ void test_gbnorm_work(Params& params, bool run)
 
     if (! run)
         return;
+
+    if (origin != slate::Origin::ScaLAPACK) {
+        printf("skipping: currently only origin=scalapack is supported\n");
+        return;
+    }
+    if (target == slate::Target::Devices) {
+        printf("skipping: currently target=devices is not supported\n");
+        return;
+    }
 
     // local values
     const int izero = 0, ione = 1;

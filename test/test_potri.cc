@@ -29,7 +29,7 @@ template <typename scalar_t> void test_potri_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose(); SLATE_UNUSED(verbose);
-    slate::Target origin = params.origin();
+    slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
     // mark non-standard output values
@@ -75,10 +75,11 @@ template <typename scalar_t> void test_potri_work(Params& params, bool run)
 
     // Setup SLATE matrix A based on Scalapack matrix and data in A_tst
     slate::HermitianMatrix<scalar_t> A;
-    if (origin == slate::Target::Devices) {
-        // Copy local ScaLAPACK data to tiles on GPU devices.
+    if (origin == slate::Origin::Devices) {
+        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        slate::Target origin_target = origin2target(origin);
         A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, nprow, npcol, MPI_COMM_WORLD);
-        A.insertLocalTiles(origin);
+        A.insertLocalTiles(origin_target);
         copy(&A_tst[0], descA_tst, A);
     }
     else {
@@ -97,7 +98,7 @@ template <typename scalar_t> void test_potri_work(Params& params, bool run)
     // If check is required: keep the norm(A original); create C_chk = identity matrix to hold A*inv(A)
     std::vector<scalar_t> C_chk;
     real_t A_norm = 0.0;
-    if (check) { 
+    if (check) {
         // If check is required, record the norm of the original matrix
         A_norm = slate::norm(slate::Norm::One, A);
         // if check is required, create identity matrix to check the result of multiplying A and A_inv
@@ -128,20 +129,15 @@ template <typename scalar_t> void test_potri_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        if (params.routine == "potri") {
-            // factor then invert; measure time for both 
-            slate::potrf(A, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
-            slate::potri(A, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
-        }
-        else {
-            slate_assert("Unknown routine!");
-        }
+        // factor then invert; measure time for both
+        slate::potrf(A, {
+            {slate::Option::Lookahead, lookahead},
+            {slate::Option::Target, target}
+        });
+        slate::potri(A, {
+            {slate::Option::Lookahead, lookahead},
+            {slate::Option::Target, target}
+        });
 
         {
             slate::trace::Block trace_block("MPI_Barrier");
@@ -159,8 +155,8 @@ template <typename scalar_t> void test_potri_work(Params& params, bool run)
     if (check) {
         // Check  || I - inv(A)*A || / ( || A || * N ) <=  tol * eps
 
-        if (origin == slate::Target::Devices) {
-            // Copy data back from GPUs.
+        if (origin != slate::Origin::ScaLAPACK) {
+            // Copy SLATE result back from GPU or CPU tiles.
             copy(A, &A_tst[0], descA_tst);
         }
 
@@ -175,7 +171,9 @@ template <typename scalar_t> void test_potri_work(Params& params, bool run)
         std::vector<real_t> worklange(n);
         real_t C_norm = scalapack_plange("One", n, n, &C_chk[0], ione, ione, descC_chk, &worklange[0]);
 
-        double residual = C_norm / (A_norm * n);
+        real_t A_inv_norm = scalapack_plange("One", n, n, &A_tst[0], ione, ione, descA_tst, &worklange[0]);
+
+        double residual = C_norm / (A_norm * n * A_inv_norm);
         params.error() = residual;
 
         real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon();
@@ -185,7 +183,7 @@ template <typename scalar_t> void test_potri_work(Params& params, bool run)
     if (ref) {
         // todo: call to reference potri from ScaLAPACK not implemented
     }
-    
+
     Cblacs_gridexit(ictxt);
     //Cblacs_exit(1) does not handle re-entering
 }

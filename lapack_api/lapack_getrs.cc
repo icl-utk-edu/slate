@@ -52,7 +52,7 @@ namespace lapack_api {
 template< typename scalar_t >
 void slate_getrs(const char* transstr, const int n, const int nrhs, scalar_t* a, const int lda, int* ipiv, scalar_t* b, const int ldb, int* info);
 
-using lld = long long int;
+using llong = long long;
 
 // -----------------------------------------------------------------------------
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)

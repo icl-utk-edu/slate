@@ -47,94 +47,70 @@ namespace slate {
 namespace lapack_api {
 
 // -----------------------------------------------------------------------------
+using lld = long long int;
 
 // Local function
-template< typename scalar_t >
-void slate_getrf(const int m, const int n, scalar_t* a, const int lda, int* ipiv, int* info);
+template< typename scalar_t, typename half_scalar_t >
+void slate_gesv(const int n, const int nrhs, scalar_t* a, const int lda, int* ipiv, scalar_t* b, const int ldb, scalar_t* x, const int ldx, scalar_t* work, half_scalar_t* swork, int* iter, int* info);
 
 // -----------------------------------------------------------------------------
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
 
-#define slate_sgetrf LAPACK_GLOBAL( slate_sgetrf, SLATE_SGETRF )
-#define slate_dgetrf LAPACK_GLOBAL( slate_dgetrf, SLATE_DGETRF )
-#define slate_cgetrf LAPACK_GLOBAL( slate_cgetrf, SLATE_CGETRF )
-#define slate_zgetrf LAPACK_GLOBAL( slate_zgetrf, SLATE_ZGETRF )
+#define slate_dsgesv BLAS_FORTRAN_NAME( slate_dsgesv, SLATE_DSGESV )
+#define slate_zcgesv BLAS_FORTRAN_NAME( slate_zcgesv, SLATE_ZCGESV )
 
-extern "C" void slate_sgetrf(const int* m, const int* n, float* a, const int* lda, int* ipiv, int* info)
+extern "C" void slate_dsgesv(const int* n, const int* nrhs, double* a, const int* lda, int* ipiv, double* b, const int* ldb, double* x, const int* ldx, double* work, float* swork, int* iter, int* info)
 {
-    slate_getrf(*m, *n, a, *lda, ipiv, info);
+    slate_gesv(*n, *nrhs, a, *lda, ipiv, b, *ldb, x, *ldx, work, swork, iter, info);
 }
 
-extern "C" void slate_dgetrf(const int* m, const int* n, double* a, const int* lda, int* ipiv, int* info)
+extern "C" void slate_zcgesv(const int* n, const int* nrhs, std::complex<double>* a, const int* lda, int* ipiv, std::complex<double>* b, const int* ldb, std::complex<double>* x, const int* ldx, std::complex<double>* work, std::complex<float>* swork, int* iter, int* info)
 {
-    slate_getrf(*m, *n, a, *lda, ipiv, info);
-}
-
-extern "C" void slate_cgetrf(const int* m, const int* n, std::complex<float>* a, const int* lda, int* ipiv, int* info)
-{
-    slate_getrf(*m, *n, a, *lda, ipiv, info);
-}
-
-extern "C" void slate_zgetrf(const int* m, const int* n, std::complex<double>* a, const int* lda, int* ipiv, int* info)
-{
-    slate_getrf(*m, *n, a, *lda, ipiv, info);
+    slate_gesv(*n, *nrhs, a, *lda, ipiv, b, *ldb, x, *ldx, work, swork, iter, info);
 }
 
 // -----------------------------------------------------------------------------
 
 // Type generic function calls the SLATE routine
-template< typename scalar_t >
-void slate_getrf(const int m, const int n, scalar_t* a, const int lda, int* ipiv, int* info)
+template< typename scalar_t, typename half_scalar_t >
+void slate_gesv(const int n, const int nrhs, scalar_t* a, const int lda, int* ipiv, scalar_t* b, const int ldb, scalar_t* x, const int ldx, scalar_t* work, half_scalar_t* swork, int* iter, int* info)
 {
     // Start timing
     static int verbose = slate_lapack_set_verbose();
     double timestart = 0.0;
     if (verbose) timestart = omp_get_wtime();
 
+    // Check and initialize MPI, else SLATE calls to MPI will fail
     int initialized, provided;
-    MPI_Initialized(&initialized);
-    if (! initialized) MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided);
-
-    // Test the input parameters
-    *info = 0;
-    if (m < 0)
-        *info = -1;
-    else if (n < 0)
-        *info = -2;
-    else if (lda < std::max(1, m))
-        *info = -4;
-    if (*info != 0)
-        return;
-
-    // Quick return if possible
-    if (m == 0 || n == 0)
-        return;
+    assert(MPI_Initialized(&initialized) == MPI_SUCCESS);
+    if (! initialized) assert(MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided) == MPI_SUCCESS);
 
     // todo: does this set the omp num threads correctly in all circumstances
     int saved_num_blas_threads = slate_lapack_set_num_blas_threads(1);
 
+    int64_t lookahead = 1;
     int64_t p = 1;
     int64_t q = 1;
-    int64_t lookahead = 1;
     static slate::Target target = slate_lapack_set_target();
     static int64_t panel_threads = slate_lapack_set_panelthreads();
-
-    int64_t Am = m;
-    int64_t An = n;
     static int64_t nb = slate_lapack_set_nb(target);
     static int64_t ib = std::min({slate_lapack_set_ib(), nb});
     slate::Pivots pivots;
 
-    // create SLATE matrices from the Lapack layouts
-    auto A = slate::Matrix<scalar_t>::fromLAPACK(Am, An, a, lda, nb, p, q, MPI_COMM_WORLD);
+    // create SLATE matrices from the LAPACK data
+    auto A = slate::Matrix<scalar_t>::fromLAPACK(n, n, a, lda, nb, p, q, MPI_COMM_WORLD);
+    auto B = slate::Matrix<scalar_t>::fromLAPACK(n, nrhs, b, ldb, nb, p, q, MPI_COMM_WORLD);
+    auto X = slate::Matrix<scalar_t>::fromLAPACK(n, nrhs, b, ldb, nb, p, q, MPI_COMM_WORLD);
 
-    // factorize using slate
-    slate::getrf(A, pivots, {
-        {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target},
-        {slate::Option::MaxPanelThreads, panel_threads},
-        {slate::Option::InnerBlocking, ib}
-    });
+    // computes the solution to the system of linear equations with a square coefficient matrix A and multiple right-hand sides.
+    int iters;
+    slate::gesvMixed(A, pivots, B, X, iters, {
+            {slate::Option::Lookahead, lookahead},
+            {slate::Option::Target, target},
+            {slate::Option::MaxPanelThreads, panel_threads},
+            {slate::Option::InnerBlocking, ib}
+        });
+    *iter = iters;
 
     // extract pivots from SLATE's Pivots structure into LAPACK ipiv array
     {
@@ -151,13 +127,11 @@ void slate_getrf(const int m, const int n, scalar_t* a, const int lda, int* ipiv
 
     slate_lapack_set_num_blas_threads(saved_num_blas_threads);
 
-    // todo: get a real value for info
+    // todo:  get a real value for info
     *info = 0;
 
-    if (verbose) std::cout << "slate_lapack_api: " << slate_lapack_scalar_t_to_char(a) << "getrf(" <<  m << "," <<  n << "," << (void*)a << "," <<  lda << "," << (void*)ipiv << "," << *info << ") " << (omp_get_wtime()-timestart) << " sec " << "nb:" << nb << " max_threads:" << omp_get_max_threads() << "\n";
-
+    if (verbose) std::cout << "slate_lapack_api: " << slate_lapack_scalar_t_to_char(a) << slate_lapack_scalar_t_to_char(swork) << "gesv(" <<  n << "," <<  nrhs << "," << (void*)a << "," <<  lda << "," << (void*)ipiv << "," << (void*)b << "," << ldb << (void*)x << "," << ldx << "," << (void*)work << "," << (void*)swork << "," << iter << "," << *info << ") " << (omp_get_wtime()-timestart) << " sec " << "nb:" << nb << " max_threads:" << omp_get_max_threads() << "\n";
 }
 
 } // namespace lapack_api
 } // namespace slate
-

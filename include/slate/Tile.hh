@@ -231,6 +231,7 @@ public:
     int device() const { return device_; }
 
     Layout layout() const { return layout_; }
+    // todo: set front buffer inside layout(...)
     void   layout(Layout in_layout) { layout_ = in_layout; }
     Layout userLayout() const { return user_layout_; }
 
@@ -249,7 +250,7 @@ public:
     /// todo: validate and handle sliced-matrix
     bool isTransposable()
     {
-        return    extended_                     // already extended buffer
+        return    extended()                    // already extended buffer
                || mb_ == nb_                    // square tile
                || kind_ != TileKind::UserOwned  // SLATE allocated
                || isContiguous();               // contiguous
@@ -259,7 +260,7 @@ public:
     void layoutReset();
 
     /// @return Whether this tile has extended buffer
-    bool extended() const { return extended_; }
+    bool extended() const { return ext_data_ != nullptr; }
 
     /// @return Pointer to the extended buffer
     scalar_t* extData() { return ext_data_; }
@@ -292,7 +293,7 @@ public:
     /// CUDA stream must be provided if conversion is to happen on device
     void layoutConvert(cudaStream_t stream = nullptr)
     {
-        assert(mb() == nb() || extended_);
+        assert(mb() == nb() || extended());
         layoutConvert(nullptr, stream);
     }
 
@@ -317,14 +318,13 @@ protected:
     scalar_t* user_data_; // Temporarily point to user-provided memory buffer.
     scalar_t* ext_data_; // Points to auxiliary buffer.
 
-    bool valid_;
+    bool valid_; // todo: deprecate
     TileKind kind_;
     /// layout_: The physical ordering of elements in the data buffer:
     ///          - ColMajor: elements of a column are 1-strided
     ///          - RowMajor: elements of a row are 1-strided
     Layout layout_;
     Layout user_layout_; // Temporarily store user-provided-memory's layout
-    bool extended_; // indicates tile has an extended buffer
 
     int device_;
 };
@@ -346,8 +346,7 @@ Tile<scalar_t>::Tile()
       kind_(TileKind::UserOwned),
       layout_(Layout::ColMajor),
       user_layout_(Layout::ColMajor),
-      extended_(false),
-      device_(-1)  // todo: host_num
+      device_(HostNum)
 {}
 
 //------------------------------------------------------------------------------
@@ -400,7 +399,6 @@ Tile<scalar_t>::Tile(
       kind_(kind),
       layout_(layout),
       user_layout_(layout),
-      extended_(false),
       device_(device)
 {
     slate_assert(mb >= 0);
@@ -426,8 +424,8 @@ template <typename scalar_t>
 scalar_t Tile<scalar_t>::operator()(int64_t i, int64_t j) const
 {
     using blas::conj;
-    assert(0 <= i && i < mb());
-    assert(0 <= j && j < nb());
+    slate_assert(0 <= i && i < mb());
+    slate_assert(0 <= j && j < nb());
     if (op_ == Op::ConjTrans) {
         if (layout_ == Layout::ColMajor)
             return conj(data_[ j + i*stride_ ]);
@@ -462,8 +460,8 @@ scalar_t Tile<scalar_t>::operator()(int64_t i, int64_t j) const
 template <typename scalar_t>
 scalar_t const& Tile<scalar_t>::at(int64_t i, int64_t j) const
 {
-    assert(0 <= i && i < mb());
-    assert(0 <= j && j < nb());
+    slate_assert(0 <= i && i < mb());
+    slate_assert(0 <= j && j < nb());
     if ((op_ == Op::NoTrans) == (layout_ == Layout::ColMajor)) {
         // (NoTrans && ColMajor) ||
         // (Trans   && RowMajor)
@@ -532,7 +530,7 @@ Uplo Tile<scalar_t>::uploPhysical() const
 template <typename scalar_t>
 void Tile<scalar_t>::mb(int64_t in_mb)
 {
-    assert(0 <= in_mb && in_mb <= mb());
+    slate_assert(0 <= in_mb && in_mb <= mb());
     if (op_ == Op::NoTrans)
         mb_ = in_mb;
     else
@@ -548,7 +546,7 @@ void Tile<scalar_t>::mb(int64_t in_mb)
 template <typename scalar_t>
 void Tile<scalar_t>::nb(int64_t in_nb)
 {
-    assert(0 <= in_nb && in_nb <= nb());
+    slate_assert(0 <= in_nb && in_nb <= nb());
     if (op_ == Op::NoTrans)
         nb_ = in_nb;
     else
@@ -567,8 +565,8 @@ void Tile<scalar_t>::nb(int64_t in_nb)
 template <typename scalar_t>
 void Tile<scalar_t>::offset(int64_t i, int64_t j)
 {
-    assert(0 <= i && i < mb());
-    assert(0 <= j && j < nb());
+    slate_assert(0 <= i && i < mb());
+    slate_assert(0 <= j && j < nb());
     if (op_ == Op::NoTrans)
         data_ = &data_[ i + j*stride_ ];
     else
@@ -585,15 +583,13 @@ void Tile<scalar_t>::offset(int64_t i, int64_t j)
 template <typename scalar_t>
 void Tile<scalar_t>::makeTransposable(scalar_t* new_data)
 {
-    assert(! isTransposable());
+    slate_assert(! isTransposable());
 
     // preserve currrent data pointer and stride
     user_data_ = data_;
     user_stride_ = stride_;
     user_layout_ = layout_;
     ext_data_ = new_data;
-
-    extended_ = true;
 }
 
 //------------------------------------------------------------------------------
@@ -604,7 +600,7 @@ void Tile<scalar_t>::makeTransposable(scalar_t* new_data)
 template <typename scalar_t>
 void Tile<scalar_t>::layoutSetFrontDataExt(bool front)
 {
-    assert(extended_);
+    slate_assert(extended());
 
     if (front) {
         data_ = ext_data_;
@@ -627,11 +623,9 @@ void Tile<scalar_t>::layoutSetFrontDataExt(bool front)
 template <typename scalar_t>
 void Tile<scalar_t>::layoutReset()
 {
-    assert(data_ == user_data_);
+    slate_assert(data_ == user_data_);
     user_data_ = nullptr;
     ext_data_ = nullptr;
-
-    extended_ = false;
 }
 
 //------------------------------------------------------------------------------
@@ -655,14 +649,14 @@ void Tile<scalar_t>::layoutReset()
 template <typename scalar_t>
 void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream)
 {
-    assert(device_ < 0 || stream != nullptr);
-    assert(isTransposable());
+    slate_assert(device_ == HostNum || stream != nullptr);
+    slate_assert(isTransposable());
 
     trace::Block trace_block("slate::convertLayout");
     // square tile
     if (mb() == nb()) {
         // in-place convert
-        if (device_ < 0)
+        if (device_ == HostNum)
             transpose(nb(), data_, stride_);
         else {
             slate_cuda_call(
@@ -675,7 +669,7 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream)
     // rectangular tile
     else {
         // if tile made Convertible
-        if (extended_)
+        if (extended())
         {
             // out-of-place convert
             scalar_t* src_data;
@@ -700,7 +694,7 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream)
             else {
                 assert(0);
             }
-            if (device_ < 0)
+            if (device_ == HostNum)
                 transpose(layout() == Layout::ColMajor ? mb_ : nb_,
                           layout() == Layout::ColMajor ? nb_ : mb_,
                           src_data, src_stride,
@@ -719,14 +713,14 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream)
         }
         else {
             // tile already Convertible
-            assert(isContiguous());
+            slate_assert(isContiguous());
             // need a workspace buffer
-            assert(work_data != nullptr);
+            slate_assert(work_data != nullptr);
 
             // out-of-place convert
             int64_t work_stride = layout() == Layout::ColMajor ?
                                   nb() : mb();
-            if (device_ < 0) {
+            if (device_ == HostNum) {
                 transpose(layout() == Layout::ColMajor ? mb_ : nb_,
                           layout() == Layout::ColMajor ? nb_ : mb_,
                           data_, stride_,
@@ -771,8 +765,8 @@ void Tile<scalar_t>::copyDataToHost(
     Tile<scalar_t>* dst_tile, cudaStream_t stream) const
 {
     // sizes has to match
-    assert(mb_ == dst_tile->mb_);
-    assert(nb_ == dst_tile->nb_);
+    slate_assert(mb_ == dst_tile->mb_);
+    slate_assert(nb_ == dst_tile->nb_);
 
     slate_cuda_call(
         cudaSetDevice(device_));
@@ -832,8 +826,8 @@ void Tile<scalar_t>::copyDataToDevice(
     Tile<scalar_t>* dst_tile, cudaStream_t stream) const
 {
     // sizes has to match
-    assert(mb_ == dst_tile->mb_);
-    assert(nb_ == dst_tile->nb_);
+    slate_assert(mb_ == dst_tile->mb_);
+    slate_assert(nb_ == dst_tile->nb_);
 
     slate_cuda_call(
         cudaSetDevice(dst_tile->device_));
@@ -895,26 +889,26 @@ void Tile<scalar_t>::copyData(
     Tile<scalar_t>* dst_tile, cudaStream_t stream) const
 {
     // sizes has to match
-    assert(mb_ == dst_tile->mb_);
-    assert(nb_ == dst_tile->nb_);
+    slate_assert(mb_ == dst_tile->mb_);
+    slate_assert(nb_ == dst_tile->nb_);
 
-    int device = -1;
+    int device;
     cudaMemcpyKind memcpy_kind;
 
     // figure out copy direction and device
-    if (this->device_ >= 0 && dst_tile->device() < 0) {
+    if (this->device_ >= 0 && dst_tile->device() == HostNum) {
         // device to host copy
         device = this->device_;
         memcpy_kind = cudaMemcpyDeviceToHost;
     }
     else
-    if (this->device_ < 0 && dst_tile->device() >= 0) {
+    if (this->device_ == HostNum && dst_tile->device() >= 0) {
         // host to device copy
         device = dst_tile->device();
         memcpy_kind = cudaMemcpyHostToDevice;
     }
     else
-    if (this->device_ < 0 && dst_tile->device() < 0) {
+    if (this->device_ == HostNum && dst_tile->device() == HostNum) {
         // host to host copy
         device = -1;
         memcpy_kind = cudaMemcpyHostToHost;
@@ -927,6 +921,11 @@ void Tile<scalar_t>::copyData(
         // todo: handle peer to peer copy
         if (this->device_ != dst_tile->device())
             assert(0);
+    }
+    else {
+        device = HostNum; // silence a compiler warning
+        memcpy_kind = cudaMemcpyHostToHost; // silence a compiler warning
+        slate_error("illegal combination of source and destination devices");
     }
 
     if (device >= 0) {

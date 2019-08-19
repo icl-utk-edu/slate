@@ -63,7 +63,11 @@ inline int slate_lapack_set_num_blas_threads(const int nt)
     return 1;
 }
 
-template< typename scalar_t > char slate_lapack_scalar_t_to_char(scalar_t* a);
+inline char slate_lapack_scalar_t_to_char(int* a) { return 'i'; }
+inline char slate_lapack_scalar_t_to_char(float* a) { return 's'; }
+inline char slate_lapack_scalar_t_to_char(double* a) { return 'd'; }
+inline char slate_lapack_scalar_t_to_char(std::complex<float>* a) { return 'c'; }
+inline char slate_lapack_scalar_t_to_char(std::complex<double>* a) { return 'z'; }
 
 inline slate::Target slate_lapack_set_target()
 {

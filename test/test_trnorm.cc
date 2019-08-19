@@ -35,7 +35,7 @@ void test_trnorm_work(Params& params, bool run)
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
     int extended = params.extended();
-    slate::Target origin = params.origin();
+    slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
     // mark non-standard output values
@@ -44,10 +44,6 @@ void test_trnorm_work(Params& params, bool run)
 
     if (! run)
         return;
-
-    // Sizes of data
-    int64_t Am = m;
-    int64_t An = n;
 
     // local values
     const int izero = 0, ione = 1;
@@ -78,17 +74,17 @@ void test_trnorm_work(Params& params, bool run)
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = scalapack_numroc(Am, nb, myrow, izero, nprow);
-    int64_t nlocA = scalapack_numroc(An, nb, mycol, izero, npcol);
+    int64_t mlocA = scalapack_numroc(m, nb, myrow, izero, nprow);
+    int64_t nlocA = scalapack_numroc(n, nb, mycol, izero, npcol);
     int64_t lldA  = std::max(int64_t(1), mlocA);
-    scalapack_descinit(descA_tst, Am, An, nb, nb, izero, izero, ictxt, lldA, &info);
+    scalapack_descinit(descA_tst, m, n, nb, nb, izero, izero, ictxt, lldA, &info);
     if (info != 0)
         printf("scalapack_descinit info %d\n", info);
     slate_assert(info == 0);
     std::vector<scalar_t> A_tst(lldA*nlocA);
     // todo: fix the generation
     //int iseed = 1;
-    //scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
+    //scalapack_pplrnt(&A_tst[0], m, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
     int64_t iseeds[4] = { myrow, mycol, 2, 3 };
     // lapack::larnv(2, iseeds, lldA*nlocA, &A_tst[0] );
     for (int64_t j = 0; j < nlocA; ++j)
@@ -99,19 +95,20 @@ void test_trnorm_work(Params& params, bool run)
     //}
 
     // todo: work-around to initialize BaseMatrix::num_devices_
-    slate::TrapezoidMatrix<scalar_t> A0(uplo, diag, Am, An, nb, p, q, MPI_COMM_WORLD);
+    slate::TrapezoidMatrix<scalar_t> A0(uplo, diag, m, n, nb, p, q, MPI_COMM_WORLD);
 
     slate::TrapezoidMatrix<scalar_t> A;
-    if (origin == slate::Target::Devices) {
-        // Copy local ScaLAPACK data to tiles on GPU devices.
-        A = slate::TrapezoidMatrix<scalar_t>(uplo, diag, Am, An, nb, nprow, npcol, MPI_COMM_WORLD);
-        A.insertLocalTiles(origin);
+    if (origin != slate::Origin::ScaLAPACK) {
+        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        slate::Target origin_target = origin2target(origin);
+        A = slate::TrapezoidMatrix<scalar_t>(uplo, diag, m, n, nb, nprow, npcol, MPI_COMM_WORLD);
+        A.insertLocalTiles(origin_target);
         copy(&A_tst[0], descA_tst, A);
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layout.
         A = slate::TrapezoidMatrix<scalar_t>::fromScaLAPACK(
-                uplo, diag, Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+                uplo, diag, m, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     }
 
     if (verbose > 1) {
@@ -165,24 +162,24 @@ void test_trnorm_work(Params& params, bool run)
         time = libtest::get_wtime();
         real_t A_norm_ref = scalapack_plantr(
                                 norm2str(norm), uplo2str(A.uplo()), diag2str(diag),
-                                Am, An, &A_tst[0], ione, ione, descA_tst, &worklantr[0]);
+                                m, n, &A_tst[0], ione, ione, descA_tst, &worklantr[0]);
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 
         //A_norm_ref = lapack::lantr(
         //    norm, A.uplo(), diag,
-        //    Am, An, &A_tst[0], lldA);
+        //    m, n, &A_tst[0], lldA);
 
         // difference between norms
         real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
         if (norm == slate::Norm::One) {
-            error /= sqrt(Am);
+            error /= sqrt(m);
         }
         else if (norm == slate::Norm::Inf) {
-            error /= sqrt(An);
+            error /= sqrt(n);
         }
         else if (norm == slate::Norm::Fro) {
-            error /= sqrt(Am*An);
+            error /= sqrt(m*n);
         }
 
         if (verbose && mpi_rank == 0) {
@@ -283,18 +280,18 @@ void test_trnorm_work(Params& params, bool run)
 
                         real_t A_norm_ref = scalapack_plantr(
                                                 norm2str(norm), uplo2str(A.uplo()), diag2str(diag),
-                                                Am, An, &A_tst[0], ione, ione, descA_tst, &worklantr[0]);
+                                                m, n, &A_tst[0], ione, ione, descA_tst, &worklantr[0]);
 
                         // difference between norms
                         real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
                         if (norm == slate::Norm::One) {
-                            error /= sqrt(Am);
+                            error /= sqrt(m);
                         }
                         else if (norm == slate::Norm::Inf) {
-                            error /= sqrt(An);
+                            error /= sqrt(n);
                         }
                         else if (norm == slate::Norm::Fro) {
-                            error /= sqrt(Am*An);
+                            error /= sqrt(m*n);
                         }
 
                         // Allow for difference, except max norm in real should be exact.

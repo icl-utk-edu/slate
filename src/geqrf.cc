@@ -245,7 +245,8 @@ void geqrf(slate::internal::TargetType<target>,
         }
     }
 
-    A.clearWorkspace();
+    A.tileUpdateAllOrigin();
+    A.releaseWorkspace();
 
 }
 

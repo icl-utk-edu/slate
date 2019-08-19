@@ -122,27 +122,26 @@ void colNorms(slate::internal::TargetType<target>,
     // one norm
     // max col sum = max_j sum_i abs( A_{i,j} )
     else if (in_norm == Norm::One) {
-        assert("Not implemented yet");
+        slate_error("Not implemented yet");
     }
     //---------
     // inf norm
     // max row sum = max_i sum_j abs( A_{i,j} )
     else if (in_norm == Norm::Inf) {
-        assert("Not implemented yet");
+        slate_error("Not implemented yet");
     }
     //---------
     // Frobenius norm
     // sqrt( sum_{i,j} abs( A_{i,j} )^2 )
     else if (in_norm == Norm::Fro) {
-        assert("Not implemented yet");
+        slate_error("Not implemented yet");
     }
     else {
-        assert("invalid norm");
+        slate_error("invalid norm");
     }
 
     // todo: is this correct here?
     A.releaseWorkspace();
-
 }
 
 } // namespace specialization

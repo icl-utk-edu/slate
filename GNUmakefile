@@ -6,6 +6,8 @@
 # or on MacOS, $DYLD_LIBRARY_PATH, or set as rpaths in $LDFLAGS.
 #
 # Set options on command line or in make.inc file:
+# CXX=mpicxx      or
+# CXX=mpic++      for MPI using compiler wrapper.
 # mpi=1           for MPI (-lmpi).
 # spectrum=1      for IBM Spectrum MPI (-lmpi_ibm).
 #
@@ -19,7 +21,6 @@
 # essl=1          for IBM ESSL.
 # openblas=1      for OpenBLAS.
 #
-# cuda=1          for CUDA.
 # openmp=1        for OpenMP.
 # static=1        for static library (libslate.a);
 #                 otherwise shared library (libslate.so).
@@ -27,6 +28,7 @@
 # cuda_arch="ARCH" for CUDA architectures, where ARCH is one or more of:
 #                     kepler maxwell pascal volta turing sm_XX
 #                  and sm_XX is a CUDA architecture (see nvcc -h).
+# Setting cuda=1 will set cuda_arch="kepler pascal" by default.
 
 -include make.inc
 
@@ -49,6 +51,9 @@ ifneq ($(static),1)
     CXXFLAGS += -fPIC
     LDFLAGS  += -fPIC
     NVCCFLAGS += --compiler-options '-fPIC'
+    lib_ext = so
+else
+    lib_ext = a
 endif
 
 #-------------------------------------------------------------------------------
@@ -62,10 +67,14 @@ endif
 
 #-------------------------------------------------------------------------------
 # if MPI
-ifeq ($(mpi),1)
+ifneq (,$(filter ${CXX},mpicxx mpic++))
+    # CXX = mpicxx or mpic++
+    # Generic MPI via compiler wrapper. No flags to set.
+else ifeq ($(mpi),1)
+    # Generic MPI.
     LIBS  += -lmpi
-# if Spectrum MPI
 else ifeq ($(spectrum),1)
+    # IBM Spectrum MPI
     LIBS  += -lmpi_ibm
 else
     FLAGS += -DSLATE_NO_MPI
@@ -155,58 +164,63 @@ else ifeq ($(openblas),1)
 endif
 
 #-------------------------------------------------------------------------------
+# cuda_arch implies cuda
+ifneq ($(cuda_arch),)
+    cuda ?= 1
+endif
+
 # if CUDA
 ifeq ($(cuda),1)
+    # Set default cuda_arch if not already set.
+    cuda_arch ?= kepler pascal
+
+    # Generate flags for which CUDA architectures to build.
+    # cuda_arch_ is a local copy to modify.
+    cuda_arch_ = $(cuda_arch)
+    ifneq ($(findstring kepler, $(cuda_arch_)),)
+        cuda_arch_ += sm_30
+    endif
+    ifneq ($(findstring maxwell, $(cuda_arch_)),)
+        cuda_arch_ += sm_50
+    endif
+    ifneq ($(findstring pascal, $(cuda_arch_)),)
+        cuda_arch_ += sm_60
+    endif
+    ifneq ($(findstring volta, $(cuda_arch_)),)
+        cuda_arch_ += sm_70
+    endif
+    ifneq ($(findstring turing, $(cuda_arch_)),)
+        cuda_arch_ += sm_75
+    endif
+
+    # CUDA architectures that nvcc supports
+    sms = 30 32 35 37 50 52 53 60 61 62 70 72 75
+
+    # code=sm_XX is binary, code=compute_XX is PTX
+    gencode_sm      = -gencode arch=compute_$(sm),code=sm_$(sm)
+    gencode_compute = -gencode arch=compute_$(sm),code=compute_$(sm)
+
+    # Get gencode options for all sm_XX in cuda_arch_.
+    nv_sm      = $(filter %, $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_sm))))
+    nv_compute = $(filter %, $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_compute))))
+
+    ifeq ($(nv_sm),)
+        $(error ERROR: set cuda_arch, currently '$(cuda_arch)', to one of kepler, maxwell, pascal, volta, turing, or valid sm_XX from nvcc -h)
+    else
+        # Get last option (last 2 words) of nv_compute.
+        nwords  = $(words $(nv_compute))
+        nwords_1 = $(shell expr $(nwords) - 1)
+        nv_compute_last = $(wordlist $(nwords_1), $(nwords), $(nv_compute))
+    endif
+
+    # Use all sm_XX (binary), and the last compute_XX (PTX) for forward compatibility.
+    NVCCFLAGS += $(nv_sm) $(nv_compute_last)
     LIBS += -lcublas -lcudart
 else
     FLAGS += -DSLATE_NO_CUDA
     libslate_src += src/stubs/cuda_stubs.cc
     libslate_src += src/stubs/cublas_stubs.cc
 endif
-
-#-------------------------------------------------------------------------------
-# Generate flags for which CUDA architectures to build.
-# cuda_arch_ is a local copy to modify.
-cuda_arch ?= kepler pascal
-cuda_arch_ = $(cuda_arch)
-ifneq ($(findstring kepler, $(cuda_arch_)),)
-    cuda_arch_ += sm_30
-endif
-ifneq ($(findstring maxwell, $(cuda_arch_)),)
-    cuda_arch_ += sm_50
-endif
-ifneq ($(findstring pascal, $(cuda_arch_)),)
-    cuda_arch_ += sm_60
-endif
-ifneq ($(findstring volta, $(cuda_arch_)),)
-    cuda_arch_ += sm_70
-endif
-ifneq ($(findstring turing, $(cuda_arch_)),)
-    cuda_arch_ += sm_75
-endif
-
-# CUDA architectures that nvcc supports
-sms = 30 32 35 37 50 52 53 60 61 62 70 72 75
-
-# code=sm_XX is binary, code=compute_XX is PTX
-gencode_sm      = -gencode arch=compute_$(sm),code=sm_$(sm)
-gencode_compute = -gencode arch=compute_$(sm),code=compute_$(sm)
-
-# Get gencode options for all sm_XX in cuda_arch_.
-nv_sm      = $(filter %, $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_sm))))
-nv_compute = $(filter %, $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_compute))))
-
-ifeq ($(nv_sm),)
-    $(warning No valid CUDA architectures found in cuda_arch = $(cuda_arch).)
-else
-    # Get last option (last 2 words) of nv_compute.
-    nwords  = $(words $(nv_compute))
-    nwords_1 = $(shell expr $(nwords) - 1)
-    nv_compute_last = $(wordlist $(nwords_1), $(nwords), $(nv_compute))
-endif
-
-# Use all sm_XX (binary), and the last compute_XX (PTX) for forward compatibility.
-NVCCFLAGS += $(nv_sm) $(nv_compute_last)
 
 #-------------------------------------------------------------------------------
 # MacOS needs shared library's path set
@@ -347,6 +361,7 @@ test_src += \
         test/test_trmm.cc \
         test/test_trnorm.cc \
         test/test_trsm.cc \
+        test/test_trtri.cc \
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
 # Note that 'make' sets $(FC) to f77 by default.
@@ -413,13 +428,16 @@ LIBS     := -lblaspp -llapackpp $(LIBS)
 
 # additional flags and libraries for testers
 $(test_obj): CXXFLAGS += -I./libtest
+$(unit_obj): CXXFLAGS += -I./libtest
+$(unit_test_obj): CXXFLAGS += -I./libtest
 
 TEST_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 TEST_LDFLAGS += -L./libtest -Wl,-rpath,$(abspath ./libtest)
 TEST_LIBS    += -lslate -ltest $(scalapack)
 
 UNIT_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
-UNIT_LIBS    += -lslate
+UNIT_LDFLAGS += -L./libtest -Wl,-rpath,$(abspath ./libtest)
+UNIT_LIBS    += -lslate -ltest
 
 #-------------------------------------------------------------------------------
 # Rules
@@ -439,11 +457,7 @@ liblapackpp_src = $(wildcard lapackpp/include/*.h \
                              lapackpp/include/*.hh \
                              lapackpp/src/*.cc)
 
-ifeq ($(static),1)
-    liblapackpp = lapackpp/lib/liblapackpp.a
-else
-    liblapackpp = lapackpp/lib/liblapackpp.so
-endif
+liblapackpp = lapackpp/lib/liblapackpp.$(lib_ext)
 
 $(liblapackpp): $(liblapackpp_src)
 	cd lapackpp && $(MAKE) lib
@@ -454,11 +468,7 @@ libblaspp_src = $(wildcard blaspp/include/*.h \
                            blaspp/include/*.hh \
                            blaspp/src/*.cc)
 
-ifeq ($(static),1)
-    libblaspp = blaspp/lib/libblaspp.a
-else
-    libblaspp = blaspp/lib/libblaspp.so
-endif
+libblaspp = blaspp/lib/libblaspp.$(lib_ext)
 
 $(libblaspp): $(libblaspp_src)
 	cd blaspp && $(MAKE) lib
@@ -467,19 +477,16 @@ $(libblaspp): $(libblaspp_src)
 # libtest library
 libtest_src = $(wildcard libtest/*.hh libtest/*.cc)
 
-ifeq ($(static),1)
-    libtest = libtest/libtest.a
-else
-    libtest = libtest/libtest.so
-endif
+libtest = libtest/libtest.$(lib_ext)
 
 $(libtest): $(libtest_src)
 	cd libtest && $(MAKE) lib
 
 #-------------------------------------------------------------------------------
 # libslate library
-libslate_a  = ./lib/libslate.a
-libslate_so = ./lib/libslate.so
+libslate_a  = lib/libslate.a
+libslate_so = lib/libslate.so
+libslate    = lib/libslate.$(lib_ext)
 
 $(libslate_a): $(libslate_obj) $(libblaspp) $(liblapackpp)
 	mkdir -p lib
@@ -493,12 +500,6 @@ $(libslate_so): $(libslate_obj) $(libblaspp) $(liblapackpp)
 		$(libslate_obj) \
 		$(LIBS) \
 		-shared $(install_name) -o $@
-
-ifeq ($(static),1)
-    libslate = $(libslate_a)
-else
-    libslate = $(libslate_so)
-endif
 
 lib: $(libslate)
 
@@ -528,7 +529,9 @@ $(unit_test): %: %.o $(unit_test_obj) $(libslate)
 
 #-------------------------------------------------------------------------------
 # scalapack_api library
-scalapack_api = lib/libslate_scalapack_api.so
+scalapack_api_a  = lib/libslate_scalapack_api.a
+scalapack_api_so = lib/libslate_scalapack_api.so
+scalapack_api    = lib/libslate_scalapack_api.$(lib_ext)
 
 scalapack_api_src += \
         scalapack_api/scalapack_gemm.cc \
@@ -549,7 +552,8 @@ scalapack_api_src += \
         scalapack_api/scalapack_gesv.cc \
         scalapack_api/scalapack_lanhe.cc \
         scalapack_api/scalapack_posv.cc \
-        scalapack_api/scalapack_gels.cc
+        scalapack_api/scalapack_gels.cc \
+        scalapack_api/scalapack_potri.cc 
 
 scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
 
@@ -563,13 +567,20 @@ scalapack_api: $(scalapack_api)
 scalapack_api/clean:
 	rm -f $(scalapack_api) $(scalapack_api_obj)
 
-$(scalapack_api): $(scalapack_api_obj) $(libslate)
+$(scalapack_api_a): $(scalapack_api_obj) $(libslate)
+	-rm $@
+	ar cr $@ $(scalapack_api_obj)
+	ranlib $@
+
+$(scalapack_api_so): $(scalapack_api_obj) $(libslate)
 	$(CXX) $(SCALAPACK_API_LDFLAGS) $(LDFLAGS) $(scalapack_api_obj) \
 		$(SCALAPACK_API_LIBS) $(LIBS) -shared $(install_name) -o $@
 
 #-------------------------------------------------------------------------------
 # lapack_api library
-lapack_api = lib/libslate_lapack_api.so
+lapack_api_a  = lib/libslate_lapack_api.a
+lapack_api_so = lib/libslate_lapack_api.so
+lapack_api    = lib/libslate_lapack_api.$(lib_ext)
 
 lapack_api_src += \
         lapack_api/lapack_gemm.cc \
@@ -586,9 +597,13 @@ lapack_api_src += \
         lapack_api/lapack_syrk.cc \
         lapack_api/lapack_trmm.cc \
         lapack_api/lapack_trsm.cc \
-        lapack_api/lapack_slate.cc \
         lapack_api/lapack_getrs.cc \
         lapack_api/lapack_lanhe.cc \
+        lapack_api/lapack_gels.cc \
+        lapack_api/lapack_gesv.cc \
+        lapack_api/lapack_gesvMixed.cc \
+        lapack_api/lapack_posv.cc \
+        lapack_api/lapack_potri.cc \
 
 
 lapack_api_obj = $(addsuffix .o, $(basename $(lapack_api_src)))
@@ -603,7 +618,12 @@ lapack_api: $(lapack_api)
 lapack_api/clean:
 	rm -f $(lapack_api) $(lapack_api_obj)
 
-$(lapack_api): $(lapack_api_obj) $(libslate)
+$(lapack_api_a): $(lapack_api_obj) $(libslate)
+	-rm $@
+	ar cr $@ $(lapack_api_obj)
+	ranlib $@
+
+$(lapack_api_so): $(lapack_api_obj) $(libslate)
 	$(CXX) $(LAPACK_API_LDFLAGS) $(LDFLAGS) $(lapack_api_obj) \
 		$(LAPACK_API_LIBS) $(LIBS) -shared $(install_name) -o $@
 

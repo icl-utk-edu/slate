@@ -47,6 +47,7 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
+    slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
     // mark non-standard output values
@@ -57,6 +58,11 @@ template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
 
     if (! run)
         return;
+
+    if (origin != slate::Origin::ScaLAPACK) {
+        printf("skipping: currently only origin=scalapack is supported\n");
+        return;
+    }
 
     // Local values
     const int izero = 0, ione = 1;

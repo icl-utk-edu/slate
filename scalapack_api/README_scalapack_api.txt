@@ -93,3 +93,10 @@ matrix/tile boundaries meets SLATE's requirements.
 cd ${PBLAS_DIR}/TESTING/; env LD_PRELOAD=${SLATE_DIR}/lib/libslate_scalapack_api.so mpirun -np 4 -envall ./xspblas3tst
 
 
+NOTE: Depending the problem size you may need to change TOTMEM in the driver
+NOTE: Check the input file (e.g. INV.dat for ./xsinv)
+export SLATE_DIR=...
+export SCALAPACK_DIR=...
+export SLATE_SCALAPACK_VERBOSE=1
+cd ${SCALAPACK_DIR}/TESTING/; env LD_PRELOAD=${SLATE_DIR}/lib/libslate_scalapack_api.so mpirun -np 4 -envall ./xsinv
+

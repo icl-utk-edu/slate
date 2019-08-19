@@ -30,7 +30,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose(); SLATE_UNUSED(verbose);
-    slate::Target origin = params.origin();
+    slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
     // mark non-standard output values
@@ -100,21 +100,22 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
     slate::HermitianMatrix<scalar_t> A;
     slate::Matrix<scalar_t> B, X;
     std::vector<scalar_t> X_tst;
-    if (origin == slate::Target::Devices) {
-        // Copy local ScaLAPACK data to tiles on GPU devices.
+    if (origin != slate::Origin::ScaLAPACK) {
+        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        slate::Target origin_target = origin2target(origin);
         A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, nprow, npcol, MPI_COMM_WORLD);
-        A.insertLocalTiles(origin);
+        A.insertLocalTiles(origin_target);
         copy(&A_tst[0], descA_tst, A);
 
         B = slate::Matrix<scalar_t>(n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
-        B.insertLocalTiles(origin);
+        B.insertLocalTiles(origin_target);
         copy(&B_tst[0], descB_tst, B);
 
         if (params.routine == "posvMixed") {
             if (std::is_same<real_t, double>::value) {
                 X_tst.resize(lldB*nlocB);
                 X = slate::Matrix<scalar_t>(n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
-                X.insertLocalTiles(origin);
+                X.insertLocalTiles(origin_target);
             }
         }
     }
@@ -209,7 +210,7 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
             }
         }
         else {
-            slate_assert("Unknown routine!");
+            slate_error("Unknown routine!");
         }
 
         {
@@ -247,8 +248,8 @@ template <typename scalar_t> void test_posv_work(Params& params, bool run)
             });
         }
 
-        if (origin == slate::Target::Devices) {
-            // Copy data back from GPUs.
+        if (origin != slate::Origin::ScaLAPACK) {
+            // Copy SLATE result back from GPU or CPU tiles.
             if (params.routine == "posvMixed") {
                 if (std::is_same<real_t, double>::value) {
                     copy(X, &X_tst[0], descB_tst);

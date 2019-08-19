@@ -109,6 +109,8 @@ enum class NormScope : char {
     Matrix  = 'M',      ///< Compute matrix norm
 };
 
+const int HostNum = -1;
+
 } // namespace slate
 
 #endif // SLATE_ENUMS_HH

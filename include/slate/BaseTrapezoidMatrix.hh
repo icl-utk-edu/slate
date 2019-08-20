@@ -431,8 +431,8 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 //------------------------------------------------------------------------------
 /// Sub-matrix constructor creates shallow copy view of parent matrix,
 /// A[ i1:i2, j1:j2 ]. The new view is still a trapezoid matrix.
-/// If lower, requires i1 >= j1 and (i2 - i1) >= (j2 - j1).
-/// If upper, requires i1 <= j1 and (i2 - i1) <= (j2 - j1).
+/// - If lower, requires i1 >= j1.
+/// - If upper, requires i1 <= j1.
 /// If i1 == j1, it has the same diagonal as the parent matrix.
 ///
 /// @param[in] orig
@@ -459,13 +459,11 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 {
     this->uplo_ = orig.uplo_;
     if (this->uplo_ == Uplo::Lower) {
-        if (i1 < j1 || (i2 - i1) < (j2 - j1))
-            throw std::exception();
+        slate_assert(i1 >= j1);
     }
     else {
         // Upper
-        if (i1 > j1 || (i2 - i1) > (j2 - j1))
-            throw std::exception();
+        slate_assert(i1 <= j1);
     }
 }
 

@@ -82,6 +82,8 @@ public:
                                  int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
     // conversion
+    TriangularMatrix(TrapezoidMatrix<scalar_t>& orig);
+
     TriangularMatrix(Diag diag, BaseTrapezoidMatrix<scalar_t>& orig);
 
     TriangularMatrix(Uplo uplo, Diag diag, Matrix<scalar_t>& orig);
@@ -318,9 +320,26 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 {}
 
 //------------------------------------------------------------------------------
+/// Conversion from trapezoid or triangular matrix
+/// creates a shallow copy view of the original matrix.
+/// Orig must be square -- slice beforehand if needed.
+///
+/// @param[in,out] orig
+///     Original matrix.
+///
+template <typename scalar_t>
+TriangularMatrix<scalar_t>::TriangularMatrix(
+    TrapezoidMatrix<scalar_t>& orig)
+    : TrapezoidMatrix<scalar_t>(orig)
+{
+    slate_assert(orig.mt() == orig.nt());
+    slate_assert(orig.m() == orig.n());
+}
+
+//------------------------------------------------------------------------------
 /// Conversion from trapezoid, triangular, symmetric, or Hermitian matrix
 /// creates a shallow copy view of the original matrix.
-/// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+/// Orig must be square -- slice beforehand if needed.
 ///
 /// @param[in] diag
 ///     - NonUnit: A does not have unit diagonal.
@@ -335,9 +354,12 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
     Diag diag, BaseTrapezoidMatrix<scalar_t>& orig)
     : TrapezoidMatrix<scalar_t>(
           diag, orig,
-          0, std::min(orig.mt()-1, orig.nt()-1),
-          0, std::min(orig.mt()-1, orig.nt()-1))
-{}
+          0, orig.mt()-1,
+          0, orig.nt()-1)
+{
+    slate_assert(orig.mt() == orig.nt());
+    slate_assert(orig.m() == orig.n());
+}
 
 //------------------------------------------------------------------------------
 /// Conversion from trapezoid, triangular, symmetric, or Hermitian matrix
@@ -371,14 +393,13 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
     int64_t j1, int64_t j2)
     : TrapezoidMatrix<scalar_t>(diag, orig, i1, i2, j1, j2)
 {
-    if ((i2 - i1) != (j2 - j1))
-        throw std::runtime_error("i2 - i1 != j2 - j1, BaseTrapezoid");
+    slate_assert(i2 - i1 == j2 - j1);
 }
 
 //------------------------------------------------------------------------------
 /// Conversion from general matrix
 /// creates a shallow copy view of the original matrix.
-/// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+/// Orig must be square -- slice beforehand if needed.
 ///
 /// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
@@ -397,9 +418,12 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
     Uplo uplo, Diag diag, Matrix<scalar_t>& orig)
     : TrapezoidMatrix<scalar_t>(
           uplo, diag, orig,
-          0, std::min(orig.mt()-1, orig.nt()-1),
-          0, std::min(orig.mt()-1, orig.nt()-1))
-{}
+          0, orig.mt()-1,
+          0, orig.nt()-1)
+{
+    slate_assert(orig.mt() == orig.nt());
+    slate_assert(orig.m() == orig.n());
+}
 
 //------------------------------------------------------------------------------
 /// Conversion from general matrix, sub-matrix constructor

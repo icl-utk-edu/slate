@@ -52,12 +52,13 @@ using slate::roundup;
 
 //------------------------------------------------------------------------------
 // global variables
-int m, n, k, nb, p, q;
+int m, n, k, mb, nb, p, q;
 int mpi_rank;
 int mpi_size;
 MPI_Comm mpi_comm;
 int host_num = slate::HostNum;
 int num_devices = 0;
+int verbose = 0;
 
 //==============================================================================
 // Constructors
@@ -764,163 +765,185 @@ void test_TrapezoidMatrix_sub_trans()
     }
 }
 
+//==============================================================================
+// Conversion to Trapezoid
+
 //------------------------------------------------------------------------------
-void test_TrapezoidMatrix_to_Trapezoid()
+/// Tests TrapezoidMatrix( uplo, diag, Matrix A ).
+///
+void test_Trapezoid_from_Matrix()
 {
     int lda = roundup(m, nb);
     std::vector<double> Ad( lda*n );
     auto A = slate::Matrix<double>::fromLAPACK(
         m, n, Ad.data(), lda, nb, p, q, mpi_comm );
 
-    // lower
-    auto L = slate::TrapezoidMatrix<double>(
+    // Take sub-matrix, offset by 1 tile.
+    A = A.sub( 0, A.mt()-1, 1, A.nt()-1 );
+    int64_t mt = A.mt();
+    int64_t nt = A.nt();
+    int64_t m_ = A.m();
+    int64_t n_ = A.n();
+
+    // ----------
+    // lower, non-unit and unit
+    auto Ln = slate::TrapezoidMatrix<double>(
         slate::Uplo::Lower, slate::Diag::NonUnit, A );
+    verify_Trapezoid( slate::Uplo::Lower, slate::Diag::NonUnit,
+                      mt, nt, m_, n_, Ln );
 
-    for (int j = 0; j < L.nt(); ++j) {
-        for (int i = j; i < L.mt(); ++i) {  // lower
-            if (L.tileIsLocal(i, j)) {
-                if (i == j)
-                    test_assert( L(i, j).uplo() == slate::Uplo::Lower );
-                else
-                    test_assert( L(i, j).uplo() == slate::Uplo::General );
-            }
-        }
-    }
+    auto Lu = slate::TrapezoidMatrix<double>(
+        slate::Uplo::Lower, slate::Diag::Unit, A );
+    verify_Trapezoid( slate::Uplo::Lower, slate::Diag::Unit,
+                      mt, nt, m_, n_, Lu );
 
-    // upper
-    auto U = slate::TrapezoidMatrix<double>(
+    // ----------
+    // upper, non-unit and unit
+    auto Un = slate::TrapezoidMatrix<double>(
         slate::Uplo::Upper, slate::Diag::NonUnit, A );
+    verify_Trapezoid( slate::Uplo::Upper, slate::Diag::NonUnit,
+                      mt, nt, m_, n_, Un );
 
-    for (int j = 0; j < U.nt(); ++j) {
-        for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
-            if (U.tileIsLocal(i, j)) {
-                if (i == j)
-                    test_assert( U(i, j).uplo() == slate::Uplo::Upper );
-                else
-                    test_assert( U(i, j).uplo() == slate::Uplo::General );
-            }
-        }
+    auto Uu = slate::TrapezoidMatrix<double>(
+        slate::Uplo::Upper, slate::Diag::Unit, A );
+    verify_Trapezoid( slate::Uplo::Upper, slate::Diag::Unit,
+                      mt, nt, m_, n_, Uu );
+
+    // ----------
+    // Rectangular tiles should fail.
+    if (mb != nb) {
+        auto Arect = slate::Matrix<double>::fromLAPACK(
+            m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
+
+        test_assert_throw(
+            auto Lrect = slate::TrapezoidMatrix<double>(
+                slate::Uplo::Lower, slate::Diag::NonUnit, Arect ),
+            slate::Exception);
+
+        test_assert_throw(
+            auto Urect = slate::TrapezoidMatrix<double>(
+                slate::Uplo::Upper, slate::Diag::NonUnit, Arect ),
+            slate::Exception);
     }
 }
 
 //------------------------------------------------------------------------------
-void test_TrapezoidMatrix_to_Triangular()
+/// Tests TrapezoidMatrix( diag, Hermitian A ).
+///
+void test_Trapezoid_from_Hermitian()
 {
-    int lda = roundup(m, nb);
+    int lda = roundup(n, nb);
     std::vector<double> Ad( lda*n );
-    auto A = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+    auto L0 = slate::HermitianMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower,
+        n, Ad.data(), lda, nb, p, q, mpi_comm );
 
-    // lower
-    auto L = slate::TriangularMatrix<double>(
-        slate::Uplo::Lower, slate::Diag::NonUnit, A );
+    auto U0 = slate::HermitianMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper,
+        n, Ad.data(), lda, nb, p, q, mpi_comm );
 
-    for (int j = 0; j < L.nt(); ++j) {
-        for (int i = j; i < L.mt(); ++i) {  // lower
-            if (L.tileIsLocal(i, j)) {
-                if (i == j)
-                    test_assert( L(i, j).uplo() == slate::Uplo::Lower );
-                else
-                    test_assert( L(i, j).uplo() == slate::Uplo::General );
-            }
-        }
-    }
+    // ----------
+    // lower, non-unit and unit
+    auto Ln = slate::TrapezoidMatrix<double>( slate::Diag::NonUnit, L0 );
+    verify_Trapezoid( slate::Uplo::Lower, slate::Diag::NonUnit,
+                      L0.mt(), L0.nt(), n, n, Ln );
 
-    // upper
-    auto U = slate::TriangularMatrix<double>(
-        slate::Uplo::Upper, slate::Diag::NonUnit, A );
+    auto Lu = slate::TrapezoidMatrix<double>( slate::Diag::Unit, L0 );
+    verify_Trapezoid( slate::Uplo::Lower, slate::Diag::Unit,
+                      L0.mt(), L0.nt(), n, n, Lu );
 
-    for (int j = 0; j < U.nt(); ++j) {
-        for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
-            if (U.tileIsLocal(i, j)) {
-                if (i == j)
-                    test_assert( U(i, j).uplo() == slate::Uplo::Upper );
-                else
-                    test_assert( U(i, j).uplo() == slate::Uplo::General );
-            }
-        }
-    }
+    // ----------
+    // upper, non-unit and unit
+    auto Un = slate::TrapezoidMatrix<double>( slate::Diag::NonUnit, U0 );
+    verify_Trapezoid( slate::Uplo::Upper, slate::Diag::NonUnit,
+                      U0.mt(), U0.nt(), n, n, Un );
+
+    auto Uu = slate::TrapezoidMatrix<double>( slate::Diag::Unit, U0 );
+    verify_Trapezoid( slate::Uplo::Upper, slate::Diag::Unit,
+                      U0.mt(), U0.nt(), n, n, Uu );
 }
 
 //------------------------------------------------------------------------------
-void test_TrapezoidMatrix_to_Symmetric()
+/// Tests TrapezoidMatrix( diag, Symmetric A ).
+///
+void test_Trapezoid_from_Symmetric()
 {
-    int lda = roundup(m, nb);
+    int lda = roundup(n, nb);
     std::vector<double> Ad( lda*n );
-    auto A = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+    auto L0 = slate::SymmetricMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower,
+        n, Ad.data(), lda, nb, p, q, mpi_comm );
 
-    // lower
-    auto L = slate::SymmetricMatrix<double>(
-        slate::Uplo::Lower, A );
+    auto U0 = slate::SymmetricMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper,
+        n, Ad.data(), lda, nb, p, q, mpi_comm );
 
-    for (int j = 0; j < L.nt(); ++j) {
-        for (int i = j; i < L.mt(); ++i) {  // lower
-            if (L.tileIsLocal(i, j)) {
-                if (i == j)
-                    test_assert( L(i, j).uplo() == slate::Uplo::Lower );
-                else
-                    test_assert( L(i, j).uplo() == slate::Uplo::General );
-            }
-        }
-    }
+    // ----------
+    // lower, non-unit and unit
+    auto Ln = slate::TrapezoidMatrix<double>( slate::Diag::NonUnit, L0 );
+    verify_Trapezoid( slate::Uplo::Lower, slate::Diag::NonUnit,
+                      L0.mt(), L0.nt(), n, n, Ln );
 
-    // upper
-    auto U = slate::SymmetricMatrix<double>(
-        slate::Uplo::Upper, A );
+    auto Lu = slate::TrapezoidMatrix<double>( slate::Diag::Unit, L0 );
+    verify_Trapezoid( slate::Uplo::Lower, slate::Diag::Unit,
+                      L0.mt(), L0.nt(), n, n, Lu );
 
-    for (int j = 0; j < U.nt(); ++j) {
-        for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
-            if (U.tileIsLocal(i, j)) {
-                if (i == j)
-                    test_assert( U(i, j).uplo() == slate::Uplo::Upper );
-                else
-                    test_assert( U(i, j).uplo() == slate::Uplo::General );
-            }
-        }
-    }
+    // ----------
+    // upper, non-unit and unit
+    auto Un = slate::TrapezoidMatrix<double>( slate::Diag::NonUnit, U0 );
+    verify_Trapezoid( slate::Uplo::Upper, slate::Diag::NonUnit,
+                      U0.mt(), U0.nt(), n, n, Un );
+
+    auto Uu = slate::TrapezoidMatrix<double>( slate::Diag::Unit, U0 );
+    verify_Trapezoid( slate::Uplo::Upper, slate::Diag::Unit,
+                      U0.mt(), U0.nt(), n, n, Uu );
 }
 
 //------------------------------------------------------------------------------
-void test_TrapezoidMatrix_to_Hermitian()
+/// Tests TrapezoidMatrix( Triangular A ).
+///
+void test_Trapezoid_from_Triangular()
 {
-    int lda = roundup(m, nb);
+    int lda = roundup(n, nb);
     std::vector<double> Ad( lda*n );
-    auto A = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+    auto L0 = slate::TriangularMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower, slate::Diag::NonUnit,
+        n, Ad.data(), lda, nb, p, q, mpi_comm );
 
-    // lower
-    auto L = slate::HermitianMatrix<double>(
-        slate::Uplo::Lower, A );
+    auto L1 = slate::TriangularMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower, slate::Diag::Unit,
+        n, Ad.data(), lda, nb, p, q, mpi_comm );
 
-    for (int j = 0; j < L.nt(); ++j) {
-        for (int i = j; i < L.mt(); ++i) {  // lower
-            if (L.tileIsLocal(i, j)) {
-                if (i == j)
-                    test_assert( L(i, j).uplo() == slate::Uplo::Lower );
-                else
-                    test_assert( L(i, j).uplo() == slate::Uplo::General );
-            }
-        }
-    }
+    auto U0 = slate::TriangularMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper, slate::Diag::NonUnit,
+        n, Ad.data(), lda, nb, p, q, mpi_comm );
 
-    // upper
-    auto U = slate::HermitianMatrix<double>(
-        slate::Uplo::Upper, A );
+    auto U1 = slate::TriangularMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper, slate::Diag::Unit,
+        n, Ad.data(), lda, nb, p, q, mpi_comm );
 
-    for (int j = 0; j < U.nt(); ++j) {
-        for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
-            if (U.tileIsLocal(i, j)) {
-                if (i == j)
-                    test_assert( U(i, j).uplo() == slate::Uplo::Upper );
-                else
-                    test_assert( U(i, j).uplo() == slate::Uplo::General );
-            }
-        }
-    }
+    // ----------
+    // lower, non-unit and unit
+    auto Ln = slate::TrapezoidMatrix<double>( L0 );
+    verify_Trapezoid( slate::Uplo::Lower, slate::Diag::NonUnit,
+                      L0.mt(), L0.nt(), n, n, Ln );
+
+    auto Lu = slate::TrapezoidMatrix<double>( L1 );
+    verify_Trapezoid( slate::Uplo::Lower, slate::Diag::Unit,
+                      L1.mt(), L1.nt(), n, n, Lu );
+
+    // ----------
+    // upper, non-unit and unit
+    auto Un = slate::TrapezoidMatrix<double>( U0 );
+    verify_Trapezoid( slate::Uplo::Upper, slate::Diag::NonUnit,
+                      U0.mt(), U0.nt(), n, n, Un );
+
+    auto Uu = slate::TrapezoidMatrix<double>( U1 );
+    verify_Trapezoid( slate::Uplo::Upper, slate::Diag::Unit,
+                      U1.mt(), U1.nt(), n, n, Uu );
 }
 
-//------------------------------------------------------------------------------
+//==============================================================================
 /// Runs all tests. Called by unit test main().
 void run_tests()
 {
@@ -938,14 +961,16 @@ void run_tests()
     run_test(test_TrapezoidMatrix_allocateBatchArrays, "TrapezoidMatrix::allocateBatchArrays", mpi_comm);
 
     if (mpi_rank == 0)
-        printf("\nSub-matrices and conversions\n");
+        printf("\nSub-matrices\n");
     run_test(test_TrapezoidMatrix_sub,           "TrapezoidMatrix::sub",                mpi_comm);
     run_test(test_TrapezoidMatrix_sub_trans,     "TrapezoidMatrix::sub(A^T)",           mpi_comm);
-    run_test(test_TrapezoidMatrix_to_Trapezoid,  "TrapezoidMatrix => Matrix",           mpi_comm);
-    run_test(test_TrapezoidMatrix_to_Trapezoid,  "TrapezoidMatrix => TrapezoidMatrix",  mpi_comm);
-    run_test(test_TrapezoidMatrix_to_Triangular, "TrapezoidMatrix => TriangularMatrix", mpi_comm);
-    run_test(test_TrapezoidMatrix_to_Symmetric,  "TrapezoidMatrix => SymmetricMatrix",  mpi_comm);
-    run_test(test_TrapezoidMatrix_to_Hermitian,  "TrapezoidMatrix => HermitianMatrix",  mpi_comm);
+
+    if (mpi_rank == 0)
+        printf("\nConversion to Trapezoid\n");
+    run_test(test_Trapezoid_from_Matrix,       "TrapezoidMatrix( uplo, diag, Matrix )",    mpi_comm);
+    run_test(test_Trapezoid_from_Hermitian,    "TrapezoidMatrix( diag, HermitianMatrix )", mpi_comm);
+    run_test(test_Trapezoid_from_Symmetric,    "TrapezoidMatrix( diag, SymmetricMatrix )", mpi_comm);
+    run_test(test_Trapezoid_from_Triangular,   "TrapezoidMatrix( TriangularMatrix )",      mpi_comm);
 }
 
 //------------------------------------------------------------------------------
@@ -965,22 +990,40 @@ int main(int argc, char** argv)
     m  = 200;
     n  = 100;
     k  = 75;
+    mb = 24;
     nb = 16;
-    p  = std::min(2, mpi_size);
-    q  = mpi_size / p;
+    init_process_grid(mpi_size, &p, &q);
     unsigned seed = time( nullptr ) % 10000;  // 4 digit
-    if (argc > 1) { m  = atoi(argv[1]); }
-    if (argc > 2) { n  = atoi(argv[2]); }
-    if (argc > 3) { k  = atoi(argv[3]); }
-    if (argc > 4) { nb = atoi(argv[4]); }
-    if (argc > 5) { p  = atoi(argv[5]); }
-    if (argc > 6) { q  = atoi(argv[6]); }
-    if (argc > 7) { seed = atoi(argv[7]); }
+
+    // parse command line
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "-m" && i+1 < argc)
+            m = atoi( argv[++i] );
+        else if (arg == "-n" && i+1 < argc)
+            n = atoi( argv[++i] );
+        else if (arg == "-k" && i+1 < argc)
+            k = atoi( argv[++i] );
+        else if (arg == "-mb" && i+1 < argc)
+            mb = atoi( argv[++i] );
+        else if (arg == "-nb" && i+1 < argc)
+            nb = atoi( argv[++i] );
+        else if (arg == "-p" && i+1 < argc)
+            p = atoi( argv[++i] );
+        else if (arg == "-q" && i+1 < argc)
+            q = atoi( argv[++i] );
+        else if (arg == "-seed" && i+1 < argc)
+            seed = atoi( argv[++i] );
+        else if (arg == "-v")
+            verbose++;
+        else {
+            printf( "unknown argument: %s\n", argv[i] );
+            return 1;
+        }
+    }
     if (mpi_rank == 0) {
-        printf("Usage: %s %4s %4s %4s %4s %4s %4s %4s\n"
-               "       %s %4d %4d %4d %4d %4d %4d %4u\n"
+        printf("Usage: %s [-m %d] [-n %d] [-k %d] [-nb %d] [-p %d] [-q %d] [-seed %d] [-v]\n"
                "num_devices = %d\n",
-               argv[0], "m", "n", "k", "nb", "p", "q", "seed",
                argv[0], m, n, k, nb, p, q, seed,
                num_devices);
     }

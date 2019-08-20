@@ -52,12 +52,13 @@ using slate::roundup;
 
 //------------------------------------------------------------------------------
 // global variables
-int m, n, k, nb, p, q;
+int m, n, k, mb, nb, p, q;
 int mpi_rank;
 int mpi_size;
 MPI_Comm mpi_comm;
 int host_num = slate::HostNum;
 int num_devices = 0;
+int verbose = 0;
 
 //==============================================================================
 // Constructors
@@ -271,25 +272,218 @@ void test_TriangularMatrix_fromDevices()
 // Methods
 
 //==============================================================================
-// Sub-matrices and conversions
+// Sub-matrices
+
+//==============================================================================
+// Conversion to Triangular
 
 //------------------------------------------------------------------------------
+/// Tests TriangularMatrix( uplo, diag, Matrix A ).
+///
+void test_Triangular_from_Matrix()
+{
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+    auto A = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // Take sub-matrix, offset by 1 tile.
+    A = A.sub( 0, A.mt()-1, 1, A.nt()-1 );
+
+    int64_t min_mt_nt = std::min( A.mt(), A.nt() );
+    int64_t min_mn = std::min( A.m(), A.n() );
+
+    // Make square A.
+    auto Asquare = A.slice( 0, min_mn-1, 0, min_mn-1 );
+
+    // ----------
+    // lower, non-unit and unit
+    auto Ln = slate::TriangularMatrix<double>(
+        slate::Uplo::Lower, slate::Diag::NonUnit, Asquare );
+    verify_Triangular( slate::Uplo::Lower, slate::Diag::NonUnit,
+                       min_mt_nt, min_mn, Ln );
+
+    auto Lu = slate::TriangularMatrix<double>(
+        slate::Uplo::Lower, slate::Diag::Unit, Asquare );
+    verify_Triangular( slate::Uplo::Lower, slate::Diag::Unit,
+                       min_mt_nt, min_mn, Lu );
+
+    // ----------
+    // upper, non-unit and unit
+    auto Un = slate::TriangularMatrix<double>(
+        slate::Uplo::Upper, slate::Diag::NonUnit, Asquare );
+    verify_Triangular( slate::Uplo::Upper, slate::Diag::NonUnit,
+                       min_mt_nt, min_mn, Un );
+
+    auto Uu = slate::TriangularMatrix<double>(
+        slate::Uplo::Upper, slate::Diag::Unit, Asquare );
+    verify_Triangular( slate::Uplo::Upper, slate::Diag::Unit,
+                       min_mt_nt, min_mn, Uu );
+
+    // ----------
+    // Rectangular tiles (even with square A) should fail.
+    if (mb != nb) {
+        auto Arect = slate::Matrix<double>::fromLAPACK(
+            min_mn, min_mn, Ad.data(), lda, mb, nb, p, q, mpi_comm );
+
+        test_assert_throw(
+            auto Lrect = slate::TriangularMatrix<double>(
+                slate::Uplo::Lower, slate::Diag::NonUnit, Arect ),
+            slate::Exception);
+
+        test_assert_throw(
+            auto Urect = slate::TriangularMatrix<double>(
+                slate::Uplo::Upper, slate::Diag::NonUnit, Arect ),
+            slate::Exception);
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Tests TriangularMatrix( diag, Hermitian A ).
+///
+void test_Triangular_from_Hermitian()
+{
+    int lda = roundup(n, nb);
+    std::vector<double> Ad( lda*n );
+    auto L0 = slate::HermitianMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower,
+        n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto U0 = slate::HermitianMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper,
+        n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // ----------
+    // lower, non-unit and unit
+    auto Ln = slate::TriangularMatrix<double>( slate::Diag::NonUnit, L0 );
+    verify_Triangular( slate::Uplo::Lower, slate::Diag::NonUnit,
+                       L0.nt(), n, Ln );
+
+    auto Lu = slate::TriangularMatrix<double>( slate::Diag::Unit, L0 );
+    verify_Triangular( slate::Uplo::Lower, slate::Diag::Unit,
+                       L0.nt(), n, Lu );
+
+    // ----------
+    // upper, non-unit and unit
+    auto Un = slate::TriangularMatrix<double>( slate::Diag::NonUnit, U0 );
+    verify_Triangular( slate::Uplo::Upper, slate::Diag::NonUnit,
+                       U0.nt(), n, Un );
+
+    auto Uu = slate::TriangularMatrix<double>( slate::Diag::Unit, U0 );
+    verify_Triangular( slate::Uplo::Upper, slate::Diag::Unit,
+                       U0.nt(), n, Uu );
+}
+
+//------------------------------------------------------------------------------
+/// Tests TriangularMatrix( diag, Symmetric A ).
+///
+void test_Triangular_from_Symmetric()
+{
+    int lda = roundup(n, nb);
+    std::vector<double> Ad( lda*n );
+    auto L0 = slate::SymmetricMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower,
+        n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto U0 = slate::SymmetricMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper,
+        n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // ----------
+    // lower, non-unit and unit
+    auto Ln = slate::TriangularMatrix<double>( slate::Diag::NonUnit, L0 );
+    verify_Triangular( slate::Uplo::Lower, slate::Diag::NonUnit,
+                       L0.nt(), n, Ln );
+
+    auto Lu = slate::TriangularMatrix<double>( slate::Diag::Unit, L0 );
+    verify_Triangular( slate::Uplo::Lower, slate::Diag::Unit,
+                       L0.nt(), n, Lu );
+
+    // ----------
+    // upper, non-unit and unit
+    auto Un = slate::TriangularMatrix<double>( slate::Diag::NonUnit, U0 );
+    verify_Triangular( slate::Uplo::Upper, slate::Diag::NonUnit,
+                       U0.nt(), n, Un );
+
+    auto Uu = slate::TriangularMatrix<double>( slate::Diag::Unit, U0 );
+    verify_Triangular( slate::Uplo::Upper, slate::Diag::Unit,
+                       U0.nt(), n, Uu );
+}
+
+//------------------------------------------------------------------------------
+/// Tests TriangularMatrix( Trapezoid A ).
+///
+void test_Triangular_from_Trapezoid()
+{
+    // todo: when Trapezoid has slice, use it as in test_Hermitian_from_Matrix.
+    // For now, create as square.
+    int64_t min_mn = std::min( m, n );
+    
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+    auto L0 = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower, slate::Diag::NonUnit,
+        min_mn, min_mn, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto L1 = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower, slate::Diag::Unit,
+        min_mn, min_mn, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto U0 = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper, slate::Diag::NonUnit,
+        min_mn, min_mn, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto U1 = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper, slate::Diag::Unit,
+        min_mn, min_mn, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    int64_t min_mt_nt = std::min( L0.mt(), L0.nt() );
+
+    // ----------
+    // lower, non-unit and unit
+    auto Ln = slate::TriangularMatrix<double>( L0 );
+    verify_Triangular( slate::Uplo::Lower, slate::Diag::NonUnit,
+                       min_mt_nt, min_mn, Ln );
+
+    auto Lu = slate::TriangularMatrix<double>( L1 );
+    verify_Triangular( slate::Uplo::Lower, slate::Diag::Unit,
+                       min_mt_nt, min_mn, Lu );
+
+    // ----------
+    // upper, non-unit and unit
+    auto Un = slate::TriangularMatrix<double>( U0 );
+    verify_Triangular( slate::Uplo::Upper, slate::Diag::NonUnit,
+                       min_mt_nt, min_mn, Un );
+
+    auto Uu = slate::TriangularMatrix<double>( U1 );
+    verify_Triangular( slate::Uplo::Upper, slate::Diag::Unit,
+                       min_mt_nt, min_mn, Uu );
+}
+
+//==============================================================================
 /// Runs all tests. Called by unit test main().
 void run_tests()
 {
     if (mpi_rank == 0)
         printf("\nConstructors\n");
-    run_test(test_TriangularMatrix,  "TriangularMatrix()", mpi_comm);
-    run_test(test_TriangularMatrix_empty, "TriangularMatrix(uplo, n, ...)",   mpi_comm);
-    run_test(test_TriangularMatrix_fromLAPACK, "TriangularMatrix::fromLAPACK", mpi_comm);
-    run_test(test_TriangularMatrix_fromScaLAPACK, "TriangularMatrix::fromScaLAPACK", mpi_comm);
-    run_test(test_TriangularMatrix_fromDevices, "TriangularMatrix::fromDevices", mpi_comm);
+    run_test(test_TriangularMatrix,               "TriangularMatrix()",               mpi_comm);
+    run_test(test_TriangularMatrix_empty,         "TriangularMatrix(uplo, n, ...)",   mpi_comm);
+    run_test(test_TriangularMatrix_fromLAPACK,    "TriangularMatrix::fromLAPACK",     mpi_comm);
+    run_test(test_TriangularMatrix_fromScaLAPACK, "TriangularMatrix::fromScaLAPACK",  mpi_comm);
+    run_test(test_TriangularMatrix_fromDevices,   "TriangularMatrix::fromDevices",    mpi_comm);
 
     if (mpi_rank == 0)
         printf("\nMethods\n");
 
     if (mpi_rank == 0)
-        printf("\nSub-matrices and conversions\n");
+        printf("\nSub-matrices\n");
+
+    if (mpi_rank == 0)
+        printf("\nConversion to Triangular\n");
+    run_test(test_Triangular_from_Matrix,      "TriangularMatrix( uplo, diag, Matrix )",    mpi_comm);
+    run_test(test_Triangular_from_Hermitian,   "TriangularMatrix( diag, HermitianMatrix )", mpi_comm);
+    run_test(test_Triangular_from_Symmetric,   "TriangularMatrix( diag, SymmetricMatrix )", mpi_comm);
+    run_test(test_Triangular_from_Trapezoid,   "TriangularMatrix( TrapezoidMatrix )",       mpi_comm);
 }
 
 //------------------------------------------------------------------------------
@@ -309,21 +503,40 @@ int main(int argc, char** argv)
     m  = 200;
     n  = 100;
     k  = 75;
+    mb = 24;
     nb = 16;
     init_process_grid(mpi_size, &p, &q);
     unsigned seed = time( nullptr ) % 10000;  // 4 digit
-    if (argc > 1) { m  = atoi(argv[1]); }
-    if (argc > 2) { n  = atoi(argv[2]); }
-    if (argc > 3) { k  = atoi(argv[3]); }
-    if (argc > 4) { nb = atoi(argv[4]); }
-    if (argc > 5) { p  = atoi(argv[5]); }
-    if (argc > 6) { q  = atoi(argv[6]); }
-    if (argc > 7) { seed = atoi(argv[7]); }
+
+    // parse command line
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "-m" && i+1 < argc)
+            m = atoi( argv[++i] );
+        else if (arg == "-n" && i+1 < argc)
+            n = atoi( argv[++i] );
+        else if (arg == "-k" && i+1 < argc)
+            k = atoi( argv[++i] );
+        else if (arg == "-mb" && i+1 < argc)
+            mb = atoi( argv[++i] );
+        else if (arg == "-nb" && i+1 < argc)
+            nb = atoi( argv[++i] );
+        else if (arg == "-p" && i+1 < argc)
+            p = atoi( argv[++i] );
+        else if (arg == "-q" && i+1 < argc)
+            q = atoi( argv[++i] );
+        else if (arg == "-seed" && i+1 < argc)
+            seed = atoi( argv[++i] );
+        else if (arg == "-v")
+            verbose++;
+        else {
+            printf( "unknown argument: %s\n", argv[i] );
+            return 1;
+        }
+    }
     if (mpi_rank == 0) {
-        printf("Usage: %s %4s %4s %4s %4s %4s %4s %4s\n"
-               "       %s %4d %4d %4d %4d %4d %4d %4u\n"
+        printf("Usage: %s [-m %d] [-n %d] [-k %d] [-nb %d] [-p %d] [-q %d] [-seed %d] [-v]\n"
                "num_devices = %d\n",
-               argv[0], "m", "n", "k", "nb", "p", "q", "seed",
                argv[0], m, n, k, nb, p, q, seed,
                num_devices);
     }

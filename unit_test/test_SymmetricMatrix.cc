@@ -52,12 +52,13 @@ using slate::roundup;
 
 //------------------------------------------------------------------------------
 // global variables
-int m, n, k, nb, p, q;
+int m, n, k, mb, nb, p, q;
 int mpi_rank;
 int mpi_size;
 MPI_Comm mpi_comm;
 int host_num = slate::HostNum;
 int num_devices = 0;
+int verbose = 0;
 
 //==============================================================================
 // Constructors
@@ -93,6 +94,10 @@ void test_SymmetricMatrix_empty()
     test_assert(U.nt() == ceildiv(n, nb));
     test_assert(U.op() == blas::Op::NoTrans);
     test_assert(U.uplo() == blas::Uplo::Upper);
+
+    test_assert_throw(
+        slate::SymmetricMatrix<double> A(blas::Uplo::General, n, nb, p, q, mpi_comm),
+        slate::Exception);
 }
 
 //------------------------------------------------------------------------------
@@ -135,6 +140,13 @@ void test_SymmetricMatrix_fromLAPACK()
             verify_tile_lapack(U, i, j, nb, n, n, Ad.data(), lda);
         }
     }
+
+    //----------
+    // general
+    test_assert_throw(
+        slate::SymmetricMatrix<double>::fromLAPACK(
+            blas::Uplo::General, n, Ad.data(), lda, nb, p, q, mpi_comm ),
+        slate::Exception);
 }
 
 //------------------------------------------------------------------------------
@@ -183,6 +195,13 @@ void test_SymmetricMatrix_fromScaLAPACK()
             verify_tile_scalapack(U, i, j, nb, n, n, Ad.data(), lda);
         }
     }
+
+    //----------
+    // general
+    test_assert_throw(
+        slate::SymmetricMatrix<double>::fromScaLAPACK(
+            blas::Uplo::General, n, Ad.data(), lda, nb, p, q, mpi_comm ),
+        slate::Exception);
 }
 
 //------------------------------------------------------------------------------
@@ -251,63 +270,199 @@ void test_SymmetricMatrix_fromDevices()
         cudaFree(Aarray[dev]);
     }
     delete[] Aarray;
+
+    //----------
+    // general
+    test_assert_throw(
+        slate::SymmetricMatrix<double>::fromDevices(
+            blas::Uplo::General, n, Aarray, num_devices, lda, nb, p, q, mpi_comm ),
+        slate::Exception);
 }
 
 //==============================================================================
 // Methods
 
 //==============================================================================
-// Sub-matrices and conversions
+// Sub-matrices
+
+//==============================================================================
+// Conversion to Symmetric
 
 //------------------------------------------------------------------------------
-void test_Symmetric_to_Triangular()
+/// Tests SymmetricMatrix( uplo, Matrix (BaseMatrix) A ).
+///
+void test_Symmetric_from_Matrix()
 {
-    int lda = roundup(n, nb);
+    int lda = roundup(m, nb);
     std::vector<double> Ad( lda*n );
+    auto A = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
 
-    // ----- Lower
-    auto A = slate::SymmetricMatrix<double>::fromLAPACK(
-        slate::Uplo::Lower, n, Ad.data(), lda, nb, p, q, mpi_comm );
+    // Take sub-matrix, offset by 1 tile.
+    A = A.sub( 0, A.mt()-1, 1, A.nt()-1 );
 
-    // okay: square, lower [ 1:mt-1, 0:nt-2 ]
-    auto L1 = slate::TriangularMatrix<double>(
-        slate::Diag::NonUnit, A,   1, A.mt()-1,   0, A.nt()-2 );
+    int64_t min_mt_nt = std::min( A.mt(), A.nt() );
+    int64_t min_mn = std::min( A.m(), A.n() );
 
-    // fail: non-square [ 0:mt-1, 0:nt-2 ]
-    test_assert_throw_std(
-    auto L2 = slate::TriangularMatrix<double>(
-        slate::Diag::NonUnit, A,   0, A.mt()-1,   0, A.nt()-2 ));
+    // Make square A.
+    auto Asquare = A.slice( 0, min_mn-1, 0, min_mn-1 );
 
-    // fail: top-left (0, 1) is upper
-    test_assert_throw_std(
-    auto L3 = slate::TriangularMatrix<double>(
-        slate::Diag::NonUnit, A,   0, A.mt()-2,   1, A.nt()-1 ));
+    // ----------
+    // lower
+    auto L = slate::SymmetricMatrix<double>(
+        slate::Uplo::Lower, Asquare );
+    verify_Symmetric( slate::Uplo::Lower, min_mt_nt, min_mn, L );
 
-    // ----- Upper
-    auto B = slate::SymmetricMatrix<double>::fromLAPACK(
-        slate::Uplo::Upper, n, Ad.data(), lda, nb, p, q, mpi_comm );
+    // ----------
+    // upper
+    auto U = slate::SymmetricMatrix<double>(
+        slate::Uplo::Upper, Asquare );
+    verify_Symmetric( slate::Uplo::Upper, min_mt_nt, min_mn, U );
 
-    // okay: square, upper
-    auto U1 = slate::TriangularMatrix<double>(
-        slate::Diag::NonUnit, B,   0, B.mt()-2,   1, B.nt()-1 );
+    // ----------
+    // Rectangular A should fail.
+    if (m != n) {
+        test_assert_throw(
+            auto L = slate::SymmetricMatrix<double>(
+                slate::Uplo::Lower, A ),
+            slate::Exception);
 
-    // fail: non-square
-    test_assert_throw_std(
-    auto U2 = slate::TriangularMatrix<double>(
-        slate::Diag::NonUnit, B,   0, B.mt()-1,   1, B.nt()-1 ));
+        test_assert_throw(
+            auto U = slate::SymmetricMatrix<double>(
+                slate::Uplo::Upper, A ),
+            slate::Exception);
+    }
 
-    // fail: top-left (1, 0) is lower
-    test_assert_throw_std(
-    auto U3 = slate::TriangularMatrix<double>(
-        slate::Diag::NonUnit, B,   1, B.mt()-1,   0, B.nt()-2 ));
+    // ----------
+    // Rectangular tiles (even with square A) should fail.
+    if (mb != nb) {
+        auto Arect = slate::Matrix<double>::fromLAPACK(
+            min_mn, min_mn, Ad.data(), lda, mb, nb, p, q, mpi_comm );
+
+        test_assert_throw(
+            auto Lrect = slate::SymmetricMatrix<double>(
+                slate::Uplo::Lower, Arect ),
+            slate::Exception);
+
+        test_assert_throw(
+            auto Urect = slate::SymmetricMatrix<double>(
+                slate::Uplo::Upper, Arect ),
+            slate::Exception);
+    }
 }
 
 //------------------------------------------------------------------------------
+/// Tests SymmetricMatrix( Trapezoid (BaseTrapezoid) A ).
+/// todo: what about Unit diag?
+///
+void test_Symmetric_from_Trapezoid()
+{
+    // todo: when Trapezoid has slice, use it as in test_Symmetric_from_Matrix.
+    // For now, create as square.
+    int64_t min_mn = std::min( m, n );
+
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+    auto L0 = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower, slate::Diag::NonUnit,
+        min_mn, min_mn, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto U0 = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper, slate::Diag::NonUnit,
+        min_mn, min_mn, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    int64_t min_mt_nt = std::min( L0.mt(), L0.nt() );
+
+    // ----------
+    // lower
+    auto L = slate::SymmetricMatrix<double>( L0 );
+    verify_Symmetric( slate::Uplo::Lower, min_mt_nt, min_mn, L );
+
+    // ----------
+    // upper
+    auto U = slate::SymmetricMatrix<double>( U0 );
+    verify_Symmetric( slate::Uplo::Upper, min_mt_nt, min_mn, U );
+
+    // ----------
+    // Rectangular A should fail.
+    if (m != n) {
+        auto L0rect = slate::TrapezoidMatrix<double>::fromLAPACK(
+            slate::Uplo::Lower, slate::Diag::NonUnit,
+            m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+        auto U0rect = slate::TrapezoidMatrix<double>::fromLAPACK(
+            slate::Uplo::Upper, slate::Diag::NonUnit,
+            m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+        test_assert_throw(
+            auto L = slate::SymmetricMatrix<double>( L0rect ),
+            slate::Exception);
+
+        test_assert_throw(
+            auto U = slate::SymmetricMatrix<double>( U0rect ),
+            slate::Exception);
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Tests SymmetricMatrix( Triangular (BaseTrapezoid) A ).
+/// todo: what about Unit diag?
+///
+void test_Symmetric_from_Triangular()
+{
+    int lda = roundup(n, nb);
+    std::vector<double> Ad( lda*n );
+    auto L0 = slate::TriangularMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower, slate::Diag::NonUnit,
+        n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto U0 = slate::TriangularMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper, slate::Diag::NonUnit,
+        n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // ----------
+    // lower
+    auto L = slate::SymmetricMatrix<double>( L0 );
+    verify_Symmetric( slate::Uplo::Lower, L0.mt(), n, L );
+
+    // ----------
+    // upper
+    auto U = slate::SymmetricMatrix<double>( U0 );
+    verify_Symmetric( slate::Uplo::Upper, U0.mt(), n, U );
+}
+
+//------------------------------------------------------------------------------
+/// Tests SymmetricMatrix( Hermitian (BaseTrapezoid) A ).
+///
+void test_Symmetric_from_Hermitian()
+{
+    int lda = roundup(n, nb);
+    std::vector<double> Ad( lda*n );
+    auto L0 = slate::HermitianMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower,
+        n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto U0 = slate::HermitianMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper,
+        n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // ----------
+    // lower
+    auto L = slate::SymmetricMatrix<double>( L0 );
+    verify_Symmetric( slate::Uplo::Lower, L0.mt(), n, L );
+
+    // ----------
+    // upper
+    auto U = slate::SymmetricMatrix<double>( U0 );
+    verify_Symmetric( slate::Uplo::Upper, U0.mt(), n, U );
+}
+
+//==============================================================================
 /// Runs all tests. Called by unit test main().
 void run_tests()
 {
     if (mpi_rank == 0)
-        printf("\nDefault constructors\n");
+        printf("\nConstructors\n");
     run_test(test_SymmetricMatrix,               "SymmetricMatrix()",              mpi_comm);
     run_test(test_SymmetricMatrix_empty,         "SymmetricMatrix(uplo, n, ...)",  mpi_comm);
     run_test(test_SymmetricMatrix_fromLAPACK,    "SymmetricMatrix::fromLAPACK",    mpi_comm);
@@ -318,8 +473,14 @@ void run_tests()
         printf("\nMethods\n");
 
     if (mpi_rank == 0)
-        printf("\nSub-matrices and conversions\n");
-    run_test(test_Symmetric_to_Triangular, "Symmetric => Triangular", mpi_comm);
+        printf("\nSub-matrices\n");
+
+    if (mpi_rank == 0)
+        printf("\nConversion to Symmetric\n");
+    run_test(test_Symmetric_from_Matrix,     "SymmetricMatrix( uplo, Matrix )",     mpi_comm);
+    run_test(test_Symmetric_from_Hermitian,  "SymmetricMatrix( HermitianMatrix )",  mpi_comm);
+    run_test(test_Symmetric_from_Trapezoid,  "SymmetricMatrix( TrapezoidMatrix )",  mpi_comm);
+    run_test(test_Symmetric_from_Triangular, "SymmetricMatrix( TriangularMatrix )", mpi_comm);
 }
 
 //------------------------------------------------------------------------------
@@ -339,21 +500,40 @@ int main(int argc, char** argv)
     m  = 200;
     n  = 100;
     k  = 75;
+    mb = 24;
     nb = 16;
     init_process_grid(mpi_size, &p, &q);
     unsigned seed = time( nullptr ) % 10000;  // 4 digit
-    if (argc > 1) { m  = atoi(argv[1]); }
-    if (argc > 2) { n  = atoi(argv[2]); }
-    if (argc > 3) { k  = atoi(argv[3]); }
-    if (argc > 4) { nb = atoi(argv[4]); }
-    if (argc > 5) { p  = atoi(argv[5]); }
-    if (argc > 6) { q  = atoi(argv[6]); }
-    if (argc > 7) { seed = atoi(argv[7]); }
+
+    // parse command line
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "-m" && i+1 < argc)
+            m = atoi( argv[++i] );
+        else if (arg == "-n" && i+1 < argc)
+            n = atoi( argv[++i] );
+        else if (arg == "-k" && i+1 < argc)
+            k = atoi( argv[++i] );
+        else if (arg == "-mb" && i+1 < argc)
+            mb = atoi( argv[++i] );
+        else if (arg == "-nb" && i+1 < argc)
+            nb = atoi( argv[++i] );
+        else if (arg == "-p" && i+1 < argc)
+            p = atoi( argv[++i] );
+        else if (arg == "-q" && i+1 < argc)
+            q = atoi( argv[++i] );
+        else if (arg == "-seed" && i+1 < argc)
+            seed = atoi( argv[++i] );
+        else if (arg == "-v")
+            verbose++;
+        else {
+            printf( "unknown argument: %s\n", argv[i] );
+            return 1;
+        }
+    }
     if (mpi_rank == 0) {
-        printf("Usage: %s %4s %4s %4s %4s %4s %4s %4s\n"
-               "       %s %4d %4d %4d %4d %4d %4d %4u\n"
+        printf("Usage: %s [-m %d] [-n %d] [-k %d] [-nb %d] [-p %d] [-q %d] [-seed %d] [-v]\n"
                "num_devices = %d\n",
-               argv[0], "m", "n", "k", "nb", "p", "q", "seed",
                argv[0], m, n, k, nb, p, q, seed,
                num_devices);
     }

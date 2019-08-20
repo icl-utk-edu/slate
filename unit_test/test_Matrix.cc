@@ -38,10 +38,6 @@
 //------------------------------------------------------------------------------
 
 #include "slate/Matrix.hh"
-#include "slate/HermitianMatrix.hh"
-#include "slate/SymmetricMatrix.hh"
-#include "slate/TrapezoidMatrix.hh"
-#include "slate/TriangularMatrix.hh"
 #include "slate/internal/util.hh"
 
 #include "unit_test.hh"
@@ -1276,13 +1272,10 @@ static void test_Matrix_slice()
 }; // class Debug
 }  // namespace slate
 
-//==============================================================================
-// Conversions
-
 //------------------------------------------------------------------------------
 /// Tests Matrix( orig, i1, i2, j1, j2 ).
 /// Does the same thing as A.sub( i1, i2, j1, j2 ), just more verbose.
-void test_Matrix_to_Matrix()
+void test_Matrix_sub_Matrix()
 {
     int lda = roundup(m, mb);
     std::vector<double> Ad( lda*n );
@@ -1313,261 +1306,8 @@ void test_Matrix_to_Matrix()
     }
 }
 
-//------------------------------------------------------------------------------
-/// Tests TrapezoidMatrix( uplo, diag, A ),
-///       TrapezoidMatrix( uplo, diag, A, i1, i2, j1, j2 ).
-void test_Matrix_to_Trapezoid()
-{
-    int lda = roundup(m, nb);
-    std::vector<double> Ad( lda*n );
-    auto A = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
-
-    // lower
-    auto L = slate::TrapezoidMatrix<double>(
-        slate::Uplo::Lower, slate::Diag::NonUnit, A );
-
-    test_assert( L.mt() == A.mt() );
-    test_assert( L.nt() == A.nt() );
-    for (int j = 0; j < L.nt(); ++j) {
-        for (int i = j; i < L.mt(); ++i) {  // lower
-            if (L.tileIsLocal(i, j)) {
-                if (i == j)
-                    test_assert( L(i, j).uplo() == slate::Uplo::Lower );
-                else
-                    test_assert( L(i, j).uplo() == slate::Uplo::General );
-            }
-        }
-    }
-
-    // upper
-    auto U = slate::TrapezoidMatrix<double>(
-        slate::Uplo::Upper, slate::Diag::NonUnit, A );
-
-    test_assert( U.mt() == A.mt() );
-    test_assert( U.nt() == A.nt() );
-    for (int j = 0; j < U.nt(); ++j) {
-        for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
-            if (U.tileIsLocal(i, j)) {
-                if (i == j)
-                    test_assert( U(i, j).uplo() == slate::Uplo::Upper );
-                else
-                    test_assert( U(i, j).uplo() == slate::Uplo::General );
-            }
-        }
-    }
-
-    // ----------
-    // sub-matrix
-    int i1 = rand() % A.mt();
-    int i2 = rand() % A.mt();
-    int j1 = rand() % A.nt();
-    int j2 = rand() % A.nt();
-    if (i1 > i2)
-        std::swap( i1, i2 );
-    if (j1 > j2)
-        std::swap( j1, j2 );
-
-    // lower, sub-matrix
-    auto L2 = slate::TrapezoidMatrix<double>(
-        slate::Uplo::Lower, slate::Diag::NonUnit, A, i1, i2, j1, j2 );
-
-    test_assert( L2.mt() == i2 - i1 + 1 );
-    test_assert( L2.nt() == j2 - j1 + 1);
-
-    // upper, sub-matrix
-    auto U2 = slate::TrapezoidMatrix<double>(
-        slate::Uplo::Upper , slate::Diag::NonUnit, A, i1, i2, j1, j2 );
-    test_assert( U2.mt() == i2 - i1 + 1 );
-    test_assert( U2.nt() == j2 - j1 + 1 );
-
-    // ----------
-    // rectangular tile should fail
-    auto Arect = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
-
-    test_assert_throw(
-        auto Lrect = slate::TrapezoidMatrix<double>(
-            slate::Uplo::Lower, slate::Diag::NonUnit, Arect ),
-        slate::Exception);
-}
-
-//------------------------------------------------------------------------------
-/// Tests TriangularMatrix( uplo, diag, A ),
-///       TriangularMatrix( uplo, diag, A, i1, i2, j1, j2 ).
-void test_Matrix_to_Triangular()
-{
-    int lda = roundup(m, nb);
-    std::vector<double> Ad( lda*n );
-    auto A = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
-
-    // lower
-    auto L = slate::TriangularMatrix<double>(
-        slate::Uplo::Lower, slate::Diag::NonUnit, A );
-
-    test_assert( L.mt() == std::min( A.mt(), A.nt() ) );
-    test_assert( L.nt() == std::min( A.mt(), A.nt() ) );
-    for (int j = 0; j < L.nt(); ++j) {
-        for (int i = j; i < L.mt(); ++i) {  // lower
-            if (L.tileIsLocal(i, j)) {
-                if (i == j)
-                    test_assert( L(i, j).uplo() == slate::Uplo::Lower );
-                else
-                    test_assert( L(i, j).uplo() == slate::Uplo::General );
-            }
-        }
-    }
-
-    // upper
-    auto U = slate::TriangularMatrix<double>(
-        slate::Uplo::Upper, slate::Diag::NonUnit, A );
-
-    test_assert( U.mt() == std::min( A.mt(), A.nt() ) );
-    test_assert( U.nt() == std::min( A.mt(), A.nt() ) );
-    for (int j = 0; j < U.nt(); ++j) {
-        for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
-            if (U.tileIsLocal(i, j)) {
-                if (i == j)
-                    test_assert( U(i, j).uplo() == slate::Uplo::Upper );
-                else
-                    test_assert( U(i, j).uplo() == slate::Uplo::General );
-            }
-        }
-    }
-
-    // ----------
-    // sub-matrix, must be square
-    int i1 = rand() % A.mt();
-    int j1 = rand() % A.nt();
-    int n2 = rand() % std::min( A.mt() - i1, A.nt() - j1 );
-    int i2 = i1 + n2 - 1;
-    int j2 = j1 + n2 - 1;
-
-    // lower, sub-matrix
-    auto L2 = slate::TriangularMatrix<double>(
-        slate::Uplo::Lower, slate::Diag::NonUnit, A, i1, i2, j1, j2 );
-
-    test_assert( L2.mt() == i2 - i1 + 1 );
-    test_assert( L2.nt() == j2 - j1 + 1 );
-
-    // upper, sub-matrix
-    auto U2 = slate::TriangularMatrix<double>(
-        slate::Uplo::Upper, slate::Diag::NonUnit, A, i1, i2, j1, j2 );
-
-    test_assert( U2.mt() == i2 - i1 + 1 );
-    test_assert( U2.nt() == j2 - j1 + 1 );
-
-    // ----------
-    // rectangular tile should fail
-    auto Arect = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
-
-    test_assert_throw(
-        auto Lrect = slate::TriangularMatrix<double>(
-            slate::Uplo::Lower, slate::Diag::NonUnit, Arect ),
-        slate::Exception);
-}
-
-//------------------------------------------------------------------------------
-/// Tests SymmetricMatrix( uplo, diag, A ).
-void test_Matrix_to_Symmetric()
-{
-    int lda = roundup(m, nb);
-    std::vector<double> Ad( lda*n );
-    auto A = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
-
-    // lower
-    auto L = slate::SymmetricMatrix<double>(
-        slate::Uplo::Lower, A );
-
-    for (int j = 0; j < L.nt(); ++j) {
-        for (int i = j; i < L.mt(); ++i) {  // lower
-            if (L.tileIsLocal(i, j)) {
-                if (i == j)
-                    test_assert( L(i, j).uplo() == slate::Uplo::Lower );
-                else
-                    test_assert( L(i, j).uplo() == slate::Uplo::General );
-            }
-        }
-    }
-
-    // upper
-    auto U = slate::SymmetricMatrix<double>(
-        slate::Uplo::Upper, A );
-
-    for (int j = 0; j < U.nt(); ++j) {
-        for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
-            if (U.tileIsLocal(i, j)) {
-                if (i == j)
-                    test_assert( U(i, j).uplo() == slate::Uplo::Upper );
-                else
-                    test_assert( U(i, j).uplo() == slate::Uplo::General );
-            }
-        }
-    }
-
-    // ----------
-    // rectangular tile should fail
-    auto Arect = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
-
-    test_assert_throw(
-        auto Lrect = slate::SymmetricMatrix<double>(
-            slate::Uplo::Lower, Arect ),
-        slate::Exception);
-}
-
-//------------------------------------------------------------------------------
-/// Tests HermitianMatrix( uplo, diag, A ).
-void test_Matrix_to_Hermitian()
-{
-    int lda = roundup(m, nb);
-    std::vector<double> Ad( lda*n );
-    auto A = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
-
-    // lower
-    auto L = slate::HermitianMatrix<double>(
-        slate::Uplo::Lower, A );
-
-    for (int j = 0; j < L.nt(); ++j) {
-        for (int i = j; i < L.mt(); ++i) {  // lower
-            if (L.tileIsLocal(i, j)) {
-                if (i == j)
-                    test_assert( L(i, j).uplo() == slate::Uplo::Lower );
-                else
-                    test_assert( L(i, j).uplo() == slate::Uplo::General );
-            }
-        }
-    }
-
-    // upper
-    auto U = slate::HermitianMatrix<double>(
-        slate::Uplo::Upper, A );
-
-    for (int j = 0; j < U.nt(); ++j) {
-        for (int i = 0; i <= j && i < U.mt(); ++i) {  // upper
-            if (U.tileIsLocal(i, j)) {
-                if (i == j)
-                    test_assert( U(i, j).uplo() == slate::Uplo::Upper );
-                else
-                    test_assert( U(i, j).uplo() == slate::Uplo::General );
-            }
-        }
-    }
-
-    // ----------
-    // rectangular tile should fail
-    auto Arect = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
-
-    test_assert_throw(
-        auto Lrect = slate::HermitianMatrix<double>(
-            slate::Uplo::Lower, Arect ),
-        slate::Exception);
-}
+//==============================================================================
+// Communication
 
 //------------------------------------------------------------------------------
 void test_tileSend_tileRecv()
@@ -1861,8 +1601,6 @@ void test_Matrix_tileLayoutConvert()
 //     comm_stream
 //
 // Matrix
-//     Matrix(orig, i1, i2, j1, j2)
-// x   sub(i1, i2, j1, j2)
 // x   swap
 //     getMaxHostTiles
 //     getMaxDeviceTiles
@@ -1870,7 +1608,7 @@ void test_Matrix_tileLayoutConvert()
 //     reserveDeviceWorkspace
 //     gather
 
-//------------------------------------------------------------------------------
+//==============================================================================
 /// Runs all tests. Called by unit test main().
 void run_tests()
 {
@@ -1906,14 +1644,7 @@ void run_tests()
     run_test(test_Matrix_sub,                 "Matrix::sub",      mpi_comm);
     run_test(test_Matrix_sub_trans,           "Matrix::sub(A^T)", mpi_comm);
     run_test(slate::Debug::test_Matrix_slice, "Matrix::slice",    mpi_comm);
-
-    if (mpi_rank == 0)
-        printf("\nConversions\n");
-    run_test(test_Matrix_to_Matrix,       "Matrix => Matrix",           mpi_comm);
-    run_test(test_Matrix_to_Trapezoid,    "Matrix => TrapezoidMatrix",  mpi_comm);
-    run_test(test_Matrix_to_Triangular,   "Matrix => TriangularMatrix", mpi_comm);
-    run_test(test_Matrix_to_Symmetric,    "Matrix => SymmetricMatrix",  mpi_comm);
-    run_test(test_Matrix_to_Hermitian,    "Matrix => HermitianMatrix",  mpi_comm);
+    run_test(test_Matrix_sub_Matrix,          "Matrix(orig, i1, i2, j1, j2)", mpi_comm);
 
     if (mpi_rank == 0)
         printf("\nCommunication\n");

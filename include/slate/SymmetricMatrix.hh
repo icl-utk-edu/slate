@@ -295,7 +295,7 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
 /// [explicit]
 /// Conversion from trapezoid, triangular, symmetric, or Hermitian matrix
 /// creates a shallow copy view of the original matrix.
-/// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+/// Orig must be square -- slice beforehand if needed.
 ///
 /// @param[in,out] orig
 ///     Original matrix.
@@ -305,14 +305,17 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
     BaseTrapezoidMatrix<scalar_t>& orig)
     : BaseTrapezoidMatrix<scalar_t>(
           orig,
-          0, std::min(orig.mt()-1, orig.nt()-1),
-          0, std::min(orig.mt()-1, orig.nt()-1))
-{}
+          0, orig.mt()-1,
+          0, orig.nt()-1)
+{
+    slate_assert(orig.mt() == orig.nt());
+    slate_assert(orig.m() == orig.n());
+}
 
 //------------------------------------------------------------------------------
 /// Conversion from general matrix
 /// creates a shallow copy view of the original matrix.
-/// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+/// Orig must be square -- slice beforehand if needed.
 ///
 /// @param[in] in_uplo
 ///     - Upper: upper triangle of A is stored.
@@ -326,9 +329,12 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
     Uplo uplo, Matrix<scalar_t>& orig)
     : BaseTrapezoidMatrix<scalar_t>(
           uplo, orig,
-          0, std::min(orig.mt()-1, orig.nt()-1),
-          0, std::min(orig.mt()-1, orig.nt()-1))
-{}
+          0, orig.mt()-1,
+          0, orig.nt()-1)
+{
+    slate_assert(orig.mt() == orig.nt());
+    slate_assert(orig.m() == orig.n());
+}
 
 //------------------------------------------------------------------------------
 /// Sub-matrix constructor creates shallow copy view of parent matrix,

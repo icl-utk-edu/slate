@@ -11,6 +11,8 @@
 // get BLAS_FORTRAN_NAME and blas_int
 #include "blas_fortran.hh"
 
+#include "slate/Exception.hh"
+
 #include <complex>
 #include <limits>
 

@@ -504,6 +504,20 @@ $(libslate_so): $(libslate_obj) $(libblaspp) $(liblapackpp)
 lib: $(libslate)
 
 #-------------------------------------------------------------------------------
+# headers
+# precompile headers to verify self-sufficiency
+headers     = $(wildcard include/*/*.hh test/*.hh)
+headers_gch = $(addsuffix .gch, $(basename $(headers)))
+
+headers: $(headers_gch)
+
+# sub-directory rules
+include: headers
+
+include/clean:
+	$(RM) include/*/*.gch test/*.gch
+
+#-------------------------------------------------------------------------------
 # main tester
 test: $(test)
 
@@ -629,7 +643,7 @@ $(lapack_api_so): $(lapack_api_obj) $(libslate)
 
 #-------------------------------------------------------------------------------
 # general rules
-clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean
+clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean include/clean
 	rm -f $(libslate_a) $(libslate_so) $(libslate_obj)
 	rm -f trace_*.svg
 
@@ -646,12 +660,14 @@ distclean: clean
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
 # preprocess source
+# test/%.i depend on libtest; for simplicity just add it here.
 %.i: %.cc
-	$(CXX) $(CXXFLAGS) -E $< -o $@
+	$(CXX) $(CXXFLAGS) -I./libtest -E $< -o $@
 
 # precompile header to check for errors
+# test/%.gch depend on libtest; for simplicity just add it here.
 %.gch: %.hh
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -I./libtest -c $< -o $@
 
 -include $(dep)
 

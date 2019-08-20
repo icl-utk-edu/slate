@@ -6,6 +6,8 @@
 #include <lapack.hh>
 #include <slate/internal/cublas.hh>
 
+#include "scalapack_wrappers.hh"
+
 //------------------------------------------------------------------------------
 /// Indices for ScaLAPACK descriptor
 /// 0:  dtype:   1 for dense

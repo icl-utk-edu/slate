@@ -16,7 +16,7 @@ abs_error(std::vector<T1>& x, std::vector<T2>& xref)
     using real_t = blas::real_type< T1, T2 >;
 
     if (x.size() != xref.size()) {
-        return std::numeric_limits<blas_int>::quiet_NaN();
+        return std::numeric_limits<T1>::quiet_NaN();
     }
     real_t tmp;
     real_t diff = 0;
@@ -37,7 +37,7 @@ rel_error(std::vector<T1>& x, std::vector<T2>& xref)
     using real_t = blas::real_type< T1, T2 >;
 
     if (x.size() != xref.size()) {
-        return std::numeric_limits<blas_int>::quiet_NaN();
+        return std::numeric_limits<T1>::quiet_NaN();
     }
     real_t tmp;
     real_t diff = 0;

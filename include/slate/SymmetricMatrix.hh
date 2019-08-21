@@ -91,6 +91,8 @@ public:
     // off-diagonal sub-matrix
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
 
+    SymmetricMatrix slice(int64_t index1, int64_t index2);
+
 protected:
     // used by fromLAPACK and fromScaLAPACK
     SymmetricMatrix(Uplo uplo, int64_t n,
@@ -105,6 +107,10 @@ protected:
     // used by on-diagonal sub(i1, i2)
     SymmetricMatrix(SymmetricMatrix& orig,
                     int64_t i1, int64_t i2);
+
+    // used by slice
+    SymmetricMatrix(SymmetricMatrix& orig,
+                    typename BaseMatrix<scalar_t>::Slice slice);
 
 public:
     template <typename T>
@@ -398,6 +404,43 @@ Matrix<scalar_t> SymmetricMatrix<scalar_t>::sub(
     int64_t j1, int64_t j2)
 {
     return BaseTrapezoidMatrix<scalar_t>::sub(i1, i2, j1, j2);
+}
+
+//------------------------------------------------------------------------------
+/// Sliced matrix constructor creates shallow copy view of parent matrix,
+/// A[ row1:row2, col1:col2 ].
+/// This takes row & col indices instead of block row & block col indices.
+/// Assumes that row1 == col1 and row2 == col2 (@see slice()).
+///
+/// @param[in] orig
+///     Original matrix of which to make sub-matrix.
+///
+/// @param[in] slice
+///     Contains start and end row and column indices.
+///
+template <typename scalar_t>
+SymmetricMatrix<scalar_t>::SymmetricMatrix(
+    SymmetricMatrix<scalar_t>& orig, typename BaseMatrix<scalar_t>::Slice slice)
+    : BaseTrapezoidMatrix<scalar_t>(orig, slice)
+{}
+
+//------------------------------------------------------------------------------
+/// Returns sliced matrix that is a shallow copy view of the
+/// parent matrix, A[ index1:index2, index1:index2 ].
+/// This takes row & col indices instead of block row & block col indices.
+///
+/// @param[in] index1
+///     Starting row and col index. 0 <= index1 < n.
+///
+/// @param[in] index2
+///     Ending row and col index (inclusive). index1 <= index2 < n.
+///
+template <typename scalar_t>
+SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::slice(
+    int64_t index1, int64_t index2)
+{
+    return SymmetricMatrix<scalar_t>(*this,
+        typename BaseMatrix<scalar_t>::Slice(index1, index2, index1, index2));
 }
 
 //------------------------------------------------------------------------------

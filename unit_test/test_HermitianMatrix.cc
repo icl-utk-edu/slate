@@ -285,6 +285,319 @@ void test_HermitianMatrix_fromDevices()
 // Sub-matrices and conversions
 
 //------------------------------------------------------------------------------
+/// Tests A.sub( i1, i2 ).
+///
+void test_Hermitian_sub()
+{
+    int lda = roundup(n, nb);
+    std::vector<double> Ad( lda*n );
+
+    auto L = slate::HermitianMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto U = slate::HermitianMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // Mark tiles so they're identifiable.
+    for (int j = 0; j < L.nt(); ++j) {
+        for (int i = j; i < L.mt(); ++i) { // lower
+            if (L.tileIsLocal(i, j)) {
+                L(i, j).at(0, 0) = i + j / 10000.;
+            }
+        }
+    }
+
+    for (int j = 0; j < U.nt(); ++j) {
+        for (int i = 0; i <= j && i < U.mt(); ++i) { // upper
+            if (U.tileIsLocal(i, j)) {
+                U(i, j).at(0, 0) = i + j / 10000.;
+            }
+        }
+    }
+
+    // Arbitrary regions. 70% of time, set i1 <= i2.
+    // i1 > i2 are empty matrices.
+    for (int cnt = 0; cnt < 10; ++cnt) {
+        int i1 = rand() % L.mt();
+        int i2 = rand() % L.mt();
+        if (rand() / double(RAND_MAX) <= 0.7) {
+            if (i2 < i1)
+                std::swap( i1, i2 );
+        }
+
+        auto Lsub = L.sub( i1, i2 );
+        test_assert( Lsub.mt() == std::max( i2 - i1 + 1, 0 ) );
+        test_assert( Lsub.nt() == Lsub.mt() );
+        test_assert( Lsub.op() == slate::Op::NoTrans );
+        test_assert( Lsub.uplo() == slate::Uplo::Lower );
+        for (int j = 0; j < Lsub.nt(); ++j) {
+            for (int i = j; i < Lsub.mt(); ++i) { // lower
+                if (Lsub.tileIsLocal(i, j)) {
+                    test_assert( Lsub(i, j).at(0, 0)
+                            == (i1 + i) + (i1 + j) / 10000. );
+                    test_assert( Lsub(i, j).op() == slate::Op::NoTrans );
+                    if (i == j)
+                        test_assert( Lsub(i, j).uplo() == slate::Uplo::Lower );
+                    else
+                        test_assert( Lsub(i, j).uplo() == slate::Uplo::General );
+                }
+            }
+        }
+
+        auto Usub = U.sub( i1, i2 );
+        test_assert( Usub.mt() == std::max( i2 - i1 + 1, 0 ) );
+        test_assert( Usub.nt() == Usub.mt() );
+        test_assert( Usub.op() == slate::Op::NoTrans );
+        test_assert( Usub.uplo() == slate::Uplo::Upper );
+        for (int j = 0; j < Usub.nt(); ++j) {
+            for (int i = 0; i <= j && i < Usub.mt(); ++i) { // upper
+                if (Usub.tileIsLocal(i, j)) {
+                    test_assert( Usub(i, j).at(0, 0)
+                            == (i1 + i) + (i1 + j) / 10000. );
+                    test_assert( Usub(i, j).op() == slate::Op::NoTrans );
+                    if (i == j)
+                        test_assert( Usub(i, j).uplo() == slate::Uplo::Upper );
+                    else
+                        test_assert( Usub(i, j).uplo() == slate::Uplo::General );
+                }
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Tests transpose( A ).sub( i1, i2 ).
+///
+void test_Hermitian_sub_trans()
+{
+    int lda = roundup(n, nb);
+    std::vector<double> Ad( lda*n );
+
+    auto L = slate::HermitianMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto U = slate::HermitianMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // Mark tiles so they're identifiable.
+    for (int j = 0; j < L.nt(); ++j) {
+        for (int i = j; i < L.mt(); ++i) { // lower
+            if (L.tileIsLocal(i, j)) {
+                L(i, j).at(0, 0) = i + j / 10000.;
+            }
+        }
+    }
+
+    for (int j = 0; j < U.nt(); ++j) {
+        for (int i = 0; i <= j && i < U.mt(); ++i) { // upper
+            if (U.tileIsLocal(i, j)) {
+                U(i, j).at(0, 0) = i + j / 10000.;
+            }
+        }
+    }
+
+    auto LT = transpose( L );
+    auto UT = transpose( U );
+
+    // Remove 1st block row & col.
+    auto L2 = LT.sub( 1, LT.mt()-1 );
+    test_assert( L2.mt() == LT.mt()-1 );
+    test_assert( L2.nt() == LT.nt()-1 );
+
+    auto U2 = UT.sub( 1, UT.mt()-1 );
+    test_assert( U2.mt() == UT.mt()-1 );
+    test_assert( U2.nt() == UT.nt()-1 );
+
+    // Arbitrary regions. 70% of time, set i1 <= i2.
+    // i1 > i2 are empty matrices.
+    for (int cnt = 0; cnt < 10; ++cnt) {
+        int i1 = rand() % LT.mt();
+        int i2 = rand() % LT.mt();
+        if (rand() / double(RAND_MAX) <= 0.7) {
+            if (i2 < i1)
+                std::swap( i1, i2 );
+        }
+
+        auto Lsub = LT.sub( i1, i2 );
+        test_assert( Lsub.mt() == std::max( i2 - i1 + 1, 0 ) );
+        test_assert( Lsub.nt() == Lsub.mt() );
+        test_assert( Lsub.op() == slate::Op::Trans );
+        test_assert( Lsub.uplo() == slate::Uplo::Upper );
+        for (int j = 0; j < Lsub.nt(); ++j) {
+            for (int i = 0; i <= j && i < Lsub.mt(); ++i) { // upper (trans)
+                if (Lsub.tileIsLocal(i, j)) {
+                    test_assert( Lsub(i, j).at(0, 0)
+                            == (i1 + j) + (i1 + i) / 10000. );  // trans
+                    test_assert( Lsub(i, j).op() == slate::Op::Trans );
+                    if (i == j)
+                        test_assert( Lsub(i, j).uplo() == slate::Uplo::Upper );
+                    else
+                        test_assert( Lsub(i, j).uplo() == slate::Uplo::General );
+                }
+            }
+        }
+
+        auto Usub = UT.sub( i1, i2 );
+        test_assert( Usub.mt() == std::max( i2 - i1 + 1, 0 ) );
+        test_assert( Usub.nt() == Usub.mt() );
+        test_assert( Usub.op() == slate::Op::Trans );
+        test_assert( Usub.uplo() == slate::Uplo::Lower );
+        for (int j = 0; j < Usub.nt(); ++j) {
+            for (int i = j; i < Usub.mt(); ++i) { // lower (trans)
+                if (Usub.tileIsLocal(i, j)) {
+                    test_assert( Usub(i, j).at(0, 0)
+                            == (i1 + j) + (i1 + i) / 10000. );  // trans
+                    test_assert( Usub(i, j).op() == slate::Op::Trans );
+                    if (i == j)
+                        test_assert( Usub(i, j).uplo() == slate::Uplo::Lower );
+                    else
+                        test_assert( Usub(i, j).uplo() == slate::Uplo::General );
+                }
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Tests A.slice( i1, i2 ).
+///
+void test_Hermitian_slice()
+{
+    int lda = roundup(n, nb);
+    std::vector<double> Ad( lda*n );
+
+    auto L = slate::HermitianMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto U = slate::HermitianMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // Mark entries so they're identifiable.
+    for (int j = 0; j < L.nt(); ++j) {
+        for (int i = j; i < L.mt(); ++i) { // lower
+            if (L.tileIsLocal(i, j)) {
+                auto T = L(i, j);
+                for (int jj = 0; jj < T.nb(); ++jj)
+                    for (int ii = 0; ii < T.mb(); ++ii)
+                        T.at(ii, jj) = (i*nb + ii) + (j*nb + jj) / 10000.;
+            }
+        }
+    }
+
+    for (int j = 0; j < U.nt(); ++j) {
+        for (int i = 0; i <= j && i < U.mt(); ++i) { // upper
+            if (U.tileIsLocal(i, j)) {
+                auto T = U(i, j);
+                for (int jj = 0; jj < T.nb(); ++jj)
+                    for (int ii = 0; ii < T.mb(); ++ii)
+                        T.at(ii, jj) = (i*nb + ii) + (j*nb + jj) / 10000.;
+            }
+        }
+    }
+
+    // Arbitrary regions.
+    // Currently, enforce i2 >= i1.
+    // todo: allow i2 < i1 for empty matrix, as in test_Hermitian_sub?
+    for (int cnt = 0; cnt < 10; ++cnt) {
+        int index1 = rand() % n;
+        int index2 = rand() % n;
+        if (index2 < index1)
+            std::swap( index1, index2 );
+
+        // Get block index for row/col index.
+        int i1 = index1 / nb;
+        int i2 = index2 / nb;
+        //printf( "  index1 %d (%d), index2 %d (%d)\n", index1, i1, index2, i2 );
+
+        auto Lslice = L.slice( index1, index2 );
+        test_assert( Lslice.m() == std::max( index2 - index1 + 1, 0 ) );
+        test_assert( Lslice.n() == Lslice.m() );
+        test_assert( Lslice.mt() == i2 - i1 + 1 );
+        test_assert( Lslice.nt() == i2 - i1 + 1 );
+        test_assert( Lslice.op() == slate::Op::NoTrans );
+        test_assert( Lslice.uplo() == slate::Uplo::Lower );
+        for (int j = 0; j < Lslice.nt(); ++j) {
+            for (int i = j; i < Lslice.mt(); ++i) { // lower
+                if (Lslice.tileIsLocal(i, j)) {
+                    // First block row/col starts at index1;
+                    // other block row/col start at multiples of nb.
+                    int row = (i == 0 ? index1 : (i + i1)*nb);
+                    int col = (j == 0 ? index1 : (j + i1)*nb);
+                    auto T = Lslice(i, j);
+                    test_assert( T.at(0, 0) == row + col / 10000. );
+                    test_assert( T.op() == slate::Op::NoTrans );
+                    if (i == j)
+                        test_assert( T.uplo() == slate::Uplo::Lower );
+                    else
+                        test_assert( T.uplo() == slate::Uplo::General );
+
+                    // First and last block rows may be short; row may be both.
+                    int mb_ = nb;
+                    if (i == Lslice.mt()-1)
+                        mb_ = index2 % nb + 1;
+                    if (i == 0)
+                        mb_ = mb_ - index1 % nb;
+                    //printf( "    lower i %d, j %d, mb_ %d, mb %lld\n", i, j, mb_, T.mb() );
+                    test_assert( T.mb() == mb_ );
+
+                    // First and last block cols may be short; col may be both.
+                    int nb_ = nb;
+                    if (j == Lslice.nt()-1)
+                        nb_ = index2 % nb + 1;
+                    if (j == 0)
+                        nb_ = nb_ - index1 % nb;
+                    //printf( "    lower i %d, j %d, nb_ %d, nb %lld\n", i, j, nb_, T.nb() );
+                    test_assert( T.nb() == nb_ );
+                }
+            }
+        }
+
+        auto Uslice = U.slice( index1, index2 );
+        test_assert( Uslice.m() == std::max( index2 - index1 + 1, 0 ) );
+        test_assert( Uslice.n() == Uslice.m() );
+        test_assert( Uslice.mt() == i2 - i1 + 1 );
+        test_assert( Uslice.nt() == i2 - i1 + 1 );
+        test_assert( Uslice.op() == slate::Op::NoTrans );
+        test_assert( Uslice.uplo() == slate::Uplo::Upper );
+        for (int j = 0; j < Uslice.nt(); ++j) {
+            for (int i = 0; i <= j && i < Uslice.mt(); ++i) { // upper
+                if (Uslice.tileIsLocal(i, j)) {
+                    // First block row/col starts at index1;
+                    // other block row/col start at multiples of nb.
+                    int row = (i == 0 ? index1 : (i + i1)*nb);
+                    int col = (j == 0 ? index1 : (j + i1)*nb);
+                    auto T = Uslice(i, j);
+                    test_assert( T.at(0, 0) == row + col / 10000. );
+                    test_assert( T.op() == slate::Op::NoTrans );
+                    if (i == j)
+                        test_assert( T.uplo() == slate::Uplo::Upper );
+                    else
+                        test_assert( T.uplo() == slate::Uplo::General );
+
+                    // First and last block rows may be short; row may be both.
+                    int mb_ = nb;
+                    if (i == Uslice.mt()-1)
+                        mb_ = index2 % nb + 1;
+                    if (i == 0)
+                        mb_ = mb_ - index1 % nb;
+                    //printf( "    lower i %d, j %d, mb_ %d, mb %lld\n", i, j, mb_, T.mb() );
+                    test_assert( T.mb() == mb_ );
+
+                    // First and last block cols may be short; col may be both.
+                    int nb_ = nb;
+                    if (j == Uslice.nt()-1)
+                        nb_ = index2 % nb + 1;
+                    if (j == 0)
+                        nb_ = nb_ - index1 % nb;
+                    //printf( "    lower i %d, j %d, nb_ %d, nb %lld\n", i, j, nb_, T.nb() );
+                    test_assert( T.nb() == nb_ );
+                }
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
 void test_Hermitian_to_Triangular()
 {
     int lda = roundup(n, nb);
@@ -344,6 +657,9 @@ void run_tests()
 
     if (mpi_rank == 0)
         printf("\nSub-matrices and conversions\n");
+    run_test(test_Hermitian_sub,           "Hermitian::sub",          mpi_comm);
+    run_test(test_Hermitian_sub_trans,     "Hermitian::sub(A^T)",     mpi_comm);
+    run_test(test_Hermitian_slice,         "Hermitian::slice",        mpi_comm);
     run_test(test_Hermitian_to_Triangular, "Hermitian => Triangular", mpi_comm);
 }
 

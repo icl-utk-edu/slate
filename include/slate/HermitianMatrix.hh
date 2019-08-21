@@ -90,6 +90,8 @@ public:
 
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
 
+    HermitianMatrix slice(int64_t index1, int64_t index2);
+
     template <typename out_scalar_t=scalar_t>
     HermitianMatrix<out_scalar_t> emptyLike();
 
@@ -107,6 +109,10 @@ protected:
     // used by sub
     HermitianMatrix(HermitianMatrix& orig,
                     int64_t i1, int64_t i2);
+
+    // used by slice
+    HermitianMatrix(HermitianMatrix& orig,
+                    typename BaseMatrix<scalar_t>::Slice slice);
 
 public:
     template <typename T>
@@ -400,6 +406,43 @@ Matrix<scalar_t> HermitianMatrix<scalar_t>::sub(
     int64_t j1, int64_t j2)
 {
     return BaseTrapezoidMatrix<scalar_t>::sub(i1, i2, j1, j2);
+}
+
+//------------------------------------------------------------------------------
+/// Sliced matrix constructor creates shallow copy view of parent matrix,
+/// A[ row1:row2, col1:col2 ].
+/// This takes row & col indices instead of block row & block col indices.
+/// Assumes that row1 == col1 and row2 == col2 (@see slice()).
+///
+/// @param[in] orig
+///     Original matrix of which to make sub-matrix.
+///
+/// @param[in] slice
+///     Contains start and end row and column indices.
+///
+template <typename scalar_t>
+HermitianMatrix<scalar_t>::HermitianMatrix(
+    HermitianMatrix<scalar_t>& orig, typename BaseMatrix<scalar_t>::Slice slice)
+    : BaseTrapezoidMatrix<scalar_t>(orig, slice)
+{}
+
+//------------------------------------------------------------------------------
+/// Returns sliced matrix that is a shallow copy view of the
+/// parent matrix, A[ index1:index2, index1:index2 ].
+/// This takes row & col indices instead of block row & block col indices.
+///
+/// @param[in] index1
+///     Starting row and col index. 0 <= index1 < n.
+///
+/// @param[in] index2
+///     Ending row and col index (inclusive). index1 <= index2 < n.
+///
+template <typename scalar_t>
+HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::slice(
+    int64_t index1, int64_t index2)
+{
+    return HermitianMatrix<scalar_t>(*this,
+        typename BaseMatrix<scalar_t>::Slice(index1, index2, index1, index2));
 }
 
 //------------------------------------------------------------------------------

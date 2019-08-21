@@ -97,10 +97,14 @@ protected:
                         int64_t i1, int64_t i2,
                         int64_t j1, int64_t j2);
 
-    // used by sub
+    // used by sub-classes' sub
     BaseTrapezoidMatrix(BaseTrapezoidMatrix& orig,
                         int64_t i1, int64_t i2,
                         int64_t j1, int64_t j2);
+
+    // used by sub-classes' slice
+    BaseTrapezoidMatrix(BaseTrapezoidMatrix& orig,
+                        typename BaseMatrix<scalar_t>::Slice slice);
 
 public:
     template <typename T>
@@ -389,6 +393,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 }
 
 //------------------------------------------------------------------------------
+/// Used by sub-classes' off-diagonal sub.
 /// Conversion from general matrix, sub-matrix constructor
 /// creates shallow copy view of original matrix, A[ i1:i2, j1:j2 ].
 ///
@@ -429,6 +434,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 }
 
 //------------------------------------------------------------------------------
+/// Used by sub-classes' sub.
 /// Sub-matrix constructor creates shallow copy view of parent matrix,
 /// A[ i1:i2, j1:j2 ]. The new view is still a trapezoid matrix.
 /// If lower, requires i1 >= j1 and (i2 - i1) >= (j2 - j1).
@@ -466,6 +472,38 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
         // Upper
         if (i1 > j1 || (i2 - i1) > (j2 - j1))
             throw std::exception();
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Used by sub-classes' slice.
+/// Sliced sub-matrix constructor creates shallow copy view of parent matrix,
+/// A[ row1:row2, col1:col2 ]. The new view is still a trapezoid matrix.
+/// If lower, requires row1 >= col1 and row2 >= col2.
+/// If upper, requires row1 <= col1 and row2 <= col2.
+/// If row1 == col1, it has the same diagonal as the parent matrix.
+///
+/// @param[in] orig
+///     Original matrix.
+///
+/// @param[in] slice
+///     Contains start and end row and column indices.
+///
+template <typename scalar_t>
+BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
+    BaseTrapezoidMatrix& orig,
+    typename BaseMatrix<scalar_t>::Slice slice)
+    : BaseMatrix<scalar_t>(orig, slice)
+{
+    this->uplo_ = orig.uplo_;
+    if (this->uplo_ == Uplo::Lower) {
+        slate_assert(slice.row1 >= slice.col1 &&
+                     slice.row2 >= slice.col2);
+    }
+    else {
+        // Upper
+        slate_assert(slice.row1 <= slice.col1 &&
+                     slice.row2 <= slice.col2);
     }
 }
 

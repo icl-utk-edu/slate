@@ -868,6 +868,7 @@ void test_Matrix_sub()
         }
     }
 
+    // 1st tile
     auto Asub = A.sub( 0, 0, 0, 0 );
     test_assert( Asub.mt() == 1 );
     test_assert( Asub.nt() == 1 );
@@ -907,7 +908,7 @@ void test_Matrix_sub()
         }
     }
 
-    // Arbitrary regions. At least 70% of time, set i1 <= i2, j1 <= j2.
+    // Arbitrary regions. 70% of time, set i1 <= i2, j1 <= j2.
     // i1 > i2 or j1 > j2 are empty matrices.
     for (int cnt = 0; cnt < 10; ++cnt) {
         int i1 = rand() % A.mt();

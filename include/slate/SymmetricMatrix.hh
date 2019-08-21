@@ -93,6 +93,10 @@ public:
 
     SymmetricMatrix slice(int64_t index1, int64_t index2);
 
+    Matrix<scalar_t> slice(
+        int64_t row1, int64_t row2,
+        int64_t col1, int64_t col2);
+
 protected:
     // used by fromLAPACK and fromScaLAPACK
     SymmetricMatrix(Uplo uplo, int64_t n,
@@ -441,6 +445,35 @@ SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::slice(
 {
     return SymmetricMatrix<scalar_t>(*this,
         typename BaseMatrix<scalar_t>::Slice(index1, index2, index1, index2));
+}
+
+//------------------------------------------------------------------------------
+/// Returns sliced matrix that is a shallow copy view of the
+/// parent matrix, A[ row1:row2, col1:col2 ].
+/// This takes row & col indices instead of block row & block col indices.
+/// The sub-matrix cannot overlap the diagonal.
+/// - if uplo = Lower, 0 <= col1 <= col2 <= row1 <= row2 < n;
+/// - if uplo = Upper, 0 <= row1 <= row2 <= col1 <= col2 < n.
+///
+/// @param[in] row1
+///     Starting row index.
+///
+/// @param[in] row2
+///     Ending row index (inclusive).
+///
+/// @param[in] col1
+///     Starting column index.
+///
+/// @param[in] col2
+///     Ending column index (inclusive).
+///
+template <typename scalar_t>
+Matrix<scalar_t> SymmetricMatrix<scalar_t>::slice(
+    int64_t row1, int64_t row2,
+    int64_t col1, int64_t col2)
+{
+    return Matrix<scalar_t>(*this,
+        typename BaseMatrix<scalar_t>::Slice(row1, row2, col1, col2));
 }
 
 //------------------------------------------------------------------------------

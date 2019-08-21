@@ -573,6 +573,150 @@ void test_Symmetric_slice()
 }
 
 //------------------------------------------------------------------------------
+/// Tests A.slice( i1, i2, j1, j2 ).
+///
+void test_Symmetric_slice_offdiag()
+{
+    int lda = roundup(n, nb);
+    std::vector<double> Ad( lda*n );
+
+    auto L = slate::SymmetricMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto U = slate::SymmetricMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // Mark entries so they're identifiable.
+    for (int j = 0; j < L.nt(); ++j) {
+        for (int i = j; i < L.mt(); ++i) { // lower
+            if (L.tileIsLocal(i, j)) {
+                auto T = L(i, j);
+                for (int jj = 0; jj < T.nb(); ++jj)
+                    for (int ii = 0; ii < T.mb(); ++ii)
+                        T.at(ii, jj) = (i*nb + ii) + (j*nb + jj) / 10000.;
+            }
+        }
+    }
+
+    for (int j = 0; j < U.nt(); ++j) {
+        for (int i = 0; i <= j && i < U.mt(); ++i) { // upper
+            if (U.tileIsLocal(i, j)) {
+                auto T = U(i, j);
+                for (int jj = 0; jj < T.nb(); ++jj)
+                    for (int ii = 0; ii < T.mb(); ++ii)
+                        T.at(ii, jj) = (i*nb + ii) + (j*nb + jj) / 10000.;
+            }
+        }
+    }
+
+    // Arbitrary regions.
+    // For upper: row1 <= row2 <= col1 <= col2.
+    // todo: allow row2 > row1, col2 > col1 for empty matrix, as in test_Symmetric_sub?
+    for (int cnt = 0; cnt < 10; ++cnt) {
+        int idx[4] = {
+            rand() % n,
+            rand() % n,
+            rand() % n,
+            rand() % n
+        };
+        std::sort( idx, idx+4 );
+
+        // Get block index for row/col index.
+        int blk[4] = {
+            idx[0] / nb,
+            idx[1] / nb,
+            idx[2] / nb,
+            idx[3] / nb
+        };
+
+        //printf( "idx [ %d, %d, %d, %d ], blk [ %d, %d, %d, %d ]\n",
+        //        idx[0], idx[1], idx[2], idx[3],
+        //        blk[0], blk[1], blk[2], blk[3] );
+
+        // For lower: col1 <= col2 <= row1 <= row2.
+        auto Lslice = L.slice( idx[2], idx[3], idx[0], idx[1] );
+        test_assert( Lslice.m() == std::max( idx[3] - idx[2] + 1, 0 ) );
+        test_assert( Lslice.n() == std::max( idx[1] - idx[0] + 1, 0 ) );
+        test_assert( Lslice.mt() == blk[3] - blk[2] + 1 );
+        test_assert( Lslice.nt() == blk[1] - blk[0] + 1 );
+        test_assert( Lslice.op() == slate::Op::NoTrans );
+        test_assert( Lslice.uplo() == slate::Uplo::General );
+        for (int j = 0; j < Lslice.nt(); ++j) {
+            for (int i = j; i < Lslice.mt(); ++i) { // lower
+                if (Lslice.tileIsLocal(i, j)) {
+                    // First block row/col starts at index1;
+                    // other block row/col start at multiples of nb.
+                    int row = (i == 0 ? idx[2] : (i + blk[2])*nb);
+                    int col = (j == 0 ? idx[0] : (j + blk[0])*nb);
+                    auto T = Lslice(i, j);
+                    test_assert( T.at(0, 0) == row + col / 10000. );
+                    test_assert( T.op() == slate::Op::NoTrans );
+                    test_assert( T.uplo() == slate::Uplo::General );
+
+                    // First and last block rows may be short; row may be both.
+                    int mb_ = nb;
+                    if (i == Lslice.mt()-1)
+                        mb_ = idx[3] % nb + 1;
+                    if (i == 0)
+                        mb_ = mb_ - idx[2] % nb;
+                    //printf( "    lower i %d, j %d, mb_ %d, mb %lld\n", i, j, mb_, T.mb() );
+                    test_assert( T.mb() == mb_ );
+
+                    // First and last block cols may be short; col may be both.
+                    int nb_ = nb;
+                    if (j == Lslice.nt()-1)
+                        nb_ = idx[1] % nb + 1;
+                    if (j == 0)
+                        nb_ = nb_ - idx[0] % nb;
+                    //printf( "    lower i %d, j %d, nb_ %d, nb %lld\n", i, j, nb_, T.nb() );
+                    test_assert( T.nb() == nb_ );
+                }
+            }
+        }
+
+        auto Uslice = U.slice( idx[0], idx[1], idx[2], idx[3] );
+        test_assert( Uslice.m() == std::max( idx[1] - idx[0] + 1, 0 ) );
+        test_assert( Uslice.n() == std::max( idx[3] - idx[2] + 1, 0 ) );
+        test_assert( Uslice.mt() == blk[1] - blk[0] + 1 );
+        test_assert( Uslice.nt() == blk[3] - blk[2] + 1 );
+        test_assert( Uslice.op() == slate::Op::NoTrans );
+        test_assert( Uslice.uplo() == slate::Uplo::General );
+        for (int j = 0; j < Uslice.nt(); ++j) {
+            for (int i = 0; i <= j && i < Uslice.mt(); ++i) { // upper
+                if (Uslice.tileIsLocal(i, j)) {
+                    // First block row/col starts at index1;
+                    // other block row/col start at multiples of nb.
+                    int row = (i == 0 ? idx[0] : (i + blk[0])*nb);
+                    int col = (j == 0 ? idx[2] : (j + blk[2])*nb);
+                    auto T = Uslice(i, j);
+                    test_assert( T.at(0, 0) == row + col / 10000. );
+                    test_assert( T.op() == slate::Op::NoTrans );
+                    test_assert( T.uplo() == slate::Uplo::General );
+
+                    // First and last block rows may be short; row may be both.
+                    int mb_ = nb;
+                    if (i == Uslice.mt()-1)
+                        mb_ = idx[1] % nb + 1;
+                    if (i == 0)
+                        mb_ = mb_ - idx[0] % nb;
+                    //printf( "    lower i %d, j %d, mb_ %d, mb %lld\n", i, j, mb_, T.mb() );
+                    test_assert( T.mb() == mb_ );
+
+                    // First and last block cols may be short; col may be both.
+                    int nb_ = nb;
+                    if (j == Uslice.nt()-1)
+                        nb_ = idx[3] % nb + 1;
+                    if (j == 0)
+                        nb_ = nb_ - idx[2] % nb;
+                    //printf( "    lower i %d, j %d, nb_ %d, nb %lld\n", i, j, nb_, T.nb() );
+                    test_assert( T.nb() == nb_ );
+                }
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
 void test_Symmetric_to_Triangular()
 {
     int lda = roundup(n, nb);
@@ -632,9 +776,10 @@ void run_tests()
 
     if (mpi_rank == 0)
         printf("\nSub-matrices and conversions\n");
-    run_test(test_Symmetric_sub,           "Symmetric::sub",          mpi_comm);
-    run_test(test_Symmetric_sub_trans,     "Symmetric::sub(A^T)",     mpi_comm);
-    run_test(test_Symmetric_slice,         "Symmetric::slice",        mpi_comm);
+    run_test(test_Symmetric_sub,           "SymmetricMatrix::sub",                   mpi_comm);
+    run_test(test_Symmetric_sub_trans,     "SymmetricMatrix::sub(A^T)",              mpi_comm);
+    run_test(test_Symmetric_slice,         "SymmetricMatrix::slice(i1, i2)",         mpi_comm);
+    run_test(test_Symmetric_slice_offdiag, "SymmetricMatrix::slice(i1, i2, j1, j2)", mpi_comm);
     run_test(test_Symmetric_to_Triangular, "Symmetric => Triangular", mpi_comm);
 }
 

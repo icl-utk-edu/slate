@@ -530,35 +530,9 @@ void test_Triangular_slice()
         n, Ad.data(), lda, nb, p, q, mpi_comm );
 
     // Mark entries so they're identifiable.
-    for (int j = 0; j < L.nt(); ++j) {
-        for (int i = j; i < L.mt(); ++i) { // lower
-            if (L.tileIsLocal(i, j)) {
-                auto T = L(i, j);
-                auto Tu = Lu(i, j);
-                for (int jj = 0; jj < T.nb(); ++jj) {
-                    for (int ii = 0; ii < T.mb(); ++ii) {
-                        T.at(ii, jj) = (i*nb + ii) + (j*nb + jj) / 10000.;
-                        Tu.at(ii, jj) = (i*nb + ii) + (j*nb + jj) / 10000.;
-                    }
-                }
-            }
-        }
-    }
-
-    for (int j = 0; j < U.nt(); ++j) {
-        for (int i = 0; i <= j && i < U.mt(); ++i) { // upper
-            if (U.tileIsLocal(i, j)) {
-                auto T = U(i, j);
-                auto Tu = Uu(i, j);
-                for (int jj = 0; jj < T.nb(); ++jj) {
-                    for (int ii = 0; ii < T.mb(); ++ii) {
-                        T.at(ii, jj) = (i*nb + ii) + (j*nb + jj) / 10000.;
-                        Tu.at(ii, jj) = (i*nb + ii) + (j*nb + jj) / 10000.;
-                    }
-                }
-            }
-        }
-    }
+    for (int j = 0; j < n; ++j)
+        for (int i = 0; i < n; ++i)
+            Ad[ i + j*lda ] = i + j / 10000.;
 
     // Arbitrary regions.
     // Currently, enforce i2 >= i1.
@@ -591,6 +565,7 @@ void test_Triangular_slice()
                     int col = (j == 0 ? index1 : (j + i1)*nb);
                     auto T = Lslice(i, j);
                     test_assert( T.at(0, 0) == row + col / 10000. );
+                    test_assert( &T.at(0, 0) == &Ad[ row + col*lda ] );
                     test_assert( T.op() == slate::Op::NoTrans );
                     if (i == j)
                         test_assert( T.uplo() == slate::Uplo::Lower );
@@ -641,6 +616,7 @@ void test_Triangular_slice()
                     int col = (j == 0 ? index1 : (j + i1)*nb);
                     auto T = Uslice(i, j);
                     test_assert( T.at(0, 0) == row + col / 10000. );
+                    test_assert( &T.at(0, 0) == &Ad[ row + col*lda ] );
                     test_assert( T.op() == slate::Op::NoTrans );
                     if (i == j)
                         test_assert( T.uplo() == slate::Uplo::Upper );
@@ -695,27 +671,9 @@ void test_Triangular_slice_offdiag()
         n, Ad.data(), lda, nb, p, q, mpi_comm );
 
     // Mark entries so they're identifiable.
-    for (int j = 0; j < L.nt(); ++j) {
-        for (int i = j; i < L.mt(); ++i) { // lower
-            if (L.tileIsLocal(i, j)) {
-                auto T = L(i, j);
-                for (int jj = 0; jj < T.nb(); ++jj)
-                    for (int ii = 0; ii < T.mb(); ++ii)
-                        T.at(ii, jj) = (i*nb + ii) + (j*nb + jj) / 10000.;
-            }
-        }
-    }
-
-    for (int j = 0; j < U.nt(); ++j) {
-        for (int i = 0; i <= j && i < U.mt(); ++i) { // upper
-            if (U.tileIsLocal(i, j)) {
-                auto T = U(i, j);
-                for (int jj = 0; jj < T.nb(); ++jj)
-                    for (int ii = 0; ii < T.mb(); ++ii)
-                        T.at(ii, jj) = (i*nb + ii) + (j*nb + jj) / 10000.;
-            }
-        }
-    }
+    for (int j = 0; j < n; ++j)
+        for (int i = 0; i < n; ++i)
+            Ad[ i + j*lda ] = i + j / 10000.;
 
     // Arbitrary regions.
     // For upper: row1 <= row2 <= col1 <= col2.
@@ -758,6 +716,7 @@ void test_Triangular_slice_offdiag()
                     int col = (j == 0 ? idx[0] : (j + blk[0])*nb);
                     auto T = Lslice(i, j);
                     test_assert( T.at(0, 0) == row + col / 10000. );
+                    test_assert( &T.at(0, 0) == &Ad[ row + col*lda ] );
                     test_assert( T.op() == slate::Op::NoTrans );
                     test_assert( T.uplo() == slate::Uplo::General );
 
@@ -798,6 +757,7 @@ void test_Triangular_slice_offdiag()
                     int col = (j == 0 ? idx[2] : (j + blk[2])*nb);
                     auto T = Uslice(i, j);
                     test_assert( T.at(0, 0) == row + col / 10000. );
+                    test_assert( &T.at(0, 0) == &Ad[ row + col*lda ] );
                     test_assert( T.op() == slate::Op::NoTrans );
                     test_assert( T.uplo() == slate::Uplo::General );
 

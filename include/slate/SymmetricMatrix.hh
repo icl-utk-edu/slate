@@ -87,15 +87,12 @@ public:
 
     // on-diagonal sub-matrix
     SymmetricMatrix sub(int64_t i1, int64_t i2);
+    SymmetricMatrix slice(int64_t index1, int64_t index2);
 
     // off-diagonal sub-matrix
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
-
-    SymmetricMatrix slice(int64_t index1, int64_t index2);
-
-    Matrix<scalar_t> slice(
-        int64_t row1, int64_t row2,
-        int64_t col1, int64_t col2);
+    Matrix<scalar_t> slice(int64_t row1, int64_t row2,
+                           int64_t col1, int64_t col2);
 
 protected:
     // used by fromLAPACK and fromScaLAPACK

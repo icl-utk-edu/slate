@@ -73,6 +73,7 @@ void test_TrapezoidMatrix()
     test_assert(A.nt() == 0);
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == blas::Uplo::Lower);
+    test_assert(A.diag() == slate::Diag::NonUnit);
 }
 
 //------------------------------------------------------------------------------
@@ -445,8 +446,251 @@ void test_TrapezoidMatrix_allocateBatchArrays()
 // Sub-matrices and conversions
 
 //------------------------------------------------------------------------------
+/// Tests A.sub( i1, i2, j2 ).
+///
+void test_Trapezoid_sub()
+{
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+
+    // Lower and upper, non-unit and unit diagonal.
+    auto L = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower, slate::Diag::NonUnit,
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto Lu = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower, slate::Diag::Unit,
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto U = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper, slate::Diag::NonUnit,
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto Uu = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper, slate::Diag::Unit,
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // Mark tiles so they're identifiable.
+    for (int j = 0; j < L.nt(); ++j) {
+        for (int i = j; i < L.mt(); ++i) { // lower
+            if (L.tileIsLocal(i, j)) {
+                L(i, j).at(0, 0) = i + j / 10000.;
+                Lu(i, j).at(0, 0) = i + j / 10000.;
+            }
+        }
+    }
+
+    for (int j = 0; j < U.nt(); ++j) {
+        for (int i = 0; i <= j && i < U.mt(); ++i) { // upper
+            if (U.tileIsLocal(i, j)) {
+                U(i, j).at(0, 0) = i + j / 10000.;
+                Uu(i, j).at(0, 0) = i + j / 10000.;
+            }
+        }
+    }
+
+    // Arbitrary regions. 70% of time, set i1 <= i2 and i1 <= j2.
+    // i1 > i2 are empty matrices.
+    for (int cnt = 0; cnt < 10; ++cnt) {
+        int min_mt_nt = std::min( L.mt(), L.nt() );
+        int i1 = rand() % min_mt_nt;
+        int i2 = rand() % L.mt();
+        int j2 = rand() % L.nt();
+        if (rand() / double(RAND_MAX) <= 0.7) {
+            if (i2 < i1)
+                std::swap( i1, i2 );
+            if (j2 < i1)
+                std::swap( i1, j2 );
+        }
+
+        //printf( "  mt %lld, nt %lld, i1 %d, i2 %d, j2 %d\n",
+        //        L.mt(), L.nt(), i1, i2, j2 );
+        //printf( "  lower\n" );
+        slate::TrapezoidMatrix<double> Lsub = L.sub( i1, i2, j2 );
+        test_assert( Lsub.mt() == std::max( i2 - i1 + 1, 0 ) );
+        test_assert( Lsub.nt() == std::max( j2 - i1 + 1, 0 ) );
+        test_assert( Lsub.op() == slate::Op::NoTrans );
+        test_assert( Lsub.uplo() == slate::Uplo::Lower );
+        test_assert( Lsub.diag() == slate::Diag::NonUnit );
+        for (int j = 0; j < Lsub.nt(); ++j) {
+            for (int i = j; i < Lsub.mt(); ++i) { // lower
+                if (Lsub.tileIsLocal(i, j)) {
+                    test_assert( Lsub(i, j).at(0, 0)
+                            == (i1 + i) + (i1 + j) / 10000. );
+                    test_assert( Lsub(i, j).op() == slate::Op::NoTrans );
+                    if (i == j)
+                        test_assert( Lsub(i, j).uplo() == slate::Uplo::Lower );
+                    else
+                        test_assert( Lsub(i, j).uplo() == slate::Uplo::General );
+                }
+            }
+        }
+
+        // Check unit diag.
+        Lsub = Lu.sub( i1, i2, j2 );
+        test_assert( Lsub.op() == slate::Op::NoTrans );
+        test_assert( Lsub.uplo() == slate::Uplo::Lower );
+        test_assert( Lsub.diag() == slate::Diag::Unit );
+
+        //printf( "  upper\n" );
+        slate::TrapezoidMatrix<double> Usub = U.sub( i1, i2, j2 );
+        test_assert( Usub.mt() == std::max( i2 - i1 + 1, 0 ) );
+        test_assert( Usub.nt() == std::max( j2 - i1 + 1, 0 ) );
+        test_assert( Usub.op() == slate::Op::NoTrans );
+        test_assert( Usub.uplo() == slate::Uplo::Upper );
+        test_assert( Usub.diag() == slate::Diag::NonUnit );
+        for (int j = 0; j < Usub.nt(); ++j) {
+            for (int i = 0; i <= j && i < Usub.mt(); ++i) { // upper
+                if (Usub.tileIsLocal(i, j)) {
+                    test_assert( Usub(i, j).at(0, 0)
+                            == (i1 + i) + (i1 + j) / 10000. );
+                    test_assert( Usub(i, j).op() == slate::Op::NoTrans );
+                    if (i == j)
+                        test_assert( Usub(i, j).uplo() == slate::Uplo::Upper );
+                    else
+                        test_assert( Usub(i, j).uplo() == slate::Uplo::General );
+                }
+            }
+        }
+
+        // Check unit diag.
+        Usub = Uu.sub( i1, i2, j2 );
+        test_assert( Usub.op() == slate::Op::NoTrans );
+        test_assert( Usub.uplo() == slate::Uplo::Upper );
+        test_assert( Usub.diag() == slate::Diag::Unit );
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Tests transpose( A ).sub( i1, i2, j2 ).
+///
+void test_Trapezoid_sub_trans()
+{
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+
+    // Lower and upper, non-unit and unit diagonal.
+    auto L = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower, slate::Diag::NonUnit,
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto Lu = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower, slate::Diag::Unit,
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto U = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper, slate::Diag::NonUnit,
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto Uu = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper, slate::Diag::Unit,
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // Mark tiles so they're identifiable.
+    for (int j = 0; j < L.nt(); ++j) {
+        for (int i = j; i < L.mt(); ++i) { // lower
+            if (L.tileIsLocal(i, j)) {
+                L(i, j).at(0, 0) = i + j / 10000.;
+                Lu(i, j).at(0, 0) = i + j / 10000.;
+            }
+        }
+    }
+
+    for (int j = 0; j < U.nt(); ++j) {
+        for (int i = 0; i <= j && i < U.mt(); ++i) { // upper
+            if (U.tileIsLocal(i, j)) {
+                U(i, j).at(0, 0) = i + j / 10000.;
+                Uu(i, j).at(0, 0) = i + j / 10000.;
+            }
+        }
+    }
+
+    auto LT = transpose( L );
+    auto UT = transpose( U );
+    auto LuT = transpose( Lu );
+    auto UuT = transpose( Uu );
+
+    int min_mt_nt = std::min( L.mt(), L.nt() );
+
+    // Remove 1st block row & col.
+    slate::TrapezoidMatrix<double> L2 = LT.sub( 1, LT.mt()-1, LT.nt()-1 );
+    test_assert( L2.mt() == LT.mt()-1 );
+    test_assert( L2.nt() == LT.nt()-1 );
+
+    slate::TrapezoidMatrix<double> U2 = UT.sub( 1, UT.mt()-1, UT.nt()-1 );
+    test_assert( U2.mt() == UT.mt()-1 );
+    test_assert( U2.nt() == UT.nt()-1 );
+
+    // Arbitrary regions. 70% of time, set i1 <= i2.
+    // i1 > i2 are empty matrices.
+    for (int cnt = 0; cnt < 10; ++cnt) {
+        int i1 = rand() % min_mt_nt;
+        int i2 = rand() % LT.mt();
+        int j2 = rand() % LT.nt();
+        if (rand() / double(RAND_MAX) <= 0.7) {
+            if (i2 < i1)
+                std::swap( i1, i2 );
+            if (j2 < i1)
+                std::swap( i1, j2 );
+        }
+
+        slate::TrapezoidMatrix<double> Lsub = LT.sub( i1, i2, j2 );
+        test_assert( Lsub.mt() == std::max( i2 - i1 + 1, 0 ) );
+        test_assert( Lsub.nt() == std::max( j2 - i1 + 1, 0 ) );
+        test_assert( Lsub.op() == slate::Op::Trans );
+        test_assert( Lsub.uplo() == slate::Uplo::Upper );
+        test_assert( Lsub.diag() == slate::Diag::NonUnit );
+        for (int j = 0; j < Lsub.nt(); ++j) {
+            for (int i = 0; i <= j && i < Lsub.mt(); ++i) { // upper (trans)
+                if (Lsub.tileIsLocal(i, j)) {
+                    test_assert( Lsub(i, j).at(0, 0)
+                            == (i1 + j) + (i1 + i) / 10000. );  // trans
+                    test_assert( Lsub(i, j).op() == slate::Op::Trans );
+                    if (i == j)
+                        test_assert( Lsub(i, j).uplo() == slate::Uplo::Upper );
+                    else
+                        test_assert( Lsub(i, j).uplo() == slate::Uplo::General );
+                }
+            }
+        }
+
+        // Check unit diag.
+        Lsub = LuT.sub( i1, i2, j2 );
+        test_assert( Lsub.op() == slate::Op::Trans );
+        test_assert( Lsub.uplo() == slate::Uplo::Upper );  // trans
+        test_assert( Lsub.diag() == slate::Diag::Unit );
+
+        slate::TrapezoidMatrix<double> Usub = UT.sub( i1, i2, j2 );
+        test_assert( Usub.mt() == std::max( i2 - i1 + 1, 0 ) );
+        test_assert( Usub.nt() == std::max( j2 - i1 + 1, 0 ) );
+        test_assert( Usub.op() == slate::Op::Trans );
+        test_assert( Usub.uplo() == slate::Uplo::Lower );
+        test_assert( Usub.diag() == slate::Diag::NonUnit );
+        for (int j = 0; j < Usub.nt(); ++j) {
+            for (int i = j; i < Usub.mt(); ++i) { // lower (trans)
+                if (Usub.tileIsLocal(i, j)) {
+                    test_assert( Usub(i, j).at(0, 0)
+                            == (i1 + j) + (i1 + i) / 10000. );  // trans
+                    test_assert( Usub(i, j).op() == slate::Op::Trans );
+                    if (i == j)
+                        test_assert( Usub(i, j).uplo() == slate::Uplo::Lower );
+                    else
+                        test_assert( Usub(i, j).uplo() == slate::Uplo::General );
+                }
+            }
+        }
+
+        // Check unit diag.
+        Usub = UuT.sub( i1, i2, j2 );
+        test_assert( Usub.op() == slate::Op::Trans );
+        test_assert( Usub.uplo() == slate::Uplo::Lower );  // trans
+        test_assert( Usub.diag() == slate::Diag::Unit );
+    }
+}
+
+//------------------------------------------------------------------------------
 /// Tests A.sub( i1, i2, j1, j2 ).
-void test_TrapezoidMatrix_sub()
+void test_Trapezoid_sub_offdiag()
 {
     int lda = roundup(m, nb);
     std::vector<double> Ad( lda*n );
@@ -467,7 +711,7 @@ void test_TrapezoidMatrix_sub()
     }
 
     // 1st tile
-    auto Asub = A.sub( 0, 0, 0, 0 );
+    slate::Matrix<double> Asub = A.sub( 0, 0, 0, 0 );
     test_assert( Asub.mt() == 1 );
     test_assert( Asub.nt() == 1 );
     test_assert( Asub.op() == slate::Op::NoTrans );
@@ -538,7 +782,7 @@ void test_TrapezoidMatrix_sub()
                 int j1_b = rand() % Asub.nt();
                 int j2_b = rand() % Asub.nt();
                 //printf( "   ( %3d, %3d, %3d, %3d )\n", i1_b, i2_b, j1_b, j2_b );
-                auto Asub_b = Asub.sub( i1_b, i2_b, j1_b, j2_b );
+                slate::Matrix<double> Asub_b = Asub.sub( i1_b, i2_b, j1_b, j2_b );
                 test_assert( Asub_b.mt() == std::max( i2_b - i1_b + 1, 0 ) );
                 test_assert( Asub_b.nt() == std::max( j2_b - j1_b + 1, 0 ) );
                 test_assert( Asub_b.op() == slate::Op::NoTrans );
@@ -642,7 +886,7 @@ void test_TrapezoidMatrix_sub()
                 int j1_b = rand() % Asub.nt();
                 int j2_b = rand() % Asub.nt();
                 //printf( "   ( %3d, %3d, %3d, %3d )\n", i1_b, i2_b, j1_b, j2_b );
-                auto Asub_b = Asub.sub( i1_b, i2_b, j1_b, j2_b );
+                slate::Matrix<double> Asub_b = Asub.sub( i1_b, i2_b, j1_b, j2_b );
                 test_assert( Asub_b.mt() == std::max( i2_b - i1_b + 1, 0 ) );
                 test_assert( Asub_b.nt() == std::max( j2_b - j1_b + 1, 0 ) );
                 test_assert( Asub_b.op() == slate::Op::NoTrans );
@@ -662,7 +906,7 @@ void test_TrapezoidMatrix_sub()
 
 //------------------------------------------------------------------------------
 /// Tests transpose( A ).sub( i1, i2, j1, j2 ).
-void test_TrapezoidMatrix_sub_trans()
+void test_Trapezoid_sub_offdiag_trans()
 {
     int lda = roundup(m, nb);
     std::vector<double> Ad( lda*n );
@@ -680,7 +924,7 @@ void test_TrapezoidMatrix_sub_trans()
 
     auto AT = transpose( A );
 
-    auto Asub = AT.sub( 0, 0, 0, 0 );
+    slate::Matrix<double> Asub = AT.sub( 0, 0, 0, 0 );
     test_assert( Asub.mt() == 1 );
     test_assert( Asub.nt() == 1 );
     test_assert( Asub.op() == slate::Op::Trans );
@@ -748,7 +992,7 @@ void test_TrapezoidMatrix_sub_trans()
             int j1_b = rand() % AsubT.nt();
             int j2_b = rand() % AsubT.nt();
             //printf( "   ( %3d, %3d, %3d, %3d )\n", i1_b, i2_b, j1_b, j2_b );
-            auto Asub_b = AsubT.sub( i1_b, i2_b, j1_b, j2_b );
+            slate::Matrix<double> Asub_b = AsubT.sub( i1_b, i2_b, j1_b, j2_b );
             test_assert( Asub_b.mt() == std::max( i2_b - i1_b + 1, 0 ) );
             test_assert( Asub_b.nt() == std::max( j2_b - j1_b + 1, 0 ) );
             test_assert( Asub_b.op() == slate::Op::NoTrans );
@@ -758,6 +1002,331 @@ void test_TrapezoidMatrix_sub_trans()
                         test_assert( Asub_b(i, j).at(0, 0) == (j1 + i1_b + i) + (i1 + j1_b + j) / 10000. );
                         test_assert( Asub_b(i, j).op() == slate::Op::NoTrans );
                     }
+                }
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Tests A.slice( index1, row2, col2 ).
+///
+void test_Trapezoid_slice()
+{
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+
+    // Lower and upper, non-unit and unit diagonal.
+    auto L = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower, slate::Diag::NonUnit,
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto Lu = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower, slate::Diag::Unit,
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto U = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper, slate::Diag::NonUnit,
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto Uu = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper, slate::Diag::Unit,
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // Mark entries so they're identifiable.
+    for (int j = 0; j < L.nt(); ++j) {
+        for (int i = j; i < L.mt(); ++i) { // lower
+            if (L.tileIsLocal(i, j)) {
+                auto T = L(i, j);
+                auto Tu = Lu(i, j);
+                for (int jj = 0; jj < T.nb(); ++jj) {
+                    for (int ii = 0; ii < T.mb(); ++ii) {
+                        T.at(ii, jj) = (i*nb + ii) + (j*nb + jj) / 10000.;
+                        Tu.at(ii, jj) = (i*nb + ii) + (j*nb + jj) / 10000.;
+                    }
+                }
+            }
+        }
+    }
+
+    for (int j = 0; j < U.nt(); ++j) {
+        for (int i = 0; i <= j && i < U.mt(); ++i) { // upper
+            if (U.tileIsLocal(i, j)) {
+                auto T = U(i, j);
+                auto Tu = Uu(i, j);
+                for (int jj = 0; jj < T.nb(); ++jj) {
+                    for (int ii = 0; ii < T.mb(); ++ii) {
+                        T.at(ii, jj) = (i*nb + ii) + (j*nb + jj) / 10000.;
+                        Tu.at(ii, jj) = (i*nb + ii) + (j*nb + jj) / 10000.;
+                    }
+                }
+            }
+        }
+    }
+
+    // Arbitrary regions.
+    // Currently, enforce row2, col2 >= index1.
+    // todo: allow row2, col2 < index1 for empty matrix, as in test_Trapezoid_sub?
+    for (int cnt = 0; cnt < 10; ++cnt) {
+        int index1 = rand() % std::min( m, n );
+        int row2   = rand() % m;
+        int col2   = rand() % n;
+        if (row2 < index1)
+            std::swap( index1, row2 );
+        if (col2 < index1)
+            std::swap( index1, col2 );
+
+        // Get block index for row/col index.
+        int i1 = index1 / nb;
+        int i2 = row2   / nb;
+        int j2 = col2   / nb;
+        //printf( "  index1 %d (%d), row2 %d (%d), col2 %d (%d)\n",
+        //        index1, i1, row2, i2, col2, j2 );
+
+        auto Lslice = L.slice( index1, row2, col2 );
+        test_assert( Lslice.m() == row2 - index1 + 1 );
+        test_assert( Lslice.n() == col2 - index1 + 1 );
+        test_assert( Lslice.mt() == i2 - i1 + 1 );
+        test_assert( Lslice.nt() == j2 - i1 + 1 );
+        test_assert( Lslice.op() == slate::Op::NoTrans );
+        test_assert( Lslice.uplo() == slate::Uplo::Lower );
+        test_assert( Lslice.diag() == slate::Diag::NonUnit );
+        for (int j = 0; j < Lslice.nt(); ++j) {
+            for (int i = j; i < Lslice.mt(); ++i) { // lower
+                if (Lslice.tileIsLocal(i, j)) {
+                    // First block row/col starts at index1;
+                    // other block row/col start at multiples of nb.
+                    int row = (i == 0 ? index1 : (i + i1)*nb);
+                    int col = (j == 0 ? index1 : (j + i1)*nb);
+                    auto T = Lslice(i, j);
+                    test_assert( T.at(0, 0) == row + col / 10000. );
+                    test_assert( T.op() == slate::Op::NoTrans );
+                    if (i == j)
+                        test_assert( T.uplo() == slate::Uplo::Lower );
+                    else
+                        test_assert( T.uplo() == slate::Uplo::General );
+
+                    // First and last block rows may be short; row may be both.
+                    int mb_ = nb;
+                    if (i == Lslice.mt()-1)
+                        mb_ = row2 % nb + 1;
+                    if (i == 0)
+                        mb_ = mb_ - index1 % nb;
+                    //printf( "    lower i %d, j %d, mb_ %d, mb %lld\n", i, j, mb_, T.mb() );
+                    test_assert( T.mb() == mb_ );
+
+                    // First and last block cols may be short; col may be both.
+                    int nb_ = nb;
+                    if (j == Lslice.nt()-1)
+                        nb_ = col2 % nb + 1;
+                    if (j == 0)
+                        nb_ = nb_ - index1 % nb;
+                    //printf( "    lower i %d, j %d, nb_ %d, nb %lld\n", i, j, nb_, T.nb() );
+                    test_assert( T.nb() == nb_ );
+                }
+            }
+        }
+
+        // Check unit diag.
+        Lslice = Lu.slice( index1, row2, col2 );
+        test_assert( Lslice.op() == slate::Op::NoTrans );
+        test_assert( Lslice.uplo() == slate::Uplo::Lower );
+        test_assert( Lslice.diag() == slate::Diag::Unit );
+
+        auto Uslice = U.slice( index1, row2, col2 );
+        test_assert( Uslice.m() == row2 - index1 + 1 );
+        test_assert( Uslice.n() == col2 - index1 + 1 );
+        test_assert( Uslice.mt() == i2 - i1 + 1 );
+        test_assert( Uslice.nt() == j2 - i1 + 1 );
+        test_assert( Uslice.op() == slate::Op::NoTrans );
+        test_assert( Uslice.uplo() == slate::Uplo::Upper );
+        test_assert( Uslice.diag() == slate::Diag::NonUnit );
+        for (int j = 0; j < Uslice.nt(); ++j) {
+            for (int i = 0; i <= j && i < Uslice.mt(); ++i) { // upper
+                if (Uslice.tileIsLocal(i, j)) {
+                    // First block row/col starts at index1;
+                    // other block row/col start at multiples of nb.
+                    int row = (i == 0 ? index1 : (i + i1)*nb);
+                    int col = (j == 0 ? index1 : (j + i1)*nb);
+                    auto T = Uslice(i, j);
+                    test_assert( T.at(0, 0) == row + col / 10000. );
+                    test_assert( T.op() == slate::Op::NoTrans );
+                    if (i == j)
+                        test_assert( T.uplo() == slate::Uplo::Upper );
+                    else
+                        test_assert( T.uplo() == slate::Uplo::General );
+
+                    // First and last block rows may be short; row may be both.
+                    int mb_ = nb;
+                    if (i == Uslice.mt()-1)
+                        mb_ = row2 % nb + 1;
+                    if (i == 0)
+                        mb_ = mb_ - index1 % nb;
+                    //printf( "    lower i %d, j %d, mb_ %d, mb %lld\n", i, j, mb_, T.mb() );
+                    test_assert( T.mb() == mb_ );
+
+                    // First and last block cols may be short; col may be both.
+                    int nb_ = nb;
+                    if (j == Uslice.nt()-1)
+                        nb_ = col2 % nb + 1;
+                    if (j == 0)
+                        nb_ = nb_ - index1 % nb;
+                    //printf( "    lower i %d, j %d, nb_ %d, nb %lld\n", i, j, nb_, T.nb() );
+                    test_assert( T.nb() == nb_ );
+                }
+            }
+        }
+
+        // Check unit diag.
+        Uslice = Uu.slice( index1, row2, col2 );
+        test_assert( Uslice.op() == slate::Op::NoTrans );
+        test_assert( Uslice.uplo() == slate::Uplo::Upper );
+        test_assert( Uslice.diag() == slate::Diag::Unit );
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Tests A.slice( row1, row2, col1, col2 ).
+///
+void test_Trapezoid_slice_offdiag()
+{
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+
+    // Lower and upper.
+    // (Unit and NonUnit diagonal are same for offdiag slice.)
+    auto L = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Lower, slate::Diag::NonUnit,
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto U = slate::TrapezoidMatrix<double>::fromLAPACK(
+        slate::Uplo::Upper, slate::Diag::NonUnit,
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    // Mark entries so they're identifiable.
+    for (int j = 0; j < L.nt(); ++j) {
+        for (int i = j; i < L.mt(); ++i) { // lower
+            if (L.tileIsLocal(i, j)) {
+                auto T = L(i, j);
+                for (int jj = 0; jj < T.nb(); ++jj)
+                    for (int ii = 0; ii < T.mb(); ++ii)
+                        T.at(ii, jj) = (i*nb + ii) + (j*nb + jj) / 10000.;
+            }
+        }
+    }
+
+    for (int j = 0; j < U.nt(); ++j) {
+        for (int i = 0; i <= j && i < U.mt(); ++i) { // upper
+            if (U.tileIsLocal(i, j)) {
+                auto T = U(i, j);
+                for (int jj = 0; jj < T.nb(); ++jj)
+                    for (int ii = 0; ii < T.mb(); ++ii)
+                        T.at(ii, jj) = (i*nb + ii) + (j*nb + jj) / 10000.;
+            }
+        }
+    }
+
+    // Arbitrary regions.
+    // For upper: row1 <= row2 <= col1 <= col2.
+    // todo: allow row2 > row1, col2 > col1 for empty matrix, as in test_Trapezoid_sub?
+    for (int cnt = 0; cnt < 10; ++cnt) {
+        int idx[4] = {
+            rand() % n,
+            rand() % n,
+            rand() % n,
+            rand() % n
+        };
+        std::sort( idx, idx+4 );
+
+        // Get block index for row/col index.
+        int blk[4] = {
+            idx[0] / nb,
+            idx[1] / nb,
+            idx[2] / nb,
+            idx[3] / nb
+        };
+
+        //printf( "idx [ %d, %d, %d, %d ], blk [ %d, %d, %d, %d ]\n",
+        //        idx[0], idx[1], idx[2], idx[3],
+        //        blk[0], blk[1], blk[2], blk[3] );
+
+        // For lower: col1 <= col2 <= row1 <= row2.
+        auto Lslice = L.slice( idx[2], idx[3], idx[0], idx[1] );
+        test_assert( Lslice.m() == std::max( idx[3] - idx[2] + 1, 0 ) );
+        test_assert( Lslice.n() == std::max( idx[1] - idx[0] + 1, 0 ) );
+        test_assert( Lslice.mt() == blk[3] - blk[2] + 1 );
+        test_assert( Lslice.nt() == blk[1] - blk[0] + 1 );
+        test_assert( Lslice.op() == slate::Op::NoTrans );
+        test_assert( Lslice.uplo() == slate::Uplo::General );
+        for (int j = 0; j < Lslice.nt(); ++j) {
+            for (int i = j; i < Lslice.mt(); ++i) { // lower
+                if (Lslice.tileIsLocal(i, j)) {
+                    // First block row/col starts at index1;
+                    // other block row/col start at multiples of nb.
+                    int row = (i == 0 ? idx[2] : (i + blk[2])*nb);
+                    int col = (j == 0 ? idx[0] : (j + blk[0])*nb);
+                    auto T = Lslice(i, j);
+                    test_assert( T.at(0, 0) == row + col / 10000. );
+                    test_assert( T.op() == slate::Op::NoTrans );
+                    test_assert( T.uplo() == slate::Uplo::General );
+
+                    // First and last block rows may be short; row may be both.
+                    int mb_ = nb;
+                    if (i == Lslice.mt()-1)
+                        mb_ = idx[3] % nb + 1;
+                    if (i == 0)
+                        mb_ = mb_ - idx[2] % nb;
+                    //printf( "    lower i %d, j %d, mb_ %d, mb %lld\n", i, j, mb_, T.mb() );
+                    test_assert( T.mb() == mb_ );
+
+                    // First and last block cols may be short; col may be both.
+                    int nb_ = nb;
+                    if (j == Lslice.nt()-1)
+                        nb_ = idx[1] % nb + 1;
+                    if (j == 0)
+                        nb_ = nb_ - idx[0] % nb;
+                    //printf( "    lower i %d, j %d, nb_ %d, nb %lld\n", i, j, nb_, T.nb() );
+                    test_assert( T.nb() == nb_ );
+                }
+            }
+        }
+
+        auto Uslice = U.slice( idx[0], idx[1], idx[2], idx[3] );
+        test_assert( Uslice.m() == std::max( idx[1] - idx[0] + 1, 0 ) );
+        test_assert( Uslice.n() == std::max( idx[3] - idx[2] + 1, 0 ) );
+        test_assert( Uslice.mt() == blk[1] - blk[0] + 1 );
+        test_assert( Uslice.nt() == blk[3] - blk[2] + 1 );
+        test_assert( Uslice.op() == slate::Op::NoTrans );
+        test_assert( Uslice.uplo() == slate::Uplo::General );
+        for (int j = 0; j < Uslice.nt(); ++j) {
+            for (int i = 0; i <= j && i < Uslice.mt(); ++i) { // upper
+                if (Uslice.tileIsLocal(i, j)) {
+                    // First block row/col starts at index1;
+                    // other block row/col start at multiples of nb.
+                    int row = (i == 0 ? idx[0] : (i + blk[0])*nb);
+                    int col = (j == 0 ? idx[2] : (j + blk[2])*nb);
+                    auto T = Uslice(i, j);
+                    test_assert( T.at(0, 0) == row + col / 10000. );
+                    test_assert( T.op() == slate::Op::NoTrans );
+                    test_assert( T.uplo() == slate::Uplo::General );
+
+                    // First and last block rows may be short; row may be both.
+                    int mb_ = nb;
+                    if (i == Uslice.mt()-1)
+                        mb_ = idx[1] % nb + 1;
+                    if (i == 0)
+                        mb_ = mb_ - idx[0] % nb;
+                    //printf( "    lower i %d, j %d, mb_ %d, mb %lld\n", i, j, mb_, T.mb() );
+                    test_assert( T.mb() == mb_ );
+
+                    // First and last block cols may be short; col may be both.
+                    int nb_ = nb;
+                    if (j == Uslice.nt()-1)
+                        nb_ = idx[3] % nb + 1;
+                    if (j == 0)
+                        nb_ = nb_ - idx[2] % nb;
+                    //printf( "    lower i %d, j %d, nb_ %d, nb %lld\n", i, j, nb_, T.nb() );
+                    test_assert( T.nb() == nb_ );
                 }
             }
         }
@@ -939,8 +1508,16 @@ void run_tests()
 
     if (mpi_rank == 0)
         printf("\nSub-matrices and conversions\n");
-    run_test(test_TrapezoidMatrix_sub,           "TrapezoidMatrix::sub",                mpi_comm);
-    run_test(test_TrapezoidMatrix_sub_trans,     "TrapezoidMatrix::sub(A^T)",           mpi_comm);
+    run_test(test_Trapezoid_sub,               "TrapezoidMatrix::sub(i1, i2, j2)",          mpi_comm);
+    run_test(test_Trapezoid_sub_trans,         "TrapezoidMatrix::sub(i1, i2, j2), A^T",     mpi_comm);
+    run_test(test_Trapezoid_sub_offdiag,       "TrapezoidMatrix::sub(i1, i2, j1, j2)",      mpi_comm);
+    run_test(test_Trapezoid_sub_offdiag_trans, "TrapezoidMatrix::sub(i1, i2, j1, j2), A^T", mpi_comm);
+
+    run_test(test_Trapezoid_slice,               "TrapezoidMatrix::slice(i1, i2, j2)",          mpi_comm);
+  //run_test(test_Trapezoid_slice_trans,         "TrapezoidMatrix::slice(i1, i2, j2), A^T",     mpi_comm);  // todo
+    run_test(test_Trapezoid_slice_offdiag,       "TrapezoidMatrix::slice(i1, i2, j1, j2)",      mpi_comm);
+  //run_test(test_Trapezoid_slice_offdiag_trans, "TrapezoidMatrix::slice(i1, i2, j1, j2), A^T", mpi_comm);  // todo
+
     run_test(test_TrapezoidMatrix_to_Trapezoid,  "TrapezoidMatrix => Matrix",           mpi_comm);
     run_test(test_TrapezoidMatrix_to_Trapezoid,  "TrapezoidMatrix => TrapezoidMatrix",  mpi_comm);
     run_test(test_TrapezoidMatrix_to_Triangular, "TrapezoidMatrix => TriangularMatrix", mpi_comm);

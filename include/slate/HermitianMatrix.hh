@@ -85,16 +85,14 @@ public:
 
     HermitianMatrix(Uplo uplo, Matrix<scalar_t>& orig);
 
-    // sub-matrix
+    // on-diagonal sub-matrix
     HermitianMatrix sub(int64_t i1, int64_t i2);
-
-    Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
-
     HermitianMatrix slice(int64_t index1, int64_t index2);
 
-    Matrix<scalar_t> slice(
-        int64_t row1, int64_t row2,
-        int64_t col1, int64_t col2);
+    // off-diagonal sub-matrix
+    Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
+    Matrix<scalar_t> slice(int64_t row1, int64_t row2,
+                           int64_t col1, int64_t col2);
 
     template <typename out_scalar_t=scalar_t>
     HermitianMatrix<out_scalar_t> emptyLike();

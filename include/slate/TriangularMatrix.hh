@@ -95,10 +95,14 @@ public:
                      int64_t i1, int64_t i2,
                      int64_t j1, int64_t j2);
 
-    // sub-matrix
+    // on-diagonal sub-matrix
     TriangularMatrix sub(int64_t i1, int64_t i2);
+    TriangularMatrix slice(int64_t index1, int64_t index2);
 
+    // off-diagonal sub-matrix
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
+    Matrix<scalar_t> slice(int64_t row1, int64_t row2,
+                           int64_t col1, int64_t col2);
 
 protected:
     // used by fromLAPACK and fromScaLAPACK
@@ -114,6 +118,10 @@ protected:
     // used by sub
     TriangularMatrix(TriangularMatrix& orig,
                      int64_t i1, int64_t i2);
+
+    // used by slice
+    TriangularMatrix(TriangularMatrix& orig,
+                     typename BaseMatrix<scalar_t>::Slice slice);
 
 public:
     template <typename T>
@@ -505,6 +513,73 @@ Matrix<scalar_t> TriangularMatrix<scalar_t>::sub(
     int64_t j1, int64_t j2)
 {
     return BaseTrapezoidMatrix<scalar_t>::sub(i1, i2, j1, j2);
+}
+
+//------------------------------------------------------------------------------
+/// Sliced matrix constructor creates shallow copy view of parent matrix,
+/// A[ row1:row2, col1:col2 ].
+/// This takes row & col indices instead of block row & block col indices.
+/// Assumes that row1 == col1 and row2 == col2 (@see slice()).
+///
+/// @param[in] orig
+///     Original matrix of which to make sub-matrix.
+///
+/// @param[in] slice
+///     Contains start and end row and column indices.
+///
+template <typename scalar_t>
+TriangularMatrix<scalar_t>::TriangularMatrix(
+    TriangularMatrix<scalar_t>& orig,
+    typename BaseMatrix<scalar_t>::Slice slice)
+    : TrapezoidMatrix<scalar_t>(orig, slice)
+{}
+
+//------------------------------------------------------------------------------
+/// Returns sliced matrix that is a shallow copy view of the
+/// parent matrix, A[ index1:index2, index1:index2 ].
+/// This takes row & col indices instead of block row & block col indices.
+///
+/// @param[in] index1
+///     Starting row and col index. 0 <= index1 < n.
+///
+/// @param[in] index2
+///     Ending row and col index (inclusive). index1 <= index2 < n.
+///
+template <typename scalar_t>
+TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::slice(
+    int64_t index1, int64_t index2)
+{
+    return TriangularMatrix<scalar_t>(*this,
+        typename BaseMatrix<scalar_t>::Slice(index1, index2, index1, index2));
+}
+
+//------------------------------------------------------------------------------
+/// Returns sliced matrix that is a shallow copy view of the
+/// parent matrix, A[ row1:row2, col1:col2 ].
+/// This takes row & col indices instead of block row & block col indices.
+/// The sub-matrix cannot overlap the diagonal.
+/// - if uplo = Lower, 0 <= col1 <= col2 <= row1 <= row2 < n;
+/// - if uplo = Upper, 0 <= row1 <= row2 <= col1 <= col2 < n.
+///
+/// @param[in] row1
+///     Starting row index.
+///
+/// @param[in] row2
+///     Ending row index (inclusive).
+///
+/// @param[in] col1
+///     Starting column index.
+///
+/// @param[in] col2
+///     Ending column index (inclusive).
+///
+template <typename scalar_t>
+Matrix<scalar_t> TriangularMatrix<scalar_t>::slice(
+    int64_t row1, int64_t row2,
+    int64_t col1, int64_t col2)
+{
+    return Matrix<scalar_t>(*this,
+        typename BaseMatrix<scalar_t>::Slice(row1, row2, col1, col2));
 }
 
 //------------------------------------------------------------------------------

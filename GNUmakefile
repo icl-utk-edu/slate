@@ -450,15 +450,13 @@ docs:
 	doxygen docs/doxygen/doxyfile.conf
 
 #-------------------------------------------------------------------------------
-# LAPACK++ library
-liblapackpp_src = $(wildcard lapackpp/include/*.h \
-                             lapackpp/include/*.hh \
-                             lapackpp/src/*.cc)
+# libtest library
+libtest_src = $(wildcard libtest/*.hh libtest/*.cc)
 
-liblapackpp = lapackpp/lib/liblapackpp.$(lib_ext)
+libtest = libtest/libtest.$(lib_ext)
 
-$(liblapackpp): $(liblapackpp_src)
-	cd lapackpp && $(MAKE) lib
+$(libtest): $(libtest_src)
+	cd libtest && $(MAKE) lib
 
 #-------------------------------------------------------------------------------
 # BLAS++ library
@@ -468,17 +466,21 @@ libblaspp_src = $(wildcard blaspp/include/*.h \
 
 libblaspp = blaspp/lib/libblaspp.$(lib_ext)
 
-$(libblaspp): $(libblaspp_src)
+# dependency on libtest serializes compiles
+$(libblaspp): $(libblaspp_src) | $(libtest)
 	cd blaspp && $(MAKE) lib
 
 #-------------------------------------------------------------------------------
-# libtest library
-libtest_src = $(wildcard libtest/*.hh libtest/*.cc)
+# LAPACK++ library
+liblapackpp_src = $(wildcard lapackpp/include/*.h \
+                             lapackpp/include/*.hh \
+                             lapackpp/src/*.cc)
 
-libtest = libtest/libtest.$(lib_ext)
+liblapackpp = lapackpp/lib/liblapackpp.$(lib_ext)
 
-$(libtest): $(libtest_src)
-	cd libtest && $(MAKE) lib
+# dependency on libtest, BLAS++ serializes compiles
+$(liblapackpp): $(liblapackpp_src) | $(libtest) $(libblaspp)
+	cd lapackpp && $(MAKE) lib
 
 #-------------------------------------------------------------------------------
 # libslate library

@@ -51,14 +51,12 @@
 namespace blas {
 
 template<>
-struct real_type_traits<cuFloatComplex>
-{
+struct real_type_traits<cuFloatComplex> {
     using real_t = float;
 };
 
 template<>
-struct real_type_traits<cuDoubleComplex>
-{
+struct real_type_traits<cuDoubleComplex> {
     using real_t = double;
 };
 
@@ -179,8 +177,8 @@ void transpose(
 template <typename scalar_t>
 void transpose_batch(
     int64_t m, int64_t n,
-    scalar_t **dA_array,  int64_t lda,
-    scalar_t **dAT_array, int64_t ldat,
+    scalar_t** dA_array,  int64_t lda,
+    scalar_t** dAT_array, int64_t ldat,
     int64_t batch_count,
     cudaStream_t stream);
 

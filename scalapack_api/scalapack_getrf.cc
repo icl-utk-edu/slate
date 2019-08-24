@@ -157,10 +157,10 @@ void slate_pgetrf(int m, int n, scalar_t* a, int ia, int ja, int* desca, int* ip
     auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), nprow, npcol, MPI_COMM_WORLD);
     A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
 
-    if (verbose && myrow==0 && mycol==0)
+    if (verbose && myrow == 0 && mycol == 0)
         logprintf("%s\n", "getrf");
 
-    slate::getrf (A, pivots, {
+    slate::getrf(A, pivots, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
@@ -178,7 +178,7 @@ void slate_pgetrf(int m, int n, scalar_t* a, int ia, int ja, int* desca, int* ip
         // const int64_t A_mt = A.mt();
         // for (int tm = 0; tm < A_mt; ++tm) {
         //     for (int tn = 0; tn < A_nt; ++tn) {
-        //         if (A.tileIsLocal(tm, tn)){
+        //         if (A.tileIsLocal(tm, tn)) {
         //             for (auto p_iter = pivots[tm].begin(); p_iter != pivots[tm].end(); ++p_iter) {
         //                 ipiv[p_count++] = p_iter->tileIndex() * nb + p_iter->elementOffset() + 1;
         //             }
@@ -188,7 +188,7 @@ void slate_pgetrf(int m, int n, scalar_t* a, int ia, int ja, int* desca, int* ip
         // }
 
         int ZERO = 0;
-        int l_numrows = scalapack_numroc (An, nb, myrow, ZERO, nprow); // local number of rows
+        int l_numrows = scalapack_numroc(An, nb, myrow, ZERO, nprow);  // local number of rows
         int l_rindx = 1;// local row index (Scalapack 1-index)
         // find the global tile indices of the local tiles
         while (l_rindx <= l_numrows) {

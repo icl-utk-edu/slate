@@ -608,12 +608,12 @@ void test_Matrix_tileInsert_data()
     int n1 = n - n2;
 
     std::vector<double> Ad( m*n );
-    double *A11 = Ad.data();
-    double *A21 = A11 + m1*n1;
-    double *A12 = A21 + m2*n1;
-    double *A22 = A12 + m1*n2;
+    double* A11 = Ad.data();
+    double* A21 = A11 + m1*n1;
+    double* A12 = A21 + m2*n1;
+    double* A22 = A12 + m1*n2;
 
-    double *Td;
+    double* Td;
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {
             int ib = std::min( mb, m - i*mb );

@@ -142,10 +142,11 @@ bool Debug::checkTilesLayout(BaseMatrix<scalar_t> const& A)
             for (int64_t j = 0; j < A.nt(); j++) {
                 index = A.globalIndex(i, j);
                 tmp_tile = A.storage_->tiles_.find(index);
-                if (tmp_tile != tile_end)
-                    if ( tmp_tile->second->at(A.host_num_).valid()
-                      && tmp_tile->second->at(A.host_num_).tile()->layout() != A.layout() )
-                        return false;
+                if (tmp_tile != tile_end &&
+                    tmp_tile->second->at(A.host_num_).valid() &&
+                    tmp_tile->second->at(A.host_num_).tile()->layout() != A.layout()) {
+                    return false;
+                }
             }
         }
     }
@@ -154,7 +155,8 @@ bool Debug::checkTilesLayout(BaseMatrix<scalar_t> const& A)
 
 //------------------------------------------------------------------------------
 /// On MPI rank 0 only,
-///     print lives of all tiles, with "." if tile doesn't exist.
+/// print lives of all tiles, with "." if tile doesn't exist.
+///
 template <typename scalar_t>
 void Debug::printTilesLives(BaseMatrix<scalar_t> const& A)
 {

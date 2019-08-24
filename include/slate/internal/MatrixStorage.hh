@@ -109,8 +109,7 @@ void slateCudaMallocHost(value_type** ptr, size_t nelements)
 
 //------------------------------------------------------------------------------
 /// A tile state in the MOSI coherency protocol
-enum MOSI
-{
+enum MOSI {
     Modified = 0x100,   ///< tile data is modified, other instances should be Invalid, cannot be purged
     OnHold = 0x1000,  ///< a hold is placed on this tile instance, cannot be purged
     Shared = 0x010,   ///< tile data is up-to-date, other instances may be Shared, or Invalid, may be purged
@@ -121,15 +120,16 @@ typedef short MOSI_State;
 //------------------------------------------------------------------------------
 ///
 template <typename scalar_t>
-class TileInstance
-{
+class TileInstance {
 private:
     Tile<scalar_t>* tile_;
     MOSI_State state_;
     mutable omp_nest_lock_t lock_;
 
 public:
-    TileInstance() : tile_(nullptr), state_(MOSI::Invalid)
+    TileInstance()
+        : tile_(nullptr),
+          state_(MOSI::Invalid)
     {
         omp_init_nest_lock(&lock_);
     }
@@ -200,7 +200,7 @@ public:
     }
 
     /// Returns the current MOSI state (Modified/Shared/Invalid)
-    /// to check the OnHold flag use @stateOn
+    /// to check the OnHold flag use stateOn
     MOSI getState() const
     {
         return MOSI(state_ & MOSI_State(~MOSI::OnHold));
@@ -229,8 +229,7 @@ public:
 //------------------------------------------------------------------------------
 ///
 template <typename scalar_t>
-class TileNode
-{
+class TileNode {
 private:
     typedef TileInstance<scalar_t> TileInstance_t;
     /// vector of tile instances indexed by device id.
@@ -246,7 +245,8 @@ private:
 public:
     /// Constructor for TileNode class
     TileNode(int num_devices)
-        : num_instances_(0), life_(0)
+        : num_instances_(0),
+          life_(0)
     {
         slate_assert(num_devices >= 0);
         omp_init_nest_lock(&lock_);
@@ -345,8 +345,8 @@ public:
 };
 
 //------------------------------------------------------------------------------
-/// @brief Slate::MatrixStorage class
-/// @details Used to store the map of distributed tiles.
+/// Slate::MatrixStorage class
+/// Used to store the map of distributed tiles.
 /// @tparam scalar_t Data type for the elements of the matrix
 ///
 template <typename scalar_t>
@@ -1026,8 +1026,8 @@ void MatrixStorage<scalar_t>::clear()
 
 //------------------------------------------------------------------------------
 /// Allocates a memory block on device to be used as a workspace buffer,
-///     to be released with call to releaseWorkspaceBuffer()
-/// @returns pointer to memory block on device
+/// to be released with call to releaseWorkspaceBuffer()
+/// @return pointer to memory block on device
 ///
 /// @param[in] device
 ///     Device ID (GPU or Host) where the memory block is needed.
@@ -1064,7 +1064,7 @@ void MatrixStorage<scalar_t>::releaseWorkspaceBuffer(scalar_t* data, int device)
 ///
 template <typename scalar_t>
 TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileAcquire(
-                        ijdev_tuple ijdev, Layout layout)
+    ijdev_tuple ijdev, Layout layout)
 {
     int64_t i  = std::get<0>(ijdev);
     int64_t j  = std::get<1>(ijdev);
@@ -1195,7 +1195,7 @@ void MatrixStorage<scalar_t>::tileMakeTransposable(Tile<scalar_t>* tile)
 //------------------------------------------------------------------------------
 /// Resets the extended tile.
 /// Frees the extended buffer and returns to memory manager
-///     then resets the tile's extended member fields
+/// then resets the tile's extended member fields
 ///
 /// @param[in,out] tile
 ///     Pointer to extended tile.

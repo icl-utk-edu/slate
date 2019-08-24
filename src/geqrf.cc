@@ -113,7 +113,6 @@ void geqrf(slate::internal::TargetType<target>,
             // Find ranks in this column.
             std::set<int> ranks_set;
             A_panel.getRanks(&ranks_set);
-
             assert(ranks_set.size() > 0);
 
             // Find each rank's top-most row in this panel,
@@ -247,7 +246,6 @@ void geqrf(slate::internal::TargetType<target>,
 
     A.tileUpdateAllOrigin();
     A.releaseWorkspace();
-
 }
 
 } // namespace specialization

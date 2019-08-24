@@ -203,7 +203,7 @@ void slate_pgemm(const char* transastr, const char* transbstr, int m, int n, int
     else if (transB == blas::Op::ConjTrans)
         B = conj_transpose(B);
 
-    if (verbose && myrow==0 && mycol==0)
+    if (verbose && myrow == 0 && mycol == 0)
         logprintf("%s\n", "gemm");
 
     slate::gemm(alpha, A, B, beta, C, {

@@ -130,7 +130,7 @@ void slate_pherk(const char* uplostr, const char* transstr, int n, int k, blas::
     auto C = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(descc), c, desc_LLD(descc), desc_MB(descc), nprow, npcol, MPI_COMM_WORLD);
     C = slate_scalapack_submatrix(Cm, Cn, C, ic, jc, descc);
 
-    if (verbose && myrow==0 && mycol==0)
+    if (verbose && myrow == 0 && mycol == 0)
         logprintf("%s\n", "herk");
 
     if (transA == blas::Op::Trans)

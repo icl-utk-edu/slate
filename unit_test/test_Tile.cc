@@ -704,7 +704,8 @@ void test_copyData(int align_host, int align_dev)
     cudaStream_t stream;
     test_assert(cudaStreamCreate(&stream) == cudaSuccess);
 
-    double *Adata_dev, *Bdata_dev;
+    double* Adata_dev;
+    double* Bdata_dev;
     test_assert(cudaMalloc((void**) &Adata_dev, sizeof(double)*ldda*n) == cudaSuccess);
     test_assert(Adata_dev != nullptr);
     test_assert(cudaMalloc((void**) &Bdata_dev, sizeof(double)*ldda*n) == cudaSuccess);

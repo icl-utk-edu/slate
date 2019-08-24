@@ -138,7 +138,7 @@ void slate_pgesvMixed(int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, 
     auto X = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(descx), desc_N(descx), x, desc_LLD(descx), desc_MB(descx), nprow, npcol, MPI_COMM_WORLD);
     X = slate_scalapack_submatrix(Xm, Xn, X, ix, jx, descx);
 
-    if (verbose && myrow==0 && mycol==0)
+    if (verbose && myrow == 0 && mycol == 0)
         logprintf("%s\n", "gesvMixed");
 
     if (std::is_same<real_t, double>::value) {
@@ -160,7 +160,7 @@ void slate_pgesvMixed(int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, 
         // const int64_t A_mt = A.mt();
         // for (int tm = 0; tm < A_mt; ++tm) {
         //     for (int tn = 0; tn < A_nt; ++tn) {
-        //         if (A.tileIsLocal(tm, tn)){
+        //         if (A.tileIsLocal(tm, tn)) {
         //             for (auto p_iter = pivots[tm].begin(); p_iter != pivots[tm].end(); ++p_iter) {
         //                 ipiv[p_count++] = p_iter->tileIndex() * nb + p_iter->elementOffset() + 1;
         //             }

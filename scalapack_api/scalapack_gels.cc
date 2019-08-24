@@ -182,7 +182,7 @@ void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int 
     else if (trans == slate::Op::ConjTrans)
         opA = conj_transpose(A);
 
-    if (verbose && myrow==0 && mycol==0)
+    if (verbose && myrow == 0 && mycol == 0)
         logprintf("%s\n", "gels");
 
     slate::TriangularFactors<scalar_t> T;

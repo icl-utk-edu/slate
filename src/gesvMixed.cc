@@ -106,7 +106,7 @@ void gesvMixed( slate::internal::TargetType<target>,
     R.   insertLocalTiles(target);
     A_lo.insertLocalTiles(target);
 
-    if (target == Target::Devices){
+    if (target == Target::Devices) {
         A.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
         B.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
         X.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
@@ -167,7 +167,7 @@ void gesvMixed( slate::internal::TargetType<target>,
     }
 
     // iterative refinement
-    for (int iiter = 0; iiter < itermax && !converged; iiter++) {
+    for (int iiter = 0; iiter < itermax && ! converged; iiter++) {
         // Convert R from high to low precision, store result in X_lo.
         copy(R, X_lo,
              {{Option::Target, target}});
@@ -209,7 +209,7 @@ void gesvMixed( slate::internal::TargetType<target>,
         }
     }
 
-    if ( ! converged ) {
+    if (! converged) {
         // If we are at this place of the code, this is because we have performed
         // iter = itermax iterations and never satisfied the stopping criterion,
         // set up the iter flag accordingly and follow up with double precision
@@ -411,24 +411,24 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
 // Explicit instantiations.
 template <>
 void gesvMixed<double>(
-                Matrix<double>& A, Pivots& pivots,
-                Matrix<double>& B,
-                Matrix<double>& X,
-                int& iter,
-                const std::map<Option, Value>& opts)
+    Matrix<double>& A, Pivots& pivots,
+    Matrix<double>& B,
+    Matrix<double>& X,
+    int& iter,
+    const std::map<Option, Value>& opts)
 {
-    gesvMixed<double, float>( A, pivots, B, X, iter, opts);
+    gesvMixed<double, float>(A, pivots, B, X, iter, opts);
 }
 
 template <>
 void gesvMixed< std::complex<double> >(
-                Matrix< std::complex<double> >& A, Pivots& pivots,
-                Matrix< std::complex<double> >& B,
-                Matrix< std::complex<double> >& X,
-                int& iter,
-                const std::map<Option, Value>& opts)
+    Matrix< std::complex<double> >& A, Pivots& pivots,
+    Matrix< std::complex<double> >& B,
+    Matrix< std::complex<double> >& X,
+    int& iter,
+    const std::map<Option, Value>& opts)
 {
-    gesvMixed<std::complex<double>, std::complex<float>>( A, pivots, B, X, iter, opts);
+    gesvMixed<std::complex<double>, std::complex<float>>(A, pivots, B, X, iter, opts);
 }
 
 } // namespace slate

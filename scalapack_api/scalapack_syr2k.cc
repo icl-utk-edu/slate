@@ -181,7 +181,7 @@ void slate_psyr2k(const char* uplostr, const char* transstr, int n, int k, scala
     assert(B.mt() == CS.mt());
     assert(A.nt() == B.nt());
 
-    if (verbose && myrow==0 && mycol==0)
+    if (verbose && myrow == 0 && mycol == 0)
         logprintf("%s\n", "syr2k");
 
     slate::syr2k(alpha, A, B, beta, CS, {

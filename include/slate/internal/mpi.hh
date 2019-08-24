@@ -85,8 +85,8 @@ enum {
 
 extern int* MPI_STATUS_IGNORE;
 
-typedef void (MPI_User_function) ( void * a,
-                                   void * b, int * len, MPI_Datatype * );
+typedef void (MPI_User_function) (void* a,
+                                  void* b, int* len, MPI_Datatype* type);
 
 #ifdef __cplusplus
 extern "C" {
@@ -120,7 +120,7 @@ int MPI_Init(int* argc, char*** argv);
 
 int MPI_Init_thread(int* argc, char*** argv, int required, int* provided);
 
-int MPI_Initialized(int *flag);
+int MPI_Initialized(int* flag);
 
 int MPI_Irecv(void* buf, int count, MPI_Datatype datatype, int source,
               int tag, MPI_Comm comm, MPI_Request* request);
@@ -143,8 +143,8 @@ int MPI_Request_free(MPI_Request* request);
 int MPI_Send(const void* buf, int count, MPI_Datatype datatype, int dest,
              int tag, MPI_Comm comm);
 
-int MPI_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
-                 int dest, int sendtag, void *recvbuf, int recvcount,
+int MPI_Sendrecv(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
+                 int dest, int sendtag, void* recvbuf, int recvcount,
                  MPI_Datatype recvtype, int source, int recvtag,
                  MPI_Comm comm, MPI_Status *status);
 
@@ -157,7 +157,7 @@ int MPI_Type_vector(int count, int blocklength, int stride,
 
 int MPI_Wait(MPI_Request* request, MPI_Status* status);
 
-int MPI_Error_string(int errorcode, char *string, int *resultlen);
+int MPI_Error_string(int errorcode, char* string, int* resultlen);
 
 int MPI_Finalize(void);
 

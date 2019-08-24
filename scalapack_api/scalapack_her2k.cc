@@ -147,7 +147,7 @@ void slate_pher2k(const char* uplostr, const char* transstr, int n, int k, scala
     assert(B.mt() == CH.mt());
     assert(A.nt() == B.nt());
 
-    if (verbose && myrow==0 && mycol==0)
+    if (verbose && myrow == 0 && mycol == 0)
         logprintf("%s\n", "her2k");
 
     slate::her2k(alpha, A, B, beta, CH, {

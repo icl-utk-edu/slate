@@ -219,8 +219,7 @@ void set(internal::TargetType<Target::Devices>,
                 nb[q] = A.tileNb(jrange[q][0]);
                 for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                        if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j))
-                        {
+                        if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
                             if (i != j) {
                                 a_array_host[batch_count] = A(i, j, device).data();
                                 lda[q] = A(i, j, device).stride();
@@ -238,8 +237,7 @@ void set(internal::TargetType<Target::Devices>,
                 nb[q] = A.tileNb(jrange[q-4][0]);
                 for (int64_t i = irange[q-4][0]; i < irange[q-4][1]; ++i) {
                     for (int64_t j = jrange[q-4][0]; j < jrange[q-4][1]; ++j) {
-                        if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j))
-                        {
+                        if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
                             if (i == j) {
                                 a_array_host[batch_count] = A(i, j, device).data();
                                 lda[q] = A(i, j, device).stride();

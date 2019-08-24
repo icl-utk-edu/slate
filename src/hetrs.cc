@@ -93,8 +93,8 @@ void hetrs(slate::internal::TargetType<target>,
     }
 
     // band solve
-   gbtrs(T, pivots2, B,
-         {{Option::Lookahead, lookahead}});
+    gbtrs(T, pivots2, B,
+          {{Option::Lookahead, lookahead}});
 
     if (A_nt > 1) {
         // backward substitution with L^T from Aasen's

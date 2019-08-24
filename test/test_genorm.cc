@@ -196,8 +196,7 @@ void test_genorm_work(Params& params, bool run)
             MPI_Barrier(MPI_COMM_WORLD);
         }
         else if (scope == slate::NormScope::Columns) {
-            for (int64_t c = 0; c < n; ++c)
-            {
+            for (int64_t c = 0; c < n; ++c) {
                 int64_t c_1 = c+1;
                 A_norm_ref = scalapack_plange(
                     norm2str(norm),

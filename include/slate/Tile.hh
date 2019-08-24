@@ -117,8 +117,7 @@ MatrixType conj_transpose(MatrixType&& A)
 /// and who owns (allocated, deallocates) the data.
 /// @ingroup enum
 ///
-enum class TileKind
-{
+enum class TileKind {
     Workspace,   ///< SLATE allocated workspace tile
     SlateOwned,  ///< SLATE allocated origin tile
     UserOwned,   ///< User owned origin tile
@@ -518,7 +517,7 @@ Uplo Tile<scalar_t>::uploLogical() const
 template <typename scalar_t>
 Uplo Tile<scalar_t>::uploPhysical() const
 {
-   return this->uplo_;
+    return this->uplo_;
 }
 
 //------------------------------------------------------------------------------
@@ -669,8 +668,7 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream)
     // rectangular tile
     else {
         // if tile made Convertible
-        if (extended())
-        {
+        if (extended()) {
             // out-of-place convert
             scalar_t* src_data;
             int64_t src_stride = 0;
@@ -683,8 +681,7 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream)
                 stride_ = user_layout_ == Layout::RowMajor ?
                           mb_ : nb_;
             }
-            else
-            if (ext_data_ == data_) {
+            else if (ext_data_ == data_) {
                 // need to convert into user_data_
                 data_ = user_data_;
                 src_data = ext_data_;
@@ -874,7 +871,7 @@ void Tile<scalar_t>::copyDataToDevice(
 //------------------------------------------------------------------------------
 /// Copies data from this tile to dst_tile.
 /// Figures out the direction of copy and the source and destination devices
-///     from the destination tile and this tile.
+/// from the destination tile and this tile.
 /// WARNING: device ID set in device_ of both tiles should be properly set.
 ///
 /// @param[in] dst_tile
@@ -901,20 +898,17 @@ void Tile<scalar_t>::copyData(
         device = this->device_;
         memcpy_kind = cudaMemcpyDeviceToHost;
     }
-    else
-    if (this->device_ == HostNum && dst_tile->device() >= 0) {
+    else if (this->device_ == HostNum && dst_tile->device() >= 0) {
         // host to device copy
         device = dst_tile->device();
         memcpy_kind = cudaMemcpyHostToDevice;
     }
-    else
-    if (this->device_ == HostNum && dst_tile->device() == HostNum) {
+    else if (this->device_ == HostNum && dst_tile->device() == HostNum) {
         // host to host copy
         device = -1;
         memcpy_kind = cudaMemcpyHostToHost;
     }
-    else
-    if (this->device_ >= 0 && dst_tile->device() >= 0) {
+    else if (this->device_ >= 0 && dst_tile->device() >= 0) {
         // device to device copy
         device = this->device_;
         memcpy_kind = cudaMemcpyDeviceToDevice;
@@ -938,7 +932,7 @@ void Tile<scalar_t>::copyData(
         dst_tile->stride_ = this->layout() == Layout::ColMajor ? mb_ : nb_;
     }
 
-    if ( memcpy_kind == cudaMemcpyHostToHost ) {
+    if (memcpy_kind == cudaMemcpyHostToHost) {
         gecopy(*this, *dst_tile);
     }
     else {

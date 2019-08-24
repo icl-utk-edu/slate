@@ -67,7 +67,7 @@
             #cond, error, __FILE__, __func__, __LINE__);
 
 #define THROW_IF_NOT(cond, error) \
-    if (!(cond)) \
+    if (! (cond)) \
         throw FalseConditionException( \
             #cond, error, __FILE__, __func__, __LINE__);
 

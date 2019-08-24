@@ -130,7 +130,7 @@ void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int 
     // create SLATE matrices from the LAPACK layouts
     auto A = slate::Matrix<scalar_t>::fromLAPACK(Am, An, a, lda, nb, p, q, MPI_COMM_WORLD);
     auto B = slate::Matrix<scalar_t>::fromLAPACK(Bm, Bn, b, ldb, nb, p, q, MPI_COMM_WORLD);
-    
+
     // Apply transpose
     auto opA = A;
     if (trans == slate::Op::Trans)

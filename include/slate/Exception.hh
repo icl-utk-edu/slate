@@ -161,6 +161,7 @@ public:
 
 /// Throws an MpiException if the MPI call fails.
 /// Example:
+///
 ///     try {
 ///         slate_mpi_call( MPI_Barrier( MPI_COMM_WORLD ) );
 ///     }
@@ -199,6 +200,7 @@ public:
 
 /// Throws a CudaException if the CUDA call fails.
 /// Example:
+///
 ///     try {
 ///         slate_cuda_call( cudaSetDevice( device ) );
 ///     }
@@ -239,6 +241,7 @@ public:
 
 /// Throws a CublasException if the CUBLAS call fails.
 /// Example:
+///
 ///     try {
 ///         slate_cublas_call( cublasCreate( &handle ) );
 ///     }

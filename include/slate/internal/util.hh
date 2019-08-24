@@ -53,8 +53,10 @@ namespace slate {
 
 //------------------------------------------------------------------------------
 /// max that propogates nan consistently:
+///
 ///     max_nan( 1,   nan ) = nan
 ///     max_nan( nan, 1   ) = nan
+///
 template <typename real_t>
 inline real_t max_nan(real_t x, real_t y)
 {
@@ -73,7 +75,9 @@ inline scalar_t sqr(scalar_t x)
 //------------------------------------------------------------------------------
 /// Adds two scaled, sum-of-squares representations.
 /// On exit, scale1 and sumsq1 are updated such that:
+///
 ///     scale1^2 sumsq1 := scale1^2 sumsq1 + scale2^2 sumsq2.
+///
 template <typename real_t>
 void add_sumsq(
     real_t& scale1, real_t& sumsq1,
@@ -92,7 +96,9 @@ void add_sumsq(
 //------------------------------------------------------------------------------
 /// Adds new value to scaled, sum-of-squares representation.
 /// On exit, scale and sumsq are updated such that:
+///
 ///     scale^2 sumsq := scale^2 sumsq + (absx)^2
+///
 template <typename real_t>
 void add_sumsq(
     real_t& scale, real_t& sumsq,

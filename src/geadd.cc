@@ -58,9 +58,9 @@ namespace specialization {
 ///
 template <Target target, typename scalar_t>
 void geadd(slate::internal::TargetType<target>,
-          scalar_t alpha, Matrix<scalar_t>& A,
-          scalar_t beta,  Matrix<scalar_t>& B,
-          int64_t lookahead)
+           scalar_t alpha, Matrix<scalar_t>& A,
+           scalar_t beta,  Matrix<scalar_t>& B,
+           int64_t lookahead)
 {
     using namespace blas;
 

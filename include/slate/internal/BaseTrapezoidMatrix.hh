@@ -941,14 +941,14 @@ void BaseTrapezoidMatrix<scalar_t>::tileLayoutReset()
             if (this->tileIsLocal(i, j)) {
 
                 auto tile = this->tileUpdateOrigin(i, j);
-                if (tile->layout() != this->layout() ) {
+                if (tile->layout() != this->layout()) {
                     assert(tile->isTransposable());
                 }
 
                 if (tile->device() == hostNum()) {
                     tiles_set_host.insert({i, j});
                 }
-                else{
+                else {
                     tiles_set_dev[tile->device()].insert({i, j});
                 }
             }

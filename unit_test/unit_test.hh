@@ -10,8 +10,7 @@
 //==============================================================================
 /// Exception class thrown by test_assert, test_assert_throw,
 /// test_assert_no_throw.
-class AssertError: public std::runtime_error
-{
+class AssertError: public std::runtime_error {
 public:
     AssertError(const char* what_arg, const char* file, int line);
 
@@ -102,8 +101,7 @@ public:
 
 //==============================================================================
 /// Exception class thrown by test_skip.
-class SkipException: public std::runtime_error
-{
+class SkipException: public std::runtime_error {
 public:
     SkipException(const char* what_arg, const char* file, int line);
 

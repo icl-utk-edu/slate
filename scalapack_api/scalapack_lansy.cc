@@ -156,7 +156,7 @@ blas::real_type<scalar_t> slate_plansy(const char* normstr, const char* uplostr,
     auto A = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(desca), a, desc_LLD(desca), desc_MB(desca), nprow, npcol, MPI_COMM_WORLD);
     A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
 
-    if (verbose && myrow==0 && mycol==0)
+    if (verbose && myrow == 0 && mycol == 0)
         logprintf("%s\n", "lansy");
 
     blas::real_type<scalar_t> A_norm;

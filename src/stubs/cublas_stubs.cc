@@ -75,7 +75,7 @@ cublasStatus_t cublasDasum(cublasHandle_t handle, int n, const double* x,
 }
 
 cublasStatus_t cublasSetMatrix(int rows, int cols, int elemSize,
-                const void *A, int lda, void *B, int ldb)
+                               const void* A, int lda, void* B, int ldb)
 {
     assert(0);
 }
@@ -131,8 +131,8 @@ cublasStatus_t cublasZgemmBatched(
 cublasStatus_t cublasSswap(
     cublasHandle_t handle,
     int n,
-    float *x, int incx,
-    float *y, int incy)
+    float* x, int incx,
+    float* y, int incy)
 {
     assert(0);
 }
@@ -140,8 +140,8 @@ cublasStatus_t cublasSswap(
 cublasStatus_t cublasDswap(
     cublasHandle_t handle,
     int n,
-    double *x, int incx,
-    double *y, int incy)
+    double* x, int incx,
+    double* y, int incy)
 {
     assert(0);
 }
@@ -149,8 +149,8 @@ cublasStatus_t cublasDswap(
 cublasStatus_t cublasCswap(
     cublasHandle_t handle,
     int n,
-    cuComplex *x, int incx,
-    cuComplex *y, int incy)
+    cuComplex* x, int incx,
+    cuComplex* y, int incy)
 {
     assert(0);
 }
@@ -158,15 +158,15 @@ cublasStatus_t cublasCswap(
 cublasStatus_t cublasZswap(
     cublasHandle_t handle,
     int n,
-    cuDoubleComplex *x, int incx,
-    cuDoubleComplex *y, int incy)
+    cuDoubleComplex* x, int incx,
+    cuDoubleComplex* y, int incy)
 {
     assert(0);
 }
 
 cublasStatus_t cublasGetMatrix(
     int rows, int cols, int elemSize,
-    const void *A, int lda, void *B, int ldb)
+    const void* A, int lda, void* B, int ldb)
 {
     assert(0);
 }

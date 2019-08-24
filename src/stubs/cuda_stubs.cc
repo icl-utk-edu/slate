@@ -119,7 +119,7 @@ cudaError_t cudaStreamDestroy(cudaStream_t pStream)
     assert(0);
 }
 
-const char* cudaGetErrorName (cudaError_t error)
+const char* cudaGetErrorName(cudaError_t error)
 {
     assert(0);
 }

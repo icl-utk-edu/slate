@@ -171,7 +171,7 @@ void slate_psyrk(const char* uplostr, const char* transstr, int n, int k, scalar
         A = conj_transpose(A);
     assert(A.mt() == C.mt());
 
-    if (verbose && myrow==0 && mycol==0)
+    if (verbose && myrow == 0 && mycol == 0)
         logprintf("%s\n", "syrk");
 
     slate::syrk(alpha, A, beta, C, {

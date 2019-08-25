@@ -326,6 +326,7 @@ libslate_src += \
         src/syr2k.cc \
         src/syrk.cc \
         src/tb2bd.cc \
+        src/bdsqr.cc \
         src/tbsm.cc \
         src/trmm.cc \
         src/trsm.cc \
@@ -357,6 +358,7 @@ test_src += \
         test/test_syr2k.cc \
         test/test_syrk.cc \
         test/test_tb2bd.cc \
+        test/test_bdsqr.cc \
         test/test_tbsm.cc \
         test/test_trmm.cc \
         test/test_trnorm.cc \
@@ -553,7 +555,7 @@ scalapack_api_src += \
         scalapack_api/scalapack_lanhe.cc \
         scalapack_api/scalapack_posv.cc \
         scalapack_api/scalapack_gels.cc \
-        scalapack_api/scalapack_potri.cc 
+        scalapack_api/scalapack_potri.cc
 
 scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
 

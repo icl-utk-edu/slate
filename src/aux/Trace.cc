@@ -263,6 +263,8 @@ std::map<std::string, Color> function_color_ = {
     {"slate::device::genorm",    Color::LightSkyBlue},
     {"slate::device::transpose", Color::SkyBlue},
     {"slate::convert_layout",    Color::DeepSkyBlue},
+    {"slate::bdsqr",    Color::DeepSkyBlue},
+    {"slate::gatherAll",    Color::RosyBrown},
 };
 
 //------------------------------------------------------------------------------
@@ -478,7 +480,7 @@ void Trace::printProcEvents(int mpi_rank, int mpi_size,
 {
     double y = mpi_rank * num_threads_ * vscale_;
     double height = 0.9 * vscale_;
-    double stroke_width = vscale_ / 500.0;
+    // double stroke_width = vscale_ / 500.0;
 
     fprintf(trace_file, "\n<!-- data -->\n");
     for (auto& thread : events_) {

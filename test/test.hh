@@ -182,6 +182,7 @@ void test_getri  (Params& params, bool run);
 
 // SVD
 void test_tb2bd  (Params& params, bool run);
+void test_bdsqr  (Params& params, bool run);
 
 // -----------------------------------------------------------------------------
 inline slate::Origin str2origin(const char* origin)

@@ -289,6 +289,12 @@ void tb2bd(Matrix<scalar_t>& A, int64_t band,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
+template <typename scalar_t>
+void bdsqr(TriangularBandMatrix<scalar_t>& A,
+           Singularvalues<scalar_t>& D,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
 // tbsm()
 template <typename scalar_t>
 void tbsm(blas::Side side,

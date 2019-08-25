@@ -541,12 +541,6 @@ public:
     int q() const { return q_; }
 
 private:
-    int64_t m_;
-    int64_t n_;
-    int64_t mt_;
-    int64_t nt_;
-    int64_t mb_;
-    int64_t nb_;
     int p_, q_;
 
     TilesMap tiles_;        ///< map of tiles and associated states
@@ -580,13 +574,7 @@ template <typename scalar_t>
 MatrixStorage<scalar_t>::MatrixStorage(
     int64_t m, int64_t n, int64_t mb, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : m_(m),
-      n_(n),
-      mt_(ceildiv(m, mb)),
-      nt_(ceildiv(n, nb)),
-      mb_(mb),
-      nb_(nb),
-      p_(p),
+    : p_(p),
       q_(q),
       tiles_(),
       memory_(sizeof(scalar_t) * mb * nb),  // block size in bytes

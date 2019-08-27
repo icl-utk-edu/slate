@@ -60,7 +60,8 @@ namespace specialization {
 /// Generic implementation for any target.
 /// @ingroup bdsqr_specialization
 ///
-//ATTENTION: only singular values computed for now, no singular vectors.
+// ATTENTION: only singular values computed for now, no singular vectors.
+// only host computation supported for now
 //
 template <Target target, typename scalar_t>
 void bdsqr(slate::internal::TargetType<target>,
@@ -86,18 +87,18 @@ void bdsqr(slate::internal::TargetType<target>,
     // todo: this is over-communicating, try gathering the vectors only
     A.gatherAll(rank_set);
 
-    int64_t min_mn = std::min(A.m(), A.n());
-    int64_t min_mtnt = std::min(A.mt(), A.nt());
+    slate_assert(A.m() == A.n()); // Triangular matrix has square dimensions
+    slate_assert(A.mt() == A.nt());
+    int64_t nt = A.nt();
 
-    // std::vector<real_t> D(min_mn);
-    D.resize(min_mn);
-    std::vector<real_t> E(min_mn - 1);  // super-diagonal
+    D.resize(A.n());
+    std::vector<real_t> E(A.n() - 1);  // super-diagonal
     scalar_t dummy[1];  // U, VT, C not needed for NoVec
 
     // Copy diagonal & super-diagonal.
     int64_t D_index = 0;
     int64_t E_index = 0;
-    for (int64_t i = 0; i < min_mtnt; ++i) {
+    for (int64_t i = 0; i < nt; ++i) {
         // Copy 1 element from super-diagonal tile to E.
         if (i > 0) {
             auto T = A(i-1, i);
@@ -108,7 +109,8 @@ void bdsqr(slate::internal::TargetType<target>,
 
         // Copy main diagonal to D.
         auto T = A(i, i);
-        auto len = std::min(T.mb(), T.nb());
+        slate_assert(T.mb() == T.nb()); // square diagonal tile
+        auto len = T.nb();
         for (int j = 0; j < len; ++j) {
             D[D_index + j] = real( T(j, j) );
         }
@@ -125,7 +127,7 @@ void bdsqr(slate::internal::TargetType<target>,
     {
         trace::Block trace_block("lapack::bdsqr");
 
-        lapack::bdsqr(A.uplo(), min_mn, 0, 0, 0,
+        lapack::bdsqr(A.uplo(), A.n(), 0, 0, 0,
                       &D[0], &E[0], dummy, 1, dummy, 1, dummy, 1);
     }
 }

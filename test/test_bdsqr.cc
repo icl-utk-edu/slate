@@ -142,7 +142,8 @@ void test_bdsqr_work(
             real_t max_value = 0;
             for (int64_t j = 0; j < n; ++j) {
                 for (int64_t i = 0; i < m; ++i) {
-                    if (j > i+1 || j < i)
+                    if ( (! lower && (j > i+1 || j < i))
+                        || (lower && (j > i   || j < i-1)))
                         max_value = std::max( std::abs( A1[i + j*lda] ), max_value );
                 }
             }

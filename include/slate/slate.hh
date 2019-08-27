@@ -117,6 +117,16 @@ void gemm(scalar_t alpha, Matrix<scalar_t>& A,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
+// hb2td()
+template <typename scalar_t>
+void hb2td(HermitianMatrix<scalar_t>& A, int64_t band,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void hb2td(HermitianMatrix<scalar_t>& A, int64_t band,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
 // hemm()
 template <Target target, typename scalar_t>
 void hemm(blas::Side side,

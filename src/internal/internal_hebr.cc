@@ -41,70 +41,93 @@
 #include "internal/internal_batch.hh"
 #include "internal/internal.hh"
 #include "slate/internal/util.hh"
-#include "slate/Matrix.hh"
+#include "slate/HermitianMatrix.hh"
 #include "internal/Tile_lapack.hh"
 #include "slate/types.hh"
 
 namespace slate {
 namespace internal {
 
-//------------------------------------------------------------------------------
-/// Generates a single Householder reflector.
-/// todo: Use const for A.
-///
 template <typename scalar_t>
-void gerfg(Matrix<scalar_t>& A, std::vector<scalar_t>& v)
-{
-    // V <- A[:, 0]
-    v.resize(A.m());
-    scalar_t* v_ptr = v.data();
-    for (int64_t i = 0; i < A.mt(); ++i) {
-        auto tile = A.at(i, 0);
-        blas::copy(tile.mb(), &tile.at(0, 0),
-                   tile.op() == Op::NoTrans ? 1 : tile.stride(),
-                   v_ptr, 1);
-        v_ptr += tile.mb();
-    }
+void gerfg(Matrix<scalar_t>& A, std::vector<scalar_t>& v);
 
-    // Compute the reflector in V.
-    // Store tau in V[0].
-    scalar_t tau;
-    lapack::larfg(A.m(), v.data(), v.data()+1, 1, &tau);
-    v.at(0) = tau;
-}
+template <typename scalar_t>
+void gerf(std::vector<scalar_t> const& in_v, Matrix<scalar_t>& A);
 
 //------------------------------------------------------------------------------
 /// Applies a single Householder reflector.
 ///
 template <typename scalar_t>
-void gerf(std::vector<scalar_t> const& in_v, Matrix<scalar_t>& A)
+void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A)
 {
     // Replace tau with 1.0 in V[0].
     auto v = in_v;
     scalar_t tau = v.at(0);
     v.at(0) = scalar_t(1.0);
 
-    // w = C' * v
-    auto AT = transpose(A);
-    std::vector<scalar_t> w(AT.m());
-
+    // w = C * v
+    std::vector<scalar_t> w(A.n());
     scalar_t* w_ptr = w.data();
-    for (int64_t i = 0; i < AT.mt(); ++i) {
+    for (int64_t i = 0; i < A.nt(); ++i) {
         scalar_t* v_ptr = v.data();
-        for (int64_t j = 0; j < AT.nt(); ++j) {
-            gemv(scalar_t(1.0), AT.at(i, j), v_ptr,
-                 j == 0 ? scalar_t(0.0) : scalar_t(1.0), w_ptr);
-            v_ptr += AT.tileNb(j);
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            if (i == j) {
+                symv(scalar_t(1.0), A.at(i, j), v_ptr,
+                    j == 0 ? scalar_t(0.0) : scalar_t(1.0), w_ptr);
+            }
+            else {
+                if (i > j) {
+                    gemv(scalar_t(1.0), A.at(i, j), v_ptr,
+                         j == 0 ? scalar_t(0.0) : scalar_t(1.0), w_ptr);
+                }
+                else {
+                    gemv(scalar_t(1.0), transpose(A.at(j, i)), v_ptr,
+                         j == 0 ? scalar_t(0.0) : scalar_t(1.0), w_ptr);
+                }
+            }
+            v_ptr += A.tileNb(j);
         }
-        w_ptr += AT.tileMb(i);
+        w_ptr += A.tileMb(i);
     }
 
-    // C = C - v * w'
+    scalar_t alpha =
+        scalar_t(-0.5)*tau*blas::dot(A.n(), w.data(), 1, v.data(), 1);
+    blas::axpy(A.n(), alpha, v.data(), 1, w.data(), 1);
+
+    // C = C - v * w' (excluding diagonal tiles)
     scalar_t* v_ptr = v.data();
+    for (int64_t i = 0; i < A.nt(); ++i) {
+        w_ptr = w.data();
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            if (i > j) {
+                ger(-tau, v_ptr, w_ptr, A.at(i, j));
+            }
+            w_ptr += A.tileNb(j);
+        }
+        v_ptr += A.tileMb(i);
+    }
+
+    // C = C - w * v' (excluding diagonal tiles)
+    w_ptr = w.data();
+    for (int64_t i = 0; i < A.nt(); ++i) {
+        v_ptr = v.data();
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            if (i > j) {
+                ger(-tau, w_ptr, v_ptr, A.at(i, j));
+            }
+            v_ptr += A.tileNb(j);
+        }
+        w_ptr += A.tileMb(i);
+    }
+
+    // C = C - v * w' - w * v' (diagonal tiles)
+    v_ptr = v.data();
     for (int64_t i = 0; i < A.mt(); ++i) {
         w_ptr = w.data();
         for (int64_t j = 0; j < A.nt(); ++j) {
-            ger(-tau, v_ptr, w_ptr, A.at(i, j));
+            if (i == j) {
+                her2(-tau, v_ptr, w_ptr, A.at(i, j));
+            }
             w_ptr += A.tileNb(j);
         }
         v_ptr += A.tileMb(i);
@@ -114,87 +137,54 @@ void gerf(std::vector<scalar_t> const& in_v, Matrix<scalar_t>& A)
 //------------------------------------------------------------------------------
 ///
 template <Target target, typename scalar_t>
-void gebr1(Matrix<scalar_t>&& A,
-           std::vector<scalar_t>& v1,
-           std::vector<scalar_t>& v2,
+void hebr1(HermitianMatrix<scalar_t>&& A,
+           std::vector<scalar_t>& v,
            int priority)
 {
-    gebr1(internal::TargetType<target>(),
-          A, v1, v2, priority);
+    hebr1(internal::TargetType<target>(),
+          A, v, priority);
 }
 
 //------------------------------------------------------------------------------
 ///
 template <typename scalar_t>
-void gebr1(internal::TargetType<Target::HostTask>,
-           Matrix<scalar_t>& A,
-           std::vector<scalar_t>& v1,
-           std::vector<scalar_t>& v2,
+void hebr1(internal::TargetType<Target::HostTask>,
+           HermitianMatrix<scalar_t>& A,
+           std::vector<scalar_t>& v,
            int priority)
 {
-    trace::Block trace_block("internal::gebr1");
+    trace::Block trace_block("internal::hebr1");
 
-    auto A1 = transpose(A);
-    gerfg(A1, v1);
-    gerf(v1, A1);
+    auto A1 = A.slice(1, A.m()-1, 0, 0);
+    gerfg(A1, v);
+    gerf(v, A1);
 
-    auto A2 = A.slice(1, A.m()-1, 0, A.n()-1);
-    gerfg(A2, v2);
-    gerf(v2, A2);
+    auto A2 = A.slice(1, A.n()-1);
+    herf(v, A2);
 }
 
 //------------------------------------------------------------------------------
 ///
 template <Target target, typename scalar_t>
-void gebr2(std::vector<scalar_t> const& v1,
+void hebr2(std::vector<scalar_t>& v1,
            Matrix<scalar_t>&& A,
            std::vector<scalar_t>& v2,
            int priority)
 {
-    gebr2(internal::TargetType<target>(),
+    hebr2(internal::TargetType<target>(),
           v1, A, v2, priority);
 }
 
 //------------------------------------------------------------------------------
 ///
 template <typename scalar_t>
-void gebr2(internal::TargetType<Target::HostTask>,
-           std::vector<scalar_t> const& v1,
+void hebr2(internal::TargetType<Target::HostTask>,
+           std::vector<scalar_t>& v1,
            Matrix<scalar_t>& A,
            std::vector<scalar_t>& v2,
            int priority)
 {
-    trace::Block trace_block("internal::gebr2");
-
-    gerf(v1, A);
-
-    auto AT = transpose(A);
-    gerfg(AT, v2);
-    gerf(v2, AT);
-}
-
-//------------------------------------------------------------------------------
-///
-template <Target target, typename scalar_t>
-void gebr3(std::vector<scalar_t> const& v1,
-           Matrix<scalar_t>&& A,
-           std::vector<scalar_t>& v2,
-           int priority)
-{
-    gebr3(internal::TargetType<target>(),
-          v1, A, v2, priority);
-}
-
-//------------------------------------------------------------------------------
-///
-template <typename scalar_t>
-void gebr3(internal::TargetType<Target::HostTask>,
-           std::vector<scalar_t> const& v1,
-           Matrix<scalar_t>& A,
-           std::vector<scalar_t>& v2,
-           int priority)
-{
-    trace::Block trace_block("internal::gebr3");
+    trace::Block trace_block("internal::hebr2");
 
     auto AT = transpose(A);
     gerf(v1, AT);
@@ -204,92 +194,108 @@ void gebr3(internal::TargetType<Target::HostTask>,
 }
 
 //------------------------------------------------------------------------------
+///
+template <Target target, typename scalar_t>
+void hebr3(std::vector<scalar_t>& v,
+           HermitianMatrix<scalar_t>&& A,
+           int priority)
+{
+    hebr3(internal::TargetType<target>(),
+          v, A, priority);
+}
+
+//------------------------------------------------------------------------------
+///
+template <typename scalar_t>
+void hebr3(internal::TargetType<Target::HostTask>,
+           std::vector<scalar_t>& v,
+           HermitianMatrix<scalar_t>& A,
+           int priority)
+{
+    trace::Block trace_block("internal::hebr3");
+
+    herf(v, A);
+}
+
+//------------------------------------------------------------------------------
 // Explicit instantiations.
 // ----------------------------------------
 template
-void gebr1<Target::HostTask, float>(
-    Matrix<float>&& A,
+void hebr1<Target::HostTask, float>(
+    HermitianMatrix<float>&& A,
     std::vector<float>& v1,
-    std::vector<float>& v2,
     int priority);
 
 template
-void gebr1<Target::HostTask, double>(
-    Matrix<double>&& A,
+void hebr1<Target::HostTask, double>(
+    HermitianMatrix<double>&& A,
     std::vector<double>& v1,
-    std::vector<double>& v2,
     int priority);
 
 template
-void gebr1< Target::HostTask, std::complex<float> >(
-    Matrix< std::complex<float> >&& A,
+void hebr1< Target::HostTask, std::complex<float> >(
+    HermitianMatrix< std::complex<float> >&& A,
     std::vector< std::complex<float> >& v1,
-    std::vector< std::complex<float> >& v2,
     int priority);
 
 template
-void gebr1< Target::HostTask, std::complex<double> >(
-    Matrix< std::complex<double> >&& A,
+void hebr1< Target::HostTask, std::complex<double> >(
+    HermitianMatrix< std::complex<double> >&& A,
     std::vector< std::complex<double> >& v1,
-    std::vector< std::complex<double> >& v2,
     int priority);
 
 // ----------------------------------------
 template
-void gebr2<Target::HostTask, float>(
-    std::vector<float> const& v1,
+void hebr2<Target::HostTask, float>(
+    std::vector<float>& v1,
     Matrix<float>&& A,
     std::vector<float>& v2,
     int priority);
 
 template
-void gebr2<Target::HostTask, double>(
-    std::vector<double> const& v1,
+void hebr2<Target::HostTask, double>(
+    std::vector<double>& v1,
     Matrix<double>&& A,
     std::vector<double>& v2,
     int priority);
 
 template
-void gebr2< Target::HostTask, std::complex<float> >(
-    std::vector< std::complex<float> > const& v1,
+void hebr2< Target::HostTask, std::complex<float> >(
+    std::vector< std::complex<float> >& v1,
     Matrix< std::complex<float> >&& A,
     std::vector< std::complex<float> >& v2,
     int priority);
 
 template
-void gebr2< Target::HostTask, std::complex<double> >(
-    std::vector< std::complex<double> > const& v1,
+void hebr2< Target::HostTask, std::complex<double> >(
+    std::vector< std::complex<double> >& v1,
     Matrix< std::complex<double> >&& A,
     std::vector< std::complex<double> >& v2,
     int priority);
 
 // ----------------------------------------
 template
-void gebr3<Target::HostTask, float>(
-    std::vector<float> const& v1,
-    Matrix<float>&& A,
-    std::vector<float>& v2,
+void hebr3<Target::HostTask, float>(
+    std::vector<float>& v,
+    HermitianMatrix<float>&& A,
     int priority);
 
 template
-void gebr3<Target::HostTask, double>(
-    std::vector<double> const& v1,
-    Matrix<double>&& A,
-    std::vector<double>& v2,
+void hebr3<Target::HostTask, double>(
+    std::vector<double>& v,
+    HermitianMatrix<double>&& A,
     int priority);
 
 template
-void gebr3< Target::HostTask, std::complex<float> >(
-    std::vector< std::complex<float> > const& v1,
-    Matrix< std::complex<float> >&& A,
-    std::vector< std::complex<float> >& v2,
+void hebr3< Target::HostTask, std::complex<float> >(
+    std::vector< std::complex<float> >& v,
+    HermitianMatrix< std::complex<float> >&& A,
     int priority);
 
 template
-void gebr3< Target::HostTask, std::complex<double> >(
-    std::vector< std::complex<double> > const& v1,
-    Matrix< std::complex<double> >&& A,
-    std::vector< std::complex<double> >& v2,
+void hebr3< Target::HostTask, std::complex<double> >(
+    std::vector< std::complex<double> >& v,
+    HermitianMatrix< std::complex<double> >&& A,
     int priority);
 
 } // namespace internal

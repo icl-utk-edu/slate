@@ -401,6 +401,24 @@ void gebr3(std::vector<scalar_t> const& v1,
            int priority=0);
 
 //------------------------------------------------------------------------------
+// Tridiagonal band reduction
+template <Target target, typename scalar_t>
+void hebr1(HermitianMatrix<scalar_t>&& A,
+           std::vector<scalar_t>& v,
+           int priority=0);
+
+template <Target target, typename scalar_t>
+void hebr2(std::vector<scalar_t>& v1,
+           Matrix<scalar_t>&& A,
+           std::vector<scalar_t>& v2,
+           int priority=0);
+
+template <Target target, typename scalar_t>
+void hebr3(std::vector<scalar_t>& v,
+           HermitianMatrix<scalar_t>&& A,
+           int priority=0);
+
+//------------------------------------------------------------------------------
 // Norms
 template <Target target=Target::HostTask, typename scalar_t>
 void norm(Norm in_norm, NormScope scope, Matrix<scalar_t>&& A,

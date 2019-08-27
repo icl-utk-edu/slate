@@ -240,6 +240,10 @@ std::map<std::string, Color> function_color_ = {
     {"internal::gebr3",  Color::LightPink},
     {"internal::swap",  Color::Thistle},
 
+    {"internal::hebr1",  Color::Moccasin},
+    {"internal::hebr2",  Color::LightBlue},
+    {"internal::hebr3",  Color::LightBlue},
+
     {"lapack::geqrf",  Color::RosyBrown},
     {"lapack::getrf",  Color::RosyBrown},
     {"lapack::lange",  Color::LightBlue},

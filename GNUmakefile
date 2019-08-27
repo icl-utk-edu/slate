@@ -254,6 +254,7 @@ libslate_src += \
         src/internal/internal_geqrf.cc \
         src/internal/internal_geset.cc \
         src/internal/internal_getrf.cc \
+        src/internal/internal_hebr.cc \
         src/internal/internal_hemm.cc \
         src/internal/internal_henorm.cc \
         src/internal/internal_her2k.cc \
@@ -309,6 +310,7 @@ libslate_src += \
         src/getri.cc \
         src/getriOOP.cc \
         src/getrs.cc \
+        src/hb2td.cc \
         src/hemm.cc \
         src/her2k.cc \
         src/herk.cc \

@@ -60,6 +60,29 @@ using Reflectors = std::map< std::pair<int64_t, int64_t>,
 using Progress = std::vector< std::atomic<int64_t> >;
 
 //------------------------------------------------------------------------------
+/// @internal
+/// Implements the tasks of bidiagonal bulge chasing.
+///
+/// @param[in,out] A
+///     The band matrix A.
+///
+/// @param[in] band
+///     The bandwidth of matrix A.
+///
+/// @param[in] sweep
+///     The sweep number.
+///     One sweep eliminates one row and sweeps the entire matrix.
+///
+/// @paramp[in] step
+///     The step number.
+///     Steps in each sweep have consecutive numbers.
+///
+/// @param[out] reflectors
+///     Householder reflectors produced by the step.
+///
+/// @param[in] lock
+///     Lock for protecting access to reflectors.
+///
 template <typename scalar_t>
 void tb2bd_step(Matrix<scalar_t>& A, int64_t band,
                 int64_t sweep, int64_t step,
@@ -71,6 +94,7 @@ void tb2bd_step(Matrix<scalar_t>& A, int64_t band,
     int64_t j;
 
     switch (task) {
+        // task 0 - the first task of the sweep
         case 0:
             i =   sweep;
             j = 1+sweep;
@@ -85,6 +109,7 @@ void tb2bd_step(Matrix<scalar_t>& A, int64_t band,
                     v1, v2);
             }
             break;
+        // task 1 - an off-diagonal block in the sweep
         case 1:
             i = (block-1)*(band-1)+1+sweep;
             j =  block   *(band-1)+1+sweep;
@@ -100,6 +125,7 @@ void tb2bd_step(Matrix<scalar_t>& A, int64_t band,
                     v2);
             }
             break;
+        // task 2 - a diagonal block in the sweep
         case 2:
             i = block*(band-1)+1+sweep;
             j = block*(band-1)+1+sweep;
@@ -119,6 +145,36 @@ void tb2bd_step(Matrix<scalar_t>& A, int64_t band,
 }
 
 //------------------------------------------------------------------------------
+/// @internal
+/// Implements multithreaded bidiagonal bulge chasing.
+///
+/// @param[in,out] A
+///     The band matrix A.
+///
+/// @param[in] band
+///     The bandwidth of matrix A.
+///
+/// @param[in] diag_len
+///     The length of the diagonal.
+///
+/// @param[in] pass_size
+///     The number of rows eliminated at a time.
+///
+/// @param[in] thread_rank
+///     rank of this thread
+///
+/// @param[in] thread_size
+///     number of threads
+///
+/// @param[out] reflectors
+///     Householder reflectors produced in the process.
+///
+/// @param[in] lock
+///     lock for protecting access to reflectors
+///
+/// @param[in] progress
+///     progress table for synchronizing threads
+///
 template <typename scalar_t>
 void tb2bd_run(Matrix<scalar_t>& A,
                int64_t band, int64_t diag_len,
@@ -168,8 +224,8 @@ void tb2bd_run(Matrix<scalar_t>& A,
 }
 
 //------------------------------------------------------------------------------
-/// Reduced a block-bidiagonal (triangular-band) matrix to a bidiagonal form.
-/// Generic implementation for any target.
+/// @internal
+/// Reduces a band matrix to a bidiagonal matrix using bulge chasing.
 /// @ingroup tb2bd_specialization
 ///
 template <Target target, typename scalar_t>
@@ -234,7 +290,30 @@ void tb2bd(Matrix<scalar_t>& A, int64_t band,
 }
 
 //------------------------------------------------------------------------------
+/// Reduces a band matrix to a bidiagonal matrix using bulge chasing.
 ///
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///         One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in,out] A
+///         The band matrix A.
+///
+/// @param[in] band
+///         The bandwidth of matrix A.
+///
+/// @param[in] opts
+///         Additional options, as map of name = value pairs. Possible options:
+///         - Option::Target:
+///           Implementation to target. Possible values:
+///           - HostTask:  OpenMP tasks on CPU host [default].
+///           - HostNest:  nested OpenMP parallel for loop on CPU host.
+///           - HostBatch: batched BLAS on CPU host.
+///           - Devices:   batched BLAS on GPU device.
+///
+/// @ingroup tb2bd
+///
+// todo: Change Matrix to BandMatrix and remove the band parameter.
 template <typename scalar_t>
 void tb2bd(Matrix<scalar_t>& A, int64_t band,
            const std::map<Option, Value>& opts)

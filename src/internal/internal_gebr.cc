@@ -49,13 +49,20 @@ namespace slate {
 namespace internal {
 
 //------------------------------------------------------------------------------
-/// Generates a single Householder reflector.
-/// todo: Use const for A.
+/// Generates a Householder reflector $v$ using the first column
+/// of the matrix $A$, i.e., a reflector that zeroes $A[1:m, 0]$.
+/// Stores $tau$ in $v[0]$.
+///
+/// @param[in] A
+///     The m-by-n matrix A.
+///
+/// @param[out] v
+///     The Householder reflector that zeroes $A[1:m, 0]$.
 ///
 template <typename scalar_t>
 void gerfg(Matrix<scalar_t>& A, std::vector<scalar_t>& v)
 {
-    // V <- A[:, 0]
+    // v <- A[:, 0]
     v.resize(A.m());
     scalar_t* v_ptr = v.data();
     for (int64_t i = 0; i < A.mt(); ++i) {
@@ -66,20 +73,27 @@ void gerfg(Matrix<scalar_t>& A, std::vector<scalar_t>& v)
         v_ptr += tile.mb();
     }
 
-    // Compute the reflector in V.
-    // Store tau in V[0].
+    // Compute the reflector in v.
+    // Store tau in v[0].
     scalar_t tau;
     lapack::larfg(A.m(), v.data(), v.data()+1, 1, &tau);
     v.at(0) = tau;
 }
 
 //------------------------------------------------------------------------------
-/// Applies a single Householder reflector.
+/// Applies a Houselolder reflector $v$ to the matrix $A$ from the left.
+/// Takes the $tau$ factor from $v[0]$.
+///
+/// @param[in] in_v
+///     The Householder reflector to apply.
+///
+/// @param[in,out] A
+///     The m-by-n matrix A.
 ///
 template <typename scalar_t>
 void gerf(std::vector<scalar_t> const& in_v, Matrix<scalar_t>& A)
 {
-    // Replace tau with 1.0 in V[0].
+    // Replace tau with 1.0 in v[0].
     auto v = in_v;
     scalar_t tau = v.at(0);
     v.at(0) = scalar_t(1.0);
@@ -112,6 +126,8 @@ void gerf(std::vector<scalar_t> const& in_v, Matrix<scalar_t>& A)
 }
 
 //------------------------------------------------------------------------------
+/// Implements task 1 in the bidiagonal bulge chasing algorithm.
+/// Dispatches to target implementations.
 ///
 template <Target target, typename scalar_t>
 void gebr1(Matrix<scalar_t>&& A,
@@ -124,6 +140,18 @@ void gebr1(Matrix<scalar_t>&& A,
 }
 
 //------------------------------------------------------------------------------
+/// Implements task 1 in the bidiagonal bulge chasing algorithm.
+/// (see https://doi.org/10.1137/17M1117732
+/// and http://www.icl.utk.edu/publications/swan-013)
+///
+/// @param[in,out] A
+///     The first block of a sweep.
+///
+/// @param[out] v1
+///     The Householder reflector to zero A[0, 1:n].
+///
+/// @param[out] v2
+///     The Householder reflector to zero A[2:m, 0].
 ///
 template <typename scalar_t>
 void gebr1(internal::TargetType<Target::HostTask>,
@@ -134,16 +162,20 @@ void gebr1(internal::TargetType<Target::HostTask>,
 {
     trace::Block trace_block("internal::gebr1");
 
+    // Zero A[0, 1:n].
     auto A1 = transpose(A);
     gerfg(A1, v1);
     gerf(v1, A1);
 
+    // Zero A[2:m, 0].
     auto A2 = A.slice(1, A.m()-1, 0, A.n()-1);
     gerfg(A2, v2);
     gerf(v2, A2);
 }
 
 //------------------------------------------------------------------------------
+/// Implements task 2 in the bidiagonal bulge chasing algorithm.
+/// Dispatches to target implementations.
 ///
 template <Target target, typename scalar_t>
 void gebr2(std::vector<scalar_t> const& v1,
@@ -156,6 +188,16 @@ void gebr2(std::vector<scalar_t> const& v1,
 }
 
 //------------------------------------------------------------------------------
+/// Implements task 2 in the bidiagonal bulge chasing algorithm.
+///
+/// @param[in] v1
+///     The second Householder reflector produced by task 1.
+///
+/// @param[in,out] A
+///     An off-diagonal block in a sweep.
+///
+/// @param[out] v2
+///     The Householder reflector to zero A[0, 1:n].
 ///
 template <typename scalar_t>
 void gebr2(internal::TargetType<Target::HostTask>,
@@ -166,14 +208,18 @@ void gebr2(internal::TargetType<Target::HostTask>,
 {
     trace::Block trace_block("internal::gebr2");
 
+    // Apply the second reflector from task 1.
     gerf(v1, A);
 
+    // Zero A[0, 1:n].
     auto AT = transpose(A);
     gerfg(AT, v2);
     gerf(v2, AT);
 }
 
 //------------------------------------------------------------------------------
+/// Implements task 3 in the bidiagonal bulge chasing algorithm.
+/// Dispatches to target implementations.
 ///
 template <Target target, typename scalar_t>
 void gebr3(std::vector<scalar_t> const& v1,
@@ -186,6 +232,16 @@ void gebr3(std::vector<scalar_t> const& v1,
 }
 
 //------------------------------------------------------------------------------
+/// Implements task 3 in the bidiagonal bulge chasing algorithm.
+///
+/// @param[in] v1
+///     The Householder reflector produced by task 2.
+///
+/// @param[in,out] A
+///     A diagonal block in a sweep.
+///
+/// @param[out] v2
+///     The Householder reflector to zero A[1:m, 0].
 ///
 template <typename scalar_t>
 void gebr3(internal::TargetType<Target::HostTask>,
@@ -196,9 +252,11 @@ void gebr3(internal::TargetType<Target::HostTask>,
 {
     trace::Block trace_block("internal::gebr3");
 
+    // Apply the reflector from task 2.
     auto AT = transpose(A);
     gerf(v1, AT);
 
+    // Zero A[1:m, 0].
     gerfg(A, v2);
     gerf(v2, A);
 }

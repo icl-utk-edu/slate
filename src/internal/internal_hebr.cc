@@ -48,6 +48,8 @@
 namespace slate {
 namespace internal {
 
+// todo: These functions are defined in internal_gebr.cc.
+// It would be better to move the declarations to a header file.
 template <typename scalar_t>
 void gerfg(Matrix<scalar_t>& A, std::vector<scalar_t>& v);
 
@@ -55,7 +57,14 @@ template <typename scalar_t>
 void gerf(std::vector<scalar_t> const& in_v, Matrix<scalar_t>& A);
 
 //------------------------------------------------------------------------------
-/// Applies a single Householder reflector.
+/// Applies a Houselolder reflector $v$ to the Hermitian matrix $A$
+/// from the left. Takes the $tau$ factor from $v[0]$.
+///
+/// @param[in] in_v
+///     The Householder reflector to apply.
+///
+/// @param[in,out] A
+///     The n-by-n Hermitian matrix A.
 ///
 template <typename scalar_t>
 void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A)
@@ -66,6 +75,10 @@ void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A)
     v.at(0) = scalar_t(1.0);
 
     // w = C * v
+    // todo: HermitianMatrix::at(i, j) can be extended to support access
+    // to the (nonexistent) symmetric part by returning transpose(at(j, i)).
+    // This will allow to remove the if/else condition.
+    // The first call to gemv() will support both cases.
     std::vector<scalar_t> w(A.n());
     scalar_t* w_ptr = w.data();
     for (int64_t i = 0; i < A.nt(); ++i) {
@@ -93,6 +106,9 @@ void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A)
     scalar_t alpha =
         scalar_t(-0.5)*tau*blas::dot(A.n(), w.data(), 1, v.data(), 1);
     blas::axpy(A.n(), alpha, v.data(), 1, w.data(), 1);
+
+    // todo: In principle the entire update of C could be done in one pass
+    // instead of three passes.
 
     // C = C - v * w' (excluding diagonal tiles)
     scalar_t* v_ptr = v.data();
@@ -135,6 +151,8 @@ void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A)
 }
 
 //------------------------------------------------------------------------------
+/// Implements task 1 in the tridiagonal bulge chasing algorithm.
+/// Dispatches to target implementations.
 ///
 template <Target target, typename scalar_t>
 void hebr1(HermitianMatrix<scalar_t>&& A,
@@ -146,6 +164,16 @@ void hebr1(HermitianMatrix<scalar_t>&& A,
 }
 
 //------------------------------------------------------------------------------
+/// Implements task 1 in the tridiagonal bulge chasing algorithm.
+/// (see https://doi.org/10.1145/2063384.2063394
+/// and http://www.icl.utk.edu/publications/swan-013)
+/// Here, the first block starts at $(0, 0)$, not at $(1, 0)$.
+///
+/// @param[in,out] A
+///     The first block of a sweep.
+///
+/// @param[out] v
+///     The Householder reflector to zero A[2:n, 0].
 ///
 template <typename scalar_t>
 void hebr1(internal::TargetType<Target::HostTask>,
@@ -155,15 +183,19 @@ void hebr1(internal::TargetType<Target::HostTask>,
 {
     trace::Block trace_block("internal::hebr1");
 
+    // Zero A[2:n, 0].
     auto A1 = A.slice(1, A.m()-1, 0, 0);
     gerfg(A1, v);
     gerf(v, A1);
 
+    // Apply the transformations to A[1:n, 1:n].
     auto A2 = A.slice(1, A.n()-1);
     herf(v, A2);
 }
 
 //------------------------------------------------------------------------------
+/// Implements task 2 in the tridiagonal bulge chasing algorithm.
+/// Dispatches to target implementations.
 ///
 template <Target target, typename scalar_t>
 void hebr2(std::vector<scalar_t>& v1,
@@ -176,6 +208,16 @@ void hebr2(std::vector<scalar_t>& v1,
 }
 
 //------------------------------------------------------------------------------
+/// Implements task 2 in the tridiagonal bulge chasing algorithm.
+///
+/// @param[in] v1
+///     The Householder reflector produced by task 1.
+///
+/// @param[in,out] A
+///     An off-diagonal block in a sweep.
+///
+/// @param[out] v2
+///     The Householder reflector to zero A[1:n, 0].
 ///
 template <typename scalar_t>
 void hebr2(internal::TargetType<Target::HostTask>,
@@ -186,14 +228,18 @@ void hebr2(internal::TargetType<Target::HostTask>,
 {
     trace::Block trace_block("internal::hebr2");
 
+    // Apply the reflector from task 1.
     auto AT = transpose(A);
     gerf(v1, AT);
 
+    // Zero A[1:n, 0].
     gerfg(A, v2);
     gerf(v2, A);
 }
 
 //------------------------------------------------------------------------------
+/// Implements task 3 in the tridiagonal bulge chasing algorithm.
+/// Dispatches to target implementations.
 ///
 template <Target target, typename scalar_t>
 void hebr3(std::vector<scalar_t>& v,
@@ -205,6 +251,13 @@ void hebr3(std::vector<scalar_t>& v,
 }
 
 //------------------------------------------------------------------------------
+/// Implements task 3 in the tridiagonal bulge chasing algorithm.
+///
+/// @param[in] v
+///     The Householder reflector produced by task 2.
+///
+/// @param[in,out] A
+///     A diagonal block in a sweep.
 ///
 template <typename scalar_t>
 void hebr3(internal::TargetType<Target::HostTask>,
@@ -214,6 +267,7 @@ void hebr3(internal::TargetType<Target::HostTask>,
 {
     trace::Block trace_block("internal::hebr3");
 
+    // Apply the reflector from task 2.
     herf(v, A);
 }
 

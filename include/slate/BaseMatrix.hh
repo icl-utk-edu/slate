@@ -82,7 +82,7 @@ public:
         std::list<std::tuple<int64_t, int64_t,
                              std::list<BaseMatrix<scalar_t> > > >;
 
-    using ij_tuple = std::tuple<int64_t, int64_t>;
+    using ij_tuple = typename MatrixStorage<scalar_t>::ij_tuple;
 
     friend class Debug;
 
@@ -100,6 +100,13 @@ protected:
     // 3. move constructor
     // 4. copy assignment
     // 5. move assignment
+
+    BaseMatrix(int64_t m, int64_t n,
+               std::function<int64_t (int64_t i)>& inTileMb,
+               std::function<int64_t (int64_t j)>& inTileNb,
+               std::function<int (ij_tuple ij)>& inTileRank,
+               std::function<int (ij_tuple ij)>& inTileDevice,
+               MPI_Comm mpi_comm);
 
     BaseMatrix(int64_t m, int64_t n, int64_t mb, int64_t nb,
                int p, int q, MPI_Comm mpi_comm);
@@ -640,9 +647,92 @@ BaseMatrix<scalar_t>::BaseMatrix()
 
 //------------------------------------------------------------------------------
 /// [internal]
+/// Construct matrix with mt block rows and nt block columns, such that
+///     sum_{i = 0}^{mt-1} tileMb(i) >= m,
+///     sum_{j = 0}^{nt-1} tileNb(j) >= n,
+/// where tileMb, tileNb, tileRank, tileDevice are given as functions.
+/// No tiles are allocated. Creates empty matrix storage.
+///
+/// @param[in] m
+///     Number of rows of the matrix. m >= 0.
+///
+/// @param[in] n
+///     Number of columns of the matrix. n >= 0
+///
+/// @param[in] inTileMb
+///     Function that takes block-row index, returns block-row size.
+///
+/// @param[in] inTileNb
+///     Function that takes block-col index, returns block-col size.
+///
+/// @param[in] inTileRank
+///     Function that takes tuple of { block-row, block-col } indices,
+///     returns MPI rank for that tile.
+///
+/// @param[in] inTileDevice
+///     Function that takes tuple of { block-row, block-col } indices,
+///     returns local GPU device ID for that tile.
+///
+/// @param[in] mpi_comm
+///     MPI communicator to distribute matrix across.
+///     p*q == MPI_Comm_size(mpi_comm).
+///
+template <typename scalar_t>
+BaseMatrix<scalar_t>::BaseMatrix(
+    int64_t m, int64_t n,
+    std::function<int64_t (int64_t i)>& inTileMb,
+    std::function<int64_t (int64_t j)>& inTileNb,
+    std::function<int (ij_tuple ij)>& inTileRank,
+    std::function<int (ij_tuple ij)>& inTileDevice,
+    MPI_Comm mpi_comm)
+    : row0_offset_(0),
+      col0_offset_(0),
+      ioffset_(0),
+      joffset_(0),
+      uplo_(Uplo::General),
+      op_(Op::NoTrans),
+      storage_(std::make_shared< MatrixStorage< scalar_t > >(
+          inTileMb, inTileNb, inTileRank, inTileDevice, mpi_comm)),
+      mpi_comm_(mpi_comm),
+      layout_(Layout::ColMajor)
+{
+    // Count number of block rows.
+    mt_ = 0;
+    int64_t ii = 0;  // row index (not block row)
+    while (ii < m) {
+        last_mb_ = std::min(inTileMb(mt_), m - ii);
+        assert(last_mb_ != 0);
+        ii += last_mb_;
+        ++mt_;
+    }
+
+    // Count number of block cols.
+    nt_ = 0;
+    int64_t jj = 0;  // col index (not block col)
+    while (jj < n) {
+        last_nb_ = std::min(inTileNb(nt_), n - jj);
+        assert(last_nb_ != 0);
+        jj += last_nb_;
+        ++nt_;
+    }
+
+    slate_mpi_call(
+        MPI_Comm_rank(mpi_comm_, &mpi_rank_));
+    slate_mpi_call(
+        MPI_Comm_group(mpi_comm_, &mpi_group_));
+
+    // todo: these are static, but we (re-)initialize with each matrix.
+    // todo: similar code in BaseMatrix(...) and MatrixStorage(...)
+    host_num_    = storage_->host_num_;
+    num_devices_ = storage_->num_devices_;
+}
+
+//------------------------------------------------------------------------------
+/// [internal]
 /// Construct matrix with
-/// mt = ceil( m / mb ) block rows and
-/// nt = ceil( n / nb ) block columns.
+///     mt = ceil( m / mb ) block rows and
+///     nt = ceil( n / nb ) block columns,
+/// with fixed mb-by-nb tile size and 2D block cyclic distribution.
 /// No tiles are allocated. Creates empty matrix storage.
 ///
 /// @param[in] m

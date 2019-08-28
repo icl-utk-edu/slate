@@ -101,7 +101,8 @@ BandMatrix<scalar_t>::BandMatrix():
 {}
 
 //------------------------------------------------------------------------------
-/// Constructor creates an m-by-n band matrix, with no tiles allocated.
+/// Constructor creates an m-by-n band matrix, with no tiles allocated,
+/// with fixed nb-by-nb tile size and 2D block cyclic distribution.
 /// Tiles can be added with tileInsert().
 ///
 /// @param[in] m

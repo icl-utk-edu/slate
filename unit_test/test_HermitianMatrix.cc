@@ -77,8 +77,8 @@ void test_HermitianMatrix()
 }
 
 //------------------------------------------------------------------------------
-/// m-by-n, no-data constructor
-/// Tests HermitianMatrix(), mt, nt, op, uplo.
+/// n-by-n, no-data constructor
+/// Tests HermitianMatrix(uplo, n, nb, ...), mt, nt, op, uplo.
 void test_HermitianMatrix_empty()
 {
     slate::HermitianMatrix<double> L(blas::Uplo::Lower, n, nb, p, q, mpi_comm);
@@ -98,6 +98,81 @@ void test_HermitianMatrix_empty()
     test_assert_throw(
         slate::HermitianMatrix<double> A(blas::Uplo::General, n, nb, p, q, mpi_comm),
         slate::Exception);
+}
+
+//------------------------------------------------------------------------------
+/// n-by-n, no-data constructor,
+/// using lambda functions for tileNb, tileRank, tileDevice.
+/// Tests HermitianMatrix(uplo, n, tileNb, ...), m, n, mt, nt, op.
+void test_HermitianMatrix_lambda()
+{
+    int nb_ = nb;  // local copy to capture
+    std::function< int64_t (int64_t j) >
+    tileNb = [nb_](int64_t j)
+    {
+        return (j % 2 == 0 ? 2*nb_ : nb_);
+    };
+
+    // 1D block column cyclic
+    int p_ = p;  // local copy to capture
+    std::function< int (std::tuple<int64_t, int64_t> ij) >
+    tileRank = [p_](std::tuple<int64_t, int64_t> ij)
+    {
+        int64_t i = std::get<0>(ij);
+        int64_t j = std::get<1>(ij);
+        return int(i%p_ + j*p_);
+    };
+
+    // 1D block row cyclic
+    int num_devices_ = num_devices;  // local copy to capture
+    std::function< int (std::tuple<int64_t, int64_t> ij) >
+    tileDevice = [num_devices_](std::tuple<int64_t, int64_t> ij)
+    {
+        int64_t i = std::get<0>(ij);
+        return int(i)%num_devices_;
+    };
+
+    // ----------
+    // lower
+    slate::HermitianMatrix<double> L(
+        slate::Uplo::Lower, n, tileNb, tileRank, tileDevice, mpi_comm);
+
+    // verify nt, tileNb(i), and sum tileNb(i) == n
+    test_assert( L.mt() == L.nt() );
+    int nt = L.nt();
+    int jj = 0;
+    for (int j = 0; j < nt; ++j) {
+        test_assert( L.tileNb(j) == blas::min( tileNb(j), n - jj ) );
+        test_assert( L.tileNb(j) == L.tileMb(j) );
+        jj += L.tileNb(j);
+    }
+    test_assert( jj == n );
+
+    test_assert(L.m() == n);
+    test_assert(L.n() == n);
+    test_assert(L.op() == blas::Op::NoTrans);
+    test_assert(L.uplo() == slate::Uplo::Lower);
+
+    // ----------
+    // upper
+    slate::HermitianMatrix<double> U(
+        slate::Uplo::Upper, n, tileNb, tileRank, tileDevice, mpi_comm);
+
+    // verify nt, tileNb(i), and sum tileNb(i) == n
+    test_assert( U.mt() == U.nt() );
+    nt = U.nt();
+    jj = 0;
+    for (int j = 0; j < nt; ++j) {
+        test_assert( U.tileNb(j) == blas::min( tileNb(j), n - jj ) );
+        test_assert( U.tileNb(j) == U.tileMb(j) );
+        jj += U.tileNb(j);
+    }
+    test_assert( jj == n );
+
+    test_assert(U.m() == n);
+    test_assert(U.n() == n);
+    test_assert(U.op() == blas::Op::NoTrans);
+    test_assert(U.uplo() == slate::Uplo::Upper);
 }
 
 //------------------------------------------------------------------------------
@@ -464,7 +539,8 @@ void run_tests()
     if (mpi_rank == 0)
         printf("\nConstructors\n");
     run_test(test_HermitianMatrix,               "HermitianMatrix()",              mpi_comm);
-    run_test(test_HermitianMatrix_empty,         "HermitianMatrix(uplo, n, ...)",  mpi_comm);
+    run_test(test_HermitianMatrix_empty,         "HermitianMatrix(uplo, n, nb, ...)",     mpi_comm);
+    run_test(test_HermitianMatrix_lambda,        "HermitianMatrix(uplo, n, tileNb, ...)", mpi_comm);
     run_test(test_HermitianMatrix_fromLAPACK,    "HermitianMatrix::fromLAPACK",    mpi_comm);
     run_test(test_HermitianMatrix_fromScaLAPACK, "HermitianMatrix::fromScaLAPACK", mpi_comm);
     run_test(test_HermitianMatrix_fromDevices,   "HermitianMatrix::fromDevices",   mpi_comm);

@@ -59,8 +59,16 @@ namespace slate {
 template <typename scalar_t>
 class SymmetricMatrix: public BaseTrapezoidMatrix<scalar_t> {
 public:
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
+
     // constructors
     SymmetricMatrix();
+
+    SymmetricMatrix(Uplo uplo, int64_t n,
+                    std::function<int64_t (int64_t j)>& inTileNb,
+                    std::function<int (ij_tuple ij)>& inTileRank,
+                    std::function<int (ij_tuple ij)>& inTileDevice,
+                    MPI_Comm mpi_comm);
 
     SymmetricMatrix(Uplo uplo, int64_t n, int64_t nb,
                     int p, int q, MPI_Comm mpi_comm);
@@ -119,10 +127,26 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix()
 {}
 
 //------------------------------------------------------------------------------
-/// Constructor creates an n-by-n matrix, with no tiles allocated.
+/// Constructor creates an n-by-n matrix, with no tiles allocated,
+/// where tileNb, tileRank, tileDevice are given as functions.
 /// Tiles can be added with tileInsert().
-//
-// todo: have allocate flag? If true, allocate data; else user will insert tiles?
+///
+template <typename scalar_t>
+SymmetricMatrix<scalar_t>::SymmetricMatrix(
+    Uplo uplo, int64_t n,
+    std::function<int64_t (int64_t j)>& inTileNb,
+    std::function<int (ij_tuple ij)>& inTileRank,
+    std::function<int (ij_tuple ij)>& inTileDevice,
+    MPI_Comm mpi_comm)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, n, n, inTileNb, inTileRank,
+                                    inTileDevice, mpi_comm)
+{}
+
+//------------------------------------------------------------------------------
+/// Constructor creates an n-by-n matrix, with no tiles allocated,
+/// with fixed nb-by-nb tile size and 2D block cyclic distribution.
+/// Tiles can be added with tileInsert().
+///
 template <typename scalar_t>
 SymmetricMatrix<scalar_t>::SymmetricMatrix(
     Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)

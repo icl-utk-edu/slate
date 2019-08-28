@@ -61,11 +61,13 @@ int verbose = 0;
 
 //------------------------------------------------------------------------------
 /// default constructor
-/// Tests Matrix(), mt, nt, op.
+/// Tests Matrix(), m, n, mt, nt, op.
 void test_Matrix()
 {
     slate::Matrix<double> A;
 
+    test_assert(A.m() == 0);
+    test_assert(A.n() == 0);
     test_assert(A.mt() == 0);
     test_assert(A.nt() == 0);
     test_assert(A.op() == blas::Op::NoTrans);
@@ -74,7 +76,7 @@ void test_Matrix()
 
 //------------------------------------------------------------------------------
 /// m-by-n, no-data constructor, both square and rectangular tiles
-/// Tests Matrix(), mt, nt, op.
+/// Tests Matrix(m, n, nb, ...), m, n, mt, nt, op.
 void test_Matrix_empty()
 {
     // square tiles
@@ -94,6 +96,72 @@ void test_Matrix_empty()
     test_assert(B.nt() == ceildiv(n, nb));
     test_assert(B.op() == blas::Op::NoTrans);
     test_assert(B.uplo() == slate::Uplo::General);
+}
+
+//------------------------------------------------------------------------------
+/// m-by-n, no-data constructor, both square and rectangular tiles,
+/// using lambda functions for tileMb, tileNb, tileRank, tileDevice.
+/// Tests Matrix(m, n, tileMb, ...), m, n, mt, nt, op.
+void test_Matrix_lambda()
+{
+    int mb_ = mb;  // local copy to capture
+    std::function< int64_t (int64_t i) >
+    tileMb = [mb_](int64_t i)
+    {
+        return (i % 2 == 0 ? mb_/2 : mb_);
+    };
+
+    int nb_ = nb;  // local copy to capture
+    std::function< int64_t (int64_t j) >
+    tileNb = [nb_](int64_t j)
+    {
+        return (j % 2 == 0 ? 2*nb_ : nb_);
+    };
+
+    // 1D block column cyclic
+    int p_ = p;  // local copy to capture
+    std::function< int (std::tuple<int64_t, int64_t> ij) >
+    tileRank = [p_](std::tuple<int64_t, int64_t> ij)
+    {
+        int64_t i = std::get<0>(ij);
+        int64_t j = std::get<1>(ij);
+        return int(i%p_ + j*p_);
+    };
+
+    // 1D block row cyclic
+    int num_devices_ = num_devices;  // local copy to capture
+    std::function< int (std::tuple<int64_t, int64_t> ij) >
+    tileDevice = [num_devices_](std::tuple<int64_t, int64_t> ij)
+    {
+        int64_t i = std::get<0>(ij);
+        return int(i)%num_devices_;
+    };
+
+    // ----------
+    slate::Matrix<double> A(m, n, tileMb, tileNb, tileRank, tileDevice, mpi_comm);
+
+    // verify mt, tileMb(i), and sum tileMb(i) == m
+    int mt = A.mt();
+    int ii = 0;
+    for (int i = 0; i < mt; ++i) {
+        test_assert( A.tileMb(i) == blas::min( tileMb(i), m - ii ) );
+        ii += A.tileMb(i);
+    }
+    test_assert( ii == m );
+
+    // verify nt, tileNb(i), and sum tileNb(i) == n
+    int nt = A.nt();
+    int jj = 0;
+    for (int j = 0; j < nt; ++j) {
+        test_assert( A.tileNb(j) == blas::min( tileNb(j), n - jj ) );
+        jj += A.tileNb(j);
+    }
+    test_assert( jj == n );
+
+    test_assert(A.m() == m);
+    test_assert(A.n() == n);
+    test_assert(A.op() == blas::Op::NoTrans);
+    test_assert(A.uplo() == slate::Uplo::General);
 }
 
 //------------------------------------------------------------------------------
@@ -376,6 +444,15 @@ void test_Matrix_emptyLikeMbNb()
             auto B = Asub.emptyLike( mb2, nb2 );
 
             if (verbose) {
+                printf( "\n" );
+                printf( "A  m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
+                        llong( Asub.m() ), llong( Asub.mt() ),
+                        llong( Asub.n() ), llong( Asub.nt() ),
+                        llong( Asub.tileMb(0) ), llong( Asub.tileNb(0) ) );
+                printf( "AT m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
+                        llong( Asub_trans.m() ), llong( Asub_trans.mt() ),
+                        llong( Asub_trans.n() ), llong( Asub_trans.nt() ),
+                        llong( Asub_trans.tileMb(0) ), llong( Asub_trans.tileNb(0) ) );
                 printf( "B  m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld (mb2 %3d, nb2 %3d)\n",
                         llong( B.m() ), llong( B.mt() ),
                         llong( B.n() ), llong( B.nt() ),
@@ -400,6 +477,15 @@ void test_Matrix_emptyLikeMbNb()
             auto BT = Asub_trans.emptyLike( mb2, nb2 );
 
             if (verbose) {
+                printf( "\n" );
+                printf( "A  m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
+                        llong( Asub.m() ), llong( Asub.mt() ),
+                        llong( Asub.n() ), llong( Asub.nt() ),
+                        llong( Asub.tileMb(0) ), llong( Asub.tileNb(0) ) );
+                printf( "AT m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
+                        llong( Asub_trans.m() ), llong( Asub_trans.mt() ),
+                        llong( Asub_trans.n() ), llong( Asub_trans.nt() ),
+                        llong( Asub_trans.tileMb(0) ), llong( Asub_trans.tileNb(0) ) );
                 printf( "BT m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld (mb2 %3d, nb2 %3d)\n",
                         llong( BT.m() ), llong( BT.mt() ),
                         llong( BT.n() ), llong( BT.nt() ),
@@ -1615,7 +1701,8 @@ void run_tests()
     if (mpi_rank == 0)
         printf("\nConstructors\n");
     run_test(test_Matrix,                    "Matrix()",                   mpi_comm);
-    run_test(test_Matrix_empty,              "Matrix(m, n, ...)",          mpi_comm);
+    run_test(test_Matrix_empty,              "Matrix(m, n, nb, ...)",      mpi_comm);
+    run_test(test_Matrix_lambda,             "Matrix(m, n, tileMb, ...)",  mpi_comm);
     run_test(test_Matrix_fromLAPACK,         "Matrix::fromLAPACK",         mpi_comm);
     run_test(test_Matrix_fromLAPACK_rect,    "Matrix::fromLAPACK_rect",    mpi_comm);
     run_test(test_Matrix_fromScaLAPACK,      "Matrix::fromScaLAPACK",      mpi_comm);

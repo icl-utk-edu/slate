@@ -101,9 +101,110 @@ void test_TriangularMatrix_empty()
 }
 
 //------------------------------------------------------------------------------
+/// n-by-n, no-data constructor,
+/// using lambda functions for tileNb, tileRank, tileDevice.
+/// Tests TriangularMatrix(uplo, n, tileNb, ...), m, n, mt, nt, op.
+void test_TriangularMatrix_lambda()
+{
+    int nb_ = nb;  // local copy to capture
+    std::function< int64_t (int64_t j) >
+    tileNb = [nb_](int64_t j)
+    {
+        return (j % 2 == 0 ? 2*nb_ : nb_);
+    };
+
+    // 1D block column cyclic
+    int p_ = p;  // local copy to capture
+    std::function< int (std::tuple<int64_t, int64_t> ij) >
+    tileRank = [p_](std::tuple<int64_t, int64_t> ij)
+    {
+        int64_t i = std::get<0>(ij);
+        int64_t j = std::get<1>(ij);
+        return int(i%p_ + j*p_);
+    };
+
+    // 1D block row cyclic
+    int num_devices_ = num_devices;  // local copy to capture
+    std::function< int (std::tuple<int64_t, int64_t> ij) >
+    tileDevice = [num_devices_](std::tuple<int64_t, int64_t> ij)
+    {
+        int64_t i = std::get<0>(ij);
+        return int(i)%num_devices_;
+    };
+
+    // ----------
+    // lower
+    slate::TriangularMatrix<double> L(
+        slate::Uplo::Lower, blas::Diag::NonUnit, n, tileNb,
+        tileRank, tileDevice, mpi_comm);
+
+    // verify nt, tileNb(i), and sum tileNb(i) == n
+    test_assert( L.mt() == L.nt() );
+    int nt = L.nt();
+    int jj = 0;
+    for (int j = 0; j < nt; ++j) {
+        test_assert( L.tileNb(j) == blas::min( tileNb(j), n - jj ) );
+        test_assert( L.tileNb(j) == L.tileMb(j) );
+        jj += L.tileNb(j);
+    }
+    test_assert( jj == n );
+
+    test_assert(L.m() == n);
+    test_assert(L.n() == n);
+    test_assert(L.op() == blas::Op::NoTrans);
+    test_assert(L.uplo() == slate::Uplo::Lower);
+    test_assert(L.diag() == blas::Diag::NonUnit);
+
+    // unit diag
+    slate::TriangularMatrix<double> Lu(
+        slate::Uplo::Lower, blas::Diag::Unit, n, tileNb,
+        tileRank, tileDevice, mpi_comm);
+
+    test_assert(Lu.m() == n);
+    test_assert(Lu.n() == n);
+    test_assert(Lu.op() == blas::Op::NoTrans);
+    test_assert(Lu.uplo() == slate::Uplo::Lower);
+    test_assert(Lu.diag() == blas::Diag::Unit);
+
+    // ----------
+    // upper
+    slate::TriangularMatrix<double> U(
+        slate::Uplo::Upper, blas::Diag::Unit, n, tileNb,
+        tileRank, tileDevice, mpi_comm);
+
+    // verify nt, tileNb(i), and sum tileNb(i) == n
+    test_assert( U.mt() == U.nt() );
+    nt = U.nt();
+    jj = 0;
+    for (int j = 0; j < nt; ++j) {
+        test_assert( U.tileNb(j) == blas::min( tileNb(j), n - jj ) );
+        test_assert( U.tileNb(j) == U.tileMb(j) );
+        jj += U.tileNb(j);
+    }
+    test_assert( jj == n );
+
+    test_assert(U.m() == n);
+    test_assert(U.n() == n);
+    test_assert(U.op() == blas::Op::NoTrans);
+    test_assert(U.uplo() == slate::Uplo::Upper);
+    test_assert(L.diag() == blas::Diag::NonUnit);
+    
+    // unit diag
+    slate::TriangularMatrix<double> Uu(
+        slate::Uplo::Upper, blas::Diag::Unit, n, tileNb,
+        tileRank, tileDevice, mpi_comm);
+
+    test_assert(Uu.m() == n);
+    test_assert(Uu.n() == n);
+    test_assert(Uu.op() == blas::Op::NoTrans);
+    test_assert(Uu.uplo() == slate::Uplo::Upper);
+    test_assert(Uu.diag() == blas::Diag::Unit);
+}
+
+//------------------------------------------------------------------------------
 /// fromLAPACK
-/// Test TrapezoidMatrix::fromLAPACK, A(i, j), tileIsLocal, tileMb, tileNb.
-/// Similar to test_TrapezoidMatrix_fromLAPACK, but uses n-by-n matrix.
+/// Test TriangularMatrix::fromLAPACK, A(i, j), tileIsLocal, tileMb, tileNb.
+/// Similar to test_TriangularMatrix_fromLAPACK, but uses n-by-n matrix.
 void test_TriangularMatrix_fromLAPACK()
 {
     int lda = roundup(n, nb);
@@ -149,7 +250,7 @@ void test_TriangularMatrix_fromLAPACK()
 //------------------------------------------------------------------------------
 /// fromScaLAPACK
 /// Test TriangularMatrix::fromScaLAPACK, A(i, j), tileIsLocal, tileMb, tileNb.
-/// Similar to test_TrapezoidMatrix_fromScaLAPACK, but uses n-by-n matrix.
+/// Similar to test_TriangularMatrix_fromScaLAPACK, but uses n-by-n matrix.
 void test_TriangularMatrix_fromScaLAPACK()
 {
     int mtiles, mtiles_local, m_local, lda;
@@ -201,7 +302,7 @@ void test_TriangularMatrix_fromScaLAPACK()
 //------------------------------------------------------------------------------
 /// fromDevices
 /// Test TriangularMatrix::fromDevices, A(i, j), tileIsLocal, tileMb, tileNb.
-/// Similar to test_TrapezoidMatrix_fromDevices, but uses n-by-n matrix.
+/// Similar to test_TriangularMatrix_fromDevices, but uses n-by-n matrix.
 void test_TriangularMatrix_fromDevices()
 {
     if (num_devices == 0) {
@@ -415,7 +516,7 @@ void test_Triangular_from_Symmetric()
 ///
 void test_Triangular_from_Trapezoid()
 {
-    // todo: when Trapezoid has slice, use it as in test_Hermitian_from_Matrix.
+    // todo: when Trapezoid has slice, use it as in test_Triangular_from_Matrix.
     // For now, create as square.
     int64_t min_mn = std::min( m, n );
     
@@ -467,7 +568,8 @@ void run_tests()
     if (mpi_rank == 0)
         printf("\nConstructors\n");
     run_test(test_TriangularMatrix,               "TriangularMatrix()",               mpi_comm);
-    run_test(test_TriangularMatrix_empty,         "TriangularMatrix(uplo, n, ...)",   mpi_comm);
+    run_test(test_TriangularMatrix_empty,         "TriangularMatrix(uplo, n, nb, ...)",     mpi_comm);
+    run_test(test_TriangularMatrix_lambda,        "TriangularMatrix(uplo, n, tileNb, ...)", mpi_comm);
     run_test(test_TriangularMatrix_fromLAPACK,    "TriangularMatrix::fromLAPACK",     mpi_comm);
     run_test(test_TriangularMatrix_fromScaLAPACK, "TriangularMatrix::fromScaLAPACK",  mpi_comm);
     run_test(test_TriangularMatrix_fromDevices,   "TriangularMatrix::fromDevices",    mpi_comm);

@@ -367,6 +367,13 @@ public:
     MatrixStorage(int64_t m, int64_t n, int64_t mb, int64_t nb,
                   int p, int q, MPI_Comm mpi_comm);
 
+    MatrixStorage(std::function<int64_t (int64_t i)>& inTileMb,
+                  std::function<int64_t (int64_t j)>& inTileNb,
+                  std::function<int (ij_tuple ij)>& inTileRank,
+                  std::function<int (ij_tuple ij)>& inTileDevice,
+                  MPI_Comm mpi_comm);
+
+
     // 1. destructor
     ~MatrixStorage();
 
@@ -497,10 +504,10 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    std::function <int (ij_tuple ij)> tileRank;
-    std::function <int (ij_tuple ij)> tileDevice;
-    std::function <int64_t (int64_t i)> tileMb;
-    std::function <int64_t (int64_t j)> tileNb;
+    std::function<int64_t (int64_t i)> tileMb;
+    std::function<int64_t (int64_t j)> tileNb;
+    std::function<int (ij_tuple ij)> tileRank;
+    std::function<int (ij_tuple ij)> tileDevice;
 
     //--------------------------------------------------------------------------
     /// @return whether tile {i, j} is local.
@@ -618,6 +625,45 @@ MatrixStorage<scalar_t>::MatrixStorage(
         };
     }
 
+    a_array_host_.resize(num_devices_, nullptr);
+    b_array_host_.resize(num_devices_, nullptr);
+    c_array_host_.resize(num_devices_, nullptr);
+
+    a_array_dev_.resize(num_devices_, nullptr);
+    b_array_dev_.resize(num_devices_, nullptr);
+    c_array_dev_.resize(num_devices_, nullptr);
+
+    initCudaStreams();
+
+    omp_init_nest_lock(&lock_);
+}
+
+//------------------------------------------------------------------------------
+/// For memory, assumes tiles of size mb = inTileMb(0) x nb = inTileNb(0).
+template <typename scalar_t>
+MatrixStorage<scalar_t>::MatrixStorage(
+    std::function<int64_t (int64_t i)>& inTileMb,
+    std::function<int64_t (int64_t j)>& inTileNb,
+    std::function<int (ij_tuple ij)>& inTileRank,
+    std::function<int (ij_tuple ij)>& inTileDevice,
+    MPI_Comm mpi_comm)
+    : tileMb(inTileMb),
+      tileNb(inTileNb),
+      tileRank(inTileRank),
+      tileDevice(inTileDevice),
+      tiles_(),
+      memory_(sizeof(scalar_t) * inTileMb(0) * inTileNb(0)),  // block size in bytes
+      batch_array_size_(0)
+{
+    slate_mpi_call(
+        MPI_Comm_rank(mpi_comm, &mpi_rank_));
+
+    // todo: these are static, but we (re-)initialize with each matrix.
+    // todo: similar code in BaseMatrix(...) and MatrixStorage(...)
+    host_num_    = memory_.host_num_;
+    num_devices_ = memory_.num_devices_;
+
+    // todo: factor out this duplicated code.
     a_array_host_.resize(num_devices_, nullptr);
     b_array_host_.resize(num_devices_, nullptr);
     c_array_host_.resize(num_devices_, nullptr);

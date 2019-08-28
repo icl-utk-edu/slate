@@ -101,6 +101,117 @@ void test_TrapezoidMatrix_empty()
 }
 
 //------------------------------------------------------------------------------
+/// m-by-n, no-data constructor,
+/// using lambda functions for tileNb, tileRank, tileDevice.
+/// Tests TrapezoidMatrix(uplo, n, tileNb, ...), m, n, mt, nt, op.
+void test_TrapezoidMatrix_lambda()
+{
+    int nb_ = nb;  // local copy to capture
+    std::function< int64_t (int64_t j) >
+    tileNb = [nb_](int64_t j)
+    {
+        return (j % 2 == 0 ? 2*nb_ : nb_);
+    };
+
+    // 1D block column cyclic
+    int p_ = p;  // local copy to capture
+    std::function< int (std::tuple<int64_t, int64_t> ij) >
+    tileRank = [p_](std::tuple<int64_t, int64_t> ij)
+    {
+        int64_t i = std::get<0>(ij);
+        int64_t j = std::get<1>(ij);
+        return int(i%p_ + j*p_);
+    };
+
+    // 1D block row cyclic
+    int num_devices_ = num_devices;  // local copy to capture
+    std::function< int (std::tuple<int64_t, int64_t> ij) >
+    tileDevice = [num_devices_](std::tuple<int64_t, int64_t> ij)
+    {
+        int64_t i = std::get<0>(ij);
+        return int(i)%num_devices_;
+    };
+
+    // ----------
+    // lower
+    slate::TrapezoidMatrix<double> L(
+        slate::Uplo::Lower, blas::Diag::NonUnit, m, n, tileNb,
+        tileRank, tileDevice, mpi_comm);
+
+    // verify mt, tileMb(i), and sum tileMb(i) == m
+    int ii = 0;
+    for (int i = 0; i < L.mt(); ++i) {
+        test_assert( L.tileMb(i) == blas::min( tileNb(i), m - ii ) );
+        ii += L.tileMb(i);
+    }
+    test_assert( ii == m );
+
+    // verify nt, tileNb(j), and sum tileNb(j) == n
+    int jj = 0;
+    for (int j = 0; j < L.nt(); ++j) {
+        test_assert( L.tileNb(j) == blas::min( tileNb(j), n - jj ) );
+        jj += L.tileNb(j);
+    }
+    test_assert( jj == n );
+
+    test_assert(L.m() == m);
+    test_assert(L.n() == n);
+    test_assert(L.op() == blas::Op::NoTrans);
+    test_assert(L.uplo() == slate::Uplo::Lower);
+    test_assert(L.diag() == blas::Diag::NonUnit);
+
+    // unit diag
+    slate::TrapezoidMatrix<double> Lu(
+        slate::Uplo::Lower, blas::Diag::Unit, m, n, tileNb,
+        tileRank, tileDevice, mpi_comm);
+
+    test_assert(Lu.m() == m);
+    test_assert(Lu.n() == n);
+    test_assert(Lu.op() == blas::Op::NoTrans);
+    test_assert(Lu.uplo() == slate::Uplo::Lower);
+    test_assert(Lu.diag() == blas::Diag::Unit);
+
+    // ----------
+    // upper
+    slate::TrapezoidMatrix<double> U(
+        slate::Uplo::Upper, blas::Diag::NonUnit, m, n, tileNb,
+        tileRank, tileDevice, mpi_comm);
+
+    // verify mt, tileNb(i), and sum tileNb(i) == n
+    ii = 0;
+    for (int i = 0; i < U.mt(); ++i) {
+        test_assert( U.tileMb(i) == blas::min( tileNb(i), m - ii ) );
+        ii += U.tileMb(i);
+    }
+    test_assert( ii == m );
+
+    // verify nt, tileNb(j), and sum tileNb(j) == n
+    jj = 0;
+    for (int j = 0; j < U.nt(); ++j) {
+        test_assert( U.tileNb(j) == blas::min( tileNb(j), n - jj ) );
+        jj += U.tileNb(j);
+    }
+    test_assert( jj == n );
+
+    test_assert(U.m() == m);
+    test_assert(U.n() == n);
+    test_assert(U.op() == blas::Op::NoTrans);
+    test_assert(U.uplo() == slate::Uplo::Upper);
+    test_assert(L.diag() == blas::Diag::NonUnit);
+    
+    // unit diag
+    slate::TrapezoidMatrix<double> Uu(
+        slate::Uplo::Upper, blas::Diag::Unit, m, n, tileNb,
+        tileRank, tileDevice, mpi_comm);
+
+    test_assert(Uu.m() == m);
+    test_assert(Uu.n() == n);
+    test_assert(Uu.op() == blas::Op::NoTrans);
+    test_assert(Uu.uplo() == slate::Uplo::Upper);
+    test_assert(Uu.diag() == blas::Diag::Unit);
+}
+
+//------------------------------------------------------------------------------
 /// fromLAPACK
 /// Test TrapezoidMatrix::fromLAPACK, A(i, j), tileIsLocal, tileMb, tileNb.
 /// Similar to test_Matrix_fromLAPACK, but adds lower and upper.
@@ -950,7 +1061,8 @@ void run_tests()
     if (mpi_rank == 0)
         printf("\nConstructors\n");
     run_test(test_TrapezoidMatrix,               "TrapezoidMatrix()",                mpi_comm);
-    run_test(test_TrapezoidMatrix_empty,         "TrapezoidMatrix(uplo, m, n, ...)", mpi_comm);
+    run_test(test_TrapezoidMatrix_empty,         "TrapezoidMatrix(uplo, m, n, nb, ...)",     mpi_comm);
+    run_test(test_TrapezoidMatrix_lambda,        "TrapezoidMatrix(uplo, m, n, tileNb, ...)", mpi_comm);
     run_test(test_TrapezoidMatrix_fromLAPACK,    "TrapezoidMatrix::fromLAPACK",      mpi_comm);
     run_test(test_TrapezoidMatrix_fromScaLAPACK, "TrapezoidMatrix::fromScaLAPACK",   mpi_comm);
     run_test(test_TrapezoidMatrix_fromDevices,   "TrapezoidMatrix::fromDevices",     mpi_comm);

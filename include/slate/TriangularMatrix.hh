@@ -60,8 +60,16 @@ namespace slate {
 template <typename scalar_t>
 class TriangularMatrix: public TrapezoidMatrix<scalar_t> {
 public:
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
+
     // constructors
     TriangularMatrix();
+
+    TriangularMatrix(Uplo uplo, Diag diag, int64_t n,
+                     std::function<int64_t (int64_t j)>& inTileNb,
+                     std::function<int (ij_tuple ij)>& inTileRank,
+                     std::function<int (ij_tuple ij)>& inTileDevice,
+                     MPI_Comm mpi_comm);
 
     TriangularMatrix(Uplo uplo, Diag diag, int64_t n, int64_t nb,
                      int p, int q, MPI_Comm mpi_comm);
@@ -130,10 +138,26 @@ TriangularMatrix<scalar_t>::TriangularMatrix()
 {}
 
 //------------------------------------------------------------------------------
-/// Constructor creates an n-by-n matrix, with no tiles allocated.
+/// Constructor creates an n-by-n matrix, with no tiles allocated,
+/// where tileNb, tileRank, tileDevice are given as functions.
 /// Tiles can be added with tileInsert().
-//
-// todo: have allocate flag? If true, allocate data; else user will insert tiles?
+///
+template <typename scalar_t>
+TriangularMatrix<scalar_t>::TriangularMatrix(
+    Uplo uplo, Diag diag, int64_t n,
+    std::function<int64_t (int64_t j)>& inTileNb,
+    std::function<int (ij_tuple ij)>& inTileRank,
+    std::function<int (ij_tuple ij)>& inTileDevice,
+    MPI_Comm mpi_comm)
+    : TrapezoidMatrix<scalar_t>(uplo, diag, n, n, inTileNb, inTileRank,
+                                inTileDevice, mpi_comm)
+{}
+
+//------------------------------------------------------------------------------
+/// Constructor creates an n-by-n matrix, with no tiles allocated,
+/// with fixed nb-by-nb tile size and 2D block cyclic distribution.
+/// Tiles can be added with tileInsert().
+///
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
     Uplo uplo, Diag diag, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)

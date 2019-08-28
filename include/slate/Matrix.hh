@@ -61,8 +61,17 @@ namespace slate {
 template <typename scalar_t>
 class Matrix: public BaseMatrix<scalar_t> {
 public:
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
+
     // constructors
     Matrix();
+
+    Matrix(int64_t m, int64_t n,
+           std::function<int64_t (int64_t i)>& inTileMb,
+           std::function<int64_t (int64_t j)>& inTileNb,
+           std::function<int (ij_tuple ij)>& inTileRank,
+           std::function<int (ij_tuple ij)>& inTileDevice,
+           MPI_Comm mpi_comm);
 
     Matrix(int64_t m, int64_t n, int64_t mb, int64_t nb,
            int p, int q, MPI_Comm mpi_comm);
@@ -169,7 +178,48 @@ Matrix<scalar_t>::Matrix():
 {}
 
 //------------------------------------------------------------------------------
-/// Constructor creates an m-by-n matrix, with no tiles allocated.
+/// Constructor creates an m-by-n matrix, with no tiles allocated,
+/// where tileMb, tileNb, tileRank, tileDevice are given as functions.
+/// Tiles can be added with tileInsert().
+///
+/// @param[in] m
+///     Number of rows of the matrix. m >= 0.
+///
+/// @param[in] n
+///     Number of columns of the matrix. n >= 0.
+///
+/// @param[in] inTileMb
+///     Function that takes block-row index, returns block-row size.
+///
+/// @param[in] inTileNb
+///     Function that takes block-col index, returns block-col size.
+///
+/// @param[in] inTileRank
+///     Function that takes tuple of { block-row, block-col } indices,
+///     returns MPI rank for that tile.
+///
+/// @param[in] inTileDevice
+///     Function that takes tuple of { block-row, block-col } indices,
+///     returns local GPU device ID for that tile.
+///
+/// @param[in] mpi_comm
+///     MPI communicator to distribute matrix across.
+///
+template <typename scalar_t>
+Matrix<scalar_t>::Matrix(
+    int64_t m, int64_t n,
+    std::function<int64_t (int64_t i)>& inTileMb,
+    std::function<int64_t (int64_t j)>& inTileNb,
+    std::function<int (ij_tuple ij)>& inTileRank,
+    std::function<int (ij_tuple ij)>& inTileDevice,
+    MPI_Comm mpi_comm)
+    : BaseMatrix<scalar_t>(m, n, inTileMb, inTileNb, inTileRank, inTileDevice,
+                           mpi_comm)
+{}
+
+//------------------------------------------------------------------------------
+/// Constructor creates an m-by-n matrix, with no tiles allocated,
+/// with fixed mb-by-nb tile size and 2D block cyclic distribution.
 /// Tiles can be added with tileInsert().
 ///
 /// @param[in] m
@@ -193,8 +243,7 @@ Matrix<scalar_t>::Matrix():
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
 ///     p*q == MPI_Comm_size(mpi_comm).
-//
-// todo: have allocate flag? If true, allocate data; else user will insert tiles?
+///
 template <typename scalar_t>
 Matrix<scalar_t>::Matrix(
     int64_t m, int64_t n, int64_t mb, int64_t nb, int p, int q, MPI_Comm mpi_comm)
@@ -209,7 +258,7 @@ Matrix<scalar_t>::Matrix(
 /// of the Matrix object and any shallow copies of it.
 /// Input format is an LAPACK-style column-major matrix with leading
 /// dimension (column stride) lda >= m, that is replicated across all nodes.
-/// Matrix gets tiled with square nb-by-nb tiles.
+/// Matrix gets tiled with mb-by-nb tiles.
 ///
 /// @param[in] m
 ///     Number of rows of the matrix. m >= 0.
@@ -257,7 +306,7 @@ Matrix<scalar_t> Matrix<scalar_t>::fromLAPACK(
 /// Input format is a ScaLAPACK-style 2D block-cyclic column-major matrix
 /// with local leading dimension (column stride) lda,
 /// p block rows and q block columns.
-/// Matrix gets tiled with square nb-by-nb tiles.
+/// Matrix gets tiled with mb-by-nb tiles.
 ///
 /// @param[in] m
 ///     Number of rows of the matrix. m >= 0.

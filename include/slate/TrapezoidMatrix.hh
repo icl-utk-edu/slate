@@ -59,9 +59,17 @@ namespace slate {
 template <typename scalar_t>
 class TrapezoidMatrix: public BaseTrapezoidMatrix<scalar_t> {
 public:
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
+
     // constructors
     TrapezoidMatrix();
 
+    TrapezoidMatrix(Uplo uplo, Diag diag, int64_t m, int64_t n,
+                    std::function<int64_t (int64_t j)>& inTileNb,
+                    std::function<int (ij_tuple ij)>& inTileRank,
+                    std::function<int (ij_tuple ij)>& inTileDevice,
+                    MPI_Comm mpi_comm);
+    
     TrapezoidMatrix(Uplo uplo, Diag diag, int64_t m, int64_t n, int64_t nb,
                     int p, int q, MPI_Comm mpi_comm);
 
@@ -135,10 +143,27 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix()
 {}
 
 //------------------------------------------------------------------------------
-/// Constructor creates an m-by-n matrix, with no tiles allocated.
+/// Constructor creates an m-by-n matrix, with no tiles allocated,
+/// where tileNb, tileRank, tileDevice are given as functions.
 /// Tiles can be added with tileInsert().
-//
-// todo: have allocate flag? If true, allocate data; else user will insert tiles?
+///
+template <typename scalar_t>
+TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
+    Uplo uplo, Diag diag, int64_t m, int64_t n,
+    std::function<int64_t (int64_t j)>& inTileNb,
+    std::function<int (ij_tuple ij)>& inTileRank,
+    std::function<int (ij_tuple ij)>& inTileDevice,
+    MPI_Comm mpi_comm)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, m, n, inTileNb, inTileRank,
+                                    inTileDevice, mpi_comm),
+      diag_(diag)
+{}
+
+//------------------------------------------------------------------------------
+/// Constructor creates an m-by-n matrix, with no tiles allocated,
+/// with fixed nb-by-nb tile size and 2D block cyclic distribution.
+/// Tiles can be added with tileInsert().
+///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
     Uplo uplo, Diag diag, int64_t m, int64_t n, int64_t nb,

@@ -393,7 +393,7 @@ void her2(scalar_t alpha, scalar_t const* x,
 //  trace::Block trace_block("blas::her2");
 
     blas::her2(A.layout(),
-               Uplo::Lower,
+               A.uploPhysical(),
                A.nb(),
                alpha, x, 1,
                       y, 1,
@@ -492,8 +492,7 @@ void symv(scalar_t alpha, Tile<scalar_t> const& A,
     assert(A.mb() == A.nb());  // square
 
     blas::symv(blas::Layout::ColMajor,
-//             A.uploPhysical(),
-               Uplo::Lower,
+               A.uploPhysical(),
                A.nb(),
                alpha, A.data(), A.stride(),
                       x, 1,

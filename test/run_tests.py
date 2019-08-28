@@ -73,6 +73,7 @@ categories = map( lambda x: x.dest, categories ) # map to names: ['lu', 'chol', 
 
 group_opt = parser.add_argument_group( 'options' )
 # BLAS and LAPACK
+# Empty defaults (check, ref, etc.) use the default in test.cc.
 group_opt.add_argument( '--type',   action='store', help='default=%(default)s', default='s,d,c,z' )
 group_opt.add_argument( '--transA', action='store', help='default=%(default)s', default='n,t,c' )
 group_opt.add_argument( '--transB', action='store', help='default=%(default)s', default='n,t,c' )
@@ -84,8 +85,8 @@ group_opt.add_argument( '--alpha',  action='store', help='default=%(default)s', 
 group_opt.add_argument( '--beta',   action='store', help='default=%(default)s', default='' )
 group_opt.add_argument( '--incx',   action='store', help='default=%(default)s', default='1,2,-1,-2' )
 group_opt.add_argument( '--incy',   action='store', help='default=%(default)s', default='1,2,-1,-2' )
-group_opt.add_argument( '--check',  action='store', help='default=y', default='' )  # default in test.cc
-group_opt.add_argument( '--ref',    action='store', help='default=y', default='' )  # default in test.cc
+group_opt.add_argument( '--check',  action='store', help='default=y', default='' )
+group_opt.add_argument( '--ref',    action='store', help='default=y', default='' )
 
 # LAPACK only
 group_opt.add_argument( '--direct', action='store', help='default=%(default)s', default='f,b' )
@@ -107,8 +108,9 @@ group_opt.add_argument( '--target', action='store', help='default=%(default)s', 
 group_opt.add_argument( '--lookahead', action='store', help='default=%(default)s', default='1' )
 group_opt.add_argument( '--nb',     action='store', help='default=%(default)s', default='64,100' )
 group_opt.add_argument( '--nt',     action='store', help='default=%(default)s', default='5,10,20' )
-group_opt.add_argument( '--p',      action='store', help='default=%(default)s', default='' )  # default in test.cc
-group_opt.add_argument( '--q',      action='store', help='default=%(default)s', default='' )  # default in test.cc
+group_opt.add_argument( '--p',      action='store', help='default=%(default)s', default='' )
+group_opt.add_argument( '--q',      action='store', help='default=%(default)s', default='' )
+group_opt.add_argument( '--repeat', action='store', help='times to repeat each test', default='' )
 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
 opts = parser.parse_args()
@@ -257,9 +259,10 @@ nb     = ' --nb '     + opts.nb     if (opts.nb)     else ''
 nt     = ' --nt '     + opts.nt     if (opts.nt)     else ''
 p      = ' --p '      + opts.p      if (opts.p)      else ''
 q      = ' --q '      + opts.q      if (opts.q)      else ''
+repeat = ' --repeat ' + opts.repeat if (opts.repeat) else ''
 
 # general options for all routines
-gen  = origin + target + nb + p + q + check + ref
+gen  = origin + target + nb + p + q + check + ref + repeat
 
 # ------------------------------------------------------------------------------
 # filters a comma separated list csv based on items in list values.

@@ -180,11 +180,13 @@ void gbtrf(slate::internal::TargetType<target>,
                     layout, priority_one);
             }
         }
-        // update trailing submatrix, normal priority
+        // Update trailing submatrix, normal priority.
+        // Depends on the whole range k+1+lookahead : A_nt-1,
+        // not just to j_end-1, as the dependencies daisy chain on A_nt-1.
         if (k+1+lookahead < j_end) {
             #pragma omp task depend(in:column[k]) \
                              depend(inout:column[k+1+lookahead]) \
-                             depend(inout:column[j_end-1])
+                             depend(inout:column[A_nt-1])
             {
                 // swap rows in A(k:mt-1, kl+1:nt-1)
                 int priority_zero = 0;

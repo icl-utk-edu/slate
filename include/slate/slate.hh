@@ -305,6 +305,12 @@ void bdsqr(TriangularBandMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
+template <typename scalar_t>
+void sterf(TriangularBandMatrix<scalar_t>& A,
+           Eigenvalues<scalar_t>& D,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
 // tbsm()
 template <typename scalar_t>
 void tbsm(blas::Side side,

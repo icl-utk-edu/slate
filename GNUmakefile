@@ -294,6 +294,7 @@ endif
 
 # driver
 libslate_src += \
+        src/bdsqr.cc \
         src/colNorms.cc \
         src/copy.cc \
         src/gbmm.cc \
@@ -324,11 +325,11 @@ libslate_src += \
         src/potri.cc \
         src/potrs.cc \
         src/set.cc \
+        src/sterf.cc \
         src/symm.cc \
         src/syr2k.cc \
         src/syrk.cc \
         src/tb2bd.cc \
-        src/bdsqr.cc \
         src/tbsm.cc \
         src/trmm.cc \
         src/trsm.cc \
@@ -339,6 +340,7 @@ libslate_src += \
 # main tester
 test_src += \
         test/test.cc \
+        test/test_bdsqr.cc \
         test/test_gbmm.cc \
         test/test_gbnorm.cc \
         test/test_gbsv.cc \
@@ -359,8 +361,8 @@ test_src += \
         test/test_synorm.cc \
         test/test_syr2k.cc \
         test/test_syrk.cc \
+        test/test_sterf.cc \
         test/test_tb2bd.cc \
-        test/test_bdsqr.cc \
         test/test_tbsm.cc \
         test/test_trmm.cc \
         test/test_trnorm.cc \

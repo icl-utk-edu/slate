@@ -124,6 +124,9 @@ using Pivots = std::vector< std::vector<Pivot> >;
 template <typename scalar_t>
 using Singularvalues = std::vector< blas::real_type<scalar_t> >;
 
+template <typename scalar_t>
+using Eigenvalues = std::vector< blas::real_type<scalar_t> >;
+
 //------------------------------------------------------------------------------
 /// Gives mpi_type based on actual scalar_t.
 //  Constants are initialized in slate_types.cc

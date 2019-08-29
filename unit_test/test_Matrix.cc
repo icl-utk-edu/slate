@@ -760,6 +760,8 @@ void test_Matrix_tileLife()
     const int max_life = 4;
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {
+            if (! A.tileIsLocal(i, j))
+                A.tileInsert(i, j);
             A.tileLife(i, j, max_life);
         }
     }
@@ -768,10 +770,13 @@ void test_Matrix_tileLife()
         for (int j = 0; j < A.nt(); ++j) {
             for (int i = 0; i < A.mt(); ++i) {
                 if (! A.tileIsLocal(i, j)) {
-                    // non-local tiles get decremented
+                    // non-local tiles get decremented, and deleted when life reaches 0.
                     test_assert( A.tileLife(i, j) == life );
                     A.tileTick(i, j);
-                    test_assert( A.tileLife(i, j) == life - 1 );
+                    if (life - 1 == 0)
+                        test_assert_throw_std( A.at(i, j) ); // std::exception (map::at)
+                    else
+                        test_assert( A.tileLife(i, j) == life - 1 );
                 }
                 else {
                     // local tiles don't get decremented

@@ -64,7 +64,7 @@ namespace specialization {
 template <Target target, typename scalar_t>
 void sterf(slate::internal::TargetType<target>,
            TriangularBandMatrix<scalar_t> A,
-           Eigenvalues<scalar_t>& D)
+           std::vector< blas::real_type<scalar_t> >& D)
 {
     trace::Block trace_block("slate::sterf");
     using real_t = blas::real_type<scalar_t>;
@@ -137,7 +137,7 @@ void sterf(slate::internal::TargetType<target>,
 ///
 template <Target target, typename scalar_t>
 void sterf(TriangularBandMatrix<scalar_t>& A,
-           Eigenvalues<scalar_t>& E,
+           std::vector< blas::real_type<scalar_t> >& E,
            const std::map<Option, Value>& opts)
 {
     internal::specialization::sterf(internal::TargetType<target>(),
@@ -148,7 +148,7 @@ void sterf(TriangularBandMatrix<scalar_t>& A,
 ///
 template <typename scalar_t>
 void sterf(TriangularBandMatrix<scalar_t>& A,
-           Eigenvalues<scalar_t>& E,
+           std::vector< blas::real_type<scalar_t> >& E,
            const std::map<Option, Value>& opts)
 {
     Target target;
@@ -177,25 +177,25 @@ void sterf(TriangularBandMatrix<scalar_t>& A,
 template
 void sterf<float>(
     TriangularBandMatrix<float>& A,
-    Eigenvalues<float>& E,
+    std::vector<float>& E,
     const std::map<Option, Value>& opts);
 
 template
 void sterf<double>(
     TriangularBandMatrix<double>& A,
-    Eigenvalues<double>& E,
+    std::vector<double>& E,
     const std::map<Option, Value>& opts);
 
 template
 void sterf< std::complex<float> >(
     TriangularBandMatrix< std::complex<float> >& A,
-    Eigenvalues< std::complex<float> >& E,
+    std::vector<float>& E,
     const std::map<Option, Value>& opts);
 
 template
 void sterf< std::complex<double> >(
     TriangularBandMatrix< std::complex<double> >& A,
-    Eigenvalues< std::complex<double> >& E,
+    std::vector<double>& E,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

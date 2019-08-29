@@ -66,7 +66,7 @@ namespace specialization {
 template <Target target, typename scalar_t>
 void bdsqr(slate::internal::TargetType<target>,
            TriangularBandMatrix<scalar_t> A,
-           Singularvalues<scalar_t>& D)
+           std::vector< blas::real_type<scalar_t> >& D)
 {
     trace::Block trace_block("slate::bdsqr");
     using real_t = blas::real_type<scalar_t>;
@@ -141,7 +141,7 @@ void bdsqr(slate::internal::TargetType<target>,
 ///
 template <Target target, typename scalar_t>
 void bdsqr(TriangularBandMatrix<scalar_t>& A,
-           Singularvalues<scalar_t>& D,
+           std::vector< blas::real_type<scalar_t> >& D,
            const std::map<Option, Value>& opts)
 {
     internal::specialization::bdsqr(internal::TargetType<target>(),
@@ -152,7 +152,7 @@ void bdsqr(TriangularBandMatrix<scalar_t>& A,
 ///
 template <typename scalar_t>
 void bdsqr(TriangularBandMatrix<scalar_t>& A,
-           Singularvalues<scalar_t>& D,
+           std::vector< blas::real_type<scalar_t> >& D,
            const std::map<Option, Value>& opts)
 {
     Target target;
@@ -186,25 +186,25 @@ void bdsqr(TriangularBandMatrix<scalar_t>& A,
 template
 void bdsqr<float>(
     TriangularBandMatrix<float>& A,
-    Singularvalues<float>& D,
+    std::vector<float>& D,
     const std::map<Option, Value>& opts);
 
 template
 void bdsqr<double>(
     TriangularBandMatrix<double>& A,
-    Singularvalues<double>& D,
+    std::vector<double>& D,
     const std::map<Option, Value>& opts);
 
 template
 void bdsqr< std::complex<float> >(
     TriangularBandMatrix< std::complex<float> >& A,
-    Singularvalues< std::complex<float> >& D,
+    std::vector<float>& D,
     const std::map<Option, Value>& opts);
 
 template
 void bdsqr< std::complex<double> >(
     TriangularBandMatrix< std::complex<double> >& A,
-    Singularvalues< std::complex<double> >& D,
+    std::vector<double>& D,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

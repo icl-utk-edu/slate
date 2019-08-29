@@ -110,7 +110,7 @@ void test_sterf_work(
         MPI_Barrier(MPI_COMM_WORLD);
     }
 
-    slate::Eigenvalues<scalar_t> S;
+    std::vector< blas::real_type<scalar_t> > S;
 
     double time = libtest::get_wtime();
     //==================================================
@@ -131,7 +131,7 @@ void test_sterf_work(
         // Test results
         // Gather the whole matrix onto rank 0.
         //==================================================
-        std::vector<scalar_t> A1( lda*n );
+        std::vector<scalar_t> A1( lda*n, 0. );
         A.gather(&A1[0], lda);
 
         if (mpi_rank == 0) {

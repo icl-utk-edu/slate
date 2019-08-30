@@ -67,9 +67,15 @@ and [LAPACK++](https://bitbucket.org/icl/lapackpp).
 Documentation
 =============
 
+* [Building and Installing SLATE](https://bitbucket.org/icl/slate/wiki/Howto/Building_and_Installing_SLATE)
+<!--
 * [SLATE Users' Guide](https://icl.bitbucket.io/slate/sphinx/html/)
+-->
 * [SLATE Function Reference](https://icl.bitbucket.io/slate/doxygen/html/)
+* [SLATE Overview and Papers](http://icl.utk.edu/slate/)
+<!--
 * [SLATE Working Note 3: Designing SLATE: Software for Linear Algebra Targeting Exascale](http://www.icl.utk.edu/publications/swan-003)
+-->
 
 * * *
 

@@ -276,6 +276,7 @@ libslate_src += \
         src/internal/internal_ttqrt.cc \
         src/internal/internal_ttlqt.cc \
         src/internal/internal_unmqr.cc \
+        src/internal/internal_unmlq.cc \
         src/internal/internal_util.cc \
         src/internal/internal_transpose.cc \
         src/internal/internal_tzcopy.cc \
@@ -335,6 +336,7 @@ libslate_src += \
         src/trtri.cc \
         src/trtrm.cc \
         src/unmqr.cc \
+        src/unmlq.cc \
 
 # main tester
 test_src += \

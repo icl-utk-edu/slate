@@ -68,6 +68,7 @@ Documentation
 =============
 
 * [Building and Installing SLATE](https://bitbucket.org/icl/slate/wiki/Howto/Building_and_Installing_SLATE)
+* [Simple code samples and Makefile for using SLATE](https://bitbucket.org/icl/slate-tutorial/src/default/)
 * [SLATE Function Reference](https://icl.bitbucket.io/slate/doxygen/html/)
 * [SLATE Website and Papers](http://icl.utk.edu/slate/)
 

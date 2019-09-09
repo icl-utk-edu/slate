@@ -32,6 +32,9 @@
 
 -include make.inc
 
+# Export variables to sub-make for libtest, BLAS++, LAPACK++.
+export CXX mkl ilp64 essl openblas openmp static
+
 NVCC ?= nvcc
 
 CXXFLAGS  += -O3 -std=c++11 -Wall -pedantic -MMD
@@ -441,7 +444,7 @@ UNIT_LIBS    += -lslate -ltest
 # Rules
 .DELETE_ON_ERROR:
 .SUFFIXES:
-.PHONY: all docs lib test unit_test clean distclean
+.PHONY: all docs lib test unit_test clean distclean libtest blaspp lapackpp
 .DEFAULT_GOAL := all
 
 all: lib test unit_test scalapack_api lapack_api
@@ -458,6 +461,8 @@ libtest = libtest/libtest.$(lib_ext)
 $(libtest): $(libtest_src)
 	cd libtest && $(MAKE) lib
 
+libtest: $(libtest)
+
 #-------------------------------------------------------------------------------
 # BLAS++ library
 libblaspp_src = $(wildcard blaspp/include/*.h \
@@ -470,6 +475,8 @@ libblaspp = blaspp/lib/libblaspp.$(lib_ext)
 $(libblaspp): $(libblaspp_src) | $(libtest)
 	cd blaspp && $(MAKE) lib
 
+blaspp: $(libblaspp)
+
 #-------------------------------------------------------------------------------
 # LAPACK++ library
 liblapackpp_src = $(wildcard lapackpp/include/*.h \
@@ -481,6 +488,8 @@ liblapackpp = lapackpp/lib/liblapackpp.$(lib_ext)
 # dependency on libtest, BLAS++ serializes compiles
 $(liblapackpp): $(liblapackpp_src) | $(libtest) $(libblaspp)
 	cd lapackpp && $(MAKE) lib
+
+lapackpp: $(liblapackpp)
 
 #-------------------------------------------------------------------------------
 # libslate library

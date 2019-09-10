@@ -349,6 +349,7 @@ test_src += \
         test/test_gemm.cc \
         test/test_genorm.cc \
         test/test_geqrf.cc \
+        test/test_gelqf.cc \
         test/test_gesv.cc \
         test/test_hemm.cc \
         test/test_henorm.cc \

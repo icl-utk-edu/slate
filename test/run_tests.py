@@ -416,7 +416,7 @@ if (opts.least_squares):
 # QR
 if (opts.qr):
     cmds += [
-    [ 'geqrf', gen + dtype + la + n + wide + tall ],
+    [ 'geqrf', gen + dtype + la + mn ],
     #[ 'ggqrf', gen + dtype + la + mnk ],
     #[ 'ungqr', gen + dtype + la + mn ],  # m >= n
     #[ 'unmqr', gen + dtype_real    + la + mnk + side + trans    ],  # real does trans = N, T, C
@@ -426,7 +426,7 @@ if (opts.qr):
 # LQ
 if (opts.lq):
     cmds += [
-    #[ 'gelqf', gen + dtype + la + mn ],
+    [ 'gelqf', gen + dtype + la + mn ],
     #[ 'gglqf', gen + dtype + la + mn ],
     #[ 'unglq', gen + dtype + la + mn ],  # m <= n, k <= m  TODO Fix the input sizes to match constraints
     #[ 'unmlq', gen + dtype_real    + la + mnk + side + trans    ],  # real does trans = N, T, C

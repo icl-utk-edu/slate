@@ -92,7 +92,7 @@ void ttqrt(internal::TargetType<Target::HostTask>,
         }
     }
     // Sort rank_rows by row.
-    std::sort(rank_rows.begin(), rank_rows.end(), compare_rank_rows);
+    std::sort(rank_rows.begin(), rank_rows.end(), compareSecond<int, int64_t>);
 
     // Find this rank.
     int index;

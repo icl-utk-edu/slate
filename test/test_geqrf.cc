@@ -47,8 +47,8 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         return;
 
     // Local values
-    const int izero = 0, ione = 1;
     const scalar_t zero = 0;
+    const scalar_t one = 1;
 
     // BLACS/MPI variables
     int ictxt, nprow, npcol, myrow, mycol, info;
@@ -74,9 +74,9 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
     }
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = scalapack_numroc(m, nb, myrow, izero, nprow);
-    int64_t nlocA = scalapack_numroc(n, nb, mycol, izero, npcol);
-    scalapack_descinit(descA_tst, m, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+    int64_t mlocA = scalapack_numroc(m, nb, myrow, 0, nprow);
+    int64_t nlocA = scalapack_numroc(n, nb, mycol, 0, npcol);
+    scalapack_descinit(descA_tst, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
     slate_assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
@@ -84,11 +84,11 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
 
     // matrix QR, for checking result
     std::vector<scalar_t> QR_tst(1);
-    scalapack_descinit(descQR_tst, m, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+    scalapack_descinit(descQR_tst, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
     slate_assert(info == 0);
 
     // tau vector for ScaLAPACK
-    int64_t ltau = scalapack_numroc(std::min(m, n), nb, mycol, izero, npcol);
+    int64_t ltau = scalapack_numroc(std::min(m, n), nb, mycol, 0, npcol);
     std::vector<scalar_t> tau(ltau);
 
     // workspace for ScaLAPACK
@@ -118,7 +118,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
     slate::Matrix<scalar_t> Aref;
     if (check || ref) {
         A_ref = A_tst;
-        scalapack_descinit(descA_ref, m, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+        scalapack_descinit(descA_ref, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
         slate_assert(info == 0);
 
         Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
@@ -188,13 +188,13 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         // todo: replace with slate set/copy functions.
         QR_tst = std::vector<scalar_t>(A_tst.size(), zero);
         scalapack_placpy("Upper", std::min(m, n), n,
-                         &A_tst[0], ione, ione, descA_tst,
-                         &QR_tst[0], ione, ione, descQR_tst);
+                         &A_tst[0], 1, 1, descA_tst,
+                         &QR_tst[0], 1, 1, descQR_tst);
 
         // Alternatively, copy all of A_tst to QR, then zero out below diagonal.
         //QR_tst = A_tst;
         //scalapack_plaset("Lower", m-1, n, zero, zero,
-        //                 &QR_tst[0], ione+1, ione, descQR_tst);
+        //                 &QR_tst[0], 2, 1, descQR_tst);
 
         auto QR = slate::Matrix<scalar_t>::fromScaLAPACK(
             m, n, &QR_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
@@ -213,9 +213,9 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         }
 
         // Form QR - A, where A is in Aref.
-        // todo: slate::geadd(scalar_t(-1.0), Aref, QR);
+        // todo: slate::geadd(-one, Aref, QR);
         // using axpy assumes A_ref and QR_tst have same lda.
-        blas::axpy(QR_tst.size(), scalar_t(-1.0), &A_ref[0], ione, &QR_tst[0], ione);
+        blas::axpy(QR_tst.size(), -one, &A_ref[0], 1, &QR_tst[0], 1);
 
         if (verbose > 1) {
             print_matrix("QR - A", QR);
@@ -242,7 +242,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
 
         // query for workspace size
         scalar_t dummy;
-        scalapack_pgeqrf(m, n, &A_ref[0], ione, ione, descA_ref, tau.data(),
+        scalapack_pgeqrf(m, n, &A_ref[0], 1, 1, descA_ref, tau.data(),
                          &dummy, -1, &info_ref);
         lwork = int64_t( real( dummy ) );
         work.resize(lwork);
@@ -252,7 +252,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         //==================================================
         MPI_Barrier(MPI_COMM_WORLD);
         double time = libtest::get_wtime();
-        scalapack_pgeqrf(m, n, &A_ref[0], ione, ione, descA_ref, tau.data(),
+        scalapack_pgeqrf(m, n, &A_ref[0], 1, 1, descA_ref, tau.data(),
                          work.data(), lwork, &info_ref);
         slate_assert(info_ref == 0);
         MPI_Barrier(MPI_COMM_WORLD);

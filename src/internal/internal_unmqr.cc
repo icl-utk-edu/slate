@@ -168,7 +168,7 @@ void unmqr(internal::TargetType<target>,
 
         // W <- C0
         // W <- V0^H W
-        Wr.copy(C0);
+        internal::copy(std::move(C0), std::move(Wr));
         internal::trmm<Target::HostTask>(
                 Side::Left,
                 scalar_t(1.0), conj_transpose(V0tr),

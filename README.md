@@ -8,7 +8,7 @@
 
 **University of Tennessee**
 
-![SLATE](http://icl.bitbucket.io/slate/artwork/SLATE-Architecture-Illustration.png)
+![SLATE](http://icl.bitbucket.io/slate/artwork/SLATE-Architecture-Illustration.png#architecture)
 
 * * *
 

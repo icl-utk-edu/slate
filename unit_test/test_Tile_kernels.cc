@@ -1243,23 +1243,134 @@ void test_device_convert_layout()
 }
 
 //------------------------------------------------------------------------------
+template <typename scalar_t>
+void test_deepTranspose_work(int m, int n)
+{
+    if (verbose)
+        printf( "%s< %s >( m=%3d, n=%3d )\n", __func__, type_name<scalar_t>().c_str(), m, n );
+
+    using blas::conj;
+
+    int lda  = slate::roundup( m, 16 );
+    int ldat = slate::roundup( n, 16 );
+    std::vector<scalar_t> data( lda*n );
+    std::vector<scalar_t> dataT( m*ldat );
+
+    int64_t idist = 3;
+    int64_t iseed[4] = { 1, 2, 3, 5 };
+    lapack::larnv( idist, iseed, data.size(), data.data() );
+    lapack::larnv( idist, iseed, dataT.size(), dataT.data() );
+
+    slate::Tile< scalar_t > A( m, n, data.data(), lda, host_num,
+                               slate::TileKind::UserOwned );
+    slate::Tile< scalar_t > AT( n, m, dataT.data(), ldat, host_num,
+                                slate::TileKind::UserOwned );
+
+    deepTranspose( std::move(A), std::move(AT) );
+    for (int j = 0; j < n; ++j)
+        for (int i = 0; i < m; ++i)
+            test_assert( A(i, j) == AT(j, i) );
+
+    // deepTranspose( std::move(A), std::move(A) );  // error
+
+    if (m == n) {
+        deepTranspose( std::move(A) );
+        // Check that A == A^T.
+        for (int j = 0; j < n; ++j)
+            for (int i = 0; i < m; ++i)
+                test_assert( A(i, j) == AT(i, j) );
+    }
+    else {
+        // deepTranspose( std::move(A) );  // error
+    }
+}
+
+void test_deepTranspose()
+{
+    for (int m = 8; m <= 16; m += 2) {
+        for (int n = 8; n <= 16; n += 2) {
+            test_deepTranspose_work< float  >( m, n );
+            test_deepTranspose_work< double >( m, n );
+            test_deepTranspose_work< std::complex<float>  >( m, n );
+            test_deepTranspose_work< std::complex<double> >( m, n );
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void test_deepConjTranspose_work(int m, int n)
+{
+    if (verbose)
+        printf( "%s< %s >( m=%3d, n=%3d )\n", __func__, type_name<scalar_t>().c_str(), m, n );
+
+    using blas::conj;
+
+    int lda  = slate::roundup( m, 16 );
+    int ldah = slate::roundup( n, 16 );
+    std::vector<scalar_t> data( lda*n );
+    std::vector<scalar_t> dataH( m*ldah );
+
+    int64_t idist = 3;
+    int64_t iseed[4] = { 1, 2, 3, 5 };
+    lapack::larnv( idist, iseed, data.size(), data.data() );
+    lapack::larnv( idist, iseed, dataH.size(), dataH.data() );
+
+    slate::Tile< scalar_t > A( m, n, data.data(), lda, host_num,
+                               slate::TileKind::UserOwned );
+    slate::Tile< scalar_t > AH( n, m, dataH.data(), ldah, host_num,
+                                slate::TileKind::UserOwned );
+
+    deepConjTranspose( std::move(A), std::move(AH) );
+    for (int j = 0; j < n; ++j)
+        for (int i = 0; i < m; ++i)
+            test_assert( A(i, j) == conj(AH(j, i)) );
+
+    // deepConjTranspose( std::move(A), std::move(A) );  // error
+
+    if (m == n) {
+        deepConjTranspose( std::move(A) );
+        // Check that A == A^H.
+        for (int j = 0; j < n; ++j)
+            for (int i = 0; i < m; ++i)
+                test_assert( A(i, j) == AH(i, j) );
+    }
+    else {
+        // deepConjTranspose( std::move(A) );  // error
+    }
+}
+
+void test_deepConjTranspose()
+{
+    for (int m = 8; m <= 16; m += 2) {
+        for (int n = 8; n <= 16; n += 2) {
+            test_deepConjTranspose_work< float  >( m, n );
+            test_deepConjTranspose_work< double >( m, n );
+            test_deepConjTranspose_work< std::complex<float>  >( m, n );
+            test_deepConjTranspose_work< std::complex<double> >( m, n );
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+enum class Section {
+    newline = 0,  // zero flag forces newline
+    blas_section,
+    norm,
+    factor,
+    convert,
+    copy,
+};
+
+//------------------------------------------------------------------------------
 // Similar routine list to libtest. No params yet.
 typedef void (*test_func_ptr)();
 
 typedef struct {
     const char* name;
     test_func_ptr func;
-    int section;
+    Section section;
 } routines_t;
-
-//------------------------------------------------------------------------------
-enum Section {
-    newline = 0,  // zero flag forces newline
-    blas_section,
-    norm,
-    factor,
-    convert,
-};
 
 //------------------------------------------------------------------------------
 std::vector< routines_t > routines = {
@@ -1278,6 +1389,10 @@ std::vector< routines_t > routines = {
     { "convert_layout",        test_convert_layout,        Section::convert },
     { "device_convert_layout", test_device_convert_layout, Section::convert },
     { "",                      nullptr,                    Section::newline },
+
+    { "deepTranspose",         test_deepTranspose,         Section::copy },
+    { "deepConjTranspose",     test_deepConjTranspose,     Section::copy },
+    { "",                      nullptr,                    Section::newline },
 };
 
 //------------------------------------------------------------------------------
@@ -1286,7 +1401,7 @@ void usage()
 {
     printf("Usage: %s [routines]\n", g_argv[0]);
     int col = 0;
-    int last_section = routines[0].section;
+    Section last_section = routines[0].section;
     for (size_t j = 0; j < routines.size(); ++j) {
         if (routines[j].section != Section::newline &&
             routines[j].section != last_section)

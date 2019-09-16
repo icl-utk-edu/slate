@@ -49,25 +49,22 @@ group_cat = parser.add_argument_group( 'category (default is all)' )
 categories = [
     group_cat.add_argument( '--blas3',         action='store_true', help='run Level 3 BLAS tests' ),
     group_cat.add_argument( '--lu',            action='store_true', help='run LU tests' ),
-    group_cat.add_argument( '--gb',            action='store_true', help='run GB tests' ),
-    group_cat.add_argument( '--gt',            action='store_true', help='run GT tests' ),
+    group_cat.add_argument( '--lu-band',       action='store_true', help='run band LU tests' ),
     group_cat.add_argument( '--chol',          action='store_true', help='run Cholesky tests' ),
-    group_cat.add_argument( '--sysv',          action='store_true', help='run symmetric indefinite (Bunch-Kaufman) tests' ),
-    group_cat.add_argument( '--rook',          action='store_true', help='run symmetric indefinite (rook) tests' ),
-    group_cat.add_argument( '--aasen',         action='store_true', help='run symmetric indefinite (Aasen) tests' ),
-    group_cat.add_argument( '--hesv',          action='store_true', help='run hermetian tests (FIXME more informationhere)' ),
+    group_cat.add_argument( '--chol-band',     action='store_true', help='run band Cholesky tests' ),
+    group_cat.add_argument( '--sysv',          action='store_true', help='run symmetric indefinite (Aasen) tests' ),
+    group_cat.add_argument( '--hesv',          action='store_true', help='run Hermetian indefinite (Aasen) tests' ),
     group_cat.add_argument( '--least-squares', action='store_true', help='run least squares tests' ),
     group_cat.add_argument( '--qr',            action='store_true', help='run QR tests' ),
     group_cat.add_argument( '--lq',            action='store_true', help='run LQ tests' ),
     group_cat.add_argument( '--ql',            action='store_true', help='run QL tests' ),
     group_cat.add_argument( '--rq',            action='store_true', help='run RQ tests' ),
-    group_cat.add_argument( '--syev',          action='store_true', help='run symmetric eigenvalues tests' ),
-    group_cat.add_argument( '--sygv',          action='store_true', help='run generalized symmetric eigenvalues tests' ),
-    group_cat.add_argument( '--geev',          action='store_true', help='run non-symmetric eigenvalues tests' ),
-    group_cat.add_argument( '--svd',           action='store_true', help='run svd tests' ),
-    group_cat.add_argument( '--aux',           action='store_true', help='run auxiliary tests' ),
-    group_cat.add_argument( '--aux-house',     action='store_true', help='run auxiliary Householder tests' ),
-    group_cat.add_argument( '--aux-norm',      action='store_true', help='run auxiliary norm tests' ),
+    group_cat.add_argument( '--syev',          action='store_true', help='run symmetric/Hermitian eigenvalue tests' ),
+    group_cat.add_argument( '--sygv',          action='store_true', help='run generalized symmetric/Hermitian eigenvalue tests' ),
+    group_cat.add_argument( '--geev',          action='store_true', help='run non-symmetric eigenvalue tests' ),
+    group_cat.add_argument( '--svd',           action='store_true', help='run SVD tests' ),
+    group_cat.add_argument( '--aux',           action='store_true', help='run auxiliary routine tests' ),
+    group_cat.add_argument( '--norms',         action='store_true', help='run norm tests' ),
 ]
 categories = map( lambda x: x.dest, categories ) # map to names: ['lu', 'chol', ...]
 
@@ -81,12 +78,12 @@ group_opt.add_argument( '--trans',  action='store', help='default=%(default)s', 
 group_opt.add_argument( '--uplo',   action='store', help='default=%(default)s', default='l,u' )
 group_opt.add_argument( '--diag',   action='store', help='default=%(default)s', default='n,u' )
 group_opt.add_argument( '--side',   action='store', help='default=%(default)s', default='l,r' )
-group_opt.add_argument( '--alpha',  action='store', help='default=%(default)s', default='' )
-group_opt.add_argument( '--beta',   action='store', help='default=%(default)s', default='' )
+group_opt.add_argument( '--alpha',  action='store', help='', default='' )
+group_opt.add_argument( '--beta',   action='store', help='', default='' )
 group_opt.add_argument( '--incx',   action='store', help='default=%(default)s', default='1,2,-1,-2' )
 group_opt.add_argument( '--incy',   action='store', help='default=%(default)s', default='1,2,-1,-2' )
 group_opt.add_argument( '--check',  action='store', help='default=y', default='' )
-group_opt.add_argument( '--ref',    action='store', help='default=y', default='' )
+group_opt.add_argument( '--ref',    action='store', help='default=%(default)s', default='n' )
 
 # LAPACK only
 group_opt.add_argument( '--direct', action='store', help='default=%(default)s', default='f,b' )
@@ -334,8 +331,8 @@ if (opts.lu):
     [ 'gesvMixed',  gen + dtype_double + la + n ],
     ]
 
-# General Banded
-if (opts.gb):
+# LU banded
+if (opts.lu_band):
     cmds += [
     [ 'gbsv',  gen + dtype + la + n  + kl + ku ],
     [ 'gbtrf', gen + dtype + la + n  + kl + ku ],  # todo: mn
@@ -343,16 +340,6 @@ if (opts.gb):
     #[ 'gbcon', gen + dtype + la + n  + kl + ku ],
     #[ 'gbrfs', gen + dtype + la + n  + kl + ku + trans ],
     #[ 'gbequ', gen + dtype + la + n  + kl + ku ],
-    ]
-
-# General Tri-Diagonal
-if (opts.gt):
-    cmds += [
-    #[ 'gtsv',  gen + dtype + la + n ],
-    #[ 'gttrf', gen + dtype + la + n ],
-    #[ 'gttrs', gen + dtype + la + n + trans ],
-    #[ 'gtcon', gen + dtype + la + n ],
-    #[ 'gtrfs', gen + dtype + la + n + trans ],
     ]
 
 # Cholesky
@@ -366,21 +353,17 @@ if (opts.chol):
     #[ 'porfs', gen + dtype + la + n + uplo ],
     #[ 'poequ', gen + dtype + la + n ],  # only diagonal elements (no uplo)
     [ 'posvMixed',  gen + dtype_double + la + n + uplo ],
+    ]
 
-    # Banded
+# Cholesky banded
+if (opts.chol):
+    cmds += [
     #[ 'pbsv',  gen + dtype + la + n + kd + uplo ],
     #[ 'pbtrf', gen + dtype + la + n + kd + uplo ],
     #[ 'pbtrs', gen + dtype + la + n + kd + uplo ],
     #[ 'pbcon', gen + dtype + la + n + kd + uplo ],
     #[ 'pbrfs', gen + dtype + la + n + kd + uplo ],
     #[ 'pbequ', gen + dtype + la + n + kd + uplo ],
-
-    # Tri-diagonal
-    #[ 'ptsv',  gen + dtype + la + n ],
-    #[ 'pttrf', gen + dtype + la + n ],
-    #[ 'pttrs', gen + dtype + la + n + uplo ],
-    #[ 'ptcon', gen + dtype + la + n ],
-    #[ 'ptrfs', gen + dtype + la + n + uplo ],
     ]
 
 # symmetric indefinite
@@ -460,7 +443,7 @@ if (opts.rq):
     #[ 'unmrq', gen + dtype_complex + la + mnk + side + trans_nc ],  # complex does trans = N, C, not T
     ]
 
-# symmetric eigenvalues
+# symmetric/Hermitian eigenvalues
 if (opts.syev):
     cmds += [
     #[ 'heev',  gen + dtype + la + n + jobz + uplo ],
@@ -487,7 +470,7 @@ if (opts.syev):
     #[ 'ubmtr', gen + dtype_complex + la + mn + uplo + side + trans_nc ],
     ]
 
-# generalized symmetric eigenvalues
+# generalized symmetric/Hermitian eigenvalues
 if (opts.sygv):
     cmds += [
     #[ 'hegv',  gen + dtype + la + n + itype + jobz + uplo ],
@@ -526,8 +509,8 @@ if (opts.svd):
     #[ 'gesvj',         gen + dtype + la + mn + joba + jobu + jobv ],
     ]
 
-# auxilary - norms
-if (opts.aux_norm):
+# norms
+if (opts.norms):
     cmds += [
     [ 'genorm', gen + dtype + mn + norm ],
     [ 'henorm', gen + dtype + n  + norm + uplo ],
@@ -539,10 +522,6 @@ if (opts.aux_norm):
     #[ 'hbnorm', gen + dtype + la + n + kd + norm ],
     #[ 'sbnorm', gen + dtype + la + n + kd + norm ],
     #[ 'tbnorm', gen + dtype + la + n + kd + norm ],
-
-    # Tri-diagonal
-    #[ 'gtnorm', gen + dtype + la + n + norm ],
-    #[ 'htnorm', gen + dtype + la + n + norm ],
     ]
 
 # ------------------------------------------------------------------------------

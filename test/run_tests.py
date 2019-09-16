@@ -30,7 +30,7 @@ parser = argparse.ArgumentParser()
 
 group_test = parser.add_argument_group( 'test' )
 group_test.add_argument( '-t', '--test', action='store',
-    help='test command to run, e.g., --test "mpirun -np 4 ./test"; default "%(default)s"',
+    help='test command to run, e.g., --test "mpirun -np 4 ./test"; default "%(default)s"; see also --np',
     default='./test' )
 group_test.add_argument( '--xml', help='generate report.xml for jenkins' )
 
@@ -108,8 +108,9 @@ group_opt.add_argument( '--target', action='store', help='default=%(default)s', 
 group_opt.add_argument( '--lookahead', action='store', help='default=%(default)s', default='1' )
 group_opt.add_argument( '--nb',     action='store', help='default=%(default)s', default='64,100' )
 group_opt.add_argument( '--nt',     action='store', help='default=%(default)s', default='5,10,20' )
-group_opt.add_argument( '--p',      action='store', help='default=%(default)s', default='' )
-group_opt.add_argument( '--q',      action='store', help='default=%(default)s', default='' )
+group_opt.add_argument( '--np',     action='store', help='number of MPI processes; default=%(default)s', default='1' )
+group_opt.add_argument( '--p',      action='store', help='use p-by-q MPI process grid', default='' )
+group_opt.add_argument( '--q',      action='store', help='use p-by-q MPI process grid', default='' )
 group_opt.add_argument( '--repeat', action='store', help='times to repeat each test', default='' )
 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
@@ -141,6 +142,12 @@ if (opts.tests or not any( map( lambda c: opts.__dict__[ c ], categories ))):
 # ------------------------------------------------------------------------------
 # parameters
 # begin with space to ease concatenation
+
+if (opts.np != '1'):
+    if (opts.test != './test'):
+        print('--test overriding --np')
+    else:
+        opts.test = 'mpirun -np '+ opts.np +' '+ opts.test
 
 # if given, use explicit dim
 dim = ' --dim ' + opts.dim if (opts.dim) else ''

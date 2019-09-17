@@ -94,12 +94,14 @@ void geqrf(slate::internal::TargetType<target>,
         // only one tile-row of matrix W per MPI process is going to be used,
         // but W with size of whole A is being allocated
         // thus limiting the matrix size that can be processed
-        W.reserveDeviceWorkspace();
+        // For now, allocate workspace tiles 1-by-1.
+        //W.reserveDeviceWorkspace();
     }
 
+    // QR tracks dependencies by block-column.
     // OpenMP needs pointer types, but vectors are exception safe
-    std::vector< uint8_t > column_vector(A_nt);
-    uint8_t* column = column_vector.data();
+    std::vector< uint8_t > block_vector(A_nt);
+    uint8_t* block = block_vector.data();
 
     #pragma omp parallel
     #pragma omp master
@@ -115,23 +117,23 @@ void geqrf(slate::internal::TargetType<target>,
             A_panel.getRanks(&ranks_set);
             assert(ranks_set.size() > 0);
 
-            // Find each rank's top-most row in this panel,
-            // where the triangular tile (resulting from local geqrf panel)
+            // Find each rank's first (top-most) row in this panel,
+            // where the triangular tile resulting from local geqrf panel
             // will reside.
-            std::vector< int64_t > top_rows;
-            top_rows.reserve(ranks_set.size());
+            std::vector< int64_t > first_indices;
+            first_indices.reserve(ranks_set.size());
             for (int r: ranks_set) {
                 for (int64_t i = 0; i < A_panel.mt(); ++i) {
                     if (A_panel.tileRank(i, 0) == r) {
-                        top_rows.push_back(i+k);
+                        first_indices.push_back(i+k);
                         break;
                     }
                 }
             }
-            int64_t min_row = k;
+            // todo: pass first_indices into internal geqrf or ttqrt?
 
             // panel, high priority
-            #pragma omp task depend(inout:column[k]) priority(priority_one)
+            #pragma omp task depend(inout:block[k]) priority(priority_one)
             {
                 // local panel factorization
                 internal::geqrf<Target::HostTask>(
@@ -150,36 +152,34 @@ void geqrf(slate::internal::TargetType<target>,
 
                     // bcast V across row for trailing matrix update
                     if (k < A_mt) {
-                        BcastList bcast_list_V_top;
+                        BcastList bcast_list_V_first;
                         BcastList bcast_list_V;
                         for (int64_t i = k; i < A_mt; ++i) {
                             // send A(i, k) across row A(i, k+1:nt-1)
-                            // top_rows' V's (except the top-most one) need three lives
-                            if ((std::find(top_rows.begin(), top_rows.end(), i) != top_rows.end()) && (i > min_row))
-                                bcast_list_V_top.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
+                            // Vs in first_indices (except the main diagonal one) need three lives
+                            if ((std::find(first_indices.begin(), first_indices.end(), i) != first_indices.end()) && (i > k))
+                                bcast_list_V_first.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
                             else
                                 bcast_list_V.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
                         }
-                        A.template listBcast(bcast_list_V_top, layout, 0, 3);
+                        A.template listBcast(bcast_list_V_first, layout, 0, 3);
                         A.template listBcast(bcast_list_V, layout, 0, 2);
                     }
 
                     // bcast Tlocal across row for trailing matrix update
-                    if (top_rows.size() > 0) {
+                    if (first_indices.size() > 0) {
                         BcastList bcast_list_T;
-                        for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
-                            int64_t row = *it;
+                        for (int64_t row : first_indices) {
                             bcast_list_T.push_back({row, k, {Tlocal.sub(row, row, k+1, A_nt-1)}});
                         }
                         Tlocal.template listBcast(bcast_list_T, layout);
                     }
 
                     // bcast Treduce across row for trailing matrix update
-                    if (top_rows.size() > 1) {
+                    if (first_indices.size() > 1) {
                         BcastList bcast_list_T;
-                        for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
-                            int64_t row = *it;
-                            if (row > min_row) // exclude the first row of this panel that has no Treduce tile
+                        for (int64_t row : first_indices) {
+                            if (row > k) // exclude the first row of this panel that has no Treduce tile
                                 bcast_list_T.push_back({row, k, {Treduce.sub(row, row, k+1, A_nt-1)}});
                         }
                         Treduce.template listBcast(bcast_list_T, layout);
@@ -191,8 +191,8 @@ void geqrf(slate::internal::TargetType<target>,
             for (int64_t j = k+1; j < (k+1+lookahead) && j < A_nt; ++j) {
                 auto A_trail_j = A.sub(k, A_mt-1, j, j);
 
-                #pragma omp task depend(in:column[k]) \
-                                 depend(inout:column[j]) \
+                #pragma omp task depend(in:block[k]) \
+                                 depend(inout:block[j]) \
                                  priority(priority_one)
                 {
                     // Apply local reflectors
@@ -219,9 +219,9 @@ void geqrf(slate::internal::TargetType<target>,
                 int64_t j = k+1+lookahead;
                 auto A_trail_j = A.sub(k, A_mt-1, j, A_nt-1);
 
-                #pragma omp task depend(in:column[k]) \
-                                 depend(inout:column[k+1+lookahead]) \
-                                 depend(inout:column[A_nt-1])
+                #pragma omp task depend(in:block[k]) \
+                                 depend(inout:block[k+1+lookahead]) \
+                                 depend(inout:block[A_nt-1])
                 {
                     // Apply local reflectors
                     internal::unmqr<target>(
@@ -298,7 +298,7 @@ void geqrf(Matrix<scalar_t>& A,
 /// Computes a QR factorization of an m-by-n matrix $A$.
 /// The factorization has the form
 /// \[
-///     A = Q R,
+///     A = QR,
 /// \]
 /// where $Q$ is a matrix with orthonormal columns and $R$ is upper triangular
 /// (or upper trapezoidal if m < n).
@@ -311,7 +311,7 @@ void geqrf(Matrix<scalar_t>& A,
 ///     On entry, the m-by-n matrix $A$.
 ///     On exit, the elements on and above the diagonal of the array contain
 ///     the min(m,n)-by-n upper trapezoidal matrix $R$ (upper triangular
-///     if m >= n); the elements below the diagonal represent the orthogonal
+///     if m >= n); the elements below the diagonal represent the unitary
 ///     matrix $Q$ as a product of elementary reflectors.
 ///
 /// @param[out] T

@@ -291,11 +291,11 @@ void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
 //-----------------------------------------
 // tb2bd()
 template <typename scalar_t>
-void tb2bd(TriangularBandMatrix<scalar_t>& A, int64_t band,
+void tb2bd(TriangularBandMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template <Target target, typename scalar_t>
-void tb2bd(TriangularBandMatrix<scalar_t>& A, int64_t band,
+void tb2bd(TriangularBandMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------

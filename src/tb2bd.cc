@@ -104,40 +104,40 @@ void tb2bd_step(TriangularBandMatrix<scalar_t>& A, int64_t band,
                 auto& v2 = reflectors[{i+1, j}];
                 omp_unset_lock(&lock);
                 internal::gebr1<Target::HostTask>(
-                    A.slice(i, std::min(i+band-1, A.m()-1),
-                            j, std::min(j+band-2, A.n()-1)),
+                    A.slice(i, std::min(i+band,   A.m()-1),
+                            j, std::min(j+band-1, A.n()-1)),
                     v1, v2);
             }
             break;
         // task 1 - an off-diagonal block in the sweep
         case 1:
-            i = (block-1)*(band-1)+1+sweep;
-            j =  block   *(band-1)+1+sweep;
+            i = (block-1)*band+1+sweep;
+            j =  block   *band+1+sweep;
             if (i < A.m() && j < A.n()) {
                 omp_set_lock(&lock);
-                auto& v1 = reflectors[{i, j-(band-1)}];
+                auto& v1 = reflectors[{i, j-band}];
                 auto& v2 = reflectors[{i, j}];
                 omp_unset_lock(&lock);
                 internal::gebr2<Target::HostTask>(
                     v1,
-                    A.slice(i, std::min(i+band-2, A.m()-1),
-                            j, std::min(j+band-2, A.n()-1)),
+                    A.slice(i, std::min(i+band-1, A.m()-1),
+                            j, std::min(j+band-1, A.n()-1)),
                     v2);
             }
             break;
         // task 2 - a diagonal block in the sweep
         case 2:
-            i = block*(band-1)+1+sweep;
-            j = block*(band-1)+1+sweep;
+            i = block*band+1+sweep;
+            j = block*band+1+sweep;
             if (i < A.m() && j < A.n()) {
                 omp_set_lock(&lock);
-                auto& v1 = reflectors[{i-(band-1), j}];
+                auto& v1 = reflectors[{i-band, j}];
                 auto& v2 = reflectors[{i, j}];
                 omp_unset_lock(&lock);
                 internal::gebr3<Target::HostTask>(
                     v1,
-                    A.slice(i, std::min(i+band-2, A.m()-1),
-                            j, std::min(j+band-2, A.n()-1)),
+                    A.slice(i, std::min(i+band-1, A.m()-1),
+                            j, std::min(j+band-1, A.n()-1)),
                     v2);
             }
             break;
@@ -190,13 +190,13 @@ void tb2bd_run(TriangularBandMatrix<scalar_t>& A,
     for (int64_t pass = 0; pass < diag_len-2; pass += pass_size) {
         int64_t sweep_end = std::min(pass + pass_size, diag_len-2);
         // Steps in first sweep of this pass; later sweeps may have fewer steps.
-        int64_t nsteps_pass = 2*ceildiv(diag_len - 1 - pass, band-1) - 1;
+        int64_t nsteps_pass = 2*ceildiv(diag_len - 1 - pass, band) - 1;
         // Step that this thread starts on, in this pass.
         int64_t step_begin = (thread_rank - start_thread + thread_size) % thread_size;
         for (int64_t step = step_begin; step < nsteps_pass; step += thread_size) {
             for (int64_t sweep = pass; sweep < sweep_end; ++sweep) {
-                int64_t nsteps_sweep = 2*ceildiv(diag_len - 1 - sweep, band-1) - 1;
-                int64_t nsteps_last  = 2*ceildiv(diag_len - 1 - (sweep-1), band-1) - 1;
+                int64_t nsteps_sweep = 2*ceildiv(diag_len - 1 - sweep, band) - 1;
+                int64_t nsteps_last  = 2*ceildiv(diag_len - 1 - (sweep-1), band) - 1;
 
                 if (step < nsteps_sweep) {
                     if (sweep > 0) {
@@ -230,9 +230,10 @@ void tb2bd_run(TriangularBandMatrix<scalar_t>& A,
 ///
 template <Target target, typename scalar_t>
 void tb2bd(slate::internal::TargetType<target>,
-           TriangularBandMatrix<scalar_t>& A, int64_t band)
+           TriangularBandMatrix<scalar_t>& A)
 {
     int64_t diag_len = std::min(A.m(), A.n());
+    int64_t band = A.bandwidth();
 
     omp_lock_t lock;
     omp_init_lock(&lock);
@@ -282,11 +283,11 @@ void tb2bd(slate::internal::TargetType<target>,
 /// @ingroup tb2bd_specialization
 ///
 template <Target target, typename scalar_t>
-void tb2bd(TriangularBandMatrix<scalar_t>& A, int64_t band,
+void tb2bd(TriangularBandMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts)
 {
     internal::specialization::tb2bd(internal::TargetType<target>(),
-                                    A, band);
+                                    A);
 }
 
 //------------------------------------------------------------------------------
@@ -298,9 +299,6 @@ void tb2bd(TriangularBandMatrix<scalar_t>& A, int64_t band,
 //------------------------------------------------------------------------------
 /// @param[in,out] A
 ///         The band matrix A.
-///
-/// @param[in] band
-///         The bandwidth of matrix A.
 ///
 /// @param[in] opts
 ///         Additional options, as map of name = value pairs. Possible options:
@@ -315,7 +313,7 @@ void tb2bd(TriangularBandMatrix<scalar_t>& A, int64_t band,
 ///
 // todo: Change Matrix to BandMatrix and remove the band parameter.
 template <typename scalar_t>
-void tb2bd(TriangularBandMatrix<scalar_t>& A, int64_t band,
+void tb2bd(TriangularBandMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts)
 {
     Target target;
@@ -329,16 +327,16 @@ void tb2bd(TriangularBandMatrix<scalar_t>& A, int64_t band,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            tb2bd<Target::HostTask>(A, band, opts);
+            tb2bd<Target::HostTask>(A, opts);
             break;
         case Target::HostNest:
-            tb2bd<Target::HostNest>(A, band, opts);
+            tb2bd<Target::HostNest>(A, opts);
             break;
         case Target::HostBatch:
-            tb2bd<Target::HostBatch>(A, band, opts);
+            tb2bd<Target::HostBatch>(A, opts);
             break;
         case Target::Devices:
-            tb2bd<Target::Devices>(A, band, opts);
+            tb2bd<Target::Devices>(A, opts);
             break;
     }
     // todo: return value for errors?
@@ -348,22 +346,22 @@ void tb2bd(TriangularBandMatrix<scalar_t>& A, int64_t band,
 // Explicit instantiations.
 template
 void tb2bd<float>(
-    TriangularBandMatrix<float>& A, int64_t band,
+    TriangularBandMatrix<float>& A,
     const std::map<Option, Value>& opts);
 
 template
 void tb2bd<double>(
-    TriangularBandMatrix<double>& A, int64_t band,
+    TriangularBandMatrix<double>& A,
     const std::map<Option, Value>& opts);
 
 template
 void tb2bd< std::complex<float> >(
-    TriangularBandMatrix< std::complex<float> >& A, int64_t band,
+    TriangularBandMatrix< std::complex<float> >& A,
     const std::map<Option, Value>& opts);
 
 template
 void tb2bd< std::complex<double> >(
-    TriangularBandMatrix< std::complex<double> >& A, int64_t band,
+    TriangularBandMatrix< std::complex<double> >& A,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

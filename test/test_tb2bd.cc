@@ -106,7 +106,7 @@ void test_tb2bd_work(
     //==================================================
     // Run SLATE test.
     //==================================================
-    slate::tb2bd(A, ku+1);
+    slate::tb2bd(A);
 
     {
         slate::trace::Block trace_block("MPI_Barrier");

@@ -180,10 +180,13 @@ std::vector< libtest::routines_t > routines = {
     // SVD
     { "tb2bd",              test_tb2bd,        Section::svd },
     { "bdsqr",              test_bdsqr,        Section::svd },
+    { "gesvd",              test_gesvd,        Section::svd },
+    { "",                   nullptr,           Section::newline },
 
     // -----
     // Eigen
     { "sterf",              test_sterf,        Section::heev },
+    { "",                   nullptr,           Section::newline },
 };
 
 // -----------------------------------------------------------------------------

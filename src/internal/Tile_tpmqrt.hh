@@ -112,7 +112,9 @@ namespace slate {
 ///
 /// @param[in,out] C1
 ///     - If side == Left,  the k-by-n tile C1.
+///       C1 can be k2-by-n for k2 >= k; only the upper k-by-n portion is used.
 ///     - If side == Right, the m-by-k tile C1.
+///       C1 can be m-by-k2 for k2 >= k; only the left m-by-k portion is used.
 ///     On exit, C1 is overwritten by the corresponding block of
 ///     $op(Q) C$ or $C op(Q)$.
 ///
@@ -139,14 +141,14 @@ void tpmqrt(
     int64_t m = C2.mb();
     int64_t n = C2.nb();
     if (side == Side::Left) {
-        assert(C1.mb() == k);
+        assert(C1.mb() >= k);
         assert(C1.nb() == n);
         assert(V2.mb() == m);
         assert(std::min(m, k) >= l);
     }
     else {
         assert(C1.mb() == m);
-        assert(C1.nb() == k);
+        assert(C1.nb() >= k);
         assert(V2.mb() == n);
         assert(std::min(n, k) >= l);
     }

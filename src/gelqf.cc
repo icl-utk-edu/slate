@@ -77,11 +77,16 @@ void gelqf(slate::internal::TargetType<target>,
     int64_t A_nt = A.nt();
     int64_t A_min_mtnt = std::min(A_mt, A_nt);
 
+    // Make Tlocal have fixed, square nb-by-nb tiles,
+    // and Tremote have fixed, rectangular ib-by-nb tiles.
+    // Otherwise, edge tiles are the wrong size: mb-by-nb instead of nb-by-mb.
+    int64_t nb = A.tileNb(0);
     T.clear();
-    T.push_back(A.emptyLike());
-    T.push_back(A.emptyLike(ib, 0));
+    T.push_back(A.emptyLike(nb, nb));
+    T.push_back(A.emptyLike(ib, nb));
     auto Tlocal  = T[0];
     auto Treduce = T[1];
+    auto TlocalT = A.emptyLike(nb, nb, Op::ConjTrans);
 
     // workspace
     auto W = A.emptyLike();
@@ -117,10 +122,11 @@ void gelqf(slate::internal::TargetType<target>,
     {
         omp_set_nested(1);
         for (int64_t k = 0; k < A_min_mtnt; ++k) {
-            auto A_panel  = A.sub(k, k, k, A_nt-1);
-            auto AT_panel = AT.sub(k, A_nt-1, k, k);
-            auto Tl_panel = Tlocal.sub(k, k, k, A_nt-1);
-            auto Tr_panel = Treduce.sub(k, k, k, A_nt-1);
+            auto A_panel   = A.sub(k, k, k, A_nt-1);
+            auto AT_panel  = AT.sub(k, A_nt-1, k, k);
+            auto Tl_panel  = Tlocal.sub(k, k, k, A_nt-1);
+            auto TlT_panel = TlocalT.sub(k, A_nt-1, k, k);
+            auto Tr_panel  = Treduce.sub(k, k, k, A_nt-1);
 
             // Find ranks in this row.
             std::set<int> ranks_set;
@@ -128,7 +134,7 @@ void gelqf(slate::internal::TargetType<target>,
             assert(ranks_set.size() > 0);
 
             // Find each rank's first (left-most) col in this panel,
-            // where the triangular tile resulting from local geqrf panel
+            // where the triangular tile resulting from local gelqf panel
             // will reside.
             std::vector< int64_t > first_indices;
             first_indices.reserve(ranks_set.size());
@@ -148,17 +154,34 @@ void gelqf(slate::internal::TargetType<target>,
                 // Instead of doing LQ of panel, we do QR of transpose( panel ),
                 // so that the panel is computed in column-major for much
                 // better cache efficiency.
-                // todo: AT_panel.insertLocalTiles();
-                // todo: deepConjTranspose(A_panel, AT_panel);
+                for (int64_t j = 0; j < A_panel.nt(); ++j) {
+                    if (A_panel.tileIsLocal(0, j)) {
+                        deepConjTranspose(A_panel(0, j), AT_panel(j, 0));
+                    }
+                }
 
                 // local panel factorization
                 internal::geqrf<Target::HostTask>(
                                 std::move(AT_panel),
-                                transpose(Tl_panel),
+                                std::move(TlT_panel),
                                 ib, max_panel_threads, priority_one);
 
+                // Find first local tile, which is triangular factor (T in I - VTV^H),
+                // and copy it to Tlocal.
+                for (int64_t i = 0; i < TlT_panel.mt(); ++i) {
+                    if (Tl_panel.tileIsLocal(0, i)) {
+                        Tl_panel.tileInsert(0, i);
+                        gecopy(TlT_panel(i, 0), Tl_panel(0, i));
+                        break;
+                    }
+                }
+
                 // Copy result back.
-                // todo: deepConjTranspose(AT_panel, A_panel);
+                for (int64_t j = 0; j < A_panel.nt(); ++j) {
+                    if (A_panel.tileIsLocal(0, j)) {
+                        deepConjTranspose(AT_panel(j, 0), A_panel(0, j));
+                    }
+                }
                 // todo: AT_panel.clear();
                 //--------------------
 
@@ -176,7 +199,7 @@ void gelqf(slate::internal::TargetType<target>,
                         BcastList bcast_list_V_first;
                         BcastList bcast_list_V;
                         for (int64_t j = k; j < A_nt; ++j) {
-                            // send A(k, j) across col A(k+1:nt-1, j)
+                            // send A(k, j) across col A(k+1:mt-1, j)
                             // Vs in first_indices (except the main diagonal one) need three lives
                             if ((std::find(first_indices.begin(), first_indices.end(), j) != first_indices.end()) && (j > k))
                                 bcast_list_V_first.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}});

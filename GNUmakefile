@@ -272,7 +272,9 @@ libslate_src += \
         src/internal/internal_trtri.cc \
         src/internal/internal_trtrm.cc \
         src/internal/internal_ttmqr.cc \
+        src/internal/internal_ttmlq.cc \
         src/internal/internal_ttqrt.cc \
+        src/internal/internal_ttlqt.cc \
         src/internal/internal_unmqr.cc \
         src/internal/internal_util.cc \
         src/internal/internal_transpose.cc \

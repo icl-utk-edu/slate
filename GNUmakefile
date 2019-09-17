@@ -306,6 +306,7 @@ libslate_src += \
         src/gemm.cc \
         src/geqrf.cc \
         src/gesv.cc \
+        src/gesvd.cc \
         src/gesvMixed.cc \
         src/getrf.cc \
         src/getri.cc \

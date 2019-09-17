@@ -289,28 +289,6 @@ void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
 }
 
 //-----------------------------------------
-// tb2bd()
-template <typename scalar_t>
-void tb2bd(TriangularBandMatrix<scalar_t>& A,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-void tb2bd(TriangularBandMatrix<scalar_t>& A,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-//-----------------------------------------
-template <typename scalar_t>
-void bdsqr(TriangularBandMatrix<scalar_t>& A,
-           std::vector< blas::real_type<scalar_t> >& D,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-//-----------------------------------------
-template <typename scalar_t>
-void sterf(TriangularBandMatrix<scalar_t>& A,
-           std::vector< blas::real_type<scalar_t> >& D,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-//-----------------------------------------
 // tbsm()
 template <typename scalar_t>
 void tbsm(blas::Side side,
@@ -723,6 +701,41 @@ void hetrs(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
     HermitianMatrix<scalar_t> AH(A);
     hetrf(AH, T, B, opts);
 }
+
+//-----------------------------------------
+// SVD
+
+//-----------------------------------------
+// Bi-diagonal SVD
+template <typename scalar_t>
+void bdsqr(TriangularBandMatrix<scalar_t>& A,
+           std::vector< blas::real_type<scalar_t> >& D,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+template <typename scalar_t>
+void gesvd(Matrix<scalar_t>& A,
+           std::vector< blas::real_type<scalar_t> >& S,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// Bulge Chasing: TriangularBand to Bi-diagonal
+// tb2bd()
+template <typename scalar_t>
+void tb2bd(TriangularBandMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void tb2bd(TriangularBandMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// sterf()
+template <typename scalar_t>
+void sterf(TriangularBandMatrix<scalar_t>& A,
+           std::vector< blas::real_type<scalar_t> >& D,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 
 } // namespace slate
 

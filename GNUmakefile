@@ -401,6 +401,7 @@ unit_src = \
         unit_test/test_TriangularMatrix.cc \
         unit_test/test_Tile.cc \
         unit_test/test_Tile_kernels.cc \
+        unit_test/test_lq.cc \
         unit_test/test_norm.cc \
         unit_test/test_qr.cc \
 

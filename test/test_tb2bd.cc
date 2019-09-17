@@ -86,8 +86,12 @@ void test_tb2bd_work(
         }
     }
 
-    auto A = slate::Matrix<scalar_t>::fromLAPACK(
+    auto Afull = slate::Matrix<scalar_t>::fromLAPACK(
         m, n, &A1[0], lda, nb, p, q, MPI_COMM_WORLD);
+    auto Aband = slate::BandMatrix<scalar_t>(ku, ku, Afull);
+    auto A     = slate::TriangularBandMatrix<scalar_t>( lapack::Uplo::Upper,
+                                                        lapack::Diag::NonUnit,
+                                                        Aband);
 
     //---------
     // run test

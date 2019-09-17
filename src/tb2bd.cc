@@ -39,7 +39,7 @@
 
 #include "slate/slate.hh"
 #include "aux/Debug.hh"
-#include "slate/Matrix.hh"
+#include "slate/TriangularBandMatrix.hh"
 #include "slate/Tile_blas.hh"
 #include "slate/TriangularMatrix.hh"
 #include "internal/internal.hh"
@@ -84,7 +84,7 @@ using Progress = std::vector< std::atomic<int64_t> >;
 ///     Lock for protecting access to reflectors.
 ///
 template <typename scalar_t>
-void tb2bd_step(Matrix<scalar_t>& A, int64_t band,
+void tb2bd_step(TriangularBandMatrix<scalar_t>& A, int64_t band,
                 int64_t sweep, int64_t step,
                 Reflectors<scalar_t>& reflectors, omp_lock_t& lock)
 {
@@ -176,7 +176,7 @@ void tb2bd_step(Matrix<scalar_t>& A, int64_t band,
 ///     progress table for synchronizing threads
 ///
 template <typename scalar_t>
-void tb2bd_run(Matrix<scalar_t>& A,
+void tb2bd_run(TriangularBandMatrix<scalar_t>& A,
                int64_t band, int64_t diag_len,
                int64_t pass_size,
                int thread_rank, int thread_size,
@@ -230,7 +230,7 @@ void tb2bd_run(Matrix<scalar_t>& A,
 ///
 template <Target target, typename scalar_t>
 void tb2bd(slate::internal::TargetType<target>,
-           Matrix<scalar_t>& A, int64_t band)
+           TriangularBandMatrix<scalar_t>& A, int64_t band)
 {
     int64_t diag_len = std::min(A.m(), A.n());
 
@@ -282,7 +282,7 @@ void tb2bd(slate::internal::TargetType<target>,
 /// @ingroup tb2bd_specialization
 ///
 template <Target target, typename scalar_t>
-void tb2bd(Matrix<scalar_t>& A, int64_t band,
+void tb2bd(TriangularBandMatrix<scalar_t>& A, int64_t band,
            const std::map<Option, Value>& opts)
 {
     internal::specialization::tb2bd(internal::TargetType<target>(),
@@ -315,7 +315,7 @@ void tb2bd(Matrix<scalar_t>& A, int64_t band,
 ///
 // todo: Change Matrix to BandMatrix and remove the band parameter.
 template <typename scalar_t>
-void tb2bd(Matrix<scalar_t>& A, int64_t band,
+void tb2bd(TriangularBandMatrix<scalar_t>& A, int64_t band,
            const std::map<Option, Value>& opts)
 {
     Target target;
@@ -348,22 +348,22 @@ void tb2bd(Matrix<scalar_t>& A, int64_t band,
 // Explicit instantiations.
 template
 void tb2bd<float>(
-    Matrix<float>& A, int64_t band,
+    TriangularBandMatrix<float>& A, int64_t band,
     const std::map<Option, Value>& opts);
 
 template
 void tb2bd<double>(
-    Matrix<double>& A, int64_t band,
+    TriangularBandMatrix<double>& A, int64_t band,
     const std::map<Option, Value>& opts);
 
 template
 void tb2bd< std::complex<float> >(
-    Matrix< std::complex<float> >& A, int64_t band,
+    TriangularBandMatrix< std::complex<float> >& A, int64_t band,
     const std::map<Option, Value>& opts);
 
 template
 void tb2bd< std::complex<double> >(
-    Matrix< std::complex<double> >& A, int64_t band,
+    TriangularBandMatrix< std::complex<double> >& A, int64_t band,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

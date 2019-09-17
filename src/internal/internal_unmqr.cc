@@ -257,8 +257,9 @@ void unmqr(internal::TargetType<target>,
                 -one, std::move(Wr),
                 one,  std::move(C0));
     }
-    else if (side == Side::Right) {
-        // TODO
+    else {
+        // TODO: side Right
+        slate_not_implemented("Side::Right");
     }
 
     // free workspace

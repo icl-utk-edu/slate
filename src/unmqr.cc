@@ -291,6 +291,7 @@ void unmqr(
         }
         else {
             // TODO: side == Side::Right
+            slate_not_implemented("Side::Right");
         }
     }
     C.tileUpdateAllOrigin();

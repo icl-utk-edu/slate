@@ -84,11 +84,10 @@ void gesvd(Matrix<scalar_t>& A,
 
         // 1.1.1 reduction to band
         // ge2tb(Ahat, opts);
-        A.gather(Ahat);
-        internal::copyge2tb<target>(Ahat, Aband);
 
         // 1.1.2 copy general to band
-        // todo: copy(Ahat, Aband);
+        A.gather(Ahat);
+        internal::copyge2tb<target>(Ahat, Aband);
 
         // 1.2.1 triangular band to bidiagonal
         tb2bd(Aband, opts);

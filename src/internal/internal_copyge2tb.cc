@@ -1,4 +1,3 @@
-
 //------------------------------------------------------------------------------
 // Copyright (c) 2017, University of Tennessee
 // All rights reserved.
@@ -88,8 +87,6 @@ void copyge2tb(internal::TargetType<Target::HostTask>,
     // over-estimate of # tiles
     int ntiles = (kdt + 1) * B.mt();
 
-    /// Gathers the entire matrix on MPI rank 0.
-    // A.gather(B);
 
     int index = 0; // index in Ad storage
     int jj = 0; // col index
@@ -99,23 +96,17 @@ void copyge2tb(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(i, j) &&
                 ((ii == jj) ||
                  ( ii < jj && (jj - (ii + B.tileMb(i) - 1)) <= (B.bandwidth()+1) ) ) )
-                //((ii == jj) ||
-                 //( upper && ii < jj && (jj - (ii + A.tileMb(i) - 1)) <= A.bandwidth()) ||
-                 //(!upper && ii > jj && (ii - (jj + A.tileNb(j) - 1)) <= A.bandwidth()) ) )
             {
-                //auto T_ptr = A.tileInsert( i, j, &Ad[ index * nb * nb ], nb );
                 auto T_ptr = B.tileInsert( i, j );
-                //if (i == j)
                 T_ptr->uplo(slate::Uplo::General);
                 index += 1;
 
-                if (i > 0 && i == j){
+                if (i > 0 && i == j) {
                     auto T_ptr = B.tileInsert( i, j-1 );
                     T_ptr->uplo(slate::Uplo::General);
                     auto T = B(i, j-1);
                     lapack::laset(lapack::MatrixType::General, T.mb(), T.nb(),
                           0, 0, T.data(), T.stride());
-
                 }
 
                 auto T = B(i, j);
@@ -130,35 +121,29 @@ void copyge2tb(internal::TargetType<Target::HostTask>,
     for (int64_t j = 0; j < B.nt(); ++j) {
         int64_t istart = blas::max( 0, j-kdt );
         int64_t iend   = j;
-        //for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t i = istart; i <= iend; ++i) {
-            if (B.tileIsLocal(i, j)) 
-            {
+            if (B.tileIsLocal(i, j)) {
             //#pragma omp task shared(A, B) priority(priority)
-            #pragma omp parallel
-            {
-                //A.tileInsert(i, j);
-                //lapack::laset(lapack::MatrixType::General, A(i, j).mb(), A(i, j).nb(),
-                //              0, 0, A(i, j).data(), A(i, j).stride());
-                if (i == j){ // Copy the upper part of the diagonal tiles 
-                    //tzcopy( Lower, m, n, A(j, j), lda, B(nb, j), ldb);
-                      lapack::lacpy(lapack::MatrixType::Upper,
-                            A(i, j).mb(), A(i, j).nb(),
-                            A(i, j).data(), A(j, i).stride(),
-                            B(i, j).data(), B(i, j).stride() );
+                #pragma omp parallel
+                {
+                    if (i == j) { // Copy the upper part of the diagonal tiles 
+                        //tzcopy( Lower, m, n, A(j, j), lda, B(nb, j), ldb);
+                        lapack::lacpy(lapack::MatrixType::Upper,
+                              A(i, j).mb(), A(i, j).nb(),
+                              A(i, j).data(), A(j, i).stride(),
+                              B(i, j).data(), B(i, j).stride() );
+                    }
+                    else { // Copy the lower part of the superdiagonal tile 
+                        lapack::lacpy(lapack::MatrixType::Lower,
+                              A(i, j).mb(), A(i, j).nb(),
+                              A(i, j).data(), A(j, i).stride(),
+                              B(i, j).data(), B(i, j).stride() );
+                    }
+                    B.tileModified(i, j);
                 }
-                else{ // Copy the lower part of the superdiagonal tile 
-                      lapack::lacpy(lapack::MatrixType::Lower,
-                            A(i, j).mb(), A(i, j).nb(),
-                            A(i, j).data(), A(j, i).stride(),
-                            B(i, j).data(), B(i, j).stride() );
-                }
-                B.tileModified(i, j);
-            }
             }
         }
     }
-
 }
 
 //------------------------------------------------------------------------------

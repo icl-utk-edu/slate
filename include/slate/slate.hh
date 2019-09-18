@@ -720,6 +720,23 @@ void hetrs(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
     hetrf(AH, T, B, opts);
 }
 
+//------------------------------------------------------------------------------
+// SVD
+
+//-----------------------------------------
+// ge2tb
+template <typename scalar_t>
+void ge2tb(Matrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& TU,
+           TriangularFactors<scalar_t>& TV,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void ge2tb(Matrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& TU,
+           TriangularFactors<scalar_t>& TV,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 } // namespace slate
 
 #endif // SLATE_HH

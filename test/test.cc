@@ -164,6 +164,11 @@ std::vector< libtest::routines_t > routines = {
     //{ "",                   nullptr,        Section::newline },
 
     // -----
+  //{ "gesvd",              test_gesvd,         Section::svd },
+    { "ge2tb",              test_ge2tb,         Section::svd },
+    { "",                   nullptr,            Section::newline },
+
+    // -----
     // matrix norms
     { "genorm",             test_genorm,       Section::aux_norm },
     { "gbnorm",             test_gbnorm,       Section::aux_norm },

@@ -304,6 +304,7 @@ libslate_src += \
         src/gbsv.cc \
         src/gbtrf.cc \
         src/gbtrs.cc \
+        src/ge2tb.cc \
         src/geadd.cc \
         src/gels.cc \
         src/gemm.cc \
@@ -345,6 +346,7 @@ test_src += \
         test/test_gbmm.cc \
         test/test_gbnorm.cc \
         test/test_gbsv.cc \
+        test/test_ge2tb.cc \
         test/test_gels.cc \
         test/test_gemm.cc \
         test/test_genorm.cc \

@@ -507,6 +507,7 @@ if (opts.svd):
     #[ 'gesvdx_2stage', gen + dtype + la + mn ],
     #[ 'gejsv',         gen + dtype + la + mn ],
     #[ 'gesvj',         gen + dtype + la + mn + joba + jobu + jobv ],
+    [ 'ge2tb',         gen + dtype + n + tall ],
     ]
 
 # norms

@@ -118,11 +118,12 @@ void gelqf(slate::internal::TargetType<target>,
     {
         omp_set_nested(1);
         for (int64_t k = 0; k < A_min_mtnt; ++k) {
-            auto A_panel   = A.sub(k, k, k, A_nt-1);
-            auto AT_panel  = AT.sub(k, A_nt-1, k, k);
-            auto Tl_panel  = Tlocal.sub(k, k, k, A_nt-1);
+            auto  A_panel =       A.sub(k, k, k, A_nt-1);
+            auto Tl_panel =  Tlocal.sub(k, k, k, A_nt-1);
+            auto Tr_panel = Treduce.sub(k, k, k, A_nt-1);
+            // Transposed panels.
+            auto  AT_panel =      AT.sub(k, A_nt-1, k, k);
             auto TlT_panel = TlocalT.sub(k, A_nt-1, k, k);
-            auto Tr_panel  = Treduce.sub(k, k, k, A_nt-1);
 
             // Find ranks in this row.
             std::set<int> ranks_set;
@@ -190,12 +191,12 @@ void gelqf(slate::internal::TargetType<target>,
                 // if a trailing matrix exists
                 if (k < A_mt-1) {
 
-                    // bcast V across col for trailing matrix update
+                    // bcast V down col for trailing matrix update
                     if (k < A_nt) {
                         BcastList bcast_list_V_first;
                         BcastList bcast_list_V;
                         for (int64_t j = k; j < A_nt; ++j) {
-                            // send A(k, j) across col A(k+1:mt-1, j)
+                            // send A(k, j) down col A(k+1:mt-1, j)
                             // Vs in first_indices (except the main diagonal one) need three lives
                             if ((std::find(first_indices.begin(), first_indices.end(), j) != first_indices.end()) && (j > k))
                                 bcast_list_V_first.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}});
@@ -206,7 +207,7 @@ void gelqf(slate::internal::TargetType<target>,
                         A.template listBcast(bcast_list_V, layout, 0, 2);
                     }
 
-                    // bcast Tlocal across col for trailing matrix update
+                    // bcast Tlocal down col for trailing matrix update
                     if (first_indices.size() > 0) {
                         BcastList bcast_list_T;
                         for (int64_t col : first_indices) {
@@ -215,7 +216,7 @@ void gelqf(slate::internal::TargetType<target>,
                         Tlocal.template listBcast(bcast_list_T, layout);
                     }
 
-                    // bcast Treduce across col for trailing matrix update
+                    // bcast Treduce down col for trailing matrix update
                     if (first_indices.size() > 1) {
                         BcastList bcast_list_T;
                         for (int64_t col : first_indices) {

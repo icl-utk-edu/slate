@@ -108,8 +108,8 @@ void geqrf(slate::internal::TargetType<target>,
     {
         omp_set_nested(1);
         for (int64_t k = 0; k < A_min_mtnt; ++k) {
-            auto A_panel = A.sub(k, A_mt-1, k, k);
-            auto Tl_panel = Tlocal.sub(k, A_mt-1, k, k);
+            auto  A_panel =       A.sub(k, A_mt-1, k, k);
+            auto Tl_panel =  Tlocal.sub(k, A_mt-1, k, k);
             auto Tr_panel = Treduce.sub(k, A_mt-1, k, k);
 
             // Find ranks in this column.

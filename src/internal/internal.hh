@@ -187,8 +187,8 @@ void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
           int priority=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
-void copyge2tb(Matrix<scalar_t>&& A,
-        TriangularBandMatrix<scalar_t>&& B);
+void copyge2tb(Matrix<scalar_t>& A,
+        TriangularBandMatrix<scalar_t>& B);
 
 //-----------------------------------------
 // set()

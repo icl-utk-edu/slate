@@ -54,8 +54,8 @@ namespace internal {
 /// @ingroup copyge2tb_internal
 ///
 template <Target target, typename scalar_t>
-void copyge2tb(Matrix<scalar_t>&& A,
-        TriangularBandMatrix<scalar_t>&& B)
+void copyge2tb(Matrix<scalar_t>& A,
+        TriangularBandMatrix<scalar_t>& B)
 
 {
     copyge2tb(internal::TargetType<target>(),
@@ -70,13 +70,12 @@ void copyge2tb(Matrix<scalar_t>&& A,
 ///
 template <typename scalar_t>
 void copyge2tb(internal::TargetType<Target::HostTask>, 
-           Matrix<scalar_t>& A,
-           TriangularBandMatrix<scalar_t>& B)
+           Matrix<scalar_t> A,
+           TriangularBandMatrix<scalar_t> B)
 {
     trace::Block trace_block("slate::copyge2tb");
 
     // make sure it is a bi-diagobal matrix
-    slate_assert(B.bandwidth() == 1);
 
     const int64_t nb = B.tileNb(0);
     //int64_t ku = B.upperBandwidth(); // For the bidiagonal reduction the ku=nb ===> kdt = 1.
@@ -148,26 +147,26 @@ void copyge2tb(internal::TargetType<Target::HostTask>,
 // ----------------------------------------
 template
 void copyge2tb<Target::HostTask, float>(
-    Matrix<float>&& A,
-    TriangularBandMatrix<float>&& B);
+    Matrix<float>& A,
+    TriangularBandMatrix<float>& B);
 
 // ----------------------------------------
 template
 void copyge2tb<Target::HostTask, double>(
-    Matrix<double>&& A,
-    TriangularBandMatrix<double>&& B);
+    Matrix<double>& A,
+    TriangularBandMatrix<double>& B);
 
 // ----------------------------------------
 template
 void copyge2tb< Target::HostTask, std::complex<float> >(
-    Matrix< std::complex<float> >&& A,
-    TriangularBandMatrix< std::complex<float> >&& B);
+    Matrix< std::complex<float> >& A,
+    TriangularBandMatrix< std::complex<float> >& B);
 
 // ----------------------------------------
 template
 void copyge2tb< Target::HostTask, std::complex<double> >(
-     Matrix< std::complex<double> >&& A,
-     TriangularBandMatrix< std::complex<double> >&& B);
+     Matrix< std::complex<double> >& A,
+     TriangularBandMatrix< std::complex<double> >& B);
 
 } // namespace internal
 } // namespace slate

@@ -4,6 +4,7 @@
 #include "test.hh"
 #include "print_matrix.hh"
 #include "scalapack_support_routines.hh"
+#include "internal/internal.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -88,11 +89,15 @@ void test_tb2bd_work(
 
     auto Afull = slate::Matrix<scalar_t>::fromLAPACK(
         m, n, &A1[0], lda, nb, p, q, MPI_COMM_WORLD);
-    auto Aband = slate::BandMatrix<scalar_t>(ku, ku, Afull);
-    auto A     = slate::TriangularBandMatrix<scalar_t>( lapack::Uplo::Upper,
-                                                        lapack::Diag::NonUnit,
-                                                        Aband);
-
+    //auto Aband = slate::BandMatrix<scalar_t>(ku, ku, Afull);
+    //auto A     = slate::TriangularBandMatrix<scalar_t>( lapack::Uplo::Upper,
+    //                                                    lapack::Diag::NonUnit,
+    //                                                    Aband);
+    auto A = slate::TriangularBandMatrix<scalar_t>(
+                        slate::Uplo::Upper, slate::Diag::NonUnit,
+                        m, ku, nb, p, q, MPI_COMM_WORLD);
+    slate::internal::copyge2tb(Afull, A);
+    
     //---------
     // run test
     if (trace)

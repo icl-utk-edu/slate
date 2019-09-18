@@ -78,7 +78,7 @@ void gelqf(slate::internal::TargetType<target>,
     int64_t A_min_mtnt = std::min(A_mt, A_nt);
 
     // Make Tlocal have fixed, square nb-by-nb tiles,
-    // and Tremote have fixed, rectangular ib-by-nb tiles.
+    // and Treduce have fixed, rectangular ib-by-nb tiles.
     // Otherwise, edge tiles are the wrong size: mb-by-nb instead of nb-by-mb.
     int64_t nb = A.tileNb(0);
     T.clear();
@@ -107,10 +107,6 @@ void gelqf(slate::internal::TargetType<target>,
     auto AT = A.emptyLike(0, 0, Op::ConjTrans);
     // todo: we really only want to insert 1 column's worth at a time.
     AT.insertLocalTiles();
-
-    auto ATcol = AT.sub(0, A_nt-1, 0, 0);
-    ATcol.allocateBatchArrays();
-    ATcol.reserveDeviceWorkspace();
 
     // LQ tracks dependencies by block-row.
     // OpenMP needs pointer types, but vectors are exception safe

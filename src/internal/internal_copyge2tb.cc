@@ -74,18 +74,15 @@ void copyge2tb(internal::TargetType<Target::HostTask>,
            TriangularBandMatrix<scalar_t>& B)
 {
     trace::Block trace_block("slate::copyge2tb");
-    using real_t = blas::real_type<scalar_t>;
 
     // make sure it is a bi-diagobal matrix
     slate_assert(B.bandwidth() == 1);
 
-    const int64_t nt = B.nt();
     const int64_t nb = B.tileNb(0);
     //int64_t ku = B.upperBandwidth(); // For the bidiagonal reduction the ku=nb ===> kdt = 1.
     int64_t ku = nb; // For the bidiagonal reduction the ku=nb ===> kdt = 1.
     int kdt = slate::ceildiv( ku, nb );
     // over-estimate of # tiles
-    int ntiles = (kdt + 1) * B.mt();
 
 
     int index = 0; // index in Ad storage

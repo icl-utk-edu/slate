@@ -58,6 +58,7 @@
 #include "slate/HermitianMatrix.hh"
 #include "slate/SymmetricMatrix.hh"
 #include "slate/TriangularMatrix.hh"
+#include "slate/TriangularBandMatrix.hh"
 #include "slate/BandMatrix.hh"
 
 //------------------------------------------------------------------------------
@@ -184,6 +185,10 @@ template <Target target=Target::HostTask,
 void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
           BaseTrapezoidMatrix<dst_scalar_t>&& B,
           int priority=0);
+
+template <Target target=Target::HostTask, typename scalar_t>
+void copyge2tb(Matrix<scalar_t>&& A,
+        TriangularBandMatrix<scalar_t>&& B);
 
 //-----------------------------------------
 // set()

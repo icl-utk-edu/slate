@@ -234,7 +234,7 @@ template <typename scalar_t> void test_gesvd_work(Params& params, bool run)
         }
     }
 
-    if (ref) {
+    if (check || ref) {
         // Run reference routine from ScaLAPACK
 
         // set MKL num threads appropriately for parallel BLAS
@@ -270,18 +270,19 @@ template <typename scalar_t> void test_gesvd_work(Params& params, bool run)
         params.ref_time() = time_ref;
 
         slate_set_num_blas_threads(saved_num_threads);
-    }
 
-    if (ref && check) {
         // Reference Scalapack was run, check reference against test
-        // perform a local operation to get differences S_ref = S_ref - S_tst
+
+        // Perform a local operation to get differences S_ref = S_ref - S_tst
         blas::axpy(S_ref.size(), -1.0, &S_tst[0], 1, &S_ref[0], 1);
+
         // norm(S_ref - S_tst)
         real_t S_diff_norm = lapack::lange(norm, S_ref.size(), 1, &S_ref[0], 1);
+
         // todo: Is the scaling meaningful
         real_t error = S_diff_norm / std::max(m, n); 
-
         params.error() = error;
+
         // todo: Any justification for this tolerance
         real_t eps = std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= 1*eps);

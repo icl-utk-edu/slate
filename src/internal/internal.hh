@@ -197,6 +197,11 @@ void set(scalar_t alpha, scalar_t beta,
          Matrix<scalar_t>&& A,
          int priority=0);
 
+template <Target target=Target::HostTask, typename scalar_t>
+void copytb2bd(TriangularBandMatrix<scalar_t>& A,
+           std::vector< blas::real_type<scalar_t> >& D,
+           std::vector< blas::real_type<scalar_t> >& E);
+
 //------------------------------------------------------------------------------
 // Level 3 BLAS and LAPACK auxiliary
 

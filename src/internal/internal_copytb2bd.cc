@@ -37,39 +37,46 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate/slate.hh"
-// #include "aux/Debug.hh"
-#include "slate/Tile_blas.hh"
+#include "slate/Matrix.hh"
 #include "slate/TriangularBandMatrix.hh"
+#include "slate/TriangularMatrix.hh"
+#include "slate/types.hh"
+#include "slate/Tile_blas.hh"
 #include "internal/internal.hh"
-#include "internal/internal_util.hh"
-
-#include <atomic>
 
 namespace slate {
-
-// specialization namespace differentiates, e.g.,
-// internal::bdsqr from internal::specialization::bdsqr
 namespace internal {
-namespace specialization {
 
 //------------------------------------------------------------------------------
-/// computes the singular values and, optionally, the right and/or
-/// left singular vectors from the singular value decomposition (SVD) of
-/// a real (upper or lower) bidiagonal matrix.
-/// Generic implementation for any target.
-/// @ingroup bdsqr_specialization
+/// Triangularband matrix copy to two vectors,
+/// Dispatches to target implementations.
+/// In the complex case,
+/// @ingroup copyge2tb_internal
 ///
-// ATTENTION: only singular values computed for now, no singular vectors.
-// only host computation supported for now
-//
 template <Target target, typename scalar_t>
-void bdsqr(slate::internal::TargetType<target>,
-           TriangularBandMatrix<scalar_t> A,
-           std::vector< blas::real_type<scalar_t> >& D)
+void copytb2bd(TriangularBandMatrix<scalar_t>& A,
+           std::vector< blas::real_type<scalar_t> >& D,
+           std::vector< blas::real_type<scalar_t> >& E)
+
 {
-    trace::Block trace_block("slate::bdsqr");
-    using real_t = blas::real_type<scalar_t>;
+    copytb2bd(internal::TargetType<target>(),
+               A,
+               D, E);
+}
+
+//------------------------------------------------------------------------------
+/// General matrix copy to triangularband matrix,
+/// Host OpenMP task implementation.
+/// @ingroup copyge2tb_internal
+///
+template <typename scalar_t>
+void copytb2bd(internal::TargetType<Target::HostTask>, 
+           TriangularBandMatrix<scalar_t> A,
+           std::vector< blas::real_type<scalar_t> >& D,
+           std::vector< blas::real_type<scalar_t> >& E)
+{
+    trace::Block trace_block("slate::copytb2bd");
+    using blas::real;
 
     // if lower, change to upper
     if (A.uplo() == Uplo::Lower) {
@@ -79,108 +86,73 @@ void bdsqr(slate::internal::TargetType<target>,
     // make sure it is a bi-diagobal matrix
     slate_assert(A.bandwidth() == 1);
 
-    // Find the set of participating ranks.
-    std::set<int> rank_set;
-    A.getRanks(&rank_set);// todo: is this needed? aren't all ranks needed?
-
-    // gather A on each rank
-    // todo: this is over-communicating, try gathering the vectors only
-    A.gatherAll(rank_set);
-
     slate_assert(A.m() == A.n()); // Triangular matrix has square dimensions
     slate_assert(A.mt() == A.nt());
     int64_t nt = A.nt();
 
     D.resize(A.n());
-    std::vector<real_t> E(A.n() - 1);  // super-diagonal
-    scalar_t dummy[1];  // U, VT, C not needed for NoVec
+    //std::vector<real_t> E(A.n() - 1);  // super-diagonal
 
     // Copy diagonal & super-diagonal.
-    internal::copytb2bd(A, D, E);
-    E.resize(A.n() - 1);
+    int64_t D_index = 0;
+    int64_t E_index = 0;
+    for (int64_t i = 0; i < nt; ++i) {
+        // Copy 1 element from super-diagonal tile to E.
+        if (i > 0) {
+            auto T = A(i-1, i);
+            E[E_index] = real( T(T.mb()-1, 0) );
+            E_index += 1;
+            A.tileTick(i-1, i);
+        }
 
+        // Copy main diagonal to D.
+        auto T = A(i, i);
+        slate_assert(T.mb() == T.nb()); // square diagonal tile
+        auto len = T.nb();
+        for (int j = 0; j < len; ++j) {
+            D[D_index + j] = real( T(j, j) );
+        }
+        D_index += len;
 
-    {
-        trace::Block trace_block("lapack::bdsqr");
-
-        lapack::bdsqr(A.uplo(), A.n(), 0, 0, 0,
-                      &D[0], &E[0], dummy, 1, dummy, 1, dummy, 1);
-    }
-}
-
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup bdsqr_specialization
-///
-template <Target target, typename scalar_t>
-void bdsqr(TriangularBandMatrix<scalar_t>& A,
-           std::vector< blas::real_type<scalar_t> >& D,
-           const std::map<Option, Value>& opts)
-{
-    internal::specialization::bdsqr(internal::TargetType<target>(),
-                                    A, D);
-}
-
-//------------------------------------------------------------------------------
-///
-template <typename scalar_t>
-void bdsqr(TriangularBandMatrix<scalar_t>& A,
-           std::vector< blas::real_type<scalar_t> >& D,
-           const std::map<Option, Value>& opts)
-{
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range) {
-        target = Target::HostTask;
+        // Copy super-diagonal to E.
+        for (int j = 0; j < len-1; ++j) {
+            E[E_index + j] = real( T(j, j+1) );
+        }
+        E_index += len-1;
+        A.tileTick(i, i);
     }
 
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-            bdsqr<Target::HostTask>(A, D, opts);
-            break;
-        case Target::HostNest:
-            bdsqr<Target::HostNest>(A, D, opts);
-            break;
-        case Target::HostBatch:
-            bdsqr<Target::HostBatch>(A, D, opts);
-            break;
-        case Target::Devices:
-            bdsqr<Target::Devices>(A, D, opts);
-            break;
-    }
-    // todo: return value for errors?
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
+// ----------------------------------------
 template
-void bdsqr<float>(
+void copytb2bd<Target::HostTask, float>(
     TriangularBandMatrix<float>& A,
     std::vector<float>& D,
-    const std::map<Option, Value>& opts);
+    std::vector<float>& E);
 
+// ----------------------------------------
 template
-void bdsqr<double>(
+void copytb2bd<Target::HostTask, double>(
     TriangularBandMatrix<double>& A,
     std::vector<double>& D,
-    const std::map<Option, Value>& opts);
+    std::vector<double>& E);
 
+// ----------------------------------------
 template
-void bdsqr< std::complex<float> >(
+void copytb2bd< Target::HostTask, std::complex<float> >(
     TriangularBandMatrix< std::complex<float> >& A,
     std::vector<float>& D,
-    const std::map<Option, Value>& opts);
+    std::vector<float>& E);
 
+// ----------------------------------------
 template
-void bdsqr< std::complex<double> >(
+void copytb2bd< Target::HostTask, std::complex<double> >(
     TriangularBandMatrix< std::complex<double> >& A,
     std::vector<double>& D,
-    const std::map<Option, Value>& opts);
+    std::vector<double>& E);
 
+} // namespace internal
 } // namespace slate

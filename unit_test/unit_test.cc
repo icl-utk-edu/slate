@@ -197,8 +197,9 @@ void run_test(test_function* func, const char* name)
 void run_test(test_function* func, const char* name, MPI_Comm comm)
 {
 #ifndef SLATE_NO_MPI
-    int mpi_rank;
+    int mpi_rank, mpi_size;
     MPI_Comm_rank(comm, &mpi_rank);
+    MPI_Comm_size(comm, &mpi_size);
 
     std::string output = output_test(name, mpi_rank);
     ++g_total;
@@ -231,6 +232,8 @@ void run_test(test_function* func, const char* name, MPI_Comm comm)
     }
     printf_gather(0, comm, output);
     MPI_Barrier(comm);
+    if (mpi_size > 1 && mpi_rank == 0)
+        printf( "\n" );
 #else
     run_test(func, name);
 #endif // SLATE_NO_MPI

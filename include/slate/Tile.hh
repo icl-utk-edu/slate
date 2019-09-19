@@ -568,7 +568,7 @@ void Tile<scalar_t>::offset(int64_t i, int64_t j)
 /// extended buffer to be used to hold the transposed data of rectangular tiles
 /// Marks the tile as extended
 /// NOTE: does not set the front buffer to be the extended one
-/// NOTE: asserts if already transposable
+/// NOTE: throws error if not already transposable.
 ///
 template <typename scalar_t>
 void Tile<scalar_t>::makeTransposable(scalar_t* new_data)
@@ -585,7 +585,7 @@ void Tile<scalar_t>::makeTransposable(scalar_t* new_data)
 //------------------------------------------------------------------------------
 /// Sets the front buffer of the extended tile,
 /// and adjusts stride accordingly.
-/// NOTE: tile should be already extended, asserts otherwise.
+/// NOTE: tile should be already extended, throws error otherwise.
 ///
 template <typename scalar_t>
 void Tile<scalar_t>::layoutSetFrontDataExt(bool front)
@@ -608,7 +608,7 @@ void Tile<scalar_t>::layoutSetFrontDataExt(bool front)
 /// Resets the tile's member fields related to being extended.
 /// WARNING: should be called within MatrixStorage::tileLayoutReset() only.
 /// NOTE: the front buffer should be already swapped to be the user buffer,
-///       asserts otherwise.
+///       throws error otherwise.
 ///
 template <typename scalar_t>
 void Tile<scalar_t>::layoutReset()

@@ -39,7 +39,7 @@
 
 #include "slate/Matrix.hh"
 #include "slate/types.hh"
-#include "internal/Tile_tpmqrt.hh"
+#include "internal/Tile_tpmlqt.hh"
 #include "internal/internal.hh"
 #include "internal/internal_util.hh"
 
@@ -47,33 +47,33 @@ namespace slate {
 namespace internal {
 
 //------------------------------------------------------------------------------
-/// Distributed multiply matrix by Q from QR triangle-triangle factorization of
+/// Distributed multiply matrix by Q from LQ triangle-triangle factorization of
 /// row of tiles.
 /// Dispatches to target implementations.
 /// todo: This assumes A and T have already been communicated as needed.
 /// However, it necesarily handles communication for C.
-/// Tag is used in geqrf to differentiate communication for look-ahead panel
+/// Tag is used in gelqf to differentiate communication for look-ahead panel
 /// from rest of trailing matrix.
-/// @ingroup geqrf_internal
+/// @ingroup gelqf_internal
 ///
 template <Target target, typename scalar_t>
-void ttmqr(Side side, Op op,
+void ttmlq(Side side, Op op,
            Matrix<scalar_t>&& A,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,
            int tag)
 {
-    ttmqr(internal::TargetType<target>(),
+    ttmlq(internal::TargetType<target>(),
           side, op, A, T, C, tag);
 }
 
 //------------------------------------------------------------------------------
-/// Distributed multiply matrix by Q from QR triangle-triangle factorization of
+/// Distributed multiply matrix by Q from LQ triangle-triangle factorization of
 /// row of tiles, host implementation.
-/// @ingroup geqrf_internal
+/// @ingroup gelqf_internal
 ///
 template <typename scalar_t>
-void ttmqr(internal::TargetType<Target::HostTask>,
+void ttmlq(internal::TargetType<Target::HostTask>,
            Side side, Op op,
            Matrix<scalar_t>& A,
            Matrix<scalar_t>& T,
@@ -83,28 +83,28 @@ void ttmqr(internal::TargetType<Target::HostTask>,
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
-    int64_t A_mt = A.mt();
+    int64_t A_nt = A.nt();
 
-    // Find ranks in this column.
+    // Find ranks in this row.
     std::set<int> ranks_set;
-    A.sub(0, A_mt-1, 0, 0).getRanks(&ranks_set);
+    A.sub(0, 0, 0, A_nt-1).getRanks(&ranks_set);
 
-    // Find each rank's first (top-most) row in this column,
-    // which is the triangular tile resulting from local geqrf panel.
-    std::vector< std::pair<int, int64_t> > rank_rows;
-    rank_rows.reserve(ranks_set.size());
+    // Find each rank's first (left-most) col in this row,
+    // which is the triangular tile resulting from local gelqf panel.
+    std::vector< std::pair<int, int64_t> > rank_cols;
+    rank_cols.reserve(ranks_set.size());
     for (int r: ranks_set) {
-        for (int64_t i = 0; i < A_mt; ++i) {
-            if (A.tileRank(i, 0) == r) {
-                rank_rows.push_back({r, i});
+        for (int64_t j = 0; j < A_nt; ++j) {
+            if (A.tileRank(0, j) == r) {
+                rank_cols.push_back({r, j});
                 break;
             }
         }
     }
-    // Sort rank_rows by row.
-    std::sort(rank_rows.begin(), rank_rows.end(), compareSecond<int, int64_t>);
+    // Sort rank_cols by col.
+    std::sort(rank_cols.begin(), rank_cols.end(), compareSecond<int, int64_t>);
 
-    int nranks = rank_rows.size();
+    int nranks = rank_cols.size();
     int nlevels = int( ceil( log2( nranks ) ) );
 
     // Apply reduction tree from leaves down (NoTrans) or from root up (Trans).
@@ -125,46 +125,47 @@ void ttmqr(internal::TargetType<Target::HostTask>,
     }
     for (int level = level_begin; level != level_end; level += level_step) {
         for (int index = 0; index < nranks; index += step) {
-            int64_t i = rank_rows[ index ].second;
-            // At each level, scan rows of C for local tiles.
-            // TODO: the j loop can be parallelized, but care needs to be
+            int64_t j = rank_cols[ index ].second;
+            // At each level, scan cols of C for local tiles.
+            // TODO: the i loop can be parallelized, but care needs to be
             // taken so that MPI makes progress.
             // todo: for better performance, split into three tasks:
             //      - send-receive task,
             //      - update task-loop,
             //      - send-receive task
-            for (int64_t j = 0; j < C.nt(); ++j) {
+            for (int64_t i = 0; i < C.mt(); ++i) {
                 if (C.tileIsLocal(i, j)) {
                     if (index % (2*step) == 0) {
                         if (index + step < nranks) {
                             // Send tile to dst, then receive updated tile back.
-                            int64_t i_dst = rank_rows[ index + step ].second;
-                            int dst = C.tileRank(i_dst, j);
+                            int64_t j_dst = rank_cols[ index + step ].second;
+                            int dst = C.tileRank(i, j_dst);
                             C.tileSend(i, j, dst, tag);
                             C.tileRecv(i, j, dst, layout, tag);
                         }
                     }
                     else {
                         // Receive tile from src.
-                        int64_t i_src = rank_rows[ index - step ].second;
-                        int     src   = C.tileRank(i_src, j);
-                        C.tileRecv(i_src, j, src, layout, tag);
+                        int64_t j_src = rank_cols[ index - step ].second;
+                        int     src   = C.tileRank(i, j_src);
+                        C.tileRecv(i, j_src, src, layout, tag);
 
-                        A.tileGetForReading(i, 0, LayoutConvert(layout));
-                        T.tileGetForReading(i, 0, LayoutConvert(layout));
+                        A.tileGetForReading(0, j, LayoutConvert(layout));
+                        T.tileGetForReading(0, j, LayoutConvert(layout));
                         C.tileGetForWriting(i, j, LayoutConvert(layout));
 
                         // Apply Q
-                        tpmqrt(side, op, std::min( A.tileMb(i), A.tileNb(0) ),
-                               A(i, 0), T(i, 0),
-                               C(i_src, j), C(i, j));
+                        // todo: Handle wide A0j as in ttmqr.
+                        tpmlqt(side, op, std::min( A.tileMb(0), A.tileNb(j) ),
+                               A(0, j), T(0, j),
+                               C(i, j_src), C(i, j));
 
                         // todo: should tileRelease()?
-                        A.tileTick(i, 0);
-                        T.tileTick(i, 0);
+                        A.tileTick(0, j);
+                        T.tileTick(0, j);
                         // Send updated tile back.
-                        C.tileSend(i_src, j, src, tag);
-                        C.tileTick(i_src, j);
+                        C.tileSend(i, j_src, src, tag);
+                        C.tileTick(i, j_src);
                     }
                 }
             }
@@ -180,7 +181,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
 // Explicit instantiations.
 // ----------------------------------------
 template
-void ttmqr<Target::HostTask, float>(
+void ttmlq<Target::HostTask, float>(
     Side side, Op op,
     Matrix<float>&& A,
     Matrix<float>&& T,
@@ -189,7 +190,7 @@ void ttmqr<Target::HostTask, float>(
 
 // ----------------------------------------
 template
-void ttmqr<Target::HostTask, double>(
+void ttmlq<Target::HostTask, double>(
     Side side, Op op,
     Matrix<double>&& A,
     Matrix<double>&& T,
@@ -198,7 +199,7 @@ void ttmqr<Target::HostTask, double>(
 
 // ----------------------------------------
 template
-void ttmqr< Target::HostTask, std::complex<float> >(
+void ttmlq< Target::HostTask, std::complex<float> >(
     Side side, Op op,
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& T,
@@ -207,7 +208,7 @@ void ttmqr< Target::HostTask, std::complex<float> >(
 
 // ----------------------------------------
 template
-void ttmqr< Target::HostTask, std::complex<double> >(
+void ttmlq< Target::HostTask, std::complex<double> >(
     Side side, Op op,
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& T,

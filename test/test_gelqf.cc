@@ -14,7 +14,7 @@
 #include <utility>
 
 //------------------------------------------------------------------------------
-template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
+template <typename scalar_t> void test_gelqf_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
@@ -52,7 +52,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
 
     // BLACS/MPI variables
     int ictxt, nprow, npcol, myrow, mycol, info;
-    int descA_tst[9], descA_ref[9], descQR_tst[9];
+    int descA_tst[9], descA_ref[9], descLQ_tst[9];
     int iam = 0, nprocs = 1;
     int iseed = 1;
 
@@ -82,9 +82,9 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
     std::vector<scalar_t> A_tst(lldA*nlocA);
     scalapack_pplrnt(&A_tst[0], m, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
 
-    // matrix QR, for checking result
-    std::vector<scalar_t> QR_tst(1);
-    scalapack_descinit(descQR_tst, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+    // matrix LQ, for checking result
+    std::vector<scalar_t> LQ_tst(1);
+    scalapack_descinit(descLQ_tst, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
     slate_assert(info == 0);
 
     // tau vector for ScaLAPACK
@@ -105,7 +105,8 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
-        A = slate::Matrix<scalar_t>::fromScaLAPACK(m, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+        A = slate::Matrix<scalar_t>::fromScaLAPACK(
+            m, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     }
     slate::TriangularFactors<scalar_t> T;
 
@@ -125,7 +126,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
             m, n, &A_ref[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     }
 
-    double gflop = lapack::Gflop<scalar_t>::geqrf(m, n);
+    double gflop = lapack::Gflop<scalar_t>::gelqf(m, n);
 
     if (! ref_only) {
         if (trace) slate::trace::Trace::on();
@@ -140,7 +141,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::geqrf(A, T, {
+        slate::gelqf(A, T, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target},
             {slate::Option::MaxPanelThreads, panel_threads},
@@ -170,7 +171,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         //==================================================
         // Test results by checking backwards error
         //
-        //      || QR - A ||_1
+        //      || LQ - A ||_1
         //     ---------------- < tol * epsilon
         //      || A ||_1 * m
         //
@@ -184,45 +185,45 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         // Norm of original matrix: || A ||_1
         real_t A_norm = slate::norm(slate::Norm::One, Aref);
 
-        // Zero out QR, then copy R, stored in upper triangle of A_tst.
+        // Zero out LQ, then copy L, stored in lower triangle of A_tst.
         // todo: replace with slate set/copy functions.
-        QR_tst = std::vector<scalar_t>(A_tst.size(), zero);
-        scalapack_placpy("Upper", std::min(m, n), n,
+        LQ_tst = std::vector<scalar_t>(A_tst.size(), zero);
+        scalapack_placpy("Lower", m, std::min(m, n),
                          &A_tst[0], 1, 1, descA_tst,
-                         &QR_tst[0], 1, 1, descQR_tst);
+                         &LQ_tst[0], 1, 1, descLQ_tst);
 
-        // Alternatively, copy all of A_tst to QR, then zero out below diagonal.
-        //QR_tst = A_tst;
-        //scalapack_plaset("Lower", m-1, n, zero, zero,
-        //                 &QR_tst[0], 2, 1, descQR_tst);
+        // Alternatively, copy all of A_tst to LQ, then zero out above diagonal.
+        //LQ_tst = A_tst;
+        //scalapack_plaset("Upper", m-1, n, zero, zero,
+        //                 &LQ_tst[0], 1, 2, descLQ_tst);
 
-        auto QR = slate::Matrix<scalar_t>::fromScaLAPACK(
-            m, n, &QR_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+        auto LQ = slate::Matrix<scalar_t>::fromScaLAPACK(
+            m, n, &LQ_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
 
         if (verbose > 1) {
-            print_matrix("R", QR);
+            print_matrix("L", LQ);
         }
 
-        // Form QR, where Q's representation is in A and T, and R is in QR.
-        slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, T, QR, {
+        // Form LQ, where Q's representation is in A and T, and L is in LQ.
+        slate::unmlq(slate::Side::Right, slate::Op::NoTrans, A, T, LQ, {
             {slate::Option::Target, target}
         });
 
         if (verbose > 1) {
-            print_matrix("QR", QR);
+            print_matrix("LQ", LQ);
         }
 
-        // Form QR - A, where A is in Aref.
-        // todo: slate::geadd(-one, Aref, QR);
-        // using axpy assumes A_ref and QR_tst have same lda.
-        blas::axpy(QR_tst.size(), -one, &A_ref[0], 1, &QR_tst[0], 1);
+        // Form LQ - A, where A is in Aref.
+        // todo: slate::geadd(-one, Aref, LQ);
+        // using axpy assumes A_ref and LQ_tst have same lda.
+        blas::axpy(LQ_tst.size(), -one, &A_ref[0], 1, &LQ_tst[0], 1);
 
         if (verbose > 1) {
-            print_matrix("QR - A", QR);
+            print_matrix("LQ - A", LQ);
         }
 
-        // Norm of backwards error: || QR - A ||_1
-        real_t R_norm = slate::norm(slate::Norm::One, QR);
+        // Norm of backwards error: || LQ - A ||_1
+        real_t R_norm = slate::norm(slate::Norm::One, LQ);
 
         double residual = R_norm / (m*A_norm);
         params.error() = residual;
@@ -242,7 +243,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
 
         // query for workspace size
         scalar_t dummy;
-        scalapack_pgeqrf(m, n, &A_ref[0], 1, 1, descA_ref, tau.data(),
+        scalapack_pgelqf(m, n, &A_ref[0], 1, 1, descA_ref, tau.data(),
                          &dummy, -1, &info_ref);
         lwork = int64_t( real( dummy ) );
         work.resize(lwork);
@@ -252,7 +253,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
         //==================================================
         MPI_Barrier(MPI_COMM_WORLD);
         double time = libtest::get_wtime();
-        scalapack_pgeqrf(m, n, &A_ref[0], 1, 1, descA_ref, tau.data(),
+        scalapack_pgelqf(m, n, &A_ref[0], 1, 1, descA_ref, tau.data(),
                          work.data(), lwork, &info_ref);
         slate_assert(info_ref == 0);
         MPI_Barrier(MPI_COMM_WORLD);
@@ -269,7 +270,7 @@ template <typename scalar_t> void test_geqrf_work(Params& params, bool run)
 }
 
 // -----------------------------------------------------------------------------
-void test_geqrf(Params& params, bool run)
+void test_gelqf(Params& params, bool run)
 {
     switch (params.datatype()) {
         case libtest::DataType::Integer:
@@ -277,19 +278,19 @@ void test_geqrf(Params& params, bool run)
             break;
 
         case libtest::DataType::Single:
-            test_geqrf_work<float> (params, run);
+            test_gelqf_work<float> (params, run);
             break;
 
         case libtest::DataType::Double:
-            test_geqrf_work<double> (params, run);
+            test_gelqf_work<double> (params, run);
             break;
 
         case libtest::DataType::SingleComplex:
-            test_geqrf_work<std::complex<float>> (params, run);
+            test_gelqf_work<std::complex<float>> (params, run);
             break;
 
         case libtest::DataType::DoubleComplex:
-            test_geqrf_work<std::complex<double>> (params, run);
+            test_gelqf_work<std::complex<double>> (params, run);
             break;
     }
 }

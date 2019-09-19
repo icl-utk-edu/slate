@@ -433,6 +433,11 @@ template <Target target=Target::HostTask, typename scalar_t>
 void ttqrt(Matrix<scalar_t>&& A,
            Matrix<scalar_t>&& T);
 
+// ttlqt()
+template <Target target=Target::HostTask, typename scalar_t>
+void ttlqt(Matrix<scalar_t>&& A,
+           Matrix<scalar_t>&& T);
+
 //-----------------------------------------
 // ttmqr()
 template <Target target=Target::HostTask, typename scalar_t>
@@ -442,10 +447,26 @@ void ttmqr(Side side, Op op,
            Matrix<scalar_t>&& C,
            int tag=0);
 
+// ttmlq()
+template <Target target=Target::HostTask, typename scalar_t>
+void ttmlq(Side side, Op op,
+           Matrix<scalar_t>&& A,
+           Matrix<scalar_t>&& T,
+           Matrix<scalar_t>&& C,
+           int tag=0);
+
 //-----------------------------------------
 // unmqr()
 template <Target target=Target::HostTask, typename scalar_t>
 void unmqr(Side side, Op op,
+           Matrix<scalar_t>&& A,
+           Matrix<scalar_t>&& T,
+           Matrix<scalar_t>&& C,
+           Matrix<scalar_t>&& W);
+
+// unmlq()
+template <Target target=Target::HostTask, typename scalar_t>
+void unmlq(Side side, Op op,
            Matrix<scalar_t>&& A,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,

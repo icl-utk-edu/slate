@@ -43,6 +43,7 @@
 #include "slate/internal/device.hh"
 
 #include "unit_test.hh"
+#include "print_tile.hh"
 
 //------------------------------------------------------------------------------
 // globals
@@ -54,41 +55,6 @@ int      mpi_size    = 0;
 int      host_num    = slate::HostNum;
 int      num_devices = 0;
 MPI_Comm mpi_comm;
-
-//------------------------------------------------------------------------------
-// type_name<T>() returns string describing type of T.
-// see https://stackoverflow.com/questions/81870/is-it-possible-to-print-a-variables-type-in-standard-c
-
-// for demangling on non-Microsoft platforms
-#ifndef _MSC_VER
-    #include <cxxabi.h>
-#endif
-
-template<typename T>
-std::string type_name()
-{
-    typedef typename std::remove_reference<T>::type TR;
-
-    std::unique_ptr< char, void(*)(void*) > own(
-        #ifndef _MSC_VER
-            abi::__cxa_demangle(typeid(TR).name(), nullptr, nullptr, nullptr),
-        #else
-            nullptr,
-        #endif
-        std::free
-    );
-
-    std::string r = own != nullptr ? own.get() : typeid(TR).name();
-    if (std::is_const<TR>::value)
-        r += " const";
-    if (std::is_volatile<TR>::value)
-        r += " volatile";
-    if (std::is_lvalue_reference<T>::value)
-        r += "&";
-    else if (std::is_rvalue_reference<T>::value)
-        r += "&&";
-    return r;
-}
 
 //------------------------------------------------------------------------------
 // arrays of options to loop over in tests
@@ -186,7 +152,7 @@ void test_assert_equal(
                 // print elements if assert will fail
                 if (! (abs_error <= abs_tol || rel_error <= rel_tol)) {
                     printf( "A(%3d, %3d) %8.4f + %8.4fi\n"
-                            "B           %8.4f + %8.4fi, abs_error %.2e, rel_error %.2e\n",
+                            "B           %8.4f + %8.4fi, abs_error %8.2e, rel_error %8.2e\n",
                             i, j, real( A(i,j) ), imag( A(i,j) ),
                                   real( B[ i + j*ldb ] ), imag( B[ i + j*ldb ] ),
                             abs_error, rel_error );
@@ -989,8 +955,8 @@ void test_convert_layout(int m, int n)
     double time = omp_get_wtime();
     A.layoutConvert();
     time = omp_get_wtime() - time;
-    printf( "m %d, n %d, time %.6f\n",
-            m, n, time);
+    if (verbose)
+        printf( "m %d, n %d, time %.6f\n", m, n, time);
 
     // Verify layout of A changed.
     test_assert(A.layout() == Layout::RowMajor);
@@ -1146,10 +1112,13 @@ void test_device_convert_layout(int m, int n)
         slate_cuda_call(
             cudaStreamSynchronize(stream));
         time = omp_get_wtime() - time;
-        printf( "batch_count %d, m %d, n %d, time %.6f, GB/s (read & write) %.4f batch\n",
-                batch_count, m, n, time, 2 * Adata.size() * sizeof(scalar_t) * 1e-9 / time);
+        if (verbose) {
+            printf( "batch_count %d, m %d, n %d, time %.6f, GB/s (read & write) %.4f batch\n",
+                    batch_count, m, n, time, 2 * Adata.size() * sizeof(scalar_t) * 1e-9 / time);
+        }
     }
-    printf( "\n" );
+    if (verbose)
+        printf( "\n" );
     slate_cuda_call(
         cudaMemcpy(Adata.data(), (m == n ? Adata_dev : Adata_dev_ext), Adata.size() * sizeof(scalar_t),
                    cudaMemcpyDeviceToHost));
@@ -1176,10 +1145,13 @@ void test_device_convert_layout(int m, int n)
         slate_cuda_call(
             cudaStreamSynchronize(stream));
         time = omp_get_wtime() - time;
-        printf( "batch_count %d, m %d, n %d, time %.6f, GB/s (read & write) %.4f 1-by-1\n",
-                batch_count, m, n, time, 2 * Adata.size() * sizeof(scalar_t) * 1e-9 / time);
+        if (verbose) {
+            printf( "batch_count %d, m %d, n %d, time %.6f, GB/s (read & write) %.4f 1-by-1\n",
+                    batch_count, m, n, time, 2 * Adata.size() * sizeof(scalar_t) * 1e-9 / time);
+        }
     }
-    printf( "\n" );
+    if (verbose)
+        printf( "\n" );
 
     //-----------------------------------------
     // Run kernel.
@@ -1198,10 +1170,13 @@ void test_device_convert_layout(int m, int n)
         slate_cuda_call(
             cudaStreamSynchronize(stream));
         time = omp_get_wtime() - time;
-        printf( "batch_count %d, m %d, n %d, time %.6f, GB/s (read & write) %.4f 1-by-1\n",
-                batch_count, m, n, time, 2 * Adata.size() * sizeof(scalar_t) * 1e-9 / time);
+        if (verbose) {
+            printf( "batch_count %d, m %d, n %d, time %.6f, GB/s (read & write) %.4f 1-by-1\n",
+                    batch_count, m, n, time, 2 * Adata.size() * sizeof(scalar_t) * 1e-9 / time);
+        }
     }
-    printf( "\n" );
+    if (verbose)
+        printf( "\n" );
     slate_cuda_call(
         cudaMemcpy(Adata.data(), (m == n ? Adata_dev : Adata_dev_ext), Adata.size() * sizeof(scalar_t),
                    cudaMemcpyDeviceToHost));
@@ -1268,23 +1243,134 @@ void test_device_convert_layout()
 }
 
 //------------------------------------------------------------------------------
+template <typename scalar_t>
+void test_deepTranspose_work(int m, int n)
+{
+    if (verbose)
+        printf( "%s< %s >( m=%3d, n=%3d )\n", __func__, type_name<scalar_t>().c_str(), m, n );
+
+    using blas::conj;
+
+    int lda  = slate::roundup( m, 16 );
+    int ldat = slate::roundup( n, 16 );
+    std::vector<scalar_t> data( lda*n );
+    std::vector<scalar_t> dataT( m*ldat );
+
+    int64_t idist = 3;
+    int64_t iseed[4] = { 1, 2, 3, 5 };
+    lapack::larnv( idist, iseed, data.size(), data.data() );
+    lapack::larnv( idist, iseed, dataT.size(), dataT.data() );
+
+    slate::Tile< scalar_t > A( m, n, data.data(), lda, host_num,
+                               slate::TileKind::UserOwned );
+    slate::Tile< scalar_t > AT( n, m, dataT.data(), ldat, host_num,
+                                slate::TileKind::UserOwned );
+
+    deepTranspose( std::move(A), std::move(AT) );
+    for (int j = 0; j < n; ++j)
+        for (int i = 0; i < m; ++i)
+            test_assert( A(i, j) == AT(j, i) );
+
+    // deepTranspose( std::move(A), std::move(A) );  // error
+
+    if (m == n) {
+        deepTranspose( std::move(A) );
+        // Check that A == A^T.
+        for (int j = 0; j < n; ++j)
+            for (int i = 0; i < m; ++i)
+                test_assert( A(i, j) == AT(i, j) );
+    }
+    else {
+        // deepTranspose( std::move(A) );  // error
+    }
+}
+
+void test_deepTranspose()
+{
+    for (int m = 8; m <= 16; m += 2) {
+        for (int n = 8; n <= 16; n += 2) {
+            test_deepTranspose_work< float  >( m, n );
+            test_deepTranspose_work< double >( m, n );
+            test_deepTranspose_work< std::complex<float>  >( m, n );
+            test_deepTranspose_work< std::complex<double> >( m, n );
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void test_deepConjTranspose_work(int m, int n)
+{
+    if (verbose)
+        printf( "%s< %s >( m=%3d, n=%3d )\n", __func__, type_name<scalar_t>().c_str(), m, n );
+
+    using blas::conj;
+
+    int lda  = slate::roundup( m, 16 );
+    int ldah = slate::roundup( n, 16 );
+    std::vector<scalar_t> data( lda*n );
+    std::vector<scalar_t> dataH( m*ldah );
+
+    int64_t idist = 3;
+    int64_t iseed[4] = { 1, 2, 3, 5 };
+    lapack::larnv( idist, iseed, data.size(), data.data() );
+    lapack::larnv( idist, iseed, dataH.size(), dataH.data() );
+
+    slate::Tile< scalar_t > A( m, n, data.data(), lda, host_num,
+                               slate::TileKind::UserOwned );
+    slate::Tile< scalar_t > AH( n, m, dataH.data(), ldah, host_num,
+                                slate::TileKind::UserOwned );
+
+    deepConjTranspose( std::move(A), std::move(AH) );
+    for (int j = 0; j < n; ++j)
+        for (int i = 0; i < m; ++i)
+            test_assert( A(i, j) == conj(AH(j, i)) );
+
+    // deepConjTranspose( std::move(A), std::move(A) );  // error
+
+    if (m == n) {
+        deepConjTranspose( std::move(A) );
+        // Check that A == A^H.
+        for (int j = 0; j < n; ++j)
+            for (int i = 0; i < m; ++i)
+                test_assert( A(i, j) == AH(i, j) );
+    }
+    else {
+        // deepConjTranspose( std::move(A) );  // error
+    }
+}
+
+void test_deepConjTranspose()
+{
+    for (int m = 8; m <= 16; m += 2) {
+        for (int n = 8; n <= 16; n += 2) {
+            test_deepConjTranspose_work< float  >( m, n );
+            test_deepConjTranspose_work< double >( m, n );
+            test_deepConjTranspose_work< std::complex<float>  >( m, n );
+            test_deepConjTranspose_work< std::complex<double> >( m, n );
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+enum class Section {
+    newline = 0,  // zero flag forces newline
+    blas_section,
+    norm,
+    factor,
+    convert,
+    copy,
+};
+
+//------------------------------------------------------------------------------
 // Similar routine list to libtest. No params yet.
 typedef void (*test_func_ptr)();
 
 typedef struct {
     const char* name;
     test_func_ptr func;
-    int section;
+    Section section;
 } routines_t;
-
-//------------------------------------------------------------------------------
-enum Section {
-    newline = 0,  // zero flag forces newline
-    blas_section,
-    norm,
-    factor,
-    convert,
-};
 
 //------------------------------------------------------------------------------
 std::vector< routines_t > routines = {
@@ -1303,6 +1389,10 @@ std::vector< routines_t > routines = {
     { "convert_layout",        test_convert_layout,        Section::convert },
     { "device_convert_layout", test_device_convert_layout, Section::convert },
     { "",                      nullptr,                    Section::newline },
+
+    { "deepTranspose",         test_deepTranspose,         Section::copy },
+    { "deepConjTranspose",     test_deepConjTranspose,     Section::copy },
+    { "",                      nullptr,                    Section::newline },
 };
 
 //------------------------------------------------------------------------------
@@ -1311,7 +1401,7 @@ void usage()
 {
     printf("Usage: %s [routines]\n", g_argv[0]);
     int col = 0;
-    int last_section = routines[0].section;
+    Section last_section = routines[0].section;
     for (size_t j = 0; j < routines.size(); ++j) {
         if (routines[j].section != Section::newline &&
             routines[j].section != last_section)
@@ -1347,6 +1437,10 @@ void run_tests()
             if (arg == "-h" || arg == "--help") {
                 usage();
                 break;
+            }
+            if (arg == "-v" || arg == "--verbose") {
+                ++verbose;
+                continue;
             }
             bool found = false;
             for (size_t j = 0; j < routines.size(); ++j) {

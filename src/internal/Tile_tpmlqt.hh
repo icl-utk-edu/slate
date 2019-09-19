@@ -37,8 +37,8 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#ifndef SLATE_TILE_TPMQRT_HH
-#define SLATE_TILE_TPMQRT_HH
+#ifndef SLATE_TILE_TPMLQT_HH
+#define SLATE_TILE_TPMLQT_HH
 
 #include "slate/Tile.hh"
 #include "slate/types.hh"
@@ -62,8 +62,8 @@ namespace slate {
 ///         [ C2 ]  <- m-by-n
 ///
 /// and on exit, $C = op(Q) C$.
-/// C is (k+m)-by-n, C1 is k-by-n, C2 is m-by-n, and V2 is m-by-k.
-/// m, l are the same in tpqrt; k = tpqrt's n; n here is different.
+/// C is (k+m)-by-n, C1 is k-by-n, C2 is m-by-n, and V2 is k-by-m.
+/// l is the same in tplqt; m = tplqt's n; k = tplqt's m; n here is different.
 ///
 /// If side == Right:
 ///
@@ -71,17 +71,17 @@ namespace slate {
 ///       m-by-k  m-by-n
 ///
 /// and on exit, $C = C op(Q)$.
-/// C is m-by-(k+n), C1 is m-by-k, C2 is m-by-n, and V2 is n-by-k.
-/// l is the same in tpqrt; n = tpqrt's m; k = tpqrt's n; m here is different.
+/// C is m-by-(k+n), C1 is m-by-k, C2 is m-by-n, and V2 is k-by-n.
+/// n, l are the same in tplqt; k = tplqt's m; m here is different.
 ///
 /// Q is a product of block reflectors,
 ///
-///     Q = \prod_{j = 1, ..., r} I - Vj Tj Vj^H
+///     Q = \prod_{j = r, ..., 1} I - Vj^H Tj^H Vj
 ///
 /// where r is the number of blocks, Tj is the j-th block of T,
-/// and Vj is the j-th block column of V, with internal blocking size ib.
+/// and Vj is the j-th block row of V, with internal blocking size ib.
 ///
-/// See Further Details in tpqrt.
+/// See Further Details in tplqt.
 ///
 /// @param[in] side
 ///     - Side::Left:  Multiply from the left:  $C = op(Q) C$.
@@ -93,22 +93,22 @@ namespace slate {
 ///     - Op::ConjTrans: Multiply by $op(Q) = Q^H$.
 ///
 /// @param[in] l
-///     The number of rows of the upper trapezoidal part of V2.
+///     The number of columns of the lower trapezoidal part of V2.
 ///     - If side = left,  min(m, k) >= l >= 0.
 ///     - If side = right, min(n, k) >= l >= 0.
 ///
 /// @param[in] V2
-///     - If side == Left,  the m-by-k upper pentagonal tile V2.
-///     - If side == Right, the n-by-k upper pentagonal tile V2.
-///     The i-th column must contain the vector which defines the
+///     - If side == Left,  the k-by-m lower pentagonal tile V2.
+///     - If side == Right, the k-by-n lower pentagonal tile V2.
+///     The i-th row must contain the vector which defines the
 ///     elementary reflector H(i), for i = 1, 2, ..., k, as returned by
-///     tpqrt in A2. The top (m-l)-by-k or (n-l)-by-k portion is rectangular,
-///     the bottom l-by-k portion is upper trapezoidal.
-///     See Further Details in tpqrt.
+///     tplqt in A2. The left k-by-(m-l) or k-by-(n-l) portion is rectangular,
+///     the right k-by-l portion is lower trapezoidal.
+///     See Further Details in tplqt.
 ///
 /// @param[in] T
 ///     The upper triangular factors of the block reflectors
-///     as returned by tpqrt, stored as an ib-by-k tile.
+///     as returned by tplqt, stored as an ib-by-k tile.
 ///
 /// @param[in,out] C1
 ///     - If side == Left,  the k-by-n tile C1.
@@ -125,31 +125,31 @@ namespace slate {
 ///
 /// Note in LAPACK, A = C1, B = C2, V = V2.
 ///
-/// @ingroup geqrf_tile
+/// @ingroup gelqf_tile
 ///
 template <typename scalar_t>
-void tpmqrt(
+void tpmlqt(
     Side side, Op op, int64_t l,
     Tile<scalar_t> V2,
     Tile<scalar_t> T,
     Tile<scalar_t> C1,
     Tile<scalar_t> C2)
 {
-    trace::Block trace_block("lapack::tpmqrt");
+    trace::Block trace_block("lapack::tpmlqt");
 
-    int64_t k = V2.nb();
+    int64_t k = V2.mb();
     int64_t m = C2.mb();
     int64_t n = C2.nb();
     if (side == Side::Left) {
         assert(C1.mb() >= k);
         assert(C1.nb() == n);
-        assert(V2.mb() == m);
+        assert(V2.nb() == m);
         assert(std::min(m, k) >= l);
     }
     else {
         assert(C1.mb() == m);
         assert(C1.nb() >= k);
-        assert(V2.mb() == n);
+        assert(V2.nb() == n);
         assert(std::min(n, k) >= l);
     }
 
@@ -157,7 +157,7 @@ void tpmqrt(
     assert(k >= ib);
     assert(T.nb() == k);
 
-    lapack::tpmqrt(side, op, m, n, k, l, ib,
+    lapack::tpmlqt(side, op, m, n, k, l, ib,
                    V2.data(), V2.stride(),
                    T.data(), T.stride(),
                    C1.data(), C1.stride(),
@@ -166,4 +166,4 @@ void tpmqrt(
 
 } // namespace slate
 
-#endif // SLATE_TILE_TPQRT_HH
+#endif // SLATE_TILE_TPLQT_HH

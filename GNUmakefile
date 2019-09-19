@@ -272,8 +272,11 @@ libslate_src += \
         src/internal/internal_trtri.cc \
         src/internal/internal_trtrm.cc \
         src/internal/internal_ttmqr.cc \
+        src/internal/internal_ttmlq.cc \
         src/internal/internal_ttqrt.cc \
+        src/internal/internal_ttlqt.cc \
         src/internal/internal_unmqr.cc \
+        src/internal/internal_unmlq.cc \
         src/internal/internal_util.cc \
         src/internal/internal_transpose.cc \
         src/internal/internal_tzcopy.cc \
@@ -305,6 +308,7 @@ libslate_src += \
         src/gels.cc \
         src/gemm.cc \
         src/geqrf.cc \
+        src/gelqf.cc \
         src/gesv.cc \
         src/gesvMixed.cc \
         src/getrf.cc \
@@ -333,6 +337,7 @@ libslate_src += \
         src/trtri.cc \
         src/trtrm.cc \
         src/unmqr.cc \
+        src/unmlq.cc \
 
 # main tester
 test_src += \
@@ -344,6 +349,7 @@ test_src += \
         test/test_gemm.cc \
         test/test_genorm.cc \
         test/test_geqrf.cc \
+        test/test_gelqf.cc \
         test/test_gesv.cc \
         test/test_hemm.cc \
         test/test_henorm.cc \
@@ -395,7 +401,9 @@ unit_src = \
         unit_test/test_TriangularMatrix.cc \
         unit_test/test_Tile.cc \
         unit_test/test_Tile_kernels.cc \
+        unit_test/test_lq.cc \
         unit_test/test_norm.cc \
+        unit_test/test_qr.cc \
 
 # unit test framework
 unit_test_obj = \

@@ -162,68 +162,24 @@ void tzset(scalar_t alpha, Tile<scalar_t>&& A)
 }
 
 //------------------------------------------------------------------------------
-/// @deprecated
-/// In-place conversion between column and row-major layout for square tiles.
-/// Takes a pointer to the original tile in MatrixStorage, instead of a
-/// reference to a copy of the tile, in order to adjust the tile's layout flag.
-/// @ingroup convert_tile
-///
-template <typename scalar_t>
-void convert_layout(Tile<scalar_t>* X)
-{
-    trace::Block trace_block("slate::convert_layout");
-    assert(X->mb() == X->nb());
-
-    for (int64_t j = 0; j < X->nb(); ++j) {
-        for (int64_t i = 0; i < j; ++i) { // upper
-            std::swap(X->at(i, j), X->at(j, i));
-        }
-    }
-
-    X->layout(X->layout() == Layout::RowMajor ? Layout::ColMajor
-                                              : Layout::RowMajor);
-}
-
-//------------------------------------------------------------------------------
-/// @deprecated
-/// In-place conversion between column and row-major layout for square tiles.
-/// Takes a pointer to the original tile in MatrixStorage, instead of a
-/// reference to a copy of the tile, in order to adjust the tile's layout flag.
-/// @ingroup convert_tile
-///
-template <typename scalar_t>
-void convert_layout(Tile<scalar_t>* X, cudaStream_t stream)
-{
-    trace::Block trace_block("slate::device::transpose");
-    assert(X->mb() == X->nb());
-
-    device::transpose(X->mb(), X->data(), X->stride(), stream);
-    slate_cuda_call(
-        cudaStreamSynchronize(stream));
-
-    X->layout(X->layout() == Layout::RowMajor ? Layout::ColMajor
-                                              : Layout::RowMajor);
-}
-
-//------------------------------------------------------------------------------
-/// Transpose a square data in-place.
-/// Host implementation
+/// Transpose a square matrix in-place, $A = A^T$.
+/// Host implementation.
 ///
 /// @param[in] n
-///     Number of rows and columns of matrix.
+///     Number of rows and columns of matrix A.
 ///
 /// @param[in,out] A
-///     Buffer holding input data.
+///     The n-by-n matrix A, stored in an lda-by-n array, of input data.
 ///     On output: holds the transposed data.
 ///
 /// @param[in] lda
-///     Leading dimension of matrix A.
+///     Leading dimension of matrix A. lda >= n.
 ///
 template <typename scalar_t>
-void transpose( int64_t n,
-                scalar_t* A, int64_t lda)
+void transpose(int64_t n,
+               scalar_t* A, int64_t lda)
 {
-    // square in-place transpose
+    assert(lda >= n);
     for (int64_t j = 0; j < n; ++j) {
         for (int64_t i = 0; i < j; ++i) { // upper
             std::swap(A[i + j*lda], A[j + i*lda]);
@@ -232,38 +188,154 @@ void transpose( int64_t n,
 }
 
 //------------------------------------------------------------------------------
-/// Transpose a rectangular data out-of-place.
-/// Host implementation
+/// Transpose a rectangular matrix out-of-place, $AT = A^T$.
+/// Host implementation.
 ///
 /// @param[in] m
-///     Number of rows.
+///     Number of rows of matrix A.
 ///
 /// @param[in] n
-///     Number of columns.
+///     Number of columns of matrix A.
 ///
 /// @param[in] A
-///     Buffer holding input data.
+///     The m-by-n matrix A, stored in an lda-by-n array, of input data.
 ///
 /// @param[in] lda
-///     Leading dimension of matrix A.
+///     Leading dimension of matrix A. lda >= m.
 ///
 /// @param[out] AT
+///     The n-by-m matrix AT, stored in an lda-by-m array, of output data.
 ///     On output: holds the transposed data.
 ///
 /// @param[in] ldat
-///     Leading dimension of matrix AT.
+///     Leading dimension of matrix AT. ldat >= n.
 ///
 template <typename scalar_t>
-void transpose( int64_t m, int64_t n,
-                scalar_t* A, int64_t lda,
-                scalar_t* AT, int64_t ldat)
+void transpose(int64_t m, int64_t n,
+               scalar_t* A, int64_t lda,
+               scalar_t* AT, int64_t ldat)
 {
-    // rectangular out-of-place transpose
+    assert(lda >= m);
+    assert(ldat >= n);
     for (int64_t j = 0; j < n; ++j) {
         for (int64_t i = 0; i < m; ++i) {
             AT[j + i*ldat] = A[i + j*lda];
         }
     }
+}
+
+//------------------------------------------------------------------------------
+/// Conjugate transpose a square matrix in-place, $A = A^H$.
+/// Host implementation.
+///
+/// @param[in] n
+///     Number of rows and columns of matrix A.
+///
+/// @param[in,out] A
+///     The n-by-n matrix A, stored in an lda-by-n array, of input data.
+///     On output: holds the conjugate-transposed data.
+///
+/// @param[in] lda
+///     Leading dimension of matrix A. lda >= n.
+///
+template <typename scalar_t>
+void conjTranspose(int64_t n,
+                   scalar_t* A, int64_t lda)
+{
+    using blas::conj;
+    assert(lda >= n);
+    for (int64_t j = 0; j < n; ++j) {
+        for (int64_t i = 0; i < j; ++i) { // upper
+            scalar_t tmp = A[i + j*lda];
+            A[i + j*lda] = conj(A[j + i*lda]);
+            A[j + i*lda] = conj(tmp);
+        }
+        A[j + j*lda] = conj(A[j + j*lda]); // diag
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Conjugate transpose a rectangular matrix out-of-place, $AT = A^H$.
+/// Host implementation.
+///
+/// @param[in] m
+///     Number of rows of matrix A.
+///
+/// @param[in] n
+///     Number of columns of matrix A.
+///
+/// @param[in] A
+///     The m-by-n matrix A, stored in an lda-by-n array, of input data.
+///
+/// @param[in] lda
+///     Leading dimension of matrix A. lda >= m.
+///
+/// @param[out] AT
+///     The n-by-m matrix AT, stored in an lda-by-m array, of output data.
+///     On output: holds the conjugate-transposed data.
+///
+/// @param[in] ldat
+///     Leading dimension of matrix AT. ldat >= n.
+///
+template <typename scalar_t>
+void conjTranspose(int64_t m, int64_t n,
+                   scalar_t* A, int64_t lda,
+                   scalar_t* AT, int64_t ldat)
+{
+    using blas::conj;
+    assert(lda >= m);
+    assert(ldat >= n);
+    for (int64_t j = 0; j < n; ++j) {
+        for (int64_t i = 0; i < m; ++i) {
+            AT[j + i*ldat] = conj(A[i + j*lda]);
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Transpose a square matrix in-place, $A = A^T$.
+/// Host implementation.
+///
+template <typename scalar_t>
+void deepTranspose(Tile<scalar_t>&& A)
+{
+    assert(A.mb() == A.nb());
+    transpose(A.nb(), A.data(), A.stride());
+}
+
+//------------------------------------------------------------------------------
+/// Transpose a rectangular matrix out-of-place, $AT = A^T$.
+/// Host implementation.
+///
+template <typename scalar_t>
+void deepTranspose(Tile<scalar_t>&& A, Tile<scalar_t>&& AT)
+{
+    assert(A.mb() == AT.nb());
+    assert(A.nb() == AT.mb());
+    transpose(A.mb(), A.nb(), A.data(), A.stride(), AT.data(), AT.stride());
+}
+
+//------------------------------------------------------------------------------
+/// Conjugate transpose a square matrix in-place, $A = A^H$.
+/// Host implementation.
+///
+template <typename scalar_t>
+void deepConjTranspose(Tile<scalar_t>&& A)
+{
+    assert(A.mb() == A.nb());
+    conjTranspose(A.nb(), A.data(), A.stride());
+}
+
+//------------------------------------------------------------------------------
+/// Conjugate transpose a rectangular matrix out-of-place, $AT = A^H$.
+/// Host implementation.
+///
+template <typename scalar_t>
+void deepConjTranspose(Tile<scalar_t>&& A, Tile<scalar_t>&& AT)
+{
+    assert(A.mb() == AT.nb());
+    assert(A.nb() == AT.mb());
+    conjTranspose(A.mb(), A.nb(), A.data(), A.stride(), AT.data(), AT.stride());
 }
 
 //------------------------------------------------------------------------------

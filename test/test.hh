@@ -168,6 +168,7 @@ void test_hetrs  (Params& params, bool run);
 // QR, LQ, RQ, QL
 void test_gels   (Params& params, bool run);
 void test_geqrf  (Params& params, bool run);
+void test_gelqf  (Params& params, bool run);
 
 // matrix norms
 void test_gbnorm (Params& params, bool run);

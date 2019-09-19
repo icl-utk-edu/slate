@@ -500,6 +500,18 @@ void geqrf(Matrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
+// gelqf
+template <typename scalar_t>
+void gelqf(Matrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void gelqf(Matrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
 // unmqr
 template <typename scalar_t>
 void unmqr(Side side, Op op,
@@ -510,6 +522,22 @@ void unmqr(Side side, Op op,
 
 template <Target target, typename scalar_t>
 void unmqr(Side side, Op op,
+           Matrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
+           Matrix<scalar_t>& C,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// unmlq
+template <typename scalar_t>
+void unmlq(Side side, Op op,
+           Matrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
+           Matrix<scalar_t>& C,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void unmlq(Side side, Op op,
            Matrix<scalar_t>& A,
            TriangularFactors<scalar_t>& T,
            Matrix<scalar_t>& C,

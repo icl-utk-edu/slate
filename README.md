@@ -1,14 +1,10 @@
-      __| |      \__ __| __|
-    \__ \ |     _ \  |   _|
-    ____/____|_/  _\_|  ___|
+![SLATE](http://icl.bitbucket.io/slate/artwork/Bitbucket/slate_banner.png)
 
 **Software for Linear Algebra Targeting Exascale**
 
 **Innovative Computing Laboratory**
 
 **University of Tennessee**
-
-![SLATE](http://icl.bitbucket.io/slate/artwork/SLATE-Architecture-Illustration.png#architecture)
 
 * * *
 

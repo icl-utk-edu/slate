@@ -30,6 +30,15 @@ In this respect, SLATE will serve as a replacement for LAPACK and ScaLAPACK,
 which, after two decades of operation, cannot be adequately retrofitted
 for modern, GPU-accelerated architectures.
 
+SLATE is built on top of standards, such as MPI and OpenMP,
+and de facto-standard industry solutions such as NVIDIA CUDA and AMD HIP.
+SLATE also relies on high performance implementations of numerical kernels from vendor libraries,
+such as Intel MKL, IBM ESSL, NVIDIA cuBLAS, and AMD rocBLAS.
+SLATE interacts with these libraries through a layer of C++ APIs.
+This figure shows SLATE's position in the ECP software stack.
+
+![SLATE software stack](http://icl.bitbucket.io/slate/artwork/Bitbucket/software_stack.png)
+
 The charts shows how heavily ECP applications depend
 on dense linear algebra software.
 A direct dependency means that the application's source code
@@ -41,16 +50,7 @@ Out of 60 ECP applications, 38 depend on BLAS - either directly on indirectly -
 In other words, the use of dense linear algebra software is ubiquitous
 among ECP applications.
 
-![dependency charts](http://icl.bitbucket.io/slate/artwork/Bitbucket/dependency_chart.png)
-
-SLATE is built on top of standards, such as MPI and OpenMP,
-and de facto-standard industry solutions such as NVIDIA CUDA and AMD HIP.
-SLATE also relies on high performance implementations of numerical kernels from vendor libraries,
-such as Intel MKL, IBM ESSL, NVIDIA cuBLAS, and AMD rocBLAS.
-SLATE interacts with these libraries through a layer of C++ APIs.
-This figure shows SLATE's position in the ECP software stack.
-
-![dependency charts](http://icl.bitbucket.io/slate/artwork/Bitbucket/software_stack.png)
+![ECP dependency charts](http://icl.bitbucket.io/slate/artwork/Bitbucket/dependency_chart.png)
 
 * * *
 

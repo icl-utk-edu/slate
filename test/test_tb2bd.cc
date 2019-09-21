@@ -53,6 +53,7 @@ void test_tb2bd_work(
 
     std::vector<scalar_t> A1( lda*n );
     lapack::larnv(1, seed, A1.size(), &A1[0]);
+    std::vector<scalar_t> A3( lda*n );
 
     // zero outside the upper band
     for (int64_t j = 0; j < n; ++j) {
@@ -89,14 +90,60 @@ void test_tb2bd_work(
 
     auto Afull = slate::Matrix<scalar_t>::fromLAPACK(
         m, n, &A1[0], lda, nb, p, q, MPI_COMM_WORLD);
+
+    auto Afullrm = slate::Matrix<scalar_t>::fromLAPACK(
+        m, n, &A3[0], lda, nb, 1, 1, MPI_COMM_WORLD);
+    auto Abandrm = slate::BandMatrix<scalar_t>(ku, ku, Afullrm);
     //auto Aband = slate::BandMatrix<scalar_t>(ku, ku, Afull);
-    //auto A     = slate::TriangularBandMatrix<scalar_t>( lapack::Uplo::Upper,
-    //                                                    lapack::Diag::NonUnit,
-    //                                                    Aband);
-    auto A = slate::TriangularBandMatrix<scalar_t>(
-                        slate::Uplo::Upper, slate::Diag::NonUnit,
-                        m, ku, nb, p, q, MPI_COMM_WORLD);
-    slate::internal::copyge2tb(Afull, A);
+    auto A     = slate::TriangularBandMatrix<scalar_t>( lapack::Uplo::Upper,
+                                                        lapack::Diag::NonUnit,
+                                                        Abandrm);
+    //auto A = slate::TriangularBandMatrix<scalar_t>(
+    //                    slate::Uplo::Upper, slate::Diag::NonUnit,
+    //                    m, ku, nb, p, q, MPI_COMM_WORLD);
+    //slate::internal::copyge2tb(Afull, A);
+    //print_matrix( "Aband", Aband);
+
+    A.ge2tbGather(Afull);
+
+    int index = 0; // index in Ad storage
+    int jj = 0; // col index
+    for (int j = 0; j < A.nt(); ++j) {
+        int ii = 0; // row index
+        for (int i = 0; i < A.mt(); ++i) {
+            if (A.tileIsLocal(i, j) &&
+                ((ii == jj) ||
+                 ( ii < jj && (jj - (ii + A.tileMb(i) - 1)) <= (A.bandwidth()+1) ) ) )
+            {
+
+                if (i == j) {
+                    //lapack::laset(lapack::MatrixType::Lower, A(i, j).mb(), A(i, j).nb(),
+                    //      0, 0, A(i, j).data(), A(i, j).stride());
+                    if (i > 0) {
+                        auto T_ptr = A.tileInsert( i, j-1 );
+                        lapack::laset(lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
+                              0, 0, T_ptr->data(), T_ptr->stride());
+                    }
+                }
+
+                if ((j < A.nt()-1) && (i == (j - 1))) {
+                    //lapack::laset(lapack::MatrixType::Upper, A(i, j).mb(), A(i, j).nb(),
+                    //      0, 0, A(i, j).data(), A(i, j).stride());
+                    auto T_ptr = A.tileInsert( i, j+1 );
+                    lapack::laset(lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
+                          0, 0, T_ptr->data(), T_ptr->stride());
+                }
+            }
+            ii += A.tileMb(i);
+        }
+        jj += A.tileNb(j);
+    }
+    /*
+    */
+
+    //print_matrix("A", A);
+
+
     
     //---------
     // run test
@@ -111,7 +158,9 @@ void test_tb2bd_work(
     //==================================================
     // Run SLATE test.
     //==================================================
-    slate::tb2bd(A);
+    if (mpi_rank == 0) {
+        slate::tb2bd(A);
+    }   
 
     {
         slate::trace::Block trace_block("MPI_Barrier");

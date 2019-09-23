@@ -244,7 +244,6 @@ libslate_src += \
 # internal
 libslate_src += \
         src/internal/internal_comm.cc \
-        src/internal/internal_copyge2tb.cc \
         src/internal/internal_copytb2bd.cc \
         src/internal/internal_gecopy.cc \
         src/internal/internal_gbnorm.cc \

@@ -295,7 +295,8 @@ void TriangularBandMatrix<scalar_t>::gather(scalar_t* A, int64_t lda)
 }
 
 //------------------------------------------------------------------------------
-/// Gathers the distributed TriangularBandMatrix (A) to TriangularBandMatrix (B) on MPI rank 0.
+/// Gather the distributed triangular band portion of a general Matrix A
+//  to TriangularBandMatrix B on MPI rank 0. 
 /// Primarily for SVD code
 ///
 template <typename scalar_t>
@@ -307,7 +308,7 @@ void TriangularBandMatrix<scalar_t>::ge2tbGather(Matrix<scalar_t>& A)
 
     int64_t mt = A.mt();
     int64_t nt = A.nt();
-    int64_t kdt = 1; //ceildiv( this->kd_, this->tileNb(0) );
+    int64_t kdt = ceildiv( this->kd_, this->tileNb(0) );
     // ii, jj are row, col indices
     // i, j are tile (block row, block col) indices
     int64_t jj = 0;

@@ -469,7 +469,7 @@ void test_HermitianMatrix_emptyLike()
 /// emptyLike with mb, nb overriding size.
 void test_HermitianMatrix_emptyLikeMbNb()
 {
-    using llong = long long;
+    //using llong = long long;
 
     int mtiles, mtiles_local, m_local, lda;
     int ntiles, ntiles_local, n_local;

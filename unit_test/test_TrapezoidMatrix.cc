@@ -525,7 +525,7 @@ void test_TrapezoidMatrix_emptyLike()
 /// emptyLike with nb overriding size.
 void test_TrapezoidMatrix_emptyLikeMbNb()
 {
-    using llong = long long;
+    //using llong = long long;
 
     int mtiles, mtiles_local, m_local, lda;
     int ntiles, ntiles_local, n_local;

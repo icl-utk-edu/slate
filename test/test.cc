@@ -146,7 +146,7 @@ std::vector< libtest::routines_t > routines = {
     // -----
     // QR, LQ, RQ, QL
     { "geqrf",              test_geqrf,     Section::qr },
-    //{ "gelqf",              test_gelqf,     Section::qr },
+    { "gelqf",              test_gelqf,     Section::qr },
     //{ "geqlf",              test_geqlf,     Section::qr },
     //{ "gerqf",              test_gerqf,     Section::qr },
     { "",                   nullptr,        Section::newline },
@@ -162,6 +162,11 @@ std::vector< libtest::routines_t > routines = {
     //{ "unmql",              test_unmql,     Section::qr },
     //{ "unmrq",              test_unmrq,     Section::qr },
     //{ "",                   nullptr,        Section::newline },
+
+    // -----
+  //{ "gesvd",              test_gesvd,         Section::svd },
+    { "ge2tb",              test_ge2tb,         Section::svd },
+    { "",                   nullptr,            Section::newline },
 
     // -----
     // matrix norms

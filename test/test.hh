@@ -148,12 +148,14 @@ void test_herk   (Params& params, bool run);
 
 // LU, general
 void test_gesv   (Params& params, bool run);
+void test_getri  (Params& params, bool run);
 
 // LU, band
 void test_gbsv   (Params& params, bool run);
 
 // Cholesky
 void test_posv   (Params& params, bool run);
+void test_potri  (Params& params, bool run);
 
 // symmetric indefinite
 void test_sysv   (Params& params, bool run);
@@ -168,6 +170,16 @@ void test_hetrs  (Params& params, bool run);
 // QR, LQ, RQ, QL
 void test_gels   (Params& params, bool run);
 void test_geqrf  (Params& params, bool run);
+void test_gelqf  (Params& params, bool run);
+
+// SVD
+void test_gesvd  (Params& params, bool run);
+void test_ge2tb  (Params& params, bool run);
+void test_tb2bd  (Params& params, bool run);
+void test_bdsqr  (Params& params, bool run);
+
+// Eigen
+void test_sterf  (Params& params, bool run);
 
 // matrix norms
 void test_gbnorm (Params& params, bool run);
@@ -175,18 +187,6 @@ void test_genorm (Params& params, bool run);
 void test_henorm (Params& params, bool run);
 void test_synorm (Params& params, bool run);
 void test_trnorm (Params& params, bool run);
-
-// Inverse
-void test_potri  (Params& params, bool run);
-void test_getri  (Params& params, bool run);
-
-// SVD
-void test_tb2bd  (Params& params, bool run);
-void test_bdsqr  (Params& params, bool run);
-void test_gesvd  (Params& params, bool run);
-
-// Eignen
-void test_sterf  (Params& params, bool run);
 
 // -----------------------------------------------------------------------------
 inline slate::Origin str2origin(const char* origin)

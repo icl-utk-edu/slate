@@ -40,7 +40,7 @@
 #ifndef SLATE_HERMITIAN_MATRIX_HH
 #define SLATE_HERMITIAN_MATRIX_HH
 
-#include "slate/internal/BaseTrapezoidMatrix.hh"
+#include "slate/BaseTrapezoidMatrix.hh"
 #include "slate/Matrix.hh"
 #include "slate/Tile.hh"
 #include "slate/types.hh"
@@ -59,8 +59,16 @@ namespace slate {
 template <typename scalar_t>
 class HermitianMatrix: public BaseTrapezoidMatrix<scalar_t> {
 public:
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
+
     // constructors
     HermitianMatrix();
+
+    HermitianMatrix(Uplo uplo, int64_t n,
+                    std::function<int64_t (int64_t j)>& inTileNb,
+                    std::function<int (ij_tuple ij)>& inTileRank,
+                    std::function<int (ij_tuple ij)>& inTileDevice,
+                    MPI_Comm mpi_comm);
 
     HermitianMatrix(Uplo uplo, int64_t n, int64_t nb,
                     int p, int q, MPI_Comm mpi_comm);
@@ -83,7 +91,7 @@ public:
     // conversion
     explicit HermitianMatrix(BaseTrapezoidMatrix<scalar_t>& orig);
 
-    HermitianMatrix(Uplo uplo, Matrix<scalar_t>& orig);
+    HermitianMatrix(Uplo uplo, BaseMatrix<scalar_t>& orig);
 
     // on-diagonal sub-matrix
     HermitianMatrix sub(int64_t i1, int64_t i2);
@@ -95,7 +103,8 @@ public:
                            int64_t col1, int64_t col2);
 
     template <typename out_scalar_t=scalar_t>
-    HermitianMatrix<out_scalar_t> emptyLike();
+    HermitianMatrix<out_scalar_t> emptyLike(int64_t nb=0,
+                                            Op deepOp=Op::NoTrans);
 
 protected:
     // used by fromLAPACK and fromScaLAPACK
@@ -108,7 +117,7 @@ protected:
                     scalar_t** Aarray, int num_devices, int64_t lda,
                     int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
-    // used by sub
+    // used by on-diagonal sub(i1, i2)
     HermitianMatrix(HermitianMatrix& orig,
                     int64_t i1, int64_t i2);
 
@@ -124,15 +133,31 @@ public:
 //------------------------------------------------------------------------------
 /// Default constructor creates an empty matrix.
 template <typename scalar_t>
-HermitianMatrix<scalar_t>::HermitianMatrix():
-    BaseTrapezoidMatrix<scalar_t>()
+HermitianMatrix<scalar_t>::HermitianMatrix()
+    : BaseTrapezoidMatrix<scalar_t>()
 {}
 
 //------------------------------------------------------------------------------
-/// Constructor creates an n-by-n matrix, with no tiles allocated.
+/// Constructor creates an n-by-n matrix, with no tiles allocated,
+/// where tileNb, tileRank, tileDevice are given as functions.
 /// Tiles can be added with tileInsert().
-//
-// todo: have allocate flag? If true, allocate data; else user will insert tiles?
+///
+template <typename scalar_t>
+HermitianMatrix<scalar_t>::HermitianMatrix(
+    Uplo uplo, int64_t n,
+    std::function<int64_t (int64_t j)>& inTileNb,
+    std::function<int (ij_tuple ij)>& inTileRank,
+    std::function<int (ij_tuple ij)>& inTileDevice,
+    MPI_Comm mpi_comm)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, n, n, inTileNb, inTileRank,
+                                    inTileDevice, mpi_comm)
+{}
+
+//------------------------------------------------------------------------------
+/// Constructor creates an n-by-n matrix, with no tiles allocated,
+/// with fixed nb-by-nb tile size and 2D block cyclic distribution.
+/// Tiles can be added with tileInsert().
+///
 template <typename scalar_t>
 HermitianMatrix<scalar_t>::HermitianMatrix(
     Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
@@ -145,7 +170,7 @@ HermitianMatrix<scalar_t>::HermitianMatrix(
 /// Construct matrix by wrapping existing memory of an n-by-n lower
 /// or upper Hermitian LAPACK-style matrix.
 ///
-/// @param[in] in_uplo
+/// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
 ///     - Lower: lower triangle of A is stored.
 ///
@@ -177,7 +202,7 @@ HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::fromLAPACK(
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
-    return HermitianMatrix(uplo, n, A, lda, nb, p, q, mpi_comm, false);
+    return HermitianMatrix<scalar_t>(uplo, n, A, lda, nb, p, q, mpi_comm, false);
 }
 
 //------------------------------------------------------------------------------
@@ -187,7 +212,7 @@ HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::fromLAPACK(
 /// or upper Hermitian ScaLAPACK-style matrix.
 /// @see BaseTrapezoidMatrix
 ///
-/// @param[in] in_uplo
+/// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
 ///     - Lower: lower triangle of A is stored.
 ///
@@ -220,7 +245,7 @@ HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::fromScaLAPACK(
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
-    return HermitianMatrix(uplo, n, A, lda, nb, p, q, mpi_comm, true);
+    return HermitianMatrix<scalar_t>(uplo, n, A, lda, nb, p, q, mpi_comm, true);
 }
 
 //------------------------------------------------------------------------------
@@ -231,7 +256,7 @@ HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::fromScaLAPACK(
 /// or upper Hermitian ScaLAPACK-style matrix.
 /// @see BaseTrapezoidMatrix
 ///
-/// @param[in] in_uplo
+/// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
 ///     - Lower: lower triangle of A is stored.
 ///
@@ -305,7 +330,7 @@ HermitianMatrix<scalar_t>::HermitianMatrix(
 /// [explicit]
 /// Conversion from trapezoid, triangular, symmetric, or Hermitian matrix
 /// creates a shallow copy view of the original matrix.
-/// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+/// Orig must be square -- slice beforehand if needed.
 ///
 /// @param[in,out] orig
 ///     Original matrix.
@@ -313,18 +338,18 @@ HermitianMatrix<scalar_t>::HermitianMatrix(
 template <typename scalar_t>
 HermitianMatrix<scalar_t>::HermitianMatrix(
     BaseTrapezoidMatrix<scalar_t>& orig)
-    : BaseTrapezoidMatrix<scalar_t>(
-          orig,
-          0, std::min(orig.mt()-1, orig.nt()-1),
-          0, std::min(orig.mt()-1, orig.nt()-1))
-{}
+    : BaseTrapezoidMatrix<scalar_t>(orig)
+{
+    slate_assert(orig.mt() == orig.nt());
+    slate_assert(orig.m() == orig.n());
+}
 
 //------------------------------------------------------------------------------
 /// Conversion from general matrix
 /// creates a shallow copy view of the original matrix.
-/// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+/// Orig must be square -- slice beforehand if needed.
 ///
-/// @param[in] in_uplo
+/// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
 ///     - Lower: lower triangle of A is stored.
 ///
@@ -333,12 +358,12 @@ HermitianMatrix<scalar_t>::HermitianMatrix(
 ///
 template <typename scalar_t>
 HermitianMatrix<scalar_t>::HermitianMatrix(
-    Uplo uplo, Matrix<scalar_t>& orig)
-    : BaseTrapezoidMatrix<scalar_t>(
-          uplo, orig,
-          0, std::min(orig.mt()-1, orig.nt()-1),
-          0, std::min(orig.mt()-1, orig.nt()-1))
-{}
+    Uplo uplo, BaseMatrix<scalar_t>& orig)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, orig)
+{
+    slate_assert(orig.mt() == orig.nt());
+    slate_assert(orig.m() == orig.n());
+}
 
 //------------------------------------------------------------------------------
 /// Sub-matrix constructor creates shallow copy view of parent matrix,
@@ -379,7 +404,7 @@ template <typename scalar_t>
 HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::sub(
     int64_t i1, int64_t i2)
 {
-    return HermitianMatrix(*this, i1, i2);
+    return HermitianMatrix<scalar_t>(*this, i1, i2);
 }
 
 //------------------------------------------------------------------------------
@@ -495,32 +520,11 @@ void swap(HermitianMatrix<scalar_t>& A, HermitianMatrix<scalar_t>& B)
 ///
 template <typename scalar_t>
 template <typename out_scalar_t>
-HermitianMatrix<out_scalar_t> HermitianMatrix<scalar_t>::emptyLike()
+HermitianMatrix<out_scalar_t> HermitianMatrix<scalar_t>::emptyLike(
+    int64_t nb, Op deepOp)
 {
-    // First create parent matrix, apply op, then return sub-matrix.
-    // TODO: currently assumes 2DBC and fixed mb == nb.
-    int64_t nb = std::max(this->tileMb(0), this->tileNb(0));
-    assert(nb == this->tileMb(0) || this->m() == this->tileMb(0));
-    assert(nb == this->tileNb(0) || this->n() == this->tileNb(0));
-
-    int64_t ioffset = this->ioffset();
-    int64_t joffset = this->joffset();
-    assert(ioffset == joffset);
-
-    int64_t n = joffset*nb + this->n();
-
-    int p = this->storage_->p();
-    int q = this->storage_->q();
-
-    auto B = HermitianMatrix<out_scalar_t>(
-                this->uploPhysical(), n, nb, p, q, this->mpiComm());
-    if (this->op() == Op::Trans) {
-        B = transpose( B );
-    }
-    else if (this->op() == Op::ConjTrans) {
-        B = conj_transpose( B );
-    }
-    return B.sub(ioffset, ioffset + this->nt() - 1);
+    auto B = this->template baseEmptyLike<out_scalar_t>(nb, nb, deepOp);
+    return HermitianMatrix<out_scalar_t>(this->uplo(), B);
 }
 
 } // namespace slate

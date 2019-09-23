@@ -118,7 +118,7 @@ void slate_posv(const char* uplostr, const int n, const int nrhs, scalar_t* a, c
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target}
         });
-    
+
     slate_lapack_set_num_blas_threads(saved_num_blas_threads);
 
     // todo:  get a real value for info

@@ -93,8 +93,8 @@ void hetrs(slate::internal::TargetType<target>,
     }
 
     // band solve
-   gbtrs(T, pivots2, B,
-         {{Option::Lookahead, lookahead}});
+    gbtrs(T, pivots2, B,
+          {{Option::Lookahead, lookahead}});
 
     if (A_nt > 1) {
         // backward substitution with L^T from Aasen's
@@ -133,7 +133,7 @@ void hetrs(HermitianMatrix<scalar_t>& A, Pivots& pivots,
         lookahead = opts.at(Option::Lookahead).i_;
         assert(lookahead >= 0);
     }
-    catch (std::out_of_range) {
+    catch (std::out_of_range&) {
         lookahead = 1;
     }
 
@@ -193,7 +193,7 @@ void hetrs(HermitianMatrix<scalar_t>& A, Pivots& pivots,
     try {
         target = Target(opts.at(Option::Target).i_);
     }
-    catch (std::out_of_range) {
+    catch (std::out_of_range&) {
         target = Target::HostTask;
     }
 

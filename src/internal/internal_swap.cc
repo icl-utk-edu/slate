@@ -176,7 +176,7 @@ void swap(internal::TargetType<Target::HostTask>,
                 bool src_local = A.tileIsLocal(pivot.second.tileIndex(), j);
                 bool dst_local = A.tileIsLocal(pivot.first.tileIndex(), j);
 
-                if (src_local && !dst_local) {
+                if (src_local && ! dst_local) {
 
                     requests.resize(requests.size()+1);
                     int dest = A.tileRank(pivot.first.tileIndex(), j);
@@ -184,7 +184,7 @@ void swap(internal::TargetType<Target::HostTask>,
                               mpi_type<scalar_t>::value, dest, tag, A.mpiComm(),
                               &requests[requests.size()-1]);
                 }
-                if (!src_local && dst_local) {
+                if (! src_local && dst_local) {
 
                     requests.resize(requests.size()+1);
                     int source = A.tileRank(pivot.second.tileIndex(), j);
@@ -337,8 +337,8 @@ void swap(internal::TargetType<Target::HostBatch>,
 inline cublasStatus_t cublasSwap(
     cublasHandle_t handle,
     int n,
-    float *x, int incx,
-    float *y, int incy)
+    float* x, int incx,
+    float* y, int incy)
 {
     return cublasSswap(handle, n, x, incx, y, incy);
 }
@@ -346,8 +346,8 @@ inline cublasStatus_t cublasSwap(
 inline cublasStatus_t cublasSwap(
     cublasHandle_t handle,
     int n,
-    double *x, int incx,
-    double *y, int incy)
+    double* x, int incx,
+    double* y, int incy)
 {
     return cublasDswap(handle, n, x, incx, y, incy);
 }

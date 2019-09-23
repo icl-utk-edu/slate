@@ -160,8 +160,8 @@ void getrf(slate::internal::TargetType<target>,
             }
             // pivot to the left, high priority
             // if (k > 0) {
-            //     #pragma omp task depend(in:column[k]) \
-            //                      depend(inout:column[0]) \
+            //     #pragma omp task depend(in:column[k])
+            //                      depend(inout:column[0])
             //                      depend(inout:column[k-1])
             //     {
             //         // swap rows in A(k:mt-1, 0:k-1)
@@ -251,7 +251,7 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
         lookahead = opts.at(Option::Lookahead).i_;
         assert(lookahead >= 0);
     }
-    catch (std::out_of_range) {
+    catch (std::out_of_range&) {
         lookahead = 1;
     }
 
@@ -260,7 +260,7 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
         ib = opts.at(Option::InnerBlocking).i_;
         assert(ib >= 0);
     }
-    catch (std::out_of_range) {
+    catch (std::out_of_range&) {
         ib = 16;
     }
 
@@ -269,7 +269,7 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
         max_panel_threads = opts.at(Option::MaxPanelThreads).i_;
         assert(max_panel_threads >= 1 && max_panel_threads <= omp_get_max_threads());
     }
-    catch (std::out_of_range) {
+    catch (std::out_of_range&) {
         max_panel_threads = std::max(omp_get_max_threads()/2, 1);
     }
 
@@ -339,7 +339,7 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
     try {
         target = Target(opts.at(Option::Target).i_);
     }
-    catch (std::out_of_range) {
+    catch (std::out_of_range&) {
         target = Target::HostTask;
     }
 

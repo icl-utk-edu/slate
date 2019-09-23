@@ -2,9 +2,11 @@
 #define SLATE_SCALAPACK_COPY_HH
 
 #include <slate/Matrix.hh>
-#include <slate/internal/BaseTrapezoidMatrix.hh>
+#include <slate/BaseTrapezoidMatrix.hh>
 #include <lapack.hh>
 #include <slate/internal/cublas.hh>
+
+#include "scalapack_wrappers.hh"
 
 //------------------------------------------------------------------------------
 /// Indices for ScaLAPACK descriptor

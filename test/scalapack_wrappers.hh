@@ -11,6 +11,8 @@
 // get BLAS_FORTRAN_NAME and blas_int
 #include "blas_fortran.hh"
 
+#include "slate/Exception.hh"
+
 #include <complex>
 #include <limits>
 
@@ -1100,6 +1102,102 @@ inline void scalapack_pgeqrf(
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
+#define scalapack_psgelqf BLAS_FORTRAN_NAME( psgelqf, PSGELQF )
+#define scalapack_pdgelqf BLAS_FORTRAN_NAME( pdgelqf, PDGELQF )
+#define scalapack_pcgelqf BLAS_FORTRAN_NAME( pcgelqf, PCGELQF )
+#define scalapack_pzgelqf BLAS_FORTRAN_NAME( pzgelqf, PZGELQF )
+
+extern "C" void scalapack_psgelqf(
+    blas_int* M, blas_int* N,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* tau,
+    float* work, blas_int* lwork,
+    blas_int* info);
+
+extern "C" void scalapack_pdgelqf(
+    blas_int* M, blas_int* N,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* tau,
+    double* work, blas_int* lwork,
+    blas_int* info);
+
+extern "C" void scalapack_pcgelqf(
+    blas_int* M, blas_int* N,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<float>* tau,
+    std::complex<float>* work, blas_int* lwork,
+    blas_int* info);
+
+extern "C" void scalapack_pzgelqf(
+    blas_int* M, blas_int* N,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<double>* tau,
+    std::complex<double>* work, blas_int* lwork,
+    blas_int* info);
+
+// -----------------------------------------------------------------------------
+
+inline void scalapack_pgelqf(
+    blas_int* M, blas_int* N,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* tau,
+    float* work, blas_int* lwork,
+    blas_int* info)
+{
+    scalapack_psgelqf(M, N, A, ia, ja, descA, tau, work, lwork, info);
+}
+
+inline void scalapack_pgelqf(
+    blas_int* M, blas_int* N,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* tau,
+    double* work, blas_int* lwork,
+    blas_int* info)
+{
+    scalapack_pdgelqf(M, N, A, ia, ja, descA, tau, work, lwork, info);
+}
+
+inline void scalapack_pgelqf(
+    blas_int* M, blas_int* N,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<float>* tau,
+    std::complex<float>* work, blas_int* lwork,
+    blas_int* info)
+{
+    scalapack_pcgelqf(M, N, A, ia, ja, descA, tau, work, lwork, info);
+}
+
+inline void scalapack_pgelqf(
+    blas_int* M, blas_int* N,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<double>* tau,
+    std::complex<double>* work, blas_int* lwork,
+    blas_int* info)
+{
+    scalapack_pzgelqf(M, N, A, ia, ja, descA, tau, work, lwork, info);
+}
+
+template <typename scalar_t>
+inline void scalapack_pgelqf(
+    int64_t M, int64_t N,
+    scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
+    scalar_t* tau,
+    scalar_t* work, int64_t lwork,
+    int64_t* info)
+{
+    blas_int M_ = int64_to_int(M);
+    blas_int N_ = int64_to_int(N);
+    blas_int ia_ = int64_to_int(ia);
+    blas_int ja_ = int64_to_int(ja);
+    blas_int lwork_ = int64_to_int(lwork);
+    blas_int info_ = int64_to_int(*info);
+    scalapack_pgelqf(&M_, &N_, A, &ia_, &ja_, descA, tau, work, &lwork_, &info_);
+    *info = (int64_t)info_;
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
 #define scalapack_psormqr BLAS_FORTRAN_NAME( psormqr, PSORMQR )
 #define scalapack_pdormqr BLAS_FORTRAN_NAME( pdormqr, PDORMQR )
 #define scalapack_pcunmqr BLAS_FORTRAN_NAME( pcunmqr, PCUNMQR )
@@ -1215,6 +1313,128 @@ inline void scalapack_punmqr(
     blas_int lwork_ = int64_to_int(lwork);
     blas_int info_ = int64_to_int(*info);
     scalapack_punmqr(side, trans, &M_, &N_, &K_, A, &ia_, &ja_, descA, tau,
+                     C, &ic_, &jc_, descC, work, &lwork_, &info_);
+    *info = (int64_t)info_;
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+#define scalapack_psormlq BLAS_FORTRAN_NAME( psormlq, PSORMLQ )
+#define scalapack_pdormlq BLAS_FORTRAN_NAME( pdormlq, PDORMLQ )
+#define scalapack_pcunmlq BLAS_FORTRAN_NAME( pcunmlq, PCUNMLQ )
+#define scalapack_pzunmlq BLAS_FORTRAN_NAME( pzunmlq, PZUNMLQ )
+
+extern "C" void scalapack_psormlq(
+    const char* side, const char* trans,
+    blas_int* M, blas_int* N, blas_int* K,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* tau,
+    float* C, blas_int* ic, blas_int* jc, blas_int* descC,
+    float* work, blas_int* lwork,
+    blas_int* info);
+
+extern "C" void scalapack_pdormlq(
+    const char* side, const char* trans,
+    blas_int* M, blas_int* N, blas_int* K,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* tau,
+    double* C, blas_int* ic, blas_int* jc, blas_int* descC,
+    double* work, blas_int* lwork,
+    blas_int* info);
+
+extern "C" void scalapack_pcunmlq(
+    const char* side, const char* trans,
+    blas_int* M, blas_int* N, blas_int* K,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<float>* tau,
+    std::complex<float>* C, blas_int* ic, blas_int* jc, blas_int* descC,
+    std::complex<float>* work, blas_int* lwork,
+    blas_int* info);
+
+extern "C" void scalapack_pzunmlq(
+    const char* side, const char* trans,
+    blas_int* M, blas_int* N, blas_int* K,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<double>* tau,
+    std::complex<double>* C, blas_int* ic, blas_int* jc, blas_int* descC,
+    std::complex<double>* work, blas_int* lwork,
+    blas_int* info);
+
+// -----------------------------------------------------------------------------
+
+inline void scalapack_punmlq(
+    const char* side, const char* trans,
+    blas_int* M, blas_int* N, blas_int* K,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* tau,
+    float* C, blas_int* ic, blas_int* jc, blas_int* descC,
+    float* work, blas_int* lwork,
+    blas_int* info)
+{
+    scalapack_psormlq(side, trans, M, N, K, A, ia, ja, descA, tau,
+                      C, ic, jc, descC, work, lwork, info);
+}
+
+inline void scalapack_punmlq(
+    const char* side, const char* trans,
+    blas_int* M, blas_int* N, blas_int* K,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* tau,
+    double* C, blas_int* ic, blas_int* jc, blas_int* descC,
+    double* work, blas_int* lwork,
+    blas_int* info)
+{
+    scalapack_pdormlq(side, trans, M, N, K, A, ia, ja, descA, tau,
+                      C, ic, jc, descC, work, lwork, info);
+}
+
+inline void scalapack_punmlq(
+    const char* side, const char* trans,
+    blas_int* M, blas_int* N, blas_int* K,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<float>* tau,
+    std::complex<float>* C, blas_int* ic, blas_int* jc, blas_int* descC,
+    std::complex<float>* work, blas_int* lwork,
+    blas_int* info)
+{
+    scalapack_pcunmlq(side, trans, M, N, K, A, ia, ja, descA, tau,
+                      C, ic, jc, descC, work, lwork, info);
+}
+
+inline void scalapack_punmlq(
+    const char* side, const char* trans,
+    blas_int* M, blas_int* N, blas_int* K,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<double>* tau,
+    std::complex<double>* C, blas_int* ic, blas_int* jc, blas_int* descC,
+    std::complex<double>* work, blas_int* lwork,
+    blas_int* info)
+{
+    scalapack_pzunmlq(side, trans, M, N, K, A, ia, ja, descA, tau,
+                      C, ic, jc, descC, work, lwork, info);
+}
+
+template <typename scalar_t>
+inline void scalapack_punmlq(
+    const char* side, const char* trans,
+    int64_t M, int64_t N, int64_t K,
+    scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
+    scalar_t* tau,
+    scalar_t* C, int64_t ic, int64_t jc, blas_int* descC,
+    scalar_t* work, int64_t lwork,
+    int64_t* info)
+{
+    blas_int M_ = int64_to_int(M);
+    blas_int N_ = int64_to_int(N);
+    blas_int K_ = int64_to_int(K);
+    blas_int ia_ = int64_to_int(ia);
+    blas_int ja_ = int64_to_int(ja);
+    blas_int ic_ = int64_to_int(ic);
+    blas_int jc_ = int64_to_int(jc);
+    blas_int lwork_ = int64_to_int(lwork);
+    blas_int info_ = int64_to_int(*info);
+    scalapack_punmlq(side, trans, &M_, &N_, &K_, A, &ia_, &ja_, descA, tau,
                      C, &ic_, &jc_, descC, work, &lwork_, &info_);
     *info = (int64_t)info_;
 }

@@ -1,14 +1,10 @@
-      __| |      \__ __| __|
-    \__ \ |     _ \  |   _|
-    ____/____|_/  _\_|  ___|
+![SLATE banner](http://icl.bitbucket.io/slate/artwork/Bitbucket/slate_banner.png)
 
 **Software for Linear Algebra Targeting Exascale**
 
 **Innovative Computing Laboratory**
 
 **University of Tennessee**
-
-![SLATE](http://icl.bitbucket.io/slate/artwork/ecp-slate.jpg)
 
 * * *
 
@@ -19,57 +15,52 @@
 About
 =====
 
-The objective of the Software for Linear Algebra Targeting Exascale (SLATE) project
-is to provide fundamental dense linear algebra capabilities
-to the US Department of Energy
-and to the high-performance computing (HPC) community at large.
-To this end, SLATE will provide basic dense matrix operations
-(e.g., matrix multiplication, rank-k update, triangular solve),
-linear systems solvers, least square solvers, singular value and eigenvalue solvers.
+Software for Linear Algebra Targeting Exascale (SLATE) is being developed
+as part of the Exascale Computing Project (ECP),
+which is a joint project of the U.S. Department of Energy's Office of Science
+and National Nuclear Security Administration (NNSA).
+SLATE will deliver fundamental dense linear algebra capabilities
+for current and upcoming distributed-memory systems,
+including GPU-accelerated systems as well as more traditional multi core-only systems.
 
-The ultimate objective of SLATE is to replace
-the venerable Scalable Linear Algebra PACKage (ScaLAPACK) library,
-which has become the industry standard for dense linear algebra operations
-in distributed memory environments.
-However, after two decades of operation, ScaLAPACK is past the end of its lifecycle
-and overdue for a replacement, as it can hardly be retrofitted
-to support hardware accelerators, which are an integral part
-of today's HPC hardware infrastructure.
+SLATE will provide coverage of existing LAPACK and ScaLAPACK functionality,
+including parallel implementations of Basic Linear Algebra Subroutines (BLAS),
+linear systems solvers, least squares solvers, and singular value and eigenvalue solvers.
+In this respect, SLATE will serve as a replacement for LAPACK and ScaLAPACK,
+which, after two decades of operation, cannot be adequately retrofitted
+for modern, GPU-accelerated architectures.
 
-Primarily, SLATE aims to extract the full performance potential and maximum scalability
-from modern, many-node HPC machines with large numbers of cores
-and multiple hardware accelerators per node.
-For typical dense linear algebra workloads, this means getting close
-to the theoretical peak performance and scaling to the full size of the machine
-(i.e., thousands to tens of thousands of nodes).
-This is to be accomplished in a portable manner by relying on standards
-like MPI and OpenMP.
+SLATE is built on top of standards, such as MPI and OpenMP,
+and de facto-standard industry solutions such as NVIDIA CUDA and AMD HIP.
+SLATE also relies on high performance implementations of numerical kernels from vendor libraries,
+such as Intel MKL, IBM ESSL, NVIDIA cuBLAS, and AMD rocBLAS.
+SLATE interacts with these libraries through a layer of C++ APIs.
+This figure shows SLATE's position in the ECP software stack.
 
-SLATE functionalities will first be delivered to the ECP applications
-that most urgently require SLATE capabilities
-(e.g., EXascale Atomistics with Accuracy, Length, and Time [EXAALT],
-NorthWest computational Chemistry for Exascale [NWChemEx],
-Quantum Monte Carlo PACKage [QMCPACK],
-General Atomic and Molecular Electronic Structure System [GAMESS],
-CANcer Distributed Learning Environment [CANDLE])
-and to other software libraries that rely on underlying dense linear algebra services
-(e.g., Factorization Based Sparse Solvers and Preconditioners [FBSS]).
-SLATE will also fill the void left by ScaLAPACK's inability
-to utilize hardware accelerators, and it will ease the difficulties
-associated with ScaLAPACK'slegacy matrix layout and Fortran API.
+![SLATE software stack](http://icl.bitbucket.io/slate/artwork/Bitbucket/software_stack.png)
 
-Also, part of the SLATE project is the development of C++ APIs
-for [BLAS++](https://bitbucket.org/icl/blaspp)
-and [LAPACK++](https://bitbucket.org/icl/lapackpp).
+The charts shows how heavily ECP applications depend
+on dense linear algebra software.
+A direct dependency means that the application's source code
+contains calls to the library's routines.
+An indirect dependency means that the application needs to be linked with the library
+due to another component depending on it.
+Out of 60 ECP applications, 38 depend on BLAS - either directly on indirectly -
+40 depend on LAPACK, and 14 depend on ScaLAPACK.
+In other words, the use of dense linear algebra software is ubiquitous
+among ECP applications.
+
+![ECP dependency charts](http://icl.bitbucket.io/slate/artwork/Bitbucket/dependency_chart.png)
 
 * * *
 
 Documentation
 =============
 
-* [SLATE Users' Guide](https://icl.bitbucket.io/slate/sphinx/html/)
+* [Building and Installing SLATE](https://bitbucket.org/icl/slate/wiki/Howto/Building_and_Installing_SLATE)
+* [Simple code samples and Makefile for using SLATE](https://bitbucket.org/icl/slate-tutorial/src/default/)
 * [SLATE Function Reference](https://icl.bitbucket.io/slate/doxygen/html/)
-* [SLATE Working Note 3: Designing SLATE: Software for Linear Algebra Targeting Exascale](http://www.icl.utk.edu/publications/swan-003)
+* [SLATE Website and Papers](http://icl.utk.edu/slate/)
 
 * * *
 

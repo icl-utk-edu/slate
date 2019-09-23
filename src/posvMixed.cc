@@ -112,7 +112,7 @@ void posvMixed( slate::internal::TargetType<target>,
     R.   insertLocalTiles(target);
     A_lo.insertLocalTiles(target);
 
-    if (target == Target::Devices){
+    if (target == Target::Devices) {
         A.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
         B.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
         X.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
@@ -214,7 +214,7 @@ void posvMixed( slate::internal::TargetType<target>,
         }
     }
 
-    if ( ! converged ) {
+    if (! converged) {
         // If we are at this place of the code, this is because we have performed
         // iter = itermax iterations and never satisfied the stopping criterion,
         // set up the iter flag accordingly and follow up with double precision
@@ -261,14 +261,14 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
         lookahead = opts.at(Option::Lookahead).i_;
         assert(lookahead >= 0);
     }
-    catch (std::out_of_range) {
+    catch (std::out_of_range&) {
         lookahead = 1;
     }
 
     internal::specialization::posvMixed<target, scalar_hi, scalar_lo>(
-                                        internal::TargetType<target>(),
-                                        A, B, X, iter,
-                                        lookahead);
+        internal::TargetType<target>(),
+        A, B, X, iter,
+        lookahead);
 }
 
 //------------------------------------------------------------------------------
@@ -365,7 +365,7 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
     try {
         target = Target(opts.at(Option::Target).i_);
     }
-    catch (std::out_of_range) {
+    catch (std::out_of_range&) {
         target = Target::HostTask;
     }
 
@@ -395,24 +395,24 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
 // Explicit instantiations.
 template <>
 void posvMixed<double>(
-                HermitianMatrix<double>& A,
-                Matrix<double>& B,
-                Matrix<double>& X,
-                int& iter,
-                const std::map<Option, Value>& opts)
+    HermitianMatrix<double>& A,
+    Matrix<double>& B,
+    Matrix<double>& X,
+    int& iter,
+    const std::map<Option, Value>& opts)
 {
-    posvMixed<double, float>( A, B, X, iter, opts);
+    posvMixed<double, float>(A, B, X, iter, opts);
 }
 
 template <>
 void posvMixed< std::complex<double> >(
-                HermitianMatrix< std::complex<double> >& A,
-                Matrix< std::complex<double> >& B,
-                Matrix< std::complex<double> >& X,
-                int& iter,
-                const std::map<Option, Value>& opts)
+    HermitianMatrix< std::complex<double> >& A,
+    Matrix< std::complex<double> >& B,
+    Matrix< std::complex<double> >& X,
+    int& iter,
+    const std::map<Option, Value>& opts)
 {
-    posvMixed<std::complex<double>, std::complex<float>>( A, B, X, iter, opts);
+    posvMixed<std::complex<double>, std::complex<float>>(A, B, X, iter, opts);
 }
 
 } // namespace slate

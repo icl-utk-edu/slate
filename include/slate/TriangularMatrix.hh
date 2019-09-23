@@ -40,7 +40,7 @@
 #ifndef SLATE_TRIANGULAR_MATRIX_HH
 #define SLATE_TRIANGULAR_MATRIX_HH
 
-#include "slate/internal/BaseTrapezoidMatrix.hh"
+#include "slate/BaseTrapezoidMatrix.hh"
 #include "slate/TrapezoidMatrix.hh"
 #include "slate/Matrix.hh"
 #include "slate/Tile.hh"
@@ -60,8 +60,16 @@ namespace slate {
 template <typename scalar_t>
 class TriangularMatrix: public TrapezoidMatrix<scalar_t> {
 public:
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
+
     // constructors
     TriangularMatrix();
+
+    TriangularMatrix(Uplo uplo, Diag diag, int64_t n,
+                     std::function<int64_t (int64_t j)>& inTileNb,
+                     std::function<int (ij_tuple ij)>& inTileRank,
+                     std::function<int (ij_tuple ij)>& inTileDevice,
+                     MPI_Comm mpi_comm);
 
     TriangularMatrix(Uplo uplo, Diag diag, int64_t n, int64_t nb,
                      int p, int q, MPI_Comm mpi_comm);
@@ -82,9 +90,11 @@ public:
                                  int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
     // conversion
+    TriangularMatrix(TrapezoidMatrix<scalar_t>& orig);
+
     TriangularMatrix(Diag diag, BaseTrapezoidMatrix<scalar_t>& orig);
 
-    TriangularMatrix(Uplo uplo, Diag diag, Matrix<scalar_t>& orig);
+    TriangularMatrix(Uplo uplo, Diag diag, BaseMatrix<scalar_t>& orig);
 
     // conversion sub-matrix
     TriangularMatrix(Diag diag, BaseTrapezoidMatrix<scalar_t>& orig,
@@ -103,6 +113,10 @@ public:
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
     Matrix<scalar_t> slice(int64_t row1, int64_t row2,
                            int64_t col1, int64_t col2);
+
+    template <typename out_scalar_t=scalar_t>
+    TriangularMatrix<out_scalar_t> emptyLike(int64_t nb=0,
+                                             Op deepOp=Op::NoTrans);
 
 protected:
     // used by fromLAPACK and fromScaLAPACK
@@ -136,10 +150,26 @@ TriangularMatrix<scalar_t>::TriangularMatrix()
 {}
 
 //------------------------------------------------------------------------------
-/// Constructor creates an n-by-n matrix, with no tiles allocated.
+/// Constructor creates an n-by-n matrix, with no tiles allocated,
+/// where tileNb, tileRank, tileDevice are given as functions.
 /// Tiles can be added with tileInsert().
-//
-// todo: have allocate flag? If true, allocate data; else user will insert tiles?
+///
+template <typename scalar_t>
+TriangularMatrix<scalar_t>::TriangularMatrix(
+    Uplo uplo, Diag diag, int64_t n,
+    std::function<int64_t (int64_t j)>& inTileNb,
+    std::function<int (ij_tuple ij)>& inTileRank,
+    std::function<int (ij_tuple ij)>& inTileDevice,
+    MPI_Comm mpi_comm)
+    : TrapezoidMatrix<scalar_t>(uplo, diag, n, n, inTileNb, inTileRank,
+                                inTileDevice, mpi_comm)
+{}
+
+//------------------------------------------------------------------------------
+/// Constructor creates an n-by-n matrix, with no tiles allocated,
+/// with fixed nb-by-nb tile size and 2D block cyclic distribution.
+/// Tiles can be added with tileInsert().
+///
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
     Uplo uplo, Diag diag, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
@@ -326,9 +356,26 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 {}
 
 //------------------------------------------------------------------------------
+/// Conversion from trapezoid or triangular matrix
+/// creates a shallow copy view of the original matrix.
+/// Orig must be square -- slice beforehand if needed.
+///
+/// @param[in,out] orig
+///     Original matrix.
+///
+template <typename scalar_t>
+TriangularMatrix<scalar_t>::TriangularMatrix(
+    TrapezoidMatrix<scalar_t>& orig)
+    : TrapezoidMatrix<scalar_t>(orig)
+{
+    slate_assert(orig.mt() == orig.nt());
+    slate_assert(orig.m() == orig.n());
+}
+
+//------------------------------------------------------------------------------
 /// Conversion from trapezoid, triangular, symmetric, or Hermitian matrix
 /// creates a shallow copy view of the original matrix.
-/// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+/// Orig must be square -- slice beforehand if needed.
 ///
 /// @param[in] diag
 ///     - NonUnit: A does not have unit diagonal.
@@ -341,11 +388,11 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
     Diag diag, BaseTrapezoidMatrix<scalar_t>& orig)
-    : TrapezoidMatrix<scalar_t>(
-          diag, orig,
-          0, std::min(orig.mt()-1, orig.nt()-1),
-          0, std::min(orig.mt()-1, orig.nt()-1))
-{}
+    : TrapezoidMatrix<scalar_t>(diag, orig)
+{
+    slate_assert(orig.mt() == orig.nt());
+    slate_assert(orig.m() == orig.n());
+}
 
 //------------------------------------------------------------------------------
 /// Conversion from trapezoid, triangular, symmetric, or Hermitian matrix
@@ -379,14 +426,13 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
     int64_t j1, int64_t j2)
     : TrapezoidMatrix<scalar_t>(diag, orig, i1, i2, j1, j2)
 {
-    if ((i2 - i1) != (j2 - j1))
-        throw std::runtime_error("i2 - i1 != j2 - j1, BaseTrapezoid");
+    slate_assert(i2 - i1 == j2 - j1);
 }
 
 //------------------------------------------------------------------------------
 /// Conversion from general matrix
 /// creates a shallow copy view of the original matrix.
-/// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+/// Orig must be square -- slice beforehand if needed.
 ///
 /// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
@@ -402,12 +448,12 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 ///
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
-    Uplo uplo, Diag diag, Matrix<scalar_t>& orig)
-    : TrapezoidMatrix<scalar_t>(
-          uplo, diag, orig,
-          0, std::min(orig.mt()-1, orig.nt()-1),
-          0, std::min(orig.mt()-1, orig.nt()-1))
-{}
+    Uplo uplo, Diag diag, BaseMatrix<scalar_t>& orig)
+    : TrapezoidMatrix<scalar_t>(uplo, diag, orig)
+{
+    slate_assert(orig.mt() == orig.nt());
+    slate_assert(orig.m() == orig.n());
+}
 
 //------------------------------------------------------------------------------
 /// Conversion from general matrix, sub-matrix constructor
@@ -593,6 +639,19 @@ void swap(TriangularMatrix<scalar_t>& A, TriangularMatrix<scalar_t>& B)
     using std::swap;
     swap(static_cast< TrapezoidMatrix<scalar_t>& >(A),
          static_cast< TrapezoidMatrix<scalar_t>& >(B));
+}
+
+//------------------------------------------------------------------------------
+/// Named constructor returns a new, empty Matrix with the same structure
+/// (size and distribution) as this matrix. Tiles are not allocated.
+///
+template <typename scalar_t>
+template <typename out_scalar_t>
+TriangularMatrix<out_scalar_t> TriangularMatrix<scalar_t>::emptyLike(
+    int64_t nb, Op deepOp)
+{
+    auto B = this->template baseEmptyLike<out_scalar_t>(nb, nb, deepOp);
+    return TriangularMatrix<out_scalar_t>(this->uplo(), this->diag(), B);
 }
 
 } // namespace slate

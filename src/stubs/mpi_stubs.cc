@@ -137,7 +137,7 @@ int MPI_Init(int* argc, char*** argv)
     return MPI_SUCCESS;
 }
 
-int MPI_Initialized(int *flag)
+int MPI_Initialized(int* flag)
 {
     *flag = 1;
     return MPI_SUCCESS;
@@ -167,12 +167,12 @@ int MPI_Recv(void* buf, int count, MPI_Datatype datatype, int source,
     assert(0);
 }
 
-int MPI_Op_create(MPI_User_function *user_fn, int commute, MPI_Op *op)
+int MPI_Op_create(MPI_User_function* user_fn, int commute, MPI_Op* op)
 {
     assert(0);
 }
 
-int MPI_Op_free(MPI_Op *op)
+int MPI_Op_free(MPI_Op* op)
 {
     assert(0);
 }
@@ -213,10 +213,10 @@ int MPI_Send(const void* buf, int count, MPI_Datatype datatype, int dest,
     assert(0);
 }
 
-int MPI_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
-                 int dest, int sendtag, void *recvbuf, int recvcount,
+int MPI_Sendrecv(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
+                 int dest, int sendtag, void* recvbuf, int recvcount,
                  MPI_Datatype recvtype, int source, int recvtag,
-                 MPI_Comm comm, MPI_Status *status)
+                 MPI_Comm comm, MPI_Status* status)
 {
     assert(0);
 }
@@ -242,7 +242,7 @@ int MPI_Wait(MPI_Request* request, MPI_Status* status)
     assert(0);
 }
 
-int MPI_Error_string(int errorcode, char *string, int *resultlen)
+int MPI_Error_string(int errorcode, char* string, int* resultlen)
 {
     assert(0);
 }

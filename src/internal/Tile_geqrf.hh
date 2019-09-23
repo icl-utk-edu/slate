@@ -64,7 +64,7 @@ namespace internal {
 /// @param[in] ib
 ///     internal blocking in the panel
 ///
-/// @param[inout] tiles
+/// @param[in,out] tiles
 ///     local tiles in the panel
 ///
 /// @param[in] tile_indices
@@ -261,9 +261,8 @@ void geqrf(
         }
 
         //====================================================
-        // T(1:i-1,i) := - tau(i) * V(i:j,1:i-1)**H * V(i:j,i)
-        if (k > 0)
-        {
+        // T(1:i-1,i) := - tau(i) * V(i:j,1:i-1)^H * V(i:j,i)
+        if (k > 0) {
             //------------------------------------
             // top block of T from the past panels
             for (int64_t idx = thread_rank;
@@ -440,7 +439,7 @@ void geqrf(
         // block update of the trailing submatrix
         if (k+kb < nb) {
             //---------
-            // W = C'*V
+            // W = C^H*V
             for (int64_t idx = thread_rank;
                  idx < int64_t(tiles.size());
                  idx += thread_size)
@@ -450,7 +449,7 @@ void geqrf(
                 scalar_t gemm_beta = idx == thread_rank ? 0.0 : 1.0;
 
                 if (i_index == tile_indices.at(0)) {
-                    // W <- C1'
+                    // W <- C1^H
                     for (int64_t j = 0; j < nb-k-kb; ++j)
                         for (int64_t i = 0; i < kb; ++i)
                             W.at(thread_rank).data()[j+i*(nb-k-kb)] =
@@ -464,7 +463,7 @@ void geqrf(
                          scalar_t(1.0), &tile.at(k, k), tile.stride(),
                                         W.at(thread_rank).data(), nb-k-kb);
 
-                    // W = W + C2'*V2
+                    // W = W + C2^H*V2
                     if (k+kb < tile.mb()) {
                         gemm(Layout::ColMajor,
                              Op::ConjTrans, Op::NoTrans,
@@ -475,7 +474,7 @@ void geqrf(
                     }
                 }
                 else {
-                    // W = W + C2'*V2
+                    // W = W + C2^H*V2
                     gemm(Layout::ColMajor,
                          Op::ConjTrans, Op::NoTrans,
                          nb-k-kb, kb, tile.mb(),
@@ -487,7 +486,7 @@ void geqrf(
             thread_barrier.wait(thread_size);
 
             //-------------------------
-            // W reduction and W = W*T'
+            // W reduction and W = W*T^H
             if (thread_rank == 0) {
                 // W reduction
                 for (int rank = 1; rank < thread_size; ++rank)
@@ -505,7 +504,7 @@ void geqrf(
             thread_barrier.wait(thread_size);
 
             //----------------
-            // C2 = C2 - V2*W'
+            // C2 = C2 - V2*W^H
             for (int64_t idx = thread_rank;
                  idx < int64_t(tiles.size());
                  idx += thread_size)
@@ -524,8 +523,7 @@ void geqrf(
                              scalar_t(1.0),  &tile.at(k+kb, k+kb), tile.stride());
                     }
                 }
-                else
-                {
+                else {
                     // off diagonal tile
                     gemm(Layout::ColMajor,
                          Op::NoTrans, Op::ConjTrans,
@@ -538,10 +536,10 @@ void geqrf(
             thread_barrier.wait(thread_size);
 
             //-------------
-            // W = W*V1'
-            // C1 = C1 - W'
+            // W = W*V1^H
+            // C1 = C1 - W^H
             if (thread_rank == 0) {
-                // W = W*V1'
+                // W = W*V1^H
                 auto& tile = diag_tile;
                 trmm(Layout::ColMajor,
                      Side::Right, Uplo::Lower, Op::ConjTrans, Diag::Unit,
@@ -549,7 +547,7 @@ void geqrf(
                      scalar_t(1.0), &tile.at(k, k), tile.stride(),
                                     W.at(thread_rank).data(), nb-k-kb);
 
-                // C1 = C1 - W'
+                // C1 = C1 - W^H
                 for (int64_t j = 0; j < nb-k-kb; ++j)
                     for (int64_t i = 0; i < kb; ++i)
                         tile.at(k+i, k+kb+j) -=

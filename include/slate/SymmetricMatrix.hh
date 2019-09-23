@@ -40,7 +40,7 @@
 #ifndef SLATE_SYMMETRIC_MATRIX_HH
 #define SLATE_SYMMETRIC_MATRIX_HH
 
-#include "slate/internal/BaseTrapezoidMatrix.hh"
+#include "slate/BaseTrapezoidMatrix.hh"
 #include "slate/Matrix.hh"
 #include "slate/Tile.hh"
 #include "slate/types.hh"
@@ -59,8 +59,16 @@ namespace slate {
 template <typename scalar_t>
 class SymmetricMatrix: public BaseTrapezoidMatrix<scalar_t> {
 public:
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
+
     // constructors
     SymmetricMatrix();
+
+    SymmetricMatrix(Uplo uplo, int64_t n,
+                    std::function<int64_t (int64_t j)>& inTileNb,
+                    std::function<int (ij_tuple ij)>& inTileRank,
+                    std::function<int (ij_tuple ij)>& inTileDevice,
+                    MPI_Comm mpi_comm);
 
     SymmetricMatrix(Uplo uplo, int64_t n, int64_t nb,
                     int p, int q, MPI_Comm mpi_comm);
@@ -83,7 +91,7 @@ public:
     // conversion
     explicit SymmetricMatrix(BaseTrapezoidMatrix<scalar_t>& orig);
 
-    SymmetricMatrix(Uplo uplo, Matrix<scalar_t>& orig);
+    SymmetricMatrix(Uplo uplo, BaseMatrix<scalar_t>& orig);
 
     // on-diagonal sub-matrix
     SymmetricMatrix sub(int64_t i1, int64_t i2);
@@ -93,6 +101,10 @@ public:
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
     Matrix<scalar_t> slice(int64_t row1, int64_t row2,
                            int64_t col1, int64_t col2);
+
+    template <typename out_scalar_t=scalar_t>
+    SymmetricMatrix<out_scalar_t> emptyLike(int64_t nb=0,
+                                            Op deepOp=Op::NoTrans);
 
 protected:
     // used by fromLAPACK and fromScaLAPACK
@@ -126,10 +138,26 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix()
 {}
 
 //------------------------------------------------------------------------------
-/// Constructor creates an n-by-n matrix, with no tiles allocated.
+/// Constructor creates an n-by-n matrix, with no tiles allocated,
+/// where tileNb, tileRank, tileDevice are given as functions.
 /// Tiles can be added with tileInsert().
-//
-// todo: have allocate flag? If true, allocate data; else user will insert tiles?
+///
+template <typename scalar_t>
+SymmetricMatrix<scalar_t>::SymmetricMatrix(
+    Uplo uplo, int64_t n,
+    std::function<int64_t (int64_t j)>& inTileNb,
+    std::function<int (ij_tuple ij)>& inTileRank,
+    std::function<int (ij_tuple ij)>& inTileDevice,
+    MPI_Comm mpi_comm)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, n, n, inTileNb, inTileRank,
+                                    inTileDevice, mpi_comm)
+{}
+
+//------------------------------------------------------------------------------
+/// Constructor creates an n-by-n matrix, with no tiles allocated,
+/// with fixed nb-by-nb tile size and 2D block cyclic distribution.
+/// Tiles can be added with tileInsert().
+///
 template <typename scalar_t>
 SymmetricMatrix<scalar_t>::SymmetricMatrix(
     Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
@@ -142,7 +170,7 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
 /// Construct matrix by wrapping existing memory of an n-by-n lower
 /// or upper symmetric LAPACK-style matrix.
 ///
-/// @param[in] in_uplo
+/// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
 ///     - Lower: lower triangle of A is stored.
 ///
@@ -184,7 +212,7 @@ SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::fromLAPACK(
 /// or upper symmetric ScaLAPACK-style matrix.
 /// @see BaseTrapezoidMatrix
 ///
-/// @param[in] in_uplo
+/// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
 ///     - Lower: lower triangle of A is stored.
 ///
@@ -228,7 +256,7 @@ SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::fromScaLAPACK(
 /// or upper symmetric ScaLAPACK-style matrix.
 /// @see BaseTrapezoidMatrix
 ///
-/// @param[in] in_uplo
+/// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
 ///     - Lower: lower triangle of A is stored.
 ///
@@ -302,7 +330,7 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
 /// [explicit]
 /// Conversion from trapezoid, triangular, symmetric, or Hermitian matrix
 /// creates a shallow copy view of the original matrix.
-/// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+/// Orig must be square -- slice beforehand if needed.
 ///
 /// @param[in,out] orig
 ///     Original matrix.
@@ -310,18 +338,18 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
 template <typename scalar_t>
 SymmetricMatrix<scalar_t>::SymmetricMatrix(
     BaseTrapezoidMatrix<scalar_t>& orig)
-    : BaseTrapezoidMatrix<scalar_t>(
-          orig,
-          0, std::min(orig.mt()-1, orig.nt()-1),
-          0, std::min(orig.mt()-1, orig.nt()-1))
-{}
+    : BaseTrapezoidMatrix<scalar_t>(orig)
+{
+    slate_assert(orig.mt() == orig.nt());
+    slate_assert(orig.m() == orig.n());
+}
 
 //------------------------------------------------------------------------------
 /// Conversion from general matrix
 /// creates a shallow copy view of the original matrix.
-/// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+/// Orig must be square -- slice beforehand if needed.
 ///
-/// @param[in] in_uplo
+/// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
 ///     - Lower: lower triangle of A is stored.
 ///
@@ -330,12 +358,12 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
 ///
 template <typename scalar_t>
 SymmetricMatrix<scalar_t>::SymmetricMatrix(
-    Uplo uplo, Matrix<scalar_t>& orig)
-    : BaseTrapezoidMatrix<scalar_t>(
-          uplo, orig,
-          0, std::min(orig.mt()-1, orig.nt()-1),
-          0, std::min(orig.mt()-1, orig.nt()-1))
-{}
+    Uplo uplo, BaseMatrix<scalar_t>& orig)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, orig)
+{
+    slate_assert(orig.mt() == orig.nt());
+    slate_assert(orig.m() == orig.n());
+}
 
 //------------------------------------------------------------------------------
 /// Sub-matrix constructor creates shallow copy view of parent matrix,
@@ -484,6 +512,19 @@ void swap(SymmetricMatrix<scalar_t>& A, SymmetricMatrix<scalar_t>& B)
     using std::swap;
     swap(static_cast< BaseTrapezoidMatrix<scalar_t>& >(A),
          static_cast< BaseTrapezoidMatrix<scalar_t>& >(B));
+}
+
+//------------------------------------------------------------------------------
+/// Named constructor returns a new, empty Matrix with the same structure
+/// (size and distribution) as this matrix. Tiles are not allocated.
+///
+template <typename scalar_t>
+template <typename out_scalar_t>
+SymmetricMatrix<out_scalar_t> SymmetricMatrix<scalar_t>::emptyLike(
+    int64_t nb, Op deepOp)
+{
+    auto B = this->template baseEmptyLike<out_scalar_t>(nb, nb, deepOp);
+    return SymmetricMatrix<out_scalar_t>(this->uplo(), B);
 }
 
 } // namespace slate

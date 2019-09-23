@@ -125,7 +125,7 @@ void slate_gesv(const int n, const int nrhs, scalar_t* a, const int lda, int* ip
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib}
     });
-    
+
     // extract pivots from SLATE's Pivots structure into LAPACK ipiv array
     {
         int64_t p_count = 0;

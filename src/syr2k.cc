@@ -64,10 +64,10 @@ namespace specialization {
 ///
 template <Target target, typename scalar_t>
 void syr2k(slate::internal::TargetType<target>,
-          scalar_t alpha, Matrix<scalar_t> A,
-                          Matrix<scalar_t> B,
-          scalar_t beta,  SymmetricMatrix<scalar_t> C,
-          int64_t lookahead)
+           scalar_t alpha, Matrix<scalar_t> A,
+           Matrix<scalar_t> B,
+           scalar_t beta,  SymmetricMatrix<scalar_t> C,
+           int64_t lookahead)
 {
     using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
@@ -206,7 +206,7 @@ void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
         lookahead = opts.at(Option::Lookahead).i_;
         assert(lookahead >= 0);
     }
-    catch (std::out_of_range) {
+    catch (std::out_of_range&) {
         lookahead = 1;
     }
 
@@ -276,7 +276,7 @@ void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
     try {
         target = Target(opts.at(Option::Target).i_);
     }
-    catch (std::out_of_range) {
+    catch (std::out_of_range&) {
         target = Target::HostTask;
     }
 

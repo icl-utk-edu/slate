@@ -154,10 +154,10 @@ void slate_ppotri(const char* uplostr, int n, scalar_t* a, int ia, int ja, int* 
     auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(desca), a, desc_LLD(desca), desc_MB(desca), nprow, npcol, MPI_COMM_WORLD);
     A = slate_scalapack_submatrix(An, An, A, ia, ja, desca);
 
-    if (verbose && myrow==0 && mycol==0)
+    if (verbose && myrow == 0 && mycol == 0)
         logprintf("%s\n", "potri");
 
-    slate::potri (A, {
+    slate::potri(A, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });

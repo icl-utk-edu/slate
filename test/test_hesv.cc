@@ -156,12 +156,14 @@ template <typename scalar_t> void test_hesv_work(Params& params, bool run)
             {slate::Option::Target, target},
             {slate::Option::MaxPanelThreads, panel_threads}
         });
-    } else if (params.routine == "hetrs") {
+    }
+    else if (params.routine == "hetrs") {
         slate::hetrs(A, pivots, T, pivots2, B, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target}
         });
-    } else {
+    }
+    else {
         slate::hesv(A, pivots, T, pivots2, H, B, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target}

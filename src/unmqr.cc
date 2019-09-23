@@ -85,9 +85,10 @@ void unmqr(
     auto Tlocal  = T[0];
     auto Treduce = T[1];
 
+    // QR tracks dependencies by block-column.
     // OpenMP needs pointer types, but vectors are exception safe
-    std::vector< uint8_t > column_vector(A_nt);
-    uint8_t* column = column_vector.data();
+    std::vector< uint8_t > block_vector(A_nt);
+    uint8_t* block = block_vector.data();
 
     #pragma omp parallel
     #pragma omp master
@@ -108,7 +109,8 @@ void unmqr(
             }
 
             if (op == Op::NoTrans) {
-                // NoTrans: multiply by Q = Q_1 ... Q_K,
+                //----------------------------------------
+                // Left; NoTrans: multiply by Q = Q_1 ... Q_K,
                 // i.e., in reverse order of how Q_k's were created.
 
                 // for k = A_nt-1, lastk = A_nt-1 (no previous column to depend on);
@@ -123,33 +125,32 @@ void unmqr(
                     // Find ranks in this column.
                     std::set<int> ranks_set;
                     A_panel.getRanks(&ranks_set);
-
                     assert(ranks_set.size() > 0);
 
-                    // Find each rank's top-most row in this panel,
-                    // where the triangular tile resulting from local geqrf panel will reside.
-                    std::vector< int64_t > top_rows;
-                    top_rows.reserve(ranks_set.size());
+                    // Find each rank's first (top-most) row in this panel,
+                    // where the triangular tile resulting from local geqrf
+                    // panel will reside.
+                    std::vector< int64_t > first_indices;
+                    first_indices.reserve(ranks_set.size());
                     for (int r: ranks_set) {
                         for (int64_t i = 0; i < A_panel.mt(); ++i) {
                             if (A_panel.tileRank(i, 0) == r) {
-                                top_rows.push_back(i+k);
+                                first_indices.push_back(i+k);
                                 break;
                             }
                         }
                     }
-                    int64_t min_row = k;
 
-                    #pragma omp task depend(inout:column[k]) \
-                                     depend(in:column[lastk])
+                    #pragma omp task depend(inout:block[k]) \
+                                     depend(in:block[lastk])
                     {
-
                         // bcast V across row of C
                         BcastList bcast_list_V_top;
                         BcastList bcast_list_V;
                         for (int64_t i = k; i < A_mt; ++i) {
                             // send A(i, k) across row C(i, 0:nt-1)
-                            if (std::find(top_rows.begin(), top_rows.end(), i) != top_rows.end() && i > min_row)
+                            // Vs in first_indices (except the left-most one) need three lives
+                            if (std::find(first_indices.begin(), first_indices.end(), i) != first_indices.end() && i > k)
                                 bcast_list_V_top.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
                             else
                                 bcast_list_V.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
@@ -158,31 +159,28 @@ void unmqr(
                         A.template listBcast(bcast_list_V, layout, 0, 2);
 
                         // bcast Tlocal across row of C
-                        if (top_rows.size() > 0) {
+                        if (first_indices.size() > 0) {
                             BcastList bcast_list_T;
-                            for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
-                                int64_t row = *it;
-                                bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
+                            for (int64_t i : first_indices) {
+                                bcast_list_T.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
                             }
                             Tlocal.template listBcast(bcast_list_T, layout);
                         }
 
                         // bcast Treduce across row of C
-                        if (top_rows.size() > 1) {
+                        if (first_indices.size() > 1) {
                             BcastList bcast_list_T;
-                            for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
-                                int64_t row = *it;
-                                if (row > min_row) // exclude the first row of this panel that has no Treduce tile
-                                    bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
+                            for (int64_t i : first_indices) {
+                                if (i > k) // exclude the first row of this panel that has no Treduce tile
+                                    bcast_list_T.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
                             }
                             Treduce.template listBcast(bcast_list_T, layout);
                         }
 
                         // //
                         // if (target == Target::Devices) {
-                        //     for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
-                        //         int64_t row = *it;
-                        //         C.sub(row, row, 0, C_nt-1).moveAllToHost();
+                        //     for (int64_t i : first_indices) {
+                        //         C.sub(i, i, 0, C_nt-1).moveAllToHost();
                         //     }
                         // }
 
@@ -206,10 +204,11 @@ void unmqr(
                 }
             }
             else {
-                // Trans or ConjTrans: multiply by Q^H = Q_K^H ... Q_1^H.
+                //----------------------------------------
+                // Left; Trans or ConjTrans: multiply by Q^H = Q_K^H ... Q_1^H.
                 // i.e., in same order as Q_k's were created.
 
-                // for k = 0, lastk = 0 (no previous column to depend on);
+                // for k = 0, lastk = 0 (no previous block to depend on);
                 // for k > 0, lastk = k - 1.
                 int64_t lastk = 0;
                 // OpenMP uses lastk; compiler doesn't, so warns it is unused.
@@ -221,34 +220,32 @@ void unmqr(
                     // Find ranks in this column.
                     std::set<int> ranks_set;
                     A_panel.getRanks(&ranks_set);
-
                     assert(ranks_set.size() > 0);
 
-                    // Find each rank's top-most row in this panel,
-                    // where the triangular tile resulting from local geqrf panel will reside.
-                    std::vector< int64_t > top_rows;
-                    top_rows.reserve(ranks_set.size());
+                    // Find each rank's first (top-most) row in this panel,
+                    // where the triangular tile resulting from local geqrf
+                    // panel will reside.
+                    std::vector< int64_t > first_indices;
+                    first_indices.reserve(ranks_set.size());
                     for (int r: ranks_set) {
                         for (int64_t i = 0; i < A_panel.mt(); ++i) {
                             if (A_panel.tileRank(i, 0) == r) {
-                                top_rows.push_back(i+k);
+                                first_indices.push_back(i+k);
                                 break;
                             }
                         }
                     }
-                    int64_t min_row = k;
 
-                    #pragma omp task depend(inout:column[k]) \
-                                     depend(in:column[lastk])
+                    #pragma omp task depend(inout:block[k]) \
+                                     depend(in:block[lastk])
                     {
-
                         // bcast V across row of C
                         BcastList bcast_list_V_top;
                         BcastList bcast_list_V;
                         for (int64_t i = k; i < A_mt; ++i) {
                             // send A(i, k) across row C(i, 0:nt-1)
-                            // top_rows' V's (except the top-most one) need three lives
-                            if (std::find(top_rows.begin(), top_rows.end(), i) != top_rows.end() && i > min_row)
+                            // Vs in first_indices (except the left-most one) need three lives
+                            if (std::find(first_indices.begin(), first_indices.end(), i) != first_indices.end() && i > k)
                                 bcast_list_V_top.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
                             else
                                 bcast_list_V.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
@@ -258,19 +255,17 @@ void unmqr(
 
                         // bcast Tlocal across row of C
                         BcastList bcast_list_T;
-                        for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
-                            int64_t row = *it;
-                            bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
+                        for (int64_t i : first_indices) {
+                            bcast_list_T.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
                         }
                         Tlocal.template listBcast(bcast_list_T, layout);
 
                         // bcast Treduce across row of C
-                        if (top_rows.size() > 1) {
+                        if (first_indices.size() > 1) {
                             BcastList bcast_list_T;
-                            for (auto it = top_rows.begin(); it < top_rows.end(); ++it) {
-                                int64_t row = *it;
-                                if (row > min_row) // exclude the first row of this panel that has no Treduce tile
-                                    bcast_list_T.push_back({row, k, {C.sub(row, row, 0, C_nt-1)}});
+                            for (int64_t i : first_indices) {
+                                if (i > k) // exclude the first row of this panel that has no Treduce tile
+                                    bcast_list_T.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
                             }
                             Treduce.template listBcast(bcast_list_T, layout);
                         }
@@ -296,6 +291,7 @@ void unmqr(
         }
         else {
             // TODO: side == Side::Right
+            slate_not_implemented("Side::Right");
         }
     }
     C.tileUpdateAllOrigin();
@@ -389,7 +385,7 @@ void unmqr(
     try {
         target = Target(opts.at(Option::Target).i_);
     }
-    catch (std::out_of_range) {
+    catch (std::out_of_range&) {
         target = Target::HostTask;
     }
 

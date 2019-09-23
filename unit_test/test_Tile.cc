@@ -198,7 +198,6 @@ void test_Tile_default()
     test_assert(A.uplo() == blas::Uplo::General);
     test_assert(A.uploLogical() == blas::Uplo::General);
     test_assert(A.data() == nullptr);
-    test_assert(A.valid() == false);
     test_assert(A.origin() == true);      // note: TileKind::UserOwned
     test_assert(A.workspace() == false);  // note
     test_assert(A.allocated() == false);  // note
@@ -227,7 +226,6 @@ void test_Tile_data()
     test_assert(A.uplo() == blas::Uplo::General);
     test_assert(A.uploLogical() == blas::Uplo::General);
     test_assert(A.data() == data);
-    test_assert(A.valid() == true);
     test_assert(A.origin() == true);      // note differences
     test_assert(A.workspace() == false);  // note
     test_assert(A.allocated() == false);  // note
@@ -245,7 +243,6 @@ void test_Tile_data()
     test_assert(B.uplo() == blas::Uplo::General);
     test_assert(B.uploLogical() == blas::Uplo::General);
     test_assert(B.data() == data);
-    test_assert(B.valid() == true);
     test_assert(B.origin() == true);      // note
     test_assert(B.workspace() == false);  // note
     test_assert(B.allocated() == false);  // note
@@ -263,7 +260,6 @@ void test_Tile_data()
     test_assert(C.uplo() == blas::Uplo::General);
     test_assert(C.uploLogical() == blas::Uplo::General);
     test_assert(C.data() == data);
-    test_assert(C.valid() == true);
     test_assert(C.origin() == false);     // note
     test_assert(C.workspace() == true);   // note
     test_assert(C.allocated() == true);   // note
@@ -281,7 +277,6 @@ void test_Tile_data()
     test_assert(D.uplo() == blas::Uplo::General);
     test_assert(D.uploLogical() == blas::Uplo::General);
     test_assert(D.data() == data);
-    test_assert(D.valid() == true);
     test_assert(D.origin() == true);      // note
     test_assert(D.workspace() == false);  // note
     test_assert(D.allocated() == true);   // note
@@ -330,7 +325,6 @@ void test_transpose()
     test_assert(AT.uplo() == blas::Uplo::General);
     test_assert(AT.uploLogical() == blas::Uplo::General);
     test_assert(AT.data() == data);
-    test_assert(AT.valid() == true);
     test_assert(AT.origin() == true);
     test_assert(AT.device() == -1);
     test_assert(AT.bytes() == sizeof(scalar_t) * m * n);
@@ -348,7 +342,6 @@ void test_transpose()
     test_assert(ATT.uplo() == blas::Uplo::General);
     test_assert(ATT.uploLogical() == blas::Uplo::General);
     test_assert(ATT.data() == data);
-    test_assert(ATT.valid() == true);
     test_assert(ATT.origin() == true);
     test_assert(AT.device() == -1);
     test_assert(ATT.bytes() == sizeof(scalar_t) * m * n);
@@ -389,7 +382,6 @@ void test_conj_transpose()
     test_assert(AC.uplo() == blas::Uplo::General);
     test_assert(AC.uploLogical() == blas::Uplo::General);
     test_assert(AC.data() == data);
-    test_assert(AC.valid() == true);
     test_assert(AC.origin() == true);
     test_assert(AC.device() == -1);
     test_assert(AC.bytes() == sizeof(scalar_t) * m * n);
@@ -407,7 +399,6 @@ void test_conj_transpose()
     test_assert(ACC.uplo() == blas::Uplo::General);
     test_assert(ACC.uploLogical() == blas::Uplo::General);
     test_assert(ACC.data() == data);
-    test_assert(ACC.valid() == true);
     test_assert(ACC.origin() == true);
     test_assert(ACC.device() == -1);
     test_assert(ACC.bytes() == sizeof(scalar_t) * m * n);
@@ -427,7 +418,6 @@ void test_conj_transpose()
         test_assert(ATC.uplo() == blas::Uplo::General);
         test_assert(ATC.uploLogical() == blas::Uplo::General);
         test_assert(ATC.data() == data);
-        test_assert(ATC.valid() == true);
         test_assert(ATC.origin() == true);
         test_assert(ATC.device() == -1);
         test_assert(ATC.bytes() == sizeof(scalar_t) * m * n);
@@ -445,7 +435,6 @@ void test_conj_transpose()
         test_assert(ACT.uplo() == blas::Uplo::General);
         test_assert(ACT.uploLogical() == blas::Uplo::General);
         test_assert(ACT.data() == data);
-        test_assert(ACT.valid() == true);
         test_assert(ACT.origin() == true);
         test_assert(ACT.device() == -1);
         test_assert(ACT.bytes() == sizeof(scalar_t) * m * n);
@@ -704,7 +693,8 @@ void test_copyData(int align_host, int align_dev)
     cudaStream_t stream;
     test_assert(cudaStreamCreate(&stream) == cudaSuccess);
 
-    double *Adata_dev, *Bdata_dev;
+    double* Adata_dev;
+    double* Bdata_dev;
     test_assert(cudaMalloc((void**) &Adata_dev, sizeof(double)*ldda*n) == cudaSuccess);
     test_assert(Adata_dev != nullptr);
     test_assert(cudaMalloc((void**) &Bdata_dev, sizeof(double)*ldda*n) == cudaSuccess);

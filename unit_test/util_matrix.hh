@@ -88,7 +88,6 @@ void verify_tile_lapack(
         test_assert(tile.op()     == blas::Op::NoTrans);
         test_assert(tile.uplo()   == blas::Uplo::General);
         test_assert(tile.origin() == true);
-        test_assert(tile.valid()  == true);
         test_assert(tile.device() == host_num);
         test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
@@ -102,7 +101,6 @@ void verify_tile_lapack(
         test_assert(tile.op()     == tile2.op()    );
         test_assert(tile.uplo()   == tile2.uplo()  );
         test_assert(tile.origin() == tile2.origin());
-        test_assert(tile.valid()  == tile2.valid() );
         test_assert(tile.device() == tile2.device());
         test_assert(tile.size()   == tile2.size()  );
         test_assert(tile.bytes()  == tile2.bytes() );
@@ -151,7 +149,6 @@ void verify_tile_lapack(
         else
             test_assert(tile.uplo() == blas::Uplo::General);
         test_assert(tile.origin() == true);
-        test_assert(tile.valid()  == true);
         test_assert(tile.device() == host_num);
         test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
@@ -165,7 +162,6 @@ void verify_tile_lapack(
         test_assert(tile.op()     == tile2.op()    );
         test_assert(tile.uplo()   == tile2.uplo()  );
         test_assert(tile.origin() == tile2.origin());
-        test_assert(tile.valid()  == tile2.valid() );
         test_assert(tile.device() == tile2.device());
         test_assert(tile.size()   == tile2.size()  );
         test_assert(tile.bytes()  == tile2.bytes() );
@@ -259,7 +255,6 @@ void verify_tile_scalapack(
         test_assert(tile.op()     == blas::Op::NoTrans);
         test_assert(tile.uplo()   == blas::Uplo::General);
         test_assert(tile.origin() == true);
-        test_assert(tile.valid()  == true);
         test_assert(tile.device() == host_num);
         test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
@@ -273,7 +268,6 @@ void verify_tile_scalapack(
         test_assert(tile.op()     == tile2.op()    );
         test_assert(tile.uplo()   == tile2.uplo()  );
         test_assert(tile.origin() == tile2.origin());
-        test_assert(tile.valid()  == tile2.valid() );
         test_assert(tile.device() == tile2.device());
         test_assert(tile.size()   == tile2.size()  );
         test_assert(tile.bytes()  == tile2.bytes() );
@@ -322,7 +316,6 @@ void verify_tile_scalapack(
         else
             test_assert(tile.uplo() == blas::Uplo::General);
         test_assert(tile.origin() == true);
-        test_assert(tile.valid()  == true);
         test_assert(tile.device() == host_num);
         test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
@@ -336,7 +329,6 @@ void verify_tile_scalapack(
         test_assert(tile.op()     == tile2.op()    );
         test_assert(tile.uplo()   == tile2.uplo()  );
         test_assert(tile.origin() == tile2.origin());
-        test_assert(tile.valid()  == tile2.valid() );
         test_assert(tile.device() == tile2.device());
         test_assert(tile.size()   == tile2.size()  );
         test_assert(tile.bytes()  == tile2.bytes() );
@@ -383,7 +375,6 @@ void verify_tile_device(
         test_assert(tile.op()     == blas::Op::NoTrans);
         test_assert(tile.uplo()   == blas::Uplo::General);
         test_assert(tile.origin() == true);
-        test_assert(tile.valid()  == true);
         test_assert(tile.device() == dev);
         test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
@@ -397,7 +388,6 @@ void verify_tile_device(
         test_assert(tile.op()     == tile2.op()    );
         test_assert(tile.uplo()   == tile2.uplo()  );
         test_assert(tile.origin() == tile2.origin());
-        test_assert(tile.valid()  == tile2.valid() );
         test_assert(tile.device() == tile2.device());
         test_assert(tile.size()   == tile2.size()  );
         test_assert(tile.bytes()  == tile2.bytes() );
@@ -451,7 +441,6 @@ void verify_tile_device(
         else
             test_assert(tile.uplo() == blas::Uplo::General);
         test_assert(tile.origin() == true);
-        test_assert(tile.valid()  == true);
         test_assert(tile.device() == dev);
         test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
@@ -465,7 +454,6 @@ void verify_tile_device(
         test_assert(tile.op()     == tile2.op()    );
         test_assert(tile.uplo()   == tile2.uplo()  );
         test_assert(tile.origin() == tile2.origin());
-        test_assert(tile.valid()  == tile2.valid() );
         test_assert(tile.device() == tile2.device());
         test_assert(tile.size()   == tile2.size()  );
         test_assert(tile.bytes()  == tile2.bytes() );
@@ -476,6 +464,109 @@ void verify_tile_device(
 
     test_assert(A.tileMb(i) == ib);
     test_assert(A.tileNb(j) == jb);
+}
+
+//==============================================================================
+// Verification routines for conversions.
+
+//------------------------------------------------------------------------------
+/// Checks that A is uplo, mt-by-nt, m-by-n, and that tiles have uplo set.
+///
+template <typename scalar_t>
+void verify_BaseTrapezoid(
+    slate::Uplo uplo,
+    int64_t mt,
+    int64_t nt,
+    int64_t m,
+    int64_t n,
+    slate::BaseTrapezoidMatrix<scalar_t>& A )
+{
+    test_assert( A.uplo() == uplo );
+    test_assert( A.mt() == mt );
+    test_assert( A.nt() == nt );
+    test_assert( A.m() == m );
+    test_assert( A.n() == n );
+
+    if (uplo == slate::Uplo::Lower) {
+        for (int j = 0; j < A.nt(); ++j) {
+            for (int i = j; i < A.mt(); ++i) {  // lower
+                if (A.tileIsLocal(i, j)) {
+                    if (i == j)
+                        test_assert( A(i, j).uplo() == slate::Uplo::Lower );
+                    else
+                        test_assert( A(i, j).uplo() == slate::Uplo::General );
+                }
+            }
+        }
+    }
+    else {
+        for (int j = 0; j < A.nt(); ++j) {
+            for (int i = 0; i <= j && i < A.mt(); ++i) {  // upper
+                if (A.tileIsLocal(i, j)) {
+                    if (i == j)
+                        test_assert( A(i, j).uplo() == slate::Uplo::Upper );
+                    else
+                        test_assert( A(i, j).uplo() == slate::Uplo::General );
+                }
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Checks that A is uplo, nt-by-nt, n-by-n, and that tiles have uplo set.
+///
+template <typename scalar_t>
+void verify_Hermitian(
+    slate::Uplo uplo,
+    int64_t nt,
+    int64_t n,
+    slate::HermitianMatrix<scalar_t>& A )
+{
+    verify_BaseTrapezoid( uplo, nt, nt, n, n, A );
+}
+
+//------------------------------------------------------------------------------
+/// Checks that A is uplo, nt-by-nt, n-by-n, and that tiles have uplo set.
+///
+template <typename scalar_t>
+void verify_Symmetric(
+    slate::Uplo uplo,
+    int64_t nt,
+    int64_t n,
+    slate::SymmetricMatrix<scalar_t>& A )
+{
+    verify_BaseTrapezoid( uplo, nt, nt, n, n, A );
+}
+
+//------------------------------------------------------------------------------
+/// Checks that A is uplo, diag, mt-by-nt, m-by-n, and that tiles have uplo set.
+///
+template <typename scalar_t>
+void verify_Trapezoid(
+    slate::Uplo uplo,
+    slate::Diag diag,
+    int64_t mt,
+    int64_t nt,
+    int64_t m,
+    int64_t n,
+    slate::TrapezoidMatrix<scalar_t>& A )
+{
+    verify_BaseTrapezoid( uplo, mt, nt, m, n, A );
+}
+
+//------------------------------------------------------------------------------
+/// Checks that A is uplo, diag, nt-by-nt, n-by-n, and that tiles have uplo set.
+///
+template <typename scalar_t>
+void verify_Triangular(
+    slate::Uplo uplo,
+    slate::Diag diag,
+    int64_t nt,
+    int64_t n,
+    slate::TriangularMatrix<scalar_t>& A )
+{
+    verify_BaseTrapezoid( uplo, nt, nt, n, n, A );
 }
 
 //------------------------------------------------------------------------------

@@ -54,22 +54,32 @@ namespace slate {
 //------------------------------------------------------------------------------
 /// Multiply the matrix C by the unitary matrix Q obtained from a
 /// "triangular-pentagonal" block reflector H.
-/// C consists of two tiles, C0 and C1.
+/// C consists of two tiles, C1 and C2.
 ///
 /// If side == Left:
 ///
-///     C = [ C0 ]
-///         [ C1 ]
+///     C = [ C1 ]  <- k-by-n
+///         [ C2 ]  <- m-by-n
 ///
 /// and on exit, $C = op(Q) C$.
-/// C is (k+m)-by-n, C0 is k-by-n, C1 is m-by-n, and V1 is m-by-k.
+/// C is (k+m)-by-n, C1 is k-by-n, C2 is m-by-n, and V2 is m-by-k.
+/// m, l are the same in tpqrt; k = tpqrt's n; n here is different.
 ///
 /// If side == Right:
 ///
-///     C = [ C0  C1 ]
+///     C = [ C1  C2 ]
+///       m-by-k  m-by-n
 ///
 /// and on exit, $C = C op(Q)$.
-/// C is m-by-(k+n), C0 is m-by-k, C1 is m-by-n, and V1 is n-by-k.
+/// C is m-by-(k+n), C1 is m-by-k, C2 is m-by-n, and V2 is n-by-k.
+/// l is the same in tpqrt; n = tpqrt's m; k = tpqrt's n; m here is different.
+///
+/// Q is a product of block reflectors,
+///
+///     Q = \prod_{j = 1, ..., r} I - Vj Tj Vj^H
+///
+/// where r is the number of blocks, Tj is the j-th block of T,
+/// and Vj is the j-th block column of V, with internal blocking size ib.
 ///
 /// See Further Details in tpqrt.
 ///
@@ -83,74 +93,75 @@ namespace slate {
 ///     - Op::ConjTrans: Multiply by $op(Q) = Q^H$.
 ///
 /// @param[in] l
-///     The number of rows of the upper trapezoidal part of V1.
-///     min(m, k) >= l >= 0.
-///     If l = 0, V1 is rectangular.
-///     If l = k, V1 is triangular.
-///     (Note n in tpqrt is k here.)
+///     The number of rows of the upper trapezoidal part of V2.
+///     - If side = left,  min(m, k) >= l >= 0.
+///     - If side = right, min(n, k) >= l >= 0.
 ///
-/// @param[in] V1
-///     - If side == Left,  the m-by-k pentagonal tile V1.
-///     - If side == Right, the n-by-k pentagonal tile V1.
+/// @param[in] V2
+///     - If side == Left,  the m-by-k upper pentagonal tile V2.
+///     - If side == Right, the n-by-k upper pentagonal tile V2.
 ///     The i-th column must contain the vector which defines the
 ///     elementary reflector H(i), for i = 1, 2, ..., k, as returned by
-///     tpqrt in A1.  See Further Details in tpqrt.
-///     The top (m-l)-by-k or (n-l)-by-k portion is rectangular,
+///     tpqrt in A2. The top (m-l)-by-k or (n-l)-by-k portion is rectangular,
 ///     the bottom l-by-k portion is upper trapezoidal.
+///     See Further Details in tpqrt.
 ///
 /// @param[in] T
 ///     The upper triangular factors of the block reflectors
 ///     as returned by tpqrt, stored as an ib-by-k tile.
 ///
-/// @param[in,out] C0
-///     - If side == Left,  the k-by-n tile C0.
-///     - If side == Right, the m-by-k tile C0.
-///     On exit, C0 is overwritten by the corresponding block of
-///     $op(Q) C$ or $C op(Q)$.
-///
 /// @param[in,out] C1
-///     The m-by-n tile C1.
+///     - If side == Left,  the k-by-n tile C1.
+///       C1 can be k2-by-n for k2 >= k; only the upper k-by-n portion is used.
+///     - If side == Right, the m-by-k tile C1.
+///       C1 can be m-by-k2 for k2 >= k; only the left m-by-k portion is used.
 ///     On exit, C1 is overwritten by the corresponding block of
 ///     $op(Q) C$ or $C op(Q)$.
 ///
-/// Note in LAPACK, A = C0, B = C1, V = V1.
+/// @param[in,out] C2
+///     The m-by-n tile C2.
+///     On exit, C2 is overwritten by the corresponding block of
+///     $op(Q) C$ or $C op(Q)$.
+///
+/// Note in LAPACK, A = C1, B = C2, V = V2.
 ///
 /// @ingroup geqrf_tile
 ///
 template <typename scalar_t>
 void tpmqrt(
     Side side, Op op, int64_t l,
-    Tile<scalar_t> V1,
+    Tile<scalar_t> V2,
     Tile<scalar_t> T,
-    Tile<scalar_t> C0,
-    Tile<scalar_t> C1)
+    Tile<scalar_t> C1,
+    Tile<scalar_t> C2)
 {
     trace::Block trace_block("lapack::tpmqrt");
 
-    int64_t k = V1.nb();
-    int64_t m = C1.mb();
-    int64_t n = C1.nb();
+    int64_t k = V2.nb();
+    int64_t m = C2.mb();
+    int64_t n = C2.nb();
     if (side == Side::Left) {
-        assert(C0.mb() == k);
-        assert(C0.nb() == n);
-        assert(V1.mb() == m);
+        assert(C1.mb() >= k);
+        assert(C1.nb() == n);
+        assert(V2.mb() == m);
+        assert(std::min(m, k) >= l);
     }
     else {
-        assert(C0.mb() == m);
-        assert(C0.nb() == k);
-        assert(V1.mb() == n);
+        assert(C1.mb() == m);
+        assert(C1.nb() >= k);
+        assert(V2.mb() == n);
+        assert(std::min(n, k) >= l);
     }
 
     int64_t ib = T.mb();
     assert(k >= ib);
     assert(T.nb() == k);
-    assert(m >= l);
 
     lapack::tpmqrt(side, op, m, n, k, l, ib,
-                   V1.data(), V1.stride(),
+                   V2.data(), V2.stride(),
                    T.data(), T.stride(),
-                   C0.data(), C0.stride(),
-                   C1.data(), C1.stride());
+                   C1.data(), C1.stride(),
+                   C2.data(), C2.stride());
 }
 
 } // namespace slate

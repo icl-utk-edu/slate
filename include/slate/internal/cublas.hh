@@ -85,7 +85,7 @@ cublasStatus_t cublasDasum(
 cublasStatus_t cublasDestroy(cublasHandle_t handle);
 
 cublasStatus_t cublasSetMatrix(int rows, int cols, int elemSize,
-                               const void *A, int lda, void *B, int ldb);
+                               const void* A, int lda, void* B, int ldb);
 
 cublasStatus_t cublasSgemmBatched(
     cublasHandle_t handle,
@@ -126,14 +126,14 @@ cublasStatus_t cublasZgemmBatched(
 cublasStatus_t cublasSswap(
     cublasHandle_t handle,
     int n,
-    float *x, int incx,
-    float *y, int incy);
+    float* x, int incx,
+    float* y, int incy);
 
 cublasStatus_t cublasDswap(
     cublasHandle_t handle,
     int n,
-    double *x, int incx,
-    double *y, int incy);
+    double* x, int incx,
+    double* y, int incy);
 
 cublasStatus_t cublasCswap(
     cublasHandle_t handle,
@@ -149,7 +149,7 @@ cublasStatus_t cublasZswap(
 
 cublasStatus_t cublasGetMatrix(
     int rows, int cols, int elemSize,
-    const void *A, int lda, void *B, int ldb);
+    const void* A, int lda, void* B, int ldb);
 
 #ifdef __cplusplus
 }

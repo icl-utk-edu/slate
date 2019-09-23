@@ -109,8 +109,7 @@ void slateCudaMallocHost(value_type** ptr, size_t nelements)
 
 //------------------------------------------------------------------------------
 /// A tile state in the MOSI coherency protocol
-enum MOSI
-{
+enum MOSI {
     Modified = 0x100,   ///< tile data is modified, other instances should be Invalid, cannot be purged
     OnHold = 0x1000,  ///< a hold is placed on this tile instance, cannot be purged
     Shared = 0x010,   ///< tile data is up-to-date, other instances may be Shared, or Invalid, may be purged
@@ -121,15 +120,16 @@ typedef short MOSI_State;
 //------------------------------------------------------------------------------
 ///
 template <typename scalar_t>
-class TileInstance
-{
+class TileInstance {
 private:
     Tile<scalar_t>* tile_;
     MOSI_State state_;
     mutable omp_nest_lock_t lock_;
 
 public:
-    TileInstance() : tile_(nullptr), state_(MOSI::Invalid)
+    TileInstance()
+        : tile_(nullptr),
+          state_(MOSI::Invalid)
     {
         omp_init_nest_lock(&lock_);
     }
@@ -200,7 +200,7 @@ public:
     }
 
     /// Returns the current MOSI state (Modified/Shared/Invalid)
-    /// to check the OnHold flag use @stateOn
+    /// to check the OnHold flag use stateOn
     MOSI getState() const
     {
         return MOSI(state_ & MOSI_State(~MOSI::OnHold));
@@ -229,8 +229,7 @@ public:
 //------------------------------------------------------------------------------
 ///
 template <typename scalar_t>
-class TileNode
-{
+class TileNode {
 private:
     typedef TileInstance<scalar_t> TileInstance_t;
     /// vector of tile instances indexed by device id.
@@ -246,7 +245,8 @@ private:
 public:
     /// Constructor for TileNode class
     TileNode(int num_devices)
-        : num_instances_(0), life_(0)
+        : num_instances_(0),
+          life_(0)
     {
         slate_assert(num_devices >= 0);
         omp_init_nest_lock(&lock_);
@@ -345,8 +345,8 @@ public:
 };
 
 //------------------------------------------------------------------------------
-/// @brief Slate::MatrixStorage class
-/// @details Used to store the map of distributed tiles.
+/// Slate::MatrixStorage class
+/// Used to store the map of distributed tiles.
 /// @tparam scalar_t Data type for the elements of the matrix
 ///
 template <typename scalar_t>
@@ -366,6 +366,13 @@ public:
 
     MatrixStorage(int64_t m, int64_t n, int64_t mb, int64_t nb,
                   int p, int q, MPI_Comm mpi_comm);
+
+    MatrixStorage(std::function<int64_t (int64_t i)>& inTileMb,
+                  std::function<int64_t (int64_t j)>& inTileNb,
+                  std::function<int (ij_tuple ij)>& inTileRank,
+                  std::function<int (ij_tuple ij)>& inTileDevice,
+                  MPI_Comm mpi_comm);
+
 
     // 1. destructor
     ~MatrixStorage();
@@ -486,7 +493,7 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    /// @return True if Tile is empty, False otherwise.
+    /// @return True if map has no tiles.
     bool empty() const { return size() == 0; }
 
     //--------------------------------------------------------------------------
@@ -497,10 +504,10 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    std::function <int (ij_tuple ij)> tileRank;
-    std::function <int (ij_tuple ij)> tileDevice;
-    std::function <int64_t (int64_t i)> tileMb;
-    std::function <int64_t (int64_t j)> tileNb;
+    std::function<int64_t (int64_t i)> tileMb;
+    std::function<int64_t (int64_t j)> tileNb;
+    std::function<int (ij_tuple ij)> tileRank;
+    std::function<int (ij_tuple ij)> tileDevice;
 
     //--------------------------------------------------------------------------
     /// @return whether tile {i, j} is local.
@@ -534,21 +541,7 @@ public:
         tiles_.at(ij)->lives() = life;
     }
 
-    //--------------------------------------------------------------------------
-    /// Return p, q of 2D block-cyclic distribution.
-    /// These will eventually disappear when distributions are generalized.
-    int p() const { return p_; }
-    int q() const { return q_; }
-
 private:
-    int64_t m_;
-    int64_t n_;
-    int64_t mt_;
-    int64_t nt_;
-    int64_t mb_;
-    int64_t nb_;
-    int p_, q_;
-
     TilesMap tiles_;        ///< map of tiles and associated states
     mutable omp_nest_lock_t lock_;
     slate::Memory memory_;  ///< memory allocator
@@ -580,15 +573,7 @@ template <typename scalar_t>
 MatrixStorage<scalar_t>::MatrixStorage(
     int64_t m, int64_t n, int64_t mb, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : m_(m),
-      n_(n),
-      mt_(ceildiv(m, mb)),
-      nt_(ceildiv(n, nb)),
-      mb_(mb),
-      nb_(nb),
-      p_(p),
-      q_(q),
-      tiles_(),
+    : tiles_(),
       memory_(sizeof(scalar_t) * mb * nb),  // block size in bytes
       batch_array_size_(0)
 {
@@ -603,31 +588,72 @@ MatrixStorage<scalar_t>::MatrixStorage(
     // TODO: these all assume 2D block cyclic with fixed size tiles (mb x nb)
     // lambdas that capture m, n, mb, nb for
     // computing tile's mb (rows) and nb (cols)
-    tileMb = [=](int64_t i) { return (i + 1)*mb > m ? m%mb : mb; };
-    tileNb = [=](int64_t j) { return (j + 1)*nb > n ? n%nb : nb; };
+    tileMb = [m, mb](int64_t i) { return (i + 1)*mb > m ? m%mb : mb; };
+    tileNb = [n, nb](int64_t j) { return (j + 1)*nb > n ? n%nb : nb; };
 
     // lambda that captures p, q for computing tile's rank,
     // assuming 2D block cyclic
-    tileRank = [=](ij_tuple ij) {
+    tileRank = [p, q](ij_tuple ij) {
         int64_t i = std::get<0>(ij);
         int64_t j = std::get<1>(ij);
         return int(i%p + (j%q)*p);
     };
 
-    // lambda that captures q, num_devices_ to distribute local matrix
+    // lambda that captures q, num_devices to distribute local matrix
     // in 1D column block cyclic fashion among devices
     if (num_devices_ > 0) {
-        tileDevice = [=](ij_tuple ij) {
+        int num_devices = num_devices_;  // local copy to capture
+        tileDevice = [q, num_devices](ij_tuple ij) {
             int64_t j = std::get<1>(ij);
-            return int(j/q)%num_devices_;
+            return int(j/q)%num_devices;
         };
     }
     else {
-        tileDevice = [=](ij_tuple ij) {
-            return host_num_;
+        int host_num = host_num_;  // local copy to capture
+        tileDevice = [host_num](ij_tuple ij) {
+            return host_num;
         };
     }
 
+    a_array_host_.resize(num_devices_, nullptr);
+    b_array_host_.resize(num_devices_, nullptr);
+    c_array_host_.resize(num_devices_, nullptr);
+
+    a_array_dev_.resize(num_devices_, nullptr);
+    b_array_dev_.resize(num_devices_, nullptr);
+    c_array_dev_.resize(num_devices_, nullptr);
+
+    initCudaStreams();
+
+    omp_init_nest_lock(&lock_);
+}
+
+//------------------------------------------------------------------------------
+/// For memory, assumes tiles of size mb = inTileMb(0) x nb = inTileNb(0).
+template <typename scalar_t>
+MatrixStorage<scalar_t>::MatrixStorage(
+    std::function<int64_t (int64_t i)>& inTileMb,
+    std::function<int64_t (int64_t j)>& inTileNb,
+    std::function<int (ij_tuple ij)>& inTileRank,
+    std::function<int (ij_tuple ij)>& inTileDevice,
+    MPI_Comm mpi_comm)
+    : tileMb(inTileMb),
+      tileNb(inTileNb),
+      tileRank(inTileRank),
+      tileDevice(inTileDevice),
+      tiles_(),
+      memory_(sizeof(scalar_t) * inTileMb(0) * inTileNb(0)),  // block size in bytes
+      batch_array_size_(0)
+{
+    slate_mpi_call(
+        MPI_Comm_rank(mpi_comm, &mpi_rank_));
+
+    // todo: these are static, but we (re-)initialize with each matrix.
+    // todo: similar code in BaseMatrix(...) and MatrixStorage(...)
+    host_num_    = memory_.host_num_;
+    num_devices_ = memory_.num_devices_;
+
+    // todo: factor out this duplicated code.
     a_array_host_.resize(num_devices_, nullptr);
     b_array_host_.resize(num_devices_, nullptr);
     c_array_host_.resize(num_devices_, nullptr);
@@ -674,10 +700,8 @@ void MatrixStorage<scalar_t>::initCudaStreams()
     for (int device = 0; device < num_devices_; ++device) {
         slate_cuda_call(
             cudaSetDevice(device));
-        // todo: should this be a non-blocking stream
         slate_cuda_call(
             cudaStreamCreate(&compute_streams_[device]));
-        // todo: should this be a non-blocking stream
         // todo: need to have seperate in/out streams (at least), or multiple streams
         slate_cuda_call(
             cudaStreamCreate(&comm_streams_[device]));
@@ -1026,8 +1050,8 @@ void MatrixStorage<scalar_t>::clear()
 
 //------------------------------------------------------------------------------
 /// Allocates a memory block on device to be used as a workspace buffer,
-///     to be released with call to releaseWorkspaceBuffer()
-/// @returns pointer to memory block on device
+/// to be released with call to releaseWorkspaceBuffer()
+/// @return pointer to memory block on device
 ///
 /// @param[in] device
 ///     Device ID (GPU or Host) where the memory block is needed.
@@ -1064,7 +1088,7 @@ void MatrixStorage<scalar_t>::releaseWorkspaceBuffer(scalar_t* data, int device)
 ///
 template <typename scalar_t>
 TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileAcquire(
-                        ijdev_tuple ijdev, Layout layout)
+    ijdev_tuple ijdev, Layout layout)
 {
     int64_t i  = std::get<0>(ijdev);
     int64_t j  = std::get<1>(ijdev);
@@ -1195,7 +1219,7 @@ void MatrixStorage<scalar_t>::tileMakeTransposable(Tile<scalar_t>* tile)
 //------------------------------------------------------------------------------
 /// Resets the extended tile.
 /// Frees the extended buffer and returns to memory manager
-///     then resets the tile's extended member fields
+/// then resets the tile's extended member fields
 ///
 /// @param[in,out] tile
 ///     Pointer to extended tile.

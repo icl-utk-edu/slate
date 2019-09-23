@@ -5,7 +5,7 @@
 #include <cstdio>
 
 #include <slate/Matrix.hh>
-#include <slate/internal/BaseTrapezoidMatrix.hh>
+#include <slate/BaseTrapezoidMatrix.hh>
 #include <slate/BandMatrix.hh>
 
 //------------------------------------------------------------------------------

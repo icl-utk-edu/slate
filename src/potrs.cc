@@ -98,7 +98,7 @@ void potrs(HermitianMatrix<scalar_t>& A,
         lookahead = opts.at(Option::Lookahead).i_;
         assert(lookahead >= 0);
     }
-    catch (std::out_of_range) {
+    catch (std::out_of_range&) {
         lookahead = 1;
     }
 
@@ -152,7 +152,7 @@ void potrs(HermitianMatrix<scalar_t>& A,
     try {
         target = Target(opts.at(Option::Target).i_);
     }
-    catch (std::out_of_range) {
+    catch (std::out_of_range&) {
         target = Target::HostTask;
     }
 

@@ -92,10 +92,13 @@ inline std::complex<double> make<std::complex<double>>(double real, double imag)
 }
 
 //------------------------------------------------------------------------------
-/// Helper function to sort rank_rows by row (see ttqrt, ttmqr).
-inline bool compare_rank_rows(
-    std::pair<int, int64_t> const& a,
-    std::pair<int, int64_t> const& b)
+/// Helper function to sort by second element of a pair.
+/// Used to sort rank_rows by row (see ttqrt, ttmqr), and rank_cols by col.
+/// @return True if a.second < b.second.
+template <typename T1, typename T2>
+inline bool compareSecond(
+    std::pair<T1, T2> const& a,
+    std::pair<T1, T2> const& b)
 {
     return a.second < b.second;
 }

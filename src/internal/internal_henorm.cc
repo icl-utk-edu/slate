@@ -120,7 +120,7 @@ namespace internal {
 /// Hermitian matrix norm.
 /// Dispatches to target implementations.
 ///
-/// @param in_norm
+/// @param[in] in_norm
 /// - Norm::Max: values is dimension 1 and contains the local max.
 /// - Norm::One: values is dimension n and contains the local column sum.
 /// - Norm::Inf: for Hermitian, same as Norm::One.

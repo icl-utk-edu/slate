@@ -73,28 +73,28 @@ inline int desc_N(int* desca)
 
 inline int desc_MB(int* desca)
 {
-    return (desca[0]==BLOCK_CYCLIC_2D) ? desca[MB_] : desca[MB_INB];
+    return (desca[0] == BLOCK_CYCLIC_2D) ? desca[MB_] : desca[MB_INB];
 }
 
 inline int desc_NB(int* desca)
 {
-    return (desca[0]==BLOCK_CYCLIC_2D) ? desca[NB_] : desca[NB_INB];
+    return (desca[0] == BLOCK_CYCLIC_2D) ? desca[NB_] : desca[NB_INB];
 }
 
 inline int desc_LLD(int* desca)
 {
-    return (desca[0]==BLOCK_CYCLIC_2D) ? desca[LLD_] : desca[LLD_INB];
+    return (desca[0] == BLOCK_CYCLIC_2D) ? desca[LLD_] : desca[LLD_INB];
 }
 
 template< typename scalar_t >
 inline slate::Matrix<scalar_t> slate_scalapack_submatrix(int Am, int An, slate::Matrix<scalar_t>& A, int ia, int ja, int* desca)
 {
     //logprintf("Am %d An %d ia %d ja %d desc_MB(desca) %d desc_NB(desca) %d A.m() %d A.n() %d LLD_ %d %d \n", Am, An, ia, ja, desc_MB(desca), desc_NB(desca), A.m(), A.n());
-    if (ia==1 && ja==1 && Am==A.m() && An==A.n()) return A;
-    assert((ia-1) % desc_MB(desca)==0);
-    assert((ja-1) % desc_NB(desca)==0);
-    assert(Am % desc_MB(desca)==0);
-    assert(An % desc_NB(desca)==0);
+    if (ia == 1 && ja == 1 && Am == A.m() && An == A.n()) return A;
+    assert((ia-1) % desc_MB(desca) == 0);
+    assert((ja-1) % desc_NB(desca) == 0);
+    assert(Am % desc_MB(desca) == 0);
+    assert(An % desc_NB(desca) == 0);
     int64_t i1 = (ia-1)/desc_MB(desca);
     int64_t i2 = i1 + (Am/desc_MB(desca)) - 1;
     int64_t j1 = (ja-1)/desc_NB(desca);
@@ -106,9 +106,9 @@ template< typename scalar_t >
 inline slate::SymmetricMatrix<scalar_t> slate_scalapack_submatrix(int Am, int An, slate::SymmetricMatrix<scalar_t>& A, int ia, int ja, int* desca)
 {
     //logprintf("Am %d An %d ia %d ja %d desc_MB(desca) %d desc_NB(desca) %d \n", Am, An, ia, ja, desc_MB(desca), desc_NB(desca));
-    if (ia==1 && ja==1 && Am==A.m() && An==A.n()) return A;
-    assert((ia-1)%desc_MB(desca)==0);
-    assert(Am % desc_MB(desca)==0);
+    if (ia == 1 && ja == 1 && Am == A.m() && An == A.n()) return A;
+    assert((ia-1) % desc_MB(desca) == 0);
+    assert(Am % desc_MB(desca) == 0);
     int64_t i1 = (ia-1)/desc_MB(desca);
     int64_t i2 = i1 + (Am/desc_MB(desca)) - 1;
     return A.sub(i1, i2);
@@ -117,8 +117,8 @@ inline slate::SymmetricMatrix<scalar_t> slate_scalapack_submatrix(int Am, int An
 template< typename scalar_t >
 inline slate::TriangularMatrix<scalar_t> slate_scalapack_submatrix(int Am, int An, slate::TriangularMatrix<scalar_t>& A, int ia, int ja, int* desca)
 {
-    assert((ia-1)%desc_MB(desca)==0);
-    assert(Am % desc_MB(desca)==0);
+    assert((ia-1) % desc_MB(desca) == 0);
+    assert(Am % desc_MB(desca) == 0);
     int64_t i1 = (ia-1)/desc_MB(desca);
     int64_t i2 = i1 + (Am/desc_MB(desca)) - 1;
     return A.sub(i1, i2);
@@ -127,9 +127,9 @@ inline slate::TriangularMatrix<scalar_t> slate_scalapack_submatrix(int Am, int A
 template< typename scalar_t >
 inline slate::TrapezoidMatrix<scalar_t> slate_scalapack_submatrix(int Am, int An, slate::TrapezoidMatrix<scalar_t>& A, int ia, int ja, int* desca)
 {
-    if (ia==1 && ja==1 && Am==A.m() && An==A.n()) return A;
-    assert((ia-1)%desc_NB(desca)==0);
-    assert(An % desc_NB(desca)==0);
+    if (ia == 1 && ja == 1 && Am == A.m() && An == A.n()) return A;
+    assert((ia-1) % desc_NB(desca) == 0);
+    assert(An % desc_NB(desca) == 0);
     int64_t i1 = (ia-1)/desc_NB(desca);
     int64_t i2 = i1 + (Am/desc_NB(desca)) - 1;
     return A.sub(i1, i2, i2);
@@ -138,9 +138,9 @@ inline slate::TrapezoidMatrix<scalar_t> slate_scalapack_submatrix(int Am, int An
 template< typename scalar_t >
 inline slate::HermitianMatrix<scalar_t> slate_scalapack_submatrix(int Am, int An, slate::HermitianMatrix<scalar_t>& A, int ia, int ja, int* desca)
 {
-    if (ia==1 && ja==1 && Am==A.m() && An==A.n()) return A;
-    assert((ia-1)%desc_NB(desca)==0);
-    assert(An % desc_NB(desca)==0);
+    if (ia == 1 && ja == 1 && Am == A.m() && An == A.n()) return A;
+    assert((ia-1) % desc_NB(desca) == 0);
+    assert(An % desc_NB(desca) == 0);
     int64_t i1 = (ia-1)/desc_NB(desca);
     int64_t i2 = i1 + (Am/desc_NB(desca)) - 1;
     return A.sub(i1, i2);
@@ -153,10 +153,10 @@ inline slate::Target slate_scalapack_set_target()
     char* targetstr = std::getenv("SLATE_SCALAPACK_TARGET");
     if (targetstr) {
         char targetchar = (char)(toupper(targetstr[4]));
-        if (targetchar=='T') target = slate::Target::HostTask;
-        else if (targetchar=='N') target = slate::Target::HostNest;
-        else if (targetchar=='B') target = slate::Target::HostBatch;
-        else if (targetchar=='C') target = slate::Target::Devices;
+        if (targetchar == 'T') target = slate::Target::HostTask;
+        else if (targetchar == 'N') target = slate::Target::HostNest;
+        else if (targetchar == 'B') target = slate::Target::HostBatch;
+        else if (targetchar == 'C') target = slate::Target::Devices;
     }
     return target;
 }
@@ -164,10 +164,10 @@ inline slate::Target slate_scalapack_set_target()
 inline int64_t slate_scalapack_set_panelthreads()
 {
     int64_t max_panel_threads = 1;
-    char *thrstr = std::getenv("SLATE_SCALAPACK_PANELTHREADS");
+    char* thrstr = std::getenv("SLATE_SCALAPACK_PANELTHREADS");
     if (thrstr) {
         max_panel_threads = (int64_t)strtol(thrstr, NULL, 0);
-        if (max_panel_threads!=0) return max_panel_threads;
+        if (max_panel_threads != 0) return max_panel_threads;
     }
     return std::max(omp_get_max_threads()/2, 1);
 }
@@ -175,10 +175,10 @@ inline int64_t slate_scalapack_set_panelthreads()
 inline int64_t slate_scalapack_set_ib()
 {
     int64_t ib = 0;
-    char *ibstr = std::getenv("SLATE_SCALAPACK_IB");
+    char* ibstr = std::getenv("SLATE_SCALAPACK_IB");
     if (ibstr) {
         ib = (int64_t)strtol(ibstr, NULL, 0);
-        if (ib!=0) return ib;
+        if (ib != 0) return ib;
     }
     return 16;
 }
@@ -189,7 +189,7 @@ inline int slate_scalapack_set_verbose()
     int verbose = 0; // default
     char* verbosestr = std::getenv("SLATE_SCALAPACK_VERBOSE");
     if (verbosestr) {
-        if (verbosestr[0]=='1')
+        if (verbosestr[0] == '1')
             verbose = 1;
     }
     return verbose;
@@ -219,7 +219,7 @@ inline int64_t scalapack_numroc(int64_t n, int64_t nb, int iproc, int isrcproc, 
 }
 
 #define scalapack_indxl2g BLAS_FORTRAN_NAME(indxl2g,INDXL2G)
-extern "C" int scalapack_indxl2g (int *indxloc, int *nb, int *iproc, int *isrcproc, int *nprocs);
+extern "C" int scalapack_indxl2g(int* indxloc, int* nb, int* iproc, int* isrcproc, int* nprocs);
 
 
 } // namespace scalapack_api

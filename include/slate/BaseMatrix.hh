@@ -82,9 +82,13 @@ public:
         std::list<std::tuple<int64_t, int64_t,
                              std::list<BaseMatrix<scalar_t> > > >;
 
-    using ij_tuple = std::tuple<int64_t, int64_t>;
+    using ij_tuple = typename MatrixStorage<scalar_t>::ij_tuple;
 
     friend class Debug;
+
+    // Make every class BaseMatrix<T2> a friend of BaseMatrix<scalar_t>.
+    template <typename T2>
+    friend class BaseMatrix;
 
     static constexpr bool is_complex = slate::is_complex<scalar_t>::value;
     static constexpr bool is_real    = ! is_complex;
@@ -100,6 +104,13 @@ protected:
     // 3. move constructor
     // 4. copy assignment
     // 5. move assignment
+
+    BaseMatrix(int64_t m, int64_t n,
+               std::function<int64_t (int64_t i)>& inTileMb,
+               std::function<int64_t (int64_t j)>& inTileNb,
+               std::function<int (ij_tuple ij)>& inTileRank,
+               std::function<int (ij_tuple ij)>& inTileDevice,
+               MPI_Comm mpi_comm);
 
     BaseMatrix(int64_t m, int64_t n, int64_t mb, int64_t nb,
                int p, int q, MPI_Comm mpi_comm);
@@ -129,6 +140,10 @@ protected:
     };
 
     BaseMatrix(BaseMatrix& orig, Slice slice);
+
+    template <typename out_scalar_t>
+    BaseMatrix<out_scalar_t> baseEmptyLike(int64_t mb, int64_t nb,
+                                           Op deepOp);
 
 private:
     void initSubmatrix(
@@ -640,9 +655,92 @@ BaseMatrix<scalar_t>::BaseMatrix()
 
 //------------------------------------------------------------------------------
 /// [internal]
+/// Construct matrix with mt block rows and nt block columns, such that
+///     sum_{i = 0}^{mt-1} tileMb(i) >= m,
+///     sum_{j = 0}^{nt-1} tileNb(j) >= n,
+/// where tileMb, tileNb, tileRank, tileDevice are given as functions.
+/// No tiles are allocated. Creates empty matrix storage.
+///
+/// @param[in] m
+///     Number of rows of the matrix. m >= 0.
+///
+/// @param[in] n
+///     Number of columns of the matrix. n >= 0
+///
+/// @param[in] inTileMb
+///     Function that takes block-row index, returns block-row size.
+///
+/// @param[in] inTileNb
+///     Function that takes block-col index, returns block-col size.
+///
+/// @param[in] inTileRank
+///     Function that takes tuple of { block-row, block-col } indices,
+///     returns MPI rank for that tile.
+///
+/// @param[in] inTileDevice
+///     Function that takes tuple of { block-row, block-col } indices,
+///     returns local GPU device ID for that tile.
+///
+/// @param[in] mpi_comm
+///     MPI communicator to distribute matrix across.
+///     p*q == MPI_Comm_size(mpi_comm).
+///
+template <typename scalar_t>
+BaseMatrix<scalar_t>::BaseMatrix(
+    int64_t m, int64_t n,
+    std::function<int64_t (int64_t i)>& inTileMb,
+    std::function<int64_t (int64_t j)>& inTileNb,
+    std::function<int (ij_tuple ij)>& inTileRank,
+    std::function<int (ij_tuple ij)>& inTileDevice,
+    MPI_Comm mpi_comm)
+    : row0_offset_(0),
+      col0_offset_(0),
+      ioffset_(0),
+      joffset_(0),
+      uplo_(Uplo::General),
+      op_(Op::NoTrans),
+      storage_(std::make_shared< MatrixStorage< scalar_t > >(
+          inTileMb, inTileNb, inTileRank, inTileDevice, mpi_comm)),
+      mpi_comm_(mpi_comm),
+      layout_(Layout::ColMajor)
+{
+    // Count number of block rows.
+    mt_ = 0;
+    int64_t ii = 0;  // row index (not block row)
+    while (ii < m) {
+        last_mb_ = std::min(inTileMb(mt_), m - ii);
+        assert(last_mb_ != 0);
+        ii += last_mb_;
+        ++mt_;
+    }
+
+    // Count number of block cols.
+    nt_ = 0;
+    int64_t jj = 0;  // col index (not block col)
+    while (jj < n) {
+        last_nb_ = std::min(inTileNb(nt_), n - jj);
+        assert(last_nb_ != 0);
+        jj += last_nb_;
+        ++nt_;
+    }
+
+    slate_mpi_call(
+        MPI_Comm_rank(mpi_comm_, &mpi_rank_));
+    slate_mpi_call(
+        MPI_Comm_group(mpi_comm_, &mpi_group_));
+
+    // todo: these are static, but we (re-)initialize with each matrix.
+    // todo: similar code in BaseMatrix(...) and MatrixStorage(...)
+    host_num_    = storage_->host_num_;
+    num_devices_ = storage_->num_devices_;
+}
+
+//------------------------------------------------------------------------------
+/// [internal]
 /// Construct matrix with
-/// mt = ceil( m / mb ) block rows and
-/// nt = ceil( n / nb ) block columns.
+///     mt = ceil( m / mb ) block rows and
+///     nt = ceil( n / nb ) block columns,
+/// with fixed mb-by-nb tile size and 2D block cyclic distribution.
 /// No tiles are allocated. Creates empty matrix storage.
 ///
 /// @param[in] m
@@ -901,6 +999,91 @@ void BaseMatrix<scalar_t>::initSlice(
     col0_offset_ = col0_offset;
     last_mb_ = last_mb;
     last_nb_ = last_nb;
+}
+
+//------------------------------------------------------------------------------
+///
+template <typename scalar_t>
+template <typename out_scalar_t>
+BaseMatrix<out_scalar_t> BaseMatrix<scalar_t>::baseEmptyLike(
+    int64_t mb, int64_t nb, Op deepOp)
+{
+    // tileMb, tileNb are of A instead of op(A).
+    auto newMb = this->storage_->tileMb;
+    auto newNb = this->storage_->tileNb;
+
+    // m, n, mt, nt are of op(A).
+    int64_t m  = this->m();
+    int64_t n  = this->n();
+    int64_t mt = this->mt();
+    int64_t nt = this->nt();
+
+    // Undo transpose to get m, n, mt, nt, mb, nb of A instead of op(A).
+    if (this->op() != Op::NoTrans) {
+        std::swap(m, n);
+        std::swap(mt, nt);
+        std::swap(mb, nb);
+    }
+
+    // Override mb, nb if requested.
+    if (mb != 0) {
+        newMb = [mb](int64_t i) { return mb; };
+        m = mb * mt;
+    }
+    if (nb != 0) {
+        newNb = [nb](int64_t j) { return nb; };
+        n = nb * nt;
+    }
+
+    // Adjust size to include parent matrix outside this sub-matrix.
+    int64_t ioffset = this->ioffset();
+    int64_t joffset = this->joffset();
+    int64_t parent_m = m;
+    for (int i = 0; i < ioffset; ++i) {
+        parent_m += newMb(i);
+    }
+    int64_t parent_n = n;
+    for (int j = 0; j < joffset; ++j) {
+        parent_n += newNb(j);
+    }
+
+    // Create new parent matrix B.
+    BaseMatrix<out_scalar_t> B;
+    if (deepOp == Op::NoTrans) {
+        B = BaseMatrix<out_scalar_t>(
+            parent_m, parent_n, newMb, newNb,
+            this->storage_->tileRank, this->storage_->tileDevice, this->mpiComm());
+    }
+    else {
+        // todo: just swap and redefine newRank? then use above B constructor.
+        auto oldRank = this->storage_->tileRank;
+        std::function<int (ij_tuple ij)> newRank = [oldRank](ij_tuple ij) {
+            int64_t i = std::get<0>(ij);
+            int64_t j = std::get<1>(ij);
+            return oldRank( ij_tuple({ j, i }) );
+        };
+        // todo: what about tileDevice?
+        B = BaseMatrix<out_scalar_t>(
+            parent_n, parent_m, newNb, newMb,  // transposed
+            newRank, this->storage_->tileDevice, this->mpiComm());
+        std::swap(ioffset, joffset);
+        std::swap(mt, nt);
+    }
+
+    // Apply operation and return sub-matrix.
+    if (this->op() == Op::Trans) {
+        B = transpose( B );
+        std::swap(ioffset, joffset);
+        std::swap(mt, nt);
+    }
+    else if (this->op() == Op::ConjTrans) {
+        B = conj_transpose( B );
+        std::swap(ioffset, joffset);
+        std::swap(mt, nt);
+    }
+    B.initSubmatrix(ioffset, ioffset + mt - 1,
+                    joffset, joffset + nt - 1);
+    return B;
 }
 
 //------------------------------------------------------------------------------
@@ -1352,8 +1535,7 @@ void BaseMatrix<scalar_t>::tileModified(int64_t i, int64_t j, int device, bool p
     tile_instance.setState(MOSI::Modified);
 
     for (int d = hostNum(); d < num_devices(); ++d) {
-        if (d != device && tile_node.existsOn(d))
-        {
+        if (d != device && tile_node.existsOn(d)) {
             if (! permissive)
                 slate_assert(tile_node[d].stateOn(MOSI::Modified) == false);
             tile_node[d].setState(MOSI::Invalid);
@@ -1833,7 +2015,7 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
     internal::cubeReducePattern(new_vec.size(), new_rank, radix,
                                 recv_from, send_to);
 
-    if (! (send_to.empty() && recv_from.empty()) ) {
+    if (! (send_to.empty() && recv_from.empty())) {
         // read tile on host memory
         tileGetForReading(i, j, LayoutConvert(layout));
     }
@@ -1876,7 +2058,7 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
 
     // todo: handle square
     bool is_square = src_tile->mb() == src_tile->nb();
-    // if (!is_square) return;
+    // if (! is_square) return;
 
     // make sure dst_tile can fit the data in its target_layout
     if (   (! is_square)                         // rectangular tile
@@ -1919,8 +2101,7 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
                     copy_first = true;
                 }
             }
-            else
-            if (dst_userOwned && dst_extended) {
+            else if (dst_userOwned && dst_extended) {
                 if (target_layout == dst_tile->userLayout()) {
                     dst_tile->layoutSetFrontDataExt(false);
                     dst_data = dst_tile->userData();
@@ -1950,8 +2131,7 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
                     }
                 }
             }
-            else
-            if (src_userOwned && src_extended) {
+            else if (src_userOwned && src_extended) {
                 if (src_tile->device() == host_num_) {
                     work_device = dst_tile->device();
                     copy_first = true;
@@ -1969,8 +2149,7 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
             }
         }
     }
-    else
-    if ( dst_userOwned && dst_extended ) {
+    else if (dst_userOwned && dst_extended) {
         if (target_layout == dst_tile->userLayout()) {
             dst_tile->layoutSetFrontDataExt(false);
             dst_data = dst_tile->userData();
@@ -2003,8 +2182,7 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
         if (is_square) {
             dst_tile->layoutConvert(stream);
         }
-        else
-        if (copy_first) {
+        else if (copy_first) {
             int64_t work_stride = src_tile->stride();
 
             Tile<scalar_t> work_tile(src_tile->mb(), src_tile->nb(), work_data,
@@ -2089,7 +2267,7 @@ void BaseMatrix<scalar_t>::tileAcquire(int64_t i, int64_t j, int device,
 
     // Change ColMajor <=> RowMajor if needed.
     if (tile->layout() != layout) {
-        if (! tile->isTransposable() ) {
+        if (! tile->isTransposable()) {
             storage_->tileMakeTransposable(tile);
         }
         if (tile->extended())
@@ -2106,8 +2284,8 @@ void BaseMatrix<scalar_t>::tileAcquire(int64_t i, int64_t j, int device,
 /// looping on existing tile instances.
 /// Updates source tile's state to shared if copied-in.
 /// If 'modify' param is true, marks the destination tile as MOSI::Modified,
-///     and invalidates other instances. Otherwise, sets destination tile state
-///     to MOSI::Shared if copied-in.
+/// and invalidates other instances. Otherwise, sets destination tile state
+/// to MOSI::Shared if copied-in.
 /// Converts destination Layout based on 'layout' param.
 ///
 /// @param[in] i
@@ -2144,7 +2322,7 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
     // todo: need to acquire read access to the TilesMap
     // LockGuard guard(storage_->tiles_.get_lock());
 
-    TileInstance<scalar_t> *src_tile_instance = nullptr;
+    TileInstance<scalar_t>* src_tile_instance = nullptr;
     Layout target_layout = Layout::ColMajor; // default value to silence compiler warning
                                              // it will be ovverriden below
 
@@ -2159,14 +2337,13 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
     LockGuard guard(tile_node.getLock());
     // LockGuard dst_guard(tile_node[dst_device].getLock());
 
-    if ( (! tile_node.existsOn(dst_device)) ||
-         (  tile_node[dst_device].getState() == MOSI::Invalid)) {
+    if ((! tile_node.existsOn(dst_device)) ||
+        (  tile_node[dst_device].getState() == MOSI::Invalid)) {
 
         // find a valid source (Modified/Shared) tile
 
         for (int d = hostNum(); d < num_devices(); ++d) {
-            if (d != dst_device && tile_node.existsOn(d))
-            {
+            if (d != dst_device && tile_node.existsOn(d)) {
                 if (tile_node[d].getState() != MOSI::Invalid) {
                     src_device = d;
                     src_tile_instance = &(tile_node[d]);
@@ -2177,7 +2354,7 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
 
         // todo: find the shortest path / closest source
         // including possibility of device peer-to-peer copy
-        if(src_device == invalid_dev){
+        if (src_device == invalid_dev) {
             slate_error(std::string("Error copying tile(")
                          + std::to_string(i) + ", " + std::to_string(j)
                          + "), rank(" + std::to_string(this->mpiRank())
@@ -2195,7 +2372,7 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
         storage_->tileAcquire(globalIndex(i, j, dst_device), target_layout);
     }
 
-    if ( dst_tile_instance->getState() == MOSI::Invalid ) {
+    if (dst_tile_instance->getState() == MOSI::Invalid) {
         // Update the destination tile's data.
         if (dst_device != host_num_ && src_device != host_num_) {
             // todo: device to device copy
@@ -2248,7 +2425,8 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
 //------------------------------------------------------------------------------
 /// Gets a set of tiles on device.
 /// If destination device is host, forwards LayoutConvert param to tileGet()
-///     otherwise, calls tileLayoutConvert() to process layout conversion in batch mode.
+/// otherwise, calls tileLayoutConvert() to process layout conversion in batch
+/// mode.
 /// @see tileGet
 ///
 /// @param[in] tile_set
@@ -2645,7 +2823,7 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileUpdateOrigin(int64_t i, int64_t j)
     // find on host
     if (tile_node.existsOn(hostNum()) &&
         tile_node[hostNum()].tile()->origin()) {
-        if ( tile_node[hostNum()].stateOn(MOSI::Invalid) ) {
+        if (tile_node[hostNum()].stateOn(MOSI::Invalid)) {
             // todo: should this request Layout conversion to this->layout() ?
             tileGetForReading(i, j, LayoutConvert::None);
         }
@@ -2655,7 +2833,7 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileUpdateOrigin(int64_t i, int64_t j)
         auto device = tileDevice(i, j);
         if (tile_node.existsOn(device) &&
             tile_node[device].tile()->origin()) {
-            if ( tile_node[device].stateOn(MOSI::Invalid) ) {
+            if (tile_node[device].stateOn(MOSI::Invalid)) {
                 // todo: should this request Layout conversion to this->layout() ?
                 tileGetForReading(i, j, device, LayoutConvert::None);
             }
@@ -2729,8 +2907,8 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(int64_t i, int64_t j, int device,
 {
     LockGuard guard(storage_->at(globalIndex(i, j, device)).getLock());
     auto tile = storage_->at(globalIndex(i, j, device)).tile();
-    if (tile->layout() != layout ) {
-        if (! tile->isTransposable() ) {
+    if (tile->layout() != layout) {
+        if (! tile->isTransposable()) {
             assert(! reset); // cannot reset if not transposable
             storage_->tileMakeTransposable(tile);
         }
@@ -2756,12 +2934,12 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(int64_t i, int64_t j, int device,
 }
 
 //------------------------------------------------------------------------------
-/// Converts tiles indicated in 'tile_set' that exist on 'device' into 'layout' if
-///     not alread in 'layout' major.
+/// Converts tiles indicated in 'tile_set' that exist on 'device' into 'layout'
+/// if not alread in 'layout' major.
 /// Tiles should exist on 'device', will assert otherwise.
 /// Operates in batch mode when tiles are on devices.
-/// If device is not Host, will bucket tiles into uniform size and stride batches,
-///     then launches each batch transpose.
+/// If device is not Host, will bucket tiles into uniform size and stride
+/// batches, then launches each batch transpose.
 ///
 /// @param[in] tile_set
 ///     Set of (i, j) tuples indicating indices of Tiles' to be converted.
@@ -2784,8 +2962,8 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
 {
     if (device == host_num_) {
         for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
-                int64_t i = std::get<0>(*iter);
-                int64_t j = std::get<1>(*iter);
+            int64_t i = std::get<0>(*iter);
+            int64_t j = std::get<1>(*iter);
             #pragma omp task
             {
                 tileLayoutConvert(i, j, device, layout, reset);
@@ -2816,9 +2994,9 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
             auto tile = storage_->at(globalIndex(i, j, device)).tile();
 
             // if we need to convert layout
-            if ( tile->layout() != layout ) {
+            if (tile->layout() != layout) {
                 // make sure tile is transposable
-                if (! tile->isTransposable() ) {
+                if (! tile->isTransposable()) {
                     storage_->tileMakeTransposable(tile);
                 }
 
@@ -2978,8 +3156,8 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(int device, Layout layout, bool res
     std::set<ij_tuple> tiles_set;
     for (int64_t j = 0; j < nt(); ++j) {
         for (int64_t i = 0; i < mt(); ++i) {
-            // if ( tileIsLocal(i, j) && device == tileDevice(i, j) && tileExists(i, j, device))
-            if ( tileExists(i, j, device)) {
+            // if (tileIsLocal(i, j) && device == tileDevice(i, j) && tileExists(i, j, device))
+            if (tileExists(i, j, device)) {
                 tiles_set.insert({i, j});
             }
         }
@@ -3080,17 +3258,16 @@ void BaseMatrix<scalar_t>::tileLayoutReset()
 
     for (int64_t i = 0; i < mt(); ++i) {
         for (int64_t j = 0; j < nt(); ++j) {
-            if ( tileIsLocal(i, j) ) {
-
+            if (tileIsLocal(i, j)) {
                 auto tile = tileUpdateOrigin(i, j);
-                if (tile->layout() != this->layout() ) {
+                if (tile->layout() != this->layout()) {
                     assert(tile->isTransposable());
                 }
 
                 if (tile->device() == host_num_) {
                     tiles_set_host.insert({i, j});
                 }
-                else{
+                else {
                     tiles_set_dev[tile->device()].insert({i, j});
                 }
             }
@@ -3159,8 +3336,8 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::originTile(int64_t i, int64_t j)
             return tile_node[device].tile();
         }
         else
-            slate_error( std::string("Origin tile not found! tile(")
-                        +std::to_string(i)+","+std::to_string(j)+")");
+            slate_error(std::string("Origin tile not found! tile(")
+                        + std::to_string(i) + "," + std::to_string(j) + ")");
     }
 }
 

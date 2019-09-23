@@ -306,7 +306,7 @@ void test_trnorm_work(Params& params, bool run)
                             // if peak is nan, expect A_norm to be nan,
                             // except in Unit case with i == j and ii == jj,
                             // where peak shouldn't affect A_norm.
-                            bool okay = (std::isnan(real(peak)) && !(diag == slate::Diag::Unit && i == j && ii == jj)
+                            bool okay = (std::isnan(real(peak)) && ! (diag == slate::Diag::Unit && i == j && ii == jj)
                                          ? std::isnan(A_norm)
                                          : error <= tol);
                             params.okay() = params.okay() && okay;

@@ -162,7 +162,7 @@ void slate_pposv(const char* uplostr, int n, int nrhs, scalar_t* a, int ia, int 
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(descb), desc_N(descb), b, desc_LLD(descb), desc_MB(descb), nprow, npcol, MPI_COMM_WORLD);
     B = slate_scalapack_submatrix(Bm, Bn, B, ib, jb, descb);
 
-    if (verbose && myrow==0 && mycol==0)
+    if (verbose && myrow == 0 && mycol == 0)
         logprintf("%s\n", "posv");
 
     slate::posv(A, B, {

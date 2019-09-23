@@ -56,27 +56,26 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
-/// Compute the triangle-pentagonal factorization of 2 tiles.
-/// On exit, the pentagonal portion of tile A1 has been eliminated.
+/// Compute the triangular-pentagonal QR factorization of 2 tiles, A1 and A2.
+/// On exit, the pentagonal tile A2 has been eliminated.
 ///
 /// @param[in] l
-///     The number of rows of the upper trapezoidal part of A1.
-///     min(m, n) >= l >= 0.  See Further Details.
-///     If l = 0, A1 is rectangular.
-///     If l = n, A1 is triangular.
-///
-/// @param[in,out] A0
-///     On entry, the k-by-n upper triangular tile A0.
-///     Only the upper n-by-n portion is accessed. k >= n; otherwise k is unused.
+///     The number of rows of the upper trapezoidal part of A2.
+///     min(m, n) >= l >= 0. See Further Details.
 ///
 /// @param[in,out] A1
-///     On entry, the m-by-n pentagonal tile A1.
+///     On entry, the n-by-n upper triangular tile A1.
+///     A1 can be k-by-n for k >= n; only the upper n-by-n portion is used.
+///
+/// @param[in,out] A2
+///     On entry, the m-by-n pentagonal tile A2.
 ///     On exit, the columns represent the Householder reflectors.
 ///     The top (m-l)-by-n portion is rectangular,
 ///     the bottom l-by-n portion is upper trapezoidal.
 ///
 /// @param[out] T
-///     Tile of size ib-by-n, where ib is the internal blocking to use. ib >= n.
+///     Tile of size ib-by-n, where ib is the internal blocking to use.
+///     n >= ib >= 1.
 ///     On exit, stores a sequence of ib-by-ib upper triangular T matrices
 ///     representing the block Householder reflectors. See Further Details.
 ///
@@ -85,57 +84,87 @@ namespace slate {
 ///
 /// Let A be the (n + m)-by-n matrix
 ///
-///     A = [ A0 ]
-///         [ A1 ]
+///     A = [ A1 ]  <- n-by-n upper triangular
+///         [ A2 ]  <- m-by-n upper pentagonal
 ///
-/// For example, with m = 5, n = 4, l = 3, the non-zeros of A0 and A1 are
+/// For example, with m = 5, n = 4, l = 3, the non-zeros of A1 and A2 are
 ///
-///     A0 = [ . . . . ]  <- n-by-n upper triangular
+///     A1 = [ . . . . ]  <- n-by-n upper triangular
 ///          [   . . . ]
 ///          [     . . ]
 ///          [       . ]
 ///
-///     A1 = [ . . . . ]  <- (m - l)-by-n rectangular
+///     A2 = [ . . . . ]  <- (m - l)-by-n rectangular
 ///          [ . . . . ]
 ///          [---------]
 ///          [ . . . . ]  <- l-by-n upper trapezoidal
 ///          [   . . . ]
 ///          [     . . ]
 ///
+/// Depending on m, n, l, there are several cases.
+/// If l < min(m, n), A2 is pentagonal, as shown above.
+/// If l = 0, it becomes just the rectangular portion:
+///
+///     A2 = [ . . . . ]  <- m-by-n rectangular
+///          [ . . . . ]
+///
+/// If m > n and l = min(m, n) = n, it becomes upper trapezoidal (tall):
+///
+///     A2 = [ . . . . ]  <- (m - l)-by-n rectangular
+///          [---------]
+///          [ . . . . ]  <- l-by-n upper trapezoidal (triangular)
+///          [   . . . ]
+///          [     . . ]
+///          [       . ]
+///
+/// If m < n and l = min(m, n) = m, it becomes upper trapezoidal (wide):
+///
+///     A2 = [ . . . . . ]  <- l-by-n upper trapezoidal
+///          [   . . . . ]
+///          [     . . . ]
+///          [       . . ]
+///
+/// If m = n = l, it becomes upper triangular:
+///
+///     A2 = [ . . . . ]  <- l-by-n upper trapezoidal (triangular)
+///          [   . . . ]
+///          [     . . ]
+///          [       . ]
+///
 /// After factoring, the vector representing the elementary reflector H(i) is in
 /// the i-th column of the (m + n)-by-n matrix V:
 ///
 ///     V = [ I  ] <- n-by-n identity
-///         [ V1 ] <- m-by-n pentagonal, same form as A1.
+///         [ V2 ] <- m-by-n pentagonal, same form as A2.
 ///
-/// Thus, all of the information needed for V is contained in V1, which
-/// overwrites A1 on exit.
+/// Thus, all of the information needed for V is contained in V2, which
+/// has the same form as A2 and overwrites A2 on exit.
 ///
 /// The number of blocks is r = ceiling(n/ib), where each
 /// block is of order ib except for the last block, which is of order
-/// rb = n - (r-1)*rb.  For each of the r blocks, a upper triangular block
-/// reflector factor is computed: T1, T2, ..., Tr.  The ib-by-ib (and rb-by-rb
+/// rb = n - (r-1)*ib. For each of the r blocks, an upper triangular block
+/// reflector factor is computed: T1, T2, ..., Tr. The ib-by-ib (and rb-by-rb
 /// for the last block) T's are stored in the ib-by-n matrix T as
 ///
 ///     T = [ T1 T2 ... Tr ]
 ///
-/// Note in LAPACK, A = A0, B = A1, V = V1.
+/// Note in LAPACK, A = A1, B = A2, W = V, V = V2.
 ///
 /// @ingroup geqrf_tile
 ///
 template <typename scalar_t>
 void tpqrt(
     int64_t l,
-    Tile<scalar_t> A0,
     Tile<scalar_t> A1,
+    Tile<scalar_t> A2,
     Tile<scalar_t> T)
 {
     trace::Block trace_block("lapack::tpqrt");
 
-    int64_t m = A1.mb();
-    int64_t n = A1.nb();
-    assert(A0.mb() >= n);
-    assert(A0.nb() == n);
+    int64_t m = A2.mb();
+    int64_t n = A2.nb();
+    assert(A1.mb() >= n);  // k >= n
+    assert(A1.nb() == n);
     assert(std::min(m, n) >= l);
 
     int64_t ib = T.mb();
@@ -143,8 +172,8 @@ void tpqrt(
     assert(T.nb() == n);
 
     lapack::tpqrt(m, n, l, ib,
-                  A0.data(), A0.stride(),
                   A1.data(), A1.stride(),
+                  A2.data(), A2.stride(),
                   T.data(), T.stride());
 }
 

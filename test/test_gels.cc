@@ -334,9 +334,10 @@ template <typename scalar_t> void test_gels_work(Params& params, bool run)
             // copy op(A)^H -> D
             // todo: support op(A)^H = A^H. Requires distributed copy of A^H to D.
             slate_assert(trans != slate::Op::NoTrans);
-            D.copy(Aref);
+            auto DS = D.slice(0, Aref.m()-1, 0, Aref.n()-1);
+            copy(Aref, DS);
             auto DX = D.sub(0, D.mt()-1, Xstart, D.nt()-1);
-            DX.copy(X);
+            copy(X, DX);
 
             if (verbose >= 1)
                 printf( "%% D %lld-by-%lld\n", llong( D.mt() ), llong( D.nt() ) );

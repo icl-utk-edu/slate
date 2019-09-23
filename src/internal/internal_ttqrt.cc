@@ -62,7 +62,7 @@ void ttqrt(Matrix<scalar_t>&& A,
 
 //------------------------------------------------------------------------------
 /// Distributed QR triangle-triangle factorization, host implementation.
-/// assumes panel tiles reside on host
+/// Assumes panel tiles reside on host.
 /// @ingroup geqrf_internal
 ///
 template <typename scalar_t>
@@ -79,7 +79,7 @@ void ttqrt(internal::TargetType<Target::HostTask>,
     std::set<int> ranks_set;
     A.sub(0, A_mt-1, 0, 0).getRanks(&ranks_set);
 
-    // Find each rank's top-most row in this column,
+    // Find each rank's first (top-most) row in this column,
     // which is the triangular tile resulting from local geqrf panel.
     std::vector< std::pair<int, int64_t> > rank_rows;
     rank_rows.reserve(ranks_set.size());
@@ -92,7 +92,7 @@ void ttqrt(internal::TargetType<Target::HostTask>,
         }
     }
     // Sort rank_rows by row.
-    std::sort(rank_rows.begin(), rank_rows.end(), compare_rank_rows);
+    std::sort(rank_rows.begin(), rank_rows.end(), compareSecond<int, int64_t>);
 
     // Find this rank.
     int index;

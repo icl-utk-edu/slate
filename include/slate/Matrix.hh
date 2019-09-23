@@ -40,7 +40,7 @@
 #ifndef SLATE_MATRIX_HH
 #define SLATE_MATRIX_HH
 
-#include "slate/internal/BaseMatrix.hh"
+#include "slate/BaseMatrix.hh"
 #include "slate/Tile.hh"
 #include "slate/types.hh"
 
@@ -61,8 +61,17 @@ namespace slate {
 template <typename scalar_t>
 class Matrix: public BaseMatrix<scalar_t> {
 public:
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
+
     // constructors
     Matrix();
+
+    Matrix(int64_t m, int64_t n,
+           std::function<int64_t (int64_t i)>& inTileMb,
+           std::function<int64_t (int64_t j)>& inTileNb,
+           std::function<int (ij_tuple ij)>& inTileRank,
+           std::function<int (ij_tuple ij)>& inTileDevice,
+           MPI_Comm mpi_comm);
 
     Matrix(int64_t m, int64_t n, int64_t mb, int64_t nb,
            int p, int q, MPI_Comm mpi_comm);
@@ -115,7 +124,8 @@ public:
     }
 
     template <typename out_scalar_t=scalar_t>
-    Matrix<out_scalar_t> emptyLike(int64_t mb=0, int64_t nb=0);
+    Matrix<out_scalar_t> emptyLike(int64_t mb=0, int64_t nb=0,
+                                   Op deepOp=Op::NoTrans);
 
     // conversion sub-matrix
     Matrix(BaseMatrix<scalar_t>& orig,
@@ -156,9 +166,6 @@ public:
     void reserveDeviceWorkspace();
     void gather(scalar_t* A, int64_t lda);
     void insertLocalTiles(Target origin=Target::Host);
-
-    // copy local data of op(A).
-    void copy(Matrix& A);
 };
 
 //------------------------------------------------------------------------------
@@ -169,7 +176,48 @@ Matrix<scalar_t>::Matrix():
 {}
 
 //------------------------------------------------------------------------------
-/// Constructor creates an m-by-n matrix, with no tiles allocated.
+/// Constructor creates an m-by-n matrix, with no tiles allocated,
+/// where tileMb, tileNb, tileRank, tileDevice are given as functions.
+/// Tiles can be added with tileInsert().
+///
+/// @param[in] m
+///     Number of rows of the matrix. m >= 0.
+///
+/// @param[in] n
+///     Number of columns of the matrix. n >= 0.
+///
+/// @param[in] inTileMb
+///     Function that takes block-row index, returns block-row size.
+///
+/// @param[in] inTileNb
+///     Function that takes block-col index, returns block-col size.
+///
+/// @param[in] inTileRank
+///     Function that takes tuple of { block-row, block-col } indices,
+///     returns MPI rank for that tile.
+///
+/// @param[in] inTileDevice
+///     Function that takes tuple of { block-row, block-col } indices,
+///     returns local GPU device ID for that tile.
+///
+/// @param[in] mpi_comm
+///     MPI communicator to distribute matrix across.
+///
+template <typename scalar_t>
+Matrix<scalar_t>::Matrix(
+    int64_t m, int64_t n,
+    std::function<int64_t (int64_t i)>& inTileMb,
+    std::function<int64_t (int64_t j)>& inTileNb,
+    std::function<int (ij_tuple ij)>& inTileRank,
+    std::function<int (ij_tuple ij)>& inTileDevice,
+    MPI_Comm mpi_comm)
+    : BaseMatrix<scalar_t>(m, n, inTileMb, inTileNb, inTileRank, inTileDevice,
+                           mpi_comm)
+{}
+
+//------------------------------------------------------------------------------
+/// Constructor creates an m-by-n matrix, with no tiles allocated,
+/// with fixed mb-by-nb tile size and 2D block cyclic distribution.
 /// Tiles can be added with tileInsert().
 ///
 /// @param[in] m
@@ -193,8 +241,7 @@ Matrix<scalar_t>::Matrix():
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
 ///     p*q == MPI_Comm_size(mpi_comm).
-//
-// todo: have allocate flag? If true, allocate data; else user will insert tiles?
+///
 template <typename scalar_t>
 Matrix<scalar_t>::Matrix(
     int64_t m, int64_t n, int64_t mb, int64_t nb, int p, int q, MPI_Comm mpi_comm)
@@ -209,7 +256,7 @@ Matrix<scalar_t>::Matrix(
 /// of the Matrix object and any shallow copies of it.
 /// Input format is an LAPACK-style column-major matrix with leading
 /// dimension (column stride) lda >= m, that is replicated across all nodes.
-/// Matrix gets tiled with square nb-by-nb tiles.
+/// Matrix gets tiled with mb-by-nb tiles.
 ///
 /// @param[in] m
 ///     Number of rows of the matrix. m >= 0.
@@ -257,7 +304,7 @@ Matrix<scalar_t> Matrix<scalar_t>::fromLAPACK(
 /// Input format is a ScaLAPACK-style 2D block-cyclic column-major matrix
 /// with local leading dimension (column stride) lda,
 /// p block rows and q block columns.
-/// Matrix gets tiled with square nb-by-nb tiles.
+/// Matrix gets tiled with mb-by-nb tiles.
 ///
 /// @param[in] m
 ///     Number of rows of the matrix. m >= 0.
@@ -352,8 +399,6 @@ Matrix<scalar_t> Matrix<scalar_t>::fromDevices(
 /// Named constructor returns a new, empty Matrix with the same structure
 /// (distribution and number of tiles) as this matrix. Tiles are not allocated.
 ///
-/// todo: currently assumes 2DBC and fixed mb, nb.
-///
 /// @param[in] mb
 ///     Row block size of new matrix.
 ///     If mb = 0, uses the same mb and m as this matrix;
@@ -364,62 +409,23 @@ Matrix<scalar_t> Matrix<scalar_t>::fromDevices(
 ///     If nb = 0, uses the same nb and n as this matrix;
 ///     otherwise, n = nb * nt.
 ///
+/// @param[in] deepOp
+///     Additional deep-transposition operation to apply. If deepOp=Trans, the
+///     new matrix has the transposed structure (distribution and number of
+///     tiles) of this matrix, but its shallow-transpose op() flag is set to
+///     NoTrans. For a 1x4 matrix A, compare:
+///     - transpose(A).emptyLike() creates a new 1x4 matrix, then transposes it
+///       to return a 4x1 matrix with its op set to Trans.
+///     - A.emptyLike(mb, nb, Op::Trans) creates and returns a new 4x1 matrix
+///       with its op set to NoTrans.
+///
 template <typename scalar_t>
 template <typename out_scalar_t>
-Matrix<out_scalar_t> Matrix<scalar_t>::emptyLike(int64_t mb, int64_t nb)
+Matrix<out_scalar_t> Matrix<scalar_t>::emptyLike(
+    int64_t mb, int64_t nb, Op deepOp)
 {
-    // First create no-trans parent matrix, apply op, then return sub-matrix.
-    int64_t m, n;
-    if (this->op() == Op::NoTrans) {
-        if (mb == 0) {
-            mb = this->tileMb(0);
-            m  = this->m();
-        }
-        else {
-            m = mb * this->mt();
-        }
-        if (nb == 0) {
-            nb = this->tileNb(0);
-            n  = this->n();
-        }
-        else {
-            n = nb * this->nt();
-        }
-    }
-    else {
-        std::swap(mb, nb);
-        if (mb == 0) {
-            mb = this->tileNb(0);
-            m  = this->n();
-        }
-        else {
-            m = mb * this->nt();
-        }
-        if (nb == 0) {
-            nb = this->tileMb(0);
-            n  = this->m();
-        }
-        else {
-            n = nb * this->mt();
-        }
-    }
-    int64_t ioffset = this->ioffset();
-    int64_t joffset = this->joffset();
-    m += ioffset*mb;
-    n += joffset*nb;
-    int p = this->storage_->p();
-    int q = this->storage_->q();
-    auto B = Matrix<out_scalar_t>(m, n, mb, nb, p, q, this->mpiComm());
-    if (this->op() == Op::Trans) {
-        B = transpose( B );
-        std::swap(ioffset, joffset);
-    }
-    else if (this->op() == Op::ConjTrans) {
-        B = conj_transpose( B );
-        std::swap(ioffset, joffset);
-    }
-    return B.sub(ioffset, ioffset + this->mt() - 1,
-                 joffset, joffset + this->nt() - 1);
+    auto B = this->template baseEmptyLike<out_scalar_t>(mb, nb, deepOp);
+    return Matrix<out_scalar_t>(B, 0, B.mt()-1, 0, B.nt()-1);
 }
 
 //------------------------------------------------------------------------------
@@ -765,46 +771,6 @@ void Matrix<scalar_t>::insertLocalTiles(Target origin)
             }
         }
     }
-}
-
-//------------------------------------------------------------------------------
-/// copy local data of op(A).
-/// assumes A has the same distribution, and local tiles are already allocated.
-/// TODO this variant copies the Host data only, need to take care of device data
-/// TODO handle the op(A) case
-template <typename scalar_t>
-void Matrix<scalar_t>::copy(Matrix<scalar_t>& A)
-{
-    int64_t A_mt = A.mt();
-    int64_t A_nt = A.nt();
-    assert(A_mt <= this->mt());
-    assert(A_nt <= this->nt());
-
-    for (int64_t j = 0; j < A_nt; ++j) {
-        int64_t jb = A.tileNb(j);
-        assert(jb <= this->tileNb(j));
-
-        for (int64_t i = 0; i < A_mt; ++i) {
-
-            if (this->tileIsLocal(i, j)) {
-                int64_t ib = A.tileMb(i);
-                assert(ib <= this->tileMb(i));
-
-                #pragma omp task
-                {
-                    A.tileGetForReading(i, j, LayoutConvert::None);
-                    auto Aij = A.at(i, j);
-                    this->tileGetForWriting(i, j, LayoutConvert::None);
-                    auto Bij = this->at(i, j);
-                    lapack::lacpy(lapack::MatrixType::General, ib, jb,
-                                  Aij.data(), Aij.stride(),
-                                  Bij.data(), Bij.stride());
-                    this->tileLayout(i, j, Aij.layout());
-                }
-            }
-        }
-    }
-    #pragma omp taskwait
 }
 
 } // namespace slate

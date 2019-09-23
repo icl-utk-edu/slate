@@ -163,7 +163,7 @@ void slate_pgesv(int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, int* 
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(descb), desc_N(descb), b, desc_LLD(descb), desc_MB(descb), nprow, npcol, MPI_COMM_WORLD);
     B = slate_scalapack_submatrix(Bm, Bn, B, ib, jb, descb);
 
-    if (verbose && myrow==0 && mycol==0)
+    if (verbose && myrow == 0 && mycol == 0)
         logprintf("%s\n", "gesv");
 
     slate::gesv(A, pivots, B, {
@@ -183,7 +183,7 @@ void slate_pgesv(int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, int* 
         // const int64_t A_mt = A.mt();
         // for (int tm = 0; tm < A_mt; ++tm) {
         //     for (int tn = 0; tn < A_nt; ++tn) {
-        //         if (A.tileIsLocal(tm, tn)){
+        //         if (A.tileIsLocal(tm, tn)) {
         //             for (auto p_iter = pivots[tm].begin(); p_iter != pivots[tm].end(); ++p_iter) {
         //                 ipiv[p_count++] = p_iter->tileIndex() * nb + p_iter->elementOffset() + 1;
         //             }

@@ -58,9 +58,9 @@ namespace specialization {
 ///
 template <Target target, typename scalar_t>
 void geadd(slate::internal::TargetType<target>,
-          scalar_t alpha, Matrix<scalar_t>& A,
-          scalar_t beta,  Matrix<scalar_t>& B,
-          int64_t lookahead)
+           scalar_t alpha, Matrix<scalar_t>& A,
+           scalar_t beta,  Matrix<scalar_t>& B,
+           int64_t lookahead)
 {
     using namespace blas;
 
@@ -97,7 +97,7 @@ void geadd(scalar_t alpha, Matrix<scalar_t>& A,
         lookahead = opts.at(Option::Lookahead).i_;
         assert(lookahead >= 0);
     }
-    catch (std::out_of_range) {
+    catch (std::out_of_range&) {
         lookahead = 1;
     }
 
@@ -158,7 +158,7 @@ void geadd(scalar_t alpha, Matrix<scalar_t>& A,
     try {
         target = Target(opts.at(Option::Target).i_);
     }
-    catch (std::out_of_range) {
+    catch (std::out_of_range&) {
         target = Target::HostTask;
     }
 

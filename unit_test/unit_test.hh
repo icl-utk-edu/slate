@@ -4,14 +4,19 @@
 #include <exception>
 #include <stdexcept>
 #include <string>
+#include <memory> // unique_ptr
+
+// For type_name<>() to demangle on non-Microsoft platforms.
+#ifndef _MSC_VER
+    #include <cxxabi.h>
+#endif
 
 #include "slate/internal/mpi.hh"
 
 //==============================================================================
 /// Exception class thrown by test_assert, test_assert_throw,
 /// test_assert_no_throw.
-class AssertError: public std::runtime_error
-{
+class AssertError: public std::runtime_error {
 public:
     AssertError(const char* what_arg, const char* file, int line);
 
@@ -102,8 +107,7 @@ public:
 
 //==============================================================================
 /// Exception class thrown by test_skip.
-class SkipException: public std::runtime_error
-{
+class SkipException: public std::runtime_error {
 public:
     SkipException(const char* what_arg, const char* file, int line);
 
@@ -117,6 +121,36 @@ public:
 /// Throws SkipException.
 #define test_skip(msg) \
     throw SkipException(msg, __FILE__, __LINE__)
+
+//------------------------------------------------------------------------------
+/// type_name<T>() returns string describing the type of T.
+///
+//  see https://stackoverflow.com/questions/81870/is-it-possible-to-print-a-variables-type-in-standard-c
+template <typename T>
+std::string type_name()
+{
+    typedef typename std::remove_reference<T>::type TR;
+
+    std::unique_ptr< char, void(*)(void*) > own(
+        #ifndef _MSC_VER
+            abi::__cxa_demangle(typeid(TR).name(), nullptr, nullptr, nullptr),
+        #else
+            nullptr,
+        #endif
+        std::free
+    );
+
+    std::string r = own != nullptr ? own.get() : typeid(TR).name();
+    if (std::is_const<TR>::value)
+        r += " const";
+    if (std::is_volatile<TR>::value)
+        r += " volatile";
+    if (std::is_lvalue_reference<T>::value)
+        r += "&";
+    else if (std::is_rvalue_reference<T>::value)
+        r += "&&";
+    return r;
+}
 
 //------------------------------------------------------------------------------
 typedef void test_function(void);

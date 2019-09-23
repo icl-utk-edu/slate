@@ -172,7 +172,7 @@ void slate_ptrmm(const char* sidestr, const char* uplostr, const char* transastr
     else if (transA == Op::ConjTrans)
         AT = conj_transpose(AT);
 
-    if (verbose && myrow==0 && mycol==0)
+    if (verbose && myrow == 0 && mycol == 0)
         logprintf("%s\n", "trmm");
 
     slate::trmm(side, alpha, AT, B, {

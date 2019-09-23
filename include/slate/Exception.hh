@@ -94,6 +94,24 @@ protected:
     } while(0)
 
 //------------------------------------------------------------------------------
+class NotImplemented : public Exception {
+public:
+    NotImplemented(const char* msg,
+                   const char* func,
+                   const char* file,
+                   int line)
+        : Exception(std::string("SLATE ERROR: Not yet implemented: ") + msg,
+                    func, file, line)
+    {}
+};
+
+/// Throws NotImplemented exception with given message.
+#define slate_not_implemented(msg) \
+    do { \
+        throw slate::NotImplemented(msg, __func__, __FILE__, __LINE__); \
+    } while(0)
+
+//------------------------------------------------------------------------------
 /// Exception class for slate_error_if().
 class TrueConditionException : public Exception {
 public:
@@ -161,6 +179,7 @@ public:
 
 /// Throws an MpiException if the MPI call fails.
 /// Example:
+///
 ///     try {
 ///         slate_mpi_call( MPI_Barrier( MPI_COMM_WORLD ) );
 ///     }
@@ -199,6 +218,7 @@ public:
 
 /// Throws a CudaException if the CUDA call fails.
 /// Example:
+///
 ///     try {
 ///         slate_cuda_call( cudaSetDevice( device ) );
 ///     }
@@ -239,6 +259,7 @@ public:
 
 /// Throws a CublasException if the CUBLAS call fails.
 /// Example:
+///
 ///     try {
 ///         slate_cublas_call( cublasCreate( &handle ) );
 ///     }

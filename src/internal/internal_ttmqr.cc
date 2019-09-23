@@ -47,9 +47,13 @@ namespace slate {
 namespace internal {
 
 //------------------------------------------------------------------------------
-/// Distributed QR triangle-triangle factorization of column of tiles.
-/// Each rank has one triangular tile, the result of local geqrf panel.
+/// Distributed multiply matrix by Q from QR triangle-triangle factorization of
+/// row of tiles.
 /// Dispatches to target implementations.
+/// todo: This assumes A and T have already been communicated as needed.
+/// However, it necesarily handles communication for C.
+/// Tag is used in geqrf to differentiate communication for look-ahead panel
+/// from rest of trailing matrix.
 /// @ingroup geqrf_internal
 ///
 template <Target target, typename scalar_t>
@@ -64,7 +68,8 @@ void ttmqr(Side side, Op op,
 }
 
 //------------------------------------------------------------------------------
-/// Distributed QR triangle-triangle factorization, host implementation.
+/// Distributed multiply matrix by Q from QR triangle-triangle factorization of
+/// row of tiles, host implementation.
 /// @ingroup geqrf_internal
 ///
 template <typename scalar_t>
@@ -84,7 +89,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
     std::set<int> ranks_set;
     A.sub(0, A_mt-1, 0, 0).getRanks(&ranks_set);
 
-    // Find each rank's top-most row in this column,
+    // Find each rank's first (top-most) row in this column,
     // which is the triangular tile resulting from local geqrf panel.
     std::vector< std::pair<int, int64_t> > rank_rows;
     rank_rows.reserve(ranks_set.size());
@@ -97,7 +102,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
         }
     }
     // Sort rank_rows by row.
-    std::sort(rank_rows.begin(), rank_rows.end(), compare_rank_rows);
+    std::sort(rank_rows.begin(), rank_rows.end(), compareSecond<int, int64_t>);
 
     int nranks = rank_rows.size();
     int nlevels = int( ceil( log2( nranks ) ) );
@@ -121,12 +126,6 @@ void ttmqr(internal::TargetType<Target::HostTask>,
     for (int level = level_begin; level != level_end; level += level_step) {
         for (int index = 0; index < nranks; index += step) {
             int64_t i = rank_rows[ index ].second;
-            // Send V and T across row of C.
-            // todo: cleanup, this communication has migrated to the calling routine
-            // if (index % (2*step) != 0) {
-            //     A.tileBcast(i, 0, C.sub(i, i, 0, C.nt()-1));
-            //     T.tileBcast(i, 0, C.sub(i, i, 0, C.nt()-1));
-            // }
             // At each level, scan rows of C for local tiles.
             // TODO: the j loop can be parallelized, but care needs to be
             // taken so that MPI makes progress.
@@ -156,8 +155,8 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                         C.tileGetForWriting(i, j, LayoutConvert(layout));
 
                         // Apply Q
-                        tpmqrt(side, op, std::min( A.tileMb(i), A.tileNb(0) ), A(i, 0),
-                               T(i, 0),
+                        tpmqrt(side, op, std::min( A.tileMb(i), A.tileNb(0) ),
+                               A(i, 0), T(i, 0),
                                C(i_src, j), C(i, j));
 
                         // todo: should tileRelease()?

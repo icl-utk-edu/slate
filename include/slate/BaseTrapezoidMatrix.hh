@@ -40,7 +40,7 @@
 #ifndef SLATE_BASE_TRAPEZOID_MATRIX_HH
 #define SLATE_BASE_TRAPEZOID_MATRIX_HH
 
-#include "slate/internal/BaseMatrix.hh"
+#include "slate/BaseMatrix.hh"
 #include "slate/Matrix.hh"
 #include "slate/Tile.hh"
 #include "slate/types.hh"
@@ -73,11 +73,17 @@ protected:
     // constructors
     BaseTrapezoidMatrix();
 
+    BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
+                        std::function<int64_t (int64_t j)>& inTileNb,
+                        std::function<int (ij_tuple ij)>& inTileRank,
+                        std::function<int (ij_tuple ij)>& inTileDevice,
+                        MPI_Comm mpi_comm);
+
     BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n, int64_t nb,
                         int p, int q, MPI_Comm mpi_comm);
 
     // conversion
-    BaseTrapezoidMatrix(Uplo uplo, Matrix<scalar_t>& orig);
+    BaseTrapezoidMatrix(Uplo uplo, BaseMatrix<scalar_t>& orig);
 
     // used by sub-classes' fromLAPACK and fromScaLAPACK
     BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
@@ -90,7 +96,7 @@ protected:
                         int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
     // used by sub-classes' off-diagonal sub
-    BaseTrapezoidMatrix(Uplo uplo, Matrix<scalar_t>& orig,
+    BaseTrapezoidMatrix(Uplo uplo, BaseMatrix<scalar_t>& orig,
                         int64_t i1, int64_t i2,
                         int64_t j1, int64_t j2);
 
@@ -102,6 +108,10 @@ protected:
     // used by sub-classes' slice
     BaseTrapezoidMatrix(BaseTrapezoidMatrix& orig,
                         typename BaseMatrix<scalar_t>::Slice slice);
+
+    // used by sub-classes' emptyLike
+    template <typename out_scalar_t>
+    Matrix<out_scalar_t> emptyLike();
 
 public:
     // off-diagonal sub-matrix
@@ -145,10 +155,29 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix()
 }
 
 //------------------------------------------------------------------------------
-/// Constructor creates an m-by-n matrix, with no tiles allocated.
+/// Constructor creates an m-by-n matrix, with no tiles allocated,
+/// where tileNb, tileRank, tileDevice are given as functions.
 /// Tiles can be added with tileInsert().
-//
-// todo: have allocate flag? If true, allocate data; else user will insert tiles?
+///
+template <typename scalar_t>
+BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
+    Uplo uplo, int64_t m, int64_t n,
+    std::function<int64_t (int64_t j)>& inTileNb,
+    std::function<int (ij_tuple ij)>& inTileRank,
+    std::function<int (ij_tuple ij)>& inTileDevice,
+    MPI_Comm mpi_comm)
+    : BaseMatrix<scalar_t>(m, n, inTileNb, inTileNb, inTileRank,
+                           inTileDevice, mpi_comm)
+{
+    slate_error_if(uplo == Uplo::General);
+    this->uplo_ = uplo;
+}
+
+//------------------------------------------------------------------------------
+/// Constructor creates an m-by-n matrix, with no tiles allocated,
+/// with fixed nb-by-nb tile size and 2D block cyclic distribution.
+/// Tiles can be added with tileInsert().
+///
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     Uplo uplo, int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
@@ -385,7 +414,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 ///
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
-    Uplo uplo, Matrix<scalar_t>& orig)
+    Uplo uplo, BaseMatrix<scalar_t>& orig)
     : BaseMatrix<scalar_t>(orig)
 {
     slate_error_if(uplo == Uplo::General);
@@ -424,7 +453,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 ///
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
-    Uplo uplo, Matrix<scalar_t>& orig,
+    Uplo uplo, BaseMatrix<scalar_t>& orig,
     int64_t i1, int64_t i2,
     int64_t j1, int64_t j2)
     : BaseMatrix<scalar_t>(orig, i1, i2, j1, j2)
@@ -1017,14 +1046,14 @@ void BaseTrapezoidMatrix<scalar_t>::tileLayoutReset()
             if (this->tileIsLocal(i, j)) {
 
                 auto tile = this->tileUpdateOrigin(i, j);
-                if (tile->layout() != this->layout() ) {
+                if (tile->layout() != this->layout()) {
                     assert(tile->isTransposable());
                 }
 
                 if (tile->device() == hostNum()) {
                     tiles_set_host.insert({i, j});
                 }
-                else{
+                else {
                     tiles_set_dev[tile->device()].insert({i, j});
                 }
             }

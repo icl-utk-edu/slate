@@ -32,6 +32,9 @@
 
 -include make.inc
 
+# Export variables to sub-make for libtest, BLAS++, LAPACK++.
+export CXX mkl ilp64 essl openblas openmp static
+
 NVCC ?= nvcc
 
 CXXFLAGS  += -O3 -std=c++11 -Wall -pedantic -MMD
@@ -272,8 +275,11 @@ libslate_src += \
         src/internal/internal_trtri.cc \
         src/internal/internal_trtrm.cc \
         src/internal/internal_ttmqr.cc \
+        src/internal/internal_ttmlq.cc \
         src/internal/internal_ttqrt.cc \
+        src/internal/internal_ttlqt.cc \
         src/internal/internal_unmqr.cc \
+        src/internal/internal_unmlq.cc \
         src/internal/internal_util.cc \
         src/internal/internal_transpose.cc \
         src/internal/internal_tzcopy.cc \
@@ -302,10 +308,12 @@ libslate_src += \
         src/gbsv.cc \
         src/gbtrf.cc \
         src/gbtrs.cc \
+        src/ge2tb.cc \
         src/geadd.cc \
         src/gels.cc \
         src/gemm.cc \
         src/geqrf.cc \
+        src/gelqf.cc \
         src/gesv.cc \
         src/gesvd.cc \
         src/gesvMixed.cc \
@@ -338,6 +346,7 @@ libslate_src += \
         src/trtri.cc \
         src/trtrm.cc \
         src/unmqr.cc \
+        src/unmlq.cc \
 
 # main tester
 test_src += \
@@ -346,10 +355,12 @@ test_src += \
         test/test_gbmm.cc \
         test/test_gbnorm.cc \
         test/test_gbsv.cc \
+        test/test_ge2tb.cc \
         test/test_gels.cc \
         test/test_gemm.cc \
         test/test_genorm.cc \
         test/test_geqrf.cc \
+        test/test_gelqf.cc \
         test/test_gesv.cc \
         test/test_getri.cc \
         test/test_hemm.cc \
@@ -399,12 +410,14 @@ unit_src = \
         unit_test/test_HermitianMatrix.cc \
         unit_test/test_Matrix.cc \
         unit_test/test_Memory.cc \
-        unit_test/test_norm.cc \
         unit_test/test_SymmetricMatrix.cc \
         unit_test/test_TrapezoidMatrix.cc \
         unit_test/test_TriangularMatrix.cc \
         unit_test/test_Tile.cc \
         unit_test/test_Tile_kernels.cc \
+        unit_test/test_lq.cc \
+        unit_test/test_norm.cc \
+        unit_test/test_qr.cc \
 
 # unit test framework
 unit_test_obj = \
@@ -453,35 +466,13 @@ UNIT_LIBS    += -lslate -ltest
 # Rules
 .DELETE_ON_ERROR:
 .SUFFIXES:
-.PHONY: all docs lib test unit_test clean distclean
+.PHONY: all docs lib test unit_test clean distclean libtest blaspp lapackpp
 .DEFAULT_GOAL := all
 
 all: lib test unit_test scalapack_api lapack_api
 
 docs:
 	doxygen docs/doxygen/doxyfile.conf
-
-#-------------------------------------------------------------------------------
-# LAPACK++ library
-liblapackpp_src = $(wildcard lapackpp/include/*.h \
-                             lapackpp/include/*.hh \
-                             lapackpp/src/*.cc)
-
-liblapackpp = lapackpp/lib/liblapackpp.$(lib_ext)
-
-$(liblapackpp): $(liblapackpp_src)
-	cd lapackpp && $(MAKE) lib
-
-#-------------------------------------------------------------------------------
-# BLAS++ library
-libblaspp_src = $(wildcard blaspp/include/*.h \
-                           blaspp/include/*.hh \
-                           blaspp/src/*.cc)
-
-libblaspp = blaspp/lib/libblaspp.$(lib_ext)
-
-$(libblaspp): $(libblaspp_src)
-	cd blaspp && $(MAKE) lib
 
 #-------------------------------------------------------------------------------
 # libtest library
@@ -491,6 +482,36 @@ libtest = libtest/libtest.$(lib_ext)
 
 $(libtest): $(libtest_src)
 	cd libtest && $(MAKE) lib
+
+libtest: $(libtest)
+
+#-------------------------------------------------------------------------------
+# BLAS++ library
+libblaspp_src = $(wildcard blaspp/include/*.h \
+                           blaspp/include/*.hh \
+                           blaspp/src/*.cc)
+
+libblaspp = blaspp/lib/libblaspp.$(lib_ext)
+
+# dependency on libtest serializes compiles
+$(libblaspp): $(libblaspp_src) | $(libtest)
+	cd blaspp && $(MAKE) lib
+
+blaspp: $(libblaspp)
+
+#-------------------------------------------------------------------------------
+# LAPACK++ library
+liblapackpp_src = $(wildcard lapackpp/include/*.h \
+                             lapackpp/include/*.hh \
+                             lapackpp/src/*.cc)
+
+liblapackpp = lapackpp/lib/liblapackpp.$(lib_ext)
+
+# dependency on libtest, BLAS++ serializes compiles
+$(liblapackpp): $(liblapackpp_src) | $(libtest) $(libblaspp)
+	cd lapackpp && $(MAKE) lib
+
+lapackpp: $(liblapackpp)
 
 #-------------------------------------------------------------------------------
 # libslate library
@@ -512,6 +533,20 @@ $(libslate_so): $(libslate_obj) $(libblaspp) $(liblapackpp)
 		-shared $(install_name) -o $@
 
 lib: $(libslate)
+
+#-------------------------------------------------------------------------------
+# headers
+# precompile headers to verify self-sufficiency
+headers     = $(wildcard include/*/*.hh test/*.hh)
+headers_gch = $(addsuffix .gch, $(basename $(headers)))
+
+headers: $(headers_gch)
+
+# sub-directory rules
+include: headers
+
+include/clean:
+	$(RM) include/*/*.gch test/*.gch
 
 #-------------------------------------------------------------------------------
 # main tester
@@ -563,7 +598,7 @@ scalapack_api_src += \
         scalapack_api/scalapack_lanhe.cc \
         scalapack_api/scalapack_posv.cc \
         scalapack_api/scalapack_gels.cc \
-        scalapack_api/scalapack_potri.cc
+        scalapack_api/scalapack_potri.cc \
 
 scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
 
@@ -639,7 +674,7 @@ $(lapack_api_so): $(lapack_api_obj) $(libslate)
 
 #-------------------------------------------------------------------------------
 # general rules
-clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean
+clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean include/clean
 	rm -f $(libslate_a) $(libslate_so) $(libslate_obj)
 	rm -f trace_*.svg
 
@@ -656,12 +691,14 @@ distclean: clean
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
 # preprocess source
+# test/%.i depend on libtest; for simplicity just add it here.
 %.i: %.cc
-	$(CXX) $(CXXFLAGS) -E $< -o $@
+	$(CXX) $(CXXFLAGS) -I./libtest -E $< -o $@
 
 # precompile header to check for errors
+# test/%.gch depend on libtest; for simplicity just add it here.
 %.gch: %.hh
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -I./libtest -c $< -o $@
 
 -include $(dep)
 

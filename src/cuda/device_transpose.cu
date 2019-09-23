@@ -189,13 +189,13 @@ __device__ void transpose_func(
     AT += ibz + tx + (iby + ty)*ldat;
 
     #pragma unroll
-    for( int tile=0; tile < NB/NX; ++tile ) {
+    for (int tile=0; tile < NB/NX; ++tile) {
         // load NX-by-NB subtile transposed from A into sA
         i = iby + tx + tile*NX;
         j = ibz + ty;
         if (i < m) {
             #pragma unroll
-            for( int j2=0; j2 < NB; j2 += NY ) {
+            for (int j2=0; j2 < NB; j2 += NY) {
                 if (j + j2 < n) {
                     sA[ty + j2][tx] = A[j2*lda];
                 }
@@ -207,10 +207,10 @@ __device__ void transpose_func(
         i = ibz + tx;
         j = iby + ty + tile*NX;
         #pragma unroll
-        for( int i2=0; i2 < NB; i2 += NX ) {
+        for (int i2=0; i2 < NB; i2 += NX) {
             if (i + i2 < n) {
                 #pragma unroll
-                for( int j2=0; j2 < NX; j2 += NY ) {
+                for (int j2=0; j2 < NX; j2 += NY) {
                     if (j + j2 < m) {
                         AT[i2 + j2*ldat] = sA[tx + i2][ty + j2];
                     }
@@ -417,7 +417,7 @@ void transpose(
     scalar_t* dAT, int64_t ldat,
     cudaStream_t stream)
 {
-    if ( (m <= 0) || (n <= 0) )
+    if ((m <= 0) || (n <= 0))
         return;
     assert(lda >= m);
     assert(ldat >= n);
@@ -479,7 +479,7 @@ void transpose_batch(
     int64_t batch_count,
     cudaStream_t stream)
 {
-    if ( (m <= 0) || (n <= 0) )
+    if ((m <= 0) || (n <= 0))
         return;
     assert(lda >= m);
     assert(ldat >= n);

@@ -159,7 +159,7 @@ void slate_phemm(const char* sidestr, const char* uplostr, int m, int n, scalar_
     assert(B.mt() == C.mt());
     assert(B.nt() == C.nt());
 
-    if (verbose && myrow==0 && mycol==0)
+    if (verbose && myrow == 0 && mycol == 0)
         logprintf("%s\n", "hemm");
 
     slate::hemm(side, alpha, AH, B, beta, C, {

@@ -80,14 +80,17 @@ void gesvd(Matrix<scalar_t>& A,
 
 
         // 1. Reduction to bi-diagonal
-        TriangularBandMatrix<scalar_t> Aband;
 
         // 1.1.1 reduction to band
-        // ge2tb(Ahat, opts);
+        slate::TriangularFactors<scalar_t> TU, TV;
+        ge2tb(Ahat, TU, TV, opts);
 
-        // 1.1.2 copy general to band
-        //A.gather(Ahat);
-        //slate::internal::copyge2tb(Ahat, Aband);
+        // 1.1.2 gather general to band
+        auto Aband = TriangularBandMatrix<scalar_t>( Uplo::Upper, Diag::NonUnit,
+                                                     A.n(), A.tileNb(0), A.tileNb(0),
+                                                     1, 1, A.mpiComm());
+        Aband.insertLocalTiles();
+        Aband.ge2tbGather(Ahat);
 
         // 1.2.1 triangular band to bidiagonal
         tb2bd(Aband, opts);

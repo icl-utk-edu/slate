@@ -29,6 +29,8 @@ template <typename scalar_t> void test_gesvd_work(Params& params, bool run)
     int64_t p = params.p();
     int64_t q = params.q();
     int64_t nb = params.nb();
+    int64_t ib = params.ib();
+    int64_t panel_threads = params.panel_threads();
     int64_t lookahead = params.lookahead();
     bool ref_only = params.ref() == 'o';
     bool runtst = (! ref_only);
@@ -75,9 +77,9 @@ template <typename scalar_t> void test_gesvd_work(Params& params, bool run)
         return;
     }
 
-    // skip unsupported 
+    // skip unsupported
     if (jobu != lapack::Job::NoVec) {
-        if (iam == 0) 
+        if (iam == 0)
             printf("\nskipping: Only singular values supported (vectors not yet supported)\n");
         return;
     }
@@ -181,22 +183,24 @@ template <typename scalar_t> void test_gesvd_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        ////////////////////////////////////////////////////////////  
+        #if 1
+        slate::gesvd(A, S_tst, {
+            {slate::Option::Lookahead, lookahead},
+            {slate::Option::Target, target},
+            {slate::Option::MaxPanelThreads, panel_threads},
+            {slate::Option::InnerBlocking, ib}
+        });
+        #else
+        ////////////////////////////////////////////////////////////
         // todo: Wrong call below here
         if (iam == 0) printf("TODO: REAL GESVD CALL NEEDED... Edit test_gesvd.cc and update\n");
-        if (0==1) { 
-            gesvd(A, S, {
-                    {slate::Option::Lookahead, lookahead},
-                    {slate::Option::Target, target}
-                });
-        }
         // Run using ScaLAPACK
         slate_set_num_blas_threads(omp_get_max_threads());
-        // query for workspace size        
+        // query for workspace size
         int64_t info_tst = 0;
         scalar_t dummywork;
-        scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n, 
-                         &A_tst[0],  ione, ione, descA_tst, 
+        scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
+                         &A_tst[0],  ione, ione, descA_tst,
                          &S_tst[0],
                          &U_tst[0], ione, ione, descU_tst,
                          &VT_tst[0], ione, ione, descVT_tst,
@@ -205,8 +209,8 @@ template <typename scalar_t> void test_gesvd_work(Params& params, bool run)
         lwork = int64_t( real( dummywork ) );
         work.resize(lwork);
         // Run ScaLAPACK reference routine.
-        scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n, 
-                         &A_tst[0],  ione, ione, descA_tst, 
+        scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
+                         &A_tst[0],  ione, ione, descA_tst,
                          &S_tst[0],
                          &U_tst[0], ione, ione, descU_tst,
                          &VT_tst[0], ione, ione, descVT_tst,
@@ -214,7 +218,8 @@ template <typename scalar_t> void test_gesvd_work(Params& params, bool run)
         slate_assert(info_tst == 0);
         slate_set_num_blas_threads(1);
         // todo: Wrong call above here
-        ////////////////////////////////////////////////////////////  
+        #endif
+        ////////////////////////////////////////////////////////////
 
         {
             slate::trace::Block trace_block("MPI_Barrier");
@@ -243,10 +248,10 @@ template <typename scalar_t> void test_gesvd_work(Params& params, bool run)
         { omp_num_threads = omp_get_num_threads(); }
         int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-        // query for workspace size        
+        // query for workspace size
         int64_t info_ref = 0;
         scalar_t dummywork;
-        scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n, 
+        scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
                          &A_ref[0],  ione, ione, descA_tst, &S_ref[0],
                          &U_ref[0], ione, ione, descU_tst,
                          &VT_ref[0], ione, ione, descVT_tst,
@@ -258,7 +263,7 @@ template <typename scalar_t> void test_gesvd_work(Params& params, bool run)
         // Run ScaLAPACK reference routine.
         MPI_Barrier(MPI_COMM_WORLD);
         double time = libtest::get_wtime();
-        scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n, 
+        scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
                          &A_ref[0],  ione, ione, descA_tst, &S_ref[0],
                          &U_ref[0], ione, ione, descU_tst,
                          &VT_ref[0], ione, ione, descVT_tst,
@@ -280,7 +285,7 @@ template <typename scalar_t> void test_gesvd_work(Params& params, bool run)
         real_t S_diff_norm = lapack::lange(norm, S_ref.size(), 1, &S_ref[0], 1);
 
         // todo: Is the scaling meaningful
-        real_t error = S_diff_norm / std::max(m, n); 
+        real_t error = S_diff_norm / std::max(m, n);
         params.error() = error;
 
         // todo: Any justification for this tolerance

@@ -89,7 +89,6 @@ void bdsqr(slate::internal::TargetType<target>,
 
     slate_assert(A.m() == A.n()); // Triangular matrix has square dimensions
     slate_assert(A.mt() == A.nt());
-    int64_t nt = A.nt();
 
     D.resize(A.n());
     std::vector<real_t> E(A.n() - 1);  // super-diagonal
@@ -97,8 +96,6 @@ void bdsqr(slate::internal::TargetType<target>,
 
     // Copy diagonal & super-diagonal.
     internal::copytb2bd(A, D, E);
-    E.resize(A.n() - 1);
-
 
     {
         trace::Block trace_block("lapack::bdsqr");

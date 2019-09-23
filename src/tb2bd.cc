@@ -243,6 +243,33 @@ void tb2bd(slate::internal::TargetType<target>,
     for (int64_t i = 0; i < diag_len-2; ++i)
         progress.at(i).store(-1);
 
+    // insert workspace tiles needed for fills in bulge chasing
+    // todo: should release these tiles when done
+    int jj = 0; // col index
+    for (int j = 0; j < A.nt(); ++j) {
+        int ii = 0; // row index
+        for (int i = 0; i < A.mt(); ++i) {
+            if (A.tileIsLocal(i, j) &&
+                ((ii == jj) ||
+                 ( ii < jj && (jj - (ii + A.tileMb(i) - 1)) <= (band+1) ) ) )
+            {
+                if (i == j && i > 0) {
+                    auto T_ptr = A.tileInsertWorkspace( i, j-1 );
+                    lapack::laset(lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
+                          0, 0, T_ptr->data(), T_ptr->stride());
+                }
+
+                if ((j < A.nt()-1) && (i == (j - 1))) {
+                    auto T_ptr = A.tileInsertWorkspace( i, j+1 );
+                    lapack::laset(lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
+                          0, 0, T_ptr->data(), T_ptr->stride());
+                }
+            }
+            ii += A.tileMb(i);
+        }
+        jj += A.tileNb(j);
+    }
+
     #pragma omp parallel
     #pragma omp master
     {
@@ -273,6 +300,9 @@ void tb2bd(slate::internal::TargetType<target>,
     }
 
     omp_destroy_lock(&lock);
+
+    // now that the chasing is over, the matrix is reduced to a bidiagonal
+    A.bandwidth(1);
 }
 
 } // namespace specialization
@@ -311,7 +341,6 @@ void tb2bd(TriangularBandMatrix<scalar_t>& A,
 ///
 /// @ingroup tb2bd
 ///
-// todo: Change Matrix to BandMatrix and remove the band parameter.
 template <typename scalar_t>
 void tb2bd(TriangularBandMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts)

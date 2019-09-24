@@ -66,7 +66,8 @@ namespace specialization {
 template <Target target, typename scalar_t>
 void bdsqr(slate::internal::TargetType<target>,
            TriangularBandMatrix<scalar_t> A,
-           std::vector< blas::real_type<scalar_t> >& D)
+           std::vector< blas::real_type<scalar_t> >& D,
+           std::vector< blas::real_type<scalar_t> >& E)
 {
     trace::Block trace_block("slate::bdsqr");
     using real_t = blas::real_type<scalar_t>;
@@ -79,24 +80,7 @@ void bdsqr(slate::internal::TargetType<target>,
     // make sure it is a bi-diagobal matrix
     slate_assert(A.bandwidth() == 1);
 
-    // Find the set of participating ranks.
-    std::set<int> rank_set;
-    A.getRanks(&rank_set);// todo: is this needed? aren't all ranks needed?
-
-    // gather A on each rank
-    // todo: this is over-communicating, try gathering the vectors only
-    A.gatherAll(rank_set);
-
-    slate_assert(A.m() == A.n()); // Triangular matrix has square dimensions
-    slate_assert(A.mt() == A.nt());
-
-    D.resize(A.n());
-    std::vector<real_t> E(A.n() - 1);  // super-diagonal
     scalar_t dummy[1];  // U, VT, C not needed for NoVec
-
-    // Copy diagonal & super-diagonal.
-    internal::copytb2bd(A, D, E);
-
     {
         trace::Block trace_block("lapack::bdsqr");
 
@@ -115,10 +99,11 @@ void bdsqr(slate::internal::TargetType<target>,
 template <Target target, typename scalar_t>
 void bdsqr(TriangularBandMatrix<scalar_t>& A,
            std::vector< blas::real_type<scalar_t> >& D,
+           std::vector< blas::real_type<scalar_t> >& E,
            const std::map<Option, Value>& opts)
 {
     internal::specialization::bdsqr(internal::TargetType<target>(),
-                                    A, D);
+                                    A, D, E);
 }
 
 //------------------------------------------------------------------------------
@@ -126,6 +111,7 @@ void bdsqr(TriangularBandMatrix<scalar_t>& A,
 template <typename scalar_t>
 void bdsqr(TriangularBandMatrix<scalar_t>& A,
            std::vector< blas::real_type<scalar_t> >& D,
+           std::vector< blas::real_type<scalar_t> >& E,
            const std::map<Option, Value>& opts)
 {
     Target target;
@@ -139,16 +125,16 @@ void bdsqr(TriangularBandMatrix<scalar_t>& A,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            bdsqr<Target::HostTask>(A, D, opts);
+            bdsqr<Target::HostTask>(A, D, E, opts);
             break;
         case Target::HostNest:
-            bdsqr<Target::HostNest>(A, D, opts);
+            bdsqr<Target::HostNest>(A, D, E, opts);
             break;
         case Target::HostBatch:
-            bdsqr<Target::HostBatch>(A, D, opts);
+            bdsqr<Target::HostBatch>(A, D, E, opts);
             break;
         case Target::Devices:
-            bdsqr<Target::Devices>(A, D, opts);
+            bdsqr<Target::Devices>(A, D, E, opts);
             break;
     }
     // todo: return value for errors?
@@ -160,24 +146,28 @@ template
 void bdsqr<float>(
     TriangularBandMatrix<float>& A,
     std::vector<float>& D,
+    std::vector<float>& E,
     const std::map<Option, Value>& opts);
 
 template
 void bdsqr<double>(
     TriangularBandMatrix<double>& A,
     std::vector<double>& D,
+    std::vector<double>& E,
     const std::map<Option, Value>& opts);
 
 template
 void bdsqr< std::complex<float> >(
     TriangularBandMatrix< std::complex<float> >& A,
     std::vector<float>& D,
+    std::vector<float>& E,
     const std::map<Option, Value>& opts);
 
 template
 void bdsqr< std::complex<double> >(
     TriangularBandMatrix< std::complex<double> >& A,
     std::vector<double>& D,
+    std::vector<double>& E,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

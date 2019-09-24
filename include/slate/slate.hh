@@ -777,6 +777,25 @@ void hb2td(HermitianBandMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
+template <typename scalar_t>
+void heev( HermitianMatrix<scalar_t>& A,
+           std::vector< blas::real_type<scalar_t> >& E,
+           const std::map<Option, Value>& opts);
+
+//-----------------------------------------
+// forward real-symmetric matrices to heev;
+// disabled for complex
+template <typename scalar_t>
+void syev( SymmetricMatrix<scalar_t>& A,
+           std::vector< blas::real_type<scalar_t> >& E,
+           const std::map<Option, Value>& opts = std::map<Option, Value>(),
+           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    HermitianMatrix<scalar_t> AH(A);
+    heev(AH, E, opts);
+}
+
+//-----------------------------------------
 // sterf()
 template <typename scalar_t>
 void sterf(HermitianBandMatrix<scalar_t>& A,

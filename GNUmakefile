@@ -322,6 +322,7 @@ libslate_src += \
         src/getriOOP.cc \
         src/getrs.cc \
         src/hb2td.cc \
+        src/heev.cc \
         src/hemm.cc \
         src/her2k.cc \
         src/herk.cc \

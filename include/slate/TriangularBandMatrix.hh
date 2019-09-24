@@ -82,7 +82,8 @@ public:
 
     void    gather(scalar_t* A, int64_t lda);
     void    gatherAll(std::set<int>& rank_set, int tag = 0, int64_t life_factor = 1);
-    void    ge2tbGather(Matrix<scalar_t>& A); 
+    void    ge2tbGather(Matrix<scalar_t>& A);
+    void    insertLocalTiles(Target origin=Target::Host);
 
     // todo: specialize for band
     // int64_t getMaxHostTiles();
@@ -297,11 +298,11 @@ void TriangularBandMatrix<scalar_t>::gather(scalar_t* A, int64_t lda)
 
 //------------------------------------------------------------------------------
 /// Gather the distributed triangular band portion of a general Matrix A
-//  to TriangularBandMatrix B on MPI rank 0. 
+//  to TriangularBandMatrix B on MPI rank 0.
 /// Primarily for SVD code
 ///
 template <typename scalar_t>
-void TriangularBandMatrix<scalar_t>::ge2tbGather(Matrix<scalar_t>& A) 
+void TriangularBandMatrix<scalar_t>::ge2tbGather(Matrix<scalar_t>& A)
 {
     Op op_save = this->op();
     this->op_ = Op::NoTrans;
@@ -353,6 +354,34 @@ void TriangularBandMatrix<scalar_t>::ge2tbGather(Matrix<scalar_t>& A)
     }
 
     this->op_ = op_save;
+}
+
+//------------------------------------------------------------------------------
+/// Inserts all local tiles into an empty matrix.
+///
+/// @param[in] target
+///     - if target = Devices, inserts tiles on appropriate GPU devices, or
+///     - if target = Host, inserts on tiles on CPU host.
+///
+template <typename scalar_t>
+void TriangularBandMatrix<scalar_t>::insertLocalTiles(Target origin)
+{
+    bool on_devices = (origin == Target::Devices);
+    auto upper = this->uplo() == Uplo::Upper;
+    int64_t mt = this->mt();
+    int64_t nt = this->nt();
+    int64_t kdt = ceildiv( this->kd_, this->tileNb(0) );
+    for (int64_t j = 0; j < nt; ++j) {
+        int64_t istart = upper ? blas::max( 0, j-kdt ) : j;
+        int64_t iend   = upper ? j : blas::min( j+kdt, mt-1 );
+        for (int64_t i = istart; i <= iend; ++i) {
+            if (this->tileIsLocal(i, j)) {
+                int dev = (on_devices ? this->tileDevice(i, j)
+                                      : this->host_num_);
+                this->tileInsert(i, j, dev);
+            }
+        }
+    }
 }
 
 

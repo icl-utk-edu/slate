@@ -243,7 +243,8 @@ void tb2bd(slate::internal::TargetType<target>,
     for (int64_t i = 0; i < diag_len-2; ++i)
         progress.at(i).store(-1);
 
-    // insert workspace tiles needed for fills in bulge chasing
+    // insert workspace tiles needed for fill-in in bulge chasing
+    // and set tile entries outside the band to 0
     // todo: should release these tiles when done
     int jj = 0; // col index
     for (int j = 0; j < A.nt(); ++j) {
@@ -263,6 +264,18 @@ void tb2bd(slate::internal::TargetType<target>,
                     auto T_ptr = A.tileInsertWorkspace( i, j+1 );
                     lapack::laset(lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
                           0, 0, T_ptr->data(), T_ptr->stride());
+                }
+
+                if (i == j) {
+                    auto Aij = A(i, j);
+                    Aij.uplo(Uplo::Lower);
+                    tzset(scalar_t(0), Aij);
+                }
+
+                if (i == (j - 1)) {
+                    auto Aij = A(i, j);
+                    Aij.uplo(Uplo::Upper);
+                    tzset(scalar_t(0), Aij);
                 }
             }
             ii += A.tileMb(i);

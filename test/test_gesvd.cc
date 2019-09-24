@@ -289,8 +289,8 @@ template <typename scalar_t> void test_gesvd_work(Params& params, bool run)
         params.error() = error;
 
         // todo: Any justification for this tolerance
-        real_t eps = std::numeric_limits<real_t>::epsilon();
-        params.okay() = (params.error() <= 1*eps);
+        real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+        params.okay() = (params.error() <= tol);
     }
 
     Cblacs_gridexit(ictxt);

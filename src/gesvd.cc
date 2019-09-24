@@ -93,7 +93,11 @@ void gesvd(Matrix<scalar_t>& A,
         Aband.ge2tbGather(Ahat);
 
         // 1.2.1 triangular band to bidiagonal
-        tb2bd(Aband, opts);
+        int mpi_rank;
+        MPI_Comm_rank(A.mpiComm(), &mpi_rank);
+        if (mpi_rank == 0){
+            tb2bd(Aband, opts);
+        }
 
         // 1.2.2 copy triangular band to bi-diagonal (vectors)
         // todo: std::vector< blas::real_type<scalar_t> > E(Aband.n() - 1);
@@ -101,7 +105,9 @@ void gesvd(Matrix<scalar_t>& A,
         // todo: copy(Aband, S, E);
 
         // 2. Bi-diagonal SVD (QR iteration)
-        bdsqr(Aband, S, opts);
+        if (mpi_rank == 0){
+            bdsqr(Aband, S, opts);
+        }
         // todo: bdsvd(S, E, opts);
     }
     else {

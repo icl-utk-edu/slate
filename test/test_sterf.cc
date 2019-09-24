@@ -85,7 +85,7 @@ void test_sterf_work(
     // create SLATE matrices from the ScaLAPACK layouts
     auto Aband = BandFromScaLAPACK(
                      Am, An, kl, ku, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-    auto A = slate::TriangularBandMatrix<scalar_t>(uplo, diag, Aband);
+    auto A = slate::HermitianBandMatrix<scalar_t>(uplo, Aband);
 
     if (verbose)
         print_matrix( "A", A, 5, 4 );

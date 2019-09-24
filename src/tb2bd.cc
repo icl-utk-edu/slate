@@ -246,6 +246,7 @@ void tb2bd(slate::internal::TargetType<target>,
     // insert workspace tiles needed for fill-in in bulge chasing
     // and set tile entries outside the band to 0
     // todo: should release these tiles when done
+    // WARNING: assumes upper matrix, todo:
     int jj = 0; // col index
     for (int j = 0; j < A.nt(); ++j) {
         int ii = 0; // row index

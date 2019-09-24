@@ -40,7 +40,7 @@
 #include "slate/slate.hh"
 // #include "aux/Debug.hh"
 #include "slate/Tile_blas.hh"
-#include "slate/TriangularBandMatrix.hh"
+#include "slate/HermitianBandMatrix.hh"
 #include "internal/internal.hh"
 #include "internal/internal_util.hh"
 
@@ -63,7 +63,7 @@ namespace specialization {
 //
 template <Target target, typename scalar_t>
 void sterf(slate::internal::TargetType<target>,
-           TriangularBandMatrix<scalar_t> A,
+           HermitianBandMatrix<scalar_t> A,
            std::vector< blas::real_type<scalar_t> >& D)
 {
     trace::Block trace_block("slate::sterf");
@@ -136,7 +136,7 @@ void sterf(slate::internal::TargetType<target>,
 /// @ingroup bdsqr_specialization
 ///
 template <Target target, typename scalar_t>
-void sterf(TriangularBandMatrix<scalar_t>& A,
+void sterf(HermitianBandMatrix<scalar_t>& A,
            std::vector< blas::real_type<scalar_t> >& E,
            const std::map<Option, Value>& opts)
 {
@@ -147,7 +147,7 @@ void sterf(TriangularBandMatrix<scalar_t>& A,
 //------------------------------------------------------------------------------
 ///
 template <typename scalar_t>
-void sterf(TriangularBandMatrix<scalar_t>& A,
+void sterf(HermitianBandMatrix<scalar_t>& A,
            std::vector< blas::real_type<scalar_t> >& E,
            const std::map<Option, Value>& opts)
 {
@@ -176,25 +176,25 @@ void sterf(TriangularBandMatrix<scalar_t>& A,
 // Explicit instantiations.
 template
 void sterf<float>(
-    TriangularBandMatrix<float>& A,
+    HermitianBandMatrix<float>& A,
     std::vector<float>& E,
     const std::map<Option, Value>& opts);
 
 template
 void sterf<double>(
-    TriangularBandMatrix<double>& A,
+    HermitianBandMatrix<double>& A,
     std::vector<double>& E,
     const std::map<Option, Value>& opts);
 
 template
 void sterf< std::complex<float> >(
-    TriangularBandMatrix< std::complex<float> >& A,
+    HermitianBandMatrix< std::complex<float> >& A,
     std::vector<float>& E,
     const std::map<Option, Value>& opts);
 
 template
 void sterf< std::complex<double> >(
-    TriangularBandMatrix< std::complex<double> >& A,
+    HermitianBandMatrix< std::complex<double> >& A,
     std::vector<double>& E,
     const std::map<Option, Value>& opts);
 

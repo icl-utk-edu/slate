@@ -39,7 +39,7 @@
 
 #include "slate/slate.hh"
 #include "aux/Debug.hh"
-#include "slate/HermitianMatrix.hh"
+#include "slate/HermitianBandMatrix.hh"
 #include "slate/Tile_blas.hh"
 #include "slate/TriangularMatrix.hh"
 #include "internal/internal.hh"
@@ -84,7 +84,7 @@ using Progress = std::vector< std::atomic<int64_t> >;
 ///     Lock for protecting access to reflectors.
 ///
 template <typename scalar_t>
-void hb2td_step(HermitianMatrix<scalar_t>& A, int64_t band,
+void hb2td_step(HermitianBandMatrix<scalar_t>& A, int64_t band,
                 int64_t sweep, int64_t step,
                 Reflectors<scalar_t>& reflectors, omp_lock_t& lock)
 {
@@ -103,38 +103,38 @@ void hb2td_step(HermitianMatrix<scalar_t>& A, int64_t band,
                 auto& v = reflectors[{i+1, j}];
                 omp_unset_lock(&lock);
                 internal::hebr1<Target::HostTask>(
-                    A.slice(i, std::min(i+band-1, A.n()-1)),
+                    A.slice(i, std::min(i+band, A.n()-1)),
                     v);
             }
             break;
         // task 1 - an off-diagonal block in the sweep
         case 1:
-            i = (block+1)*(band-1)+1+sweep;
-            j =  block   *(band-1)+1+sweep;
+            i = (block+1)*band+1+sweep;
+            j =  block   *band+1+sweep;
             if (i < A.n() && j < A.n()) {
                 omp_set_lock(&lock);
-                auto& v1 = reflectors[{i-(band-1),
-                                      step == 1 ? j-1 : j-(band-1)}];
+                auto& v1 = reflectors[{i-band,
+                                      step == 1 ? j-1 : j-band}];
                 auto& v2 = reflectors[{i, j}];
                 omp_unset_lock(&lock);
                 internal::hebr2<Target::HostTask>(
                     v1,
-                    A.slice(i, std::min(i+band-2, A.n()-1),
-                            j, std::min(j+band-2, A.n()-1)),
+                    A.slice(i, std::min(i+band-1, A.n()-1),
+                            j, std::min(j+band-1, A.n()-1)),
                     v2);
             }
             break;
         // task 2 - a diagonal block in the sweep
         case 2:
-            i = block*(band-1)+1+sweep;
-            j = block*(band-1)+1+sweep;
+            i = block*band+1+sweep;
+            j = block*band+1+sweep;
             if (i < A.n() && j < A.n()) {
                 omp_set_lock(&lock);
-                auto& v = reflectors[{i, j-(band-1)}];
+                auto& v = reflectors[{i, j-band}];
                 omp_unset_lock(&lock);
                 internal::hebr3<Target::HostTask>(
                     v,
-                    A.slice(i, std::min(i+band-2, A.n()-1)));
+                    A.slice(i, std::min(i+band-1, A.n()-1)));
             }
             break;
     }
@@ -172,7 +172,7 @@ void hb2td_step(HermitianMatrix<scalar_t>& A, int64_t band,
 ///     progress table for synchronizing threads
 ///
 template <typename scalar_t>
-void hb2td_run(HermitianMatrix<scalar_t>& A,
+void hb2td_run(HermitianBandMatrix<scalar_t>& A,
                int64_t band, int64_t diag_len,
                int64_t pass_size,
                int thread_rank, int thread_size,
@@ -186,13 +186,13 @@ void hb2td_run(HermitianMatrix<scalar_t>& A,
     for (int64_t pass = 0; pass < diag_len-2; pass += pass_size) {
         int64_t sweep_end = std::min(pass + pass_size, diag_len-2);
         // Steps in first sweep of this pass; later sweeps may have fewer steps.
-        int64_t nsteps_pass = 2*ceildiv(diag_len - 1 - pass, band-1) - 1;
+        int64_t nsteps_pass = 2*ceildiv(diag_len - 1 - pass, band) - 1;
         // Step that this thread starts on, in this pass.
         int64_t step_begin = (thread_rank - start_thread + thread_size) % thread_size;
         for (int64_t step = step_begin; step < nsteps_pass; step += thread_size) {
             for (int64_t sweep = pass; sweep < sweep_end; ++sweep) {
-                int64_t nsteps_sweep = 2*ceildiv(diag_len - 1 - sweep, band-1) - 1;
-                int64_t nsteps_last  = 2*ceildiv(diag_len - 1 - (sweep-1), band-1) - 1;
+                int64_t nsteps_sweep = 2*ceildiv(diag_len - 1 - sweep, band) - 1;
+                int64_t nsteps_last  = 2*ceildiv(diag_len - 1 - (sweep-1), band) - 1;
 
                 if (step < nsteps_sweep) {
                     if (sweep > 0) {
@@ -226,9 +226,10 @@ void hb2td_run(HermitianMatrix<scalar_t>& A,
 ///
 template <Target target, typename scalar_t>
 void hb2td(slate::internal::TargetType<target>,
-           HermitianMatrix<scalar_t>& A, int64_t band)
+           HermitianBandMatrix<scalar_t>& A)
 {
     int64_t diag_len = A.n();
+    int64_t band = A.bandwidth();
 
     omp_lock_t lock;
     omp_init_lock(&lock);
@@ -237,6 +238,47 @@ void hb2td(slate::internal::TargetType<target>,
     Progress progress(diag_len-2);
     for (int64_t i = 0; i < diag_len-2; ++i)
         progress.at(i).store(-1);
+
+    // insert workspace tiles needed for fill-in in bulge chasing
+    // and set tile entries outside the band to 0
+    // todo: should release these tiles when done
+    // WARNING: assumes lower matrix, todo:
+    int jj = 0; // col index
+    for (int j = 0; j < A.nt(); ++j) {
+        int ii = 0; // row index
+        for (int i = 0; i < A.mt(); ++i) {
+            if (A.tileIsLocal(i, j) &&
+                ((ii == jj) ||
+                 ( ii > jj && (ii - (jj + A.tileNb(j) - 1)) <= (band+1) ) ) )
+            {
+                if (i == j && j < A.nt()-1) {
+                    auto T_ptr = A.tileInsertWorkspace( i, j+1 );
+                    lapack::laset(lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
+                          0, 0, T_ptr->data(), T_ptr->stride());
+                }
+
+                if ((j > 0) && (i == (j + 1))) {
+                    auto T_ptr = A.tileInsertWorkspace( i, j-1 );
+                    lapack::laset(lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
+                          0, 0, T_ptr->data(), T_ptr->stride());
+                }
+
+                if (i == j) {
+                    auto Aij = A(i, j);
+                    Aij.uplo(Uplo::Upper);
+                    tzset(scalar_t(0), Aij);
+                }
+
+                if (i == (j + 1)) {
+                    auto Aij = A(i, j);
+                    Aij.uplo(Uplo::Lower);
+                    tzset(scalar_t(0), Aij);
+                }
+            }
+            ii += A.tileMb(i);
+        }
+        jj += A.tileNb(j);
+    }
 
     #pragma omp parallel
     #pragma omp master
@@ -278,11 +320,11 @@ void hb2td(slate::internal::TargetType<target>,
 /// @ingroup hb2td_specialization
 ///
 template <Target target, typename scalar_t>
-void hb2td(HermitianMatrix<scalar_t>& A, int64_t band,
+void hb2td(HermitianBandMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts)
 {
     internal::specialization::hb2td(internal::TargetType<target>(),
-                                    A, band);
+                                    A);
 }
 
 //------------------------------------------------------------------------------
@@ -311,7 +353,7 @@ void hb2td(HermitianMatrix<scalar_t>& A, int64_t band,
 ///
 // todo: Change Matrix to BandMatrix and remove the band parameter.
 template <typename scalar_t>
-void hb2td(HermitianMatrix<scalar_t>& A, int64_t band,
+void hb2td(HermitianBandMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts)
 {
     Target target;
@@ -325,16 +367,16 @@ void hb2td(HermitianMatrix<scalar_t>& A, int64_t band,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            hb2td<Target::HostTask>(A, band, opts);
+            hb2td<Target::HostTask>(A, opts);
             break;
         case Target::HostNest:
-            hb2td<Target::HostNest>(A, band, opts);
+            hb2td<Target::HostNest>(A, opts);
             break;
         case Target::HostBatch:
-            hb2td<Target::HostBatch>(A, band, opts);
+            hb2td<Target::HostBatch>(A, opts);
             break;
         case Target::Devices:
-            hb2td<Target::Devices>(A, band, opts);
+            hb2td<Target::Devices>(A, opts);
             break;
     }
     // todo: return value for errors?
@@ -344,22 +386,22 @@ void hb2td(HermitianMatrix<scalar_t>& A, int64_t band,
 // Explicit instantiations.
 template
 void hb2td<float>(
-    HermitianMatrix<float>& A, int64_t band,
+    HermitianBandMatrix<float>& A,
     const std::map<Option, Value>& opts);
 
 template
 void hb2td<double>(
-    HermitianMatrix<double>& A, int64_t band,
+    HermitianBandMatrix<double>& A,
     const std::map<Option, Value>& opts);
 
 template
 void hb2td< std::complex<float> >(
-    HermitianMatrix< std::complex<float> >& A, int64_t band,
+    HermitianBandMatrix< std::complex<float> >& A,
     const std::map<Option, Value>& opts);
 
 template
 void hb2td< std::complex<double> >(
-    HermitianMatrix< std::complex<double> >& A, int64_t band,
+    HermitianBandMatrix< std::complex<double> >& A,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

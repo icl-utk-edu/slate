@@ -70,13 +70,19 @@ public:
         int64_t n, int64_t kd,
         int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
+    // conversion
+    HermitianBandMatrix(Uplo uplo, BandMatrix<scalar_t>& orig);
+    HermitianBandMatrix(int64_t kd, HermitianMatrix<scalar_t>& orig);
+
 public:
     template <typename T>
     friend void swap(HermitianBandMatrix<T>& A, HermitianBandMatrix<T>& B);
 
     int64_t bandwidth() const;
     void    bandwidth(int64_t kd);
+
     void    insertLocalTiles(Target origin=Target::Host);
+    void    gatherAll(std::set<int>& rank_set, int tag = 0, int64_t life_factor = 1);
 
 protected:
     int64_t kd_;
@@ -120,6 +126,41 @@ HermitianBandMatrix<scalar_t>::HermitianBandMatrix(
     int64_t n, int64_t kd, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
     : HermitianMatrix<scalar_t>(uplo, n, nb, p, q, mpi_comm),
+      kd_(kd)
+{}
+
+//------------------------------------------------------------------------------
+/// [explicit]
+/// todo:
+/// Conversion from general band matrix
+/// creates a shallow copy view of the original matrix.
+/// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+///
+/// @param[in,out] orig
+///     Original matrix.
+///
+template <typename scalar_t>
+HermitianBandMatrix<scalar_t>::HermitianBandMatrix(
+    Uplo uplo, BandMatrix<scalar_t>& orig)
+    : HermitianMatrix<scalar_t>(uplo, orig),
+      kd_((uplo == Uplo::Lower) == (orig.op() == Op::NoTrans)
+            ? orig.lowerBandwidth()
+            : orig.upperBandwidth())
+{}
+
+//------------------------------------------------------------------------------
+/// [explicit]
+/// todo:
+/// Conversion from Hermitian matrix
+/// creates a shallow copy view of the original matrix.
+///
+/// @param[in,out] orig
+///     Original matrix.
+///
+template <typename scalar_t>
+HermitianBandMatrix<scalar_t>::HermitianBandMatrix(
+    int64_t kd, HermitianMatrix<scalar_t>& orig)
+    : HermitianMatrix<scalar_t>(orig, 0, orig.nt()-1),
       kd_(kd)
 {}
 
@@ -177,6 +218,55 @@ void HermitianBandMatrix<scalar_t>::insertLocalTiles(Target origin)
         }
     }
 }
+
+//------------------------------------------------------------------------------
+/// Gather all tiles on each rank
+// WARNING: this is a demanding process storage and communication wise,
+// avoid if possible.
+//
+template <typename scalar_t>
+void HermitianBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag, int64_t life_factor)
+{
+    trace::Block trace_block("slate::gatherAll");
+
+    auto upper = this->uplo() == Uplo::Upper;
+    auto layout = this->layout(); // todo: is this correct?
+
+    // If this rank is not in the set.
+    if (rank_set.find(this->mpiRank()) == rank_set.end())
+        return;
+
+    int64_t mt = this->mt();
+    int64_t nt = this->nt();
+    int64_t kdt = ceildiv( this->kd_, this->tileNb(0) );
+    for (int64_t j = 0; j < nt; ++j) {
+        int64_t istart = upper ? blas::max( 0, j-kdt ) : j;
+        int64_t iend   = upper ? j : blas::min( j+kdt, mt-1 );
+        for (int64_t i = istart; i <= iend; ++i) {
+
+            // If receiving the tile.
+            if (! this->tileIsLocal(i, j)) {
+                // Create tile to receive data, with life span.
+                // If tile already exists, add to its life span.
+                LockGuard(this->storage_->getTilesMapLock()); // todo: accessor
+                auto iter = this->storage_->find(this->globalIndex(i, j, this->hostNum()));
+
+                int64_t life = life_factor;
+                if (iter == this->storage_->end())
+                    this->tileInsertWorkspace(i, j, this->hostNum());
+                else
+                    life += this->tileLife(i, j); // todo: use temp tile to receive
+                this->tileLife(i, j, life);
+            }
+
+            // Send across MPI ranks.
+            // Previous used MPI bcast: tileBcastToSet(i, j, rank_set);
+            // Currently uses 2D hypercube p2p send.
+            this->tileBcastToSet(i, j, rank_set, 2, tag, layout);
+        }
+    }
+}
+
 
 } // namespace slate
 

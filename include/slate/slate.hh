@@ -47,6 +47,7 @@
 
 #include "slate/BandMatrix.hh"
 #include "slate/TriangularBandMatrix.hh"
+#include "slate/HermitianBandMatrix.hh"
 
 #include "slate/types.hh"
 
@@ -115,16 +116,6 @@ void gemm(scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-//-----------------------------------------
-// hb2td()
-template <typename scalar_t>
-void hb2td(HermitianMatrix<scalar_t>& A, int64_t band,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-void hb2td(HermitianMatrix<scalar_t>& A, int64_t band,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
 // hemm()
@@ -771,10 +762,24 @@ template <Target target, typename scalar_t>
 void tb2bd(TriangularBandMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
+
+//-----------------------------------------
+// Eigen decomposition
+
+//-----------------------------------------
+// hb2td()
+template <typename scalar_t>
+void hb2td(HermitianBandMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void hb2td(HermitianBandMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 //-----------------------------------------
 // sterf()
 template <typename scalar_t>
-void sterf(TriangularBandMatrix<scalar_t>& A,
+void sterf(HermitianBandMatrix<scalar_t>& A,
            std::vector< blas::real_type<scalar_t> >& D,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 

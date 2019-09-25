@@ -52,28 +52,24 @@ void gesvd(Matrix<scalar_t>& A,
            std::vector< blas::real_type<scalar_t> >& S,
            const std::map<Option, Value>& opts)
 {
-    // auto mt = A.mt(), nt = A.nt();
-    int64_t flip = 0;
-    int64_t qr_path = 0;
+    int64_t m = A.m();
+    int64_t n = A.n();
 
-    if (A.m() < A.n()) {
-        // Flip for fat matrix.
-        flip = 1;
+    bool flip = m < n; // Flip for fat matrix.
+    if (flip) {
+        // mtmp = n; n = m; m = n;
         // A = A'
     }
-    if (A.m() > A.n()) {
-        qr_path = 1;
-    }
 
-
+    bool qr_path = m > n; // This should be replaced with a ratio (m>=2n)
     Matrix<scalar_t> Ahat;
+    TriangularFactors<scalar_t> TQ;
 
     // 0. QR decomposition if needed
     if (qr_path) {
-        TriangularFactors<scalar_t> T;
-        geqrf(A, T, opts);
+        geqrf(A, TQ, opts);
 
-        int64_t min_mn = std::min(A.m(), A.n());
+        int64_t min_mn = std::min(m, n);
         auto R_ = A.slice(0, min_mn-1, 0, min_mn-1);
         auto R = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, R_);
 
@@ -106,7 +102,6 @@ void gesvd(Matrix<scalar_t>& A,
         tb2bd(Aband, opts);
     }
 
-
     // 2. Bi-diagonal SVD (QR iteration)
     if (A.mpiRank() == 0){
         // 1.2.2 copy triangular band to bi-diagonal (vectors)
@@ -117,6 +112,11 @@ void gesvd(Matrix<scalar_t>& A,
     }
     // todo: bdsvd(S, E, opts);
     
+    if (qr_path) {
+        // When initial QR used .
+        // U = Q*U;
+    }
+
     if (flip) {
         // Utmp = U; U = V; V = Utmp;
     }

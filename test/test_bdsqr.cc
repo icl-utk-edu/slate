@@ -4,6 +4,7 @@
 #include "test.hh"
 #include "print_matrix.hh"
 #include "scalapack_support_routines.hh"
+#include "internal/internal.hh"
 #include "band_utils.hh"
 
 #include <cmath>
@@ -116,7 +117,9 @@ void test_bdsqr_work(
     //==================================================
     // Run SLATE test.
     //==================================================
-    slate::bdsqr(A, S);
+    std::vector< blas::real_type<scalar_t> > E(A.n() - 1);
+    slate::internal::copytb2bd(A, S, E); 
+    slate::bdsqr<scalar_t>(S, E);
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);

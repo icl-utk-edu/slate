@@ -104,7 +104,7 @@ void gesvd(Matrix<scalar_t>& A,
             S.resize(A.n());
             std::vector< blas::real_type<scalar_t> > E(A.n() - 1);
             internal::copytb2bd(Aband, S, E); 
-            bdsqr(Aband, S, E, opts);
+            bdsqr<scalar_t>(S, E, opts);
         }
         // todo: bdsvd(S, E, opts);
     }

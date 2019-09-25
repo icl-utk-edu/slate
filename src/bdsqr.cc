@@ -65,27 +65,18 @@ namespace specialization {
 //
 template <Target target, typename scalar_t>
 void bdsqr(slate::internal::TargetType<target>,
-           TriangularBandMatrix<scalar_t> A,
            std::vector< blas::real_type<scalar_t> >& D,
            std::vector< blas::real_type<scalar_t> >& E)
 {
     trace::Block trace_block("slate::bdsqr");
-    using real_t = blas::real_type<scalar_t>;
 
-    // if lower, change to upper
-    if (A.uplo() == Uplo::Lower) {
-        A = conj_transpose(A);
-    }
-
-    // make sure it is a bi-diagobal matrix
-    slate_assert(A.bandwidth() == 1);
 
     scalar_t dummy[1];  // U, VT, C not needed for NoVec
     {
         trace::Block trace_block("lapack::bdsqr");
-
-        lapack::bdsqr(A.uplo(), A.n(), 0, 0, 0,
+        lapack::bdsqr(Uplo::Upper, D.size(), 0, 0, 0,
                       &D[0], &E[0], dummy, 1, dummy, 1, dummy, 1);
+
     }
 }
 
@@ -97,20 +88,18 @@ void bdsqr(slate::internal::TargetType<target>,
 /// @ingroup bdsqr_specialization
 ///
 template <Target target, typename scalar_t>
-void bdsqr(TriangularBandMatrix<scalar_t>& A,
-           std::vector< blas::real_type<scalar_t> >& D,
+void bdsqr(std::vector< blas::real_type<scalar_t> >& D,
            std::vector< blas::real_type<scalar_t> >& E,
            const std::map<Option, Value>& opts)
 {
-    internal::specialization::bdsqr(internal::TargetType<target>(),
-                                    A, D, E);
+    internal::specialization::bdsqr<target, scalar_t>(internal::TargetType<target>(),
+                                    D, E);
 }
 
 //------------------------------------------------------------------------------
 ///
 template <typename scalar_t>
-void bdsqr(TriangularBandMatrix<scalar_t>& A,
-           std::vector< blas::real_type<scalar_t> >& D,
+void bdsqr(std::vector< blas::real_type<scalar_t> >& D,
            std::vector< blas::real_type<scalar_t> >& E,
            const std::map<Option, Value>& opts)
 {
@@ -125,16 +114,16 @@ void bdsqr(TriangularBandMatrix<scalar_t>& A,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            bdsqr<Target::HostTask>(A, D, E, opts);
+            bdsqr<Target::HostTask, scalar_t>(D, E, opts);
             break;
         case Target::HostNest:
-            bdsqr<Target::HostNest>(A, D, E, opts);
+            bdsqr<Target::HostNest, scalar_t>(D, E, opts);
             break;
         case Target::HostBatch:
-            bdsqr<Target::HostBatch>(A, D, E, opts);
+            bdsqr<Target::HostBatch, scalar_t>(D, E, opts);
             break;
         case Target::Devices:
-            bdsqr<Target::Devices>(A, D, E, opts);
+            bdsqr<Target::Devices, scalar_t>(D, E, opts);
             break;
     }
     // todo: return value for errors?
@@ -144,28 +133,24 @@ void bdsqr(TriangularBandMatrix<scalar_t>& A,
 // Explicit instantiations.
 template
 void bdsqr<float>(
-    TriangularBandMatrix<float>& A,
     std::vector<float>& D,
     std::vector<float>& E,
     const std::map<Option, Value>& opts);
 
 template
 void bdsqr<double>(
-    TriangularBandMatrix<double>& A,
     std::vector<double>& D,
     std::vector<double>& E,
     const std::map<Option, Value>& opts);
 
 template
 void bdsqr< std::complex<float> >(
-    TriangularBandMatrix< std::complex<float> >& A,
     std::vector<float>& D,
     std::vector<float>& E,
     const std::map<Option, Value>& opts);
 
 template
 void bdsqr< std::complex<double> >(
-    TriangularBandMatrix< std::complex<double> >& A,
     std::vector<double>& D,
     std::vector<double>& E,
     const std::map<Option, Value>& opts);

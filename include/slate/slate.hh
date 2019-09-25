@@ -736,8 +736,7 @@ void hetrs(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
 //-----------------------------------------
 // Bi-diagonal SVD
 template <typename scalar_t>
-void bdsqr(TriangularBandMatrix<scalar_t>& A,
-           std::vector< blas::real_type<scalar_t> >& D,
+void bdsqr(std::vector< blas::real_type<scalar_t> >& D,
            std::vector< blas::real_type<scalar_t> >& E,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 

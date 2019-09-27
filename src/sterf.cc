@@ -63,69 +63,12 @@ namespace specialization {
 //
 template <Target target, typename scalar_t>
 void sterf(slate::internal::TargetType<target>,
-           HermitianBandMatrix<scalar_t> A,
-           std::vector< blas::real_type<scalar_t> >& D)
+           std::vector< scalar_t >& D,
+           std::vector< scalar_t >& E)
 {
-    trace::Block trace_block("slate::sterf");
-    using real_t = blas::real_type<scalar_t>;
+    trace::Block trace_block("lapack::sterf");
 
-    // if lower, change to upper
-    if (A.uplo() == Uplo::Lower) {
-        A = conj_transpose(A);
-    }
-
-    // make sure it is a bi-diagobal matrix
-    slate_assert(A.bandwidth() == 1);
-
-    // Find the set of participating ranks.
-    std::set<int> rank_set;
-    A.getRanks(&rank_set);// todo: is this needed? aren't all ranks needed?
-
-    // gather A on each rank
-    // todo: this is over-communicating, try gathering the vectors only
-    A.gatherAll(rank_set);
-
-    slate_assert(A.m() == A.n()); // Triangular matrix has square dimensions
-    slate_assert(A.mt() == A.nt());
-    int64_t nt = A.nt();
-
-    D.resize(A.n());
-    std::vector<real_t> E(A.n() - 1);  // super-diagonal
-
-    // Copy diagonal & super-diagonal.
-    int64_t D_index = 0;
-    int64_t E_index = 0;
-    for (int64_t i = 0; i < nt; ++i) {
-        // Copy 1 element from super-diagonal tile to E.
-        if (i > 0) {
-            auto T = A(i-1, i);
-            E[E_index] = real( T(T.mb()-1, 0) );
-            E_index += 1;
-            A.tileTick(i-1, i);
-        }
-
-        // Copy main diagonal to E.
-        auto T = A(i, i);
-        slate_assert(T.mb() == T.nb()); // square diagonal tile
-        auto len = T.nb();
-        for (int j = 0; j < len; ++j) {
-            D[D_index + j] = real( T(j, j) );
-        }
-        D_index += len;
-
-        // Copy super-diagonal to E.
-        for (int j = 0; j < len-1; ++j) {
-            E[E_index + j] = real( T(j, j+1) );
-        }
-        E_index += len-1;
-        A.tileTick(i, i);
-    }
-
-    {
-        trace::Block trace_block("lapack::sterf");
-
-        lapack::sterf(A.n(), &D[0], &E[0]);
-    }
+    lapack::sterf(D.size(), &D[0], &E[0]);
 }
 
 } // namespace specialization
@@ -136,19 +79,20 @@ void sterf(slate::internal::TargetType<target>,
 /// @ingroup bdsqr_specialization
 ///
 template <Target target, typename scalar_t>
-void sterf(HermitianBandMatrix<scalar_t>& A,
-           std::vector< blas::real_type<scalar_t> >& E,
+void sterf(std::vector< scalar_t >& D,
+           std::vector< scalar_t >& E,
            const std::map<Option, Value>& opts)
 {
-    internal::specialization::sterf(internal::TargetType<target>(),
-                                    A, E);
+    internal::specialization::sterf<target, scalar_t>(
+                                    internal::TargetType<target>(),
+                                    D, E);
 }
 
 //------------------------------------------------------------------------------
 ///
 template <typename scalar_t>
-void sterf(HermitianBandMatrix<scalar_t>& A,
-           std::vector< blas::real_type<scalar_t> >& E,
+void sterf(std::vector< scalar_t >& D,
+           std::vector< scalar_t >& E,
            const std::map<Option, Value>& opts)
 {
     Target target;
@@ -166,7 +110,7 @@ void sterf(HermitianBandMatrix<scalar_t>& A,
         case Target::HostNest:
         case Target::HostBatch:
         case Target::Devices:
-            sterf<Target::HostTask>(A, E, opts);
+            sterf<Target::HostTask, scalar_t>(D, E, opts);
             break;
     }
     // todo: return value for errors?
@@ -176,25 +120,13 @@ void sterf(HermitianBandMatrix<scalar_t>& A,
 // Explicit instantiations.
 template
 void sterf<float>(
-    HermitianBandMatrix<float>& A,
+    std::vector<float>& D,
     std::vector<float>& E,
     const std::map<Option, Value>& opts);
 
 template
 void sterf<double>(
-    HermitianBandMatrix<double>& A,
-    std::vector<double>& E,
-    const std::map<Option, Value>& opts);
-
-template
-void sterf< std::complex<float> >(
-    HermitianBandMatrix< std::complex<float> >& A,
-    std::vector<float>& E,
-    const std::map<Option, Value>& opts);
-
-template
-void sterf< std::complex<double> >(
-    HermitianBandMatrix< std::complex<double> >& A,
+    std::vector<double>& D,
     std::vector<double>& E,
     const std::map<Option, Value>& opts);
 

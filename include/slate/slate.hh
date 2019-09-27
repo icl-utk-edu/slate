@@ -799,8 +799,8 @@ void syev( SymmetricMatrix<scalar_t>& A,
 //-----------------------------------------
 // sterf()
 template <typename scalar_t>
-void sterf(HermitianBandMatrix<scalar_t>& A,
-           std::vector< blas::real_type<scalar_t> >& D,
+void sterf(std::vector< scalar_t >& D,
+           std::vector< scalar_t >& E,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 

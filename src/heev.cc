@@ -73,12 +73,12 @@ void heev( HermitianMatrix<scalar_t>& A,
     // 2. Tri-diagonal eigenvalue generation
 
     // 2.1. copy diagonals from hermitian band to vectors
-    // todo: std::vector< blas::real_type<scalar_t> > E(Aband.n() - 1);
-    // todo: S.resize(Aband.n());
+    E.resize(Aband.n());
+    std::vector< blas::real_type<scalar_t> > S(Aband.n() - 1);
     // todo: copy(Aband, S, E);
 
     // 2.2. QR iteration
-    sterf(Aband, E, opts);
+    sterf<blas::real_type<scalar_t>>(E, S, opts);
 }
 
 //------------------------------------------------------------------------------

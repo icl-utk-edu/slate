@@ -110,13 +110,16 @@ void test_sterf_work(
         MPI_Barrier(MPI_COMM_WORLD);
     }
 
+    std::vector< blas::real_type<scalar_t> > E;
     std::vector< blas::real_type<scalar_t> > S;
+
+    // todo: copyhb2bd(A, E, S);
 
     double time = libtest::get_wtime();
     //==================================================
     // Run SLATE test.
     //==================================================
-    slate::sterf(A, S);
+    slate::sterf(E, S);
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);

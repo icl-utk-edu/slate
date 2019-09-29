@@ -70,7 +70,7 @@ void bdsqr(slate::internal::TargetType<target>,
            std::vector< blas::real_type<scalar_t> >& E)
 {
     trace::Block trace_block("slate::bdsqr");
-    using real_t = blas::real_type<scalar_t>;
+    //using real_t = blas::real_type<scalar_t>;
 
     // if lower, change to upper
     if (A.uplo() == Uplo::Lower) {
@@ -118,7 +118,7 @@ void bdsqr(TriangularBandMatrix<scalar_t>& A,
     try {
         target = Target(opts.at(Option::Target).i_);
     }
-    catch (std::out_of_range) {
+    catch (std::out_of_range&) {
         target = Target::HostTask;
     }
 

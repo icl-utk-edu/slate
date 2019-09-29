@@ -101,6 +101,9 @@ void test_bdsqr_work(
     if (verbose)
         print_matrix( "A", A, 5, 4 );
 
+    std::vector< blas::real_type<scalar_t> > S;
+    std::vector< blas::real_type<scalar_t> > E;
+
     //---------
     // run test
     if (trace)
@@ -109,14 +112,13 @@ void test_bdsqr_work(
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
-
-    std::vector< blas::real_type<scalar_t> > S;
-
     double time = libtest::get_wtime();
+
     //==================================================
     // Run SLATE test.
     //==================================================
-    slate::bdsqr(A, S);
+    slate::bdsqr(A, S, E);
+
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);

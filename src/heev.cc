@@ -67,8 +67,8 @@ void heev( HermitianMatrix<scalar_t>& A,
     Aband.insertLocalTiles();
     // todo: Aband.he2hbGather(A);
 
-    // 1.2. band to tri-diagonal
-    hb2td(Aband, opts);
+    // 1.2. band to symmetric tri-diagonal
+    hb2st(Aband, opts);
 
     // 2. Tri-diagonal eigenvalue generation
 

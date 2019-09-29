@@ -84,7 +84,7 @@ using Progress = std::vector< std::atomic<int64_t> >;
 ///     Lock for protecting access to reflectors.
 ///
 template <typename scalar_t>
-void hb2td_step(HermitianBandMatrix<scalar_t>& A, int64_t band,
+void hb2st_step(HermitianBandMatrix<scalar_t>& A, int64_t band,
                 int64_t sweep, int64_t step,
                 Reflectors<scalar_t>& reflectors, omp_lock_t& lock)
 {
@@ -172,7 +172,7 @@ void hb2td_step(HermitianBandMatrix<scalar_t>& A, int64_t band,
 ///     progress table for synchronizing threads
 ///
 template <typename scalar_t>
-void hb2td_run(HermitianBandMatrix<scalar_t>& A,
+void hb2st_run(HermitianBandMatrix<scalar_t>& A,
                int64_t band, int64_t diag_len,
                int64_t pass_size,
                int thread_rank, int thread_size,
@@ -206,7 +206,7 @@ void hb2td_run(HermitianBandMatrix<scalar_t>& A,
                         while (progress.at(sweep).load() < step-1) {}
                     }
                     ///printf( "tid %d pass %lld, task %lld, %lld\n", thread_rank, pass, sweep, step );
-                    hb2td_step(A, band, sweep, step,
+                    hb2st_step(A, band, sweep, step,
                                reflectors, lock);
 
                     // Mark step as done.
@@ -222,10 +222,10 @@ void hb2td_run(HermitianBandMatrix<scalar_t>& A,
 //------------------------------------------------------------------------------
 /// @internal
 /// Reduces a band Hermitian matrix to a tridiagonal matrix using bulge chasing.
-/// @ingroup hb2td_specialization
+/// @ingroup hb2st_specialization
 ///
 template <Target target, typename scalar_t>
-void hb2td(slate::internal::TargetType<target>,
+void hb2st(slate::internal::TargetType<target>,
            HermitianBandMatrix<scalar_t>& A)
 {
     int64_t diag_len = A.n();
@@ -300,7 +300,7 @@ void hb2td(slate::internal::TargetType<target>,
                 shared(reflectors, lock, progress)
         #endif
         for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank) {
-            hb2td_run(A,
+            hb2st_run(A,
                       band, diag_len,
                       pass_size,
                       thread_rank, thread_size,
@@ -317,13 +317,13 @@ void hb2td(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup hb2td_specialization
+/// @ingroup hb2st_specialization
 ///
 template <Target target, typename scalar_t>
-void hb2td(HermitianBandMatrix<scalar_t>& A,
+void hb2st(HermitianBandMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts)
 {
-    internal::specialization::hb2td(internal::TargetType<target>(),
+    internal::specialization::hb2st(internal::TargetType<target>(),
                                     A);
 }
 
@@ -349,11 +349,11 @@ void hb2td(HermitianBandMatrix<scalar_t>& A,
 ///           - HostBatch: batched BLAS on CPU host.
 ///           - Devices:   batched BLAS on GPU device.
 ///
-/// @ingroup hb2td
+/// @ingroup hb2st
 ///
 // todo: Change Matrix to BandMatrix and remove the band parameter.
 template <typename scalar_t>
-void hb2td(HermitianBandMatrix<scalar_t>& A,
+void hb2st(HermitianBandMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts)
 {
     Target target;
@@ -367,16 +367,16 @@ void hb2td(HermitianBandMatrix<scalar_t>& A,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            hb2td<Target::HostTask>(A, opts);
+            hb2st<Target::HostTask>(A, opts);
             break;
         case Target::HostNest:
-            hb2td<Target::HostNest>(A, opts);
+            hb2st<Target::HostNest>(A, opts);
             break;
         case Target::HostBatch:
-            hb2td<Target::HostBatch>(A, opts);
+            hb2st<Target::HostBatch>(A, opts);
             break;
         case Target::Devices:
-            hb2td<Target::Devices>(A, opts);
+            hb2st<Target::Devices>(A, opts);
             break;
     }
     // todo: return value for errors?
@@ -385,22 +385,22 @@ void hb2td(HermitianBandMatrix<scalar_t>& A,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void hb2td<float>(
+void hb2st<float>(
     HermitianBandMatrix<float>& A,
     const std::map<Option, Value>& opts);
 
 template
-void hb2td<double>(
+void hb2st<double>(
     HermitianBandMatrix<double>& A,
     const std::map<Option, Value>& opts);
 
 template
-void hb2td< std::complex<float> >(
+void hb2st< std::complex<float> >(
     HermitianBandMatrix< std::complex<float> >& A,
     const std::map<Option, Value>& opts);
 
 template
-void hb2td< std::complex<double> >(
+void hb2st< std::complex<double> >(
     HermitianBandMatrix< std::complex<double> >& A,
     const std::map<Option, Value>& opts);
 

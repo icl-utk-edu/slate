@@ -763,19 +763,8 @@ template <Target target, typename scalar_t>
 void tb2bd(TriangularBandMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-
-//-----------------------------------------
-// Eigen decomposition
-
-//-----------------------------------------
-// hb2td()
-template <typename scalar_t>
-void hb2td(HermitianBandMatrix<scalar_t>& A,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-void hb2td(HermitianBandMatrix<scalar_t>& A,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
+//------------------------------------------------------------------------------
+// symmetric/Hermitian eigenvalue decomposition
 
 //-----------------------------------------
 template <typename scalar_t>
@@ -795,6 +784,12 @@ void syev( SymmetricMatrix<scalar_t>& A,
     HermitianMatrix<scalar_t> AH(A);
     heev(AH, E, opts);
 }
+
+//-----------------------------------------
+// hb2st()
+template <typename scalar_t>
+void hb2st(HermitianBandMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
 // sterf()

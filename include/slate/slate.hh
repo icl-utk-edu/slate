@@ -758,9 +758,6 @@ template <typename scalar_t>
 void tb2bd(TriangularBandMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target, typename scalar_t>
-void tb2bd(TriangularBandMatrix<scalar_t>& A,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //------------------------------------------------------------------------------
 // symmetric/Hermitian eigenvalue decomposition
@@ -785,6 +782,18 @@ void syev( SymmetricMatrix<scalar_t>& A,
 }
 
 //-----------------------------------------
+// he2hb()
+template <typename scalar_t>
+void he2hb(HermitianMatrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void he2hb(HermitianMatrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
 // hb2st()
 template <typename scalar_t>
 void hb2st(HermitianBandMatrix<scalar_t>& A,
@@ -796,7 +805,6 @@ template <typename scalar_t>
 void sterf(std::vector< scalar_t >& D,
            std::vector< scalar_t >& E,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
-
 
 } // namespace slate
 

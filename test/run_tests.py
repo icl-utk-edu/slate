@@ -456,6 +456,7 @@ if (opts.syev):
     #[ 'ungtr', gen + dtype + la + n + uplo ],
     #[ 'unmtr', gen + dtype_real    + la + mn + uplo + side + trans    ],  # real does trans = N, T, C
     #[ 'unmtr', gen + dtype_complex + la + mn + uplo + side + trans_nc ],  # complex does trans = N, C, not T
+    [ 'he2hb',         gen + dtype + n ],  # todo uplo
 
     # Banded
     #[ 'hbev',  gen + dtype + la + n + jobz + uplo ],

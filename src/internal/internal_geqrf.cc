@@ -109,6 +109,7 @@ void geqrf(internal::TargetType<Target::HostTask>,
         T.tileInsert(tile_indices[0], 0);
         T.tileModified(tile_indices[0], 0);// todo: is this necessary?
         auto T00 = T(tile_indices[0], 0);
+        T00.set(0);
 
         ThreadBarrier thread_barrier;
         std::vector<real_t> scale(thread_size);

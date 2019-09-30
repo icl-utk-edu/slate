@@ -198,7 +198,8 @@ void ge2tb(slate::internal::TargetType<target>,
                 if (first_indices.size() > 1) {
                     BcastList bcast_list_T;
                     for (int64_t row : first_indices) {
-                        // Exclude first row of panel that has no TUreduce tile
+                        // Exclude first row of this panel,
+                        // which doesn't have TUreduce tile.
                         if (row > k) {
                             bcast_list_T.push_back(
                                 {row, k, {TUreduce.sub(row, row, k+1, A_nt-1)}});
@@ -342,8 +343,8 @@ void ge2tb(slate::internal::TargetType<target>,
                     if (first_indices.size() > 1) {
                         BcastList bcast_list_T;
                         for (int64_t col : first_indices) {
-                            // Exclude first col of this panel, which
-                            // doesn't have Treduce tile.
+                            // Exclude first col of this panel,
+                            // which doesn't have TVreduce tile.
                             if (col > k+1) {
                                 bcast_list_T.push_back(
                                     {k, col, {TVreduce.sub(k+1, A_mt-1, col, col)}});

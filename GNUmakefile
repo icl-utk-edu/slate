@@ -264,6 +264,7 @@ libslate_src += \
         src/internal/internal_henorm.cc \
         src/internal/internal_her2k.cc \
         src/internal/internal_herk.cc \
+        src/internal/internal_hettmqr.cc \
         src/internal/internal_potrf.cc \
         src/internal/internal_swap.cc \
         src/internal/internal_symm.cc \
@@ -323,6 +324,7 @@ libslate_src += \
         src/getriOOP.cc \
         src/getrs.cc \
         src/hb2st.cc \
+        src/he2hb.cc \
         src/heev.cc \
         src/hemm.cc \
         src/her2k.cc \
@@ -365,6 +367,7 @@ test_src += \
         test/test_gelqf.cc \
         test/test_gesv.cc \
         test/test_getri.cc \
+        test/test_he2hb.cc \
         test/test_hemm.cc \
         test/test_henorm.cc \
         test/test_her2k.cc \
@@ -536,6 +539,7 @@ $(libslate_so): $(libslate_obj) $(libblaspp) $(liblapackpp)
 		-shared $(install_name) -o $@
 
 lib: $(libslate)
+src: lib
 
 #-------------------------------------------------------------------------------
 # headers

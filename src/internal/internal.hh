@@ -504,6 +504,14 @@ void ttmlq(Side side, Op op,
            Matrix<scalar_t>&& C,
            int tag=0);
 
+// hettmqr()
+template <Target target=Target::HostTask, typename scalar_t>
+void hettmqr(Op op,
+             Matrix<scalar_t>&& A,
+             Matrix<scalar_t>&& T,
+             HermitianMatrix<scalar_t>&& C,
+             int tag=0);
+
 //-----------------------------------------
 // unmqr()
 template <Target target=Target::HostTask, typename scalar_t>

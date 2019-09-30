@@ -60,7 +60,8 @@ void heev( HermitianMatrix<scalar_t>& A,
     // 1. Reduce to tridiagonal form
 
     // 1.1.1. reduction to band
-    // todo: he2hb(A, opts);
+    TriangularFactors<scalar_t> T;
+    he2hb(A, T, opts);
 
     // 1.1.2 gather hermitian to band
     auto Aband = HermitianBandMatrix<scalar_t>( Uplo::Lower,

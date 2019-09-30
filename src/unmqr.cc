@@ -81,6 +81,18 @@ void unmqr(
         C.reserveDeviceWorkspace();
     }
 
+    // Reserve workspace
+    auto W = C.emptyLike();
+
+    if (target == Target::Devices) {
+        W.allocateBatchArrays();
+        // todo: this is demanding too much device workspace memory
+        // only one tile-row of matrix W per MPI process is going to be used,
+        // but W with size of whole C is being allocated
+        // thus limiting the matrix size that can be processed
+        //W.reserveDeviceWorkspace();
+    }
+
     assert(T.size() == 2);
     auto Tlocal  = T[0];
     auto Treduce = T[1];
@@ -94,204 +106,178 @@ void unmqr(
     #pragma omp master
     {
         omp_set_nested(1);
-        if (side == Side::Left) {
 
-            // Reserve workspace
-            auto W = C.emptyLike();
-
-            if (target == Target::Devices) {
-                W.allocateBatchArrays();
-                // todo: this is demanding too much device workspace memory
-                // only one tile-row of matrix W per MPI process is going to be used,
-                // but W with size of whole C is being allocated
-                // thus limiting the matrix size that can be processed
-                W.reserveDeviceWorkspace();
-            }
-
-            if (op == Op::NoTrans) {
-                //----------------------------------------
-                // Left; NoTrans: multiply by Q = Q_1 ... Q_K,
-                // i.e., in reverse order of how Q_k's were created.
-
-                // for k = A_nt-1, lastk = A_nt-1 (no previous column to depend on);
-                // for k < A_nt,   lastk = k + 1.
-                int64_t lastk = A_min_mtnt-1;
-                // OpenMP uses lastk; compiler doesn't, so warns it is unused.
-                SLATE_UNUSED(lastk);
-                for (int64_t k = A_min_mtnt-1; k >= 0; --k) {
-
-                    auto A_panel = A.sub(k, A_mt-1, k, k);
-
-                    // Find ranks in this column.
-                    std::set<int> ranks_set;
-                    A_panel.getRanks(&ranks_set);
-                    assert(ranks_set.size() > 0);
-
-                    // Find each rank's first (top-most) row in this panel,
-                    // where the triangular tile resulting from local geqrf
-                    // panel will reside.
-                    std::vector< int64_t > first_indices;
-                    first_indices.reserve(ranks_set.size());
-                    for (int r: ranks_set) {
-                        for (int64_t i = 0; i < A_panel.mt(); ++i) {
-                            if (A_panel.tileRank(i, 0) == r) {
-                                first_indices.push_back(i+k);
-                                break;
-                            }
-                        }
-                    }
-
-                    #pragma omp task depend(inout:block[k]) \
-                                     depend(in:block[lastk])
-                    {
-                        // bcast V across row of C
-                        BcastList bcast_list_V_top;
-                        BcastList bcast_list_V;
-                        for (int64_t i = k; i < A_mt; ++i) {
-                            // send A(i, k) across row C(i, 0:nt-1)
-                            // Vs in first_indices (except the left-most one) need three lives
-                            if (std::find(first_indices.begin(), first_indices.end(), i) != first_indices.end() && i > k)
-                                bcast_list_V_top.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
-                            else
-                                bcast_list_V.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
-                        }
-                        A.template listBcast(bcast_list_V_top, layout, 0, 3);
-                        A.template listBcast(bcast_list_V, layout, 0, 2);
-
-                        // bcast Tlocal across row of C
-                        if (first_indices.size() > 0) {
-                            BcastList bcast_list_T;
-                            for (int64_t i : first_indices) {
-                                bcast_list_T.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
-                            }
-                            Tlocal.template listBcast(bcast_list_T, layout);
-                        }
-
-                        // bcast Treduce across row of C
-                        if (first_indices.size() > 1) {
-                            BcastList bcast_list_T;
-                            for (int64_t i : first_indices) {
-                                if (i > k) // exclude the first row of this panel that has no Treduce tile
-                                    bcast_list_T.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
-                            }
-                            Treduce.template listBcast(bcast_list_T, layout);
-                        }
-
-                        // //
-                        // if (target == Target::Devices) {
-                        //     for (int64_t i : first_indices) {
-                        //         C.sub(i, i, 0, C_nt-1).moveAllToHost();
-                        //     }
-                        // }
-
-                        // Apply triangle-triangle reduction reflectors
-                        internal::ttmqr<Target::HostTask>(
-                                        side, op,
-                                        std::move(A_panel),
-                                        Treduce.sub(k, A_mt-1, k, k),
-                                        C.sub(k, C_mt-1, 0, C_nt-1));
-
-                        // Apply local reflectors
-                        internal::unmqr<target>(
-                                        side, op,
-                                        std::move(A_panel),
-                                        Tlocal.sub(k, A_mt-1, k, k),
-                                        C.sub(k, C_mt-1, 0, C_nt-1),
-                                        W.sub(k, C_mt-1, 0, C_nt-1));
-                    }
-
-                    lastk = k;
-                }
-            }
-            else {
-                //----------------------------------------
-                // Left; Trans or ConjTrans: multiply by Q^H = Q_K^H ... Q_1^H.
-                // i.e., in same order as Q_k's were created.
-
-                // for k = 0, lastk = 0 (no previous block to depend on);
-                // for k > 0, lastk = k - 1.
-                int64_t lastk = 0;
-                // OpenMP uses lastk; compiler doesn't, so warns it is unused.
-                SLATE_UNUSED(lastk);
-                for (int64_t k = 0; k < A_min_mtnt; ++k) {
-
-                    auto A_panel = A.sub(k, A_mt-1, k, k);
-
-                    // Find ranks in this column.
-                    std::set<int> ranks_set;
-                    A_panel.getRanks(&ranks_set);
-                    assert(ranks_set.size() > 0);
-
-                    // Find each rank's first (top-most) row in this panel,
-                    // where the triangular tile resulting from local geqrf
-                    // panel will reside.
-                    std::vector< int64_t > first_indices;
-                    first_indices.reserve(ranks_set.size());
-                    for (int r: ranks_set) {
-                        for (int64_t i = 0; i < A_panel.mt(); ++i) {
-                            if (A_panel.tileRank(i, 0) == r) {
-                                first_indices.push_back(i+k);
-                                break;
-                            }
-                        }
-                    }
-
-                    #pragma omp task depend(inout:block[k]) \
-                                     depend(in:block[lastk])
-                    {
-                        // bcast V across row of C
-                        BcastList bcast_list_V_top;
-                        BcastList bcast_list_V;
-                        for (int64_t i = k; i < A_mt; ++i) {
-                            // send A(i, k) across row C(i, 0:nt-1)
-                            // Vs in first_indices (except the left-most one) need three lives
-                            if (std::find(first_indices.begin(), first_indices.end(), i) != first_indices.end() && i > k)
-                                bcast_list_V_top.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
-                            else
-                                bcast_list_V.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
-                        }
-                        A.template listBcast(bcast_list_V_top, layout, 0, 3);
-                        A.template listBcast(bcast_list_V, layout, 0, 2);
-
-                        // bcast Tlocal across row of C
-                        BcastList bcast_list_T;
-                        for (int64_t i : first_indices) {
-                            bcast_list_T.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
-                        }
-                        Tlocal.template listBcast(bcast_list_T, layout);
-
-                        // bcast Treduce across row of C
-                        if (first_indices.size() > 1) {
-                            BcastList bcast_list_T;
-                            for (int64_t i : first_indices) {
-                                if (i > k) // exclude the first row of this panel that has no Treduce tile
-                                    bcast_list_T.push_back({i, k, {C.sub(i, i, 0, C_nt-1)}});
-                            }
-                            Treduce.template listBcast(bcast_list_T, layout);
-                        }
-
-                        // Apply local reflectors
-                        internal::unmqr<target>(
-                                        side, op,
-                                        std::move(A_panel),
-                                        Tlocal.sub(k, A_mt-1, k, k),
-                                        C.sub(k, C_mt-1, 0, C_nt-1),
-                                        W.sub(k, C_mt-1, 0, C_nt-1));
-
-                        // Apply triangle-triangle reduction reflectors
-                        internal::ttmqr<Target::HostTask>(
-                                        side, op,
-                                        std::move(A_panel),
-                                        Treduce.sub(k, A_mt-1, k, k),
-                                        C.sub(k, C_mt-1, 0, C_nt-1));
-                    }
-                    lastk = k;
-                }
-            }
+        int64_t k_begin, k_end, k_step;
+        if ((side == Side::Left) == (op == Op::NoTrans)) {
+            // Left,  NoTrans:     multiply Q C   = Q1 ... QK C, or
+            // Right, (Conj)Trans: multiply C Q^H = C QK^H ... Q1^H,
+            // i.e., in reverse order of how Qk's were created.
+            k_begin = A_min_mtnt-1;
+            k_end   = -1;
+            k_step  = -1;
         }
         else {
-            // TODO: side == Side::Right
-            slate_not_implemented("Side::Right");
+            // Left, (Conj)Trans: multiply Q^H C = QK^H ... Q1^H C, or
+            // Right, NoTrans:    multiply C Q   = C Q1 ... QK,
+            // i.e., in same order as Qk's were created.
+            k_begin = 0;
+            k_end   = A_min_mtnt;
+            k_step  = 1;
+        }
+
+        // for k = k_begin, lastk = k_begin (no previous col to depend on);
+        // otherwise,       lastk = k - k_step (previous col).
+        int64_t lastk = k_begin;
+        // OpenMP uses lastk; compiler doesn't, so warns it is unused.
+        SLATE_UNUSED(lastk);
+        for (int64_t k = k_begin; k != k_end; k += k_step) {
+
+            auto A_panel = A.sub(k, A_mt-1, k, k);
+
+            // Find ranks in this column.
+            std::set<int> ranks_set;
+            A_panel.getRanks(&ranks_set);
+            assert(ranks_set.size() > 0);
+
+            // Find each rank's first (top-most) row in this panel,
+            // where the triangular tile resulting from local geqrf
+            // panel will reside.
+            std::vector< int64_t > first_indices;
+            first_indices.reserve(ranks_set.size());
+            for (int r: ranks_set) {
+                for (int64_t i = 0; i < A_panel.mt(); ++i) {
+                    if (A_panel.tileRank(i, 0) == r) {
+                        first_indices.push_back(i+k);
+                        break;
+                    }
+                }
+            }
+
+            #pragma omp task depend(inout:block[k]) \
+                             depend(in:block[lastk])
+            {
+                // Indices for row or col of C.
+                int64_t i0 = -1, i1 = -1, j0 = -1, j1 = -1;
+                if (side == Side::Left) {
+                    j0 = 0;
+                    j1 = C_nt-1;
+                }
+                else {
+                    i0 = 0;
+                    i1 = C_mt-1;
+                }
+
+                // Send V(i) across row C(i, 0:nt-1) or col C(0:mt-1, i),
+                // for side = left or right, respectively.
+                BcastList bcast_list_V_top;
+                BcastList bcast_list_V;
+                for (int64_t i = k; i < A_mt; ++i) {
+                    if (side == Side::Left) {
+                        i0 = i;
+                        i1 = i;
+                    }
+                    else {
+                        j0 = i;
+                        j1 = i;
+                    }
+                    // Vs in first_indices (except the left-most one)
+                    // need three lives.
+                    if (i > k && std::find(first_indices.begin(), first_indices.end(), i) != first_indices.end()) {
+                        bcast_list_V_top.push_back(
+                            {i, k, {C.sub(i0, i1, j0, j1)}});
+                    }
+                    else {
+                        bcast_list_V.push_back(
+                            {i, k, {C.sub(i0, i1, j0, j1)}});
+                    }
+                }
+                A.template listBcast(bcast_list_V_top, layout, 0, 3);
+                A.template listBcast(bcast_list_V, layout, 0, 2);
+
+                // Send Tlocal(i) across row C(i, 0:nt-1) or col C(0:mt-1, i).
+                if (first_indices.size() > 0) {
+                    BcastList bcast_list_T;
+                    for (int64_t i : first_indices) {
+                        if (side == Side::Left) {
+                            i0 = i;
+                            i1 = i;
+                        }
+                        else {
+                            j0 = i;
+                            j1 = i;
+                        }
+                        bcast_list_T.push_back(
+                            {i, k, {C.sub(i0, i1, j0, j1)}});
+                    }
+                    Tlocal.template listBcast(bcast_list_T, layout);
+                }
+
+                // Send Treduce(i) across row C(i, 0:nt-1) or col C(0:mt-1, i).
+                if (first_indices.size() > 1) {
+                    BcastList bcast_list_T;
+                    for (int64_t i : first_indices) {
+                        if (side == Side::Left) {
+                            i0 = i;
+                            i1 = i;
+                        }
+                        else {
+                            j0 = i;
+                            j1 = i;
+                        }
+                        // Exclude first row of this panel,
+                        // which doesn't have Treduce tile.
+                        if (i > k) {
+                            bcast_list_T.push_back(
+                                {i, k, {C.sub(i0, i1, j0, j1)}});
+                        }
+                    }
+                    Treduce.template listBcast(bcast_list_T, layout);
+                }
+
+                Matrix<scalar_t> C_trail, W_trail;
+                if (side == Side::Left) {
+                    C_trail = C.sub(k, C_mt-1, 0, C_nt-1);
+                    W_trail = W.sub(k, C_mt-1, 0, C_nt-1);
+                }
+                else {
+                    C_trail = C.sub(0, C_mt-1, k, C_nt-1);
+                    W_trail = W.sub(0, C_mt-1, k, C_nt-1);
+                }
+
+                // Left,  NoTrans:     Qi C   = Qi_local Qi_reduce C, or
+                // Right, (Conj)Trans: C Qi^H = C Qi_reduce^H Qi_local^H,
+                // do ttmqr then unmqr.
+                if ((side == Side::Left) == (op == Op::NoTrans)) {
+                    // Apply triangle-triangle reduction reflectors.
+                    internal::ttmqr<Target::HostTask>(
+                                    side, op,
+                                    std::move(A_panel),
+                                    Treduce.sub(k, A_mt-1, k, k),
+                                    std::move(C_trail));
+                }
+
+                // Apply local reflectors.
+                internal::unmqr<target>(
+                                side, op,
+                                std::move(A_panel),
+                                Tlocal.sub(k, A_mt-1, k, k),
+                                std::move(C_trail),
+                                std::move(W_trail));
+
+                // Left,  (Conj)Trans: Qi^H C = Qi_reduce^H Qi_local^H C, or
+                // Right, NoTrans:     C Qi   = C Qi_local Qi_reduce,
+                // do unmqr then ttmqr.
+                if ((side == Side::Left) != (op == Op::NoTrans)) {
+                    // Apply triangle-triangle reduction reflectors.
+                    internal::ttmqr<Target::HostTask>(
+                                    side, op,
+                                    std::move(A_panel),
+                                    Treduce.sub(k, A_mt-1, k, k),
+                                    std::move(C_trail));
+                }
+            }
+
+            lastk = k;
         }
     }
     C.tileUpdateAllOrigin();

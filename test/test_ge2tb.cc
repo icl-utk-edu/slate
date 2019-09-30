@@ -28,7 +28,8 @@ int64_t localRowsCols(int64_t n, int64_t nb, int iproc, int mpi_size)
 }
 
 //------------------------------------------------------------------------------
-template <typename scalar_t> void test_ge2tb_work(Params& params, bool run)
+template <typename scalar_t>
+void test_ge2tb_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;

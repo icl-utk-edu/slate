@@ -48,7 +48,7 @@ namespace internal {
 
 //------------------------------------------------------------------------------
 /// Distributed multiply matrix by Q from QR triangle-triangle factorization of
-/// row of tiles.
+/// column of tiles.
 /// Dispatches to target implementations.
 /// todo: This assumes A and T have already been communicated as needed.
 /// However, it necesarily handles communication for C.
@@ -69,7 +69,7 @@ void ttmqr(Side side, Op op,
 
 //------------------------------------------------------------------------------
 /// Distributed multiply matrix by Q from QR triangle-triangle factorization of
-/// row of tiles, host implementation.
+/// column of tiles, host implementation.
 /// @ingroup geqrf_internal
 ///
 template <typename scalar_t>
@@ -84,92 +84,147 @@ void ttmqr(internal::TargetType<Target::HostTask>,
     const Layout layout = Layout::ColMajor;
 
     int64_t A_mt = A.mt();
+    assert(A.nt() == 1);
+    if (side == Side::Left)
+        assert(A_mt == C.mt());
+    else
+        assert(A_mt == C.nt());
 
-    // Find ranks in this column.
+    // Find ranks in this column of A.
     std::set<int> ranks_set;
-    A.sub(0, A_mt-1, 0, 0).getRanks(&ranks_set);
+    A.getRanks(&ranks_set);
 
-    // Find each rank's first (top-most) row in this column,
+    // Find each rank's first (top-most) row in this column of A,
     // which is the triangular tile resulting from local geqrf panel.
-    std::vector< std::pair<int, int64_t> > rank_rows;
-    rank_rows.reserve(ranks_set.size());
+    std::vector< std::pair<int, int64_t> > rank_indices;
+    rank_indices.reserve(ranks_set.size());
     for (int r: ranks_set) {
         for (int64_t i = 0; i < A_mt; ++i) {
             if (A.tileRank(i, 0) == r) {
-                rank_rows.push_back({r, i});
+                rank_indices.push_back({r, i});
                 break;
             }
         }
     }
-    // Sort rank_rows by row.
-    std::sort(rank_rows.begin(), rank_rows.end(), compareSecond<int, int64_t>);
+    // Sort rank_indices by index.
+    std::sort(rank_indices.begin(), rank_indices.end(),
+              compareSecond<int, int64_t>);
 
-    int nranks = rank_rows.size();
+    int nranks = rank_indices.size();
     int nlevels = int( ceil( log2( nranks ) ) );
 
-    // Apply reduction tree from leaves down (NoTrans) or from root up (Trans).
-    // if NoTrans, levels go from nlevels-1 down to 0 (inclusive)
-    // if Trans,   levels go from 0 up to nlevels-1 (inclusive)
-    int level_begin, level_end, level_step, step;
-    if (op == Op::NoTrans) {
-        level_begin = nlevels - 1;
-        level_end   = -1;
-        level_step  = -1;
-        step        = pow(2, nlevels - 1);
-    }
-    else {
-        level_begin = 0;
-        level_end   = nlevels;
-        level_step  = 1;
-        step        = 1;
-    }
-    for (int level = level_begin; level != level_end; level += level_step) {
+    // Apply reduction tree.
+    // If Left, NoTrans or Right, Trans, apply descending from root to leaves,
+    // i.e., in reverse order of how they were created.
+    // If Left, Trans or Right, NoTrans, apply ascending from leaves to root,
+    // i.e., in same order as they were created.
+    // Example for A.mt == 8.
+    // Leaves:
+    //     ttqrt( a0, a1 )
+    //     ttqrt( a2, a3 )
+    //     ttqrt( a4, a5 )
+    //     ttqrt( a6, a7 )
+    // Next level:
+    //     ttqrt( a0, a2 )
+    //     ttqrt( a4, a6 )
+    // Root:
+    //     ttqrt( a0, a4 )
+    bool descend = (side == Side::Left) == (op == Op::NoTrans);
+    int step;
+    if (descend)
+        step = pow(2, nlevels - 1);
+    else
+        step = 1;
+
+    for (int level = 0; level < nlevels; ++level) {
         for (int index = 0; index < nranks; index += step) {
-            int64_t i = rank_rows[ index ].second;
-            // At each level, scan rows of C for local tiles.
-            // TODO: the j loop can be parallelized, but care needs to be
-            // taken so that MPI makes progress.
-            // todo: for better performance, split into three tasks:
-            //      - send-receive task,
-            //      - update task-loop,
-            //      - send-receive task
-            for (int64_t j = 0; j < C.nt(); ++j) {
-                if (C.tileIsLocal(i, j)) {
-                    if (index % (2*step) == 0) {
-                        if (index + step < nranks) {
-                            // Send tile to dst, then receive updated tile back.
-                            int64_t i_dst = rank_rows[ index + step ].second;
-                            int dst = C.tileRank(i_dst, j);
-                            C.tileSend(i, j, dst, tag);
-                            C.tileRecv(i, j, dst, layout, tag);
+            if (side == Side::Left) {
+                int64_t i = rank_indices[ index ].second;
+                // At each level, scan rows of C for local tiles.
+                // TODO: the j loop can be parallelized, but care needs to be
+                // taken so that MPI makes progress.
+                // todo: for better performance, split into three tasks:
+                //      - send-receive task,
+                //      - update task-loop,
+                //      - send-receive task
+                for (int64_t j = 0; j < C.nt(); ++j) {
+                    if (C.tileIsLocal(i, j)) {
+                        if (index % (2*step) == 0) {
+                            if (index + step < nranks) {
+                                // Send tile to dst, then receive updated tile back.
+                                int64_t i_dst = rank_indices[ index + step ].second;
+                                int dst = C.tileRank(i_dst, j);
+                                C.tileSend(i, j, dst, tag);
+                                C.tileRecv(i, j, dst, layout, tag);
+                            }
+                        }
+                        else {
+                            // Receive tile from src.
+                            int64_t i_src = rank_indices[ index - step ].second;
+                            int     src   = C.tileRank(i_src, j);
+                            C.tileRecv(i_src, j, src, layout, tag);
+
+                            A.tileGetForReading(i, 0, LayoutConvert(layout));
+                            T.tileGetForReading(i, 0, LayoutConvert(layout));
+                            C.tileGetForWriting(i, j, LayoutConvert(layout));
+
+                            // Apply Q.
+                            tpmqrt(side, op, std::min(A.tileMb(i), A.tileNb(0)),
+                                   A(i, 0), T(i, 0),
+                                   C(i_src, j), C(i, j));
+
+                            // todo: should tileRelease()?
+                            A.tileTick(i, 0);
+                            T.tileTick(i, 0);
+                            // Send updated tile back.
+                            C.tileSend(i_src, j, src, tag);
+                            C.tileTick(i_src, j);
                         }
                     }
-                    else {
-                        // Receive tile from src.
-                        int64_t i_src = rank_rows[ index - step ].second;
-                        int     src   = C.tileRank(i_src, j);
-                        C.tileRecv(i_src, j, src, layout, tag);
+                }
+            }
+            else { // Right
+                int64_t j = rank_indices[ index ].second;
+                // At each level, scan cols of C for local tiles.
+                // TODO: the i loop can be parallelized
+                for (int64_t i = 0; i < C.mt(); ++i) {
+                    if (C.tileIsLocal(i, j)) {
+                        if (index % (2*step) == 0) {
+                            if (index + step < nranks) {
+                                // Send tile to dst, then receive updated tile back.
+                                int64_t j_dst = rank_indices[ index + step ].second;
+                                int dst = C.tileRank(i, j_dst);
+                                C.tileSend(i, j, dst, tag);
+                                C.tileRecv(i, j, dst, layout, tag);
+                            }
+                        }
+                        else {
+                            // Receive tile from src.
+                            int64_t j_src = rank_indices[ index - step ].second;
+                            int     src   = C.tileRank(i, j_src);
+                            C.tileRecv(i, j_src, src, layout, tag);
 
-                        A.tileGetForReading(i, 0, LayoutConvert(layout));
-                        T.tileGetForReading(i, 0, LayoutConvert(layout));
-                        C.tileGetForWriting(i, j, LayoutConvert(layout));
+                            A.tileGetForReading(j, 0, LayoutConvert(layout));
+                            T.tileGetForReading(j, 0, LayoutConvert(layout));
+                            C.tileGetForWriting(i, j, LayoutConvert(layout));
 
-                        // Apply Q
-                        tpmqrt(side, op, std::min( A.tileMb(i), A.tileNb(0) ),
-                               A(i, 0), T(i, 0),
-                               C(i_src, j), C(i, j));
+                            // Apply Q.
+                            tpmqrt(side, op, std::min(A.tileMb(j), A.tileNb(0)),
+                                   A(j, 0), T(j, 0),
+                                   C(i, j_src), C(i, j));
 
-                        // todo: should tileRelease()?
-                        A.tileTick(i, 0);
-                        T.tileTick(i, 0);
-                        // Send updated tile back.
-                        C.tileSend(i_src, j, src, tag);
-                        C.tileTick(i_src, j);
+                            // todo: should tileRelease()?
+                            A.tileTick(j, 0);
+                            T.tileTick(j, 0);
+                            // Send updated tile back.
+                            C.tileSend(i, j_src, src, tag);
+                            C.tileTick(i, j_src);
+                        }
                     }
                 }
             }
         }
-        if (op == Op::NoTrans)
+        if (descend)
             step /= 2;
         else
             step *= 2;

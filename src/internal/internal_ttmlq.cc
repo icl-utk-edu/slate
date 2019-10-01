@@ -84,93 +84,149 @@ void ttmlq(internal::TargetType<Target::HostTask>,
     const Layout layout = Layout::ColMajor;
 
     int64_t A_nt = A.nt();
+    assert(A.mt() == 1);
+    if (side == Side::Left)
+        assert(A_nt == C.mt());
+    else
+        assert(A_nt == C.nt());
 
-    // Find ranks in this row.
+    // Find ranks in this row of A.
     std::set<int> ranks_set;
-    A.sub(0, 0, 0, A_nt-1).getRanks(&ranks_set);
+    A.getRanks(&ranks_set);
 
-    // Find each rank's first (left-most) col in this row,
+    // Find each rank's first (left-most) col in this row of A,
     // which is the triangular tile resulting from local gelqf panel.
-    std::vector< std::pair<int, int64_t> > rank_cols;
-    rank_cols.reserve(ranks_set.size());
+    std::vector< std::pair<int, int64_t> > rank_indices;
+    rank_indices.reserve(ranks_set.size());
     for (int r: ranks_set) {
         for (int64_t j = 0; j < A_nt; ++j) {
             if (A.tileRank(0, j) == r) {
-                rank_cols.push_back({r, j});
+                rank_indices.push_back({r, j});
                 break;
             }
         }
     }
-    // Sort rank_cols by col.
-    std::sort(rank_cols.begin(), rank_cols.end(), compareSecond<int, int64_t>);
+    // Sort rank_indices by index.
+    std::sort(rank_indices.begin(), rank_indices.end(),
+              compareSecond<int, int64_t>);
 
-    int nranks = rank_cols.size();
+    int nranks = rank_indices.size();
     int nlevels = int( ceil( log2( nranks ) ) );
 
-    // Apply reduction tree from leaves down (NoTrans) or from root up (Trans).
-    // if NoTrans, levels go from nlevels-1 down to 0 (inclusive)
-    // if Trans,   levels go from 0 up to nlevels-1 (inclusive)
-    int level_begin, level_end, level_step, step;
-    if (op == Op::NoTrans) {
-        level_begin = nlevels - 1;
-        level_end   = -1;
-        level_step  = -1;
-        step        = pow(2, nlevels - 1);
-    }
-    else {
-        level_begin = 0;
-        level_end   = nlevels;
-        level_step  = 1;
-        step        = 1;
-    }
-    for (int level = level_begin; level != level_end; level += level_step) {
+    // Apply reduction tree.
+    // If Left, NoTrans or Right, Trans, apply descending from root to leaves,
+    // i.e., in reverse order of how they were created.
+    // If Left, Trans or Right, NoTrans, apply ascending from leaves to root,
+    // i.e., in same order as they were created.
+    // Example for A.mt == 8.
+    // Leaves:
+    //     ttqrt( a0, a1 )
+    //     ttqrt( a2, a3 )
+    //     ttqrt( a4, a5 )
+    //     ttqrt( a6, a7 )
+    // Next level:
+    //     ttqrt( a0, a2 )
+    //     ttqrt( a4, a6 )
+    // Root:
+    //     ttqrt( a0, a4 )
+    bool descend = (side == Side::Left) == (op == Op::NoTrans);
+    int step;
+    if (descend)
+        step = pow(2, nlevels - 1);
+    else
+        step = 1;
+
+    for (int level = 0; level < nlevels; ++level) {
         for (int index = 0; index < nranks; index += step) {
-            int64_t j = rank_cols[ index ].second;
-            // At each level, scan cols of C for local tiles.
-            // TODO: the i loop can be parallelized, but care needs to be
-            // taken so that MPI makes progress.
-            // todo: for better performance, split into three tasks:
-            //      - send-receive task,
-            //      - update task-loop,
-            //      - send-receive task
-            for (int64_t i = 0; i < C.mt(); ++i) {
-                if (C.tileIsLocal(i, j)) {
-                    if (index % (2*step) == 0) {
-                        if (index + step < nranks) {
-                            // Send tile to dst, then receive updated tile back.
-                            int64_t j_dst = rank_cols[ index + step ].second;
-                            int dst = C.tileRank(i, j_dst);
-                            C.tileSend(i, j, dst, tag);
-                            C.tileRecv(i, j, dst, layout, tag);
+            if (side == Side::Left) {
+                int64_t i = rank_indices[ index ].second;
+                // At each level, scan rows of C for local tiles.
+                // TODO: the j loop can be parallelized, but care needs to be
+                // taken so that MPI makes progress.
+                // todo: for better performance, split into three tasks:
+                //      - send-receive task,
+                //      - update task-loop,
+                //      - send-receive task
+                for (int64_t j = 0; j < C.nt(); ++j) {
+                    if (C.tileIsLocal(i, j)) {
+                        if (index % (2*step) == 0) {
+                            if (index + step < nranks) {
+                                // Send tile to dst, then receive updated tile back.
+                                int64_t i_dst = rank_indices[ index + step ].second;
+                                int dst = C.tileRank(i_dst, j);
+                                C.tileSend(i, j, dst, tag);
+                                C.tileRecv(i, j, dst, layout, tag);
+                            }
+                        }
+                        else {
+                            // Receive tile from src.
+                            int64_t i_src = rank_indices[ index - step ].second;
+                            int     src   = C.tileRank(i_src, j);
+                            C.tileRecv(i_src, j, src, layout, tag);
+
+                            A.tileGetForReading(0, i, LayoutConvert(layout));
+                            T.tileGetForReading(0, i, LayoutConvert(layout));
+                            C.tileGetForWriting(i, j, LayoutConvert(layout));
+
+                            // Apply Q
+                            // todo: Handle wide A0j as in ttmqr.
+                            tpmlqt(side, op, std::min( A.tileMb(0), A.tileNb(i) ),
+                                   A(0, i), T(0, i),
+                                   C(i_src, j), C(i, j));
+
+                            // todo: should tileRelease()?
+                            A.tileTick(0, i);
+                            T.tileTick(0, i);
+                            // Send updated tile back.
+                            C.tileSend(i_src, j, src, tag);
+                            C.tileTick(i_src, j);
                         }
                     }
-                    else {
-                        // Receive tile from src.
-                        int64_t j_src = rank_cols[ index - step ].second;
-                        int     src   = C.tileRank(i, j_src);
-                        C.tileRecv(i, j_src, src, layout, tag);
+                }
+            }
+            else { // Right
+                int64_t j = rank_indices[ index ].second;
+                // At each level, scan cols of C for local tiles.
+                // TODO: the i loop can be parallelized
+                for (int64_t i = 0; i < C.mt(); ++i) {
+                    if (C.tileIsLocal(i, j)) {
+                        if (index % (2*step) == 0) {
+                            if (index + step < nranks) {
+                                // Send tile to dst, then receive updated tile back.
+                                int64_t j_dst = rank_indices[ index + step ].second;
+                                int dst = C.tileRank(i, j_dst);
+                                C.tileSend(i, j, dst, tag);
+                                C.tileRecv(i, j, dst, layout, tag);
+                            }
+                        }
+                        else {
+                            // Receive tile from src.
+                            int64_t j_src = rank_indices[ index - step ].second;
+                            int     src   = C.tileRank(i, j_src);
+                            C.tileRecv(i, j_src, src, layout, tag);
 
-                        A.tileGetForReading(0, j, LayoutConvert(layout));
-                        T.tileGetForReading(0, j, LayoutConvert(layout));
-                        C.tileGetForWriting(i, j, LayoutConvert(layout));
+                            A.tileGetForReading(0, j, LayoutConvert(layout));
+                            T.tileGetForReading(0, j, LayoutConvert(layout));
+                            C.tileGetForWriting(i, j, LayoutConvert(layout));
 
-                        // Apply Q
-                        // todo: Handle wide A0j as in ttmqr.
-                        tpmlqt(side, op, std::min( A.tileMb(0), A.tileNb(j) ),
-                               A(0, j), T(0, j),
-                               C(i, j_src), C(i, j));
+                            // Apply Q.
+                            // todo: Handle wide A0j as in ttmqr.
+                            tpmlqt(side, op, std::min( A.tileMb(0), A.tileNb(j) ),
+                                   A(0, j), T(0, j),
+                                   C(i, j_src), C(i, j));
 
-                        // todo: should tileRelease()?
-                        A.tileTick(0, j);
-                        T.tileTick(0, j);
-                        // Send updated tile back.
-                        C.tileSend(i, j_src, src, tag);
-                        C.tileTick(i, j_src);
+                            // todo: should tileRelease()?
+                            A.tileTick(0, j);
+                            T.tileTick(0, j);
+                            // Send updated tile back.
+                            C.tileSend(i, j_src, src, tag);
+                            C.tileTick(i, j_src);
+                        }
                     }
                 }
             }
         }
-        if (op == Op::NoTrans)
+        if (descend)
             step /= 2;
         else
             step *= 2;

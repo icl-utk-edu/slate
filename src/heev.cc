@@ -65,7 +65,7 @@ void heev( HermitianMatrix<scalar_t>& A,
                                                 A.n(), A.tileNb(0), A.tileNb(0),
                                                 1, 1, A.mpiComm());
     Aband.insertLocalTiles();
-    // todo: Aband.he2hbGather(A);
+    Aband.he2hbGather(A);
 
     // 1.2. band to symmetric tri-diagonal
     hb2st(Aband, opts);
@@ -76,6 +76,7 @@ void heev( HermitianMatrix<scalar_t>& A,
     E.resize(Aband.n());
     std::vector< blas::real_type<scalar_t> > S(Aband.n() - 1);
     // todo: copy(Aband, S, E);
+    internal::copyhb2bd(Aband, S, E); 
 
     // 2.2. QR iteration
     sterf<blas::real_type<scalar_t>>(E, S, opts);

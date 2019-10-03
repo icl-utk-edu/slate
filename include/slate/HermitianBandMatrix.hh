@@ -83,6 +83,7 @@ public:
 
     void    insertLocalTiles(Target origin=Target::Host);
     void    gatherAll(std::set<int>& rank_set, int tag = 0, int64_t life_factor = 1);
+    void    he2hbGather(HermitianMatrix<scalar_t>& A);
 
 protected:
     int64_t kd_;
@@ -265,6 +266,62 @@ void HermitianBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag, 
             this->tileBcastToSet(i, j, rank_set, 2, tag, layout);
         }
     }
+}
+
+//------------------------------------------------------------------------------
+/// Gather the distributed triangular band portion of a HermitianMatrix A
+//  to HermitianBandMatrix B on MPI rank 0.
+/// Primarily for EVD code
+///
+template <typename scalar_t>
+void HermitianBandMatrix<scalar_t>::he2hbGather(HermitianMatrix<scalar_t>& A)
+{
+    Op op_save = this->op();
+    this->op_ = Op::NoTrans;
+    auto upper = this->uplo() == Uplo::Upper;
+
+    int64_t mt = A.mt();
+    int64_t nt = A.nt();
+    int64_t kdt = ceildiv( this->kd_, this->tileNb(0) );
+    // i, j are tile (block row, block col) indices
+    int64_t jj = 0;
+    for (int64_t j = 0; j < nt; ++j) {
+        int64_t jb = A.tileNb(j);
+
+        int64_t istart = upper ? blas::max( 0, j-kdt ) : j;
+        int64_t iend   = upper ? j : blas::min( j+kdt, mt-1 );
+        for (int64_t i = 0; i < mt; ++i) {
+            int64_t ib = A.tileMb(i);
+            if (i >= istart && i <= iend) {
+                if (this->mpi_rank_ == 0) {
+                    if (! A.tileIsLocal(i, j)) {
+                        // erase any existing non-local tile and insert new one
+                        // A.tileErase(i, j, A.host_num_);
+                        this->tileInsert(i, j, this->host_num_);
+                        auto Bij = this->at(i, j);
+                        Bij.recv(A.tileRank(i, j), this->mpi_comm_, this->layout());
+                        //A.tileLayout(i, j, this->layout_);
+                    }
+                    else {
+                        A.tileGetForReading(i, j, LayoutConvert(this->layout()));
+                        // copy local tiles if needed.
+                        auto Aij = A(i, j);
+                        auto Bij = this->at(i, j);
+                        if (Aij.data() != Bij.data() ) {
+                            gecopy(A(i, j), Bij );
+                        }
+                    }
+                }
+                else if (A.tileIsLocal(i, j)) {
+                    A.tileGetForReading(i, j, LayoutConvert(this->layout()));
+                    auto Aij = A(i, j);
+                    Aij.send(0, this->mpi_comm_);
+                }
+            }
+        }
+    }
+
+    this->op_ = op_save;
 }
 
 

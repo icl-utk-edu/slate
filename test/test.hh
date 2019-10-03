@@ -180,6 +180,7 @@ void test_bdsqr  (Params& params, bool run);
 
 // Eigen
 void test_sterf  (Params& params, bool run);
+void test_heev   (Params& params, bool run);
 
 // matrix norms
 void test_gbnorm (Params& params, bool run);

@@ -383,6 +383,7 @@ test_src += \
         test/test_trsm.cc \
         test/test_trtri.cc \
         test/test_gesvd.cc \
+        test/test_heev.cc \
 
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.

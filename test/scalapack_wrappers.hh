@@ -1673,9 +1673,118 @@ inline void scalapack_pgesvd(
     blas_int jvt_   = int64_to_int(jvt);
     blas_int lwork_ = int64_to_int(lwork);
     blas_int info_  = int64_to_int(*info);
-    scalapack_pgesvd(jobu, jobvt, &m_, &n_, A, &ia_, &ja_, descA, S, 
-                     U, &iu_, &ju_, descU, VT, &ivt_, &jvt_, descVT, 
+    scalapack_pgesvd(jobu, jobvt, &m_, &n_, A, &ia_, &ja_, descA, S,
+                     U, &iu_, &ju_, descU, VT, &ivt_, &jvt_, descVT,
                      work, &lwork_, &info_);
+    *info = (int64_t)info_;
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+#define scalapack_pssyev BLAS_FORTRAN_NAME( pssyev, PSSYEV )
+#define scalapack_pdsyev BLAS_FORTRAN_NAME( pdsyev, PDSYEV )
+#define scalapack_pcheev BLAS_FORTRAN_NAME( pcheev, PCHEEV )
+#define scalapack_pzheev BLAS_FORTRAN_NAME( pzheev, PZHEEV )
+
+extern "C" void scalapack_pssyev(
+    const char* jobz, const char* uplo, blas_int* n,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA, float* W,
+    float* Z, blas_int* iz, blas_int* jz, blas_int* descZ,
+    float* work, blas_int* lwork,
+    blas_int* info);
+
+extern "C" void scalapack_pdsyev(
+    const char* jobz, const char* uplo, blas_int* n,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA, double* W,
+    double* Z, blas_int* iz, blas_int* jz, blas_int* descZ,
+    double* work, blas_int* lwork,
+    blas_int* info);
+
+extern "C" void scalapack_pcheev(
+    const char* jobz, const char* uplo, blas_int* n,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA, float* W,
+    std::complex<float>* Z, blas_int* iz, blas_int* jz, blas_int* descZ,
+    std::complex<float>* work, blas_int* lwork,
+    float* rwork, blas_int* lrwork,
+    blas_int* info);
+
+extern "C" void scalapack_pzheev(
+    const char* jobz, const char* uplo, blas_int* n,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA, double* W,
+    std::complex<double>* Z, blas_int* iz, blas_int* jz, blas_int* descZ,
+    std::complex<double>* work, blas_int* lwork,
+    double* rwork, blas_int* lrwork,
+    blas_int* info);
+
+// -----------------------------------------------------------------------------
+
+inline void scalapack_pheev(
+    const char* jobz, const char* uplo, blas_int* n,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA, float* W,
+    float* Z, blas_int* iz, blas_int* jz, blas_int* descZ,
+    float* work, blas_int* lwork,
+    float* rwork, blas_int* lrwork,
+    blas_int* info)
+{
+    scalapack_pssyev(jobz, uplo, n, A, ia, ja, descA, W, Z, iz, jz, descZ, work, lwork, info);
+}
+
+inline void scalapack_pheev(
+    const char* jobz, const char* uplo, blas_int* n,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA, double* W,
+    double* Z, blas_int* iz, blas_int* jz, blas_int* descZ,
+    double* work, blas_int* lwork,
+    double* rwork, blas_int* lrwork,
+    blas_int* info)
+{
+    scalapack_pdsyev(jobz, uplo, n, A, ia, ja, descA, W, Z, iz, jz, descZ, work, lwork, info);
+}
+
+inline void scalapack_pheev(
+    const char* jobz, const char* uplo, blas_int* n,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA, float* W,
+    std::complex<float>* Z, blas_int* iz, blas_int* jz, blas_int* descZ,
+    std::complex<float>* work, blas_int* lwork,
+    float* rwork, blas_int* lrwork,
+    blas_int* info)
+{
+    scalapack_pcheev(jobz, uplo, n, A, ia, ja, descA, W, Z, iz, jz, descZ, work, lwork, rwork, lrwork, info);
+}
+
+inline void scalapack_pheev(
+    const char* jobz, const char* uplo, blas_int* n,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA, double* W,
+    std::complex<double>* Z, blas_int* iz, blas_int* jz, blas_int* descZ,
+    std::complex<double>* work, blas_int* lwork,
+    double* rwork, blas_int* lrwork,
+    blas_int* info)
+{
+    scalapack_pzheev(jobz, uplo, n, A, ia, ja, descA, W, Z, iz, jz, descZ, work, lwork, rwork, lrwork, info);
+}
+
+template <typename scalar_t>
+inline void scalapack_pheev(
+    const char* jobz, const char* uplo,
+    int64_t n,
+    scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
+    blas::real_type<scalar_t>* W,
+    scalar_t* Z, int64_t iz, int64_t jz, blas_int* descZ,
+    scalar_t* work, int64_t lwork,
+    blas::real_type<scalar_t>* rwork, int64_t lrwork,
+    int64_t* info)
+{
+    blas_int n_     = int64_to_int(n);
+    blas_int ia_    = int64_to_int(ia);
+    blas_int ja_    = int64_to_int(ja);
+    blas_int iz_    = int64_to_int(iz);
+    blas_int jz_    = int64_to_int(jz);
+    blas_int lwork_ = int64_to_int(lwork);
+    blas_int lrwork_ = int64_to_int(lrwork);
+    blas_int info_  = int64_to_int(*info);
+    scalapack_pheev(jobz, uplo, &n_, A, &ia_, &ja_, descA, W,
+                    Z, &iz_, &jz_, descZ,
+                    work, &lwork_, rwork, &lrwork_, &info_);
     *info = (int64_t)info_;
 }
 

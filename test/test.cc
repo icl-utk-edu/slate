@@ -164,7 +164,6 @@ std::vector< libtest::routines_t > routines = {
     //{ "",                   nullptr,        Section::newline },
 
     // -----
-  //{ "gesvd",              test_gesvd,         Section::svd },
     { "ge2tb",              test_ge2tb,         Section::svd },
     { "",                   nullptr,            Section::newline },
 
@@ -191,6 +190,7 @@ std::vector< libtest::routines_t > routines = {
     // -----
     // Eigen
     { "sterf",              test_sterf,        Section::heev },
+    { "heev",               test_heev,        Section::heev },
     { "",                   nullptr,           Section::newline },
 };
 

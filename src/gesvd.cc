@@ -46,106 +46,125 @@
 
 namespace slate {
 
-
+//------------------------------------------------------------------------------
+/// Note A is passed by value, so we can transpose if needed
+/// without affecting caller.
+///
 template <typename scalar_t>
-void gesvd(Matrix<scalar_t>& A,
+void gesvd(Matrix<scalar_t> A,
            std::vector< blas::real_type<scalar_t> >& S,
            const std::map<Option, Value>& opts)
 {
+    using real_t = blas::real_type<scalar_t>;
+    using std::swap;
+
+    scalar_t zero = 0;
+
     int64_t m = A.m();
     int64_t n = A.n();
 
     bool flip = m < n; // Flip for fat matrix.
     if (flip) {
-        // mtmp = n; n = m; m = n;
-        // A = A'
+        slate_not_implemented("m < n not yet supported");
+        swap(m, n);
+        A = conj_transpose(A);
     }
 
-    bool qr_path = m > n; // This should be replaced with a ratio (m>=2n)
+    // Scale matrix to allowable range, if necessary.
+    // todo
+
+    // 0. If m >> n, use QR factorization to reduce to square.
+    // Theoretical thresholds based on flops:
+    // m >=  5/3 n for no vectors,
+    // m >= 16/9 n for QR iteration with vectors,
+    // m >= 10/3 n for Divide & Conquer with vectors.
+    // Different in practice because stages have different flop rates.
+    double threshold = 5/3.;
+    bool qr_path = m > threshold*n;
     Matrix<scalar_t> Ahat;
     TriangularFactors<scalar_t> TQ;
-
-    // 0. QR decomposition if needed
     if (qr_path) {
         geqrf(A, TQ, opts);
 
-        int64_t min_mn = std::min(m, n);
-        auto R_ = A.slice(0, min_mn-1, 0, min_mn-1);
-        auto R = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, R_);
+        auto R_ = A.slice(0, n-1, 0, n-1);
+        TriangularMatrix<scalar_t> R(Uplo::Upper, Diag::NonUnit, R_);
 
         Ahat = R_.emptyLike();
         Ahat.insertLocalTiles();
+        set(zero, Ahat);  // todo: only lower
 
-        auto Ahat_tr = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, Ahat);
+        TriangularMatrix<scalar_t> Ahat_tr(Uplo::Upper, Diag::NonUnit, Ahat);
         copy(R, Ahat_tr);
     }
     else {
         Ahat = A;
     }
 
-
-    // 1. Reduction to bi-diagonal
-
-    // 1.1.1 reduction to band
-    slate::TriangularFactors<scalar_t> TU, TV;
+    // 1. Reduce to band form.
+    TriangularFactors<scalar_t> TU, TV;
     ge2tb(Ahat, TU, TV, opts);
 
-    // 1.1.2 gather general to band
-    auto Aband = TriangularBandMatrix<scalar_t>( Uplo::Upper, Diag::NonUnit,
-                                                 A.n(), A.tileNb(0), A.tileNb(0),
-                                                 1, 1, A.mpiComm());
+    // Copy band.
+    // Currently, gathers band matrix to rank 0.
+    TriangularBandMatrix<scalar_t> Aband(Uplo::Upper, Diag::NonUnit,
+                                         n, A.tileNb(0), A.tileNb(0),
+                                         1, 1, A.mpiComm());
     Aband.insertLocalTiles();
     Aband.ge2tbGather(Ahat);
 
-    // 1.2.1 triangular band to bidiagonal
-    if (A.mpiRank() == 0){
+    // Currently, hb2st and sterf are run on a single node.
+    S.resize(n);
+    if (A.mpiRank() == 0) {
+        // 2. Reduce band to bi-diagonal.
         tb2bd(Aband, opts);
-    }
 
-    // 2. Bi-diagonal SVD (QR iteration)
-    if (A.mpiRank() == 0){
-        // 1.2.2 copy triangular band to bi-diagonal (vectors)
-        S.resize(A.n());
-        std::vector< blas::real_type<scalar_t> > E(A.n() - 1);
+        // Copy diagonal and super-diagonal to vectors.
+        std::vector<real_t> E(n - 1);
         internal::copytb2bd(Aband, S, E);
+
+        // 3. Bi-diagonal SVD solver.
+        // QR iteration
         bdsqr<scalar_t>(S, E, opts);
     }
-    // todo: bdsvd(S, E, opts);
+
+    // If matrix was scaled, then rescale singular values appropriately.
+    // todo
+
+    // todo: bcast S.
 
     if (qr_path) {
-        // When initial QR used .
+        // When initial QR was used.
         // U = Q*U;
     }
 
     if (flip) {
-        // Utmp = U; U = V; V = Utmp;
+        // todo: swap(U, V);
     }
 }
-
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
 void gesvd<float>(
-     Matrix<float>& A,
+     Matrix<float> A,
      std::vector<float>& S,
      const std::map<Option, Value>& opts);
 
 template
 void gesvd<double>(
-     Matrix<double>& A,
+     Matrix<double> A,
      std::vector<double>& S,
      const std::map<Option, Value>& opts);
 
 template
 void gesvd< std::complex<float> >(
-     Matrix< std::complex<float> >& A,
+     Matrix< std::complex<float> > A,
      std::vector<float>& S,
      const std::map<Option, Value>& opts);
 
 template
 void gesvd< std::complex<double> >(
-     Matrix< std::complex<double> >& A,
+     Matrix< std::complex<double> > A,
      std::vector<double>& S,
      const std::map<Option, Value>& opts);
 

@@ -315,7 +315,7 @@ void tb2bd(slate::internal::TargetType<target>,
 
     omp_destroy_lock(&lock);
 
-    // now that the chasing is over, the matrix is reduced to a bidiagonal
+    // Now that chasing is over, matrix is reduced to bidiagonal.
     A.bandwidth(1);
 }
 

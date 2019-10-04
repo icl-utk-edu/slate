@@ -266,7 +266,8 @@ q      = ' --q '      + opts.q      if (opts.q)      else ''
 repeat = ' --repeat ' + opts.repeat if (opts.repeat) else ''
 
 # general options for all routines
-gen  = origin + target + nb + p + q + check + ref + repeat
+gen       = origin + target + p + q + check + ref + repeat + nb
+gen_no_nb = origin + target + p + q + check + ref + repeat
 
 # ------------------------------------------------------------------------------
 # filters a comma separated list csv based on items in list values.
@@ -446,7 +447,8 @@ if (opts.rq):
 # symmetric/Hermitian eigenvalues
 if (opts.syev):
     cmds += [
-    #[ 'heev',  gen + dtype + la + n + jobz + uplo ],
+    # todo nb, uplo, jobz
+    [ 'heev',  gen_no_nb + ' --nb 50' + dtype + la + n ],
     #[ 'heevx', gen + dtype + la + n + jobz + uplo + vl + vu ],
     #[ 'heevx', gen + dtype + la + n + jobz + uplo + il + iu ],
     #[ 'heevd', gen + dtype + la + n + jobz + uplo ],
@@ -457,6 +459,7 @@ if (opts.syev):
     #[ 'unmtr', gen + dtype_real    + la + mn + uplo + side + trans    ],  # real does trans = N, T, C
     #[ 'unmtr', gen + dtype_complex + la + mn + uplo + side + trans_nc ],  # complex does trans = N, C, not T
     [ 'he2hb',         gen + dtype + n ],  # todo uplo
+    # todo: hb2st
 
     # Banded
     #[ 'hbev',  gen + dtype + la + n + jobz + uplo ],
@@ -499,7 +502,8 @@ if (opts.geev):
 # svd
 if (opts.svd):
     cmds += [
-    #[ 'gesvd',         gen + dtype + la + mn + jobu + jobvt ],
+    # todo: mn (wide), nb, jobu, jobvt
+    [ 'gesvd',         gen_no_nb + ' --nb 50' + dtype + la + n + tall ],
     #[ 'gesdd',         gen + dtype + la + mn + jobu ],
     #[ 'gesvdx',        gen + dtype + la + mn + jobz + jobvr + vl + vu ],
     #[ 'gesvdx',        gen + dtype + la + mn + jobz + jobvr + il + iu ],
@@ -509,6 +513,7 @@ if (opts.svd):
     #[ 'gejsv',         gen + dtype + la + mn ],
     #[ 'gesvj',         gen + dtype + la + mn + joba + jobu + jobv ],
     [ 'ge2tb',         gen + dtype + n + tall ],
+    # todo: tb2bd
     ]
 
 # norms

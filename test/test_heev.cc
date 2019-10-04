@@ -33,7 +33,6 @@ void test_heev_work(Params& params, bool run)
     int64_t panel_threads = params.panel_threads();
     int64_t lookahead = params.lookahead();
     bool ref_only = params.ref() == 'o';
-    bool runtst = (! ref_only);
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
@@ -41,6 +40,8 @@ void test_heev_work(Params& params, bool run)
     slate::Norm norm = params.norm();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+
+    slate_assert(p == q);  // heev requires square process grid.
 
     params.time();
     params.ref_time();
@@ -142,14 +143,14 @@ void test_heev_work(Params& params, bool run)
     
     std::vector<scalar_t> A_ref, Z_ref;
     std::vector<real_t> W_ref;
-    if (check | ref) {
+    if (check || ref) {
         A_ref = A_tst;
         W_ref = W_tst;
         Z_ref = Z_tst;
     }
     
     // SLATE test
-    if (runtst) {
+    if (! ref_only) {
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
         {
@@ -161,48 +162,12 @@ void test_heev_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        #if 0
         slate::heev(A, W_tst, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target},
                 {slate::Option::MaxPanelThreads, panel_threads},
                 {slate::Option::InnerBlocking, ib}
             });
-        #else
-        ////////////////////////////////////////////////////////////
-        // todo: Wrong call below here
-        if (iam == 0) printf("TODO: REAL HEEV CALL NEEDED... USING SCALAPACK FOR TEST Edit test_heev.cc and update\n");
-        // Run using ScaLAPACK
-        slate_set_num_blas_threads(omp_get_max_threads());
-        // query for workspace size
-        int64_t info_tst = 0;
-        int64_t lwork = -1, lrwork = -1;
-        std::vector<scalar_t> work(1);
-        std::vector<real_t> rwork(1);
-        scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
-                        &A_tst[0], ione, ione, descA_tst,
-                        &W_tst[0],
-                        &Z_tst[0], ione, ione, descZ_tst,
-                        &work[0], -1, &rwork[0], -1, &info_tst);
-        slate_assert(info_tst == 0);
-        lwork = int64_t( real( work[0] ) );
-        work.resize(lwork);
-        // The lrwork, rwork parameters are only valid for complex
-        if (slate::is_complex<scalar_t>::value) {
-            lrwork = int64_t(rwork[0]);
-            rwork.resize(lrwork);
-        }
-        // Run ScaLAPACK reference routine.
-        scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
-                        &A_tst[0], ione, ione, descA_tst,
-                        &W_tst[0],
-                        &Z_tst[0], ione, ione, descZ_tst,
-                        &work[0], lwork, &rwork[0], lrwork, &info_tst);
-        slate_assert(info_tst == 0);
-        slate_set_num_blas_threads(1);
-        // todo: Wrong call above here
-        ////////////////////////////////////////////////////////////
-        #endif
 
         {
             slate::trace::Block trace_block("MPI_Barrier");

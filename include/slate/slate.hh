@@ -725,15 +725,8 @@ void hetrs(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
 // SVD
 
 //-----------------------------------------
-// Bi-diagonal SVD
 template <typename scalar_t>
-void bdsqr(std::vector< blas::real_type<scalar_t> >& D,
-           std::vector< blas::real_type<scalar_t> >& E,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-//-----------------------------------------
-template <typename scalar_t>
-void gesvd(Matrix<scalar_t>& A,
+void gesvd(Matrix<scalar_t> A,
            std::vector< blas::real_type<scalar_t> >& S,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
@@ -758,6 +751,13 @@ template <typename scalar_t>
 void tb2bd(TriangularBandMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
+
+//-----------------------------------------
+// Bi-diagonal SVD
+template <typename scalar_t>
+void bdsqr(std::vector< blas::real_type<scalar_t> >& D,
+           std::vector< blas::real_type<scalar_t> >& E,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //------------------------------------------------------------------------------
 // symmetric/Hermitian eigenvalue decomposition

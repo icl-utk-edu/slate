@@ -52,36 +52,43 @@ void heev( HermitianMatrix<scalar_t>& A,
            std::vector< blas::real_type<scalar_t> >& W,
            const std::map<Option, Value>& opts)
 {
+    using real_t = blas::real_type<scalar_t>;
+
     int64_t n = A.n();
 
-    // 0. Scale matrix
-    // todo:
+    // Scale matrix to allowable range, if necessary.
+    // todo
 
-    // 1. Reduce to tridiagonal form
-
-    // 1.1.1. reduction to band
+    // 1. Reduce to band form.
     TriangularFactors<scalar_t> T;
     he2hb(A, T, opts);
 
-    // 1.1.2 gather hermitian to band
-    auto Aband = HermitianBandMatrix<scalar_t>( Uplo::Lower,
-                                                n, A.tileNb(0), A.tileNb(0),
-                                                1, 1, A.mpiComm());
+    // Copy band.
+    // Currently, gathers band matrix to rank 0.
+    HermitianBandMatrix<scalar_t> Aband(A.uplo(), n, A.tileNb(0), A.tileNb(0),
+                                        1, 1, A.mpiComm());
     Aband.insertLocalTiles();
     Aband.he2hbGather(A);
 
-    // 1.2. band to symmetric tri-diagonal
-    hb2st(Aband, opts);
-
-    // 2. Tri-diagonal eigenvalue generation
-
-    // 2.1. copy diagonals from hermitian band to vectors
+    // Currently, hb2st and sterf are run on a single node.
     W.resize(n);
-    std::vector< blas::real_type<scalar_t> > E(n - 1);
-    internal::copyhb2st(Aband, W, E);
+    if (A.mpiRank() == 0) {
+        // 2. Reduce band to symmetric tri-diagonal.
+        hb2st(Aband, opts);
 
-    // 2.2. QR iteration
-    sterf<blas::real_type<scalar_t>>(W, E, opts);
+        // Copy diagonal and super-diagonal to vectors.
+        std::vector<real_t> E(n - 1);
+        internal::copyhb2st(Aband, W, E);
+
+        // 3. Tri-diagonal eigenvalue solver.
+        // QR iteration
+        sterf<real_t>(W, E, opts);
+    }
+
+    // If matrix was scaled, then rescale eigenvalues appropriately.
+    // todo
+
+    // todo: bcast W.
 }
 
 //------------------------------------------------------------------------------

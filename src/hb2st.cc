@@ -310,6 +310,9 @@ void hb2st(slate::internal::TargetType<target>,
     }
 
     omp_destroy_lock(&lock);
+
+    // Now that chasing is over, matrix is reduced to symmetric tridiagonal.
+    A.bandwidth(1);
 }
 
 } // namespace specialization

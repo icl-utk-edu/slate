@@ -52,66 +52,76 @@ void gesvd(Matrix<scalar_t>& A,
            std::vector< blas::real_type<scalar_t> >& S,
            const std::map<Option, Value>& opts)
 {
-    // auto mt = A.mt(), nt = A.nt();
-    if (A.m() >= A.n()) {
+    int64_t m = A.m();
+    int64_t n = A.n();
 
-        auto qr_path =  /* M much greater than N */ false;
+    bool flip = m < n; // Flip for fat matrix.
+    if (flip) {
+        // mtmp = n; n = m; m = n;
+        // A = A'
+    }
 
-        Matrix<scalar_t> Ahat;
+    bool qr_path = m > n; // This should be replaced with a ratio (m>=2n)
+    Matrix<scalar_t> Ahat;
+    TriangularFactors<scalar_t> TQ;
 
-        // 0. QR decomposition if needed
-        if (qr_path) {
-            TriangularFactors<scalar_t> T;
-            geqrf(A, T, opts);
+    // 0. QR decomposition if needed
+    if (qr_path) {
+        geqrf(A, TQ, opts);
 
-            int64_t min_mn = std::min(A.m(), A.n());
-            auto R_ = A.slice(0, min_mn-1, 0, min_mn-1);
-            auto R = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, R_);
+        int64_t min_mn = std::min(m, n);
+        auto R_ = A.slice(0, min_mn-1, 0, min_mn-1);
+        auto R = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, R_);
 
-            Ahat = R_.emptyLike();
-            Ahat.insertLocalTiles();
+        Ahat = R_.emptyLike();
+        Ahat.insertLocalTiles();
 
-            auto Ahat_tr = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, Ahat);
-            copy(R, Ahat_tr);
-        }
-        else {
-            Ahat = A;
-        }
-
-
-        // 1. Reduction to bi-diagonal
-
-        // 1.1.1 reduction to band
-        slate::TriangularFactors<scalar_t> TU, TV;
-        ge2tb(Ahat, TU, TV, opts);
-
-        // 1.1.2 gather general to band
-        auto Aband = TriangularBandMatrix<scalar_t>( Uplo::Upper, Diag::NonUnit,
-                                                     A.n(), A.tileNb(0), A.tileNb(0),
-                                                     1, 1, A.mpiComm());
-        Aband.insertLocalTiles();
-        Aband.ge2tbGather(Ahat);
-
-        // 1.2.1 triangular band to bidiagonal
-        if (A.mpiRank() == 0){
-            tb2bd(Aband, opts);
-        }
-
-
-        // 2. Bi-diagonal SVD (QR iteration)
-        if (A.mpiRank() == 0){
-            // 1.2.2 copy triangular band to bi-diagonal (vectors)
-            S.resize(A.n());
-            std::vector< blas::real_type<scalar_t> > E(A.n() - 1);
-            internal::copytb2bd(Aband, S, E); 
-            bdsqr(Aband, S, E, opts);
-        }
-        // todo: bdsvd(S, E, opts);
+        auto Ahat_tr = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, Ahat);
+        copy(R, Ahat_tr);
     }
     else {
-        // todo:
+        Ahat = A;
+    }
+
+
+    // 1. Reduction to bi-diagonal
+
+    // 1.1.1 reduction to band
+    slate::TriangularFactors<scalar_t> TU, TV;
+    ge2tb(Ahat, TU, TV, opts);
+
+    // 1.1.2 gather general to band
+    auto Aband = TriangularBandMatrix<scalar_t>( Uplo::Upper, Diag::NonUnit,
+                                                 A.n(), A.tileNb(0), A.tileNb(0),
+                                                 1, 1, A.mpiComm());
+    Aband.insertLocalTiles();
+    Aband.ge2tbGather(Ahat);
+
+    // 1.2.1 triangular band to bidiagonal
+    if (A.mpiRank() == 0){
+        tb2bd(Aband, opts);
+    }
+
+    // 2. Bi-diagonal SVD (QR iteration)
+    if (A.mpiRank() == 0){
+        // 1.2.2 copy triangular band to bi-diagonal (vectors)
+        S.resize(A.n());
+        std::vector< blas::real_type<scalar_t> > E(A.n() - 1);
+        internal::copytb2bd(Aband, S, E);
+        bdsqr<scalar_t>(S, E, opts);
+    }
+    // todo: bdsvd(S, E, opts);
+
+    if (qr_path) {
+        // When initial QR used .
+        // U = Q*U;
+    }
+
+    if (flip) {
+        // Utmp = U; U = V; V = Utmp;
     }
 }
+
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.

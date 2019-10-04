@@ -768,7 +768,7 @@ void tb2bd(TriangularBandMatrix<scalar_t>& A,
 //-----------------------------------------
 template <typename scalar_t>
 void heev( HermitianMatrix<scalar_t>& A,
-           std::vector< blas::real_type<scalar_t> >& E,
+           std::vector< blas::real_type<scalar_t> >& W,
            const std::map<Option, Value>& opts);
 
 //-----------------------------------------
@@ -776,12 +776,12 @@ void heev( HermitianMatrix<scalar_t>& A,
 // disabled for complex
 template <typename scalar_t>
 void syev( SymmetricMatrix<scalar_t>& A,
-           std::vector< blas::real_type<scalar_t> >& E,
+           std::vector< blas::real_type<scalar_t> >& W,
            const std::map<Option, Value>& opts = std::map<Option, Value>(),
            enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> AH(A);
-    heev(AH, E, opts);
+    heev(AH, W, opts);
 }
 
 //-----------------------------------------

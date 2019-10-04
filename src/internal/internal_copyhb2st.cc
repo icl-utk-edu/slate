@@ -38,7 +38,7 @@
 //------------------------------------------------------------------------------
 
 #include "slate/Matrix.hh"
-#include "slate/TriangularBandMatrix.hh"
+#include "slate/HermitianBandMatrix.hh"
 #include "slate/types.hh"
 #include "slate/Tile_blas.hh"
 #include "internal/internal.hh"
@@ -47,32 +47,34 @@ namespace slate {
 namespace internal {
 
 //------------------------------------------------------------------------------
-/// Copy bi-diagonal TriangularBand matrix to two vectors.
+/// Copy tri-diagonal HermitianBand matrix to two vectors.
 /// Dispatches to target implementations.
-/// @ingroup copyge2tb_internal
+/// @ingroup copyhb2st_internal
 ///
 template <Target target, typename scalar_t>
-void copytb2bd(TriangularBandMatrix<scalar_t>& A,
+void copyhb2st(HermitianBandMatrix<scalar_t>& A,
                std::vector< blas::real_type<scalar_t> >& D,
                std::vector< blas::real_type<scalar_t> >& E)
 {
-    copytb2bd(internal::TargetType<target>(),
+    copyhb2st(internal::TargetType<target>(),
                A,
                D, E);
 }
 
 //------------------------------------------------------------------------------
-/// Copy bi-diagonal TriangularBand matrix to two vectors.
+/// Copy tri-diagonal HermitianBand matrix to two vectors.
 /// Host OpenMP task implementation.
-/// @ingroup copyge2tb_internal
+/// @ingroup copyhb2st_internal
 ///
+// todo: this is essentially identical to copytb2bd.
+//
 template <typename scalar_t>
-void copytb2bd(internal::TargetType<Target::HostTask>,
-               TriangularBandMatrix<scalar_t> A,
+void copyhb2st(internal::TargetType<Target::HostTask>,
+               HermitianBandMatrix<scalar_t> A,
                std::vector< blas::real_type<scalar_t> >& D,
                std::vector< blas::real_type<scalar_t> >& E)
 {
-    trace::Block trace_block("slate::copytb2bd");
+    trace::Block trace_block("slate::copyhb2st");
     using blas::real;
 
     // If lower, change to upper.
@@ -80,7 +82,7 @@ void copytb2bd(internal::TargetType<Target::HostTask>,
         A = conj_transpose(A);
     }
 
-    // Make sure it is a bi-diagonal matrix.
+    // Make sure it is a tri-diagonal matrix.
     slate_assert(A.bandwidth() == 1);
 
     int64_t nt = A.nt();
@@ -122,29 +124,29 @@ void copytb2bd(internal::TargetType<Target::HostTask>,
 // Explicit instantiations.
 // ----------------------------------------
 template
-void copytb2bd<Target::HostTask, float>(
-    TriangularBandMatrix<float>& A,
+void copyhb2st<Target::HostTask, float>(
+    HermitianBandMatrix<float>& A,
     std::vector<float>& D,
     std::vector<float>& E);
 
 // ----------------------------------------
 template
-void copytb2bd<Target::HostTask, double>(
-    TriangularBandMatrix<double>& A,
+void copyhb2st<Target::HostTask, double>(
+    HermitianBandMatrix<double>& A,
     std::vector<double>& D,
     std::vector<double>& E);
 
 // ----------------------------------------
 template
-void copytb2bd< Target::HostTask, std::complex<float> >(
-    TriangularBandMatrix< std::complex<float> >& A,
+void copyhb2st< Target::HostTask, std::complex<float> >(
+    HermitianBandMatrix< std::complex<float> >& A,
     std::vector<float>& D,
     std::vector<float>& E);
 
 // ----------------------------------------
 template
-void copytb2bd< Target::HostTask, std::complex<double> >(
-    TriangularBandMatrix< std::complex<double> >& A,
+void copyhb2st< Target::HostTask, std::complex<double> >(
+    HermitianBandMatrix< std::complex<double> >& A,
     std::vector<double>& D,
     std::vector<double>& E);
 

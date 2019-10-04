@@ -46,12 +46,14 @@
 
 namespace slate {
 
-
+//------------------------------------------------------------------------------
 template <typename scalar_t>
 void heev( HermitianMatrix<scalar_t>& A,
-           std::vector< blas::real_type<scalar_t> >& E,
+           std::vector< blas::real_type<scalar_t> >& W,
            const std::map<Option, Value>& opts)
 {
+    int64_t n = A.n();
+
     // 0. Scale matrix
     // todo:
 
@@ -62,7 +64,7 @@ void heev( HermitianMatrix<scalar_t>& A,
 
     // 1.1.2 gather hermitian to band
     auto Aband = HermitianBandMatrix<scalar_t>( Uplo::Lower,
-                                                A.n(), A.tileNb(0), A.tileNb(0),
+                                                n, A.tileNb(0), A.tileNb(0),
                                                 1, 1, A.mpiComm());
     Aband.insertLocalTiles();
     Aband.he2hbGather(A);
@@ -73,13 +75,12 @@ void heev( HermitianMatrix<scalar_t>& A,
     // 2. Tri-diagonal eigenvalue generation
 
     // 2.1. copy diagonals from hermitian band to vectors
-    E.resize(Aband.n());
-    std::vector< blas::real_type<scalar_t> > S(Aband.n() - 1);
-    // todo: copy(Aband, S, E);
-    internal::copyhb2bd(Aband, S, E); 
+    W.resize(n);
+    std::vector< blas::real_type<scalar_t> > E(n - 1);
+    internal::copyhb2st(Aband, W, E);
 
     // 2.2. QR iteration
-    sterf<blas::real_type<scalar_t>>(E, S, opts);
+    sterf<blas::real_type<scalar_t>>(W, E, opts);
 }
 
 //------------------------------------------------------------------------------
@@ -87,25 +88,25 @@ void heev( HermitianMatrix<scalar_t>& A,
 template
 void heev<float>(
      HermitianMatrix<float>& A,
-     std::vector<float>& S,
+     std::vector<float>& W,
      const std::map<Option, Value>& opts);
 
 template
 void heev<double>(
      HermitianMatrix<double>& A,
-     std::vector<double>& S,
+     std::vector<double>& W,
      const std::map<Option, Value>& opts);
 
 template
 void heev< std::complex<float> >(
      HermitianMatrix< std::complex<float> >& A,
-     std::vector<float>& S,
+     std::vector<float>& W,
      const std::map<Option, Value>& opts);
 
 template
 void heev< std::complex<double> >(
      HermitianMatrix< std::complex<double> >& A,
-     std::vector<double>& S,
+     std::vector<double>& W,
      const std::map<Option, Value>& opts);
 
 } // namespace slate

@@ -196,13 +196,13 @@ void set(scalar_t alpha, scalar_t beta,
 
 template <Target target=Target::HostTask, typename scalar_t>
 void copytb2bd(TriangularBandMatrix<scalar_t>& A,
-           std::vector< blas::real_type<scalar_t> >& D,
-           std::vector< blas::real_type<scalar_t> >& E);
+               std::vector< blas::real_type<scalar_t> >& D,
+               std::vector< blas::real_type<scalar_t> >& E);
 
 template <Target target=Target::HostTask, typename scalar_t>
-void copyhb2bd(HermitianBandMatrix<scalar_t>& A,
-           std::vector< blas::real_type<scalar_t> >& D,
-           std::vector< blas::real_type<scalar_t> >& E);
+void copyhb2st(HermitianBandMatrix<scalar_t>& A,
+               std::vector< blas::real_type<scalar_t> >& D,
+               std::vector< blas::real_type<scalar_t> >& E);
 
 //------------------------------------------------------------------------------
 // Level 3 BLAS and LAPACK auxiliary

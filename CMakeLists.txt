@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.8)
 project(SLATE CXX CUDA)
 #project(SLATE)
 
-# Build the testers by default
+# Do not build the testers by default
 option(BUILD_SLATE_TESTS "Build SLATE tests - has more reqs" OFF)
 
 file (GLOB SLATE_SOURCES
@@ -37,6 +37,8 @@ target_include_directories(slate
 
 find_package(MPI REQUIRED COMPONENTS CXX)
 
+find_package(blaspp REQUIRED)
+if(WIP) # work in progress
 find_package(blaspp QUIET)
 if(NOT blaspp_FOUND)
     message ("  ******  blaspp not found!")
@@ -44,6 +46,7 @@ if(NOT blaspp_FOUND)
     add_subdirectory(blaspp)
 else ()
     find_package(blaspp REQUIRED)
+endif()
 endif()
 
 get_target_property(blaspp_links blaspp INTERFACE_LINK_LIBRARIES)
@@ -79,6 +82,8 @@ else()
     #message("lapackpp_DIR: " ${lapackpp_DIR})
 endif()
 
+find_package(lapackpp REQUIRED)
+if(WIP) # work in progress
 find_package(lapackpp QUIET)
 if(NOT lapackpp_FOUND)
     message ("  ******  lapackpp not found!")
@@ -86,6 +91,7 @@ if(NOT lapackpp_FOUND)
     add_subdirectory(lapackpp)
 else ()
     find_package(lapackpp REQUIRED)
+endif()
 endif()
 
 # remove mpi flags that are incompatible with nvcc

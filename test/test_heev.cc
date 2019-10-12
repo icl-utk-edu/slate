@@ -135,12 +135,12 @@ void test_heev_work(Params& params, bool run)
         printf( "%% A   %6lld-by-%6lld\n", llong(   A.m() ), llong(   A.n() ) );
         printf( "%% Z   %6lld-by-%6lld\n", llong(   Z.m() ), llong(   Z.n() ) );
     }
-    
+
     if (verbose > 1) {
         print_matrix( "A",  A  );
         print_matrix( "Z",  Z  );
     }
-    
+
     std::vector<scalar_t> A_ref, Z_ref;
     std::vector<real_t> W_ref;
     if (check || ref) {
@@ -148,7 +148,7 @@ void test_heev_work(Params& params, bool run)
         W_ref = W_tst;
         Z_ref = Z_tst;
     }
-    
+
     // SLATE test
     if (! ref_only) {
         if (trace) slate::trace::Trace::on();
@@ -158,7 +158,7 @@ void test_heev_work(Params& params, bool run)
             MPI_Barrier(MPI_COMM_WORLD);
         }
         double time = libtest::get_wtime();
-        
+
         //==================================================
         // Run SLATE test.
         //==================================================
@@ -174,12 +174,12 @@ void test_heev_work(Params& params, bool run)
             MPI_Barrier(MPI_COMM_WORLD);
         }
         double time_tst = libtest::get_wtime() - time;
-        
+
         if (trace) slate::trace::Trace::finish();
-        
+
         // compute and save timing/performance
         params.time() = time_tst;
-        
+
         if (verbose > 1) {
             print_matrix( "A",  A  );
             print_matrix( "Z",  Z  );
@@ -188,13 +188,13 @@ void test_heev_work(Params& params, bool run)
 
     if (check || ref) {
         // Run reference routine from ScaLAPACK
-        
+
         // set num threads appropriately for parallel BLAS if possible
         int omp_num_threads = 1;
         #pragma omp parallel
         { omp_num_threads = omp_get_num_threads(); }
         int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-        
+
         // query for workspace size
         int64_t info_tst = 0;
         int64_t lwork = -1, lrwork = -1;

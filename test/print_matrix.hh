@@ -24,7 +24,7 @@ void snprintf_value(
     if (value == scalar_t( int( real( value )))) {
         // exactly integer, print without digits after decimal point
         if (slate::is_complex<scalar_t>::value) {
-            snprintf(buf, buf_len, " %#*.0f%*s   %*s",
+            snprintf(buf, buf_len, " %#*.0f%*s   %*s ",
                      width - precision, real(value), precision, "",
                      width, "");
         }

@@ -138,13 +138,9 @@ void test_tb2bd_work(
         }
         jj += A.tileNb(j);
     }
-    /*
-    */
 
     //print_matrix("A", A);
 
-
-    
     //---------
     // run test
     if (trace)
@@ -160,7 +156,7 @@ void test_tb2bd_work(
     //==================================================
     if (mpi_rank == 0) {
         slate::tb2bd(A);
-    }   
+    }
 
     {
         slate::trace::Block trace_block("MPI_Barrier");

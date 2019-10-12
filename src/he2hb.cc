@@ -253,7 +253,7 @@ void he2hb(slate::internal::TargetType<target>,
                             rank_lower = A.tileRank(i, j);
                             if (rank_lower == my_rank) { // A.tileIsLocal(i, j)
                                 if (i == j) {
-                                    symm(Side::Left, one, A(i, j), A(j, k),
+                                    hemm(Side::Left, one, A(i, j), A(j, k),
                                                      one, W(i, k));
                                 }
                                 else {
@@ -305,7 +305,7 @@ void he2hb(slate::internal::TargetType<target>,
                 if (A.tileIsLocal(i0, i0)) {
                     //--------------------
                     // This rank has diagonal tiles to update.
-                    // Do 2-sided symmetric update:
+                    // Do 2-sided Hermitian update:
                     // A = Q^H A Q
                     //   = (I - V T^H V^H) A (I - V T V^H)
                     //   = A - V W^H - W V^H
@@ -326,7 +326,7 @@ void he2hb(slate::internal::TargetType<target>,
                          one, conj_transpose(Tk), std::move(TVAVT));
 
                     // 1d. W = W - 0.5 V TVAVT.
-                    // Technically, could do a symm here since TVAVT is symmetric.
+                    // Technically, could do a hemm here since TVAVT is Hermitian.
                     for (int64_t i: indices) {
                         gemm(neg_half, A(i, k), std::move(TVAVT), one, W(i, k));
                     }
@@ -337,7 +337,7 @@ void he2hb(slate::internal::TargetType<target>,
                             assert(A.tileIsLocal(i, j));
                             if (i == j) {  // diag
                                 // A = A - Vik Wjk^H - Wjk Vik^H
-                                syr2k(-one, A(i, k), W(j, k), one, A(i, j));
+                                her2k(-one, A(i, k), W(j, k), 1.0, A(i, j));
                             }
                             else if (i > j) {  // lower
                                 // A = A - Vik Wjk^H

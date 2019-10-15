@@ -69,10 +69,13 @@ void gerf(std::vector<scalar_t> const& in_v, Matrix<scalar_t>& A);
 template <typename scalar_t>
 void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A)
 {
-    // Replace tau with 1.0 in V[0].
+    scalar_t one  = 1;
+    scalar_t zero = 0;
+
+    // Replace tau with 1.0 in v[0].
     auto v = in_v;
-    scalar_t tau = v.at(0);
-    v.at(0) = scalar_t(1.0);
+    scalar_t tau = v[0];
+    v[0] = one;
 
     // w = C * v
     // todo: HermitianMatrix::at(i, j) can be extended to support access
@@ -83,21 +86,20 @@ void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A)
     scalar_t* w_ptr = w.data();
     for (int64_t i = 0; i < A.nt(); ++i) {
         scalar_t* v_ptr = v.data();
+        scalar_t beta = zero;
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (i == j) {
-                symv(scalar_t(1.0), A.at(i, j), v_ptr,
-                    j == 0 ? scalar_t(0.0) : scalar_t(1.0), w_ptr);
+                symv(one, A(i, j), v_ptr, beta, w_ptr);
             }
             else {
                 if (i > j) {
-                    gemv(scalar_t(1.0), A.at(i, j), v_ptr,
-                         j == 0 ? scalar_t(0.0) : scalar_t(1.0), w_ptr);
+                    gemv(one, A(i, j), v_ptr, beta, w_ptr);
                 }
                 else {
-                    gemv(scalar_t(1.0), transpose(A.at(j, i)), v_ptr,
-                         j == 0 ? scalar_t(0.0) : scalar_t(1.0), w_ptr);
+                    gemv(one, conj_transpose(A(j, i)), v_ptr, beta, w_ptr);
                 }
             }
+            beta = one;
             v_ptr += A.tileNb(j);
         }
         w_ptr += A.tileMb(i);
@@ -110,39 +112,39 @@ void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A)
     // todo: In principle the entire update of C could be done in one pass
     // instead of three passes.
 
-    // C = C - v * w' (excluding diagonal tiles)
+    // C = C - v * w^H (excluding diagonal tiles)
     scalar_t* v_ptr = v.data();
     for (int64_t i = 0; i < A.nt(); ++i) {
         w_ptr = w.data();
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (i > j) {
-                ger(-tau, v_ptr, w_ptr, A.at(i, j));
+                ger(-tau, v_ptr, w_ptr, A(i, j));
             }
             w_ptr += A.tileNb(j);
         }
         v_ptr += A.tileMb(i);
     }
 
-    // C = C - w * v' (excluding diagonal tiles)
+    // C = C - w * v^H (excluding diagonal tiles)
     w_ptr = w.data();
     for (int64_t i = 0; i < A.nt(); ++i) {
         v_ptr = v.data();
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (i > j) {
-                ger(-tau, w_ptr, v_ptr, A.at(i, j));
+                ger(-tau, w_ptr, v_ptr, A(i, j));
             }
             v_ptr += A.tileNb(j);
         }
         w_ptr += A.tileMb(i);
     }
 
-    // C = C - v * w' - w * v' (diagonal tiles)
+    // C = C - v * w^H - w * v^H (diagonal tiles)
     v_ptr = v.data();
     for (int64_t i = 0; i < A.mt(); ++i) {
         w_ptr = w.data();
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (i == j) {
-                her2(-tau, v_ptr, w_ptr, A.at(i, j));
+                her2(-tau, v_ptr, w_ptr, A(i, j));
             }
             w_ptr += A.tileNb(j);
         }
@@ -173,7 +175,7 @@ void hebr1(HermitianMatrix<scalar_t>&& A,
 ///     The first block of a sweep.
 ///
 /// @param[out] v
-///     The Householder reflector to zero A[2:n, 0].
+///     The Householder reflector to zero A[2:n-1, 0].
 ///
 template <typename scalar_t>
 void hebr1(internal::TargetType<Target::HostTask>,
@@ -183,12 +185,12 @@ void hebr1(internal::TargetType<Target::HostTask>,
 {
     trace::Block trace_block("internal::hebr1");
 
-    // Zero A[2:n, 0].
+    // Zero A[2:n-1, 0].
     auto A1 = A.slice(1, A.m()-1, 0, 0);
     gerfg(A1, v);
     gerf(v, A1);
 
-    // Apply the transformations to A[1:n, 1:n].
+    // Apply the transformations to A[1:n-1, 1:n-1].
     auto A2 = A.slice(1, A.n()-1);
     herf(v, A2);
 }
@@ -217,7 +219,7 @@ void hebr2(std::vector<scalar_t>& v1,
 ///     An off-diagonal block in a sweep.
 ///
 /// @param[out] v2
-///     The Householder reflector to zero A[1:n, 0].
+///     The Householder reflector to zero A[1:n-1, 0].
 ///
 template <typename scalar_t>
 void hebr2(internal::TargetType<Target::HostTask>,
@@ -229,10 +231,10 @@ void hebr2(internal::TargetType<Target::HostTask>,
     trace::Block trace_block("internal::hebr2");
 
     // Apply the reflector from task 1.
-    auto AT = transpose(A);
-    gerf(v1, AT);
+    auto AH = conj_transpose(A);
+    gerf(v1, AH);
 
-    // Zero A[1:n, 0].
+    // Zero A[1:n-1, 0].
     gerfg(A, v2);
     gerf(v2, A);
 }

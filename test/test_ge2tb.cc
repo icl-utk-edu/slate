@@ -49,6 +49,8 @@ void test_ge2tb_work(Params& params, bool run)
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
+    origin = slate::Origin::ScaLAPACK;  // todo: for now
+
     // mark non-standard output values
     params.time();
     //params.gflops();
@@ -71,8 +73,6 @@ void test_ge2tb_work(Params& params, bool run)
     int myrow = mpi_rank % p;
     int mycol = mpi_rank / p;
 
-bool debug = verbose;
-if (debug) printf( "rank %2d, init A\n", mpi_rank );
     // matrix A, figure out local size, allocate, initialize
     int64_t mlocal = localRowsCols(m, nb, myrow, p);
     int64_t nlocal = localRowsCols(n, nb, mycol, q);
@@ -82,7 +82,6 @@ if (debug) printf( "rank %2d, init A\n", mpi_rank );
     int64_t iseed[4] = { 0, myrow, mycol, 3 };
     lapack::larnv(idist, iseed, A_data.size(), A_data.data());
 
-if (debug) printf( "rank %2d, init A (2)\n", mpi_rank );
     slate::Matrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy local ScaLAPACK data to GPU or CPU tiles.
@@ -103,7 +102,6 @@ if (debug) printf( "rank %2d, init A (2)\n", mpi_rank );
         print_matrix("A", A);
     }
 
-if (debug) printf( "rank %2d, init A_ref\n", mpi_rank );
     // Copy test data for check.
     slate::Matrix<scalar_t> A_ref(m, n, nb, p, q, MPI_COMM_WORLD);
     A_ref.insertLocalTiles();
@@ -121,7 +119,6 @@ if (debug) printf( "rank %2d, init A_ref\n", mpi_rank );
     }
     double time = libtest::get_wtime();
 
-if (debug) printf( "rank %2d, ge2tb\n", mpi_rank );
     //==================================================
     // Run SLATE test.
     //==================================================
@@ -130,7 +127,6 @@ if (debug) printf( "rank %2d, ge2tb\n", mpi_rank );
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib}
     });
-if (debug) printf( "rank %2d, ge2tb done\n", mpi_rank );
 
     {
         slate::trace::Block trace_block("MPI_Barrier");
@@ -162,11 +158,9 @@ if (debug) printf( "rank %2d, ge2tb done\n", mpi_rank );
         //
         //==================================================
 
-if (debug) printf( "rank %2d, A norm\n", mpi_rank );
         // Norm of original matrix: || A ||_1
         real_t A_norm = slate::norm(slate::Norm::One, A_ref);
 
-if (debug) printf( "rank %2d, copy B\n", mpi_rank );
         // Zero out B, then copy band matrix B from A.
         slate::Matrix<scalar_t> B = A.emptyLike();
         B.insertLocalTiles();
@@ -194,7 +188,6 @@ if (debug) printf( "rank %2d, copy B\n", mpi_rank );
             print_matrix("B", B);
         }
 
-if (debug) printf( "rank %2d, unmqr\n", mpi_rank );
         // Form UB, where U's representation is in lower part of A and TU.
         slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, TU, B,
                      {{slate::Option::Target, target}});
@@ -202,7 +195,6 @@ if (debug) printf( "rank %2d, unmqr\n", mpi_rank );
             print_matrix("UB", B);
         }
 
-if (debug) printf( "rank %2d, unmlq\n", mpi_rank );
         // Form (UB)V^H, where V's representation is above band in A and TV.
         auto Asub =  A.sub(0, A.mt()-1, 1, A.nt()-1);
         auto Bsub =  B.sub(0, B.mt()-1, 1, B.nt()-1);
@@ -218,14 +210,12 @@ if (debug) printf( "rank %2d, unmlq\n", mpi_rank );
             print_matrix("UBV^H", B);
         }
 
-if (debug) printf( "rank %2d, geadd\n", mpi_rank );
         // Form UBV^H - A, where A is in A_ref.
         slate::geadd(-one, A_ref, one, B);
         if (verbose > 1) {
             print_matrix("UBV^H - A", B);
         }
 
-if (debug) printf( "rank %2d, error\n", mpi_rank );
         // Norm of backwards error: || UBV^H - A ||_1
         params.error() = slate::norm(slate::Norm::One, B) / (m * A_norm);
         real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon()/2;

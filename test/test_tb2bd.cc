@@ -23,8 +23,8 @@ void test_tb2bd_work(
     // get & mark input values
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
-    int64_t ku = params.ku();  // upper band
     int64_t nb = params.nb();
+    int64_t ku = nb;  // upper band; for now use ku == nb.
     int64_t p = params.p();
     int64_t q = params.q();
     bool check = params.check() == 'y';
@@ -37,6 +37,8 @@ void test_tb2bd_work(
     params.ref_time();
     params.ref_gflops();
     params.error2();
+    params.error.name("S - Sref\nerror");
+    params.error2.name("off-diag\nerror");
 
     if (! run)
         return;
@@ -61,10 +63,12 @@ void test_tb2bd_work(
             if (j > i+ku || j < i)
                 A1[i + j*lda] = 0;
         }
+        // Diagonal from ge2tb is real.
+        A1[j + j*lda] = real( A1[j + j*lda] );
     }
 
     if (verbose && mpi_rank == 0)
-        print_matrix( "A1", m, n, &A1[0], lda, 5, 2 );
+        print_matrix( "A1", m, n, &A1[0], lda );
 
     std::vector<real_t> S1(min_mn);
     if (check) {
@@ -106,11 +110,11 @@ void test_tb2bd_work(
 
     A.ge2tbGather(Afull);
 
-    int index = 0; // index in Ad storage
-    int jj = 0; // col index
-    for (int j = 0; j < A.nt(); ++j) {
-        int ii = 0; // row index
-        for (int i = 0; i < A.mt(); ++i) {
+    int64_t index = 0; // index in Ad storage
+    int64_t jj = 0; // col index
+    for (int64_t j = 0; j < A.nt(); ++j) {
+        int64_t ii = 0; // row index
+        for (int64_t i = 0; i < A.mt(); ++i) {
             if (A.tileIsLocal(i, j) &&
                 ((ii == jj) ||
                  ( ii < jj && (jj - (ii + A.tileMb(i) - 1)) <= (A.bandwidth()+1) ) ) )
@@ -176,17 +180,22 @@ void test_tb2bd_work(
 
         if (mpi_rank == 0) {
             if (verbose)
-                print_matrix( "A1_out", m, n, &A1[0], lda, 5, 2 );
+                print_matrix( "A1_out", m, n, &A1[0], lda );
 
-            // Check that updated A is bidiagonal by finding max value outside bidiagonal.
+            // Check that updated A is real bidiagonal by finding max value
+            // outside bidiagonal, and imaginary parts of bidiagonal.
+            // Unclear why this increases modestly with n.
             real_t max_value = 0;
             for (int64_t j = 0; j < n; ++j) {
                 for (int64_t i = 0; i < m; ++i) {
+                    auto val = A1[i + j*lda];
                     if (j > i+1 || j < i)
-                        max_value = std::max( std::abs( A1[i + j*lda] ), max_value );
+                        max_value = std::max( std::abs(val), max_value );
+                    else
+                        max_value = std::max( std::abs(imag(val)), max_value );
                 }
             }
-            params.error2() = max_value;
+            params.error2() = max_value / sqrt(n);
 
             // set MKL num threads appropriately for parallel BLAS
             int omp_num_threads;
@@ -215,13 +224,13 @@ void test_tb2bd_work(
                 // Copy main diagonal to S2.
                 auto T = A(i, i);
                 auto len = std::min(T.mb(), T.nb());
-                for (int j = 0; j < len; ++j) {
+                for (int64_t j = 0; j < len; ++j) {
                     S2[D_index + j] = real( T(j, j) );
                 }
                 D_index += len;
 
                 // Copy super-diagonal to E.
-                for (int j = 0; j < len-1; ++j) {
+                for (int64_t j = 0; j < len-1; ++j) {
                     E[E_index + j] = real( T(j, j+1) );
                 }
                 E_index += len-1;
@@ -247,8 +256,10 @@ void test_tb2bd_work(
                 printf( "\n" );
             }
 
+            // Relative forward error: || S - Sref || / || Sref ||.
             blas::axpy(S2.size(), -1.0, &S1[0], 1, &S2[0], 1);
-            params.error() = blas::nrm2(S2.size(), &S2[0], 1) / S1[0];
+            params.error() = blas::nrm2(S2.size(), &S2[0], 1)
+                           / blas::nrm2(S1.size(), &S1[0], 1);
             params.okay() = (params.error() <= tol && params.error2() <= tol);
         }
     }

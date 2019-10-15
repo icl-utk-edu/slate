@@ -131,7 +131,6 @@ void he2hb(slate::internal::TargetType<target>,
             // Find each rank's first (top-most) row in this panel,
             // where the triangular tile resulting from local geqrf panel
             // will reside.
-            int64_t first_index = -1;
             std::vector< int64_t > first_indices;
             first_indices.reserve(panel_ranks.size());
             for (int r: panel_ranks) {
@@ -139,8 +138,6 @@ void he2hb(slate::internal::TargetType<target>,
                     if (A_panel.tileRank(i, 0) == r) {
                         // todo: way to get index in parent matrix, to avoid manually adding k+1?
                         first_indices.push_back(i+k+1);
-                        if (r == my_rank)
-                            first_index = i+k+1;
                         break;
                     }
                 }

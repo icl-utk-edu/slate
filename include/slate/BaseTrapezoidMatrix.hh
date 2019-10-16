@@ -85,9 +85,6 @@ protected:
     // conversion
     BaseTrapezoidMatrix(Uplo uplo, BaseMatrix<scalar_t>& orig);
 
-    // off-diagonal sub-matrix
-    Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
-
     // used by sub-classes' fromLAPACK and fromScaLAPACK
     BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
                         scalar_t* A, int64_t lda, int64_t nb,
@@ -103,16 +100,25 @@ protected:
                         int64_t i1, int64_t i2,
                         int64_t j1, int64_t j2);
 
-    // used by sub
+    // used by sub-classes' sub
     BaseTrapezoidMatrix(BaseTrapezoidMatrix& orig,
                         int64_t i1, int64_t i2,
                         int64_t j1, int64_t j2);
+
+    // used by sub-classes' slice
+    BaseTrapezoidMatrix(BaseTrapezoidMatrix& orig,
+                        typename BaseMatrix<scalar_t>::Slice slice);
 
     // used by sub-classes' emptyLike
     template <typename out_scalar_t>
     Matrix<out_scalar_t> emptyLike();
 
 public:
+    // off-diagonal sub-matrix
+    Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
+    Matrix<scalar_t> slice(int64_t row1, int64_t row2,
+                           int64_t col1, int64_t col2);
+
     template <typename T>
     friend void swap(BaseTrapezoidMatrix<T>& A, BaseTrapezoidMatrix<T>& B);
 
@@ -418,6 +424,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 }
 
 //------------------------------------------------------------------------------
+/// Used by sub-classes' off-diagonal sub.
 /// Conversion from general matrix, sub-matrix constructor
 /// creates shallow copy view of original matrix, A[ i1:i2, j1:j2 ].
 ///
@@ -458,6 +465,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 }
 
 //------------------------------------------------------------------------------
+/// Used by sub-classes' sub.
 /// Sub-matrix constructor creates shallow copy view of parent matrix,
 /// A[ i1:i2, j1:j2 ]. The new view is still a trapezoid matrix.
 /// - If lower, requires i1 >= j1.
@@ -493,6 +501,36 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     else {
         // Upper
         slate_assert(i1 <= j1);
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Used by sub-classes' slice.
+/// Sliced sub-matrix constructor creates shallow copy view of parent matrix,
+/// A[ row1:row2, col1:col2 ]. The new view is still a trapezoid matrix.
+/// - If lower, requires row1 >= col1.
+/// - If upper, requires row1 <= col1.
+/// If row1 == col1, it has the same diagonal as the parent matrix.
+///
+/// @param[in] orig
+///     Original matrix.
+///
+/// @param[in] slice
+///     Contains start and end row and column indices.
+///
+template <typename scalar_t>
+BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
+    BaseTrapezoidMatrix& orig,
+    typename BaseMatrix<scalar_t>::Slice slice)
+    : BaseMatrix<scalar_t>(orig, slice)
+{
+    this->uplo_ = orig.uplo_;
+    if (this->uplo_ == Uplo::Lower) {
+        slate_assert(slice.row1 >= slice.col1);
+    }
+    else {
+        // Upper
+        slate_assert(slice.row1 <= slice.col1);
     }
 }
 
@@ -655,7 +693,8 @@ void BaseTrapezoidMatrix<scalar_t>::gather(scalar_t* A, int64_t lda)
 ///
 template <typename scalar_t>
 Matrix<scalar_t> BaseTrapezoidMatrix<scalar_t>::sub(
-    int64_t i1, int64_t i2, int64_t j1, int64_t j2)
+    int64_t i1, int64_t i2,
+    int64_t j1, int64_t j2)
 {
     if (this->uplo() == Uplo::Lower) {
         // require top-right corner (i1, j2) to be at or below diagonal
@@ -668,6 +707,45 @@ Matrix<scalar_t> BaseTrapezoidMatrix<scalar_t>::sub(
             slate_error("submatrix outside upper triangle; requires i2 <= j1");
     }
     return Matrix<scalar_t>(*this, i1, i2, j1, j2);
+}
+
+//------------------------------------------------------------------------------
+/// Returns sliced matrix that is a shallow copy view of the
+/// parent matrix, A[ row1:row2, col1:col2 ].
+/// This takes row & col indices instead of block row & block col indices.
+/// The sub-matrix cannot overlap the diagonal.
+/// - if uplo = Lower, 0 <= col1 <= col2 <= row1 <= row2 < n;
+/// - if uplo = Upper, 0 <= row1 <= row2 <= col1 <= col2 < n.
+///
+/// @param[in] row1
+///     Starting row index.
+///
+/// @param[in] row2
+///     Ending row index (inclusive).
+///
+/// @param[in] col1
+///     Starting column index.
+///
+/// @param[in] col2
+///     Ending column index (inclusive).
+///
+template <typename scalar_t>
+Matrix<scalar_t> BaseTrapezoidMatrix<scalar_t>::slice(
+    int64_t row1, int64_t row2,
+    int64_t col1, int64_t col2)
+{
+    if (this->uplo() == Uplo::Lower) {
+        // require top-right corner (row1, col2) to be at or below diagonal
+        if (row1 < col2)
+            slate_error("submatrix outside lower triangle; requires row1 >= col2");
+    }
+    else {
+        // require bottom-left corner (row2, col1) to be at or above diagonal
+        if (row2 > col1)
+            slate_error("submatrix outside upper triangle; requires row2 <= col1");
+    }
+    return Matrix<scalar_t>(*this,
+        typename BaseMatrix<scalar_t>::Slice(row1, row2, col1, col2));
 }
 
 //------------------------------------------------------------------------------

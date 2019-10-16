@@ -247,19 +247,24 @@ libslate_src += \
 # internal
 libslate_src += \
         src/internal/internal_comm.cc \
+        src/internal/internal_copyhb2st.cc \
+        src/internal/internal_copytb2bd.cc \
         src/internal/internal_gecopy.cc \
         src/internal/internal_gbnorm.cc \
         src/internal/internal_geadd.cc \
         src/internal/internal_gemm.cc \
         src/internal/internal_gemm_A.cc \
         src/internal/internal_genorm.cc \
+        src/internal/internal_gebr.cc \
         src/internal/internal_geqrf.cc \
         src/internal/internal_geset.cc \
         src/internal/internal_getrf.cc \
+        src/internal/internal_hebr.cc \
         src/internal/internal_hemm.cc \
         src/internal/internal_henorm.cc \
         src/internal/internal_her2k.cc \
         src/internal/internal_herk.cc \
+        src/internal/internal_hettmqr.cc \
         src/internal/internal_potrf.cc \
         src/internal/internal_swap.cc \
         src/internal/internal_symm.cc \
@@ -298,6 +303,7 @@ endif
 
 # driver
 libslate_src += \
+        src/bdsqr.cc \
         src/colNorms.cc \
         src/copy.cc \
         src/gbmm.cc \
@@ -311,11 +317,15 @@ libslate_src += \
         src/geqrf.cc \
         src/gelqf.cc \
         src/gesv.cc \
+        src/gesvd.cc \
         src/gesvMixed.cc \
         src/getrf.cc \
         src/getri.cc \
         src/getriOOP.cc \
         src/getrs.cc \
+        src/hb2st.cc \
+        src/he2hb.cc \
+        src/heev.cc \
         src/hemm.cc \
         src/her2k.cc \
         src/herk.cc \
@@ -329,9 +339,11 @@ libslate_src += \
         src/potri.cc \
         src/potrs.cc \
         src/set.cc \
+        src/sterf.cc \
         src/symm.cc \
         src/syr2k.cc \
         src/syrk.cc \
+        src/tb2bd.cc \
         src/tbsm.cc \
         src/trmm.cc \
         src/trsm.cc \
@@ -343,6 +355,7 @@ libslate_src += \
 # main tester
 test_src += \
         test/test.cc \
+        test/test_bdsqr.cc \
         test/test_gbmm.cc \
         test/test_gbnorm.cc \
         test/test_gbsv.cc \
@@ -353,23 +366,28 @@ test_src += \
         test/test_geqrf.cc \
         test/test_gelqf.cc \
         test/test_gesv.cc \
+        test/test_getri.cc \
+        test/test_he2hb.cc \
         test/test_hemm.cc \
         test/test_henorm.cc \
         test/test_her2k.cc \
         test/test_herk.cc \
         test/test_hesv.cc \
         test/test_posv.cc \
+        test/test_potri.cc \
         test/test_symm.cc \
         test/test_synorm.cc \
         test/test_syr2k.cc \
         test/test_syrk.cc \
+        test/test_sterf.cc \
+        test/test_tb2bd.cc \
         test/test_tbsm.cc \
         test/test_trmm.cc \
         test/test_trnorm.cc \
         test/test_trsm.cc \
-        test/test_potri.cc \
-        test/test_getri.cc \
         test/test_trtri.cc \
+        test/test_gesvd.cc \
+        test/test_heev.cc \
 
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
@@ -521,6 +539,7 @@ $(libslate_so): $(libslate_obj) $(libblaspp) $(liblapackpp)
 		-shared $(install_name) -o $@
 
 lib: $(libslate)
+src: lib
 
 #-------------------------------------------------------------------------------
 # headers
@@ -586,7 +605,7 @@ scalapack_api_src += \
         scalapack_api/scalapack_lanhe.cc \
         scalapack_api/scalapack_posv.cc \
         scalapack_api/scalapack_gels.cc \
-        scalapack_api/scalapack_potri.cc 
+        scalapack_api/scalapack_potri.cc \
 
 scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
 

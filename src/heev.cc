@@ -37,80 +37,84 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------
-/// @file
-///
-#ifndef SLATE_ENUMS_HH
-#define SLATE_ENUMS_HH
-
-#include <vector>
-
-#include <blas.hh>
-#include <lapack.hh>
+#include "slate/slate.hh"
+#include "aux/Debug.hh"
+#include "slate/HermitianMatrix.hh"
+#include "slate/Tile_blas.hh"
+#include "slate/HermitianBandMatrix.hh"
+#include "internal/internal.hh"
 
 namespace slate {
 
-typedef blas::Op Op;
-typedef blas::Uplo Uplo;
-typedef blas::Diag Diag;
-typedef blas::Side Side;
-typedef blas::Layout Layout;
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void heev( HermitianMatrix<scalar_t>& A,
+           std::vector< blas::real_type<scalar_t> >& W,
+           const std::map<Option, Value>& opts)
+{
+    using real_t = blas::real_type<scalar_t>;
 
-typedef lapack::Norm Norm;
-typedef lapack::Direct Direction;  // todo change LAPACK++
+    int64_t n = A.n();
+
+    // Scale matrix to allowable range, if necessary.
+    // todo
+
+    // 1. Reduce to band form.
+    TriangularFactors<scalar_t> T;
+    he2hb(A, T, opts);
+
+    // Copy band.
+    // Currently, gathers band matrix to rank 0.
+    HermitianBandMatrix<scalar_t> Aband(A.uplo(), n, A.tileNb(0), A.tileNb(0),
+                                        1, 1, A.mpiComm());
+    Aband.insertLocalTiles();
+    Aband.he2hbGather(A);
+
+    // Currently, hb2st and sterf are run on a single node.
+    W.resize(n);
+    if (A.mpiRank() == 0) {
+        // 2. Reduce band to symmetric tri-diagonal.
+        hb2st(Aband, opts);
+
+        // Copy diagonal and super-diagonal to vectors.
+        std::vector<real_t> E(n - 1);
+        internal::copyhb2st(Aband, W, E);
+
+        // 3. Tri-diagonal eigenvalue solver.
+        // QR iteration
+        sterf<real_t>(W, E, opts);
+    }
+
+    // If matrix was scaled, then rescale eigenvalues appropriately.
+    // todo
+
+    // todo: bcast W.
+}
 
 //------------------------------------------------------------------------------
-/// Location and method of computation.
-/// @ingroup enum
-///
-enum class Target : char {
-    Host      = 'H',    ///< data resides on host
-    HostTask  = 'T',    ///< computation using OpenMP nested tasks on host
-    HostNest  = 'N',    ///< computation using OpenMP nested parallel for loops on host
-    HostBatch = 'B',    ///< computation using batch BLAS on host (Intel MKL)
-    Devices   = 'D',    ///< computation using batch BLAS on devices (cuBLAS)
-};
+// Explicit instantiations.
+template
+void heev<float>(
+     HermitianMatrix<float>& A,
+     std::vector<float>& W,
+     const std::map<Option, Value>& opts);
 
-namespace internal {
-template <Target> class TargetType {};
-} // namespace internal
+template
+void heev<double>(
+     HermitianMatrix<double>& A,
+     std::vector<double>& W,
+     const std::map<Option, Value>& opts);
 
-//------------------------------------------------------------------------------
-/// Keys for options to pass to SLATE routines.
-/// @ingroup enum
-///
-enum class Option : char {
-    ChunkSize,          ///< chunk size, >= 1
-    Lookahead,          ///< lookahead depth, >= 0
-    BlockSize,          ///< block size, >= 1
-    InnerBlocking,      ///< inner blocking size, >= 1
-    MaxPanelThreads,    ///< max number of threads for panel, >= 1
-    Tolerance,          ///< tolerance for iterative methods, default epsilon
-    Target,             ///< computation method (@see Target)
-};
+template
+void heev< std::complex<float> >(
+     HermitianMatrix< std::complex<float> >& A,
+     std::vector<float>& W,
+     const std::map<Option, Value>& opts);
 
-//------------------------------------------------------------------------------
-/// To convert matrix between column-major and row-major.
-/// @ingroup enum
-///
-enum class LayoutConvert : char {
-    ColMajor = 'C',     ///< Convert to column-major
-    RowMajor = 'R',     ///< Convert to row-major
-    None     = 'N',     ///< No conversion
-};
-
-//------------------------------------------------------------------------------
-/// Whether computing matrix norm, column norms, or row norms.
-/// @ingroup enum
-///
-enum class NormScope : char {
-    Columns = 'C',      ///< Compute column norms
-    Rows    = 'R',      ///< Compute row norms
-    Matrix  = 'M',      ///< Compute matrix norm
-};
-
-const int HostNum = -1;
+template
+void heev< std::complex<double> >(
+     HermitianMatrix< std::complex<double> >& A,
+     std::vector<double>& W,
+     const std::map<Option, Value>& opts);
 
 } // namespace slate
-
-#endif // SLATE_ENUMS_HH

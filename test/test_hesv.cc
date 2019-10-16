@@ -12,7 +12,8 @@
 #include <utility>
 
 //------------------------------------------------------------------------------
-template <typename scalar_t> void test_hesv_work(Params& params, bool run)
+template <typename scalar_t>
+void test_hesv_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
 

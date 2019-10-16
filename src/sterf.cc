@@ -37,80 +37,97 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------
-/// @file
-///
-#ifndef SLATE_ENUMS_HH
-#define SLATE_ENUMS_HH
+#include "slate/slate.hh"
+// #include "aux/Debug.hh"
+#include "slate/Tile_blas.hh"
+#include "slate/HermitianBandMatrix.hh"
+#include "internal/internal.hh"
+#include "internal/internal_util.hh"
 
-#include <vector>
-
-#include <blas.hh>
-#include <lapack.hh>
+#include <atomic>
 
 namespace slate {
 
-typedef blas::Op Op;
-typedef blas::Uplo Uplo;
-typedef blas::Diag Diag;
-typedef blas::Side Side;
-typedef blas::Layout Layout;
-
-typedef lapack::Norm Norm;
-typedef lapack::Direct Direction;  // todo change LAPACK++
+// specialization namespace differentiates, e.g.,
+// internal::sterf from internal::specialization::sterf
+namespace internal {
+namespace specialization {
 
 //------------------------------------------------------------------------------
-/// Location and method of computation.
-/// @ingroup enum
+/// computes all eigenvalues of a symmetric tridiagonal matrix
+/// using the Pal-Walker-Kahan variant of the QL or QR algorithm.
+/// Generic implementation for any target.
+/// @ingroup bdsqr_specialization
 ///
-enum class Target : char {
-    Host      = 'H',    ///< data resides on host
-    HostTask  = 'T',    ///< computation using OpenMP nested tasks on host
-    HostNest  = 'N',    ///< computation using OpenMP nested parallel for loops on host
-    HostBatch = 'B',    ///< computation using batch BLAS on host (Intel MKL)
-    Devices   = 'D',    ///< computation using batch BLAS on devices (cuBLAS)
-};
+// ATTENTION: only host computation supported for now
+//
+template <Target target, typename scalar_t>
+void sterf(slate::internal::TargetType<target>,
+           std::vector< scalar_t >& D,
+           std::vector< scalar_t >& E)
+{
+    trace::Block trace_block("lapack::sterf");
 
-namespace internal {
-template <Target> class TargetType {};
+    lapack::sterf(D.size(), &D[0], &E[0]);
+}
+
+} // namespace specialization
 } // namespace internal
 
 //------------------------------------------------------------------------------
-/// Keys for options to pass to SLATE routines.
-/// @ingroup enum
+/// Version with target as template parameter.
+/// @ingroup bdsqr_specialization
 ///
-enum class Option : char {
-    ChunkSize,          ///< chunk size, >= 1
-    Lookahead,          ///< lookahead depth, >= 0
-    BlockSize,          ///< block size, >= 1
-    InnerBlocking,      ///< inner blocking size, >= 1
-    MaxPanelThreads,    ///< max number of threads for panel, >= 1
-    Tolerance,          ///< tolerance for iterative methods, default epsilon
-    Target,             ///< computation method (@see Target)
-};
+template <Target target, typename scalar_t>
+void sterf(std::vector< scalar_t >& D,
+           std::vector< scalar_t >& E,
+           const std::map<Option, Value>& opts)
+{
+    internal::specialization::sterf<target, scalar_t>(
+                                    internal::TargetType<target>(),
+                                    D, E);
+}
 
 //------------------------------------------------------------------------------
-/// To convert matrix between column-major and row-major.
-/// @ingroup enum
 ///
-enum class LayoutConvert : char {
-    ColMajor = 'C',     ///< Convert to column-major
-    RowMajor = 'R',     ///< Convert to row-major
-    None     = 'N',     ///< No conversion
-};
+template <typename scalar_t>
+void sterf(std::vector< scalar_t >& D,
+           std::vector< scalar_t >& E,
+           const std::map<Option, Value>& opts)
+{
+    Target target;
+    try {
+        target = Target(opts.at(Option::Target).i_);
+    }
+    catch (std::out_of_range&) {
+        target = Target::HostTask;
+    }
+
+    // only HostTask implementation is provided, since it calls LAPACK only
+    switch (target) {
+        case Target::Host:
+        case Target::HostTask:
+        case Target::HostNest:
+        case Target::HostBatch:
+        case Target::Devices:
+            sterf<Target::HostTask, scalar_t>(D, E, opts);
+            break;
+    }
+    // todo: return value for errors?
+}
 
 //------------------------------------------------------------------------------
-/// Whether computing matrix norm, column norms, or row norms.
-/// @ingroup enum
-///
-enum class NormScope : char {
-    Columns = 'C',      ///< Compute column norms
-    Rows    = 'R',      ///< Compute row norms
-    Matrix  = 'M',      ///< Compute matrix norm
-};
+// Explicit instantiations.
+template
+void sterf<float>(
+    std::vector<float>& D,
+    std::vector<float>& E,
+    const std::map<Option, Value>& opts);
 
-const int HostNum = -1;
+template
+void sterf<double>(
+    std::vector<double>& D,
+    std::vector<double>& E,
+    const std::map<Option, Value>& opts);
 
 } // namespace slate
-
-#endif // SLATE_ENUMS_HH

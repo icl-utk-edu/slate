@@ -67,6 +67,8 @@ public:
     BandMatrix(int64_t m, int64_t n, int64_t kl, int64_t ku,
                int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
+    BandMatrix(int64_t kl, int64_t ku, Matrix<scalar_t>& orig);
+
 public:
     template <typename T>
     friend void swap(BandMatrix<T>& A, BandMatrix<T>& B);
@@ -135,6 +137,27 @@ BandMatrix<scalar_t>::BandMatrix(
     int64_t m, int64_t n, int64_t kl, int64_t ku, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
     : Matrix<scalar_t>(m, n, nb, p, q, mpi_comm),
+      kl_(kl),
+      ku_(ku)
+{}
+
+//------------------------------------------------------------------------------
+/// Conversion from general Matrix.
+/// Creates a shallow copy view of the original matrix,
+///
+/// @param[in] orig
+///     Original matrix.
+///
+/// @param[in] kl
+///     Lower bandwidth.
+///
+/// @param[in] ku
+///     Upper bandwidth.
+///
+template <typename scalar_t>
+BandMatrix<scalar_t>::BandMatrix(
+    int64_t kl, int64_t ku, Matrix<scalar_t>& orig)
+    : Matrix<scalar_t>(orig, 0, orig.mt()-1, 0, orig.nt()-1),
       kl_(kl),
       ku_(ku)
 {}

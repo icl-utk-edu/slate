@@ -235,7 +235,14 @@ std::map<std::string, Color> function_color_ = {
     {"cudaFree",          Color::LightSalmon},
     {"cudaFreeHost",      Color::Salmon},
 
+    {"internal::gebr1",  Color::Moccasin},
+    {"internal::gebr2",  Color::LightBlue},
+    {"internal::gebr3",  Color::LightPink},
     {"internal::swap",  Color::Thistle},
+
+    {"internal::hebr1",  Color::Moccasin},
+    {"internal::hebr2",  Color::LightBlue},
+    {"internal::hebr3",  Color::LightBlue},
 
     {"lapack::geqrf",  Color::RosyBrown},
     {"lapack::getrf",  Color::RosyBrown},
@@ -260,6 +267,8 @@ std::map<std::string, Color> function_color_ = {
     {"slate::device::genorm",    Color::LightSkyBlue},
     {"slate::device::transpose", Color::SkyBlue},
     {"slate::convert_layout",    Color::DeepSkyBlue},
+    {"slate::bdsqr",    Color::DeepSkyBlue},
+    {"slate::gatherAll",    Color::RosyBrown},
 };
 
 //------------------------------------------------------------------------------
@@ -475,7 +484,7 @@ void Trace::printProcEvents(int mpi_rank, int mpi_size,
 {
     double y = mpi_rank * num_threads_ * vscale_;
     double height = 0.9 * vscale_;
-    double stroke_width = vscale_ / 500.0;
+    // double stroke_width = vscale_ / 500.0;
 
     fprintf(trace_file, "\n<!-- data -->\n");
     for (auto& thread : events_) {

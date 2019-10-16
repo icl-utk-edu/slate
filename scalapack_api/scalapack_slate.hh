@@ -132,7 +132,7 @@ inline slate::TrapezoidMatrix<scalar_t> slate_scalapack_submatrix(int Am, int An
     assert(An % desc_NB(desca) == 0);
     int64_t i1 = (ia-1)/desc_NB(desca);
     int64_t i2 = i1 + (Am/desc_NB(desca)) - 1;
-    return A.sub(i1, i2);
+    return A.sub(i1, i2, i2);
 }
 
 template< typename scalar_t >

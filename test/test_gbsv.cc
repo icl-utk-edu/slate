@@ -14,7 +14,8 @@
 #include <utility>
 
 //------------------------------------------------------------------------------
-template <typename scalar_t> void test_gbsv_work(Params& params, bool run)
+template <typename scalar_t>
+void test_gbsv_work(Params& params, bool run)
 {
     using blas::max;
     using blas::real;

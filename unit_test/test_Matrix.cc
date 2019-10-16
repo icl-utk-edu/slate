@@ -524,6 +524,8 @@ void test_Matrix_emptyLikeMbNb()
 /// emptyLike with mb, nb overriding size, and op to deep transpose.
 void test_Matrix_emptyLikeOp()
 {
+    using llong = long long;
+
     int mtiles, mtiles_local, m_local, lda;
     int ntiles, ntiles_local, n_local;
     get_2d_cyclic_dimensions(
@@ -540,17 +542,17 @@ void test_Matrix_emptyLikeOp()
     auto Asub_trans = transpose( Asub );
     if (verbose) {
         printf( "A     m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
-                A.m(), A.mt(),
-                A.n(), A.nt(),
-                A.tileMb(0), A.tileNb(0) );
+                llong( A.m() ), llong( A.mt() ),
+                llong( A.n() ), llong( A.nt() ),
+                llong( A.tileMb(0) ), llong( A.tileNb(0) ) );
         printf( "Asub  m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
-                Asub.m(), Asub.mt(),
-                Asub.n(), Asub.nt(),
-                Asub.tileMb(0), Asub.tileNb(0) );
+                llong( Asub.m() ), llong( Asub.mt() ),
+                llong( Asub.n() ), llong( Asub.nt() ),
+                llong( Asub.tileMb(0) ), llong( Asub.tileNb(0) ) );
         printf( "AsubT m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
-                Asub_trans.m(), Asub_trans.mt(),
-                Asub_trans.n(), Asub_trans.nt(),
-                Asub_trans.tileMb(0), Asub_trans.tileNb(0) );
+                llong( Asub_trans.m() ), llong( Asub_trans.mt() ),
+                llong( Asub_trans.n() ), llong( Asub_trans.nt() ),
+                llong( Asub_trans.tileMb(0) ), llong( Asub_trans.tileNb(0) ) );
     }
 
     for (int mb2: std::vector<int>({ 0, 7 })) {
@@ -563,17 +565,17 @@ void test_Matrix_emptyLikeOp()
             if (verbose) {
                 printf( "\n" );
                 printf( "A  m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
-                        Asub.m(), Asub.mt(),
-                        Asub.n(), Asub.nt(),
-                        Asub.tileMb(0), Asub.tileNb(0) );
+                        llong( Asub.m() ), llong( Asub.mt() ),
+                        llong( Asub.n() ), llong( Asub.nt() ),
+                        llong( Asub.tileMb(0) ), llong( Asub.tileNb(0) ) );
                 printf( "AT m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
-                        Asub_trans.m(), Asub_trans.mt(),
-                        Asub_trans.n(), Asub_trans.nt(),
-                        Asub_trans.tileMb(0), Asub_trans.tileNb(0) );
+                        llong( Asub_trans.m() ), llong( Asub_trans.mt() ),
+                        llong( Asub_trans.n() ), llong( Asub_trans.nt() ),
+                        llong( Asub_trans.tileMb(0) ), llong( Asub_trans.tileNb(0) ) );
                 printf( "B  m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld (mb2 %3d, nb2 %3d)\n",
-                        B.m(), B.mt(),
-                        B.n(), B.nt(),
-                        B.tileMb(0), B.tileNb(0),
+                        llong( B.m() ), llong( B.mt() ),
+                        llong( B.n() ), llong( B.nt() ),
+                        llong( B.tileMb(0) ), llong( B.tileNb(0) ),
                         mb2, nb2 );
             }
             test_assert(B.n() == (mb2 == 0 ? Asub.m() : Asub.mt() * mb2));
@@ -596,17 +598,17 @@ void test_Matrix_emptyLikeOp()
             if (verbose) {
                 printf( "\n" );
                 printf( "A  m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
-                        Asub.m(), Asub.mt(),
-                        Asub.n(), Asub.nt(),
-                        Asub.tileMb(0), Asub.tileNb(0) );
+                        llong( Asub.m() ), llong( Asub.mt() ),
+                        llong( Asub.n() ), llong( Asub.nt() ),
+                        llong( Asub.tileMb(0) ), llong( Asub.tileNb(0) ) );
                 printf( "AT m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld\n",
-                        Asub_trans.m(), Asub_trans.mt(),
-                        Asub_trans.n(), Asub_trans.nt(),
-                        Asub_trans.tileMb(0), Asub_trans.tileNb(0) );
+                        llong( Asub_trans.m() ), llong( Asub_trans.mt() ),
+                        llong( Asub_trans.n() ), llong( Asub_trans.nt() ),
+                        llong( Asub_trans.tileMb(0) ), llong( Asub_trans.tileNb(0) ) );
                 printf( "BT m %3lld/%3lld, n %3lld/%3lld, mb %3lld, nb %3lld (mb2 %3d, nb2 %3d)\n",
-                        BT.m(), BT.mt(),
-                        BT.n(), BT.nt(),
-                        BT.tileMb(0), BT.tileNb(0),
+                        llong( BT.m() ), llong( BT.mt() ),
+                        llong( BT.n() ), llong( BT.nt() ),
+                        llong( BT.tileMb(0) ), llong( BT.tileNb(0) ),
                         mb2, nb2 );
             }
             test_assert(BT.n() == (mb2 == 0 ? Asub_trans.m() : Asub_trans.mt() * mb2));
@@ -1074,6 +1076,7 @@ void test_Matrix_sub()
         }
     }
 
+    // 1st tile
     auto Asub = A.sub( 0, 0, 0, 0 );
     test_assert( Asub.mt() == 1 );
     test_assert( Asub.nt() == 1 );
@@ -1113,7 +1116,7 @@ void test_Matrix_sub()
         }
     }
 
-    // Arbitrary regions. At least 70% of time, set i1 <= i2, j1 <= j2.
+    // Arbitrary regions. 70% of time, set i1 <= i2, j1 <= j2.
     // i1 > i2 or j1 > j2 are empty matrices.
     for (int cnt = 0; cnt < 10; ++cnt) {
         int i1 = rand() % A.mt();

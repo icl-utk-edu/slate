@@ -38,9 +38,12 @@
 //------------------------------------------------------------------------------
 
 #include "slate/BandMatrix.hh"
+#include "slate/TriangularBandMatrix.hh"
 #include "slate/internal/util.hh"
 
 #include "unit_test.hh"
+// #include "aux/Debug.hh"
+// #include "../test/print_matrix.hh"
 
 using slate::ceildiv;
 using slate::roundup;
@@ -330,6 +333,115 @@ void test_BandMatrix_sub_trans()
 }
 
 //------------------------------------------------------------------------------
+void test_TriangularBandMatrix_gatherAll(slate::Uplo uplo)
+{
+    auto upper = uplo == slate::Uplo::Upper;
+    auto kd = uplo == slate::Uplo::Upper ? ku : kl;
+
+    auto A = slate::TriangularBandMatrix<double>(
+                        uplo, slate::Diag::NonUnit,
+                        m, kd, nb, p, q, mpi_comm);
+
+    test_assert(A.mt() == A.nt());
+    test_assert(A.mt() == ceildiv(m, nb));
+    test_assert(A.op() == blas::Op::NoTrans);
+    test_assert(A.bandwidth() == kd);
+
+    // Manually insert tiles, allocated in column-wise block packed fashion:
+    // For kd_tiles = 2,
+    //     A = [ A00  A01  A02   -   ]
+    //         [  -   A11  A12  A13  ]
+    //         [  -    -   A22  A23  ]
+    //         [  -    -    -   A33  ]
+    // is stored as
+    //     [ A00 | A01 A11 | A02 A12 A22 | A13 A23 A33 ]
+    int kd_tiles = slate::ceildiv( kd, nb );
+    // over-estimate of # tiles
+    int ntiles = (kd_tiles + 1) * A.mt();
+
+    std::vector<double> Ad( ntiles * nb * nb );
+
+    // Manually insert new tiles inside triangular band.
+    int index = 0; // index in Ad storage
+    int jj = 0; // col index
+    for (int j = 0; j < A.nt(); ++j) {
+        int ii = 0; // row index
+        for (int i = 0; i < A.mt(); ++i) {
+            if (A.tileIsLocal(i, j) &&
+                ((ii == jj) ||
+                 ( upper && ii < jj && (jj - (ii + A.tileMb(i) - 1)) <= A.bandwidth()) ||
+                 (!upper && ii > jj && (ii - (jj + A.tileNb(j) - 1)) <= A.bandwidth()) ) )
+            {
+                int ib = std::min( nb, m - ii );
+                int jb = std::min( nb, m - jj );
+
+                auto T_ptr = A.tileInsert( i, j, &Ad[ index * nb * nb ], nb );
+                if (i == j)
+                    T_ptr->uplo(uplo);
+                index += 1;
+
+                test_assert( T_ptr->mb() == ib );
+                test_assert( T_ptr->nb() == jb );
+                test_assert( T_ptr->stride() == nb );
+                test_assert( T_ptr->op() == slate::Op::NoTrans );
+                if (i == j)
+                    test_assert( T_ptr->uplo() == uplo );
+                else
+                    test_assert( T_ptr->uplo() == slate::Uplo::General );
+
+                T_ptr->set(i + j / 10.);
+            }
+            ii += A.tileMb(i);
+        }
+        jj += A.tileNb(j);
+    }
+    // if (mpi_rank == 0) {
+    //     slate::Debug::PRINTTILESMOSI(A);
+    // }
+
+    // Find the set of participating ranks.
+    std::set<int> rank_set;
+    A.getRanks(&rank_set);
+
+    // gather A on each rank
+    A.gatherAll(rank_set);
+    // if (mpi_rank == 0) {
+    //     slate::Debug::PRINTTILESMOSI(A);
+    // }
+
+    // print_matrix( "A", A, 4, 1);
+
+    jj = 0; // col index
+    for (int j = 0; j < A.nt(); ++j) {
+        int ii = 0; // row index
+        for (int i = 0; i < A.mt(); ++i) {
+            if (((ii == jj) ||
+                 ( upper && ii < jj && (jj - (ii + A.tileMb(i) - 1)) <= A.bandwidth()) ||
+                 (!upper && ii > jj && (ii - (jj + A.tileNb(j) - 1)) <= A.bandwidth()) ) )
+            {
+                test_assert( A.tileExists(i, j) );
+                if (i == j)
+                    test_assert( A(i, j).uplo() == uplo );
+                else
+                    test_assert( A(i, j).uplo() == slate::Uplo::General );
+            }
+            ii += A.tileMb(i);
+        }
+        jj += A.tileNb(j);
+    }
+}
+
+//------------------------------------------------------------------------------
+void test_TriangularBandMatrix_gatherAll()
+{
+    auto uplo = slate::Uplo::Upper;
+    test_TriangularBandMatrix_gatherAll(uplo);
+
+    uplo = slate::Uplo::Lower;
+    test_TriangularBandMatrix_gatherAll(uplo);
+}
+
+//------------------------------------------------------------------------------
 /// Runs all tests. Called by unit test main().
 void run_tests()
 {
@@ -350,6 +462,7 @@ void run_tests()
     run_test(test_BandMatrix_tileInsert_data, "BandMatrix::tileInsert(i, j, dev, data, lda)",  mpi_comm);
     run_test(test_BandMatrix_sub,             "BandMatrix::sub",       mpi_comm);
     run_test(test_BandMatrix_sub_trans,       "BandMatrix::sub(A^T)",  mpi_comm);
+    run_test(test_TriangularBandMatrix_gatherAll, "TriangularBandMatrix::gatherAll()",  mpi_comm);
 }
 
 //------------------------------------------------------------------------------

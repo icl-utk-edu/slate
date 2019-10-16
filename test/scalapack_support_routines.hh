@@ -192,8 +192,13 @@ static void scalapack_pplghe(scalar_t* A,
 //------------------------------------------------------------------------------
 // BLAS thread management
 #ifdef SLATE_WITH_MKL
-extern "C" int MKL_Set_Num_Threads(int nt);
-inline int slate_set_num_blas_threads(const int nt) { return MKL_Set_Num_Threads(nt); }
+#include <mkl_service.h>
+inline int slate_set_num_blas_threads(const int nt)
+{
+    int old = mkl_get_max_threads();
+    mkl_set_num_threads(nt);
+    return old;
+}
 #else
 inline int slate_set_num_blas_threads(const int nt) { return -1; }
 #endif

@@ -103,10 +103,13 @@ public:
                     int64_t j1, int64_t j2);
 
     // on-diagonal sub-matrix
-    TrapezoidMatrix sub(int64_t i1, int64_t i2);
+    TrapezoidMatrix sub(int64_t i1, int64_t i2, int64_t j2);
+    TrapezoidMatrix slice(int64_t index1, int64_t row2, int64_t col2);
 
     // off-diagonal sub-matrix
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
+    Matrix<scalar_t> slice(int64_t row1, int64_t row2,
+                           int64_t col1, int64_t col2);
 
     template <typename out_scalar_t=scalar_t>
     TrapezoidMatrix<out_scalar_t> emptyLike(int64_t nb=0,
@@ -123,10 +126,14 @@ protected:
                     scalar_t** Aarray, int num_devices, int64_t lda, int64_t nb,
                     int p, int q, MPI_Comm mpi_comm);
 
-    // used by on-diagonal sub(i1, i2)
+    // used by on-diagonal sub(i1, i2, j2)
     TrapezoidMatrix(TrapezoidMatrix& orig,
                     int64_t i1, int64_t i2,
                     int64_t j1, int64_t j2);
+
+    // used by on-diagonal slice(i1, i2, j2)
+    TrapezoidMatrix(TrapezoidMatrix& orig,
+                    typename BaseMatrix<scalar_t>::Slice slice);
 
 public:
     template <typename T>
@@ -143,7 +150,8 @@ protected:
 /// Default constructor creates an empty matrix.
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix()
-    : BaseTrapezoidMatrix<scalar_t>()
+    : BaseTrapezoidMatrix<scalar_t>(),
+      diag_(Diag::NonUnit)
 {}
 
 //------------------------------------------------------------------------------
@@ -477,32 +485,35 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 
 //------------------------------------------------------------------------------
 /// Returns sub-matrix that is a shallow copy view of the
-/// parent matrix, A[ i1:i2, i1:i2 ].
-/// This version returns a TrapezoidMatrix with the same diagonal as the
-/// parent matrix.
+/// parent matrix, A[ i1:i2, i1:j2 ].
+/// This version returns a TrapezoidMatrix with the same diagonal as the parent
+/// matrix.
 /// @see Matrix TrapezoidMatrix::sub(int64_t i1, int64_t i2,
 ///                                  int64_t j1, int64_t j2)
 ///
 /// @param[in] i1
-///     Starting block row and column index. 0 <= i1 < mt.
+///     Starting block row and column index. 0 <= i1 < min(mt, nt).
 ///
 /// @param[in] i2
-///     Ending block row and column index (inclusive). i2 < mt.
+///     Ending block row index (inclusive). i2 < mt.
+///
+/// @param[in] j2
+///     Ending block column index (inclusive). j2 < nt.
 ///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::sub(
-    int64_t i1, int64_t i2)
+    int64_t i1, int64_t i2, int64_t j2)
 {
-    return TrapezoidMatrix(*this, i1, i2, i1, i2);
+    return TrapezoidMatrix(*this, i1, i2, i1, j2);
 }
 
 //------------------------------------------------------------------------------
 /// Returns off-diagonal sub-matrix that is a shallow copy view of the
 /// parent matrix, A[ i1:i2, j1:j2 ].
-/// This version returns a general Matrix, which:
+/// This version returns a general Matrix that:
 /// - if uplo = Lower, is strictly below the diagonal, or
 /// - if uplo = Upper, is strictly above the diagonal.
-/// @see TrapezoidMatrix sub(int64_t i1, int64_t i2)
+/// @see TrapezoidMatrix sub(int64_t i1, int64_t i2, int64_T j2)
 ///
 /// @param[in] i1
 ///     Starting block row index. 0 <= i1 < mt.
@@ -522,6 +533,77 @@ Matrix<scalar_t> TrapezoidMatrix<scalar_t>::sub(
     int64_t j1, int64_t j2)
 {
     return BaseTrapezoidMatrix<scalar_t>::sub(i1, i2, j1, j2);
+}
+
+//------------------------------------------------------------------------------
+/// Sliced matrix constructor creates shallow copy view of parent matrix,
+/// A[ row1:row2, col1:col2 ].
+/// This takes row & col indices instead of block row & block col indices.
+/// Assumes that row1 == col1 and row2 == col2 (@see slice()).
+///
+/// @param[in] orig
+///     Original matrix of which to make sub-matrix.
+///
+/// @param[in] slice
+///     Contains start and end row and column indices.
+///
+template <typename scalar_t>
+TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
+    TrapezoidMatrix<scalar_t>& orig,
+    typename BaseMatrix<scalar_t>::Slice slice)
+    : BaseTrapezoidMatrix<scalar_t>(orig, slice),
+      diag_(orig.diag())
+{}
+
+//------------------------------------------------------------------------------
+/// Returns sliced matrix that is a shallow copy view of the
+/// parent matrix, A[ index1:row2, index1:col2 ].
+/// This takes row & col indices instead of block row & block col indices.
+///
+/// @param[in] index1
+///     Starting row and col index. 0 <= index1 < min(m, n).
+///
+/// @param[in] row2
+///     Ending row index (inclusive). index1 <= row2 < m.
+///
+/// @param[in] col2
+///     Ending col index (inclusive). index1 <= col2 < n.
+///
+template <typename scalar_t>
+TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::slice(
+    int64_t index1, int64_t row2, int64_t col2)
+{
+    return TrapezoidMatrix<scalar_t>(*this,
+        typename BaseMatrix<scalar_t>::Slice(index1, row2, index1, col2));
+}
+
+//------------------------------------------------------------------------------
+/// Returns sliced matrix that is a shallow copy view of the
+/// parent matrix, A[ row1:row2, col1:col2 ].
+/// This takes row & col indices instead of block row & block col indices.
+/// The sub-matrix cannot overlap the diagonal.
+/// - if uplo = Lower, 0 <= col1 <= col2 <= row1 <= row2 < n;
+/// - if uplo = Upper, 0 <= row1 <= row2 <= col1 <= col2 < n.
+///
+/// @param[in] row1
+///     Starting row index.
+///
+/// @param[in] row2
+///     Ending row index (inclusive).
+///
+/// @param[in] col1
+///     Starting column index.
+///
+/// @param[in] col2
+///     Ending column index (inclusive).
+///
+template <typename scalar_t>
+Matrix<scalar_t> TrapezoidMatrix<scalar_t>::slice(
+    int64_t row1, int64_t row2,
+    int64_t col1, int64_t col2)
+{
+    return Matrix<scalar_t>(*this,
+        typename BaseMatrix<scalar_t>::Slice(row1, row2, col1, col2));
 }
 
 //------------------------------------------------------------------------------

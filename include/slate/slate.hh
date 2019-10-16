@@ -47,6 +47,7 @@
 
 #include "slate/BandMatrix.hh"
 #include "slate/TriangularBandMatrix.hh"
+#include "slate/HermitianBandMatrix.hh"
 
 #include "slate/types.hh"
 
@@ -724,17 +725,85 @@ void hetrs(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
 // SVD
 
 //-----------------------------------------
+template <typename scalar_t>
+void gesvd(Matrix<scalar_t> A,
+           std::vector< blas::real_type<scalar_t> >& S,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
 // ge2tb
 template <typename scalar_t>
 void ge2tb(Matrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& TU,
-           TriangularFactors<scalar_t>& TV,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
+            TriangularFactors<scalar_t>& TU,
+            TriangularFactors<scalar_t>& TV,
+            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template <Target target, typename scalar_t>
 void ge2tb(Matrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& TU,
-           TriangularFactors<scalar_t>& TV,
+            TriangularFactors<scalar_t>& TU,
+            TriangularFactors<scalar_t>& TV,
+            const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// Bulge Chasing: TriangularBand to Bi-diagonal
+// tb2bd()
+template <typename scalar_t>
+void tb2bd(TriangularBandMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+
+//-----------------------------------------
+// Bi-diagonal SVD
+template <typename scalar_t>
+void bdsqr(std::vector< blas::real_type<scalar_t> >& D,
+           std::vector< blas::real_type<scalar_t> >& E,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//------------------------------------------------------------------------------
+// symmetric/Hermitian eigenvalue decomposition
+
+//-----------------------------------------
+template <typename scalar_t>
+void heev( HermitianMatrix<scalar_t>& A,
+           std::vector< blas::real_type<scalar_t> >& W,
+           const std::map<Option, Value>& opts);
+
+//-----------------------------------------
+// forward real-symmetric matrices to heev;
+// disabled for complex
+template <typename scalar_t>
+void syev( SymmetricMatrix<scalar_t>& A,
+           std::vector< blas::real_type<scalar_t> >& W,
+           const std::map<Option, Value>& opts = std::map<Option, Value>(),
+           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    HermitianMatrix<scalar_t> AH(A);
+    heev(AH, W, opts);
+}
+
+//-----------------------------------------
+// he2hb()
+template <typename scalar_t>
+void he2hb(HermitianMatrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void he2hb(HermitianMatrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// hb2st()
+template <typename scalar_t>
+void hb2st(HermitianBandMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// sterf()
+template <typename scalar_t>
+void sterf(std::vector< scalar_t >& D,
+           std::vector< scalar_t >& E,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 } // namespace slate

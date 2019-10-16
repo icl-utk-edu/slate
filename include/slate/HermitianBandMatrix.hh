@@ -37,11 +37,11 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#ifndef SLATE_TRIANGULAR_BAND_MATRIX_HH
-#define SLATE_TRIANGULAR_BAND_MATRIX_HH
+#ifndef SLATE_HERMITIAN_BAND_MATRIX_HH
+#define SLATE_HERMITIAN_BAND_MATRIX_HH
 
 #include "slate/BandMatrix.hh"
-#include "slate/TriangularMatrix.hh"
+#include "slate/HermitianMatrix.hh"
 #include "slate/Tile.hh"
 #include "slate/types.hh"
 
@@ -58,57 +58,47 @@
 namespace slate {
 
 //==============================================================================
-/// Triangular banded, n-by-n, distributed, tiled matrices.
+/// Hermitian banded, n-by-n, distributed, tiled matrices.
 template <typename scalar_t>
-class TriangularBandMatrix: public TriangularMatrix<scalar_t> {
+class HermitianBandMatrix: public HermitianMatrix<scalar_t> {
 public:
     // constructors
-    TriangularBandMatrix();
+    HermitianBandMatrix();
 
-    TriangularBandMatrix(
-        Uplo uplo, Diag diag,
+    HermitianBandMatrix(
+        Uplo uplo,
         int64_t n, int64_t kd,
         int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
     // conversion
-    TriangularBandMatrix(Uplo uplo, Diag diag, BandMatrix<scalar_t>& orig);
+    HermitianBandMatrix(Uplo uplo, BandMatrix<scalar_t>& orig);
+    HermitianBandMatrix(int64_t kd, HermitianMatrix<scalar_t>& orig);
 
 public:
     template <typename T>
-    friend void swap(TriangularBandMatrix<T>& A, TriangularBandMatrix<T>& B);
+    friend void swap(HermitianBandMatrix<T>& A, HermitianBandMatrix<T>& B);
 
     int64_t bandwidth() const;
     void    bandwidth(int64_t kd);
 
-    void    gather(scalar_t* A, int64_t lda);
-    void    gatherAll(std::set<int>& rank_set, int tag = 0, int64_t life_factor = 1);
-    void    ge2tbGather(Matrix<scalar_t>& A);
     void    insertLocalTiles(Target origin=Target::Host);
-
-    // todo: specialize for band
-    // int64_t getMaxHostTiles();
-    // int64_t getMaxDeviceTiles(int device);
-    // void allocateBatchArrays();
-    // void reserveHostWorkspace();
-    // void reserveDeviceWorkspace();
-    // todo: void tileUpdateAllOrigin();
-    // void gather(scalar_t* A, int64_t lda);
+    void    gatherAll(std::set<int>& rank_set, int tag = 0, int64_t life_factor = 1);
+    void    he2hbGather(HermitianMatrix<scalar_t>& A);
 
 protected:
     int64_t kd_;
 };
 
 //------------------------------------------------------------------------------
-/// Default constructor creates an empty band matrix with bandwidth = 0.
+/// Default constructor creates an empty Hermitian band matrix with bandwidth = 0.
 template <typename scalar_t>
-TriangularBandMatrix<scalar_t>::TriangularBandMatrix()
-    : TriangularMatrix<scalar_t>(),
+HermitianBandMatrix<scalar_t>::HermitianBandMatrix()
+    : HermitianMatrix<scalar_t>(),
       kd_(0)
 {}
 
 //------------------------------------------------------------------------------
-/// Constructor creates an n-by-n band matrix, with no tiles allocated,
-/// with fixed nb-by-nb tile size and 2D block cyclic distribution.
+/// Constructor creates an n-by-n Hermitian band matrix, with no tiles allocated.
 /// Tiles can be added with tileInsert().
 ///
 /// @param[in] n
@@ -132,11 +122,11 @@ TriangularBandMatrix<scalar_t>::TriangularBandMatrix()
 ///     p*q == MPI_Comm_size(mpi_comm).
 ///
 template <typename scalar_t>
-TriangularBandMatrix<scalar_t>::TriangularBandMatrix(
-    Uplo uplo, Diag diag,
+HermitianBandMatrix<scalar_t>::HermitianBandMatrix(
+    Uplo uplo,
     int64_t n, int64_t kd, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : TriangularMatrix<scalar_t>(uplo, diag, n, nb, p, q, mpi_comm),
+    : HermitianMatrix<scalar_t>(uplo, n, nb, p, q, mpi_comm),
       kd_(kd)
 {}
 
@@ -151,29 +141,45 @@ TriangularBandMatrix<scalar_t>::TriangularBandMatrix(
 ///     Original matrix.
 ///
 template <typename scalar_t>
-TriangularBandMatrix<scalar_t>::TriangularBandMatrix(
-    Uplo uplo, Diag diag, BandMatrix<scalar_t>& orig)
-    : TriangularMatrix<scalar_t>(uplo, diag, orig),
+HermitianBandMatrix<scalar_t>::HermitianBandMatrix(
+    Uplo uplo, BandMatrix<scalar_t>& orig)
+    : HermitianMatrix<scalar_t>(uplo, orig),
       kd_((uplo == Uplo::Lower) == (orig.op() == Op::NoTrans)
             ? orig.lowerBandwidth()
             : orig.upperBandwidth())
 {}
 
 //------------------------------------------------------------------------------
-/// Swap contents of band matrices A and B.
+/// [explicit]
+/// todo:
+/// Conversion from Hermitian matrix
+/// creates a shallow copy view of the original matrix.
+///
+/// @param[in,out] orig
+///     Original matrix.
+///
 template <typename scalar_t>
-void swap(TriangularBandMatrix<scalar_t>& A, TriangularBandMatrix<scalar_t>& B)
+HermitianBandMatrix<scalar_t>::HermitianBandMatrix(
+    int64_t kd, HermitianMatrix<scalar_t>& orig)
+    : HermitianMatrix<scalar_t>(orig, 0, orig.nt()-1),
+      kd_(kd)
+{}
+
+//------------------------------------------------------------------------------
+/// Swap contents of Hermitian band matrices A and B.
+template <typename scalar_t>
+void swap(HermitianBandMatrix<scalar_t>& A, HermitianBandMatrix<scalar_t>& B)
 {
     using std::swap;
-    swap(static_cast< TriangularMatrix<scalar_t>& >(A),
-         static_cast< TriangularMatrix<scalar_t>& >(B));
+    swap(static_cast< HermitianMatrix<scalar_t>& >(A),
+         static_cast< HermitianMatrix<scalar_t>& >(B));
     swap(A.kd_, B.kd_);
 }
 
 //------------------------------------------------------------------------------
 /// @return number of subdiagonals within band.
 template <typename scalar_t>
-int64_t TriangularBandMatrix<scalar_t>::bandwidth() const
+int64_t HermitianBandMatrix<scalar_t>::bandwidth() const
 {
     return kd_;
 }
@@ -181,9 +187,37 @@ int64_t TriangularBandMatrix<scalar_t>::bandwidth() const
 //------------------------------------------------------------------------------
 /// Sets number of subdiagonals within band.
 template <typename scalar_t>
-void TriangularBandMatrix<scalar_t>::bandwidth(int64_t kd)
+void HermitianBandMatrix<scalar_t>::bandwidth(int64_t kd)
 {
     kd_  = kd;
+}
+
+//------------------------------------------------------------------------------
+/// Inserts all local tiles into an empty matrix.
+///
+/// @param[in] target
+///     - if target = Devices, inserts tiles on appropriate GPU devices, or
+///     - if target = Host, inserts on tiles on CPU host.
+///
+template <typename scalar_t>
+void HermitianBandMatrix<scalar_t>::insertLocalTiles(Target origin)
+{
+    bool on_devices = (origin == Target::Devices);
+    auto upper = this->uplo() == Uplo::Upper;
+    int64_t mt = this->mt();
+    int64_t nt = this->nt();
+    int64_t kdt = ceildiv( this->kd_, this->tileNb(0) );
+    for (int64_t j = 0; j < nt; ++j) {
+        int64_t istart = upper ? blas::max( 0, j-kdt ) : j;
+        int64_t iend   = upper ? j : blas::min( j+kdt, mt-1 );
+        for (int64_t i = istart; i <= iend; ++i) {
+            if (this->tileIsLocal(i, j)) {
+                int dev = (on_devices ? this->tileDevice(i, j)
+                                      : this->host_num_);
+                this->tileInsert(i, j, dev);
+            }
+        }
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -192,7 +226,7 @@ void TriangularBandMatrix<scalar_t>::bandwidth(int64_t kd)
 // avoid if possible.
 //
 template <typename scalar_t>
-void TriangularBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag, int64_t life_factor)
+void HermitianBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag, int64_t life_factor)
 {
     trace::Block trace_block("slate::gatherAll");
 
@@ -235,74 +269,12 @@ void TriangularBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag,
 }
 
 //------------------------------------------------------------------------------
-/// Gathers the entire matrix to the LAPACK-style matrix A on MPI rank 0.
-/// Primarily for debugging purposes.
+/// Gather the distributed triangular band portion of a HermitianMatrix A
+//  to HermitianBandMatrix B on MPI rank 0.
+/// Primarily for EVD code
 ///
 template <typename scalar_t>
-void TriangularBandMatrix<scalar_t>::gather(scalar_t* A, int64_t lda)
-{
-    // this code assumes the matrix is not transposed
-    Op op_save = this->op();
-    this->op_ = Op::NoTrans;
-    auto upper = this->uplo() == Uplo::Upper;
-
-    int64_t mt = this->mt();
-    int64_t nt = this->nt();
-    int64_t kdt = ceildiv( this->kd_, this->tileNb(0) );
-    // ii, jj are row, col indices
-    // i, j are tile (block row, block col) indices
-    int64_t jj = 0;
-    for (int64_t j = 0; j < nt; ++j) {
-        int64_t jb = this->tileNb(j);
-
-        int64_t ii = 0;
-        int64_t istart = upper ? blas::max( 0, j-kdt ) : j;
-        int64_t iend   = upper ? j : blas::min( j+kdt, mt-1 );
-        for (int64_t i = 0; i < this->mt(); ++i) {
-            int64_t ib = this->tileMb(i);
-            if (i >= istart && i <= iend) {
-                if (this->mpi_rank_ == 0) {
-                    if (! this->tileIsLocal(i, j)) {
-                        // erase any existing non-local tile and insert new one
-                        this->tileErase(i, j, this->host_num_);
-                        this->tileInsert(i, j, this->host_num_,
-                                         &A[(size_t)lda*jj + ii], lda);
-                        auto Aij = this->at(i, j);
-                        Aij.recv(this->tileRank(i, j), this->mpi_comm_, this->layout());
-                        this->tileLayout(i, j, this->layout_);
-                    }
-                    else {
-                        this->tileGetForReading(i, j, LayoutConvert(this->layout()));
-                        // copy local tiles if needed.
-                        auto Aij = this->at(i, j);
-                        if (Aij.data() != &A[(size_t)lda*jj + ii]) {
-                            lapack::lacpy(lapack::MatrixType::General, ib, jb,
-                                          Aij.data(), Aij.stride(),
-                                          &A[(size_t)lda*jj + ii], lda);
-                        }
-                    }
-                }
-                else if (this->tileIsLocal(i, j)) {
-                    this->tileGetForReading(i, j, LayoutConvert(this->layout()));
-                    auto Aij = this->at(i, j);
-                    Aij.send(0, this->mpi_comm_);
-                }
-            }
-            ii += ib;
-        }
-        jj += jb;
-    }
-
-    this->op_ = op_save;
-}
-
-//------------------------------------------------------------------------------
-/// Gather the distributed triangular band portion of a general Matrix A
-//  to TriangularBandMatrix B on MPI rank 0.
-/// Primarily for SVD code
-///
-template <typename scalar_t>
-void TriangularBandMatrix<scalar_t>::ge2tbGather(Matrix<scalar_t>& A)
+void HermitianBandMatrix<scalar_t>::he2hbGather(HermitianMatrix<scalar_t>& A)
 {
     Op op_save = this->op();
     this->op_ = Op::NoTrans;
@@ -352,35 +324,7 @@ void TriangularBandMatrix<scalar_t>::ge2tbGather(Matrix<scalar_t>& A)
     this->op_ = op_save;
 }
 
-//------------------------------------------------------------------------------
-/// Inserts all local tiles into an empty matrix.
-///
-/// @param[in] target
-///     - if target = Devices, inserts tiles on appropriate GPU devices, or
-///     - if target = Host, inserts on tiles on CPU host.
-///
-template <typename scalar_t>
-void TriangularBandMatrix<scalar_t>::insertLocalTiles(Target origin)
-{
-    bool on_devices = (origin == Target::Devices);
-    auto upper = this->uplo() == Uplo::Upper;
-    int64_t mt = this->mt();
-    int64_t nt = this->nt();
-    int64_t kdt = ceildiv( this->kd_, this->tileNb(0) );
-    for (int64_t j = 0; j < nt; ++j) {
-        int64_t istart = upper ? blas::max( 0, j-kdt ) : j;
-        int64_t iend   = upper ? j : blas::min( j+kdt, mt-1 );
-        for (int64_t i = istart; i <= iend; ++i) {
-            if (this->tileIsLocal(i, j)) {
-                int dev = (on_devices ? this->tileDevice(i, j)
-                                      : this->host_num_);
-                this->tileInsert(i, j, dev);
-            }
-        }
-    }
-}
-
 
 } // namespace slate
 
-#endif // SLATE_TRIANGULAR_BAND_MATRIX_HH
+#endif // SLATE_HERMITIAN_BAND_MATRIX_HH

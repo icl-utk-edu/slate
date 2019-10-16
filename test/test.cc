@@ -116,6 +116,7 @@ std::vector< libtest::routines_t > routines = {
 
     { "potri",              test_potri,        Section::posv },
     { "",                   nullptr,           Section::newline },
+
     // -----
     // symmetric indefinite
     //{ "sysv",                test_sysv,         Section::sysv },
@@ -164,9 +165,26 @@ std::vector< libtest::routines_t > routines = {
     //{ "",                   nullptr,        Section::newline },
 
     // -----
-  //{ "gesvd",              test_gesvd,         Section::svd },
-    { "ge2tb",              test_ge2tb,         Section::svd },
-    { "",                   nullptr,            Section::newline },
+    // symmetric/Hermitian eigenvalues
+    { "heev",               test_heev,         Section::heev },
+    { "he2hb",              test_he2hb,        Section::heev },
+  //{ "hb2st",              test_hb2st,        Section::heev },
+    { "sterf",              test_sterf,        Section::heev },
+    { "",                   nullptr,           Section::newline },
+
+    // -----
+    // generalized symmetric/Hermitian eigenvalues
+
+    // -----
+    // non-symmetric eigenvalues
+
+    // -----
+    // SVD
+    { "gesvd",              test_gesvd,        Section::svd },
+    { "ge2tb",              test_ge2tb,        Section::svd },
+    { "tb2bd",              test_tb2bd,        Section::svd },
+    { "bdsqr",              test_bdsqr,        Section::svd },
+    { "",                   nullptr,           Section::newline },
 
     // -----
     // matrix norms

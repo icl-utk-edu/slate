@@ -56,8 +56,10 @@
 
 #include "slate/Matrix.hh"
 #include "slate/HermitianMatrix.hh"
+#include "slate/HermitianBandMatrix.hh"
 #include "slate/SymmetricMatrix.hh"
 #include "slate/TriangularMatrix.hh"
+#include "slate/TriangularBandMatrix.hh"
 #include "slate/BandMatrix.hh"
 
 //------------------------------------------------------------------------------
@@ -191,6 +193,16 @@ template <Target target=Target::HostTask, typename scalar_t>
 void set(scalar_t alpha, scalar_t beta,
          Matrix<scalar_t>&& A,
          int priority=0);
+
+template <Target target=Target::HostTask, typename scalar_t>
+void copytb2bd(TriangularBandMatrix<scalar_t>& A,
+               std::vector< blas::real_type<scalar_t> >& D,
+               std::vector< blas::real_type<scalar_t> >& E);
+
+template <Target target=Target::HostTask, typename scalar_t>
+void copyhb2st(HermitianBandMatrix<scalar_t>& A,
+               std::vector< blas::real_type<scalar_t> >& D,
+               std::vector< blas::real_type<scalar_t> >& E);
 
 //------------------------------------------------------------------------------
 // Level 3 BLAS and LAPACK auxiliary
@@ -364,7 +376,7 @@ void trtrm(TriangularMatrix<scalar_t>&& A,
            int priority=0);
 
 //------------------------------------------------------------------------------
-// Other BLAS
+// Other BLAS-like
 template <Target target=Target::HostTask, typename scalar_t>
 void swap(Direction direction,
           Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
@@ -375,10 +387,47 @@ void swap(Direction direction,
           HermitianMatrix<scalar_t>&& A, std::vector<Pivot>& pivot,
           int priority=0, int tag=0);
 
-//------------------------------------------------------------------------------
 template <Target target=Target::HostTask, typename scalar_t>
 void geadd(scalar_t alpha, Matrix<scalar_t>&& A,
            scalar_t beta, Matrix<scalar_t>&& B,
+           int priority=0);
+
+//------------------------------------------------------------------------------
+// Band reduction
+template <Target target, typename scalar_t>
+void gebr1(Matrix<scalar_t>&& A,
+           std::vector<scalar_t>& v1,
+           std::vector<scalar_t>& v2,
+           int priority=0);
+
+template <Target target, typename scalar_t>
+void gebr2(std::vector<scalar_t> const& v1,
+           Matrix<scalar_t>&& A,
+           std::vector<scalar_t>& v2,
+           int priority=0);
+
+template <Target target, typename scalar_t>
+void gebr3(std::vector<scalar_t> const& v1,
+           Matrix<scalar_t>&& A,
+           std::vector<scalar_t>& v2,
+           int priority=0);
+
+//------------------------------------------------------------------------------
+// Tridiagonal band reduction
+template <Target target, typename scalar_t>
+void hebr1(HermitianMatrix<scalar_t>&& A,
+           std::vector<scalar_t>& v,
+           int priority=0);
+
+template <Target target, typename scalar_t>
+void hebr2(std::vector<scalar_t>& v1,
+           Matrix<scalar_t>&& A,
+           std::vector<scalar_t>& v2,
+           int priority=0);
+
+template <Target target, typename scalar_t>
+void hebr3(std::vector<scalar_t>& v,
+           HermitianMatrix<scalar_t>&& A,
            int priority=0);
 
 //------------------------------------------------------------------------------
@@ -454,6 +503,14 @@ void ttmlq(Side side, Op op,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,
            int tag=0);
+
+// hettmqr()
+template <Target target=Target::HostTask, typename scalar_t>
+void hettmqr(Op op,
+             Matrix<scalar_t>&& A,
+             Matrix<scalar_t>&& T,
+             HermitianMatrix<scalar_t>&& C,
+             int tag=0);
 
 //-----------------------------------------
 // unmqr()

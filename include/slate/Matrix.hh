@@ -140,6 +140,10 @@ public:
     Matrix slice(int64_t row1, int64_t row2,
                  int64_t col1, int64_t col2);
 
+    // used by slice and conversion slice
+    Matrix(BaseMatrix<scalar_t>& orig,
+           typename BaseMatrix<scalar_t>::Slice slice);
+
 protected:
     // used by fromLAPACK and fromScaLAPACK
     Matrix(int64_t m, int64_t n,
@@ -150,10 +154,6 @@ protected:
     Matrix(int64_t m, int64_t n, scalar_t** Aarray,
            int num_devices, int64_t lda, int64_t mb, int64_t nb,
            int p, int q, MPI_Comm mpi_comm);
-
-    // used by slice
-    Matrix(BaseMatrix<scalar_t>& orig,
-           typename BaseMatrix<scalar_t>::Slice slice);
 
 public:
     template <typename T>

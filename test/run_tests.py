@@ -84,6 +84,7 @@ group_opt.add_argument( '--incx',   action='store', help='default=%(default)s', 
 group_opt.add_argument( '--incy',   action='store', help='default=%(default)s', default='1,2,-1,-2' )
 group_opt.add_argument( '--check',  action='store', help='default=y', default='' )
 group_opt.add_argument( '--ref',    action='store', help='default=%(default)s', default='n' )
+group_opt.add_argument( '--tol',    action='store', help='default=%(default)s', default='' )
 
 # LAPACK only
 group_opt.add_argument( '--direct', action='store', help='default=%(default)s', default='f,b' )
@@ -240,6 +241,7 @@ incx   = ' --incx '   + opts.incx   if (opts.incx)   else ''
 incy   = ' --incy '   + opts.incy   if (opts.incy)   else ''
 check  = ' --check '  + opts.check  if (opts.check)  else ''
 ref    = ' --ref '    + opts.ref    if (opts.ref)    else ''
+tol    = ' --tol '    + opts.tol    if (opts.tol)    else ''
 
 # LAPACK only
 direct = ' --direct ' + opts.direct if (opts.direct) else ''
@@ -266,7 +268,8 @@ q      = ' --q '      + opts.q      if (opts.q)      else ''
 repeat = ' --repeat ' + opts.repeat if (opts.repeat) else ''
 
 # general options for all routines
-gen  = origin + target + nb + p + q + check + ref + repeat
+gen       = origin + target + p + q + check + ref + tol + repeat + nb
+gen_no_nb = origin + target + p + q + check + ref + tol + repeat
 
 # ------------------------------------------------------------------------------
 # filters a comma separated list csv based on items in list values.
@@ -446,25 +449,19 @@ if (opts.rq):
 # symmetric/Hermitian eigenvalues
 if (opts.syev):
     cmds += [
-    #[ 'heev',  gen + dtype + la + n + jobz + uplo ],
-    #[ 'heevx', gen + dtype + la + n + jobz + uplo + vl + vu ],
-    #[ 'heevx', gen + dtype + la + n + jobz + uplo + il + iu ],
-    #[ 'heevd', gen + dtype + la + n + jobz + uplo ],
-    #[ 'heevr', gen + dtype + la + n + jobz + uplo + vl + vu ],
-    #[ 'heevr', gen + dtype + la + n + jobz + uplo + il + iu ],
-    #[ 'hetrd', gen + dtype + la + n + uplo ],
+    # todo nb, uplo, jobz
+    [ 'heev',  gen_no_nb + ' --nb 50' + dtype + la + n ],
     #[ 'ungtr', gen + dtype + la + n + uplo ],
     #[ 'unmtr', gen + dtype_real    + la + mn + uplo + side + trans    ],  # real does trans = N, T, C
     #[ 'unmtr', gen + dtype_complex + la + mn + uplo + side + trans_nc ],  # complex does trans = N, C, not T
+    # todo nb, uplo
+    [ 'he2hb', gen_no_nb + ' --nb 50' + dtype + n ],
+    # sterf doesn't take origin, target, nb, uplo
+    [ 'sterf', p + q + check + ref + tol + repeat + dtype + n ],
+    # todo: hb2st
 
     # Banded
     #[ 'hbev',  gen + dtype + la + n + jobz + uplo ],
-    #[ 'hbevx', gen + dtype + la + n + jobz + uplo + vl + vu ],
-    #[ 'hbevx', gen + dtype + la + n + jobz + uplo + il + iu ],
-    #[ 'hbevd', gen + dtype + la + n + jobz + uplo ],
-    #[ 'hbevr', gen + dtype + la + n + jobz + uplo + vl + vu ],
-    #[ 'hbevr', gen + dtype + la + n + jobz + uplo + il + iu ],
-    #[ 'hbtrd', gen + dtype + la + n + uplo ],
     #[ 'ubgtr', gen + dtype + la + n + uplo ],
     #[ 'ubmtr', gen + dtype_real    + la + mn + uplo + side + trans    ],
     #[ 'ubmtr', gen + dtype_complex + la + mn + uplo + side + trans_nc ],
@@ -474,10 +471,6 @@ if (opts.syev):
 if (opts.sygv):
     cmds += [
     #[ 'hegv',  gen + dtype + la + n + itype + jobz + uplo ],
-    #[ 'hegvx', gen + dtype + la + n + itype + jobz + uplo + vl + vu ],
-    #[ 'hegvx', gen + dtype + la + n + itype + jobz + uplo + il + iu ],
-    #[ 'hegvd', gen + dtype + la + n + itype + jobz + uplo ],
-    #[ 'hegvr', gen + dtype + la + n + itype + jobz + uplo ],
     #[ 'hegst', gen + dtype + la + n + itype + uplo ],
     ]
 
@@ -492,22 +485,17 @@ if (opts.geev):
     #[ 'unmhr', gen + dtype_real    + la + mn + side + trans    ],  # real does trans = N, T, C
     #[ 'unmhr', gen + dtype_complex + la + mn + side + trans_nc ],  # complex does trans = N, C, not T
     #[ 'trevc', gen + dtype + align + n + side + howmany + select ],
-    #[ 'geesx', gen + dtype + align + n + jobvs + sort + select + sense ],
     ]
 
 # svd
 if (opts.svd):
     cmds += [
-    #[ 'gesvd',         gen + dtype + la + mn + jobu + jobvt ],
-    #[ 'gesdd',         gen + dtype + la + mn + jobu ],
-    #[ 'gesvdx',        gen + dtype + la + mn + jobz + jobvr + vl + vu ],
-    #[ 'gesvdx',        gen + dtype + la + mn + jobz + jobvr + il + iu ],
-    #[ 'gesvd_2stage',  gen + dtype + la + mn ],
-    #[ 'gesdd_2stage',  gen + dtype + la + mn ],
-    #[ 'gesvdx_2stage', gen + dtype + la + mn ],
-    #[ 'gejsv',         gen + dtype + la + mn ],
-    #[ 'gesvj',         gen + dtype + la + mn + joba + jobu + jobv ],
-    [ 'ge2tb',         gen + dtype + n + tall ],
+    # todo: mn (wide), nb, jobu, jobvt
+    [ 'gesvd', gen_no_nb + ' --nb 50' + dtype + la + n + tall ],
+    [ 'ge2tb', gen + dtype + n + tall ],
+    # tb2bd, bdsqr don't take origin, target
+    [ 'tb2bd', p + q + check + ref + tol + repeat + dtype + n ],
+    [ 'bdsqr', p + q + check + ref + tol + repeat + dtype + n + uplo ],
     ]
 
 # norms

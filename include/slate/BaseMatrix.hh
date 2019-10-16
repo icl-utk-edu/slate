@@ -603,7 +603,7 @@ protected:
     int64_t joffset() const { return joffset_; }
 
 private:
-    ///-------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     int64_t row0_offset_;  ///< row offset in first block row
     int64_t col0_offset_;  ///< col offset in first block col
     int64_t last_mb_;      ///< size of last block row

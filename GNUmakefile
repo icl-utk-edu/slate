@@ -271,6 +271,7 @@ libslate_src += \
         src/internal/internal_synorm.cc \
         src/internal/internal_syr2k.cc \
         src/internal/internal_syrk.cc \
+        src/internal/internal_transpose.cc \
         src/internal/internal_trmm.cc \
         src/internal/internal_trnorm.cc \
         src/internal/internal_trsm.cc \
@@ -280,11 +281,10 @@ libslate_src += \
         src/internal/internal_ttmlq.cc \
         src/internal/internal_ttqrt.cc \
         src/internal/internal_ttlqt.cc \
+        src/internal/internal_tzcopy.cc \
         src/internal/internal_unmqr.cc \
         src/internal/internal_unmlq.cc \
         src/internal/internal_util.cc \
-        src/internal/internal_transpose.cc \
-        src/internal/internal_tzcopy.cc \
 
 # device
 ifeq ($(cuda),1)
@@ -295,8 +295,8 @@ ifeq ($(cuda),1)
             src/cuda/device_geset.cu \
             src/cuda/device_henorm.cu \
             src/cuda/device_synorm.cu \
-            src/cuda/device_trnorm.cu \
             src/cuda/device_transpose.cu \
+            src/cuda/device_trnorm.cu \
             src/cuda/device_tzcopy.cu \
 
 endif
@@ -366,8 +366,10 @@ test_src += \
         test/test_geqrf.cc \
         test/test_gelqf.cc \
         test/test_gesv.cc \
+        test/test_gesvd.cc \
         test/test_getri.cc \
         test/test_he2hb.cc \
+        test/test_heev.cc \
         test/test_hemm.cc \
         test/test_henorm.cc \
         test/test_her2k.cc \
@@ -386,8 +388,6 @@ test_src += \
         test/test_trnorm.cc \
         test/test_trsm.cc \
         test/test_trtri.cc \
-        test/test_gesvd.cc \
-        test/test_heev.cc \
 
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
@@ -417,10 +417,10 @@ unit_src = \
         unit_test/test_Matrix.cc \
         unit_test/test_Memory.cc \
         unit_test/test_SymmetricMatrix.cc \
-        unit_test/test_TrapezoidMatrix.cc \
-        unit_test/test_TriangularMatrix.cc \
         unit_test/test_Tile.cc \
         unit_test/test_Tile_kernels.cc \
+        unit_test/test_TrapezoidMatrix.cc \
+        unit_test/test_TriangularMatrix.cc \
         unit_test/test_lq.cc \
         unit_test/test_norm.cc \
         unit_test/test_qr.cc \
@@ -586,26 +586,26 @@ scalapack_api_so = lib/libslate_scalapack_api.so
 scalapack_api    = lib/libslate_scalapack_api.$(lib_ext)
 
 scalapack_api_src += \
+        scalapack_api/scalapack_gels.cc \
         scalapack_api/scalapack_gemm.cc \
+        scalapack_api/scalapack_getrf.cc \
+        scalapack_api/scalapack_getrs.cc \
+        scalapack_api/scalapack_gesv.cc \
         scalapack_api/scalapack_hemm.cc \
         scalapack_api/scalapack_her2k.cc \
         scalapack_api/scalapack_herk.cc \
+        scalapack_api/scalapack_lanhe.cc \
         scalapack_api/scalapack_lange.cc \
         scalapack_api/scalapack_lansy.cc \
         scalapack_api/scalapack_lantr.cc \
         scalapack_api/scalapack_potrf.cc \
-        scalapack_api/scalapack_getrf.cc \
+        scalapack_api/scalapack_potri.cc \
+        scalapack_api/scalapack_posv.cc \
         scalapack_api/scalapack_symm.cc \
         scalapack_api/scalapack_syr2k.cc \
         scalapack_api/scalapack_syrk.cc \
         scalapack_api/scalapack_trmm.cc \
         scalapack_api/scalapack_trsm.cc \
-        scalapack_api/scalapack_getrs.cc \
-        scalapack_api/scalapack_gesv.cc \
-        scalapack_api/scalapack_lanhe.cc \
-        scalapack_api/scalapack_posv.cc \
-        scalapack_api/scalapack_gels.cc \
-        scalapack_api/scalapack_potri.cc \
 
 scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
 
@@ -635,27 +635,27 @@ lapack_api_so = lib/libslate_lapack_api.so
 lapack_api    = lib/libslate_lapack_api.$(lib_ext)
 
 lapack_api_src += \
+        lapack_api/lapack_gels.cc \
         lapack_api/lapack_gemm.cc \
+        lapack_api/lapack_gesv.cc \
+        lapack_api/lapack_gesvMixed.cc \
+        lapack_api/lapack_getrf.cc \
+        lapack_api/lapack_getrs.cc \
         lapack_api/lapack_hemm.cc \
         lapack_api/lapack_her2k.cc \
         lapack_api/lapack_herk.cc \
         lapack_api/lapack_lange.cc \
+        lapack_api/lapack_lanhe.cc \
         lapack_api/lapack_lansy.cc \
         lapack_api/lapack_lantr.cc \
+        lapack_api/lapack_posv.cc \
         lapack_api/lapack_potrf.cc \
-        lapack_api/lapack_getrf.cc \
+        lapack_api/lapack_potri.cc \
         lapack_api/lapack_symm.cc \
         lapack_api/lapack_syr2k.cc \
         lapack_api/lapack_syrk.cc \
         lapack_api/lapack_trmm.cc \
         lapack_api/lapack_trsm.cc \
-        lapack_api/lapack_getrs.cc \
-        lapack_api/lapack_lanhe.cc \
-        lapack_api/lapack_gels.cc \
-        lapack_api/lapack_gesv.cc \
-        lapack_api/lapack_gesvMixed.cc \
-        lapack_api/lapack_posv.cc \
-        lapack_api/lapack_potri.cc \
 
 
 lapack_api_obj = $(addsuffix .o, $(basename $(lapack_api_src)))

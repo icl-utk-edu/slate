@@ -246,18 +246,13 @@ void test_gesvd_work(Params& params, bool run)
         slate_set_num_blas_threads(saved_num_threads);
 
         // Reference Scalapack was run, check reference against test
+        // Perform a local operation to get differences S_tst = S_tst - S_ref
+        blas::axpy(S_ref.size(), -1.0, &S_ref[0], 1, &S_tst[0], 1);
 
-        // Perform a local operation to get differences S_ref = S_ref - S_tst
-        blas::axpy(S_ref.size(), -1.0, &S_tst[0], 1, &S_ref[0], 1);
+        // Relative forward error: || S_ref - S_tst || / || S_ref ||
+        params.error() = lapack::lange(norm, S_tst.size(), 1, &S_tst[0], 1)
+                       / lapack::lange(norm, S_ref.size(), 1, &S_ref[0], 1);
 
-        // norm(S_ref - S_tst)
-        real_t S_diff_norm = lapack::lange(norm, S_ref.size(), 1, &S_ref[0], 1);
-
-        // todo: Is the scaling meaningful
-        real_t error = S_diff_norm / std::max(m, n);
-        params.error() = error;
-
-        // todo: Any justification for this tolerance
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= tol);
     }

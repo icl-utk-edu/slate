@@ -231,14 +231,13 @@ void test_heev_work(Params& params, bool run)
         slate_set_num_blas_threads(saved_num_threads);
 
         // Reference Scalapack was run, check reference against test
-        // Perform a local operation to get differences W_ref = W_ref - W_tst
-        blas::axpy(W_ref.size(), -1.0, &W_tst[0], 1, &W_ref[0], 1);
-        // norm(W_ref - W_tst)
-        real_t W_diff_norm = lapack::lange(norm, 1, W_ref.size(), &W_ref[0], 1);
-        // todo: Is the scaling meaningful
-        real_t error = W_diff_norm / n;
-        params.error() = error;
-        // todo: Any justification for this tolerance
+        // Perform a local operation to get differences W_tst = W_tst - W_ref
+        blas::axpy(W_ref.size(), -1.0, &W_ref[0], 1, &W_tst[0], 1);
+
+        // Relative forward error: || W_ref - W_tst || / || W_ref ||
+        params.error() = lapack::lange(norm, W_tst.size(), 1, &W_tst[0], 1)
+                       / lapack::lange(norm, W_ref.size(), 1, &W_ref[0], 1);
+
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= tol);
     }

@@ -1570,7 +1570,8 @@ inline void scalapack_pgels(
 extern "C" void scalapack_psgesvd(
     const char* jobu, const char* jobvt,
     blas_int* m, blas_int* n,
-    float* A, blas_int* ia, blas_int* ja, blas_int* descA, float* S,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* S,
     float* U, blas_int* iu, blas_int* ju, blas_int* descU,
     float* VT, blas_int* ivt, blas_int* jvt, blas_int* descVT,
     float* work, blas_int* lwork,
@@ -1579,7 +1580,8 @@ extern "C" void scalapack_psgesvd(
 extern "C" void scalapack_pdgesvd(
     const char* jobu, const char* jobvt,
     blas_int* m, blas_int* n,
-    double* A, blas_int* ia, blas_int* ja, blas_int* descA, double* S,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* S,
     double* U, blas_int* iu, blas_int* ju, blas_int* descU,
     double* VT, blas_int* ivt, blas_int* jvt, blas_int* descVT,
     double* work, blas_int* lwork,
@@ -1588,19 +1590,23 @@ extern "C" void scalapack_pdgesvd(
 extern "C" void scalapack_pcgesvd(
     const char* jobu, const char* jobvt,
     blas_int* m, blas_int* n,
-    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA, float* S,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* S,
     std::complex<float>* U, blas_int* iu, blas_int* ju, blas_int* descU,
     std::complex<float>* VT, blas_int* ivt, blas_int* jvt, blas_int* descVT,
     std::complex<float>* work, blas_int* lwork,
+    float* rwork,
     blas_int* info);
 
 extern "C" void scalapack_pzgesvd(
     const char* jobu, const char* jobvt,
     blas_int* m, blas_int* n,
-    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA, double* S,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* S,
     std::complex<double>* U, blas_int* iu, blas_int* ju, blas_int* descU,
     std::complex<double>* VT, blas_int* ivt, blas_int* jvt, blas_int* descVT,
     std::complex<double>* work, blas_int* lwork,
+    double* rwork,
     blas_int* info);
 
 // -----------------------------------------------------------------------------
@@ -1608,59 +1614,87 @@ extern "C" void scalapack_pzgesvd(
 inline void scalapack_pgesvd(
     const char* jobu, const char* jobvt,
     blas_int* m, blas_int* n,
-    float* A, blas_int* ia, blas_int* ja, blas_int* descA, float* S,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* S,
     float* U, blas_int* iu, blas_int* ju, blas_int* descU,
     float* VT, blas_int* ivt, blas_int* jvt, blas_int* descVT,
     float* work, blas_int* lwork,
+    float* rwork,
     blas_int* info)
 {
-    scalapack_psgesvd(jobu, jobvt, m, n, A, ia, ja, descA, S, U, iu, ju, descU, VT, ivt, jvt, descVT, work, lwork, info);
+    rwork[0] = 1;  // unused; lrwork = 1
+    scalapack_psgesvd(jobu, jobvt, m, n,
+                      A, ia, ja, descA, S,
+                      U, iu, ju, descU,
+                      VT, ivt, jvt, descVT,
+                      work, lwork, info);
 }
 
 inline void scalapack_pgesvd(
     const char* jobu, const char* jobvt,
     blas_int* m, blas_int* n,
-    double* A, blas_int* ia, blas_int* ja, blas_int* descA, double* S,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* S,
     double* U, blas_int* iu, blas_int* ju, blas_int* descU,
     double* VT, blas_int* ivt, blas_int* jvt, blas_int* descVT,
     double* work, blas_int* lwork,
+    double* rwork,
     blas_int* info)
 {
-    scalapack_pdgesvd(jobu, jobvt, m, n, A, ia, ja, descA, S, U, iu, ju, descU, VT, ivt, jvt, descVT, work, lwork, info);
+    rwork[0] = 1;  // unused; lrwork = 1
+    scalapack_pdgesvd(jobu, jobvt, m, n,
+                      A, ia, ja, descA, S,
+                      U, iu, ju, descU,
+                      VT, ivt, jvt, descVT,
+                      work, lwork, info);
 }
 
 inline void scalapack_pgesvd(
     const char* jobu, const char* jobvt,
     blas_int* m, blas_int* n,
-    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA, float* S,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* S,
     std::complex<float>* U, blas_int* iu, blas_int* ju, blas_int* descU,
     std::complex<float>* VT, blas_int* ivt, blas_int* jvt, blas_int* descVT,
     std::complex<float>* work, blas_int* lwork,
+    float* rwork,
     blas_int* info)
 {
-    scalapack_pcgesvd(jobu, jobvt, m, n, A, ia, ja, descA, S, U, iu, ju, descU, VT, ivt, jvt, descVT, work, lwork, info);
+    scalapack_pcgesvd(jobu, jobvt, m, n,
+                      A, ia, ja, descA, S,
+                      U, iu, ju, descU,
+                      VT, ivt, jvt, descVT,
+                      work, lwork, rwork, info);
 }
 
 inline void scalapack_pgesvd(
     const char* jobu, const char* jobvt,
     blas_int* m, blas_int* n,
-    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA, double* S,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* S,
     std::complex<double>* U, blas_int* iu, blas_int* ju, blas_int* descU,
     std::complex<double>* VT, blas_int* ivt, blas_int* jvt, blas_int* descVT,
     std::complex<double>* work, blas_int* lwork,
+    double* rwork,
     blas_int* info)
 {
-    scalapack_pzgesvd(jobu, jobvt, m, n, A, ia, ja, descA, S, U, iu, ju, descU, VT, ivt, jvt, descVT, work, lwork, info);
+    scalapack_pzgesvd(jobu, jobvt, m, n,
+                      A, ia, ja, descA, S,
+                      U, iu, ju, descU,
+                      VT, ivt, jvt, descVT,
+                      work, lwork, rwork, info);
 }
 
 template <typename scalar_t>
 inline void scalapack_pgesvd(
     const char* jobu, const char* jobvt,
     int64_t m, int64_t n,
-    scalar_t* A, int64_t ia, int64_t ja, blas_int* descA, blas::real_type<scalar_t>* S,
+    scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
+    blas::real_type<scalar_t>* S,
     scalar_t* U, int64_t iu, int64_t ju, blas_int* descU,
     scalar_t* VT, int64_t ivt, int64_t jvt, blas_int* descVT,
     scalar_t* work, int64_t lwork,
+    blas::real_type<scalar_t>* rwork,
     int64_t* info)
 {
     blas_int m_     = int64_to_int(m);
@@ -1673,9 +1707,11 @@ inline void scalapack_pgesvd(
     blas_int jvt_   = int64_to_int(jvt);
     blas_int lwork_ = int64_to_int(lwork);
     blas_int info_  = int64_to_int(*info);
-    scalapack_pgesvd(jobu, jobvt, &m_, &n_, A, &ia_, &ja_, descA, S,
-                     U, &iu_, &ju_, descU, VT, &ivt_, &jvt_, descVT,
-                     work, &lwork_, &info_);
+    scalapack_pgesvd(jobu, jobvt, &m_, &n_,
+                     A, &ia_, &ja_, descA, S,
+                     U, &iu_, &ju_, descU,
+                     VT, &ivt_, &jvt_, descVT,
+                     work, &lwork_, rwork, &info_);
     *info = (int64_t)info_;
 }
 

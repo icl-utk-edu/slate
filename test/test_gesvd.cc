@@ -113,9 +113,6 @@ void test_gesvd_work(Params& params, bool run)
     int64_t lldVT = (int64_t)descVT_tst[8];
     std::vector<scalar_t> VT_tst(lldVT * nlocVT, 0);
 
-    int64_t lwork = 1 + 6*std::max(m, n) + 1*std::max(m, n);
-    std::vector<scalar_t> work(lwork, 0);
-
     // matrix S (global output), S(size), singular values of A
     std::vector<real_t> S_tst(minmn);
 
@@ -219,24 +216,27 @@ void test_gesvd_work(Params& params, bool run)
 
         // query for workspace size
         int64_t info_ref = 0;
-        scalar_t dummywork;
+        scalar_t dummy_work;
+        real_t dummy_rwork;
         scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
                          &A_ref[0],  ione, ione, descA_tst, &S_ref[0],
-                         &U_ref[0], ione, ione, descU_tst,
+                         &U_ref[0],  ione, ione, descU_tst,
                          &VT_ref[0], ione, ione, descVT_tst,
-                         &dummywork, -1, &info_ref);
+                         &dummy_work, -1, &dummy_rwork, &info_ref);
         slate_assert(info_ref == 0);
-        lwork = int64_t( real( dummywork ) );
-        work.resize(lwork);
+        int64_t lwork  = int64_t( real( dummy_work ) );
+        int64_t lrwork = int64_t( dummy_rwork );
+        std::vector<scalar_t> work(lwork);
+        std::vector<real_t> rwork(lrwork);
 
         // Run ScaLAPACK reference routine.
         MPI_Barrier(MPI_COMM_WORLD);
         double time = libtest::get_wtime();
         scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
                          &A_ref[0],  ione, ione, descA_tst, &S_ref[0],
-                         &U_ref[0], ione, ione, descU_tst,
+                         &U_ref[0],  ione, ione, descU_tst,
                          &VT_ref[0], ione, ione, descVT_tst,
-                         &work[0], lwork, &info_ref);
+                         &work[0], lwork, &rwork[0], &info_ref);
         slate_assert(info_ref == 0);
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;

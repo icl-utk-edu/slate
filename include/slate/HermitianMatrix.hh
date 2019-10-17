@@ -54,12 +54,16 @@
 
 namespace slate {
 
+template <typename scalar_t>
+class HermitianBandMatrix;
+
 //==============================================================================
 /// Hermitian, n-by-n, distributed, tiled matrices.
 template <typename scalar_t>
 class HermitianMatrix: public BaseTrapezoidMatrix<scalar_t> {
 public:
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
+    friend class HermitianBandMatrix<scalar_t>;
 
     // constructors
     HermitianMatrix();
@@ -123,6 +127,9 @@ protected:
 
     // used by slice
     HermitianMatrix(HermitianMatrix& orig,
+                    typename BaseMatrix<scalar_t>::Slice slice);
+
+    HermitianMatrix(BaseMatrix<scalar_t>& orig,
                     typename BaseMatrix<scalar_t>::Slice slice);
 
 public:
@@ -450,6 +457,24 @@ Matrix<scalar_t> HermitianMatrix<scalar_t>::sub(
 template <typename scalar_t>
 HermitianMatrix<scalar_t>::HermitianMatrix(
     HermitianMatrix<scalar_t>& orig, typename BaseMatrix<scalar_t>::Slice slice)
+    : BaseTrapezoidMatrix<scalar_t>(orig, slice)
+{}
+
+//------------------------------------------------------------------------------
+/// Sliced matrix constructor creates shallow copy view of parent matrix,
+/// A[ row1:row2, col1:col2 ].
+/// This takes row & col indices instead of block row & block col indices.
+/// Assumes that row1 == col1 and row2 == col2 (@see slice()).
+///
+/// @param[in] orig
+///     Original matrix of which to make sub-matrix.
+///
+/// @param[in] slice
+///     Contains start and end row and column indices.
+///
+template <typename scalar_t>
+HermitianMatrix<scalar_t>::HermitianMatrix(
+    BaseMatrix<scalar_t>& orig, typename BaseMatrix<scalar_t>::Slice slice)
     : BaseTrapezoidMatrix<scalar_t>(orig, slice)
 {}
 

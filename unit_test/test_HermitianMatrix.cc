@@ -432,6 +432,9 @@ void test_HermitianMatrix_emptyLike()
     auto Atrans = transpose( A );
     auto Btrans = Atrans.emptyLike();
 
+    test_assert(Atrans.uplo() == slate::Uplo::Upper);
+    test_assert(Atrans.op() == blas::Op::Trans);
+
     test_assert(Btrans.m() == Atrans.m());
     test_assert(Btrans.n() == Atrans.n());
     test_assert(Btrans.mt() == Atrans.mt());

@@ -40,7 +40,9 @@
 #ifndef SLATE_HERMITIAN_BAND_MATRIX_HH
 #define SLATE_HERMITIAN_BAND_MATRIX_HH
 
+#include "slate/BaseTriangularBandMatrix.hh"
 #include "slate/BandMatrix.hh"
+#include "slate/Matrix.hh"
 #include "slate/HermitianMatrix.hh"
 #include "slate/Tile.hh"
 #include "slate/types.hh"
@@ -60,7 +62,7 @@ namespace slate {
 //==============================================================================
 /// Hermitian banded, n-by-n, distributed, tiled matrices.
 template <typename scalar_t>
-class HermitianBandMatrix: public HermitianMatrix<scalar_t> {
+class HermitianBandMatrix: public BaseTriangularBandMatrix<scalar_t> {
 public:
     // constructors
     HermitianBandMatrix();
@@ -74,32 +76,32 @@ public:
     HermitianBandMatrix(Uplo uplo, BandMatrix<scalar_t>& orig);
     HermitianBandMatrix(int64_t kd, HermitianMatrix<scalar_t>& orig);
 
+    HermitianMatrix<scalar_t> slice(int64_t index1, int64_t index2);
+    Matrix<scalar_t> slice(int64_t row1, int64_t row2,
+                           int64_t col1, int64_t col2);
+
 public:
     template <typename T>
     friend void swap(HermitianBandMatrix<T>& A, HermitianBandMatrix<T>& B);
 
-    int64_t bandwidth() const;
-    void    bandwidth(int64_t kd);
-
-    void    insertLocalTiles(Target origin=Target::Host);
     void    gatherAll(std::set<int>& rank_set, int tag = 0, int64_t life_factor = 1);
     void    he2hbGather(HermitianMatrix<scalar_t>& A);
-
-protected:
-    int64_t kd_;
 };
 
 //------------------------------------------------------------------------------
 /// Default constructor creates an empty Hermitian band matrix with bandwidth = 0.
 template <typename scalar_t>
 HermitianBandMatrix<scalar_t>::HermitianBandMatrix()
-    : HermitianMatrix<scalar_t>(),
-      kd_(0)
+    : BaseTriangularBandMatrix<scalar_t>()
 {}
 
 //------------------------------------------------------------------------------
 /// Constructor creates an n-by-n Hermitian band matrix, with no tiles allocated.
 /// Tiles can be added with tileInsert().
+///
+/// @param[in] uplo
+///     - Upper: upper triangle of A is stored.
+///     - Lower: lower triangle of A is stored.
 ///
 /// @param[in] n
 ///     Number of rows and columns of the matrix. n >= 0.
@@ -126,8 +128,7 @@ HermitianBandMatrix<scalar_t>::HermitianBandMatrix(
     Uplo uplo,
     int64_t n, int64_t kd, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : HermitianMatrix<scalar_t>(uplo, n, nb, p, q, mpi_comm),
-      kd_(kd)
+    : BaseTriangularBandMatrix<scalar_t>(uplo, n, kd, nb, p, q, mpi_comm)
 {}
 
 //------------------------------------------------------------------------------
@@ -137,16 +138,17 @@ HermitianBandMatrix<scalar_t>::HermitianBandMatrix(
 /// creates a shallow copy view of the original matrix.
 /// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
 ///
+/// @param[in] uplo
+///     - Upper: upper triangle of A is stored.
+///     - Lower: lower triangle of A is stored.
+///
 /// @param[in,out] orig
 ///     Original matrix.
 ///
 template <typename scalar_t>
 HermitianBandMatrix<scalar_t>::HermitianBandMatrix(
     Uplo uplo, BandMatrix<scalar_t>& orig)
-    : HermitianMatrix<scalar_t>(uplo, orig),
-      kd_((uplo == Uplo::Lower) == (orig.op() == Op::NoTrans)
-            ? orig.lowerBandwidth()
-            : orig.upperBandwidth())
+    : BaseTriangularBandMatrix<scalar_t>(uplo, orig)
 {}
 
 //------------------------------------------------------------------------------
@@ -155,15 +157,67 @@ HermitianBandMatrix<scalar_t>::HermitianBandMatrix(
 /// Conversion from Hermitian matrix
 /// creates a shallow copy view of the original matrix.
 ///
+/// @param[in] kd
+///     Number of sub (if lower) or super (if upper) diagonals within band.
+///     kd >= 0.
+///
 /// @param[in,out] orig
 ///     Original matrix.
 ///
 template <typename scalar_t>
 HermitianBandMatrix<scalar_t>::HermitianBandMatrix(
     int64_t kd, HermitianMatrix<scalar_t>& orig)
-    : HermitianMatrix<scalar_t>(orig, 0, orig.nt()-1),
-      kd_(kd)
+    : BaseTriangularBandMatrix<scalar_t>(kd, orig)
 {}
+
+//------------------------------------------------------------------------------
+/// Returns sliced matrix that is a shallow copy view of the
+/// parent matrix, A[ index1:index2, index1:index2 ].
+/// This takes row & col indices instead of block row & block col indices.
+///
+/// @param[in] index1
+///     Starting row and col index. 0 <= index1 < n.
+///
+/// @param[in] index2
+///     Ending row and col index (inclusive). index1 <= index2 < n.
+///
+// todo: should check indices within band
+template <typename scalar_t>
+HermitianMatrix<scalar_t> HermitianBandMatrix<scalar_t>::slice(
+    int64_t index1, int64_t index2)
+{
+    return HermitianMatrix<scalar_t>(*this,
+        typename BaseMatrix<scalar_t>::Slice(index1, index2, index1, index2));
+}
+
+//------------------------------------------------------------------------------
+/// Returns sliced matrix that is a shallow copy view of the
+/// parent matrix, A[ row1:row2, col1:col2 ].
+/// This takes row & col indices instead of block row & block col indices.
+/// The sub-matrix cannot overlap the diagonal.
+/// - if uplo = Lower, 0 <= col1 <= col2 <= row1 <= row2 < n;
+/// - if uplo = Upper, 0 <= row1 <= row2 <= col1 <= col2 < n.
+///
+/// @param[in] row1
+///     Starting row index.
+///
+/// @param[in] row2
+///     Ending row index (inclusive).
+///
+/// @param[in] col1
+///     Starting column index.
+///
+/// @param[in] col2
+///     Ending column index (inclusive).
+///
+template <typename scalar_t>
+Matrix<scalar_t> HermitianBandMatrix<scalar_t>::slice(
+    int64_t row1, int64_t row2,
+    int64_t col1, int64_t col2)
+{
+    return Matrix<scalar_t>(*this,
+        typename BaseMatrix<scalar_t>::Slice(row1, row2, col1, col2));
+}
 
 //------------------------------------------------------------------------------
 /// Swap contents of Hermitian band matrices A and B.
@@ -171,53 +225,8 @@ template <typename scalar_t>
 void swap(HermitianBandMatrix<scalar_t>& A, HermitianBandMatrix<scalar_t>& B)
 {
     using std::swap;
-    swap(static_cast< HermitianMatrix<scalar_t>& >(A),
-         static_cast< HermitianMatrix<scalar_t>& >(B));
-    swap(A.kd_, B.kd_);
-}
-
-//------------------------------------------------------------------------------
-/// @return number of subdiagonals within band.
-template <typename scalar_t>
-int64_t HermitianBandMatrix<scalar_t>::bandwidth() const
-{
-    return kd_;
-}
-
-//------------------------------------------------------------------------------
-/// Sets number of subdiagonals within band.
-template <typename scalar_t>
-void HermitianBandMatrix<scalar_t>::bandwidth(int64_t kd)
-{
-    kd_  = kd;
-}
-
-//------------------------------------------------------------------------------
-/// Inserts all local tiles into an empty matrix.
-///
-/// @param[in] target
-///     - if target = Devices, inserts tiles on appropriate GPU devices, or
-///     - if target = Host, inserts on tiles on CPU host.
-///
-template <typename scalar_t>
-void HermitianBandMatrix<scalar_t>::insertLocalTiles(Target origin)
-{
-    bool on_devices = (origin == Target::Devices);
-    auto upper = this->uplo() == Uplo::Upper;
-    int64_t mt = this->mt();
-    int64_t nt = this->nt();
-    int64_t kdt = ceildiv( this->kd_, this->tileNb(0) );
-    for (int64_t j = 0; j < nt; ++j) {
-        int64_t istart = upper ? blas::max( 0, j-kdt ) : j;
-        int64_t iend   = upper ? j : blas::min( j+kdt, mt-1 );
-        for (int64_t i = istart; i <= iend; ++i) {
-            if (this->tileIsLocal(i, j)) {
-                int dev = (on_devices ? this->tileDevice(i, j)
-                                      : this->host_num_);
-                this->tileInsert(i, j, dev);
-            }
-        }
-    }
+    swap(static_cast< BaseTriangularBandMatrix<scalar_t>& >(A),
+         static_cast< BaseTriangularBandMatrix<scalar_t>& >(B));
 }
 
 //------------------------------------------------------------------------------
@@ -239,7 +248,7 @@ void HermitianBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag, 
 
     int64_t mt = this->mt();
     int64_t nt = this->nt();
-    int64_t kdt = ceildiv( this->kd_, this->tileNb(0) );
+    int64_t kdt = ceildiv( this->bandwidth(), this->tileNb(0) );
     for (int64_t j = 0; j < nt; ++j) {
         int64_t istart = upper ? blas::max( 0, j-kdt ) : j;
         int64_t iend   = upper ? j : blas::min( j+kdt, mt-1 );
@@ -282,25 +291,19 @@ void HermitianBandMatrix<scalar_t>::he2hbGather(HermitianMatrix<scalar_t>& A)
 
     int64_t mt = A.mt();
     int64_t nt = A.nt();
-    int64_t kdt = ceildiv( this->kd_, this->tileNb(0) );
+    int64_t kdt = ceildiv( this->bandwidth(), this->tileNb(0) );
     // i, j are tile (block row, block col) indices
-    int64_t jj = 0;
     for (int64_t j = 0; j < nt; ++j) {
-        int64_t jb = A.tileNb(j);
 
         int64_t istart = upper ? blas::max( 0, j-kdt ) : j;
         int64_t iend   = upper ? j : blas::min( j+kdt, mt-1 );
         for (int64_t i = 0; i < mt; ++i) {
-            int64_t ib = A.tileMb(i);
             if (i >= istart && i <= iend) {
                 if (this->mpi_rank_ == 0) {
                     if (! A.tileIsLocal(i, j)) {
-                        // erase any existing non-local tile and insert new one
-                        // A.tileErase(i, j, A.host_num_);
                         this->tileInsert(i, j, this->host_num_);
                         auto Bij = this->at(i, j);
                         Bij.recv(A.tileRank(i, j), this->mpi_comm_, this->layout());
-                        //A.tileLayout(i, j, this->layout_);
                     }
                     else {
                         A.tileGetForReading(i, j, LayoutConvert(this->layout()));

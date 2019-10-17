@@ -40,6 +40,7 @@
 #ifndef SLATE_TRIANGULAR_BAND_MATRIX_HH
 #define SLATE_TRIANGULAR_BAND_MATRIX_HH
 
+#include "slate/BaseTriangularBandMatrix.hh"
 #include "slate/BandMatrix.hh"
 #include "slate/TriangularMatrix.hh"
 #include "slate/Tile.hh"
@@ -60,10 +61,18 @@ namespace slate {
 //==============================================================================
 /// Triangular banded, n-by-n, distributed, tiled matrices.
 template <typename scalar_t>
-class TriangularBandMatrix: public TriangularMatrix<scalar_t> {
+class TriangularBandMatrix: public BaseTriangularBandMatrix<scalar_t> {
 public:
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
+
     // constructors
     TriangularBandMatrix();
+
+    TriangularBandMatrix(Uplo uplo, Diag diag, int64_t n, int64_t kd,
+                         std::function<int64_t (int64_t j)>& inTileNb,
+                         std::function<int (ij_tuple ij)>& inTileRank,
+                         std::function<int (ij_tuple ij)>& inTileDevice,
+                         MPI_Comm mpi_comm);
 
     TriangularBandMatrix(
         Uplo uplo, Diag diag,
@@ -73,43 +82,67 @@ public:
     // conversion
     TriangularBandMatrix(Uplo uplo, Diag diag, BandMatrix<scalar_t>& orig);
 
+    TriangularMatrix<scalar_t> sub(int64_t i1, int64_t i2);
+
+    // sub-matrix
+    Matrix<scalar_t> sub(int64_t i1, int64_t i2,
+                         int64_t j1, int64_t j2);
+    Matrix<scalar_t> slice(int64_t row1, int64_t row2,
+                           int64_t col1, int64_t col2);
+
 public:
     template <typename T>
     friend void swap(TriangularBandMatrix<T>& A, TriangularBandMatrix<T>& B);
 
-    int64_t bandwidth() const;
-    void    bandwidth(int64_t kd);
-
     void    gather(scalar_t* A, int64_t lda);
     void    gatherAll(std::set<int>& rank_set, int tag = 0, int64_t life_factor = 1);
     void    ge2tbGather(Matrix<scalar_t>& A);
-    void    insertLocalTiles(Target origin=Target::Host);
 
-    // todo: specialize for band
-    // int64_t getMaxHostTiles();
-    // int64_t getMaxDeviceTiles(int device);
-    // void allocateBatchArrays();
-    // void reserveHostWorkspace();
-    // void reserveDeviceWorkspace();
-    // todo: void tileUpdateAllOrigin();
-    // void gather(scalar_t* A, int64_t lda);
+    Diag diag() { return diag_; }
+    void diag(Diag in_diag) { diag_ = in_diag; }
 
 protected:
-    int64_t kd_;
+    Diag diag_;
 };
 
 //------------------------------------------------------------------------------
 /// Default constructor creates an empty band matrix with bandwidth = 0.
 template <typename scalar_t>
 TriangularBandMatrix<scalar_t>::TriangularBandMatrix()
-    : TriangularMatrix<scalar_t>(),
-      kd_(0)
+    : BaseTriangularBandMatrix<scalar_t>(),
+      diag_(Diag::NonUnit)
+{}
+
+//------------------------------------------------------------------------------
+/// Constructor creates an n-by-n matrix, with no tiles allocated,
+/// where tileNb, tileRank, tileDevice are given as functions.
+/// Tiles can be added with tileInsert().
+///
+template <typename scalar_t>
+TriangularBandMatrix<scalar_t>::TriangularBandMatrix(
+    Uplo uplo, Diag diag, int64_t n, int64_t kd,
+    std::function<int64_t (int64_t j)>& inTileNb,
+    std::function<int (ij_tuple ij)>& inTileRank,
+    std::function<int (ij_tuple ij)>& inTileDevice,
+    MPI_Comm mpi_comm)
+    : BaseTriangularBandMatrix<scalar_t>(uplo, n, kd, inTileNb, inTileRank,
+                                inTileDevice, mpi_comm),
+      diag_(diag)
 {}
 
 //------------------------------------------------------------------------------
 /// Constructor creates an n-by-n band matrix, with no tiles allocated,
 /// with fixed nb-by-nb tile size and 2D block cyclic distribution.
 /// Tiles can be added with tileInsert().
+///
+/// @param[in] uplo
+///     - Upper: upper triangle of A is stored.
+///     - Lower: lower triangle of A is stored.
+///
+/// @param[in] diag
+///     - NonUnit: A does not have unit diagonal.
+///     - Unit:    A has unit diagonal; diagonal elements are not referenced
+///                and are assumed to be one.
 ///
 /// @param[in] n
 ///     Number of rows and columns of the matrix. n >= 0.
@@ -136,8 +169,8 @@ TriangularBandMatrix<scalar_t>::TriangularBandMatrix(
     Uplo uplo, Diag diag,
     int64_t n, int64_t kd, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : TriangularMatrix<scalar_t>(uplo, diag, n, nb, p, q, mpi_comm),
-      kd_(kd)
+    : BaseTriangularBandMatrix<scalar_t>(uplo, n, kd, nb, p, q, mpi_comm),
+      diag_(diag)
 {}
 
 //------------------------------------------------------------------------------
@@ -153,11 +186,86 @@ TriangularBandMatrix<scalar_t>::TriangularBandMatrix(
 template <typename scalar_t>
 TriangularBandMatrix<scalar_t>::TriangularBandMatrix(
     Uplo uplo, Diag diag, BandMatrix<scalar_t>& orig)
-    : TriangularMatrix<scalar_t>(uplo, diag, orig),
-      kd_((uplo == Uplo::Lower) == (orig.op() == Op::NoTrans)
-            ? orig.lowerBandwidth()
-            : orig.upperBandwidth())
+    : BaseTriangularBandMatrix<scalar_t>(uplo, orig),
+      diag_(diag)
 {}
+
+//------------------------------------------------------------------------------
+/// Returns sub-matrix that is a shallow copy view of the
+/// parent matrix, A[ i1:i2, i1:i2 ].
+/// This version returns a TriangularMatrix with the same diagonal as the
+/// parent matrix.
+/// @see Matrix TrapezoidMatrix::sub(int64_t i1, int64_t i2,
+///                                  int64_t j1, int64_t j2)
+///
+/// @param[in] i1
+///     Starting block row and column index. 0 <= i1 < mt.
+///
+/// @param[in] i2
+///     Ending block row and column index (inclusive). i2 < mt.
+///
+template <typename scalar_t>
+TriangularMatrix<scalar_t> TriangularBandMatrix<scalar_t>::sub(
+    int64_t i1, int64_t i2)
+{
+    return TriangularMatrix<scalar_t>(*this, i1, i2);
+}
+
+//------------------------------------------------------------------------------
+/// Returns sub-matrix that is a shallow copy view of the
+/// parent matrix, A[ i1:i2, j1:j2 ].
+/// This version returns a Matrix.
+///
+/// @param[in] i1
+///     Starting block-row index. 0 <= i1 < mt.
+///
+/// @param[in] i2
+///     Ending block-row index (inclusive). i2 < mt.
+///
+/// @param[in] j1
+///     Starting block-column index. 0 <= j1 < nt.
+///
+/// @param[in] j2
+///     Ending block-column index (inclusive). j2 < nt.
+///
+template <typename scalar_t>
+Matrix<scalar_t> TriangularBandMatrix<scalar_t>::sub(
+    int64_t i1, int64_t i2,
+    int64_t j1, int64_t j2)
+{
+    // todo: assert that sub-matrix falls within upper/lower band
+    return Matrix<scalar_t>(*this, i1, i2, j1, j2);
+}
+
+//------------------------------------------------------------------------------
+/// Returns sliced matrix that is a shallow copy view of the
+/// parent matrix, A[ row1:row2, col1:col2 ].
+/// This takes row & col indices instead of block row & block col indices.
+/// The sub-matrix cannot overlap the diagonal.
+/// - if uplo = Lower, 0 <= col1 <= col2 <= row1 <= row2 < n;
+/// - if uplo = Upper, 0 <= row1 <= row2 <= col1 <= col2 < n.
+///
+/// @param[in] row1
+///     Starting row index.
+///
+/// @param[in] row2
+///     Ending row index (inclusive).
+///
+/// @param[in] col1
+///     Starting column index.
+///
+/// @param[in] col2
+///     Ending column index (inclusive).
+///
+template <typename scalar_t>
+Matrix<scalar_t> TriangularBandMatrix<scalar_t>::slice(
+    int64_t row1, int64_t row2,
+    int64_t col1, int64_t col2)
+{
+    // todo: assert that sub-matrix falls within upper/lower band
+    return Matrix<scalar_t>(*this,
+        typename BaseMatrix<scalar_t>::Slice(row1, row2, col1, col2));
+}
 
 //------------------------------------------------------------------------------
 /// Swap contents of band matrices A and B.
@@ -165,25 +273,8 @@ template <typename scalar_t>
 void swap(TriangularBandMatrix<scalar_t>& A, TriangularBandMatrix<scalar_t>& B)
 {
     using std::swap;
-    swap(static_cast< TriangularMatrix<scalar_t>& >(A),
-         static_cast< TriangularMatrix<scalar_t>& >(B));
-    swap(A.kd_, B.kd_);
-}
-
-//------------------------------------------------------------------------------
-/// @return number of subdiagonals within band.
-template <typename scalar_t>
-int64_t TriangularBandMatrix<scalar_t>::bandwidth() const
-{
-    return kd_;
-}
-
-//------------------------------------------------------------------------------
-/// Sets number of subdiagonals within band.
-template <typename scalar_t>
-void TriangularBandMatrix<scalar_t>::bandwidth(int64_t kd)
-{
-    kd_  = kd;
+    swap(static_cast< BaseTriangularBandMatrix<scalar_t>& >(A),
+         static_cast< BaseTriangularBandMatrix<scalar_t>& >(B));
 }
 
 //------------------------------------------------------------------------------
@@ -205,7 +296,7 @@ void TriangularBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag,
 
     int64_t mt = this->mt();
     int64_t nt = this->nt();
-    int64_t kdt = ceildiv( this->kd_, this->tileNb(0) );
+    int64_t kdt = ceildiv( this->bandwidth(), this->tileNb(0) );
     for (int64_t j = 0; j < nt; ++j) {
         int64_t istart = upper ? blas::max( 0, j-kdt ) : j;
         int64_t iend   = upper ? j : blas::min( j+kdt, mt-1 );
@@ -248,7 +339,7 @@ void TriangularBandMatrix<scalar_t>::gather(scalar_t* A, int64_t lda)
 
     int64_t mt = this->mt();
     int64_t nt = this->nt();
-    int64_t kdt = ceildiv( this->kd_, this->tileNb(0) );
+    int64_t kdt = ceildiv( this->bandwidth(), this->tileNb(0) );
     // ii, jj are row, col indices
     // i, j are tile (block row, block col) indices
     int64_t jj = 0;
@@ -298,9 +389,10 @@ void TriangularBandMatrix<scalar_t>::gather(scalar_t* A, int64_t lda)
 
 //------------------------------------------------------------------------------
 /// Gather the distributed triangular band portion of a general Matrix A
-//  to TriangularBandMatrix B on MPI rank 0.
+/// to TriangularBandMatrix B on MPI rank 0.
 /// Primarily for SVD code
 ///
+// todo: parameter for rank to collect on, default 0
 template <typename scalar_t>
 void TriangularBandMatrix<scalar_t>::ge2tbGather(Matrix<scalar_t>& A)
 {
@@ -310,25 +402,19 @@ void TriangularBandMatrix<scalar_t>::ge2tbGather(Matrix<scalar_t>& A)
 
     int64_t mt = A.mt();
     int64_t nt = A.nt();
-    int64_t kdt = ceildiv( this->kd_, this->tileNb(0) );
+    int64_t kdt = ceildiv( this->bandwidth(), this->tileNb(0) );
     // i, j are tile (block row, block col) indices
-    int64_t jj = 0;
     for (int64_t j = 0; j < nt; ++j) {
-        int64_t jb = A.tileNb(j);
 
         int64_t istart = upper ? blas::max( 0, j-kdt ) : j;
         int64_t iend   = upper ? j : blas::min( j+kdt, mt-1 );
         for (int64_t i = 0; i < mt; ++i) {
-            int64_t ib = A.tileMb(i);
             if (i >= istart && i <= iend) {
                 if (this->mpi_rank_ == 0) {
                     if (! A.tileIsLocal(i, j)) {
-                        // erase any existing non-local tile and insert new one
-                        // A.tileErase(i, j, A.host_num_);
                         this->tileInsert(i, j, this->host_num_);
                         auto Bij = this->at(i, j);
                         Bij.recv(A.tileRank(i, j), this->mpi_comm_, this->layout());
-                        //A.tileLayout(i, j, this->layout_);
                     }
                     else {
                         A.tileGetForReading(i, j, LayoutConvert(this->layout()));
@@ -350,34 +436,6 @@ void TriangularBandMatrix<scalar_t>::ge2tbGather(Matrix<scalar_t>& A)
     }
 
     this->op_ = op_save;
-}
-
-//------------------------------------------------------------------------------
-/// Inserts all local tiles into an empty matrix.
-///
-/// @param[in] target
-///     - if target = Devices, inserts tiles on appropriate GPU devices, or
-///     - if target = Host, inserts on tiles on CPU host.
-///
-template <typename scalar_t>
-void TriangularBandMatrix<scalar_t>::insertLocalTiles(Target origin)
-{
-    bool on_devices = (origin == Target::Devices);
-    auto upper = this->uplo() == Uplo::Upper;
-    int64_t mt = this->mt();
-    int64_t nt = this->nt();
-    int64_t kdt = ceildiv( this->kd_, this->tileNb(0) );
-    for (int64_t j = 0; j < nt; ++j) {
-        int64_t istart = upper ? blas::max( 0, j-kdt ) : j;
-        int64_t iend   = upper ? j : blas::min( j+kdt, mt-1 );
-        for (int64_t i = istart; i <= iend; ++i) {
-            if (this->tileIsLocal(i, j)) {
-                int dev = (on_devices ? this->tileDevice(i, j)
-                                      : this->host_num_);
-                this->tileInsert(i, j, dev);
-            }
-        }
-    }
 }
 
 

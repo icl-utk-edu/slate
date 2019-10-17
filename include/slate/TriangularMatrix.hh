@@ -55,12 +55,16 @@
 
 namespace slate {
 
+template <typename scalar_t>
+class TriangularBandMatrix;
+
 //==============================================================================
 /// Triangular, n-by-n, distributed, tiled matrices.
 template <typename scalar_t>
 class TriangularMatrix: public TrapezoidMatrix<scalar_t> {
 public:
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
+    friend class TriangularBandMatrix<scalar_t>;
 
     // constructors
     TriangularMatrix();
@@ -136,6 +140,9 @@ protected:
     // used by slice
     TriangularMatrix(TriangularMatrix& orig,
                      typename BaseMatrix<scalar_t>::Slice slice);
+
+    TriangularMatrix(TriangularBandMatrix<scalar_t>& orig,
+                     int64_t i1, int64_t i2);
 
 public:
     template <typename T>
@@ -510,6 +517,27 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
     TriangularMatrix& orig,
     int64_t i1, int64_t i2)
     : TrapezoidMatrix<scalar_t>(orig, i1, i2, i1, i2)
+{}
+
+//------------------------------------------------------------------------------
+/// Sub-matrix constructor creates shallow copy view of parent matrix,
+/// A[ i1:i2, i1:i2 ]. The new view is still a triangular matrix, with the
+/// same diagonal as the parent matrix.
+///
+/// @param[in,out] orig
+///     Original matrix.
+///
+/// @param[in] i1
+///     Starting block row and column index. 0 <= i1 < mt.
+///
+/// @param[in] i2
+///     Ending block row and column index (inclusive). i2 < mt.
+///
+template <typename scalar_t>
+TriangularMatrix<scalar_t>::TriangularMatrix(
+    TriangularBandMatrix<scalar_t>& orig,
+    int64_t i1, int64_t i2)
+    : TrapezoidMatrix<scalar_t>(orig.uploPhysical(), orig.diag(), orig, i1, i2, i1, i2)
 {}
 
 //------------------------------------------------------------------------------

@@ -45,6 +45,7 @@
 #include "slate/SymmetricMatrix.hh"
 #include "slate/TrapezoidMatrix.hh"
 #include "slate/TriangularMatrix.hh"
+#include "slate/TriangularBandMatrix.hh"
 #include "slate/internal/util.hh"
 
 #include "unit_test.hh"
@@ -567,6 +568,81 @@ void verify_Triangular(
     slate::TriangularMatrix<scalar_t>& A )
 {
     verify_BaseTrapezoid( uplo, nt, nt, n, n, A );
+}
+
+//------------------------------------------------------------------------------
+/// Checks that A is uplo, mt-by-nt, m-by-n, and that tiles have uplo set.
+///
+template <typename scalar_t>
+void verify_BaseBand(
+    slate::Op op,
+    int64_t mt,
+    int64_t nt,
+    int64_t m,
+    int64_t n,
+    slate::BaseBandMatrix<scalar_t>& A )
+{
+    test_assert( A.op() == op );
+    test_assert( A.mt() == mt );
+    test_assert( A.nt() == nt );
+    test_assert( A.m() == m );
+    test_assert( A.n() == n );
+}
+
+//------------------------------------------------------------------------------
+/// Checks that A is uplo, mt-by-nt, m-by-n, and that tiles have uplo set.
+///
+template <typename scalar_t>
+void verify_Band(
+    slate::Op op,
+    int64_t mt,
+    int64_t nt,
+    int64_t m,
+    int64_t n,
+    int64_t kl,
+    int64_t ku,
+    slate::BandMatrix<scalar_t>& A )
+{
+    test_assert( A.lowerBandwidth() == kl );
+    test_assert( A.upperBandwidth() == ku );
+
+    verify_BaseBand( op, mt, nt, m, n, A );
+}
+
+//------------------------------------------------------------------------------
+/// Checks that A is uplo, diag, nt-by-nt, n-by-n, and that tiles have uplo set.
+///
+template <typename scalar_t>
+void verify_BaseTriangularBand(
+    slate::Uplo uplo,
+    slate::Op op,
+    int64_t nt,
+    int64_t n,
+    int64_t kd,
+    slate::BaseTriangularBandMatrix<scalar_t>& A )
+{
+    test_assert( A.uplo() == uplo );
+    test_assert( A.bandwidth() == kd );
+
+    verify_BaseBand( op, nt, nt, n, n, A );
+}
+
+//------------------------------------------------------------------------------
+/// Checks that A is uplo, diag, nt-by-nt, n-by-n, and that tiles have uplo set.
+///
+template <typename scalar_t>
+void verify_TriangularBand(
+    slate::Uplo uplo,
+    slate::Diag diag,
+    slate::Op op,
+    int64_t nt,
+    int64_t n,
+    int64_t kd,
+    slate::TriangularBandMatrix<scalar_t>& A )
+{
+    test_assert( A.diag() == diag );
+
+    verify_BaseTriangularBand( uplo, op, nt, n, kd, A );
 }
 
 //------------------------------------------------------------------------------

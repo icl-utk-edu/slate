@@ -109,6 +109,9 @@ protected:
     BaseTrapezoidMatrix(BaseTrapezoidMatrix& orig,
                         typename BaseMatrix<scalar_t>::Slice slice);
 
+    BaseTrapezoidMatrix(BaseMatrix<scalar_t>& orig,
+                        typename BaseMatrix<scalar_t>::Slice slice);
+
     // used by sub-classes' emptyLike
     template <typename out_scalar_t>
     Matrix<out_scalar_t> emptyLike();
@@ -524,8 +527,41 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     typename BaseMatrix<scalar_t>::Slice slice)
     : BaseMatrix<scalar_t>(orig, slice)
 {
+    // todo: is setting uplo_ necessary, constructor should take care of it
     this->uplo_ = orig.uplo_;
     if (this->uplo_ == Uplo::Lower) {
+        slate_assert(slice.row1 >= slice.col1);
+    }
+    else {
+        // Upper
+        slate_assert(slice.row1 <= slice.col1);
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Used by sub-classes' slice.
+/// Sliced sub-matrix constructor creates shallow copy view of parent matrix,
+/// A[ row1:row2, col1:col2 ]. The new view is still a trapezoid matrix.
+/// - If lower, requires row1 >= col1.
+/// - If upper, requires row1 <= col1.
+/// If row1 == col1, it has the same diagonal as the parent matrix.
+///
+/// @param[in] orig
+///     Original matrix.
+///
+/// @param[in] slice
+///     Contains start and end row and column indices.
+///
+template <typename scalar_t>
+BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
+    BaseMatrix<scalar_t>& orig,
+    typename BaseMatrix<scalar_t>::Slice slice)
+    : BaseMatrix<scalar_t>(orig, slice)
+{
+    slate_error_if(orig.uplo() == Uplo::General);
+    // this->uplo_ = orig.uplo_;
+    // todo: should uploPhysical() or uploLogical() be used here?
+    if (this->uplo() == Uplo::Lower) {
         slate_assert(slice.row1 >= slice.col1);
     }
     else {

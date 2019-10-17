@@ -199,7 +199,7 @@ void test_TriangularMatrix_lambda()
     test_assert(U.n() == n);
     test_assert(U.op() == blas::Op::NoTrans);
     test_assert(U.uplo() == slate::Uplo::Upper);
-    test_assert(L.diag() == blas::Diag::NonUnit);
+    test_assert(U.diag() == blas::Diag::Unit);
 
     // unit diag
     slate::TriangularMatrix<double> Uu(
@@ -476,6 +476,9 @@ void test_TriangularMatrix_emptyLike()
     // ----------
     auto Atrans = transpose( A );
     auto Btrans = Atrans.emptyLike();
+
+    test_assert(Atrans.uplo() == slate::Uplo::Upper);
+    test_assert(Atrans.uploPhysical() == A.uploPhysical());
 
     test_assert(Btrans.m() == Atrans.m());
     test_assert(Btrans.n() == Atrans.n());

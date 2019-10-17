@@ -135,6 +135,10 @@ protected:
     TrapezoidMatrix(TrapezoidMatrix& orig,
                     typename BaseMatrix<scalar_t>::Slice slice);
 
+    TrapezoidMatrix(Uplo uplo, Diag diag, BaseMatrix<scalar_t>& orig,
+                    int64_t i1, int64_t i2,
+                    int64_t j1, int64_t j2);
+
 public:
     template <typename T>
     friend void swap(TrapezoidMatrix<T>& A, TrapezoidMatrix<T>& B);
@@ -416,6 +420,31 @@ template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
     Uplo uplo, Diag diag, BaseMatrix<scalar_t>& orig)
     : BaseTrapezoidMatrix<scalar_t>(uplo, orig),
+      diag_(diag)
+{}
+
+//------------------------------------------------------------------------------
+/// Conversion from general matrix
+/// creates a shallow copy view of the original matrix.
+///
+/// @param[in] in_uplo
+///     - Upper: upper triangle of A is stored.
+///     - Lower: lower triangle of A is stored.
+///
+/// @param[in] diag
+///     - NonUnit: A does not have unit diagonal.
+///     - Unit:    A has unit diagonal; diagonal elements are not referenced
+///                and are assumed to be one.
+///
+/// @param[in,out] orig
+///     Original matrix.
+///
+template <typename scalar_t>
+TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
+    Uplo uplo, Diag diag, BaseMatrix<scalar_t>& orig,
+    int64_t i1, int64_t i2,
+    int64_t j1, int64_t j2)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, orig, i1, i2, j1, j2),
       diag_(diag)
 {}
 

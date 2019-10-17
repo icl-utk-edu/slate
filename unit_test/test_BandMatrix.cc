@@ -98,6 +98,7 @@ void test_BandMatrix_transpose()
     test_assert(AT.op() == slate::Op::Trans);
     test_assert(AT.lowerBandwidth() == ku);
     test_assert(AT.upperBandwidth() == kl);
+    test_assert(AT.uplo() == slate::Uplo::General );
 }
 
 //------------------------------------------------------------------------------
@@ -112,6 +113,7 @@ void test_BandMatrix_conj_transpose()
     test_assert(AT.op() == slate::Op::ConjTrans);
     test_assert(AT.lowerBandwidth() == ku);
     test_assert(AT.upperBandwidth() == kl);
+    test_assert(AT.uplo() == slate::Uplo::General );
 }
 
 //------------------------------------------------------------------------------

@@ -40,7 +40,7 @@
 #ifndef SLATE_BAND_MATRIX_HH
 #define SLATE_BAND_MATRIX_HH
 
-#include "slate/Matrix.hh"
+#include "slate/BaseBandMatrix.hh"
 #include "slate/Tile.hh"
 #include "slate/types.hh"
 
@@ -59,7 +59,7 @@ namespace slate {
 //==============================================================================
 /// General banded, non-symmetric, m-by-n, distributed, tiled matrices.
 template <typename scalar_t>
-class BandMatrix: public Matrix<scalar_t> {
+class BandMatrix: public BaseBandMatrix<scalar_t> {
 public:
     // constructors
     BandMatrix();
@@ -68,6 +68,15 @@ public:
                int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
     BandMatrix(int64_t kl, int64_t ku, Matrix<scalar_t>& orig);
+
+    BandMatrix<scalar_t> slice(
+        int64_t row1, int64_t row2,
+        int64_t col1, int64_t col2);
+
+protected:
+    // used by slice
+    BandMatrix(BaseBandMatrix<scalar_t>& orig,
+           typename BaseMatrix<scalar_t>::Slice slice);
 
 public:
     template <typename T>
@@ -78,28 +87,13 @@ public:
 
     int64_t upperBandwidth() const;
     void    upperBandwidth(int64_t ku);
-
-    // todo: specialize for band
-    // int64_t getMaxHostTiles();
-    // int64_t getMaxDeviceTiles(int device);
-    // void allocateBatchArrays();
-    // void reserveHostWorkspace();
-    // void reserveDeviceWorkspace();
-    // void gather(scalar_t* A, int64_t lda);
-
-    void tileUpdateAllOrigin();
-
-protected:
-    int64_t kl_, ku_;
 };
 
 //------------------------------------------------------------------------------
 /// Default constructor creates an empty band matrix with bandwidth = 0.
 template <typename scalar_t>
 BandMatrix<scalar_t>::BandMatrix():
-    Matrix<scalar_t>(),
-    kl_(0),
-    ku_(0)
+    BaseBandMatrix<scalar_t>()
 {}
 
 //------------------------------------------------------------------------------
@@ -136,17 +130,12 @@ template <typename scalar_t>
 BandMatrix<scalar_t>::BandMatrix(
     int64_t m, int64_t n, int64_t kl, int64_t ku, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
-    : Matrix<scalar_t>(m, n, nb, p, q, mpi_comm),
-      kl_(kl),
-      ku_(ku)
+    : BaseBandMatrix<scalar_t>(m, n, kl, ku, nb, p, q, mpi_comm)
 {}
 
 //------------------------------------------------------------------------------
 /// Conversion from general Matrix.
-/// Creates a shallow copy view of the original matrix,
-///
-/// @param[in] orig
-///     Original matrix.
+/// Creates a shallow copy view of the band region [kl, ku] of the original matrix.
 ///
 /// @param[in] kl
 ///     Lower bandwidth.
@@ -154,13 +143,59 @@ BandMatrix<scalar_t>::BandMatrix(
 /// @param[in] ku
 ///     Upper bandwidth.
 ///
+/// @param[in] orig
+///     Original matrix.
+///
 template <typename scalar_t>
 BandMatrix<scalar_t>::BandMatrix(
     int64_t kl, int64_t ku, Matrix<scalar_t>& orig)
-    : Matrix<scalar_t>(orig, 0, orig.mt()-1, 0, orig.nt()-1),
-      kl_(kl),
-      ku_(ku)
+    : BaseBandMatrix<scalar_t>(kl, ku, orig)
 {}
+
+//------------------------------------------------------------------------------
+/// Sliced matrix constructor creates shallow copy view of parent matrix,
+/// A[ row1:row2, col1:col2 ].
+/// This takes row & col indices instead of block row & block col indices.
+///
+/// @param[in] orig
+///     Original matrix of which to make sub-matrix.
+///
+/// @param[in] slice
+///     Contains start and end row and column indices.
+///
+template <typename scalar_t>
+BandMatrix<scalar_t>::BandMatrix(
+    BaseBandMatrix<scalar_t>& orig, typename BaseMatrix<scalar_t>::Slice slice)
+    : BaseBandMatrix<scalar_t>(orig, slice)
+{
+    this->uplo_ = Uplo::General;
+}
+
+//------------------------------------------------------------------------------
+/// Returns sliced matrix that is a shallow copy view of the
+/// parent matrix, A[ row1:row2, col1:col2 ].
+/// This takes row & col indices instead of block row & block col indices.
+///
+/// @param[in] row1
+///     Starting row index. 0 <= row1 < m.
+///
+/// @param[in] row2
+///     Ending row index (inclusive). row2 < m.
+///
+/// @param[in] col1
+///     Starting column index. 0 <= col1 < n.
+///
+/// @param[in] col2
+///     Ending column index (inclusive). col2 < n.
+///
+template <typename scalar_t>
+BandMatrix<scalar_t> BandMatrix<scalar_t>::slice(
+    int64_t row1, int64_t row2,
+    int64_t col1, int64_t col2)
+{
+    return BandMatrix<scalar_t>(*this,
+        typename BaseMatrix<scalar_t>::Slice(row1, row2, col1, col2));
+}
 
 //------------------------------------------------------------------------------
 /// Swap contents of band matrices A and B.
@@ -168,10 +203,8 @@ template <typename scalar_t>
 void swap(BandMatrix<scalar_t>& A, BandMatrix<scalar_t>& B)
 {
     using std::swap;
-    swap(static_cast< Matrix<scalar_t>& >(A),
-         static_cast< Matrix<scalar_t>& >(B));
-    swap(A.kl_, B.kl_);
-    swap(A.ku_, B.ku_);
+    swap(static_cast< BaseBandMatrix<scalar_t>& >(A),
+         static_cast< BaseBandMatrix<scalar_t>& >(B));
 }
 
 //------------------------------------------------------------------------------
@@ -179,7 +212,7 @@ void swap(BandMatrix<scalar_t>& A, BandMatrix<scalar_t>& B)
 template <typename scalar_t>
 int64_t BandMatrix<scalar_t>::lowerBandwidth() const
 {
-    return (this->op() == Op::NoTrans ? kl_ : ku_);
+    return (this->op() == Op::NoTrans ? this->kl_ : this->ku_);
 }
 
 //------------------------------------------------------------------------------
@@ -198,7 +231,7 @@ void BandMatrix<scalar_t>::lowerBandwidth(int64_t kl)
 template <typename scalar_t>
 int64_t BandMatrix<scalar_t>::upperBandwidth() const
 {
-    return (this->op() == Op::NoTrans ? ku_ : kl_);
+    return (this->op() == Op::NoTrans ? this->ku_ : this->kl_);
 }
 
 //------------------------------------------------------------------------------
@@ -210,29 +243,6 @@ void BandMatrix<scalar_t>::upperBandwidth(int64_t ku)
         this->ku_ = ku;
     else
         this->kl_ = ku;
-}
-
-//------------------------------------------------------------------------------
-/// Move all tiles back to their origin.
-//
-// Assuming fixed size, square tiles for simplicity
-// todo: generalize
-template <typename scalar_t>
-void BandMatrix<scalar_t>::tileUpdateAllOrigin()
-{
-    int64_t mt = this->mt();
-    int64_t nt = this->nt();
-    int64_t klt = ceildiv( this->kl_, this->tileNb(0) );
-    int64_t kut = ceildiv( this->ku_, this->tileNb(0) );
-    for (int64_t j = 0; j < nt; ++j) {
-        int64_t istart = blas::max( 0, j-kut );
-        int64_t iend   = blas::min( j+klt+1, mt );
-        for (int64_t i = istart; i < iend; ++i) {
-            if (this->tileIsLocal(i, j)) {
-                this->tileUpdateOrigin(i, j);
-            }
-        }
-    }
 }
 
 } // namespace slate

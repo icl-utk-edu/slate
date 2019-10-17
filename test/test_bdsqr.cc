@@ -49,11 +49,11 @@ void test_bdsqr_work(
         MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
 
     // local values
-    const int izero = 0;
+    // const int izero = 0;
 
     // BLACS/MPI variables
-    int ictxt, nprow, npcol, myrow, mycol, info;
-    int descA_tst[9];
+    int ictxt, nprow, npcol, myrow, mycol;
+    // int descA_tst[9];
     int iam = 0, nprocs = 1;
 
     // initialize BLACS and ScaLAPACK

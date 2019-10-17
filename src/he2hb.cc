@@ -110,7 +110,7 @@ void he2hb(slate::internal::TargetType<target>,
 
     int my_rank = A.mpiRank();
 
-    bool debug = true;
+    // bool debug = true;
 
     #pragma omp parallel
     #pragma omp master

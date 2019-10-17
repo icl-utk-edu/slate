@@ -110,7 +110,7 @@ void test_tb2bd_work(
 
     A.ge2tbGather(Afull);
 
-    int64_t index = 0; // index in Ad storage
+    // int64_t index = 0; // index in Ad storage
     int64_t jj = 0; // col index
     for (int64_t j = 0; j < A.nt(); ++j) {
         int64_t ii = 0; // row index

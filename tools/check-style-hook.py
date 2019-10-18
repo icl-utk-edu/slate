@@ -82,9 +82,9 @@ def check_style( lines ):
                 check( r'\r',     line, 'Unix newlines only; no Windows returns!' )
                 if (is_src):
                     check( r'\t', line, 'remove tab' )
-            except Exception, e:
+            except Exception as ex:
                 print( '%s, line %d: %s\n>>%s' %
-                    (filename, linenum, e.message, line), file=sys.stderr )
+                    (filename, linenum, ex.message, line), file=sys.stderr )
                 errors += 1
         # end
 

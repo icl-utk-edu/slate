@@ -23,6 +23,7 @@ import re
 import argparse
 import subprocess
 import xml.etree.ElementTree as ET
+import io
 
 # ------------------------------------------------------------------------------
 # command line arguments
@@ -64,8 +65,11 @@ def run_test( cmd ):
     output = ''
     p = subprocess.Popen( cmd.split(), stdout=subprocess.PIPE,
                                        stderr=subprocess.STDOUT )
+    p_out = p.stdout
+    if (sys.version_info.major >= 3):
+        p_out = io.TextIOWrapper(p.stdout, encoding='utf-8')
     # Read unbuffered ("for line in p.stdout" will buffer).
-    for line in iter(p.stdout.readline, b''):
+    for line in iter(p_out.readline, ''):
         print( line, end='' )
         output += line
     err = p.wait()

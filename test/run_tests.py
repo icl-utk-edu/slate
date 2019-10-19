@@ -23,6 +23,7 @@ import re
 import argparse
 import subprocess
 import xml.etree.ElementTree as ET
+import io
 
 # ------------------------------------------------------------------------------
 # command line arguments
@@ -66,7 +67,8 @@ categories = [
     group_cat.add_argument( '--aux',           action='store_true', help='run auxiliary routine tests' ),
     group_cat.add_argument( '--norms',         action='store_true', help='run norm tests' ),
 ]
-categories = map( lambda x: x.dest, categories ) # map to names: ['lu', 'chol', ...]
+# map category objects to category names: ['lu', 'chol', ...]
+categories = list( map( lambda x: x.dest, categories ) )
 
 group_opt = parser.add_argument_group( 'options' )
 # BLAS and LAPACK
@@ -277,7 +279,7 @@ gen_no_nb = origin + target + p + q + check + ref + tol + repeat
 # filters a comma separated list csv based on items in list values.
 # if no items from csv are in values, returns first item in values.
 def filter_csv( values, csv ):
-    f = filter( lambda x: x in values, csv.split( ',' ))
+    f = list( filter( lambda x: x in values, csv.split( ',' ) ) )
     if (not f):
         return values[0]
     return ','.join( f )
@@ -540,8 +542,11 @@ def run_test( cmd ):
     output = ''
     p = subprocess.Popen( cmd.split(), stdout=subprocess.PIPE,
                                        stderr=subprocess.STDOUT )
+    p_out = p.stdout
+    if (sys.version_info.major >= 3):
+        p_out = io.TextIOWrapper(p.stdout, encoding='utf-8')
     # Read unbuffered ("for line in p.stdout" will buffer).
-    for line in iter(p.stdout.readline, b''):
+    for line in iter(p_out.readline, ''):
         print( line, end='' )
         output += line
     err = p.wait()
@@ -568,7 +573,8 @@ for cmd in cmds:
             failed_tests.append( (cmd[0], err, output) )
         else:
             passed_tests.append( cmd[0] )
-not_seen = filter( lambda x: x not in seen, opts.tests )
+not_seen = list( filter( lambda x: x not in seen, opts.tests ) )
+
 if (not_seen):
     print_tee( 'Warning: unknown routines:', ' '.join( not_seen ))
 

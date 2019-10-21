@@ -148,8 +148,9 @@ void ttmqr(internal::TargetType<Target::HostTask>,
         for (int index = 0; index < nranks; index += step) {
             int64_t rank_ind = rank_indices[ index ].second;
             int64_t i, j, i1, j1, i_dst, j_dst;
-            // At each level, scan cols of C for local tiles.
-            // TODO: the i loop can be parallelized
+            // if (side == left), scan rows of C for local tiles; 
+            // if (side == right), scan cols of C for local tiles
+            // TODO: the k loop can be parallelized
             for (int64_t k = 0; k < k_end; ++k) {
                 if (side == Side::Left) {
                     i = rank_ind;

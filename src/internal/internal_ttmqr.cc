@@ -137,6 +137,8 @@ void ttmqr(internal::TargetType<Target::HostTask>,
         step = 1;
 
     int64_t k_end;
+    int64_t i, j, i1, j1, i_dst, j_dst;
+
     if (side == Side::Left) {
         k_end = C.nt();
     }
@@ -147,7 +149,6 @@ void ttmqr(internal::TargetType<Target::HostTask>,
     for (int level = 0; level < nlevels; ++level) {
         for (int index = 0; index < nranks; index += step) {
             int64_t rank_ind = rank_indices[ index ].second;
-            int64_t i, j, i1, j1, i_dst, j_dst;
             // if (side == left), scan rows of C for local tiles; 
             // if (side == right), scan cols of C for local tiles
             // Three for-loops: 1) send, receive 2) update 3) receive, send
@@ -191,11 +192,9 @@ void ttmqr(internal::TargetType<Target::HostTask>,
 
                         int     src   = C.tileRank(i1, j1); 
                         C.tileRecv(i1, j1, src, layout, tag);
-
                     }
                 }
             }
-
 
             for (int64_t k = 0; k < k_end; ++k) {
                 if (side == Side::Left) {
@@ -237,7 +236,6 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                 }
             }
             #pragma omp taskwait 
-
 
             for (int64_t k = 0; k < k_end; ++k) {
                 if (side == Side::Left) {

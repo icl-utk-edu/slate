@@ -2171,9 +2171,9 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
         // printf("%p\n", work_data);
     }
 
-    cudaStream_t stream = compute_stream( dst_tile->device() == host_num_ ?
-                                          src_tile->device() :
-                                          dst_tile->device());
+    cudaStream_t stream = comm_stream(dst_tile->device() == host_num_ ?
+                                      src_tile->device() :
+                                      dst_tile->device());
     if (is_square || (! need_convert)) {
         src_tile->copyData(dst_tile, stream);
     }
@@ -2188,7 +2188,7 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
             Tile<scalar_t> work_tile(src_tile->mb(), src_tile->nb(), work_data,
                                      work_stride, work_device,
                                      TileKind::Workspace, src_tile->layout());
-            src_tile->copyData(&work_tile, compute_stream(work_device));
+            src_tile->copyData(&work_tile, comm_stream(work_device));
 
             if (dst_tile->isContiguous())
                 dst_tile->stride( src_tile->layout() == Layout::ColMajor ?
@@ -2203,9 +2203,9 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
             device::transpose(phys_mb, phys_nb,
                               work_data, work_stride,
                               dst_data, dst_tile->stride(),
-                              compute_stream(work_device));
+                              comm_stream(work_device));
             slate_cuda_call(
-                cudaStreamSynchronize(compute_stream(work_device)));
+                cudaStreamSynchronize(comm_stream(work_device)));
         }
         else {
             int64_t work_stride = src_tile->layout() == Layout::ColMajor ?
@@ -2221,15 +2221,17 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
             device::transpose(phys_mb, phys_nb,
                               src_data, src_tile->stride(),
                               work_data, work_stride,
-                              compute_stream(work_device));
+                              comm_stream(work_device));
             Tile<scalar_t> work_tile(src_tile->mb(), src_tile->nb(), work_data,
                                      work_stride, work_device,
                                      TileKind::Workspace, target_layout);
             if (dst_tile->isContiguous())
                 dst_tile->stride(work_stride);
-            work_tile.copyData(dst_tile, compute_stream(work_device));
+
+            work_tile.copyData(dst_tile, comm_stream(work_device));
+
             slate_cuda_call(
-                cudaStreamSynchronize(compute_stream(work_device)));
+                cudaStreamSynchronize(comm_stream(work_device)));
         }
     }
 
@@ -2935,8 +2937,8 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(int64_t i, int64_t j, int device,
 
 //------------------------------------------------------------------------------
 /// Converts tiles indicated in 'tile_set' that exist on 'device' into 'layout'
-/// if not alread in 'layout' major.
-/// Tiles should exist on 'device', will assert otherwise.
+/// if not already in 'layout' major.
+/// Tiles should exist on 'device', will throw exception otherwise.
 /// Operates in batch mode when tiles are on devices.
 /// If device is not Host, will bucket tiles into uniform size and stride
 /// batches, then launches each batch transpose.
@@ -3047,7 +3049,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
         // todo: shouldn't we allocate for the current device only?
         allocateBatchArrays(batch_count);
 
-        cudaStream_t stream = compute_stream(device);
+        cudaStream_t stream = comm_stream(device);
         slate_cuda_call(
             cudaSetDevice(device));
 

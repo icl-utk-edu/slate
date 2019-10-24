@@ -275,6 +275,7 @@ void swap(TriangularBandMatrix<scalar_t>& A, TriangularBandMatrix<scalar_t>& B)
     using std::swap;
     swap(static_cast< BaseTriangularBandMatrix<scalar_t>& >(A),
          static_cast< BaseTriangularBandMatrix<scalar_t>& >(B));
+    swap(A.diag_, B.diag_);
 }
 
 //------------------------------------------------------------------------------

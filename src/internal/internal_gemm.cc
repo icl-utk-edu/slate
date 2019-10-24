@@ -466,9 +466,19 @@ void gemm(internal::TargetType<Target::Devices>,
                     }
                 }
             }
-            A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
-            B.tileGetForReading(B_tiles_set, device, LayoutConvert(layout));
-            C.tileGetForWriting(C_tiles_set, device, LayoutConvert(layout));
+            #pragma omp task default(shared)
+            {
+                A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+            }
+            #pragma omp task default(shared)
+            {
+                B.tileGetForReading(B_tiles_set, device, LayoutConvert(layout));
+            }
+            #pragma omp task default(shared)
+            {
+                C.tileGetForWriting(C_tiles_set, device, LayoutConvert(layout));
+            }
+            #pragma omp taskwait
 
             scalar_t** a_array_host = C.a_array_host(device);
             scalar_t** b_array_host = C.b_array_host(device);

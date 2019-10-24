@@ -76,6 +76,9 @@ public:
     HermitianBandMatrix(Uplo uplo, BandMatrix<scalar_t>& orig);
     HermitianBandMatrix(int64_t kd, HermitianMatrix<scalar_t>& orig);
 
+    // on-diagonal sub-matrix
+    HermitianMatrix<scalar_t> sub(int64_t i1, int64_t i2);
+
     HermitianMatrix<scalar_t> slice(int64_t index1, int64_t index2);
     Matrix<scalar_t> slice(int64_t row1, int64_t row2,
                            int64_t col1, int64_t col2);
@@ -169,6 +172,27 @@ HermitianBandMatrix<scalar_t>::HermitianBandMatrix(
     int64_t kd, HermitianMatrix<scalar_t>& orig)
     : BaseTriangularBandMatrix<scalar_t>(kd, orig)
 {}
+
+//------------------------------------------------------------------------------
+/// Returns sub-matrix that is a shallow copy view of the
+/// parent matrix, A[ i1:i2, i1:i2 ].
+/// This version returns a HermitianMatrix with the same diagonal as the
+/// parent matrix.
+/// @see Matrix TrapezoidMatrix::sub(int64_t i1, int64_t i2,
+///                                  int64_t j1, int64_t j2)
+///
+/// @param[in] i1
+///     Starting block row and column index. 0 <= i1 < mt.
+///
+/// @param[in] i2
+///     Ending block row and column index (inclusive). i2 < mt.
+///
+template <typename scalar_t>
+HermitianMatrix<scalar_t> HermitianBandMatrix<scalar_t>::sub(
+    int64_t i1, int64_t i2)
+{
+    return HermitianMatrix<scalar_t>(this->uplo(), *this, i1, i2);
+}
 
 //------------------------------------------------------------------------------
 /// Returns sliced matrix that is a shallow copy view of the

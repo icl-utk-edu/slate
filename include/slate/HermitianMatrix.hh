@@ -125,6 +125,9 @@ protected:
     HermitianMatrix(HermitianMatrix& orig,
                     int64_t i1, int64_t i2);
 
+    HermitianMatrix(Uplo uplo, BaseMatrix<scalar_t>& orig,
+                    int64_t i1, int64_t i2);
+
     // used by slice
     HermitianMatrix(HermitianMatrix& orig,
                     typename BaseMatrix<scalar_t>::Slice slice);
@@ -388,6 +391,27 @@ HermitianMatrix<scalar_t>::HermitianMatrix(
     HermitianMatrix& orig,
     int64_t i1, int64_t i2)
     : BaseTrapezoidMatrix<scalar_t>(orig, i1, i2, i1, i2)
+{}
+
+//------------------------------------------------------------------------------
+/// Sub-matrix constructor creates shallow copy view of parent matrix,
+/// A[ i1:i2, i1:i2 ]. The new view is still a Hermitian matrix, with the
+/// same diagonal as the parent matrix.
+///
+/// @param[in,out] orig
+///     Original matrix.
+///
+/// @param[in] i1
+///     Starting block row and column index. 0 <= i1 < mt.
+///
+/// @param[in] i2
+///     Ending block row and column index (inclusive). i2 < mt.
+///
+template <typename scalar_t>
+HermitianMatrix<scalar_t>::HermitianMatrix(
+    Uplo uplo, BaseMatrix<scalar_t>& orig,
+    int64_t i1, int64_t i2)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, orig, i1, i2, i1, i2)
 {}
 
 //------------------------------------------------------------------------------

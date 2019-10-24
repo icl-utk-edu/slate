@@ -143,7 +143,8 @@ public:
 
     void copyDataToHost(Tile<scalar_t>* dst_tile, cudaStream_t stream) const;
     void copyDataToDevice(Tile<scalar_t>* dst_tile, cudaStream_t stream) const;
-    void copyData(Tile<scalar_t>* dst_tile, cudaStream_t stream) const;
+    void copyData(Tile<scalar_t>* dst_tile, cudaStream_t stream,
+                  bool async = false) const;
 
     /// copies this tile's data to dst_tile data, both assumed on host
     void copyData(Tile<scalar_t>* dst_tile) const
@@ -151,7 +152,7 @@ public:
         assert(this->device_ < 0);
         assert(dst_tile->device() < 0);
         // forward
-        copyData(dst_tile, nullptr);
+        copyData(dst_tile, nullptr, false);
     }
 
     void send(int dst, MPI_Comm mpi_comm, int tag = 0) const;
@@ -280,14 +281,17 @@ public:
             return user_stride_;
     }
 
-    void layoutConvert(scalar_t* work_data, cudaStream_t stream = nullptr);
+    void layoutConvert( scalar_t* work_data,
+                        cudaStream_t stream = nullptr,
+                        bool async = false);
 
     /// Convert layout of this tile (assuming no workspace is needed)
     /// CUDA stream must be provided if conversion is to happen on device
-    void layoutConvert(cudaStream_t stream = nullptr)
+    void layoutConvert( cudaStream_t stream = nullptr,
+                        bool async = false)
     {
         assert(mb() == nb() || extended());
-        layoutConvert(nullptr, stream);
+        layoutConvert(nullptr, stream, async);
     }
 
 protected:
@@ -637,7 +641,8 @@ void Tile<scalar_t>::layoutReset()
 /// @ingroup convert_tile
 ///
 template <typename scalar_t>
-void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream)
+void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream,
+    bool async)
 {
     slate_assert(device_ == HostNum || stream != nullptr);
     slate_assert(isTransposable());
@@ -651,9 +656,12 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream)
         else {
             slate_cuda_call(
                 cudaSetDevice(device_));
+
             device::transpose(mb(), data(), stride(), stream);
-            slate_cuda_call(
-                cudaStreamSynchronize(stream));
+
+            if (! async)
+                slate_cuda_call(
+                    cudaStreamSynchronize(stream));
         }
     }
     // rectangular tile
@@ -690,13 +698,15 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream)
             else {
                 slate_cuda_call(
                     cudaSetDevice(device_));
+
                 device::transpose(layout() == Layout::ColMajor ? mb_ : nb_,
                                   layout() == Layout::ColMajor ? nb_ : mb_,
                                   src_data, src_stride,
                                   data_, stride_,
                                   stream);
-                slate_cuda_call(
-                    cudaStreamSynchronize(stream));
+                if (! async)
+                    slate_cuda_call(
+                        cudaStreamSynchronize(stream));
             }
         }
         else {
@@ -718,6 +728,7 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream)
             else {
                 slate_cuda_call(
                     cudaSetDevice(device_));
+
                 device::transpose(layout() == Layout::ColMajor ? mb_ : nb_,
                                   layout() == Layout::ColMajor ? nb_ : mb_,
                                   data_, stride_,
@@ -727,8 +738,10 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream)
                     cudaMemcpyAsync(
                             data_, work_data, bytes(),
                             cudaMemcpyDeviceToDevice, stream));
-                slate_cuda_call(
-                    cudaStreamSynchronize(stream));
+
+                if (! async)
+                    slate_cuda_call(
+                        cudaStreamSynchronize(stream));
             }
             stride_ = work_stride;
         }
@@ -874,7 +887,8 @@ void Tile<scalar_t>::copyDataToDevice(
 // todo: need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
 void Tile<scalar_t>::copyData(
-    Tile<scalar_t>* dst_tile, cudaStream_t stream) const
+    Tile<scalar_t>* dst_tile, cudaStream_t stream,
+    bool async) const
 {
     // sizes has to match
     slate_assert(mb_ == dst_tile->mb_);
@@ -941,8 +955,9 @@ void Tile<scalar_t>::copyData(
                         dst_tile->data_, data_, bytes(),
                         memcpy_kind, stream));
 
-            slate_cuda_call(
-                cudaStreamSynchronize(stream));
+            if (! async)
+                slate_cuda_call(
+                    cudaStreamSynchronize(stream));
         }
         else {
             // Otherwise, use 2D copy.
@@ -962,8 +977,9 @@ void Tile<scalar_t>::copyData(
                         width, height,
                         memcpy_kind, stream));
 
-            slate_cuda_call(
-                cudaStreamSynchronize(stream));
+            if (! async)
+                slate_cuda_call(
+                    cudaStreamSynchronize(stream));
         }
     }
     dst_tile->layout(this->layout());

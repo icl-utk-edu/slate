@@ -266,7 +266,8 @@ private:
 
     void tileCopyDataLayout(Tile<scalar_t>* src_tile,
                             Tile<scalar_t>* dst_tile,
-                            Layout target_layout);
+                            Layout target_layout,
+                            bool async);
 
 public:
 
@@ -436,13 +437,16 @@ public:
 
     bool tileLayoutIsConvertible(int64_t i, int64_t j, int device=host_num_);
 
-    void tileLayoutConvert(int64_t i, int64_t j, int device, Layout layout, bool reset = false);
+    void tileLayoutConvert(int64_t i, int64_t j, int device, Layout layout,
+                           bool reset = false, bool async = false);
     /// Convert layout of tile(i, j) to layout on host, optionally reset
-    void tileLayoutConvert(int64_t i, int64_t j, Layout layout, bool reset = false)
+    void tileLayoutConvert(int64_t i, int64_t j, Layout layout,
+                           bool reset = false, bool async = false)
     {
-        tileLayoutConvert(i, j, host_num_, layout, reset);
+        tileLayoutConvert(i, j, host_num_, layout, reset, async);
     }
-    void tileLayoutConvert(std::set<ij_tuple>& tile_set, int device, Layout layout, bool reset = false);
+    void tileLayoutConvert(std::set<ij_tuple>& tile_set, int device,
+                           Layout layout, bool reset = false);
     /// Convert layout of a set of tiles to layout on host, optionally reset
     void tileLayoutConvert(std::set<ij_tuple>& tile_set, Layout layout, bool reset = false)
     {
@@ -2050,7 +2054,8 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
                                               Tile<scalar_t>* dst_tile,
-                                              Layout target_layout)
+                                              Layout target_layout,
+                                              bool async)
 {
     bool src_userOwned = ! src_tile->allocated();
     bool dst_userOwned = ! dst_tile->allocated();
@@ -2175,12 +2180,12 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
                                       src_tile->device() :
                                       dst_tile->device());
     if (is_square || (! need_convert)) {
-        src_tile->copyData(dst_tile, stream);
+        src_tile->copyData(dst_tile, stream, async);
     }
 
     if (need_convert) {
         if (is_square) {
-            dst_tile->layoutConvert(stream);
+            dst_tile->layoutConvert(stream, async);
         }
         else if (copy_first) {
             int64_t work_stride = src_tile->stride();
@@ -2188,7 +2193,7 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
             Tile<scalar_t> work_tile(src_tile->mb(), src_tile->nb(), work_data,
                                      work_stride, work_device,
                                      TileKind::Workspace, src_tile->layout());
-            src_tile->copyData(&work_tile, comm_stream(work_device));
+            src_tile->copyData(&work_tile, comm_stream(work_device), async);
 
             if (dst_tile->isContiguous())
                 dst_tile->stride( src_tile->layout() == Layout::ColMajor ?
@@ -2204,8 +2209,9 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
                               work_data, work_stride,
                               dst_data, dst_tile->stride(),
                               comm_stream(work_device));
-            slate_cuda_call(
-                cudaStreamSynchronize(comm_stream(work_device)));
+            if (! async)
+                slate_cuda_call(
+                    cudaStreamSynchronize(comm_stream(work_device)));
         }
         else {
             int64_t work_stride = src_tile->layout() == Layout::ColMajor ?
@@ -2228,10 +2234,11 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
             if (dst_tile->isContiguous())
                 dst_tile->stride(work_stride);
 
-            work_tile.copyData(dst_tile, comm_stream(work_device));
+            work_tile.copyData(dst_tile, comm_stream(work_device), async);
 
-            slate_cuda_call(
-                cudaStreamSynchronize(comm_stream(work_device)));
+            if (! async)
+                slate_cuda_call(
+                    cudaStreamSynchronize(comm_stream(work_device)));
         }
     }
 
@@ -2390,20 +2397,23 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
                 if (tile_node[host_num_].getState() == MOSI::Invalid) {
                     tileCopyDataLayout( src_tile_instance->tile(),
                                         host_tile_instance->tile(),
-                                        target_layout);
+                                        target_layout,
+                                        async);
                     host_tile_instance->setState(MOSI::Shared);
                 }
 
                 tileCopyDataLayout( host_tile_instance->tile(),
                                     dst_tile_instance->tile(),
-                                    target_layout);
+                                    target_layout,
+                                    async);
             }
         }
         else {
             // LockGuard guard(src_tile_instance->get_lock());
             tileCopyDataLayout( src_tile_instance->tile(),
                                 dst_tile_instance->tile(),
-                                target_layout);
+                                target_layout,
+                                async);
         }
 
         dst_tile_instance->setState(MOSI::Shared);
@@ -2420,7 +2430,7 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
     // Change ColMajor <=> RowMajor if needed.
     if (layout != LayoutConvert::None &&
         dst_tile_instance->tile()->layout() != Layout(layout)) {
-        tileLayoutConvert(i, j, dst_device, Layout(layout), false);
+        tileLayoutConvert(i, j, dst_device, Layout(layout), false, async);
     }
 }
 
@@ -2464,12 +2474,10 @@ void BaseMatrix<scalar_t>::tileGet(std::set<ij_tuple>& tile_set, int device,
     for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
         int64_t i = std::get<0>(*iter);
         int64_t j = std::get<1>(*iter);
-        #pragma omp task
         {
             tileGet(i, j, device, layoutConvert, modify, hold, async);
         }
     }
-    #pragma omp taskwait
 
     // todo: if modify and target is host, batch convert on device first
     if (device != host_num_ && in_layoutConvert != LayoutConvert::None) {
@@ -2530,7 +2538,10 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set, int device,
                                              LayoutConvert layout)
 {
-    tileGet(tile_set, device, layout, false, false, false);
+    tileGet(tile_set, device, layout, false, false, true);
+
+    slate_cuda_call(
+        cudaStreamSynchronize(comm_stream(device)));
 }
 
 //------------------------------------------------------------------------------
@@ -2584,7 +2595,10 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetForWriting(std::set<ij_tuple>& tile_set,
                                              int device, LayoutConvert layout)
 {
-    tileGet(tile_set, device, layout, true, false, false);
+    tileGet(tile_set, device, layout, true, false, true);
+
+    slate_cuda_call(
+        cudaStreamSynchronize(comm_stream(device)));
 }
 
 //------------------------------------------------------------------------------
@@ -2635,7 +2649,10 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetAndHold(std::set<ij_tuple>& tile_set, int device,
                                           LayoutConvert layout)
 {
-    tileGet(tile_set, device, layout, false, true, false);
+    tileGet(tile_set, device, layout, false, true, true);
+
+    slate_cuda_call(
+        cudaStreamSynchronize(comm_stream(device)));
 }
 
 //------------------------------------------------------------------------------
@@ -2850,6 +2867,7 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileUpdateOrigin(int64_t i, int64_t j)
 //------------------------------------------------------------------------------
 /// Updates all origin instances of local tiles if MOSI::Invalid.
 ///
+// todo: optimize for set of tiles similar to MOSI set API
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
 {
@@ -2905,7 +2923,8 @@ bool BaseMatrix<scalar_t>::tileLayoutIsConvertible(int64_t i, int64_t j, int dev
 /// todo: handle op(A), sub-matrix, and sliced-matrix
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileLayoutConvert(int64_t i, int64_t j, int device,
-                                             Layout layout, bool reset)
+                                             Layout layout, bool reset,
+                                             bool async)
 {
     LockGuard guard(storage_->at(globalIndex(i, j, device)).getLock());
     auto tile = storage_->at(globalIndex(i, j, device)).tile();
@@ -2917,16 +2936,19 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(int64_t i, int64_t j, int device,
 
         scalar_t* work_data = nullptr;
         // if rectangular and not extended, need a workspace buffer
-        if (tile->mb() != tile->nb() && (! tile->extended()))
+        bool need_workspace = tile->mb() != tile->nb() && (! tile->extended());
+
+        if (need_workspace)
             work_data = storage_->allocWorkspaceBuffer(tile->device());
 
         tile->layoutConvert(work_data,
                             tile->device() == host_num_ ?
                                               nullptr :
-                                              compute_stream(tile->device()));
+                                              comm_stream(tile->device()),
+                            async && (! need_workspace));
 
         // release the workspace buffer if allocated
-        if (tile->mb() != tile->nb() && (! tile->extended()))
+        if (need_workspace)
             storage_->releaseWorkspaceBuffer(work_data, tile->device());
     }
     if (reset) {
@@ -2957,6 +2979,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(int64_t i, int64_t j, int device,
 /// @param[in] reset
 ///     Optinally resets the tiles extended buffers.
 ///
+// todo: async API
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
                                              int device, Layout layout,

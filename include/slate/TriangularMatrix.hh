@@ -64,7 +64,6 @@ template <typename scalar_t>
 class TriangularMatrix: public TrapezoidMatrix<scalar_t> {
 public:
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
-    friend class TriangularBandMatrix<scalar_t>;
 
     // constructors
     TriangularMatrix();
@@ -109,6 +108,9 @@ public:
                      int64_t i1, int64_t i2,
                      int64_t j1, int64_t j2);
 
+    TriangularMatrix(TriangularBandMatrix<scalar_t>& orig,
+                     int64_t i1, int64_t i2);
+
     // on-diagonal sub-matrix
     TriangularMatrix sub(int64_t i1, int64_t i2);
     TriangularMatrix slice(int64_t index1, int64_t index2);
@@ -140,9 +142,6 @@ protected:
     // used by slice
     TriangularMatrix(TriangularMatrix& orig,
                      typename BaseMatrix<scalar_t>::Slice slice);
-
-    TriangularMatrix(TriangularBandMatrix<scalar_t>& orig,
-                     int64_t i1, int64_t i2);
 
 public:
     template <typename T>

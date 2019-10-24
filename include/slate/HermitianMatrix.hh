@@ -54,8 +54,6 @@
 
 namespace slate {
 
-template <typename scalar_t>
-class HermitianBandMatrix;
 
 //==============================================================================
 /// Hermitian, n-by-n, distributed, tiled matrices.
@@ -63,7 +61,6 @@ template <typename scalar_t>
 class HermitianMatrix: public BaseTrapezoidMatrix<scalar_t> {
 public:
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
-    friend class HermitianBandMatrix<scalar_t>;
 
     // constructors
     HermitianMatrix();
@@ -97,6 +94,9 @@ public:
 
     HermitianMatrix(Uplo uplo, BaseMatrix<scalar_t>& orig);
 
+    HermitianMatrix(Uplo uplo, BaseMatrix<scalar_t>& orig,
+                    typename BaseMatrix<scalar_t>::Slice slice);
+
     // on-diagonal sub-matrix
     HermitianMatrix sub(int64_t i1, int64_t i2);
     HermitianMatrix slice(int64_t index1, int64_t index2);
@@ -127,9 +127,6 @@ protected:
 
     // used by slice
     HermitianMatrix(HermitianMatrix& orig,
-                    typename BaseMatrix<scalar_t>::Slice slice);
-
-    HermitianMatrix(BaseMatrix<scalar_t>& orig,
                     typename BaseMatrix<scalar_t>::Slice slice);
 
 public:
@@ -474,9 +471,11 @@ HermitianMatrix<scalar_t>::HermitianMatrix(
 ///
 template <typename scalar_t>
 HermitianMatrix<scalar_t>::HermitianMatrix(
-    BaseMatrix<scalar_t>& orig, typename BaseMatrix<scalar_t>::Slice slice)
+    Uplo uplo, BaseMatrix<scalar_t>& orig, typename BaseMatrix<scalar_t>::Slice slice)
     : BaseTrapezoidMatrix<scalar_t>(orig, slice)
-{}
+{
+    this->uplo_ = uplo;
+}
 
 //------------------------------------------------------------------------------
 /// Returns sliced matrix that is a shallow copy view of the

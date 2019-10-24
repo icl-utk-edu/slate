@@ -186,7 +186,7 @@ template <typename scalar_t>
 HermitianMatrix<scalar_t> HermitianBandMatrix<scalar_t>::slice(
     int64_t index1, int64_t index2)
 {
-    return HermitianMatrix<scalar_t>(*this,
+    return HermitianMatrix<scalar_t>(this->uplo_, *this,
         typename BaseMatrix<scalar_t>::Slice(index1, index2, index1, index2));
 }
 

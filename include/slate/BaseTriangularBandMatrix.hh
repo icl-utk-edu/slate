@@ -114,7 +114,7 @@ BaseTriangularBandMatrix<scalar_t>::BaseTriangularBandMatrix(
     std::function<int (ij_tuple ij)>& inTileRank,
     std::function<int (ij_tuple ij)>& inTileDevice,
     MPI_Comm mpi_comm)
-    : BaseBandMatrix<scalar_t>(n, n, kd, kd, inTileNb, inTileNb, inTileRank,
+    : BaseBandMatrix<scalar_t>(n, n, kd, kd, inTileNb, inTileRank,
                                inTileDevice, mpi_comm)
 {
     slate_error_if(uplo == Uplo::General);

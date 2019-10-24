@@ -69,7 +69,6 @@ protected:
     BaseBandMatrix();
 
     BaseBandMatrix(int64_t m, int64_t n, int64_t kl, int64_t ku,
-                   std::function<int64_t (int64_t j)>& inTileMb,
                    std::function<int64_t (int64_t j)>& inTileNb,
                    std::function<int (ij_tuple ij)>& inTileRank,
                    std::function<int (ij_tuple ij)>& inTileDevice,
@@ -121,11 +120,10 @@ template <typename scalar_t>
 BaseBandMatrix<scalar_t>::BaseBandMatrix(
     int64_t m, int64_t n, int64_t kl, int64_t ku,
     std::function<int64_t (int64_t j)>& inTileNb,
-    std::function<int64_t (int64_t j)>& inTileMb,
     std::function<int (ij_tuple ij)>& inTileRank,
     std::function<int (ij_tuple ij)>& inTileDevice,
     MPI_Comm mpi_comm)
-    : BaseMatrix<scalar_t>(m, n, inTileMb, inTileNb, inTileRank,
+    : BaseMatrix<scalar_t>(m, n, inTileNb, inTileNb, inTileRank,
                            inTileDevice, mpi_comm),
       kl_(kl),
       ku_(ku)

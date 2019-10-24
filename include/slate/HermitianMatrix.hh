@@ -101,6 +101,9 @@ public:
     HermitianMatrix sub(int64_t i1, int64_t i2);
     HermitianMatrix slice(int64_t index1, int64_t index2);
 
+    HermitianMatrix(Uplo uplo, BaseMatrix<scalar_t>& orig,
+                    int64_t i1, int64_t i2);
+
     // off-diagonal sub-matrix
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
     Matrix<scalar_t> slice(int64_t row1, int64_t row2,
@@ -123,9 +126,6 @@ protected:
 
     // used by on-diagonal sub(i1, i2)
     HermitianMatrix(HermitianMatrix& orig,
-                    int64_t i1, int64_t i2);
-
-    HermitianMatrix(Uplo uplo, BaseMatrix<scalar_t>& orig,
                     int64_t i1, int64_t i2);
 
     // used by slice

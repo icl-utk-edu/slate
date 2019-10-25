@@ -78,8 +78,12 @@ public:
 
     // on-diagonal sub-matrix
     HermitianMatrix<scalar_t> sub(int64_t i1, int64_t i2);
-
     HermitianMatrix<scalar_t> slice(int64_t index1, int64_t index2);
+
+
+    // sub-matrix
+    Matrix<scalar_t> sub(int64_t i1, int64_t i2,
+                         int64_t j1, int64_t j2);
     Matrix<scalar_t> slice(int64_t row1, int64_t row2,
                            int64_t col1, int64_t col2);
 
@@ -212,6 +216,43 @@ HermitianMatrix<scalar_t> HermitianBandMatrix<scalar_t>::slice(
 {
     return HermitianMatrix<scalar_t>(this->uplo_, *this,
         typename BaseMatrix<scalar_t>::Slice(index1, index2, index1, index2));
+}
+
+//------------------------------------------------------------------------------
+/// Returns sub-matrix that is a shallow copy view of the
+/// parent matrix, A[ i1:i2, j1:j2 ].
+/// This version returns a Matrix.
+///
+/// @param[in] i1
+///     Starting block-row index. 0 <= i1 < mt.
+///
+/// @param[in] i2
+///     Ending block-row index (inclusive). i2 < mt.
+///
+/// @param[in] j1
+///     Starting block-column index. 0 <= j1 < nt.
+///
+/// @param[in] j2
+///     Ending block-column index (inclusive). j2 < nt.
+///
+template <typename scalar_t>
+Matrix<scalar_t> HermitianBandMatrix<scalar_t>::sub(
+    int64_t i1, int64_t i2,
+    int64_t j1, int64_t j2)
+{
+
+    if (this->uplo() == Uplo::Lower) {
+        // require top-right corner (i1, j2) to be at or below diagonal
+        if (i1 < j2)
+            slate_error("submatrix outside lower triangle; requires i1 >= j2");
+    }
+    else {
+        // require bottom-left corner (i2, j1) to be at or above diagonal
+        if (i2 > j1)
+            slate_error("submatrix outside upper triangle; requires i2 <= j1");
+    }
+    // todo: assert that sub-matrix falls within upper/lower band
+    return Matrix<scalar_t>(*this, i1, i2, j1, j2);
 }
 
 //------------------------------------------------------------------------------

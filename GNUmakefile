@@ -333,6 +333,7 @@ libslate_src += \
         src/hetrf.cc \
         src/hetrs.cc \
         src/norm.cc \
+        src/pbtrf.cc \
         src/posv.cc \
         src/posvMixed.cc \
         src/potrf.cc \
@@ -376,6 +377,7 @@ test_src += \
         test/test_herk.cc \
         test/test_hesv.cc \
         test/test_posv.cc \
+        test/test_pbsv.cc \
         test/test_potri.cc \
         test/test_symm.cc \
         test/test_synorm.cc \

@@ -157,6 +157,9 @@ void test_gbsv   (Params& params, bool run);
 void test_posv   (Params& params, bool run);
 void test_potri  (Params& params, bool run);
 
+// Cholesky, band
+void test_pbsv   (Params& params, bool run);
+
 // symmetric indefinite
 void test_sysv   (Params& params, bool run);
 void test_sytrf  (Params& params, bool run);

@@ -106,12 +106,15 @@ std::vector< libtest::routines_t > routines = {
     // Cholesky
     { "posv",               test_posv,         Section::posv },
     { "posvMixed",          test_posv,         Section::posv },
+    { "pbsv",               test_pbsv,         Section::posv },
     { "",                   nullptr,           Section::newline },
 
     { "potrf",              test_posv,         Section::posv },
+    { "pbtrf",              test_pbsv,         Section::posv },
     { "",                   nullptr,           Section::newline },
 
     { "potrs",              test_posv,         Section::posv },
+    { "pbtrs",              test_pbsv,         Section::posv },
     { "",                   nullptr,           Section::newline },
 
     { "potri",              test_potri,        Section::posv },

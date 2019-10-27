@@ -372,6 +372,118 @@ void print_matrix(
 }
 
 //------------------------------------------------------------------------------
+/// Print a SLATE distributed hermitian band matrix.
+/// Rank 0 does the printing, and must have enough memory to fit one entire
+/// block row of the matrix.
+/// Tiles outside the bandwidth are printed as "0", with no trailing decimals.
+/// For block-sparse matrices, missing tiles are print as "nan".
+///
+/// This version handles Hermitian band matrices. Entries in the A.uplo
+/// triangle are printed; entries in the opposite triangle are printed as "nan".
+///
+/// Having said that, if the printed matrix is a lower triangular matrix,
+/// then the routine will print the tiles of upper part of the matrix as "nan",
+/// and the lower part tiles that are inside the bandwidth will be printed
+/// as they are, whereas the non existing tiles, tiles outside the bandwidth,
+/// will be printed as "0", with no trailing decimals.
+/// This is to follow MATLAB convention and to make it easier for debugging.
+///
+template <typename scalar_t>
+void print_matrix(
+    const char* label,
+    slate::HermitianBandMatrix<scalar_t>& A, int width = 10, int precision = 6)
+{
+    using blas::real;
+    using blas::imag;
+
+    int mpi_rank = A.mpiRank();
+    MPI_Comm comm = A.mpiComm();
+    MPI_Barrier(comm);
+
+    width = std::max(width, precision + 3);
+
+    std::string msg = label;
+    msg += " = [\n";
+
+    // for entries in opposite triangle from A.uplo
+    char opposite[ 80 ];
+    if (slate::is_complex<scalar_t>::value) {
+        snprintf(opposite, sizeof(opposite), " %*f   %*s ",
+                 width, NAN, width, "");
+    }
+    else {
+        snprintf(opposite, sizeof(opposite), " %*f",
+                 width, NAN);
+    }
+
+    // for tiles outside bandwidth
+    char outside[ 80 ];
+    if (slate::is_complex<scalar_t>::value) {
+        snprintf(outside, sizeof(outside), " %*.0f   %*s ",
+                 width, 0., width, "");
+    }
+    else {
+        snprintf(outside, sizeof(outside), " %*.0f",
+                 width, 0.);
+    }
+
+    int64_t kdt = slate::ceildiv(A.bandwidth(), A.tileNb(0));
+    for (int64_t i = 0; i < A.mt(); ++i) {
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            if ((A.uplo() == slate::Uplo::Lower && i <= j + kdt && j <= i) ||
+                (A.uplo() == slate::Uplo::Upper && i >= j - kdt && j >= i))
+            {
+                send_recv_tile(A, i, j, mpi_rank, comm);
+            }
+        }
+
+        if (mpi_rank == 0) {
+            for (int64_t ti = 0; ti < A.tileMb(i); ++ti) {
+                for (int64_t j = 0; j < A.nt(); ++j) {
+                    if ((A.uplo() == slate::Uplo::Lower && i <= j + kdt && j <= i) ||
+                        (A.uplo() == slate::Uplo::Upper && i >= j - kdt && j >= i))
+                    {
+                        msg += tile_row_string(A, i, j, ti, width, precision, opposite);
+                    }
+                    else {
+                        for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
+                            if ((A.uplo() == slate::Uplo::Lower && j <= i) ||
+                                (A.uplo() == slate::Uplo::Upper && j >= i))
+                            {
+                                msg += outside;
+                            }
+                            else
+                            {
+                                msg += opposite;
+                            }
+                        }
+                    }
+                    if (j < A.nt() - 1)
+                        msg += "    ";
+                    else
+                        msg += "\n";
+                }
+            }
+            if (i < A.mt() - 1)
+                msg += "\n";
+            else
+                msg += "];\n";
+            printf("%s", msg.c_str());
+            msg.clear();
+
+            // cleanup data
+            for (int64_t j = 0; j < A.nt(); ++j) {
+                if (! A.tileIsLocal(i, j)) {
+                    A.tileErase(i, j);
+                }
+            }
+        }
+    }
+
+    MPI_Barrier(comm);
+}
+
+//------------------------------------------------------------------------------
 /// Print a SLATE distributed trapezoid matrix.
 /// Rank 0 does the printing, and must have enough memory to fit one entire
 /// block row of the matrix.

@@ -46,79 +46,6 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::gbsv from internal::specialization::gbsv
-namespace internal {
-namespace specialization {
-
-//------------------------------------------------------------------------------
-/// Distributed parallel band LU factorization and solve.
-/// Generic implementation for any target.
-/// @ingroup gbsv_specialization
-///
-template <Target target, typename scalar_t>
-void gbsv(slate::internal::TargetType<target>,
-          BandMatrix<scalar_t>& A, Pivots& pivots,
-          Matrix<scalar_t>& B,
-          int64_t ib, int max_panel_threads, int64_t lookahead)
-{
-    // factorization
-    gbtrf(A, pivots,
-          {{Option::InnerBlocking, ib},
-           {Option::Lookahead, lookahead},
-           {Option::MaxPanelThreads, int64_t(max_panel_threads)},
-           {Option::Target, target}});
-
-    // solve
-    gbtrs(A, pivots, B,
-         {{Option::Lookahead, lookahead},
-          {Option::Target, target}});
-}
-
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup gbsv_specialization
-///
-template <Target target, typename scalar_t>
-void gbsv(BandMatrix<scalar_t>& A, Pivots& pivots,
-          Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts)
-{
-    int64_t lookahead;
-    try {
-        lookahead = opts.at(Option::Lookahead).i_;
-        assert(lookahead >= 0);
-    }
-    catch (std::out_of_range&) {
-        lookahead = 1;
-    }
-
-    int64_t ib;
-    try {
-        ib = opts.at(Option::InnerBlocking).i_;
-        assert(ib >= 0);
-    }
-    catch (std::out_of_range&) {
-        ib = 16;
-    }
-
-    int64_t max_panel_threads;
-    try {
-        max_panel_threads = opts.at(Option::MaxPanelThreads).i_;
-        assert(max_panel_threads >= 0);
-    }
-    catch (std::out_of_range&) {
-        max_panel_threads = std::max(omp_get_max_threads()/2, 1);
-    }
-
-    internal::specialization::gbsv(internal::TargetType<target>(),
-                                   A, pivots, B,
-                                   ib, max_panel_threads, lookahead);
-}
-
 //------------------------------------------------------------------------------
 /// Distributed parallel band LU factorization and solve.
 ///
@@ -186,29 +113,12 @@ void gbsv(BandMatrix<scalar_t>& A, Pivots& pivots,
           Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts)
 {
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range&) {
-        target = Target::HostTask;
-    }
+    // factorization
+    gbtrf(A, pivots, opts);
 
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-            gbsv<Target::HostTask>(A, pivots, B, opts);
-            break;
-        case Target::HostNest:
-            gbsv<Target::HostNest>(A, pivots, B, opts);
-            break;
-        case Target::HostBatch:
-            gbsv<Target::HostBatch>(A, pivots, B, opts);
-            break;
-        case Target::Devices:
-            gbsv<Target::Devices>(A, pivots, B, opts);
-            break;
-    }
+    // solve
+    gbtrs(A, pivots, B, opts);
+
     // todo: return value for errors?
 }
 

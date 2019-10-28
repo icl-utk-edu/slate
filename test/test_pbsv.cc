@@ -155,16 +155,12 @@ void test_pbsv_work(Params& params, bool run)
     }
 
     double gflop;
-#if 1
     if (params.routine == "pbtrf")
         gflop = lapack::Gflop<scalar_t>::pbtrf(n, kd);
-#endif
-#if 0
     else if (params.routine == "potrs")
         gflop = lapack::Gflop<scalar_t>::pbtrs(n, nrhs, kd);
     else
         gflop = lapack::Gflop<scalar_t>::pbsv(n, nrhs, kd);
-#endif
 
     if (! ref_only) {
         if (params.routine == "pbtrs") {

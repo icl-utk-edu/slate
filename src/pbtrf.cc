@@ -60,7 +60,7 @@ namespace specialization {
 ///
 template <Target target, typename scalar_t>
 void pbtrf(slate::internal::TargetType<target>,
-           HermitianBandMatrix<scalar_t>& A, int64_t lookahead)
+           HermitianBandMatrix<scalar_t> A, int64_t lookahead)
 {
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename HermitianBandMatrix<scalar_t>::BcastList;

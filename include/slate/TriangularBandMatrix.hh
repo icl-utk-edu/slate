@@ -81,6 +81,7 @@ public:
 
     // conversion
     TriangularBandMatrix(Uplo uplo, Diag diag, BandMatrix<scalar_t>& orig);
+    TriangularBandMatrix(Diag diag, BaseTriangularBandMatrix<scalar_t>& orig);
 
     TriangularMatrix<scalar_t> sub(int64_t i1, int64_t i2);
 
@@ -180,6 +181,15 @@ TriangularBandMatrix<scalar_t>::TriangularBandMatrix(
 /// creates a shallow copy view of the original matrix.
 /// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
 ///
+/// @param[in] uplo
+///     - Upper: upper triangle of A is stored.
+///     - Lower: lower triangle of A is stored.
+///
+/// @param[in] diag
+///     - NonUnit: A does not have unit diagonal.
+///     - Unit:    A has unit diagonal; diagonal elements are not referenced
+///                and are assumed to be one.
+///
 /// @param[in,out] orig
 ///     Original matrix.
 ///
@@ -187,6 +197,28 @@ template <typename scalar_t>
 TriangularBandMatrix<scalar_t>::TriangularBandMatrix(
     Uplo uplo, Diag diag, BandMatrix<scalar_t>& orig)
     : BaseTriangularBandMatrix<scalar_t>(uplo, orig),
+      diag_(diag)
+{}
+
+//------------------------------------------------------------------------------
+/// [explicit]
+/// todo:
+/// Conversion from base triangular band matrix
+/// creates a shallow copy view of the original matrix.
+/// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
+///
+/// @param[in] diag
+///     - NonUnit: A does not have unit diagonal.
+///     - Unit:    A has unit diagonal; diagonal elements are not referenced
+///                and are assumed to be one.
+///
+/// @param[in,out] orig
+///     Original matrix.
+///
+template <typename scalar_t>
+TriangularBandMatrix<scalar_t>::TriangularBandMatrix(
+    Diag diag, BaseTriangularBandMatrix<scalar_t>& orig)
+    : BaseTriangularBandMatrix<scalar_t>(orig),
       diag_(diag)
 {}
 

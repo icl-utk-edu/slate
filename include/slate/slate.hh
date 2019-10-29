@@ -546,6 +546,16 @@ void unmlq(Side side, Op op,
 
 //------------------------------------------------------------------------------
 // Band Cholesky
+// pbsv
+template <typename scalar_t>
+void pbsv(HermitianBandMatrix<scalar_t>& A, Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void pbsv(HermitianBandMatrix<scalar_t>& A, Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
 // pbtrf
 template <typename scalar_t>
 void pbtrf(HermitianBandMatrix<scalar_t>& A,
@@ -553,6 +563,16 @@ void pbtrf(HermitianBandMatrix<scalar_t>& A,
 
 template <Target target, typename scalar_t>
 void pbtrf(HermitianBandMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// pbtrs
+template <typename scalar_t>
+void pbtrs(HermitianBandMatrix<scalar_t>& A, Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void pbtrs(HermitianBandMatrix<scalar_t>& A, Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 

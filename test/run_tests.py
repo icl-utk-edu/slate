@@ -361,9 +361,9 @@ if (opts.chol):
 # Cholesky banded
 if (opts.chol):
     cmds += [
-    #[ 'pbsv',  gen + dtype + la + n + kd + uplo ],
-    #[ 'pbtrf', gen + dtype + la + n + kd + uplo ],
-    #[ 'pbtrs', gen + dtype + la + n + kd + uplo ],
+    [ 'pbsv',  gen + dtype + la + n + kd + uplo ],
+    [ 'pbtrf', gen + dtype + la + n + kd + uplo ],
+    [ 'pbtrs', gen + dtype + la + n + kd + uplo ],
     #[ 'pbcon', gen + dtype + la + n + kd + uplo ],
     #[ 'pbrfs', gen + dtype + la + n + kd + uplo ],
     #[ 'pbequ', gen + dtype + la + n + kd + uplo ],

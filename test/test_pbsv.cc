@@ -164,13 +164,11 @@ void test_pbsv_work(Params& params, bool run)
 
     if (! ref_only) {
         if (params.routine == "pbtrs") {
-#if 1
             // Factor matrix A.
             slate::pbtrf(A, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
-#endif
         }
 
         if (trace) slate::trace::Trace::on();
@@ -190,28 +188,22 @@ void test_pbsv_work(Params& params, bool run)
         // pbsv:  Solve AX = B, including factoring A.
         //==================================================
         if (params.routine == "pbtrf") {
-#if 1
             slate::pbtrf(A, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
-#endif
         }
         else if (params.routine == "pbtrs") {
-#if 0
             slate::pbtrs(A, B, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
-#endif
         }
         else {
-#if 0
             slate::pbsv(A, B, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
-#endif
         }
 
         {

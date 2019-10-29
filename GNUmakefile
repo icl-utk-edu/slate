@@ -333,7 +333,9 @@ libslate_src += \
         src/hetrf.cc \
         src/hetrs.cc \
         src/norm.cc \
+        src/pbsv.cc \
         src/pbtrf.cc \
+        src/pbtrs.cc \
         src/posv.cc \
         src/posvMixed.cc \
         src/potrf.cc \

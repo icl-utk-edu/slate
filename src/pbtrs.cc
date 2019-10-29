@@ -59,7 +59,7 @@ namespace specialization {
 ///
 template <Target target, typename scalar_t>
 void pbtrs(slate::internal::TargetType<target>,
-           HermitianBandMatrix<scalar_t>& A,
+           HermitianBandMatrix<scalar_t> A,
            Matrix<scalar_t>& B, int64_t lookahead)
 {
     // assert(A.mt() == A.nt());
@@ -72,11 +72,12 @@ void pbtrs(slate::internal::TargetType<target>,
     auto L = TriangularBandMatrix<scalar_t>(Diag::NonUnit, A);
     auto LT = conj_transpose(L);
 
-    tbsm(Side::Left, scalar_t(1.0), L, B,
+    Pivots no_pivots;
+    tbsm(Side::Left, scalar_t(1.0), L, no_pivots, B,
          {{Option::Lookahead, lookahead},
           {Option::Target, target}});
 
-    tbsm(Side::Left, scalar_t(1.0), LT, B,
+    tbsm(Side::Left, scalar_t(1.0), LT, no_pivots, B,
          {{Option::Lookahead, lookahead},
           {Option::Target, target}});
 

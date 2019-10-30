@@ -69,7 +69,8 @@ void pbtrf(slate::internal::TargetType<target>,
     const Layout layout = Layout::ColMajor;
 
     // if upper, change to lower
-    if (A.uplo() == Uplo::Upper) A = conj_transpose(A);
+    if (A.uplo() == Uplo::Upper)
+        A = conj_transpose(A);
 
     const int64_t A_nt = A.nt();
 
@@ -96,7 +97,7 @@ void pbtrf(slate::internal::TargetType<target>,
 
             // send A(k, k) down col A( k+1:ij_end-1, k )
             if (k+1 < ij_end)
-              A.tileBcast(k, k, A.sub(k+1, ij_end-1, k, k), layout);
+                A.tileBcast(k, k, A.sub(k+1, ij_end-1, k, k), layout);
 
             // A(k+1:ij_end-1, k) * A(k, k)^{-H}
             if (k+1 < ij_end) {
@@ -144,8 +145,7 @@ void pbtrf(slate::internal::TargetType<target>,
                     internal::gemm<Target::HostTask>(
                         scalar_t(-1.0), A.sub(j+1, ij_end-1, k, k),
                                         conj_transpose(Ajk),
-                        scalar_t( 1.0), A.sub(j+1, ij_end-1, j, j),
-                        layout);
+                        scalar_t( 1.0), A.sub(j+1, ij_end-1, j, j), layout);
                 }
             }
         }

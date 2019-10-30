@@ -195,7 +195,8 @@ template <typename scalar_t>
 HermitianMatrix<scalar_t> HermitianBandMatrix<scalar_t>::sub(
     int64_t i1, int64_t i2)
 {
-    return HermitianMatrix<scalar_t>(this->uplo(), *this, i1, i2);
+    // return HermitianMatrix<scalar_t>(this->uplo(), *this, i1, i2);
+    return HermitianMatrix<scalar_t>(this->uploPhysical(), *this, i1, i2);
 }
 
 //------------------------------------------------------------------------------

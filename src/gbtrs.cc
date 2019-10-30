@@ -76,15 +76,13 @@ void gbtrs(slate::internal::TargetType<target>,
               {Option::Target, target}});
 
         // backward substitution, X = U^{-1} Y
-        Pivots no_pivots;
-        tbsm(Side::Left, scalar_t(1.0), U, no_pivots, B,
+        tbsm(Side::Left, scalar_t(1.0), U, B,
              {{Option::Lookahead, lookahead},
               {Option::Target, target}});
     }
     else {
         // forward substitution, Y = U^{-T} B
-        Pivots no_pivots;
-        tbsm(Side::Left, scalar_t(1.0), U, no_pivots, B,
+        tbsm(Side::Left, scalar_t(1.0), U, B,
              {{Option::Lookahead, lookahead},
               {Option::Target, target}});
 

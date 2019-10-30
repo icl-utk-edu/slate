@@ -99,8 +99,9 @@ namespace slate {
   ///
 template <typename scalar_t>
 void tbsm(Side side, scalar_t alpha,
-          TriangularBandMatrix<scalar_t> A,
-                        Matrix<scalar_t> B, int64_t lookahead)
+          TriangularBandMatrix<scalar_t>& A,
+                        Matrix<scalar_t>& B,
+          const std::map<Option, Value>& opts)
 {
     Pivots no_pivots;
     tbsm(side, alpha, A, no_pivots, B, opts);

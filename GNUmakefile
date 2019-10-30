@@ -348,6 +348,7 @@ libslate_src += \
         src/syrk.cc \
         src/tb2bd.cc \
         src/tbsm.cc \
+				src/tbsmPivots.cc \
         src/trmm.cc \
         src/trsm.cc \
         src/trtri.cc \

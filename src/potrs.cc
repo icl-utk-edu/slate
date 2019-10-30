@@ -59,7 +59,7 @@ namespace specialization {
 ///
 template <Target target, typename scalar_t>
 void potrs(slate::internal::TargetType<target>,
-           HermitianMatrix<scalar_t>& A,
+           HermitianMatrix<scalar_t> A,
            Matrix<scalar_t>& B, int64_t lookahead)
 {
     // assert(A.mt() == A.nt());

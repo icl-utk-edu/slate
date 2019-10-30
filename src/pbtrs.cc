@@ -72,12 +72,11 @@ void pbtrs(slate::internal::TargetType<target>,
     auto L = TriangularBandMatrix<scalar_t>(Diag::NonUnit, A);
     auto LT = conj_transpose(L);
 
-    Pivots no_pivots;
-    tbsm(Side::Left, scalar_t(1.0), L, no_pivots, B,
+    tbsm(Side::Left, scalar_t(1.0), L, B,
          {{Option::Lookahead, lookahead},
           {Option::Target, target}});
 
-    tbsm(Side::Left, scalar_t(1.0), LT, no_pivots, B,
+    tbsm(Side::Left, scalar_t(1.0), LT, B,
          {{Option::Lookahead, lookahead},
           {Option::Target, target}});
 

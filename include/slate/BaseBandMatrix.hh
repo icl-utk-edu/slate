@@ -307,8 +307,14 @@ void BaseBandMatrix<scalar_t>::tileUpdateAllOrigin()
 {
     int64_t mt = this->mt();
     int64_t nt = this->nt();
-    int64_t klt = ceildiv( this->kl_, this->tileNb(0) );
-    int64_t kut = ceildiv( this->ku_, this->tileNb(0) );
+    // int64_t klt = ceildiv( this->kl_, this->tileNb(0) );
+    // int64_t kut = ceildiv( this->ku_, this->tileNb(0) );
+    int64_t klt = ceildiv(
+            this->op() == Op::NoTrans ? this->kl_ : this->ku_, this->tileNb(0)
+          );
+    int64_t kut = ceildiv(
+            this->op() == Op::NoTrans ? this->ku_ : this->kl_, this->tileNb(0)
+          );
     for (int64_t j = 0; j < nt; ++j) {
         int64_t istart = blas::max( 0, j-kut );
         int64_t iend   = blas::min( j+klt+1, mt );

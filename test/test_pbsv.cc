@@ -88,10 +88,12 @@ void test_pbsv_work(Params& params, bool run)
                   uplo, n, kd, nb, p, q, MPI_COMM_WORLD);
 
     int64_t kdt = slate::ceildiv(kd, nb);
-    for (int64_t jj = 0, j = 0; j < A.nt(); ++j, jj += A.tileNb(j))
-    {
-        for (int64_t ii = 0, i = 0; i < A.mt(); ++i, ii += A.tileMb(i))
-        {
+    int64_t jj = 0;
+    for (int64_t j = 0; j < A.nt(); ++j) {
+        int64_t jb = A.tileNb(j);
+        int64_t ii = 0;
+        for (int64_t i = 0; i < A.mt(); ++i) {
+            int64_t ib = A.tileMb(i);
             if (A.tileIsLocal(i, j))
             {
                 if ((A.uplo() == slate::Uplo::Lower && i <= j + kdt && j <= i) ||
@@ -105,8 +107,8 @@ void test_pbsv_work(Params& params, bool run)
                     {
                         for (int64_t ti = ii; ti < ii + T.mb(); ++ti)
                         {
-                            if ((A.uplo() == slate::Uplo::Lower && -kd     > tj - ti  && (tj - jj) <= (ti - ii)) ||
-                                (A.uplo() == slate::Uplo::Upper && tj - ti > kd       && (tj - jj) >= (ti - ii)))
+                            if ((A.uplo() == slate::Uplo::Lower && -kd     > tj - ti) ||
+                                (A.uplo() == slate::Uplo::Upper && tj - ti > kd     ))
                             {
                                 T.at(ti - ii, tj - jj) = 0;
                             }
@@ -131,7 +133,9 @@ void test_pbsv_work(Params& params, bool run)
                                   T2.data(), T2.stride());
                 }
             }
+            ii += ib;
         }
+        jj += jb;
     }
 
     if (verbose > 1) {

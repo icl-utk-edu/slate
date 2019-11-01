@@ -457,6 +457,11 @@ void norm(Norm in_norm, NormScope scope, BandMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
           int priority=0);
 
+template <Target target=Target::HostTask, typename scalar_t>
+void norm(Norm in_norm, NormScope scope, HermitianBandMatrix<scalar_t>&& A,
+          blas::real_type<scalar_t>* values,
+          int priority=0);
+
 //------------------------------------------------------------------------------
 // Factorizations
 

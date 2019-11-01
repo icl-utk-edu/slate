@@ -178,4 +178,95 @@ slate::BandMatrix<scalar_t> BandFromScaLAPACK(
     return A;
 }
 
+#include "slate/HermitianBandMatrix.hh"
+
+//------------------------------------------------------------------------------
+// Given a full ScaLAPACK matrix, sets data outside the hermitian band to zero.
+// This is primarily useful to test SLATE's band routines (like gbmm, tbsm)
+// that have no equivalent in ScaLAPACK.
+// todo: use ScaLAPACK descriptor
+template <typename scalar_t>
+void zeroOutsideBand(
+    slate::Uplo uplo,
+    scalar_t* A, int64_t n, int64_t kd,
+    int64_t nb, int64_t myrow, int64_t mycol,
+    int64_t p, int64_t q, int64_t lldA)
+{
+    using blas::max;
+    using blas::min;
+
+    // Zero out data outside bandwidth in A for ScaLAPACK.
+    // Since ScaLAPACK lacks hbmm and hbmv, we will use gemm.
+    for (int64_t jj = 0; jj < n; ++jj) {
+        int pcol = (jj / nb) % q;
+        if (pcol == mycol) {
+            int64_t jlocal = global2local(jj, nb, q, mycol);
+
+            if (uplo == slate::Uplo::Upper)
+            {
+                // set rows [0 : k - kd - 1] = 0
+                int64_t i0 = max(global2local(0,       nb, p, myrow), 0);
+                int64_t i1 = min(global2local(jj - kd, nb, p, myrow), n);
+
+                for (int64_t i = i0; i < i1; ++i) {
+                    A[ i + jlocal*lldA ] = 0;
+                }
+            }
+            else if (uplo == slate::Uplo::Lower)
+            {
+                // set rows [k + kd + 1 : m - 1] = 0
+                int64_t i2 = max(global2local(jj + kd + 1, nb, p, myrow), 0);
+                int64_t i3 = min(global2local(n,           nb, p, myrow), n);
+
+                for (int64_t i = i2; i < i3; ++i) {
+                    A[ i + jlocal*lldA ] = 0;
+                }
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+// Constructs a SLATE hermitian band matrix from a full ScaLAPACK matrix.
+// This is primarily useful to test SLATE's band routines (like hbmm, hermitian tbsm)
+// that have no equivalent in ScaLAPACK.
+template <typename scalar_t>
+slate::HermitianBandMatrix<scalar_t> HermitianBandFromScaLAPACK(
+    slate::Uplo uplo,
+    int64_t n, int64_t kd,
+    scalar_t* Adata, int64_t lldA, int64_t nb,
+    int p, int q, MPI_Comm comm)
+{
+    auto A = slate::HermitianBandMatrix<scalar_t>(
+              uplo, n, kd, nb, p, q, MPI_COMM_WORLD);
+
+    int64_t kdt = slate::ceildiv(kd, nb);
+
+    int64_t jj = 0;
+    for (int64_t j = 0; j < A.nt(); ++j) {
+        int64_t jb = A.tileNb(j);
+        // Using Scalapack indxg2l
+        int64_t jj_local = nb*(jj / (nb*q)) + (jj % nb);
+        int64_t ii = 0;
+        for (int64_t i = 0; i < A.mt(); ++i) {
+            int64_t ib = A.tileMb(i);
+            if (A.tileIsLocal(i, j))
+            {
+                if ((A.uplo() == slate::Uplo::Lower && i <= j + kdt && j <= i) ||
+                    (A.uplo() == slate::Uplo::Upper && i >= j - kdt && j >= i))
+                {
+                    // Using Scalapack indxg2l
+                    int64_t ii_local = nb*(ii / (nb*p)) + (ii % nb);
+                    A.tileInsert(i, j, A.hostNum(),
+                                 &Adata[ ii_local + jj_local*lldA ], lldA);
+                }
+            }
+            ii += ib;
+        }
+        jj += jb;
+    }
+
+    return A;
+}
+
 #endif        //  #ifndef BAND_UTILS_HH

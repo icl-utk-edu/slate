@@ -54,7 +54,7 @@ void test_hbmm_work(Params& params, bool run)
         return;
     }
 
-    slate_assert(uplo == slate::Uplo::Lower);
+    // slate_assert(uplo == slate::Uplo::Lower);
 
     // Error analysis applies in these norms.
     slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);

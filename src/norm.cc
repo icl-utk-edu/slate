@@ -402,4 +402,25 @@ double norm(
     Norm in_norm, BandMatrix< std::complex<double> >& A,
     const std::map<Option, Value>& opts);
 
+//--------------------
+template
+float norm(
+    Norm in_norm, HermitianBandMatrix<float>& A,
+    const std::map<Option, Value>& opts);
+
+template
+double norm(
+    Norm in_norm, HermitianBandMatrix<double>& A,
+    const std::map<Option, Value>& opts);
+
+template
+float norm(
+    Norm in_norm, HermitianBandMatrix< std::complex<float> >& A,
+    const std::map<Option, Value>& opts);
+
+template
+double norm(
+    Norm in_norm, HermitianBandMatrix< std::complex<double> >& A,
+    const std::map<Option, Value>& opts);
+
 } // namespace slate

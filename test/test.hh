@@ -143,6 +143,7 @@ void test_tbsm   (Params& params, bool run);
 void test_trsm   (Params& params, bool run);
 void test_trmm   (Params& params, bool run);
 void test_hemm   (Params& params, bool run);
+void test_hbmm   (Params& params, bool run);
 void test_her2k  (Params& params, bool run);
 void test_herk   (Params& params, bool run);
 

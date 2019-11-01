@@ -283,23 +283,21 @@ void hbmm(slate::internal::TargetType<target>,
         }
 
         else {
-            // ----------------------------------------
-            // Left, Upper/NoTrans or Lower/ConjTrans case
-            throw Exception("Upper/NoTrans not yet implemented");
-#if 0
             // send 1st block col (row) of A and block row of B
             #pragma omp task depend(out:bcast[0])
             {
+                int64_t i_end = min(0 + kdt + 1, A.mt());
+
                 // broadcast A(i, 0) to ranks owning block row C(i, :)
                 BcastList bcast_list_A;
-                for (int64_t i = 0; i < A.mt(); ++i)
+                for (int64_t i = 0; i < i_end; ++i)
                     bcast_list_A.push_back({0, i, {C.sub(i, i, 0, C.nt()-1)}});
                 A.template listBcast<target>(bcast_list_A, layout);
 
                 BcastList bcast_list_B;
                 // broadcast B(0, j) to ranks owning block col C(:, j)
                 for (int64_t j = 0; j < B.nt(); ++j)
-                    bcast_list_B.push_back({0, j, {C.sub(0, C.mt()-1, j, j)}});
+                    bcast_list_B.push_back({0, j, {C.sub(0, i_end-1, j, j)}});
                 B.template listBcast<target>(bcast_list_B, layout);
             }
 
@@ -308,14 +306,16 @@ void hbmm(slate::internal::TargetType<target>,
                 #pragma omp task depend(in:bcast[k-1]) \
                                  depend(out:bcast[k])
                 {
-                    // broadcast A(k, i) or A(i, k)
-                    // to ranks owning block row C(i, :)
+                    int64_t i_end = min(k + kd + 1, A.mt());
+
+                    // broadcast A(i, k) to ranks owning block row C(i, :)
                     BcastList bcast_list_A;
-                    for (int64_t i = 0; i < k && i < A.mt(); ++i) {
+                    for (int64_t i = 0; i < k && i < i_end; ++i) {
                         bcast_list_A.push_back(
                             {i, k, {C.sub(i, i, 0, C.nt()-1)}});
                     }
-                    for (int64_t i = k; i < A.mt(); ++i) {
+                    // broadcast A(i, k) to ranks owning block row C(i, :)
+                    for (int64_t i = k; i < i_end; ++i) {
                         bcast_list_A.push_back(
                             {k, i, {C.sub(i, i, 0, C.nt()-1)}});
                     }
@@ -325,7 +325,7 @@ void hbmm(slate::internal::TargetType<target>,
                     BcastList bcast_list_B;
                     for (int64_t j = 0; j < B.nt(); ++j) {
                         bcast_list_B.push_back(
-                            {k, j, {C.sub(0, C.mt()-1, j, j)}});
+                            {k, j, {C.sub(0, i_end-1, j, j)}});
                     }
                     B.template listBcast<target>(bcast_list_B, layout);
                 }
@@ -333,7 +333,7 @@ void hbmm(slate::internal::TargetType<target>,
 
             // multiply alpha A(:, 0) B(0, :), which is (hbmm / gemm):
             // C(0, :)      = alpha [ A(0, 0)      B(0, :) ] + beta C(0, :)
-            // C(1:mt-1, :) = alpha [ A(1:mt-1, 0) B(0, :) ] + beta C(1:mt-1, :)
+            // C(1:mt-1, :) = alpha [ A(1:i_end-1, 0) B(0, :) ] + beta C(1:i_end-1, :)
             #pragma omp task depend(in:bcast[0]) \
                              depend(out:gemm[0])
             {
@@ -343,32 +343,50 @@ void hbmm(slate::internal::TargetType<target>,
                            B.sub(0, 0, 0, B.nt()-1),
                     beta,  C.sub(0, 0, 0, C.nt()-1));
 
-                if (A.mt()-1 > 0) {
-                    auto Arow_k = A.sub(0, 0, 1, A.mt()-1);
+                int64_t i_end = min(0 + kdt + 1, A.mt());
+
+                if (i_end-1 > 0) {
+                    auto Arow_k = A.sub(0, 0, 1, i_end-1);
                     internal::gemm<target>(
                         alpha, conj_transpose(Arow_k),
                                B.sub(0, 0, 0, B.nt()-1),
-                        beta,  C.sub(1, C.mt()-1, 0, C.nt()-1),
+                        beta,  C.sub(1, i_end-1, 0, C.nt()-1),
                         layout);
+                }
+
+                if (beta != one) {
+                    for (int64_t i = i_end; i < C.mt(); ++i) {
+                        for (int64_t j = 0; j < C.nt(); ++j) {
+                            if (C.tileIsLocal(i, j)) {
+                                #pragma omp task shared(C)
+                                {
+                                    C.tileGetForWriting(i, j, LayoutConvert(layout));
+                                    scale(beta, C(i, j));
+                                }
+                            }
+                        }
+                    }
+                    #pragma omp taskwait
                 }
             }
 
             for (int64_t k = 1; k < A.nt(); ++k) {
-
                 // send next block col of A and block row of B
                 if (k+lookahead < A.nt()) {
                     #pragma omp task depend(in:gemm[k-1]) \
                                      depend(in:bcast[k+lookahead-1]) \
                                      depend(out:bcast[k+lookahead])
                     {
-                        // broadcast A(k+la, i) or A(i, k+la)
-                        // to ranks owning block row C(i, :)
+                        int64_t i_end = min(k + lookahead + kd + 1, A.mt());
+
+                        // broadcast A(i, k+la) to ranks owning block row C(i, :)
                         BcastList bcast_list_A;
                         for (int64_t i = 0; i < k+lookahead; ++i) {
                             bcast_list_A.push_back(
                                 {i, k+lookahead, {C.sub(i, i, 0, C.nt()-1)}});
                         }
-                        for (int64_t i = k+lookahead; i < A.mt(); ++i) {
+                        // broadcast A(k+la, i) to ranks owning block row C(i, :)
+                        for (int64_t i = k+lookahead; i < i_end; ++i) {
                             bcast_list_A.push_back(
                                 {k+lookahead, i, {C.sub(i, i, 0, C.nt()-1)}});
                         }
@@ -379,7 +397,7 @@ void hbmm(slate::internal::TargetType<target>,
                         BcastList bcast_list_B;
                         for (int64_t j = 0; j < B.nt(); ++j) {
                             bcast_list_B.push_back(
-                                {k+lookahead, j, {C.sub(0, C.mt()-1, j, j)}});
+                                {k+lookahead, j, {C.sub(0, i_end-1, j, j)}});
                         }
                         B.template listBcast<target>(bcast_list_B, layout);
                     }
@@ -393,10 +411,13 @@ void hbmm(slate::internal::TargetType<target>,
                                  depend(in:gemm[k-1]) \
                                  depend(out:gemm[k])
                 {
+                    int64_t i_begin = max(k - kdt, 0);
+                    int64_t i_end   = min(k + kdt + 1, A.mt());
+
                     internal::gemm<target>(
-                        alpha,         A.sub(0, k-1, k, k),
+                        alpha,         A.sub(i_begin, k-1, k, k),
                                        B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0), C.sub(0, k-1, 0, C.nt()-1),
+                        scalar_t(1.0), C.sub(i_begin, k-1, 0, C.nt()-1),
                         layout);
 
                     internal::hemm<Target::HostTask>(
@@ -405,17 +426,16 @@ void hbmm(slate::internal::TargetType<target>,
                                        B.sub(k, k, 0, B.nt()-1),
                         scalar_t(1.0), C.sub(k, k, 0, C.nt()-1));
 
-                    if (A.mt()-1 > k) {
-                        auto Arow_k = A.sub(k, k, k+1, A.mt()-1);
+                    if (i_end-1 > k) {
+                        auto Arow_k = A.sub(k, k, k+1, i_end-1);
                         internal::gemm<target>(
                             alpha,         conj_transpose(Arow_k),
                                            B.sub(k, k, 0, B.nt()-1),
-                            scalar_t(1.0), C.sub(k+1, C.mt()-1, 0, C.nt()-1),
+                            scalar_t(1.0), C.sub(k+1, i_end-1, 0, C.nt()-1),
                             layout);
                     }
                 }
             }
-#endif
         }
     }
 

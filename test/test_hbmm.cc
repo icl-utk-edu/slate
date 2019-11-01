@@ -42,9 +42,9 @@ void test_hbmm_work(Params& params, bool run)
 
     // mark non-standard output values
     params.time();
-    // params.gflops();
+    params.gflops();
     params.ref_time();
-    // params.ref_gflops();
+    params.ref_gflops();
 
     if (! run)
         return;
@@ -172,9 +172,9 @@ void test_hbmm_work(Params& params, bool run)
     if (trace) slate::trace::Trace::finish();
 
     // Compute and save timing/performance
-    // double gflop = blas::Gflop<scalar_t>::hbmm(side, n, n);
+    double gflop = blas::Gflop<scalar_t>::hbmm(side, n, n, kd);
     params.time() = time_tst;
-    // params.gflops() = gflop / time_tst;
+    params.gflops() = gflop / time_tst;
 
     if (verbose > 2) {
         print_matrix("C2", C);
@@ -236,7 +236,7 @@ void test_hbmm_work(Params& params, bool run)
                         + 2 * std::abs(beta) * C_orig_norm);
 
         params.ref_time() = time_ref;
-        //params.ref_gflops() = gflop / time_ref;
+        params.ref_gflops() = gflop / time_ref;
         params.error() = error;
 
         slate_set_num_blas_threads(saved_num_threads);

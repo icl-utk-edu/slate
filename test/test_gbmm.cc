@@ -198,7 +198,7 @@ void test_gbmm_work(Params& params, bool run)
     if (trace) slate::trace::Trace::finish();
 
     // compute and save timing/performance
-    double gflop = blas::Gflop<scalar_t>::gbmm(m, k, kl, ku);
+    double gflop = blas::Gflop<scalar_t>::gbmm(m, n, k, kl, ku);
     params.time() = time_tst;
     params.gflops() = gflop / time_tst;
 

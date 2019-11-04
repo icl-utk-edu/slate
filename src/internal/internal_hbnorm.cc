@@ -194,7 +194,7 @@ void norm(
             }
             // off-diagonal tiles
             if (lower) {
-                int64_t i_end   = min(j + kdt + 1, A.mt());
+                int64_t i_end = min(j + kdt + 1, A.mt());
                 for (int64_t i = j+1; i < i_end; ++i) {  // strictly lower
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, tiles_maxima) priority(priority)
@@ -255,7 +255,7 @@ void norm(
             // off-diagonal tiles (same as synorm)
             if (lower) {
                 int64_t ii = jj + A.tileNb(j);
-                int64_t i_end   = min(j + kdt + 1, A.mt());
+                int64_t i_end = min(j + kdt + 1, A.mt());
                 for (int64_t i = j+1; i < i_end; ++i) {  // strictly lower
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, tiles_sums) priority(priority)
@@ -270,19 +270,25 @@ void norm(
                 }
             }
             else { // Uplo::Upper
-                int64_t ii = 0;
                 int64_t i_begin = max(j - kdt, 0);
-                for (int64_t i = i_begin; i < j && i < A.mt(); ++i) {  // strictly upper
-                    if (A.tileIsLocal(i, j)) {
-                        #pragma omp task shared(A, tiles_sums) priority(priority)
-                        {
-                            A.tileGetForReading(i, j, LayoutConvert(layout));
-                            synormOffdiag(in_norm, A(i, j),
-                                          &tiles_sums[A.n()*i + jj],
-                                          &tiles_sums[A.n()*j + ii]);
-                        }
+                int64_t i_end   = min(j + kdt + 1, A.mt());
+                // todo: Assuming a fixed tile size
+                int64_t ii = i_begin * A.tileMb(0);
+                for (int64_t i = 0; i < j && i < i_end; ++i) {  // strictly upper
+                    if (i >= i_begin)
+                    {
+                        if (A.tileIsLocal(i, j)) {
+                            #pragma omp task shared(A, tiles_sums) priority(priority)
+                            {
+                                A.tileGetForReading(i, j, LayoutConvert(layout));
+                                synormOffdiag(in_norm, A(i, j),
+                                              &tiles_sums[A.n()*i + jj],
+                                              &tiles_sums[A.n()*j + ii]);
+                            }
                     }
                     ii += A.tileMb(i);
+                    //ii = (A.tileMb(i) % kdt == 0) ? ii + A.tileMb(i) : ii + 1;
+                    }
                 }
             }
             jj += A.tileNb(j);
@@ -322,7 +328,7 @@ void norm(
             }
             // off-diagonal tiles
             if (lower) {
-                int64_t i_end   = min(j + kdt + 1, A.mt());
+                int64_t i_end = min(j + kdt + 1, A.mt());
                 for (int64_t i = j+1; i < i_end; ++i) {  // strictly lower
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, values) priority(priority)

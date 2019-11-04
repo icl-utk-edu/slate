@@ -378,6 +378,7 @@ test_src += \
         test/test_heev.cc \
         test/test_hemm.cc \
 				test/test_hbmm.cc \
+				test/test_hbnorm.cc \
         test/test_henorm.cc \
         test/test_her2k.cc \
         test/test_herk.cc \

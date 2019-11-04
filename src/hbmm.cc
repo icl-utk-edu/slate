@@ -281,7 +281,6 @@ void hbmm(slate::internal::TargetType<target>,
                 }
             }
         }
-
         else {
             // send 1st block col (row) of A and block row of B
             #pragma omp task depend(out:bcast[0])

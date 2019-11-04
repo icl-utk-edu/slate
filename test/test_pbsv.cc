@@ -231,7 +231,6 @@ void test_pbsv_work(Params& params, bool run)
             printf( "nb = %lld;\n", llong( nb ) );
         }
     }
-#if 0
     if (check) {
         //==================================================
         // Test results by checking the residual
@@ -262,13 +261,8 @@ void test_pbsv_work(Params& params, bool run)
         // Norm of updated rhs matrix: || X ||_1
         real_t X_norm = scalapack_plange("1", n, nrhs, &B_tst[0], ione, ione, descB_tst, &worklangeB[0]);
 
-        // B_ref -= op(Aref)*B_tst
-        auto opAorig = Aorig;
-        if (trans == slate::Op::Trans)
-            opAorig = transpose(Aorig);
-        else if (trans == slate::Op::ConjTrans)
-            opAorig = conj_transpose(Aorig);
-        slate::gbmm(scalar_t(-1.0), opAorig, B, scalar_t(1.0), Bref);
+        // B_ref -= Aref*B_tst
+        slate::hbmm(blas::Side::Left, scalar_t(-1.0), Aorig, B, scalar_t(1.0), Bref);
 
         // Norm of residual: || B - AX ||_1
         real_t R_norm = scalapack_plange("1", n, nrhs, &B_ref[0], ione, ione, descB_ref, &worklangeB[0]);
@@ -286,7 +280,6 @@ void test_pbsv_work(Params& params, bool run)
             print_matrix("Residual", n, nrhs, &B_ref[0], lldB, p, q, MPI_COMM_WORLD);
         }
     }
-#endif
     // todo: reference solution requires setting up band matrix in ScaLAPACK's
     // band storage format.
 

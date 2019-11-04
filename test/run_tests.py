@@ -508,8 +508,8 @@ if (opts.norms):
     [ 'trnorm', gen + dtype + mn + norm + uplo + diag ],
 
     # Banded
-    [ 'gbnorm', gen + dtype + mn + kl + ku + norm ],
-    #[ 'hbnorm', gen + dtype + la + n + kd + norm ],
+    [ 'gbnorm', gen + dtype + mn  + kl + ku + norm ],
+    [ 'hbnorm', gen + dtype + n   + kd      + norm + uplo ],
     #[ 'sbnorm', gen + dtype + la + n + kd + norm ],
     #[ 'tbnorm', gen + dtype + la + n + kd + norm ],
     ]

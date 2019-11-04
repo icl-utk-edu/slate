@@ -197,6 +197,7 @@ std::vector< libtest::routines_t > routines = {
     { "",                   nullptr,           Section::newline },
 
     { "henorm",             test_henorm,       Section::aux_norm },
+    { "hbnorm",             test_hbnorm,       Section::aux_norm },
     { "synorm",             test_synorm,       Section::aux_norm },
     { "",                   nullptr,           Section::newline },
 

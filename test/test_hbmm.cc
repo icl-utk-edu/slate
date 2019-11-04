@@ -94,6 +94,10 @@ void test_hbmm_work(Params& params, bool run)
     scalapack_pplghe(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
     zeroOutsideBand(uplo, &A_tst[0], An, kd, nb, myrow, mycol, nprow, npcol, lldA);
 
+    // if (verbose > 1) {
+    //    print_matrix("A_tst", mlocA, nlocA, &A_tst[0], lldA, p, q, MPI_COMM_WORLD);
+    // }
+
     // matrix B, figure out local size, allocate, create descriptor, initialize
     int64_t mlocB = scalapack_numroc(Bm, nb, myrow, izero, nprow);
     int64_t nlocB = scalapack_numroc(Bn, nb, mycol, izero, npcol);
@@ -172,7 +176,7 @@ void test_hbmm_work(Params& params, bool run)
     if (trace) slate::trace::Trace::finish();
 
     // Compute and save timing/performance
-    double gflop = blas::Gflop<scalar_t>::hbmm(side, n, n, kd);
+    double gflop = blas::Gflop<scalar_t>::hbmm(An, Am, kd);
     params.time() = time_tst;
     params.gflops() = gflop / time_tst;
 

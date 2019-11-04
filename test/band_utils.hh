@@ -211,9 +211,24 @@ void zeroOutsideBand(
                 for (int64_t i = i0; i < i1; ++i) {
                     A[ i + jlocal*lldA ] = 0;
                 }
+
+                int64_t i2 = max(global2local(jj + 0 + 1, nb, p, myrow), 0);
+                int64_t i3 = min(global2local(n,          nb, p, myrow), n);
+
+                for (int64_t i = i2; i < i3; ++i) {
+                    A[ i + jlocal*lldA ] = 0;
+                }
+
             }
             else if (uplo == slate::Uplo::Lower)
             {
+                int64_t i0 = max(global2local(0,       nb, p, myrow), 0);
+                int64_t i1 = min(global2local(jj - 0,  nb, p, myrow), n);
+
+                for (int64_t i = i0; i < i1; ++i) {
+                    A[ i + jlocal*lldA ] = 0;
+                }
+
                 // set rows [k + kd + 1 : m - 1] = 0
                 int64_t i2 = max(global2local(jj + kd + 1, nb, p, myrow), 0);
                 int64_t i3 = min(global2local(n,           nb, p, myrow), n);

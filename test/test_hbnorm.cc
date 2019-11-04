@@ -5,6 +5,7 @@
 #include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 #include "print_matrix.hh"
+#include "band_utils.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -13,18 +14,19 @@
 
 //------------------------------------------------------------------------------
 template<typename scalar_t>
-void test_henorm_work(Params& params, bool run)
+void test_hbnorm_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
     using blas::imag;
     using slate::ceildiv;
-    using llong = long long;
+    // using llong = long long;
 
     // get & mark input values
     slate::Norm norm = params.norm();
     slate::Uplo uplo = params.uplo();
     int64_t n = params.dim.n();
+    int64_t kd = params.kd();
     int64_t nb = params.nb();
     int64_t p = params.p();
     int64_t q = params.q();
@@ -32,7 +34,6 @@ void test_henorm_work(Params& params, bool run)
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
-    int extended = params.extended();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
@@ -42,6 +43,15 @@ void test_henorm_work(Params& params, bool run)
 
     if (! run)
         return;
+
+    if (origin != slate::Origin::ScaLAPACK) {
+        printf("skipping: currently only origin=scalapack is supported\n");
+        return;
+    }
+    if (target == slate::Target::Devices) {
+        printf("skipping: currently target=devices is not supported\n");
+        return;
+    }
 
     // local values
     const int izero = 0, ione = 1;
@@ -76,26 +86,16 @@ void test_henorm_work(Params& params, bool run)
     for (int64_t j = 0; j < nlocA; ++j)
         lapack::larnv(2, iseeds, mlocA, &A_tst[j*lldA]);
 
-    //if (verbose > 1) {
-    //    print_matrix("A_tst", mlocA, nlocA, &A_tst[0], lldA, p, q, MPI_COMM_WORLD);
-    //}
+    zeroOutsideBand(uplo, &A_tst[0], n, kd, nb, myrow, mycol, nprow, npcol, lldA);
 
-    // todo: work-around to initialize BaseMatrix::num_devices_
-    slate::HermitianMatrix<scalar_t> A0(uplo, n, nb, p, q, MPI_COMM_WORLD);
+    if (verbose > 1) {
+        print_matrix("A_tst", mlocA, nlocA, &A_tst[0], lldA, p, q, MPI_COMM_WORLD);
+    }
 
-    slate::HermitianMatrix<scalar_t> A;
-    if (origin != slate::Origin::ScaLAPACK) {
-        // Copy local ScaLAPACK data to GPU or CPU tiles.
-        slate::Target origin_target = origin2target(origin);
-        A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, nprow, npcol, MPI_COMM_WORLD);
-        A.insertLocalTiles(origin_target);
-        copy(&A_tst[0], descA_tst, A);
-    }
-    else {
-        // Create SLATE matrix from the ScaLAPACK layout.
-        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-                uplo, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-    }
+    // Create SLATE matrix from the ScaLAPACK layout.
+    // TODO: data origin on GPU
+    auto A = HermitianBandFromScaLAPACK(
+                 uplo, n, kd, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
 
     if (verbose > 1) {
         print_matrix("A", A);
@@ -190,134 +190,12 @@ void test_henorm_work(Params& params, bool run)
         params.okay() = (params.error() <= tol);
     }
 
-    //---------- extended tests
-    if (extended) {
-        // allocate work space
-        int lcm = scalapack_ilcm(&nprow, &npcol);
-        int ldw = nb*slate::ceildiv(int(slate::ceildiv(nlocA, nb)), (lcm / nprow));
-        int lwork = 2*mlocA + nlocA + ldw;
-        std::vector<real_t> worklanhe(lwork);
-
-        // seed all MPI processes the same
-        srand(1234);
-
-        // Test tiles in 2x2 in all 4 corners, and 4 random rows and cols,
-        // up to 64 tiles total.
-        // Indices may be out-of-bounds if nt is small, so check in loops.
-        int64_t nt = A.nt();
-        std::set<int64_t> j_indices = { 0, 1, nt - 2, nt - 1 };
-        for (size_t k = 0; k < 4; ++k) {
-            j_indices.insert(rand() % nt);
-        }
-        for (auto j : j_indices) {
-            if (j < 0 || j >= nt)
-                continue;
-            int64_t jb = std::min(n - j*nb, nb);
-            slate_assert(jb == A.tileNb(j));
-
-            for (auto i : j_indices) {
-                // lower requires i >= j
-                // upper requires i <= j
-                if (i < 0 || i >= nt || (uplo == slate::Uplo::Lower ? i < j : i > j))
-                    continue;
-                int64_t ib = std::min(n - i*nb, nb);
-                slate_assert(ib == A.tileMb(i));
-
-                // Test entries in 2x2 in all 4 corners, and 1 other random row and col,
-                // up to 25 entries per tile.
-                // Indices may be out-of-bounds if ib or jb is small, so check in loops.
-                std::set<int64_t> ii_indices = { 0, 1, ib - 2, ib - 1, rand() % ib };
-                std::set<int64_t> jj_indices = { 0, 1, jb - 2, jb - 1, rand() % jb };
-
-                // todo: complex peak
-                scalar_t peak = rand() / double(RAND_MAX)*1e6 + 1e6;
-                if (rand() < RAND_MAX / 2)
-                    peak *= -1;
-                if (rand() < RAND_MAX / 20)
-                    peak = nan("");
-                scalar_t save = 0;
-
-                for (auto jj : jj_indices) {
-                    if (jj < 0 || jj >= jb)
-                        continue;
-
-                    for (auto ii : ii_indices) {
-                        if (ii < 0 || ii >= ib ||
-                            (i == j && (uplo == slate::Uplo::Lower ? ii < jj : ii > jj))) {
-                            continue;
-                        }
-
-                        int64_t ilocal = int(i / p)*nb + ii;
-                        int64_t jlocal = int(j / q)*nb + jj;
-                        if (A.tileIsLocal(i, j)) {
-                            A.tileGetForWriting(i, j, slate::LayoutConvert::ColMajor);
-                            auto T = A(i, j);
-                            save = T(ii, jj);
-                            T.at(ii, jj) = peak;
-                            A_tst[ ilocal + jlocal*lldA ] = peak;
-                            // todo: this move shouldn't be required -- the trnorm should copy data itself.
-                            A.tileGetForWriting(i, j, A.tileDevice(i, j), slate::LayoutConvert::ColMajor);
-                        }
-
-                        real_t A_norm = slate::norm(norm, A, {
-                            {slate::Option::Target, target}
-                        });
-
-                        real_t A_norm_ref = scalapack_planhe(
-                                                norm2str(norm), uplo2str(A.uplo()),
-                                                n, &A_tst[0], ione, ione, descA_tst, &worklanhe[0]);
-
-                        // difference between norms
-                        real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
-                        if (norm == slate::Norm::One || norm == slate::Norm::Inf) {
-                            error /= sqrt(n);
-                        }
-                        else if (norm == slate::Norm::Fro) {
-                            error /= sqrt(n*n);
-                        }
-
-                        // Allow for difference, except max norm in real should be exact.
-                        real_t eps = std::numeric_limits<real_t>::epsilon();
-                        real_t tol;
-                        if (norm == slate::Norm::Max && ! slate::is_complex<scalar_t>::value)
-                            tol = 0;
-                        else
-                            tol = 3*eps;
-
-                        if (mpi_rank == 0) {
-                            // if peak is nan, expect A_norm to be nan.
-                            bool okay = (std::isnan(real(peak))
-                                         ? std::isnan(A_norm)
-                                         : error <= tol);
-                            params.okay() = params.okay() && okay;
-                            if (verbose || ! okay) {
-                                printf("i %5lld, j %5lld, ii %3lld, jj %3lld, peak %15.8e, norm %15.8e, ref %15.8e, error %9.2e, %s\n",
-                                       llong( i ), llong( j ), llong( ii ), llong( jj ),
-                                       real(peak), A_norm, A_norm_ref, error,
-                                       (okay ? "pass" : "failed"));
-                            }
-                        }
-
-                        if (A.tileIsLocal(i, j)) {
-                            A.tileGetForWriting(i, j, slate::LayoutConvert::ColMajor);
-                            auto T = A(i, j);
-                            T.at(ii, jj) = save;
-                            A_tst[ ilocal + jlocal*lldA ] = save;
-                            // todo: this move shouldn't be required -- the trnorm should copy data itself.
-                            A.tileGetForWriting(i, j, A.tileDevice(i, j), slate::LayoutConvert::ColMajor);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     Cblacs_gridexit(ictxt);
     //Cblacs_exit(1) does not handle re-entering
 }
 
 // -----------------------------------------------------------------------------
-void test_henorm(Params& params, bool run)
+void test_hbnorm(Params& params, bool run)
 {
     switch (params.datatype()) {
         case libtest::DataType::Integer:
@@ -325,19 +203,19 @@ void test_henorm(Params& params, bool run)
             break;
 
         case libtest::DataType::Single:
-            test_henorm_work<float> (params, run);
+            test_hbnorm_work<float> (params, run);
             break;
 
         case libtest::DataType::Double:
-            test_henorm_work<double> (params, run);
+            test_hbnorm_work<double> (params, run);
             break;
 
         case libtest::DataType::SingleComplex:
-            test_henorm_work<std::complex<float>> (params, run);
+            test_hbnorm_work<std::complex<float>> (params, run);
             break;
 
         case libtest::DataType::DoubleComplex:
-            test_henorm_work<std::complex<double>> (params, run);
+            test_hbnorm_work<std::complex<double>> (params, run);
             break;
     }
 }

@@ -195,6 +195,7 @@ void test_bdsqr  (Params& params, bool run);
 void test_gbnorm (Params& params, bool run);
 void test_genorm (Params& params, bool run);
 void test_henorm (Params& params, bool run);
+void test_hbnorm (Params& params, bool run);
 void test_synorm (Params& params, bool run);
 void test_trnorm (Params& params, bool run);
 

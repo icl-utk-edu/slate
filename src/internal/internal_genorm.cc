@@ -222,7 +222,7 @@ void norm(
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     for (int64_t i = 0; i < A.mt(); ++i) {
                         int64_t nb = A.tileNb(i);
-                        if (A.tileIsLocal(i, j)){
+                        if (A.tileIsLocal(i, j)) {
                                 blas::axpy(
                                     nb, 1.0,
                                     &tiles_sums[A.n()*i + j*nb0 ], 1,
@@ -268,7 +268,7 @@ void norm(
                 for (int64_t i = 0; i < A.mt(); ++i) {
                     for (int64_t j = 0; j < A.nt(); ++j) {
                         int64_t mb = A.tileMb(i);
-                        if (A.tileIsLocal(i, j)){
+                        if (A.tileIsLocal(i, j)) {
                                 blas::axpy(
                                     mb, 1.0,
                                     &tiles_sums[A.m()*j + i*mb0 ], 1,

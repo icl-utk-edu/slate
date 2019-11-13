@@ -2535,13 +2535,15 @@ void BaseMatrix<scalar_t>::tileGetForReading(int64_t i, int64_t j, int device,
 ///
 // todo: async version
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set, int device,
+void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set,
+                                             int device,
                                              LayoutConvert layout)
 {
-    tileGet(tile_set, device, layout, false, false, true);
+    tileGet(tile_set, device, layout, false, false, device != hostNum());
 
-    slate_cuda_call(
-        cudaStreamSynchronize(comm_stream(device)));
+    if (device != hostNum())
+        slate_cuda_call(
+            cudaStreamSynchronize(comm_stream(device)));
 }
 
 //------------------------------------------------------------------------------
@@ -2595,10 +2597,11 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetForWriting(std::set<ij_tuple>& tile_set,
                                              int device, LayoutConvert layout)
 {
-    tileGet(tile_set, device, layout, true, false, true);
+    tileGet(tile_set, device, layout, true, false, device != hostNum());
 
-    slate_cuda_call(
-        cudaStreamSynchronize(comm_stream(device)));
+    if (device != hostNum())
+        slate_cuda_call(
+            cudaStreamSynchronize(comm_stream(device)));
 }
 
 //------------------------------------------------------------------------------
@@ -2649,10 +2652,11 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetAndHold(std::set<ij_tuple>& tile_set, int device,
                                           LayoutConvert layout)
 {
-    tileGet(tile_set, device, layout, false, true, true);
+    tileGet(tile_set, device, layout, false, true, device != hostNum());
 
-    slate_cuda_call(
-        cudaStreamSynchronize(comm_stream(device)));
+    if (device != hostNum())
+        slate_cuda_call(
+            cudaStreamSynchronize(comm_stream(device)));
 }
 
 //------------------------------------------------------------------------------

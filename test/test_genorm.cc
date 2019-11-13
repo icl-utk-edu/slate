@@ -30,8 +30,9 @@ void test_genorm_work(Params& params, bool run)
     int64_t nb = params.nb();
     int64_t p = params.p();
     int64_t q = params.q();
-    bool check = params.check() == 'y';
-    bool ref = params.ref() == 'y';
+    bool ref_only = params.ref() == 'o';
+    bool ref = params.ref() == 'y' || ref_only;
+    bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
     int extended = params.extended();
@@ -125,39 +126,44 @@ void test_genorm_work(Params& params, bool run)
     }
     double time = libtest::get_wtime();
 
-    //==================================================
-    // Run SLATE test.
-    // Compute || A ||_norm.
-    //==================================================
+
+
     real_t A_norm = 0;
+    if (! ref_only) {
 
-    if (scope == slate::NormScope::Matrix) {
-        A_norm = slate::norm(norm, A, {
-            {slate::Option::Target, target}
-        });
-    }
-    else if (scope == slate::NormScope::Columns) {
-        slate::colNorms(norm, A, values.data(), {
-            {slate::Option::Target, target}
-        });
-    }
-    else if (scope == slate::NormScope::Rows) {
-        slate_error("Not implemented yet");
-        // slate::rowNorms(norm, A, values.data(), {
-        //     {slate::Option::Target, target}
-        // });
-    }
+        //==================================================
+        // Run SLATE test.
+        // Compute || A ||_norm.
+        //==================================================
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
+        if (scope == slate::NormScope::Matrix) {
+            A_norm = slate::norm(norm, A, {
+                {slate::Option::Target, target}
+            });
+        }
+        else if (scope == slate::NormScope::Columns) {
+            slate::colNorms(norm, A, values.data(), {
+                {slate::Option::Target, target}
+            });
+        }
+        else if (scope == slate::NormScope::Rows) {
+            slate_error("Not implemented yet");
+            // slate::rowNorms(norm, A, values.data(), {
+            //     {slate::Option::Target, target}
+            // });
+        }
+
+        {
+            slate::trace::Block trace_block("MPI_Barrier");
+            MPI_Barrier(MPI_COMM_WORLD);
+        }
+        double time_tst = libtest::get_wtime() - time;
+
+        if (trace) slate::trace::Trace::finish();
+
+        // compute and save timing/performance
+        params.time() = time_tst;
     }
-    double time_tst = libtest::get_wtime() - time;
-
-    if (trace) slate::trace::Trace::finish();
-
-    // compute and save timing/performance
-    params.time() = time_tst;
 
     if (check || ref) {
         // comparison with reference routine from ScaLAPACK

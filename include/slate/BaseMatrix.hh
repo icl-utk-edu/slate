@@ -2539,6 +2539,21 @@ void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set,
                                              int device,
                                              LayoutConvert layout)
 {
+    if (device != hostNum()) {
+
+        // find number of already existing tiles on the device
+        int64_t existing_tiles = 0;
+        for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
+            int64_t i = std::get<0>(*iter);
+            int64_t j = std::get<1>(*iter);
+            existing_tiles += tileExists(i, j, device);
+        }
+
+        // ensure workspace exists for the rest
+        if (tile_set.size() > size_t(existing_tiles))
+            storage_->ensureDeviceWorkspace(device, tile_set.size() - existing_tiles);
+    }
+
     tileGet(tile_set, device, layout, false, false, device != hostNum());
 
     if (device != hostNum())
@@ -2597,6 +2612,21 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetForWriting(std::set<ij_tuple>& tile_set,
                                              int device, LayoutConvert layout)
 {
+    if (device != hostNum()) {
+
+        // find number of aready existing tiles on the device
+        int64_t existing_tiles = 0;
+        for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
+            int64_t i = std::get<0>(*iter);
+            int64_t j = std::get<1>(*iter);
+            existing_tiles += tileExists(i, j, device);
+        }
+
+        // ensure workspace exists for the rest
+        if (tile_set.size() > size_t(existing_tiles))
+            storage_->ensureDeviceWorkspace(device, tile_set.size() - existing_tiles);
+    }
+
     tileGet(tile_set, device, layout, true, false, device != hostNum());
 
     if (device != hostNum())
@@ -2652,6 +2682,21 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetAndHold(std::set<ij_tuple>& tile_set, int device,
                                           LayoutConvert layout)
 {
+    if (device != hostNum()) {
+
+        // find number of aready existing tiles on the device
+        int64_t existing_tiles = 0;
+        for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
+            int64_t i = std::get<0>(*iter);
+            int64_t j = std::get<1>(*iter);
+            existing_tiles += tileExists(i, j, device);
+        }
+
+        // ensure workspace exists for the rest
+        if (tile_set.size() > size_t(existing_tiles))
+            storage_->ensureDeviceWorkspace(device, tile_set.size() - existing_tiles);
+    }
+
     tileGet(tile_set, device, layout, false, true, device != hostNum());
 
     if (device != hostNum())

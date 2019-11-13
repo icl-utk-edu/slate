@@ -408,6 +408,7 @@ public:
     // workspace
     void reserveHostWorkspace(int64_t num_tiles);
     void reserveDeviceWorkspace(int64_t num_tiles);
+    void ensureDeviceWorkspace(int device, int64_t num_tiles);
     void clearWorkspace();
     void releaseWorkspace();
 
@@ -848,6 +849,15 @@ void MatrixStorage<scalar_t>::reserveDeviceWorkspace(int64_t num_tiles)
 {
     for (int device = 0; device < num_devices_; ++device)
         memory_.addDeviceBlocks(device, num_tiles);
+}
+
+//------------------------------------------------------------------------------
+/// Ensures there is unoccupied workspace for num_tiles on device in allocator.
+template <typename scalar_t>
+void MatrixStorage<scalar_t>::ensureDeviceWorkspace(int device, int64_t num_tiles)
+{
+    if (memory_.available(device) < size_t(num_tiles))
+        memory_.addDeviceBlocks(device, num_tiles - memory_.available(device));
 }
 
 //------------------------------------------------------------------------------

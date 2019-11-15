@@ -221,7 +221,7 @@ void norm(
 
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     for (int64_t i = 0; i < A.mt(); ++i) {
-                        int64_t nb = A.tileNb(i);
+                        int64_t nb = A.tileNb(j);
                         if (A.tileIsLocal(i, j)) {
                                 blas::axpy(
                                     nb, 1.0,

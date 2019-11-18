@@ -283,9 +283,11 @@ void gelqf(slate::internal::TargetType<target>,
                 }
             }
         }
+
+        #pragma omp taskwait
+        A.tileUpdateAllOrigin();
     }
 
-    A.tileUpdateAllOrigin();
     A.releaseWorkspace();
 }
 

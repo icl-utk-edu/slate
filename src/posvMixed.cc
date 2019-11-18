@@ -113,9 +113,22 @@ void posvMixed( slate::internal::TargetType<target>,
     A_lo.insertLocalTiles(target);
 
     if (target == Target::Devices) {
-        A.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
-        B.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
-        X.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
+        #pragma omp parallel
+        #pragma omp master
+        {
+            #pragma omp task default(shared)
+            {
+                A.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
+            }
+            #pragma omp task default(shared)
+            {
+                B.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
+            }
+            #pragma omp task default(shared)
+            {
+                X.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
+            }
+        }
     }
 
     // norm of A

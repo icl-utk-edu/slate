@@ -279,8 +279,10 @@ void unmqr(
 
             lastk = k;
         }
+
+        #pragma omp taskwait
+        C.tileUpdateAllOrigin();
     }
-    C.tileUpdateAllOrigin();
     C.clearWorkspace();
 }
 

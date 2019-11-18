@@ -100,6 +100,7 @@ void gbmm(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
+        omp_set_nested(1);
         // send first block col of A and block row of B
         #pragma omp task depend(out:bcast[0])
         {
@@ -217,9 +218,10 @@ void gbmm(slate::internal::TargetType<target>,
                     layout);
             }
         }
+        #pragma omp taskwait
+        C.tileUpdateAllOrigin();
     }
 
-    C.tileUpdateAllOrigin();
     C.clearWorkspace();
 }
 

@@ -174,9 +174,11 @@ void gemm(slate::internal::TargetType<target>,
                     layout);
             }
         }
+
+        #pragma omp taskwait
+        C.tileUpdateAllOrigin();
     }
 
-    C.tileUpdateAllOrigin();
     C.releaseWorkspace();
 }
 

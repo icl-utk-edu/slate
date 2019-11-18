@@ -2835,11 +2835,13 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetAllForReadingOnDevices(LayoutConvert layout)
 {
     std::vector< std::set<ij_tuple> > tiles_set(num_devices());
-    for (int64_t j = 0; j < nt(); ++j)
-        for (int64_t i = 0; i < mt(); ++i)
+    for (int64_t j = 0; j < nt(); ++j) {
+        for (int64_t i = 0; i < mt(); ++i) {
             if (tileIsLocal(i, j)) {
                 tiles_set[tileDevice(i, j)].insert({i, j});
             }
+        }
+    }
 
     #pragma omp taskgroup
     {
@@ -2868,11 +2870,13 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetAllForWritingOnDevices(LayoutConvert layout)
 {
     std::vector< std::set<ij_tuple> > tiles_set(num_devices());
-    for (int64_t j = 0; j < nt(); ++j)
-        for (int64_t i = 0; i < mt(); ++i)
+    for (int64_t j = 0; j < nt(); ++j) {
+        for (int64_t i = 0; i < mt(); ++i) {
             if (tileIsLocal(i, j)) {
                 tiles_set[tileDevice(i, j)].insert({i, j});
             }
+        }
+    }
 
     #pragma omp taskgroup
     {
@@ -2901,11 +2905,13 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetAndHoldAllOnDevices(LayoutConvert layout)
 {
     std::vector< std::set<ij_tuple> > tiles_set(num_devices());
-    for (int64_t j = 0; j < nt(); ++j)
-        for (int64_t i = 0; i < mt(); ++i)
+    for (int64_t j = 0; j < nt(); ++j) {
+        for (int64_t i = 0; i < mt(); ++i) {
             if (tileIsLocal(i, j)) {
                 tiles_set[tileDevice(i, j)].insert({i, j});
             }
+        }
+    }
 
     #pragma omp taskgroup
     {

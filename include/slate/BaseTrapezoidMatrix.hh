@@ -791,12 +791,64 @@ template <typename scalar_t>
 void BaseTrapezoidMatrix<scalar_t>::tileUpdateAllOrigin()
 {
     int64_t mt = this->mt();
+    std::vector< std::set<ij_tuple> > tiles_set_host(this->num_devices());
+    std::vector< std::set<ij_tuple> > tiles_set_dev(this->num_devices());
+
     for (int64_t j = 0; j < this->nt(); ++j) {
         int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);
         int64_t iend   = (this->uplo() == Uplo::Lower ? mt : std::min( j+1, mt ));
         for (int64_t i = istart; i < iend; ++i) {
-            if (this->tileIsLocal(i, j))
-                this->tileUpdateOrigin(i, j);
+            if (this->tileIsLocal(i, j)) {
+                // this->tileUpdateOrigin(i, j);
+                auto& tile_node = this->storage_->at(this->globalIndex(i, j));
+
+                // find on host
+                if (tile_node.existsOn(this->hostNum()) &&
+                    tile_node[this->hostNum()].tile()->origin()) {
+                    if (tile_node[this->hostNum()].stateOn(MOSI::Invalid)) {
+                        // tileGetForReading(i, j, LayoutConvert::None);
+                        for (int d = 0; d < this->num_devices(); ++d) {
+                            if (tile_node.existsOn(d)
+                                && tile_node[d].getState() != MOSI::Invalid)
+                            {
+                                tiles_set_host[d].insert({i, j});
+                                break;
+                            }
+                        }
+                    }
+                }
+                else {
+                    auto device = this->tileDevice(i, j);
+                    if (tile_node.existsOn(device) &&
+                        tile_node[device].tile()->origin()) {
+                        if (tile_node[device].stateOn(MOSI::Invalid)) {
+                            // tileGetForReading(i, j, device, LayoutConvert::None);
+                            tiles_set_dev[device].insert({i, j});
+                        }
+                    }
+                    else
+                        slate_error( std::string("Origin tile not found! tile(")
+                                    +std::to_string(i)+","+std::to_string(j)+")");
+                }
+            }
+        }
+    }
+
+    #pragma omp taskgroup
+    {
+        for (int d = 0; d < this->num_devices(); ++d) {
+            if (! tiles_set_host[d].empty()) {
+                #pragma omp task default(shared)
+                {
+                    this->tileGetForReading(tiles_set_host[d], LayoutConvert::None, d);
+                }
+            }
+            if (! tiles_set_dev[d].empty()) {
+                #pragma omp task default(shared)
+                {
+                    this->tileGetForReading(tiles_set_dev[d], d, LayoutConvert::None);
+                }
+            }
         }
     }
 }
@@ -959,9 +1011,16 @@ void BaseTrapezoidMatrix<scalar_t>::tileGetAllForReadingOnDevices(LayoutConvert 
         }
     }
 
-    // todo: omp parallel for?
-    for (int d = 0; d < this->num_devices(); ++d) {
-        this->tileGetForReading(tiles_set[d], d, layout);
+    #pragma omp taskgroup
+    {
+        for (int d = 0; d < this->num_devices(); ++d) {
+            if (! tiles_set[d].empty()) {
+                #pragma omp task default(shared)
+                {
+                    this->tileGetForReading(tiles_set[d], d, layout);
+                }
+            }
+        }
     }
 }
 
@@ -990,9 +1049,16 @@ void BaseTrapezoidMatrix<scalar_t>::tileGetAllForWritingOnDevices(LayoutConvert 
         }
     }
 
-    // todo: omp parallel for?
-    for (int d = 0; d < this->num_devices(); ++d) {
-        this->tileGetForWriting(tiles_set[d], d, layout);
+    #pragma omp taskgroup
+    {
+        for (int d = 0; d < this->num_devices(); ++d) {
+            if (! tiles_set[d].empty()) {
+                #pragma omp task default(shared)
+                {
+                    this->tileGetForWriting(tiles_set[d], d, layout);
+                }
+            }
+        }
     }
 }
 
@@ -1021,9 +1087,16 @@ void BaseTrapezoidMatrix<scalar_t>::tileGetAndHoldAllOnDevices(LayoutConvert lay
         }
     }
 
-    // todo: omp parallel for?
-    for (int d = 0; d < this->num_devices(); ++d) {
-        this->tileGetAndHold(tiles_set[d], d, layout);
+    #pragma omp taskgroup
+    {
+        for (int d = 0; d < this->num_devices(); ++d) {
+            if (! tiles_set[d].empty()) {
+                #pragma omp task default(shared)
+                {
+                    this->tileGetAndHold(tiles_set[d], d, layout);
+                }
+            }
+        }
     }
 }
 
@@ -1096,10 +1169,8 @@ void BaseTrapezoidMatrix<scalar_t>::tileLayoutReset()
         }
     }
 
-    #pragma omp parallel
-    #pragma omp master
+    #pragma omp taskgroup
     {
-        omp_set_nested(1);
         if (! tiles_set_host.empty()) {
             #pragma omp task default(shared)
             {

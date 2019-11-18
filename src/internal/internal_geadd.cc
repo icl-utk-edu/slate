@@ -229,8 +229,15 @@ void geadd(internal::TargetType<Target::Devices>,
                     }
                 }
             }
-            A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
-            B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
+            #pragma omp task default(shared)
+            {
+                A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+            }
+            #pragma omp task default(shared)
+            {
+                B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
+            }
+            #pragma omp taskwait
 
             scalar_t** a_array_host = B.a_array_host(device);
             scalar_t** b_array_host = B.b_array_host(device);

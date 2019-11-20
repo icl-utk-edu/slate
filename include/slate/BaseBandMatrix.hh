@@ -307,20 +307,66 @@ void BaseBandMatrix<scalar_t>::tileUpdateAllOrigin()
 {
     int64_t mt = this->mt();
     int64_t nt = this->nt();
-    // int64_t klt = ceildiv( this->kl_, this->tileNb(0) );
-    // int64_t kut = ceildiv( this->ku_, this->tileNb(0) );
-    // todo: Agree upon weather lowerBandwidth and upperBandwidth should
-    // be in BaseBandMatrix class or BandMatrix class .
-    int64_t klt = ceildiv(
-            this->op() == Op::NoTrans ? this->kl_ : this->ku_, this->tileNb(0));
-    int64_t kut = ceildiv(
-            this->op() == Op::NoTrans ? this->ku_ : this->kl_, this->tileNb(0));
+    int64_t klt = ceildiv( this->kl_, this->tileNb(0) );
+    int64_t kut = ceildiv( this->ku_, this->tileNb(0) );
+
+    std::vector< std::set<ij_tuple> > tiles_set_host(this->num_devices());
+    std::vector< std::set<ij_tuple> > tiles_set_dev(this->num_devices());
+
     for (int64_t j = 0; j < nt; ++j) {
         int64_t istart = blas::max( 0, j-kut );
         int64_t iend   = blas::min( j+klt+1, mt );
         for (int64_t i = istart; i < iend; ++i) {
             if (this->tileIsLocal(i, j)) {
-                this->tileUpdateOrigin(i, j);
+                // this->tileUpdateOrigin(i, j);
+                auto& tile_node = this->storage_->at(this->globalIndex(i, j));
+
+                // find on host
+                if (tile_node.existsOn(this->hostNum()) &&
+                    tile_node[this->hostNum()].tile()->origin()) {
+                    if (tile_node[this->hostNum()].stateOn(MOSI::Invalid)) {
+                        // tileGetForReading(i, j, LayoutConvert::None);
+                        for (int d = 0; d < this->num_devices(); ++d) {
+                            if (tile_node.existsOn(d)
+                                && tile_node[d].getState() != MOSI::Invalid)
+                            {
+                                tiles_set_host[d].insert({i, j});
+                                break;
+                            }
+                        }
+                    }
+                }
+                else {
+                    auto device = this->tileDevice(i, j);
+                    if (tile_node.existsOn(device) &&
+                        tile_node[device].tile()->origin()) {
+                        if (tile_node[device].stateOn(MOSI::Invalid)) {
+                            // tileGetForReading(i, j, device, LayoutConvert::None);
+                            tiles_set_dev[device].insert({i, j});
+                        }
+                    }
+                    else
+                        slate_error( std::string("Origin tile not found! tile(")
+                                    +std::to_string(i)+","+std::to_string(j)+")");
+                }
+            }
+        }
+    }
+
+    #pragma omp taskgroup
+    {
+        for (int d = 0; d < this->num_devices(); ++d) {
+            if (! tiles_set_host[d].empty()) {
+                #pragma omp task default(shared)
+                {
+                    this->tileGetForReading(tiles_set_host[d], LayoutConvert::None, d);
+                }
+            }
+            if (! tiles_set_dev[d].empty()) {
+                #pragma omp task default(shared)
+                {
+                    this->tileGetForReading(tiles_set_dev[d], d, LayoutConvert::None);
+                }
             }
         }
     }

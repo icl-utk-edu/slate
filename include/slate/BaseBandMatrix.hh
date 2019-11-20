@@ -308,13 +308,13 @@ void BaseBandMatrix<scalar_t>::tileUpdateAllOrigin()
     int64_t mt = this->mt();
     int64_t nt = this->nt();
     // int64_t klt = ceildiv( this->kl_, this->tileNb(0) );
-    //int64_t kut = ceildiv( this->ku_, this->tileNb(0) );
+    // int64_t kut = ceildiv( this->ku_, this->tileNb(0) );
     // todo: Agree upon weather lowerBandwidth and upperBandwidth should                                                                                                    |
     // be in BaseBandMatrix class or BandMatrix class .                                                                                                                     |      std::vector< std::set<ij_tuple> > tiles_set_host(this->num_devices());
     int64_t klt = ceildiv(                                                                                                                                                  |      std::vector< std::set<ij_tuple> > tiles_set_dev(this->num_devices());
-        this->op() == Op::NoTrans ? this->kl_ : this->ku_, this->tileNb(0));                                                                                            |
+            this->op() == Op::NoTrans ? this->kl_ : this->ku_, this->tileNb(0));                                                                                            |
     int64_t kut = ceildiv(                                                                                                                                                  |  ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-        this->op() == Op::NoTrans ? this->ku_ : this->kl_, this->tileNb(0));
+            this->op() == Op::NoTrans ? this->ku_ : this->kl_, this->tileNb(0));
 
     std::vector< std::set<ij_tuple> > tiles_set_host(this->num_devices());
     std::vector< std::set<ij_tuple> > tiles_set_dev(this->num_devices());

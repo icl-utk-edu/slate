@@ -110,6 +110,7 @@ void tbsm(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
+        omp_set_nested(1);
         if (alpha != one) {
             // Scale B = alpha B.
             // Due to the band, this can't be done in trsm & gemm tasks
@@ -335,9 +336,12 @@ void tbsm(slate::internal::TargetType<target>,
                 }
             }
         }
+        
+        #pragma omp taskwait
+        B.tileUpdateAllOrigin();
     }
 
-    B.tileUpdateAllOrigin();
+
     B.clearWorkspace();
 }
 

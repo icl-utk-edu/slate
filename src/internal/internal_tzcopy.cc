@@ -254,6 +254,7 @@ void copy(internal::TargetType<Target::Devices>,
           BaseTrapezoidMatrix<dst_scalar_t>& B,
           int priority)
 {
+    using ij_tuple = typename BaseMatrix<src_scalar_t>::ij_tuple;
     slate_error_if(A.uplo() != B.uplo());
     bool lower = (B.uplo() == Uplo::Lower);
 
@@ -283,17 +284,21 @@ void copy(internal::TargetType<Target::Devices>,
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task shared(A, B) priority(priority)
         {
-            for (int64_t i = 0; i < B.mt(); ++i)
-                for (int64_t j = 0; j < B.nt(); ++j)
+            std::set<ij_tuple> A_tiles_set;
+            for (int64_t i = 0; i < B.mt(); ++i) {
+                for (int64_t j = 0; j < B.nt(); ++j) {
                     if (B.tileIsLocal(i, j) &&
                         device == B.tileDevice(i, j) &&
                         ( (  lower && i >= j) ||
                           (! lower && i <= j) ) )
                     {
+                        A_tiles_set.insert({i, j});
                         // no need to convert layout
-                        A.tileGetForReading(i, j, device, LayoutConvert::None);
-                        B.tileGetForWriting(i, j, device, LayoutConvert::None);
+                        B.tileAcquire(i, j, device, A(i, j).layout());
                     }
+                }
+            }
+            A.tileGetForReading(A_tiles_set, device, LayoutConvert::None);
 
             // Usually the output matrix (B) provides all the batch arrays.
             // Here we are using A, because of the differen types.

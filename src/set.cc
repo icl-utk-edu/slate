@@ -69,9 +69,10 @@ void set(slate::internal::TargetType<target>,
     #pragma omp master
     {
         internal::set<target>(alpha, beta, std::move(A));
+        #pragma omp taskwait
+        A.tileUpdateAllOrigin();
     }
 
-    A.tileUpdateAllOrigin();
     A.releaseWorkspace();
 }
 

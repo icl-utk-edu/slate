@@ -379,9 +379,11 @@ void ge2tb(slate::internal::TargetType<target>,
                 }
             }
         }
+
+        #pragma omp taskwait
+        A.tileUpdateAllOrigin();
     }
 
-    A.tileUpdateAllOrigin();
     A.releaseWorkspace();
 }
 

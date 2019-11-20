@@ -84,6 +84,7 @@ void trtrm(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
+        omp_set_nested(1);
         // diagonal block, L = L^H L
         #pragma omp task depend(inout:row[0])
         {
@@ -142,9 +143,11 @@ void trtrm(slate::internal::TargetType<target>,
                 internal::trtrm<Target::HostTask>(A.sub(k, k));
             }
         }
+
+        #pragma omp taskwait
+        A.tileUpdateAllOrigin();
     }
 
-    A.tileUpdateAllOrigin();
     A.releaseWorkspace();
 }
 

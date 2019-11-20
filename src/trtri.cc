@@ -87,6 +87,7 @@ void trtri(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
+        omp_set_nested(1);
         // trsm the first column
         if (A_nt > 1) {
             #pragma omp task depend(inout:col[0]) firstprivate(tag)
@@ -252,9 +253,11 @@ void trtri(slate::internal::TargetType<target>,
             }
             ++tag;
         }
+
+        #pragma omp taskwait
+        A.tileUpdateAllOrigin();
     }
 
-    A.tileUpdateAllOrigin();
     A.releaseWorkspace();
 }
 

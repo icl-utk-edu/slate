@@ -76,9 +76,10 @@ void copy(slate::internal::TargetType<target>,
     #pragma omp master
     {
         internal::copy<target>(std::move(A), std::move(B));
+        #pragma omp taskwait
+        B.tileUpdateAllOrigin();
     }
 
-    B.tileUpdateAllOrigin();
     B.releaseWorkspace();
 }
 

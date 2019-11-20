@@ -107,132 +107,133 @@ void gbtrf(slate::internal::TargetType<target>,
 
     #pragma omp parallel
     #pragma omp master
-    for (int64_t k = 0; k < min_mt_nt; ++k) {
+    {
+        omp_set_nested(1);
+        for (int64_t k = 0; k < min_mt_nt; ++k) {
 
-        const int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
-        pivots.at(k).resize(diag_len);
+            const int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
+            pivots.at(k).resize(diag_len);
 
-        // A( k:i_end-1, k ) is the panel
-        // A( k, k+1:j_end-1 ) is the trsm
-        // A( k+1:i_end-1, k+1:j_end-1 ) is the gemm
-        // Compared to getrf, i_end replaces A_mt, j_end replaces A_nt.
-        // "end" in the usual C++ sense of element after the last element.
-        int64_t i_end = std::min(k + klt + 1, A_mt);
-        int64_t j_end = std::min(k + ku2t + 1, A_nt);
+            // A( k:i_end-1, k ) is the panel
+            // A( k, k+1:j_end-1 ) is the trsm
+            // A( k+1:i_end-1, k+1:j_end-1 ) is the gemm
+            // Compared to getrf, i_end replaces A_mt, j_end replaces A_nt.
+            // "end" in the usual C++ sense of element after the last element.
+            int64_t i_end = std::min(k + klt + 1, A_mt);
+            int64_t j_end = std::min(k + ku2t + 1, A_nt);
 
-        // panel, high priority
-        int priority_one = 1;
-        #pragma omp task depend(inout:column[k]) priority(priority_one)
-        {
-            // factor A(k:mt-1, k)
-            internal::getrf<Target::HostTask>(
-                A.sub(k, i_end-1, k, k), diag_len, ib,
-                pivots.at(k), max_panel_threads, priority_one);
-
-            BcastList bcast_list_A;
-            int tag_k = k;
-            for (int64_t i = k; i < i_end; ++i) {
-                // send A(i, k) across row A(i, k+1:nt-1)
-                bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, j_end-1)}});
-            }
-            A.template listBcast(bcast_list_A, layout, tag_k);
-
-            // Root broadcasts the pivot to all ranks.
-            // todo: Panel ranks send the pivots to the right.
+            // panel, high priority
+            int priority_one = 1;
+            #pragma omp task depend(inout:column[k]) priority(priority_one)
             {
-                trace::Block trace_block("MPI_Bcast");
+                // factor A(k:mt-1, k)
+                internal::getrf<Target::HostTask>(
+                    A.sub(k, i_end-1, k, k), diag_len, ib,
+                    pivots.at(k), max_panel_threads, priority_one);
 
-                MPI_Bcast(pivots.at(k).data(),
-                          sizeof(Pivot)*pivots.at(k).size(),
-                          MPI_BYTE, A.tileRank(k, k), A.mpiComm());
-            }
-        }
-        // update lookahead column(s), high priority
-        for (int64_t j = k+1; j < k+1+lookahead && j < j_end; ++j) {
-            #pragma omp task depend(in:column[k]) \
-                             depend(inout:column[j]) priority(priority_one)
-            {
-                // swap rows in A(k:mt-1, j)
-                int priority_one = 1;
-                int tag_j = j;
-                internal::swap<Target::HostTask>(
-                    Direction::Forward, A.sub(k, i_end-1, j, j), pivots.at(k),
-                    layout, priority_one, tag_j);
-
-                auto Akk = A.sub(k, k, k, k);
-                auto Tkk =
-                    TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Akk);
-
-                // solve A(k, k) A(k, j) = A(k, j)
-                internal::trsm<Target::HostTask>(
-                    Side::Left,
-                    scalar_t(1.0), std::move(Tkk),
-                                   A.sub(k, k, j, j), priority_one);
-
-                // send A(k, j) across column A(k+1:mt-1, j)
-                A.tileBcast(k, j, A.sub(k+1, i_end-1, j, j), layout, tag_j);
-
-                // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
-                internal::gemm<Target::HostTask>(
-                    scalar_t(-1.0), A.sub(k+1, i_end-1, k, k),
-                                    A.sub(k, k, j, j),
-                    scalar_t(1.0),  A.sub(k+1, i_end-1, j, j),
-                    layout, priority_one);
-            }
-        }
-        // Update trailing submatrix, normal priority.
-        // Depends on the whole range k+1+lookahead : A_nt-1,
-        // not just to j_end-1, as the dependencies daisy chain on A_nt-1.
-        if (k+1+lookahead < j_end) {
-            #pragma omp task depend(in:column[k]) \
-                             depend(inout:column[k+1+lookahead]) \
-                             depend(inout:column[A_nt-1])
-            {
-                // swap rows in A(k:mt-1, kl+1:nt-1)
-                int priority_zero = 0;
-                int tag_kl1 = k+1+lookahead;
-                internal::swap<Target::HostTask>(
-                    Direction::Forward, A.sub(k, i_end-1, k+1+lookahead, j_end-1),
-                    pivots.at(k), layout, priority_zero, tag_kl1);
-
-                auto Akk = A.sub(k, k, k, k);
-                auto Tkk =
-                    TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Akk);
-
-                // solve A(k, k) A(k, kl+1:nt-1) = A(k, kl+1:nt-1)
-                internal::trsm<Target::HostTask>(
-                    Side::Left,
-                    scalar_t(1.0), std::move(Tkk),
-                                   A.sub(k, k, k+1+lookahead, j_end-1));
-
-                // send A(k, kl+1:j_end-1) across A(k+1:mt-1, kl+1:nt-1)
                 BcastList bcast_list_A;
-                for (int64_t j = k+1+lookahead; j < j_end; ++j) {
-                    // send A(k, j) across column A(k+1:mt-1, j)
-                    bcast_list_A.push_back({k, j, {A.sub(k+1, i_end-1, j, j)}});
+                int tag_k = k;
+                for (int64_t i = k; i < i_end; ++i) {
+                    // send A(i, k) across row A(i, k+1:nt-1)
+                    bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, j_end-1)}});
                 }
-                A.template listBcast(bcast_list_A, layout, tag_kl1);
+                A.template listBcast(bcast_list_A, layout, tag_k);
 
-                // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
-                internal::gemm<Target::HostTask>(
-                    scalar_t(-1.0), A.sub(k+1, i_end-1, k, k),
-                                    A.sub(k, k, k+1+lookahead, j_end-1),
-                    scalar_t(1.0),  A.sub(k+1, i_end-1, k+1+lookahead, j_end-1),
-                    layout);
+                // Root broadcasts the pivot to all ranks.
+                // todo: Panel ranks send the pivots to the right.
+                {
+                    trace::Block trace_block("MPI_Bcast");
+
+                    MPI_Bcast(pivots.at(k).data(),
+                              sizeof(Pivot)*pivots.at(k).size(),
+                              MPI_BYTE, A.tileRank(k, k), A.mpiComm());
+                }
+            }
+            // update lookahead column(s), high priority
+            for (int64_t j = k+1; j < k+1+lookahead && j < j_end; ++j) {
+                #pragma omp task depend(in:column[k]) \
+                                 depend(inout:column[j]) priority(priority_one)
+                {
+                    // swap rows in A(k:mt-1, j)
+                    int priority_one = 1;
+                    int tag_j = j;
+                    internal::swap<Target::HostTask>(
+                        Direction::Forward, A.sub(k, i_end-1, j, j), pivots.at(k),
+                        layout, priority_one, tag_j);
+
+                    auto Akk = A.sub(k, k, k, k);
+                    auto Tkk =
+                        TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Akk);
+
+                    // solve A(k, k) A(k, j) = A(k, j)
+                    internal::trsm<Target::HostTask>(
+                        Side::Left,
+                        scalar_t(1.0), std::move(Tkk),
+                                       A.sub(k, k, j, j), priority_one);
+
+                    // send A(k, j) across column A(k+1:mt-1, j)
+                    A.tileBcast(k, j, A.sub(k+1, i_end-1, j, j), layout, tag_j);
+
+                    // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
+                    internal::gemm<Target::HostTask>(
+                        scalar_t(-1.0), A.sub(k+1, i_end-1, k, k),
+                                        A.sub(k, k, j, j),
+                        scalar_t(1.0),  A.sub(k+1, i_end-1, j, j),
+                        layout, priority_one);
+                }
+            }
+            // Update trailing submatrix, normal priority.
+            // Depends on the whole range k+1+lookahead : A_nt-1,
+            // not just to j_end-1, as the dependencies daisy chain on A_nt-1.
+            if (k+1+lookahead < j_end) {
+                #pragma omp task depend(in:column[k]) \
+                                 depend(inout:column[k+1+lookahead]) \
+                                 depend(inout:column[A_nt-1])
+                {
+                    // swap rows in A(k:mt-1, kl+1:nt-1)
+                    int priority_zero = 0;
+                    int tag_kl1 = k+1+lookahead;
+                    internal::swap<Target::HostTask>(
+                        Direction::Forward, A.sub(k, i_end-1, k+1+lookahead, j_end-1),
+                        pivots.at(k), layout, priority_zero, tag_kl1);
+
+                    auto Akk = A.sub(k, k, k, k);
+                    auto Tkk =
+                        TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Akk);
+
+                    // solve A(k, k) A(k, kl+1:nt-1) = A(k, kl+1:nt-1)
+                    internal::trsm<Target::HostTask>(
+                        Side::Left,
+                        scalar_t(1.0), std::move(Tkk),
+                                       A.sub(k, k, k+1+lookahead, j_end-1));
+
+                    // send A(k, kl+1:j_end-1) across A(k+1:mt-1, kl+1:nt-1)
+                    BcastList bcast_list_A;
+                    for (int64_t j = k+1+lookahead; j < j_end; ++j) {
+                        // send A(k, j) across column A(k+1:mt-1, j)
+                        bcast_list_A.push_back({k, j, {A.sub(k+1, i_end-1, j, j)}});
+                    }
+                    A.template listBcast(bcast_list_A, layout, tag_kl1);
+
+                    // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
+                    internal::gemm<Target::HostTask>(
+                        scalar_t(-1.0), A.sub(k+1, i_end-1, k, k),
+                                        A.sub(k, k, k+1+lookahead, j_end-1),
+                        scalar_t(1.0),  A.sub(k+1, i_end-1, k+1+lookahead, j_end-1),
+                        layout);
+                }
             }
         }
-    }
 
+        #pragma omp taskwait
+        A.tileUpdateAllOrigin();
+    }
     // Band LU does NOT pivot to the left of the panel, since it would
     // introduce fill in the lower triangle. Instead, pivoting is done
     // during the solve (gbtrs).
 
-    // Debug::checkTilesLives(A);
-    // Debug::printTilesLives(A);
-    A.tileUpdateAllOrigin();
     A.releaseWorkspace();
 
-    // Debug::printTilesMaps(A);
 }
 
 } // namespace specialization

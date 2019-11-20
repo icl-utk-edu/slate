@@ -218,6 +218,7 @@ void copy(internal::TargetType<Target::Devices>,
           Matrix<dst_scalar_t>& B,
           int priority)
 {
+    using ij_tuple = typename BaseMatrix<src_scalar_t>::ij_tuple;
     int64_t irange[4][2] = {
         { 0,        B.mt()-1 },
         { B.mt()-1, B.mt()   },
@@ -234,17 +235,19 @@ void copy(internal::TargetType<Target::Devices>,
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task shared(A, B) priority(priority)
         {
+            std::set<ij_tuple> A_tiles_set;
             for (int64_t i = 0; i < B.mt(); ++i) {
                 for (int64_t j = 0; j < B.nt(); ++j) {
                     if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j))
                     {
-                        // no need to convert layout.
-                        A.tileGetForReading(i, j, device, LayoutConvert::None);
-                        // todo: should tileAcquire() instead to avoid un-needed copy
-                        B.tileGetForWriting(i, j, device, LayoutConvert::None);
+                        A_tiles_set.insert({i, j});
+                        // tileAcquire() instead to avoid un-needed copy
+                        B.tileAcquire(i, j, device, A(i, j).layout());
                     }
                 }
             }
+            // no need to convert layout.
+            A.tileGetForReading(A_tiles_set, device, LayoutConvert::None);
 
             // Usually the output matrix (B) provides all the batch arrays.
             // Here we are using A, because of the possibly different types.

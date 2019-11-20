@@ -395,9 +395,11 @@ void he2hb(slate::internal::TargetType<target>,
                 Op::ConjTrans, std::move(A_panel), std::move(Treduce_panel),
                 A.sub(k+1, nt-1));
         }
+
+        #pragma omp taskwait
+        A.tileUpdateAllOrigin();
     }
 
-    A.tileUpdateAllOrigin();
     A.releaseWorkspace();
 }
 

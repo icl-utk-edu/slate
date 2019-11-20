@@ -111,14 +111,7 @@ void test_gemm_work(Params& params, bool run)
     cuerror = cudaHostRegister(&C_tst[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
     #endif
 
-    // if check is required, copy test data and create a descriptor for it
-    std::vector<scalar_t> C_ref;
-    if (check || ref) {
-        C_ref = C_tst;
-        scalapack_descinit(descC_ref, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
-        slate_assert(info == 0);
-    }
-
+    // Create SLATE matrix structures from ScaLAPACK data
     slate::Matrix<scalar_t> A, B, C;
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy local ScaLAPACK data to GPU or CPU tiles.
@@ -142,6 +135,14 @@ void test_gemm_work(Params& params, bool run)
         C = slate::Matrix<scalar_t>::fromScaLAPACK( m,  n, &C_tst[0], lldC, nb, nprow, npcol, MPI_COMM_WORLD);
     }
 
+    // if reference run is required, copy test data and create a descriptor for it
+    std::vector<scalar_t> C_ref;
+    if (check || ref) {
+        C_ref = C_tst;
+        scalapack_descinit(descC_ref, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
+        slate_assert(info == 0);
+    }
+
     if (transA == slate::Op::Trans)
         A = transpose(A);
     else if (transA == slate::Op::ConjTrans)
@@ -155,6 +156,14 @@ void test_gemm_work(Params& params, bool run)
     slate_assert(A.mt() == C.mt());
     slate_assert(B.nt() == C.nt());
     slate_assert(A.nt() == B.mt());
+
+    // if reference run is required, record norms to be used in the check/ref
+    real_t A_norm=0, B_norm=0, C_orig_norm=0;
+    if (check || ref) {
+        A_norm = slate::norm(norm, A);
+        B_norm = slate::norm(norm, B);
+        C_orig_norm = slate::norm(norm, C);
+    }
 
     if (verbose >= 2) {
         print_matrix("A", A);
@@ -201,24 +210,15 @@ void test_gemm_work(Params& params, bool run)
     if (check || ref) {
         // comparison with reference routine from ScaLAPACK
 
-        if (origin != slate::Origin::ScaLAPACK) {
-            // Copy SLATE result back from GPU or CPU tiles.
+        // Copy SLATE result back from GPU or CPU tiles.
+        if (origin != slate::Origin::ScaLAPACK)
             copy(C, &C_tst[0], descC_tst);
-        }
 
         // set MKL num threads appropriately for parallel BLAS
         int omp_num_threads;
         #pragma omp parallel
         { omp_num_threads = omp_get_num_threads(); }
         int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
-        // allocate work space
-        std::vector<real_t> worklange(std::max({mlocC, mlocB, mlocA, nlocC, nlocB, nlocA}));
-
-        // get norms of the original data
-        real_t A_norm = scalapack_plange(norm2str(norm), Am, An, &A_tst[0], ione, ione, descA_tst, &worklange[0]);
-        real_t B_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_tst[0], ione, ione, descB_tst, &worklange[0]);
-        real_t C_orig_norm = scalapack_plange(norm2str(norm), Cm, Cn, &C_ref[0], ione, ione, descC_ref, &worklange[0]);
 
         //==================================================
         // Run ScaLAPACK reference routine.
@@ -240,15 +240,15 @@ void test_gemm_work(Params& params, bool run)
             print_matrix("Cref2", mlocC, nlocC, &C_ref[0], lldC, p, q, MPI_COMM_WORLD);
         }
 
-        // perform a local operation to get differences C_ref = C_ref - C_tst
-        blas::axpy(C_ref.size(), -1.0, &C_tst[0], 1, &C_ref[0], 1);
+        // perform a local operation to get differences C_tst = C_tst - C_ref
+        blas::axpy(C_tst.size(), -1.0, &C_ref[0], 1, &C_tst[0], 1);
 
         if (verbose >= 2) {
-            print_matrix("Diff", mlocC, nlocC, &C_ref[0], lldC, p, q, MPI_COMM_WORLD);
+            print_matrix("Diff", mlocC, nlocC, &C_tst[0], lldC, p, q, MPI_COMM_WORLD);
         }
 
-        // norm(C_ref - C_tst)
-        real_t C_diff_norm = scalapack_plange(norm2str(norm), Cm, Cn, &C_ref[0], ione, ione, descC_ref, &worklange[0]);
+        // norm(C_tst - C_ref)
+        real_t C_diff_norm = slate::norm(norm, C);
 
         real_t error = C_diff_norm
                      / (sqrt(real_t(k) + 2) * std::abs(alpha) * A_norm * B_norm

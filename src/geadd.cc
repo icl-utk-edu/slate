@@ -74,9 +74,10 @@ void geadd(slate::internal::TargetType<target>,
     {
         internal::geadd<target>(alpha, std::move(A),
                                 beta, std::move(B));
+        #pragma omp taskwait
+        B.tileUpdateAllOrigin();
     }
 
-    B.tileUpdateAllOrigin();
     B.releaseWorkspace();
 }
 

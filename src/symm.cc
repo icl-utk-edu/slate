@@ -111,6 +111,7 @@ void symm(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
+        omp_set_nested(1);
         if (A.uplo() == Uplo::Lower) {
             // ----------------------------------------
             // Left, Lower/NoTrans or Upper/Trans case
@@ -376,9 +377,10 @@ void symm(slate::internal::TargetType<target>,
                 }
             }
         }
+        #pragma omp taskwait
+        C.tileUpdateAllOrigin();
     }
 
-    C.tileUpdateAllOrigin();
     C.clearWorkspace();
 }
 

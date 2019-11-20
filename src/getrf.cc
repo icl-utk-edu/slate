@@ -227,12 +227,12 @@ void getrf(slate::internal::TargetType<target>,
         }
     }
 
-    // Debug::checkTilesLives(A);
-    // Debug::printTilesLives(A);
-    A.tileLayoutReset();
+    #pragma omp parallel
+    #pragma omp master
+    {
+        A.tileLayoutReset();
+    }
     A.clearWorkspace();
-
-    // Debug::printTilesMaps(A);
 }
 
 } // namespace specialization

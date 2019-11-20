@@ -96,6 +96,7 @@ void her2k(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
+        omp_set_nested(1);
         // Lower/NoTrans or Upper/ConjTrans case
         // send 1st block col of A
         #pragma omp task depend(out:bcast[0])
@@ -182,9 +183,11 @@ void her2k(slate::internal::TargetType<target>,
                     real_t(1.0), std::move(C));
             }
         }
+
+        #pragma omp taskwait
+        C.tileUpdateAllOrigin();
     }
 
-    C.tileUpdateAllOrigin();
     C.clearWorkspace();
 }
 

@@ -104,6 +104,7 @@ void trsm(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
+        omp_set_nested(1);
         if (A.uplo() == Uplo::Lower) {
             // ----------------------------------------
             // Lower/NoTrans or Upper/Trans, Left case
@@ -234,9 +235,11 @@ void trsm(slate::internal::TargetType<target>,
                 }
             }
         }
+
+        #pragma omp taskwait
+        B.tileUpdateAllOrigin();
     }
 
-    B.tileUpdateAllOrigin();
     B.releaseWorkspace();
 }
 

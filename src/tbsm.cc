@@ -40,30 +40,29 @@
 #include "slate/slate.hh"
 #include "aux/Debug.hh"
 #include "slate/Matrix.hh"
-#include "slate/TriangularBandMatrix.hh"
+#include "slate/TriangularMatrix.hh"
 #include "internal/internal.hh"
 
 namespace slate {
 
 // specialization namespace differentiates, e.g.,
-// internal::tbsm from internal::specialization::tbsm
+// internal::trmm from internal::specialization::trmm
 namespace internal {
 namespace specialization {
 
 //------------------------------------------------------------------------------
 /// @internal
-/// Distributed parallel triangular matrix solve.
+/// Distributed parallel triangular matrix-matrix multiplication.
 /// Generic implementation for any target.
 /// Note A and B are passed by value, so we can transpose if needed
 /// (for side = right) without affecting caller.
-/// @ingroup tbsm_specialization
+/// @ingroup trmm_specialization
 ///
 template <Target target, typename scalar_t>
-void tbsm(slate::internal::TargetType<target>,
+void trmm(slate::internal::TargetType<target>,
           Side side,
-          scalar_t alpha,
-          TriangularBandMatrix<scalar_t> A, Pivots& pivots,
-                        Matrix<scalar_t> B,
+          scalar_t alpha, TriangularMatrix<scalar_t> A,
+                                    Matrix<scalar_t> B,
           int64_t lookahead)
 {
     using namespace blas;
@@ -73,7 +72,7 @@ void tbsm(slate::internal::TargetType<target>,
     const Layout layout = Layout::ColMajor;
 
     // if on right, change to left by (conj)-transposing A and B to get
-    // op(B) = op(A)^{-1} * op(B)
+    // op(B) = op(A)*op(B)
     if (side == Side::Right) {
         if (A.op() == Op::ConjTrans || B.op() == Op::ConjTrans) {
             A = conj_transpose(A);
@@ -99,248 +98,219 @@ void tbsm(slate::internal::TargetType<target>,
     }
 
     // OpenMP needs pointer types, but vectors are exception safe
-    std::vector<uint8_t> row_vector(A.nt());
-    uint8_t* row = row_vector.data();
-
-    // todo: initially, assume fixed size, square tiles for simplicity
-    int64_t kdt = ceildiv( A.bandwidth(), A.tileNb(0) );
-
-    const scalar_t one = 1.0;
+    std::vector<uint8_t> bcast_vector(mt);
+    std::vector<uint8_t>  gemm_vector(mt);
+    uint8_t* bcast = bcast_vector.data();
+    uint8_t* gemm  =  gemm_vector.data();
 
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
-        if (alpha != one) {
-            // Scale B = alpha B.
-            // Due to the band, this can't be done in trsm & gemm tasks
-            // (at least, not without splitting gemms).
-            int64_t B_mt = B.mt();
-            int64_t B_nt = B.nt();
-            for (int64_t i = 0; i < B_mt; ++i) {
-                #pragma omp task depend(inout:row[i]) priority(1)
-                {
-                    // No batched routine; use host-nest implementation.
-                    // todo: make internal::scale routine and device implementation.
-                    #pragma omp parallel for schedule(dynamic, 1)
-                    for (int64_t j = 0; j < B_nt; ++j) {
-                        if (B.tileIsLocal(i, j)) {
-                            B.tileGetForWriting(i, j, LayoutConvert(layout));
-                            scale(alpha, B(i, j));
-                        }
-                    }
-                    #pragma omp taskwait
-                }
-            }
-        }
-
-        if (A.uplo() == Uplo::Lower) {
+        if (A.uplo() == Uplo::Upper) {
             // ----------------------------------------
-            // Lower/NoTrans or Upper/Trans, Left case
+            // Left, Upper/NoTrans or Lower/Trans case
             // Forward sweep
-            for (int64_t k = 0; k < mt; ++k) {
-                // A( k:i_end-1, k ) is the panel
-                // Compared to trsm, i_end replaces mt.
-                // "end" in the usual C++ sense of entry after the last entry.
-                int64_t i_end = min(k + kdt + 1, mt);
 
-                if (! pivots.empty()) {
-                    // swap rows in B(k:mt-1, 0:nt-1)
-                    // Pivots need to lock the whole rest of the B matrix.
-                    #pragma omp taskwait
-                    internal::swap<Target::HostTask>(
-                        Direction::Forward, B.sub(k, B.mt()-1, 0, B.nt()-1),
-                        pivots.at(k), layout);
-                    #pragma omp taskwait
-                }
+            // send 1st block col of A and block row of B
+            #pragma omp task depend(out:bcast[0])
+            {
+                // broadcast A(i, 0) to ranks owning block row B(i, :),
+                // for i = 0
+                A.template tileBcast<target>(0, 0, B.sub(0, 0, 0, nt-1), layout);
 
-                // panel (Akk tile)
-                #pragma omp task depend(inout:row[k]) priority(1)
-                {
-                    // send A(k, k) to ranks owning block row B(k, :)
-                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
-
-                    // solve A(k, k) B(k, :) = B(k, :)
-                    internal::trsm<Target::HostTask>(
-                        Side::Left,
-                        one, A.sub(k, k),
-                             B.sub(k, k, 0, nt-1), 1);
-
-                    // send A(i=k+1:i_end-1, k) to ranks owning block row B(i, :)
-                    BcastList bcast_list_A;
-                    for (int64_t i = k+1; i < i_end; ++i)
-                        bcast_list_A.push_back({i, k, {B.sub(i, i, 0, nt-1)}});
-                    A.template listBcast<target>(bcast_list_A, layout);
-
-                    // send B(k, j=0:nt-1) to ranks owning
-                    // block col B(k+1:i_end-1, j)
-                    BcastList bcast_list_B;
-                    for (int64_t j = 0; j < nt; ++j) {
-                        bcast_list_B.push_back(
-                            {k, j, {B.sub(k+1, i_end-1, j, j)}});
-                    }
-                    B.template listBcast<target>(bcast_list_B, layout);
-                }
-
-                // lookahead update, B(k+1:k+la, :) -= A(k+1:k+la, k) B(k, :)
-                for (int64_t i = k+1; i < k+1+lookahead && i < i_end; ++i) {
-                    #pragma omp task depend(in:row[k]) \
-                                     depend(inout:row[i]) priority(1)
-                    {
-                        internal::gemm<Target::HostTask>(
-                            -one, A.sub(i, i, k, k),
-                                  B.sub(k, k, 0, nt-1),
-                            one,  B.sub(i, i, 0, nt-1),
-                            layout, 1);
-                    }
-                }
-
-                // trailing update,
-                // B(k+1+la:i_end-1, :) -= A(k+1+la:i_end-1, k) B(k, :)
-                // Updates rows k+1+la to i_end-1, but two depends are sufficient:
-                // depend on k+1+la is all that is needed in next iteration;
-                // depend on mt-1 daisy chains all the trailing updates.
-                if (k+1+lookahead < i_end) {
-                    #pragma omp task depend(in:row[k]) \
-                                     depend(inout:row[k+1+lookahead]) \
-                                     depend(inout:row[mt-1])
-                    {
-                        internal::gemm<target>(
-                            -one, A.sub(k+1+lookahead, i_end-1, k, k),
-                                  B.sub(k, k, 0, nt-1),
-                            one,  B.sub(k+1+lookahead, i_end-1, 0, nt-1),
-                            layout);
-                    }
-                }
+                // broadcast B(0, j) to ranks owning block col B(0:0, j)
+                // todo: nowhere to send?
+                BcastList bcast_list_B;
+                for (int64_t j = 0; j < nt; ++j)
+                    bcast_list_B.push_back({0, j, {B.sub(0, 0, j, j)}});
+                B.template listBcast<target>(bcast_list_B, layout);
             }
-        }
-        else if (pivots.empty()) {
-            // ----------------------------------------
-            // Upper/NoTrans or Lower/Trans, Left case, no pivoting case
-            // Backward sweep
-            for (int64_t k = mt-1; k >= 0; --k) {
-                // A( i_begin:k, k ) is the panel
-                int64_t i_begin = max(k - kdt, 0);
 
-                // panel (Akk tile)
-                #pragma omp task depend(inout:row[k]) priority(1)
+            // send next lookahead block cols of A and block rows of B
+            for (int64_t k = 1; k < lookahead+1 && k < mt; ++k) {
+                #pragma omp task depend(in:bcast[k-1]) \
+                                 depend(out:bcast[k])
                 {
-                    // send A(k, k) to ranks owning block row B(k, :)
-                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
-
-                    // solve A(k, k) B(k, :) = B(k, :)
-                    internal::trsm<Target::HostTask>(
-                        Side::Left,
-                        one, A.sub(k, k),
-                             B.sub(k, k, 0, nt-1), 1);
-
-                    // send A(i=k-kdt:k-1, k) to ranks owning block row B(i, :)
+                    // broadcast A(i, k) to ranks owning block row B(i, :)
                     BcastList bcast_list_A;
-                    for (int64_t i = i_begin; i < k; ++i)
+                    for (int64_t i = 0; i <= k; ++i) // upper
                         bcast_list_A.push_back({i, k, {B.sub(i, i, 0, nt-1)}});
                     A.template listBcast<target>(bcast_list_A, layout);
 
-                    // send B(k, j=0:nt-1) to ranks owning block col B(k-kdt:k-1, j)
+                    // broadcast B(k, j) to ranks owning block col B(0:k, j)
                     BcastList bcast_list_B;
                     for (int64_t j = 0; j < nt; ++j)
-                        bcast_list_B.push_back({k, j, {B.sub(i_begin, k-1, j, j)}});
+                        bcast_list_B.push_back({k, j, {B.sub(0, k, j, j)}});
                     B.template listBcast<target>(bcast_list_B, layout);
                 }
+            }
 
-                // lookahead update, B(k-la:k-1, :) -= A(k-la:k-1, k) B(k, :)
-                for (int64_t i = k-1; i > k-1-lookahead && i >= i_begin; --i) {
-                    #pragma omp task depend(in:row[k]) \
-                                     depend(inout:row[i]) priority(1)
+            // multiply alpha A(:, 0) B(0, :), which is:
+            // B(0, :) = alpha [ A(0, 0) B(0, :) ]  trmm
+            #pragma omp task depend(in:bcast[0]) \
+                             depend(out:gemm[0])
+            {
+                internal::trmm<Target::HostTask>(
+                    Side::Left,
+                    alpha, A.sub(0, 0),
+                           B.sub(0, 0, 0, nt-1));
+            }
+            for (int64_t k = 1; k < mt; ++k) {
+
+                // send next block col of A and block row of B
+                if (k+lookahead < mt) {
+                    #pragma omp task depend(in:gemm[k-1]) \
+                                     depend(in:bcast[k+lookahead-1]) \
+                                     depend(out:bcast[k+lookahead])
                     {
-                        internal::gemm<Target::HostTask>(
-                            -one, A.sub(i, i, k, k),
-                                  B.sub(k, k, 0, nt-1),
-                            one,  B.sub(i, i, 0, nt-1),
-                            layout, 1);
+                        // broadcast A(i, k+la) to ranks owning
+                        // block row B(i, :)
+                        BcastList bcast_list_A;
+                        for (int64_t i = 0; i <= k+lookahead; ++i) {  // upper
+                            bcast_list_A.push_back(
+                                {i, k+lookahead, {B.sub(i, i, 0, nt-1)}});
+                        }
+                        A.template listBcast<target>(bcast_list_A, layout);
+
+                        // broadcast B(k+la, j) to ranks owning
+                        // block col B(0:k+la, j)
+                        BcastList bcast_list_B;
+                        for (int64_t j = 0; j < nt; ++j) {
+                            bcast_list_B.push_back(
+                                {k+lookahead, j,
+                                 {B.sub(0, k+lookahead, j, j)}});
+                        }
+                        B.template listBcast<target>(bcast_list_B, layout);
                     }
                 }
 
-                // trailing update, B(0:k-1-la, :) -= A(0:k-1-la, k) B(k, :)
-                // Updates rows 0 to k-1-la, but two depends are sufficient:
-                // depend on k-1-la is all that is needed in next iteration;
-                // depend on 0 daisy chains all the trailing updates.
-                if (k-1-lookahead >= i_begin) {
-                    #pragma omp task depend(in:row[k]) \
-                                     depend(inout:row[k-1-lookahead]) \
-                                     depend(inout:row[0])
-                    {
-                        internal::gemm<target>(
-                            -one, A.sub(i_begin, k-1-lookahead, k, k),
-                                  B.sub(k, k, 0, nt-1),
-                            one,  B.sub(i_begin, k-1-lookahead, 0, nt-1),
-                            layout);
-                    }
+                // multiply alpha A(:, k) B(k, :), which is:
+                // B(0:k-1, :) += alpha [ A(0:k-1, k) B(k, :) ]  gemm
+                // B(k, :)      = alpha [ A(k, k)     B(k, :) ]  trmm
+                #pragma omp task depend(in:bcast[k]) \
+                                 depend(in:gemm[k-1]) \
+                                 depend(out:gemm[k])
+                {
+                    internal::gemm<target>(
+                        alpha,         A.sub(0, k-1, k, k),
+                                       B.sub(k, k, 0, nt-1),
+                        scalar_t(1.0), B.sub(0, k-1, 0, nt-1),
+                        layout);
+
+                    // todo: target? needs batch trmm
+                    internal::trmm<Target::HostTask>(
+                        Side::Left,
+                        alpha, A.sub(k, k),
+                               B.sub(k, k, 0, nt-1));
                 }
             }
         }
         else {
             // ----------------------------------------
-            // Upper/NoTrans or Lower/Trans, Left case, with pivoting between panels.
+            // Left, Lower/NoTrans or Upper/Trans case
             // Backward sweep
-            //
-            // Because pivoting needs to be applied between each panel of
-            // A = L^T, the RHS updates are organized differently than in
-            // the no-pivoting case above. Due to dependencies, there is no
-            // lookahead or top-level tasks, only the nested tasks inside
-            // internal routines.
-            for (int64_t k = mt-1; k >= 0; --k) {
-                // update RHS
+
+            // send 1st block col of A and block row of B
+            #pragma omp task depend(out:bcast[mt-1])
+            {
+                // broadcast A(i, 0) to ranks owning block row B(i, :),
+                // for i = m-1
+                A.template tileBcast<target>(
+                    mt-1, mt-1, B.sub(mt-1, mt-1, 0, nt-1), layout);
+
+                // broadcast B(m-1, j) to ranks owning block col B(m-1:m-1, j)
+                // todo: nowhere to send?
+                BcastList bcast_list_B;
+                for (int64_t j = 0; j < nt; ++j) {
+                    bcast_list_B.push_back(
+                        {mt-1, j, {B.sub(mt-1, mt-1, j, j)}});
+                }
+                B.template listBcast<target>(bcast_list_B, layout);
+            }
+
+            // send next lookahead block cols of A and block rows of B
+            for (int64_t k = mt-2; k >= mt-1-lookahead && k >= 0; --k) {
+                #pragma omp task depend(in:bcast[k+1]) \
+                                 depend(out:bcast[k])
                 {
-                    // A( k, k : k_end-1 ) is k-th row
-                    // Typically, A is L^T, so the k-th row is the
-                    // k-th panel (transposed) from gbtrf.
-                    int64_t k_end = min(k + kdt + 1, A.nt());
+                    // broadcast A(i, k) to ranks owning block row B(i, :)
+                    BcastList bcast_list_A;
+                    for (int64_t i = k; i < mt; ++i)  // lower
+                        bcast_list_A.push_back({i, k, {B.sub(i, i, 0, nt-1)}});
+                    A.template listBcast<target>(bcast_list_A, layout);
 
-                    for (int64_t i = k+1; i < k_end; ++i) {
-                        // send A(k, i) across to ranks owning B(k, :)
-                        A.template tileBcast<target>(k, i, B.sub(k, k, 0, nt-1), layout);
+                    // broadcast B(k, j) to ranks owning block col B(k:m-1, j)
+                    BcastList bcast_list_B;
+                    for (int64_t j = 0; j < nt; ++j)
+                        bcast_list_B.push_back({k, j, {B.sub(k, mt-1, j, j)}});
+                    B.template listBcast<target>(bcast_list_B, layout);
+                }
+            }
 
-                        // for all j:
-                        //     send B(i, j) up to rank owning B(k, j)
+            // multiply B = alpha A(:, mt-1) B(mt-1, :), which is:
+            // B(mt-1, :) = alpha [ A(mt-1, mt-1) B(mt-1, :) ]  trmm
+            #pragma omp task depend(in:bcast[mt-1]) \
+                             depend(out:gemm[mt-1])
+            {
+                internal::trmm<Target::HostTask>(
+                    Side::Left,
+                    alpha, A.sub(mt-1, mt-1),
+                           B.sub(mt-1, mt-1, 0, nt-1));
+            }
+
+            for (int64_t k = mt-2; k >= 0; --k) {
+
+                // send next block col of A and block row of B
+                if (k-lookahead >= 0) {
+                    #pragma omp task depend(in:gemm[k+1]) \
+                                     depend(in:bcast[k-lookahead+1]) \
+                                     depend(out:bcast[k-lookahead])
+                    {
+                        // broadcast A(i, k-la) to ranks
+                        // owning block row B(i, :)
+                        BcastList bcast_list_A;
+                        for (int64_t i = k-lookahead; i < mt; ++i) {  // lower
+                            bcast_list_A.push_back(
+                                {i, k-lookahead, {B.sub(i, i, 0, nt-1)}});
+                        }
+                        A.template listBcast<target>(bcast_list_A, layout);
+
+                        // broadcast B(k-la, j) to ranks
+                        // owning block col B(k-la:m-1, j)
                         BcastList bcast_list_B;
-                        for (int64_t j = 0; j < nt; ++j)
-                            bcast_list_B.push_back({i, j, {B.sub(k, k, j, j)}});
+                        for (int64_t j = 0; j < nt; ++j) {
+                            bcast_list_B.push_back(
+                                {k-lookahead, j,
+                                 {B.sub(k-lookahead, mt-1, j, j)}});
+                        }
                         B.template listBcast<target>(bcast_list_B, layout);
-
-                        // multiply B(k, :) -= A(k, k+1 : k+kdt) * B(k+1 : k+kdt, :)
-                        internal::gemm<target>(
-                                    -one, A.sub(k, k, i, i),
-                                          B.sub(i, i, 0, nt-1),
-                                    one,  B.sub(k, k, 0, nt-1),
-                                    layout, 1);
                     }
                 }
 
-                // solve diagonal block (Akk tile)
+                // multiply alpha A(:, k) B(k, :), which is:
+                // B(k+1:m-1, :) += alpha [ A(k+1:m-1, k) B(k, :) ]  gemm
+                // B(k, :)        = alpha [ A(k, k)       B(k, :) ]  trmm
+                #pragma omp task depend(in:bcast[k]) \
+                                 depend(in:gemm[k+1]) \
+                                 depend(out:gemm[k])
                 {
-                    // send A(k, k) to ranks owning block row B(k, :)
-                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
+                    internal::gemm<target>(
+                        alpha,         A.sub(k+1, mt-1, k, k),
+                                       B.sub(k, k, 0, nt-1),
+                        scalar_t(1.0), B.sub(k+1, mt-1, 0, nt-1),
+                        layout);
 
-                    // solve A(k, k) B(k, :) = B(k, :)
-                    internal::trsm<Target::HostTask>(
+                    // todo: target? needs batch trmm
+                    internal::trmm<Target::HostTask>(
                         Side::Left,
-                        one, A.sub(k, k),
-                             B.sub(k, k, 0, nt-1), 1);
-                }
-
-                // swap rows in B(k:mt-1, 0:nt-1)
-                {
-                    internal::swap<Target::HostTask>(
-                        Direction::Backward, B.sub(k, B.mt()-1, 0, B.nt()-1),
-                        pivots.at(k), layout);
+                        alpha, A.sub(k, k),
+                               B.sub(k, k, 0, nt-1));
                 }
             }
-        }
+        } // end Lower/NoTrans
+    } // end omp master
 
-        #pragma omp taskwait
-        B.tileUpdateAllOrigin();
-    }
-
+    B.tileUpdateAllOrigin();
     B.clearWorkspace();
 }
 
@@ -349,13 +319,12 @@ void tbsm(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup tbsm_specialization
+/// @ingroup trmm_specialization
 ///
 template <Target target, typename scalar_t>
-void tbsm(blas::Side side,
-          scalar_t alpha,
-          TriangularBandMatrix<scalar_t>& A, Pivots& pivots,
-                        Matrix<scalar_t>& B,
+void trmm(blas::Side side,
+          scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                                    Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts)
 {
     int64_t lookahead;
@@ -367,39 +336,38 @@ void tbsm(blas::Side side,
         lookahead = 1;
     }
 
-    internal::specialization::tbsm(internal::TargetType<target>(),
+    internal::specialization::trmm(internal::TargetType<target>(),
                                    side,
-                                   alpha, A, pivots,
+                                   alpha, A,
                                           B,
                                    lookahead);
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel triangular band matrix-matrix solve.
-/// Solves one of the triangular matrix equations
+/// Distributed parallel triangular matrix-matrix multiplication.
+/// Performs one of the triangular matrix-matrix operations
 /// \[
-///     A X = \alpha B,
+///     B = \alpha A B,
 /// \]
 /// or
 /// \[
-///     X A = \alpha B,
+///     B = \alpha B A,
 /// \]
 /// where alpha is a scalar, B is an m-by-n matrix and A is a unit or non-unit,
-/// upper or lower triangular band matrix. The matrix X overwrites B.
-/// Pivoting from tbtrf is applied during the solve.
+/// upper or lower triangular matrix.
 /// The matrices can be transposed or conjugate-transposed beforehand, e.g.,
 ///
 ///     auto AT = slate::transpose( A );
-///     slate::tbsm( Side::Left, alpha, AT, pivots, B );
+///     slate::trmm( Side::Left, alpha, AT, B );
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///         One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
 /// @param[in] side
-///         Whether A appears on the left or on the right of X:
-///         - Side::Left:  solve $A X = \alpha B$
-///         - Side::Right: solve $X A = \alpha B$
+///         Whether A appears on the left or on the right of B:
+///         - Side::Left:  $B = \alpha A B$
+///         - Side::Right: $B = \alpha B A$
 ///
 /// @param[in] alpha
 ///         The scalar alpha.
@@ -408,18 +376,14 @@ void tbsm(blas::Side side,
 ///         - If side = left,  the m-by-m triangular matrix A;
 ///         - if side = right, the n-by-n triangular matrix A.
 ///
-/// @param[in] pivots
-///         Pivot information from gbtrf.
-///         If pivots is an empty vector, no pivoting is applied.
-///
 /// @param[in,out] B
 ///         On entry, the m-by-n matrix B.
-///         On exit, overwritten by the result X.
+///         On exit, overwritten by the result $\alpha A B$ or $\alpha B A$.
 ///
 /// @param[in] opts
 ///         Additional options, as map of name = value pairs. Possible options:
 ///         - Option::Lookahead:
-///           Number of panels to overlap with matrix updates.
+///           Number of blocks to overlap communication and computation.
 ///           lookahead >= 0. Default 1.
 ///         - Option::Target:
 ///           Implementation to target. Possible values:
@@ -428,13 +392,12 @@ void tbsm(blas::Side side,
 ///           - HostBatch: batched BLAS on CPU host.
 ///           - Devices:   batched BLAS on GPU device.
 ///
-/// @ingroup tbsm
+/// @ingroup trmm
 ///
 template <typename scalar_t>
-void tbsm(blas::Side side,
-          scalar_t alpha,
-          TriangularBandMatrix<scalar_t>& A, Pivots& pivots,
-                        Matrix<scalar_t>& B,
+void trmm(blas::Side side,
+          scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                                    Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts)
 {
     Target target;
@@ -448,16 +411,16 @@ void tbsm(blas::Side side,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            tbsm<Target::HostTask>(side, alpha, A, pivots, B, opts);
+            trmm<Target::HostTask>(side, alpha, A, B, opts);
             break;
         case Target::HostNest:
-            tbsm<Target::HostNest>(side, alpha, A, pivots, B, opts);
+            trmm<Target::HostNest>(side, alpha, A, B, opts);
             break;
         case Target::HostBatch:
-            tbsm<Target::HostBatch>(side, alpha, A, pivots, B, opts);
+            trmm<Target::HostBatch>(side, alpha, A, B, opts);
             break;
         case Target::Devices:
-            tbsm<Target::Devices>(side, alpha, A, pivots, B, opts);
+            trmm<Target::Devices>(side, alpha, A, B, opts);
             break;
     }
 }
@@ -465,35 +428,31 @@ void tbsm(blas::Side side,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void tbsm<float>(
+void trmm<float>(
     blas::Side side,
-    float alpha,
-    TriangularBandMatrix<float>& A, Pivots& pivots,
-                  Matrix<float>& B,
+    float alpha, TriangularMatrix<float>& A,
+                           Matrix<float>& B,
     const std::map<Option, Value>& opts);
 
 template
-void tbsm<double>(
+void trmm<double>(
     blas::Side side,
-    double alpha,
-    TriangularBandMatrix<double>& A, Pivots& pivots,
-                  Matrix<double>& B,
+    double alpha, TriangularMatrix<double>& A,
+                            Matrix<double>& B,
     const std::map<Option, Value>& opts);
 
 template
-void tbsm< std::complex<float> >(
+void trmm< std::complex<float> >(
     blas::Side side,
-    std::complex<float> alpha,
-    TriangularBandMatrix< std::complex<float> >& A, Pivots& pivots,
-                  Matrix< std::complex<float> >& B,
+    std::complex<float> alpha, TriangularMatrix< std::complex<float> >& A,
+                                         Matrix< std::complex<float> >& B,
     const std::map<Option, Value>& opts);
 
 template
-void tbsm< std::complex<double> >(
+void trmm< std::complex<double> >(
     blas::Side side,
-    std::complex<double> alpha,
-    TriangularBandMatrix< std::complex<double> >& A, Pivots& pivots,
-                  Matrix< std::complex<double> >& B,
+    std::complex<double> alpha, TriangularMatrix< std::complex<double> >& A,
+                                          Matrix< std::complex<double> >& B,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

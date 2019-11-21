@@ -111,7 +111,16 @@ void test_gemm_work(Params& params, bool run)
     cuerror = cudaHostRegister(&C_tst[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
     #endif
 
-    // Create SLATE matrix structures from ScaLAPACK data
+    // if reference run is required, copy test data and create a descriptor for it
+    std::vector<scalar_t> C_ref;
+    slate::Matrix<scalar_t> C_ref_slate;
+    if (check || ref) {
+        C_ref = C_tst;
+        scalapack_descinit(descC_ref, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
+        slate_assert(info == 0);
+        C_ref_slate = slate::Matrix<scalar_t>::fromScaLAPACK( m,  n, &C_ref[0], lldC, nb, nprow, npcol, MPI_COMM_WORLD);
+    }
+
     slate::Matrix<scalar_t> A, B, C;
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy local ScaLAPACK data to GPU or CPU tiles.
@@ -135,14 +144,6 @@ void test_gemm_work(Params& params, bool run)
         C = slate::Matrix<scalar_t>::fromScaLAPACK( m,  n, &C_tst[0], lldC, nb, nprow, npcol, MPI_COMM_WORLD);
     }
 
-    // if reference run is required, copy test data and create a descriptor for it
-    std::vector<scalar_t> C_ref;
-    if (check || ref) {
-        C_ref = C_tst;
-        scalapack_descinit(descC_ref, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
-        slate_assert(info == 0);
-    }
-
     if (transA == slate::Op::Trans)
         A = transpose(A);
     else if (transA == slate::Op::ConjTrans)
@@ -161,8 +162,8 @@ void test_gemm_work(Params& params, bool run)
     real_t A_norm=0, B_norm=0, C_orig_norm=0;
     if (check || ref) {
         A_norm = slate::norm(norm, A);
-        B_norm = slate::norm(norm, B);
-        C_orig_norm = slate::norm(norm, C);
+        B_norm = slate::norm(norm,B);
+        C_orig_norm = slate::norm(norm, C_ref_slate);
     }
 
     if (verbose >= 2) {
@@ -189,14 +190,13 @@ void test_gemm_work(Params& params, bool run)
         {slate::Option::Target, target}
     });
 
-    if (verbose >= 2) {
-        print_matrix("C2", C);
-    }
-
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
+
+    if (verbose >= 2)
+        print_matrix("C2", C);
 
     double time_tst = libtest::get_wtime() - time;
 
@@ -210,10 +210,6 @@ void test_gemm_work(Params& params, bool run)
     if (check || ref) {
         // comparison with reference routine from ScaLAPACK
 
-        // Copy SLATE result back from GPU or CPU tiles.
-        if (origin != slate::Origin::ScaLAPACK)
-            copy(C, &C_tst[0], descC_tst);
-
         // set MKL num threads appropriately for parallel BLAS
         int omp_num_threads;
         #pragma omp parallel
@@ -223,29 +219,33 @@ void test_gemm_work(Params& params, bool run)
         //==================================================
         // Run ScaLAPACK reference routine.
         //==================================================
+        if (verbose >= 2) 
+            print_matrix("Cref", mlocC, nlocC, &C_ref[0], lldC, p, q, MPI_COMM_WORLD);
+
         MPI_Barrier(MPI_COMM_WORLD);
         time = libtest::get_wtime();
-        if (verbose >= 2) {
-            print_matrix("Cref", mlocC, nlocC, &C_ref[0], lldC, p, q, MPI_COMM_WORLD);
-        }
 
         scalapack_pgemm(op2str(transA), op2str(transB), m, n, k, alpha,
                         &A_tst[0], ione, ione, descA_tst,
                         &B_tst[0], ione, ione, descB_tst, beta,
                         &C_ref[0], ione, ione, descC_ref);
+
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 
-        if (verbose >= 2) {
+        if (verbose >= 2) 
             print_matrix("Cref2", mlocC, nlocC, &C_ref[0], lldC, p, q, MPI_COMM_WORLD);
-        }
 
-        // perform a local operation to get differences C_tst = C_tst - C_ref
-        blas::axpy(C_tst.size(), -1.0, &C_ref[0], 1, &C_tst[0], 1);
+        // Copy SLATE result back from GPU or CPU tiles.
+        if (origin != slate::Origin::ScaLAPACK)
+            copy(C, &C_tst[0], descC_tst);
 
-        if (verbose >= 2) {
-            print_matrix("Diff", mlocC, nlocC, &C_tst[0], lldC, p, q, MPI_COMM_WORLD);
-        }
+        // get differences C_tst = C_tst - C_ref
+        scalar_t one=1;
+        slate::geadd(-one, C_ref_slate, one, C);
+
+        if (verbose >= 2) 
+            print_matrix("Diff", C);
 
         // norm(C_tst - C_ref)
         real_t C_diff_norm = slate::norm(norm, C);

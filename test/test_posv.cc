@@ -175,7 +175,7 @@ void test_posv_work(Params& params, bool run)
             slate::trace::Block trace_block("MPI_Barrier");
             MPI_Barrier(MPI_COMM_WORLD);
         }
-        double time = libtest::get_wtime();
+        double time = testsweeper::get_wtime();
 
         //==================================================
         // Run SLATE test.
@@ -218,7 +218,7 @@ void test_posv_work(Params& params, bool run)
             slate::trace::Block trace_block("MPI_Barrier");
             MPI_Barrier(MPI_COMM_WORLD);
         }
-        double time_tst = libtest::get_wtime() - time;
+        double time_tst = testsweeper::get_wtime() - time;
 
         if (trace) slate::trace::Trace::finish();
 
@@ -328,7 +328,7 @@ void test_posv_work(Params& params, bool run)
         // Run ScaLAPACK reference routine.
         //==================================================
         MPI_Barrier(MPI_COMM_WORLD);
-        double time = libtest::get_wtime();
+        double time = testsweeper::get_wtime();
         if (params.routine == "potrf") {
             scalapack_ppotrf(uplo2str(uplo), n, &A_ref[0], ione, ione, descA_ref, &info);
         }
@@ -340,7 +340,7 @@ void test_posv_work(Params& params, bool run)
         }
         slate_assert(info == 0);
         MPI_Barrier(MPI_COMM_WORLD);
-        double time_ref = libtest::get_wtime() - time;
+        double time_ref = testsweeper::get_wtime() - time;
 
         params.ref_time() = time_ref;
         params.ref_gflops() = gflop / time_ref;
@@ -356,23 +356,23 @@ void test_posv_work(Params& params, bool run)
 void test_posv(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case libtest::DataType::Integer:
+        case testsweeper::DataType::Integer:
             throw std::exception();
             break;
 
-        case libtest::DataType::Single:
+        case testsweeper::DataType::Single:
             test_posv_work<float> (params, run);
             break;
 
-        case libtest::DataType::Double:
+        case testsweeper::DataType::Double:
             test_posv_work<double> (params, run);
             break;
 
-        case libtest::DataType::SingleComplex:
+        case testsweeper::DataType::SingleComplex:
             test_posv_work<std::complex<float>> (params, run);
             break;
 
-        case libtest::DataType::DoubleComplex:
+        case testsweeper::DataType::DoubleComplex:
             test_posv_work<std::complex<double>> (params, run);
             break;
     }

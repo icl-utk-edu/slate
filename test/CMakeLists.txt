@@ -7,19 +7,19 @@ file (GLOB SLATE_TEST_SOURCES
 
 add_executable(slate_test ${SLATE_TEST_SOURCES})
 
-# Check if user supplied LIBTEST_DIR on the command line
-# Set -Dlibtest_DIR=/path/to/libtest
-if(libtest_DIR)
-    message("Found libtest_DIR")
+# Check if user supplied testsweeper_DIR on the command line
+# Set -Dlibtest_DIR=/path/to/testsweeper
+if(testsweeper_DIR)
+    message("Found testsweeper_DIR")
 else()
-    find_path(libtest_DIR libtestConfig.cmake
+    find_path(testsweeper_DIR testsweeperConfig.cmake
         PATHS
         ${CMAKE_INSTALL_PREFIX}/test
         )
-    message("libtest_DIR: " ${libtest_DIR})
+    message("testsweeper_DIR: " ${testsweeper_DIR})
 endif()
 
-find_package(libtest)
+find_package(testsweeper)
 
 if (0)
 set(SCALAPACK_VERBOSE ON)
@@ -32,7 +32,7 @@ endif()
 
 target_link_libraries(slate_test
     slate
-    libtest
+    testsweeper
 )
 
 if(SLATE_WITH_MKL)

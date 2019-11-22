@@ -32,7 +32,7 @@
 
 -include make.inc
 
-# Export variables to sub-make for libtest, BLAS++, LAPACK++.
+# Export variables to sub-make for testsweeper, BLAS++, LAPACK++.
 export CXX mkl ilp64 essl openblas openmp static
 
 NVCC ?= nvcc
@@ -456,23 +456,23 @@ LDFLAGS  += -L./lapackpp/lib -Wl,-rpath,$(abspath ./lapackpp/lib)
 LIBS     := -lblaspp -llapackpp $(LIBS)
 
 # additional flags and libraries for testers
-$(test_obj): CXXFLAGS += -I./libtest
-$(unit_obj): CXXFLAGS += -I./libtest
-$(unit_test_obj): CXXFLAGS += -I./libtest
+$(test_obj): CXXFLAGS += -I./testsweeper
+$(unit_obj): CXXFLAGS += -I./testsweeper
+$(unit_test_obj): CXXFLAGS += -I./testsweeper
 
 TEST_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
-TEST_LDFLAGS += -L./libtest -Wl,-rpath,$(abspath ./libtest)
-TEST_LIBS    += -lslate -ltest $(scalapack)
+TEST_LDFLAGS += -L./testsweeper -Wl,-rpath,$(abspath ./testsweeper)
+TEST_LIBS    += -lslate -ltestsweeper $(scalapack)
 
 UNIT_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
-UNIT_LDFLAGS += -L./libtest -Wl,-rpath,$(abspath ./libtest)
-UNIT_LIBS    += -lslate -ltest
+UNIT_LDFLAGS += -L./testsweeper -Wl,-rpath,$(abspath ./testsweeper)
+UNIT_LIBS    += -lslate -ltestsweeper
 
 #-------------------------------------------------------------------------------
 # Rules
 .DELETE_ON_ERROR:
 .SUFFIXES:
-.PHONY: all docs lib test unit_test clean distclean libtest blaspp lapackpp
+.PHONY: all docs lib test unit_test clean distclean testsweeper blaspp lapackpp
 .DEFAULT_GOAL := all
 
 all: lib test unit_test scalapack_api lapack_api
@@ -481,15 +481,15 @@ docs:
 	doxygen docs/doxygen/doxyfile.conf
 
 #-------------------------------------------------------------------------------
-# libtest library
-libtest_src = $(wildcard libtest/*.hh libtest/*.cc)
+# testsweeper library
+testsweeper_src = $(wildcard testsweeper/*.hh testsweeper/*.cc)
 
-libtest = libtest/libtest.$(lib_ext)
+testsweeper = testsweeper/testsweeper.$(lib_ext)
 
-$(libtest): $(libtest_src)
-	cd libtest && $(MAKE) lib
+$(testsweeper): $(testsweeper_src)
+	cd testsweeper && $(MAKE) lib
 
-libtest: $(libtest)
+testsweeper: $(testsweeper)
 
 #-------------------------------------------------------------------------------
 # BLAS++ library
@@ -499,8 +499,8 @@ libblaspp_src = $(wildcard blaspp/include/*.h \
 
 libblaspp = blaspp/lib/libblaspp.$(lib_ext)
 
-# dependency on libtest serializes compiles
-$(libblaspp): $(libblaspp_src) | $(libtest)
+# dependency on testsweeper serializes compiles
+$(libblaspp): $(libblaspp_src) | $(testsweeper)
 	cd blaspp && $(MAKE) lib
 
 blaspp: $(libblaspp)
@@ -513,8 +513,8 @@ liblapackpp_src = $(wildcard lapackpp/include/*.h \
 
 liblapackpp = lapackpp/lib/liblapackpp.$(lib_ext)
 
-# dependency on libtest, BLAS++ serializes compiles
-$(liblapackpp): $(liblapackpp_src) | $(libtest) $(libblaspp)
+# dependency on testsweeper, BLAS++ serializes compiles
+$(liblapackpp): $(liblapackpp_src) | $(testsweeper) $(libblaspp)
 	cd lapackpp && $(MAKE) lib
 
 lapackpp: $(liblapackpp)
@@ -562,7 +562,7 @@ test: $(test)
 test/clean:
 	rm -f $(test) $(test_obj)
 
-$(test): $(test_obj) $(libslate) $(libtest)
+$(test): $(test_obj) $(libslate) $(testsweeper)
 	$(CXX) $(TEST_LDFLAGS) $(LDFLAGS) $(test_obj) \
 		$(TEST_LIBS) $(LIBS) \
 		-o $@
@@ -698,14 +698,14 @@ distclean: clean
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
 # preprocess source
-# test/%.i depend on libtest; for simplicity just add it here.
+# test/%.i depend on testsweeper; for simplicity just add it here.
 %.i: %.cc
-	$(CXX) $(CXXFLAGS) -I./libtest -E $< -o $@
+	$(CXX) $(CXXFLAGS) -I./testsweeper -E $< -o $@
 
 # precompile header to check for errors
-# test/%.gch depend on libtest; for simplicity just add it here.
+# test/%.gch depend on testsweeper; for simplicity just add it here.
 %.gch: %.hh
-	$(CXX) $(CXXFLAGS) -I./libtest -c $< -o $@
+	$(CXX) $(CXXFLAGS) -I./testsweeper -c $< -o $@
 
 -include $(dep)
 
@@ -726,7 +726,7 @@ echo:
 	@echo
 	@echo "libblaspp     = $(libblaspp)"
 	@echo "liblapackpp   = $(liblapackpp)"
-	@echo "libtest       = $(libtest)"
+	@echo "testsweeper       = $(testsweeper)"
 	@echo
 	@echo "libslate_a    = $(libslate_a)"
 	@echo "libslate_so   = $(libslate_so)"

@@ -61,6 +61,8 @@ void genorm(Norm norm, NormScope scope, Tile<scalar_t> const& A,
 
     assert(A.uploPhysical() == Uplo::General);
     assert(A.op() == Op::NoTrans);
+    int64_t mb = A.mb();
+    int64_t nb = A.nb();
 
     if (scope == NormScope::Matrix) {
 
@@ -68,28 +70,33 @@ void genorm(Norm norm, NormScope scope, Tile<scalar_t> const& A,
         // values[0] = max_{i,j} A_{i,j}
         if (norm == Norm::Max) {
             *values = lapack::lange(norm,
-                                    A.mb(), A.nb(),
+                                    mb, nb,
                                     A.data(), A.stride());
         }
         // one norm
         // values[j] = sum_i abs( A_{i,j} )
         else if (norm == Norm::One) {
-            for (int64_t j = 0; j < A.nb(); ++j) {
-                values[j] = std::abs(A(0, j));
-                for (int64_t i = 1; i < A.mb(); ++i) {
-                    values[j] += std::abs(A(i, j));
+            assert( A.op() == Op::NoTrans );
+            for (int64_t j = 0; j < nb; ++j) {
+                const scalar_t* Aj = &A.at(0, j);
+                values[j] = std::abs( Aj[0] ); //( A(0, j) );
+                for (int64_t i = 1; i < mb; ++i) {
+                    values[j] += std::abs( Aj[i] );  //( A(i, j) );
                 }
             }
         }
         // inf norm
         // values[i] = sum_j abs( A_{i,j} )
         else if (norm == Norm::Inf) {
-            for (int64_t i = 0; i < A.mb(); ++i) {
-                values[i] = std::abs( A(i, 0) );
+            assert( A.op() == Op::NoTrans );
+            const scalar_t* Aj = &A.at(0, 0);
+            for (int64_t i = 0; i < mb; ++i) {
+                values[i] = std::abs( Aj[i] );  //( A(i, 0) );
             }
-            for (int64_t j = 1; j < A.nb(); ++j) {
-                for (int64_t i = 0; i < A.mb(); ++i) {
-                    values[i] += std::abs( A(i, j) );
+            for (int64_t j = 1; j < nb; ++j) {
+                Aj = &A.at(0, j);
+                for (int64_t i = 0; i < mb; ++i) {
+                    values[i] += std::abs( Aj[i] );  //( A(i, j) );
                 }
             }
         }
@@ -99,8 +106,8 @@ void genorm(Norm norm, NormScope scope, Tile<scalar_t> const& A,
         else if (norm == Norm::Fro) {
             values[0] = 0;  // scale
             values[1] = 1;  // sumsq
-            for (int64_t j = 0; j < A.nb(); ++j) {
-                lapack::lassq(A.mb(), &A.at(0, j), 1, &values[0], &values[1]);
+            for (int64_t j = 0; j < nb; ++j) {
+                lapack::lassq(mb, &A.at(0, j), 1, &values[0], &values[1]);
             }
         }
         else {
@@ -114,9 +121,9 @@ void genorm(Norm norm, NormScope scope, Tile<scalar_t> const& A,
             // values[j] = max_i abs( A_{i,j} )
             // todo: handle layout and transpose, also sliced matrices
             // todo: parallel for ??
-            for (int64_t j = 0; j < A.nb(); ++j) {
+            for (int64_t j = 0; j < nb; ++j) {
                 values[j] = lapack::lange(norm,
-                                          A.mb(), 1,
+                                          mb, 1,
                                           A.data() + j*A.stride(), A.stride());
             }
         }

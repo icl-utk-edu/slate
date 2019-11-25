@@ -76,27 +76,25 @@ void genorm(Norm norm, NormScope scope, Tile<scalar_t> const& A,
         // one norm
         // values[j] = sum_i abs( A_{i,j} )
         else if (norm == Norm::One) {
-            assert( A.op() == Op::NoTrans );
             for (int64_t j = 0; j < nb; ++j) {
                 const scalar_t* Aj = &A.at(0, j);
-                values[j] = std::abs( Aj[0] ); //( A(0, j) );
+                values[j] = std::abs( Aj[0] ); // A(0, j)
                 for (int64_t i = 1; i < mb; ++i) {
-                    values[j] += std::abs( Aj[i] );  //( A(i, j) );
+                    values[j] += std::abs( Aj[i] );  // A(i, j)
                 }
             }
         }
         // inf norm
         // values[i] = sum_j abs( A_{i,j} )
         else if (norm == Norm::Inf) {
-            assert( A.op() == Op::NoTrans );
             const scalar_t* Aj = &A.at(0, 0);
             for (int64_t i = 0; i < mb; ++i) {
-                values[i] = std::abs( Aj[i] );  //( A(i, 0) );
+                values[i] = std::abs( Aj[i] );  // A(i, 0)
             }
             for (int64_t j = 1; j < nb; ++j) {
                 Aj = &A.at(0, j);
                 for (int64_t i = 0; i < mb; ++i) {
-                    values[i] += std::abs( Aj[i] );  //( A(i, j) );
+                    values[i] += std::abs( Aj[i] );  // A(i, j)
                 }
             }
         }

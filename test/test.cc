@@ -5,11 +5,9 @@
 #include <string.h>
 #include <unistd.h>
 
-
 #include "test.hh"
 #include "slate/internal/mpi.hh"
 #include "slate/internal/openmp.hh"
-
 
 // -----------------------------------------------------------------------------
 using libtest::ParamType;
@@ -272,11 +270,11 @@ Params::Params():
 
     // SLATE options
     nb        ("nb",      5,    ParamType::List, 50,      0, 1000000, "nb"),
-    ib        ("ib",      5,    ParamType::List, 16,      0, 1000000, "ib"),
+    ib        ("ib",      4,    ParamType::List, 16,      0, 1000000, "ib"),
     p         ("p",       4,    ParamType::List, 1,       0, 1000000, "p"),
     q         ("q",       4,    ParamType::List, 1,       0, 1000000, "q"),
-    lookahead ("lookahead", 5,  ParamType::List, 1,       0, 1000000, "number of lookahead panels"),
-    panel_threads("panel-threads",
+    lookahead ("lookahead", 9,  ParamType::List, 1,       0, 1000000, "number of lookahead panels"),
+    panel_threads("panelth",
                           7,    ParamType::List, 1,       0, 1000000, "max number of threads used in panel"),
     align     ("align",   6,    ParamType::List,  32,     1,    1024, "column alignment (sets lda, ldb, etc. to multiple of align)"),
 
@@ -288,26 +286,26 @@ Params::Params():
     error3     ("error3",                9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error"),
     error4     ("error4",                9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error"),
     error5     ("error5",                9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error"),
-    ortho      ("orth. error",           9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "orthogonality error"),
-    ortho_U    ("U orth.",               9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "U orthogonality error"),
-    ortho_V    ("V orth.",               9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "V orthogonality error"),
-    error_sigma("Sigma error",           9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "Sigma error"),
+    ortho      ("orth_error",            9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "orthogonality error"),
+    ortho_U    ("U_orth.",               9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "U orthogonality error"),
+    ortho_V    ("V_orth.",               9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "V orthogonality error"),
+    error_sigma("Sigma_error",           9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "Sigma error"),
 
-    time      ("SLATE\ntime (s)",       10, 4, ParamType::Output, libtest::no_data_flag,   0,   0, "time to solution"),
-    gflops    ("SLATE\nGflop/s",        10, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "Gflop/s rate"),
-    iters     ("iters",                  6,    ParamType::Output,                     0,   0,   0, "iterations to solution"),
+    time      ("time(s)",               12, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "time to solution"),
+    gflops    ("gflops",                12, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "Gflop/s rate"),
+    iters     ("iters",                  9,    ParamType::Output,                     0,   0,   0, "iterations to solution"),
 
-    ref_time  ("Ref.\ntime (s)",        10, 4, ParamType::Output, libtest::no_data_flag,   0,   0, "reference time to solution"),
-    ref_gflops("Ref.\nGflop/s",         10, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "reference Gflop/s rate"),
-    ref_iters ("Ref.\niters",            6,    ParamType::Output,                     0,   0,   0, "reference iterations to solution"),
+    ref_time  ("ref_time(s)",           12, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "reference time to solution"),
+    ref_gflops("ref_gflops",            12, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "reference Gflop/s rate"),
+    ref_iters ("ref_iters",              9,    ParamType::Output,                     0,   0,   0, "reference iterations to solution"),
 
     // default -1 means "no check"
     //         name,     w, type,          default, min, max, help
     okay      ("status", 6, ParamType::Output,  -1,   0,   0, "success indicator")
 {
     // set header different than command line prefix
-    lookahead.name("look\nahead", "lookahead");
-    panel_threads.name("panel\nthreads", "panel-threads");
+    // lookahead.name("look\nahead", "lookahead");
+    // panel_threads.name("panel\nthreads", "panel-threads");
 
     // mark standard set of output fields as used
     okay();
@@ -425,9 +423,18 @@ int run(int argc, char** argv)
                 args += ' ';
                 args += argv[i];
             }
-            args += "\nMPI size " + std::to_string(mpi_size)
-                 + ", OpenMP threads " + std::to_string(omp_get_max_threads())
-                 + "\n";
+            args += "\n";
+            std::time_t now = std::time(nullptr);
+            char nowstr[100];
+            std::strftime(nowstr, sizeof(nowstr), "%F %T", std::localtime(&now));
+            args.append(nowstr);
+            args += ": MPIsize " + std::to_string(mpi_size);
+            args += ", OpenMP threads " + std::to_string(omp_get_max_threads());
+            int num_devices = 0;
+            cudaGetDeviceCount(&num_devices);
+            if (num_devices > 0)
+                args += ", CUDA devices available " + std::to_string(num_devices);
+            args += "\n";
             printf("%s", args.c_str());
             slate::trace::Trace::comment(args);
         }

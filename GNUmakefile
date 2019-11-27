@@ -484,7 +484,7 @@ docs:
 # testsweeper library
 testsweeper_src = $(wildcard testsweeper/*.hh testsweeper/*.cc)
 
-testsweeper = testsweeper/testsweeper.$(lib_ext)
+testsweeper = testsweeper/libtestsweeper.$(lib_ext)
 
 $(testsweeper): $(testsweeper_src)
 	cd testsweeper && $(MAKE) lib

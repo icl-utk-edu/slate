@@ -6,6 +6,7 @@
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
+#include "aux/Debug.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -346,6 +347,15 @@ void test_posv_work(Params& params, bool run)
         params.ref_gflops() = gflop / time_ref;
 
         slate_set_num_blas_threads(saved_num_threads);
+
+        if (verbose > 2) {
+            if (origin == slate::Origin::ScaLAPACK) {
+                slate::Debug::diffLapackMatrices<scalar_t>(n, n, &A_tst[0], lldA, &A_ref[0], lldA, nb, nb);
+                if (params.routine != "potrf") {
+                    slate::Debug::diffLapackMatrices<scalar_t>(n, nrhs, &B_tst[0], lldB, &B_ref[0], lldB, nb, nb);
+                }
+            }
+        }
     }
 
     Cblacs_gridexit(ictxt);

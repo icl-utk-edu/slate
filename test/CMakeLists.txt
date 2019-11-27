@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.8)
 
-project(slate_test CXX CUDA)
+project(tester CXX CUDA)
 
 file (GLOB SLATE_TEST_SOURCES
     CONFIGURE_DEPENDS *.cc)
@@ -30,18 +30,18 @@ find_package(SCALAPACK)
 
 endif()
 
-target_link_libraries(slate_test
+target_link_libraries(tester
     slate
     libtest
 )
 
 if(SLATE_WITH_MKL)
-    target_link_libraries(slate_test
+    target_link_libraries(tester
         mkl_scalapack_lp64
         mkl_blacs_intelmpi_lp64
     )
 else()
-    target_link_libraries(slate_test
+    target_link_libraries(tester
         scalapack
     )
 endif()

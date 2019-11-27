@@ -602,7 +602,7 @@ void test_unmlq()
 }
 
 //------------------------------------------------------------------------------
-// Similar routine list to libtest. No params yet.
+// Similar routine list to testsweeper. No params yet.
 typedef void (*test_func_ptr)();
 
 typedef struct {
@@ -626,7 +626,7 @@ std::vector< routines_t > routines = {
 };
 
 //------------------------------------------------------------------------------
-// todo: usage as in libtest.
+// todo: usage as in testsweeper.
 void usage()
 {
     printf("Usage: %s [routines]\n", g_argv[0]);

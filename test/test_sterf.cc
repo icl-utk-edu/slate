@@ -77,7 +77,7 @@ void test_sterf_work(
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
-    double time = libtest::get_wtime();
+    double time = testsweeper::get_wtime();
 
     //==================================================
     // Run SLATE test.
@@ -88,7 +88,7 @@ void test_sterf_work(
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
-    params.time() = libtest::get_wtime() - time;
+    params.time() = testsweeper::get_wtime() - time;
 
     if (trace)
         slate::trace::Trace::finish();
@@ -110,12 +110,12 @@ void test_sterf_work(
             // Run LAPACK reference routine.
             //==================================================
             MPI_Barrier(MPI_COMM_WORLD);
-            time = libtest::get_wtime();
+            time = testsweeper::get_wtime();
 
             lapack::sterf(n, &Dref[0], &Eref[0]);
 
             MPI_Barrier(MPI_COMM_WORLD);
-            params.ref_time() = libtest::get_wtime() - time;
+            params.ref_time() = testsweeper::get_wtime() - time;
 
             slate_set_num_blas_threads(saved_num_threads);
             if (verbose) {
@@ -144,23 +144,23 @@ void test_sterf_work(
 void test_sterf(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case libtest::DataType::Integer:
+        case testsweeper::DataType::Integer:
             throw std::exception();
             break;
 
-        case libtest::DataType::Single:
+        case testsweeper::DataType::Single:
             test_sterf_work<float> (params, run);
             break;
 
-        case libtest::DataType::Double:
+        case testsweeper::DataType::Double:
             test_sterf_work<double> (params, run);
             break;
 
-        case libtest::DataType::SingleComplex:
+        case testsweeper::DataType::SingleComplex:
             test_sterf_work<std::complex<float>> (params, run);
             break;
 
-        case libtest::DataType::DoubleComplex:
+        case testsweeper::DataType::DoubleComplex:
             test_sterf_work<std::complex<double>> (params, run);
             break;
     }

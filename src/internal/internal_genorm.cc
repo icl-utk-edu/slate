@@ -220,8 +220,8 @@ void norm(
                 trace::Block trace_block("slate::Tiles_sum");
 
                 for (int64_t j = 0; j < A.nt(); ++j) {
+                    int64_t nb = A.tileNb(j);
                     for (int64_t i = 0; i < A.mt(); ++i) {
-                        int64_t nb = A.tileNb(j);
                         if (A.tileIsLocal(i, j)) {
                                 blas::axpy(
                                     nb, 1.0,
@@ -277,12 +277,6 @@ void norm(
                     }
                 }
             }
-            /*
-            for (int64_t j = 0; j < A.nt(); ++j)
-                #pragma omp taskloop shared(A, tiles_sums, values) priority(priority)
-                for (int64_t ii = 0; ii < A.m(); ++ii)
-                    values[ii] += tiles_sums[A.m()*j + ii];
-            */
         }
         //---------
         // Frobenius norm

@@ -213,14 +213,24 @@ void norm(
             #pragma omp taskwait
 
             // Sum tile results into local results.
-            // todo: This is currently a performance bottleneck.
-            // Perhaps omp taskloop could be applied here.
-            // Perhaps with chunking of A.nb().
+            // Summing up local contributions only.
             std::fill_n(values, A.n(), 0.0);
-            for (int64_t i = 0; i < A.mt(); ++i)
-                #pragma omp taskloop shared(A, tiles_sums, values) priority(priority)
-                for (int64_t jj = 0; jj < A.n(); ++jj)
-                    values[jj] += tiles_sums[A.n()*i + jj];
+            int64_t nb0 = A.tileNb(0); 
+            {
+                trace::Block trace_block("slate::Tiles_sum");
+
+                for (int64_t j = 0; j < A.nt(); ++j) {
+                    for (int64_t i = 0; i < A.mt(); ++i) {
+                        int64_t nb = A.tileNb(j);
+                        if (A.tileIsLocal(i, j)) {
+                                blas::axpy(
+                                    nb, 1.0,
+                                    &tiles_sums[A.n()*i + j*nb0 ], 1,
+                                    &values[j*nb0], 1);
+                        }
+                    }
+                }
+            }
         }
         //---------
         // inf norm
@@ -230,31 +240,49 @@ void norm(
             // Sum each row within a tile.
             std::vector<real_t> tiles_sums(A.m()*A.nt(), 0.0);
             int64_t ii = 0;
-            for (int64_t i = 0; i < A.mt(); ++i) {
-                for (int64_t j = 0; j < A.nt(); ++j) {
-                    if (A.tileIsLocal(i, j)) {
-                        #pragma omp task shared(A, tiles_sums) priority(priority)
-                        {
-                            A.tileGetForReading(i, j, LayoutConvert(layout));
-                            genorm(in_norm, scope, A(i, j), &tiles_sums[A.m()*j + ii]);
+            {
+                trace::Block trace_block("slate::Rows_sum");
+                for (int64_t i = 0; i < A.mt(); ++i) {
+                    for (int64_t j = 0; j < A.nt(); ++j) {
+                        if (A.tileIsLocal(i, j)) {
+                            #pragma omp task shared(A, tiles_sums) priority(priority)
+                            {
+                                A.tileGetForReading(i, j, LayoutConvert(layout));
+                                genorm(in_norm, scope, A(i, j), &tiles_sums[A.m()*j + ii]);
+                            }
                         }
                     }
+                    ii += A.tileMb(i);
                 }
-                ii += A.tileMb(i);
             }
 
             #pragma omp taskwait
 
             // Sum tile results into local results.
-            // Right now it goes over the partial sums of the entire matrix,
-            // with all the non-local sums being zero.
-            // todo: Eventually this needs to be done like in the device code,
-            // by summing up local contributions only.
+            // Summing up local contributions only.
             std::fill_n(values, A.m(), 0.0);
+            int64_t mb0 = A.tileMb(0); 
+            {
+                trace::Block trace_block("slate::Tiles_sum");
+
+                for (int64_t i = 0; i < A.mt(); ++i) {
+                    for (int64_t j = 0; j < A.nt(); ++j) {
+                        int64_t mb = A.tileMb(i);
+                        if (A.tileIsLocal(i, j)) {
+                                blas::axpy(
+                                    mb, 1.0,
+                                    &tiles_sums[A.m()*j + i*mb0 ], 1,
+                                    &values[i*mb0], 1);
+                        }
+                    }
+                }
+            }
+            /*
             for (int64_t j = 0; j < A.nt(); ++j)
                 #pragma omp taskloop shared(A, tiles_sums, values) priority(priority)
                 for (int64_t ii = 0; ii < A.m(); ++ii)
                     values[ii] += tiles_sums[A.m()*j + ii];
+            */
         }
         //---------
         // Frobenius norm

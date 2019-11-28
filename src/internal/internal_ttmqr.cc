@@ -136,90 +136,147 @@ void ttmqr(internal::TargetType<Target::HostTask>,
     else
         step = 1;
 
+    int64_t k_end;
+    int64_t i, j, i1, j1, i_dst, j_dst;
+
+    if (side == Side::Left) {
+        k_end = C.nt();
+    }
+    else {
+        k_end = C.mt();
+    }
+
     for (int level = 0; level < nlevels; ++level) {
         for (int index = 0; index < nranks; index += step) {
-            if (side == Side::Left) {
-                int64_t i = rank_indices[ index ].second;
-                // At each level, scan rows of C for local tiles.
-                // TODO: the j loop can be parallelized, but care needs to be
-                // taken so that MPI makes progress.
-                // todo: for better performance, split into three tasks:
-                //      - send-receive task,
-                //      - update task-loop,
-                //      - send-receive task
-                for (int64_t j = 0; j < C.nt(); ++j) {
-                    if (C.tileIsLocal(i, j)) {
-                        if (index % (2*step) == 0) {
-                            if (index + step < nranks) {
-                                // Send tile to dst, then receive updated tile back.
-                                int64_t i_dst = rank_indices[ index + step ].second;
-                                int dst = C.tileRank(i_dst, j);
-                                C.tileSend(i, j, dst, tag);
-                                C.tileRecv(i, j, dst, layout, tag);
+            int64_t rank_ind = rank_indices[ index ].second;
+            // if (side == left), scan rows of C for local tiles; 
+            // if (side == right), scan cols of C for local tiles
+            // Three for-loops: 1) send, receive 2) update 3) receive, send
+            for (int64_t k = 0; k < k_end; ++k) {
+                if (side == Side::Left) {
+                    i = rank_ind;
+                    j = k;
+                }
+                else {
+                    i = k;
+                    j = rank_ind;
+                }
+                if (C.tileIsLocal(i, j)) {
+                    if (index % (2*step) == 0) {
+                        if (index + step < nranks) {
+                            // Send tile to dst.
+                            int64_t k_dst = rank_indices[ index + step ].second;
+                            if (side == Side::Left) {
+                                i_dst = k_dst; 
+                                j_dst = k; 
                             }
+                            else {
+                                i_dst = k; 
+                                j_dst = k_dst; 
+                            }
+                            int dst = C.tileRank(i_dst, j_dst);
+                            C.tileSend(i, j, dst, tag);
+                        }
+                    }
+                    else {
+                        // Receive tile from src.
+                        int64_t k_src = rank_indices[ index - step ].second;
+                        if (side == Side::Left) {
+                            i1 = k_src;
+                            j1 = k;
                         }
                         else {
-                            // Receive tile from src.
-                            int64_t i_src = rank_indices[ index - step ].second;
-                            int     src   = C.tileRank(i_src, j);
-                            C.tileRecv(i_src, j, src, layout, tag);
+                            i1 = k;
+                            j1 = k_src;
+                        }
 
-                            A.tileGetForReading(i, 0, LayoutConvert(layout));
-                            T.tileGetForReading(i, 0, LayoutConvert(layout));
-                            C.tileGetForWriting(i, j, LayoutConvert(layout));
+                        int     src   = C.tileRank(i1, j1); 
+                        C.tileRecv(i1, j1, src, layout, tag);
+                    }
+                }
+            }
 
-                            // Apply Q.
-                            tpmqrt(side, op, std::min(A.tileMb(i), A.tileNb(0)),
-                                   A(i, 0), T(i, 0),
-                                   C(i_src, j), C(i, j));
+            for (int64_t k = 0; k < k_end; ++k) {
+                if (side == Side::Left) {
+                    i = rank_ind;
+                    j = k;
+                }
+                else {
+                    i = k;
+                    j = rank_ind;
+                }
+                if (C.tileIsLocal(i, j)) {
+                    if (!(index % (2*step) == 0)) {
+                        int64_t k_src = rank_indices[ index - step ].second;
+                        if (side == Side::Left) {
+                            i1 = k_src;
+                            j1 = k;
+                        }
+                        else {
+                            i1 = k;
+                            j1 = k_src;
+                        }
 
-                            // todo: should tileRelease()?
-                            A.tileTick(i, 0);
-                            T.tileTick(i, 0);
-                            // Send updated tile back.
-                            C.tileSend(i_src, j, src, tag);
-                            C.tileTick(i_src, j);
+                        #pragma omp task shared(A, T, C)
+                        {
+                        A.tileGetForReading(rank_ind, 0, LayoutConvert(layout));
+                        T.tileGetForReading(rank_ind, 0, LayoutConvert(layout));
+                        C.tileGetForWriting(i, j, LayoutConvert(layout));
+
+                        // Apply Q.
+                        tpmqrt(side, op, std::min(A.tileMb(rank_ind), A.tileNb(0)),
+                               A(rank_ind, 0), T(rank_ind, 0),
+                               C(i1, j1), C(i, j));
+
+                        // todo: should tileRelease()?
+                        A.tileTick(rank_ind, 0);
+                        T.tileTick(rank_ind, 0);
                         }
                     }
                 }
             }
-            else { // Right
-                int64_t j = rank_indices[ index ].second;
-                // At each level, scan cols of C for local tiles.
-                // TODO: the i loop can be parallelized
-                for (int64_t i = 0; i < C.mt(); ++i) {
-                    if (C.tileIsLocal(i, j)) {
-                        if (index % (2*step) == 0) {
-                            if (index + step < nranks) {
-                                // Send tile to dst, then receive updated tile back.
-                                int64_t j_dst = rank_indices[ index + step ].second;
-                                int dst = C.tileRank(i, j_dst);
-                                C.tileSend(i, j, dst, tag);
-                                C.tileRecv(i, j, dst, layout, tag);
+            #pragma omp taskwait 
+
+            for (int64_t k = 0; k < k_end; ++k) {
+                if (side == Side::Left) {
+                    i = rank_ind;
+                    j = k;
+                }
+                else {
+                    i = k;
+                    j = rank_ind;
+                }
+                if (C.tileIsLocal(i, j)) {
+                    if (index % (2*step) == 0) {
+                        if (index + step < nranks) {
+                            // Receive updated tile back.
+                            int64_t k_dst = rank_indices[ index + step ].second;
+                            if (side == Side::Left) {
+                                i_dst = k_dst; 
+                                j_dst = k; 
                             }
+                            else {
+                                i_dst = k; 
+                                j_dst = k_dst; 
+                            }
+                            int dst = C.tileRank(i_dst, j_dst);
+                            C.tileRecv(i, j, dst, layout, tag);
+                        }
+                    }
+                    else {
+                        int64_t k_src = rank_indices[ index - step ].second;
+                        if (side == Side::Left) {
+                            i1 = k_src;
+                            j1 = k;
                         }
                         else {
-                            // Receive tile from src.
-                            int64_t j_src = rank_indices[ index - step ].second;
-                            int     src   = C.tileRank(i, j_src);
-                            C.tileRecv(i, j_src, src, layout, tag);
-
-                            A.tileGetForReading(j, 0, LayoutConvert(layout));
-                            T.tileGetForReading(j, 0, LayoutConvert(layout));
-                            C.tileGetForWriting(i, j, LayoutConvert(layout));
-
-                            // Apply Q.
-                            tpmqrt(side, op, std::min(A.tileMb(j), A.tileNb(0)),
-                                   A(j, 0), T(j, 0),
-                                   C(i, j_src), C(i, j));
-
-                            // todo: should tileRelease()?
-                            A.tileTick(j, 0);
-                            T.tileTick(j, 0);
-                            // Send updated tile back.
-                            C.tileSend(i, j_src, src, tag);
-                            C.tileTick(i, j_src);
+                            i1 = k;
+                            j1 = k_src;
                         }
+                        int     src   = C.tileRank(i1, j1); 
+                        // Send updated tile back.
+                        C.tileSend(i1, j1, src, tag);
+                        C.tileTick(i1, j1);
                     }
                 }
             }

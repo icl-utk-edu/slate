@@ -219,7 +219,7 @@ void test_gemm_work(Params& params, bool run)
         //==================================================
         // Run ScaLAPACK reference routine.
         //==================================================
-        if (verbose >= 2) 
+        if (verbose >= 2)
             print_matrix("Cref", mlocC, nlocC, &C_ref[0], lldC, p, q, MPI_COMM_WORLD);
 
         MPI_Barrier(MPI_COMM_WORLD);
@@ -233,7 +233,7 @@ void test_gemm_work(Params& params, bool run)
         MPI_Barrier(MPI_COMM_WORLD);
         double time_ref = libtest::get_wtime() - time;
 
-        if (verbose >= 2) 
+        if (verbose >= 2)
             print_matrix("Cref2", mlocC, nlocC, &C_ref[0], lldC, p, q, MPI_COMM_WORLD);
 
         // Copy SLATE result back from GPU or CPU tiles.
@@ -244,7 +244,7 @@ void test_gemm_work(Params& params, bool run)
         scalar_t one=1;
         slate::geadd(-one, C_ref_slate, one, C);
 
-        if (verbose >= 2) 
+        if (verbose >= 2)
             print_matrix("Diff", C);
 
         // norm(C_tst - C_ref)

@@ -153,6 +153,7 @@ void test_heev_work(Params& params, bool run)
     if (! ref_only) {
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
+
         {
             slate::trace::Block trace_block("MPI_Barrier");
             MPI_Barrier(MPI_COMM_WORLD);

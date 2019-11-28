@@ -149,7 +149,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
     for (int level = 0; level < nlevels; ++level) {
         for (int index = 0; index < nranks; index += step) {
             int64_t rank_ind = rank_indices[ index ].second;
-            // if (side == left), scan rows of C for local tiles; 
+            // if (side == left), scan rows of C for local tiles;
             // if (side == right), scan cols of C for local tiles
             // Three for-loops: 1) send, receive 2) update 3) receive, send
             for (int64_t k = 0; k < k_end; ++k) {
@@ -167,12 +167,12 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                             // Send tile to dst.
                             int64_t k_dst = rank_indices[ index + step ].second;
                             if (side == Side::Left) {
-                                i_dst = k_dst; 
-                                j_dst = k; 
+                                i_dst = k_dst;
+                                j_dst = k;
                             }
                             else {
-                                i_dst = k; 
-                                j_dst = k_dst; 
+                                i_dst = k;
+                                j_dst = k_dst;
                             }
                             int dst = C.tileRank(i_dst, j_dst);
                             C.tileSend(i, j, dst, tag);
@@ -190,7 +190,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                             j1 = k_src;
                         }
 
-                        int     src   = C.tileRank(i1, j1); 
+                        int     src   = C.tileRank(i1, j1);
                         C.tileRecv(i1, j1, src, layout, tag);
                     }
                 }
@@ -235,7 +235,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                     }
                 }
             }
-            #pragma omp taskwait 
+            #pragma omp taskwait
 
             for (int64_t k = 0; k < k_end; ++k) {
                 if (side == Side::Left) {
@@ -252,12 +252,12 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                             // Receive updated tile back.
                             int64_t k_dst = rank_indices[ index + step ].second;
                             if (side == Side::Left) {
-                                i_dst = k_dst; 
-                                j_dst = k; 
+                                i_dst = k_dst;
+                                j_dst = k;
                             }
                             else {
-                                i_dst = k; 
-                                j_dst = k_dst; 
+                                i_dst = k;
+                                j_dst = k_dst;
                             }
                             int dst = C.tileRank(i_dst, j_dst);
                             C.tileRecv(i, j, dst, layout, tag);
@@ -273,7 +273,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                             i1 = k;
                             j1 = k_src;
                         }
-                        int     src   = C.tileRank(i1, j1); 
+                        int     src   = C.tileRank(i1, j1);
                         // Send updated tile back.
                         C.tileSend(i1, j1, src, tag);
                         C.tileTick(i1, j1);

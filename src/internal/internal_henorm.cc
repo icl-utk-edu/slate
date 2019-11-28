@@ -281,14 +281,14 @@ void norm(
         // Sum tile results into local results.
         // Summing up local contributions only.
         std::fill_n(values, A.n(), 0.0);
-        int64_t nb0 = A.tileNb(0); 
-        int64_t mb0 = A.tileMb(0); 
+        int64_t nb0 = A.tileNb(0);
+        int64_t mb0 = A.tileMb(0);
         // off-diagonal blocks
         for (int64_t j = 0; j < A.nt(); ++j) {
             for (int64_t i = 0; i < A.mt(); ++i) {
                 int64_t nb = A.tileNb(j);
                 int64_t mb = A.tileMb(i);
-                if (A.tileIsLocal(i, j) && 
+                if (A.tileIsLocal(i, j) &&
                     ( (  lower && i > j) ||
                       (! lower && i < j) ))
                 {
@@ -309,8 +309,7 @@ void norm(
         // diagonal blocks
         for (int64_t j = 0; j < A.nt(); ++j) {
             int64_t nb = A.tileNb(j);
-            if (A.tileIsLocal(j, j) ) 
-            {
+            if (A.tileIsLocal(j, j) ) {
                 // col sums
                 blas::axpy(
                     nb, 1.0,

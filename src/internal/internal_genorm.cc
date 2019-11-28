@@ -215,7 +215,7 @@ void norm(
             // Sum tile results into local results.
             // Summing up local contributions only.
             std::fill_n(values, A.n(), 0.0);
-            int64_t nb0 = A.tileNb(0); 
+            int64_t nb0 = A.tileNb(0);
             {
                 trace::Block trace_block("slate::Tiles_sum");
 
@@ -261,7 +261,7 @@ void norm(
             // Sum tile results into local results.
             // Summing up local contributions only.
             std::fill_n(values, A.m(), 0.0);
-            int64_t mb0 = A.tileMb(0); 
+            int64_t mb0 = A.tileMb(0);
             {
                 trace::Block trace_block("slate::Tiles_sum");
 

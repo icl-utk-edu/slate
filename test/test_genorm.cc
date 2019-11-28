@@ -124,9 +124,7 @@ void test_genorm_work(Params& params, bool run)
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
-    double time = libtest::get_wtime();
-
-
+    double time = testsweeper::get_wtime();
 
     real_t A_norm = 0;
     if (! ref_only) {
@@ -157,7 +155,7 @@ void test_genorm_work(Params& params, bool run)
             slate::trace::Block trace_block("MPI_Barrier");
             MPI_Barrier(MPI_COMM_WORLD);
         }
-        double time_tst = libtest::get_wtime() - time;
+        double time_tst = testsweeper::get_wtime() - time;
 
         if (trace) slate::trace::Trace::finish();
 
@@ -194,7 +192,7 @@ void test_genorm_work(Params& params, bool run)
         // Run ScaLAPACK reference routine.
         //==================================================
         MPI_Barrier(MPI_COMM_WORLD);
-        time = libtest::get_wtime();
+        time = testsweeper::get_wtime();
         if (scope == slate::NormScope::Matrix) {
             A_norm_ref = scalapack_plange(
                 norm2str(op_norm),
@@ -214,7 +212,7 @@ void test_genorm_work(Params& params, bool run)
         else if (scope == slate::NormScope::Rows) {
             // todo
         }
-        double time_ref = libtest::get_wtime() - time;
+        double time_ref = testsweeper::get_wtime() - time;
 
         //A_norm_ref = lapack::lange(
         //    op_norm,
@@ -386,23 +384,23 @@ void test_genorm_work(Params& params, bool run)
 void test_genorm(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case libtest::DataType::Integer:
+        case testsweeper::DataType::Integer:
             throw std::exception();
             break;
 
-        case libtest::DataType::Single:
+        case testsweeper::DataType::Single:
             test_genorm_work<float> (params, run);
             break;
 
-        case libtest::DataType::Double:
+        case testsweeper::DataType::Double:
             test_genorm_work<double> (params, run);
             break;
 
-        case libtest::DataType::SingleComplex:
+        case testsweeper::DataType::SingleComplex:
             test_genorm_work<std::complex<float>> (params, run);
             break;
 
-        case libtest::DataType::DoubleComplex:
+        case testsweeper::DataType::DoubleComplex:
             test_genorm_work<std::complex<double>> (params, run);
             break;
     }

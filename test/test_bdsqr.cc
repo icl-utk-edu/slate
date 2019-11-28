@@ -80,7 +80,7 @@ void test_bdsqr_work(
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
-    double time = libtest::get_wtime();
+    double time = testsweeper::get_wtime();
 
     //==================================================
     // Run SLATE test.
@@ -91,7 +91,7 @@ void test_bdsqr_work(
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
-    params.time() = libtest::get_wtime() - time;
+    params.time() = testsweeper::get_wtime() - time;
 
     if (trace)
         slate::trace::Trace::finish();
@@ -113,14 +113,14 @@ void test_bdsqr_work(
             // Run LAPACK reference routine.
             //==================================================
             MPI_Barrier(MPI_COMM_WORLD);
-            time = libtest::get_wtime();
+            time = testsweeper::get_wtime();
 
             scalar_t dummy[1];  // U, VT, C not needed for NoVec
             lapack::bdsqr(uplo, n, 0, 0, 0,
                           &Dref[0], &Eref[0], dummy, 1, dummy, 1, dummy, 1);
 
             MPI_Barrier(MPI_COMM_WORLD);
-            params.ref_time() = libtest::get_wtime() - time;
+            params.ref_time() = testsweeper::get_wtime() - time;
 
             slate_set_num_blas_threads(saved_num_threads);
             if (verbose) {
@@ -149,23 +149,23 @@ void test_bdsqr_work(
 void test_bdsqr(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case libtest::DataType::Integer:
+        case testsweeper::DataType::Integer:
             throw std::exception();
             break;
 
-        case libtest::DataType::Single:
+        case testsweeper::DataType::Single:
             test_bdsqr_work<float> (params, run);
             break;
 
-        case libtest::DataType::Double:
+        case testsweeper::DataType::Double:
             test_bdsqr_work<double> (params, run);
             break;
 
-        case libtest::DataType::SingleComplex:
+        case testsweeper::DataType::SingleComplex:
             test_bdsqr_work<std::complex<float>> (params, run);
             break;
 
-        case libtest::DataType::DoubleComplex:
+        case testsweeper::DataType::DoubleComplex:
             test_bdsqr_work<std::complex<double>> (params, run);
             break;
     }

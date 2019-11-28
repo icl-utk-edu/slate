@@ -10,13 +10,13 @@
 #include "slate/internal/openmp.hh"
 
 // -----------------------------------------------------------------------------
-using libtest::ParamType;
-using libtest::DataType;
-using libtest::str2datatype;
-using libtest::datatype2str;
-using libtest::ansi_bold;
-using libtest::ansi_red;
-using libtest::ansi_normal;
+using testsweeper::ParamType;
+using testsweeper::DataType;
+using testsweeper::str2datatype;
+using testsweeper::datatype2str;
+using testsweeper::ansi_bold;
+using testsweeper::ansi_red;
+using testsweeper::ansi_normal;
 
 // -----------------------------------------------------------------------------
 // each section must have a corresponding entry in section_names
@@ -60,7 +60,7 @@ const char* section_names[] = {
 };
 
 // { "", nullptr, Section::newline } entries force newline in help
-std::vector< libtest::routines_t > routines = {
+std::vector< testsweeper::routines_t > routines = {
     // -----
     // Level 3 BLAS
     { "gemm",               test_gemm,         Section::blas3 },
@@ -281,23 +281,23 @@ Params::Params():
     // ----- output parameters
     // min, max are ignored
     //          name,                    w, p, type,              default,               min, max, help
-    error      ("error",                 9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error"),
-    error2     ("error2",                9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error"),
-    error3     ("error3",                9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error"),
-    error4     ("error4",                9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error"),
-    error5     ("error5",                9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error"),
-    ortho      ("orth_error",            9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "orthogonality error"),
-    ortho_U    ("U_orth.",               9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "U orthogonality error"),
-    ortho_V    ("V_orth.",               9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "V orthogonality error"),
-    error_sigma("Sigma_error",           9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "Sigma error"),
+    error      ("error",                 9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "numerical error"),
+    error2     ("error2",                9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "numerical error"),
+    error3     ("error3",                9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "numerical error"),
+    error4     ("error4",                9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "numerical error"),
+    error5     ("error5",                9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "numerical error"),
+    ortho      ("orth_error",            9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "orthogonality error"),
+    ortho_U    ("U_orth.",               9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "U orthogonality error"),
+    ortho_V    ("V_orth.",               9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "V orthogonality error"),
+    error_sigma("Sigma_error",           9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "Sigma error"),
 
-    time      ("time(s)",               12, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "time to solution"),
-    gflops    ("gflops",                12, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "Gflop/s rate"),
-    iters     ("iters",                  9,    ParamType::Output,                     0,   0,   0, "iterations to solution"),
+    time      ("time(s)",               12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "time to solution"),
+    gflops    ("gflops",                12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "Gflop/s rate"),
+    iters     ("iters",                  9,    ParamType::Output,                         0,   0,   0, "iterations to solution"),
 
-    ref_time  ("ref_time(s)",           12, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "reference time to solution"),
-    ref_gflops("ref_gflops",            12, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "reference Gflop/s rate"),
-    ref_iters ("ref_iters",              9,    ParamType::Output,                     0,   0,   0, "reference iterations to solution"),
+    ref_time  ("ref_time(s)",           12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "reference time to solution"),
+    ref_gflops("ref_gflops",            12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "reference Gflop/s rate"),
+    ref_iters ("ref_iters",              9,    ParamType::Output,                         0,   0,   0, "reference iterations to solution"),
 
     // default -1 means "no check"
     //         name,     w, type,          default, min, max, help
@@ -393,7 +393,7 @@ int print_reduce_error(
 // -----------------------------------------------------------------------------
 int run(int argc, char** argv)
 {
-    using libtest::QuitException;
+    using testsweeper::QuitException;
 
     // check that all sections have names
     assert(sizeof(section_names) / sizeof(*section_names) == Section::num_sections);
@@ -451,7 +451,7 @@ int run(int argc, char** argv)
 
         // find routine to test
         const char* routine = argv[1];
-        libtest::test_func_ptr test_routine = find_tester(routine, routines);
+        testsweeper::test_func_ptr test_routine = find_tester(routine, routines);
         if (test_routine == nullptr) {
             if (print)
                 usage(argc, argv, routines, section_names);
@@ -491,7 +491,7 @@ int run(int argc, char** argv)
 
         // run tests
         int repeat = params.repeat();
-        libtest::DataType last = params.datatype();
+        testsweeper::DataType last = params.datatype();
         if (print)
             params.header();
         do {

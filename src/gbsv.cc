@@ -113,6 +113,9 @@ void gbsv(BandMatrix<scalar_t>& A, Pivots& pivots,
           Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts)
 {
+    slate_assert(A.mt() == A.nt());  // square
+    slate_assert(B.mt() == A.mt());
+
     // factorization
     gbtrf(A, pivots, opts);
 

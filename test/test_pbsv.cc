@@ -182,7 +182,7 @@ void test_pbsv_work(Params& params, bool run)
             slate::trace::Block trace_block("MPI_Barrier");
             MPI_Barrier(MPI_COMM_WORLD);
         }
-        double time = libtest::get_wtime();
+        double time = testsweeper::get_wtime();
 
         //==================================================
         // Run SLATE test.
@@ -214,7 +214,7 @@ void test_pbsv_work(Params& params, bool run)
             slate::trace::Block trace_block("MPI_Barrier");
             MPI_Barrier(MPI_COMM_WORLD);
         }
-        double time_tst = libtest::get_wtime() - time;
+        double time_tst = testsweeper::get_wtime() - time;
 
         if (trace)
             slate::trace::Trace::finish();
@@ -291,23 +291,23 @@ void test_pbsv_work(Params& params, bool run)
 void test_pbsv(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case libtest::DataType::Integer:
+        case testsweeper::DataType::Integer:
             throw std::exception();
             break;
 
-        case libtest::DataType::Single:
+        case testsweeper::DataType::Single:
             test_pbsv_work<float>(params, run);
             break;
 
-        case libtest::DataType::Double:
+        case testsweeper::DataType::Double:
             test_pbsv_work<double>(params, run);
             break;
 
-        case libtest::DataType::SingleComplex:
+        case testsweeper::DataType::SingleComplex:
             test_pbsv_work<std::complex<float>>(params, run);
             break;
 
-        case libtest::DataType::DoubleComplex:
+        case testsweeper::DataType::DoubleComplex:
             test_pbsv_work<std::complex<double>>(params, run);
             break;
     }

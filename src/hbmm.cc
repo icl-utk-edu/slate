@@ -146,12 +146,13 @@ void hbmm(slate::internal::TargetType<target>,
                 #pragma omp task depend(in:bcast[k-1]) \
                                  depend(out:bcast[k])
                 {
-                    int64_t i_end   = min(k + kd + 1, A.mt());
+                    int64_t i_begin = max(k - kdt, 0);
+                    int64_t i_end   = min(k + kdt + 1, A.mt());
 
                     BcastList bcast_list_A;
 
                     // broadcast A(k, i) to ranks owning block row C(i, :)
-                    for (int64_t i = 0; i < k && i < i_end; ++i) {
+                    for (int64_t i = i_begin; i < k && i < i_end; ++i) {
                         bcast_list_A.push_back(
                             {k, i, {C.sub(i, i, 0, C.nt()-1)}});
                     }
@@ -166,7 +167,7 @@ void hbmm(slate::internal::TargetType<target>,
                     BcastList bcast_list_B;
                     for (int64_t j = 0; j < B.nt(); ++j) {
                         bcast_list_B.push_back(
-                            {k, j, {C.sub(0, i_end-1, j, j)}});
+                            {k, j, {C.sub(i_begin, i_end-1, j, j)}});
                     }
                     B.template listBcast<target>(bcast_list_B, layout);
                 }
@@ -220,12 +221,13 @@ void hbmm(slate::internal::TargetType<target>,
                                      depend(in:bcast[k+lookahead-1]) \
                                      depend(out:bcast[k+lookahead])
                     {
-                        int64_t i_end = min(k + lookahead + kd + 1, A.mt());
+                        int64_t i_begin = max(k + lookahead - kdt, 0);
+                        int64_t i_end   = min(k + lookahead + kdt + 1, A.mt());
 
                         BcastList bcast_list_A;
 
                         // broadcast A(k+la, i) to ranks owning block row C(i, :)
-                        for (int64_t i = 0; i < k+lookahead; ++i) {
+                        for (int64_t i = i_begin; i < k+lookahead; ++i) {
                             bcast_list_A.push_back(
                                 {k+lookahead, i, {C.sub(i, i, 0, C.nt()-1)}});
                         }
@@ -241,11 +243,14 @@ void hbmm(slate::internal::TargetType<target>,
                         BcastList bcast_list_B;
                         for (int64_t j = 0; j < B.nt(); ++j) {
                             bcast_list_B.push_back(
-                                {k+lookahead, j, {C.sub(0, i_end-1, j, j)}});
+                                {k+lookahead, j, {C.sub(i_begin, i_end-1, j, j)}});
                         }
                         B.template listBcast<target>(bcast_list_B, layout);
                     }
                 }
+
+                int64_t i_begin = max(k - kdt, 0);
+                int64_t i_end   = min(k + kdt + 1, A.mt());
 
                 // multiply alpha A(:, k) B(k, :), which is:
                 // C(0:k-1, :)    += alpha [ A(k, 0:k-1)^H  B(k, :) ]  gemm
@@ -255,9 +260,6 @@ void hbmm(slate::internal::TargetType<target>,
                                  depend(in:gemm[k-1]) \
                                  depend(out:gemm[k])
                 {
-                    int64_t i_begin = max(k - kdt, 0);
-                    int64_t i_end   = min(k + kdt + 1, A.mt());
-
                     auto Arow_k = A.sub(k, k, i_begin, k-1);
                     internal::gemm<target>(
                         alpha,         conj_transpose(Arow_k),
@@ -305,11 +307,12 @@ void hbmm(slate::internal::TargetType<target>,
                 #pragma omp task depend(in:bcast[k-1]) \
                                  depend(out:bcast[k])
                 {
-                    int64_t i_end = min(k + kd + 1, A.mt());
+                    int64_t i_begin = max(k - kdt, 0);
+                    int64_t i_end   = min(k + kdt + 1, A.mt());
 
                     // broadcast A(i, k) to ranks owning block row C(i, :)
                     BcastList bcast_list_A;
-                    for (int64_t i = 0; i < k && i < i_end; ++i) {
+                    for (int64_t i = i_begin; i < k && i < i_end; ++i) {
                         bcast_list_A.push_back(
                             {i, k, {C.sub(i, i, 0, C.nt()-1)}});
                     }
@@ -324,7 +327,7 @@ void hbmm(slate::internal::TargetType<target>,
                     BcastList bcast_list_B;
                     for (int64_t j = 0; j < B.nt(); ++j) {
                         bcast_list_B.push_back(
-                            {k, j, {C.sub(0, i_end-1, j, j)}});
+                            {k, j, {C.sub(i_begin, i_end-1, j, j)}});
                     }
                     B.template listBcast<target>(bcast_list_B, layout);
                 }
@@ -376,11 +379,12 @@ void hbmm(slate::internal::TargetType<target>,
                                      depend(in:bcast[k+lookahead-1]) \
                                      depend(out:bcast[k+lookahead])
                     {
-                        int64_t i_end = min(k + lookahead + kd + 1, A.mt());
+                        int64_t i_begin = max(k + lookahead - kdt, 0);
+                        int64_t i_end   = min(k + lookahead + kdt + 1, A.mt());
 
                         // broadcast A(i, k+la) to ranks owning block row C(i, :)
                         BcastList bcast_list_A;
-                        for (int64_t i = 0; i < k+lookahead; ++i) {
+                        for (int64_t i = i_begin; i < k+lookahead; ++i) {
                             bcast_list_A.push_back(
                                 {i, k+lookahead, {C.sub(i, i, 0, C.nt()-1)}});
                         }
@@ -396,11 +400,14 @@ void hbmm(slate::internal::TargetType<target>,
                         BcastList bcast_list_B;
                         for (int64_t j = 0; j < B.nt(); ++j) {
                             bcast_list_B.push_back(
-                                {k+lookahead, j, {C.sub(0, i_end-1, j, j)}});
+                                {k+lookahead, j, {C.sub(i_begin, i_end-1, j, j)}});
                         }
                         B.template listBcast<target>(bcast_list_B, layout);
                     }
                 }
+
+                int64_t i_begin = max(k - kdt, 0);
+                int64_t i_end   = min(k + kdt + 1, A.mt());
 
                 // multiply alpha A(:, k) B(k, :), which is:
                 // C(0:k-1, :)    += alpha [ A(k, 0:k-1)^H  B(k, :) ]  gemm
@@ -410,9 +417,6 @@ void hbmm(slate::internal::TargetType<target>,
                                  depend(in:gemm[k-1]) \
                                  depend(out:gemm[k])
                 {
-                    int64_t i_begin = max(k - kdt, 0);
-                    int64_t i_end   = min(k + kdt + 1, A.mt());
-
                     internal::gemm<target>(
                         alpha,         A.sub(i_begin, k-1, k, k),
                                        B.sub(k, k, 0, B.nt()-1),

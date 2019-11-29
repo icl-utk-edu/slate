@@ -155,7 +155,7 @@ void test_hbmm_work(Params& params, bool run)
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
-    double time = libtest::get_wtime();
+    double time = testsweeper::get_wtime();
 
     //==================================================
     // Run SLATE test.
@@ -171,7 +171,7 @@ void test_hbmm_work(Params& params, bool run)
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
-    double time_tst = libtest::get_wtime() - time;
+    double time_tst = testsweeper::get_wtime() - time;
 
     if (trace) slate::trace::Trace::finish();
 
@@ -213,13 +213,13 @@ void test_hbmm_work(Params& params, bool run)
         // Run ScaLAPACK reference routine.
         //==================================================
         MPI_Barrier(MPI_COMM_WORLD);
-        time = libtest::get_wtime();
+        time = testsweeper::get_wtime();
         scalapack_phemm(side2str(side), uplo2str(uplo), m, n, alpha,
                         &A_tst[0], ione, ione, descA_tst,
                         &B_tst[0], ione, ione, descB_tst, beta,
                         &C_ref[0], ione, ione, descC_ref);
         MPI_Barrier(MPI_COMM_WORLD);
-        double time_ref = libtest::get_wtime() - time;
+        double time_ref = testsweeper::get_wtime() - time;
 
         if (verbose > 1) {
             print_matrix("C_ref", mlocC, nlocC, &C_ref[0], lldC, p, q, MPI_COMM_WORLD);
@@ -257,23 +257,23 @@ void test_hbmm_work(Params& params, bool run)
 void test_hbmm(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case libtest::DataType::Integer:
+        case testsweeper::DataType::Integer:
             throw std::exception();
             break;
 
-        case libtest::DataType::Single:
+        case testsweeper::DataType::Single:
             test_hbmm_work<float> (params, run);
             break;
 
-        case libtest::DataType::Double:
+        case testsweeper::DataType::Double:
             test_hbmm_work<double> (params, run);
             break;
 
-        case libtest::DataType::SingleComplex:
+        case testsweeper::DataType::SingleComplex:
             test_hbmm_work<std::complex<float>> (params, run);
             break;
 
-        case libtest::DataType::DoubleComplex:
+        case testsweeper::DataType::DoubleComplex:
             test_hbmm_work<std::complex<double>> (params, run);
             break;
     }

@@ -5,20 +5,18 @@
 #include <string.h>
 #include <unistd.h>
 
-
 #include "test.hh"
 #include "slate/internal/mpi.hh"
 #include "slate/internal/openmp.hh"
 
-
 // -----------------------------------------------------------------------------
-using libtest::ParamType;
-using libtest::DataType;
-using libtest::str2datatype;
-using libtest::datatype2str;
-using libtest::ansi_bold;
-using libtest::ansi_red;
-using libtest::ansi_normal;
+using testsweeper::ParamType;
+using testsweeper::DataType;
+using testsweeper::str2datatype;
+using testsweeper::datatype2str;
+using testsweeper::ansi_bold;
+using testsweeper::ansi_red;
+using testsweeper::ansi_normal;
 
 // -----------------------------------------------------------------------------
 // each section must have a corresponding entry in section_names
@@ -62,7 +60,7 @@ const char* section_names[] = {
 };
 
 // { "", nullptr, Section::newline } entries force newline in help
-std::vector< libtest::routines_t > routines = {
+std::vector< testsweeper::routines_t > routines = {
     // -----
     // Level 3 BLAS
     { "gemm",               test_gemm,         Section::blas3 },
@@ -277,42 +275,42 @@ Params::Params():
 
     // SLATE options
     nb        ("nb",      5,    ParamType::List, 50,      0, 1000000, "nb"),
-    ib        ("ib",      5,    ParamType::List, 16,      0, 1000000, "ib"),
+    ib        ("ib",      4,    ParamType::List, 16,      0, 1000000, "ib"),
     p         ("p",       4,    ParamType::List, 1,       0, 1000000, "p"),
     q         ("q",       4,    ParamType::List, 1,       0, 1000000, "q"),
-    lookahead ("lookahead", 5,  ParamType::List, 1,       0, 1000000, "number of lookahead panels"),
-    panel_threads("panel-threads",
+    lookahead ("lookahead", 9,  ParamType::List, 1,       0, 1000000, "number of lookahead panels"),
+    panel_threads("panelth",
                           7,    ParamType::List, 1,       0, 1000000, "max number of threads used in panel"),
     align     ("align",   6,    ParamType::List,  32,     1,    1024, "column alignment (sets lda, ldb, etc. to multiple of align)"),
 
     // ----- output parameters
     // min, max are ignored
     //          name,                    w, p, type,              default,               min, max, help
-    error      ("error",                 9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error"),
-    error2     ("error2",                9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error"),
-    error3     ("error3",                9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error"),
-    error4     ("error4",                9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error"),
-    error5     ("error5",                9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "numerical error"),
-    ortho      ("orth. error",           9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "orthogonality error"),
-    ortho_U    ("U orth.",               9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "U orthogonality error"),
-    ortho_V    ("V orth.",               9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "V orthogonality error"),
-    error_sigma("Sigma error",           9, 2, ParamType::Output, libtest::no_data_flag,   0,   0, "Sigma error"),
+    error      ("error",                 9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "numerical error"),
+    error2     ("error2",                9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "numerical error"),
+    error3     ("error3",                9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "numerical error"),
+    error4     ("error4",                9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "numerical error"),
+    error5     ("error5",                9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "numerical error"),
+    ortho      ("orth_error",            9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "orthogonality error"),
+    ortho_U    ("U_orth.",               9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "U orthogonality error"),
+    ortho_V    ("V_orth.",               9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "V orthogonality error"),
+    error_sigma("Sigma_error",           9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "Sigma error"),
 
-    time      ("SLATE\ntime (s)",       10, 4, ParamType::Output, libtest::no_data_flag,   0,   0, "time to solution"),
-    gflops    ("SLATE\nGflop/s",        10, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "Gflop/s rate"),
-    iters     ("iters",                  6,    ParamType::Output,                     0,   0,   0, "iterations to solution"),
+    time      ("time(s)",               12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "time to solution"),
+    gflops    ("gflops",                12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "Gflop/s rate"),
+    iters     ("iters",                  9,    ParamType::Output,                         0,   0,   0, "iterations to solution"),
 
-    ref_time  ("Ref.\ntime (s)",        10, 4, ParamType::Output, libtest::no_data_flag,   0,   0, "reference time to solution"),
-    ref_gflops("Ref.\nGflop/s",         10, 3, ParamType::Output, libtest::no_data_flag,   0,   0, "reference Gflop/s rate"),
-    ref_iters ("Ref.\niters",            6,    ParamType::Output,                     0,   0,   0, "reference iterations to solution"),
+    ref_time  ("ref_time(s)",           12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "reference time to solution"),
+    ref_gflops("ref_gflops",            12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "reference Gflop/s rate"),
+    ref_iters ("ref_iters",              9,    ParamType::Output,                         0,   0,   0, "reference iterations to solution"),
 
     // default -1 means "no check"
     //         name,     w, type,          default, min, max, help
     okay      ("status", 6, ParamType::Output,  -1,   0,   0, "success indicator")
 {
     // set header different than command line prefix
-    lookahead.name("look\nahead", "lookahead");
-    panel_threads.name("panel\nthreads", "panel-threads");
+    // lookahead.name("look\nahead", "lookahead");
+    // panel_threads.name("panel\nthreads", "panel-threads");
 
     // mark standard set of output fields as used
     okay();
@@ -400,7 +398,7 @@ int print_reduce_error(
 // -----------------------------------------------------------------------------
 int run(int argc, char** argv)
 {
-    using libtest::QuitException;
+    using testsweeper::QuitException;
 
     // check that all sections have names
     assert(sizeof(section_names) / sizeof(*section_names) == Section::num_sections);
@@ -430,9 +428,18 @@ int run(int argc, char** argv)
                 args += ' ';
                 args += argv[i];
             }
-            args += "\nMPI size " + std::to_string(mpi_size)
-                 + ", OpenMP threads " + std::to_string(omp_get_max_threads())
-                 + "\n";
+            args += "\n";
+            std::time_t now = std::time(nullptr);
+            char nowstr[100];
+            std::strftime(nowstr, sizeof(nowstr), "%F %T", std::localtime(&now));
+            args.append(nowstr);
+            args += ": MPIsize " + std::to_string(mpi_size);
+            args += ", OpenMP threads " + std::to_string(omp_get_max_threads());
+            int num_devices = 0;
+            cudaGetDeviceCount(&num_devices);
+            if (num_devices > 0)
+                args += ", CUDA devices available " + std::to_string(num_devices);
+            args += "\n";
             printf("%s", args.c_str());
             slate::trace::Trace::comment(args);
         }
@@ -449,7 +456,7 @@ int run(int argc, char** argv)
 
         // find routine to test
         const char* routine = argv[1];
-        libtest::test_func_ptr test_routine = find_tester(routine, routines);
+        testsweeper::test_func_ptr test_routine = find_tester(routine, routines);
         if (test_routine == nullptr) {
             if (print)
                 usage(argc, argv, routines, section_names);
@@ -489,7 +496,7 @@ int run(int argc, char** argv)
 
         // run tests
         int repeat = params.repeat();
-        libtest::DataType last = params.datatype();
+        testsweeper::DataType last = params.datatype();
         if (print)
             params.header();
         do {

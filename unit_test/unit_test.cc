@@ -7,7 +7,7 @@
 #include <stdarg.h>
 
 #include "slate/internal/mpi.hh"
-#include "libtest.hh"
+#include "testsweeper.hh"
 
 static int g_total = 0;
 static int g_pass  = 0;
@@ -16,17 +16,17 @@ static int g_skip  = 0;
 
 //------------------------------------------------------------------------------
 // ANSI color codes
-using libtest::ansi_esc;
-using libtest::ansi_red;
-using libtest::ansi_green;
-using libtest::ansi_blue;
-using libtest::ansi_cyan;
-using libtest::ansi_magenta;
-using libtest::ansi_yellow;
-using libtest::ansi_white;
-using libtest::ansi_gray;
-using libtest::ansi_bold;
-using libtest::ansi_normal;
+using testsweeper::ansi_esc;
+using testsweeper::ansi_red;
+using testsweeper::ansi_green;
+using testsweeper::ansi_blue;
+using testsweeper::ansi_cyan;
+using testsweeper::ansi_magenta;
+using testsweeper::ansi_yellow;
+using testsweeper::ansi_white;
+using testsweeper::ansi_gray;
+using testsweeper::ansi_bold;
+using testsweeper::ansi_normal;
 
 //------------------------------------------------------------------------------
 /// Returns a string that is sprintf formatted.

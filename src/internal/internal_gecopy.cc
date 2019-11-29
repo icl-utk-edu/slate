@@ -238,8 +238,7 @@ void copy(internal::TargetType<Target::Devices>,
             std::set<ij_tuple> A_tiles_set;
             for (int64_t i = 0; i < B.mt(); ++i) {
                 for (int64_t j = 0; j < B.nt(); ++j) {
-                    if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j))
-                    {
+                    if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
                         A_tiles_set.insert({i, j});
                         // tileAcquire() instead to avoid un-needed copy
                         B.tileAcquire(i, j, device, A(i, j).layout());

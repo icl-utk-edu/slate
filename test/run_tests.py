@@ -31,7 +31,7 @@ parser = argparse.ArgumentParser()
 group_test = parser.add_argument_group( 'test' )
 group_test.add_argument( '-t', '--test', action='store',
     help='test command to run, e.g., --test "mpirun -np 4 ./test"; default "%(default)s"; see also --np',
-    default='./test' )
+    default='./tester' )
 group_test.add_argument( '--xml', help='generate report.xml for jenkins' )
 
 group_size = parser.add_argument_group( 'matrix dimensions (default is medium)' )
@@ -143,7 +143,7 @@ if (opts.tests or not any( map( lambda c: opts.__dict__[ c ], categories ))):
 # begin with space to ease concatenation
 
 if (opts.np != '1'):
-    if (opts.test != './test'):
+    if (opts.test != './tester'):
         print('--test overriding --np')
     else:
         opts.test = 'mpirun -np '+ opts.np +' '+ opts.test

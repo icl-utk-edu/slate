@@ -360,7 +360,7 @@ libslate_src += \
         src/unmlq.cc \
 
 # main tester
-test_src += \
+tester_src += \
         test/test.cc \
         test/test_bdsqr.cc \
         test/test_gbmm.cc \
@@ -404,7 +404,7 @@ test_src += \
 # Note that 'make' sets $(FC) to f77 by default.
 FORTRAN = $(shell which $(FC))
 ifneq ($(FORTRAN),)
-    test_src += \
+    tester_src += \
         test/pslange.f \
         test/pdlange.f \
         test/pclange.f \
@@ -440,12 +440,12 @@ unit_test_obj = \
         unit_test/unit_test.o
 
 libslate_obj = $(addsuffix .o, $(basename $(libslate_src)))
-test_obj     = $(addsuffix .o, $(basename $(test_src)))
+tester_obj   = $(addsuffix .o, $(basename $(tester_src)))
 unit_obj     = $(addsuffix .o, $(basename $(unit_src)))
-dep          = $(addsuffix .d, $(basename $(libslate_src) $(test_src) \
+dep          = $(addsuffix .d, $(basename $(libslate_src) $(tester_src) \
                                           $(unit_src) $(unit_test_obj)))
 
-test      = test/test
+tester    = test/tester
 unit_test = $(basename $(unit_src))
 
 #-------------------------------------------------------------------------------
@@ -466,8 +466,8 @@ LDFLAGS  += -L./lapackpp/lib -Wl,-rpath,$(abspath ./lapackpp/lib)
 LIBS     := -lblaspp -llapackpp $(LIBS)
 
 # additional flags and libraries for testers
-$(test_obj): CXXFLAGS += -I./testsweeper
-$(unit_obj): CXXFLAGS += -I./testsweeper
+$(tester_obj):    CXXFLAGS += -I./testsweeper
+$(unit_obj):      CXXFLAGS += -I./testsweeper
 $(unit_test_obj): CXXFLAGS += -I./testsweeper
 
 TEST_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
@@ -482,10 +482,10 @@ UNIT_LIBS    += -lslate -ltestsweeper
 # Rules
 .DELETE_ON_ERROR:
 .SUFFIXES:
-.PHONY: all docs lib test unit_test clean distclean testsweeper blaspp lapackpp
+.PHONY: all docs lib test tester unit_test clean distclean testsweeper blaspp lapackpp
 .DEFAULT_GOAL := all
 
-all: lib test unit_test scalapack_api lapack_api
+all: lib tester unit_test scalapack_api lapack_api
 
 docs:
 	doxygen docs/doxygen/doxyfile.conf
@@ -567,13 +567,15 @@ include/clean:
 
 #-------------------------------------------------------------------------------
 # main tester
-test: $(test)
+# Note 'test' is sub-directory rule; 'tester' is CMake-compatible rule.
+test: $(tester)
+tester: $(tester)
 
 test/clean:
-	rm -f $(test) $(test_obj)
+	rm -f $(tester) $(tester_obj)
 
-$(test): $(test_obj) $(libslate) $(testsweeper)
-	$(CXX) $(TEST_LDFLAGS) $(LDFLAGS) $(test_obj) \
+$(tester): $(tester_obj) $(libslate) $(testsweeper)
+	$(CXX) $(TEST_LDFLAGS) $(LDFLAGS) $(tester_obj) \
 		$(TEST_LIBS) $(LIBS) \
 		-o $@
 
@@ -744,11 +746,11 @@ echo:
 	@echo
 	@echo "libslate_obj  = $(libslate_obj)"
 	@echo
-	@echo "test_src      = $(test_src)"
+	@echo "tester_src    = $(tester_src)"
 	@echo
-	@echo "test_obj      = $(test_obj)"
+	@echo "tester_obj    = $(tester_obj)"
 	@echo
-	@echo "test          = $(test)"
+	@echo "tester        = $(tester)"
 	@echo
 	@echo "unit_src      = $(unit_src)"
 	@echo

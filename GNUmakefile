@@ -261,7 +261,7 @@ libslate_src += \
         src/internal/internal_getrf.cc \
         src/internal/internal_hebr.cc \
         src/internal/internal_hemm.cc \
-				src/internal/internal_hbnorm.cc \
+        src/internal/internal_hbnorm.cc \
         src/internal/internal_henorm.cc \
         src/internal/internal_her2k.cc \
         src/internal/internal_herk.cc \
@@ -328,7 +328,7 @@ libslate_src += \
         src/he2hb.cc \
         src/heev.cc \
         src/hemm.cc \
-				src/hbmm.cc \
+        src/hbmm.cc \
         src/her2k.cc \
         src/herk.cc \
         src/hesv.cc \
@@ -350,7 +350,7 @@ libslate_src += \
         src/syrk.cc \
         src/tb2bd.cc \
         src/tbsm.cc \
-				src/tbsmPivots.cc \
+        src/tbsmPivots.cc \
         src/trmm.cc \
         src/trsm.cc \
         src/trtri.cc \
@@ -377,8 +377,8 @@ test_src += \
         test/test_he2hb.cc \
         test/test_heev.cc \
         test/test_hemm.cc \
-				test/test_hbmm.cc \
-				test/test_hbnorm.cc \
+        test/test_hbmm.cc \
+        test/test_hbnorm.cc \
         test/test_henorm.cc \
         test/test_her2k.cc \
         test/test_herk.cc \

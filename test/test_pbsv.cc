@@ -94,34 +94,25 @@ void test_pbsv_work(Params& params, bool run)
         int64_t ii = 0;
         for (int64_t i = 0; i < A.mt(); ++i) {
             int64_t ib = A.tileMb(i);
-            if (A.tileIsLocal(i, j))
-            {
+            if (A.tileIsLocal(i, j)) {
                 if ((A.uplo() == slate::Uplo::Lower && i <= j + kdt && j <= i) ||
-                    (A.uplo() == slate::Uplo::Upper && i >= j - kdt && j >= i))
-                {
+                    (A.uplo() == slate::Uplo::Upper && i >= j - kdt && j >= i)) {
                     A.tileInsert(i, j);
                     Aorig.tileInsert(i, j);
                     auto T = A(i, j);
                     lapack::larnv(2, iseeds, T.size(), T.data());
-                    for (int64_t tj = jj; tj < jj + T.nb(); ++tj)
-                    {
-                        for (int64_t ti = ii; ti < ii + T.mb(); ++ti)
-                        {
+                    for (int64_t tj = jj; tj < jj + T.nb(); ++tj) {
+                        for (int64_t ti = ii; ti < ii + T.mb(); ++ti) {
                             if ((A.uplo() == slate::Uplo::Lower && -kd     > tj - ti) ||
-                                (A.uplo() == slate::Uplo::Upper && tj - ti > kd     ))
-                            {
+                                (A.uplo() == slate::Uplo::Upper && tj - ti > kd     )) {
                                 T.at(ti - ii, tj - jj) = 0;
                             }
                         }
                     }
-                    if (i == j)
-                    {
-                        for (int64_t tj = jj; tj < jj + T.nb(); ++tj)
-                        {
-                            for (int64_t ti = ii; ti < ii + T.mb(); ++ti)
-                            {
-                                if ((ti - ii) == (tj - jj))
-                                {
+                    if (i == j) {
+                        for (int64_t tj = jj; tj < jj + T.nb(); ++tj) {
+                            for (int64_t ti = ii; ti < ii + T.mb(); ++ti) {
+                                if ((ti - ii) == (tj - jj)) {
                                     T.at(ti - ii, tj - jj) = std::abs(T.at(ti - ii, tj - jj)) + n;
                                 }
                             }

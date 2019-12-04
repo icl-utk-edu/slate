@@ -202,8 +202,7 @@ void zeroOutsideBand(
         if (pcol == mycol) {
             int64_t jlocal = global2local(jj, nb, q, mycol);
 
-            if (uplo == slate::Uplo::Upper)
-            {
+            if (uplo == slate::Uplo::Upper) {
                 // set rows [0 : k - kd - 1] = 0
                 int64_t i0 = max(global2local(0,       nb, p, myrow), 0);
                 int64_t i1 = min(global2local(jj - kd, nb, p, myrow), n);
@@ -220,8 +219,7 @@ void zeroOutsideBand(
                 }
 
             }
-            else if (uplo == slate::Uplo::Lower)
-            {
+            else if (uplo == slate::Uplo::Lower) {
                 int64_t i0 = max(global2local(0,       nb, p, myrow), 0);
                 int64_t i1 = min(global2local(jj - 0,  nb, p, myrow), n);
 
@@ -265,11 +263,9 @@ slate::HermitianBandMatrix<scalar_t> HermitianBandFromScaLAPACK(
         int64_t ii = 0;
         for (int64_t i = 0; i < A.mt(); ++i) {
             int64_t ib = A.tileMb(i);
-            if (A.tileIsLocal(i, j))
-            {
+            if (A.tileIsLocal(i, j)) {
                 if ((A.uplo() == slate::Uplo::Lower && i <= j + kdt && j <= i) ||
-                    (A.uplo() == slate::Uplo::Upper && i >= j - kdt && j >= i))
-                {
+                    (A.uplo() == slate::Uplo::Upper && i >= j - kdt && j >= i)) {
                     // Using Scalapack indxg2l
                     int64_t ii_local = nb*(ii / (nb*p)) + (ii % nb);
                     A.tileInsert(i, j, A.hostNum(),

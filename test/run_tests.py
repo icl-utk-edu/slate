@@ -303,8 +303,8 @@ if (opts.blas3):
     [ 'gbmm',  gen + dtype + la + transA + transB + mnk + ab + kl + ku ],
     [ 'gemm',  gen + dtype + la + transA + transB + mnk + ab ],
 
-    [ 'hemm',  gen + dtype         + la + side + uplo     + mn + ab+ kd ],
-    [ 'hbmm',  gen + dtype         + la + side + uplo     + mn + ab ],
+    [ 'hemm',  gen + dtype         + la + side + uplo     + mn + ab ],
+    [ 'hbmm',  gen + dtype         + la + side + uplo     + mn + ab + kd ],
     [ 'herk',  gen + dtype_real    + la + uplo + trans    + mn + ab ],
     [ 'herk',  gen + dtype_complex + la + uplo + trans_nc + mn + ab ],
     [ 'her2k', gen + dtype_real    + la + uplo + trans    + mn + ab ],

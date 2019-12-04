@@ -431,8 +431,7 @@ void print_matrix(
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             if ((A.uplo() == slate::Uplo::Lower && i <= j + kdt && j <= i) ||
-                (A.uplo() == slate::Uplo::Upper && i >= j - kdt && j >= i))
-            {
+                (A.uplo() == slate::Uplo::Upper && i >= j - kdt && j >= i)) {
                 send_recv_tile(A, i, j, mpi_rank, comm);
             }
         }
@@ -441,19 +440,16 @@ void print_matrix(
             for (int64_t ti = 0; ti < A.tileMb(i); ++ti) {
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     if ((A.uplo() == slate::Uplo::Lower && i <= j + kdt && j <= i) ||
-                        (A.uplo() == slate::Uplo::Upper && i >= j - kdt && j >= i))
-                    {
+                        (A.uplo() == slate::Uplo::Upper && i >= j - kdt && j >= i)) {
                         msg += tile_row_string(A, i, j, ti, width, precision, opposite);
                     }
                     else {
                         for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
                             if ((A.uplo() == slate::Uplo::Lower && j <= i) ||
-                                (A.uplo() == slate::Uplo::Upper && j >= i))
-                            {
+                                (A.uplo() == slate::Uplo::Upper && j >= i)) {
                                 msg += outside;
                             }
-                            else
-                            {
+                            else {
                                 msg += opposite;
                             }
                         }

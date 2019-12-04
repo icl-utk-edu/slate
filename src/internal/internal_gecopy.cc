@@ -263,8 +263,7 @@ void copy(internal::TargetType<Target::Devices>,
                 nb[q] = B.tileNb(jrange[q][0]);
                 for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                        if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j))
-                        {
+                        if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
                             a_array_host[batch_count] = A(i, j, device).data();
                             b_array_host[batch_count] = B(i, j, device).data();
                             lda[q] = A(i, j, device).stride();

@@ -275,8 +275,7 @@ void norm(
                 // todo: Assuming a fixed tile size
                 int64_t ii = i_begin * A.tileMb(0);
                 for (int64_t i = 0; i < j && i < i_end; ++i) {  // strictly upper
-                    if (i >= i_begin)
-                    {
+                    if (i >= i_begin) {
                         if (A.tileIsLocal(i, j)) {
                             #pragma omp task shared(A, tiles_sums) priority(priority)
                             {

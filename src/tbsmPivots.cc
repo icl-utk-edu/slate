@@ -336,11 +336,9 @@ void tbsm(slate::internal::TargetType<target>,
                 }
             }
         }
-        
         #pragma omp taskwait
         B.tileUpdateAllOrigin();
     }
-
 
     B.clearWorkspace();
 }

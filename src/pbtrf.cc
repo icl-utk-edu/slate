@@ -164,7 +164,7 @@ void pbtrf(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup gbsv_specialization
+/// @ingroup pbsv_specialization
 ///
 template <Target target, typename scalar_t>
 void pbtrf(HermitianBandMatrix<scalar_t>& A,
@@ -238,7 +238,7 @@ void pbtrf(HermitianBandMatrix<scalar_t>& A,
 ///         singular, and division by zero will occur if it is used
 ///         to solve a system of equations.
 ///
-/// @ingroup gbsv_computational
+/// @ingroup pbsv_computational
 ///
 template <typename scalar_t>
 void pbtrf(HermitianBandMatrix<scalar_t>& A,

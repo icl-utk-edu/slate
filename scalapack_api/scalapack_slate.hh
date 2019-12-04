@@ -195,6 +195,7 @@ inline int slate_scalapack_set_verbose()
     return verbose;
 }
 
+
 // -----------------------------------------------------------------------------
 // helper funtion to check and do type conversion
 // TODO: this is duplicated at the testing module
@@ -206,6 +207,7 @@ inline int int64_to_int(int64_t n)
     return n_;
 }
 
+// -----------------------------------------------------------------------------
 // TODO: this is duplicated at the testing module
 #define scalapack_numroc BLAS_FORTRAN_NAME(numroc,NUMROC)
 extern "C" int scalapack_numroc(int* n, int* nb, int* iproc, int* isrcproc, int* nprocs);
@@ -220,6 +222,22 @@ inline int64_t scalapack_numroc(int64_t n, int64_t nb, int iproc, int isrcproc, 
 
 #define scalapack_indxl2g BLAS_FORTRAN_NAME(indxl2g,INDXL2G)
 extern "C" int scalapack_indxl2g(int* indxloc, int* nb, int* iproc, int* isrcproc, int* nprocs);
+
+
+//------------------------------------------------------------------------------
+// BLAS thread management.  
+// Note this is duplicated in the testing module
+#ifdef SLATE_WITH_MKL
+#include <mkl_service.h>
+inline int slate_set_num_blas_threads(const int nt)
+{
+    int old = mkl_get_max_threads();
+    mkl_set_num_threads(nt);
+    return old;
+}
+#else
+inline int slate_set_num_blas_threads(const int nt) { return -1; }
+#endif
 
 
 } // namespace scalapack_api

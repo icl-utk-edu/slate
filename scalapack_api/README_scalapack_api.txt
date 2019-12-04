@@ -66,7 +66,7 @@ ${SLATE_DIR}/test/test gemm --p 1 --q 1 --ref y
 
 Run the reference test, calling ScaLAPACK, which gets intercepted and sent to SLATE/Devices
 
-env SLATE_SCALAPACK_TARGET=Devices SLATE_VERBOSE=1 ${SLATE_DIR}/test/test gemm --p 1 --q 1 --ref y
+env SLATE_SCALAPACK_TARGET=Devices SLATE_SCALAPACK_VERBOSE=1 ${SLATE_DIR}/test/test gemm --p 1 --q 1 --ref y
 
 
 TESTING
@@ -77,9 +77,9 @@ print a small message, otherwise it is not easy to tell if the routine
 was intercepted.  Using the SLATE tester will not work for norms,
 because there are temporary implementations of norms within SLATE.
 
-env LD_PRELOAD=$SLATE_DIR/lib/libslate_scalapack_api.so SLATE_VERBOSE=1 SLATE_SCALAPACK_TARGET=HostTask $SLATE_DIR/test/test gemm
+env LD_PRELOAD=$SLATE_DIR/lib/libslate_scalapack_api.so SLATE_SCALAPACK_VERBOSE=1 SLATE_SCALAPACK_TARGET=HostTask $SLATE_DIR/test/test gemm
 
-env LD_PRELOAD=$SLATE_DIR/lib/libslate_scalapack_api.so SLATE_VERBOSE=1 SLATE_SCALAPACK_TARGET=Devices $SLATE_DIR/test/test gemm
+env LD_PRELOAD=$SLATE_DIR/lib/libslate_scalapack_api.so SLATE_SCALAPACK_VERBOSE=1 SLATE_SCALAPACK_TARGET=Devices $SLATE_DIR/test/test gemm
 
 Testing can also be done with the ScaLAPACK and PBLAS testers.  Note,
 SLATE does not handle parameter errors, so error exits will need to be

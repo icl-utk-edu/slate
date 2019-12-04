@@ -41,13 +41,6 @@
 #include "scalapack_slate.hh"
 #include <complex>
 
-#ifdef SLATE_WITH_MKL
-extern "C" int MKL_Set_Num_Threads(int nt);
-inline int slate_set_num_blas_threads(const int nt) { return MKL_Set_Num_Threads(nt); }
-#else
-inline int slate_set_num_blas_threads(const int nt) { return -1; }
-#endif
-
 namespace slate {
 namespace scalapack_api {
 

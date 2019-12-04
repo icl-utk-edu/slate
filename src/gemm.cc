@@ -77,8 +77,8 @@ void gemm(slate::internal::TargetType<target>,
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector(A.nt());
-    std::vector<uint8_t>  gemm_vector(A.nt());
-    std::vector<uint8_t>  c_vector(1);
+    std::vector<uint8_t> gemm_vector(A.nt());
+    std::vector<uint8_t> c_vector(1);
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
     uint8_t* c     =     c_vector.data();

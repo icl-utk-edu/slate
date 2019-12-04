@@ -33,9 +33,10 @@ void test_gemm_work(Params& params, bool run)
     int64_t p = params.p();
     int64_t q = params.q();
     int64_t lookahead = params.lookahead();
+    bool ref_only = params.ref() == 'o';
     slate::Norm norm = params.norm();
-    bool check = params.check() == 'y';
-    bool ref = params.ref() == 'y';
+    bool check = params.check() == 'y' && ! ref_only;
+    bool ref = params.ref() == 'y' || ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
@@ -172,40 +173,47 @@ void test_gemm_work(Params& params, bool run)
         print_matrix("C", C);
     }
 
-    if (trace) slate::trace::Trace::on();
-    else slate::trace::Trace::off();
-
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time = testsweeper::get_wtime();
-
-    //==================================================
-    // Run SLATE test.
-    // C = alpha A B + beta C.
-    //==================================================
-    slate::gemm(alpha, A, B, beta, C, {
-        {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}
-    });
-
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-
-    if (verbose >= 2)
-        print_matrix("C2", C);
-
-    double time_tst = testsweeper::get_wtime() - time;
-
-    if (trace) slate::trace::Trace::finish();
-
     // compute and save timing/performance
     double gflop = blas::Gflop<scalar_t>::gemm(m, n, k);
-    params.time() = time_tst;
-    params.gflops() = gflop / time_tst;
+
+    if (! ref_only) {
+
+        if (trace) slate::trace::Trace::on();
+        else slate::trace::Trace::off();
+
+        {
+            slate::trace::Block trace_block("MPI_Barrier");
+            MPI_Barrier(MPI_COMM_WORLD);
+        }
+        double time = testsweeper::get_wtime();
+
+        //==================================================
+        // Run SLATE test.
+        // C = alpha A B + beta C.
+        //==================================================
+        slate::gemm(alpha, A, B, beta, C, {
+            {slate::Option::Lookahead, lookahead},
+            {slate::Option::Target, target}
+        });
+
+        {
+            slate::trace::Block trace_block("MPI_Barrier");
+            MPI_Barrier(MPI_COMM_WORLD);
+        }
+
+        double time_tst = testsweeper::get_wtime() - time;
+
+        if (trace) slate::trace::Trace::finish();
+
+        if (verbose >= 2) {
+            C.tileGetAllForReading(C.hostNum(), slate::LayoutConvert::None);
+            print_matrix("C2", C);
+        }
+
+        // compute and save timing/performance
+        params.time() = time_tst;
+        params.gflops() = gflop / time_tst;
+    }
 
     if (check || ref) {
         // comparison with reference routine from ScaLAPACK
@@ -223,7 +231,7 @@ void test_gemm_work(Params& params, bool run)
             print_matrix("Cref", mlocC, nlocC, &C_ref[0], lldC, p, q, MPI_COMM_WORLD);
 
         MPI_Barrier(MPI_COMM_WORLD);
-        time = testsweeper::get_wtime();
+        double time = testsweeper::get_wtime();
 
         scalapack_pgemm(op2str(transA), op2str(transB), m, n, k, alpha,
                         &A_tst[0], ione, ione, descA_tst,

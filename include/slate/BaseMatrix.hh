@@ -1768,18 +1768,15 @@ void BaseMatrix<scalar_t>::listBcast(
         // todo: this may incur extra communication,
         //       tile(i,j) is not necessarily needed on all devices where this matrix resides
         if (target == Target::Devices) {
-            // If receiving the tile.
-            if (! tileIsLocal(i, j)) {
-                std::set<int> dev_set;
-                for (auto submatrix : submatrices_list)
-                    submatrix.getLocalDevices(&dev_set);
+            std::set<int> dev_set;
+            for (auto submatrix : submatrices_list)
+                submatrix.getLocalDevices(&dev_set);
 
-                // todo: should each read be an omp task instead?
-                #pragma omp task
-                {
-                    for (auto device : dev_set)
-                        tileGetForReading(i, j, device, LayoutConvert::None);
-                }
+            // todo: should each read be an omp task instead?
+            #pragma omp task
+            {
+                for (auto device : dev_set)
+                    tileGetForReading(i, j, device, LayoutConvert::None);
             }
         }
     }

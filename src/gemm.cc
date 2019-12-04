@@ -78,8 +78,10 @@ void gemm(slate::internal::TargetType<target>,
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector(A.nt());
     std::vector<uint8_t>  gemm_vector(A.nt());
+    std::vector<uint8_t>  c_vector(1);
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
+    uint8_t* c     =     c_vector.data();
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();
@@ -90,6 +92,16 @@ void gemm(slate::internal::TargetType<target>,
     #pragma omp master
     {
         omp_set_nested(1);
+
+        if (target == Target::Devices) {
+            // fetch C matrix tiles into devices in parallel with first MPI broadcast
+            #pragma omp task depend(out:c[0])
+            {
+                trace::Block trace_block("fetch_C");
+                C.tileGetAllForWritingOnDevices(LayoutConvert(layout));
+            }
+        }
+
         // send first block col of A and block row of B
         #pragma omp task depend(out:bcast[0])
         {
@@ -127,6 +139,7 @@ void gemm(slate::internal::TargetType<target>,
 
         // multiply alpha A(:, 0) B(0, :) + beta C
         #pragma omp task depend(in:bcast[0]) \
+                         depend(in:c[0]) \
                          depend(out:gemm[0])
         {
             internal::gemm<target>(

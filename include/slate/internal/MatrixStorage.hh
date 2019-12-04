@@ -68,16 +68,28 @@ namespace slate {
 ///
 class LockGuard {
 public:
-    LockGuard(omp_nest_lock_t* lock)
-        : lock_(lock), locked_(true)
+    LockGuard(omp_nest_lock_t* lock, bool on = true)
+        : lock_(lock)
     {
-        omp_set_nest_lock(lock_);
+        if (on) {
+            locked_ = true;
+            omp_set_nest_lock(lock_);
+        }
+        else {
+            locked_ = false;
+        }
     }
 
     ~LockGuard()
     {
         if (locked_)
             omp_unset_nest_lock(lock_);
+    }
+
+    void lock()
+    {
+        locked_ = true;
+        omp_set_nest_lock(lock_);
     }
 
     void unlock()

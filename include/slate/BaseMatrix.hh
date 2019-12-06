@@ -540,32 +540,16 @@ public:
     //--------------------------------------------------------------------------
     /// @return batch arrays for the A, B, or C matrices,
     /// on host, to send to device
-    scalar_t** a_array_host(int device)
+    scalar_t** array_host(int device)
     {
-        return storage_->a_array_host_.at(device);
-    }
-    scalar_t** b_array_host(int device)
-    {
-        return storage_->b_array_host_.at(device);
-    }
-    scalar_t** c_array_host(int device)
-    {
-        return storage_->c_array_host_.at(device);
+        return storage_->array_host_.at(device);
     }
 
     //--------------------------------------------------------------------------
     /// @return batch arrays for the A, B, or C matrices, on device
-    scalar_t** a_array_device(int device)
+    scalar_t** array_device(int device)
     {
-        return storage_->a_array_dev_.at(device);
-    }
-    scalar_t** b_array_device(int device)
-    {
-        return storage_->b_array_dev_.at(device);
-    }
-    scalar_t** c_array_device(int device)
-    {
-        return storage_->c_array_dev_.at(device);
+        return storage_->array_dev_.at(device);
     }
 
     //--------------------------------------------------------------------------
@@ -3238,8 +3222,8 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
         for (auto bucket = tilesBuckets.begin(); bucket != tilesBuckets.end(); ++bucket) {
             batch_count = bucket->second.first.size();
 
-            scalar_t** array_dev = this->a_array_device(device);
-            scalar_t** work_array_dev = this->b_array_device(device);
+            scalar_t** array_dev = this->array_device(device);
+            scalar_t** work_array_dev = this->array_device(device) + batch_count;
 
             int64_t mb       = std::get<0>(bucket->first);
             int64_t nb       = std::get<1>(bucket->first);

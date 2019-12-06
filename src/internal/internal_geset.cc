@@ -208,7 +208,7 @@ void set(internal::TargetType<Target::Devices>,
             }
             A.tileGetForWriting(A_tiles_set, device, LayoutConvert(layout));
 
-            scalar_t** a_array_host = A.a_array_host(device);
+            scalar_t** a_array_host = A.array_host(device);
 
             int64_t batch_count = 0;
             int64_t mb[8], nb[8], lda[8], group_count[8];
@@ -249,7 +249,7 @@ void set(internal::TargetType<Target::Devices>,
                 }
             }
 
-            scalar_t** a_array_dev = A.a_array_device(device);
+            scalar_t** a_array_dev = A.array_device(device);
 
             slate_cuda_call(cudaSetDevice(device));
 

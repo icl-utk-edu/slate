@@ -457,9 +457,10 @@ void herk(internal::TargetType<Target::Devices>,
                 }
                 #pragma omp taskwait
 
-                scalar_t** a_array_host = C.a_array_host(device);
-                scalar_t** b_array_host = C.b_array_host(device);
-                scalar_t** c_array_host = C.c_array_host(device);
+                int64_t batch_size = C_tiles_set.size();
+                scalar_t** a_array_host = C.array_host(device);
+                scalar_t** b_array_host = a_array_host + batch_size;
+                scalar_t** c_array_host = b_array_host + batch_size;
 
                 int64_t batch_count = 0;
                 int64_t batch_count_00 = 0;
@@ -517,20 +518,21 @@ void herk(internal::TargetType<Target::Devices>,
                         }
                     }
                 }
+                slate_assert(batch_count == batch_size);
+
+                scalar_t** a_array_dev = C.array_device(device);
+                scalar_t** b_array_dev = a_array_dev + batch_size;
+                scalar_t** c_array_dev = b_array_dev + batch_size;
 
                 if (C.op() != Op::NoTrans) {
                     // swap A <=> B; swap m <=> n
                     swap(opA, opB);
-                    swap(a_array_host, b_array_host);
+                    swap(a_array_dev, b_array_dev);
                     swap(lda00, ldb00);
                     swap(lda10, ldb10);
                     swap(mb00, nb00);
                     swap(mb10, nb10);
                 }
-
-                scalar_t** a_array_dev = C.a_array_device(device);
-                scalar_t** b_array_dev = C.b_array_device(device);
-                scalar_t** c_array_dev = C.c_array_device(device);
 
                 slate_cuda_call(
                     cudaSetDevice(device));
@@ -540,20 +542,8 @@ void herk(internal::TargetType<Target::Devices>,
                 cublasHandle_t cublas_handle = C.cublas_handle(device);
 
                 slate_cuda_call(
-                    cudaMemcpyAsync(a_array_dev, a_array_host,
-                                    sizeof(scalar_t*)*batch_count,
-                                    cudaMemcpyHostToDevice,
-                                    stream));
-
-                slate_cuda_call(
-                    cudaMemcpyAsync(b_array_dev, b_array_host,
-                                    sizeof(scalar_t*)*batch_count,
-                                    cudaMemcpyHostToDevice,
-                                    stream));
-
-                slate_cuda_call(
-                    cudaMemcpyAsync(c_array_dev, c_array_host,
-                                    sizeof(scalar_t*)*batch_count,
+                    cudaMemcpyAsync(C.array_device(device), C.array_host(device),
+                                    sizeof(scalar_t*)*batch_count*3,
                                     cudaMemcpyHostToDevice,
                                     stream));
 

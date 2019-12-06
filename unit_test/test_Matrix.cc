@@ -1002,26 +1002,16 @@ void test_Matrix_allocateBatchArrays()
     // initially, batch arrays are null
     test_assert( A.batchArraySize() == 0 );
     for (int device = 0; device < num_devices; ++device) {
-        test_assert( A.a_array_host(device) == nullptr );
-        test_assert( A.b_array_host(device) == nullptr );
-        test_assert( A.c_array_host(device) == nullptr );
-
-        test_assert( A.a_array_device(device) == nullptr );
-        test_assert( A.b_array_device(device) == nullptr );
-        test_assert( A.c_array_device(device) == nullptr );
+        test_assert( A.array_host(device) == nullptr );
+        test_assert( A.array_device(device) == nullptr );
     }
 
     // allocate size 10
     A.allocateBatchArrays( 10 );
     test_assert( A.batchArraySize() == 10 );
     for (int device = 0; device < num_devices; ++device) {
-        test_assert( A.a_array_host(device) != nullptr );
-        test_assert( A.b_array_host(device) != nullptr );
-        test_assert( A.c_array_host(device) != nullptr );
-
-        test_assert( A.a_array_device(device) != nullptr );
-        test_assert( A.b_array_device(device) != nullptr );
-        test_assert( A.c_array_device(device) != nullptr );
+        test_assert( A.array_host(device) != nullptr );
+        test_assert( A.array_device(device) != nullptr );
     }
 
     // increase to size 20
@@ -1045,13 +1035,8 @@ void test_Matrix_allocateBatchArrays()
     A.clearBatchArrays();
     test_assert( A.batchArraySize() == 0 );
     for (int device = 0; device < num_devices; ++device) {
-        test_assert( A.a_array_host(device) == nullptr );
-        test_assert( A.b_array_host(device) == nullptr );
-        test_assert( A.c_array_host(device) == nullptr );
-
-        test_assert( A.a_array_device(device) == nullptr );
-        test_assert( A.b_array_device(device) == nullptr );
-        test_assert( A.c_array_device(device) == nullptr );
+        test_assert( A.array_host(device) == nullptr );
+        test_assert( A.array_device(device) == nullptr );
     }
 }
 

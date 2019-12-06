@@ -68,16 +68,28 @@ namespace slate {
 ///
 class LockGuard {
 public:
-    LockGuard(omp_nest_lock_t* lock)
-        : lock_(lock), locked_(true)
+    LockGuard(omp_nest_lock_t* lock, bool on = true)
+        : lock_(lock)
     {
-        omp_set_nest_lock(lock_);
+        if (on) {
+            locked_ = true;
+            omp_set_nest_lock(lock_);
+        }
+        else {
+            locked_ = false;
+        }
     }
 
     ~LockGuard()
     {
         if (locked_)
             omp_unset_nest_lock(lock_);
+    }
+
+    void lock()
+    {
+        locked_ = true;
+        omp_set_nest_lock(lock_);
     }
 
     void unlock()
@@ -505,6 +517,14 @@ public:
     }
 
     //--------------------------------------------------------------------------
+    /// Retrun pointer to device OMP lock
+    omp_nest_lock_t* getDeviceLock(int device)
+    {
+        slate_assert(size_t(device+1) < locks_.size());
+        return &(locks_[device+1]);
+    }
+
+    //--------------------------------------------------------------------------
     std::function<int64_t (int64_t i)> tileMb;
     std::function<int64_t (int64_t j)> tileNb;
     std::function<int (ij_tuple ij)> tileRank;
@@ -544,7 +564,8 @@ public:
 
 private:
     TilesMap tiles_;        ///< map of tiles and associated states
-    mutable omp_nest_lock_t lock_;
+    mutable omp_nest_lock_t lock_;  ///< TilesMap lock
+    mutable std::vector<omp_nest_lock_t> locks_;    ///< device locks
     slate::Memory memory_;  ///< memory allocator
 
     int mpi_rank_;
@@ -559,14 +580,10 @@ private:
     std::vector<cublasHandle_t> cublas_handles_;
 
     // host pointers arrays for batch GEMM
-    std::vector<scalar_t**> a_array_host_;
-    std::vector<scalar_t**> b_array_host_;
-    std::vector<scalar_t**> c_array_host_;
+    std::vector<scalar_t**> array_host_;
 
     // device pointers arrays for batch GEMM
-    std::vector<scalar_t**> a_array_dev_;
-    std::vector<scalar_t**> b_array_dev_;
-    std::vector<scalar_t**> c_array_dev_;
+    std::vector<scalar_t**> array_dev_;
 };
 
 //------------------------------------------------------------------------------
@@ -616,17 +633,16 @@ MatrixStorage<scalar_t>::MatrixStorage(
         };
     }
 
-    a_array_host_.resize(num_devices_, nullptr);
-    b_array_host_.resize(num_devices_, nullptr);
-    c_array_host_.resize(num_devices_, nullptr);
-
-    a_array_dev_.resize(num_devices_, nullptr);
-    b_array_dev_.resize(num_devices_, nullptr);
-    c_array_dev_.resize(num_devices_, nullptr);
+    array_host_.resize(num_devices_, nullptr);
+    array_dev_.resize(num_devices_, nullptr);
 
     initCudaStreams();
 
     omp_init_nest_lock(&lock_);
+    locks_.resize(num_devices_+1);
+    for (auto lock : locks_) {
+        omp_init_nest_lock(&lock);
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -655,17 +671,16 @@ MatrixStorage<scalar_t>::MatrixStorage(
     num_devices_ = memory_.num_devices_;
 
     // todo: factor out this duplicated code.
-    a_array_host_.resize(num_devices_, nullptr);
-    b_array_host_.resize(num_devices_, nullptr);
-    c_array_host_.resize(num_devices_, nullptr);
-
-    a_array_dev_.resize(num_devices_, nullptr);
-    b_array_dev_.resize(num_devices_, nullptr);
-    c_array_dev_.resize(num_devices_, nullptr);
+    array_host_.resize(num_devices_, nullptr);
+    array_dev_.resize(num_devices_, nullptr);
 
     initCudaStreams();
 
     omp_init_nest_lock(&lock_);
+    locks_.resize(num_devices_+1);
+    for (auto lock : locks_) {
+        omp_init_nest_lock(&lock);
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -679,6 +694,9 @@ MatrixStorage<scalar_t>::~MatrixStorage()
         destroyCudaStreams();
         clearBatchArrays();
         omp_destroy_nest_lock(&lock_);
+        for (auto lock : locks_) {
+            omp_destroy_nest_lock(&lock);
+        }
     }
     catch (std::exception const& ex) {
         // If debugging, die on exceptions.
@@ -759,36 +777,24 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(int64_t batch_size)
 {
     assert(batch_size >= 0);
     if (batch_array_size_ < batch_size) {
-        assert(int(a_array_host_.size()) == num_devices_);
+        assert(int(array_host_.size()) == num_devices_);
         for (int device = 0; device < num_devices_; ++device) {
             slate_cuda_call(
                 cudaSetDevice(device));
 
             // Free host arrays.
             slate_cuda_call(
-                cudaFreeHost(a_array_host_[device]));
-            slate_cuda_call(
-                cudaFreeHost(b_array_host_[device]));
-            slate_cuda_call(
-                cudaFreeHost(c_array_host_[device]));
+                cudaFreeHost(array_host_[device]));
 
             // Free device arrays.
             slate_cuda_call(
-                cudaFree(a_array_dev_[device]));
-            slate_cuda_call(
-                cudaFree(b_array_dev_[device]));
-            slate_cuda_call(
-                cudaFree(c_array_dev_[device]));
+                cudaFree(array_dev_[device]));
 
             // Allocate host arrays.
-            slateCudaMallocHost(&a_array_host_[device], batch_size);
-            slateCudaMallocHost(&b_array_host_[device], batch_size);
-            slateCudaMallocHost(&c_array_host_[device], batch_size);
+            slateCudaMallocHost(&array_host_[device], batch_size*3);
 
             // Allocate device arrays.
-            slateCudaMalloc(&a_array_dev_[device], batch_size);
-            slateCudaMalloc(&b_array_dev_[device], batch_size);
-            slateCudaMalloc(&c_array_dev_[device], batch_size);
+            slateCudaMalloc(&array_dev_[device], batch_size*3);
         }
         batch_array_size_ = batch_size;
     }
@@ -802,34 +808,22 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(int64_t batch_size)
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::clearBatchArrays()
 {
-    assert(int(a_array_host_.size()) == num_devices_);
+    assert(int(array_host_.size()) == num_devices_);
     for (int device = 0; device < num_devices_; ++device) {
         slate_cuda_call(
             cudaSetDevice(device));
 
         // Free host arrays.
         slate_cuda_call(
-            cudaFreeHost(a_array_host_[device]));
-        slate_cuda_call(
-            cudaFreeHost(b_array_host_[device]));
-        slate_cuda_call(
-            cudaFreeHost(c_array_host_[device]));
+            cudaFreeHost(array_host_[device]));
 
         // Free device arrays.
         slate_cuda_call(
-            cudaFree(a_array_dev_[device]));
-        slate_cuda_call(
-            cudaFree(b_array_dev_[device]));
-        slate_cuda_call(
-            cudaFree(c_array_dev_[device]));
+            cudaFree(array_dev_[device]));
 
-        a_array_host_[device] = nullptr;
-        b_array_host_[device] = nullptr;
-        c_array_host_[device] = nullptr;
+        array_host_[device] = nullptr;
 
-        a_array_dev_[device] = nullptr;
-        b_array_dev_[device] = nullptr;
-        c_array_dev_[device] = nullptr;
+        array_dev_[device] = nullptr;
     }
     batch_array_size_ = 0;
 }

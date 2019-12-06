@@ -239,8 +239,9 @@ void geadd(internal::TargetType<Target::Devices>,
             }
             #pragma omp taskwait
 
-            scalar_t** a_array_host = B.a_array_host(device);
-            scalar_t** b_array_host = B.b_array_host(device);
+            int64_t batch_size = A_tiles_set.size();
+            scalar_t** a_array_host = B.array_host(device);
+            scalar_t** b_array_host = a_array_host + batch_size;
 
             int64_t batch_count = 0;
             int64_t mb[4], nb[4], lda[4], ldb[4], group_count[4];
@@ -263,9 +264,10 @@ void geadd(internal::TargetType<Target::Devices>,
                     }
                 }
             }
+            slate_assert(batch_count == batch_size);
 
-            scalar_t** a_array_dev = B.a_array_device(device);
-            scalar_t** b_array_dev = B.b_array_device(device);
+            scalar_t** a_array_dev = B.array_device(device);
+            scalar_t** b_array_dev = a_array_dev + batch_size;
 
             slate_cuda_call(cudaSetDevice(device));
 
@@ -274,13 +276,7 @@ void geadd(internal::TargetType<Target::Devices>,
 
             slate_cuda_call(
                 cudaMemcpyAsync(a_array_dev, a_array_host,
-                                sizeof(scalar_t*)*batch_count,
-                                cudaMemcpyHostToDevice,
-                                stream));
-
-            slate_cuda_call(
-                cudaMemcpyAsync(b_array_dev, b_array_host,
-                                sizeof(scalar_t*)*batch_count,
+                                sizeof(scalar_t*)*batch_count*2,
                                 cudaMemcpyHostToDevice,
                                 stream));
 

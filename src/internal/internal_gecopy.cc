@@ -241,7 +241,7 @@ void copy(internal::TargetType<Target::Devices>,
                     if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
                         A_tiles_set.insert({i, j});
                         // tileAcquire() instead to avoid un-needed copy
-                        B.tileAcquire(i, j, device, A(i, j).layout());
+                        B.tileAcquire(i, j, device, Layout::ColMajor);
                     }
                 }
             }
@@ -250,8 +250,8 @@ void copy(internal::TargetType<Target::Devices>,
 
             // Usually the output matrix (B) provides all the batch arrays.
             // Here we are using A, because of the possibly different types.
-            src_scalar_t** a_array_host = A.a_array_host(device);
-            dst_scalar_t** b_array_host = B.b_array_host(device);
+            src_scalar_t** a_array_host = A.array_host(device);
+            dst_scalar_t** b_array_host = B.array_host(device);
 
             int64_t batch_count = 0;
             int64_t mb[4], nb[4], lda[4], ldb[4], group_count[4];
@@ -277,14 +277,13 @@ void copy(internal::TargetType<Target::Devices>,
 
             // Usually the output matrix (B) provides all the batch arrays.
             // Here we are using A, because of the differen types.
-            src_scalar_t** a_array_dev = A.a_array_device(device);
-            dst_scalar_t** b_array_dev = B.b_array_device(device);
+            src_scalar_t** a_array_dev = A.array_device(device);
+            dst_scalar_t** b_array_dev = B.array_device(device);
 
             slate_cuda_call(cudaSetDevice(device));
 
             cudaStream_t stream = B.compute_stream(device);
             // cublasHandle_t cublas_handle = B.cublas_handle(device);
-
             slate_cuda_call(
                 cudaMemcpyAsync(a_array_dev, a_array_host,
                                 sizeof(src_scalar_t*)*batch_count,

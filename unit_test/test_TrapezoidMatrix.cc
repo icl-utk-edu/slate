@@ -721,22 +721,12 @@ void test_TrapezoidMatrix_allocateBatchArrays()
     test_assert( L.batchArraySize() == 0 );
     test_assert( U.batchArraySize() == 0 );
     for (int device = 0; device < num_devices; ++device) {
-        test_assert( L.a_array_host(device) == nullptr );
-        test_assert( L.b_array_host(device) == nullptr );
-        test_assert( L.c_array_host(device) == nullptr );
-
-        test_assert( L.a_array_device(device) == nullptr );
-        test_assert( L.b_array_device(device) == nullptr );
-        test_assert( L.c_array_device(device) == nullptr );
+        test_assert( L.array_host(device) == nullptr );
+        test_assert( L.array_device(device) == nullptr );
 
         // -----
-        test_assert( U.a_array_host(device) == nullptr );
-        test_assert( U.b_array_host(device) == nullptr );
-        test_assert( U.c_array_host(device) == nullptr );
-
-        test_assert( U.a_array_device(device) == nullptr );
-        test_assert( U.b_array_device(device) == nullptr );
-        test_assert( U.c_array_device(device) == nullptr );
+        test_assert( U.array_host(device) == nullptr );
+        test_assert( U.array_device(device) == nullptr );
     }
 
     // allocate size 10
@@ -745,22 +735,11 @@ void test_TrapezoidMatrix_allocateBatchArrays()
     test_assert( L.batchArraySize() == 10 );
     test_assert( U.batchArraySize() == 10 );
     for (int device = 0; device < num_devices; ++device) {
-        test_assert( L.a_array_host(device) != nullptr );
-        test_assert( L.b_array_host(device) != nullptr );
-        test_assert( L.c_array_host(device) != nullptr );
-
-        test_assert( L.a_array_device(device) != nullptr );
-        test_assert( L.b_array_device(device) != nullptr );
-        test_assert( L.c_array_device(device) != nullptr );
-
+        test_assert( L.array_host(device) != nullptr );
+        test_assert( L.array_device(device) != nullptr );
         // -----
-        test_assert( U.a_array_host(device) != nullptr );
-        test_assert( U.b_array_host(device) != nullptr );
-        test_assert( U.c_array_host(device) != nullptr );
-
-        test_assert( U.a_array_device(device) != nullptr );
-        test_assert( U.b_array_device(device) != nullptr );
-        test_assert( U.c_array_device(device) != nullptr );
+        test_assert( U.array_host(device) != nullptr );
+        test_assert( U.array_device(device) != nullptr );
     }
 
     // increase to size 20
@@ -794,22 +773,11 @@ void test_TrapezoidMatrix_allocateBatchArrays()
     test_assert( L.batchArraySize() == 0 );
     test_assert( U.batchArraySize() == 0 );
     for (int device = 0; device < num_devices; ++device) {
-        test_assert( L.a_array_host(device) == nullptr );
-        test_assert( L.b_array_host(device) == nullptr );
-        test_assert( L.c_array_host(device) == nullptr );
-
-        test_assert( L.a_array_device(device) == nullptr );
-        test_assert( L.b_array_device(device) == nullptr );
-        test_assert( L.c_array_device(device) == nullptr );
-
+        test_assert( L.array_host(device) == nullptr );
+        test_assert( L.array_device(device) == nullptr );
         // -----
-        test_assert( U.a_array_host(device) == nullptr );
-        test_assert( U.b_array_host(device) == nullptr );
-        test_assert( U.c_array_host(device) == nullptr );
-
-        test_assert( U.a_array_device(device) == nullptr );
-        test_assert( U.b_array_device(device) == nullptr );
-        test_assert( U.c_array_device(device) == nullptr );
+        test_assert( U.array_host(device) == nullptr );
+        test_assert( U.array_device(device) == nullptr );
     }
 }
 

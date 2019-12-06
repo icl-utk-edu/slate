@@ -241,7 +241,7 @@ void copy(internal::TargetType<Target::Devices>,
                     if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
                         A_tiles_set.insert({i, j});
                         // tileAcquire() instead to avoid un-needed copy
-                        B.tileAcquire(i, j, device, A(i, j).layout());
+                        B.tileAcquire(i, j, device, Layout::ColMajor);
                     }
                 }
             }

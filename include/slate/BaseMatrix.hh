@@ -1707,6 +1707,10 @@ void BaseMatrix<scalar_t>::listBcast(
     // tile is increased.
     // Also, currently, the message is received to the same buffer.
 
+    std::vector< std::set<ij_tuple> > tile_set(num_devices());
+    int mpi_size;
+    MPI_Comm_size(mpiComm(), &mpi_size);
+
     for (auto bcast : bcast_list) {
 
         auto i = std::get<0>(bcast);
@@ -1756,15 +1760,33 @@ void BaseMatrix<scalar_t>::listBcast(
             for (auto submatrix : submatrices_list)
                 submatrix.getLocalDevices(&dev_set);
 
-            // todo: should each read be an omp task instead?
-            #pragma omp task
-            {
+            if (mpi_size == 1) {
                 for (auto device : dev_set)
-                    tileGetForReading(i, j, device, LayoutConvert::None);
+                    tile_set[device].insert({i, j});
+            }
+            else {
+                // todo: should each read be an omp task instead?
+                #pragma omp task
+                {
+                    for (auto device : dev_set)
+                        tileGetForReading(i, j, device, LayoutConvert::None);
+                }
             }
         }
     }
 
+    if (target == Target::Devices) {
+        if (mpi_size == 1) {
+            for (int d = 0; d < num_devices(); ++d) {
+                if (! tile_set[d].empty()) {
+                    #pragma omp task default(shared)
+                    {
+                        tileGetForReading(tile_set[d], d, LayoutConvert::None);
+                    }
+                }
+            }
+        }
+    }
     #pragma omp taskwait
 }
 

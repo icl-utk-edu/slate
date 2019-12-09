@@ -160,37 +160,40 @@ void trnorm(Norm norm, Diag diag, Tile<scalar_t> const& A,
 
     assert(A.uploPhysical() != Uplo::General);
     assert(A.op() == Op::NoTrans);
+    int64_t mb = A.mb();
+    int64_t nb = A.nb();
 
     if (norm == Norm::Max) {
         // max norm
         // values[0] = max_{i,j} A_{i,j}
         *values = lapack::lantr(norm, A.uploPhysical(), diag,
-                                A.mb(), A.nb(),
+                                mb, nb,
                                 A.data(), A.stride());
     }
     else if (norm == Norm::One) {
         // one norm
         // values[j] = sum_i abs( A_{i,j} )
-        for (int64_t j = 0; j < A.nb(); ++j) {
+        for (int64_t j = 0; j < nb; ++j) {
             values[j] = 0;
+            const scalar_t* Aj = &A.at(0, j);
             // diagonal element
-            if (j < A.mb()) {
+            if (j < mb) {
                 if (diag == Diag::Unit) {
                     values[j] += 1;
                 }
                 else {
-                    values[j] += std::abs(A(j, j));
+                    values[j] += std::abs(Aj[j]);  // A(j, j)
                 }
             }
             // off-diagonal elements
             if (A.uplo() == Uplo::Lower) {
-                for (int64_t i = j+1; i < A.mb(); ++i) { // strictly lower
-                    values[j] += std::abs(A(i, j));
+                for (int64_t i = j+1; i < mb; ++i) { // strictly lower
+                    values[j] += std::abs(Aj[i]);  // A(i, j)
                 }
             }
             else {
-                for (int64_t i = 0; i < j && i < A.mb(); ++i) { // strictly upper
-                    values[j] += std::abs(A(i, j));
+                for (int64_t i = 0; i < j && i < mb; ++i) { // strictly upper
+                    values[j] += std::abs(Aj[i]);  // A(i, j)
                 }
             }
         }
@@ -198,28 +201,29 @@ void trnorm(Norm norm, Diag diag, Tile<scalar_t> const& A,
     else if (norm == Norm::Inf) {
         // inf norm
         // values[i] = sum_j abs( A_{i,j} )
-        for (int64_t i = 0; i < A.mb(); ++i) {
+        for (int64_t i = 0; i < mb; ++i) {
             values[i] = 0;
         }
-        for (int64_t j = 0; j < A.nb(); ++j) {
+        for (int64_t j = 0; j < nb; ++j) {
             // diagonal element
-            if (j < A.mb()) {
+            const scalar_t* Aj = &A.at(0, j);
+            if (j < mb) {
                 if (diag == Diag::Unit) {
                     values[j] += 1;
                 }
                 else {
-                    values[j] += std::abs(A(j, j));
+                    values[j] += std::abs(Aj[j]);  // A(j, j)
                 }
             }
             // off-diagonal elements
             if (A.uplo() == Uplo::Lower) {
-                for (int64_t i = j+1; i < A.mb(); ++i) { // strictly lower
-                    values[i] += std::abs(A(i, j));
+                for (int64_t i = j+1; i < mb; ++i) { // strictly lower
+                    values[i] += std::abs(Aj[i]);  // A(i, j)
                 }
             }
             else {
-                for (int64_t i = 0; i < j && i < A.mb(); ++i) { // strictly upper
-                    values[i] += std::abs(A(i, j));
+                for (int64_t i = 0; i < j && i < mb; ++i) { // strictly upper
+                    values[i] += std::abs(Aj[i]);  // A(i, j)
                 }
             }
         }

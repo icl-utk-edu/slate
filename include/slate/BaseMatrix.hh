@@ -2348,8 +2348,7 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
     auto dst_tile_instance = &(tile_node[dst_device]);
 
     // acquire write access to the (i, j) TileNode
-    LockGuard guard(tile_node.getLock());
-    // LockGuard dst_guard(tile_node[dst_device].getLock());
+    LockGuard guard(tile_node.getLock(), modify == true);
 
     if ((! tile_node.existsOn(dst_device)) ||
         (  tile_node[dst_device].getState() == MOSI::Invalid)) {

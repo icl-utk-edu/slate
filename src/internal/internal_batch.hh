@@ -435,6 +435,15 @@ private:
     std::vector< DeviceArrays<scalar_t, dim_> > dev_arrays_; // index by device
 };
 
+//==============================================================================
+template <typename scalar_t>
+class GemmBatchArrays : public BatchArrays<scalar_t, 3> {
+public:
+    GemmBatchArrays(int num_devices)
+        :  BatchArrays<scalar_t, 3>(num_devices)
+    {}
+};
+
 } // namespace slate
 } // namespace internal
 

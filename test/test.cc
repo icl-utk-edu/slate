@@ -279,7 +279,7 @@ Params::Params():
     p         ("p",       4,    ParamType::List, 1,       0, 1000000, "p"),
     q         ("q",       4,    ParamType::List, 1,       0, 1000000, "q"),
     lookahead ("lookahead", 9,  ParamType::List, 1,       0, 1000000, "number of lookahead panels"),
-    panel_threads("panelth",
+    panel_threads("panel-threads",
                           7,    ParamType::List, 1,       0, 1000000, "max number of threads used in panel"),
     align     ("align",   6,    ParamType::List,  32,     1,    1024, "column alignment (sets lda, ldb, etc. to multiple of align)"),
 
@@ -309,8 +309,7 @@ Params::Params():
     okay      ("status", 6, ParamType::Output,  -1,   0,   0, "success indicator")
 {
     // set header different than command line prefix
-    // lookahead.name("look\nahead", "lookahead");
-    // panel_threads.name("panel\nthreads", "panel-threads");
+    panel_threads.name("panelth", "panel-threads");
 
     // mark standard set of output fields as used
     okay();

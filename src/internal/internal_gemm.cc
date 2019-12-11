@@ -409,6 +409,8 @@ void gemm(internal::TargetType<Target::Devices>,
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
     // check dimensions
+    assert(C.mt() > 0);
+    assert(C.nt() > 0);
     assert(A.nt() == 1);
     assert(B.mt() == 1);
     assert(A.mt() == C.mt());

@@ -211,11 +211,13 @@ void gbmm(slate::internal::TargetType<target>,
                              depend(in:gemm[k-1]) \
                              depend(out:gemm[k])
             {
-                internal::gemm<target>(
-                    alpha, A.sub(i_begin, i_end-1, k, k),
-                           B.sub(k, k, 0, B.nt()-1),
-                    one,   C.sub(i_begin, i_end-1, 0, C.nt()-1),
-                    layout);
+                if (i_begin <= i_end-1) {
+                    internal::gemm<target>(
+                        alpha, A.sub(i_begin, i_end-1, k, k),
+                               B.sub(k, k, 0, B.nt()-1),
+                        one,   C.sub(i_begin, i_end-1, 0, C.nt()-1),
+                        layout);
+                }
             }
         }
         #pragma omp taskwait

@@ -206,16 +206,18 @@ void gbmm(slate::internal::TargetType<target>,
             int64_t i_begin = max(k - kut, 0);
             int64_t i_end   = min(k + klt + 1, A.mt());
 
-            // multiply alpha A(:, k) B(k, :) + C, no beta
-            #pragma omp task depend(in:bcast[k]) \
-                             depend(in:gemm[k-1]) \
-                             depend(out:gemm[k])
-            {
-                internal::gemm<target>(
-                    alpha, A.sub(i_begin, i_end-1, k, k),
-                           B.sub(k, k, 0, B.nt()-1),
-                    one,   C.sub(i_begin, i_end-1, 0, C.nt()-1),
-                    layout);
+            if (i_begin <= i_end-1) {
+                // multiply alpha A(:, k) B(k, :) + C, no beta
+                #pragma omp task depend(in:bcast[k]) \
+                                 depend(in:gemm[k-1]) \
+                                 depend(out:gemm[k])
+                {
+                    internal::gemm<target>(
+                        alpha, A.sub(i_begin, i_end-1, k, k),
+                               B.sub(k, k, 0, B.nt()-1),
+                        one,   C.sub(i_begin, i_end-1, 0, C.nt()-1),
+                        layout);
+                }
             }
         }
         #pragma omp taskwait

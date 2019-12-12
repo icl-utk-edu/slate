@@ -78,7 +78,8 @@ void trsm(internal::TargetType<Target::HostTask>,
           int priority, Layout layout)
 {
     // CPU assumes column major
-    // todo: relax this assumption, by allowing Tile_blas.hh::trsm() to take layout param
+    // todo: relax this assumption, by allowing Tile_blas.hh::trsm()
+    //       to take layout param
     // todo: optimize for the number of layout conversions,
     //       by watching 'layout' and 'B(i, j).layout()'
     assert(layout == Layout::ColMajor);
@@ -137,7 +138,8 @@ void trsm(internal::TargetType<Target::HostNest>,
                                     Matrix<scalar_t>& B,
           int priority, Layout layout)
 {
-    throw std::runtime_error("TRSM currently doesn't support Target::HostNest.");
+    throw std::runtime_error(
+        "TRSM currently doesn't support Target::HostNest.");
 }
 
 //------------------------------------------------------------------------------
@@ -152,7 +154,8 @@ void trsm(internal::TargetType<Target::HostBatch>,
                                     Matrix<scalar_t>& B,
           int priority, Layout layout)
 {
-    throw std::runtime_error("TRSM currently doesn't support Target::HostBatch.");
+    throw std::runtime_error(
+        "TRSM currently doesn't support Target::HostBatch.");
 }
 
 //------------------------------------------------------------------------------
@@ -348,14 +351,15 @@ void trsm(internal::TargetType<Target::Devices>,
                                 cublas_op_const(opA),
                                 cublas_diag_const(diagA),
                                 mb0, nb0,
-                                &alpha, (const scalar_t**)  a_array_device, lda0,
-                                        (scalar_t**)        b_array_device, ldb0,
+                                &alpha,
+                                (const scalar_t**)  a_array_device, lda0,
+                                (scalar_t**)        b_array_device, ldb0,
                                 batch_count_0));
                     }
                     else {
                         // todo: RowMajor layout
                         throw std::runtime_error(
-                          "Layout::RowMajor isn't supported in the TRSM Target::Devices.");
+                          "Row major isn't supported in target=Devices.");
                     }
 
                     a_array_device += batch_count_0;
@@ -372,14 +376,15 @@ void trsm(internal::TargetType<Target::Devices>,
                                 cublas_op_const(opA),
                                 cublas_diag_const(diagA),
                                 mb1, nb1,
-                                &alpha, (const scalar_t**)  a_array_device, lda1,
-                                        (scalar_t**)        b_array_device, ldb1,
+                                &alpha,
+                                (const scalar_t**)  a_array_device, lda1,
+                                (scalar_t**)        b_array_device, ldb1,
                                 batch_count_1));
                     }
                     else {
                         // todo: RowMajor layout
                         throw std::runtime_error(
-                          "Layout::RowMajor isn't supported in the TRSM Target::Devices.");
+                          "Row major isn't supported in target=Devices.");
                     }
                 }
 

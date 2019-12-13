@@ -52,12 +52,31 @@
 #include <complex>
 
 typedef void* cublasHandle_t;
+
 typedef int cublasOperation_t;
+typedef int cublasFillMode_t;
+typedef int cublasSideMode_t;
+typedef int cublasDiagType_t;
 
 enum {
     CUBLAS_OP_C,
     CUBLAS_OP_N,
     CUBLAS_OP_T,
+};
+
+enum {
+    CUBLAS_FILL_MODE_LOWER,
+    CUBLAS_FILL_MODE_UPPER,
+};
+
+enum {
+    CUBLAS_SIDE_LEFT,
+    CUBLAS_SIDE_RIGHT,
+};
+
+enum {
+    CUBLAS_DIAG_NON_UNIT,
+    CUBLAS_DIAG_UNIT,
 };
 
 enum cublasStatus_t {
@@ -121,6 +140,50 @@ cublasStatus_t cublasZgemmBatched(
     const cuDoubleComplex* alpha, const cuDoubleComplex* Aarray[], int lda,
                                   const cuDoubleComplex* Barray[], int ldb,
     const cuDoubleComplex* beta,        cuDoubleComplex* Carray[], int ldc,
+    int batchCount);
+
+cublasStatus_t cublasStrsmBatched(
+    cublasHandle_t handle,
+    cublasSideMode_t side,
+    cublasFillMode_t uplo,
+    cublasOperation_t trans,
+    cublasDiagType_t  diag,
+    int m, int n,
+    const float *alpha, const float *Aarray[], int lda,
+                              float *Barray[], int ldb,
+    int batchCount);
+
+cublasStatus_t cublasDtrsmBatched(
+    cublasHandle_t handle,
+    cublasSideMode_t  side,
+    cublasFillMode_t  uplo,
+    cublasOperation_t trans,
+    cublasDiagType_t  diag,
+    int m, int n,
+    const double *alpha, const double *Aarray[], int lda,
+                               double *Barray[], int ldb,
+    int batchCount);
+
+cublasStatus_t cublasCtrsmBatched(
+    cublasHandle_t handle,
+    cublasSideMode_t side,
+    cublasFillMode_t uplo,
+    cublasOperation_t trans,
+    cublasDiagType_t diag,
+    int m, int n,
+    const cuComplex *alpha, const cuComplex *Aarray[], int lda,
+                                  cuComplex *Barray[], int ldb,
+    int batchCount);
+
+cublasStatus_t cublasZtrsmBatched(
+    cublasHandle_t handle,
+    cublasSideMode_t side,
+    cublasFillMode_t uplo,
+    cublasOperation_t trans,
+    cublasDiagType_t  diag,
+    int m, int n,
+    const cuDoubleComplex *alpha, const cuDoubleComplex *Aarray[], int lda,
+                                        cuDoubleComplex *Barray[], int ldb,
     int batchCount);
 
 cublasStatus_t cublasSswap(

@@ -1981,9 +1981,19 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     if (! send_to.empty()) {
         // read tile on host memory
         tileGetForReading(i, j, LayoutConvert(layout));
-        // Forward.
-        for (int dst : send_to)
-            at(i, j).send(new_vec[dst], mpi_comm_, tag);
+        // Forward using mpi_send()
+        // for (int dst : send_to)
+        //     at(i, j).send(new_vec[dst], mpi_comm_, tag);
+
+        // Forward using multiple mpi_isend() calls, followed by a waitall
+        std::vector<MPI_Request> isend_req_array(send_to.size(), MPI_REQUEST_NULL);
+        int idx=0;
+        for (int dst : send_to) {
+            at(i, j).isend(new_vec[dst], mpi_comm_, tag, &isend_req_array[idx]);
+            idx++;
+        }
+        slate_mpi_call(
+            MPI_Waitall(isend_req_array.size(), &isend_req_array[0], MPI_STATUSES_IGNORE));
     }
 }
 

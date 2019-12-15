@@ -791,10 +791,12 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
     bool isResized = false;
 
     if (int64_t(array_host_.size()) < num_arrays) {
+        const int64_t temp = batch_array_size_;
+        clearBatchArrays();
+        batch_array_size_ = temp;
+
         array_host_.resize(num_arrays);
         array_dev_.resize(num_arrays);
-
-        assert(int(array_host_.size()) == num_arrays);
 
         for (int64_t i = 0; i < num_arrays; ++i) {
             std::vector< scalar_t** >& array_host = array_host_.at(i);
@@ -802,18 +804,20 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
             array_host.resize(num_devices_, nullptr);
             array_dev.resize(num_devices_, nullptr);
 
-            assert(int(array_host.size()) == num_devices_);
-
             isResized = true;
         }
     }
 
     if ((batch_array_size_ < batch_size) || isResized) {
+
+        assert(int(array_host_.size()) >= num_arrays);
+
         for (std::size_t i = 0; i < array_host_.size(); ++i) {
             std::vector< scalar_t** >& array_host = array_host_.at(i);
             std::vector< scalar_t** >& array_dev  = array_dev_.at(i);
 
             assert(int(array_host.size()) == num_devices_);
+
             for (int device = 0; device < num_devices_; ++device) {
                 slate_cuda_call(cudaSetDevice(device));
 

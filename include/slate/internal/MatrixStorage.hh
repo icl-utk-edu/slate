@@ -407,7 +407,7 @@ protected:
 public:
     //--------------------------------------------------------------------------
     // batch arrays
-    void allocateBatchArrays(int64_t batch_size);
+    void allocateBatchArrays(int64_t batch_size, int64_t num_arrays);
     void clearBatchArrays();
 
     /// @return currently allocated batch array size
@@ -537,8 +537,11 @@ public:
         return tileRank(ij) == mpi_rank_;
     }
 
-    TileInstance<scalar_t>& tileInsert(ijdev_tuple ijdev, TileKind, Layout layout=Layout::ColMajor);
-    TileInstance<scalar_t>& tileInsert(ijdev_tuple ijdev, scalar_t* data, int64_t lda, Layout layout=Layout::ColMajor);
+    TileInstance<scalar_t>& tileInsert(
+        ijdev_tuple ijdev, TileKind, Layout layout=Layout::ColMajor);
+    TileInstance<scalar_t>& tileInsert(
+        ijdev_tuple ijdev, scalar_t* data, int64_t lda,
+        Layout layout=Layout::ColMajor);
     TileInstance<scalar_t>& tileAcquire(ijdev_tuple ijdev, Layout layout);
 
     void tileMakeTransposable(Tile<scalar_t>* tile);
@@ -580,10 +583,10 @@ private:
     std::vector<cublasHandle_t> cublas_handles_;
 
     // host pointers arrays for batch GEMM
-    std::vector<scalar_t**> array_host_;
+    std::vector< std::vector< scalar_t** > > array_host_;
 
     // device pointers arrays for batch GEMM
-    std::vector<scalar_t**> array_dev_;
+    std::vector< std::vector< scalar_t** > > array_dev_;
 };
 
 //------------------------------------------------------------------------------
@@ -633,8 +636,11 @@ MatrixStorage<scalar_t>::MatrixStorage(
         };
     }
 
-    array_host_.resize(num_devices_, nullptr);
-    array_dev_.resize(num_devices_, nullptr);
+    array_host_.resize(1);
+    array_dev_.resize(1);
+
+    array_host_.at(0).resize(num_devices_, nullptr);
+    array_dev_.at(0).resize(num_devices_, nullptr);
 
     initCudaStreams();
 
@@ -670,9 +676,12 @@ MatrixStorage<scalar_t>::MatrixStorage(
     host_num_    = memory_.host_num_;
     num_devices_ = memory_.num_devices_;
 
+    array_host_.resize(1);
+    array_dev_.resize(1);
+
     // todo: factor out this duplicated code.
-    array_host_.resize(num_devices_, nullptr);
-    array_dev_.resize(num_devices_, nullptr);
+    array_host_.at(0).resize(num_devices_, nullptr);
+    array_dev_.at(0).resize(num_devices_, nullptr);
 
     initCudaStreams();
 
@@ -773,29 +782,55 @@ void MatrixStorage<scalar_t>::destroyCudaStreams()
 // todo: rename resizeBatchArrays?
 ///
 template <typename scalar_t>
-void MatrixStorage<scalar_t>::allocateBatchArrays(int64_t batch_size)
+void MatrixStorage<scalar_t>::allocateBatchArrays(
+    int64_t batch_size, int64_t num_arrays)
 {
     assert(batch_size >= 0);
-    if (batch_array_size_ < batch_size) {
-        assert(int(array_host_.size()) == num_devices_);
-        for (int device = 0; device < num_devices_; ++device) {
-            slate_cuda_call(
-                cudaSetDevice(device));
+    assert(num_arrays >= 1);
 
-            // Free host arrays.
-            slate_cuda_call(
-                cudaFreeHost(array_host_[device]));
+    bool isResized = false;
 
-            // Free device arrays.
-            slate_cuda_call(
-                cudaFree(array_dev_[device]));
+    if (int64_t(array_host_.size()) < num_arrays) {
+        array_host_.resize(num_arrays);
+        array_dev_.resize(num_arrays);
 
-            // Allocate host arrays.
-            slateCudaMallocHost(&array_host_[device], batch_size*3);
+        assert(int(array_host_.size()) == num_arrays);
 
-            // Allocate device arrays.
-            slateCudaMalloc(&array_dev_[device], batch_size*3);
+        for (int64_t i = 0; i < num_arrays; ++i) {
+            std::vector< scalar_t** >& array_host = array_host_.at(i);
+            std::vector< scalar_t** >& array_dev  = array_dev_.at(i);
+            array_host.resize(num_devices_, nullptr);
+            array_dev.resize(num_devices_, nullptr);
+
+            assert(int(array_host.size()) == num_devices_);
+
+            isResized = true;
         }
+    }
+
+    if ((batch_array_size_ < batch_size) || isResized) {
+        for (std::size_t i = 0; i < array_host_.size(); ++i) {
+            std::vector< scalar_t** >& array_host = array_host_.at(i);
+            std::vector< scalar_t** >& array_dev  = array_dev_.at(i);
+
+            assert(int(array_host.size()) == num_devices_);
+            for (int device = 0; device < num_devices_; ++device) {
+                slate_cuda_call(cudaSetDevice(device));
+
+                // Free host arrays.
+                slate_cuda_call(cudaFreeHost(array_host[device]));
+
+                // Free device arrays.
+                slate_cuda_call(cudaFree(array_dev[device]));
+
+                // Allocate host arrays.
+                slateCudaMallocHost(&array_host[device], batch_size*3);
+
+                // Allocate device arrays.
+                slateCudaMalloc(&array_dev[device], batch_size*3);
+            }
+        }
+
         batch_array_size_ = batch_size;
     }
 }
@@ -808,22 +843,24 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(int64_t batch_size)
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::clearBatchArrays()
 {
-    assert(int(array_host_.size()) == num_devices_);
-    for (int device = 0; device < num_devices_; ++device) {
-        slate_cuda_call(
-            cudaSetDevice(device));
+    for (std::size_t i = 0; i < array_host_.size(); ++i) {
+        std::vector< scalar_t** >& array_host = array_host_.at(i);
+        std::vector< scalar_t** >& array_dev  = array_dev_.at(i);
 
-        // Free host arrays.
-        slate_cuda_call(
-            cudaFreeHost(array_host_[device]));
+        assert(int(array_host.size()) == num_devices_);
+        for (int device = 0; device < num_devices_; ++device) {
+            slate_cuda_call(cudaSetDevice(device));
 
-        // Free device arrays.
-        slate_cuda_call(
-            cudaFree(array_dev_[device]));
+            // Free host arrays.
+            slate_cuda_call(cudaFreeHost(array_host[device]));
 
-        array_host_[device] = nullptr;
+            // Free device arrays.
+            slate_cuda_call(cudaFree(array_dev[device]));
 
-        array_dev_[device] = nullptr;
+            array_host[device] = nullptr;
+
+            array_dev[device] = nullptr;
+        }
     }
     batch_array_size_ = 0;
 }
@@ -1009,7 +1046,8 @@ void MatrixStorage<scalar_t>::release(ijdev_tuple ijdev)
 }
 
 //------------------------------------------------------------------------------
-/// Remove a tile with all instances on all devices from map and delete it unconditionally.
+/// Remove a tile with all instances on all devices from map and delete it
+/// unconditionally.
 /// If tile's memory was allocated by SLATE, then its memory is freed back
 /// to the allocator memory pool.
 ///
@@ -1116,7 +1154,8 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileAcquire(
         int64_t nb = tileNb(j);
         int64_t stride = layout == Layout::ColMajor ? mb : nb;
         Tile<scalar_t>* tile
-            = new Tile<scalar_t>(mb, nb, data, stride, device, TileKind::Workspace, layout);
+            = new Tile<scalar_t>(
+                  mb, nb, data, stride, device, TileKind::Workspace, layout);
         tile_node.insertOn(device, tile, MOSI::Invalid);
     }
     return tile_node[device];
@@ -1194,7 +1233,8 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
         int64_t mb = tileMb(i);
         int64_t nb = tileNb(j);
         Tile<scalar_t>* tile
-            = new Tile<scalar_t>(mb, nb, data, lda, device, TileKind::UserOwned, layout);
+            = new Tile<scalar_t>(
+                  mb, nb, data, lda, device, TileKind::UserOwned, layout);
         tile_node.insertOn(device, tile, MOSI::Shared);
     }
     return tile_node[device];

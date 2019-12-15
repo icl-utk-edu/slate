@@ -518,9 +518,9 @@ public:
     /// @param[in] batch_size
     ///     On exit, size of batch arrays >= batch_size >= 0.
     ///
-    void allocateBatchArrays(int64_t batch_size)
+    void allocateBatchArrays(int64_t batch_size=0, int64_t num_arrays=1)
     {
-        storage_->allocateBatchArrays(batch_size);
+        storage_->allocateBatchArrays(batch_size, num_arrays);
     }
 
     /// Removes batch arrays from matrix for all devices.
@@ -540,16 +540,20 @@ public:
     //--------------------------------------------------------------------------
     /// @return batch arrays for the A, B, or C matrices,
     /// on host, to send to device
-    scalar_t** array_host(int device)
+    scalar_t** array_host(int device, int64_t i=0)
     {
-        return storage_->array_host_.at(device);
+        assert(i >= 0);
+        std::vector< scalar_t** >& array = storage_->array_host_.at(i);
+        return array.at(device);
     }
 
     //--------------------------------------------------------------------------
     /// @return batch arrays for the A, B, or C matrices, on device
-    scalar_t** array_device(int device)
+    scalar_t** array_device(int device, int64_t i=0)
     {
-        return storage_->array_dev_.at(device);
+        assert(i >= 0);
+        std::vector< scalar_t** >& array = storage_->array_dev_.at(i);
+        return array.at(device);
     }
 
     //--------------------------------------------------------------------------
@@ -1981,19 +1985,9 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     if (! send_to.empty()) {
         // read tile on host memory
         tileGetForReading(i, j, LayoutConvert(layout));
-        // Forward using mpi_send()
-        // for (int dst : send_to)
-        //     at(i, j).send(new_vec[dst], mpi_comm_, tag);
-
-        // Forward using multiple mpi_isend() calls, followed by a waitall
-        std::vector<MPI_Request> isend_req_array(send_to.size(), MPI_REQUEST_NULL);
-        int idx=0;
-        for (int dst : send_to) {
-            at(i, j).isend(new_vec[dst], mpi_comm_, tag, &isend_req_array[idx]);
-            idx++;
-        }
-        slate_mpi_call(
-            MPI_Waitall(isend_req_array.size(), &isend_req_array[0], MPI_STATUSES_IGNORE));
+        // Forward.
+        for (int dst : send_to)
+            at(i, j).send(new_vec[dst], mpi_comm_, tag);
     }
 }
 
@@ -2358,7 +2352,7 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
     auto dst_tile_instance = &(tile_node[dst_device]);
 
     // acquire write access to the (i, j) TileNode
-    LockGuard guard(tile_node.getLock());
+    LockGuard guard(tile_node.getLock(), modify == true);
 
     if ((! tile_node.existsOn(dst_device)) ||
         (  tile_node[dst_device].getState() == MOSI::Invalid)) {
@@ -3242,8 +3236,12 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
         for (auto bucket = tilesBuckets.begin(); bucket != tilesBuckets.end(); ++bucket) {
             batch_count = std::max(batch_count, int64_t(bucket->second.first.size()));
         }
+
+        int64_t num_arrays =
+            (storage_->array_host_.size() <= 0) ? 1 : storage_->array_host_.size();
+
         // todo: shouldn't we allocate for the current device only?
-        allocateBatchArrays(batch_count);
+        allocateBatchArrays(batch_count, num_arrays);
 
         cudaStream_t stream = comm_stream(device);
         slate_cuda_call(

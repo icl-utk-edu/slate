@@ -540,19 +540,21 @@ public:
     //--------------------------------------------------------------------------
     /// @return batch arrays for the A, B, or C matrices,
     /// on host, to send to device
-    scalar_t** array_host(int device, int64_t i=0)
+    scalar_t** array_host(int device, int64_t batch_arrays_index=0)
     {
-        assert(i >= 0);
-        std::vector< scalar_t** >& array = storage_->array_host_.at(i);
+        assert(batch_arrays_index >= 0);
+        std::vector< scalar_t** >& array = storage_->array_host_.at(
+                                                            batch_arrays_index);
         return array.at(device);
     }
 
     //--------------------------------------------------------------------------
     /// @return batch arrays for the A, B, or C matrices, on device
-    scalar_t** array_device(int device, int64_t i=0)
+    scalar_t** array_device(int device, int64_t batch_arrays_index=0)
     {
-        assert(i >= 0);
-        std::vector< scalar_t** >& array = storage_->array_dev_.at(i);
+        assert(batch_arrays_index >= 0);
+        std::vector< scalar_t** >& array = storage_->array_dev_.at(
+                                                            batch_arrays_index);
         return array.at(device);
     }
 

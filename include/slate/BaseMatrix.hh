@@ -517,8 +517,10 @@ public:
     ///
     /// @param[in] batch_size
     ///     On exit, size of batch arrays >= batch_size >= 0.
+    /// @param[in] num_arrays
+    ///     On exit, size of batch arrays vector >= num_arrays >= 1.
     ///
-    void allocateBatchArrays(int64_t batch_size=0, int64_t num_arrays=1)
+    void allocateBatchArrays(int64_t batch_size, int64_t num_arrays)
     {
         storage_->allocateBatchArrays(batch_size, num_arrays);
     }

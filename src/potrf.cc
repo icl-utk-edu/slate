@@ -183,7 +183,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
 
-    A.allocateBatchArrays(0, 2);
+    A.allocateBatchArrays();
     A.reserveDeviceWorkspace();
 
     #pragma omp parallel
@@ -205,10 +205,10 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 if (k+1 <= A_nt-1) {
                     auto Akk = A.sub(k, k);
                     auto Tkk = TriangularMatrix< scalar_t >(Diag::NonUnit, Akk);
-                    internal::trsm<Target::Devices>(
+                    internal::trsm<Target::HostTask>(
                         Side::Right,
                         scalar_t(1.0), conj_transpose(Tkk),
-                                       A.sub(k+1, A_nt-1, k, k), 0, layout, 1);
+                                       A.sub(k+1, A_nt-1, k, k));
                 }
 
                 BcastList bcast_list_A;

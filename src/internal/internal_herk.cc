@@ -43,6 +43,7 @@
 #include "slate/Tile_blas.hh"
 #include "internal/internal.hh"
 #include "internal/internal_batch.hh"
+#include "internal/internal_cublas.hh"
 
 #ifdef SLATE_WITH_MKL
     #include <mkl_cblas.h>
@@ -402,6 +403,7 @@ void herk(internal::TargetType<Target::Devices>,
 {
     int err = 0;
     using std::swap;
+    using real_t = blas::real_type<scalar_t>;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
     // assumes column major for now
@@ -414,7 +416,8 @@ void herk(internal::TargetType<Target::Devices>,
 
     assert(C.num_devices() > 0);
 
-    // off-diagonal tiles by batch gemm on device
+    // off-diagonal tiles by batch-gemm on device
+    // diagonal tiles by herk on device
     for (int device = 0; device < C.num_devices(); ++device) {
         #pragma omp task shared(A, C, err) priority(priority)
         {
@@ -435,29 +438,35 @@ void herk(internal::TargetType<Target::Devices>,
 
                 Op opB = (opA == Op::NoTrans ? Op::ConjTrans : Op::NoTrans);
 
-                std::set<ij_tuple> A_tiles_set, C_tiles_set;
+                std::set<ij_tuple> A_tiles_gemm, C_tiles_gemm;
+                std::set<ij_tuple> A_tiles_herk, C_tiles_herk;
                 for (int64_t j = 0; j < C.nt(); ++j) {
-                    for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
-                        if (C.tileIsLocal(i, j)) {
-                            if (device == C.tileDevice(i, j)) {
-                                A_tiles_set.insert({i, 0});
-                                A_tiles_set.insert({j, 0});
-                                C_tiles_set.insert({i, j});
+                    for (int64_t i = j; i < C.mt(); ++i) {
+                        if (C.tileIsLocal(i, j)
+                            && device == C.tileDevice(i, j)) {
+                            if (i == j) {
+                                A_tiles_herk.insert({j, 0});
+                                C_tiles_herk.insert({j, j});
+                            }
+                            else {
+                                A_tiles_gemm.insert({i, 0});
+                                A_tiles_gemm.insert({j, 0});
+                                C_tiles_gemm.insert({i, j});
                             }
                         }
                     }
                 }
                 #pragma omp task default(shared)
                 {
-                    A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+                    A.tileGetForReading(A_tiles_gemm, device, LayoutConvert(layout));
                 }
                 #pragma omp task default(shared)
                 {
-                    C.tileGetForWriting(C_tiles_set, device, LayoutConvert(layout));
+                    C.tileGetForWriting(C_tiles_gemm, device, LayoutConvert(layout));
                 }
                 #pragma omp taskwait
 
-                int64_t batch_size = C_tiles_set.size();
+                int64_t batch_size = C_tiles_gemm.size();
                 scalar_t** a_array_host = C.array_host(device);
                 scalar_t** b_array_host = a_array_host + batch_size;
                 scalar_t** c_array_host = b_array_host + batch_size;
@@ -578,13 +587,46 @@ void herk(internal::TargetType<Target::Devices>,
                                 &beta_,                     c_array_dev, ldc10,
                                 batch_count_10));
                     }
-
-                    slate_cuda_call(
-                        cudaStreamSynchronize(stream));
                 }
 
+                #pragma omp task default(shared)
+                {
+                    A.tileGetForReading(A_tiles_herk, device, LayoutConvert(layout));
+                }
+                #pragma omp task default(shared)
+                {
+                    C.tileGetForWriting(C_tiles_herk, device, LayoutConvert(layout));
+                }
+                #pragma omp taskwait
+
+                auto alpha_ = real_t(alpha);
+                auto beta_  = real_t(beta);
+
+                for (auto iter = C_tiles_herk.begin();
+                     iter != C_tiles_herk.end();
+                     ++iter) {
+                    int64_t i = std::get<0>(*iter);
+                    int64_t j = std::get<1>(*iter);
+
+                    auto Aj0 = A(j, 0, device);
+                    auto Cjj = C(j, j, device);
+
+                    slate_cublas_call(
+                        cublasHerk(
+                            cublas_handle,  // uses stream
+                            cublas_uplo_const(Cjj.uploPhysical()),
+                            cublas_op_const(Aj0.op()),
+                            Cjj.nb(), Aj0.nb(),
+                            &alpha_, Aj0.data(), Aj0.stride(),
+                            &beta_,  Cjj.data(), Cjj.stride()));
+                }
+
+                slate_cuda_call(
+                    cudaStreamSynchronize(stream));
+
+                // both off-diagonal batch-gemm and diagonal herks are done
                 for (int64_t j = 0; j < C.nt(); ++j) {
-                    for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
+                    for (int64_t i = j; i < C.mt(); ++i) {
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
                                 // erase tmp local and remote device tiles;
@@ -593,6 +635,7 @@ void herk(internal::TargetType<Target::Devices>,
                                 // decrement life for remote tiles
                                 // todo: should tileRelease()?
                                 A.tileTick(i, 0);
+                                A.tileTick(j, 0);
                                 A.tileTick(j, 0);
                             }
                         }
@@ -605,32 +648,10 @@ void herk(internal::TargetType<Target::Devices>,
         }
     }
 
-    // diagonal tiles by herk on host
-    for (int64_t j = 0; j < C.nt(); ++j) {
-        if (C.tileIsLocal(j, j)) {
-            #pragma omp task shared(A, C, err)
-            {
-                try {
-                    A.tileGetForReading(j, 0, LayoutConvert(layout));
-                    C.tileGetForWriting(j, j, LayoutConvert(layout));
-                    herk(alpha, A(j, 0),
-                         beta,  C(j, j));
-                    // todo: should tileRelease()?
-                    A.tileTick(j, 0);
-                    // todo: why the second tick?
-                    A.tileTick(j, 0);
-                }
-                catch (std::exception& e) {
-                    err = __LINE__;
-                }
-            }
-        }
-    }
-
     #pragma omp taskwait
 
     if (err)
-        throw std::exception();
+        slate_error(std::to_string(err));
 }
 
 //------------------------------------------------------------------------------

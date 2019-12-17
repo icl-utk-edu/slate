@@ -416,6 +416,41 @@ void herk(internal::TargetType<Target::Devices>,
 
     assert(C.num_devices() > 0);
 
+    // if single tile, avoid creating tasks for all devices
+    if (C.nt() == 1) {
+        auto device = C.tileDevice(0, 0);
+        #pragma omp task shared(A, C, err) priority(priority)
+        {
+            A.tileGetForReading(0, 0, device, LayoutConvert(layout));
+            C.tileGetForWriting(0, 0, device, LayoutConvert(layout));
+
+            auto alpha_ = real_t(alpha);
+            auto beta_  = real_t(beta);
+
+            slate_cuda_call(
+                cudaSetDevice(device));
+
+            // cublas_handle uses this stream
+            cudaStream_t stream = C.compute_stream(device);
+            cublasHandle_t cublas_handle = C.cublas_handle(device);
+
+            auto A00 = A(0, 0, device);
+            auto C00 = C(0, 0, device);
+
+            slate_cublas_call(
+                cublasHerk(
+                    cublas_handle,  // uses stream
+                    cublas_uplo_const(C00.uploPhysical()),
+                    cublas_op_const(A00.op()),
+                    C00.nb(), A00.nb(),
+                    &alpha_, A00.data(), A00.stride(),
+                    &beta_,  C00.data(), C00.stride()));
+
+            slate_cuda_call(
+                cudaStreamSynchronize(stream));
+        }
+    }
+    else
     // off-diagonal tiles by batch-gemm on device
     // diagonal tiles by herk on device
     for (int device = 0; device < C.num_devices(); ++device) {
@@ -605,7 +640,7 @@ void herk(internal::TargetType<Target::Devices>,
                 for (auto iter = C_tiles_herk.begin();
                      iter != C_tiles_herk.end();
                      ++iter) {
-                    int64_t i = std::get<0>(*iter);
+                    // int64_t i = std::get<0>(*iter);
                     int64_t j = std::get<1>(*iter);
 
                     auto Aj0 = A(j, 0, device);

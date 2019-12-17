@@ -89,7 +89,7 @@ public:
     friend void swap(BaseBandMatrix<T>& A, BaseBandMatrix<T>& B);
 
     int64_t getMaxDeviceTiles(int device);
-    void    allocateBatchArrays(int64_t batch_size=0);
+    void    allocateBatchArrays(int64_t batch_size=0, int64_t num_arrays=1);
     void    reserveDeviceWorkspace();
 
     // sub-matrix
@@ -278,13 +278,14 @@ int64_t BaseBandMatrix<scalar_t>::getMaxDeviceTiles(int device)
 ///     If batch_size = 0 (default), uses batch_size = getMaxDeviceTiles.
 ///
 template <typename scalar_t>
-void BaseBandMatrix<scalar_t>::allocateBatchArrays(int64_t batch_size)
+void BaseBandMatrix<scalar_t>::allocateBatchArrays(
+    int64_t batch_size, int64_t num_arrays)
 {
     if (batch_size == 0) {
         for (int device = 0; device < this->num_devices_; ++device)
             batch_size = std::max(batch_size, getMaxDeviceTiles(device));
     }
-    this->storage_->allocateBatchArrays(batch_size);
+    this->storage_->allocateBatchArrays(batch_size, num_arrays);
 }
 
 //------------------------------------------------------------------------------

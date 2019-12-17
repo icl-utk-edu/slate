@@ -156,6 +156,7 @@ public:
     }
 
     void send(int dst, MPI_Comm mpi_comm, int tag = 0) const;
+    void isend(int dst, MPI_Comm mpi_comm, int tag, MPI_Request *req); // const;
     void recv(int src, MPI_Comm mpi_comm, Layout layout, int tag = 0);
     void bcast(int bcast_root, MPI_Comm mpi_comm);
 
@@ -1022,6 +1023,49 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm, int tag) const
 
         slate_mpi_call(MPI_Type_commit(&newtype));
         slate_mpi_call(MPI_Send(data_, 1, newtype, dst, tag, mpi_comm));
+        slate_mpi_call(MPI_Type_free(&newtype));
+    }
+    // todo: would specializing to Triangular / Band tiles improve performance
+    // by receiving less / compacted data
+}
+
+//------------------------------------------------------------------------------
+/// Sends tile to MPI rank dst.
+///
+/// @param[in] dst
+///     Destination MPI rank in mpi_comm.
+///
+/// @param[in] mpi_comm
+///     MPI communicator.
+///
+// todo need to copy or verify metadata (sizes, op, uplo, ...)
+template <typename scalar_t>
+void Tile<scalar_t>::isend(int dst, MPI_Comm mpi_comm, int tag, MPI_Request *req) // const
+{
+    trace::Block trace_block("MPI_Isend");
+
+    // If no stride.
+    if (this->isContiguous()) {
+        // Use simple send.
+        int count = mb_*nb_;
+
+        slate_mpi_call(
+            MPI_Isend(data_, count, mpi_type<scalar_t>::value, dst, tag,
+                      mpi_comm, req));
+    }
+    else {
+        // Otherwise, use strided send.
+        int count = layout_ == Layout::ColMajor ? nb_ : mb_;
+        int blocklength = layout_ == Layout::ColMajor ? mb_ : nb_;
+        int stride = stride_;
+        MPI_Datatype newtype;
+
+        slate_mpi_call(
+            MPI_Type_vector(count, blocklength, stride,
+                            mpi_type<scalar_t>::value, &newtype));
+
+        slate_mpi_call(MPI_Type_commit(&newtype));
+        slate_mpi_call(MPI_Isend(data_, 1, newtype, dst, tag, mpi_comm, req));
         slate_mpi_call(MPI_Type_free(&newtype));
     }
     // todo: would specializing to Triangular / Band tiles improve performance

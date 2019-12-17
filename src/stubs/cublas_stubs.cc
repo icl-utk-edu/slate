@@ -128,6 +128,63 @@ cublasStatus_t cublasZgemmBatched(
     assert(0);
 }
 
+cublasStatus_t cublasStrsmBatched(
+    cublasHandle_t handle,
+    cublasSideMode_t side,
+    cublasFillMode_t uplo,
+    cublasOperation_t trans,
+    cublasDiagType_t  diag,
+    int m, int n,
+    const float *alpha, const float *Aarray[], int lda,
+                              float *Barray[], int ldb,
+    int batchCount)
+{
+    assert(0);
+}
+
+cublasStatus_t cublasDtrsmBatched(
+    cublasHandle_t handle,
+    cublasSideMode_t  side,
+    cublasFillMode_t  uplo,
+    cublasOperation_t trans,
+    cublasDiagType_t  diag,
+    int m, int n,
+    const double *alpha, const double *Aarray[], int lda,
+                               double *Barray[], int ldb,
+    int batchCount)
+{
+    assert(0);
+}
+
+cublasStatus_t cublasCtrsmBatched(
+    cublasHandle_t handle,
+    cublasSideMode_t side,
+    cublasFillMode_t uplo,
+    cublasOperation_t trans,
+    cublasDiagType_t diag,
+    int m, int n,
+    const cuComplex *alpha, const cuComplex *Aarray[], int lda,
+                                  cuComplex *Barray[], int ldb,
+    int batchCount)
+{
+    assert(0);
+}
+
+cublasStatus_t cublasZtrsmBatched(
+    cublasHandle_t handle,
+    cublasSideMode_t side,
+    cublasFillMode_t uplo,
+    cublasOperation_t trans,
+    cublasDiagType_t  diag,
+    int m, int n,
+    const cuDoubleComplex *alpha, const cuDoubleComplex *Aarray[], int lda,
+                                        cuDoubleComplex *Barray[], int ldb,
+    int batchCount)
+{
+    assert(0);
+}
+
+
 cublasStatus_t cublasSswap(
     cublasHandle_t handle,
     int n,

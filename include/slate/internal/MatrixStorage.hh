@@ -789,30 +789,39 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
     assert(num_arrays >= 1);
 
     bool isResized = false;
+    int64_t i_begin = 0;
 
     if (int64_t(array_host_.size()) < num_arrays) {
-        const int64_t temp = batch_array_size_;
-        clearBatchArrays();
-        batch_array_size_ = temp;
+        // const int64_t temp = batch_array_size_;
+        // clearBatchArrays();
+        // batch_array_size_ = temp;
+
+        i_begin = array_host_.size();
 
         array_host_.resize(num_arrays);
         array_dev_.resize(num_arrays);
 
-        for (int64_t i = 0; i < num_arrays; ++i) {
+        for (int64_t i = i_begin; i < num_arrays; ++i) {
             std::vector< scalar_t** >& array_host = array_host_.at(i);
             std::vector< scalar_t** >& array_dev  = array_dev_.at(i);
             array_host.resize(num_devices_, nullptr);
             array_dev.resize(num_devices_, nullptr);
-
-            isResized = true;
         }
+        isResized = true;
     }
 
     if ((batch_array_size_ < batch_size) || isResized) {
 
+        if (batch_array_size_ < batch_size) {
+            i_begin = 0;
+        }
+        else {
+            batch_size = batch_array_size_;
+        }
+
         assert(int(array_host_.size()) >= num_arrays);
 
-        for (std::size_t i = 0; i < array_host_.size(); ++i) {
+        for (std::size_t i = i_begin; i < array_host_.size(); ++i) {
             std::vector< scalar_t** >& array_host = array_host_.at(i);
             std::vector< scalar_t** >& array_dev  = array_dev_.at(i);
 

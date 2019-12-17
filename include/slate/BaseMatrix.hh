@@ -1704,6 +1704,10 @@ template <Target target>
 void BaseMatrix<scalar_t>::listBcast(
     BcastList& bcast_list, Layout layout, int tag, int64_t life_factor)
 {
+    if (target == Target::Devices) {
+        assert(num_devices() > 0);
+    }
+
     // It is possible that the same tile, with the same data, is sent twice.
     // This happens, e.g., in the hemm and symm routines, where the same tile
     // is sent once as part of A and once as part of A^T.

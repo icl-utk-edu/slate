@@ -142,6 +142,38 @@ cublasStatus_t cublasZgemmBatched(
     const cuDoubleComplex* beta,        cuDoubleComplex* Carray[], int ldc,
     int batchCount);
 
+cublasStatus_t cublasCherk(
+    cublasHandle_t handle,
+    cublasFillMode_t uplo,
+    cublasOperation_t trans,
+    int n, int k,
+    const float *alpha, const cuComplex *A, int lda,
+    const float *beta,        cuComplex *C, int ldc);
+
+cublasStatus_t cublasZherk(
+    cublasHandle_t handle,
+    cublasFillMode_t uplo,
+    cublasOperation_t trans,
+    int n, int k,
+    const double *alpha, const cuDoubleComplex *A, int lda,
+    const double *beta,        cuDoubleComplex *C, int ldc);
+
+cublasStatus_t cublasSsyrk(
+    cublasHandle_t handle,
+    cublasFillMode_t uplo,
+    cublasOperation_t trans,
+    int n, int k,
+    const float *alpha, const float *A, int lda,
+    const float *beta,        float *C, int ldc);
+
+cublasStatus_t cublasDsyrk(
+    cublasHandle_t handle,
+    cublasFillMode_t uplo,
+    cublasOperation_t trans,
+    int n, int k,
+    const double *alpha, const double *A, int lda,
+    const double *beta,        double *C, int ldc);
+
 cublasStatus_t cublasStrsmBatched(
     cublasHandle_t handle,
     cublasSideMode_t side,

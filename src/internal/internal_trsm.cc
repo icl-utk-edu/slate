@@ -67,6 +67,27 @@ void trsm(Side side,
 
 //------------------------------------------------------------------------------
 /// Triangular solve matrix (multiple right-hand sides).
+/// Dispatches to Target::Devices implementation with batch_arrays_index
+/// as an input paraemter
+/// @ingroup trsm_internal
+///
+template <Target target = Target::Devices, typename scalar_t>
+void trsm(Side side,
+          scalar_t alpha, TriangularMatrix<scalar_t>&& A,
+                                    Matrix<scalar_t>&& B,
+          int priority, Layout layout, int64_t batch_arrays_index)
+{
+    assert(target == Target::Devices);
+
+    trsm(internal::TargetType<Target::Devices>(),
+         side,
+         alpha, A,
+                B,
+         priority, layout, batch_arrays_index);
+}
+
+//------------------------------------------------------------------------------
+/// Triangular solve matrix (multiple right-hand sides).
 /// Host OpenMP task implementation.
 /// @ingroup trsm_internal
 ///
@@ -170,6 +191,31 @@ void trsm(internal::TargetType<Target::Devices>,
                                     Matrix<scalar_t>& B,
           int priority, Layout layout)
 {
+    // To avoid code repetition, we just call the overloaded version with batch
+    // array index equals to 0.
+    // That means we have one set of batch arrays accessible only by one GPU
+    // kernel at the same time.
+    trsm(internal::TargetType<Target::Devices>(),
+         side,
+         alpha, A,
+                B,
+         priority, layout, 0);
+}
+
+//------------------------------------------------------------------------------
+/// Triangular solve matrix (multiple right-hand sides).
+/// GPU device batched cuBLAS implementation.
+/// Overloaded version with batch_arrays_index.
+/// The extra input parameter controls accessing GPU workspaces at the same time.
+/// @ingroup trsm_internal
+///
+template <typename scalar_t>
+void trsm(internal::TargetType<Target::Devices>,
+          Side side,
+          scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                                    Matrix<scalar_t>& B,
+          int priority, Layout layout, int64_t batch_arrays_index)
+{
     using std::swap;
     using blas::conj;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
@@ -245,7 +291,7 @@ void trsm(internal::TargetType<Target::Devices>,
 
             int64_t batch_size = B_tiles_set.size();
 
-            scalar_t** a_array_host = B.array_host(device);
+            scalar_t** a_array_host = B.array_host(device, batch_arrays_index);
             scalar_t** b_array_host = a_array_host + batch_size;
 
             int64_t batch_count = 0;
@@ -325,7 +371,8 @@ void trsm(internal::TargetType<Target::Devices>,
                 swap(mb1, nb1);
             }
 
-            scalar_t** a_array_device = B.array_device(device);
+            scalar_t** a_array_device = B.array_device(
+                                            device, batch_arrays_index);
             scalar_t** b_array_device = a_array_device + batch_size;
 
             slate_cuda_call(cudaSetDevice(device));
@@ -334,7 +381,8 @@ void trsm(internal::TargetType<Target::Devices>,
             cublasHandle_t cublas_handle = B.cublas_handle(device);
 
             slate_cuda_call(
-                cudaMemcpyAsync(B.array_device(device), B.array_host(device),
+                cudaMemcpyAsync(B.array_device(device, batch_arrays_index),
+                                B.array_host(device, batch_arrays_index),
                                 sizeof(scalar_t*)*batch_count*2,
                                 cudaMemcpyHostToDevice,
                                 stream));
@@ -430,6 +478,13 @@ void trsm<Target::Devices, float>(
                            Matrix<float>&& B,
     int priority, Layout layout);
 
+template
+void trsm<Target::Devices, float>(
+    Side side,
+    float alpha, TriangularMatrix<float>&& A,
+                           Matrix<float>&& B,
+    int priority, Layout layout, int64_t batch_arrays_index);
+
 // ----------------------------------------
 template
 void trsm<Target::HostTask, double>(
@@ -458,6 +513,13 @@ void trsm<Target::Devices, double>(
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
     int priority, Layout layout);
+
+template
+void trsm<Target::Devices, double>(
+    Side side,
+    double alpha, TriangularMatrix<double>&& A,
+                            Matrix<double>&& B,
+    int priority, Layout layout, int64_t batch_arrays_index);
 
 // ----------------------------------------
 template
@@ -488,6 +550,13 @@ void trsm< Target::Devices, std::complex<float> >(
                                          Matrix< std::complex<float> >&& B,
     int priority, Layout layout);
 
+template
+void trsm< Target::Devices, std::complex<float> >(
+    Side side,
+    std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
+                                         Matrix< std::complex<float> >&& B,
+    int priority, Layout layout, int64_t batch_arrays_index);
+
 // ----------------------------------------
 template
 void trsm< Target::HostTask, std::complex<double> >(
@@ -516,6 +585,13 @@ void trsm< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
     int priority, Layout layout);
+
+template
+void trsm< Target::Devices, std::complex<double> >(
+    Side side,
+    std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
+                                          Matrix< std::complex<double> >&& B,
+    int priority, Layout layout, int64_t batch_arrays_index);
 
 } // namespace internal
 } // namespace slate

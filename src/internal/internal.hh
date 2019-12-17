@@ -393,6 +393,16 @@ void trsm(Side side,
                                     Matrix<scalar_t>&& B,
           int priority=0, Layout layout=Layout::ColMajor);
 
+// Special overloaded implementation targeting GPUs with batch_arrays_index
+// being used as an input paramter.
+// Note: The above one works with GPUs as well, but in that case,
+//       the batch_arrays_index is set to 0.
+template <Target target=Target::Devices, typename scalar_t>
+void trsm(Side side,
+          scalar_t alpha, TriangularMatrix<scalar_t>&& A,
+                                    Matrix<scalar_t>&& B,
+          int priority, Layout layout, int64_t batch_arrays_index);
+
 //-----------------------------------------
 // trtri()
 template <Target target=Target::HostTask, typename scalar_t>

@@ -517,10 +517,12 @@ public:
     ///
     /// @param[in] batch_size
     ///     On exit, size of batch arrays >= batch_size >= 0.
+    /// @param[in] num_arrays
+    ///     On exit, size of batch arrays vector >= num_arrays >= 1.
     ///
-    void allocateBatchArrays(int64_t batch_size)
+    void allocateBatchArrays(int64_t batch_size, int64_t num_arrays)
     {
-        storage_->allocateBatchArrays(batch_size);
+        storage_->allocateBatchArrays(batch_size, num_arrays);
     }
 
     /// Removes batch arrays from matrix for all devices.
@@ -540,16 +542,22 @@ public:
     //--------------------------------------------------------------------------
     /// @return batch arrays for the A, B, or C matrices,
     /// on host, to send to device
-    scalar_t** array_host(int device)
+    scalar_t** array_host(int device, int64_t batch_arrays_index=0)
     {
-        return storage_->array_host_.at(device);
+        assert(batch_arrays_index >= 0);
+        std::vector< scalar_t** >& array = storage_->array_host_.at(
+                                                            batch_arrays_index);
+        return array.at(device);
     }
 
     //--------------------------------------------------------------------------
     /// @return batch arrays for the A, B, or C matrices, on device
-    scalar_t** array_device(int device)
+    scalar_t** array_device(int device, int64_t batch_arrays_index=0)
     {
-        return storage_->array_dev_.at(device);
+        assert(batch_arrays_index >= 0);
+        std::vector< scalar_t** >& array = storage_->array_dev_.at(
+                                                            batch_arrays_index);
+        return array.at(device);
     }
 
     //--------------------------------------------------------------------------
@@ -1696,6 +1704,10 @@ template <Target target>
 void BaseMatrix<scalar_t>::listBcast(
     BcastList& bcast_list, Layout layout, int tag, int64_t life_factor)
 {
+    if (target == Target::Devices) {
+        assert(num_devices() > 0);
+    }
+
     // It is possible that the same tile, with the same data, is sent twice.
     // This happens, e.g., in the hemm and symm routines, where the same tile
     // is sent once as part of A and once as part of A^T.
@@ -3242,8 +3254,12 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
         for (auto bucket = tilesBuckets.begin(); bucket != tilesBuckets.end(); ++bucket) {
             batch_count = std::max(batch_count, int64_t(bucket->second.first.size()));
         }
+
+        int64_t num_arrays =
+            (storage_->array_host_.size() <= 0) ? 1 : storage_->array_host_.size();
+
         // todo: shouldn't we allocate for the current device only?
-        allocateBatchArrays(batch_count);
+        allocateBatchArrays(batch_count, num_arrays);
 
         cudaStream_t stream = comm_stream(device);
         slate_cuda_call(

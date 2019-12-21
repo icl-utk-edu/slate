@@ -440,7 +440,9 @@ void trsm(internal::TargetType<Target::Devices>,
             }
 
             A.tileRelease(0, 0, device);
-            A.tileTick(0, 0);
+            for (auto i = 0; i < batch_size; ++i) {
+                A.tileTick(0, 0);
+            }
         }
     }
 

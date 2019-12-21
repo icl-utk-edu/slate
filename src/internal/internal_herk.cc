@@ -448,6 +448,10 @@ void herk(internal::TargetType<Target::Devices>,
 
             slate_cuda_call(
                 cudaStreamSynchronize(stream));
+
+            A.tileRelease(0, 0, device);
+            A.tileTick(0, 0);
+            A.tileTick(0, 0);
         }
     }
     else
@@ -670,7 +674,6 @@ void herk(internal::TargetType<Target::Devices>,
                                 // decrement life for remote tiles
                                 // todo: should tileRelease()?
                                 A.tileTick(i, 0);
-                                A.tileTick(j, 0);
                                 A.tileTick(j, 0);
                             }
                         }

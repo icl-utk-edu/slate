@@ -785,6 +785,8 @@ void her2k(internal::TargetType<Target::Devices>,
                           beta,  C(j, j));
                     // todo: should tileRelease()?
                     A.tileTick(j, 0);
+                    A.tileTick(j, 0);
+                    B.tileTick(j, 0);
                     B.tileTick(j, 0);
                 }
                 catch (std::exception& e) {

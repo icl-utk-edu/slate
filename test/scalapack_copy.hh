@@ -159,6 +159,7 @@ void copy(
     if (A.op() != slate::Op::NoTrans)
         throw std::exception();
 
+    #pragma omp parallel for
     for (int64_t j = 0; j < A.nt(); ++j) {
         for (int64_t i = 0; i < A.mt(); ++i) {
             copyTile( B, descB, A, i, j, p, q );
@@ -193,6 +194,7 @@ void copy(
     if (A.op() != slate::Op::NoTrans)
         throw std::exception();
 
+    #pragma omp parallel for
     for (int64_t j = 0; j < A.nt(); ++j) {
         for (int64_t i = 0; i < A.mt(); ++i) {
             copyTile( A, B, descB, i, j, p, q );

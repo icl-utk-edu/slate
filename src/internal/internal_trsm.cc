@@ -71,7 +71,7 @@ void trsm(Side side,
 /// as an input paraemter
 /// @ingroup trsm_internal
 ///
-template <Target target = Target::Devices, typename scalar_t>
+template <Target target, typename scalar_t>
 void trsm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,

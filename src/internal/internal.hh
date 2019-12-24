@@ -61,6 +61,7 @@
 #include "slate/TriangularMatrix.hh"
 #include "slate/TriangularBandMatrix.hh"
 #include "slate/BandMatrix.hh"
+#include "internal/internal_batch.hh"
 
 //------------------------------------------------------------------------------
 #define THROW_IF(cond, error) \
@@ -250,6 +251,20 @@ void gemm_A(scalar_t alpha, Matrix<scalar_t>&& A,
                             Matrix<scalar_t>&& B,
             scalar_t beta,  Matrix<scalar_t>&& C,
             Layout layout, int priority=0);
+
+template <Target target=Target::Devices, typename scalar_t>
+void gemmPrep(scalar_t alpha, Matrix<scalar_t>&& A,
+                              Matrix<scalar_t>&& B,
+              scalar_t beta,  Matrix<scalar_t>&& C,
+              GemmBatchArrays<scalar_t>* batchArrays,
+              Layout layout, bool prefetched=false, int priority=0);
+
+template <Target target=Target::Devices, typename scalar_t>
+void gemmExec(scalar_t alpha, Matrix<scalar_t>&& A,
+                              Matrix<scalar_t>&& B,
+              scalar_t beta,  Matrix<scalar_t>&& C,
+              GemmBatchArrays<scalar_t>* batchArrays,
+              Layout layout, int priority=0);
 
 //-----------------------------------------
 // hemm()

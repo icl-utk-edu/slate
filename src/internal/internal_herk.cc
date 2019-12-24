@@ -418,40 +418,42 @@ void herk(internal::TargetType<Target::Devices>,
 
     // if single tile, avoid creating tasks for all devices
     if (C.nt() == 1) {
-        auto device = C.tileDevice(0, 0);
-        #pragma omp task shared(A, C, err) priority(priority)
-        {
-            A.tileGetForReading(0, 0, device, LayoutConvert(layout));
-            C.tileGetForWriting(0, 0, device, LayoutConvert(layout));
+        if (C.tileIsLocal(0, 0)) {
+            #pragma omp task shared(A, C, err) priority(priority)
+            {
+                auto device = C.tileDevice(0, 0);
+                A.tileGetForReading(0, 0, device, LayoutConvert(layout));
+                C.tileGetForWriting(0, 0, device, LayoutConvert(layout));
 
-            auto alpha_ = real_t(alpha);
-            auto beta_  = real_t(beta);
+                auto alpha_ = real_t(alpha);
+                auto beta_  = real_t(beta);
 
-            slate_cuda_call(
-                cudaSetDevice(device));
+                slate_cuda_call(
+                    cudaSetDevice(device));
 
-            // cublas_handle uses this stream
-            cudaStream_t stream = C.compute_stream(device);
-            cublasHandle_t cublas_handle = C.cublas_handle(device);
+                // cublas_handle uses this stream
+                cudaStream_t stream = C.compute_stream(device);
+                cublasHandle_t cublas_handle = C.cublas_handle(device);
 
-            auto A00 = A(0, 0, device);
-            auto C00 = C(0, 0, device);
+                auto A00 = A(0, 0, device);
+                auto C00 = C(0, 0, device);
 
-            slate_cublas_call(
-                cublasHerk(
-                    cublas_handle,  // uses stream
-                    cublas_uplo_const(C00.uploPhysical()),
-                    cublas_op_const(A00.op()),
-                    C00.nb(), A00.nb(),
-                    &alpha_, A00.data(), A00.stride(),
-                    &beta_,  C00.data(), C00.stride()));
+                slate_cublas_call(
+                    cublasHerk(
+                        cublas_handle,  // uses stream
+                        cublas_uplo_const(C00.uploPhysical()),
+                        cublas_op_const(A00.op()),
+                        C00.nb(), A00.nb(),
+                        &alpha_, A00.data(), A00.stride(),
+                        &beta_,  C00.data(), C00.stride()));
 
-            slate_cuda_call(
-                cudaStreamSynchronize(stream));
+                slate_cuda_call(
+                    cudaStreamSynchronize(stream));
 
-            A.tileRelease(0, 0, device);
-            A.tileTick(0, 0);
-            A.tileTick(0, 0);
+                A.tileRelease(0, 0, device);
+                A.tileTick(0, 0);
+                A.tileTick(0, 0);
+            }
         }
     }
     else

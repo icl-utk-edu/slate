@@ -137,7 +137,7 @@ static void scalapack_pplrnt(scalar_t* A,
     int mb_ = (int)mb;
     int nb_ = (int)nb;
 
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (i = 1; i <= m; i += mb) {
         for (j = 1; j <= n; j += nb) {
             if ((myrow == scalapack_indxg2p(&i, &mb_, &idum1, &i0, &nprow)) &&
@@ -173,7 +173,7 @@ static void scalapack_pplghe(scalar_t* A,
     int mb_ = (int)mb;
     int nb_ = (int)nb;
 
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (i = 1; i <= m; i += mb) {
         for (j = 1; j <= n; j += nb) {
             if ((myrow == scalapack_indxg2p(&i, &mb_, &idum1, &i0, &nprow)) &&

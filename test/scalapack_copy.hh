@@ -231,6 +231,7 @@ void copy(
         throw std::exception();
 
     bool lower = A.uplo() == slate::Uplo::Lower;
+    #pragma omp parallel for
     for (int64_t j = 0; j < A.nt(); ++j) {
         int64_t ibegin = (lower ? j : 0);
         int64_t iend   = (lower ? A.mt() : blas::min(j+1, A.mt()));
@@ -269,6 +270,7 @@ void copy(
         throw std::exception();
 
     bool lower = A.uplo() == slate::Uplo::Lower;
+    #pragma omp parallel for
     for (int64_t j = 0; j < A.nt(); ++j) {
         int64_t ibegin = (lower ? j : 0);
         int64_t iend   = (lower ? A.mt() : blas::min(j+1, A.mt()));

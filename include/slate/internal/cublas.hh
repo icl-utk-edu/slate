@@ -158,6 +158,24 @@ cublasStatus_t cublasZherk(
     const double *alpha, const cuDoubleComplex *A, int lda,
     const double *beta,        cuDoubleComplex *C, int ldc);
 
+cublasStatus_t cublasCher2k(
+    cublasHandle_t handle,
+    cublasFillMode_t uplo,
+    cublasOperation_t trans,
+    int n, int k,
+    const cuComplex *alpha, const cuComplex *A, int lda,
+                            const cuComplex *B, int ldb,
+    const float *beta,            cuComplex *C, int ldc);
+
+cublasStatus_t cublasZher2k(
+    cublasHandle_t handle,
+    cublasFillMode_t uplo,
+    cublasOperation_t trans,
+    int n, int k,
+    const cuDoubleComplex *alpha, const cuDoubleComplex *A, int lda,
+                                  const cuDoubleComplex *B, int ldb,
+    const double *beta,                 cuDoubleComplex *C, int ldc);
+
 cublasStatus_t cublasSsyrk(
     cublasHandle_t handle,
     cublasFillMode_t uplo,
@@ -172,6 +190,25 @@ cublasStatus_t cublasDsyrk(
     cublasOperation_t trans,
     int n, int k,
     const double *alpha, const double *A, int lda,
+    const double *beta,        double *C, int ldc);
+
+/* SYR2K */
+cublasStatus_t cublasSsyr2k(
+    cublasHandle_t handle,
+    cublasFillMode_t uplo,
+    cublasOperation_t trans,
+    int n, int k,
+    const float *alpha, const float *A, int lda,
+                        const float *B, int ldb,
+    const float *beta,        float *C, int ldc);
+
+cublasStatus_t cublasDsyr2k(
+    cublasHandle_t handle,
+    cublasFillMode_t uplo,
+    cublasOperation_t trans,
+    int n, int k,
+    const double *alpha, const double *A, int lda,
+                         const double *B, int ldb,
     const double *beta,        double *C, int ldc);
 
 cublasStatus_t cublasStrsmBatched(

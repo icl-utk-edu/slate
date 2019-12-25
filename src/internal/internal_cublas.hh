@@ -128,6 +128,100 @@ inline cublasStatus_t cublasHerk (cublasHandle_t handle,
                         beta,  (cuDoubleComplex*)C, ldc);
 }
 
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+/* HER2K */
+inline
+cublasStatus_t cublasHer2k ( cublasHandle_t handle,
+                             cublasFillMode_t uplo,
+                             cublasOperation_t trans,
+                             int n,
+                             int k,
+                             const float *alpha, /* host or device pointer */
+                             const float *A,
+                             int lda,
+                             const float *B,
+                             int ldb,
+                             const float *beta, /* host or device pointer */
+                             float *C,
+                             int ldc)
+{
+    return cublasSsyr2k(handle, uplo, trans,
+                        n, k,
+                        alpha, A, lda,
+                               B, ldb,
+                        beta,  C, ldc);
+}
+
+inline
+cublasStatus_t cublasHer2k ( cublasHandle_t handle,
+                             cublasFillMode_t uplo,
+                             cublasOperation_t trans,
+                             int n,
+                             int k,
+                             const double *alpha, /* host or device pointer */
+                             const double *A,
+                             int lda,
+                             const double *B,
+                             int ldb,
+                             const double *beta, /* host or device pointer */
+                             double *C,
+                             int ldc)
+{
+    return cublasDsyr2k(handle, uplo, trans,
+                        n, k,
+                        alpha, A, lda,
+                               B, ldb,
+                        beta,  C, ldc);
+}
+
+inline
+cublasStatus_t cublasHer2k ( cublasHandle_t handle,
+                             cublasFillMode_t uplo,
+                             cublasOperation_t trans,
+                             int n,
+                             int k,
+                             const std::complex<float> *alpha, /* host or device pointer */
+                             const std::complex<float> *A,
+                             int lda,
+                             const std::complex<float> *B,
+                             int ldb,
+                             const float *beta,   /* host or device pointer */
+                             std::complex<float> *C,
+                             int ldc)
+{
+    return cublasCher2k (handle, uplo, trans,
+                         n, k,
+                         (cuComplex*) alpha,
+                                (cuComplex*) A, lda,
+                                (cuComplex*) B, ldb,
+                         beta,  (cuComplex*) C, ldc);
+}
+
+inline
+cublasStatus_t cublasHer2k ( cublasHandle_t handle,
+                             cublasFillMode_t uplo,
+                             cublasOperation_t trans,
+                             int n,
+                             int k,
+                             const std::complex<double> *alpha, /* host or device pointer */
+                             const std::complex<double> *A,
+                             int lda,
+                             const std::complex<double> *B,
+                             int ldb,
+                             const double *beta, /* host or device pointer */
+                             std::complex<double> *C,
+                             int ldc)
+{
+    return cublasZher2k (handle, uplo, trans,
+                         n, k,
+                         (cuDoubleComplex*)alpha,
+                                (cuDoubleComplex*) A, lda,
+                                (cuDoubleComplex*) B, ldb,
+                         beta,  (cuDoubleComplex*) C, ldc);
+}
+
 
 } // namespace slate
 } // namespace internal

@@ -43,6 +43,7 @@
 #include "slate/Tile_blas.hh"
 #include "internal/internal.hh"
 #include "internal/internal_batch.hh"
+#include "internal/internal_cublas.hh"
 
 #ifdef SLATE_WITH_MKL
     #include <mkl_cblas.h>
@@ -213,7 +214,7 @@ void her2k(internal::TargetType<Target::HostNest>,
     const int64_t C_mt = C.mt();
     const int64_t C_nt = C.nt();
 
-//  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
+    //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
     #pragma omp parallel for collapse(2) schedule(dynamic, 1)
     for (int64_t j = 0; j < C_nt; ++j) {
         for (int64_t i = 0; i < C_mt; ++i) {  // full
@@ -459,6 +460,7 @@ void her2k(internal::TargetType<Target::Devices>,
 {
     using std::swap;
     using blas::conj;
+    using real_t = blas::real_type<scalar_t>;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
     // assumes column major for now
@@ -474,7 +476,55 @@ void her2k(internal::TargetType<Target::Devices>,
     scalar_t beta_ = beta;
     int err = 0;
 
+    // if single tile, avoid creating tasks for all devices
+    if (C.nt() == 1) {
+        if (C.tileIsLocal(0, 0)) {
+            #pragma omp task shared(A, B, C, err) priority(priority)
+            {
+                auto device = C.tileDevice(0, 0);
+                A.tileGetForReading(0, 0, device, LayoutConvert(layout));
+                B.tileGetForReading(0, 0, device, LayoutConvert(layout));
+                C.tileGetForWriting(0, 0, device, LayoutConvert(layout));
+
+                // auto alpha_ = real_t(alpha);
+                auto beta_  = real_t(beta);
+
+                slate_cuda_call(
+                    cudaSetDevice(device));
+
+                // cublas_handle uses this stream
+                cudaStream_t stream = C.compute_stream(device);
+                cublasHandle_t cublas_handle = C.cublas_handle(device);
+
+                auto A00 = A(0, 0, device);
+                auto B00 = B(0, 0, device);
+                auto C00 = C(0, 0, device);
+
+                slate_cublas_call(
+                    cublasHer2k(
+                        cublas_handle,  // uses stream
+                        cublas_uplo_const(C00.uploPhysical()),
+                        cublas_op_const(A00.op()),
+                        C00.nb(), A00.nb(),
+                        &alpha, A00.data(), A00.stride(),
+                                B00.data(), B00.stride(),
+                        &beta_, C00.data(), C00.stride()));
+
+                slate_cuda_call(
+                    cudaStreamSynchronize(stream));
+
+                A.tileRelease(0, 0, device);
+                B.tileRelease(0, 0, device);
+                A.tileTick(0, 0);
+                A.tileTick(0, 0);
+                B.tileTick(0, 0);
+                B.tileTick(0, 0);
+            }
+        }
+    }
+    else
     // off-diagonal tiles by batch gemm on device
+    // diagonal tiles by cublas herk on device
     for (int device = 0; device < C.num_devices(); ++device) {
         #pragma omp task shared(A, B, C, err) priority(priority)
         {
@@ -496,35 +546,42 @@ void her2k(internal::TargetType<Target::Devices>,
 
                 Op opB = (opA == Op::NoTrans ? Op::ConjTrans : Op::NoTrans);
 
-                std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;
-                for (int64_t j = 0; j < C.nt()-1; ++j) {
-                    for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
-                        if (C.tileIsLocal(i, j)) {
-                            if (device == C.tileDevice(i, j)) {
-                                A_tiles_set.insert({i, 0});
-                                A_tiles_set.insert({j, 0});
-                                B_tiles_set.insert({i, 0});
-                                B_tiles_set.insert({j, 0});
-                                C_tiles_set.insert({i, j});
+                std::set<ij_tuple> A_tiles_gemm, B_tiles_gemm, C_tiles_gemm;
+                std::set<ij_tuple> A_tiles_her2k, B_tiles_her2k, C_tiles_her2k;
+                for (int64_t j = 0; j < C.nt(); ++j) {
+                    for (int64_t i = j; i < C.mt(); ++i) {
+                        if (C.tileIsLocal(i, j)
+                            && device == C.tileDevice(i, j)) {
+                            if (i == j) {
+                                A_tiles_her2k.insert({j, 0});
+                                B_tiles_her2k.insert({j, 0});
+                                C_tiles_her2k.insert({i, j});
+                            }
+                            else {
+                                A_tiles_gemm.insert({i, 0});
+                                A_tiles_gemm.insert({j, 0});
+                                B_tiles_gemm.insert({i, 0});
+                                B_tiles_gemm.insert({j, 0});
+                                C_tiles_gemm.insert({i, j});
                             }
                         }
                     }
                 }
                 #pragma omp task default(shared)
                 {
-                    A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+                    A.tileGetForReading(A_tiles_gemm, device, LayoutConvert(layout));
                 }
                 #pragma omp task default(shared)
                 {
-                    B.tileGetForReading(B_tiles_set, device, LayoutConvert(layout));
+                    B.tileGetForReading(B_tiles_gemm, device, LayoutConvert(layout));
                 }
                 #pragma omp task default(shared)
                 {
-                    C.tileGetForWriting(C_tiles_set, device, LayoutConvert(layout));
+                    C.tileGetForWriting(C_tiles_gemm, device, LayoutConvert(layout));
                 }
                 #pragma omp taskwait
 
-                int64_t batch_size = C_tiles_set.size();
+                int64_t batch_size = C_tiles_gemm.size();
                 scalar_t** a_array_host = C.array_host(device);
                 scalar_t** b_array_host = a_array_host + batch_size;
                 scalar_t** c_array_host = b_array_host + batch_size;
@@ -616,6 +673,10 @@ void her2k(internal::TargetType<Target::Devices>,
                                     cudaMemcpyHostToDevice,
                                     stream));
 
+                // wait for the copy to finish so array_host is consumed
+                slate_cuda_call(
+                    cudaStreamSynchronize(stream));
+
                 {
                     trace::Block trace_block("cublasGemmBatched");
                     if (batch_count_00 > 0) {
@@ -645,10 +706,6 @@ void her2k(internal::TargetType<Target::Devices>,
                                 batch_count_10));
                     }
 
-                    // todo: need to wait for previous cudaMemcpy to finish,
-                    // NOT for gemm batched to finish
-                    slate_cuda_call(
-                        cudaStreamSynchronize(stream));
                 }
 
                 //----------------------------------------
@@ -703,12 +760,15 @@ void her2k(internal::TargetType<Target::Devices>,
                     //swap(mb10, nb10);  // already done above
                 }
 
+                // make sure array_device is consumed
+                slate_cuda_call(
+                    cudaStreamSynchronize(stream));
+
                 slate_cuda_call(
                     cudaMemcpyAsync(C.array_device(device), C.array_host(device),
                                     sizeof(scalar_t*)*batch_count*2,
                                     cudaMemcpyHostToDevice,
                                     stream));
-
 
                 {
                     trace::Block trace_block("cublasGemmBatched");
@@ -741,13 +801,52 @@ void her2k(internal::TargetType<Target::Devices>,
                                 &one,                      c_array_dev, ldc10,
                                 batch_count_10));
                     }
-
-                    slate_cuda_call(
-                        cudaStreamSynchronize(stream));
                 }
 
+                #pragma omp task default(shared)
+                {
+                    A.tileGetForReading(A_tiles_her2k, device, LayoutConvert(layout));
+                }
+                #pragma omp task default(shared)
+                {
+                    B.tileGetForReading(B_tiles_her2k, device, LayoutConvert(layout));
+                }
+                #pragma omp task default(shared)
+                {
+                    C.tileGetForWriting(C_tiles_her2k, device, LayoutConvert(layout));
+                }
+                #pragma omp taskwait
+
+                // auto alpha_ = real_t(alpha);
+                auto beta_  = real_t(beta);
+
+                for (auto iter = C_tiles_her2k.begin();
+                     iter != C_tiles_her2k.end();
+                     ++iter) {
+                    // int64_t i = std::get<0>(*iter);
+                    int64_t j = std::get<1>(*iter);
+
+                    auto Aj0 = A(j, 0, device);
+                    auto Bj0 = B(j, 0, device);
+                    auto Cjj = C(j, j, device);
+
+                    slate_cublas_call(
+                        cublasHer2k(
+                            cublas_handle,  // uses stream
+                            cublas_uplo_const(Cjj.uploPhysical()),
+                            cublas_op_const(Aj0.op()),
+                            Cjj.nb(), Aj0.nb(),
+                            &alpha, Aj0.data(), Aj0.stride(),
+                                    Bj0.data(), Bj0.stride(),
+                            &beta_, Cjj.data(), Cjj.stride()));
+                }
+
+                // make sure all kernels are done
+                slate_cuda_call(
+                    cudaStreamSynchronize(stream));
+
                 for (int64_t j = 0; j < C.nt(); ++j) {
-                    for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
+                    for (int64_t i = j; i < C.mt(); ++i) {
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
                                 // erase tmp local and remote device tiles;
@@ -767,31 +866,6 @@ void her2k(internal::TargetType<Target::Devices>,
             }
             catch (std::exception& e) {
                 err = __LINE__;
-            }
-        }
-    }
-
-    // diagonal tiles by her2k on host
-    for (int64_t j = 0; j < C.nt(); ++j) {
-        if (C.tileIsLocal(j, j)) {
-            #pragma omp task shared(A, B, C, err)
-            {
-                try {
-                    A.tileGetForReading(j, 0, LayoutConvert(layout));
-                    B.tileGetForReading(j, 0, LayoutConvert(layout));
-                    C.tileGetForWriting(j, j, LayoutConvert(layout));
-                    her2k(alpha, A(j, 0),
-                                 B(j, 0),
-                          beta,  C(j, j));
-                    // todo: should tileRelease()?
-                    A.tileTick(j, 0);
-                    A.tileTick(j, 0);
-                    B.tileTick(j, 0);
-                    B.tileTick(j, 0);
-                }
-                catch (std::exception& e) {
-                    err = __LINE__;
-                }
             }
         }
     }

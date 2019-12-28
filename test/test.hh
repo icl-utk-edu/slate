@@ -19,6 +19,11 @@ enum class Origin {
     Devices,
 };
 
+enum class Dist {
+    Row,
+    Col,
+};
+
 } // namespace slate
 
 // -----------------------------------------------------------------------------
@@ -56,26 +61,27 @@ public:
     // gbsv ( n, kl, ku, nrhs, ... )
     // trsm ( side, uplo, transa, diag, m, n, alpha, ... )
     testsweeper::ParamEnum< testsweeper::DataType > datatype;
-    testsweeper::ParamEnum< slate::Origin >     origin;
-    testsweeper::ParamEnum< slate::Target >     target;
-    testsweeper::ParamEnum< slate::Layout >     layout;
-    testsweeper::ParamEnum< lapack::Job >       jobz;   // heev
-    testsweeper::ParamEnum< lapack::Job >       jobvl;  // geev
-    testsweeper::ParamEnum< lapack::Job >       jobvr;  // geev
-    testsweeper::ParamEnum< lapack::Job >       jobu;   // gesvd, gesdd
-    testsweeper::ParamEnum< lapack::Job >       jobvt;  // gesvd
-    testsweeper::ParamEnum< lapack::Range >     range;
-    testsweeper::ParamEnum< slate::Norm >       norm;
-    testsweeper::ParamEnum< slate::NormScope >  scope;
-    testsweeper::ParamEnum< slate::Side >       side;
-    testsweeper::ParamEnum< slate::Uplo >       uplo;
-    testsweeper::ParamEnum< slate::Op >         trans;
-    testsweeper::ParamEnum< slate::Op >         transA;
-    testsweeper::ParamEnum< slate::Op >         transB;
-    testsweeper::ParamEnum< slate::Diag >       diag;
-    testsweeper::ParamEnum< lapack::Direct >    direct;
-    testsweeper::ParamEnum< lapack::StoreV >    storev;
-    testsweeper::ParamEnum< lapack::MatrixType > matrixtype;
+    testsweeper::ParamEnum< slate::Origin >         origin;
+    testsweeper::ParamEnum< slate::Target >         target;
+    testsweeper::ParamEnum< slate::Dist >           dev_dist;
+    testsweeper::ParamEnum< slate::Layout >         layout;
+    testsweeper::ParamEnum< lapack::Job >           jobz;   // heev
+    testsweeper::ParamEnum< lapack::Job >           jobvl;  // geev
+    testsweeper::ParamEnum< lapack::Job >           jobvr;  // geev
+    testsweeper::ParamEnum< lapack::Job >           jobu;   // gesvd, gesdd
+    testsweeper::ParamEnum< lapack::Job >           jobvt;  // gesvd
+    testsweeper::ParamEnum< lapack::Range >         range;
+    testsweeper::ParamEnum< slate::Norm >           norm;
+    testsweeper::ParamEnum< slate::NormScope >      scope;
+    testsweeper::ParamEnum< slate::Side >           side;
+    testsweeper::ParamEnum< slate::Uplo >           uplo;
+    testsweeper::ParamEnum< slate::Op >             trans;
+    testsweeper::ParamEnum< slate::Op >             transA;
+    testsweeper::ParamEnum< slate::Op >             transB;
+    testsweeper::ParamEnum< slate::Diag >           diag;
+    testsweeper::ParamEnum< lapack::Direct >        direct;
+    testsweeper::ParamEnum< lapack::StoreV >        storev;
+    testsweeper::ParamEnum< lapack::MatrixType >    matrixtype;
 
     testsweeper::ParamInt3   dim;  // m, n, k
     testsweeper::ParamInt    kd;
@@ -198,6 +204,32 @@ void test_henorm (Params& params, bool run);
 void test_hbnorm (Params& params, bool run);
 void test_synorm (Params& params, bool run);
 void test_trnorm (Params& params, bool run);
+
+// -----------------------------------------------------------------------------
+inline slate::Dist str2dist(const char* dist)
+{
+    std::string distribution_ = dist;
+    std::transform(
+        distribution_.begin(),
+        distribution_.end(),
+        distribution_.begin(), ::tolower);
+    if (distribution_ == "row" || distribution_ == "r")
+        return slate::Dist::Row;
+    else if (distribution_ == "col" || distribution_ == "c"
+                                    || distribution_ == "column")
+        return slate::Dist::Col;
+    else
+        throw slate::Exception("unknown distribution");
+}
+
+inline const char* dist2str(slate::Dist dist)
+{
+    switch (dist) {
+        case slate::Dist::Row: return "row";
+        case slate::Dist::Col: return "column";
+    }
+    return "?";
+}
 
 // -----------------------------------------------------------------------------
 inline slate::Origin str2origin(const char* origin)

@@ -92,6 +92,46 @@ void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
 //------------------------------------------------------------------------------
 /// General matrix multiply to update trailing matrix,
 /// where A is a single block column and B is a single block row.
+/// Dispatches to Target::Devices implementations.
+/// Special case that has batch_arrays_index as a function parameter.
+/// In the complex case,
+/// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conj_transpose;
+/// if $op(C)$ is conj_transpose, then $op(A)$ and $op(B)$ cannot be transpose.
+///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) to operate with.
+///     Local tiles of matrix C and corresponding tiles of A & B
+///        on target devices will be converted to layout.
+///
+/// @ingroup gemm_internal
+///
+template <Target target, typename scalar_t>
+void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
+                          Matrix<scalar_t>&& B,
+          scalar_t beta,  Matrix<scalar_t>&& C,
+          Layout layout, int priority, int64_t batch_arrays_index)
+{
+    if (C.is_complex &&
+        ((C.op() == Op::Trans &&
+         (A.op() == Op::ConjTrans || B.op() == Op::ConjTrans)) ||
+         (C.op() == Op::ConjTrans &&
+         (A.op() == Op::Trans || B.op() == Op::Trans))))
+    {
+        throw std::exception();
+    }
+
+    assert(target == Target::Devices);
+
+    gemm(internal::TargetType<Target::Devices>(),
+         alpha, A,
+                B,
+         beta,  C,
+         layout, priority, batch_arrays_index);
+}
+
+//------------------------------------------------------------------------------
+/// General matrix multiply to update trailing matrix,
+/// where A is a single block column and B is a single block row.
 /// Host OpenMP task implementation.
 /// @ingroup gemm_internal
 ///
@@ -404,6 +444,33 @@ void gemm(internal::TargetType<Target::Devices>,
           scalar_t beta,  Matrix< scalar_t >& C,
           Layout layout, int priority)
 {
+  // To avoid code repetition, we just call the overloaded version with batch
+  // array index equals to 0.
+  // That means we have one set of batch arrays accessible only by one GPU
+  // kernel at the same time.
+  gemm(internal::TargetType<Target::Devices>(),
+         alpha, A,
+                B,
+         beta,  C,
+         layout, priority, 0);
+}
+
+//------------------------------------------------------------------------------
+/// General matrix multiply to update trailing matrix,
+/// where A is a single block column and B is a single block row.
+/// GPU device batched cuBLAS implementation.
+/// GPU can use either ColMajor or RowMajor.
+/// Overloaded version with batch_arrays_index.
+/// The extra input parameter controls accessing GPU workspaces at the same time.
+/// @ingroup gemm_internal
+///
+template <typename scalar_t>
+void gemm(internal::TargetType<Target::Devices>,
+          scalar_t alpha, Matrix< scalar_t >& A,
+                          Matrix< scalar_t >& B,
+          scalar_t beta,  Matrix< scalar_t >& C,
+          Layout layout, int priority, int64_t batch_arrays_index)
+{
     using blas::conj;
     using std::swap;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
@@ -483,7 +550,7 @@ void gemm(internal::TargetType<Target::Devices>,
             #pragma omp taskwait
 
             int64_t batch_size = C_tiles_set.size();
-            scalar_t** a_array_host = C.array_host(device);
+            scalar_t** a_array_host = C.array_host(device, batch_arrays_index);
             scalar_t** b_array_host = a_array_host + batch_size;
             scalar_t** c_array_host = b_array_host + batch_size;
 
@@ -585,7 +652,7 @@ void gemm(internal::TargetType<Target::Devices>,
 
             slate_assert(batch_count == batch_size);
 
-            scalar_t** a_array_dev = C.array_device(device);
+            scalar_t** a_array_dev = C.array_device(device, batch_arrays_index);
             scalar_t** b_array_dev = a_array_dev + batch_size;
             scalar_t** c_array_dev = b_array_dev + batch_size;
 
@@ -611,7 +678,8 @@ void gemm(internal::TargetType<Target::Devices>,
             cublasHandle_t cublas_handle = C.cublas_handle(device);
 
             slate_cuda_call(
-                cudaMemcpyAsync(C.array_device(device), C.array_host(device),
+                cudaMemcpyAsync(C.array_device(device, batch_arrays_index),
+                                C.array_host(device, batch_arrays_index),
                                 sizeof(scalar_t*)*batch_count*3,
                                 cudaMemcpyHostToDevice,
                                 stream));
@@ -785,6 +853,13 @@ void gemm<Target::Devices, float>(
     float beta,  Matrix<float>&& C,
     Layout layout, int priority);
 
+template
+void gemm<Target::Devices, float>(
+    float alpha, Matrix<float>&& A,
+                 Matrix<float>&& B,
+    float beta,  Matrix<float>&& C,
+    Layout layout, int priority, int64_t batch_arrays_index);
+
 // ----------------------------------------
 template
 void gemm<Target::HostTask, double>(
@@ -813,6 +888,13 @@ void gemm<Target::Devices, double>(
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
     Layout layout, int priority);
+
+template
+void gemm<Target::Devices, double>(
+    double alpha, Matrix<double>&& A,
+                  Matrix<double>&& B,
+    double beta,  Matrix<double>&& C,
+    Layout layout, int priority, int64_t batch_arrays_index);
 
 // ----------------------------------------
 template
@@ -843,6 +925,13 @@ void gemm< Target::Devices, std::complex<float> >(
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
     Layout layout, int priority);
 
+template
+void gemm< Target::Devices, std::complex<float> >(
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+                               Matrix< std::complex<float> >&& B,
+    std::complex<float> beta,  Matrix< std::complex<float> >&& C,
+    Layout layout, int priority, int64_t batch_arrays_index);
+
 // ----------------------------------------
 template
 void gemm< Target::HostTask, std::complex<double> >(
@@ -871,6 +960,13 @@ void gemm< Target::Devices, std::complex<double> >(
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
     Layout layout, int priority);
+
+template
+void gemm< Target::Devices, std::complex<double> >(
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+                                Matrix< std::complex<double> >&& B,
+    std::complex<double> beta,  Matrix< std::complex<double> >&& C,
+    Layout layout, int priority, int64_t batch_arrays_index);
 
 } // namespace internal
 } // namespace slate

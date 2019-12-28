@@ -183,7 +183,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
 
-    A.allocateBatchArrays();
+    A.allocateBatchArrays(0, 3);
     A.reserveDeviceWorkspace();
 
     #pragma omp parallel
@@ -205,10 +205,10 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 if (k+1 <= A_nt-1) {
                     auto Akk = A.sub(k, k);
                     auto Tkk = TriangularMatrix< scalar_t >(Diag::NonUnit, Akk);
-                    internal::trsm<Target::HostTask>(
+                    internal::trsm<Target::Devices>(
                         Side::Right,
                         scalar_t(1.0), conj_transpose(Tkk),
-                                       A.sub(k+1, A_nt-1, k, k));
+                                       A.sub(k+1, A_nt-1, k, k), 0, layout, 1);
                 }
 
                 BcastList bcast_list_A;
@@ -217,7 +217,14 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, i),
                                                    A.sub(i, A_nt-1, i, i)}});
                 }
-                A.template listBcast<Target::Devices>(bcast_list_A, layout);
+                if (lookahead > 0) {
+                    A.template listBcast<Target::Devices>(
+                        bcast_list_A, layout, 0, 1, true);
+                }
+                else {
+                    A.template listBcast<Target::Devices>(
+                        bcast_list_A, layout);
+                }
             }
             // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
@@ -240,18 +247,39 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                                  depend(inout:column[j])
                 {
                     // A(j, j) -= A(j, k) * A(j, k)^H
-                    internal::herk<Target::HostTask>(
+                    internal::herk<Target::Devices>(
                         real_t(-1.0), A.sub(j, j, k, k),
                         real_t( 1.0), A.sub(j, j));
 
                     // A(j+1:nt, j) -= A(j+1:nt-1, k) * A(j, k)^H
                     if (j+1 <= A_nt-1) {
                         auto Ajk = A.sub(j, j, k, k);
-                        internal::gemm<Target::HostTask>(
+                        internal::gemm<Target::Devices>(
                             scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
                                             conj_transpose(Ajk),
                             scalar_t( 1.0), A.sub(j+1, A_nt-1, j, j),
-                            layout);
+                            layout, 0, 2);
+                    }
+                }
+            }
+
+            for (int64_t j = k; j < k+1+lookahead && j < A_nt; ++j) {
+                #pragma omp task depend(inout:column[k+1+lookahead]) \
+                                 depend(inout:column[j])
+                {
+                    for (int64_t i = k+1; i < A_nt; ++i) {
+                        auto submatrices_list = {A.sub(i, i, k+1, i),
+                                                 A.sub(i, A_nt-1, i, i)};
+                        std::set<int> dev_set;
+                        for (auto submatrix : submatrices_list)
+                            submatrix.getLocalDevices(&dev_set);
+
+                        for (auto device : dev_set) {
+                            A.tileUnsetHold(i, k, device);
+                            if (A.tileIsLocal(i, k)) {
+                                A.tileRelease(i, k, device);
+                            }
+                        }
                     }
                 }
             }

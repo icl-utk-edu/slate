@@ -407,8 +407,10 @@ public:
                    Layout layout, int tag = 0, int64_t life_factor = 1);
 
     template <Target target = Target::Host>
-    void listBcast(BcastList& bcast_list,
-                   Layout layout, int tag = 0, int64_t life_factor = 1);
+    void listBcast(
+        BcastList& bcast_list, Layout layout,
+        int tag = 0, int64_t life_factor = 1,
+        bool is_shared = false);
 
     template <Target target = Target::Host>
     void listReduce(ReduceList& reduce_list, Layout layout, int tag = 0);
@@ -1467,9 +1469,9 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileUnsetHold(int64_t i, int64_t j, int device)
 {
     auto iter = storage_->find(globalIndex(i, j, device));
-    assert(iter != storage_->end());
-
-    iter->second->at(device).setState(~MOSI::OnHold);
+    // assert(iter != storage_->end());
+    if (iter != storage_->end())
+        iter->second->at(device).setState(~MOSI::OnHold);
 }
 
 //------------------------------------------------------------------------------
@@ -1493,6 +1495,7 @@ void BaseMatrix<scalar_t>::tileUnsetHoldAll(int device)
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileUnsetHoldAllOnDevices()
 {
+    #pragma omp parallel for
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
             if (tileIsLocal(i, j))
@@ -1629,7 +1632,7 @@ void BaseMatrix<scalar_t>::tileRecv(
 
         // Copy to devices.
         if (target == Target::Devices) {
-            #pragma omp task
+            #pragma omp task default(shared)
             {
                 tileGetForReading(i, j, tileDevice(i, j), LayoutConvert::None);
             }
@@ -1702,7 +1705,7 @@ void BaseMatrix<scalar_t>::tileBcast(
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::listBcast(
-    BcastList& bcast_list, Layout layout, int tag, int64_t life_factor)
+    BcastList& bcast_list, Layout layout, int tag, int64_t life_factor, bool is_shared)
 {
     if (target == Target::Devices) {
         assert(num_devices() > 0);
@@ -1780,8 +1783,14 @@ void BaseMatrix<scalar_t>::listBcast(
                 // todo: should each read be an omp task instead?
                 #pragma omp task
                 {
-                    for (auto device : dev_set)
-                        tileGetForReading(i, j, device, LayoutConvert::None);
+                    for (auto device : dev_set) {
+                        if (is_shared) {
+                            tileGetAndHold(i, j, device, LayoutConvert::None);
+                        }
+                        else {
+                            tileGetForReading(i, j, device, LayoutConvert::None);
+                        }
+                    }
                 }
             }
         }
@@ -1793,7 +1802,12 @@ void BaseMatrix<scalar_t>::listBcast(
                 if (! tile_set[d].empty()) {
                     #pragma omp task default(shared)
                     {
-                        tileGetForReading(tile_set[d], d, LayoutConvert::None);
+                        if (is_shared) {
+                            tileGetAndHold(tile_set[d], d, LayoutConvert::None);
+                        }
+                        else {
+                            tileGetForReading(tile_set[d], d, LayoutConvert::None);
+                        }
                     }
                 }
             }

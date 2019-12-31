@@ -107,7 +107,7 @@ void test_posv_work(Params& params, bool run)
         if (dist == slate::Dist::Row) {
             slate_assert(target == slate::Target::Devices);
             // todo: doesn't work when lookahead is greater than 2
-            slate_assert(lookahead < 3);
+            // slate_assert(lookahead < 3);
             // std::function<int64_t (int64_t i)> tileMb = [nrhs, nb] (int64_t i)
             //    { return (i + 1)*mb > nrhs ? nrhs%mb : mb; };
             std::function<int64_t (int64_t j)> tileNb = [n, nb] (int64_t j)

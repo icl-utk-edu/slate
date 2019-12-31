@@ -219,7 +219,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 }
 
                 A.template listBcast<Target::Devices>(
-		    bcast_list_A, layout, 0, 1, lookahead > 0);
+		                  bcast_list_A, layout, 0, 1, lookahead > 0);
             }
             // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
@@ -262,26 +262,50 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 }
             }
 
-            for (int64_t j = k; j < k+1+lookahead && j < A_nt; ++j) {
-                #pragma omp task depend(inout:column[k+1+lookahead]) \
-                                 depend(inout:column[j])
+            if (lookahead > 0 && k >= lookahead) {
+                #pragma omp task depend(in:column[k+1])
                 {
-                    for (int64_t i = k+1; i < A_nt; ++i) {
-                        auto submatrices_list = {A.sub(i, i, k+1, i),
+                    auto k_la = k - lookahead;
+                    for (int64_t i = k_la+1; i < A_nt; ++i) {
+                        auto submatrices_list = {A.sub(i, i, k_la+1, i),
                                                  A.sub(i, A_nt-1, i, i)};
                         std::set<int> dev_set;
                         for (auto submatrix : submatrices_list)
                             submatrix.getLocalDevices(&dev_set);
 
                         for (auto device : dev_set) {
-                            A.tileUnsetHold(i, k, device);
-                            if (A.tileIsLocal(i, k)) {
-                                A.tileRelease(i, k, device);
+                            if (A.tileIsLocal(i, k_la)) {
+                                A.tileUpdateOrigin(i, k_la);
+                            }
+                            A.tileUnsetHold(i, k_la, device);
+                            if (A.tileIsLocal(i, k_la)) {
+                                A.tileRelease(i, k_la, device);
                             }
                         }
                     }
                 }
             }
+
+            // for (int64_t j = k; j < k+1+lookahead && j < A_nt; ++j) {
+            //     #pragma omp task depend(inout:column[k+1+lookahead]) \
+            //                      depend(inout:column[j])
+            //     {
+            //         for (int64_t i = k+1; i < A_nt; ++i) {
+            //             auto submatrices_list = {A.sub(i, i, k+1, i),
+            //                                      A.sub(i, A_nt-1, i, i)};
+            //             std::set<int> dev_set;
+            //             for (auto submatrix : submatrices_list)
+            //                 submatrix.getLocalDevices(&dev_set);
+
+            //             for (auto device : dev_set) {
+            //                 A.tileUnsetHold(i, k, device);
+            //                 if (A.tileIsLocal(i, k)) {
+            //                     A.tileRelease(i, k, device);
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
         }
 
         #pragma omp taskwait

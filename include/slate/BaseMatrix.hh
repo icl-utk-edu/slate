@@ -1495,6 +1495,7 @@ void BaseMatrix<scalar_t>::tileUnsetHoldAll(int device)
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileUnsetHoldAllOnDevices()
 {
+    #pragma omp parallel for
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
             if (tileIsLocal(i, j))
@@ -1631,7 +1632,7 @@ void BaseMatrix<scalar_t>::tileRecv(
 
         // Copy to devices.
         if (target == Target::Devices) {
-            #pragma omp task
+            #pragma omp task default(shared)
             {
                 tileGetForReading(i, j, tileDevice(i, j), LayoutConvert::None);
             }

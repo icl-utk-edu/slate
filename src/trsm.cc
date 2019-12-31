@@ -326,6 +326,7 @@ void trsm(slate::internal::TargetType<Target::Devices>,
                     B.template listBcast<Target::Devices>(bcast_list_B, layout);
                 }
 
+                // TODO: Move lookahead into devices
                 // lookahead update, B(k+1:k+la, :) -= A(k+1:k+la, k) B(k, :)
                 for (int64_t i = k+1; i < k+1+lookahead && i < mt; ++i) {
                     #pragma omp task depend(in:row[k]) \
@@ -390,6 +391,7 @@ void trsm(slate::internal::TargetType<Target::Devices>,
                     B.template listBcast<Target::Devices>(bcast_list_B, layout);
                 }
 
+                // TODO: Move lookahead into devices
                 // lookahead update, B(k-la:k-1, :) -= A(k-la:k-1, k) B(k, :)
                 for (int64_t i = k-1; i > k-1-lookahead && i >= 0; --i) {
                     #pragma omp task depend(in:row[k]) \

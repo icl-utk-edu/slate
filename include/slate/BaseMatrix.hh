@@ -410,7 +410,7 @@ public:
     void listBcast(
         BcastList& bcast_list, Layout layout,
         int tag = 0, int64_t life_factor = 1,
-        bool isShared = false);
+        bool is_shared = false);
 
     template <Target target = Target::Host>
     void listReduce(ReduceList& reduce_list, Layout layout, int tag = 0);
@@ -1705,7 +1705,7 @@ void BaseMatrix<scalar_t>::tileBcast(
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::listBcast(
-    BcastList& bcast_list, Layout layout, int tag, int64_t life_factor, bool isShared)
+    BcastList& bcast_list, Layout layout, int tag, int64_t life_factor, bool is_shared)
 {
     if (target == Target::Devices) {
         assert(num_devices() > 0);
@@ -1784,7 +1784,7 @@ void BaseMatrix<scalar_t>::listBcast(
                 #pragma omp task
                 {
                     for (auto device : dev_set) {
-                        if (isShared) {
+                        if (is_shared) {
                             tileGetAndHold(i, j, device, LayoutConvert::None);
                         }
                         else {
@@ -1802,7 +1802,7 @@ void BaseMatrix<scalar_t>::listBcast(
                 if (! tile_set[d].empty()) {
                     #pragma omp task default(shared)
                     {
-                        if (isShared) {
+                        if (is_shared) {
                             tileGetAndHold(tile_set[d], d, LayoutConvert::None);
                         }
                         else {

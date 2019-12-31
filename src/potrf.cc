@@ -183,7 +183,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
 
-    A.allocateBatchArrays(0, 3);
+    A.allocateBatchArrays(0, (2 + lookahead));
     A.reserveDeviceWorkspace();
 
     #pragma omp parallel
@@ -217,14 +217,9 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, i),
                                                    A.sub(i, A_nt-1, i, i)}});
                 }
-                if (lookahead > 0) {
-                    A.template listBcast<Target::Devices>(
-                        bcast_list_A, layout, 0, 1, true);
-                }
-                else {
-                    A.template listBcast<Target::Devices>(
-                        bcast_list_A, layout);
-                }
+
+                A.template listBcast<Target::Devices>(
+		    bcast_list_A, layout, 0, 1, lookahead > 0);
             }
             // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
@@ -242,7 +237,10 @@ void potrf(slate::internal::TargetType<Target::Devices>,
             }
 
             // update lookahead column(s), normal priority
-            for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
+            for (int64_t j = k+1, batch_arrays_index = 2;
+                   j < k+1+lookahead && j < A_nt;
+                 ++j, ++batch_arrays_index) {
+            // for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
                 #pragma omp task depend(in:column[k]) \
                                  depend(inout:column[j])
                 {
@@ -258,7 +256,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                             scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
                                             conj_transpose(Ajk),
                             scalar_t( 1.0), A.sub(j+1, A_nt-1, j, j),
-                            layout, 0, 2);
+                            // layout, 0, 2);
+                            layout, 0, batch_arrays_index);
                     }
                 }
             }

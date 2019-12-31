@@ -183,7 +183,9 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
 
-    A.allocateBatchArrays(0, (2 + lookahead));
+    int64_t batch_arrays_base_index = 2; // Number of kernels without lookahead
+
+    A.allocateBatchArrays(0, (batch_arrays_base_index + lookahead));
     A.reserveDeviceWorkspace();
 
     #pragma omp parallel
@@ -237,10 +239,9 @@ void potrf(slate::internal::TargetType<Target::Devices>,
             }
 
             // update lookahead column(s), normal priority
-            for (int64_t j = k+1, batch_arrays_index = 2;
+            for (int64_t j = k+1, batch_arrays_la_index = batch_arrays_base_index;
                    j < k+1+lookahead && j < A_nt;
-                 ++j, ++batch_arrays_index) {
-            // for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
+                 ++j, ++batch_arrays_la_index) {
                 #pragma omp task depend(in:column[k]) \
                                  depend(inout:column[j])
                 {
@@ -256,8 +257,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                             scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
                                             conj_transpose(Ajk),
                             scalar_t( 1.0), A.sub(j+1, A_nt-1, j, j),
-                            // layout, 0, 2);
-                            layout, 0, batch_arrays_index);
+                            layout, 0, batch_arrays_la_index);
                     }
                 }
             }
@@ -285,27 +285,6 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     }
                 }
             }
-
-            // for (int64_t j = k; j < k+1+lookahead && j < A_nt; ++j) {
-            //     #pragma omp task depend(inout:column[k+1+lookahead]) \
-            //                      depend(inout:column[j])
-            //     {
-            //         for (int64_t i = k+1; i < A_nt; ++i) {
-            //             auto submatrices_list = {A.sub(i, i, k+1, i),
-            //                                      A.sub(i, A_nt-1, i, i)};
-            //             std::set<int> dev_set;
-            //             for (auto submatrix : submatrices_list)
-            //                 submatrix.getLocalDevices(&dev_set);
-
-            //             for (auto device : dev_set) {
-            //                 A.tileUnsetHold(i, k, device);
-            //                 if (A.tileIsLocal(i, k)) {
-            //                     A.tileRelease(i, k, device);
-            //                 }
-            //             }
-            //         }
-            //     }
-            // }
         }
 
         #pragma omp taskwait

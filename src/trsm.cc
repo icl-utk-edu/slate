@@ -280,6 +280,12 @@ void trsm(slate::internal::TargetType<Target::Devices>,
     int64_t mt = B.mt();
     int64_t nt = B.nt();
 
+    const int batch_arrays_index_one = 1;
+    const int batch_arrays_index_zero = 0;
+
+    const int priority_one = 1;
+    const int priority_zero = 0;
+
     B.allocateBatchArrays(0, 2);
     B.reserveDeviceWorkspace();
 
@@ -308,7 +314,8 @@ void trsm(slate::internal::TargetType<Target::Devices>,
                     internal::trsm<Target::Devices>(
                         Side::Left,
                         alph, A.sub(k, k),
-                              B.sub(k, k, 0, nt-1), 1, layout, 1);
+                              B.sub(k, k, 0, nt-1),
+                              priority_one, layout, batch_arrays_index_one);
 
                     // send A(i=k+1:mt-1, k) to ranks owning block row B(i, :)
                     BcastList bcast_list_A;
@@ -336,7 +343,7 @@ void trsm(slate::internal::TargetType<Target::Devices>,
                             scalar_t(-1.0), A.sub(i, i, k, k),
                                             B.sub(k, k, 0, nt-1),
                             alph,           B.sub(i, i, 0, nt-1),
-                            layout, 1);
+                            layout, priority_one);
                     }
                 }
 
@@ -354,7 +361,7 @@ void trsm(slate::internal::TargetType<Target::Devices>,
                             scalar_t(-1.0), A.sub(k+1+lookahead, mt-1, k, k),
                                             B.sub(k, k, 0, nt-1),
                             alph,           B.sub(k+1+lookahead, mt-1, 0, nt-1),
-                            layout, 0, 0);
+                            layout, priority_zero, batch_arrays_index_zero);
                     }
                 }
             }
@@ -376,7 +383,8 @@ void trsm(slate::internal::TargetType<Target::Devices>,
                     internal::trsm<Target::Devices>(
                         Side::Left,
                         alph, A.sub(k, k),
-                              B.sub(k, k, 0, nt-1), 1, layout, 1);
+                              B.sub(k, k, 0, nt-1),
+                              priority_one, layout, batch_arrays_index_one);
 
                     // send A(i=0:k-1, k) to ranks owning block row B(i, :)
                     BcastList bcast_list_A;
@@ -401,7 +409,7 @@ void trsm(slate::internal::TargetType<Target::Devices>,
                             scalar_t(-1.0), A.sub(i, i, k, k),
                                             B.sub(k, k, 0, nt-1),
                             alph,           B.sub(i, i, 0, nt-1),
-                            layout, 1);
+                            layout, priority_one);
                     }
                 }
 
@@ -418,7 +426,7 @@ void trsm(slate::internal::TargetType<Target::Devices>,
                             scalar_t(-1.0), A.sub(0, k-1-lookahead, k, k),
                                             B.sub(k, k, 0, nt-1),
                             alph,           B.sub(0, k-1-lookahead, 0, nt-1),
-                            layout, 0, 0);
+                            layout, priority_zero, batch_arrays_index_zero);
                     }
                 }
             }

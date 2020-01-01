@@ -183,6 +183,11 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
 
+    const int batch_arrays_index_one = 1;
+    const int priority_zero = 0;
+    const int tag_zero = 0;
+    const int life_factor_one = 1;
+
     int64_t batch_arrays_base_index = 2; // Number of kernels without lookahead
 
     A.allocateBatchArrays(0, (batch_arrays_base_index + lookahead));
@@ -210,7 +215,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     internal::trsm<Target::Devices>(
                         Side::Right,
                         scalar_t(1.0), conj_transpose(Tkk),
-                                       A.sub(k+1, A_nt-1, k, k), 0, layout, 1);
+                                       A.sub(k+1, A_nt-1, k, k),
+                        priority_zero, layout, batch_arrays_index_one);
                 }
 
                 BcastList bcast_list_A;
@@ -221,7 +227,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 }
 
                 A.template listBcast<Target::Devices>(
-		                  bcast_list_A, layout, 0, 1, lookahead > 0);
+		            bcast_list_A, layout, tag_zero, life_factor_one,
+                    lookahead > 0);
             }
             // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
@@ -257,12 +264,13 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                             scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
                                             conj_transpose(Ajk),
                             scalar_t( 1.0), A.sub(j+1, A_nt-1, j, j),
-                            layout, 0, batch_arrays_la_index);
+                            layout, priority_zero, batch_arrays_la_index);
                     }
                 }
             }
 
-            if (lookahead > 0 && k >= lookahead) {
+            if (lookahead > 0 && k > lookahead) {
+            // if (lookahead > 0 && k >= lookahead) {
                 #pragma omp task depend(in:column[k+1])
                 {
                     auto k_la = k - lookahead;

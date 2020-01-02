@@ -788,7 +788,7 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
     assert(batch_size >= 0);
     assert(num_arrays >= 1);
 
-    bool isResized = false;
+    bool is_resized = false;
     int64_t i_begin = 0;
 
     if (int64_t(array_host_.size()) < num_arrays) {
@@ -807,10 +807,10 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
             array_host.resize(num_devices_, nullptr);
             array_dev.resize(num_devices_, nullptr);
         }
-        isResized = true;
+        is_resized = true;
     }
 
-    if ((batch_array_size_ < batch_size) || isResized) {
+    if ((batch_array_size_ < batch_size) || is_resized) {
 
         if (batch_array_size_ < batch_size) {
             i_begin = 0;

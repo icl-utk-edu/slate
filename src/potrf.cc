@@ -187,6 +187,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     const int priority_zero = 0;
     const int tag_zero = 0;
     const int life_factor_one = 1;
+    const bool is_shared = lookahead > 0;
 
     int64_t batch_arrays_base_index = 2; // Number of kernels without lookahead
 
@@ -227,8 +228,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 }
 
                 A.template listBcast<Target::Devices>(
-		            bcast_list_A, layout, tag_zero, life_factor_one,
-                    lookahead > 0);
+                  bcast_list_A, layout, tag_zero, life_factor_one, is_shared);
             }
             // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {

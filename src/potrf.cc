@@ -200,7 +200,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     {
         omp_set_nested(1);
         for (int64_t k = 0; k < A_nt; ++k) {
-            // panel, normal priority
+            // Panel, normal priority
             #pragma omp task depend(inout:column[k])
             {
                 // factor A(k, k)
@@ -232,7 +232,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 A.template listBcast<Target::Devices>(
                   bcast_list_A, layout, tag_zero, life_factor_one, is_shared);
             }
-            // update trailing submatrix, normal priority
+
+            // Update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
                 #pragma omp task depend(in:column[k]) \
                                  depend(inout:column[k+1+lookahead]) \
@@ -247,7 +248,11 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 }
             }
 
-            // update lookahead column(s), normal priority
+            // Update lookahead column(s), normal priority.
+            // The batch_arrays_index_la must be equal to the
+            // lookahead base index (i.e, number of kernels without lookahead),
+            // which is two for potrf, and gets advanced with every
+            // lookahead column.
             for (int64_t j = k+1, batch_arrays_index_la = batch_arrays_index_two;
                          j < k+1+lookahead && j < A_nt;
                        ++j, ++batch_arrays_index_la) {
@@ -271,9 +276,12 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 }
             }
 
-            if (lookahead > 0 && k > lookahead) {
-            // if (lookahead > 0 && k >= lookahead) {
-                #pragma omp task depend(in:column[k+1])
+            // Update the status of the on-hold tiles done by the
+            // the tileBcast call and release them.
+            // The origin must be updated with the latest modified copy.
+            if (lookahead > 0 && k >= lookahead) {
+                #pragma omp task depend(in:column[k]) \
+                                 depend(inout:column[k+1])
                 {
                     auto k_la = k - lookahead;
                     for (int64_t i = k_la+1; i < A_nt; ++i) {

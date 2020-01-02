@@ -183,15 +183,16 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
 
-    const int batch_arrays_index_one = 1;
     const int priority_zero = 0;
     const int tag_zero = 0;
     const int life_factor_one = 1;
     const bool is_shared = lookahead > 0;
 
-    int64_t batch_arrays_base_index = 2; // Number of kernels without lookahead
+    const int batch_arrays_index_one = 1;
+    const int batch_arrays_index_two = 2; // Number of kernels without lookahead
 
-    A.allocateBatchArrays(0, (batch_arrays_base_index + lookahead));
+    // Allocate base number of kernels without lookahead + lookahead
+    A.allocateBatchArrays(0, (batch_arrays_index_two + lookahead));
     A.reserveDeviceWorkspace();
 
     #pragma omp parallel
@@ -222,7 +223,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 
                 BcastList bcast_list_A;
                 for (int64_t i = k+1; i < A_nt; ++i) {
-                    // send A(i, k) across row A(i, k+1:i) and down col A(i:nt-1, i)
+                    // send A(i, k) across row A(i, k+1:i) and
+                    //                down col A(i:nt-1, i)
                     bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, i),
                                                    A.sub(i, A_nt-1, i, i)}});
                 }
@@ -246,9 +248,9 @@ void potrf(slate::internal::TargetType<Target::Devices>,
             }
 
             // update lookahead column(s), normal priority
-            for (int64_t j = k+1, batch_arrays_la_index = batch_arrays_base_index;
-                   j < k+1+lookahead && j < A_nt;
-                 ++j, ++batch_arrays_la_index) {
+            for (int64_t j = k+1, batch_arrays_index_la = batch_arrays_index_two;
+                         j < k+1+lookahead && j < A_nt;
+                       ++j, ++batch_arrays_index_la) {
                 #pragma omp task depend(in:column[k]) \
                                  depend(inout:column[j])
                 {
@@ -264,7 +266,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                             scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
                                             conj_transpose(Ajk),
                             scalar_t( 1.0), A.sub(j+1, A_nt-1, j, j),
-                            layout, priority_zero, batch_arrays_la_index);
+                            layout, priority_zero, batch_arrays_index_la);
                     }
                 }
             }

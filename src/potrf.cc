@@ -154,8 +154,27 @@ void potrf(slate::internal::TargetType<target>,
     // Debug::checkTilesLives(A);
     // Debug::printTilesLives(A);
     A.releaseWorkspace();
+}
 
-    // Debug::printTilesMaps(A);
+
+template <typename scalar_t>
+void potrfReleasePanel(HermitianMatrix<scalar_t> A, int64_t k)
+{
+    const int64_t A_nt = A.nt();
+    for (int64_t i = k+1; i < A_nt; ++i) {
+        if (A.tileIsLocal(i, k)) {
+            A.tileUpdateOrigin(i, k);
+
+            std::set<int> dev_set;
+            A.sub(i, i, k+1, i).getLocalDevices(&dev_set);
+            A.sub(i, A_nt-1, i, i).getLocalDevices(&dev_set);
+
+            for (auto device : dev_set) {
+                A.tileUnsetHold(i, k, device);
+                A.tileRelease(i, k, device);
+            }
+        }
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -262,10 +281,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
             // the batch_arrays_index_la must be initialized to the
             // lookahead base index (i.e, number of kernels without lookahead),
             // which is equal to "2" for slate::potrf, and then the variable is
-            // incremented with every lookahead column "j"
-            for (int64_t j = k+1, batch_arrays_index_la = batch_arrays_index_two;
-                         j < k+1+lookahead && j < A_nt;
-                       ++j, ++batch_arrays_index_la) {
+            // incremented with every lookahead column "j" ( j-k+1 = 2+j-(k+1) )
+            for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
                 #pragma omp task depend(in:column[k]) \
                                  depend(inout:column[j])
                 {
@@ -281,7 +298,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                             scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
                                             conj_transpose(Ajk),
                             scalar_t( 1.0), A.sub(j+1, A_nt-1, j, j),
-                            layout, priority_zero, batch_arrays_index_la);
+                            layout, priority_zero, j-k+1);
                     }
                 }
             }
@@ -296,24 +313,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 #pragma omp task depend(in:column[k]) \
                                  depend(inout:column[k+1])
                 {
-                    auto k_la = k - lookahead;
-                    for (int64_t i = k_la+1; i < A_nt; ++i) {
-                        auto submatrices_list = {A.sub(i, i, k_la+1, i),
-                                                 A.sub(i, A_nt-1, i, i)};
-                        std::set<int> dev_set;
-                        for (auto submatrix : submatrices_list)
-                            submatrix.getLocalDevices(&dev_set);
-
-                        for (auto device : dev_set) {
-                            if (A.tileIsLocal(i, k_la)) {
-                                A.tileUpdateOrigin(i, k_la);
-                            }
-                            A.tileUnsetHold(i, k_la, device);
-                            if (A.tileIsLocal(i, k_la)) {
-                                A.tileRelease(i, k_la, device);
-                            }
-                        }
-                    }
+                    potrfReleasePanel(A, k - lookahead);
                 }
             }
         }

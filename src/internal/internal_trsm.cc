@@ -261,34 +261,7 @@ void trsm(internal::TargetType<Target::Devices>,
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task shared(A, B) priority(priority)
         {
-            std::set<ij_tuple> A_tiles_set;
-            if (side == Side::Right) {
-                assert(B.nt() == 1);
-                for (int64_t i = 0; i < B.mt(); ++i) {
-                    if (B.tileIsLocal(i, 0)) {
-                        if (device == B.tileDevice(i, 0)) {
-                            A_tiles_set.insert({0, 0});
-                            break;
-                        }
-                    }
-                }
-            }
-            else {
-                assert(B.mt() == 1);
-                for (int64_t j = 0; j < B.nt(); ++j) {
-                    if (B.tileIsLocal(0, j)) {
-                        if (device == B.tileDevice(0, j)) {
-                            A_tiles_set.insert({0, 0});
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (B.numLocalTiles() > 0) {
-                A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
-            }
-
+            do {
             std::set<ij_tuple> B_tiles_set;
             if (side == Side::Right) {
                 for (int64_t i = 0; i < B.mt(); ++i) {
@@ -309,9 +282,13 @@ void trsm(internal::TargetType<Target::Devices>,
                 }
             }
 
-            B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
-
             int64_t batch_size = B_tiles_set.size();
+            if (batch_size == 0) {
+                break;
+            }
+
+            A.tileGetForReading(0, 0, device, LayoutConvert(layout));
+            B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
 
             scalar_t** a_array_host = B.array_host(device, batch_arrays_index);
             scalar_t** b_array_host = a_array_host + batch_size;
@@ -465,6 +442,7 @@ void trsm(internal::TargetType<Target::Devices>,
             for (auto i = 0; i < batch_size; ++i) {
                 A.tileTick(0, 0);
             }
+            }while(0);
         }
     }
 

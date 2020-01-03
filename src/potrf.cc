@@ -271,9 +271,9 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 }
             }
 
-            if (lookahead > 0 && k > lookahead) {
-            // if (lookahead > 0 && k >= lookahead) {
-                #pragma omp task depend(in:column[k+1])
+            if (lookahead > 0 && k >= lookahead) {
+                #pragma omp task depend(in:column[k]) \
+                                 depend(inout:column[k+1])
                 {
                     auto k_la = k - lookahead;
                     for (int64_t i = k_la+1; i < A_nt; ++i) {

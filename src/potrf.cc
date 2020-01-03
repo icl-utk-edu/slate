@@ -190,9 +190,14 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 
     const int batch_arrays_index_one = 1;
     const int batch_arrays_index_two = 2; // Number of kernels without lookahead
-                                          // internal::gemm and internal::trsm
 
-    // Allocate base number of kernels without lookahead + lookahead
+    // Allocate batch arrays = number of kernels without lookahead + lookahead
+    // number of kernels without lookahead = 2 (internal::gemm & internal::trsm)
+    // whereas internal::herk will be executed as many as lookaheads, thus
+    // internal::herk needs batch arrays equal to the number of lookaheads
+    // and the batch_arrays_index starts from
+    // the number of kernels without lookahead, and then incremented by 1
+    // for every execution for the internal::herk
     A.allocateBatchArrays(0, (batch_arrays_index_two + lookahead));
     A.reserveDeviceWorkspace();
 
@@ -256,7 +261,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
             // update lookahead column(s), normal priority
             // the batch_arrays_index_la must be initialized to the
             // lookahead base index (i.e, number of kernels without lookahead),
-            // which is equal to "2" for potrf, and then the variable is
+            // which is equal to "2" for slate::potrf, and then the variable is
             // incremented with every lookahead column "j"
             for (int64_t j = k+1, batch_arrays_index_la = batch_arrays_index_two;
                          j < k+1+lookahead && j < A_nt;
@@ -285,6 +290,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
             // the tileBcast routine, and then release them to free up memory
             // the origin must be updated with the latest modified copy.
             // for memory consistency
+            // TODO: find better solution to handle tile release, and
+            //       investigate the correctness of the task dependency
             if (lookahead > 0 && k >= lookahead) {
                 #pragma omp task depend(in:column[k]) \
                                  depend(inout:column[k+1])

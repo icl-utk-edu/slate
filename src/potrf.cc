@@ -191,7 +191,13 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     const int batch_arrays_index_one = 1;
     const int batch_arrays_index_two = 2; // Number of kernels without lookahead
 
-    // Allocate base number of kernels without lookahead + lookahead
+    // Allocate batch arrays = number of kernels without lookahead + lookahead
+    // number of kernels without lookahead = 2 (internal::gemm & internal::trsm)
+    // whereas internal::herk will be executed as many as lookaheads, thus
+    // internal::herk needs batch arrays equal to the number of lookaheads
+    // and the batch_arrays_index starts from
+    // the number of kernels without lookahead, and then incremented by 1
+    // for every execution for the internal::herk
     A.allocateBatchArrays(0, (batch_arrays_index_two + lookahead));
     A.reserveDeviceWorkspace();
 
@@ -229,11 +235,15 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                                                    A.sub(i, A_nt-1, i, i)}});
                 }
 
+                // "is_shared" is to request copying the tiles to the devices,
+                // and set them on-hold, which avoids releasing them by either
+                // internal::gemm or internal::herk
+                // (avoiding possible race condition)
                 A.template listBcast<Target::Devices>(
                   bcast_list_A, layout, tag_zero, life_factor_one, is_shared);
             }
 
-            // Update trailing submatrix, normal priority
+            // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
                 #pragma omp task depend(in:column[k]) \
                                  depend(inout:column[k+1+lookahead]) \
@@ -248,11 +258,11 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 }
             }
 
-            // Update lookahead column(s), normal priority.
-            // The batch_arrays_index_la must be equal to the
+            // update lookahead column(s), normal priority
+            // the batch_arrays_index_la must be initialized to the
             // lookahead base index (i.e, number of kernels without lookahead),
-            // which is two for potrf, and gets advanced with every
-            // lookahead column.
+            // which is equal to "2" for slate::potrf, and then the variable is
+            // incremented with every lookahead column "j"
             for (int64_t j = k+1, batch_arrays_index_la = batch_arrays_index_two;
                          j < k+1+lookahead && j < A_nt;
                        ++j, ++batch_arrays_index_la) {
@@ -276,9 +286,12 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 }
             }
 
-            // Update the status of the on-hold tiles done by the
-            // the tileBcast call and release them.
-            // The origin must be updated with the latest modified copy.
+            // update the status of the on-hold tiles held by the invocation of
+            // the tileBcast routine, and then release them to free up memory
+            // the origin must be updated with the latest modified copy.
+            // for memory consistency
+            // TODO: find better solution to handle tile release, and
+            //       investigate the correctness of the task dependency
             if (lookahead > 0 && k >= lookahead) {
                 #pragma omp task depend(in:column[k]) \
                                  depend(inout:column[k+1])
@@ -308,12 +321,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
         #pragma omp taskwait
         A.tileUpdateAllOrigin();
     }
-    // Debug::checkTilesLives(A);
-    // Debug::printTilesLives(A);
 
     A.releaseWorkspace();
-
-    // Debug::printTilesMaps(A);
 }
 
 } // namespace specialization

@@ -206,9 +206,9 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     const int tag_zero = 0;
     const int life_factor_one = 1;
     const bool is_shared = lookahead > 0;
-
     const int batch_arrays_index_one = 1;
-    const int batch_arrays_index_two = 2; // Number of kernels without lookahead
+    const int64_t batch_size_zero = 0;
+    const int64_t num_arrays_two  = 2; // Number of kernels without lookahead
 
     // Allocate batch arrays = number of kernels without lookahead + lookahead
     // number of kernels without lookahead = 2 (internal::gemm & internal::trsm)
@@ -217,7 +217,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     // and the batch_arrays_index starts from
     // the number of kernels without lookahead, and then incremented by 1
     // for every execution for the internal::herk
-    A.allocateBatchArrays(0, (batch_arrays_index_two + lookahead));
+    A.allocateBatchArrays(batch_size_zero, (num_arrays_two + lookahead));
     A.reserveDeviceWorkspace();
 
     #pragma omp parallel

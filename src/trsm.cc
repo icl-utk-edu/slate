@@ -95,14 +95,16 @@ void trsm(slate::internal::TargetType<target>,
     const int priority_one  = 1;
     const int priority_zero = 0;
 
-    const int batch_arrays_index_zero = 0;
-    const int batch_arrays_index_one  = 1;
-    const int batch_arrays_index_two  = 2; // Number of kernels without lookahead
+    const int64_t batch_arrays_index_zero = 0;
+    const int64_t batch_arrays_index_one  = 1;
+    const int64_t batch_size_zero = 0;
+    const int64_t num_arrays_two = 2; // Number of kernels without lookahead
 
     if (target == Target::Devices) {
-        // Allocate batch arrays = number of kernels without lookahead + lookahead
-        // number of kernels without lookahead = 2 (internal::gemm & internal::trsm)
-
+        // Allocate batch arrays = number of kernels without
+        // lookahead + lookahead
+        // number of kernels without lookahead = 2
+        // (internal::gemm & internal::trsm)
         // TODO
         // whereas internal::gemm with lookahead will be executed as many as
         // lookaheads, thus
@@ -111,7 +113,7 @@ void trsm(slate::internal::TargetType<target>,
         // and the batch_arrays_index starts from
         // the number of kernels without lookahead, and then incremented by 1
         // for every execution for the internal::gemm with lookahead
-        B.allocateBatchArrays(0, batch_arrays_index_two);
+        B.allocateBatchArrays(batch_size_zero, num_arrays_two);
         B.reserveDeviceWorkspace();
     }
 
@@ -137,20 +139,11 @@ void trsm(slate::internal::TargetType<target>,
                     A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
 
                     // solve A(k, k) B(k, :) = alpha B(k, :)
-                    if (target == Target::Devices) {
-                        internal::trsm<Target::Devices>(
-                            Side::Left,
-                            alph, A.sub(k, k),
-                                  B.sub(k, k, 0, nt-1),
-                            priority_one, layout, batch_arrays_index_one);
-                    }
-                    else {
-                        internal::trsm<Target::HostTask>(
-                            Side::Left,
-                            alph, A.sub(k, k),
-                                  B.sub(k, k, 0, nt-1),
-                            priority_one, layout);
-                    }
+                    internal::trsm<target>(
+                        Side::Left,
+                        alph, A.sub(k, k),
+                              B.sub(k, k, 0, nt-1),
+                        priority_one, layout, batch_arrays_index_one);
 
                     // send A(i=k+1:mt-1, k) to ranks owning block row B(i, :)
                     BcastList bcast_list_A;
@@ -192,22 +185,12 @@ void trsm(slate::internal::TargetType<target>,
                                      depend(inout:row[k+1+lookahead]) \
                                      depend(inout:row[mt-1])
                     {
-                        if (target == Target::Devices) {
-                            internal::gemm<Target::Devices>(
-                                scalar_t(-1.0),
-                                            A.sub(k+1+lookahead, mt-1, k, k),
-                                            B.sub(k, k, 0, nt-1),
-                                alph,       B.sub(k+1+lookahead, mt-1, 0, nt-1),
-                                layout, priority_zero, batch_arrays_index_zero);
-                        }
-                        else {
-                            internal::gemm<target>(
-                                scalar_t(-1.0),
-                                            A.sub(k+1+lookahead, mt-1, k, k),
-                                            B.sub(k, k, 0, nt-1),
-                                alph,       B.sub(k+1+lookahead, mt-1, 0, nt-1),
-                                layout, priority_zero);
-                        }
+                        internal::gemm<target>(
+                            scalar_t(-1.0),
+                                        A.sub(k+1+lookahead, mt-1, k, k),
+                                        B.sub(k, k, 0, nt-1),
+                            alph,       B.sub(k+1+lookahead, mt-1, 0, nt-1),
+                            layout, priority_zero, batch_arrays_index_zero);
                     }
                 }
             }
@@ -226,20 +209,11 @@ void trsm(slate::internal::TargetType<target>,
                     A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
 
                     // solve A(k, k) B(k, :) = alpha B(k, :)
-                    if (target == Target::Devices) {
-                        internal::trsm<Target::Devices>(
-                            Side::Left,
-                            alph, A.sub(k, k),
-                                  B.sub(k, k, 0, nt-1),
-                            priority_one, layout, batch_arrays_index_one);
-                    }
-                    else {
-                        internal::trsm<Target::HostTask>(
-                            Side::Left,
-                            alph, A.sub(k, k),
-                                  B.sub(k, k, 0, nt-1),
-                            priority_one, layout);
-                    }
+                    internal::trsm<target>(
+                        Side::Left,
+                        alph, A.sub(k, k),
+                              B.sub(k, k, 0, nt-1),
+                        priority_one, layout, batch_arrays_index_one);
 
                     // send A(i=0:k-1, k) to ranks owning block row B(i, :)
                     BcastList bcast_list_A;
@@ -277,22 +251,12 @@ void trsm(slate::internal::TargetType<target>,
                                      depend(inout:row[k-1-lookahead]) \
                                      depend(inout:row[0])
                     {
-                        if (target == Target::Devices) {
-                            internal::gemm<Target::Devices>(
-                                scalar_t(-1.0),
-                                              A.sub(0, k-1-lookahead, k, k),
-                                              B.sub(k, k, 0, nt-1),
-                                alph,         B.sub(0, k-1-lookahead, 0, nt-1),
-                                layout, priority_zero, batch_arrays_index_zero);
-                        }
-                        else {
-                            internal::gemm<target>(
-                                scalar_t(-1.0),
-                                              A.sub(0, k-1-lookahead, k, k),
-                                              B.sub(k, k, 0, nt-1),
-                                alph,         B.sub(0, k-1-lookahead, 0, nt-1),
-                                layout, priority_zero);
-                        }
+                        internal::gemm<target>(
+                            scalar_t(-1.0),
+                                          A.sub(0, k-1-lookahead, k, k),
+                                          B.sub(k, k, 0, nt-1),
+                            alph,         B.sub(0, k-1-lookahead, 0, nt-1),
+                            layout, priority_zero, batch_arrays_index_zero);
                     }
                 }
             }

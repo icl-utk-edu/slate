@@ -56,30 +56,9 @@ template <Target target, typename scalar_t>
 void trsm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
-          int priority, Layout layout)
-{
-    trsm(internal::TargetType<target>(),
-         side,
-         alpha, A,
-                B,
-         priority, layout);
-}
-
-//------------------------------------------------------------------------------
-/// Triangular solve matrix (multiple right-hand sides).
-/// Dispatches to Target::Devices implementation with batch_arrays_index
-/// as an input paraemter
-/// @ingroup trsm_internal
-///
-template <Target target, typename scalar_t>
-void trsm(Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>&& A,
-                                    Matrix<scalar_t>&& B,
           int priority, Layout layout, int64_t batch_arrays_index)
 {
-    assert(target == Target::Devices);
-
-    trsm(internal::TargetType<Target::Devices>(),
+    trsm(internal::TargetType<target>(),
          side,
          alpha, A,
                 B,
@@ -96,7 +75,7 @@ void trsm(internal::TargetType<Target::HostTask>,
           Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
-          int priority, Layout layout)
+          int priority, Layout layout, int64_t batch_arrays_index)
 {
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::trsm()
@@ -157,7 +136,7 @@ void trsm(internal::TargetType<Target::HostNest>,
           Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
-          int priority, Layout layout)
+          int priority, Layout layout, int64_t batch_arrays_index)
 {
     throw std::runtime_error(
         "TRSM currently doesn't support Target::HostNest.");
@@ -173,7 +152,7 @@ void trsm(internal::TargetType<Target::HostBatch>,
           Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
-          int priority, Layout layout)
+          int priority, Layout layout, int64_t batch_arrays_index)
 {
     throw std::runtime_error(
         "TRSM currently doesn't support Target::HostBatch.");
@@ -182,31 +161,6 @@ void trsm(internal::TargetType<Target::HostBatch>,
 //------------------------------------------------------------------------------
 /// Triangular solve matrix (multiple right-hand sides).
 /// GPU device batched cuBLAS implementation.
-/// @ingroup trsm_internal
-///
-template <typename scalar_t>
-void trsm(internal::TargetType<Target::Devices>,
-          Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                    Matrix<scalar_t>& B,
-          int priority, Layout layout)
-{
-    // To avoid code repetition, we just call the overloaded version with batch
-    // array index equals to 0.
-    // That means we have one set of batch arrays accessible only by one GPU
-    // kernel at the same time.
-    trsm(internal::TargetType<Target::Devices>(),
-         side,
-         alpha, A,
-                B,
-         priority, layout, 0);
-}
-
-//------------------------------------------------------------------------------
-/// Triangular solve matrix (multiple right-hand sides).
-/// GPU device batched cuBLAS implementation.
-/// Overloaded version with batch_arrays_index.
-/// The extra input parameter controls accessing GPU workspaces at the same time.
 /// @ingroup trsm_internal
 ///
 template <typename scalar_t>
@@ -261,188 +215,189 @@ void trsm(internal::TargetType<Target::Devices>,
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task shared(A, B) priority(priority)
         {
-            if (B.numLocalTiles() > 0) {
+            do {
+                std::set<ij_tuple> B_tiles_set;
+                if (side == Side::Right) {
+                    for (int64_t i = 0; i < B.mt(); ++i) {
+                        if (B.tileIsLocal(i, 0)) {
+                            if (device == B.tileDevice(i, 0)) {
+                                B_tiles_set.insert({i, 0});
+                            }
+                        }
+                    }
+                }
+                else {
+                    for (int64_t j = 0; j < B.nt(); ++j) {
+                        if (B.tileIsLocal(0, j)) {
+                            if (device == B.tileDevice(0, j)) {
+                                B_tiles_set.insert({0, j});
+                            }
+                        }
+                    }
+                }
+
+                int64_t batch_size = B_tiles_set.size();
+                if (batch_size == 0) {
+                    break;
+                }
+
                 A.tileGetForReading(0, 0, device, LayoutConvert(layout));
-            }
+                B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
 
-            std::set<ij_tuple> B_tiles_set;
-            if (side == Side::Right) {
-                assert(B.nt() == 1);
-                for (int64_t i = 0; i < B.mt(); ++i) {
-                    if (B.tileIsLocal(i, 0)) {
-                        if (device == B.tileDevice(i, 0)) {
-                            B_tiles_set.insert({i, 0});
+                scalar_t** a_array_host =
+                    B.array_host(device, batch_arrays_index);
+                scalar_t** b_array_host = a_array_host + batch_size;
+
+                int64_t batch_count = 0;
+
+                int64_t batch_count_0 = 0;
+                int64_t batch_count_1 = 0;
+
+                int64_t lda0 = 0;
+                int64_t ldb0 = 0;
+                int64_t lda1 = 0;
+                int64_t ldb1 = 0;
+
+                int64_t mb0 = B.tileMb(0);
+                int64_t nb0 = B.tileNb(0);
+                int64_t mb1 = B.tileMb(B.mt()-1);
+                int64_t nb1 = B.tileNb(B.nt()-1);
+
+                if (side == Side::Right) {
+                    for (int64_t i = 0; i < B.mt()-1; ++i) {
+                        if (B.tileIsLocal(i, 0)) {
+                            if (device == B.tileDevice(i, 0)) {
+                                a_array_host[batch_count]=A(0,0,device).data();
+                                b_array_host[batch_count]=B(i,0,device).data();
+                                lda0 = A(0, 0, device).stride();
+                                ldb0 = B(i, 0, device).stride();
+                                ++batch_count_0;
+                                ++batch_count;
+                            }
+                        }
+                    }
+                    {
+                        int64_t i = B.mt()-1;
+                        if (B.tileIsLocal(i, 0)) {
+                            if (device == B.tileDevice(i, 0)) {
+                                a_array_host[batch_count]=A(0,0,device).data();
+                                b_array_host[batch_count]=B(i,0,device).data();
+                                lda1 = A(0, 0, device).stride();
+                                ldb1 = B(i, 0, device).stride();
+                                ++batch_count_1;
+                                ++batch_count;
+                            }
                         }
                     }
                 }
-            }
-            else {
-                assert(B.mt() == 1);
-                for (int64_t j = 0; j < B.nt(); ++j) {
-                    if (B.tileIsLocal(0, j)) {
-                        if (device == B.tileDevice(0, j)) {
-                            B_tiles_set.insert({0, j});
+                else {
+                    for (int64_t j = 0; j < B.nt()-1; ++j) {
+                        if (B.tileIsLocal(0, j)) {
+                            if (device == B.tileDevice(0, j)) {
+                                a_array_host[batch_count]=A(0,0,device).data();
+                                b_array_host[batch_count]=B(0,j,device).data();
+                                lda0 = A(0, 0, device).stride();
+                                ldb0 = B(0, j, device).stride();
+                                ++batch_count_0;
+                                ++batch_count;
+                            }
+                        }
+                    }
+                    {
+                        int64_t j = B.nt()-1;
+                        if (B.tileIsLocal(0, j)) {
+                            if (device == B.tileDevice(0, j)) {
+                                a_array_host[batch_count]=A(0,0,device).data();
+                                b_array_host[batch_count]=B(0,j,device).data();
+                                lda1 = A(0, 0, device).stride();
+                                ldb1 = B(0, j, device).stride();
+                                ++batch_count_1;
+                                ++batch_count;
+                            }
                         }
                     }
                 }
-            }
 
-            B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
+                slate_assert(batch_count == batch_size);
 
-            int64_t batch_size = B_tiles_set.size();
-
-            scalar_t** a_array_host = B.array_host(device, batch_arrays_index);
-            scalar_t** b_array_host = a_array_host + batch_size;
-
-            int64_t batch_count = 0;
-
-            int64_t batch_count_0 = 0;
-            int64_t batch_count_1 = 0;
-
-            int64_t lda0 = 0;
-            int64_t ldb0 = 0;
-            int64_t lda1 = 0;
-            int64_t ldb1 = 0;
-
-            int64_t mb0 = B.tileMb(0);
-            int64_t nb0 = B.tileNb(0);
-            int64_t mb1 = B.tileMb(B.mt()-1);
-            int64_t nb1 = B.tileNb(B.nt()-1);
-
-            if (side == Side::Right) {
-                for (int64_t i = 0; i < B.mt()-1; ++i) {
-                    if (B.tileIsLocal(i, 0)) {
-                        if (device == B.tileDevice(i, 0)) {
-                            a_array_host[batch_count] = A(0, 0, device).data();
-                            b_array_host[batch_count] = B(i, 0, device).data();
-                            lda0 = A(0, 0, device).stride();
-                            ldb0 = B(i, 0, device).stride();
-                            ++batch_count_0;
-                            ++batch_count;
-                        }
-                    }
+                if (B.op() != Op::NoTrans) {
+                    swap(mb0, nb0);
+                    swap(mb1, nb1);
                 }
+
+                scalar_t** a_array_device = B.array_device(
+                                                device, batch_arrays_index);
+                scalar_t** b_array_device = a_array_device + batch_size;
+
+                slate_cuda_call(cudaSetDevice(device));
+
+                cudaStream_t stream = B.compute_stream(device);
+                cublasHandle_t cublas_handle = B.cublas_handle(device);
+
+                slate_cuda_call(
+                    cudaMemcpyAsync(B.array_device(device, batch_arrays_index),
+                                    B.array_host(device, batch_arrays_index),
+                                    sizeof(scalar_t*)*batch_count*2,
+                                    cudaMemcpyHostToDevice,
+                                    stream));
                 {
-                    int64_t i = B.mt()-1;
-                    if (B.tileIsLocal(i, 0)) {
-                        if (device == B.tileDevice(i, 0)) {
-                            a_array_host[batch_count] = A(0, 0, device).data();
-                            b_array_host[batch_count] = B(i, 0, device).data();
-                            lda1 = A(0, 0, device).stride();
-                            ldb1 = B(i, 0, device).stride();
-                            ++batch_count_1;
-                            ++batch_count;
+                    trace::Block trace_block("cublasTrsmBatched");
+
+                    if (batch_count_0 > 0) {
+                        if (layout == Layout::ColMajor) {
+                            slate_cublas_call(
+                                cublasTrsmBatched(
+                                    cublas_handle,
+                                    cublas_side_const(sideA),
+                                    cublas_uplo_const(uploA),
+                                    cublas_op_const(opA),
+                                    cublas_diag_const(diagA),
+                                    mb0, nb0,
+                                    &alpha,
+                                    (const scalar_t**)  a_array_device, lda0,
+                                    (scalar_t**)        b_array_device, ldb0,
+                                    batch_count_0));
+                        }
+                        else {
+                            // todo: RowMajor layout
+                            throw std::runtime_error(
+                              "Row major isn't supported in target=Devices.");
+                        }
+
+                        a_array_device += batch_count_0;
+                        b_array_device += batch_count_0;
+                    }
+
+                    if (batch_count_1 > 0) {
+                        if (layout == Layout::ColMajor) {
+                            slate_cublas_call(
+                                cublasTrsmBatched(
+                                    cublas_handle,
+                                    cublas_side_const(sideA),
+                                    cublas_uplo_const(uploA),
+                                    cublas_op_const(opA),
+                                    cublas_diag_const(diagA),
+                                    mb1, nb1,
+                                    &alpha,
+                                    (const scalar_t**)  a_array_device, lda1,
+                                    (scalar_t**)        b_array_device, ldb1,
+                                    batch_count_1));
+                        }
+                        else {
+                            // todo: RowMajor layout
+                            throw std::runtime_error(
+                              "Row major isn't supported in target=Devices.");
                         }
                     }
-                }
-            }
-            else {
-                for (int64_t j = 0; j < B.nt()-1; ++j) {
-                    if (B.tileIsLocal(0, j)) {
-                        if (device == B.tileDevice(0, j)) {
-                            a_array_host[batch_count] = A(0, 0, device).data();
-                            b_array_host[batch_count] = B(0, j, device).data();
-                            lda0 = A(0, 0, device).stride();
-                            ldb0 = B(0, j, device).stride();
-                            ++batch_count_0;
-                            ++batch_count;
-                        }
-                    }
-                }
-                {
-                    int64_t j = B.nt()-1;
-                    if (B.tileIsLocal(0, j)) {
-                        if (device == B.tileDevice(0, j)) {
-                            a_array_host[batch_count] = A(0, 0, device).data();
-                            b_array_host[batch_count] = B(0, j, device).data();
-                            lda1 = A(0, 0, device).stride();
-                            ldb1 = B(0, j, device).stride();
-                            ++batch_count_1;
-                            ++batch_count;
-                        }
-                    }
-                }
-            }
 
-            slate_assert(batch_count == batch_size);
-
-            if (B.op() != Op::NoTrans) {
-                swap(mb0, nb0);
-                swap(mb1, nb1);
-            }
-
-            scalar_t** a_array_device = B.array_device(
-                                            device, batch_arrays_index);
-            scalar_t** b_array_device = a_array_device + batch_size;
-
-            slate_cuda_call(cudaSetDevice(device));
-
-            cudaStream_t stream = B.compute_stream(device);
-            cublasHandle_t cublas_handle = B.cublas_handle(device);
-
-            slate_cuda_call(
-                cudaMemcpyAsync(B.array_device(device, batch_arrays_index),
-                                B.array_host(device, batch_arrays_index),
-                                sizeof(scalar_t*)*batch_count*2,
-                                cudaMemcpyHostToDevice,
-                                stream));
-            {
-                trace::Block trace_block("cublasTrsmBatched");
-
-                if (batch_count_0 > 0) {
-                    if (layout == Layout::ColMajor) {
-                        slate_cublas_call(
-                            cublasTrsmBatched(
-                                cublas_handle,
-                                cublas_side_const(sideA),
-                                cublas_uplo_const(uploA),
-                                cublas_op_const(opA),
-                                cublas_diag_const(diagA),
-                                mb0, nb0,
-                                &alpha,
-                                (const scalar_t**)  a_array_device, lda0,
-                                (scalar_t**)        b_array_device, ldb0,
-                                batch_count_0));
-                    }
-                    else {
-                        // todo: RowMajor layout
-                        throw std::runtime_error(
-                          "Row major isn't supported in target=Devices.");
-                    }
-
-                    a_array_device += batch_count_0;
-                    b_array_device += batch_count_0;
+                    slate_cuda_call(cudaStreamSynchronize(stream));
                 }
 
-                if (batch_count_1 > 0) {
-                    if (layout == Layout::ColMajor) {
-                        slate_cublas_call(
-                            cublasTrsmBatched(
-                                cublas_handle,
-                                cublas_side_const(sideA),
-                                cublas_uplo_const(uploA),
-                                cublas_op_const(opA),
-                                cublas_diag_const(diagA),
-                                mb1, nb1,
-                                &alpha,
-                                (const scalar_t**)  a_array_device, lda1,
-                                (scalar_t**)        b_array_device, ldb1,
-                                batch_count_1));
-                    }
-                    else {
-                        // todo: RowMajor layout
-                        throw std::runtime_error(
-                          "Row major isn't supported in target=Devices.");
-                    }
+                A.tileRelease(0, 0, device);
+                for (auto i = 0; i < batch_size; ++i) {
+                    A.tileTick(0, 0);
                 }
-
-                slate_cuda_call(cudaStreamSynchronize(stream));
-            }
-
-            A.tileRelease(0, 0, device);
-            for (auto i = 0; i < batch_size; ++i) {
-                A.tileTick(0, 0);
-            }
+            } while( 0 );
         }
     }
 
@@ -457,28 +412,21 @@ void trsm<Target::HostTask, float>(
     Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
-    int priority, Layout layout);
+    int priority, Layout layout, int64_t batch_arrays_index);
 
 template
 void trsm<Target::HostNest, float>(
     Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
-    int priority, Layout layout);
+    int priority, Layout layout, int64_t batch_arrays_index);
 
 template
 void trsm<Target::HostBatch, float>(
     Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
-    int priority, Layout layout);
-
-template
-void trsm<Target::Devices, float>(
-    Side side,
-    float alpha, TriangularMatrix<float>&& A,
-                           Matrix<float>&& B,
-    int priority, Layout layout);
+    int priority, Layout layout, int64_t batch_arrays_index);
 
 template
 void trsm<Target::Devices, float>(
@@ -493,28 +441,21 @@ void trsm<Target::HostTask, double>(
     Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
-    int priority, Layout layout);
+    int priority, Layout layout, int64_t batch_arrays_index);
 
 template
 void trsm<Target::HostNest, double>(
     Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
-    int priority, Layout layout);
+    int priority, Layout layout, int64_t batch_arrays_index);
 
 template
 void trsm<Target::HostBatch, double>(
     Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
-    int priority, Layout layout);
-
-template
-void trsm<Target::Devices, double>(
-    Side side,
-    double alpha, TriangularMatrix<double>&& A,
-                            Matrix<double>&& B,
-    int priority, Layout layout);
+    int priority, Layout layout, int64_t batch_arrays_index);
 
 template
 void trsm<Target::Devices, double>(
@@ -529,28 +470,21 @@ void trsm< Target::HostTask, std::complex<float> >(
     Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
-    int priority, Layout layout);
+    int priority, Layout layout, int64_t batch_arrays_index);
 
 template
 void trsm< Target::HostNest, std::complex<float> >(
     Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
-    int priority, Layout layout);
+    int priority, Layout layout, int64_t batch_arrays_index);
 
 template
 void trsm< Target::HostBatch, std::complex<float> >(
     Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
-    int priority, Layout layout);
-
-template
-void trsm< Target::Devices, std::complex<float> >(
-    Side side,
-    std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
-                                         Matrix< std::complex<float> >&& B,
-    int priority, Layout layout);
+    int priority, Layout layout, int64_t batch_arrays_index);
 
 template
 void trsm< Target::Devices, std::complex<float> >(
@@ -565,28 +499,21 @@ void trsm< Target::HostTask, std::complex<double> >(
     Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
-    int priority, Layout layout);
+    int priority, Layout layout, int64_t batch_arrays_index);
 
 template
 void trsm< Target::HostNest, std::complex<double> >(
     Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
-    int priority, Layout layout);
+    int priority, Layout layout, int64_t batch_arrays_index);
 
 template
 void trsm< Target::HostBatch, std::complex<double> >(
     Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
-    int priority, Layout layout);
-
-template
-void trsm< Target::Devices, std::complex<double> >(
-    Side side,
-    std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
-                                          Matrix< std::complex<double> >&& B,
-    int priority, Layout layout);
+    int priority, Layout layout, int64_t batch_arrays_index);
 
 template
 void trsm< Target::Devices, std::complex<double> >(

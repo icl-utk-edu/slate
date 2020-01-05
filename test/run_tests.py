@@ -104,6 +104,7 @@ group_opt.add_argument( '--matrixtype', action='store', help='default=%(default)
 group_opt.add_argument( '--origin', action='store', help='default=%(default)s', default='s' )
 group_opt.add_argument( '--target', action='store', help='default=%(default)s', default='t' )
 group_opt.add_argument( '--lookahead', action='store', help='default=%(default)s', default='1' )
+group_opt.add_argument( '--dev_dist',  action='store', help='default=%(default)s', default='c,r' )
 group_opt.add_argument( '--nb',     action='store', help='default=%(default)s', default='64,100' )
 group_opt.add_argument( '--nt',     action='store', help='default=%(default)s', default='5,10,20' )
 group_opt.add_argument( '--np',     action='store', help='number of MPI processes; default=%(default)s', default='1' )
@@ -261,6 +262,7 @@ mtype  = ' --matrixtype ' + opts.matrixtype if (opts.matrixtype) else ''
 origin = ' --origin ' + opts.origin if (opts.origin) else ''
 target = ' --target ' + opts.target if (opts.target) else ''
 la     = ' --lookahead ' + opts.lookahead if (opts.lookahead) else ''
+ddist  = ' --dev_dist  ' + opts.dev_dist  if (opts.dev_dist)  else ''
 nb     = ' --nb '     + opts.nb     if (opts.nb)     else ''
 nt     = ' --nt '     + opts.nt     if (opts.nt)     else ''
 p      = ' --p '      + opts.p      if (opts.p)      else ''
@@ -350,7 +352,7 @@ if (opts.lu_band):
 if (opts.chol):
     cmds += [
     [ 'posv',  gen + dtype + la + n + uplo ],
-    [ 'potrf', gen + dtype + la + n + uplo ],
+    [ 'potrf', gen + dtype + la + n + uplo + ddist ],
     [ 'potrs', gen + dtype + la + n + uplo ],
     [ 'potri', gen + dtype + la + n + uplo ],
     #[ 'pocon', gen + dtype + la + n + uplo ],

@@ -34,7 +34,7 @@ void test_posv_work(Params& params, bool run)
     int verbose = params.verbose(); SLATE_UNUSED(verbose);
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
-    slate::Dist dist = params.dev_dist();
+    slate::Dist dev_dist = params.dev_dist();
 
     // mark non-standard output values
     params.time();
@@ -104,8 +104,8 @@ void test_posv_work(Params& params, bool run)
     slate::Matrix<scalar_t> B, X;
     std::vector<scalar_t> X_tst;
     if (origin != slate::Origin::ScaLAPACK) {
-        if (dist == slate::Dist::Row) {
-            slate_assert(target == slate::Target::Devices);
+        if (dev_dist == slate::Dist::Row && target == slate::Target::Devices) {
+            // slate_assert(target == slate::Target::Devices);
             // todo: doesn't work when lookahead is greater than 2
             // slate_assert(lookahead < 3);
             // std::function<int64_t (int64_t i)> tileMb = [nrhs, nb] (int64_t i)

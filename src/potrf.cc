@@ -156,7 +156,8 @@ void potrf(slate::internal::TargetType<target>,
     A.releaseWorkspace();
 }
 
-
+//------------------------------------------------------------------------------
+///
 template <typename scalar_t>
 void potrfReleasePanel(HermitianMatrix<scalar_t> A, int64_t k)
 {

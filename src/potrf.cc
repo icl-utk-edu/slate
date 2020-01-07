@@ -147,12 +147,14 @@ void potrf(slate::internal::TargetType<target>,
             }
         }
 
-        #pragma omp taskwait
-        A.tileUpdateAllOrigin();
+        // TODO: causes issues on summit Target::HostTask
+        // #pragma omp taskwait
+        // A.tileUpdateAllOrigin();
     }
 
     // Debug::checkTilesLives(A);
     // Debug::printTilesLives(A);
+    A.tileUpdateAllOrigin();
     A.releaseWorkspace();
 }
 

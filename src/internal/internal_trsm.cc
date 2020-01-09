@@ -215,31 +215,28 @@ void trsm(internal::TargetType<Target::Devices>,
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task shared(A, B) priority(priority)
         {
-            do {
-                std::set<ij_tuple> B_tiles_set;
-                if (side == Side::Right) {
-                    for (int64_t i = 0; i < B.mt(); ++i) {
-                        if (B.tileIsLocal(i, 0)) {
-                            if (device == B.tileDevice(i, 0)) {
-                                B_tiles_set.insert({i, 0});
-                            }
+            std::set<ij_tuple> B_tiles_set;
+            if (side == Side::Right) {
+                for (int64_t i = 0; i < B.mt(); ++i) {
+                    if (B.tileIsLocal(i, 0)) {
+                        if (device == B.tileDevice(i, 0)) {
+                            B_tiles_set.insert({i, 0});
                         }
                     }
                 }
-                else {
-                    for (int64_t j = 0; j < B.nt(); ++j) {
-                        if (B.tileIsLocal(0, j)) {
-                            if (device == B.tileDevice(0, j)) {
-                                B_tiles_set.insert({0, j});
-                            }
+            }
+            else {
+                for (int64_t j = 0; j < B.nt(); ++j) {
+                    if (B.tileIsLocal(0, j)) {
+                        if (device == B.tileDevice(0, j)) {
+                            B_tiles_set.insert({0, j});
                         }
                     }
                 }
+            }
 
-                int64_t batch_size = B_tiles_set.size();
-                if (batch_size == 0) {
-                    break;
-                }
+            int64_t batch_size = B_tiles_set.size();
+            if (batch_size > 0) {
 
                 A.tileGetForReading(0, 0, device, LayoutConvert(layout));
                 B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
@@ -267,8 +264,8 @@ void trsm(internal::TargetType<Target::Devices>,
                     for (int64_t i = 0; i < B.mt()-1; ++i) {
                         if (B.tileIsLocal(i, 0)) {
                             if (device == B.tileDevice(i, 0)) {
-                                a_array_host[batch_count]=A(0,0,device).data();
-                                b_array_host[batch_count]=B(i,0,device).data();
+                                a_array_host[batch_count] = A(0, 0, device).data();
+                                b_array_host[batch_count] = B(i, 0, device).data();
                                 lda0 = A(0, 0, device).stride();
                                 ldb0 = B(i, 0, device).stride();
                                 ++batch_count_0;
@@ -280,8 +277,8 @@ void trsm(internal::TargetType<Target::Devices>,
                         int64_t i = B.mt()-1;
                         if (B.tileIsLocal(i, 0)) {
                             if (device == B.tileDevice(i, 0)) {
-                                a_array_host[batch_count]=A(0,0,device).data();
-                                b_array_host[batch_count]=B(i,0,device).data();
+                                a_array_host[batch_count] = A(0, 0, device).data();
+                                b_array_host[batch_count] = B(i, 0, device).data();
                                 lda1 = A(0, 0, device).stride();
                                 ldb1 = B(i, 0, device).stride();
                                 ++batch_count_1;
@@ -294,8 +291,8 @@ void trsm(internal::TargetType<Target::Devices>,
                     for (int64_t j = 0; j < B.nt()-1; ++j) {
                         if (B.tileIsLocal(0, j)) {
                             if (device == B.tileDevice(0, j)) {
-                                a_array_host[batch_count]=A(0,0,device).data();
-                                b_array_host[batch_count]=B(0,j,device).data();
+                                a_array_host[batch_count] = A(0, 0, device).data();
+                                b_array_host[batch_count] = B(0, j, device).data();
                                 lda0 = A(0, 0, device).stride();
                                 ldb0 = B(0, j, device).stride();
                                 ++batch_count_0;
@@ -307,8 +304,8 @@ void trsm(internal::TargetType<Target::Devices>,
                         int64_t j = B.nt()-1;
                         if (B.tileIsLocal(0, j)) {
                             if (device == B.tileDevice(0, j)) {
-                                a_array_host[batch_count]=A(0,0,device).data();
-                                b_array_host[batch_count]=B(0,j,device).data();
+                                a_array_host[batch_count] = A(0, 0, device).data();
+                                b_array_host[batch_count] = B(0, j, device).data();
                                 lda1 = A(0, 0, device).stride();
                                 ldb1 = B(0, j, device).stride();
                                 ++batch_count_1;
@@ -337,7 +334,7 @@ void trsm(internal::TargetType<Target::Devices>,
                 slate_cuda_call(
                     cudaMemcpyAsync(B.array_device(device, batch_arrays_index),
                                     B.array_host(device, batch_arrays_index),
-                                    sizeof(scalar_t*)*batch_count*2,
+                                    sizeof(scalar_t*) * batch_count * 2,
                                     cudaMemcpyHostToDevice,
                                     stream));
                 {
@@ -354,8 +351,8 @@ void trsm(internal::TargetType<Target::Devices>,
                                     cublas_diag_const(diagA),
                                     mb0, nb0,
                                     &alpha,
-                                    (const scalar_t**)  a_array_device, lda0,
-                                    (scalar_t**)        b_array_device, ldb0,
+                                    (const scalar_t**) a_array_device, lda0,
+                                          (scalar_t**) b_array_device, ldb0,
                                     batch_count_0));
                         }
                         else {
@@ -379,8 +376,8 @@ void trsm(internal::TargetType<Target::Devices>,
                                     cublas_diag_const(diagA),
                                     mb1, nb1,
                                     &alpha,
-                                    (const scalar_t**)  a_array_device, lda1,
-                                    (scalar_t**)        b_array_device, ldb1,
+                                    (const scalar_t**) a_array_device, lda1,
+                                          (scalar_t**) b_array_device, ldb1,
                                     batch_count_1));
                         }
                         else {
@@ -397,7 +394,7 @@ void trsm(internal::TargetType<Target::Devices>,
                 for (auto i = 0; i < batch_size; ++i) {
                     A.tileTick(0, 0);
                 }
-            } while( 0 );
+            }
         }
     }
 

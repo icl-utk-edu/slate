@@ -234,6 +234,7 @@ Params::Params():
     datatype  ("type",    4,    ParamType::List, DataType::Double,        str2datatype, datatype2str, "s=single (float), d=double, c=complex-single, z=complex-double"),
     origin    ("origin",  9,    ParamType::List, slate::Origin::Host,     str2origin,   origin2str,   "origin: h=Host, s=ScaLAPACK, d=Devices"),
     target    ("target",  7,    ParamType::List, slate::Target::HostTask, str2target,   target2str,   "target: t=HostTask, n=HostNes,t b=HostBatch, d=Devices"),
+    dev_dist  ("dev-dist",9,    ParamType::List, slate::Dist::Col,        str2dist,     dist2str,     "matrix tiles distribution across local devices (one-dimensional block-cyclic): col=column, row=row"),
 
     //         name,      w,    type,            default,                 char2enum,         enum2char,         enum2str,         help
     layout    ("layout",  6,    ParamType::List, slate::Layout::ColMajor, blas::char2layout, blas::layout2char, blas::layout2str, "layout: r=row major, c=column major"),
@@ -496,6 +497,7 @@ int run(int argc, char** argv)
         // run tests
         int repeat = params.repeat();
         testsweeper::DataType last = params.datatype();
+
         if (print)
             params.header();
         do {
@@ -504,6 +506,7 @@ int run(int argc, char** argv)
                 if (print)
                     printf("\n");
             }
+
             for (int iter = 0; iter < repeat; ++iter) {
                 try {
                     test_routine(params, true);

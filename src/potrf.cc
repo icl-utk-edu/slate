@@ -147,15 +147,52 @@ void potrf(slate::internal::TargetType<target>,
             }
         }
 
-        #pragma omp taskwait
-        A.tileUpdateAllOrigin();
+        // TODO: causes issues on summit Target::HostTask
+        // #pragma omp taskwait
+        // A.tileUpdateAllOrigin();
     }
 
     // Debug::checkTilesLives(A);
     // Debug::printTilesLives(A);
+    A.tileUpdateAllOrigin();
     A.releaseWorkspace();
+}
 
-    // Debug::printTilesMaps(A);
+//------------------------------------------------------------------------------
+/// An auxiliary routine to release the panel tiles that are broadcasted. Since
+/// the broadcasted tiles are flagged to be hold on the devices memories to be
+/// accessed by multiple internal kernels while preventing the tileRelease call
+/// in these routine to release them before the others finish accessing
+/// them. Note: this function update the tiles origin to make sure that
+/// the origin memory is up-to-date and the coherency is kept consistent
+/// across multiple address spaces. 
+/// @param[in] A
+///     The n-by-n Hermitian positive definite matrix $A$, which is
+///     a sub of the input matrix $A$.
+///
+/// @param[in] k
+///     Current column k of the input matrix $A$.
+///
+/// @ingroup posv_computational
+///
+template <typename scalar_t>
+void potrfReleasePanel(HermitianMatrix<scalar_t> A, int64_t k)
+{
+    const int64_t A_nt = A.nt();
+    for (int64_t i = k+1; i < A_nt; ++i) {
+        if (A.tileIsLocal(i, k)) {
+            A.tileUpdateOrigin(i, k);
+
+            std::set<int> dev_set;
+            A.sub(i, i, k+1, i).getLocalDevices(&dev_set);
+            A.sub(i, A_nt-1, i, i).getLocalDevices(&dev_set);
+
+            for (auto device : dev_set) {
+                A.tileUnsetHold(i, k, device);
+                A.tileRelease(i, k, device);
+            }
+        }
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -183,7 +220,22 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
 
-    A.allocateBatchArrays();
+    const int priority_zero = 0;
+    const int tag_zero = 0;
+    const int life_factor_one = 1;
+    const bool is_shared = lookahead > 0;
+    const int batch_arrays_index_one = 1;
+    const int64_t batch_size_zero = 0;
+    const int64_t num_arrays_two  = 2; // Number of kernels without lookahead
+
+    // Allocate batch arrays = number of kernels without lookahead + lookahead
+    // number of kernels without lookahead = 2 (internal::gemm & internal::trsm)
+    // whereas internal::herk will be executed as many as lookaheads, thus
+    // internal::herk needs batch arrays equal to the number of lookaheads
+    // and the batch_arrays_index starts from
+    // the number of kernels without lookahead, and then incremented by 1
+    // for every execution for the internal::herk
+    A.allocateBatchArrays(batch_size_zero, (num_arrays_two + lookahead));
     A.reserveDeviceWorkspace();
 
     #pragma omp parallel
@@ -191,7 +243,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     {
         omp_set_nested(1);
         for (int64_t k = 0; k < A_nt; ++k) {
-            // panel, normal priority
+            // Panel, normal priority
             #pragma omp task depend(inout:column[k])
             {
                 // factor A(k, k)
@@ -205,20 +257,29 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 if (k+1 <= A_nt-1) {
                     auto Akk = A.sub(k, k);
                     auto Tkk = TriangularMatrix< scalar_t >(Diag::NonUnit, Akk);
-                    internal::trsm<Target::HostTask>(
+                    internal::trsm<Target::Devices>(
                         Side::Right,
                         scalar_t(1.0), conj_transpose(Tkk),
-                                       A.sub(k+1, A_nt-1, k, k));
+                                       A.sub(k+1, A_nt-1, k, k),
+                        priority_zero, layout, batch_arrays_index_one);
                 }
 
                 BcastList bcast_list_A;
                 for (int64_t i = k+1; i < A_nt; ++i) {
-                    // send A(i, k) across row A(i, k+1:i) and down col A(i:nt-1, i)
+                    // send A(i, k) across row A(i, k+1:i) and
+                    //                down col A(i:nt-1, i)
                     bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, i),
                                                    A.sub(i, A_nt-1, i, i)}});
                 }
-                A.template listBcast<Target::Devices>(bcast_list_A, layout);
+
+                // "is_shared" is to request copying the tiles to the devices,
+                // and set them on-hold, which avoids releasing them by either
+                // internal::gemm or internal::herk
+                // (avoiding possible race condition)
+                A.template listBcast<Target::Devices>(
+                  bcast_list_A, layout, tag_zero, life_factor_one, is_shared);
             }
+
             // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
                 #pragma omp task depend(in:column[k]) \
@@ -235,24 +296,42 @@ void potrf(slate::internal::TargetType<Target::Devices>,
             }
 
             // update lookahead column(s), normal priority
+            // the batch_arrays_index_la must be initialized to the
+            // lookahead base index (i.e, number of kernels without lookahead),
+            // which is equal to "2" for slate::potrf, and then the variable is
+            // incremented with every lookahead column "j" ( j-k+1 = 2+j-(k+1) )
             for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
                 #pragma omp task depend(in:column[k]) \
                                  depend(inout:column[j])
                 {
                     // A(j, j) -= A(j, k) * A(j, k)^H
-                    internal::herk<Target::HostTask>(
+                    internal::herk<Target::Devices>(
                         real_t(-1.0), A.sub(j, j, k, k),
                         real_t( 1.0), A.sub(j, j));
 
                     // A(j+1:nt, j) -= A(j+1:nt-1, k) * A(j, k)^H
                     if (j+1 <= A_nt-1) {
                         auto Ajk = A.sub(j, j, k, k);
-                        internal::gemm<Target::HostTask>(
+                        internal::gemm<Target::Devices>(
                             scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
                                             conj_transpose(Ajk),
                             scalar_t( 1.0), A.sub(j+1, A_nt-1, j, j),
-                            layout);
+                            layout, priority_zero, j-k+1);
                     }
+                }
+            }
+
+            // update the status of the on-hold tiles held by the invocation of
+            // the tileBcast routine, and then release them to free up memory
+            // the origin must be updated with the latest modified copy.
+            // for memory consistency
+            // TODO: find better solution to handle tile release, and
+            //       investigate the correctness of the task dependency
+            if (lookahead > 0 && k >= lookahead) {
+                #pragma omp task depend(in:column[k]) \
+                                 depend(inout:column[k+1])
+                {
+                    potrfReleasePanel(A, k - lookahead);
                 }
             }
         }
@@ -260,12 +339,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
         #pragma omp taskwait
         A.tileUpdateAllOrigin();
     }
-    // Debug::checkTilesLives(A);
-    // Debug::printTilesLives(A);
 
     A.releaseWorkspace();
-
-    // Debug::printTilesMaps(A);
 }
 
 } // namespace specialization

@@ -34,6 +34,7 @@ void test_posv_work(Params& params, bool run)
     int verbose = params.verbose(); SLATE_UNUSED(verbose);
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    slate::Dist dev_dist = params.dev_dist();
 
     // mark non-standard output values
     params.time();
@@ -103,13 +104,51 @@ void test_posv_work(Params& params, bool run)
     slate::Matrix<scalar_t> B, X;
     std::vector<scalar_t> X_tst;
     if (origin != slate::Origin::ScaLAPACK) {
+        if (dev_dist == slate::Dist::Row && target == slate::Target::Devices) {
+            // slate_assert(target == slate::Target::Devices);
+            // todo: doesn't work when lookahead is greater than 2
+            // slate_assert(lookahead < 3);
+            // std::function<int64_t (int64_t i)> tileMb = [nrhs, nb] (int64_t i)
+            //    { return (i + 1)*mb > nrhs ? nrhs%mb : mb; };
+            std::function<int64_t (int64_t j)> tileNb = [n, nb] (int64_t j)
+                { return (j + 1)*nb > n ? n%nb : nb; };
+
+            std::function<int (std::tuple<int64_t, int64_t> ij)>
+            tileRank = [nprow, npcol](std::tuple<int64_t, int64_t> ij) {
+                int64_t i = std::get<0>(ij);
+                int64_t j = std::get<1>(ij);
+                return int(i%nprow + (j%npcol)*nprow);
+            };
+
+            int num_devices = 0;
+            cudaGetDeviceCount(&num_devices);
+            slate_assert(num_devices > 0);
+
+            std::function<int (std::tuple<int64_t, int64_t> ij)>
+            tileDevice = [nprow, num_devices](std::tuple<int64_t, int64_t> ij) {
+                int64_t i = std::get<0>(ij);
+                return int(i/nprow)%num_devices;
+            };
+
+            A = slate::HermitianMatrix<scalar_t>(
+                uplo, n, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
+            B = slate::Matrix<scalar_t>(
+                n, nrhs, tileNb, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
+        }
+        else {
+            // A
+            A = slate::HermitianMatrix<scalar_t>(
+                    uplo, n, nb, nprow, npcol, MPI_COMM_WORLD);
+            // B
+            B = slate::Matrix<scalar_t>(
+                    n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
+        }
+
         // Copy local ScaLAPACK data to GPU or CPU tiles.
         slate::Target origin_target = origin2target(origin);
-        A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, nprow, npcol, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
         copy(&A_tst[0], descA_tst, A);
 
-        B = slate::Matrix<scalar_t>(n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
         B.insertLocalTiles(origin_target);
         copy(&B_tst[0], descB_tst, B);
 

@@ -1454,7 +1454,6 @@ bool BaseMatrix<scalar_t>::tileOnHold(int64_t i, int64_t j, int device)
 
 //------------------------------------------------------------------------------
 /// Unsets the hold of tile(i, j) on device (defaults to host) if it was OnHold.
-/// Asserts if tile does not exist.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -1469,7 +1468,6 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileUnsetHold(int64_t i, int64_t j, int device)
 {
     auto iter = storage_->find(globalIndex(i, j, device));
-    // assert(iter != storage_->end());
     if (iter != storage_->end())
         iter->second->at(device).setState(~MOSI::OnHold);
 }
@@ -1701,11 +1699,18 @@ void BaseMatrix<scalar_t>::tileBcast(
 ///
 /// @param[in] life_factor
 ///     A multiplier for the life count of the broadcasted tile workspace.
+/// @param[in] is_shared
+///     A flag to get and hold the broadcasted (prefetched) tiles on the
+///     devices. This flag prevents any subsequent calls of tileRelease()
+///     routine to release these tiles (clear up the devices memories).
+///     WARNING: must set unhold these tiles before releasing them to free
+///     up the allocated memories.
 ///
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::listBcast(
-    BcastList& bcast_list, Layout layout, int tag, int64_t life_factor, bool is_shared)
+    BcastList& bcast_list, Layout layout,
+    int tag, int64_t life_factor, bool is_shared)
 {
     if (target == Target::Devices) {
         assert(num_devices() > 0);

@@ -1701,11 +1701,18 @@ void BaseMatrix<scalar_t>::tileBcast(
 ///
 /// @param[in] life_factor
 ///     A multiplier for the life count of the broadcasted tile workspace.
+/// @param[in] is_shared
+///     A flag to get and hold the broadcasted (prefetched) tiles on the
+///     devices. This flag prevents any subsequent calls of tileRelease()
+///     routine to release these tiles (clear up the devices memories).
+///     WARNING: must set unhold these tiles before releasing them to free
+///     up the allocated memories.
 ///
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::listBcast(
-    BcastList& bcast_list, Layout layout, int tag, int64_t life_factor, bool is_shared)
+    BcastList& bcast_list, Layout layout,
+    int tag, int64_t life_factor, bool is_shared)
 {
     if (target == Target::Devices) {
         assert(num_devices() > 0);

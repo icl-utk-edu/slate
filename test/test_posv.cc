@@ -52,6 +52,12 @@ void test_posv_work(Params& params, bool run)
     int mpi_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
 
+    if (target != slate::Target::Devices && dev_dist != slate::Dist::Col) {
+        if (mpi_rank == 0)
+            printf("skipping: dev_dist = Row applies only to target devices\n");
+        return;
+    }
+
     if (params.routine == "posvMixed") {
         if (! std::is_same<real_t, double>::value) {
             if (mpi_rank == 0) {

@@ -159,6 +159,21 @@ void potrf(slate::internal::TargetType<target>,
 }
 
 //------------------------------------------------------------------------------
+/// An auxiliary routine to release the panel tiles that are broadcasted. Since
+/// the broadcasted tiles are flagged to be hold on the devices memories to be
+/// accessed by multiple internal kernels while preventing the tileRelease call
+/// in these routine to release them before the others finish accessing
+/// them. Note: this function update the tiles origin to make sure that
+/// the origin memory is up-to-date and the coherency is kept consistent
+/// across multiple address spaces. 
+/// @param[in] A
+///     The n-by-n Hermitian positive definite matrix $A$, which is
+///     a sub of the input matrix $A$.
+///
+/// @param[in] k
+///     Current column k of the input matrix $A$.
+///
+/// @ingroup posv_computational
 ///
 template <typename scalar_t>
 void potrfReleasePanel(HermitianMatrix<scalar_t> A, int64_t k)

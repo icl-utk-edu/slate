@@ -92,8 +92,28 @@ void trsm(slate::internal::TargetType<target>,
     int64_t mt = B.mt();
     int64_t nt = B.nt();
 
+    const int priority_one  = 1;
+    const int priority_zero = 0;
+
+    const int64_t batch_arrays_index_zero = 0;
+    const int64_t batch_arrays_index_one  = 1;
+    const int64_t batch_size_zero = 0;
+    const int64_t num_arrays_two = 2; // Number of kernels without lookahead
+
     if (target == Target::Devices) {
-        B.allocateBatchArrays();
+        // Allocate batch arrays = number of kernels without
+        // lookahead + lookahead
+        // number of kernels without lookahead = 2
+        // (internal::gemm & internal::trsm)
+        // TODO
+        // whereas internal::gemm with lookahead will be executed as many as
+        // lookaheads, thus
+        // internal::gemm with lookahead needs batch arrays equal to the
+        // number of lookaheads
+        // and the batch_arrays_index starts from
+        // the number of kernels without lookahead, and then incremented by 1
+        // for every execution for the internal::gemm with lookahead
+        B.allocateBatchArrays(batch_size_zero, num_arrays_two);
         B.reserveDeviceWorkspace();
     }
 
@@ -119,10 +139,11 @@ void trsm(slate::internal::TargetType<target>,
                     A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
 
                     // solve A(k, k) B(k, :) = alpha B(k, :)
-                    internal::trsm<Target::HostTask>(
+                    internal::trsm<target>(
                         Side::Left,
                         alph, A.sub(k, k),
-                              B.sub(k, k, 0, nt-1), 1);
+                              B.sub(k, k, 0, nt-1),
+                        priority_one, layout, batch_arrays_index_one);
 
                     // send A(i=k+1:mt-1, k) to ranks owning block row B(i, :)
                     BcastList bcast_list_A;
@@ -145,11 +166,12 @@ void trsm(slate::internal::TargetType<target>,
                     #pragma omp task depend(in:row[k]) \
                                      depend(inout:row[i]) priority(1)
                     {
+                        // TODO: execute lookahead on devices
                         internal::gemm<Target::HostTask>(
                             scalar_t(-1.0), A.sub(i, i, k, k),
                                             B.sub(k, k, 0, nt-1),
                             alph,           B.sub(i, i, 0, nt-1),
-                            layout, 1);
+                            layout, priority_one);
                     }
                 }
 
@@ -164,10 +186,11 @@ void trsm(slate::internal::TargetType<target>,
                                      depend(inout:row[mt-1])
                     {
                         internal::gemm<target>(
-                            scalar_t(-1.0), A.sub(k+1+lookahead, mt-1, k, k),
-                                            B.sub(k, k, 0, nt-1),
-                            alph,           B.sub(k+1+lookahead, mt-1, 0, nt-1),
-                            layout);
+                            scalar_t(-1.0),
+                                        A.sub(k+1+lookahead, mt-1, k, k),
+                                        B.sub(k, k, 0, nt-1),
+                            alph,       B.sub(k+1+lookahead, mt-1, 0, nt-1),
+                            layout, priority_zero, batch_arrays_index_zero);
                     }
                 }
             }
@@ -186,10 +209,11 @@ void trsm(slate::internal::TargetType<target>,
                     A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
 
                     // solve A(k, k) B(k, :) = alpha B(k, :)
-                    internal::trsm<Target::HostTask>(
+                    internal::trsm<target>(
                         Side::Left,
                         alph, A.sub(k, k),
-                              B.sub(k, k, 0, nt-1), 1);
+                              B.sub(k, k, 0, nt-1),
+                        priority_one, layout, batch_arrays_index_one);
 
                     // send A(i=0:k-1, k) to ranks owning block row B(i, :)
                     BcastList bcast_list_A;
@@ -209,11 +233,12 @@ void trsm(slate::internal::TargetType<target>,
                     #pragma omp task depend(in:row[k]) \
                                      depend(inout:row[i]) priority(1)
                     {
+                        // TODO: execute lookahead on devices
                         internal::gemm<Target::HostTask>(
                             scalar_t(-1.0), A.sub(i, i, k, k),
                                             B.sub(k, k, 0, nt-1),
                             alph,           B.sub(i, i, 0, nt-1),
-                            layout, 1);
+                            layout, priority_one);
                     }
                 }
 
@@ -227,10 +252,11 @@ void trsm(slate::internal::TargetType<target>,
                                      depend(inout:row[0])
                     {
                         internal::gemm<target>(
-                            scalar_t(-1.0), A.sub(0, k-1-lookahead, k, k),
-                                            B.sub(k, k, 0, nt-1),
-                            alph,           B.sub(0, k-1-lookahead, 0, nt-1),
-                            layout);
+                            scalar_t(-1.0),
+                                          A.sub(0, k-1-lookahead, k, k),
+                                          B.sub(k, k, 0, nt-1),
+                            alph,         B.sub(0, k-1-lookahead, 0, nt-1),
+                            layout, priority_zero, batch_arrays_index_zero);
                     }
                 }
             }

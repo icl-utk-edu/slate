@@ -1454,7 +1454,6 @@ bool BaseMatrix<scalar_t>::tileOnHold(int64_t i, int64_t j, int device)
 
 //------------------------------------------------------------------------------
 /// Unsets the hold of tile(i, j) on device (defaults to host) if it was OnHold.
-/// Asserts if tile does not exist.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -1469,7 +1468,6 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileUnsetHold(int64_t i, int64_t j, int device)
 {
     auto iter = storage_->find(globalIndex(i, j, device));
-    // assert(iter != storage_->end());
     if (iter != storage_->end())
         iter->second->at(device).setState(~MOSI::OnHold);
 }

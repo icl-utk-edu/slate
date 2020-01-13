@@ -66,16 +66,6 @@ void test_heev_work(Params& params, bool run)
     Cblacs_gridinit(&ictxt, "Col", p, q);
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
-    // skip invalid sizes
-    if (n <= (p-1)*nb || n <= (q-1)*nb) {
-        if (iam == 0) {
-            printf("\nskipping: ScaLAPACK requires that all ranks have some rows & columns; "
-                   "i.e., n > (p-1)*nb = %lld and n > (q-1)*nb = %lld\n",
-                   llong( (p-1)*nb ), llong( (q-1)*nb ) );
-        }
-        return;
-    }
-
     // skip unsupported
     if (jobz != lapack::Job::NoVec) {
         if (iam == 0)

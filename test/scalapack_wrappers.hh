@@ -54,7 +54,7 @@ inline void scalapack_descinit(int* desc, int64_t m, int64_t n, int64_t mb, int6
     int n_ = int64_to_int(n);
     int mb_ = int64_to_int(mb);
     int nb_ = int64_to_int(nb);
-    int lld_ = int64_to_int(lld);
+    int lld_ = std::max(1, int64_to_int(lld));
     scalapack_descinit(desc, &m_, &n_, &mb_, &nb_, &irsrc, &icsrc, &ictxt, &lld_, info);
 }
 

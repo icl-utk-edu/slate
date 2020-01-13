@@ -64,16 +64,6 @@ void test_geqrf_work(Params& params, bool run)
     Cblacs_gridinit(&ictxt, "Col", p, q);
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
-    // skip invalid sizes
-    if (m <= (p-1)*nb || n <= (q-1)*nb) {
-        if (iam == 0) {
-            printf("\nskipping: ScaLAPACK requires that all ranks have some rows & columns; "
-                   "i.e., m > (p-1)*nb = %lld and n > (q-1)*nb = %lld\n",
-                   llong( (p-1)*nb ), llong( (q-1)*nb ));
-        }
-        return;
-    }
-
     // matrix A, figure out local size, allocate, create descriptor, initialize
     int64_t mlocA = scalapack_numroc(m, nb, myrow, 0, nprow);
     int64_t nlocA = scalapack_numroc(n, nb, mycol, 0, npcol);

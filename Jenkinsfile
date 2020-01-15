@@ -1,7 +1,4 @@
 pipeline {
-    options {
-        buildDiscarder(logRotator(numToKeepStr: '0'))
-    }
     agent none
         stages {
             stage('Parallel Build') {
@@ -25,7 +22,7 @@ pipeline {
                                 mkl=1
                                 cuda=1
                                 openmp=1
-                                END
+END
 
                                 cd libtest
                                 make config CXX=mpicxx
@@ -58,10 +55,10 @@ pipeline {
                             sh '''
                                 #!/bin/sh +x
                                 hostname && pwd
-                                rm -rf *
+                                #rm -rf *
 
-                                hg clone https://bitbucket.org/icl/slate
-                                cd slate
+                                #hg clone https://bitbucket.org/icl/slate
+                                #cd slate
                                 source /home/jmfinney/spack/share/spack/setup-env.sh
                                 spack load gcc@6.4.0
                                 spack load cuda
@@ -103,9 +100,9 @@ END
                         spack load intel-mkl
                         spack load intel-mpi
 
-                        cd unit_test
-                        ./run_tests.py --xml report_unit.xml
-                        cd ../test
+                        #cd unit_test
+                        #./run_tests.py --xml report_unit.xml
+                        cd test
                         ./run_tests.py --xml report_integration.xml
                         '''
                 }
@@ -122,7 +119,7 @@ END
                         #!/bin/sh +x
                         echo "SLATE Test Phase"
                         hostname && pwd
-                        cd slate
+                        #cd slate
 
                         source /home/jmfinney/spack/share/spack/setup-env.sh
                         spack load gcc@6.4.0
@@ -136,7 +133,7 @@ END
                 }
                 post {
                     always {
-                        junit 'slate/test/*.xml'
+                        junit 'test/*.xml'
                     }
                 }
             }

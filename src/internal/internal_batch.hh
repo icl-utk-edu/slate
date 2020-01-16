@@ -363,7 +363,7 @@ inline cublasStatus_t cublasTrsmBatched(
 //==============================================================================
 /// batch array workspace/holder for one device
 ///
-/// @tparam[in] dim_
+/// @tparam dim_
 ///     number of batch-arrays per operation
 ///     Example: gemm needs pointer arrays for A, B, and C, thus dim_=3
 ///
@@ -487,7 +487,7 @@ private:
 //==============================================================================
 /// batch array workspace/holder for multiple devices
 ///
-/// @tparam[in] dim_
+/// @tparam dim_
 ///     number of batch-arrays per operation
 ///     Example: gemm needs pointer arrays for A, B, and C, thus dim_=3
 ///

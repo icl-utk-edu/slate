@@ -73,7 +73,7 @@ using Progress = std::vector< std::atomic<int64_t> >;
 ///     The sweep number.
 ///     One sweep eliminates one row and sweeps the entire matrix.
 ///
-/// @paramp[in] step
+/// @param[in] step
 ///     The step number.
 ///     Steps in each sweep have consecutive numbers.
 ///

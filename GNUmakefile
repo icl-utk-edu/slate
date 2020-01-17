@@ -94,7 +94,7 @@ endif
 
 #-------------------------------------------------------------------------------
 # if MPI
-ifneq (,$(filter ${CXX},mpicxx mpic++))
+ifneq (,$(filter $(CXX),mpicxx mpic++))
     # CXX = mpicxx or mpic++
     # Generic MPI via compiler wrapper. No flags to set.
 else ifeq ($(mpi),1)
@@ -748,21 +748,24 @@ distclean: clean
 #-------------------------------------------------------------------------------
 # debugging
 echo:
-	@echo "openmp        = '$(openmp)'"
 	@echo "mpi           = '$(mpi)'"
 	@echo "spectrum      = '$(spectrum)'"
-	@echo "macos         = '$(macos)'"
-	@echo "mkl_intel     = '$(mkl_intel)'"
-	@echo "ilp64         = '$(ilp64)'"
 	@echo "mkl           = '$(mkl)'"
+	@echo "mkl_intel     = '$(mkl_intel)'"
 	@echo "mkl_threaded  = '$(mkl_threaded)'"
+	@echo "mkl_blacs     = '$(mkl_blacs)'"
+	@echo "ilp64         = '$(ilp64)'"
 	@echo "essl          = '$(essl)'"
-	@echo "cuda          = '$(cuda)'"
+	@echo "openblas      = '$(openblas)'"
+	@echo "openmp        = '$(openmp)'"
 	@echo "static        = '$(static)'"
+	@echo "cuda_arch     = '$(cuda_arch)'"
+	@echo "cuda          = '$(cuda)'"
+	@echo "macos         = '$(macos)'"
 	@echo
 	@echo "libblaspp     = $(libblaspp)"
 	@echo "liblapackpp   = $(liblapackpp)"
-	@echo "testsweeper       = $(testsweeper)"
+	@echo "testsweeper   = $(testsweeper)"
 	@echo
 	@echo "libslate_a    = $(libslate_a)"
 	@echo "libslate_so   = $(libslate_so)"

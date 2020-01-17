@@ -32,6 +32,22 @@
 
 -include make.inc
 
+# Strip whitespace from variables, in case make.inc had trailing spaces.
+mpi             := $(strip $(mpi))
+spectrum        := $(strip $(spectrum))
+mkl             := $(strip $(mkl))
+mkl_intel       := $(strip $(mkl_intel))
+mkl_threaded    := $(strip $(mkl_threaded))
+ilp64           := $(strip $(ilp64))
+openmpi         := $(strip $(openmpi))
+intelmpi        := $(strip $(intelmpi))
+essl            := $(strip $(essl))
+openblas        := $(strip $(openblas))
+openmp          := $(strip $(openmp))
+static          := $(strip $(static))
+cuda_arch       := $(strip $(cuda_arch))
+cuda            := $(strip $(cuda))
+
 # Export variables to sub-make for testsweeper, BLAS++, LAPACK++.
 export CXX mkl ilp64 essl openblas openmp static
 

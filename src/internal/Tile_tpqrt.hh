@@ -161,8 +161,9 @@ void tpqrt(
 {
     trace::Block trace_block("lapack::tpqrt");
 
-    int64_t m = A2.mb();
     int64_t n = A2.nb();
+    int64_t m = std::min( A2.mb(), A2.nb() ); //A2.mb();
+
     assert(A1.mb() >= n);  // k >= n
     assert(A1.nb() == n);
     assert(std::min(m, n) >= l);

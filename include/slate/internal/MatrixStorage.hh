@@ -66,18 +66,23 @@ namespace slate {
 /// This provides safety in case an exception is thrown, which would otherwise
 /// by-pass the unlock. Like std::lock_guard, but for OpenMP locks.
 ///
+/// NOTE: this LockGuard is not meant to be used in nested fashion,
+/// and should not be shared across threads.
+/// Rather, the wrapped-in "omp_nest_lock" could be used in a nested fashion
+/// and could be shared across threads.
+///
+/// @param[in] locked
+///     Indicates whether to lock upon construction, default true.
+///
 class LockGuard {
 public:
-    LockGuard(omp_nest_lock_t* lock, bool on = true)
+    LockGuard(omp_nest_lock_t* lock, bool locked = true)
         : lock_(lock)
     {
-        if (on) {
-            locked_ = true;
+        if (locked) {
             omp_set_nest_lock(lock_);
         }
-        else {
-            locked_ = false;
-        }
+        locked_ = locked;
     }
 
     ~LockGuard()
@@ -86,21 +91,27 @@ public:
             omp_unset_nest_lock(lock_);
     }
 
+    /// locks if not already locked
     void lock()
     {
-        locked_ = true;
-        omp_set_nest_lock(lock_);
+        if (! locked_) {
+            locked_ = true;
+            omp_set_nest_lock(lock_);
+        }
     }
 
+    /// unlocks if already locked
     void unlock()
     {
-        locked_ = false;
-        omp_unset_nest_lock(lock_);
+        if (locked_) {
+            locked_ = false;
+            omp_unset_nest_lock(lock_);
+        }
     }
 
 private:
     omp_nest_lock_t* lock_;
-    bool locked_;
+    bool locked_; ///< status of this lock (locked or unlocked)
 };
 
 //------------------------------------------------------------------------------
@@ -518,11 +529,11 @@ public:
 
     //--------------------------------------------------------------------------
     /// Retrun pointer to device OMP lock
-    omp_nest_lock_t* getDeviceLock(int device)
-    {
-        slate_assert(size_t(device+1) < locks_.size());
-        return &(locks_[device+1]);
-    }
+    // omp_nest_lock_t* getDeviceLock(int device)
+    // {
+    //     slate_assert(size_t(device+1) < locks_.size());
+    //     return &(locks_[device+1]);
+    // }
 
     //--------------------------------------------------------------------------
     std::function<int64_t (int64_t i)> tileMb;
@@ -568,7 +579,7 @@ public:
 private:
     TilesMap tiles_;        ///< map of tiles and associated states
     mutable omp_nest_lock_t lock_;  ///< TilesMap lock
-    mutable std::vector<omp_nest_lock_t> locks_;    ///< device locks
+    // mutable std::vector<omp_nest_lock_t> locks_;    ///< device locks
     slate::Memory memory_;  ///< memory allocator
 
     int mpi_rank_;
@@ -645,10 +656,10 @@ MatrixStorage<scalar_t>::MatrixStorage(
     initCudaStreams();
 
     omp_init_nest_lock(&lock_);
-    locks_.resize(num_devices_+1);
-    for (auto lock : locks_) {
-        omp_init_nest_lock(&lock);
-    }
+    // locks_.resize(num_devices_+1);
+    // for (auto lock : locks_) {
+    //     omp_init_nest_lock(&lock);
+    // }
 }
 
 //------------------------------------------------------------------------------
@@ -686,10 +697,10 @@ MatrixStorage<scalar_t>::MatrixStorage(
     initCudaStreams();
 
     omp_init_nest_lock(&lock_);
-    locks_.resize(num_devices_+1);
-    for (auto lock : locks_) {
-        omp_init_nest_lock(&lock);
-    }
+    // locks_.resize(num_devices_+1);
+    // for (auto lock : locks_) {
+    //     omp_init_nest_lock(&lock);
+    // }
 }
 
 //------------------------------------------------------------------------------
@@ -703,9 +714,9 @@ MatrixStorage<scalar_t>::~MatrixStorage()
         destroyCudaStreams();
         clearBatchArrays();
         omp_destroy_nest_lock(&lock_);
-        for (auto lock : locks_) {
-            omp_destroy_nest_lock(&lock);
-        }
+        // for (auto lock : locks_) {
+        //     omp_destroy_nest_lock(&lock);
+        // }
     }
     catch (std::exception const& ex) {
         // If debugging, die on exceptions.

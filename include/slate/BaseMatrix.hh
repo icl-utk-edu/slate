@@ -2585,7 +2585,7 @@ void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set,
                                              LayoutConvert layout)
 {
     if (device != hostNum()) {
-        LockGuard guard(storage_->getDeviceLock(device));
+        LockGuard guard(storage_->getTilesMapLock());
 
         // find number of already existing tiles on the device
         int64_t existing_tiles = 0;
@@ -2687,7 +2687,7 @@ void BaseMatrix<scalar_t>::tileGetForWriting(std::set<ij_tuple>& tile_set,
                                              int device, LayoutConvert layout)
 {
     if (device != hostNum()) {
-        LockGuard guard(storage_->getDeviceLock(device));
+        LockGuard guard(storage_->getTilesMapLock());
 
         // find number of aready existing tiles on the device
         int64_t existing_tiles = 0;
@@ -2758,7 +2758,7 @@ void BaseMatrix<scalar_t>::tileGetAndHold(std::set<ij_tuple>& tile_set, int devi
                                           LayoutConvert layout)
 {
     if (device != hostNum()) {
-        LockGuard guard(storage_->getDeviceLock(device));
+        LockGuard guard(storage_->getTilesMapLock());
 
         // find number of aready existing tiles on the device
         int64_t existing_tiles = 0;

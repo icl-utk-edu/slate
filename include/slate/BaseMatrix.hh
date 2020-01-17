@@ -1116,6 +1116,7 @@ void swap(BaseMatrix<scalar_t>& A, BaseMatrix<scalar_t>& B)
 ///
 /// @return Tile {i, j, device}.
 ///
+// todo: should extended tiles (especially sliced-extended) be handled differently?
 template <typename scalar_t>
 Tile<scalar_t> BaseMatrix<scalar_t>::operator()(
     int64_t i, int64_t j, int device)
@@ -3190,7 +3191,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
                                              bool reset)
 {
     if (device == host_num_) {
-        for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
+        for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
             int64_t i = std::get<0>(*iter);
             int64_t j = std::get<1>(*iter);
             #pragma omp task

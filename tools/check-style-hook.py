@@ -84,7 +84,7 @@ def check_style( lines ):
                     check( r'\t', line, 'remove tab' )
             except Exception as ex:
                 print( '%s, line %d: %s\n>>%s' %
-                    (filename, linenum, ex.message, line), file=sys.stderr )
+                    (filename, linenum, str(ex), line), file=sys.stderr )
                 errors += 1
         # end
 

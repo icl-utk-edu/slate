@@ -140,10 +140,14 @@ void tpmqrt(
     int64_t k = V2.nb();
     int64_t m = C2.mb();
     int64_t n = C2.nb();
+    if ((n >= k) && (m > n)){ 
+        m = std::min( C2.mb(), C2.nb() );
+    }
+
     if (side == Side::Left) {
         assert(C1.mb() >= k);
         assert(C1.nb() == n);
-        assert(V2.mb() == m);
+        //assert(V2.mb() == m);
         assert(std::min(m, k) >= l);
     }
     else {

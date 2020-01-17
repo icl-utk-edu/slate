@@ -12,12 +12,13 @@
 # spectrum=1      for IBM Spectrum MPI (-lmpi_ibm).
 #
 # mkl=1           for Intel MKL. Additional sub-options:
-#   mkl_intel=1     for Intel MKL with Intel Fortran conventions; otherwise uses
-#                   GNU conventions. Auto-detected if CXX=icpc or on MacOS.
-#   mkl_threaded=1  for multi-threaded Intel MKL.
-#   ilp64=1         for ILP64. Currently only with Intel MKL.
-#   openmpi=1       for OpenMPI BLACS.
-#   intelmpi=1      for Intel MPI BLACS (default).
+#     mkl_intel=1       	for Intel MKL with Intel Fortran conventions;
+#	  				    	otherwise uses GNU gfortran conventions.
+#	  				    	Automatically set if CXX=icpc or on macOS.
+#     mkl_threaded=1    	for multi-threaded Intel MKL.
+#     mkl_blacs=openmpi		for OpenMPI BLACS in SLATE's testers.
+#     mkl_blacs=intelmpi    for Intel MPI BLACS in SLATE's testers (default).
+#     ilp64=1           	for ILP64. Currently only with Intel MKL.
 # essl=1          for IBM ESSL.
 # openblas=1      for OpenBLAS.
 #
@@ -38,15 +39,22 @@ spectrum        := $(strip $(spectrum))
 mkl             := $(strip $(mkl))
 mkl_intel       := $(strip $(mkl_intel))
 mkl_threaded    := $(strip $(mkl_threaded))
+mkl_blacs       := $(strip $(mkl_blacs))
 ilp64           := $(strip $(ilp64))
-openmpi         := $(strip $(openmpi))
-intelmpi        := $(strip $(intelmpi))
 essl            := $(strip $(essl))
 openblas        := $(strip $(openblas))
 openmp          := $(strip $(openmp))
 static          := $(strip $(static))
 cuda_arch       := $(strip $(cuda_arch))
 cuda            := $(strip $(cuda))
+
+# Warn about obsolete settings.
+ifneq ($(openmpi),)
+    $(error Variable `openmpi` is obsolete; use mkl_blacs=openmpi)
+endif
+ifneq ($(intelmpi),)
+    $(error Variable `intelmpi` is obsolete; use mkl_blacs=intelmpi)
+endif
 
 # Export variables to sub-make for testsweeper, BLAS++, LAPACK++.
 export CXX mkl ilp64 essl openblas openmp static
@@ -158,7 +166,7 @@ ifeq ($(mkl),1)
     # MKL on MacOS doesn't include ScaLAPACK; use default.
     # For others, link with appropriate version of ScaLAPACK and BLACS.
     ifneq ($(macos),1)
-        ifeq ($(openmpi),1)
+        ifeq ($(mkl_blacs),openmpi)
             ifeq ($(ilp64),1)
                 scalapack = -lmkl_scalapack_ilp64 -lmkl_blacs_openmpi_ilp64
             else

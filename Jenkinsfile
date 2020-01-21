@@ -20,7 +20,7 @@ pipeline {
                                 cat > make.inc << "END"
                                 mpi=1
                                 mkl=1
-                                cuda=1
+                                cuda_arch=pascal
                                 openmp=1
 END
 
@@ -70,7 +70,7 @@ END
                                 mkl=1
                                 cuda=1
                                 openmp=1
-                                openmpi=1
+                                mkl_blacs=openmpi
                                 CXXFLAGS = -DNO_COLOR
                                 CXX=mpicxx
 

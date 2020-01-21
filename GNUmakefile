@@ -191,15 +191,19 @@ else ifeq ($(openblas),1)
 endif
 
 #-------------------------------------------------------------------------------
-# cuda_arch implies cuda
+# cuda_arch implies cuda, if $cuda not already set.
 ifneq ($(cuda_arch),)
-    cuda ?= 1
+    ifeq ($(cuda),)
+        cuda = 1
+    endif
 endif
 
 # if CUDA
 ifeq ($(cuda),1)
     # Set default cuda_arch if not already set.
-    cuda_arch ?= kepler pascal
+    ifeq ($(cuda_arch),)
+        cuda_arch = kepler pascal
+    endif
 
     # Generate flags for which CUDA architectures to build.
     # cuda_arch_ is a local copy to modify.

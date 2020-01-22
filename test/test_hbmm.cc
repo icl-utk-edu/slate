@@ -127,9 +127,9 @@ void test_hbmm_work(Params& params, bool run)
     // create SLATE matrices from the ScaLAPACK layouts
     auto A = HermitianBandFromScaLAPACK(
                   uplo, An, kd, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-    slate::Matrix<scalar_t> B = slate::Matrix<scalar_t>::fromScaLAPACK(
+    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
                   Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
-    slate::Matrix<scalar_t> C = slate::Matrix<scalar_t>::fromScaLAPACK(
+    auto C = slate::Matrix<scalar_t>::fromScaLAPACK(
                   Cm, Cn, &C_tst[0], lldC, nb, nprow, npcol, MPI_COMM_WORLD);
 
     if (verbose > 1) {

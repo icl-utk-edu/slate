@@ -114,7 +114,7 @@ void test_trsm_work(Params& params, bool run)
     // Cholesky factor of A to get a well conditioned triangular matrix.
     // Even when we replace the diagonal with unit diagonal,
     // it seems to still be well conditioned.
-    slate::HermitianMatrix<scalar_t> AH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK
+    auto AH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK
         (uplo, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     slate::potrf(AH, {{slate::Option::Target, target}});
 

@@ -116,7 +116,7 @@ void test_trsm_work(Params& params, bool run)
     // it seems to still be well conditioned.
     slate::HermitianMatrix<scalar_t> AH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK
         (uplo, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-    slate::potrf(AH);
+    slate::potrf(AH, {{slate::Option::Target, target}});
 
     slate::TriangularMatrix<scalar_t> A;
     slate::Matrix<scalar_t> B;

@@ -67,8 +67,12 @@ void getrf(slate::internal::TargetType<target>,
 
     // Host can use Col/RowMajor for row swapping,
     // RowMajor is slightly more efficient.
-    Layout host_layout = Layout::RowMajor;
-    Layout target_layout = Layout::RowMajor;
+    // Layout host_layout = Layout::RowMajor;
+    // Layout target_layout = Layout::RowMajor;
+    // todo: RowMajor causes issues with tileLayoutReset() when A origin is
+    //       ScaLAPACK
+    Layout host_layout = Layout::ColMajor;
+    Layout target_layout = Layout::ColMajor;
     // GPU Devices use RowMajor for efficient row swapping.
     if (target == Target::Devices)
         target_layout = Layout::RowMajor;

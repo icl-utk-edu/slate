@@ -122,7 +122,7 @@ END
                         echo "SLATE Test Phase"
                         hostname && pwd
 
-                        source /opt/spack/share/spack/setup-env.sh
+                        source /home/jmfinney/spack/share/spack/setup-env.sh
                         spack load gcc
                         spack load intel-mkl
                         spack load intel-mpi

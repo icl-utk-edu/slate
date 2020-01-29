@@ -23,7 +23,6 @@ pipeline {
                                 cat > make.inc << "END"
                                 mpi=1
                                 mkl=1
-                                cuda_arch=pascal
                                 openmp=1
 END
 
@@ -55,7 +54,7 @@ END
                             success {
                                 slackSend channel: '#slate_ci',
                                           color: 'good',
-                                          message: "SLATE Non-GPU - pipeline ${currentBuild.fullDisplayName} completed successfully."
+                                          message: "SLATE Non-GPU Build - pipeline ${currentBuild.fullDisplayName} completed successfully."
                             }
                             unsuccessful {
                                 // notify users when the Pipeline fails
@@ -101,7 +100,7 @@ END
                             success {
                                 slackSend channel: '#slate_ci',
                                           color: 'good',
-                                          message: "SLATE Nvidia - pipeline ${currentBuild.fullDisplayName} completed successfully."
+                                          message: "SLATE Nvidia build - pipeline ${currentBuild.fullDisplayName} completed successfully."
                             }
                             unsuccessful {
                                 // notify users when the Pipeline fails
@@ -116,7 +115,7 @@ END
             stage('Parallel Test') {
                 parallel {
             stage ('Test - Master') {
-                agent { label 'master' }
+                agent { label 'cpu_intel && gpu_amd' }
                 steps {
                     sh '''
                         #!/bin/sh +x
@@ -125,7 +124,6 @@ END
 
                         source /opt/spack/share/spack/setup-env.sh
                         spack load gcc
-                        spack load cuda
                         spack load intel-mkl
                         spack load intel-mpi
 
@@ -142,7 +140,7 @@ END
                     success {
                         slackSend channel: '#slate_ci',
                             color: 'good',
-                            message: "SLATE Nvidia - pipeline ${currentBuild.fullDisplayName} completed successfully."
+                            message: "SLATE Non-GPU test - pipeline ${currentBuild.fullDisplayName} completed successfully."
                     }
                     unsuccessful {
                         // notify users when the Pipeline fails
@@ -178,7 +176,7 @@ END
                     success {
                         slackSend channel: '#slate_ci',
                             color: 'good',
-                            message: "SLATE Nvidia - pipeline ${currentBuild.fullDisplayName} completed successfully."
+                            message: "SLATE Nvidia Test - pipeline ${currentBuild.fullDisplayName} completed successfully."
                     }
                     unsuccessful {
                         // notify users when the Pipeline fails

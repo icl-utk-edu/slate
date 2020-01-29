@@ -1,27 +1,26 @@
 pipeline {
     agent none
-        triggers {
-            cron ('H H(0-2) * * *')
-        }
         stages {
             stage('Parallel Build') {
                 parallel {
                     stage('Build - Master') {
-                        agent { label 'cpu_intel && gpu_amd' }
+                        agent { label 'master' }
                         steps {
                             sh '''
                                 #!/bin/sh +x
                                 echo "SLATE Jenkinsfile"
                                 hostname && pwd
 
-                                source /home/jmfinney/spack/share/spack/setup-env.sh
+                                source /opt/spack/share/spack/setup-env.sh
                                 spack load gcc
+                                spack load cuda
                                 spack load intel-mkl
                                 spack load intel-mpi
 
                                 cat > make.inc << "END"
                                 mpi=1
                                 mkl=1
+                                cuda_arch=pascal
                                 openmp=1
 END
 
@@ -48,19 +47,6 @@ END
 
                                 make -j4 CXX=mpicxx
                                 '''
-                        }
-                        post {
-                            success {
-                                slackSend channel: '#slate_ci',
-                                          color: 'good',
-                                          message: "SLATE Non-GPU Build - pipeline ${currentBuild.fullDisplayName} completed successfully."
-                            }
-                            unsuccessful {
-                                // notify users when the Pipeline fails
-                                mail to: 'slate-dev@cl.utk.edu',
-                                subject: "Failed Pipeline: ${currentBuild.fullDisplayName}",
-                                body: "Something is wrong with ${env.BUILD_URL}"
-                            }
                         }
                     }
                     stage('Build - gpu_nvidia') {
@@ -92,39 +78,8 @@ END
 
                                 export OMPI_CXX=${CXX}
 
-                                cd libtest
-                                make config CXX=mpicxx
-                                # disable color output so JUnit recognizes the XML even if there's an error
-                                sed -i '/CXXFLAGS/s/$/ -DNO_COLOR/' make.inc
-                                make
-
-                                cd ..
-                                cd blaspp
-                                make config CXX=mpicxx
-                                make -j4
-
-                                cd ..
-                                cd lapackpp
-                                make config CXX=mpicxx
-                                make -j4
-
-                                cd ..
-
                                 make -j4
                                 '''
-                        }
-                        post {
-                            success {
-                                slackSend channel: '#slate_ci',
-                                          color: 'good',
-                                          message: "SLATE Nvidia build - pipeline ${currentBuild.fullDisplayName} completed successfully."
-                            }
-                            unsuccessful {
-                                // notify users when the Pipeline fails
-                                mail to: 'slate-dev@cl.utk.edu',
-                                subject: "Failed Pipeline: ${currentBuild.fullDisplayName}",
-                                body: "Something is wrong with ${env.BUILD_URL}"
-                            }
                         }
                     }
                 }
@@ -132,15 +87,16 @@ END
             stage('Parallel Test') {
                 parallel {
             stage ('Test - Master') {
-                agent { label 'cpu_intel && gpu_amd' }
+                agent { label 'master' }
                 steps {
                     sh '''
                         #!/bin/sh +x
                         echo "SLATE Test Phase"
                         hostname && pwd
 
-                        source /home/jmfinney/spack/share/spack/setup-env.sh
+                        source /opt/spack/share/spack/setup-env.sh
                         spack load gcc
+                        spack load cuda
                         spack load intel-mkl
                         spack load intel-mpi
 
@@ -153,17 +109,6 @@ END
                 post {
                     always {
                         junit '*/*.xml'
-                    }
-                    success {
-                        slackSend channel: '#slate_ci',
-                            color: 'good',
-                            message: "SLATE Non-GPU test - pipeline ${currentBuild.fullDisplayName} completed successfully."
-                    }
-                    unsuccessful {
-                        // notify users when the Pipeline fails
-                        mail to: 'slate-dev@cl.utk.edu',
-                        subject: "Failed Pipeline: ${currentBuild.fullDisplayName}",
-                        body: "Something is wrong with ${env.BUILD_URL}"
                     }
                 }
             }
@@ -182,7 +127,6 @@ END
                         spack load intel-mkl
                         spack load openmpi^gcc@6.4.0
                         
-                        export FI_PROVIDER=tcp
                         cd test
                         ./run_tests.py --xml report_integration.xml
                         '''
@@ -190,17 +134,6 @@ END
                 post {
                     always {
                         junit 'test/*.xml'
-                    }
-                    success {
-                        slackSend channel: '#slate_ci',
-                            color: 'good',
-                            message: "SLATE Nvidia Test - pipeline ${currentBuild.fullDisplayName} completed successfully."
-                    }
-                    unsuccessful {
-                        // notify users when the Pipeline fails
-                        mail to: 'slate-dev@cl.utk.edu',
-                        subject: "Failed Pipeline: ${currentBuild.fullDisplayName}",
-                        body: "Something is wrong with ${env.BUILD_URL}"
                     }
                 }
             }

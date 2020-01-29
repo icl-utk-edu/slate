@@ -92,6 +92,24 @@ END
 
                                 export OMPI_CXX=${CXX}
 
+                                cd libtest
+                                make config CXX=mpicxx
+                                # disable color output so JUnit recognizes the XML even if there's an error
+                                sed -i '/CXXFLAGS/s/$/ -DNO_COLOR/' make.inc
+                                make
+
+                                cd ..
+                                cd blaspp
+                                make config CXX=mpicxx
+                                make -j4
+
+                                cd ..
+                                cd lapackpp
+                                make config CXX=mpicxx
+                                make -j4
+
+                                cd ..
+
                                 make -j4
                                 '''
                         }
@@ -164,6 +182,7 @@ END
                         spack load intel-mkl
                         spack load openmpi^gcc@6.4.0
                         
+                        export FI_PROVIDER=tcp
                         cd test
                         ./run_tests.py --xml report_integration.xml
                         '''

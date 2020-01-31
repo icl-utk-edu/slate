@@ -3676,6 +3676,30 @@ inline int64_t indexGlobal2Local(int64_t i, int64_t nb, int num_ranks)
     return nb*(i/(nb*num_ranks)) + (i % nb);
 }
 
+//------------------------------------------------------------------------------
+// from ScaLAPACK's numroc 
+inline int64_t numberLocalRoworCol(int64_t n, int64_t nb, int iproc, int isrcproc, int nprocs)
+{
+    int64_t numroc;
+    // Figure PROC's distance from source process
+    int mydist = (nprocs+iproc-isrcproc) % nprocs;
+    // Figure the total number of whole NB blocks N is split up into
+    int nblocks = (int)(n / nb);
+    // Figure the minimum number of rows/cols a process can have
+    numroc = (int64_t)(nblocks/nprocs) * nb;
+    // See if there are any extra blocks
+    int extrablks = nblocks % nprocs;
+    // If I have an extra block
+    if( mydist < extrablks ){
+        numroc = numroc + nb;
+    }
+    // If I have last block, it may be a partial block
+    else if( mydist == extrablks ){
+        numroc = numroc + n % nb;
+    }
+    return numroc;
+}
+
 } // namespace slate
 
 #endif // SLATE_BASE_MATRIX_HH

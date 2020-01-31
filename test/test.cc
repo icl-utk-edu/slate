@@ -172,6 +172,7 @@ std::vector< testsweeper::routines_t > routines = {
     { "he2hb",              test_he2hb,        Section::heev },
   //{ "hb2st",              test_hb2st,        Section::heev },
     { "sterf",              test_sterf,        Section::heev },
+    { "steqr2",             test_steqr2,       Section::heev },
     { "",                   nullptr,           Section::newline },
 
     // -----

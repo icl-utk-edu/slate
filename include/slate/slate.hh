@@ -818,6 +818,13 @@ template <typename scalar_t>
 void bdsqr(std::vector< blas::real_type<scalar_t> >& D,
            std::vector< blas::real_type<scalar_t> >& E,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
+//template <typename scalar_t>
+//void bdsqr(lapack::Job jobu, lapack::Job jobvt,
+//           std::vector< blas::real_type<scalar_t> >& D,
+//           std::vector< blas::real_type<scalar_t> >& E,
+//           Matrix<scalar_t>& U,
+//           Matrix<scalar_t>& VT,
+//           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //------------------------------------------------------------------------------
 // symmetric/Hermitian eigenvalue decomposition
@@ -865,6 +872,15 @@ template <typename scalar_t>
 void sterf(std::vector< scalar_t >& D,
            std::vector< scalar_t >& E,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// steqr2()
+template <typename scalar_t>
+void steqr2(lapack::Job job,
+            std::vector< blas::real_type<scalar_t> >& D,
+            std::vector< blas::real_type<scalar_t> >& E,
+            Matrix<scalar_t>& Z,
+            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 } // namespace slate
 

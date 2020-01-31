@@ -463,6 +463,7 @@ if (opts.syev):
     [ 'he2hb', gen_no_nb + ' --nb 50' + dtype + n ],
     # sterf doesn't take origin, target, nb, uplo
     [ 'sterf', p + q + check + ref + tol + repeat + dtype + n ],
+    [ 'steqr2', p + q + check + ref + tol + repeat + dtype + n ],
     # todo: hb2st
 
     # Banded

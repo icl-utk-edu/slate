@@ -62,9 +62,6 @@ inline void slate_steqr2(
     blas_int* info)
 {
     char compz_ = job_comp2char( compz ); 
-    if (compz_ == 'v' || compz_ == 'V') {
-        compz_ = 'I';
-    }
     ssteqr2(&compz_, n, 
             d, e, 
             z, ldz, nr, 

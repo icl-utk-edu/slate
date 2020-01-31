@@ -84,7 +84,7 @@ void steqr2(slate::internal::TargetType<target>,
 
     int wantz = 0;
     char jobz_ = job_comp2char( jobz );
-    if (jobz_ == 'v' || jobz_ == 'V') {
+    if (jobz_ == 'v' || jobz_ == 'V' || jobz_ == 'I') {
         wantz = 1;
     }
 
@@ -98,9 +98,8 @@ void steqr2(slate::internal::TargetType<target>,
     npcol_1d  = 1;
 
     // Compute the local number of the eigenvectors.
-    ldc = 0;
-    nrc = numberLocalRoworCol(n, nb, myrow_1d, izero, nprocs_1d);
-    ldc = max( 1, nrc );
+    ldc = 1;
+    nrc = 0;
 
     std::vector< blas::real_type<scalar_t> > work(max( 1, 2*n-2 ));
     //std::vector<scalar_t> Q(nrc*n);
@@ -109,6 +108,8 @@ void steqr2(slate::internal::TargetType<target>,
     // Build the matrix Z using 1-dim grid.
     slate::Matrix<scalar_t> Z1d; 
     if (wantz){
+        nrc = numberLocalRoworCol(n, nb, myrow_1d, izero, nprocs_1d);
+        ldc = max( 1, nrc );
         Q.resize(nrc*n);
         Z1d = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &Q[0], nrc, nb, nprow_1d, npcol_1d, MPI_COMM_WORLD);
         set(zero, one, Z1d);

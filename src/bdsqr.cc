@@ -78,6 +78,7 @@ void bdsqr(slate::internal::TargetType<target>,
     int64_t m = U.m();
     int64_t n = VT.n();
     int64_t min_mn = std::min(m, n);
+    assert(m >= n);
 
     int64_t nb = U.tileNb(0);
     int64_t mb = U.tileMb(0);
@@ -108,10 +109,10 @@ void bdsqr(slate::internal::TargetType<target>,
     int wantu = 0, wantvt = 0;
     char jobu_  = job_compu2char( jobu );
     char jobvt_ = job_compu2char( jobvt );
-    if (jobu_ == 'V' || jobu_ == 'S') {
+    if (jobu_ == 'V' || jobu_ == 'S' || jobu_ == 'I') {
         wantu = 1;
     }
-    if (jobvt_ == 'V' || jobvt_ == 'S') {
+    if (jobvt_ == 'V' || jobvt_ == 'S' || jobvt_ == 'I') {
         wantvt = 1;
     }
 

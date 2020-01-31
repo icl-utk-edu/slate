@@ -81,8 +81,15 @@ void test_bdsqr_work(
     slate::Matrix<scalar_t> U;
     slate::Matrix<scalar_t> VT;
 
+    int wantu = 0, wantvt = 0;
     char jobu_  = job_compu2char( jobu );
     char jobvt_ = job_compu2char( jobvt );
+    if (jobu_ == 'V' || jobu_ == 'S' || jobu_ == 'I') {
+        wantu = 1;
+    }
+    if (jobvt_ == 'V' || jobvt_ == 'S' || jobvt_ == 'I') {
+        wantvt = 1;
+    }
 
     //if (jobu_ == 'V') {
         U = slate::Matrix<scalar_t>(m, min_mn, nb, nprow, npcol, MPI_COMM_WORLD);
@@ -173,7 +180,7 @@ void test_bdsqr_work(
         //==================================================
         params.ortho_U() = 0.;
         params.ortho_V() = 0.;
-        if (jobu_ == 'V') {
+        if (wantu) {
             slate::Matrix<scalar_t> Id;
             Id = slate::Matrix<scalar_t>(min_mn, min_mn, nb, nprow, npcol, MPI_COMM_WORLD);
             Id.insertLocalTiles();
@@ -185,7 +192,7 @@ void test_bdsqr_work(
             params.ortho_U()  = slate::norm(slate::Norm::Fro, Id) / std::sqrt(m);
         }
         // If we flip the fat matrix, then no need for Id_nn
-        if (jobu_ == 'V') {
+        if (wantvt) {
             slate::Matrix<scalar_t> Id_nn;
             Id_nn = slate::Matrix<scalar_t>(n, n, nb, nprow, npcol, MPI_COMM_WORLD);
             Id_nn.insertLocalTiles();

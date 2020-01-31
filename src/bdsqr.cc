@@ -73,7 +73,6 @@ void bdsqr(slate::internal::TargetType<target>,
 {
     trace::Block trace_block("slate::bdsqr");
 
-
     using blas::max;
 
     int64_t m = U.m();
@@ -88,15 +87,15 @@ void bdsqr(slate::internal::TargetType<target>,
 
     scalar_t zero = 0.0, one = 1.0;
 
-
+    // Find the total number of processors.
     slate_mpi_call(
         MPI_Comm_size(U.mpiComm(), &mpi_size));
 
+    // The 1-dim grid conf.
     int nprowc_1d = mpi_size, npcolc_1d = 1, myrowc_1d, mycolc_1d, nprocs_1d = mpi_size;
     int nprowr_1d = 1, npcolr_1d = mpi_size, myrowr_1d, mycolr_1d, nprocr_1d = mpi_size;
     int izero = 0;
 
-    // Set local dimensions of matrices (this is for MB=NB=1).
     int64_t nru  = 0;
     int64_t ncvt = 0;
  
@@ -106,13 +105,21 @@ void bdsqr(slate::internal::TargetType<target>,
     std::vector<scalar_t> vt1d(1);
     scalar_t dummy[1];
 
+    int wantu = 0, wantvt = 0;
     char jobu_  = job_compu2char( jobu );
     char jobvt_ = job_compu2char( jobvt );
+    if (jobu_ == 'V' || jobu_ == 'S') {
+        wantu = 1;
+    }
+    if (jobvt_ == 'V' || jobvt_ == 'S') {
+        wantvt = 1;
+    }
 
+    // Compute the local number of the eigenvectors.
     // Build the 1-dim distributed U and VT
     slate::Matrix<scalar_t> U1d;
     slate::Matrix<scalar_t> VT1d;
-    if (jobu_ == 'V' || jobu_ == 'S') {
+    if (wantu) {
         nru  = numberLocalRoworCol(m, mb, myrowc_1d, izero, nprocs_1d);
         ldu = max( 1, nru );
         u1d.resize(ldu*min_mn);
@@ -120,7 +127,7 @@ void bdsqr(slate::internal::TargetType<target>,
         set(zero, one, U1d);
 
     }
-    if (jobvt_ == 'V' || jobvt_ == 'S') {
+    if (wantvt) {
         ncvt = numberLocalRoworCol(n, nb, mycolr_1d, izero, nprocs_1d);
         ldvt = max( 1, min_mn );
         vt1d.resize(ldvt*ncvt);
@@ -133,10 +140,10 @@ void bdsqr(slate::internal::TargetType<target>,
                   &D[0], &E[0], &vt1d[0], min_mn, &u1d[0], ldu, dummy, 1);
     
     // Redistribute the 1-dim distributed U and VT into 2-dim matrices
-    if (jobu_ == 'V') {
+    if (wantu) {
         U.redistribute(U1d);
     }
-    if (jobvt_ == 'V') {
+    if (wantvt) {
         VT.redistribute(VT1d);
     }
 }

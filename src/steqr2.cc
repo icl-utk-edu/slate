@@ -97,17 +97,15 @@ void steqr2(slate::internal::TargetType<target>,
     nprow_1d  = mpi_size;
     npcol_1d  = 1;
 
-    // Compute the local number of the eigenvectors.
     ldc = 1;
     nrc = 0;
-
-    std::vector< blas::real_type<scalar_t> > work(max( 1, 2*n-2 ));
-    //std::vector<scalar_t> Q(nrc*n);
     std::vector<scalar_t> Q(1);
+    std::vector< blas::real_type<scalar_t> > work(max( 1, 2*n-2 ));
 
+    // Compute the local number of the eigenvectors.
     // Build the matrix Z using 1-dim grid.
     slate::Matrix<scalar_t> Z1d; 
-    if (wantz){
+    if (wantz) {
         nrc = numberLocalRoworCol(n, nb, myrow_1d, izero, nprocs_1d);
         ldc = max( 1, nrc );
         Q.resize(nrc*n);
@@ -119,7 +117,7 @@ void steqr2(slate::internal::TargetType<target>,
     slate_steqr2( jobz, n, &D[0], &E[0], &Q[0], ldc, nrc, &work[0], &info);
 
     // Redstribute the 1-dim eigenvector matrix into 2-dim matrix.
-    if (wantz){
+    if (wantz) {
         Z.redistribute(Z1d);
     }
 }

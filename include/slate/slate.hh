@@ -814,17 +814,17 @@ void tb2bd(TriangularBandMatrix<scalar_t>& A,
 
 //-----------------------------------------
 // Bi-diagonal SVD
-template <typename scalar_t>
-void bdsqr(std::vector< blas::real_type<scalar_t> >& D,
-           std::vector< blas::real_type<scalar_t> >& E,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
 //template <typename scalar_t>
-//void bdsqr(lapack::Job jobu, lapack::Job jobvt,
-//           std::vector< blas::real_type<scalar_t> >& D,
+//void bdsqr(std::vector< blas::real_type<scalar_t> >& D,
 //           std::vector< blas::real_type<scalar_t> >& E,
-//           Matrix<scalar_t>& U,
-//           Matrix<scalar_t>& VT,
 //           const std::map<Option, Value>& opts = std::map<Option, Value>());
+template <typename scalar_t>
+void bdsqr(lapack::Job jobu, lapack::Job jobvt,
+           std::vector< blas::real_type<scalar_t> >& D,
+           std::vector< blas::real_type<scalar_t> >& E,
+           Matrix<scalar_t>& U,
+           Matrix<scalar_t>& VT,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //------------------------------------------------------------------------------
 // symmetric/Hermitian eigenvalue decomposition

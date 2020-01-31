@@ -65,17 +65,79 @@ namespace specialization {
 //
 template <Target target, typename scalar_t>
 void bdsqr(slate::internal::TargetType<target>,
+           lapack::Job jobu, lapack::Job jobvt,
            std::vector< blas::real_type<scalar_t> >& D,
-           std::vector< blas::real_type<scalar_t> >& E)
+           std::vector< blas::real_type<scalar_t> >& E,
+           Matrix<scalar_t>& U,
+           Matrix<scalar_t>& VT)
 {
     trace::Block trace_block("slate::bdsqr");
 
 
-    scalar_t dummy[1];  // U, VT, C not needed for NoVec
-    {
-        trace::Block trace_block("lapack::bdsqr");
-        lapack::bdsqr(Uplo::Upper, D.size(), 0, 0, 0,
-                      &D[0], &E[0], dummy, 1, dummy, 1, dummy, 1);
+    using blas::max;
+
+    int64_t m = U.m();
+    int64_t n = VT.n();
+    int64_t min_mn = std::min(m, n);
+
+    int64_t nb = U.tileNb(0);
+    int64_t mb = U.tileMb(0);
+    
+    int mpi_size;
+    int64_t info = 0;
+
+    scalar_t zero = 0.0, one = 1.0;
+
+
+    slate_mpi_call(
+        MPI_Comm_size(U.mpiComm(), &mpi_size));
+
+    int nprowc_1d = mpi_size, npcolc_1d = 1, myrowc_1d, mycolc_1d, nprocs_1d = mpi_size;
+    int nprowr_1d = 1, npcolr_1d = mpi_size, myrowr_1d, mycolr_1d, nprocr_1d = mpi_size;
+    int izero = 0;
+
+    // Set local dimensions of matrices (this is for MB=NB=1).
+    int64_t nru  = 0;
+    int64_t ncvt = 0;
+ 
+    int64_t ldu = 1;
+    int64_t ldvt = 1;
+    std::vector<scalar_t> u1d(1);
+    std::vector<scalar_t> vt1d(1);
+    scalar_t dummy[1];
+
+    char jobu_  = job_compu2char( jobu );
+    char jobvt_ = job_compu2char( jobvt );
+
+    // Build the 1-dim distributed U and VT
+    slate::Matrix<scalar_t> U1d;
+    slate::Matrix<scalar_t> VT1d;
+    if (jobu_ == 'V' || jobu_ == 'S') {
+        nru  = numberLocalRoworCol(m, mb, myrowc_1d, izero, nprocs_1d);
+        ldu = max( 1, nru );
+        u1d.resize(ldu*min_mn);
+        U1d = slate::Matrix<scalar_t>::fromScaLAPACK(m, min_mn, &u1d[0], ldu, nb, nprowc_1d, npcolc_1d, MPI_COMM_WORLD);
+        set(zero, one, U1d);
+
+    }
+    if (jobvt_ == 'V' || jobvt_ == 'S') {
+        ncvt = numberLocalRoworCol(n, nb, mycolr_1d, izero, nprocs_1d);
+        ldvt = max( 1, min_mn );
+        vt1d.resize(ldvt*ncvt);
+        VT1d = slate::Matrix<scalar_t>::fromScaLAPACK(min_mn, n, &vt1d[0], ldvt, nb, nprowr_1d, npcolr_1d, MPI_COMM_WORLD);
+        set(zero, one, VT1d);
+    }
+
+    // Call the SVD
+    lapack::bdsqr(Uplo::Upper, min_mn, ncvt, nru, 0,
+                  &D[0], &E[0], &vt1d[0], min_mn, &u1d[0], ldu, dummy, 1);
+    
+    // Redistribute the 1-dim distributed U and VT into 2-dim matrices
+    if (jobu_ == 'V') {
+        U.redistribute(U1d);
+    }
+    if (jobvt_ == 'V') {
+        VT.redistribute(VT1d);
     }
 }
 
@@ -87,19 +149,25 @@ void bdsqr(slate::internal::TargetType<target>,
 /// @ingroup bdsqr_specialization
 ///
 template <Target target, typename scalar_t>
-void bdsqr(std::vector< blas::real_type<scalar_t> >& D,
+void bdsqr(lapack::Job jobu, lapack::Job jobvt,
+           std::vector< blas::real_type<scalar_t> >& D,
            std::vector< blas::real_type<scalar_t> >& E,
+           Matrix<scalar_t>& U,
+           Matrix<scalar_t>& VT,
            const std::map<Option, Value>& opts)
 {
     internal::specialization::bdsqr<target, scalar_t>(internal::TargetType<target>(),
-                                    D, E);
+                                    jobu, jobvt, D, E, U, VT);
 }
 
 //------------------------------------------------------------------------------
 ///
 template <typename scalar_t>
-void bdsqr(std::vector< blas::real_type<scalar_t> >& D,
+void bdsqr(lapack::Job jobu, lapack::Job jobvt,
+           std::vector< blas::real_type<scalar_t> >& D,
            std::vector< blas::real_type<scalar_t> >& E,
+           Matrix<scalar_t>& U,
+           Matrix<scalar_t>& VT,
            const std::map<Option, Value>& opts)
 {
     Target target;
@@ -113,16 +181,16 @@ void bdsqr(std::vector< blas::real_type<scalar_t> >& D,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            bdsqr<Target::HostTask, scalar_t>(D, E, opts);
+            bdsqr<Target::HostTask, scalar_t>(jobu, jobvt, D, E, U, VT, opts);
             break;
         case Target::HostNest:
-            bdsqr<Target::HostNest, scalar_t>(D, E, opts);
+            bdsqr<Target::HostNest, scalar_t>(jobu, jobvt, D, E, U, VT, opts);
             break;
         case Target::HostBatch:
-            bdsqr<Target::HostBatch, scalar_t>(D, E, opts);
+            bdsqr<Target::HostBatch, scalar_t>(jobu, jobvt, D, E, U, VT, opts);
             break;
         case Target::Devices:
-            bdsqr<Target::Devices, scalar_t>(D, E, opts);
+            bdsqr<Target::Devices, scalar_t>(jobu, jobvt, D, E, U, VT, opts);
             break;
     }
     // todo: return value for errors?
@@ -132,26 +200,42 @@ void bdsqr(std::vector< blas::real_type<scalar_t> >& D,
 // Explicit instantiations.
 template
 void bdsqr<float>(
+    lapack::Job jobu,
+    lapack::Job jobvt,
     std::vector<float>& D,
     std::vector<float>& E,
+    Matrix<float>& U,
+    Matrix<float>& VT,
     const std::map<Option, Value>& opts);
 
 template
 void bdsqr<double>(
+    lapack::Job jobu,
+    lapack::Job jobvt,
     std::vector<double>& D,
     std::vector<double>& E,
+    Matrix<double>& U,
+    Matrix<double>& VT,
     const std::map<Option, Value>& opts);
 
 template
 void bdsqr< std::complex<float> >(
+    lapack::Job jobu,
+    lapack::Job jobvt,
     std::vector<float>& D,
     std::vector<float>& E,
+    Matrix< std::complex<float> >& U,
+    Matrix< std::complex<float> >& VT,
     const std::map<Option, Value>& opts);
 
 template
 void bdsqr< std::complex<double> >(
+    lapack::Job jobu,
+    lapack::Job jobvt,
     std::vector<double>& D,
     std::vector<double>& E,
+    Matrix< std::complex<double> >& U,
+    Matrix< std::complex<double> >& VT,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

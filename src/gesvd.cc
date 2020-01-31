@@ -124,7 +124,7 @@ void gesvd(Matrix<scalar_t> A,
 
         // 3. Bi-diagonal SVD solver.
         // QR iteration
-        bdsqr<scalar_t>(S, E, opts);
+        //bdsqr<scalar_t>(S, E, opts);
     }
 
     // If matrix was scaled, then rescale singular values appropriately.

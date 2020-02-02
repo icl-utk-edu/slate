@@ -189,7 +189,7 @@ void test_bdsqr_work(
             const scalar_t minusone = -1;
             auto UT = conj_transpose(U);
             slate::gemm(one, UT, U, minusone, Id);
-            params.ortho_U()  = slate::norm(slate::Norm::Fro, Id) / std::sqrt(m);
+            params.ortho_U()  = slate::norm(slate::Norm::Fro, Id) / m;
         }
         // If we flip the fat matrix, then no need for Id_nn
         if (wantvt) {
@@ -199,7 +199,7 @@ void test_bdsqr_work(
             set( zero, one, Id_nn);
             auto VTT = conj_transpose(VT);
             slate::gemm(one, VTT, VT, minusone, Id_nn);
-            params.ortho_V()  = slate::norm(slate::Norm::Fro, Id_nn) / std::sqrt(n);
+            params.ortho_V()  = slate::norm(slate::Norm::Fro, Id_nn) / n;
         }
         params.okay() = ( (params.error() <= tol) && (params.ortho_U() <= tol) 
                           && (params.ortho_V() <= tol));

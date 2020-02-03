@@ -59,6 +59,8 @@ typedef blas::Layout Layout;
 typedef lapack::Norm Norm;
 typedef lapack::Direct Direction;  // todo change LAPACK++
 
+typedef lapack::Job Job;
+
 //------------------------------------------------------------------------------
 /// Location and method of computation.
 /// @ingroup enum

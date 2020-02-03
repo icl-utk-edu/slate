@@ -19,33 +19,33 @@ inline int int64_to_int(int64_t n)
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-#define ssteqr2 BLAS_FORTRAN_NAME( ssteqr2, SSTEQR2 )
-#define dsteqr2 BLAS_FORTRAN_NAME( dsteqr2, DSTEQR2 )
-#define csteqr2 BLAS_FORTRAN_NAME( csteqr2, CSTEQR2 )
-#define zsteqr2 BLAS_FORTRAN_NAME( zsteqr2, ZSTEQR2 )
+#define slate_ssteqr2 BLAS_FORTRAN_NAME( slate_ssteqr2, SLATE_SSTEQR2 )
+#define slate_dsteqr2 BLAS_FORTRAN_NAME( slate_dsteqr2, SLATE_DSTEQR2 )
+#define slate_csteqr2 BLAS_FORTRAN_NAME( slate_csteqr2, SLATE_CSTEQR2 )
+#define slate_zsteqr2 BLAS_FORTRAN_NAME( slate_zsteqr2, SLATE_ZSTEQR2 )
 
-extern "C" void ssteqr2(
+extern "C" void slate_ssteqr2(
     const char* compz, const blas_int* n, 
     float* d, float* e, 
     float* z, const blas_int* ldz, const blas_int* nr, 
     float* work, 
     blas_int* info);
 
-extern "C" void dsteqr2(
+extern "C" void slate_dsteqr2(
     const char* compz, const blas_int* n, 
     double* d, double* e, 
     double* z, const blas_int* ldz, const blas_int* nr, 
     double* work, 
     blas_int* info);
 
-extern "C" void csteqr2(
+extern "C" void slate_csteqr2(
     const char* compz, const blas_int* n, 
     float* d, float* e, 
     std::complex<float>* z, const blas_int* ldz, const blas_int* nr, 
     float* work, 
     blas_int* info);
 
-extern "C" void zsteqr2(
+extern "C" void slate_zsteqr2(
     const char* compz, const blas_int* n, 
     double* d, double* e, 
     std::complex<double>* z, const blas_int* ldz, const blas_int* nr, 
@@ -62,7 +62,7 @@ inline void slate_steqr2(
     blas_int* info)
 {
     char compz_ = job_comp2char( compz ); 
-    ssteqr2(&compz_, n, 
+    slate_ssteqr2(&compz_, n, 
             d, e, 
             z, ldz, nr, 
             work, info);
@@ -76,7 +76,7 @@ inline void slate_steqr2(
     blas_int* info)
 {
     char compz_ = job_comp2char( compz ); 
-    dsteqr2(&compz_, n, 
+    slate_dsteqr2(&compz_, n, 
             d, e, 
             z, ldz, nr, 
             work, info);
@@ -90,7 +90,7 @@ inline void slate_steqr2(
     blas_int* info)
 {
     char compz_ = job_comp2char( compz ); 
-    csteqr2(&compz_, n, 
+    slate_csteqr2(&compz_, n, 
             d, e, 
             z, ldz, nr, 
             work, info);
@@ -104,7 +104,7 @@ inline void slate_steqr2(
     blas_int* info)
 {
     char compz_ = job_comp2char( compz ); 
-    zsteqr2(&compz_, n, 
+    slate_zsteqr2(&compz_, n, 
             d, e, 
             z, ldz, nr, 
             work, info);
@@ -131,5 +131,3 @@ inline void slate_steqr2(
                      &info_);
     *info = (int64_t)info_;
 }
-
-

@@ -62,7 +62,7 @@ namespace specialization {
 //
 template <Target target, typename scalar_t>
 void steqr2(slate::internal::TargetType<target>,
-           lapack::Job jobz,
+           Job jobz,
            std::vector< blas::real_type<scalar_t> >& D,
            std::vector< blas::real_type<scalar_t> >& E,
            Matrix<scalar_t>& Z)
@@ -82,11 +82,7 @@ void steqr2(slate::internal::TargetType<target>,
     int izero = 0;
     scalar_t zero = 0.0, one = 1.0;
 
-    int wantz = 0;
-    char jobz_ = job_comp2char( jobz );
-    if (jobz_ == 'v' || jobz_ == 'V' || jobz_ == 'I') {
-        wantz = 1;
-    }
+    bool wantz = (jobz == Job::Vec);
 
     // Find the total number of processors.
     slate_mpi_call(
@@ -175,7 +171,7 @@ void steqr2(lapack::Job job,
 // Explicit instantiations.
 template
 void steqr2<float>(
-    lapack::Job job,
+    Job job,
     std::vector<float>& D,
     std::vector<float>& E,
     Matrix<float>& Z,
@@ -183,7 +179,7 @@ void steqr2<float>(
 
 template
 void steqr2<double>(
-    lapack::Job job,
+    Job job,
     std::vector<double>& D,
     std::vector<double>& E,
     Matrix<double>& Z,
@@ -191,7 +187,7 @@ void steqr2<double>(
 
 template
 void steqr2< std::complex<float> >(
-    lapack::Job job,
+    Job job,
     std::vector<float>& D,
     std::vector<float>& E,
     Matrix< std::complex<float> >& Z,
@@ -199,7 +195,7 @@ void steqr2< std::complex<float> >(
 
 template
 void steqr2< std::complex<double> >(
-    lapack::Job job,
+    Job job,
     std::vector<double>& D,
     std::vector<double>& E,
     Matrix< std::complex<double> >& Z,

@@ -1,4 +1,4 @@
-      SUBROUTINE DSTEQR2( COMPZ, N, D, E, Z, LDZ, NR, WORK, INFO )
+      SUBROUTINE SLATE_DSTEQR2( COMPZ, N, D, E, Z, LDZ, NR, WORK, INFO )
 *
 *  -- LAPACK routine (version 2.0) --
 *     Univ. of Tennessee, Univ. of California Berkeley, NAG Ltd.,

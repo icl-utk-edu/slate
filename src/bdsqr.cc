@@ -65,7 +65,7 @@ namespace specialization {
 //
 template <Target target, typename scalar_t>
 void bdsqr(slate::internal::TargetType<target>,
-           lapack::Job jobu, lapack::Job jobvt,
+           Job jobu, lapack::Job jobvt,
            std::vector< blas::real_type<scalar_t> >& D,
            std::vector< blas::real_type<scalar_t> >& E,
            Matrix<scalar_t>& U,
@@ -106,15 +106,8 @@ void bdsqr(slate::internal::TargetType<target>,
     std::vector<scalar_t> vt1d(1);
     scalar_t dummy[1];
 
-    int wantu = 0, wantvt = 0;
-    char jobu_  = job_compu2char( jobu );
-    char jobvt_ = job_compu2char( jobvt );
-    if (jobu_ == 'V' || jobu_ == 'S' || jobu_ == 'I') {
-        wantu = 1;
-    }
-    if (jobvt_ == 'V' || jobvt_ == 'S' || jobvt_ == 'I') {
-        wantvt = 1;
-    }
+    bool wantu  = (jobu  == Job::Vec || jobu  == Job::AllVec || jobu  == Job::SomeVec );
+    bool wantvt = (jobvt == Job::Vec || jobvt == Job::AllVec || jobvt == Job::SomeVec );
 
     // Compute the local number of the eigenvectors.
     // Build the 1-dim distributed U and VT

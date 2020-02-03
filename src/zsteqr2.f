@@ -1,4 +1,4 @@
-      SUBROUTINE ZSTEQR2( COMPZ, N, D, E, Z, LDZ, NR, WORK, INFO )
+      SUBROUTINE SLATE_ZSTEQR2( COMPZ, N, D, E, Z, LDZ, NR, WORK, INFO )
 *
 *  -- ScaLAPACK routine (version 1.7) --
 *     Univ. of Tennessee, Univ. of California Berkeley, NAG Ltd.,

@@ -207,7 +207,7 @@ void test_he2hb_work(Params& params, bool run)
         // slate::unmqr(slate::Side::Left, slate::Op::NoTrans, Asub, Tsub, Bsub,
         //              {{slate::Option::Target, target}});
 
-        slate::unmtr_he2hb(slate::Side::Left, slate::Uplo::Lower,
+        slate::unmtr_he2hb(slate::Side::Left, uplo,
                            slate::Op::NoTrans, A, T, B,
                            {{slate::Option::Target, target}});
         if (verbose > 1) {
@@ -219,7 +219,7 @@ void test_he2hb_work(Params& params, bool run)
         // slate::unmqr(slate::Side::Right, slate::Op::ConjTrans, Asub, Tsub, Bsub,
         //              {{slate::Option::Target, target}});
 
-        slate::unmtr_he2hb(slate::Side::Right, slate::Uplo::Lower,
+        slate::unmtr_he2hb(slate::Side::Right, uplo,
                            slate::Op::ConjTrans, A, T, B,
                            {{slate::Option::Target, target}});
         if (verbose > 1) {

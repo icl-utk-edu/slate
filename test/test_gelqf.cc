@@ -19,7 +19,7 @@ void test_gelqf_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
-    using llong = long long;
+    // using llong = long long;
 
     // get & mark input values
     int64_t m = params.dim.m();

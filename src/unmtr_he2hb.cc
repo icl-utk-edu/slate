@@ -50,15 +50,8 @@ namespace slate {
 /// Distributed parallel reduction to band for 3-stage SVD.
 ///
 /// Reduces an n-by-n Hermitian matrix $A$ to band form using unitary
-/// transformations. The factorization has the form
-///
-/// op              |  side = Left  |  side = Right
-/// --------------- | ------------- | --------------
-/// op = NoTrans    |  $Q C  $      |  $C Q  $
-/// op = ConjTrans  |  $Q^H C$      |  $C Q^H$
-///
-/// where $Q$ is unitary and $C$ is Hermitian band
-/// with nb sub and superdiagonals.
+/// transformations using slate::unmlq or slate::unmqr with the right
+/// matrix-subs.
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t

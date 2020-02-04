@@ -826,7 +826,7 @@ void bdsqr(std::vector< blas::real_type<scalar_t> >& D,
 template <typename scalar_t>
 void heev( HermitianMatrix<scalar_t>& A,
            std::vector< blas::real_type<scalar_t> >& W,
-           const std::map<Option, Value>& opts);
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
 // forward real-symmetric matrices to heev;

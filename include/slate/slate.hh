@@ -854,6 +854,26 @@ void he2hb(HermitianMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
+// unmtr_he2hb()
+template <typename scalar_t>
+void unmtr_he2hb(
+    Side side, Uplo uplo, Op op,
+    HermitianMatrix< scalar_t > A,
+    TriangularFactors< scalar_t > T,
+    Matrix< scalar_t >& C,
+    const std::map< Option, Value >& opts = std::map< Option, Value >()
+);
+
+template <Target target, typename scalar_t>
+void unmtr_he2hb(
+    Side side, Uplo uplo, Op op,
+    HermitianMatrix< scalar_t > A,
+    TriangularFactors< scalar_t > T,
+    Matrix< scalar_t >& C,
+    const std::map< Option, Value >& opts = std::map< Option, Value >()
+);
+
+//-----------------------------------------
 // hb2st()
 template <typename scalar_t>
 void hb2st(HermitianBandMatrix<scalar_t>& A,

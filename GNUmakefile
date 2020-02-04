@@ -355,6 +355,7 @@ libslate_src += \
         src/getrs.cc \
         src/hb2st.cc \
         src/he2hb.cc \
+        src/unmtr_he2hb.cc \
         src/heev.cc \
         src/hemm.cc \
         src/hbmm.cc \

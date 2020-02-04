@@ -198,22 +198,30 @@ void test_he2hb_work(Params& params, bool run)
         }
 
         // Form QB, where Q's representation is in lower part of A and T.
-        auto Asub = slate::Matrix<scalar_t>( A, 1, nt-1, 0, nt-1 );
-        auto Bsub = B.sub(1, nt-1, 0, nt-1);
-        slate::TriangularFactors<scalar_t> Tsub = {
-            T[0].sub(1, nt-1, 0, nt-1),
-            T[1].sub(1, nt-1, 0, nt-1)
-        };
-        slate::unmqr(slate::Side::Left, slate::Op::NoTrans, Asub, Tsub, Bsub,
-                     {{slate::Option::Target, target}});
+        // auto Asub = slate::Matrix<scalar_t>( A, 1, nt-1, 0, nt-1 );
+        // auto Bsub = B.sub(1, nt-1, 0, nt-1);
+        // slate::TriangularFactors<scalar_t> Tsub = {
+        //     T[0].sub(1, nt-1, 0, nt-1),
+        //     T[1].sub(1, nt-1, 0, nt-1)
+        // };
+        // slate::unmqr(slate::Side::Left, slate::Op::NoTrans, Asub, Tsub, Bsub,
+        //              {{slate::Option::Target, target}});
+
+        slate::unmtr_he2hb(slate::Side::Left, slate::Uplo::Lower,
+                           slate::Op::NoTrans, A, T, B,
+                           {{slate::Option::Target, target}});
         if (verbose > 1) {
             print_matrix("Q^H B", B);
         }
 
         // Form (QB)Q^H
-        Bsub = B.sub(0, nt-1, 1, nt-1);
-        slate::unmqr(slate::Side::Right, slate::Op::ConjTrans, Asub, Tsub, Bsub,
-                     {{slate::Option::Target, target}});
+        // Bsub = B.sub(0, nt-1, 1, nt-1);
+        // slate::unmqr(slate::Side::Right, slate::Op::ConjTrans, Asub, Tsub, Bsub,
+        //              {{slate::Option::Target, target}});
+
+        slate::unmtr_he2hb(slate::Side::Right, slate::Uplo::Lower,
+                           slate::Op::ConjTrans, A, T, B,
+                           {{slate::Option::Target, target}});
         if (verbose > 1) {
             print_matrix("Q^H B Q", B);
         }

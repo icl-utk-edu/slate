@@ -858,18 +858,16 @@ void he2hb(HermitianMatrix<scalar_t>& A,
 template <typename scalar_t>
 void unmtr_he2hb(
     Side side, Uplo uplo, Op op,
-    HermitianMatrix< scalar_t > A,
-    TriangularFactors< scalar_t > T,
-    Matrix< scalar_t >& C,
+    HermitianMatrix< scalar_t >  A, TriangularFactors< scalar_t > T,
+             Matrix< scalar_t >& B,
     const std::map< Option, Value >& opts = std::map< Option, Value >()
 );
 
 template <Target target, typename scalar_t>
 void unmtr_he2hb(
     Side side, Uplo uplo, Op op,
-    HermitianMatrix< scalar_t > A,
-    TriangularFactors< scalar_t > T,
-    Matrix< scalar_t >& C,
+    HermitianMatrix< scalar_t >  A, TriangularFactors< scalar_t > T,
+             Matrix< scalar_t >& B,
     const std::map< Option, Value >& opts = std::map< Option, Value >()
 );
 

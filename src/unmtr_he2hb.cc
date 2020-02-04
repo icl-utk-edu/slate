@@ -88,39 +88,38 @@ namespace slate {
 template < typename scalar_t >
 void unmtr_he2hb(
     Side side, Uplo uplo, Op op,
-    HermitianMatrix< scalar_t > A,
-    TriangularFactors< scalar_t > T,
-    Matrix< scalar_t >& C,
+    HermitianMatrix< scalar_t >  A, TriangularFactors< scalar_t > T,
+             Matrix< scalar_t >& B,
     const std::map< Option, Value >& opts)
 {
-    int64_t C_sub_start_row;
-    int64_t C_sub_start_col;
+    int64_t C_start_row;
+    int64_t C_start_col;
 
     if (op == Op::NoTrans) {
-        C_sub_start_row = 1;
-        C_sub_start_col = 0;
+        C_start_row = 1;
+        C_start_col = 0;
     }
     else if (op == Op::ConjTrans) {
-        C_sub_start_row = 0;
-        C_sub_start_col = 1;
+        C_start_row = 0;
+        C_start_col = 1;
     }
     else {
-        throw std::runtime_error("(op == slate::Op::Trans) cann't be used.");
+        throw std::runtime_error("(op == slate::Op::Trans) can't be used.");
     }
 
-    auto C_sub = Matrix< scalar_t >( C, C_sub_start_row, A.nt()-1,
-                                        C_sub_start_col, A.nt()-1 );
+    auto C = Matrix< scalar_t >( B, C_start_row, A.nt()-1,
+                                    C_start_col, A.nt()-1 );
     slate::TriangularFactors< scalar_t > T_sub = {
         T[ 0 ].sub( 1, A.nt()-1, 0, A.nt()-1 ),
         T[ 1 ].sub( 1, A.nt()-1, 0, A.nt()-1 ) };
 
     if ( uplo == Uplo::Upper ) {
         auto Q = Matrix< scalar_t >( A, 0, A.nt()-1, 1, A.nt()-1 );
-        slate::unmlq( side, op, Q, T_sub, C_sub, opts );
+        slate::unmlq( side, op, Q, T_sub, C, opts );
     }
     else { // uplo == Uplo::Lower
         auto Q = Matrix< scalar_t >( A, 1, A.nt()-1, 0, A.nt()-1 );
-        slate::unmqr( side, op, Q, T_sub, C_sub, opts );
+        slate::unmqr( side, op, Q, T_sub, C, opts );
     }
 
     // todo: return value for errors?
@@ -131,17 +130,15 @@ void unmtr_he2hb(
 template
 void unmtr_he2hb< float >(
     Side side, Uplo uplo, Op op,
-    HermitianMatrix< float > A,
-    TriangularFactors< float > T,
-    Matrix< float >& C,
+    HermitianMatrix< float >  A, TriangularFactors< float > T,
+             Matrix< float >& B,
     const std::map< Option, Value >& opts);
 
 template
 void unmtr_he2hb< double >(
     Side side, Uplo uplo, Op op,
-    HermitianMatrix< double > A,
-    TriangularFactors< double > T,
-    Matrix< double >& C,
+    HermitianMatrix< double >  A, TriangularFactors< double > T,
+             Matrix< double >& B,
     const std::map< Option, Value >& opts);
 
 template
@@ -149,7 +146,7 @@ void unmtr_he2hb< std::complex< float > >(
     Side side, Uplo uplo, Op op,
     HermitianMatrix< std::complex< float > > A,
     TriangularFactors< std::complex< float > > T,
-    Matrix< std::complex< float > >& C,
+    Matrix< std::complex< float > >& B,
     const std::map< Option, Value >& opts);
 
 template
@@ -157,7 +154,7 @@ void unmtr_he2hb< std::complex< double > >(
     Side side, Uplo uplo, Op op,
     HermitianMatrix< std::complex< double > > A,
     TriangularFactors< std::complex< double > > T,
-    Matrix< std::complex< double > >& C,
+    Matrix< std::complex< double > >& B,
     const std::map< Option, Value >& opts);
 
 } // namespace slate

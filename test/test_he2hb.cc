@@ -14,13 +14,63 @@
 int64_t localRowsCols(int64_t n, int64_t nb, int iproc, int mpi_size);
 
 //------------------------------------------------------------------------------
+template < typename scalar_t >
+void he2hbInitMatrixBFromMatrixA(
+    slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t >& B)
+{
+    using blas::conj;
+    // Zero out B, then copy band matrix B from A.
+    // B is stored as a non-symmetric matrix, so we can apply Q from left
+    // and right separately.
+    const int64_t nt = A.nt();
+    const scalar_t zero = 0;
+    set(zero, B);
+    for (int64_t i = 0; i < nt; ++i) {
+        if (B.tileIsLocal(i, i)) {
+            // diagonal tile
+            auto Aii = A(i, i);
+            auto Bii = B(i, i);
+            Aii.uplo(slate::Uplo::Lower);
+            Bii.uplo(slate::Uplo::Lower);
+            tzcopy(Aii, Bii);
+            // Symmetrize the tile.
+            for (int64_t jj = 0; jj < Bii.nb(); ++jj)
+                for (int64_t ii = jj; ii < Bii.mb(); ++ii)
+                    Bii.at(jj, ii) = conj(Bii(ii, jj));
+        }
+        if (i+1 < nt && B.tileIsLocal(i+1, i)) {
+            // sub-diagonal tile
+            auto Ai1i = A(i+1, i);
+            auto Bi1i = B(i+1, i);
+            Ai1i.uplo(slate::Uplo::Upper);
+            Bi1i.uplo(slate::Uplo::Upper);
+            tzcopy(Ai1i, Bi1i);
+            if (! B.tileIsLocal(i, i+1))
+                B.tileSend(i+1, i, B.tileRank(i, i+1));
+        }
+        if (i+1 < nt && B.tileIsLocal(i, i+1)) {
+            if (! B.tileIsLocal(i+1, i)) {
+                // Remote copy-transpose B(i+1, i) => B(i, i+1);
+                // assumes square tiles!
+                B.tileRecv(i, i+1, B.tileRank(i+1, i), slate::Layout::ColMajor);
+                deepConjTranspose(B(i, i+1));
+            }
+            else {
+                // Local copy-transpose B(i+1, i) => B(i, i+1).
+                deepConjTranspose(B(i+1, i), B(i, i+1));
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_he2hb_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
-    using blas::real;
-    using blas::conj;
-    //using llong = long long;
+    // using blas::real;
+    // using blas::conj;
+    // using llong = long long;
 
     // get & mark input values
     slate::Uplo uplo = params.uplo();
@@ -50,7 +100,6 @@ void test_he2hb_work(Params& params, bool run)
     assert(uplo == slate::Uplo::Lower);  // only lower for now.
 
     // Local values
-    const scalar_t zero = 0;
     const scalar_t one = 1;
 
     // MPI variables
@@ -150,49 +199,9 @@ void test_he2hb_work(Params& params, bool run)
         // Norm of original matrix: || A ||_1
         real_t A_norm = slate::norm(slate::Norm::One, A_ref);
 
-        // Zero out B, then copy band matrix B from A.
-        // B is stored as a non-symmetric matrix, so we can apply Q from left
-        // and right separately.
-        int64_t nt = A.nt();
-        slate::Matrix<scalar_t> B(n, n, nb, p, q, MPI_COMM_WORLD);
+        slate::Matrix< scalar_t > B(n, n, nb, p, q, MPI_COMM_WORLD);
         B.insertLocalTiles();
-        set(zero, B);
-        for (int64_t i = 0; i < nt; ++i) {
-            if (B.tileIsLocal(i, i)) {
-                // diagonal tile
-                auto Aii = A(i, i);
-                auto Bii = B(i, i);
-                Aii.uplo(slate::Uplo::Lower);
-                Bii.uplo(slate::Uplo::Lower);
-                tzcopy(Aii, Bii);
-                // Symmetrize the tile.
-                for (int64_t jj = 0; jj < Bii.nb(); ++jj)
-                    for (int64_t ii = jj; ii < Bii.mb(); ++ii)
-                        Bii.at(jj, ii) = conj(Bii(ii, jj));
-            }
-            if (i+1 < nt && B.tileIsLocal(i+1, i)) {
-                // sub-diagonal tile
-                auto Ai1i = A(i+1, i);
-                auto Bi1i = B(i+1, i);
-                Ai1i.uplo(slate::Uplo::Upper);
-                Bi1i.uplo(slate::Uplo::Upper);
-                tzcopy(Ai1i, Bi1i);
-                if (! B.tileIsLocal(i, i+1))
-                    B.tileSend(i+1, i, B.tileRank(i, i+1));
-            }
-            if (i+1 < nt && B.tileIsLocal(i, i+1)) {
-                if (! B.tileIsLocal(i+1, i)) {
-                    // Remote copy-transpose B(i+1, i) => B(i, i+1);
-                    // assumes square tiles!
-                    B.tileRecv(i, i+1, B.tileRank(i+1, i), slate::Layout::ColMajor);
-                    deepConjTranspose(B(i, i+1));
-                }
-                else {
-                    // Local copy-transpose B(i+1, i) => B(i, i+1).
-                    deepConjTranspose(B(i+1, i), B(i, i+1));
-                }
-            }
-        }
+        he2hbInitMatrixBFromMatrixA<scalar_t>(A, B);
         if (verbose > 1) {
             print_matrix("B", B);
         }
@@ -229,8 +238,8 @@ void test_he2hb_work(Params& params, bool run)
         // Form QBQ^H - A, where A is in A_ref.
         // todo: slate::tradd(-one, TriangularMatrix(A_ref),
         //                     one, TriangularMatrix(B));
-        for (int64_t j = 0; j < nt; ++j) {
-            for (int64_t i = j; i < nt; ++i) {
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            for (int64_t i = j; i < A.nt(); ++i) {
                 if (A_ref.tileIsLocal(i, j)) {
                     auto Aij = A_ref(i, j);
                     auto Bij = B(i, j);

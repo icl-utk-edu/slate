@@ -14,12 +14,17 @@
 int64_t localRowsCols(int64_t n, int64_t nb, int iproc, int mpi_size);
 
 //------------------------------------------------------------------------------
+template < typename scalar_t >
+void he2hbInitMatrixBFromMatrixA(
+    slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t >& B);
+
+//------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_unmtr_he2hb_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
-    using blas::real;
-    using blas::conj;
+    // using blas::real;
+    // using blas::conj;
 
     // get & mark input values
     slate::Uplo uplo = params.uplo();
@@ -66,7 +71,6 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     assert(p == q);
 
     // Local values
-    const scalar_t zero = 0;
     const scalar_t one = 1;
 
     // MPI variables
@@ -104,6 +108,11 @@ void test_unmtr_he2hb_work(Params& params, bool run)
 
     slate::he2hb(A, T, {{slate::Option::Target, target}});
 
+    // Output A
+    if (verbose > 1) {
+        print_matrix("A", A);
+    }
+
     // Output A, and T after he2hb
     if (verbose > 1) {
         print_matrix("A_factored", A);
@@ -111,60 +120,23 @@ void test_unmtr_he2hb_work(Params& params, bool run)
         print_matrix("T_reduce",   T[ 1 ]);
     }
 
-    // Matrix B
-    // Zero out B, then copy band matrix B from A.
-    // B is stored as a non-symmetric matrix, so we can apply Q from left
-    // and right separately.
-    int64_t nt = A.nt();
-    slate::Matrix<scalar_t> B(n, n, nb, p, q, MPI_COMM_WORLD);
+    slate::Matrix< scalar_t > B(n, n, nb, p, q, MPI_COMM_WORLD);
     B.insertLocalTiles();
-    set(zero, B);
-    for (int64_t i = 0; i < nt; ++i) {
-        if (B.tileIsLocal(i, i)) {
-            // diagonal tile
-            auto Aii = A(i, i);
-            auto Bii = B(i, i);
-            Aii.uplo(slate::Uplo::Lower);
-            Bii.uplo(slate::Uplo::Lower);
-            tzcopy(Aii, Bii);
-            // Symmetrize the tile.
-            for (int64_t jj = 0; jj < Bii.nb(); ++jj)
-                for (int64_t ii = jj; ii < Bii.mb(); ++ii)
-                    Bii.at(jj, ii) = conj(Bii(ii, jj));
-        }
-        if (i+1 < nt && B.tileIsLocal(i+1, i)) {
-            // sub-diagonal tile
-            auto Ai1i = A(i+1, i);
-            auto Bi1i = B(i+1, i);
-            Ai1i.uplo(slate::Uplo::Upper);
-            Bi1i.uplo(slate::Uplo::Upper);
-            tzcopy(Ai1i, Bi1i);
-            if (! B.tileIsLocal(i, i+1))
-                B.tileSend(i+1, i, B.tileRank(i, i+1));
-        }
-        if (i+1 < nt && B.tileIsLocal(i, i+1)) {
-            if (! B.tileIsLocal(i+1, i)) {
-                // Remote copy-transpose B(i+1, i) => B(i, i+1);
-                // assumes square tiles!
-                B.tileRecv(i, i+1, B.tileRank(i+1, i), slate::Layout::ColMajor);
-                deepConjTranspose(B(i, i+1));
-            }
-            else {
-                // Local copy-transpose B(i+1, i) => B(i, i+1).
-                deepConjTranspose(B(i+1, i), B(i, i+1));
-            }
-        }
-    }
-    // Output B
+    he2hbInitMatrixBFromMatrixA<scalar_t>(A, B);
     if (verbose > 1) {
         print_matrix("B", B);
     }
 
-    if (check && side == slate::Side::Right && trans == slate::Op::ConjTrans) {
-        // Compute QB
-        slate::unmtr_he2hb(slate::Side::Left, uplo,
-                           slate::Op::NoTrans, A, T, B,
-                           {{slate::Option::Target, target}});
+    if (check && side == slate::Side::Right) {
+        if (trans == slate::Op::ConjTrans) {
+            // Compute QB
+            slate::unmtr_he2hb(slate::Side::Left, uplo,
+                               slate::Op::NoTrans, A, T, B,
+                               {{slate::Option::Target, target}});
+        }
+        else if (trans == slate::Op::NoTrans) {
+            assert(false);
+        }
     }
 
     // todo
@@ -212,7 +184,7 @@ void test_unmtr_he2hb_work(Params& params, bool run)
             //==================================================
 
             if (trans == slate::Op::NoTrans) {
-                // QB is already computed, need (QB)Q^H
+                // QB is already computed, we need (QB)Q^H
                 // (QB)Q^H
                 slate::unmtr_he2hb(slate::Side::Right, uplo,
                                    slate::Op::ConjTrans, A, T, B,
@@ -225,8 +197,8 @@ void test_unmtr_he2hb_work(Params& params, bool run)
             // Form A - QBQ^H, where A is in A_ref.
             // todo: slate::tradd(one, TriangularMatrix(B),
             //                   -one, TriangularMatrix(A_ref));
-            for (int64_t j = 0; j < nt; ++j) {
-                for (int64_t i = j; i < nt; ++i) {
+            for (int64_t j = 0; j < A.nt(); ++j) {
+                for (int64_t i = j; i < A.nt(); ++i) {
                     if (A_ref.tileIsLocal(i, j)) {
                         auto Aij = A_ref(i, j);
                         auto Bij = B(i, j);
@@ -237,19 +209,20 @@ void test_unmtr_he2hb_work(Params& params, bool run)
                 }
             }
 
-            slate::HermitianMatrix<scalar_t> A_ref_he(uplo, A_ref);
             if (verbose > 1) {
-                print_matrix("A - QBQ^H", A_ref_he);
+                print_matrix("A - QBQ^H", A_ref);
             }
 
             // Norm of backwards error: || A - QBQ^H ||_1
-            params.error() = slate::norm(slate::Norm::One, A_ref_he) / (n * A_norm);
+            params.error() = slate::norm(slate::Norm::One, A_ref) / (n * A_norm);
             real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon()/2;
             params.okay() = (params.error() <= tol);
 
         }
         else if ((side == slate::Side::Left  && trans == slate::Op::ConjTrans) ||
                  (side == slate::Side::Right && trans == slate::Op::NoTrans)) {
+
+            assert(false);
             //==================================================
             // Test results by checking backwards error
             //
@@ -258,6 +231,9 @@ void test_unmtr_he2hb_work(Params& params, bool run)
             //      || B ||_1 * n
             //
             //==================================================
+
+            if (trans == slate::Op::ConjTrans) {
+            }
         }
 
     }

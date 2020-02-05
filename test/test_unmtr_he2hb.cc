@@ -135,7 +135,9 @@ void test_unmtr_he2hb_work(Params& params, bool run)
                                {{slate::Option::Target, target}});
         }
         else if (trans == slate::Op::NoTrans) {
-            assert(false);
+            printf(
+              "skipping: no backward error check for the combination of slate::Side::Right and slate::Op::NoTrans.\n");
+            return;
         }
     }
 
@@ -221,8 +223,6 @@ void test_unmtr_he2hb_work(Params& params, bool run)
         }
         else if ((side == slate::Side::Left  && trans == slate::Op::ConjTrans) ||
                  (side == slate::Side::Right && trans == slate::Op::NoTrans)) {
-
-            assert(false);
             //==================================================
             // Test results by checking backwards error
             //
@@ -233,6 +233,9 @@ void test_unmtr_he2hb_work(Params& params, bool run)
             //==================================================
 
             if (trans == slate::Op::ConjTrans) {
+                printf(
+                    "skipping: no backward error check for the combination of slate::Side::Left and slate::Op::ConjTrans.\n");
+                return;
             }
         }
 

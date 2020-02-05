@@ -88,16 +88,13 @@ void unmtr_he2hb(
     int64_t C_start_row;
     int64_t C_start_col;
 
-    if (op == Op::NoTrans) {
+    if (side == Side::Left) {
         C_start_row = 1;
         C_start_col = 0;
     }
-    else if (op == Op::ConjTrans) {
+    else { // (side == Side::Right)
         C_start_row = 0;
         C_start_col = 1;
-    }
-    else {
-        throw std::runtime_error("(op == slate::Op::Trans) can't be used.");
     }
 
     auto C = Matrix< scalar_t >( B, C_start_row, A.nt()-1,

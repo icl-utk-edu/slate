@@ -85,20 +85,11 @@ void unmtr_he2hb(
              Matrix< scalar_t >& B,
     const std::map< Option, Value >& opts)
 {
-    int64_t C_start_row;
-    int64_t C_start_col;
+    const int64_t i0 = (side == Side::Left) ? 1 : 0;
+    const int64_t i1 = (side == Side::Left) ? 0 : 1;
 
-    if (side == Side::Left) {
-        C_start_row = 1;
-        C_start_col = 0;
-    }
-    else { // (side == Side::Right)
-        C_start_row = 0;
-        C_start_col = 1;
-    }
-
-    auto C = Matrix< scalar_t >( B, C_start_row, A.nt()-1,
-                                    C_start_col, A.nt()-1 );
+    auto C = Matrix< scalar_t >( B, i0, A.nt()-1,
+                                    i1, A.nt()-1 );
     slate::TriangularFactors< scalar_t > T_sub = {
         T[ 0 ].sub( 1, A.nt()-1, 0, A.nt()-1 ),
         T[ 1 ].sub( 1, A.nt()-1, 0, A.nt()-1 ) };

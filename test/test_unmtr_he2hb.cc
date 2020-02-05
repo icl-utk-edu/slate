@@ -45,7 +45,6 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     //==================================================
     // quick returns:
     //==================================================
-
     // todo: implement none-ScaLAPACK layout.
     if (origin != slate::Origin::ScaLAPACK) {
         printf("skipping: currently only origin=scalapack is supported.\n");
@@ -53,14 +52,18 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     }
     // no formula currently
     if (trans == slate::Op::Trans) {
-        printf("skipping: slate::Op::NoTrans or slate::Op::ConjTrans.\n");
+        printf("skipping: use slate::Op::NoTrans or slate::Op::ConjTrans.\n");
+        return;
+    }
+    // todo:  he2hb currently doesn't support uplo == upper, needs to figure out
+    //        a different solution.
+    if (uplo == slate::Uplo::Upper) {
+        printf("skipping: slate::Uplo::Lower is currently not supported.\n");
         return;
     }
 
     // Requires a square processing grid.
     assert(p == q);
-    // todo: Only lower for now because he2hb doesn't implement Uplo::Upper.
-    assert(uplo == slate::Uplo::Lower);
 
     // Local values
     const scalar_t zero = 0;
@@ -75,44 +78,93 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     int myrow = mpi_rank % p;
     int mycol = mpi_rank / p;
 
-    // figure out local size, allocate, initialize
+    // Matrix A
+    // Figure out local size, allocate, initialize
     int64_t mlocal = localRowsCols(n, nb, myrow, p);
     int64_t nlocal = localRowsCols(n, nb, mycol, q);
-    int64_t lld    = mlocal;
+    int64_t lldA   = mlocal;
+    std::vector<scalar_t> A_data(lldA*nlocal);
     int64_t idist = 3; // normal
     int64_t iseed[4] = { 0, myrow, mycol, 3 };
-
-    // matrix A
-    std::vector<scalar_t> A_data(lld*nlocal);
     lapack::larnv(idist, iseed, A_data.size(), A_data.data());
     // Create SLATE matrices from the ScaLAPACK layouts.
     auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-                    uplo, n, A_data.data(), lld, nb, p, q, MPI_COMM_WORLD);
+                    uplo, n, A_data.data(), lldA, nb, p, q, MPI_COMM_WORLD);
     // Copy test data for check.
     slate::HermitianMatrix<scalar_t> A_ref(uplo, n, nb, p, q, MPI_COMM_WORLD);
     A_ref.insertLocalTiles();
     slate::copy(A, A_ref);
+    // Output A
     if (verbose > 1) {
         print_matrix("A", A);
     }
 
+    // Triangular Factors T, empty
     slate::TriangularFactors<scalar_t> T;
 
     slate::he2hb(A, T, {{slate::Option::Target, target}});
 
+    // Output A, and T after he2hb
     if (verbose > 1) {
         print_matrix("A_factored", A);
-        print_matrix("T_local"   , T[ 0 ]);
-        print_matrix("T_reduce"  , T[ 1 ]);
+        print_matrix("T_local",    T[ 0 ]);
+        print_matrix("T_reduce",   T[ 1 ]);
     }
 
-    // matrix B
-    std::vector<scalar_t> B_data(lld*nlocal);
-    lapack::larnv(idist, iseed, B_data.size(), B_data.data());
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
-                    n, n, B_data.data(), lld, nb, p, q, MPI_COMM_WORLD);
+    // Matrix B
+    // Zero out B, then copy band matrix B from A.
+    // B is stored as a non-symmetric matrix, so we can apply Q from left
+    // and right separately.
+    int64_t nt = A.nt();
+    slate::Matrix<scalar_t> B(n, n, nb, p, q, MPI_COMM_WORLD);
+    B.insertLocalTiles();
+    set(zero, B);
+    for (int64_t i = 0; i < nt; ++i) {
+        if (B.tileIsLocal(i, i)) {
+            // diagonal tile
+            auto Aii = A(i, i);
+            auto Bii = B(i, i);
+            Aii.uplo(slate::Uplo::Lower);
+            Bii.uplo(slate::Uplo::Lower);
+            tzcopy(Aii, Bii);
+            // Symmetrize the tile.
+            for (int64_t jj = 0; jj < Bii.nb(); ++jj)
+                for (int64_t ii = jj; ii < Bii.mb(); ++ii)
+                    Bii.at(jj, ii) = conj(Bii(ii, jj));
+        }
+        if (i+1 < nt && B.tileIsLocal(i+1, i)) {
+            // sub-diagonal tile
+            auto Ai1i = A(i+1, i);
+            auto Bi1i = B(i+1, i);
+            Ai1i.uplo(slate::Uplo::Upper);
+            Bi1i.uplo(slate::Uplo::Upper);
+            tzcopy(Ai1i, Bi1i);
+            if (! B.tileIsLocal(i, i+1))
+                B.tileSend(i+1, i, B.tileRank(i, i+1));
+        }
+        if (i+1 < nt && B.tileIsLocal(i, i+1)) {
+            if (! B.tileIsLocal(i+1, i)) {
+                // Remote copy-transpose B(i+1, i) => B(i, i+1);
+                // assumes square tiles!
+                B.tileRecv(i, i+1, B.tileRank(i+1, i), slate::Layout::ColMajor);
+                deepConjTranspose(B(i, i+1));
+            }
+            else {
+                // Local copy-transpose B(i+1, i) => B(i, i+1).
+                deepConjTranspose(B(i+1, i), B(i, i+1));
+            }
+        }
+    }
+    // Output B
     if (verbose > 1) {
         print_matrix("B", B);
+    }
+
+    if (check && side == slate::Side::Right && trans == slate::Op::ConjTrans) {
+        // Compute QB
+        slate::unmtr_he2hb(slate::Side::Left, uplo,
+                           slate::Op::NoTrans, A, T, B,
+                           {{slate::Option::Target, target}});
     }
 
     // todo
@@ -138,6 +190,7 @@ void test_unmtr_he2hb_work(Params& params, bool run)
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
+
     double time_tst = testsweeper::get_wtime() - time;
 
     if (trace) slate::trace::Trace::finish();
@@ -145,6 +198,69 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     // compute and save timing/performance
     params.time() = time_tst;
     // params.gflops() = gflop / time_tst;
+
+    if (check) {
+        if ((side == slate::Side::Left  && trans == slate::Op::NoTrans) ||
+            (side == slate::Side::Right && trans == slate::Op::ConjTrans)) {
+            //==================================================
+            // Test results by checking backwards error
+            //
+            //      || A - QBQ^H ||_1
+            //     ------------------- < tol * epsilon
+            //      || A ||_1 * n
+            //
+            //==================================================
+
+            if (trans == slate::Op::NoTrans) {
+                // QB is already computed, need (QB)Q^H
+                // (QB)Q^H
+                slate::unmtr_he2hb(slate::Side::Right, uplo,
+                                   slate::Op::ConjTrans, A, T, B,
+                                   {{slate::Option::Target, target}});
+            }
+
+            // Norm of original matrix: || A ||_1
+            real_t A_norm = slate::norm(slate::Norm::One, A_ref);
+
+            // Form A - QBQ^H, where A is in A_ref.
+            // todo: slate::tradd(one, TriangularMatrix(B),
+            //                   -one, TriangularMatrix(A_ref));
+            for (int64_t j = 0; j < nt; ++j) {
+                for (int64_t i = j; i < nt; ++i) {
+                    if (A_ref.tileIsLocal(i, j)) {
+                        auto Aij = A_ref(i, j);
+                        auto Bij = B(i, j);
+                        // if i == j, Aij was Lower; set it to General for axpy.
+                        Aij.uplo(slate::Uplo::General);
+                        axpy(-one, Bij, Aij);
+                    }
+                }
+            }
+
+            slate::HermitianMatrix<scalar_t> A_ref_he(uplo, A_ref);
+            if (verbose > 1) {
+                print_matrix("A - QBQ^H", A_ref_he);
+            }
+
+            // Norm of backwards error: || A - QBQ^H ||_1
+            params.error() = slate::norm(slate::Norm::One, A_ref_he) / (n * A_norm);
+            real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon()/2;
+            params.okay() = (params.error() <= tol);
+
+        }
+        else if ((side == slate::Side::Left  && trans == slate::Op::ConjTrans) ||
+                 (side == slate::Side::Right && trans == slate::Op::NoTrans)) {
+            //==================================================
+            // Test results by checking backwards error
+            //
+            //      || Q^HAQ - B ||_1
+            //     ------------------- < tol * epsilon
+            //      || B ||_1 * n
+            //
+            //==================================================
+        }
+
+    }
 }
 
 // -----------------------------------------------------------------------------

@@ -88,22 +88,21 @@ void unmtr_he2hb(
     const int64_t i0 = (side == Side::Left) ? 1 : 0;
     const int64_t i1 = (side == Side::Left) ? 0 : 1;
 
-    auto C = Matrix< scalar_t >( B, i0, A.nt()-1,
-                                    i1, A.nt()-1 );
+    auto Q = Matrix< scalar_t >( A, 1,  A.nt()-1, 0,  A.nt()-1 );
+    auto C = Matrix< scalar_t >( B, i0, A.nt()-1, i1, A.nt()-1 );
     slate::TriangularFactors< scalar_t > T_sub = {
         T[ 0 ].sub( 1, A.nt()-1, 0, A.nt()-1 ),
-        T[ 1 ].sub( 1, A.nt()-1, 0, A.nt()-1 ) };
+        T[ 1 ].sub( 1, A.nt()-1, 0, A.nt()-1 )
+    };
 
-    if ( uplo == Uplo::Upper ) {
-        auto Q = Matrix< scalar_t >( A, 0, A.nt()-1, 1, A.nt()-1 );
-        slate::unmlq( side, op, Q, T_sub, C, opts );
+    if ( uplo == Uplo::Upper ) { // todo: nned more investigation
+        // auto Q = Matrix< scalar_t >( A, 0, A.nt()-1, 1, A.nt()-1 );
+        // slate::unmlq( side, op, Q, T_sub, C, opts );
+        assert(false);
     }
     else { // uplo == Uplo::Lower
-        auto Q = Matrix< scalar_t >( A, 1, A.nt()-1, 0, A.nt()-1 );
         slate::unmqr( side, op, Q, T_sub, C, opts );
     }
-
-    // todo: return value for errors?
 }
 
 //------------------------------------------------------------------------------

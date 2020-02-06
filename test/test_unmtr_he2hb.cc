@@ -10,10 +10,27 @@
 #include <utility>
 
 //------------------------------------------------------------------------------
+// Similar to BLACS gridinfo
+// (local row ID and column ID in 2D block cyclic distribution).
+const int64_t whoismyrow (const int mpi_rank, const int64_t p)
+{
+    return (mpi_rank % p);
+}
+const int64_t whoismycol (const int mpi_rank, const int64_t p)
+{
+    return (mpi_rank / p);
+}
+
+//------------------------------------------------------------------------------
 // Similar to ScaLAPACK numroc (number of rows or columns).
+// The function implementation is in test_ge2tb.cc file.
 int64_t localRowsCols(int64_t n, int64_t nb, int iproc, int mpi_size);
 
 //------------------------------------------------------------------------------
+// Zero out B, then copy band matrix B from A.
+// B is stored as a non-symmetric matrix, so we can apply Q from left
+// and right separately.
+// The function implementation is in test_he2hb.cc file.
 template < typename scalar_t >
 void he2hbInitMatrixBFromMatrixA(
     slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t >& B);
@@ -23,8 +40,6 @@ template <typename scalar_t>
 void test_unmtr_he2hb_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
-    // using blas::real;
-    // using blas::conj;
 
     // get & mark input values
     slate::Uplo uplo = params.uplo();
@@ -47,6 +62,8 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     if (! run)
         return;
 
+    slate_assert(p == q); // Requires a square processing grid.
+
     //==================================================
     // quick returns:
     //==================================================
@@ -55,63 +72,74 @@ void test_unmtr_he2hb_work(Params& params, bool run)
         printf("skipping: currently only origin=scalapack is supported.\n");
         return;
     }
-    // no formula currently
+    // todo: implemtn unmtr_he2hb with slate::Op::Trans.
     if (trans == slate::Op::Trans) {
-        printf("skipping: use slate::Op::NoTrans or slate::Op::ConjTrans.\n");
+        printf("skipping: currently trans=slate::Op::Trans isn't supported.\n");
         return;
     }
     // todo:  he2hb currently doesn't support uplo == upper, needs to figure out
     //        a different solution.
     if (uplo == slate::Uplo::Upper) {
-        printf("skipping: slate::Uplo::Lower is currently not supported.\n");
+        printf("skipping: currently slate::Uplo::Upper isn't supported.\n");
+        return;
+    }
+    // todo: Figure out backward error check.
+    if (check && side == slate::Side::Right && trans == slate::Op::NoTrans) {
+        printf(
+          "skipping: currently no backward error check for slate::Side::Right and slate::Op::NoTrans.\n");
+        return;
+    }
+    // todo: Figure out backward error check.
+    if (check && side == slate::Side::Left && trans == slate::Op::ConjTrans) {
+        printf(
+          "skipping: currently no backward error check for slate::Side::Left and slate::Op::ConjTrans.\n");
         return;
     }
 
-    // Requires a square processing grid.
-    assert(p == q);
+    int mpi_rank;
+    slate_mpi_call( MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank ) );
+    int mpi_size;
+    slate_mpi_call( MPI_Comm_size( MPI_COMM_WORLD, &mpi_size ) );
+    slate_assert( p*q <= mpi_size);
 
-    // Local values
-    const scalar_t one = 1;
-
-    // MPI variables
-    int mpi_rank, mpi_size;
-    slate_mpi_call(MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank));
-    slate_mpi_call(MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
-    slate_assert(p*q <= mpi_size);
-
-    int myrow = mpi_rank % p;
-    int mycol = mpi_rank / p;
+    const int64_t myrow = whoismyrow(mpi_rank, p);
+    const int64_t mycol = whoismycol(mpi_rank, p);
 
     // Matrix A
     // Figure out local size, allocate, initialize
-    int64_t mlocal = localRowsCols(n, nb, myrow, p);
-    int64_t nlocal = localRowsCols(n, nb, mycol, q);
+    int64_t mlocal = localRowsCols( n, nb, myrow, p );
+    int64_t nlocal = localRowsCols( n, nb, mycol, q );
     int64_t lldA   = mlocal;
-    std::vector<scalar_t> A_data(lldA*nlocal);
+    std::vector<scalar_t> A_data( lldA*nlocal );
     int64_t idist = 3; // normal
     int64_t iseed[4] = { 0, myrow, mycol, 3 };
-    lapack::larnv(idist, iseed, A_data.size(), A_data.data());
+    lapack::larnv( idist, iseed, A_data.size(), A_data.data() );
     // Create SLATE matrices from the ScaLAPACK layouts.
     auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                     uplo, n, A_data.data(), lldA, nb, p, q, MPI_COMM_WORLD);
+    // Output A
+    if (verbose > 1) {
+        print_matrix("A", A);
+    }
+
+    // Matrix A_ref
     // Copy test data for check.
-    slate::HermitianMatrix<scalar_t> A_ref(uplo, n, nb, p, q, MPI_COMM_WORLD);
-    A_ref.insertLocalTiles();
-    slate::copy(A, A_ref);
-    // Output A
-    if (verbose > 1) {
-        print_matrix("A", A);
+    slate::HermitianMatrix<scalar_t> A_ref;
+    if (check) {
+        A_ref =
+          slate::HermitianMatrix<scalar_t>(uplo, n, nb, p, q, MPI_COMM_WORLD);
+        A_ref.insertLocalTiles();
+        slate::copy(A, A_ref);
+    }
+    else {
+        SLATE_UNUSED(A_ref);
     }
 
-    // Triangular Factors T, empty
-    slate::TriangularFactors<scalar_t> T;
+    // Triangular Factors T
+    slate::TriangularFactors< scalar_t > T;
 
+    // Reduce HermitianMatrix A to HermitianBandMatrix
     slate::he2hb(A, T, {{slate::Option::Target, target}});
-
-    // Output A
-    if (verbose > 1) {
-        print_matrix("A", A);
-    }
 
     // Output A, and T after he2hb
     if (verbose > 1) {
@@ -120,37 +148,44 @@ void test_unmtr_he2hb_work(Params& params, bool run)
         print_matrix("T_reduce",   T[ 1 ]);
     }
 
+    // Matrix B
+    // Set B from A that's resulted from he2hb
     slate::Matrix< scalar_t > B(n, n, nb, p, q, MPI_COMM_WORLD);
     B.insertLocalTiles();
     he2hbInitMatrixBFromMatrixA<scalar_t>(A, B);
+    // Output B
     if (verbose > 1) {
         print_matrix("B", B);
     }
 
     if (check && side == slate::Side::Right) {
         if (trans == slate::Op::ConjTrans) {
-            // Compute QB
+            // Compute QB for the backward error check before applying
+            // (QB)Q^H, because the user requested to test applying
+            //  Right with ConjTrans
             slate::unmtr_he2hb(slate::Side::Left, uplo,
                                slate::Op::NoTrans, A, T, B,
                                {{slate::Option::Target, target}});
         }
         else if (trans == slate::Op::NoTrans) {
-            printf(
-              "skipping: no backward error check for the combination of slate::Side::Right and slate::Op::NoTrans.\n");
-            return;
+            // todo
+            assert(false);
         }
     }
 
     // todo
     //double gflop = lapack::Gflop<scalar_t>::unmtr_he2hb(n, n);
 
-    if (trace) slate::trace::Trace::on();
-    else slate::trace::Trace::off();
+    if (trace)
+        slate::trace::Trace::on();
+    else
+        slate::trace::Trace::off();
 
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
+
     double time = testsweeper::get_wtime();
 
     //==================================================
@@ -160,17 +195,18 @@ void test_unmtr_he2hb_work(Params& params, bool run)
         {slate::Option::Target, target}
     });
 
+    double time_tst = testsweeper::get_wtime() - time;
+
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
 
-    double time_tst = testsweeper::get_wtime() - time;
+    if (trace)
+        slate::trace::Trace::finish();
 
-    if (trace) slate::trace::Trace::finish();
-
-    // compute and save timing/performance
     params.time() = time_tst;
+    // todo
     // params.gflops() = gflop / time_tst;
 
     if (check) {
@@ -193,20 +229,21 @@ void test_unmtr_he2hb_work(Params& params, bool run)
                                    {{slate::Option::Target, target}});
             }
 
-            // Norm of original matrix: || A ||_1
+            // Norm of original matrix: || A ||_1, where A is in A_ref
             real_t A_norm = slate::norm(slate::Norm::One, A_ref);
-
+            // Local values
+            const scalar_t one = 1;
             // Form A - QBQ^H, where A is in A_ref.
             // todo: slate::tradd(one, TriangularMatrix(B),
             //                   -one, TriangularMatrix(A_ref));
             for (int64_t j = 0; j < A.nt(); ++j) {
                 for (int64_t i = j; i < A.nt(); ++i) {
                     if (A_ref.tileIsLocal(i, j)) {
-                        auto Aij = A_ref(i, j);
+                        auto A_refij = A_ref(i, j);
                         auto Bij = B(i, j);
                         // if i == j, Aij was Lower; set it to General for axpy.
-                        Aij.uplo(slate::Uplo::General);
-                        axpy(-one, Bij, Aij);
+                        A_refij.uplo(slate::Uplo::General);
+                        axpy(-one, Bij, A_refij);
                     }
                 }
             }
@@ -233,12 +270,12 @@ void test_unmtr_he2hb_work(Params& params, bool run)
             //==================================================
 
             if (trans == slate::Op::ConjTrans) {
-                printf(
-                    "skipping: no backward error check for the combination of slate::Side::Left and slate::Op::ConjTrans.\n");
-                return;
+                // todo
+                assert(false);
             }
+            // todo
+            assert(false);
         }
-
     }
 }
 

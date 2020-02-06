@@ -11,17 +11,20 @@
 
 //------------------------------------------------------------------------------
 // Similar to ScaLAPACK numroc (number of rows or columns).
+// The function implementation is in test_ge2tb.cc file.
 int64_t localRowsCols(int64_t n, int64_t nb, int iproc, int mpi_size);
 
 //------------------------------------------------------------------------------
+// Zero out B, then copy band matrix B from A.
+// B is stored as a non-symmetric matrix, so we can apply Q from left
+// and right separately.
 template < typename scalar_t >
 void he2hbInitMatrixBFromMatrixA(
     slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t >& B)
 {
+    // It must be defined here to avoid having numerical error with complex
+    // numbers when calling conj();
     using blas::conj;
-    // Zero out B, then copy band matrix B from A.
-    // B is stored as a non-symmetric matrix, so we can apply Q from left
-    // and right separately.
     const int64_t nt = A.nt();
     const scalar_t zero = 0;
     set(zero, B);

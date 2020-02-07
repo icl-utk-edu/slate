@@ -114,7 +114,7 @@ void bdsqr(slate::internal::TargetType<target>,
     slate::Matrix<scalar_t> U1d;
     slate::Matrix<scalar_t> VT1d;
     if (wantu) {
-        nru  = numberLocalRoworCol(m, mb, myrowc_1d, izero, nprocs_1d);
+        nru  = numberLocalRowOrCol(m, mb, myrowc_1d, izero, nprocs_1d);
         ldu = max( 1, nru );
         u1d.resize(ldu*min_mn);
         U1d = slate::Matrix<scalar_t>::fromScaLAPACK(m, min_mn, &u1d[0], ldu, nb, nprowc_1d, npcolc_1d, MPI_COMM_WORLD);
@@ -122,7 +122,7 @@ void bdsqr(slate::internal::TargetType<target>,
 
     }
     if (wantvt) {
-        ncvt = numberLocalRoworCol(n, nb, mycolr_1d, izero, nprocs_1d);
+        ncvt = numberLocalRowOrCol(n, nb, mycolr_1d, izero, nprocs_1d);
         ldvt = max( 1, min_mn );
         vt1d.resize(ldvt*ncvt);
         VT1d = slate::Matrix<scalar_t>::fromScaLAPACK(min_mn, n, &vt1d[0], ldvt, nb, nprowr_1d, npcolr_1d, MPI_COMM_WORLD);

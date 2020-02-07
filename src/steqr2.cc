@@ -102,7 +102,7 @@ void steqr2(slate::internal::TargetType<target>,
     // Build the matrix Z using 1-dim grid.
     slate::Matrix<scalar_t> Z1d; 
     if (wantz) {
-        nrc = numberLocalRoworCol(n, nb, myrow_1d, izero, nprocs_1d);
+        nrc = numberLocalRowOrCol(n, nb, myrow_1d, izero, nprocs_1d);
         ldc = max( 1, nrc );
         Q.resize(nrc*n);
         Z1d = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &Q[0], nrc, nb, nprow_1d, npcol_1d, MPI_COMM_WORLD);

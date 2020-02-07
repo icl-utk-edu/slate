@@ -10,13 +10,72 @@
 #include <utility>
 
 //------------------------------------------------------------------------------
+template <typename scalar_t>
+void he2ge(slate::HermitianMatrix<scalar_t>& A, slate::Matrix<scalar_t>& B)
+{
+    using blas::conj;
+    const int64_t nt = A.nt();
+    const scalar_t zero = 0;
+    set(zero, B);
+    for (int64_t i = 0; i < nt; ++i) {
+        for (int64_t j = 0; j < nt; ++j) {
+            // diagonal tile
+            if (i == j) {
+                if (B.tileIsLocal(i, j)) {
+                    auto Aij = A(i, j);
+                    auto Bij = B(i, j);
+                    Aij.uplo(slate::Uplo::Lower);
+                    Bij.uplo(slate::Uplo::Lower);
+                    tzcopy(Aij, Bij);
+                    // Symmetrize the tile.
+                    for (int64_t jj = 0; jj < Bij.nb(); ++jj) {
+                        for (int64_t ii = jj; ii < Bij.mb(); ++ii) {
+                            Bij.at(jj, ii) = conj(Bij(ii, jj));
+                        }
+                    }
+                }
+            }
+            else if (i < j) {
+                if (B.tileIsLocal(j, i)) {
+                    // sub-diagonal tile
+                    auto Aji = A(j, i);
+                    auto Bji = B(j, i);
+                    Aji.uplo(slate::Uplo::Upper);
+                    Bji.uplo(slate::Uplo::Upper);
+                    tzcopy(Aji, Bji);
+                    if (! B.tileIsLocal(i, j)) {
+                        B.tileSend(j, i, B.tileRank(i, j));
+                    }
+                }
+                if (B.tileIsLocal(i, j)) {
+                    if (! B.tileIsLocal(j, i)) {
+                        // Remote copy-transpose B(j, i) => B(i, j);
+                        // assumes square tiles!
+                        B.tileRecv(i, j, B.tileRank(j, i), slate::Layout::ColMajor);
+                        deepConjTranspose(B(i, j));
+                    }
+                    else {
+                        // Local copy-transpose B(j, i) => B(i, j).
+                        deepConjTranspose(B(j, i), B(i, j));
+                    }
+                }
+            }
+            else if (i > j) {
+                // todo: shouldn't assume uplo=lowwer
+                break;
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
 // Similar to BLACS gridinfo
 // (local row ID and column ID in 2D block cyclic distribution).
-const int64_t whoismyrow (const int mpi_rank, const int64_t p)
+const int64_t whoismyrow(const int mpi_rank, const int64_t p)
 {
     return (mpi_rank % p);
 }
-const int64_t whoismycol (const int mpi_rank, const int64_t p)
+const int64_t whoismycol(const int mpi_rank, const int64_t p)
 {
     return (mpi_rank / p);
 }
@@ -83,18 +142,18 @@ void test_unmtr_he2hb_work(Params& params, bool run)
         printf("skipping: currently slate::Uplo::Upper isn't supported.\n");
         return;
     }
-    // todo: Figure out backward error check.
-    if (check && side == slate::Side::Right && trans == slate::Op::NoTrans) {
-        printf(
-          "skipping: currently no backward error check for slate::Side::Right and slate::Op::NoTrans.\n");
-        return;
-    }
-    // todo: Figure out backward error check.
-    if (check && side == slate::Side::Left && trans == slate::Op::ConjTrans) {
-        printf(
-          "skipping: currently no backward error check for slate::Side::Left and slate::Op::ConjTrans.\n");
-        return;
-    }
+    // // todo: Figure out backward error check.
+    // if (check && side == slate::Side::Right && trans == slate::Op::NoTrans) {
+    //     printf(
+    //       "skipping: currently no backward error check for slate::Side::Right and slate::Op::NoTrans.\n");
+    //     return;
+    // }
+    // // todo: Figure out backward error check.
+    // if (check && side == slate::Side::Left && trans == slate::Op::ConjTrans) {
+    //     printf(
+    //       "skipping: currently no backward error check for slate::Side::Left and slate::Op::ConjTrans.\n");
+    //     return;
+    // }
 
     int mpi_rank;
     slate_mpi_call( MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank ) );

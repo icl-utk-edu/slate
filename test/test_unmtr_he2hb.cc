@@ -17,8 +17,8 @@ template <typename scalar_t>
 void he2ge(slate::HermitianMatrix<scalar_t>& A, slate::Matrix<scalar_t>& B)
 {
     using blas::conj;
-
-    set(0, B); // Zero matrix B
+    const scalar_t zero = 0;
+    set(zero, B);
     for (int64_t i = 0; i < A.nt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (i == j) { // diagonal tiles
@@ -168,16 +168,10 @@ void test_unmtr_he2hb_work(Params& params, bool run)
 
     // Matrix A_ref
     // Copy test data for check.
-    slate::HermitianMatrix<scalar_t> A_ref;
-    if (check) {
-        A_ref = slate::HermitianMatrix<scalar_t>(
-            uplo, n, nb, p, q, MPI_COMM_WORLD);
-        A_ref.insertLocalTiles();
-        slate::copy(A, A_ref);
-    }
-    else {
-        SLATE_UNUSED(A_ref);
-    }
+    auto A_ref = slate::HermitianMatrix<scalar_t>(
+        uplo, n, nb, p, q, MPI_COMM_WORLD);
+    A_ref.insertLocalTiles();
+    slate::copy(A, A_ref);
 
     // Triangular Factors T
     slate::TriangularFactors< scalar_t > T;
@@ -188,8 +182,8 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     // Output A, and T after he2hb
     if (verbose > 1) {
         print_matrix("A_factored", A);
-        print_matrix("T_local",    T[ 0 ]);
-        print_matrix("T_reduce",   T[ 1 ]);
+        print_matrix("T_local",    T[0]);
+        print_matrix("T_reduce",   T[1]);
     }
 
     // Matrix B
@@ -202,13 +196,9 @@ void test_unmtr_he2hb_work(Params& params, bool run)
         print_matrix("B", B);
     }
 
-    // slate::Matrix<scalar_t> AA(n, n, nb, p, q, MPI_COMM_WORLD);
-    // AA.insertLocalTiles();
-
-    // std::vector<scalar_t> AA_data( lldA*nlocal );
-    //auto AA = slate::Matrix<scalar_t>::fromScaLAPACK(
-    //                n, n, AA_data.data(), lldA, nb, p, q, MPI_COMM_WORLD);
-    // he2ge<scalar_t>(A, AA);
+    slate::Matrix<scalar_t> AA(n, n, nb, p, q, MPI_COMM_WORLD);
+    AA.insertLocalTiles();
+    he2ge<scalar_t>(A, AA);
 
     // todo
     //double gflop = lapack::Gflop<scalar_t>::unmtr_he2hb(n, n);
@@ -296,9 +286,6 @@ void test_unmtr_he2hb_work(Params& params, bool run)
 
             // Norm of backwards error: || A - QBQ^H ||_1
             params.error() = slate::norm(slate::Norm::One, A_ref) / (n * A_norm);
-            real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon()/2;
-            params.okay() = (params.error() <= tol);
-
         }
         else if ((side == slate::Side::Left  && trans == slate::Op::ConjTrans) ||
                  (side == slate::Side::Right && trans == slate::Op::NoTrans)) {
@@ -310,47 +297,45 @@ void test_unmtr_he2hb_work(Params& params, bool run)
             //      || B ||_1 * n
             //
             //==================================================
-#if 0
-            // QB is already computed, we need (QB)Q^H
-            // (QB)Q^H
-            slate::unmtr_he2hb(slate::Side::Right, uplo,
-                               slate::Op::NoTrans, A, T, AA,
-                               {{slate::Option::Target, target}});
 
+            if (trans == slate::Op::ConjTrans) {
+                // Q^HA is already computed, we need (Q^HA)Q
+                // (Q^HA)Q
+                slate::unmtr_he2hb(slate::Side::Right, uplo,
+                                   slate::Op::NoTrans, A, T, AA,
+                                   {{slate::Option::Target, target}});
+            }
+            else if (trans == slate::Op::NoTrans) {
+                // AQ is already computed, we need Q^HA
+                // (Q^HA)Q
+                slate::unmtr_he2hb(slate::Side::Left, uplo,
+                                   slate::Op::ConjTrans, A, T, AA,
+                                   {{slate::Option::Target, target}});
+            }
 
-        // Norm of original matrix: || A ||_1, where A is in A_ref
-        real_t A_norm = slate::norm(slate::Norm::One, B);
-        // Local values
-        const scalar_t one = 1;
-        // Form A - QBQ^H, where A is in A_ref.
-        // todo: slate::tradd(one, TriangularMatrix(B),
-        //                   -one, TriangularMatrix(A_ref));
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            for (int64_t i = j; i < A.nt(); ++i) {
-                if (AA.tileIsLocal(i, j)) {
-                    auto A_refij = AA(i, j);
-                    auto Bij = B(i, j);
-                    // if i == j, Aij was Lower; set it to General for axpy.
-                    A_refij.uplo(slate::Uplo::General);
-                    axpy(-one, Bij, A_refij);
+            // Norm of B matrix: || B ||_1
+            real_t B_norm = slate::norm(slate::Norm::One, B);
+
+            // Form Q^HAQ - B
+            const scalar_t one = 1;
+            for (int64_t j = 0; j < A.nt(); ++j) {
+                for (int64_t i = j; i < A.nt(); ++i) {
+                    if (AA.tileIsLocal(i, j)) {
+                        auto AAij = AA(i, j);
+                        auto Bij = B(i, j);
+                        // if i == j, Aij was Lower; set it to General for axpy.
+                        AAij.uplo(slate::Uplo::General);
+                        axpy(-one, Bij, AAij);
+                    }
                 }
             }
+
+            // Norm of backwards error: || Q^HAQ - B ||_1
+            params.error() = slate::norm(slate::Norm::One, AA) / (n * B_norm);
         }
 
-
-        // Norm of backwards error: || A - QBQ^H ||_1
-        params.error() = slate::norm(slate::Norm::One, AA) / (n * A_norm);
         real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon()/2;
         params.okay() = (params.error() <= tol);
-
-            //if (trans == slate::Op::ConjTrans) {
-                // todo
-              //  assert(false);
-            //}
-            // todo
-            //assert(false);
-#endif
-        }
     }
 }
 

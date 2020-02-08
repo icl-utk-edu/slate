@@ -81,27 +81,28 @@ namespace slate {
 template < typename scalar_t >
 void unmtr_he2hb(
     Side side, Uplo uplo, Op op,
-    HermitianMatrix< scalar_t >  A, TriangularFactors< scalar_t > T,
+    HermitianMatrix< scalar_t >& A, TriangularFactors< scalar_t > T,
              Matrix< scalar_t >& B,
     const std::map< Option, Value >& opts)
 {
-    const int64_t i0 = (side == Side::Left) ? 1 : 0;
-    const int64_t i1 = (side == Side::Left) ? 0 : 1;
-
-    auto Q = Matrix< scalar_t >( A, 1,  A.nt()-1, 0,  A.nt()-1 );
-    auto C = Matrix< scalar_t >( B, i0, A.nt()-1, i1, A.nt()-1 );
     slate::TriangularFactors< scalar_t > T_sub = {
         T[ 0 ].sub( 1, A.nt()-1, 0, A.nt()-1 ),
         T[ 1 ].sub( 1, A.nt()-1, 0, A.nt()-1 )
     };
 
-    if ( uplo == Uplo::Upper ) { // todo: nned more investigation
-        // auto Q = Matrix< scalar_t >( A, 0, A.nt()-1, 1, A.nt()-1 );
-        // slate::unmlq( side, op, Q, T_sub, C, opts );
-        assert(false);
+    if (uplo == Uplo::Upper) {
+        // todo: never tested
+        auto Q = Matrix< scalar_t >(A, 0, A.nt()-1, 1, A.nt()-1);
+        slate::unmlq(side, op, Q, T_sub, B, opts);
     }
     else { // uplo == Uplo::Lower
-        slate::unmqr( side, op, Q, T_sub, C, opts );
+        auto Q = Matrix< scalar_t >(A, 1,  A.nt()-1, 0,  A.nt()-1);
+
+        const int64_t i0 = (side == Side::Left) ? 1 : 0;
+        const int64_t i1 = (side == Side::Left) ? 0 : 1;
+        auto C = Matrix< scalar_t >(B, i0, A.nt()-1, i1, A.nt()-1);
+
+        slate::unmqr(side, op, Q, T_sub, C, opts);
     }
 }
 
@@ -110,21 +111,21 @@ void unmtr_he2hb(
 template
 void unmtr_he2hb< float >(
     Side side, Uplo uplo, Op op,
-    HermitianMatrix< float >  A, TriangularFactors< float > T,
+    HermitianMatrix< float >& A, TriangularFactors< float > T,
              Matrix< float >& B,
     const std::map< Option, Value >& opts);
 
 template
 void unmtr_he2hb< double >(
     Side side, Uplo uplo, Op op,
-    HermitianMatrix< double >  A, TriangularFactors< double > T,
+    HermitianMatrix< double >& A, TriangularFactors< double > T,
              Matrix< double >& B,
     const std::map< Option, Value >& opts);
 
 template
 void unmtr_he2hb< std::complex< float > >(
     Side side, Uplo uplo, Op op,
-    HermitianMatrix< std::complex< float > > A,
+    HermitianMatrix< std::complex< float > >& A,
     TriangularFactors< std::complex< float > > T,
     Matrix< std::complex< float > >& B,
     const std::map< Option, Value >& opts);
@@ -132,7 +133,7 @@ void unmtr_he2hb< std::complex< float > >(
 template
 void unmtr_he2hb< std::complex< double > >(
     Side side, Uplo uplo, Op op,
-    HermitianMatrix< std::complex< double > > A,
+    HermitianMatrix< std::complex< double > >& A,
     TriangularFactors< std::complex< double > > T,
     Matrix< std::complex< double > >& B,
     const std::map< Option, Value >& opts);

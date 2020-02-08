@@ -76,6 +76,10 @@ void unmqr(
     int64_t C_mt = C.mt();
     int64_t C_nt = C.nt();
 
+    if (is_complex<scalar_t>::value && op == Op::Trans) {
+        throw Exception("Use Op::ConjTrans (not Op::Trans) with complex numbers.");
+    }
+
     if (target == Target::Devices) {
         C.allocateBatchArrays();
         C.reserveDeviceWorkspace();

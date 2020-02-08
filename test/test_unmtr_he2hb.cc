@@ -10,24 +10,24 @@
 #include <utility>
 
 //------------------------------------------------------------------------------
+// Convert a HermitianMatrix into a General Matrix, ConjTrans the opposite
+// off-diagonal tiles
+// todo: shouldn't assume the input HermitianMatrix has uplo=lower
 template <typename scalar_t>
 void he2ge(slate::HermitianMatrix<scalar_t>& A, slate::Matrix<scalar_t>& B)
 {
     using blas::conj;
-    const int64_t nt = A.nt();
-    const scalar_t zero = 0;
-    set(zero, B);
-    for (int64_t i = 0; i < nt; ++i) {
-        for (int64_t j = 0; j < nt; ++j) {
-            // diagonal tile
-            if (i == j) {
+
+    set(0, B); // Zero matrix B
+    for (int64_t i = 0; i < A.nt(); ++i) {
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            if (i == j) { // diagonal tiles
                 if (B.tileIsLocal(i, j)) {
                     auto Aij = A(i, j);
                     auto Bij = B(i, j);
                     Aij.uplo(slate::Uplo::Lower);
                     Bij.uplo(slate::Uplo::Lower);
                     tzcopy(Aij, Bij);
-                    // Symmetrize the tile.
                     for (int64_t jj = 0; jj < Bij.nb(); ++jj) {
                         for (int64_t ii = jj; ii < Bij.mb(); ++ii) {
                             Bij.at(jj, ii) = conj(Bij(ii, jj));
@@ -35,32 +35,31 @@ void he2ge(slate::HermitianMatrix<scalar_t>& A, slate::Matrix<scalar_t>& B)
                     }
                 }
             }
-            else if (i < j) {
-                if (B.tileIsLocal(j, i)) {
-                    // sub-diagonal tile
-                    auto Aji = A(j, i);
-                    auto Bji = B(j, i);
-                    Aji.uplo(slate::Uplo::Upper);
-                    Bji.uplo(slate::Uplo::Upper);
-                    tzcopy(Aji, Bji);
-                    if (! B.tileIsLocal(i, j)) {
-                        B.tileSend(j, i, B.tileRank(i, j));
+            else if (i > j) { // off-diagonal tiles: lower part
+                if (B.tileIsLocal(i, j)) {
+                    auto Aij = A(i, j);
+                    auto Bij = B(i, j);
+                    Aij.uplo(slate::Uplo::Lower);
+                    Bij.uplo(slate::Uplo::Lower);
+                    tzcopy(Aij, Bij);
+                    Aij.uplo(slate::Uplo::Upper);
+                    Bij.uplo(slate::Uplo::Upper);
+                    tzcopy(Aij, Bij);
+                    if (! B.tileIsLocal(j, i)) {
+                        B.tileSend(i, j, B.tileRank(j, i));
                     }
                 }
-                if (B.tileIsLocal(i, j)) {
-                    if (! B.tileIsLocal(j, i)) {
-                        // Remote copy-transpose B(j, i) => B(i, j);
-                        // assumes square tiles!
-                        B.tileRecv(i, j, B.tileRank(j, i), slate::Layout::ColMajor);
-                        deepConjTranspose(B(i, j));
+                if (B.tileIsLocal(j, i)) {
+                    if (! B.tileIsLocal(i, j)) {
+                        B.tileRecv(
+                            j, i, B.tileRank(i, j), slate::Layout::ColMajor);
+                        deepConjTranspose(B(j, i));
                     }
-                    else {
-                        // Local copy-transpose B(j, i) => B(i, j).
-                        deepConjTranspose(B(j, i), B(i, j));
-                    }
+                    else
+                        deepConjTranspose(B(i, j), B(j, i));
                 }
             }
-            else if (i > j) {
+            else if (i < j) { // off-diagonal tile: upper part
                 // todo: shouldn't assume uplo=lowwer
                 break;
             }
@@ -131,29 +130,15 @@ void test_unmtr_he2hb_work(Params& params, bool run)
         printf("skipping: currently only origin=scalapack is supported.\n");
         return;
     }
-    // todo: implemtn unmtr_he2hb with slate::Op::Trans.
-    if (trans == slate::Op::Trans) {
-        printf("skipping: currently trans=slate::Op::Trans isn't supported.\n");
-        return;
-    }
     // todo:  he2hb currently doesn't support uplo == upper, needs to figure out
     //        a different solution.
     if (uplo == slate::Uplo::Upper) {
         printf("skipping: currently slate::Uplo::Upper isn't supported.\n");
         return;
     }
-    // // todo: Figure out backward error check.
-    // if (check && side == slate::Side::Right && trans == slate::Op::NoTrans) {
-    //     printf(
-    //       "skipping: currently no backward error check for slate::Side::Right and slate::Op::NoTrans.\n");
-    //     return;
-    // }
-    // // todo: Figure out backward error check.
-    // if (check && side == slate::Side::Left && trans == slate::Op::ConjTrans) {
-    //     printf(
-    //       "skipping: currently no backward error check for slate::Side::Left and slate::Op::ConjTrans.\n");
-    //     return;
-    // }
+
+    if (! slate::is_complex<scalar_t>::value && trans == slate::Op::Trans)
+        trans = slate::Op::ConjTrans;
 
     int mpi_rank;
     slate_mpi_call( MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank ) );
@@ -185,8 +170,8 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     // Copy test data for check.
     slate::HermitianMatrix<scalar_t> A_ref;
     if (check) {
-        A_ref =
-          slate::HermitianMatrix<scalar_t>(uplo, n, nb, p, q, MPI_COMM_WORLD);
+        A_ref = slate::HermitianMatrix<scalar_t>(
+            uplo, n, nb, p, q, MPI_COMM_WORLD);
         A_ref.insertLocalTiles();
         slate::copy(A, A_ref);
     }
@@ -217,20 +202,13 @@ void test_unmtr_he2hb_work(Params& params, bool run)
         print_matrix("B", B);
     }
 
-    if (check && side == slate::Side::Right) {
-        if (trans == slate::Op::ConjTrans) {
-            // Compute QB for the backward error check before applying
-            // (QB)Q^H, because the user requested to test applying
-            //  Right with ConjTrans
-            slate::unmtr_he2hb(slate::Side::Left, uplo,
-                               slate::Op::NoTrans, A, T, B,
-                               {{slate::Option::Target, target}});
-        }
-        else if (trans == slate::Op::NoTrans) {
-            // todo
-            assert(false);
-        }
-    }
+    // slate::Matrix<scalar_t> AA(n, n, nb, p, q, MPI_COMM_WORLD);
+    // AA.insertLocalTiles();
+
+    // std::vector<scalar_t> AA_data( lldA*nlocal );
+    //auto AA = slate::Matrix<scalar_t>::fromScaLAPACK(
+    //                n, n, AA_data.data(), lldA, nb, p, q, MPI_COMM_WORLD);
+    // he2ge<scalar_t>(A, AA);
 
     // todo
     //double gflop = lapack::Gflop<scalar_t>::unmtr_he2hb(n, n);
@@ -287,14 +265,19 @@ void test_unmtr_he2hb_work(Params& params, bool run)
                                    slate::Op::ConjTrans, A, T, B,
                                    {{slate::Option::Target, target}});
             }
+            else if (trans == slate::Op::ConjTrans) {
+                // BQ^H is already computed, we need QB
+                // (QB)Q^H
+                slate::unmtr_he2hb(slate::Side::Left, uplo,
+                                   slate::Op::NoTrans, A, T, B,
+                                   {{slate::Option::Target, target}});
+            }
 
             // Norm of original matrix: || A ||_1, where A is in A_ref
             real_t A_norm = slate::norm(slate::Norm::One, A_ref);
-            // Local values
-            const scalar_t one = 1;
+
             // Form A - QBQ^H, where A is in A_ref.
-            // todo: slate::tradd(one, TriangularMatrix(B),
-            //                   -one, TriangularMatrix(A_ref));
+            const scalar_t one = 1;
             for (int64_t j = 0; j < A.nt(); ++j) {
                 for (int64_t i = j; i < A.nt(); ++i) {
                     if (A_ref.tileIsLocal(i, j)) {
@@ -327,13 +310,46 @@ void test_unmtr_he2hb_work(Params& params, bool run)
             //      || B ||_1 * n
             //
             //==================================================
+#if 0
+            // QB is already computed, we need (QB)Q^H
+            // (QB)Q^H
+            slate::unmtr_he2hb(slate::Side::Right, uplo,
+                               slate::Op::NoTrans, A, T, AA,
+                               {{slate::Option::Target, target}});
 
-            if (trans == slate::Op::ConjTrans) {
-                // todo
-                assert(false);
+
+        // Norm of original matrix: || A ||_1, where A is in A_ref
+        real_t A_norm = slate::norm(slate::Norm::One, B);
+        // Local values
+        const scalar_t one = 1;
+        // Form A - QBQ^H, where A is in A_ref.
+        // todo: slate::tradd(one, TriangularMatrix(B),
+        //                   -one, TriangularMatrix(A_ref));
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            for (int64_t i = j; i < A.nt(); ++i) {
+                if (AA.tileIsLocal(i, j)) {
+                    auto A_refij = AA(i, j);
+                    auto Bij = B(i, j);
+                    // if i == j, Aij was Lower; set it to General for axpy.
+                    A_refij.uplo(slate::Uplo::General);
+                    axpy(-one, Bij, A_refij);
+                }
             }
+        }
+
+
+        // Norm of backwards error: || A - QBQ^H ||_1
+        params.error() = slate::norm(slate::Norm::One, AA) / (n * A_norm);
+        real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon()/2;
+        params.okay() = (params.error() <= tol);
+
+            //if (trans == slate::Op::ConjTrans) {
+                // todo
+              //  assert(false);
+            //}
             // todo
-            assert(false);
+            //assert(false);
+#endif
         }
     }
 }

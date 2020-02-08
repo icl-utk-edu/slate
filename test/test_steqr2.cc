@@ -205,11 +205,9 @@ void test_steqr2(Params& params, bool run)
         case testsweeper::DataType::SingleComplex:
             test_steqr2_work<std::complex<float>> (params, run);
             break;
-/*
 
         case testsweeper::DataType::DoubleComplex:
             test_steqr2_work<std::complex<double>> (params, run);
             break;
-*/
     }
 }

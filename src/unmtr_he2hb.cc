@@ -100,6 +100,7 @@ void unmtr_he2hb(
 
         const int64_t i0 = (side == Side::Left) ? 1 : 0;
         const int64_t i1 = (side == Side::Left) ? 0 : 1;
+
         auto C = Matrix< scalar_t >(B, i0, A.nt()-1, i1, A.nt()-1);
 
         slate::unmqr(side, op, Q, T_sub, C, opts);

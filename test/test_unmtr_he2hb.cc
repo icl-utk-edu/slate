@@ -10,7 +10,7 @@
 #include <utility>
 
 //------------------------------------------------------------------------------
-// Convert a HermitianMatrix into a General Matrix, ConjTrans the opposite
+// Convert a HermitianMatrix into a General Matrix, ConjTrans/Trans the opposite
 // off-diagonal tiles
 // todo: shouldn't assume the input HermitianMatrix has uplo=lower
 template <typename scalar_t>
@@ -168,14 +168,21 @@ void test_unmtr_he2hb_work(Params& params, bool run)
 
     // Matrix A_ref
     // Copy test data for check.
-    auto A_ref = slate::HermitianMatrix<scalar_t>(
-        uplo, n, nb, p, q, MPI_COMM_WORLD);
-    A_ref.insertLocalTiles();
-    slate::copy(A, A_ref);
+    slate::HermitianMatrix<scalar_t> A_ref;
+    if (check &&
+        ((side == slate::Side::Left  && trans == slate::Op::NoTrans) ||
+         (side == slate::Side::Right && trans == slate::Op::ConjTrans))) {
+        A_ref = slate::HermitianMatrix<scalar_t>(
+            uplo, n, nb, p, q, MPI_COMM_WORLD);
+        A_ref.insertLocalTiles();
+        slate::copy(A, A_ref);
+    }
+    else {
+        SLATE_UNUSED(A_ref);
+    }
 
     // Triangular Factors T
     slate::TriangularFactors< scalar_t > T;
-
     // Reduce HermitianMatrix A to HermitianBandMatrix
     slate::he2hb(A, T, {{slate::Option::Target, target}});
 
@@ -191,14 +198,22 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     slate::Matrix< scalar_t > B(n, n, nb, p, q, MPI_COMM_WORLD);
     B.insertLocalTiles();
     he2hbInitMatrixBFromMatrixA<scalar_t>(A, B);
+
     // Output B
     if (verbose > 1) {
         print_matrix("B", B);
     }
 
-    slate::Matrix<scalar_t> AA(n, n, nb, p, q, MPI_COMM_WORLD);
-    AA.insertLocalTiles();
-    he2ge<scalar_t>(A, AA);
+    slate::Matrix<scalar_t> AA;
+    if ((side == slate::Side::Left  && trans == slate::Op::ConjTrans) ||
+        (side == slate::Side::Right && trans == slate::Op::NoTrans)) {
+        AA = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
+        AA.insertLocalTiles();
+        he2ge<scalar_t>(A, AA);
+    }
+    else {
+        SLATE_UNUSED(AA);
+    }
 
     // todo
     //double gflop = lapack::Gflop<scalar_t>::unmtr_he2hb(n, n);
@@ -218,9 +233,18 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     //==================================================
     // Run SLATE test.
     //==================================================
-    slate::unmtr_he2hb(side, uplo, trans, A, T, B, {
-        {slate::Option::Target, target}
-    });
+    if ((side == slate::Side::Left  && trans == slate::Op::NoTrans) ||
+        (side == slate::Side::Right && trans == slate::Op::ConjTrans)) {
+        slate::unmtr_he2hb(side, uplo, trans, A, T, B, {
+            {slate::Option::Target, target}
+        });
+    }
+    else if ((side == slate::Side::Left  && trans == slate::Op::ConjTrans) ||
+             (side == slate::Side::Right && trans == slate::Op::NoTrans)) {
+        slate::unmtr_he2hb(side, uplo, trans, A, T, AA, {
+           {slate::Option::Target, target}
+        });
+    }
 
     double time_tst = testsweeper::get_wtime() - time;
 
@@ -328,6 +352,10 @@ void test_unmtr_he2hb_work(Params& params, bool run)
                         axpy(-one, Bij, AAij);
                     }
                 }
+            }
+
+            if (verbose > 1) {
+                print_matrix("Q^HAQ - B", AA);
             }
 
             // Norm of backwards error: || Q^HAQ - B ||_1

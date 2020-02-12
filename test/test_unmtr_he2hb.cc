@@ -179,7 +179,7 @@ void test_unmtr_he2hb_work(Params& params, bool run)
         A_sym = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
 
         A_sym.insertLocalTiles();
-        he2ge<scalar_t>(A, A_sym);
+        he2ge(A, A_sym);
 
         if (verbose > 1) {
             print_matrix("A_sym", A_sym);
@@ -190,7 +190,6 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     slate::TriangularFactors<scalar_t> T;
     slate::he2hb(A, T, {{slate::Option::Target, target}});
 
-    // Output A, and T after he2hb
     if (verbose > 2) {
         print_matrix("A_factored", A);
         print_matrix("T_local",    T[0]);
@@ -201,7 +200,8 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     slate::Matrix< scalar_t > B(n, n, nb, p, q, MPI_COMM_WORLD);
 
     B.insertLocalTiles();
-    he2gb<scalar_t>(A, B);
+    he2gb(A, B);
+
     if (verbose > 1) {
         print_matrix("B", B);
     }
@@ -254,6 +254,7 @@ void test_unmtr_he2hb_work(Params& params, bool run)
 
     if (check) {
         const scalar_t negative_one = -1;
+
         if ((side == slate::Side::Left  && trans == slate::Op::NoTrans) ||
             (side == slate::Side::Right && trans != slate::Op::NoTrans)) {
             //==================================================
@@ -307,7 +308,7 @@ void test_unmtr_he2hb_work(Params& params, bool run)
         else if ((side == slate::Side::Left  && trans != slate::Op::NoTrans) ||
                  (side == slate::Side::Right && trans == slate::Op::NoTrans)) {
             //==================================================
-            // Test results by checking forwards error
+            // Test results by checking forward error
             //
             //      || Q^HAQ - B ||_1
             //     ------------------- < tol * epsilon

@@ -203,7 +203,7 @@ void test_he2hb_work(Params& params, bool run)
 
         slate::Matrix< scalar_t > B(n, n, nb, p, q, MPI_COMM_WORLD);
         B.insertLocalTiles();
-        he2gb<scalar_t>(A, B);
+        he2gb(A, B);
         if (verbose > 1) {
             print_matrix("B", B);
         }

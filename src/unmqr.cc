@@ -77,7 +77,7 @@ void unmqr(
     int64_t C_nt = C.nt();
 
     if (is_complex<scalar_t>::value && op == Op::Trans) {
-        throw Exception("Use Op::ConjTrans (not Op::Trans) with complex numbers.");
+        throw Exception("Complex numbers uses Op::ConjTrans, not Op::Trans.");
     }
 
     if (target == Target::Devices) {

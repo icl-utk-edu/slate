@@ -19,8 +19,7 @@ int64_t localRowsCols(int64_t n, int64_t nb, int iproc, int mpi_size);
 // B is stored as a non-symmetric matrix, so we can apply Q from left
 // and right separately.
 template < typename scalar_t >
-void he2hbInitMatrixBFromMatrixA(
-    slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t >& B)
+void he2gb(slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t > B)
 {
     // It must be defined here to avoid having numerical error with complex
     // numbers when calling conj();
@@ -204,7 +203,7 @@ void test_he2hb_work(Params& params, bool run)
 
         slate::Matrix< scalar_t > B(n, n, nb, p, q, MPI_COMM_WORLD);
         B.insertLocalTiles();
-        he2hbInitMatrixBFromMatrixA<scalar_t>(A, B);
+        he2gb<scalar_t>(A, B);
         if (verbose > 1) {
             print_matrix("B", B);
         }

@@ -18,7 +18,7 @@ int64_t localRowsCols(int64_t n, int64_t nb, int iproc, int mpi_size);
 // Zero out B, then copy band matrix B from A.
 // B is stored as a non-symmetric matrix, so we can apply Q from left
 // and right separately.
-template < typename scalar_t >
+template <typename scalar_t>
 void he2gb(slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t > B)
 {
     // It must be defined here to avoid having numerical error with complex
@@ -201,22 +201,12 @@ void test_he2hb_work(Params& params, bool run)
         // Norm of original matrix: || A ||_1
         real_t A_norm = slate::norm(slate::Norm::One, A_ref);
 
-        slate::Matrix< scalar_t > B(n, n, nb, p, q, MPI_COMM_WORLD);
+        slate::Matrix<scalar_t> B(n, n, nb, p, q, MPI_COMM_WORLD);
         B.insertLocalTiles();
         he2gb(A, B);
         if (verbose > 1) {
             print_matrix("B", B);
         }
-
-        // Form QB, where Q's representation is in lower part of A and T.
-        // auto Asub = slate::Matrix<scalar_t>( A, 1, nt-1, 0, nt-1 );
-        // auto Bsub = B.sub(1, nt-1, 0, nt-1);
-        // slate::TriangularFactors<scalar_t> Tsub = {
-        //     T[0].sub(1, nt-1, 0, nt-1),
-        //     T[1].sub(1, nt-1, 0, nt-1)
-        // };
-        // slate::unmqr(slate::Side::Left, slate::Op::NoTrans, Asub, Tsub, Bsub,
-        //              {{slate::Option::Target, target}});
 
         slate::unmtr_he2hb(slate::Side::Left,
                            slate::Op::NoTrans, A, T, B,
@@ -224,11 +214,6 @@ void test_he2hb_work(Params& params, bool run)
         if (verbose > 1) {
             print_matrix("Q^H B", B);
         }
-
-        // Form (QB)Q^H
-        // Bsub = B.sub(0, nt-1, 1, nt-1);
-        // slate::unmqr(slate::Side::Right, slate::Op::ConjTrans, Asub, Tsub, Bsub,
-        //              {{slate::Option::Target, target}});
 
         slate::unmtr_he2hb(slate::Side::Right,
                            slate::Op::ConjTrans, A, T, B,

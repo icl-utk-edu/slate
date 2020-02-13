@@ -209,16 +209,13 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     // todo
     //double gflop = lapack::Gflop<scalar_t>::unmtr_he2hb(n, n);
 
-    if (trace)
-        slate::trace::Trace::on();
-    else
-        slate::trace::Trace::off();
+    if (trace) slate::trace::Trace::on();
+    else slate::trace::Trace::off();
 
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
-
     double time = testsweeper::get_wtime();
 
     //==================================================
@@ -237,20 +234,17 @@ void test_unmtr_he2hb_work(Params& params, bool run)
         });
     }
 
-    double time_tst = testsweeper::get_wtime() - time;
-
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
     }
+    double time_tst = testsweeper::get_wtime() - time;
 
-    if (trace)
-        slate::trace::Trace::finish();
+    if (trace) slate::trace::Trace::finish();
 
+    // compute and save timing/performance
     params.time() = time_tst;
-
-    // todo
-    // params.gflops() = gflop / time_tst;
+    //params.gflops() = gflop / time_tst;
 
     if (check) {
         const scalar_t negative_one = -1;

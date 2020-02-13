@@ -34,6 +34,7 @@ void test_bdsqr_work(
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
+    slate::Origin origin = params.origin();
 
     // mark non-standard output values
     params.time();
@@ -42,6 +43,8 @@ void test_bdsqr_work(
     params.ref_gflops();
     params.ortho_U();
     params.ortho_V();
+
+    slate_assert(m >= n);
 
     if (! run)
         return;
@@ -58,8 +61,8 @@ void test_bdsqr_work(
     // const int izero = 0;
 
     // BLACS/MPI variables
-    int ictxt, nprow, npcol, myrow, mycol;
-    // int descA_tst[9];
+    int ictxt, nprow, npcol, myrow, mycol, info;
+    int descU_tst[9], descVT_tst[9];
     int iam = 0, nprocs = 1;
 
 
@@ -70,6 +73,23 @@ void test_bdsqr_work(
     Cblacs_gridinit(&ictxt, "Col", p, q);
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
+    // matrix U, figure out local size, allocate, create descriptor, initialize
+    int64_t mlocU = scalapack_numroc(m, nb, myrow, 0, nprow);
+    int64_t nlocU = scalapack_numroc(n, nb, mycol, 0, npcol);
+    scalapack_descinit(descU_tst, m, n, nb, nb, 0, 0, ictxt, mlocU, &info);
+    slate_assert(info == 0);
+    int64_t lldU = (int64_t)descU_tst[8];
+    std::vector<scalar_t> U_tst(1);
+
+    // matrix VT, figure out local size, allocate, create descriptor, initialize
+    int64_t mlocVT = scalapack_numroc(min_mn, nb, myrow, 0, nprow);
+    int64_t nlocVT = scalapack_numroc(n, nb, mycol, 0, npcol);
+    scalapack_descinit(descVT_tst, n, n, nb, nb, 0, 0, ictxt, mlocVT, &info);
+    slate_assert(info == 0);
+    int64_t lldVT = (int64_t)descVT_tst[8];
+    std::vector<scalar_t> VT_tst(1);
+
+    // initialize D and E to call the bidiagonal svd solver
     std::vector<real_t> D(n), E(n - 1);
     int64_t idist = 3; // normal
     int64_t iseed[4] = { 0, 0, 0, 3 };
@@ -86,15 +106,30 @@ void test_bdsqr_work(
     bool wantvt = (jobvt == slate::Job::Vec || jobvt == slate::Job::AllVec 
                 || jobvt == slate::Job::SomeVec );
 
-    //if (jobu_ == 'V') {
-        U = slate::Matrix<scalar_t>(m, min_mn, nb, nprow, npcol, MPI_COMM_WORLD);
-        U.insertLocalTiles();
-    //}
-
-    //if (jobu_ == 'V') {
-        VT = slate::Matrix<scalar_t>(min_mn, n, nb, nprow, npcol, MPI_COMM_WORLD);
-        VT.insertLocalTiles();
-    //}
+    if (origin != slate::Origin::ScaLAPACK) {
+        if (wantu) {
+            U = slate::Matrix<scalar_t>(
+                m, min_mn, nb, nprow, npcol, MPI_COMM_WORLD);
+            U.insertLocalTiles();
+        }
+        if (wantvt) {
+            VT = slate::Matrix<scalar_t>(
+                 min_mn, n, nb, nprow, npcol, MPI_COMM_WORLD);
+            VT.insertLocalTiles();
+        }
+    }
+    else {
+        if (wantu) {
+            U_tst.resize(lldU*nlocU);
+            U = slate::Matrix<scalar_t>::fromScaLAPACK(
+                m, n, &U_tst[0], lldU, nb, nprow, npcol, MPI_COMM_WORLD);
+        }
+        if (wantvt) {
+            VT_tst.resize(lldVT*nlocVT);
+            VT = slate::Matrix<scalar_t>::fromScaLAPACK(
+                 min_mn, n, &VT_tst[0], lldVT, nb, nprow, npcol, MPI_COMM_WORLD);
+        }
+    }
 
     //---------
     // run test

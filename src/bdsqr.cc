@@ -75,14 +75,10 @@ void bdsqr(slate::internal::TargetType<target>,
 
     using blas::max;
 
-    int64_t m = U.m();
-    int64_t n = VT.n();
-    int64_t min_mn = std::min(m, n);
-    assert(m >= n);
+    int64_t m, n, nb, mb; 
+    int64_t min_mn = D.size();
+    //assert(m >= n);
 
-    int64_t nb = U.tileNb(0);
-    int64_t mb = U.tileMb(0);
-    
     int mpi_size;
     int64_t info = 0;
 
@@ -90,11 +86,9 @@ void bdsqr(slate::internal::TargetType<target>,
 
     // Find the total number of processors.
     slate_mpi_call(
-        MPI_Comm_size(U.mpiComm(), &mpi_size));
+        MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
 
-    // The 1-dim grid conf.
-    int nprowc_1d = mpi_size, npcolc_1d = 1, myrowc_1d, mycolc_1d, nprocs_1d = mpi_size;
-    int nprowr_1d = 1, npcolr_1d = mpi_size, myrowr_1d, mycolr_1d, nprocr_1d = mpi_size;
+    int myrow, mycol;
     int izero = 0;
 
     int64_t nru  = 0;
@@ -102,30 +96,41 @@ void bdsqr(slate::internal::TargetType<target>,
  
     int64_t ldu = 1;
     int64_t ldvt = 1;
+
     std::vector<scalar_t> u1d(1);
     std::vector<scalar_t> vt1d(1);
     scalar_t dummy[1];
 
-    bool wantu  = (jobu  == Job::Vec || jobu  == Job::AllVec || jobu  == Job::SomeVec );
-    bool wantvt = (jobvt == Job::Vec || jobvt == Job::AllVec || jobvt == Job::SomeVec );
+    bool wantu  = (jobu  == Job::Vec || 
+                   jobu  == Job::AllVec || 
+                   jobu  == Job::SomeVec );
+    bool wantvt = (jobvt == Job::Vec || 
+                   jobvt == Job::AllVec || 
+                   jobvt == Job::SomeVec );
 
     // Compute the local number of the eigenvectors.
     // Build the 1-dim distributed U and VT
     slate::Matrix<scalar_t> U1d;
     slate::Matrix<scalar_t> VT1d;
     if (wantu) {
-        nru  = numberLocalRowOrCol(m, mb, myrowc_1d, izero, nprocs_1d);
+        m = U.m();
+        mb = U.tileMb(0);
+        nb = U.tileNb(0);
+        nru  = numberLocalRowOrCol(m, mb, myrow, izero, mpi_size);
         ldu = max( 1, nru );
         u1d.resize(ldu*min_mn);
-        U1d = slate::Matrix<scalar_t>::fromScaLAPACK(m, min_mn, &u1d[0], ldu, nb, nprowc_1d, npcolc_1d, MPI_COMM_WORLD);
+        U1d = slate::Matrix<scalar_t>::fromScaLAPACK(
+              m, min_mn, &u1d[0], ldu, nb, mpi_size, 1, MPI_COMM_WORLD);
         set(zero, one, U1d);
-
     }
     if (wantvt) {
-        ncvt = numberLocalRowOrCol(n, nb, mycolr_1d, izero, nprocs_1d);
+        n = VT.n();
+        nb = VT.tileNb(0);
+        ncvt = numberLocalRowOrCol(n, nb, mycol, izero, mpi_size);
         ldvt = max( 1, min_mn );
         vt1d.resize(ldvt*ncvt);
-        VT1d = slate::Matrix<scalar_t>::fromScaLAPACK(min_mn, n, &vt1d[0], ldvt, nb, nprowr_1d, npcolr_1d, MPI_COMM_WORLD);
+        VT1d = slate::Matrix<scalar_t>::fromScaLAPACK(
+               min_mn, n, &vt1d[0], ldvt, nb, 1, mpi_size, MPI_COMM_WORLD);
         set(zero, one, VT1d);
     }
 

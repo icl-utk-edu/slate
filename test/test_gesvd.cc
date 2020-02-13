@@ -41,6 +41,7 @@ void test_gesvd_work(Params& params, bool run)
     slate::Norm norm = params.norm();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    //params.matrix.mark();
 
     params.time();
     params.ref_time();
@@ -156,6 +157,9 @@ void test_gesvd_work(Params& params, bool run)
         U_ref = U_tst;
         VT_ref = VT_tst;
     }
+
+    //lapack::generate_matrix( params.matrix, A);
+    //copy(A, &A_tst[0], descA_tst);
 
     if (! ref_only) {
         if (trace) slate::trace::Trace::on();

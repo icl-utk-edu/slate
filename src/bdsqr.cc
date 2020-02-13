@@ -75,12 +75,12 @@ void bdsqr(slate::internal::TargetType<target>,
 
     using blas::max;
 
-    int64_t m, n, nb, mb; 
+    int64_t m, n, nb, mb;
     int64_t min_mn = D.size();
     //assert(m >= n);
 
     int mpi_size;
-    int64_t info = 0;
+    // int64_t info = 0;
 
     scalar_t zero = 0.0, one = 1.0;
 
@@ -88,12 +88,12 @@ void bdsqr(slate::internal::TargetType<target>,
     slate_mpi_call(
         MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
 
-    int myrow, mycol;
+    int myrow = 0, mycol = 0;
     int izero = 0;
 
     int64_t nru  = 0;
     int64_t ncvt = 0;
- 
+
     int64_t ldu = 1;
     int64_t ldvt = 1;
 
@@ -101,11 +101,11 @@ void bdsqr(slate::internal::TargetType<target>,
     std::vector<scalar_t> vt1d(1);
     scalar_t dummy[1];
 
-    bool wantu  = (jobu  == Job::Vec || 
-                   jobu  == Job::AllVec || 
+    bool wantu  = (jobu  == Job::Vec ||
+                   jobu  == Job::AllVec ||
                    jobu  == Job::SomeVec );
-    bool wantvt = (jobvt == Job::Vec || 
-                   jobvt == Job::AllVec || 
+    bool wantvt = (jobvt == Job::Vec ||
+                   jobvt == Job::AllVec ||
                    jobvt == Job::SomeVec );
 
     // Compute the local number of the eigenvectors.
@@ -137,7 +137,7 @@ void bdsqr(slate::internal::TargetType<target>,
     // Call the SVD
     lapack::bdsqr(Uplo::Upper, min_mn, ncvt, nru, 0,
                   &D[0], &E[0], &vt1d[0], min_mn, &u1d[0], ldu, dummy, 1);
-    
+
     // Redistribute the 1-dim distributed U and VT into 2-dim matrices
     if (wantu) {
         U.redistribute(U1d);

@@ -183,11 +183,13 @@ void test_geqrf  (Params& params, bool run);
 void test_gelqf  (Params& params, bool run);
 
 // symmetric/Hermitian eigenvalues
-void test_heev        (Params& params, bool run);
-void test_he2hb       (Params& params, bool run);
+void test_heev   (Params& params, bool run);
+void test_he2hb  (Params& params, bool run);
+void test_hb2st  (Params& params, bool run);
+void test_sterf  (Params& params, bool run);
+void test_steqr2  (Params& params, bool run);
+
 void test_unmtr_he2hb (Params& params, bool run);
-void test_hb2st       (Params& params, bool run);
-void test_sterf       (Params& params, bool run);
 
 // generalized symmetric/Hermitian eigenvalues
 void test_hegv   (Params& params, bool run);

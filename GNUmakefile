@@ -357,6 +357,7 @@ libslate_src += \
         src/hb2st.cc \
         src/he2hb.cc \
         src/heev.cc \
+        src/hegst.cc \
         src/hemm.cc \
         src/hbmm.cc \
         src/her2k.cc \
@@ -418,6 +419,7 @@ tester_src += \
         test/test_getri.cc \
         test/test_he2hb.cc \
         test/test_heev.cc \
+				test/test_hegst.cc \
         test/test_hemm.cc \
         test/test_hbmm.cc \
         test/test_hbnorm.cc \

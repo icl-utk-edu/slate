@@ -851,9 +851,9 @@ void syev( SymmetricMatrix<scalar_t>& A,
 //-----------------------------------------
 // hegst()
 template <typename scalar_t>
-void hegst(HermitianMatrix<scalar_t>& A,
+void hegst(int64_t itype,
+           HermitianMatrix<scalar_t>& A,
            HermitianMatrix<scalar_t>& B,
-           const int type = 1,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------

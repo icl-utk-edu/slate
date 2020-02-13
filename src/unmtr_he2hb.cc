@@ -47,21 +47,42 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
-/// Distributed parallel reduction to band for 3-stage SVD.
+/// Multiplies the general m-by-n matrix C by Q from `slate::unmtr_hb2st` as
+/// follows:
 ///
-/// Reduces an n-by-n Hermitian matrix $A$ to band form using unitary
-/// transformations using slate::unmlq or slate::unmqr with the right
-/// matrix-subs.
+/// op              |  side = Left  |  side = Right
+/// --------------- | ------------- | --------------
+/// op = NoTrans    |  $Q C  $      |  $C Q  $
+/// op = ConjTrans  |  $Q^H C$      |  $C Q^H$
+///
+/// where $Q$ is a unitary matrix defined as the product of k
+/// elementary reflectors
+/// \[
+///     Q = H(1) H(2) . . . H(k)
+/// \]
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
-///     One of float, double, std::complex< float >, std::complex< double >.
+///     One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
+/// @param[in] side
+///     - Side::Left:  apply $Q$ or $Q^H$ from the left;
+///     - Side::Right: apply $Q$ or $Q^H$ from the right.
+///
+/// @param[in] op
+///     - Op::NoTrans    apply $Q$;
+///     - Op::ConjTrans: apply $Q^H$;
+///     - Op::Trans:     apply $Q^T$ (only if real).
+///       In the real case, Op::Trans is equivalent to Op::ConjTrans.
+///       In the complex case, Op::Trans is not allowed.
+///
 /// @param[in] A
-///     On entry, the n-by-n Hermitian matrix $A$.
+///     On entry, the n-by-n Hermitian matrix $A$, as returned by
+///     `slate::unmtr_hb2st`.
 ///
 /// @param[in] T
-///     On entry, triangular matrices of the .
+///     On entry, triangular matrices of the elementary
+///     reflector H(i), as returned by `slate::unmtr_hb2st`.
 ///
 /// @param[in,out] C
 ///     On entry, the m-by-n matrix $C$.
@@ -76,67 +97,65 @@ namespace slate {
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// @ingroup unmtr_he2hb
+/// @ingroup heev_computational
 ///
-template < typename scalar_t >
+template <typename scalar_t>
 void unmtr_he2hb(
-    Side side, Uplo uplo, Op op,
-    HermitianMatrix< scalar_t >& A, TriangularFactors< scalar_t > T,
-             Matrix< scalar_t >& B,
-    const std::map< Option, Value >& opts)
+    Side side, Op op, HermitianMatrix<scalar_t>& A,
+    TriangularFactors<scalar_t> T,
+    Matrix<scalar_t>& C,
+    const std::map<Option, Value>& opts)
 {
-    slate::TriangularFactors< scalar_t > T_sub = {
+    slate::TriangularFactors<scalar_t> T_sub = {
         T[ 0 ].sub( 1, A.nt()-1, 0, A.nt()-1 ),
         T[ 1 ].sub( 1, A.nt()-1, 0, A.nt()-1 )
     };
 
-    if (uplo == Uplo::Upper) {
-        // todo: never tested
-        auto Q = Matrix< scalar_t >(A, 0, A.nt()-1, 1, A.nt()-1);
-        slate::unmlq(side, op, Q, T_sub, B, opts);
+    if (A.uplo() == Uplo::Upper) {
+        // todo: never tested.
+        auto A_sub = slate::Matrix<scalar_t>(A, 0, A.nt()-1, 1, A.nt()-1);
+        slate::unmlq(side, op, A_sub, T_sub, C, opts);
     }
     else { // uplo == Uplo::Lower
-        auto Q = Matrix< scalar_t >(A, 1,  A.nt()-1, 0,  A.nt()-1);
+        auto A_sub = slate::Matrix<scalar_t>(A, 1, A.nt()-1, 0,  A.nt()-1);
 
         const int64_t i0 = (side == Side::Left) ? 1 : 0;
         const int64_t i1 = (side == Side::Left) ? 0 : 1;
 
-        auto C = Matrix< scalar_t >(B, i0, A.nt()-1, i1, A.nt()-1);
+        auto C_cub = C.sub(i0, A.nt()-1, i1, A.nt()-1);
 
-        slate::unmqr(side, op, Q, T_sub, C, opts);
+        slate::unmqr(side, op, A_sub, T_sub, C_cub, opts);
     }
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void unmtr_he2hb< float >(
-    Side side, Uplo uplo, Op op,
-    HermitianMatrix< float >& A, TriangularFactors< float > T,
-             Matrix< float >& B,
-    const std::map< Option, Value >& opts);
+void unmtr_he2hb<float>(
+    Side side, Op op, HermitianMatrix<float>& A,
+    TriangularFactors<float> T,
+    Matrix<float>& C,
+    const std::map<Option, Value>& opts);
 
 template
-void unmtr_he2hb< double >(
-    Side side, Uplo uplo, Op op,
-    HermitianMatrix< double >& A, TriangularFactors< double > T,
-             Matrix< double >& B,
-    const std::map< Option, Value >& opts);
+void unmtr_he2hb<double>(
+    Side side, Op op, HermitianMatrix<double>& A,
+    TriangularFactors<double> T,
+    Matrix<double>& C,
+    const std::map<Option, Value>& opts);
 
 template
-void unmtr_he2hb< std::complex< float > >(
-    Side side, Uplo uplo, Op op,
-    HermitianMatrix< std::complex< float > >& A,
-    TriangularFactors< std::complex< float > > T,
-    Matrix< std::complex< float > >& B,
-    const std::map< Option, Value >& opts);
+void unmtr_he2hb<std::complex<float>>(
+    Side side, Op op, HermitianMatrix<std::complex<float>>& A,
+    TriangularFactors<std::complex<float> > T,
+    Matrix< std::complex<float> >& C,
+    const std::map<Option, Value>& opts);
 
 template
-void unmtr_he2hb< std::complex< double > >(
-    Side side, Uplo uplo, Op op,
-    HermitianMatrix< std::complex< double > >& A,
-    TriangularFactors< std::complex< double > > T,
-    Matrix< std::complex< double > >& B,
-    const std::map< Option, Value >& opts);
+void unmtr_he2hb<std::complex<double>>(
+    Side side, Op op, HermitianMatrix<std::complex<double>>& A,
+    TriangularFactors<std::complex<double>> T,
+    Matrix<std::complex<double>>& C,
+    const std::map<Option, Value>& opts);
 
 } // namespace slate

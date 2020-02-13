@@ -226,13 +226,13 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     //==================================================
     if ((side == slate::Side::Left  && trans == slate::Op::NoTrans) ||
         (side == slate::Side::Right && trans != slate::Op::NoTrans)) {
-        slate::unmtr_he2hb(side, uplo, trans, A, T, B, {
+        slate::unmtr_he2hb(side, trans, A, T, B, {
             {slate::Option::Target, target}
         });
     }
     else if ((side == slate::Side::Left  && trans != slate::Op::NoTrans) ||
              (side == slate::Side::Right && trans == slate::Op::NoTrans)) {
-        slate::unmtr_he2hb(side, uplo, trans, A, T, A_sym, {
+        slate::unmtr_he2hb(side, trans, A, T, A_sym, {
            {slate::Option::Target, target}
         });
     }
@@ -269,14 +269,14 @@ void test_unmtr_he2hb_work(Params& params, bool run)
             if (trans == slate::Op::NoTrans) {
                 // QB is already computed, we need (QB)Q^H
                 // (QB)Q^H
-                slate::unmtr_he2hb(slate::Side::Right, uplo,
+                slate::unmtr_he2hb(slate::Side::Right,
                                    slate::Op::ConjTrans, A, T, B,
                                    {{slate::Option::Target, target}});
             }
             else {
                 // BQ^H is already computed, we need QB
                 // (QB)Q^H
-                slate::unmtr_he2hb(slate::Side::Left, uplo,
+                slate::unmtr_he2hb(slate::Side::Left,
                                    slate::Op::NoTrans, A, T, B,
                                    {{slate::Option::Target, target}});
             }
@@ -319,14 +319,14 @@ void test_unmtr_he2hb_work(Params& params, bool run)
             if (trans == slate::Op::NoTrans) {
                 // AQ is already computed, we need Q^HA
                 // (Q^HA)Q
-                slate::unmtr_he2hb(slate::Side::Left, uplo,
+                slate::unmtr_he2hb(slate::Side::Left,
                                    slate::Op::ConjTrans, A, T, A_sym,
                                    {{slate::Option::Target, target}});
             }
             else {
                 // Q^HA is already computed, we need (Q^HA)Q
                 // (Q^HA)Q
-                slate::unmtr_he2hb(slate::Side::Right, uplo,
+                slate::unmtr_he2hb(slate::Side::Right,
                                    slate::Op::NoTrans, A, T, A_sym,
                                    {{slate::Option::Target, target}});
             }

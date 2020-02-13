@@ -113,6 +113,9 @@ void gesvd(Matrix<scalar_t> A,
     Aband.ge2tbGather(Ahat);
 
     // Currently, hb2st and sterf are run on a single node.
+    slate::Matrix<scalar_t> U;
+    slate::Matrix<scalar_t> VT;
+
     S.resize(n);
     if (A.mpiRank() == 0) {
         // 2. Reduce band to bi-diagonal.
@@ -124,7 +127,7 @@ void gesvd(Matrix<scalar_t> A,
 
         // 3. Bi-diagonal SVD solver.
         // QR iteration
-        bdsqr<scalar_t>(S, E, opts);
+        bdsqr<scalar_t>(slate::Job::NoVec, slate::Job::NoVec, S, E, U, VT, opts);
     }
 
     // If matrix was scaled, then rescale singular values appropriately.

@@ -3676,6 +3676,53 @@ inline int64_t indexGlobal2Local(int64_t i, int64_t nb, int num_ranks)
     return nb*(i/(nb*num_ranks)) + (i % nb);
 }
 
+//------------------------------------------------------------------------------
+// from ScaLAPACK's numroc 
+/// [internal]
+/// Computes the number of Rows Or Columns of a distributed
+/// matrix owned by the process indicated by IPROC.
+///
+/// @param[in] n
+///     The number of rows/columns in distributed matrix.
+///
+/// @param[in] nb
+///     Block size, size of the blocks the distributed matrix is split into.
+///
+/// @param[in] iproc
+///     The coordinate of the process whose local array row or 
+///     column is to be determined.
+///
+/// @param[in] isrcproc
+///     The coordinate of the process that possesses the first
+///     row or column of the distributed matrix.
+///
+/// @param[in] nprocs
+///     The total number processes over which the matrix is distributed.
+///
+inline int64_t numberLocalRowOrCol(int64_t n, int64_t nb, int iproc, int isrcproc, int nprocs)
+{
+    int64_t numroc;
+    // Figure PROC's distance from source process
+    int mydist = (nprocs+iproc-isrcproc) % nprocs;
+
+    // Figure the total number of whole NB blocks N is split up into
+    int nblocks = (int)(n / nb);
+    // Figure the minimum number of rows/cols a process can have
+    numroc = (int64_t)(nblocks/nprocs) * nb;
+    // See if there are any extra blocks
+    int extrablks = nblocks % nprocs;
+
+    // If I have an extra block
+    if (mydist < extrablks) {
+        numroc = numroc + nb;
+    }
+    // If I have last block, it may be a partial block
+    else if (mydist == extrablks) {
+        numroc = numroc + n % nb;
+    }
+    return numroc;
+}
+
 } // namespace slate
 
 #endif // SLATE_BASE_MATRIX_HH

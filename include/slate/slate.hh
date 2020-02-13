@@ -814,9 +814,16 @@ void tb2bd(TriangularBandMatrix<scalar_t>& A,
 
 //-----------------------------------------
 // Bi-diagonal SVD
+//template <typename scalar_t>
+//void bdsqr(std::vector< blas::real_type<scalar_t> >& D,
+//           std::vector< blas::real_type<scalar_t> >& E,
+//           const std::map<Option, Value>& opts = std::map<Option, Value>());
 template <typename scalar_t>
-void bdsqr(std::vector< blas::real_type<scalar_t> >& D,
+void bdsqr(lapack::Job jobu, lapack::Job jobvt,
+           std::vector< blas::real_type<scalar_t> >& D,
            std::vector< blas::real_type<scalar_t> >& E,
+           Matrix<scalar_t>& U,
+           Matrix<scalar_t>& VT,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //------------------------------------------------------------------------------
@@ -826,7 +833,7 @@ void bdsqr(std::vector< blas::real_type<scalar_t> >& D,
 template <typename scalar_t>
 void heev( HermitianMatrix<scalar_t>& A,
            std::vector< blas::real_type<scalar_t> >& W,
-           const std::map<Option, Value>& opts);
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
 // forward real-symmetric matrices to heev;
@@ -874,6 +881,15 @@ template <typename scalar_t>
 void sterf(std::vector< scalar_t >& D,
            std::vector< scalar_t >& E,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// steqr2()
+template <typename scalar_t>
+void steqr2(lapack::Job job,
+            std::vector< blas::real_type<scalar_t> >& D,
+            std::vector< blas::real_type<scalar_t> >& E,
+            Matrix<scalar_t>& Z,
+            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 } // namespace slate
 

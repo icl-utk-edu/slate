@@ -77,6 +77,7 @@ endif
 ifneq ($(static),1)
     CXXFLAGS += -fPIC
     LDFLAGS  += -fPIC
+    FCFLAGS  += -fPIC
     NVCCFLAGS += --compiler-options '-fPIC'
     lib_ext = so
 else
@@ -375,6 +376,7 @@ libslate_src += \
         src/potrs.cc \
         src/set.cc \
         src/sterf.cc \
+        src/steqr2.cc \
         src/symm.cc \
         src/syr2k.cc \
         src/syrk.cc \
@@ -387,6 +389,17 @@ libslate_src += \
         src/trtrm.cc \
         src/unmqr.cc \
         src/unmlq.cc \
+
+
+FORTRAN = $(shell which $(FC))
+ifneq ($(FORTRAN),)
+    libslate_src += \
+        src/ssteqr2.f \
+        src/dsteqr2.f \
+        src/csteqr2.f \
+        src/zsteqr2.f \
+
+endif
 
 # main tester
 tester_src += \
@@ -422,6 +435,7 @@ tester_src += \
         test/test_syr2k.cc \
         test/test_syrk.cc \
         test/test_sterf.cc \
+        test/test_steqr2.cc \
         test/test_tb2bd.cc \
         test/test_tbsm.cc \
         test/test_trmm.cc \

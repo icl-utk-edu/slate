@@ -10,6 +10,9 @@
 #include "lapack.hh"
 #include "slate/slate.hh"
 
+#include "matrix_params.hh"
+#include "matrix_generator.hh"
+
 // -----------------------------------------------------------------------------
 namespace slate {
 
@@ -36,6 +39,10 @@ public:
 
     Params();
 
+    // ----- test matrix parameters
+    MatrixParams matrix;
+    MatrixParams matrixB;
+
     // Field members are explicitly public.
     // Order here determines output order.
     // ----- test framework parameters
@@ -49,7 +56,7 @@ public:
     testsweeper::ParamInt    verbose;
     testsweeper::ParamInt    extended;
     testsweeper::ParamInt    cache;
-    testsweeper::ParamInt    matrix;  // todo: string + generator
+    //testsweeper::ParamInt    matrix;  // todo: string + generator
 
     // ----- routine parameters
     // LAPACK options

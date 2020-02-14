@@ -40,6 +40,7 @@ void test_heev_work(Params& params, bool run)
     slate::Norm norm = params.norm();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    params.matrix.mark();
 
     slate_assert(p == q);  // heev requires square process grid.
 
@@ -106,12 +107,11 @@ void test_heev_work(Params& params, bool run)
         slate::Target origin_target = origin2target(origin);
         A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, nprow, npcol, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
-        copy(&A_tst[0], descA_tst, A);
-
-        W = W_tst;
-
         Z = slate::Matrix<scalar_t>(n, n, nb, nprow, npcol, MPI_COMM_WORLD);
         Z.insertLocalTiles(origin_target);
+
+        W = W_tst;
+        copy(&A_tst[0], descA_tst, A);
         copy(&Z_tst[0], descZ_tst, Z); // Z is output, so not really needed
     }
     else {
@@ -120,6 +120,15 @@ void test_heev_work(Params& params, bool run)
         W = W_tst;
         Z = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &Z_tst[0], lldZ, nb, nprow, npcol, MPI_COMM_WORLD);
     }
+   
+    //lapack::TestMatrixType type = lapack::TestMatrixType::heev; 
+    //params.matrix.kind.set_default("heev");
+    //params.matrix.cond.set_default(1e4);
+
+    lapack::generate_matrix( params.matrix, Z);
+    A = slate::HermitianMatrix<scalar_t>( 
+               uplo, Z );  
+    copy(Z, &A_tst[0], descA_tst);
 
     if (verbose >= 1) {
         printf( "%% A   %6lld-by-%6lld\n", llong(   A.m() ), llong(   A.n() ) );

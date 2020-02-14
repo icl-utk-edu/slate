@@ -449,6 +449,8 @@ void generate_heev(
                 params.iseed[0] = (rand() + i + j) % 256;
                 lapack::larnv( idist_randn, params.iseed, 
                     U.tileMb(i)*U.tileNb(j), Tmpij.data() );
+                gecopy(Tmp(i, j), U(i, j));
+                Tmp.tileErase(i, j);
             }
         }
     }
@@ -1055,13 +1057,13 @@ void generate_matrix(
                             }
                         }
                         gecopy(Tmp(i, j), A(i, j));
+                        Tmp.tileErase(i, j);
 
                         // Scale the matrix
                         if (sigma_max != 1) {
                             scalar_t s = sigma_max;
                             scale(s, A(i, j));
                         }
-                        Tmp.tileErase(i, j);
                     }
                 }
             }

@@ -72,8 +72,6 @@ void generate_sigma(
 {
     using real_t = blas::real_type<scalar_t>;
 
-    // constants
-    const scalar_t c_zero = 0;
 
     // locals
     int64_t minmn = std::min( A.m(), A.n() );
@@ -179,21 +177,19 @@ void generate_sigma(
     }
 
     // copy sigma => A
-    scalar_t zero = 0.0, one = 1.0; 
-    int64_t nt = A.nt();
+    scalar_t zero = 0.0; 
+    const int64_t min_mt_nt = std::min(A.mt(), A.nt());
     set(zero, zero, A);
     int64_t S_index = 0;
-    auto len = A.tileNb(0);
-    for (int64_t i = 0; i < nt; ++i) {
+    #pragma omp parallel for
+    for (int64_t i = 0; i < min_mt_nt; ++i) {
         if (A.tileIsLocal(i, i)) {
             auto T = A(i, i);
-            len = T.nb();
-            for (int j = 0; j < len; ++j) {
-                T.at(j,j) = sigma[S_index + j];
+            for (int ii = 0; ii < A.tileNb(i); ++ii) {
+                T.at(ii, ii) = sigma[S_index + ii];
             }
         }
-        S_index += len;
-        //A.tileTick(i, i);
+        S_index += A.tileNb(i);
     }
 }
 
@@ -278,13 +274,10 @@ void generate_svd(
     assert( A.m() >= A.n() );
 
     // locals
-    int64_t m = A.m();
-    int64_t n = A.n();
-    int64_t mt = A.mt();
-    int64_t nt = A.nt();
-    int64_t maxmn = std::max( m, n );
-    int64_t minmn = std::min( m, n );
-    int64_t info = 0;
+    const int64_t n = A.n();
+    const int64_t mt = A.mt();
+    const int64_t nt = A.nt();
+    const int64_t min_mt_nt = std::min(mt, nt);
 
     slate::Matrix<scalar_t> U = A.emptyLike();
     U.insertLocalTiles();
@@ -302,16 +295,15 @@ void generate_svd(
         
         // copy sigma to diag(A)
         int64_t S_index = 0;
-        auto len = A.tileNb(0);
-        for (int64_t i = 0; i < nt; ++i) {
+        #pragma omp parallel for
+        for (int64_t i = 0; i < min_mt_nt; ++i) {
             if (A.tileIsLocal(i, i)) {
                 auto T = A(i, i);
-                len = T.nb();
-                for (int j = 0; j < len; ++j) {
-                    T.at(j,j) = sigma[S_index + j];
+                for (int ii = 0; ii < A.tileNb(i); ++ii) {
+                    T.at(ii, ii) = sigma[S_index + ii];
                 }
             }
-            S_index += len;
+            S_index += A.tileNb(i);
             //A.tileTick(i, i);
         }
     }
@@ -320,6 +312,7 @@ void generate_svd(
     // just make each random column into a Householder vector;
     // no need to update subsequent columns (as in geqrf).
     auto Tmp = U.emptyLike();
+    #pragma omp parallel for
     for (int64_t j = 0; j < nt; ++j) {
         for (int64_t i = 0; i < mt; ++i) {
             if (U.tileIsLocal(i, j)) {
@@ -347,6 +340,7 @@ void generate_svd(
 
     // random V, n-by-minmn (stored column-wise in U)
     auto V = U.sub(0, nt-1, 0, nt-1); 
+    #pragma omp parallel for
     for (int64_t j = 0; j < nt; ++j) {
         for (int64_t i = 0; i < nt; ++i) {
             if (V.tileIsLocal(i, j)) {
@@ -426,8 +420,6 @@ void generate_heev(
 
     // locals
     int64_t n = A.n();
-    int64_t sizeU;
-    int64_t info = 0;
     slate::Matrix<scalar_t> U = A.emptyLike();
     U.insertLocalTiles();
     slate::TriangularFactors<scalar_t> T;
@@ -438,9 +430,10 @@ void generate_heev(
     // random U, n-by-n
     // just make each random column into a Householder vector;
     // no need to update subsequent columns (as in geqrf).
-    int64_t nt = U.nt();
-    int64_t mt = U.mt();
+    const int64_t nt = U.nt();
+    const int64_t mt = U.mt();
     auto Tmp = U.emptyLike();
+    #pragma omp parallel for
     for (int64_t j = 0; j < nt; ++j) {
         for (int64_t i = 0; i < mt; ++i) {
             if (U.tileIsLocal(i, j)) {
@@ -464,12 +457,12 @@ void generate_heev(
 
     // make diagonal real
     // usually LAPACK ignores imaginary part anyway, but Matlab doesn't
-    int64_t S_index = 0;
+    #pragma omp parallel for
     for (int64_t i = 0; i < nt; ++i) {
         if (A.tileIsLocal(i, i)) {
             auto T = A(i, i);
-            for (int j = 0; j < A.tileMb(i); ++j) {
-                T.at(j, j) = std::real( T.at(j, j) );
+            for (int ii = 0; ii < A.tileMb(i); ++ii) {
+                T.at(ii, ii) = std::real( T.at(ii, ii) );
             }
         }
     }
@@ -484,6 +477,7 @@ void generate_heev(
         }
 
         int64_t J_index = 0;
+        #pragma omp parallel for
         for (int64_t j = 0; j < nt; ++j) {
             int64_t I_index = 0;
             for (int64_t i = 0; i < mt; ++i) {
@@ -778,7 +772,6 @@ void generate_matrix(
     }
 
     real_t sigma_max = 1;
-    int64_t minmn = std::min( A.m(), A.n() );
 
     // ----------
     // set sigma to unknown (nan)
@@ -987,11 +980,9 @@ void generate_matrix(
                  ansi_red, kind.c_str(), ansi_normal );
     }
 
-    int m = (int)A.m();
     int n = (int)A.n();
-    int64_t nt = A.nt();
-    int64_t mt = A.mt();
-    scalar_t zero = 0.0, one = 1.0; 
+    const int64_t nt = A.nt();
+    const int64_t mt = A.mt();
     // ----- generate matrix
     switch (type) {
         case TestMatrixType::zero:
@@ -1038,6 +1029,7 @@ void generate_matrix(
             //int64_t idist = (int64_t) type;
             int64_t idist = 1;
             auto Tmp = A.emptyLike();
+            #pragma omp parallel for
             for (int64_t j = 0; j < nt; ++j) {
                 for (int64_t i = 0; i < mt; ++i) {
                     if (A.tileIsLocal(i, j)) {
@@ -1051,8 +1043,8 @@ void generate_matrix(
                         if (dominant) {
                             if (i == j) {
                                 //auto T = A(i, i);
-                                for (int jj = 0; jj < A.tileNb(i); ++jj) {
-                                    Tmpij.at(jj, jj) += n;
+                                for (int ii = 0; ii < A.tileNb(i); ++ii) {
+                                    Tmpij.at(ii, ii) += n;
                                 }
                             }
                         }

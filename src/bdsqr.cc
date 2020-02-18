@@ -88,7 +88,7 @@ void bdsqr(slate::internal::TargetType<target>,
     slate_mpi_call(
         MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
 
-    int myrow = 0, mycol = 0;
+    int myrow, mycol;
     int izero = 0;
 
     int64_t nru  = 0;

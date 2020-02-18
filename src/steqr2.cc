@@ -78,7 +78,7 @@ void steqr2(slate::internal::TargetType<target>,
     int64_t info = 0;
     int64_t nrc, ldc;
 
-    int myrow = 0;
+    int myrow;
     int izero = 0;
     scalar_t zero = 0.0, one = 1.0;
 

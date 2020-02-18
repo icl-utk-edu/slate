@@ -78,7 +78,7 @@ void steqr2(slate::internal::TargetType<target>,
     int64_t info = 0;
     int64_t nrc, ldc;
 
-    int nprow_1d, npcol_1d, myrow_1d, nprocs_1d;
+    int myrow = 0;
     int izero = 0;
     scalar_t zero = 0.0, one = 1.0;
 
@@ -87,11 +87,6 @@ void steqr2(slate::internal::TargetType<target>,
     // Find the total number of processors.
     slate_mpi_call(
         MPI_Comm_size(Z.mpiComm(), &mpi_size));
-
-    // The 1-dim grid conf.
-    nprocs_1d = mpi_size;
-    nprow_1d  = mpi_size;
-    npcol_1d  = 1;
 
     ldc = 1;
     nrc = 0;
@@ -102,10 +97,12 @@ void steqr2(slate::internal::TargetType<target>,
     // Build the matrix Z using 1-dim grid.
     slate::Matrix<scalar_t> Z1d; 
     if (wantz) {
-        nrc = numberLocalRowOrCol(n, nb, myrow_1d, izero, nprocs_1d);
+        myrow = Z.mpiRank();
+        nrc = numberLocalRowOrCol(n, nb, myrow, izero, mpi_size);
         ldc = max( 1, nrc );
         Q.resize(nrc*n);
-        Z1d = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &Q[0], nrc, nb, nprow_1d, npcol_1d, MPI_COMM_WORLD);
+        Z1d = slate::Matrix<scalar_t>::fromScaLAPACK(
+              n, n, &Q[0], nrc, nb, mpi_size, 1, MPI_COMM_WORLD);
         set(zero, one, Z1d);
     }
 

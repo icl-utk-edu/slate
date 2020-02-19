@@ -461,7 +461,10 @@ if (opts.syev):
     #[ 'unmtr', gen + dtype_complex + la + mn + uplo + side + trans_nc ],  # complex does trans = N, C, not T
     # todo nb, uplo, origin
     [ 'unmtr_he2hb', target + p + q + check + ref + tol + repeat + dtype_real    + ' --nb 50' + ' --origin s' + side + trans    ],  # real does trans = N, T, C
-    [ 'unmtr_he2hb', target + p + q + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + side + trans_nc ],  # complex does trans = N, C, not T
+    # todo: include (side=l and trans=c) as well as (side=r and trans=n)
+    # [ 'unmtr_he2hb', target + p + q + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + side + trans_nc ],  # complex does trans = N, C, not T
+    [ 'unmtr_he2hb', target + p + q + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + ' --side l' + ' --trans n' ],
+    [ 'unmtr_he2hb', target + p + q + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + ' --side r' + ' --trans c' ],
     # todo nb, uplo
     [ 'he2hb', gen_no_nb + ' --nb 50' + dtype + n ],
     # sterf doesn't take origin, target, nb, uplo

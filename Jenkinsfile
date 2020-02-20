@@ -4,16 +4,16 @@ pipeline {
         stages {
             stage('Parallel Build') {
                 parallel {
-                    stage('Build - Master') {
-                        agent { label 'master' }
+                    stage('Build - Caffeine') {
+                        agent { node 'caffeine.icl.utk.edu' }
                         steps {
                             sh '''
                                 #!/bin/sh +x
                                 echo "SLATE Jenkinsfile"
                                 hostname && pwd
 
-                                source /opt/spack/share/spack/setup-env.sh
-                                spack load gcc
+                                source /home/jmfinney/spack/share/spack/setup-env.sh
+                                spack load gcc@6.4.0
                                 spack load cuda
                                 spack load intel-mkl
                                 spack load intel-mpi
@@ -50,8 +50,8 @@ END
                                 '''
                         }
                     }
-                    stage('Build - gpu_nvidia') {
-                        agent { label 'gpu_nvidia' }
+                    stage('Build - Lips') {
+                        agent { node 'lips.icl.utk.edu' }
                         steps {
                             sh '''
                                 #!/bin/sh +x
@@ -87,16 +87,16 @@ END
             }
             stage('Parallel Test') {
                 parallel {
-            stage ('Test - Master') {
-                agent { label 'master' }
+            stage ('Test - Caffeine') {
+                agent { node 'caffeine.icl.utk.edu' }
                 steps {
                     sh '''
                         #!/bin/sh +x
                         echo "SLATE Test Phase"
                         hostname && pwd
 
-                        source /opt/spack/share/spack/setup-env.sh
-                        spack load gcc
+                        source /home/jmfinney/spack/share/spack/setup-env.sh
+                        spack load gcc@6.4.0
                         spack load cuda
                         spack load intel-mkl
                         spack load intel-mpi
@@ -113,8 +113,8 @@ END
                     }
                 }
             }
-            stage ('Test - gpu_nvidia') {
-                agent { label 'gpu_nvidia' }
+            stage ('Test - Lips') {
+                agent { node 'lips.icl.utk.edu' }
                 steps {
                     sh '''
                         #!/bin/sh +x

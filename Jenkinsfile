@@ -101,6 +101,8 @@ END
                         spack load intel-mkl
                         spack load intel-mpi
 
+                        export FI_PROVIDER=tcp
+
                         #cd unit_test
                         #./run_tests.py --xml report_unit.xml
                         cd test
@@ -127,7 +129,7 @@ END
                         spack load cuda
                         spack load intel-mkl
                         spack load openmpi^gcc@6.4.0
-                        
+
                         cd test
                         ./run_tests.py --xml report_integration.xml
                         '''

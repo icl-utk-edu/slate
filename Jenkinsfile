@@ -25,18 +25,18 @@ pipeline {
                                 openmp=1
 END
 
-                                cd libtest
+                                cd testsweeper
                                 make config CXX=mpicxx
                                 # disable color output so JUnit recognizes the XML even if there's an error
                                 sed -i '/CXXFLAGS/s/$/ -DNO_COLOR/' make.inc
                                 make
-
                                 cd ..
+
                                 cd blaspp
                                 make config CXX=mpicxx
                                 make -j4
-
                                 cd ..
+
                                 cd lapackpp
                                 make config CXX=mpicxx
                                 make -j4

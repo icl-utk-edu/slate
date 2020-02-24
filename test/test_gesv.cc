@@ -43,10 +43,11 @@ void test_gesv_work(Params& params, bool run)
     bool trace = params.trace() == 'y';
     int verbose = params.verbose(); SLATE_UNUSED(verbose);
 
-    params.matrix.mark();
-    params.matrixB.mark();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    // matrix parameters
+    params.matrix.mark();
+    params.matrixB.mark();
 
     // mark non-standard output values
     params.time();

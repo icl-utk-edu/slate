@@ -96,6 +96,7 @@ public:
     testsweeper::ParamDouble beta;
     testsweeper::ParamInt    incx;
     testsweeper::ParamInt    incy;
+    testsweeper::ParamInt    itype;
 
     // SLATE options
     testsweeper::ParamInt    nb;

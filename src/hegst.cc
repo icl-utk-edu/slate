@@ -38,10 +38,25 @@
 //------------------------------------------------------------------------------
 
 #include "slate/slate.hh"
+#include "aux/Debug.hh"
+#include "slate/Matrix.hh"
+#include "slate/HermitianMatrix.hh"
+#include "slate/TriangularMatrix.hh"
+#include "internal/internal.hh"
 
 namespace slate {
 
+// specialization namespace differentiates, e.g.,
+// internal::hegst from internal::specialization::hegst
+// namespace internal {
+// namespace specialization {
+
 //------------------------------------------------------------------------------
+/// Distributed parallel Cholesky factorization.
+/// Generic implementation for any target.
+/// Panel and lookahead computed on host using Host OpenMP task.
+/// @ingroup posv_specialization
+///
 template <typename scalar_t>
 void hegst(
     int64_t itype,
@@ -49,7 +64,49 @@ void hegst(
     HermitianMatrix<scalar_t>& B,
     const std::map<Option, Value>& opts)
 {
+    if (itype == 1) {
+        if (A.uplo() == Uplo::Lower) { // C = L^-1 * A * L^(-H)
+            for (int64_t k = 0; k < A.nt(); ++k) {
+                internal::hegst<Target::HostTask>(
+                    itype, A.sub(k, k), B.sub(k, k));
 
+                if (k+1 <= A.nt()-1) {
+                    auto Bkk = B.sub(k, k);
+                    auto Tkk = TriangularMatrix<scalar_t>(Diag::NonUnit, Bkk);
+                    internal::trsm<Target::HostTask>(
+                        Side::Right,
+                        scalar_t(1.0), conj_transpose(Tkk),
+                        A.sub(k+1, A.nt()-1, k, k), 1);
+
+                    internal::hemm<Target::HostTask>(
+                        Side::Right,
+                        scalar_t(-0.5), A.sub(k, k),
+                                        B.sub(k+1, B.nt()-1, k, k),
+                        scalar_t( 1.0), A.sub(k+1, A.nt()-1, k, k));
+
+                    auto Ak = A.sub(k+1, A.nt()-1, k+1, k+1);
+                    auto Hk = HermitianMatrix<scalar_t>(Uplo::Lower, Ak);
+                    internal::her2k<Target::HostTask>(
+                        scalar_t(-1.0), A.sub(k+1, A.nt()-1, k, k),
+                                        B.sub(k+1, B.nt()-1, k, k),
+                                  1.0,  std::move(Hk));
+
+                    internal::hemm<Target::HostTask>(
+                        Side::Right,
+                        scalar_t(-0.5), A.sub(k, k),
+                                        B.sub(k+1, B.nt()-1, k, k),
+                        scalar_t( 1.0), A.sub(k+1, A.nt()-1, k, k));
+
+                    auto Bk = B.sub(k+1, k+1);
+                    auto Tk = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk);
+                    internal::trsm<Target::HostTask>(
+                        Side::Left,
+                        scalar_t(1.0), std::move(Tk),
+                        A.sub(k+1, A.nt()-1, k, k), 1);
+                }
+            }
+        }
+    }
 }
 
 //------------------------------------------------------------------------------

@@ -276,6 +276,7 @@ Params::Params():
     beta      ("beta",    8, 3, ParamType::List,   e,  -inf,     inf, "scalar beta"),
     incx      ("incx",    6,    ParamType::List,   1, -1000,    1000, "stride of x vector"),
     incy      ("incy",    6,    ParamType::List,   1, -1000,    1000, "stride of y vector"),
+    itype     ("itype",   4,    ParamType::Value,  1, 1, 3, "generalized eigenproblem type; must be 1, 2, or 3"),
 
     // SLATE options
     nb        ("nb",      5,    ParamType::List, 50,      0, 1000000, "nb"),

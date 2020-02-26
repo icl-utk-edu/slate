@@ -172,8 +172,8 @@ void test_hegst_work(Params& params, bool run)
         const int64_t ione = 1;
         double scale;
         scalapack_phegst(itype, uplo2str(uplo), n,
-            &A_ref_data[0], ione, ione, descA,
-            &B_data[0],     ione, ione, descB,
+            A_ref_data.data(), ione, ione, descA,
+            B_data.data(),     ione, ione, descB,
             &scale, &info);
         slate_assert(info == 0);
 

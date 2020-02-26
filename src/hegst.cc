@@ -105,6 +105,14 @@ void hegst(slate::internal::TargetType<target>,
             }
         }
     }
+    else { // if (itype == 2 || itype == 3)
+        if (A.uplo() == Uplo::Lower) {
+            for (int64_t k = 0; k < A.nt(); ++k) {
+                if (k > 0) {
+                }
+            }
+        }
+    }
 }
 
 } // namespace specialization

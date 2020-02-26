@@ -1984,14 +1984,14 @@ inline void scalapack_placpy(
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-#define scalapack_pshegst BLAS_FORTRAN_NAME( pshegst, PSHEGST )
-#define scalapack_pdhegst BLAS_FORTRAN_NAME( pdhegst, PDHEGST )
+#define scalapack_pssygst BLAS_FORTRAN_NAME( pssygst, PSSYGST )
+#define scalapack_pdsygst BLAS_FORTRAN_NAME( pdsygst, PDSYGST )
 #define scalapack_pchegst BLAS_FORTRAN_NAME( pchegst, PCHEGST )
 #define scalapack_pzhegst BLAS_FORTRAN_NAME( pzhegst, PZHEGST )
 
-extern "C" void scalapack_pshegst(blas_int* itype, const char* uplo, blas_int* n, float* a, blas_int* ia, blas_int* ja, blas_int* desca, float* b, blas_int* ib, blas_int* jb, blas_int* descb, double* scale, blas_int* info);
+extern "C" void scalapack_pssygst(blas_int* itype, const char* uplo, blas_int* n, float* a, blas_int* ia, blas_int* ja, blas_int* desca, float* b, blas_int* ib, blas_int* jb, blas_int* descb, double* scale, blas_int* info);
 
-extern "C" void scalapack_pdhegst(blas_int* itype, const char* uplo, blas_int* n, double* a, blas_int* ia, blas_int* ja, blas_int* desca, double* b, blas_int* ib, blas_int* jb, blas_int* descb, double* scale, blas_int* info);
+extern "C" void scalapack_pdsygst(blas_int* itype, const char* uplo, blas_int* n, double* a, blas_int* ia, blas_int* ja, blas_int* desca, double* b, blas_int* ib, blas_int* jb, blas_int* descb, double* scale, blas_int* info);
 
 extern "C" void scalapack_pchegst(blas_int* itype, const char* uplo, blas_int* n, std::complex<float>* a, blas_int* ia, blas_int* ja, blas_int* desca, std::complex<float>* b, blas_int* ib, blas_int* jb, blas_int* descb, double* scale, blas_int* info);
 
@@ -2001,14 +2001,12 @@ extern "C" void scalapack_pzhegst(blas_int* itype, const char* uplo, blas_int* n
 
 inline void scalapack_phegst(blas_int* itype, const char* uplo, blas_int* n, float* a, blas_int* ia, blas_int* ja, blas_int* desca, float* b, blas_int* ib, blas_int* jb, blas_int* descb, double* scale, blas_int* info)
 {
-    // scalapack_pshegst(itype, uplo, n, a, ia, ja, desca, b, ib, jb, descb, scale, info);
-    assert(false); // todo: no ScaLAPACK implementation for single precision
+    scalapack_pssygst(itype, uplo, n, a, ia, ja, desca, b, ib, jb, descb, scale, info);
 }
 
 inline void scalapack_phegst(blas_int* itype, const char* uplo, blas_int* n, double* a, blas_int* ia, blas_int* ja, blas_int* desca, double* b, blas_int* ib, blas_int* jb, blas_int* descb, double* scale, blas_int* info)
 {
-    // scalapack_pdhegst(itype, uplo, n, a, ia, ja, desca, b, ib, jb, descb, scale, info);
-    assert(false); // todo: no ScaLAPACK implementation for double precision
+    scalapack_pdsygst(itype, uplo, n, a, ia, ja, desca, b, ib, jb, descb, scale, info);
 }
 
 inline void scalapack_phegst(blas_int* itype, const char* uplo, blas_int* n, std::complex<float>* a, blas_int* ia, blas_int* ja, blas_int* desca, std::complex<float>* b, blas_int* ib, blas_int* jb, blas_int* descb, double* scale, blas_int* info)

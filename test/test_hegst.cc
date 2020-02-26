@@ -31,12 +31,24 @@ void test_hegst_work(Params& params, bool run)
     int64_t p = params.p();
     int64_t q = params.q();
     int64_t nb = params.nb();
+    bool check = params.check() == 'y';
+    bool ref = params.ref() == 'y';
+    bool trace = params.trace() == 'y';
     int verbose = params.verbose();
     slate::Target target = params.target();
-
+    slate::Origin origin = params.origin();
 
     if (! run)
         return;
+
+    if (target != slate::Target::HostTask) {
+        // todo: different target
+        assert(false);
+    }
+    if (origin != slate::Origin::ScaLAPACK) {
+        // todo: different origin
+        assert(false);
+    }
 
     // MPI variables
     int mpi_rank, mpi_size;
@@ -66,12 +78,11 @@ void test_hegst_work(Params& params, bool run)
 
     // Matrix A_ref
     std::vector<scalar_t> A_ref_data(lld*nlocal);
+    A_ref_data = A_data;
     auto A_ref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
         uplo, n, A_ref_data.data(), lld, nb, p, q, MPI_COMM_WORLD);
-    // Copy test data for check -- keep matrix A for refernce
-    slate::copy(A, A_ref);
 
-    if (verbose > 1) {
+    if (verbose > 2) {
         print_matrix("A_ref", A_ref);
     }
 
@@ -81,11 +92,12 @@ void test_hegst_work(Params& params, bool run)
     auto B = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
         uplo, n, B_data.data(), lld, nb, p, q, MPI_COMM_WORLD);
 
+    // Make B positive-definite
     for (int64_t j = 0; j < B.nt(); ++j) {
         for (int64_t i = 0; i < B.mt(); ++i) {
             if (B.tileIsLocal(i, j)) {
-                auto Bii = B(i, i);
                 if (i == j) {
+                    auto Bii = B(i, i);
                     for (int64_t jj = 0; jj < Bii.nb(); ++jj) {
                         for (int64_t ii = jj; ii < Bii.mb(); ++ii) {
                             if (ii == jj) {
@@ -102,20 +114,47 @@ void test_hegst_work(Params& params, bool run)
         print_matrix("B", B);
     }
 
+    // Factorize B
     slate::potrf(B, {{slate::Option::Target, target}});
 
-    if (verbose > 1) {
+    if (verbose > 2) {
         print_matrix("B_factored", B);
     }
 
+    // todo
+    //double gflop = lapack::Gflop<scalar_t>::hegst(n);
+
+    if (trace) slate::trace::Trace::on();
+    else slate::trace::Trace::off();
+
+    {
+        slate::trace::Block trace_block("MPI_Barrier");
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+    double time = testsweeper::get_wtime();
+
+    //==================================================
+    // Run SLATE test.
+    //==================================================
     slate::hegst(itype, A, B, {{slate::Option::Target, target}});
+
+    {
+        slate::trace::Block trace_block("MPI_Barrier");
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+    double time_tst = testsweeper::get_wtime() - time;
+
+    if (trace) slate::trace::Trace::finish();
+
+    // compute and save timing/performance
+    params.time() = time_tst;
+    //params.gflops() = gflop / time_tst;
 
     if (verbose > 1) {
         print_matrix("A_hegst", A);
     }
 
-
-    {
+    if (check || ref) {
         real_t A_norm = slate::norm(slate::Norm::One, A_ref);
 
         int ictxt;
@@ -151,8 +190,9 @@ void test_hegst_work(Params& params, bool run)
         params.error() = slate::norm(slate::Norm::One, A_ref) / (n * A_norm);
         real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon()/2;
         params.okay() = (params.error() <= tol);
-    }
 
+        Cblacs_gridexit(ictxt);
+    }
 }
 
 // -----------------------------------------------------------------------------

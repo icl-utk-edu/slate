@@ -48,24 +48,22 @@ namespace slate {
 
 // specialization namespace differentiates, e.g.,
 // internal::hegst from internal::specialization::hegst
-// namespace internal {
-// namespace specialization {
+namespace internal {
+namespace specialization {
 
 //------------------------------------------------------------------------------
-/// Distributed parallel Cholesky factorization.
+/// Distributed parallel reduction of a complex Hermitian positive-definite
+/// generalized eigenvalue problem to the standard form.
 /// Generic implementation for any target.
-/// Panel and lookahead computed on host using Host OpenMP task.
-/// @ingroup posv_specialization
+/// @ingroup hegst_specialization
 ///
-template <typename scalar_t>
-void hegst(
-    int64_t itype,
-    HermitianMatrix<scalar_t>& A,
-    HermitianMatrix<scalar_t>& B,
-    const std::map<Option, Value>& opts)
+template <Target target, typename scalar_t>
+void hegst(slate::internal::TargetType<target>,
+           int64_t itype, HermitianMatrix<scalar_t>& A,
+                          HermitianMatrix<scalar_t>& B)
 {
     if (itype == 1) {
-        if (A.uplo() == Uplo::Lower) { // C = L^-1 * A * L^(-H)
+        if (A.uplo() == Uplo::Lower) {
             for (int64_t k = 0; k < A.nt(); ++k) {
                 internal::hegst<Target::HostTask>(
                     itype, A.sub(k, k), B.sub(k, k));
@@ -109,34 +107,132 @@ void hegst(
     }
 }
 
+} // namespace specialization
+} // namespace internal
+
+//------------------------------------------------------------------------------
+/// Version with target as template parameter.
+/// @ingroup hegst_specialization
+///
+template <Target target, typename scalar_t>
+void hegst(int64_t itype, HermitianMatrix<scalar_t>& A,
+                          HermitianMatrix<scalar_t>& B,
+           const std::map<Option, Value>& opts)
+{
+    internal::specialization::hegst(internal::TargetType<target>(),
+                                    itype, A, B);
+}
+
+//------------------------------------------------------------------------------
+/// Distributed parallel reduction of a complex Hermitian positive-definite
+/// generalized eigenvalue problem to the standard form.
+///
+/// Reduces a complex Hermitian positive-definite generalized eigenvalue problem
+/// to standard form, as follows:
+///
+/// itype      |  Problem
+/// ---------- | ----------------------
+/// itype = 1  |  $A   x = \lambda B x$
+/// itype = 2  |  $A B x = \lambda   x$
+/// itype = 3  |  $B A x = \lambda   x$
+///
+/// Before calling `slate::hegst`, you must call `slate::potrf` to compute the
+/// Cholesky factorization: $B = L L^H$ or $B = U^H U$.
+///
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///     One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in] itype
+///     - itype = 1: Compute $A   x = \lambda B x$;
+///     - itype = 2: Compute $A B x = \lambda   x$;
+///     - itype = 3: Compute $A B x = \lambda   x$.
+///
+/// @param[in,out] A
+///     On entry, the n-by-n Hermitian matrix $A$.
+///     On exit, the upper or lower triangle is overwritten by the upper or
+///     lower triangle of C, as follows:
+///     - itype = 1:
+///       - A.uplo() = Uplo::Lower: $C = L^(-1) A L^(-H)$;
+///       - A.uplo() = Uplo::Upper: $C = U^(-H) A U^(-1)$.
+///     - itype = 2:
+///       - A.uplo() = Uplo::Lower: $C = L^H A L$;
+///       - A.uplo() = Uplo::Upper: $C = U A U^H$.
+///     - itype = 3:
+///       - A.uplo() = Uplo::Lower: $C = L^H A L$;
+///       - A.uplo() = Uplo::Upper: $C = U A U^H$.
+///
+/// @param[in] B
+///     On entry, the n-by-n Hermitian positive definite matrix $A$.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
+/// TODO: return value
+///
+/// @ingroup hegst_computational
+///
+template <typename scalar_t>
+void hegst(int64_t itype, HermitianMatrix<scalar_t>& A,
+                          HermitianMatrix<scalar_t>& B,
+           const std::map<Option, Value>& opts)
+{
+    Target target;
+    try {
+        target = Target(opts.at(Option::Target).i_);
+    }
+    catch (std::out_of_range&) {
+        target = Target::HostTask;
+    }
+
+    switch (target) {
+        case Target::Host:
+        case Target::HostTask:
+            hegst<Target::HostTask>(itype, A, B, opts);
+            break;
+        case Target::HostNest:
+            hegst<Target::HostNest>(itype, A, B, opts);
+            break;
+        case Target::HostBatch:
+            hegst<Target::HostBatch>(itype, A, B, opts);
+            break;
+        case Target::Devices:
+            hegst<Target::Devices>(itype, A, B, opts);
+            break;
+    }
+    // todo: return value for errors?
+}
+
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
 void hegst<float>(
-    int64_t itype,
-    HermitianMatrix<float>& A,
-    HermitianMatrix<float>& B,
+    int64_t itype, HermitianMatrix<float>& A,
+                   HermitianMatrix<float>& B,
     const std::map<Option, Value>& opts);
 
 template
 void hegst<double>(
-    int64_t itype,
-    HermitianMatrix<double>& A,
-    HermitianMatrix<double>& B,
+    int64_t itype, HermitianMatrix<double>& A,
+                   HermitianMatrix<double>& B,
     const std::map<Option, Value>& opts);
 
 template
 void hegst<std::complex<float>>(
-    int64_t itype,
-    HermitianMatrix<std::complex<float>>& A,
-    HermitianMatrix<std::complex<float>>& B,
+    int64_t itype, HermitianMatrix<std::complex<float>>& A,
+                   HermitianMatrix<std::complex<float>>& B,
     const std::map<Option, Value>& opts);
 
 template
 void hegst<std::complex<double>>(
-    int64_t itype,
-    HermitianMatrix<std::complex<double>>& A,
-    HermitianMatrix<std::complex<double>>& B,
+    int64_t itype, HermitianMatrix<std::complex<double>>& A,
+                   HermitianMatrix<std::complex<double>>& B,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

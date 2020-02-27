@@ -59,8 +59,8 @@ namespace specialization {
 ///
 template <Target target, typename scalar_t>
 void hegst(slate::internal::TargetType<target>,
-           int64_t itype, HermitianMatrix<scalar_t>& A,
-                          HermitianMatrix<scalar_t>& B)
+           int64_t itype, HermitianMatrix<scalar_t> A,
+                          HermitianMatrix<scalar_t> B)
 {
     if (itype == 1) {
         if (A.uplo() == Uplo::Lower) {
@@ -82,12 +82,10 @@ void hegst(slate::internal::TargetType<target>,
                                         B.sub(k+1, B.nt()-1, k, k),
                         scalar_t( 1.0), A.sub(k+1, A.nt()-1, k, k));
 
-                    auto Ak = A.sub(k+1, A.nt()-1, k+1, k+1);
-                    auto Hk = HermitianMatrix<scalar_t>(Uplo::Lower, Ak);
                     internal::her2k<Target::HostTask>(
                         scalar_t(-1.0), A.sub(k+1, A.nt()-1, k, k),
                                         B.sub(k+1, B.nt()-1, k, k),
-                                  1.0,  std::move(Hk));
+                                  1.0,  A.sub(k+1, A.nt()-1));
 
                     internal::hemm<Target::HostTask>(
                         Side::Right,
@@ -104,12 +102,86 @@ void hegst(slate::internal::TargetType<target>,
                 }
             }
         }
+        else { // if (A.uplo() == Uplo::Upper)
+            for (int64_t k = 0; k < A.nt(); ++k) {
+                internal::hegst<Target::HostTask>(
+                    itype, A.sub(k, k), B.sub(k, k));
+
+                if (k+1 <= A.nt()-1) {
+                    auto Bkk = B.sub(k, k);
+                    auto Tkk = TriangularMatrix<scalar_t>(Diag::NonUnit, Bkk);
+                    internal::trsm<Target::HostTask>(
+                        Side::Left,
+                        scalar_t(1.0), conj_transpose(Tkk),
+                        A.sub(k, k, k+1, A.nt()-1), 1);
+
+                    internal::hemm<Target::HostTask>(
+                        Side::Left,
+                        scalar_t(-0.5), A.sub(k, k),
+                                        B.sub(k, k, k+1, B.nt()-1),
+                        scalar_t( 1.0), A.sub(k, k, k+1, A.nt()-1));
+
+                    internal::her2k<Target::HostTask>(
+                        scalar_t(-1.0), A.sub(k, k, k+1, A.nt()-1),
+                                        B.sub(k, k, k+1, B.nt()-1),
+                                  1.0,  conj_transpose(A.sub(k+1, A.nt()-1)));
+
+                    internal::hemm<Target::HostTask>(
+                        Side::Left,
+                        scalar_t(-0.5), A.sub(k, k),
+                                        B.sub(k, k, k+1, B.nt()-1),
+                        scalar_t( 1.0), A.sub(k, k, k+1, A.nt()-1));
+
+                    auto Bk = B.sub(k+1, k+1);
+                    auto Tk = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk);
+                    internal::trsm<Target::HostTask>(
+                        Side::Right,
+                        scalar_t(1.0), std::move(Tk),
+                        A.sub(k, k, k+1, A.nt()-1), 1);
+                }
+            }
+        }
     }
     else { // if (itype == 2 || itype == 3)
         if (A.uplo() == Uplo::Lower) {
             for (int64_t k = 0; k < A.nt(); ++k) {
                 if (k > 0) {
+                    auto B00 = B.sub(0, 0);
+                    auto T00 = TriangularMatrix<scalar_t>(Diag::NonUnit, B00);
+                    internal::trmm<Target::HostTask>(
+                        Side::Right,
+                        scalar_t(1.0), std::move(T00),
+                                       A.sub(k, k, 0, 0));
+
+                    internal::hemm<Target::HostTask>(
+                        Side::Left,
+                        scalar_t(-0.5), A.sub(k, k),
+                                        B.sub(k, k, 0, 0),
+                        scalar_t( 1.0), A.sub(k, k, 0, 0));
+
+                    auto A0 = A.sub(0, 0, 0, A.nt()-1);
+                    auto H0 = HermitianMatrix<scalar_t>(Uplo::Lower, A0);
+                    internal::her2k<Target::HostTask>(
+                        scalar_t(-1.0), A.sub(k, k, 0, A.nt()-1),
+                                        B.sub(k, k, 0, B.nt()-1),
+                                  1.0,  conj_transpose(H0));
+
+                    internal::hemm<Target::HostTask>(
+                        Side::Left,
+                        scalar_t(-0.5), A.sub(k, k),
+                                        B.sub(k, B.nt()-1, 0, 0),
+                        scalar_t( 1.0), A.sub(k, A.nt()-1, 0, 0));
+
+                    auto Bkk = B.sub(k, k);
+                    auto Tkk = TriangularMatrix<scalar_t>(Diag::NonUnit, Bkk);
+                    internal::trmm<Target::HostTask>(
+                        Side::Left,
+                        scalar_t(1.0), conj_transpose(Tkk),
+                                       A.sub(k, A.nt()-1, 0, 0));
                 }
+
+                internal::hegst<Target::HostTask>(
+                    itype, A.sub(k, k), B.sub(k, k));
             }
         }
     }

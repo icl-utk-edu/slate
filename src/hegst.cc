@@ -93,12 +93,10 @@ void hegst(slate::internal::TargetType<target>,
                                         B.sub(k+1, B.nt()-1, k, k),
                         scalar_t( 1.0), A.sub(k+1, A.nt()-1, k, k));
 
-                    auto Bk = B.sub(k+1, k+1);
+                    auto Bk = B.sub(k+1, B.nt()-1);
                     auto Tk = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk);
-                    internal::trsm<Target::HostTask>(
-                        Side::Left,
-                        scalar_t(1.0), std::move(Tk),
-                        A.sub(k+1, A.nt()-1, k, k), 1);
+                    auto AA = A.sub(k+1, A.nt()-1, k, k);
+                    slate::trsm<scalar_t>(Side::Left, scalar_t(1.0), Tk, AA);
                 }
             }
         }

@@ -116,6 +116,7 @@ void bdsqr(slate::internal::TargetType<target>,
         m = U.m();
         mb = U.tileMb(0);
         nb = U.tileNb(0);
+        myrow = U.mpiRank();
         nru  = numberLocalRowOrCol(m, mb, myrow, izero, mpi_size);
         ldu = max( 1, nru );
         u1d.resize(ldu*min_mn);
@@ -126,6 +127,7 @@ void bdsqr(slate::internal::TargetType<target>,
     if (wantvt) {
         n = VT.n();
         nb = VT.tileNb(0);
+        mycol = VT.mpiRank();
         ncvt = numberLocalRowOrCol(n, nb, mycol, izero, mpi_size);
         ldvt = max( 1, min_mn );
         vt1d.resize(ldvt*ncvt);

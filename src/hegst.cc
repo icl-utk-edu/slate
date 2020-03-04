@@ -71,10 +71,11 @@ void hegst(slate::internal::TargetType<target>,
     const double   rone = 1.0;
 
     for (int64_t k = 0; k < Ant; ++k) {
-        if (itype == 1) {
-            auto Akk = A.sub(k, k);
-            auto Bkk = B.sub(k, k);
+        auto Akk = A.sub(k, k);
+        auto Bkk = B.sub(k, k);
+        auto Tkk = TriangularMatrix<scalar_t>(Diag::NonUnit, Bkk);
 
+        if (itype == 1) {
             internal::hegst<Target::HostTask>(
               itype, std::move(Akk), std::move(Bkk));
 
@@ -82,7 +83,6 @@ void hegst(slate::internal::TargetType<target>,
                 auto Asub = A.sub(k+1, Ant-1, k, k);
                 auto Bsub = B.sub(k+1, Bnt-1, k, k);
 
-                auto Tkk = TriangularMatrix<scalar_t>(Diag::NonUnit, Bkk);
                 internal::trsm<Target::HostTask>(
                     Side::Right, cone, conj_transpose(Tkk), std::move(Asub));
 
@@ -107,17 +107,14 @@ void hegst(slate::internal::TargetType<target>,
                 slate::trsm<scalar_t>(Side::Left, cone, Tk1, Asub);
             }
         }
-        else { // if (itype == 2 || itype == 3)
-            auto Akk = A.sub(k, k);
-            auto Bkk = B.sub(k, k);
-
-            if (k > 0) {
+        else if (itype == 2 || itype == 3) {
+            if (k >= 1) {
               auto Asub = A.sub(k, k, 0, k-1);
               auto Bsub = B.sub(k, k, 0, k-1);
 
               auto Bk1 = B.sub(0, k-1);
-              auto TB1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
-              slate::trmm<scalar_t>(Side::Right, cone, TB1, Asub);
+              auto Tk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
+              slate::trmm<scalar_t>(Side::Right, cone, Tk1, Asub);
 
               internal::hemm<Target::HostTask>(
                   Side::Left,   half, std::move(Akk),
@@ -135,13 +132,15 @@ void hegst(slate::internal::TargetType<target>,
                                       std::move(Bsub),
                                 cone, std::move(Asub));
 
-              auto Tkk = TriangularMatrix<scalar_t>(Diag::NonUnit, Bkk);
               internal::trmm<Target::HostTask>(
                   Side::Left, cone, conj_transpose(Tkk), std::move(Asub));
             }
 
             internal::hegst<Target::HostTask>(
               itype, std::move(Akk), std::move(Bkk));
+        }
+        else {
+            throw std::runtime_error("itype must be: 1, 2, or 3");
         }
     }
 }

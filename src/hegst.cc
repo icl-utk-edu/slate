@@ -68,7 +68,7 @@ void hegst(slate::internal::TargetType<target>,
 
     const scalar_t half = 0.5;
     const scalar_t cone = 1.0;
-    const double   done = 1.0;
+    const double   rone = 1.0;
 
     for (int64_t k = 0; k < Ant; ++k) {
         if (itype == 1) {
@@ -93,9 +93,9 @@ void hegst(slate::internal::TargetType<target>,
 
                 auto Ak1 = A.sub(k+1, Ant-1);
                 internal::her2k<Target::HostTask>(
-                    -cone, std::move(Asub),
-                           std::move(Bsub),
-                     done, std::move(Ak1));
+                                 -cone, std::move(Asub),
+                                        std::move(Bsub),
+                                  rone, std::move(Ak1));
 
                 internal::hemm<Target::HostTask>(
                     Side::Right, -half, std::move(Akk),
@@ -108,6 +108,40 @@ void hegst(slate::internal::TargetType<target>,
             }
         }
         else { // if (itype == 2 || itype == 3)
+            auto Akk = A.sub(k, k);
+            auto Bkk = B.sub(k, k);
+
+            if (k > 0) {
+              auto Asub = A.sub(k, k, 0, k-1);
+              auto Bsub = B.sub(k, k, 0, k-1);
+
+              auto Bk1 = B.sub(0, k-1);
+              auto TB1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
+              slate::trmm<scalar_t>(Side::Right, cone, TB1, Asub);
+
+              internal::hemm<Target::HostTask>(
+                  Side::Left,   half, std::move(Akk),
+                                      std::move(Bsub),
+                                cone, std::move(Asub));
+
+              auto Ak1 = A.sub(0, k-1);
+              internal::her2k<Target::HostTask>(
+                                cone, conj_transpose(Asub),
+                                      conj_transpose(Bsub),
+                                rone, std::move(Ak1));
+
+              internal::hemm<Target::HostTask>(
+                  Side::Left,   half, std::move(Akk),
+                                      std::move(Bsub),
+                                cone, std::move(Asub));
+
+              auto Tkk = TriangularMatrix<scalar_t>(Diag::NonUnit, Bkk);
+              internal::trmm<Target::HostTask>(
+                  Side::Left, cone, conj_transpose(Tkk), std::move(Asub));
+            }
+
+            internal::hegst<Target::HostTask>(
+              itype, std::move(Akk), std::move(Bkk));
         }
     }
 }

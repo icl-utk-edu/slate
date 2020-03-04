@@ -61,6 +61,7 @@ END
                                 #hg clone https://bitbucket.org/icl/slate
                                 #cd slate
                                 source /home/jmfinney/spack/share/spack/setup-env.sh
+                                spack load environment-modules
                                 spack load gcc@6.4.0
                                 spack load cuda
                                 spack load intel-mkl

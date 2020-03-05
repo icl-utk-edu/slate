@@ -70,79 +70,87 @@ void hegst(slate::internal::TargetType<target>,
     const scalar_t cone = 1.0;
     const double   rone = 1.0;
 
-    for (int64_t k = 0; k < Ant; ++k) {
-        auto Akk = A.sub(k, k);
-        auto Bkk = B.sub(k, k);
-        auto Tkk = TriangularMatrix<scalar_t>(Diag::NonUnit, Bkk);
+    #pragma omp parallel
+    #pragma omp master
+    {
+        omp_set_nested(1);
+        for (int64_t k = 0; k < Ant; ++k) {
+            auto Akk = A.sub(k, k);
+            auto Bkk = B.sub(k, k);
+            auto Tkk = TriangularMatrix<scalar_t>(Diag::NonUnit, Bkk);
 
-        if (itype == 1) {
-            internal::hegst<Target::HostTask>(
-              itype, std::move(Akk), std::move(Bkk));
+            if (itype == 1) {
+                internal::hegst<Target::HostTask>(
+                  itype, std::move(Akk), std::move(Bkk));
 
-            if (k+1 <= Ant-1) {
-                auto Asub = A.sub(k+1, Ant-1, k, k);
-                auto Bsub = B.sub(k+1, Bnt-1, k, k);
+                if (k+1 <= Ant-1) {
+                    auto Asub = A.sub(k+1, Ant-1, k, k);
+                    auto Bsub = B.sub(k+1, Bnt-1, k, k);
 
-                internal::trsm<Target::HostTask>(
-                    Side::Right, cone, conj_transpose(Tkk), std::move(Asub));
+                    internal::trsm<Target::HostTask>(
+                        Side::Right, cone, conj_transpose(Tkk), std::move(Asub));
 
-                internal::hemm<Target::HostTask>(
-                    Side::Right, -half, std::move(Akk),
-                                        std::move(Bsub),
-                                  cone, std::move(Asub));
+                    internal::hemm<Target::HostTask>(
+                        Side::Right, -half, std::move(Akk),
+                                            std::move(Bsub),
+                                      cone, std::move(Asub));
 
-                auto Ak1 = A.sub(k+1, Ant-1);
-                internal::her2k<Target::HostTask>(
-                                 -cone, std::move(Asub),
-                                        std::move(Bsub),
-                                  rone, std::move(Ak1));
+                    auto Ak1 = A.sub(k+1, Ant-1);
+                    internal::her2k<Target::HostTask>(
+                                     -cone, std::move(Asub),
+                                            std::move(Bsub),
+                                      rone, std::move(Ak1));
 
-                internal::hemm<Target::HostTask>(
-                    Side::Right, -half, std::move(Akk),
-                                        std::move(Bsub),
-                                  cone, std::move(Asub));
+                    internal::hemm<Target::HostTask>(
+                        Side::Right, -half, std::move(Akk),
+                                            std::move(Bsub),
+                                      cone, std::move(Asub));
 
-                auto Bk1 = B.sub(k+1, Bnt-1);
-                auto Tk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
-                slate::trsm<scalar_t>(Side::Left, cone, Tk1, Asub);
+                    auto Bk1 = B.sub(k+1, Bnt-1);
+                    auto Tk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
+                    slate::trsm<scalar_t>(Side::Left, cone, Tk1, Asub);
+                }
             }
-        }
-        else if (itype == 2 || itype == 3) {
-            if (k >= 1) {
-              auto Asub = A.sub(k, k, 0, k-1);
-              auto Bsub = B.sub(k, k, 0, k-1);
+            else if (itype == 2 || itype == 3) {
+                if (k >= 1) {
+                  auto Asub = A.sub(k, k, 0, k-1);
+                  auto Bsub = B.sub(k, k, 0, k-1);
 
-              auto Bk1 = B.sub(0, k-1);
-              auto Tk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
-              slate::trmm<scalar_t>(Side::Right, cone, Tk1, Asub);
+                  auto Bk1 = B.sub(0, k-1);
+                  auto Tk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
+                  slate::trmm<scalar_t>(Side::Right, cone, Tk1, Asub);
 
-              internal::hemm<Target::HostTask>(
-                  Side::Left,   half, std::move(Akk),
-                                      std::move(Bsub),
-                                cone, std::move(Asub));
+                  internal::hemm<Target::HostTask>(
+                      Side::Left,   half, std::move(Akk),
+                                          std::move(Bsub),
+                                    cone, std::move(Asub));
 
-              auto Ak1 = A.sub(0, k-1);
-              internal::her2k<Target::HostTask>(
-                                cone, conj_transpose(Asub),
-                                      conj_transpose(Bsub),
-                                rone, std::move(Ak1));
+                  auto Ak1 = A.sub(0, k-1);
+                  internal::her2k<Target::HostTask>(
+                                    cone, conj_transpose(Asub),
+                                          conj_transpose(Bsub),
+                                    rone, std::move(Ak1));
 
-              internal::hemm<Target::HostTask>(
-                  Side::Left,   half, std::move(Akk),
-                                      std::move(Bsub),
-                                cone, std::move(Asub));
+                  internal::hemm<Target::HostTask>(
+                      Side::Left,   half, std::move(Akk),
+                                          std::move(Bsub),
+                                    cone, std::move(Asub));
 
-              internal::trmm<Target::HostTask>(
-                  Side::Left, cone, conj_transpose(Tkk), std::move(Asub));
+                  internal::trmm<Target::HostTask>(
+                      Side::Left, cone, conj_transpose(Tkk), std::move(Asub));
+                }
+
+                internal::hegst<Target::HostTask>(
+                  itype, std::move(Akk), std::move(Bkk));
             }
-
-            internal::hegst<Target::HostTask>(
-              itype, std::move(Akk), std::move(Bkk));
-        }
-        else {
-            throw std::runtime_error("itype must be: 1, 2, or 3");
+            else {
+                throw std::runtime_error("itype must be: 1, 2, or 3");
+            }
         }
     }
+
+    A.tileUpdateAllOrigin();
+    A.releaseWorkspace();
 }
 
 } // namespace specialization

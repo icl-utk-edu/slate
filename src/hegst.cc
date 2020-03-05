@@ -88,7 +88,8 @@ void hegst(slate::internal::TargetType<target>,
                     auto Bsub = B.sub(k+1, Bnt-1, k, k);
 
                     internal::trsm<Target::HostTask>(
-                        Side::Right, cone, conj_transpose(Tkk), std::move(Asub));
+                        Side::Right,  cone, conj_transpose(Tkk),
+                                            std::move(Asub));
 
                     internal::hemm<Target::HostTask>(
                         Side::Right, -half, std::move(Akk),
@@ -108,7 +109,9 @@ void hegst(slate::internal::TargetType<target>,
 
                     auto Bk1 = B.sub(k+1, Bnt-1);
                     auto Tk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
-                    slate::trsm<scalar_t>(Side::Left, cone, Tk1, Asub);
+                    slate::trsm<scalar_t>(
+                        Side::Left,  cone, Tk1,
+                                           Asub);
                 }
             }
             else if (itype == 2 || itype == 3) {
@@ -118,26 +121,29 @@ void hegst(slate::internal::TargetType<target>,
 
                   auto Bk1 = B.sub(0, k-1);
                   auto Tk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
-                  slate::trmm<scalar_t>(Side::Right, cone, Tk1, Asub);
+                  slate::trmm<scalar_t>(
+                      Side::Right, cone, Tk1,
+                                         Asub);
 
                   internal::hemm<Target::HostTask>(
-                      Side::Left,   half, std::move(Akk),
-                                          std::move(Bsub),
-                                    cone, std::move(Asub));
+                      Side::Left,  half, std::move(Akk),
+                                         std::move(Bsub),
+                                   cone, std::move(Asub));
 
                   auto Ak1 = A.sub(0, k-1);
                   internal::her2k<Target::HostTask>(
-                                    cone, conj_transpose(Asub),
-                                          conj_transpose(Bsub),
-                                    rone, std::move(Ak1));
+                                   cone, conj_transpose(Asub),
+                                         conj_transpose(Bsub),
+                                   rone, std::move(Ak1));
 
                   internal::hemm<Target::HostTask>(
-                      Side::Left,   half, std::move(Akk),
-                                          std::move(Bsub),
-                                    cone, std::move(Asub));
+                      Side::Left,  half, std::move(Akk),
+                                         std::move(Bsub),
+                                   cone, std::move(Asub));
 
                   internal::trmm<Target::HostTask>(
-                      Side::Left, cone, conj_transpose(Tkk), std::move(Asub));
+                      Side::Left, cone, conj_transpose(Tkk),
+                                        std::move(Asub));
                 }
 
                 internal::hegst<Target::HostTask>(

@@ -16,6 +16,9 @@
 template <typename scalar_t>
 void he2ge(slate::HermitianMatrix<scalar_t> A, slate::Matrix<scalar_t> B)
 {
+    // todo:: shouldn't assume the input matrix has uplo=lower
+    assert(A.uplo() == slate::Uplo::Lower);
+
     using blas::conj;
     const scalar_t zero = 0;
     set(zero, B);

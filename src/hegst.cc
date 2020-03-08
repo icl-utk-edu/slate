@@ -58,13 +58,19 @@ void hegst(slate::internal::TargetType<target>,
            int64_t itype, HermitianMatrix<scalar_t> A,
                           HermitianMatrix<scalar_t> B)
 {
+    if (itype != 1 && itype != 2 && itype != 3) {
+        throw std::runtime_error("itype must be: 1, 2, or 3");
+    }
+    assert(A.uplo() == B.uplo());
+    assert(A.nt() == B.nt());
+
     if (A.uplo() == Uplo::Upper) {
         A = conj_transpose(A);
         B = conj_transpose(B);
     }
 
-    const int64_t Ant = A.nt();
-    const int64_t Bnt = B.nt();
+    const int64_t A_nt = A.nt();
+    const int64_t B_nt = B.nt();
 
     const scalar_t half = 0.5;
     const scalar_t cone = 1.0;
@@ -74,7 +80,7 @@ void hegst(slate::internal::TargetType<target>,
     #pragma omp master
     {
         omp_set_nested(1);
-        for (int64_t k = 0; k < Ant; ++k) {
+        for (int64_t k = 0; k < A_nt; ++k) {
             auto Akk = A.sub(k, k);
             auto Bkk = B.sub(k, k);
             auto Tkk = TriangularMatrix<scalar_t>(Diag::NonUnit, Bkk);
@@ -83,9 +89,12 @@ void hegst(slate::internal::TargetType<target>,
                 internal::hegst<Target::HostTask>(
                   itype, std::move(Akk), std::move(Bkk));
 
-                if (k+1 <= Ant-1) {
-                    auto Asub = A.sub(k+1, Ant-1, k, k);
-                    auto Bsub = B.sub(k+1, Bnt-1, k, k);
+                if (k+1 <= A_nt-1) {
+                    //----------------------------------------------------------
+                    /// Update the lower triangle of A(k+1:A_nt-1, k+1:A_nt-1)
+                    //----------------------------------------------------------
+                    auto Asub = A.sub(k+1, A_nt-1, k, k);
+                    auto Bsub = B.sub(k+1, B_nt-1, k, k);
 
                     internal::trsm<Target::HostTask>(
                         Side::Right,  cone, conj_transpose(Tkk),
@@ -96,7 +105,7 @@ void hegst(slate::internal::TargetType<target>,
                                             std::move(Bsub),
                                       cone, std::move(Asub));
 
-                    auto Ak1 = A.sub(k+1, Ant-1);
+                    auto Ak1 = A.sub(k+1, A_nt-1);
                     internal::her2k<Target::HostTask>(
                                      -cone, std::move(Asub),
                                             std::move(Bsub),
@@ -107,14 +116,14 @@ void hegst(slate::internal::TargetType<target>,
                                             std::move(Bsub),
                                       cone, std::move(Asub));
 
-                    auto Bk1 = B.sub(k+1, Bnt-1);
+                    auto Bk1 = B.sub(k+1, B_nt-1);
                     auto Tk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
                     slate::trsm<scalar_t>(
                         Side::Left,  cone, Tk1,
                                            Asub);
                 }
             }
-            else if (itype == 2 || itype == 3) {
+            else { //if (itype == 2 || itype == 3)
                 if (k >= 1) {
                   auto Asub = A.sub(k, k, 0, k-1);
                   auto Bsub = B.sub(k, k, 0, k-1);
@@ -148,9 +157,6 @@ void hegst(slate::internal::TargetType<target>,
 
                 internal::hegst<Target::HostTask>(
                   itype, std::move(Akk), std::move(Bkk));
-            }
-            else {
-                throw std::runtime_error("itype must be: 1, 2, or 3");
             }
         }
     }

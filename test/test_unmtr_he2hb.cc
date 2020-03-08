@@ -3,90 +3,13 @@
 #include "blas_flops.hh"
 #include "lapack_flops.hh"
 #include "print_matrix.hh"
+#include "grid_utils.hh"
+#include "matrix_utils.hh"
 
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-
-//------------------------------------------------------------------------------
-// Convert a HermitianMatrix into a General Matrix, ConjTrans/Trans the opposite
-// off-diagonal tiles
-// todo: shouldn't assume the input HermitianMatrix has uplo=lower
-template <typename scalar_t>
-void he2ge(slate::HermitianMatrix<scalar_t> A, slate::Matrix<scalar_t> B)
-{
-    // todo:: shouldn't assume the input matrix has uplo=lower
-    assert(A.uplo() == slate::Uplo::Lower);
-
-    using blas::conj;
-    const scalar_t zero = 0;
-    set(zero, B);
-    for (int64_t j = 0; j < A.nt(); ++j) {
-        // todo: shouldn't assume uplo=lowwer
-        for (int64_t i = j; i < A.nt(); ++i) {
-            if (i == j) { // diagonal tiles
-                if (B.tileIsLocal(i, j)) {
-                    auto Aij = A(i, j);
-                    auto Bij = B(i, j);
-                    Aij.uplo(slate::Uplo::Lower);
-                    Bij.uplo(slate::Uplo::Lower);
-                    tzcopy(Aij, Bij);
-                    for (int64_t jj = 0; jj < Bij.nb(); ++jj) {
-                        for (int64_t ii = jj; ii < Bij.mb(); ++ii) {
-                            Bij.at(jj, ii) = conj(Bij(ii, jj));
-                        }
-                    }
-                }
-            }
-            else {
-                if (B.tileIsLocal(i, j)) {
-                    auto Aij = A(i, j);
-                    auto Bij = B(i, j);
-                    gecopy(Aij, Bij);
-                    if (! B.tileIsLocal(j, i)) {
-                        B.tileSend(i, j, B.tileRank(j, i));
-                    }
-                }
-                if (B.tileIsLocal(j, i)) {
-                    if (! B.tileIsLocal(i, j)) {
-                        B.tileRecv(
-                            j, i, B.tileRank(i, j), slate::Layout::ColMajor);
-                        deepConjTranspose(B(j, i));
-                    }
-                    else {
-                        deepConjTranspose(B(i, j), B(j, i));
-                    }
-                }
-            }
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
-// Similar to BLACS gridinfo
-// (local row ID and column ID in 2D block cyclic distribution).
-const int64_t whoismyrow(const int mpi_rank, const int64_t p)
-{
-    return (mpi_rank % p);
-}
-const int64_t whoismycol(const int mpi_rank, const int64_t p)
-{
-    return (mpi_rank / p);
-}
-
-//------------------------------------------------------------------------------
-// Similar to ScaLAPACK numroc (number of rows or columns).
-// The function implementation is in test_ge2tb.cc file.
-int64_t localRowsCols(int64_t n, int64_t nb, int iproc, int mpi_size);
-
-//------------------------------------------------------------------------------
-// Zero out B, then copy band matrix B from A.
-// B is stored as a non-symmetric matrix, so we can apply Q from left
-// and right separately.
-// The function implementation is in test_he2hb.cc file.
-template < typename scalar_t >
-void he2gb(slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t > B);
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>

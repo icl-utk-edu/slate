@@ -47,7 +47,7 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
-/// Multiplies the general m-by-n matrix C by Q from `slate::unmtr_hb2st` as
+/// Multiplies the general m-by-n matrix C by Q from `slate::he2hb` as
 /// follows:
 ///
 /// op              |  side = Left  |  side = Right
@@ -78,11 +78,11 @@ namespace slate {
 ///
 /// @param[in] A
 ///     On entry, the n-by-n Hermitian matrix $A$, as returned by
-///     `slate::unmtr_hb2st`.
+///     `slate::he2hb`.
 ///
 /// @param[in] T
 ///     On entry, triangular matrices of the elementary
-///     reflector H(i), as returned by `slate::unmtr_hb2st`.
+///     reflector H(i), as returned by `slate::he2hb`.
 ///
 /// @param[in,out] C
 ///     On entry, the m-by-n matrix $C$.

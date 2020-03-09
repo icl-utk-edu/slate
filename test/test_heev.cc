@@ -40,7 +40,6 @@ void test_heev_work(Params& params, bool run)
     slate::Norm norm = params.norm();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
-    params.matrix.mark();
 
     slate_assert(p == q);  // heev requires square process grid.
 
@@ -83,7 +82,7 @@ void test_heev_work(Params& params, bool run)
     slate_assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
-    //scalapack_pplghe(&A_tst[0], n, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
+    scalapack_pplghe(&A_tst[0], n, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
 
     // matrix W (global output), W(n), gets eigenvalues in decending order
     std::vector<real_t> W_tst(n);
@@ -96,32 +95,17 @@ void test_heev_work(Params& params, bool run)
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy local ScaLAPACK data to GPU or CPU tiles.
         slate::Target origin_target = origin2target(origin);
-        A_gen = slate::Matrix<scalar_t>(n, n, nb, nprow, npcol, MPI_COMM_WORLD);
-        A_gen.insertLocalTiles(origin_target);
         W = W_tst;
-        //A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, nprow, npcol, MPI_COMM_WORLD);
-        //A.insertLocalTiles(origin_target);
-        //copy(&A_tst[0], descA_tst, A);
-        //copy(&Z_tst[0], descZ_tst, Z); // Z is output, so not really needed
+        A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, nprow, npcol, MPI_COMM_WORLD);
+        A.insertLocalTiles(origin_target);
+        copy(&A_tst[0], descA_tst, A);
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
         W = W_tst;
-        A_gen = slate::Matrix<scalar_t>::fromScaLAPACK(
-                 n, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-        //A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-        //         uplo, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                 uplo, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     }
-
-   
-    //lapack::TestMatrixType type = lapack::TestMatrixType::heev; 
-    //params.matrix.kind.set_default("heev");
-    //params.matrix.cond.set_default(1e4);
-
-    lapack::generate_matrix( params.matrix, A_gen);
-    A = slate::HermitianMatrix<scalar_t>( 
-               uplo, A_gen );  
-    copy(A_gen, &A_tst[0], descA_tst);
 
     if (verbose >= 1) {
         printf( "%% A   %6lld-by-%6lld\n", llong(   A.m() ), llong(   A.n() ) );

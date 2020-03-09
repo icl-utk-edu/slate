@@ -230,7 +230,6 @@ Params::Params():
     verbose   ("verbose", 0,    ParamType::Value,   0,   0,   10, "verbose level"),
     extended  ("extended",0,    ParamType::Value,   0,   0,   10, "extended tests"),
     cache     ("cache",   0,    ParamType::Value,  20,   1, 1024, "total cache size, in MiB"),
-    //matrix    ("matrix",  0,    ParamType::List,    0,   0,    1, "matrix type; 0=rand, 1=diag dominant"),
 
     // ----- routine parameters
     //         name,      w,    type,            default,                 str2enum,     enum2str,     help

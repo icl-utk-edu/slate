@@ -42,7 +42,9 @@ void test_gesv_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose(); SLATE_UNUSED(verbose);
-    int matrix = params.matrix();
+
+    params.matrix.mark();
+    params.matrixB.mark();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
@@ -79,7 +81,6 @@ void test_gesv_work(Params& params, bool run)
     int descA_tst[9], descA_ref[9];
     int descB_tst[9], descB_ref[9];
     int iam = 0, nprocs = 1;
-    int iseed = 1;
 
     // initialize BLACS and ScaLAPACK
     Cblacs_pinfo(&iam, &nprocs);
@@ -95,16 +96,13 @@ void test_gesv_work(Params& params, bool run)
     slate_assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
-    scalapack_pplrnt(&A_tst[0], m, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
 
-    // matrix B, figure out local size, allocate, create descriptor, initialize
     int64_t mlocB = scalapack_numroc(n, nb, myrow, izero, nprow);
     int64_t nlocB = scalapack_numroc(nrhs, nb, mycol, izero, npcol);
     scalapack_descinit(descB_tst, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
     slate_assert(info == 0);
     int64_t lldB = (int64_t)descB_tst[8];
     std::vector<scalar_t> B_tst(lldB*nlocB);
-    scalapack_pplrnt(&B_tst[0], n, nrhs, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 2);
 
     // allocate ipiv locally
     size_t ipiv_size = (size_t)(lldA + nb);
@@ -120,11 +118,9 @@ void test_gesv_work(Params& params, bool run)
         slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
-        copy(&A_tst[0], descA_tst, A);
 
         B = slate::Matrix<scalar_t>(n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
         B.insertLocalTiles(origin_target);
-        copy(&B_tst[0], descB_tst, B);
 
         if (params.routine == "gesvMixed") {
             if (std::is_same<real_t, double>::value) {
@@ -148,16 +144,11 @@ void test_gesv_work(Params& params, bool run)
 
     slate::Pivots pivots;
 
-    if (matrix == 1) {
-        // Make A diagonally dominant to avoid pivoting.
-        printf("diag dominant\n");
-        for (int k = 0; k < std::min(A.mt(), A.nt()); ++k) {
-            auto T = A(k, k);
-            for (int i = 0; i < T.nb(); ++i) {
-                T.at(i, i) += n;
-            }
-        }
-    }
+    lapack::generate_matrix( params.matrix, A);
+    copy(A, &A_tst[0], descA_tst);
+
+    lapack::generate_matrix( params.matrixB, B);
+    copy(B, &B_tst[0], descB_tst);
 
     // if check is required, copy test data and create a descriptor for it
     std::vector<scalar_t> A_ref;

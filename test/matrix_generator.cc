@@ -18,17 +18,10 @@
 
 // -----------------------------------------------------------------------------
 // ANSI color codes
-const char *ansi_esc    = "\x1b[";
-const char *ansi_red    = "\x1b[31m";
-const char *ansi_bold   = "\x1b[1m";
-const char *ansi_normal = "\x1b[0m";
-
-// -----------------------------------------------------------------------------
-template< typename scalar_t >
-inline scalar_t rand( scalar_t max_ )
-{
-    return max_ * rand() / scalar_t(RAND_MAX);
-}
+using testsweeper::ansi_esc;
+using testsweeper::ansi_red;
+using testsweeper::ansi_bold;
+using testsweeper::ansi_normal;
 
 // -----------------------------------------------------------------------------
 /// Splits a string by any of the delimiters.
@@ -309,10 +302,8 @@ void generate_svd(
     }
 
     // random U, m-by-minmn
-    // just make each random column into a Householder vector;
-    // no need to update subsequent columns (as in geqrf).
     auto Tmp = U.emptyLike();
-    #pragma omp parallel for
+    #pragma omp parallel for collapse(2)
     for (int64_t j = 0; j < nt; ++j) {
         for (int64_t i = 0; i < mt; ++i) {
             if (U.tileIsLocal(i, j)) {
@@ -325,14 +316,15 @@ void generate_svd(
                 params.iseed[0] = (rand() + i + j) % 256;
                 lapack::larnv( idist_randn, params.iseed, 
                     U.tileMb(i)*U.tileNb(j), Tmpij.data() );
-                //auto Tij = U(i, j);
-                //lapack::larnv( idist_randn, params.iseed, 
-                //      U.tileMb(i)*U.tileNb(j), Tij.data() );
                 gecopy(Tmp(i, j), U(i, j));
                 Tmp.tileErase(i, j);
             }
         }
     }
+    // we need to make each random column into a Householder vector;
+    // no need to update subsequent columns (as in geqrf).
+    // However, currently we do geqrf here, 
+    // since we don’t have a way to make Householder vectors (no distributed larfg).
     slate::geqrf(U, T);
 
     // A = U*A
@@ -340,9 +332,9 @@ void generate_svd(
 
     // random V, n-by-minmn (stored column-wise in U)
     auto V = U.sub(0, nt-1, 0, nt-1); 
-    #pragma omp parallel for
+    #pragma omp parallel for collapse(2)
     for (int64_t j = 0; j < nt; ++j) {
-        for (int64_t i = 0; i < nt; ++i) {
+        for (int64_t i = 0; i < mt; ++i) {
             if (V.tileIsLocal(i, j)) {
                 Tmp.tileInsert(i, j);
                 auto Tmpij = Tmp(i, j);
@@ -427,13 +419,12 @@ void generate_heev(
     // ----------
     generate_sigma( params, dist, rand_sign, cond, sigma_max, A, sigma );
 
-    // random U, n-by-n
-    // just make each random column into a Householder vector;
-    // no need to update subsequent columns (as in geqrf).
+    // random U, m-by-minmn
     const int64_t nt = U.nt();
     const int64_t mt = U.mt();
     auto Tmp = U.emptyLike();
-    #pragma omp parallel for
+
+    #pragma omp parallel for collapse(2)
     for (int64_t j = 0; j < nt; ++j) {
         for (int64_t i = 0; i < mt; ++i) {
             if (U.tileIsLocal(i, j)) {
@@ -447,6 +438,10 @@ void generate_heev(
             }
         }
     }
+    // we need to make each random column into a Householder vector;
+    // no need to update subsequent columns (as in geqrf).
+    // However, currently we do geqrf here, 
+    // since we don’t have a way to make Householder vectors (no distributed larfg).
     slate::geqrf(U, T);
 
     // A = U*A
@@ -775,7 +770,8 @@ void generate_matrix(
 
     // ----------
     // set sigma to unknown (nan)
-    lapack::laset( lapack::MatrixType::General, sigma.n, 1, nan, nan, sigma(0), sigma.n );
+    lapack::laset( lapack::MatrixType::General, sigma.n, 1, 
+        nan, nan, sigma(0), sigma.n );
 
     // ----- decode matrix type
     auto token = tokens.begin();
@@ -1029,7 +1025,7 @@ void generate_matrix(
             //int64_t idist = (int64_t) type;
             int64_t idist = 1;
             auto Tmp = A.emptyLike();
-            #pragma omp parallel for
+            #pragma omp parallel for collapse(2)
             for (int64_t j = 0; j < nt; ++j) {
                 for (int64_t i = 0; i < mt; ++i) {
                     if (A.tileIsLocal(i, j)) {
@@ -1087,7 +1083,6 @@ void generate_matrix(
             break;
     }
 
-    bool rand_ = (type == TestMatrixType::rand || type == TestMatrixType::randu || type == TestMatrixType::randn); 
     if (! (type == TestMatrixType::rand  ||
            type == TestMatrixType::randu ||
            type == TestMatrixType::randn) && dominant) {
@@ -1095,7 +1090,6 @@ void generate_matrix(
         fprintf( stderr, "%s not implemented\n");
         throw std::exception();  // not implemented
     }
-    //print_matrix( "A",  A  );
 }
 
 

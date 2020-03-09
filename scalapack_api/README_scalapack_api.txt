@@ -18,11 +18,11 @@ get performance.  Please check that the ScaLAPACK matrices have the
 appropriate blocking to enable good SLATE performance.
 
 NOTE: A submatrix must start and end on a tile boundary.
-Taking a submatrix of global matrix A of size Am,An starting at ia,ij.
+Taking a submatrix of global matrix A of size Am,An starting at ia,ja.
 
 slate_scalapack_submatrix(int Am, int An, slate::Matrix<scalar_t>& A, int ia, int ja, int* desca)
 
-The ia and ja must be devisable by A[MB_] and A[NB_] respectively.
+The ia and ja must be divisible by A[MB_] and A[NB_] respectively.
     assert((ia-1) % desca[MB_]==0);
     assert((ja-1) % desca[NB_]==0);
 And any submatrix must end on a tile boundary.

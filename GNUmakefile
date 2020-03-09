@@ -356,6 +356,7 @@ libslate_src += \
         src/getrs.cc \
         src/hb2st.cc \
         src/he2hb.cc \
+        src/unmtr_he2hb.cc \
         src/heev.cc \
         src/hemm.cc \
         src/hbmm.cc \
@@ -417,6 +418,7 @@ tester_src += \
         test/test_gesvd.cc \
         test/test_getri.cc \
         test/test_he2hb.cc \
+        test/test_unmtr_he2hb.cc \
         test/test_heev.cc \
         test/test_hemm.cc \
         test/test_hbmm.cc \

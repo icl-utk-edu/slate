@@ -208,7 +208,7 @@ void copy(internal::TargetType<Target::HostTask>,
 
 //------------------------------------------------------------------------------
 /// Copy and precision conversion.
-/// assumes A & B have same tile layout and dimensions, and have same distribution
+/// Assumes A & B have same tile layout, dimensions, and distribution.
 /// TODO: Inspect transposition?
 /// GPU device implementation.
 /// @ingroup copy_internal
@@ -315,7 +315,8 @@ void copy(internal::TargetType<Target::Devices>,
                     if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
                         B.tileModified(i, j, device);
                         // update output tile layout
-                        B.tileLayout(i, j, device, A.tileLayout(i, j, device)); // todo: what if extended?
+                        // todo: what if extended?
+                        B.tileLayout(i, j, device, A.tileLayout(i, j, device));
                         // erase tmp local and remote device tiles;
                         A.tileRelease(i, j, device);
                         // decrement life for remote tiles

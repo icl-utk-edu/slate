@@ -126,6 +126,8 @@ void Debug::checkTilesLives(BaseMatrix<scalar_t> const& A)
 }
 
 //------------------------------------------------------------------------------
+/// Checks if existing tile instances in matrix have the same layout as the
+/// matrix.
 ///
 template <typename scalar_t>
 bool Debug::checkTilesLayout(BaseMatrix<scalar_t> const& A)

@@ -8,16 +8,12 @@
 #include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 #include "aux/Debug.hh"
+#include "grid_utils.hh"
 
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-
-//------------------------------------------------------------------------------
-// Similar to ScaLAPACK numroc (number of rows or columns).
-// The function implementation is in test_ge2tb.cc file.
-int64_t localRowsCols(int64_t n, int64_t nb, int iproc, int mpi_size);
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
@@ -56,8 +52,8 @@ void test_hegst_work(Params& params, bool run)
     slate_mpi_call(MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
     slate_assert(p*q <= mpi_size);
 
-    int myrow = mpi_rank % p;
-    int mycol = mpi_rank / p;
+    const int myrow = whoismyrow(mpi_rank, p);
+    const int mycol = whoismycol(mpi_rank, p);
 
     // Figure out local size, allocate, initialize
     int64_t mlocal = localRowsCols(n, nb, myrow, p);

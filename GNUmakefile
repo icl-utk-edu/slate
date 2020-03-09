@@ -422,7 +422,7 @@ tester_src += \
         test/test_he2hb.cc \
         test/test_unmtr_he2hb.cc \
         test/test_heev.cc \
-				test/test_hegst.cc \
+        test/test_hegst.cc \
         test/test_hemm.cc \
         test/test_hbmm.cc \
         test/test_hbnorm.cc \

@@ -149,58 +149,6 @@ private:
 };
 
 // -----------------------------------------------------------------------------
-/// Simple matrix class that can wrap existing memory or allocate its own memory.
-/*
-template< typename scalar_t >
-class Matrix
-{
-public:
-    // constructor allocates new memory
-    // ld = m by default
-    Matrix( int64_t in_m, int64_t in_n, int64_t in_ld=0 ):
-        m( in_m ),
-        n( in_n ),
-        ld( in_ld == 0 ? m : in_ld ),
-        data_( ld*n )
-    {
-        if (m  < 0) { throw std::exception(); }
-        if (n  < 0) { throw std::exception(); }
-        if (ld < m) { throw std::exception(); }
-    }
-
-    // constructor wraps existing memory; caller maintains ownership
-    // ld = m by default
-    Matrix( scalar_t* data, int64_t in_m, int64_t in_n, int64_t in_ld=0 ):
-        m( in_m ),
-        n( in_n ),
-        ld( in_ld == 0 ? m : in_ld ),
-        data_( data, ld*n )
-    {
-        if (m  < 0) { throw std::exception(); }
-        if (n  < 0) { throw std::exception(); }
-        if (ld < m) { throw std::exception(); }
-    }
-
-    int64_t size() const { return data_.size(); }
-    bool        own()  const { return data_.own(); }
-
-    // returns pointer to element (i,j), because that's what we normally need to
-    // call BLAS / LAPACK, which avoids littering the code with &.
-    scalar_t* operator () ( int i, int j )
-        { return &data_[ i + j*ld ]; }
-
-    scalar_t const* operator () ( int i, int j ) const
-        { return &data_[ i + j*ld ]; }
-
-public:
-    int64_t m, n, ld;
-
-protected:
-    Vector<scalar_t> data_;
-};
-*/
-
-// -----------------------------------------------------------------------------
 template< typename scalar_t >
 void generate_matrix(
     MatrixParams& params,
@@ -210,8 +158,6 @@ void generate_matrix(
 template< typename scalar_t >
 void generate_matrix(
     MatrixParams& params,
-    //int64_t m, int64_t n,
-    //scalar_t* A, int64_t lda,
     slate::Matrix< scalar_t >& A,
     blas::real_type<scalar_t>* sigma=nullptr );
 

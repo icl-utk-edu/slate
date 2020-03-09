@@ -56,7 +56,6 @@ public:
     testsweeper::ParamInt    verbose;
     testsweeper::ParamInt    extended;
     testsweeper::ParamInt    cache;
-    //testsweeper::ParamInt    matrix;  // todo: string + generator
 
     // ----- routine parameters
     // LAPACK options

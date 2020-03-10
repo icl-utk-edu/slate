@@ -192,7 +192,10 @@ void test_hegv_work(Params& params, bool run)
         if (run_test) {
             // Run reference routine from ScaLAPACK
             // set num threads appropriately for parallel BLAS if possible
-            int saved_num_threads = slate_set_blas_threads_to_parallel();
+            int omp_num_threads = 1;
+            #pragma omp parallel
+            { omp_num_threads = omp_get_num_threads(); }
+            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
             const char* range = "A";
             int64_t ia=1, ja=1, ib=1, jb=1, iz=1, jz=1;
             int64_t vl=0, vu=0, il=0, iu=0;

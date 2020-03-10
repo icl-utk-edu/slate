@@ -42,6 +42,7 @@ opts = parser.parse_args()
 cmds = [
     'test_BandMatrix',
     'test_HermitianMatrix',
+    'test_LockGuard',
     'test_Matrix',
     'test_Memory',
     'test_SymmetricMatrix',

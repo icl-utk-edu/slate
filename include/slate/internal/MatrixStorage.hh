@@ -58,61 +58,9 @@
 #include "slate/internal/cublas.hh"
 #include "slate/internal/mpi.hh"
 #include "slate/internal/openmp.hh"
+#include "slate/internal/lockguard.hh"
 
 namespace slate {
-
-//------------------------------------------------------------------------------
-/// Constructor acquires lock; destructor releases lock.
-/// This provides safety in case an exception is thrown, which would otherwise
-/// by-pass the unlock. Like std::lock_guard, but for OpenMP locks.
-///
-/// NOTE: this LockGuard is not meant to be used in nested fashion,
-/// and should not be shared across threads.
-/// Rather, the wrapped-in "omp_nest_lock" could be used in a nested fashion
-/// and could be shared across threads.
-///
-/// @param[in] locked
-///     Indicates whether to lock upon construction, default true.
-///
-class LockGuard {
-public:
-    LockGuard(omp_nest_lock_t* lock, bool locked = true)
-        : lock_(lock)
-    {
-        if (locked) {
-            omp_set_nest_lock(lock_);
-        }
-        locked_ = locked;
-    }
-
-    ~LockGuard()
-    {
-        if (locked_)
-            omp_unset_nest_lock(lock_);
-    }
-
-    /// locks if not already locked
-    void lock()
-    {
-        if (! locked_) {
-            locked_ = true;
-            omp_set_nest_lock(lock_);
-        }
-    }
-
-    /// unlocks if already locked
-    void unlock()
-    {
-        if (locked_) {
-            locked_ = false;
-            omp_unset_nest_lock(lock_);
-        }
-    }
-
-private:
-    omp_nest_lock_t* lock_;
-    bool locked_; ///< status of this lock (locked or unlocked)
-};
 
 //------------------------------------------------------------------------------
 /// Type-safe wrapper for cudaMalloc. Throws errors.

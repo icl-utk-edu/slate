@@ -58,7 +58,7 @@
 #include "slate/internal/cublas.hh"
 #include "slate/internal/mpi.hh"
 #include "slate/internal/openmp.hh"
-#include "slate/internal/lockguard.hh"
+#include "slate/internal/LockGuard.hh"
 
 namespace slate {
 

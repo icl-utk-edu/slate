@@ -471,6 +471,7 @@ endif
 unit_src = \
         unit_test/test_BandMatrix.cc \
         unit_test/test_HermitianMatrix.cc \
+        unit_test/test_LockGuard.cc \
         unit_test/test_Matrix.cc \
         unit_test/test_Memory.cc \
         unit_test/test_SymmetricMatrix.cc \

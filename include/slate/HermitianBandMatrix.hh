@@ -324,7 +324,7 @@ void HermitianBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag, 
             if (! this->tileIsLocal(i, j)) {
                 // Create tile to receive data, with life span.
                 // If tile already exists, add to its life span.
-                LockGuard(this->storage_->getTilesMapLock()); // todo: accessor
+                LockGuard guard(this->storage_->getTilesMapLock()); // todo: accessor
                 auto iter = this->storage_->find(this->globalIndex(i, j, this->hostNum()));
 
                 int64_t life = life_factor;

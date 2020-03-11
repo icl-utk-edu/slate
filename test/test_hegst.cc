@@ -150,7 +150,7 @@ void test_hegst_work(Params& params, bool run)
         print_matrix("A_hegst", A);
     }
 
-    if (check || ref) {
+    if (check) {
         real_t A_norm = slate::norm(slate::Norm::One, A_ref);
 
         int ictxt;

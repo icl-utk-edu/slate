@@ -77,6 +77,10 @@ void hegst(slate::internal::TargetType<target>,
     const scalar_t cone = 1.0;
     const double   rone = 1.0;
 
+    // OpenMP needs pointer types, but vectors are exception safe
+    std::vector< uint8_t > column_vector(A_nt);
+    uint8_t* column = column_vector.data();
+
     #pragma omp parallel
     #pragma omp master
     {
@@ -87,33 +91,47 @@ void hegst(slate::internal::TargetType<target>,
             auto TBkk = TriangularMatrix<scalar_t>(Diag::NonUnit, Bkk);
 
             if (itype == 1) {
-                internal::hegst<Target::HostTask>(
-                    itype, std::move(Akk),
-                           std::move(Bkk));
-
+                #pragma omp task depend(inout:column[k])
+                {
+                    internal::hegst<Target::HostTask>(
+                        itype, std::move(Akk),
+                               std::move(Bkk));
+                }
                 if (k+1 <= A_nt-1) {
                     auto Asub = A.sub(k+1, A_nt-1, k, k);
                     auto Bsub = B.sub(k+1, B_nt-1, k, k);
 
-                    internal::trsm<Target::HostTask>(
-                        Side::Right,  cone, conj_transpose(TBkk),
-                                            std::move(Asub));
-
-                    internal::hemm<Target::HostTask>(
-                        Side::Right, -half, std::move(Akk),
-                                            std::move(Bsub),
-                                      cone, std::move(Asub));
-
-                    internal::her2k<Target::HostTask>(
-                                     -cone, std::move(Asub),
-                                            std::move(Bsub),
-                                      rone, A.sub(k+1, A_nt-1));
-
-                    internal::hemm<Target::HostTask>(
-                        Side::Right, -half, std::move(Akk),
-                                            std::move(Bsub),
-                                      cone, std::move(Asub));
-
+                    #pragma omp task depend(inout:column[k+1])
+                    {
+                        internal::trsm<Target::HostTask>(
+                            Side::Right,  cone, conj_transpose(TBkk),
+                                                std::move(Asub));
+                    }
+                    #pragma omp task depend(in:column[k]) \
+                                     depend(inout:column[k+1])
+                    {
+                        internal::hemm<Target::HostTask>(
+                            Side::Right, -half, std::move(Akk),
+                                                std::move(Bsub),
+                                          cone, std::move(Asub));
+                    }
+                    #pragma omp task depend(in:column[k+1]) \
+                                     depend(inout:column[A_nt-1])
+                    {
+                        internal::her2k<Target::HostTask>(
+                                         -cone, std::move(Asub),
+                                                std::move(Bsub),
+                                          rone, A.sub(k+1, A_nt-1));
+                    }
+                    #pragma omp task depend(in:column[k]) \
+                                     depend(inout:column[k+1])
+                    {
+                        internal::hemm<Target::HostTask>(
+                            Side::Right, -half, std::move(Akk),
+                                                std::move(Bsub),
+                                          cone, std::move(Asub));
+                    }
+                    #pragma omp taskwait
                     auto Bk1  = B.sub(k+1, B_nt-1);
                     auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
                     slate::trsm<scalar_t>(

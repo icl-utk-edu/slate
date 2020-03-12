@@ -364,7 +364,7 @@ void he2hb(slate::internal::TargetType<target>,
                             // tiles, could merge these two.
                             if (i > j) {
                                 if (A.tileIsLocal(i, j)) {
-                                    // Aij -= Vjk Wik^H
+                                    // Aij -= Vik Wjk^H
                                     gemm(-one, A(i, k), conj_transpose(W(j, k)),
                                           one, A(i, j));
                                 }

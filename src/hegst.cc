@@ -81,6 +81,11 @@ void hegst(slate::internal::TargetType<target>,
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
 
+    if (target == Target::Devices) {
+        A.allocateBatchArrays();
+        A.reserveDeviceWorkspace();
+    }
+
     #pragma omp parallel
     #pragma omp master
     {
@@ -101,42 +106,39 @@ void hegst(slate::internal::TargetType<target>,
                     auto Asub = A.sub(k+1, A_nt-1, k, k);
                     auto Bsub = B.sub(k+1, B_nt-1, k, k);
 
-                    #pragma omp task depend(inout:column[k+1])
+                    #pragma omp task depend(inout:column[k])
                     {
-                        internal::trsm<Target::HostTask>(
+                        internal::trsm<target>(
                             Side::Right,  cone, conj_transpose(TBkk),
                                                 std::move(Asub));
                     }
+
                     #pragma omp task depend(in:column[k]) \
-                                     depend(inout:column[k+1])
+                                     depend(inout:column[k+1]) \
+                                     depend(inout:column[A_nt-1])
                     {
                         internal::hemm<Target::HostTask>(
                             Side::Right, -half, std::move(Akk),
                                                 std::move(Bsub),
                                           cone, std::move(Asub));
-                    }
-                    #pragma omp task depend(in:column[k+1]) \
-                                     depend(inout:column[A_nt-1])
-                    {
-                        internal::her2k<Target::HostTask>(
+
+                        internal::her2k<target>(
                                          -cone, std::move(Asub),
                                                 std::move(Bsub),
                                           rone, A.sub(k+1, A_nt-1));
-                    }
-                    #pragma omp task depend(in:column[k]) \
-                                     depend(inout:column[k+1])
-                    {
+
                         internal::hemm<Target::HostTask>(
                             Side::Right, -half, std::move(Akk),
                                                 std::move(Bsub),
                                           cone, std::move(Asub));
                     }
                     #pragma omp taskwait
+
                     auto Bk1  = B.sub(k+1, B_nt-1);
                     auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
                     slate::trsm<scalar_t>(
                         Side::Left,  cone, TBk1,
-                                           Asub);
+                                           Asub, {{Option::Target, target}});
                 }
             }
             else { //if (itype == 2 || itype == 3)

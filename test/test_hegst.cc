@@ -37,10 +37,10 @@ void test_hegst_work(Params& params, bool run)
     if (! run)
         return;
 
-    if (target != slate::Target::HostTask) {
-        // todo: different target
-        assert(false);
-    }
+    //if (target != slate::Target::HostTask) {
+    //    // todo: different target
+    //    assert(false);
+    //}
     if (origin != slate::Origin::ScaLAPACK) {
         // todo: different origin
         assert(false);

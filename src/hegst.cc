@@ -61,7 +61,7 @@ void hegst(slate::internal::TargetType<target>,
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     if (itype != 1 && itype != 2 && itype != 3) {
-        throw std::runtime_error("itype must be: 1, 2, or 3");
+        throw Exception("itype must be: 1, 2, or 3");
     }
     assert(A.uplo() == B.uplo());
     assert(A.mt() == B.mt());
@@ -78,6 +78,10 @@ void hegst(slate::internal::TargetType<target>,
     const scalar_t half = 0.5;
     const scalar_t cone = 1.0;
     const double   rone = 1.0;
+
+    const int tag_zero = 0;
+    const int life_factor_two = 2;
+    const int life_factor_three = 3;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -108,10 +112,9 @@ void hegst(slate::internal::TargetType<target>,
                                std::move(Bkk));
 
                     if (k+1 <= A_nt-1) {
-                        // send A(k, k) down col A(k+1:nt-1, k)
-                        A.tileBcast(k, k, A.sub(k+1, A_nt-1, k, k), layout);
-                        // send A(k, k) down col B(k+1:nt-1, k)
-                        A.tileBcast(k, k, B.sub(k+1, A_nt-1, k, k), layout);
+                        A.tileBcast(
+                          k, k, A.sub(k+1, A_nt-1, k, k),
+                          layout, tag_zero, life_factor_two);
                     }
                 }
                 if (k+1 <= A_nt-1) {
@@ -120,8 +123,7 @@ void hegst(slate::internal::TargetType<target>,
 
                     #pragma omp task depend(inout:column[k])
                     {
-                        // send B(k, k) down col A(k+1:nt-1, k)
-                        B.template tileBcast(k, k, Asub, layout);
+                        B.template tileBcast<target>(k, k, Asub, layout);
 
                         internal::trsm<target>(
                             Side::Right,  cone, conj_transpose(TBkk),
@@ -129,19 +131,20 @@ void hegst(slate::internal::TargetType<target>,
 
                         BcastList bcast_list_A;
                         for (int64_t i = k+1; i < A_nt; ++i) {
-                            // send A(i, k) across row A(i, k+1:i) and down col A(i:nt-1, i)
-                            bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, i),
-                                                           A.sub(i, A_nt-1, i, i)}});
+                            bcast_list_A.push_back({i, k,
+                                                    {A.sub(i, i, k+1, i),
+                                                     A.sub(i, A_nt-1, i, i)}});
                         }
                         A.template listBcast<target>(bcast_list_A, layout);
 
                         BcastList bcast_list_B;
                         for (int64_t i = k+1; i < A_nt; ++i) {
-                            // send B(i, k) across row A(i, k+1:i) and down col A(i:nt-1, i)
-                            bcast_list_B.push_back({i, k, {A.sub(i, i, k+1, i),
-                                                           A.sub(i, A_nt-1, i, i)}});
+                            bcast_list_B.push_back({i, k,
+                                                    {A.sub(i, i, k+1, i),
+                                                     A.sub(i, A_nt-1, i, i)}});
                         }
-                        B.template listBcast<target>(bcast_list_B, layout);
+                        B.template listBcast<target>(
+                            bcast_list_B, layout, tag_zero, life_factor_three);
                     }
 
                     #pragma omp task depend(in:column[k]) \
@@ -164,6 +167,8 @@ void hegst(slate::internal::TargetType<target>,
                                           cone, std::move(Asub));
                     }
                     #pragma omp taskwait
+
+                    slate_mpi_call(MPI_Barrier(MPI_COMM_WORLD));
 
                     auto Bk1  = B.sub(k+1, B_nt-1);
                     auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);

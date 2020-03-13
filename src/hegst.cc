@@ -58,6 +58,8 @@ void hegst(slate::internal::TargetType<target>,
            int64_t itype, HermitianMatrix<scalar_t> A,
                           HermitianMatrix<scalar_t> B)
 {
+    using BcastList = typename Matrix<scalar_t>::BcastList;
+
     if (itype != 1 && itype != 2 && itype != 3) {
         throw std::runtime_error("itype must be: 1, 2, or 3");
     }
@@ -76,6 +78,9 @@ void hegst(slate::internal::TargetType<target>,
     const scalar_t half = 0.5;
     const scalar_t cone = 1.0;
     const double   rone = 1.0;
+
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
@@ -101,6 +106,13 @@ void hegst(slate::internal::TargetType<target>,
                     internal::hegst<Target::HostTask>(
                         itype, std::move(Akk),
                                std::move(Bkk));
+
+                    if (k+1 <= A_nt-1) {
+                        // send A(k, k) down col A(k+1:nt-1, k)
+                        A.tileBcast(k, k, A.sub(k+1, A_nt-1, k, k), layout);
+                        // send A(k, k) down col B(k+1:nt-1, k)
+                        A.tileBcast(k, k, B.sub(k+1, A_nt-1, k, k), layout);
+                    }
                 }
                 if (k+1 <= A_nt-1) {
                     auto Asub = A.sub(k+1, A_nt-1, k, k);
@@ -108,9 +120,28 @@ void hegst(slate::internal::TargetType<target>,
 
                     #pragma omp task depend(inout:column[k])
                     {
+                        // send B(k, k) down col A(k+1:nt-1, k)
+                        B.template tileBcast(k, k, Asub, layout);
+
                         internal::trsm<target>(
                             Side::Right,  cone, conj_transpose(TBkk),
                                                 std::move(Asub));
+
+                        BcastList bcast_list_A;
+                        for (int64_t i = k+1; i < A_nt; ++i) {
+                            // send A(i, k) across row A(i, k+1:i) and down col A(i:nt-1, i)
+                            bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, i),
+                                                           A.sub(i, A_nt-1, i, i)}});
+                        }
+                        A.template listBcast<target>(bcast_list_A, layout);
+
+                        BcastList bcast_list_B;
+                        for (int64_t i = k+1; i < A_nt; ++i) {
+                            // send B(i, k) across row A(i, k+1:i) and down col A(i:nt-1, i)
+                            bcast_list_B.push_back({i, k, {A.sub(i, i, k+1, i),
+                                                           A.sub(i, A_nt-1, i, i)}});
+                        }
+                        B.template listBcast<target>(bcast_list_B, layout);
                     }
 
                     #pragma omp task depend(in:column[k]) \

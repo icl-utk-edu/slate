@@ -34,21 +34,20 @@ void test_hegst_work(Params& params, bool run)
     slate::Target target = params.target();
     slate::Origin origin = params.origin();
 
+    origin = slate::Origin::ScaLAPACK;  // todo: for now
+
     if (! run)
         return;
 
-    //if (target != slate::Target::HostTask) {
-    //    // todo: different target
-    //    assert(false);
-    //}
     if (origin != slate::Origin::ScaLAPACK) {
         // todo: different origin
         assert(false);
     }
 
     // MPI variables
-    int mpi_rank, mpi_size;
+    int mpi_rank;
     slate_mpi_call(MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank));
+    int mpi_size;
     slate_mpi_call(MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
     slate_assert(p*q <= mpi_size);
 

@@ -64,6 +64,8 @@ NVCC ?= nvcc
 CXXFLAGS  += -O3 -std=c++11 -Wall -pedantic -MMD
 NVCCFLAGS += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
 
+force: ;
+
 # auto-detect OS
 # $OSTYPE may not be exported from the shell, so echo it
 ostype := $(shell echo $${OSTYPE})
@@ -276,6 +278,7 @@ libslate_src += \
         src/core/Memory.cc \
         src/aux/Trace.cc \
         src/core/types.cc \
+        src/version.cc \
 
 # work
 libslate_src += \
@@ -509,6 +512,24 @@ dep          = $(addsuffix .d, $(basename $(libslate_src) $(tester_src) \
 
 tester    = test/tester
 unit_test = $(basename $(unit_src))
+
+#-------------------------------------------------------------------------------
+# Get Mercurial id, and make version.o depend on it via .id file.
+
+ifneq ($(wildcard .hg),)
+    id := $(shell hg id -i)
+    src/version.o: CXXFLAGS += -DSLATE_ID='"$(id)"'
+endif
+
+last_id := $(shell [ -e .id ] && cat .id || echo 'NA')
+ifneq ($(id),$(last_id))
+    .id: force
+endif
+
+.id:
+	echo $(id) > .id
+
+src/version.o: .id
 
 #-------------------------------------------------------------------------------
 # SLATE specific flags and libraries
@@ -801,6 +822,8 @@ echo:
 	@echo "cuda          = '$(cuda)'"
 	@echo "ostype        = '$(ostype)'"
 	@echo "macos         = '$(macos)'"
+	@echo "id            = '$(id)'"
+	@echo "last_id       = '$(last_id)'"
 	@echo
 	@echo "libblaspp     = $(libblaspp)"
 	@echo "liblapackpp   = $(liblapackpp)"

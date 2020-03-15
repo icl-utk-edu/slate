@@ -175,43 +175,43 @@ void hegst(slate::internal::TargetType<target>,
             }
             else { //if (itype == 2 || itype == 3)
                 if (k >= 1) {
-                  auto Asub = A.sub(k, k, 0, k-1);
-                  auto Bsub = B.sub(k, k, 0, k-1);
+                    auto Asub = A.sub(k, k, 0, k-1);
+                    auto Bsub = B.sub(k, k, 0, k-1);
 
-                  #pragma omp taskwait
+                    #pragma omp taskwait
 
-                  auto Bk1  = B.sub(0, k-1);
-                  auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
-                  slate::trmm<scalar_t>(
-                      Side::Right, cone, TBk1,
-                                         Asub);
+                    auto Bk1  = B.sub(0, k-1);
+                    auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
+                    slate::trmm<scalar_t>(
+                        Side::Right, cone, TBk1,
+                                           Asub);
 
-                  #pragma omp task depend(in:column[k]) \
-                                  depend(inout:column[k+1]) \
-                                  depend(inout:column[nt-1])
-                  {
-                      internal::hemm<Target::HostTask>(
-                          Side::Left,  half, std::move(Akk),
-                                             std::move(Bsub),
-                                       cone, std::move(Asub));
+                    #pragma omp task depend(in:column[k]) \
+                                    depend(inout:column[k+1]) \
+                                    depend(inout:column[nt-1])
+                    {
+                        internal::hemm<Target::HostTask>(
+                            Side::Left,  half, std::move(Akk),
+                                               std::move(Bsub),
+                                         cone, std::move(Asub));
 
-                      internal::her2k<Target::HostTask>(
-                                       cone, conj_transpose(Asub),
-                                             conj_transpose(Bsub),
-                                       rone, A.sub(0, k-1));
+                        internal::her2k<Target::HostTask>(
+                                         cone, conj_transpose(Asub),
+                                               conj_transpose(Bsub),
+                                         rone, A.sub(0, k-1));
 
-                      internal::hemm<Target::HostTask>(
-                          Side::Left,  half, std::move(Akk),
-                                             std::move(Bsub),
-                                       cone, std::move(Asub));
-                  }
+                        internal::hemm<Target::HostTask>(
+                            Side::Left,  half, std::move(Akk),
+                                               std::move(Bsub),
+                                         cone, std::move(Asub));
+                    }
 
-                  #pragma omp task depend(inout:column[k])
-                  {
-                      internal::trmm<Target::HostTask>(
-                          Side::Left, cone, conj_transpose(TBkk),
-                                            std::move(Asub));
-                  }
+                    #pragma omp task depend(inout:column[k])
+                    {
+                        internal::trmm<Target::HostTask>(
+                            Side::Left, cone, conj_transpose(TBkk),
+                                              std::move(Asub));
+                    }
                 }
 
                 #pragma omp task depend(inout:column[k])

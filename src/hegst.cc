@@ -72,8 +72,7 @@ void hegst(slate::internal::TargetType<target>,
         B = conj_transpose(B);
     }
 
-    const int64_t A_nt = A.nt();
-    const int64_t B_nt = B.nt();
+    const int64_t nt = A.nt();
 
     const scalar_t half = 0.5;
     const scalar_t cone = 1.0;
@@ -86,7 +85,7 @@ void hegst(slate::internal::TargetType<target>,
     const Layout layout = Layout::ColMajor;
 
     // OpenMP needs pointer types, but vectors are exception safe
-    std::vector< uint8_t > column_vector(A_nt);
+    std::vector< uint8_t > column_vector(nt);
     uint8_t* column = column_vector.data();
 
     if (target == Target::Devices) {
@@ -98,7 +97,7 @@ void hegst(slate::internal::TargetType<target>,
     #pragma omp master
     {
         omp_set_nested(1);
-        for (int64_t k = 0; k < A_nt; ++k) {
+        for (int64_t k = 0; k < nt; ++k) {
             auto Akk  = A.sub(k, k);
             auto Bkk  = B.sub(k, k);
             auto TBkk = TriangularMatrix<scalar_t>(Diag::NonUnit, Bkk);
@@ -110,24 +109,24 @@ void hegst(slate::internal::TargetType<target>,
                         itype, std::move(Akk),
                                std::move(Bkk));
 
-                    if (k+1 <= A_nt-1) {
+                    if (k+1 <= nt-1) {
                         A.tileBcast(
-                            k, k, A.sub(k+1, A_nt-1, k, k), layout, tag_zero,
+                            k, k, A.sub(k+1, nt-1, k, k), layout, tag_zero,
                             life_factor_two);
 
                         BcastList bcast_list;
-                        for (int64_t i = k+1; i < B_nt; ++i) {
+                        for (int64_t i = k+1; i < nt; ++i) {
                             bcast_list.push_back({i, k,
                                                     {A.sub(i, i, k+1, i),
-                                                     A.sub(i, A_nt-1, i, i)}});
+                                                     A.sub(i, nt-1, i, i)}});
                         }
                         B.template listBcast<target>(
                             bcast_list, layout, tag_zero, life_factor_two);
                     }
                 }
-                if (k+1 <= A_nt-1) {
-                    auto Asub = A.sub(k+1, A_nt-1, k, k);
-                    auto Bsub = B.sub(k+1, B_nt-1, k, k);
+                if (k+1 <= nt-1) {
+                    auto Asub = A.sub(k+1, nt-1, k, k);
+                    auto Bsub = B.sub(k+1, nt-1, k, k);
 
                     #pragma omp task depend(inout:column[k])
                     {
@@ -140,7 +139,7 @@ void hegst(slate::internal::TargetType<target>,
 
                     #pragma omp task depend(in:column[k]) \
                                      depend(inout:column[k+1]) \
-                                     depend(inout:column[A_nt-1])
+                                     depend(inout:column[nt-1])
                     {
                         internal::hemm<Target::HostTask>(
                             Side::Right, -half, std::move(Akk),
@@ -148,17 +147,17 @@ void hegst(slate::internal::TargetType<target>,
                                           cone, std::move(Asub));
 
                         BcastList bcast_list;
-                        for (int64_t i = k+1; i < A_nt; ++i) {
+                        for (int64_t i = k+1; i < nt; ++i) {
                             bcast_list.push_back({i, k,
                                                     {A.sub(i, i, k+1, i),
-                                                     A.sub(i, A_nt-1, i, i)}});
+                                                     A.sub(i, nt-1, i, i)}});
                         }
                         A.template listBcast<target>(bcast_list, layout);
 
                         internal::her2k<target>(
                                          -cone, std::move(Asub),
                                                 std::move(Bsub),
-                                          rone, A.sub(k+1, A_nt-1));
+                                          rone, A.sub(k+1, nt-1));
 
                         internal::hemm<Target::HostTask>(
                             Side::Right, -half, std::move(Akk),
@@ -167,7 +166,7 @@ void hegst(slate::internal::TargetType<target>,
                     }
                     #pragma omp taskwait
 
-                    auto Bk1  = B.sub(k+1, B_nt-1);
+                    auto Bk1  = B.sub(k+1, nt-1);
                     auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
                     slate::trsm<scalar_t>(
                         Side::Left,  cone, TBk1,
@@ -179,35 +178,48 @@ void hegst(slate::internal::TargetType<target>,
                   auto Asub = A.sub(k, k, 0, k-1);
                   auto Bsub = B.sub(k, k, 0, k-1);
 
+                  #pragma omp taskwait
+
                   auto Bk1  = B.sub(0, k-1);
                   auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
                   slate::trmm<scalar_t>(
                       Side::Right, cone, TBk1,
                                          Asub);
 
-                  internal::hemm<Target::HostTask>(
-                      Side::Left,  half, std::move(Akk),
-                                         std::move(Bsub),
-                                   cone, std::move(Asub));
+                  #pragma omp task depend(in:column[k]) \
+                                  depend(inout:column[k+1]) \
+                                  depend(inout:column[nt-1])
+                  {
+                      internal::hemm<Target::HostTask>(
+                          Side::Left,  half, std::move(Akk),
+                                             std::move(Bsub),
+                                       cone, std::move(Asub));
 
-                  internal::her2k<Target::HostTask>(
-                                   cone, conj_transpose(Asub),
-                                         conj_transpose(Bsub),
-                                   rone, A.sub(0, k-1));
+                      internal::her2k<Target::HostTask>(
+                                       cone, conj_transpose(Asub),
+                                             conj_transpose(Bsub),
+                                       rone, A.sub(0, k-1));
 
-                  internal::hemm<Target::HostTask>(
-                      Side::Left,  half, std::move(Akk),
-                                         std::move(Bsub),
-                                   cone, std::move(Asub));
+                      internal::hemm<Target::HostTask>(
+                          Side::Left,  half, std::move(Akk),
+                                             std::move(Bsub),
+                                       cone, std::move(Asub));
+                  }
 
-                  internal::trmm<Target::HostTask>(
-                      Side::Left, cone, conj_transpose(TBkk),
-                                        std::move(Asub));
+                  #pragma omp task depend(inout:column[k])
+                  {
+                      internal::trmm<Target::HostTask>(
+                          Side::Left, cone, conj_transpose(TBkk),
+                                            std::move(Asub));
+                  }
                 }
 
-                internal::hegst<Target::HostTask>(
-                  itype, std::move(Akk),
-                         std::move(Bkk));
+                #pragma omp task depend(inout:column[k])
+                {
+                    internal::hegst<Target::HostTask>(
+                      itype, std::move(Akk),
+                             std::move(Bkk));
+                }
             }
         }
     }

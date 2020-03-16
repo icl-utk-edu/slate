@@ -54,8 +54,6 @@ namespace device {
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 1.
-///     Also the number of threads per block (blockDim.x), hence,
-///     m <= 1024 for current CUDA architectures (2.x to 6.x).
 ///
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
@@ -79,11 +77,15 @@ __global__ void gesetKernel(
     scalar_t offdiag_value, scalar_t diag_value, scalar_t** tilesA, int64_t lda)
 {
     scalar_t* tileA = tilesA[blockIdx.x];
-    int idx = threadIdx.x;
-    scalar_t* rowA = &tileA[idx];
 
-    for (int64_t j = 0; j < n; ++j)
-        rowA[j*lda] = (j != idx) ? offdiag_value : diag_value;
+    // thread per row, if more rows than threads, loop by blockDim.x
+    for (int64_t ridx = threadIdx.x; ridx < m; ridx += blockDim.x) {
+        // todo: should the increment be ridx += 1024?
+        scalar_t* rowA = &tileA[ridx];
+
+        for (int64_t j = 0; j < n; ++j)
+            rowA[j*lda] = (j != ridx) ? offdiag_value : diag_value;
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -94,7 +96,6 @@ __global__ void gesetKernel(
 ///
 /// @param[in] n
 ///     Number of columns of each tile. n >= 0.
-///     Currently, n <= 1024 due to CUDA implementation.
 ///
 /// @param[in] diag_value
 ///     The value to set on the diagonal.
@@ -125,7 +126,10 @@ void geset(
     if (batch_count == 0)
         return;
 
-    gesetKernel<<<batch_count, m, 0, stream>>>(
+    // Max threads/block=1024 for current CUDA compute capability (<=7.5)
+    int64_t nthreads = std::min((int64_t)1024 , m);
+
+    gesetKernel<<<batch_count, nthreads, 0, stream>>>(
         m, n,
         diag_value, offdiag_value, Aarray, lda);
 

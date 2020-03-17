@@ -108,22 +108,8 @@ void hegst(slate::internal::TargetType<target>,
                     internal::hegst<Target::HostTask>(
                         itype, std::move(Akk),
                                std::move(Bkk));
-
-                    if (k+1 <= nt-1) {
-                        A.tileBcast(
-                            k, k, A.sub(k+1, nt-1, k, k), layout, tag_zero,
-                            life_factor_two);
-
-                        BcastList bcast_list;
-                        for (int64_t i = k+1; i < nt; ++i) {
-                            bcast_list.push_back({i, k,
-                                                    {A.sub(i, i, k+1, i),
-                                                     A.sub(i, nt-1, i, i)}});
-                        }
-                        B.template listBcast<target>(
-                            bcast_list, layout, tag_zero, life_factor_two);
-                    }
                 }
+
                 if (k+1 <= nt-1) {
                     auto Asub = A.sub(k+1, nt-1, k, k);
                     auto Bsub = B.sub(k+1, nt-1, k, k);
@@ -137,6 +123,20 @@ void hegst(slate::internal::TargetType<target>,
                                                 std::move(Asub));
                     }
 
+                    #pragma omp task depend(inout:column[k])
+                    {
+                        A.tileBcast(
+                            k, k, Asub, layout, tag_zero, life_factor_two);
+
+                        BcastList bcast_list;
+                        for (int64_t i = k+1; i < nt; ++i) {
+                            bcast_list.push_back({i, k, {A.sub(i, i, k+1, i),
+                                                         A.sub(i, nt-1, i, i)}});
+                        }
+                        B.template listBcast<target>(
+                            bcast_list, layout, tag_zero, life_factor_two);
+                    }
+
                     #pragma omp task depend(in:column[k]) \
                                      depend(inout:column[k+1]) \
                                      depend(inout:column[nt-1])
@@ -148,9 +148,8 @@ void hegst(slate::internal::TargetType<target>,
 
                         BcastList bcast_list;
                         for (int64_t i = k+1; i < nt; ++i) {
-                            bcast_list.push_back({i, k,
-                                                    {A.sub(i, i, k+1, i),
-                                                     A.sub(i, nt-1, i, i)}});
+                            bcast_list.push_back({i, k, {A.sub(i, i, k+1, i),
+                                                         A.sub(i, nt-1, i, i)}});
                         }
                         A.template listBcast<target>(bcast_list, layout);
 
@@ -186,6 +185,20 @@ void hegst(slate::internal::TargetType<target>,
                         Side::Right, cone, TBk1,
                                            Asub);
 
+                    #pragma omp task depend(inout:column[k])
+                    {
+                        A.tileBcast(
+                            k, k, Asub, layout, tag_zero, life_factor_two);
+
+                        BcastList bcast_list;
+                        for (int64_t i = 0; i < k; ++i) {
+                             bcast_list.push_back({k, i, {A.sub(i, k-1, i, i),
+                                                          A.sub(i, i, 0, i)}});
+                        }
+                        B.template listBcast<target>(
+                            bcast_list, layout, tag_zero, life_factor_two);
+                    }
+
                     #pragma omp task depend(in:column[k]) \
                                     depend(inout:column[k+1]) \
                                     depend(inout:column[nt-1])
@@ -194,6 +207,13 @@ void hegst(slate::internal::TargetType<target>,
                             Side::Left,  half, std::move(Akk),
                                                std::move(Bsub),
                                          cone, std::move(Asub));
+
+                        BcastList bcast_list;
+                        for (int64_t i = 0; i < k; ++i) {
+                            bcast_list.push_back({k, i, {A.sub(i, k-1, i, i),
+                                                         A.sub(i, i, 0, i)}});
+                        }
+                        A.template listBcast<target>(bcast_list, layout);
 
                         internal::her2k<Target::HostTask>(
                                          cone, conj_transpose(Asub),
@@ -208,6 +228,8 @@ void hegst(slate::internal::TargetType<target>,
 
                     #pragma omp task depend(inout:column[k])
                     {
+                        B.template tileBcast<target>(k, k, Asub, layout);
+
                         internal::trmm<Target::HostTask>(
                             Side::Left, cone, conj_transpose(TBkk),
                                               std::move(Asub));

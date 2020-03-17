@@ -192,8 +192,8 @@ void hegst(slate::internal::TargetType<target>,
 
                         BcastList bcast_list;
                         for (int64_t i = 0; i < k; ++i) {
-                             bcast_list.push_back({k, i, {A.sub(i, k-1, i, i),
-                                                          A.sub(i, i, 0, i)}});
+                            bcast_list.push_back({k, i, {A.sub(i, k-1, i, i),
+                                                         A.sub(i, i,   0, i)}});
                         }
                         B.template listBcast<target>(
                             bcast_list, layout, tag_zero, life_factor_two);
@@ -211,19 +211,19 @@ void hegst(slate::internal::TargetType<target>,
                         BcastList bcast_list;
                         for (int64_t i = 0; i < k; ++i) {
                             bcast_list.push_back({k, i, {A.sub(i, k-1, i, i),
-                                                         A.sub(i, i, 0, i)}});
+                                                         A.sub(i, i,   0, i)}});
                         }
                         A.template listBcast<target>(bcast_list, layout);
 
                         internal::her2k<Target::HostTask>(
-                                         cone, conj_transpose(Asub),
-                                               conj_transpose(Bsub),
-                                         rone, A.sub(0, k-1));
+                                        cone, conj_transpose(Asub),
+                                              conj_transpose(Bsub),
+                                        rone, A.sub(0, k-1));
 
                         internal::hemm<Target::HostTask>(
-                            Side::Left,  half, std::move(Akk),
-                                               std::move(Bsub),
-                                         cone, std::move(Asub));
+                            Side::Left, half, std::move(Akk),
+                                              std::move(Bsub),
+                                        cone, std::move(Asub));
                     }
 
                     #pragma omp task depend(inout:column[k])
@@ -239,8 +239,8 @@ void hegst(slate::internal::TargetType<target>,
                 #pragma omp task depend(inout:column[k])
                 {
                     internal::hegst<Target::HostTask>(
-                      itype, std::move(Akk),
-                             std::move(Bkk));
+                      itype,  std::move(Akk),
+                              std::move(Bkk));
                 }
             }
         }

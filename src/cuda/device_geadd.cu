@@ -54,8 +54,6 @@ namespace device {
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 1.
-///     Also the number of threads per block (blockDim.x), hence,
-///     m <= 1024 for current CUDA architectures (2.x to 6.x).
 ///
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
@@ -82,12 +80,16 @@ __global__ void geaddKernel(
 {
     scalar_t* tileA = tilesA[blockIdx.x];
     scalar_t* tileB = tilesB[blockIdx.x];
-    int idx = threadIdx.x;
-    scalar_t* rowA = &tileA[idx];
-    scalar_t* rowB = &tileB[idx];
 
-    for (int64_t j = 0; j < n; ++j)
-        rowB[j*ldb] = axpby(alpha, rowA[j*lda], beta, rowB[j*ldb]);
+    // thread per row, if more rows than threads, loop by blockDim.x
+    for (int64_t ridx = threadIdx.x; ridx < m; ridx += blockDim.x) {
+        // todo: should the increment be ridx += 1024?
+        scalar_t* rowA = &tileA[ridx];
+        scalar_t* rowB = &tileB[ridx];
+
+        for (int64_t j = 0; j < n; ++j)
+            rowB[j*ldb] = axpby(alpha, rowA[j*lda], beta, rowB[j*ldb]);
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -98,7 +100,6 @@ __global__ void geaddKernel(
 ///
 /// @param[in] n
 ///     Number of columns of each tile. n >= 0.
-///     Currently, n <= 1024 due to CUDA implementation.
 ///
 /// @param[in] Aarray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
@@ -131,7 +132,10 @@ void geadd(
     if (batch_count == 0)
         return;
 
-    geaddKernel<<<batch_count, m, 0, stream>>>(
+    // Max threads/block=1024 for current CUDA compute capability (<=7.5)
+    int64_t nthreads = std::min((int64_t)1024 , m);
+
+    geaddKernel<<<batch_count, nthreads, 0, stream>>>(
         m, n,
         alpha, Aarray, lda,
         beta, Barray, ldb);

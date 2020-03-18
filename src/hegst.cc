@@ -56,7 +56,8 @@ namespace specialization {
 template <Target target, typename scalar_t>
 void hegst(slate::internal::TargetType<target>,
            int64_t itype, HermitianMatrix<scalar_t> A,
-                          HermitianMatrix<scalar_t> B)
+                          HermitianMatrix<scalar_t> B,
+           int64_t lookahead)
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
@@ -78,14 +79,13 @@ void hegst(slate::internal::TargetType<target>,
     const scalar_t cone = 1.0;
     const double   rone = 1.0;
 
-    const int tag_zero = 0;
+    const int tag_zero        = 0;
     const int life_factor_two = 2;
 
-    // Assumes column major
     const Layout layout = Layout::ColMajor;
 
     // OpenMP needs pointer types, but vectors are exception safe
-    std::vector< uint8_t > column_vector(nt);
+    std::vector<uint8_t> column_vector(nt);
     uint8_t* column = column_vector.data();
 
     if (target == Target::Devices) {
@@ -163,13 +163,14 @@ void hegst(slate::internal::TargetType<target>,
                                                 std::move(Bsub),
                                           cone, std::move(Asub));
                     }
-                    #pragma omp taskwait
 
+                    #pragma omp taskwait
                     auto Bk1  = B.sub(k+1, nt-1);
                     auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
                     slate::trsm<scalar_t>(
                         Side::Left,  cone, TBk1,
-                                           Asub, {{Option::Target, target}});
+                                           Asub, {{Option::Lookahead, lookahead},
+                                                  {Option::Target,    target}});
                 }
             }
             else { //if (itype == 2 || itype == 3)
@@ -178,12 +179,12 @@ void hegst(slate::internal::TargetType<target>,
                     auto Bsub = B.sub(k, k, 0, k-1);
 
                     #pragma omp taskwait
-
                     auto Bk1  = B.sub(0, k-1);
                     auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
                     slate::trmm<scalar_t>(
                         Side::Right, cone, TBk1,
-                                           Asub);
+                                           Asub, {{Option::Lookahead, lookahead},
+                                                  {Option::Target,    target}});
 
                     #pragma omp task depend(inout:column[k])
                     {
@@ -261,8 +262,17 @@ void hegst(int64_t itype, HermitianMatrix<scalar_t>& A,
                           HermitianMatrix<scalar_t>& B,
            const std::map<Option, Value>& opts)
 {
+    int64_t lookahead;
+    try {
+        lookahead = opts.at(Option::Lookahead).i_;
+        assert(lookahead >= 0);
+    }
+    catch (std::out_of_range&) {
+        lookahead = 1;
+    }
+
     internal::specialization::hegst(internal::TargetType<target>(),
-                                    itype, A, B);
+                                    itype, A, B, lookahead);
 }
 
 //------------------------------------------------------------------------------
@@ -309,6 +319,9 @@ void hegst(int64_t itype, HermitianMatrix<scalar_t>& A,
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Lookahead:
+///       Number of panels to overlap with matrix updates.
+///       lookahead >= 0. Default 1.
 ///     - Option::Target:
 ///       Implementation to target. Possible values:
 ///       - HostTask:  OpenMP tasks on CPU host [default].

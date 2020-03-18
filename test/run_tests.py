@@ -485,7 +485,7 @@ if (opts.syev):
 if (opts.sygv):
     cmds += [
     #[ 'hegv',  gen + dtype + la + n + itype + jobz + uplo ],
-    [ 'hegst', gen + dtype + n + itype + uplo ],
+    [ 'hegst', gen + dtype + n + la + itype + uplo ],
     ]
 
 # non-symmetric eigenvalues

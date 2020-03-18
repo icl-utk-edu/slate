@@ -27,8 +27,10 @@ void test_hegst_work(Params& params, bool run)
     int64_t p = params.p();
     int64_t q = params.q();
     int64_t nb = params.nb();
-    bool check = params.check() == 'y';
-    bool ref = params.ref() == 'y';
+    int64_t lookahead = params.lookahead();
+    bool ref_only = params.ref() == 'o';
+    bool ref = params.ref() == 'y' || ref_only;
+    bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
     slate::Target target = params.target();
@@ -110,45 +112,47 @@ void test_hegst_work(Params& params, bool run)
     }
 
     // Factorize B
-    slate::potrf(B, {{slate::Option::Target, target}});
+    slate::potrf(B, {{slate::Option::Lookahead, lookahead},
+                     {slate::Option::Target,    target}});
 
     if (verbose > 2) {
         print_matrix("B_factored", B);
     }
 
-    // todo
-    //double gflop = lapack::Gflop<scalar_t>::hegst(n);
+    if (! ref_only) {
+        // todo
+        //double gflop = lapack::Gflop<scalar_t>::hegst(n);
 
-    if (trace) slate::trace::Trace::on();
-    else slate::trace::Trace::off();
+        if (trace) slate::trace::Trace::on();
+        else slate::trace::Trace::off();
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
+        {
+            slate::trace::Block trace_block("MPI_Barrier");
+            MPI_Barrier(MPI_COMM_WORLD);
+        }
+        double time = testsweeper::get_wtime();
+
+        //==================================================
+        // Run SLATE test.
+        //==================================================
+        slate::hegst(itype, A, B, {{slate::Option::Lookahead, lookahead},
+                                   {slate::Option::Target,    target}});
+        {
+            slate::trace::Block trace_block("MPI_Barrier");
+            MPI_Barrier(MPI_COMM_WORLD);
+        }
+        double time_tst = testsweeper::get_wtime() - time;
+
+        if (trace) slate::trace::Trace::finish();
+
+        // compute and save timing/performance
+        params.time() = time_tst;
+        //params.gflops() = gflop / time_tst;
+
+        if (verbose > 1) {
+            print_matrix("A_hegst", A);
+        }
     }
-    double time = testsweeper::get_wtime();
-
-    //==================================================
-    // Run SLATE test.
-    //==================================================
-    slate::hegst(itype, A, B, {{slate::Option::Target, target}});
-
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time_tst = testsweeper::get_wtime() - time;
-
-    if (trace) slate::trace::Trace::finish();
-
-    // compute and save timing/performance
-    params.time() = time_tst;
-    //params.gflops() = gflop / time_tst;
-
-    if (verbose > 1) {
-        print_matrix("A_hegst", A);
-    }
-
     if (check || ref) {
         real_t A_norm = slate::norm(slate::Norm::One, A_ref);
 

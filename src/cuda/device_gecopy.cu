@@ -41,6 +41,7 @@
 #include "device_util.cuh"
 
 #include <cstdio>
+#include <algorithm>
 #include <cuComplex.h>
 
 namespace slate {
@@ -54,8 +55,6 @@ namespace device {
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 1.
-///     Also the number of threads per block (blockDim.x), hence,
-///     m <= 1024 for current CUDA architectures (2.x to 6.x).
 ///
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
@@ -82,12 +81,16 @@ __global__ void gecopyKernel(
 {
     src_scalar_t* tileA = tilesA[blockIdx.x];
     dst_scalar_t* tileB = tilesB[blockIdx.x];
-    int idx = threadIdx.x;
-    src_scalar_t* rowA = &tileA[idx];
-    dst_scalar_t* rowB = &tileB[idx];
 
-    for (int64_t j = 0; j < n; ++j)
-        copy(rowA[j*lda], rowB[j*ldb]);
+    // thread per row, if more rows than threads, loop by blockDim.x
+    for (int64_t ridx = threadIdx.x; ridx < m; ridx += blockDim.x) {
+
+        src_scalar_t* rowA = &tileA[ridx];
+        dst_scalar_t* rowB = &tileB[ridx];
+
+        for (int64_t j = 0; j < n; ++j)
+            copy(rowA[j*lda], rowB[j*ldb]);
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -98,7 +101,6 @@ __global__ void gecopyKernel(
 ///
 /// @param[in] n
 ///     Number of columns of each tile. n >= 0.
-///     Currently, n <= 1024 due to CUDA implementation.
 ///
 /// @param[in] Aarray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
@@ -131,7 +133,10 @@ void gecopy(
     if (batch_count == 0)
         return;
 
-    gecopyKernel<<<batch_count, m, 0, stream>>>(
+    // Max threads/block=1024 for current CUDA compute capability (<=7.5)
+    int64_t nthreads = std::min((int64_t)1024 , m);
+
+    gecopyKernel<<<batch_count, nthreads, 0, stream>>>(
           m, n,
           Aarray, lda,
           Barray, ldb);

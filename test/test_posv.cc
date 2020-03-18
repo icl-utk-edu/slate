@@ -295,52 +295,33 @@ void test_posv_work(Params& params, bool run)
             });
         }
 
-        if (origin != slate::Origin::ScaLAPACK) {
-            // Copy SLATE result back from GPU or CPU tiles.
-            if (params.routine == "posvMixed") {
-                if (std::is_same<real_t, double>::value) {
-                    copy(X, &X_tst[0], descB_tst);
-                }
-            }
-            else {
-                copy(B, &B_tst[0], descB_tst);
-            }
-        }
-
-        // allocate work space
-        size_t ldw = nb*ceil(ceil(mlocA / (double) nb) / (scalapack_ilcm(&nprow, &npcol) / nprow));
-        std::vector<real_t> worklansyA(2*nlocA + mlocA + ldw);
-        std::vector<real_t> worklangeB(std::max(mlocB, nlocB));
+        // SLATE matrix wrappers for the reference data
+        auto Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+            uplo, n, &A_ref[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+        auto Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
+            n, nrhs, &B_ref[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
 
         // Norm of original matrix: || A ||_1
-        real_t A_norm = scalapack_plansy("1", uplo2str(uplo), n, &A_ref[0], ione, ione, descA_ref, &worklansyA[0]);
-        // Norm of updated rhs matrix: || X ||_1
-        real_t X_norm = scalapack_plange("1", n, nrhs, &B_tst[0], ione, ione, descB_tst, &worklangeB[0]);
+        real_t A_norm = slate::norm(slate::Norm::One, Aref);
+
+        // Norm of updated-rhs/solution matrix: || X ||_1
+        real_t X_norm;
+        if (params.routine == "posvMixed")
+            X_norm = slate::norm(slate::Norm::One, X);
+        else
+            X_norm = slate::norm(slate::Norm::One, B);
 
         // B_ref -= Aref*B_tst
         if (params.routine == "posvMixed") {
-            if (std::is_same<real_t, double>::value) {
-                scalapack_psymm("left", uplo2str(uplo),
-                                n, nrhs,
-                                scalar_t(-1.0),
-                                &A_ref[0], ione, ione, descA_ref,
-                                &X_tst[0], ione, ione, descB_tst,
-                                scalar_t(1.0),
-                                &B_ref[0], ione, ione, descB_ref);
-            }
+            if (std::is_same<real_t, double>::value)
+                slate::hemm(slate::Side::Left, scalar_t(-1.0), Aref, X, scalar_t(1.0), Bref);
         }
         else {
-            scalapack_psymm("left", uplo2str(uplo),
-                            n, nrhs,
-                            scalar_t(-1.0),
-                            &A_ref[0], ione, ione, descA_ref,
-                            &B_tst[0], ione, ione, descB_tst,
-                            scalar_t(1.0),
-                            &B_ref[0], ione, ione, descB_ref);
+            slate::hemm(slate::Side::Left, scalar_t(-1.0), Aref, B, scalar_t(1.0), Bref);
         }
 
         // Norm of residual: || B - AX ||_1
-        real_t R_norm = scalapack_plange("1", n, nrhs, &B_ref[0], ione, ione, descB_ref, &worklangeB[0]);
+        real_t R_norm = slate::norm(slate::Norm::One, Bref);
         double residual = R_norm / (n*A_norm*X_norm);
         params.error() = residual;
 

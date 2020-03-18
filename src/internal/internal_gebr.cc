@@ -29,13 +29,14 @@ namespace internal {
 /// @ingroup svd_computational
 ///
 template <typename scalar_t>
-void gerfg(Matrix<scalar_t>& A, std::vector<scalar_t>& v)
+void gerfg(Matrix<scalar_t>& A, int64_t n, scalar_t* v)
 {
     using blas::conj;
 
+    assert(n == A.m());
+
     // v <- A[:, 0]
-    v.resize(A.m());
-    scalar_t* vi = v.data();
+    scalar_t* vi = v;
     for (int64_t i = 0; i < A.mt(); ++i) {
         auto tile = A(i, 0);
         if (tile.op() == Op::ConjTrans || tile.op() == Op::Trans) {
@@ -56,7 +57,7 @@ void gerfg(Matrix<scalar_t>& A, std::vector<scalar_t>& v)
     // Compute the reflector in v.
     // Store tau in v[0].
     scalar_t tau;
-    lapack::larfg(v.size(), v.data(), v.data()+1, 1, &tau);
+    lapack::larfg(n, v, &v[1], 1, &tau);
     v[0] = tau;
 }
 
@@ -77,7 +78,7 @@ void gerfg(Matrix<scalar_t>& A, std::vector<scalar_t>& v)
 /// @ingroup svd_computational
 ///
 template <typename scalar_t>
-void gerf(std::vector<scalar_t> const& in_v, Matrix<scalar_t>& A)
+void gerf(int64_t n, scalar_t* v, Matrix<scalar_t>& A)
 {
     using blas::conj;
 
@@ -85,7 +86,6 @@ void gerf(std::vector<scalar_t> const& in_v, Matrix<scalar_t>& A)
     const scalar_t zero = 0.0;
 
     // Replace tau with 1.0 in v[0].
-    auto v = in_v;
     scalar_t tau = v[0];
     v[0] = one;
 
@@ -95,7 +95,7 @@ void gerf(std::vector<scalar_t> const& in_v, Matrix<scalar_t>& A)
 
     scalar_t* wi = w.data();
     for (int64_t i = 0; i < AH.mt(); ++i) {
-        scalar_t* vj = v.data();
+        scalar_t* vj = v;
         scalar_t beta = zero;
         for (int64_t j = 0; j < AH.nt(); ++j) {
             gemv(one, AH(i, j), vj, beta, wi);
@@ -106,7 +106,7 @@ void gerf(std::vector<scalar_t> const& in_v, Matrix<scalar_t>& A)
     }
 
     // A = A - v w^H
-    scalar_t* vi = v.data();
+    scalar_t* vi = v;
     for (int64_t i = 0; i < A.mt(); ++i) {
         scalar_t* wj = w.data();
         for (int64_t j = 0; j < A.nt(); ++j) {
@@ -115,6 +115,9 @@ void gerf(std::vector<scalar_t> const& in_v, Matrix<scalar_t>& A)
         }
         vi += A.tileMb(i);
     }
+
+    // Restore v[0].
+    v[0] = tau;
 }
 
 //------------------------------------------------------------------------------
@@ -125,12 +128,12 @@ void gerf(std::vector<scalar_t> const& in_v, Matrix<scalar_t>& A)
 ///
 template <Target target, typename scalar_t>
 void gebr1(Matrix<scalar_t>&& A,
-           std::vector<scalar_t>& v1,
-           std::vector<scalar_t>& v2,
+           int64_t n1, scalar_t* v1,
+           int64_t n2, scalar_t* v2,
            int priority)
 {
     gebr1(internal::TargetType<target>(),
-          A, v1, v2, priority);
+          A, n1, v1, n2, v2, priority);
 }
 
 //------------------------------------------------------------------------------
@@ -152,8 +155,8 @@ void gebr1(Matrix<scalar_t>&& A,
 template <typename scalar_t>
 void gebr1(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A,
-           std::vector<scalar_t>& v1,
-           std::vector<scalar_t>& v2,
+           int64_t n1, scalar_t* v1,
+           int64_t n2, scalar_t* v2,
            int priority)
 {
     using blas::conj;
@@ -162,15 +165,15 @@ void gebr1(internal::TargetType<Target::HostTask>,
     // Zero A[0, 1:n-1].
     // Apply A Q^H => becomes Q A^H.
     auto A1 = conjTranspose(A);
-    gerfg(A1, v1);
-    gerf(v1, A1);
+    gerfg(A1, n1, v1);
+    gerf(n1, v1, A1);
 
     // Zero A[2:m-1, 0].
     // Apply Q^H A => conjugate tau.
     auto A2 = A.slice(1, A.m()-1, 0, A.n()-1);
-    gerfg(A2, v2);
+    gerfg(A2, n2, v2);
     v2[0] = conj( v2[0] );
-    gerf(v2, A2);
+    gerf(n2, v2, A2);
 }
 
 //------------------------------------------------------------------------------
@@ -180,13 +183,13 @@ void gebr1(internal::TargetType<Target::HostTask>,
 /// @ingroup svd_computational
 ///
 template <Target target, typename scalar_t>
-void gebr2(std::vector<scalar_t> const& v1,
+void gebr2(int64_t n1, scalar_t* v1,
            Matrix<scalar_t>&& A,
-           std::vector<scalar_t>& v2,
+           int64_t n2, scalar_t* v2,
            int priority)
 {
     gebr2(internal::TargetType<target>(),
-          v1, A, v2, priority);
+          n1, v1, A, n2, v2, priority);
 }
 
 //------------------------------------------------------------------------------
@@ -205,21 +208,21 @@ void gebr2(std::vector<scalar_t> const& v1,
 ///
 template <typename scalar_t>
 void gebr2(internal::TargetType<Target::HostTask>,
-           std::vector<scalar_t> const& v1,
+           int64_t n1, scalar_t* v1,
            Matrix<scalar_t>& A,
-           std::vector<scalar_t>& v2,
+           int64_t n2, scalar_t* v2,
            int priority)
 {
     trace::Block trace_block("internal::gebr2");
 
     // Apply the second reflector from task 1: Q^H A.
-    gerf(v1, A);
+    gerf(n1, v1, A);
 
     // Zero A[0, 1:n-1].
     // Apply A Q^H => becomes Q A^H.
     auto AH = conjTranspose(A);
-    gerfg(AH, v2);
-    gerf(v2, AH);
+    gerfg(AH, n2, v2);
+    gerf(n2, v2, AH);
 }
 
 //------------------------------------------------------------------------------
@@ -229,13 +232,13 @@ void gebr2(internal::TargetType<Target::HostTask>,
 /// @ingroup svd_computational
 ///
 template <Target target, typename scalar_t>
-void gebr3(std::vector<scalar_t> const& v1,
+void gebr3(int64_t n1, scalar_t* v1,
            Matrix<scalar_t>&& A,
-           std::vector<scalar_t>& v2,
+           int64_t n2, scalar_t* v2,
            int priority)
 {
     gebr3(internal::TargetType<target>(),
-          v1, A, v2, priority);
+          n1, v1, A, n2, v2, priority);
 }
 
 //------------------------------------------------------------------------------
@@ -254,9 +257,9 @@ void gebr3(std::vector<scalar_t> const& v1,
 ///
 template <typename scalar_t>
 void gebr3(internal::TargetType<Target::HostTask>,
-           std::vector<scalar_t> const& v1,
+           int64_t n1, scalar_t* v1,
            Matrix<scalar_t>& A,
-           std::vector<scalar_t>& v2,
+           int64_t n2, scalar_t* v2,
            int priority)
 {
     using blas::conj;
@@ -264,13 +267,13 @@ void gebr3(internal::TargetType<Target::HostTask>,
 
     // Apply the reflector from task 2: Q A.
     auto AH = conjTranspose(A);
-    gerf(v1, AH);
+    gerf(n1, v1, AH);
 
     // Zero A[1:m-1, 0].
     // Apply Q^H A => conjugate tau.
-    gerfg(A, v2);
+    gerfg(A, n2, v2);
     v2[0] = conj( v2[0] );
-    gerf(v2, A);
+    gerf(n2, v2, A);
 }
 
 //------------------------------------------------------------------------------
@@ -279,87 +282,87 @@ void gebr3(internal::TargetType<Target::HostTask>,
 template
 void gebr1<Target::HostTask, float>(
     Matrix<float>&& A,
-    std::vector<float>& v1,
-    std::vector<float>& v2,
+    int64_t n1, float* v1,
+    int64_t n2, float* v2,
     int priority);
 
 template
 void gebr1<Target::HostTask, double>(
     Matrix<double>&& A,
-    std::vector<double>& v1,
-    std::vector<double>& v2,
+    int64_t n1, double* v1,
+    int64_t n2, double* v2,
     int priority);
 
 template
 void gebr1< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
-    std::vector< std::complex<float> >& v1,
-    std::vector< std::complex<float> >& v2,
+    int64_t n1, std::complex<float>* v1,
+    int64_t n2, std::complex<float>* v2,
     int priority);
 
 template
 void gebr1< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
-    std::vector< std::complex<double> >& v1,
-    std::vector< std::complex<double> >& v2,
+    int64_t n1, std::complex<double>* v1,
+    int64_t n2, std::complex<double>* v2,
     int priority);
 
 // ----------------------------------------
 template
 void gebr2<Target::HostTask, float>(
-    std::vector<float> const& v1,
+    int64_t n1, float* v1,
     Matrix<float>&& A,
-    std::vector<float>& v2,
+    int64_t n2, float* v2,
     int priority);
 
 template
 void gebr2<Target::HostTask, double>(
-    std::vector<double> const& v1,
+    int64_t n1, double* v1,
     Matrix<double>&& A,
-    std::vector<double>& v2,
+    int64_t n2, double* v2,
     int priority);
 
 template
 void gebr2< Target::HostTask, std::complex<float> >(
-    std::vector< std::complex<float> > const& v1,
+    int64_t n1, std::complex<float>* v1,
     Matrix< std::complex<float> >&& A,
-    std::vector< std::complex<float> >& v2,
+    int64_t n2, std::complex<float>* v2,
     int priority);
 
 template
 void gebr2< Target::HostTask, std::complex<double> >(
-    std::vector< std::complex<double> > const& v1,
+    int64_t n1, std::complex<double>* v1,
     Matrix< std::complex<double> >&& A,
-    std::vector< std::complex<double> >& v2,
+    int64_t n2, std::complex<double>* v2,
     int priority);
 
 // ----------------------------------------
 template
 void gebr3<Target::HostTask, float>(
-    std::vector<float> const& v1,
+    int64_t n1, float* v1,
     Matrix<float>&& A,
-    std::vector<float>& v2,
+    int64_t n2, float* v2,
     int priority);
 
 template
 void gebr3<Target::HostTask, double>(
-    std::vector<double> const& v1,
+    int64_t n1, double* v1,
     Matrix<double>&& A,
-    std::vector<double>& v2,
+    int64_t n2, double* v2,
     int priority);
 
 template
 void gebr3< Target::HostTask, std::complex<float> >(
-    std::vector< std::complex<float> > const& v1,
+    int64_t n1, std::complex<float>* v1,
     Matrix< std::complex<float> >&& A,
-    std::vector< std::complex<float> >& v2,
+    int64_t n2, std::complex<float>* v2,
     int priority);
 
 template
 void gebr3< Target::HostTask, std::complex<double> >(
-    std::vector< std::complex<double> > const& v1,
+    int64_t n1, std::complex<double>* v1,
     Matrix< std::complex<double> >&& A,
-    std::vector< std::complex<double> >& v2,
+    int64_t n2, std::complex<double>* v2,
     int priority);
 
 } // namespace internal

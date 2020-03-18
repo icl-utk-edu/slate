@@ -29,7 +29,7 @@ namespace internal {
 /// @ingroup heev_computational
 ///
 template <typename scalar_t>
-void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A)
+void herf(int64_t n, scalar_t* v, HermitianMatrix<scalar_t>& A)
 {
     using blas::conj;
 
@@ -39,7 +39,6 @@ void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A)
 
     // todo: seems odd to conj tau here. Maybe gerfg isn't generating tau right?
     // Replace tau with 1.0 in v[0].
-    auto v = in_v;
     scalar_t tau = conj(v[0]);
     v[0] = one;
 
@@ -50,10 +49,11 @@ void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A)
     // to the (nonexistent) symmetric part by returning transpose(at(j, i)).
     // This will allow removing the if/else condition.
     // The first call to gemv() will support both cases.
-    std::vector<scalar_t> w(A.n());
-    wi = w.data();
+    std::vector<scalar_t> w_vec(A.n());
+    scalar_t* w = w_vec.data();
+    wi = w;
     for (int64_t i = 0; i < A.nt(); ++i) {
-        scalar_t* vj = v.data();
+        scalar_t* vj = v;
         scalar_t beta = zero;
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (i == j) {
@@ -72,17 +72,15 @@ void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A)
     }
 
     // w = A v - 0.5 tau ((A v)^H v) v
-    wi = w.data();
-    vi = v.data();
-    scalar_t alpha = -half * tau * blas::dot(A.n(), wi, 1, vi, 1);
-    blas::axpy(A.n(), alpha, vi, 1, wi, 1);
+    scalar_t alpha = -half * tau * blas::dot(A.n(), w, 1, v, 1);
+    blas::axpy(A.n(), alpha, v, 1, w, 1);
 
     // A = A - tau v w^H - conj(tau) w v^H, lower triangle
-    vi = v.data();
-    wi = w.data();
+    vi = v;
+    wi = w;
     for (int64_t i = 0; i < A.nt(); ++i) {
-        scalar_t* vj = v.data();
-        scalar_t* wj = w.data();
+        scalar_t* vj = v;
+        scalar_t* wj = w;
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (i > j) {  // lower
                 ger(-tau, vi, wj, A(i, j));
@@ -97,6 +95,9 @@ void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A)
         vi += A.tileMb(i);
         wi += A.tileMb(i);
     }
+
+    // Restore v[0].
+    v[0] = conj(tau);
 }
 
 //------------------------------------------------------------------------------
@@ -107,11 +108,11 @@ void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A)
 ///
 template <Target target, typename scalar_t>
 void hebr1(HermitianMatrix<scalar_t>&& A,
-           std::vector<scalar_t>& v,
+           int64_t n, scalar_t* v,
            int priority)
 {
     hebr1(internal::TargetType<target>(),
-          A, v, priority);
+          A, n, v, priority);
 }
 
 //------------------------------------------------------------------------------
@@ -135,7 +136,7 @@ void hebr1(HermitianMatrix<scalar_t>&& A,
 template <typename scalar_t>
 void hebr1(internal::TargetType<Target::HostTask>,
            HermitianMatrix<scalar_t>& A,
-           std::vector<scalar_t>& v,
+           int64_t n, scalar_t* v,
            int priority)
 {
     using blas::conj;
@@ -143,16 +144,16 @@ void hebr1(internal::TargetType<Target::HostTask>,
 
     // Zero A[2:n-1, 0].
     auto A1 = A.slice(1, A.m()-1, 0, 0);
-    gerfg(A1, v);
+    gerfg(A1, n, v);
 
     // todo: this is silly; we already know it zeros the column.
     v[0] = conj(v[0]);
-    gerf(v, A1);
+    gerf(n, v, A1);
     v[0] = conj(v[0]);
 
     // Apply the 2-sided transformation to A[1:n-1, 1:n-1].
     auto A2 = A.slice(1, A.n()-1);
-    herf(v, A2);
+    herf(n, v, A2);
 }
 
 //------------------------------------------------------------------------------
@@ -162,13 +163,13 @@ void hebr1(internal::TargetType<Target::HostTask>,
 /// @ingroup heev_computational
 ///
 template <Target target, typename scalar_t>
-void hebr2(std::vector<scalar_t>& v1,
+void hebr2(int64_t n1, scalar_t* v1,
            Matrix<scalar_t>&& A,
-           std::vector<scalar_t>& v2,
+           int64_t n2, scalar_t* v2,
            int priority)
 {
     hebr2(internal::TargetType<target>(),
-          v1, A, v2, priority);
+          n1, v1, A, n2, v2, priority);
 }
 
 //------------------------------------------------------------------------------
@@ -192,9 +193,9 @@ void hebr2(std::vector<scalar_t>& v1,
 ///
 template <typename scalar_t>
 void hebr2(internal::TargetType<Target::HostTask>,
-           std::vector<scalar_t>& v1,
+           int64_t n1, scalar_t* v1,
            Matrix<scalar_t>& A,
-           std::vector<scalar_t>& v2,
+           int64_t n2, scalar_t* v2,
            int priority)
 {
     using blas::conj;
@@ -202,12 +203,12 @@ void hebr2(internal::TargetType<Target::HostTask>,
 
     // Apply the reflector from task 1.
     auto AH = conjTranspose(A);
-    gerf(v1, AH);
+    gerf(n1, v1, AH);
 
     // Zero A[1:n-1, 0].
-    gerfg(A, v2);
+    gerfg(A, n2, v2);
     v2[0] = conj(v2[0]);
-    gerf(v2, A);
+    gerf(n2, v2, A);
     v2[0] = conj(v2[0]);
 }
 
@@ -218,12 +219,12 @@ void hebr2(internal::TargetType<Target::HostTask>,
 /// @ingroup heev_computational
 ///
 template <Target target, typename scalar_t>
-void hebr3(std::vector<scalar_t>& v,
+void hebr3(int64_t n, scalar_t* v,
            HermitianMatrix<scalar_t>&& A,
            int priority)
 {
     hebr3(internal::TargetType<target>(),
-          v, A, priority);
+          n, v, A, priority);
 }
 
 //------------------------------------------------------------------------------
@@ -240,7 +241,7 @@ void hebr3(std::vector<scalar_t>& v,
 ///
 template <typename scalar_t>
 void hebr3(internal::TargetType<Target::HostTask>,
-           std::vector<scalar_t>& v,
+           int64_t n, scalar_t* v,
            HermitianMatrix<scalar_t>& A,
            int priority)
 {
@@ -248,7 +249,7 @@ void hebr3(internal::TargetType<Target::HostTask>,
     trace::Block trace_block("internal::hebr3");
 
     // Apply the reflector from task 2.
-    herf(v, A);
+    herf(n, v, A);
 }
 
 //------------------------------------------------------------------------------
@@ -257,78 +258,78 @@ void hebr3(internal::TargetType<Target::HostTask>,
 template
 void hebr1<Target::HostTask, float>(
     HermitianMatrix<float>&& A,
-    std::vector<float>& v1,
+    int64_t n, float* v1,
     int priority);
 
 template
 void hebr1<Target::HostTask, double>(
     HermitianMatrix<double>&& A,
-    std::vector<double>& v1,
+    int64_t n, double* v1,
     int priority);
 
 template
 void hebr1< Target::HostTask, std::complex<float> >(
     HermitianMatrix< std::complex<float> >&& A,
-    std::vector< std::complex<float> >& v1,
+    int64_t n, std::complex<float>* v1,
     int priority);
 
 template
 void hebr1< Target::HostTask, std::complex<double> >(
     HermitianMatrix< std::complex<double> >&& A,
-    std::vector< std::complex<double> >& v1,
+    int64_t n, std::complex<double>* v1,
     int priority);
 
 // ----------------------------------------
 template
 void hebr2<Target::HostTask, float>(
-    std::vector<float>& v1,
+    int64_t n1, float* v1,
     Matrix<float>&& A,
-    std::vector<float>& v2,
+    int64_t n2, float* v2,
     int priority);
 
 template
 void hebr2<Target::HostTask, double>(
-    std::vector<double>& v1,
+    int64_t n1, double* v1,
     Matrix<double>&& A,
-    std::vector<double>& v2,
+    int64_t n2, double* v2,
     int priority);
 
 template
 void hebr2< Target::HostTask, std::complex<float> >(
-    std::vector< std::complex<float> >& v1,
+    int64_t n1, std::complex<float>* v1,
     Matrix< std::complex<float> >&& A,
-    std::vector< std::complex<float> >& v2,
+    int64_t n2, std::complex<float>* v2,
     int priority);
 
 template
 void hebr2< Target::HostTask, std::complex<double> >(
-    std::vector< std::complex<double> >& v1,
+    int64_t n1, std::complex<double>* v1,
     Matrix< std::complex<double> >&& A,
-    std::vector< std::complex<double> >& v2,
+    int64_t n2, std::complex<double>* v2,
     int priority);
 
 // ----------------------------------------
 template
 void hebr3<Target::HostTask, float>(
-    std::vector<float>& v,
+    int64_t n, float* v,
     HermitianMatrix<float>&& A,
     int priority);
 
 template
 void hebr3<Target::HostTask, double>(
-    std::vector<double>& v,
+    int64_t n, double* v,
     HermitianMatrix<double>&& A,
     int priority);
 
 template
 void hebr3< Target::HostTask, std::complex<float> >(
-    std::vector< std::complex<float> >& v,
+    int64_t n, std::complex<float>* v,
     HermitianMatrix< std::complex<float> >&& A,
     int priority);
 
 template
 void hebr3< Target::HostTask, std::complex<double> >(
-    std::vector< std::complex<double> >& v,
+    int64_t n, std::complex<double>* v,
     HermitianMatrix< std::complex<double> >&& A,
     int priority);
 

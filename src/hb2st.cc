@@ -68,9 +68,11 @@ void hb2st_step(HermitianBandMatrix<scalar_t>& A, int64_t band,
                 omp_set_lock(&lock);
                 auto& v = reflectors[{i+1, j}];
                 omp_unset_lock(&lock);
+                int64_t m = std::min(i+band, A.n()-1) - i;
+                v.resize(m);
                 internal::hebr1<Target::HostTask>(
                     A.slice(i, std::min(i+band, A.n()-1)),
-                    v);
+                    v.size(), v.data());
             }
             break;
         // task 1 - an off-diagonal block in the sweep
@@ -83,11 +85,13 @@ void hb2st_step(HermitianBandMatrix<scalar_t>& A, int64_t band,
                                       step == 1 ? j-1 : j-band}];
                 auto& v2 = reflectors[{i, j}];
                 omp_unset_lock(&lock);
+                int64_t m = std::min(i+band-1, A.n()-1) - i + 1;
+                v2.resize(m);
                 internal::hebr2<Target::HostTask>(
-                    v1,
+                    v1.size(), v1.data(),
                     A.slice(i, std::min(i+band-1, A.n()-1),
                             j, std::min(j+band-1, A.n()-1)),
-                    v2);
+                    v2.size(), v2.data());
             }
             break;
         // task 2 - a diagonal block in the sweep
@@ -99,7 +103,7 @@ void hb2st_step(HermitianBandMatrix<scalar_t>& A, int64_t band,
                 auto& v = reflectors[{i, j-band}];
                 omp_unset_lock(&lock);
                 internal::hebr3<Target::HostTask>(
-                    v,
+                    v.size(), v.data(),
                     A.slice(i, std::min(i+band-1, A.n()-1)));
             }
             break;

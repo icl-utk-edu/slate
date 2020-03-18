@@ -9,14 +9,14 @@ namespace internal {
 
 // Defined in internal_gebr.cc.
 template <typename scalar_t>
-void gerfg(Matrix<scalar_t>& A, std::vector<scalar_t>& v);
+void gerfg(Matrix<scalar_t>& A, int64_t n, scalar_t* v);
 
 template <typename scalar_t>
-void gerf(std::vector<scalar_t> const& in_v, Matrix<scalar_t>& A);
+void gerf(int64_t n, scalar_t* v, Matrix<scalar_t>& A);
 
 // Define in internal_hebr.cc.
 template <typename scalar_t>
-void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A);
+void herf(int64_t n, scalar_t* v, HermitianMatrix<scalar_t>& A);
 
 }  // internal
 }  // slate

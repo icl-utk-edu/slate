@@ -54,8 +54,6 @@ namespace device {
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 1.
-///     Also the number of threads per block (blockDim.x), hence,
-///     m <= 1024 for current CUDA architectures (2.x to 6.x).
 ///
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
@@ -83,18 +81,21 @@ __global__ void tzcopyKernel(
 {
     src_scalar_t* tileA = tilesA[blockIdx.x];
     dst_scalar_t* tileB = tilesB[blockIdx.x];
-    int idx = threadIdx.x;
-    src_scalar_t* rowA = &tileA[idx];
-    dst_scalar_t* rowB = &tileB[idx];
 
-    if (uplo == lapack::Uplo::Lower) {
-        for (int64_t j = 0; j <= threadIdx.x && j < n; ++j) { // lower
-            copy(rowA[j*lda], rowB[j*ldb]);
+    // thread per row, if more rows than threads, loop by blockDim.x
+    for (int ridx = threadIdx.x; ridx <= m; ridx += blockDim.x) {
+        src_scalar_t* rowA = &tileA[ridx];
+        dst_scalar_t* rowB = &tileB[ridx];
+
+        if (uplo == lapack::Uplo::Lower) {
+            for (int64_t j = 0; j <= ridx && j < n; ++j) { // lower
+                copy(rowA[j*lda], rowB[j*ldb]);
+            }
         }
-    }
-    else {
-        for (int64_t j = n-1; j >= threadIdx.x; --j) // upper
-            copy(rowA[j*lda], rowB[j*ldb]);
+        else {
+            for (int64_t j = n-1; j >= ridx; --j) // upper
+                copy(rowA[j*lda], rowB[j*ldb]);
+        }
     }
 }
 
@@ -106,7 +107,6 @@ __global__ void tzcopyKernel(
 ///
 /// @param[in] n
 ///     Number of columns of each tile. n >= 0.
-///     Currently, n <= 1024 due to CUDA implementation.
 ///
 /// @param[in] Aarray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
@@ -140,7 +140,10 @@ void tzcopy(
     if (batch_count == 0)
         return;
 
-    tzcopyKernel<<<batch_count, m, 0, stream>>>(
+    // Max threads/block=1024 for current CUDA compute capability (<=7.5)
+    int64_t nthreads = std::min((int64_t)1024 , m);
+
+    tzcopyKernel<<<batch_count, nthreads, 0, stream>>>(
           uplo,
           m, n,
           Aarray, lda,

@@ -292,10 +292,21 @@ void he2hb(slate::internal::TargetType<target>,
                     // If I contributed to Wi, multiply by T.
                     if (rank_upper == my_rank || rank_lower == my_rank) {
                         // Wi = Wi * T
-                        auto Tk = Tlocal(i0, k);
-                        Tk.uplo(Uplo::Upper);
+                        auto T0    = Tlocal.sub(i0, i0, k, k);
+                        auto TVAVT0 = W.sub(i, i, k, k);
+
+                        int64_t mb = T0.tileMb(0);
+                        int64_t nb = T0.tileNb(0);
+                        bool trapezoid = (mb < nb);
+
+                        if (trapezoid) {
+                            T0     = T0.slice(0, mb-1, 0, mb-1); // first mb-by-mb part
+                            TVAVT0 = TVAVT0.slice(0, mb-1, 0, mb-1); // first mb-by-mb part
+                        }
+
+                        auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);
                         trmm(Side::Right, Diag::NonUnit,
-                             one, std::move(Tk), W(i, k));
+                             one, std::move(Tk0(0, 0)), TVAVT0(0, 0));
                     }
                 }
 
@@ -317,10 +328,21 @@ void he2hb(slate::internal::TargetType<target>,
                              one, std::move(TVAVT));
                     }
                     // 1c. TVAVT = T^H (V^H AVT)
-                    auto Tk = Tlocal( i0, k );
-                    Tk.uplo(Uplo::Upper);
+                    auto T0    = Tlocal.sub(i0, i0, k, k);
+                    auto TVAVT0  = W.sub(0, 0, 0, 0);
+
+                    int64_t mb = T0.tileMb(0);
+                    int64_t nb = T0.tileNb(0);
+                    bool trapezoid = (mb < nb);
+
+                    if (trapezoid) {
+                        T0     = T0.slice(0, mb-1, 0, mb-1); // first mb-by-mb part
+                        TVAVT0 = TVAVT0.slice(0, mb-1, 0, nb-1); // first mb-by-nb part
+                    }
+
+                    auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);
                     trmm(Side::Left, Diag::NonUnit,
-                         one, conj_transpose(Tk), std::move(TVAVT));
+                         one, conj_transpose(Tk0(0, 0)), std::move(TVAVT0(0, 0)));
 
                     // 1d. W = W - 0.5 V TVAVT.
                     // Technically, could do a hemm here since TVAVT is Hermitian.
@@ -364,7 +386,7 @@ void he2hb(slate::internal::TargetType<target>,
                             // tiles, could merge these two.
                             if (i > j) {
                                 if (A.tileIsLocal(i, j)) {
-                                    // Aij -= Vjk Wik^H
+                                    // Aij -= Vik Wjk^H
                                     gemm(-one, A(i, k), conj_transpose(W(j, k)),
                                           one, A(i, j));
                                 }

@@ -58,50 +58,9 @@
 #include "slate/internal/cublas.hh"
 #include "slate/internal/mpi.hh"
 #include "slate/internal/openmp.hh"
+#include "slate/internal/LockGuard.hh"
 
 namespace slate {
-
-//------------------------------------------------------------------------------
-/// Constructor acquires lock; destructor releases lock.
-/// This provides safety in case an exception is thrown, which would otherwise
-/// by-pass the unlock. Like std::lock_guard, but for OpenMP locks.
-///
-class LockGuard {
-public:
-    LockGuard(omp_nest_lock_t* lock, bool on = true)
-        : lock_(lock)
-    {
-        if (on) {
-            locked_ = true;
-            omp_set_nest_lock(lock_);
-        }
-        else {
-            locked_ = false;
-        }
-    }
-
-    ~LockGuard()
-    {
-        if (locked_)
-            omp_unset_nest_lock(lock_);
-    }
-
-    void lock()
-    {
-        locked_ = true;
-        omp_set_nest_lock(lock_);
-    }
-
-    void unlock()
-    {
-        locked_ = false;
-        omp_unset_nest_lock(lock_);
-    }
-
-private:
-    omp_nest_lock_t* lock_;
-    bool locked_;
-};
 
 //------------------------------------------------------------------------------
 /// Type-safe wrapper for cudaMalloc. Throws errors.
@@ -263,7 +222,8 @@ public:
         slate_assert(num_devices >= 0);
         omp_init_nest_lock(&lock_);
         for (int d = 0; d < num_devices+1; ++d) {
-            tile_instances_.push_back(std::unique_ptr<TileInstance_t>( new TileInstance_t() ));
+            tile_instances_.push_back(
+                std::unique_ptr<TileInstance_t>( new TileInstance_t() ));
         }
     }
 
@@ -517,14 +477,6 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    /// Retrun pointer to device OMP lock
-    omp_nest_lock_t* getDeviceLock(int device)
-    {
-        slate_assert(size_t(device+1) < locks_.size());
-        return &(locks_[device+1]);
-    }
-
-    //--------------------------------------------------------------------------
     std::function<int64_t (int64_t i)> tileMb;
     std::function<int64_t (int64_t j)> tileNb;
     std::function<int (ij_tuple ij)> tileRank;
@@ -568,7 +520,6 @@ public:
 private:
     TilesMap tiles_;        ///< map of tiles and associated states
     mutable omp_nest_lock_t lock_;  ///< TilesMap lock
-    mutable std::vector<omp_nest_lock_t> locks_;    ///< device locks
     slate::Memory memory_;  ///< memory allocator
 
     int mpi_rank_;
@@ -645,10 +596,6 @@ MatrixStorage<scalar_t>::MatrixStorage(
     initCudaStreams();
 
     omp_init_nest_lock(&lock_);
-    locks_.resize(num_devices_+1);
-    for (auto lock : locks_) {
-        omp_init_nest_lock(&lock);
-    }
 }
 
 //------------------------------------------------------------------------------
@@ -686,10 +633,6 @@ MatrixStorage<scalar_t>::MatrixStorage(
     initCudaStreams();
 
     omp_init_nest_lock(&lock_);
-    locks_.resize(num_devices_+1);
-    for (auto lock : locks_) {
-        omp_init_nest_lock(&lock);
-    }
 }
 
 //------------------------------------------------------------------------------
@@ -703,9 +646,6 @@ MatrixStorage<scalar_t>::~MatrixStorage()
         destroyCudaStreams();
         clearBatchArrays();
         omp_destroy_nest_lock(&lock_);
-        for (auto lock : locks_) {
-            omp_destroy_nest_lock(&lock);
-        }
     }
     catch (std::exception const& ex) {
         // If debugging, die on exceptions.

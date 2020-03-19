@@ -3,29 +3,12 @@
 #include "blas_flops.hh"
 #include "lapack_flops.hh"
 #include "print_matrix.hh"
+#include "grid_utils.hh"
 
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-
-//------------------------------------------------------------------------------
-// Similar to ScaLAPACK numroc (number of rows or columns).
-int64_t localRowsCols(int64_t n, int64_t nb, int iproc, int mpi_size)
-{
-    int64_t nblocks = n / nb;
-    int64_t num = (nblocks / mpi_size) * nb;
-    int64_t extra_blocks = nblocks % mpi_size;
-    if (iproc < extra_blocks) {
-        // extra full blocks
-        num += nb;
-    }
-    else if (iproc == extra_blocks) {
-        // last partial block
-        num += n % nb;
-    }
-    return num;
-}
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
@@ -70,8 +53,8 @@ void test_ge2tb_work(Params& params, bool run)
         MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
     slate_assert(p*q <= mpi_size);
 
-    int myrow = mpi_rank % p;
-    int mycol = mpi_rank / p;
+    const int myrow = whoismyrow(mpi_rank, p);
+    const int mycol = whoismycol(mpi_rank, p);
 
     // matrix A, figure out local size, allocate, initialize
     int64_t mlocal = localRowsCols(m, nb, myrow, p);

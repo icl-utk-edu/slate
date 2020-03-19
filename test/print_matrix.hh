@@ -248,7 +248,8 @@ void print_matrix(
 
     width = std::max(width, precision + 3);
 
-    std::string msg = label;
+    std::string msg = "% slate::Matrix\n";
+    msg += label;
     msg += " = [\n";
 
     for (int64_t i = 0; i < A.mt(); ++i) {
@@ -308,7 +309,8 @@ void print_matrix(
 
     width = std::max(width, precision + 3);
 
-    std::string msg = label;
+    std::string msg = "% slate::BandMatrix\n";
+    msg += label;
     msg += " = [\n";
 
     // for tiles outside bandwidth
@@ -402,7 +404,8 @@ void print_matrix(
 
     width = std::max(width, precision + 3);
 
-    std::string msg = label;
+    std::string msg = "% slate::HermitianBandMatrix\n";
+    msg += label;
     msg += " = [\n";
 
     // for entries in opposite triangle from A.uplo
@@ -503,7 +506,8 @@ void print_matrix(
 
     width = std::max(width, precision + 3);
 
-    std::string msg = label;
+    std::string msg = "% slate::BaseTrapezoidMatrix\n";
+    msg += label;
     msg += " = [\n";
 
     // for entries in opposite triangle from A.uplo

@@ -162,7 +162,22 @@ void test_potri_work(Params& params, bool run)
             copy(A, &A_tst[0], descA_tst);
         }
 
+        // to make the diagonal of A_ref real
+        slate::HermitianMatrix<scalar_t> Aref;
+        Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                      uplo, n, &A_ref[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+        // make diagonal real
+        for (int64_t i = 0; i < Aref.nt(); ++i) {
+            if (Aref.tileIsLocal(i, i)) {
+                auto T = Aref(i, i);
+                for (int ii = 0; ii < Aref.tileMb(i); ++ii) {
+                    T.at(ii, ii) = std::real( T.at(ii, ii) );
+                }
+            }
+        }
+
         // C_chk has been setup as an identity matrix; C_chk = C_chk - inv(A)*A
+        // A should have real diagonal. potrf and potri ignore the img part on the diagonal
         scalar_t alpha = -1.0; scalar_t beta = 1.0;
         scalapack_phemm("Left", uplo2str(uplo), n, n, alpha,
                         &A_tst[0], ione, ione, descA_tst,
@@ -170,10 +185,17 @@ void test_potri_work(Params& params, bool run)
                         &C_chk[0], ione, ione, descC_chk);
 
         // Norm of C_chk ( = I - inv(A) * A )
-        std::vector<real_t> worklange(n);
-        real_t C_norm = scalapack_plange("One", n, n, &C_chk[0], ione, ione, descC_chk, &worklange[0]);
+        // allocate work space for lange and lanhe
+        int lcm = scalapack_ilcm(&nprow, &npcol);
+        int ldw = nb*slate::ceildiv(int(slate::ceildiv(nlocA, nb)), (lcm / nprow));
+        int lwork = std::max(n, 2*mlocA + nlocA + ldw);
+        std::vector<real_t> worknorm(lwork);
+        real_t C_norm = scalapack_plange(
+                            "One", n, n, &C_chk[0], ione, ione, descC_chk, &worknorm[0]);
 
-        real_t A_inv_norm = scalapack_plange("One", n, n, &A_tst[0], ione, ione, descA_tst, &worklange[0]);
+        real_t A_inv_norm = scalapack_planhe(
+                                "One", uplo2str(A.uplo()),
+                                n, &A_tst[0], ione, ione, descA_tst, &worknorm[0]);
 
         double residual = C_norm / (A_norm * n * A_inv_norm);
         params.error() = residual;

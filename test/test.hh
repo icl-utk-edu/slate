@@ -74,7 +74,6 @@ public:
     testsweeper::ParamEnum< slate::Norm >           norm;
     testsweeper::ParamEnum< slate::NormScope >      scope;
     testsweeper::ParamEnum< slate::Side >           side;
-    testsweeper::ParamInt                           itype;
     testsweeper::ParamEnum< slate::Uplo >           uplo;
     testsweeper::ParamEnum< slate::Op >             trans;
     testsweeper::ParamEnum< slate::Op >             transA;

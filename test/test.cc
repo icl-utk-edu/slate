@@ -179,6 +179,7 @@ std::vector< testsweeper::routines_t > routines = {
     // -----
     // generalized symmetric/Hermitian eigenvalues
     { "hegv",               test_hegv,         Section::sygv },
+    { "hegst",              test_hegst,        Section::sygv },
     { "",                   nullptr,           Section::newline },
 
     // -----

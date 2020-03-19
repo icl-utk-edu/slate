@@ -316,6 +316,7 @@ libslate_src += \
         src/internal/internal_unmqr.cc \
         src/internal/internal_unmlq.cc \
         src/internal/internal_util.cc \
+        src/internal/internal_hegst.cc \
 
 # device
 ifeq ($(cuda),1)
@@ -389,6 +390,7 @@ libslate_src += \
         src/trtrm.cc \
         src/unmqr.cc \
         src/unmlq.cc \
+        src/hegst.cc \
 
 
 FORTRAN = $(shell which $(FC))
@@ -443,6 +445,7 @@ tester_src += \
         test/test_trnorm.cc \
         test/test_trsm.cc \
         test/test_trtri.cc \
+        test/test_hegst.cc \
 
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.

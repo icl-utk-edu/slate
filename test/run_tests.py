@@ -101,6 +101,7 @@ group_opt.add_argument( '--kd',     action='store', help='default=%(default)s', 
 group_opt.add_argument( '--kl',     action='store', help='default=%(default)s', default='20,100' )
 group_opt.add_argument( '--ku',     action='store', help='default=%(default)s', default='20,100' )
 group_opt.add_argument( '--matrixtype', action='store', help='default=%(default)s', default='g,l,u' )
+group_opt.add_argument( '--itype', action='store', help='default=%(default)s', default='1,2,3' )
 
 # SLATE specific
 group_opt.add_argument( '--origin', action='store', help='default=%(default)s', default='s' )
@@ -259,6 +260,7 @@ kd     = ' --kd '     + opts.kd     if (opts.kd)     else ''
 kl     = ' --kl '     + opts.kl     if (opts.kl)     else ''
 ku     = ' --ku '     + opts.ku     if (opts.ku)     else ''
 mtype  = ' --matrixtype ' + opts.matrixtype if (opts.matrixtype) else ''
+itype  = ' --itype '  + opts.itype  if (opts.itype)  else ''
 
 # SLATE specific
 origin = ' --origin ' + opts.origin if (opts.origin) else ''
@@ -482,7 +484,7 @@ if (opts.syev):
 # generalized symmetric/Hermitian eigenvalues
 if (opts.sygv):
     cmds += [
-    #[ 'hegv',  gen + dtype + la + n + itype + jobz + uplo ],
+    [ 'hegv',  gen + dtype + la + n + jobz + itype + uplo ],
     #[ 'hegst', gen + dtype + la + n + itype + uplo ],
     ]
 

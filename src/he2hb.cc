@@ -292,45 +292,29 @@ void he2hb(slate::internal::TargetType<target>,
                     // If I contributed to Wi, multiply by T.
                     if (rank_upper == my_rank || rank_lower == my_rank) {
                         // Wi = Wi * T
-                        auto Tk0 = Tlocal(i0, k);
-                        auto Tk1 = Tlocal( i0, k );
-                        Tk0.uplo(Uplo::Upper);
+                        Matrix<scalar_t> T1;
+                        auto T0    = Tlocal.sub(i0, i0, k, k);
+                        auto TVAVT0 = W.sub(i, i, k, k);
 
-                        int64_t mb = Tk0.mb();
-                        int64_t nb = Tk0.nb();
+                        int64_t mb = T0.tileMb(0);
+                        int64_t nb = T0.tileNb(0);
                         bool trapezoid = (mb < nb);
-
-                        auto T0     = Tlocal.sub(i0, i0, k, k);
-                        auto T1     = Tlocal.sub(i0, i0, k, k);
-
-                        auto TVAVT0  = W.sub(i, i, k, k);
-                        auto TVAVT1  = W.sub(i, i, k, k);
-
-                        auto TVAVT00 = W(i, k);
-                        auto TVAVT10 = W(i, k);
 
                         if (trapezoid) {
                             T0     = T0.slice(0, mb-1, 0, mb-1); // first mb-by-mb part
-                            Tk0     = T0(0, 0);
-                            Tk0.uplo(Uplo::Upper);
-
-                            TVAVT0  = TVAVT0.slice(0, mb-1, 0, mb-1); // first mb-by-mb part
-                            TVAVT00 = TVAVT0(0, 0);
-
-                            T1     = T1.slice(0, mb-1, mb, nb-1); // second mb-by-mb part
-                            Tk1    = T1(0, 0);
-
-                            TVAVT1  = TVAVT1.slice(0, mb-1, mb, nb-1); // second mb-by-nb part
-                            TVAVT10 = TVAVT0(0, 0);
+                            TVAVT0 = TVAVT0.slice(0, mb-1, 0, mb-1); // first mb-by-mb part
                         }
 
+                        auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);
                         trmm(Side::Right, Diag::NonUnit,
-                             one, std::move(Tk0), TVAVT00);
+                             one, std::move(Tk0(0, 0)), TVAVT0(0, 0));
+
+                        T0    = Tlocal.sub(i0, i0, k, k);
+
                         if (trapezoid) {
-                            gemm(one, std::move(Tk1), TVAVT10, one, TVAVT10);
+                            T1     = T0.slice(0, mb-1, mb, nb-1); // second mb-by-mb part
+                            gemm(one, std::move(T1(0, 0)), TVAVT0(0, 0), one, TVAVT0(0, 0));
                         }
-
-
                     }
                 }
 
@@ -352,43 +336,30 @@ void he2hb(slate::internal::TargetType<target>,
                              one, std::move(TVAVT));
                     }
                     // 1c. TVAVT = T^H (V^H AVT)
-                    auto Tk0  = Tlocal( i0, k );
-                    auto Tk1  = Tlocal( i0, k );
-                    Tk0.uplo(Uplo::Upper);
-
-                    int64_t mb = Tk0.mb();
-                    int64_t nb = Tk0.nb();
-                    bool trapezoid = (mb < nb);
-
-                    auto T0     = Tlocal.sub(i0, i0, k, k);
-                    auto T1     = Tlocal.sub(i0, i0, k, k);
-
+                    Matrix<scalar_t> T1, TVAVT1;
+                    auto T0    = Tlocal.sub(i0, i0, k, k);
                     auto TVAVT0  = W.sub(0, 0, 0, 0);
-                    auto TVAVT1  = W.sub(0, 0, 0, 0);
-                    auto TVAVT00 = W(0, 0);
-                    TVAVT00.uplo(Uplo::General);
-                    auto TVAVT10 = W(0, 0);
+
+                    int64_t mb = T0.tileMb(0);
+                    int64_t nb = T0.tileNb(0);
+                    bool trapezoid = (mb < nb);
 
                     if (trapezoid) {
                         T0     = T0.slice(0, mb-1, 0, mb-1); // first mb-by-mb part
-                        Tk0    = T0(0, 0);
-                        Tk0.uplo(Uplo::Upper);
-
-                        TVAVT0  = TVAVT0.slice(0, mb-1, 0, nb-1); // first mb-by-nb part
-                        TVAVT00 = TVAVT0(0, 0);
-
-                        T1     = T1.slice(0, mb-1, mb, nb-1); // second mb-by-mb part
-                        Tk1    = T1(0, 0);
-
-                        TVAVT1  = TVAVT1.slice(mb, nb-1, 0, nb-1); // second mb-by-nb part
-                        TVAVT10 = TVAVT1(0, 0);
+                        TVAVT0 = TVAVT0.slice(0, mb-1, 0, nb-1); // first mb-by-nb part
                     }
 
+                    auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);
                     trmm(Side::Left, Diag::NonUnit,
-                         one, conj_transpose(Tk0), std::move(TVAVT00));
+                         one, conj_transpose(Tk0(0, 0)), std::move(TVAVT0(0, 0)));
+
+                    T0     = Tlocal.sub(i0, i0, k, k);
+                    TVAVT0 = W.sub(0, 0, 0, 0);
 
                     if (trapezoid) {
-                        gemm(one, conj_transpose(Tk1), std::move(TVAVT10), one, std::move(TVAVT10));
+                        T1     = T0.slice(0, mb-1, mb, nb-1); // second mb-by-mb part
+                        TVAVT1 = TVAVT0.slice(mb, nb-1, 0, nb-1); // second mb-by-nb part
+                        gemm(one, conj_transpose(T1(0, 0)), std::move(TVAVT1(0, 0)), one, std::move(TVAVT1(0, 0)));
                     }
 
                     // 1d. W = W - 0.5 V TVAVT.

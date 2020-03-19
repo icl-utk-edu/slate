@@ -32,9 +32,6 @@ using Progress = std::vector< std::atomic<int64_t> >;
 /// @param[in,out] A
 ///     The band Hermitian matrix A.
 ///
-/// @param[in] band
-///     The bandwidth of matrix A.
-///
 /// @param[in] sweep
 ///     The sweep number.
 ///     One sweep eliminates one row and sweeps the entire matrix.
@@ -50,10 +47,11 @@ using Progress = std::vector< std::atomic<int64_t> >;
 ///     Lock for protecting access to reflectors.
 ///
 template <typename scalar_t>
-void hb2st_step(HermitianBandMatrix<scalar_t>& A, int64_t band,
+void hb2st_step(HermitianBandMatrix<scalar_t>& A,
                 int64_t sweep, int64_t step,
                 Reflectors<scalar_t>& reflectors, omp_lock_t& lock)
 {
+    int64_t band = A.bandwidth();
     int64_t task = step == 0 ? 0 : (step+1)%2 + 1;
     int64_t block = step/2;
     int64_t i;
@@ -117,12 +115,6 @@ void hb2st_step(HermitianBandMatrix<scalar_t>& A, int64_t band,
 /// @param[in,out] A
 ///     The band Hermitian matrix A.
 ///
-/// @param[in] band
-///     The bandwidth of matrix A.
-///
-/// @param[in] diag_len
-///     The length of the diagonal.
-///
 /// @param[in] pass_size
 ///     The number of rows eliminated at a time.
 ///
@@ -143,28 +135,30 @@ void hb2st_step(HermitianBandMatrix<scalar_t>& A, int64_t band,
 ///
 template <typename scalar_t>
 void hb2st_run(HermitianBandMatrix<scalar_t>& A,
-               int64_t band, int64_t diag_len,
                int64_t pass_size,
                int thread_rank, int thread_size,
                Reflectors<scalar_t>& reflectors, omp_lock_t& lock,
                Progress& progress)
 {
+    int64_t n = A.n();
+    int64_t band = A.bandwidth();
+
     // Thread that starts each pass.
     int64_t start_thread = 0;
 
     // Pass is indexed by the sweep that starts each pass.
-    // pass < diag_len-2 would be sufficient to get complex bidiagonal,
-    // but pass < diag_len-1 makes last 2 entries real for steqr2.
-    for (int64_t pass = 0; pass < diag_len-1; pass += pass_size) {
-        int64_t sweep_end = std::min(pass + pass_size, diag_len-1);
+    // Loop bound `pass < n-2` would be sufficient to get complex bidiagonal,
+    // but `pass < n-1` makes last 2 entries real for steqr2.
+    for (int64_t pass = 0; pass < n-1; pass += pass_size) {
+        int64_t sweep_end = std::min(pass + pass_size, n-1);
         // Steps in first sweep of this pass; later sweeps may have fewer steps.
-        int64_t nsteps_pass = 2*ceildiv(diag_len - 1 - pass, band) - 1;
+        int64_t nsteps_pass = 2*ceildiv(n - 1 - pass, band) - 1;
         // Step that this thread starts on, in this pass.
         int64_t step_begin = (thread_rank - start_thread + thread_size) % thread_size;
         for (int64_t step = step_begin; step < nsteps_pass; step += thread_size) {
             for (int64_t sweep = pass; sweep < sweep_end; ++sweep) {
-                int64_t nsteps_sweep = 2*ceildiv(diag_len - 1 - sweep, band) - 1;
-                int64_t nsteps_last  = 2*ceildiv(diag_len - 1 - (sweep-1), band) - 1;
+                int64_t nsteps_sweep = 2*ceildiv(n - 1 - sweep, band) - 1;
+                int64_t nsteps_last  = 2*ceildiv(n - 1 - (sweep-1), band) - 1;
 
                 if (step < nsteps_sweep) {
                     if (sweep > 0) {
@@ -177,8 +171,9 @@ void hb2st_run(HermitianBandMatrix<scalar_t>& A,
                         // Wait until step-1 is done in this sweep.
                         while (progress.at(sweep).load() < step-1) {}
                     }
-                    ///printf( "tid %d pass %lld, task %lld, %lld\n", thread_rank, pass, sweep, step );
-                    hb2st_step(A, band, sweep, step,
+                    ///printf( "tid %d pass %lld, task %lld, %lld\n",
+                    //         thread_rank, pass, sweep, step );
+                    hb2st_step(A, sweep, step,
                                reflectors, lock);
 
                     // Mark step as done.
@@ -200,19 +195,19 @@ template <Target target, typename scalar_t>
 void hb2st(slate::internal::TargetType<target>,
            HermitianBandMatrix<scalar_t>& A)
 {
-    int64_t diag_len = A.n();
+    int64_t n = A.n();
     int64_t band = A.bandwidth();
 
     omp_lock_t lock;
     omp_init_lock(&lock);
     Reflectors<scalar_t> reflectors;
 
-    Progress progress(diag_len-1);
-    for (int64_t i = 0; i < diag_len-1; ++i)
+    Progress progress(n-1);
+    for (int64_t i = 0; i < n-1; ++i)
         progress.at(i).store(-1);
 
-    // insert workspace tiles needed for fill-in in bulge chasing
-    // and set tile entries outside the band to 0
+    // Insert workspace tiles needed for fill-in in bulge chasing
+    // and set tile entries outside the band to 0.
     // todo: should release these tiles when done
     // WARNING: assumes lower matrix, todo:
     int jj = 0; // col index
@@ -225,14 +220,16 @@ void hb2st(slate::internal::TargetType<target>,
             {
                 if (i == j && j < A.nt()-1) {
                     auto T_ptr = A.tileInsertWorkspace( i, j+1 );
-                    lapack::laset(lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
-                          0, 0, T_ptr->data(), T_ptr->stride());
+                    lapack::laset(
+                        lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
+                        0, 0, T_ptr->data(), T_ptr->stride());
                 }
 
                 if ((j > 0) && (i == (j + 1))) {
                     auto T_ptr = A.tileInsertWorkspace( i, j-1 );
-                    lapack::laset(lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
-                          0, 0, T_ptr->data(), T_ptr->stride());
+                    lapack::laset(
+                        lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
+                        0, 0, T_ptr->data(), T_ptr->stride());
                 }
 
                 if (i == j) {
@@ -259,7 +256,7 @@ void hb2st(slate::internal::TargetType<target>,
         int64_t pass_size = ceildiv(thread_size, 3);
 
         #if 1
-            // Launching new threads for the band reduction guarantees progression.
+            // Launching new threads for the band reduction guarantees progress.
             // This should never deadlock, but may be detrimental to performance.
             omp_set_nested(1);
             #pragma omp parallel for \
@@ -273,7 +270,6 @@ void hb2st(slate::internal::TargetType<target>,
         #endif
         for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank) {
             hb2st_run(A,
-                      band, diag_len,
                       pass_size,
                       thread_rank, thread_size,
                       reflectors, lock, progress);
@@ -312,9 +308,6 @@ void hb2st(HermitianBandMatrix<scalar_t>& A,
 /// @param[in,out] A
 ///         The band Hermitian matrix A.
 ///
-/// @param[in] band
-///         The bandwidth of matrix A.
-///
 /// @param[in] opts
 ///         Additional options, as map of name = value pairs. Possible options:
 ///         - Option::Target:
@@ -326,7 +319,6 @@ void hb2st(HermitianBandMatrix<scalar_t>& A,
 ///
 /// @ingroup heev_computational
 ///
-// todo: Change Matrix to BandMatrix and remove the band parameter.
 template <typename scalar_t>
 void hb2st(HermitianBandMatrix<scalar_t>& A,
            Options const& opts)

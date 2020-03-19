@@ -69,12 +69,13 @@ void gerf(std::vector<scalar_t> const& in_v, Matrix<scalar_t>& A);
 template <typename scalar_t>
 void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A)
 {
+    using blas::conj;
     scalar_t one  = 1;
     scalar_t zero = 0;
 
     // Replace tau with 1.0 in v[0].
     auto v = in_v;
-    scalar_t tau = v[0];
+    scalar_t tau = conj(v[0]);
     v[0] = one;
 
     // w = C * v
@@ -89,7 +90,7 @@ void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A)
         scalar_t beta = zero;
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (i == j) {
-                symv(one, A(i, j), v_ptr, beta, w_ptr);
+                hemv(one, A(i, j), v_ptr, beta, w_ptr);
             }
             else {
                 if (i > j) {
@@ -131,7 +132,7 @@ void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A)
         v_ptr = v.data();
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (i > j) {
-                ger(-tau, w_ptr, v_ptr, A(i, j));
+                ger(-conj(tau), w_ptr, v_ptr, A(i, j));
             }
             v_ptr += A.tileNb(j);
         }
@@ -183,14 +184,18 @@ void hebr1(internal::TargetType<Target::HostTask>,
            std::vector<scalar_t>& v,
            int priority)
 {
+    using blas::conj;
     trace::Block trace_block("internal::hebr1");
 
     // Zero A[2:n-1, 0].
     auto A1 = A.slice(1, A.m()-1, 0, 0);
     gerfg(A1, v);
+    scalar_t tmp = v[0];
+    v[0] = conj(v[0]);
     gerf(v, A1);
 
     // Apply the transformations to A[1:n-1, 1:n-1].
+    v[0] = tmp;
     auto A2 = A.slice(1, A.n()-1);
     herf(v, A2);
 }
@@ -228,6 +233,7 @@ void hebr2(internal::TargetType<Target::HostTask>,
            std::vector<scalar_t>& v2,
            int priority)
 {
+    using blas::conj;
     trace::Block trace_block("internal::hebr2");
 
     // Apply the reflector from task 1.
@@ -236,6 +242,7 @@ void hebr2(internal::TargetType<Target::HostTask>,
 
     // Zero A[1:n-1, 0].
     gerfg(A, v2);
+    v2[0] = conj(v2[0]);
     gerf(v2, A);
 }
 
@@ -267,9 +274,11 @@ void hebr3(internal::TargetType<Target::HostTask>,
            HermitianMatrix<scalar_t>& A,
            int priority)
 {
+    using blas::conj;
     trace::Block trace_block("internal::hebr3");
 
     // Apply the reflector from task 2.
+    v[0] = conj( v[0] );
     herf(v, A);
 }
 

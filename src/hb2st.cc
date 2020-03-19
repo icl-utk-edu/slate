@@ -183,8 +183,10 @@ void hb2st_run(HermitianBandMatrix<scalar_t>& A,
     int64_t start_thread = 0;
 
     // Pass is indexed by the sweep that starts each pass.
-    for (int64_t pass = 0; pass < diag_len-2; pass += pass_size) {
-        int64_t sweep_end = std::min(pass + pass_size, diag_len-2);
+    // pass < diag_len-2 would be sufficient to get complex bidiagonal,
+    // but pass < diag_len-1 makes last 2 entries real for steqr2.
+    for (int64_t pass = 0; pass < diag_len-1; pass += pass_size) {
+        int64_t sweep_end = std::min(pass + pass_size, diag_len-1);
         // Steps in first sweep of this pass; later sweeps may have fewer steps.
         int64_t nsteps_pass = 2*ceildiv(diag_len - 1 - pass, band) - 1;
         // Step that this thread starts on, in this pass.
@@ -235,8 +237,8 @@ void hb2st(slate::internal::TargetType<target>,
     omp_init_lock(&lock);
     Reflectors<scalar_t> reflectors;
 
-    Progress progress(diag_len-2);
-    for (int64_t i = 0; i < diag_len-2; ++i)
+    Progress progress(diag_len-1);
+    for (int64_t i = 0; i < diag_len-1; ++i)
         progress.at(i).store(-1);
 
     // insert workspace tiles needed for fill-in in bulge chasing

@@ -251,7 +251,7 @@ Params::Params():
     norm      ("norm",    7,    ParamType::List, slate::Norm::One,        lapack::char2norm, lapack::norm2char, lapack::norm2str, "norm: o=one, 2=two, i=inf, f=fro, m=max"),
     scope     ("scope",   7,    ParamType::List, slate::NormScope::Matrix, str2scope, scope2str, "norm scope: m=matrix, r=rows, c=columns"),
     side      ("side",    6,    ParamType::List, slate::Side::Left,       blas::char2side,   blas::side2char,   blas::side2str,   "side: l=left, r=right"),
-    itype     ("itype",   4,    ParamType::List,   1,     1,    3,       "Must be 1 or 2 or 3, specifies problem type to be solved" ),
+    itype     ("itype",   6,    ParamType::List,   1,     1,    3,       "Must be 1 or 2 or 3, specifies problem type to be solved" ),
     uplo      ("uplo",    6,    ParamType::List, slate::Uplo::Lower,      blas::char2uplo,   blas::uplo2char,   blas::uplo2str,   "triangle: l=lower, u=upper"),
     trans     ("trans",   7,    ParamType::List, slate::Op::NoTrans,      blas::char2op,     blas::op2char,     blas::op2str,     "transpose: n=no-trans, t=trans, c=conj-trans"),
     transA    ("transA",  7,    ParamType::List, slate::Op::NoTrans,      blas::char2op,     blas::op2char,     blas::op2str,     "transpose of A: n=no-trans, t=trans, c=conj-trans"),

@@ -28,13 +28,19 @@ void test_hegst_work(Params& params, bool run)
     int64_t q = params.q();
     int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
-    bool ref_only = params.ref() == 'o';
-    bool ref = params.ref() == 'y' || ref_only;
-    bool check = params.check() == 'y' && ! ref_only;
+    // todo: implement forward error check to remove ScaLAPACK dependency
+    // bool ref_only = params.ref() == 'o';
+    // bool ref = params.ref() == 'y' || ref_only;
+    bool check = params.check() == 'y';// && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
     slate::Target target = params.target();
     slate::Origin origin = params.origin();
+
+    params.time();
+    // params.gflops(); // todo
+    // params.ref_time(); // todo
+    // params.ref_gflops(); // todo
 
     origin = slate::Origin::ScaLAPACK;  // todo: for now
 
@@ -119,7 +125,8 @@ void test_hegst_work(Params& params, bool run)
         print_matrix("B_factored", B);
     }
 
-    if (! ref_only) {
+    // if (! ref_only) // todo
+    {
         // todo
         //double gflop = lapack::Gflop<scalar_t>::hegst(n);
 
@@ -153,7 +160,8 @@ void test_hegst_work(Params& params, bool run)
             print_matrix("A_hegst", A);
         }
     }
-    if (check || ref) {
+
+    if (check) {
         real_t A_norm = slate::norm(slate::Norm::One, A_ref);
 
         int ictxt;

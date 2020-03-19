@@ -40,6 +40,7 @@ void test_heev_work(Params& params, bool run)
     slate::Norm norm = params.norm();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    params.matrix.mark();
 
     slate_assert(p == q);  // heev requires square process grid.
 
@@ -87,50 +88,65 @@ void test_heev_work(Params& params, bool run)
     // matrix W (global output), W(n), gets eigenvalues in decending order
     std::vector<real_t> W_tst(n);
 
+    // matrix Z (local output), Z(n,n), gets orthonormal eigenvectors corresponding to W
+    int64_t mlocZ = scalapack_numroc(n, nb, myrow, izero, nprow);
+    int64_t nlocZ = scalapack_numroc(n, nb, mycol, izero, npcol);
+    int descZ_tst[9];
+    scalapack_descinit(descZ_tst, n, n, nb, nb, izero, izero, ictxt, mlocZ, &info);
+    slate_assert(info == 0);
+    int64_t lldZ = (int64_t)descZ_tst[8];
+    std::vector<scalar_t> Z_tst(lldZ * nlocZ, 0);
+
     // Initialize SLATE data structures
-    slate::Matrix<scalar_t> A_gen;
     slate::HermitianMatrix<scalar_t> A;
     std::vector<real_t> W;
+    slate::Matrix<scalar_t> Z;
 
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy local ScaLAPACK data to GPU or CPU tiles.
         slate::Target origin_target = origin2target(origin);
-        W = W_tst;
         A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, nprow, npcol, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
         copy(&A_tst[0], descA_tst, A);
+
+        W = W_tst;
+
+        Z = slate::Matrix<scalar_t>(n, n, nb, nprow, npcol, MPI_COMM_WORLD);
+        Z.insertLocalTiles(origin_target);
+        copy(&Z_tst[0], descZ_tst, Z); // Z is output, so not really needed
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
+        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
         W = W_tst;
-        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-                 uplo, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+        Z = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &Z_tst[0], lldZ, nb, nprow, npcol, MPI_COMM_WORLD);
     }
+
+   
+    //lapack::TestMatrixType type = lapack::TestMatrixType::heev; 
+    //params.matrix.kind.set_default("heev");
+    //params.matrix.cond.set_default(1e4);
+
+    lapack::generate_matrix( params.matrix, Z);
+    A = slate::HermitianMatrix<scalar_t>( 
+               uplo, Z );  
+    copy(A, &A_tst[0], descA_tst);
 
     if (verbose >= 1) {
         printf( "%% A   %6lld-by-%6lld\n", llong(   A.m() ), llong(   A.n() ) );
-        printf( "%% A_gen   %6lld-by-%6lld\n", llong(   A_gen.m() ), llong(   A_gen.n() ) );
+        printf( "%% Z   %6lld-by-%6lld\n", llong(   Z.m() ), llong(   Z.n() ) );
     }
 
     if (verbose > 1) {
         print_matrix( "A",  A  );
-        print_matrix( "A_gen",  A_gen  );
+        print_matrix( "Z",  Z  );
     }
 
     std::vector<scalar_t> A_ref, Z_ref;
     std::vector<real_t> W_ref;
-    int descZ_tst[9];
-
     if (check || ref) {
         A_ref = A_tst;
         W_ref = W_tst;
-        // matrix Z (local output), Z(n,n), gets orthonormal eigenvectors corresponding to W
-        int64_t mlocZ = scalapack_numroc(n, nb, myrow, izero, nprow);
-        int64_t nlocZ = scalapack_numroc(n, nb, mycol, izero, npcol);
-        scalapack_descinit(descZ_tst, n, n, nb, nb, izero, izero, ictxt, mlocZ, &info);
-        slate_assert(info == 0);
-        int64_t lldZ = (int64_t)descZ_tst[8];
-        std::vector<scalar_t> Z_tst(lldZ * nlocZ, 0);
         Z_ref = Z_tst;
     }
 
@@ -168,7 +184,7 @@ void test_heev_work(Params& params, bool run)
 
         if (verbose > 1) {
             print_matrix( "A",  A  );
-            print_matrix( "A_gen", A_gen  );
+            print_matrix( "Z",  Z  );
         }
     }
 

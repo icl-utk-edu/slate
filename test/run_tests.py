@@ -101,6 +101,7 @@ group_opt.add_argument( '--kd',     action='store', help='default=%(default)s', 
 group_opt.add_argument( '--kl',     action='store', help='default=%(default)s', default='20,100' )
 group_opt.add_argument( '--ku',     action='store', help='default=%(default)s', default='20,100' )
 group_opt.add_argument( '--matrixtype', action='store', help='default=%(default)s', default='g,l,u' )
+group_opt.add_argument( '--itype', action='store', help='default=%(default)s', default='1,2,3' )
 
 # SLATE specific
 group_opt.add_argument( '--origin', action='store', help='default=%(default)s', default='s' )
@@ -109,7 +110,6 @@ group_opt.add_argument( '--lookahead', action='store', help='default=%(default)s
 group_opt.add_argument( '--dev-dist',  action='store', help='default=%(default)s', default='c,r' )
 group_opt.add_argument( '--nb',     action='store', help='default=%(default)s', default='64,100' )
 group_opt.add_argument( '--nt',     action='store', help='default=%(default)s', default='5,10,20' )
-group_opt.add_argument( '--itype',  action='store', help='default=%(default)s', default='1,2,3' )
 group_opt.add_argument( '--np',     action='store', help='number of MPI processes; default=%(default)s', default='1' )
 group_opt.add_argument( '--p',      action='store', help='use p-by-q MPI process grid', default='' )
 group_opt.add_argument( '--q',      action='store', help='use p-by-q MPI process grid', default='' )
@@ -260,6 +260,7 @@ kd     = ' --kd '     + opts.kd     if (opts.kd)     else ''
 kl     = ' --kl '     + opts.kl     if (opts.kl)     else ''
 ku     = ' --ku '     + opts.ku     if (opts.ku)     else ''
 mtype  = ' --matrixtype ' + opts.matrixtype if (opts.matrixtype) else ''
+itype  = ' --itype '  + opts.itype  if (opts.itype)  else ''
 
 # SLATE specific
 origin = ' --origin ' + opts.origin if (opts.origin) else ''
@@ -267,7 +268,6 @@ target = ' --target ' + opts.target if (opts.target) else ''
 la     = ' --lookahead ' + opts.lookahead if (opts.lookahead) else ''
 ddist  = ' --dev-dist  ' + opts.dev_dist  if (opts.dev_dist)  else ''
 nb     = ' --nb '     + opts.nb     if (opts.nb)     else ''
-itype  = ' --itype '  + opts.itype  if (opts.itype)  else ''
 nt     = ' --nt '     + opts.nt     if (opts.nt)     else ''
 p      = ' --p '      + opts.p      if (opts.p)      else ''
 q      = ' --q '      + opts.q      if (opts.q)      else ''
@@ -484,8 +484,8 @@ if (opts.syev):
 # generalized symmetric/Hermitian eigenvalues
 if (opts.sygv):
     cmds += [
-    #[ 'hegv',  gen + dtype + la + n + itype + jobz + uplo ],
-    [ 'hegst', gen + dtype + n + la + itype + uplo ],
+    [ 'hegv',  gen + dtype + la + n + jobz + itype + uplo ],
+    #[ 'hegst', gen + dtype + la + n + itype + uplo ],
     ]
 
 # non-symmetric eigenvalues

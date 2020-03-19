@@ -283,7 +283,6 @@ libslate_src += \
         src/internal/internal_geadd.cc \
         src/internal/internal_gemm.cc \
         src/internal/internal_gemm_A.cc \
-        src/internal/internal_hegst.cc \
         src/internal/internal_gemm_split.cc \
         src/internal/internal_genorm.cc \
         src/internal/internal_gebr.cc \
@@ -359,7 +358,6 @@ libslate_src += \
         src/he2hb.cc \
         src/unmtr_he2hb.cc \
         src/heev.cc \
-        src/hegst.cc \
         src/hemm.cc \
         src/hbmm.cc \
         src/her2k.cc \
@@ -422,7 +420,7 @@ tester_src += \
         test/test_he2hb.cc \
         test/test_unmtr_he2hb.cc \
         test/test_heev.cc \
-        test/test_hegst.cc \
+        test/test_hegv.cc \
         test/test_hemm.cc \
         test/test_hbmm.cc \
         test/test_hbnorm.cc \

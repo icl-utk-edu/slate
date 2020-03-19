@@ -178,7 +178,7 @@ std::vector< testsweeper::routines_t > routines = {
 
     // -----
     // generalized symmetric/Hermitian eigenvalues
-    { "hegst",              test_hegst,        Section::sygv },
+    { "hegv",               test_hegv,         Section::sygv },
     { "",                   nullptr,           Section::newline },
 
     // -----
@@ -251,7 +251,6 @@ Params::Params():
     norm      ("norm",    7,    ParamType::List, slate::Norm::One,        lapack::char2norm, lapack::norm2char, lapack::norm2str, "norm: o=one, 2=two, i=inf, f=fro, m=max"),
     scope     ("scope",   7,    ParamType::List, slate::NormScope::Matrix, str2scope, scope2str, "norm scope: m=matrix, r=rows, c=columns"),
     side      ("side",    6,    ParamType::List, slate::Side::Left,       blas::char2side,   blas::side2char,   blas::side2str,   "side: l=left, r=right"),
-    itype     ("itype",   6,    ParamType::List,   1,     1,    3,       "Must be 1 or 2 or 3, specifies problem type to be solved" ),
     uplo      ("uplo",    6,    ParamType::List, slate::Uplo::Lower,      blas::char2uplo,   blas::uplo2char,   blas::uplo2str,   "triangle: l=lower, u=upper"),
     trans     ("trans",   7,    ParamType::List, slate::Op::NoTrans,      blas::char2op,     blas::op2char,     blas::op2str,     "transpose: n=no-trans, t=trans, c=conj-trans"),
     transA    ("transA",  7,    ParamType::List, slate::Op::NoTrans,      blas::char2op,     blas::op2char,     blas::op2str,     "transpose of A: n=no-trans, t=trans, c=conj-trans"),
@@ -278,6 +277,7 @@ Params::Params():
     beta      ("beta",    8, 3, ParamType::List,   e,  -inf,     inf, "scalar beta"),
     incx      ("incx",    6,    ParamType::List,   1, -1000,    1000, "stride of x vector"),
     incy      ("incy",    6,    ParamType::List,   1, -1000,    1000, "stride of y vector"),
+    itype     ("itype",   6,    ParamType::List,   1,     1,       3, "generalized eigenvalue problem type (1:Ax=lBx, 2:ABx=lx 3:BAx=lx)"),
 
     // SLATE options
     nb        ("nb",      5,    ParamType::List, 50,      0, 1000000, "nb"),

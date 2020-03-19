@@ -193,9 +193,10 @@ void copy(internal::TargetType<Target::HostTask>,
                 #pragma omp task shared(A, B) priority(priority)
                 {
                     A.tileGetForReading(i, j, LayoutConvert::None);
-                    B.tileGetForWriting(i, j, LayoutConvert::None);
+                    // tileAcquire() to avoid un-needed copy
+                    B.tileAcquire(i, j, A.tileLayout(i, j));
                     gecopy(A(i, j), B(i, j));
-                    B.tileLayout(i, j, A.tileLayout(i, j));
+                    B.tileModified(i, j);
                     A.tileTick(i, j);// TODO is this correct here?
                 }
             }
@@ -207,7 +208,7 @@ void copy(internal::TargetType<Target::HostTask>,
 
 //------------------------------------------------------------------------------
 /// Copy and precision conversion.
-/// assumes A & B have same tile layout and dimensions, and have same distribution
+/// Assumes A & B have same tile layout, dimensions, and distribution.
 /// TODO: Inspect transposition?
 /// GPU device implementation.
 /// @ingroup copy_internal
@@ -312,7 +313,9 @@ void copy(internal::TargetType<Target::Devices>,
             for (int64_t i = 0; i < B.mt(); ++i) {
                 for (int64_t j = 0; j < B.nt(); ++j) {
                     if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
+                        B.tileModified(i, j, device);
                         // update output tile layout
+                        // todo: what if extended?
                         B.tileLayout(i, j, device, A.tileLayout(i, j, device));
                         // erase tmp local and remote device tiles;
                         A.tileRelease(i, j, device);

@@ -101,6 +101,7 @@ group_opt.add_argument( '--kd',     action='store', help='default=%(default)s', 
 group_opt.add_argument( '--kl',     action='store', help='default=%(default)s', default='20,100' )
 group_opt.add_argument( '--ku',     action='store', help='default=%(default)s', default='20,100' )
 group_opt.add_argument( '--matrixtype', action='store', help='default=%(default)s', default='g,l,u' )
+group_opt.add_argument( '--itype', action='store', help='default=%(default)s', default='1,2,3' )
 
 # SLATE specific
 group_opt.add_argument( '--origin', action='store', help='default=%(default)s', default='s' )
@@ -259,6 +260,7 @@ kd     = ' --kd '     + opts.kd     if (opts.kd)     else ''
 kl     = ' --kl '     + opts.kl     if (opts.kl)     else ''
 ku     = ' --ku '     + opts.ku     if (opts.ku)     else ''
 mtype  = ' --matrixtype ' + opts.matrixtype if (opts.matrixtype) else ''
+itype  = ' --itype '  + opts.itype  if (opts.itype)  else ''
 
 # SLATE specific
 origin = ' --origin ' + opts.origin if (opts.origin) else ''
@@ -459,6 +461,12 @@ if (opts.syev):
     #[ 'ungtr', gen + dtype + la + n + uplo ],
     #[ 'unmtr', gen + dtype_real    + la + mn + uplo + side + trans    ],  # real does trans = N, T, C
     #[ 'unmtr', gen + dtype_complex + la + mn + uplo + side + trans_nc ],  # complex does trans = N, C, not T
+    # todo nb, uplo, origin
+    [ 'unmtr_he2hb', target + p + q + check + ref + tol + repeat + dtype_real    + ' --nb 50' + ' --origin s' + side + trans    ],  # real does trans = N, T, C
+    # todo: include (side=l and trans=c) as well as (side=r and trans=n)
+    # [ 'unmtr_he2hb', target + p + q + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + side + trans_nc ],  # complex does trans = N, C, not T
+    [ 'unmtr_he2hb', target + p + q + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + ' --side l' + ' --trans n' ],
+    [ 'unmtr_he2hb', target + p + q + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + ' --side r' + ' --trans c' ],
     # todo nb, uplo
     [ 'he2hb', gen_no_nb + ' --nb 50' + dtype + n ],
     # sterf doesn't take origin, target, nb, uplo
@@ -476,7 +484,7 @@ if (opts.syev):
 # generalized symmetric/Hermitian eigenvalues
 if (opts.sygv):
     cmds += [
-    #[ 'hegv',  gen + dtype + la + n + itype + jobz + uplo ],
+    [ 'hegv',  gen + dtype + la + n + jobz + itype + uplo ],
     #[ 'hegst', gen + dtype + la + n + itype + uplo ],
     ]
 

@@ -512,6 +512,39 @@ void symv(scalar_t alpha, Tile<scalar_t> const&& A,
 }
 
 //------------------------------------------------------------------------------
+///
+/// @ingroup symv_tile
+///
+template <typename scalar_t>
+void hemv(scalar_t alpha, Tile<scalar_t> const& A,
+                          scalar_t const* x,
+          scalar_t beta,  scalar_t* y)
+{
+//  trace::Block trace_block("blas::symv");
+
+    assert(A.mb() == A.nb());  // square
+
+    blas::hemv(blas::Layout::ColMajor,
+               A.uploPhysical(),
+               A.nb(),
+               alpha, A.data(), A.stride(),
+                      x, 1,
+               beta,  y, 1);
+}
+
+//-----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+/// @ingroup symm_tile
+///
+template <typename scalar_t>
+void hemv(scalar_t alpha, Tile<scalar_t> const&& A,
+                          scalar_t const* x,
+          scalar_t beta,  scalar_t* y)
+{
+    hemv(alpha, A, x, beta, y);
+}
+
+//------------------------------------------------------------------------------
 /// Symmetric rank-k update: $C = \alpha op(A) op(A)^T + \beta C$.
 /// Use transpose or conj_transpose to set $op(A)$.
 /// In the complex case, C cannot be conj_transpose.

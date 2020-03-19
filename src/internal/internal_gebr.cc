@@ -69,7 +69,8 @@ void gerfg(Matrix<scalar_t>& A, std::vector<scalar_t>& v)
     scalar_t* v_ptr = v.data();
     for (int64_t i = 0; i < A.mt(); ++i) {
         auto tile = A(i, 0);
-        if (tile.op() == Op::ConjTrans) {
+        if (tile.op() == Op::ConjTrans || 
+            tile.op() == Op::Trans) {
             int64_t mb = tile.mb();
             scalar_t* t_ptr = tile.data();
             for (int64_t j = 0; j < mb; ++j) {

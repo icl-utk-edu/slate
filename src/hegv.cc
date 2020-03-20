@@ -50,8 +50,8 @@ namespace slate {
 template <typename scalar_t>
 void hegv( int type,
            lapack::Job jobz,
-           HermitianMatrix<scalar_t>& A,
-           HermitianMatrix<scalar_t>& B,           
+           HermitianMatrix<scalar_t> A,
+           HermitianMatrix<scalar_t> B,           
            std::vector< blas::real_type<scalar_t> >& W,
            Matrix<scalar_t>& V,
            const std::map<Option, Value>& opts)
@@ -66,7 +66,7 @@ void hegv( int type,
         B = conj_transpose(B);
     }
 
-    scalar_t alpha = 1.;
+    scalar_t one = 1.;
 
     // 1. Form a Cholesky factorization of B. 
     potrf(B, opts);
@@ -82,20 +82,18 @@ void hegv( int type,
     // }
 
     // 3. Solve the standard eigenvalue problem and solve.
-    // heev(A, W, V, opts); 
+    // heev(Ahat, W, V, opts); 
 
     // 4. Backtransform eigenvectors to the original problem.
-    auto T = slate::TriangularMatrix<scalar_t>( 
-               slate::Uplo::Upper, slate::Diag::NonUnit, B );  
+    auto L = slate::TriangularMatrix<scalar_t>( 
+               slate::Uplo::Lower, slate::Diag::NonUnit, B );  
     if (type == 1 || type == 2) {
         // x = inv(L)**T*y
-        // slate::trsm(slate::Side::Left, alpha, B, V, opts);
-        slate::trsm(slate::Side::Left, alpha, T, V, opts);
+        slate::trsm(slate::Side::Left, one, L, V, opts);
     }
     else {
         // x = L*y
-        // slate::trmm(slate::Side::Left, alpha, B, V, opts);
-        slate::trmm(slate::Side::Left, alpha, T, V, opts);
+        slate::trmm(slate::Side::Left, one, L, V, opts);
     }
 }
 

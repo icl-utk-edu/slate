@@ -262,10 +262,12 @@ void trsm(slate::internal::TargetType<target>,
             }
         }
 
-        #pragma omp taskwait
-        B.tileUpdateAllOrigin();
+        // TODO: causes issues on summit Target::HostTask
+        // #pragma omp taskwait
+        // B.tileUpdateAllOrigin();
     }
 
+    B.tileUpdateAllOrigin();
     B.releaseWorkspace();
 }
 

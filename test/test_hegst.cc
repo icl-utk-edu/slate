@@ -103,12 +103,8 @@ void test_hegst_work(Params& params, bool run)
     for (int64_t i = 0; i < B.mt(); ++i) {
         if (B.tileIsLocal(i, i)) {
             auto Bii = B(i, i);
-            for (int64_t j = 0; j < Bii.nb(); ++j) {
-                for (int64_t ii = j; ii < Bii.mb(); ++ii) {
-                    if (ii == j) {
-                        Bii.at(j, ii) = std::abs(Bii.at(j, ii)) + n;
-                    }
-                }
+            for (int64_t ii = 0; ii < std::min(Bii.mb(), Bii.nb()); ++ii) {
+                Bii.at(ii, ii) = std::abs(Bii.at(ii, ii)) + n;
             }
         }
     }

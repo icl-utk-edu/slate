@@ -48,7 +48,7 @@ namespace slate {
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void hegv( int type,
+void hegv( int itype,
            lapack::Job jobz,
            HermitianMatrix<scalar_t> A,
            HermitianMatrix<scalar_t> B,           
@@ -66,15 +66,15 @@ void hegv( int type,
         B = conj_transpose(B);
     }
 
-    scalar_t one = 1.;
+    scalar_t one = 1.; 
 
     // 1. Form a Cholesky factorization of B. 
     potrf(B, opts);
 
     // 2. Transform problem to standard eigenvalue problem.
-    // hegst( type, A, B);
-    // A will be overwritten by Ahat based on the type as follows:
-    // if (type == 1) {
+    // hegst( itype, A, B);
+    // A will be overwritten by Ahat based on the itype as follows:
+    // if (itype == 1) {
         // Ahat = inv(L) * A * inv(conj_transpose(L));
     // }
     // else {
@@ -85,15 +85,15 @@ void hegv( int type,
     // heev(Ahat, W, V, opts); 
 
     // 4. Backtransform eigenvectors to the original problem.
-    auto L = slate::TriangularMatrix<scalar_t>( 
-               slate::Uplo::Lower, slate::Diag::NonUnit, B );  
-    if (type == 1 || type == 2) {
+    auto L = TriangularMatrix<scalar_t>( 
+               Uplo::Lower, Diag::NonUnit, B );  
+    if (itype == 1 || itype == 2) {
         // x = inv(L)**T*y
-        slate::trsm(slate::Side::Left, one, L, V, opts);
+        slate::trsm(Side::Left, one, L, V, opts);
     }
     else {
         // x = L*y
-        slate::trmm(slate::Side::Left, one, L, V, opts);
+        slate::trmm(Side::Left, one, L, V, opts);
     }
 }
 
@@ -103,40 +103,40 @@ template
 void hegv<float>(
      int type,
      lapack::Job jobz,
-     HermitianMatrix<float>& A,
-     HermitianMatrix<float>& B,
+     HermitianMatrix<float> A,
+     HermitianMatrix<float> B,
      std::vector<float>& W,
-    Matrix<float>& V,
+     Matrix<float>& V,
      const std::map<Option, Value>& opts);
 
 template
 void hegv<double>(
      int type,
      lapack::Job jobz,
-     HermitianMatrix<double>& A,
-     HermitianMatrix<double>& B,
+     HermitianMatrix<double> A,
+     HermitianMatrix<double> B,
      std::vector<double>& W,
-    Matrix<double>& V,
+     Matrix<double>& V,
      const std::map<Option, Value>& opts);
 
 template
 void hegv< std::complex<float> >(
      int type,
      lapack::Job jobz,
-     HermitianMatrix< std::complex<float> >& A,
-     HermitianMatrix< std::complex<float> >& B,
+     HermitianMatrix< std::complex<float> > A,
+     HermitianMatrix< std::complex<float> > B,
      std::vector<float>& W,
-    Matrix< std::complex<float> >& V,
+     Matrix< std::complex<float> >& V,
      const std::map<Option, Value>& opts);
 
 template
 void hegv< std::complex<double> >(
      int type,
      lapack::Job jobz,
-     HermitianMatrix< std::complex<double> >& A,
-     HermitianMatrix< std::complex<double> >& B,
+     HermitianMatrix< std::complex<double> > A,
+     HermitianMatrix< std::complex<double> > B,
      std::vector<double>& W,
-    Matrix< std::complex<double> >& V,
+     Matrix< std::complex<double> >& V,
      const std::map<Option, Value>& opts);
 
 } // namespace slate

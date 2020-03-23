@@ -311,9 +311,8 @@ void hegst(int64_t itype, HermitianMatrix<scalar_t>& A,
 ///       - A.uplo() = Uplo::Upper: $C = U A U^H$.
 ///
 /// @param[in] B
-///     On entry, the n-by-n Hermitian positive definite matrix $B$.
-///     The triangular factor from the Cholesky factorization of B, as returned
-///     by |slate::potrf|.
+///     On entry, the n-by-n the triangular factor from the Cholesky
+///     factorization of $B$, as returned by |slate::potrf|.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:

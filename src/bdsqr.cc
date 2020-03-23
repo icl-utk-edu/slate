@@ -80,7 +80,7 @@ void bdsqr(slate::internal::TargetType<target>,
     //assert(m >= n);
 
     int mpi_size;
-    int64_t info = 0;
+    // int64_t info = 0;
 
     scalar_t zero = 0.0, one = 1.0;
 

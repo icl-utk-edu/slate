@@ -596,6 +596,12 @@ void potrf(SymmetricMatrix<scalar_t>&& A,
     potrf<target>(SymmetricMatrix<scalar_t>(A), priority);
 }
 
+//-----------------------------------------
+// hegst()
+template <Target target=Target::HostTask, typename scalar_t>
+void hegst(int64_t itype, HermitianMatrix<scalar_t>&& A,
+                          HermitianMatrix<scalar_t>&& B);
+
 } // namespace internal
 } // namespace slate
 

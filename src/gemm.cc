@@ -249,6 +249,7 @@ void gemm(slate::internal::TargetType<Target::Devices>,
                     bcast_list_A.push_back({i, 0, {C.sub(i, i, 0, C.nt()-1)}});
                 A.template listBcast<Target::Devices>(bcast_list_A, layout);
             }
+            #pragma omp taskwait
 
             // broadcast B(0, j) to ranks owning block col C(:, j)
             #pragma omp task default(shared)
@@ -283,6 +284,7 @@ void gemm(slate::internal::TargetType<Target::Devices>,
                         bcast_list_A.push_back({i, k, {C.sub(i, i, 0, C.nt()-1)}});
                     A.template listBcast<Target::Devices>(bcast_list_A, layout);
                 }
+                #pragma omp taskwait
 
                 // broadcast B(k, j) to ranks owning block col C(:, j)
                 #pragma omp task default(shared)
@@ -335,6 +337,7 @@ void gemm(slate::internal::TargetType<Target::Devices>,
                         }
                         A.template listBcast<Target::Devices>(bcast_list_A, layout);
                     }
+                    #pragma omp taskwait
 
                     // broadcast B(k+la, j) to ranks owning block col C(:, j)
                     #pragma omp task default(shared)

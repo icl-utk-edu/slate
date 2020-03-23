@@ -366,6 +366,7 @@ libslate_src += \
         src/hesv.cc \
         src/hetrf.cc \
         src/hetrs.cc \
+        src/hegv.cc \
         src/norm.cc \
         src/pbsv.cc \
         src/pbtrf.cc \

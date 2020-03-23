@@ -365,6 +365,7 @@ libslate_src += \
         src/hesv.cc \
         src/hetrf.cc \
         src/hetrs.cc \
+        src/hegv.cc \
         src/norm.cc \
         src/pbsv.cc \
         src/pbtrf.cc \
@@ -443,8 +444,6 @@ tester_src += \
         test/test_trnorm.cc \
         test/test_trsm.cc \
         test/test_trtri.cc \
-        test/matrix_generator.cc \
-        test/matrix_params.cc \
 
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.

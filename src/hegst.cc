@@ -64,9 +64,8 @@ void hegst(slate::internal::TargetType<target>,
     if (itype != 1 && itype != 2 && itype != 3) {
         throw Exception("itype must be: 1, 2, or 3");
     }
-    assert(A.uplo() == B.uplo());
-    assert(A.mt() == B.mt());
-    assert(A.nt() == B.nt());
+    slate_assert(A.uplo() == B.uplo());
+    slate_assert(A.nt() == B.nt());
 
     if (A.uplo() == Uplo::Upper) {
         A = conj_transpose(A);
@@ -76,7 +75,7 @@ void hegst(slate::internal::TargetType<target>,
     const int64_t nt = A.nt();
 
     const scalar_t half = 0.5;
-    const scalar_t cone = 1.0;
+    const scalar_t one  = 1.0;
     const double   rone = 1.0;
 
     const int tag_zero        = 0;
@@ -119,7 +118,7 @@ void hegst(slate::internal::TargetType<target>,
                         B.template tileBcast<target>(k, k, Asub, layout);
 
                         internal::trsm<target>(
-                            Side::Right,  cone, conj_transpose(TBkk),
+                            Side::Right,  one,  conj_transpose(TBkk),
                                                 std::move(Asub));
                     }
 
@@ -144,7 +143,7 @@ void hegst(slate::internal::TargetType<target>,
                         internal::hemm<Target::HostTask>(
                             Side::Right, -half, std::move(Akk),
                                                 std::move(Bsub),
-                                          cone, std::move(Asub));
+                                          one,  std::move(Asub));
 
                         BcastList bcast_list;
                         for (int64_t i = k+1; i < nt; ++i) {
@@ -154,21 +153,21 @@ void hegst(slate::internal::TargetType<target>,
                         A.template listBcast<target>(bcast_list, layout);
 
                         internal::her2k<target>(
-                                         -cone, std::move(Asub),
+                                         -one,  std::move(Asub),
                                                 std::move(Bsub),
                                           rone, A.sub(k+1, nt-1));
 
                         internal::hemm<Target::HostTask>(
                             Side::Right, -half, std::move(Akk),
                                                 std::move(Bsub),
-                                          cone, std::move(Asub));
+                                          one,  std::move(Asub));
                     }
 
                     #pragma omp taskwait
                     auto Bk1  = B.sub(k+1, nt-1);
                     auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
                     slate::trsm<scalar_t>(
-                        Side::Left,  cone, TBk1,
+                        Side::Left,  one,  TBk1,
                                            Asub, {{Option::Lookahead, lookahead},
                                                   {Option::Target,    target}});
                 }
@@ -182,7 +181,7 @@ void hegst(slate::internal::TargetType<target>,
                     auto Bk1  = B.sub(0, k-1);
                     auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
                     slate::trmm<scalar_t>(
-                        Side::Right, cone, TBk1,
+                        Side::Right, one,  TBk1,
                                            Asub, {{Option::Lookahead, lookahead},
                                                   {Option::Target,    target}});
 
@@ -207,7 +206,7 @@ void hegst(slate::internal::TargetType<target>,
                         internal::hemm<Target::HostTask>(
                             Side::Left,  half, std::move(Akk),
                                                std::move(Bsub),
-                                         cone, std::move(Asub));
+                                         one,  std::move(Asub));
 
                         BcastList bcast_list;
                         for (int64_t i = 0; i < k; ++i) {
@@ -217,14 +216,14 @@ void hegst(slate::internal::TargetType<target>,
                         A.template listBcast<target>(bcast_list, layout);
 
                         internal::her2k<Target::HostTask>(
-                                        cone, conj_transpose(Asub),
+                                        one,  conj_transpose(Asub),
                                               conj_transpose(Bsub),
                                         rone, A.sub(0, k-1));
 
                         internal::hemm<Target::HostTask>(
                             Side::Left, half, std::move(Akk),
                                               std::move(Bsub),
-                                        cone, std::move(Asub));
+                                        one,  std::move(Asub));
                     }
 
                     #pragma omp task depend(inout:column[k])
@@ -232,7 +231,7 @@ void hegst(slate::internal::TargetType<target>,
                         B.template tileBcast<target>(k, k, Asub, layout);
 
                         internal::trmm<Target::HostTask>(
-                            Side::Left, cone, conj_transpose(TBkk),
+                            Side::Left, one,  conj_transpose(TBkk),
                                               std::move(Asub));
                     }
                 }
@@ -307,15 +306,14 @@ void hegst(int64_t itype, HermitianMatrix<scalar_t>& A,
 ///     - itype = 1:
 ///       - A.uplo() = Uplo::Lower: $C = L^(-1) A L^(-H)$;
 ///       - A.uplo() = Uplo::Upper: $C = U^(-H) A U^(-1)$.
-///     - itype = 2:
-///       - A.uplo() = Uplo::Lower: $C = L^H A L$;
-///       - A.uplo() = Uplo::Upper: $C = U A U^H$.
-///     - itype = 3:
+///     - itype = 2 or 3:
 ///       - A.uplo() = Uplo::Lower: $C = L^H A L$;
 ///       - A.uplo() = Uplo::Upper: $C = U A U^H$.
 ///
 /// @param[in] B
-///     On entry, the n-by-n Hermitian positive definite matrix $A$.
+///     On entry, the n-by-n Hermitian positive definite matrix $B$.
+///     The triangular factor from the Cholesky factorization of B, as returned
+///     by |slate::potrf|.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:

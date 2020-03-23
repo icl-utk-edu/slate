@@ -100,17 +100,13 @@ void test_hegst_work(Params& params, bool run)
         uplo, n, B_data.data(), lld, nb, p, q, MPI_COMM_WORLD);
 
     // Make B positive-definite
-    for (int64_t j = 0; j < B.nt(); ++j) {
-        for (int64_t i = 0; i < B.mt(); ++i) {
-            if (B.tileIsLocal(i, j)) {
-                if (i == j) {
-                    auto Bii = B(i, i);
-                    for (int64_t jj = 0; jj < Bii.nb(); ++jj) {
-                        for (int64_t ii = jj; ii < Bii.mb(); ++ii) {
-                            if (ii == jj) {
-                                Bii.at(jj, ii) = std::abs(Bii.at(jj, ii)) + n;
-                            }
-                        }
+    for (int64_t i = 0; i < B.mt(); ++i) {
+        if (B.tileIsLocal(i, i)) {
+            auto Bii = B(i, i);
+            for (int64_t j = 0; j < Bii.nb(); ++j) {
+                for (int64_t ii = j; ii < Bii.mb(); ++ii) {
+                    if (ii == j) {
+                        Bii.at(j, ii) = std::abs(Bii.at(j, ii)) + n;
                     }
                 }
             }
@@ -129,8 +125,7 @@ void test_hegst_work(Params& params, bool run)
         print_matrix("B_factored", B);
     }
 
-    if (! ref_only)
-    {
+    if (! ref_only) {
         // todo
         //double gflop = lapack::Gflop<scalar_t>::hegst(n);
 

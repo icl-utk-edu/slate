@@ -30,7 +30,10 @@ void test_hegv_work(Params& params, bool run)
     int64_t p = params.p();
     int64_t q = params.q();
     int64_t nb = params.nb();
+    int64_t ib = params.ib();
+    int64_t panel_threads = params.panel_threads();
     int64_t lookahead = params.lookahead();
+
     bool ref_only = params.ref() == 'o';
     bool ref = params.ref() == 'y' || params.ref() == 'o';
     bool run_test = params.ref() != 'o';
@@ -170,8 +173,10 @@ void test_hegv_work(Params& params, bool run)
     }
 
     const std::map<slate::Option, slate::Value> opts =  {
-        {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target},
+        {slate::Option::Lookahead,       lookahead},
+        {slate::Option::Target,          target},
+        {slate::Option::MaxPanelThreads, panel_threads},
+        {slate::Option::InnerBlocking,   ib}
     };
 
     // SLATE test

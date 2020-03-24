@@ -876,9 +876,10 @@ void he2hb(
 // unmtr_he2hb()
 template <typename scalar_t>
 void unmtr_he2hb(
-    Side side, Op op, HermitianMatrix< scalar_t >& A,
-    TriangularFactors< scalar_t > T,
-    Matrix< scalar_t >& B,
+    Side side, Op op,
+    HermitianMatrix<scalar_t>& A,
+    TriangularFactors<scalar_t> T,
+    Matrix<scalar_t>& C,
     Options const& opts = Options());
 
 //-----------------------------------------

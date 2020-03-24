@@ -183,9 +183,9 @@ void test_hegv_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        // todo: replace the scalapack below with the real call here
-        // slate::hegv( A, B, W_vec, Z, opts );
+        slate::hegv(itype, jobz, A, B, W_vec, Z, opts);
 
+#if 0
         ////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////
         // todo: remove this when SLATE routine is done
@@ -253,7 +253,7 @@ void test_hegv_work(Params& params, bool run)
         }
         ////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////
-
+#endif
         { slate::trace::Block trace_block("MPI_Barrier");  MPI_Barrier(mpi_comm); }
         double time_tst = testsweeper::get_wtime() - time;
         if (trace) slate::trace::Trace::finish();

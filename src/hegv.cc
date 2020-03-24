@@ -48,17 +48,14 @@ namespace slate {
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void hegv( int itype,
-           lapack::Job jobz,
-           HermitianMatrix<scalar_t> A,
-           HermitianMatrix<scalar_t> B,           
-           std::vector< blas::real_type<scalar_t> >& W,
-           Matrix<scalar_t>& V,
-           const std::map<Option, Value>& opts)
+void hegv(int64_t itype,
+          lapack::Job jobz,
+          HermitianMatrix<scalar_t>& A,
+          HermitianMatrix<scalar_t>& B,
+          std::vector<blas::real_type<scalar_t>>& W,
+          Matrix<scalar_t>& V,
+          const std::map<Option, Value>& opts)
 {
-    using real_t = blas::real_type<scalar_t>;
-
-    // if upper, change to lower
     if (A.uplo() == Uplo::Upper) {
         A = conj_transpose(A);
     }
@@ -66,34 +63,24 @@ void hegv( int itype,
         B = conj_transpose(B);
     }
 
-    scalar_t one = 1.; 
+    scalar_t one = 1.0;
 
-    // 1. Form a Cholesky factorization of B. 
+    // 1. Form a Cholesky factorization of B.
     potrf(B, opts);
 
     // 2. Transform problem to standard eigenvalue problem.
-    // hegst( itype, A, B);
-    // A will be overwritten by Ahat based on the itype as follows:
-    // if (itype == 1) {
-        // Ahat = inv(L) * A * inv(conj_transpose(L));
-    // }
-    // else {
-        // Ahat = conj_transpose(L) * A * L;
-    // }
+    hegst(itype, A, B, opts);
 
     // 3. Solve the standard eigenvalue problem and solve.
-    // heev(Ahat, W, V, opts); 
+    heev(jobz, A, W, opts);
 
     // 4. Backtransform eigenvectors to the original problem.
-    auto L = TriangularMatrix<scalar_t>( 
-               Uplo::Lower, Diag::NonUnit, B );  
+    auto L = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::NonUnit, B);
     if (itype == 1 || itype == 2) {
-        // x = inv(L)**T*y
-        slate::trsm(Side::Left, one, L, V, opts);
+        trsm(Side::Left, one, L, V, opts);
     }
     else {
-        // x = L*y
-        slate::trmm(Side::Left, one, L, V, opts);
+        trmm(Side::Left, one, L, V, opts);
     }
 }
 
@@ -101,42 +88,42 @@ void hegv( int itype,
 // Explicit instantiations.
 template
 void hegv<float>(
-     int type,
-     lapack::Job jobz,
-     HermitianMatrix<float> A,
-     HermitianMatrix<float> B,
-     std::vector<float>& W,
-     Matrix<float>& V,
-     const std::map<Option, Value>& opts);
+    int64_t itype,
+    lapack::Job jobz,
+    HermitianMatrix<float>& A,
+    HermitianMatrix<float>& B,
+    std::vector<float>& W,
+    Matrix<float>& V,
+    const std::map<Option, Value>& opts);
 
 template
 void hegv<double>(
-     int type,
-     lapack::Job jobz,
-     HermitianMatrix<double> A,
-     HermitianMatrix<double> B,
-     std::vector<double>& W,
-     Matrix<double>& V,
-     const std::map<Option, Value>& opts);
+    int64_t itype,
+    lapack::Job jobz,
+    HermitianMatrix<double>& A,
+    HermitianMatrix<double>& B,
+    std::vector<double>& W,
+    Matrix<double>& V,
+    const std::map<Option, Value>& opts);
 
 template
-void hegv< std::complex<float> >(
-     int type,
-     lapack::Job jobz,
-     HermitianMatrix< std::complex<float> > A,
-     HermitianMatrix< std::complex<float> > B,
-     std::vector<float>& W,
-     Matrix< std::complex<float> >& V,
-     const std::map<Option, Value>& opts);
+void hegv<std::complex<float>>(
+    int64_t itype,
+    lapack::Job jobz,
+    HermitianMatrix<std::complex<float>>& A,
+    HermitianMatrix<std::complex<float>>& B,
+    std::vector<float>& W,
+    Matrix<std::complex<float>>& V,
+    const std::map<Option, Value>& opts);
 
 template
-void hegv< std::complex<double> >(
-     int type,
-     lapack::Job jobz,
-     HermitianMatrix< std::complex<double> > A,
-     HermitianMatrix< std::complex<double> > B,
-     std::vector<double>& W,
-     Matrix< std::complex<double> >& V,
-     const std::map<Option, Value>& opts);
+void hegv<std::complex<double>>(
+    int64_t itype,
+    lapack::Job jobz,
+    HermitianMatrix<std::complex<double>>& A,
+    HermitianMatrix<std::complex<double>>& B,
+    std::vector<double>& W,
+    Matrix<std::complex<double>>& V,
+    const std::map<Option, Value>& opts);
 
 } // namespace slate

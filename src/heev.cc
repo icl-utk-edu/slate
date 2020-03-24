@@ -48,9 +48,10 @@ namespace slate {
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void heev( HermitianMatrix<scalar_t>& A,
-           std::vector< blas::real_type<scalar_t> >& W,
-           const std::map<Option, Value>& opts)
+void heev(lapack::Job jobz,
+          HermitianMatrix<scalar_t>& A,
+          std::vector<blas::real_type<scalar_t>>& W,
+          const std::map<Option, Value>& opts)
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -95,26 +96,30 @@ void heev( HermitianMatrix<scalar_t>& A,
 // Explicit instantiations.
 template
 void heev<float>(
-     HermitianMatrix<float>& A,
-     std::vector<float>& W,
-     const std::map<Option, Value>& opts);
+    lapack::Job jobz,
+    HermitianMatrix<float>& A,
+    std::vector<float>& W,
+    const std::map<Option, Value>& opts);
 
 template
 void heev<double>(
-     HermitianMatrix<double>& A,
-     std::vector<double>& W,
-     const std::map<Option, Value>& opts);
+    lapack::Job jobz,
+    HermitianMatrix<double>& A,
+    std::vector<double>& W,
+    const std::map<Option, Value>& opts);
 
 template
-void heev< std::complex<float> >(
-     HermitianMatrix< std::complex<float> >& A,
-     std::vector<float>& W,
-     const std::map<Option, Value>& opts);
+void heev<std::complex<float>>(
+    lapack::Job jobz,
+    HermitianMatrix<std::complex<float>>& A,
+    std::vector<float>& W,
+    const std::map<Option, Value>& opts);
 
 template
-void heev< std::complex<double> >(
-     HermitianMatrix< std::complex<double> >& A,
-     std::vector<double>& W,
-     const std::map<Option, Value>& opts);
+void heev<std::complex<double>>(
+    lapack::Job jobz,
+    HermitianMatrix<std::complex<double>>& A,
+    std::vector<double>& W,
+    const std::map<Option, Value>& opts);
 
 } // namespace slate

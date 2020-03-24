@@ -290,6 +290,7 @@ repeat = ' --repeat ' + opts.repeat if (opts.repeat) else ''
 # general options for all routines
 gen       = origin + target + grid + check + ref + tol + repeat + nb
 gen_no_nb = origin + target + grid + check + ref + tol + repeat
+gen_no_target =               grid + check + ref + tol + repeat + nb
 
 # ------------------------------------------------------------------------------
 # filters a comma separated list csv based on items in list values.
@@ -520,11 +521,11 @@ if (opts.geev):
 if (opts.svd):
     cmds += [
     # todo: mn (wide), nb, jobu, jobvt
-    [ 'gesvd', gen_no_nb + ' --nb 50' + dtype + la + n + tall ],
+    [ 'gesvd', gen + dtype + la + n + tall ],
     [ 'ge2tb', gen + dtype + n + tall ],
     # tb2bd, bdsqr don't take origin, target
-    [ 'tb2bd', grid + check + ref + tol + repeat + dtype + n ],
-    [ 'bdsqr', grid + check + ref + tol + repeat + dtype + n + uplo ],
+    [ 'tb2bd', gen_no_target + dtype + n ],
+    [ 'bdsqr', gen_no_target + dtype + n + uplo ],
     ]
 
 # norms

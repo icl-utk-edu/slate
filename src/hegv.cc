@@ -56,15 +56,6 @@ void hegv(int64_t itype,
           Matrix<scalar_t>& V,
           const std::map<Option, Value>& opts)
 {
-    if (A.uplo() == Uplo::Upper) {
-        A = conj_transpose(A);
-    }
-    if (B.uplo() == Uplo::Upper) {
-        B = conj_transpose(B);
-    }
-
-    scalar_t one = 1.0;
-
     // 1. Form a Cholesky factorization of B.
     potrf(B, opts);
 
@@ -75,7 +66,8 @@ void hegv(int64_t itype,
     heev(jobz, A, W, opts);
 
     // 4. Backtransform eigenvectors to the original problem.
-    auto L = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::NonUnit, B);
+    auto L = TriangularMatrix<scalar_t>(Diag::NonUnit, B);
+    scalar_t one = 1.0;
     if (itype == 1 || itype == 2) {
         trsm(Side::Left, one, L, V, opts);
     }

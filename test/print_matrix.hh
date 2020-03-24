@@ -74,6 +74,7 @@ void print_matrix(
 
     width = std::max(width, precision + 3);
 
+    printf("%% LAPACK matrix\n");
     printf("%s = [\n", label);
     for (int64_t i = 0; i < m; ++i) {
         msg = "";
@@ -114,7 +115,9 @@ void print_matrix(
             int rank = prow + pcol*p;
 
             if (rank == mpi_rank) {
-                snprintf(buf, sizeof(buf), "%s%d_%d = [\n", label, prow, pcol);
+                snprintf(buf, sizeof(buf),
+                         "%% ScaLAPACK matrix\n"
+                         "%s%d_%d = [\n", label, prow, pcol);
                 msg += buf;
                 for (int64_t i = 0; i < mlocal; ++i) {
                     for (int64_t j = 0; j < nlocal; ++j) {
@@ -382,14 +385,15 @@ void print_matrix(
 }
 
 //------------------------------------------------------------------------------
-/// Print a SLATE distributed hermitian band matrix.
+/// Print a SLATE distributed BaseTriangular (triangular, symmetric, and
+/// Hermitian) band matrix.
 /// Rank 0 does the printing, and must have enough memory to fit one entire
 /// block row of the matrix.
 /// Tiles outside the bandwidth are printed as "0", with no trailing decimals.
 /// For block-sparse matrices, missing tiles are print as "nan".
 ///
-/// This version handles Hermitian band matrices. Entries in the A.uplo
-/// triangle are printed; entries in the opposite triangle are printed as "nan".
+/// Entries in the A.uplo triangle are printed; entries in the opposite
+/// triangle are printed as "nan".
 ///
 /// Having said that, if the printed matrix is a lower triangular matrix,
 /// then the routine will print the tiles of upper part of the matrix as "nan",
@@ -401,7 +405,7 @@ void print_matrix(
 template <typename scalar_t>
 void print_matrix(
     const char* label,
-    slate::HermitianBandMatrix<scalar_t>& A, int width = 10, int precision = 6)
+    slate::BaseTriangularBandMatrix<scalar_t>& A, int width = 10, int precision = 6)
 {
     using blas::real;
     using blas::imag;
@@ -412,7 +416,7 @@ void print_matrix(
 
     width = std::max(width, precision + 3);
 
-    std::string msg = "% slate::HermitianBandMatrix\n";
+    std::string msg = "% slate::BaseTriangularBandMatrix\n";
     msg += label;
     msg += " = [\n";
 

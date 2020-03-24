@@ -41,7 +41,10 @@ void test_hegv_work(Params& params, bool run)
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
-    // slate_assert(p == q);  // todo: does hegv require a square process grid.
+    // todo:  relax these assumptions
+    //        required by he2hb
+    slate_assert(p == q); // Requires a square processing grid.
+    slate_assert(uplo == slate::Uplo::Lower);  // only lower for now.
 
     params.time();
     params.ref_time();

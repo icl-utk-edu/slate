@@ -891,6 +891,15 @@ void hb2st(
     Options const& opts = Options());
 
 //-----------------------------------------
+// unmtr_hb2st()
+template <typename scalar_t>
+void unmtr_hb2st(
+    Side side, Op op,
+    Matrix<scalar_t>& V,
+    Matrix<scalar_t>& C,
+    Options const& opts = Options());
+
+//-----------------------------------------
 // sterf()
 template <typename scalar_t>
 void sterf(

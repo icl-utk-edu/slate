@@ -507,7 +507,6 @@ libslate_src += \
         src/getrs_nopiv.cc \
         src/hb2st.cc \
         src/he2hb.cc \
-        src/unmtr_he2hb.cc \
         src/heev.cc \
         src/hemm.cc \
         src/hbmm.cc \
@@ -541,6 +540,8 @@ libslate_src += \
         src/trtrm.cc \
         src/unmqr.cc \
         src/unmlq.cc \
+        src/unmtr_hb2st.cc \
+        src/unmtr_he2hb.cc \
         src/hegst.cc \
         src/scale.cc \
         src/add.cc \
@@ -590,7 +591,6 @@ tester_src += \
         test/test_gesvd.cc \
         test/test_getri.cc \
         test/test_he2hb.cc \
-        test/test_unmtr_he2hb.cc \
         test/test_heev.cc \
         test/test_hegv.cc \
         test/test_hemm.cc \
@@ -616,6 +616,8 @@ tester_src += \
         test/test_trnorm.cc \
         test/test_trsm.cc \
         test/test_trtri.cc \
+        test/test_unmtr_hb2st.cc \
+        test/test_unmtr_he2hb.cc \
         test/test_hegst.cc \
         test/matrix_generator.cc \
         test/matrix_params.cc \

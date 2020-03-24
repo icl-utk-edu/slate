@@ -594,6 +594,7 @@ tester_src += \
         test/test_heev.cc \
         test/test_hegv.cc \
         test/test_hemm.cc \
+        test/test_hb2st.cc \
         test/test_hbmm.cc \
         test/test_hbnorm.cc \
         test/test_henorm.cc \

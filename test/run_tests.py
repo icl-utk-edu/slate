@@ -485,7 +485,7 @@ if (opts.syev):
 if (opts.sygv):
     cmds += [
     # [ 'hegv',  gen + dtype + la + n + jobz + itype + uplo ], // todo
-    [ 'hegv',  gen + dtype + la + n + jobz + itype ],
+    [ 'hegv',  gen + dtype + la + n + itype ],
     [ 'hegst', gen + dtype + la + n + itype + uplo ],
     ]
 

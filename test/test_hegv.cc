@@ -44,8 +44,8 @@ void test_hegv_work(Params& params, bool run)
     // todo:  relax these assumptions
     //        required by he2hb
     slate_assert(p == q); // Requires a square processing grid.
-    slate_assert(uplo == slate::Uplo::Lower);  // only lower for now.
-    // todo: Support vector
+    slate_assert(uplo == slate::Uplo::Lower);  // only lower for now (he2hb).
+    // todo: vector
     slate_assert(jobz == lapack::Job::NoVec);  // only NoVec for now.
 
     params.time();
@@ -191,75 +191,6 @@ void test_hegv_work(Params& params, bool run)
         //==================================================
         slate::hegv(itype, jobz, A, B, W_vec, Z, opts);
 
-#if 0
-        ////////////////////////////////////////////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////
-        // todo: remove this when SLATE routine is done
-        if (run_test) {
-            // Run reference routine from ScaLAPACK
-            // set num threads appropriately for parallel BLAS if possible
-            int omp_num_threads = 1;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-            const char* range = "A";
-            int64_t ia=1, ja=1, ib=1, jb=1, iz=1, jz=1;
-            int64_t vl=0, vu=0, il=0, iu=0;
-            real_t abstol=0;
-            int64_t m=0, nz=0;
-            real_t orfac=0;
-            // query for workspace size
-            int64_t info_tst = 0;
-            int64_t lwork = -1, lrwork = -1, liwork=-1;
-            std::vector<scalar_t> work(1);
-            std::vector<real_t> rwork(1);
-            std::vector<int> iwork(1);
-            std::vector<int> ifail(n);
-            std::vector<int> iclustr(2*p*q);
-            std::vector<real_t> gap(p*q);
-            scalapack_phegvx(itype, job2str(jobz), range, uplo2str(uplo), n,
-                             &A_tst_vec[0], ia, ja, descA_tst,
-                             &B_tst_vec[0], ib, jb, descB_tst,
-                             vl, vu, il, iu, abstol, &m, &nz, &W_vec[0], orfac,
-                             &Z_tst_vec[0], iz, jz, descZ_tst,
-                             &work[0], lwork, &rwork[0], lrwork, &iwork[0], liwork,
-                             &ifail[0], &iclustr[0], &gap[0], &info_tst);
-            // resize workspace based on query for workspace sizes
-            slate_assert(info_tst == 0);
-            lwork = int64_t(real(work[0]));
-            work.resize(lwork);
-            // The lrwork, rwork parameters are only valid for complex
-            if (slate::is_complex<scalar_t>::value) {
-                lrwork = int64_t(real(rwork[0]));
-                rwork.resize(lrwork);
-            }
-            liwork = int64_t(iwork[0]);
-            iwork.resize(liwork);
-            // Run ScaLAPACK reference routine.
-            MPI_Barrier(mpi_comm);
-            scalapack_phegvx(itype, job2str(jobz), range, uplo2str(uplo), n,
-                             &A_tst_vec[0], ia, ja, descA_tst,
-                             &B_tst_vec[0], ib, jb, descB_tst,
-                             vl, vu, il, iu, abstol, &m, &nz, &W_tst_vec[0], orfac,
-                             &Z_tst_vec[0], iz, jz, descZ_tst,
-                             &work[0], lwork, &rwork[0], lrwork, &iwork[0], liwork,
-                             &ifail[0], &iclustr[0], &gap[0], &info_tst);
-
-            slate_assert(info_tst == 0);
-            MPI_Barrier(mpi_comm);
-            // Reset omp thread number
-            slate_set_num_blas_threads(saved_num_threads);
-            // copy results from ScaLAPACK to the locations expected for SLATE
-            if (origin != slate::Origin::ScaLAPACK) {
-                copy(&A_tst_vec[0], descA_tst, A);
-                copy(&B_tst_vec[0], descB_tst, B);
-                copy(&Z_tst_vec[0], descZ_tst, Z);
-            }
-            W_vec = W_tst_vec;
-        }
-        ////////////////////////////////////////////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////
-#endif
         { slate::trace::Block trace_block("MPI_Barrier");  MPI_Barrier(mpi_comm); }
         double time_tst = testsweeper::get_wtime() - time;
         if (trace) slate::trace::Trace::finish();
@@ -453,7 +384,6 @@ void test_hegv_work(Params& params, bool run)
     }
 
     Cblacs_gridexit(ictxt);
-    //Cblacs_exit(1) does not handle re-entering
 }
 
 // -----------------------------------------------------------------------------

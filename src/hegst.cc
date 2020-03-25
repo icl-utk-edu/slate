@@ -297,7 +297,7 @@ void hegst(int64_t itype, HermitianMatrix<scalar_t>& A,
 /// @param[in] itype
 ///     - itype = 1: Compute $A   x = \lambda B x$;
 ///     - itype = 2: Compute $A B x = \lambda   x$;
-///     - itype = 3: Compute $A B x = \lambda   x$.
+///     - itype = 3: Compute $B A x = \lambda   x$.
 ///
 /// @param[in,out] A
 ///     On entry, the n-by-n Hermitian matrix $A$.

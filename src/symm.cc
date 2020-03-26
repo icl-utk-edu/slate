@@ -78,7 +78,6 @@ void symm(slate::internal::TargetType<target>,
     // The same happens in the hemm routine.
     // See also the implementation remarks in the BaseMatrix::listBcast routine.
 
-    using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // Assumes column major

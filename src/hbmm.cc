@@ -77,9 +77,11 @@ void hbmm(slate::internal::TargetType<target>,
     // The same happens in the symm routine.
     // See also the implementation remarks in the BaseMatrix::listBcast routine.
 
-    using namespace blas;
+    using blas::conj;
+    using blas::max;
+    using blas::min;
     using BcastList = typename Matrix<scalar_t>::BcastList;
-    const scalar_t one = scalar_t(1.0);
+    const scalar_t one = 1.0;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;

@@ -69,7 +69,6 @@ void syr2k(slate::internal::TargetType<target>,
            scalar_t beta,  SymmetricMatrix<scalar_t> C,
            int64_t lookahead)
 {
-    using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // Assumes column major

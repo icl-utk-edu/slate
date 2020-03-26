@@ -71,7 +71,6 @@ void gemm(slate::internal::TargetType<target>,
           scalar_t beta,  Matrix<scalar_t>& C,
           int64_t lookahead)
 {
-    using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // Assumes column major
@@ -215,7 +214,6 @@ void gemm(slate::internal::TargetType<Target::Devices>,
           scalar_t beta,  Matrix<scalar_t>& C,
           int64_t lookahead)
 {
-    using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // Assumes column major

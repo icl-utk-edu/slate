@@ -65,7 +65,6 @@ void herk(slate::internal::TargetType<target>,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t> C,
           int64_t lookahead)
 {
-    using namespace blas;
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 

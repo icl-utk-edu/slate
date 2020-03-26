@@ -197,9 +197,9 @@ void getrf(
 {
     trace::Block trace_block("lapack::getrf");
 
-    using namespace blas;
-    using namespace lapack;
-    using real_t = real_type<scalar_t>;
+    using real_t = blas::real_type<scalar_t>;
+
+    const scalar_t one = 1.0;
 
     const bool root = mpi_rank == mpi_root;
     const int64_t nb = tiles.at(0).nb();
@@ -350,15 +350,13 @@ void getrf(
                     // todo: make it a tile operation
                     if (i_index == 0) {
                         // diagonal tile
-                        scalar_t one = 1.0;
                         scalar_t alpha = one / tile(j, j);
-                        scal(tile.mb()-j-1, alpha, &tile.at(j+1, j), 1);
+                        blas::scal(tile.mb()-j-1, alpha, &tile.at(j+1, j), 1);
                     }
                     else {
                         // off diagonal tile
-                        scalar_t one = 1.0;
                         scalar_t alpha = one / pivot[j].value();
-                        scal(tile.mb(), alpha, &tile.at(0, j), 1);
+                        blas::scal(tile.mb(), alpha, &tile.at(0, j), 1);
                     }
                 }
 
@@ -366,18 +364,18 @@ void getrf(
                 // todo: make it a tile operation
                 if (k+kb > j+1) {
                     if (i_index == 0) {
-                        geru(Layout::ColMajor,
-                             tile.mb()-j-1, k+kb-j-1,
-                             -1.0, &tile.at(j+1, j), 1,
-                                   top_block.data(), 1,
-                                   &tile.at(j+1, j+1), tile.stride());
+                        blas::geru(Layout::ColMajor,
+                                   tile.mb()-j-1, k+kb-j-1,
+                                   -one, &tile.at(j+1, j), 1,
+                                         top_block.data(), 1,
+                                         &tile.at(j+1, j+1), tile.stride());
                     }
                     else {
-                        geru(Layout::ColMajor,
-                             tile.mb(), k+kb-j-1,
-                             -1.0, &tile.at(0, j), 1,
-                                   top_block.data(), 1,
-                                   &tile.at(0, j+1), tile.stride());
+                        blas::geru(Layout::ColMajor,
+                                   tile.mb(), k+kb-j-1,
+                                   -one, &tile.at(0, j), 1,
+                                         top_block.data(), 1,
+                                         &tile.at(0, j+1), tile.stride());
                     }
                 }
             }
@@ -386,7 +384,6 @@ void getrf(
 
         // If there is a trailing submatrix.
         if (k+kb < nb) {
-
             //======================
             // pivoting to the right
             if (thread_rank == 0) {
@@ -401,14 +398,13 @@ void getrf(
             //=================
             // triangular solve
             if (root && thread_rank == 0) {
-
-                auto top_tile = tiles.at(0);
-                trsm(Layout::ColMajor,
-                     Side::Left, Uplo::Lower,
-                     Op::NoTrans, Diag::Unit,
-                     kb, nb-k-kb,
-                     1.0, &top_tile.at(k, k), top_tile.stride(),
-                          &top_tile.at(k, k+kb), top_tile.stride());
+                auto top_tile = tiles[0];
+                blas::trsm(Layout::ColMajor,
+                           Side::Left, Uplo::Lower,
+                           Op::NoTrans, Diag::Unit,
+                           kb, nb-k-kb,
+                           one, &top_tile.at(k, k), top_tile.stride(),
+                                &top_tile.at(k, k+kb), top_tile.stride());
             }
             thread_barrier.wait(thread_size);
 
@@ -416,10 +412,10 @@ void getrf(
             if (thread_rank == 0) {
                 if (root) {
                     auto top_tile = tiles.at(0);
-                    lacpy(MatrixType::General,
-                          kb, nb-k-kb,
-                          &top_tile.at(k, k+kb), top_tile.stride(),
-                          top_block.data(), kb);
+                    lapack::lacpy(lapack::MatrixType::General,
+                                  kb, nb-k-kb,
+                                  &top_tile.at(k, k+kb), top_tile.stride(),
+                                  top_block.data(), kb);
                 }
                 #pragma omp critical(slate_mpi)
                 {
@@ -442,21 +438,21 @@ void getrf(
 
                 if (i_index == 0) {
                     if (k+kb < tile.mb()) {
-                        gemm(Layout::ColMajor,
-                             Op::NoTrans, Op::NoTrans,
-                             tile.mb()-k-kb, nb-k-kb, kb,
-                             -1.0, &tile.at(k+kb,k   ), tile.stride(),
-                                   &tile.at(k,   k+kb), tile.stride(),
-                              1.0, &tile.at(k+kb,k+kb), tile.stride());
+                        blas::gemm(blas::Layout::ColMajor,
+                                   Op::NoTrans, Op::NoTrans,
+                                   tile.mb()-k-kb, nb-k-kb, kb,
+                                   -one, &tile.at(k+kb,k   ), tile.stride(),
+                                         &tile.at(k,   k+kb), tile.stride(),
+                                   one,  &tile.at(k+kb,k+kb), tile.stride());
                     }
                 }
                 else {
-                    gemm(Layout::ColMajor,
-                         Op::NoTrans, Op::NoTrans,
-                         tile.mb(), nb-k-kb, kb,
-                         -1.0, &tile.at(0, k), tile.stride(),
-                               top_block.data(), kb,
-                          1.0, &tile.at(0, k+kb), tile.stride());
+                    blas::gemm(blas::Layout::ColMajor,
+                               Op::NoTrans, Op::NoTrans,
+                               tile.mb(), nb-k-kb, kb,
+                               -one, &tile.at(0, k), tile.stride(),
+                                     top_block.data(), kb,
+                               one,  &tile.at(0, k+kb), tile.stride());
                 }
             }
             thread_barrier.wait(thread_size);

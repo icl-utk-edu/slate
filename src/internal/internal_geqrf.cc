@@ -68,8 +68,7 @@ void geqrf(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A, Matrix<scalar_t>& T,
            int64_t ib, int max_panel_threads, int priority)
 {
-    using namespace blas;
-    using real_t = real_type<scalar_t>;
+    using real_t = blas::real_type<scalar_t>;
 
     assert(A.nt() == 1);
 

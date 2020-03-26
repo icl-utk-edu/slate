@@ -62,8 +62,6 @@ void geadd(slate::internal::TargetType<target>,
            scalar_t beta,  Matrix<scalar_t>& B,
            int64_t lookahead)
 {
-    using namespace blas;
-
     if (target == Target::Devices) {
         B.allocateBatchArrays();
         B.reserveDeviceWorkspace();

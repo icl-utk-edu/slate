@@ -65,7 +65,7 @@ void trsm(slate::internal::TargetType<target>,
                                     Matrix<scalar_t> B,
           int64_t lookahead)
 {
-    using namespace blas;
+    using blas::conj;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // Assumes column major

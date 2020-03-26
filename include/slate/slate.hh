@@ -831,20 +831,23 @@ void bdsqr(lapack::Job jobu, lapack::Job jobvt,
 
 //-----------------------------------------
 template <typename scalar_t>
-void heev( HermitianMatrix<scalar_t>& A,
-           std::vector< blas::real_type<scalar_t> >& W,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
+void heev(lapack::Job jobz,
+          HermitianMatrix<scalar_t>& A,
+          std::vector<blas::real_type<scalar_t>>& W,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //------------------------------------------------------------------------------
 // Generalized symmetric/Hermitian eigenvalue decomposition
+
+//-----------------------------------------
 template <typename scalar_t>
-void hegv( int itype,
-           lapack::Job jobz,
-           HermitianMatrix<scalar_t> A,
-           HermitianMatrix<scalar_t> B,           
-           std::vector< blas::real_type<scalar_t> >& W,
-           Matrix<scalar_t>& V,           
-           const std::map<Option, Value>& opts);
+void hegv(int64_t itype,
+          lapack::Job jobz,
+          HermitianMatrix<scalar_t>& A,
+          HermitianMatrix<scalar_t>& B,
+          std::vector<blas::real_type<scalar_t>>& W,
+          Matrix<scalar_t>& V,
+          const std::map<Option, Value>& opts);
 
 //-----------------------------------------
 // forward real-symmetric matrices to heev;

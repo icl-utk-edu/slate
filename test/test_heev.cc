@@ -153,7 +153,7 @@ void test_heev_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::heev(A, W_tst, {
+        slate::heev(jobz, A, W_tst, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target},
                 {slate::Option::MaxPanelThreads, panel_threads},

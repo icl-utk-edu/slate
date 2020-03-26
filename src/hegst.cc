@@ -297,15 +297,15 @@ void hegst(int64_t itype, HermitianMatrix<scalar_t>& A,
 /// @param[in] itype
 ///     - itype = 1: Compute $A   x = \lambda B x$;
 ///     - itype = 2: Compute $A B x = \lambda   x$;
-///     - itype = 3: Compute $A B x = \lambda   x$.
+///     - itype = 3: Compute $B A x = \lambda   x$.
 ///
 /// @param[in,out] A
 ///     On entry, the n-by-n Hermitian matrix $A$.
 ///     On exit, the upper or lower triangle is overwritten by the upper or
 ///     lower triangle of C, as follows:
 ///     - itype = 1:
-///       - A.uplo() = Uplo::Lower: $C = L^(-1) A L^(-H)$;
-///       - A.uplo() = Uplo::Upper: $C = U^(-H) A U^(-1)$.
+///       - A.uplo() = Uplo::Lower: $C = L^{-1} A L^{-H}$;
+///       - A.uplo() = Uplo::Upper: $C = U^{-H} A U^{-1}$.
 ///     - itype = 2 or 3:
 ///       - A.uplo() = Uplo::Lower: $C = L^H A L$;
 ///       - A.uplo() = Uplo::Upper: $C = U A U^H$.

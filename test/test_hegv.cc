@@ -23,25 +23,30 @@ void test_hegv_work(Params& params, bool run)
     using llong = long long;
 
     // get & mark input values
-    lapack::Job jobz = params.jobz();
+    slate::Job jobz = params.jobz();
     slate::Uplo uplo = params.uplo();
     int64_t itype = params.itype();
     int64_t n = params.dim.n();
     int64_t p = params.p();
     int64_t q = params.q();
     int64_t nb = params.nb();
+    int64_t ib = params.ib();
+    int64_t panel_threads = params.panel_threads();
     int64_t lookahead = params.lookahead();
     bool ref_only = params.ref() == 'o';
-    bool ref = params.ref() == 'y' || params.ref() == 'o';
-    bool run_test = params.ref() != 'o';
+    bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     blas_int verbose = params.verbose();
-    slate::Norm norm = params.norm();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
-    // slate_assert(p == q);  // todo: does hegv require a square process grid.
+    // todo:  relax these assumptions
+    //        required by he2hb
+    slate_assert(p == q); // Requires a square processing grid.
+    slate_assert(uplo == slate::Uplo::Lower);  // only lower for now (he2hb).
+    // todo: vector
+    slate_assert(jobz == lapack::Job::NoVec);  // only NoVec for now.
 
     params.time();
     params.ref_time();
@@ -167,12 +172,13 @@ void test_hegv_work(Params& params, bool run)
     }
 
     const std::map<slate::Option, slate::Value> opts =  {
-        {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target},
+        {slate::Option::Lookahead,       lookahead},
+        {slate::Option::Target,          target},
+        {slate::Option::MaxPanelThreads, panel_threads},
+        {slate::Option::InnerBlocking,   ib}
     };
 
-    // SLATE test
-    if (run_test) {
+    if (! ref_only) {
 
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
@@ -183,76 +189,7 @@ void test_hegv_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        // todo: replace the scalapack below with the real call here
-        // slate::hegv( A, B, W_vec, Z, opts );
-
-        ////////////////////////////////////////////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////
-        // todo: remove this when SLATE routine is done
-        if (run_test) {
-            // Run reference routine from ScaLAPACK
-            // set num threads appropriately for parallel BLAS if possible
-            int omp_num_threads = 1;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-            const char* range = "A";
-            int64_t ia=1, ja=1, ib=1, jb=1, iz=1, jz=1;
-            int64_t vl=0, vu=0, il=0, iu=0;
-            real_t abstol=0;
-            int64_t m=0, nz=0;
-            real_t orfac=0;
-            // query for workspace size
-            int64_t info_tst = 0;
-            int64_t lwork = -1, lrwork = -1, liwork=-1;
-            std::vector<scalar_t> work(1);
-            std::vector<real_t> rwork(1);
-            std::vector<int> iwork(1);
-            std::vector<int> ifail(n);
-            std::vector<int> iclustr(2*p*q);
-            std::vector<real_t> gap(p*q);
-            scalapack_phegvx(itype, job2str(jobz), range, uplo2str(uplo), n,
-                             &A_tst_vec[0], ia, ja, descA_tst,
-                             &B_tst_vec[0], ib, jb, descB_tst,
-                             vl, vu, il, iu, abstol, &m, &nz, &W_vec[0], orfac,
-                             &Z_tst_vec[0], iz, jz, descZ_tst,
-                             &work[0], lwork, &rwork[0], lrwork, &iwork[0], liwork,
-                             &ifail[0], &iclustr[0], &gap[0], &info_tst);
-            // resize workspace based on query for workspace sizes
-            slate_assert(info_tst == 0);
-            lwork = int64_t(real(work[0]));
-            work.resize(lwork);
-            // The lrwork, rwork parameters are only valid for complex
-            if (slate::is_complex<scalar_t>::value) {
-                lrwork = int64_t(real(rwork[0]));
-                rwork.resize(lrwork);
-            }
-            liwork = int64_t(iwork[0]);
-            iwork.resize(liwork);
-            // Run ScaLAPACK reference routine.
-            MPI_Barrier(mpi_comm);
-            scalapack_phegvx(itype, job2str(jobz), range, uplo2str(uplo), n,
-                             &A_tst_vec[0], ia, ja, descA_tst,
-                             &B_tst_vec[0], ib, jb, descB_tst,
-                             vl, vu, il, iu, abstol, &m, &nz, &W_tst_vec[0], orfac,
-                             &Z_tst_vec[0], iz, jz, descZ_tst,
-                             &work[0], lwork, &rwork[0], lrwork, &iwork[0], liwork,
-                             &ifail[0], &iclustr[0], &gap[0], &info_tst);
-
-            slate_assert(info_tst == 0);
-            MPI_Barrier(mpi_comm);
-            // Reset omp thread number
-            slate_set_num_blas_threads(saved_num_threads);
-            // copy results from ScaLAPACK to the locations expected for SLATE
-            if (origin != slate::Origin::ScaLAPACK) {
-                copy(&A_tst_vec[0], descA_tst, A);
-                copy(&B_tst_vec[0], descB_tst, B);
-                copy(&Z_tst_vec[0], descZ_tst, Z);
-            }
-            W_vec = W_tst_vec;
-        }
-        ////////////////////////////////////////////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////
+        slate::hegv(itype, jobz, A, B, W_vec, Z, opts);
 
         { slate::trace::Block trace_block("MPI_Barrier");  MPI_Barrier(mpi_comm); }
         double time_tst = testsweeper::get_wtime() - time;
@@ -268,112 +205,105 @@ void test_hegv_work(Params& params, bool run)
         print_matrix("Z", Z);
     }
 
-    if (check) {
+    if (check && jobz == slate::Job::Vec) {
         // do error checks for the operations
         // from ScaLAPACK testing (pzgsepchk.f)
         // where A is a symmetric matrix,
         // B is symmetric positive definite,
-        // Q is orthogonal containing eigenvectors
+        // Z is orthogonal containing eigenvectors
         // and D is diagonal containing eigenvalues
         // One of the following test ratios is computed:
-        // IBTYPE = 1:  TSTNRM = | A Q - B Q D | / ( |A| |Q| n ulp )
-        // IBTYPE = 2:  TSTNRM = | A B Q - Q D | / ( |A| |Q| n ulp )
-        // IBTYPE = 3:  TSTNRM = | B A Q - Q D | / ( |A| |Q| n ulp )
+        // itype = 1: R_norm = | A Z - B Z D | / ( |A| |Z| n ulp )
+        // itype = 2: R_norm = | A B Z - Z D | / ( |A| |Z| n ulp )
+        // itype = 3: R_norm = | B A Z - Z D | / ( |A| |Z| n ulp )
 
-        if (params.jobz() == lapack::Job::Vec) {
+        // create C as a empty allocated matrix
+        slate::Matrix<scalar_t> C = Z.emptyLike();
+        C.insertLocalTiles();
 
-            // alias for referring to Z
-            slate::Matrix<scalar_t> Q = Z;
+        // calculate some norms
+        real_t A_norm = slate::norm(slate::Norm::One, A_orig);
+        real_t Z_norm = slate::norm(slate::Norm::One, Z);
+        real_t R_norm = 0;
+        scalar_t zero = 0.0, one = 1.0;
 
-            // create C as a empty allocated matrix
-            slate::Matrix<scalar_t> C = Q.emptyLike();
-            C.insertLocalTiles();
-
-            // calculate some norms
-            real_t norm_A = slate::norm(slate::Norm::One, A_orig);
-            real_t norm_Q = slate::norm(slate::Norm::One, Q);
-            real_t tstnrm=0;
-            scalar_t zero = 0.0, one = 1.0, minusone = -1;
-
-            if (itype == 1) {
-                // C = AQ + 0*C = AQ
-                slate::hemm(slate::Side::Left, one, A_orig, Q, zero, C, opts);
-                // Q = QD
-                // todo: Does the Q matrix need to be forced back to the CPU if it is not there?
-                int64_t joff = 0;
-                for (int64_t j = 0; j < Q.nt(); ++j) {
-                    int64_t ioff = 0;
-                    for (int64_t i = 0; i < Q.mt(); ++i) {
-                        if (Q.tileIsLocal(i, j)) {
-                            auto T = Q.at(i, j);
-                            for (int jj = 0; jj < T.nb(); ++jj)
-                                for (int ii = 0; ii < T.mb(); ++ii)
-                                    T.at(ii, jj) *= W_vec[ jj + joff ];
-                        }
-                        ioff += Q.tileMb(i);
+        if (itype == 1) {
+            // C = AZ + 0*C = AZ
+            slate::hemm(slate::Side::Left, one, A_orig, Z, zero, C, opts);
+            // Z = ZD
+            // todo: Does the Z matrix need to be forced back to the CPU if it is not there?
+            int64_t joff = 0;
+            for (int64_t j = 0; j < Z.nt(); ++j) {
+                int64_t ioff = 0;
+                for (int64_t i = 0; i < Z.mt(); ++i) {
+                    if (Z.tileIsLocal(i, j)) {
+                        auto T = Z.at(i, j);
+                        for (int jj = 0; jj < T.nb(); ++jj)
+                            for (int ii = 0; ii < T.mb(); ++ii)
+                                T.at(ii, jj) *= W_vec[ jj + joff ];
                     }
-                    joff += Q.tileNb(j);
+                    ioff += Z.tileMb(i);
                 }
-                // C = C - BQ  (i.e. AQ - BQD)
-                slate::hemm(slate::Side::Left, one, B_orig, Q, minusone, C, opts);
-                // tstnrm = | A Q - B Q D | / ( |A| |Q| n )
-                tstnrm = slate::norm(slate::Norm::One, C) / norm_A / norm_Q / n;
+                joff += Z.tileNb(j);
             }
-            else if (itype == 2) {
-                // C = BQ + 0*C = AQ
-                slate::hemm(slate::Side::Left, one, B_orig, Q, zero, C, opts);
-                // Q = QD
-                int64_t joff = 0;
-                for (int64_t j = 0; j < Q.nt(); ++j) {
-                    int64_t ioff = 0;
-                    for (int64_t i = 0; i < Q.mt(); ++i) {
-                        if (Q.tileIsLocal(i, j)) {
-                            auto T = Q.at(i, j);
-                            for (int jj = 0; jj < T.nb(); ++jj)
-                                for (int ii = 0; ii < T.mb(); ++ii)
-                                    T.at(ii, jj) *= W_vec[ jj + joff ];
-                        }
-                        ioff += Q.tileMb(i);
-                    }
-                    joff += Q.tileNb(j);
-                }
-                // Q = AC - Q
-                slate::hemm(slate::Side::Left, one, A_orig, C, minusone, Q, opts);
-                // tstnrm = | A B Q - Q D | / ( |A| |Q| n )
-                tstnrm = slate::norm(slate::Norm::One, Q) / norm_A / norm_Q / n;
-            }
-            else if (itype == 3) {
-                // C = AQ + 0*C = AQ
-                slate::hemm(slate::Side::Left, one, A_orig, Q, zero, C, opts);
-                // Q = QD
-                int64_t joff = 0;
-                for (int64_t j = 0; j < Q.nt(); ++j) {
-                    int64_t ioff = 0;
-                    for (int64_t i = 0; i < Q.mt(); ++i) {
-                        if (Q.tileIsLocal(i, j)) {
-                            auto T = Q.at(i, j);
-                            for (int jj = 0; jj < T.nb(); ++jj)
-                                for (int ii = 0; ii < T.mb(); ++ii)
-                                    T.at(ii, jj) *= W_vec[ jj + joff ];
-                        }
-                        ioff += Q.tileMb(i);
-                    }
-                    joff += Q.tileNb(j);
-                }
-                // Q = BC - Q   = ( BAQ - QD )
-                slate::hemm(slate::Side::Left, one, B_orig, C, minusone, Q, opts);
-                // tstnrm = | B A Q - Q D | / ( |A| |Q| n )
-                tstnrm = slate::norm(slate::Norm::One, Q) / norm_A / norm_Q / n;
-
-            }
-            params.error() = tstnrm;
-            real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon();
-            params.okay() = (params.error() <= tol);
+            // C = C - BZ  (i.e. AZ - BZD)
+            slate::hemm(slate::Side::Left, one, B_orig, Z, -one, C, opts);
+            // R_norm = | A Z - B Z D | / ( |A| |Z| n )
+            R_norm = slate::norm(slate::Norm::One, C) / A_norm / Z_norm / n;
         }
+        else if (itype == 2) {
+            // C = Bz + 0*C = AZ
+            slate::hemm(slate::Side::Left, one, B_orig, Z, zero, C, opts);
+            // Z = ZD
+            int64_t joff = 0;
+            for (int64_t j = 0; j < Z.nt(); ++j) {
+                int64_t ioff = 0;
+                for (int64_t i = 0; i < Z.mt(); ++i) {
+                    if (Z.tileIsLocal(i, j)) {
+                        auto T = Z.at(i, j);
+                        for (int jj = 0; jj < T.nb(); ++jj)
+                            for (int ii = 0; ii < T.mb(); ++ii)
+                                T.at(ii, jj) *= W_vec[ jj + joff ];
+                    }
+                    ioff += Z.tileMb(i);
+                }
+                joff += Z.tileNb(j);
+            }
+            // Z = AC - Z
+            slate::hemm(slate::Side::Left, one, A_orig, C, -one, Z, opts);
+            // R_norm = | A B Z - Z D | / ( |A| |Z| n )
+            R_norm = slate::norm(slate::Norm::One, Z) / A_norm / Z_norm / n;
+        }
+        else if (itype == 3) {
+            // C = AZ + 0*C = AZ
+            slate::hemm(slate::Side::Left, one, A_orig, Z, zero, C, opts);
+            // Z = ZD
+            int64_t joff = 0;
+            for (int64_t j = 0; j < Z.nt(); ++j) {
+                int64_t ioff = 0;
+                for (int64_t i = 0; i < Z.mt(); ++i) {
+                    if (Z.tileIsLocal(i, j)) {
+                        auto T = Z.at(i, j);
+                        for (int jj = 0; jj < T.nb(); ++jj)
+                            for (int ii = 0; ii < T.mb(); ++ii)
+                                T.at(ii, jj) *= W_vec[ jj + joff ];
+                    }
+                    ioff += Z.tileMb(i);
+                }
+                joff += Z.tileNb(j);
+            }
+            // Z = BC - Z   = ( BAZ - ZD )
+            slate::hemm(slate::Side::Left, one, B_orig, C, -one, Z, opts);
+            // R_norm = | B A Z - Z D | / ( |A| |Z| n )
+            R_norm = slate::norm(slate::Norm::One, Z) / A_norm / Z_norm / n;
+
+        }
+        params.error() = R_norm;
+        real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon();
+        params.okay() = (params.error() <= tol);
     }
 
-
-    if (ref || check ) {
+    if (ref || check) {
         // Run reference routine from ScaLAPACK
 
         // set num threads appropriately for parallel BLAS if possible
@@ -443,14 +373,13 @@ void test_hegv_work(Params& params, bool run)
         // Perform a local operation to get differences W_vec = W_vec - W_ref
         blas::axpy(W_vec.size(), -1.0, &W_ref_vec[0], 1, &W_vec[0], 1);
         // Relative forward error: || W_ref - W_tst || / || W_ref ||
-        params.error2() = lapack::lange(norm, W_vec.size(), 1, &W_vec[0], 1)
-            / lapack::lange(norm, W_ref_vec.size(), 1, &W_ref_vec[0], 1);
+        params.error2() = lapack::lange(slate::Norm::One, W_vec.size(), 1, &W_vec[0], 1)
+            / lapack::lange(slate::Norm::One, W_ref_vec.size(), 1, &W_ref_vec[0], 1);
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error2() <= tol);
     }
 
     Cblacs_gridexit(ictxt);
-    //Cblacs_exit(1) does not handle re-entering
 }
 
 // -----------------------------------------------------------------------------

@@ -84,7 +84,7 @@ namespace slate {
 ///     On entry, the n-by-n Hermitian positive definite matrix $A$.
 ///     On exit, if jobz = Vec, then if successful, the part of B containing the
 ///     matrix is overwritten by the triangular factor U or L from the Cholesky
-///     factorization $B = U^(H) A$ or $B = L L^(H)$.
+///     factorization $B = U^H U$ or $B = L L^H$.
 ///
 /// @param[out] W
 ///     The vector W of length n.

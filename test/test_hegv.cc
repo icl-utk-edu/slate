@@ -23,7 +23,7 @@ void test_hegv_work(Params& params, bool run)
     using llong = long long;
 
     // get & mark input values
-    lapack::Job jobz = params.jobz();
+    slate::Job jobz = params.jobz();
     slate::Uplo uplo = params.uplo();
     int64_t itype = params.itype();
     int64_t n = params.dim.n();
@@ -205,107 +205,103 @@ void test_hegv_work(Params& params, bool run)
         print_matrix("Z", Z);
     }
 
-    if (check && params.jobz() == lapack::Job::Vec) {
+    if (check && jobz == slate::Job::Vec) {
         // do error checks for the operations
         // from ScaLAPACK testing (pzgsepchk.f)
         // where A is a symmetric matrix,
         // B is symmetric positive definite,
-        // Q is orthogonal containing eigenvectors
+        // Z is orthogonal containing eigenvectors
         // and D is diagonal containing eigenvalues
         // One of the following test ratios is computed:
-        // IBTYPE = 1:  TSTNRM = | A Q - B Q D | / ( |A| |Q| n ulp )
-        // IBTYPE = 2:  TSTNRM = | A B Q - Q D | / ( |A| |Q| n ulp )
-        // IBTYPE = 3:  TSTNRM = | B A Q - Q D | / ( |A| |Q| n ulp )
-
-        // alias for referring to Z
-        slate::Matrix<scalar_t> Q = Z;
+        // IBTYPE = 1:  TSTNRM = | A Z - B Z D | / ( |A| |Z| n ulp )
+        // IBTYPE = 2:  TSTNRM = | A B Z - Z D | / ( |A| |Z| n ulp )
+        // IBTYPE = 3:  TSTNRM = | B A Z - Z D | / ( |A| |Z| n ulp )
 
         // create C as a empty allocated matrix
-        slate::Matrix<scalar_t> C = Q.emptyLike();
+        slate::Matrix<scalar_t> C = Z.emptyLike();
         C.insertLocalTiles();
 
         // calculate some norms
-        real_t norm_A = slate::norm(slate::Norm::One, A_orig);
-        real_t norm_Q = slate::norm(slate::Norm::One, Q);
-        real_t tstnrm=0;
-        scalar_t zero = 0.0, one = 1.0, minusone = -1;
+        real_t A_norm = slate::norm(slate::Norm::One, A_orig);
+        real_t Z_norm = slate::norm(slate::Norm::One, Z);
+        real_t R_norm = 0;
+        scalar_t zero = 0.0, one = 1.0;
 
         if (itype == 1) {
-            // C = AQ + 0*C = AQ
-            slate::hemm(slate::Side::Left, one, A_orig, Q, zero, C, opts);
-            // Q = QD
-            // todo: Does the Q matrix need to be forced back to the CPU if it is not there?
+            // C = AZ + 0*C = AZ
+            slate::hemm(slate::Side::Left, one, A_orig, Z, zero, C, opts);
+            // Z = ZD
+            // todo: Does the Z matrix need to be forced back to the CPU if it is not there?
             int64_t joff = 0;
-            for (int64_t j = 0; j < Q.nt(); ++j) {
+            for (int64_t j = 0; j < Z.nt(); ++j) {
                 int64_t ioff = 0;
-                for (int64_t i = 0; i < Q.mt(); ++i) {
-                    if (Q.tileIsLocal(i, j)) {
-                        auto T = Q.at(i, j);
+                for (int64_t i = 0; i < Z.mt(); ++i) {
+                    if (Z.tileIsLocal(i, j)) {
+                        auto T = Z.at(i, j);
                         for (int jj = 0; jj < T.nb(); ++jj)
                             for (int ii = 0; ii < T.mb(); ++ii)
                                 T.at(ii, jj) *= W_vec[ jj + joff ];
                     }
-                    ioff += Q.tileMb(i);
+                    ioff += Z.tileMb(i);
                 }
-                joff += Q.tileNb(j);
+                joff += Z.tileNb(j);
             }
-            // C = C - BQ  (i.e. AQ - BQD)
-            slate::hemm(slate::Side::Left, one, B_orig, Q, minusone, C, opts);
-            // tstnrm = | A Q - B Q D | / ( |A| |Q| n )
-            tstnrm = slate::norm(slate::Norm::One, C) / norm_A / norm_Q / n;
+            // C = C - BZ  (i.e. AZ - BZD)
+            slate::hemm(slate::Side::Left, one, B_orig, Z, -one, C, opts);
+            // R_norm = | A Z - B Z D | / ( |A| |Z| n )
+            R_norm = slate::norm(slate::Norm::One, C) / A_norm / Z_norm / n;
         }
         else if (itype == 2) {
-            // C = BQ + 0*C = AQ
-            slate::hemm(slate::Side::Left, one, B_orig, Q, zero, C, opts);
-            // Q = QD
+            // C = Bz + 0*C = AZ
+            slate::hemm(slate::Side::Left, one, B_orig, Z, zero, C, opts);
+            // Z = ZD
             int64_t joff = 0;
-            for (int64_t j = 0; j < Q.nt(); ++j) {
+            for (int64_t j = 0; j < Z.nt(); ++j) {
                 int64_t ioff = 0;
-                for (int64_t i = 0; i < Q.mt(); ++i) {
-                    if (Q.tileIsLocal(i, j)) {
-                        auto T = Q.at(i, j);
+                for (int64_t i = 0; i < Z.mt(); ++i) {
+                    if (Z.tileIsLocal(i, j)) {
+                        auto T = Z.at(i, j);
                         for (int jj = 0; jj < T.nb(); ++jj)
                             for (int ii = 0; ii < T.mb(); ++ii)
                                 T.at(ii, jj) *= W_vec[ jj + joff ];
                     }
-                    ioff += Q.tileMb(i);
+                    ioff += Z.tileMb(i);
                 }
-                joff += Q.tileNb(j);
+                joff += Z.tileNb(j);
             }
-            // Q = AC - Q
-            slate::hemm(slate::Side::Left, one, A_orig, C, minusone, Q, opts);
-            // tstnrm = | A B Q - Q D | / ( |A| |Q| n )
-            tstnrm = slate::norm(slate::Norm::One, Q) / norm_A / norm_Q / n;
+            // Z = AC - Z
+            slate::hemm(slate::Side::Left, one, A_orig, C, -one, Z, opts);
+            // R_norm = | A B Z - Z D | / ( |A| |Z| n )
+            R_norm = slate::norm(slate::Norm::One, Z) / A_norm / Z_norm / n;
         }
         else if (itype == 3) {
-            // C = AQ + 0*C = AQ
-            slate::hemm(slate::Side::Left, one, A_orig, Q, zero, C, opts);
-            // Q = QD
+            // C = AZ + 0*C = AZ
+            slate::hemm(slate::Side::Left, one, A_orig, Z, zero, C, opts);
+            // Z = ZD
             int64_t joff = 0;
-            for (int64_t j = 0; j < Q.nt(); ++j) {
+            for (int64_t j = 0; j < Z.nt(); ++j) {
                 int64_t ioff = 0;
-                for (int64_t i = 0; i < Q.mt(); ++i) {
-                    if (Q.tileIsLocal(i, j)) {
-                        auto T = Q.at(i, j);
+                for (int64_t i = 0; i < Z.mt(); ++i) {
+                    if (Z.tileIsLocal(i, j)) {
+                        auto T = Z.at(i, j);
                         for (int jj = 0; jj < T.nb(); ++jj)
                             for (int ii = 0; ii < T.mb(); ++ii)
                                 T.at(ii, jj) *= W_vec[ jj + joff ];
                     }
-                    ioff += Q.tileMb(i);
+                    ioff += Z.tileMb(i);
                 }
-                joff += Q.tileNb(j);
+                joff += Z.tileNb(j);
             }
-            // Q = BC - Q   = ( BAQ - QD )
-            slate::hemm(slate::Side::Left, one, B_orig, C, minusone, Q, opts);
-            // tstnrm = | B A Q - Q D | / ( |A| |Q| n )
-            tstnrm = slate::norm(slate::Norm::One, Q) / norm_A / norm_Q / n;
+            // Z = BC - Z   = ( BAZ - ZD )
+            slate::hemm(slate::Side::Left, one, B_orig, C, -one, Z, opts);
+            // R_norm = | B A Z - Z D | / ( |A| |Z| n )
+            R_norm = slate::norm(slate::Norm::One, Z) / A_norm / Z_norm / n;
 
         }
-        params.error() = tstnrm;
+        params.error() = R_norm;
         real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= tol);
     }
-
 
     if (ref || check) {
         // Run reference routine from ScaLAPACK

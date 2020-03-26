@@ -213,9 +213,9 @@ void test_hegv_work(Params& params, bool run)
         // Z is orthogonal containing eigenvectors
         // and D is diagonal containing eigenvalues
         // One of the following test ratios is computed:
-        // IBTYPE = 1:  TSTNRM = | A Z - B Z D | / ( |A| |Z| n ulp )
-        // IBTYPE = 2:  TSTNRM = | A B Z - Z D | / ( |A| |Z| n ulp )
-        // IBTYPE = 3:  TSTNRM = | B A Z - Z D | / ( |A| |Z| n ulp )
+        // itype = 1: R_norm = | A Z - B Z D | / ( |A| |Z| n ulp )
+        // itype = 2: R_norm = | A B Z - Z D | / ( |A| |Z| n ulp )
+        // itype = 3: R_norm = | B A Z - Z D | / ( |A| |Z| n ulp )
 
         // create C as a empty allocated matrix
         slate::Matrix<scalar_t> C = Z.emptyLike();

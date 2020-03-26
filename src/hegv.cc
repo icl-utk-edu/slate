@@ -65,14 +65,16 @@ void hegv(int64_t itype,
     // 3. Solve the standard eigenvalue problem and solve.
     heev(jobz, A, W, opts);
 
-    // 4. Backtransform eigenvectors to the original problem.
-    auto L = TriangularMatrix<scalar_t>(Diag::NonUnit, B);
-    scalar_t one = 1.0;
-    if (itype == 1 || itype == 2) {
-        trsm(Side::Left, one, L, V, opts);
-    }
-    else {
-        trmm(Side::Left, one, L, V, opts);
+    if (jobz == lapack::Job::Vec) {
+        // 4. Backtransform eigenvectors to the original problem.
+        auto L = TriangularMatrix<scalar_t>(Diag::NonUnit, B);
+        scalar_t one = 1.0;
+        if (itype == 1 || itype == 2) {
+            trsm(Side::Left, one, L, V, opts);
+        }
+        else {
+            trmm(Side::Left, one, L, V, opts);
+        }
     }
 }
 

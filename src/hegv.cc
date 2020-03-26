@@ -47,6 +47,69 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
+/// Distributed parallel computation of all the eigenvalues, and optionally, the
+/// eigenvectors of a complex generalized Hermitian-definite eigenproblem, of
+/// the form:
+///
+/// itype      |  Problem
+/// ---------- | ----------------------
+/// itype = 1  |  $A   x = \lambda B x$
+/// itype = 2  |  $A B x = \lambda   x$
+/// itype = 3  |  $B A x = \lambda   x$
+///
+/// Here A and B are assumed to be Hermitian and B is also positive definite.
+///
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///     One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in] itype
+///     - itype = 1: Compute $A   x = \lambda B x$;
+///     - itype = 2: Compute $A B x = \lambda   x$;
+///     - itype = 3: Compute $B A x = \lambda   x$.
+///
+/// @param[in] jobz
+///     - jobz = lapack::Job::NoVec: Compute eigenvalues only;
+///     - jobz = lapack::Job::Vec:   Compute eigenvalues and eigenvectors.
+///
+/// @param[in,out] A
+///     On entry, the n-by-n Hermitian matrix A.
+///     On exit, if jobz = Vec, then if successful, A contains the
+///     orthonormal eigenvectors of the matrix A.
+///     If jobz = NoVec, then on exit the lower triangle (if uplo=Lower)
+///     or the upper triangle (if uplo=Upper) of A, including the
+///     diagonal, is destroyed.
+///
+/// @param[in, out] B
+///     On entry, the n-by-n Hermitian positive definite matrix $A$.
+///     On exit, if jobz = Vec, then if successful, the part of B containing the
+///     matrix is overwritten by the triangular factor U or L from the Cholesky
+///     factorization $B = U^(H) A$ or $B = L L^(H)$.
+///
+/// @param[out] W
+///     The vector W of length n.
+///     If successful, the eigenvalues in ascending order.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Lookahead:
+///       Number of panels to overlap with matrix updates.
+///       lookahead >= 0. Default 1.
+///     - Option::InnerBlocking:
+///       Inner blocking to use for panel. Default 16.
+///     - Option::MaxPanelThreads:
+///       Number of threads to use for panel. Default omp_get_max_threads()/2.
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
+/// TODO: return value
+///
+/// @ingroup hegv_computational
+///
 template <typename scalar_t>
 void hegv(int64_t itype,
           lapack::Job jobz,

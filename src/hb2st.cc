@@ -90,8 +90,8 @@ void hb2st_step(HermitianBandMatrix<scalar_t>& A,
             if (i < n && j < n) {
                 int64_t m1 = std::min(j+band-1, n-1) - i + 1;
                 int64_t m2 = std::min(i+band-1, n-1) - i + 1;
-                auto V1 = V(0, vindex + blas::max(0, step - 2));
-                auto V2 = V(0, vindex + step);
+                auto V1 = V(0, vindex + (step-1)/2);
+                auto V2 = V(0, vindex + (step+1)/2);
                 internal::hebr2<Target::HostTask>(
                     m1, &V1.at(vi, vj),
                     m2, &V2.at(vi, vj),
@@ -107,7 +107,7 @@ void hb2st_step(HermitianBandMatrix<scalar_t>& A,
             j = block*band + 1 + sweep;
             if (i < n && j < n) {
                 int64_t m1 = std::min(i+band-1, n-1) - i + 1;
-                auto V1 = V(0, vindex + step - 1);
+                auto V1 = V(0, vindex + step/2);
                 internal::hebr3<Target::HostTask>(
                     m1, &V1.at(vi, vj),
                     A.slice(i, std::min(i + band - 1, n - 1)));

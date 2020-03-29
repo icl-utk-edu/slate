@@ -262,7 +262,7 @@ void he2hb(slate::internal::TargetType<target>,
                         else { // upper
                             rank_upper = A.tileRank(j, i);
                             if (rank_upper == my_rank) { // A.tileIsLocal(j, i)
-                                gemm(one, conj_transpose(A(j, i)), A(j, k),
+                                gemm(one, conjTranspose(A(j, i)), A(j, k),
                                      one, W(i, k));
                             }
                         }
@@ -324,7 +324,7 @@ void he2hb(slate::internal::TargetType<target>,
                     // 1b. TVAVT = V^H (AVT) = V^H W.
                     TVAVT.set(zero);
                     for (int64_t i: indices) {
-                        gemm(one, conj_transpose(A(i, k)), W(i, k),
+                        gemm(one, conjTranspose(A(i, k)), W(i, k),
                              one, std::move(TVAVT));
                     }
                     // 1c. TVAVT = T^H (V^H AVT)
@@ -342,7 +342,7 @@ void he2hb(slate::internal::TargetType<target>,
 
                     auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);
                     trmm(Side::Left, Diag::NonUnit,
-                         one, conj_transpose(Tk0(0, 0)), std::move(TVAVT0(0, 0)));
+                         one, conjTranspose(Tk0(0, 0)), std::move(TVAVT0(0, 0)));
 
                     // 1d. W = W - 0.5 V TVAVT.
                     // Technically, could do a hemm here since TVAVT is Hermitian.
@@ -360,10 +360,10 @@ void he2hb(slate::internal::TargetType<target>,
                             }
                             else if (i > j) {  // lower
                                 // A = A - Vik Wjk^H
-                                gemm(-one, A(i, k), conj_transpose(W(j, k)),
+                                gemm(-one, A(i, k), conjTranspose(W(j, k)),
                                       one, A(i, j));
                                 // A = A - Wik Vjk^H
-                                gemm(-one, W(i, k), conj_transpose(A(j, k)),
+                                gemm(-one, W(i, k), conjTranspose(A(j, k)),
                                       one, A(i, j));
                             }
                             // Skip tiles in upper triangle (i < j) that are
@@ -387,14 +387,14 @@ void he2hb(slate::internal::TargetType<target>,
                             if (i > j) {
                                 if (A.tileIsLocal(i, j)) {
                                     // Aij -= Vik Wjk^H
-                                    gemm(-one, A(i, k), conj_transpose(W(j, k)),
+                                    gemm(-one, A(i, k), conjTranspose(W(j, k)),
                                           one, A(i, j));
                                 }
                             }
                             else if (i < j) {
                                 if (A.tileIsLocal(j, i)) {
                                     // Aji -= Wjk Vik^H
-                                    gemm(-one, W(j, k), conj_transpose(A(i, k)),
+                                    gemm(-one, W(j, k), conjTranspose(A(i, k)),
                                           one, A(j, i));
                                 }
                             }

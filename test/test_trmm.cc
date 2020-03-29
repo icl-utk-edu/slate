@@ -124,12 +124,12 @@ void test_trmm_work(Params& params, bool run)
     if (transA == Op::Trans)
         A = transpose(A);
     else if (transA == Op::ConjTrans)
-        A = conj_transpose(A);
+        A = conjTranspose(A);
 
     if (transB == Op::Trans)
         B = transpose(B);
     else if (transB == Op::ConjTrans)
-        B = conj_transpose(B);
+        B = conjTranspose(B);
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();

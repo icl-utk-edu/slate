@@ -186,7 +186,7 @@ void unmlq(internal::TargetType<target>,
         auto V0tr = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::Unit, V0);
         auto T0tr = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);
         if (op == Op::NoTrans) {
-            T0tr = conj_transpose(T0tr);
+            T0tr = conjTranspose(T0tr);
         }
 
         // --------------------
@@ -236,7 +236,7 @@ void unmlq(internal::TargetType<target>,
         if (row_indices.size() > 1) {
             // C1 <- C1 - V1^H W
             internal::gemm<target>(
-                    -one, conj_transpose(V.sub(0, 0, row_indices[1], mt-1)),
+                    -one, conjTranspose(V.sub(0, 0, row_indices[1], mt-1)),
                           std::move(Wr),
                     one,  C.sub(row_indices[1], mt-1, 0, nt-1),
                     layout);
@@ -245,7 +245,7 @@ void unmlq(internal::TargetType<target>,
         if (trapezoid) {
             // C0b <- C0b - V0b^H W
             internal::gemm<Target::HostTask>(
-                    -one, conj_transpose(std::move(V0b)),
+                    -one, conjTranspose(std::move(V0b)),
                           std::move(Wr),
                     one,  std::move(C0b),
                     layout);
@@ -254,7 +254,7 @@ void unmlq(internal::TargetType<target>,
         // W <- V0^H W
         internal::trmm<Target::HostTask>(
                 Side::Left,
-                one, conj_transpose(V0tr),
+                one, conjTranspose(V0tr),
                      std::move(Wr));
 
         // C0 <- C0 - W
@@ -362,7 +362,7 @@ void unmlq(internal::TargetType<target>,
         auto V0tr = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::Unit, V0);
         auto T0tr = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);
         if (op == Op::NoTrans) {
-            T0tr = conj_transpose(T0tr);
+            T0tr = conjTranspose(T0tr);
         }
 
         // --------------------
@@ -373,14 +373,14 @@ void unmlq(internal::TargetType<target>,
         internal::copy(std::move(C0), std::move(Wc));
         internal::trmm<Target::HostTask>(
                 Side::Right,
-                one, conj_transpose(V0tr),
+                one, conjTranspose(V0tr),
                      std::move(Wc));
 
         if (trapezoid) {
             // W <- C0b V0b^H + W
             internal::gemm<Target::HostTask>(
                     one, std::move(C0b),
-                         conj_transpose(V0b),
+                         conjTranspose(V0b),
                     one, std::move(Wc),
                     layout);
         }
@@ -395,7 +395,7 @@ void unmlq(internal::TargetType<target>,
             }
             internal::gemm<target>(
                     one, std::move(Ci),
-                         conj_transpose(V.sub(0, 0, col, col)),
+                         conjTranspose(V.sub(0, 0, col, col)),
                     one, std::move(Wc),
                     layout);
         }

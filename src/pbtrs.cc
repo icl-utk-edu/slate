@@ -67,10 +67,10 @@ void pbtrs(slate::internal::TargetType<target>,
 
     // if upper, change to lower
     if (A.uplo() == Uplo::Upper)
-        A = conj_transpose(A);
+        A = conjTranspose(A);
 
     auto L = TriangularBandMatrix<scalar_t>(Diag::NonUnit, A);
-    auto LT = conj_transpose(L);
+    auto LT = conjTranspose(L);
 
     tbsm(Side::Left, scalar_t(1.0), L, B,
          {{Option::Lookahead, lookahead},

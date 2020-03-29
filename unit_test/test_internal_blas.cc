@@ -353,7 +353,7 @@ void test_gemm(slate::Target target)
         if (ic == 1)
             C = transpose(C);
         else if (ic == 2)
-            C = conj_transpose(C);
+            C = conjTranspose(C);
         assert(C.mt() == slate::ceildiv(m, nb));
         assert(C.nt() == slate::ceildiv(n, nb));
         if (target == slate::Target::Devices)
@@ -374,7 +374,7 @@ void test_gemm(slate::Target target)
         if (ib == 1)
             B = transpose(B);
         else if (ib == 2)
-            B = conj_transpose(B);
+            B = conjTranspose(B);
         assert(B.mt() == slate::ceildiv(k, nb));
         assert(B.nt() == slate::ceildiv(n, nb));
 
@@ -388,7 +388,7 @@ void test_gemm(slate::Target target)
         if (ia == 1)
             A = transpose(A);
         else if (ia == 2)
-            A = conj_transpose(A);
+            A = conjTranspose(A);
         assert(A.mt() == slate::ceildiv(m, nb));
         assert(A.nt() == slate::ceildiv(k, nb));
 
@@ -515,7 +515,7 @@ void test_syrk(slate::Target target)
         if (ic == 1)
             C = transpose(C);
         else if (ic == 2)
-            C = conj_transpose(C);
+            C = conjTranspose(C);
         assert(C.mt() == slate::ceildiv(n, nb));
         assert(C.nt() == slate::ceildiv(n, nb));
         if (target == slate::Target::Devices)
@@ -547,7 +547,7 @@ void test_syrk(slate::Target target)
         if (ia == 1)
             A = transpose(A);
         else if (ia == 2)
-            A = conj_transpose(A);
+            A = conjTranspose(A);
         assert(A.mt() == slate::ceildiv(n, nb));
         assert(A.nt() == slate::ceildiv(k, nb));
 
@@ -679,7 +679,7 @@ void test_herk(slate::Target target)
         if (ic == 1)
             C = transpose(C);
         else if (ic == 2)
-            C = conj_transpose(C);
+            C = conjTranspose(C);
         assert(C.mt() == slate::ceildiv(n, nb));
         assert(C.nt() == slate::ceildiv(n, nb));
         if (target == slate::Target::Devices)
@@ -711,7 +711,7 @@ void test_herk(slate::Target target)
         if (ia == 1)
             A = transpose(A);
         else if (ia == 2)
-            A = conj_transpose(A);
+            A = conjTranspose(A);
         assert(A.mt() == slate::ceildiv(n, nb));
         assert(A.nt() == slate::ceildiv(k, nb));
 

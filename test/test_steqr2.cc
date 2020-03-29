@@ -176,7 +176,7 @@ void test_steqr2_work(
         const scalar_t minusone = -1;
         params.ortho() = 0.;
         if (wantz) {
-            auto ZT = conj_transpose(Z);
+            auto ZT = conjTranspose(Z);
             set(zero, one, A);
             slate::gemm(one, ZT, Z, minusone, A);
             params.ortho()  = slate::norm(slate::Norm::Fro, A) / n;

@@ -79,7 +79,7 @@ void heev(lapack::Job jobz,
     // Currently, hb2st and sterf are run on a single node.
     W.resize(n);
     std::vector<real_t> E(n - 1);
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    MPI_Comm_rank(A.mpiComm(), &mpi_rank);
 
     if (mpi_rank == 0) {
         // 2. Reduce band to symmetric tri-diagonal.
@@ -94,15 +94,15 @@ void heev(lapack::Job jobz,
         // Bcast the W and E vectors
         if (mpi_rank = 0) {
             slate_mpi_call(
-                MPI_Send(&W[0], n, mpi_type<blas::real_type<scalar_t>>::value, mpi_rank, 0, MPI_COMM_WORLD));
+                MPI_Send(&W[0], n, mpi_type<blas::real_type<scalar_t>>::value, mpi_rank, 0, A.mpiComm()));
             slate_mpi_call(
-                MPI_Send(&E[0], n-1, mpi_type<blas::real_type<scalar_t>>::value, mpi_rank, 0, MPI_COMM_WORLD));
+                MPI_Send(&E[0], n-1, mpi_type<blas::real_type<scalar_t>>::value, mpi_rank, 0, A.mpiComm()));
         }
         else if (mpi_rank != 0) {
             slate_mpi_call(
-                MPI_Recv(&W[0], n, mpi_type<blas::real_type<scalar_t>>::value, 0, 0, MPI_COMM_WORLD, &status));
+                MPI_Recv(&W[0], n, mpi_type<blas::real_type<scalar_t>>::value, 0, 0, A.mpiComm(), &status));
             slate_mpi_call(
-                MPI_Recv(&E[0], n-1, mpi_type<blas::real_type<scalar_t>>::value, 0, 0, MPI_COMM_WORLD, &status));
+                MPI_Recv(&E[0], n-1, mpi_type<blas::real_type<scalar_t>>::value, 0, 0, A.mpiComm(), &status));
         }
 
         // QR iteration
@@ -115,11 +115,11 @@ void heev(lapack::Job jobz,
         // Bcast the vectors of the eigenvalues W
         if (mpi_rank = 0) {
             slate_mpi_call(
-                MPI_Send(&W[0], n, mpi_type<blas::real_type<scalar_t>>::value, mpi_rank, 0, MPI_COMM_WORLD));
+                MPI_Send(&W[0], n, mpi_type<blas::real_type<scalar_t>>::value, mpi_rank, 0, A.mpiComm()));
         }
         else if (mpi_rank != 0) {
             slate_mpi_call(
-                MPI_Recv(&W[0], n, mpi_type<blas::real_type<scalar_t>>::value, 0, 0, MPI_COMM_WORLD, &status));
+                MPI_Recv(&W[0], n, mpi_type<blas::real_type<scalar_t>>::value, 0, 0, A.mpiComm(), &status));
         }
     }
     // todo: If matrix was scaled, then rescale eigenvalues appropriately. 

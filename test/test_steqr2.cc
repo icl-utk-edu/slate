@@ -120,22 +120,24 @@ void test_steqr2_work(
                 n, n, &Z_tst[0], lldZ, nb, nprow, npcol, MPI_COMM_WORLD);
         }
     }
-    //==================================================
-    // Run SLATE test.
-    //==================================================
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
     {
         slate::trace::Block trace_block("MPI_Barrier");
+        MPI_Barrier(MPI_COMM_WORLD);
     }
     double time = testsweeper::get_wtime();
 
+    //==================================================
+    // Run SLATE test.
+    //==================================================
     //slate::sterf(D, E);
     steqr2(jobz, D, E, Z);
 
     {
         slate::trace::Block trace_block("MPI_Barrier");
+        MPI_Barrier(MPI_COMM_WORLD);
     }
     params.time() = testsweeper::get_wtime() - time;
 

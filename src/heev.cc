@@ -90,24 +90,38 @@ void heev(lapack::Job jobz,
     }
 
     // 3. Tri-diagonal eigenvalue solver.
-    // Bcast the W and E vectors
-    // todo: avoid this bcast if only the eigevalues are required
-    if (mpi_rank = 0) {
-        slate_mpi_call(
-            MPI_Send(&W[0], n, mpi_type<blas::real_type<scalar_t>>::value, mpi_rank, 0, MPI_COMM_WORLD));
-        slate_mpi_call(
-            MPI_Send(&E[0], n-1, mpi_type<blas::real_type<scalar_t>>::value, mpi_rank, 0, MPI_COMM_WORLD));
-    }
-    else if (mpi_rank != 0) {
-        slate_mpi_call(
-            MPI_Recv(&W[0], n, mpi_type<blas::real_type<scalar_t>>::value, 0, 0, MPI_COMM_WORLD, &status));
-        slate_mpi_call(
-            MPI_Recv(&E[0], n-1, mpi_type<blas::real_type<scalar_t>>::value, 0, 0, MPI_COMM_WORLD, &status));
-    }
+    if (wantz) {
+        // Bcast the W and E vectors
+        if (mpi_rank = 0) {
+            slate_mpi_call(
+                MPI_Send(&W[0], n, mpi_type<blas::real_type<scalar_t>>::value, mpi_rank, 0, MPI_COMM_WORLD));
+            slate_mpi_call(
+                MPI_Send(&E[0], n-1, mpi_type<blas::real_type<scalar_t>>::value, mpi_rank, 0, MPI_COMM_WORLD));
+        }
+        else if (mpi_rank != 0) {
+            slate_mpi_call(
+                MPI_Recv(&W[0], n, mpi_type<blas::real_type<scalar_t>>::value, 0, 0, MPI_COMM_WORLD, &status));
+            slate_mpi_call(
+                MPI_Recv(&E[0], n-1, mpi_type<blas::real_type<scalar_t>>::value, 0, 0, MPI_COMM_WORLD, &status));
+        }
 
-    // QR iteration
-    steqr2(jobz, W, E, Z);
+        // QR iteration
+        steqr2(jobz, W, E, Z);
+    }
+    else {
+        // QR iteration
+        sterf<real_t>(W, E, opts);
 
+        // Bcast the vectors of the eigenvalues W
+        if (mpi_rank = 0) {
+            slate_mpi_call(
+                MPI_Send(&W[0], n, mpi_type<blas::real_type<scalar_t>>::value, mpi_rank, 0, MPI_COMM_WORLD));
+        }
+        else if (mpi_rank != 0) {
+            slate_mpi_call(
+                MPI_Recv(&W[0], n, mpi_type<blas::real_type<scalar_t>>::value, 0, 0, MPI_COMM_WORLD, &status));
+        }
+    }
     // todo: If matrix was scaled, then rescale eigenvalues appropriately. 
 }
 

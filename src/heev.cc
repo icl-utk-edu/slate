@@ -92,10 +92,8 @@ void heev(lapack::Job jobz,
     // 3. Tri-diagonal eigenvalue solver.
     if (wantz) {
         // Bcast the W and E vectors
-        if (mpi_rank == 0) {
-            MPI_Bcast( &W[0], n, mpi_type<blas::real_type<scalar_t>>::value, 0, A.mpiComm() );
-            MPI_Bcast( &E[0], n-1, mpi_type<blas::real_type<scalar_t>>::value, 0, A.mpiComm() );
-        }
+        MPI_Bcast( &W[0], n, mpi_type<blas::real_type<scalar_t>>::value, 0, A.mpiComm() );
+        MPI_Bcast( &E[0], n-1, mpi_type<blas::real_type<scalar_t>>::value, 0, A.mpiComm() );
         // QR iteration
         steqr2(jobz, W, E, Z);
     }
@@ -104,8 +102,8 @@ void heev(lapack::Job jobz,
             // QR iteration
             sterf<real_t>(W, E, opts);
             // Bcast the vectors of the eigenvalues W
-            MPI_Bcast( &W[0], n, mpi_type<blas::real_type<scalar_t>>::value, 0, A.mpiComm() );
         }
+        MPI_Bcast( &W[0], n, mpi_type<blas::real_type<scalar_t>>::value, 0, A.mpiComm() );
     }
     // todo: If matrix was scaled, then rescale eigenvalues appropriately. 
 }

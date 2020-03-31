@@ -498,6 +498,8 @@ ifneq ($(have_fortran),)
         src/csteqr2.f \
         src/zsteqr2.f \
 
+else
+    $(error ERROR: set FC, currently '$(FC)', to a Fortran compiler (gfortran, ifort, xlf, ftn, ...). We hope to eventually remove this requirement.)
 endif
 
 # C API

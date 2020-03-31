@@ -95,7 +95,7 @@ group_opt.add_argument( '--ref',    action='store', help='default=%(default)s', 
 group_opt.add_argument( '--tol',    action='store', help='default=%(default)s', default='' )
 
 # LAPACK only
-group_opt.add_argument( '--direct', action='store', help='default=%(default)s', default='f,b' )
+group_opt.add_argument( '--direction', action='store', help='default=%(default)s', default='f,b' )
 group_opt.add_argument( '--storev', action='store', help='default=%(default)s', default='c,r' )
 group_opt.add_argument( '--norm',   action='store', help='default=%(default)s', default='max,1,inf,fro' )
 group_opt.add_argument( '--jobz',   action='store', help='default=%(default)s', default='n,v' )
@@ -263,7 +263,7 @@ ref    = ' --ref '    + opts.ref    if (opts.ref)    else ''
 tol    = ' --tol '    + opts.tol    if (opts.tol)    else ''
 
 # LAPACK only
-direct = ' --direct ' + opts.direct if (opts.direct) else ''
+direction = ' --direction ' + opts.direction if (opts.direction) else ''
 storev = ' --storev ' + opts.storev if (opts.storev) else ''
 norm   = ' --norm '   + opts.norm   if (opts.norm)   else ''
 jobz   = ' --jobz '   + opts.jobz   if (opts.jobz)   else ''

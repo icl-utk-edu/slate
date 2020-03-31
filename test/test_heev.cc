@@ -238,20 +238,29 @@ void test_heev_work(Params& params, bool run)
         // Perform a local operation to get differences W_tst = W_tst - W_ref
         blas::axpy(W_ref.size(), -1.0, &W_ref[0], 1, &W_tst[0], 1);
 
+        real_t reduced_error;
+        real_t local_error;
         // Relative forward error: || W_ref - W_tst || / || W_ref ||
-        params.error() = lapack::lange(norm, W_tst.size(), 1, &W_tst[0], 1)
+        local_error = lapack::lange(norm, W_tst.size(), 1, &W_tst[0], 1)
                        / lapack::lange(norm, W_ref.size(), 1, &W_ref[0], 1);
 
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-        params.okay() = (params.error() <= tol);
 
-        if (params.error() > tol) {
+        if (local_error > tol) {
             printf("\n % On MPI Rank = %d, the eigenvalues are suspicious, the error is  %e \n", 
                 A.mpiRank(), params.error());
             //for (int64_t i = 0; i < n; i++) {
             //    printf("\n %f", W_tst[i]);
             //}
         }
+
+        slate_mpi_call(
+            MPI_Allreduce( &local_error, &reduced_error, 
+                           1, slate::mpi_type<real_t>::value, 
+                           MPI_MAX, A.mpiComm()));
+
+        params.error() = reduced_error;
+        params.okay() = (params.error() <= tol);
     }
 
     Cblacs_gridexit(ictxt);

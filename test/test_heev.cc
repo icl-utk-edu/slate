@@ -66,12 +66,7 @@ void test_heev_work(Params& params, bool run)
     Cblacs_gridinit(&ictxt, "Col", p, q);
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
-    // skip unsupported
-    if (jobz != lapack::Job::NoVec) {
-        if (iam == 0)
-            printf("\nskipping: eigenvalues only supported (eigenvectors not yet supported)\n");
-        return;
-    }
+    bool wantz = (jobz == slate::Job::Vec);
 
     // figure out local size, allocate, create descriptor, initialize
     // matrix A (local input), m-by-n, symmetric matrix
@@ -87,7 +82,7 @@ void test_heev_work(Params& params, bool run)
     // matrix W (global output), W(n), gets eigenvalues in decending order
     std::vector<real_t> W_tst(n);
 
-    // matrix Z (local output), Z(n,n), gets orthonormal eigenvectors corresponding to W
+    // matrix Z (local output), Z(n,n), gets orthonormal eigenvectors corresponding to W of the reference scalapack
     int64_t mlocZ = scalapack_numroc(n, nb, myrow, izero, nprow);
     int64_t nlocZ = scalapack_numroc(n, nb, mycol, izero, npcol);
     int descZ_tst[9];
@@ -96,10 +91,20 @@ void test_heev_work(Params& params, bool run)
     int64_t lldZ = (int64_t)descZ_tst[8];
     std::vector<scalar_t> Z_tst(lldZ * nlocZ, 0);
 
+    // matrix Q (local output), Q(n,n), gets orthonormal eigenvectors corresponding to W of slate heev
+    int64_t mlocQ = scalapack_numroc(n, nb, myrow, izero, nprow);
+    int64_t nlocQ = scalapack_numroc(n, nb, mycol, izero, npcol);
+    int descQ_tst[9];
+    scalapack_descinit(descQ_tst, n, n, nb, nb, izero, izero, ictxt, mlocQ, &info);
+    slate_assert(info == 0);
+    int64_t lldQ = (int64_t)descQ_tst[8];
+    std::vector<scalar_t> Q_tst(lldQ * nlocQ, 0);
+
     // Initialize SLATE data structures
     slate::HermitianMatrix<scalar_t> A;
     std::vector<real_t> W;
     slate::Matrix<scalar_t> Z;
+    slate::Matrix<scalar_t> Q;
 
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy local ScaLAPACK data to GPU or CPU tiles.
@@ -112,13 +117,22 @@ void test_heev_work(Params& params, bool run)
 
         Z = slate::Matrix<scalar_t>(n, n, nb, nprow, npcol, MPI_COMM_WORLD);
         Z.insertLocalTiles(origin_target);
-        copy(&Z_tst[0], descZ_tst, Z); // Z is output, so not really needed
+        if (wantz) {
+            Q = slate::Matrix<scalar_t>(
+                n, n, nb, nprow, npcol, MPI_COMM_WORLD);
+            Q.insertLocalTiles(origin2target(origin));
+        }
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
         A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
         W = W_tst;
         Z = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &Z_tst[0], lldZ, nb, nprow, npcol, MPI_COMM_WORLD);
+        if (wantz) {
+            Q_tst.resize(lldQ*nlocQ);
+            Q = slate::Matrix<scalar_t>::fromScaLAPACK(
+                n, n, &Q_tst[0], lldQ, nb, nprow, npcol, MPI_COMM_WORLD);
+        }
     }
 
     if (verbose >= 1) {
@@ -128,7 +142,6 @@ void test_heev_work(Params& params, bool run)
 
     if (verbose > 1) {
         print_matrix( "A",  A  );
-        print_matrix( "Z",  Z  );
     }
 
     std::vector<scalar_t> A_ref, Z_ref;
@@ -153,7 +166,7 @@ void test_heev_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::heev(jobz, A, W_tst, {
+        slate::heev(jobz, A, W_tst, Q, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target},
                 {slate::Option::MaxPanelThreads, panel_threads},

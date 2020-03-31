@@ -51,11 +51,16 @@ template <typename scalar_t>
 void heev(lapack::Job jobz,
           HermitianMatrix<scalar_t>& A,
           std::vector<blas::real_type<scalar_t>>& W,
+          Matrix<scalar_t>& Z,
           const std::map<Option, Value>& opts)
 {
     using real_t = blas::real_type<scalar_t>;
 
     int64_t n = A.n();
+    bool wantz = (jobz == Job::Vec);
+    
+    MPI_Status status;
+    int mpi_rank;
 
     // Scale matrix to allowable range, if necessary.
     // todo
@@ -73,23 +78,37 @@ void heev(lapack::Job jobz,
 
     // Currently, hb2st and sterf are run on a single node.
     W.resize(n);
-    if (A.mpiRank() == 0) {
+    std::vector<real_t> E(n - 1);
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+
+    if (mpi_rank == 0) {
         // 2. Reduce band to symmetric tri-diagonal.
         hb2st(Aband, opts);
 
         // Copy diagonal and super-diagonal to vectors.
-        std::vector<real_t> E(n - 1);
         internal::copyhb2st(Aband, W, E);
-
-        // 3. Tri-diagonal eigenvalue solver.
-        // QR iteration
-        sterf<real_t>(W, E, opts);
     }
 
-    // If matrix was scaled, then rescale eigenvalues appropriately.
-    // todo
+    // 3. Tri-diagonal eigenvalue solver.
+    // Bcast the W and E vectors
+    // todo: avoid this bcast if only the eigevalues are required
+    if (mpi_rank = 0) {
+        slate_mpi_call(
+            MPI_Send(&W[0], n, mpi_type<blas::real_type<scalar_t>>::value, mpi_rank, 0, MPI_COMM_WORLD));
+        slate_mpi_call(
+            MPI_Send(&E[0], n-1, mpi_type<blas::real_type<scalar_t>>::value, mpi_rank, 0, MPI_COMM_WORLD));
+    }
+    else if (mpi_rank != 0) {
+        slate_mpi_call(
+            MPI_Recv(&W[0], n, mpi_type<blas::real_type<scalar_t>>::value, 0, 0, MPI_COMM_WORLD, &status));
+        slate_mpi_call(
+            MPI_Recv(&E[0], n-1, mpi_type<blas::real_type<scalar_t>>::value, 0, 0, MPI_COMM_WORLD, &status));
+    }
 
-    // todo: bcast W.
+    // QR iteration
+    steqr2(jobz, W, E, Z);
+
+    // todo: If matrix was scaled, then rescale eigenvalues appropriately. 
 }
 
 //------------------------------------------------------------------------------
@@ -99,6 +118,7 @@ void heev<float>(
     lapack::Job jobz,
     HermitianMatrix<float>& A,
     std::vector<float>& W,
+    Matrix<float>& Z,
     const std::map<Option, Value>& opts);
 
 template
@@ -106,6 +126,7 @@ void heev<double>(
     lapack::Job jobz,
     HermitianMatrix<double>& A,
     std::vector<double>& W,
+    Matrix<double>& Z,
     const std::map<Option, Value>& opts);
 
 template
@@ -113,6 +134,7 @@ void heev<std::complex<float>>(
     lapack::Job jobz,
     HermitianMatrix<std::complex<float>>& A,
     std::vector<float>& W,
+    Matrix<std::complex<float>>& Z,
     const std::map<Option, Value>& opts);
 
 template
@@ -120,6 +142,7 @@ void heev<std::complex<double>>(
     lapack::Job jobz,
     HermitianMatrix<std::complex<double>>& A,
     std::vector<double>& W,
+    Matrix<std::complex<double>>& Z,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

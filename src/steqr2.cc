@@ -71,8 +71,8 @@ void steqr2(slate::internal::TargetType<target>,
 
     using blas::max;
 
-    int64_t n  = Z.n();
-    int64_t nb = Z.tileNb(0);
+    int64_t nb;
+    int64_t n = D.size();
 
     int mpi_size;
     int64_t info = 0;
@@ -86,10 +86,10 @@ void steqr2(slate::internal::TargetType<target>,
 
     // Find the total number of processors.
     slate_mpi_call(
-        MPI_Comm_size(Z.mpiComm(), &mpi_size));
+        MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
 
-    ldc = 1;
     nrc = 0;
+    ldc = 1;
     std::vector<scalar_t> Q(1);
     std::vector< blas::real_type<scalar_t> > work(max( 1, 2*n-2 ));
 
@@ -97,6 +97,8 @@ void steqr2(slate::internal::TargetType<target>,
     // Build the matrix Z using 1-dim grid.
     slate::Matrix<scalar_t> Z1d; 
     if (wantz) {
+        n = Z.n();
+        nb = Z.tileNb(0);
         myrow = Z.mpiRank();
         nrc = numberLocalRowOrCol(n, nb, myrow, izero, mpi_size);
         ldc = max( 1, nrc );

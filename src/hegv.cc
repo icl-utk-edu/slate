@@ -126,7 +126,7 @@ void hegv(int64_t itype,
     hegst(itype, A, B, opts);
 
     // 3. Solve the standard eigenvalue problem and solve.
-    heev(jobz, A, W, opts);
+    heev(jobz, A, W, V, opts);
 
     if (jobz == lapack::Job::Vec) {
         // 4. Backtransform eigenvectors to the original problem.

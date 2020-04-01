@@ -45,13 +45,13 @@ namespace slate {
 ///       In the real case, Op::Trans is equivalent to Op::ConjTrans.
 ///       In the complex case, Op::Trans is not allowed.
 ///
-/// @param[in] A
-///     Details of the factorization of the original matrix $A$,
-///     as returned by `slate::he2hb`.
+/// @param[in] V
+///     Householder vectors as returned by `slate::hb2st`.
 ///
 /// @param[in,out] C
 ///     On entry, the m-by-n matrix $C$.
 ///     On exit, $C$ is overwritten by $Q C$, $Q^H C$, $C Q$, or $C Q^H$.
+///     C must be distributed 1D block column (cyclic or non-cyclic).
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
@@ -95,16 +95,19 @@ void unmtr_hb2st(
         print_matrix( "V_", V_, 6, 2 );
     }
 
-    // Workspaces: T, VT = V T, VC = V^H C, tau is diag of each V tile.
+    // Local workspaces: T, VT = V T, VC = V^H C, tau is diag of each V tile.
     // (I - V T V^H) C = C - (V T) V^H C = C - VT VC.
-    // todo: need only mt or ceildiv( mt, 2 ) tiles. O(n*nb) instead of O(n^2/2) data.
-    Matrix<scalar_t> T_matrix( nb, vn, nb, 1, 1, V_.mpiComm() );
-    Matrix<scalar_t> VT_matrix  = V_.emptyLike();
-    Matrix<scalar_t> VC_matrix = V_.emptyLike( nb, nb );
-    T_matrix.insertLocalTiles();
-    VT_matrix.insertLocalTiles();
-    VC_matrix.insertLocalTiles();
-    std::vector<scalar_t> tau_vector(mt*nb);
+    // todo: don't need distribution; these are local to each rank.
+    int64_t mt_2 = ceildiv(mt, int64_t(2));
+    Matrix<scalar_t>  T_matrix( mt_2*nb, nb, nb, nb, 1, 1, V_.mpiComm() );
+    Matrix<scalar_t> VT_matrix( mt_2*vm, nb, vm, nb, 1, 1, V_.mpiComm() );
+    Matrix<scalar_t> VC_matrix( mt_2*nb, nb, nb, nb, 1, 1, V_.mpiComm() );
+    for (int64_t i = 0; i < mt_2; ++i) {
+         T_matrix.tileInsertWorkspace(i, 0);
+        VT_matrix.tileInsertWorkspace(i, 0);
+        VC_matrix.tileInsertWorkspace(i, 0);
+    }
+    std::vector<scalar_t> tau_vector(mt_2*nb);
 
     // OpenMP needs pointer types, but vectors are exception safe.
     // Add one phantom row at bottom to ease specifying dependencies.
@@ -132,10 +135,9 @@ void unmtr_hb2st(
                 scalar_t* Vq_data = Vq.data();
                 int64_t ldv = Vq.stride();
 
-                // todo: index these by i or i/2 instead of q? see above.
-                auto  T =  T_matrix(0, q);
-                auto VT = VT_matrix(0, q);
-                auto VC = VC_matrix(0, q);
+                auto  T =  T_matrix(i/2, 0);
+                auto VT = VT_matrix(i/2, 0);
+                auto VC = VC_matrix(i/2, 0);
 
                 if (verbose) {
                     printf( "Vq (%lld-by-%lld) %lld-by-%lld, T (%lld-by-%lld) %lld-by-%lld, VT (%lld-by-%lld) %lld-by-%lld, VC (%lld-by-%lld) %lld-by-%lld (max nb)\n",
@@ -147,7 +149,7 @@ void unmtr_hb2st(
 
                 // Copy tau, which is stored on diag(Vq), and set diag(Vq) = 1.
                 // diag(Vq) is restored later.
-                scalar_t* tau = &tau_vector[ i*nb ];
+                scalar_t* tau = &tau_vector[ (i/2)*nb ];
                 for (int64_t ii = 0; ii < vnb; ++ii) {
                     tau[ii] = Vq_data[ii + ii*ldv];
                     Vq_data[ii + ii*ldv] = 1;

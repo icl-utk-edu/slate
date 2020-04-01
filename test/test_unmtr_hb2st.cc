@@ -76,7 +76,7 @@ void test_unmtr_hb2st_work(Params& params, bool run)
         // Diagonal from he2hb is real.
         Afull_data[j + j*lda] = real( Afull_data[j + j*lda] );
     }
-    if (verbose && mpi_rank == 0) {
+    if (verbose >= 2 && mpi_rank == 0) {
         print_matrix( "Afull_data", n, n, &Afull_data[0], lda );
     }
 
@@ -90,10 +90,11 @@ void test_unmtr_hb2st_work(Params& params, bool run)
     Aband.insertLocalTiles();
     Aband.he2hbGather( Afull );
 
-    if (verbose) {
+    if (verbose >= 2) {
         print_matrix( "Aband", Aband );
     }
 
+    //--------------------
     // [code copied from heev.cc]
     // Matrix to store Householder vectors.
     // Could pack into a lower triangular matrix, but we store each
@@ -103,25 +104,22 @@ void test_unmtr_hb2st_work(Params& params, bool run)
     int64_t vn = nt*(nt + 1)/2*nb;
     slate::Matrix<scalar_t> V(vm, vn, vm, nb, 1, 1, MPI_COMM_WORLD);
     V.insertLocalTiles();
+    //--------------------
 
     // Compute tridiagonal and Householder vectors V.
     if (mpi_rank == 0) {
-        //printf( "hb2st\n" );
         slate::hb2st(Aband, V);
-        //printf( "hb2st done\n" );
     }
-    if (verbose) {
+    if (verbose >= 2) {
         print_matrix( "Aband2", Aband );
         print_matrix( "V", V );
     }
 
-    // Set Q = Identity.
-    //printf( "Q = I\n" );
-    slate::Matrix<scalar_t> Q(n, n, nb, 1, 1, MPI_COMM_WORLD);
+    // Set Q = Identity. Use 1D column cyclic.
+    slate::Matrix<scalar_t> Q(n, n, nb, 1, p*q, MPI_COMM_WORLD);
     Q.insertLocalTiles();
     set(zero, one, Q);
-    //printf( "Q = I done\n" );
-    if (verbose) {
+    if (verbose >= 2) {
         print_matrix( "Q0", Q );
     }
 
@@ -132,16 +130,8 @@ void test_unmtr_hb2st_work(Params& params, bool run)
 
     //==================================================
     // Run SLATE test.
-    // Currently runs only on rank 0.
     //==================================================
-    if (mpi_rank == 0) {
-        //printf( "unmtr_hb2st\n" );
-        slate::unmtr_hb2st(slate::Side::Left, slate::Op::NoTrans, V, Q);
-        //printf( "unmtr_hb2st done\n" );
-    }
-    if (verbose) {
-        print_matrix( "Q", Q );
-    }
+    slate::unmtr_hb2st(slate::Side::Left, slate::Op::NoTrans, V, Q);
 
     time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
@@ -150,6 +140,10 @@ void test_unmtr_hb2st_work(Params& params, bool run)
     // compute and save timing/performance
     params.time() = time;
     //params.gflops() = gflop / time;
+
+    if (verbose >= 2) {
+        print_matrix( "Q", Q );
+    }
 
     if (check) {
         //==================================================
@@ -160,13 +154,13 @@ void test_unmtr_hb2st_work(Params& params, bool run)
         slate::Matrix<scalar_t> R( n, n, nb, 1, 1, MPI_COMM_WORLD );
         R.insertLocalTiles();
         set(zero, one, R);
-        if (verbose) {
+        if (verbose >= 2) {
             print_matrix( "R0", R );
         }
 
         auto QH = conj_transpose(Q);
         slate::gemm(-one, QH, Q, one, R);
-        if (verbose) {
+        if (verbose >= 2) {
             print_matrix( "R", R );
         }
 

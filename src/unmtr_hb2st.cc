@@ -10,9 +10,6 @@
 #include "slate/TriangularMatrix.hh"
 #include "internal/internal.hh"
 
-////// TODO
-#include "../test/print_matrix.hh"
-
 namespace slate {
 
 //------------------------------------------------------------------------------
@@ -71,7 +68,6 @@ void unmtr_hb2st(
     Matrix<scalar_t>& C,
     const std::map<Option, Value>& opts)
 {
-    bool verbose = false;
     slate_assert(side == Side::Left);
 
     const scalar_t zero = 0, one = 1;
@@ -89,11 +85,6 @@ void unmtr_hb2st(
     int64_t vn = V.n();
     auto V_ = V.slice( 1, vm-1, 0, vn-1 );
     vm -= 1;
-    if (verbose) {
-        printf( "mb %lld, nb %lld, mt %lld, nt %lld, vm_ %lld, vn %lld\n",
-                mb, nb, mt, nt, vm, vn );
-        print_matrix( "V_", V_, 6, 2 );
-    }
 
     // Local workspaces: T, VT = V T, VC = V^H C, tau is diag of each V tile.
     // (I - V T V^H) C = C - (V T) V^H C = C - VT VC.
@@ -114,6 +105,14 @@ void unmtr_hb2st(
     std::vector< uint8_t > row_vector(mt+1);
     uint8_t* row = row_vector.data();
 
+    // Early exit if this rank has no data in C.
+    // This lets later code assume every rank gets tiles in V, etc.
+    std::set<int> ranks;
+    auto Crow = C.sub(0, 0, 0, nt-1);
+    Crow.getRanks(&ranks);
+    if (ranks.find( C.mpiRank() ) == ranks.end())
+        return;
+
     for (int64_t j = mt-1; j >= 0; --j) {
         for (int64_t i = j; i < mt; ++i) {
             #pragma omp task depend(inout:row[i]) \
@@ -127,9 +126,11 @@ void unmtr_hb2st(
 
                 // Index of block of V, using lower triangular packed indexing.
                 int64_t q = i - j + j*mt - j*(j-1)/2;
-                if (verbose) {
-                    printf( "i %2lld, j %2lld, q %4lld\n", i, j, q );
-                }
+
+                // Send V(0, q) across ranks owning row C(i, :).
+                // Send from V to be contiguous, instead of V_.
+                // todo make async; put in different task.
+                V.tileBcast(0, q, C.sub(i, i, 0, nt-1), Layout::ColMajor);
 
                 auto Vq = V_(0, q);
                 scalar_t* Vq_data = Vq.data();
@@ -138,14 +139,6 @@ void unmtr_hb2st(
                 auto  T =  T_matrix(i/2, 0);
                 auto VT = VT_matrix(i/2, 0);
                 auto VC = VC_matrix(i/2, 0);
-
-                if (verbose) {
-                    printf( "Vq (%lld-by-%lld) %lld-by-%lld, T (%lld-by-%lld) %lld-by-%lld, VT (%lld-by-%lld) %lld-by-%lld, VC (%lld-by-%lld) %lld-by-%lld (max nb)\n",
-                            Vq.mb(), Vq.nb(), vm_, vnb,
-                             T.mb(),  T.nb(), vnb, vnb,
-                            VT.mb(), VT.nb(), vm_, vnb,
-                            VC.mb(), VC.nb(), vnb, VC.nb() );
-                }
 
                 // Copy tau, which is stored on diag(Vq), and set diag(Vq) = 1.
                 // diag(Vq) is restored later.
@@ -207,11 +200,6 @@ void unmtr_hb2st(
                                             C1.data(), C1.stride(),
                                        one, VC.data(), VC.stride());
                         }
-                        if (verbose) {
-                            printf( "k %lld, C0 (%lld-by-%lld) %lld-by-%lld, C1 (%lld-by-%lld) %lld-by-%lld\n",
-                                    k, C0.mb(), C0.nb(), mb0, cnb,
-                                       C1.mb(), C1.nb(), mb1, cnb );
-                        }
 
                         // C0 -= (V0 T) VC
                         // mb0-by-cnb -= (mb0-by-vnb) (vnb-by-cnb)
@@ -234,24 +222,18 @@ void unmtr_hb2st(
                                              VC.data(), VC.stride(),
                                        one,  C1.data(), C1.stride());
                         }
+                        V.tileTick(0, q);
                     }
                 }
 
                 // Restore diag(Vq) = tau.
-                for (int64_t ii = 0; ii < vnb; ++ii) {
-                    Vq_data[ii + ii*ldv] = tau[ii];
-                }
-
-                if (verbose) {
-                    printf( "\n" );
+                if (V_.tileIsLocal(0, q)) {
+                    for (int64_t ii = 0; ii < vnb; ++ii) {
+                        Vq_data[ii + ii*ldv] = tau[ii];
+                    }
                 }
             }
         }
-    }
-    if (verbose) {
-        print_matrix( "T",   T_matrix, 6, 2 );
-        print_matrix( "VT", VT_matrix, 6, 2 );
-        print_matrix( "VC", VC_matrix, 6, 2 );
     }
 }
 

@@ -125,34 +125,34 @@ void unmtr_hb2st(
                 assert(vm_ <= vm);
 
                 // Index of block of V, using lower triangular packed indexing.
-                int64_t q = i - j + j*mt - j*(j-1)/2;
+                int64_t r = i - j + j*mt - j*(j-1)/2;
 
-                // Send V(0, q) across ranks owning row C(i, :).
+                // Send V(0, r) across ranks owning row C(i, :).
                 // Send from V to be contiguous, instead of V_.
                 // todo make async; put in different task.
-                V.tileBcast(0, q, C.sub(i, i, 0, nt-1), Layout::ColMajor);
+                V.tileBcast(0, r, C.sub(i, i, 0, nt-1), Layout::ColMajor);
 
-                auto Vq = V_(0, q);
-                scalar_t* Vq_data = Vq.data();
-                int64_t ldv = Vq.stride();
+                auto Vr = V_(0, r);
+                scalar_t* Vr_data = Vr.data();
+                int64_t ldv = Vr.stride();
 
                 auto  T =  T_matrix(i/2, 0);
                 auto VT = VT_matrix(i/2, 0);
                 auto VC = VC_matrix(i/2, 0);
 
-                // Copy tau, which is stored on diag(Vq), and set diag(Vq) = 1.
-                // diag(Vq) is restored later.
+                // Copy tau, which is stored on diag(Vr), and set diag(Vr) = 1.
+                // diag(Vr) is restored later.
                 scalar_t* tau = &tau_vector[ (i/2)*nb ];
                 for (int64_t ii = 0; ii < vnb; ++ii) {
-                    tau[ii] = Vq_data[ii + ii*ldv];
-                    Vq_data[ii + ii*ldv] = 1;
+                    tau[ii] = Vr_data[ii + ii*ldv];
+                    Vr_data[ii + ii*ldv] = 1;
                 }
 
-                // Form T from Vq and tau.
+                // Form T from Vr and tau.
                 T.set(zero, zero);
                 lapack::larft(Direction::Forward, lapack::StoreV::Columnwise,
                               vm_, vnb,
-                              Vq.data(), Vq.stride(), tau,
+                              Vr.data(), Vr.stride(), tau,
                               T.data(), T.stride());
 
                 // Form VT = V * T. Assumes 0's stored in lower T.
@@ -160,13 +160,13 @@ void unmtr_hb2st(
                 blas::gemm(Layout::ColMajor,
                            Op::NoTrans, Op::NoTrans,
                            vm_, vnb, vnb,
-                           one,  Vq.data(), Vq.stride(),
+                           one,  Vr.data(), Vr.stride(),
                                   T.data(),  T.stride(),
                            zero, VT.data(), VT.stride());
 
-                // Vq = [ Vq0 ],  VT = [ VT0 ],  [ Ci     ] = [ C0 ],
-                //      [ Vq1 ]        [ VT1 ]   [ C{i+1} ] = [ C1 ]
-                // Vq and VT are (mb0 + mb1)-by-vnb = vm_-by-vnb,
+                // Vr = [ Vr0 ],  VT = [ VT0 ],  [ Ci     ] = [ C0 ],
+                //      [ Vr1 ]        [ VT1 ]   [ C{i+1} ] = [ C1 ]
+                // Vr and VT are (mb0 + mb1)-by-vnb = vm_-by-vnb,
                 // C0 is mb0-by-cnb,
                 // C1 is mb1-by-cnb.
                 for (int64_t k = 0; k < nt; ++k) {
@@ -176,27 +176,27 @@ void unmtr_hb2st(
                         assert( cnb <= VC.nb() );
                         assert( C0.mb()-1 == mb0 );  // After 1st row sliced off.
 
-                        // VC = Vq0^H C0
+                        // VC = Vr0^H C0
                         // vnb-by-cnb = (mb0-by-vnb)^H (mb0-by-cnb)
                         // Slice off 1st row of C0.
                         blas::gemm(Layout::ColMajor,
                                    Op::ConjTrans, Op::NoTrans,
                                    vnb, cnb, mb0,
-                                   one,  Vq.data(),   Vq.stride(),
+                                   one,  Vr.data(),   Vr.stride(),
                                          C0.data()+1, C0.stride(),
                                    zero, VC.data(),   VC.stride());
 
-                        // VC += Vq1^H C1
+                        // VC += Vr1^H C1
                         // vnb-by-cnb += (mb1-by-vnb)^H (mb1-by-cnb)
                         Tile<scalar_t> C1;
                         if (i+1 < mt) {
                             assert(C.tileIsLocal(i+1, k));
-                            scalar_t* Vq1data = &Vq.data()[ mb0 ];
+                            scalar_t* Vr1data = &Vr.data()[ mb0 ];
                             C1 = C(i+1, k);
                             blas::gemm(Layout::ColMajor,
                                        Op::ConjTrans, Op::NoTrans,
                                        vnb, cnb, mb1,
-                                       one, Vq1data,   Vq.stride(),
+                                       one, Vr1data,   Vr.stride(),
                                             C1.data(), C1.stride(),
                                        one, VC.data(), VC.stride());
                         }
@@ -222,14 +222,14 @@ void unmtr_hb2st(
                                              VC.data(), VC.stride(),
                                        one,  C1.data(), C1.stride());
                         }
-                        V.tileTick(0, q);
+                        V.tileTick(0, r);
                     }
                 }
 
-                // Restore diag(Vq) = tau.
-                if (V_.tileIsLocal(0, q)) {
+                // Restore diag(Vr) = tau.
+                if (V_.tileIsLocal(0, r)) {
                     for (int64_t ii = 0; ii < vnb; ++ii) {
-                        Vq_data[ii + ii*ldv] = tau[ii];
+                        Vr_data[ii + ii*ldv] = tau[ii];
                     }
                 }
             }

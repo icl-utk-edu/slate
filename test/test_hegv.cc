@@ -369,14 +369,16 @@ void test_hegv_work(Params& params, bool run)
         // Reset omp thread number
         slate_set_num_blas_threads(saved_num_threads);
 
-        // Reference Scalapack was run, check reference eigenvalues
-        // Perform a local operation to get differences W_vec = W_vec - W_ref
-        blas::axpy(W_vec.size(), -1.0, &W_ref_vec[0], 1, &W_vec[0], 1);
-        // Relative forward error: || W_ref - W_tst || / || W_ref ||
-        params.error2() = lapack::lange(slate::Norm::One, W_vec.size(), 1, &W_vec[0], 1)
-            / lapack::lange(slate::Norm::One, W_ref_vec.size(), 1, &W_ref_vec[0], 1);
-        real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-        params.okay() = (params.error2() <= tol);
+        if (! ref_only) {
+            // Reference Scalapack was run, check reference eigenvalues
+            // Perform a local operation to get differences W_vec = W_vec - W_ref
+            blas::axpy(W_vec.size(), -1.0, &W_ref_vec[0], 1, &W_vec[0], 1);
+            // Relative forward error: || W_ref - W_tst || / || W_ref ||
+            params.error2() = lapack::lange(slate::Norm::One, W_vec.size(), 1, &W_vec[0], 1)
+                / lapack::lange(slate::Norm::One, W_ref_vec.size(), 1, &W_ref_vec[0], 1);
+            real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+            params.okay() = (params.error2() <= tol);
+        }
     }
 
     Cblacs_gridexit(ictxt);

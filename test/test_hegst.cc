@@ -196,25 +196,26 @@ void test_hegst_work(Params& params, bool run)
         slate_mpi_call(MPI_Barrier(MPI_COMM_WORLD));
         double time_ref = testsweeper::get_wtime() - time;
 
+        params.ref_time() = time_ref;
+        // params.ref_gflops() = gflop / time_ref;
+
         if (verbose > 1) {
             print_matrix("A_ref_hegst", A_ref);
         }
 
-        // Local operation: error = A_ref - A
-        blas::axpy(
-            A_ref_data.size(), scalar_t(-1.0),
-            A_data.data(), 1,
-            A_ref_data.data(), 1);
-
-        params.ref_time() = time_ref;
-        // params.ref_gflops() = gflop / time_ref;
-
         slate_set_num_blas_threads(saved_num_threads);
 
-        params.error() = slate::norm(slate::Norm::One, A_ref) / (n * A_norm);
-        real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon()/2;
-        params.okay() = (params.error() <= tol);
+        if (! ref_only) {
+            // Local operation: error = A_ref - A
+            blas::axpy(
+                A_ref_data.size(), scalar_t(-1.0),
+                A_data.data(), 1,
+                A_ref_data.data(), 1);
 
+            params.error() = slate::norm(slate::Norm::One, A_ref) / (n * A_norm);
+            real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon()/2;
+            params.okay() = (params.error() <= tol);
+        }
         Cblacs_gridexit(ictxt);
     }
 }

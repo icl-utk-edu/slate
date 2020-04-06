@@ -834,6 +834,7 @@ template <typename scalar_t>
 void heev(lapack::Job jobz,
           HermitianMatrix<scalar_t>& A,
           std::vector<blas::real_type<scalar_t>>& W,
+          Matrix<scalar_t>& Z,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //------------------------------------------------------------------------------

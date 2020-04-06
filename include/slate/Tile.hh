@@ -112,6 +112,22 @@ MatrixType conjTranspose(MatrixType&& A)
     return conjTranspose(A);
 }
 
+//--------------------------------------
+///< @deprecated
+template<typename MatrixType>
+MatrixType conj_transpose(MatrixType& A)
+{
+    return conjTranspose(A);
+}
+
+//--------------------------------------
+///< @deprecated
+template<typename MatrixType>
+MatrixType conj_transpose(MatrixType&& A)
+{
+    return conjTranspose(A);
+}
+
 //------------------------------------------------------------------------------
 /// Whether a tile is workspace or origin (local non-workspace),
 /// and who owns (allocated, deallocates) the data.

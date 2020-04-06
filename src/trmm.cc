@@ -38,10 +38,7 @@
 //------------------------------------------------------------------------------
 
 #include "slate/slate.hh"
-#include "aux/Debug.hh"
-#include "slate/Matrix.hh"
-#include "slate/TriangularMatrix.hh"
-#include "internal/internal.hh"
+#include "work/work.hh"
 
 namespace slate {
 
@@ -65,41 +62,14 @@ void trmm(slate::internal::TargetType<target>,
                                     Matrix<scalar_t> B,
           int64_t lookahead)
 {
-    using blas::conj;
-    using BcastList = typename Matrix<scalar_t>::BcastList;
-
-    // Assumes column major
-    const Layout layout = Layout::ColMajor;
-
-    // if on right, change to left by (conj)-transposing A and B to get
-    // op(B) = op(A)*op(B)
-    if (side == Side::Right) {
-        if (A.op() == Op::ConjTrans || B.op() == Op::ConjTrans) {
-            A = conj_transpose(A);
-            B = conj_transpose(B);
-            alpha = conj(alpha);
-        }
-        else {
-            A = transpose(A);
-            B = transpose(B);
-        }
-    }
-
-    // B is mt-by-nt, A is mt-by-mt (assuming side = left)
-    assert(A.mt() == B.mt());
-    assert(A.nt() == B.mt());
-
-    int64_t mt = B.mt();
-    int64_t nt = B.nt();
-
     if (target == Target::Devices) {
         B.allocateBatchArrays();
         B.reserveDeviceWorkspace();
     }
 
     // OpenMP needs pointer types, but vectors are exception safe
-    std::vector<uint8_t> bcast_vector(mt);
-    std::vector<uint8_t>  gemm_vector(mt);
+    std::vector<uint8_t> bcast_vector(B.mt());
+    std::vector<uint8_t>  gemm_vector(B.nt());
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
 
@@ -107,213 +77,12 @@ void trmm(slate::internal::TargetType<target>,
     #pragma omp master
     {
         omp_set_nested(1);
-        if (A.uplo() == Uplo::Upper) {
-            // ----------------------------------------
-            // Left, Upper/NoTrans or Lower/Trans case
-            // Forward sweep
-
-            // send 1st block col of A and block row of B
-            #pragma omp task depend(out:bcast[0])
-            {
-                // broadcast A(i, 0) to ranks owning block row B(i, :),
-                // for i = 0
-                A.template tileBcast<target>(0, 0, B.sub(0, 0, 0, nt-1), layout);
-
-                // broadcast B(0, j) to ranks owning block col B(0:0, j)
-                // todo: nowhere to send?
-                BcastList bcast_list_B;
-                for (int64_t j = 0; j < nt; ++j)
-                    bcast_list_B.push_back({0, j, {B.sub(0, 0, j, j)}});
-                B.template listBcast<target>(bcast_list_B, layout);
-            }
-
-            // send next lookahead block cols of A and block rows of B
-            for (int64_t k = 1; k < lookahead+1 && k < mt; ++k) {
-                #pragma omp task depend(in:bcast[k-1]) \
-                                 depend(out:bcast[k])
-                {
-                    // broadcast A(i, k) to ranks owning block row B(i, :)
-                    BcastList bcast_list_A;
-                    for (int64_t i = 0; i <= k; ++i) // upper
-                        bcast_list_A.push_back({i, k, {B.sub(i, i, 0, nt-1)}});
-                    A.template listBcast<target>(bcast_list_A, layout);
-
-                    // broadcast B(k, j) to ranks owning block col B(0:k, j)
-                    BcastList bcast_list_B;
-                    for (int64_t j = 0; j < nt; ++j)
-                        bcast_list_B.push_back({k, j, {B.sub(0, k, j, j)}});
-                    B.template listBcast<target>(bcast_list_B, layout);
-                }
-            }
-
-            // multiply alpha A(:, 0) B(0, :), which is:
-            // B(0, :) = alpha [ A(0, 0) B(0, :) ]  trmm
-            #pragma omp task depend(in:bcast[0]) \
-                             depend(out:gemm[0])
-            {
-                internal::trmm<Target::HostTask>(
-                    Side::Left,
-                    alpha, A.sub(0, 0),
-                           B.sub(0, 0, 0, nt-1));
-            }
-            for (int64_t k = 1; k < mt; ++k) {
-
-                // send next block col of A and block row of B
-                if (k+lookahead < mt) {
-                    #pragma omp task depend(in:gemm[k-1]) \
-                                     depend(in:bcast[k+lookahead-1]) \
-                                     depend(out:bcast[k+lookahead])
-                    {
-                        // broadcast A(i, k+la) to ranks owning
-                        // block row B(i, :)
-                        BcastList bcast_list_A;
-                        for (int64_t i = 0; i <= k+lookahead; ++i) {  // upper
-                            bcast_list_A.push_back(
-                                {i, k+lookahead, {B.sub(i, i, 0, nt-1)}});
-                        }
-                        A.template listBcast<target>(bcast_list_A, layout);
-
-                        // broadcast B(k+la, j) to ranks owning
-                        // block col B(0:k+la, j)
-                        BcastList bcast_list_B;
-                        for (int64_t j = 0; j < nt; ++j) {
-                            bcast_list_B.push_back(
-                                {k+lookahead, j,
-                                 {B.sub(0, k+lookahead, j, j)}});
-                        }
-                        B.template listBcast<target>(bcast_list_B, layout);
-                    }
-                }
-
-                // multiply alpha A(:, k) B(k, :), which is:
-                // B(0:k-1, :) += alpha [ A(0:k-1, k) B(k, :) ]  gemm
-                // B(k, :)      = alpha [ A(k, k)     B(k, :) ]  trmm
-                #pragma omp task depend(in:bcast[k]) \
-                                 depend(in:gemm[k-1]) \
-                                 depend(out:gemm[k])
-                {
-                    internal::gemm<target>(
-                        alpha,         A.sub(0, k-1, k, k),
-                                       B.sub(k, k, 0, nt-1),
-                        scalar_t(1.0), B.sub(0, k-1, 0, nt-1),
-                        layout);
-
-                    // todo: target? needs batch trmm
-                    internal::trmm<Target::HostTask>(
-                        Side::Left,
-                        alpha, A.sub(k, k),
-                               B.sub(k, k, 0, nt-1));
-                }
-            }
+        #pragma omp task
+        {
+            work::trmm<target, scalar_t>(side, alpha, A, B, bcast, gemm, lookahead);
+            B.tileUpdateAllOrigin();
         }
-        else {
-            // ----------------------------------------
-            // Left, Lower/NoTrans or Upper/Trans case
-            // Backward sweep
-
-            // send 1st block col of A and block row of B
-            #pragma omp task depend(out:bcast[mt-1])
-            {
-                // broadcast A(i, 0) to ranks owning block row B(i, :),
-                // for i = m-1
-                A.template tileBcast<target>(
-                    mt-1, mt-1, B.sub(mt-1, mt-1, 0, nt-1), layout);
-
-                // broadcast B(m-1, j) to ranks owning block col B(m-1:m-1, j)
-                // todo: nowhere to send?
-                BcastList bcast_list_B;
-                for (int64_t j = 0; j < nt; ++j) {
-                    bcast_list_B.push_back(
-                        {mt-1, j, {B.sub(mt-1, mt-1, j, j)}});
-                }
-                B.template listBcast<target>(bcast_list_B, layout);
-            }
-
-            // send next lookahead block cols of A and block rows of B
-            for (int64_t k = mt-2; k >= mt-1-lookahead && k >= 0; --k) {
-                #pragma omp task depend(in:bcast[k+1]) \
-                                 depend(out:bcast[k])
-                {
-                    // broadcast A(i, k) to ranks owning block row B(i, :)
-                    BcastList bcast_list_A;
-                    for (int64_t i = k; i < mt; ++i)  // lower
-                        bcast_list_A.push_back({i, k, {B.sub(i, i, 0, nt-1)}});
-                    A.template listBcast<target>(bcast_list_A, layout);
-
-                    // broadcast B(k, j) to ranks owning block col B(k:m-1, j)
-                    BcastList bcast_list_B;
-                    for (int64_t j = 0; j < nt; ++j)
-                        bcast_list_B.push_back({k, j, {B.sub(k, mt-1, j, j)}});
-                    B.template listBcast<target>(bcast_list_B, layout);
-                }
-            }
-
-            // multiply B = alpha A(:, mt-1) B(mt-1, :), which is:
-            // B(mt-1, :) = alpha [ A(mt-1, mt-1) B(mt-1, :) ]  trmm
-            #pragma omp task depend(in:bcast[mt-1]) \
-                             depend(out:gemm[mt-1])
-            {
-                internal::trmm<Target::HostTask>(
-                    Side::Left,
-                    alpha, A.sub(mt-1, mt-1),
-                           B.sub(mt-1, mt-1, 0, nt-1));
-            }
-
-            for (int64_t k = mt-2; k >= 0; --k) {
-
-                // send next block col of A and block row of B
-                if (k-lookahead >= 0) {
-                    #pragma omp task depend(in:gemm[k+1]) \
-                                     depend(in:bcast[k-lookahead+1]) \
-                                     depend(out:bcast[k-lookahead])
-                    {
-                        // broadcast A(i, k-la) to ranks
-                        // owning block row B(i, :)
-                        BcastList bcast_list_A;
-                        for (int64_t i = k-lookahead; i < mt; ++i) {  // lower
-                            bcast_list_A.push_back(
-                                {i, k-lookahead, {B.sub(i, i, 0, nt-1)}});
-                        }
-                        A.template listBcast<target>(bcast_list_A, layout);
-
-                        // broadcast B(k-la, j) to ranks
-                        // owning block col B(k-la:m-1, j)
-                        BcastList bcast_list_B;
-                        for (int64_t j = 0; j < nt; ++j) {
-                            bcast_list_B.push_back(
-                                {k-lookahead, j,
-                                 {B.sub(k-lookahead, mt-1, j, j)}});
-                        }
-                        B.template listBcast<target>(bcast_list_B, layout);
-                    }
-                }
-
-                // multiply alpha A(:, k) B(k, :), which is:
-                // B(k+1:m-1, :) += alpha [ A(k+1:m-1, k) B(k, :) ]  gemm
-                // B(k, :)        = alpha [ A(k, k)       B(k, :) ]  trmm
-                #pragma omp task depend(in:bcast[k]) \
-                                 depend(in:gemm[k+1]) \
-                                 depend(out:gemm[k])
-                {
-                    internal::gemm<target>(
-                        alpha,         A.sub(k+1, mt-1, k, k),
-                                       B.sub(k, k, 0, nt-1),
-                        scalar_t(1.0), B.sub(k+1, mt-1, 0, nt-1),
-                        layout);
-
-                    // todo: target? needs batch trmm
-                    internal::trmm<Target::HostTask>(
-                        Side::Left,
-                        alpha, A.sub(k, k),
-                               B.sub(k, k, 0, nt-1));
-                }
-            }
-        } // end Lower/NoTrans
-
-        #pragma omp taskwait
-        B.tileUpdateAllOrigin();
-    } // end omp master
-
+    }
     B.clearWorkspace();
 }
 

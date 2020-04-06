@@ -273,6 +273,11 @@ libslate_src += \
         src/aux/Trace.cc \
         src/core/types.cc \
 
+# work
+libslate_src += \
+        src/work/work_trsm.cc \
+        src/work/work_trmm.cc \
+
 # internal
 libslate_src += \
         src/internal/internal_comm.cc \

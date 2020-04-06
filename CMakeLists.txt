@@ -26,8 +26,8 @@ set_target_properties (slate PROPERTIES
 
 target_include_directories(slate
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        include
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     PRIVATE
         include/slate
         include/slate/internal

@@ -128,37 +128,37 @@ if (BUILD_SLATE_TESTS)
 endif()
 
 install (TARGETS slate
-        EXPORT slateTargets
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib
-        INCLUDES DESTINATION include
-        )
+    EXPORT slateTargets
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    INCLUDES DESTINATION include
+)
 
 export(EXPORT slateTargets
-        FILE slateTargets.cmake
-        )
+    FILE slateTargets.cmake
+)
 
 export (PACKAGE slate)
 
 configure_file(
-        ${CMAKE_CURRENT_SOURCE_DIR}/slateConfig.cmake.in
-        ${CMAKE_CURRENT_SOURCE_DIR}/slateConfig.cmake
-        COPYONLY
+    ${CMAKE_CURRENT_SOURCE_DIR}/slateConfig.cmake.in
+    ${CMAKE_CURRENT_SOURCE_DIR}/slateConfig.cmake
+    COPYONLY
 )
 
 
 install (EXPORT slateTargets
-        FILE slateTargets.cmake
-        DESTINATION lib/slate
-        )
+    FILE slateTargets.cmake
+    DESTINATION lib/slate
+)
 
 install(
-        DIRECTORY include/
-        DESTINATION include
-        FILES_MATCHING PATTERN "*.h*"
+    DIRECTORY include/
+    DESTINATION include
+    FILES_MATCHING PATTERN "*.h*"
 )
 
 install (
-        FILES ${CMAKE_CURRENT_SOURCE_DIR}/slateConfig.cmake
-        DESTINATION lib/slate
+    FILES ${CMAKE_CURRENT_SOURCE_DIR}/slateConfig.cmake
+    DESTINATION lib/slate
 )

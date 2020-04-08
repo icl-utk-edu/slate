@@ -46,6 +46,40 @@ namespace work {
 
 //------------------------------------------------------------------------------
 /// Triangular solve matrix (multiple right-hand sides).
+///
+/// @tparam target
+///         One of HostTask, HostNest, HostBatch, Devices.
+///
+/// @tparam scalar_t
+///         One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in] side
+///         Whether A appears on the left or on the right of X:
+///         - Side::Left:  solve $A X = \alpha B$
+///         - Side::Right: solve $X A = \alpha B$
+///
+/// @param[in] alpha
+///         The scalar alpha.
+///
+/// @param[in] A
+///         - If side = left,  the m-by-m triangular matrix A;
+///         - if side = right, the n-by-n triangular matrix A.
+///
+/// @param[in,out] B
+///         On entry, the m-by-n matrix B.
+///         On exit, overwritten by the result X.
+///
+/// @param[in] row
+///         A raw pointer to a dummy vector data that is allocated using
+///         std::vector for exception safety. The dummy vector is used for
+///         OpenMP dependencies tarcking, not based on the actual data. Entries
+///         in the dummy vector represent each row of matrix $B$. The dummy
+///         vector is allocated using std::vector.
+///
+/// @param[in] lookahead
+///         Number of blocks to overlap communication and computation.
+///         lookahead >= 0. Default 1.
+///
 /// @ingroup trsm_work
 ///
 template <Target target, typename scalar_t>

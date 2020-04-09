@@ -218,25 +218,6 @@ void permuteRows(internal::TargetType<Target::HostTask>,
 */
 
 //------------------------------------------------------------------------------
-/// Permutes rows according to the pivot vector.
-/// Dispatches to target implementations.
-///
-/// @param[in] layout
-///     Indicates the Layout (ColMajor/RowMajor) to operate with.
-///     Local tiles of matrix on target devices will be converted to layout.
-///
-/// @ingroup permute_internal
-///
-template <Target target, typename scalar_t>
-void permuteRows(Direction direction,
-                 Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
-                 Layout layout, int priority, int tag)
-{
-    permuteRows(internal::TargetType<target>(), direction, A, pivot,
-                layout, priority, tag);
-}
-
-//------------------------------------------------------------------------------
 /// Permutes rows of a general matrix according to the pivot vector.
 /// Host implementation.
 /// todo: Restructure similarly to Hermitian permuteRowsCols
@@ -345,6 +326,25 @@ void permuteRows(
     // forward to HostTask
     permuteRows(internal::TargetType<Target::HostTask>(),
                 direction, A, pivot, layout, priority, tag);
+}
+
+//------------------------------------------------------------------------------
+/// Permutes rows according to the pivot vector.
+/// Dispatches to target implementations.
+///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) to operate with.
+///     Local tiles of matrix on target devices will be converted to layout.
+///
+/// @ingroup permute_internal
+///
+template <Target target, typename scalar_t>
+void permuteRows(Direction direction,
+                 Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
+                 Layout layout, int priority, int tag)
+{
+    permuteRows(internal::TargetType<target>(), direction, A, pivot,
+                layout, priority, tag);
 }
 
 //------------------------------------------------------------------------------
@@ -489,20 +489,6 @@ void permuteRows(
                 cudaStreamSynchronize(A.compute_stream(device)));
         }
     }
-}
-
-//------------------------------------------------------------------------------
-/// Permutes rows and columns symmetrically according to the pivot vector.
-/// Dispatches to target implementations.
-/// @ingroup permute_internal
-///
-template <Target target, typename scalar_t>
-void permuteRowsCols(Direction direction,
-          HermitianMatrix<scalar_t>&& A, std::vector<Pivot>& pivot,
-          int priority, int tag)
-{
-    permuteRowsCols(internal::TargetType<target>(), direction, A, pivot,
-                    priority, tag);
 }
 
 //------------------------------------------------------------------------------
@@ -697,6 +683,20 @@ void permuteRowsCols(
             }
         }
     }
+}
+
+//------------------------------------------------------------------------------
+/// Permutes rows and columns symmetrically according to the pivot vector.
+/// Dispatches to target implementations.
+/// @ingroup permute_internal
+///
+template <Target target, typename scalar_t>
+void permuteRowsCols(Direction direction,
+          HermitianMatrix<scalar_t>&& A, std::vector<Pivot>& pivot,
+          int priority, int tag)
+{
+    permuteRowsCols(internal::TargetType<target>(), direction, A, pivot,
+                    priority, tag);
 }
 
 //------------------------------------------------------------------------------

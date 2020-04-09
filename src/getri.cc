@@ -162,7 +162,7 @@ void getri(slate::internal::TargetType<target>,
 
         // Apply column pivoting.
         for (int64_t k = A.nt()-1; k >= 0; --k) {
-            internal::swap<Target::HostTask>(
+            internal::permuteRows<Target::HostTask>(
                 Direction::Backward, transpose(A).sub(k, A.nt()-1, 0, A.nt()-1),
                 pivots.at(k), Layout::ColMajor);
         }

@@ -71,7 +71,7 @@ void getrs(slate::internal::TargetType<target>,
         // Pivot the right hand side matrix.
         for (int64_t k = 0; k < B.mt(); ++k) {
             // swap rows in B(k:mt-1, 0:nt-1)
-            internal::swap<Target::HostTask>(
+            internal::permuteRows<Target::HostTask>(
                 Direction::Forward, B.sub(k, B.mt()-1, 0, B.nt()-1),
                 pivots.at(k), Layout::ColMajor);
         }
@@ -100,7 +100,7 @@ void getrs(slate::internal::TargetType<target>,
         // Pivot the right hand side matrix, X = P^T Xhat
         for (int64_t k = B.mt()-1; k >= 0; --k) {
             // swap rows in B(k:mt-1, 0:nt-1)
-            internal::swap<Target::HostTask>(
+            internal::permuteRows<Target::HostTask>(
                 Direction::Backward, B.sub(k, B.mt()-1, 0, B.nt()-1),
                 pivots.at(k), Layout::ColMajor);
         }

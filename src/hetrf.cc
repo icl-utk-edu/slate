@@ -481,18 +481,18 @@ void hetrf(slate::internal::TargetType<target>,
                     //printf( " +++ swap previous L (%ld: Asub(%ld:%ld, 0:%ld))\n",k,k+1,A_mt-1,k-1);
                     #pragma omp task
                     {
-                        internal::swap<Target::HostTask>(
-                            Direction::Forward, A.sub(k+1, A_mt-1, 0, k-1), pivots.at(k+1),
-                            layout, 1, tag3);
+                        internal::permuteRows<Target::HostTask>(
+                            Direction::Forward, A.sub(k+1, A_mt-1, 0, k-1),
+                            pivots.at(k+1), layout, 1, tag3);
                     }
                 }
                 // symmetric swap of A(k+1:mt-1, k+1:mt-1)
                 //printf( " +++ symmetric swap A(%ld:%ld, %ld:%ld) +++\n",k+1,A_mt-1, k+1,A_mt-1 );
                 #pragma omp task
                 {
-                    internal::swap<Target::HostTask>(
-                        Direction::Forward, A.sub(k+1, A_mt-1), pivots.at(k+1),
-                        1, tag4);
+                    internal::permuteRowsCols<Target::HostTask>(
+                        Direction::Forward, A.sub(k+1, A_mt-1),
+                        pivots.at(k+1), 1, tag4);
                 }
                 #pragma omp taskwait
             }

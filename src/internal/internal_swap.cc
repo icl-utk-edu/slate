@@ -59,9 +59,12 @@ namespace internal {
 /// @param[in,out] pivot
 ///     Parallel pivot for out-of-place pivoting.
 ///
-void makeParallelPivot(Direction direction,
-                       std::vector<Pivot> const& pivot,
-                       std::map<Pivot, Pivot>& pivot_map)
+/// @ingroup permute_internal
+///
+void makeParallelPivot(
+    Direction direction,
+    std::vector<Pivot> const& pivot,
+    std::map<Pivot, Pivot>& pivot_map)
 {
     int64_t begin, end, inc;
     if (direction == Direction::Forward) {
@@ -78,15 +81,15 @@ void makeParallelPivot(Direction direction,
     // Put the participating rows in the map.
     for (int64_t i = begin; i != end; i += inc) {
         if (pivot[i] != Pivot(0, i)) {
-            pivot_map[Pivot(0, i)] = Pivot(0, i);
-            pivot_map[pivot[i]] = pivot[i];
+            pivot_map[ Pivot(0, i) ] = Pivot(0, i);
+            pivot_map[ pivot[i]    ] = pivot[i];
         }
     }
 
     // Perform pivoting in the map.
     for (int64_t i = begin; i != end; i += inc)
         if (pivot[i] != Pivot(0, i))
-            std::swap(pivot_map[pivot[i]], pivot_map[Pivot(0, i)]);
+            std::swap( pivot_map[ pivot[i] ], pivot_map[ Pivot(0, i) ] );
 /*
     std::cout << std::endl;
     for (int64_t i = begin; i != end; i += inc)
@@ -103,23 +106,25 @@ void makeParallelPivot(Direction direction,
     std::cout << "---------------------------" << std::endl;
 */
 }
+
 /*
 //------------------------------------------------------------------------------
 template <Target target, typename scalar_t>
-void swap(Direction direction,
-          Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
-          Layout layout, int priority, int tag)
+void permuteRows(
+    Direction direction,
+    Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
+    Layout layout, int priority, int tag)
 {
-    swap(internal::TargetType<target>(), direction, A, pivot,
-         layout, priority, tag);
+    permuteRows(internal::TargetType<target>(), direction, A, pivot,
+                layout, priority, tag);
 }
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void swap(internal::TargetType<Target::HostTask>,
-          Direction direction,
-          Matrix<scalar_t>& A, std::vector<Pivot>& pivot_vec,
-          Layout layout, int priority, int tag)
+void permuteRows(internal::TargetType<Target::HostTask>,
+                 Direction direction,
+                 Matrix<scalar_t>& A, std::vector<Pivot>& pivot_vec,
+                 Layout layout, int priority, int tag)
 {
     // CPU uses ColMajor
     assert(layout == Layout::ColMajor);
@@ -130,8 +135,9 @@ void swap(internal::TargetType<Target::HostTask>,
     // todo: for performance optimization, merge with the loops below,
     // at least with lookahead, probably selectively
     A.tileGetAllForWriting(A.hostNum(), LayoutConvert(layout));
+
     {
-        trace::Block trace_block("internal::swap");
+        trace::Block trace_block("internal::permuteRows");
 
         for (int64_t j = 0; j < A.nt(); ++j) {
             int64_t nb = A.tileNb(j);
@@ -212,43 +218,45 @@ void swap(internal::TargetType<Target::HostTask>,
 */
 
 //------------------------------------------------------------------------------
-/// Swaps rows according to the pivot vector.
+/// Permutes rows according to the pivot vector.
 /// Dispatches to target implementations.
 ///
 /// @param[in] layout
 ///     Indicates the Layout (ColMajor/RowMajor) to operate with.
 ///     Local tiles of matrix on target devices will be converted to layout.
 ///
-/// @ingroup swap_internal
+/// @ingroup permute_internal
 ///
 template <Target target, typename scalar_t>
-void swap(Direction direction,
-          Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
-          Layout layout, int priority, int tag)
+void permuteRows(Direction direction,
+                 Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
+                 Layout layout, int priority, int tag)
 {
-    swap(internal::TargetType<target>(), direction, A, pivot,
-         layout, priority, tag);
+    permuteRows(internal::TargetType<target>(), direction, A, pivot,
+                layout, priority, tag);
 }
 
 //------------------------------------------------------------------------------
-/// Swaps rows of a general matrix according to the pivot vector,
-/// host implementation.
-/// todo: Restructure similarly to Hermitian swap
+/// Permutes rows of a general matrix according to the pivot vector.
+/// Host implementation.
+/// todo: Restructure similarly to Hermitian permuteRowsCols
 ///       (use the auxiliary swap functions).
-/// @ingroup swap_internal
+///
+/// @ingroup permute_internal
 ///
 template <typename scalar_t>
-void swap(internal::TargetType<Target::HostTask>,
-          Direction direction,
-          Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
-          Layout layout, int priority, int tag)
+void permuteRows(
+    internal::TargetType<Target::HostTask>,
+    Direction direction,
+    Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
+    Layout layout, int priority, int tag)
 {
     // todo: for performance optimization, merge with the loops below,
     // at least with lookahead, probably selectively
     A.tileGetAllForWriting(A.hostNum(), LayoutConvert(layout));
 
     {
-        trace::Block trace_block("internal::swap");
+        trace::Block trace_block("internal::permuteRows");
 
         // todo: what about parallelizing this? MPI blocking?
         for (int64_t j = 0; j < A.nt(); ++j) {
@@ -278,20 +286,22 @@ void swap(internal::TargetType<Target::HostTask>,
                             pivot[i].elementOffset() > i)
                         {
                             // local swap
-                            swap(0, A.tileNb(j),
-                                 A(0, j), i,
-                                 A(pivot[i].tileIndex(), j),
-                                 pivot[i].elementOffset());
+                            swapRow(
+                                0, A.tileNb(j),
+                                A(0, j), i,
+                                A(pivot[i].tileIndex(), j),
+                                pivot[i].elementOffset());
                         }
                     }
                     // I am not the root.
                     else {
                         // MPI swap with the root
-                        swap(0, A.tileNb(j),
-                             A(pivot[i].tileIndex(), j),
-                             pivot[i].elementOffset(),
-                             A.tileRank(0, j), A.mpiComm(),
-                             tag);
+                        swapRemoteRow(
+                            0, A.tileNb(j),
+                            A(pivot[i].tileIndex(), j),
+                            pivot[i].elementOffset(),
+                            A.tileRank(0, j), A.mpiComm(),
+                            tag);
                     }
                 }
                 // I don't own the pivot.
@@ -299,10 +309,11 @@ void swap(internal::TargetType<Target::HostTask>,
                     // If I am the root.
                     if (root) {
                         // MPI swap with the pivot owner
-                        swap(0,  A.tileNb(j),
-                             A(0, j), i,
-                             pivot_rank, A.mpiComm(),
-                             tag);
+                        swapRemoteRow(
+                            0,  A.tileNb(j),
+                            A(0, j), i,
+                            pivot_rank, A.mpiComm(),
+                            tag);
                     }
                 }
             }
@@ -310,26 +321,30 @@ void swap(internal::TargetType<Target::HostTask>,
     }
 }
 
+//------------------------------------------------------------------------------
 template <typename scalar_t>
-void swap(internal::TargetType<Target::HostNest>,
-          Direction direction,
-          Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
-          Layout layout, int priority, int tag)
+void permuteRows(
+    internal::TargetType<Target::HostNest>,
+    Direction direction,
+    Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
+    Layout layout, int priority, int tag)
 {
     // forward to HostTask
-    swap(internal::TargetType<Target::HostTask>(),
-         direction, A, pivot, layout, priority, tag);
+    permuteRows(internal::TargetType<Target::HostTask>(),
+                direction, A, pivot, layout, priority, tag);
 }
 
+//------------------------------------------------------------------------------
 template <typename scalar_t>
-void swap(internal::TargetType<Target::HostBatch>,
-          Direction direction,
-          Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
-          Layout layout, int priority, int tag)
+void permuteRows(
+    internal::TargetType<Target::HostBatch>,
+    Direction direction,
+    Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
+    Layout layout, int priority, int tag)
 {
     // forward to HostTask
-    swap(internal::TargetType<Target::HostTask>(),
-         direction, A, pivot, layout, priority, tag);
+    permuteRows(internal::TargetType<Target::HostTask>(),
+                direction, A, pivot, layout, priority, tag);
 }
 
 //------------------------------------------------------------------------------
@@ -373,18 +388,20 @@ inline cublasStatus_t cublasSwap(
 }
 
 //------------------------------------------------------------------------------
-/// Swaps rows of a general matrix according to the pivot vector,
-/// host implementation.
-/// todo: Restructure similarly to Hermitian swap
+/// Permutes rows of a general matrix according to the pivot vector.
+/// GPU device implementation.
+/// todo: Restructure similarly to Hermitian permute
 ///       (use the auxiliary swap functions).
 /// todo: Just one function forwarding target.
-/// @ingroup swap_internal
+///
+/// @ingroup permute_internal
 ///
 template <typename scalar_t>
-void swap(internal::TargetType<Target::Devices>,
-          Direction direction,
-          Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
-          Layout layout, int priority, int tag)
+void permuteRows(
+    internal::TargetType<Target::Devices>,
+    Direction direction,
+    Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
+    Layout layout, int priority, int tag)
 {
     // GPU uses RowMajor
     assert(layout == Layout::RowMajor);
@@ -394,7 +411,7 @@ void swap(internal::TargetType<Target::Devices>,
     A.tileGetAllForWritingOnDevices(LayoutConvert(layout));
 
     {
-        trace::Block trace_block("internal::swap");
+        trace::Block trace_block("internal::permuteRows");
 
         std::set<int> dev_set;
 
@@ -442,23 +459,25 @@ void swap(internal::TargetType<Target::Devices>,
                     }
                     // I am not the root.
                     else {
-                        // MPI swap with the root
-                        swap(0, A.tileNb(j), device,
-                             A(pivot[i].tileIndex(), j, device),
-                             pivot[i].elementOffset(),
-                             A.tileRank(0, j), A.mpiComm(),
-                             A.compute_stream(device), tag);
+                        // MPI permute with the root
+                        swapRemoteRowDevice(
+                            0, A.tileNb(j), device,
+                            A(pivot[i].tileIndex(), j, device),
+                            pivot[i].elementOffset(),
+                            A.tileRank(0, j), A.mpiComm(),
+                            A.compute_stream(device), tag);
                     }
                 }
                 // I don't own the pivot.
                 else {
                     // If I am the root.
                     if (root) {
-                        // MPI swap with the pivot owner
-                        swap(0,  A.tileNb(j), device,
-                             A(0, j, device), i,
-                             pivot_rank, A.mpiComm(),
-                             A.compute_stream(device), tag);
+                        // MPI permute with the pivot owner
+                        swapRemoteRowDevice(
+                            0,  A.tileNb(j), device,
+                            A(0, j, device), i,
+                            pivot_rank, A.mpiComm(),
+                            A.compute_stream(device), tag);
                     }
                 }
             }
@@ -473,104 +492,119 @@ void swap(internal::TargetType<Target::Devices>,
 }
 
 //------------------------------------------------------------------------------
-/// Swaps L shapes according to the pivot vector.
+/// Permutes rows and columns symmetrically according to the pivot vector.
 /// Dispatches to target implementations.
-/// @ingroup swap_internal
+/// @ingroup permute_internal
 ///
 template <Target target, typename scalar_t>
-void swap(Direction direction,
+void permuteRowsCols(Direction direction,
           HermitianMatrix<scalar_t>&& A, std::vector<Pivot>& pivot,
           int priority, int tag)
 {
-    swap(internal::TargetType<target>(), direction, A, pivot,
-         priority, tag);
+    permuteRowsCols(internal::TargetType<target>(), direction, A, pivot,
+                    priority, tag);
 }
 
 //------------------------------------------------------------------------------
-template <typename scalar_t>
-void swap(int64_t j_offs, int64_t n,
-          HermitianMatrix<scalar_t>& A,
-          Op op1, std::tuple<int64_t, int64_t>&& ij_tuple_1, int64_t offs_1,
-          Op op2, std::tuple<int64_t, int64_t>&& ij_tuple_2, int64_t offs_2,
-          int tag)
-{
-    int64_t i1 = std::get<0>(ij_tuple_1);
-    int64_t j1 = std::get<1>(ij_tuple_1);
-
-    int64_t i2 = std::get<0>(ij_tuple_2);
-    int64_t j2 = std::get<1>(ij_tuple_2);
-
-    if (A.tileRank(i1, j1) == A.mpiRank()) {
-        if (A.tileRank(i2, j2) == A.mpiRank()) {
-            // local swap
-            swap(j_offs, n,
-                 op1 == Op::NoTrans ? A(i1, j1) : transpose(A(i1, j1)), offs_1,
-                 op2 == Op::NoTrans ? A(i2, j2) : transpose(A(i2, j2)), offs_2);
-        }
-        else {
-            // sending tile 1
-            swap(j_offs, n,
-                 op1 == Op::NoTrans ? A(i1, j1) : transpose(A(i1, j1)), offs_1,
-                 A.tileRank(i2, j2), A.mpiComm(), tag);
-        }
-    }
-    else {
-        if (A.tileRank(i2, j2) == A.mpiRank()) {
-            // sending tile 2
-            swap(j_offs, n,
-                 op2 == Op::NoTrans ? A(i2, j2) : transpose(A(i2, j2)), offs_2,
-                 A.tileRank(i1, j1), A.mpiComm(), tag);
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
-template <typename scalar_t>
-void swap(HermitianMatrix<scalar_t>& A,
-          std::tuple<int64_t, int64_t>&& ij_tuple_1,
-          int64_t offs_i1, int64_t offs_j1,
-          std::tuple<int64_t, int64_t>&& ij_tuple_2,
-          int64_t offs_i2, int64_t offs_j2,
-          int tag)
-{
-    int64_t i1 = std::get<0>(ij_tuple_1);
-    int64_t j1 = std::get<1>(ij_tuple_1);
-
-    int64_t i2 = std::get<0>(ij_tuple_2);
-    int64_t j2 = std::get<1>(ij_tuple_2);
-
-    if (A.tileRank(i1, j1) == A.mpiRank()) {
-        if (A.tileRank(i2, j2) == A.mpiRank()) {
-            // local swap
-            std::swap(A(i1, j1).at(offs_i1, offs_j1),
-                      A(i2, j2).at(offs_i2, offs_j2));
-        }
-        else {
-            // sending tile 1
-            swap(A(i1, j1), offs_i1, offs_j1,
-                 A.tileRank(i2, j2), A.mpiComm(), tag);
-        }
-    }
-    else {
-        if (A.tileRank(i2, j2) == A.mpiRank()) {
-            // sending tile 2
-            swap(A(i2, j2), offs_i2, offs_j2,
-                 A.tileRank(i1, j1), A.mpiComm(), tag);
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
-/// (Symmetric?) Swaps of rows (and columns?) of a Hermitian matrix according to
-/// the pivot vector, host implementation.
-/// @ingroup swap_internal
+/// Swap a partial row of two tiles, either locally or remotely. Swaps
+///     op1( A( ij_tuple_1 ) )[ offset_i1, j_offset : j_offset+n-1 ] and
+///     op2( A( ij_tuple_2 ) )[ offset_i2, j_offset : j_offset+n-1 ].
 ///
-// todo: is this symmetric swapping, both rows & columns?
+/// @ingroup permute_internal
+///
 template <typename scalar_t>
-void swap(internal::TargetType<Target::HostTask>,
-          Direction direction,
-          HermitianMatrix<scalar_t>& A, std::vector<Pivot>& pivot,
-          int priority, int tag)
+void swapRow(
+    int64_t j_offset, int64_t n,
+    HermitianMatrix<scalar_t>& A,
+    Op op1, std::tuple<int64_t, int64_t>&& ij_tuple_1, int64_t offset_i1,
+    Op op2, std::tuple<int64_t, int64_t>&& ij_tuple_2, int64_t offset_i2,
+    int tag)
+{
+    int64_t i1 = std::get<0>(ij_tuple_1);
+    int64_t j1 = std::get<1>(ij_tuple_1);
+
+    int64_t i2 = std::get<0>(ij_tuple_2);
+    int64_t j2 = std::get<1>(ij_tuple_2);
+
+    if (A.tileRank(i1, j1) == A.mpiRank()) {
+        if (A.tileRank(i2, j2) == A.mpiRank()) {
+            // local swap
+            swapRow(
+                j_offset, n,
+                op1 == Op::NoTrans ? A(i1, j1) : transpose(A(i1, j1)), offset_i1,
+                op2 == Op::NoTrans ? A(i2, j2) : transpose(A(i2, j2)), offset_i2);
+        }
+        else {
+            // sending tile 1
+            swapRemoteRow(
+                j_offset, n,
+                op1 == Op::NoTrans ? A(i1, j1) : transpose(A(i1, j1)), offset_i1,
+                A.tileRank(i2, j2), A.mpiComm(), tag);
+        }
+    }
+    else if (A.tileRank(i2, j2) == A.mpiRank()) {
+        // sending tile 2
+        swapRemoteRow(
+            j_offset, n,
+            op2 == Op::NoTrans ? A(i2, j2) : transpose(A(i2, j2)), offset_i2,
+            A.tileRank(i1, j1), A.mpiComm(), tag);
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Swap a single element of two tiles, either locally or remotely. Swaps
+///     A( ij_tuple_1 )[ offset_i1, offset_j1 ] and
+///     A( ij_tuple_2 )[ offset_i2, offset_j2 ].
+///
+/// @ingroup permute_internal
+///
+template <typename scalar_t>
+void swapElement(
+    HermitianMatrix<scalar_t>& A,
+    std::tuple<int64_t, int64_t>&& ij_tuple_1,
+    int64_t offset_i1, int64_t offset_j1,
+    std::tuple<int64_t, int64_t>&& ij_tuple_2,
+    int64_t offset_i2, int64_t offset_j2,
+    int tag)
+{
+    int64_t i1 = std::get<0>(ij_tuple_1);
+    int64_t j1 = std::get<1>(ij_tuple_1);
+
+    int64_t i2 = std::get<0>(ij_tuple_2);
+    int64_t j2 = std::get<1>(ij_tuple_2);
+
+    if (A.tileRank(i1, j1) == A.mpiRank()) {
+        if (A.tileRank(i2, j2) == A.mpiRank()) {
+            // local swap
+            std::swap(A(i1, j1).at(offset_i1, offset_j1),
+                      A(i2, j2).at(offset_i2, offset_j2));
+        }
+        else {
+            // sending tile 1
+            swapRemoteElement(A(i1, j1), offset_i1, offset_j1,
+                              A.tileRank(i2, j2), A.mpiComm(), tag);
+        }
+    }
+    else if (A.tileRank(i2, j2) == A.mpiRank()) {
+        // sending tile 2
+        swapRemoteElement(A(i2, j2), offset_i2, offset_j2,
+                          A.tileRank(i1, j1), A.mpiComm(), tag);
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Permutes rows and cols, symmetrically, of a Hermitian matrix according to
+/// the pivot vector.
+/// Host implementation.
+///
+/// @ingroup permute_internal
+///
+template <typename scalar_t>
+void permuteRowsCols(
+    internal::TargetType<Target::HostTask>,
+    Direction direction,
+    HermitianMatrix<scalar_t>& A, std::vector<Pivot>& pivot,
+    int priority, int tag)
 {
     using blas::conj;
 
@@ -589,7 +623,7 @@ void swap(internal::TargetType<Target::HostTask>,
     #pragma omp taskwait
 
     {
-        trace::Block trace_block("internal::swap");
+        trace::Block trace_block("internal::permuteRowsCols");
 
         // Apply pivots forward (0, ..., k-1) or reverse (k-1, ..., 0)
         int64_t begin, end, inc;
@@ -611,54 +645,54 @@ void swap(internal::TargetType<Target::HostTask>,
             if (j2 > 0 || i2 > i1) {
 
                 // in the upper band
-                swap(0, i1, A,
-                     Op::NoTrans, {0,  0}, i1,
-                     Op::NoTrans, {j2, 0}, i2, tag);
+                swapRow(0, i1, A,
+                        Op::NoTrans, {0,  0}, i1,
+                        Op::NoTrans, {j2, 0}, i2, tag);
                 if (j2 == 0) {
-                    swap(i1+1, i2-i1, A,
-                         Op::Trans,   {0, 0}, i1,
-                         Op::NoTrans, {0, 0}, i2, tag);
+                    swapRow(i1+1, i2-i1, A,
+                            Op::Trans,   {0, 0}, i1,
+                            Op::NoTrans, {0, 0}, i2, tag);
 
-                    swap(i2, A.tileNb(0)-i2, A,
-                         Op::Trans, {0, 0}, i1,
-                         Op::Trans, {0, 0}, i2, tag);
+                    swapRow(i2, A.tileNb(0)-i2, A,
+                            Op::Trans, {0, 0}, i1,
+                            Op::Trans, {0, 0}, i2, tag);
                 }
                 else {
-                    swap(i1+1, A.tileNb(0)-i1-1, A,
-                         Op::Trans,   {0,  0}, i1,
-                         Op::NoTrans, {j2, 0}, i2, tag);
+                    swapRow(i1+1, A.tileNb(0)-i1-1, A,
+                            Op::Trans,   {0,  0}, i1,
+                            Op::NoTrans, {j2, 0}, i2, tag);
 
                     // in the lower band
-                    swap(0, i2, A,
-                         Op::Trans,   {j2,  0}, i1,
-                         Op::NoTrans, {j2, j2}, i2, tag+1);
+                    swapRow(0, i2, A,
+                            Op::Trans,   {j2,  0}, i1,
+                            Op::NoTrans, {j2, j2}, i2, tag+1);
 
-                    swap(i2+1, A.tileNb(j2)-i2-1, A,
-                         Op::Trans, {j2,  0}, i1,
-                         Op::Trans, {j2, j2}, i2, tag+1);
+                    swapRow(i2+1, A.tileNb(j2)-i2-1, A,
+                            Op::Trans, {j2,  0}, i1,
+                            Op::Trans, {j2, j2}, i2, tag+1);
                 }
 
-                // Conjugate the crossing poing.
+                // Conjugate the crossing point.
                 if (A.tileRank(j2, 0) == A.mpiRank())
                     A(j2, 0).at(i2, i1) = conj(A(j2, 0).at(i2, i1));
 
                 // Swap the corners.
-                swap(A,
-                     {0, 0}, i1, i1,
-                     {j2, j2}, i2, i2, tag);
+                swapElement(A,
+                            {0, 0}, i1, i1,
+                            {j2, j2}, i2, i2, tag);
 
                 // before the lower band
                 for (int64_t j1=1; j1 < j2; ++j1) {
-                    swap(0, A.tileNb(j1), A,
-                             Op::Trans,   {j1,  0}, i1,
-                             Op::NoTrans, {j2, j1}, i2, tag+1+j1);
+                    swapRow(0, A.tileNb(j1), A,
+                            Op::Trans,   {j1,  0}, i1,
+                            Op::NoTrans, {j2, j1}, i2, tag+1+j1);
                 }
 
                 // after the lower band
                 for (int64_t j1=j2+1; j1 < A.nt(); ++j1) {
-                    swap(0, A.tileNb(j1), A,
-                         Op::Trans, {j1,  0}, i1,
-                         Op::Trans, {j1, j2}, i2, tag+1+j1);
+                    swapRow(0, A.tileNb(j1), A,
+                            Op::Trans, {j1,  0}, i1,
+                            Op::Trans, {j1, j2}, i2, tag+1+j1);
                 }
             }
         }
@@ -669,78 +703,78 @@ void swap(internal::TargetType<Target::HostTask>,
 // Explicit instantiations for (general) Matrix.
 // ----------------------------------------
 template
-void swap<Target::HostTask, float>(
+void permuteRows<Target::HostTask, float>(
     Direction direction,
     Matrix<float>&& A, std::vector<Pivot>& pivot,
     Layout layout, int priority, int tag);
 
 template
-void swap<Target::HostNest, float>(
+void permuteRows<Target::HostNest, float>(
     Direction direction,
     Matrix<float>&& A, std::vector<Pivot>& pivot,
     Layout layout, int priority, int tag);
 
 template
-void swap<Target::HostBatch, float>(
+void permuteRows<Target::HostBatch, float>(
     Direction direction,
     Matrix<float>&& A, std::vector<Pivot>& pivot,
     Layout layout, int priority, int tag);
 
 template
-void swap<Target::Devices, float>(
+void permuteRows<Target::Devices, float>(
     Direction direction,
     Matrix<float>&& A, std::vector<Pivot>& pivot,
     Layout layout, int priority, int tag);
 
 // ----------------------------------------
 template
-void swap<Target::HostTask, double>(
+void permuteRows<Target::HostTask, double>(
     Direction direction,
     Matrix<double>&& A, std::vector<Pivot>& pivot,
     Layout layout, int priority, int tag);
 
 template
-void swap<Target::HostNest, double>(
+void permuteRows<Target::HostNest, double>(
     Direction direction,
     Matrix<double>&& A, std::vector<Pivot>& pivot,
     Layout layout, int priority, int tag);
 
 template
-void swap<Target::HostBatch, double>(
+void permuteRows<Target::HostBatch, double>(
     Direction direction,
     Matrix<double>&& A, std::vector<Pivot>& pivot,
     Layout layout, int priority, int tag);
 
 template
-void swap<Target::Devices, double>(
+void permuteRows<Target::Devices, double>(
     Direction direction,
     Matrix<double>&& A, std::vector<Pivot>& pivot,
     Layout layout, int priority, int tag);
 
 // ----------------------------------------
 template
-void swap< Target::HostTask, std::complex<float> >(
+void permuteRows< Target::HostTask, std::complex<float> >(
     Direction direction,
     Matrix< std::complex<float> >&& A,
     std::vector<Pivot>& pivot,
     Layout layout, int priority, int tag);
 
 template
-void swap< Target::HostNest, std::complex<float> >(
+void permuteRows< Target::HostNest, std::complex<float> >(
     Direction direction,
     Matrix< std::complex<float> >&& A,
     std::vector<Pivot>& pivot,
     Layout layout, int priority, int tag);
 
 template
-void swap< Target::HostBatch, std::complex<float> >(
+void permuteRows< Target::HostBatch, std::complex<float> >(
     Direction direction,
     Matrix< std::complex<float> >&& A,
     std::vector<Pivot>& pivot,
     Layout layout, int priority, int tag);
 
 template
-void swap< Target::Devices, std::complex<float> >(
+void permuteRows< Target::Devices, std::complex<float> >(
     Direction direction,
     Matrix< std::complex<float> >&& A,
     std::vector<Pivot>& pivot,
@@ -748,28 +782,28 @@ void swap< Target::Devices, std::complex<float> >(
 
 // ----------------------------------------
 template
-void swap< Target::HostTask, std::complex<double> >(
+void permuteRows< Target::HostTask, std::complex<double> >(
     Direction direction,
     Matrix< std::complex<double> >&& A,
     std::vector<Pivot>& pivot,
     Layout layout, int priority, int tag);
 
 template
-void swap< Target::HostNest, std::complex<double> >(
+void permuteRows< Target::HostNest, std::complex<double> >(
     Direction direction,
     Matrix< std::complex<double> >&& A,
     std::vector<Pivot>& pivot,
     Layout layout, int priority, int tag);
 
 template
-void swap< Target::HostBatch, std::complex<double> >(
+void permuteRows< Target::HostBatch, std::complex<double> >(
     Direction direction,
     Matrix< std::complex<double> >&& A,
     std::vector<Pivot>& pivot,
     Layout layout, int priority, int tag);
 
 template
-void swap< Target::Devices, std::complex<double> >(
+void permuteRows< Target::Devices, std::complex<double> >(
     Direction direction,
     Matrix< std::complex<double> >&& A,
     std::vector<Pivot>& pivot,
@@ -779,21 +813,21 @@ void swap< Target::Devices, std::complex<double> >(
 // Explicit instantiations for HermitianMatrix.
 // ----------------------------------------
 template
-void swap<Target::HostTask, float>(
+void permuteRowsCols<Target::HostTask, float>(
     Direction direction,
     HermitianMatrix<float>&& A, std::vector<Pivot>& pivot,
     int priority, int tag);
 
 // ----------------------------------------
 template
-void swap<Target::HostTask, double>(
+void permuteRowsCols<Target::HostTask, double>(
     Direction direction,
     HermitianMatrix<double>&& A, std::vector<Pivot>& pivot,
     int priority, int tag);
 
 // ----------------------------------------
 template
-void swap< Target::HostTask, std::complex<float> >(
+void permuteRowsCols< Target::HostTask, std::complex<float> >(
     Direction direction,
     HermitianMatrix< std::complex<float> >&& A,
     std::vector<Pivot>& pivot,
@@ -801,7 +835,7 @@ void swap< Target::HostTask, std::complex<float> >(
 
 // ----------------------------------------
 template
-void swap< Target::HostTask, std::complex<double> >(
+void permuteRowsCols< Target::HostTask, std::complex<double> >(
     Direction direction,
     HermitianMatrix< std::complex<double> >&& A,
     std::vector<Pivot>& pivot,

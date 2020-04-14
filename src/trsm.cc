@@ -38,7 +38,10 @@
 //------------------------------------------------------------------------------
 
 #include "slate/slate.hh"
-#include "work/work.hh"
+#include "aux/Debug.hh"
+#include "slate/Matrix.hh"
+#include "slate/TriangularMatrix.hh"
+#include "internal/internal.hh"
 
 namespace slate {
 
@@ -62,9 +65,42 @@ void trsm(slate::internal::TargetType<target>,
                                     Matrix<scalar_t> B,
           int64_t lookahead)
 {
+    using blas::conj;
+    using BcastList = typename Matrix<scalar_t>::BcastList;
+
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+
+    // if on right, change to left by (conj)-transposing A and B to get
+    // op(B) = op(A)^{-1} * op(B)
+    if (side == Side::Right) {
+        if (A.op() == Op::ConjTrans || B.op() == Op::ConjTrans) {
+            A = conjTranspose(A);
+            B = conjTranspose(B);
+            alpha = conj(alpha);
+        }
+        else {
+            A = transpose(A);
+            B = transpose(B);
+        }
+    }
+
+    // B is mt-by-nt, A is mt-by-mt (assuming side = left)
+    assert(A.mt() == B.mt());
+    assert(A.nt() == B.mt());
+
+    int64_t mt = B.mt();
+    int64_t nt = B.nt();
+
+    const int priority_one  = 1;
+    const int priority_zero = 0;
+
+    const int64_t batch_arrays_index_zero = 0;
+    const int64_t batch_arrays_index_one  = 1;
+    const int64_t batch_size_zero = 0;
+    const int64_t num_arrays_two = 2; // Number of kernels without lookahead
+
     if (target == Target::Devices) {
-        const int64_t batch_size_zero = 0;
-        const int64_t num_arrays_two = 2; // Number of kernels without lookahead
         // Allocate batch arrays = number of kernels without
         // lookahead + lookahead
         // number of kernels without lookahead = 2
@@ -89,12 +125,149 @@ void trsm(slate::internal::TargetType<target>,
     #pragma omp master
     {
         omp_set_nested(1);
-        #pragma omp task
-        {
-            work::trsm<target, scalar_t>(side, alpha, A, B, row, lookahead);
-            B.tileUpdateAllOrigin();
+        if (A.uplo() == Uplo::Lower) {
+            // ----------------------------------------
+            // Lower/NoTrans or Upper/Trans, Left case
+            // Forward sweep
+            for (int64_t k = 0; k < mt; ++k) {
+                scalar_t alph = k == 0 ? alpha : scalar_t(1.0);
+
+                // panel (Akk tile)
+                #pragma omp task depend(inout:row[k]) priority(1)
+                {
+                    // send A(k, k) to ranks owning block row B(k, :)
+                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
+
+                    // solve A(k, k) B(k, :) = alpha B(k, :)
+                    internal::trsm<target>(
+                        Side::Left,
+                        alph, A.sub(k, k),
+                              B.sub(k, k, 0, nt-1),
+                        priority_one, layout, batch_arrays_index_one);
+
+                    // send A(i=k+1:mt-1, k) to ranks owning block row B(i, :)
+                    BcastList bcast_list_A;
+                    for (int64_t i = k+1; i < mt; ++i)
+                        bcast_list_A.push_back({i, k, {B.sub(i, i, 0, nt-1)}});
+                    A.template listBcast<target>(bcast_list_A, layout);
+
+                    // send B(k, j=0:nt-1) to ranks owning
+                    // block col B(k+1:mt-1, j)
+                    BcastList bcast_list_B;
+                    for (int64_t j = 0; j < nt; ++j) {
+                        bcast_list_B.push_back(
+                            {k, j, {B.sub(k+1, mt-1, j, j)}});
+                    }
+                    B.template listBcast<target>(bcast_list_B, layout);
+                }
+
+                // lookahead update, B(k+1:k+la, :) -= A(k+1:k+la, k) B(k, :)
+                for (int64_t i = k+1; i < k+1+lookahead && i < mt; ++i) {
+                    #pragma omp task depend(in:row[k]) \
+                                     depend(inout:row[i]) priority(1)
+                    {
+                        // TODO: execute lookahead on devices
+                        internal::gemm<Target::HostTask>(
+                            scalar_t(-1.0), A.sub(i, i, k, k),
+                                            B.sub(k, k, 0, nt-1),
+                            alph,           B.sub(i, i, 0, nt-1),
+                            layout, priority_one);
+                    }
+                }
+
+                // trailing update,
+                // B(k+1+la:mt-1, :) -= A(k+1+la:mt-1, k) B(k, :)
+                // Updates rows k+1+la to mt-1, but two depends are sufficient:
+                // depend on k+1+la is all that is needed in next iteration;
+                // depend on mt-1 daisy chains all the trailing updates.
+                if (k+1+lookahead < mt) {
+                    #pragma omp task depend(in:row[k]) \
+                                     depend(inout:row[k+1+lookahead]) \
+                                     depend(inout:row[mt-1])
+                    {
+                        internal::gemm<target>(
+                            scalar_t(-1.0),
+                                        A.sub(k+1+lookahead, mt-1, k, k),
+                                        B.sub(k, k, 0, nt-1),
+                            alph,       B.sub(k+1+lookahead, mt-1, 0, nt-1),
+                            layout, priority_zero, batch_arrays_index_zero);
+                    }
+                }
+            }
         }
+        else {
+            // ----------------------------------------
+            // Upper/NoTrans or Lower/Trans, Left case
+            // Backward sweep
+            for (int64_t k = mt-1; k >= 0; --k) {
+                scalar_t alph = k == (mt-1) ? alpha : scalar_t(1.0);
+
+                // panel (Akk tile)
+                #pragma omp task depend(inout:row[k]) priority(1)
+                {
+                    // send A(k, k) to ranks owning block row B(k, :)
+                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
+
+                    // solve A(k, k) B(k, :) = alpha B(k, :)
+                    internal::trsm<target>(
+                        Side::Left,
+                        alph, A.sub(k, k),
+                              B.sub(k, k, 0, nt-1),
+                        priority_one, layout, batch_arrays_index_one);
+
+                    // send A(i=0:k-1, k) to ranks owning block row B(i, :)
+                    BcastList bcast_list_A;
+                    for (int64_t i = 0; i < k; ++i)
+                        bcast_list_A.push_back({i, k, {B.sub(i, i, 0, nt-1)}});
+                    A.template listBcast<target>(bcast_list_A, layout);
+
+                    // send B(k, j=0:nt-1) to ranks owning block col B(0:k-1, j)
+                    BcastList bcast_list_B;
+                    for (int64_t j = 0; j < nt; ++j)
+                        bcast_list_B.push_back({k, j, {B.sub(0, k-1, j, j)}});
+                    B.template listBcast<target>(bcast_list_B, layout);
+                }
+
+                // lookahead update, B(k-la:k-1, :) -= A(k-la:k-1, k) B(k, :)
+                for (int64_t i = k-1; i > k-1-lookahead && i >= 0; --i) {
+                    #pragma omp task depend(in:row[k]) \
+                                     depend(inout:row[i]) priority(1)
+                    {
+                        // TODO: execute lookahead on devices
+                        internal::gemm<Target::HostTask>(
+                            scalar_t(-1.0), A.sub(i, i, k, k),
+                                            B.sub(k, k, 0, nt-1),
+                            alph,           B.sub(i, i, 0, nt-1),
+                            layout, priority_one);
+                    }
+                }
+
+                // trailing update, B(0:k-1-la, :) -= A(0:k-1-la, k) B(k, :)
+                // Updates rows 0 to k-1-la, but two depends are sufficient:
+                // depend on k-1-la is all that is needed in next iteration;
+                // depend on 0 daisy chains all the trailing updates.
+                if (k-1-lookahead >= 0) {
+                    #pragma omp task depend(in:row[k]) \
+                                     depend(inout:row[k-1-lookahead]) \
+                                     depend(inout:row[0])
+                    {
+                        internal::gemm<target>(
+                            scalar_t(-1.0),
+                                          A.sub(0, k-1-lookahead, k, k),
+                                          B.sub(k, k, 0, nt-1),
+                            alph,         B.sub(0, k-1-lookahead, 0, nt-1),
+                            layout, priority_zero, batch_arrays_index_zero);
+                    }
+                }
+            }
+        }
+
+        // TODO: causes issues on summit Target::HostTask
+        // #pragma omp taskwait
+        // B.tileUpdateAllOrigin();
     }
+
+    B.tileUpdateAllOrigin();
     B.releaseWorkspace();
 }
 

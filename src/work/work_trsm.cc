@@ -70,11 +70,10 @@ namespace work {
 ///         On exit, overwritten by the result X.
 ///
 /// @param[in] row
-///         A raw pointer to a dummy vector data that is allocated using
-///         std::vector for exception safety. The dummy vector is used for
-///         OpenMP dependencies tarcking, not based on the actual data. Entries
-///         in the dummy vector represent each row of matrix $B$. The dummy
-///         vector is allocated using std::vector.
+///         A raw pointer to a dummy vector data. The dummy vector is used for
+///         OpenMP dependencies tracking, not based on the actual data. Entries
+///         in the dummy vector represent each row of matrix $B$. The size of
+///         row should be number of matrix $B$ tiles.
 ///
 /// @param[in] lookahead
 ///         Number of blocks to overlap communication and computation.

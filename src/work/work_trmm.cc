@@ -70,18 +70,16 @@ namespace work {
 ///         On exit, overwritten by the result $\alpha A B$ or $\alpha B A$.
 ///
 /// @param[in] bcast
-///         A raw pointer to a dummy vector data that is allocated using
-///         std::vector for exception safety. The dummy vector is used for
-///         OpenMP dependencies tarcking, not based on the actual data. Entries
+///         A raw pointer to a dummy vector data.. The dummy vector is used for
+///         OpenMP dependencies tracking, not based on the actual data. Entries
 ///         in the dummy vector represent each column of matrix $A$ and each row
-///         of matrix $B$. The dummy vector is allocated using std::vector.
+///         of matrix $B$. The size of bcast should be number of matrix $A$ tiles.
 ///
 /// @param[in] gemm
-///         A raw pointer to a dummy vector data that is allocated using
-///         std::vector for exception safety. The dummy vector is used for
+///         A raw pointer to a dummy vector data. The dummy vector is used for
 ///         OpenMP dependencies tarcking, not based on the actual data. Entries
 ///         in the dummy vector represent each column of matrix $A$ and each row
-///         of matrix $B$. The dummy vector is allocated using std::vector.
+///         of matrix $B$. The size of gemm should be number of matrix $A$ tiles..
 ///
 /// @param[in] lookahead
 ///         Number of blocks to overlap communication and computation.

@@ -26,8 +26,8 @@ set_target_properties (slate PROPERTIES
 
 target_include_directories(slate
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        include
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     PRIVATE
         include/slate
         include/slate/internal
@@ -126,3 +126,39 @@ endif()
 if (BUILD_SLATE_TESTS)
     add_subdirectory(test)
 endif()
+
+install (TARGETS slate
+    EXPORT slateTargets
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    INCLUDES DESTINATION include
+)
+
+export(EXPORT slateTargets
+    FILE slateTargets.cmake
+)
+
+export (PACKAGE slate)
+
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/slateConfig.cmake.in
+    ${CMAKE_CURRENT_SOURCE_DIR}/slateConfig.cmake
+    COPYONLY
+)
+
+
+install (EXPORT slateTargets
+    FILE slateTargets.cmake
+    DESTINATION lib/slate
+)
+
+install(
+    DIRECTORY include/
+    DESTINATION include
+    FILES_MATCHING PATTERN "*.h*"
+)
+
+install (
+    FILES ${CMAKE_CURRENT_SOURCE_DIR}/slateConfig.cmake
+    DESTINATION lib/slate
+)

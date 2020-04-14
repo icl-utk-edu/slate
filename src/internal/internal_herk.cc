@@ -131,7 +131,7 @@ void herk(internal::TargetType<Target::HostTask>,
                             C.tileGetForWriting(i, j, LayoutConvert(layout));
                             auto Aj0 = A(j, 0);
                             gemm(alpha_, A(i, 0),
-                                         conj_transpose(Aj0),
+                                         conjTranspose(Aj0),
                                  beta_,  C(i, j));
                             // todo: should tileRelease()?
                             A.tileTick(i, 0);
@@ -210,7 +210,7 @@ void herk(internal::TargetType<Target::HostNest>,
                         C.tileGetForWriting(i, j, LayoutConvert(layout));
                         auto Aj0 = A(j, 0);
                         gemm(alpha_, A(i, 0),
-                                     conj_transpose(Aj0),
+                                     conjTranspose(Aj0),
                              beta_,  C(i, j));
                         // todo: should tileRelease()?
                         A.tileTick(i, 0);

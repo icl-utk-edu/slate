@@ -89,9 +89,9 @@ void hbmm(slate::internal::TargetType<target>,
     // if on right, change to left by transposing A, B, C to get
     // op(C) = op(A)*op(B)
     if (side == Side::Right) {
-        A = conj_transpose(A);
-        B = conj_transpose(B);
-        C = conj_transpose(C);
+        A = conjTranspose(A);
+        B = conjTranspose(B);
+        C = conjTranspose(C);
         alpha = conj(alpha);
         beta  = conj(beta);
     }
@@ -264,7 +264,7 @@ void hbmm(slate::internal::TargetType<target>,
                 {
                     auto Arow_k = A.sub(k, k, i_begin, k-1);
                     internal::gemm<target>(
-                        alpha,         conj_transpose(Arow_k),
+                        alpha,         conjTranspose(Arow_k),
                                        B.sub(k, k, 0, B.nt()-1),
                         scalar_t(1.0), C.sub(i_begin, k-1, 0, C.nt()-1),
                         layout);
@@ -352,7 +352,7 @@ void hbmm(slate::internal::TargetType<target>,
                 if (i_end-1 > 0) {
                     auto Arow_k = A.sub(0, 0, 1, i_end-1);
                     internal::gemm<target>(
-                        alpha, conj_transpose(Arow_k),
+                        alpha, conjTranspose(Arow_k),
                                B.sub(0, 0, 0, B.nt()-1),
                         beta,  C.sub(1, i_end-1, 0, C.nt()-1),
                         layout);
@@ -434,7 +434,7 @@ void hbmm(slate::internal::TargetType<target>,
                     if (i_end-1 > k) {
                         auto Arow_k = A.sub(k, k, k+1, i_end-1);
                         internal::gemm<target>(
-                            alpha,         conj_transpose(Arow_k),
+                            alpha,         conjTranspose(Arow_k),
                                            B.sub(k, k, 0, B.nt()-1),
                             scalar_t(1.0), C.sub(k+1, i_end-1, 0, C.nt()-1),
                             layout);

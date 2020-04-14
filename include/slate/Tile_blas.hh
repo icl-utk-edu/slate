@@ -52,10 +52,10 @@ namespace slate {
 
 //------------------------------------------------------------------------------
 /// General matrix multiply: $op(C) = \alpha op(A) op(B) + \beta C$.
-/// Use transpose() or conj_transpose() to set $op(A)$, $op(B)$, and $op(C)$.
+/// Use transpose() or conjTranspose() to set $op(A)$, $op(B)$, and $op(C)$.
 /// In the complex case,
-/// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conj_transpose;
-/// if $op(C)$ is conj_transpose, then $op(A)$ and $op(B)$ cannot be transpose.
+/// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conjTranspose;
+/// if $op(C)$ is conjTranspose, then $op(A)$ and $op(B)$ cannot be transpose.
 /// @ingroup gemm_tile
 ///
 template <typename scalar_t>
@@ -296,7 +296,7 @@ void hemm(
 
 //------------------------------------------------------------------------------
 /// Hermitian rank-k update: $C = \alpha op(A) op(A)^H + \beta C$.
-/// Use conj_transpose to set $op(A)$.
+/// Use conjTranspose to set $op(A)$.
 /// In the complex case, C cannot be transpose.
 /// @ingroup herk_tile
 ///
@@ -336,7 +336,7 @@ void herk(
 //------------------------------------------------------------------------------
 /// Hermitian rank-2k update:
 ///     $C = \alpha op(A) op(B)^T + \alpha op(B) op(A)^T + \beta C$.
-/// Use transpose or conj_transpose to set $op(A)$ and $op(B)$.
+/// Use transpose or conjTranspose to set $op(A)$ and $op(B)$.
 /// In the complex case, C cannot be transpose.
 /// @ingroup her2k_tile
 ///
@@ -546,8 +546,8 @@ void hemv(scalar_t alpha, Tile<scalar_t> const&& A,
 
 //------------------------------------------------------------------------------
 /// Symmetric rank-k update: $C = \alpha op(A) op(A)^T + \beta C$.
-/// Use transpose or conj_transpose to set $op(A)$.
-/// In the complex case, C cannot be conj_transpose.
+/// Use transpose or conjTranspose to set $op(A)$.
+/// In the complex case, C cannot be conjTranspose.
 /// @ingroup syrk_tile
 ///
 // Allowing C^H would require two conjugations: conj( conj(C) + A*A^T ).
@@ -588,8 +588,8 @@ void syrk(
 //------------------------------------------------------------------------------
 /// Symmetric rank-2k update:
 ///     $C = \alpha op(A) op(B)^T + \alpha op(B) op(A)^T + \beta C$.
-/// Use transpose or conj_transpose to set $op(A)$ and $op(B)$.
-/// In the complex case, C cannot be conj_transpose.
+/// Use transpose or conjTranspose to set $op(A)$ and $op(B)$.
+/// In the complex case, C cannot be conjTranspose.
 /// @ingroup syr2k_tile
 ///
 // Allowing C^H would require two conjugations: conj( conj(C) + A*A^T ).
@@ -704,10 +704,10 @@ void trmm(
 
 //------------------------------------------------------------------------------
 /// Triangular solve: $B = \alpha op(A)^{-1} B$ or $B = \alpha B op(A)^{-1}$.
-/// Use transpose/conj_transpose to set op(A). uplo is set in the tile.
+/// Use transpose/conjTranspose to set op(A). uplo is set in the tile.
 /// In the complex case,
-/// if $op(B)$ is transpose, then $op(A)$ cannot be conj_transpose;
-/// if $op(B)$ is conj_transpose, then $op(A)$ cannot be transpose.
+/// if $op(B)$ is transpose, then $op(A)$ cannot be conjTranspose;
+/// if $op(B)$ is conjTranspose, then $op(A)$ cannot be transpose.
 /// @ingroup trsm_tile
 ///
 template <typename scalar_t>

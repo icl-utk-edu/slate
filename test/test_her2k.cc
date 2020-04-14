@@ -137,8 +137,8 @@ void test_her2k_work(Params& params, bool run)
         B = transpose(B);
     }
     else if (trans == slate::Op::ConjTrans) {
-        A = conj_transpose(A);
-        B = conj_transpose(B);
+        A = conjTranspose(A);
+        B = conjTranspose(B);
     }
     slate_assert(A.mt() == C.mt());
     slate_assert(B.mt() == C.mt());

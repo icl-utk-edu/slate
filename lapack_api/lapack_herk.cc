@@ -106,7 +106,7 @@ void slate_herk(const char* uplostr, const char* transastr, const int n, const i
     if (transA == blas::Op::Trans)
         A = transpose(A);
     else if (transA == blas::Op::ConjTrans)
-        A = conj_transpose(A);
+        A = conjTranspose(A);
     assert(A.mt() == C.mt());
 
     slate::herk(alpha, A, beta, C, {

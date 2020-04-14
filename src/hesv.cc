@@ -69,7 +69,7 @@ void hesv(slate::internal::TargetType<target>,
 
     // if upper, change to lower
     if (A.uplo() == Uplo::Upper)
-        A = conj_transpose(A);
+        A = conjTranspose(A);
 
     // factorization
     hetrf(A, pivots, T, pivots2, H,

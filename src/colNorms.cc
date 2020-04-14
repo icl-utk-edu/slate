@@ -76,7 +76,7 @@ void colNorms(slate::internal::TargetType<target>,
         //     in_norm = Norm::One;
     }
     if (A.op() == Op::ConjTrans)
-        A = conj_transpose(A);
+        A = conjTranspose(A);
     else if (A.op() == Op::Trans)
         A = transpose(A);
 

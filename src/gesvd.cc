@@ -67,7 +67,7 @@ void gesvd(Matrix<scalar_t> A,
     if (flip) {
         slate_not_implemented("m < n not yet supported");
         swap(m, n);
-        A = conj_transpose(A);
+        A = conjTranspose(A);
     }
 
     // Scale matrix to allowable range, if necessary.

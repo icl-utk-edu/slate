@@ -136,7 +136,7 @@ void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int 
     if (trans == slate::Op::Trans)
         opA = transpose(A);
     else if (trans == slate::Op::ConjTrans)
-        opA = conj_transpose(A);
+        opA = conjTranspose(A);
 
     slate::TriangularFactors<scalar_t> T;
 

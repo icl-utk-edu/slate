@@ -67,7 +67,7 @@ void trtri(slate::internal::TargetType<target>,
 
     // if upper, change to lower
     if (A.uplo() == Uplo::Upper) {
-        A = conj_transpose(A);
+        A = conjTranspose(A);
     }
     const int64_t A_nt = A.nt();
 

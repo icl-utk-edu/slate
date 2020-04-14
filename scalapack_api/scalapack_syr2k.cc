@@ -167,8 +167,8 @@ void slate_psyr2k(const char* uplostr, const char* transstr, int n, int k, scala
         B = transpose(B);
     }
     else if (trans == blas::Op::ConjTrans) {
-        A = conj_transpose(A);
-        B = conj_transpose(B);
+        A = conjTranspose(A);
+        B = conjTranspose(B);
     }
     assert(A.mt() == CS.mt());
     assert(B.mt() == CS.mt());

@@ -97,7 +97,7 @@ void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A)
                     gemv(one, A(i, j), v_ptr, beta, w_ptr);
                 }
                 else {
-                    gemv(one, conj_transpose(A(j, i)), v_ptr, beta, w_ptr);
+                    gemv(one, conjTranspose(A(j, i)), v_ptr, beta, w_ptr);
                 }
             }
             beta = one;
@@ -237,7 +237,7 @@ void hebr2(internal::TargetType<Target::HostTask>,
     trace::Block trace_block("internal::hebr2");
 
     // Apply the reflector from task 1.
-    auto AH = conj_transpose(A);
+    auto AH = conjTranspose(A);
     gerf(v1, AH);
 
     // Zero A[1:n-1, 0].

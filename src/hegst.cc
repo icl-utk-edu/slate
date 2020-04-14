@@ -69,8 +69,8 @@ void hegst(slate::internal::TargetType<target>,
     slate_assert(A.nt() == B.nt());
 
     if (A.uplo() == Uplo::Upper) {
-        A = conj_transpose(A);
-        B = conj_transpose(B);
+        A = conjTranspose(A);
+        B = conjTranspose(B);
     }
 
     const int64_t nt = A.nt();
@@ -126,7 +126,7 @@ void hegst(slate::internal::TargetType<target>,
                         B.template tileBcast<target>(k, k, Asub, layout);
 
                         internal::trsm<target>(
-                            Side::Right,  one,  conj_transpose(TBkk),
+                            Side::Right,  one,  conjTranspose(TBkk),
                                                 std::move(Asub));
                     }
 
@@ -220,8 +220,8 @@ void hegst(slate::internal::TargetType<target>,
                         A.template listBcast<target>(bcast_list, layout);
 
                         internal::her2k<Target::HostTask>(
-                                        one,  conj_transpose(Asub),
-                                              conj_transpose(Bsub),
+                                        one,  conjTranspose(Asub),
+                                              conjTranspose(Bsub),
                                         rone, A.sub(0, k-1));
 
                         internal::hemm<Target::HostTask>(
@@ -230,7 +230,7 @@ void hegst(slate::internal::TargetType<target>,
                                         one,  std::move(Asub));
 
                         internal::trmm<Target::HostTask>(
-                            Side::Left, one,  conj_transpose(TBkk),
+                            Side::Left, one,  conjTranspose(TBkk),
                                               std::move(Asub));
                     }
                 }

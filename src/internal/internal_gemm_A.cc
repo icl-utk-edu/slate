@@ -57,8 +57,8 @@ namespace internal {
 /// where B and C are single block columns.
 /// Dispatches to target implementations.
 /// In the complex case,
-/// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conj_transpose;
-/// if $op(C)$ is conj_transpose, then $op(A)$ and $op(B)$ cannot be transpose.
+/// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conjTranspose;
+/// if $op(C)$ is conjTranspose, then $op(A)$ and $op(B)$ cannot be transpose.
 /// @ingroup gemm_internal
 ///
 template <Target target, typename scalar_t>

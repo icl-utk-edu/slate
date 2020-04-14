@@ -217,7 +217,7 @@ void test_bdsqr_work(
             set( zero, one, Id);
 
             const scalar_t minusone = -1;
-            auto UT = conj_transpose(U);
+            auto UT = conjTranspose(U);
             slate::gemm(one, UT, U, minusone, Id);
             params.ortho_U()  = slate::norm(slate::Norm::Fro, Id) / m;
         }
@@ -227,7 +227,7 @@ void test_bdsqr_work(
             Id_nn = slate::Matrix<scalar_t>(n, n, nb, nprow, npcol, MPI_COMM_WORLD);
             Id_nn.insertLocalTiles();
             set( zero, one, Id_nn);
-            auto VTT = conj_transpose(VT);
+            auto VTT = conjTranspose(VT);
             slate::gemm(one, VTT, VT, minusone, Id_nn);
             params.ortho_V()  = slate::norm(slate::Norm::Fro, Id_nn) / n;
         }

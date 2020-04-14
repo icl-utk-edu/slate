@@ -144,7 +144,7 @@ void gels(Matrix<scalar_t>& A,
     if (A.op() == Op::NoTrans)
         A0 = A;
     else if (A.op() == Op::ConjTrans)
-        A0 = conj_transpose(A);
+        A0 = conjTranspose(A);
     else if (A.op() == Op::Trans && A.is_real)
         A0 = transpose(A);
     else
@@ -183,7 +183,7 @@ void gels(Matrix<scalar_t>& A,
             auto B = BX.slice(0, m-1, 0, nrhs-1);
 
             // Y = R^{-H} B
-            auto RH = conj_transpose(R);
+            auto RH = conjTranspose(R);
             trsm(Side::Left, one, RH, B, opts);
 
             // X is all n rows of BX.

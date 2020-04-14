@@ -219,7 +219,7 @@ void test_gesv_work(Params& params, bool run)
             if (trans == slate::Op::Trans)
                 opA = transpose(A);
             else if (trans == slate::Op::ConjTrans)
-                opA = conj_transpose(A);
+                opA = conjTranspose(A);
 
             slate::getrs(opA, pivots, B, {
                 {slate::Option::Lookahead, lookahead},

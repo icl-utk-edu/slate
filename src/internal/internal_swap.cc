@@ -267,7 +267,7 @@ void permuteRows(
                             pivot[i].elementOffset() > i)
                         {
                             // local swap
-                            swapRow(
+                            swapLocalRow(
                                 0, A.tileNb(j),
                                 A(0, j), i,
                                 A(pivot[i].tileIndex(), j),
@@ -515,7 +515,7 @@ void swapRow(
     if (A.tileRank(i1, j1) == A.mpiRank()) {
         if (A.tileRank(i2, j2) == A.mpiRank()) {
             // local swap
-            swapRow(
+            swapLocalRow(
                 j_offset, n,
                 op1 == Op::NoTrans ? A(i1, j1) : transpose(A(i1, j1)), offset_i1,
                 op2 == Op::NoTrans ? A(i2, j2) : transpose(A(i2, j2)), offset_i2);

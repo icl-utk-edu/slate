@@ -805,7 +805,7 @@ void scale(
 /// @ingroup swap_tile
 ///
 template <typename scalar_t>
-void swapRow(
+void swapLocalRow(
     int64_t j_offset, int64_t n,
     Tile<scalar_t>& A, int64_t i1,
     Tile<scalar_t>& B, int64_t i2)
@@ -821,12 +821,12 @@ void swapRow(
 /// @ingroup swap_tile
 ///
 template <typename scalar_t>
-void swapRow(
+void swapLocalRow(
     int64_t j_offset, int64_t n,
     Tile<scalar_t>&& A, int64_t i1,
     Tile<scalar_t>&& B, int64_t i2)
 {
-    swapRow(j_offset, n, A, i1, B, i2);
+    swapLocalRow(j_offset, n, A, i1, B, i2);
 }
 
 //------------------------------------------------------------------------------

@@ -101,10 +101,10 @@ void getrf_swap(
                 pivot[i].elementOffset() > i)
             {
                 // local swap
-                swapRow(j, n,
-                        tiles[0], i,
-                        tiles[pivot[i].localTileIndex()],
-                        pivot[i].elementOffset());
+                swapLocalRow(j, n,
+                             tiles[0], i,
+                             tiles[pivot[i].localTileIndex()],
+                             pivot[i].elementOffset());
             }
         }
         // I am not the root.

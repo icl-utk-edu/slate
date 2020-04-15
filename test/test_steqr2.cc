@@ -59,7 +59,8 @@ void test_steqr2_work(
     scalar_t zero = 0.0; scalar_t one = 1.0;
 
     // BLACS/MPI variables
-    int ictxt, nprow, npcol, myrow, mycol;
+    int ictxt, nprow, npcol, myrow, mycol, info;
+    int descZ_tst[9];
     int iam = 0, nprocs = 1;
     
 
@@ -69,6 +70,14 @@ void test_steqr2_work(
     Cblacs_get(-1, 0, &ictxt);
     Cblacs_gridinit(&ictxt, "Col", p, q);
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
+
+    // matrix Z, figure out local size, allocate, create descriptor, initialize
+    int64_t mlocZ = scalapack_numroc(n, nb, myrow, 0, nprow);
+    int64_t nlocZ = scalapack_numroc(n, nb, mycol, 0, npcol);
+    scalapack_descinit(descZ_tst, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info);
+    slate_assert(info == 0);
+    int64_t lldZ = (int64_t)descZ_tst[8];
+    std::vector<scalar_t> Z_tst(1);
 
     // skip invalid sizes
     if (n <= (nprow-1)*nb || n <= (npcol-1)*nb) {
@@ -89,7 +98,6 @@ void test_steqr2_work(
     lapack::larnv(idist, iseed, E.size(), E.data());
     std::vector<real_t> Dref = D;
     std::vector<real_t> Eref = E;
-    slate::Matrix<scalar_t> Z; // Matrix of the eigenvectors
 
     slate::Matrix<scalar_t> A; // To check the orth of the eigenvectors
     if (check) {
@@ -97,13 +105,27 @@ void test_steqr2_work(
         A.insertLocalTiles();
     }
 
-    //---------
-    // run test
+    slate::Matrix<scalar_t> Z; // Matrix of the eigenvectors
+    if (origin != slate::Origin::ScaLAPACK) {
+        if (wantz) {
+            Z = slate::Matrix<scalar_t>(
+                n, n, nb, nprow, npcol, MPI_COMM_WORLD);
+            Z.insertLocalTiles(origin2target(origin));
+        }
+    }
+    else {
+        if (wantz) {
+            Z_tst.resize(lldZ*nlocZ);
+            Z = slate::Matrix<scalar_t>::fromScaLAPACK(
+                n, n, &Z_tst[0], lldZ, nb, nprow, npcol, MPI_COMM_WORLD);
+        }
+    }
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
     {
         slate::trace::Block trace_block("MPI_Barrier");
+        MPI_Barrier(MPI_COMM_WORLD);
     }
     double time = testsweeper::get_wtime();
 
@@ -111,12 +133,11 @@ void test_steqr2_work(
     // Run SLATE test.
     //==================================================
     //slate::sterf(D, E);
-    Z = slate::Matrix<scalar_t>(n, n, nb, nprow, npcol, MPI_COMM_WORLD);
-    Z.insertLocalTiles(origin2target(origin));
     steqr2(jobz, D, E, Z);
 
     {
         slate::trace::Block trace_block("MPI_Barrier");
+        MPI_Barrier(MPI_COMM_WORLD);
     }
     params.time() = testsweeper::get_wtime() - time;
 
@@ -176,7 +197,7 @@ void test_steqr2_work(
         const scalar_t minusone = -1;
         params.ortho() = 0.;
         if (wantz) {
-            auto ZT = conj_transpose(Z);
+            auto ZT = conjTranspose(Z);
             set(zero, one, A);
             slate::gemm(one, ZT, Z, minusone, A);
             params.ortho()  = slate::norm(slate::Norm::Fro, A) / n;

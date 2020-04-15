@@ -175,8 +175,8 @@ void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
           int priority)
 {
     copy(internal::TargetType<target>(),
-            A, B,
-            priority);
+         A, B,
+         priority);
 }
 
 //------------------------------------------------------------------------------

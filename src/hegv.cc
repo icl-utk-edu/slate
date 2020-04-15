@@ -39,101 +39,66 @@
 
 #include "slate/slate.hh"
 #include "aux/Debug.hh"
-#include "slate/Matrix.hh"
 #include "slate/HermitianMatrix.hh"
 #include "slate/Tile_blas.hh"
-#include "slate/TriangularMatrix.hh"
+#include "slate/HermitianBandMatrix.hh"
 #include "internal/internal.hh"
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::potrs from internal::specialization::potrs
-namespace internal {
-namespace specialization {
-
 //------------------------------------------------------------------------------
-/// Distributed parallel Cholesky solve.
-/// Generic implementation for any target.
-/// @ingroup posv_specialization
+/// Distributed parallel computation of all the eigenvalues, and optionally, the
+/// eigenvectors of a complex generalized Hermitian-definite eigenproblem, of
+/// the form:
 ///
-template <Target target, typename scalar_t>
-void potrs(slate::internal::TargetType<target>,
-           HermitianMatrix<scalar_t> A,
-           Matrix<scalar_t>& B, int64_t lookahead)
-{
-    // assert(A.mt() == A.nt());
-    assert(B.mt() == A.mt());
-
-    // if upper, change to lower
-    if (A.uplo() == Uplo::Upper)
-        A = conjTranspose(A);
-
-    auto L = TriangularMatrix<scalar_t>(Diag::NonUnit, A);
-    auto LT = conjTranspose(L);
-
-    trsm(Side::Left, scalar_t(1.0), L, B,
-         {{Option::Lookahead, lookahead},
-          {Option::Target, target}});
-
-    trsm(Side::Left, scalar_t(1.0), LT, B,
-         {{Option::Lookahead, lookahead},
-          {Option::Target, target}});
-}
-
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup posv_specialization
+/// itype      |  Problem
+/// ---------- | ----------------------
+/// itype = 1  |  $A   x = \lambda B x$
+/// itype = 2  |  $A B x = \lambda   x$
+/// itype = 3  |  $B A x = \lambda   x$
 ///
-template <Target target, typename scalar_t>
-void potrs(HermitianMatrix<scalar_t>& A,
-           Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts)
-{
-    int64_t lookahead;
-    try {
-        lookahead = opts.at(Option::Lookahead).i_;
-        assert(lookahead >= 0);
-    }
-    catch (std::out_of_range&) {
-        lookahead = 1;
-    }
-
-    internal::specialization::potrs(internal::TargetType<target>(),
-                                    A, B, lookahead);
-}
-
-//------------------------------------------------------------------------------
-/// Distributed parallel Cholesky solve.
-///
-/// Solves a system of linear equations
-/// \[
-///     A X = B
-/// \]
-/// with a Hermitian positive definite matrix $A$ using the Cholesky
-/// factorization $A = U^H U$ or $A = L L^H$ computed by potrf.
+/// Here A and B are assumed to be Hermitian and B is also positive definite.
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
-/// @param[in] A
-///     The n-by-n triangular factor $U$ or $L$ from the Cholesky
-///     factorization $A = U^H U$ or $A = L L^H$, computed by potrf.
-///     If scalar_t is real, $A$ can be a SymmetricMatrix object.
+/// @param[in] itype
+///     - itype = 1: Compute $A   x = \lambda B x$;
+///     - itype = 2: Compute $A B x = \lambda   x$;
+///     - itype = 3: Compute $B A x = \lambda   x$.
 ///
-/// @param[in,out] B
-///     On entry, the n-by-nrhs right hand side matrix $B$.
-///     On exit, the n-by-nrhs solution matrix $X$.
+/// @param[in] jobz
+///     - jobz = lapack::Job::NoVec: Compute eigenvalues only;
+///     - jobz = lapack::Job::Vec:   Compute eigenvalues and eigenvectors.
+///
+/// @param[in,out] A
+///     On entry, the n-by-n Hermitian matrix A.
+///     On exit, if jobz = Vec, then if successful, A contains the
+///     orthonormal eigenvectors of the matrix A.
+///     If jobz = NoVec, then on exit the lower triangle (if uplo=Lower)
+///     or the upper triangle (if uplo=Upper) of A, including the
+///     diagonal, is destroyed.
+///
+/// @param[in, out] B
+///     On entry, the n-by-n Hermitian positive definite matrix $A$.
+///     On exit, if jobz = Vec, then if successful, the part of B containing the
+///     matrix is overwritten by the triangular factor U or L from the Cholesky
+///     factorization $B = U^H U$ or $B = L L^H$.
+///
+/// @param[out] W
+///     The vector W of length n.
+///     If successful, the eigenvalues in ascending order.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
 ///     - Option::Lookahead:
 ///       Number of panels to overlap with matrix updates.
 ///       lookahead >= 0. Default 1.
+///     - Option::InnerBlocking:
+///       Inner blocking to use for panel. Default 16.
+///     - Option::MaxPanelThreads:
+///       Number of threads to use for panel. Default omp_get_max_threads()/2.
 ///     - Option::Target:
 ///       Implementation to target. Possible values:
 ///       - HostTask:  OpenMP tasks on CPU host [default].
@@ -141,63 +106,81 @@ void potrs(HermitianMatrix<scalar_t>& A,
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// @ingroup posv_computational
+/// TODO: return value
+///
+/// @ingroup hegv_computational
 ///
 template <typename scalar_t>
-void potrs(HermitianMatrix<scalar_t>& A,
-           Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts)
+void hegv(int64_t itype,
+          lapack::Job jobz,
+          HermitianMatrix<scalar_t>& A,
+          HermitianMatrix<scalar_t>& B,
+          std::vector<blas::real_type<scalar_t>>& W,
+          Matrix<scalar_t>& V,
+          const std::map<Option, Value>& opts)
 {
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range&) {
-        target = Target::HostTask;
-    }
+    // 1. Form a Cholesky factorization of B.
+    potrf(B, opts);
 
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-            potrs<Target::HostTask>(A, B, opts);
-            break;
-        case Target::HostNest:
-            potrs<Target::HostNest>(A, B, opts);
-            break;
-        case Target::HostBatch:
-            potrs<Target::HostBatch>(A, B, opts);
-            break;
-        case Target::Devices:
-            potrs<Target::Devices>(A, B, opts);
-            break;
+    // 2. Transform problem to standard eigenvalue problem.
+    hegst(itype, A, B, opts);
+
+    // 3. Solve the standard eigenvalue problem and solve.
+    heev(jobz, A, W, V, opts);
+
+    if (jobz == lapack::Job::Vec) {
+        // 4. Backtransform eigenvectors to the original problem.
+        auto L = TriangularMatrix<scalar_t>(Diag::NonUnit, B);
+        scalar_t one = 1.0;
+        if (itype == 1 || itype == 2) {
+            trsm(Side::Left, one, L, V, opts);
+        }
+        else {
+            trmm(Side::Left, one, L, V, opts);
+        }
     }
-    // todo: return value for errors?
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void potrs<float>(
+void hegv<float>(
+    int64_t itype,
+    lapack::Job jobz,
     HermitianMatrix<float>& A,
-    Matrix<float>& B,
+    HermitianMatrix<float>& B,
+    std::vector<float>& W,
+    Matrix<float>& V,
     const std::map<Option, Value>& opts);
 
 template
-void potrs<double>(
+void hegv<double>(
+    int64_t itype,
+    lapack::Job jobz,
     HermitianMatrix<double>& A,
-    Matrix<double>& B,
+    HermitianMatrix<double>& B,
+    std::vector<double>& W,
+    Matrix<double>& V,
     const std::map<Option, Value>& opts);
 
 template
-void potrs< std::complex<float> >(
-    HermitianMatrix< std::complex<float> >& A,
-    Matrix< std::complex<float> >& B,
+void hegv<std::complex<float>>(
+    int64_t itype,
+    lapack::Job jobz,
+    HermitianMatrix<std::complex<float>>& A,
+    HermitianMatrix<std::complex<float>>& B,
+    std::vector<float>& W,
+    Matrix<std::complex<float>>& V,
     const std::map<Option, Value>& opts);
 
 template
-void potrs< std::complex<double> >(
-    HermitianMatrix< std::complex<double> >& A,
-    Matrix< std::complex<double> >& B,
+void hegv<std::complex<double>>(
+    int64_t itype,
+    lapack::Job jobz,
+    HermitianMatrix<std::complex<double>>& A,
+    HermitianMatrix<std::complex<double>>& B,
+    std::vector<double>& W,
+    Matrix<std::complex<double>>& V,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

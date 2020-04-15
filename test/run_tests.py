@@ -484,8 +484,9 @@ if (opts.syev):
 # generalized symmetric/Hermitian eigenvalues
 if (opts.sygv):
     cmds += [
-    [ 'hegv',  gen + dtype + la + n + jobz + itype + uplo ],
-    #[ 'hegst', gen + dtype + la + n + itype + uplo ],
+    # [ 'hegv',  gen + dtype + la + n + jobz + itype + uplo ], // todo
+    [ 'hegv',  gen + dtype + la + n + itype ],
+    [ 'hegst', gen + dtype + la + n + itype + uplo ],
     ]
 
 # non-symmetric eigenvalues

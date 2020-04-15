@@ -75,8 +75,7 @@ void test_gesv_work(Params& params, bool run)
 
     // BLACS/MPI variables
     int ictxt, nprow, npcol, myrow, mycol, info;
-    int descA_tst[9], descA_ref[9];
-    int descB_tst[9], descB_ref[9];
+    int descA_tst[9], descB_tst[9];
     int iam = 0, nprocs = 1;
     int iseed = 1;
 
@@ -160,23 +159,14 @@ void test_gesv_work(Params& params, bool run)
         }
     }
 
-    // if check is required, copy test data and create a descriptor for it
-    std::vector<scalar_t> A_ref;
-    std::vector<scalar_t> B_ref;
-    std::vector<scalar_t> B_orig;
+    // if check/ref is required, copy test data
+    std::vector<scalar_t> A_ref, B_ref, B_orig;
     std::vector<int> ipiv_ref;
     if (check || ref) {
         A_ref = A_tst;
-        scalapack_descinit(descA_ref, m, n, nb, nb, izero, izero, ictxt, mlocA, &info);
-        slate_assert(info == 0);
-
         B_ref = B_tst;
-        scalapack_descinit(descB_ref, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
-        slate_assert(info == 0);
-
         if (check && ref)
             B_orig = B_tst;
-
         ipiv_ref.resize(ipiv_tst.size());
     }
 
@@ -230,7 +220,7 @@ void test_gesv_work(Params& params, bool run)
             if (trans == slate::Op::Trans)
                 opA = transpose(A);
             else if (trans == slate::Op::ConjTrans)
-                opA = conj_transpose(A);
+                opA = conjTranspose(A);
 
             slate::getrs(opA, pivots, B, {
                 {slate::Option::Lookahead, lookahead},
@@ -294,51 +284,42 @@ void test_gesv_work(Params& params, bool run)
             });
         }
 
-        if (origin != slate::Origin::ScaLAPACK) {
-            // Copy SLATE result back from GPU or CPU tiles.
-            if (params.routine == "gesvMixed") {
-                if (std::is_same<real_t, double>::value) {
-                    copy(X, &X_tst[0], descB_tst);
-                }
-            }
-            else {
-                copy(B, &B_tst[0], descB_tst);
-            }
-        }
+        // Norm of updated-rhs/solution matrix: || X ||_1
+        real_t X_norm;
+        if (params.routine == "gesvMixed")
+            X_norm = slate::norm(slate::Norm::One, X);
+        else
+            X_norm = slate::norm(slate::Norm::One, B);
 
-        // allocate work space
-        std::vector<real_t> worklangeA(std::max(mlocA, nlocA));
-        std::vector<real_t> worklangeB(std::max(mlocB, nlocB));
+        // SLATE matrix wrappers for the reference data
+        slate::Matrix<scalar_t> Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
+            m, n, &A_ref[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+        slate::Matrix<scalar_t> Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
+            n, nrhs, &B_ref[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
 
-        // Norm of original matrix: || A ||_1
-        real_t A_norm = scalapack_plange("1", m, n, &A_ref[0], ione, ione, descA_ref, &worklangeA[0]);
-        // Norm of updated rhs matrix: || X ||_1
-        real_t X_norm = scalapack_plange("1", n, nrhs, &B_tst[0], ione, ione, descB_tst, &worklangeB[0]);
+        // Norm of original A matrix
+        real_t A_norm = slate::norm(slate::Norm::One, Aref);
+
+        // Apply transpose operations to the A matrix
+        slate::Matrix<scalar_t> opAref;
+        if (trans == slate::Op::Trans)
+            opAref = slate::transpose(Aref);
+        else if (trans == slate::Op::ConjTrans)
+            opAref = slate::conj_transpose(Aref);
+        else
+            opAref = Aref;
 
         // B_ref -= op(Aref)*B_tst
         if (params.routine == "gesvMixed") {
-            if (std::is_same<real_t, double>::value) {
-                scalapack_pgemm(op2str(trans), "notrans",
-                                n, nrhs, n,
-                                scalar_t(-1.0),
-                                &A_ref[0], ione, ione, descA_ref,
-                                &X_tst[0], ione, ione, descB_tst,
-                                scalar_t(1.0),
-                                &B_ref[0], ione, ione, descB_ref);
-            }
+            if (std::is_same<real_t, double>::value)
+                slate::gemm( scalar_t(-1.0), opAref, X, scalar_t(1.0), Bref );
         }
         else {
-            scalapack_pgemm(op2str(trans), "notrans",
-                            n, nrhs, n,
-                            scalar_t(-1.0),
-                            &A_ref[0], ione, ione, descA_ref,
-                            &B_tst[0], ione, ione, descB_tst,
-                            scalar_t(1.0),
-                            &B_ref[0], ione, ione, descB_ref);
+            slate::gemm( scalar_t(-1.0), opAref, B, scalar_t(1.0), Bref );
         }
 
         // Norm of residual: || B - AX ||_1
-        real_t R_norm = scalapack_plange("1", n, nrhs, &B_ref[0], ione, ione, descB_ref, &worklangeB[0]);
+        real_t R_norm = slate::norm(slate::Norm::One, Bref);
         double residual = R_norm / (n*A_norm*X_norm);
         params.error() = residual;
 
@@ -356,12 +337,16 @@ void test_gesv_work(Params& params, bool run)
         int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
         int64_t info_ref = 0;
 
-        if (check) {
-            // restore B_ref
-            B_ref = B_orig;
-            scalapack_descinit(descB_ref, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
-            slate_assert(info == 0);
-        }
+        // restore B_ref
+        B_ref = B_orig;
+        int descB_ref[9];
+        scalapack_descinit(descB_ref, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
+        slate_assert(info == 0);
+
+        // ScaLAPACK descriptor for the reference matrix
+        int descA_ref[9];
+        scalapack_descinit(descA_ref, m, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+        slate_assert(info == 0);
 
         if (params.routine == "getrs") {
             // Factor matrix A.

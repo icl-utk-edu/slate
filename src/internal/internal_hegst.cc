@@ -38,115 +38,79 @@
 //------------------------------------------------------------------------------
 
 #include "slate/Matrix.hh"
-#include "slate/TriangularBandMatrix.hh"
+#include "slate/HermitianMatrix.hh"
 #include "slate/types.hh"
-#include "slate/Tile_blas.hh"
+#include "internal/Tile_lapack.hh"
 #include "internal/internal.hh"
 
 namespace slate {
 namespace internal {
 
 //------------------------------------------------------------------------------
-/// Copy bi-diagonal TriangularBand matrix to two vectors.
+/// Reduces a complex Hermitian positive-definite generalized eigenvalue problem
+/// to the standard form of single tile.
 /// Dispatches to target implementations.
-/// @ingroup copyge2tb_internal
+/// @ingroup hegst_internal
 ///
 template <Target target, typename scalar_t>
-void copytb2bd(TriangularBandMatrix<scalar_t>& A,
-               std::vector< blas::real_type<scalar_t> >& D,
-               std::vector< blas::real_type<scalar_t> >& E)
+void hegst(int64_t itype, HermitianMatrix< scalar_t >&& A,
+                          HermitianMatrix< scalar_t >&& B)
 {
-    copytb2bd(internal::TargetType<target>(),
-               A,
-               D, E);
+    hegst(internal::TargetType<target>(), itype, A, B);
 }
 
 //------------------------------------------------------------------------------
-/// Copy bi-diagonal TriangularBand matrix to two vectors.
-/// Host OpenMP task implementation.
-/// @ingroup copyge2tb_internal
+/// Reduces a complex Hermitian positive-definite generalized eigenvalue problem
+/// to the standard form of single tile, host implementation.
+/// @ingroup hegst_internal
 ///
 template <typename scalar_t>
-void copytb2bd(internal::TargetType<Target::HostTask>,
-               TriangularBandMatrix<scalar_t> A,
-               std::vector< blas::real_type<scalar_t> >& D,
-               std::vector< blas::real_type<scalar_t> >& E)
+void hegst(internal::TargetType<Target::HostTask>,
+           int64_t itype, HermitianMatrix<scalar_t>& A,
+                          HermitianMatrix<scalar_t>& B)
 {
-    trace::Block trace_block("slate::copytb2bd");
-    using blas::real;
+    assert(A.mt() == 1);
+    assert(A.nt() == 1);
+    assert(B.mt() == 1);
+    assert(B.nt() == 1);
 
-    // If lower, change to upper.
-    if (A.uplo() == Uplo::Lower) {
-        A = conjTranspose(A);
+    if (A.tileIsLocal(0, 0)) {
+        #pragma omp task shared(A, B)
+        {
+            A.tileGetForWriting(0, 0, LayoutConvert::ColMajor);
+            B.tileGetForReading(0, 0, LayoutConvert::ColMajor);
+            hegst(itype, A(0, 0), B(0, 0));
+        }
     }
 
-    // Make sure it is a bi-diagonal matrix.
-    slate_assert(A.bandwidth() == 1);
-
-    int64_t nt = A.nt();
-    int64_t n = A.n();
-    D.resize(n);
-    E.resize(n - 1);
-
-    // Copy diagonal & super-diagonal.
-    int64_t D_index = 0;
-    int64_t E_index = 0;
-    for (int64_t i = 0; i < nt; ++i) {
-        // Copy 1 element from super-diagonal tile to E.
-        if (i > 0) {
-            auto T = A(i-1, i);
-            E[E_index] = real( T(T.mb()-1, 0) );
-            E_index += 1;
-            A.tileTick(i-1, i);
-        }
-
-        // Copy main diagonal to D.
-        auto T = A(i, i);
-        slate_assert(T.mb() == T.nb()); // square diagonal tile
-        auto len = T.nb();
-        for (int j = 0; j < len; ++j) {
-            D[D_index + j] = real( T(j, j) );
-        }
-        D_index += len;
-
-        // Copy super-diagonal to E.
-        for (int j = 0; j < len-1; ++j) {
-            E[E_index + j] = real( T(j, j+1) );
-        }
-        E_index += len-1;
-        A.tileTick(i, i);
-    }
+    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 // ----------------------------------------
 template
-void copytb2bd<Target::HostTask, float>(
-    TriangularBandMatrix<float>& A,
-    std::vector<float>& D,
-    std::vector<float>& E);
+void hegst<Target::HostTask, float>(
+    int64_t itype, HermitianMatrix<float>&& A,
+                   HermitianMatrix<float>&& B);
 
 // ----------------------------------------
 template
-void copytb2bd<Target::HostTask, double>(
-    TriangularBandMatrix<double>& A,
-    std::vector<double>& D,
-    std::vector<double>& E);
+void hegst<Target::HostTask, double>(
+    int64_t itype, HermitianMatrix<double>&& A,
+                   HermitianMatrix<double>&& B);
 
 // ----------------------------------------
 template
-void copytb2bd< Target::HostTask, std::complex<float> >(
-    TriangularBandMatrix< std::complex<float> >& A,
-    std::vector<float>& D,
-    std::vector<float>& E);
+void hegst<Target::HostTask, std::complex<float>>(
+    int64_t itype, HermitianMatrix<std::complex<float>>&& A,
+                   HermitianMatrix<std::complex<float>>&& B);
 
 // ----------------------------------------
 template
-void copytb2bd< Target::HostTask, std::complex<double> >(
-    TriangularBandMatrix< std::complex<double> >& A,
-    std::vector<double>& D,
-    std::vector<double>& E);
+void hegst<Target::HostTask, std::complex<double>>(
+    int64_t itype, HermitianMatrix<std::complex<double>>&& A,
+                   HermitianMatrix<std::complex<double>>&& B);
 
 } // namespace internal
 } // namespace slate

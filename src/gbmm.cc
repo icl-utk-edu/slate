@@ -69,7 +69,8 @@ void gbmm(slate::internal::TargetType<target>,
           scalar_t beta,  Matrix<scalar_t>& C,
           int64_t lookahead)
 {
-    using namespace blas;
+    using blas::min;
+    using blas::max;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // Assumes column major
@@ -77,7 +78,7 @@ void gbmm(slate::internal::TargetType<target>,
     //       or pass as parameter
     const Layout layout = Layout::ColMajor;
 
-    const scalar_t one = scalar_t(1.0);
+    const scalar_t one = 1.0;
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector(A.nt());
@@ -267,7 +268,7 @@ void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
 /// The matrices can be transposed or conjugate-transposed beforehand, e.g.,
 ///
 ///     auto AT = slate::transpose( A );
-///     auto BT = slate::conj_transpose( B );
+///     auto BT = slate::conjTranspose( B );
 ///     slate::gbmm( alpha, AT, BT, beta, C );
 ///
 //------------------------------------------------------------------------------

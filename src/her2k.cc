@@ -66,7 +66,6 @@ void her2k(slate::internal::TargetType<target>,
            blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t> C,
            int64_t lookahead)
 {
-    using namespace blas;
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
@@ -75,7 +74,7 @@ void her2k(slate::internal::TargetType<target>,
 
     // if upper, change to lower
     if (C.uplo() == Uplo::Upper)
-        C = conj_transpose(C);
+        C = conjTranspose(C);
 
     // A is mt-by-nt, C is mt-by-mt
     assert(A.mt() == C.mt());
@@ -230,8 +229,8 @@ void her2k(scalar_t alpha,                  Matrix<scalar_t>& A,
 /// matrix, and A and B are an n-by-k matrices.
 /// The matrices can be conjugate-transposed beforehand, e.g.,
 ///
-///     auto AT = slate::conj_transpose( A );
-///     auto BT = slate::conj_transpose( B );
+///     auto AT = slate::conjTranspose( A );
+///     auto BT = slate::conjTranspose( B );
 ///     slate::her2k( alpha, AT, BT, beta, C );
 ///
 //------------------------------------------------------------------------------

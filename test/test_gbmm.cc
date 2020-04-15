@@ -160,12 +160,12 @@ void test_gbmm_work(Params& params, bool run)
     if (transA == slate::Op::Trans)
         A = transpose(A);
     else if (transA == slate::Op::ConjTrans)
-        A = conj_transpose(A);
+        A = conjTranspose(A);
 
     if (transB == slate::Op::Trans)
         B = transpose(B);
     else if (transB == slate::Op::ConjTrans)
-        B = conj_transpose(B);
+        B = conjTranspose(B);
 
     slate_assert(A.mt() == C.mt());
     slate_assert(B.nt() == C.nt());

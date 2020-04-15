@@ -66,7 +66,9 @@ void tbsm(slate::internal::TargetType<target>,
                         Matrix<scalar_t> B,
           int64_t lookahead)
 {
-    using namespace blas;
+    using blas::conj;
+    using blas::min;
+    using blas::max;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // Assumes column major
@@ -76,8 +78,8 @@ void tbsm(slate::internal::TargetType<target>,
     // op(B) = op(A)^{-1} * op(B)
     if (side == Side::Right) {
         if (A.op() == Op::ConjTrans || B.op() == Op::ConjTrans) {
-            A = conj_transpose(A);
-            B = conj_transpose(B);
+            A = conjTranspose(A);
+            B = conjTranspose(B);
             alpha = conj(alpha);
         }
         else {

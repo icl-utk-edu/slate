@@ -2131,4 +2131,54 @@ inline void scalapack_phegvx(
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+
+#define scalapack_pssygst BLAS_FORTRAN_NAME( pssygst, PSSYGST )
+#define scalapack_pdsygst BLAS_FORTRAN_NAME( pdsygst, PDSYGST )
+#define scalapack_pchegst BLAS_FORTRAN_NAME( pchegst, PCHEGST )
+#define scalapack_pzhegst BLAS_FORTRAN_NAME( pzhegst, PZHEGST )
+
+extern "C" void scalapack_pssygst(blas_int* itype, const char* uplo, blas_int* n, float* a, blas_int* ia, blas_int* ja, blas_int* desca, float* b, blas_int* ib, blas_int* jb, blas_int* descb, double* scale, blas_int* info);
+
+extern "C" void scalapack_pdsygst(blas_int* itype, const char* uplo, blas_int* n, double* a, blas_int* ia, blas_int* ja, blas_int* desca, double* b, blas_int* ib, blas_int* jb, blas_int* descb, double* scale, blas_int* info);
+
+extern "C" void scalapack_pchegst(blas_int* itype, const char* uplo, blas_int* n, std::complex<float>* a, blas_int* ia, blas_int* ja, blas_int* desca, std::complex<float>* b, blas_int* ib, blas_int* jb, blas_int* descb, double* scale, blas_int* info);
+
+extern "C" void scalapack_pzhegst(blas_int* itype, const char* uplo, blas_int* n, std::complex<double>* a, blas_int* ia, blas_int* ja, blas_int* desca, std::complex<double>* b, blas_int* ib, blas_int* jb, blas_int* descb, double* scale, blas_int* info);
+
+// -----------------------------------------------------------------------------
+
+inline void scalapack_phegst(blas_int* itype, const char* uplo, blas_int* n, float* a, blas_int* ia, blas_int* ja, blas_int* desca, float* b, blas_int* ib, blas_int* jb, blas_int* descb, double* scale, blas_int* info)
+{
+    scalapack_pssygst(itype, uplo, n, a, ia, ja, desca, b, ib, jb, descb, scale, info);
+}
+
+inline void scalapack_phegst(blas_int* itype, const char* uplo, blas_int* n, double* a, blas_int* ia, blas_int* ja, blas_int* desca, double* b, blas_int* ib, blas_int* jb, blas_int* descb, double* scale, blas_int* info)
+{
+    scalapack_pdsygst(itype, uplo, n, a, ia, ja, desca, b, ib, jb, descb, scale, info);
+}
+
+inline void scalapack_phegst(blas_int* itype, const char* uplo, blas_int* n, std::complex<float>* a, blas_int* ia, blas_int* ja, blas_int* desca, std::complex<float>* b, blas_int* ib, blas_int* jb, blas_int* descb, double* scale, blas_int* info)
+{
+    scalapack_pchegst(itype, uplo, n, a, ia, ja, desca, b, ib, jb, descb, scale, info);
+}
+
+inline void scalapack_phegst(blas_int* itype, const char* uplo, blas_int* n, std::complex<double>* a, blas_int* ia, blas_int* ja, blas_int* desca, std::complex<double>* b, blas_int* ib, blas_int* jb, blas_int* descb, double* scale, blas_int* info)
+{
+    scalapack_pzhegst(itype, uplo, n, a, ia, ja, desca, b, ib, jb, descb, scale, info);
+}
+
+template <typename scalar_t>
+inline void scalapack_phegst(int64_t itype, const char* uplo, int64_t n, scalar_t* a, int64_t ia, int64_t ja, int* desca, scalar_t* b, int64_t ib, int64_t jb, int* descb, double* scale, int* info)
+{
+    int itype_ = int64_to_int(itype);
+    int n_ = int64_to_int(n);
+    int ia_ = int64_to_int(ia);
+    int ja_ = int64_to_int(ja);
+    int ib_ = int64_to_int(ib);
+    int jb_ = int64_to_int(jb);
+    scalapack_phegst(&itype_, uplo, &n_, a, &ia_, &ja_, desca, b, &ib_, &jb_, descb, scale, info);
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 #endif // ICL_SLATE_SCALAPACK_WRAPPERS_HH

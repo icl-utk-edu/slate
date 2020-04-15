@@ -61,8 +61,6 @@ void copy(slate::internal::TargetType<target>,
           src_matrix_type A, dst_matrix_type B,
           int64_t lookahead)
 {
-    using namespace blas;
-
     // Usually the output matrix (B here) provides all the batch arrays.
     // Here we are using A, because of the differen types.
     if (target == Target::Devices) {

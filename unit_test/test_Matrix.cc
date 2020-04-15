@@ -662,15 +662,15 @@ void test_Matrix_transpose()
 }
 
 //------------------------------------------------------------------------------
-/// Test conj_transpose(A).
-void test_Matrix_conj_transpose()
+/// Test conjTranspose(A).
+void test_Matrix_conjTranspose()
 {
     int lda = roundup(m, mb);
     std::vector<double> Ad( lda*n );
     auto A = slate::Matrix<double>::fromLAPACK(
         m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
 
-    auto AT = conj_transpose( A );
+    auto AT = conjTranspose( A );
 
     test_assert(AT.mt() == ceildiv(n, nb));
     test_assert(AT.nt() == ceildiv(m, mb));
@@ -1822,7 +1822,7 @@ void run_tests()
     run_test(test_Matrix_emptyLikeMbNb,        "Matrix::emptyLikeMbNb",                    mpi_comm);
     run_test(test_Matrix_emptyLikeOp,          "Matrix::emptyLikeOp",                      mpi_comm);
     run_test(test_Matrix_transpose,            "transpose",                                mpi_comm);
-    run_test(test_Matrix_conj_transpose,       "conj_transpose",                           mpi_comm);
+    run_test(test_Matrix_conjTranspose,       "conjTranspose",                           mpi_comm);
     run_test(test_Matrix_swap,                 "swap",                                     mpi_comm);
     run_test(test_Matrix_tileInsert_new,       "Matrix::tileInsert(i, j, dev) ",           mpi_comm);
     run_test(test_Matrix_tileInsert_data,      "Matrix::tileInsert(i, j, dev, data, lda)", mpi_comm);

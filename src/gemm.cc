@@ -71,7 +71,6 @@ void gemm(slate::internal::TargetType<target>,
           scalar_t beta,  Matrix<scalar_t>& C,
           int64_t lookahead)
 {
-    using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // Assumes column major
@@ -215,7 +214,6 @@ void gemm(slate::internal::TargetType<Target::Devices>,
           scalar_t beta,  Matrix<scalar_t>& C,
           int64_t lookahead)
 {
-    using namespace blas;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // Assumes column major
@@ -242,7 +240,6 @@ void gemm(slate::internal::TargetType<Target::Devices>,
         #pragma omp task depend(out:bcast[0])
         {
             // broadcast A(i, 0) to ranks owning block row C(i, :)
-            #pragma omp task default(shared)
             {
                 BcastList bcast_list_A;
                 for (int64_t i = 0; i < A.mt(); ++i)
@@ -251,14 +248,12 @@ void gemm(slate::internal::TargetType<Target::Devices>,
             }
 
             // broadcast B(0, j) to ranks owning block col C(:, j)
-            #pragma omp task default(shared)
             {
                 BcastList bcast_list_B;
                 for (int64_t j = 0; j < B.nt(); ++j)
                     bcast_list_B.push_back({0, j, {C.sub(0, C.mt()-1, j, j)}});
                 B.template listBcast<Target::Devices>(bcast_list_B, layout);
             }
-            #pragma omp taskwait
 
             // prepare first internal::gemm pointer's arrays and prefetch its data
             internal::gemmPrep<Target::Devices>(
@@ -275,7 +270,6 @@ void gemm(slate::internal::TargetType<Target::Devices>,
                              depend(out:bcast[k])
             {
                 // broadcast A(i, k) to ranks owning block row C(i, :)
-                #pragma omp task default(shared)
                 {
 
                     BcastList bcast_list_A;
@@ -285,14 +279,12 @@ void gemm(slate::internal::TargetType<Target::Devices>,
                 }
 
                 // broadcast B(k, j) to ranks owning block col C(:, j)
-                #pragma omp task default(shared)
                 {
                     BcastList bcast_list_B;
                     for (int64_t j = 0; j < B.nt(); ++j)
                         bcast_list_B.push_back({k, j, {C.sub(0, C.mt()-1, j, j)}});
                     B.template listBcast<Target::Devices>(bcast_list_B, layout);
                 }
-                #pragma omp taskwait
 
                 // prepare lookahead internal::gemm pointer's arrays
                 // data is already prefetched
@@ -326,7 +318,6 @@ void gemm(slate::internal::TargetType<Target::Devices>,
                                  depend(out:bcast[k+lookahead])
                 {
                     // broadcast A(i, k+la) to ranks owning block row C(i, :)
-                    #pragma omp task default(shared)
                     {
                         BcastList bcast_list_A;
                         for (int64_t i = 0; i < A.mt(); ++i) {
@@ -337,7 +328,6 @@ void gemm(slate::internal::TargetType<Target::Devices>,
                     }
 
                     // broadcast B(k+la, j) to ranks owning block col C(:, j)
-                    #pragma omp task default(shared)
                     {
                         BcastList bcast_list_B;
                         for (int64_t j = 0; j < B.nt(); ++j) {
@@ -346,7 +336,6 @@ void gemm(slate::internal::TargetType<Target::Devices>,
                         }
                         B.template listBcast<Target::Devices>(bcast_list_B, layout);
                     }
-                    #pragma omp taskwait
 
                     // prepare lookahead internal::gemm pointer's arrays
                     // data is already prefetched
@@ -420,7 +409,7 @@ void gemm(scalar_t alpha, Matrix<scalar_t>& A,
 /// The matrices can be transposed or conjugate-transposed beforehand, e.g.,
 ///
 ///     auto AT = slate::transpose( A );
-///     auto BT = slate::conj_transpose( B );
+///     auto BT = slate::conjTranspose( B );
 ///     slate::gemm( alpha, AT, BT, beta, C );
 ///
 //------------------------------------------------------------------------------

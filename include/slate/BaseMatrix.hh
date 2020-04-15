@@ -155,14 +155,14 @@ private:
 
 public:
     /// Returns shallow copy of op(A) that is transposed.
-    /// @see conj_transpose
+    /// @see conjTranspose
     template<typename MatrixType>
     friend MatrixType transpose(MatrixType& A);
 
     /// Returns shallow copy of op(A) that is conjugate-transpose.
     /// @see transpose
     template<typename MatrixType>
-    friend MatrixType conj_transpose(MatrixType& A);
+    friend MatrixType conjTranspose(MatrixType& A);
 
     template <typename T>
     friend void swap(BaseMatrix<T>& A, BaseMatrix<T>& B);
@@ -1077,7 +1077,7 @@ BaseMatrix<out_scalar_t> BaseMatrix<scalar_t>::baseEmptyLike(
         std::swap(mt, nt);
     }
     else if (this->op() == Op::ConjTrans) {
-        B = conj_transpose( B );
+        B = conjTranspose( B );
         std::swap(ioffset, joffset);
         std::swap(mt, nt);
     }
@@ -3678,7 +3678,7 @@ inline int64_t indexGlobal2Local(int64_t i, int64_t nb, int num_ranks)
 }
 
 //------------------------------------------------------------------------------
-// from ScaLAPACK's numroc 
+// from ScaLAPACK's numroc
 /// [internal]
 /// Computes the number of Rows Or Columns of a distributed
 /// matrix owned by the process indicated by IPROC.
@@ -3690,7 +3690,7 @@ inline int64_t indexGlobal2Local(int64_t i, int64_t nb, int num_ranks)
 ///     Block size, size of the blocks the distributed matrix is split into.
 ///
 /// @param[in] iproc
-///     The coordinate of the process whose local array row or 
+///     The coordinate of the process whose local array row or
 ///     column is to be determined.
 ///
 /// @param[in] isrcproc

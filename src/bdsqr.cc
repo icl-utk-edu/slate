@@ -65,7 +65,7 @@ namespace specialization {
 //
 template <Target target, typename scalar_t>
 void bdsqr(slate::internal::TargetType<target>,
-           Job jobu, lapack::Job jobvt,
+           lapack::Job jobu, lapack::Job jobvt,
            std::vector< blas::real_type<scalar_t> >& D,
            std::vector< blas::real_type<scalar_t> >& E,
            Matrix<scalar_t>& U,
@@ -80,7 +80,6 @@ void bdsqr(slate::internal::TargetType<target>,
     //assert(m >= n);
 
     int mpi_size;
-    int64_t info = 0;
 
     scalar_t zero = 0.0, one = 1.0;
 

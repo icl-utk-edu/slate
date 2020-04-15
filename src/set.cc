@@ -57,8 +57,6 @@ template <Target target, typename scalar_t>
 void set(slate::internal::TargetType<target>,
          scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A)
 {
-    using namespace blas;
-
     if (target == Target::Devices) {
         A.allocateBatchArrays();
         // todo: is this needed here when the matrix is already on devices?

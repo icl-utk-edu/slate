@@ -102,16 +102,16 @@ void getrf_swap(
             {
                 // local swap
                 swap(j, n,
-                     tiles.at(0), i,
-                     tiles.at(pivot[i].localTileIndex()),
-                              pivot[i].elementOffset());
+                     tiles[0], i,
+                     tiles[pivot[i].localTileIndex()],
+                     pivot[i].elementOffset());
             }
         }
         // I am not the root.
         else {
             // MPI swap with the root
             swap(j, n,
-                 tiles.at(pivot[i].localTileIndex()),
+                 tiles[pivot[i].localTileIndex()],
                  pivot[i].elementOffset(),
                  mpi_root, mpi_comm);
         }
@@ -122,7 +122,7 @@ void getrf_swap(
         if (root) {
             // MPI swap with the pivot owner
             swap(j, n,
-                 tiles.at(0), i,
+                 tiles[0], i,
                  pivot[i].rank(), mpi_comm);
         }
     }
@@ -197,12 +197,12 @@ void getrf(
 {
     trace::Block trace_block("lapack::getrf");
 
-    using namespace blas;
-    using namespace lapack;
-    using real_t = real_type<scalar_t>;
+    using real_t = blas::real_type<scalar_t>;
+
+    const scalar_t one = 1.0;
 
     const bool root = mpi_rank == mpi_root;
-    const int64_t nb = tiles.at(0).nb();
+    const int64_t nb = tiles[0].nb();
 
     // Loop over ib-wide stripes.
     for (int64_t k = 0; k < diag_len; k += ib) {
@@ -215,12 +215,12 @@ void getrf(
         for (int64_t j = k; j < k+kb; ++j) {
 
             if (root) {
-                max_value[thread_rank] = tiles.at(0)(j, j);
+                max_value[thread_rank] = tiles[0](j, j);
                 max_index[thread_rank] = 0;
                 max_offset[thread_rank] = j;
             }
             else {
-                max_value[thread_rank] = tiles.at(0)(0, j);
+                max_value[thread_rank] = tiles[0](0, j);
                 max_index[thread_rank] = 0;
                 max_offset[thread_rank] = 0;
             }
@@ -231,15 +231,13 @@ void getrf(
                  idx < int64_t(tiles.size());
                  idx += thread_size)
             {
-                auto tile = tiles.at(idx);
-                auto i_index = tile_indices.at(idx);
+                auto tile = tiles[idx];
+                auto i_index = tile_indices[idx];
 
                 // if diagonal tile
                 if (i_index == 0) {
                     for (int64_t i = j+1; i < tile.mb(); ++i) {
-                        if (cabs1(tile(i, j)) >
-                            cabs1(max_value[thread_rank]))
-                        {
+                        if (cabs1(tile(i, j)) > cabs1(max_value[thread_rank])) {
                             max_value[thread_rank] = tile(i, j);
                             max_index[thread_rank] = idx;
                             max_offset[thread_rank] = i;
@@ -249,9 +247,7 @@ void getrf(
                 // off diagonal tiles
                 else {
                     for (int64_t i = 0; i < tile.mb(); ++i) {
-                        if (cabs1(tile(i, j)) >
-                            cabs1(max_value[thread_rank]))
-                        {
+                        if (cabs1(tile(i, j)) > cabs1(max_value[thread_rank])) {
                             max_value[thread_rank] = tile(i, j);
                             max_index[thread_rank] = idx;
                             max_offset[thread_rank] = i;
@@ -285,6 +281,7 @@ void getrf(
                                       MPI_MAXLOC, mpi_comm));
                 }
 
+                // todo: can this Bcast info be merged into the Allreduce?
                 // Broadcast the pivot information.
                 pivot[j] = AuxPivot<scalar_t>(tile_indices[max_index[0]],
                                               max_offset[0],
@@ -306,7 +303,7 @@ void getrf(
                 // Broadcast the top row for the geru operation.
                 if (k+kb > j+1) {
                     if (root) {
-                        auto top_tile = tiles.at(0);
+                        auto top_tile = tiles[0];
                         // todo: make it a tile operation
                         blas::copy(k+kb-j-1,
                                    &top_tile.at(j, j+1), top_tile.stride(),
@@ -328,8 +325,8 @@ void getrf(
                  idx < int64_t(tiles.size());
                  idx += thread_size)
             {
-                auto tile = tiles.at(idx);
-                auto i_index = tile_indices.at(idx);
+                auto tile = tiles[idx];
+                auto i_index = tile_indices[idx];
 
                 // column scaling
                 // todo: Double check. Equivalent to LAPACK?
@@ -350,15 +347,13 @@ void getrf(
                     // todo: make it a tile operation
                     if (i_index == 0) {
                         // diagonal tile
-                        scalar_t one = 1.0;
                         scalar_t alpha = one / tile(j, j);
-                        scal(tile.mb()-j-1, alpha, &tile.at(j+1, j), 1);
+                        blas::scal(tile.mb()-j-1, alpha, &tile.at(j+1, j), 1);
                     }
                     else {
                         // off diagonal tile
-                        scalar_t one = 1.0;
                         scalar_t alpha = one / pivot[j].value();
-                        scal(tile.mb(), alpha, &tile.at(0, j), 1);
+                        blas::scal(tile.mb(), alpha, &tile.at(0, j), 1);
                     }
                 }
 
@@ -366,18 +361,18 @@ void getrf(
                 // todo: make it a tile operation
                 if (k+kb > j+1) {
                     if (i_index == 0) {
-                        geru(Layout::ColMajor,
-                             tile.mb()-j-1, k+kb-j-1,
-                             -1.0, &tile.at(j+1, j), 1,
-                                   top_block.data(), 1,
-                                   &tile.at(j+1, j+1), tile.stride());
+                        blas::geru(Layout::ColMajor,
+                                   tile.mb()-j-1, k+kb-j-1,
+                                   -one, &tile.at(j+1, j), 1,
+                                         top_block.data(), 1,
+                                         &tile.at(j+1, j+1), tile.stride());
                     }
                     else {
-                        geru(Layout::ColMajor,
-                             tile.mb(), k+kb-j-1,
-                             -1.0, &tile.at(0, j), 1,
-                                   top_block.data(), 1,
-                                   &tile.at(0, j+1), tile.stride());
+                        blas::geru(Layout::ColMajor,
+                                   tile.mb(), k+kb-j-1,
+                                   -one, &tile.at(0, j), 1,
+                                         top_block.data(), 1,
+                                         &tile.at(0, j+1), tile.stride());
                     }
                 }
             }
@@ -386,7 +381,6 @@ void getrf(
 
         // If there is a trailing submatrix.
         if (k+kb < nb) {
-
             //======================
             // pivoting to the right
             if (thread_rank == 0) {
@@ -401,25 +395,24 @@ void getrf(
             //=================
             // triangular solve
             if (root && thread_rank == 0) {
-
-                auto top_tile = tiles.at(0);
-                trsm(Layout::ColMajor,
-                     Side::Left, Uplo::Lower,
-                     Op::NoTrans, Diag::Unit,
-                     kb, nb-k-kb,
-                     1.0, &top_tile.at(k, k), top_tile.stride(),
-                          &top_tile.at(k, k+kb), top_tile.stride());
+                auto top_tile = tiles[0];
+                blas::trsm(Layout::ColMajor,
+                           Side::Left, Uplo::Lower,
+                           Op::NoTrans, Diag::Unit,
+                           kb, nb-k-kb,
+                           one, &top_tile.at(k, k), top_tile.stride(),
+                                &top_tile.at(k, k+kb), top_tile.stride());
             }
             thread_barrier.wait(thread_size);
 
             // Broadcast the top block for gemm.
             if (thread_rank == 0) {
                 if (root) {
-                    auto top_tile = tiles.at(0);
-                    lacpy(MatrixType::General,
-                          kb, nb-k-kb,
-                          &top_tile.at(k, k+kb), top_tile.stride(),
-                          top_block.data(), kb);
+                    auto top_tile = tiles[0];
+                    lapack::lacpy(lapack::MatrixType::General,
+                                  kb, nb-k-kb,
+                                  &top_tile.at(k, k+kb), top_tile.stride(),
+                                  top_block.data(), kb);
                 }
                 #pragma omp critical(slate_mpi)
                 {
@@ -437,26 +430,26 @@ void getrf(
                  idx < int64_t(tiles.size());
                  idx += thread_size)
             {
-                auto tile = tiles.at(idx);
-                auto i_index = tile_indices.at(idx);
+                auto tile = tiles[idx];
+                auto i_index = tile_indices[idx];
 
                 if (i_index == 0) {
                     if (k+kb < tile.mb()) {
-                        gemm(Layout::ColMajor,
-                             Op::NoTrans, Op::NoTrans,
-                             tile.mb()-k-kb, nb-k-kb, kb,
-                             -1.0, &tile.at(k+kb,k   ), tile.stride(),
-                                   &tile.at(k,   k+kb), tile.stride(),
-                              1.0, &tile.at(k+kb,k+kb), tile.stride());
+                        blas::gemm(blas::Layout::ColMajor,
+                                   Op::NoTrans, Op::NoTrans,
+                                   tile.mb()-k-kb, nb-k-kb, kb,
+                                   -one, &tile.at(k+kb,k   ), tile.stride(),
+                                         &tile.at(k,   k+kb), tile.stride(),
+                                   one,  &tile.at(k+kb,k+kb), tile.stride());
                     }
                 }
                 else {
-                    gemm(Layout::ColMajor,
-                         Op::NoTrans, Op::NoTrans,
-                         tile.mb(), nb-k-kb, kb,
-                         -1.0, &tile.at(0, k), tile.stride(),
-                               top_block.data(), kb,
-                          1.0, &tile.at(0, k+kb), tile.stride());
+                    blas::gemm(blas::Layout::ColMajor,
+                               Op::NoTrans, Op::NoTrans,
+                               tile.mb(), nb-k-kb, kb,
+                               -one, &tile.at(0, k), tile.stride(),
+                                     top_block.data(), kb,
+                               one,  &tile.at(0, k+kb), tile.stride());
                 }
             }
             thread_barrier.wait(thread_size);

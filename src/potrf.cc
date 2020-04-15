@@ -69,7 +69,7 @@ void potrf(slate::internal::TargetType<target>,
 
     // if upper, change to lower
     if (A.uplo() == Uplo::Upper) {
-        A = conj_transpose(A);
+        A = conjTranspose(A);
     }
     const int64_t A_nt = A.nt();
 
@@ -98,7 +98,7 @@ void potrf(slate::internal::TargetType<target>,
                     auto Tkk = TriangularMatrix< scalar_t >(Diag::NonUnit, Akk);
                     internal::trsm<Target::HostTask>(
                         Side::Right,
-                        scalar_t(1.0), conj_transpose(Tkk),
+                        scalar_t(1.0), conjTranspose(Tkk),
                         A.sub(k+1, A_nt-1, k, k), 1);
                 }
 
@@ -125,7 +125,7 @@ void potrf(slate::internal::TargetType<target>,
                         auto Ajk = A.sub(j, j, k, k);
                         internal::gemm<Target::HostTask>(
                             scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
-                                            conj_transpose(Ajk),
+                                            conjTranspose(Ajk),
                             scalar_t(1.0), A.sub(j+1, A_nt-1, j, j),
                             layout, 1);
                     }
@@ -212,7 +212,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 
     // if upper, change to lower
     if (A.uplo() == Uplo::Upper) {
-        A = conj_transpose(A);
+        A = conjTranspose(A);
     }
     const int64_t A_nt = A.nt();
 
@@ -259,7 +259,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     auto Tkk = TriangularMatrix< scalar_t >(Diag::NonUnit, Akk);
                     internal::trsm<Target::Devices>(
                         Side::Right,
-                        scalar_t(1.0), conj_transpose(Tkk),
+                        scalar_t(1.0), conjTranspose(Tkk),
                                        A.sub(k+1, A_nt-1, k, k),
                         priority_zero, layout, batch_arrays_index_one);
                 }
@@ -314,7 +314,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                         auto Ajk = A.sub(j, j, k, k);
                         internal::gemm<Target::Devices>(
                             scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
-                                            conj_transpose(Ajk),
+                                            conjTranspose(Ajk),
                             scalar_t( 1.0), A.sub(j+1, A_nt-1, j, j),
                             layout, priority_zero, j-k+1);
                     }

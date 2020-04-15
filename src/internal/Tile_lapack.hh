@@ -366,6 +366,31 @@ int64_t trtrm(Tile<scalar_t>&& A)
     return trtrm(A);
 }
 
+//------------------------------------------------------------------------------
+/// Reduces a complex Hermitian positive-definite generalized eigenvalue problem
+/// to the standard form of single tile.
+/// uplo is set in the tile.
+/// @ingroup hegst_tile
+///
+template <typename scalar_t>
+int64_t hegst(int64_t itype, Tile<scalar_t>& A, Tile<scalar_t>& B)
+{
+    trace::Block trace_block("lapack::hegst");
+
+    return lapack::hegst(itype, A.uploPhysical(), A.nb(), A.data(), A.stride(),
+                                                          B.data(), B.stride());
+}
+
+//-----------------------------------------
+/// Converts rvalue refs to lvalue refs.
+/// @ingroup hegst_tile
+///
+template <typename scalar_t>
+int64_t hegst(int64_t itype, Tile<scalar_t>&& A, Tile<scalar_t>&& B)
+{
+    return hegst(itype, A, B);
+}
+
 } // namespace slate
 
 #endif // SLATE_TILE_LAPACK_HH

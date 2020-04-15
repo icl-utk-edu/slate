@@ -143,7 +143,7 @@ void test_trsm_work(Params& params, bool run)
     if (transA == Op::Trans)
         A = transpose(A);
     else if (transA == Op::ConjTrans)
-        A = conj_transpose(A);
+        A = conjTranspose(A);
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();

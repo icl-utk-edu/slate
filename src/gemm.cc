@@ -409,7 +409,7 @@ void gemm(scalar_t alpha, Matrix<scalar_t>& A,
 /// The matrices can be transposed or conjugate-transposed beforehand, e.g.,
 ///
 ///     auto AT = slate::transpose( A );
-///     auto BT = slate::conj_transpose( B );
+///     auto BT = slate::conjTranspose( B );
 ///     slate::gemm( alpha, AT, BT, beta, C );
 ///
 //------------------------------------------------------------------------------

@@ -212,7 +212,7 @@ void slate_pgetrs(const char* transstr, int n, int nrhs, scalar_t* a, int ia, in
         if (trans == slate::Op::Trans)
             opA = transpose(A);
         else if (trans == slate::Op::ConjTrans)
-            opA = conj_transpose(A);
+            opA = conjTranspose(A);
 
         slate::getrs(opA, pivots, B, {
             {slate::Option::Lookahead, lookahead},

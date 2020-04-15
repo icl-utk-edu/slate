@@ -140,10 +140,10 @@ void her2k(internal::TargetType<Target::HostTask>,
                             auto Aj0 = A(j, 0);
                             auto Bj0 = B(j, 0);
                             gemm(alpha, A(i, 0),
-                                        conj_transpose(Bj0),
+                                        conjTranspose(Bj0),
                                  beta_, C(i, j));
                             gemm(conj(alpha),   B(i, 0),
-                                                conj_transpose(Aj0),
+                                                conjTranspose(Aj0),
                                  scalar_t(1.0), C(i, j));
                             // todo: should tileRelease()?
                             A.tileTick(i, 0);
@@ -227,10 +227,10 @@ void her2k(internal::TargetType<Target::HostNest>,
                         auto Aj0 = A(j, 0);
                         auto Bj0 = B(j, 0);
                         gemm(alpha, A(i, 0),
-                                    conj_transpose(Bj0),
+                                    conjTranspose(Bj0),
                              beta_, C(i, j));
                         gemm(conj(alpha),   B(i, 0),
-                                            conj_transpose(Aj0),
+                                            conjTranspose(Aj0),
                              scalar_t(1.0), C(i, j));
                         // todo: should tileRelease()?
                         A.tileTick(i, 0);

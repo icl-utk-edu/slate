@@ -118,7 +118,7 @@ void test_syrk_work(Params& params, bool run)
     if (transA == slate::Op::Trans)
         A = transpose(A);
     else if (transA == slate::Op::ConjTrans)
-        A = conj_transpose(A);
+        A = conjTranspose(A);
     slate_assert(A.mt() == C.mt());
 
     if (trace) slate::trace::Trace::on();

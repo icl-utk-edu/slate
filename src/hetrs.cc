@@ -68,7 +68,7 @@ void hetrs(slate::internal::TargetType<target>,
 
     // if upper, change to lower
     if (A.uplo() == Uplo::Upper)
-        A = conj_transpose(A);
+        A = conjTranspose(A);
 
     const int64_t A_nt = A.nt();
     const int64_t A_mt = A.mt();
@@ -100,7 +100,7 @@ void hetrs(slate::internal::TargetType<target>,
         // backward substitution with L^T from Aasen's
         auto Lkk = TriangularMatrix<scalar_t>( Diag::NonUnit, A, 1, A_mt-1, 0, A_nt-2 );
         auto Bkk = B.sub(1, B_mt-1, 0, B_nt-1);
-        Lkk = conj_transpose(Lkk);
+        Lkk = conjTranspose(Lkk);
         trsm(Side::Left, scalar_t(1.0), Lkk, Bkk,
              {{Option::Lookahead, lookahead},
               {Option::Target, target}});

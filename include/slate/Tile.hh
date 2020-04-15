@@ -91,7 +91,7 @@ MatrixType transpose(MatrixType&& A)
 
 /// @see transpose()
 template<typename MatrixType>
-MatrixType conj_transpose(MatrixType& A)
+MatrixType conjTranspose(MatrixType& A)
 {
     MatrixType AT = A;
     if (AT.op_ == Op::NoTrans)
@@ -107,9 +107,25 @@ MatrixType conj_transpose(MatrixType& A)
 //--------------------------------------
 /// Converts rvalue refs to lvalue refs.
 template<typename MatrixType>
+MatrixType conjTranspose(MatrixType&& A)
+{
+    return conjTranspose(A);
+}
+
+//--------------------------------------
+/// @deprecated
+template<typename MatrixType>
+MatrixType conj_transpose(MatrixType& A)
+{
+    return conjTranspose(A);
+}
+
+//--------------------------------------
+/// @deprecated
+template<typename MatrixType>
 MatrixType conj_transpose(MatrixType&& A)
 {
-    return conj_transpose(A);
+    return conjTranspose(A);
 }
 
 //------------------------------------------------------------------------------
@@ -165,6 +181,10 @@ public:
     friend TileType transpose(TileType& A);
 
     /// Returns shallow copy of tile that is conjugate-transposed.
+    template <typename TileType>
+    friend TileType conjTranspose(TileType& A);
+
+    /// @deprecated
     template <typename TileType>
     friend TileType conj_transpose(TileType& A);
 

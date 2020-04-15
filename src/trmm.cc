@@ -75,8 +75,8 @@ void trmm(slate::internal::TargetType<target>,
     // op(B) = op(A)*op(B)
     if (side == Side::Right) {
         if (A.op() == Op::ConjTrans || B.op() == Op::ConjTrans) {
-            A = conj_transpose(A);
-            B = conj_transpose(B);
+            A = conjTranspose(A);
+            B = conjTranspose(B);
             alpha = conj(alpha);
         }
         else {

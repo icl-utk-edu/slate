@@ -196,7 +196,7 @@ void test_gbsv_work(Params& params, bool run)
             if (trans == slate::Op::Trans)
                 opA = transpose(A);
             else if (trans == slate::Op::ConjTrans)
-                opA = conj_transpose(A);
+                opA = conjTranspose(A);
 
             slate::gbtrs(opA, pivots, B, {
                 {slate::Option::Lookahead, lookahead},
@@ -279,7 +279,7 @@ void test_gbsv_work(Params& params, bool run)
         if (trans == slate::Op::Trans)
             opAorig = transpose(Aorig);
         else if (trans == slate::Op::ConjTrans)
-            opAorig = conj_transpose(Aorig);
+            opAorig = conjTranspose(Aorig);
         slate::gbmm(scalar_t(-1.0), opAorig, B, scalar_t(1.0), Bref);
 
         // Norm of residual: || B - AX ||_1

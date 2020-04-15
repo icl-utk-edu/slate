@@ -121,10 +121,11 @@ void permuteRows(
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void permuteRows(internal::TargetType<Target::HostTask>,
-                 Direction direction,
-                 Matrix<scalar_t>& A, std::vector<Pivot>& pivot_vec,
-                 Layout layout, int priority, int tag)
+void permuteRows(
+    internal::TargetType<Target::HostTask>,
+    Direction direction,
+    Matrix<scalar_t>& A, std::vector<Pivot>& pivot_vec,
+    Layout layout, int priority, int tag)
 {
     // CPU uses ColMajor
     assert(layout == Layout::ColMajor);
@@ -339,9 +340,10 @@ void permuteRows(
 /// @ingroup permute_internal
 ///
 template <Target target, typename scalar_t>
-void permuteRows(Direction direction,
-                 Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
-                 Layout layout, int priority, int tag)
+void permuteRows(
+    Direction direction,
+    Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
+    Layout layout, int priority, int tag)
 {
     permuteRows(internal::TargetType<target>(), direction, A, pivot,
                 layout, priority, tag);
@@ -691,9 +693,10 @@ void permuteRowsCols(
 /// @ingroup permute_internal
 ///
 template <Target target, typename scalar_t>
-void permuteRowsCols(Direction direction,
-          HermitianMatrix<scalar_t>&& A, std::vector<Pivot>& pivot,
-          int priority, int tag)
+void permuteRowsCols(
+    Direction direction,
+    HermitianMatrix<scalar_t>&& A, std::vector<Pivot>& pivot,
+    int priority, int tag)
 {
     permuteRowsCols(internal::TargetType<target>(), direction, A, pivot,
                     priority, tag);

@@ -422,17 +422,21 @@ void trtrm(TriangularMatrix<scalar_t>&& A,
            int priority=0);
 
 //------------------------------------------------------------------------------
+// LAPACK auxiliary
+template <Target target=Target::HostTask, typename scalar_t>
+void permuteRows(
+    Direction direction,
+    Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
+    Layout layout, int priority=0, int tag=0);
+
+template <Target target=Target::HostTask, typename scalar_t>
+void permuteRowsCols(
+    Direction direction,
+    HermitianMatrix<scalar_t>&& A, std::vector<Pivot>& pivot,
+    int priority=0, int tag=0);
+
+//------------------------------------------------------------------------------
 // Other BLAS-like
-template <Target target=Target::HostTask, typename scalar_t>
-void swap(Direction direction,
-          Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
-          Layout layout, int priority=0, int tag=0);
-
-template <Target target=Target::HostTask, typename scalar_t>
-void swap(Direction direction,
-          HermitianMatrix<scalar_t>&& A, std::vector<Pivot>& pivot,
-          int priority=0, int tag=0);
-
 template <Target target=Target::HostTask, typename scalar_t>
 void geadd(scalar_t alpha, Matrix<scalar_t>&& A,
            scalar_t beta, Matrix<scalar_t>&& B,

@@ -136,7 +136,7 @@ void getrf(slate::internal::TargetType<target>,
                 {
                     // swap rows in A(k:mt-1, j)
                     int tag_j = j;
-                    internal::swap<Target::HostTask>(
+                    internal::permuteRows<Target::HostTask>(
                         Direction::Forward, A.sub(k, A_mt-1, j, j), pivots.at(k),
                         host_layout, priority_one, tag_j);
 
@@ -171,7 +171,7 @@ void getrf(slate::internal::TargetType<target>,
             //         // swap rows in A(k:mt-1, 0:k-1)
             //         int priority_one = 1;
             //         int tag_km1 = k-1;
-            //         internal::swap<Target::HostTask>(
+            //         internal::permuteRows<Target::HostTask>(
             //             Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
             //             priority_one, tag_km1);
             //     }
@@ -185,7 +185,7 @@ void getrf(slate::internal::TargetType<target>,
                     // swap rows in A(k:mt-1, kl+1:nt-1)
                     int tag_kl1 = k+1+lookahead;
                     // todo: target
-                    internal::swap<target>(
+                    internal::permuteRows<target>(
                         Direction::Forward, A.sub(k, A_mt-1, k+1+lookahead, A_nt-1),
                         pivots.at(k), target_layout, priority_zero, tag_kl1);
 
@@ -225,7 +225,7 @@ void getrf(slate::internal::TargetType<target>,
     for (int64_t k = 0; k < min_mt_nt; ++k) {
         if (k > 0) {
             // swap rows in A(k:mt-1, 0:k-1)
-            internal::swap<Target::HostTask>(
+            internal::permuteRows<Target::HostTask>(
                 Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
                 host_layout);
         }

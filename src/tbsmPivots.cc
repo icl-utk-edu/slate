@@ -150,7 +150,7 @@ void tbsm(slate::internal::TargetType<target>,
                     // swap rows in B(k:mt-1, 0:nt-1)
                     // Pivots need to lock the whole rest of the B matrix.
                     #pragma omp taskwait
-                    internal::swap<Target::HostTask>(
+                    internal::permuteRows<Target::HostTask>(
                         Direction::Forward, B.sub(k, B.mt()-1, 0, B.nt()-1),
                         pivots.at(k), layout);
                     #pragma omp taskwait
@@ -332,7 +332,7 @@ void tbsm(slate::internal::TargetType<target>,
 
                 // swap rows in B(k:mt-1, 0:nt-1)
                 {
-                    internal::swap<Target::HostTask>(
+                    internal::permuteRows<Target::HostTask>(
                         Direction::Backward, B.sub(k, B.mt()-1, 0, B.nt()-1),
                         pivots.at(k), layout);
                 }

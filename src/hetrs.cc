@@ -79,7 +79,7 @@ void hetrs(slate::internal::TargetType<target>,
         // pivot right-hand-sides
         for (int64_t k = 1; k < B.mt(); ++k) {
             // swap rows in B(k:mt-1, 0:nt-1)
-            internal::swap<Target::HostTask>(
+            internal::permuteRows<Target::HostTask>(
                 Direction::Forward, B.sub(k, B.mt()-1, 0, B.nt()-1),
                 pivots.at(k), Layout::ColMajor);
         }
@@ -108,7 +108,7 @@ void hetrs(slate::internal::TargetType<target>,
         // pivot right-hand-sides
         for (int64_t k = B.mt()-1; k > 0; --k) {
             // swap rows in B(k:mt-1, 0:nt-1)
-            internal::swap<Target::HostTask>(
+            internal::permuteRows<Target::HostTask>(
                 Direction::Backward, B.sub(k, B.mt()-1, 0, B.nt()-1),
                 pivots.at(k), Layout::ColMajor);
         }

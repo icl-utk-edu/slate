@@ -101,19 +101,19 @@ void getrf_swap(
                 pivot[i].elementOffset() > i)
             {
                 // local swap
-                swap(j, n,
-                     tiles[0], i,
-                     tiles[pivot[i].localTileIndex()],
-                     pivot[i].elementOffset());
+                swapLocalRow(j, n,
+                             tiles[0], i,
+                             tiles[pivot[i].localTileIndex()],
+                             pivot[i].elementOffset());
             }
         }
         // I am not the root.
         else {
             // MPI swap with the root
-            swap(j, n,
-                 tiles[pivot[i].localTileIndex()],
-                 pivot[i].elementOffset(),
-                 mpi_root, mpi_comm);
+            swapRemoteRow(j, n,
+                          tiles[pivot[i].localTileIndex()],
+                          pivot[i].elementOffset(),
+                          mpi_root, mpi_comm);
         }
     }
     // I don't own the pivot.
@@ -121,9 +121,9 @@ void getrf_swap(
         // I am the root.
         if (root) {
             // MPI swap with the pivot owner
-            swap(j, n,
-                 tiles[0], i,
-                 pivot[i].rank(), mpi_comm);
+            swapRemoteRow(j, n,
+                          tiles[0], i,
+                          pivot[i].rank(), mpi_comm);
         }
     }
 }

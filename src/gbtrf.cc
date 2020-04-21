@@ -157,7 +157,7 @@ void gbtrf(slate::internal::TargetType<target>,
                     // swap rows in A(k:mt-1, j)
                     int priority_one = 1;
                     int tag_j = j;
-                    internal::swap<Target::HostTask>(
+                    internal::permuteRows<Target::HostTask>(
                         Direction::Forward, A.sub(k, i_end-1, j, j), pivots.at(k),
                         layout, priority_one, tag_j);
 
@@ -193,7 +193,7 @@ void gbtrf(slate::internal::TargetType<target>,
                     // swap rows in A(k:mt-1, kl+1:nt-1)
                     int priority_zero = 0;
                     int tag_kl1 = k+1+lookahead;
-                    internal::swap<Target::HostTask>(
+                    internal::permuteRows<Target::HostTask>(
                         Direction::Forward, A.sub(k, i_end-1, k+1+lookahead, j_end-1),
                         pivots.at(k), layout, priority_zero, tag_kl1);
 

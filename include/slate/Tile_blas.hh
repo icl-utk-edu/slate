@@ -798,16 +798,21 @@ void scale(
 }
 
 //------------------------------------------------------------------------------
-/// Swap rows or columns of two local tiles, depending on op().
+/// Swap a partial row of two local tiles:
+///     A[ i1, j_offset : j_offset+n-1 ] and
+///     B[ i2, j_offset : j_offset+n-1 ].
+/// Either or both tiles can be transposed to swap columns.
 /// @ingroup swap_tile
 ///
 template <typename scalar_t>
-void swap(int64_t j_offs, int64_t n,
-          Tile<scalar_t>& A, int64_t i1,
-          Tile<scalar_t>& B, int64_t i2)
+void swapLocalRow(
+    int64_t j_offset, int64_t n,
+    Tile<scalar_t>& A, int64_t i1,
+    Tile<scalar_t>& B, int64_t i2)
 {
     // todo: size assertions
-    for (int64_t j = j_offs; j < j_offs+n; ++j)
+    // todo: don't use at(). use blas::swap.
+    for (int64_t j = j_offset; j < j_offset+n; ++j)
         std::swap(A.at(i1, j), B.at(i2, j));
 }
 
@@ -816,25 +821,29 @@ void swap(int64_t j_offs, int64_t n,
 /// @ingroup swap_tile
 ///
 template <typename scalar_t>
-void swap(int64_t j_offs, int64_t n,
-          Tile<scalar_t>&& A, int64_t i1,
-          Tile<scalar_t>&& B, int64_t i2)
+void swapLocalRow(
+    int64_t j_offset, int64_t n,
+    Tile<scalar_t>&& A, int64_t i1,
+    Tile<scalar_t>&& B, int64_t i2)
 {
-    swap(j_offs, n, A, i1, B, i2);
+    swapLocalRow(j_offset, n, A, i1, B, i2);
 }
 
 //------------------------------------------------------------------------------
-/// Swap rows or columns with another process, depending on op().
+/// Swap a partial row, A[ i, j : j+n-1 ], with another MPI process.
+/// The tile can be transposed to swap a column.
 /// @ingroup swap_tile
 ///
 template <typename scalar_t>
-void swap(int64_t j, int64_t n,
-          Tile<scalar_t>& A, int64_t i,
-          int other_rank, MPI_Comm mpi_comm, int tag = 0)
+void swapRemoteRow(
+    int64_t j, int64_t n,
+    Tile<scalar_t>& A, int64_t i,
+    int other_rank, MPI_Comm mpi_comm, int tag = 0)
 {
     std::vector<scalar_t> local_row(n);
     std::vector<scalar_t> other_row(n);
 
+    // todo: don't use A(i,j) or at(). use blas::copy. Or create an MPI type and let MPI pack it?
     for (int64_t k = 0; k < n; ++k)
         local_row[k] = A(i, j+k);
 
@@ -852,26 +861,31 @@ void swap(int64_t j, int64_t n,
 /// @ingroup swap_tile
 ///
 template <typename scalar_t>
-void swap(int64_t j, int64_t n,
-          Tile<scalar_t>&& A, int64_t i,
-          int other_rank, MPI_Comm mpi_comm, int tag = 0)
+void swapRemoteRow(
+    int64_t j, int64_t n,
+    Tile<scalar_t>&& A, int64_t i,
+    int other_rank, MPI_Comm mpi_comm, int tag = 0)
 {
-    swap(j, n, A, i, other_rank, mpi_comm, tag);
+    swapRemoteRow(j, n, A, i, other_rank, mpi_comm, tag);
 }
 
 //------------------------------------------------------------------------------
-/// Swap rows or columns with another process, depending on op().
+/// Swap a partial row, A[ i, j : j+n-1 ], on a GPU device,
+/// with another MPI process.
+/// The tile must be row-major, and cannot be transposed.
 /// @ingroup swap_tile
 ///
 // todo: implement with a GPUDirect call
 template <typename scalar_t>
-void swap(int64_t j, int64_t n,
-          int device, Tile<scalar_t>& A, int64_t i,
-          int other_rank, MPI_Comm mpi_comm, cudaStream_t stream, int tag = 0)
+void swapRemoteRowDevice(
+    int64_t j, int64_t n,
+    int device, Tile<scalar_t>& A, int64_t i,
+    int other_rank, MPI_Comm mpi_comm, cudaStream_t stream, int tag = 0)
 {
     std::vector<scalar_t> local_row(n);
     std::vector<scalar_t> other_row(n);
 
+    // todo: this assumes row is contiguous on GPU, right? Add asserts.
     slate_cuda_call(cudaSetDevice(device));
     slate_cuda_call(cudaMemcpyAsync(local_row.data(), &A.at(i, j),
                                     sizeof(scalar_t)*n, cudaMemcpyDeviceToHost,
@@ -894,20 +908,22 @@ void swap(int64_t j, int64_t n,
 /// @ingroup swap_tile
 ///
 template <typename scalar_t>
-void swap(int64_t j, int64_t n,
-          int device, Tile<scalar_t>&& A, int64_t i,
-          int other_rank, MPI_Comm mpi_comm, cudaStream_t stream, int tag = 0)
+void swapRemoteRowDevice(
+    int64_t j, int64_t n,
+    int device, Tile<scalar_t>&& A, int64_t i,
+    int other_rank, MPI_Comm mpi_comm, cudaStream_t stream, int tag = 0)
 {
-    swap(j, n, device, A, i, other_rank, mpi_comm, stream, tag);
+    swapRemoteRowDevice(j, n, device, A, i, other_rank, mpi_comm, stream, tag);
 }
 
 //------------------------------------------------------------------------------
-/// Swap one element with another process.
+/// Swap one element, A(i, j), with another MPI process.
 /// @ingroup swap_tile
 ///
 template <typename scalar_t>
-void swap(Tile<scalar_t>& A, int64_t i, int64_t j,
-          int other_rank, MPI_Comm mpi_comm, int tag = 0)
+void swapRemoteElement(
+    Tile<scalar_t>& A, int64_t i, int64_t j,
+    int other_rank, MPI_Comm mpi_comm, int tag = 0)
 {
     scalar_t local_element = A(i, j);
     scalar_t other_element;
@@ -925,16 +941,18 @@ void swap(Tile<scalar_t>& A, int64_t i, int64_t j,
 /// @ingroup swap_tile
 ///
 template <typename scalar_t>
-void swap(Tile<scalar_t>&& A, int64_t i, int64_t j,
-          int other_rank, MPI_Comm mpi_comm, int tag = 0)
+void swapRemoteElement(
+    Tile<scalar_t>&& A, int64_t i, int64_t j,
+    int other_rank, MPI_Comm mpi_comm, int tag = 0)
 {
-    swap(A, i, j, other_rank, mpi_comm, tag);
+    swapRemoteElement(A, i, j, other_rank, mpi_comm, tag);
 }
 
 //------------------------------------------------------------------------------
 /// Computes $Y = \alpha X + Y$.
 /// @ingroup geadd_tile
 ///
+// todo: rename add?
 template <typename scalar_t>
 void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>& Y)
 {
@@ -945,6 +963,7 @@ void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>& Y)
     assert(X.uploPhysical() == Uplo::General);
     assert(Y.uploPhysical() == Uplo::General);
 
+    // todo: don't use at()
     for (int64_t i = 0; i < std::min(X.mb(), Y.mb()); ++i)
         for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j)
             Y.at(i, j) += alpha*X(i, j);
@@ -954,6 +973,7 @@ void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>& Y)
 /// Converts rvalue refs to lvalue refs.
 /// @ingroup geadd_tile
 ///
+// todo: rename add?
 template <typename scalar_t>
 void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>&& Y)
 {
@@ -964,9 +984,10 @@ void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>&& Y)
 /// Computes $Y = \alpha X + \beta Y$.
 /// @ingroup geadd_tile
 ///
+// todo: rename add?
 template <typename scalar_t>
 void axpby(scalar_t alpha, Tile<scalar_t> const& X,
-           scalar_t beta, Tile<scalar_t>& Y)
+           scalar_t beta,  Tile<scalar_t>& Y)
 {
     // trace::Block trace_block("blas::axpby");
 
@@ -975,6 +996,7 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
     assert(X.uploPhysical() == Uplo::General);
     assert(Y.uploPhysical() == Uplo::General);
 
+    // todo: don't use at
     for (int64_t i = 0; i < std::min(X.mb(), Y.mb()); ++i)
         for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j)
             Y.at(i, j) = alpha*X(i, j) + beta*Y(i, j);
@@ -984,9 +1006,10 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
 /// Converts rvalue refs to lvalue refs.
 /// @ingroup geadd_tile
 ///
+// todo: rename add?
 template <typename scalar_t>
 void axpby(scalar_t alpha, Tile<scalar_t> const& X,
-           scalar_t beta, Tile<scalar_t>&& Y)
+           scalar_t beta,  Tile<scalar_t>&& Y)
 {
     axpby(alpha, X, beta, Y);
 }

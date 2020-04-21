@@ -962,9 +962,21 @@ void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>& Y)
     assert(Y.uploPhysical() == Uplo::General);
 
     // todo: don't use at()
-    for (int64_t i = 0; i < std::min(X.mb(), Y.mb()); ++i)
+    // for (int64_t i = 0; i < std::min(X.mb(), Y.mb()); ++i)
+    //     for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j)
+    //         Y.at(i, j) += alpha*X(i, j);
+    if (Y.layout() == Layout::ColMajor) {
+        int64_t nc = std::min(X.mb(), Y.mb());
         for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j)
-            Y.at(i, j) += alpha*X(i, j);
+            blas::axpy(nc, alpha, X.at(0,j), X.colIncrement(),
+                                  Y.at(0,j), Y.colIncrement());
+    }
+    else { // Y.layout() == Layout::rowMajor)
+        int64_t nr = std::min(X.nb(), Y.nb());
+        for (int64_t i = 0; i < std::min(X.mb(), Y.mb()); ++i)
+            blas::axpy(nr, alpha, X.at(i,0), X.rowIncrement(),
+                                  Y.at(i,0), Y.rowIncrement());
+    }
 }
 
 //-----------------------------------------

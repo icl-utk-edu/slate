@@ -73,13 +73,15 @@ namespace work {
 ///         A raw pointer to a dummy vector data.. The dummy vector is used for
 ///         OpenMP dependencies tracking, not based on the actual data. Entries
 ///         in the dummy vector represent each column of matrix $A$ and each row
-///         of matrix $B$. The size of bcast should be number of matrix $A$ tiles.
+///         of matrix $B$. The size of bcast should be number of block columns of
+///         matrix $A$ or number of block rows of matrix $B$.
 ///
 /// @param[in] gemm
 ///         A raw pointer to a dummy vector data. The dummy vector is used for
 ///         OpenMP dependencies tarcking, not based on the actual data. Entries
 ///         in the dummy vector represent each column of matrix $A$ and each row
-///         of matrix $B$. The size of gemm should be number of matrix $A$ tiles..
+///         of matrix $B$. The size of gemm should be number of block columns of
+///         matrix $A$ or number of block rows of matrix $B$.
 ///
 /// @param[in] lookahead
 ///         Number of blocks to overlap communication and computation.

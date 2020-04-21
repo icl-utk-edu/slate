@@ -781,6 +781,7 @@ void scale(
     scalar_t alpha, Tile<scalar_t>& A)
 {
     trace::Block trace_block("blas::scale");
+    // todo: don't use at()
     for (int64_t j = 0; j < A.nb(); ++j)
         for (int64_t i = 0; i < A.mb(); ++i)
             A.at(i, j) *= alpha;
@@ -811,9 +812,8 @@ void swapLocalRow(
     Tile<scalar_t>& B, int64_t i2)
 {
     // todo: size assertions
-    // todo: don't use at(). use blas::swap.
-    for (int64_t j = j_offset; j < j_offset+n; ++j)
-        std::swap(A.at(i1, j), B.at(i2, j));
+    blas::swap(n, &A.at(i1,j_offset), A.rowIncrement(),
+                  &B.at(i2,j_offset), B.rowIncrement());
 }
 
 //--------------------------------------
@@ -843,17 +843,15 @@ void swapRemoteRow(
     std::vector<scalar_t> local_row(n);
     std::vector<scalar_t> other_row(n);
 
-    // todo: don't use A(i,j) or at(). use blas::copy. Or create an MPI type and let MPI pack it?
-    for (int64_t k = 0; k < n; ++k)
-        local_row[k] = A(i, j+k);
+    // todo: Perhaps create an MPI type and let MPI pack it?
+    blas::copy(n, &A.at(i, j), A.rowIncrement(), &local_row[0], 1);
 
     MPI_Sendrecv(
         local_row.data(), n, mpi_type<scalar_t>::value, other_rank, tag,
         other_row.data(), n, mpi_type<scalar_t>::value, other_rank, tag,
         mpi_comm, MPI_STATUS_IGNORE);
 
-    for (int64_t k = 0; k < n; ++k)
-         A.at(i, j+k) = other_row[k];
+    blas::copy(n, &other_row[0], 1, &A.at(i, j), A.rowIncrement());
 }
 
 //--------------------------------------

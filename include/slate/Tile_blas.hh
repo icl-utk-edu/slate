@@ -782,9 +782,18 @@ void scale(
 {
     trace::Block trace_block("blas::scale");
     // todo: don't use at()
-    for (int64_t j = 0; j < A.nb(); ++j)
+    // for (int64_t j = 0; j < A.nb(); ++j)
+    //     for (int64_t i = 0; i < A.mb(); ++i)
+    //         A.at(i, j) *= alpha;
+    // todo: this needs to be tested
+    if (A.colIncrement() == 1) {
+        for (int64_t j = 0; j < A.nb(); ++j)
+            blas::scal(A.mb(), alpha, &A.at(0,j), A.colIncrement());
+    }
+    else {
         for (int64_t i = 0; i < A.mb(); ++i)
-            A.at(i, j) *= alpha;
+            blas::scal(A.nb(), alpha, &A.at(i,0), A.rowIncrement());
+    }
 }
 
 //-----------------------------------------
@@ -965,17 +974,18 @@ void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>& Y)
     // for (int64_t i = 0; i < std::min(X.mb(), Y.mb()); ++i)
     //     for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j)
     //         Y.at(i, j) += alpha*X(i, j);
-    if (Y.layout() == Layout::ColMajor) {
-        int64_t nc = std::min(X.mb(), Y.mb());
+    // todo: this needs to be tested
+    if (Y.colIncrement()==1) {
+        int64_t m = std::min(X.mb(), Y.mb());
         for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j)
-            blas::axpy(nc, alpha, X.at(0,j), X.colIncrement(),
-                                  Y.at(0,j), Y.colIncrement());
+            blas::axpy(m, alpha, &X.at(0,j), X.colIncrement(),
+                                 &Y.at(0,j), Y.colIncrement());
     }
-    else { // Y.layout() == Layout::rowMajor)
-        int64_t nr = std::min(X.nb(), Y.nb());
+    else {
+        int64_t n = std::min(X.nb(), Y.nb());
         for (int64_t i = 0; i < std::min(X.mb(), Y.mb()); ++i)
-            blas::axpy(nr, alpha, X.at(i,0), X.rowIncrement(),
-                                  Y.at(i,0), Y.rowIncrement());
+            blas::axpy(n, alpha, &X.at(i,0), X.rowIncrement(),
+                                 &Y.at(i,0), Y.rowIncrement());
     }
 }
 

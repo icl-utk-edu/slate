@@ -39,6 +39,7 @@
 
 #include "slate/slate.hh"
 #include "internal/internal.hh"
+#include "work/work.hh"
 
 namespace slate {
 
@@ -88,7 +89,14 @@ void hegst(slate::internal::TargetType<target>,
     uint8_t* column = column_vector.data();
 
     if (target == Target::Devices) {
-        A.allocateBatchArrays();
+        const int64_t batch_size_zero = 0;
+        const int64_t num_arrays_two  = 2; // Number of kernels without lookahead
+        if (itype == 1) {
+            A.allocateBatchArrays(batch_size_zero, num_arrays_two);
+        }
+        else {
+            A.allocateBatchArrays();
+        }
         A.reserveDeviceWorkspace();
     }
 
@@ -161,15 +169,13 @@ void hegst(slate::internal::TargetType<target>,
                             Side::Right, -half, std::move(Akk),
                                                 std::move(Bsub),
                                           one,  std::move(Asub));
-                    }
 
-                    #pragma omp taskwait
-                    auto Bk1  = B.sub(k+1, nt-1);
-                    auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
-                    slate::trsm<scalar_t>(
-                        Side::Left,  one,  TBk1,
-                                           Asub, {{Option::Lookahead, lookahead},
-                                                  {Option::Target,    target}});
+                        auto Bk1  = B.sub(k+1, nt-1);
+                        auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
+                        work::trsm<target, scalar_t>(
+                            Side::Left,  one,  TBk1,
+                                               Asub, column, lookahead);
+                    }
                 }
             }
             else { //if (itype == 2 || itype == 3)
@@ -177,15 +183,7 @@ void hegst(slate::internal::TargetType<target>,
                     auto Asub = A.sub(k, k, 0, k-1);
                     auto Bsub = B.sub(k, k, 0, k-1);
 
-                    #pragma omp taskwait
-                    auto Bk1  = B.sub(0, k-1);
-                    auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
-                    slate::trmm<scalar_t>(
-                        Side::Right, one,  TBk1,
-                                           Asub, {{Option::Lookahead, lookahead},
-                                                  {Option::Target,    target}});
-
-                    #pragma omp task depend(inout:column[k])
+                    #pragma omp task depend(inout:column[0])
                     {
                         A.tileBcast(
                             k, k, Asub, layout, tag_zero, life_factor_two);
@@ -197,12 +195,18 @@ void hegst(slate::internal::TargetType<target>,
                         }
                         B.template listBcast<target>(
                             bcast_list, layout, tag_zero, life_factor_two);
+
+                        B.template tileBcast<target>(k, k, Asub, layout);
                     }
 
-                    #pragma omp task depend(in:column[k]) \
-                                    depend(inout:column[k+1]) \
-                                    depend(inout:column[nt-1])
+                    #pragma omp task depend(inout:column[0])
                     {
+                        auto Bk1  = B.sub(0, k-1);
+                        auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
+                        work::trmm<target, scalar_t>(
+                            Side::Right, one,  TBk1,
+                                               Asub, column, column, lookahead);
+
                         internal::hemm<Target::HostTask>(
                             Side::Left,  half, std::move(Akk),
                                                std::move(Bsub),
@@ -224,11 +228,6 @@ void hegst(slate::internal::TargetType<target>,
                             Side::Left, half, std::move(Akk),
                                               std::move(Bsub),
                                         one,  std::move(Asub));
-                    }
-
-                    #pragma omp task depend(inout:column[k])
-                    {
-                        B.template tileBcast<target>(k, k, Asub, layout);
 
                         internal::trmm<Target::HostTask>(
                             Side::Left, one,  conjTranspose(TBkk),
@@ -236,7 +235,7 @@ void hegst(slate::internal::TargetType<target>,
                     }
                 }
 
-                #pragma omp task depend(inout:column[k])
+                #pragma omp task depend(inout:column[0])
                 {
                     internal::hegst<Target::HostTask>(
                       itype,  std::move(Akk),

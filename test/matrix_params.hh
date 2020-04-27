@@ -1,5 +1,5 @@
-#ifndef MATRIX_PARAMS_HH
-#define MATRIX_PARAMS_HH
+#ifndef SLATE_MATRIX_PARAMS_HH
+#define SLATE_MATRIX_PARAMS_HH
 
 #include "testsweeper.hh"
 
@@ -20,4 +20,4 @@ public:
     testsweeper::ParamScientific condD;
 };
 
-#endif  // #ifndef MATRIX_PARAMS_HH
+#endif  // #ifndef SLATE_MATRIX_PARAMS_HH

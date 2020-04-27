@@ -158,7 +158,7 @@ void test_gesvd_work(Params& params, bool run)
     //params.matrix.kind.set_default("svd");
     //params.matrix.cond.set_default(1.e16);
 
-    lapack::generate_matrix( params.matrix, A);
+    slate::generate_matrix( params.matrix, A);
     copy(A, &A_ref[0], descA_tst);
 
     if (! ref_only) {

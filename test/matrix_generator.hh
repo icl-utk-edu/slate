@@ -1,5 +1,5 @@
-#ifndef MATRIX_GENERATOR_HPP
-#define MATRIX_GENERATOR_HPP
+#ifndef SLATE_MATRIX_GENERATOR_HH
+#define SLATE_MATRIX_GENERATOR_HH
 
 #include <exception>
 #include <complex>
@@ -12,16 +12,16 @@
 
 #include "matrix_params.hh"
 
-namespace lapack {
+namespace slate {
 
 // -----------------------------------------------------------------------------
 const int64_t idist_rand  = 1;
-const int64_t idist_randu = 2;
+const int64_t idist_rands = 2;
 const int64_t idist_randn = 3;
 
 enum class TestMatrixType {
     rand      = 1,  // maps to larnv idist
-    randu     = 2,  // maps to larnv idist
+    rands     = 2,  // maps to larnv idist
     randn     = 3,  // maps to larnv idist
     zero,
     identity,
@@ -34,18 +34,18 @@ enum class TestMatrixType {
     geevx,
 };
 
-enum class Dist {
+enum class TestMatrixDist {
     rand      = 1,  // maps to larnv idist
-    randu     = 2,  // maps to larnv idist
+    rands     = 2,  // maps to larnv idist
     randn     = 3,  // maps to larnv idist
     arith,
     geo,
-    cluster,
-    cluster2,
+    cluster0,
+    cluster1,
     rarith,
     rgeo,
-    rcluster,
-    rcluster2,
+    rcluster0,
+    rcluster1,
     logrand,
     specified,
     none,
@@ -163,6 +163,6 @@ void generate_matrix(
 
 void generate_matrix_usage();
 
-} // namespace lapack
+} // namespace slate
 
-#endif        // #ifndef MATRIX_GENERATOR_HPP
+#endif        // #ifndef SLATE_MATRIX_GENERATOR_HH

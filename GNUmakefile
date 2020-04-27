@@ -452,6 +452,8 @@ tester_src += \
         test/test_trsm.cc \
         test/test_trtri.cc \
         test/test_hegst.cc \
+        test/matrix_generator.cc \
+        test/matrix_params.cc \
 
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.

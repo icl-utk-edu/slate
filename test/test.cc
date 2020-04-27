@@ -466,6 +466,11 @@ int run(int argc, char** argv)
             throw QuitException();
         }
 
+        if (strcmp( argv[1], "--help-matrix" ) == 0) {
+            slate::generate_matrix_usage();
+            throw QuitException();
+        }
+
         // find routine to test
         const char* routine = argv[1];
         testsweeper::test_func_ptr test_routine = find_tester(routine, routines);

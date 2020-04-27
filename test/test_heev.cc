@@ -141,7 +141,7 @@ void test_heev_work(Params& params, bool run)
     //params.matrix.kind.set_default("heev");
     //params.matrix.cond.set_default(1e4);
 
-    lapack::generate_matrix( params.matrix, Z);
+    slate::generate_matrix( params.matrix, Z);
     A = slate::HermitianMatrix<scalar_t>( 
                uplo, Z );  
     copy(A, &A_tst[0], descA_tst);

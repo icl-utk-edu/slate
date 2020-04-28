@@ -273,6 +273,11 @@ libslate_src += \
         src/aux/Trace.cc \
         src/core/types.cc \
 
+# work
+libslate_src += \
+        src/work/work_trsm.cc \
+        src/work/work_trmm.cc \
+
 # internal
 libslate_src += \
         src/internal/internal_comm.cc \
@@ -447,6 +452,8 @@ tester_src += \
         test/test_trsm.cc \
         test/test_trtri.cc \
         test/test_hegst.cc \
+        test/matrix_generator.cc \
+        test/matrix_params.cc \
 
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.

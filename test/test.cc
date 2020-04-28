@@ -214,6 +214,8 @@ std::vector< testsweeper::routines_t > routines = {
 
 Params::Params():
     ParamsBase(),
+    matrix(),
+    matrixB(),
 
     // w = width
     // p = precision
@@ -232,7 +234,6 @@ Params::Params():
     verbose   ("verbose", 0,    ParamType::Value,   0,   0,   10, "verbose level"),
     extended  ("extended",0,    ParamType::Value,   0,   0,   10, "extended tests"),
     cache     ("cache",   0,    ParamType::Value,  20,   1, 1024, "total cache size, in MiB"),
-    matrix    ("matrix",  0,    ParamType::List,    0,   0,    1, "matrix type; 0=rand, 1=diag dominant"),
 
     // ----- routine parameters
     //         name,      w,    type,            default,                 str2enum,     enum2str,     help
@@ -317,6 +318,11 @@ Params::Params():
 {
     // set header different than command line prefix
     panel_threads.name("panelth", "panel-threads");
+
+    // change names of matrix B's params
+    matrixB.kind.name( "matrixB" );
+    matrixB.cond.name( "condB" );
+    matrixB.condD.name( "condD_B" );
 
     // mark standard set of output fields as used
     okay();
@@ -460,6 +466,11 @@ int run(int argc, char** argv)
             throw QuitException();
         }
 
+        if (strcmp( argv[1], "--help-matrix" ) == 0) {
+            slate::generate_matrix_usage();
+            throw QuitException();
+        }
+
         // find routine to test
         const char* routine = argv[1];
         testsweeper::test_func_ptr test_routine = find_tester(routine, routines);
@@ -562,6 +573,46 @@ int run(int argc, char** argv)
         return status;
     else
         return 0;
+}
+
+// -----------------------------------------------------------------------------
+// Compare a == b, bitwise. Returns true if a and b are both the same NaN value,
+// unlike (a == b) which is false for NaNs.
+bool same( double a, double b );
+
+bool same( double a, double b )
+{
+    return (memcmp( &a, &b, sizeof(double) ) == 0);
+}
+
+// -----------------------------------------------------------------------------
+// Prints line describing matrix kind and cond, if kind or cond changed.
+// Updates kind and cond to current values.
+void print_matrix_header(
+    MatrixParams& params, const char* caption,
+    std::string* matrix, double* cond, double* condD );
+
+void print_matrix_header(
+    MatrixParams& params, const char* caption,
+    std::string* matrix, double* cond, double* condD )
+{
+    if (params.kind.used() &&
+        (*matrix != params.kind() ||
+         ! same( *cond,  params.cond_used() ) ||
+         ! same( *condD, params.condD() )))
+    {
+        *matrix = params.kind();
+        *cond   = params.cond_used();
+        *condD  = params.condD();
+        printf( "%s: %s, cond(S) = ", caption, matrix->c_str() );
+        if (std::isnan( *cond ))
+            printf( "NA" );
+        else
+            printf( "%.2e", *cond );
+        if (! std::isnan(*condD))
+            printf( ", cond(D) = %.2e", *condD );
+        printf( "\n" );
+    }
 }
 
 // -----------------------------------------------------------------------------

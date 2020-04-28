@@ -40,6 +40,7 @@ void test_heev_work(Params& params, bool run)
     slate::Norm norm = params.norm();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    params.matrix.mark();
 
     slate_assert(p == q);  // heev requires square process grid.
 
@@ -134,6 +135,16 @@ void test_heev_work(Params& params, bool run)
                 n, n, &Q_tst[0], lldQ, nb, nprow, npcol, MPI_COMM_WORLD);
         }
     }
+
+   
+    //lapack::TestMatrixType type = lapack::TestMatrixType::heev; 
+    //params.matrix.kind.set_default("heev");
+    //params.matrix.cond.set_default(1e4);
+
+    slate::generate_matrix( params.matrix, Z);
+    A = slate::HermitianMatrix<scalar_t>( 
+               uplo, Z );  
+    copy(A, &A_tst[0], descA_tst);
 
     if (verbose >= 1) {
         printf( "%% A   %6lld-by-%6lld\n", llong(   A.m() ), llong(   A.n() ) );
@@ -247,7 +258,7 @@ void test_heev_work(Params& params, bool run)
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
 
         if (local_error > tol) {
-            printf("\n % On MPI Rank = %d, the eigenvalues are suspicious, the error is  %e \n", 
+            printf("\nOn MPI Rank = %d, the eigenvalues are suspicious, the error is  %e \n", 
                 A.mpiRank(), params.error());
             //for (int64_t i = 0; i < n; i++) {
             //    printf("\n %f", W_tst[i]);

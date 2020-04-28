@@ -59,7 +59,7 @@ void heev(lapack::Job jobz,
     int64_t n = A.n();
     bool wantz = (jobz == Job::Vec);
     
-    MPI_Status status;
+    // MPI_Status status;
     int mpi_rank;
 
     // Scale matrix to allowable range, if necessary.

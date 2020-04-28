@@ -850,6 +850,17 @@ void hegv(int64_t itype,
           Matrix<scalar_t>& V,
           const std::map<Option, Value>& opts);
 
+//------------------------------------------------------------------------------
+// Generalized symmetric/Hermitian eigenvalue decomposition
+template <typename scalar_t>
+void hegv( int itype,
+           lapack::Job jobz,
+           HermitianMatrix<scalar_t> A,
+           HermitianMatrix<scalar_t> B,           
+           std::vector< blas::real_type<scalar_t> >& W,
+           Matrix<scalar_t>& V,           
+           const std::map<Option, Value>& opts);
+
 //-----------------------------------------
 // forward real-symmetric matrices to heev;
 // disabled for complex

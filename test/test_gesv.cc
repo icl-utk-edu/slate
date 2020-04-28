@@ -42,7 +42,6 @@ void test_gesv_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose(); SLATE_UNUSED(verbose);
-    int matrix = params.matrix();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
@@ -147,6 +146,8 @@ void test_gesv_work(Params& params, bool run)
 
     slate::Pivots pivots;
 
+    // the following matrix param to be replaced when using matrix_generator
+    int matrix = 0; // if 1 it is diagonal dominant
     if (matrix == 1) {
         // Make A diagonally dominant to avoid pivoting.
         printf("diag dominant\n");

@@ -210,20 +210,26 @@ public:
     scalar_t const& at(int64_t i, int64_t j) const;
     scalar_t&       at(int64_t i, int64_t j);
 
-    // Return the number of elements to increment to get to the next
-    // element in the row (col), accouting for row-major/col-major and
-    // transposed tiles.
+    /// Return the number of elements to increment to get to the next
+    /// element in the row, accounting for row-or-column major layout
+    /// and transposed tiles.
     int64_t rowIncrement() const {
         if ( (op_ == Op::NoTrans) == (layout_ == Layout::ColMajor) )
             // (NoTrans && ColMajor) || (Trans   && RowMajor)
             return stride_;
-        else return 1;
+        else
+            return 1;
     }
+
+    /// Return the number of elements to increment to get to the next
+    /// element in the column, accounting for row-or-column major
+    /// layout and transposed tiles.
     int64_t colIncrement() const {
         if ( (op_ == Op::NoTrans) == (layout_ == Layout::ColMajor) )
             // (NoTrans && ColMajor) || (Trans   && RowMajor)
             return 1;
-        else return stride_;
+        else
+            return stride_;
     }
 
     /// Returns true if this is an origin (local non-workspace) tile.

@@ -781,18 +781,19 @@ void scale(
     scalar_t alpha, Tile<scalar_t>& A)
 {
     trace::Block trace_block("blas::scale");
-    // todo: don't use at()
-    // for (int64_t j = 0; j < A.nb(); ++j)
-    //     for (int64_t i = 0; i < A.mb(); ++i)
-    //         A.at(i, j) *= alpha;
-    // todo: this needs to be tested
-    if (A.colIncrement() == 1) {
+
+    const int64_t col_inc = A.colIncrement();
+    const int64_t row_inc = A.rowIncrement();
+    scalar_t* A00 = &A.at(0, 0);
+    if (col_inc == 1) {
+        // one column at a time
         for (int64_t j = 0; j < A.nb(); ++j)
-            blas::scal(A.mb(), alpha, &A.at(0,j), A.colIncrement());
+            blas::scal(A.mb(), alpha, &A00[j*row_inc], col_inc);
     }
     else {
+        // one row at a time
         for (int64_t i = 0; i < A.mb(); ++i)
-            blas::scal(A.nb(), alpha, &A.at(i,0), A.rowIncrement());
+            blas::scal(A.nb(), alpha, &A00[i*col_inc], row_inc);
     }
 }
 
@@ -820,7 +821,9 @@ void swapLocalRow(
     Tile<scalar_t>& A, int64_t i1,
     Tile<scalar_t>& B, int64_t i2)
 {
-    // todo: size assertions
+    // todo: size assertions, quick return
+    if (n <= 0) return;
+
     blas::swap(n, &A.at(i1,j_offset), A.rowIncrement(),
                   &B.at(i2,j_offset), B.rowIncrement());
 }
@@ -849,6 +852,9 @@ void swapRemoteRow(
     Tile<scalar_t>& A, int64_t i,
     int other_rank, MPI_Comm mpi_comm, int tag = 0)
 {
+    // todo: size assertions, quick return
+    if (n <= 0) return;
+
     std::vector<scalar_t> local_row(n);
     std::vector<scalar_t> other_row(n);
 
@@ -975,17 +981,26 @@ void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>& Y)
     //     for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j)
     //         Y.at(i, j) += alpha*X(i, j);
     // todo: this needs to be tested
-    if (Y.colIncrement()==1) {
+    const int64_t y_col_inc = Y.colIncrement();
+    const int64_t y_row_inc = Y.rowIncrement();
+    scalar_t* Y00 = &Y.at(0, 0);
+    const int64_t x_col_inc = X.colIncrement();
+    const int64_t x_row_inc = X.rowIncrement();
+    const scalar_t* X00 = &X.at(0, 0);
+
+    if (y_col_inc == 1) {
+        // one column of y at a time
         int64_t m = std::min(X.mb(), Y.mb());
         for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j)
-            blas::axpy(m, alpha, &X.at(0,j), X.colIncrement(),
-                                 &Y.at(0,j), Y.colIncrement());
+            blas::axpy(m, alpha, &X00[j*x_row_inc], x_col_inc,
+                                 &Y00[j*y_row_inc], y_col_inc);
     }
     else {
+        // one row of y at a time
         int64_t n = std::min(X.nb(), Y.nb());
         for (int64_t i = 0; i < std::min(X.mb(), Y.mb()); ++i)
-            blas::axpy(n, alpha, &X.at(i,0), X.rowIncrement(),
-                                 &Y.at(i,0), Y.rowIncrement());
+            blas::axpy(n, alpha, &X00[i*x_col_inc], x_row_inc,
+                                 &Y00[i*y_col_inc], y_row_inc);
     }
 }
 
@@ -1016,26 +1031,30 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
     assert(X.uploPhysical() == Uplo::General);
     assert(Y.uploPhysical() == Uplo::General);
 
-    // todo: don't use at
-    // for (int64_t i = 0; i < std::min(X.mb(), Y.mb()); ++i)
-    //     for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j)
-    //         Y.at(i, j) = alpha*X(i, j) + beta*Y(i, j);
-    // by col/row, scale y=b*y then add y=ax+y
-    // todo: this needs to be tested
+    const int64_t y_col_inc = Y.colIncrement();
+    const int64_t y_row_inc = Y.rowIncrement();
+    scalar_t* Y00 = &Y.at(0, 0);
+    const int64_t x_col_inc = X.colIncrement();
+    const int64_t x_row_inc = X.rowIncrement();
+    const scalar_t* X00 = &X.at(0, 0);
+
+    // Process by col/row, scale y=b*y then add y=ax+y
     if (Y.colIncrement()==1) {
+        // one column of y at a time
         int64_t m = std::min(X.mb(), Y.mb());
         for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j) {
-            blas::scal(m, beta, &Y.at(0,j), Y.colIncrement());
-            blas::axpy(m, alpha, &X.at(0,j), X.colIncrement(),
-                       &Y.at(0,j), Y.colIncrement());
+            blas::scal(m, beta,  &Y00[j*x_row_inc], y_col_inc);
+            blas::axpy(m, alpha, &X00[j*x_row_inc], x_col_inc,
+                                 &Y00[j*y_row_inc], y_col_inc);
         }
     }
     else {
+        // one row of y at a time
         int64_t n = std::min(X.nb(), Y.nb());
         for (int64_t i = 0; i < std::min(X.mb(), Y.mb()); ++i) {
-            blas::scal(n, beta, &Y.at(i,0), Y.rowIncrement());
-            blas::axpy(n, alpha, &X.at(i,0), X.rowIncrement(),
-                       &Y.at(i,0), Y.rowIncrement());
+            blas::scal(n, beta,  &Y00[i*y_col_inc], y_row_inc);
+            blas::axpy(n, alpha, &X00[i*x_col_inc], x_row_inc,
+                                 &Y00[i*y_col_inc], y_row_inc);
         }
     }
 }

@@ -976,11 +976,6 @@ void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>& Y)
     assert(X.uploPhysical() == Uplo::General);
     assert(Y.uploPhysical() == Uplo::General);
 
-    // todo: don't use at()
-    // for (int64_t i = 0; i < std::min(X.mb(), Y.mb()); ++i)
-    //     for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j)
-    //         Y.at(i, j) += alpha*X(i, j);
-    // todo: this needs to be tested
     const int64_t y_col_inc = Y.colIncrement();
     const int64_t y_row_inc = Y.rowIncrement();
     scalar_t* Y00 = &Y.at(0, 0);
@@ -1043,7 +1038,7 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
         // one column of y at a time
         int64_t m = std::min(X.mb(), Y.mb());
         for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j) {
-            blas::scal(m, beta,  &Y00[j*x_row_inc], y_col_inc);
+            blas::scal(m, beta,  &Y00[j*y_row_inc], y_col_inc);
             blas::axpy(m, alpha, &X00[j*x_row_inc], x_col_inc,
                                  &Y00[j*y_row_inc], y_col_inc);
         }

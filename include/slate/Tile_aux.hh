@@ -62,9 +62,20 @@ void gecopy(Tile<src_scalar_t> const& A, Tile<dst_scalar_t>& B)
     assert(A.mb() == B.mb());
     assert(A.nb() == B.nb());
 
-    for (int64_t j = 0; j < B.nb(); ++j)
+    const src_scalar_t* A00 = &A.at(0, 0);
+    const int64_t a_col_inc = A.colIncrement();
+    const int64_t a_row_inc = A.rowIncrement();
+    dst_scalar_t* B00 = &B.at(0, 0);
+    const int64_t b_col_inc = B.colIncrement();
+    const int64_t b_row_inc = B.rowIncrement();
+
+    for (int64_t j = 0; j < B.nb(); ++j) {
+        const src_scalar_t* Aj = &A00[j*a_row_inc];
+        dst_scalar_t* Bj = &B00[j*b_row_inc];
         for (int64_t i = 0; i < B.mb(); ++i)
-            B.at(i, j) = A.at(i, j);
+            Bj[i*b_col_inc] = Aj[i*a_col_inc];
+    }
+
 }
 
 //-----------------------------------------
@@ -96,18 +107,27 @@ void tzcopy(Tile<src_scalar_t> const& A, Tile<dst_scalar_t>& B)
     assert(A.mb() == B.mb());
     assert(A.nb() == B.nb());
 
+    const src_scalar_t* A00 = &A.at(0, 0);
+    const int64_t a_col_inc = A.colIncrement();
+    const int64_t a_row_inc = A.rowIncrement();
+    dst_scalar_t* B00 = &B.at(0, 0);
+    const int64_t b_col_inc = B.colIncrement();
+    const int64_t b_row_inc = B.rowIncrement();
+
     for (int64_t j = 0; j < B.nb(); ++j) {
+        const src_scalar_t* Aj = &A00[j*a_row_inc];
+        dst_scalar_t* Bj = &B00[j*b_row_inc];
         if (j < B.mb()) {
-            B.at(j, j) = A.at(j, j);
+            Bj[j*b_col_inc] = Aj[j*a_col_inc];
         }
         if (B.uplo() == Uplo::Lower) {
             for (int64_t i = j; i < B.mb(); ++i) {
-                B.at(i, j) = A.at(i, j);
+                Bj[i*b_col_inc] = Aj[i*a_col_inc];
             }
         }
         else {
             for (int64_t i = 0; i <= j && i < B.mb(); ++i) {
-                B.at(i, j) = A.at(i, j);
+                Bj[i*b_col_inc] = Aj[i*a_col_inc];
             }
         }
     }
@@ -137,15 +157,20 @@ void tzset(scalar_t alpha, Tile<scalar_t>& A)
     assert(A.uplo() != Uplo::General);
     assert(A.op() == Op::NoTrans);
 
+    scalar_t* A00 = &A.at(0, 0);
+    const int64_t a_col_inc = A.colIncrement();
+    const int64_t a_row_inc = A.rowIncrement();
+
     for (int64_t j = 0; j < A.nb(); ++j) {
+        scalar_t* Aj = &A00[j*a_row_inc];
         if (A.uplo() == Uplo::Lower) {
             for (int64_t i = j+1; i < A.mb(); ++i) {
-                A.at(i, j) = alpha;
+                Aj[i*a_col_inc] = alpha;
             }
         }
         else {
             for (int64_t i = 0; i < j && i < A.mb(); ++i) {
-                A.at(i, j) = alpha;
+                Aj[i*a_col_inc] = alpha;
             }
         }
     }
@@ -371,8 +396,15 @@ void copyRow(int64_t n,
              Tile<scalar_t>& A, int64_t i_offs, int64_t j_offs)
 {
     // todo: size assertions
+    if (n <= 0) return;
+
+    scalar_t* A00 = &A.at(0, 0);
+    const int64_t a_col_inc = A.colIncrement();
+    const int64_t a_row_inc = A.rowIncrement();
+
+    scalar_t* Ai = &A00[i_offs*a_col_inc];
     for (int64_t j = 0; j < n; ++j)
-        A.at(i_offs, j_offs+j) = V[j];
+        Ai[(j_offs+j)*a_row_inc] = V[j];
 }
 
 //-----------------------------------------

@@ -55,6 +55,9 @@ namespace specialization {
 //------------------------------------------------------------------------------
 /// @internal
 /// Distributed parallel general matrix-matrix multiplication.
+/// Designed for situations where A is larger than B or C, so the
+/// algorithm does not move A, instead moving B to the location of A
+/// and reducing the C matrix.
 /// Generic implementation for any target.
 /// Dependencies enforce the following behavior:
 /// - bcast communications are serialized,
@@ -80,13 +83,8 @@ void gemmA(
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector(A.nt());
     std::vector<uint8_t> gemmA_vector(A.nt());
-    //std::vector<uint8_t> c_vector(1);
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemmA = gemmA_vector.data();
-    //uint8_t* c     =     c_vector.data();
-
-    lookahead = 0;
-
     // printf("gemmA\n");
 
     #pragma omp parallel
@@ -139,7 +137,6 @@ void gemmA(
                 reduce_list_C.push_back({i, 0, {A.sub(i, i, 0, A.nt()-1)}});
             C.template listReduce(reduce_list_C, layout);
          }
-
 
         // broadcast (with lookahead) and multiply the rest of the columns
         for (int64_t k = 1; k < B.nt(); ++k) {
@@ -232,6 +229,10 @@ void gemmA(scalar_t alpha, Matrix<scalar_t>& A,
 ///     auto AT = slate::transpose( A );
 ///     auto BT = slate::conjTranspose( B );
 ///     slate::gemm( alpha, AT, BT, beta, C );
+///
+/// This algorithmic variant manages computation to be local to the
+/// location of the A matrix.  This can be useful if size(A) >>
+/// size(B), size(C).
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t

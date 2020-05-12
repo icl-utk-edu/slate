@@ -118,6 +118,20 @@ void gemm(scalar_t alpha, Matrix<scalar_t>& A,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
+// gemmA()
+template <typename scalar_t>
+void gemmA(scalar_t alpha, Matrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void gemmA(scalar_t alpha, Matrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
 // hbmm()
 template <typename scalar_t>
 void hbmm(blas::Side side,
@@ -856,9 +870,9 @@ template <typename scalar_t>
 void hegv( int itype,
            lapack::Job jobz,
            HermitianMatrix<scalar_t> A,
-           HermitianMatrix<scalar_t> B,           
+           HermitianMatrix<scalar_t> B,
            std::vector< blas::real_type<scalar_t> >& W,
-           Matrix<scalar_t>& V,           
+           Matrix<scalar_t>& V,
            const std::map<Option, Value>& opts);
 
 //-----------------------------------------

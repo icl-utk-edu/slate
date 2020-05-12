@@ -351,6 +351,7 @@ libslate_src += \
         src/geadd.cc \
         src/gels.cc \
         src/gemm.cc \
+        src/gemmA.cc \
         src/geqrf.cc \
         src/gelqf.cc \
         src/gesv.cc \

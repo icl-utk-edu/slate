@@ -287,7 +287,7 @@ libslate_src += \
         src/internal/internal_gbnorm.cc \
         src/internal/internal_geadd.cc \
         src/internal/internal_gemm.cc \
-        src/internal/internal_gemm_A.cc \
+        src/internal/internal_gemmA.cc \
         src/internal/internal_gemm_split.cc \
         src/internal/internal_genorm.cc \
         src/internal/internal_gebr.cc \

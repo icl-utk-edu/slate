@@ -123,7 +123,7 @@ void gemmA(
             // multiply C(:, 0) = alpha A(:, :) B(:, 0) + beta C(:, 0)
             // do multiplication local to A matrix; this may leave
             // some temporary tiles of C that need to be reduced
-            internal::gemm_A<target>(
+            internal::gemmA<target>(
                 alpha, std::move(A),
                        B.sub(0, B.mt()-1, 0, 0),
                 beta,  C.sub(0, C.mt()-1, 0, 0),
@@ -164,7 +164,7 @@ void gemmA(
                 // multiply C(:, k) = alpha A(:, :) B(:, k) + beta C(:, k)
                 // do multiplication local to A matrix; this may leave
                 // some temporary tiles of C that need to be reduced
-                internal::gemm_A<target>(
+                internal::gemmA<target>(
                     alpha, std::move(A),
                            B.sub(0, B.mt()-1, k, k),
                     beta,  C.sub(0, C.mt()-1, k, k),

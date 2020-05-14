@@ -52,6 +52,12 @@ void test_gemm_work(Params& params, bool run)
     if (! run)
         return;
 
+    // skip invalid or unimplemented options
+    if (gemm_variant=="gemmA" && target!=slate::Target::HostTask) {
+        printf("skipping: currently gemmA is only implemented for HostTask\n");
+        return;
+    }
+
     // Error analysis applies in these norms.
     slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 

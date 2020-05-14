@@ -90,6 +90,7 @@ std::vector< testsweeper::routines_t > routines = {
     { "",                   nullptr,           Section::newline },
 
     { "getrf",              test_gesv,         Section::gesv },
+    { "getrf_nopiv",        test_gesv_nopiv,   Section::gesv },
     { "gbtrf",              test_gbsv,         Section::gesv },
     { "",                   nullptr,           Section::newline },
 

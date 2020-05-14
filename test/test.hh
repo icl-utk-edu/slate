@@ -161,8 +161,9 @@ void test_her2k  (Params& params, bool run);
 void test_herk   (Params& params, bool run);
 
 // LU, general
-void test_gesv   (Params& params, bool run);
-void test_getri  (Params& params, bool run);
+void test_gesv       (Params& params, bool run);
+void test_gesv_nopiv (Params& params, bool run);
+void test_getri      (Params& params, bool run);
 
 // LU, band
 void test_gbsv   (Params& params, bool run);

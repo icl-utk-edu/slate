@@ -484,6 +484,28 @@ void getrs(Matrix<scalar_t>& A, Pivots& pivots,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
+// getrf_nopiv
+template <typename scalar_t>
+void getrf_nopiv(Matrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void getrf_nopiv(Matrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// getrs_nopiv
+template <typename scalar_t>
+void getrs_nopiv(Matrix<scalar_t>& A,
+           Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void getrs_nopiv(Matrix<scalar_t>& A,
+           Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
 // getri
 template <Target target, typename scalar_t>
 void getri(Matrix<scalar_t>& A, Pivots& pivots,

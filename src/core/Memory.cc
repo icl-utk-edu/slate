@@ -79,6 +79,7 @@ Memory::~Memory()
 // todo: merge with addDeviceBlocks by recognizing host_num_?
 void Memory::addHostBlocks(int64_t num_blocks)
 {
+/*
     // or std::byte* (C++17)
     uint8_t* host_mem;
     host_mem = (uint8_t*) allocHostMemory(block_size_*num_blocks);
@@ -86,6 +87,7 @@ void Memory::addHostBlocks(int64_t num_blocks)
 
     for (int64_t i = 0; i < num_blocks; ++i)
         free_blocks_[host_num_].push(host_mem + i*block_size_);
+*/
 }
 
 //------------------------------------------------------------------------------
@@ -109,6 +111,7 @@ void Memory::addDeviceBlocks(int device, int64_t num_blocks)
 // todo: merge with clearDeviceBlocks by recognizing host_num_?
 void Memory::clearHostBlocks()
 {
+/*
     Debug::checkHostMemoryLeaks(*this);
 
     while (! free_blocks_[host_num_].empty())
@@ -120,6 +123,7 @@ void Memory::clearHostBlocks()
         allocated_mem_[host_num_].pop();
     }
     capacity_[host_num_] = 0;
+*/
 }
 
 //------------------------------------------------------------------------------
@@ -145,17 +149,25 @@ void Memory::clearDeviceBlocks(int device)
 /// @return single block of memory on the given device, which can be host,
 /// either from free blocks or by allocating a new block.
 ///
-void* Memory::alloc(int device)
+void* Memory::alloc(int device, size_t size)
 {
     void* block;
-    #pragma omp critical(slate_memory)
-    {
-        if (free_blocks_[device].size() > 0) {
-            block = free_blocks_[device].top();
-            free_blocks_[device].pop();
-        }
-        else {
-            block = allocBlock(device);
+ 
+    if (device == host_num_) {
+        //block = malloc(size);
+        block = new char[size];
+    }
+    else {
+        // this block for device only
+        #pragma omp critical(slate_memory)
+        {
+            if (free_blocks_[device].size() > 0) {
+                block = free_blocks_[device].top();
+                free_blocks_[device].pop();
+            }
+            else {
+                block = allocBlock(device);
+            }
         }
     }
     return block;
@@ -167,9 +179,15 @@ void* Memory::alloc(int device)
 ///
 void Memory::free(void* block, int device)
 {
-    #pragma omp critical(slate_memory)
-    {
-        free_blocks_[device].push(block);
+    if (device == host_num_) {
+        //std::free(block);
+        delete[] (char*)block;
+    }
+    else {
+        #pragma omp critical(slate_memory)
+        {
+            free_blocks_[device].push(block);
+        }
     }
 }
 
@@ -197,6 +215,7 @@ void* Memory::allocHostMemory(size_t size)
     //slate_cuda_call(
     //    cudaMallocHost(&host_mem, size));
     host_mem = malloc(size);
+    //host_mem = new scalar_t[size];
     assert(host_mem != nullptr);
     allocated_mem_[host_num_].push(host_mem);
 
@@ -225,6 +244,8 @@ void* Memory::allocDeviceMemory(int device, size_t size)
 void Memory::freeHostMemory(void* host_mem)
 {
     std::free(host_mem);
+    //delete[] host_mem;
+    //host_mem = nullptr;
     //slate_cuda_call(
     //    cudaFreeHost(host_mem));
 }

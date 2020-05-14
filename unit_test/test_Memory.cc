@@ -120,7 +120,7 @@ void test_alloc_host()
     // First cnt blocks come from reserve, next cnt blocks malloc'd 1-by-1.
     double* hx[ 2*cnt ];
     for (int i = 0; i < 2*cnt; ++i) {
-        hx[i] = (double*) mem.alloc(mem.host_num_);
+        hx[i] = (double*) mem.alloc(mem.host_num_, sizeof(double) * nb * nb);
         test_assert(hx[i] != nullptr);
         test_assert(int(mem.available(mem.host_num_)) == max(cnt - (i+1), 0));
         test_assert(int(mem.capacity (mem.host_num_)) == max(cnt, i+1));
@@ -142,7 +142,7 @@ void test_alloc_host()
 
     // Re-alloc some.
     for (int i = 0; i < some; ++i) {
-        hx[i] = (double*) mem.alloc(mem.host_num_);
+        hx[i] = (double*) mem.alloc(mem.host_num_, sizeof(double) * nb * nb);
         test_assert(hx[i] != nullptr);
         test_assert(int(mem.available(mem.host_num_)) == some - (i+1));
         test_assert(int(mem.capacity (mem.host_num_)) == 2*cnt);
@@ -168,7 +168,7 @@ void test_alloc_device()
         // First cnt blocks come from reserve, next cnt blocks malloc'd 1-by-1.
         double* dx[ 2*cnt ];
         for (int i = 0; i < 2*cnt; ++i) {
-            dx[i] = (double*) mem.alloc(dev);
+            dx[i] = (double*) mem.alloc(dev, sizeof(double) * nb * nb);
             test_assert(dx[i] != nullptr);
             test_assert(int(mem.available(dev)) == max(cnt - (i+1), 0));
             test_assert(int(mem.capacity (dev)) == max(cnt, i+1));
@@ -192,7 +192,7 @@ void test_alloc_device()
 
         // Re-alloc some.
         for (int i = 0; i < some; ++i) {
-            dx[i] = (double*) mem.alloc(dev);
+            dx[i] = (double*) mem.alloc(dev, sizeof(double) * nb * nb);
             test_assert(dx[i] != nullptr);
             test_assert(int(mem.available(dev)) == some - (i+1));
             test_assert(int(mem.capacity (dev)) == 2*cnt);
@@ -215,7 +215,7 @@ void test_clearHostBlocks()
 
     // Allocate 2*cnt blocks.
     for (int i = 0; i < 2*cnt; ++i) {
-        mem.alloc(mem.host_num_);
+        mem.alloc(mem.host_num_, sizeof(double) * nb * nb);
     }
 
     test_assert(int(mem.available(mem.host_num_)) == 0);
@@ -242,7 +242,7 @@ void test_clearDeviceBlocks()
 
         // Allocate 2*cnt blocks.
         for (int i = 0; i < 2*cnt; ++i) {
-            mem.alloc(dev);
+            mem.alloc(dev, sizeof(double) * nb * nb);
         }
     }
 

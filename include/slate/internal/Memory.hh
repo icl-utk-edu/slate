@@ -92,7 +92,7 @@ public:
     void clearHostBlocks();
     void clearDeviceBlocks(int device);
 
-    void* alloc(int device);
+    void* alloc(int device, size_t size);
     void free(void* block, int device);
 
     /// @return number of available free blocks in device's memory pool,

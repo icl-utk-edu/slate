@@ -521,6 +521,9 @@ private:
     TilesMap tiles_;        ///< map of tiles and associated states
     mutable omp_nest_lock_t lock_;  ///< TilesMap lock
     slate::Memory memory_;  ///< memory allocator
+    scalar_t *host_mem;
+    std::map< int, std::stack<void*> > allocated_mem_;
+    bool own;
 
     int mpi_rank_;
     static int host_num_;
@@ -612,7 +615,7 @@ MatrixStorage<scalar_t>::MatrixStorage(
       tileRank(inTileRank),
       tileDevice(inTileDevice),
       tiles_(),
-      memory_(sizeof(scalar_t) * inTileMb(0) * inTileNb(0)),  // block size in bytes
+      memory_(sizeof(scalar_t) * tileMb(0) * inTileNb(0)),  // block size in bytes
       batch_array_size_(0)
 {
     slate_mpi_call(
@@ -823,6 +826,7 @@ void MatrixStorage<scalar_t>::clearBatchArrays()
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::reserveHostWorkspace(int64_t num_tiles)
 {
+    //printf("\n reserveHostWorkspace ============= \n");
     memory_.addHostBlocks(num_tiles);
 }
 
@@ -851,6 +855,7 @@ void MatrixStorage<scalar_t>::freeTileMemory(Tile<scalar_t>* tile)
 {
     slate_assert(tile != nullptr);
     if (tile->allocated())
+        //delete[] tile->data();
         memory_.free(tile->data(), tile->device());
     if (tile->extended())
         memory_.free(tile->extData(), tile->device());
@@ -885,8 +890,10 @@ void MatrixStorage<scalar_t>::clearWorkspace()
     // Free host & device memory only if there are no unallocated blocks
     // from non-workspace (SlateOwned) tiles.
     if (memory_.allocated(host_num_) == 0) {
+        //printf("\n clearWorkspace ============= \n");
         memory_.clearHostBlocks();
     }
+
     for (int device = 0; device < num_devices_; ++device) {
         if (memory_.allocated(device) == 0) {
             memory_.clearDeviceBlocks(device);
@@ -926,6 +933,7 @@ void MatrixStorage<scalar_t>::releaseWorkspace()
     // Free host & device memory only if there are no unallocated blocks
     // from non-workspace (SlateOwned) tiles.
     if (memory_.allocated(host_num_) == 0) {
+        //printf("\n releaseWorkspace >>>>>>>>>>>>>>>>============= \n");
         memory_.clearHostBlocks();
     }
     for (int device = 0; device < num_devices_; ++device) {
@@ -1054,7 +1062,9 @@ void MatrixStorage<scalar_t>::clear()
 template <typename scalar_t>
 scalar_t* MatrixStorage<scalar_t>::allocWorkspaceBuffer(int device)
 {
-    scalar_t* data = (scalar_t*) memory_.alloc(device);
+    int64_t mb = tileMb(0);
+    int64_t nb = tileNb(0);
+    scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb);
     return data;
 }
 
@@ -1102,9 +1112,9 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileAcquire(
 
     // if tile instance does not exist, insert new instance
     if (! tile_node.existsOn(device)) {
-        scalar_t* data = (scalar_t*) memory_.alloc(device);
         int64_t mb = tileMb(i);
         int64_t nb = tileNb(j);
+        scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t)*mb*nb);
         int64_t stride = layout == Layout::ColMajor ? mb : nb;
         Tile<scalar_t>* tile
             = new Tile<scalar_t>(
@@ -1143,9 +1153,10 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
 
     // if tile instance does not exist, insert new instance
     if (! tile_node.existsOn(device)) {
-        scalar_t* data = (scalar_t*) memory_.alloc(device);
         int64_t mb = tileMb(i);
         int64_t nb = tileNb(j);
+        scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb);
+        //scalar_t* data = new scalar_t[mb*nb];
         int64_t stride = layout == Layout::ColMajor ? mb : nb;
         Tile<scalar_t>* tile
             = new Tile<scalar_t>(mb, nb, data, stride, device, kind, layout);
@@ -1190,6 +1201,7 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
                   mb, nb, data, lda, device, TileKind::UserOwned, layout);
         tile_node.insertOn(device, tile, MOSI::Shared);
     }
+    //printf("\n tileInsert2 \n");
     return tile_node[device];
 }
 
@@ -1208,7 +1220,9 @@ void MatrixStorage<scalar_t>::tileMakeTransposable(Tile<scalar_t>* tile)
         return;
 
     int device = tile->device();
-    scalar_t* data = (scalar_t*) memory_.alloc(device);
+    int64_t mb = tileMb(0);
+    int64_t nb = tileNb(0);
+    scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t)*mb*nb);
 
     tile->makeTransposable(data);
 }

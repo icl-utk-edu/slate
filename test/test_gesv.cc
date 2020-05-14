@@ -2,6 +2,7 @@
 #include "test.hh"
 #include "blas_flops.hh"
 #include "lapack_flops.hh"
+#include "print_matrix.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
@@ -146,18 +147,21 @@ void test_gesv_work(Params& params, bool run)
 
     slate::Pivots pivots;
 
-    // the following matrix param to be replaced when using matrix_generator
-    int matrix = 0; // if 1 it is diagonal dominant
+    int matrix = 1; // if 1 it is diagonal dominant
     if (matrix == 1) {
         // Make A diagonally dominant to avoid pivoting.
         printf("diag dominant\n");
         for (int k = 0; k < std::min(A.mt(), A.nt()); ++k) {
-            auto T = A(k, k);
-            for (int i = 0; i < T.nb(); ++i) {
-                T.at(i, i) += n;
+            if (A.tileIsLocal(k, k)) {
+                auto T = A(k, k);
+                for (int i = 0; i < T.nb(); ++i) {
+                    T.at(i, i) += n;
+                }
             }
         }
+        copy(A, &A_tst[0], descA_tst);
     }
+    //print_matrix("A", A);
 
     // if check/ref is required, copy test data
     std::vector<scalar_t> A_ref, B_ref, B_orig;

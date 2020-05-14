@@ -215,20 +215,21 @@ void norm(
             // Sum tile results into local results.
             // Summing up local contributions only.
             std::fill_n(values, A.n(), 0.0);
-            int64_t nb0 = A.tileNb(0);
             {
                 trace::Block trace_block("slate::Tiles_sum");
 
+                int64_t jj = 0;
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     int64_t nb = A.tileNb(j);
                     for (int64_t i = 0; i < A.mt(); ++i) {
                         if (A.tileIsLocal(i, j)) {
                                 blas::axpy(
                                     nb, 1.0,
-                                    &tiles_sums[A.n()*i + j*nb0 ], 1,
-                                    &values[j*nb0], 1);
+                                    &tiles_sums[A.n()*i + jj ], 1,
+                                    &values[jj], 1);
                         }
                     }
+                    jj += A.tileNb(j);
                 }
             }
         }
@@ -261,20 +262,21 @@ void norm(
             // Sum tile results into local results.
             // Summing up local contributions only.
             std::fill_n(values, A.m(), 0.0);
-            int64_t mb0 = A.tileMb(0);
             {
                 trace::Block trace_block("slate::Tiles_sum");
 
+                int64_t ii = 0;
                 for (int64_t i = 0; i < A.mt(); ++i) {
                     for (int64_t j = 0; j < A.nt(); ++j) {
                         int64_t mb = A.tileMb(i);
                         if (A.tileIsLocal(i, j)) {
                                 blas::axpy(
                                     mb, 1.0,
-                                    &tiles_sums[A.m()*j + i*mb0 ], 1,
-                                    &values[i*mb0], 1);
+                                    &tiles_sums[A.m()*j + ii ], 1,
+                                    &values[ii], 1);
                         }
                     }
+                    ii += A.tileNb(i);
                 }
             }
         }

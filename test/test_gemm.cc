@@ -39,6 +39,7 @@ void test_gemm_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
+    std::string gemm_variant = params.gemm_variant();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
@@ -191,11 +192,18 @@ void test_gemm_work(Params& params, bool run)
         // Run SLATE test.
         // C = alpha A B + beta C.
         //==================================================
-        slate::gemm(alpha, A, B, beta, C, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target}
-        });
-
+        if (gemm_variant == "gemmC")
+            slate::gemm(
+                alpha, A, B, beta, C, {
+                    {slate::Option::Lookahead, lookahead},
+                    {slate::Option::Target, target}
+                });
+        else if (gemm_variant == "gemmA")
+            slate::gemmA(
+                alpha, A, B, beta, C, {
+                    {slate::Option::Lookahead, lookahead},
+                    {slate::Option::Target, target}
+                });
         {
             slate::trace::Block trace_block("MPI_Barrier");
             MPI_Barrier(MPI_COMM_WORLD);

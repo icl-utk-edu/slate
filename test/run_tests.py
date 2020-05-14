@@ -307,7 +307,7 @@ cmds = []
 if (opts.blas3):
     cmds += [
     [ 'gbmm',  gen + dtype + la + transA + transB + mnk + ab + kl + ku ],
-    [ 'gemm',  gen + dtype + la + transA + transB + mnk + ab ],
+    [ 'gemm',  gen + dtype + la + transA + transB + mnk + ab + ' --gemm-variant=gemmC,gemmA' ],
 
     [ 'hemm',  gen + dtype         + la + side + uplo     + mn + ab ],
     [ 'hbmm',  gen + dtype         + la + side + uplo     + mn + ab + kd ],

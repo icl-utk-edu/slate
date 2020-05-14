@@ -287,15 +287,12 @@ void gemmA(scalar_t alpha, Matrix<scalar_t>& A,
         case Target::HostTask:
             gemmA<Target::HostTask>(alpha, A, B, beta, C, opts);
             break;
-        case Target::HostNest:
-            slate_assert(false);  // todo: not yet implemented
-            break;
+        case Target::HostNest: // todo: not yet implemented
         case Target::HostBatch:
-            slate_assert(false);  // todo: not yet implemented
-            break;
         case Target::Devices:
-            slate_assert(false);  // todo: not yet implemented
+            slate_not_implemented("target not yet supported");
             break;
+
     }
 }
 

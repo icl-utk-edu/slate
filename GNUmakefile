@@ -294,6 +294,7 @@ libslate_src += \
         src/internal/internal_geqrf.cc \
         src/internal/internal_geset.cc \
         src/internal/internal_getrf.cc \
+        src/internal/internal_getrf_nopiv.cc \
         src/internal/internal_hebr.cc \
         src/internal/internal_hemm.cc \
         src/internal/internal_hbnorm.cc \
@@ -357,9 +358,11 @@ libslate_src += \
         src/gesvd.cc \
         src/gesvMixed.cc \
         src/getrf.cc \
+        src/getrf_nopiv.cc \
         src/getri.cc \
         src/getriOOP.cc \
         src/getrs.cc \
+        src/getrs_nopiv.cc \
         src/hb2st.cc \
         src/he2hb.cc \
         src/unmtr_he2hb.cc \
@@ -423,6 +426,7 @@ tester_src += \
         test/test_geqrf.cc \
         test/test_gelqf.cc \
         test/test_gesv.cc \
+        test/test_gesv_nopiv.cc \
         test/test_gesvd.cc \
         test/test_getri.cc \
         test/test_he2hb.cc \

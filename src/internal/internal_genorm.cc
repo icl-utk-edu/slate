@@ -240,20 +240,18 @@ void norm(
 
             // Sum each row within a tile.
             std::vector<real_t> tiles_sums(A.m()*A.nt(), 0.0);
-            {
-                trace::Block trace_block("slate::Rows_sum");
-                for (int64_t i = 0; i < A.mt(); ++i) {
+            trace::Block trace_block("slate::Rows_sum");
+            for (int64_t j = 0; j < A.nt(); ++j) {
                 int64_t ii = 0;
-                    for (int64_t j = 0; j < A.nt(); ++j) {
-                        if (A.tileIsLocal(i, j)) {
-                            #pragma omp task shared(A, tiles_sums) priority(priority)
-                            {
-                                A.tileGetForReading(i, j, LayoutConvert(layout));
-                                genorm(in_norm, scope, A(i, j), &tiles_sums[A.m()*j + ii]);
-                            }
+                for (int64_t i = 0; i < A.mt(); ++i) {
+                    if (A.tileIsLocal(i, j)) {
+                        #pragma omp task shared(A, tiles_sums) priority(priority)
+                        {
+                            A.tileGetForReading(i, j, LayoutConvert(layout));
+                            genorm(in_norm, scope, A(i, j), &tiles_sums[A.m()*j + ii]);
                         }
                     }
-                    ii += A.tileMb(i);
+                ii += A.tileMb(i);
                 }
             }
 
@@ -276,7 +274,7 @@ void norm(
                                     &values[ii], 1);
                         }
                     }
-                    ii += A.tileNb(i);
+                    ii += A.tileMb(i);
                 }
             }
         }

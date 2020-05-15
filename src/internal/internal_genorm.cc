@@ -240,10 +240,10 @@ void norm(
 
             // Sum each row within a tile.
             std::vector<real_t> tiles_sums(A.m()*A.nt(), 0.0);
-            int64_t ii = 0;
             {
                 trace::Block trace_block("slate::Rows_sum");
                 for (int64_t i = 0; i < A.mt(); ++i) {
+                int64_t ii = 0;
                     for (int64_t j = 0; j < A.nt(); ++j) {
                         if (A.tileIsLocal(i, j)) {
                             #pragma omp task shared(A, tiles_sums) priority(priority)

@@ -147,7 +147,7 @@ void test_gesv_work(Params& params, bool run)
 
     slate::Pivots pivots;
 
-    int matrix = 1; // if 1 it is diagonal dominant
+    int matrix = 0; // if 1 it is diagonal dominant
     if (matrix == 1) {
         // Make A diagonally dominant to avoid pivoting.
         printf("diag dominant\n");

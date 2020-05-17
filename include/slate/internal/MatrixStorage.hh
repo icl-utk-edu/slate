@@ -1111,7 +1111,7 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileAcquire(
     if (! tile_node.existsOn(device)) {
         int64_t mb = tileMb(i);
         int64_t nb = tileNb(j);
-        scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t)*mb*nb);
+        scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb);
         int64_t stride = layout == Layout::ColMajor ? mb : nb;
         Tile<scalar_t>* tile
             = new Tile<scalar_t>(
@@ -1219,7 +1219,7 @@ void MatrixStorage<scalar_t>::tileMakeTransposable(Tile<scalar_t>* tile)
     int device = tile->device();
     int64_t mb = tileMb(0);
     int64_t nb = tileNb(0);
-    scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t)*mb*nb);
+    scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb);
 
     tile->makeTransposable(data);
 }

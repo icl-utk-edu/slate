@@ -615,7 +615,7 @@ MatrixStorage<scalar_t>::MatrixStorage(
       tileRank(inTileRank),
       tileDevice(inTileDevice),
       tiles_(),
-      memory_(sizeof(scalar_t) * tileMb(0) * inTileNb(0)),  // block size in bytes
+      memory_(sizeof(scalar_t) * inTileMb(0) * inTileNb(0)),  // block size in bytes
       batch_array_size_(0)
 {
     slate_mpi_call(
@@ -826,7 +826,6 @@ void MatrixStorage<scalar_t>::clearBatchArrays()
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::reserveHostWorkspace(int64_t num_tiles)
 {
-    //printf("\n reserveHostWorkspace ============= \n");
     memory_.addHostBlocks(num_tiles);
 }
 
@@ -890,7 +889,6 @@ void MatrixStorage<scalar_t>::clearWorkspace()
     // Free host & device memory only if there are no unallocated blocks
     // from non-workspace (SlateOwned) tiles.
     if (memory_.allocated(host_num_) == 0) {
-        //printf("\n clearWorkspace ============= \n");
         memory_.clearHostBlocks();
     }
 
@@ -933,7 +931,6 @@ void MatrixStorage<scalar_t>::releaseWorkspace()
     // Free host & device memory only if there are no unallocated blocks
     // from non-workspace (SlateOwned) tiles.
     if (memory_.allocated(host_num_) == 0) {
-        //printf("\n releaseWorkspace >>>>>>>>>>>>>>>>============= \n");
         memory_.clearHostBlocks();
     }
     for (int device = 0; device < num_devices_; ++device) {

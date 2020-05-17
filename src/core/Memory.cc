@@ -215,7 +215,6 @@ void* Memory::allocHostMemory(size_t size)
     //slate_cuda_call(
     //    cudaMallocHost(&host_mem, size));
     host_mem = malloc(size);
-    //host_mem = new scalar_t[size];
     assert(host_mem != nullptr);
     allocated_mem_[host_num_].push(host_mem);
 
@@ -244,8 +243,6 @@ void* Memory::allocDeviceMemory(int device, size_t size)
 void Memory::freeHostMemory(void* host_mem)
 {
     std::free(host_mem);
-    //delete[] host_mem;
-    //host_mem = nullptr;
     //slate_cuda_call(
     //    cudaFreeHost(host_mem));
 }

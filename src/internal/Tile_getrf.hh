@@ -320,6 +320,8 @@ void getrf(
             }
             thread_barrier.wait(thread_size);
 
+            scalar_t one  = 1.0;
+            scalar_t zero = 0.0;
             // column scaling and trailing update
             for (int64_t idx = thread_rank;
                  idx < int64_t(tiles.size());
@@ -329,9 +331,23 @@ void getrf(
                 auto i_index = tile_indices[idx];
 
                 // column scaling
-                // todo: Double check. Equivalent to LAPACK?
                 real_t sfmin = std::numeric_limits<real_t>::min();
                 if (cabs1(pivot[j].value()) >= sfmin) {
+                    // todo: make it a tile operation
+                    if (i_index == 0) {
+                        // diagonal tile
+                        scalar_t alpha = one / tile(j, j);
+                        int64_t m = tile.mb()-j-1;
+                        if (m > 0)
+                            blas::scal(tile.mb()-j-1, alpha, &tile.at(j+1, j), 1);
+                    }
+                    else {
+                        // off diagonal tile
+                        scalar_t alpha = one / pivot[j].value();
+                        blas::scal(tile.mb(), alpha, &tile.at(0, j), 1);
+                    }
+                }
+                else if (pivot[j].value() != zero) {
                     if (i_index == 0) {
                         // diagonal tile
                         for (int64_t i = j+1; i < tile.mb(); ++i)
@@ -344,17 +360,9 @@ void getrf(
                     }
                 }
                 else {
-                    // todo: make it a tile operation
-                    if (i_index == 0) {
-                        // diagonal tile
-                        scalar_t alpha = one / tile(j, j);
-                        blas::scal(tile.mb()-j-1, alpha, &tile.at(j+1, j), 1);
-                    }
-                    else {
-                        // off diagonal tile
-                        scalar_t alpha = one / pivot[j].value();
-                        blas::scal(tile.mb(), alpha, &tile.at(0, j), 1);
-                    }
+                    // pivot[j].value() = 0, The factorization has been completed
+                    // but the factor U is exactly singular
+                    // todo: how to handle a zero pivot
                 }
 
                 // trailing update

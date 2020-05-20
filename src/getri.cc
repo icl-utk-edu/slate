@@ -137,7 +137,7 @@ void getri(slate::internal::TargetType<target>,
             W.template listBcast(bcast_list_W, layout);
 
             // A(:, k) -= A(:, k+1:nt-1) * W
-            internal::gemm_A<Target::HostTask>(
+            internal::gemmA<Target::HostTask>(
                 scalar_t(-1.0), A.sub(0, A.nt()-1, k+1, A.nt()-1),
                                 W.sub(1, W.mt()-1, 0, 0),
                 scalar_t(1.0),  A.sub(0, A.nt()-1, k, k), layout);

@@ -62,10 +62,10 @@ namespace internal {
 /// @ingroup gemm_internal
 ///
 template <Target target, typename scalar_t>
-void gemm_A(scalar_t alpha, Matrix<scalar_t>&& A,
-                            Matrix<scalar_t>&& B,
-            scalar_t beta,  Matrix<scalar_t>&& C,
-            Layout layout, int priority)
+void gemmA(scalar_t alpha, Matrix<scalar_t>&& A,
+                           Matrix<scalar_t>&& B,
+           scalar_t beta,  Matrix<scalar_t>&& C,
+           Layout layout, int priority)
 {
     if (C.is_complex &&
         ((C.op() == Op::Trans &&
@@ -76,7 +76,7 @@ void gemm_A(scalar_t alpha, Matrix<scalar_t>&& A,
         throw std::exception();
     }
 
-    gemm_A(internal::TargetType<target>(),
+    gemmA(internal::TargetType<target>(),
            alpha, A,
                   B,
            beta,  C,
@@ -90,11 +90,11 @@ void gemm_A(scalar_t alpha, Matrix<scalar_t>&& A,
 /// @ingroup gemm_internal
 ///
 template <typename scalar_t>
-void gemm_A(internal::TargetType<Target::HostTask>,
-            scalar_t alpha, Matrix<scalar_t>& A,
-                            Matrix<scalar_t>& B,
-            scalar_t beta,  Matrix<scalar_t>& C,
-            Layout layout, int priority)
+void gemmA(internal::TargetType<Target::HostTask>,
+           scalar_t alpha, Matrix<scalar_t>& A,
+                           Matrix<scalar_t>& B,
+           scalar_t beta,  Matrix<scalar_t>& C,
+           Layout layout, int priority)
 {
     // check dimensions
     assert(B.nt() == 1);
@@ -176,28 +176,28 @@ void gemm_A(internal::TargetType<Target::HostTask>,
 // Explicit instantiations.
 // ----------------------------------------
 template
-void gemm_A<Target::HostTask, float>(
+void gemmA<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
     Layout layout, int priority);
 
 template
-void gemm_A<Target::HostTask, double>(
+void gemmA<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
     Layout layout, int priority);
 
 template
-void gemm_A< Target::HostTask, std::complex<float> >(
+void gemmA< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
     Layout layout, int priority);
 
 template
-void gemm_A< Target::HostTask, std::complex<double> >(
+void gemmA< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,

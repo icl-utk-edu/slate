@@ -247,10 +247,10 @@ void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
           Layout layout, int priority=0, int64_t batch_arrays_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
-void gemm_A(scalar_t alpha, Matrix<scalar_t>&& A,
-                            Matrix<scalar_t>&& B,
-            scalar_t beta,  Matrix<scalar_t>&& C,
-            Layout layout, int priority=0);
+void gemmA(scalar_t alpha, Matrix<scalar_t>&& A,
+                           Matrix<scalar_t>&& B,
+           scalar_t beta,  Matrix<scalar_t>&& C,
+           Layout layout, int priority=0);
 
 template <Target target=Target::Devices, typename scalar_t>
 void gemmPrep(scalar_t alpha, Matrix<scalar_t>&& A,

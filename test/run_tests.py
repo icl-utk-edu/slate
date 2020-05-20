@@ -332,6 +332,7 @@ if (opts.lu):
     cmds += [
     [ 'gesv',  gen + dtype + la + n ],
     [ 'getrf', gen + dtype + la + n ],  # todo: mn
+    [ 'getrf_nopiv', gen + dtype + la + n ],  # todo: mn
     [ 'getrs', gen + dtype + la + n + trans ],
     [ 'getri', gen + dtype + la + n ],
     [ 'getriOOP', gen + dtype + la + n ],

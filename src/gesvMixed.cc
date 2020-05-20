@@ -201,7 +201,7 @@ void gesvMixed( slate::internal::TargetType<target>,
         // Compute R = B - A * X.
         copy(B, R,
              {{Option::Target, target}});
-        gemm<scalar_hi>(
+        gemmA<scalar_hi>(
             scalar_hi(-1.0), A,
                              X,
             scalar_hi(1.0),  R,

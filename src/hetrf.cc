@@ -190,7 +190,7 @@ void hetrf(slate::internal::TargetType<target>,
                     scalar_t( 1.0), T.sub(k, k,   k, k),
                               ind1, std::move(W1));
                 #else
-                slate::internal::gemm_A<Target::HostTask>(
+                slate::internal::gemmA<Target::HostTask>(
                     scalar_t(-1.0), A.sub(k, k,   0, k-2),
                                     Hj.sub(0, k-2, 0, 0),
                     scalar_t( 1.0), T.sub(k, k,   k, k), layout);
@@ -318,13 +318,13 @@ void hetrf(slate::internal::TargetType<target>,
                             Hj = conjTranspose(Hj);
 
                             #if 1
-                                slate::internal::gemm_A<Target::HostTask>(
+                                slate::internal::gemmA<Target::HostTask>(
                                     scalar_t(-1.0), A.sub(k+1, A_mt-1, 0, k-2),
                                                     Hj.sub(0, k-2, 0, 0),
                                     scalar_t( 1.0), A.sub(k+1, A_mt-1, k, k), layout);
                             #else
                                 if (A_mt - (k+1) > max_panel_threads) {
-                                    slate::internal::gemm_A<Target::HostTask>(
+                                    slate::internal::gemmA<Target::HostTask>(
                                         scalar_t(-1.0), A.sub(k+1, A_mt-1, 0, k-2),
                                                         Hj.sub(0, k-2, 0, 0),
                                         scalar_t( 1.0), A.sub(k+1, A_mt-1, k, k));

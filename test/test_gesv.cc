@@ -45,6 +45,7 @@ void test_gesv_work(Params& params, bool run)
     int verbose = params.verbose(); SLATE_UNUSED(verbose);
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    params.matrix.mark();
 
     // mark non-standard output values
     params.time();
@@ -94,7 +95,6 @@ void test_gesv_work(Params& params, bool run)
     slate_assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
-    scalapack_pplrnt(&A_tst[0], m, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
     int64_t mlocB = scalapack_numroc(n, nb, myrow, izero, nprow);
@@ -119,7 +119,6 @@ void test_gesv_work(Params& params, bool run)
         slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
-        copy(&A_tst[0], descA_tst, A);
 
         B = slate::Matrix<scalar_t>(n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
         B.insertLocalTiles(origin_target);
@@ -147,21 +146,8 @@ void test_gesv_work(Params& params, bool run)
 
     slate::Pivots pivots;
 
-    int matrix = 0; // if 1 it is diagonal dominant
-    if (matrix == 1) {
-        // Make A diagonally dominant to avoid pivoting.
-        printf("diag dominant\n");
-        for (int k = 0; k < std::min(A.mt(), A.nt()); ++k) {
-            if (A.tileIsLocal(k, k)) {
-                auto T = A(k, k);
-                for (int i = 0; i < T.nb(); ++i) {
-                    T.at(i, i) += n;
-                }
-            }
-        }
-        copy(A, &A_tst[0], descA_tst);
-    }
-    //print_matrix("A", A);
+    slate::generate_matrix( params.matrix, A);
+    copy(A, &A_tst[0], descA_tst);
 
     // if check/ref is required, copy test data
     std::vector<scalar_t> A_ref, B_ref, B_orig;

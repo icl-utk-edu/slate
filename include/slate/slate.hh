@@ -279,17 +279,9 @@ template <typename scalar_t>
 void trtri(TriangularMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target, typename scalar_t>
-void trtri(TriangularMatrix<scalar_t>& A,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
 //-----------------------------------------
 // trtrm()
 template <typename scalar_t>
-void trtrm(TriangularMatrix<scalar_t>& A,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
 void trtrm(TriangularMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
@@ -303,19 +295,9 @@ blas::real_type<typename matrix_type::value_type>
 norm(Norm norm, matrix_type& A,
      const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target, typename matrix_type>
-blas::real_type<typename matrix_type::value_type>
-norm(Norm norm, matrix_type& A,
-     const std::map<Option, Value>& opts = std::map<Option, Value>());
-
 //-----------------------------------------
 // all cols max norm
 template <typename matrix_type>
-void colNorms(Norm norm, matrix_type& A,
-              blas::real_type<typename matrix_type::value_type>* values,
-              const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename matrix_type>
 void colNorms(Norm norm, matrix_type& A,
               blas::real_type<typename matrix_type::value_type>* values,
               const std::map<Option, Value>& opts = std::map<Option, Value>());

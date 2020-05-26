@@ -45,7 +45,7 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
-// Level 3 BLAS and LAPACK auxiliary
+// Level 3 BLAS
 
 //-----------------------------------------
 // multiply()
@@ -157,7 +157,7 @@ void rank2kUpdate(scalar_t alpha,                           Matrix<scalar_t>& A,
 }
 
 //-----------------------------------------
-// syr2k()
+// syr2k
 template <typename scalar_t>
 void rank2kUpdate(scalar_t alpha,           Matrix<scalar_t>& A,
                                             Matrix<scalar_t>& B,
@@ -166,6 +166,51 @@ void rank2kUpdate(scalar_t alpha,           Matrix<scalar_t>& A,
 {
     syr2k(alpha, A, B, beta, C, opts);
 }
+
+//-----------------------------------------
+// triangularSolve()
+
+//-----------------------------------------
+// tbsm
+template <typename scalar_t>
+void triangularSolve(Side side,
+                     scalar_t alpha, TriangularBandMatrix<scalar_t>& A,
+                                                   Matrix<scalar_t>& B,
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    tbsm(side, alpha, A, B, opts);
+}
+
+//-----------------------------------------
+// tbsm with pivoting
+template <typename scalar_t>
+void triangularSolve(Side side,
+                     scalar_t alpha, TriangularBandMatrix<scalar_t>& A,
+                     Pivots& pivots,               Matrix<scalar_t>& B,
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    tbsm(side, alpha, A, pivots, B, opts);
+}
+
+//-----------------------------------------
+// trsm
+template <typename scalar_t>
+void triangularSolve(Side side,
+                     scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                                               Matrix<scalar_t>& B,
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    trsm(side, alpha, A, B, opts);
+}
+
+//------------------------------------------------------------------------------
+// Linear systems
+
+gesv	posv	sysv	{ lu, chol, indefinite } Solve( A, B )
+getrf	potrf	sytrf	{ lu, chol, indefinite } Factor( A, {pivots,...} )
+getrs	potrs	sytrs	{ lu, chol, indefinite } SolveUsingFactor( A, B, {pivots,...} )?  AfterFactor?  WithFactor?
+getri	potri	sytri	{ lu, chol, indefinite } InverseUsingFactor( A, {pivots,...} )
+gecon	pocon	sycon	{ lu, chol, indefinite } CondUsingFactor( A, {pivots,...} )
 
 } // namespace slate
 

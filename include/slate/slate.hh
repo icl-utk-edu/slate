@@ -874,6 +874,8 @@ void steqr2(lapack::Job job,
 
 } // namespace slate
 
-#include "simplified_api/blas.hh"
+//-----------------------------------------
+// Simplified C++ API
+#include "simplified_api.hh"
 
 #endif // SLATE_HH

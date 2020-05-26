@@ -122,14 +122,14 @@ void multiply(Side side,
 }
 
 //-----------------------------------------
-// rankKUpdate()
+// rankkUpdate()
 
 //-----------------------------------------
 // herk
 template <typename scalar_t>
-void rankKUpdate(blas::real_type<scalar_t> alpha,          Matrix<scalar_t>& A,
+void rankkUpdate(blas::real_type<scalar_t> alpha,          Matrix<scalar_t>& A,
                  blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
-                 const std::map<Option, Value>& opts = std::map<Option, Value>())
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
 {
     herk(alpha, A, beta, C, opts);
 }
@@ -137,23 +137,23 @@ void rankKUpdate(blas::real_type<scalar_t> alpha,          Matrix<scalar_t>& A,
 //-----------------------------------------
 // syrk()
 template <typename scalar_t>
-void rankKUpdate(scalar_t alpha,           Matrix<scalar_t>& A,
+void rankkUpdate(scalar_t alpha,           Matrix<scalar_t>& A,
                  scalar_t beta,   SymmetricMatrix<scalar_t>& C,
-                 const std::map<Option, Value>& opts = std::map<Option, Value>())
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
 {
     syrk(alpha, A, beta, C, opts);
 }
 
 //-----------------------------------------
-// rank2KUpdate()
+// rank2kUpdate()
 
 //-----------------------------------------
 // her2k
 template <typename scalar_t>
-void rank2KUpdate(scalar_t alpha,                           Matrix<scalar_t>& A,
+void rank2kUpdate(scalar_t alpha,                           Matrix<scalar_t>& A,
                                                             Matrix<scalar_t>& B,
                   blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
-                  const std::map<Option, Value>& opts = std::map<Option, Value>())
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
 {
     her2k(alpha, A, B, beta, C, opts);
 }
@@ -161,10 +161,10 @@ void rank2KUpdate(scalar_t alpha,                           Matrix<scalar_t>& A,
 //-----------------------------------------
 // syr2k()
 template <typename scalar_t>
-void rank2KUpdate(scalar_t alpha,           Matrix<scalar_t>& A,
+void rank2kUpdate(scalar_t alpha,           Matrix<scalar_t>& A,
                                             Matrix<scalar_t>& B,
                   scalar_t beta,   SymmetricMatrix<scalar_t>& C,
-                 const std::map<Option, Value>& opts = std::map<Option, Value>())
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
 {
     syr2k(alpha, A, B, beta, C, opts);
 }

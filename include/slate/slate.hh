@@ -78,19 +78,30 @@ void set(scalar_t value, Matrix<scalar_t>& A,
 // Level 3 BLAS and LAPACK auxiliary
 
 //-----------------------------------------
+// gbmm()
+template <typename scalar_t>
+void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
 // geadd()
 template <typename scalar_t>
 void geadd(scalar_t alpha, Matrix<scalar_t>& A,
            scalar_t beta,  Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-//-----------------------------------------
-// gbmm()
-template <typename scalar_t>
-void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
-                              Matrix<scalar_t>& B,
-          scalar_t beta,      Matrix<scalar_t>& C,
-          const std::map<Option, Value>& opts = std::map<Option, Value>());
+template <Target target, typename scalar_t>
+void geadd(scalar_t alpha, Matrix<scalar_t>& A,
+           scalar_t beta,  Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
 // gemm()
@@ -100,12 +111,24 @@ void gemm(scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
+template <Target target, typename scalar_t>
+void gemm(scalar_t alpha, Matrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 //-----------------------------------------
 // gemmA()
 template <typename scalar_t>
 void gemmA(scalar_t alpha, Matrix<scalar_t>& A,
-                           Matrix<scalar_t>& B,
-          scalar_t beta,   Matrix<scalar_t>& C,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void gemmA(scalar_t alpha, Matrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
@@ -113,17 +136,31 @@ void gemmA(scalar_t alpha, Matrix<scalar_t>& A,
 template <typename scalar_t>
 void hbmm(blas::Side side,
           scalar_t alpha, HermitianBandMatrix<scalar_t>& A,
-                                       Matrix<scalar_t>& B,
-          scalar_t beta,               Matrix<scalar_t>& C,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void hbmm(blas::Side side,
+          scalar_t alpha, HermitianBandMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
 // hemm()
-template <typename scalar_t>
-void hemm(Side side,
+template <Target target, typename scalar_t>
+void hemm(blas::Side side,
           scalar_t alpha, HermitianMatrix<scalar_t>& A,
-                                   Matrix<scalar_t>& B,
-          scalar_t beta,           Matrix<scalar_t>& C,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <typename scalar_t>
+void hemm(blas::Side side,
+          scalar_t alpha, HermitianMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 // forward real-symmetric matrices to hemm;
@@ -131,8 +168,8 @@ void hemm(Side side,
 template <typename scalar_t>
 void hemm(Side side,
           scalar_t alpha, SymmetricMatrix<scalar_t>& A,
-                                   Matrix<scalar_t>& B,
-          scalar_t beta,           Matrix<scalar_t>& C,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
@@ -143,14 +180,19 @@ void hemm(Side side,
 //-----------------------------------------
 // herk()
 template <typename scalar_t>
-void herk(blas::real_type<scalar_t> alpha,          Matrix<scalar_t>& A,
+void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
+          blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 // forward real-symmetric matrices to herk;
 // disabled for complex
 template <typename scalar_t>
-void herk(blas::real_type<scalar_t> alpha,          Matrix<scalar_t>& A,
+void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
@@ -162,16 +204,22 @@ void herk(blas::real_type<scalar_t> alpha,          Matrix<scalar_t>& A,
 //-----------------------------------------
 // her2k()
 template <typename scalar_t>
-void her2k(scalar_t alpha,                          Matrix<scalar_t>& A,
-                                                    Matrix<scalar_t>& B,
+void her2k(scalar_t alpha,                 Matrix<scalar_t>& A,
+                                           Matrix<scalar_t>& B,
+           blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void her2k(scalar_t alpha,                 Matrix<scalar_t>& A,
+                                           Matrix<scalar_t>& B,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 // forward real-symmetric matrices to her2k;
 // disabled for complex
 template <typename scalar_t>
-void her2k(scalar_t alpha,                           Matrix<scalar_t>& A,
-                                                     Matrix<scalar_t>& B,
+void her2k(scalar_t alpha,                  Matrix<scalar_t>& A,
+                                            Matrix<scalar_t>& B,
            blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>& C,
            const std::map<Option, Value>& opts = std::map<Option, Value>(),
            enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
@@ -183,10 +231,17 @@ void her2k(scalar_t alpha,                           Matrix<scalar_t>& A,
 //-----------------------------------------
 // symm()
 template <typename scalar_t>
-void symm(Side side,
+void symm(blas::Side side,
           scalar_t alpha, SymmetricMatrix<scalar_t>& A,
-                                   Matrix<scalar_t>& B,
-          scalar_t beta,           Matrix<scalar_t>& C,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void symm(blas::Side side,
+          scalar_t alpha, SymmetricMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 // forward real-Hermitian matrices to symm;
@@ -194,8 +249,8 @@ void symm(Side side,
 template <typename scalar_t>
 void symm(Side side,
           scalar_t alpha, HermitianMatrix<scalar_t>& A,
-                                   Matrix<scalar_t>& B,
-          scalar_t beta,           Matrix<scalar_t>& C,
+                          Matrix<scalar_t>& B,
+          scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
@@ -206,14 +261,19 @@ void symm(Side side,
 //-----------------------------------------
 // syrk()
 template <typename scalar_t>
-void syrk(scalar_t alpha,          Matrix<scalar_t>& A,
+void syrk(scalar_t alpha, Matrix<scalar_t>& A,
+          scalar_t beta,  SymmetricMatrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void syrk(scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 // forward real-Hermitian matrices to syrk;
 // disabled for complex
 template <typename scalar_t>
-void syrk(scalar_t alpha,          Matrix<scalar_t>& A,
+void syrk(scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  HermitianMatrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
@@ -225,16 +285,22 @@ void syrk(scalar_t alpha,          Matrix<scalar_t>& A,
 //-----------------------------------------
 // syr2k()
 template <typename scalar_t>
-void syr2k(scalar_t alpha,          Matrix<scalar_t>& A,
-                                    Matrix<scalar_t>& B,
+void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
+                           Matrix<scalar_t>& B,
+           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
+                           Matrix<scalar_t>& B,
            scalar_t beta,  SymmetricMatrix<scalar_t>& C,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 // forward real-Hermitian matrices to syr2k;
 // disabled for complex
 template <typename scalar_t>
-void syr2k(scalar_t alpha,          Matrix<scalar_t>& A,
-                                    Matrix<scalar_t>& B,
+void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
+                           Matrix<scalar_t>& B,
            scalar_t beta,  HermitianMatrix<scalar_t>& C,
            const std::map<Option, Value>& opts = std::map<Option, Value>(),
            enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
@@ -244,33 +310,57 @@ void syr2k(scalar_t alpha,          Matrix<scalar_t>& A,
 }
 
 //-----------------------------------------
-// trmm()
+// tbsm()
 template <typename scalar_t>
-void trmm(Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                    Matrix<scalar_t>& B,
+void tbsm(blas::Side side,
+          scalar_t alpha, TriangularBandMatrix<scalar_t>& A, Pivots& pivots,
+                          Matrix<scalar_t>& B,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void tbsm(blas::Side side,
+          scalar_t alpha, TriangularBandMatrix<scalar_t>& A, Pivots& pivots,
+                          Matrix<scalar_t>& B,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <typename scalar_t>
+void tbsm(blas::Side side,
+          scalar_t alpha, TriangularBandMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void tbsm(blas::Side side,
+          scalar_t alpha, TriangularBandMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
-// tbsm()
-template <typename scalar_t>
-void tbsm(Side side,
-          scalar_t alpha, TriangularBandMatrix<scalar_t>& A, Pivots& pivots,
-                                        Matrix<scalar_t>& B,
+// trmm()
+template <Target target, typename scalar_t>
+void trmm(blas::Side side,
+          scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template <typename scalar_t>
-void tbsm(Side side,
-          scalar_t alpha, TriangularBandMatrix<scalar_t>& A,
-                                        Matrix<scalar_t>& B,
+void trmm(blas::Side side,
+          scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
 // trsm()
 template <typename scalar_t>
-void trsm(Side side,
+void trsm(blas::Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                    Matrix<scalar_t>& B,
+                          Matrix<scalar_t>& B,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void trsm(blas::Side side,
+          scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                          Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
@@ -279,9 +369,17 @@ template <typename scalar_t>
 void trtri(TriangularMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
+template <Target target, typename scalar_t>
+void trtri(TriangularMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 //-----------------------------------------
 // trtrm()
 template <typename scalar_t>
+void trtrm(TriangularMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
 void trtrm(TriangularMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
@@ -295,9 +393,19 @@ blas::real_type<typename matrix_type::value_type>
 norm(Norm norm, matrix_type& A,
      const std::map<Option, Value>& opts = std::map<Option, Value>());
 
+template <Target target, typename matrix_type>
+blas::real_type<typename matrix_type::value_type>
+norm(Norm norm, matrix_type& A,
+     const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 //-----------------------------------------
 // all cols max norm
 template <typename matrix_type>
+void colNorms(Norm norm, matrix_type& A,
+              blas::real_type<typename matrix_type::value_type>* values,
+              const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename matrix_type>
 void colNorms(Norm norm, matrix_type& A,
               blas::real_type<typename matrix_type::value_type>* values,
               const std::map<Option, Value>& opts = std::map<Option, Value>());
@@ -307,79 +415,123 @@ void colNorms(Norm norm, matrix_type& A,
 
 //------------------------------------------------------------------------------
 // Band LU
-// gbsv()
+// gbsv
 template <typename scalar_t>
 void gbsv(BandMatrix<scalar_t>& A, Pivots& pivots,
-              Matrix<scalar_t>& B,
+          Matrix<scalar_t>& B,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void gbsv(BandMatrix<scalar_t>& A, Pivots& pivots,
+          Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
-// gbtrf()
+// gbtrf
 template <typename scalar_t>
 void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
+template <Target target, typename scalar_t>
+void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 //-----------------------------------------
-// gbtrs()
+// gbtrs
 template <typename scalar_t>
 void gbtrs(BandMatrix<scalar_t>& A, Pivots& pivots,
-               Matrix<scalar_t>& B,
+           Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void gbtrs(BandMatrix<scalar_t>& A, Pivots& pivots,
+           Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //------------------------------------------------------------------------------
 // LU
-// gesv()
+// gesv
 template <typename scalar_t>
 void gesv(Matrix<scalar_t>& A, Pivots& pivots,
           Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
+template <Target target, typename scalar_t>
+void gesv(Matrix<scalar_t>& A, Pivots& pivots,
+          Matrix<scalar_t>& B,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 template <typename scalar_t>
-void gesvMixed(Matrix<scalar_t>& A, Pivots& pivots,
-               Matrix<scalar_t>& B,
-               Matrix<scalar_t>& X,
-               int& iter,
-               const std::map<Option, Value>& opts = std::map<Option, Value>());
+void gesvMixed( Matrix<scalar_t>& A, Pivots& pivots,
+                Matrix<scalar_t>& B,
+                Matrix<scalar_t>& X,
+                int& iter,
+                const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template <typename scalar_hi, typename scalar_lo>
-void gesvMixed(Matrix<scalar_hi>& A, Pivots& pivots,
-               Matrix<scalar_hi>& B,
-               Matrix<scalar_hi>& X,
-               int& iter,
-               const std::map<Option, Value>& opts = std::map<Option, Value>());
+void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
+                Matrix<scalar_hi>& B,
+                Matrix<scalar_hi>& X,
+                int& iter,
+                const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
-// getrf()
+// getrf
 template <typename scalar_t>
 void getrf(Matrix<scalar_t>& A, Pivots& pivots,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-//-----------------------------------------
-// getrf_nopiv()
-// todo: lowerCamelCase
-template <typename scalar_t>
-void getrf_nopiv(Matrix<scalar_t>& A,
+template <Target target, typename scalar_t>
+void getrf(Matrix<scalar_t>& A, Pivots& pivots,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
-// getrs()
+// getrs
 template <typename scalar_t>
 void getrs(Matrix<scalar_t>& A, Pivots& pivots,
            Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
+template <Target target, typename scalar_t>
+void getrs(Matrix<scalar_t>& A, Pivots& pivots,
+           Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 //-----------------------------------------
-// getrs_nopiv()
-// todo: lowerCamelCase
+// getrf_nopiv
+template <typename scalar_t>
+void getrf_nopiv(Matrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void getrf_nopiv(Matrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// getrs_nopiv
 template <typename scalar_t>
 void getrs_nopiv(Matrix<scalar_t>& A,
            Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
+template <Target target, typename scalar_t>
+void getrs_nopiv(Matrix<scalar_t>& A,
+           Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 //-----------------------------------------
-// getri()
+// getri
+template <Target target, typename scalar_t>
+void getri(Matrix<scalar_t>& A, Pivots& pivots,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 template <typename scalar_t>
 void getri(Matrix<scalar_t>& A, Pivots& pivots,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void getri(Matrix<scalar_t>& A, Pivots& pivots,
+           Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template <typename scalar_t>
@@ -388,39 +540,121 @@ void getri(Matrix<scalar_t>& A, Pivots& pivots,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //------------------------------------------------------------------------------
-// Band Cholesky
-// pbsv()
+// QR
+// auxiliary type for T factors
 template <typename scalar_t>
-void pbsv(HermitianBandMatrix<scalar_t>& A,
-                       Matrix<scalar_t>& B,
+using TriangularFactors = std::vector< Matrix<scalar_t> >;
+
+// gels
+template <typename scalar_t>
+void gels(Matrix<scalar_t>& A,
+          TriangularFactors<scalar_t>& T,
+          Matrix<scalar_t>& BX,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// geqrf
+template <typename scalar_t>
+void geqrf(Matrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void geqrf(Matrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
-// pbtrf()
+// gelqf
+template <typename scalar_t>
+void gelqf(Matrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void gelqf(Matrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// unmqr
+template <typename scalar_t>
+void unmqr(Side side, Op op,
+           Matrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
+           Matrix<scalar_t>& C,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void unmqr(Side side, Op op,
+           Matrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
+           Matrix<scalar_t>& C,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// unmlq
+template <typename scalar_t>
+void unmlq(Side side, Op op,
+           Matrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
+           Matrix<scalar_t>& C,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void unmlq(Side side, Op op,
+           Matrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
+           Matrix<scalar_t>& C,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//------------------------------------------------------------------------------
+// Band Cholesky
+// pbsv
+template <typename scalar_t>
+void pbsv(HermitianBandMatrix<scalar_t>& A, Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void pbsv(HermitianBandMatrix<scalar_t>& A, Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// pbtrf
 template <typename scalar_t>
 void pbtrf(HermitianBandMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-//-----------------------------------------
-// pbtrs()
-template <typename scalar_t>
-void pbtrs(HermitianBandMatrix<scalar_t>& A,
-                        Matrix<scalar_t>& B,
+template <Target target, typename scalar_t>
+void pbtrf(HermitianBandMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+//-----------------------------------------
+// pbtrs
+template <typename scalar_t>
+void pbtrs(HermitianBandMatrix<scalar_t>& A, Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void pbtrs(HermitianBandMatrix<scalar_t>& A, Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
 
 //------------------------------------------------------------------------------
 // Cholesky
-// posv()
+// posv
 template <typename scalar_t>
-void posv(HermitianMatrix<scalar_t>& A,
-                   Matrix<scalar_t>& B,
+void posv(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void posv(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 // forward real-symmetric matrices to potrf;
 // disabled for complex
 template <typename scalar_t>
-void posv(SymmetricMatrix<scalar_t>& A,
-                   Matrix<scalar_t>& B,
+void posv(SymmetricMatrix<scalar_t>& A, Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
@@ -429,24 +663,28 @@ void posv(SymmetricMatrix<scalar_t>& A,
 }
 
 template <typename scalar_t>
-void posvMixed(HermitianMatrix<scalar_t>& A,
-               Matrix<scalar_t>& B,
-               Matrix<scalar_t>& X,
-               int& iter,
-               const std::map<Option, Value>& opts = std::map<Option, Value>());
+void posvMixed( HermitianMatrix<scalar_t>& A,
+                Matrix<scalar_t>& B,
+                Matrix<scalar_t>& X,
+                int& iter,
+                const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template <typename scalar_hi, typename scalar_lo>
-void posvMixed(HermitianMatrix<scalar_hi>& A,
-               Matrix<scalar_hi>& B,
-               Matrix<scalar_hi>& X,
-               int& iter,
-               const std::map<Option, Value>& opts = std::map<Option, Value>());
+void posvMixed( HermitianMatrix<scalar_hi>& A,
+                Matrix<scalar_hi>& B,
+                Matrix<scalar_hi>& X,
+                int& iter,
+                const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 // todo: forward real-symmetric matrices to posvMixed?
 
 //-----------------------------------------
-// potrf()
+// potrf
 template <typename scalar_t>
+void potrf(HermitianMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
@@ -462,17 +700,19 @@ void potrf(SymmetricMatrix<scalar_t>& A,
 }
 
 //-----------------------------------------
-// potrs()
+// potrs
 template <typename scalar_t>
-void potrs(HermitianMatrix<scalar_t>& A,
-                    Matrix<scalar_t>& B,
+void potrs(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void potrs(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 // forward real-symmetric matrices to potrs;
 // disabled for complex
 template <typename scalar_t>
-void potrs(SymmetricMatrix<scalar_t>& A,
-                    Matrix<scalar_t>& B,
+void potrs(SymmetricMatrix<scalar_t>& A, Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>(),
            enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
@@ -481,8 +721,12 @@ void potrs(SymmetricMatrix<scalar_t>& A,
 }
 
 //-----------------------------------------
-// potri()
+// potri
 template <typename scalar_t>
+void potri(HermitianMatrix<scalar_t>& A,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
 void potri(HermitianMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
@@ -490,12 +734,19 @@ void potri(HermitianMatrix<scalar_t>& A,
 
 //------------------------------------------------------------------------------
 // Symmetric indefinite -- block Aasen's
-// hesv()
+// hesv
 template <typename scalar_t>
 void hesv(HermitianMatrix<scalar_t>& A, Pivots& pivots,
                BandMatrix<scalar_t>& T, Pivots& pivots2,
                    Matrix<scalar_t>& H,
-                   Matrix<scalar_t>& B,
+          Matrix<scalar_t>& B,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void hesv(HermitianMatrix<scalar_t>& A, Pivots& pivots,
+               BandMatrix<scalar_t>& T, Pivots& pivots2,
+                   Matrix<scalar_t>& H,
+          Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 // forward real-symmetric matrices to potrf;
@@ -504,7 +755,7 @@ template <typename scalar_t>
 void hesv(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
                BandMatrix<scalar_t>& T, Pivots& pivots2,
                    Matrix<scalar_t>& H,
-                   Matrix<scalar_t>& B,
+          Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
@@ -513,8 +764,14 @@ void hesv(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
 }
 
 //-----------------------------------------
-// hetrf()
+// hetrf
 template <typename scalar_t>
+void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
+                BandMatrix<scalar_t>& T, Pivots& pivots2,
+                    Matrix<scalar_t>& H,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
 void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
                 BandMatrix<scalar_t>& T, Pivots& pivots2,
                     Matrix<scalar_t>& H,
@@ -534,8 +791,14 @@ void hetrf(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
 }
 
 //-----------------------------------------
-// hetrs()
+// hetrs
 template <typename scalar_t>
+void hetrs(HermitianMatrix<scalar_t>& A, Pivots& pivots,
+                BandMatrix<scalar_t>& T, Pivots& pivots2,
+                    Matrix<scalar_t>& B,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
 void hetrs(HermitianMatrix<scalar_t>& A, Pivots& pivots,
                 BandMatrix<scalar_t>& T, Pivots& pivots2,
                     Matrix<scalar_t>& B,
@@ -551,66 +814,31 @@ void hetrs(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
            enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> AH(A);
-    hetrs(AH, T, B, opts);
+    hetrf(AH, T, B, opts);
 }
-
-//------------------------------------------------------------------------------
-// QR
-// auxiliary type for T factors
-template <typename scalar_t>
-using TriangularFactors = std::vector< Matrix<scalar_t> >;
-
-//-----------------------------------------
-// gels()
-template <typename scalar_t>
-void gels(Matrix<scalar_t>& A,
-          TriangularFactors<scalar_t>& T,
-          Matrix<scalar_t>& BX,
-          const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-//-----------------------------------------
-// geqrf()
-template <typename scalar_t>
-void geqrf(Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-//-----------------------------------------
-// gelqf()
-template <typename scalar_t>
-void gelqf(Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-//-----------------------------------------
-// unmqr()
-template <typename scalar_t>
-void unmqr(Side side, Op op,
-           Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
-           Matrix<scalar_t>& C,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-//-----------------------------------------
-// unmlq()
-template <typename scalar_t>
-void unmlq(Side side, Op op,
-           Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
-           Matrix<scalar_t>& C,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //------------------------------------------------------------------------------
 // SVD
 
 //-----------------------------------------
-// gesvd()
 template <typename scalar_t>
-void gesvd(Matrix<scalar_t> A, std::vector< blas::real_type<scalar_t> >& S,
+void gesvd(Matrix<scalar_t> A,
+           std::vector< blas::real_type<scalar_t> >& S,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
-// ge2tb()
+// ge2tb
 template <typename scalar_t>
-void ge2tb(Matrix<scalar_t>& A, TriangularFactors<scalar_t>& TU,
-                                TriangularFactors<scalar_t>& TV,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
+void ge2tb(Matrix<scalar_t>& A,
+            TriangularFactors<scalar_t>& TU,
+            TriangularFactors<scalar_t>& TV,
+            const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void ge2tb(Matrix<scalar_t>& A,
+            TriangularFactors<scalar_t>& TU,
+            TriangularFactors<scalar_t>& TV,
+            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
 // Bulge Chasing: TriangularBand to Bi-diagonal
@@ -622,7 +850,6 @@ void tb2bd(TriangularBandMatrix<scalar_t>& A,
 
 //-----------------------------------------
 // Bi-diagonal SVD
-// bdsqr()
 //template <typename scalar_t>
 //void bdsqr(std::vector< blas::real_type<scalar_t> >& D,
 //           std::vector< blas::real_type<scalar_t> >& E,
@@ -636,78 +863,82 @@ void bdsqr(lapack::Job jobu, lapack::Job jobvt,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //------------------------------------------------------------------------------
-// Symmetric/Hermitian eigenvalue decomposition
+// symmetric/Hermitian eigenvalue decomposition
 
 //-----------------------------------------
-// heev()
 template <typename scalar_t>
 void heev(lapack::Job jobz,
-        HermitianMatrix<scalar_t>& A, std::vector<blas::real_type<scalar_t>>& W,
-                 Matrix<scalar_t>& Z,
-        const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-// forward real-symmetric matrices to heev;
-// disabled for complex
-template <typename scalar_t>
-void heev(lapack::Job jobz,
-        SymmetricMatrix<scalar_t>& A, std::vector<blas::real_type<scalar_t>>& W,
-                 Matrix<scalar_t>& Z,
-        const std::map<Option, Value>& opts = std::map<Option, Value>(),
-        enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
-{
-    HermitianMatrix<scalar_t> AH(A);
-    heev(jobz, AH, W, Z, opts);
-}
-
-//-----------------------------------------
-// syev()
-// forward real-symmetric matrices to heev;
-// disabled for complex
-template <typename scalar_t>
-void syev(lapack::Job jobz,
-      SymmetricMatrix<scalar_t>& A, std::vector< blas::real_type<scalar_t> >& W,
-               Matrix<scalar_t>& Z,
-      const std::map<Option, Value>& opts = std::map<Option, Value>(),
-      enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
-{
-    HermitianMatrix<scalar_t> AH(A);
-    heev(jobz, AH, W, Z, opts);
-}
+          HermitianMatrix<scalar_t>& A,
+          std::vector<blas::real_type<scalar_t>>& W,
+          Matrix<scalar_t>& Z,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //------------------------------------------------------------------------------
 // Generalized symmetric/Hermitian eigenvalue decomposition
 
 //-----------------------------------------
-// hegv()
 template <typename scalar_t>
-void hegv(int64_t itype, lapack::Job jobz,
-        HermitianMatrix<scalar_t>& A,
-        HermitianMatrix<scalar_t>& B, std::vector<blas::real_type<scalar_t>>& W,
-                 Matrix<scalar_t>& V,
-        const std::map<Option, Value>& opts = std::map<Option, Value>());
+void hegv(int64_t itype,
+          lapack::Job jobz,
+          HermitianMatrix<scalar_t>& A,
+          HermitianMatrix<scalar_t>& B,
+          std::vector<blas::real_type<scalar_t>>& W,
+          Matrix<scalar_t>& V,
+          const std::map<Option, Value>& opts);
 
+//------------------------------------------------------------------------------
+// Generalized symmetric/Hermitian eigenvalue decomposition
+template <typename scalar_t>
+void hegv( int itype,
+           lapack::Job jobz,
+           HermitianMatrix<scalar_t> A,
+           HermitianMatrix<scalar_t> B,
+           std::vector< blas::real_type<scalar_t> >& W,
+           Matrix<scalar_t>& V,
+           const std::map<Option, Value>& opts);
+
+//-----------------------------------------
+// forward real-symmetric matrices to heev;
+// disabled for complex
+template <typename scalar_t>
+void syev( SymmetricMatrix<scalar_t>& A,
+           std::vector< blas::real_type<scalar_t> >& W,
+           const std::map<Option, Value>& opts = std::map<Option, Value>(),
+           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    HermitianMatrix<scalar_t> AH(A);
+    heev(AH, W, opts);
+}
 
 //-----------------------------------------
 // hegst()
 template <typename scalar_t>
-void hegst(int64_t itype,
-           HermitianMatrix<scalar_t>& A,
-           HermitianMatrix<scalar_t>& B,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
+void hegst(
+    int64_t itype,
+    HermitianMatrix<scalar_t>& A,
+    HermitianMatrix<scalar_t>& B,
+    const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
 // he2hb()
 template <typename scalar_t>
-void he2hb(HermitianMatrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+void he2hb(HermitianMatrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
+           const std::map<Option, Value>& opts = std::map<Option, Value>());
+
+template <Target target, typename scalar_t>
+void he2hb(HermitianMatrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
 // unmtr_he2hb()
 template <typename scalar_t>
-void unmtr_he2hb(Side side, Op op,
-                HermitianMatrix< scalar_t >& A, TriangularFactors< scalar_t > T,
-                         Matrix< scalar_t >& B,
-               const std::map<Option, Value>& opts = std::map<Option, Value>());
+void unmtr_he2hb(
+    Side side, Op op, HermitianMatrix< scalar_t >& A,
+    TriangularFactors< scalar_t > T,
+    Matrix< scalar_t >& B,
+    const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
 // hb2st()
@@ -732,9 +963,5 @@ void steqr2(lapack::Job job,
             const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 } // namespace slate
-
-//-----------------------------------------
-// Simplified C++ API
-#include "simplified_api.hh"
 
 #endif // SLATE_HH

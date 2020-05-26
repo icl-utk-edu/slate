@@ -391,6 +391,55 @@ void leastSquaresSolve(Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
     gels(A, T, BX, opts);
 }
 
+//------------------------------------------------------------------------------
+// QR, LQ, ...
+
+//-----------------------------------------
+// QR
+
+//-----------------------------------------
+// qrFactor()
+template <typename scalar_t>
+void qrFactor(Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+              const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    geqrf(A, T, opts);
+}
+
+//-----------------------------------------
+// qrMultiplyByQ()
+template <typename scalar_t>
+void qrMultiplyByQ(Side side, Op op,
+                   Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+                   Matrix<scalar_t>& C,
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    unmqr(side, op, A, T, C, opts);
+}
+
+//-----------------------------------------
+// LQ
+
+//-----------------------------------------
+// lqFactor()
+template <typename scalar_t>
+void lqFactor(Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+              const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    gelqf(A, T, opts);
+}
+
+//-----------------------------------------
+// lqMultiplyByQ()
+template <typename scalar_t>
+void lqMultiplyByQ(Side side, Op op,
+                   Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+                   Matrix<scalar_t>& C,
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    unmlq(side, op, A, T, C, opts);
+}
+
 } // namespace slate
 
 #endif // SIMPLIFIED_API_HH

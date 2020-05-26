@@ -134,10 +134,17 @@ void test_herk_work(Params& params, bool run)
     // Run SLATE test.
     // C = alpha A A^H + beta C.
     //==================================================
-    slate::herk(alpha, A, beta, C, {
+    slate::rankkUpdate(alpha, A, beta, C, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
+
+    //---------------------
+    // Using traditional BLAS/LAPACK name
+    // slate::herk(alpha, A, beta, C, {
+    //     {slate::Option::Lookahead, lookahead},
+    //     {slate::Option::Target, target}
+    // });
 
     {
         slate::trace::Block trace_block("MPI_Barrier");

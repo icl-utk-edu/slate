@@ -158,10 +158,17 @@ void test_trsm_work(Params& params, bool run)
     // Run SLATE test.
     // Solve AX = alpha B (left) or XA = alpha B (right).
     //==================================================
-    slate::trsm(side, alpha, A, B, {
+    slate::triangularSolve(side, alpha, A, B, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
+
+    //---------------------
+    // Using traditional BLAS/LAPACK name
+    // slate::trsm(side, alpha, A, B, {
+    //     {slate::Option::Lookahead, lookahead},
+    //     {slate::Option::Target, target}
+    // });
 
     {
         slate::trace::Block trace_block("MPI_Barrier");

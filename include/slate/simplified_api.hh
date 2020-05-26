@@ -49,9 +49,6 @@ namespace slate {
 
 //-----------------------------------------
 // multiply()
-
-//-----------------------------------------
-// gbmm
 template <typename scalar_t>
 void multiply(scalar_t alpha, BandMatrix<scalar_t>& A,
                                   Matrix<scalar_t>& B,
@@ -60,9 +57,6 @@ void multiply(scalar_t alpha, BandMatrix<scalar_t>& A,
 {
     gbmm(alpha, A, B, beta, C, opts);
 }
-
-//-----------------------------------------
-// gemm
 template <typename scalar_t>
 void multiply(scalar_t alpha, Matrix<scalar_t>& A,
                               Matrix<scalar_t>& B,
@@ -71,9 +65,6 @@ void multiply(scalar_t alpha, Matrix<scalar_t>& A,
 {
     gemm(alpha, A, B, beta, C, opts);
 }
-
-//-----------------------------------------
-// hbmm
 template <typename scalar_t>
 void multiply(Side side,
               scalar_t alpha, HermitianBandMatrix<scalar_t>& A,
@@ -83,9 +74,6 @@ void multiply(Side side,
 {
     hbmm(side, alpha, A, B, beta, C, opts);
 }
-
-//-----------------------------------------
-// hemm
 template <typename scalar_t>
 void multiply(Side side,
               scalar_t alpha, HermitianMatrix<scalar_t>& A,
@@ -95,9 +83,6 @@ void multiply(Side side,
 {
     hemm(side, alpha, A, B, beta, C, opts);
 }
-
-//-----------------------------------------
-// symm
 template <typename scalar_t>
 void multiply(Side side,
               scalar_t alpha, SymmetricMatrix<scalar_t>& A,
@@ -107,9 +92,6 @@ void multiply(Side side,
 {
     symm(side, alpha, A, B, beta, C, opts);
 }
-
-//-----------------------------------------
-// trmm
 template <typename scalar_t>
 void multiply(Side side,
               scalar_t alpha, TriangularMatrix<scalar_t>& A,
@@ -121,9 +103,6 @@ void multiply(Side side,
 
 //-----------------------------------------
 // rankkUpdate()
-
-//-----------------------------------------
-// herk
 template <typename scalar_t>
 void rankkUpdate(blas::real_type<scalar_t> alpha,          Matrix<scalar_t>& A,
                  blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
@@ -131,9 +110,6 @@ void rankkUpdate(blas::real_type<scalar_t> alpha,          Matrix<scalar_t>& A,
 {
     herk(alpha, A, beta, C, opts);
 }
-
-//-----------------------------------------
-// syrk()
 template <typename scalar_t>
 void rankkUpdate(scalar_t alpha,           Matrix<scalar_t>& A,
                  scalar_t beta,   SymmetricMatrix<scalar_t>& C,
@@ -144,9 +120,6 @@ void rankkUpdate(scalar_t alpha,           Matrix<scalar_t>& A,
 
 //-----------------------------------------
 // rank2kUpdate()
-
-//-----------------------------------------
-// her2k
 template <typename scalar_t>
 void rank2kUpdate(scalar_t alpha,                           Matrix<scalar_t>& A,
                                                             Matrix<scalar_t>& B,
@@ -155,9 +128,6 @@ void rank2kUpdate(scalar_t alpha,                           Matrix<scalar_t>& A,
 {
     her2k(alpha, A, B, beta, C, opts);
 }
-
-//-----------------------------------------
-// syr2k
 template <typename scalar_t>
 void rank2kUpdate(scalar_t alpha,           Matrix<scalar_t>& A,
                                             Matrix<scalar_t>& B,
@@ -169,9 +139,6 @@ void rank2kUpdate(scalar_t alpha,           Matrix<scalar_t>& A,
 
 //-----------------------------------------
 // triangularSolve()
-
-//-----------------------------------------
-// tbsm
 template <typename scalar_t>
 void triangularSolve(Side side,
                      scalar_t alpha, TriangularBandMatrix<scalar_t>& A,
@@ -180,9 +147,6 @@ void triangularSolve(Side side,
 {
     tbsm(side, alpha, A, B, opts);
 }
-
-//-----------------------------------------
-// tbsm with pivoting
 template <typename scalar_t>
 void triangularSolve(Side side,
                      scalar_t alpha, TriangularBandMatrix<scalar_t>& A,
@@ -191,9 +155,6 @@ void triangularSolve(Side side,
 {
     tbsm(side, alpha, A, pivots, B, opts);
 }
-
-//-----------------------------------------
-// trsm
 template <typename scalar_t>
 void triangularSolve(Side side,
                      scalar_t alpha, TriangularMatrix<scalar_t>& A,
@@ -211,27 +172,18 @@ void triangularSolve(Side side,
 
 //-----------------------------------------
 // luFactor()
-
-//-----------------------------------------
-// gbtrf
 template <typename scalar_t>
 void luFactor(BandMatrix<scalar_t>& A, Pivots& pivots,
               const std::map<Option, Value>& opts = std::map<Option, Value>())
 {
     gbtrf(A, pivots, opts);
 }
-
-//-----------------------------------------
-// getrf
 template <typename scalar_t>
 void luFactor(Matrix<scalar_t>& A, Pivots& pivots,
               const std::map<Option, Value>& opts = std::map<Option, Value>())
 {
     getrf(A, pivots, opts);
 }
-
-//-----------------------------------------
-// getrf without pivoting
 template <typename scalar_t>
 void luFactor(Matrix<scalar_t>& A,
               const std::map<Option, Value>& opts = std::map<Option, Value>())
@@ -241,9 +193,6 @@ void luFactor(Matrix<scalar_t>& A,
 
 //-----------------------------------------
 // luSolve()
-
-//-----------------------------------------
-// gbsv
 template <typename scalar_t>
 void luSolve(BandMatrix<scalar_t>& A, Pivots& pivots,
                  Matrix<scalar_t>& B,
@@ -251,9 +200,6 @@ void luSolve(BandMatrix<scalar_t>& A, Pivots& pivots,
 {
     gbsv(A, pivots, B, opts);
 }
-
-//-----------------------------------------
-// gesv
 template <typename scalar_t>
 void luSolve(Matrix<scalar_t>& A, Pivots& pivots,
              Matrix<scalar_t>& B,
@@ -264,9 +210,6 @@ void luSolve(Matrix<scalar_t>& A, Pivots& pivots,
 
 //-----------------------------------------
 // luSolveUsingFactor()
-
-//-----------------------------------------
-// gbtrs
 template <typename scalar_t>
 void luSolveUsingFactor(BandMatrix<scalar_t>& A, Pivots& pivots,
                             Matrix<scalar_t>& B,
@@ -274,9 +217,6 @@ void luSolveUsingFactor(BandMatrix<scalar_t>& A, Pivots& pivots,
 {
     gbtrs(A, pivots, B, opts);
 }
-
-//-----------------------------------------
-// getrs
 template <typename scalar_t>
 void luSolveUsingFactor(Matrix<scalar_t>& A, Pivots& pivots,
                         Matrix<scalar_t>& B,
@@ -284,9 +224,6 @@ void luSolveUsingFactor(Matrix<scalar_t>& A, Pivots& pivots,
 {
     getrs(A, pivots, B, opts);
 }
-
-//-----------------------------------------
-// getrs_nopiv
 template <typename scalar_t>
 void luSolveUsingFactor(Matrix<scalar_t>& A,
                         Matrix<scalar_t>& B,
@@ -297,16 +234,12 @@ void luSolveUsingFactor(Matrix<scalar_t>& A,
 
 //-----------------------------------------
 // luInverseUsingFactor()
-
-//-----------------------------------------
-// getri
 template <typename scalar_t>
 void luInverseUsingFactor(Matrix<scalar_t>& A, Pivots& pivots,
                 const std::map<Option, Value>& opts = std::map<Option, Value>())
 {
     getri(A, pivots, opts);
 }
-
 template <typename scalar_t>
 void luInverseUsingFactor(Matrix<scalar_t>& A, Pivots& pivots,
                           Matrix<scalar_t>& B,
@@ -321,16 +254,12 @@ void luInverseUsingFactor(Matrix<scalar_t>& A, Pivots& pivots,
 
 //-----------------------------------------
 // cholFactor()
-
-//-----------------------------------------
-// potrf
 template <typename scalar_t>
 void cholFactor(HermitianMatrix<scalar_t>& A,
                 const std::map<Option, Value>& opts = std::map<Option, Value>())
 {
     potrf(A, opts);
 }
-
 template <typename scalar_t>
 void cholFactor(SymmetricMatrix<scalar_t>& A,
                 const std::map<Option, Value>& opts = std::map<Option, Value>(),
@@ -341,9 +270,6 @@ void cholFactor(SymmetricMatrix<scalar_t>& A,
 
 //-----------------------------------------
 // cholSolve()
-
-//-----------------------------------------
-// posv
 template <typename scalar_t>
 void cholSolve(HermitianMatrix<scalar_t>& A,
                         Matrix<scalar_t>& B,
@@ -351,7 +277,6 @@ void cholSolve(HermitianMatrix<scalar_t>& A,
 {
     posv(A, B, opts);
 }
-
 template <typename scalar_t>
 void cholSolve(SymmetricMatrix<scalar_t>& A,
                         Matrix<scalar_t>& B,
@@ -363,9 +288,6 @@ void cholSolve(SymmetricMatrix<scalar_t>& A,
 
 //-----------------------------------------
 // cholSolveUsingFactor()
-
-//-----------------------------------------
-// potrs
 template <typename scalar_t>
 void cholSolveUsingFactor(HermitianMatrix<scalar_t>& A,
                                    Matrix<scalar_t>& B,
@@ -373,7 +295,6 @@ void cholSolveUsingFactor(HermitianMatrix<scalar_t>& A,
 {
     potrs(A, B, opts);
 }
-
 template <typename scalar_t>
 void cholSolveUsingFactor(SymmetricMatrix<scalar_t>& A,
                                    Matrix<scalar_t>& B,
@@ -385,9 +306,6 @@ void cholSolveUsingFactor(SymmetricMatrix<scalar_t>& A,
 
 //-----------------------------------------
 // cholInverseUsingFactor()
-
-//-----------------------------------------
-// potri
 template <typename scalar_t>
 void cholInverseUsingFactor(HermitianMatrix<scalar_t>& A,
                 const std::map<Option, Value>& opts = std::map<Option, Value>())
@@ -400,9 +318,6 @@ void cholInverseUsingFactor(HermitianMatrix<scalar_t>& A,
 
 //-----------------------------------------
 // indefiniteFactor()
-
-//-----------------------------------------
-// hetrf
 template <typename scalar_t>
 void indefiniteFactor(HermitianMatrix<scalar_t>& A, Pivots& pivots,
                            BandMatrix<scalar_t>& T, Pivots& pivots2,
@@ -411,7 +326,6 @@ void indefiniteFactor(HermitianMatrix<scalar_t>& A, Pivots& pivots,
 {
     hetrf(A, T, H, opts);
 }
-
 template <typename scalar_t>
 void indefiniteFactor(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
                            BandMatrix<scalar_t>& T, Pivots& pivots2,
@@ -424,9 +338,6 @@ void indefiniteFactor(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
 
 //-----------------------------------------
 // indefiniteSolve()
-
-//-----------------------------------------
-// hesv
 template <typename scalar_t>
 void indefiniteSolve(HermitianMatrix<scalar_t>& A, Pivots& pivots,
                           BandMatrix<scalar_t>& T, Pivots& pivots2,
@@ -436,7 +347,6 @@ void indefiniteSolve(HermitianMatrix<scalar_t>& A, Pivots& pivots,
 {
     hesv(A, B, opts);
 }
-
 template <typename scalar_t>
 void indefiniteSolve(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
                           BandMatrix<scalar_t>& T, Pivots& pivots2,
@@ -450,9 +360,6 @@ void indefiniteSolve(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
 
 //-----------------------------------------
 // indefiniteSolveUsingFactor()
-
-//-----------------------------------------
-// hetrs
 template <typename scalar_t>
 void indefiniteSolveUsingFactor(HermitianMatrix<scalar_t>& A, Pivots& pivots,
                                      BandMatrix<scalar_t>& T, Pivots& pivots2,
@@ -461,7 +368,6 @@ void indefiniteSolveUsingFactor(HermitianMatrix<scalar_t>& A, Pivots& pivots,
 {
     hetrs(A, T, B, opts);
 }
-
 template <typename scalar_t>
 void indefiniteSolveUsingFactor(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
                                      BandMatrix<scalar_t>& T, Pivots& pivots2,

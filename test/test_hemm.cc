@@ -153,10 +153,17 @@ void test_hemm_work(Params& params, bool run)
     // C = alpha A B + beta C (left) or
     // C = alpha B A + beta C (right).
     //==================================================
-    slate::hemm(side, alpha, A, B, beta, C, {
+    slate::multiply(side, alpha, A, B, beta, C, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
+
+    //---------------------
+    // Using traditional BLAS/LAPACK name
+    // slate::hemm(side, alpha, A, B, beta, C, {
+    //     {slate::Option::Lookahead, lookahead},
+    //     {slate::Option::Target, target}
+    // });
 
     {
         slate::trace::Block trace_block("MPI_Barrier");

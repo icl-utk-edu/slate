@@ -323,13 +323,155 @@ void luInverseUsingFactor(Matrix<scalar_t>& A, Pivots& pivots,
 // cholFactor()
 
 //-----------------------------------------
+// potrf
+template <typename scalar_t>
+void cholFactor(HermitianMatrix<scalar_t>& A,
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    potrf(A, opts);
+}
+
+template <typename scalar_t>
+void cholFactor(SymmetricMatrix<scalar_t>& A,
+                const std::map<Option, Value>& opts = std::map<Option, Value>(),
+                enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    potrf(A, opts);
+}
+
+//-----------------------------------------
 // cholSolve()
+
+//-----------------------------------------
+// posv
+template <typename scalar_t>
+void cholSolve(HermitianMatrix<scalar_t>& A,
+                        Matrix<scalar_t>& B,
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    posv(A, B, opts);
+}
+
+template <typename scalar_t>
+void cholSolve(SymmetricMatrix<scalar_t>& A,
+                        Matrix<scalar_t>& B,
+                const std::map<Option, Value>& opts = std::map<Option, Value>(),
+                enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    posv(A, B, opts);
+}
 
 //-----------------------------------------
 // cholSolveUsingFactor()
 
 //-----------------------------------------
+// potrs
+template <typename scalar_t>
+void cholSolveUsingFactor(HermitianMatrix<scalar_t>& A,
+                                   Matrix<scalar_t>& B,
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    potrs(A, B, opts);
+}
+
+template <typename scalar_t>
+void cholSolveUsingFactor(SymmetricMatrix<scalar_t>& A,
+                                   Matrix<scalar_t>& B,
+                const std::map<Option, Value>& opts = std::map<Option, Value>(),
+                enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    potrs(A, B, opts);
+}
+
+//-----------------------------------------
 // cholInverseUsingFactor()
+
+//-----------------------------------------
+// potri
+template <typename scalar_t>
+void cholInverseUsingFactor(HermitianMatrix<scalar_t>& A,
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    potri(A, opts);
+}
+
+//-----------------------------------------
+// Symmetric indefinite -- block Aasen's
+
+//-----------------------------------------
+// indefiniteFactor()
+
+//-----------------------------------------
+// hetrf
+template <typename scalar_t>
+void indefiniteFactor(HermitianMatrix<scalar_t>& A, Pivots& pivots,
+                           BandMatrix<scalar_t>& T, Pivots& pivots2,
+                               Matrix<scalar_t>& H,
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    hetrf(A, T, H, opts);
+}
+
+template <typename scalar_t>
+void indefiniteFactor(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
+                           BandMatrix<scalar_t>& T, Pivots& pivots2,
+                               Matrix<scalar_t>& H,
+                const std::map<Option, Value>& opts = std::map<Option, Value>(),
+                enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    hetrf(A, T, H, opts);
+}
+
+//-----------------------------------------
+// indefiniteSolve()
+
+//-----------------------------------------
+// hesv
+template <typename scalar_t>
+void indefiniteSolve(HermitianMatrix<scalar_t>& A, Pivots& pivots,
+                          BandMatrix<scalar_t>& T, Pivots& pivots2,
+                              Matrix<scalar_t>& H,
+                              Matrix<scalar_t>& B,
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    hesv(A, B, opts);
+}
+
+template <typename scalar_t>
+void indefiniteSolve(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
+                          BandMatrix<scalar_t>& T, Pivots& pivots2,
+                              Matrix<scalar_t>& H,
+                              Matrix<scalar_t>& B,
+                const std::map<Option, Value>& opts = std::map<Option, Value>(),
+                enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    hesv(A, B, opts);
+}
+
+//-----------------------------------------
+// indefiniteSolveUsingFactor()
+
+//-----------------------------------------
+// hetrs
+template <typename scalar_t>
+void indefiniteSolveUsingFactor(HermitianMatrix<scalar_t>& A, Pivots& pivots,
+                                     BandMatrix<scalar_t>& T, Pivots& pivots2,
+                                         Matrix<scalar_t>& B,
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    hetrs(A, T, B, opts);
+}
+
+template <typename scalar_t>
+void indefiniteSolveUsingFactor(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
+                                     BandMatrix<scalar_t>& T, Pivots& pivots2,
+                                         Matrix<scalar_t>& B,
+                const std::map<Option, Value>& opts = std::map<Option, Value>(),
+                enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    hetrs(A, T, B, opts);
+}
+
 
 } // namespace slate
 

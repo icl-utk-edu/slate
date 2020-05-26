@@ -493,10 +493,6 @@ template <typename scalar_t>
 void posv(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target, typename scalar_t>
-void posv(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
 // forward real-symmetric matrices to potrf;
 // disabled for complex
 template <typename scalar_t>
@@ -530,10 +526,6 @@ template <typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target, typename scalar_t>
-void potrf(HermitianMatrix<scalar_t>& A,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
 // forward real-symmetric matrices to potrf;
 // disabled for complex
 template <typename scalar_t>
@@ -551,10 +543,6 @@ template <typename scalar_t>
 void potrs(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target, typename scalar_t>
-void potrs(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
 // forward real-symmetric matrices to potrs;
 // disabled for complex
 template <typename scalar_t>
@@ -569,10 +557,6 @@ void potrs(SymmetricMatrix<scalar_t>& A, Matrix<scalar_t>& B,
 //-----------------------------------------
 // potri
 template <typename scalar_t>
-void potri(HermitianMatrix<scalar_t>& A,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
 void potri(HermitianMatrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 

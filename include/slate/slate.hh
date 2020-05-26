@@ -78,30 +78,19 @@ void set(scalar_t value, Matrix<scalar_t>& A,
 // Level 3 BLAS and LAPACK auxiliary
 
 //-----------------------------------------
-// gbmm()
-template <typename scalar_t>
-void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-//-----------------------------------------
 // geadd()
 template <typename scalar_t>
 void geadd(scalar_t alpha, Matrix<scalar_t>& A,
            scalar_t beta,  Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target, typename scalar_t>
-void geadd(scalar_t alpha, Matrix<scalar_t>& A,
-           scalar_t beta,  Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
+//-----------------------------------------
+// gbmm()
+template <typename scalar_t>
+void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
+                              Matrix<scalar_t>& B,
+          scalar_t beta,      Matrix<scalar_t>& C,
+          const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
 // gemm()
@@ -111,24 +100,12 @@ void gemm(scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target, typename scalar_t>
-void gemm(scalar_t alpha, Matrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          const std::map<Option, Value>& opts = std::map<Option, Value>());
-
 //-----------------------------------------
 // gemmA()
 template <typename scalar_t>
 void gemmA(scalar_t alpha, Matrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-void gemmA(scalar_t alpha, Matrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
+                           Matrix<scalar_t>& B,
+          scalar_t beta,   Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
@@ -136,31 +113,17 @@ void gemmA(scalar_t alpha, Matrix<scalar_t>& A,
 template <typename scalar_t>
 void hbmm(blas::Side side,
           scalar_t alpha, HermitianBandMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-void hbmm(blas::Side side,
-          scalar_t alpha, HermitianBandMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
+                                       Matrix<scalar_t>& B,
+          scalar_t beta,               Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
 // hemm()
-template <Target target, typename scalar_t>
-void hemm(blas::Side side,
-          scalar_t alpha, HermitianMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          const std::map<Option, Value>& opts = std::map<Option, Value>());
-
 template <typename scalar_t>
-void hemm(blas::Side side,
+void hemm(Side side,
           scalar_t alpha, HermitianMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
+                                   Matrix<scalar_t>& B,
+          scalar_t beta,           Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 // forward real-symmetric matrices to hemm;
@@ -168,8 +131,8 @@ void hemm(blas::Side side,
 template <typename scalar_t>
 void hemm(Side side,
           scalar_t alpha, SymmetricMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
+                                   Matrix<scalar_t>& B,
+          scalar_t beta,           Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
@@ -180,19 +143,14 @@ void hemm(Side side,
 //-----------------------------------------
 // herk()
 template <typename scalar_t>
-void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
-          blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
-          const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
+void herk(blas::real_type<scalar_t> alpha,          Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 // forward real-symmetric matrices to herk;
 // disabled for complex
 template <typename scalar_t>
-void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
+void herk(blas::real_type<scalar_t> alpha,          Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
@@ -204,22 +162,16 @@ void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
 //-----------------------------------------
 // her2k()
 template <typename scalar_t>
-void her2k(scalar_t alpha,                 Matrix<scalar_t>& A,
-                                           Matrix<scalar_t>& B,
-           blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-void her2k(scalar_t alpha,                 Matrix<scalar_t>& A,
-                                           Matrix<scalar_t>& B,
+void her2k(scalar_t alpha,                          Matrix<scalar_t>& A,
+                                                    Matrix<scalar_t>& B,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 // forward real-symmetric matrices to her2k;
 // disabled for complex
 template <typename scalar_t>
-void her2k(scalar_t alpha,                  Matrix<scalar_t>& A,
-                                            Matrix<scalar_t>& B,
+void her2k(scalar_t alpha,                           Matrix<scalar_t>& A,
+                                                     Matrix<scalar_t>& B,
            blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>& C,
            const std::map<Option, Value>& opts = std::map<Option, Value>(),
            enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
@@ -231,17 +183,10 @@ void her2k(scalar_t alpha,                  Matrix<scalar_t>& A,
 //-----------------------------------------
 // symm()
 template <typename scalar_t>
-void symm(blas::Side side,
+void symm(Side side,
           scalar_t alpha, SymmetricMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-void symm(blas::Side side,
-          scalar_t alpha, SymmetricMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
+                                   Matrix<scalar_t>& B,
+          scalar_t beta,           Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 // forward real-Hermitian matrices to symm;
@@ -249,8 +194,8 @@ void symm(blas::Side side,
 template <typename scalar_t>
 void symm(Side side,
           scalar_t alpha, HermitianMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
+                                   Matrix<scalar_t>& B,
+          scalar_t beta,           Matrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
@@ -261,19 +206,14 @@ void symm(Side side,
 //-----------------------------------------
 // syrk()
 template <typename scalar_t>
-void syrk(scalar_t alpha, Matrix<scalar_t>& A,
-          scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-void syrk(scalar_t alpha, Matrix<scalar_t>& A,
+void syrk(scalar_t alpha,          Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 // forward real-Hermitian matrices to syrk;
 // disabled for complex
 template <typename scalar_t>
-void syrk(scalar_t alpha, Matrix<scalar_t>& A,
+void syrk(scalar_t alpha,          Matrix<scalar_t>& A,
           scalar_t beta,  HermitianMatrix<scalar_t>& C,
           const std::map<Option, Value>& opts = std::map<Option, Value>(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
@@ -285,22 +225,16 @@ void syrk(scalar_t alpha, Matrix<scalar_t>& A,
 //-----------------------------------------
 // syr2k()
 template <typename scalar_t>
-void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
-                           Matrix<scalar_t>& B,
-           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
-                           Matrix<scalar_t>& B,
+void syr2k(scalar_t alpha,          Matrix<scalar_t>& A,
+                                    Matrix<scalar_t>& B,
            scalar_t beta,  SymmetricMatrix<scalar_t>& C,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 // forward real-Hermitian matrices to syr2k;
 // disabled for complex
 template <typename scalar_t>
-void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
-                           Matrix<scalar_t>& B,
+void syr2k(scalar_t alpha,          Matrix<scalar_t>& A,
+                                    Matrix<scalar_t>& B,
            scalar_t beta,  HermitianMatrix<scalar_t>& C,
            const std::map<Option, Value>& opts = std::map<Option, Value>(),
            enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
@@ -310,57 +244,33 @@ void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
 }
 
 //-----------------------------------------
-// tbsm()
+// trmm()
 template <typename scalar_t>
-void tbsm(blas::Side side,
-          scalar_t alpha, TriangularBandMatrix<scalar_t>& A, Pivots& pivots,
-                          Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-void tbsm(blas::Side side,
-          scalar_t alpha, TriangularBandMatrix<scalar_t>& A, Pivots& pivots,
-                          Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <typename scalar_t>
-void tbsm(blas::Side side,
-          scalar_t alpha, TriangularBandMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-void tbsm(blas::Side side,
-          scalar_t alpha, TriangularBandMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
+void trmm(Side side,
+          scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                                    Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
-// trmm()
-template <Target target, typename scalar_t>
-void trmm(blas::Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
+// tbsm()
+template <typename scalar_t>
+void tbsm(Side side,
+          scalar_t alpha, TriangularBandMatrix<scalar_t>& A, Pivots& pivots,
+                                        Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template <typename scalar_t>
-void trmm(blas::Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
+void tbsm(Side side,
+          scalar_t alpha, TriangularBandMatrix<scalar_t>& A,
+                                        Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
 // trsm()
 template <typename scalar_t>
-void trsm(blas::Side side,
+void trsm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-void trsm(blas::Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
+                                    Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
@@ -963,5 +873,7 @@ void steqr2(lapack::Job job,
             const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 } // namespace slate
+
+#include "simplified_api/blas.hh"
 
 #endif // SLATE_HH

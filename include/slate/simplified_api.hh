@@ -206,11 +206,130 @@ void triangularSolve(Side side,
 //------------------------------------------------------------------------------
 // Linear systems
 
-gesv	posv	sysv	{ lu, chol, indefinite } Solve( A, B )
-getrf	potrf	sytrf	{ lu, chol, indefinite } Factor( A, {pivots,...} )
-getrs	potrs	sytrs	{ lu, chol, indefinite } SolveUsingFactor( A, B, {pivots,...} )?  AfterFactor?  WithFactor?
-getri	potri	sytri	{ lu, chol, indefinite } InverseUsingFactor( A, {pivots,...} )
-gecon	pocon	sycon	{ lu, chol, indefinite } CondUsingFactor( A, {pivots,...} )
+//-----------------------------------------
+// LU
+
+//-----------------------------------------
+// luFactor()
+
+//-----------------------------------------
+// gbtrf
+template <typename scalar_t>
+void luFactor(BandMatrix<scalar_t>& A, Pivots& pivots,
+              const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    gbtrf(A, pivots, opts);
+}
+
+//-----------------------------------------
+// getrf
+template <typename scalar_t>
+void luFactor(Matrix<scalar_t>& A, Pivots& pivots,
+              const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    getrf(A, pivots, opts);
+}
+
+//-----------------------------------------
+// getrf without pivoting
+template <typename scalar_t>
+void luFactor(Matrix<scalar_t>& A,
+              const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    getrf_nopiv(A, opts);
+}
+
+//-----------------------------------------
+// luSolve()
+
+//-----------------------------------------
+// gbsv
+template <typename scalar_t>
+void luSolve(BandMatrix<scalar_t>& A, Pivots& pivots,
+                 Matrix<scalar_t>& B,
+             const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    gbsv(A, pivots, B, opts);
+}
+
+//-----------------------------------------
+// gesv
+template <typename scalar_t>
+void luSolve(Matrix<scalar_t>& A, Pivots& pivots,
+             Matrix<scalar_t>& B,
+             const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    gesv(A, pivots, B, opts);
+}
+
+//-----------------------------------------
+// luSolveUsingFactor()
+
+//-----------------------------------------
+// gbtrs
+template <typename scalar_t>
+void luSolveUsingFactor(BandMatrix<scalar_t>& A, Pivots& pivots,
+                            Matrix<scalar_t>& B,
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    gbtrs(A, pivots, B, opts);
+}
+
+//-----------------------------------------
+// getrs
+template <typename scalar_t>
+void luSolveUsingFactor(Matrix<scalar_t>& A, Pivots& pivots,
+                        Matrix<scalar_t>& B,
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    getrs(A, pivots, B, opts);
+}
+
+//-----------------------------------------
+// getrs_nopiv
+template <typename scalar_t>
+void luSolveUsingFactor(Matrix<scalar_t>& A,
+                        Matrix<scalar_t>& B,
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    getrs_nopiv(A, B, opts);
+}
+
+//-----------------------------------------
+// luInverseUsingFactor()
+
+//-----------------------------------------
+// getri
+template <typename scalar_t>
+void luInverseUsingFactor(Matrix<scalar_t>& A, Pivots& pivots,
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    getri(A, pivots, opts);
+}
+
+template <typename scalar_t>
+void luInverseUsingFactor(Matrix<scalar_t>& A, Pivots& pivots,
+                          Matrix<scalar_t>& B,
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
+
+{
+    getri(A, pivots, B, opts);
+}
+
+//-----------------------------------------
+// Cholesky
+
+//-----------------------------------------
+// cholFactor()
+
+//-----------------------------------------
+// cholSolve()
+
+//-----------------------------------------
+// cholSolveUsingFactor()
+
+//-----------------------------------------
+// cholInverseUsingFactor()
 
 } // namespace slate
 

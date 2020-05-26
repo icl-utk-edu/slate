@@ -310,12 +310,7 @@ void colNorms(Norm norm, matrix_type& A,
 // gbsv
 template <typename scalar_t>
 void gbsv(BandMatrix<scalar_t>& A, Pivots& pivots,
-          Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-void gbsv(BandMatrix<scalar_t>& A, Pivots& pivots,
-          Matrix<scalar_t>& B,
+              Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
@@ -324,31 +319,17 @@ template <typename scalar_t>
 void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target, typename scalar_t>
-void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
 //-----------------------------------------
 // gbtrs
 template <typename scalar_t>
 void gbtrs(BandMatrix<scalar_t>& A, Pivots& pivots,
-           Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-void gbtrs(BandMatrix<scalar_t>& A, Pivots& pivots,
-           Matrix<scalar_t>& B,
+               Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //------------------------------------------------------------------------------
 // LU
 // gesv
 template <typename scalar_t>
-void gesv(Matrix<scalar_t>& A, Pivots& pivots,
-          Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
 void gesv(Matrix<scalar_t>& A, Pivots& pivots,
           Matrix<scalar_t>& B,
           const std::map<Option, Value>& opts = std::map<Option, Value>());
@@ -373,8 +354,10 @@ template <typename scalar_t>
 void getrf(Matrix<scalar_t>& A, Pivots& pivots,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target, typename scalar_t>
-void getrf(Matrix<scalar_t>& A, Pivots& pivots,
+//-----------------------------------------
+// getrf_nopiv
+template <typename scalar_t>
+void getrf_nopiv(Matrix<scalar_t>& A,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
@@ -384,21 +367,6 @@ void getrs(Matrix<scalar_t>& A, Pivots& pivots,
            Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target, typename scalar_t>
-void getrs(Matrix<scalar_t>& A, Pivots& pivots,
-           Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-//-----------------------------------------
-// getrf_nopiv
-template <typename scalar_t>
-void getrf_nopiv(Matrix<scalar_t>& A,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-void getrf_nopiv(Matrix<scalar_t>& A,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
 //-----------------------------------------
 // getrs_nopiv
 template <typename scalar_t>
@@ -406,24 +374,10 @@ void getrs_nopiv(Matrix<scalar_t>& A,
            Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
-template <Target target, typename scalar_t>
-void getrs_nopiv(Matrix<scalar_t>& A,
-           Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
 //-----------------------------------------
 // getri
-template <Target target, typename scalar_t>
-void getri(Matrix<scalar_t>& A, Pivots& pivots,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
 template <typename scalar_t>
 void getri(Matrix<scalar_t>& A, Pivots& pivots,
-           const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-void getri(Matrix<scalar_t>& A, Pivots& pivots,
-           Matrix<scalar_t>& B,
            const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 template <typename scalar_t>

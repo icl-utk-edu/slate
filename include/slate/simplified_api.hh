@@ -440,6 +440,39 @@ void lqMultiplyByQ(Side side, Op op,
     unmlq(side, op, A, T, C, opts);
 }
 
+//------------------------------------------------------------------------------
+// Eigenvalues and SVD
+
+//-----------------------------------------
+// Eigenvalue decomposition
+
+template <typename scalar_t>
+void eig(const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+
+}
+
+template <typename scalar_t>
+void eigVals(const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+
+}
+
+//-----------------------------------------
+// SVD
+
+template <typename scalar_t>
+void svd(const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+
+}
+
+template <typename scalar_t>
+void svdVals(const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+
+}
+
 } // namespace slate
 
 #endif // SIMPLIFIED_API_HH

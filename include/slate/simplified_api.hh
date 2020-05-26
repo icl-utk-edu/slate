@@ -378,6 +378,18 @@ void indefiniteSolveUsingFactor(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
     hetrs(A, T, B, opts);
 }
 
+//------------------------------------------------------------------------------
+// Least squares
+
+//-----------------------------------------
+// leastSquaresSolve()
+template <typename scalar_t>
+void leastSquaresSolve(Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+                       Matrix<scalar_t>& BX,
+                const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    gels(A, T, BX, opts);
+}
 
 } // namespace slate
 

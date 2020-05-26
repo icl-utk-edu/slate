@@ -446,32 +446,8 @@ void lqMultiplyByQ(Side side, Op op,
 //-----------------------------------------
 // Eigenvalue decomposition
 
-template <typename scalar_t>
-void eig(const std::map<Option, Value>& opts = std::map<Option, Value>())
-{
-
-}
-
-template <typename scalar_t>
-void eigVals(const std::map<Option, Value>& opts = std::map<Option, Value>())
-{
-
-}
-
 //-----------------------------------------
 // SVD
-
-template <typename scalar_t>
-void svd(const std::map<Option, Value>& opts = std::map<Option, Value>())
-{
-
-}
-
-template <typename scalar_t>
-void svdVals(const std::map<Option, Value>& opts = std::map<Option, Value>())
-{
-
-}
 
 } // namespace slate
 

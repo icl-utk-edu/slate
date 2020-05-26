@@ -37,13 +37,11 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#ifndef SLATE_SIMPLIFIED_API_BLAS_HH
-#define SLATE_SIMPLIFIED_API_BLAS_HH
+#ifndef SIMPLIFIED_API_HH
+#define SIMPLIFIED_API_HH
 
 //------------------------------------------------------------------------------
-/// @namespace slate
-/// SLATE's top-level namespace.
-///
+//
 namespace slate {
 
 //------------------------------------------------------------------------------
@@ -171,4 +169,4 @@ void rank2kUpdate(scalar_t alpha,           Matrix<scalar_t>& A,
 
 } // namespace slate
 
-#endif // SLATE_SIMPLIFIED_API_BLAS_HH
+#endif // SIMPLIFIED_API_HH

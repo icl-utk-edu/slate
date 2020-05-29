@@ -49,6 +49,7 @@ namespace slate {
 
 //-----------------------------------------
 // multiply()
+// gbmm
 template <typename scalar_t>
 void multiply(scalar_t alpha, BandMatrix<scalar_t>& A,
                                   Matrix<scalar_t>& B,
@@ -57,6 +58,7 @@ void multiply(scalar_t alpha, BandMatrix<scalar_t>& A,
 {
     gbmm(alpha, A, B, beta, C, opts);
 }
+// gemm
 template <typename scalar_t>
 void multiply(scalar_t alpha, Matrix<scalar_t>& A,
                               Matrix<scalar_t>& B,
@@ -65,40 +67,75 @@ void multiply(scalar_t alpha, Matrix<scalar_t>& A,
 {
     gemm(alpha, A, B, beta, C, opts);
 }
+// Left hbmm
 template <typename scalar_t>
-void multiply(Side side,
-              scalar_t alpha, HermitianBandMatrix<scalar_t>& A,
+void multiply(scalar_t alpha, HermitianBandMatrix<scalar_t>& A,
                                            Matrix<scalar_t>& B,
               scalar_t beta,               Matrix<scalar_t>& C,
               const std::map<Option, Value>& opts = std::map<Option, Value>())
 {
-    hbmm(side, alpha, A, B, beta, C, opts);
+    hbmm(Side::Left, alpha, A, B, beta, C, opts);
 }
+// Right hbmm
 template <typename scalar_t>
-void multiply(Side side,
-              scalar_t alpha, HermitianMatrix<scalar_t>& A,
+void multiply(scalar_t alpha,              Matrix<scalar_t>& A,
+                              HermitianBandMatrix<scalar_t>& B,
+              scalar_t beta,               Matrix<scalar_t>& C,
+              const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    hbmm(Side::Right, alpha, B, A, beta, C, opts);
+}
+// Left hemm
+template <typename scalar_t>
+void multiply(scalar_t alpha, HermitianMatrix<scalar_t>& A,
                                        Matrix<scalar_t>& B,
               scalar_t beta,           Matrix<scalar_t>& C,
               const std::map<Option, Value>& opts = std::map<Option, Value>())
 {
-    hemm(side, alpha, A, B, beta, C, opts);
+    hemm(Side::Left, alpha, A, B, beta, C, opts);
 }
+// Right hemm
 template <typename scalar_t>
-void multiply(Side side,
-              scalar_t alpha, SymmetricMatrix<scalar_t>& A,
+void multiply(scalar_t alpha,          Matrix<scalar_t>& A,
+                              HermitianMatrix<scalar_t>& B,
+              scalar_t beta,           Matrix<scalar_t>& C,
+              const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    hemm(Side::Right, alpha, B, A, beta, C, opts);
+}
+// Left symm
+template <typename scalar_t>
+void multiply(scalar_t alpha, SymmetricMatrix<scalar_t>& A,
                                        Matrix<scalar_t>& B,
               scalar_t beta,           Matrix<scalar_t>& C,
               const std::map<Option, Value>& opts = std::map<Option, Value>())
 {
-    symm(side, alpha, A, B, beta, C, opts);
+    symm(Side::Left, alpha, A, B, beta, C, opts);
 }
+// Right symm
 template <typename scalar_t>
-void multiply(Side side,
-              scalar_t alpha, TriangularMatrix<scalar_t>& A,
+void multiply(scalar_t alpha,          Matrix<scalar_t>& A,
+                              SymmetricMatrix<scalar_t>& B,
+              scalar_t beta,           Matrix<scalar_t>& C,
+              const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    symm(Side::Right, alpha, B, A, beta, C, opts);
+}
+// Left trmm
+template <typename scalar_t>
+void multiply(scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                         Matrix<scalar_t>& B,
               const std::map<Option, Value>& opts = std::map<Option, Value>())
 {
-    trmm(side, alpha, A, B, opts);
+    trmm(Side::Left, alpha, A, B, opts);
+}
+// Right trmm
+template <typename scalar_t>
+void multiply(scalar_t alpha,           Matrix<scalar_t>& A,
+                              TriangularMatrix<scalar_t>& B,
+              const std::map<Option, Value>& opts = std::map<Option, Value>())
+{
+    trmm(Side::Right, alpha, B, A, opts);
 }
 
 //-----------------------------------------

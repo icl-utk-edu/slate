@@ -47,6 +47,7 @@
 #include "slate/internal/mpi.hh"
 
 #include <vector>
+#include <map>
 
 #include <blas.hh>
 #include <lapack.hh>

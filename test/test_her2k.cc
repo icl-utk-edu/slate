@@ -157,7 +157,7 @@ void test_her2k_work(Params& params, bool run)
     // Run SLATE test.
     // C = alpha A B^H + conj(alpha) B A^H + beta C.
     //==================================================
-    slate::rank2kUpdate(alpha, A, B, beta, C, {
+    slate::rank_2k_update(alpha, A, B, beta, C, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });

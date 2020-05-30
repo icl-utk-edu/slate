@@ -168,7 +168,7 @@ void test_tbsm_work(Params& params, bool run)
     // Run SLATE test.
     // Solve AX = alpha B (left) or XA = alpha B (right).
     //==================================================
-    slate::triangularSolve(side, alpha, A, pivots, B, {
+    slate::triangular_solve(alpha, A, pivots, B, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });

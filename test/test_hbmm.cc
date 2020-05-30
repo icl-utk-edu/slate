@@ -162,7 +162,7 @@ void test_hbmm_work(Params& params, bool run)
     // C = alpha A B + beta C (left) or
     // C = alpha B A + beta C (right).
     //==================================================
-    slate::multiply(side, alpha, A, B, beta, C, {
+    slate::multiply(alpha, A, B, beta, C, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });

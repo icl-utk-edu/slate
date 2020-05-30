@@ -144,7 +144,7 @@ void test_trmm_work(Params& params, bool run)
     // Run SLATE test.
     // B = alpha AB (left) or B = alpha BA (right).
     //==================================================
-    slate::multiply(side, alpha, A, B, {
+    slate::triangular_multiply(alpha, A, B, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });

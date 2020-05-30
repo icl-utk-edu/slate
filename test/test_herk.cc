@@ -134,7 +134,7 @@ void test_herk_work(Params& params, bool run)
     // Run SLATE test.
     // C = alpha A A^H + beta C.
     //==================================================
-    slate::rankkUpdate(alpha, A, beta, C, {
+    slate::rank_k_update(alpha, A, beta, C, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });

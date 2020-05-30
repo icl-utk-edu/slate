@@ -303,7 +303,7 @@ void unmqr(
     Matrix<scalar_t>& A,
     TriangularFactors<scalar_t>& T,
     Matrix<scalar_t>& C,
-    const std::map<Option, Value>& opts)
+    Options const& opts)
 {
     internal::specialization::unmqr(internal::TargetType<target>(),
                                     side, op, A, T, C);
@@ -371,7 +371,7 @@ void unmqr(
     Matrix<scalar_t>& A,
     TriangularFactors<scalar_t>& T,
     Matrix<scalar_t>& C,
-    const std::map<Option, Value>& opts)
+    Options const& opts)
 {
     Target target;
     try {
@@ -407,7 +407,7 @@ void unmqr<float>(
     Matrix<float>& A,
     TriangularFactors<float>& T,
     Matrix<float>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void unmqr<double>(
@@ -415,7 +415,7 @@ void unmqr<double>(
     Matrix<double>& A,
     TriangularFactors<double>& T,
     Matrix<double>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void unmqr< std::complex<float> >(
@@ -423,7 +423,7 @@ void unmqr< std::complex<float> >(
     Matrix< std::complex<float> >& A,
     TriangularFactors< std::complex<float> >& T,
     Matrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void unmqr< std::complex<double> >(
@@ -431,6 +431,6 @@ void unmqr< std::complex<double> >(
     Matrix< std::complex<double> >& A,
     TriangularFactors< std::complex<double> >& T,
     Matrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

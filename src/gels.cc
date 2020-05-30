@@ -129,7 +129,7 @@ template <typename scalar_t>
 void gels(Matrix<scalar_t>& A,
           TriangularFactors<scalar_t>& T,
           Matrix<scalar_t>& BX,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     // m, n of op(A) as in docs above.
     int64_t m = A.m();
@@ -212,27 +212,27 @@ void gels<float>(
     Matrix<float>& A,
     TriangularFactors<float>& T,
     Matrix<float>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gels<double>(
     Matrix<double>& A,
     TriangularFactors<double>& T,
     Matrix<double>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gels< std::complex<float> >(
     Matrix< std::complex<float> >& A,
     TriangularFactors< std::complex<float> >& T,
     Matrix< std::complex<float> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gels< std::complex<double> >(
     Matrix< std::complex<double> >& A,
     TriangularFactors< std::complex<double> >& T,
     Matrix< std::complex<double> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

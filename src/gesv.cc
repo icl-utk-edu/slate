@@ -107,7 +107,7 @@ namespace slate {
 template <typename scalar_t>
 void gesv(Matrix<scalar_t>& A, Pivots& pivots,
           Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     slate_assert(A.mt() == A.nt());  // square
     slate_assert(B.mt() == A.mt());
@@ -127,24 +127,24 @@ template
 void gesv<float>(
     Matrix<float>& A, Pivots& pivots,
     Matrix<float>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gesv<double>(
     Matrix<double>& A, Pivots& pivots,
     Matrix<double>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gesv< std::complex<float> >(
     Matrix< std::complex<float> >& A, Pivots& pivots,
     Matrix< std::complex<float> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gesv< std::complex<double> >(
     Matrix< std::complex<double> >& A, Pivots& pivots,
     Matrix< std::complex<double> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

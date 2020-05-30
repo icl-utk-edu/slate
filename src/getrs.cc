@@ -117,7 +117,7 @@ void getrs(slate::internal::TargetType<target>,
 template <Target target, typename scalar_t>
 void getrs(Matrix<scalar_t>& A, Pivots& pivots,
            Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -175,7 +175,7 @@ void getrs(Matrix<scalar_t>& A, Pivots& pivots,
 template <typename scalar_t>
 void getrs(Matrix<scalar_t>& A, Pivots& pivots,
            Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -209,24 +209,24 @@ template
 void getrs<float>(
     Matrix<float>& A, Pivots& pivots,
     Matrix<float>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void getrs<double>(
     Matrix<double>& A, Pivots& pivots,
     Matrix<double>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void getrs< std::complex<float> >(
     Matrix< std::complex<float> >& A, Pivots& pivots,
     Matrix< std::complex<float> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void getrs< std::complex<double> >(
     Matrix< std::complex<double> >& A, Pivots& pivots,
     Matrix< std::complex<double> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

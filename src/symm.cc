@@ -395,7 +395,7 @@ void symm(Side side,
           scalar_t alpha, SymmetricMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -472,7 +472,7 @@ void symm(Side side,
           scalar_t alpha, SymmetricMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     Target target;
     try {
@@ -507,7 +507,7 @@ void symm< float >(
     float alpha, SymmetricMatrix<float>& A,
                  Matrix<float>& B,
     float beta,  Matrix<float>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void symm< double >(
@@ -515,7 +515,7 @@ void symm< double >(
     double alpha, SymmetricMatrix<double>& A,
                   Matrix<double>& B,
     double beta,  Matrix<double>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void symm< std::complex<float> >(
@@ -523,7 +523,7 @@ void symm< std::complex<float> >(
     std::complex<float> alpha, SymmetricMatrix< std::complex<float> >& A,
                                Matrix< std::complex<float> >& B,
     std::complex<float> beta,  Matrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void symm< std::complex<double> >(
@@ -531,6 +531,6 @@ void symm< std::complex<double> >(
     std::complex<double> alpha, SymmetricMatrix< std::complex<double> >& A,
                                 Matrix< std::complex<double> >& B,
     std::complex<double> beta,  Matrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

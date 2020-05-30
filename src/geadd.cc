@@ -89,7 +89,7 @@ void geadd(slate::internal::TargetType<target>,
 template <Target target, typename scalar_t>
 void geadd(scalar_t alpha, Matrix<scalar_t>& A,
            scalar_t beta,  Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -151,7 +151,7 @@ void geadd(scalar_t alpha, Matrix<scalar_t>& A,
 template <typename scalar_t>
 void geadd(scalar_t alpha, Matrix<scalar_t>& A,
            scalar_t beta,  Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -184,24 +184,24 @@ template
 void geadd<float>(
     float alpha, Matrix<float>& A,
     float beta,  Matrix<float>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void geadd<double>(
     double alpha, Matrix<double>& A,
     double beta,  Matrix<double>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void geadd< std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >& A,
     std::complex<float> beta,  Matrix< std::complex<float> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void geadd< std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >& A,
     std::complex<double> beta,  Matrix< std::complex<double> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

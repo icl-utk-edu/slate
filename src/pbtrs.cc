@@ -92,7 +92,7 @@ void pbtrs(slate::internal::TargetType<target>,
 template <Target target, typename scalar_t>
 void pbtrs(HermitianBandMatrix<scalar_t>& A,
            Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -147,7 +147,7 @@ void pbtrs(HermitianBandMatrix<scalar_t>& A,
 template <typename scalar_t>
 void pbtrs(HermitianBandMatrix<scalar_t>& A,
            Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -181,24 +181,24 @@ template
 void pbtrs<float>(
     HermitianBandMatrix<float>& A,
     Matrix<float>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void pbtrs<double>(
     HermitianBandMatrix<double>& A,
     Matrix<double>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void pbtrs< std::complex<float> >(
     HermitianBandMatrix< std::complex<float> >& A,
     Matrix< std::complex<float> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void pbtrs< std::complex<double> >(
     HermitianBandMatrix< std::complex<double> >& A,
     Matrix< std::complex<double> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

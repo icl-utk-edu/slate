@@ -301,7 +301,7 @@ void gelqf(slate::internal::TargetType<target>,
 template <Target target, typename scalar_t>
 void gelqf(Matrix<scalar_t>& A,
            TriangularFactors<scalar_t>& T,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -381,7 +381,7 @@ void gelqf(Matrix<scalar_t>& A,
 template <typename scalar_t>
 void gelqf(Matrix<scalar_t>& A,
            TriangularFactors<scalar_t>& T,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -415,24 +415,24 @@ template
 void gelqf<float>(
     Matrix<float>& A,
     TriangularFactors<float>& T,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gelqf<double>(
     Matrix<double>& A,
     TriangularFactors<double>& T,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gelqf< std::complex<float> >(
     Matrix< std::complex<float> >& A,
     TriangularFactors< std::complex<float> >& T,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gelqf< std::complex<double> >(
     Matrix< std::complex<double> >& A,
     TriangularFactors< std::complex<double> >& T,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

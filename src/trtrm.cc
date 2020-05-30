@@ -160,7 +160,7 @@ void trtrm(slate::internal::TargetType<target>,
 ///
 template <Target target, typename scalar_t>
 void trtrm(TriangularMatrix<scalar_t>& A,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -207,7 +207,7 @@ void trtrm(TriangularMatrix<scalar_t>& A,
 ///
 template <typename scalar_t>
 void trtrm(TriangularMatrix<scalar_t>& A,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -240,21 +240,21 @@ void trtrm(TriangularMatrix<scalar_t>& A,
 template
 void trtrm<float>(
     TriangularMatrix<float>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void trtrm<double>(
     TriangularMatrix<double>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void trtrm< std::complex<float> >(
     TriangularMatrix< std::complex<float> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void trtrm< std::complex<double> >(
     TriangularMatrix< std::complex<double> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

@@ -435,7 +435,7 @@ void he2hb(slate::internal::TargetType<target>,
 template <Target target, typename scalar_t>
 void he2hb(HermitianMatrix<scalar_t>& A,
            TriangularFactors<scalar_t>& T,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     int64_t ib;
     try {
@@ -511,7 +511,7 @@ void he2hb(HermitianMatrix<scalar_t>& A,
 template <typename scalar_t>
 void he2hb(HermitianMatrix<scalar_t>& A,
            TriangularFactors<scalar_t>& T,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -545,24 +545,24 @@ template
 void he2hb<float>(
     HermitianMatrix<float>& A,
     TriangularFactors<float>& T,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void he2hb<double>(
     HermitianMatrix<double>& A,
     TriangularFactors<double>& T,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void he2hb< std::complex<float> >(
     HermitianMatrix< std::complex<float> >& A,
     TriangularFactors< std::complex<float> >& T,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void he2hb< std::complex<double> >(
     HermitianMatrix< std::complex<double> >& A,
     TriangularFactors< std::complex<double> >& T,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

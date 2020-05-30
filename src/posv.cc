@@ -104,7 +104,7 @@ namespace slate {
 template <typename scalar_t>
 void posv(HermitianMatrix<scalar_t>& A,
           Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     slate_assert(B.mt() == A.mt());
 
@@ -123,24 +123,24 @@ template
 void posv<float>(
     HermitianMatrix<float>& A,
     Matrix<float>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void posv<double>(
     HermitianMatrix<double>& A,
     Matrix<double>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void posv< std::complex<float> >(
     HermitianMatrix< std::complex<float> >& A,
     Matrix< std::complex<float> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void posv< std::complex<double> >(
     HermitianMatrix< std::complex<double> >& A,
     Matrix< std::complex<double> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

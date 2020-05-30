@@ -180,7 +180,7 @@ void herk(slate::internal::TargetType<target>,
 template <Target target, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -245,7 +245,7 @@ void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
 template <typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     Target target;
     try {
@@ -278,24 +278,24 @@ template
 void herk<float>(
     float alpha, Matrix<float>& A,
     float beta,  HermitianMatrix<float>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void herk<double>(
     double alpha, Matrix<double>& A,
     double beta,  HermitianMatrix<double>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void herk< std::complex<float> >(
     float alpha, Matrix< std::complex<float> >& A,
     float beta,  HermitianMatrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void herk< std::complex<double> >(
     double alpha, Matrix< std::complex<double> >& A,
     double beta,  HermitianMatrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

@@ -258,7 +258,7 @@ void hegst(slate::internal::TargetType<target>,
 template <Target target, typename scalar_t>
 void hegst(int64_t itype, HermitianMatrix<scalar_t>& A,
                           HermitianMatrix<scalar_t>& B,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -332,7 +332,7 @@ void hegst(int64_t itype, HermitianMatrix<scalar_t>& A,
 template <typename scalar_t>
 void hegst(int64_t itype, HermitianMatrix<scalar_t>& A,
                           HermitianMatrix<scalar_t>& B,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -366,24 +366,24 @@ template
 void hegst<float>(
     int64_t itype, HermitianMatrix<float>& A,
                    HermitianMatrix<float>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hegst<double>(
     int64_t itype, HermitianMatrix<double>& A,
                    HermitianMatrix<double>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hegst<std::complex<float>>(
     int64_t itype, HermitianMatrix<std::complex<float>>& A,
                    HermitianMatrix<std::complex<float>>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hegst<std::complex<double>>(
     int64_t itype, HermitianMatrix<std::complex<double>>& A,
                    HermitianMatrix<std::complex<double>>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

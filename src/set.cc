@@ -83,7 +83,7 @@ void set(slate::internal::TargetType<target>,
 ///
 template <Target target, typename scalar_t>
 void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
-         const std::map<Option, Value>& opts)
+         Options const& opts)
 {
     internal::specialization::set(internal::TargetType<target>(),
                                   alpha, beta, A);
@@ -116,7 +116,7 @@ void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
 ///
 template <typename scalar_t>
 void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
-         const std::map<Option, Value>& opts)
+         Options const& opts)
 {
     Target target;
     try {
@@ -149,23 +149,23 @@ void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
 template
 void set(
     float alpha, float beta, Matrix<float>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void set(
     double alpha, double beta, Matrix<double>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void set(
     std::complex<float> alpha, std::complex<float> beta,
     Matrix<std::complex<float> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void set(
     std::complex<double> alpha, std::complex<double> beta,
     Matrix<std::complex<double> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

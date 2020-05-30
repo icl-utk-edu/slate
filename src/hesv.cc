@@ -96,7 +96,7 @@ void hesv(HermitianMatrix<scalar_t>& A, Pivots& pivots,
                BandMatrix<scalar_t>& T, Pivots& pivots2,
                    Matrix<scalar_t>& H,
           Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     int64_t ib;
     try {
@@ -213,7 +213,7 @@ void hesv(HermitianMatrix<scalar_t>& A, Pivots& pivots,
                BandMatrix<scalar_t>& T, Pivots& pivots2,
                    Matrix<scalar_t>& H,
           Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     Target target;
     try {
@@ -249,7 +249,7 @@ void hesv<float>(
          BandMatrix<float>& T, Pivots& pivots2,
              Matrix<float>& H,
     Matrix<float>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hesv<double>(
@@ -257,7 +257,7 @@ void hesv<double>(
          BandMatrix<double>& T, Pivots& pivots2,
              Matrix<double>& H,
     Matrix<double>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hesv< std::complex<float> >(
@@ -265,7 +265,7 @@ void hesv< std::complex<float> >(
          BandMatrix< std::complex<float> >& T, Pivots& pivots2,
              Matrix< std::complex<float> >& H,
     Matrix< std::complex<float> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hesv< std::complex<double> >(
@@ -273,6 +273,6 @@ void hesv< std::complex<double> >(
          BandMatrix< std::complex<double> >& T, Pivots& pivots2,
              Matrix< std::complex<double> >& H,
     Matrix< std::complex<double> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

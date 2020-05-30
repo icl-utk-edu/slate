@@ -101,7 +101,7 @@ void getrs_nopiv(slate::internal::TargetType<target>,
 template <Target target, typename scalar_t>
 void getrs_nopiv(Matrix<scalar_t>& A,
            Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -155,7 +155,7 @@ void getrs_nopiv(Matrix<scalar_t>& A,
 template <typename scalar_t>
 void getrs_nopiv(Matrix<scalar_t>& A,
            Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -189,24 +189,24 @@ template
 void getrs_nopiv<float>(
     Matrix<float>& A,
     Matrix<float>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void getrs_nopiv<double>(
     Matrix<double>& A,
     Matrix<double>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void getrs_nopiv< std::complex<float> >(
     Matrix< std::complex<float> >& A,
     Matrix< std::complex<float> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void getrs_nopiv< std::complex<double> >(
     Matrix< std::complex<double> >& A,
     Matrix< std::complex<double> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

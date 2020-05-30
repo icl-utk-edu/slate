@@ -245,7 +245,7 @@ void gbtrf(slate::internal::TargetType<target>,
 ///
 template <Target target, typename scalar_t>
 void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     int64_t lookahead = 1;
     if (opts.count(Option::Lookahead) > 0) {
@@ -325,7 +325,7 @@ void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
 ///
 template <typename scalar_t>
 void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target = Target::HostTask;
     if (opts.count(Option::Target) > 0) {
@@ -355,21 +355,21 @@ void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
 template
 void gbtrf<float>(
     BandMatrix<float>& A, Pivots& pivots,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gbtrf<double>(
     BandMatrix<double>& A, Pivots& pivots,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gbtrf< std::complex<float> >(
     BandMatrix< std::complex<float> >& A, Pivots& pivots,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gbtrf< std::complex<double> >(
     BandMatrix< std::complex<double> >& A, Pivots& pivots,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

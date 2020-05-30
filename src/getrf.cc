@@ -248,7 +248,7 @@ void getrf(slate::internal::TargetType<target>,
 ///
 template <Target target, typename scalar_t>
 void getrf(Matrix<scalar_t>& A, Pivots& pivots,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -337,7 +337,7 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
 ///
 template <typename scalar_t>
 void getrf(Matrix<scalar_t>& A, Pivots& pivots,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -370,21 +370,21 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
 template
 void getrf<float>(
     Matrix<float>& A, Pivots& pivots,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void getrf<double>(
     Matrix<double>& A, Pivots& pivots,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void getrf< std::complex<float> >(
     Matrix< std::complex<float> >& A, Pivots& pivots,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void getrf< std::complex<double> >(
     Matrix< std::complex<double> >& A, Pivots& pivots,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

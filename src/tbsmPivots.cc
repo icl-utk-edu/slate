@@ -357,7 +357,7 @@ void tbsm(blas::Side side,
           scalar_t alpha,
           TriangularBandMatrix<scalar_t>& A, Pivots& pivots,
                         Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -436,7 +436,7 @@ void tbsm(blas::Side side,
           scalar_t alpha,
           TriangularBandMatrix<scalar_t>& A, Pivots& pivots,
                         Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     Target target;
     try {
@@ -471,7 +471,7 @@ void tbsm<float>(
     float alpha,
     TriangularBandMatrix<float>& A, Pivots& pivots,
                   Matrix<float>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void tbsm<double>(
@@ -479,7 +479,7 @@ void tbsm<double>(
     double alpha,
     TriangularBandMatrix<double>& A, Pivots& pivots,
                   Matrix<double>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void tbsm< std::complex<float> >(
@@ -487,7 +487,7 @@ void tbsm< std::complex<float> >(
     std::complex<float> alpha,
     TriangularBandMatrix< std::complex<float> >& A, Pivots& pivots,
                   Matrix< std::complex<float> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void tbsm< std::complex<double> >(
@@ -495,6 +495,6 @@ void tbsm< std::complex<double> >(
     std::complex<double> alpha,
     TriangularBandMatrix< std::complex<double> >& A, Pivots& pivots,
                   Matrix< std::complex<double> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

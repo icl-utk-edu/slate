@@ -168,7 +168,7 @@ void pbtrf(slate::internal::TargetType<target>,
 ///
 template <Target target, typename scalar_t>
 void pbtrf(HermitianBandMatrix<scalar_t>& A,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -242,7 +242,7 @@ void pbtrf(HermitianBandMatrix<scalar_t>& A,
 ///
 template <typename scalar_t>
 void pbtrf(HermitianBandMatrix<scalar_t>& A,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target = Target::HostTask;
     if (opts.count(Option::Target) > 0) {
@@ -272,21 +272,21 @@ void pbtrf(HermitianBandMatrix<scalar_t>& A,
 template
 void pbtrf<float>(
     HermitianBandMatrix<float>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void pbtrf<double>(
     HermitianBandMatrix<double>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void pbtrf< std::complex<float> >(
     HermitianBandMatrix< std::complex<float> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void pbtrf< std::complex<double> >(
     HermitianBandMatrix< std::complex<double> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

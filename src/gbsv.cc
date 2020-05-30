@@ -111,7 +111,7 @@ namespace slate {
 template <typename scalar_t>
 void gbsv(BandMatrix<scalar_t>& A, Pivots& pivots,
           Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     slate_assert(A.mt() == A.nt());  // square
     slate_assert(B.mt() == A.mt());
@@ -131,24 +131,24 @@ template
 void gbsv<float>(
     BandMatrix<float>& A, Pivots& pivots,
     Matrix<float>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gbsv<double>(
     BandMatrix<double>& A, Pivots& pivots,
     Matrix<double>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gbsv< std::complex<float> >(
     BandMatrix< std::complex<float> >& A, Pivots& pivots,
     Matrix< std::complex<float> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gbsv< std::complex<double> >(
     BandMatrix< std::complex<double> >& A, Pivots& pivots,
     Matrix< std::complex<double> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

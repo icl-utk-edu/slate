@@ -91,7 +91,7 @@ void potrs(slate::internal::TargetType<target>,
 template <Target target, typename scalar_t>
 void potrs(HermitianMatrix<scalar_t>& A,
            Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -146,7 +146,7 @@ void potrs(HermitianMatrix<scalar_t>& A,
 template <typename scalar_t>
 void potrs(HermitianMatrix<scalar_t>& A,
            Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -180,24 +180,24 @@ template
 void potrs<float>(
     HermitianMatrix<float>& A,
     Matrix<float>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void potrs<double>(
     HermitianMatrix<double>& A,
     Matrix<double>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void potrs< std::complex<float> >(
     HermitianMatrix< std::complex<float> >& A,
     Matrix< std::complex<float> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void potrs< std::complex<double> >(
     HermitianMatrix< std::complex<double> >& A,
     Matrix< std::complex<double> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

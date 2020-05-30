@@ -299,7 +299,7 @@ void unmlq(
     Matrix<scalar_t>& A,
     TriangularFactors<scalar_t>& T,
     Matrix<scalar_t>& C,
-    const std::map<Option, Value>& opts)
+    Options const& opts)
 {
     internal::specialization::unmlq(internal::TargetType<target>(),
                                     side, op, A, T, C);
@@ -367,7 +367,7 @@ void unmlq(
     Matrix<scalar_t>& A,
     TriangularFactors<scalar_t>& T,
     Matrix<scalar_t>& C,
-    const std::map<Option, Value>& opts)
+    Options const& opts)
 {
     Target target;
     try {
@@ -403,7 +403,7 @@ void unmlq<float>(
     Matrix<float>& A,
     TriangularFactors<float>& T,
     Matrix<float>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void unmlq<double>(
@@ -411,7 +411,7 @@ void unmlq<double>(
     Matrix<double>& A,
     TriangularFactors<double>& T,
     Matrix<double>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void unmlq< std::complex<float> >(
@@ -419,7 +419,7 @@ void unmlq< std::complex<float> >(
     Matrix< std::complex<float> >& A,
     TriangularFactors< std::complex<float> >& T,
     Matrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void unmlq< std::complex<double> >(
@@ -427,6 +427,6 @@ void unmlq< std::complex<double> >(
     Matrix< std::complex<double> >& A,
     TriangularFactors< std::complex<double> >& T,
     Matrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

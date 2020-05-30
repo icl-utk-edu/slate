@@ -85,7 +85,7 @@ namespace slate {
 ///
 template <typename scalar_t>
 void potri(HermitianMatrix<scalar_t>& A,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     auto T = TriangularMatrix<scalar_t>(lapack::Diag::NonUnit, A);
 
@@ -103,21 +103,21 @@ void potri(HermitianMatrix<scalar_t>& A,
 template
 void potri<float>(
     HermitianMatrix<float>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void potri<double>(
     HermitianMatrix<double>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void potri< std::complex<float> >(
     HermitianMatrix< std::complex<float> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void potri< std::complex<double> >(
     HermitianMatrix< std::complex<double> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

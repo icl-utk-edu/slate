@@ -264,7 +264,7 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
                 Matrix<scalar_hi>& B,
                 Matrix<scalar_hi>& X,
                 int& iter,
-                const std::map<Option, Value>& opts)
+                Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -388,7 +388,7 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
                 Matrix<scalar_hi>& B,
                 Matrix<scalar_hi>& X,
                 int& iter,
-                const std::map<Option, Value>& opts)
+                Options const& opts)
 {
     Target target;
     try {
@@ -428,7 +428,7 @@ void gesvMixed<double>(
     Matrix<double>& B,
     Matrix<double>& X,
     int& iter,
-    const std::map<Option, Value>& opts)
+    Options const& opts)
 {
     gesvMixed<double, float>(A, pivots, B, X, iter, opts);
 }
@@ -439,7 +439,7 @@ void gesvMixed< std::complex<double> >(
     Matrix< std::complex<double> >& B,
     Matrix< std::complex<double> >& X,
     int& iter,
-    const std::map<Option, Value>& opts)
+    Options const& opts)
 {
     gesvMixed<std::complex<double>, std::complex<float>>(A, pivots, B, X, iter, opts);
 }

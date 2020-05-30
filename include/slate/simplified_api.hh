@@ -49,156 +49,227 @@ namespace slate {
 
 //-----------------------------------------
 // multiply()
+
 // gbmm
 template <typename scalar_t>
-void multiply(scalar_t alpha, BandMatrix<scalar_t>& A,
-                                  Matrix<scalar_t>& B,
-              scalar_t beta,      Matrix<scalar_t>& C,
-              const std::map<Option, Value>& opts = std::map<Option, Value>())
+void multiply(
+    scalar_t alpha, BandMatrix<scalar_t>& A,
+                        Matrix<scalar_t>& B,
+    scalar_t beta,      Matrix<scalar_t>& C,
+    Options const& opts = Options())
 {
     gbmm(alpha, A, B, beta, C, opts);
 }
+
 // gemm
 template <typename scalar_t>
-void multiply(scalar_t alpha, Matrix<scalar_t>& A,
-                              Matrix<scalar_t>& B,
-              scalar_t beta,  Matrix<scalar_t>& C,
-              const std::map<Option, Value>& opts = std::map<Option, Value>())
+void multiply(
+    scalar_t alpha, Matrix<scalar_t>& A,
+                    Matrix<scalar_t>& B,
+    scalar_t beta,  Matrix<scalar_t>& C,
+    Options const& opts = Options())
 {
     gemm(alpha, A, B, beta, C, opts);
 }
+
 // Left hbmm
 template <typename scalar_t>
-void multiply(scalar_t alpha, HermitianBandMatrix<scalar_t>& A,
-                                           Matrix<scalar_t>& B,
-              scalar_t beta,               Matrix<scalar_t>& C,
-              const std::map<Option, Value>& opts = std::map<Option, Value>())
+void multiply(
+    scalar_t alpha, HermitianBandMatrix<scalar_t>& A,
+                                 Matrix<scalar_t>& B,
+    scalar_t beta,               Matrix<scalar_t>& C,
+    Options const& opts = Options())
 {
     hbmm(Side::Left, alpha, A, B, beta, C, opts);
 }
+
 // Right hbmm
 template <typename scalar_t>
-void multiply(scalar_t alpha,              Matrix<scalar_t>& A,
-                              HermitianBandMatrix<scalar_t>& B,
-              scalar_t beta,               Matrix<scalar_t>& C,
-              const std::map<Option, Value>& opts = std::map<Option, Value>())
+void multiply(
+    scalar_t alpha,              Matrix<scalar_t>& A,
+                    HermitianBandMatrix<scalar_t>& B,
+    scalar_t beta,               Matrix<scalar_t>& C,
+    Options const& opts = Options())
 {
     hbmm(Side::Right, alpha, B, A, beta, C, opts);
 }
+
 // Left hemm
 template <typename scalar_t>
-void multiply(scalar_t alpha, HermitianMatrix<scalar_t>& A,
-                                       Matrix<scalar_t>& B,
-              scalar_t beta,           Matrix<scalar_t>& C,
-              const std::map<Option, Value>& opts = std::map<Option, Value>())
+void multiply(
+    scalar_t alpha, HermitianMatrix<scalar_t>& A,
+                             Matrix<scalar_t>& B,
+    scalar_t beta,           Matrix<scalar_t>& C,
+    Options const& opts = Options())
 {
     hemm(Side::Left, alpha, A, B, beta, C, opts);
 }
+
 // Right hemm
 template <typename scalar_t>
-void multiply(scalar_t alpha,          Matrix<scalar_t>& A,
-                              HermitianMatrix<scalar_t>& B,
-              scalar_t beta,           Matrix<scalar_t>& C,
-              const std::map<Option, Value>& opts = std::map<Option, Value>())
+void multiply(
+    scalar_t alpha,          Matrix<scalar_t>& A,
+                    HermitianMatrix<scalar_t>& B,
+    scalar_t beta,           Matrix<scalar_t>& C,
+    Options const& opts = Options())
 {
     hemm(Side::Right, alpha, B, A, beta, C, opts);
 }
+
 // Left symm
 template <typename scalar_t>
-void multiply(scalar_t alpha, SymmetricMatrix<scalar_t>& A,
-                                       Matrix<scalar_t>& B,
-              scalar_t beta,           Matrix<scalar_t>& C,
-              const std::map<Option, Value>& opts = std::map<Option, Value>())
+void multiply(
+    scalar_t alpha, SymmetricMatrix<scalar_t>& A,
+                             Matrix<scalar_t>& B,
+    scalar_t beta,           Matrix<scalar_t>& C,
+    Options const& opts = Options())
 {
     symm(Side::Left, alpha, A, B, beta, C, opts);
 }
+
 // Right symm
 template <typename scalar_t>
-void multiply(scalar_t alpha,          Matrix<scalar_t>& A,
-                              SymmetricMatrix<scalar_t>& B,
-              scalar_t beta,           Matrix<scalar_t>& C,
-              const std::map<Option, Value>& opts = std::map<Option, Value>())
+void multiply(
+    scalar_t alpha,          Matrix<scalar_t>& A,
+                    SymmetricMatrix<scalar_t>& B,
+    scalar_t beta,           Matrix<scalar_t>& C,
+    Options const& opts = Options())
 {
     symm(Side::Right, alpha, B, A, beta, C, opts);
 }
+
+//-----------------------------------------
+// triangular_multiply()
+
 // Left trmm
 template <typename scalar_t>
-void multiply(scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                        Matrix<scalar_t>& B,
-              const std::map<Option, Value>& opts = std::map<Option, Value>())
+void triangular_multiply(
+    scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                              Matrix<scalar_t>& B,
+    Options const& opts = Options())
 {
     trmm(Side::Left, alpha, A, B, opts);
 }
+
 // Right trmm
 template <typename scalar_t>
-void multiply(scalar_t alpha,           Matrix<scalar_t>& A,
-                              TriangularMatrix<scalar_t>& B,
-              const std::map<Option, Value>& opts = std::map<Option, Value>())
+void triangular_multiply(
+    scalar_t alpha,           Matrix<scalar_t>& A,
+                    TriangularMatrix<scalar_t>& B,
+    Options const& opts = Options())
 {
     trmm(Side::Right, alpha, B, A, opts);
 }
 
 //-----------------------------------------
-// rankkUpdate()
+// triangular_solve()
+
+// Left tbsm
 template <typename scalar_t>
-void rankkUpdate(blas::real_type<scalar_t> alpha,          Matrix<scalar_t>& A,
-                 blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
+void triangular_solve(
+    scalar_t alpha, TriangularBandMatrix<scalar_t>& A,
+                                  Matrix<scalar_t>& B,
+    Options const& opts = Options())
+{
+    tbsm(Side::Left, alpha, A, B, opts);
+}
+
+// Right tbsm
+template <typename scalar_t>
+void triangular_solve(
+    scalar_t alpha,               Matrix<scalar_t>& A,
+                    TriangularBandMatrix<scalar_t>& B,
+    Options const& opts = Options())
+{
+    tbsm(Side::Right, alpha, B, A, opts);
+}
+
+// Left tbsm with pivoting
+template <typename scalar_t>
+void triangular_solve(
+    scalar_t alpha, TriangularBandMatrix<scalar_t>& A,
+    Pivots& pivots,               Matrix<scalar_t>& B,
+    Options const& opts = Options())
+{
+    tbsm(Side::Left, alpha, A, pivots, B, opts);
+}
+
+// Right tbsm with pivoting
+template <typename scalar_t>
+void triangular_solve(
+    scalar_t alpha,               Matrix<scalar_t>& A,
+    Pivots& pivots, TriangularBandMatrix<scalar_t>& B,
+    Options const& opts = Options())
+{
+    tbsm(Side::Right, alpha, B, pivots, A, opts);
+}
+
+// Left trsm
+template <typename scalar_t>
+void triangular_solve(
+    scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                              Matrix<scalar_t>& B,
+    Options const& opts = Options())
+{
+    trsm(Side::Left, alpha, A, B, opts);
+}
+
+// Right trsm
+template <typename scalar_t>
+void triangular_solve(
+    scalar_t alpha,           Matrix<scalar_t>& A,
+                    TriangularMatrix<scalar_t>& B,
+    Options const& opts = Options())
+{
+    trsm(Side::Right, alpha, B, A, opts);
+}
+
+//-----------------------------------------
+// rank_k_update()
+
+// herk
+template <typename scalar_t>
+void rank_k_update(
+    blas::real_type<scalar_t> alpha,          Matrix<scalar_t>& A,
+    blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
+    Options const& opts = Options())
 {
     herk(alpha, A, beta, C, opts);
 }
+
+// syrk
 template <typename scalar_t>
-void rankkUpdate(scalar_t alpha,           Matrix<scalar_t>& A,
-                 scalar_t beta,   SymmetricMatrix<scalar_t>& C,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
+void rank_k_update(
+    scalar_t alpha,           Matrix<scalar_t>& A,
+    scalar_t beta,   SymmetricMatrix<scalar_t>& C,
+    Options const& opts = Options())
 {
     syrk(alpha, A, beta, C, opts);
 }
 
 //-----------------------------------------
-// rank2kUpdate()
+// rank_2k_update()
+
+// herk
 template <typename scalar_t>
-void rank2kUpdate(scalar_t alpha,                           Matrix<scalar_t>& A,
-                                                            Matrix<scalar_t>& B,
-                  blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
+void rank_2k_update(
+    scalar_t alpha,                           Matrix<scalar_t>& A,
+                                              Matrix<scalar_t>& B,
+    blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
+    Options const& opts = Options())
 {
     her2k(alpha, A, B, beta, C, opts);
 }
+
+// syrk
 template <typename scalar_t>
-void rank2kUpdate(scalar_t alpha,           Matrix<scalar_t>& A,
-                                            Matrix<scalar_t>& B,
-                  scalar_t beta,   SymmetricMatrix<scalar_t>& C,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
+void rank_2k_update(
+    scalar_t alpha,           Matrix<scalar_t>& A,
+                              Matrix<scalar_t>& B,
+    scalar_t beta,   SymmetricMatrix<scalar_t>& C,
+    Options const& opts = Options())
 {
     syr2k(alpha, A, B, beta, C, opts);
-}
-
-//-----------------------------------------
-// triangularSolve()
-template <typename scalar_t>
-void triangularSolve(Side side,
-                     scalar_t alpha, TriangularBandMatrix<scalar_t>& A,
-                                                   Matrix<scalar_t>& B,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
-{
-    tbsm(side, alpha, A, B, opts);
-}
-template <typename scalar_t>
-void triangularSolve(Side side,
-                     scalar_t alpha, TriangularBandMatrix<scalar_t>& A,
-                     Pivots& pivots,               Matrix<scalar_t>& B,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
-{
-    tbsm(side, alpha, A, pivots, B, opts);
-}
-template <typename scalar_t>
-void triangularSolve(Side side,
-                     scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                               Matrix<scalar_t>& B,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
-{
-    trsm(side, alpha, A, B, opts);
 }
 
 //------------------------------------------------------------------------------

@@ -700,37 +700,36 @@ void potrf(SymmetricMatrix<scalar_t>& A,
 }
 
 //-----------------------------------------
-// potrs
+// potrs()
 template <typename scalar_t>
-void potrs(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
-           Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void potrs(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
-           Options const& opts = Options());
+void potrs(
+    HermitianMatrix<scalar_t>& A,
+             Matrix<scalar_t>& B,
+    Options const& opts = Options());
 
 // forward real-symmetric matrices to potrs;
 // disabled for complex
 template <typename scalar_t>
-void potrs(SymmetricMatrix<scalar_t>& A, Matrix<scalar_t>& B,
-           Options const& opts = Options(),
-           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+void potrs(
+    SymmetricMatrix<scalar_t>& A,
+             Matrix<scalar_t>& B,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> AH(A);
     potrs(AH, B, opts);
 }
 
 //-----------------------------------------
-// potri
+// potri()
 template <typename scalar_t>
-void potri(HermitianMatrix<scalar_t>& A,
-           Options const& opts = Options());
+void potri(
+    HermitianMatrix<scalar_t>& A,
+    Options const& opts = Options());
 
-template <Target target, typename scalar_t>
-void potri(HermitianMatrix<scalar_t>& A,
-           Options const& opts = Options());
-
-// todo: forward real-symmetric matrices to potri?
+// todo:
+// forward real-symmetric matrices to potrs;
+// disabled for complex
 
 //------------------------------------------------------------------------------
 // Symmetric indefinite -- block Aasen's

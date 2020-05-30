@@ -59,17 +59,29 @@ namespace slate {
 
 //------------------------------------------------------------------------------
 // Auxiliary
+
+//-----------------------------------------
+// copy()
 template <typename src_matrix_type, typename dst_matrix_type>
-void copy(src_matrix_type& A, dst_matrix_type& B,
-          Options const& opts = Options());
+void copy(
+    src_matrix_type& A,
+    dst_matrix_type& B,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// set()
+template <typename scalar_t>
+void set(
+    scalar_t offdiag_value,
+    scalar_t diag_value,
+    Matrix<scalar_t>& A,
+    Options const& opts = Options());
 
 template <typename scalar_t>
-void set(scalar_t offdiag_value, scalar_t diag_value, Matrix<scalar_t>& A,
-         Options const& opts = Options());
-
-template <typename scalar_t>
-void set(scalar_t value, Matrix<scalar_t>& A,
-         Options const& opts = Options())
+void set(
+    scalar_t value,
+    Matrix<scalar_t>& A,
+    Options const& opts = Options())
 {
     set(value, value, A, opts);
 }
@@ -80,98 +92,68 @@ void set(scalar_t value, Matrix<scalar_t>& A,
 //-----------------------------------------
 // gbmm()
 template <typename scalar_t>
-void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts = Options());
+void gbmm(
+    scalar_t alpha, BandMatrix<scalar_t>& A,
+                        Matrix<scalar_t>& B,
+    scalar_t beta,      Matrix<scalar_t>& C,
+    Options const& opts = Options());
 
 //-----------------------------------------
 // geadd()
 template <typename scalar_t>
-void geadd(scalar_t alpha, Matrix<scalar_t>& A,
-           scalar_t beta,  Matrix<scalar_t>& B,
-           Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void geadd(scalar_t alpha, Matrix<scalar_t>& A,
-           scalar_t beta,  Matrix<scalar_t>& B,
-           Options const& opts = Options());
+void geadd(
+    scalar_t alpha, Matrix<scalar_t>& A,
+    scalar_t beta,  Matrix<scalar_t>& B,
+    Options const& opts = Options());
 
 //-----------------------------------------
 // gemm()
 template <typename scalar_t>
-void gemm(scalar_t alpha, Matrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void gemm(scalar_t alpha, Matrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts = Options());
+void gemm(
+    scalar_t alpha, Matrix<scalar_t>& A,
+                    Matrix<scalar_t>& B,
+    scalar_t beta,  Matrix<scalar_t>& C,
+    Options const& opts = Options());
 
 //-----------------------------------------
 // gemmA()
 template <typename scalar_t>
-void gemmA(scalar_t alpha, Matrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void gemmA(scalar_t alpha, Matrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts = Options());
+void gemmA(
+    scalar_t alpha, Matrix<scalar_t>& A,
+                    Matrix<scalar_t>& B,
+    scalar_t beta,  Matrix<scalar_t>& C,
+    Options const& opts = Options());
 
 //-----------------------------------------
 // hbmm()
 template <typename scalar_t>
-void hbmm(blas::Side side,
-          scalar_t alpha, HermitianBandMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void hbmm(blas::Side side,
-          scalar_t alpha, HermitianBandMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts = Options());
+void hbmm(
+    Side side,
+    scalar_t alpha, HermitianBandMatrix<scalar_t>& A,
+                                 Matrix<scalar_t>& B,
+    scalar_t beta,               Matrix<scalar_t>& C,
+    Options const& opts = Options());
 
 //-----------------------------------------
 // hemm()
-template <Target target, typename scalar_t>
-void hemm(blas::Side side,
-          scalar_t alpha, HermitianMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts = Options());
-
 template <typename scalar_t>
-void hemm(blas::Side side,
-          scalar_t alpha, HermitianMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts = Options());
+void hemm(
+    Side side,
+    scalar_t alpha, HermitianMatrix<scalar_t>& A,
+                             Matrix<scalar_t>& B,
+    scalar_t beta,           Matrix<scalar_t>& C,
+    Options const& opts = Options());
 
 // forward real-symmetric matrices to hemm;
 // disabled for complex
 template <typename scalar_t>
-void hemm(Side side,
-          scalar_t alpha, SymmetricMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts = Options(),
-          enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+void hemm(
+    Side side,
+    scalar_t alpha, SymmetricMatrix<scalar_t>& A,
+                             Matrix<scalar_t>& B,
+    scalar_t beta,           Matrix<scalar_t>& C,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> AH(A);
     hemm(side, alpha, AH, B, beta, C, opts);
@@ -180,22 +162,19 @@ void hemm(Side side,
 //-----------------------------------------
 // herk()
 template <typename scalar_t>
-void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
-          blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
-          Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
-          blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
-          Options const& opts = Options());
+void herk(
+    blas::real_type<scalar_t> alpha,          Matrix<scalar_t>& A,
+    blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
+    Options const& opts = Options());
 
 // forward real-symmetric matrices to herk;
 // disabled for complex
 template <typename scalar_t>
-void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
-          blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>& C,
-          Options const& opts = Options(),
-          enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+void herk(
+    blas::real_type<scalar_t> alpha,          Matrix<scalar_t>& A,
+    blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>& C,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> CH(C);
     herk(alpha, A, beta, CH, opts);
@@ -204,25 +183,21 @@ void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
 //-----------------------------------------
 // her2k()
 template <typename scalar_t>
-void her2k(scalar_t alpha,                 Matrix<scalar_t>& A,
-                                           Matrix<scalar_t>& B,
-           blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
-           Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void her2k(scalar_t alpha,                 Matrix<scalar_t>& A,
-                                           Matrix<scalar_t>& B,
-           blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
-           Options const& opts = Options());
+void her2k(
+    scalar_t alpha,                          Matrix<scalar_t>& A,
+                                             Matrix<scalar_t>& B,
+    blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
+    Options const& opts = Options());
 
 // forward real-symmetric matrices to her2k;
 // disabled for complex
 template <typename scalar_t>
-void her2k(scalar_t alpha,                  Matrix<scalar_t>& A,
-                                            Matrix<scalar_t>& B,
-           blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>& C,
-           Options const& opts = Options(),
-           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+void her2k(
+    scalar_t alpha,                           Matrix<scalar_t>& A,
+                                              Matrix<scalar_t>& B,
+    blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>& C,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> CH(C);
     her2k(alpha, A, B, beta, CH, opts);
@@ -231,28 +206,23 @@ void her2k(scalar_t alpha,                  Matrix<scalar_t>& A,
 //-----------------------------------------
 // symm()
 template <typename scalar_t>
-void symm(blas::Side side,
-          scalar_t alpha, SymmetricMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void symm(blas::Side side,
-          scalar_t alpha, SymmetricMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts = Options());
+void symm(
+    Side side,
+    scalar_t alpha, SymmetricMatrix<scalar_t>& A,
+                             Matrix<scalar_t>& B,
+    scalar_t beta,           Matrix<scalar_t>& C,
+    Options const& opts = Options());
 
 // forward real-Hermitian matrices to symm;
 // disabled for complex
 template <typename scalar_t>
-void symm(Side side,
-          scalar_t alpha, HermitianMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts = Options(),
-          enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+void symm(
+    Side side,
+    scalar_t alpha, HermitianMatrix<scalar_t>& A,
+                             Matrix<scalar_t>& B,
+    scalar_t beta,           Matrix<scalar_t>& C,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     SymmetricMatrix<scalar_t> AS(A);
     symm(side, alpha, AS, B, beta, C, opts);
@@ -261,22 +231,19 @@ void symm(Side side,
 //-----------------------------------------
 // syrk()
 template <typename scalar_t>
-void syrk(scalar_t alpha, Matrix<scalar_t>& A,
-          scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void syrk(scalar_t alpha, Matrix<scalar_t>& A,
-          scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          Options const& opts = Options());
+void syrk(
+    scalar_t alpha,          Matrix<scalar_t>& A,
+    scalar_t beta,  SymmetricMatrix<scalar_t>& C,
+    Options const& opts = Options());
 
 // forward real-Hermitian matrices to syrk;
 // disabled for complex
 template <typename scalar_t>
-void syrk(scalar_t alpha, Matrix<scalar_t>& A,
-          scalar_t beta,  HermitianMatrix<scalar_t>& C,
-          Options const& opts = Options(),
-          enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+void syrk(
+    scalar_t alpha,          Matrix<scalar_t>& A,
+    scalar_t beta,  HermitianMatrix<scalar_t>& C,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     SymmetricMatrix<scalar_t> CS(C);
     syrk(alpha, A, beta, CS, opts);
@@ -285,25 +252,21 @@ void syrk(scalar_t alpha, Matrix<scalar_t>& A,
 //-----------------------------------------
 // syr2k()
 template <typename scalar_t>
-void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
-                           Matrix<scalar_t>& B,
-           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-           Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
-                           Matrix<scalar_t>& B,
-           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-           Options const& opts = Options());
+void syr2k(
+    scalar_t alpha,          Matrix<scalar_t>& A,
+                             Matrix<scalar_t>& B,
+    scalar_t beta,  SymmetricMatrix<scalar_t>& C,
+    Options const& opts = Options());
 
 // forward real-Hermitian matrices to syr2k;
 // disabled for complex
 template <typename scalar_t>
-void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
-                           Matrix<scalar_t>& B,
-           scalar_t beta,  HermitianMatrix<scalar_t>& C,
-           Options const& opts = Options(),
-           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+void syr2k(
+    scalar_t alpha,          Matrix<scalar_t>& A,
+                             Matrix<scalar_t>& B,
+    scalar_t beta,  HermitianMatrix<scalar_t>& C,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     SymmetricMatrix<scalar_t> CS(C);
     syr2k(alpha, A, B, beta, CS, opts);
@@ -312,76 +275,50 @@ void syr2k(scalar_t alpha, Matrix<scalar_t>& A,
 //-----------------------------------------
 // tbsm()
 template <typename scalar_t>
-void tbsm(blas::Side side,
-          scalar_t alpha, TriangularBandMatrix<scalar_t>& A, Pivots& pivots,
-                          Matrix<scalar_t>& B,
-          Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void tbsm(blas::Side side,
-          scalar_t alpha, TriangularBandMatrix<scalar_t>& A, Pivots& pivots,
-                          Matrix<scalar_t>& B,
-          Options const& opts = Options());
+void tbsm(
+    Side side,
+    scalar_t alpha, TriangularBandMatrix<scalar_t>& A, Pivots& pivots,
+                                  Matrix<scalar_t>& B,
+    Options const& opts = Options());
 
 template <typename scalar_t>
-void tbsm(blas::Side side,
-          scalar_t alpha, TriangularBandMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void tbsm(blas::Side side,
-          scalar_t alpha, TriangularBandMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          Options const& opts = Options());
+void tbsm(
+    Side side,
+    scalar_t alpha, TriangularBandMatrix<scalar_t>& A,
+                                  Matrix<scalar_t>& B,
+    Options const& opts = Options());
 
 //-----------------------------------------
 // trmm()
-template <Target target, typename scalar_t>
-void trmm(blas::Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          Options const& opts = Options());
-
 template <typename scalar_t>
-void trmm(blas::Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          Options const& opts = Options());
+void trmm(
+    Side side,
+    scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                              Matrix<scalar_t>& B,
+    Options const& opts = Options());
 
 //-----------------------------------------
 // trsm()
 template <typename scalar_t>
-void trsm(blas::Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void trsm(blas::Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          Options const& opts = Options());
+void trsm(
+    Side side,
+    scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                              Matrix<scalar_t>& B,
+    Options const& opts = Options());
 
 //-----------------------------------------
 // trtri()
 template <typename scalar_t>
-void trtri(TriangularMatrix<scalar_t>& A,
-           Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void trtri(TriangularMatrix<scalar_t>& A,
-           Options const& opts = Options());
+void trtri(
+    TriangularMatrix<scalar_t>& A,
+    Options const& opts = Options());
 
 //-----------------------------------------
 // trtrm()
 template <typename scalar_t>
-void trtrm(TriangularMatrix<scalar_t>& A,
-           Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void trtrm(TriangularMatrix<scalar_t>& A,
-           Options const& opts = Options());
+void trtrm(
+    TriangularMatrix<scalar_t>& A,
+    Options const& opts = Options());
 
 //------------------------------------------------------------------------------
 // Norms
@@ -390,310 +327,254 @@ void trtrm(TriangularMatrix<scalar_t>& A,
 // norm()
 template <typename matrix_type>
 blas::real_type<typename matrix_type::value_type>
-norm(Norm norm, matrix_type& A,
-     Options const& opts = Options());
-
-template <Target target, typename matrix_type>
-blas::real_type<typename matrix_type::value_type>
-norm(Norm norm, matrix_type& A,
-     Options const& opts = Options());
+norm(
+    Norm norm,
+    matrix_type& A,
+    Options const& opts = Options());
 
 //-----------------------------------------
+// colNorms()
 // all cols max norm
 template <typename matrix_type>
-void colNorms(Norm norm, matrix_type& A,
-              blas::real_type<typename matrix_type::value_type>* values,
-              Options const& opts = Options());
-
-template <Target target, typename matrix_type>
-void colNorms(Norm norm, matrix_type& A,
-              blas::real_type<typename matrix_type::value_type>* values,
-              Options const& opts = Options());
+void colNorms(
+    Norm norm,
+    matrix_type& A,
+    blas::real_type<typename matrix_type::value_type>* values,
+    Options const& opts = Options());
 
 //------------------------------------------------------------------------------
 // Factorizations, etc.
 
 //------------------------------------------------------------------------------
 // Band LU
-// gbsv
-template <typename scalar_t>
-void gbsv(BandMatrix<scalar_t>& A, Pivots& pivots,
-          Matrix<scalar_t>& B,
-          Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void gbsv(BandMatrix<scalar_t>& A, Pivots& pivots,
-          Matrix<scalar_t>& B,
-          Options const& opts = Options());
 
 //-----------------------------------------
-// gbtrf
+// gbsv()
 template <typename scalar_t>
-void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
-           Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
-           Options const& opts = Options());
+void gbsv(
+    BandMatrix<scalar_t>& A, Pivots& pivots,
+        Matrix<scalar_t>& B,
+    Options const& opts = Options());
 
 //-----------------------------------------
-// gbtrs
+// gbtrf()
 template <typename scalar_t>
-void gbtrs(BandMatrix<scalar_t>& A, Pivots& pivots,
-           Matrix<scalar_t>& B,
-           Options const& opts = Options());
+void gbtrf(
+    BandMatrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts = Options());
 
-template <Target target, typename scalar_t>
-void gbtrs(BandMatrix<scalar_t>& A, Pivots& pivots,
-           Matrix<scalar_t>& B,
-           Options const& opts = Options());
+//-----------------------------------------
+// gbtrs()
+template <typename scalar_t>
+void gbtrs(
+    BandMatrix<scalar_t>& A, Pivots& pivots,
+        Matrix<scalar_t>& B,
+    Options const& opts = Options());
 
 //------------------------------------------------------------------------------
 // LU
-// gesv
-template <typename scalar_t>
-void gesv(Matrix<scalar_t>& A, Pivots& pivots,
-          Matrix<scalar_t>& B,
-          Options const& opts = Options());
 
-template <Target target, typename scalar_t>
-void gesv(Matrix<scalar_t>& A, Pivots& pivots,
-          Matrix<scalar_t>& B,
-          Options const& opts = Options());
-
+//-----------------------------------------
+// gesv()
 template <typename scalar_t>
-void gesvMixed( Matrix<scalar_t>& A, Pivots& pivots,
-                Matrix<scalar_t>& B,
-                Matrix<scalar_t>& X,
-                int& iter,
-                Options const& opts = Options());
+void gesv(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Matrix<scalar_t>& B,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// gesvMixed()
+template <typename scalar_t>
+void gesvMixed(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Matrix<scalar_t>& B,
+    Matrix<scalar_t>& X,
+    int& iter,
+    Options const& opts = Options());
 
 template <typename scalar_hi, typename scalar_lo>
-void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
-                Matrix<scalar_hi>& B,
-                Matrix<scalar_hi>& X,
-                int& iter,
-                Options const& opts = Options());
+void gesvMixed(
+    Matrix<scalar_hi>& A, Pivots& pivots,
+    Matrix<scalar_hi>& B,
+    Matrix<scalar_hi>& X,
+    int& iter,
+    Options const& opts = Options());
 
 //-----------------------------------------
-// getrf
+// getrf()
 template <typename scalar_t>
-void getrf(Matrix<scalar_t>& A, Pivots& pivots,
-           Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void getrf(Matrix<scalar_t>& A, Pivots& pivots,
-           Options const& opts = Options());
+void getrf(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts = Options());
 
 //-----------------------------------------
-// getrs
+// getrf_nopiv()
 template <typename scalar_t>
-void getrs(Matrix<scalar_t>& A, Pivots& pivots,
-           Matrix<scalar_t>& B,
-           Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void getrs(Matrix<scalar_t>& A, Pivots& pivots,
-           Matrix<scalar_t>& B,
-           Options const& opts = Options());
+void getrf_nopiv(
+    Matrix<scalar_t>& A,
+    Options const& opts = Options());
 
 //-----------------------------------------
-// getrf_nopiv
+// getrs()
 template <typename scalar_t>
-void getrf_nopiv(Matrix<scalar_t>& A,
-           Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void getrf_nopiv(Matrix<scalar_t>& A,
-           Options const& opts = Options());
+void getrs(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Matrix<scalar_t>& B,
+    Options const& opts = Options());
 
 //-----------------------------------------
-// getrs_nopiv
+// getrs_nopiv()
 template <typename scalar_t>
-void getrs_nopiv(Matrix<scalar_t>& A,
-           Matrix<scalar_t>& B,
-           Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void getrs_nopiv(Matrix<scalar_t>& A,
-           Matrix<scalar_t>& B,
-           Options const& opts = Options());
+void getrs_nopiv(
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& B,
+    Options const& opts = Options());
 
 //-----------------------------------------
-// getri
-template <Target target, typename scalar_t>
-void getri(Matrix<scalar_t>& A, Pivots& pivots,
-           Options const& opts = Options());
+// getri()
+template <typename scalar_t>
+void getri(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts = Options());
 
 template <typename scalar_t>
-void getri(Matrix<scalar_t>& A, Pivots& pivots,
-           Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void getri(Matrix<scalar_t>& A, Pivots& pivots,
-           Matrix<scalar_t>& B,
-           Options const& opts = Options());
-
-template <typename scalar_t>
-void getri(Matrix<scalar_t>& A, Pivots& pivots,
-           Matrix<scalar_t>& B,
-           Options const& opts = Options());
+void getri(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Matrix<scalar_t>& B,
+    Options const& opts = Options());
 
 //------------------------------------------------------------------------------
 // QR
+
+//-----------------------------------------
 // auxiliary type for T factors
 template <typename scalar_t>
 using TriangularFactors = std::vector< Matrix<scalar_t> >;
 
-// gels
+//-----------------------------------------
+// gels()
 template <typename scalar_t>
-void gels(Matrix<scalar_t>& A,
-          TriangularFactors<scalar_t>& T,
-          Matrix<scalar_t>& BX,
-          Options const& opts = Options());
+void gels(
+    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+    Matrix<scalar_t>& BX,
+    Options const& opts = Options());
 
 //-----------------------------------------
-// geqrf
+// geqrf()
 template <typename scalar_t>
-void geqrf(Matrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& T,
-           Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void geqrf(Matrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& T,
-           Options const& opts = Options());
+void geqrf(
+    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+    Options const& opts = Options());
 
 //-----------------------------------------
-// gelqf
+// gelqf()
 template <typename scalar_t>
-void gelqf(Matrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& T,
-           Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void gelqf(Matrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& T,
-           Options const& opts = Options());
+void gelqf(
+    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+    Options const& opts = Options());
 
 //-----------------------------------------
-// unmqr
+// unmqr()
 template <typename scalar_t>
-void unmqr(Side side, Op op,
-           Matrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& T,
-           Matrix<scalar_t>& C,
-           Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void unmqr(Side side, Op op,
-           Matrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& T,
-           Matrix<scalar_t>& C,
-           Options const& opts = Options());
+void unmqr(
+    Side side, Op op,
+    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+    Matrix<scalar_t>& C,
+    Options const& opts = Options());
 
 //-----------------------------------------
-// unmlq
+// unmlq()
 template <typename scalar_t>
-void unmlq(Side side, Op op,
-           Matrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& T,
-           Matrix<scalar_t>& C,
-           Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void unmlq(Side side, Op op,
-           Matrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& T,
-           Matrix<scalar_t>& C,
-           Options const& opts = Options());
+void unmlq(
+    Side side, Op op,
+    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+    Matrix<scalar_t>& C,
+    Options const& opts = Options());
 
 //------------------------------------------------------------------------------
 // Band Cholesky
-// pbsv
-template <typename scalar_t>
-void pbsv(HermitianBandMatrix<scalar_t>& A, Matrix<scalar_t>& B,
-           Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void pbsv(HermitianBandMatrix<scalar_t>& A, Matrix<scalar_t>& B,
-           Options const& opts = Options());
 
 //-----------------------------------------
-// pbtrf
+// pbsv()
 template <typename scalar_t>
-void pbtrf(HermitianBandMatrix<scalar_t>& A,
-           Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void pbtrf(HermitianBandMatrix<scalar_t>& A,
-           Options const& opts = Options());
+void pbsv(
+    HermitianBandMatrix<scalar_t>& A,
+                 Matrix<scalar_t>& B,
+    Options const& opts = Options());
 
 //-----------------------------------------
-// pbtrs
+// pbtrf()
 template <typename scalar_t>
-void pbtrs(HermitianBandMatrix<scalar_t>& A, Matrix<scalar_t>& B,
-           Options const& opts = Options());
+void pbtrf(
+    HermitianBandMatrix<scalar_t>& A,
+    Options const& opts = Options());
 
-template <Target target, typename scalar_t>
-void pbtrs(HermitianBandMatrix<scalar_t>& A, Matrix<scalar_t>& B,
-           Options const& opts = Options());
-
+//-----------------------------------------
+// pbtrs()
+template <typename scalar_t>
+void pbtrs(
+    HermitianBandMatrix<scalar_t>& A,
+                 Matrix<scalar_t>& B,
+    Options const& opts = Options());
 
 //------------------------------------------------------------------------------
 // Cholesky
-// posv
-template <typename scalar_t>
-void posv(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
-           Options const& opts = Options());
 
-template <Target target, typename scalar_t>
-void posv(HermitianMatrix<scalar_t>& A, Matrix<scalar_t>& B,
-           Options const& opts = Options());
+//-----------------------------------------
+// posv()
+template <typename scalar_t>
+void posv(
+    HermitianMatrix<scalar_t>& A,
+             Matrix<scalar_t>& B,
+    Options const& opts = Options());
 
 // forward real-symmetric matrices to potrf;
 // disabled for complex
 template <typename scalar_t>
-void posv(SymmetricMatrix<scalar_t>& A, Matrix<scalar_t>& B,
-          Options const& opts = Options(),
-          enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+void posv(
+    SymmetricMatrix<scalar_t>& A,
+             Matrix<scalar_t>& B,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> AH(A);
     posv(AH, B, opts);
 }
 
+//-----------------------------------------
+// posvMixed()
 template <typename scalar_t>
-void posvMixed( HermitianMatrix<scalar_t>& A,
-                Matrix<scalar_t>& B,
-                Matrix<scalar_t>& X,
-                int& iter,
-                Options const& opts = Options());
+void posvMixed(
+    HermitianMatrix<scalar_t>& A,
+             Matrix<scalar_t>& B,
+             Matrix<scalar_t>& X,
+    int& iter,
+    Options const& opts = Options());
 
 template <typename scalar_hi, typename scalar_lo>
-void posvMixed( HermitianMatrix<scalar_hi>& A,
-                Matrix<scalar_hi>& B,
-                Matrix<scalar_hi>& X,
-                int& iter,
-                Options const& opts = Options());
+void posvMixed(
+    HermitianMatrix<scalar_hi>& A,
+             Matrix<scalar_hi>& B,
+             Matrix<scalar_hi>& X,
+    int& iter,
+    Options const& opts = Options());
 
 // todo: forward real-symmetric matrices to posvMixed?
 
 //-----------------------------------------
-// potrf
+// potrf()
 template <typename scalar_t>
-void potrf(HermitianMatrix<scalar_t>& A,
-           Options const& opts = Options());
-
-template <Target target, typename scalar_t>
-void potrf(HermitianMatrix<scalar_t>& A,
-           Options const& opts = Options());
+void potrf(
+    HermitianMatrix<scalar_t>& A,
+    Options const& opts = Options());
 
 // forward real-symmetric matrices to potrf;
 // disabled for complex
 template <typename scalar_t>
-void potrf(SymmetricMatrix<scalar_t>& A,
-           Options const& opts = Options(),
-           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+void potrf(
+    SymmetricMatrix<scalar_t>& A,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> AH(A);
     potrf(AH, opts);

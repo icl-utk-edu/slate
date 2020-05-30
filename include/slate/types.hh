@@ -86,6 +86,8 @@ public:
     };
 };
 
+using Options = std::map<Option, Value>;
+
 //------------------------------------------------------------------------------
 class Pivot {
 public:
@@ -120,8 +122,7 @@ inline bool operator!= (Pivot const& lhs, Pivot const& rhs)
     return lhs_pair != rhs_pair;
 }
 
-using Pivots  = std::vector< std::vector<Pivot> >;
-using Options = std::map<Option, Value>;
+using Pivots = std::vector< std::vector<Pivot> >;
 
 //------------------------------------------------------------------------------
 /// Gives mpi_type based on actual scalar_t.

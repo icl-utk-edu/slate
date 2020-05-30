@@ -279,79 +279,109 @@ void rank_2k_update(
 // LU
 
 //-----------------------------------------
-// luFactor()
+// lu_factor()
+
+// gbtrf
 template <typename scalar_t>
-void luFactor(BandMatrix<scalar_t>& A, Pivots& pivots,
-              const std::map<Option, Value>& opts = std::map<Option, Value>())
+void lu_factor(
+    BandMatrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts = Options())
 {
     gbtrf(A, pivots, opts);
 }
+
+// getrf with pivoting
 template <typename scalar_t>
-void luFactor(Matrix<scalar_t>& A, Pivots& pivots,
-              const std::map<Option, Value>& opts = std::map<Option, Value>())
+void lu_factor(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts = Options())
 {
     getrf(A, pivots, opts);
 }
+
+// getrf
 template <typename scalar_t>
-void luFactor(Matrix<scalar_t>& A,
-              const std::map<Option, Value>& opts = std::map<Option, Value>())
+void lu_factor(
+    Matrix<scalar_t>& A,
+    Options const& opts = Options())
 {
     getrf_nopiv(A, opts);
 }
 
 //-----------------------------------------
-// luSolve()
+// lu_solve()
+
+// gbsv
 template <typename scalar_t>
-void luSolve(BandMatrix<scalar_t>& A, Pivots& pivots,
-                 Matrix<scalar_t>& B,
-             const std::map<Option, Value>& opts = std::map<Option, Value>())
+void lu_solve(
+    BandMatrix<scalar_t>& A, Pivots& pivots,
+        Matrix<scalar_t>& B,
+    Options const& opts = Options())
 {
     gbsv(A, pivots, B, opts);
 }
+
+// gesv
 template <typename scalar_t>
-void luSolve(Matrix<scalar_t>& A, Pivots& pivots,
-             Matrix<scalar_t>& B,
-             const std::map<Option, Value>& opts = std::map<Option, Value>())
+void lu_solve(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Matrix<scalar_t>& B,
+    Options const& opts = Options())
 {
     gesv(A, pivots, B, opts);
 }
 
 //-----------------------------------------
-// luSolveUsingFactor()
+// lu_solve_using_factor()
+
+// gbtrs
 template <typename scalar_t>
-void luSolveUsingFactor(BandMatrix<scalar_t>& A, Pivots& pivots,
-                            Matrix<scalar_t>& B,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
+void lu_solve_using_factor(
+    BandMatrix<scalar_t>& A, Pivots& pivots,
+        Matrix<scalar_t>& B,
+    Options const& opts = Options())
 {
     gbtrs(A, pivots, B, opts);
 }
+
+// getrs
 template <typename scalar_t>
-void luSolveUsingFactor(Matrix<scalar_t>& A, Pivots& pivots,
-                        Matrix<scalar_t>& B,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
+void lu_solve_using_factor(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Matrix<scalar_t>& B,
+    Options const& opts = Options())
 {
     getrs(A, pivots, B, opts);
 }
+
+// getrs_nopiv
 template <typename scalar_t>
-void luSolveUsingFactor(Matrix<scalar_t>& A,
-                        Matrix<scalar_t>& B,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
+void lu_solve_using_factor(
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& B,
+    Options const& opts = Options())
 {
     getrs_nopiv(A, B, opts);
 }
 
 //-----------------------------------------
-// luInverseUsingFactor()
+// lu_inverse_using_factor()
+
+// In-place getri
 template <typename scalar_t>
-void luInverseUsingFactor(Matrix<scalar_t>& A, Pivots& pivots,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
+void lu_inverse_using_factor(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts = Options())
 {
     getri(A, pivots, opts);
 }
+
+// Out-of-place getri
 template <typename scalar_t>
-void luInverseUsingFactor(Matrix<scalar_t>& A, Pivots& pivots,
-                          Matrix<scalar_t>& B,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
+void lu_inverse_using_factor(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Matrix<scalar_t>& B,
+    Options const& opts = Options())
 
 {
     getri(A, pivots, B, opts);
@@ -361,62 +391,83 @@ void luInverseUsingFactor(Matrix<scalar_t>& A, Pivots& pivots,
 // Cholesky
 
 //-----------------------------------------
-// cholFactor()
+// chol_factor()
+
+// potrf
 template <typename scalar_t>
-void cholFactor(HermitianMatrix<scalar_t>& A,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
-{
-    potrf(A, opts);
-}
-template <typename scalar_t>
-void cholFactor(SymmetricMatrix<scalar_t>& A,
-                const std::map<Option, Value>& opts = std::map<Option, Value>(),
-                enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+void chol_factor(
+    HermitianMatrix<scalar_t>& A,
+    Options const& opts = Options())
 {
     potrf(A, opts);
 }
 
-//-----------------------------------------
-// cholSolve()
+// Forward real-symmetric matrices to potrf; disabled for complex
 template <typename scalar_t>
-void cholSolve(HermitianMatrix<scalar_t>& A,
-                        Matrix<scalar_t>& B,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
+void chol_factor(
+    SymmetricMatrix<scalar_t>& A,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    potrf(A, opts);
+}
+
+//-----------------------------------------
+// chol_solve()
+
+// posv
+template <typename scalar_t>
+void chol_solve(
+    HermitianMatrix<scalar_t>& A,
+             Matrix<scalar_t>& B,
+    Options const& opts = Options())
 {
     posv(A, B, opts);
 }
+
+// Forward real-symmetric matrices to posv; disabled for complex
 template <typename scalar_t>
-void cholSolve(SymmetricMatrix<scalar_t>& A,
-                        Matrix<scalar_t>& B,
-                const std::map<Option, Value>& opts = std::map<Option, Value>(),
-                enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+void chol_solve(
+    SymmetricMatrix<scalar_t>& A,
+             Matrix<scalar_t>& B,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     posv(A, B, opts);
 }
 
 //-----------------------------------------
-// cholSolveUsingFactor()
+// chol_solve_using_factor()
+
+// potrs
 template <typename scalar_t>
-void cholSolveUsingFactor(HermitianMatrix<scalar_t>& A,
-                                   Matrix<scalar_t>& B,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
+void chol_solve_using_factor(
+    HermitianMatrix<scalar_t>& A,
+             Matrix<scalar_t>& B,
+    Options const& opts = Options())
 {
     potrs(A, B, opts);
 }
+
+// Forward real-symmetric matrices to potrs; disabled for complex
 template <typename scalar_t>
-void cholSolveUsingFactor(SymmetricMatrix<scalar_t>& A,
-                                   Matrix<scalar_t>& B,
-                const std::map<Option, Value>& opts = std::map<Option, Value>(),
-                enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+void chol_solve_using_factor(
+    SymmetricMatrix<scalar_t>& A,
+             Matrix<scalar_t>& B,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     potrs(A, B, opts);
 }
 
 //-----------------------------------------
-// cholInverseUsingFactor()
+// chol_inverse_using_factor()
+
+// potri
 template <typename scalar_t>
-void cholInverseUsingFactor(HermitianMatrix<scalar_t>& A,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
+void chol_inverse_using_factor(
+    HermitianMatrix<scalar_t>& A,
+    Options const& opts = Options())
 {
     potri(A, opts);
 }
@@ -425,102 +476,128 @@ void cholInverseUsingFactor(HermitianMatrix<scalar_t>& A,
 // Symmetric indefinite -- block Aasen's
 
 //-----------------------------------------
-// indefiniteFactor()
+// indefinite_factor()
+
+// hetrf
 template <typename scalar_t>
-void indefiniteFactor(HermitianMatrix<scalar_t>& A, Pivots& pivots,
-                           BandMatrix<scalar_t>& T, Pivots& pivots2,
-                               Matrix<scalar_t>& H,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
+void indefinite_factor(
+    HermitianMatrix<scalar_t>& A, Pivots& pivots,
+         BandMatrix<scalar_t>& T, Pivots& pivots2,
+             Matrix<scalar_t>& H,
+    Options const& opts = Options())
 {
     hetrf(A, T, H, opts);
 }
+
+// Forward real-symmetric matrices to hetrf; disabled for complex
 template <typename scalar_t>
-void indefiniteFactor(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
-                           BandMatrix<scalar_t>& T, Pivots& pivots2,
-                               Matrix<scalar_t>& H,
-                const std::map<Option, Value>& opts = std::map<Option, Value>(),
-                enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+void indefinite_factor(
+    SymmetricMatrix<scalar_t>& A, Pivots& pivots,
+         BandMatrix<scalar_t>& T, Pivots& pivots2,
+             Matrix<scalar_t>& H,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     hetrf(A, T, H, opts);
 }
 
 //-----------------------------------------
-// indefiniteSolve()
+// indefinite_solve()
+
+// hesv
 template <typename scalar_t>
-void indefiniteSolve(HermitianMatrix<scalar_t>& A, Pivots& pivots,
-                          BandMatrix<scalar_t>& T, Pivots& pivots2,
-                              Matrix<scalar_t>& H,
-                              Matrix<scalar_t>& B,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
+void indefinite_solve(
+    HermitianMatrix<scalar_t>& A, Pivots& pivots,
+         BandMatrix<scalar_t>& T, Pivots& pivots2,
+             Matrix<scalar_t>& H,
+             Matrix<scalar_t>& B,
+    Options const& opts = Options())
 {
     hesv(A, B, opts);
 }
+
+// Forward real-symmetric matrices to hesv; disabled for complex
 template <typename scalar_t>
-void indefiniteSolve(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
-                          BandMatrix<scalar_t>& T, Pivots& pivots2,
-                              Matrix<scalar_t>& H,
-                              Matrix<scalar_t>& B,
-                const std::map<Option, Value>& opts = std::map<Option, Value>(),
-                enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+void indefinite_solve(
+    SymmetricMatrix<scalar_t>& A, Pivots& pivots,
+         BandMatrix<scalar_t>& T, Pivots& pivots2,
+             Matrix<scalar_t>& H,
+             Matrix<scalar_t>& B,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     hesv(A, B, opts);
 }
 
 //-----------------------------------------
-// indefiniteSolveUsingFactor()
+// indefinite_solve_using_factor()
+
+// hetrs
 template <typename scalar_t>
-void indefiniteSolveUsingFactor(HermitianMatrix<scalar_t>& A, Pivots& pivots,
-                                     BandMatrix<scalar_t>& T, Pivots& pivots2,
-                                         Matrix<scalar_t>& B,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
+void indefinite_solve_using_factor(
+    HermitianMatrix<scalar_t>& A, Pivots& pivots,
+         BandMatrix<scalar_t>& T, Pivots& pivots2,
+             Matrix<scalar_t>& B,
+    Options const& opts = Options())
 {
     hetrs(A, T, B, opts);
 }
+// Forward real-symmetric matrices to hetrs; disabled for complex
 template <typename scalar_t>
-void indefiniteSolveUsingFactor(SymmetricMatrix<scalar_t>& A, Pivots& pivots,
-                                     BandMatrix<scalar_t>& T, Pivots& pivots2,
-                                         Matrix<scalar_t>& B,
-                const std::map<Option, Value>& opts = std::map<Option, Value>(),
-                enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+void indefinite_solve_using_factor(
+    SymmetricMatrix<scalar_t>& A, Pivots& pivots,
+         BandMatrix<scalar_t>& T, Pivots& pivots2,
+             Matrix<scalar_t>& B,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     hetrs(A, T, B, opts);
 }
 
 //------------------------------------------------------------------------------
+// QR
+
+//-----------------------------------------
 // Least squares
 
 //-----------------------------------------
-// leastSquaresSolve()
+// least_squares_solve()
+
+// gels
 template <typename scalar_t>
-void leastSquaresSolve(Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
-                       Matrix<scalar_t>& BX,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
+void least_squares_solve(
+    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+    Matrix<scalar_t>& BX,
+    Options const& opts = Options())
 {
     gels(A, T, BX, opts);
 }
-
-//------------------------------------------------------------------------------
-// QR, LQ, ...
 
 //-----------------------------------------
 // QR
 
 //-----------------------------------------
-// qrFactor()
+// qr_factor()
+
+// geqrf
 template <typename scalar_t>
-void qrFactor(Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
-              const std::map<Option, Value>& opts = std::map<Option, Value>())
+void qr_factor(
+    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+    Options const& opts = Options())
 {
     geqrf(A, T, opts);
 }
 
 //-----------------------------------------
-// qrMultiplyByQ()
+// qr_multiply_by_q()
+
+// unmqr
 template <typename scalar_t>
-void qrMultiplyByQ(Side side, Op op,
-                   Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
-                   Matrix<scalar_t>& C,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
+void qr_multiply_by_q(
+    Side side, Op op,
+    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+    Matrix<scalar_t>& C,
+    Options const& opts = Options())
 {
     unmqr(side, op, A, T, C, opts);
 }
@@ -529,21 +606,27 @@ void qrMultiplyByQ(Side side, Op op,
 // LQ
 
 //-----------------------------------------
-// lqFactor()
+// lq_factor()
+
+// gelqf
 template <typename scalar_t>
-void lqFactor(Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
-              const std::map<Option, Value>& opts = std::map<Option, Value>())
+void lq_factor(
+    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+    Options const& opts = Options())
 {
     gelqf(A, T, opts);
 }
 
 //-----------------------------------------
-// lqMultiplyByQ()
+// lq_multiply_by_q()
+
+// unmlq
 template <typename scalar_t>
-void lqMultiplyByQ(Side side, Op op,
-                   Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
-                   Matrix<scalar_t>& C,
-                const std::map<Option, Value>& opts = std::map<Option, Value>())
+void lq_multiply_by_q(
+    Side side, Op op,
+    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+    Matrix<scalar_t>& C,
+    Options const& opts = Options())
 {
     unmlq(side, op, A, T, C, opts);
 }

@@ -1,98 +1,116 @@
 pipeline {
     agent none
     triggers { cron ('H H(0-2) * * *') }
-        stages {
-            stage('Parallel Build') {
-                parallel {
-                    stage('Build - Caffeine') {
-                        agent { node 'caffeine.icl.utk.edu' }
-                        steps {
-                            sh '''
-                                #!/bin/sh +x
-                                echo "SLATE Jenkinsfile"
-                                hostname && pwd
-
-                                source /home/jmfinney/spack/share/spack/setup-env.sh
-                                spack load gcc@6.4.0
-                                spack load cuda
-                                spack load intel-mkl
-                                spack load intel-mpi
-
-                                cat > make.inc << "END"
-                                CXX       = mpicxx
-                                CXXFLAGS  = -DNO_COLOR
-                                blas      = mkl
-                                cuda_arch = pascal
-                                # openmp=1 by default
-END
-
-                                cd testsweeper
-                                make config
-                                # disable color output so JUnit recognizes the XML even if there's an error
-                                sed -i '/CXXFLAGS/s/$/ -DNO_COLOR/' make.inc
-                                make
-                                cd ..
-
-                                cd blaspp
-                                make config
-                                make -j4
-                                cd ..
-
-                                cd lapackpp
-                                make config
-                                make -j4
-
-                                # add Netlib LAPACKE
-                                export LAPACKDIR=$LAPACK_DIR
-                                sed -i 's/-lmkl_gf_lp64/-L${LAPACKDIR} -llapacke -lmkl_gf_lp64/g' make.inc
-                                cd ..
-
-                                make -j4
-                                '''
-                        }
-                    }
-                    stage('Build - Lips') {
-                        agent { node 'lips.icl.utk.edu' }
-                        steps {
-                            sh '''
-                                #!/bin/sh +x
-                                hostname && pwd
-                                #rm -rf *
-
-                                #hg clone https://bitbucket.org/icl/slate
-                                #cd slate
-                                source /home/jmfinney/spack/share/spack/setup-env.sh
-                                spack load environment-modules
-                                spack load gcc@6.4.0
-                                spack load cuda
-                                spack load intel-mkl
-                                spack load openmpi^gcc@6.4.0
-
-                                cat > make.inc <<-END
-                                CXX       = mpicxx
-                                CXXFLAGS  = -DNO_COLOR
-                                blas      = mkl
-                                mkl_blacs = openmpi
-                                cuda      = 1
-                                # openmp=1 by default
-END
-
-                                export OMPI_CXX=${CXX}
-
-                                make -j4
-                                '''
-                        }
-                    }
-                }
-            }
-            stage('Parallel Test') {
-                parallel {
-            stage ('Test - Caffeine') {
-                agent { node 'caffeine.icl.utk.edu' }
-                steps {
-                    sh '''
+    stages {
+        //======================================================================
+        stage('Parallel Build') {
+            parallel {
+                //--------------------------------------------------------------
+                stage('Build - Caffeine (gcc 6.4, CUDA, MKL, Intel MPI)') {
+                    agent { node 'caffeine.icl.utk.edu' }
+                    steps {
+                        sh '''
                         #!/bin/sh +x
-                        echo "SLATE Test Phase"
+                        echo "SLATE Building"
+                        hostname && pwd
+
+                        source /home/jmfinney/spack/share/spack/setup-env.sh
+                        spack load gcc@6.4.0
+                        spack load cuda
+                        spack load intel-mkl
+                        spack load intel-mpi
+
+                        export color=no
+
+                        cat > make.inc << END
+                        CXX       = mpicxx
+                        CXXFLAGS  = -Werror
+                        blas      = mkl
+                        cuda_arch = pascal
+                        # openmp=1 by default
+END
+
+                        make -j4
+                        ldd test/tester
+                        '''
+                    } // steps
+                    post {
+                        unstable {
+                            slackSend channel: '#slate_ci',
+                                color: 'warning',
+                                message: "${currentBuild.fullDisplayName} Caffeine build unstable (<${env.BUILD_URL}|Open>)"
+                        }
+                        failure {
+                            slackSend channel: '#slate_ci',
+                                color: 'danger',
+                                message: "${currentBuild.fullDisplayName} Caffeine build failed (<${env.BUILD_URL}|Open>)"
+                            mail to: 'slate-dev@icl.utk.edu',
+                                subject: "${currentBuild.fullDisplayName} Caffeine build failed",
+                                body: "See more at ${env.BUILD_URL}"
+                        }
+                    } // post
+                } // stage(Build - Caffeine)
+
+                //--------------------------------------------------------------
+                stage('Build - Lips (gcc 6.4, CUDA, MKL, Open MPI)') {
+                    agent { node 'lips.icl.utk.edu' }
+                    steps {
+                        sh '''
+                        #!/bin/sh +x
+                        echo "SLATE Building"
+                        hostname && pwd
+
+                        source /home/jmfinney/spack/share/spack/setup-env.sh
+                        spack load gcc@6.4.0
+                        spack load cuda
+                        spack load intel-mkl
+                        spack load openmpi^gcc@6.4.0
+
+                        export color=no
+                        export OMPI_CXX=${CXX}
+
+                        cat > make.inc << END
+                        CXX       = mpicxx
+                        CXXFLAGS  = -Werror
+                        blas      = mkl
+                        mkl_blacs = openmpi
+                        cuda      = 1
+                        # openmp=1 by default
+END
+
+                        make -j4
+                        ldd test/tester
+                        '''
+                    } // steps
+                    post {
+                        unstable {
+                            slackSend channel: '#slate_ci',
+                                color: 'warning',
+                                message: "${currentBuild.fullDisplayName} Lips build unstable (<${env.BUILD_URL}|Open>)"
+                        }
+                        failure {
+                            slackSend channel: '#slate_ci',
+                                color: 'danger',
+                                message: "${currentBuild.fullDisplayName} Lips build failed (<${env.BUILD_URL}|Open>)"
+                            mail to: 'slate-dev@icl.utk.edu',
+                                subject: "${currentBuild.fullDisplayName} Lips build failed",
+                                body: "See more at ${env.BUILD_URL}"
+                        }
+                    } // post
+                } // stage(Build - Lips)
+            } // parallel
+        } // stage(Parallel Build)
+
+        //======================================================================
+        stage('Parallel Test') {
+            parallel {
+                //--------------------------------------------------------------
+                stage('Test - Caffeine') {
+                    agent { node 'caffeine.icl.utk.edu' }
+                    steps {
+                        sh '''
+                        #!/bin/sh +x
+                        echo "SLATE Testing"
                         hostname && pwd
 
                         source /home/jmfinney/spack/share/spack/setup-env.sh
@@ -103,26 +121,41 @@ END
 
                         export FI_PROVIDER=tcp
 
-                        #cd unit_test
-                        #./run_tests.py --xml report_unit.xml
+                        cd unit_test
+                        ./run_tests.py --xml report_unit.xml
+
                         cd test
-                        ./run_tests.py --xml report_integration.xml
+                        ./run_tests.py --ref n --xml report.xml
                         '''
-                }
-                post {
-                    always {
-                        junit '*/*.xml'
-                    }
-                }
-            }
-            stage ('Test - Lips') {
-                agent { node 'lips.icl.utk.edu' }
-                steps {
-                    sh '''
+                    } // steps
+                    post {
+                        unstable {
+                            slackSend channel: '#slate_ci',
+                                color: 'warning',
+                                message: "${currentBuild.fullDisplayName} Caffeine test unstable (<${env.BUILD_URL}|Open>)"
+                        }
+                        failure {
+                            slackSend channel: '#slate_ci',
+                                color: 'danger',
+                                message: "${currentBuild.fullDisplayName} Caffeine test failed (<${env.BUILD_URL}|Open>)"
+                            mail to: 'slate-dev@icl.utk.edu',
+                                subject: "${currentBuild.fullDisplayName} Caffeine test failed",
+                                body: "See more at ${env.BUILD_URL}"
+                        }
+                        always {
+                            junit 'test/*.xml' 'unit_test/*.xml'
+                        }
+                    } // post
+                } // stage(Test - Caffeine)
+
+                //--------------------------------------------------------------
+                stage('Test - Lips') {
+                    agent { node 'lips.icl.utk.edu' }
+                    steps {
+                        sh '''
                         #!/bin/sh +x
-                        echo "SLATE Test Phase"
+                        echo "SLATE Testing"
                         hostname && pwd
-                        #cd slate
 
                         source /home/jmfinney/spack/share/spack/setup-env.sh
                         spack load gcc@6.4.0
@@ -130,17 +163,34 @@ END
                         spack load intel-mkl
                         spack load openmpi^gcc@6.4.0
 
+                        cd unit_test
+                        ./run_tests.py --xml report_unit.xml
+
                         cd test
-                        ./run_tests.py --xml report_integration.xml
+                        ./run_tests.py --ref n --xml report.xml
                         '''
-                }
-                post {
-                    always {
-                        junit 'test/*.xml'
-                    }
-                }
-            }
-                }
-            }
-        }
-}
+                    } // steps
+                    post {
+                        unstable {
+                            slackSend channel: '#slate_ci',
+                                color: 'warning',
+                                message: "${currentBuild.fullDisplayName} Lips test unstable (<${env.BUILD_URL}|Open>)"
+                        }
+                        // Lips currently has spurious errors; don't email them.
+                        failure {
+                            slackSend channel: '#slate_ci',
+                                color: 'danger',
+                                message: "${currentBuild.fullDisplayName} Lips test failed (<${env.BUILD_URL}|Open>)"
+                            mail to: 'slate-dev@icl.utk.edu',
+                                subject: "${currentBuild.fullDisplayName} Lips test failed",
+                                body: "See more at ${env.BUILD_URL}"
+                        }
+                        always {
+                            junit 'test/*.xml' 'unit_test/*.xml'
+                        }
+                    } // post
+                } // stage(Test - Lips)
+            } // parallel
+        } // stage(Parallel Test)
+    } // stages
+} // pipeline

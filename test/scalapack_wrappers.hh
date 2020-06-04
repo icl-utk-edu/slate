@@ -5,8 +5,8 @@
  * Copyright (c) 2010      University of Denver, Colorado.
  */
 
-#ifndef ICL_SLATE_SCALAPACK_WRAPPERS_HH
-#define ICL_SLATE_SCALAPACK_WRAPPERS_HH
+#ifndef SLATE_SCALAPACK_WRAPPERS_HH
+#define SLATE_SCALAPACK_WRAPPERS_HH
 
 // get BLAS_FORTRAN_NAME and blas_int
 #include "blas_fortran.hh"
@@ -1990,100 +1990,100 @@ inline void scalapack_placpy(
 #define scalapack_pzhegvx BLAS_FORTRAN_NAME( pzhegvx, PZHEGVX )
 
 extern "C" void scalapack_pssygvx(
-    blas_int* itype, const char* jobz, const char* range, const char* uplo, blas_int* n, 
-    float *A, blas_int* ia, blas_int* ja, blas_int* descA, 
+    blas_int* itype, const char* jobz, const char* range, const char* uplo, blas_int* n,
+    float *A, blas_int* ia, blas_int* ja, blas_int* descA,
     float *B, blas_int* ib, blas_int* jb, blas_int* descB,
-    float* vl, float* vu,  blas_int* il, blas_int* iu, float* abstol, 
-    blas_int* m, blas_int* nz, float* W, float* orfac, 
-    float* Z, blas_int* iz, blas_int* jz, blas_int* descZ, 
-    float* work, blas_int* lwork, blas_int* iwork, blas_int* liwork, 
+    float* vl, float* vu,  blas_int* il, blas_int* iu, float* abstol,
+    blas_int* m, blas_int* nz, float* W, float* orfac,
+    float* Z, blas_int* iz, blas_int* jz, blas_int* descZ,
+    float* work, blas_int* lwork, blas_int* iwork, blas_int* liwork,
     blas_int* ifail, blas_int* iclustr, float* gap, blas_int* info);
 
 extern "C" void scalapack_pdsygvx(
-    blas_int* itype, const char* jobz, const char* range, const char* uplo, blas_int* n, 
-    double *A, blas_int* ia, blas_int* ja, blas_int* descA, 
+    blas_int* itype, const char* jobz, const char* range, const char* uplo, blas_int* n,
+    double *A, blas_int* ia, blas_int* ja, blas_int* descA,
     double *B, blas_int* ib, blas_int* jb, blas_int* descB,
-    double* vl, double* vu,  blas_int* il, blas_int* iu, double* abstol, 
-    blas_int* m, blas_int* nz, double* W, double* orfac, 
-    double* Z, blas_int* iz, blas_int* jz, blas_int* descZ, 
-    double* work, blas_int* lwork, blas_int* iwork, blas_int* liwork, 
+    double* vl, double* vu,  blas_int* il, blas_int* iu, double* abstol,
+    blas_int* m, blas_int* nz, double* W, double* orfac,
+    double* Z, blas_int* iz, blas_int* jz, blas_int* descZ,
+    double* work, blas_int* lwork, blas_int* iwork, blas_int* liwork,
     blas_int* ifail, blas_int* iclustr, double* gap, blas_int* info);
 
 extern "C" void scalapack_pchegvx(
-    blas_int* itype, const char* jobz, const char* range, const char* uplo, blas_int* n, 
-    std::complex<float> *A, blas_int* ia, blas_int* ja, blas_int* descA, 
+    blas_int* itype, const char* jobz, const char* range, const char* uplo, blas_int* n,
+    std::complex<float> *A, blas_int* ia, blas_int* ja, blas_int* descA,
     std::complex<float> *B, blas_int* ib, blas_int* jb, blas_int* descB,
-    float* vl, float* vu,  blas_int* il, blas_int* iu, float* abstol, 
-    blas_int* m, blas_int* nz, float* W, float* orfac, 
-    std::complex<float>* Z, blas_int* iz, blas_int* jz, blas_int* descZ, 
-    std::complex<float>* work, blas_int* lwork, 
-    float* rwork, blas_int* lrwork, blas_int* iwork, blas_int* liwork, 
+    float* vl, float* vu,  blas_int* il, blas_int* iu, float* abstol,
+    blas_int* m, blas_int* nz, float* W, float* orfac,
+    std::complex<float>* Z, blas_int* iz, blas_int* jz, blas_int* descZ,
+    std::complex<float>* work, blas_int* lwork,
+    float* rwork, blas_int* lrwork, blas_int* iwork, blas_int* liwork,
     blas_int* ifail, blas_int* iclustr, float* gap, blas_int* info);
 
 extern "C" void scalapack_pzhegvx(
-    blas_int* itype, const char* jobz, const char* range, const char* uplo, blas_int* n, 
-    std::complex<double> *A, blas_int* ia, blas_int* ja, blas_int* descA, 
+    blas_int* itype, const char* jobz, const char* range, const char* uplo, blas_int* n,
+    std::complex<double> *A, blas_int* ia, blas_int* ja, blas_int* descA,
     std::complex<double> *B, blas_int* ib, blas_int* jb, blas_int* descB,
-    double* vl, double* vu,  blas_int* il, blas_int* iu, double* abstol, 
-    blas_int* m, blas_int* nz, double* W, double* orfac, 
-    std::complex<double>* Z, blas_int* iz, blas_int* jz, blas_int* descZ, 
-    std::complex<double>* work, blas_int* lwork, 
-    double* rwork, blas_int* lrwork, blas_int* iwork, blas_int* liwork, 
+    double* vl, double* vu,  blas_int* il, blas_int* iu, double* abstol,
+    blas_int* m, blas_int* nz, double* W, double* orfac,
+    std::complex<double>* Z, blas_int* iz, blas_int* jz, blas_int* descZ,
+    std::complex<double>* work, blas_int* lwork,
+    double* rwork, blas_int* lrwork, blas_int* iwork, blas_int* liwork,
     blas_int* ifail, blas_int* iclustr, double* gap, blas_int* info);
 
 // -----------------------------------------------------------------------------
 
 inline void scalapack_phegvx(
-    blas_int* itype, const char* jobz, const char* range, const char* uplo, blas_int* n, 
-    float *A, blas_int* ia, blas_int* ja, blas_int* descA, 
+    blas_int* itype, const char* jobz, const char* range, const char* uplo, blas_int* n,
+    float *A, blas_int* ia, blas_int* ja, blas_int* descA,
     float *B, blas_int* ib, blas_int* jb, blas_int* descB,
-    float* vl, float* vu,  blas_int* il, blas_int* iu, float* abstol, 
-    blas_int* m, blas_int* nz, float* W, float* orfac, 
-    float* Z, blas_int* iz, blas_int* jz, blas_int* descZ, 
-    float* work, blas_int* lwork, 
-    float* rwork, blas_int* lrwork, blas_int* iwork, blas_int* liwork, 
+    float* vl, float* vu,  blas_int* il, blas_int* iu, float* abstol,
+    blas_int* m, blas_int* nz, float* W, float* orfac,
+    float* Z, blas_int* iz, blas_int* jz, blas_int* descZ,
+    float* work, blas_int* lwork,
+    float* rwork, blas_int* lrwork, blas_int* iwork, blas_int* liwork,
     blas_int* ifail, blas_int* iclustr, float* gap, blas_int* info)
 {
     scalapack_pssygvx( itype, jobz, range, uplo, n, A, ia, ja, descA, B, ib, jb, descB, vl, vu, il, iu, abstol, m, nz, W, orfac, Z, iz, jz, descZ, work, lwork, iwork, liwork, ifail, iclustr, gap, info );
 }
 
 inline void scalapack_phegvx(
-    blas_int* itype, const char* jobz, const char* range, const char* uplo, blas_int* n, 
-    double *A, blas_int* ia, blas_int* ja, blas_int* descA, 
+    blas_int* itype, const char* jobz, const char* range, const char* uplo, blas_int* n,
+    double *A, blas_int* ia, blas_int* ja, blas_int* descA,
     double *B, blas_int* ib, blas_int* jb, blas_int* descB,
-    double* vl, double* vu,  blas_int* il, blas_int* iu, double* abstol, 
-    blas_int* m, blas_int* nz, double* W, double* orfac, 
-    double* Z, blas_int* iz, blas_int* jz, blas_int* descZ, 
-    double* work, blas_int* lwork, 
-    double* rwork, blas_int* lrwork, blas_int* iwork, blas_int* liwork, 
+    double* vl, double* vu,  blas_int* il, blas_int* iu, double* abstol,
+    blas_int* m, blas_int* nz, double* W, double* orfac,
+    double* Z, blas_int* iz, blas_int* jz, blas_int* descZ,
+    double* work, blas_int* lwork,
+    double* rwork, blas_int* lrwork, blas_int* iwork, blas_int* liwork,
     blas_int* ifail, blas_int* iclustr, double* gap, blas_int* info)
 {
     scalapack_pdsygvx( itype, jobz, range, uplo, n, A, ia, ja, descA, B, ib, jb, descB, vl, vu, il, iu, abstol, m, nz, W, orfac, Z, iz, jz, descZ, work, lwork, iwork, liwork, ifail, iclustr, gap, info );
 }
 
 inline void scalapack_phegvx(
-    blas_int* itype, const char* jobz, const char* range, const char* uplo, blas_int* n, 
-    std::complex<float> *A, blas_int* ia, blas_int* ja, blas_int* descA, 
+    blas_int* itype, const char* jobz, const char* range, const char* uplo, blas_int* n,
+    std::complex<float> *A, blas_int* ia, blas_int* ja, blas_int* descA,
     std::complex<float> *B, blas_int* ib, blas_int* jb, blas_int* descB,
-    float* vl, float* vu,  blas_int* il, blas_int* iu, float* abstol, 
-    blas_int* m, blas_int* nz, float* W, float* orfac, 
-    std::complex<float>* Z, blas_int* iz, blas_int* jz, blas_int* descZ, 
-    std::complex<float>* work, blas_int* lwork, 
-    float* rwork, blas_int* lrwork, blas_int* iwork, blas_int* liwork, 
+    float* vl, float* vu,  blas_int* il, blas_int* iu, float* abstol,
+    blas_int* m, blas_int* nz, float* W, float* orfac,
+    std::complex<float>* Z, blas_int* iz, blas_int* jz, blas_int* descZ,
+    std::complex<float>* work, blas_int* lwork,
+    float* rwork, blas_int* lrwork, blas_int* iwork, blas_int* liwork,
     blas_int* ifail, blas_int* iclustr, float* gap, blas_int* info)
 {
     scalapack_pchegvx( itype, jobz, range, uplo, n, A, ia, ja, descA, B, ib, jb, descB, vl, vu, il, iu, abstol, m, nz, W, orfac, Z, iz, jz, descZ, work, lwork, rwork, lrwork, iwork, liwork, ifail, iclustr, gap, info );
 }
 
 inline void scalapack_phegvx(
-    blas_int* itype, const char* jobz, const char* range, const char* uplo, blas_int* n, 
-    std::complex<double> *A, blas_int* ia, blas_int* ja, blas_int* descA, 
+    blas_int* itype, const char* jobz, const char* range, const char* uplo, blas_int* n,
+    std::complex<double> *A, blas_int* ia, blas_int* ja, blas_int* descA,
     std::complex<double> *B, blas_int* ib, blas_int* jb, blas_int* descB,
-    double* vl, double* vu,  blas_int* il, blas_int* iu, double* abstol, 
-    blas_int* m, blas_int* nz, double* W, double* orfac, 
-    std::complex<double>* Z, blas_int* iz, blas_int* jz, blas_int* descZ, 
-    std::complex<double>* work, blas_int* lwork, 
-    double* rwork, blas_int* lrwork, blas_int* iwork, blas_int* liwork, 
+    double* vl, double* vu,  blas_int* il, blas_int* iu, double* abstol,
+    blas_int* m, blas_int* nz, double* W, double* orfac,
+    std::complex<double>* Z, blas_int* iz, blas_int* jz, blas_int* descZ,
+    std::complex<double>* work, blas_int* lwork,
+    double* rwork, blas_int* lrwork, blas_int* iwork, blas_int* liwork,
     blas_int* ifail, blas_int* iclustr, double* gap, blas_int* info)
 {
     scalapack_pzhegvx( itype, jobz, range, uplo, n, A, ia, ja, descA, B, ib, jb, descB, vl, vu, il, iu, abstol, m, nz, W, orfac, Z, iz, jz, descZ, work, lwork, rwork, lrwork, iwork, liwork, ifail, iclustr, gap, info );
@@ -2091,20 +2091,20 @@ inline void scalapack_phegvx(
 
 template <typename scalar_t>
 inline void scalapack_phegvx(
-    int64_t itype, const char* jobz, const char* range, const char* uplo, int64_t n, 
-    scalar_t *A, int64_t ia, int64_t ja, blas_int* descA, 
+    int64_t itype, const char* jobz, const char* range, const char* uplo, int64_t n,
+    scalar_t *A, int64_t ia, int64_t ja, blas_int* descA,
     scalar_t *B, int64_t ib, int64_t jb, blas_int* descB,
-    blas::real_type<scalar_t> vl, blas::real_type<scalar_t> vu, 
-    int64_t il, int64_t iu, 
-    blas::real_type<scalar_t> abstol, 
-    int64_t *m, int64_t *nz, 
-    blas::real_type<scalar_t>* W, 
-    blas::real_type<scalar_t> orfac, 
-    scalar_t* Z, int64_t iz, int64_t jz, blas_int* descZ, 
-    scalar_t* work, int64_t lwork, 
-    blas::real_type<scalar_t>* rwork, int64_t lrwork, 
-    blas_int* iwork, int64_t liwork, 
-    blas_int* ifail, blas_int* iclustr, blas::real_type<scalar_t>* gap, 
+    blas::real_type<scalar_t> vl, blas::real_type<scalar_t> vu,
+    int64_t il, int64_t iu,
+    blas::real_type<scalar_t> abstol,
+    int64_t *m, int64_t *nz,
+    blas::real_type<scalar_t>* W,
+    blas::real_type<scalar_t> orfac,
+    scalar_t* Z, int64_t iz, int64_t jz, blas_int* descZ,
+    scalar_t* work, int64_t lwork,
+    blas::real_type<scalar_t>* rwork, int64_t lrwork,
+    blas_int* iwork, int64_t liwork,
+    blas_int* ifail, blas_int* iclustr, blas::real_type<scalar_t>* gap,
     int64_t* info)
 {
     blas_int itype_     = int64_to_int(itype);
@@ -2179,6 +2179,4 @@ inline void scalapack_phegst(int64_t itype, const char* uplo, int64_t n, scalar_
     scalapack_phegst(&itype_, uplo, &n_, a, &ia_, &ja_, desca, b, &ib_, &jb_, descb, scale, info);
 }
 
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-#endif // ICL_SLATE_SCALAPACK_WRAPPERS_HH
+#endif // SLATE_SCALAPACK_WRAPPERS_HH

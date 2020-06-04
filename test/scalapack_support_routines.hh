@@ -5,8 +5,8 @@
  * Copyright (c) 2010      University of Denver, Colorado.
  */
 
-#ifndef ICL_SLATE_SCALAPACK_SUPPORT_HH
-#define ICL_SLATE_SCALAPACK_SUPPORT_HH
+#ifndef SLATE_SCALAPACK_SUPPORT_HH
+#define SLATE_SCALAPACK_SUPPORT_HH
 
 #include <complex>
 
@@ -205,4 +205,4 @@ inline int slate_set_num_blas_threads(const int nt)
 inline int slate_set_num_blas_threads(const int nt) { return -1; }
 #endif
 
-#endif  // ICL_SLATE_SCALAPACK_SUPPORT_HH
+#endif // SLATE_SCALAPACK_SUPPORT_HH

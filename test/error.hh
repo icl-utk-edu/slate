@@ -1,5 +1,5 @@
-#ifndef ERROR_HH
-#define ERROR_HH
+#ifndef SLATE_TEST_ERROR_HH
+#define SLATE_TEST_ERROR_HH
 
 #include "blas.hh"
 
@@ -54,4 +54,4 @@ rel_error(std::vector<T1>& x, std::vector<T2>& xref)
     return diff / norm;
 }
 
-#endif        //  #ifndef ERROR_HH
+#endif // SLATE_TEST_ERROR_HH

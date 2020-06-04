@@ -1,5 +1,5 @@
-#ifndef TEST_HH
-#define TEST_HH
+#ifndef SLATE_TEST_HH
+#define SLATE_TEST_HH
 
 #include <exception>
 #include <complex>
@@ -363,4 +363,4 @@ inline const char* gemmVariant2str(std::string gemmVariant)
 }
 
 
-#endif  //  #ifndef TEST_HH
+#endif // SLATE_TEST_HH

@@ -37,8 +37,9 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#ifndef TEST_HH
-#define TEST_HH
+// todo: both unit_test.hh and test.hh exist. Rename one of them?
+#ifndef SLATE_UNIT_TEST_TEST_HH
+#define SLATE_UNIT_TEST_TEST_HH
 
 #include "slate/internal/mpi.hh"
 #include "slate/internal/openmp.hh"
@@ -551,4 +552,4 @@ void print(const char* name, int64_t m, int64_t n, std::complex<scalar_t>* A, in
     printf("];\n");
 }
 
-#endif        //  #ifndef TEST_HH
+#endif // SLATE_UNIT_TEST_TEST_HH

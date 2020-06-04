@@ -20,4 +20,4 @@ public:
     testsweeper::ParamScientific condD;
 };
 
-#endif  // #ifndef SLATE_MATRIX_PARAMS_HH
+#endif // SLATE_MATRIX_PARAMS_HH

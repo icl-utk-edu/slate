@@ -37,8 +37,8 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#ifndef UTIL_MATRIX_HH
-#define UTIL_MATRIX_HH
+#ifndef SLATE_UTIL_MATRIX_HH
+#define SLATE_UTIL_MATRIX_HH
 
 #include "slate/Matrix.hh"
 #include "slate/HermitianMatrix.hh"
@@ -660,4 +660,4 @@ void init_process_grid(int mpi_size, int* p, int* q)
     *q = q_;
 }
 
-#endif        //  #ifndef UTIL_MATRIX_HH
+#endif // SLATE_UTIL_MATRIX_HH

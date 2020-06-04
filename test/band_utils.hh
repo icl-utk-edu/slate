@@ -1,5 +1,5 @@
-#ifndef BAND_UTILS_HH
-#define BAND_UTILS_HH
+#ifndef SLATE_BAND_UTILS_HH
+#define SLATE_BAND_UTILS_HH
 
 #include "slate/BandMatrix.hh"
 
@@ -280,4 +280,4 @@ slate::HermitianBandMatrix<scalar_t> HermitianBandFromScaLAPACK(
     return A;
 }
 
-#endif        //  #ifndef BAND_UTILS_HH
+#endif // SLATE_BAND_UTILS_HH

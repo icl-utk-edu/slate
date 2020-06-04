@@ -145,4 +145,4 @@ inline int64_t slate_lapack_set_nb(slate::Target target)
 } // namespace lapack_api
 } // namespace slate
 
-#endif  //  #ifndef SLATE_LAPACK_API_COMMON_HH
+#endif // SLATE_LAPACK_API_COMMON_HH

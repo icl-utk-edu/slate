@@ -1,5 +1,5 @@
-#ifndef UNIT_HH
-#define UNIT_HH
+#ifndef SLATE_UNIT_TEST_HH
+#define SLATE_UNIT_TEST_HH
 
 #include <exception>
 #include <stdexcept>
@@ -168,4 +168,4 @@ void printf_gather(int root, MPI_Comm comm, const char* format, ...);
 /// To be implemented by user; called by unit_test_main().
 void run_tests();
 
-#endif // #ifndef UNIT_HH
+#endif // SLATE_UNIT_TEST_HH

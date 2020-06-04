@@ -1,5 +1,5 @@
-#ifndef GRID_UTILS_HH
-#define GRID_UTILS_HH
+#ifndef SLATE_GRID_UTILS_HH
+#define SLATE_GRID_UTILS_HH
 
 #include <stdint.h>
 
@@ -24,13 +24,14 @@ inline int64_t localRowsCols(int64_t n, int64_t nb, int iproc, int mpi_size)
 //------------------------------------------------------------------------------
 // Similar to BLACS gridinfo
 // (local row ID and column ID in 2D block cyclic distribution).
-inline const int64_t whoismyrow(const int mpi_rank, const int64_t p)
+inline int64_t whoismyrow(int mpi_rank, int64_t p)
 {
     return (mpi_rank % p);
 }
-inline const int64_t whoismycol(const int mpi_rank, const int64_t p)
+
+inline int64_t whoismycol(int mpi_rank, int64_t p)
 {
     return (mpi_rank / p);
 }
 
-#endif //  #ifndef GRID_UTILS_HH
+#endif // SLATE_GRID_UTILS_HH

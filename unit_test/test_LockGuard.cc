@@ -1,8 +1,8 @@
-#include <slate/internal/LockGuard.hh>
+#include "slate/internal/LockGuard.hh"
+#include "slate/internal/openmp.hh"
 
 #include "unit_test.hh"
 
-#include <omp.h>
 #include <unistd.h>
 
 //------------------------------------------------------------------------------

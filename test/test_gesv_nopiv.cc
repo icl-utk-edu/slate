@@ -250,7 +250,7 @@ void test_gesv_nopiv_work(Params& params, bool run)
             copy(A, &A_tst[0], descA_tst);
         }
     }
- 
+
     slate::Matrix<scalar_t> Aref, Bref;
     if (check) {
     // SLATE matrix wrappers for the reference data

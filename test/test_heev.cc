@@ -136,14 +136,13 @@ void test_heev_work(Params& params, bool run)
         }
     }
 
-   
-    //lapack::TestMatrixType type = lapack::TestMatrixType::heev; 
+    //lapack::TestMatrixType type = lapack::TestMatrixType::heev;
     //params.matrix.kind.set_default("heev");
     //params.matrix.cond.set_default(1e4);
 
     slate::generate_matrix( params.matrix, Z);
-    A = slate::HermitianMatrix<scalar_t>( 
-               uplo, Z );  
+    A = slate::HermitianMatrix<scalar_t>(
+               uplo, Z );
     copy(A, &A_tst[0], descA_tst);
 
     if (verbose >= 1) {
@@ -258,7 +257,7 @@ void test_heev_work(Params& params, bool run)
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
 
         if (local_error > tol) {
-            printf("\nOn MPI Rank = %d, the eigenvalues are suspicious, the error is  %e \n", 
+            printf("\nOn MPI Rank = %d, the eigenvalues are suspicious, the error is  %e \n",
                 A.mpiRank(), params.error());
             //for (int64_t i = 0; i < n; i++) {
             //    printf("\n %f", W_tst[i]);
@@ -266,8 +265,8 @@ void test_heev_work(Params& params, bool run)
         }
 
         slate_mpi_call(
-            MPI_Allreduce( &local_error, &reduced_error, 
-                           1, slate::mpi_type<real_t>::value, 
+            MPI_Allreduce( &local_error, &reduced_error,
+                           1, slate::mpi_type<real_t>::value,
                            MPI_MAX, A.mpiComm()));
 
         params.error() = reduced_error;

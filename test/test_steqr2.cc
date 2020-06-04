@@ -62,7 +62,6 @@ void test_steqr2_work(
     int ictxt, nprow, npcol, myrow, mycol, info;
     int descZ_tst[9];
     int iam = 0, nprocs = 1;
-    
 
     // initialize BLACS and ScaLAPACK
     Cblacs_pinfo(&iam, &nprocs);
@@ -89,7 +88,7 @@ void test_steqr2_work(
         return;
     }
 
-    // Initialize the diagonal and subdiagonal 
+    // Initialize the diagonal and subdiagonal
     std::vector<real_t> D(n), E(n - 1);
     int64_t idist = 3; // normal
     int64_t iseed[4] = { 0, 0, 0, 3 };
@@ -191,7 +190,7 @@ void test_steqr2_work(
         //
         //      || Q'Q - I ||_f
         //     ---------------- < tol * epsilon
-        //           n      
+        //           n
         //
         //==================================================
         const scalar_t minusone = -1;

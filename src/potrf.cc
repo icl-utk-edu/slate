@@ -165,7 +165,7 @@ void potrf(slate::internal::TargetType<target>,
 /// in these routine to release them before the others finish accessing
 /// them. Note: this function update the tiles origin to make sure that
 /// the origin memory is up-to-date and the coherency is kept consistent
-/// across multiple address spaces. 
+/// across multiple address spaces.
 /// @param[in] A
 ///     The n-by-n Hermitian positive definite matrix $A$, which is
 ///     a sub of the input matrix $A$.

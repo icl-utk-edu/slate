@@ -58,7 +58,7 @@ void heev(lapack::Job jobz,
 
     int64_t n = A.n();
     bool wantz = (jobz == Job::Vec);
-    
+
     // MPI_Status status;
     int mpi_rank;
 
@@ -105,7 +105,7 @@ void heev(lapack::Job jobz,
         }
         MPI_Bcast( &W[0], n, mpi_type<blas::real_type<scalar_t>>::value, 0, A.mpiComm() );
     }
-    // todo: If matrix was scaled, then rescale eigenvalues appropriately. 
+    // todo: If matrix was scaled, then rescale eigenvalues appropriately.
 }
 
 //------------------------------------------------------------------------------

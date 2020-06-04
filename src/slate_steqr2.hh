@@ -25,31 +25,31 @@ inline int int64_to_int(int64_t n)
 #define slate_zsteqr2 BLAS_FORTRAN_NAME( slate_zsteqr2, SLATE_ZSTEQR2 )
 
 extern "C" void slate_ssteqr2(
-    const char* compz, const blas_int* n, 
-    float* d, float* e, 
-    float* z, const blas_int* ldz, const blas_int* nr, 
-    float* work, 
+    const char* compz, const blas_int* n,
+    float* d, float* e,
+    float* z, const blas_int* ldz, const blas_int* nr,
+    float* work,
     blas_int* info);
 
 extern "C" void slate_dsteqr2(
-    const char* compz, const blas_int* n, 
-    double* d, double* e, 
-    double* z, const blas_int* ldz, const blas_int* nr, 
-    double* work, 
+    const char* compz, const blas_int* n,
+    double* d, double* e,
+    double* z, const blas_int* ldz, const blas_int* nr,
+    double* work,
     blas_int* info);
 
 extern "C" void slate_csteqr2(
-    const char* compz, const blas_int* n, 
-    float* d, float* e, 
-    std::complex<float>* z, const blas_int* ldz, const blas_int* nr, 
-    float* work, 
+    const char* compz, const blas_int* n,
+    float* d, float* e,
+    std::complex<float>* z, const blas_int* ldz, const blas_int* nr,
+    float* work,
     blas_int* info);
 
 extern "C" void slate_zsteqr2(
-    const char* compz, const blas_int* n, 
-    double* d, double* e, 
-    std::complex<double>* z, const blas_int* ldz, const blas_int* nr, 
-    double* work, 
+    const char* compz, const blas_int* n,
+    double* d, double* e,
+    std::complex<double>* z, const blas_int* ldz, const blas_int* nr,
+    double* work,
     blas_int* info);
 
 // -----------------------------------------------------------------------------
@@ -61,10 +61,10 @@ inline void slate_steqr2(
     float* work,
     blas_int* info)
 {
-    char compz_ = job_comp2char( compz ); 
-    slate_ssteqr2(&compz_, n, 
-            d, e, 
-            z, ldz, nr, 
+    char compz_ = job_comp2char( compz );
+    slate_ssteqr2(&compz_, n,
+            d, e,
+            z, ldz, nr,
             work, info);
 }
 
@@ -75,10 +75,10 @@ inline void slate_steqr2(
     double* work,
     blas_int* info)
 {
-    char compz_ = job_comp2char( compz ); 
-    slate_dsteqr2(&compz_, n, 
-            d, e, 
-            z, ldz, nr, 
+    char compz_ = job_comp2char( compz );
+    slate_dsteqr2(&compz_, n,
+            d, e,
+            z, ldz, nr,
             work, info);
 }
 
@@ -89,10 +89,10 @@ inline void slate_steqr2(
     float* work,
     blas_int* info)
 {
-    char compz_ = job_comp2char( compz ); 
-    slate_csteqr2(&compz_, n, 
-            d, e, 
-            z, ldz, nr, 
+    char compz_ = job_comp2char( compz );
+    slate_csteqr2(&compz_, n,
+            d, e,
+            z, ldz, nr,
             work, info);
 }
 
@@ -103,19 +103,19 @@ inline void slate_steqr2(
     double* work,
     blas_int* info)
 {
-    char compz_ = job_comp2char( compz ); 
-    slate_zsteqr2(&compz_, n, 
-            d, e, 
-            z, ldz, nr, 
+    char compz_ = job_comp2char( compz );
+    slate_zsteqr2(&compz_, n,
+            d, e,
+            z, ldz, nr,
             work, info);
 }
 
 template <typename scalar_t>
 inline void slate_steqr2(
-    lapack::Job compz, int64_t n, 
+    lapack::Job compz, int64_t n,
     blas::real_type<scalar_t>* d,
     blas::real_type<scalar_t>* e,
-    scalar_t* z, int64_t ldz, int64_t nr, 
+    scalar_t* z, int64_t ldz, int64_t nr,
     blas::real_type<scalar_t>* work,
     int64_t* info)
 {

@@ -95,7 +95,7 @@ void steqr2(slate::internal::TargetType<target>,
 
     // Compute the local number of the eigenvectors.
     // Build the matrix Z using 1-dim grid.
-    slate::Matrix<scalar_t> Z1d; 
+    slate::Matrix<scalar_t> Z1d;
     if (wantz) {
         n = Z.n();
         nb = Z.tileNb(0);

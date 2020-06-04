@@ -152,7 +152,7 @@ void Memory::clearDeviceBlocks(int device)
 void* Memory::alloc(int device, size_t size)
 {
     void* block;
- 
+
     if (device == host_num_) {
         //block = malloc(size);
         block = new char[size];

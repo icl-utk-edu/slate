@@ -37,8 +37,8 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#ifndef SCALAPACK_API_COMMON_HH
-#define SCALAPACK_API_COMMON_HH
+#ifndef SLATE_SCALAPACK_API_COMMON_HH
+#define SLATE_SCALAPACK_API_COMMON_HH
 
 // get BLAS_FORTRAN_NAME and blas_int
 #include "blas_fortran.hh"
@@ -225,7 +225,7 @@ extern "C" int scalapack_indxl2g(int* indxloc, int* nb, int* iproc, int* isrcpro
 
 
 //------------------------------------------------------------------------------
-// BLAS thread management.  
+// BLAS thread management.
 // Note this is duplicated in the testing module
 #ifdef SLATE_WITH_MKL
 #include <mkl_service.h>
@@ -243,4 +243,4 @@ inline int slate_set_num_blas_threads(const int nt) { return -1; }
 } // namespace scalapack_api
 } // namespace slate
 
-#endif  //  #ifndef SCALAPACK_API_COMMON_HH
+#endif // SLATE_SCALAPACK_API_COMMON_HH

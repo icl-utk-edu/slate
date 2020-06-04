@@ -41,4 +41,4 @@ private:
 
 }  // namespace slate
 
-#endif  // SLATE_LOCKGUARD_HH
+#endif // SLATE_LOCKGUARD_HH

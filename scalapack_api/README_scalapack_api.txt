@@ -1,4 +1,4 @@
-SLATE SCALAPACK COMPATIBILITY API 
+SLATE SCALAPACK COMPATIBILITY API
 =================================
 
 This API is designed to provide a high level of compatibility for
@@ -9,7 +9,7 @@ data.  If desired, SLATE can transparently use available GPUs to
 execute the available routines.  Any calls that are missing in this
 API should fall through to the ScaLAPACK implementation.
 
-NOTE: The ScaLAPACK BLACS grid needs to be Column-major.  
+NOTE: The ScaLAPACK BLACS grid needs to be Column-major.
 CALL BLACS_GRIDINIT( ICTXT, 'Col-major', NPROW, NPCOL )
 
 NOTE: The ScaLAPACK blocking (NB_,MB_) is used as the SLATE block size
@@ -36,7 +36,7 @@ USING THE COMPATIBILITY API
 * RUNTIME VIA PRELOAD: A user can preload this library for runtime
 interception.
 
-env LD_PRELOAD=$SLATE_DIR/lib/libslate_scalapack_api.so mpirun -np 4 $SLATE_DIR/test/test gemm --p 2 --q 2 
+env LD_PRELOAD=$SLATE_DIR/lib/libslate_scalapack_api.so mpirun -np 4 $SLATE_DIR/test/test gemm --p 2 --q 2
 
 * COMPILE TIME VIA LINKING: A user can link with this library to get
 link time binding.  Remember that this library depends on (precedes)

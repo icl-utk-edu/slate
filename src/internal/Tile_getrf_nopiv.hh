@@ -37,8 +37,8 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#ifndef SLATE_TILE_GETRF_HH
-#define SLATE_TILE_GETRF_HH
+#ifndef SLATE_TILE_GETRF_NOPIV_HH
+#define SLATE_TILE_GETRF_NOPIV_HH
 
 #include "internal/internal.hh"
 #include "slate/Tile.hh"
@@ -303,4 +303,4 @@ void getrf_nopiv(
 } // namespace internal
 } // namespace slate
 
-#endif // SLATE_TILE_GETRF_HH
+#endif // SLATE_TILE_GETRF_NOPIV_HH

@@ -140,7 +140,7 @@ void tpmqrt(
     int64_t k = V2.nb();
     int64_t m = C2.mb();
     int64_t n = C2.nb();
-    if ((n >= k) && (m > n)){ 
+    if ((n >= k) && (m > n)){
         m = std::min( C2.mb(), C2.nb() );
     }
 
@@ -170,4 +170,4 @@ void tpmqrt(
 
 } // namespace slate
 
-#endif // SLATE_TILE_TPQRT_HH
+#endif // SLATE_TILE_TPMQRT_HH

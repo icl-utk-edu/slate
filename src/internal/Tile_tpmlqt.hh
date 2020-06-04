@@ -166,4 +166,4 @@ void tpmlqt(
 
 } // namespace slate
 
-#endif // SLATE_TILE_TPLQT_HH
+#endif // SLATE_TILE_TPMLQT_HH

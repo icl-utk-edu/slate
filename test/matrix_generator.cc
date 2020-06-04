@@ -170,7 +170,7 @@ void generate_sigma(
     }
 
     // copy sigma => A
-    scalar_t zero = 0.0; 
+    scalar_t zero = 0.0;
     const int64_t min_mt_nt = std::min(A.mt(), A.nt());
     set(zero, zero, A);
     int64_t S_index = 0;
@@ -285,7 +285,7 @@ void generate_svd(
         real_t sum_sq = blas::dot( sigma.n, sigma(0), 1, sigma(0), 1 );
         real_t scale = sqrt( sigma.n / sum_sq );
         blas::scal( sigma.n, scale, sigma(0), 1 );
-        
+
         // copy sigma to diag(A)
         int64_t S_index = 0;
         #pragma omp parallel for
@@ -307,14 +307,14 @@ void generate_svd(
     for (int64_t j = 0; j < nt; ++j) {
         for (int64_t i = 0; i < mt; ++i) {
             if (U.tileIsLocal(i, j)) {
-                // lapack assume input tile is contigous in memory 
+                // lapack assume input tile is contigous in memory
                 // if the tiles are not contigous in memory, then
                 // insert temperory tiles to be passed to lapack
                 // then copy output tile to U.tile
                 Tmp.tileInsert(i, j);
                 auto Tmpij = Tmp(i, j);
                 params.iseed[0] = (rand() + i + j) % 256;
-                lapack::larnv( idist_randn, params.iseed, 
+                lapack::larnv( idist_randn, params.iseed,
                     U.tileMb(i)*U.tileNb(j), Tmpij.data() );
                 gecopy(Tmp(i, j), U(i, j));
                 Tmp.tileErase(i, j);
@@ -323,7 +323,7 @@ void generate_svd(
     }
     // we need to make each random column into a Householder vector;
     // no need to update subsequent columns (as in geqrf).
-    // However, currently we do geqrf here, 
+    // However, currently we do geqrf here,
     // since we don’t have a way to make Householder vectors (no distributed larfg).
     slate::geqrf(U, T);
 
@@ -331,14 +331,14 @@ void generate_svd(
     slate::unmqr( slate::Side::Left, slate::Op::NoTrans, U, T, A);
 
     // random V, n-by-minmn (stored column-wise in U)
-    auto V = U.sub(0, nt-1, 0, nt-1); 
+    auto V = U.sub(0, nt-1, 0, nt-1);
     #pragma omp parallel for collapse(2)
     for (int64_t j = 0; j < nt; ++j) {
         for (int64_t i = 0; i < mt; ++i) {
             if (V.tileIsLocal(i, j)) {
                 Tmp.tileInsert(i, j);
                 auto Tmpij = Tmp(i, j);
-                lapack::larnv( idist_randn, params.iseed, 
+                lapack::larnv( idist_randn, params.iseed,
                     V.tileMb(i)*V.tileNb(j), Tmpij.data() );
                 gecopy(Tmp(i, j), V(i, j));
                 Tmp.tileErase(i, j);
@@ -431,7 +431,7 @@ void generate_heev(
                 Tmp.tileInsert(i, j);
                 auto Tmpij = Tmp(i, j);
                 params.iseed[0] = (rand() + i + j) % 256;
-                lapack::larnv( idist_randn, params.iseed, 
+                lapack::larnv( idist_randn, params.iseed,
                     U.tileMb(i)*U.tileNb(j), Tmpij.data() );
                 gecopy(Tmp(i, j), U(i, j));
                 Tmp.tileErase(i, j);
@@ -440,7 +440,7 @@ void generate_heev(
     }
     // we need to make each random column into a Householder vector;
     // no need to update subsequent columns (as in geqrf).
-    // However, currently we do geqrf here, 
+    // However, currently we do geqrf here,
     // since we don’t have a way to make Householder vectors (no distributed larfg).
     slate::geqrf(U, T);
 
@@ -770,7 +770,7 @@ void generate_matrix(
 
     // ----------
     // set sigma to unknown (nan)
-    lapack::laset( lapack::MatrixType::General, sigma.n, 1, 
+    lapack::laset( lapack::MatrixType::General, sigma.n, 1,
         nan, nan, sigma(0), sigma.n );
 
     // ----- decode matrix type
@@ -983,13 +983,13 @@ void generate_matrix(
     switch (type) {
         case TestMatrixType::zero:
             set(c_zero, c_zero, A);
-            lapack::laset( lapack::MatrixType::General, sigma.n, 1, 
+            lapack::laset( lapack::MatrixType::General, sigma.n, 1,
                 d_zero, d_zero, sigma(0), sigma.n );
             break;
 
         case TestMatrixType::identity:
             set(c_zero, c_one, A);
-            lapack::laset( lapack::MatrixType::General, sigma.n, 1, 
+            lapack::laset( lapack::MatrixType::General, sigma.n, 1,
                 d_one, d_one, sigma(0), sigma.n );
             break;
 
@@ -1032,10 +1032,10 @@ void generate_matrix(
                         Tmp.tileInsert(i, j);
                         auto Tmpij = Tmp(i, j);
                         params.iseed[0] = (rand() + i + j) % 256;
-                        lapack::larnv( idist, params.iseed, 
+                        lapack::larnv( idist, params.iseed,
                             A.tileMb(i)*A.tileNb(j), Tmpij.data() );
 
-                        // Make it diagonally dominant 
+                        // Make it diagonally dominant
                         if (dominant) {
                             if (i == j) {
                                 //auto T = A(i, i);

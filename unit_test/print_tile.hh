@@ -1,10 +1,10 @@
-#ifndef PRINT_TILE_HH
-#define PRINT_TILE_HH
+#ifndef SLATE_PRINT_TILE_HH
+#define SLATE_PRINT_TILE_HH
+
+#include "slate/Tile.hh"
 
 #include <stdio.h>
 #include <complex>
-
-#include <slate/Tile.hh>
 
 //------------------------------------------------------------------------------
 /// Print a Tile.
@@ -38,4 +38,4 @@ void print(const char* name, slate::Tile< std::complex<scalar_t> >& A)
     printf("];  %% op=%c, uplo=%c\n", char(A.op()), char(A.uplo()));
 }
 
-#endif        //  #ifndef PRINT_TILE_HH
+#endif // SLATE_PRINT_TILE_HH

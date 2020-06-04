@@ -533,4 +533,4 @@ public:
 } // namespace slate
 } // namespace internal
 
-#endif        //  #ifndef SLATE_INTERNAL_BATCH_HH
+#endif // SLATE_INTERNAL_BATCH_HH

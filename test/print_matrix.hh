@@ -1,12 +1,15 @@
+#ifndef SLATE_PRINT_MATRIX_HH
+#define SLATE_PRINT_MATRIX_HH
+
+#include "slate/BaseTrapezoidMatrix.hh"
+#include "slate/Matrix.hh"
+#include "slate/BaseTrapezoidMatrix.hh"
+#include "slate/BandMatrix.hh"
+
 #include "blas.hh"
 
-#include <slate/internal/mpi.hh>
 #include <string>
 #include <cstdio>
-
-#include <slate/Matrix.hh>
-#include <slate/BaseTrapezoidMatrix.hh>
-#include <slate/BandMatrix.hh>
 
 //------------------------------------------------------------------------------
 /// Print value to a buffer buf of length buf_len.
@@ -571,3 +574,5 @@ void print_matrix(
 
     MPI_Barrier(comm);
 }
+
+#endif // SLATE_PRINT_MATRIX_HH

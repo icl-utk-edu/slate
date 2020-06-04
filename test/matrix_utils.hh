@@ -1,5 +1,5 @@
-#ifndef MATRIX_UTILS_HH
-#define MATRIX_UTILS_HH
+#ifndef SLATE_MATRIX_UTILS_HH
+#define SLATE_MATRIX_UTILS_HH
 
 #include "slate/slate.hh"
 
@@ -108,4 +108,4 @@ inline void he2ge(slate::HermitianMatrix<scalar_t> A, slate::Matrix<scalar_t> B)
     }
 }
 
-#endif //  #ifndef MATRIX_UTILS_HH
+#endif // SLATE_MATRIX_UTILS_HH

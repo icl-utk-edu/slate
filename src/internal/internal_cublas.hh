@@ -226,4 +226,4 @@ cublasStatus_t cublasHer2k ( cublasHandle_t handle,
 } // namespace slate
 } // namespace internal
 
-#endif        //  #ifndef SLATE_INTERNAL_CUBLAS_HH
+#endif // SLATE_INTERNAL_CUBLAS_HH

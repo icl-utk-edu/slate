@@ -101,9 +101,9 @@ void test_bdsqr_work(
     slate::Matrix<scalar_t> U;
     slate::Matrix<scalar_t> VT;
 
-    bool wantu  = (jobu  == slate::Job::Vec || jobu  == slate::Job::AllVec 
+    bool wantu  = (jobu  == slate::Job::Vec || jobu  == slate::Job::AllVec
                 || jobu  == slate::Job::SomeVec );
-    bool wantvt = (jobvt == slate::Job::Vec || jobvt == slate::Job::AllVec 
+    bool wantvt = (jobvt == slate::Job::Vec || jobvt == slate::Job::AllVec
                 || jobvt == slate::Job::SomeVec );
 
     if (origin != slate::Origin::ScaLAPACK) {
@@ -205,7 +205,7 @@ void test_bdsqr_work(
         //
         //      || Q'Q - I ||_f
         //     ---------------- < tol * epsilon
-        //           n      
+        //           n
         //
         //==================================================
         params.ortho_U() = 0.;
@@ -231,7 +231,7 @@ void test_bdsqr_work(
             slate::gemm(one, VTT, VT, minusone, Id_nn);
             params.ortho_V()  = slate::norm(slate::Norm::Fro, Id_nn) / n;
         }
-        params.okay() = ( (params.error() <= tol) && (params.ortho_U() <= tol) 
+        params.okay() = ( (params.error() <= tol) && (params.ortho_U() <= tol)
                           && (params.ortho_V() <= tol));
 
     }

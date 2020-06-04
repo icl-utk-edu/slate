@@ -1,10 +1,11 @@
 #ifndef SLATE_SCALAPACK_COPY_HH
 #define SLATE_SCALAPACK_COPY_HH
 
-#include <slate/Matrix.hh>
-#include <slate/BaseTrapezoidMatrix.hh>
-#include <lapack.hh>
-#include <slate/internal/cublas.hh>
+#include "slate/Matrix.hh"
+#include "slate/BaseTrapezoidMatrix.hh"
+#include "slate/internal/cublas.hh"
+
+#include "lapack.hh"
 
 #include "scalapack_wrappers.hh"
 

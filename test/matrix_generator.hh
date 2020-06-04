@@ -165,4 +165,4 @@ void generate_matrix_usage();
 
 } // namespace slate
 
-#endif        // #ifndef SLATE_MATRIX_GENERATOR_HH
+#endif // SLATE_MATRIX_GENERATOR_HH

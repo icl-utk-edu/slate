@@ -1,4 +1,4 @@
-SLATE BLAS AND LAPACK COMPATIBILITY API 
+SLATE BLAS AND LAPACK COMPATIBILITY API
 =======================================
 
 This API and routines are intended to simplify interfacing with
@@ -6,8 +6,8 @@ Fortran-style LAPACK and BLAS calls.  A Fortran call can be replaced
 fairly directly. For example:
 
 '''
-   GEMM( transa, transb, m, n, standard parameters ) 
-   SLATE_GEMM( transa, transb, m, n, standard parameters ) 
+   GEMM( transa, transb, m, n, standard parameters )
+   SLATE_GEMM( transa, transb, m, n, standard parameters )
 '''
 
 The SLATE API will map the Fortran-style parameters as needed and call
@@ -26,7 +26,7 @@ libraries.
 ENVIRONMENT VARIABLES
 ---------------------
 
-The SLATE execution target is set in this order: 
+The SLATE execution target is set in this order:
 
 *  if env SLATE_LAPACK_TARGET={HostTask,HostBatch,HostNest,Devices}, use it
 *  else if Devices are compiled in SLATE and available, use Devices
@@ -54,7 +54,7 @@ standard lapack distribution (lapack/BLAS/TESTING).  The subroutine
 calls are manually changed to use the SLATE API names (e.g. GEMM ->
 SLATE_GEMM).
 
-Currently the tests and API handle numeric testing. 
+Currently the tests and API handle numeric testing.
 These tests cannot catch parameter-errors.
 
 The following shell scripts were used to make alterations in the
@@ -78,7 +78,7 @@ for precision in 'D' 'S' 'C' 'Z'; do
        lcprec=`echo $precision | tr A-Z a-z`
        # Add slate prefix
        sed -i 's/\b$precision$routine\b/SLATE_$precision$routine/' $BLAS_DIR/TESTING/${lcprec}blat3.f
-       # Remove prefix from string names that got prefix 
+       # Remove prefix from string names that got prefix
        sed -i "s/'SLATE_$precision$routine/'$precision$routine/" $BLAS_DIR/TESTING/${lcprec}blat3.f
    done
 done
@@ -120,7 +120,7 @@ for precision in 'D' 'S' 'C' 'Z'; do
      for file in $LAPACK_DIR/TESTING/LIN/${lcprec}*.f; do
        # Add slate prefix
        sed -i "s/\b${precision}${routine}\b/SLATE_${precision}${routine}/" ${file}
-       # Remove prefix from string names that got prefix 
+       # Remove prefix from string names that got prefix
        sed -i "s/'SLATE_${precision}${routine}/'${precision}${routine}/" ${file}
      done
    done
@@ -133,7 +133,7 @@ for precision in 'DS' 'ZC'; do
      for file in $LAPACK_DIR/TESTING/LIN/${lcprec}*.f; do
        # Add slate prefix
        sed -i "s/\b${precision}${routine}\b/SLATE_${precision}${routine}/" ${file}
-       # Remove prefix from string names that got prefix 
+       # Remove prefix from string names that got prefix
        sed -i "s/'SLATE_${precision}${routine}/'${precision}${routine}/" ${file}
      done
    done

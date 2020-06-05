@@ -756,7 +756,7 @@ void heev(
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> AH(A);
-    heev(AH, W, opts);
+    heev(jobz, AH, W, Z, opts);
 }
 
 //-----------------------------------------
@@ -772,7 +772,7 @@ void syev(
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> AH(A);
-    heev(AH, W, opts);
+    heev(jobz, AH, W, Z, opts);
 }
 
 //------------------------------------------------------------------------------
@@ -788,6 +788,40 @@ void hegv(
              Matrix<scalar_t>& V,
     const std::map<Option, Value>& opts);
 
+// forward real-symmetric matrices to hegv;
+// disabled for complex
+template <typename scalar_t>
+void hegv(
+    int64_t itype, lapack::Job jobz,
+    SymmetricMatrix<scalar_t>& A,
+    SymmetricMatrix<scalar_t>& B, std::vector< blas::real_type<scalar_t> >& W,
+             Matrix<scalar_t>& V,
+    const std::map<Option, Value>& opts,
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    HermitianMatrix<scalar_t> AH(A);
+    HermitianMatrix<scalar_t> BH(B);
+    hegv(itype, jobz, AH, BH, W, V, opts);
+}
+
+//-----------------------------------------
+// sygv()
+// forward real-symmetric matrices to hegv;
+// disabled for complex
+template <typename scalar_t>
+void sygv(
+    int64_t itype, lapack::Job jobz,
+    SymmetricMatrix<scalar_t>& A,
+    SymmetricMatrix<scalar_t>& B, std::vector< blas::real_type<scalar_t> >& W,
+             Matrix<scalar_t>& V,
+    const std::map<Option, Value>& opts,
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    HermitianMatrix<scalar_t> AH(A);
+    HermitianMatrix<scalar_t> BH(B);
+    hegv(itype, jobz, AH, BH, W, V, opts);
+}
+
 //-----------------------------------------
 // hegst()
 template <typename scalar_t>
@@ -796,6 +830,38 @@ void hegst(
     HermitianMatrix<scalar_t>& A,
     HermitianMatrix<scalar_t>& B,
     Options const& opts = Options());
+
+// forward real-symmetric matrices to hegst;
+// disabled for complex
+template <typename scalar_t>
+void hegst(
+    int64_t itype,
+    SymmetricMatrix<scalar_t>& A,
+    SymmetricMatrix<scalar_t>& B,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    HermitianMatrix<scalar_t> AH(A);
+    HermitianMatrix<scalar_t> BH(B);
+    hegst(itype, AH, BH, opts);
+}
+
+//-----------------------------------------
+// sygst()
+// forward real-symmetric matrices to hegst;
+// disabled for complex
+template <typename scalar_t>
+void sygst(
+    int64_t itype,
+    SymmetricMatrix<scalar_t>& A,
+    SymmetricMatrix<scalar_t>& B,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    HermitianMatrix<scalar_t> AH(A);
+    HermitianMatrix<scalar_t> BH(B);
+    hegst(itype, AH, BH, opts);
+}
 
 //-----------------------------------------
 // he2hb()

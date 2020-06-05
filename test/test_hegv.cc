@@ -171,7 +171,7 @@ void test_hegv_work(Params& params, bool run)
         copy(B, B_orig);
     }
 
-    const std::map<slate::Option, slate::Value> opts =  {
+    slate::Options const opts = {
         {slate::Option::Lookahead,       lookahead},
         {slate::Option::Target,          target},
         {slate::Option::MaxPanelThreads, panel_threads},

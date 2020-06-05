@@ -786,7 +786,7 @@ void hegv(
     HermitianMatrix<scalar_t>& A,
     HermitianMatrix<scalar_t>& B, std::vector< blas::real_type<scalar_t> >& W,
              Matrix<scalar_t>& V,
-    const std::map<Option, Value>& opts);
+    Options const& opts = Options());
 
 // forward real-symmetric matrices to hegv;
 // disabled for complex
@@ -796,7 +796,7 @@ void hegv(
     SymmetricMatrix<scalar_t>& A,
     SymmetricMatrix<scalar_t>& B, std::vector< blas::real_type<scalar_t> >& W,
              Matrix<scalar_t>& V,
-    const std::map<Option, Value>& opts,
+    Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> AH(A);
@@ -814,7 +814,7 @@ void sygv(
     SymmetricMatrix<scalar_t>& A,
     SymmetricMatrix<scalar_t>& B, std::vector< blas::real_type<scalar_t> >& W,
              Matrix<scalar_t>& V,
-    const std::map<Option, Value>& opts,
+    Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> AH(A);

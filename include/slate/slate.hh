@@ -97,20 +97,20 @@ void set(
 // Level 3 BLAS and LAPACK auxiliary
 
 //-----------------------------------------
+// geadd()
+template <typename scalar_t>
+void geadd(
+    scalar_t alpha, Matrix<scalar_t>& A,
+    scalar_t beta,  Matrix<scalar_t>& B,
+    Options const& opts = Options());
+
+//-----------------------------------------
 // gbmm()
 template <typename scalar_t>
 void gbmm(
     scalar_t alpha, BandMatrix<scalar_t>& A,
                         Matrix<scalar_t>& B,
     scalar_t beta,      Matrix<scalar_t>& C,
-    Options const& opts = Options());
-
-//-----------------------------------------
-// geadd()
-template <typename scalar_t>
-void geadd(
-    scalar_t alpha, Matrix<scalar_t>& A,
-    scalar_t beta,  Matrix<scalar_t>& B,
     Options const& opts = Options());
 
 //-----------------------------------------
@@ -167,6 +167,79 @@ void hemm(
 }
 
 //-----------------------------------------
+// symm()
+template <typename scalar_t>
+void symm(
+    Side side,
+    scalar_t alpha, SymmetricMatrix<scalar_t>& A,
+                             Matrix<scalar_t>& B,
+    scalar_t beta,           Matrix<scalar_t>& C,
+    Options const& opts = Options());
+
+// forward real-Hermitian matrices to symm;
+// disabled for complex
+template <typename scalar_t>
+void symm(
+    Side side,
+    scalar_t alpha, HermitianMatrix<scalar_t>& A,
+                             Matrix<scalar_t>& B,
+    scalar_t beta,           Matrix<scalar_t>& C,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    SymmetricMatrix<scalar_t> AS(A);
+    symm(side, alpha, AS, B, beta, C, opts);
+}
+
+//-----------------------------------------
+// trmm()
+template <typename scalar_t>
+void trmm(
+    Side side,
+    scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                              Matrix<scalar_t>& B,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// tbsm()
+template <typename scalar_t>
+void tbsm(
+    Side side,
+    scalar_t alpha, TriangularBandMatrix<scalar_t>& A, Pivots& pivots,
+                                  Matrix<scalar_t>& B,
+    Options const& opts = Options());
+
+template <typename scalar_t>
+void tbsm(
+    Side side,
+    scalar_t alpha, TriangularBandMatrix<scalar_t>& A,
+                                  Matrix<scalar_t>& B,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// trsm()
+template <typename scalar_t>
+void trsm(
+    Side side,
+    scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                              Matrix<scalar_t>& B,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// trtri()
+template <typename scalar_t>
+void trtri(
+    TriangularMatrix<scalar_t>& A,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// trtrm()
+template <typename scalar_t>
+void trtrm(
+    TriangularMatrix<scalar_t>& A,
+    Options const& opts = Options());
+
+//-----------------------------------------
 // herk()
 template <typename scalar_t>
 void herk(
@@ -185,6 +258,27 @@ void herk(
 {
     HermitianMatrix<scalar_t> CH(C);
     herk(alpha, A, beta, CH, opts);
+}
+
+//-----------------------------------------
+// syrk()
+template <typename scalar_t>
+void syrk(
+    scalar_t alpha,          Matrix<scalar_t>& A,
+    scalar_t beta,  SymmetricMatrix<scalar_t>& C,
+    Options const& opts = Options());
+
+// forward real-Hermitian matrices to syrk;
+// disabled for complex
+template <typename scalar_t>
+void syrk(
+    scalar_t alpha,          Matrix<scalar_t>& A,
+    scalar_t beta,  HermitianMatrix<scalar_t>& C,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    SymmetricMatrix<scalar_t> CS(C);
+    syrk(alpha, A, beta, CS, opts);
 }
 
 //-----------------------------------------
@@ -211,52 +305,6 @@ void her2k(
 }
 
 //-----------------------------------------
-// symm()
-template <typename scalar_t>
-void symm(
-    Side side,
-    scalar_t alpha, SymmetricMatrix<scalar_t>& A,
-                             Matrix<scalar_t>& B,
-    scalar_t beta,           Matrix<scalar_t>& C,
-    Options const& opts = Options());
-
-// forward real-Hermitian matrices to symm;
-// disabled for complex
-template <typename scalar_t>
-void symm(
-    Side side,
-    scalar_t alpha, HermitianMatrix<scalar_t>& A,
-                             Matrix<scalar_t>& B,
-    scalar_t beta,           Matrix<scalar_t>& C,
-    Options const& opts = Options(),
-    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
-{
-    SymmetricMatrix<scalar_t> AS(A);
-    symm(side, alpha, AS, B, beta, C, opts);
-}
-
-//-----------------------------------------
-// syrk()
-template <typename scalar_t>
-void syrk(
-    scalar_t alpha,          Matrix<scalar_t>& A,
-    scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-    Options const& opts = Options());
-
-// forward real-Hermitian matrices to syrk;
-// disabled for complex
-template <typename scalar_t>
-void syrk(
-    scalar_t alpha,          Matrix<scalar_t>& A,
-    scalar_t beta,  HermitianMatrix<scalar_t>& C,
-    Options const& opts = Options(),
-    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
-{
-    SymmetricMatrix<scalar_t> CS(C);
-    syrk(alpha, A, beta, CS, opts);
-}
-
-//-----------------------------------------
 // syr2k()
 template <typename scalar_t>
 void syr2k(
@@ -278,54 +326,6 @@ void syr2k(
     SymmetricMatrix<scalar_t> CS(C);
     syr2k(alpha, A, B, beta, CS, opts);
 }
-
-//-----------------------------------------
-// tbsm()
-template <typename scalar_t>
-void tbsm(
-    Side side,
-    scalar_t alpha, TriangularBandMatrix<scalar_t>& A, Pivots& pivots,
-                                  Matrix<scalar_t>& B,
-    Options const& opts = Options());
-
-template <typename scalar_t>
-void tbsm(
-    Side side,
-    scalar_t alpha, TriangularBandMatrix<scalar_t>& A,
-                                  Matrix<scalar_t>& B,
-    Options const& opts = Options());
-
-//-----------------------------------------
-// trmm()
-template <typename scalar_t>
-void trmm(
-    Side side,
-    scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                              Matrix<scalar_t>& B,
-    Options const& opts = Options());
-
-//-----------------------------------------
-// trsm()
-template <typename scalar_t>
-void trsm(
-    Side side,
-    scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                              Matrix<scalar_t>& B,
-    Options const& opts = Options());
-
-//-----------------------------------------
-// trtri()
-template <typename scalar_t>
-void trtri(
-    TriangularMatrix<scalar_t>& A,
-    Options const& opts = Options());
-
-//-----------------------------------------
-// trtrm()
-template <typename scalar_t>
-void trtrm(
-    TriangularMatrix<scalar_t>& A,
-    Options const& opts = Options());
 
 //------------------------------------------------------------------------------
 // Norms
@@ -350,18 +350,10 @@ void colNorms(
     Options const& opts = Options());
 
 //------------------------------------------------------------------------------
-// Factorizations, etc.
-
-//------------------------------------------------------------------------------
-// Band LU
+// Linear systems
 
 //-----------------------------------------
-// gbsv()
-template <typename scalar_t>
-void gbsv(
-    BandMatrix<scalar_t>& A, Pivots& pivots,
-        Matrix<scalar_t>& B,
-    Options const& opts = Options());
+// LU
 
 //-----------------------------------------
 // gbtrf()
@@ -371,15 +363,26 @@ void gbtrf(
     Options const& opts = Options());
 
 //-----------------------------------------
-// gbtrs()
+// getrf()
 template <typename scalar_t>
-void gbtrs(
+void getrf(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// getrf_nopiv()
+template <typename scalar_t>
+void getrf_nopiv(
+    Matrix<scalar_t>& A,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// gbsv()
+template <typename scalar_t>
+void gbsv(
     BandMatrix<scalar_t>& A, Pivots& pivots,
         Matrix<scalar_t>& B,
     Options const& opts = Options());
-
-//------------------------------------------------------------------------------
-// LU
 
 //-----------------------------------------
 // gesv()
@@ -408,17 +411,11 @@ void gesvMixed(
     Options const& opts = Options());
 
 //-----------------------------------------
-// getrf()
+// gbtrs()
 template <typename scalar_t>
-void getrf(
-    Matrix<scalar_t>& A, Pivots& pivots,
-    Options const& opts = Options());
-
-//-----------------------------------------
-// getrf_nopiv()
-template <typename scalar_t>
-void getrf_nopiv(
-    Matrix<scalar_t>& A,
+void gbtrs(
+    BandMatrix<scalar_t>& A, Pivots& pivots,
+        Matrix<scalar_t>& B,
     Options const& opts = Options());
 
 //-----------------------------------------
@@ -450,64 +447,8 @@ void getri(
     Matrix<scalar_t>& B,
     Options const& opts = Options());
 
-//------------------------------------------------------------------------------
-// QR
-
 //-----------------------------------------
-// auxiliary type for T factors
-template <typename scalar_t>
-using TriangularFactors = std::vector< Matrix<scalar_t> >;
-
-//-----------------------------------------
-// gels()
-template <typename scalar_t>
-void gels(
-    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
-    Matrix<scalar_t>& BX,
-    Options const& opts = Options());
-
-//-----------------------------------------
-// geqrf()
-template <typename scalar_t>
-void geqrf(
-    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
-    Options const& opts = Options());
-
-//-----------------------------------------
-// gelqf()
-template <typename scalar_t>
-void gelqf(
-    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
-    Options const& opts = Options());
-
-//-----------------------------------------
-// unmqr()
-template <typename scalar_t>
-void unmqr(
-    Side side, Op op,
-    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
-    Matrix<scalar_t>& C,
-    Options const& opts = Options());
-
-//-----------------------------------------
-// unmlq()
-template <typename scalar_t>
-void unmlq(
-    Side side, Op op,
-    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
-    Matrix<scalar_t>& C,
-    Options const& opts = Options());
-
-//------------------------------------------------------------------------------
-// Band Cholesky
-
-//-----------------------------------------
-// pbsv()
-template <typename scalar_t>
-void pbsv(
-    HermitianBandMatrix<scalar_t>& A,
-                 Matrix<scalar_t>& B,
-    Options const& opts = Options());
+// Cholesky
 
 //-----------------------------------------
 // pbtrf()
@@ -517,15 +458,31 @@ void pbtrf(
     Options const& opts = Options());
 
 //-----------------------------------------
-// pbtrs()
+// potrf()
 template <typename scalar_t>
-void pbtrs(
+void potrf(
+    HermitianMatrix<scalar_t>& A,
+    Options const& opts = Options());
+
+// forward real-symmetric matrices to potrf;
+// disabled for complex
+template <typename scalar_t>
+void potrf(
+    SymmetricMatrix<scalar_t>& A,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    HermitianMatrix<scalar_t> AH(A);
+    potrf(AH, opts);
+}
+
+//-----------------------------------------
+// pbsv()
+template <typename scalar_t>
+void pbsv(
     HermitianBandMatrix<scalar_t>& A,
                  Matrix<scalar_t>& B,
     Options const& opts = Options());
-
-//------------------------------------------------------------------------------
-// Cholesky
 
 //-----------------------------------------
 // posv()
@@ -569,23 +526,12 @@ void posvMixed(
 // todo: forward real-symmetric matrices to posvMixed?
 
 //-----------------------------------------
-// potrf()
+// pbtrs()
 template <typename scalar_t>
-void potrf(
-    HermitianMatrix<scalar_t>& A,
+void pbtrs(
+    HermitianBandMatrix<scalar_t>& A,
+                 Matrix<scalar_t>& B,
     Options const& opts = Options());
-
-// forward real-symmetric matrices to potrf;
-// disabled for complex
-template <typename scalar_t>
-void potrf(
-    SymmetricMatrix<scalar_t>& A,
-    Options const& opts = Options(),
-    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
-{
-    HermitianMatrix<scalar_t> AH(A);
-    potrf(AH, opts);
-}
 
 //-----------------------------------------
 // potrs()
@@ -619,33 +565,8 @@ void potri(
 // forward real-symmetric matrices to potrs;
 // disabled for complex
 
-//------------------------------------------------------------------------------
-// Symmetric indefinite -- block Aasen's
-
 //-----------------------------------------
-// hesv()
-template <typename scalar_t>
-void hesv(
-    HermitianMatrix<scalar_t>& A, Pivots& pivots,
-         BandMatrix<scalar_t>& T, Pivots& pivots2,
-             Matrix<scalar_t>& H,
-             Matrix<scalar_t>& B,
-    Options const& opts = Options());
-
-// forward real-symmetric matrices to potrf;
-// disabled for complex
-template <typename scalar_t>
-void hesv(
-    SymmetricMatrix<scalar_t>& A, Pivots& pivots,
-         BandMatrix<scalar_t>& T, Pivots& pivots2,
-             Matrix<scalar_t>& H,
-             Matrix<scalar_t>& B,
-    Options const& opts = Options(),
-    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
-{
-    HermitianMatrix<scalar_t> AH(A);
-    hesv(AH, B, opts);
-}
+// Symmetric indefinite -- block Aasen's
 
 //-----------------------------------------
 // hetrf()
@@ -671,6 +592,31 @@ void hetrf(
 }
 
 //-----------------------------------------
+// hesv()
+template <typename scalar_t>
+void hesv(
+    HermitianMatrix<scalar_t>& A, Pivots& pivots,
+         BandMatrix<scalar_t>& T, Pivots& pivots2,
+             Matrix<scalar_t>& H,
+             Matrix<scalar_t>& B,
+    Options const& opts = Options());
+
+// forward real-symmetric matrices to hesv;
+// disabled for complex
+template <typename scalar_t>
+void hesv(
+    SymmetricMatrix<scalar_t>& A, Pivots& pivots,
+         BandMatrix<scalar_t>& T, Pivots& pivots2,
+             Matrix<scalar_t>& H,
+             Matrix<scalar_t>& B,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    HermitianMatrix<scalar_t> AH(A);
+    hesv(AH, B, opts);
+}
+
+//-----------------------------------------
 // hetrs()
 template <typename scalar_t>
 void hetrs(
@@ -692,6 +638,63 @@ void hetrs(
     HermitianMatrix<scalar_t> AH(A);
     hetrs(AH, T, B, opts);
 }
+
+//------------------------------------------------------------------------------
+// QR
+
+//-----------------------------------------
+// auxiliary type for T factors
+template <typename scalar_t>
+using TriangularFactors = std::vector< Matrix<scalar_t> >;
+
+//-----------------------------------------
+// Least squares
+
+//-----------------------------------------
+// gels()
+template <typename scalar_t>
+void gels(
+    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+    Matrix<scalar_t>& BX,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// QR
+
+//-----------------------------------------
+// geqrf()
+template <typename scalar_t>
+void geqrf(
+    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// unmqr()
+template <typename scalar_t>
+void unmqr(
+    Side side, Op op,
+    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+    Matrix<scalar_t>& C,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// LQ
+
+//-----------------------------------------
+// gelqf()
+template <typename scalar_t>
+void gelqf(
+    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// unmlq()
+template <typename scalar_t>
+void unmlq(
+    Side side, Op op,
+    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+    Matrix<scalar_t>& C,
+    Options const& opts = Options());
 
 //------------------------------------------------------------------------------
 // SVD
@@ -734,7 +737,10 @@ void bdsqr(
     Options const& opts = Options());
 
 //------------------------------------------------------------------------------
-// Symmetric/hermitian eigenvalue decomposition
+// Eigenvalue decomposition
+
+//-----------------------------------------
+// Symmetric/hermitian
 
 //-----------------------------------------
 // heev()
@@ -775,8 +781,8 @@ void syev(
     heev(jobz, AH, W, Z, opts);
 }
 
-//------------------------------------------------------------------------------
-// Generalized symmetric/hermitian eigenvalue decomposition
+//-----------------------------------------
+// Generalized symmetric/hermitian
 
 //-----------------------------------------
 // hegv()

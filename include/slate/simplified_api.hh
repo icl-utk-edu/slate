@@ -37,15 +37,17 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#ifndef SIMPLIFIED_API_HH
-#define SIMPLIFIED_API_HH
+#ifndef SLATE_SIMPLIFIED_API_HH
+#define SLATE_SIMPLIFIED_API_HH
 
 //------------------------------------------------------------------------------
-//
+/// @namespace slate
+/// SLATE's top-level namespace.
+///
 namespace slate {
 
 //------------------------------------------------------------------------------
-// Level 3 BLAS
+// Level 3 BLAS and LAPACK auxiliary
 
 //-----------------------------------------
 // multiply()
@@ -290,7 +292,7 @@ void lu_factor(
     gbtrf(A, pivots, opts);
 }
 
-// getrf with pivoting
+// getrf
 template <typename scalar_t>
 void lu_factor(
     Matrix<scalar_t>& A, Pivots& pivots,
@@ -299,7 +301,7 @@ void lu_factor(
     getrf(A, pivots, opts);
 }
 
-// getrf
+// getrf_nopiv
 template <typename scalar_t>
 void lu_factor(
     Matrix<scalar_t>& A,
@@ -393,6 +395,15 @@ void lu_inverse_using_factor(
 //-----------------------------------------
 // chol_factor()
 
+// pbtrf
+template <typename scalar_t>
+void chol_factor(
+    HermitianBandMatrix<scalar_t>& A,
+    Options const& opts = Options())
+{
+    pbtrf(A, opts);
+}
+
 // potrf
 template <typename scalar_t>
 void chol_factor(
@@ -402,7 +413,8 @@ void chol_factor(
     potrf(A, opts);
 }
 
-// Forward real-symmetric matrices to potrf; disabled for complex
+// forward real-symmetric matrices to potrf;
+// disabled for complex
 template <typename scalar_t>
 void chol_factor(
     SymmetricMatrix<scalar_t>& A,
@@ -415,6 +427,16 @@ void chol_factor(
 //-----------------------------------------
 // chol_solve()
 
+// pbsv
+template <typename scalar_t>
+void chol_solve(
+    HermitianBandMatrix<scalar_t>& A,
+                 Matrix<scalar_t>& B,
+    Options const& opts = Options())
+{
+    posv(A, B, opts);
+}
+
 // posv
 template <typename scalar_t>
 void chol_solve(
@@ -425,7 +447,8 @@ void chol_solve(
     posv(A, B, opts);
 }
 
-// Forward real-symmetric matrices to posv; disabled for complex
+// forward real-symmetric matrices to potrf;
+// disabled for complex
 template <typename scalar_t>
 void chol_solve(
     SymmetricMatrix<scalar_t>& A,
@@ -439,6 +462,16 @@ void chol_solve(
 //-----------------------------------------
 // chol_solve_using_factor()
 
+// pbtrs
+template <typename scalar_t>
+void chol_solve_using_factor(
+    HermitianBandMatrix<scalar_t>& A,
+                 Matrix<scalar_t>& B,
+    Options const& opts = Options())
+{
+    pbtrs(A, B, opts);
+}
+
 // potrs
 template <typename scalar_t>
 void chol_solve_using_factor(
@@ -449,7 +482,8 @@ void chol_solve_using_factor(
     potrs(A, B, opts);
 }
 
-// Forward real-symmetric matrices to potrs; disabled for complex
+// forward real-symmetric matrices to potrs;
+// disabled for complex
 template <typename scalar_t>
 void chol_solve_using_factor(
     SymmetricMatrix<scalar_t>& A,
@@ -489,7 +523,8 @@ void indefinite_factor(
     hetrf(A, T, H, opts);
 }
 
-// Forward real-symmetric matrices to hetrf; disabled for complex
+// forward real-symmetric matrices to hetrf;
+// disabled for complex
 template <typename scalar_t>
 void indefinite_factor(
     SymmetricMatrix<scalar_t>& A, Pivots& pivots,
@@ -516,7 +551,8 @@ void indefinite_solve(
     hesv(A, B, opts);
 }
 
-// Forward real-symmetric matrices to hesv; disabled for complex
+// forward real-symmetric matrices to hesv;
+// disabled for complex
 template <typename scalar_t>
 void indefinite_solve(
     SymmetricMatrix<scalar_t>& A, Pivots& pivots,
@@ -542,7 +578,8 @@ void indefinite_solve_using_factor(
 {
     hetrs(A, T, B, opts);
 }
-// Forward real-symmetric matrices to hetrs; disabled for complex
+// forward real-symmetric matrices to hetrs;
+// disabled for complex
 template <typename scalar_t>
 void indefinite_solve_using_factor(
     SymmetricMatrix<scalar_t>& A, Pivots& pivots,
@@ -632,14 +669,87 @@ void lq_multiply_by_q(
 }
 
 //------------------------------------------------------------------------------
-// Eigenvalues and SVD
+// SVD
 
 //-----------------------------------------
+// svd_vals()
+
+// gesvd
+template <typename scalar_t>
+void svd_vals(
+    Matrix<scalar_t> A,
+    std::vector< blas::real_type<scalar_t> >& Sigma,
+    Options const& opts = Options())
+{
+    gesvd(A, Sigma, opts);
+}
+
+//------------------------------------------------------------------------------
 // Eigenvalue decomposition
 
 //-----------------------------------------
-// SVD
+// eig_vals()
+
+//-----------------------------------------
+// Symmetric/hermitian
+
+// heev
+template <typename scalar_t>
+void eig_vals(
+    HermitianMatrix<scalar_t>& A,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Options const& opts = Options())
+{
+    Matrix<scalar_t> Z;
+    heev(Job::NoVec, A, Lambda, Z, opts);
+}
+
+// syev
+// forward real-symmetric matrices to heev;
+// disabled for complex
+template <typename scalar_t>
+void eig_vals(
+    SymmetricMatrix<scalar_t>& A,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    Matrix<scalar_t> Z;
+    syev(Job::NoVec, A, Lambda, Z, opts);
+}
+
+//-----------------------------------------
+// Generalized symmetric/hermitian
+
+// hegv
+template <typename scalar_t>
+void eig_vals(
+    int64_t itype,
+    HermitianMatrix<scalar_t>& A,
+    HermitianMatrix<scalar_t>& B,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Options const& opts = Options())
+{
+    Matrix<scalar_t> V;
+    hegv(itype, Job::NoVec, A, B, Lambda, V, opts);
+}
+
+// sygv
+// forward real-symmetric matrices to hegv;
+// disabled for complex
+template <typename scalar_t>
+void eig_vals(
+    int64_t itype,
+    SymmetricMatrix<scalar_t>& A,
+    SymmetricMatrix<scalar_t>& B,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    Matrix<scalar_t> V;
+    sygv(itype, Job::NoVec, A, B, Lambda, V, opts);
+}
 
 } // namespace slate
 
-#endif // SIMPLIFIED_API_HH
+#endif // SLATE_SIMPLIFIED_API_HH

@@ -240,7 +240,7 @@ Params::Params():
     //         name,      w,    type,            default,                 str2enum,     enum2str,     help
     datatype  ("type",    4,    ParamType::List, DataType::Double,        str2datatype, datatype2str, "s=single (float), d=double, c=complex-single, z=complex-double"),
     origin    ("origin",  9,    ParamType::List, slate::Origin::Host,     str2origin,   origin2str,   "origin: h=Host, s=ScaLAPACK, d=Devices"),
-    target    ("target",  7,    ParamType::List, slate::Target::HostTask, str2target,   target2str,   "target: t=HostTask, n=HostNes,t b=HostBatch, d=Devices"),
+    target    ("target",  7,    ParamType::List, slate::Target::HostTask, str2target,   target2str,   "target: t=HostTask, n=HostNest, b=HostBatch, d=Devices"),
     dev_dist  ("dev-dist",9,    ParamType::List, slate::Dist::Col,        str2dist,     dist2str,     "matrix tiles distribution across local devices (one-dimensional block-cyclic): col=column, row=row"),
 
     //         name,      w,    type,            default,                 char2enum,         enum2char,         enum2str,         help
@@ -287,9 +287,9 @@ Params::Params():
     ib        ("ib",      4,    ParamType::List, 16,      0, 1000000, "ib"),
     p         ("p",       4,    ParamType::List, 1,       0, 1000000, "p"),
     q         ("q",       4,    ParamType::List, 1,       0, 1000000, "q"),
-    lookahead ("lookahead", 9,  ParamType::List, 1,       0, 1000000, "number of lookahead panels"),
+    lookahead ("lookahead", 2,  ParamType::List, 1,       0, 1000000, "(la) number of lookahead panels"),
     panel_threads("panel-threads",
-                          7,    ParamType::List, 1,       0, 1000000, "max number of threads used in panel"),
+                          2,    ParamType::List, 1,       0, 1000000, "(pt) max number of threads used in panel"),
     align     ("align",   6,    ParamType::List,  32,     1,    1024, "column alignment (sets lda, ldb, etc. to multiple of align)"),
     gemm_variant("gemm-variant", 8, ParamType::List, "gemmC", str2gemmVariant, gemmVariant2str, "gemmA, gemmC (default:gemmC)"),
 
@@ -319,7 +319,8 @@ Params::Params():
     okay      ("status", 6, ParamType::Output,  -1,   0,   0, "success indicator")
 {
     // set header different than command line prefix
-    panel_threads.name("panelth", "panel-threads");
+    lookahead.name("la", "lookahead");
+    panel_threads.name("pt", "panel-threads");
     gemm_variant.name("variant", "gemm-variant");
 
     // change names of matrix B's params
@@ -437,24 +438,36 @@ int run(int argc, char** argv)
 
         // print input so running `test [input] > out.txt` documents input
         if (print) {
-            std::string args = "input: ";
+            // Version, id.
+            char buf[100];
+            int version = slate::version();
+            snprintf(buf, sizeof(buf), "SLATE version %04d.%02d.%02d, id %s\n",
+                     version / 10000, (version % 10000) / 100, version % 100,
+                     slate::id());
+            std::string args = buf;
+
+            // Input line.
+            args += "input: ";
             args += argv[0];
             for (int i = 1; i < argc; ++i) {
                 args += ' ';
                 args += argv[i];
             }
             args += "\n";
+
+            // Date and time, MPI, OpenMP, CUDA specs.
             std::time_t now = std::time(nullptr);
             char nowstr[100];
             std::strftime(nowstr, sizeof(nowstr), "%F %T", std::localtime(&now));
-            args.append(nowstr);
-            args += ": MPIsize " + std::to_string(mpi_size);
+            args += nowstr;
+            args += ", MPI size " + std::to_string(mpi_size);
             args += ", OpenMP threads " + std::to_string(omp_get_max_threads());
             int num_devices = 0;
             cudaGetDeviceCount(&num_devices);
             if (num_devices > 0)
                 args += ", CUDA devices available " + std::to_string(num_devices);
             args += "\n";
+
             printf("%s", args.c_str());
             slate::trace::Trace::comment(args);
         }

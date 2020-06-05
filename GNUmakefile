@@ -64,13 +64,19 @@ NVCC ?= nvcc
 CXXFLAGS  += -O3 -std=c++11 -Wall -pedantic -MMD
 NVCCFLAGS += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
 
+force: ;
+
 # auto-detect OS
 # $OSTYPE may not be exported from the shell, so echo it
-ostype = $(shell echo $${OSTYPE})
+ostype := $(shell echo $${OSTYPE})
 ifneq ($(findstring darwin, $(ostype)),)
     # MacOS is darwin
     macos = 1
 endif
+
+# Check if Fortran compiler exists.
+# Note that 'make' sets $(FC) to f77 by default.
+HAS_FORTRAN := $(shell which $(FC))
 
 #-------------------------------------------------------------------------------
 # if shared
@@ -240,9 +246,9 @@ ifeq ($(cuda),1)
         $(error ERROR: set cuda_arch, currently '$(cuda_arch)', to one of kepler, maxwell, pascal, volta, turing, or valid sm_XX from nvcc -h)
     else
         # Get last option (last 2 words) of nv_compute.
-        nwords  = $(words $(nv_compute))
-        nwords_1 = $(shell expr $(nwords) - 1)
-        nv_compute_last = $(wordlist $(nwords_1), $(nwords), $(nv_compute))
+        nwords := $(words $(nv_compute))
+        nwords_1 := $(shell expr $(nwords) - 1)
+        nv_compute_last := $(wordlist $(nwords_1), $(nwords), $(nv_compute))
     endif
 
     # Use all sm_XX (binary), and the last compute_XX (PTX) for forward compatibility.
@@ -272,6 +278,7 @@ libslate_src += \
         src/core/Memory.cc \
         src/aux/Trace.cc \
         src/core/types.cc \
+        src/version.cc \
 
 # work
 libslate_src += \
@@ -402,9 +409,7 @@ libslate_src += \
         src/unmlq.cc \
         src/hegst.cc \
 
-
-FORTRAN = $(shell which $(FC))
-ifneq ($(FORTRAN),)
+ifneq ($(HAS_FORTRAN),)
     libslate_src += \
         src/ssteqr2.f \
         src/dsteqr2.f \
@@ -462,9 +467,7 @@ tester_src += \
 
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
-# Note that 'make' sets $(FC) to f77 by default.
-FORTRAN = $(shell which $(FC))
-ifneq ($(FORTRAN),)
+ifneq ($(HAS_FORTRAN),)
     tester_src += \
         test/pslange.f \
         test/pdlange.f \
@@ -509,6 +512,24 @@ dep          = $(addsuffix .d, $(basename $(libslate_src) $(tester_src) \
 
 tester    = test/tester
 unit_test = $(basename $(unit_src))
+
+#-------------------------------------------------------------------------------
+# Get Mercurial id, and make version.o depend on it via .id file.
+
+ifneq ($(wildcard .hg),)
+    id := $(shell hg id -i)
+    src/version.o: CXXFLAGS += -DSLATE_ID='"$(id)"'
+endif
+
+last_id := $(shell [ -e .id ] && cat .id || echo 'NA')
+ifneq ($(id),$(last_id))
+    .id: force
+endif
+
+.id:
+	echo $(id) > .id
+
+src/version.o: .id
 
 #-------------------------------------------------------------------------------
 # SLATE specific flags and libraries
@@ -799,7 +820,10 @@ echo:
 	@echo "static        = '$(static)'"
 	@echo "cuda_arch     = '$(cuda_arch)'"
 	@echo "cuda          = '$(cuda)'"
+	@echo "ostype        = '$(ostype)'"
 	@echo "macos         = '$(macos)'"
+	@echo "id            = '$(id)'"
+	@echo "last_id       = '$(last_id)'"
 	@echo
 	@echo "libblaspp     = $(libblaspp)"
 	@echo "liblapackpp   = $(liblapackpp)"
@@ -843,6 +867,7 @@ echo:
 	@echo
 	@echo "FC            = $(FC)"
 	@echo "FCFLAGS       = $(FCFLAGS)"
+	@echo "HAS_FORTRAN   = $(HAS_FORTRAN)"
 	@echo
 	@echo "LDFLAGS       = $(LDFLAGS)"
 	@echo "LIBS          = $(LIBS)"

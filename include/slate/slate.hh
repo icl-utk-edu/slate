@@ -729,7 +729,7 @@ void tb2bd(
 // bdsqr()
 template <typename scalar_t>
 void bdsqr(
-    lapack::Job jobu, lapack::Job jobvt,
+    Job jobu, Job jobvt,
     std::vector< blas::real_type<scalar_t> >& D,
     std::vector< blas::real_type<scalar_t> >& E,
     Matrix<scalar_t>& U,
@@ -746,7 +746,7 @@ void bdsqr(
 // heev()
 template <typename scalar_t>
 void heev(
-    lapack::Job jobz,
+    Job jobz,
     HermitianMatrix<scalar_t>& A, std::vector< blas::real_type<scalar_t> >& W,
              Matrix<scalar_t>& Z,
     Options const& opts = Options());
@@ -755,7 +755,7 @@ void heev(
 // disabled for complex
 template <typename scalar_t>
 void heev(
-    lapack::Job jobz,
+    Job jobz,
     SymmetricMatrix<scalar_t>& A, std::vector< blas::real_type<scalar_t> >& W,
              Matrix<scalar_t>& Z,
     Options const& opts = Options(),
@@ -771,7 +771,7 @@ void heev(
 // disabled for complex
 template <typename scalar_t>
 void syev(
-    lapack::Job jobz,
+    Job jobz,
     SymmetricMatrix<scalar_t>& A, std::vector< blas::real_type<scalar_t> >& W,
              Matrix<scalar_t>& Z,
     Options const& opts = Options(),
@@ -788,7 +788,7 @@ void syev(
 // hegv()
 template <typename scalar_t>
 void hegv(
-    int64_t itype, lapack::Job jobz,
+    int64_t itype, Job jobz,
     HermitianMatrix<scalar_t>& A,
     HermitianMatrix<scalar_t>& B, std::vector< blas::real_type<scalar_t> >& W,
              Matrix<scalar_t>& V,
@@ -798,7 +798,7 @@ void hegv(
 // disabled for complex
 template <typename scalar_t>
 void hegv(
-    int64_t itype, lapack::Job jobz,
+    int64_t itype, Job jobz,
     SymmetricMatrix<scalar_t>& A,
     SymmetricMatrix<scalar_t>& B, std::vector< blas::real_type<scalar_t> >& W,
              Matrix<scalar_t>& V,
@@ -816,7 +816,7 @@ void hegv(
 // disabled for complex
 template <typename scalar_t>
 void sygv(
-    int64_t itype, lapack::Job jobz,
+    int64_t itype, Job jobz,
     SymmetricMatrix<scalar_t>& A,
     SymmetricMatrix<scalar_t>& B, std::vector< blas::real_type<scalar_t> >& W,
              Matrix<scalar_t>& V,
@@ -905,7 +905,7 @@ void sterf(
 // steqr2()
 template <typename scalar_t>
 void steqr2(
-    lapack::Job job,
+    Job jobz,
     std::vector< blas::real_type<scalar_t> >& D,
     std::vector< blas::real_type<scalar_t> >& E,
     Matrix<scalar_t>& Z,

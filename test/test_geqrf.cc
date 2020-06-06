@@ -131,12 +131,21 @@ void test_geqrf_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::geqrf(A, T, {
+        slate::qr_factor(A, T, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target},
             {slate::Option::MaxPanelThreads, panel_threads},
             {slate::Option::InnerBlocking, ib}
         });
+
+        //---------------------
+        // Using traditional BLAS/LAPACK name
+        // slate::geqrf(A, T, {
+        //     {slate::Option::Lookahead, lookahead},
+        //     {slate::Option::Target, target},
+        //     {slate::Option::MaxPanelThreads, panel_threads},
+        //     {slate::Option::InnerBlocking, ib}
+        // });
 
         {
             slate::trace::Block trace_block("MPI_Barrier");

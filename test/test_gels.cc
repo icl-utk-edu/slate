@@ -345,6 +345,9 @@ void test_gels_work(Params& params, bool run)
                 print_matrix("D", D);
 
             slate::TriangularFactors<scalar_t> TD;
+            slate::qr_factor(D, TD);
+            //---------------------
+            // Using traditional BLAS/LAPACK name
             slate::geqrf(D, TD);
 
             if (verbose > 1) {

@@ -231,12 +231,21 @@ void test_gels_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::gels(opA, T, BX, {
+        slate::least_squares_solve(opA, T, BX, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target},
             {slate::Option::MaxPanelThreads, panel_threads},
             {slate::Option::InnerBlocking, ib}
         });
+
+        //---------------------
+        // Using traditional BLAS/LAPACK name
+        // slate::gels(opA, T, BX, {
+        //     {slate::Option::Lookahead, lookahead},
+        //     {slate::Option::Target, target},
+        //     {slate::Option::MaxPanelThreads, panel_threads},
+        //     {slate::Option::InnerBlocking, ib}
+        // });
 
         {
             slate::trace::Block trace_block("MPI_Barrier");

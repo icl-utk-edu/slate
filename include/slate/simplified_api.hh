@@ -301,9 +301,22 @@ void lu_factor(
     getrf(A, pivots, opts);
 }
 
+//-----------------------------------------
+// lu_nopiv_factor()
+
+// todo
+// gbtrf_nopiv
+// template <typename scalar_t>
+// void lu_nopiv_factor(
+//     BandMatrix<scalar_t>& A,
+//     Options const& opts = Options())
+// {
+//     gbtrf_nopiv(A, opts);
+// }
+
 // getrf_nopiv
 template <typename scalar_t>
-void lu_factor(
+void lu_nopiv_factor(
     Matrix<scalar_t>& A,
     Options const& opts = Options())
 {
@@ -334,6 +347,31 @@ void lu_solve(
 }
 
 //-----------------------------------------
+// lu_nopiv_solve()
+
+// todo
+// gbsv_nopiv
+// template <typename scalar_t>
+// void lu_nopiv_solve(
+//     BandMatrix<scalar_t>& A,
+//         Matrix<scalar_t>& B,
+//     Options const& opts = Options())
+// {
+//     gbsv_nopiv(A, B, opts);
+// }
+
+// todo
+// gesv_nopiv
+// template <typename scalar_t>
+// void lu_nopiv_solve(
+//     Matrix<scalar_t>& A,
+//     Matrix<scalar_t>& B,
+//     Options const& opts = Options())
+// {
+//     gesv_nopiv(A, B, opts);
+// }
+
+//-----------------------------------------
 // lu_solve_using_factor()
 
 // gbtrs
@@ -356,9 +394,23 @@ void lu_solve_using_factor(
     getrs(A, pivots, B, opts);
 }
 
+//-----------------------------------------
+// lu_nopiv_solve_using_factor()
+
+// todo
+// gbtrs_nopiv
+// template <typename scalar_t>
+// void lu_nopiv_solve_using_factor(
+//     BandMatrix<scalar_t>& A,
+//         Matrix<scalar_t>& B,
+//     Options const& opts = Options())
+// {
+//     gbtrs_nopiv(A, B, opts);
+// }
+
 // getrs_nopiv
 template <typename scalar_t>
-void lu_solve_using_factor(
+void lu_nopiv_solve_using_factor(
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& B,
     Options const& opts = Options())

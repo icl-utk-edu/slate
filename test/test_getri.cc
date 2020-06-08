@@ -146,27 +146,53 @@ void test_getri_work(Params& params, bool run)
         // Run SLATE test.
         //==================================================
         // factor then invert; measure time for both
-        slate::getrf(A, pivots, {
+        slate::lu_factor(A, pivots, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target},
             {slate::Option::MaxPanelThreads, panel_threads},
             {slate::Option::InnerBlocking, ib}
         });
+
+        //---------------------
+        // Using traditional BLAS/LAPACK name
+        // slate::getrf(A, pivots, {
+        //     {slate::Option::Lookahead, lookahead},
+        //     {slate::Option::Target, target},
+        //     {slate::Option::MaxPanelThreads, panel_threads},
+        //     {slate::Option::InnerBlocking, ib}
+        // });
+
         if (params.routine == "getri") {
             // call in-place inversion
-            slate::getri(A, pivots, {
+            slate::lu_inverse_using_factor(A, pivots, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::getri(A, pivots, {
+            //     {slate::Option::Lookahead, lookahead},
+            //     {slate::Option::Target, target}
+            // });
         }
         else if (params.routine == "getriOOP") {
             // Call the out-of-place version; on exit, C = inv(A), A unchanged
-            slate::getri(A, pivots, C, {
+            slate::lu_inverse_using_factor(A, pivots, C, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target},
                 {slate::Option::MaxPanelThreads, panel_threads},
                 {slate::Option::InnerBlocking, ib}
             });
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::getri(A, pivots, C, {
+            //     {slate::Option::Lookahead, lookahead},
+            //     {slate::Option::Target, target},
+            //     {slate::Option::MaxPanelThreads, panel_threads},
+            //     {slate::Option::InnerBlocking, ib}
+            // });
         }
 
         {

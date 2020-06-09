@@ -56,6 +56,7 @@ public:
     testsweeper::ParamInt    verbose;
     testsweeper::ParamInt    extended;
     testsweeper::ParamInt    cache;
+    testsweeper::ParamChar   nonuniform_nb;
 
     // ----- routine parameters
     // LAPACK options
@@ -163,7 +164,6 @@ void test_herk   (Params& params, bool run);
 
 // LU, general
 void test_gesv       (Params& params, bool run);
-void test_gesv_nopiv (Params& params, bool run);
 void test_getri      (Params& params, bool run);
 
 // LU, band

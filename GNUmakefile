@@ -376,6 +376,7 @@ libslate_src += \
         src/geqrf.cc \
         src/gelqf.cc \
         src/gesv.cc \
+        src/gesv_nopiv.cc \
         src/gesvd.cc \
         src/gesvMixed.cc \
         src/getrf.cc \
@@ -445,7 +446,6 @@ tester_src += \
         test/test_geqrf.cc \
         test/test_gelqf.cc \
         test/test_gesv.cc \
-        test/test_gesv_nopiv.cc \
         test/test_gesvd.cc \
         test/test_getri.cc \
         test/test_he2hb.cc \

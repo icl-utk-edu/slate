@@ -186,26 +186,6 @@ void triangular_solve(
     tbsm(Side::Right, alpha, B, A, opts);
 }
 
-// Left tbsm with pivoting
-template <typename scalar_t>
-void triangular_solve(
-    scalar_t alpha, TriangularBandMatrix<scalar_t>& A,
-    Pivots& pivots,               Matrix<scalar_t>& B,
-    Options const& opts = Options())
-{
-    tbsm(Side::Left, alpha, A, pivots, B, opts);
-}
-
-// Right tbsm with pivoting
-template <typename scalar_t>
-void triangular_solve(
-    scalar_t alpha,               Matrix<scalar_t>& A,
-    Pivots& pivots, TriangularBandMatrix<scalar_t>& B,
-    Options const& opts = Options())
-{
-    tbsm(Side::Right, alpha, B, pivots, A, opts);
-}
-
 // Left trsm
 template <typename scalar_t>
 void triangular_solve(
@@ -307,7 +287,7 @@ void lu_factor(
 // todo
 // gbtrf_nopiv
 // template <typename scalar_t>
-// void lu_nopiv_factor(
+// void lu_factor_nopiv(
 //     BandMatrix<scalar_t>& A,
 //     Options const& opts = Options())
 // {
@@ -316,7 +296,7 @@ void lu_factor(
 
 // getrf_nopiv
 template <typename scalar_t>
-void lu_nopiv_factor(
+void lu_factor_nopiv(
     Matrix<scalar_t>& A,
     Options const& opts = Options())
 {
@@ -352,7 +332,7 @@ void lu_solve(
 // todo
 // gbsv_nopiv
 // template <typename scalar_t>
-// void lu_nopiv_solve(
+// void lu_solve_nopiv(
 //     BandMatrix<scalar_t>& A,
 //         Matrix<scalar_t>& B,
 //     Options const& opts = Options())
@@ -363,7 +343,7 @@ void lu_solve(
 // todo
 // gesv_nopiv
 // template <typename scalar_t>
-// void lu_nopiv_solve(
+// void lu_solve_nopiv(
 //     Matrix<scalar_t>& A,
 //     Matrix<scalar_t>& B,
 //     Options const& opts = Options())
@@ -400,7 +380,7 @@ void lu_solve_using_factor(
 // todo
 // gbtrs_nopiv
 // template <typename scalar_t>
-// void lu_nopiv_solve_using_factor(
+// void lu_solve_using_factor_nopiv(
 //     BandMatrix<scalar_t>& A,
 //         Matrix<scalar_t>& B,
 //     Options const& opts = Options())
@@ -410,7 +390,7 @@ void lu_solve_using_factor(
 
 // getrs_nopiv
 template <typename scalar_t>
-void lu_nopiv_solve_using_factor(
+void lu_solve_using_factor_nopiv(
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& B,
     Options const& opts = Options())
@@ -432,13 +412,13 @@ void lu_inverse_using_factor(
 
 // Out-of-place getri
 template <typename scalar_t>
-void lu_inverse_using_factor(
+void lu_inverse_using_factor_out_of_place(
     Matrix<scalar_t>& A, Pivots& pivots,
-    Matrix<scalar_t>& B,
+    Matrix<scalar_t>& A_inverse,
     Options const& opts = Options())
 
 {
-    getri(A, pivots, B, opts);
+    getri(A, pivots, A_inverse, opts);
 }
 
 //-----------------------------------------
@@ -486,7 +466,7 @@ void chol_solve(
                  Matrix<scalar_t>& B,
     Options const& opts = Options())
 {
-    posv(A, B, opts);
+    pbsv(A, B, opts);
 }
 
 // posv
@@ -572,7 +552,7 @@ void indefinite_factor(
              Matrix<scalar_t>& H,
     Options const& opts = Options())
 {
-    hetrf(A, T, H, opts);
+    hetrf(A, pivots, T, pivots2, H, opts);
 }
 
 // forward real-symmetric matrices to hetrf;
@@ -585,7 +565,7 @@ void indefinite_factor(
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    hetrf(A, T, H, opts);
+    hetrf(A, pivots, T, pivots2, H, opts);
 }
 
 //-----------------------------------------
@@ -600,7 +580,7 @@ void indefinite_solve(
              Matrix<scalar_t>& B,
     Options const& opts = Options())
 {
-    hesv(A, B, opts);
+    hesv(A, pivots, T, pivots2, H, B, opts);
 }
 
 // forward real-symmetric matrices to hesv;
@@ -614,7 +594,7 @@ void indefinite_solve(
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    hesv(A, B, opts);
+    hesv(A, pivots, T, pivots2, H, B, opts);
 }
 
 //-----------------------------------------
@@ -628,7 +608,7 @@ void indefinite_solve_using_factor(
              Matrix<scalar_t>& B,
     Options const& opts = Options())
 {
-    hetrs(A, T, B, opts);
+    hetrs(A, pivots, T, pivots2, B, opts);
 }
 // forward real-symmetric matrices to hetrs;
 // disabled for complex
@@ -640,7 +620,7 @@ void indefinite_solve_using_factor(
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    hetrs(A, T, B, opts);
+    hetrs(A, pivots, T, pivots2, B, opts);
 }
 
 //------------------------------------------------------------------------------

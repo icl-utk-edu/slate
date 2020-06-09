@@ -160,10 +160,17 @@ void test_pbsv_work(Params& params, bool run)
     if (! ref_only) {
         if (params.routine == "pbtrs") {
             // Factor matrix A.
-            slate::pbtrf(A, {
+            slate::chol_factor(A, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::pbtrf(A, {
+            //     {slate::Option::Lookahead, lookahead},
+            //     {slate::Option::Target, target}
+            // });
         }
 
         if (trace) slate::trace::Trace::on();
@@ -183,22 +190,41 @@ void test_pbsv_work(Params& params, bool run)
         // pbsv:  Solve AX = B, including factoring A.
         //==================================================
         if (params.routine == "pbtrf") {
-            slate::pbtrf(A, {
+            slate::chol_factor(A, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::pbtrf(A, {
+            //     {slate::Option::Lookahead, lookahead},
+            //     {slate::Option::Target, target}
+            // });
         }
         else if (params.routine == "pbtrs") {
-            slate::pbtrs(A, B, {
+            slate::chol_solve_using_factor(A, B, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::pbtrs(A, B, {
+            //     {slate::Option::Lookahead, lookahead},
+            //     {slate::Option::Target, target}
+            // });
         }
         else {
-            slate::pbsv(A, B, {
+            slate::chol_solve(A, B, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
+
+            // slate::pbsv(A, B, {
+            //     {slate::Option::Lookahead, lookahead},
+            //     {slate::Option::Target, target}
+            // });
         }
 
         {
@@ -238,10 +264,17 @@ void test_pbsv_work(Params& params, bool run)
 
         if (params.routine == "pbtrf") {
             // Solve AX = B.
-            slate::pbtrs(A, B, {
+            slate::chol_solve_using_factor(A, B, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::pbtrs(A, B, {
+            //     {slate::Option::Lookahead, lookahead},
+            //     {slate::Option::Target, target}
+            // });
         }
 
         // allocate work space
@@ -253,7 +286,10 @@ void test_pbsv_work(Params& params, bool run)
         real_t X_norm = scalapack_plange("1", n, nrhs, &B_tst[0], ione, ione, descB_tst, &worklangeB[0]);
 
         // B_ref -= Aref*B_tst
-        slate::hbmm(blas::Side::Left, scalar_t(-1.0), Aorig, B, scalar_t(1.0), Bref);
+        slate::multiply(scalar_t(-1.0), Aorig, B, scalar_t(1.0), Bref);
+        //---------------------
+        // Using traditional BLAS/LAPACK name
+        // slate::hbmm(blas::Side::Left, scalar_t(-1.0), Aorig, B, scalar_t(1.0), Bref);
 
         // Norm of residual: || B - AX ||_1
         real_t R_norm = scalapack_plange("1", n, nrhs, &B_ref[0], ione, ione, descB_ref, &worklangeB[0]);

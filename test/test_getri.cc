@@ -178,7 +178,7 @@ void test_getri_work(Params& params, bool run)
         }
         else if (params.routine == "getriOOP") {
             // Call the out-of-place version; on exit, C = inv(A), A unchanged
-            slate::lu_inverse_using_factor(A, pivots, C, {
+            slate::lu_inverse_using_factor_out_of_place(A, pivots, C, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target},
                 {slate::Option::MaxPanelThreads, panel_threads},

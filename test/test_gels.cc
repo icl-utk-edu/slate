@@ -278,7 +278,7 @@ void test_gels_work(Params& params, bool run)
 
         // todo: need to store Bref for reference ScaLAPACK run?
         // residual = B - op(A) X, stored in Bref
-        slate::multiply(one, opA, X0, zero, B);
+        slate::multiply(-one, opAref, X, one, Bref);
         // Using traditional BLAS/LAPACK name
         // slate::gemm(-one, opAref, X, one, Bref);
 

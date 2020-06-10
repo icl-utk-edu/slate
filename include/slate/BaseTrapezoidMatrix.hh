@@ -141,7 +141,7 @@ public:
     void tileGetAllForWritingOnDevices(LayoutConvert layout);
     void tileGetAndHoldAll(int device, LayoutConvert layout);
     void tileGetAndHoldAllOnDevices(LayoutConvert layout);
-    void tileUnsetHoldAll(int device=hostNum());
+    void tileUnsetHoldAll(int device = BaseTrapezoidMatrix::host_num_);
     void tileUnsetHoldAllOnDevices();
     void tileUpdateAllOrigin();
     void tileLayoutReset();

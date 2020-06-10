@@ -6,10 +6,10 @@
 # or on MacOS, $DYLD_LIBRARY_PATH, or set as rpaths in $LDFLAGS.
 #
 # Set options on command line or in make.inc file:
-# CXX=mpicxx      or
-# CXX=mpic++      for MPI using compiler wrapper.
-# mpi=1           for MPI (-lmpi).
-# spectrum=1      for IBM Spectrum MPI (-lmpi_ibm).
+# 	CXX=mpicxx or mpic++ for MPI using compiler wrapper.
+# Alternatively:
+# 	mpi=1           for MPI (-lmpi).
+# 	spectrum=1      for IBM Spectrum MPI (-lmpi_ibm).
 #
 # mkl=1           for Intel MKL. Additional sub-options:
 #     mkl_intel=1       	for Intel MKL with Intel Fortran conventions;
@@ -22,16 +22,31 @@
 # essl=1          for IBM ESSL.
 # openblas=1      for OpenBLAS.
 #
-# openmp=1        for OpenMP.
+# openmp=1        for OpenMP (default).
 # static=1        for static library (libslate.a);
-#                 otherwise shared library (libslate.so).
+#                 otherwise default is shared library (libslate.so).
 #
+# If $(NVCC) compiler is found, sets cuda=1 by default. NVCC=nvcc by default.
 # cuda_arch="ARCH" for CUDA architectures, where ARCH is one or more of:
 #                     kepler maxwell pascal volta turing sm_XX
 #                  and sm_XX is a CUDA architecture (see nvcc -h).
 # Setting cuda=1 will set cuda_arch="kepler pascal" by default.
 
 -include make.inc
+
+# Set defaults
+# Do all ?= before strip!
+openmp ?= 1
+
+NVCC ?= nvcc
+
+# If nvcc exists, set cuda = 1 by default.
+HAVE_CUDA := $(shell which $(NVCC))
+ifneq ($(HAVE_CUDA),)
+    cuda ?= 1
+else ifeq ($(strip $(cuda)),1)
+    $(error cuda = $(cuda), but NVCC = ${NVCC} not found)
+endif
 
 # Strip whitespace from variables, in case make.inc had trailing spaces.
 mpi             := $(strip $(mpi))
@@ -59,8 +74,6 @@ endif
 # Export variables to sub-make for testsweeper, BLAS++, LAPACK++.
 export CXX mkl ilp64 essl openblas openmp static
 
-NVCC ?= nvcc
-
 CXXFLAGS  += -O3 -std=c++11 -Wall -pedantic -MMD
 NVCCFLAGS += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
 
@@ -76,7 +89,7 @@ endif
 
 # Check if Fortran compiler exists.
 # Note that 'make' sets $(FC) to f77 by default.
-HAS_FORTRAN := $(shell which $(FC))
+HAVE_FORTRAN := $(shell which $(FC))
 
 #-------------------------------------------------------------------------------
 # if shared
@@ -409,7 +422,7 @@ libslate_src += \
         src/unmlq.cc \
         src/hegst.cc \
 
-ifneq ($(HAS_FORTRAN),)
+ifneq ($(HAVE_FORTRAN),)
     libslate_src += \
         src/ssteqr2.f \
         src/dsteqr2.f \
@@ -467,7 +480,7 @@ tester_src += \
 
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
-ifneq ($(HAS_FORTRAN),)
+ifneq ($(HAVE_FORTRAN),)
     tester_src += \
         test/pslange.f \
         test/pdlange.f \
@@ -807,6 +820,7 @@ distclean: clean
 #-------------------------------------------------------------------------------
 # debugging
 echo:
+	@echo "---------- Options"
 	@echo "mpi           = '$(mpi)'"
 	@echo "spectrum      = '$(spectrum)'"
 	@echo "mkl           = '$(mkl)'"
@@ -818,21 +832,22 @@ echo:
 	@echo "openblas      = '$(openblas)'"
 	@echo "openmp        = '$(openmp)'"
 	@echo "static        = '$(static)'"
-	@echo "cuda_arch     = '$(cuda_arch)'"
-	@echo "cuda          = '$(cuda)'"
 	@echo "ostype        = '$(ostype)'"
 	@echo "macos         = '$(macos)'"
 	@echo "id            = '$(id)'"
 	@echo "last_id       = '$(last_id)'"
 	@echo
+	@echo "---------- Dependencies"
 	@echo "libblaspp     = $(libblaspp)"
 	@echo "liblapackpp   = $(liblapackpp)"
 	@echo "testsweeper   = $(testsweeper)"
 	@echo
+	@echo "---------- Libraries"
 	@echo "libslate_a    = $(libslate_a)"
 	@echo "libslate_so   = $(libslate_so)"
 	@echo "libslate      = $(libslate)"
 	@echo
+	@echo "---------- Files"
 	@echo "libslate_obj  = $(libslate_obj)"
 	@echo
 	@echo "tester_src    = $(tester_src)"
@@ -851,11 +866,16 @@ echo:
 	@echo
 	@echo "dep           = $(dep)"
 	@echo
+	@echo "---------- C++ compiler"
 	@echo "CXX           = $(CXX)"
 	@echo "CXXFLAGS      = $(CXXFLAGS)"
 	@echo
+	@echo "---------- CUDA options"
+	@echo "cuda          = '$(cuda)'"
+	@echo "cuda_arch     = '$(cuda_arch)'"
 	@echo "NVCC          = $(NVCC)"
 	@echo "NVCCFLAGS     = $(NVCCFLAGS)"
+	@echo "HAVE_CUDA     = ${HAVE_CUDA}"
 	@echo "cuda_arch     = $(cuda_arch)"
 	@echo "cuda_arch_    = $(cuda_arch_)"
 	@echo "sms           = $(sms)"
@@ -865,10 +885,12 @@ echo:
 	@echo "nwords_1      = $(nwords_1)"
 	@echo "nv_compute_last = $(nv_compute_last)"
 	@echo
+	@echo "---------- Fortran compiler"
 	@echo "FC            = $(FC)"
 	@echo "FCFLAGS       = $(FCFLAGS)"
-	@echo "HAS_FORTRAN   = $(HAS_FORTRAN)"
+	@echo "HAVE_FORTRAN  = $(HAVE_FORTRAN)"
 	@echo
+	@echo "---------- Link flags"
 	@echo "LDFLAGS       = $(LDFLAGS)"
 	@echo "LIBS          = $(LIBS)"
 	@echo

@@ -176,7 +176,6 @@ END
                                 color: 'warning',
                                 message: "${currentBuild.fullDisplayName} Lips test unstable (<${env.BUILD_URL}|Open>)"
                         }
-                        // Lips currently has spurious errors; don't email them.
                         failure {
                             slackSend channel: '#slate_ci',
                                 color: 'danger',

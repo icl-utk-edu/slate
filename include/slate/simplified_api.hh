@@ -40,10 +40,6 @@
 #ifndef SLATE_SIMPLIFIED_API_HH
 #define SLATE_SIMPLIFIED_API_HH
 
-//------------------------------------------------------------------------------
-/// @namespace slate
-/// SLATE's top-level namespace.
-///
 namespace slate {
 
 //------------------------------------------------------------------------------
@@ -261,49 +257,6 @@ void rank_2k_update(
 // LU
 
 //-----------------------------------------
-// lu_factor()
-
-// gbtrf
-template <typename scalar_t>
-void lu_factor(
-    BandMatrix<scalar_t>& A, Pivots& pivots,
-    Options const& opts = Options())
-{
-    gbtrf(A, pivots, opts);
-}
-
-// getrf
-template <typename scalar_t>
-void lu_factor(
-    Matrix<scalar_t>& A, Pivots& pivots,
-    Options const& opts = Options())
-{
-    getrf(A, pivots, opts);
-}
-
-//-----------------------------------------
-// lu_nopiv_factor()
-
-// todo
-// gbtrf_nopiv
-// template <typename scalar_t>
-// void lu_factor_nopiv(
-//     BandMatrix<scalar_t>& A,
-//     Options const& opts = Options())
-// {
-//     gbtrf_nopiv(A, opts);
-// }
-
-// getrf_nopiv
-template <typename scalar_t>
-void lu_factor_nopiv(
-    Matrix<scalar_t>& A,
-    Options const& opts = Options())
-{
-    getrf_nopiv(A, opts);
-}
-
-//-----------------------------------------
 // lu_solve()
 
 // gbsv
@@ -327,7 +280,7 @@ void lu_solve(
 }
 
 //-----------------------------------------
-// lu_nopiv_solve()
+// lu_solve_nopiv()
 
 // todo
 // gbsv_nopiv
@@ -350,6 +303,49 @@ void lu_solve(
 // {
 //     gesv_nopiv(A, B, opts);
 // }
+
+//-----------------------------------------
+// lu_factor()
+
+// gbtrf
+template <typename scalar_t>
+void lu_factor(
+    BandMatrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts = Options())
+{
+    gbtrf(A, pivots, opts);
+}
+
+// getrf
+template <typename scalar_t>
+void lu_factor(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts = Options())
+{
+    getrf(A, pivots, opts);
+}
+
+//-----------------------------------------
+// lu_factor_nopiv()
+
+// todo
+// gbtrf_nopiv
+// template <typename scalar_t>
+// void lu_factor_nopiv(
+//     BandMatrix<scalar_t>& A,
+//     Options const& opts = Options())
+// {
+//     gbtrf_nopiv(A, opts);
+// }
+
+// getrf_nopiv
+template <typename scalar_t>
+void lu_factor_nopiv(
+    Matrix<scalar_t>& A,
+    Options const& opts = Options())
+{
+    getrf_nopiv(A, opts);
+}
 
 //-----------------------------------------
 // lu_solve_using_factor()
@@ -375,7 +371,7 @@ void lu_solve_using_factor(
 }
 
 //-----------------------------------------
-// lu_nopiv_solve_using_factor()
+// lu_solve_using_factor_nopiv()
 
 // todo
 // gbtrs_nopiv
@@ -410,6 +406,9 @@ void lu_inverse_using_factor(
     getri(A, pivots, opts);
 }
 
+//-----------------------------------------
+// lu_inverse_using_factor_out_of_place()
+
 // Out-of-place getri
 template <typename scalar_t>
 void lu_inverse_using_factor_out_of_place(
@@ -423,38 +422,6 @@ void lu_inverse_using_factor_out_of_place(
 
 //-----------------------------------------
 // Cholesky
-
-//-----------------------------------------
-// chol_factor()
-
-// pbtrf
-template <typename scalar_t>
-void chol_factor(
-    HermitianBandMatrix<scalar_t>& A,
-    Options const& opts = Options())
-{
-    pbtrf(A, opts);
-}
-
-// potrf
-template <typename scalar_t>
-void chol_factor(
-    HermitianMatrix<scalar_t>& A,
-    Options const& opts = Options())
-{
-    potrf(A, opts);
-}
-
-// forward real-symmetric matrices to potrf;
-// disabled for complex
-template <typename scalar_t>
-void chol_factor(
-    SymmetricMatrix<scalar_t>& A,
-    Options const& opts = Options(),
-    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
-{
-    potrf(A, opts);
-}
 
 //-----------------------------------------
 // chol_solve()
@@ -489,6 +456,38 @@ void chol_solve(
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     posv(A, B, opts);
+}
+
+//-----------------------------------------
+// chol_factor()
+
+// pbtrf
+template <typename scalar_t>
+void chol_factor(
+    HermitianBandMatrix<scalar_t>& A,
+    Options const& opts = Options())
+{
+    pbtrf(A, opts);
+}
+
+// potrf
+template <typename scalar_t>
+void chol_factor(
+    HermitianMatrix<scalar_t>& A,
+    Options const& opts = Options())
+{
+    potrf(A, opts);
+}
+
+// forward real-symmetric matrices to potrf;
+// disabled for complex
+template <typename scalar_t>
+void chol_factor(
+    SymmetricMatrix<scalar_t>& A,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    potrf(A, opts);
 }
 
 //-----------------------------------------
@@ -542,33 +541,6 @@ void chol_inverse_using_factor(
 // Symmetric indefinite -- block Aasen's
 
 //-----------------------------------------
-// indefinite_factor()
-
-// hetrf
-template <typename scalar_t>
-void indefinite_factor(
-    HermitianMatrix<scalar_t>& A, Pivots& pivots,
-         BandMatrix<scalar_t>& T, Pivots& pivots2,
-             Matrix<scalar_t>& H,
-    Options const& opts = Options())
-{
-    hetrf(A, pivots, T, pivots2, H, opts);
-}
-
-// forward real-symmetric matrices to hetrf;
-// disabled for complex
-template <typename scalar_t>
-void indefinite_factor(
-    SymmetricMatrix<scalar_t>& A, Pivots& pivots,
-         BandMatrix<scalar_t>& T, Pivots& pivots2,
-             Matrix<scalar_t>& H,
-    Options const& opts = Options(),
-    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
-{
-    hetrf(A, pivots, T, pivots2, H, opts);
-}
-
-//-----------------------------------------
 // indefinite_solve()
 
 // hesv
@@ -595,6 +567,34 @@ void indefinite_solve(
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     hesv(A, pivots, T, pivots2, H, B, opts);
+}
+
+
+//-----------------------------------------
+// indefinite_factor()
+
+// hetrf
+template <typename scalar_t>
+void indefinite_factor(
+    HermitianMatrix<scalar_t>& A, Pivots& pivots,
+         BandMatrix<scalar_t>& T, Pivots& pivots2,
+             Matrix<scalar_t>& H,
+    Options const& opts = Options())
+{
+    hetrf(A, pivots, T, pivots2, H, opts);
+}
+
+// forward real-symmetric matrices to hetrf;
+// disabled for complex
+template <typename scalar_t>
+void indefinite_factor(
+    SymmetricMatrix<scalar_t>& A, Pivots& pivots,
+         BandMatrix<scalar_t>& T, Pivots& pivots2,
+             Matrix<scalar_t>& H,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    hetrf(A, pivots, T, pivots2, H, opts);
 }
 
 //-----------------------------------------

@@ -356,27 +356,6 @@ void colNorms(
 // LU
 
 //-----------------------------------------
-// gbtrf()
-template <typename scalar_t>
-void gbtrf(
-    BandMatrix<scalar_t>& A, Pivots& pivots,
-    Options const& opts = Options());
-
-//-----------------------------------------
-// getrf()
-template <typename scalar_t>
-void getrf(
-    Matrix<scalar_t>& A, Pivots& pivots,
-    Options const& opts = Options());
-
-//-----------------------------------------
-// getrf_nopiv()
-template <typename scalar_t>
-void getrf_nopiv(
-    Matrix<scalar_t>& A,
-    Options const& opts = Options());
-
-//-----------------------------------------
 // gbsv()
 template <typename scalar_t>
 void gbsv(
@@ -408,6 +387,27 @@ void gesvMixed(
     Matrix<scalar_hi>& B,
     Matrix<scalar_hi>& X,
     int& iter,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// gbtrf()
+template <typename scalar_t>
+void gbtrf(
+    BandMatrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// getrf()
+template <typename scalar_t>
+void getrf(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// getrf_nopiv()
+template <typename scalar_t>
+void getrf_nopiv(
+    Matrix<scalar_t>& A,
     Options const& opts = Options());
 
 //-----------------------------------------
@@ -449,32 +449,6 @@ void getri(
 
 //-----------------------------------------
 // Cholesky
-
-//-----------------------------------------
-// pbtrf()
-template <typename scalar_t>
-void pbtrf(
-    HermitianBandMatrix<scalar_t>& A,
-    Options const& opts = Options());
-
-//-----------------------------------------
-// potrf()
-template <typename scalar_t>
-void potrf(
-    HermitianMatrix<scalar_t>& A,
-    Options const& opts = Options());
-
-// forward real-symmetric matrices to potrf;
-// disabled for complex
-template <typename scalar_t>
-void potrf(
-    SymmetricMatrix<scalar_t>& A,
-    Options const& opts = Options(),
-    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
-{
-    HermitianMatrix<scalar_t> AH(A);
-    potrf(AH, opts);
-}
 
 //-----------------------------------------
 // pbsv()
@@ -526,6 +500,32 @@ void posvMixed(
 // todo: forward real-symmetric matrices to posvMixed?
 
 //-----------------------------------------
+// pbtrf()
+template <typename scalar_t>
+void pbtrf(
+    HermitianBandMatrix<scalar_t>& A,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// potrf()
+template <typename scalar_t>
+void potrf(
+    HermitianMatrix<scalar_t>& A,
+    Options const& opts = Options());
+
+// forward real-symmetric matrices to potrf;
+// disabled for complex
+template <typename scalar_t>
+void potrf(
+    SymmetricMatrix<scalar_t>& A,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    HermitianMatrix<scalar_t> AH(A);
+    potrf(AH, opts);
+}
+
+//-----------------------------------------
 // pbtrs()
 template <typename scalar_t>
 void pbtrs(
@@ -569,29 +569,6 @@ void potri(
 // Symmetric indefinite -- block Aasen's
 
 //-----------------------------------------
-// hetrf()
-template <typename scalar_t>
-void hetrf(
-    HermitianMatrix<scalar_t>& A, Pivots& pivots,
-         BandMatrix<scalar_t>& T, Pivots& pivots2,
-             Matrix<scalar_t>& H,
-    Options const& opts = Options());
-
-// forward real-symmetric matrices to hetrf;
-// disabled for complex
-template <typename scalar_t>
-void hetrf(
-    SymmetricMatrix<scalar_t>& A, Pivots& pivots,
-         BandMatrix<scalar_t>& T, Pivots& pivots2,
-             Matrix<scalar_t>& H,
-    Options const& opts = Options(),
-    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
-{
-    HermitianMatrix<scalar_t> AH(A);
-    hetrf(AH, T, H, opts);
-}
-
-//-----------------------------------------
 // hesv()
 template <typename scalar_t>
 void hesv(
@@ -614,6 +591,29 @@ void hesv(
 {
     HermitianMatrix<scalar_t> AH(A);
     hesv(AH, B, opts);
+}
+
+//-----------------------------------------
+// hetrf()
+template <typename scalar_t>
+void hetrf(
+    HermitianMatrix<scalar_t>& A, Pivots& pivots,
+         BandMatrix<scalar_t>& T, Pivots& pivots2,
+             Matrix<scalar_t>& H,
+    Options const& opts = Options());
+
+// forward real-symmetric matrices to hetrf;
+// disabled for complex
+template <typename scalar_t>
+void hetrf(
+    SymmetricMatrix<scalar_t>& A, Pivots& pivots,
+         BandMatrix<scalar_t>& T, Pivots& pivots2,
+             Matrix<scalar_t>& H,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    HermitianMatrix<scalar_t> AH(A);
+    hetrf(AH, T, H, opts);
 }
 
 //-----------------------------------------

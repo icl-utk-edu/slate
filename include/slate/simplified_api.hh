@@ -446,7 +446,7 @@ void chol_solve(
     posv(A, B, opts);
 }
 
-// forward real-symmetric matrices to potrf;
+// forward real-symmetric matrices to posv;
 // disabled for complex
 template <typename scalar_t>
 void chol_solve(
@@ -566,7 +566,7 @@ void indefinite_solve(
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    hesv(A, pivots, T, pivots2, H, B, opts);
+    sysv(A, pivots, T, pivots2, H, B, opts);
 }
 
 
@@ -594,7 +594,7 @@ void indefinite_factor(
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    hetrf(A, pivots, T, pivots2, H, opts);
+    sytrf(A, pivots, T, pivots2, H, opts);
 }
 
 //-----------------------------------------
@@ -620,7 +620,7 @@ void indefinite_solve_using_factor(
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    hetrs(A, pivots, T, pivots2, B, opts);
+    sytrs(A, pivots, T, pivots2, B, opts);
 }
 
 //------------------------------------------------------------------------------

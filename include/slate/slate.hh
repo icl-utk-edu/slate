@@ -578,21 +578,6 @@ void hesv(
              Matrix<scalar_t>& B,
     Options const& opts = Options());
 
-// forward real-symmetric matrices to hesv;
-// disabled for complex
-template <typename scalar_t>
-void hesv(
-    SymmetricMatrix<scalar_t>& A, Pivots& pivots,
-         BandMatrix<scalar_t>& T, Pivots& pivots2,
-             Matrix<scalar_t>& H,
-             Matrix<scalar_t>& B,
-    Options const& opts = Options(),
-    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
-{
-    HermitianMatrix<scalar_t> AH(A);
-    hesv(AH, pivots, T, pivots2, H, B, opts);
-}
-
 //-----------------------------------------
 // sysv()
 // forward real-symmetric matrices to hesv;
@@ -619,20 +604,6 @@ void hetrf(
              Matrix<scalar_t>& H,
     Options const& opts = Options());
 
-// forward real-symmetric matrices to hetrf;
-// disabled for complex
-template <typename scalar_t>
-void hetrf(
-    SymmetricMatrix<scalar_t>& A, Pivots& pivots,
-         BandMatrix<scalar_t>& T, Pivots& pivots2,
-             Matrix<scalar_t>& H,
-    Options const& opts = Options(),
-    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
-{
-    HermitianMatrix<scalar_t> AH(A);
-    hetrf(AH, pivots, T, pivots2, H, opts);
-}
-
 //-----------------------------------------
 // sytrf()
 // forward real-symmetric matrices to hetrf;
@@ -657,20 +628,6 @@ void hetrs(
          BandMatrix<scalar_t>& T, Pivots& pivots2,
              Matrix<scalar_t>& B,
     Options const& opts = Options());
-
-// forward real-symmetric matrices to hetrs;
-// disabled for complex
-template <typename scalar_t>
-void hetrs(
-    SymmetricMatrix<scalar_t>& A, Pivots& pivots,
-         BandMatrix<scalar_t>& T, Pivots& pivots2,
-             Matrix<scalar_t>& B,
-    Options const& opts = Options(),
-    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
-{
-    HermitianMatrix<scalar_t> AH(A);
-    hetrs(AH, pivots, T, pivots2, B, opts);
-}
 
 //-----------------------------------------
 // sytrs()
@@ -800,20 +757,6 @@ void heev(
              Matrix<scalar_t>& Z,
     Options const& opts = Options());
 
-// forward real-symmetric matrices to heev;
-// disabled for complex
-template <typename scalar_t>
-void heev(
-    Job jobz,
-    SymmetricMatrix<scalar_t>& A, std::vector< blas::real_type<scalar_t> >& W,
-             Matrix<scalar_t>& Z,
-    Options const& opts = Options(),
-    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
-{
-    HermitianMatrix<scalar_t> AH(A);
-    heev(jobz, AH, W, Z, opts);
-}
-
 //-----------------------------------------
 // syev()
 // forward real-symmetric matrices to heev;
@@ -843,22 +786,6 @@ void hegv(
              Matrix<scalar_t>& V,
     Options const& opts = Options());
 
-// forward real-symmetric matrices to hegv;
-// disabled for complex
-template <typename scalar_t>
-void hegv(
-    int64_t itype, Job jobz,
-    SymmetricMatrix<scalar_t>& A,
-    SymmetricMatrix<scalar_t>& B, std::vector< blas::real_type<scalar_t> >& W,
-             Matrix<scalar_t>& V,
-    Options const& opts = Options(),
-    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
-{
-    HermitianMatrix<scalar_t> AH(A);
-    HermitianMatrix<scalar_t> BH(B);
-    hegv(itype, jobz, AH, BH, W, V, opts);
-}
-
 //-----------------------------------------
 // sygv()
 // forward real-symmetric matrices to hegv;
@@ -885,21 +812,6 @@ void hegst(
     HermitianMatrix<scalar_t>& A,
     HermitianMatrix<scalar_t>& B,
     Options const& opts = Options());
-
-// forward real-symmetric matrices to hegst;
-// disabled for complex
-template <typename scalar_t>
-void hegst(
-    int64_t itype,
-    SymmetricMatrix<scalar_t>& A,
-    SymmetricMatrix<scalar_t>& B,
-    Options const& opts = Options(),
-    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
-{
-    HermitianMatrix<scalar_t> AH(A);
-    HermitianMatrix<scalar_t> BH(B);
-    hegst(itype, AH, BH, opts);
-}
 
 //-----------------------------------------
 // sygst()

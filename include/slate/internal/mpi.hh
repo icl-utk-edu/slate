@@ -84,6 +84,8 @@ enum {
 #define MPI_MAX_ERROR_STRING 512
 
 extern int* MPI_STATUS_IGNORE;
+#define MPI_STATUSES_IGNORE NULL
+#define MPI_REQUEST_NULL 0
 
 typedef void (MPI_User_function) (void* a,
                                   void* b, int* len, MPI_Datatype* type);
@@ -156,6 +158,8 @@ int MPI_Type_vector(int count, int blocklength, int stride,
                     MPI_Datatype oldtype, MPI_Datatype* newtype);
 
 int MPI_Wait(MPI_Request* request, MPI_Status* status);
+
+int MPI_Waitall(int count, MPI_Request requests[], MPI_Status statuses[]);
 
 int MPI_Error_string(int errorcode, char* string, int* resultlen);
 

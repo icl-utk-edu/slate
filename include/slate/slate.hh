@@ -594,6 +594,23 @@ void hesv(
 }
 
 //-----------------------------------------
+// sysv()
+// forward real-symmetric matrices to hesv;
+// disabled for complex
+template <typename scalar_t>
+void sysv(
+    SymmetricMatrix<scalar_t>& A, Pivots& pivots,
+         BandMatrix<scalar_t>& T, Pivots& pivots2,
+             Matrix<scalar_t>& H,
+             Matrix<scalar_t>& B,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    HermitianMatrix<scalar_t> AH(A);
+    hesv(AH, pivots, T, pivots2, H, B, opts);
+}
+
+//-----------------------------------------
 // hetrf()
 template <typename scalar_t>
 void hetrf(
@@ -613,7 +630,23 @@ void hetrf(
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> AH(A);
-    hetrf(AH, T, H, opts);
+    hetrf(AH, pivots, T, pivots2, H, opts);
+}
+
+//-----------------------------------------
+// sytrf()
+// forward real-symmetric matrices to hetrf;
+// disabled for complex
+template <typename scalar_t>
+void sytrf(
+    SymmetricMatrix<scalar_t>& A, Pivots& pivots,
+         BandMatrix<scalar_t>& T, Pivots& pivots2,
+             Matrix<scalar_t>& H,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    HermitianMatrix<scalar_t> AH(A);
+    hetrf(AH, pivots, T, pivots2, H, opts);
 }
 
 //-----------------------------------------
@@ -636,7 +669,23 @@ void hetrs(
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> AH(A);
-    hetrs(AH, T, B, opts);
+    hetrs(AH, pivots, T, pivots2, B, opts);
+}
+
+//-----------------------------------------
+// sytrs()
+// forward real-symmetric matrices to hetrs;
+// disabled for complex
+template <typename scalar_t>
+void sytrs(
+    SymmetricMatrix<scalar_t>& A, Pivots& pivots,
+         BandMatrix<scalar_t>& T, Pivots& pivots2,
+             Matrix<scalar_t>& B,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    HermitianMatrix<scalar_t> AH(A);
+    hetrs(AH, pivots, T, pivots2, B, opts);
 }
 
 //------------------------------------------------------------------------------

@@ -57,7 +57,6 @@ void test_gesv_work(Params& params, bool run)
     if (params.routine == "gesvMixed") {
         params.iters();
     }
- 
     if (! run)
         return;
 
@@ -65,14 +64,14 @@ void test_gesv_work(Params& params, bool run)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
 
     if (nonuniform_nb) {
-        if (params.ref() == 'y' || origin == slate::Origin::ScaLAPACK) {
+        if (ref || origin == slate::Origin::ScaLAPACK) {
             if (mpi_rank == 0) {
                 printf("Unsupported to test nonuniform tile size using scalapack\n");
             }
         }
         params.ref() = 'n';
         params.origin() = slate::Origin::Host;
-        ref = 0;
+        ref = false;
         origin = slate::Origin::Host;
     }
 
@@ -84,6 +83,13 @@ void test_gesv_work(Params& params, bool run)
             return;
         }
     }
+
+    const std::map<slate::Option, slate::Value> opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target},
+        {slate::Option::MaxPanelThreads, panel_threads},
+        {slate::Option::InnerBlocking, ib}
+    };
 
     // Local values
     const int izero = 0, ione = 1;
@@ -122,23 +128,20 @@ void test_gesv_work(Params& params, bool run)
 
 
     // To generate matrix with non-uniform tile size using the Lambda constructor
-    int nb_ = nb; 
     std::function< int64_t (int64_t j) >
-    tileNb = [n, nb_](int64_t j)
+    tileNb = [n, nb](int64_t j)
     {
         // for non-uniform tile size
-        return (j % 2 != 0 ? nb_/2 : nb_);
+        return (j % 2 != 0 ? nb/2 : nb);
     };
 
     // 2D block column cyclic
-    int p_ = nprow;
-    int q_ = npcol;
     std::function< int (std::tuple<int64_t, int64_t> ij) >
-    tileRank = [p_, q_](std::tuple<int64_t, int64_t> ij)
+    tileRank = [p, q](std::tuple<int64_t, int64_t> ij)
     {
         int64_t i = std::get<0>(ij);
         int64_t j = std::get<1>(ij);
-        return int(i%p_ + (j%q_)*p_);
+        return int(i%p + (j%q)*p);
     };
 
     // 1D block row cyclic
@@ -197,7 +200,7 @@ void test_gesv_work(Params& params, bool run)
     slate::generate_matrix( params.matrix, A);
     slate::generate_matrix( params.matrix, B);
 
-    if (!(nonuniform_nb) && ref) {
+    if (ref && ! nonuniform_nb) {
         copy(A, &A_tst[0], descA_tst);
         copy(B, &B_tst[0], descB_tst);
     }
@@ -243,22 +246,12 @@ void test_gesv_work(Params& params, bool run)
     if (! ref_only) {
         if (params.routine == "getrs") {
             // Factor matrix A.
-            slate::getrf(A, pivots, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target},
-                {slate::Option::MaxPanelThreads, panel_threads},
-                {slate::Option::InnerBlocking, ib}
-            });
+            slate::getrf(A, pivots, opts);
         }
 
         if (params.routine == "getrs_nopiv") {
             // Factor matrix A.
-            slate::getrf_nopiv(A, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target},
-                {slate::Option::MaxPanelThreads, panel_threads},
-                {slate::Option::InnerBlocking, ib}
-            });
+            slate::getrf_nopiv(A, opts);
         }
 
         if (trace) slate::trace::Trace::on();
@@ -278,12 +271,7 @@ void test_gesv_work(Params& params, bool run)
         // gesv:  Solve AX = B, including factoring A.
         //==================================================
         if (params.routine == "getrf") {
-            slate::getrf(A, pivots, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target},
-                {slate::Option::MaxPanelThreads, panel_threads},
-                {slate::Option::InnerBlocking, ib}
-            });
+            slate::getrf(A, pivots, opts);
         }
         else if (params.routine == "getrs") {
             auto opA = A;
@@ -292,36 +280,18 @@ void test_gesv_work(Params& params, bool run)
             else if (trans == slate::Op::ConjTrans)
                 opA = conjTranspose(A);
 
-            slate::getrs(opA, pivots, B, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::getrs(opA, pivots, B, opts);
         }
         else if (params.routine == "gesv") {
-            slate::gesv(A, pivots, B, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target},
-                {slate::Option::MaxPanelThreads, panel_threads},
-                {slate::Option::InnerBlocking, ib}
-            });
+            slate::gesv(A, pivots, B, opts);
         }
         else if (params.routine == "gesvMixed") {
             if (std::is_same<real_t, double>::value) {
-                slate::gesvMixed(A, pivots, B, X, iters, {
-                    {slate::Option::Lookahead, lookahead},
-                    {slate::Option::Target, target},
-                    {slate::Option::MaxPanelThreads, panel_threads},
-                    {slate::Option::InnerBlocking, ib}
-                });
+                slate::gesvMixed(A, pivots, B, X, iters, opts);
             }
         }
         else if (params.routine == "getrf_nopiv") {
-            slate::getrf_nopiv(A, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target},
-                {slate::Option::MaxPanelThreads, panel_threads},
-                {slate::Option::InnerBlocking, ib}
-            });
+            slate::getrf_nopiv(A, opts);
         }
         else if (params.routine == "getrs_nopiv") {
             auto opA = A;
@@ -330,18 +300,10 @@ void test_gesv_work(Params& params, bool run)
             else if (trans == slate::Op::ConjTrans)
                 opA = conjTranspose(A);
 
-            slate::getrs_nopiv(opA, B, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::getrs_nopiv(opA, B, opts);
         }
         else if (params.routine == "gesv_nopiv") {
-            slate::gesv_nopiv(A, B, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target},
-                {slate::Option::MaxPanelThreads, panel_threads},
-                {slate::Option::InnerBlocking, ib}
-            });
+            slate::gesv_nopiv(A, B, opts);
         }
         else {
             slate_error("Unknown routine!");
@@ -376,17 +338,11 @@ void test_gesv_work(Params& params, bool run)
 
         if (params.routine == "getrf") {
             // Solve AX = B.
-            slate::getrs(A, pivots, B, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::getrs(A, pivots, B, opts);
         }
         if (params.routine == "getrf_nopiv") {
             // Solve AX = B.
-            slate::getrs_nopiv(A, B, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::getrs_nopiv(A, B, opts);
         }
 
         // Norm of updated-rhs/solution matrix: || X ||_1

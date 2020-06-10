@@ -346,7 +346,6 @@ Params::Params():
     repeat();
     verbose();
     cache();
-    nonuniform_nb();
 
     // routine's parameters are marked by the test routine; see main
 }

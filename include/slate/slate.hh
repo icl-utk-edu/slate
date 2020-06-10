@@ -590,7 +590,7 @@ void hesv(
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> AH(A);
-    hesv(AH, B, opts);
+    hesv(AH, pivots, T, pivots2, H, B, opts);
 }
 
 //-----------------------------------------

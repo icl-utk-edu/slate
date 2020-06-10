@@ -5,20 +5,21 @@
 # At runtime, these lib directories need to be in $LD_LIBRARY_PATH,
 # or on MacOS, $DYLD_LIBRARY_PATH, or set as rpaths in $LDFLAGS.
 #
-# Set options on command line or in make.inc file:
-# 	CXX=mpicxx or mpic++ for MPI using compiler wrapper.
+# Set options on command line or in make.inc file.
+#
+# CXX=mpicxx or mpic++ for MPI using compiler wrapper.
 # Alternatively:
-# 	mpi=1           for MPI (-lmpi).
-# 	spectrum=1      for IBM Spectrum MPI (-lmpi_ibm).
+#     mpi=1       for MPI (-lmpi).
+#     spectrum=1  for IBM Spectrum MPI (-lmpi_ibm).
 #
 # blas=mkl        for Intel MKL. Additional sub-options:
-#     mkl_intel=1       	for Intel MKL with Intel Fortran conventions;
-#	  				    	otherwise uses GNU gfortran conventions.
-#	  				    	Automatically set if CXX=icpc or on macOS.
-#     mkl_threaded=1    	for multi-threaded Intel MKL.
-#     mkl_blacs=openmpi		for OpenMPI BLACS in SLATE's testers.
+#     mkl_intel=1           for Intel MKL with Intel Fortran conventions;
+#                           otherwise uses GNU gfortran conventions.
+#                           Automatically set if CXX=icpc or on macOS.
+#     mkl_threaded=1        for multi-threaded Intel MKL.
+#     mkl_blacs=openmpi     for OpenMPI BLACS in SLATE's testers.
 #     mkl_blacs=intelmpi    for Intel MPI BLACS in SLATE's testers (default).
-#     ilp64=1           	for ILP64. Currently only with Intel MKL.
+#     ilp64=1               for ILP64. Currently only with Intel MKL.
 # blas=essl       for IBM ESSL.
 # blas=openblas   for OpenBLAS.
 #
@@ -30,7 +31,7 @@
 # cuda_arch="ARCH" for CUDA architectures, where ARCH is one or more of:
 #                     kepler maxwell pascal volta turing sm_XX
 #                  and sm_XX is a CUDA architecture (see nvcc -h).
-# Setting cuda=1 will set cuda_arch="kepler pascal" by default.
+# cuda_arch="kepler pascal" by default.
 
 -include make.inc
 
@@ -45,7 +46,7 @@ HAVE_CUDA := $(shell which $(NVCC))
 ifneq ($(HAVE_CUDA),)
     cuda ?= 1
 else ifeq ($(strip $(cuda)),1)
-    $(error cuda = $(cuda), but NVCC = ${NVCC} not found)
+    $(error ERROR: cuda = $(cuda), but NVCC = ${NVCC} not found)
 endif
 
 # Error for obsolete settings.
@@ -55,6 +56,7 @@ endif
 ifneq ($(intelmpi),)
     $(error ERROR: Variable `intelmpi=$(intelmpi)` is obsolete; use `mkl_blacs=intelmpi`)
 endif
+
 # Warn about deprecated settings.
 ifneq ($(mkl),)
     $(warning WARNING: Variable `mkl=$(mkl)` is deprecated; setting `blas ?= mkl`)
@@ -267,7 +269,7 @@ ifeq ($(cuda),1)
     nv_compute = $(filter %, $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_compute))))
 
     ifeq ($(nv_sm),)
-        $(error ERROR: set cuda_arch, currently '$(cuda_arch)', to one of kepler, maxwell, pascal, volta, turing, or valid sm_XX from nvcc -h)
+        $(error ERROR: unknown `cuda_arch=$(cuda_arch)`. Set cuda_arch to one of kepler, maxwell, pascal, volta, turing, or valid sm_XX from nvcc -h)
     else
         # Get last option (last 2 words) of nv_compute.
         nwords := $(words $(nv_compute))

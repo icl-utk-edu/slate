@@ -19,26 +19,27 @@ pipeline {
                                 spack load intel-mpi
 
                                 cat > make.inc << "END"
-                                mpi=1
-                                mkl=1
-                                cuda_arch=pascal
-                                openmp=1
+                                CXX       = mpicxx
+                                CXXFLAGS  = -DNO_COLOR
+                                blas      = mkl
+                                cuda_arch = pascal
+                                # openmp=1 by default
 END
 
                                 cd testsweeper
-                                make config CXX=mpicxx
+                                make config
                                 # disable color output so JUnit recognizes the XML even if there's an error
                                 sed -i '/CXXFLAGS/s/$/ -DNO_COLOR/' make.inc
                                 make
                                 cd ..
 
                                 cd blaspp
-                                make config CXX=mpicxx
+                                make config
                                 make -j4
                                 cd ..
 
                                 cd lapackpp
-                                make config CXX=mpicxx
+                                make config
                                 make -j4
 
                                 # add Netlib LAPACKE
@@ -46,7 +47,7 @@ END
                                 sed -i 's/-lmkl_gf_lp64/-L${LAPACKDIR} -llapacke -lmkl_gf_lp64/g' make.inc
                                 cd ..
 
-                                make -j4 CXX=mpicxx
+                                make -j4
                                 '''
                         }
                     }
@@ -68,14 +69,12 @@ END
                                 spack load openmpi^gcc@6.4.0
 
                                 cat > make.inc <<-END
-                                mpi=1
-                                mkl=1
-                                cuda=1
-                                openmp=1
-                                mkl_blacs=openmpi
-                                CXXFLAGS = -DNO_COLOR
-                                CXX=mpicxx
-
+                                CXX       = mpicxx
+                                CXXFLAGS  = -DNO_COLOR
+                                blas      = mkl
+                                mkl_blacs = openmpi
+                                cuda      = 1
+                                # openmp=1 by default
 END
 
                                 export OMPI_CXX=${CXX}

@@ -5,22 +5,23 @@
 # At runtime, these lib directories need to be in $LD_LIBRARY_PATH,
 # or on MacOS, $DYLD_LIBRARY_PATH, or set as rpaths in $LDFLAGS.
 #
-# Set options on command line or in make.inc file:
-# 	CXX=mpicxx or mpic++ for MPI using compiler wrapper.
-# Alternatively:
-# 	mpi=1           for MPI (-lmpi).
-# 	spectrum=1      for IBM Spectrum MPI (-lmpi_ibm).
+# Set options on command line or in make.inc file.
 #
-# mkl=1           for Intel MKL. Additional sub-options:
-#     mkl_intel=1       	for Intel MKL with Intel Fortran conventions;
-#	  				    	otherwise uses GNU gfortran conventions.
-#	  				    	Automatically set if CXX=icpc or on macOS.
-#     mkl_threaded=1    	for multi-threaded Intel MKL.
-#     mkl_blacs=openmpi		for OpenMPI BLACS in SLATE's testers.
+# CXX=mpicxx or mpic++ for MPI using compiler wrapper.
+# Alternatively:
+#     mpi=1       for MPI (-lmpi).
+#     spectrum=1  for IBM Spectrum MPI (-lmpi_ibm).
+#
+# blas=mkl        for Intel MKL. Additional sub-options:
+#     mkl_intel=1           for Intel MKL with Intel Fortran conventions;
+#                           otherwise uses GNU gfortran conventions.
+#                           Automatically set if CXX=icpc or on macOS.
+#     mkl_threaded=1        for multi-threaded Intel MKL.
+#     mkl_blacs=openmpi     for OpenMPI BLACS in SLATE's testers.
 #     mkl_blacs=intelmpi    for Intel MPI BLACS in SLATE's testers (default).
-#     ilp64=1           	for ILP64. Currently only with Intel MKL.
-# essl=1          for IBM ESSL.
-# openblas=1      for OpenBLAS.
+#     ilp64=1               for ILP64. Currently only with Intel MKL.
+# blas=essl       for IBM ESSL.
+# blas=openblas   for OpenBLAS.
 #
 # openmp=1        for OpenMP (default).
 # static=1        for static library (libslate.a);
@@ -30,7 +31,7 @@
 # cuda_arch="ARCH" for CUDA architectures, where ARCH is one or more of:
 #                     kepler maxwell pascal volta turing sm_XX
 #                  and sm_XX is a CUDA architecture (see nvcc -h).
-# Setting cuda=1 will set cuda_arch="kepler pascal" by default.
+# cuda_arch="kepler pascal" by default.
 
 -include make.inc
 
@@ -45,34 +46,46 @@ HAVE_CUDA := $(shell which $(NVCC))
 ifneq ($(HAVE_CUDA),)
     cuda ?= 1
 else ifeq ($(strip $(cuda)),1)
-    $(error cuda = $(cuda), but NVCC = ${NVCC} not found)
+    $(error ERROR: cuda = $(cuda), but NVCC = ${NVCC} not found)
+endif
+
+# Error for obsolete settings.
+ifneq ($(openmpi),)
+    $(error ERROR: Variable `openmpi=$(openmpi)` is obsolete; use `mkl_blacs=openmpi`)
+endif
+ifneq ($(intelmpi),)
+    $(error ERROR: Variable `intelmpi=$(intelmpi)` is obsolete; use `mkl_blacs=intelmpi`)
+endif
+
+# Warn about deprecated settings.
+ifneq ($(mkl),)
+    $(warning WARNING: Variable `mkl=$(mkl)` is deprecated; setting `blas ?= mkl`)
+    blas ?= mkl
+endif
+ifneq ($(essl),)
+    $(warning WARNING: Variable `essl=$(essl)` is deprecated; setting `blas ?= essl`)
+    blas ?= essl
+endif
+ifneq ($(openblas),)
+    $(warning WARNING: Variable `openblas=$(openblas)` is deprecated; setting `blas ?= openblas`)
+    blas ?= openblas
 endif
 
 # Strip whitespace from variables, in case make.inc had trailing spaces.
 mpi             := $(strip $(mpi))
 spectrum        := $(strip $(spectrum))
-mkl             := $(strip $(mkl))
+blas            := $(strip $(blas))
 mkl_intel       := $(strip $(mkl_intel))
 mkl_threaded    := $(strip $(mkl_threaded))
 mkl_blacs       := $(strip $(mkl_blacs))
 ilp64           := $(strip $(ilp64))
-essl            := $(strip $(essl))
-openblas        := $(strip $(openblas))
 openmp          := $(strip $(openmp))
 static          := $(strip $(static))
 cuda_arch       := $(strip $(cuda_arch))
 cuda            := $(strip $(cuda))
 
-# Warn about obsolete settings.
-ifneq ($(openmpi),)
-    $(error Variable `openmpi` is obsolete; use mkl_blacs=openmpi)
-endif
-ifneq ($(intelmpi),)
-    $(error Variable `intelmpi` is obsolete; use mkl_blacs=intelmpi)
-endif
-
 # Export variables to sub-make for testsweeper, BLAS++, LAPACK++.
-export CXX mkl ilp64 essl openblas openmp static
+export CXX blas ilp64 openmp static
 
 CXXFLAGS  += -O3 -std=c++11 -Wall -pedantic -MMD
 NVCCFLAGS += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
@@ -133,14 +146,12 @@ endif
 scalapack = -lscalapack
 
 # BLAS and LAPACK
+# todo: really should get these libraries from BLAS++ and LAPACK++.
+# If using shared libraries, and Fortran files that directly call BLAS are
+# removed, BLAS++ would pull in the BLAS library for us.
+
 # if MKL
-ifeq ($(mkl_threaded),1)
-    mkl = 1
-endif
-ifeq ($(mkl_intel),1)
-    mkl = 1
-endif
-ifeq ($(mkl),1)
+ifeq ($(blas),mkl)
     FLAGS += -DSLATE_WITH_MKL
     # Auto-detect whether to use Intel or GNU conventions.
     # Won't detect if CXX = mpicxx.
@@ -201,13 +212,15 @@ ifeq ($(mkl),1)
         endif
     endif
 # if ESSL
-else ifeq ($(essl),1)
+else ifeq ($(blas),essl)
     FLAGS += -DSLATE_WITH_ESSL
     LIBS += -lessl -llapack
 # if OpenBLAS
-else ifeq ($(openblas),1)
+else ifeq ($(blas),openblas)
     FLAGS += -DSLATE_WITH_OPENBLAS
     LIBS += -lopenblas
+else
+    $(error ERROR: unknown `blas=$(blas)`. Set blas to one of mkl, essl, openbblas.)
 endif
 
 #-------------------------------------------------------------------------------
@@ -256,7 +269,7 @@ ifeq ($(cuda),1)
     nv_compute = $(filter %, $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_compute))))
 
     ifeq ($(nv_sm),)
-        $(error ERROR: set cuda_arch, currently '$(cuda_arch)', to one of kepler, maxwell, pascal, volta, turing, or valid sm_XX from nvcc -h)
+        $(error ERROR: unknown `cuda_arch=$(cuda_arch)`. Set cuda_arch to one of kepler, maxwell, pascal, volta, turing, or valid sm_XX from nvcc -h)
     else
         # Get last option (last 2 words) of nv_compute.
         nwords := $(words $(nv_compute))
@@ -823,13 +836,11 @@ echo:
 	@echo "---------- Options"
 	@echo "mpi           = '$(mpi)'"
 	@echo "spectrum      = '$(spectrum)'"
-	@echo "mkl           = '$(mkl)'"
+	@echo "blas          = '$(blas)'"
 	@echo "mkl_intel     = '$(mkl_intel)'"
 	@echo "mkl_threaded  = '$(mkl_threaded)'"
 	@echo "mkl_blacs     = '$(mkl_blacs)'"
 	@echo "ilp64         = '$(ilp64)'"
-	@echo "essl          = '$(essl)'"
-	@echo "openblas      = '$(openblas)'"
 	@echo "openmp        = '$(openmp)'"
 	@echo "static        = '$(static)'"
 	@echo "ostype        = '$(ostype)'"

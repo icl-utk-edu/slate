@@ -21,11 +21,11 @@ void test_gesv_work(Params& params, bool run)
 
     // get & mark input values
     slate::Op trans = slate::Op::NoTrans;
-    if (params.routine == "getrs")
+    if (params.routine == "getrs" || params.routine == "getrs_nopiv")
         trans = params.trans();
 
     int64_t m;
-    if (params.routine == "getrf")
+    if (params.routine == "getrf" || params.routine == "getrf_nopiv")
         m = params.dim.m();
     else
         m = params.dim.n();  // square, n-by-n
@@ -42,6 +42,7 @@ void test_gesv_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
+    bool nonuniform_nb = params.nonuniform_nb() == 'y';
     int verbose = params.verbose(); SLATE_UNUSED(verbose);
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
@@ -56,12 +57,23 @@ void test_gesv_work(Params& params, bool run)
     if (params.routine == "gesvMixed") {
         params.iters();
     }
-
     if (! run)
         return;
 
     int mpi_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+
+    if (nonuniform_nb) {
+        if (ref || origin == slate::Origin::ScaLAPACK) {
+            if (mpi_rank == 0) {
+                printf("Unsupported to test nonuniform tile size using scalapack\n");
+            }
+        }
+        params.ref() = 'n';
+        params.origin() = slate::Origin::Host;
+        ref = false;
+        origin = slate::Origin::Host;
+    }
 
     if (params.routine == "gesvMixed") {
         if (! std::is_same<real_t, double>::value) {
@@ -72,6 +84,13 @@ void test_gesv_work(Params& params, bool run)
         }
     }
 
+    const std::map<slate::Option, slate::Value> opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target},
+        {slate::Option::MaxPanelThreads, panel_threads},
+        {slate::Option::InnerBlocking, ib}
+    };
+
     // Local values
     const int izero = 0, ione = 1;
 
@@ -79,7 +98,6 @@ void test_gesv_work(Params& params, bool run)
     int ictxt, nprow, npcol, myrow, mycol, info;
     int descA_tst[9], descB_tst[9];
     int iam = 0, nprocs = 1;
-    int iseed = 1;
 
     // initialize BLACS and ScaLAPACK
     Cblacs_pinfo(&iam, &nprocs);
@@ -103,31 +121,64 @@ void test_gesv_work(Params& params, bool run)
     slate_assert(info == 0);
     int64_t lldB = (int64_t)descB_tst[8];
     std::vector<scalar_t> B_tst(lldB*nlocB);
-    scalapack_pplrnt(&B_tst[0], n, nrhs, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 2);
 
     // allocate ipiv locally
     size_t ipiv_size = (size_t)(lldA + nb);
     std::vector<int> ipiv_tst(ipiv_size);
 
-    // todo: work-around to initialize BaseMatrix::num_devices_
-    slate::Matrix<scalar_t> A0(m, n, nb, p, q, MPI_COMM_WORLD);
+
+    // To generate matrix with non-uniform tile size using the Lambda constructor
+    std::function< int64_t (int64_t j) >
+    tileNb = [n, nb](int64_t j)
+    {
+        // for non-uniform tile size
+        return (j % 2 != 0 ? nb/2 : nb);
+    };
+
+    // 2D block column cyclic
+    std::function< int (std::tuple<int64_t, int64_t> ij) >
+    tileRank = [p, q](std::tuple<int64_t, int64_t> ij)
+    {
+        int64_t i = std::get<0>(ij);
+        int64_t j = std::get<1>(ij);
+        return int(i%p + (j%q)*p);
+    };
+
+    // 1D block row cyclic
+    int num_devices_ = 0;//num_devices;
+    std::function< int (std::tuple<int64_t, int64_t> ij) >
+    tileDevice = [num_devices_](std::tuple<int64_t, int64_t> ij)
+    {
+        int64_t i = std::get<0>(ij);
+        return int(i)%num_devices_;
+    };
+
 
     slate::Matrix<scalar_t> A, B, X;
     std::vector<scalar_t> X_tst;
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy local ScaLAPACK data to GPU or CPU tiles.
         slate::Target origin_target = origin2target(origin);
-        A = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
+        if (nonuniform_nb) {
+            A = slate::Matrix<scalar_t>(m, n, tileNb, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
+            B = slate::Matrix<scalar_t>(n, nrhs, tileNb, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
+        }
+        else {
+            A = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
+            B = slate::Matrix<scalar_t>(n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
+        }
         A.insertLocalTiles(origin_target);
-
-        B = slate::Matrix<scalar_t>(n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
         B.insertLocalTiles(origin_target);
-        copy(&B_tst[0], descB_tst, B);
 
         if (params.routine == "gesvMixed") {
             if (std::is_same<real_t, double>::value) {
                 X_tst.resize(lldB*nlocB);
-                X = slate::Matrix<scalar_t>(n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
+                if (nonuniform_nb) {
+                    X = slate::Matrix<scalar_t>(n, nrhs, tileNb, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
+                }
+                else {
+                    X = slate::Matrix<scalar_t>(n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
+                }
                 X.insertLocalTiles(origin_target);
             }
         }
@@ -147,7 +198,29 @@ void test_gesv_work(Params& params, bool run)
     slate::Pivots pivots;
 
     slate::generate_matrix( params.matrix, A);
-    copy(A, &A_tst[0], descA_tst);
+    slate::generate_matrix( params.matrix, B);
+
+    if (ref && ! nonuniform_nb) {
+        copy(A, &A_tst[0], descA_tst);
+        copy(B, &B_tst[0], descB_tst);
+    }
+
+    slate::Matrix<scalar_t> Aref, Bref;
+    if (check) {
+        if (nonuniform_nb) {
+            Aref = slate::Matrix<scalar_t>(m, n, tileNb, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
+            Bref = slate::Matrix<scalar_t>(n, nrhs, tileNb, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
+        }
+        else {
+            Aref = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
+            Bref = slate::Matrix<scalar_t>(n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
+        }
+        Aref.insertLocalTiles(origin2target(origin));
+        Bref.insertLocalTiles(origin2target(origin));
+
+        copy(A, Aref);
+        copy(B, Bref);
+    }
 
     // if check/ref is required, copy test data
     std::vector<scalar_t> A_ref, B_ref, B_orig;
@@ -163,9 +236,9 @@ void test_gesv_work(Params& params, bool run)
     int iters = 0;
 
     double gflop;
-    if (params.routine == "getrf")
+    if (params.routine == "getrf" || params.routine == "getrf_nopiv")
         gflop = lapack::Gflop<scalar_t>::getrf(m, n);
-    else if (params.routine == "getrs")
+    else if (params.routine == "getrs" || params.routine == "getrs_nopiv")
         gflop = lapack::Gflop<scalar_t>::getrs(n, nrhs);
     else
         gflop = lapack::Gflop<scalar_t>::gesv(n, nrhs);
@@ -173,12 +246,12 @@ void test_gesv_work(Params& params, bool run)
     if (! ref_only) {
         if (params.routine == "getrs") {
             // Factor matrix A.
-            slate::getrf(A, pivots, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target},
-                {slate::Option::MaxPanelThreads, panel_threads},
-                {slate::Option::InnerBlocking, ib}
-            });
+            slate::getrf(A, pivots, opts);
+        }
+
+        if (params.routine == "getrs_nopiv") {
+            // Factor matrix A.
+            slate::getrf_nopiv(A, opts);
         }
 
         if (trace) slate::trace::Trace::on();
@@ -198,12 +271,7 @@ void test_gesv_work(Params& params, bool run)
         // gesv:  Solve AX = B, including factoring A.
         //==================================================
         if (params.routine == "getrf") {
-            slate::getrf(A, pivots, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target},
-                {slate::Option::MaxPanelThreads, panel_threads},
-                {slate::Option::InnerBlocking, ib}
-            });
+            slate::getrf(A, pivots, opts);
         }
         else if (params.routine == "getrs") {
             auto opA = A;
@@ -212,28 +280,30 @@ void test_gesv_work(Params& params, bool run)
             else if (trans == slate::Op::ConjTrans)
                 opA = conjTranspose(A);
 
-            slate::getrs(opA, pivots, B, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::getrs(opA, pivots, B, opts);
         }
         else if (params.routine == "gesv") {
-            slate::gesv(A, pivots, B, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target},
-                {slate::Option::MaxPanelThreads, panel_threads},
-                {slate::Option::InnerBlocking, ib}
-            });
+            slate::gesv(A, pivots, B, opts);
         }
         else if (params.routine == "gesvMixed") {
             if (std::is_same<real_t, double>::value) {
-                slate::gesvMixed(A, pivots, B, X, iters, {
-                    {slate::Option::Lookahead, lookahead},
-                    {slate::Option::Target, target},
-                    {slate::Option::MaxPanelThreads, panel_threads},
-                    {slate::Option::InnerBlocking, ib}
-                });
+                slate::gesvMixed(A, pivots, B, X, iters, opts);
             }
+        }
+        else if (params.routine == "getrf_nopiv") {
+            slate::getrf_nopiv(A, opts);
+        }
+        else if (params.routine == "getrs_nopiv") {
+            auto opA = A;
+            if (trans == slate::Op::Trans)
+                opA = transpose(A);
+            else if (trans == slate::Op::ConjTrans)
+                opA = conjTranspose(A);
+
+            slate::getrs_nopiv(opA, B, opts);
+        }
+        else if (params.routine == "gesv_nopiv") {
+            slate::gesv_nopiv(A, B, opts);
         }
         else {
             slate_error("Unknown routine!");
@@ -268,10 +338,11 @@ void test_gesv_work(Params& params, bool run)
 
         if (params.routine == "getrf") {
             // Solve AX = B.
-            slate::getrs(A, pivots, B, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::getrs(A, pivots, B, opts);
+        }
+        if (params.routine == "getrf_nopiv") {
+            // Solve AX = B.
+            slate::getrs_nopiv(A, B, opts);
         }
 
         // Norm of updated-rhs/solution matrix: || X ||_1
@@ -280,12 +351,6 @@ void test_gesv_work(Params& params, bool run)
             X_norm = slate::norm(slate::Norm::One, X);
         else
             X_norm = slate::norm(slate::Norm::One, B);
-
-        // SLATE matrix wrappers for the reference data
-        slate::Matrix<scalar_t> Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
-            m, n, &A_ref[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-        slate::Matrix<scalar_t> Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
-            n, nrhs, &B_ref[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
 
         // Norm of original A matrix
         real_t A_norm = slate::norm(slate::Norm::One, Aref);
@@ -338,7 +403,7 @@ void test_gesv_work(Params& params, bool run)
         scalapack_descinit(descA_ref, m, n, nb, nb, izero, izero, ictxt, mlocA, &info);
         slate_assert(info == 0);
 
-        if (params.routine == "getrs") {
+        if (params.routine == "getrs" || params.routine == "getrs_nopiv") {
             // Factor matrix A.
             scalapack_pgetrf(m, n, &A_ref[0], ione, ione, descA_ref, &ipiv_ref[0], &info_ref);
             slate_assert(info_ref == 0);
@@ -349,10 +414,10 @@ void test_gesv_work(Params& params, bool run)
         //==================================================
         MPI_Barrier(MPI_COMM_WORLD);
         double time = testsweeper::get_wtime();
-        if (params.routine == "getrf") {
+        if (params.routine == "getrf" || params.routine == "getrf_nopiv") {
             scalapack_pgetrf(m, n, &A_ref[0], ione, ione, descA_ref, &ipiv_ref[0], &info_ref);
         }
-        else if (params.routine == "getrs") {
+        else if (params.routine == "getrs" || params.routine == "getrs_nopiv") {
             scalapack_pgetrs(op2str(trans), n, nrhs, &A_ref[0], ione, ione, descA_ref, &ipiv_ref[0], &B_ref[0], ione, ione, descB_ref, &info_ref);
         }
         else {

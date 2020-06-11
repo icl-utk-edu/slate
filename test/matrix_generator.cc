@@ -313,9 +313,14 @@ void generate_svd(
                 // then copy output tile to U.tile
                 Tmp.tileInsert(i, j);
                 auto Tmpij = Tmp(i, j);
+                scalar_t* data = Tmpij.data();
+                int64_t ldt = Tmpij.stride();
                 params.iseed[0] = (rand() + i + j) % 256;
-                lapack::larnv( idist_randn, params.iseed,
-                    U.tileMb(i)*U.tileNb(j), Tmpij.data() );
+                //lapack::larnv( idist_randn, params.iseed,
+                //    U.tileMb(i)*U.tileNb(j), Tmpij.data() );
+                for (int64_t k = 0; k < Tmpij.nb(); ++k) {
+                    lapack::larnv(idist_randn, params.iseed, Tmpij.mb(), &data[k*ldt]);
+                }
                 gecopy(Tmp(i, j), U(i, j));
                 Tmp.tileErase(i, j);
             }
@@ -338,8 +343,11 @@ void generate_svd(
             if (V.tileIsLocal(i, j)) {
                 Tmp.tileInsert(i, j);
                 auto Tmpij = Tmp(i, j);
-                lapack::larnv( idist_randn, params.iseed,
-                    V.tileMb(i)*V.tileNb(j), Tmpij.data() );
+                scalar_t* data = Tmpij.data();
+                int64_t ldt = Tmpij.stride();
+                for (int64_t k = 0; k < Tmpij.nb(); ++k) {
+                    lapack::larnv(idist_randn, params.iseed, Tmpij.mb(), &data[k*ldt]);
+                }
                 gecopy(Tmp(i, j), V(i, j));
                 Tmp.tileErase(i, j);
             }
@@ -430,9 +438,12 @@ void generate_heev(
             if (U.tileIsLocal(i, j)) {
                 Tmp.tileInsert(i, j);
                 auto Tmpij = Tmp(i, j);
+                scalar_t* data = Tmpij.data();
+                int64_t ldt = Tmpij.stride();
                 params.iseed[0] = (rand() + i + j) % 256;
-                lapack::larnv( idist_randn, params.iseed,
-                    U.tileMb(i)*U.tileNb(j), Tmpij.data() );
+                for (int64_t k = 0; k < Tmpij.nb(); ++k) {
+                    lapack::larnv(idist_rand, params.iseed, Tmpij.mb(), &data[k*ldt]);
+                }
                 gecopy(Tmp(i, j), U(i, j));
                 Tmp.tileErase(i, j);
             }
@@ -1031,9 +1042,12 @@ void generate_matrix(
                     if (A.tileIsLocal(i, j)) {
                         Tmp.tileInsert(i, j);
                         auto Tmpij = Tmp(i, j);
+                        scalar_t* data = Tmpij.data();
+                        int64_t ldt = Tmpij.stride();
                         params.iseed[0] = (rand() + i + j) % 256;
-                        lapack::larnv( idist, params.iseed,
-                            A.tileMb(i)*A.tileNb(j), Tmpij.data() );
+                        for (int64_t k = 0; k < Tmpij.nb(); ++k) {
+                            lapack::larnv(idist, params.iseed, Tmpij.mb(), &data[k*ldt]);
+                        }
 
                         // Make it diagonally dominant
                         if (dominant) {

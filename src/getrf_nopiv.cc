@@ -186,9 +186,6 @@ void getrf_nopiv(slate::internal::TargetType<target>,
         }
     }
 
-    // Pivot to the left of the panel.
-    // todo: Blend into the factorization.
-
     #pragma omp parallel
     #pragma omp master
     {
@@ -243,8 +240,7 @@ void getrf_nopiv(Matrix<scalar_t>& A,
 //------------------------------------------------------------------------------
 /// Distributed parallel LU factorization.
 ///
-/// Computes an LU factorization of a general m-by-n matrix $A$
-/// using partial pivoting with row interchanges.
+/// Computes an LU factorization without pivoting of a general m-by-n matrix $A$
 ///
 /// The factorization has the form
 /// \[

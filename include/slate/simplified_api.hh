@@ -293,16 +293,15 @@ void lu_solve(
 //     gbsv_nopiv(A, B, opts);
 // }
 
-// todo
 // gesv_nopiv
-// template <typename scalar_t>
-// void lu_solve_nopiv(
-//     Matrix<scalar_t>& A,
-//     Matrix<scalar_t>& B,
-//     Options const& opts = Options())
-// {
-//     gesv_nopiv(A, B, opts);
-// }
+template <typename scalar_t>
+void lu_solve_nopiv(
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& B,
+    Options const& opts = Options())
+{
+    gesv_nopiv(A, B, opts);
+}
 
 //-----------------------------------------
 // lu_factor()

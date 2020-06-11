@@ -397,19 +397,6 @@ void gesvMixed(
     int& iter,
     Options const& opts = Options());
 
-//------------------------------------------------------------------------------
-// LU no piv
-// gesv_nopiv
-template <typename scalar_t>
-void gesv_nopiv(Matrix<scalar_t>& A,
-          Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts = std::map<Option, Value>());
-
-template <Target target, typename scalar_t>
-void gesv_nopiv(Matrix<scalar_t>& A,
-          Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts = std::map<Option, Value>());
-
 //-----------------------------------------
 // gbtrf()
 template <typename scalar_t>

@@ -84,18 +84,18 @@ int MPI_Barrier(MPI_Comm comm)
 int MPI_Bcast(void* buffer, int count, MPI_Datatype datatype, int root,
               MPI_Comm comm)
 {
-    assert(0);
+    return MPI_SUCCESS;
 }
 
 int MPI_Comm_create_group(MPI_Comm comm, MPI_Group group, int tag,
                           MPI_Comm* newcomm)
 {
-    assert(0);
+    return MPI_SUCCESS;
 }
 
 int MPI_Comm_free(MPI_Comm* comm)
 {
-    assert(0);
+    return MPI_SUCCESS;
 }
 
 int MPI_Comm_group(MPI_Comm comm, MPI_Group* group)
@@ -242,6 +242,11 @@ int MPI_Wait(MPI_Request* request, MPI_Status* status)
     assert(0);
 }
 
+int MPI_Waitall(int count, MPI_Request requests[], MPI_Status statuses[])
+{
+    assert(0);
+}
+
 int MPI_Error_string(int errorcode, char* string, int* resultlen)
 {
     assert(0);
@@ -251,7 +256,6 @@ int MPI_Finalize(void)
 {
     return MPI_SUCCESS;
 }
-
 #ifdef __cplusplus
 }
 #endif

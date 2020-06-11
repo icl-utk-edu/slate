@@ -43,6 +43,8 @@
 #include "internal/internal.hh"
 #include "internal/internal_util.hh"
 
+#include <array>
+
 namespace slate {
 
 //------------------------------------------------------------------------------

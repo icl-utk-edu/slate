@@ -69,9 +69,6 @@ namespace internal {
 /// @param[in] tile_indices
 ///     i indices of the tiles in the panel
 ///
-/// @param[in,out] pivot
-///     pivots produced by the panel factorization
-///
 /// @param[in] mpi_rank
 ///     MPI rank in the panel factorization
 ///
@@ -130,13 +127,13 @@ void getrf_nopiv(
         for (int64_t j = k; j < k+kb; ++j) {
 
             //------------------------------------
-            // global max reduction and pivot swap
+            // the pivot is the value on the diagonal
             if (thread_rank == 0) {
                 if (root) {
                     diag_value = tiles.at(0)(j, j);
                 }
 
-                // Broadcast the pivot information.
+                // Broadcast the diag_value information.
                 #pragma omp critical(slate_mpi)
                 {
                     slate_mpi_call(
@@ -204,9 +201,9 @@ void getrf_nopiv(
                     }
                 }
                 else {
-                    // pivot[j].value() = 0, The factorization has been completed
+                    // diag_value = 0, The factorization has been completed
                     // but the factor U is exactly singular
-                    // todo: how to handle a zero pivot
+                    // todo: how to handle a zero diag_value (pivot)
                 }
 
                 // trailing update

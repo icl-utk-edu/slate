@@ -113,6 +113,7 @@ public:
     testsweeper::ParamInt    panel_threads;
     testsweeper::ParamInt    align;
     testsweeper::ParamEnum< std::string > gemm_variant;
+    testsweeper::ParamChar   nonuniform_nb;
 
     // ----- output parameters
     testsweeper::ParamScientific error;
@@ -163,7 +164,6 @@ void test_herk   (Params& params, bool run);
 
 // LU, general
 void test_gesv       (Params& params, bool run);
-void test_gesv_nopiv (Params& params, bool run);
 void test_getri      (Params& params, bool run);
 
 // LU, band

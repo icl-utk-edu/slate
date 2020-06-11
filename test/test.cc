@@ -85,16 +85,18 @@ std::vector< testsweeper::routines_t > routines = {
     // -----
     // LU
     { "gesv",               test_gesv,         Section::gesv },
+    { "gesv_nopiv",         test_gesv,         Section::gesv },
     { "gesvMixed",          test_gesv,         Section::gesv },
     { "gbsv",               test_gbsv,         Section::gesv },
     { "",                   nullptr,           Section::newline },
 
-    { "getrf",              test_gesv,         Section::gesv },
-    { "getrf_nopiv",        test_gesv_nopiv,   Section::gesv },
-    { "gbtrf",              test_gbsv,         Section::gesv },
-    { "",                   nullptr,           Section::newline },
+    { "getrf",              test_gesv,          Section::gesv },
+    { "getrf_nopiv",        test_gesv,          Section::gesv },
+    { "gbtrf",              test_gbsv,          Section::gesv },
+    { "",                   nullptr,            Section::newline },
 
     { "getrs",              test_gesv,         Section::gesv },
+    { "getrs_nopiv",        test_gesv,         Section::gesv },
     { "gbtrs",              test_gbsv,         Section::gesv },
     { "",                   nullptr,           Section::newline },
 
@@ -292,6 +294,7 @@ Params::Params():
                           2,    ParamType::List, 1,       0, 1000000, "(pt) max number of threads used in panel"),
     align     ("align",   6,    ParamType::List,  32,     1,    1024, "column alignment (sets lda, ldb, etc. to multiple of align)"),
     gemm_variant("gemm-variant", 8, ParamType::List, "gemmC", str2gemmVariant, gemmVariant2str, "gemmA, gemmC (default:gemmC)"),
+    nonuniform_nb  ("nonuniform_nb",     0,    ParamType::Value, 'n', "ny", "generate matrix with nonuniform tile sizes"),
 
     // ----- output parameters
     // min, max are ignored

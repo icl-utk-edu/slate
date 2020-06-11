@@ -122,10 +122,10 @@ END
                         export FI_PROVIDER=tcp
 
                         cd unit_test
-                        ./run_tests.py --xml report_unit.xml
+                        ./run_tests.py --xml ../report_unit.xml
 
                         cd test
-                        ./run_tests.py --ref n --xml report.xml
+                        ./run_tests.py --ref n --xml ../report_test.xml
                         '''
                     } // steps
                     post {
@@ -143,7 +143,7 @@ END
                                 body: "See more at ${env.BUILD_URL}"
                         }
                         always {
-                            junit 'test/*.xml' 'unit_test/*.xml'
+                            junit '*.xml'
                         }
                     } // post
                 } // stage(Test - Caffeine)
@@ -164,10 +164,10 @@ END
                         spack load openmpi^gcc@6.4.0
 
                         cd unit_test
-                        ./run_tests.py --xml report_unit.xml
+                        ./run_tests.py --xml ../report_unit.xml
 
                         cd test
-                        ./run_tests.py --ref n --xml report.xml
+                        ./run_tests.py --ref n --xml ../report.xml
                         '''
                     } // steps
                     post {
@@ -185,7 +185,7 @@ END
                                 body: "See more at ${env.BUILD_URL}"
                         }
                         always {
-                            junit 'test/*.xml' 'unit_test/*.xml'
+                            junit '*.xml'
                         }
                     } // post
                 } // stage(Test - Lips)

@@ -372,6 +372,14 @@ void gesv(
     Options const& opts = Options());
 
 //-----------------------------------------
+// gesv_nopiv()
+template <typename scalar_t>
+void gesv_nopiv(
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& B,
+    Options const& opts = Options());
+
+//-----------------------------------------
 // gesvMixed()
 template <typename scalar_t>
 void gesvMixed(
@@ -436,11 +444,13 @@ void getrs_nopiv(
 
 //-----------------------------------------
 // getri()
+// In-place
 template <typename scalar_t>
 void getri(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts = Options());
 
+// Out-of-place
 template <typename scalar_t>
 void getri(
     Matrix<scalar_t>& A, Pivots& pivots,

@@ -299,7 +299,7 @@ void test_gesv_work(Params& params, bool run)
             // slate::getrs(opA, pivots, B, opts);
         }
         else if (params.routine == "gesv") {
-            slate::lu_solve(A, pivots, B, opts);
+            slate::lu_solve(A, B, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name

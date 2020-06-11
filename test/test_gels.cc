@@ -137,7 +137,7 @@ void test_gels_work(Params& params, bool run)
         BX = slate::Matrix<scalar_t>::fromScaLAPACK(maxmn, nrhs, &BX_tst[0], lldBX, nb, nprow, npcol, MPI_COMM_WORLD);
     }
     // Create SLATE matrix from the ScaLAPACK layouts
-    slate::TriangularFactors<scalar_t> T;
+    // slate::TriangularFactors<scalar_t> T;
 
     // In square case, B = X = BX. In rectangular cases, B or X is sub-matrix.
     auto B = BX;
@@ -233,7 +233,7 @@ void test_gels_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::least_squares_solve(opA, T, BX, {
+        slate::least_squares_solve(opA, BX, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target},
             {slate::Option::MaxPanelThreads, panel_threads},

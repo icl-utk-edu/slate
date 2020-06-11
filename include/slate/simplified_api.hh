@@ -262,20 +262,22 @@ void rank_2k_update(
 // gbsv
 template <typename scalar_t>
 void lu_solve(
-    BandMatrix<scalar_t>& A, Pivots& pivots,
+    BandMatrix<scalar_t>& A,
         Matrix<scalar_t>& B,
     Options const& opts = Options())
 {
+    Pivots pivots;
     gbsv(A, pivots, B, opts);
 }
 
 // gesv
 template <typename scalar_t>
 void lu_solve(
-    Matrix<scalar_t>& A, Pivots& pivots,
+    Matrix<scalar_t>& A,
     Matrix<scalar_t>& B,
     Options const& opts = Options())
 {
+    Pivots pivots;
     gesv(A, pivots, B, opts);
 }
 
@@ -545,12 +547,13 @@ void chol_inverse_using_factor(
 // hesv
 template <typename scalar_t>
 void indefinite_solve(
-    HermitianMatrix<scalar_t>& A, Pivots& pivots,
-         BandMatrix<scalar_t>& T, Pivots& pivots2,
+    HermitianMatrix<scalar_t>& A,
+         BandMatrix<scalar_t>& T,
              Matrix<scalar_t>& H,
              Matrix<scalar_t>& B,
     Options const& opts = Options())
 {
+    Pivots pivots, pivots2;
     hesv(A, pivots, T, pivots2, H, B, opts);
 }
 
@@ -558,16 +561,16 @@ void indefinite_solve(
 // disabled for complex
 template <typename scalar_t>
 void indefinite_solve(
-    SymmetricMatrix<scalar_t>& A, Pivots& pivots,
-         BandMatrix<scalar_t>& T, Pivots& pivots2,
+    SymmetricMatrix<scalar_t>& A,
+         BandMatrix<scalar_t>& T,
              Matrix<scalar_t>& H,
              Matrix<scalar_t>& B,
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
+    Pivots pivots, pivots2;
     sysv(A, pivots, T, pivots2, H, B, opts);
 }
-
 
 //-----------------------------------------
 // indefinite_factor()
@@ -634,10 +637,11 @@ void indefinite_solve_using_factor(
 // gels
 template <typename scalar_t>
 void least_squares_solve(
-    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+    Matrix<scalar_t>& A,
     Matrix<scalar_t>& BX,
     Options const& opts = Options())
 {
+    TriangularFactors<scalar_t> T;
     gels(A, T, BX, opts);
 }
 

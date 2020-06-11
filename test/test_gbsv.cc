@@ -229,7 +229,7 @@ void test_gbsv_work(Params& params, bool run)
             // });
         }
         else {
-            slate::lu_solve(A, pivots, B, {
+            slate::lu_solve(A, B, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target},
                 {slate::Option::MaxPanelThreads, panel_threads},

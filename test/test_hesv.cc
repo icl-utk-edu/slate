@@ -186,7 +186,7 @@ void test_hesv_work(Params& params, bool run)
         // });
     }
     else {
-        slate::indefinite_solve(A, pivots, T, pivots2, H, B, {
+        slate::indefinite_solve(A, T, H, B, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target}
         });

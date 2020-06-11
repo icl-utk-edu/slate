@@ -56,7 +56,6 @@ public:
     testsweeper::ParamInt    verbose;
     testsweeper::ParamInt    extended;
     testsweeper::ParamInt    cache;
-    testsweeper::ParamChar   nonuniform_nb;
 
     // ----- routine parameters
     // LAPACK options
@@ -114,6 +113,7 @@ public:
     testsweeper::ParamInt    panel_threads;
     testsweeper::ParamInt    align;
     testsweeper::ParamEnum< std::string > gemm_variant;
+    testsweeper::ParamChar   nonuniform_nb;
 
     // ----- output parameters
     testsweeper::ParamScientific error;

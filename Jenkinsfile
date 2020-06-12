@@ -135,9 +135,11 @@ END
 
                         cd unit_test
                         ./run_tests.py --xml ../report_unit.xml
+                        cd ..
 
                         cd test
                         ./run_tests.py --ref n --xml ../report_test.xml
+                        cd ..
                         '''
                     } // steps
                     post {
@@ -177,9 +179,11 @@ END
 
                         cd unit_test
                         ./run_tests.py --xml ../report_unit.xml
+                        cd ..
 
                         cd test
                         ./run_tests.py --ref n --xml ../report.xml
+                        cd ..
                         '''
                     } // steps
                     post {

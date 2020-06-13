@@ -644,13 +644,13 @@ libslate_a  = lib/libslate.a
 libslate_so = lib/libslate.so
 libslate    = lib/libslate.$(lib_ext)
 
-$(libslate_a): $(libslate_obj) $(libblaspp) $(liblapackpp)
+$(libslate_a): $(libslate_obj)
 	mkdir -p lib
 	-rm $@
 	ar cr $@ $(libslate_obj)
 	ranlib $@
 
-$(libslate_so): $(libslate_obj) $(libblaspp) $(liblapackpp)
+$(libslate_so): $(libslate_obj)
 	mkdir -p lib
 	$(CXX) $(LDFLAGS) \
 		$(libslate_obj) \
@@ -808,6 +808,9 @@ clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean include/c
 
 distclean: clean
 	rm -f $(dep)
+	cd testsweeper && $(MAKE) distclean
+	cd blaspp      && $(MAKE) distclean
+	cd lapackpp    && $(MAKE) distclean
 
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -829,6 +832,16 @@ distclean: clean
 	$(CXX) $(CXXFLAGS) -I./testsweeper -c $< -o $@
 
 -include $(dep)
+
+#-------------------------------------------------------------------------------
+# Extra dependencies to force TestSweeper, BLAS++, LAPACK++ to be compiled before SLATE.
+
+$(libslate_obj):      | $(libblaspp) $(liblapackpp)
+$(tester_obj):        | $(libblaspp) $(liblapackpp)
+$(unit_test_obj):     | $(libblaspp) $(liblapackpp)
+$(unit_obj):          | $(libblaspp) $(liblapackpp)
+$(lapack_api_obj):    | $(libblaspp) $(liblapackpp)
+$(scalapack_api_obj): | $(libblaspp) $(liblapackpp)
 
 #-------------------------------------------------------------------------------
 # debugging

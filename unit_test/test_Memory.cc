@@ -71,8 +71,11 @@ void test_addHostBlocks()
 
     const int cnt = 5;
     mem.addHostBlocks(cnt);
-    test_assert(int(mem.available(mem.host_num_)) == cnt);
-    test_assert(int(mem.capacity (mem.host_num_)) == cnt);
+    // Memory class no longer reserves CPU blocks, it allocates on-the-fly.
+    //test_assert(int(mem.available(mem.host_num_)) == cnt);
+    //test_assert(int(mem.capacity (mem.host_num_)) == cnt);
+    test_assert(int(mem.available(mem.host_num_)) == 0);
+    test_assert(int(mem.capacity (mem.host_num_)) == 0);
 
     // Devices still 0.
     for (int dev = 0; dev < mem.num_devices_; ++dev) {
@@ -122,8 +125,11 @@ void test_alloc_host()
     for (int i = 0; i < 2*cnt; ++i) {
         hx[i] = (double*) mem.alloc(mem.host_num_, sizeof(double) * nb * nb);
         test_assert(hx[i] != nullptr);
-        test_assert(int(mem.available(mem.host_num_)) == max(cnt - (i+1), 0));
-        test_assert(int(mem.capacity (mem.host_num_)) == max(cnt, i+1));
+        // Memory class no longer reserves CPU blocks, it allocates on-the-fly.
+        //test_assert(int(mem.available(mem.host_num_)) == max(cnt - (i+1), 0));
+        //test_assert(int(mem.capacity (mem.host_num_)) == max(cnt, i+1));
+        test_assert(int(mem.available(mem.host_num_)) == 0);
+        test_assert(int(mem.capacity (mem.host_num_)) == 0);
 
         // Touch memory to verify it is valid.
         for (int j = 0; j < nb*nb; ++j) {
@@ -136,16 +142,20 @@ void test_alloc_host()
     for (int i = 0; i < some; ++i) {
         mem.free(hx[i], mem.host_num_);
         hx[i] = nullptr;
-        test_assert(int(mem.available(mem.host_num_)) == i+1);
-        test_assert(int(mem.capacity (mem.host_num_)) == 2*cnt);
+        //test_assert(int(mem.available(mem.host_num_)) == i+1);
+        //test_assert(int(mem.capacity (mem.host_num_)) == 2*cnt);
+        test_assert(int(mem.available(mem.host_num_)) == 0);
+        test_assert(int(mem.capacity (mem.host_num_)) == 0);
     }
 
     // Re-alloc some.
     for (int i = 0; i < some; ++i) {
         hx[i] = (double*) mem.alloc(mem.host_num_, sizeof(double) * nb * nb);
         test_assert(hx[i] != nullptr);
-        test_assert(int(mem.available(mem.host_num_)) == some - (i+1));
-        test_assert(int(mem.capacity (mem.host_num_)) == 2*cnt);
+        //test_assert(int(mem.available(mem.host_num_)) == some - (i+1));
+        //test_assert(int(mem.capacity (mem.host_num_)) == 2*cnt);
+        test_assert(int(mem.available(mem.host_num_)) == 0);
+        test_assert(int(mem.capacity (mem.host_num_)) == 0);
     }
 }
 
@@ -210,8 +220,10 @@ void test_clearHostBlocks()
 
     const int cnt = 5;
     mem.addHostBlocks(cnt);
-    test_assert(int(mem.available(mem.host_num_)) == cnt);
-    test_assert(int(mem.capacity (mem.host_num_)) == cnt);
+    //test_assert(int(mem.available(mem.host_num_)) == cnt);
+    //test_assert(int(mem.capacity (mem.host_num_)) == cnt);
+    test_assert(int(mem.available(mem.host_num_)) == 0);
+    test_assert(int(mem.capacity (mem.host_num_)) == 0);
 
     // Allocate 2*cnt blocks.
     for (int i = 0; i < 2*cnt; ++i) {
@@ -219,7 +231,8 @@ void test_clearHostBlocks()
     }
 
     test_assert(int(mem.available(mem.host_num_)) == 0);
-    test_assert(int(mem.capacity (mem.host_num_)) == 2*cnt);
+    //test_assert(int(mem.capacity (mem.host_num_)) == 2*cnt);
+    test_assert(int(mem.capacity (mem.host_num_)) == 0);
 
     mem.clearHostBlocks();
 

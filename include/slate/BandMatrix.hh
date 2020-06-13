@@ -73,6 +73,12 @@ public:
         int64_t row1, int64_t row2,
         int64_t col1, int64_t col2);
 
+    template <typename out_scalar_t=scalar_t>
+    static
+    BandMatrix<out_scalar_t> emptyLike(BaseMatrix<scalar_t>& orig, int64_t kl,
+                                       int64_t ku, int64_t mb=0, int64_t nb=0,
+                                       Op deepOp=Op::NoTrans);
+
 protected:
     // used by slice
     BandMatrix(BaseBandMatrix<scalar_t>& orig,
@@ -195,6 +201,21 @@ BandMatrix<scalar_t> BandMatrix<scalar_t>::slice(
 {
     return BandMatrix<scalar_t>(*this,
         typename BaseMatrix<scalar_t>::Slice(row1, row2, col1, col2));
+}
+
+//------------------------------------------------------------------------------
+/// Named constructor returns a new, empty Matrix with the same structure
+/// (size and distribution) as the matrix orig. Tiles are not allocated.
+///
+template <typename scalar_t>
+template <typename out_scalar_t>
+BandMatrix<out_scalar_t> BandMatrix<scalar_t>::emptyLike(
+    BaseMatrix<scalar_t>& orig, int64_t kl, int64_t ku, int64_t mb, int64_t nb,
+    Op deepOp)
+{
+    auto B = orig.template baseEmptyLike<out_scalar_t>(mb, nb, deepOp);
+    auto M = Matrix<out_scalar_t>(B, 0, B.mt()-1, 0, B.nt()-1);
+    return BandMatrix<out_scalar_t>(kl, ku, M);
 }
 
 //------------------------------------------------------------------------------

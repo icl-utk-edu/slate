@@ -548,11 +548,16 @@ void chol_inverse_using_factor(
 template <typename scalar_t>
 void indefinite_solve(
     HermitianMatrix<scalar_t>& A,
-         BandMatrix<scalar_t>& T,
-             Matrix<scalar_t>& H,
              Matrix<scalar_t>& B,
     Options const& opts = Options())
 {
+    // auxiliary matrices
+    auto H = slate::Matrix<scalar_t>::emptyLike(A);
+
+    int64_t kl = A.tileNb(0);
+    int64_t ku = A.tileNb(0);
+    auto T = slate::BandMatrix<scalar_t>::emptyLike(A, kl, ku);
+
     Pivots pivots, pivots2;
     hesv(A, pivots, T, pivots2, H, B, opts);
 }
@@ -562,12 +567,17 @@ void indefinite_solve(
 template <typename scalar_t>
 void indefinite_solve(
     SymmetricMatrix<scalar_t>& A,
-         BandMatrix<scalar_t>& T,
-             Matrix<scalar_t>& H,
              Matrix<scalar_t>& B,
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
+    // auxiliary matrices
+    auto H = slate::Matrix<scalar_t>::emptyLike(A);
+
+    int64_t kl = A.tileNb(0);
+    int64_t ku = A.tileNb(0);
+    auto T = slate::BandMatrix<scalar_t>::emptyLike(A, kl, ku);
+
     Pivots pivots, pivots2;
     sysv(A, pivots, T, pivots2, H, B, opts);
 }

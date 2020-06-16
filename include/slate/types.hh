@@ -87,7 +87,7 @@ public:
 };
 
 using Options = std::map<Option, OptionValue>;
-using Value   = OptionValue; /// @deprecated
+using Value   = OptionValue; ///< @deprecated
 
 //------------------------------------------------------------------------------
 class Pivot {

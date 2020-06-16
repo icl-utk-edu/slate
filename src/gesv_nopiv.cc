@@ -101,9 +101,10 @@ namespace slate {
 /// @ingroup gesv_nopiv
 ///
 template <typename scalar_t>
-void gesv_nopiv(Matrix<scalar_t>& A,
-          Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts)
+void gesv_nopiv(
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& B,
+    Options const& opts)
 {
     slate_assert(A.mt() == A.nt());  // square
     slate_assert(B.mt() == A.mt());
@@ -123,24 +124,24 @@ template
 void gesv_nopiv<float>(
     Matrix<float>& A,
     Matrix<float>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gesv_nopiv<double>(
     Matrix<double>& A,
     Matrix<double>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gesv_nopiv< std::complex<float> >(
     Matrix< std::complex<float> >& A,
     Matrix< std::complex<float> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gesv_nopiv< std::complex<double> >(
     Matrix< std::complex<double> >& A,
     Matrix< std::complex<double> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

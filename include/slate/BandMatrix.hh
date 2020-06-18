@@ -207,6 +207,36 @@ BandMatrix<scalar_t> BandMatrix<scalar_t>::slice(
 /// Named constructor returns a new, empty Matrix with the same structure
 /// (size and distribution) as the matrix orig. Tiles are not allocated.
 ///
+/// @param[in] orig
+///     Original matrix of which to make an empty matrix with the same structure
+///     (size and distribution) as this original matrix.
+///
+/// @param[in] kl
+///     Number of subdiagonals within band. kl >= 0.
+///
+/// @param[in] ku
+///     Number of superdiagonals within band. ku >= 0.
+///
+/// @param[in] mb
+///     Row block size of new matrix.
+///     If mb = 0, uses the same mb and m as this matrix;
+///     otherwise, m = mb * mt.
+///
+/// @param[in] nb
+///     Column block size of new matrix.
+///     If nb = 0, uses the same nb and n as this matrix;
+///     otherwise, n = nb * nt.
+///
+/// @param[in] deepOp
+///     Additional deep-transposition operation to apply. If deepOp=Trans, the
+///     new matrix has the transposed structure (distribution and number of
+///     tiles) of this matrix, but its shallow-transpose op() flag is set to
+///     NoTrans. For a 1x4 matrix A, compare:
+///     - transpose(A).emptyLike() creates a new 1x4 matrix, then transposes it
+///       to return a 4x1 matrix with its op set to Trans.
+///     - A.emptyLike(mb, nb, Op::Trans) creates and returns a new 4x1 matrix
+///       with its op set to NoTrans.
+///
 template <typename scalar_t>
 template <typename out_scalar_t>
 BandMatrix<out_scalar_t> BandMatrix<scalar_t>::emptyLike(

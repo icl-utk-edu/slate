@@ -464,9 +464,8 @@ Matrix<out_scalar_t> Matrix<scalar_t>::emptyLike(
 ///
 template <typename scalar_t>
 template <typename out_scalar_t>
-Matrix<out_scalar_t> Matrix<scalar_t>::emptyLike(BaseMatrix<scalar_t>& orig,
-                                                 int64_t mb, int64_t nb,
-                                                 Op deepOp)
+Matrix<out_scalar_t> Matrix<scalar_t>::emptyLike(
+    BaseMatrix<scalar_t>& orig, int64_t mb, int64_t nb, Op deepOp)
 {
     auto B = orig.template baseEmptyLike<out_scalar_t>(mb, nb, deepOp);
     return Matrix<out_scalar_t>(B, 0, B.mt()-1, 0, B.nt()-1);

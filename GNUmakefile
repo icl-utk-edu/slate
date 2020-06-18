@@ -37,6 +37,8 @@
 
 # Set defaults
 # Do all ?= before strip!
+prefix ?= /opt/slate
+
 openmp ?= 1
 
 NVCC ?= nvcc
@@ -570,8 +572,8 @@ CXXFLAGS  += $(FLAGS)
 NVCCFLAGS += $(FLAGS)
 
 # libraries to create libslate.so
-LDFLAGS  += -L./blaspp/lib -Wl,-rpath,$(abspath ./blaspp/lib)
-LDFLAGS  += -L./lapackpp/lib -Wl,-rpath,$(abspath ./lapackpp/lib)
+LDFLAGS  += -L./blaspp/lib
+LDFLAGS  += -L./lapackpp/lib
 LIBS     := -lblaspp -llapackpp $(LIBS)
 
 # additional flags and libraries for testers
@@ -581,6 +583,8 @@ $(unit_test_obj): CXXFLAGS += -I./testsweeper
 
 TEST_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 TEST_LDFLAGS += -L./testsweeper -Wl,-rpath,$(abspath ./testsweeper)
+TEST_LDFLAGS += -Wl,-rpath,$(abspath ./blaspp/lib)
+TEST_LDFLAGS += -Wl,-rpath,$(abspath ./lapackpp/lib)
 TEST_LIBS    += -lslate -ltestsweeper $(scalapack)
 
 UNIT_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
@@ -595,6 +599,25 @@ UNIT_LIBS    += -lslate -ltestsweeper
 .DEFAULT_GOAL := all
 
 all: lib tester unit_test scalapack_api lapack_api
+
+install: lib
+	cd blaspp   && $(MAKE) install prefix=${prefix}
+	@echo
+	cd lapackpp && $(MAKE) install prefix=${prefix}
+	@echo
+	mkdir -p $(DESTDIR)$(prefix)/include/slate/internal
+	mkdir -p $(DESTDIR)$(prefix)/lib$(LIB_SUFFIX)
+	cp include/slate/*.hh          $(DESTDIR)$(prefix)/include/slate
+	cp include/slate/internal/*.hh $(DESTDIR)$(prefix)/include/slate/internal
+	cp lib/lib*                    $(DESTDIR)$(prefix)/lib$(LIB_SUFFIX)
+
+uninstall:
+	cd blaspp   && $(MAKE) uninstall prefix=${prefix}
+	@echo
+	cd lapackpp && $(MAKE) uninstall prefix=${prefix}
+	@echo
+	$(RM) -r $(DESTDIR)$(prefix)/include/slate
+	$(RM)    $(DESTDIR)$(prefix)/lib$(LIB_SUFFIX)/libslate*
 
 docs:
 	doxygen docs/doxygen/doxyfile.conf
@@ -657,13 +680,12 @@ $(libslate_so): $(libslate_obj)
 		$(LIBS) \
 		-shared $(install_name) -o $@
 
-lib: $(libslate)
-src: lib
+src: $(libslate)
 
 #-------------------------------------------------------------------------------
 # headers
 # precompile headers to verify self-sufficiency
-headers     = $(wildcard include/*/*.hh test/*.hh)
+headers     = $(wildcard include/slate/*.hh include/slate/internal/*.hh test/*.hh)
 headers_gch = $(addsuffix .gch, $(basename $(headers)))
 
 headers: $(headers_gch)
@@ -732,7 +754,7 @@ scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
 
 dep += $(addsuffix .d, $(basename $(scalapack_api_src)))
 
-SCALAPACK_API_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
+SCALAPACK_API_LDFLAGS += -L./lib
 SCALAPACK_API_LIBS    += -lslate $(scalapack)
 
 scalapack_api: $(scalapack_api)
@@ -783,7 +805,7 @@ lapack_api_obj = $(addsuffix .o, $(basename $(lapack_api_src)))
 
 dep += $(addsuffix .d, $(basename $(lapack_api_src)))
 
-LAPACK_API_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
+LAPACK_API_LDFLAGS += -L./lib
 LAPACK_API_LIBS    += -lslate
 
 lapack_api: $(lapack_api)
@@ -802,6 +824,9 @@ $(lapack_api_so): $(lapack_api_obj) $(libslate)
 
 #-------------------------------------------------------------------------------
 # general rules
+
+lib: $(libslate) $(scalapack_api) $(lapack_api)
+
 clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean include/clean
 	rm -f $(libslate_a) $(libslate_so) $(libslate_obj)
 	rm -f trace_*.svg

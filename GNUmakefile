@@ -590,6 +590,8 @@ TEST_LIBS    += -lslate -ltestsweeper $(scalapack)
 
 UNIT_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 UNIT_LDFLAGS += -L./testsweeper -Wl,-rpath,$(abspath ./testsweeper)
+UNIT_LDFLAGS += -Wl,-rpath,$(abspath ./blaspp/lib)
+UNIT_LDFLAGS += -Wl,-rpath,$(abspath ./lapackpp/lib)
 UNIT_LIBS    += -lslate -ltestsweeper
 
 #-------------------------------------------------------------------------------

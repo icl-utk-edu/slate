@@ -460,7 +460,7 @@ void hbmm(Side side,
           scalar_t alpha, HermitianBandMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -538,7 +538,7 @@ void hbmm(Side side,
           scalar_t alpha, HermitianBandMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     Target target;
     try {
@@ -573,7 +573,7 @@ void hbmm<float>(
     float alpha, HermitianBandMatrix<float>& A,
                  Matrix<float>& B,
     float beta,  Matrix<float>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hbmm<double>(
@@ -581,7 +581,7 @@ void hbmm<double>(
     double alpha, HermitianBandMatrix<double>& A,
                   Matrix<double>& B,
     double beta,  Matrix<double>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hbmm< std::complex<float> >(
@@ -589,7 +589,7 @@ void hbmm< std::complex<float> >(
     std::complex<float> alpha, HermitianBandMatrix< std::complex<float> >& A,
                                Matrix< std::complex<float> >& B,
     std::complex<float> beta,  Matrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hbmm< std::complex<double> >(
@@ -597,6 +597,6 @@ void hbmm< std::complex<double> >(
     std::complex<double> alpha, HermitianBandMatrix< std::complex<double> >& A,
                                 Matrix< std::complex<double> >& B,
     std::complex<double> beta,  Matrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

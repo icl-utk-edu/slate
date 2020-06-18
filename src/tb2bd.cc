@@ -330,7 +330,7 @@ void tb2bd(slate::internal::TargetType<target>,
 ///
 template <Target target, typename scalar_t>
 void tb2bd(TriangularBandMatrix<scalar_t>& A,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     internal::specialization::tb2bd(internal::TargetType<target>(),
                                     A);
@@ -359,7 +359,7 @@ void tb2bd(TriangularBandMatrix<scalar_t>& A,
 ///
 template <typename scalar_t>
 void tb2bd(TriangularBandMatrix<scalar_t>& A,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -392,21 +392,21 @@ void tb2bd(TriangularBandMatrix<scalar_t>& A,
 template
 void tb2bd<float>(
     TriangularBandMatrix<float>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void tb2bd<double>(
     TriangularBandMatrix<double>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void tb2bd< std::complex<float> >(
     TriangularBandMatrix< std::complex<float> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void tb2bd< std::complex<double> >(
     TriangularBandMatrix< std::complex<double> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

@@ -232,7 +232,7 @@ norm(slate::internal::TargetType<target>,
 template <Target target, typename matrix_type>
 blas::real_type<typename matrix_type::value_type>
 norm(Norm norm, matrix_type& A,
-     const std::map<Option, Value>& opts)
+     Options const& opts)
 {
     return internal::specialization::norm(internal::TargetType<target>(),
                                           norm, A);
@@ -270,7 +270,7 @@ norm(Norm norm, matrix_type& A,
 template <typename matrix_type>
 blas::real_type<typename matrix_type::value_type>
 norm(Norm in_norm, matrix_type& A,
-     const std::map<Option, Value>& opts)
+     Options const& opts)
 {
     Target target;
     try {
@@ -301,126 +301,126 @@ norm(Norm in_norm, matrix_type& A,
 template
 float norm(
     Norm in_norm, Matrix<float>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 double norm(
     Norm in_norm, Matrix<double>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 float norm(
     Norm in_norm, Matrix< std::complex<float> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 double norm(
     Norm in_norm, Matrix< std::complex<double> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 //--------------------
 template
 float norm(
     Norm in_norm, HermitianMatrix<float>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 double norm(
     Norm in_norm, HermitianMatrix<double>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 float norm(
     Norm in_norm, HermitianMatrix< std::complex<float> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 double norm(
     Norm in_norm, HermitianMatrix< std::complex<double> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 //--------------------
 template
 float norm(
     Norm in_norm, SymmetricMatrix<float>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 double norm(
     Norm in_norm, SymmetricMatrix<double>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 float norm(
     Norm in_norm, SymmetricMatrix< std::complex<float> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 double norm(
     Norm in_norm, SymmetricMatrix< std::complex<double> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 //--------------------
 template
 float norm(
     Norm in_norm, TrapezoidMatrix<float>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 double norm(
     Norm in_norm, TrapezoidMatrix<double>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 float norm(
     Norm in_norm, TrapezoidMatrix< std::complex<float> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 double norm(
     Norm in_norm, TrapezoidMatrix< std::complex<double> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 //--------------------
 template
 float norm(
     Norm in_norm, BandMatrix<float>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 double norm(
     Norm in_norm, BandMatrix<double>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 float norm(
     Norm in_norm, BandMatrix< std::complex<float> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 double norm(
     Norm in_norm, BandMatrix< std::complex<double> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 //--------------------
 template
 float norm(
     Norm in_norm, HermitianBandMatrix<float>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 double norm(
     Norm in_norm, HermitianBandMatrix<double>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 float norm(
     Norm in_norm, HermitianBandMatrix< std::complex<float> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 double norm(
     Norm in_norm, HermitianBandMatrix< std::complex<double> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

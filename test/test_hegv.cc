@@ -171,7 +171,7 @@ void test_hegv_work(Params& params, bool run)
         copy(B, B_orig);
     }
 
-    const std::map<slate::Option, slate::Value> opts =  {
+    slate::Options const opts = {
         {slate::Option::Lookahead,       lookahead},
         {slate::Option::Target,          target},
         {slate::Option::MaxPanelThreads, panel_threads},
@@ -189,7 +189,16 @@ void test_hegv_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::hegv(itype, jobz, A, B, W_vec, Z, opts);
+        if (jobz == slate::Job::NoVec) {
+            slate::eig_vals(itype, A, B, W_vec, opts);
+        }
+        // else {
+            // todo: slate::Job::Vec
+        // }
+
+        //---------------------
+        // Using traditional BLAS/LAPACK name
+        // slate::hegv(itype, jobz, A, B, W_vec, Z, opts);
 
         { slate::trace::Block trace_block("MPI_Barrier");  MPI_Barrier(mpi_comm); }
         double time_tst = testsweeper::get_wtime() - time;

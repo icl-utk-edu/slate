@@ -326,7 +326,7 @@ void hb2st(slate::internal::TargetType<target>,
 ///
 template <Target target, typename scalar_t>
 void hb2st(HermitianBandMatrix<scalar_t>& A,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     internal::specialization::hb2st(internal::TargetType<target>(),
                                     A);
@@ -359,7 +359,7 @@ void hb2st(HermitianBandMatrix<scalar_t>& A,
 // todo: Change Matrix to BandMatrix and remove the band parameter.
 template <typename scalar_t>
 void hb2st(HermitianBandMatrix<scalar_t>& A,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -392,21 +392,21 @@ void hb2st(HermitianBandMatrix<scalar_t>& A,
 template
 void hb2st<float>(
     HermitianBandMatrix<float>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hb2st<double>(
     HermitianBandMatrix<double>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hb2st< std::complex<float> >(
     HermitianBandMatrix< std::complex<float> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hb2st< std::complex<double> >(
     HermitianBandMatrix< std::complex<double> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

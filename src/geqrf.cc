@@ -260,7 +260,7 @@ void geqrf(slate::internal::TargetType<target>,
 template <Target target, typename scalar_t>
 void geqrf(Matrix<scalar_t>& A,
            TriangularFactors<scalar_t>& T,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -340,7 +340,7 @@ void geqrf(Matrix<scalar_t>& A,
 template <typename scalar_t>
 void geqrf(Matrix<scalar_t>& A,
            TriangularFactors<scalar_t>& T,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -374,24 +374,24 @@ template
 void geqrf<float>(
     Matrix<float>& A,
     TriangularFactors<float>& T,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void geqrf<double>(
     Matrix<double>& A,
     TriangularFactors<double>& T,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void geqrf< std::complex<float> >(
     Matrix< std::complex<float> >& A,
     TriangularFactors< std::complex<float> >& T,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void geqrf< std::complex<double> >(
     Matrix< std::complex<double> >& A,
     TriangularFactors< std::complex<double> >& T,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

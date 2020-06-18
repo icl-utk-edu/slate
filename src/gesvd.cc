@@ -53,7 +53,7 @@ namespace slate {
 template <typename scalar_t>
 void gesvd(Matrix<scalar_t> A,
            std::vector< blas::real_type<scalar_t> >& S,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     using real_t = blas::real_type<scalar_t>;
     using std::swap;
@@ -151,24 +151,24 @@ template
 void gesvd<float>(
      Matrix<float> A,
      std::vector<float>& S,
-     const std::map<Option, Value>& opts);
+     Options const& opts);
 
 template
 void gesvd<double>(
      Matrix<double> A,
      std::vector<double>& S,
-     const std::map<Option, Value>& opts);
+     Options const& opts);
 
 template
 void gesvd< std::complex<float> >(
      Matrix< std::complex<float> > A,
      std::vector<float>& S,
-     const std::map<Option, Value>& opts);
+     Options const& opts);
 
 template
 void gesvd< std::complex<double> >(
      Matrix< std::complex<double> > A,
      std::vector<double>& S,
-     const std::map<Option, Value>& opts);
+     Options const& opts);
 
 } // namespace slate

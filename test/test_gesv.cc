@@ -84,7 +84,7 @@ void test_gesv_work(Params& params, bool run)
         }
     }
 
-    const std::map<slate::Option, slate::Value> opts =  {
+    slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
@@ -197,8 +197,8 @@ void test_gesv_work(Params& params, bool run)
 
     slate::Pivots pivots;
 
-    slate::generate_matrix( params.matrix, A);
-    slate::generate_matrix( params.matrix, B);
+    slate::generate_matrix(params.matrix, A);
+    slate::generate_matrix(params.matrix, B);
 
     if (ref && ! nonuniform_nb) {
         copy(A, &A_tst[0], descA_tst);
@@ -246,12 +246,20 @@ void test_gesv_work(Params& params, bool run)
     if (! ref_only) {
         if (params.routine == "getrs") {
             // Factor matrix A.
-            slate::getrf(A, pivots, opts);
+            slate::lu_factor(A, pivots, opts);
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::getrf(A, pivots, opts);
         }
 
         if (params.routine == "getrs_nopiv") {
             // Factor matrix A.
-            slate::getrf_nopiv(A, opts);
+            slate::lu_factor_nopiv(A, opts);
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::getrf_nopiv(A, opts);
         }
 
         if (trace) slate::trace::Trace::on();
@@ -271,7 +279,11 @@ void test_gesv_work(Params& params, bool run)
         // gesv:  Solve AX = B, including factoring A.
         //==================================================
         if (params.routine == "getrf") {
-            slate::getrf(A, pivots, opts);
+            slate::lu_factor(A, pivots, opts);
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::getrf(A, pivots, opts);
         }
         else if (params.routine == "getrs") {
             auto opA = A;
@@ -280,10 +292,18 @@ void test_gesv_work(Params& params, bool run)
             else if (trans == slate::Op::ConjTrans)
                 opA = conjTranspose(A);
 
-            slate::getrs(opA, pivots, B, opts);
+            slate::lu_solve_using_factor(opA, pivots, B, opts);
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::getrs(opA, pivots, B, opts);
         }
         else if (params.routine == "gesv") {
-            slate::gesv(A, pivots, B, opts);
+            slate::lu_solve(A, B, opts);
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::gesv(A, pivots, B, opts);
         }
         else if (params.routine == "gesvMixed") {
             if (std::is_same<real_t, double>::value) {
@@ -291,7 +311,10 @@ void test_gesv_work(Params& params, bool run)
             }
         }
         else if (params.routine == "getrf_nopiv") {
-            slate::getrf_nopiv(A, opts);
+            slate::lu_factor_nopiv(A, opts);
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::getrf_nopiv(A, opts);
         }
         else if (params.routine == "getrs_nopiv") {
             auto opA = A;
@@ -300,10 +323,18 @@ void test_gesv_work(Params& params, bool run)
             else if (trans == slate::Op::ConjTrans)
                 opA = conjTranspose(A);
 
-            slate::getrs_nopiv(opA, B, opts);
+            slate::lu_solve_using_factor_nopiv(opA, B, opts);
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::getrs_nopiv(opA, B, opts);
         }
         else if (params.routine == "gesv_nopiv") {
-            slate::gesv_nopiv(A, B, opts);
+            slate::lu_solve_nopiv(A, B, opts);
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::gesv_nopiv(A, B, opts);
         }
         else {
             slate_error("Unknown routine!");
@@ -339,10 +370,18 @@ void test_gesv_work(Params& params, bool run)
         if (params.routine == "getrf") {
             // Solve AX = B.
             slate::getrs(A, pivots, B, opts);
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::getrs(A, pivots, B, opts);
         }
         if (params.routine == "getrf_nopiv") {
             // Solve AX = B.
-            slate::getrs_nopiv(A, B, opts);
+            slate::lu_solve_using_factor_nopiv(A, B, opts);
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::getrs_nopiv(A, B, opts);
         }
 
         // Norm of updated-rhs/solution matrix: || X ||_1
@@ -367,10 +406,16 @@ void test_gesv_work(Params& params, bool run)
         // B_ref -= op(Aref)*B_tst
         if (params.routine == "gesvMixed") {
             if (std::is_same<real_t, double>::value)
-                slate::gemm( scalar_t(-1.0), opAref, X, scalar_t(1.0), Bref );
+                slate::multiply(scalar_t(-1.0), opAref, X, scalar_t(1.0), Bref);
+                //---------------------
+                // Using traditional BLAS/LAPACK name
+                // slate::gemm(scalar_t(-1.0), opAref, X, scalar_t(1.0), Bref);
         }
         else {
-            slate::gemm( scalar_t(-1.0), opAref, B, scalar_t(1.0), Bref );
+            slate::multiply(scalar_t(-1.0), opAref, B, scalar_t(1.0), Bref);
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::gemm(scalar_t(-1.0), opAref, B, scalar_t(1.0), Bref);
         }
 
         // Norm of residual: || B - AX ||_1

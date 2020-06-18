@@ -239,7 +239,7 @@ template <Target target, typename scalar_t>
 void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -309,7 +309,7 @@ template <typename scalar_t>
 void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     Target target;
     try {
@@ -343,27 +343,27 @@ void gbmm<float>(
     float alpha, BandMatrix<float>& A,
                  Matrix<float>& B,
     float beta,  Matrix<float>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gbmm<double>(
     double alpha, BandMatrix<double>& A,
                   Matrix<double>& B,
     double beta,  Matrix<double>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gbmm< std::complex<float> >(
     std::complex<float> alpha, BandMatrix< std::complex<float> >& A,
                                Matrix< std::complex<float> >& B,
     std::complex<float> beta,  Matrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gbmm< std::complex<double> >(
     std::complex<double> alpha, BandMatrix< std::complex<double> >& A,
                                 Matrix< std::complex<double> >& B,
     std::complex<double> beta,  Matrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

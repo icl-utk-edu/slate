@@ -117,7 +117,7 @@ void hegv(int64_t itype,
           HermitianMatrix<scalar_t>& B,
           std::vector<blas::real_type<scalar_t>>& W,
           Matrix<scalar_t>& V,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     // 1. Form a Cholesky factorization of B.
     potrf(B, opts);
@@ -151,7 +151,7 @@ void hegv<float>(
     HermitianMatrix<float>& B,
     std::vector<float>& W,
     Matrix<float>& V,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hegv<double>(
@@ -161,7 +161,7 @@ void hegv<double>(
     HermitianMatrix<double>& B,
     std::vector<double>& W,
     Matrix<double>& V,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hegv<std::complex<float>>(
@@ -171,7 +171,7 @@ void hegv<std::complex<float>>(
     HermitianMatrix<std::complex<float>>& B,
     std::vector<float>& W,
     Matrix<std::complex<float>>& V,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hegv<std::complex<double>>(
@@ -181,6 +181,6 @@ void hegv<std::complex<double>>(
     HermitianMatrix<std::complex<double>>& B,
     std::vector<double>& W,
     Matrix<std::complex<double>>& V,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

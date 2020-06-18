@@ -178,7 +178,7 @@ void getri(slate::internal::TargetType<target>,
 ///
 template <Target target, typename scalar_t>
 void getri(Matrix<scalar_t>& A, Pivots& pivots,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     slate_assert(A.mt() == A.nt());  // square
 
@@ -230,7 +230,7 @@ void getri(Matrix<scalar_t>& A, Pivots& pivots,
 ///
 template <typename scalar_t>
 void getri(Matrix<scalar_t>& A, Pivots& pivots,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     // triangular inversion
     auto U = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, A);
@@ -267,21 +267,21 @@ void getri(Matrix<scalar_t>& A, Pivots& pivots,
 template
 void getri<float>(
     Matrix<float>& A, Pivots& pivots,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void getri<double>(
     Matrix<double>& A, Pivots& pivots,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void getri< std::complex<float> >(
     Matrix< std::complex<float> >& A, Pivots& pivots,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void getri< std::complex<double> >(
     Matrix< std::complex<double> >& A, Pivots& pivots,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

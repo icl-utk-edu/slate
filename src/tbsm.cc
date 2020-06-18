@@ -101,7 +101,7 @@ template <typename scalar_t>
 void tbsm(Side side, scalar_t alpha,
           TriangularBandMatrix<scalar_t>& A,
                         Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     Pivots no_pivots;
     tbsm(side, alpha, A, no_pivots, B, opts);
@@ -115,7 +115,7 @@ void tbsm<float>(
     float alpha,
     TriangularBandMatrix<float>& A,
                   Matrix<float>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void tbsm<double>(
@@ -123,7 +123,7 @@ void tbsm<double>(
     double alpha,
     TriangularBandMatrix<double>& A,
                   Matrix<double>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void tbsm< std::complex<float> >(
@@ -131,7 +131,7 @@ void tbsm< std::complex<float> >(
     std::complex<float> alpha,
     TriangularBandMatrix< std::complex<float> >& A,
                   Matrix< std::complex<float> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void tbsm< std::complex<double> >(
@@ -139,6 +139,6 @@ void tbsm< std::complex<double> >(
     std::complex<double> alpha,
     TriangularBandMatrix< std::complex<double> >& A,
                   Matrix< std::complex<double> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

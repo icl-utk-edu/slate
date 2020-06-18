@@ -398,7 +398,7 @@ template <Target target, typename scalar_t>
 void ge2tb(Matrix<scalar_t>& A,
            TriangularFactors<scalar_t>& TU,
            TriangularFactors<scalar_t>& TV,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     int64_t ib;
     try {
@@ -482,7 +482,7 @@ template <typename scalar_t>
 void ge2tb(Matrix<scalar_t>& A,
            TriangularFactors<scalar_t>& TU,
            TriangularFactors<scalar_t>& TV,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -517,27 +517,27 @@ void ge2tb<float>(
     Matrix<float>& A,
     TriangularFactors<float>& TU,
     TriangularFactors<float>& TV,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void ge2tb<double>(
     Matrix<double>& A,
     TriangularFactors<double>& TU,
     TriangularFactors<double>& TV,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void ge2tb< std::complex<float> >(
     Matrix< std::complex<float> >& A,
     TriangularFactors< std::complex<float> >& TU,
     TriangularFactors< std::complex<float> >& TV,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void ge2tb< std::complex<double> >(
     Matrix< std::complex<double> >& A,
     TriangularFactors< std::complex<double> >& TU,
     TriangularFactors< std::complex<double> >& TV,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

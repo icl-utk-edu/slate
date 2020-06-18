@@ -162,10 +162,25 @@ void test_hbmm_work(Params& params, bool run)
     // C = alpha A B + beta C (left) or
     // C = alpha B A + beta C (right).
     //==================================================
-    slate::hbmm(side, alpha, A, B, beta, C, {
-        {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}
-    });
+    if (side == slate::Side::Left)
+        slate::multiply(alpha, A, B, beta, C, {
+            {slate::Option::Lookahead, lookahead},
+            {slate::Option::Target, target}
+        });
+    else if (side == slate::Side::Right)
+        slate::multiply(alpha, B, A, beta, C, {
+            {slate::Option::Lookahead, lookahead},
+            {slate::Option::Target, target}
+        });
+    else
+        throw slate::Exception("unknown side");
+
+    //---------------------
+    // Using traditional BLAS/LAPACK name
+    // slate::hbmm(side, alpha, A, B, beta, C, {
+    //     {slate::Option::Lookahead, lookahead},
+    //     {slate::Option::Target, target}
+    // });
 
     {
         slate::trace::Block trace_block("MPI_Barrier");

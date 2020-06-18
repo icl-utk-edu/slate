@@ -159,12 +159,21 @@ void test_gbsv_work(Params& params, bool run)
     if (! ref_only) {
         if (params.routine == "gbtrs") {
             // Factor matrix A.
-            slate::gbtrf(A, pivots, {
+            slate::lu_factor(A, pivots, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target},
                 {slate::Option::MaxPanelThreads, panel_threads},
                 {slate::Option::InnerBlocking, ib}
             });
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::gbtrf(A, pivots, {
+            //     {slate::Option::Lookahead, lookahead},
+            //     {slate::Option::Target, target},
+            //     {slate::Option::MaxPanelThreads, panel_threads},
+            //     {slate::Option::InnerBlocking, ib}
+            // });
         }
 
         if (trace) slate::trace::Trace::on();
@@ -184,12 +193,21 @@ void test_gbsv_work(Params& params, bool run)
         // gbsv:  Solve AX = B, including factoring A.
         //==================================================
         if (params.routine == "gbtrf") {
-            slate::gbtrf(A, pivots, {
+            slate::lu_factor(A, pivots, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target},
                 {slate::Option::MaxPanelThreads, panel_threads},
                 {slate::Option::InnerBlocking, ib}
             });
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::gbtrf(A, pivots, {
+            //     {slate::Option::Lookahead, lookahead},
+            //     {slate::Option::Target, target},
+            //     {slate::Option::MaxPanelThreads, panel_threads},
+            //     {slate::Option::InnerBlocking, ib}
+            // });
         }
         else if (params.routine == "gbtrs") {
             auto opA = A;
@@ -198,18 +216,34 @@ void test_gbsv_work(Params& params, bool run)
             else if (trans == slate::Op::ConjTrans)
                 opA = conjTranspose(A);
 
-            slate::gbtrs(opA, pivots, B, {
+            slate::lu_solve_using_factor(opA, pivots, B, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::gbtrs(opA, pivots, B, {
+            //     {slate::Option::Lookahead, lookahead},
+            //     {slate::Option::Target, target}
+            // });
         }
         else {
-            slate::gbsv(A, pivots, B, {
+            slate::lu_solve(A, B, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target},
                 {slate::Option::MaxPanelThreads, panel_threads},
                 {slate::Option::InnerBlocking, ib}
             });
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::gbsv(A, pivots, B, {
+            //     {slate::Option::Lookahead, lookahead},
+            //     {slate::Option::Target, target},
+            //     {slate::Option::MaxPanelThreads, panel_threads},
+            //     {slate::Option::InnerBlocking, ib}
+            // });
         }
 
         {
@@ -260,10 +294,17 @@ void test_gbsv_work(Params& params, bool run)
 
         if (params.routine == "gbtrf") {
             // Solve AX = B.
-            slate::gbtrs(A, pivots, B, {
+            slate::lu_solve_using_factor(A, pivots, B, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::gbtrs(A, pivots, B, {
+            //     {slate::Option::Lookahead, lookahead},
+            //     {slate::Option::Target, target}
+            // });
         }
 
         // allocate work space
@@ -280,7 +321,11 @@ void test_gbsv_work(Params& params, bool run)
             opAorig = transpose(Aorig);
         else if (trans == slate::Op::ConjTrans)
             opAorig = conjTranspose(Aorig);
-        slate::gbmm(scalar_t(-1.0), opAorig, B, scalar_t(1.0), Bref);
+        slate::multiply(scalar_t(-1.0), opAorig, B, scalar_t(1.0), Bref);
+
+        //---------------------
+        // Using traditional BLAS/LAPACK name
+        // slate::gbmm(scalar_t(-1.0), opAorig, B, scalar_t(1.0), Bref);
 
         // Norm of residual: || B - AX ||_1
         real_t R_norm = scalapack_plange("1", n, nrhs, &B_ref[0], ione, ione, descB_ref, &worklangeB[0]);

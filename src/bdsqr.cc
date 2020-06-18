@@ -161,7 +161,7 @@ void bdsqr(lapack::Job jobu, lapack::Job jobvt,
            std::vector< blas::real_type<scalar_t> >& E,
            Matrix<scalar_t>& U,
            Matrix<scalar_t>& VT,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     internal::specialization::bdsqr<target, scalar_t>(internal::TargetType<target>(),
                                     jobu, jobvt, D, E, U, VT);
@@ -175,7 +175,7 @@ void bdsqr(lapack::Job jobu, lapack::Job jobvt,
            std::vector< blas::real_type<scalar_t> >& E,
            Matrix<scalar_t>& U,
            Matrix<scalar_t>& VT,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -213,7 +213,7 @@ void bdsqr<float>(
     std::vector<float>& E,
     Matrix<float>& U,
     Matrix<float>& VT,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void bdsqr<double>(
@@ -223,7 +223,7 @@ void bdsqr<double>(
     std::vector<double>& E,
     Matrix<double>& U,
     Matrix<double>& VT,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void bdsqr< std::complex<float> >(
@@ -233,7 +233,7 @@ void bdsqr< std::complex<float> >(
     std::vector<float>& E,
     Matrix< std::complex<float> >& U,
     Matrix< std::complex<float> >& VT,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void bdsqr< std::complex<double> >(
@@ -243,6 +243,6 @@ void bdsqr< std::complex<double> >(
     std::vector<double>& E,
     Matrix< std::complex<double> >& U,
     Matrix< std::complex<double> >& VT,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

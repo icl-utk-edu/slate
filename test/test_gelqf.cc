@@ -132,12 +132,21 @@ void test_gelqf_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::gelqf(A, T, {
+        slate::lq_factor(A, T, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target},
             {slate::Option::MaxPanelThreads, panel_threads},
             {slate::Option::InnerBlocking, ib}
         });
+
+        //---------------------
+        // Using traditional BLAS/LAPACK name
+        // slate::gelqf(A, T, {
+        //     {slate::Option::Lookahead, lookahead},
+        //     {slate::Option::Target, target},
+        //     {slate::Option::MaxPanelThreads, panel_threads},
+        //     {slate::Option::InnerBlocking, ib}
+        // });
 
         {
             slate::trace::Block trace_block("MPI_Barrier");
@@ -196,9 +205,15 @@ void test_gelqf_work(Params& params, bool run)
         }
 
         // Form LQ, where Q's representation is in A and T, and L is in LQ.
-        slate::unmlq(slate::Side::Right, slate::Op::NoTrans, A, T, LQ, {
-            {slate::Option::Target, target}
-        });
+        slate::lq_multiply_by_q(
+            slate::Side::Right, slate::Op::NoTrans, A, T, LQ,
+            {{slate::Option::Target, target}}
+        );
+        //---------------------
+        // Using traditional BLAS/LAPACK name
+        // slate::unmlq(slate::Side::Right, slate::Op::NoTrans, A, T, LQ, {
+        //     {slate::Option::Target, target}
+        // });
 
         if (verbose > 1) {
             print_matrix("LQ", LQ);

@@ -208,10 +208,17 @@ void test_posv_work(Params& params, bool run)
     if (! ref_only) {
         if (params.routine == "potrs") {
             // Factor matrix A.
-            slate::potrf(A, {
+            slate::chol_factor(A, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::potrf(A, {
+            //     {slate::Option::Lookahead, lookahead},
+            //     {slate::Option::Target, target}
+            // });
         }
 
         if (trace) slate::trace::Trace::on();
@@ -231,22 +238,43 @@ void test_posv_work(Params& params, bool run)
         // posv:  Solve AX = B, including factoring A.
         //==================================================
         if (params.routine == "potrf") {
-            slate::potrf(A, {
+            slate::chol_factor(A, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::potrf(A, {
+            //     {slate::Option::Lookahead, lookahead},
+            //     {slate::Option::Target, target}
+            // });
         }
         else if (params.routine == "potrs") {
-            slate::potrs(A, B, {
+            slate::chol_solve_using_factor(A, B, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::potrs(A, B, {
+            //     {slate::Option::Lookahead, lookahead},
+            //     {slate::Option::Target, target}
+            // });
         }
         else if (params.routine == "posv") {
-            slate::posv(A, B, {
+            slate::chol_solve(A, B, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::posv(A, B, {
+            //     {slate::Option::Lookahead, lookahead},
+            //     {slate::Option::Target, target}
+            // });
         }
         else if (params.routine == "posvMixed") {
             if (std::is_same<real_t, double>::value) {
@@ -289,10 +317,17 @@ void test_posv_work(Params& params, bool run)
 
         if (params.routine == "potrf") {
             // Solve AX = B.
-            slate::potrs(A, B, {
+            slate::chol_solve_using_factor(A, B, {
                 {slate::Option::Lookahead, lookahead},
                 {slate::Option::Target, target}
             });
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::potrs(A, B, {
+            //     {slate::Option::Lookahead, lookahead},
+            //     {slate::Option::Target, target}
+            // });
         }
 
         // SLATE matrix wrappers for the reference data
@@ -314,10 +349,18 @@ void test_posv_work(Params& params, bool run)
         // B_ref -= Aref*B_tst
         if (params.routine == "posvMixed") {
             if (std::is_same<real_t, double>::value)
-                slate::hemm(slate::Side::Left, scalar_t(-1.0), Aref, X, scalar_t(1.0), Bref);
+                slate::multiply(scalar_t(-1.0), Aref, X, scalar_t(1.0), Bref);
+
+                //---------------------
+                // Using traditional BLAS/LAPACK name
+                // slate::hemm(slate::Side::Left, scalar_t(-1.0), Aref, X, scalar_t(1.0), Bref);
         }
         else {
-            slate::hemm(slate::Side::Left, scalar_t(-1.0), Aref, B, scalar_t(1.0), Bref);
+            slate::multiply(scalar_t(-1.0), Aref, B, scalar_t(1.0), Bref);
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::hemm(slate::Side::Left, scalar_t(-1.0), Aref, B, scalar_t(1.0), Bref);
         }
 
         // Norm of residual: || B - AX ||_1

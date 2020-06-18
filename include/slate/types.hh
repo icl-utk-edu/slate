@@ -47,6 +47,7 @@
 #include "slate/internal/mpi.hh"
 
 #include <vector>
+#include <map>
 
 #include <blas.hh>
 #include <lapack.hh>
@@ -62,21 +63,21 @@ namespace slate {
 /// - Target enum
 /// @see Option
 ///
-class Value {
+class OptionValue {
 public:
-    Value()
+    OptionValue()
     {}
 
-    Value(int i) : i_(i)
+    OptionValue(int i) : i_(i)
     {}
 
-    Value(int64_t i) : i_(i)
+    OptionValue(int64_t i) : i_(i)
     {}
 
-    Value(double d) : d_(d)
+    OptionValue(double d) : d_(d)
     {}
 
-    Value(Target t) : i_(int(t))
+    OptionValue(Target t) : i_(int(t))
     {}
 
     union {
@@ -84,6 +85,9 @@ public:
         double d_;
     };
 };
+
+using Options = std::map<Option, OptionValue>;
+using Value   = OptionValue; ///< @deprecated
 
 //------------------------------------------------------------------------------
 class Pivot {

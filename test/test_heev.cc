@@ -176,12 +176,27 @@ void test_heev_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::heev(jobz, A, W_tst, Q, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target},
-                {slate::Option::MaxPanelThreads, panel_threads},
-                {slate::Option::InnerBlocking, ib}
-            });
+
+        if (jobz == slate::Job::NoVec) {
+            slate::eig_vals(A, W_tst, {
+                    {slate::Option::Lookahead, lookahead},
+                    {slate::Option::Target, target},
+                    {slate::Option::MaxPanelThreads, panel_threads},
+                    {slate::Option::InnerBlocking, ib}
+                });
+        }
+        // else {
+            // todo: slate::Job::Vec
+        // }
+
+        //---------------------
+        // Using traditional BLAS/LAPACK name
+        // slate::heev(jobz, A, W_tst, Q, {
+        //         {slate::Option::Lookahead, lookahead},
+        //         {slate::Option::Target, target},
+        //         {slate::Option::MaxPanelThreads, panel_threads},
+        //         {slate::Option::InnerBlocking, ib}
+        //     });
 
         {
             slate::trace::Block trace_block("MPI_Barrier");

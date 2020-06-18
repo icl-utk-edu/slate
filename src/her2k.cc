@@ -201,7 +201,7 @@ template <Target target, typename scalar_t>
 void her2k(scalar_t alpha,                  Matrix<scalar_t>& A,
                                             Matrix<scalar_t>& B,
            blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -272,7 +272,7 @@ template <typename scalar_t>
 void her2k(scalar_t alpha,                 Matrix<scalar_t>& A,
                                            Matrix<scalar_t>& B,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -306,27 +306,27 @@ void her2k<float>(
     float alpha, Matrix<float>& A,
                  Matrix<float>& B,
     float beta,  HermitianMatrix<float>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void her2k<double>(
     double alpha, Matrix<double>& A,
                   Matrix<double>& B,
     double beta,  HermitianMatrix<double>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void her2k< std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >& A,
                                Matrix< std::complex<float> >& B,
     float beta,                HermitianMatrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void her2k< std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >& A,
                                 Matrix< std::complex<double> >& B,
     double beta,                HermitianMatrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

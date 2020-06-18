@@ -126,7 +126,7 @@ template <Target target, typename scalar_t>
 void hetrs(HermitianMatrix<scalar_t>& A, Pivots& pivots,
                 BandMatrix<scalar_t>& T, Pivots& pivots2,
                     Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -187,7 +187,7 @@ template <typename scalar_t>
 void hetrs(HermitianMatrix<scalar_t>& A, Pivots& pivots,
                 BandMatrix<scalar_t>& T, Pivots& pivots2,
                     Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -222,27 +222,27 @@ void hetrs<float>(
     HermitianMatrix<float>& A, Pivots& pivots,
          BandMatrix<float>& T, Pivots& pivots2,
              Matrix<float>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hetrs<double>(
     HermitianMatrix<double>& A, Pivots& pivots,
          BandMatrix<double>& T, Pivots& pivots2,
              Matrix<double>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hetrs< std::complex<float> >(
     HermitianMatrix< std::complex<float> >& A, Pivots& pivots,
          BandMatrix< std::complex<float> >& T, Pivots& pivots2,
              Matrix< std::complex<float> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hetrs< std::complex<double> >(
     HermitianMatrix< std::complex<double> >& A, Pivots& pivots,
          BandMatrix< std::complex<double> >& T, Pivots& pivots2,
              Matrix< std::complex<double> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

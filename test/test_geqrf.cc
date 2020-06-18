@@ -131,12 +131,21 @@ void test_geqrf_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::geqrf(A, T, {
+        slate::qr_factor(A, T, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target},
             {slate::Option::MaxPanelThreads, panel_threads},
             {slate::Option::InnerBlocking, ib}
         });
+
+        //---------------------
+        // Using traditional BLAS/LAPACK name
+        // slate::geqrf(A, T, {
+        //     {slate::Option::Lookahead, lookahead},
+        //     {slate::Option::Target, target},
+        //     {slate::Option::MaxPanelThreads, panel_threads},
+        //     {slate::Option::InnerBlocking, ib}
+        // });
 
         {
             slate::trace::Block trace_block("MPI_Barrier");
@@ -195,9 +204,15 @@ void test_geqrf_work(Params& params, bool run)
         }
 
         // Form QR, where Q's representation is in A and T, and R is in QR.
-        slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, T, QR, {
-            {slate::Option::Target, target}
-        });
+        slate::qr_multiply_by_q(
+            slate::Side::Left, slate::Op::NoTrans, A, T, QR,
+            {{slate::Option::Target, target}}
+        );
+        //---------------------
+        // Using traditional BLAS/LAPACK name
+        // slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, T, QR, {
+        //     {slate::Option::Target, target}
+        // });
 
         if (verbose > 1) {
             print_matrix("QR", QR);

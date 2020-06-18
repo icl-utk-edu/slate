@@ -134,10 +134,17 @@ void test_syrk_work(Params& params, bool run)
     // Run SLATE test.
     // C = alpha A A^T + beta C.
     //==================================================
-    slate::syrk(alpha, A, beta, C, {
+    slate::rank_k_update(alpha, A, beta, C, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
+
+    //---------------------
+    // Using traditional BLAS/LAPACK name
+    // slate::syrk(alpha, A, beta, C, {
+    //     {slate::Option::Lookahead, lookahead},
+    //     {slate::Option::Target, target}
+    // });
 
     {
         slate::trace::Block trace_block("MPI_Barrier");

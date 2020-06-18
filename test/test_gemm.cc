@@ -199,11 +199,19 @@ void test_gemm_work(Params& params, bool run)
         // C = alpha A B + beta C.
         //==================================================
         if (gemm_variant == "gemmC")
-            slate::gemm(
+            slate::multiply(
                 alpha, A, B, beta, C, {
                     {slate::Option::Lookahead, lookahead},
                     {slate::Option::Target, target}
                 });
+
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::gemm(
+            //     alpha, A, B, beta, C, {
+            //         {slate::Option::Lookahead, lookahead},
+            //         {slate::Option::Target, target}
+            //     });
         else if (gemm_variant == "gemmA")
             slate::gemmA(
                 alpha, A, B, beta, C, {

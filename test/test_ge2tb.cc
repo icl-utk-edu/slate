@@ -172,8 +172,15 @@ void test_ge2tb_work(Params& params, bool run)
         }
 
         // Form UB, where U's representation is in lower part of A and TU.
-        slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, TU, B,
-                     {{slate::Option::Target, target}});
+        slate::qr_multiply_by_q(
+            slate::Side::Left, slate::Op::NoTrans, A, TU, B,
+            {{slate::Option::Target, target}}
+        );
+        //---------------------
+        // Using traditional BLAS/LAPACK name
+        // slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, TU, B,
+        //              {{slate::Option::Target, target}});
+
         if (verbose > 1) {
             print_matrix("UB", B);
         }
@@ -185,10 +192,18 @@ void test_ge2tb_work(Params& params, bool run)
             TV[0].sub(0, TV[0].mt()-1, 1, TV[0].nt()-1),
             TV[1].sub(0, TV[1].mt()-1, 1, TV[1].nt()-1)
         };
+
         // Note V^H == Q, not Q^H.
-        slate::unmlq(slate::Side::Right, slate::Op::NoTrans,
-                     Asub, TVsub, Bsub,
-                     {{slate::Option::Target, target}});
+        slate::lq_multiply_by_q(
+            slate::Side::Right, slate::Op::NoTrans, Asub, TVsub, Bsub,
+            {{slate::Option::Target, target}}
+        );
+        //---------------------
+        // Using traditional BLAS/LAPACK name
+        // slate::unmlq(slate::Side::Right, slate::Op::NoTrans,
+        //              Asub, TVsub, Bsub,
+        //              {{slate::Option::Target, target}});
+
         if (verbose > 1) {
             print_matrix("UBV^H", B);
         }

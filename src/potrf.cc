@@ -352,7 +352,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 ///
 template <Target target, typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>& A,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -415,7 +415,7 @@ void potrf(HermitianMatrix<scalar_t>& A,
 ///
 template <typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>& A,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -448,21 +448,21 @@ void potrf(HermitianMatrix<scalar_t>& A,
 template
 void potrf<float>(
     HermitianMatrix<float>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void potrf<double>(
     HermitianMatrix<double>& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void potrf< std::complex<float> >(
     HermitianMatrix< std::complex<float> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void potrf< std::complex<double> >(
     HermitianMatrix< std::complex<double> >& A,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

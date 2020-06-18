@@ -157,10 +157,17 @@ void test_syr2k_work(Params& params, bool run)
     // Run SLATE test.
     // C = alpha A B^T + alpha B A^T + beta C.
     //==================================================
-    slate::syr2k(alpha, A, B, beta, C, {
+    slate::rank_2k_update(alpha, A, B, beta, C, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
+
+    //---------------------
+    // Using traditional BLAS/LAPACK name
+    // slate::syr2k(alpha, A, B, beta, C, {
+    //     {slate::Option::Lookahead, lookahead},
+    //     {slate::Option::Target, target}
+    // });
 
     {
         slate::trace::Block trace_block("MPI_Barrier");

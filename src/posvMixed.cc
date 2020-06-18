@@ -267,7 +267,7 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
                 Matrix<scalar_hi>& B,
                 Matrix<scalar_hi>& X,
                 int& iter,
-                const std::map<Option, Value>& opts)
+                Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -372,7 +372,7 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
                 Matrix<scalar_hi>& B,
                 Matrix<scalar_hi>& X,
                 int& iter,
-                const std::map<Option, Value>& opts)
+                Options const& opts)
 {
     Target target;
     try {
@@ -412,7 +412,7 @@ void posvMixed<double>(
     Matrix<double>& B,
     Matrix<double>& X,
     int& iter,
-    const std::map<Option, Value>& opts)
+    Options const& opts)
 {
     posvMixed<double, float>(A, B, X, iter, opts);
 }
@@ -423,7 +423,7 @@ void posvMixed< std::complex<double> >(
     Matrix< std::complex<double> >& B,
     Matrix< std::complex<double> >& X,
     int& iter,
-    const std::map<Option, Value>& opts)
+    Options const& opts)
 {
     posvMixed<std::complex<double>, std::complex<float>>(A, B, X, iter, opts);
 }

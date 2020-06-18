@@ -52,7 +52,7 @@ void heev(lapack::Job jobz,
           HermitianMatrix<scalar_t>& A,
           std::vector<blas::real_type<scalar_t>>& W,
           Matrix<scalar_t>& Z,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -116,7 +116,7 @@ void heev<float>(
     HermitianMatrix<float>& A,
     std::vector<float>& W,
     Matrix<float>& Z,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void heev<double>(
@@ -124,7 +124,7 @@ void heev<double>(
     HermitianMatrix<double>& A,
     std::vector<double>& W,
     Matrix<double>& Z,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void heev<std::complex<float>>(
@@ -132,7 +132,7 @@ void heev<std::complex<float>>(
     HermitianMatrix<std::complex<float>>& A,
     std::vector<float>& W,
     Matrix<std::complex<float>>& Z,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void heev<std::complex<double>>(
@@ -140,6 +140,6 @@ void heev<std::complex<double>>(
     HermitianMatrix<std::complex<double>>& A,
     std::vector<double>& W,
     Matrix<std::complex<double>>& Z,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

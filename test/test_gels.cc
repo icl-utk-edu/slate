@@ -137,7 +137,7 @@ void test_gels_work(Params& params, bool run)
         BX = slate::Matrix<scalar_t>::fromScaLAPACK(maxmn, nrhs, &BX_tst[0], lldBX, nb, nprow, npcol, MPI_COMM_WORLD);
     }
     // Create SLATE matrix from the ScaLAPACK layouts
-    slate::TriangularFactors<scalar_t> T;
+    // slate::TriangularFactors<scalar_t> T;
 
     // In square case, B = X = BX. In rectangular cases, B or X is sub-matrix.
     auto B = BX;
@@ -169,7 +169,9 @@ void test_gels_work(Params& params, bool run)
 
     // Form consistent RHS, B = A * X0.
     if (consistent) {
-        slate::gemm(one, opA, X0, zero, B);
+        slate::multiply(one, opA, X0, zero, B);
+        // Using traditional BLAS/LAPACK name
+        // slate::gemm(one, opA, X0, zero, B);
         if (origin != slate::Origin::ScaLAPACK) {
             // refresh ScaLAPACK data; B is sub-matrix of BX
             copy(BX, &BX_tst[0], descBX_tst);
@@ -231,12 +233,21 @@ void test_gels_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::gels(opA, T, BX, {
+        slate::least_squares_solve(opA, BX, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target},
             {slate::Option::MaxPanelThreads, panel_threads},
             {slate::Option::InnerBlocking, ib}
         });
+
+        //---------------------
+        // Using traditional BLAS/LAPACK name
+        // slate::gels(opA, T, BX, {
+        //     {slate::Option::Lookahead, lookahead},
+        //     {slate::Option::Target, target},
+        //     {slate::Option::MaxPanelThreads, panel_threads},
+        //     {slate::Option::InnerBlocking, ib}
+        // });
 
         {
             slate::trace::Block trace_block("MPI_Barrier");
@@ -267,7 +278,9 @@ void test_gels_work(Params& params, bool run)
 
         // todo: need to store Bref for reference ScaLAPACK run?
         // residual = B - op(A) X, stored in Bref
-        slate::gemm(-one, opAref, X, one, Bref);
+        slate::multiply(-one, opAref, X, one, Bref);
+        // Using traditional BLAS/LAPACK name
+        // slate::gemm(-one, opAref, X, one, Bref);
 
         if (opAm >= opAn) {
             //--------------------------------------------------
@@ -287,7 +300,9 @@ void test_gels_work(Params& params, bool run)
             slate::Matrix<scalar_t> RA(nrhs, opAn, nb, nprow, npcol, MPI_COMM_WORLD);
             RA.insertLocalTiles();
             auto RT = conjTranspose(Bref);
-            slate::gemm(one, RT, opA, zero, RA);
+            slate::multiply(one, RT, opA, zero, RA);
+            // Using traditional BLAS/LAPACK name
+            // slate::gemm(one, RT, opA, zero, RA);
 
             real_t error = slate::norm(slate::Norm::One, RA);
             if (opA_norm != 0)
@@ -336,7 +351,10 @@ void test_gels_work(Params& params, bool run)
                 print_matrix("D", D);
 
             slate::TriangularFactors<scalar_t> TD;
-            slate::geqrf(D, TD);
+            slate::qr_factor(D, TD);
+            //---------------------
+            // Using traditional BLAS/LAPACK name
+            // slate::geqrf(D, TD);
 
             if (verbose > 1) {
                 auto DR = slate::TrapezoidMatrix<scalar_t>(

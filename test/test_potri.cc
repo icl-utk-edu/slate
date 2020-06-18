@@ -132,14 +132,25 @@ void test_potri_work(Params& params, bool run)
         // Run SLATE test.
         //==================================================
         // factor then invert; measure time for both
-        slate::potrf(A, {
+        slate::chol_factor(A, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target}
         });
-        slate::potri(A, {
+        slate::chol_inverse_using_factor(A, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target}
         });
+
+        //---------------------
+        // Using traditional BLAS/LAPACK name
+        // slate::potrf(A, {
+        //     {slate::Option::Lookahead, lookahead},
+        //     {slate::Option::Target, target}
+        // });
+        // slate::potri(A, {
+        //     {slate::Option::Lookahead, lookahead},
+        //     {slate::Option::Target, target}
+        // });
 
         {
             slate::trace::Block trace_block("MPI_Barrier");

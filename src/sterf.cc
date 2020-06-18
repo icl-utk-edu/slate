@@ -81,7 +81,7 @@ void sterf(slate::internal::TargetType<target>,
 template <Target target, typename scalar_t>
 void sterf(std::vector< scalar_t >& D,
            std::vector< scalar_t >& E,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     internal::specialization::sterf<target, scalar_t>(
                                     internal::TargetType<target>(),
@@ -93,7 +93,7 @@ void sterf(std::vector< scalar_t >& D,
 template <typename scalar_t>
 void sterf(std::vector< scalar_t >& D,
            std::vector< scalar_t >& E,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -122,12 +122,12 @@ template
 void sterf<float>(
     std::vector<float>& D,
     std::vector<float>& E,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void sterf<double>(
     std::vector<double>& D,
     std::vector<double>& E,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

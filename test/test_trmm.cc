@@ -144,10 +144,25 @@ void test_trmm_work(Params& params, bool run)
     // Run SLATE test.
     // B = alpha AB (left) or B = alpha BA (right).
     //==================================================
-    slate::trmm(side, alpha, A, B, {
-        {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}
-    });
+    if (side == slate::Side::Left)
+        slate::triangular_multiply(alpha, A, B, {
+            {slate::Option::Lookahead, lookahead},
+            {slate::Option::Target, target}
+        });
+    else if (side == slate::Side::Right)
+        slate::triangular_multiply(alpha, B, A, {
+            {slate::Option::Lookahead, lookahead},
+            {slate::Option::Target, target}
+        });
+    else
+        throw slate::Exception("unknown side");
+
+    //---------------------
+    // Using traditional BLAS/LAPACK name
+    // slate::trmm(side, alpha, A, B, {
+    //     {slate::Option::Lookahead, lookahead},
+    //     {slate::Option::Target, target}
+    // });
 
     {
         slate::trace::Block trace_block("MPI_Barrier");

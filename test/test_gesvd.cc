@@ -174,12 +174,21 @@ void test_gesvd_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::gesvd(A, S_tst, {
+        slate::svd_vals(A, S_tst, {
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target},
             {slate::Option::MaxPanelThreads, panel_threads},
             {slate::Option::InnerBlocking, ib}
         });
+
+        //---------------------
+        // Using traditional BLAS/LAPACK name
+        // slate::gesvd(A, S_tst, {
+        //     {slate::Option::Lookahead, lookahead},
+        //     {slate::Option::Target, target},
+        //     {slate::Option::MaxPanelThreads, panel_threads},
+        //     {slate::Option::InnerBlocking, ib}
+        // });
 
         {
             slate::trace::Block trace_block("MPI_Barrier");

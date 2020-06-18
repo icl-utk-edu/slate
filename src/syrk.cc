@@ -182,7 +182,7 @@ void syrk(slate::internal::TargetType<target>,
 template <Target target, typename scalar_t>
 void syrk(scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -247,7 +247,7 @@ void syrk(scalar_t alpha, Matrix<scalar_t>& A,
 template <typename scalar_t>
 void syrk(scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     Target target;
     try {
@@ -280,24 +280,24 @@ template
 void syrk<float>(
     float alpha, Matrix<float>& A,
     float beta,  SymmetricMatrix<float>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void syrk<double>(
     double alpha, Matrix<double>& A,
     double beta,  SymmetricMatrix<double>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void syrk< std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >& A,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void syrk< std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >& A,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

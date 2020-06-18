@@ -197,7 +197,7 @@ template <Target target, typename scalar_t>
 void gemmA(scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -272,7 +272,7 @@ template <typename scalar_t>
 void gemmA(scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     Target target;
     try {
@@ -303,27 +303,27 @@ void gemmA<float>(
     float alpha, Matrix<float>& A,
                  Matrix<float>& B,
     float beta,  Matrix<float>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gemmA<double>(
     double alpha, Matrix<double>& A,
                   Matrix<double>& B,
     double beta,  Matrix<double>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gemmA< std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >& A,
                                Matrix< std::complex<float> >& B,
     std::complex<float> beta,  Matrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gemmA< std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >& A,
                                 Matrix< std::complex<double> >& B,
     std::complex<double> beta,  Matrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

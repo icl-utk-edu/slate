@@ -155,7 +155,7 @@ template <Target target, typename matrix_type>
 void colNorms(Norm in_norm,
               matrix_type& A,
               blas::real_type<typename matrix_type::value_type>* values,
-              const std::map<Option, Value>& opts)
+              Options const& opts)
 {
     return internal::specialization::colNorms(internal::TargetType<target>(),
                                               in_norm, A,
@@ -198,7 +198,7 @@ template <typename matrix_type>
 void colNorms(Norm in_norm,
               matrix_type& A,
               blas::real_type<typename matrix_type::value_type>* values,
-              const std::map<Option, Value>& opts)
+              Options const& opts)
 {
     Target target;
     try {
@@ -230,24 +230,24 @@ template
 void colNorms(Norm in_norm,
               Matrix<float>& A,
               float* values,
-              const std::map<Option, Value>& opts);
+              Options const& opts);
 
 template
 void colNorms(Norm in_norm,
               Matrix<double>& A,
               double* values,
-              const std::map<Option, Value>& opts);
+              Options const& opts);
 
 template
 void colNorms(Norm in_norm,
               Matrix< std::complex<float> >& A,
               float* values,
-              const std::map<Option, Value>& opts);
+              Options const& opts);
 
 template
 void colNorms(Norm in_norm,
               Matrix< std::complex<double> >& A,
               double* values,
-              const std::map<Option, Value>& opts);
+              Options const& opts);
 
 } // namespace slate

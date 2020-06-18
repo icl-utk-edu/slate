@@ -141,9 +141,9 @@ protected:
 
     BaseMatrix(BaseMatrix& orig, Slice slice);
 
+public:
     template <typename out_scalar_t>
-    BaseMatrix<out_scalar_t> baseEmptyLike(int64_t mb, int64_t nb,
-                                           Op deepOp);
+    BaseMatrix<out_scalar_t> baseEmptyLike(int64_t mb, int64_t nb, Op deepOp);
 
 private:
     void initSubmatrix(

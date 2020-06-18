@@ -399,7 +399,7 @@ void hemm(Side side,
           scalar_t alpha, HermitianMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -477,7 +477,7 @@ void hemm(Side side,
           scalar_t alpha, HermitianMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     Target target;
     try {
@@ -512,7 +512,7 @@ void hemm<float>(
     float alpha, HermitianMatrix<float>& A,
                  Matrix<float>& B,
     float beta,  Matrix<float>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hemm<double>(
@@ -520,7 +520,7 @@ void hemm<double>(
     double alpha, HermitianMatrix<double>& A,
                   Matrix<double>& B,
     double beta,  Matrix<double>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hemm< std::complex<float> >(
@@ -528,7 +528,7 @@ void hemm< std::complex<float> >(
     std::complex<float> alpha, HermitianMatrix< std::complex<float> >& A,
                                Matrix< std::complex<float> >& B,
     std::complex<float> beta,  Matrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void hemm< std::complex<double> >(
@@ -536,6 +536,6 @@ void hemm< std::complex<double> >(
     std::complex<double> alpha, HermitianMatrix< std::complex<double> >& A,
                                 Matrix< std::complex<double> >& B,
     std::complex<double> beta,  Matrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

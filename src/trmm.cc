@@ -97,7 +97,7 @@ template <Target target, typename scalar_t>
 void trmm(blas::Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -170,7 +170,7 @@ template <typename scalar_t>
 void trmm(blas::Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
-          const std::map<Option, Value>& opts)
+          Options const& opts)
 {
     Target target;
     try {
@@ -204,27 +204,27 @@ void trmm<float>(
     blas::Side side,
     float alpha, TriangularMatrix<float>& A,
                            Matrix<float>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void trmm<double>(
     blas::Side side,
     double alpha, TriangularMatrix<double>& A,
                             Matrix<double>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void trmm< std::complex<float> >(
     blas::Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >& A,
                                          Matrix< std::complex<float> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void trmm< std::complex<double> >(
     blas::Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >& A,
                                           Matrix< std::complex<double> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

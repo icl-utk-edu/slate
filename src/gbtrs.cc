@@ -103,7 +103,7 @@ void gbtrs(slate::internal::TargetType<target>,
 template <Target target, typename scalar_t>
 void gbtrs(BandMatrix<scalar_t>& A, Pivots& pivots,
            Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -161,7 +161,7 @@ void gbtrs(BandMatrix<scalar_t>& A, Pivots& pivots,
 template <typename scalar_t>
 void gbtrs(BandMatrix<scalar_t>& A, Pivots& pivots,
            Matrix<scalar_t>& B,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -195,24 +195,24 @@ template
 void gbtrs<float>(
     BandMatrix<float>& A, Pivots& pivots,
     Matrix<float>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gbtrs<double>(
     BandMatrix<double>& A, Pivots& pivots,
     Matrix<double>& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gbtrs< std::complex<float> >(
     BandMatrix< std::complex<float> >& A, Pivots& pivots,
     Matrix< std::complex<float> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gbtrs< std::complex<double> >(
     BandMatrix< std::complex<double> >& A, Pivots& pivots,
     Matrix< std::complex<double> >& B,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

@@ -129,7 +129,7 @@ void steqr2(lapack::Job job,
            std::vector< blas::real_type<scalar_t> >& D,
            std::vector< blas::real_type<scalar_t> >& E,
            Matrix<scalar_t>& Z,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     internal::specialization::steqr2<target, scalar_t>(
                                     internal::TargetType<target>(),
@@ -143,7 +143,7 @@ void steqr2(lapack::Job job,
            std::vector< blas::real_type<scalar_t> >& D,
            std::vector< blas::real_type<scalar_t> >& E,
            Matrix<scalar_t>& Z,
-           const std::map<Option, Value>& opts)
+           Options const& opts)
 {
     Target target;
     try {
@@ -174,7 +174,7 @@ void steqr2<float>(
     std::vector<float>& D,
     std::vector<float>& E,
     Matrix<float>& Z,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void steqr2<double>(
@@ -182,7 +182,7 @@ void steqr2<double>(
     std::vector<double>& D,
     std::vector<double>& E,
     Matrix<double>& Z,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void steqr2< std::complex<float> >(
@@ -190,7 +190,7 @@ void steqr2< std::complex<float> >(
     std::vector<float>& D,
     std::vector<float>& E,
     Matrix< std::complex<float> >& Z,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void steqr2< std::complex<double> >(
@@ -198,6 +198,6 @@ void steqr2< std::complex<double> >(
     std::vector<double>& D,
     std::vector<double>& E,
     Matrix< std::complex<double> >& Z,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

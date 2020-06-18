@@ -104,7 +104,7 @@ void unmtr_he2hb(
     Side side, Op op, HermitianMatrix<scalar_t>& A,
     TriangularFactors<scalar_t> T,
     Matrix<scalar_t>& C,
-    const std::map<Option, Value>& opts)
+    Options const& opts)
 {
     slate::TriangularFactors<scalar_t> T_sub = {
         T[ 0 ].sub( 1, A.nt()-1, 0, A.nt()-1 ),
@@ -135,27 +135,27 @@ void unmtr_he2hb<float>(
     Side side, Op op, HermitianMatrix<float>& A,
     TriangularFactors<float> T,
     Matrix<float>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void unmtr_he2hb<double>(
     Side side, Op op, HermitianMatrix<double>& A,
     TriangularFactors<double> T,
     Matrix<double>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void unmtr_he2hb<std::complex<float>>(
     Side side, Op op, HermitianMatrix<std::complex<float>>& A,
     TriangularFactors<std::complex<float> > T,
     Matrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void unmtr_he2hb<std::complex<double>>(
     Side side, Op op, HermitianMatrix<std::complex<double>>& A,
     TriangularFactors<std::complex<double>> T,
     Matrix<std::complex<double>>& C,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

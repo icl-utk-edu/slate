@@ -85,6 +85,7 @@ openmp          := $(strip $(openmp))
 static          := $(strip $(static))
 cuda_arch       := $(strip $(cuda_arch))
 cuda            := $(strip $(cuda))
+prefix          := $(strip $(prefix))
 
 # Export variables to sub-make for testsweeper, BLAS++, LAPACK++.
 export CXX blas ilp64 openmp static

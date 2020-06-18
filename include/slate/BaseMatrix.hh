@@ -1002,6 +1002,7 @@ void BaseMatrix<scalar_t>::initSlice(
 }
 
 //------------------------------------------------------------------------------
+/// [internal]
 ///
 template <typename scalar_t>
 template <typename out_scalar_t>

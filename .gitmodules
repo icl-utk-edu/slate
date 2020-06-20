@@ -1,0 +1,9 @@
+[submodule "testsweeper"]
+	path = testsweeper
+	url = ../testsweeper
+[submodule "blaspp"]
+	path = blaspp
+	url = ../blaspp
+[submodule "lapackpp"]
+	path = lapackpp
+	url = ../lapackpp

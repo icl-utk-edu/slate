@@ -545,8 +545,8 @@ unit_test = $(basename $(unit_src))
 #-------------------------------------------------------------------------------
 # Get Mercurial id, and make version.o depend on it via .id file.
 
-ifneq ($(wildcard .hg),)
-    id := $(shell hg id -i)
+ifneq ($(wildcard .git),)
+    id := $(shell git rev-parse --short HEAD)
     src/version.o: CXXFLAGS += -DSLATE_ID='"$(id)"'
 endif
 

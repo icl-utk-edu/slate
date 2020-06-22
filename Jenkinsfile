@@ -14,6 +14,8 @@ pipeline {
                         echo "SLATE Building"
                         hostname && pwd
 
+                        git submodule update --init
+
                         source /home/jmfinney/spack/share/spack/setup-env.sh
                         spack load gcc@6.4.0
                         spack load cuda
@@ -65,6 +67,8 @@ END
                         #!/bin/sh +x
                         echo "SLATE Building"
                         hostname && pwd
+
+                        git submodule update --init
 
                         source /home/jmfinney/spack/share/spack/setup-env.sh
                         spack load gcc@6.4.0

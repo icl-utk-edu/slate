@@ -43,7 +43,6 @@ with PROJECT changed to the project's name.
         return PROJECT_VERSION;
     }
 
-Currently, this assumes Mercurial (hg). Porting to git should be simple.
 Steps this takes:
 
 1. Marks version in repo.
@@ -52,7 +51,7 @@ Steps this takes:
    - Commits that change.
    - Tags that commit.
 2. Prepares archive in directory project-tag.
-   - Saves the `hg id` to version.c.
+   - Saves the `git rev-parse --short HEAD` to version.c.
    - Generates Doxygen docs.
 3. Generates tar file project-tag.tar.gz
 '''
@@ -108,7 +107,7 @@ def make( project, version_h, version_c ):
     release = 0
 
     # Search for latest tag this month and increment release if found.
-    tags = myrun( 'hg tags -q', stdout=PIPE, text=True ).rstrip().split( '\n' )
+    tags = myrun( 'git tag', stdout=PIPE, text=True ).rstrip().split( '\n' )
     tags.sort( reverse=True )
     pattern = r'%04d\.%02d\.(\d+)' % (year, month)
     for tag in tags:
@@ -130,7 +129,8 @@ def make( project, version_h, version_c ):
               r'// Version %s\n\1 %s' % (tag, version), count=1 )
 
     # Update copyright in all files.
-    files = myrun( 'hg status -acmn', stdout=PIPE, text=True ).rstrip().split( '\n' )
+    files = myrun( 'git ls-tree -r master --name-only',
+                   stdout=PIPE, text=True ).rstrip().split( '\n' )
     print( '\n>> Updating copyright in:', end=' ' )
     for file in files:
         print( file, end=', ' )
@@ -140,26 +140,37 @@ def make( project, version_h, version_c ):
     # end
     print()
 
-    myrun( 'hg diff' )
+    myrun( 'git diff' )
     print( '>> Do changes look good? Continue building release [yn]? ', end='' )
     response = input()
     if (response != 'y'):
         print( '>> Release aborted. Please revert changes as desired.' )
         exit(1)
 
-    myrun( ['hg', 'commit', '-m', 'Version '+ tag] )
-    myrun( ['hg', 'tag', tag] )
+    myrun( ['git', 'commit', '-m', 'Version '+ tag, '.'] )
+    myrun( ['git', 'tag', tag, '-a', '-m', 'Version '+ tag] )
 
     #--------------------
     # Prepare tar file.
     dir = project +'-'+ tag
     print( '\n>> Preparing files in', dir )
-    myrun( 'hg archive -r '+ tag +' '+ dir )
 
+    # Move any existing dir to dir-#; maximum # is 100.
+    if (os.path.exists( dir )):
+        for index in range( 1, 100 ):
+            backup = '%s-%d' % (dir, index)
+            if (not os.path.exists( backup )):
+                os.rename( dir, backup )
+                print( 'backing up', dir, 'to', backup )
+                break
+    # end
+
+    os.mkdir( dir )
+    subprocess.run( 'git archive ' + tag + ' | tar -x -C ' + dir, shell=True )
     os.chdir( dir )
 
     # Update hash ID in version_c.
-    id = myrun( 'hg id -i -r '+ tag, stdout=PIPE, text=True ).strip()
+    id = myrun( 'git rev-parse --short HEAD', stdout=PIPE, text=True ).strip()
     print( '\n>> Setting ID in:', version_c )
     file_sub( version_c,
               r'^(#define \w+_ID) "unknown"',

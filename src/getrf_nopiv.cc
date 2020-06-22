@@ -65,12 +65,6 @@ void getrf_nopiv(slate::internal::TargetType<target>,
     // using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
-    // Host can use Col/RowMajor for row swapping,
-    // RowMajor is slightly more efficient.
-    // Layout host_layout = Layout::RowMajor;
-    // Layout target_layout = Layout::RowMajor;
-    // todo: RowMajor causes issues with tileLayoutReset() when A origin is
-    //       ScaLAPACK
     Layout host_layout = Layout::ColMajor;
     Layout target_layout = Layout::ColMajor;
 
@@ -95,18 +89,28 @@ void getrf_nopiv(slate::internal::TargetType<target>,
         omp_set_nested(1);
         for (int64_t k = 0; k < min_mt_nt; ++k) {
 
-            const int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
-
             // panel, high priority
             #pragma omp task depend(inout:column[k]) priority(priority_one)
             {
-                // factor A(k:mt-1, k)
-                internal::getrf_nopiv<Target::HostTask>(
-                    A.sub(k, A_mt-1, k, k), diag_len, ib,
-                    max_panel_threads, priority_one);
+                // factor A(k, k)
+                internal::getrf_nopiv<Target::HostTask>(A.sub(k, k, k, k),
+                                                        ib,
+                                                        priority_one);
+
+                // Update panel
+                int tag_k = k;
+                A.template tileBcast(k, k, A.sub(k+1, A_mt-1, k, k), host_layout, tag_k);
+
+                auto Akk = A.sub(k, k, k, k);
+                auto Tkk = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, Akk);
+
+                internal::trsm<Target::HostTask>(
+                    Side::Right,
+                    scalar_t(1.0), std::move(Tkk),
+                                   A.sub(k+1, A_mt-1, k, k),
+                    priority_one);
 
                 BcastList bcast_list_A;
-                int tag_k = k;
                 // bcast the tiles of the panel to the right hand side
                 for (int64_t i = k; i < A_mt; ++i) {
                     // send A(i, k) across row A(i, k+1:nt-1)

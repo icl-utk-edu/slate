@@ -81,7 +81,9 @@ void getrf_nopiv(slate::internal::TargetType<target>,
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
+    std::vector< uint8_t > diag_vector(A_nt);
     uint8_t* column = column_vector.data();
+    uint8_t* diag = diag_vector.data();
 
     #pragma omp parallel
     #pragma omp master
@@ -90,7 +92,9 @@ void getrf_nopiv(slate::internal::TargetType<target>,
         for (int64_t k = 0; k < min_mt_nt; ++k) {
 
             // panel, high priority
-            #pragma omp task depend(inout:column[k]) priority(priority_one)
+            #pragma omp task depend(inout:column[k]) \
+                             depend(out:diag[k]) \
+                             priority(priority_one)
             {
                 // factor A(k, k)
                 internal::getrf_nopiv<Target::HostTask>(A.sub(k, k, k, k),
@@ -99,8 +103,16 @@ void getrf_nopiv(slate::internal::TargetType<target>,
 
                 // Update panel
                 int tag_k = k;
-                A.template tileBcast(k, k, A.sub(k+1, A_mt-1, k, k), host_layout, tag_k);
+                BcastList bcast_list_A;
+                bcast_list_A.push_back({k, k, {A.sub(k+1, A_mt-1, k, k),
+                                               A.sub(k, k, k+1, A_nt-1)}});
+                A.template listBcast(bcast_list_A, host_layout, tag_k);
+            }
 
+            #pragma omp task depend(inout:column[k]) \
+                             priority(priority_one)
+            {
+                const int64_t tag_k = k;
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, Akk);
 
@@ -112,7 +124,7 @@ void getrf_nopiv(slate::internal::TargetType<target>,
 
                 BcastList bcast_list_A;
                 // bcast the tiles of the panel to the right hand side
-                for (int64_t i = k; i < A_mt; ++i) {
+                for (int64_t i = k+1; i < A_mt; ++i) {
                     // send A(i, k) across row A(i, k+1:nt-1)
                     bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
                 }
@@ -122,8 +134,9 @@ void getrf_nopiv(slate::internal::TargetType<target>,
             // update lookahead column(s), high priority
             // Done on CPU, not target.
             for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
-                #pragma omp task depend(in:column[k]) \
-                                 depend(inout:column[j]) priority(priority_one)
+                #pragma omp task depend(in:diag[k]) \
+                                 depend(inout:column[j]) \
+                                 priority(priority_one)
                 {
                     // swap rows in A(k:mt-1, j)
                     int tag_j = j;
@@ -141,7 +154,12 @@ void getrf_nopiv(slate::internal::TargetType<target>,
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor
                     A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), Layout::ColMajor, tag_j);
+                }
 
+                #pragma omp task depend(in:column[k]) \
+                                 depend(inout:column[j]) \
+                                 priority(priority_one)
+                {
                     // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
                     internal::gemm<Target::HostTask>(
                         scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
@@ -152,7 +170,7 @@ void getrf_nopiv(slate::internal::TargetType<target>,
             }
             // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
-                #pragma omp task depend(in:column[k]) \
+                #pragma omp task depend(in:diag[k]) \
                                  depend(inout:column[k+1+lookahead]) \
                                  depend(inout:column[A_nt-1])
                 {
@@ -178,7 +196,12 @@ void getrf_nopiv(slate::internal::TargetType<target>,
                     }
                     // todo: trsm still operates in ColMajor
                     A.template listBcast(bcast_list_A, Layout::ColMajor, tag_kl1);
+                }
 
+                #pragma omp task depend(in:column[k]) \
+                                 depend(inout:column[k+1+lookahead]) \
+                                 depend(inout:column[A_nt-1])
+                {
                     // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                     internal::gemm<target>(
                         scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),

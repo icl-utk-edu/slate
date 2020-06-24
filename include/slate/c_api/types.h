@@ -76,10 +76,24 @@ void slate_Pivots_destroy(slate_Pivots pivots);
 //------------------------------------------------------------------------------
 /// slate::TriangularFactors< std::complex<double> >
 
+struct slate_TriangularFactors_struct_r32;
+struct slate_TriangularFactors_struct_r64;
+struct slate_TriangularFactors_struct_c32;
 struct slate_TriangularFactors_struct_c64;
+
+typedef struct slate_TriangularFactors_struct_r32* slate_TriangularFactors_r32;
+typedef struct slate_TriangularFactors_struct_r64* slate_TriangularFactors_r64;
+typedef struct slate_TriangularFactors_struct_c32* slate_TriangularFactors_c32;
 typedef struct slate_TriangularFactors_struct_c64* slate_TriangularFactors_c64;
 
+slate_TriangularFactors_r32 slate_TriangularFactors_create_r32();
+slate_TriangularFactors_r64 slate_TriangularFactors_create_r64();
+slate_TriangularFactors_c32 slate_TriangularFactors_create_c32();
 slate_TriangularFactors_c64 slate_TriangularFactors_create_c64();
+
+void slate_TriangularFactors_destroy_r32(slate_TriangularFactors_r32 T);
+void slate_TriangularFactors_destroy_r64(slate_TriangularFactors_r64 T);
+void slate_TriangularFactors_destroy_c32(slate_TriangularFactors_c32 T);
 void slate_TriangularFactors_destroy_c64(slate_TriangularFactors_c64 T);
 
 #ifdef __cplusplus

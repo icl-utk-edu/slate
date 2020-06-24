@@ -11,7 +11,9 @@ name      = 'Tile'
 typename_is_found     = False
 data_members_is_found = False
 
-for line in open(sys.argv[1]):
+file = open(sys.argv[1], 'r')
+
+for line in file:
     if (typename_is_found):
         if (not re.search(r'^class\s*Tile\s*\{', line)):
             typename_is_found = False
@@ -33,6 +35,8 @@ for line in open(sys.argv[1]):
 
     if (re.search(r'\S', line) and data_members_is_found):
         template += line
+
+file.close()
 
 template += '} slate_' + name + '@SUFFIX;\n'
 templates.append([name, typename, template])

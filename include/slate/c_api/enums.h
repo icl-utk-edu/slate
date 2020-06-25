@@ -37,9 +37,6 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------
-/// @file
-///
 #ifndef SLATE_C_API_ENUMS_H
 #define SLATE_C_API_ENUMS_H
 

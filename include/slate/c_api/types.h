@@ -37,9 +37,6 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------
-/// @file
-///
 #ifndef SLATE_C_API_TYPES_H
 #define SLATE_C_API_TYPES_H
 
@@ -104,8 +101,8 @@ namespace slate {
 
 //------------------------------------------------------------------------------
 
-std::pair<Option, OptionValue>
-optionvalue2cpp(slate_Option option, slate_OptionValue option_value)
+inline std::pair<Option, OptionValue> optionvalue2cpp(
+    slate_Option option, slate_OptionValue option_value)
 {
     switch (option) {
         case slate_Option_ChunkSize:
@@ -126,7 +123,8 @@ optionvalue2cpp(slate_Option option, slate_OptionValue option_value)
     }
 }
 
-void options2cpp(int num_options, slate_Options options[], Options& options_)
+inline void options2cpp(
+    int num_options, slate_Options options[], Options& options_)
 {
     if (options !=  nullptr) {
         for(int i = 0; i < num_options; ++i) {

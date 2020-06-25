@@ -329,7 +329,7 @@ void slate_chol_inverse_using_factor_c64(
 // hesv
 void slate_indefinite_solve_c64(
     slate_HermitianMatrix_c64 A,
-                   slate_Matrix_c64 B,
+             slate_Matrix_c64 B,
     int num_opts, slate_Options opts[]);
 
 //-----------------------------------------
@@ -418,7 +418,7 @@ void slate_lq_multiply_by_q_c64(
 // gesvd
 void slate_svd_vals_c64(
     slate_Matrix_c64 A,
-    double** Sigma,
+    double* Sigma,
     int num_opts, slate_Options opts[]);
 
 //------------------------------------------------------------------------------
@@ -433,18 +433,18 @@ void slate_svd_vals_c64(
 // heev
 void slate_hermitian_eig_vals_c64(
     slate_HermitianMatrix_c64 A,
-    double** Lambda,
+    double* Lambda,
     int num_opts, slate_Options opts[]);
 
 //-----------------------------------------
 // Generalized symmetric/hermitian
 
 // hegv
-void slate_hermitian_generalized_eig_vals_c64(
+void slate_generalized_hermitian_eig_vals_c64(
     int64_t itype,
     slate_HermitianMatrix_c64 A,
     slate_HermitianMatrix_c64 B,
-    double** Lambda,
+    double* Lambda,
     int num_opts, slate_Options opts[]);
 
 #ifdef __cplusplus

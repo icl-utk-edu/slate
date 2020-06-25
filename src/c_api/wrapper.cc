@@ -45,6 +45,10 @@
 //-----------------------------------------
 // multiply()
 
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
+
 // gbmm
 void slate_Band_multiply_c64(
     double _Complex alpha, slate_BandMatrix_c64 A,
@@ -66,6 +70,13 @@ void slate_Band_multiply_c64(
 
   slate::multiply<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
 }
+
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // gemm
 void slate_multiply_c64(
@@ -89,6 +100,13 @@ void slate_multiply_c64(
     slate::multiply<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
 }
 
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
+
 // Left hbmm
 void slate_HermitianBand_left_multiply_c64(
     double _Complex alpha, slate_HermitianBandMatrix_c64 A,
@@ -110,6 +128,13 @@ void slate_HermitianBand_left_multiply_c64(
 
     slate::multiply<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
 }
+
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // Right hbmm
 void slate_HermitianBand_right_multiply_c64(
@@ -133,6 +158,13 @@ void slate_HermitianBand_right_multiply_c64(
     slate::multiply<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
 }
 
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
+
 // Left hemm
 void slate_Hermitian_left_multiply_c64(
     double _Complex alpha, slate_HermitianMatrix_c64 A,
@@ -154,6 +186,13 @@ void slate_Hermitian_left_multiply_c64(
 
     slate::multiply<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
 }
+
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // Right hemm
 void slate_Hermitian_right_multiply_c64(
@@ -177,6 +216,13 @@ void slate_Hermitian_right_multiply_c64(
     slate::multiply<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
 }
 
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
+
 // Left symm
 void slate_Symmetric_left_multiply_c64(
     double _Complex alpha, slate_SymmetricMatrix_c64 A,
@@ -198,6 +244,13 @@ void slate_Symmetric_left_multiply_c64(
 
     slate::multiply<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
 }
+
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // Right symm
 void slate_Symmetric_right_multiply_c64(
@@ -221,8 +274,15 @@ void slate_Symmetric_right_multiply_c64(
     slate::multiply<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
 }
 
+// @end function
+//--------------------
+
 //-----------------------------------------
 // triangular_multiply()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // Left trmm
 void slate_triangular_left_multiply_c64(
@@ -243,6 +303,13 @@ void slate_triangular_left_multiply_c64(
     slate::triangular_multiply<scalar_t>(alpha, *A_, *B_, opts_);
 }
 
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
+
 // Right trmm
 void slate_triangular_right_multiply_c64(
     double _Complex alpha,           slate_Matrix_c64 A,
@@ -262,8 +329,15 @@ void slate_triangular_right_multiply_c64(
     slate::triangular_multiply<scalar_t>(alpha, *A_, *B_, opts_);
 }
 
+// @end function
+//--------------------
+
 //-----------------------------------------
 // triangular_solve()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // Left tbsm
 void slate_Band_triangular_left_solve_c64(
@@ -284,6 +358,13 @@ void slate_Band_triangular_left_solve_c64(
     slate::triangular_solve<scalar_t>(alpha, *A_, *B_, opts_);
 }
 
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
+
 // Right tbsm
 void slate_Band_triangular_right_solve_c64(
     double _Complex alpha,               slate_Matrix_c64 A,
@@ -302,6 +383,13 @@ void slate_Band_triangular_right_solve_c64(
 
     slate::triangular_solve<scalar_t>(alpha, *A_, *B_, opts_);
 }
+
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // Left trsm
 void slate_triangular_left_solve_c64(
@@ -322,6 +410,13 @@ void slate_triangular_left_solve_c64(
     slate::triangular_solve<scalar_t>(alpha, *A_, *B_, opts_);
 }
 
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
+
 // Right trsm
 void slate_triangular_right_solve_c64(
     double _Complex alpha,           slate_Matrix_c64 A,
@@ -341,8 +436,15 @@ void slate_triangular_right_solve_c64(
     slate::triangular_solve<scalar_t>(alpha, *A_, *B_, opts_);
 }
 
+// @end function
+//--------------------
+
 //-----------------------------------------
 // rank_k_update()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // herk
 void slate_Hermitian_rank_k_update_c64(
@@ -363,6 +465,13 @@ void slate_Hermitian_rank_k_update_c64(
     slate::rank_k_update<scalar_t>(alpha, *A_, beta, *C_, opts_);
 }
 
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
+
 // syrk
 void slate_Symmetric_rank_k_update_c64(
     double _Complex alpha,           slate_Matrix_c64 A,
@@ -382,8 +491,15 @@ void slate_Symmetric_rank_k_update_c64(
     slate::rank_k_update<scalar_t>(alpha, *A_, beta, *C_, opts_);
 }
 
+// @end function
+//--------------------
+
 //-----------------------------------------
 // rank_2k_update()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // herk
 void slate_Hermitian_rank_2k_update_c64(
@@ -407,6 +523,13 @@ void slate_Hermitian_rank_2k_update_c64(
     slate::rank_2k_update<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
 }
 
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
+
 // syrk
 void slate_Symmetric_rank_2k_update_c64(
     double _Complex alpha,            slate_Matrix_c64 A,
@@ -429,6 +552,9 @@ void slate_Symmetric_rank_2k_update_c64(
     slate::rank_2k_update<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
 }
 
+// @end function
+//--------------------
+
 //------------------------------------------------------------------------------
 // Linear systems
 
@@ -437,6 +563,10 @@ void slate_Symmetric_rank_2k_update_c64(
 
 //-----------------------------------------
 // lu_solve()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // gbsv
 void slate_Band_lu_solve_c64(
@@ -457,6 +587,13 @@ void slate_Band_lu_solve_c64(
     slate::lu_solve<scalar_t>(*A_, *B_, opts_);
 }
 
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
+
 // gesv
 void slate_lu_solve_c64(
     slate_Matrix_c64 A,
@@ -475,6 +612,13 @@ void slate_lu_solve_c64(
 
     slate::lu_solve<scalar_t>(*A_, *B_, opts_);
 }
+
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // gesv_nopiv
 void slate_lu_solve_nopiv_c64(
@@ -495,8 +639,15 @@ void slate_lu_solve_nopiv_c64(
     slate::lu_solve_nopiv<scalar_t>(*A_, *B_, opts_);
 }
 
+// @end function
+//--------------------
+
 //-----------------------------------------
 // lu_factor()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // gbtrf
 void slate_Band_lu_factor_c64(
@@ -515,6 +666,13 @@ void slate_Band_lu_factor_c64(
     slate::lu_factor<scalar_t>(*A_, *pivots_, opts_);
 }
 
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
+
 // getrf
 void slate_lu_factor_c64(
     slate_Matrix_c64 A, slate_Pivots pivots,
@@ -532,6 +690,13 @@ void slate_lu_factor_c64(
     slate::lu_factor<scalar_t>(*A_, *pivots_, opts_);
 }
 
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
+
 // getrf_nopiv
 void slate_lu_factor_nopiv_c64(
     slate_Matrix_c64 A,
@@ -548,8 +713,15 @@ void slate_lu_factor_nopiv_c64(
     slate::lu_factor_nopiv<scalar_t>(*A_, opts_);
 }
 
+// @end function
+//--------------------
+
 //-----------------------------------------
 // lu_solve_using_factor()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // gbtrs
 void slate_Band_lu_solve_using_factor_c64(
@@ -571,6 +743,13 @@ void slate_Band_lu_solve_using_factor_c64(
     slate::lu_solve_using_factor<scalar_t>(*A_, *pivots_, *B_, opts_);
 }
 
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
+
 // getrs
 void slate_lu_solve_using_factor_c64(
     slate_Matrix_c64 A, slate_Pivots pivots,
@@ -591,6 +770,13 @@ void slate_lu_solve_using_factor_c64(
     slate::lu_solve_using_factor<scalar_t>(*A_, *pivots_, *B_, opts_);
 }
 
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
+
 // getrs_nopiv
 void slate_lu_solve_using_factor_nopiv_c64(
     slate_Matrix_c64 A,
@@ -610,8 +796,15 @@ void slate_lu_solve_using_factor_nopiv_c64(
     slate::lu_solve_using_factor_nopiv<scalar_t>(*A_, *B_, opts_);
 }
 
+// @end function
+//--------------------
+
 //-----------------------------------------
 // lu_inverse_using_factor()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // In-place getri
 void slate_lu_inverse_using_factor_c64(
@@ -630,8 +823,15 @@ void slate_lu_inverse_using_factor_c64(
     slate::lu_inverse_using_factor<scalar_t>(*A_, *pivots_, opts_);
 }
 
+// @end function
+//--------------------
+
 //-----------------------------------------
 // lu_inverse_using_factor_out_of_place()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // Out-of-place getri
 void slate_lu_inverse_using_factor_out_of_place_c64(
@@ -654,11 +854,18 @@ void slate_lu_inverse_using_factor_out_of_place_c64(
         *A_, *pivots_, *A_inverse_, opts_);
 }
 
+// @end function
+//--------------------
+
 //-----------------------------------------
 // Cholesky
 
 //-----------------------------------------
 // chol_solve()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // pbsv
 void slate_Band_chol_solve_c64(
@@ -679,6 +886,13 @@ void slate_Band_chol_solve_c64(
     slate::chol_solve<scalar_t>(*A_, *B_, opts_);
 }
 
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
+
 // posv
 void slate_chol_solve_c64(
     slate_HermitianMatrix_c64 A,
@@ -698,8 +912,15 @@ void slate_chol_solve_c64(
     slate::chol_solve<scalar_t>(*A_, *B_, opts_);
 }
 
+// @end function
+//--------------------
+
 //-----------------------------------------
 // chol_factor()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // pbtrf
 void slate_Band_chol_factor_c64(
@@ -717,6 +938,13 @@ void slate_Band_chol_factor_c64(
     slate::chol_factor<scalar_t>(*A_, opts_);
 }
 
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
+
 // potrf
 void slate_chol_factor_c64(
     slate_HermitianMatrix_c64 A,
@@ -733,8 +961,15 @@ void slate_chol_factor_c64(
     slate::chol_factor<scalar_t>(*A_, opts_);
 }
 
+// @end function
+//--------------------
+
 //-----------------------------------------
 // chol_solve_using_factor()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // pbtrs
 void slate_Band_chol_solve_using_factor_c64(
@@ -755,6 +990,13 @@ void slate_Band_chol_solve_using_factor_c64(
     slate::chol_solve_using_factor<scalar_t>(*A_, *B_, opts_);
 }
 
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
+
 // potrs
 void slate_chol_solve_using_factor_c64(
     slate_HermitianMatrix_c64 A,
@@ -774,8 +1016,15 @@ void slate_chol_solve_using_factor_c64(
     slate::chol_solve_using_factor<scalar_t>(*A_, *B_, opts_);
 }
 
+// @end function
+//--------------------
+
 //-----------------------------------------
 // chol_inverse_using_factor()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // potri
 void slate_chol_inverse_using_factor_c64(
@@ -793,11 +1042,18 @@ void slate_chol_inverse_using_factor_c64(
     slate::chol_inverse_using_factor<scalar_t>(*A_, opts_);
 }
 
+// @end function
+//--------------------
+
 //-----------------------------------------
 // Symmetric indefinite -- block Aasen's
 
 //-----------------------------------------
 // indefinite_solve()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // hesv
 void slate_indefinite_solve_c64(
@@ -818,8 +1074,15 @@ void slate_indefinite_solve_c64(
     slate::indefinite_solve<scalar_t>(*A_, *B_, opts_);
 }
 
+// @end function
+//--------------------
+
 //-----------------------------------------
 // indefinite_factor()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // hetrf
 void slate_indefinite_factor_c64(
@@ -846,8 +1109,15 @@ void slate_indefinite_factor_c64(
         *A_, *pivots_, *T_, *pivots2_, *H_, opts_);
 }
 
+// @end function
+//--------------------
+
 //-----------------------------------------
 // indefinite_solve_using_factor()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // hetrs
 void slate_indefinite_solve_using_factor_c64(
@@ -874,6 +1144,9 @@ void slate_indefinite_solve_using_factor_c64(
         *A_, *pivots_, *T_, *pivots2_, *B_, opts_);
 }
 
+// @end function
+//--------------------
+
 //------------------------------------------------------------------------------
 // QR
 
@@ -882,6 +1155,10 @@ void slate_indefinite_solve_using_factor_c64(
 
 //-----------------------------------------
 // least_squares_solve()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // gels
 void slate_least_squares_solve_c64(
@@ -902,11 +1179,18 @@ void slate_least_squares_solve_c64(
     slate::least_squares_solve<scalar_t>(*A_, *BX_, opts_);
 }
 
+// @end function
+//--------------------
+
 //-----------------------------------------
 // QR
 
 //-----------------------------------------
 // qr_factor()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // geqrf
 void slate_qr_factor_c64(
@@ -926,8 +1210,15 @@ void slate_qr_factor_c64(
     slate::qr_factor<scalar_t>(*A_, *T_, opts_);
 }
 
+// @end function
+//--------------------
+
 //-----------------------------------------
 // qr_multiply_by_q()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // unmqr
 void slate_qr_multiply_by_q_c64(
@@ -952,11 +1243,18 @@ void slate_qr_multiply_by_q_c64(
         slate::side2cpp(side), slate::op2cpp(op), *A_, *T_, *C_, opts_);
 }
 
+// @end function
+//--------------------
+
 //-----------------------------------------
 // LQ
 
 //-----------------------------------------
 // lq_factor()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // gelqf
 void slate_lq_factor_c64(
@@ -976,8 +1274,15 @@ void slate_lq_factor_c64(
     slate::lq_factor<scalar_t>(*A_, *T_, opts_);
 }
 
+// @end function
+//--------------------
+
 //-----------------------------------------
 // lq_multiply_by_q()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // unmlq
 void slate_lq_multiply_by_q_c64(
@@ -1002,11 +1307,18 @@ void slate_lq_multiply_by_q_c64(
         slate::side2cpp(side), slate::op2cpp(op), *A_, *T_, *C_, opts_);
 }
 
+// @end function
+//--------------------
+
 //------------------------------------------------------------------------------
 // SVD
 
 //-----------------------------------------
 // svd_vals()
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // gesvd
 void slate_svd_vals_c64(
@@ -1030,6 +1342,9 @@ void slate_svd_vals_c64(
     Sigma = &Sigma_[0];
 }
 
+// @end function
+//--------------------
+
 //------------------------------------------------------------------------------
 // Eigenvalue decomposition
 
@@ -1038,6 +1353,10 @@ void slate_svd_vals_c64(
 
 //-----------------------------------------
 // Symmetric/hermitian
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // heev
 void slate_hermitian_eig_vals_c64(
@@ -1060,8 +1379,15 @@ void slate_hermitian_eig_vals_c64(
     Lambda = &Lambda_[0];
 }
 
+// @end function
+//--------------------
+
 //-----------------------------------------
 // Generalized symmetric/hermitian
+
+//--------------------
+// begin/end markup used by generate_precisions.py script; do not modify!
+// @begin function
 
 // hegv
 void slate_generalized_hermitian_eig_vals_c64(
@@ -1087,3 +1413,6 @@ void slate_generalized_hermitian_eig_vals_c64(
 
     Lambda = &Lambda_[0];
 }
+
+// @end function
+//--------------------

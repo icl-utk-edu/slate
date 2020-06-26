@@ -25,15 +25,15 @@ for line in file:
             typename_is_found = True
             continue
 
-    if (re.search(r'^ *// @begin data members', line)):
+    if re.search(r'^ *// @begin data members', line):
         data_members_is_found = True
         continue
 
-    if (re.search(r'^ *// @end data members', line)):
+    if re.search(r'^ *// @end data members', line):
         data_members_is_found = False
         continue
 
-    if (re.search(r'\S', line) and data_members_is_found):
+    if re.search(r'\S', line) and data_members_is_found:
         template += line
 
 file.close()

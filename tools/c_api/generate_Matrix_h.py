@@ -62,12 +62,12 @@ for matrix_type in matrix_types:
         contents += 'int64_t slate_' + matrix_type[0] + '_n' + scalar_type[1] + '(slate_' + matrix_type[0] + scalar_type[1] + ' A);\n\n'
         contents += '/// slate::' + matrix_type[0] + '<' + scalar_type[2]
         contents += '>::tileIsLocal()\n'
-        contents += 'bool slate_' + matrix_type[0] + '_tileIsLocal' + scalar_type[1] + '(slate_' + matrix_type[0] + scalar_type[1] + ' A);\n\n'
+        contents += 'bool slate_' + matrix_type[0] + '_tileIsLocal' + scalar_type[1] + '(slate_' + matrix_type[0] + scalar_type[1] + ' A, int64_t i, int64_t j);\n\n'
         contents += '/// slate::' + matrix_type[0] + '<' + scalar_type[2]
         contents += '>::at(i, j)\n'
         contents += 'slate_Tile' + scalar_type[1] + ' slate_' + matrix_type[0] + '_at' + scalar_type[1] + '(slate_' + matrix_type[0] + scalar_type[1] + ' A, int64_t i, int64_t j);\n\n'
 
-    contents += '//' + ('-'*78) + '\n\n'
+    contents += '//' + ('-'*78) + '\n'
 
 print('''\
 //------------------------------------------------------------------------------
@@ -109,12 +109,44 @@ print('''\
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
+//------------------------------------------------------------------------------
+// Auto-generated file by %s
+
 #ifndef SLATE_C_API_MATRIX_H
 #define SLATE_C_API_MATRIX_H
-''')
+''' % sys.argv[0])
 
-print('''#include "slate/c_api/Tile.h"\n''')
+print('''#include "slate/c_api/Tile.h"''')
+print('''#include "slate/internal/mpi.hh"''')
+
+print('')
+
+print('''#include <stdbool.h>''')
+print('''#include <stdint.h>''')
+print('''#include <complex.h>''')
+
+print('')
+
 print('''#ifdef __cplusplus\nextern "C" {\n#endif\n''')
+
+print('//' + ('-'*78))
+
+print('/// slate::Pivots\n')
+print('struct slate_Pivots_struct;')
+print('typedef struct slate_Pivots_struct* slate_Pivots;\n')
+print('slate_Pivots slate_Pivots_create();')
+print('void slate_Pivots_destroy(slate_Pivots pivots);\n')
+
+print('//' + ('-'*78) + '\n')
+
+for scalar_type in scalar_types:
+    print('/// slate::TriangularFactors<' + scalar_type[2] + '>')
+    print('struct slate_TriangularFactors_struct' + scalar_type[1] + ';')
+    print('typedef struct slate_TriangularFactors_struct' + scalar_type[1] + '* slate_TriangularFactors' + scalar_type[1] +';\n')
+    print('slate_TriangularFactors' + scalar_type[1] + ' slate_TriangularFactors_create_'  + scalar_type[1] +'();')
+    print('slate_TriangularFactors' + scalar_type[1] + ' slate_TriangularFactors_destroy_' + scalar_type[1] +'(slate_TriangularFactors' + scalar_type[1] + ' T);\n')
+
+print('//' + ('-'*78) + '\n')
 
 print contents
 

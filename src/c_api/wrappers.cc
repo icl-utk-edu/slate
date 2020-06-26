@@ -76,12 +76,27 @@ slate_Matrix_c64 slate_Matrix_create_c64(
 // @end function
 //--------------------
 
+// todo
+//--------------------
+// skip:begin/end markup used by generate_wrappers_precisions_cc.py script;
+// skip:do not modify!
+// skip:@begin function
 
+/// slate::Matrix<std::complex<double>>::fromScaLAPACK()
+slate_Matrix_c64 slate_Matrix_create_fromScaLAPACK_c64(
+    int64_t m, int64_t n, double _Complex* A, int64_t lda, int64_t mb,
+    int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    using scalar_t = std::complex<double>;
+    using matrix_t = slate::Matrix<scalar_t>;
 
+    auto* A_ = new matrix_t::fromScaLAPACK(m, n, A, lda, mb, nb, p, q, mpi_comm);
 
+    return reinterpret_cast<slate_Matrix_c64>(A_);
+}
 
-
-
+// skip:@end function
+//--------------------
 
 //--------------------
 // begin/end markup used by generate_wrappers_precisions_cc.py script;

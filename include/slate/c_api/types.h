@@ -40,11 +40,44 @@
 #ifndef SLATE_C_API_TYPES_H
 #define SLATE_C_API_TYPES_H
 
-#include "slate/c_api/enums.h"
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+//------------------------------------------------------------------------------
+// slate/include/slate/Tile.hh
+
+typedef enum slate_TileKind {
+    slate_TileKind_Workspace,         ///< slate::TileKind::Workspace
+    slate_TileKind_SlateOwned,        ///< slate::TileKind::SlateOwned
+    slate_TileKind_UserOwned,         ///< slate::TileKind::UserOwned
+} slate_TileKind;                     ///< slate::TileKind
+
+//------------------------------------------------------------------------------
+// slate/include/slate/enums.hh
+
+typedef enum slate_Target {
+    slate_Target_Host        = 'H',   ///< slate::Target::Host
+    slate_Target_HostTask    = 'T',   ///< slate::Target::HostTask
+    slate_Target_HostNest    = 'N',   ///< slate::Target::HostNest
+    slate_Target_HostBatch   = 'B',   ///< slate::Target::HostBatch
+    slate_Target_Devices     = 'D',   ///< slate::Target::Devices
+} slate_Target;                       ///< slate::Target
+
+typedef enum slate_Option {
+    slate_Option_ChunkSize,           ///< slate::Option::ChunkSize
+    slate_Option_Lookahead,           ///< slate::Option::Lookahead
+    slate_Option_BlockSize,           ///< slate::Option::BlockSize
+    slate_Option_InnerBlocking,       ///< slate::Option::InnerBlocking
+    slate_Option_MaxPanelThreads,     ///< slate::Option::MaxPanelThreads
+    slate_Option_Tolerance,           ///< slate::Option::Tolerance
+    slate_Option_Target,              ///< slate::Option::Target
+} slate_Option;                       ///< slate::Option
+
+//------------------------------------------------------------------------------
+// slate/include/slate/types.hh
 
 typedef union slate_OptionValue {
     int64_t       chunk_size;
@@ -62,78 +95,66 @@ typedef struct slate_Options {
 } slate_Options;                      ///< slate::Options
 
 //------------------------------------------------------------------------------
-/// slate::Pivots
+// blaspp/include/blas_util.hh
 
-struct slate_Pivots_struct;
-typedef struct slate_Pivots_struct* slate_Pivots;
+typedef enum slate_Op {
+    slate_Op_NoTrans   = 'N',         ///< slate::Op::NoTrans
+    slate_Op_Trans     = 'T',         ///< slate::Op::Trans
+    slate_Op_ConjTrans = 'C',         ///< slate::Op::ConjTrans
+} slate_Op;                           ///< slate::Op
 
-slate_Pivots slate_Pivots_create();
-void slate_Pivots_destroy(slate_Pivots pivots);
+typedef enum slate_Uplo {
+    slate_Uplo_Upper    = 'U',        ///< slate::Uplo::Upper
+    slate_Uplo_Lower    = 'L',        ///< slate::Uplo::Lower
+    slate_Uplo_General  = 'G',        ///< slate::Uplo::General
+} slate_Uplo;                         ///< slate::Uplo
+
+typedef enum slate_Diag {
+    slate_Diag_NonUnit  = 'N',        ///< slate::Diag::NonUnit
+    slate_Diag_Unit     = 'U',        ///< slate::Diag::Unit
+} slate_Diag;                         ///< slate::Diag
+
+typedef enum slate_Side {
+    slate_Side_Left  = 'L',           ///< slate::Side::Left
+    slate_Side_Right = 'R',           ///< slate::Side::Right
+} slate_Side;                         ///< slate::Side
+
+typedef enum slate_Layout {
+    slate_Layout_ColMajor = 'C',      ///< slate::Layou::ColMajor
+    slate_Layout_RowMajor = 'R',      ///< slate::Layou::RowMajor
+} slate_Layout;                       ///< slate::Layout
 
 //------------------------------------------------------------------------------
-/// slate::TriangularFactors< std::complex<double> >
+// lapackpp/include/lapack_util.hh
 
-struct slate_TriangularFactors_struct_r32;
-struct slate_TriangularFactors_struct_r64;
-struct slate_TriangularFactors_struct_c32;
-struct slate_TriangularFactors_struct_c64;
+typedef enum slate_Norm {
+    slate_Norm_One = '1',             ///< slate::Norm::One
+    slate_Norm_Two = '2',             ///< slate::Norm::Two
+    slate_Norm_Inf = 'I',             ///< slate::Norm::Inf
+    slate_Norm_Fro = 'F',             ///< slate::Norm::Fro
+    slate_Norm_Max = 'M',             ///< slate::Norm::Max
+} slate_Norm;                         ///< slate::Norm
 
-typedef struct slate_TriangularFactors_struct_r32* slate_TriangularFactors_r32;
-typedef struct slate_TriangularFactors_struct_r64* slate_TriangularFactors_r64;
-typedef struct slate_TriangularFactors_struct_c32* slate_TriangularFactors_c32;
-typedef struct slate_TriangularFactors_struct_c64* slate_TriangularFactors_c64;
+typedef enum slate_Direction {
+    slate_Direction_Forward  = 'F',   ///< slate::Direction::Forward
+    slate_Direction_Backward = 'B',   ///< slate::Direction::Backward
+} slate_Direction;                    ///< slate::Direction
 
-slate_TriangularFactors_r32 slate_TriangularFactors_create_r32();
-slate_TriangularFactors_r64 slate_TriangularFactors_create_r64();
-slate_TriangularFactors_c32 slate_TriangularFactors_create_c32();
-slate_TriangularFactors_c64 slate_TriangularFactors_create_c64();
-
-void slate_TriangularFactors_destroy_r32(slate_TriangularFactors_r32 T);
-void slate_TriangularFactors_destroy_r64(slate_TriangularFactors_r64 T);
-void slate_TriangularFactors_destroy_c32(slate_TriangularFactors_c32 T);
-void slate_TriangularFactors_destroy_c64(slate_TriangularFactors_c64 T);
+typedef enum slate_Job {
+    slate_Job_NoVec        = 'N',     ///< slate::Job::NoVec
+    slate_Job_Vec          = 'V',     ///< slate::Job::Vec
+    slate_Job_UpdateVec    = 'U',     ///< slate::Job::UpdateVec
+    slate_Job_AllVec       = 'A',     ///< slate::Job::AllVec
+    slate_Job_SomeVec      = 'S',     ///< slate::Job::SomeVec
+    slate_Job_OverwriteVec = 'O',     ///< slate::Job::OverwriteVec
+    slate_Job_CompactVec   = 'P',     ///< slate::Job::CompactVec
+    slate_Job_SomeVecTol   = 'C',     ///< slate::Job::SomeVecTol
+    slate_Job_VecJacobi    = 'J',     ///< slate::Job::VecJacobi
+    slate_Job_Workspace    = 'W',     ///< slate::Job::Workspace
+} slate_Job;                          ///< slate::Job
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
-
-namespace slate {
-
-//------------------------------------------------------------------------------
-
-inline std::pair<Option, OptionValue> optionvalue2cpp(
-    slate_Option option, slate_OptionValue option_value)
-{
-    switch (option) {
-        case slate_Option_ChunkSize:
-            return {Option::ChunkSize, option_value.chunk_size};
-        case slate_Option_Lookahead:
-            return {Option::Lookahead, option_value.lookahead};
-        case slate_Option_BlockSize:
-            return {Option::BlockSize, option_value.block_size};
-        case slate_Option_InnerBlocking:
-            return {Option::InnerBlocking, option_value.inner_blocking};
-        case slate_Option_MaxPanelThreads:
-            return {Option::MaxPanelThreads, option_value.max_panel_threads};
-        case slate_Option_Tolerance:
-            return {Option::Tolerance, option_value.tolerance};
-        case slate_Option_Target:
-            return {Option::Target, target2cpp(option_value.target)};
-        default: throw Exception("unknown option value");
-    }
-}
-
-inline void options2cpp(
-    int num_options, slate_Options options[], Options& options_)
-{
-    if (options !=  nullptr) {
-        for(int i = 0; i < num_options; ++i) {
-            options_.insert(
-                optionvalue2cpp(options[i].option, options[i].value));
-        }
-    }
-}
-
-} // namespace slate
 
 #endif // SLATE_C_API_TYPES_H

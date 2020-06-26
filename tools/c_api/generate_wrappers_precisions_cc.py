@@ -79,7 +79,10 @@ print('''\
 // https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user,
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
-''')
+
+//------------------------------------------------------------------------------
+// Auto-generated file by %s
+''' % sys.argv[0])
 
 print('''#include "slate/c_api/wrappers.h"''')
 print('''#include "slate/c_api/util.hh"''')

@@ -120,7 +120,7 @@ print('''#include "slate/c_api/types.h"''')
 print('')
 
 # print('''#include <stdbool.h>''')
-print('''#include <stdint.h>''')
+# print('''#include <stdint.h>''')
 print('''#include <complex.h>''')
 
 print('')

@@ -116,14 +116,15 @@ print('''\
 #define SLATE_C_API_MATRIX_H
 ''' % sys.argv[0])
 
-print('''#include "slate/c_api/Tile.h"''')
 print('''#include "slate/internal/mpi.hh"''')
+
+print('''#include "slate/c_api/Tile.h"''')
 
 print('')
 
 print('''#include <stdbool.h>''')
-print('''#include <stdint.h>''')
-print('''#include <complex.h>''')
+# print('''#include <stdint.h>''')
+# print('''#include <complex.h>''')
 
 print('')
 

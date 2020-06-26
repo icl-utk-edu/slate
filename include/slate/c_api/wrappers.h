@@ -43,10 +43,6 @@
 #include "slate/c_api/types.h"
 #include "slate/c_api/Matrix.h"
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <complex.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -65,9 +65,9 @@ print('')
 
 print('''namespace slate {\n''')
 
-print('//' + ('-'*78))
+# print('//' + ('-'*78))
 
-print('')
+# print('')
 
 for typename in typenames:
     instance  = typename.replace('slate_', '') + ' '
@@ -75,9 +75,9 @@ for typename in typenames:
     instance += typename + ' ' + typename.replace('slate_', '').lower() + ');'
     print instance + '\n'
 
-print('//' + ('-'*78))
+# print('//' + ('-'*78))
 
-print('')
+# print('')
 
 print('''std::pair<Option, OptionValue> optionvalue2cpp(slate_Option option, slate_OptionValue option_value);''')
 
@@ -85,9 +85,9 @@ print('')
 
 print('''void options2cpp(int num_options, slate_Options options[], Options& options_);''')
 
-print('')
+# print('')
 
-print('//' + ('-'*78))
+# print('//' + ('-'*78))
 
 print('')
 

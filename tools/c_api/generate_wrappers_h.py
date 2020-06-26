@@ -1,3 +1,46 @@
+#!/usr/bin/env python
+
+import sys
+import re
+
+data_types = [
+    ['float',           '_r32', 'float'],
+    ['double',          '_r64', 'double'],
+    ['float _Complex',  '_c32', 'std::complex<float>'],
+    ['double _Complex', '_c64', 'std::complex<double>'],
+]
+
+file = open(sys.argv[1], 'r')
+
+matrix_block_is_found = False
+function_is_found = False
+function_found = 0
+function_counter = 0
+functions = []
+container = ''
+for line in file:
+    if re.search(r'^void', line):
+        function_is_found = True
+    if re.search(r'\);', line):
+        function_is_found = False
+        container += line
+        functions.append(container)
+        container = ''
+    if (function_is_found):
+        container += line
+
+contents = ''
+for function in functions:
+    for i in range(len(data_types)-1):
+        instance = re.sub(r'%s' % data_types[len(data_types)-1][1], r'%s' % data_types[i][1], function)
+        instance = re.sub(r'%s' % data_types[len(data_types)-1][0], r'%s' % data_types[i][0], instance)
+        instance = re.sub(r'%s' % data_types[len(data_types)-1][2], r'%s' % data_types[i][2], instance)
+        if data_types[i][0] == 'float _Complex' or data_types[i][0] == 'float':
+            instance = re.sub(r'double', r'float', instance)
+        contents += instance + '\n'
+file.close()
+
+print('''\
 //------------------------------------------------------------------------------
 // Copyright (c) 2017, University of Tennessee
 // All rights reserved.
@@ -37,20 +80,29 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#ifndef SLATE_C_API_SLATE_H
-#define SLATE_C_API_SLATE_H
+//------------------------------------------------------------------------------
+// Auto-generated file by %s
 
-#include "slate/internal/mpi.hh"
+#ifndef SLATE_C_API_WRAPPERS_PRECISIONS_H
+#define SLATE_C_API_WRAPPERS_PRECISIONS_H
+''' % sys.argv[0])
 
-#include "slate/c_api/wrappers_precisions.h"
-#include "slate/c_api/wrappers.h"
-#include "slate/c_api/Matrix.h"
-#include "slate/c_api/types.h"
-#include "slate/c_api/Tile.h"
+print('''#include "slate/c_api/types.h"''')
+print('''#include "slate/c_api/Matrix.hh"''')
 
-#include <stdbool.h>
-#include <complex.h>
-#include <stdint.h>
-#include <assert.h>
+print('')
 
-#endif // SLATE_C_API_SLATE_H
+# print('''#include <stdbool.h>''')
+# print('''#include <stdint.h>''')
+# print('''#include <complex.h>''')
+
+print('')
+
+print('''#ifdef __cplusplus\nextern "C" {\n#endif\n''')
+
+print('//' + ('-'*78))
+
+print contents
+
+print('''#ifdef __cplusplus\n}  // extern "C"\n#endif\n''')
+print('''#endif // SLATE_C_API_WRAPPERS_PRECISIONS_H''')

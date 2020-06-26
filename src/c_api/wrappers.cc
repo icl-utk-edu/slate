@@ -38,47 +38,362 @@
 //------------------------------------------------------------------------------
 
 #include "slate/c_api/wrappers.h"
+#include "slate/c_api/util.hh"
 
-//------------------------------------------------------------------------------
-// Level 3 BLAS and LAPACK auxiliary
-
-//-----------------------------------------
-// multiply()
+/// slate::Pivots
+slate_Pivots slate_Pivots_create()
+{
+    auto* pivots = new slate::Pivots();
+    return reinterpret_cast<slate_Pivots>(pivots);
+}
+void slate_Pivots_destroy(slate_Pivots pivots)
+{
+    auto* pivots_ = reinterpret_cast<slate::Pivots*>(pivots);
+    delete pivots_;
+}
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
+// @begin matrix code block
+
+//--------------------
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// gbmm
-void slate_Band_multiply_c64(
-    double _Complex alpha, slate_BandMatrix_c64 A,
-                               slate_Matrix_c64 B,
-    double _Complex beta,      slate_Matrix_c64 C,
-    int num_opts, slate_Options opts[])
+slate_Matrix_c64 slate_Matrix_create_c64(
+    int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
 {
-  using scalar_t   = std::complex<double>;
-  using matrix_A_t = slate::BandMatrix<scalar_t>;
-  using matrix_B_t = slate::    Matrix<scalar_t>;
-  using matrix_C_t = slate::    Matrix<scalar_t>;
+    using scalar_t = std::complex<double>;
+    using matrix_t = slate::Matrix<scalar_t>;
 
-  auto* A_ = reinterpret_cast<matrix_A_t*>(A);
-  auto* B_ = reinterpret_cast<matrix_B_t*>(B);
-  auto* C_ = reinterpret_cast<matrix_C_t*>(C);
+    auto* A = new matrix_t(m, n, nb, p, q, mpi_comm);
 
-  slate::Options opts_;
-  slate::options2cpp(num_opts, opts, opts_);
+    return reinterpret_cast<slate_Matrix_c64>(A);
+}
 
-  slate::multiply<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
+// @end function
+//--------------------
+
+
+
+
+
+
+
+
+//--------------------
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
+// @begin function
+
+void slate_Matrix_destroy_c64(slate_Matrix_c64 A)
+{
+    using scalar_t = std::complex<double>;
+    using matrix_t = slate::Matrix<scalar_t>;
+
+    auto* A_ = reinterpret_cast<matrix_t*>(A);
+
+    delete A_;
 }
 
 // @end function
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// gemm
+/// slate::Matrix<std::complex<double>>::insertLocalTiles()
+void slate_Matrix_insertLocalTiles_c64(slate_Matrix_c64 A)
+{
+    using scalar_t = std::complex<double>;
+    using matrix_t = slate::Matrix<scalar_t>;
+
+    auto* A_ = reinterpret_cast<matrix_t*>(A);
+
+    A_->insertLocalTiles();
+}
+
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
+// @begin function
+
+/// slate::Matrix<std::complex<double>>::mt()
+int64_t slate_Matrix_mt_c64(slate_Matrix_c64 A)
+{
+    using scalar_t = std::complex<double>;
+    using matrix_t = slate::Matrix<scalar_t>;
+
+    auto* A_ = reinterpret_cast<matrix_t*>(A);
+
+    return(A_->mt());
+}
+
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
+// @begin function
+
+/// slate::Matrix<std::complex<double>>::nt()
+int64_t slate_Matrix_nt_c64(slate_Matrix_c64 A)
+{
+    using scalar_t = std::complex<double>;
+    using matrix_t = slate::Matrix<scalar_t>;
+
+    auto* A_ = reinterpret_cast<matrix_t*>(A);
+
+    return(A_->nt());
+}
+
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
+// @begin function
+
+/// slate::Matrix<std::complex<double>>::m()
+int64_t slate_Matrix_m_c64(slate_Matrix_c64 A)
+{
+    using scalar_t = std::complex<double>;
+    using matrix_t = slate::Matrix<scalar_t>;
+
+    auto* A_ = reinterpret_cast<matrix_t*>(A);
+
+    return(A_->m());
+}
+
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
+// @begin function
+
+/// slate::Matrix<std::complex<double>>::n()
+int64_t slate_Matrix_n_c64(slate_Matrix_c64 A)
+{
+    using scalar_t = std::complex<double>;
+    using matrix_t = slate::Matrix<scalar_t>;
+
+    auto* A_ = reinterpret_cast<matrix_t*>(A);
+
+    return(A_->n());
+}
+
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
+// @begin function
+
+/// slate::Matrix<std::complex<double>>::tileIsLocal()
+bool slate_Matrix_tileIsLocal_c64(slate_Matrix_c64 A, int64_t i, int64_t j)
+{
+    using scalar_t = std::complex<double>;
+    using matrix_t = slate::Matrix<scalar_t>;
+
+    auto* A_ = reinterpret_cast<matrix_t*>(A);
+
+    return(A_->tileIsLocal(i, j));
+}
+
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
+// @begin function
+
+/// slate::Matrix<std::complex<double>>::at(i, j)
+slate_Tile_c64 slate_Matrix_at_c64(slate_Matrix_c64 A, int64_t i, int64_t j)
+{
+    using scalar_t = std::complex<double>;
+    using matrix_t = slate::Matrix<scalar_t>;
+    using tile_t   = slate::Tile<scalar_t>;
+
+    auto* A_ = reinterpret_cast<matrix_t*>(A);
+
+    tile_t T = A_->at(i, j);
+
+    return(*reinterpret_cast<slate_Tile_c64*>(&T));
+}
+
+// @end function
+//--------------------
+
+// @end matrix code block
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
+// @begin function
+
+/// slate::TriangularFactors<std::complex<double>>
+slate_TriangularFactors_c64 slate_TriangularFactors_create_c64()
+{
+    using scalar_t             = std::complex<double>;
+    using triangular_factors_t = slate::TriangularFactors<scalar_t>;
+
+    auto* T = new triangular_factors_t();
+
+    return reinterpret_cast<slate_TriangularFactors_c64>(T);
+}
+
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
+// @begin function
+
+/// slate::TriangularFactors<std::complex<double>>
+void slate_TriangularFactors_destroy_c64(slate_TriangularFactors_c64 T)
+{
+    using scalar_t             = std::complex<double>;
+    using triangular_factors_t = slate::TriangularFactors<scalar_t>;
+
+    auto* T_ = reinterpret_cast<triangular_factors_t*>(T);
+
+    delete T_;
+}
+
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
+// @begin function
+
+/// slate::Tile<std::complex<double>>::mb()
+int64_t slate_Tile_mb_c64(slate_Tile_c64 T)
+{
+    using scalar_t = std::complex<double>;
+    using tile_t   = slate::Tile<scalar_t>;
+
+    assert(sizeof(slate_Tile_c64) == sizeof(tile_t));
+    auto T_ = *reinterpret_cast<tile_t*>(&T);
+
+    return(T_.mb());
+}
+
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
+// @begin function
+
+/// slate::Tile<std::complex<double>>::nb()
+int64_t slate_Tile_nb_c64(slate_Tile_c64 T)
+{
+    using scalar_t = std::complex<double>;
+    using tile_t   = slate::Tile<scalar_t>;
+
+    assert(sizeof(slate_Tile_c64) == sizeof(tile_t));
+    auto T_ = *reinterpret_cast<tile_t*>(&T);
+
+    return(T_.nb());
+}
+
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
+// @begin function
+
+/// slate::Tile<std::complex<double>>::stride()
+int64_t slate_Tile_stride_c64(slate_Tile_c64 T)
+{
+    using scalar_t = std::complex<double>;
+    using tile_t   = slate::Tile<scalar_t>;
+
+    assert(sizeof(slate_Tile_c64) == sizeof(tile_t));
+    auto T_ = *reinterpret_cast<tile_t*>(&T);
+
+    return(T_.stride());
+}
+
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
+// @begin function
+
+/// slate::Tile<std::complex<double>>::data()
+double _Complex* slate_Tile_data_c64(slate_Tile_c64 T)
+{
+    using scalar_t = std::complex<double>;
+    using tile_t   = slate::Tile<scalar_t>;
+
+    assert(sizeof(slate_Tile_c64) == sizeof(tile_t));
+    auto T_ = *reinterpret_cast<tile_t*>(&T);
+
+    return((double _Complex*)T_.data());
+}
+
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
+// @begin function
+
+/// slate::multiply<std::complex<double>>
+void slate_Band_multiply_c64(
+    double _Complex alpha, slate_BandMatrix_c64 A,
+                               slate_Matrix_c64 B,
+    double _Complex beta,      slate_Matrix_c64 C,
+    int num_opts, slate_Options opts[])
+{
+    using scalar_t   = std::complex<double>;
+    using matrix_A_t = slate::BandMatrix<scalar_t>;
+    using matrix_B_t = slate::    Matrix<scalar_t>;
+    using matrix_C_t = slate::    Matrix<scalar_t>;
+
+    auto* A_ = reinterpret_cast<matrix_A_t*>(A);
+    auto* B_ = reinterpret_cast<matrix_B_t*>(B);
+    auto* C_ = reinterpret_cast<matrix_C_t*>(C);
+
+    slate::Options opts_;
+    slate::options2cpp(num_opts, opts, opts_);
+
+    slate::multiply<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
+}
+
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
+// @begin function
+
+/// slate::multiply<std::complex<double>>
 void slate_multiply_c64(
     double _Complex alpha, slate_Matrix_c64 A,
                            slate_Matrix_c64 B,
@@ -104,10 +419,11 @@ void slate_multiply_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// Left hbmm
+/// slate::multiply<std::complex<double>>
 void slate_HermitianBand_left_multiply_c64(
     double _Complex alpha, slate_HermitianBandMatrix_c64 A,
                                         slate_Matrix_c64 B,
@@ -133,10 +449,11 @@ void slate_HermitianBand_left_multiply_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// Right hbmm
+/// slate::multiply<std::complex<double>>
 void slate_HermitianBand_right_multiply_c64(
     double _Complex alpha,              slate_Matrix_c64 A,
                            slate_HermitianBandMatrix_c64 B,
@@ -162,10 +479,11 @@ void slate_HermitianBand_right_multiply_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// Left hemm
+/// slate::multiply<std::complex<double>>
 void slate_Hermitian_left_multiply_c64(
     double _Complex alpha, slate_HermitianMatrix_c64 A,
                                     slate_Matrix_c64 B,
@@ -191,10 +509,11 @@ void slate_Hermitian_left_multiply_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// Right hemm
+/// slate::multiply<std::complex<double>>
 void slate_Hermitian_right_multiply_c64(
     double _Complex alpha,          slate_Matrix_c64 A,
                            slate_HermitianMatrix_c64 B,
@@ -220,10 +539,11 @@ void slate_Hermitian_right_multiply_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// Left symm
+/// slate::multiply<std::complex<double>>
 void slate_Symmetric_left_multiply_c64(
     double _Complex alpha, slate_SymmetricMatrix_c64 A,
                                     slate_Matrix_c64 B,
@@ -249,10 +569,11 @@ void slate_Symmetric_left_multiply_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// Right symm
+/// slate::multiply<std::complex<double>>
 void slate_Symmetric_right_multiply_c64(
     double _Complex alpha,          slate_Matrix_c64 A,
                            slate_SymmetricMatrix_c64 B,
@@ -277,14 +598,12 @@ void slate_Symmetric_right_multiply_c64(
 // @end function
 //--------------------
 
-//-----------------------------------------
-// triangular_multiply()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// Left trmm
+/// slate::triangular_multiply<std::complex<double>>
 void slate_triangular_left_multiply_c64(
     double _Complex alpha, slate_TriangularMatrix_c64 A,
                                      slate_Matrix_c64 B,
@@ -307,10 +626,11 @@ void slate_triangular_left_multiply_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// Right trmm
+/// slate::triangular_multiply<std::complex<double>>
 void slate_triangular_right_multiply_c64(
     double _Complex alpha,           slate_Matrix_c64 A,
                            slate_TriangularMatrix_c64 B,
@@ -332,14 +652,12 @@ void slate_triangular_right_multiply_c64(
 // @end function
 //--------------------
 
-//-----------------------------------------
-// triangular_solve()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// Left tbsm
+/// slate::triangular_solve<std::complex<double>>
 void slate_Band_triangular_left_solve_c64(
     double _Complex alpha, slate_TriangularBandMatrix_c64 A,
                                          slate_Matrix_c64 B,
@@ -362,10 +680,11 @@ void slate_Band_triangular_left_solve_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// Right tbsm
+/// slate::triangular_solve<std::complex<double>>
 void slate_Band_triangular_right_solve_c64(
     double _Complex alpha,               slate_Matrix_c64 A,
                            slate_TriangularBandMatrix_c64 B,
@@ -388,10 +707,11 @@ void slate_Band_triangular_right_solve_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// Left trsm
+/// slate::triangular_solve<std::complex<double>>
 void slate_triangular_left_solve_c64(
     double _Complex alpha, slate_TriangularMatrix_c64 A,
                                      slate_Matrix_c64 B,
@@ -414,10 +734,11 @@ void slate_triangular_left_solve_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// Right trsm
+/// slate::triangular_solve<std::complex<double>>
 void slate_triangular_right_solve_c64(
     double _Complex alpha,           slate_Matrix_c64 A,
                            slate_TriangularMatrix_c64 B,
@@ -439,14 +760,12 @@ void slate_triangular_right_solve_c64(
 // @end function
 //--------------------
 
-//-----------------------------------------
-// rank_k_update()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// herk
+/// slate::rank_k_update<std::complex<double>>
 void slate_Hermitian_rank_k_update_c64(
     double alpha,          slate_Matrix_c64 A,
     double beta,  slate_HermitianMatrix_c64 C,
@@ -469,10 +788,11 @@ void slate_Hermitian_rank_k_update_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// syrk
+/// slate::rank_k_update<std::complex<double>>
 void slate_Symmetric_rank_k_update_c64(
     double _Complex alpha,           slate_Matrix_c64 A,
     double _Complex beta,   slate_SymmetricMatrix_c64 C,
@@ -494,14 +814,12 @@ void slate_Symmetric_rank_k_update_c64(
 // @end function
 //--------------------
 
-//-----------------------------------------
-// rank_2k_update()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// herk
+/// slate::rank_2k_update<std::complex<double>>
 void slate_Hermitian_rank_2k_update_c64(
     double _Complex alpha,  slate_Matrix_c64 A,
                             slate_Matrix_c64 B,
@@ -527,10 +845,11 @@ void slate_Hermitian_rank_2k_update_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// syrk
+/// slate::rank_2k_update<std::complex<double>>
 void slate_Symmetric_rank_2k_update_c64(
     double _Complex alpha,            slate_Matrix_c64 A,
                                       slate_Matrix_c64 B,
@@ -555,20 +874,12 @@ void slate_Symmetric_rank_2k_update_c64(
 // @end function
 //--------------------
 
-//------------------------------------------------------------------------------
-// Linear systems
-
-//-----------------------------------------
-// LU
-
-//-----------------------------------------
-// lu_solve()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// gbsv
+/// slate::lu_solve<std::complex<double>>
 void slate_Band_lu_solve_c64(
     slate_BandMatrix_c64 A,
         slate_Matrix_c64 B,
@@ -591,10 +902,11 @@ void slate_Band_lu_solve_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// gesv
+/// slate::lu_solve<std::complex<double>>
 void slate_lu_solve_c64(
     slate_Matrix_c64 A,
     slate_Matrix_c64 B,
@@ -617,10 +929,11 @@ void slate_lu_solve_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// gesv_nopiv
+/// slate::lu_solve_nopiv<std::complex<double>>
 void slate_lu_solve_nopiv_c64(
     slate_Matrix_c64 A,
     slate_Matrix_c64 B,
@@ -642,14 +955,12 @@ void slate_lu_solve_nopiv_c64(
 // @end function
 //--------------------
 
-//-----------------------------------------
-// lu_factor()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// gbtrf
+/// slate::lu_factor<std::complex<double>>
 void slate_Band_lu_factor_c64(
     slate_BandMatrix_c64 A, slate_Pivots pivots,
     int num_opts, slate_Options opts[])
@@ -670,10 +981,11 @@ void slate_Band_lu_factor_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// getrf
+/// slate::lu_factor<std::complex<double>>
 void slate_lu_factor_c64(
     slate_Matrix_c64 A, slate_Pivots pivots,
     int num_opts, slate_Options opts[])
@@ -694,10 +1006,11 @@ void slate_lu_factor_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// getrf_nopiv
+/// slate::lu_factor_nopiv<std::complex<double>>
 void slate_lu_factor_nopiv_c64(
     slate_Matrix_c64 A,
     int num_opts, slate_Options opts[])
@@ -716,14 +1029,12 @@ void slate_lu_factor_nopiv_c64(
 // @end function
 //--------------------
 
-//-----------------------------------------
-// lu_solve_using_factor()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// gbtrs
+/// slate::lu_solve_using_factor<std::complex<double>>
 void slate_Band_lu_solve_using_factor_c64(
     slate_BandMatrix_c64 A, slate_Pivots pivots,
         slate_Matrix_c64 B,
@@ -747,10 +1058,11 @@ void slate_Band_lu_solve_using_factor_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// getrs
+/// slate::lu_solve_using_factor<std::complex<double>>
 void slate_lu_solve_using_factor_c64(
     slate_Matrix_c64 A, slate_Pivots pivots,
     slate_Matrix_c64 B,
@@ -774,10 +1086,11 @@ void slate_lu_solve_using_factor_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// getrs_nopiv
+/// slate::lu_solve_using_factor_nopiv<std::complex<double>>
 void slate_lu_solve_using_factor_nopiv_c64(
     slate_Matrix_c64 A,
     slate_Matrix_c64 B,
@@ -799,14 +1112,12 @@ void slate_lu_solve_using_factor_nopiv_c64(
 // @end function
 //--------------------
 
-//-----------------------------------------
-// lu_inverse_using_factor()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// In-place getri
+/// slate::lu_inverse_using_factor<std::complex<double>>
 void slate_lu_inverse_using_factor_c64(
     slate_Matrix_c64 A, slate_Pivots pivots,
     int num_opts, slate_Options opts[])
@@ -826,14 +1137,12 @@ void slate_lu_inverse_using_factor_c64(
 // @end function
 //--------------------
 
-//-----------------------------------------
-// lu_inverse_using_factor_out_of_place()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// Out-of-place getri
+/// slate::lu_inverse_using_factor_out_of_place<std::complex<double>>
 void slate_lu_inverse_using_factor_out_of_place_c64(
     slate_Matrix_c64 A, slate_Pivots pivots,
     slate_Matrix_c64 A_inverse,
@@ -857,17 +1166,12 @@ void slate_lu_inverse_using_factor_out_of_place_c64(
 // @end function
 //--------------------
 
-//-----------------------------------------
-// Cholesky
-
-//-----------------------------------------
-// chol_solve()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// pbsv
+/// slate::chol_solve<std::complex<double>>
 void slate_Band_chol_solve_c64(
     slate_HermitianBandMatrix_c64 A,
                  slate_Matrix_c64 B,
@@ -890,10 +1194,11 @@ void slate_Band_chol_solve_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// posv
+/// slate::chol_solve<std::complex<double>>
 void slate_chol_solve_c64(
     slate_HermitianMatrix_c64 A,
              slate_Matrix_c64 B,
@@ -915,14 +1220,12 @@ void slate_chol_solve_c64(
 // @end function
 //--------------------
 
-//-----------------------------------------
-// chol_factor()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// pbtrf
+/// slate::chol_factor<std::complex<double>>
 void slate_Band_chol_factor_c64(
     slate_HermitianBandMatrix_c64 A,
     int num_opts, slate_Options opts[])
@@ -942,10 +1245,11 @@ void slate_Band_chol_factor_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// potrf
+/// slate::chol_factor<std::complex<double>>
 void slate_chol_factor_c64(
     slate_HermitianMatrix_c64 A,
     int num_opts, slate_Options opts[])
@@ -964,14 +1268,12 @@ void slate_chol_factor_c64(
 // @end function
 //--------------------
 
-//-----------------------------------------
-// chol_solve_using_factor()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// pbtrs
+/// slate::chol_solve_using_factor<std::complex<double>>
 void slate_Band_chol_solve_using_factor_c64(
     slate_HermitianBandMatrix_c64 A,
                  slate_Matrix_c64 B,
@@ -994,10 +1296,11 @@ void slate_Band_chol_solve_using_factor_c64(
 //--------------------
 
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// potrs
+/// slate::chol_solve_using_factor<std::complex<double>>
 void slate_chol_solve_using_factor_c64(
     slate_HermitianMatrix_c64 A,
              slate_Matrix_c64 B,
@@ -1019,14 +1322,12 @@ void slate_chol_solve_using_factor_c64(
 // @end function
 //--------------------
 
-//-----------------------------------------
-// chol_inverse_using_factor()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// potri
+/// slate::chol_inverse_using_factor<std::complex<double>>
 void slate_chol_inverse_using_factor_c64(
     slate_HermitianMatrix_c64 A,
     int num_opts, slate_Options opts[])
@@ -1045,17 +1346,12 @@ void slate_chol_inverse_using_factor_c64(
 // @end function
 //--------------------
 
-//-----------------------------------------
-// Symmetric indefinite -- block Aasen's
-
-//-----------------------------------------
-// indefinite_solve()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// hesv
+/// slate::indefinite_solve<std::complex<double>>
 void slate_indefinite_solve_c64(
     slate_HermitianMatrix_c64 A,
              slate_Matrix_c64 B,
@@ -1077,14 +1373,12 @@ void slate_indefinite_solve_c64(
 // @end function
 //--------------------
 
-//-----------------------------------------
-// indefinite_factor()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// hetrf
+/// slate::indefinite_factor<std::complex<double>>
 void slate_indefinite_factor_c64(
     slate_HermitianMatrix_c64 A, slate_Pivots pivots,
          slate_BandMatrix_c64 T, slate_Pivots pivots2,
@@ -1112,14 +1406,12 @@ void slate_indefinite_factor_c64(
 // @end function
 //--------------------
 
-//-----------------------------------------
-// indefinite_solve_using_factor()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// hetrs
+/// slate::indefinite_solve_using_factor<std::complex<double>>
 void slate_indefinite_solve_using_factor_c64(
     slate_HermitianMatrix_c64 A, slate_Pivots pivots,
          slate_BandMatrix_c64 T, slate_Pivots pivots2,
@@ -1147,20 +1439,12 @@ void slate_indefinite_solve_using_factor_c64(
 // @end function
 //--------------------
 
-//------------------------------------------------------------------------------
-// QR
-
-//-----------------------------------------
-// Least squares
-
-//-----------------------------------------
-// least_squares_solve()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// gels
+/// slate::least_squares_solve<std::complex<double>>
 void slate_least_squares_solve_c64(
     slate_Matrix_c64 A,
     slate_Matrix_c64 BX,
@@ -1182,17 +1466,12 @@ void slate_least_squares_solve_c64(
 // @end function
 //--------------------
 
-//-----------------------------------------
-// QR
-
-//-----------------------------------------
-// qr_factor()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// geqrf
+/// slate::qr_factor<std::complex<double>>
 void slate_qr_factor_c64(
     slate_Matrix_c64 A, slate_TriangularFactors_c64 T,
     int num_opts, slate_Options opts[])
@@ -1213,14 +1492,12 @@ void slate_qr_factor_c64(
 // @end function
 //--------------------
 
-//-----------------------------------------
-// qr_multiply_by_q()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// unmqr
+/// slate::qr_multiply_by_q<std::complex<double>>
 void slate_qr_multiply_by_q_c64(
     slate_Side side, slate_Op op,
     slate_Matrix_c64 A, slate_TriangularFactors_c64 T,
@@ -1246,17 +1523,12 @@ void slate_qr_multiply_by_q_c64(
 // @end function
 //--------------------
 
-//-----------------------------------------
-// LQ
-
-//-----------------------------------------
-// lq_factor()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// gelqf
+/// slate::lq_factor<std::complex<double>>
 void slate_lq_factor_c64(
     slate_Matrix_c64 A, slate_TriangularFactors_c64 T,
     int num_opts, slate_Options opts[])
@@ -1277,14 +1549,12 @@ void slate_lq_factor_c64(
 // @end function
 //--------------------
 
-//-----------------------------------------
-// lq_multiply_by_q()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// unmlq
+/// slate::lq_multiply_by_q<std::complex<double>>
 void slate_lq_multiply_by_q_c64(
     slate_Side side, slate_Op op,
     slate_Matrix_c64 A, slate_TriangularFactors_c64 T,
@@ -1310,17 +1580,12 @@ void slate_lq_multiply_by_q_c64(
 // @end function
 //--------------------
 
-//------------------------------------------------------------------------------
-// SVD
-
-//-----------------------------------------
-// svd_vals()
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// gesvd
+/// slate::svd_vals<std::complex<double>>
 void slate_svd_vals_c64(
     slate_Matrix_c64 A,
     double* Sigma,
@@ -1345,20 +1610,12 @@ void slate_svd_vals_c64(
 // @end function
 //--------------------
 
-//------------------------------------------------------------------------------
-// Eigenvalue decomposition
-
-//-----------------------------------------
-// eig_vals()
-
-//-----------------------------------------
-// Symmetric/hermitian
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// heev
+/// slate::eig_vals<std::complex<double>>
 void slate_hermitian_eig_vals_c64(
     slate_HermitianMatrix_c64 A,
     double* Lambda,
@@ -1382,14 +1639,12 @@ void slate_hermitian_eig_vals_c64(
 // @end function
 //--------------------
 
-//-----------------------------------------
-// Generalized symmetric/hermitian
-
 //--------------------
-// begin/end markup used by generate_precisions.py script; do not modify!
+// begin/end markup used by generate_wrappers_precisions_cc.py script;
+// do not modify!
 // @begin function
 
-// hegv
+/// slate::eig_vals<std::complex<double>>
 void slate_generalized_hermitian_eig_vals_c64(
     int64_t itype,
     slate_HermitianMatrix_c64 A,

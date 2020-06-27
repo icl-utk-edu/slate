@@ -65,6 +65,10 @@ for line in file:
 
 contents = ''
 for function in functions:
+    if 'slate_BandMatrix_insertLocalTiles_c64' in function:
+        prefix = function.split('\n/// slate::BandMatrix<std::complex<double>>::insertLocalTiles()\nvoid slate_BandMatrix_insertLocalTiles_c64(slate_BandMatrix_c64 A)')[0]
+        suffix = function.split('A_->insertLocalTiles();\n}\n\n')[1]
+        function = prefix + suffix
     for i in range(len(data_types)-1):
         instance = re.sub(r'%s' % data_types[len(data_types)-1][1], r'%s' % data_types[i][1], function)
         instance = re.sub(r'%s' % data_types[len(data_types)-1][0], r'%s' % data_types[i][0], instance)

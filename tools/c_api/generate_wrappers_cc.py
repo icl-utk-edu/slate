@@ -12,11 +12,11 @@ data_types = [
 
 matrix_types = [
     ['Matrix',               'int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm'],
-    # ['BandMatrix',           'int64_t m, int64_t n, int64_t kl, int64_t ku, int64_t nb, int p, int q, MPI_Comm mpi_comm'],
+    ['BandMatrix',           'int64_t m, int64_t n, int64_t kl, int64_t ku, int64_t nb, int p, int q, MPI_Comm mpi_comm'],
     ['HermitianMatrix',      'slate_Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm'],
-    # ['HermitianBandMatrix',  'slate_Uplo uplo, int64_t n, int64_t kd, int64_t nb, int p, int q, MPI_Comm mpi_comm'],
+    ['HermitianBandMatrix',  'slate_Uplo uplo, int64_t n, int64_t kd, int64_t nb, int p, int q, MPI_Comm mpi_comm'],
     ['TriangularMatrix',     'slate_Uplo uplo, slate_Diag diag, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm'],
-    # ['TriangularBandMatrix', 'slate_Uplo uplo, slate_Diag diag, int64_t n, int64_t kd, int64_t nb, int p, int q, MPI_Comm mpi_comm'],
+    ['TriangularBandMatrix', 'slate_Uplo uplo, slate_Diag diag, int64_t n, int64_t kd, int64_t nb, int p, int q, MPI_Comm mpi_comm'],
     ['SymmetricMatrix',      'slate_Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm'],
     ['TrapezoidMatrix',      'slate_Uplo uplo, slate_Diag diag, int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm'],
 ]

@@ -10,7 +10,6 @@ for line in file:
         s = re.search(r'^typedef\s*enum\s*(\w+)', line)
         if (s):
             typenames.append(s.group(1))
-
 print('''\
 //------------------------------------------------------------------------------
 // Copyright (c) 2017, University of Tennessee

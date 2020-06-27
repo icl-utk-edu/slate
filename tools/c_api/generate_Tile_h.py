@@ -2,6 +2,7 @@
 
 import sys
 import re
+import os
 
 templates = []
 template  = 'typedef struct\n{\n'
@@ -24,15 +25,12 @@ for line in file:
             typename = s.group(1)
             typename_is_found = True
             continue
-
     if re.search(r'^ *// @begin data members', line):
         data_members_is_found = True
         continue
-
     if re.search(r'^ *// @end data members', line):
         data_members_is_found = False
         continue
-
     if re.search(r'\S', line) and data_members_is_found:
         template += line
 

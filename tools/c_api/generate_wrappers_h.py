@@ -88,7 +88,7 @@ print('''\
 ''' % sys.argv[0])
 
 print('''#include "slate/c_api/types.h"''')
-print('''#include "slate/c_api/Matrix.hh"''')
+print('''#include "slate/c_api/Matrix.h"''')
 
 print('')
 

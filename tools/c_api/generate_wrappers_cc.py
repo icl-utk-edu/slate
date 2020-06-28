@@ -30,6 +30,7 @@ function_counter = 0
 functions = []
 container = ''
 container2 = ''
+contents = ''
 for line in file:
     if re.search(r'^ *// @begin matrix code block', line):
         matrix_block_is_found = True
@@ -48,6 +49,13 @@ for line in file:
                 s = re.sub('slate_Diag\s*diag', 'slate::diag2cpp(diag)', s)
                 instance = re.sub(r'\s*m\s*,\s*n\s*,\s*nb\s*,\s*p\s*,\s*q\s*,\s*mpi_comm\s*', r'%s' % s, instance)
             functions.append(instance)
+
+            if 'slate_BandMatrix_insertLocalTiles_c64' in instance:
+                prefix = instance.split('\n/// slate::BandMatrix<std::complex<double>>::insertLocalTiles()\nvoid slate_BandMatrix_insertLocalTiles_c64(slate_BandMatrix_c64 A)')[0]
+                suffix = instance.split('A_->insertLocalTiles();\n}\n\n')[1]
+                instance = prefix + suffix
+
+            contents += instance
         container2 = ''
         continue
     if re.search(r'^ *// @begin function', line):
@@ -63,7 +71,6 @@ for line in file:
     if (function_is_found and matrix_block_is_found):
         container2 += line
 
-contents = ''
 for function in functions:
     if 'slate_BandMatrix_insertLocalTiles_c64' in function:
         prefix = function.split('\n/// slate::BandMatrix<std::complex<double>>::insertLocalTiles()\nvoid slate_BandMatrix_insertLocalTiles_c64(slate_BandMatrix_c64 A)')[0]
@@ -122,6 +129,8 @@ print('''\
 // Auto-generated file by %s
 ''' % sys.argv[0])
 
+
+print('''#include "slate/c_api/wrappers_precisions.h"''')
 print('''#include "slate/c_api/wrappers.h"''')
 print('''#include "slate/c_api/util.hh"''')
 

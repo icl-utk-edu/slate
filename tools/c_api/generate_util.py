@@ -10,7 +10,6 @@ enum_name  = ''
 enum_start = False
 
 file = open(sys.argv[1], 'r')
-
 for line in file:
     s = re.search(r'^typedef\s*enum\s*(\w+)', line)
     if s and (not enum_start):
@@ -30,7 +29,6 @@ for line in file:
         line = line.split('=')[0]
         line = line.strip()
         enum_list.append(line)
-
 file.close()
 
 file_hh = open('include/slate/c_api/util.hh', 'w')
@@ -84,6 +82,7 @@ file_hh.write('''\
 #ifndef SLATE_C_API_UTIL_HH
 #define SLATE_C_API_UTIL_HH
 \n''')
+
 file_hh.write('#include "slate/c_api/types.h"\n')
 file_hh.write('#include "slate/slate.hh"\n')
 file_hh.write('\n')

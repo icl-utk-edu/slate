@@ -347,7 +347,7 @@ protected:
     void offset(int64_t i, int64_t j);
 
     //--------------------
-    // begin/end markup used by convert_Tile_hh.py script; do not modify!
+    // begin/end markup used by generate_matrix.py script; do not modify!
     // @begin data members
 
     int64_t mb_;

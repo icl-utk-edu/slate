@@ -3,16 +3,14 @@
 import sys
 import re
 
-templates = []
-template  = 'typedef struct\n{\n'
-typename  = None
-name      = 'Tile'
-
-typename_is_found     = False
 data_members_is_found = False
+typename_is_found     = False
+templates             = []
+template              = 'typedef struct\n{\n'
+typename              = None
+name                  = 'Tile'
 
 file = open(sys.argv[1], 'r')
-
 for line in file:
     if (typename_is_found):
         if (not re.search(r'^class\s*Tile\s*\{', line)):
@@ -32,7 +30,6 @@ for line in file:
         continue
     if re.search(r'\S', line) and data_members_is_found:
         template += line
-
 file.close()
 
 template += '} slate_' + name + '@SUFFIX;\n'
@@ -86,12 +83,13 @@ copyright = '''\
 
 file_hh.write(copyright)
 file_hh.write('''\n\
-#ifndef SLATE_C_API_TILE_H
-#define SLATE_C_API_TILE_H
+#ifndef SLATE_C_API_MATRIX_H
+#define SLATE_C_API_MATRIX_H
 \n''')
 
 file_hh.write('#include "slate/internal/mpi.hh"\n')
-file_hh.write('#include "slate/c_api/types.h"\n')
+file_hh.write('#include "slate/c_api/types.h"\n\n')
+
 file_hh.write('#include <complex.h>\n')
 file_hh.write('#include <stdbool.h>\n')
 file_hh.write('#include <stdint.h>\n')
@@ -126,15 +124,14 @@ keywords = [
     'Op', 'Uplo', 'TileKind', 'Layout'
 ]
 
-index_name          = 0
+index_data_type_cpp = 2
+index_routine_name  = 1
+index_routine_ret   = 0
+index_data_type     = 0
 index_typename      = 1
 index_template      = 2
-index_data_type     = 0
 index_suffix        = 1
-index_data_type_cpp = 2
-index_routine_ret   = 0
-index_routine_name  = 1
-
+index_name          = 0
 for template in templates:
     for type in data_types:
         instance = template[index_template]
@@ -184,16 +181,19 @@ matrix_types = [
 ]
 
 matrix_routines = [
-    ['slate_Matrix', '_create',           '',                                   ''],
-    ['void',         '_destroy',          'slate_Matrix',                       'delete'],
-    # ['slate_Matrix', '_fromScaLAPACK',    '',                                   ''],
-    ['void',         '_insertLocalTiles', 'slate_Matrix',                       'insertLocalTiles()'],
-    ['int64_t',      '_mt',               'slate_Matrix',                       'mt()'],
-    ['int64_t',      '_nt',               'slate_Matrix',                       'nt()'],
-    ['int64_t',      '_m',                'slate_Matrix',                       'm()'],
-    ['int64_t',      '_n',                'slate_Matrix',                       'n()'],
-    ['bool',         '_tileIsLocal',      'slate_Matrix, int64_t i, int64_t j', 'tileIsLocal(i, j)'],
-    ['slate_Tile',   '_at',               'slate_Matrix, int64_t i, int64_t j', 'at(i, j)'],
+    ['slate_Matrix', '_create',                    '',                                                             ''],
+    ['slate_Matrix', '_create_slice',              'slate_Matrix, int64_t i1, int64_t i2, int64_t j1, int64_t j2', 'slice(i1, i2, j1, j2)'],
+    ['void',         '_destroy',                   'slate_Matrix',                                                  'delete'],
+    # ['slate_Matrix', '_fromScaLAPACK',             '',                                                              ''],
+    ['void',         '_insertLocalTiles',          'slate_Matrix',                                                  'insertLocalTiles()'],
+    ['int64_t',      '_mt',                        'slate_Matrix',                                                  'mt()'],
+    ['int64_t',      '_nt',                        'slate_Matrix',                                                  'nt()'],
+    ['int64_t',      '_m',                         'slate_Matrix',                                                  'm()'],
+    ['int64_t',      '_n',                         'slate_Matrix',                                                  'n()'],
+    ['bool',         '_tileIsLocal',               'slate_Matrix, int64_t i, int64_t j',                            'tileIsLocal(i, j)'],
+    ['slate_Tile',   '_at',                        'slate_Matrix, int64_t i, int64_t j',                            'at(i, j)'],
+    ['void',         '_transpose_in_place',        'slate_Matrix',                                                  'transpose(*A_)'],
+    ['void',         '_conjTranspose_in_place',    'slate_Matrix',                                                  'conjTranspose(*A_)'],
 ]
 
 contents = ''
@@ -207,7 +207,11 @@ for matrix_type in matrix_types:
         contents += ';\n\n'
 
         for routine in matrix_routines:
+            # todo
             if matrix_type[0] == 'BandMatrix' and routine[1] == '_insertLocalTiles':
+                continue
+            # todo
+            if matrix_type[0] != 'Matrix' and routine[1] == '_create_slice':
                 continue
             ret = routine[0]
             if routine[0] == 'slate_Matrix':
@@ -226,14 +230,19 @@ for matrix_type in matrix_types:
             if routine[1] != '_create':
                 contents0 += '    auto* A_ = reinterpret_cast<slate::' + matrix_type[0] + '<' + data_type[2] + '>' + '*>(A);\n'
                 if routine[0] != 'void':
-                    if routine[0] != 'slate_Tile':
+                    if routine[0] != 'slate_Tile' and routine[0] != 'slate_Matrix':
                         contents0 += '    return(A_->' + routine[3] + ');\n'
+                    elif routine[0] == 'slate_Matrix' and routine[1] == '_create_slice':
+                        contents0 += '    auto* A_slice = new slate::' + matrix_type[0] + '<' + data_type[2] + '>(A_->' + routine[3] + ');\n'
+                        contents0 += '    return reinterpret_cast<slate_' + matrix_type[0] +  data_type[1] + '>(A_slice);\n'
                     else:
                         contents0 += '    slate::Tile<' +  data_type[2] + '> T = A_->at(i, j);\n'
                         contents0 += '    return(*reinterpret_cast<slate_Tile' +  data_type[1] + '*>(&T));\n'
                 else:
                     if routine[1] == '_destroy':
                         contents0 += '    ' + routine[3] + ' A_;\n'
+                    elif (routine[1] == '_conjTranspose_in_place') or (routine[1] == '_transpose_in_place'):
+                        contents0 += '    *A_ = slate::' + routine[3] + ';\n'
                     else:
                         contents0 += '    A_->' + routine[3] + ';\n'
             else:
@@ -313,7 +322,7 @@ file_hh.write('''\
 #endif
 \n''')
 
-file_hh.write('#endif // SLATE_C_API_TILE_H')
+file_hh.write('#endif // SLATE_C_API_MATRIX_H')
 
 file_hh.close()
 file_cc.close()

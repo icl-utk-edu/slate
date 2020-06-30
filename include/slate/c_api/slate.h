@@ -42,11 +42,9 @@
 
 #include "slate/internal/mpi.hh"
 
-#include "slate/c_api/wrappers_precisions.h"
 #include "slate/c_api/wrappers.h"
-#include "slate/c_api/Matrix.h"
+#include "slate/c_api/matrix.h"
 #include "slate/c_api/types.h"
-#include "slate/c_api/Tile.h"
 
 #include <stdbool.h>
 #include <complex.h>

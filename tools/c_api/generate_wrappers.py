@@ -10,37 +10,61 @@ data_types = [
     ['double _Complex', '_c64', 'std::complex<double>'],
 ]
 
-file = open(sys.argv[1], 'r')
-
-matrix_block_is_found = False
-function_is_found = False
-function_found = 0
-function_counter = 0
-functions = []
-container = ''
-for line in file:
-    if re.search(r'^void', line):
-        function_is_found = True
-    if re.search(r'\);', line):
-        function_is_found = False
-        container += line
-        functions.append(container)
-        container = ''
-    if (function_is_found):
-        container += line
-
-contents = ''
-for function in functions:
+def gen_precisions(f):
+    contents = ''
     for i in range(len(data_types)-1):
-        instance = re.sub(r'%s' % data_types[len(data_types)-1][1], r'%s' % data_types[i][1], function)
+        instance = re.sub(r'%s' % data_types[len(data_types)-1][1], r'%s' % data_types[i][1], f)
         instance = re.sub(r'%s' % data_types[len(data_types)-1][0], r'%s' % data_types[i][0], instance)
         instance = re.sub(r'%s' % data_types[len(data_types)-1][2], r'%s' % data_types[i][2], instance)
         if data_types[i][0] == 'float _Complex' or data_types[i][0] == 'float':
             instance = re.sub(r'double', r'float', instance)
-        contents += instance + '\n'
+        contents += instance
+    return contents
+
+function_is_found = False
+header_is_found   = False
+container2        = ''
+container         = ''
+functions         = []
+headers           = []
+
+file = open(sys.argv[1], 'r')
+for line in file:
+    if re.search(r'^ *// @begin function', line):
+        function_is_found = True
+        continue
+    if re.search(r'^void', line) or re.search(r'^double\s*slate_(.*?)norm_', line):
+        header_is_found = True
+
+    if re.search(r'\s*int\s*num_opts\s*,\s*slate_Options\s*opts\s*\[\s*\]\s*\)', line):
+        header_is_found = False
+        container2 += line.replace('\n', ';\n')
+        headers.append(container2)
+        container2 = ''
+    if re.search(r'^ *// @end function', line):
+        function_is_found = False
+        functions.append(container)
+        container = ''
+        continue
+    if (function_is_found):
+        container += line
+    if (header_is_found):
+        container2 += line
 file.close()
 
-print('''\
+contents = ''
+for function in functions:
+    contents += gen_precisions(function)
+
+contents2 = ''
+for header in headers:
+    contents2 += gen_precisions(header)
+    contents2 += header + '\n'
+
+file_hh = open('include/slate/c_api/wrappers.h',   'w')
+file_cc = open('src/c_api/wrappers_precisions.cc', 'w')
+
+copyright = '''\
 //------------------------------------------------------------------------------
 // Copyright (c) 2017, University of Tennessee
 // All rights reserved.
@@ -81,28 +105,43 @@ print('''\
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-// Auto-generated file by %s
+// Auto-generated file by ''' + sys.argv[0] + '\n'
 
-#ifndef SLATE_C_API_WRAPPERS_PRECISIONS_H
-#define SLATE_C_API_WRAPPERS_PRECISIONS_H
-''' % sys.argv[0])
+file_hh.write(copyright)
+file_hh.write('''\
+#ifndef SLATE_C_API_WRAPPERS_H
+#define SLATE_C_API_WRAPPERS_H
+\n''')
 
-print('''#include "slate/c_api/types.h"''')
-print('''#include "slate/c_api/Matrix.h"''')
+file_hh.write('#include "slate/c_api/matrix.h"\n')
+file_hh.write('#include "slate/c_api/types.h"\n\n')
 
-print('')
+file_hh.write('#include <complex.h>\n')
+file_hh.write('#include <stdbool.h>\n')
+file_hh.write('#include <stdint.h>\n')
+file_hh.write('\n')
 
-# print('''#include <stdbool.h>''')
-# print('''#include <stdint.h>''')
-# print('''#include <complex.h>''')
+file_cc.write(copyright + '\n')
+file_cc.write('#include "slate/c_api/wrappers.h"\n')
+file_cc.write('#include "slate/c_api/util.hh"\n')
+file_cc.write('#include "slate/slate.hh"\n\n')
 
-print('')
+file_hh.write('''\
+#ifdef __cplusplus
+extern "C" {
+#endif
+\n''')
 
-print('''#ifdef __cplusplus\nextern "C" {\n#endif\n''')
+file_cc.write(contents)
+file_hh.write(contents2)
 
-print('//' + ('-'*78))
+file_hh.write('''\
+#ifdef __cplusplus
+}  // extern "C"
+#endif
+\n''')
 
-print contents
+file_hh.write('#endif // SLATE_C_API_WRAPPERS_H')
 
-print('''#ifdef __cplusplus\n}  // extern "C"\n#endif\n''')
-print('''#endif // SLATE_C_API_WRAPPERS_PRECISIONS_H''')
+file_hh.close()
+file_cc.close()

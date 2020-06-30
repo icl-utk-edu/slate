@@ -3,13 +3,13 @@
 import sys
 import re
 
-file = open(sys.argv[1], 'r')
-
 enum       = []
 enums      = []
 enum_list  = []
 enum_name  = ''
 enum_start = False
+
+file = open(sys.argv[1], 'r')
 
 for line in file:
     s = re.search(r'^typedef\s*enum\s*(\w+)', line)
@@ -30,6 +30,8 @@ for line in file:
         line = line.split('=')[0]
         line = line.strip()
         enum_list.append(line)
+
+file.close()
 
 file_hh = open('include/slate/c_api/util.hh', 'w')
 file_cc = open('src/c_api/util.cc',           'w')
@@ -91,7 +93,6 @@ file_cc.write('#include "slate/c_api/util.hh"\n\n')
 
 file_hh.write('namespace slate {\n\n')
 file_cc.write('namespace slate {\n\n')
-
 
 for e in enums:
     prefix = e[0].replace('slate_', '')

@@ -710,7 +710,12 @@ src: $(libslate)
 #-------------------------------------------------------------------------------
 # headers
 # precompile headers to verify self-sufficiency
-headers     = $(wildcard include/slate/*.hh include/slate/internal/*.hh test/*.hh)
+headers     = $(wildcard include/slate/*.hh \
+                         include/slate/internal/*.hh \
+                         test/*.hh \
+                         include/slate/c_api/*.h \
+                         include/slate/c_api/*.hh)
+
 headers_gch = $(addsuffix .gch, $(basename $(headers)))
 
 headers: $(headers_gch)

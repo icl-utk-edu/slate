@@ -448,6 +448,12 @@ ifneq ($(HAVE_FORTRAN),)
 
 endif
 
+libslate_src += \
+        src/c_api/util.cc \
+				src/c_api/matrix.cc \
+				src/c_api/wrappers.cc \
+				src/c_api/wrappers_precisions.cc \
+
 # main tester
 tester_src += \
         test/test.cc \
@@ -624,6 +630,22 @@ uninstall:
 
 docs:
 	doxygen docs/doxygen/doxyfile.conf
+
+#-------------------------------------------------------------------------------
+# C API
+include/slate/c_api/wrappers.h: src/c_api/matrix.cc
+	python tools/c_api/generate_wrappers.py $< $@
+
+include/slate/c_api/matrix.h: include/slate/Tile.hh src/c_api/util.cc
+	python tools/c_api/generate_matrix.py $< $@
+
+include/slate/c_api/util.hh: include/slate/c_api/types.h
+	python tools/c_api/generate_util.py $< $@
+
+src/c_api/wrappers_precisions.cc: include/slate/c_api/wrappers.h
+src/c_api/wrappers.cc: src/c_api/wrappers_precisions.cc
+src/c_api/matrix.cc: include/slate/c_api/matrix.h
+src/c_api/util.cc: include/slate/c_api/util.hh
 
 #-------------------------------------------------------------------------------
 # testsweeper library

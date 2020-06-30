@@ -450,9 +450,9 @@ endif
 
 libslate_src += \
         src/c_api/util.cc \
-				src/c_api/matrix.cc \
-				src/c_api/wrappers.cc \
-				src/c_api/wrappers_precisions.cc \
+        src/c_api/matrix.cc \
+        src/c_api/wrappers.cc \
+        src/c_api/wrappers_precisions.cc \
 
 # main tester
 tester_src += \

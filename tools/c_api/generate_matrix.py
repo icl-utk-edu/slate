@@ -160,7 +160,9 @@ for template in templates:
             file_hh.write(s + ';\n\n')
             file_cc.write(s + '\n{\n')
             file_cc.write('    assert(sizeof(slate_Tile_c64) == sizeof(' + t +'));\n')
-            file_cc.write('    auto T_ = *reinterpret_cast<' + t +'*>(&T);\n')
+            file_cc.write('    ' + t + ' T_;\n')
+            file_cc.write('    std::memcpy(&T_, &T, sizeof(' + t + '));\n')
+            # file_cc.write('    auto T_ = *reinterpret_cast<' + t +'*>(&T);\n')
             file_cc.write('    return(')
             if (routine[index_routine_ret] == typename):
                 file_cc.write('('+ type[index_data_type] +'*)')
@@ -237,7 +239,11 @@ for matrix_type in matrix_types:
                         contents0 += '    return reinterpret_cast<slate_' + matrix_type[0] +  data_type[1] + '>(A_slice);\n'
                     else:
                         contents0 += '    slate::Tile<' +  data_type[2] + '> T = A_->at(i, j);\n'
-                        contents0 += '    return(*reinterpret_cast<slate_Tile' +  data_type[1] + '*>(&T));\n'
+                        contents0 += '    slate_Tile' +  data_type[1] + ' T_;\n'
+                        contents0 += '    std::memcpy(&T_, &T, sizeof(slate::Tile<' +  data_type[2] + '>));\n'
+                        contents0 += '    return(T_);\n'
+                        # contents0 += '    slate::Tile<' +  data_type[2] + '> T = A_->at(i, j);\n'
+                        # contents0 += '    return(*reinterpret_cast<slate_Tile' +  data_type[1] + '*>(&T));\n'
                 else:
                     if routine[1] == '_destroy':
                         contents0 += '    ' + routine[3] + ' A_;\n'

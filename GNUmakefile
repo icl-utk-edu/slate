@@ -614,10 +614,13 @@ install: lib
 	@echo
 	cd lapackpp && $(MAKE) install prefix=${prefix}
 	@echo
+	mkdir -p $(DESTDIR)$(prefix)/include/slate/c_api
 	mkdir -p $(DESTDIR)$(prefix)/include/slate/internal
 	mkdir -p $(DESTDIR)$(prefix)/lib$(LIB_SUFFIX)
 	cp include/slate/*.hh          $(DESTDIR)$(prefix)/include/slate
 	cp include/slate/internal/*.hh $(DESTDIR)$(prefix)/include/slate/internal
+	cp include/slate/c_api/*.h     $(DESTDIR)$(prefix)/include/slate/c_api
+	cp include/slate/c_api/*.hh    $(DESTDIR)$(prefix)/include/slate/c_api
 	cp lib/lib*                    $(DESTDIR)$(prefix)/lib$(LIB_SUFFIX)
 
 uninstall:
@@ -633,17 +636,16 @@ docs:
 
 #-------------------------------------------------------------------------------
 # C API
-include/slate/c_api/wrappers.h: src/c_api/matrix.cc
+include/slate/c_api/wrappers.h: src/c_api/wrappers.cc
 	python tools/c_api/generate_wrappers.py $< $@
 
-include/slate/c_api/matrix.h: include/slate/Tile.hh src/c_api/util.cc
+include/slate/c_api/matrix.h: include/slate/Tile.hh
 	python tools/c_api/generate_matrix.py $< $@
 
 include/slate/c_api/util.hh: include/slate/c_api/types.h
 	python tools/c_api/generate_util.py $< $@
 
 src/c_api/wrappers_precisions.cc: include/slate/c_api/wrappers.h
-src/c_api/wrappers.cc: src/c_api/wrappers_precisions.cc
 src/c_api/matrix.cc: include/slate/c_api/matrix.h
 src/c_api/util.cc: include/slate/c_api/util.hh
 
@@ -863,6 +865,12 @@ clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean include/c
 
 distclean: clean
 	rm -f $(dep)
+	rm -f src/c_api/matrix.cc
+	rm -f src/c_api/wrappers_precisions.cc 
+	rm -f src/c_api/util.cc
+	rm -f include/slate/c_api/wrappers.h
+	rm -f include/slate/c_api/matrix.h
+	rm -f include/slate/c_api/util.hh
 	cd testsweeper && $(MAKE) distclean
 	cd blaspp      && $(MAKE) distclean
 	cd lapackpp    && $(MAKE) distclean

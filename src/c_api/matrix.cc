@@ -48,112 +48,128 @@
 int64_t slate_Tile_mb_r32(slate_Tile_r32 T)
 {
     assert(sizeof(slate_Tile_c64) == sizeof(slate::Tile<float>));
-    auto T_ = *reinterpret_cast<slate::Tile<float>*>(&T);
+    slate::Tile<float> T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<float>));
     return(T_.mb());
 }
 /// slate::Tile<float>::nb()
 int64_t slate_Tile_nb_r32(slate_Tile_r32 T)
 {
     assert(sizeof(slate_Tile_c64) == sizeof(slate::Tile<float>));
-    auto T_ = *reinterpret_cast<slate::Tile<float>*>(&T);
+    slate::Tile<float> T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<float>));
     return(T_.nb());
 }
 /// slate::Tile<float>::stride()
 int64_t slate_Tile_stride_r32(slate_Tile_r32 T)
 {
     assert(sizeof(slate_Tile_c64) == sizeof(slate::Tile<float>));
-    auto T_ = *reinterpret_cast<slate::Tile<float>*>(&T);
+    slate::Tile<float> T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<float>));
     return(T_.stride());
 }
 /// slate::Tile<float>::data()
 float* slate_Tile_data_r32(slate_Tile_r32 T)
 {
     assert(sizeof(slate_Tile_c64) == sizeof(slate::Tile<float>));
-    auto T_ = *reinterpret_cast<slate::Tile<float>*>(&T);
+    slate::Tile<float> T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<float>));
     return((float*)T_.data());
 }
 /// slate::Tile<double>::mb()
 int64_t slate_Tile_mb_r64(slate_Tile_r64 T)
 {
     assert(sizeof(slate_Tile_c64) == sizeof(slate::Tile<double>));
-    auto T_ = *reinterpret_cast<slate::Tile<double>*>(&T);
+    slate::Tile<double> T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<double>));
     return(T_.mb());
 }
 /// slate::Tile<double>::nb()
 int64_t slate_Tile_nb_r64(slate_Tile_r64 T)
 {
     assert(sizeof(slate_Tile_c64) == sizeof(slate::Tile<double>));
-    auto T_ = *reinterpret_cast<slate::Tile<double>*>(&T);
+    slate::Tile<double> T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<double>));
     return(T_.nb());
 }
 /// slate::Tile<double>::stride()
 int64_t slate_Tile_stride_r64(slate_Tile_r64 T)
 {
     assert(sizeof(slate_Tile_c64) == sizeof(slate::Tile<double>));
-    auto T_ = *reinterpret_cast<slate::Tile<double>*>(&T);
+    slate::Tile<double> T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<double>));
     return(T_.stride());
 }
 /// slate::Tile<double>::data()
 double* slate_Tile_data_r64(slate_Tile_r64 T)
 {
     assert(sizeof(slate_Tile_c64) == sizeof(slate::Tile<double>));
-    auto T_ = *reinterpret_cast<slate::Tile<double>*>(&T);
+    slate::Tile<double> T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<double>));
     return((double*)T_.data());
 }
 /// slate::Tile<std::complex<float>>::mb()
 int64_t slate_Tile_mb_c32(slate_Tile_c32 T)
 {
     assert(sizeof(slate_Tile_c64) == sizeof(slate::Tile<std::complex<float>>));
-    auto T_ = *reinterpret_cast<slate::Tile<std::complex<float>>*>(&T);
+    slate::Tile<std::complex<float>> T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<float>>));
     return(T_.mb());
 }
 /// slate::Tile<std::complex<float>>::nb()
 int64_t slate_Tile_nb_c32(slate_Tile_c32 T)
 {
     assert(sizeof(slate_Tile_c64) == sizeof(slate::Tile<std::complex<float>>));
-    auto T_ = *reinterpret_cast<slate::Tile<std::complex<float>>*>(&T);
+    slate::Tile<std::complex<float>> T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<float>>));
     return(T_.nb());
 }
 /// slate::Tile<std::complex<float>>::stride()
 int64_t slate_Tile_stride_c32(slate_Tile_c32 T)
 {
     assert(sizeof(slate_Tile_c64) == sizeof(slate::Tile<std::complex<float>>));
-    auto T_ = *reinterpret_cast<slate::Tile<std::complex<float>>*>(&T);
+    slate::Tile<std::complex<float>> T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<float>>));
     return(T_.stride());
 }
 /// slate::Tile<std::complex<float>>::data()
 float _Complex* slate_Tile_data_c32(slate_Tile_c32 T)
 {
     assert(sizeof(slate_Tile_c64) == sizeof(slate::Tile<std::complex<float>>));
-    auto T_ = *reinterpret_cast<slate::Tile<std::complex<float>>*>(&T);
+    slate::Tile<std::complex<float>> T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<float>>));
     return((float _Complex*)T_.data());
 }
 /// slate::Tile<std::complex<double>>::mb()
 int64_t slate_Tile_mb_c64(slate_Tile_c64 T)
 {
     assert(sizeof(slate_Tile_c64) == sizeof(slate::Tile<std::complex<double>>));
-    auto T_ = *reinterpret_cast<slate::Tile<std::complex<double>>*>(&T);
+    slate::Tile<std::complex<double>> T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<double>>));
     return(T_.mb());
 }
 /// slate::Tile<std::complex<double>>::nb()
 int64_t slate_Tile_nb_c64(slate_Tile_c64 T)
 {
     assert(sizeof(slate_Tile_c64) == sizeof(slate::Tile<std::complex<double>>));
-    auto T_ = *reinterpret_cast<slate::Tile<std::complex<double>>*>(&T);
+    slate::Tile<std::complex<double>> T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<double>>));
     return(T_.nb());
 }
 /// slate::Tile<std::complex<double>>::stride()
 int64_t slate_Tile_stride_c64(slate_Tile_c64 T)
 {
     assert(sizeof(slate_Tile_c64) == sizeof(slate::Tile<std::complex<double>>));
-    auto T_ = *reinterpret_cast<slate::Tile<std::complex<double>>*>(&T);
+    slate::Tile<std::complex<double>> T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<double>>));
     return(T_.stride());
 }
 /// slate::Tile<std::complex<double>>::data()
 double _Complex* slate_Tile_data_c64(slate_Tile_c64 T)
 {
     assert(sizeof(slate_Tile_c64) == sizeof(slate::Tile<std::complex<double>>));
-    auto T_ = *reinterpret_cast<slate::Tile<std::complex<double>>*>(&T);
+    slate::Tile<std::complex<double>> T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<double>>));
     return((double _Complex*)T_.data());
 }
 slate_Matrix_r32 slate_Matrix_create_r32(int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
@@ -206,7 +222,9 @@ slate_Tile_r32 slate_Matrix_at_r32(slate_Matrix_r32 A, int64_t i, int64_t j)
 {
     auto* A_ = reinterpret_cast<slate::Matrix<float>*>(A);
     slate::Tile<float> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_r32*>(&T));
+    slate_Tile_r32 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<float>));
+    return(T_);
 }
 void slate_Matrix_transpose_in_place_r32(slate_Matrix_r32 A)
 {
@@ -268,7 +286,9 @@ slate_Tile_r64 slate_Matrix_at_r64(slate_Matrix_r64 A, int64_t i, int64_t j)
 {
     auto* A_ = reinterpret_cast<slate::Matrix<double>*>(A);
     slate::Tile<double> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_r64*>(&T));
+    slate_Tile_r64 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<double>));
+    return(T_);
 }
 void slate_Matrix_transpose_in_place_r64(slate_Matrix_r64 A)
 {
@@ -330,7 +350,9 @@ slate_Tile_c32 slate_Matrix_at_c32(slate_Matrix_c32 A, int64_t i, int64_t j)
 {
     auto* A_ = reinterpret_cast<slate::Matrix<std::complex<float>>*>(A);
     slate::Tile<std::complex<float>> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_c32*>(&T));
+    slate_Tile_c32 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<float>>));
+    return(T_);
 }
 void slate_Matrix_transpose_in_place_c32(slate_Matrix_c32 A)
 {
@@ -392,7 +414,9 @@ slate_Tile_c64 slate_Matrix_at_c64(slate_Matrix_c64 A, int64_t i, int64_t j)
 {
     auto* A_ = reinterpret_cast<slate::Matrix<std::complex<double>>*>(A);
     slate::Tile<std::complex<double>> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_c64*>(&T));
+    slate_Tile_c64 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<double>>));
+    return(T_);
 }
 void slate_Matrix_transpose_in_place_c64(slate_Matrix_c64 A)
 {
@@ -444,7 +468,9 @@ slate_Tile_r32 slate_BandMatrix_at_r32(slate_BandMatrix_r32 A, int64_t i, int64_
 {
     auto* A_ = reinterpret_cast<slate::BandMatrix<float>*>(A);
     slate::Tile<float> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_r32*>(&T));
+    slate_Tile_r32 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<float>));
+    return(T_);
 }
 void slate_BandMatrix_transpose_in_place_r32(slate_BandMatrix_r32 A)
 {
@@ -495,7 +521,9 @@ slate_Tile_r64 slate_BandMatrix_at_r64(slate_BandMatrix_r64 A, int64_t i, int64_
 {
     auto* A_ = reinterpret_cast<slate::BandMatrix<double>*>(A);
     slate::Tile<double> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_r64*>(&T));
+    slate_Tile_r64 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<double>));
+    return(T_);
 }
 void slate_BandMatrix_transpose_in_place_r64(slate_BandMatrix_r64 A)
 {
@@ -546,7 +574,9 @@ slate_Tile_c32 slate_BandMatrix_at_c32(slate_BandMatrix_c32 A, int64_t i, int64_
 {
     auto* A_ = reinterpret_cast<slate::BandMatrix<std::complex<float>>*>(A);
     slate::Tile<std::complex<float>> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_c32*>(&T));
+    slate_Tile_c32 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<float>>));
+    return(T_);
 }
 void slate_BandMatrix_transpose_in_place_c32(slate_BandMatrix_c32 A)
 {
@@ -597,7 +627,9 @@ slate_Tile_c64 slate_BandMatrix_at_c64(slate_BandMatrix_c64 A, int64_t i, int64_
 {
     auto* A_ = reinterpret_cast<slate::BandMatrix<std::complex<double>>*>(A);
     slate::Tile<std::complex<double>> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_c64*>(&T));
+    slate_Tile_c64 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<double>>));
+    return(T_);
 }
 void slate_BandMatrix_transpose_in_place_c64(slate_BandMatrix_c64 A)
 {
@@ -654,7 +686,9 @@ slate_Tile_r32 slate_HermitianMatrix_at_r32(slate_HermitianMatrix_r32 A, int64_t
 {
     auto* A_ = reinterpret_cast<slate::HermitianMatrix<float>*>(A);
     slate::Tile<float> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_r32*>(&T));
+    slate_Tile_r32 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<float>));
+    return(T_);
 }
 void slate_HermitianMatrix_transpose_in_place_r32(slate_HermitianMatrix_r32 A)
 {
@@ -710,7 +744,9 @@ slate_Tile_r64 slate_HermitianMatrix_at_r64(slate_HermitianMatrix_r64 A, int64_t
 {
     auto* A_ = reinterpret_cast<slate::HermitianMatrix<double>*>(A);
     slate::Tile<double> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_r64*>(&T));
+    slate_Tile_r64 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<double>));
+    return(T_);
 }
 void slate_HermitianMatrix_transpose_in_place_r64(slate_HermitianMatrix_r64 A)
 {
@@ -766,7 +802,9 @@ slate_Tile_c32 slate_HermitianMatrix_at_c32(slate_HermitianMatrix_c32 A, int64_t
 {
     auto* A_ = reinterpret_cast<slate::HermitianMatrix<std::complex<float>>*>(A);
     slate::Tile<std::complex<float>> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_c32*>(&T));
+    slate_Tile_c32 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<float>>));
+    return(T_);
 }
 void slate_HermitianMatrix_transpose_in_place_c32(slate_HermitianMatrix_c32 A)
 {
@@ -822,7 +860,9 @@ slate_Tile_c64 slate_HermitianMatrix_at_c64(slate_HermitianMatrix_c64 A, int64_t
 {
     auto* A_ = reinterpret_cast<slate::HermitianMatrix<std::complex<double>>*>(A);
     slate::Tile<std::complex<double>> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_c64*>(&T));
+    slate_Tile_c64 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<double>>));
+    return(T_);
 }
 void slate_HermitianMatrix_transpose_in_place_c64(slate_HermitianMatrix_c64 A)
 {
@@ -879,7 +919,9 @@ slate_Tile_r32 slate_HermitianBandMatrix_at_r32(slate_HermitianBandMatrix_r32 A,
 {
     auto* A_ = reinterpret_cast<slate::HermitianBandMatrix<float>*>(A);
     slate::Tile<float> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_r32*>(&T));
+    slate_Tile_r32 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<float>));
+    return(T_);
 }
 void slate_HermitianBandMatrix_transpose_in_place_r32(slate_HermitianBandMatrix_r32 A)
 {
@@ -935,7 +977,9 @@ slate_Tile_r64 slate_HermitianBandMatrix_at_r64(slate_HermitianBandMatrix_r64 A,
 {
     auto* A_ = reinterpret_cast<slate::HermitianBandMatrix<double>*>(A);
     slate::Tile<double> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_r64*>(&T));
+    slate_Tile_r64 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<double>));
+    return(T_);
 }
 void slate_HermitianBandMatrix_transpose_in_place_r64(slate_HermitianBandMatrix_r64 A)
 {
@@ -991,7 +1035,9 @@ slate_Tile_c32 slate_HermitianBandMatrix_at_c32(slate_HermitianBandMatrix_c32 A,
 {
     auto* A_ = reinterpret_cast<slate::HermitianBandMatrix<std::complex<float>>*>(A);
     slate::Tile<std::complex<float>> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_c32*>(&T));
+    slate_Tile_c32 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<float>>));
+    return(T_);
 }
 void slate_HermitianBandMatrix_transpose_in_place_c32(slate_HermitianBandMatrix_c32 A)
 {
@@ -1047,7 +1093,9 @@ slate_Tile_c64 slate_HermitianBandMatrix_at_c64(slate_HermitianBandMatrix_c64 A,
 {
     auto* A_ = reinterpret_cast<slate::HermitianBandMatrix<std::complex<double>>*>(A);
     slate::Tile<std::complex<double>> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_c64*>(&T));
+    slate_Tile_c64 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<double>>));
+    return(T_);
 }
 void slate_HermitianBandMatrix_transpose_in_place_c64(slate_HermitianBandMatrix_c64 A)
 {
@@ -1104,7 +1152,9 @@ slate_Tile_r32 slate_TriangularMatrix_at_r32(slate_TriangularMatrix_r32 A, int64
 {
     auto* A_ = reinterpret_cast<slate::TriangularMatrix<float>*>(A);
     slate::Tile<float> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_r32*>(&T));
+    slate_Tile_r32 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<float>));
+    return(T_);
 }
 void slate_TriangularMatrix_transpose_in_place_r32(slate_TriangularMatrix_r32 A)
 {
@@ -1160,7 +1210,9 @@ slate_Tile_r64 slate_TriangularMatrix_at_r64(slate_TriangularMatrix_r64 A, int64
 {
     auto* A_ = reinterpret_cast<slate::TriangularMatrix<double>*>(A);
     slate::Tile<double> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_r64*>(&T));
+    slate_Tile_r64 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<double>));
+    return(T_);
 }
 void slate_TriangularMatrix_transpose_in_place_r64(slate_TriangularMatrix_r64 A)
 {
@@ -1216,7 +1268,9 @@ slate_Tile_c32 slate_TriangularMatrix_at_c32(slate_TriangularMatrix_c32 A, int64
 {
     auto* A_ = reinterpret_cast<slate::TriangularMatrix<std::complex<float>>*>(A);
     slate::Tile<std::complex<float>> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_c32*>(&T));
+    slate_Tile_c32 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<float>>));
+    return(T_);
 }
 void slate_TriangularMatrix_transpose_in_place_c32(slate_TriangularMatrix_c32 A)
 {
@@ -1272,7 +1326,9 @@ slate_Tile_c64 slate_TriangularMatrix_at_c64(slate_TriangularMatrix_c64 A, int64
 {
     auto* A_ = reinterpret_cast<slate::TriangularMatrix<std::complex<double>>*>(A);
     slate::Tile<std::complex<double>> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_c64*>(&T));
+    slate_Tile_c64 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<double>>));
+    return(T_);
 }
 void slate_TriangularMatrix_transpose_in_place_c64(slate_TriangularMatrix_c64 A)
 {
@@ -1329,7 +1385,9 @@ slate_Tile_r32 slate_TriangularBandMatrix_at_r32(slate_TriangularBandMatrix_r32 
 {
     auto* A_ = reinterpret_cast<slate::TriangularBandMatrix<float>*>(A);
     slate::Tile<float> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_r32*>(&T));
+    slate_Tile_r32 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<float>));
+    return(T_);
 }
 void slate_TriangularBandMatrix_transpose_in_place_r32(slate_TriangularBandMatrix_r32 A)
 {
@@ -1385,7 +1443,9 @@ slate_Tile_r64 slate_TriangularBandMatrix_at_r64(slate_TriangularBandMatrix_r64 
 {
     auto* A_ = reinterpret_cast<slate::TriangularBandMatrix<double>*>(A);
     slate::Tile<double> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_r64*>(&T));
+    slate_Tile_r64 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<double>));
+    return(T_);
 }
 void slate_TriangularBandMatrix_transpose_in_place_r64(slate_TriangularBandMatrix_r64 A)
 {
@@ -1441,7 +1501,9 @@ slate_Tile_c32 slate_TriangularBandMatrix_at_c32(slate_TriangularBandMatrix_c32 
 {
     auto* A_ = reinterpret_cast<slate::TriangularBandMatrix<std::complex<float>>*>(A);
     slate::Tile<std::complex<float>> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_c32*>(&T));
+    slate_Tile_c32 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<float>>));
+    return(T_);
 }
 void slate_TriangularBandMatrix_transpose_in_place_c32(slate_TriangularBandMatrix_c32 A)
 {
@@ -1497,7 +1559,9 @@ slate_Tile_c64 slate_TriangularBandMatrix_at_c64(slate_TriangularBandMatrix_c64 
 {
     auto* A_ = reinterpret_cast<slate::TriangularBandMatrix<std::complex<double>>*>(A);
     slate::Tile<std::complex<double>> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_c64*>(&T));
+    slate_Tile_c64 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<double>>));
+    return(T_);
 }
 void slate_TriangularBandMatrix_transpose_in_place_c64(slate_TriangularBandMatrix_c64 A)
 {
@@ -1554,7 +1618,9 @@ slate_Tile_r32 slate_SymmetricMatrix_at_r32(slate_SymmetricMatrix_r32 A, int64_t
 {
     auto* A_ = reinterpret_cast<slate::SymmetricMatrix<float>*>(A);
     slate::Tile<float> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_r32*>(&T));
+    slate_Tile_r32 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<float>));
+    return(T_);
 }
 void slate_SymmetricMatrix_transpose_in_place_r32(slate_SymmetricMatrix_r32 A)
 {
@@ -1610,7 +1676,9 @@ slate_Tile_r64 slate_SymmetricMatrix_at_r64(slate_SymmetricMatrix_r64 A, int64_t
 {
     auto* A_ = reinterpret_cast<slate::SymmetricMatrix<double>*>(A);
     slate::Tile<double> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_r64*>(&T));
+    slate_Tile_r64 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<double>));
+    return(T_);
 }
 void slate_SymmetricMatrix_transpose_in_place_r64(slate_SymmetricMatrix_r64 A)
 {
@@ -1666,7 +1734,9 @@ slate_Tile_c32 slate_SymmetricMatrix_at_c32(slate_SymmetricMatrix_c32 A, int64_t
 {
     auto* A_ = reinterpret_cast<slate::SymmetricMatrix<std::complex<float>>*>(A);
     slate::Tile<std::complex<float>> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_c32*>(&T));
+    slate_Tile_c32 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<float>>));
+    return(T_);
 }
 void slate_SymmetricMatrix_transpose_in_place_c32(slate_SymmetricMatrix_c32 A)
 {
@@ -1722,7 +1792,9 @@ slate_Tile_c64 slate_SymmetricMatrix_at_c64(slate_SymmetricMatrix_c64 A, int64_t
 {
     auto* A_ = reinterpret_cast<slate::SymmetricMatrix<std::complex<double>>*>(A);
     slate::Tile<std::complex<double>> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_c64*>(&T));
+    slate_Tile_c64 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<double>>));
+    return(T_);
 }
 void slate_SymmetricMatrix_transpose_in_place_c64(slate_SymmetricMatrix_c64 A)
 {
@@ -1779,7 +1851,9 @@ slate_Tile_r32 slate_TrapezoidMatrix_at_r32(slate_TrapezoidMatrix_r32 A, int64_t
 {
     auto* A_ = reinterpret_cast<slate::TrapezoidMatrix<float>*>(A);
     slate::Tile<float> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_r32*>(&T));
+    slate_Tile_r32 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<float>));
+    return(T_);
 }
 void slate_TrapezoidMatrix_transpose_in_place_r32(slate_TrapezoidMatrix_r32 A)
 {
@@ -1835,7 +1909,9 @@ slate_Tile_r64 slate_TrapezoidMatrix_at_r64(slate_TrapezoidMatrix_r64 A, int64_t
 {
     auto* A_ = reinterpret_cast<slate::TrapezoidMatrix<double>*>(A);
     slate::Tile<double> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_r64*>(&T));
+    slate_Tile_r64 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<double>));
+    return(T_);
 }
 void slate_TrapezoidMatrix_transpose_in_place_r64(slate_TrapezoidMatrix_r64 A)
 {
@@ -1891,7 +1967,9 @@ slate_Tile_c32 slate_TrapezoidMatrix_at_c32(slate_TrapezoidMatrix_c32 A, int64_t
 {
     auto* A_ = reinterpret_cast<slate::TrapezoidMatrix<std::complex<float>>*>(A);
     slate::Tile<std::complex<float>> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_c32*>(&T));
+    slate_Tile_c32 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<float>>));
+    return(T_);
 }
 void slate_TrapezoidMatrix_transpose_in_place_c32(slate_TrapezoidMatrix_c32 A)
 {
@@ -1947,7 +2025,9 @@ slate_Tile_c64 slate_TrapezoidMatrix_at_c64(slate_TrapezoidMatrix_c64 A, int64_t
 {
     auto* A_ = reinterpret_cast<slate::TrapezoidMatrix<std::complex<double>>*>(A);
     slate::Tile<std::complex<double>> T = A_->at(i, j);
-    return(*reinterpret_cast<slate_Tile_c64*>(&T));
+    slate_Tile_c64 T_;
+    std::memcpy(&T_, &T, sizeof(slate::Tile<std::complex<double>>));
+    return(T_);
 }
 void slate_TrapezoidMatrix_transpose_in_place_c64(slate_TrapezoidMatrix_c64 A)
 {

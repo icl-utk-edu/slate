@@ -1887,7 +1887,7 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     int64_t i, int64_t j, std::set<int> const& bcast_set)
 {
     // this function does not use tags, kept for reference
-    assert("This variant of tileBcastToSet() is deprecated");
+    assert(false);  // This variant of tileBcastToSet() is obsolete
 
     // Quit if only root in the broadcast set.
     if (bcast_set.size() == 1)

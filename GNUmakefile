@@ -448,11 +448,19 @@ ifneq ($(HAVE_FORTRAN),)
 
 endif
 
+# C API
 libslate_src += \
         src/c_api/util.cc \
         src/c_api/matrix.cc \
         src/c_api/wrappers.cc \
         src/c_api/wrappers_precisions.cc \
+
+# Fortran module
+ifneq ($(HAVE_FORTRAN),)
+    libslate_src += \
+        src/c_api/slate_module.f90 \
+
+endif
 
 # main tester
 tester_src += \
@@ -879,6 +887,9 @@ distclean: clean
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 %.o: %.f
+	$(FC) $(FCFLAGS) -c $< -o $@
+
+%.o: %.f90
 	$(FC) $(FCFLAGS) -c $< -o $@
 
 %.o: %.cu

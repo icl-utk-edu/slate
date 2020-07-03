@@ -1,3 +1,8 @@
+// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// This program is free software: you can redistribute it and/or modify it under
+// the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
+
 #include <complex>
 
 #include <iostream>
@@ -450,9 +455,8 @@ int run(int argc, char** argv)
             std::string args = buf;
 
             // Input line.
-            args += "input: ";
-            args += argv[0];
-            for (int i = 1; i < argc; ++i) {
+            args += "input:";
+            for (int i = 0; i < argc; ++i) {
                 args += ' ';
                 args += argv[i];
             }
@@ -475,10 +479,10 @@ int run(int argc, char** argv)
             slate::trace::Trace::comment(args);
         }
 
-        // Usage: test routine [params]
-        if (argc < 2 ||
-            strcmp(argv[1], "-h") == 0 ||
-            strcmp(argv[1], "--help") == 0)
+        // Usage: test [params] routine
+        if (argc < 2
+            || strcmp( argv[argc-1], "-h" ) == 0
+            || strcmp( argv[argc-1], "--help" ) == 0)
         {
             if (print)
                 usage(argc, argv, routines, section_names);
@@ -491,8 +495,8 @@ int run(int argc, char** argv)
         }
 
         // find routine to test
-        const char* routine = argv[1];
-        testsweeper::test_func_ptr test_routine = find_tester(routine, routines);
+        const char* routine = argv[ argc-1 ];
+        testsweeper::test_func_ptr test_routine = find_tester( routine, routines );
         if (test_routine == nullptr) {
             if (print)
                 usage(argc, argv, routines, section_names);
@@ -516,9 +520,9 @@ int run(int argc, char** argv)
         params.p() = p;
         params.q() = q;
 
-        // parse parameters after routine name
+        // parse parameters up to routine name.
         try {
-            params.parse(routine, argc - 2, argv + 2);
+            params.parse( routine, argc-2, argv+1 );
         }
         catch (const std::exception& ex) {
             if (print)

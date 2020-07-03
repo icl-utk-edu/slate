@@ -551,7 +551,7 @@ def print_tee( *args ):
 # cmd is a pair of strings: (function, args)
 
 def run_test( cmd ):
-    cmd = opts.test +' '+ cmd[0] +' '+ cmd[1]
+    cmd = opts.test +' '+ cmd[1] +' '+ cmd[0]
     print_tee( cmd )
     output = ''
     p = subprocess.Popen( cmd.split(), stdout=subprocess.PIPE,

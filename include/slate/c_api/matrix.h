@@ -197,6 +197,8 @@ typedef struct slate_Matrix_struct_r32* slate_Matrix_r32;
 
 slate_Matrix_r32 slate_Matrix_create_r32(int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
+slate_Matrix_r32 slate_Matrix_create_fromScaLAPACK_r32(int64_t m, int64_t n, float* A, int64_t lda, int64_t mb, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
 slate_Matrix_r32 slate_Matrix_create_slice_r32(slate_Matrix_r32 A, int64_t i1, int64_t i2, int64_t j1, int64_t j2);
 
 void slate_Matrix_destroy_r32(slate_Matrix_r32 A);
@@ -224,6 +226,8 @@ struct slate_Matrix_struct_r64;
 typedef struct slate_Matrix_struct_r64* slate_Matrix_r64;
 
 slate_Matrix_r64 slate_Matrix_create_r64(int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
+slate_Matrix_r64 slate_Matrix_create_fromScaLAPACK_r64(int64_t m, int64_t n, double* A, int64_t lda, int64_t mb, int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
 slate_Matrix_r64 slate_Matrix_create_slice_r64(slate_Matrix_r64 A, int64_t i1, int64_t i2, int64_t j1, int64_t j2);
 
@@ -253,6 +257,8 @@ typedef struct slate_Matrix_struct_c32* slate_Matrix_c32;
 
 slate_Matrix_c32 slate_Matrix_create_c32(int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
+slate_Matrix_c32 slate_Matrix_create_fromScaLAPACK_c32(int64_t m, int64_t n, float _Complex* A, int64_t lda, int64_t mb, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
 slate_Matrix_c32 slate_Matrix_create_slice_c32(slate_Matrix_c32 A, int64_t i1, int64_t i2, int64_t j1, int64_t j2);
 
 void slate_Matrix_destroy_c32(slate_Matrix_c32 A);
@@ -280,6 +286,8 @@ struct slate_Matrix_struct_c64;
 typedef struct slate_Matrix_struct_c64* slate_Matrix_c64;
 
 slate_Matrix_c64 slate_Matrix_create_c64(int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
+slate_Matrix_c64 slate_Matrix_create_fromScaLAPACK_c64(int64_t m, int64_t n, double _Complex* A, int64_t lda, int64_t mb, int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
 slate_Matrix_c64 slate_Matrix_create_slice_c64(slate_Matrix_c64 A, int64_t i1, int64_t i2, int64_t j1, int64_t j2);
 
@@ -407,6 +415,8 @@ typedef struct slate_HermitianMatrix_struct_r32* slate_HermitianMatrix_r32;
 
 slate_HermitianMatrix_r32 slate_HermitianMatrix_create_r32(slate_Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
+slate_HermitianMatrix_r32 slate_HermitianMatrix_create_fromScaLAPACK_r32(slate_Uplo uplo, int64_t n, float* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
 void slate_HermitianMatrix_destroy_r32(slate_HermitianMatrix_r32 A);
 
 void slate_HermitianMatrix_insertLocalTiles_r32(slate_HermitianMatrix_r32 A);
@@ -432,6 +442,8 @@ struct slate_HermitianMatrix_struct_r64;
 typedef struct slate_HermitianMatrix_struct_r64* slate_HermitianMatrix_r64;
 
 slate_HermitianMatrix_r64 slate_HermitianMatrix_create_r64(slate_Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
+slate_HermitianMatrix_r64 slate_HermitianMatrix_create_fromScaLAPACK_r64(slate_Uplo uplo, int64_t n, double* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
 void slate_HermitianMatrix_destroy_r64(slate_HermitianMatrix_r64 A);
 
@@ -459,6 +471,8 @@ typedef struct slate_HermitianMatrix_struct_c32* slate_HermitianMatrix_c32;
 
 slate_HermitianMatrix_c32 slate_HermitianMatrix_create_c32(slate_Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
+slate_HermitianMatrix_c32 slate_HermitianMatrix_create_fromScaLAPACK_c32(slate_Uplo uplo, int64_t n, float _Complex* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
 void slate_HermitianMatrix_destroy_c32(slate_HermitianMatrix_c32 A);
 
 void slate_HermitianMatrix_insertLocalTiles_c32(slate_HermitianMatrix_c32 A);
@@ -484,6 +498,8 @@ struct slate_HermitianMatrix_struct_c64;
 typedef struct slate_HermitianMatrix_struct_c64* slate_HermitianMatrix_c64;
 
 slate_HermitianMatrix_c64 slate_HermitianMatrix_create_c64(slate_Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
+slate_HermitianMatrix_c64 slate_HermitianMatrix_create_fromScaLAPACK_c64(slate_Uplo uplo, int64_t n, double _Complex* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
 void slate_HermitianMatrix_destroy_c64(slate_HermitianMatrix_c64 A);
 
@@ -617,6 +633,8 @@ typedef struct slate_TriangularMatrix_struct_r32* slate_TriangularMatrix_r32;
 
 slate_TriangularMatrix_r32 slate_TriangularMatrix_create_r32(slate_Uplo uplo, slate_Diag diag, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
+slate_TriangularMatrix_r32 slate_TriangularMatrix_create_fromScaLAPACK_r32(slate_Uplo uplo, slate_Diag diag, int64_t n, float* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
 void slate_TriangularMatrix_destroy_r32(slate_TriangularMatrix_r32 A);
 
 void slate_TriangularMatrix_insertLocalTiles_r32(slate_TriangularMatrix_r32 A);
@@ -642,6 +660,8 @@ struct slate_TriangularMatrix_struct_r64;
 typedef struct slate_TriangularMatrix_struct_r64* slate_TriangularMatrix_r64;
 
 slate_TriangularMatrix_r64 slate_TriangularMatrix_create_r64(slate_Uplo uplo, slate_Diag diag, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
+slate_TriangularMatrix_r64 slate_TriangularMatrix_create_fromScaLAPACK_r64(slate_Uplo uplo, slate_Diag diag, int64_t n, double* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
 void slate_TriangularMatrix_destroy_r64(slate_TriangularMatrix_r64 A);
 
@@ -669,6 +689,8 @@ typedef struct slate_TriangularMatrix_struct_c32* slate_TriangularMatrix_c32;
 
 slate_TriangularMatrix_c32 slate_TriangularMatrix_create_c32(slate_Uplo uplo, slate_Diag diag, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
+slate_TriangularMatrix_c32 slate_TriangularMatrix_create_fromScaLAPACK_c32(slate_Uplo uplo, slate_Diag diag, int64_t n, float _Complex* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
 void slate_TriangularMatrix_destroy_c32(slate_TriangularMatrix_c32 A);
 
 void slate_TriangularMatrix_insertLocalTiles_c32(slate_TriangularMatrix_c32 A);
@@ -694,6 +716,8 @@ struct slate_TriangularMatrix_struct_c64;
 typedef struct slate_TriangularMatrix_struct_c64* slate_TriangularMatrix_c64;
 
 slate_TriangularMatrix_c64 slate_TriangularMatrix_create_c64(slate_Uplo uplo, slate_Diag diag, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
+slate_TriangularMatrix_c64 slate_TriangularMatrix_create_fromScaLAPACK_c64(slate_Uplo uplo, slate_Diag diag, int64_t n, double _Complex* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
 void slate_TriangularMatrix_destroy_c64(slate_TriangularMatrix_c64 A);
 
@@ -827,6 +851,8 @@ typedef struct slate_SymmetricMatrix_struct_r32* slate_SymmetricMatrix_r32;
 
 slate_SymmetricMatrix_r32 slate_SymmetricMatrix_create_r32(slate_Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
+slate_SymmetricMatrix_r32 slate_SymmetricMatrix_create_fromScaLAPACK_r32(slate_Uplo uplo, int64_t n, float* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
 void slate_SymmetricMatrix_destroy_r32(slate_SymmetricMatrix_r32 A);
 
 void slate_SymmetricMatrix_insertLocalTiles_r32(slate_SymmetricMatrix_r32 A);
@@ -852,6 +878,8 @@ struct slate_SymmetricMatrix_struct_r64;
 typedef struct slate_SymmetricMatrix_struct_r64* slate_SymmetricMatrix_r64;
 
 slate_SymmetricMatrix_r64 slate_SymmetricMatrix_create_r64(slate_Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
+slate_SymmetricMatrix_r64 slate_SymmetricMatrix_create_fromScaLAPACK_r64(slate_Uplo uplo, int64_t n, double* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
 void slate_SymmetricMatrix_destroy_r64(slate_SymmetricMatrix_r64 A);
 
@@ -879,6 +907,8 @@ typedef struct slate_SymmetricMatrix_struct_c32* slate_SymmetricMatrix_c32;
 
 slate_SymmetricMatrix_c32 slate_SymmetricMatrix_create_c32(slate_Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
+slate_SymmetricMatrix_c32 slate_SymmetricMatrix_create_fromScaLAPACK_c32(slate_Uplo uplo, int64_t n, float _Complex* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
 void slate_SymmetricMatrix_destroy_c32(slate_SymmetricMatrix_c32 A);
 
 void slate_SymmetricMatrix_insertLocalTiles_c32(slate_SymmetricMatrix_c32 A);
@@ -904,6 +934,8 @@ struct slate_SymmetricMatrix_struct_c64;
 typedef struct slate_SymmetricMatrix_struct_c64* slate_SymmetricMatrix_c64;
 
 slate_SymmetricMatrix_c64 slate_SymmetricMatrix_create_c64(slate_Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
+slate_SymmetricMatrix_c64 slate_SymmetricMatrix_create_fromScaLAPACK_c64(slate_Uplo uplo, int64_t n, double _Complex* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
 void slate_SymmetricMatrix_destroy_c64(slate_SymmetricMatrix_c64 A);
 
@@ -932,6 +964,8 @@ typedef struct slate_TrapezoidMatrix_struct_r32* slate_TrapezoidMatrix_r32;
 
 slate_TrapezoidMatrix_r32 slate_TrapezoidMatrix_create_r32(slate_Uplo uplo, slate_Diag diag, int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
+slate_TrapezoidMatrix_r32 slate_TrapezoidMatrix_create_fromScaLAPACK_r32(slate_Uplo uplo, slate_Diag diag, int64_t m, int64_t n, float* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
 void slate_TrapezoidMatrix_destroy_r32(slate_TrapezoidMatrix_r32 A);
 
 void slate_TrapezoidMatrix_insertLocalTiles_r32(slate_TrapezoidMatrix_r32 A);
@@ -957,6 +991,8 @@ struct slate_TrapezoidMatrix_struct_r64;
 typedef struct slate_TrapezoidMatrix_struct_r64* slate_TrapezoidMatrix_r64;
 
 slate_TrapezoidMatrix_r64 slate_TrapezoidMatrix_create_r64(slate_Uplo uplo, slate_Diag diag, int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
+slate_TrapezoidMatrix_r64 slate_TrapezoidMatrix_create_fromScaLAPACK_r64(slate_Uplo uplo, slate_Diag diag, int64_t m, int64_t n, double* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
 void slate_TrapezoidMatrix_destroy_r64(slate_TrapezoidMatrix_r64 A);
 
@@ -984,6 +1020,8 @@ typedef struct slate_TrapezoidMatrix_struct_c32* slate_TrapezoidMatrix_c32;
 
 slate_TrapezoidMatrix_c32 slate_TrapezoidMatrix_create_c32(slate_Uplo uplo, slate_Diag diag, int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
+slate_TrapezoidMatrix_c32 slate_TrapezoidMatrix_create_fromScaLAPACK_c32(slate_Uplo uplo, slate_Diag diag, int64_t m, int64_t n, float _Complex* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
 void slate_TrapezoidMatrix_destroy_c32(slate_TrapezoidMatrix_c32 A);
 
 void slate_TrapezoidMatrix_insertLocalTiles_c32(slate_TrapezoidMatrix_c32 A);
@@ -1009,6 +1047,8 @@ struct slate_TrapezoidMatrix_struct_c64;
 typedef struct slate_TrapezoidMatrix_struct_c64* slate_TrapezoidMatrix_c64;
 
 slate_TrapezoidMatrix_c64 slate_TrapezoidMatrix_create_c64(slate_Uplo uplo, slate_Diag diag, int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm);
+
+slate_TrapezoidMatrix_c64 slate_TrapezoidMatrix_create_fromScaLAPACK_c64(slate_Uplo uplo, slate_Diag diag, int64_t m, int64_t n, double _Complex* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm);
 
 void slate_TrapezoidMatrix_destroy_c64(slate_TrapezoidMatrix_c64 A);
 

@@ -177,6 +177,12 @@ slate_Matrix_r32 slate_Matrix_create_r32(int64_t m, int64_t n, int64_t nb, int p
     auto* A = new slate::Matrix<float>(m, n, nb, p, q, mpi_comm);
     return reinterpret_cast<slate_Matrix_r32>(A);
 }
+slate_Matrix_r32 slate_Matrix_create_fromScaLAPACK_r32(int64_t m, int64_t n, float* A, int64_t lda, int64_t mb, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    auto* A_ = new slate::Matrix<float>();
+    (*A_).fromScaLAPACK(m, n, (float*)A, lda, mb, nb, p, q, mpi_comm);
+    return reinterpret_cast<slate_Matrix_r32>(A_);
+}
 slate_Matrix_r32 slate_Matrix_create_slice_r32(slate_Matrix_r32 A, int64_t i1, int64_t i2, int64_t j1, int64_t j2)
 {
     auto* A_ = reinterpret_cast<slate::Matrix<float>*>(A);
@@ -240,6 +246,12 @@ slate_Matrix_r64 slate_Matrix_create_r64(int64_t m, int64_t n, int64_t nb, int p
 {
     auto* A = new slate::Matrix<double>(m, n, nb, p, q, mpi_comm);
     return reinterpret_cast<slate_Matrix_r64>(A);
+}
+slate_Matrix_r64 slate_Matrix_create_fromScaLAPACK_r64(int64_t m, int64_t n, double* A, int64_t lda, int64_t mb, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    auto* A_ = new slate::Matrix<double>();
+    (*A_).fromScaLAPACK(m, n, (double*)A, lda, mb, nb, p, q, mpi_comm);
+    return reinterpret_cast<slate_Matrix_r64>(A_);
 }
 slate_Matrix_r64 slate_Matrix_create_slice_r64(slate_Matrix_r64 A, int64_t i1, int64_t i2, int64_t j1, int64_t j2)
 {
@@ -305,6 +317,12 @@ slate_Matrix_c32 slate_Matrix_create_c32(int64_t m, int64_t n, int64_t nb, int p
     auto* A = new slate::Matrix<std::complex<float>>(m, n, nb, p, q, mpi_comm);
     return reinterpret_cast<slate_Matrix_c32>(A);
 }
+slate_Matrix_c32 slate_Matrix_create_fromScaLAPACK_c32(int64_t m, int64_t n, float _Complex* A, int64_t lda, int64_t mb, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    auto* A_ = new slate::Matrix<std::complex<float>>();
+    (*A_).fromScaLAPACK(m, n, (std::complex<float>*)A, lda, mb, nb, p, q, mpi_comm);
+    return reinterpret_cast<slate_Matrix_c32>(A_);
+}
 slate_Matrix_c32 slate_Matrix_create_slice_c32(slate_Matrix_c32 A, int64_t i1, int64_t i2, int64_t j1, int64_t j2)
 {
     auto* A_ = reinterpret_cast<slate::Matrix<std::complex<float>>*>(A);
@@ -368,6 +386,12 @@ slate_Matrix_c64 slate_Matrix_create_c64(int64_t m, int64_t n, int64_t nb, int p
 {
     auto* A = new slate::Matrix<std::complex<double>>(m, n, nb, p, q, mpi_comm);
     return reinterpret_cast<slate_Matrix_c64>(A);
+}
+slate_Matrix_c64 slate_Matrix_create_fromScaLAPACK_c64(int64_t m, int64_t n, double _Complex* A, int64_t lda, int64_t mb, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    auto* A_ = new slate::Matrix<std::complex<double>>();
+    (*A_).fromScaLAPACK(m, n, (std::complex<double>*)A, lda, mb, nb, p, q, mpi_comm);
+    return reinterpret_cast<slate_Matrix_c64>(A_);
 }
 slate_Matrix_c64 slate_Matrix_create_slice_c64(slate_Matrix_c64 A, int64_t i1, int64_t i2, int64_t j1, int64_t j2)
 {
@@ -647,6 +671,12 @@ slate_HermitianMatrix_r32 slate_HermitianMatrix_create_r32(slate_Uplo uplo, int6
     auto* A = new slate::HermitianMatrix<float>(slate::uplo2cpp(uplo), n, nb, p, q, mpi_comm);
     return reinterpret_cast<slate_HermitianMatrix_r32>(A);
 }
+slate_HermitianMatrix_r32 slate_HermitianMatrix_create_fromScaLAPACK_r32(slate_Uplo uplo, int64_t n, float* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    auto* A_ = new slate::HermitianMatrix<float>();
+    (*A_).fromScaLAPACK(slate::uplo2cpp(uplo), n, (float*)A, lda, nb, p, q, mpi_comm);
+    return reinterpret_cast<slate_HermitianMatrix_r32>(A_);
+}
 void slate_HermitianMatrix_destroy_r32(slate_HermitianMatrix_r32 A)
 {
     auto* A_ = reinterpret_cast<slate::HermitianMatrix<float>*>(A);
@@ -704,6 +734,12 @@ slate_HermitianMatrix_r64 slate_HermitianMatrix_create_r64(slate_Uplo uplo, int6
 {
     auto* A = new slate::HermitianMatrix<double>(slate::uplo2cpp(uplo), n, nb, p, q, mpi_comm);
     return reinterpret_cast<slate_HermitianMatrix_r64>(A);
+}
+slate_HermitianMatrix_r64 slate_HermitianMatrix_create_fromScaLAPACK_r64(slate_Uplo uplo, int64_t n, double* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    auto* A_ = new slate::HermitianMatrix<double>();
+    (*A_).fromScaLAPACK(slate::uplo2cpp(uplo), n, (double*)A, lda, nb, p, q, mpi_comm);
+    return reinterpret_cast<slate_HermitianMatrix_r64>(A_);
 }
 void slate_HermitianMatrix_destroy_r64(slate_HermitianMatrix_r64 A)
 {
@@ -763,6 +799,12 @@ slate_HermitianMatrix_c32 slate_HermitianMatrix_create_c32(slate_Uplo uplo, int6
     auto* A = new slate::HermitianMatrix<std::complex<float>>(slate::uplo2cpp(uplo), n, nb, p, q, mpi_comm);
     return reinterpret_cast<slate_HermitianMatrix_c32>(A);
 }
+slate_HermitianMatrix_c32 slate_HermitianMatrix_create_fromScaLAPACK_c32(slate_Uplo uplo, int64_t n, float _Complex* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    auto* A_ = new slate::HermitianMatrix<std::complex<float>>();
+    (*A_).fromScaLAPACK(slate::uplo2cpp(uplo), n, (std::complex<float>*)A, lda, nb, p, q, mpi_comm);
+    return reinterpret_cast<slate_HermitianMatrix_c32>(A_);
+}
 void slate_HermitianMatrix_destroy_c32(slate_HermitianMatrix_c32 A)
 {
     auto* A_ = reinterpret_cast<slate::HermitianMatrix<std::complex<float>>*>(A);
@@ -820,6 +862,12 @@ slate_HermitianMatrix_c64 slate_HermitianMatrix_create_c64(slate_Uplo uplo, int6
 {
     auto* A = new slate::HermitianMatrix<std::complex<double>>(slate::uplo2cpp(uplo), n, nb, p, q, mpi_comm);
     return reinterpret_cast<slate_HermitianMatrix_c64>(A);
+}
+slate_HermitianMatrix_c64 slate_HermitianMatrix_create_fromScaLAPACK_c64(slate_Uplo uplo, int64_t n, double _Complex* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    auto* A_ = new slate::HermitianMatrix<std::complex<double>>();
+    (*A_).fromScaLAPACK(slate::uplo2cpp(uplo), n, (std::complex<double>*)A, lda, nb, p, q, mpi_comm);
+    return reinterpret_cast<slate_HermitianMatrix_c64>(A_);
 }
 void slate_HermitianMatrix_destroy_c64(slate_HermitianMatrix_c64 A)
 {
@@ -1113,6 +1161,12 @@ slate_TriangularMatrix_r32 slate_TriangularMatrix_create_r32(slate_Uplo uplo, sl
     auto* A = new slate::TriangularMatrix<float>(slate::uplo2cpp(uplo), slate::diag2cpp(diag), n, nb, p, q, mpi_comm);
     return reinterpret_cast<slate_TriangularMatrix_r32>(A);
 }
+slate_TriangularMatrix_r32 slate_TriangularMatrix_create_fromScaLAPACK_r32(slate_Uplo uplo, slate_Diag diag, int64_t n, float* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    auto* A_ = new slate::TriangularMatrix<float>();
+    (*A_).fromScaLAPACK(slate::uplo2cpp(uplo), slate::diag2cpp(diag), n, (float*)A, lda, nb, p, q, mpi_comm);
+    return reinterpret_cast<slate_TriangularMatrix_r32>(A_);
+}
 void slate_TriangularMatrix_destroy_r32(slate_TriangularMatrix_r32 A)
 {
     auto* A_ = reinterpret_cast<slate::TriangularMatrix<float>*>(A);
@@ -1170,6 +1224,12 @@ slate_TriangularMatrix_r64 slate_TriangularMatrix_create_r64(slate_Uplo uplo, sl
 {
     auto* A = new slate::TriangularMatrix<double>(slate::uplo2cpp(uplo), slate::diag2cpp(diag), n, nb, p, q, mpi_comm);
     return reinterpret_cast<slate_TriangularMatrix_r64>(A);
+}
+slate_TriangularMatrix_r64 slate_TriangularMatrix_create_fromScaLAPACK_r64(slate_Uplo uplo, slate_Diag diag, int64_t n, double* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    auto* A_ = new slate::TriangularMatrix<double>();
+    (*A_).fromScaLAPACK(slate::uplo2cpp(uplo), slate::diag2cpp(diag), n, (double*)A, lda, nb, p, q, mpi_comm);
+    return reinterpret_cast<slate_TriangularMatrix_r64>(A_);
 }
 void slate_TriangularMatrix_destroy_r64(slate_TriangularMatrix_r64 A)
 {
@@ -1229,6 +1289,12 @@ slate_TriangularMatrix_c32 slate_TriangularMatrix_create_c32(slate_Uplo uplo, sl
     auto* A = new slate::TriangularMatrix<std::complex<float>>(slate::uplo2cpp(uplo), slate::diag2cpp(diag), n, nb, p, q, mpi_comm);
     return reinterpret_cast<slate_TriangularMatrix_c32>(A);
 }
+slate_TriangularMatrix_c32 slate_TriangularMatrix_create_fromScaLAPACK_c32(slate_Uplo uplo, slate_Diag diag, int64_t n, float _Complex* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    auto* A_ = new slate::TriangularMatrix<std::complex<float>>();
+    (*A_).fromScaLAPACK(slate::uplo2cpp(uplo), slate::diag2cpp(diag), n, (std::complex<float>*)A, lda, nb, p, q, mpi_comm);
+    return reinterpret_cast<slate_TriangularMatrix_c32>(A_);
+}
 void slate_TriangularMatrix_destroy_c32(slate_TriangularMatrix_c32 A)
 {
     auto* A_ = reinterpret_cast<slate::TriangularMatrix<std::complex<float>>*>(A);
@@ -1286,6 +1352,12 @@ slate_TriangularMatrix_c64 slate_TriangularMatrix_create_c64(slate_Uplo uplo, sl
 {
     auto* A = new slate::TriangularMatrix<std::complex<double>>(slate::uplo2cpp(uplo), slate::diag2cpp(diag), n, nb, p, q, mpi_comm);
     return reinterpret_cast<slate_TriangularMatrix_c64>(A);
+}
+slate_TriangularMatrix_c64 slate_TriangularMatrix_create_fromScaLAPACK_c64(slate_Uplo uplo, slate_Diag diag, int64_t n, double _Complex* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    auto* A_ = new slate::TriangularMatrix<std::complex<double>>();
+    (*A_).fromScaLAPACK(slate::uplo2cpp(uplo), slate::diag2cpp(diag), n, (std::complex<double>*)A, lda, nb, p, q, mpi_comm);
+    return reinterpret_cast<slate_TriangularMatrix_c64>(A_);
 }
 void slate_TriangularMatrix_destroy_c64(slate_TriangularMatrix_c64 A)
 {
@@ -1579,6 +1651,12 @@ slate_SymmetricMatrix_r32 slate_SymmetricMatrix_create_r32(slate_Uplo uplo, int6
     auto* A = new slate::SymmetricMatrix<float>(slate::uplo2cpp(uplo), n, nb, p, q, mpi_comm);
     return reinterpret_cast<slate_SymmetricMatrix_r32>(A);
 }
+slate_SymmetricMatrix_r32 slate_SymmetricMatrix_create_fromScaLAPACK_r32(slate_Uplo uplo, int64_t n, float* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    auto* A_ = new slate::SymmetricMatrix<float>();
+    (*A_).fromScaLAPACK(slate::uplo2cpp(uplo), n, (float*)A, lda, nb, p, q, mpi_comm);
+    return reinterpret_cast<slate_SymmetricMatrix_r32>(A_);
+}
 void slate_SymmetricMatrix_destroy_r32(slate_SymmetricMatrix_r32 A)
 {
     auto* A_ = reinterpret_cast<slate::SymmetricMatrix<float>*>(A);
@@ -1636,6 +1714,12 @@ slate_SymmetricMatrix_r64 slate_SymmetricMatrix_create_r64(slate_Uplo uplo, int6
 {
     auto* A = new slate::SymmetricMatrix<double>(slate::uplo2cpp(uplo), n, nb, p, q, mpi_comm);
     return reinterpret_cast<slate_SymmetricMatrix_r64>(A);
+}
+slate_SymmetricMatrix_r64 slate_SymmetricMatrix_create_fromScaLAPACK_r64(slate_Uplo uplo, int64_t n, double* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    auto* A_ = new slate::SymmetricMatrix<double>();
+    (*A_).fromScaLAPACK(slate::uplo2cpp(uplo), n, (double*)A, lda, nb, p, q, mpi_comm);
+    return reinterpret_cast<slate_SymmetricMatrix_r64>(A_);
 }
 void slate_SymmetricMatrix_destroy_r64(slate_SymmetricMatrix_r64 A)
 {
@@ -1695,6 +1779,12 @@ slate_SymmetricMatrix_c32 slate_SymmetricMatrix_create_c32(slate_Uplo uplo, int6
     auto* A = new slate::SymmetricMatrix<std::complex<float>>(slate::uplo2cpp(uplo), n, nb, p, q, mpi_comm);
     return reinterpret_cast<slate_SymmetricMatrix_c32>(A);
 }
+slate_SymmetricMatrix_c32 slate_SymmetricMatrix_create_fromScaLAPACK_c32(slate_Uplo uplo, int64_t n, float _Complex* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    auto* A_ = new slate::SymmetricMatrix<std::complex<float>>();
+    (*A_).fromScaLAPACK(slate::uplo2cpp(uplo), n, (std::complex<float>*)A, lda, nb, p, q, mpi_comm);
+    return reinterpret_cast<slate_SymmetricMatrix_c32>(A_);
+}
 void slate_SymmetricMatrix_destroy_c32(slate_SymmetricMatrix_c32 A)
 {
     auto* A_ = reinterpret_cast<slate::SymmetricMatrix<std::complex<float>>*>(A);
@@ -1752,6 +1842,12 @@ slate_SymmetricMatrix_c64 slate_SymmetricMatrix_create_c64(slate_Uplo uplo, int6
 {
     auto* A = new slate::SymmetricMatrix<std::complex<double>>(slate::uplo2cpp(uplo), n, nb, p, q, mpi_comm);
     return reinterpret_cast<slate_SymmetricMatrix_c64>(A);
+}
+slate_SymmetricMatrix_c64 slate_SymmetricMatrix_create_fromScaLAPACK_c64(slate_Uplo uplo, int64_t n, double _Complex* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    auto* A_ = new slate::SymmetricMatrix<std::complex<double>>();
+    (*A_).fromScaLAPACK(slate::uplo2cpp(uplo), n, (std::complex<double>*)A, lda, nb, p, q, mpi_comm);
+    return reinterpret_cast<slate_SymmetricMatrix_c64>(A_);
 }
 void slate_SymmetricMatrix_destroy_c64(slate_SymmetricMatrix_c64 A)
 {
@@ -1812,6 +1908,12 @@ slate_TrapezoidMatrix_r32 slate_TrapezoidMatrix_create_r32(slate_Uplo uplo, slat
     auto* A = new slate::TrapezoidMatrix<float>(slate::uplo2cpp(uplo), slate::diag2cpp(diag), m, n, nb, p, q, mpi_comm);
     return reinterpret_cast<slate_TrapezoidMatrix_r32>(A);
 }
+slate_TrapezoidMatrix_r32 slate_TrapezoidMatrix_create_fromScaLAPACK_r32(slate_Uplo uplo, slate_Diag diag, int64_t m, int64_t n, float* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    auto* A_ = new slate::TrapezoidMatrix<float>();
+    (*A_).fromScaLAPACK(slate::uplo2cpp(uplo), slate::diag2cpp(diag), m, n, (float*)A, lda, nb, p, q, mpi_comm);
+    return reinterpret_cast<slate_TrapezoidMatrix_r32>(A_);
+}
 void slate_TrapezoidMatrix_destroy_r32(slate_TrapezoidMatrix_r32 A)
 {
     auto* A_ = reinterpret_cast<slate::TrapezoidMatrix<float>*>(A);
@@ -1869,6 +1971,12 @@ slate_TrapezoidMatrix_r64 slate_TrapezoidMatrix_create_r64(slate_Uplo uplo, slat
 {
     auto* A = new slate::TrapezoidMatrix<double>(slate::uplo2cpp(uplo), slate::diag2cpp(diag), m, n, nb, p, q, mpi_comm);
     return reinterpret_cast<slate_TrapezoidMatrix_r64>(A);
+}
+slate_TrapezoidMatrix_r64 slate_TrapezoidMatrix_create_fromScaLAPACK_r64(slate_Uplo uplo, slate_Diag diag, int64_t m, int64_t n, double* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    auto* A_ = new slate::TrapezoidMatrix<double>();
+    (*A_).fromScaLAPACK(slate::uplo2cpp(uplo), slate::diag2cpp(diag), m, n, (double*)A, lda, nb, p, q, mpi_comm);
+    return reinterpret_cast<slate_TrapezoidMatrix_r64>(A_);
 }
 void slate_TrapezoidMatrix_destroy_r64(slate_TrapezoidMatrix_r64 A)
 {
@@ -1928,6 +2036,12 @@ slate_TrapezoidMatrix_c32 slate_TrapezoidMatrix_create_c32(slate_Uplo uplo, slat
     auto* A = new slate::TrapezoidMatrix<std::complex<float>>(slate::uplo2cpp(uplo), slate::diag2cpp(diag), m, n, nb, p, q, mpi_comm);
     return reinterpret_cast<slate_TrapezoidMatrix_c32>(A);
 }
+slate_TrapezoidMatrix_c32 slate_TrapezoidMatrix_create_fromScaLAPACK_c32(slate_Uplo uplo, slate_Diag diag, int64_t m, int64_t n, float _Complex* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    auto* A_ = new slate::TrapezoidMatrix<std::complex<float>>();
+    (*A_).fromScaLAPACK(slate::uplo2cpp(uplo), slate::diag2cpp(diag), m, n, (std::complex<float>*)A, lda, nb, p, q, mpi_comm);
+    return reinterpret_cast<slate_TrapezoidMatrix_c32>(A_);
+}
 void slate_TrapezoidMatrix_destroy_c32(slate_TrapezoidMatrix_c32 A)
 {
     auto* A_ = reinterpret_cast<slate::TrapezoidMatrix<std::complex<float>>*>(A);
@@ -1985,6 +2099,12 @@ slate_TrapezoidMatrix_c64 slate_TrapezoidMatrix_create_c64(slate_Uplo uplo, slat
 {
     auto* A = new slate::TrapezoidMatrix<std::complex<double>>(slate::uplo2cpp(uplo), slate::diag2cpp(diag), m, n, nb, p, q, mpi_comm);
     return reinterpret_cast<slate_TrapezoidMatrix_c64>(A);
+}
+slate_TrapezoidMatrix_c64 slate_TrapezoidMatrix_create_fromScaLAPACK_c64(slate_Uplo uplo, slate_Diag diag, int64_t m, int64_t n, double _Complex* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+{
+    auto* A_ = new slate::TrapezoidMatrix<std::complex<double>>();
+    (*A_).fromScaLAPACK(slate::uplo2cpp(uplo), slate::diag2cpp(diag), m, n, (std::complex<double>*)A, lda, nb, p, q, mpi_comm);
+    return reinterpret_cast<slate_TrapezoidMatrix_c64>(A_);
 }
 void slate_TrapezoidMatrix_destroy_c64(slate_TrapezoidMatrix_c64 A)
 {

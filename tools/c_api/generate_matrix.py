@@ -172,21 +172,21 @@ for template in templates:
 file_hh.write('//' + ('-'*78) + '\n')
 
 matrix_types = [
-    ['Matrix',               '(int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)'],
-    ['BandMatrix',           '(int64_t m, int64_t n, int64_t kl, int64_t ku, int64_t nb, int p, int q, MPI_Comm mpi_comm)'],
-    ['HermitianMatrix',      '(slate_Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)'],
-    ['HermitianBandMatrix',  '(slate_Uplo uplo, int64_t n, int64_t kd, int64_t nb, int p, int q, MPI_Comm mpi_comm)'],
-    ['TriangularMatrix',     '(slate_Uplo uplo, slate_Diag diag, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)'],
-    ['TriangularBandMatrix', '(slate_Uplo uplo, slate_Diag diag, int64_t n, int64_t kd, int64_t nb, int p, int q, MPI_Comm mpi_comm)'],
-    ['SymmetricMatrix',      '(slate_Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)'],
-    ['TrapezoidMatrix',      '(slate_Uplo uplo, slate_Diag diag, int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)'],
+    ['Matrix',               '(int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)',                                    '(int64_t m, int64_t n, scalar_t* A, int64_t lda, int64_t mb, int64_t nb, int p, int q, MPI_Comm mpi_comm)'],
+    ['BandMatrix',           '(int64_t m, int64_t n, int64_t kl, int64_t ku, int64_t nb, int p, int q, MPI_Comm mpi_comm)',            ''],
+    ['HermitianMatrix',      '(slate_Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)',                              '(slate_Uplo uplo, int64_t n, scalar_t* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm)'],
+    ['HermitianBandMatrix',  '(slate_Uplo uplo, int64_t n, int64_t kd, int64_t nb, int p, int q, MPI_Comm mpi_comm)',                  ''],
+    ['TriangularMatrix',     '(slate_Uplo uplo, slate_Diag diag, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)',             '(slate_Uplo uplo, slate_Diag diag, int64_t n, scalar_t* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm)'],
+    ['TriangularBandMatrix', '(slate_Uplo uplo, slate_Diag diag, int64_t n, int64_t kd, int64_t nb, int p, int q, MPI_Comm mpi_comm)', ''],
+    ['SymmetricMatrix',      '(slate_Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)',                              '(slate_Uplo uplo, int64_t n, scalar_t* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm)'],
+    ['TrapezoidMatrix',      '(slate_Uplo uplo, slate_Diag diag, int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)',  '(slate_Uplo uplo, slate_Diag diag, int64_t m, int64_t n, scalar_t* A, int64_t lda, int64_t nb, int p, int q, MPI_Comm mpi_comm)'],
 ]
 
 matrix_routines = [
     ['slate_Matrix', '_create',                    '',                                                             ''],
+    ['slate_Matrix', '_create_fromScaLAPACK',      '',                                                             ''],
     ['slate_Matrix', '_create_slice',              'slate_Matrix, int64_t i1, int64_t i2, int64_t j1, int64_t j2', 'slice(i1, i2, j1, j2)'],
     ['void',         '_destroy',                   'slate_Matrix',                                                  'delete'],
-    # ['slate_Matrix', '_fromScaLAPACK',             '',                                                              ''],
     ['void',         '_insertLocalTiles',          'slate_Matrix',                                                  'insertLocalTiles()'],
     ['int64_t',      '_mt',                        'slate_Matrix',                                                  'mt()'],
     ['int64_t',      '_nt',                        'slate_Matrix',                                                  'nt()'],
@@ -215,6 +215,9 @@ for matrix_type in matrix_types:
             # todo
             if matrix_type[0] != 'Matrix' and routine[1] == '_create_slice':
                 continue
+            # todo
+            if 'Band' in matrix_type[0] and routine[1] == '_create_fromScaLAPACK':
+                continue
             ret = routine[0]
             if routine[0] == 'slate_Matrix':
                 ret = 'slate_' + matrix_type[0] + data_type[1]
@@ -227,9 +230,12 @@ for matrix_type in matrix_types:
                 params = '(' + s + ')'
             elif routine[1] == '_create':
                 params = matrix_type[1]
+            elif routine[1] == '_create_fromScaLAPACK':
+                params = matrix_type[2]
+                params = re.sub('scalar_t', data_type[0], params)
             contents  += ret + ' ' + routine_name + params + ';\n\n'
             contents0 += ret + ' ' + routine_name + params + '\n{\n'
-            if routine[1] != '_create':
+            if routine[1] != '_create' and routine[1] != '_create_fromScaLAPACK':
                 contents0 += '    auto* A_ = reinterpret_cast<slate::' + matrix_type[0] + '<' + data_type[2] + '>' + '*>(A);\n'
                 if routine[0] != 'void':
                     if routine[0] != 'slate_Tile' and routine[0] != 'slate_Matrix':
@@ -252,13 +258,24 @@ for matrix_type in matrix_types:
                     else:
                         contents0 += '    A_->' + routine[3] + ';\n'
             else:
-                s = re.sub('int64_t ', '', matrix_type[1])
-                s = re.sub('MPI_Comm ', '', s)
-                s = re.sub('int ', '', s)
-                s = re.sub('slate_Uplo\s*uplo', 'slate::uplo2cpp(uplo)', s)
-                s = re.sub('slate_Diag\s*diag', 'slate::diag2cpp(diag)', s)
-                contents0 += '    auto* A = new ' + 'slate::' + matrix_type[0] + '<' + data_type[2] + '>' + s + ';\n'
-                contents0 += '    return reinterpret_cast<slate_' + matrix_type[0] + data_type[1] + '>(A);\n'
+                if routine[1] == '_create':
+                    s = re.sub('int64_t ', '', matrix_type[1])
+                    s = re.sub('MPI_Comm ', '', s)
+                    s = re.sub('int ', '', s)
+                    s = re.sub('slate_Uplo\s*uplo', 'slate::uplo2cpp(uplo)', s)
+                    s = re.sub('slate_Diag\s*diag', 'slate::diag2cpp(diag)', s)
+                    contents0 += '    auto* A = new ' + 'slate::' + matrix_type[0] + '<' + data_type[2] + '>' + s + ';\n'
+                    contents0 += '    return reinterpret_cast<slate_' + matrix_type[0] + data_type[1] + '>(A);\n'
+                elif routine[1] == '_create_fromScaLAPACK':
+                    s = re.sub('int64_t ', '', matrix_type[2])
+                    s = re.sub('MPI_Comm ', '', s)
+                    s = re.sub('int ', '', s)
+                    s = re.sub('slate_Uplo\s*uplo', 'slate::uplo2cpp(uplo)', s)
+                    s = re.sub('slate_Diag\s*diag', 'slate::diag2cpp(diag)', s)
+                    s = re.sub('scalar_t\*\s*A', '(' + data_type[2] +'*)A', s)
+                    contents0 += '    auto* A_ = new ' + 'slate::' + matrix_type[0] + '<' + data_type[2] + '>();\n'
+                    contents0 += '    (*A_).fromScaLAPACK' + s + ';\n'
+                    contents0 += '    return reinterpret_cast<slate_' + matrix_type[0] + data_type[1] + '>(A_);\n'
             contents0 += '}\n'
         # if 'uplo' in matrix_type[1]:
         #     ret = 'slate_Uplo'

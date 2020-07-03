@@ -112,7 +112,6 @@ public:
     testsweeper::ParamInt    lookahead;
     testsweeper::ParamInt    panel_threads;
     testsweeper::ParamInt    align;
-    testsweeper::ParamEnum< std::string > gemm_variant;
     testsweeper::ParamChar   nonuniform_nb;
 
     // ----- output parameters
@@ -340,27 +339,5 @@ inline const char* scope2str(slate::NormScope scope)
     }
     return "?";
 }
-
-// -----------------------------------------------------------------------------
-inline std::string str2gemmVariant(const char *gemmVariant)
-{
-    std::string gemmVariant_ = gemmVariant;
-    std::transform(gemmVariant_.begin(), gemmVariant_.end(), gemmVariant_.begin(), ::tolower);
-    if (gemmVariant_ == "gemmc")
-        return "gemmC";
-    else if (gemmVariant_ == "gemma")
-        return "gemmA";
-    // todo: gemmB
-    // else if (gemmVariant_ == "gemmb")
-    //     return "gemmB";
-    else
-        throw slate::Exception("unknown gemm-variant");
-}
-
-inline const char* gemmVariant2str(std::string gemmVariant)
-{
-    return gemmVariant.c_str();
-}
-
 
 #endif // SLATE_TEST_HH

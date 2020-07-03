@@ -64,6 +64,7 @@ std::vector< testsweeper::routines_t > routines = {
     // -----
     // Level 3 BLAS
     { "gemm",               test_gemm,         Section::blas3 },
+    { "gemmA",              test_gemm,         Section::blas3 },
     { "gbmm",               test_gbmm,         Section::blas3 },
     { "",                   nullptr,           Section::newline },
 
@@ -293,8 +294,8 @@ Params::Params():
     panel_threads("panel-threads",
                           2,    ParamType::List, 1,       0, 1000000, "(pt) max number of threads used in panel"),
     align     ("align",   6,    ParamType::List,  32,     1,    1024, "column alignment (sets lda, ldb, etc. to multiple of align)"),
-    gemm_variant("gemm-variant", 8, ParamType::List, "gemmC", str2gemmVariant, gemmVariant2str, "gemmA, gemmC (default:gemmC)"),
-    nonuniform_nb  ("nonuniform_nb",     0,    ParamType::Value, 'n', "ny", "generate matrix with nonuniform tile sizes"),
+    nonuniform_nb("nonuniform_nb",
+                          0,    ParamType::Value, 'n', "ny", "generate matrix with nonuniform tile sizes"),
 
     // ----- output parameters
     // min, max are ignored
@@ -324,7 +325,6 @@ Params::Params():
     // set header different than command line prefix
     lookahead.name("la", "lookahead");
     panel_threads.name("pt", "panel-threads");
-    gemm_variant.name("variant", "gemm-variant");
 
     // change names of matrix B's params
     matrixB.kind.name( "matrixB" );

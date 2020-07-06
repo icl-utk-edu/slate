@@ -458,7 +458,7 @@ libslate_src += \
 # Fortran module
 ifneq ($(HAVE_FORTRAN),)
     libslate_src += \
-        src/c_api/slate_module.f90 \
+        src/module/slate_module.f90 \
 
 endif
 
@@ -630,6 +630,7 @@ install: lib
 	cp include/slate/c_api/*.h     $(DESTDIR)$(prefix)/include/slate/c_api
 	cp include/slate/c_api/*.hh    $(DESTDIR)$(prefix)/include/slate/c_api
 	cp lib/lib*                    $(DESTDIR)$(prefix)/lib$(LIB_SUFFIX)
+	cp slate.mod                   $(DESTDIR)$(prefix)/include/
 
 uninstall:
 	cd blaspp   && $(MAKE) uninstall prefix=${prefix}
@@ -656,6 +657,16 @@ include/slate/c_api/util.hh: include/slate/c_api/types.h
 src/c_api/wrappers_precisions.cc: include/slate/c_api/wrappers.h
 src/c_api/matrix.cc: include/slate/c_api/matrix.h
 src/c_api/util.cc: include/slate/c_api/util.hh
+
+#-------------------------------------------------------------------------------
+# Fortran module
+src/module/slate_module.f90: include/slate/c_api/wrappers.h \
+														 include/slate/c_api/types.h \
+														 include/slate/c_api/matrix.h
+	python tools/module/generate_fortran_module.py \
+															 include/slate/c_api/wrappers.h \
+															 include/slate/c_api/types.h \
+															 include/slate/c_api/matrix.h
 
 #-------------------------------------------------------------------------------
 # testsweeper library
@@ -874,11 +885,12 @@ clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean include/c
 distclean: clean
 	rm -f $(dep)
 	rm -f src/c_api/matrix.cc
-	rm -f src/c_api/wrappers_precisions.cc 
+	rm -f src/c_api/wrappers_precisions.cc
 	rm -f src/c_api/util.cc
 	rm -f include/slate/c_api/wrappers.h
 	rm -f include/slate/c_api/matrix.h
 	rm -f include/slate/c_api/util.hh
+	rm -f src/module/slate_module.f90
 	cd testsweeper && $(MAKE) distclean
 	cd blaspp      && $(MAKE) distclean
 	cd lapackpp    && $(MAKE) distclean

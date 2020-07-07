@@ -661,8 +661,8 @@ src/c_api/util.cc: include/slate/c_api/util.hh
 #-------------------------------------------------------------------------------
 # Fortran module
 src/module/slate_module.f90: include/slate/c_api/wrappers.h \
-														 include/slate/c_api/types.h \
-														 include/slate/c_api/matrix.h
+                             include/slate/c_api/types.h \
+                             include/slate/c_api/matrix.h
 	python tools/module/generate_fortran_module.py $^ --prefix $@
 
 #-------------------------------------------------------------------------------

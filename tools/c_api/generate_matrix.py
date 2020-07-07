@@ -35,8 +35,8 @@ file.close()
 template += '} slate_' + name + '@SUFFIX;\n'
 templates.append([name, typename, template])
 
-file_hh = open('include/slate/c_api/matrix.h', 'w')
-file_cc = open('src/c_api/matrix.cc',          'w')
+file_hh = open(sys.argv[2],           'w')
+file_cc = open('src/c_api/matrix.cc', 'w') # todo
 
 copyright = '''\
 //------------------------------------------------------------------------------

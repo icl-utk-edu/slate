@@ -509,7 +509,8 @@ def write_module(prefix, module_name, enum_list, struct_list, function_list):
        Fortran wrappers of the C functions"""
 
     # modulefilename = prefix + module_name + "_module.f90"
-    modulefilename = "src/module/" + module_name + "_module.f90"
+    # modulefilename = "src/module/" + module_name + "_module.f90"
+    modulefilename = prefix
     modulefile = open(modulefilename, "w")
 
     modulefile.write(

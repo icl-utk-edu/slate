@@ -31,8 +31,8 @@ for line in file:
         enum_list.append(line)
 file.close()
 
-file_hh = open('include/slate/c_api/util.hh', 'w')
-file_cc = open('src/c_api/util.cc',           'w')
+file_hh = open(sys.argv[2],         'w')
+file_cc = open('src/c_api/util.cc', 'w') # todo
 
 copyright = '''\
 //------------------------------------------------------------------------------

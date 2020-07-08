@@ -26,6 +26,7 @@ pipeline {
 
                         cat > make.inc << END
                         CXX       = mpicxx
+                        FC        = mpif90
                         CXXFLAGS  = -Werror
                         blas      = mkl
                         cuda_arch = pascal
@@ -81,6 +82,7 @@ END
 
                         cat > make.inc << END
                         CXX       = mpicxx
+                        FC        = mpif90
                         CXXFLAGS  = -Werror
                         blas      = mkl
                         mkl_blacs = openmpi

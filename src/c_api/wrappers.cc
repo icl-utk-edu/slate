@@ -1314,7 +1314,7 @@ void slate_hermitian_eig_vals_c64(
 // do not modify!
 // @begin function
 
-void slate_generaized_hermitian_eig_vals_c64(
+void slate_generalized_hermitian_eig_vals_c64(
     int64_t itype,
     slate_HermitianMatrix_c64 A,
     slate_HermitianMatrix_c64 B,

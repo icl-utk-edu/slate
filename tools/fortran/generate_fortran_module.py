@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+#
+# Derived from plasma/tools/fortran_gen.py
+
+from __future__ import print_function
+
 import sys
 import os
 import re
@@ -12,28 +17,26 @@ help = '''\
 Example uses:
 
   generate_fortran.py slate/c_api/*.h
-      generates slate_mod.f90 with module slate
+      generates slate_module.f90 with module slate
 
 ----------------------------------------------------------------------
 '''
 
-# ------------------------------------------------------------
+#-------------------------------------------------------------
 # command line options
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
     description=description,
     epilog=help )
-parser.add_argument('--prefix',        action='store', help='Prefix for variables in Makefile', default='./')
+parser.add_argument('--output',        action='store', help='Output file', default='slate_module.f90')
 parser.add_argument('args', nargs='*', action='store', help='Files to process')
 opts = parser.parse_args()
 
-# ------------------------------------------------------------
+#-------------------------------------------------------------
 # set indentation in the f90 file
 tab = "    "
 indent = tab
 
-# module name
-# module_name = "plasma"
 module_name = "slate"
 
 # translation_table of types
@@ -111,13 +114,12 @@ arrays_names_1D = ["A"]
 # exclude inline functions from the interface
 exclude_list = ["inline"]
 
-# ------------------------------------------------------------
+#-------------------------------------------------------------
 
 # global list used to determine derived types
 derived_types = []
 
-# ------------------------------------------------------------------------------
-
+#-------------------------------------------------------------------------------
 def parse_triple(string):
     """Parse string of
        type (*)name
@@ -167,9 +169,9 @@ def parse_triple(string):
     name_part = name_part.strip()
 
     return [type_part, pointer_part, name_part]
+# end
 
-# ------------------------------------------------------------------------------
-
+#-------------------------------------------------------------------------------
 def iso_c_interface_type(arg, return_value):
     """Generate a declaration for a variable in the interface."""
 
@@ -197,9 +199,9 @@ def iso_c_interface_type(arg, return_value):
     f_line = f_type + f_pointer + " :: " + f_name
 
     return f_line
+# end
 
-# ------------------------------------------------------------------------------
-
+#-------------------------------------------------------------------------------
 def iso_c_wrapper_type(arg):
     """Generate a declaration for a variable in the Fortran wrapper."""
 
@@ -240,9 +242,9 @@ def iso_c_wrapper_type(arg):
     f_line = f_type + f_target + " :: " + f_name + f_array
 
     return f_line
+# end
 
-# ------------------------------------------------------------------------------
-
+#-------------------------------------------------------------------------------
 def fortran_interface_enum(enum):
     """Generate an interface for an enum.
        Translate it into constants."""
@@ -266,9 +268,9 @@ def fortran_interface_enum(enum):
         f_interface += indent + type + ", parameter :: " + name + " = " + value + "\n"
 
     return f_interface
+# end
 
-# ------------------------------------------------------------------------------
-
+#-------------------------------------------------------------------------------
 def fortran_interface_struct(struct):
     """Generate an interface for a struct.
        Translate it into a derived type."""
@@ -286,9 +288,9 @@ def fortran_interface_struct(struct):
     f_interface += tab + "end type " + name + "\n"
 
     return f_interface
+# end
 
-# ------------------------------------------------------------------------------
-
+#-------------------------------------------------------------------------------
 def fortran_interface_function(function):
     """Generate an interface for a function."""
 
@@ -361,9 +363,9 @@ def fortran_interface_function(function):
     f_interface += indent + "end interface\n"
 
     return f_interface
+# end
 
-# ------------------------------------------------------------------------------
-
+#-------------------------------------------------------------------------------
 def fortran_wrapper(function):
     """Generate a wrapper for a function.
        void functions in C will be called as subroutines,
@@ -498,20 +500,21 @@ def fortran_wrapper(function):
         f_wrapper += indent + "end subroutine\n"
 
     return f_wrapper
+# end
 
-# ------------------------------------------------------------------------------
-
-def write_module(prefix, module_name, enum_list, struct_list, function_list):
+#-------------------------------------------------------------------------------
+def write_module(output, module_name, enum_list, struct_list, function_list):
     """Generate a single Fortran module. Its structure will be:
        enums converted to constants
        structs converted to derived types
        interfaces of all C functions
        Fortran wrappers of the C functions"""
 
-    # modulefilename = prefix + module_name + "_module.f90"
-    # modulefilename = "src/module/" + module_name + "_module.f90"
-    modulefilename = prefix
-    modulefile = open(modulefilename, "w")
+    (dir, file) = os.path.split(output)
+    if (not os.path.exists(dir)):
+        os.makedirs(dir)
+
+    modulefile = open(output, "w")
 
     modulefile.write(
 '''!>
@@ -591,7 +594,8 @@ def write_module(prefix, module_name, enum_list, struct_list, function_list):
             f_interface = fortran_interface_function(function)
             modulefile.write(f_interface + "\n")
 
-        modulefile.write(indent + "contains\n\n")
+        modulefile.write("!!" + "-" * 78 + "\n")
+        modulefile.write("contains\n\n")
 
         modulefile.write(indent + "! Wrappers of the C functions.\n")
 
@@ -602,17 +606,14 @@ def write_module(prefix, module_name, enum_list, struct_list, function_list):
     modulefile.write("end module " + module_name + "\n")
 
     modulefile.close()
+# end
 
-    return modulefilename
-
-# ------------------------------------------------------------------------------
-
+#-------------------------------------------------------------------------------
 def parse_prototypes(preprocessed_list):
     """Each prototype will be parsed into a list of its arguments."""
 
     function_list = []
     for proto in preprocessed_list:
-
         if (proto.find("(") == -1):
             continue
 
@@ -669,15 +670,14 @@ def parse_prototypes(preprocessed_list):
             function_list.append(argument_list)
 
     return function_list
+# end
 
-# ------------------------------------------------------------------------------
-
+#-------------------------------------------------------------------------------
 def parse_structs(preprocessed_list):
     """Each struct will be parsed into a list of its arguments."""
 
     struct_list = []
     for proto in preprocessed_list:
-
         if "{" not in proto or "}" not in proto:
             continue
 
@@ -752,15 +752,14 @@ def parse_structs(preprocessed_list):
                 break
 
     return struct_list
+# end
 
-# ------------------------------------------------------------------------------
-
+#-------------------------------------------------------------------------------
 def parse_enums(preprocessed_list):
     """Each enum will be parsed into a list of its arguments."""
 
     enum_list = []
     for proto in preprocessed_list:
-
         # extract the part of the function from the prototype
         fun_parts = proto.split("{")
 
@@ -788,9 +787,9 @@ def parse_enums(preprocessed_list):
             enum_list.append(params)
 
     return enum_list
+# end
 
-# ------------------------------------------------------------------------------
-
+#-------------------------------------------------------------------------------
 def preprocess_list(initial_list):
     """Preprocessing and cleaning of the header file.
        Works with a list of strings.
@@ -803,7 +802,6 @@ def preprocess_list(initial_list):
     nopen = 0
     inStruct = False
     for line in initial_list:
-
         if (line.find("struct") > -1):
             inStruct = True
 
@@ -826,7 +824,6 @@ def preprocess_list(initial_list):
     list2 = []
     merged_line = ""
     for line in list1:
-
         merged_line += line
 
         if (line.find("struct") == -1):
@@ -836,14 +833,13 @@ def preprocess_list(initial_list):
     # clean orphan braces
     list3 = []
     for line in list2:
-
         if (line.strip() != "}"):
             list3.append(line)
 
     return list3
+# end
 
-# ------------------------------------------------------------------------------
-
+#-------------------------------------------------------------------------------
 def polish_file(whole_file):
     """Preprocessing and cleaning of the header file.
        Do not change the order of the regular expressions !
@@ -885,17 +881,15 @@ def polish_file(whole_file):
         initial_list.append(list)
 
     return initial_list
+# end
 
-# ------------------------------------------------------------------------------
-
+#-------------------------------------------------------------------------------
 def main():
-
     # common cleaned header files
     preprocessed_list = []
 
     # source header files
     for filename in opts.args:
-
         # source a header file
         c_header_file = open(filename, 'r').read()
 
@@ -920,8 +914,10 @@ def main():
     function_list = parse_prototypes(preprocessed_list)
 
     # export the module
-    modulefilename = write_module(opts.prefix, module_name, enum_list, struct_list, function_list)
-    print "Exported file: " + modulefilename
+    write_module(
+        opts.output, module_name, enum_list, struct_list, function_list)
+    print( "Exported file:", opts.output )
+# end
 
 # execute the program
 main()

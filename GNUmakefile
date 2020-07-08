@@ -448,6 +448,20 @@ ifneq ($(HAVE_FORTRAN),)
 
 endif
 
+# C API
+libslate_src += \
+        src/c_api/util.cc \
+        src/c_api/matrix.cc \
+        src/c_api/wrappers.cc \
+        src/c_api/wrappers_precisions.cc \
+
+# Fortran module
+ifneq ($(HAVE_FORTRAN),)
+    libslate_src += \
+        src/fortran/slate_module.f90 \
+
+endif
+
 # main tester
 tester_src += \
         test/test.cc \
@@ -608,11 +622,15 @@ install: lib
 	@echo
 	cd lapackpp && $(MAKE) install prefix=${prefix}
 	@echo
+	mkdir -p $(DESTDIR)$(prefix)/include/slate/c_api
 	mkdir -p $(DESTDIR)$(prefix)/include/slate/internal
 	mkdir -p $(DESTDIR)$(prefix)/lib$(LIB_SUFFIX)
 	cp include/slate/*.hh          $(DESTDIR)$(prefix)/include/slate
 	cp include/slate/internal/*.hh $(DESTDIR)$(prefix)/include/slate/internal
+	cp include/slate/c_api/*.h     $(DESTDIR)$(prefix)/include/slate/c_api
+	cp include/slate/c_api/*.hh    $(DESTDIR)$(prefix)/include/slate/c_api
 	cp lib/lib*                    $(DESTDIR)$(prefix)/lib$(LIB_SUFFIX)
+	cp slate.mod                   $(DESTDIR)$(prefix)/include/
 
 uninstall:
 	cd blaspp   && $(MAKE) uninstall prefix=${prefix}
@@ -624,6 +642,34 @@ uninstall:
 
 docs:
 	doxygen docs/doxygen/doxyfile.conf
+
+#-------------------------------------------------------------------------------
+# C API
+include/slate/c_api/wrappers.h: src/c_api/wrappers.cc
+	python tools/c_api/generate_wrappers.py $< $@
+
+include/slate/c_api/matrix.h: include/slate/Tile.hh
+	python tools/c_api/generate_matrix.py $< $@
+
+include/slate/c_api/util.hh: include/slate/c_api/types.h
+	python tools/c_api/generate_util.py $< $@
+
+src/c_api/wrappers_precisions.cc: include/slate/c_api/wrappers.h
+src/c_api/matrix.cc: include/slate/c_api/matrix.h
+src/c_api/util.cc: include/slate/c_api/util.hh
+
+generate: include/slate/c_api/wrappers.h
+generate: include/slate/c_api/matrix.h
+generate: include/slate/c_api/util.hh
+
+#-------------------------------------------------------------------------------
+# Fortran module
+src/fortran/slate_module.f90: include/slate/c_api/wrappers.h \
+                              include/slate/c_api/types.h \
+                              include/slate/c_api/matrix.h
+	python tools/fortran/generate_fortran_module.py $^ --output $@
+
+generate: src/fortran/slate_module.f90
 
 #-------------------------------------------------------------------------------
 # testsweeper library
@@ -688,7 +734,12 @@ src: $(libslate)
 #-------------------------------------------------------------------------------
 # headers
 # precompile headers to verify self-sufficiency
-headers     = $(wildcard include/slate/*.hh include/slate/internal/*.hh test/*.hh)
+headers     = $(wildcard include/slate/*.hh \
+                         include/slate/internal/*.hh \
+                         test/*.hh \
+                         include/slate/c_api/*.h \
+                         include/slate/c_api/*.hh)
+
 headers_gch = $(addsuffix .gch, $(basename $(headers)))
 
 headers: $(headers_gch)
@@ -836,6 +887,13 @@ clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean include/c
 
 distclean: clean
 	rm -f $(dep)
+	rm -f src/c_api/matrix.cc
+	rm -f src/c_api/wrappers_precisions.cc
+	rm -f src/c_api/util.cc
+	rm -f include/slate/c_api/wrappers.h
+	rm -f include/slate/c_api/matrix.h
+	rm -f include/slate/c_api/util.hh
+	rm -f src/fortran/slate_module.f90
 	cd testsweeper && $(MAKE) distclean
 	cd blaspp      && $(MAKE) distclean
 	cd lapackpp    && $(MAKE) distclean
@@ -844,6 +902,9 @@ distclean: clean
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 %.o: %.f
+	$(FC) $(FCFLAGS) -c $< -o $@
+
+%.o: %.f90
 	$(FC) $(FCFLAGS) -c $< -o $@
 
 %.o: %.cu

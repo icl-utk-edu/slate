@@ -346,6 +346,10 @@ protected:
     void nb(int64_t in_nb);
     void offset(int64_t i, int64_t j);
 
+    //--------------------
+    // begin/end markup used by generate_matrix.py script; do not modify!
+    // @begin data members
+
     int64_t mb_;
     int64_t nb_;
     int64_t stride_;
@@ -366,6 +370,9 @@ protected:
     Layout user_layout_; // Temporarily store user-provided-memory's layout
 
     int device_;
+
+    // @end data members
+    //--------------------
 };
 
 //------------------------------------------------------------------------------

@@ -38,6 +38,8 @@ tab = "    "
 indent = tab
 
 module_name = "slate"
+mpi_header = "use mpi"
+# mpi_header = "use mpi_f08" todo
 
 # translation_table of types
 types_dict = {
@@ -100,6 +102,7 @@ types_dict = {
     "slate_Tile_c32":                  ("type(slate_Tile_c32)"),
     "slate_Tile_c64":                  ("type(slate_Tile_c64)"),
     "MPI_Comm":                        ("integer(kind=c_int)"),
+    # "MPI_Comm":                        ("type(MPI_Comm)"),
     "bool":                            ("logical(kind=c_bool)"),
     "void":                            ("type(c_ptr)"),
 }
@@ -339,6 +342,7 @@ def fortran_interface_function(function):
 
     # add common header
     f_interface += indent + 2*tab + "use iso_c_binding\n"
+    f_interface += indent + 2*tab + mpi_header + "\n"
     # import derived types
     for derived_type in used_derived_types:
         f_interface += indent + 2*tab + "import " + derived_type +"\n"
@@ -394,7 +398,8 @@ def fortran_wrapper(function):
     double_pointers = []
     for j in range(1,len(function)):
         if (j != 1):
-            signature_line += ", "
+            if  not (function[j][2] == 'opts' or function[j][2] == 'num_opts'):
+                signature_line += ", "
             call_line += ", "
 
         # do not make the argument list too long
@@ -407,14 +412,23 @@ def fortran_wrapper(function):
         arg_pointer = function[j][1]
         arg_name    = function[j][2]
 
-        signature_line += arg_name
+        if  function[j][2] == 'opts' or function[j][2] == 'num_opts':
+            signature_line += ''
+        else:
+            signature_line += arg_name
+
         if (arg_pointer == "**"):
             aux_name = arg_name + "_aux"
             call_line += aux_name
             double_pointers.append(arg_name)
         elif (arg_pointer == "*"):
-            call_line += "c_loc(" + arg_name + ")"
+            if  function[j][2] == 'opts':
+                call_line += "c_null_ptr"
+            else:
+                call_line += "c_loc(" + arg_name + ")"
         else:
+            if function[j][2] == 'num_opts':
+                arg_name = '0'
             call_line += arg_name
 
     contains_derived_types = False
@@ -449,10 +463,15 @@ def fortran_wrapper(function):
 
     # add common header
     f_wrapper += indent + tab + "use iso_c_binding\n"
+    f_wrapper += indent + tab + mpi_header + "\n"
     f_wrapper += indent + tab + "implicit none\n"
 
     # loop over the arguments to describe them
     for j in range(1,len(function)):
+        if (iso_c_wrapper_type(function[j]) == "integer(kind=c_int) :: num_opts"):
+            continue
+        if (iso_c_wrapper_type(function[j]) == "type(c_ptr), target :: opts"):
+            continue
         f_wrapper += indent + tab + iso_c_wrapper_type(function[j]) + "\n"
 
     # add the return info value of the function
@@ -564,8 +583,7 @@ def write_module(output, module_name, enum_list, struct_list, function_list):
 
     # common header
     modulefile.write(indent + "use iso_c_binding\n")
-    modulefile.write(indent + "use mpi\n")
-    # modulefile.write(indent + "use mpi_f08\n")
+    modulefile.write(indent + mpi_header + "\n")
     modulefile.write(indent + "implicit none\n\n")
 
     # enums
@@ -867,6 +885,8 @@ def polish_file(whole_file):
     clean_file = re.sub(r"\n", "", clean_file)
     # Remove [] and replace them with pointer
     clean_file = re.sub(r"slate_Options opts\[\]", "slate_Options* opts", clean_file)
+    # Replace mpi_comm with mpi_comm_ to avoid mpi type conflict
+    clean_file = re.sub(r"mpi_comm", "mpi_comm_", clean_file)
     # Split the line based on ";" and "}"
     clean_file = re.sub(r";", "\n", clean_file)
     clean_file = re.sub(r"}", "}\n", clean_file)

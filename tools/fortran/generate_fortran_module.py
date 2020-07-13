@@ -398,8 +398,7 @@ def fortran_wrapper(function):
     double_pointers = []
     for j in range(1,len(function)):
         if (j != 1):
-            if  not (function[j][2] == 'opts' or function[j][2] == 'num_opts'):
-                signature_line += ", "
+            signature_line += ", "
             call_line += ", "
 
         # do not make the argument list too long
@@ -412,23 +411,14 @@ def fortran_wrapper(function):
         arg_pointer = function[j][1]
         arg_name    = function[j][2]
 
-        if  function[j][2] == 'opts' or function[j][2] == 'num_opts':
-            signature_line += ''
-        else:
-            signature_line += arg_name
-
+        signature_line += arg_name
         if (arg_pointer == "**"):
             aux_name = arg_name + "_aux"
             call_line += aux_name
             double_pointers.append(arg_name)
         elif (arg_pointer == "*"):
-            if  function[j][2] == 'opts':
-                call_line += "c_null_ptr"
-            else:
-                call_line += "c_loc(" + arg_name + ")"
+            call_line += "c_loc(" + arg_name + ")"
         else:
-            if function[j][2] == 'num_opts':
-                arg_name = '0'
             call_line += arg_name
 
     contains_derived_types = False
@@ -468,10 +458,6 @@ def fortran_wrapper(function):
 
     # loop over the arguments to describe them
     for j in range(1,len(function)):
-        if (iso_c_wrapper_type(function[j]) == "integer(kind=c_int) :: num_opts"):
-            continue
-        if (iso_c_wrapper_type(function[j]) == "type(c_ptr), target :: opts"):
-            continue
         f_wrapper += indent + tab + iso_c_wrapper_type(function[j]) + "\n"
 
     # add the return info value of the function

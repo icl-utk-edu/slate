@@ -274,7 +274,7 @@ for matrix_type in matrix_types:
                     s = re.sub('slate_Diag\s*diag', 'slate::diag2cpp(diag)', s)
                     s = re.sub('scalar_t\*\s*A', '(' + data_type[2] +'*)A', s)
                     contents0 += '    auto* A_ = new ' + 'slate::' + matrix_type[0] + '<' + data_type[2] + '>();\n'
-                    contents0 += '    (*A_).fromScaLAPACK' + s + ';\n'
+                    contents0 += '    (*A_) = slate::' + matrix_type[0] + '<' + data_type[2] + '>' + '::fromScaLAPACK' + s + ';\n'
                     contents0 += '    return reinterpret_cast<slate_' + matrix_type[0] + data_type[1] + '>(A_);\n'
             contents0 += '}\n'
         # if 'uplo' in matrix_type[1]:

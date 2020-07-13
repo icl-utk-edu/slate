@@ -199,6 +199,9 @@ def iso_c_interface_type(arg, return_value):
 
     f_name = arg[2]
 
+    if (is_pointer and f_name in arrays_names_1D):
+        f_pointer = ", value"
+
     f_line = f_type + f_pointer + " :: " + f_name
 
     return f_line

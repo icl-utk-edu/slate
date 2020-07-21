@@ -112,7 +112,7 @@ return_variables_dict = {}
 
 # name arrays which will be translated to assumed-size arrays, e.g. pA(*)
 arrays_names_2D = []
-arrays_names_1D = ["A"]
+arrays_names_1D = ["A", "Sigma", "Lambda"]
 
 # exclude inline functions from the interface
 exclude_list = ["inline"]

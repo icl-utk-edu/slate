@@ -244,6 +244,9 @@ def iso_c_wrapper_type(arg):
     else:
         f_array = ""
 
+    if (f_type == 'character(kind=c_char)'):
+        f_target = ", value"
+
     #f_line = f_type + f_intent + f_target + " :: " + f_name + f_array
     f_line = f_type + f_target + " :: " + f_name + f_array
 

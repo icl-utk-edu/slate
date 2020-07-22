@@ -18,7 +18,7 @@ pipeline {
 
                         source /home/jenkins/spack_setup
                         sload gcc@6.4.0
-                        sload cuda
+                        sload cuda@10.2.89
                         sload intel-mkl
                         sload intel-mpi
 
@@ -74,7 +74,7 @@ END
                         source /home/jenkins/spack_setup
                         sload gcc@6.4.0
                         spack compiler find
-                        sload cuda
+                        sload cuda@10.2.89
                         sload intel-mkl
                         sload openmpi%gcc@6.4.0
 
@@ -134,7 +134,7 @@ END
 
                         source /home/jenkins/spack_setup
                         sload gcc@6.4.0
-                        sload cuda
+                        sload cuda@10.2.89
                         sload intel-mkl
                         sload intel-mpi
 
@@ -181,7 +181,7 @@ END
                         source /home/jenkins/spack_setup
                         sload gcc@6.4.0
                         spack compiler find
-                        sload cuda
+                        sload cuda@10.2.89
                         sload intel-mkl
                         sload openmpi%gcc@6.4.0
 

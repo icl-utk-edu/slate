@@ -73,9 +73,10 @@ END
 
                         source /home/jenkins/spack_setup
                         sload gcc@6.4.0
+                        spack compiler find
                         sload cuda
                         sload intel-mkl
-                        sload openmpi^gcc@6.4.0
+                        sload openmpi%gcc@6.4.0
 
                         export color=no
                         export OMPI_CXX=${CXX}
@@ -179,9 +180,10 @@ END
 
                         source /home/jenkins/spack_setup
                         sload gcc@6.4.0
+                        spack compiler find
                         sload cuda
                         sload intel-mkl
-                        sload openmpi^gcc@6.4.0
+                        sload openmpi%gcc@6.4.0
 
                         cd unit_test
                         ./run_tests.py --xml ../report_unit.xml

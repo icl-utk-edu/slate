@@ -616,6 +616,7 @@ private:
 protected:
     Uplo uplo_;         ///< upper or lower storage
     Op op_;             ///< transpose operation with respect to original matrix
+    Layout layout_;     ///< intended layout of the matrix. defaults to ColMajor.
 
     /// shared storage of tiles and buffers
     std::shared_ptr< MatrixStorage<scalar_t> > storage_;
@@ -627,9 +628,6 @@ protected:
     MPI_Comm  mpi_comm_;
     MPI_Group mpi_group_;
     int mpi_rank_;
-
-    /// intended layout of the matrix. defaults to ColMajor.
-    Layout layout_;
 };
 
 //------------------------------------------------------------------------------
@@ -649,8 +647,8 @@ BaseMatrix<scalar_t>::BaseMatrix()
       nt_(0),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
-      storage_(nullptr),
-      layout_(Layout::ColMajor)
+      layout_(Layout::ColMajor),
+      storage_(nullptr)
 {}
 
 //------------------------------------------------------------------------------
@@ -699,10 +697,10 @@ BaseMatrix<scalar_t>::BaseMatrix(
       joffset_(0),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
+      layout_(Layout::ColMajor),
       storage_(std::make_shared< MatrixStorage< scalar_t > >(
           inTileMb, inTileNb, inTileRank, inTileDevice, mpi_comm)),
-      mpi_comm_(mpi_comm),
-      layout_(Layout::ColMajor)
+      mpi_comm_(mpi_comm)
 {
     // Count number of block rows.
     mt_ = 0;
@@ -778,10 +776,10 @@ BaseMatrix<scalar_t>::BaseMatrix(
       nt_(ceildiv(n, nb)),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
+      layout_(Layout::ColMajor),
       storage_(std::make_shared< MatrixStorage< scalar_t > >(
           m, n, mb, nb, p, q, mpi_comm)),
-      mpi_comm_(mpi_comm),
-      layout_(Layout::ColMajor)
+      mpi_comm_(mpi_comm)
 {
     slate_mpi_call(
         MPI_Comm_rank(mpi_comm_, &mpi_rank_));

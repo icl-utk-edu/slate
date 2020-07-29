@@ -27,6 +27,13 @@
 # static=1        for static library (libslate.a);
 #                 otherwise default is shared library (libslate.so).
 #
+# C/Fortran API:
+#     c_api=1         build C interface (default).
+#     c_api=0         do not build C interface.
+#     fortran_api=1   build Fortran interface (default);
+#                     if c_api=1 and $(FC) compiler is found.
+#     fortran_api=0   do not build Fortran interface.
+#
 # If $(NVCC) compiler is found, sets cuda=1 by default. NVCC=nvcc by default.
 # cuda_arch="ARCH" for CUDA architectures, where ARCH is one or more of:
 #                     kepler maxwell pascal volta turing sm_XX
@@ -671,6 +678,7 @@ include/slate/c_api/util.hh: include/slate/c_api/types.h
 src/c_api/wrappers_precisions.cc: include/slate/c_api/wrappers.h
 src/c_api/matrix.cc: include/slate/c_api/matrix.h
 src/c_api/util.cc: include/slate/c_api/util.hh
+src/c_api/wrappers.o: include/slate/c_api/wrappers.h
 
 generate: include/slate/c_api/wrappers.h
 generate: include/slate/c_api/matrix.h

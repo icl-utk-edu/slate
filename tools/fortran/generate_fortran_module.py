@@ -102,6 +102,7 @@ types_dict = {
     "slate_Tile_c32":                  ("type(slate_Tile_c32)"),
     "slate_Tile_c64":                  ("type(slate_Tile_c64)"),
     "MPI_Comm":                        ("integer(kind=c_int)"),
+    "MPI_Fint":                        ("integer(kind=c_int)"),
     # "MPI_Comm":                        ("type(MPI_Comm)"),
     "bool":                            ("logical(kind=c_bool)"),
     "void":                            ("type(c_ptr)"),
@@ -115,7 +116,70 @@ arrays_names_2D = []
 arrays_names_1D = ["A", "Sigma", "Lambda"]
 
 # exclude inline functions from the interface
-exclude_list = ["inline"]
+exclude_list = [
+    "inline",
+
+    "slate_Matrix_create_r32",
+    "slate_Matrix_create_r64",
+    "slate_Matrix_create_c32",
+    "slate_Matrix_create_c64",
+    "slate_Matrix_create_fromScaLAPACK_r32",
+    "slate_Matrix_create_fromScaLAPACK_r64",
+    "slate_Matrix_create_fromScaLAPACK_c32",
+    "slate_Matrix_create_fromScaLAPACK_c64",
+
+    "slate_BandMatrix_create_r32",
+    "slate_BandMatrix_create_r64",
+    "slate_BandMatrix_create_c32",
+    "slate_BandMatrix_create_c64",
+
+    "slate_HermitianMatrix_create_r32",
+    "slate_HermitianMatrix_create_r64",
+    "slate_HermitianMatrix_create_c32",
+    "slate_HermitianMatrix_create_c64",
+    "slate_HermitianMatrix_create_fromScaLAPACK_r32",
+    "slate_HermitianMatrix_create_fromScaLAPACK_r64",
+    "slate_HermitianMatrix_create_fromScaLAPACK_c32",
+    "slate_HermitianMatrix_create_fromScaLAPACK_c64",
+
+    "slate_HermitianBandMatrix_create_r32",
+    "slate_HermitianBandMatrix_create_r64",
+    "slate_HermitianBandMatrix_create_c32",
+    "slate_HermitianBandMatrix_create_c64",
+
+    "slate_SymmetricMatrix_create_r32",
+    "slate_SymmetricMatrix_create_r64",
+    "slate_SymmetricMatrix_create_c32",
+    "slate_SymmetricMatrix_create_c64",
+    "slate_SymmetricMatrix_create_fromScaLAPACK_r32",
+    "slate_SymmetricMatrix_create_fromScaLAPACK_r64",
+    "slate_SymmetricMatrix_create_fromScaLAPACK_c32",
+    "slate_SymmetricMatrix_create_fromScaLAPACK_c64",
+
+    "slate_TriangularMatrix_create_r32",
+    "slate_TriangularMatrix_create_r64",
+    "slate_TriangularMatrix_create_c32",
+    "slate_TriangularMatrix_create_c64",
+    "slate_TriangularMatrix_create_fromScaLAPACK_r32",
+    "slate_TriangularMatrix_create_fromScaLAPACK_r64",
+    "slate_TriangularMatrix_create_fromScaLAPACK_c32",
+    "slate_TriangularMatrix_create_fromScaLAPACK_c64",
+
+    "slate_TriangularBandMatrix_create_r32",
+    "slate_TriangularBandMatrix_create_r64",
+    "slate_TriangularBandMatrix_create_c32",
+    "slate_TriangularBandMatrix_create_c64",
+
+    "slate_TrapezoidMatrix_create_r32",
+    "slate_TrapezoidMatrix_create_r64",
+    "slate_TrapezoidMatrix_create_c32",
+    "slate_TrapezoidMatrix_create_c64",
+    "slate_TrapezoidMatrix_create_fromScaLAPACK_r32",
+    "slate_TrapezoidMatrix_create_fromScaLAPACK_r64",
+    "slate_TrapezoidMatrix_create_fromScaLAPACK_c32",
+    "slate_TrapezoidMatrix_create_fromScaLAPACK_c64",
+
+]
 
 #-------------------------------------------------------------
 
@@ -390,6 +454,7 @@ def fortran_wrapper(function):
 
     c_symbol = function[0][2]
     f_symbol = c_symbol + "_c"
+    c_symbol = re.sub('_fortran', '', c_symbol)
 
     if (is_function):
         initial_indent_signature = len(indent + "function " + c_symbol + "(") * " "

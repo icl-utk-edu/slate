@@ -43,6 +43,10 @@ openmp ?= 1
 
 NVCC ?= nvcc
 
+c_api ?= 1
+
+fortran_api ?= 1
+
 # If nvcc exists, set cuda = 1 by default.
 HAVE_CUDA := $(shell which $(NVCC))
 ifneq ($(HAVE_CUDA),)
@@ -86,6 +90,8 @@ static          := $(strip $(static))
 cuda_arch       := $(strip $(cuda_arch))
 cuda            := $(strip $(cuda))
 prefix          := $(strip $(prefix))
+c_api           := $(strip $(c_api))
+fortran_api     := $(strip $(fortran_api))
 
 # Export variables to sub-make for testsweeper, BLAS++, LAPACK++.
 export CXX blas ilp64 openmp static
@@ -449,17 +455,24 @@ ifneq ($(HAVE_FORTRAN),)
 endif
 
 # C API
-libslate_src += \
+ifeq ($(c_api),1)
+    libslate_src += \
         src/c_api/util.cc \
         src/c_api/matrix.cc \
         src/c_api/wrappers.cc \
         src/c_api/wrappers_precisions.cc \
 
+endif
+
 # Fortran module
 ifneq ($(HAVE_FORTRAN),)
-    libslate_src += \
-        src/fortran/slate_module.f90 \
+    ifeq ($(fortran_api),1)
+        ifeq ($(c_api),1)
+            libslate_src += \
+                src/fortran/slate_module.f90 \
 
+        endif
+    endif
 endif
 
 # main tester
@@ -645,6 +658,7 @@ docs:
 
 #-------------------------------------------------------------------------------
 # C API
+ifeq ($(c_api),1)
 include/slate/c_api/wrappers.h: src/c_api/wrappers.cc
 	python tools/c_api/generate_wrappers.py $< $@
 
@@ -661,15 +675,22 @@ src/c_api/util.cc: include/slate/c_api/util.hh
 generate: include/slate/c_api/wrappers.h
 generate: include/slate/c_api/matrix.h
 generate: include/slate/c_api/util.hh
+endif
 
 #-------------------------------------------------------------------------------
 # Fortran module
+ifneq ($(HAVE_FORTRAN),)
+ifeq ($(fortran_api),1)
+ifeq ($(c_api),1)
 src/fortran/slate_module.f90: include/slate/c_api/wrappers.h \
                               include/slate/c_api/types.h \
                               include/slate/c_api/matrix.h
 	python tools/fortran/generate_fortran_module.py $^ --output $@
 
 generate: src/fortran/slate_module.f90
+endif
+endif
+endif
 
 #-------------------------------------------------------------------------------
 # testsweeper library

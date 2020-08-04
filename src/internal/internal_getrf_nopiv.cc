@@ -68,14 +68,10 @@ void getrf_nopiv(internal::TargetType<Target::HostTask>,
     assert(A.mt() == 1);
     assert(A.nt() == 1);
 
-    if (A.tileIsLocal(0, 0))
-        #pragma omp task shared(A) priority(priority)
-        {
-            A.tileGetForWriting(0, 0, LayoutConvert::ColMajor);
-            getrf_nopiv(A(0, 0), ib);
-        }
-
-    #pragma omp taskwait
+    if (A.tileIsLocal(0, 0)) {
+        A.tileGetForWriting(0, 0, LayoutConvert::ColMajor);
+        getrf_nopiv(A(0, 0), ib);
+    }
 }
 
 //------------------------------------------------------------------------------

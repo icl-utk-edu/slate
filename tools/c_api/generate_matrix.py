@@ -183,19 +183,21 @@ matrix_types = [
 ]
 
 matrix_routines = [
-    ['slate_Matrix', '_create',                    '',                                                             ''],
-    ['slate_Matrix', '_create_fromScaLAPACK',      '',                                                             ''],
-    ['slate_Matrix', '_create_slice',              'slate_Matrix, int64_t i1, int64_t i2, int64_t j1, int64_t j2', 'slice(i1, i2, j1, j2)'],
-    ['void',         '_destroy',                   'slate_Matrix',                                                  'delete'],
-    ['void',         '_insertLocalTiles',          'slate_Matrix',                                                  'insertLocalTiles()'],
-    ['int64_t',      '_mt',                        'slate_Matrix',                                                  'mt()'],
-    ['int64_t',      '_nt',                        'slate_Matrix',                                                  'nt()'],
-    ['int64_t',      '_m',                         'slate_Matrix',                                                  'm()'],
-    ['int64_t',      '_n',                         'slate_Matrix',                                                  'n()'],
-    ['bool',         '_tileIsLocal',               'slate_Matrix, int64_t i, int64_t j',                            'tileIsLocal(i, j)'],
-    ['slate_Tile',   '_at',                        'slate_Matrix, int64_t i, int64_t j',                            'at(i, j)'],
-    ['void',         '_transpose_in_place',        'slate_Matrix',                                                  'transpose(*A_)'],
-    ['void',         '_conjTranspose_in_place',    'slate_Matrix',                                                  'conjTranspose(*A_)'],
+    ['slate_Matrix', '_create',                            '',                                                              ''],
+    ['slate_Matrix', '_create_fortran',                    '',                                                              ''],
+    ['slate_Matrix', '_create_fromScaLAPACK',              '',                                                              ''],
+    ['slate_Matrix', '_create_fromScaLAPACK_fortran',      '',                                                              ''],
+    ['slate_Matrix', '_create_slice',                      'slate_Matrix, int64_t i1, int64_t i2, int64_t j1, int64_t j2',  'slice(i1, i2, j1, j2)'],
+    ['void',         '_destroy',                           'slate_Matrix',                                                  'delete'],
+    ['void',         '_insertLocalTiles',                  'slate_Matrix',                                                  'insertLocalTiles()'],
+    ['int64_t',      '_mt',                                'slate_Matrix',                                                  'mt()'],
+    ['int64_t',      '_nt',                                'slate_Matrix',                                                  'nt()'],
+    ['int64_t',      '_m',                                 'slate_Matrix',                                                  'm()'],
+    ['int64_t',      '_n',                                 'slate_Matrix',                                                  'n()'],
+    ['bool',         '_tileIsLocal',                       'slate_Matrix, int64_t i, int64_t j',                            'tileIsLocal(i, j)'],
+    ['slate_Tile',   '_at',                                'slate_Matrix, int64_t i, int64_t j',                            'at(i, j)'],
+    ['void',         '_transpose_in_place',                'slate_Matrix',                                                  'transpose(*A_)'],
+    ['void',         '_conjTranspose_in_place',            'slate_Matrix',                                                  'conjTranspose(*A_)'],
 ]
 
 contents = ''
@@ -218,6 +220,9 @@ for matrix_type in matrix_types:
             # todo
             if 'Band' in matrix_type[0] and routine[1] == '_create_fromScaLAPACK':
                 continue
+            # todo
+            if 'Band' in matrix_type[0] and routine[1] == '_create_fromScaLAPACK_fortran':
+                continue
             ret = routine[0]
             if routine[0] == 'slate_Matrix':
                 ret = 'slate_' + matrix_type[0] + data_type[1]
@@ -230,12 +235,19 @@ for matrix_type in matrix_types:
                 params = '(' + s + ')'
             elif routine[1] == '_create':
                 params = matrix_type[1]
+            elif routine[1] == '_create_fortran':
+                params = matrix_type[1]
+                params = re.sub('MPI_Comm', 'MPI_Fint', params)
             elif routine[1] == '_create_fromScaLAPACK':
                 params = matrix_type[2]
                 params = re.sub('scalar_t', data_type[0], params)
+            elif routine[1] == '_create_fromScaLAPACK_fortran':
+                params = matrix_type[2]
+                params = re.sub('scalar_t', data_type[0], params)
+                params = re.sub('MPI_Comm', 'MPI_Fint', params)
             contents  += ret + ' ' + routine_name + params + ';\n\n'
             contents0 += ret + ' ' + routine_name + params + '\n{\n'
-            if routine[1] != '_create' and routine[1] != '_create_fromScaLAPACK':
+            if routine[1] != '_create' and routine[1] != '_create_fromScaLAPACK' and routine[1] != '_create_fortran' and routine[1] != '_create_fromScaLAPACK_fortran':
                 contents0 += '    auto* A_ = reinterpret_cast<slate::' + matrix_type[0] + '<' + data_type[2] + '>' + '*>(A);\n'
                 if routine[0] != 'void':
                     if routine[0] != 'slate_Tile' and routine[0] != 'slate_Matrix':
@@ -266,6 +278,15 @@ for matrix_type in matrix_types:
                     s = re.sub('slate_Diag\s*diag', 'slate::diag2cpp(diag)', s)
                     contents0 += '    auto* A = new ' + 'slate::' + matrix_type[0] + '<' + data_type[2] + '>' + s + ';\n'
                     contents0 += '    return reinterpret_cast<slate_' + matrix_type[0] + data_type[1] + '>(A);\n'
+                if routine[1] == '_create_fortran':
+                    s = re.sub('int64_t ', '', matrix_type[1])
+                    s = re.sub('MPI_Comm ', '', s)
+                    s = re.sub('int ', '', s)
+                    s = re.sub('slate_Uplo\s*uplo', 'slate::uplo2cpp(uplo)', s)
+                    s = re.sub('slate_Diag\s*diag', 'slate::diag2cpp(diag)', s)
+                    s = re.sub('mpi_comm', 'MPI_Comm_f2c(mpi_comm)', s)
+                    contents0 += '    auto* A = new ' + 'slate::' + matrix_type[0] + '<' + data_type[2] + '>' + s + ';\n'
+                    contents0 += '    return reinterpret_cast<slate_' + matrix_type[0] + data_type[1] + '>(A);\n'
                 elif routine[1] == '_create_fromScaLAPACK':
                     s = re.sub('int64_t ', '', matrix_type[2])
                     s = re.sub('MPI_Comm ', '', s)
@@ -273,6 +294,17 @@ for matrix_type in matrix_types:
                     s = re.sub('slate_Uplo\s*uplo', 'slate::uplo2cpp(uplo)', s)
                     s = re.sub('slate_Diag\s*diag', 'slate::diag2cpp(diag)', s)
                     s = re.sub('scalar_t\*\s*A', '(' + data_type[2] +'*)A', s)
+                    contents0 += '    auto* A_ = new ' + 'slate::' + matrix_type[0] + '<' + data_type[2] + '>();\n'
+                    contents0 += '    (*A_) = slate::' + matrix_type[0] + '<' + data_type[2] + '>' + '::fromScaLAPACK' + s + ';\n'
+                    contents0 += '    return reinterpret_cast<slate_' + matrix_type[0] + data_type[1] + '>(A_);\n'
+                elif routine[1] == '_create_fromScaLAPACK_fortran':
+                    s = re.sub('int64_t ', '', matrix_type[2])
+                    s = re.sub('MPI_Comm ', '', s)
+                    s = re.sub('int ', '', s)
+                    s = re.sub('slate_Uplo\s*uplo', 'slate::uplo2cpp(uplo)', s)
+                    s = re.sub('slate_Diag\s*diag', 'slate::diag2cpp(diag)', s)
+                    s = re.sub('scalar_t\*\s*A', '(' + data_type[2] +'*)A', s)
+                    s = re.sub('mpi_comm', 'MPI_Comm_f2c(mpi_comm)', s)
                     contents0 += '    auto* A_ = new ' + 'slate::' + matrix_type[0] + '<' + data_type[2] + '>();\n'
                     contents0 += '    (*A_) = slate::' + matrix_type[0] + '<' + data_type[2] + '>' + '::fromScaLAPACK' + s + ';\n'
                     contents0 += '    return reinterpret_cast<slate_' + matrix_type[0] + data_type[1] + '>(A_);\n'

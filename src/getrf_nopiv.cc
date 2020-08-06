@@ -52,7 +52,7 @@ namespace internal {
 namespace specialization {
 
 //------------------------------------------------------------------------------
-/// Distributed parallel LU factorization.
+/// Distributed parallel LU factorization without pivoting.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
 /// @ingroup gesv_specialization
@@ -265,17 +265,17 @@ void getrf_nopiv(Matrix<scalar_t>& A,
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel LU factorization.
+/// Distributed parallel LU factorization without pivoting.
 ///
 /// Computes an LU factorization without pivoting of a general m-by-n matrix $A$
 ///
 /// The factorization has the form
 /// \[
-///     A = P L U
+///     A = L U
 /// \]
-/// where $P$ is a permutation matrix, $L$ is lower triangular with unit
-/// diagonal elements (lower trapezoidal if m > n), and $U$ is upper
-/// triangular (upper trapezoidal if m < n).
+/// where $L$ is lower triangular with unit diagonal elements
+/// (lower trapezoidal if m > n), and $U$ is upper triangular
+/// (upper trapezoidal if m < n).
 ///
 /// This is the right-looking Level 3 BLAS version of the algorithm.
 ///
@@ -295,8 +295,6 @@ void getrf_nopiv(Matrix<scalar_t>& A,
 ///       lookahead >= 0. Default 1.
 ///     - Option::InnerBlocking:
 ///       Inner blocking to use for panel. Default 16.
-///     - Option::MaxPanelThreads:
-///       Number of threads to use for panel. Default omp_get_max_threads()/2.
 ///     - Option::Target:
 ///       Implementation to target. Possible values:
 ///       - HostTask:  OpenMP tasks on CPU host [default].

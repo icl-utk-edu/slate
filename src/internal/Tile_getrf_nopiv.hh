@@ -50,7 +50,7 @@
 namespace slate {
 namespace internal {
 //------------------------------------------------------------------------------
-/// Compute the LU factorization of a panel.
+/// Compute the LU factorization of a tile without pivoting.
 ///
 /// @param[in] ib
 ///     internal blocking in the panel

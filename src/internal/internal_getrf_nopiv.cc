@@ -38,7 +38,6 @@
 //------------------------------------------------------------------------------
 
 #include "slate/Matrix.hh"
-#include "slate/HermitianMatrix.hh"
 #include "slate/types.hh"
 #include "internal/Tile_getrf_nopiv.hh"
 #include "internal/internal.hh"
@@ -47,105 +46,31 @@ namespace slate {
 namespace internal {
 
 //------------------------------------------------------------------------------
-/// LU factorization of a column of tiles.
+/// LU factorization of single tile without pivoting.
 /// Dispatches to target implementations.
 /// @ingroup gesv_internal
 ///
 template <Target target, typename scalar_t>
-void getrf_nopiv(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
-           int max_panel_threads, int priority)
+void getrf_nopiv(Matrix< scalar_t >&& A, int64_t ib, int priority)
 {
-    getrf_nopiv(internal::TargetType<target>(),
-          A, diag_len, ib, max_panel_threads, priority);
+    getrf_nopiv(internal::TargetType<target>(), A, ib, priority);
 }
 
 //------------------------------------------------------------------------------
-/// LU factorization of a column of tiles, host implementation.
+/// LU factorization of single tile without pivoting, host implementation.
 /// @ingroup gesv_internal
 ///
 template <typename scalar_t>
 void getrf_nopiv(internal::TargetType<Target::HostTask>,
-           Matrix<scalar_t>& A, int64_t diag_len, int64_t ib,
-           int max_panel_threads, int priority)
+                 Matrix<scalar_t>& A,
+                 int64_t ib, int priority)
 {
-    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
+    assert(A.mt() == 1);
     assert(A.nt() == 1);
 
-    // Move the panel to the host.
-    std::set<ij_tuple> A_tiles_set;
-    for (int64_t i = 0; i < A.mt(); ++i) {
-        if (A.tileIsLocal(i, 0)) {
-            A_tiles_set.insert({i, 0});
-        }
-    }
-    A.tileGetForWriting(A_tiles_set, LayoutConvert::ColMajor);
-
-    // lists of local tiles, indices, and offsets
-    std::vector< Tile<scalar_t> > tiles;
-    std::vector<int64_t> tile_indices;
-
-    // Build the broadcast set.
-    // Build lists of local tiles, indices, and offsets.
-    int64_t tile_offset = 0;
-    std::set<int> bcast_set;
-    for (int64_t i = 0; i < A.mt(); ++i) {
-        bcast_set.insert(A.tileRank(i, 0));
-        if (A.tileIsLocal(i, 0)) {
-            tiles.push_back(A(i, 0));
-            tile_indices.push_back(i);
-        }
-        tile_offset += A.tileMb(i);
-    }
-
-    // If participating in the panel factorization.
-    if (bcast_set.find(A.mpiRank()) != bcast_set.end()) {
-
-        // Create the broadcast communicator.
-        // Translate the root rank.
-        int bcast_rank;
-        int bcast_root;
-        MPI_Comm bcast_comm;
-        bcast_comm = commFromSet(bcast_set,
-                                 A.mpiComm(), A.mpiGroup(),
-                                 A.tileRank(0, 0), bcast_root);
-        // Find the local rank.
-        MPI_Comm_rank(bcast_comm, &bcast_rank);
-
-        // Launch the panel tasks.
-        int thread_size = max_panel_threads;
-        if (int(tiles.size()) < max_panel_threads)
-            thread_size = tiles.size();
-
-        ThreadBarrier thread_barrier;
-        scalar_t diag_value;
-        std::vector<scalar_t> top_block(ib*A.tileNb(0));
-
-        #if 1
-            omp_set_nested(1);
-            // Launching new threads for the panel guarantees progression.
-            // This should never deadlock, but may be detrimental to performance.
-            #pragma omp parallel for \
-                num_threads(thread_size) \
-                shared(thread_barrier, diag_value, top_block)
-        #else
-            // Issuing panel operation as tasks may cause a deadlock.
-            #pragma omp taskloop \
-                num_tasks(thread_size) \
-                shared(thread_barrier, diag_value, top_block, aux_pivot)
-        #endif
-        for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank) {
-            // Factor the panel in parallel.
-            getrf_nopiv(diag_len, ib,
-                  tiles, tile_indices,
-                  bcast_rank, bcast_root, bcast_comm,
-                  thread_rank, thread_size,
-                  thread_barrier,
-                  diag_value, top_block);
-        }
-        #pragma omp taskwait
-
-        // Free the broadcast communicator.
-        slate_mpi_call(MPI_Comm_free(&bcast_comm));
+    if (A.tileIsLocal(0, 0)) {
+        A.tileGetForWriting(0, 0, LayoutConvert::ColMajor);
+        getrf_nopiv(A(0, 0), ib);
     }
 }
 
@@ -154,26 +79,30 @@ void getrf_nopiv(internal::TargetType<Target::HostTask>,
 // ----------------------------------------
 template
 void getrf_nopiv<Target::HostTask, float>(
-    Matrix<float>&& A, int64_t diag_len, int64_t ib,
-    int max_panel_threads, int priority);
+    Matrix<float>&& A,
+    int64_t ib,
+    int priority);
 
 // ----------------------------------------
 template
 void getrf_nopiv<Target::HostTask, double>(
-    Matrix<double>&& A, int64_t diag_len, int64_t ib,
-    int max_panel_threads, int priority);
+    Matrix<double>&& A,
+    int64_t ib,
+    int priority);
 
 // ----------------------------------------
 template
 void getrf_nopiv< Target::HostTask, std::complex<float> >(
-    Matrix< std::complex<float> >&& A, int64_t diag_len, int64_t ib,
-    int max_panel_threads, int priority);
+    Matrix< std::complex<float> >&& A,
+    int64_t ib,
+    int priority);
 
 // ----------------------------------------
 template
 void getrf_nopiv< Target::HostTask, std::complex<double> >(
-    Matrix< std::complex<double> >&& A, int64_t diag_len, int64_t ib,
-    int max_panel_threads, int priority);
+    Matrix< std::complex<double> >&& A,
+    int64_t ib,
+    int priority);
 
 } // namespace internal
 } // namespace slate

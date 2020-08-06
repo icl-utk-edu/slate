@@ -528,8 +528,8 @@ void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
 //-----------------------------------------
 // getrf_nopiv()
 template <Target target=Target::HostTask, typename scalar_t>
-void getrf_nopiv(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
-           int max_panel_threads, int priority=0);
+void getrf_nopiv(Matrix<scalar_t>&& A,
+                 int64_t ib, int priority=0);
 
 //-----------------------------------------
 // geqrf()

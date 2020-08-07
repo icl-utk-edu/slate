@@ -47,9 +47,12 @@ namespace slate {
 namespace internal {
 
 //------------------------------------------------------------------------------
+///
+/// todo: update docs: multiply not inverse
+///
 /// Triangular inversion of single tile.
 /// Dispatches to target implementations.
-/// @ingroup trtrm_internal
+/// @ingroup tr_internal
 ///
 template <Target target, typename scalar_t>
 void trtrm(TriangularMatrix< scalar_t >&& A, int priority)
@@ -59,7 +62,7 @@ void trtrm(TriangularMatrix< scalar_t >&& A, int priority)
 
 //------------------------------------------------------------------------------
 /// Triangular inversion of single tile, host implementation.
-/// @ingroup trtrm_internal
+/// @ingroup tr_internal
 ///
 template <typename scalar_t>
 void trtrm(internal::TargetType<Target::HostTask>,

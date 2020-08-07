@@ -63,9 +63,14 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
-/// Transpose returns Tile, Matrix, SymmetricMatrix, etc.
-/// Making a template avoids repeating the code ad nauseum in each class.
+/// Transpose a Tile or any type of Matrix object,
+/// changing op flag from NoTrans to Trans, or from Trans to NoTrans.
+/// @return copy of Tile, etc. with updated op flag.
+///
+/// Making this a template avoids repeating the code ad nauseum in each class.
 /// Tile and BaseMatrix make this a friend, to change op.
+///
+/// @ingroup util
 ///
 template<typename MatrixType>
 MatrixType transpose(MatrixType& A)
@@ -89,7 +94,14 @@ MatrixType transpose(MatrixType&& A)
     return transpose(A);
 }
 
+//------------------------------------------------------------------------------
+/// Conjugate-transpose a Tile or any type of Matrix object,
+/// changing op flag from NoTrans to ConjTrans, or from ConjTrans to NoTrans.
+/// @return copy of Tile, etc. with updated op flag.
 /// @see transpose()
+///
+/// @ingroup util
+///
 template<typename MatrixType>
 MatrixType conjTranspose(MatrixType& A)
 {
@@ -112,8 +124,14 @@ MatrixType conjTranspose(MatrixType&& A)
     return conjTranspose(A);
 }
 
-//--------------------------------------
-/// @deprecated
+//------------------------------------------------------------------------------
+/// Conjugate-transpose a Tile or any type of Matrix object,
+/// changing op flag from NoTrans to ConjTrans, or from ConjTrans to NoTrans.
+/// @return copy of Tile, etc. with updated op flag.
+/// @see transpose()
+///
+/// @ingroup util
+///
 template<typename MatrixType>
 MatrixType conj_transpose(MatrixType& A)
 {
@@ -121,7 +139,6 @@ MatrixType conj_transpose(MatrixType& A)
 }
 
 //--------------------------------------
-/// @deprecated
 template<typename MatrixType>
 MatrixType conj_transpose(MatrixType&& A)
 {
@@ -687,8 +704,6 @@ void Tile<scalar_t>::layoutReset()
 ///
 /// @param[in] stream
 ///     CUDA stream to run the kernels on if conversion is carried on the device.
-///
-/// @ingroup convert_tile
 ///
 template <typename scalar_t>
 void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream,

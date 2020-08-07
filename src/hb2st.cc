@@ -224,7 +224,7 @@ void hb2st_run(HermitianBandMatrix<scalar_t>& A,
 //------------------------------------------------------------------------------
 /// @internal
 /// Reduces a band Hermitian matrix to a tridiagonal matrix using bulge chasing.
-/// @ingroup hb2st_specialization
+/// @ingroup heev_specialization
 ///
 template <Target target, typename scalar_t>
 void hb2st(slate::internal::TargetType<target>,
@@ -322,7 +322,7 @@ void hb2st(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup hb2st_specialization
+/// @ingroup heev_specialization
 ///
 template <Target target, typename scalar_t>
 void hb2st(HermitianBandMatrix<scalar_t>& A,
@@ -354,7 +354,7 @@ void hb2st(HermitianBandMatrix<scalar_t>& A,
 ///           - HostBatch: batched BLAS on CPU host.
 ///           - Devices:   batched BLAS on GPU device.
 ///
-/// @ingroup hb2st
+/// @ingroup heev_computational
 ///
 // todo: Change Matrix to BandMatrix and remove the band parameter.
 template <typename scalar_t>

@@ -146,7 +146,7 @@ void tzcopy(Tile<src_scalar_t> const&& A, Tile<dst_scalar_t>&& B)
 //------------------------------------------------------------------------------
 /// Set entries in the matrix $A$ to the value of $\alpha$.
 /// Only set the strictly-lower or the strictly-upper part.
-/// @ingroup tzset
+/// @ingroup set_tile
 ///
 template <typename scalar_t>
 void tzset(scalar_t alpha, Tile<scalar_t>& A)
@@ -178,7 +178,7 @@ void tzset(scalar_t alpha, Tile<scalar_t>& A)
 
 //-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
-/// @ingroup tzset
+/// @ingroup set_tile
 ///
 template <typename scalar_t>
 void tzset(scalar_t alpha, Tile<scalar_t>&& A)

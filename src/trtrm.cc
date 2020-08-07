@@ -51,10 +51,13 @@ namespace internal {
 namespace specialization {
 
 //------------------------------------------------------------------------------
+///
+/// todo: update docs: multiply not inverse.
+///
 /// Distributed parallel inverse of a triangular matrix.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
-/// @ingroup trtrm_specialization
+/// @ingroup tr_specialization
 ///
 template <Target target, typename scalar_t>
 void trtrm(slate::internal::TargetType<target>,
@@ -156,7 +159,7 @@ void trtrm(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup trtrm_specialization
+/// @ingroup tr_specialization
 ///
 template <Target target, typename scalar_t>
 void trtrm(TriangularMatrix<scalar_t>& A,
@@ -203,7 +206,7 @@ void trtrm(TriangularMatrix<scalar_t>& A,
 /// TODO: return value
 /// @retval 0 successful exit
 ///
-/// @ingroup trtrm
+/// @ingroup tr_computational
 ///
 template <typename scalar_t>
 void trtrm(TriangularMatrix<scalar_t>& A,

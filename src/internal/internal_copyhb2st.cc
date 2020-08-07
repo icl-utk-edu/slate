@@ -49,7 +49,7 @@ namespace internal {
 //------------------------------------------------------------------------------
 /// Copy tri-diagonal HermitianBand matrix to two vectors.
 /// Dispatches to target implementations.
-/// @ingroup copyhb2st_internal
+/// @ingroup copy_internal
 ///
 template <Target target, typename scalar_t>
 void copyhb2st(HermitianBandMatrix<scalar_t>& A,
@@ -64,7 +64,7 @@ void copyhb2st(HermitianBandMatrix<scalar_t>& A,
 //------------------------------------------------------------------------------
 /// Copy tri-diagonal HermitianBand matrix to two vectors.
 /// Host OpenMP task implementation.
-/// @ingroup copyhb2st_internal
+/// @ingroup copy_internal
 ///
 // todo: this is essentially identical to copytb2bd.
 //

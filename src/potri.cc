@@ -50,16 +50,16 @@ namespace slate {
 /// Distributed parallel Cholesky inversion.
 ///
 /// Computes the inverse of a complex Hermitian positive definite matrix $A$
-/// using the Cholesky factorization $A = U^H*U$ or $A = $L*L^H$  computed by
+/// using the Cholesky factorization $A = U^H U$ or $A = L L^H$  computed by
 /// `potrf`.
 ///
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.
-//------------------------------------------------------------------------------
+///-----------------------------------------------------------------------------
 /// @param[in,out] A
 ///     On entry, the triangular factor $U$ or $L$ from the Cholesky
-///     factorization $A = U^H*U$ or $A = L*L^H$, as computed by `potrf`.
+///     factorization $A = U^H U$ or $A = L L^H$, as computed by `potrf`.
 ///     On exit, the upper or lower triangle of the (Hermitian) inverse of $A$,
 ///     overwriting the input factor $U$ or $L$.
 ///     If scalar_t is real, $A$ can be a SymmetricMatrix object.
@@ -81,7 +81,7 @@ namespace slate {
 /// @retval >0 for return value = $i$, $A(i,i)$ is exactly zero. The triangular
 ///         matrix is singular and its inverse can not be computed.
 ///
-/// @ingroup potri_computational
+/// @ingroup posv_computational
 ///
 template <typename scalar_t>
 void potri(HermitianMatrix<scalar_t>& A,

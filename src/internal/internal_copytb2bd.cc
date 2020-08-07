@@ -49,7 +49,7 @@ namespace internal {
 //------------------------------------------------------------------------------
 /// Copy bi-diagonal TriangularBand matrix to two vectors.
 /// Dispatches to target implementations.
-/// @ingroup copyge2tb_internal
+/// @ingroup copy_internal
 ///
 template <Target target, typename scalar_t>
 void copytb2bd(TriangularBandMatrix<scalar_t>& A,
@@ -64,7 +64,7 @@ void copytb2bd(TriangularBandMatrix<scalar_t>& A,
 //------------------------------------------------------------------------------
 /// Copy bi-diagonal TriangularBand matrix to two vectors.
 /// Host OpenMP task implementation.
-/// @ingroup copyge2tb_internal
+/// @ingroup copy_internal
 ///
 template <typename scalar_t>
 void copytb2bd(internal::TargetType<Target::HostTask>,

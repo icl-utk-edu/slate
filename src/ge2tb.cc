@@ -56,7 +56,7 @@ namespace specialization {
 ///
 /// ColMajor layout is assumed
 ///
-/// @ingroup ge2tb_specialization
+/// @ingroup svd_specialization
 ///
 template <Target target, typename scalar_t>
 void ge2tb(slate::internal::TargetType<target>,
@@ -392,7 +392,7 @@ void ge2tb(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup ge2tb_specialization
+/// @ingroup svd_specialization
 ///
 template <Target target, typename scalar_t>
 void ge2tb(Matrix<scalar_t>& A,
@@ -476,7 +476,7 @@ void ge2tb(Matrix<scalar_t>& A,
 ///     Note a lookahead is not possible with ge2tb due to dependencies from
 ///     updating on both left and right sides.
 ///
-/// @ingroup ge2tb_computational
+/// @ingroup svd_computational
 ///
 template <typename scalar_t>
 void ge2tb(Matrix<scalar_t>& A,

@@ -47,6 +47,11 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
+///
+/// todo: document
+///
+/// @ingroup heev
+///
 template <typename scalar_t>
 void heev(lapack::Job jobz,
           HermitianMatrix<scalar_t>& A,

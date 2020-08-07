@@ -57,7 +57,7 @@ namespace specialization {
 /// computes all eigenvalues of a symmetric tridiagonal matrix
 /// using the Pal-Walker-Kahan variant of the QL or QR algorithm.
 /// Generic implementation for any target.
-/// @ingroup bdsqr_specialization
+/// @ingroup svd_specialization
 ///
 // ATTENTION: only host computation supported for now
 //
@@ -76,7 +76,7 @@ void sterf(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup bdsqr_specialization
+/// @ingroup svd_specialization
 ///
 template <Target target, typename scalar_t>
 void sterf(std::vector< scalar_t >& D,

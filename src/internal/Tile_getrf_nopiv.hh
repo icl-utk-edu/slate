@@ -58,7 +58,7 @@ namespace internal {
 /// @param[in,out] tile
 ///     tile to factor
 ///
-/// @ingroup getrf_nopiv_tile
+/// @ingroup gesv_tile
 ///
 template <typename scalar_t>
 void getrf_nopiv(Tile<scalar_t> tile, int64_t ib)

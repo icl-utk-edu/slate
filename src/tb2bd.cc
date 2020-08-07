@@ -228,7 +228,7 @@ void tb2bd_run(TriangularBandMatrix<scalar_t>& A,
 //------------------------------------------------------------------------------
 /// @internal
 /// Reduces a band matrix to a bidiagonal matrix using bulge chasing.
-/// @ingroup tb2bd_specialization
+/// @ingroup svd_specialization
 ///
 template <Target target, typename scalar_t>
 void tb2bd(slate::internal::TargetType<target>,
@@ -326,7 +326,7 @@ void tb2bd(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup tb2bd_specialization
+/// @ingroup svd_specialization
 ///
 template <Target target, typename scalar_t>
 void tb2bd(TriangularBandMatrix<scalar_t>& A,
@@ -355,7 +355,7 @@ void tb2bd(TriangularBandMatrix<scalar_t>& A,
 ///           - HostBatch: batched BLAS on CPU host.
 ///           - Devices:   batched BLAS on GPU device.
 ///
-/// @ingroup tb2bd
+/// @ingroup svd_computational
 ///
 template <typename scalar_t>
 void tb2bd(TriangularBandMatrix<scalar_t>& A,

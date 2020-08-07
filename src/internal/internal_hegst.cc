@@ -50,7 +50,7 @@ namespace internal {
 /// Reduces a complex Hermitian positive-definite generalized eigenvalue problem
 /// to the standard form of single tile.
 /// Dispatches to target implementations.
-/// @ingroup hegst_internal
+/// @ingroup hegv_internal
 ///
 template <Target target, typename scalar_t>
 void hegst(int64_t itype, HermitianMatrix< scalar_t >&& A,
@@ -62,7 +62,7 @@ void hegst(int64_t itype, HermitianMatrix< scalar_t >&& A,
 //------------------------------------------------------------------------------
 /// Reduces a complex Hermitian positive-definite generalized eigenvalue problem
 /// to the standard form of single tile, host implementation.
-/// @ingroup hegst_internal
+/// @ingroup hegv_internal
 ///
 template <typename scalar_t>
 void hegst(internal::TargetType<Target::HostTask>,

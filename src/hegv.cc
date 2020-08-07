@@ -108,7 +108,7 @@ namespace slate {
 ///
 /// TODO: return value
 ///
-/// @ingroup hegv_computational
+/// @ingroup hegv
 ///
 template <typename scalar_t>
 void hegv(int64_t itype,

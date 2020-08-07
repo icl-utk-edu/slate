@@ -57,7 +57,7 @@ namespace specialization {
 ///
 /// ColMajor layout is assumed
 ///
-/// @ingroup he2hb_specialization
+/// @ingroup heev_specialization
 ///
 template <Target target, typename scalar_t>
 void he2hb(slate::internal::TargetType<target>,
@@ -430,7 +430,7 @@ void he2hb(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup he2hb_specialization
+/// @ingroup heev_specialization
 ///
 template <Target target, typename scalar_t>
 void he2hb(HermitianMatrix<scalar_t>& A,
@@ -506,7 +506,7 @@ void he2hb(HermitianMatrix<scalar_t>& A,
 ///     Note a lookahead is not possible with he2hb due to dependencies from
 ///     updating on both left and right sides.
 ///
-/// @ingroup he2hb_computational
+/// @ingroup heev_computational
 ///
 template <typename scalar_t>
 void he2hb(HermitianMatrix<scalar_t>& A,

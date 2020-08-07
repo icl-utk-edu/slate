@@ -58,7 +58,7 @@ namespace specialization {
 /// left singular vectors from the singular value decomposition (SVD) of
 /// a real (upper or lower) bidiagonal matrix.
 /// Generic implementation for any target.
-/// @ingroup bdsqr_specialization
+/// @ingroup svd_specialization
 ///
 // ATTENTION: only singular values computed for now, no singular vectors.
 // only host computation supported for now
@@ -153,7 +153,7 @@ void bdsqr(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup bdsqr_specialization
+/// @ingroup svd_specialization
 ///
 template <Target target, typename scalar_t>
 void bdsqr(lapack::Job jobu, lapack::Job jobvt,

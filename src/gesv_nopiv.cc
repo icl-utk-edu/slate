@@ -98,7 +98,7 @@ namespace slate {
 ///         The factorization has been completed, but the factor U is exactly
 ///         singular, so the solution could not be computed.
 ///
-/// @ingroup gesv_nopiv
+/// @ingroup gesv
 ///
 template <typename scalar_t>
 void gesv_nopiv(

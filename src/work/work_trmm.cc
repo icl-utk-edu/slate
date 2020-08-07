@@ -87,7 +87,7 @@ namespace work {
 ///         Number of blocks to overlap communication and computation.
 ///         lookahead >= 0. Default 1.
 ///
-/// @ingroup trmm_work
+/// @ingroup trmm_internal
 ///
 template <Target target, typename scalar_t>
 void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,

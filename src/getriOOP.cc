@@ -80,7 +80,7 @@ namespace slate {
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// @ingroup getri_computational
+/// @ingroup gesv_computational
 ///
 template <typename scalar_t>
 void getri(Matrix<scalar_t>& A, Pivots& pivots,

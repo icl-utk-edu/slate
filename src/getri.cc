@@ -54,7 +54,7 @@ namespace specialization {
 //------------------------------------------------------------------------------
 /// Distributed parallel inverse of a general matrix.
 /// Generic implementation for any target.
-/// @ingroup getri_specialization
+/// @ingroup gesv_specialization
 ///
 /// todo: This routine is in-place and does not support GPUs.
 ///       There is another one (out-of-place) that does.
@@ -174,7 +174,7 @@ void getri(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup getri_specialization
+/// @ingroup gesv_specialization
 ///
 template <Target target, typename scalar_t>
 void getri(Matrix<scalar_t>& A, Pivots& pivots,
@@ -226,7 +226,7 @@ void getri(Matrix<scalar_t>& A, Pivots& pivots,
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// @ingroup getri_computational
+/// @ingroup gesv_computational
 ///
 template <typename scalar_t>
 void getri(Matrix<scalar_t>& A, Pivots& pivots,

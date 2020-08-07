@@ -179,7 +179,7 @@ void getrf_swap(
 ///     workspace for broadcasting the top row for the geru operation
 ///     and the top block for the gemm operation.
 ///
-/// @ingroup getrf_tile
+/// @ingroup gesv_tile
 ///
 template <typename scalar_t>
 void getrf(

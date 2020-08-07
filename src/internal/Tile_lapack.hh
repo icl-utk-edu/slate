@@ -319,7 +319,7 @@ int64_t potrf(Tile<scalar_t>&& A)
 //------------------------------------------------------------------------------
 /// Triangular inversion of tile.
 /// uplo is set in the tile.
-/// @ingroup trtri_tile
+/// @ingroup tr_tile
 ///
 template <typename scalar_t>
 int64_t trtri(Diag diag, Tile<scalar_t>& A)
@@ -333,7 +333,7 @@ int64_t trtri(Diag diag, Tile<scalar_t>& A)
 
 //-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
-/// @ingroup trtri_tile
+/// @ingroup tr_tile
 ///
 template <typename scalar_t>
 int64_t trtri(Diag diag, Tile<scalar_t>&& A)
@@ -344,7 +344,7 @@ int64_t trtri(Diag diag, Tile<scalar_t>&& A)
 //------------------------------------------------------------------------------
 /// Triangular multiplication $L = L^H L$ or $U = U U^H$
 /// uplo is set in the tile.
-/// @ingroup trtrm_tile
+/// @ingroup tr_tile
 ///
 template <typename scalar_t>
 int64_t trtrm(Tile<scalar_t>& A)
@@ -358,7 +358,7 @@ int64_t trtrm(Tile<scalar_t>& A)
 
 //-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
-/// @ingroup trtrm_tile
+/// @ingroup tr_tile
 ///
 template <typename scalar_t>
 int64_t trtrm(Tile<scalar_t>&& A)
@@ -370,7 +370,7 @@ int64_t trtrm(Tile<scalar_t>&& A)
 /// Reduces a complex Hermitian positive-definite generalized eigenvalue problem
 /// to the standard form of single tile.
 /// uplo is set in the tile.
-/// @ingroup hegst_tile
+/// @ingroup hegv_tile
 ///
 template <typename scalar_t>
 int64_t hegst(int64_t itype, Tile<scalar_t>& A, Tile<scalar_t>& B)
@@ -383,7 +383,7 @@ int64_t hegst(int64_t itype, Tile<scalar_t>& A, Tile<scalar_t>& B)
 
 //-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
-/// @ingroup hegst_tile
+/// @ingroup hegv_tile
 ///
 template <typename scalar_t>
 int64_t hegst(int64_t itype, Tile<scalar_t>&& A, Tile<scalar_t>&& B)

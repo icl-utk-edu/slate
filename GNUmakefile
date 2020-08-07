@@ -696,6 +696,9 @@ uninstall:
 
 docs:
 	doxygen docs/doxygen/doxyfile.conf
+	@echo "------------------------------------------------------------"
+	@echo "Errors:"
+	perl -pe 's@^/.*?slate/@@' docs/doxygen/errors.txt
 
 #-------------------------------------------------------------------------------
 # C API

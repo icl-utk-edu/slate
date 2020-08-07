@@ -49,7 +49,7 @@ namespace internal {
 //------------------------------------------------------------------------------
 /// Triangular inversion of single tile.
 /// Dispatches to target implementations.
-/// @ingroup trtri_internal
+/// @ingroup tr_internal
 ///
 template <Target target, typename scalar_t>
 void trtri(TriangularMatrix< scalar_t >&& A, int priority)
@@ -59,7 +59,7 @@ void trtri(TriangularMatrix< scalar_t >&& A, int priority)
 
 //------------------------------------------------------------------------------
 /// Triangular inversion of single tile, host implementation.
-/// @ingroup trtri_internal
+/// @ingroup tr_internal
 ///
 template <typename scalar_t>
 void trtri(internal::TargetType<Target::HostTask>,

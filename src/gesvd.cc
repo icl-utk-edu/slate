@@ -47,6 +47,11 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
+///
+/// todo: document
+///
+/// @ingroup svd
+///
 /// Note A is passed by value, so we can transpose if needed
 /// without affecting caller.
 ///

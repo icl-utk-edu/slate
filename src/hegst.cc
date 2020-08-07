@@ -52,7 +52,7 @@ namespace specialization {
 /// Distributed parallel reduction of a complex Hermitian positive-definite
 /// generalized eigenvalue problem to the standard form.
 /// Generic implementation for any target.
-/// @ingroup hegst_specialization
+/// @ingroup hegv_specialization
 ///
 template <Target target, typename scalar_t>
 void hegst(slate::internal::TargetType<target>,
@@ -253,7 +253,7 @@ void hegst(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup hegst_specialization
+/// @ingroup hegv_specialization
 ///
 template <Target target, typename scalar_t>
 void hegst(int64_t itype, HermitianMatrix<scalar_t>& A,
@@ -327,7 +327,7 @@ void hegst(int64_t itype, HermitianMatrix<scalar_t>& A,
 ///
 /// TODO: return value
 ///
-/// @ingroup hegst_computational
+/// @ingroup hegv_computational
 ///
 template <typename scalar_t>
 void hegst(int64_t itype, HermitianMatrix<scalar_t>& A,

@@ -54,7 +54,7 @@ namespace specialization {
 /// Distributed parallel inverse of a triangular matrix.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
-/// @ingroup trtri_specialization
+/// @ingroup tr_specialization
 ///
 template <Target target, typename scalar_t>
 void trtri(slate::internal::TargetType<target>,
@@ -266,7 +266,7 @@ void trtri(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup trtri_specialization
+/// @ingroup tr_specialization
 ///
 template <Target target, typename scalar_t>
 void trtri(TriangularMatrix<scalar_t>& A,
@@ -315,7 +315,7 @@ void trtri(TriangularMatrix<scalar_t>& A,
 /// @retval >0 for return value = $i$, $A(i,i)$ is exactly zero. The triangular
 ///         matrix is singular and its inverse can not be computed.
 ///
-/// @ingroup trtri
+/// @ingroup tr_computational
 ///
 template <typename scalar_t>
 void trtri(TriangularMatrix<scalar_t>& A,

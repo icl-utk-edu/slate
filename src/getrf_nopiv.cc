@@ -52,7 +52,7 @@ namespace internal {
 namespace specialization {
 
 //------------------------------------------------------------------------------
-/// Distributed parallel LU factorization.
+/// Distributed parallel LU factorization without pivoting.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
 /// @ingroup gesv_specialization
@@ -65,12 +65,6 @@ void getrf_nopiv(slate::internal::TargetType<target>,
     // using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
-    // Host can use Col/RowMajor for row swapping,
-    // RowMajor is slightly more efficient.
-    // Layout host_layout = Layout::RowMajor;
-    // Layout target_layout = Layout::RowMajor;
-    // todo: RowMajor causes issues with tileLayoutReset() when A origin is
-    //       ScaLAPACK
     Layout host_layout = Layout::ColMajor;
     Layout target_layout = Layout::ColMajor;
 
@@ -87,7 +81,9 @@ void getrf_nopiv(slate::internal::TargetType<target>,
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
+    std::vector< uint8_t > diag_vector(A_nt);
     uint8_t* column = column_vector.data();
+    uint8_t* diag = diag_vector.data();
 
     #pragma omp parallel
     #pragma omp master
@@ -95,20 +91,40 @@ void getrf_nopiv(slate::internal::TargetType<target>,
         omp_set_nested(1);
         for (int64_t k = 0; k < min_mt_nt; ++k) {
 
-            const int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
-
             // panel, high priority
-            #pragma omp task depend(inout:column[k]) priority(priority_one)
+            #pragma omp task depend(inout:column[k]) \
+                             depend(out:diag[k]) \
+                             priority(priority_one)
             {
-                // factor A(k:mt-1, k)
-                internal::getrf_nopiv<Target::HostTask>(
-                    A.sub(k, A_mt-1, k, k), diag_len, ib,
-                    max_panel_threads, priority_one);
+                // factor A(k, k)
+                internal::getrf_nopiv<Target::HostTask>(A.sub(k, k, k, k),
+                                                        ib,
+                                                        priority_one);
+
+                // Update panel
+                int tag_k = k;
+                BcastList bcast_list_A;
+                bcast_list_A.push_back({k, k, {A.sub(k+1, A_mt-1, k, k),
+                                               A.sub(k, k, k+1, A_nt-1)}});
+                A.template listBcast(bcast_list_A, host_layout, tag_k);
+            }
+
+            #pragma omp task depend(inout:column[k]) \
+                             priority(priority_one)
+            {
+                const int64_t tag_k = k;
+                auto Akk = A.sub(k, k, k, k);
+                auto Tkk = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, Akk);
+
+                internal::trsm<Target::HostTask>(
+                    Side::Right,
+                    scalar_t(1.0), std::move(Tkk),
+                                   A.sub(k+1, A_mt-1, k, k),
+                    priority_one);
 
                 BcastList bcast_list_A;
-                int tag_k = k;
                 // bcast the tiles of the panel to the right hand side
-                for (int64_t i = k; i < A_mt; ++i) {
+                for (int64_t i = k+1; i < A_mt; ++i) {
                     // send A(i, k) across row A(i, k+1:nt-1)
                     bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
                 }
@@ -118,8 +134,9 @@ void getrf_nopiv(slate::internal::TargetType<target>,
             // update lookahead column(s), high priority
             // Done on CPU, not target.
             for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
-                #pragma omp task depend(in:column[k]) \
-                                 depend(inout:column[j]) priority(priority_one)
+                #pragma omp task depend(in:diag[k]) \
+                                 depend(inout:column[j]) \
+                                 priority(priority_one)
                 {
                     // swap rows in A(k:mt-1, j)
                     int tag_j = j;
@@ -137,7 +154,12 @@ void getrf_nopiv(slate::internal::TargetType<target>,
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor
                     A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), Layout::ColMajor, tag_j);
+                }
 
+                #pragma omp task depend(in:column[k]) \
+                                 depend(inout:column[j]) \
+                                 priority(priority_one)
+                {
                     // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
                     internal::gemm<Target::HostTask>(
                         scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
@@ -148,7 +170,7 @@ void getrf_nopiv(slate::internal::TargetType<target>,
             }
             // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
-                #pragma omp task depend(in:column[k]) \
+                #pragma omp task depend(in:diag[k]) \
                                  depend(inout:column[k+1+lookahead]) \
                                  depend(inout:column[A_nt-1])
                 {
@@ -174,7 +196,12 @@ void getrf_nopiv(slate::internal::TargetType<target>,
                     }
                     // todo: trsm still operates in ColMajor
                     A.template listBcast(bcast_list_A, Layout::ColMajor, tag_kl1);
+                }
 
+                #pragma omp task depend(in:column[k]) \
+                                 depend(inout:column[k+1+lookahead]) \
+                                 depend(inout:column[A_nt-1])
+                {
                     // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                     internal::gemm<target>(
                         scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
@@ -238,17 +265,17 @@ void getrf_nopiv(Matrix<scalar_t>& A,
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel LU factorization.
+/// Distributed parallel LU factorization without pivoting.
 ///
 /// Computes an LU factorization without pivoting of a general m-by-n matrix $A$
 ///
 /// The factorization has the form
 /// \[
-///     A = P L U
+///     A = L U
 /// \]
-/// where $P$ is a permutation matrix, $L$ is lower triangular with unit
-/// diagonal elements (lower trapezoidal if m > n), and $U$ is upper
-/// triangular (upper trapezoidal if m < n).
+/// where $L$ is lower triangular with unit diagonal elements
+/// (lower trapezoidal if m > n), and $U$ is upper triangular
+/// (upper trapezoidal if m < n).
 ///
 /// This is the right-looking Level 3 BLAS version of the algorithm.
 ///
@@ -268,8 +295,6 @@ void getrf_nopiv(Matrix<scalar_t>& A,
 ///       lookahead >= 0. Default 1.
 ///     - Option::InnerBlocking:
 ///       Inner blocking to use for panel. Default 16.
-///     - Option::MaxPanelThreads:
-///       Number of threads to use for panel. Default omp_get_max_threads()/2.
 ///     - Option::Target:
 ///       Implementation to target. Possible values:
 ///       - HostTask:  OpenMP tasks on CPU host [default].

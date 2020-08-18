@@ -16,16 +16,17 @@ pipeline {
 
                         git submodule update --init
 
-                        source /home/jmfinney/spack/share/spack/setup-env.sh
-                        spack load gcc@6.4.0
-                        spack load cuda
-                        spack load intel-mkl
-                        spack load intel-mpi
+                        source /home/jenkins/spack_setup
+                        sload gcc@6.4.0
+                        sload cuda@10.2.89
+                        sload intel-mkl
+                        sload intel-mpi
 
                         export color=no
 
                         cat > make.inc << END
                         CXX       = mpicxx
+                        FC        = mpif90
                         CXXFLAGS  = -Werror
                         blas      = mkl
                         cuda_arch = pascal
@@ -70,17 +71,18 @@ END
 
                         git submodule update --init
 
-                        source /home/jmfinney/spack/share/spack/setup-env.sh
-                        spack load gcc@6.4.0
-                        spack load cuda
-                        spack load intel-mkl
-                        spack load openmpi^gcc@6.4.0
+                        source /home/jenkins/spack_setup
+                        sload gcc@6.4.0
+                        sload cuda@10.2.89
+                        sload intel-mkl
+                        sload openmpi%gcc@6.4.0
 
                         export color=no
                         export OMPI_CXX=${CXX}
 
                         cat > make.inc << END
                         CXX       = mpicxx
+                        FC        = mpif90
                         CXXFLAGS  = -Werror
                         blas      = mkl
                         mkl_blacs = openmpi
@@ -129,11 +131,11 @@ END
                         echo "SLATE Testing"
                         hostname && pwd
 
-                        source /home/jmfinney/spack/share/spack/setup-env.sh
-                        spack load gcc@6.4.0
-                        spack load cuda
-                        spack load intel-mkl
-                        spack load intel-mpi
+                        source /home/jenkins/spack_setup
+                        sload gcc@6.4.0
+                        sload cuda@10.2.89
+                        sload intel-mkl
+                        sload intel-mpi
 
                         export FI_PROVIDER=tcp
 
@@ -175,11 +177,11 @@ END
                         echo "SLATE Testing"
                         hostname && pwd
 
-                        source /home/jmfinney/spack/share/spack/setup-env.sh
-                        spack load gcc@6.4.0
-                        spack load cuda
-                        spack load intel-mkl
-                        spack load openmpi^gcc@6.4.0
+                        source /home/jenkins/spack_setup
+                        sload gcc@6.4.0
+                        sload cuda@10.2.89
+                        sload intel-mkl
+                        sload openmpi%gcc@6.4.0
 
                         cd unit_test
                         ./run_tests.py --xml ../report_unit.xml

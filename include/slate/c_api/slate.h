@@ -37,72 +37,18 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate/Matrix.hh"
-#include "slate/types.hh"
-#include "internal/Tile_getrf_nopiv.hh"
-#include "internal/internal.hh"
+#ifndef SLATE_C_API_SLATE_H
+#define SLATE_C_API_SLATE_H
 
-namespace slate {
-namespace internal {
+#include "slate/internal/mpi.hh"
 
-//------------------------------------------------------------------------------
-/// LU factorization of single tile without pivoting.
-/// Dispatches to target implementations.
-/// @ingroup gesv_internal
-///
-template <Target target, typename scalar_t>
-void getrf_nopiv(Matrix< scalar_t >&& A, int64_t ib, int priority)
-{
-    getrf_nopiv(internal::TargetType<target>(), A, ib, priority);
-}
+#include "slate/c_api/wrappers.h"
+#include "slate/c_api/matrix.h"
+#include "slate/c_api/types.h"
 
-//------------------------------------------------------------------------------
-/// LU factorization of single tile without pivoting, host implementation.
-/// @ingroup gesv_internal
-///
-template <typename scalar_t>
-void getrf_nopiv(internal::TargetType<Target::HostTask>,
-                 Matrix<scalar_t>& A,
-                 int64_t ib, int priority)
-{
-    assert(A.mt() == 1);
-    assert(A.nt() == 1);
+#include <stdbool.h>
+#include <complex.h>
+#include <stdint.h>
+#include <assert.h>
 
-    if (A.tileIsLocal(0, 0)) {
-        A.tileGetForWriting(0, 0, LayoutConvert::ColMajor);
-        getrf_nopiv(A(0, 0), ib);
-    }
-}
-
-//------------------------------------------------------------------------------
-// Explicit instantiations.
-// ----------------------------------------
-template
-void getrf_nopiv<Target::HostTask, float>(
-    Matrix<float>&& A,
-    int64_t ib,
-    int priority);
-
-// ----------------------------------------
-template
-void getrf_nopiv<Target::HostTask, double>(
-    Matrix<double>&& A,
-    int64_t ib,
-    int priority);
-
-// ----------------------------------------
-template
-void getrf_nopiv< Target::HostTask, std::complex<float> >(
-    Matrix< std::complex<float> >&& A,
-    int64_t ib,
-    int priority);
-
-// ----------------------------------------
-template
-void getrf_nopiv< Target::HostTask, std::complex<double> >(
-    Matrix< std::complex<double> >&& A,
-    int64_t ib,
-    int priority);
-
-} // namespace internal
-} // namespace slate
+#endif // SLATE_C_API_SLATE_H

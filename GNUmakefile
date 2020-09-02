@@ -28,11 +28,11 @@
 #                 otherwise default is shared library (libslate.so).
 #
 # C/Fortran API:
-#     c_api=1         build C interface (default).
-#     c_api=0         do not build C interface.
-#     fortran_api=1   build Fortran interface (default);
+#     c_api=1         build C interface.
+#     c_api=0         do not build C interface (default).
+#     fortran_api=1   build Fortran interface;
 #                     if c_api=1 and $(FC) compiler is found.
-#     fortran_api=0   do not build Fortran interface.
+#     fortran_api=0   do not build Fortran interface (default).
 #
 # If $(NVCC) compiler is found, sets cuda=1 by default. NVCC=nvcc by default.
 # cuda_arch="ARCH" for CUDA architectures, where ARCH is one or more of:
@@ -47,12 +47,10 @@
 prefix ?= /opt/slate
 
 openmp ?= 1
+c_api ?= 0
+fortran_api ?= 0
 
 NVCC ?= nvcc
-
-c_api ?= 1
-
-fortran_api ?= 1
 
 # If nvcc exists, set cuda = 1 by default.
 HAVE_CUDA := $(shell which $(NVCC))
@@ -119,6 +117,14 @@ endif
 # Check if Fortran compiler exists.
 # Note that 'make' sets $(FC) to f77 by default.
 HAVE_FORTRAN := $(shell which $(FC))
+ifeq ($(HAVE_FORTRAN),)
+    fortran_api = 0
+endif
+
+# Fortran API depends on C API.
+ifneq ($(c_api),1)
+    fortran_api = 0
+endif
 
 #-------------------------------------------------------------------------------
 # if shared
@@ -155,6 +161,7 @@ else ifeq ($(spectrum),1)
 else
     FLAGS += -DSLATE_NO_MPI
     libslate_src += src/stubs/mpi_stubs.cc
+    fortran_api = 0
 endif
 
 #-------------------------------------------------------------------------------
@@ -472,14 +479,10 @@ ifeq ($(c_api),1)
 endif
 
 # Fortran module
-ifneq ($(HAVE_FORTRAN),)
-    ifeq ($(fortran_api),1)
-        ifeq ($(c_api),1)
-            libslate_src += \
-                src/fortran/slate_module.f90 \
+ifeq ($(fortran_api),1)
+    libslate_src += \
+        src/fortran/slate_module.f90 \
 
-        endif
-    endif
 endif
 
 # main tester
@@ -666,38 +669,34 @@ docs:
 #-------------------------------------------------------------------------------
 # C API
 ifeq ($(c_api),1)
-include/slate/c_api/wrappers.h: src/c_api/wrappers.cc
-	python tools/c_api/generate_wrappers.py $< $@
+    include/slate/c_api/wrappers.h: src/c_api/wrappers.cc
+		python tools/c_api/generate_wrappers.py $< $@
 
-include/slate/c_api/matrix.h: include/slate/Tile.hh
-	python tools/c_api/generate_matrix.py $< $@
+    include/slate/c_api/matrix.h: include/slate/Tile.hh
+		python tools/c_api/generate_matrix.py $< $@
 
-include/slate/c_api/util.hh: include/slate/c_api/types.h
-	python tools/c_api/generate_util.py $< $@
+    include/slate/c_api/util.hh: include/slate/c_api/types.h
+		python tools/c_api/generate_util.py $< $@
 
-src/c_api/wrappers_precisions.cc: include/slate/c_api/wrappers.h
-src/c_api/matrix.cc: include/slate/c_api/matrix.h
-src/c_api/util.cc: include/slate/c_api/util.hh
-src/c_api/wrappers.o: include/slate/c_api/wrappers.h
+    src/c_api/wrappers_precisions.cc: include/slate/c_api/wrappers.h
+    src/c_api/matrix.cc: include/slate/c_api/matrix.h
+    src/c_api/util.cc: include/slate/c_api/util.hh
+    src/c_api/wrappers.o: include/slate/c_api/wrappers.h
 
-generate: include/slate/c_api/wrappers.h
-generate: include/slate/c_api/matrix.h
-generate: include/slate/c_api/util.hh
+    generate: include/slate/c_api/wrappers.h
+    generate: include/slate/c_api/matrix.h
+    generate: include/slate/c_api/util.hh
 endif
 
 #-------------------------------------------------------------------------------
 # Fortran module
-ifneq ($(HAVE_FORTRAN),)
 ifeq ($(fortran_api),1)
-ifeq ($(c_api),1)
-src/fortran/slate_module.f90: include/slate/c_api/wrappers.h \
-                              include/slate/c_api/types.h \
-                              include/slate/c_api/matrix.h
-	python tools/fortran/generate_fortran_module.py $^ --output $@
+    src/fortran/slate_module.f90: include/slate/c_api/wrappers.h \
+                                  include/slate/c_api/types.h \
+                                  include/slate/c_api/matrix.h
+		python tools/fortran/generate_fortran_module.py $^ --output $@
 
-generate: src/fortran/slate_module.f90
-endif
-endif
+    generate: src/fortran/slate_module.f90
 endif
 
 #-------------------------------------------------------------------------------

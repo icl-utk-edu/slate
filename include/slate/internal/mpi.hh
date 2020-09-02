@@ -53,6 +53,7 @@ typedef int MPI_Group;
 typedef int MPI_Request;
 typedef int MPI_Status;
 typedef int MPI_Op;
+typedef int MPI_Fint;
 
 enum {
     MPI_COMM_NULL,
@@ -109,6 +110,7 @@ int MPI_Comm_free(MPI_Comm* comm);
 int MPI_Comm_group(MPI_Comm comm, MPI_Group* group);
 int MPI_Comm_rank(MPI_Comm comm, int* rank);
 int MPI_Comm_size(MPI_Comm comm, int* size);
+MPI_Fint MPI_Comm_f2c(MPI_Comm comm);
 
 int MPI_Group_free(MPI_Group* group);
 

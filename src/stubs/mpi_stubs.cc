@@ -115,6 +115,12 @@ int MPI_Comm_size(MPI_Comm comm, int* size)
     return MPI_SUCCESS;
 }
 
+MPI_Fint MPI_Comm_f2c(MPI_Comm comm)
+{
+    assert(0);
+    return 0;
+}
+
 int MPI_Group_free(MPI_Group* group)
 {
     assert(0);

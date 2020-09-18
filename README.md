@@ -57,7 +57,8 @@ among ECP applications.
 Documentation
 --------------------------------------------------------------------------------
 
-* [Building and Installing SLATE](https://bitbucket.org/icl/slate/wiki/Howto/Building_and_Installing_SLATE)
+* [Users' Guide](https://www.icl.utk.edu/publications/swan-010)
+* [Developers' Guide](https://www.icl.utk.edu/publications/swan-011)
 * [Tutorial with sample codes for using SLATE](https://bitbucket.org/icl/slate-tutorial/)
 * [SLATE Function Reference](https://icl.bitbucket.io/slate/)
 * [SLATE Website and Papers](http://icl.utk.edu/slate/)

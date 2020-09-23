@@ -49,7 +49,7 @@ namespace lapack_api {
 // -----------------------------------------------------------------------------
 
 // Local function
-template< typename scalar_t >
+template <typename scalar_t>
 void slate_posv(const char* uplostr, const int n, const int nrhs, scalar_t* a, const int lda, scalar_t* b, const int ldb, int* info);
 
 using lld = long long int;
@@ -85,7 +85,7 @@ extern "C" void slate_zposv(const char* uplo, const int* n, const int* nrhs, std
 // -----------------------------------------------------------------------------
 
 // Type generic function calls the SLATE routine
-template< typename scalar_t >
+template <typename scalar_t>
 void slate_posv(const char* uplostr, const int n, const int nrhs, scalar_t* a, const int lda, scalar_t* b, const int ldb, int* info)
 {
     // Start timing

@@ -48,7 +48,7 @@ namespace lapack_api {
 // -----------------------------------------------------------------------------
 
 // Local function
-template< typename scalar_t >
+template <typename scalar_t>
 void slate_gemm(const char* transa, const char* transb, int m, int n, int k, scalar_t alpha, scalar_t* a, int lda, scalar_t* b, int ldb, scalar_t beta, scalar_t* c, int ldc);
 
 // -----------------------------------------------------------------------------
@@ -82,7 +82,7 @@ extern "C" void slate_zgemm(const char* transa, const char* transb, int* m, int*
 // -----------------------------------------------------------------------------
 
 // Type generic function calls the SLATE routine
-template< typename scalar_t >
+template <typename scalar_t>
 void slate_gemm(const char* transastr, const char* transbstr, int m, int n, int k, scalar_t alpha, scalar_t* a, int lda, scalar_t* b, int ldb, scalar_t beta, scalar_t* c, int ldc)
 {
     // Start timing

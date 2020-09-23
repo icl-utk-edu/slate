@@ -48,7 +48,7 @@ namespace lapack_api {
 // -----------------------------------------------------------------------------
 
 // Local function
-template< typename scalar_t >
+template <typename scalar_t>
 void slate_potri(const char* uplostr, const int n, scalar_t* a, const int lda, int* info);
 
 // -----------------------------------------------------------------------------
@@ -82,7 +82,7 @@ extern "C" void slate_zpotri(const char* uplo, const int* n, std::complex<double
 // -----------------------------------------------------------------------------
 
 // Type generic function calls the SLATE routine
-template< typename scalar_t >
+template <typename scalar_t>
 void slate_potri(const char* uplostr, const int n, scalar_t* a, const int lda, int* info)
 {
     // start timing

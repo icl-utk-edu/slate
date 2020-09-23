@@ -48,7 +48,7 @@ namespace lapack_api {
 // -----------------------------------------------------------------------------
 
 // Local function
-template< typename scalar_t >
+template <typename scalar_t>
 blas::real_type<scalar_t> slate_lantr(const char* normstr, const char* uplostr, const char* diagstr, int m, int n, scalar_t* a, int lda, blas::real_type<scalar_t>* work);
 
 // -----------------------------------------------------------------------------
@@ -82,7 +82,7 @@ extern "C" double slate_zlantr(const char* norm, const char* uplo, const char* d
 // -----------------------------------------------------------------------------
 
 // Type generic function calls the SLATE routine
-template< typename scalar_t >
+template <typename scalar_t>
 blas::real_type<scalar_t> slate_lantr(const char* normstr, const char* uplostr, const char* diagstr, int m, int n, scalar_t* a, int lda, blas::real_type<scalar_t>* work)
 {
     // quick return

@@ -49,7 +49,7 @@ namespace lapack_api {
 // -----------------------------------------------------------------------------
 
 // Local function
-template< typename scalar_t >
+template <typename scalar_t>
 void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int lda, scalar_t* b, int ldb, scalar_t* work, int lwork, int* info);
 
 // -----------------------------------------------------------------------------
@@ -83,7 +83,7 @@ extern "C" void slate_zgels(const char* trans, int* m, int* n, int* nrhs, std::c
 // -----------------------------------------------------------------------------
 
 // Type generic function calls the SLATE routine
-template< typename scalar_t >
+template <typename scalar_t>
 void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int lda, scalar_t* b, int ldb, scalar_t* work, int lwork, int* info)
 {
     using real_t = blas::real_type<scalar_t>;

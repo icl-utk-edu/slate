@@ -49,7 +49,7 @@ namespace lapack_api {
 // -----------------------------------------------------------------------------
 
 // Local function
-template< typename scalar_t >
+template <typename scalar_t>
 void slate_getrf(const int m, const int n, scalar_t* a, const int lda, int* ipiv, int* info);
 
 // -----------------------------------------------------------------------------
@@ -83,7 +83,7 @@ extern "C" void slate_zgetrf(const int* m, const int* n, std::complex<double>* a
 // -----------------------------------------------------------------------------
 
 // Type generic function calls the SLATE routine
-template< typename scalar_t >
+template <typename scalar_t>
 void slate_getrf(const int m, const int n, scalar_t* a, const int lda, int* ipiv, int* info)
 {
     // Start timing
@@ -160,4 +160,3 @@ void slate_getrf(const int m, const int n, scalar_t* a, const int lda, int* ipiv
 
 } // namespace lapack_api
 } // namespace slate
-

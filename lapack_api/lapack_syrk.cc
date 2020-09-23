@@ -48,7 +48,7 @@ namespace lapack_api {
 // -----------------------------------------------------------------------------
 
 // Local function
-template< typename scalar_t >
+template <typename scalar_t>
 void slate_syrk(const char* uplostr, const char* transastr, const int n, const int k, const scalar_t alpha, scalar_t* a, const int lda, const scalar_t beta, scalar_t* c, const int ldc);
 
 // -----------------------------------------------------------------------------
@@ -82,7 +82,7 @@ extern "C" void slate_zsyrk(const char* uplo, const char* transa, const int* n, 
 // -----------------------------------------------------------------------------
 
 // Type generic function calls the SLATE routine
-template< typename scalar_t >
+template <typename scalar_t>
 void slate_syrk(const char* uplostr, const char* transastr, const int n, const int k, const scalar_t alpha, scalar_t* a, const int lda, const scalar_t beta, scalar_t* c, const int ldc)
 {
     // start timing

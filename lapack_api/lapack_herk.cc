@@ -48,7 +48,7 @@ namespace lapack_api {
 // -----------------------------------------------------------------------------
 
 // Local function
-template< typename scalar_t >
+template <typename scalar_t>
 void slate_herk(const char* uplostr, const char* transastr, const int n, const int k, const blas::real_type<scalar_t> alpha, scalar_t* a, const int lda, const blas::real_type<scalar_t> beta, scalar_t* c, const int ldc);
 
 // -----------------------------------------------------------------------------
@@ -70,7 +70,7 @@ extern "C" void slate_zherk(const char* uplo, const char* transa, const int* n, 
 // -----------------------------------------------------------------------------
 
 // Type generic function calls the SLATE routine
-template< typename scalar_t >
+template <typename scalar_t>
 void slate_herk(const char* uplostr, const char* transastr, const int n, const int k, const blas::real_type<scalar_t> alpha, scalar_t* a, const int lda, const blas::real_type<scalar_t> beta, scalar_t* c, const int ldc)
 {
     // Start timing

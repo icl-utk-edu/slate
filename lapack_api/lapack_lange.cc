@@ -48,7 +48,7 @@ namespace lapack_api {
 // -----------------------------------------------------------------------------
 
 // Local function
-template< typename scalar_t >
+template <typename scalar_t>
 blas::real_type<scalar_t> slate_lange(const char* normstr, int m, int n, scalar_t* a, int lda, blas::real_type<scalar_t>* work);
 
 // -----------------------------------------------------------------------------
@@ -82,7 +82,7 @@ extern "C" double slate_zlange(const char* norm, int* m, int* n, std::complex<do
 // -----------------------------------------------------------------------------
 
 // Type generic function calls the SLATE routine
-template< typename scalar_t >
+template <typename scalar_t>
 blas::real_type<scalar_t> slate_lange(const char* normstr, int m, int n, scalar_t* a, int lda, blas::real_type<scalar_t>* work)
 {
     // start timing

@@ -93,7 +93,8 @@ void slate_getrf(const int m, const int n, scalar_t* a, const int lda, int* ipiv
 
     int initialized, provided;
     MPI_Initialized(&initialized);
-    if (! initialized) MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided);
+    if (! initialized)
+        MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided);
 
     // Test the input parameters
     *info = 0;

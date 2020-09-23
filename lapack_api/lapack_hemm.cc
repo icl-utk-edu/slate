@@ -81,7 +81,8 @@ void slate_hemm(const char* sidestr, const char* uplostr, const int m, const int
     // Check and initialize MPI, else SLATE calls to MPI will fail
     int initialized, provided;
     MPI_Initialized(&initialized);
-    if (! initialized) MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided);
+    if (! initialized)
+        MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided);
 
     // todo: does this set the omp num threads correctly in all circumstances
     int saved_num_blas_threads = slate_lapack_set_num_blas_threads(1);

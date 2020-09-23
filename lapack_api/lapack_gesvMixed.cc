@@ -82,8 +82,9 @@ void slate_gesv(const int n, const int nrhs, scalar_t* a, const int lda, int* ip
 
     // Check and initialize MPI, else SLATE calls to MPI will fail
     int initialized, provided;
-    assert(MPI_Initialized(&initialized) == MPI_SUCCESS);
-    if (! initialized) assert(MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided) == MPI_SUCCESS);
+    MPI_Initialized(&initialized);
+    if (! initialized)
+        MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided);
 
     // todo: does this set the omp num threads correctly in all circumstances
     int saved_num_blas_threads = slate_lapack_set_num_blas_threads(1);

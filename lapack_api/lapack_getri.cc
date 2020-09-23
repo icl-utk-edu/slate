@@ -49,7 +49,7 @@ namespace lapack_api {
 // -----------------------------------------------------------------------------
 
 // Local function
-template< typename scalar_t >
+template <typename scalar_t>
 void slate_getri(const int n, scalar_t* a, const int lda, int* ipiv, scalar_t* work, const int lwork, int* info);
 
 using llong = long long;
@@ -85,7 +85,7 @@ extern "C" void slate_zgetri(const int* n, std::complex<double>* a, const int* l
 // -----------------------------------------------------------------------------
 
 // Type generic function calls the SLATE routine
-template< typename scalar_t >
+template <typename scalar_t>
 void slate_getri(const int n, scalar_t* a, const int lda, int* ipiv, scalar_t* work, const int lwork, int* info)
 {
     using real_t = blas::real_type<scalar_t>;
@@ -99,14 +99,16 @@ void slate_getri(const int n, scalar_t* a, const int lda, int* ipiv, scalar_t* w
     }
 
     // Start timing
-    static int verbose = slate_lapack_set_verbose();
+    int verbose = slate_lapack_set_verbose();
     double timestart = 0.0;
     if (verbose) timestart = omp_get_wtime();
 
     // Check and initialize MPI, else SLATE calls to MPI will fail
-    int initialized, provided;
-    assert(MPI_Initialized(&initialized) == MPI_SUCCESS);
-    if (! initialized) assert(MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided) == MPI_SUCCESS);
+    // Since this is an lapack wrapper there will be only one MPI process
+    int initialized=0, provided=0;
+    MPI_Initialized(&initialized);
+    if (! initialized)
+        MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided);
 
     // todo: does this set the omp num threads correctly in all circumstances
     int saved_num_blas_threads = slate_lapack_set_num_blas_threads(1);
@@ -157,7 +159,14 @@ void slate_getri(const int n, scalar_t* a, const int lda, int* ipiv, scalar_t* w
     // todo:  get a real value for info
     *info = 0;
 
-    if (verbose) std::cout << "slate_lapack_api: " << slate_lapack_scalar_t_to_char(a) << "getri(" <<  n << "," <<  (void*)a << "," <<  lda << "," << (void*)ipiv << "," << (void*)work << "," << lwork << "," << *info << ") " << (omp_get_wtime()-timestart) << " sec " << "nb:" << nb << " max_threads:" << omp_get_max_threads() << "\n";
+    if (verbose)
+        std::cout << "slate_lapack_api: "
+                  << slate_lapack_scalar_t_to_char(a) << "getri("
+                  <<  n << "," <<  (void*)a << "," <<  lda << "," << (void*)ipiv << ","
+                  << (void*)work << "," << lwork << "," << *info << ") "
+                  << (omp_get_wtime()-timestart) << " sec "
+                  << "nb:" << nb
+                  << " max_threads:" << omp_get_max_threads() << "\n";
 }
 
 } // namespace lapack_api

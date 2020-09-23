@@ -20,7 +20,7 @@ void print_matrix(
     printf("%s = [\n", label);
     for (int64_t i = 0; i < m; ++i) {
         for (int64_t j = 0; j < n; ++j) {
-            snprintf(buf, sizeof(buf), " %*.*f", width, precision, (double)(A[i + j*lda]));
+            snprintf(buf, sizeof(buf), " %*.*f", width, precision, A[i + j*lda]);
             printf("%s", buf);
         }
         printf( "\n");
@@ -46,8 +46,11 @@ int main(int argc, char *argv[])
     int *ipiv = (int *)malloc( minmn * sizeof(int) );
 
     printf("Setup matrix A\n");
-    for (int j=0; j<n; j++) for (int i=0; i<m; i++) A[i+j*n] = i+j+1;
-    for (int j=0; j<n; j++) A[j+j*n] += n; // diag dom
+    for (int j=0; j<n; ++j)
+        for (int i=0; i<m; ++i)
+            A[i+j*n] = i+j+1;
+    for (int j=0; j<n; ++j)
+        A[j+j*n] += n; // diag dom
     print_matrix("A", m, n, A, lda, 10, 5);
 
     printf("Run LAPACK dgetrf\n");
@@ -62,8 +65,11 @@ int main(int argc, char *argv[])
 
 
     printf("Reset matrix A\n");
-    for (int j=0; j<n; j++) for (int i=0; i<m; i++) A[i+j*n] = i+j+1;
-    for (int j=0; j<n; j++) A[j+j*n] += n; // diag dom
+    for (int j=0; j<n; ++j)
+        for (int i=0; i<m; ++i)
+            A[i+j*n] = i+j+1;
+    for (int j=0; j<n; ++j)
+        A[j+j*n] += n; // diag dom
     print_matrix("A", m, n, A, lda, 10, 5);
 
     printf("Run SLATE dgetrf using lapack_api\n");

@@ -1,6 +1,6 @@
 pipeline {
     agent none
-    triggers { cron ('H H(0-2) * * *') }
+    triggers { cron ('H H(4-5) * * *') }
     stages {
         //======================================================================
         stage('Parallel Build') {

@@ -37,10 +37,7 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate/slate.hh"
 #include "lapack_slate.hh"
-#include "lapack_fortran.h"
-#include <complex>
 
 namespace slate {
 namespace lapack_api {
@@ -54,10 +51,10 @@ blas::real_type<scalar_t> slate_lantr(const char* normstr, const char* uplostr, 
 // -----------------------------------------------------------------------------
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
 
-#define slate_slantr LAPACK_GLOBAL( slate_slantr, SLATE_SLANTR )
-#define slate_dlantr LAPACK_GLOBAL( slate_dlantr, SLATE_DLANTR )
-#define slate_clantr LAPACK_GLOBAL( slate_clantr, SLATE_CLANTR )
-#define slate_zlantr LAPACK_GLOBAL( slate_zlantr, SLATE_ZLANTR )
+#define slate_slantr BLAS_FORTRAN_NAME( slate_slantr, SLATE_SLANTR )
+#define slate_dlantr BLAS_FORTRAN_NAME( slate_dlantr, SLATE_DLANTR )
+#define slate_clantr BLAS_FORTRAN_NAME( slate_clantr, SLATE_CLANTR )
+#define slate_zlantr BLAS_FORTRAN_NAME( slate_zlantr, SLATE_ZLANTR )
 
 extern "C" float slate_slantr(const char* norm, const char* uplo, const char* diag, int* m, int* n, float* a, int* lda, float* work)
 {

@@ -9,19 +9,26 @@
 #
 # CXX=mpicxx or mpic++ for MPI using compiler wrapper.
 # Alternatively:
-#     mpi=1       for MPI (-lmpi).
-#     spectrum=1  for IBM Spectrum MPI (-lmpi_ibm).
+#     mpi=1         for MPI (-lmpi).
+#     mpi=spectrum  for IBM Spectrum MPI (-lmpi_ibm).
 #
 # blas=mkl        for Intel MKL. Additional sub-options:
-#     mkl_intel=1           for Intel MKL with Intel Fortran conventions;
-#                           otherwise uses GNU gfortran conventions.
-#                           Automatically set if CXX=icpc or on macOS.
-#     mkl_threaded=1        for multi-threaded Intel MKL.
 #     mkl_blacs=openmpi     for OpenMPI BLACS in SLATE's testers.
 #     mkl_blacs=intelmpi    for Intel MPI BLACS in SLATE's testers (default).
-#     ilp64=1               for ILP64. Currently only with Intel MKL.
 # blas=essl       for IBM ESSL.
 # blas=openblas   for OpenBLAS.
+#
+# blas_int=int    for 32-bit int (lp64; default)
+# blas_int=int64  for 64-bit int (ilp64; only with Intel MKL)
+#
+# SLATE handles threading itself, so sequential BLAS is preferred.
+# blas_threaded=1 for multi-threaded BLAS (only with IBM ESSL, Intel MKL);
+# blas_threaded=0 single threaded BLAS
+#
+# Fortran interface to use. Currently applies only to Intel MKL.
+# blas_fortran=ifort        use Intel ifort  conventions (e.g., libmkl_intel_lp64)
+#                           Automatically set if CXX=icpc or on macOS.
+# blas_fortran=gfortran     use GNU gfortran conventions (e.g., libmkl_gf_lp64)
 #
 # openmp=1        for OpenMP (default).
 # static=1        for static library (libslate.a);
@@ -69,6 +76,12 @@ ifneq ($(intelmpi),)
 endif
 
 # Warn about deprecated settings.
+spectrum := $(strip $(spectrum))
+ifeq ($(spectrum),1)
+    $(warning WARNING: Variable `spectrum=$(spectrum)` is deprecated; setting `mpi ?= spectrum`)
+    mpi ?= spectrum
+endif
+
 ifneq ($(mkl),)
     $(warning WARNING: Variable `mkl=$(mkl)` is deprecated; setting `blas ?= mkl`)
     blas ?= mkl
@@ -81,15 +94,30 @@ ifneq ($(openblas),)
     $(warning WARNING: Variable `openblas=$(openblas)` is deprecated; setting `blas ?= openblas`)
     blas ?= openblas
 endif
+ifneq ($(mkl_threaded),)
+    $(warning WARNING: Variable `mkl_threaded=$(mkl_threaded)` is deprecated; setting `blas_threaded ?= $(mkl_threaded)`)
+    blas_threaded ?= $(mkl_threaded)
+endif
+
+mkl_intel := $(strip $(mkl_intel))
+ifeq ($(mkl_intel),1)
+    $(warning WARNING: Variable `mkl_intel=$(mkl_intel)` is deprecated; setting `blas_fortran ?= ifort`)
+    blas_fortran ?= ifort
+endif
+
+ilp64 := $(strip $(ilp64))
+ifeq ($(ilp64),1)
+    $(warning WARNING: Variable `ilp64=$(ilp64)` is deprecated; setting `blas_int ?= int64`)
+    blas_int ?= int64
+endif
 
 # Strip whitespace from variables, in case make.inc had trailing spaces.
 mpi             := $(strip $(mpi))
-spectrum        := $(strip $(spectrum))
 blas            := $(strip $(blas))
-mkl_intel       := $(strip $(mkl_intel))
-mkl_threaded    := $(strip $(mkl_threaded))
+blas_int        := $(strip $(blas_int))
+blas_threaded   := $(strip $(blas_threaded))
+blas_fortran    := $(strip $(blas_fortran))
 mkl_blacs       := $(strip $(mkl_blacs))
-ilp64           := $(strip $(ilp64))
 openmp          := $(strip $(openmp))
 static          := $(strip $(static))
 cuda_arch       := $(strip $(cuda_arch))
@@ -99,7 +127,7 @@ c_api           := $(strip $(c_api))
 fortran_api     := $(strip $(fortran_api))
 
 # Export variables to sub-make for testsweeper, BLAS++, LAPACK++.
-export CXX blas ilp64 openmp static
+export CXX blas blas_int blas_threaded openmp static
 
 CXXFLAGS  += -O3 -std=c++11 -Wall -pedantic -MMD
 NVCCFLAGS += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
@@ -155,7 +183,7 @@ ifneq (,$(filter $(CXX),mpicxx mpic++))
 else ifeq ($(mpi),1)
     # Generic MPI.
     LIBS  += -lmpi
-else ifeq ($(spectrum),1)
+else ifeq ($(mpi),spectrum)
     # IBM Spectrum MPI
     LIBS  += -lmpi_ibm
 else
@@ -179,36 +207,36 @@ ifeq ($(blas),mkl)
     # Auto-detect whether to use Intel or GNU conventions.
     # Won't detect if CXX = mpicxx.
     ifeq ($(CXX),icpc)
-        mkl_intel = 1
+        blas_fortran = ifort
     endif
     ifeq ($(macos),1)
         # MKL on MacOS (version 20180001) has only Intel Fortran version
-        mkl_intel = 1
+        blas_fortran = ifort
     endif
-    ifeq ($(mkl_intel),1)
+    ifeq ($(blas_fortran),ifort)
         # use Intel Fortran conventions
-        ifeq ($(ilp64),1)
+        ifeq ($(blas_int),int64)
             LIBS += -lmkl_intel_ilp64
         else
             LIBS += -lmkl_intel_lp64
         endif
 
         # if threaded, use Intel OpenMP (iomp5)
-        ifeq ($(mkl_threaded),1)
+        ifeq ($(blas_threaded),1)
             LIBS += -lmkl_intel_thread
         else
             LIBS += -lmkl_sequential
         endif
     else
         # use GNU Fortran conventions
-        ifeq ($(ilp64),1)
+        ifeq ($(blas_int),int64)
             LIBS += -lmkl_gf_ilp64
         else
             LIBS += -lmkl_gf_lp64
         endif
 
         # if threaded, use GNU OpenMP (gomp)
-        ifeq ($(mkl_threaded),1)
+        ifeq ($(blas_threaded),1)
             LIBS += -lmkl_gnu_thread
         else
             LIBS += -lmkl_sequential
@@ -221,13 +249,13 @@ ifeq ($(blas),mkl)
     # For others, link with appropriate version of ScaLAPACK and BLACS.
     ifneq ($(macos),1)
         ifeq ($(mkl_blacs),openmpi)
-            ifeq ($(ilp64),1)
+            ifeq ($(blas_int),int64)
                 scalapack = -lmkl_scalapack_ilp64 -lmkl_blacs_openmpi_ilp64
             else
                 scalapack = -lmkl_scalapack_lp64 -lmkl_blacs_openmpi_lp64
             endif
         else
-            ifeq ($(ilp64),1)
+            ifeq ($(blas_int),int64)
                 scalapack = -lmkl_scalapack_ilp64 -lmkl_blacs_intelmpi_ilp64
             else
                 scalapack = -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64
@@ -237,6 +265,8 @@ ifeq ($(blas),mkl)
 # if ESSL
 else ifeq ($(blas),essl)
     FLAGS += -DSLATE_WITH_ESSL
+    # todo threaded, int64
+    # hmm... likely LAPACK won't be int64 even if ESSL is.
     LIBS += -lessl -llapack
 # if OpenBLAS
 else ifeq ($(blas),openblas)
@@ -970,12 +1000,11 @@ $(scalapack_api_obj): | $(libblaspp) $(liblapackpp)
 echo:
 	@echo "---------- Options"
 	@echo "mpi           = '$(mpi)'"
-	@echo "spectrum      = '$(spectrum)'"
 	@echo "blas          = '$(blas)'"
-	@echo "mkl_intel     = '$(mkl_intel)'"
-	@echo "mkl_threaded  = '$(mkl_threaded)'"
+	@echo "blas_int      = '$(blas_int)'"
+	@echo "blas_threaded = '$(blas_threaded)'"
+	@echo "blas_fortran  = '$(blas_fortran)'"
 	@echo "mkl_blacs     = '$(mkl_blacs)'"
-	@echo "ilp64         = '$(ilp64)'"
 	@echo "openmp        = '$(openmp)'"
 	@echo "static        = '$(static)'"
 	@echo "ostype        = '$(ostype)'"

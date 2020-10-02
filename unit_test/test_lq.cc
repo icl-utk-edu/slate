@@ -502,7 +502,7 @@ void test_unmlq_work( slate::Side side, slate::Op op, int m, int n, int k )
     // T is k-by-k. Generate from V and tau.
     int64_t ldt = k;
     std::vector< scalar_t > Tdata( ldt * k );
-    lapack::larft( lapack::Direct::Forward, lapack::StoreV::Rowwise, Vn, k,
+    lapack::larft( lapack::Direction::Forward, lapack::StoreV::Rowwise, Vn, k,
                    Vdata.data(), ldv, tau.data(), Tdata.data(), ldt );
 
     // C is m-by-n.

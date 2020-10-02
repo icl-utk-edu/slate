@@ -1,8 +1,8 @@
 #include "slate/slate.hh"
 #include "slate/BandMatrix.hh"
 #include "test.hh"
-#include "blas_flops.hh"
-#include "lapack_flops.hh"
+#include "blas/flops.hh"
+#include "lapack/flops.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"

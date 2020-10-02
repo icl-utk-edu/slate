@@ -61,7 +61,7 @@ public:
     // LAPACK options
     // The order here matches the order in most LAPACK functions, e.g.,
     // syevx( jobz, range, uplo, n, ..., vl, vu, il, iu, ... )
-    // larfb( side, trans, direct, storev, m, n, k, ... )
+    // larfb( side, trans, direction, storev, m, n, k, ... )
     // lanhe( norm, uplo, n, ... )
     // pbsv ( uplo, n, kd, nrhs, ... )
     // gbsv ( n, kl, ku, nrhs, ... )
@@ -85,7 +85,7 @@ public:
     testsweeper::ParamEnum< slate::Op >             transA;
     testsweeper::ParamEnum< slate::Op >             transB;
     testsweeper::ParamEnum< slate::Diag >           diag;
-    testsweeper::ParamEnum< lapack::Direct >        direct;
+    testsweeper::ParamEnum< slate::Direction >      direction;
     testsweeper::ParamEnum< lapack::StoreV >        storev;
     testsweeper::ParamEnum< lapack::MatrixType >    matrixtype;
 

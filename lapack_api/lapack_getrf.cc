@@ -37,11 +37,7 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate/slate.hh"
 #include "lapack_slate.hh"
-#include "blas_fortran.hh"
-#include "lapack_fortran.h"
-#include <complex>
 
 namespace slate {
 namespace lapack_api {
@@ -55,10 +51,10 @@ void slate_getrf(const int m, const int n, scalar_t* a, const int lda, int* ipiv
 // -----------------------------------------------------------------------------
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
 
-#define slate_sgetrf LAPACK_GLOBAL( slate_sgetrf, SLATE_SGETRF )
-#define slate_dgetrf LAPACK_GLOBAL( slate_dgetrf, SLATE_DGETRF )
-#define slate_cgetrf LAPACK_GLOBAL( slate_cgetrf, SLATE_CGETRF )
-#define slate_zgetrf LAPACK_GLOBAL( slate_zgetrf, SLATE_ZGETRF )
+#define slate_sgetrf BLAS_FORTRAN_NAME( slate_sgetrf, SLATE_SGETRF )
+#define slate_dgetrf BLAS_FORTRAN_NAME( slate_dgetrf, SLATE_DGETRF )
+#define slate_cgetrf BLAS_FORTRAN_NAME( slate_cgetrf, SLATE_CGETRF )
+#define slate_zgetrf BLAS_FORTRAN_NAME( slate_zgetrf, SLATE_ZGETRF )
 
 extern "C" void slate_sgetrf(const int* m, const int* n, float* a, const int* lda, int* ipiv, int* info)
 {

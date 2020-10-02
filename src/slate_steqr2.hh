@@ -1,4 +1,4 @@
-#include "blas_fortran.hh"
+#include "blas/fortran.h"
 #include "slate/Exception.hh"
 
 #include <complex>

@@ -57,7 +57,7 @@ typedef blas::Side Side;
 typedef blas::Layout Layout;
 
 typedef lapack::Norm Norm;
-typedef lapack::Direct Direction;  // todo change LAPACK++
+typedef lapack::Direction Direction;
 
 typedef lapack::Job Job;
 

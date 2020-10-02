@@ -37,10 +37,7 @@
 // signing in with your Google credentials, and then clicking "Join group".
 //------------------------------------------------------------------------------
 
-#include "slate/slate.hh"
 #include "lapack_slate.hh"
-#include "blas_fortran.hh"
-#include <complex>
 
 namespace slate {
 namespace lapack_api {

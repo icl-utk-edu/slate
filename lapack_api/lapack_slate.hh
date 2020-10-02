@@ -40,7 +40,11 @@
 #ifndef SLATE_LAPACK_API_COMMON_HH
 #define SLATE_LAPACK_API_COMMON_HH
 
+// get BLAS_FORTRAN_NAME and blas_int
+#include "blas/fortran.h"
+
 #include "slate/slate.hh"
+
 #include <complex>
 
 #ifdef SLATE_WITH_MKL

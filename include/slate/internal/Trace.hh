@@ -43,6 +43,8 @@
 #include <map>
 #include <set>
 #include <vector>
+#include <string>
+
 #include <cstring>
 
 #include "slate/internal/mpi.hh"
@@ -63,6 +65,7 @@ public:
     Event(const char* name)
         : start_(omp_get_wtime())
     {
+        // todo: do with C++ instead of cstring?
         strncpy(name_, name, 30);
         name_[30]='\0';
     }

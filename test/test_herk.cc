@@ -1,6 +1,6 @@
 #include "slate/slate.hh"
 #include "test.hh"
-#include "blas_flops.hh"
+#include "blas/flops.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"

@@ -39,6 +39,7 @@
 
 #include "slate/slate.hh"
 #include "scalapack_slate.hh"
+
 #include <complex>
 
 namespace slate {

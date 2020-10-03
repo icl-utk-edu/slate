@@ -645,15 +645,19 @@ install: lib
 	@echo
 	cd lapackpp && $(MAKE) install prefix=${prefix}
 	@echo
-	mkdir -p $(DESTDIR)$(prefix)/include/slate/c_api
 	mkdir -p $(DESTDIR)$(prefix)/include/slate/internal
 	mkdir -p $(DESTDIR)$(prefix)/lib$(LIB_SUFFIX)
 	cp include/slate/*.hh          $(DESTDIR)$(prefix)/include/slate
 	cp include/slate/internal/*.hh $(DESTDIR)$(prefix)/include/slate/internal
-	cp include/slate/c_api/*.h     $(DESTDIR)$(prefix)/include/slate/c_api
-	cp include/slate/c_api/*.hh    $(DESTDIR)$(prefix)/include/slate/c_api
 	cp lib/lib*                    $(DESTDIR)$(prefix)/lib$(LIB_SUFFIX)
-	cp slate.mod                   $(DESTDIR)$(prefix)/include/
+	if [ $(c_api) -eq 1 ]; then \
+		mkdir -p $(DESTDIR)$(prefix)/include/slate/c_api; \
+		cp include/slate/c_api/*.h  $(DESTDIR)$(prefix)/include/slate/c_api; \
+		cp include/slate/c_api/*.hh $(DESTDIR)$(prefix)/include/slate/c_api; \
+	fi
+	if [ ${fortran_api} -eq 1 ]; then \
+		cp slate.mod                $(DESTDIR)$(prefix)/include/; \
+	fi
 
 uninstall:
 	cd blaspp   && $(MAKE) uninstall prefix=${prefix}

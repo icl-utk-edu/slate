@@ -23,8 +23,8 @@
 # blas_int=int64  for 64-bit int (ilp64; only with Intel MKL)
 #
 # SLATE handles threading itself, so sequential BLAS is preferred.
+# blas_threaded=0 single threaded BLAS (default)
 # blas_threaded=1 for multi-threaded BLAS (only with IBM ESSL, Intel MKL);
-# blas_threaded=0 single threaded BLAS
 #
 # Fortran interface to use. Currently applies only to Intel MKL.
 # blas_fortran=ifort        use Intel ifort  conventions (e.g., libmkl_intel_lp64)
@@ -42,7 +42,8 @@
 #                     if c_api=1 and $(FC) compiler is found.
 #     fortran_api=0   do not build Fortran interface (default).
 #
-# If $(NVCC) compiler is found, sets cuda=1 by default. NVCC=nvcc by default.
+# cuda=1          for CUDA (default if $(NVCC) compiler is found).
+# NVCC=nvcc by default.
 # cuda_arch="ARCH" for CUDA architectures, where ARCH is one or more of:
 #     kepler maxwell pascal volta turing ampere sm_XX
 # and sm_XX is a CUDA architecture (e.g., sm_30; see nvcc -h).
@@ -50,24 +51,6 @@
 # cuda_arch="pascal" by default.
 
 -include make.inc
-
-# Set defaults
-# Do all ?= before strip!
-prefix ?= /opt/slate
-
-openmp ?= 1
-c_api ?= 0
-fortran_api ?= 0
-
-NVCC ?= nvcc
-
-# If nvcc exists, set cuda = 1 by default.
-have_cuda := $(shell which $(NVCC))
-ifneq ($(have_cuda),)
-    cuda ?= 1
-else ifeq ($(strip $(cuda)),1)
-    $(error ERROR: cuda = $(cuda), but NVCC = ${NVCC} not found)
-endif
 
 # Error for obsolete settings.
 ifneq ($(openmpi),)
@@ -111,6 +94,27 @@ ilp64 := $(strip $(ilp64))
 ifeq ($(ilp64),1)
     $(warning WARNING: Variable `ilp64=$(ilp64)` is deprecated; setting `blas_int ?= int64`)
     blas_int ?= int64
+endif
+
+# Set defaults
+# Do all ?= before strip!
+prefix          ?= /opt/slate
+
+blas_int        ?= int
+blas_threaded   ?= 0
+openmp          ?= 1
+c_api           ?= 0
+fortran_api     ?= 0
+
+NVCC            ?= nvcc
+
+# If nvcc exists, set cuda = 1 by default.
+have_cuda := $(shell which $(NVCC))
+ifneq ($(have_cuda),)
+    cuda ?= 1
+    cuda_arch ?= pascal
+else ifeq ($(strip $(cuda)),1)
+    $(error ERROR: cuda = $(cuda), but NVCC = ${NVCC} not found)
 endif
 
 # Strip whitespace from variables, in case make.inc had trailing spaces.
@@ -279,20 +283,8 @@ else
 endif
 
 #-------------------------------------------------------------------------------
-# cuda_arch implies cuda, if $cuda not already set.
-ifneq ($(cuda_arch),)
-    ifeq ($(cuda),)
-        cuda = 1
-    endif
-endif
-
 # if CUDA
 ifeq ($(cuda),1)
-    # Set default cuda_arch if not already set.
-    ifeq ($(cuda_arch),)
-        cuda_arch = pascal
-    endif
-
     # Generate flags for which CUDA architectures to build.
     # cuda_arch_ is a local copy to modify.
     cuda_arch_ = $(cuda_arch)

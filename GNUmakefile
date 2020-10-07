@@ -315,8 +315,8 @@ ifeq ($(cuda),1)
     gencode_compute = -gencode arch=compute_$(sm),code=compute_$(sm)
 
     # Get gencode options for all sm_XX in cuda_arch_.
-    nv_sm      = $(filter %, $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_sm))))
-    nv_compute = $(filter %, $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_compute))))
+    nv_sm      = $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_sm)))
+    nv_compute = $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_compute)))
 
     ifeq ($(nv_sm),)
         $(error ERROR: unknown `cuda_arch=$(cuda_arch)`. Set cuda_arch to one of kepler, maxwell, pascal, volta, turing, ampere, or valid sm_XX from nvcc -h)

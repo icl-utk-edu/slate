@@ -7,13 +7,14 @@
 #
 # Set options on command line or in make.inc file.
 #
-# CXX=mpicxx or mpic++ for MPI using compiler wrapper.
+# CXX=mpicxx, mpic++, etc. (mpi*) for MPI using compiler wrapper.
+# FC =mpif90, mpifort, etc.
 # Alternatively:
 #     mpi=1         for MPI (-lmpi).
 #     mpi=spectrum  for IBM Spectrum MPI (-lmpi_ibm).
 #
 # blas=mkl        for Intel MKL. Additional sub-options:
-#     mkl_blacs=openmpi     for OpenMPI BLACS in SLATE's testers.
+#     mkl_blacs=openmpi     for Open MPI BLACS in SLATE's testers.
 #     mkl_blacs=intelmpi    for Intel MPI BLACS in SLATE's testers (default).
 # blas=essl       for IBM ESSL.
 # blas=openblas   for OpenBLAS.
@@ -178,8 +179,8 @@ endif
 
 #-------------------------------------------------------------------------------
 # if MPI
-ifneq (,$(filter $(CXX),mpicxx mpic++))
-    # CXX = mpicxx or mpic++
+ifneq ($(filter mpi%,$(CXX)),)
+    # CXX = mpicxx, mpic++, ...
     # Generic MPI via compiler wrapper. No flags to set.
 else ifeq ($(mpi),1)
     # Generic MPI.

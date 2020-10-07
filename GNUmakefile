@@ -60,8 +60,8 @@ fortran_api ?= 0
 NVCC ?= nvcc
 
 # If nvcc exists, set cuda = 1 by default.
-HAVE_CUDA := $(shell which $(NVCC))
-ifneq ($(HAVE_CUDA),)
+have_cuda := $(shell which $(NVCC))
+ifneq ($(have_cuda),)
     cuda ?= 1
 else ifeq ($(strip $(cuda)),1)
     $(error ERROR: cuda = $(cuda), but NVCC = ${NVCC} not found)
@@ -144,8 +144,8 @@ endif
 
 # Check if Fortran compiler exists.
 # Note that 'make' sets $(FC) to f77 by default.
-HAVE_FORTRAN := $(shell which $(FC))
-ifeq ($(HAVE_FORTRAN),)
+have_fortran := $(shell which $(FC))
+ifeq ($(have_fortran),)
     fortran_api = 0
 endif
 
@@ -489,7 +489,7 @@ libslate_src += \
         src/unmlq.cc \
         src/hegst.cc \
 
-ifneq ($(HAVE_FORTRAN),)
+ifneq ($(have_fortran),)
     libslate_src += \
         src/ssteqr2.f \
         src/dsteqr2.f \
@@ -563,7 +563,7 @@ tester_src += \
 
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
-ifneq ($(HAVE_FORTRAN),)
+ifneq ($(have_fortran),)
     tester_src += \
         test/pslange.f \
         test/pdlange.f \
@@ -1050,7 +1050,7 @@ echo:
 	@echo "cuda_arch     = '$(cuda_arch)'"
 	@echo "NVCC          = $(NVCC)"
 	@echo "NVCCFLAGS     = $(NVCCFLAGS)"
-	@echo "HAVE_CUDA     = ${HAVE_CUDA}"
+	@echo "have_cuda     = ${have_cuda}"
 	@echo "cuda_arch     = $(cuda_arch)"
 	@echo "cuda_arch_    = $(cuda_arch_)"
 	@echo "sms           = $(sms)"
@@ -1063,7 +1063,7 @@ echo:
 	@echo "---------- Fortran compiler"
 	@echo "FC            = $(FC)"
 	@echo "FCFLAGS       = $(FCFLAGS)"
-	@echo "HAVE_FORTRAN  = $(HAVE_FORTRAN)"
+	@echo "have_fortran  = $(have_fortran)"
 	@echo
 	@echo "---------- Link flags"
 	@echo "LDFLAGS       = $(LDFLAGS)"

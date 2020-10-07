@@ -130,7 +130,7 @@ fortran_api     := $(strip $(fortran_api))
 # Export variables to sub-make for testsweeper, BLAS++, LAPACK++.
 export CXX blas blas_int blas_threaded openmp static
 
-CXXFLAGS  += -O3 -std=c++11 -Wall -pedantic -MMD
+CXXFLAGS  += -O3 -std=c++17 -Wall -pedantic -MMD
 NVCCFLAGS += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
 
 force: ;

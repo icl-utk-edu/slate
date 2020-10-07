@@ -43,9 +43,10 @@
 #
 # If $(NVCC) compiler is found, sets cuda=1 by default. NVCC=nvcc by default.
 # cuda_arch="ARCH" for CUDA architectures, where ARCH is one or more of:
-#                     kepler maxwell pascal volta turing sm_XX
-#                  and sm_XX is a CUDA architecture (see nvcc -h).
-# cuda_arch="kepler pascal" by default.
+#     kepler maxwell pascal volta turing ampere sm_XX
+# and sm_XX is a CUDA architecture (e.g., sm_30; see nvcc -h).
+# kepler and maxwell are no longer supported in CUDA 11.
+# cuda_arch="pascal" by default.
 
 -include make.inc
 
@@ -288,7 +289,7 @@ endif
 ifeq ($(cuda),1)
     # Set default cuda_arch if not already set.
     ifeq ($(cuda_arch),)
-        cuda_arch = kepler pascal
+        cuda_arch = pascal
     endif
 
     # Generate flags for which CUDA architectures to build.
@@ -309,9 +310,12 @@ ifeq ($(cuda),1)
     ifneq ($(findstring turing, $(cuda_arch_)),)
         cuda_arch_ += sm_75
     endif
+    ifneq ($(findstring ampere, $(cuda_arch_)),)
+        cuda_arch_ += sm_80
+    endif
 
     # CUDA architectures that nvcc supports
-    sms = 30 32 35 37 50 52 53 60 61 62 70 72 75
+    sms = 30 32 35 37 50 52 53 60 61 62 70 72 75 80
 
     # code=sm_XX is binary, code=compute_XX is PTX
     gencode_sm      = -gencode arch=compute_$(sm),code=sm_$(sm)
@@ -322,7 +326,7 @@ ifeq ($(cuda),1)
     nv_compute = $(filter %, $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_compute))))
 
     ifeq ($(nv_sm),)
-        $(error ERROR: unknown `cuda_arch=$(cuda_arch)`. Set cuda_arch to one of kepler, maxwell, pascal, volta, turing, or valid sm_XX from nvcc -h)
+        $(error ERROR: unknown `cuda_arch=$(cuda_arch)`. Set cuda_arch to one of kepler, maxwell, pascal, volta, turing, ampere, or valid sm_XX from nvcc -h)
     else
         # Get last option (last 2 words) of nv_compute.
         nwords := $(words $(nv_compute))

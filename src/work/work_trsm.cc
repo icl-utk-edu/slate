@@ -46,6 +46,8 @@ namespace work {
 
 //------------------------------------------------------------------------------
 /// Triangular solve matrix (multiple right-hand sides).
+/// Note A and B are passed by value, so we can transpose if needed
+/// (for side = right) without affecting caller.
 ///
 /// @tparam target
 ///         One of HostTask, HostNest, HostBatch, Devices.

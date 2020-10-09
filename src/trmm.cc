@@ -51,15 +51,13 @@ namespace specialization {
 /// @internal
 /// Distributed parallel triangular matrix-matrix multiplication.
 /// Generic implementation for any target.
-/// Note A and B are passed by value, so we can transpose if needed
-/// (for side = right) without affecting caller.
 /// @ingroup trmm_specialization
 ///
 template <Target target, typename scalar_t>
 void trmm(slate::internal::TargetType<target>,
           Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t> A,
-                                    Matrix<scalar_t> B,
+          scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                                    Matrix<scalar_t>& B,
           int64_t lookahead)
 {
     if (target == Target::Devices) {

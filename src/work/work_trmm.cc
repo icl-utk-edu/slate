@@ -46,6 +46,8 @@ namespace work {
 
 //------------------------------------------------------------------------------
 /// Triangular matrix multiply.
+/// Note A and B are passed by value, so we can transpose if needed
+/// (for side = right) without affecting caller.
 ///
 /// @tparam target
 ///         One of HostTask, HostNest, HostBatch, Devices.

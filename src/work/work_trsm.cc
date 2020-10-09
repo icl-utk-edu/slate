@@ -110,8 +110,8 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     assert(A.mt() == B.mt());
     assert(A.nt() == B.mt());
 
-    const int64_t mt = B.mt();
-    const int64_t nt = B.nt();
+    int64_t mt = B.mt();
+    int64_t nt = B.nt();
 
     const int priority_one  = 1;
     const int priority_zero = 0;

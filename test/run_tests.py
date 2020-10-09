@@ -41,6 +41,7 @@ group_test.add_argument( '-t', '--test', action='store',
 group_test.add_argument( '--xml', help='generate report.xml for jenkins' )
 
 group_size = parser.add_argument_group( 'matrix dimensions (default is medium)' )
+group_size.add_argument(       '--quick',  action='store_true', help='run quick "sanity check" of few, small tests' )
 group_size.add_argument( '-x', '--xsmall', action='store_true', help='run x-small tests' )
 group_size.add_argument( '-s', '--small',  action='store_true', help='run small tests' )
 group_size.add_argument( '-m', '--medium', action='store_true', help='run medium tests' )
@@ -131,7 +132,7 @@ for t in opts.tests:
         exit(1)
 
 # by default, run medium sizes
-if (not (opts.xsmall or opts.small or opts.medium or opts.large)):
+if (not (opts.quick or opts.xsmall or opts.small or opts.medium or opts.large)):
     opts.medium = True
 
 # by default, run all shapes
@@ -171,6 +172,16 @@ nk       = dim
 is_default_nb = (opts.nb == parser.get_default('nb'))
 
 if (not opts.dim):
+    if (opts.quick):
+        n        = ' --dim 100'
+        tall     = ' --dim 100x50'  # 2:1
+        wide     = ' --dim 50x100'  # 1:2
+        mnk      = ' --dim 25x50x75'
+        nk_tall  = ' --dim 1x100x50'  # 2:1
+        nk_wide  = ' --dim 1x50x100'  # 1:2
+        if (is_default_nb):
+            opts.nb = '32'
+
     if (opts.xsmall):
         n       += ' --dim 10'
         tall    += ' --dim 20x10'

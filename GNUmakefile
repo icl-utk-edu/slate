@@ -831,6 +831,13 @@ $(tester): $(tester_obj) $(libslate) $(testsweeper)
 		$(TEST_LIBS) $(LIBS) \
 		-o $@
 
+test/check: check
+unit_test/check: check
+
+check: test unit_test
+	cd test; python run_tests.py --quick gesv posv gels heev gesvd
+	cd unit_test; python run_tests.py
+
 #-------------------------------------------------------------------------------
 # unit testers
 unit_test: $(unit_test)

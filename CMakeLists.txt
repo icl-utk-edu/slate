@@ -1,164 +1,367 @@
-cmake_minimum_required(VERSION 3.8)
+# CMake script for SLATE library
+# repo: http://bitbucket.org/icl/slate
+# Requires BLAS++ library from
+#     http://bitbucket.org/icl/blaspp
+# Requires LAPACK++ library from
+#     http://bitbucket.org/icl/lapackpp
+# Tests require TestSweeper library from
+#     http://bitbucket.org/icl/testsweeper
 
-project(SLATE CXX CUDA)
-#project(SLATE)
+cmake_minimum_required( VERSION 3.15 )
+# 3.1  target_compile_features
+# 3.8  target_compile_features( cxx_std_11 )
+# 3.14 install( LIBRARY DESTINATION lib ) default
+# 3.15 $<$COMPILE_LANG_AND_ID  # optional
+# 3.15 message DEBUG, string REPEAT
 
-# Do not build the testers by default
-option(BUILD_SLATE_TESTS "Build SLATE tests - has more reqs" OFF)
-
-file (GLOB SLATE_SOURCES
-    CONFIGURE_DEPENDS  # forces cmake to check sources
-    #src/stubs/*.cc
-    src/*.cc
-    src/core/*.cc
-    src/aux/*.cc
-    src/internal/*.cc
-    src/cuda/*.cu
+project(
+    slate
+    VERSION 2020.09.00
+    LANGUAGES CXX Fortran
 )
 
-add_library(slate ${SLATE_SOURCES})
-
-set_target_properties (slate PROPERTIES
-    CXX_STANDARD 11
-    CXX_STANDARD_REQUIRED YES
-    CXX_EXTENSIONS NO
-)
-
-target_include_directories(slate
-    PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    PRIVATE
-        include/slate
-        include/slate/internal
-        src
-        src/internal
-    )
-
-find_package(MPI REQUIRED COMPONENTS CXX)
-
-find_package(blaspp REQUIRED)
-if(WIP) # work in progress
-find_package(blaspp QUIET)
-if(NOT blaspp_FOUND)
-    message ("  ******  blaspp not found!")
-    set (BLASPP_BUILD_TESTS)
-    add_subdirectory(blaspp)
-else ()
-    find_package(blaspp REQUIRED)
-endif()
+# When built as a sub-project, add a namespace to make targets unique,
+# e.g., `make tester` becomes `make slate_tester`.
+if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+    set( slate_is_project true )
+    set( slate_ "" )
+else()
+    set( slate_is_project false )
+    set( slate_ "slate_" )
 endif()
 
-get_target_property(blaspp_links blaspp INTERFACE_LINK_LIBRARIES)
-get_target_property(blaspp_compile_definitions blaspp COMPILE_DEFINITIONS)
-get_target_property(blaspp_interface_compile_definitions blaspp INTERFACE_COMPILE_DEFINITIONS)
-
-if ("${blaspp_links}" MATCHES "OpenMP")
-    message ("  OpenMP found and linking")
-    find_package(OpenMP)
-    if(OpenMP_CXX_FOUND)
-        target_link_libraries(slate PUBLIC OpenMP::OpenMP_CXX)
+#-------------------------------------------------------------------------------
+# Options
+if (slate_is_project)
+    set( log "" CACHE STRING "Shorthand for CMAKE_MESSAGE_LOG_LEVEL" )
+    set_property( CACHE log PROPERTY STRINGS
+                  FATAL_ERROR SEND_ERROR WARNING AUTHOR_WARNING DEPRECATION
+                  NOTICE STATUS VERBOSE DEBUG TRACE )
+    if (log)
+        set( CMAKE_MESSAGE_LOG_LEVEL "${log}" )
     endif()
 endif()
 
-#message ("blaspp_compile_definitions ${blaspp_compile_definitions}")
-#message ("blaspp_interface_compile_definitions ${blaspp_interface_compile_definitions}")
+option( BUILD_SHARED_LIBS "Build shared libraries" true )
+option( build_tests "Build test suite" "${slate_is_project}" )
+option( color "Use ANSI color output" true )
+option( use_cuda "Use CUDA, if available" true )
+option( use_mpi "Use MPI, if available" true )
+option( use_openmp "Use OpenMP, if available" true )
+# todo: option( c_api "Build C API" false )
+# todo: option( fortran_api "Build Fortran API. Requires C API." false )
 
-if ("${blaspp_interface_compile_definitions}" MATCHES "MKL")
-    message ("  MKL found - setting define")
-    target_compile_definitions(slate PUBLIC SLATE_WITH_MKL)
-    set(SLATE_WITH_MKL "TRUE")
-endif()
+# Default prefix=/opt/slate
+if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT
+    AND slate_is_project)
 
-# Set -Dlapackpp_DIR=/path/to/lapackpp or -DLAPACKPP_DIR=/path/to/lapackpp
-if(LAPACKPP_DIR)
-    message("using user supplied LAPACKPP_DIR: ${LAPACKPP_DIR}")
-    #set(LAPACKPP_DIR "${LAPACKPP_DIR}")
-else()
-    find_path(lapackpp_DIR lapackppConfig.cmake
-        PATHS
-            ${CMAKE_INSTALL_PREFIX}/lapackpp
+    set( prefix "/opt/slate" CACHE PATH "Shorthand for CMAKE_INSTALL_PREFIX" )
+    set( CMAKE_INSTALL_PREFIX "${prefix}"
+         CACHE PATH
+         "Install path prefix, prepended onto install directories."
+         FORCE
     )
-    #message("lapackpp_DIR: " ${lapackpp_DIR})
+    message( STATUS "Setting CMAKE_INSTALL_PREFIX = ${CMAKE_INSTALL_PREFIX}" )
+    # Append the new CMAKE_INSTALL_PREFIX, since CMake appended the old value.
+    # This helps find TestSweeper.
+    list( APPEND CMAKE_SYSTEM_PREFIX_PATH ${CMAKE_INSTALL_PREFIX} )
+else()
+    message( STATUS "Using CMAKE_INSTALL_PREFIX = ${CMAKE_INSTALL_PREFIX}" )
 endif()
 
-find_package(lapackpp REQUIRED)
-if(WIP) # work in progress
-find_package(lapackpp QUIET)
-if(NOT lapackpp_FOUND)
-    message ("  ******  lapackpp not found!")
-    unset (LAPACKPP_BUILD_TESTS)
-    add_subdirectory(lapackpp)
-else ()
-    find_package(lapackpp REQUIRED)
-endif()
+# Provide menu of options. (Why doesn't CMake do this?)
+set_property( CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+              None Debug Release RelWithDebInfo MinSizeRel )
+
+message( DEBUG "Settings:
+CMAKE_INSTALL_PREFIX   = ${CMAKE_INSTALL_PREFIX}
+CMAKE_BUILD_TYPE       = ${CMAKE_BUILD_TYPE}
+BUILD_SHARED_LIBS      = ${BUILD_SHARED_LIBS}
+build_tests            = ${build_tests}
+color                  = ${color}
+use_cuda               = ${use_cuda}
+use_mpi                = ${use_mpi}
+use_openmp             = ${use_openmp}
+c_api                  = ${c_api}
+fortran_api            = ${fortran_api}
+slate_is_project       = ${slate_is_project}
+slate_                 = ${slate_}
+" )
+
+#-------------------------------------------------------------------------------
+# Enforce out-of-source build
+string( TOLOWER "${CMAKE_CURRENT_SOURCE_DIR}" source_dir )
+string( TOLOWER "${CMAKE_CURRENT_BINARY_DIR}" binary_dir )
+if ("${source_dir}" STREQUAL "${binary_dir}")
+    message( FATAL_ERROR
+    "Compiling SLATE with CMake requires an out-of-source build. To proceed:
+    rm -rf CMakeCache.txt CMakeFiles/   # delete files in ${CMAKE_CURRENT_SOURCE_DIR}
+    mkdir build
+    cd build
+    cmake ..
+    make" )
 endif()
 
-# remove mpi flags that are incompatible with nvcc
-get_target_property(mpi_cxx_interface_compile_definitions MPI::MPI_CXX INTERFACE_COMPILE_OPTIONS)
-#message ("mpi_cxx_interface_compile_definitions: ${mpi_cxx_interface_compile_definitions}")
-list (REMOVE_ITEM mpi_cxx_interface_compile_definitions "-fexceptions")
-#message ("mpi_cxx_interface_compile_definitions: ${mpi_cxx_interface_compile_definitions}")
-set_target_properties(MPI::MPI_CXX PROPERTIES INTERFACE_COMPILE_OPTIONS "${mpi_cxx_interface_compile_definitions}")
+#-------------------------------------------------------------------------------
+# Build library.
 
-target_link_libraries(slate
+# todo: these need generation
+# src/c_api/*.cc
+# src/fortran_api/*.f90
+
+file(
+    GLOB libslate_src
+    CONFIGURE_DEPENDS  # glob at build time
+    src/*.cc
+    src/*.f
+    src/aux/*.cc
+    src/core/*.cc
+    src/internal/*.cc
+    src/work/*.cc
+)
+add_library(
+    slate
+    ${libslate_src}
+)
+
+# CUDA support.
+if (NOT use_cuda)
+    message( STATUS "User has requested to NOT use CUDA" )
+else()
+    include( CheckLanguage )
+    check_language( CUDA )
+endif()
+if (CMAKE_CUDA_COMPILER)
+    enable_language( CUDA )
+
+    message( STATUS "Building CUDA kernels." )
+    file(
+        GLOB libslate_cuda_src
+        CONFIGURE_DEPENDS  # glob at build time
+        src/cuda/*.cu
+    )
+    target_sources(
+        slate
+        PRIVATE
+        ${libslate_cuda_src}
+    )
+
+    # CMake 3.17 adds find_package( CUDAToolkit )
+    # with CUDA::cudart and CUDA::cublas targets.
+    # For compatibility with older CMake, for now do search ourselves.
+    find_library( cudart_lib cudart ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES} )
+    find_library( cublas_lib cublas ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES} )
+
+    # Some platforms need these to be public libraries.
+    target_link_libraries( slate PUBLIC "${cudart_lib}" "${cublas_lib}" )
+    target_include_directories(
+        slate PUBLIC "${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}" )
+else()
+    message( STATUS "No CUDA support in SLATE" )
+    target_sources(
+        slate
+        PRIVATE
+        src/stubs/cublas_stubs.cc
+        src/stubs/cuda_stubs.cc
+    )
+    target_compile_definitions( slate PUBLIC "-DSLATE_NO_CUDA" )
+endif()
+
+# Include directory.
+# During build it's {source}/include; after install it's {prefix}/include.
+target_include_directories(
+    slate
     PUBLIC
-        MPI::MPI_CXX
-        blaspp
-        lapackpp
-        cuda
-        cublas
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+        "$<INSTALL_INTERFACE:include>"
+    PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
 
-# dependency information
-if(SLATE_DEBUG)
-    include(CMakePrintHelpers)
-    cmake_print_properties(TARGETS MPI::MPI_CXX PROPERTIES
-        INTERFACE_INCLUDE_DIRS INTERFACE_LINK_LIBRARIES INTERFACE_COMPILE_DEFINITIONS INTERFACE_COMPILE_OPTIONS)
-    cmake_print_properties(TARGETS blaspp PROPERTIES
-        INTERFACE_INCLUDE_DIRS INTERFACE_LINK_LIBRARIES COMPILE_DEFINITIONS INTERFACE_COMPILE_DEFINITIONS)
-    cmake_print_properties(TARGETS lapackpp PROPERTIES
-        INTERFACE_INCLUDE_DIRS INTERFACE_LINK_LIBRARIES COMPILE_DEFINITIONS INTERFACE_COMPILE_DEFINITIONS)
-    cmake_print_properties(TARGETS slate PROPERTIES
-        INTERFACE_INCLUDE_DIRS INTERFACE_LINK_LIBRARIES COMPILE_DEFINITIONS INTERFACE_COMPILE_DEFINITIONS INTERFACE_COMPILE_OPTIONS)
+# OpenMP support.
+if (NOT use_openmp)
+    message( STATUS "User has requested to NOT use OpenMP" )
+else()
+    find_package( OpenMP )
+endif()
+if (OpenMP_CXX_FOUND)
+    target_link_libraries( slate PUBLIC "OpenMP::OpenMP_CXX" )
+else()
+    message( STATUS "No OpenMP support in SLATE" )
+    target_sources(
+        slate
+        PRIVATE
+        src/stubs/openmp_stubs.cc
+    )
 endif()
 
-if (BUILD_SLATE_TESTS)
-    add_subdirectory(test)
+# MPI support.
+# CXX means MPI C API being usable from C++, not the MPI-2 C++ API.
+if (NOT use_mpi)
+    message( STATUS "User has requested to NOT use MPI" )
+else()
+    set( MPI_DETERMINE_LIBRARY_VERSION true )
+    find_package( MPI COMPONENTS CXX )
+endif()
+if (MPI_FOUND)
+    target_link_libraries( slate PUBLIC MPI::MPI_CXX )
+
+    # Remove Open MPI flags that are incompatible with nvcc (-fexceptions).
+    get_target_property( mpi_cxx_defines MPI::MPI_CXX INTERFACE_COMPILE_OPTIONS )
+    message( DEBUG "mpi_cxx_defines = '${mpi_cxx_defines}'" )
+    list( REMOVE_ITEM mpi_cxx_defines "-fexceptions" )
+    message( DEBUG "mpi_cxx_defines = '${mpi_cxx_defines}'" )
+    set_target_properties( MPI::MPI_CXX PROPERTIES INTERFACE_COMPILE_OPTIONS
+                           "${mpi_cxx_defines}" )
+else()
+    message( STATUS "No MPI support in SLATE" )
+    target_sources(
+        slate
+        PRIVATE
+        src/stubs/mpi_stubs.cc
+    )
+    target_compile_definitions( slate PUBLIC "-DSLATE_NO_MPI" )
 endif()
 
-install (TARGETS slate
-    EXPORT slateTargets
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
-    INCLUDES DESTINATION include
+# Get git commit id.
+if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
+    execute_process( COMMAND git rev-parse --short HEAD
+                     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                     OUTPUT_VARIABLE slate_id )
+    string( STRIP "${slate_id}" slate_id )
+    message( STATUS "slate_id = ${slate_id}" )
+    target_compile_definitions(
+        slate PRIVATE SLATE_ID="${slate_id}" )
+endif()
+
+# Use and export -std=c++17; don't allow -std=gnu++17 extensions.
+# The `target_compile_features( slate PUBLIC cxx_std_17 )` syntax
+# doesn't seem to allow setting CUDA_STANDARD separately, and slightly
+# older CMake (3.17) doesn't recognize CUDA_STANDARD=17.
+set_target_properties(
+    slate PROPERTIES
+    CXX_STANDARD 17
+    CUDA_STANDARD 11
+    CXX_STANDARD_REQUIRED true
+    CXX_EXTENSIONS false
 )
 
-export(EXPORT slateTargets
-    FILE slateTargets.cmake
-)
+if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.15)
+    # Conditionally add -Wall. See CMake tutorial.
+    set( gcc_like_cxx "$<COMPILE_LANG_AND_ID:CXX,ARMClang,AppleClang,Clang,GNU>" )
+    target_compile_options(
+        slate PRIVATE "$<${gcc_like_cxx}:$<BUILD_INTERFACE:-Wall>>" )
+endif()
 
-export (PACKAGE slate)
+#-------------------------------------------------------------------------------
+# Search for BLAS library, if not already included.
+message( "" )
+message( "---------------------------------------- BLAS++" )
+if (NOT TARGET blaspp)
+    find_package( blaspp QUIET )
+    if (blaspp_FOUND)
+        message( "   Found BLAS++: ${blaspp_DIR}" )
+    else()
+        set( build_tests_save "${build_tests}" )
+        set( build_tests "false" )
 
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/slateConfig.cmake.in
-    ${CMAKE_CURRENT_SOURCE_DIR}/slateConfig.cmake
-    COPYONLY
-)
+        add_subdirectory( "blaspp" )
 
+        set( build_tests "${build_tests_save}" )
+        set( blaspp_DIR "${CMAKE_BINARY_DIR}/blaspp" )
+    endif()
+else()
+    message( "   BLAS++ already included" )
+endif()
+message( STATUS "BLAS++ done" )
 
-install (EXPORT slateTargets
-    FILE slateTargets.cmake
-    DESTINATION lib/slate
-)
+# Search for LAPACK library, if not already included.
+message( "" )
+message( "---------------------------------------- LAPACK++" )
+if (NOT TARGET lapackpp)
+    find_package( lapackpp QUIET )
+    if (lapackpp_FOUND)
+        message( "   Found LAPACK++: ${lapackpp_DIR}" )
+    else()
+        set( build_tests_save "${build_tests}" )
+        set( build_tests "false" )
 
+        add_subdirectory( "lapackpp" )
+
+        set( build_tests "${build_tests_save}" )
+        set( blaspp_DIR "${CMAKE_BINARY_DIR}/blaspp" )
+    endif()
+else()
+    message( "   LAPACK++ already included" )
+endif()
+message( STATUS "LAPACK++ done" )
+
+target_link_libraries( slate PUBLIC blaspp lapackpp )
+
+if ("${blaspp_defines}" MATCHES "HAVE_MKL")
+    target_compile_definitions( slate PUBLIC "-DSLATE_WITH_MKL" )
+endif()
+
+#-------------------------------------------------------------------------------
+if (build_tests)
+    add_subdirectory( test )
+endif()
+
+#-------------------------------------------------------------------------------
+# Add 'make lib' target.
+if (slate_is_project)
+    add_custom_target( lib DEPENDS slate )
+endif()
+
+#-------------------------------------------------------------------------------
+# GNU Filesystem Conventions
+include( GNUInstallDirs )
+set( install_configdir "${CMAKE_INSTALL_LIBDIR}/slate" )
+
+# Install library and add to <package>Targets.cmake
 install(
-    DIRECTORY include/
-    DESTINATION include
-    FILES_MATCHING PATTERN "*.h*"
+    TARGETS slate
+    EXPORT slateTargets
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
 )
 
-install (
-    FILES ${CMAKE_CURRENT_SOURCE_DIR}/slateConfig.cmake
-    DESTINATION lib/slate
+# Install header files
+# todo: also Fortran API .mod file
+install(
+    # / copies contents, not directory itself
+    DIRECTORY "${PROJECT_SOURCE_DIR}/include/"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+    FILES_MATCHING REGEX "\\.(h|hh)$"
+)
+
+# Install <package>Targets.cmake
+install(
+    EXPORT slateTargets
+    DESTINATION "${install_configdir}"
+)
+
+# Also export <package>Targets.cmake in build directory
+export(
+    EXPORT slateTargets
+    FILE "slateTargets.cmake"
+)
+
+# Install <package>Config.cmake and <package>ConfigVersion.cmake,
+# to enable find_package( <package> ).
+include( CMakePackageConfigHelpers )
+configure_package_config_file(
+    "slateConfig.cmake.in"
+    "slateConfig.cmake"
+    INSTALL_DESTINATION "${install_configdir}"
+)
+write_basic_package_version_file(
+    "slateConfigVersion.cmake"
+    VERSION "${slate_VERSION}"
+    COMPATIBILITY AnyNewerVersion
+)
+install(
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/slateConfig.cmake"
+          "${CMAKE_CURRENT_BINARY_DIR}/slateConfigVersion.cmake"
+    DESTINATION "${install_configdir}"
 )

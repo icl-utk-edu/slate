@@ -1,48 +1,99 @@
-cmake_minimum_required(VERSION 3.8)
+# Can't build testers if ScaLAPACK or TestSweeper are not found.
+message( "" )
+message( "---------------------------------------- ScaLAPACK" )
 
-project(tester CXX CUDA)
+# User or Spack can give us SCALAPACK_LIBRARIES;
+# otherwise, try to figure it out to match BLAS and MPI.
+# todo: more robust FindScaLAPACK package; several exist.
+if (NOT SCALAPACK_LIBRARIES)
+    if ("${blaspp_defines}" MATCHES "HAVE_MKL")
+        if ("${blaspp_defines}" MATCHES "BLAS_ILP64")
+            set( int_ "ilp64" )
+        else()
+            set( int_ "lp64" )
+        endif()
+        if (MPI_CXX_LIBRARY_VERSION_STRING MATCHES "Intel|MPICH")
+            # Intel MPI, based on MPICH
+            set( SCALAPACK_LIBRARIES "mkl_scalapack_${int_};mkl_blacs_intelmpi_${int_}" )
+        else()
+            # Open MPI
+            set( SCALAPACK_LIBRARIES "mkl_scalapack_${int_};mkl_blacs_openmpi_${int_}" )
+        endif()
+    else()
+        set( SCALAPACK_LIBRARIES "scalapack" )
+    endif()
+endif()
+message( "Using ScaLAPACK library: ${SCALAPACK_LIBRARIES}" )
 
-file (GLOB SLATE_TEST_SOURCES
-    CONFIGURE_DEPENDS *.cc)
+# Search for TestSweeper library, if not already included (e.g., in SLATE).
+message( "" )
+message( "---------------------------------------- TestSweeper" )
+message( STATUS "Checking for TestSweeper library" )
+if (NOT TARGET testsweeper)
+    find_package( testsweeper QUIET )
+    if (testsweeper_FOUND)
+        message( "   Found TestSweeper library: ${testsweeper_DIR}" )
+    else()
 
-add_executable(slate_test ${SLATE_TEST_SOURCES})
+        add_subdirectory( "${CMAKE_SOURCE_DIR}/testsweeper"
+                          "${CMAKE_BINARY_DIR}/testsweeper" )
 
-# Check if user supplied testsweeper_DIR on the command line
-# Set -Dlibtest_DIR=/path/to/testsweeper
-if(testsweeper_DIR)
-    message("Found testsweeper_DIR")
+    endif()
 else()
-    find_path(testsweeper_DIR testsweeperConfig.cmake
-        PATHS
-        ${CMAKE_INSTALL_PREFIX}/test
-        )
-    message("testsweeper_DIR: " ${testsweeper_DIR})
+    message( "   TestSweeper already included" )
 endif()
+message( STATUS "TestSweeper done" )
+message( "" )
 
-find_package(testsweeper)
-
-if (0)
-set(SCALAPACK_VERBOSE ON)
-set(BLA_VENDOR CACHE STRING "Intel")
-set_property(CACHE BLA_VENDOR PROPERTY STRINGS Intel)
-find_package(scalapack)
-find_package(SCALAPACK)
-
-endif()
-
-target_link_libraries(tester
-    slate
-    testsweeper
+#-------------------------------------------------------------------------------
+# In future, if these *.f are eliminated, may still need dummy.f so CMake links
+# with Fortran (e.g., -lgfortran), which may be needed for ScaLAPACK.
+# What is a better solution?
+file(
+    GLOB tester_src
+    CONFIGURE_DEPENDS
+    *.cc
+    *.f
 )
 
-if(SLATE_WITH_MKL)
-    target_link_libraries(tester
-        mkl_scalapack_lp64
-        mkl_blacs_intelmpi_lp64
-    )
-else()
-    target_link_libraries(tester
-        scalapack
+set( tester "${slate_}tester" )
+add_executable(
+    ${tester}
+    ${tester_src}
+)
+
+# C++17 is inherited from slate, but disabling extensions is not.
+set_target_properties( ${tester} PROPERTIES CXX_EXTENSIONS false )
+
+target_link_libraries(
+    ${tester}
+    testsweeper
+    slate
+    ${SCALAPACK_LIBRARIES}
+)
+
+# todo: remove internal includes from testers (e.g., test_posv.cc).
+target_include_directories(
+    ${tester}
+    PRIVATE
+        "${CMAKE_SOURCE_DIR}/src"
+)
+
+#-------------------------------------------------------------------------------
+# Copy run_tests script to build directory.
+add_custom_command(
+    TARGET ${tester} POST_BUILD
+    COMMAND
+        cp ${CMAKE_CURRENT_SOURCE_DIR}/run_tests.py
+           ${CMAKE_CURRENT_BINARY_DIR}/run_tests.py
+)
+
+if (slate_is_project)
+    # Add 'make check' target.
+    add_custom_target(
+        "check"
+        COMMAND
+            python run_tests.py --quick
+        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     )
 endif()
-

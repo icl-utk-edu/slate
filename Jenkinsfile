@@ -86,7 +86,7 @@ END
                         CXXFLAGS  = -Werror
                         blas      = mkl
                         mkl_blacs = openmpi
-                        cuda      = 1
+                        cuda_arch = kepler
                         # openmp=1 by default
 END
 

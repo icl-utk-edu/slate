@@ -64,9 +64,9 @@ template <typename scalar_t>
 void getrf_nopiv(Tile<scalar_t> tile, int64_t ib)
 {
     const scalar_t one = 1.0;
-    const int64_t nb = tile.nb();
-    const int64_t mb = tile.mb();
-    const int64_t diag_len = std::min(nb, mb);
+    int64_t nb = tile.nb();
+    int64_t mb = tile.mb();
+    int64_t diag_len = std::min(nb, mb);
 
     // Loop over ib-wide stripes.
     for (int64_t k = 0; k < diag_len; k += ib) {

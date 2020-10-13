@@ -72,7 +72,7 @@ void pbtrf(slate::internal::TargetType<target>,
     if (A.uplo() == Uplo::Upper)
         A = conjTranspose(A);
 
-    const int64_t A_nt = A.nt();
+    int64_t A_nt = A.nt();
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);

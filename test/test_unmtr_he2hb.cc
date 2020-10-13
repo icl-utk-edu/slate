@@ -61,8 +61,8 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     slate_mpi_call(MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
     slate_assert( p*q <= mpi_size);
 
-    const int64_t myrow = whoismyrow(mpi_rank, p);
-    const int64_t mycol = whoismycol(mpi_rank, p);
+    int64_t myrow = whoismyrow(mpi_rank, p);
+    int64_t mycol = whoismycol(mpi_rank, p);
 
     // Matrix A
     // Figure out local size, allocate, initialize

@@ -75,9 +75,9 @@ void getrf_nopiv(slate::internal::TargetType<target>,
 
     const int priority_one = 1;
     const int priority_zero = 0;
-    const int64_t A_nt = A.nt();
-    const int64_t A_mt = A.mt();
-    const int64_t min_mt_nt = std::min(A.mt(), A.nt());
+    int64_t A_nt = A.nt();
+    int64_t A_mt = A.mt();
+    int64_t min_mt_nt = std::min(A.mt(), A.nt());
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
@@ -112,7 +112,7 @@ void getrf_nopiv(slate::internal::TargetType<target>,
             #pragma omp task depend(inout:column[k]) \
                              priority(priority_one)
             {
-                const int64_t tag_k = k;
+                int64_t tag_k = k;
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, Akk);
 

@@ -372,8 +372,8 @@ void norm(
     // todo: relax this assumption, a few cases need to be adjusted only
     const Layout layout = Layout::ColMajor;
 
-    const int64_t A_mt = A.mt();
-    const int64_t A_nt = A.nt();
+    int64_t A_mt = A.mt();
+    int64_t A_nt = A.nt();
 
     if (scope == NormScope::Matrix) {
 

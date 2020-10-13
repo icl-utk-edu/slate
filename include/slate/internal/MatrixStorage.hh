@@ -735,7 +735,7 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
     int64_t i_begin = 0;
 
     if (int64_t(array_host_.size()) < num_arrays) {
-        // const int64_t temp = batch_array_size_;
+        // int64_t temp = batch_array_size_;
         // clearBatchArrays();
         // batch_array_size_ = temp;
 

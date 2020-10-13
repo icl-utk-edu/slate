@@ -63,11 +63,11 @@ void gecopy(Tile<src_scalar_t> const& A, Tile<dst_scalar_t>& B)
     assert(A.nb() == B.nb());
 
     const src_scalar_t* A00 = &A.at(0, 0);
-    const int64_t a_col_inc = A.colIncrement();
-    const int64_t a_row_inc = A.rowIncrement();
+    int64_t a_col_inc = A.colIncrement();
+    int64_t a_row_inc = A.rowIncrement();
     dst_scalar_t* B00 = &B.at(0, 0);
-    const int64_t b_col_inc = B.colIncrement();
-    const int64_t b_row_inc = B.rowIncrement();
+    int64_t b_col_inc = B.colIncrement();
+    int64_t b_row_inc = B.rowIncrement();
 
     for (int64_t j = 0; j < B.nb(); ++j) {
         const src_scalar_t* Aj = &A00[j*a_row_inc];
@@ -108,11 +108,11 @@ void tzcopy(Tile<src_scalar_t> const& A, Tile<dst_scalar_t>& B)
     assert(A.nb() == B.nb());
 
     const src_scalar_t* A00 = &A.at(0, 0);
-    const int64_t a_col_inc = A.colIncrement();
-    const int64_t a_row_inc = A.rowIncrement();
+    int64_t a_col_inc = A.colIncrement();
+    int64_t a_row_inc = A.rowIncrement();
     dst_scalar_t* B00 = &B.at(0, 0);
-    const int64_t b_col_inc = B.colIncrement();
-    const int64_t b_row_inc = B.rowIncrement();
+    int64_t b_col_inc = B.colIncrement();
+    int64_t b_row_inc = B.rowIncrement();
 
     for (int64_t j = 0; j < B.nb(); ++j) {
         const src_scalar_t* Aj = &A00[j*a_row_inc];
@@ -158,8 +158,8 @@ void tzset(scalar_t alpha, Tile<scalar_t>& A)
     assert(A.op() == Op::NoTrans);
 
     scalar_t* A00 = &A.at(0, 0);
-    const int64_t a_col_inc = A.colIncrement();
-    const int64_t a_row_inc = A.rowIncrement();
+    int64_t a_col_inc = A.colIncrement();
+    int64_t a_row_inc = A.rowIncrement();
 
     for (int64_t j = 0; j < A.nb(); ++j) {
         scalar_t* Aj = &A00[j*a_row_inc];
@@ -399,8 +399,8 @@ void copyRow(int64_t n,
     if (n <= 0) return;
 
     scalar_t* A00 = &A.at(0, 0);
-    const int64_t a_col_inc = A.colIncrement();
-    const int64_t a_row_inc = A.rowIncrement();
+    int64_t a_col_inc = A.colIncrement();
+    int64_t a_row_inc = A.rowIncrement();
 
     scalar_t* Ai = &A00[i_offs*a_col_inc];
     for (int64_t j = 0; j < n; ++j)

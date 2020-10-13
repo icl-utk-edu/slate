@@ -84,9 +84,9 @@ void getrf(slate::internal::TargetType<target>,
 
     const int priority_one = 1;
     const int priority_zero = 0;
-    const int64_t A_nt = A.nt();
-    const int64_t A_mt = A.mt();
-    const int64_t min_mt_nt = std::min(A.mt(), A.nt());
+    int64_t A_nt = A.nt();
+    int64_t A_mt = A.mt();
+    int64_t min_mt_nt = std::min(A.mt(), A.nt());
     pivots.resize(min_mt_nt);
 
     // OpenMP needs pointer types, but vectors are exception safe
@@ -99,7 +99,7 @@ void getrf(slate::internal::TargetType<target>,
         omp_set_nested(1);
         for (int64_t k = 0; k < min_mt_nt; ++k) {
 
-            const int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
+            int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
             pivots.at(k).resize(diag_len);
 
             // panel, high priority

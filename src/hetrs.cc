@@ -70,10 +70,10 @@ void hetrs(slate::internal::TargetType<target>,
     if (A.uplo() == Uplo::Upper)
         A = conjTranspose(A);
 
-    const int64_t A_nt = A.nt();
-    const int64_t A_mt = A.mt();
-    const int64_t B_nt = B.nt();
-    const int64_t B_mt = B.mt();
+    int64_t A_nt = A.nt();
+    int64_t A_mt = A.mt();
+    int64_t B_nt = B.nt();
+    int64_t B_mt = B.mt();
 
     if (A_nt > 1) {
         // pivot right-hand-sides

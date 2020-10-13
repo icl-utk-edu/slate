@@ -71,7 +71,7 @@ void potrf(slate::internal::TargetType<target>,
     if (A.uplo() == Uplo::Upper) {
         A = conjTranspose(A);
     }
-    const int64_t A_nt = A.nt();
+    int64_t A_nt = A.nt();
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
@@ -178,7 +178,7 @@ void potrf(slate::internal::TargetType<target>,
 template <typename scalar_t>
 void potrfReleasePanel(HermitianMatrix<scalar_t> A, int64_t k)
 {
-    const int64_t A_nt = A.nt();
+    int64_t A_nt = A.nt();
     for (int64_t i = k+1; i < A_nt; ++i) {
         if (A.tileIsLocal(i, k)) {
             A.tileUpdateOrigin(i, k);
@@ -214,7 +214,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     if (A.uplo() == Uplo::Upper) {
         A = conjTranspose(A);
     }
-    const int64_t A_nt = A.nt();
+    int64_t A_nt = A.nt();
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
@@ -223,10 +223,10 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     const int priority_zero = 0;
     const int tag_zero = 0;
     const int life_factor_one = 1;
-    const bool is_shared = lookahead > 0;
     const int batch_arrays_index_one = 1;
     const int64_t batch_size_zero = 0;
     const int64_t num_arrays_two  = 2; // Number of kernels without lookahead
+    bool is_shared = lookahead > 0;
 
     // Allocate batch arrays = number of kernels without lookahead + lookahead
     // number of kernels without lookahead = 2 (internal::gemm & internal::trsm)

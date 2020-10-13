@@ -201,8 +201,8 @@ void getrf(
 
     const scalar_t one = 1.0;
 
-    const bool root = mpi_rank == mpi_root;
-    const int64_t nb = tiles[0].nb();
+    bool root = mpi_rank == mpi_root;
+    int64_t nb = tiles[0].nb();
 
     // Loop over ib-wide stripes.
     for (int64_t k = 0; k < diag_len; k += ib) {

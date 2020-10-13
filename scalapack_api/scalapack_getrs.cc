@@ -171,8 +171,8 @@ void slate_pgetrs(const char* transstr, int n, int nrhs, scalar_t* a, int ia, in
         int nb = desc_MB(desca);
 
         // NOTE: this is not the most efficient way, instead use local tile index directly to avoid looping over tiles
-        // const int64_t A_nt = A.nt();
-        // const int64_t A_mt = A.mt();
+        // int64_t A_nt = A.nt();
+        // int64_t A_mt = A.mt();
         // for (int tm = 0; tm < A_mt; ++tm) {
         //     for (int tn = 0; tn < A_nt; ++tn) {
         //         if (A.tileIsLocal(tm, tn)) {

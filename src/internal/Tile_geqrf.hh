@@ -112,7 +112,7 @@ void geqrf(
 
     std::vector<scalar_t> taus(diag_len);
     std::vector<real_t> betas(diag_len);
-    const int64_t nb = diag_tile.nb();
+    int64_t nb = diag_tile.nb();
 
     // Loop over ib-wide stripes.
     for (int64_t k = 0; k < diag_len; k += ib) {

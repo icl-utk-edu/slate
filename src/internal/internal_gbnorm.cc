@@ -267,8 +267,8 @@ void norm(
 
     std::vector<real_t> tiles_maxima;
 
-    const int64_t A_mt = A.mt();
-    const int64_t A_nt = A.nt();
+    int64_t A_mt = A.mt();
+    int64_t A_nt = A.nt();
 
     int64_t kl = A.lowerBandwidth();
     int64_t ku = A.upperBandwidth();

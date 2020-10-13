@@ -119,8 +119,8 @@ void unmtr_he2hb(
     else { // uplo == Uplo::Lower
         auto A_sub = slate::Matrix<scalar_t>(A, 1, A.nt()-1, 0,  A.nt()-1);
 
-        const int64_t i0 = (side == Side::Left) ? 1 : 0;
-        const int64_t i1 = (side == Side::Left) ? 0 : 1;
+        int64_t i0 = (side == Side::Left) ? 1 : 0;
+        int64_t i1 = (side == Side::Left) ? 0 : 1;
 
         auto C_cub = C.sub(i0, A.nt()-1, i1, A.nt()-1);
 

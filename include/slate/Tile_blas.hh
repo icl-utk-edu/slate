@@ -782,8 +782,8 @@ void scale(
 {
     trace::Block trace_block("blas::scale");
 
-    const int64_t col_inc = A.colIncrement();
-    const int64_t row_inc = A.rowIncrement();
+    int64_t col_inc = A.colIncrement();
+    int64_t row_inc = A.rowIncrement();
     scalar_t* A00 = &A.at(0, 0);
     if (col_inc == 1) {
         // one column at a time
@@ -976,11 +976,11 @@ void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>& Y)
     assert(X.uploPhysical() == Uplo::General);
     assert(Y.uploPhysical() == Uplo::General);
 
-    const int64_t y_col_inc = Y.colIncrement();
-    const int64_t y_row_inc = Y.rowIncrement();
+    int64_t y_col_inc = Y.colIncrement();
+    int64_t y_row_inc = Y.rowIncrement();
     scalar_t* Y00 = &Y.at(0, 0);
-    const int64_t x_col_inc = X.colIncrement();
-    const int64_t x_row_inc = X.rowIncrement();
+    int64_t x_col_inc = X.colIncrement();
+    int64_t x_row_inc = X.rowIncrement();
     const scalar_t* X00 = &X.at(0, 0);
 
     if (y_col_inc == 1) {
@@ -1026,11 +1026,11 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
     assert(X.uploPhysical() == Uplo::General);
     assert(Y.uploPhysical() == Uplo::General);
 
-    const int64_t y_col_inc = Y.colIncrement();
-    const int64_t y_row_inc = Y.rowIncrement();
+    int64_t y_col_inc = Y.colIncrement();
+    int64_t y_row_inc = Y.rowIncrement();
     scalar_t* Y00 = &Y.at(0, 0);
-    const int64_t x_col_inc = X.colIncrement();
-    const int64_t x_row_inc = X.rowIncrement();
+    int64_t x_col_inc = X.colIncrement();
+    int64_t x_row_inc = X.rowIncrement();
     const scalar_t* X00 = &X.at(0, 0);
 
     // Process by col/row, scale y=b*y then add y=ax+y

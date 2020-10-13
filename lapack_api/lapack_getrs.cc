@@ -117,10 +117,10 @@ void slate_getrs(const char* transstr, const int n, const int nrhs, scalar_t* a,
     slate::Pivots pivots; // std::vector< std::vector<Pivot> >
     {
         // allocate pivots
-        const int64_t min_mt_nt = std::min(A.mt(), A.nt());
+        int64_t min_mt_nt = std::min(A.mt(), A.nt());
         pivots.resize(min_mt_nt);
         for (int64_t k = 0; k < min_mt_nt; ++k) {
-            const int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
+            int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
             pivots.at(k).resize(diag_len);
         }
         // transfer ipiv to pivots

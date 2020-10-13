@@ -53,8 +53,8 @@ void test_ge2tb_work(Params& params, bool run)
         MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
     slate_assert(p*q <= mpi_size);
 
-    const int myrow = whoismyrow(mpi_rank, p);
-    const int mycol = whoismycol(mpi_rank, p);
+    int myrow = whoismyrow(mpi_rank, p);
+    int mycol = whoismycol(mpi_rank, p);
 
     // matrix A, figure out local size, allocate, initialize
     int64_t mlocal = localRowsCols(m, nb, myrow, p);

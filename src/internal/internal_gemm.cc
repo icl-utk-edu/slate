@@ -176,8 +176,8 @@ void gemm(internal::TargetType<Target::HostNest>,
 
     int err = 0;
     std::string err_msg;
-    const int64_t C_mt = C.mt();
-    const int64_t C_nt = C.nt();
+    int64_t C_mt = C.mt();
+    int64_t C_nt = C.nt();
     //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
     #pragma omp parallel for collapse(2) schedule(dynamic, 1) shared(A, B, C, err, err_msg)
     for (int64_t i = 0; i < C_mt; ++i) {

@@ -69,9 +69,9 @@ void gbtrf(slate::internal::TargetType<target>,
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
-    const int64_t A_nt = A.nt();
-    const int64_t A_mt = A.mt();
-    const int64_t min_mt_nt = std::min(A.mt(), A.nt());
+    int64_t A_nt = A.nt();
+    int64_t A_mt = A.mt();
+    int64_t min_mt_nt = std::min(A.mt(), A.nt());
     pivots.resize(min_mt_nt);
 
     const scalar_t zero = 0.0;
@@ -111,7 +111,7 @@ void gbtrf(slate::internal::TargetType<target>,
         omp_set_nested(1);
         for (int64_t k = 0; k < min_mt_nt; ++k) {
 
-            const int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
+            int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
             pivots.at(k).resize(diag_len);
 
             // A( k:i_end-1, k ) is the panel

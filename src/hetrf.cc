@@ -73,7 +73,7 @@ void hetrf(slate::internal::TargetType<target>,
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
-    const int64_t A_mt = A.mt();
+    int64_t A_mt = A.mt();
 
     std::vector< uint8_t > column_vectorL(A_mt);
     std::vector< uint8_t > column_vectorT(A_mt);
@@ -384,7 +384,7 @@ void hetrf(slate::internal::TargetType<target>,
                 }
             }
 
-            const int64_t diag_len = std::min(A.tileMb(k+1), A.tileNb(k));
+            int64_t diag_len = std::min(A.tileMb(k+1), A.tileNb(k));
             pivots.at(k+1).resize(diag_len);
             #pragma omp task depend(inout:columnL[k]) priority(1)
             {

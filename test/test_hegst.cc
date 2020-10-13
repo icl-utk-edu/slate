@@ -63,8 +63,8 @@ void test_hegst_work(Params& params, bool run)
     slate_mpi_call(MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
     slate_assert(p*q <= mpi_size);
 
-    const int myrow = whoismyrow(mpi_rank, p);
-    const int mycol = whoismycol(mpi_rank, p);
+    int myrow = whoismyrow(mpi_rank, p);
+    int mycol = whoismycol(mpi_rank, p);
 
     // Figure out local size, allocate, initialize
     int64_t mlocal = localRowsCols(n, nb, myrow, p);

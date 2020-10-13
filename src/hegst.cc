@@ -73,7 +73,7 @@ void hegst(slate::internal::TargetType<target>,
         B = conjTranspose(B);
     }
 
-    const int64_t nt = A.nt();
+    int64_t nt = A.nt();
 
     const scalar_t half = 0.5;
     const scalar_t one  = 1.0;

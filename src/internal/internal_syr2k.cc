@@ -205,8 +205,8 @@ void syr2k(internal::TargetType<Target::HostNest>,
         }
     }
 
-    const int64_t C_nt = C.nt();
-    const int64_t C_mt = C.mt();
+    int64_t C_nt = C.nt();
+    int64_t C_mt = C.mt();
 
 //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
     #pragma omp parallel for collapse(2) schedule(dynamic, 1)

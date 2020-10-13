@@ -43,6 +43,8 @@
 #ifndef SLATE_CUBLAS_HH
 #define SLATE_CUBLAS_HH
 
+#include "slate/Exception.hh"
+
 #ifndef SLATE_NO_CUDA
     #include <cublas_v2.h>
 #else
@@ -288,5 +290,50 @@ cublasStatus_t cublasGetMatrix(
 #endif
 
 #endif // SLATE_NO_CUDA
+
+namespace slate {
+
+//------------------------------------------------------------------------------
+const char* getCublasErrorName(cublasStatus_t status);
+
+//------------------------------------------------------------------------------
+/// Exception class for slate_cublas_call().
+class CublasException : public Exception {
+public:
+    CublasException(const char* call,
+                    cublasStatus_t code,
+                    const char* func,
+                    const char* file,
+                    int line)
+        : Exception()
+    {
+        const char* name = getCublasErrorName(code);
+
+        what(std::string("SLATE CUBLAS ERROR: ")
+             + call + " failed: " + name
+             + " (" + std::to_string(code) + ")",
+             func, file, line);
+    }
+};
+
+/// Throws a CublasException if the CUBLAS call fails.
+/// Example:
+///
+///     try {
+///         slate_cublas_call( cublasCreate( &handle ) );
+///     }
+///     catch (CublasException& e) {
+///         ...
+///     }
+///
+#define slate_cublas_call(call) \
+    do { \
+        cublasStatus_t slate_cublas_call_ = call; \
+        if (slate_cublas_call_ != CUBLAS_STATUS_SUCCESS) \
+            throw slate::CublasException( \
+                #call, slate_cublas_call_, __func__, __FILE__, __LINE__); \
+    } while(0)
+
+} // namespace slate
 
 #endif // SLATE_CUBLAS_HH

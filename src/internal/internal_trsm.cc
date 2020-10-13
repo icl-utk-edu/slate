@@ -138,8 +138,7 @@ void trsm(internal::TargetType<Target::HostNest>,
                                     Matrix<scalar_t>& B,
           int priority, Layout layout, int64_t batch_arrays_index)
 {
-    throw std::runtime_error(
-        "TRSM currently doesn't support Target::HostNest.");
+    slate_not_implemented("Target::HostNest isn't yet supported.");
 }
 
 //------------------------------------------------------------------------------
@@ -154,8 +153,7 @@ void trsm(internal::TargetType<Target::HostBatch>,
                                     Matrix<scalar_t>& B,
           int priority, Layout layout, int64_t batch_arrays_index)
 {
-    throw std::runtime_error(
-        "TRSM currently doesn't support Target::HostBatch.");
+    slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
 
 //------------------------------------------------------------------------------

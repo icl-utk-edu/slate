@@ -353,11 +353,7 @@ void synorm(
         }
     }
 
-    // check that launch succeeded (could still have async errors)
-    cudaError_t error = cudaGetLastError();
-    if (error != cudaSuccess) {
-        throw std::exception();
-    }
+    slate_cuda_call(cudaGetLastError());
 }
 
 const int one_ib = 32;
@@ -522,14 +518,10 @@ void synormOffdiag(
             (m, n, Aarray, lda, values, ldv);
     }
     else {
-        throw std::exception();
+        slate_not_implemented("Only Norm::One and Norm::Inf is supported.");
     }
 
-    // check that launch succeeded (could still have async errors)
-    cudaError_t error = cudaGetLastError();
-    if (error != cudaSuccess) {
-        throw std::exception();
-    }
+    slate_cuda_call(cudaGetLastError());
 }
 
 //------------------------------------------------------------------------------

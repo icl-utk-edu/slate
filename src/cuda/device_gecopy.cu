@@ -141,11 +141,7 @@ void gecopy(
           Aarray, lda,
           Barray, ldb);
 
-    // check that launch succeeded (could still have async errors)
-    cudaError_t error = cudaGetLastError();
-    if (error != cudaSuccess) {
-        throw std::exception();
-    }
+    slate_cuda_call(cudaGetLastError());
 }
 
 //------------------------------------------------------------------------------

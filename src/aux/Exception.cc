@@ -38,6 +38,7 @@
 //------------------------------------------------------------------------------
 
 #include "slate/Exception.hh"
+#include "slate/internal/cublas.hh"
 
 namespace slate {
 

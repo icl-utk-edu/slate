@@ -43,10 +43,6 @@
 #include <string>
 #include <exception>
 
-#include "slate/internal/cuda.hh"
-#include "slate/internal/cublas.hh"
-#include "slate/internal/mpi.hh"
-
 namespace slate {
 
 //------------------------------------------------------------------------------
@@ -153,126 +149,6 @@ public:
         if (! (cond)) \
             throw slate::FalseConditionException( \
                 #cond, __func__, __FILE__, __LINE__); \
-    } while(0)
-
-//------------------------------------------------------------------------------
-/// Exception class for slate_mpi_call().
-class MpiException : public Exception {
-public:
-    MpiException(const char* call,
-                 int code,
-                 const char* func,
-                 const char* file,
-                 int line)
-        : Exception()
-    {
-        char string[MPI_MAX_ERROR_STRING] = "unknown error";
-        int resultlen;
-        MPI_Error_string(code, string, &resultlen);
-
-        what(std::string("SLATE MPI ERROR: ")
-             + call + " failed: " + string
-             + " (" + std::to_string(code) + ")",
-             func, file, line);
-    }
-};
-
-/// Throws an MpiException if the MPI call fails.
-/// Example:
-///
-///     try {
-///         slate_mpi_call( MPI_Barrier( MPI_COMM_WORLD ) );
-///     }
-///     catch (MpiException& e) {
-///         ...
-///     }
-///
-#define slate_mpi_call(call) \
-    do { \
-        int slate_mpi_call_ = call; \
-        if (slate_mpi_call_ != MPI_SUCCESS) \
-            throw slate::MpiException( \
-                #call, slate_mpi_call_, __func__, __FILE__, __LINE__); \
-    } while(0)
-
-//------------------------------------------------------------------------------
-/// Exception class for slate_cuda_call().
-class CudaException : public Exception {
-public:
-    CudaException(const char* call,
-                  cudaError_t code,
-                  const char* func,
-                  const char* file,
-                  int line)
-        : Exception()
-    {
-        const char* name = cudaGetErrorName(code);
-        const char* string = cudaGetErrorString(code);
-
-        what(std::string("SLATE CUDA ERROR: ")
-             + call + " failed: " + string
-             + " (" + name + "=" + std::to_string(code) + ")",
-             func, file, line);
-    }
-};
-
-/// Throws a CudaException if the CUDA call fails.
-/// Example:
-///
-///     try {
-///         slate_cuda_call( cudaSetDevice( device ) );
-///     }
-///     catch (CudaException& e) {
-///         ...
-///     }
-///
-#define slate_cuda_call(call) \
-    do { \
-        cudaError_t slate_cuda_call_ = call; \
-        if (slate_cuda_call_ != cudaSuccess) \
-            throw slate::CudaException( \
-                #call, slate_cuda_call_, __func__, __FILE__, __LINE__); \
-    } while(0)
-
-//------------------------------------------------------------------------------
-const char* getCublasErrorName(cublasStatus_t status);
-
-//------------------------------------------------------------------------------
-/// Exception class for slate_cublas_call().
-class CublasException : public Exception {
-public:
-    CublasException(const char* call,
-                    cublasStatus_t code,
-                    const char* func,
-                    const char* file,
-                    int line)
-        : Exception()
-    {
-        const char* name = getCublasErrorName(code);
-
-        what(std::string("SLATE CUBLAS ERROR: ")
-             + call + " failed: " + name
-             + " (" + std::to_string(code) + ")",
-             func, file, line);
-    }
-};
-
-/// Throws a CublasException if the CUBLAS call fails.
-/// Example:
-///
-///     try {
-///         slate_cublas_call( cublasCreate( &handle ) );
-///     }
-///     catch (CublasException& e) {
-///         ...
-///     }
-///
-#define slate_cublas_call(call) \
-    do { \
-        cublasStatus_t slate_cublas_call_ = call; \
-        if (slate_cublas_call_ != CUBLAS_STATUS_SUCCESS) \
-            throw slate::CublasException( \
-                #call, slate_cublas_call_, __func__, __FILE__, __LINE__); \
     } while(0)
 
 } // namespace slate

@@ -43,6 +43,8 @@
 #ifndef SLATE_CUDA_HH
 #define SLATE_CUDA_HH
 
+#include "slate/Exception.hh"
+
 #if (!defined(SLATE_NO_CUDA)) || defined(__NVCC__)
     #include <cuda_runtime.h>
     #include <cuComplex.h>
@@ -107,5 +109,48 @@ const char* cudaGetErrorString(cudaError_t error);
 #endif
 
 #endif // SLATE_NO_CUDA
+
+namespace slate {
+
+//------------------------------------------------------------------------------
+/// Exception class for slate_cuda_call().
+class CudaException : public Exception {
+public:
+    CudaException(const char* call,
+                  cudaError_t code,
+                  const char* func,
+                  const char* file,
+                  int line)
+        : Exception()
+    {
+        const char* name = cudaGetErrorName(code);
+        const char* string = cudaGetErrorString(code);
+
+        what(std::string("SLATE CUDA ERROR: ")
+             + call + " failed: " + string
+             + " (" + name + "=" + std::to_string(code) + ")",
+             func, file, line);
+    }
+};
+
+/// Throws a CudaException if the CUDA call fails.
+/// Example:
+///
+///     try {
+///         slate_cuda_call( cudaSetDevice( device ) );
+///     }
+///     catch (CudaException& e) {
+///         ...
+///     }
+///
+#define slate_cuda_call(call) \
+    do { \
+        cudaError_t slate_cuda_call_ = call; \
+        if (slate_cuda_call_ != cudaSuccess) \
+            throw slate::CudaException( \
+                #call, slate_cuda_call_, __func__, __FILE__, __LINE__); \
+    } while(0)
+
+} // namespace slate
 
 #endif // SLATE_CUDA_HH

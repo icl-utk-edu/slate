@@ -133,11 +133,7 @@ void geset(
         m, n,
         diag_value, offdiag_value, Aarray, lda);
 
-    // check that launch succeeded (could still have async errors)
-    cudaError_t error = cudaGetLastError();
-    if (error != cudaSuccess) {
-        throw std::exception();
-    }
+    slate_cuda_call(cudaGetLastError());
 }
 
 //------------------------------------------------------------------------------

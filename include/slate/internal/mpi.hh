@@ -43,6 +43,8 @@
 #ifndef SLATE_MPI_HH
 #define SLATE_MPI_HH
 
+#include "slate/Exception.hh"
+
 #ifndef SLATE_NO_MPI
     #include <mpi.h>
 #else
@@ -172,5 +174,49 @@ int MPI_Finalize(void);
 #endif
 
 #endif // SLATE_NO_MPI
+
+namespace slate {
+
+//------------------------------------------------------------------------------
+/// Exception class for slate_mpi_call().
+class MpiException : public Exception {
+public:
+    MpiException(const char* call,
+                 int code,
+                 const char* func,
+                 const char* file,
+                 int line)
+        : Exception()
+    {
+        char string[MPI_MAX_ERROR_STRING] = "unknown error";
+        int resultlen;
+        MPI_Error_string(code, string, &resultlen);
+
+        what(std::string("SLATE MPI ERROR: ")
+             + call + " failed: " + string
+             + " (" + std::to_string(code) + ")",
+             func, file, line);
+    }
+};
+
+/// Throws an MpiException if the MPI call fails.
+/// Example:
+///
+///     try {
+///         slate_mpi_call( MPI_Barrier( MPI_COMM_WORLD ) );
+///     }
+///     catch (MpiException& e) {
+///         ...
+///     }
+///
+#define slate_mpi_call(call) \
+    do { \
+        int slate_mpi_call_ = call; \
+        if (slate_mpi_call_ != MPI_SUCCESS) \
+            throw slate::MpiException( \
+                #call, slate_mpi_call_, __func__, __FILE__, __LINE__); \
+    } while(0)
+
+} // namespace slate
 
 #endif // SLATE_MPI_HH

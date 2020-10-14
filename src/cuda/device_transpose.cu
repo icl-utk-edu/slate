@@ -316,11 +316,7 @@ void transpose(
     transpose_kernel<<< blocks, threads, 0, stream >>>
         (n, A, lda);
 
-    // check that launch succeeded (could still have async errors)
-    cudaError_t error = cudaGetLastError();
-    if (error != cudaSuccess) {
-        throw std::exception();
-    }
+    slate_cuda_call(cudaGetLastError());
 }
 
 //------------------------------------------------------------------------------
@@ -375,11 +371,7 @@ void transpose_batch(
     transpose_batch_kernel<<< blocks, threads, 0, stream >>>
         (n, Aarray, lda);
 
-    // check that launch succeeded (could still have async errors)
-    cudaError_t error = cudaGetLastError();
-    if (error != cudaSuccess) {
-        throw std::exception();
-    }
+    slate_cuda_call(cudaGetLastError());
 }
 
 //------------------------------------------------------------------------------
@@ -432,11 +424,7 @@ void transpose(
     transpose_kernel<scalar_t, NX><<< grid, threads, 0, stream >>>
         ( m, n, dA, lda, dAT, ldat );
 
-    // check that launch succeeded (could still have async errors)
-    cudaError_t error = cudaGetLastError();
-    if (error != cudaSuccess) {
-        throw std::exception();
-    }
+    slate_cuda_call(cudaGetLastError());
 }
 
 //------------------------------------------------------------------------------
@@ -495,11 +483,7 @@ void transpose_batch(
     transpose_batch_kernel<scalar_t, NX><<< grid, threads, 0, stream >>>
         ( m, n, dA_array, lda, dAT_array, ldat );
 
-    // check that launch succeeded (could still have async errors)
-    cudaError_t error = cudaGetLastError();
-    if (error != cudaSuccess) {
-        throw std::exception();
-    }
+    slate_cuda_call(cudaGetLastError());
 }
 
 //------------------------------------------------------------------------------

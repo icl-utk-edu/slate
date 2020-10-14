@@ -464,18 +464,14 @@ void genorm(
             }
         }
         else {
-            throw std::runtime_error("Not implemented yet");
+            slate_not_implemented("The norm isn't yet supported");
         }
     }
     else {
-        throw std::runtime_error("Not implemented yet");
+        slate_not_implemented("The norm scope isn't yet supported.");
     }
 
-    // check that launch succeeded (could still have async errors)
-    cudaError_t error = cudaGetLastError();
-    if (error != cudaSuccess) {
-        throw std::exception();
-    }
+    slate_cuda_call(cudaGetLastError());
 }
 
 //------------------------------------------------------------------------------

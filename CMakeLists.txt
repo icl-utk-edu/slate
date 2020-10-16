@@ -119,11 +119,48 @@ file(
     src/internal/*.cc
     src/work/*.cc
 )
+message( DEBUG "libslate_src = ${libslate_src}" )
+
 add_library(
     slate
     ${libslate_src}
 )
 
+#--------------------
+# lapack_api
+file(
+    GLOB lapack_api_src
+    CONFIGURE_DEPENDS  # glob at build time
+    lapack_api/*.cc
+)
+message( DEBUG "lapack_api_src = ${lapack_api_src}" )
+
+add_library(
+    slate_lapack_api
+    ${lapack_api_src}
+)
+target_link_libraries( slate_lapack_api PUBLIC slate )
+
+#--------------------
+# scalapack_api
+# todo: requires ScaLAPACK
+# file(
+#     GLOB scalapack_api_src
+#     CONFIGURE_DEPENDS  # glob at build time
+#     scalapack_api/*.cc
+# )
+# # todo: getri not finished.
+# list( FILTER scalapack_api_src EXCLUDE REGEX "getri" )
+# message( DEBUG "scalapack_api_src = ${scalapack_api_src}" )
+#
+# add_library(
+#     slate_scalapack_api
+#     ${scalapack_api_src}
+# )
+# target_link_libraries( slate_scalapack_api PUBLIC slate )
+# target_link_libraries( slate_scalapack_api PUBLIC scalapack )
+
+#-------------------------------------------------------------------------------
 # CUDA support.
 if (NOT use_cuda)
     message( STATUS "User has requested to NOT use CUDA" )

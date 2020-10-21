@@ -73,6 +73,15 @@ endif()
 set_property( CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
               None Debug Release RelWithDebInfo MinSizeRel )
 
+#-----------------------------------
+# BLAS options
+# SLATE defaults to single-threaded BLAS.
+set( blas_threaded "false" CACHE STRING
+     "Multi-threaded BLAS? (Passed to BLAS++.)" )
+set_property(
+    CACHE blas_threaded PROPERTY STRINGS
+    "auto" "true" "false" )
+
 message( DEBUG "Settings:
 CMAKE_INSTALL_PREFIX   = ${CMAKE_INSTALL_PREFIX}
 CMAKE_BUILD_TYPE       = ${CMAKE_BUILD_TYPE}

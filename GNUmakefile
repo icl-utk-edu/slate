@@ -1,3 +1,8 @@
+# Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
+#
 # Relies on settings in environment. These can be set by modules or in make.inc.
 # Set compiler by $CXX; usually want CXX=mpicxx.
 # Add include directories to $CPATH or $CXXFLAGS for MPI, CUDA, MKL, etc.

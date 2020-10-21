@@ -74,7 +74,7 @@ Join by signing in with your Google credentials, then clicking
 *Join group to post*.
 
 Bug reports can be filed directly on Bitbucket's issue tracker:
-<http://bitbucket.org/icl/lapackpp/issues>.
+<https://bitbucket.org/icl/slate/issues?status=new&status=open>.
 
 * * *
 
@@ -106,12 +106,6 @@ development team early in the process.
 
 Acknowledgments
 --------------------------------------------------------------------------------
-
-<!--
-https://www.exascaleproject.org/resources/
-https://www.olcf.ornl.gov/olcf-media/media-assets/
-https://www.alcf.anl.gov/support-center/facility-policies/alcf-acknowledgement-policy
--->
 
 This research was supported by the Exascale Computing Project (17-SC-20-SC), a
 joint project of the U.S. Department of Energy's Office of Science and National

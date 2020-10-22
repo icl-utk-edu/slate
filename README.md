@@ -57,6 +57,7 @@ among ECP applications.
 Documentation
 --------------------------------------------------------------------------------
 
+* [INSTALL.md](INSTALL.md) for installation notes.
 * [Users' Guide](https://www.icl.utk.edu/publications/swan-010)
 * [Developers' Guide](https://www.icl.utk.edu/publications/swan-011)
 * [Tutorial with sample codes for using SLATE](https://bitbucket.org/icl/slate-tutorial/)

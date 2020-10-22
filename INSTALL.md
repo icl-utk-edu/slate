@@ -118,7 +118,7 @@ for its options, which include:
         lower           lowercase names (dgemm)
         upper           uppercase names (DGEMM)
 
-    BLAS_LIBRARIES
+    BLAS_LIBRARIES [CMake only]
         Specify the exact BLAS libraries, overriding the built-in search. E.g.,
         cmake -DBLAS_LIBRARIES='-lopenblas' ..
 
@@ -132,22 +132,35 @@ for its options, which include:
 See the LAPACK++ [INSTALL.md](https://bitbucket.org/icl/lapackpp/src/master/INSTALL.md)
 for its options, which include:
 
-    lapack
+    lapack [CMake only]
         LAPACK libraries to search for.
         LAPACK is often included in the BLAS library (e.g., -lopenblas contains both),
         so there is usually no need to specify this. One or more of:
         auto            search for all libraries (default)
         generic         generic -llapack
 
-    LAPACK_LIBRARIES
+    LAPACK_LIBRARIES [CMake only]
         Specify the exact LAPACK libraries, overriding the built-in search.
         Again, there is usually no need to specify this. E.g.,
         cmake -DLAPACK_LIBRARIES='-lopenblas' ..
 
+SLATE specific options include:
+
+    mkl_blacs [Makefile only]
+        openmpi         Open MPI BLACS in SLATE's testers.
+        intelmpi        Intel MPI BLACS in SLATE's testers (default).
+
+    SCALAPACK_LIBRARIES [CMake only]
+        Specify the exact ScaLAPACK libraries, overriding the built-in search.
+        With MKL, by default it uses
+            -lmkl_scalapack_lp64 -lmkl_blacs_openmpi_lp64
+        or  -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64;
+        otherwise it uses -lscalapack.
+
 With Makefile, options are specified as environment variables or on the
 command line using `option=value` syntax, such as:
 
-    python configure.py lapack=generic
+    python configure.py blas=mkl
 
 With CMake, options are specified on the command line using
 `-Doption=value` syntax (not as environment variables), such as:
@@ -193,10 +206,6 @@ Options
     openmp
         It will compile with OpenMP by default. To compile without
         OpenMP, set `openmp = 0`.
-
-    mkl_blacs
-        openmpi             for Open MPI BLACS in SLATE's testers.
-        intelmpi            for Intel MPI BLACS in SLATE's testers (default).
 
     c_api
         Whether to build C API. One of:

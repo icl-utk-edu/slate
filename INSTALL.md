@@ -8,11 +8,11 @@ Synopsis
 
 Checkout or download. SLATE uses git modules, which require an update step:
 
-    git clone --recursive git@bitbucket.org:icl/slate.git
+    git clone --recursive https://bitbucket.org/icl/slate
 
     or
 
-    git clone git@bitbucket.org:icl/slate.git
+    git clone https://bitbucket.org/icl/slate
     git submodule update --init
 
 If you have an existing git repository and pull updates, you may need to
@@ -21,9 +21,8 @@ also update submodules, if they changed:
     git pull
     git submodule update
 
-Or download the release tar file, which includes BLAS++ and LAPACK++.
-
-    https://bitbucket.org/icl/slate/downloads/
+Or download the release tar file, which includes BLAS++ and LAPACK++, from
+[downloads](https://bitbucket.org/icl/slate/downloads/).
 
 --------------------------------------------------------------------------------
 
@@ -34,7 +33,7 @@ BLAS++, LAPACK++, and TestSweeper.
 **Option 1: Makefile**
 
     # create make.inc file, for example:
-    CXX  = mpicxx
+    CXX  = mpicxx    # MPI compiler wrappers recommended
     FC   = mpif90
     blas = openblas
 
@@ -257,12 +256,12 @@ directory under the SLATE root directory:
     make
     make install
 
-SLATE uses the BLAS++, LAPACK++, and TestSweeper libraries
-https://bitbucket.org/icl/blaspp
-https://bitbucket.org/icl/lapackpp
-https://bitbucket.org/icl/testsweeper
+SLATE uses the
+[BLAS++](https://bitbucket.org/icl/blaspp),
+[LAPACK++](https://bitbucket.org/icl/lapackpp), and
+[TestSweeper](https://bitbucket.org/icl/testsweeper) libraries.
 These are generally checked out as git submodules in the slate directory,
-so the user does not have to do anything extra. If CMake finds already
+so the user does not have to install them beforehand. If CMake finds already
 installed versions, it will use those instead of compiling new versions.
 
 

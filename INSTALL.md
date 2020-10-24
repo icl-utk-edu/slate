@@ -10,7 +10,7 @@ Checkout or download. SLATE uses git modules, which require an update step:
 
     git clone --recursive https://bitbucket.org/icl/slate
 
-    or
+or
 
     git clone https://bitbucket.org/icl/slate
     git submodule update --init
@@ -274,6 +274,12 @@ options include:
         Whether to use CUDA, if available. One of:
         yes (default)
         no
+
+    CMAKE_CUDA_ARCHITECTURES
+        CUDA architectures, as semi-colon delimited list of 2-digit numbers.
+        Each number can take optional `-real` or `-virtual` suffix.
+        Default is `60`, for Pascal architecture. For description, see:
+        https://cmake.org/cmake/help/latest/prop_tgt/CUDA_ARCHITECTURES.html
 
     use_mpi
         Whether to use MPI, if available. One of:

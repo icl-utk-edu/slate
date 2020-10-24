@@ -46,8 +46,8 @@ Compile and install:
     export CXX=g++      # or your preferred C++ compiler
     export FC=gfortran  # or your preferred Fortran compiler
     mkdir build && cd build
-    cmake ..
-    make -Dblas=openblas && make install
+    cmake -Dblas=openblas ..
+    make && make install
 
 
 Environment variables (Makefile and CMake)

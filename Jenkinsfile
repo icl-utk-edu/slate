@@ -44,15 +44,7 @@ END
                         '''
                     } // steps
                     post {
-                        unstable {
-                            slackSend channel: '#slate_ci',
-                                color: 'warning',
-                                message: "${currentBuild.fullDisplayName} Caffeine build unstable (<${env.BUILD_URL}|Open>)"
-                        }
                         failure {
-                            slackSend channel: '#slate_ci',
-                                color: 'danger',
-                                message: "${currentBuild.fullDisplayName} Caffeine build failed (<${env.BUILD_URL}|Open>)"
                             mail to: 'slate-dev@icl.utk.edu',
                                 subject: "${currentBuild.fullDisplayName} Caffeine build failed",
                                 body: "See more at ${env.BUILD_URL}"
@@ -101,15 +93,7 @@ END
                         '''
                     } // steps
                     post {
-                        unstable {
-                            slackSend channel: '#slate_ci',
-                                color: 'warning',
-                                message: "${currentBuild.fullDisplayName} Lips build unstable (<${env.BUILD_URL}|Open>)"
-                        }
                         failure {
-                            slackSend channel: '#slate_ci',
-                                color: 'danger',
-                                message: "${currentBuild.fullDisplayName} Lips build failed (<${env.BUILD_URL}|Open>)"
                             mail to: 'slate-dev@icl.utk.edu',
                                 subject: "${currentBuild.fullDisplayName} Lips build failed",
                                 body: "See more at ${env.BUILD_URL}"
@@ -149,15 +133,7 @@ END
                         '''
                     } // steps
                     post {
-                        unstable {
-                            slackSend channel: '#slate_ci',
-                                color: 'warning',
-                                message: "${currentBuild.fullDisplayName} Caffeine test unstable (<${env.BUILD_URL}|Open>)"
-                        }
                         failure {
-                            slackSend channel: '#slate_ci',
-                                color: 'danger',
-                                message: "${currentBuild.fullDisplayName} Caffeine test failed (<${env.BUILD_URL}|Open>)"
                             mail to: 'slate-dev@icl.utk.edu',
                                 subject: "${currentBuild.fullDisplayName} Caffeine test failed",
                                 body: "See more at ${env.BUILD_URL}"
@@ -193,15 +169,7 @@ END
                         '''
                     } // steps
                     post {
-                        unstable {
-                            slackSend channel: '#slate_ci',
-                                color: 'warning',
-                                message: "${currentBuild.fullDisplayName} Lips test unstable (<${env.BUILD_URL}|Open>)"
-                        }
                         failure {
-                            slackSend channel: '#slate_ci',
-                                color: 'danger',
-                                message: "${currentBuild.fullDisplayName} Lips test failed (<${env.BUILD_URL}|Open>)"
                             mail to: 'slate-dev@icl.utk.edu',
                                 subject: "${currentBuild.fullDisplayName} Lips test failed",
                                 body: "See more at ${env.BUILD_URL}"

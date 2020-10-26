@@ -323,7 +323,7 @@ if (NOT TARGET blaspp)
     find_package( blaspp QUIET )
     if (blaspp_FOUND)
         message( "   Found BLAS++: ${blaspp_DIR}" )
-    else()
+    elseif (EXISTS "${CMAKE_SOURCE_DIR}/blaspp/CMakeLists.txt")
         set( build_tests_save "${build_tests}" )
         set( build_tests "false" )
 
@@ -331,6 +331,10 @@ if (NOT TARGET blaspp)
 
         set( build_tests "${build_tests_save}" )
         set( blaspp_DIR "${CMAKE_BINARY_DIR}/blaspp" )
+    else()
+        message( FATAL_ERROR "blaspp/CMakeLists.txt doesn't exist. Use:\n"
+                 "    git submodule update --init\n"
+                 "to checkout submodules." )
     endif()
 else()
     message( "   BLAS++ already included" )
@@ -344,14 +348,20 @@ if (NOT TARGET lapackpp)
     find_package( lapackpp QUIET )
     if (lapackpp_FOUND)
         message( "   Found LAPACK++: ${lapackpp_DIR}" )
-    else()
+
+    elseif (EXISTS "${CMAKE_SOURCE_DIR}/lapackpp/CMakeLists.txt")
         set( build_tests_save "${build_tests}" )
         set( build_tests "false" )
 
         add_subdirectory( "lapackpp" )
 
         set( build_tests "${build_tests_save}" )
-        set( blaspp_DIR "${CMAKE_BINARY_DIR}/blaspp" )
+        set( lapackpp_DIR "${CMAKE_BINARY_DIR}/lapackpp" )
+
+    else()
+        message( FATAL_ERROR "lapackpp/CMakeLists.txt doesn't exist. Use:\n"
+                 "    git submodule update --init\n"
+                 "to checkout submodules." )
     endif()
 else()
     message( "   LAPACK++ already included" )

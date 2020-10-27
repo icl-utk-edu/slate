@@ -1,3 +1,8 @@
+# Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
+#
 # Relies on settings in environment. These can be set by modules or in make.inc.
 # Set compiler by $CXX; usually want CXX=mpicxx.
 # Add include directories to $CPATH or $CXXFLAGS for MPI, CUDA, MKL, etc.
@@ -696,6 +701,9 @@ uninstall:
 
 docs:
 	doxygen docs/doxygen/doxyfile.conf
+	@echo "------------------------------------------------------------"
+	@echo "Errors:"
+	perl -pe 's@^/.*?slate/@@' docs/doxygen/errors.txt
 
 #-------------------------------------------------------------------------------
 # C API
@@ -822,6 +830,13 @@ $(tester): $(tester_obj) $(libslate) $(testsweeper)
 	$(CXX) $(TEST_LDFLAGS) $(LDFLAGS) $(tester_obj) \
 		$(TEST_LIBS) $(LIBS) \
 		-o $@
+
+test/check: check
+unit_test/check: check
+
+check: test unit_test
+	cd test; python run_tests.py --quick gesv posv gels heev gesvd
+	cd unit_test; python run_tests.py
 
 #-------------------------------------------------------------------------------
 # unit testers

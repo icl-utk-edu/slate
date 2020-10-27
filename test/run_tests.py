@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 #
+# Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
+#
 # Example usage:
 # help
 #     ./run_tests.py -h
@@ -36,6 +41,7 @@ group_test.add_argument( '-t', '--test', action='store',
 group_test.add_argument( '--xml', help='generate report.xml for jenkins' )
 
 group_size = parser.add_argument_group( 'matrix dimensions (default is medium)' )
+group_size.add_argument(       '--quick',  action='store_true', help='run quick "sanity check" of few, small tests' )
 group_size.add_argument( '-x', '--xsmall', action='store_true', help='run x-small tests' )
 group_size.add_argument( '-s', '--small',  action='store_true', help='run small tests' )
 group_size.add_argument( '-m', '--medium', action='store_true', help='run medium tests' )
@@ -126,7 +132,7 @@ for t in opts.tests:
         exit(1)
 
 # by default, run medium sizes
-if (not (opts.xsmall or opts.small or opts.medium or opts.large)):
+if (not (opts.quick or opts.xsmall or opts.small or opts.medium or opts.large)):
     opts.medium = True
 
 # by default, run all shapes
@@ -166,6 +172,16 @@ nk       = dim
 is_default_nb = (opts.nb == parser.get_default('nb'))
 
 if (not opts.dim):
+    if (opts.quick):
+        n        = ' --dim 100'
+        tall     = ' --dim 100x50'  # 2:1
+        wide     = ' --dim 50x100'  # 1:2
+        mnk      = ' --dim 25x50x75'
+        nk_tall  = ' --dim 1x100x50'  # 2:1
+        nk_wide  = ' --dim 1x50x100'  # 1:2
+        if (is_default_nb):
+            opts.nb = '32'
+
     if (opts.xsmall):
         n       += ' --dim 10'
         tall    += ' --dim 20x10'
@@ -308,7 +324,7 @@ if (opts.blas3):
     cmds += [
     [ 'gbmm',  gen + dtype + la + transA + transB + mnk + ab + kl + ku ],
     [ 'gemm',  gen + dtype + la + transA + transB + mnk + ab ],
-    [ 'gemm',  origin + p + q + check + ref + tol + repeat + nb + dtype + la + transA + transB + mnk + ab + ' --gemm-variant=gemmA' + ' --target=t' ],
+    [ 'gemmA', origin + p + q + check + ref + tol + repeat + nb + dtype + la + transA + transB + mnk + ab + ' --target=t' ],
 
     [ 'hemm',  gen + dtype         + la + side + uplo     + mn + ab ],
     [ 'hbmm',  gen + dtype         + la + side + uplo     + mn + ab + kd ],
@@ -551,7 +567,7 @@ def print_tee( *args ):
 # cmd is a pair of strings: (function, args)
 
 def run_test( cmd ):
-    cmd = opts.test +' '+ cmd[0] +' '+ cmd[1]
+    cmd = opts.test +' '+ cmd[1] +' '+ cmd[0]
     print_tee( cmd )
     output = ''
     p = subprocess.Popen( cmd.split(), stdout=subprocess.PIPE,

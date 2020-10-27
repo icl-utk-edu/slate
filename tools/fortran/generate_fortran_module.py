@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 #
+# Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
+#
 # Derived from plasma/tools/fortran_gen.py
 
 from __future__ import print_function

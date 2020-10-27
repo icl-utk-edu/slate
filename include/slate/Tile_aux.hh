@@ -1,41 +1,7 @@
-//------------------------------------------------------------------------------
-// Copyright (c) 2017, University of Tennessee
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//     * Neither the name of the University of Tennessee nor the
-//       names of its contributors may be used to endorse or promote products
-//       derived from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL UNIVERSITY OF TENNESSEE BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//------------------------------------------------------------------------------
-// This research was supported by the Exascale Computing Project (17-SC-20-SC),
-// a collaborative effort of two U.S. Department of Energy organizations (Office
-// of Science and the National Nuclear Security Administration) responsible for
-// the planning and preparation of a capable exascale ecosystem, including
-// software, applications, hardware, advanced system engineering and early
-// testbed platforms, in support of the nation's exascale computing imperative.
-//------------------------------------------------------------------------------
-// For assistance with SLATE, email <slate-user@icl.utk.edu>.
-// You can also join the "SLATE User" Google group by going to
-// https://groups.google.com/a/icl.utk.edu/forum/#!forum/slate-user,
-// signing in with your Google credentials, and then clicking "Join group".
-//------------------------------------------------------------------------------
+// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// This program is free software: you can redistribute it and/or modify it under
+// the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #ifndef SLATE_TILE_AUX_HH
 #define SLATE_TILE_AUX_HH
@@ -63,11 +29,11 @@ void gecopy(Tile<src_scalar_t> const& A, Tile<dst_scalar_t>& B)
     assert(A.nb() == B.nb());
 
     const src_scalar_t* A00 = &A.at(0, 0);
-    const int64_t a_col_inc = A.colIncrement();
-    const int64_t a_row_inc = A.rowIncrement();
+    int64_t a_col_inc = A.colIncrement();
+    int64_t a_row_inc = A.rowIncrement();
     dst_scalar_t* B00 = &B.at(0, 0);
-    const int64_t b_col_inc = B.colIncrement();
-    const int64_t b_row_inc = B.rowIncrement();
+    int64_t b_col_inc = B.colIncrement();
+    int64_t b_row_inc = B.rowIncrement();
 
     for (int64_t j = 0; j < B.nb(); ++j) {
         const src_scalar_t* Aj = &A00[j*a_row_inc];
@@ -108,11 +74,11 @@ void tzcopy(Tile<src_scalar_t> const& A, Tile<dst_scalar_t>& B)
     assert(A.nb() == B.nb());
 
     const src_scalar_t* A00 = &A.at(0, 0);
-    const int64_t a_col_inc = A.colIncrement();
-    const int64_t a_row_inc = A.rowIncrement();
+    int64_t a_col_inc = A.colIncrement();
+    int64_t a_row_inc = A.rowIncrement();
     dst_scalar_t* B00 = &B.at(0, 0);
-    const int64_t b_col_inc = B.colIncrement();
-    const int64_t b_row_inc = B.rowIncrement();
+    int64_t b_col_inc = B.colIncrement();
+    int64_t b_row_inc = B.rowIncrement();
 
     for (int64_t j = 0; j < B.nb(); ++j) {
         const src_scalar_t* Aj = &A00[j*a_row_inc];
@@ -146,7 +112,7 @@ void tzcopy(Tile<src_scalar_t> const&& A, Tile<dst_scalar_t>&& B)
 //------------------------------------------------------------------------------
 /// Set entries in the matrix $A$ to the value of $\alpha$.
 /// Only set the strictly-lower or the strictly-upper part.
-/// @ingroup tzset
+/// @ingroup set_tile
 ///
 template <typename scalar_t>
 void tzset(scalar_t alpha, Tile<scalar_t>& A)
@@ -158,8 +124,8 @@ void tzset(scalar_t alpha, Tile<scalar_t>& A)
     assert(A.op() == Op::NoTrans);
 
     scalar_t* A00 = &A.at(0, 0);
-    const int64_t a_col_inc = A.colIncrement();
-    const int64_t a_row_inc = A.rowIncrement();
+    int64_t a_col_inc = A.colIncrement();
+    int64_t a_row_inc = A.rowIncrement();
 
     for (int64_t j = 0; j < A.nb(); ++j) {
         scalar_t* Aj = &A00[j*a_row_inc];
@@ -178,7 +144,7 @@ void tzset(scalar_t alpha, Tile<scalar_t>& A)
 
 //-----------------------------------------
 /// Converts rvalue refs to lvalue refs.
-/// @ingroup tzset
+/// @ingroup set_tile
 ///
 template <typename scalar_t>
 void tzset(scalar_t alpha, Tile<scalar_t>&& A)
@@ -399,8 +365,8 @@ void copyRow(int64_t n,
     if (n <= 0) return;
 
     scalar_t* A00 = &A.at(0, 0);
-    const int64_t a_col_inc = A.colIncrement();
-    const int64_t a_row_inc = A.rowIncrement();
+    int64_t a_col_inc = A.colIncrement();
+    int64_t a_row_inc = A.rowIncrement();
 
     scalar_t* Ai = &A00[i_offs*a_col_inc];
     for (int64_t j = 0; j < n; ++j)

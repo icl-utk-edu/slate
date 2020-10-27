@@ -1,3 +1,8 @@
+// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// This program is free software: you can redistribute it and/or modify it under
+// the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
+
 #include "slate/slate.hh"
 #include "test.hh"
 #include "blas/flops.hh"
@@ -63,8 +68,8 @@ void test_hegst_work(Params& params, bool run)
     slate_mpi_call(MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
     slate_assert(p*q <= mpi_size);
 
-    const int myrow = whoismyrow(mpi_rank, p);
-    const int mycol = whoismycol(mpi_rank, p);
+    int myrow = whoismyrow(mpi_rank, p);
+    int mycol = whoismycol(mpi_rank, p);
 
     // Figure out local size, allocate, initialize
     int64_t mlocal = localRowsCols(n, nb, myrow, p);

@@ -9,10 +9,11 @@
             @brief                          Solve $AX = B$
 
             @defgroup gesv_computational    Computational
-            @brief                          Factor $PA = LU$, solve $(P^T LU)X = B$
+            @brief                          Factor, forward and back solve, invert
 
             @defgroup gesv_specialization   Target implementations
             @defgroup gesv_internal         Internal
+            @defgroup gesv_tile             Tile
         @}
 
         @defgroup group_gbsv General non-symmetric, band: LU
@@ -21,7 +22,7 @@
             @brief                          Solve $AX = B$
 
             @defgroup gbsv_computational    Computational
-            @brief                          Factor $PA = LU$, solve $(P^T LU)X = B$
+            @brief                          Factor, forward and back solve
 
             @defgroup gbsv_specialization   Target implementations
         @}
@@ -32,11 +33,22 @@
             @brief                          Solve $AX = B$
 
             @defgroup posv_computational    Computational
-            @brief                          Factor $A = LL^T$, solve $(LL^T)X = B$
+            @brief                          Factor, forward and back solve, invert
 
             @defgroup posv_specialization   Target implementations
             @defgroup posv_internal         Internal
             @defgroup posv_tile             Tile
+        @}
+
+        @defgroup group_pbsv Positive definite, band: Cholesky
+        @{
+            @defgroup pbsv                  Driver
+            @brief                          Solve $AX = B$
+
+            @defgroup pbsv_computational    Computational
+            @brief                          Factor, forward and back solve
+
+            @defgroup pbsv_specialization   Target implementations
         @}
 
         @defgroup group_hesv Hermitian/symmetric indefinite: Aasen
@@ -45,9 +57,24 @@
             @brief                          Solve $AX = B$
 
             @defgroup hesv_computational    Computational
-            @brief                          Factor $A = LTL^T$, solve $(LTL^T)X = B$
+            @brief                          Factor, forward and back solve
 
             @defgroup hesv_specialization   Target implementations
+        @}
+
+        @defgroup group_tr Triangular
+        @{
+            @defgroup tr_computational      Computational
+            @brief                          Inverse, multiply
+
+            @defgroup tr_specialization     Target implementations
+            @defgroup tr_internal           Internal
+            @defgroup tr_tile               Tile
+        @}
+
+        @defgroup group_solve_util Utilities
+        @{
+            @defgroup permute_internal      Permute, internal
         @}
     @}
 
@@ -72,11 +99,61 @@
             @defgroup geqrf_internal        Internal
             @defgroup geqrf_tile            Tile
         @}
+
+        @defgroup group_gelqf LQ
+        @{
+            @defgroup gelqf_computational   Computational
+            @brief                          Factor $A = LQ$, multiply by $Q$, generate $Q$
+
+            @defgroup gelqf_specialization  Target implementations
+            @defgroup gelqf_internal        Internal
+            @defgroup gelqf_tile            Tile
+        @}
     @}
 
     ------------------------------------------------------------
-    @defgroup group_auxiliary               Auxiliary
+    @defgroup group_heev Symmetric/Hermitian eigenvalues
     @{
+        @defgroup heev                      Driver
+        @brief                              $Ax = \lambda x$
+
+        @defgroup heev_computational        Computational
+        @defgroup heev_specialization       Target implementations
+    @}
+
+    ------------------------------------------------------------
+    @defgroup group_hegv generalized Symmetric/Hermitian-definite eigenvalues
+    @{
+        @defgroup hegv                      Driver
+        @brief                              $Ax = \lambda B x$, etc.
+
+        @defgroup hegv_computational        Computational
+        @defgroup hegv_specialization       Target implementations
+        @defgroup hegv_internal             Internal
+        @defgroup hegv_tile                 Tile
+    @}
+
+    ------------------------------------------------------------
+    @defgroup group_svd Singular Value Decomposition (SVD)
+    @{
+        @defgroup svd                   Driver
+        @brief                          $A = U \Sigma V^H$
+
+        @defgroup svd_computational     Computational
+        @defgroup svd_specialization    Target implementations
+    @}
+
+    ------------------------------------------------------------
+    @defgroup group_blas2_top     Level 2 BLAS and Auxiliary: O(n^2) work
+    @brief    Matrix and Matrix-vector operations that perform $O(n^2)$ work on $O(n^2)$ data.
+    @{
+        @defgroup group_set                 Initialize and copy
+        @{
+            @defgroup set                   Set matrix elements
+            @defgroup copy                  Copy matrix
+            @defgroup generate_matrix       Generate test matrix
+        @}
+
         @defgroup group_norm                Matrix norms
         @{
             @defgroup norm                  Driver
@@ -86,134 +163,155 @@
             @defgroup norm_internal         Internal
             @defgroup norm_tile             Tile
         @}
+
+        @defgroup group_blas2               Parellel BLAS (PBLAS)
+        @{
+            @defgroup geadd                 geadd: Add matrices
+            @brief                          $B = \alpha A + \beta B$
+        @}
+
+        @defgroup group_blas2_specialization  Target implementations
+        @{
+            @defgroup set_specialization    set
+            @defgroup copy_specialization   copy
+            @defgroup geadd_specialization  geadd
+        @}
+
+        @defgroup group_blas2_internal    Internal
+        @brief    Internal routines implement one step of BLAS routine
+        @{
+            @defgroup set_internal          set
+
+            @defgroup copy_internal         copy
+            @defgroup geadd_internal        geadd
+        @}
+
+        @defgroup group_blas2_tile    Tile
+        @brief    Tile routines
+        @{
+            @defgroup set_tile              set
+            @defgroup scale_tile            scale
+            @defgroup copy_tile             copy
+            @defgroup swap_tile             swap
+            @defgroup geadd_tile            geadd
+            @defgroup gemv_tile             gemv
+            @defgroup symv_tile             symv
+            @defgroup ger_tile              ger
+            @defgroup her2_tile             her2
+        @}
     @}
 
     ------------------------------------------------------------
-    @defgroup group_blas3   Level 3 BLAS: matrix-matrix operations
+    @defgroup group_blas3_top   Level 3 BLAS: O(n^3) work
     @brief    Matrix-matrix operations that perform $O(n^3)$ work on $O(n^2)$ data.
               These benefit from cache reuse, since many operations can be
               performed for every read from main memory, the so-called
               <em>surface-to-volume</em> effect.
     @{
-        @defgroup blas3 Parellel BLAS (PBLAS)
+        @defgroup group_blas3 Parellel BLAS (PBLAS)
         @{
-            @defgroup gemm         gemm:  General matrix multiply
-            @brief    $C = \alpha A B + \beta C$
+            @defgroup gemm      gemm:  General matrix multiply
+            @brief              $C = \alpha A B + \beta C$
 
-            @defgroup gbmm         gbmm:  General band matrix multiply
-            @brief    $C = \alpha A B + \beta C$ where $A$ or $B$ is band
+            @defgroup gbmm      gbmm:  General band matrix multiply
+            @brief              $C = \alpha A B + \beta C$
+                                where $A$ or $B$ is band
 
-            @defgroup hemm         hemm:  Hermitian matrix multiply
-            @brief    $C = \alpha A B + \beta C$
-                   or $C = \alpha B A + \beta C$ where $A$ is Hermitian
+            @defgroup hemm      hemm:  Hermitian matrix multiply
+            @brief                 $C = \alpha A B + \beta C$
+                                or $C = \alpha B A + \beta C$
+                                where $A$ is Hermitian
 
-            @defgroup herk         herk:  Hermitian rank k update
-            @brief    $C = \alpha A A^H + \beta C$ where $C$ is Hermitian
+            @defgroup hbmm      hbmm:  Hermitian band matrix multiply
+            @brief                 $C = \alpha A B + \beta C$
+                                or $C = \alpha B A + \beta C$
+                                where $A$ is Hermitian
 
-            @defgroup her2k        her2k: Hermitian rank 2k update
-            @brief    $C = \alpha A B^H + \alpha B A^H + \beta C$ where $C$ is Hermitian
+            @defgroup herk      herk:  Hermitian rank k update
+            @brief              $C = \alpha A A^H + \beta C$
+                                where $C$ is Hermitian
 
-            @defgroup symm         symm:  Symmetric matrix multiply
-            @brief    $C = \alpha A B + \beta C$
-                   or $C = \alpha B A + \beta C$ where $A$ is symmetric
+            @defgroup her2k     her2k: Hermitian rank 2k update
+            @brief              $C = \alpha A B^H + \alpha B A^H + \beta C$
+                                where $C$ is Hermitian
 
-            @defgroup syrk         syrk:  Symmetric rank k update
-            @brief    $C = \alpha A A^T + \beta C$ where $C$ is symmetric
+            @defgroup symm      symm:  Symmetric matrix multiply
+            @brief                 $C = \alpha A B + \beta C$
+                                or $C = \alpha B A + \beta C$
+                                where $A$ is symmetric
 
-            @defgroup syr2k        syr2k: Symmetric rank 2k update
-            @brief    $C = \alpha A B^T + \alpha B A^T + \beta C$ where $C$ is symmetric
+            @defgroup syrk      syrk:  Symmetric rank k update
+            @brief              $C = \alpha A A^T + \beta C$
+                                where $C$ is symmetric
 
-            @defgroup trmm         trmm:  Triangular matrix multiply
-            @brief    $B = \alpha A B$
-                   or $B = \alpha B A$ where $A$ is triangular
+            @defgroup syr2k     syr2k: Symmetric rank 2k update
+            @brief              $C = \alpha A B^T + \alpha B A^T + \beta C$
+                                where $C$ is symmetric
 
-            @defgroup trsm         trsm:  Triangular solve matrix
-            @brief    $C = A^{-1} B$
-                   or $C = B A^{-1}$ where $A$ is triangular
+            @defgroup trmm      trmm:  Triangular matrix multiply
+            @brief                 $B = \alpha A B$
+                                or $B = \alpha B A$
+                                where $A$ is triangular
 
-            @defgroup tbsm         tbsm:  Triangular solve band matrix
-            @brief    $C = A^{-1} B$
-                   or $C = B A^{-1}$ where $A$ is band triangular
+            @defgroup trsm      trsm:  Triangular solve matrix
+            @brief                 $C = A^{-1} B$
+                                or $C = B A^{-1}$
+                                where $A$ is triangular
+
+            @defgroup tbsm      tbsm:  Triangular solve band matrix
+            @brief                 $C = A^{-1} B$
+                                or $C = B A^{-1}$
+                                where $A$ is band triangular
         @}
 
-        @defgroup blas3_specialization  Target implementations
+        @defgroup group_blas3_specialization  Target implementations
         @{
-            @defgroup gemm_specialization  gemm:  General matrix multiply
-            @defgroup gbmm_specialization  gbmm:  General band matrix multiply
-            @defgroup hemm_specialization  hemm:  Hermitian matrix multiply
-            @defgroup herk_specialization  herk:  Hermitian rank k update
-            @defgroup her2k_specialization her2k: Hermitian rank 2k update
-            @defgroup symm_specialization  symm:  Symmetric matrix multiply
-            @defgroup syrk_specialization  syrk:  Symmetric rank k update
-            @defgroup syr2k_specialization syr2k: Symmetric rank 2k update
-            @defgroup trmm_specialization  trmm:  Triangular matrix multiply
-            @defgroup trsm_specialization  trsm:  Triangular solve matrix
-            @defgroup tbsm_specialization  tbsm:  Triangular solve band matrix
+            @defgroup gemm_specialization   gemm:  General matrix multiply
+            @defgroup gbmm_specialization   gbmm:  General band matrix multiply
+            @defgroup hemm_specialization   hemm:  Hermitian matrix multiply
+            @defgroup hbmm_specialization   hbmm:  Hermitian band matrix multiply
+            @defgroup herk_specialization   herk:  Hermitian rank k update
+            @defgroup her2k_specialization  her2k: Hermitian rank 2k update
+            @defgroup symm_specialization   symm:  Symmetric matrix multiply
+            @defgroup syrk_specialization   syrk:  Symmetric rank k update
+            @defgroup syr2k_specialization  syr2k: Symmetric rank 2k update
+            @defgroup trmm_specialization   trmm:  Triangular matrix multiply
+            @defgroup trsm_specialization   trsm:  Triangular solve matrix
+            @defgroup tbsm_specialization   tbsm:  Triangular solve band matrix
         @}
 
-        @defgroup blas3_internal    Internal
+        @defgroup group_blas3_internal    Internal
         @brief    Internal routines implement one step of BLAS routine,
                   e.g., one block outer product.
         @{
-            @defgroup gemm_internal  gemm:  General matrix multiply
-            @defgroup hemm_internal  hemm:  Hermitian matrix multiply
-            @defgroup herk_internal  herk:  Hermitian rank k update
-            @defgroup her2k_internal her2k: Hermitian rank 2k update
-            @defgroup symm_internal  symm:  Symmetric matrix multiply
-            @defgroup syrk_internal  syrk:  Symmetric rank k update
-            @defgroup syr2k_internal syr2k: Symmetric rank 2k update
-            @defgroup trmm_internal  trmm:  Triangular matrix multiply
-            @defgroup trsm_internal  trsm:  Triangular solve matrix
+            @defgroup gemm_internal         gemm:  General matrix multiply
+            @defgroup hemm_internal         hemm:  Hermitian matrix multiply
+            @defgroup herk_internal         herk:  Hermitian rank k update
+            @defgroup her2k_internal        her2k: Hermitian rank 2k update
+            @defgroup symm_internal         symm:  Symmetric matrix multiply
+            @defgroup syrk_internal         syrk:  Symmetric rank k update
+            @defgroup syr2k_internal        syr2k: Symmetric rank 2k update
+            @defgroup trmm_internal         trmm:  Triangular matrix multiply
+            @defgroup trsm_internal         trsm:  Triangular solve matrix
         @}
 
-        @defgroup blas3_tile  Tile
+        @defgroup group_blas3_tile  Tile
         @{
-            @defgroup gemm_tile  gemm:  General matrix multiply
-            @defgroup hemm_tile  hemm:  Hermitian matrix multiply
-            @defgroup herk_tile  herk:  Hermitian rank k update
-            @defgroup her2k_tile her2k: Hermitian rank 2k update
-            @defgroup symm_tile  symm:  Symmetric matrix multiply
-            @defgroup syrk_tile  syrk:  Symmetric rank k update
-            @defgroup syr2k_tile syr2k: Symmetric rank 2k update
-            @defgroup trmm_tile  trmm:  Triangular matrix multiply
-            @defgroup trsm_tile  trsm:  Triangular solve matrix
-        @}
-    @}
-
-    ------------------------------------------------------------
-    @defgroup group_blas2     Level 2 BLAS: matrix-vector operations
-    @brief    Matrix and Matrix-vector operations that perform $O(n^2)$ work on $O(n^2)$ data.
-    @{
-        @defgroup blas2 Parellel BLAS (PBLAS)
-        @{
-            @defgroup copy  copy matrix
-            @brief    $A \to B$
-
-            @defgroup geadd geadd: Add matrices
-            @brief    $B = \alpha A + \beta B$
-        @}
-
-        @defgroup blas2_specialization  Target implementations
-        @{
-            @defgroup copy_specialization  copy
-            @defgroup geadd_specialization geadd
-        @}
-
-        @defgroup blas2_internal    Internal
-        @brief    Internal routines implement one step of BLAS routine
-        @{
-            @defgroup copy_internal  copy matrix
-            @defgroup geadd_internal geadd: Add matrices
-        @}
-
-        @defgroup blas2_tile    Tile
-        @brief    Tile routines
-        @{
-            @defgroup copy_tile  copy tile
-            @defgroup geadd_tile geadd: Add tiles
+            @defgroup gemm_tile             gemm:  General matrix multiply
+            @defgroup hemm_tile             hemm:  Hermitian matrix multiply
+            @defgroup herk_tile             herk:  Hermitian rank k update
+            @defgroup her2k_tile            her2k: Hermitian rank 2k update
+            @defgroup symm_tile             symm:  Symmetric matrix multiply
+            @defgroup syrk_tile             syrk:  Symmetric rank k update
+            @defgroup syr2k_tile            syr2k: Symmetric rank 2k update
+            @defgroup trmm_tile             trmm:  Triangular matrix multiply
+            @defgroup trsm_tile             trsm:  Triangular solve matrix
         @}
     @}
 
     ------------------------------------------------------------
     @defgroup enum  Enumerations
+
+    ------------------------------------------------------------
+    @defgroup util  Utilities
 **/

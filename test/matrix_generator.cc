@@ -1,3 +1,8 @@
+// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// This program is free software: you can redistribute it and/or modify it under
+// the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
+
 #include "slate/slate.hh"
 #include "test.hh"
 #include "print_matrix.hh"
@@ -171,7 +176,7 @@ void generate_sigma(
 
     // copy sigma => A
     scalar_t zero = 0.0;
-    const int64_t min_mt_nt = std::min(A.mt(), A.nt());
+    int64_t min_mt_nt = std::min(A.mt(), A.nt());
     set(zero, zero, A);
     int64_t S_index = 0;
     #pragma omp parallel for
@@ -267,10 +272,10 @@ void generate_svd(
     assert( A.m() >= A.n() );
 
     // locals
-    const int64_t n = A.n();
-    const int64_t mt = A.mt();
-    const int64_t nt = A.nt();
-    const int64_t min_mt_nt = std::min(mt, nt);
+    int64_t n = A.n();
+    int64_t mt = A.mt();
+    int64_t nt = A.nt();
+    int64_t min_mt_nt = std::min(mt, nt);
 
     slate::Matrix<scalar_t> U = A.emptyLike();
     U.insertLocalTiles();
@@ -428,8 +433,8 @@ void generate_heev(
     generate_sigma( params, dist, rand_sign, cond, sigma_max, A, sigma );
 
     // random U, m-by-minmn
-    const int64_t nt = U.nt();
-    const int64_t mt = U.mt();
+    int64_t nt = U.nt();
+    int64_t mt = U.mt();
     auto Tmp = U.emptyLike();
 
     #pragma omp parallel for collapse(2)
@@ -988,8 +993,8 @@ void generate_matrix(
     }
 
     int n = (int)A.n();
-    const int64_t nt = A.nt();
-    const int64_t mt = A.mt();
+    int64_t nt = A.nt();
+    int64_t mt = A.mt();
     // ----- generate matrix
     switch (type) {
         case TestMatrixType::zero:

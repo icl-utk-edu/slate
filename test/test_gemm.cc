@@ -1,3 +1,8 @@
+// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// This program is free software: you can redistribute it and/or modify it under
+// the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
+
 #include "slate/slate.hh"
 #include "test.hh"
 #include "blas/flops.hh"
@@ -39,7 +44,6 @@ void test_gemm_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
-    std::string gemm_variant = params.gemm_variant();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
@@ -53,7 +57,7 @@ void test_gemm_work(Params& params, bool run)
         return;
 
     // skip invalid or unimplemented options
-    if (gemm_variant=="gemmA" && target!=slate::Target::HostTask) {
+    if (params.routine == "gemmA" && target != slate::Target::HostTask) {
         printf("skipping: currently gemmA is only implemented for HostTask\n");
         return;
     }
@@ -198,7 +202,7 @@ void test_gemm_work(Params& params, bool run)
         // Run SLATE test.
         // C = alpha A B + beta C.
         //==================================================
-        if (gemm_variant == "gemmC")
+        if (params.routine == "gemm") {
             slate::multiply(
                 alpha, A, B, beta, C, {
                     {slate::Option::Lookahead, lookahead},
@@ -212,12 +216,15 @@ void test_gemm_work(Params& params, bool run)
             //         {slate::Option::Lookahead, lookahead},
             //         {slate::Option::Target, target}
             //     });
-        else if (gemm_variant == "gemmA")
+        }
+        else if (params.routine == "gemmA") {
             slate::gemmA(
                 alpha, A, B, beta, C, {
                     {slate::Option::Lookahead, lookahead},
                     {slate::Option::Target, target}
                 });
+        }
+
         {
             slate::trace::Block trace_block("MPI_Barrier");
             MPI_Barrier(MPI_COMM_WORLD);

@@ -1,9 +1,8 @@
-/*
- * Copyright (c) 2009-2010 The University of Tennessee and The University
- *                         of Tennessee Research Foundation.  All rights
- *                         reserved.
- * Copyright (c) 2010      University of Denver, Colorado.
- */
+// Copyright (c) 2009-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2010,      University of Denver, Colorado.
+// SPDX-License-Identifier: BSD-3-Clause
+// This program is free software: you can redistribute it and/or modify it under
+// the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #ifndef SLATE_SCALAPACK_WRAPPERS_HH
 #define SLATE_SCALAPACK_WRAPPERS_HH

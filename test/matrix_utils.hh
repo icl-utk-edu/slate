@@ -1,3 +1,8 @@
+// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// This program is free software: you can redistribute it and/or modify it under
+// the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
+
 #ifndef SLATE_MATRIX_UTILS_HH
 #define SLATE_MATRIX_UTILS_HH
 
@@ -13,7 +18,7 @@ void he2gb(slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t > B)
     // It must be defined here to avoid having numerical error with complex
     // numbers when calling conj();
     using blas::conj;
-    const int64_t nt = A.nt();
+    int64_t nt = A.nt();
     const scalar_t zero = 0;
     set(zero, B);
     for (int64_t i = 0; i < nt; ++i) {

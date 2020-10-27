@@ -41,11 +41,17 @@ template <typename scalar_t>
 class BaseMatrix {
 public:
     using BcastList =
-        std::list<std::tuple<int64_t, int64_t,
+        std::vector<std::tuple<int64_t, int64_t,
                              std::list<BaseMatrix<scalar_t> > > >;
 
+    // For multi-threaded bcast, each <i,j> needs a message tag
+    using BcastListTag =
+        std::vector<std::tuple<int64_t, int64_t,
+                             std::list<BaseMatrix<scalar_t> >,
+                             int64_t> >;
+
     using ReduceList =
-        std::list<std::tuple<int64_t, int64_t,
+        std::vector<std::tuple<int64_t, int64_t,
                              std::list<BaseMatrix<scalar_t> > > >;
 
     using ij_tuple = typename MatrixStorage<scalar_t>::ij_tuple;
@@ -376,6 +382,14 @@ public:
     void listBcast(
         BcastList& bcast_list, Layout layout,
         int tag = 0, int64_t life_factor = 1,
+        bool is_shared = false);
+
+    // This variant takes a BcastListTag where each <i,j> tile has
+    // its own message tag
+    template <Target target = Target::Host>
+    void listBcastMT(
+        BcastListTag& bcast_list, Layout layout,
+        int64_t life_factor = 1,
         bool is_shared = false);
 
     template <Target target = Target::Host>
@@ -1782,6 +1796,131 @@ void BaseMatrix<scalar_t>::listBcast(
                     }
                 }
             }
+        }
+    }
+    #pragma omp taskwait
+}
+
+//------------------------------------------------------------------------------
+/// Send tile {i, j} of op(A) to all MPI ranks in the list of submatrices
+/// bcast_list (using OpenMP tasksloop and multi-threaded MPI).
+/// Data received must be in 'layout' (ColMajor/RowMajor) major.
+///
+/// @tparam target
+///     Destination to target; either Host (default) or Device.
+///
+/// @param[in] bcast_list
+///     List of submatrices defining the MPI ranks to send to.
+///     Usually it is the portion of the matrix to be updated by tile {i, j}.
+///     Each tile {i, j} to be broadcast has a tag in the bcast_list.
+///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) of the broadcasted data.
+///     WARNING: must match the layout of the tile in the sender MPI rank.
+///
+/// @param[in] life_factor
+///     A multiplier for the life count of the broadcasted tile workspace.
+/// @param[in] is_shared
+///     A flag to get and hold the broadcasted (prefetched) tiles on the
+///     devices. This flag prevents any subsequent calls of tileRelease()
+///     routine to release these tiles (clear up the devices memories).
+///     WARNING: must set unhold these tiles before releasing them to free
+///     up the allocated memories.
+///
+//todo
+template <typename scalar_t>
+template <Target target>
+void BaseMatrix<scalar_t>::listBcastMT(
+    BcastListTag& bcast_list, Layout layout,
+    int64_t life_factor, bool is_shared)
+{
+    if (target == Target::Devices) {
+        assert(num_devices() > 0);
+    }
+
+    // It is possible that the same tile, with the same data, is sent twice.
+    // This happens, e.g., in the hemm and symm routines, where the same tile
+    // is sent once as part of A and once as part of A^T.
+    // This cannot be avoided without violating the upper bound on the buffer size
+    // used for hosting communicated tiles.
+    // Due to dynamic scheduling, the second communication may occur before the
+    // first tile has been discarded.
+    // If that happens, instead of creating the tile, the life of the existing
+    // tile is increased.
+    // Also, currently, the message is received to the same buffer.
+
+    int mpi_size;
+    MPI_Comm_size(mpiComm(), &mpi_size);
+
+    // This uses multiple OMP threads for MPI broadcast communication
+    // todo: threads may clash with panel-threads slowing performance for multi-threaded panel routines
+    using Bcast = std::tuple< int64_t, int64_t, std::list<BaseMatrix<scalar_t> >, int64_t >;
+
+    #pragma omp taskloop default(none) shared(bcast_list) firstprivate(life_factor,layout,mpi_size,is_shared)
+    for (size_t bcastnum = 0; bcastnum < bcast_list.size(); ++bcastnum) {
+
+        Bcast bcast = bcast_list[bcastnum];
+        auto i = std::get<0>(bcast);
+        auto j = std::get<1>(bcast);
+        auto submatrices_list = std::get<2>(bcast);
+        auto tagij = std::get<3>(bcast);
+        int tag = int(tagij) % 32768;  // MPI_TAG_UB is at least 32767
+        std::vector< std::set<ij_tuple> > tile_set(num_devices());
+
+        {
+            trace::Block trace_block(std::string("listBcast("+std::to_string(i)+","+std::to_string(j)+")").c_str());
+
+            // Find the set of participating ranks.
+            std::set<int> bcast_set;
+            bcast_set.insert(tileRank(i, j));       // Insert root.
+            for (auto submatrix : submatrices_list) // Insert destinations.
+                submatrix.getRanks(&bcast_set);
+
+            // If this rank is in the set.
+            if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
+                // If receiving the tile.
+                if (! tileIsLocal(i, j)) {
+
+                    // Create tile to receive data, with life span.
+                    // If tile already exists, add to its life span.
+                    LockGuard guard(storage_->getTilesMapLock());
+                    auto iter = storage_->find(globalIndex(i, j, host_num_));
+
+                    int64_t life = 0;
+                    for (auto submatrix : submatrices_list)
+                        life += submatrix.numLocalTiles() * life_factor;
+
+                    if (iter == storage_->end())
+                        tileInsertWorkspace(i, j, host_num_);
+                    else
+                        life += tileLife(i, j); // todo: use temp tile to receive
+                    tileLife(i, j, life);
+                }
+
+                // Send across MPI ranks.
+                // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
+                // Currently uses radix-D hypercube p2p send.
+                int radix = 4; // bcast_set.size(); // 2;
+                tileBcastToSet(i, j, bcast_set, radix, tag, layout);
+            }
+
+            // Copy to devices.
+            // todo: should this be inside above if-then?
+            // todo: this may incur extra communication,
+            //       tile(i,j) is not necessarily needed on all devices where this matrix resides
+            if (target == Target::Devices) {
+                std::set<int> dev_set;
+                for (auto submatrix : submatrices_list)
+                    submatrix.getLocalDevices(&dev_set);
+
+                for (auto dev : dev_set) {
+                    //todo: test #pragma omp task default(shared) if (mpi_size == 1)
+                    if (is_shared)
+                        tileGetAndHold(i, j, dev, LayoutConvert::None);
+                    else
+                        tileGetForReading(i, j, dev, LayoutConvert::None);
+                }
+            } // paren added for the trace_block label
         }
     }
     #pragma omp taskwait

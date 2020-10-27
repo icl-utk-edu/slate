@@ -28,7 +28,7 @@ void potrf(slate::internal::TargetType<target>,
            HermitianMatrix<scalar_t> A, int64_t lookahead)
 {
     using real_t = blas::real_type<scalar_t>;
-    using BcastList = typename Matrix<scalar_t>::BcastList;
+    using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -68,13 +68,15 @@ void potrf(slate::internal::TargetType<target>,
                         A.sub(k+1, A_nt-1, k, k), 1);
                 }
 
-                BcastList bcast_list_A;
+                BcastListTag bcast_list_A;
                 for (int64_t i = k+1; i < A_nt; ++i) {
-                    // send A(i, k) across row A(i, k+1:i) and down col A(i:nt-1, i)
+                    // send A(i, k) across row A(i, k+1:i) and down
+                    // col A(i:nt-1, i) with msg tag i
                     bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, i),
-                                                   A.sub(i, A_nt-1, i, i)}});
+                                                   A.sub(i, A_nt-1, i, i)},
+                                            i});
                 }
-                A.template listBcast(bcast_list_A, layout);
+                A.template listBcastMT(bcast_list_A, layout);
             }
             // update lookahead column(s), high priority
             for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
@@ -171,7 +173,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
            HermitianMatrix<scalar_t> A, int64_t lookahead)
 {
     using real_t = blas::real_type<scalar_t>;
-    using BcastList = typename Matrix<scalar_t>::BcastList;
+    using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -230,20 +232,21 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                         priority_zero, layout, batch_arrays_index_one);
                 }
 
-                BcastList bcast_list_A;
+                BcastListTag bcast_list_A;
                 for (int64_t i = k+1; i < A_nt; ++i) {
                     // send A(i, k) across row A(i, k+1:i) and
-                    //                down col A(i:nt-1, i)
+                    //                down col A(i:nt-1, i) with msg tag i
                     bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, i),
-                                                   A.sub(i, A_nt-1, i, i)}});
+                                                   A.sub(i, A_nt-1, i, i)},
+                                            i});
                 }
 
                 // "is_shared" is to request copying the tiles to the devices,
                 // and set them on-hold, which avoids releasing them by either
                 // internal::gemm or internal::herk
                 // (avoiding possible race condition)
-                A.template listBcast<Target::Devices>(
-                  bcast_list_A, layout, tag_zero, life_factor_one, is_shared);
+                A.template listBcastMT<Target::Devices>(
+                  bcast_list_A, layout, life_factor_one, is_shared);
             }
 
             // update trailing submatrix, normal priority

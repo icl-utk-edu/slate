@@ -61,7 +61,7 @@ License
 
 .. code-block:: console
 
-    Copyright (c) 2017, University of Tennessee
+    Copyright (c) 2017-2020, University of Tennessee
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without

@@ -154,6 +154,7 @@ def make( project, version_h, version_c ):
     print()
 
     myrun( 'git diff' )
+    myrun( 'git diff --staged' )
     print( '>> Do changes look good? Continue building release [yn]? ', end='' )
     response = input()
     if (response != 'y'):

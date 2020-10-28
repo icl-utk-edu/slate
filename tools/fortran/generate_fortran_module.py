@@ -600,7 +600,7 @@ def write_module(output, module_name, enum_list, struct_list, function_list):
     modulefile.write(
 '''!>
 !>------------------------------------------------------------------------------
-!> Copyright (c) 2017, University of Tennessee
+!> Copyright (c) 2017-2020, University of Tennessee
 !> All rights reserved.
 !>
 !> Redistribution and use in source and binary forms, with or without

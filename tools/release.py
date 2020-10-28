@@ -128,9 +128,22 @@ def make( project, version_h, version_c ):
               r'// Version \d\d\d\d.\d\d.\d\d\n(#define \w+_VERSION) \d+',
               r'// Version %s\n\1 %s' % (tag, version), count=1 )
 
+    print( '\n>> Updating version in: GNUmakefile' )
+    file_sub( 'GNUmakefile',
+              r'VERSION:\d\d\d\d.\d\d.\d\d',
+              r'VERSION:%s' % (tag), count=1 )
+
+    print( '\n>> Updating version in: CMakeLists.txt' )
+    file_sub( 'CMakeLists.txt',
+              r'VERSION \d\d\d\d.\d\d.\d\d',
+              r'VERSION %s' % (tag), count=1 )
+
     # Update copyright in all files.
     files = myrun( 'git ls-tree -r master --name-only',
                    stdout=PIPE, text=True ).rstrip().split( '\n' )
+    files.remove( 'blaspp' )
+    files.remove( 'lapackpp' )
+    files.remove( 'testsweeper' )
     print( '\n>> Updating copyright in:', end=' ' )
     for file in files:
         print( file, end=', ' )
@@ -165,8 +178,10 @@ def make( project, version_h, version_c ):
                 break
     # end
 
+    # git archive doesn't recurse submodule; do it with rsync.
     os.mkdir( dir )
-    subprocess.run( 'git archive ' + tag + ' | tar -x -C ' + dir, shell=True )
+    subprocess.run( 'git ls-files --recurse-submodule | '
+                    + 'rsync -av --files-from=- ./ ' + dir + '/', shell=True )
     os.chdir( dir )
 
     # Update hash ID in version_c.
@@ -178,7 +193,7 @@ def make( project, version_h, version_c ):
 
     # Build Doxygen docs. Create dummy 'make.inc' to avoid 'make config'.
     open( 'make.inc', mode='a' ).close()
-    myrun( 'make docs' )
+    myrun( 'make docs blas=openblas' )
     os.unlink( 'make.inc' )
 
     os.chdir( '..' )

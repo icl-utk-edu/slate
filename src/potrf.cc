@@ -189,7 +189,6 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     uint8_t* column = column_vector.data();
 
     const int priority_zero = 0;
-    const int tag_zero = 0;
     const int life_factor_one = 1;
     const int batch_arrays_index_one = 1;
     const int64_t batch_size_zero = 0;

@@ -1853,13 +1853,16 @@ void BaseMatrix<scalar_t>::listBcastMT(
     MPI_Comm_size(mpiComm(), &mpi_size);
 
     // This uses multiple OMP threads for MPI broadcast communication
-    // todo: threads may clash with panel-threads slowing performance for multi-threaded panel routines
-    using Bcast = std::tuple< int64_t, int64_t, std::list<BaseMatrix<scalar_t> >, int64_t >;
+    // todo: threads may clash with panel-threads slowing performance
+    // for multi-threaded panel routines
+    using BcastTag =
+        std::tuple< int64_t, int64_t, std::list<BaseMatrix<scalar_t> >, int64_t >;
 
-    #pragma omp taskloop default(none) shared(bcast_list) firstprivate(life_factor,layout,mpi_size,is_shared)
+    #pragma omp taskloop default(none) shared(bcast_list) \
+        firstprivate(life_factor,layout,mpi_size,is_shared)
     for (size_t bcastnum = 0; bcastnum < bcast_list.size(); ++bcastnum) {
 
-        Bcast bcast = bcast_list[bcastnum];
+        BcastTag bcast = bcast_list[bcastnum];
         auto i = std::get<0>(bcast);
         auto j = std::get<1>(bcast);
         auto submatrices_list = std::get<2>(bcast);
@@ -1868,7 +1871,8 @@ void BaseMatrix<scalar_t>::listBcastMT(
         std::vector< std::set<ij_tuple> > tile_set(num_devices());
 
         {
-            trace::Block trace_block(std::string("listBcast("+std::to_string(i)+","+std::to_string(j)+")").c_str());
+            trace::Block trace_block(
+                std::string("listBcast("+std::to_string(i)+","+std::to_string(j)+")").c_str());
 
             // Find the set of participating ranks.
             std::set<int> bcast_set;

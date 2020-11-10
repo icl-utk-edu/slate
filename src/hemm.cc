@@ -44,7 +44,7 @@ void hemm(slate::internal::TargetType<target>,
     // See also the implementation remarks in the BaseMatrix::listBcast routine.
 
     using blas::conj;
-    using BcastList = typename Matrix<scalar_t>::BcastList;
+    using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -88,16 +88,16 @@ void hemm(slate::internal::TargetType<target>,
             #pragma omp task depend(out:bcast[0])
             {
                 // broadcast A(i, 0) to ranks owning block row C(i, :)
-                BcastList bcast_list_A;
+                BcastListTag bcast_list_A;
                 for (int64_t i = 0; i < A.mt(); ++i)
-                    bcast_list_A.push_back({i, 0, {C.sub(i, i, 0, C.nt()-1)}});
-                A.template listBcast<target>(bcast_list_A, layout);
+                    bcast_list_A.push_back({i, 0, {C.sub(i, i, 0, C.nt()-1)}, i});
+                A.template listBcastMT<target>(bcast_list_A, layout);
 
                 // broadcast B(0, j) to ranks owning block col C(:, j)
-                BcastList bcast_list_B;
+                BcastListTag bcast_list_B;
                 for (int64_t j = 0; j < B.nt(); ++j)
-                    bcast_list_B.push_back({0, j, {C.sub(0, C.mt()-1, j, j)}});
-                B.template listBcast<target>(bcast_list_B, layout);
+                    bcast_list_B.push_back({0, j, {C.sub(0, C.mt()-1, j, j)}, j});
+                B.template listBcastMT<target>(bcast_list_B, layout);
             }
 
             // send next lookahead block cols of A and block rows of B
@@ -107,24 +107,24 @@ void hemm(slate::internal::TargetType<target>,
                 {
                     // broadcast A(k, i) or A(i, k)
                     // to ranks owning block row C(i, :)
-                    BcastList bcast_list_A;
+                    BcastListTag bcast_list_A;
                     for (int64_t i = 0; i < k && i < A.mt(); ++i) {
                         bcast_list_A.push_back(
-                            {k, i, {C.sub(i, i, 0, C.nt()-1)}});
+                            {k, i, {C.sub(i, i, 0, C.nt()-1)}, i});
                     }
                     for (int64_t i = k; i < A.mt(); ++i) {
                         bcast_list_A.push_back(
-                            {i, k, {C.sub(i, i, 0, C.nt()-1)}});
+                            {i, k, {C.sub(i, i, 0, C.nt()-1)}, i});
                     }
-                    A.template listBcast<target>(bcast_list_A, layout);
+                    A.template listBcastMT<target>(bcast_list_A, layout);
 
                     // broadcast B(k, j) to ranks owning block col C(0:k, j)
-                    BcastList bcast_list_B;
+                    BcastListTag bcast_list_B;
                     for (int64_t j = 0; j < B.nt(); ++j) {
                         bcast_list_B.push_back(
-                            {k, j, {C.sub(0, C.mt()-1, j, j)}});
+                            {k, j, {C.sub(0, C.mt()-1, j, j)}, j});
                     }
-                    B.template listBcast<target>(bcast_list_B, layout);
+                    B.template listBcastMT<target>(bcast_list_B, layout);
                 }
             }
 
@@ -159,25 +159,25 @@ void hemm(slate::internal::TargetType<target>,
                     {
                         // broadcast A(k+la, i) or A(i, k+la)
                         // to ranks owning block row C(i, :)
-                        BcastList bcast_list_A;
+                        BcastListTag bcast_list_A;
                         for (int64_t i = 0; i < k+lookahead; ++i) {
                             bcast_list_A.push_back(
-                                {k+lookahead, i, {C.sub(i, i, 0, C.nt()-1)}});
+                                {k+lookahead, i, {C.sub(i, i, 0, C.nt()-1)}, i});
                         }
                         for (int64_t i = k+lookahead; i < A.mt(); ++i) {
                             bcast_list_A.push_back(
-                                {i, k+lookahead, {C.sub(i, i, 0, C.nt()-1)}});
+                                {i, k+lookahead, {C.sub(i, i, 0, C.nt()-1)}, i});
                         }
-                        A.template listBcast<target>(bcast_list_A, layout);
+                        A.template listBcastMT<target>(bcast_list_A, layout);
 
                         // broadcast B(k+la, j) to ranks
                         // owning block col C(0:k+la, j)
-                        BcastList bcast_list_B;
+                        BcastListTag bcast_list_B;
                         for (int64_t j = 0; j < B.nt(); ++j) {
                             bcast_list_B.push_back(
-                                {k+lookahead, j, {C.sub(0, C.mt()-1, j, j)}});
+                                {k+lookahead, j, {C.sub(0, C.mt()-1, j, j)}, j});
                         }
-                        B.template listBcast<target>(bcast_list_B, layout);
+                        B.template listBcastMT<target>(bcast_list_B, layout);
                     }
                 }
 
@@ -220,16 +220,16 @@ void hemm(slate::internal::TargetType<target>,
             #pragma omp task depend(out:bcast[0])
             {
                 // broadcast A(i, 0) to ranks owning block row C(i, :)
-                BcastList bcast_list_A;
+                BcastListTag bcast_list_A;
                 for (int64_t i = 0; i < A.mt(); ++i)
-                    bcast_list_A.push_back({0, i, {C.sub(i, i, 0, C.nt()-1)}});
-                A.template listBcast<target>(bcast_list_A, layout);
+                    bcast_list_A.push_back({0, i, {C.sub(i, i, 0, C.nt()-1)}, i});
+                A.template listBcastMT<target>(bcast_list_A, layout);
 
-                BcastList bcast_list_B;
+                BcastListTag bcast_list_B;
                 // broadcast B(0, j) to ranks owning block col C(:, j)
                 for (int64_t j = 0; j < B.nt(); ++j)
-                    bcast_list_B.push_back({0, j, {C.sub(0, C.mt()-1, j, j)}});
-                B.template listBcast<target>(bcast_list_B, layout);
+                    bcast_list_B.push_back({0, j, {C.sub(0, C.mt()-1, j, j)}, j});
+                B.template listBcastMT<target>(bcast_list_B, layout);
             }
 
             // send next lookahead block cols of A and block rows of B
@@ -239,24 +239,24 @@ void hemm(slate::internal::TargetType<target>,
                 {
                     // broadcast A(k, i) or A(i, k)
                     // to ranks owning block row C(i, :)
-                    BcastList bcast_list_A;
+                    BcastListTag bcast_list_A;
                     for (int64_t i = 0; i < k && i < A.mt(); ++i) {
                         bcast_list_A.push_back(
-                            {i, k, {C.sub(i, i, 0, C.nt()-1)}});
+                            {i, k, {C.sub(i, i, 0, C.nt()-1)}, i});
                     }
                     for (int64_t i = k; i < A.mt(); ++i) {
                         bcast_list_A.push_back(
-                            {k, i, {C.sub(i, i, 0, C.nt()-1)}});
+                            {k, i, {C.sub(i, i, 0, C.nt()-1)}, i});
                     }
-                    A.template listBcast<target>(bcast_list_A, layout);
+                    A.template listBcastMT<target>(bcast_list_A, layout);
 
                     // broadcast B(k, j) to ranks owning block col C(0:k, j)
-                    BcastList bcast_list_B;
+                    BcastListTag bcast_list_B;
                     for (int64_t j = 0; j < B.nt(); ++j) {
                         bcast_list_B.push_back(
-                            {k, j, {C.sub(0, C.mt()-1, j, j)}});
+                            {k, j, {C.sub(0, C.mt()-1, j, j)}, j});
                     }
-                    B.template listBcast<target>(bcast_list_B, layout);
+                    B.template listBcastMT<target>(bcast_list_B, layout);
                 }
             }
 
@@ -292,25 +292,25 @@ void hemm(slate::internal::TargetType<target>,
                     {
                         // broadcast A(k+la, i) or A(i, k+la)
                         // to ranks owning block row C(i, :)
-                        BcastList bcast_list_A;
+                        BcastListTag bcast_list_A;
                         for (int64_t i = 0; i < k+lookahead; ++i) {
                             bcast_list_A.push_back(
-                                {i, k+lookahead, {C.sub(i, i, 0, C.nt()-1)}});
+                                {i, k+lookahead, {C.sub(i, i, 0, C.nt()-1)}, i});
                         }
                         for (int64_t i = k+lookahead; i < A.mt(); ++i) {
                             bcast_list_A.push_back(
-                                {k+lookahead, i, {C.sub(i, i, 0, C.nt()-1)}});
+                                {k+lookahead, i, {C.sub(i, i, 0, C.nt()-1)}, i});
                         }
-                        A.template listBcast<target>(bcast_list_A, layout);
+                        A.template listBcastMT<target>(bcast_list_A, layout);
 
                         // broadcast B(k+la, j) to ranks
                         // owning block col C(0:k+la, j)
-                        BcastList bcast_list_B;
+                        BcastListTag bcast_list_B;
                         for (int64_t j = 0; j < B.nt(); ++j) {
                             bcast_list_B.push_back(
-                                {k+lookahead, j, {C.sub(0, C.mt()-1, j, j)}});
+                                {k+lookahead, j, {C.sub(0, C.mt()-1, j, j)}, j});
                         }
-                        B.template listBcast<target>(bcast_list_B, layout);
+                        B.template listBcastMT<target>(bcast_list_B, layout);
                     }
                 }
 

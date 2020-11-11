@@ -434,6 +434,7 @@ void gemm(internal::TargetType<Target::Devices>,
                     }
                 }
             }
+
             #pragma omp task default(shared)
             {
                 A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
@@ -449,11 +450,11 @@ void gemm(internal::TargetType<Target::Devices>,
             #pragma omp taskwait
 
             int64_t batch_size = C_tiles_set.size();
-            scalar_t** a_array_host = C.array_host(device, batch_arrays_index);
-            scalar_t** b_array_host = a_array_host + batch_size;
-            scalar_t** c_array_host = b_array_host + batch_size;
 
-            int64_t batch_count = 0;
+            std::vector<scalar_t*> a_array_host_00(batch_size);
+            std::vector<scalar_t*> b_array_host_00(batch_size);
+            std::vector<scalar_t*> c_array_host_00(batch_size);
+
             int64_t batch_count_00 = 0;
             int64_t lda00 = 0;
             int64_t ldb00 = 0;
@@ -465,18 +466,22 @@ void gemm(internal::TargetType<Target::Devices>,
                 for (int64_t j = 0; j < C.nt()-1; ++j) {
                     if (C.tileIsLocal(i, j)) {
                         if (device == C.tileDevice(i, j)) {
-                            a_array_host[batch_count] = A(i, 0, device).data();
-                            b_array_host[batch_count] = B(0, j, device).data();
-                            c_array_host[batch_count] = C(i, j, device).data();
+                            a_array_host_00[batch_count_00] = A(i, 0, device).data();
+                            b_array_host_00[batch_count_00] = B(0, j, device).data();
+                            c_array_host_00[batch_count_00] = C(i, j, device).data();
                             lda00 = A(i, 0, device).stride();
                             ldb00 = B(0, j, device).stride();
                             ldc00 = C(i, j, device).stride();
                             ++batch_count_00;
-                            ++batch_count;
                         }
                     }
                 }
             }
+
+            std::vector<scalar_t*> a_array_host_10(batch_size);
+            std::vector<scalar_t*> b_array_host_10(batch_size);
+            std::vector<scalar_t*> c_array_host_10(batch_size);
+
             int64_t batch_count_10 = 0;
             int64_t lda10 = 0;
             int64_t ldb10 = 0;
@@ -489,18 +494,22 @@ void gemm(internal::TargetType<Target::Devices>,
                 for (int64_t j = 0; j < C.nt()-1; ++j) {
                     if (C.tileIsLocal(i, j)) {
                         if (device == C.tileDevice(i, j)) {
-                            a_array_host[batch_count] = A(i, 0, device).data();
-                            b_array_host[batch_count] = B(0, j, device).data();
-                            c_array_host[batch_count] = C(i, j, device).data();
+                            a_array_host_10[batch_count_10] = A(i, 0, device).data();
+                            b_array_host_10[batch_count_10] = B(0, j, device).data();
+                            c_array_host_10[batch_count_10] = C(i, j, device).data();
                             lda10 = A(i, 0, device).stride();
                             ldb10 = B(0, j, device).stride();
                             ldc10 = C(i, j, device).stride();
                             ++batch_count_10;
-                            ++batch_count;
                         }
                     }
                 }
             }
+
+            std::vector<scalar_t*> a_array_host_01(batch_size);
+            std::vector<scalar_t*> b_array_host_01(batch_size);
+            std::vector<scalar_t*> c_array_host_01(batch_size);
+
             int64_t batch_count_01 = 0;
             int64_t lda01 = 0;
             int64_t ldb01 = 0;
@@ -513,18 +522,22 @@ void gemm(internal::TargetType<Target::Devices>,
                 for (int64_t i = 0; i < C.mt()-1; ++i) {
                     if (C.tileIsLocal(i, j)) {
                         if (device == C.tileDevice(i, j)) {
-                            a_array_host[batch_count] = A(i, 0, device).data();
-                            b_array_host[batch_count] = B(0, j, device).data();
-                            c_array_host[batch_count] = C(i, j, device).data();
+                            a_array_host_01[batch_count_01] = A(i, 0, device).data();
+                            b_array_host_01[batch_count_01] = B(0, j, device).data();
+                            c_array_host_01[batch_count_01] = C(i, j, device).data();
                             lda01 = A(i, 0, device).stride();
                             ldb01 = B(0, j, device).stride();
                             ldc01 = C(i, j, device).stride();
                             ++batch_count_01;
-                            ++batch_count;
                         }
                     }
                 }
             }
+
+            std::vector<scalar_t*> a_array_host_11(batch_size);
+            std::vector<scalar_t*> b_array_host_11(batch_size);
+            std::vector<scalar_t*> c_array_host_11(batch_size);
+
             int64_t batch_count_11 = 0;
             int64_t lda11 = 0;
             int64_t ldb11 = 0;
@@ -537,28 +550,24 @@ void gemm(internal::TargetType<Target::Devices>,
                 int j = C.nt()-1;
                 if (C.tileIsLocal(i, j)) {
                     if (device == C.tileDevice(i, j)) {
-                        a_array_host[batch_count] = A(i, 0, device).data();
-                        b_array_host[batch_count] = B(0, j, device).data();
-                        c_array_host[batch_count] = C(i, j, device).data();
+                        a_array_host_11[batch_count_11] = A(i, 0, device).data();
+                        b_array_host_11[batch_count_11] = B(0, j, device).data();
+                        c_array_host_11[batch_count_11] = C(i, j, device).data();
                         lda11 = A(i, 0, device).stride();
                         ldb11 = B(0, j, device).stride();
                         ldc11 = C(i, j, device).stride();
                         ++batch_count_11;
-                        ++batch_count;
                     }
                 }
             }
 
-            slate_assert(batch_count == batch_size);
-
-            scalar_t** a_array_dev = C.array_device(device, batch_arrays_index);
-            scalar_t** b_array_dev = a_array_dev + batch_size;
-            scalar_t** c_array_dev = b_array_dev + batch_size;
-
             if (C.op() != Op::NoTrans) {
                 // swap A <=> B; swap m <=> n
                 swap(opA, opB);
-                swap(a_array_dev, b_array_dev);
+                swap(a_array_host_00, b_array_host_00);
+                swap(a_array_host_10, b_array_host_10);
+                swap(a_array_host_01, b_array_host_01);
+                swap(a_array_host_11, b_array_host_11);
                 swap(lda00, ldb00);
                 swap(lda10, ldb10);
                 swap(lda01, ldb01);
@@ -569,133 +578,79 @@ void gemm(internal::TargetType<Target::Devices>,
                 swap(mb11, nb11);
             }
 
-            slate_cuda_call(
-                cudaSetDevice(device));
-
-            // cublas_handle uses this stream
-            cudaStream_t stream = C.compute_stream(device);
-            cublasHandle_t cublas_handle = C.cublas_handle(device);
-
-            slate_cuda_call(
-                cudaMemcpyAsync(C.array_device(device, batch_arrays_index),
-                                C.array_host(device, batch_arrays_index),
-                                sizeof(scalar_t*)*batch_count*3,
-                                cudaMemcpyHostToDevice,
-                                stream));
-
             {
-                trace::Block trace_block("cublasGemmBatched");
+                trace::Block trace_block("blas::batch::gemm");
+
+                std::vector<Op> transA(1, opA);
+                std::vector<Op> transB(1, opB);
+
+                std::vector<scalar_t> alpha_(1, alpha);
+                std::vector<scalar_t> beta_(1, beta);
+                blas::Queue* queue = C.batch_blas_queue(device, batch_arrays_index);
+                std::vector<int64_t> k(1, kb);
+
                 if (batch_count_00 > 0) {
-                    if (layout == Layout::ColMajor) {
-                        slate_cublas_call(
-                            cublasGemmBatched(
-                                cublas_handle,  // uses stream
-                                cublas_op_const(opA), cublas_op_const(opB),
-                                mb00, nb00, kb,
-                                &alpha, (const scalar_t**) a_array_dev, lda00,
-                                        (const scalar_t**) b_array_dev, ldb00,
-                                &beta,                     c_array_dev, ldc00,
-                                batch_count_00));
-                    }
-                    else {
-                        slate_cublas_call(
-                            cublasGemmBatched(
-                                cublas_handle,  // uses stream
-                                cublas_op_const(opB), cublas_op_const(opA),
-                                nb00, mb00, kb,
-                                &alpha, (const scalar_t**) b_array_dev, ldb00,
-                                        (const scalar_t**) a_array_dev, lda00,
-                                &beta,                     c_array_dev, ldc00,
-                                batch_count_00));
-                    }
-                    a_array_dev += batch_count_00;
-                    b_array_dev += batch_count_00;
-                    c_array_dev += batch_count_00;
+                    std::vector<int64_t> m(1, mb00);
+                    std::vector<int64_t> n(1, nb00);
+                    std::vector<int64_t> ldda(1, lda00);
+                    std::vector<int64_t> lddb(1, ldb00);
+                    std::vector<int64_t> lddc(1, ldc00);
+                    std::vector<int64_t> info(batch_count_00);
+                    blas::batch::gemm(
+                        layout, transA, transB,
+                        m, n, k,
+                        alpha_, a_array_host_00, ldda,
+                                b_array_host_00, lddb,
+                        beta_,  c_array_host_00, lddc,
+                        batch_count_00, info, *queue);
                 }
-
                 if (batch_count_10 > 0) {
-                    if (layout == Layout::ColMajor) {
-                        slate_cublas_call(
-                            cublasGemmBatched(
-                                cublas_handle,  // uses stream
-                                cublas_op_const(opA), cublas_op_const(opB),
-                                mb10, nb10, kb,
-                                &alpha, (const scalar_t**) a_array_dev, lda10,
-                                        (const scalar_t**) b_array_dev, ldb10,
-                                &beta,                     c_array_dev, ldc10,
-                                batch_count_10));
-                    }
-                    else {
-                        slate_cublas_call(
-                            cublasGemmBatched(
-                                cublas_handle,  // uses stream
-                                cublas_op_const(opB), cublas_op_const(opA),
-                                nb10, mb10, kb,
-                                &alpha, (const scalar_t**) b_array_dev, ldb10,
-                                        (const scalar_t**) a_array_dev, lda10,
-                                &beta,                     c_array_dev, ldc10,
-                                batch_count_10));
-                    }
-                    a_array_dev += batch_count_10;
-                    b_array_dev += batch_count_10;
-                    c_array_dev += batch_count_10;
+                    std::vector<int64_t> m(1, mb10);
+                    std::vector<int64_t> n(1, nb10);
+                    std::vector<int64_t> ldda(1, lda10);
+                    std::vector<int64_t> lddb(1, ldb10);
+                    std::vector<int64_t> lddc(1, ldc10);
+                    std::vector<int64_t> info(batch_count_10);
+                    blas::batch::gemm(
+                        layout, transA, transB,
+                        m, n, k,
+                        alpha_, a_array_host_10, ldda,
+                                b_array_host_10, lddb,
+                        beta_,  c_array_host_10, lddc,
+                        batch_count_10, info, *queue);
                 }
-
                 if (batch_count_01 > 0) {
-                    if (layout == Layout::ColMajor) {
-                        slate_cublas_call(
-                            cublasGemmBatched(
-                                cublas_handle,  // uses stream
-                                cublas_op_const(opA), cublas_op_const(opB),
-                                mb01, nb01, kb,
-                                &alpha, (const scalar_t**) a_array_dev, lda01,
-                                        (const scalar_t**) b_array_dev, ldb01,
-                                &beta,                     c_array_dev, ldc01,
-                                batch_count_01));
-                    }
-                    else {
-                        slate_cublas_call(
-                            cublasGemmBatched(
-                                cublas_handle,  // uses stream
-                                cublas_op_const(opB), cublas_op_const(opA),
-                                nb01, mb01, kb,
-                                &alpha, (const scalar_t**) b_array_dev, ldb01,
-                                        (const scalar_t**) a_array_dev, lda01,
-                                &beta,                     c_array_dev, ldc01,
-                                batch_count_01));
-                    }
-                    a_array_dev += batch_count_01;
-                    b_array_dev += batch_count_01;
-                    c_array_dev += batch_count_01;
+                    std::vector<int64_t> m(1, mb01);
+                    std::vector<int64_t> n(1, nb01);
+                    std::vector<int64_t> ldda(1, lda01);
+                    std::vector<int64_t> lddb(1, ldb01);
+                    std::vector<int64_t> lddc(1, ldc01);
+                    std::vector<int64_t> info(batch_count_01);
+                    blas::batch::gemm(
+                        layout, transA, transB,
+                        m, n, k,
+                        alpha_, a_array_host_01, ldda,
+                                b_array_host_01, lddb,
+                        beta_,  c_array_host_01, lddc,
+                        batch_count_01, info, *queue);
                 }
-
                 if (batch_count_11 > 0) {
-                    if (layout == Layout::ColMajor) {
-                        slate_cublas_call(
-                            cublasGemmBatched(
-                                cublas_handle,  // uses stream
-                                cublas_op_const(opA), cublas_op_const(opB),
-                                mb11, nb11, kb,
-                                &alpha, (const scalar_t**) a_array_dev, lda11,
-                                        (const scalar_t**) b_array_dev, ldb11,
-                                &beta,                     c_array_dev, ldc11,
-                                batch_count_11));
-                    }
-                    else {
-                        slate_cublas_call(
-                            cublasGemmBatched(
-                                cublas_handle,  // uses stream
-                                cublas_op_const(opB), cublas_op_const(opA),
-                                nb11, mb11, kb,
-                                &alpha, (const scalar_t**) b_array_dev, ldb11,
-                                        (const scalar_t**) a_array_dev, lda11,
-                                &beta,                     c_array_dev, ldc11,
-                                batch_count_11));
-                    }
+                    std::vector<int64_t> m(1, mb11);
+                    std::vector<int64_t> n(1, nb11);
+                    std::vector<int64_t> ldda(1, lda11);
+                    std::vector<int64_t> lddb(1, ldb11);
+                    std::vector<int64_t> lddc(1, ldc11);
+                    std::vector<int64_t> info(batch_count_11);
+                    blas::batch::gemm(
+                        layout, transA, transB,
+                        m, n, k,
+                        alpha_, a_array_host_11, ldda,
+                                b_array_host_11, lddb,
+                        beta_,  c_array_host_11, lddc,
+                        batch_count_11, info, *queue);
                 }
-
-                slate_cuda_call(
-                    cudaStreamSynchronize(stream));
+                
+                queue->sync();
             }
 
             for (int64_t i = 0; i < C.mt(); ++i) {
@@ -716,6 +671,7 @@ void gemm(internal::TargetType<Target::Devices>,
     }
 
     #pragma omp taskwait
+
 
     if (err)
         throw std::exception();

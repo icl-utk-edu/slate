@@ -522,6 +522,14 @@ public:
     }
 
     //--------------------------------------------------------------------------
+    /// @return batch blas queue object
+    blas::Queue* batch_blas_queue(int device, int64_t batch_arrays_index=0)
+    {
+        assert(batch_arrays_index >= 0);
+        return(storage_->batch_blas_queue_.at(batch_arrays_index).at(device));
+    }
+
+    //--------------------------------------------------------------------------
     /// @return batch arrays for the A, B, or C matrices,
     /// on host, to send to device
     scalar_t** array_host(int device, int64_t batch_arrays_index=0)

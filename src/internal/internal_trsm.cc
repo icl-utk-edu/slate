@@ -200,27 +200,25 @@ void trsm(internal::TargetType<Target::Devices>,
             }
 
             int64_t batch_size = B_tiles_set.size();
+
             if (batch_size > 0) {
 
                 A.tileGetForReading(0, 0, device, LayoutConvert(layout));
                 B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
 
-                scalar_t** a_array_host =
-                    B.array_host(device, batch_arrays_index);
-                scalar_t** b_array_host = a_array_host + batch_size;
-
-                int64_t batch_count = 0;
-
+                std::vector<scalar_t*> a_array_host_0(batch_size);
+                std::vector<scalar_t*> b_array_host_0(batch_size);
                 int64_t batch_count_0 = 0;
-                int64_t batch_count_1 = 0;
-
                 int64_t lda0 = 0;
                 int64_t ldb0 = 0;
-                int64_t lda1 = 0;
-                int64_t ldb1 = 0;
-
                 int64_t mb0 = B.tileMb(0);
                 int64_t nb0 = B.tileNb(0);
+
+                std::vector<scalar_t*> a_array_host_1(batch_size);
+                std::vector<scalar_t*> b_array_host_1(batch_size);
+                int64_t batch_count_1 = 0;
+                int64_t lda1 = 0;
+                int64_t ldb1 = 0;
                 int64_t mb1 = B.tileMb(B.mt()-1);
                 int64_t nb1 = B.tileNb(B.nt()-1);
 
@@ -228,12 +226,11 @@ void trsm(internal::TargetType<Target::Devices>,
                     for (int64_t i = 0; i < B.mt()-1; ++i) {
                         if (B.tileIsLocal(i, 0)) {
                             if (device == B.tileDevice(i, 0)) {
-                                a_array_host[batch_count] = A(0, 0, device).data();
-                                b_array_host[batch_count] = B(i, 0, device).data();
+                                a_array_host_0[batch_count_0] = A(0, 0, device).data();
+                                b_array_host_0[batch_count_0] = B(i, 0, device).data();
                                 lda0 = A(0, 0, device).stride();
                                 ldb0 = B(i, 0, device).stride();
                                 ++batch_count_0;
-                                ++batch_count;
                             }
                         }
                     }
@@ -241,12 +238,11 @@ void trsm(internal::TargetType<Target::Devices>,
                         int64_t i = B.mt()-1;
                         if (B.tileIsLocal(i, 0)) {
                             if (device == B.tileDevice(i, 0)) {
-                                a_array_host[batch_count] = A(0, 0, device).data();
-                                b_array_host[batch_count] = B(i, 0, device).data();
+                                a_array_host_1[batch_count_1] = A(0, 0, device).data();
+                                b_array_host_1[batch_count_1] = B(i, 0, device).data();
                                 lda1 = A(0, 0, device).stride();
                                 ldb1 = B(i, 0, device).stride();
                                 ++batch_count_1;
-                                ++batch_count;
                             }
                         }
                     }
@@ -255,12 +251,11 @@ void trsm(internal::TargetType<Target::Devices>,
                     for (int64_t j = 0; j < B.nt()-1; ++j) {
                         if (B.tileIsLocal(0, j)) {
                             if (device == B.tileDevice(0, j)) {
-                                a_array_host[batch_count] = A(0, 0, device).data();
-                                b_array_host[batch_count] = B(0, j, device).data();
+                                a_array_host_0[batch_count_0] = A(0, 0, device).data();
+                                b_array_host_0[batch_count_0] = B(0, j, device).data();
                                 lda0 = A(0, 0, device).stride();
                                 ldb0 = B(0, j, device).stride();
                                 ++batch_count_0;
-                                ++batch_count;
                             }
                         }
                     }
@@ -268,90 +263,60 @@ void trsm(internal::TargetType<Target::Devices>,
                         int64_t j = B.nt()-1;
                         if (B.tileIsLocal(0, j)) {
                             if (device == B.tileDevice(0, j)) {
-                                a_array_host[batch_count] = A(0, 0, device).data();
-                                b_array_host[batch_count] = B(0, j, device).data();
+                                a_array_host_1[batch_count_1] = A(0, 0, device).data();
+                                b_array_host_1[batch_count_1] = B(0, j, device).data();
                                 lda1 = A(0, 0, device).stride();
                                 ldb1 = B(0, j, device).stride();
                                 ++batch_count_1;
-                                ++batch_count;
                             }
                         }
                     }
                 }
-
-                slate_assert(batch_count == batch_size);
 
                 if (B.op() != Op::NoTrans) {
                     swap(mb0, nb0);
                     swap(mb1, nb1);
                 }
 
-                scalar_t** a_array_device = B.array_device(
-                                                device, batch_arrays_index);
-                scalar_t** b_array_device = a_array_device + batch_size;
-
-                slate_cuda_call(cudaSetDevice(device));
-
-                cudaStream_t stream = B.compute_stream(device);
-                cublasHandle_t cublas_handle = B.cublas_handle(device);
-
-                slate_cuda_call(
-                    cudaMemcpyAsync(B.array_device(device, batch_arrays_index),
-                                    B.array_host(device, batch_arrays_index),
-                                    sizeof(scalar_t*) * batch_count * 2,
-                                    cudaMemcpyHostToDevice,
-                                    stream));
                 {
-                    trace::Block trace_block("cublasTrsmBatched");
+                    trace::Block trace_block("blas::batch::trsm");
+
+                    std::vector<Side>     side_(1, sideA);
+                    std::vector<Uplo>     uplo_(1, uploA);
+                    std::vector<Op>       trans_(1, opA);
+                    std::vector<Diag>     diag_(1, diagA);
+                    std::vector<scalar_t> alpha_(1, alpha);
+
+                    blas::Queue* queue = B.batch_blas_queue(device, batch_arrays_index);
 
                     if (batch_count_0 > 0) {
-                        if (layout == Layout::ColMajor) {
-                            slate_cublas_call(
-                                cublasTrsmBatched(
-                                    cublas_handle,
-                                    cublas_side_const(sideA),
-                                    cublas_uplo_const(uploA),
-                                    cublas_op_const(opA),
-                                    cublas_diag_const(diagA),
-                                    mb0, nb0,
-                                    &alpha,
-                                    (const scalar_t**) a_array_device, lda0,
-                                          (scalar_t**) b_array_device, ldb0,
-                                    batch_count_0));
-                        }
-                        else {
-                            // todo: RowMajor layout
-                            throw std::runtime_error(
-                              "Row major isn't supported in target=Devices.");
-                        }
-
-                        a_array_device += batch_count_0;
-                        b_array_device += batch_count_0;
+                        std::vector<int64_t> m(1, mb0);
+                        std::vector<int64_t> n(1, nb0);
+                        std::vector<int64_t> lda(1, lda0);
+                        std::vector<int64_t> ldb(1, ldb0);
+                        std::vector<int64_t> info(batch_count_0);
+                        blas::batch::trsm(
+                            layout, side_, uplo_, trans_, diag_,
+                            m, n,
+                            alpha_, a_array_host_0, lda,
+                                    b_array_host_0, ldb,
+                            batch_count_0, info, *queue);
                     }
 
                     if (batch_count_1 > 0) {
-                        if (layout == Layout::ColMajor) {
-                            slate_cublas_call(
-                                cublasTrsmBatched(
-                                    cublas_handle,
-                                    cublas_side_const(sideA),
-                                    cublas_uplo_const(uploA),
-                                    cublas_op_const(opA),
-                                    cublas_diag_const(diagA),
-                                    mb1, nb1,
-                                    &alpha,
-                                    (const scalar_t**) a_array_device, lda1,
-                                          (scalar_t**) b_array_device, ldb1,
-                                    batch_count_1));
-                        }
-                        else {
-                            // todo: RowMajor layout
-                            throw std::runtime_error(
-                              "Row major isn't supported in target=Devices.");
-                        }
+                        std::vector<int64_t> m(1, mb1);
+                        std::vector<int64_t> n(1, nb1);
+                        std::vector<int64_t> lda(1, lda1);
+                        std::vector<int64_t> ldb(1, ldb1);
+                        std::vector<int64_t> info(batch_count_1);
+                        blas::batch::trsm(
+                            layout, side_, uplo_, trans_, diag_,
+                            m, n,
+                            alpha_, a_array_host_1, lda,
+                                    b_array_host_1, ldb,
+                            batch_count_1, info, *queue);
                     }
-
-                    slate_cuda_call(cudaStreamSynchronize(stream));
+                    queue->sync();
                 }
 
                 A.tileRelease(0, 0, device);

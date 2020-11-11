@@ -523,10 +523,10 @@ public:
 
     //--------------------------------------------------------------------------
     /// @return batch blas queue object
-    blas::Queue* batch_blas_queue(int device, int64_t batch_arrays_index=0)
+    blas::Queue* queue(int device, int64_t index=0)
     {
-        assert(batch_arrays_index >= 0);
-        return(storage_->batch_blas_queue_.at(batch_arrays_index).at(device));
+        assert(index >= 0);
+        return(storage_->queue_.at(index).at(device));
     }
 
     //--------------------------------------------------------------------------

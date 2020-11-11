@@ -287,7 +287,7 @@ void trsm(internal::TargetType<Target::Devices>,
                     std::vector<Diag>     diag_(1, diagA);
                     std::vector<scalar_t> alpha_(1, alpha);
 
-                    blas::Queue* queue = B.batch_blas_queue(device, batch_arrays_index);
+                    blas::Queue* queue = B.queue(device, batch_arrays_index);
 
                     if (batch_count_0 > 0) {
                         std::vector<int64_t> m(1, mb0);

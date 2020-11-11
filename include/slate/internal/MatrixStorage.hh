@@ -510,7 +510,7 @@ private:
     std::vector< std::vector< scalar_t** > > array_dev_;
 
     // batch blas++ queue object
-    std::vector< std::vector< blas::Queue* > > batch_blas_queue_;
+    std::vector< std::vector< blas::Queue* > > queue_;
 };
 
 //------------------------------------------------------------------------------
@@ -625,8 +625,8 @@ void MatrixStorage<scalar_t>::initCudaStreams()
     array_dev_.resize(1);
     array_dev_.at(0).resize(num_devices_, nullptr);
 
-    batch_blas_queue_.resize(1);
-    batch_blas_queue_.at(0).resize(num_devices_, nullptr);
+    queue_.resize(1);
+    queue_.at(0).resize(num_devices_, nullptr);
 
     compute_streams_ .resize(num_devices_);
     comm_streams_    .resize(num_devices_);
@@ -704,7 +704,7 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
         array_host_.resize(num_arrays);
         array_dev_.resize(num_arrays);
 
-        batch_blas_queue_.resize(num_arrays);
+        queue_.resize(num_arrays);
 
         for (int64_t i = i_begin; i < num_arrays; ++i) {
             std::vector< scalar_t** >& array_host = array_host_.at(i);
@@ -712,7 +712,7 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
             array_host.resize(num_devices_, nullptr);
             array_dev.resize(num_devices_, nullptr);
 
-            batch_blas_queue_.at(i).resize(num_devices_, nullptr);
+            queue_.at(i).resize(num_devices_, nullptr);
         }
         is_resized = true;
     }
@@ -734,11 +734,11 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
 
             assert(int(array_host.size()) == num_devices_);
 
-            for (int device = 0; device < num_devices_; ++device) {  
+            for (int device = 0; device < num_devices_; ++device) { 
                 
+                delete queue_.at(i)[device];
                 blas::Queue* queue = new blas::Queue(device, batch_size);
-                delete batch_blas_queue_.at(i)[device];
-                batch_blas_queue_.at(i)[device] = queue;
+                queue_.at(i)[device] = queue;
 
                 slate_cuda_call(cudaSetDevice(device));
 
@@ -775,8 +775,8 @@ void MatrixStorage<scalar_t>::clearBatchArrays()
         assert(int(array_host.size()) == num_devices_);
         for (int device = 0; device < num_devices_; ++device) {
 
-            delete batch_blas_queue_.at(i)[device];
-            batch_blas_queue_.at(i)[device] = nullptr;
+            delete queue_.at(i)[device];
+            queue_.at(i)[device] = nullptr;
 
             slate_cuda_call(cudaSetDevice(device));
 

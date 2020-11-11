@@ -153,12 +153,15 @@ void test_genorm_dev(Norm norm)
     }
 
     double eps = std::numeric_limits<double>::epsilon();
-    int m = 20;
-    int n = 30;
+    int m = 3000;
+    int n = 3000;
     int lda = roundup(m, 8);
     double* Adata = new double[ lda * n ];
     slate::Tile<double> A(m, n, Adata, lda, -1, slate::TileKind::UserOwned);
-    setup_data(A);
+    //setup_data(A);
+    int64_t idist = 1;
+    int64_t iseed[4] = { 1, 0, 2, 3 };
+    lapack::larnv( idist, iseed, lda * n, A.data() );
 
     cudaStream_t stream;
     test_assert(cudaStreamCreate(&stream) == cudaSuccess);
@@ -973,11 +976,11 @@ void run_tests()
         run_test(
             test_genorm_dev_max, "genorm_dev( max )");
         run_test(
-            test_genorm_dev_one, "genorm_dev( one )");
-        run_test(
             test_genorm_dev_inf, "genorm_dev( inf )");
         run_test(
             test_genorm_dev_fro, "genorm_dev( fro )");
+        run_test(
+            test_genorm_dev_one, "genorm_dev( one )");
 
         //-------------------- synorm
         run_test(

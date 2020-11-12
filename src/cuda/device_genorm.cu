@@ -54,17 +54,20 @@ __global__ void genormMaxKernel(
     extern __shared__ char dynamic_data[];
     real_t* row_max = (real_t*) dynamic_data;
     int chunk;
+    real_t max = 0;
 
     // This does coalesced reads of one column at a time in parallel.
     for (idx = threadIdx.x; idx < m; idx += blockDim.x) {
         chunk = idx % blockDim.x;
-
         scalar_t const* row = &tile[idx];
-        real_t max = abs(row[0]);
+
         // Each thread finds max of one row.
-        for (int64_t j = 1; j < n; ++j)
+        for (int64_t j = 0; j < n; ++j)
             max = max_nan(max, abs(row[j*lda]));
 
+        if (idx < blockDim.x) {
+            row_max[chunk] = 0;
+        }
         // Save partial results in shared memory.
         row_max[chunk] = max_nan(max, row_max[chunk]);
     }
@@ -258,6 +261,11 @@ __global__ void genormFroKernel(
 
         for (int64_t j = 0; j < n; ++j) {
             add_sumsq(scale, sumsq, abs(row[j*lda]));
+        }
+
+        if (idx < blockDim.x) {
+            row_scale[chunk] = 0;
+            row_sumsq[chunk] = 1;
         }
 
         // Save partial results in shared memory.

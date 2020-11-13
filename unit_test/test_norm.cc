@@ -372,7 +372,7 @@ void test_synorm_dev(Norm norm, Uplo uplo)
     }
 
     double eps = std::numeric_limits<double>::epsilon();
-    int n = 30;
+    int n = 3000;
     int lda = roundup(n, 8);
     double* Adata = new double[ lda * n ];
     slate::Tile<double> A(n, n, Adata, lda, -1, slate::TileKind::UserOwned);
@@ -427,7 +427,7 @@ void test_synorm_dev(Norm norm, Uplo uplo)
                 else
                     sum += std::abs( A( std::min(i,j), std::max(i,j) ) );  // i <= j
             }
-            test_assert( std::abs( values[j] - sum ) / (sqrt(n)*sum) < 3*eps );
+            test_assert( std::abs( values[j] - sum ) / (sqrt(n)*sum) < 10*eps );
         }
     }
 

@@ -46,30 +46,39 @@ __global__ void synormMaxKernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
-    scalar_t const* row = &tile[threadIdx.x];
-
-    // Each thread finds max of one row.
-    // This does coalesced reads of one column at a time in parallel.
-    real_t max = 0;
-    if (uplo == lapack::Uplo::Lower) {
-        for (int64_t j = 0; j <= threadIdx.x && j < n; ++j) // lower
-            max = max_nan(max, abs(row[j*lda]));
-    }
-    else {
-        // Loop backwards (n-1 down to i) to maintain coalesced reads.
-        for (int64_t j = n-1; j >= threadIdx.x; --j) // upper
-            max = max_nan(max, abs(row[j*lda]));
-    }
+    //scalar_t const* row = &tile[threadIdx.x];
+    int idx = threadIdx.x;
 
     // Save partial results in shared memory.
     extern __shared__ char dynamic_data[];
     real_t* row_max = (real_t*) dynamic_data;
-    row_max[threadIdx.x] = max;
-    __syncthreads();
+    int chunk;
+
+    // Each thread finds max of one row.
+    // This does coalesced reads of one column at a time in parallel.
+    for (idx = threadIdx.x; idx < n; idx += blockDim.x) {
+        chunk = idx % blockDim.x;
+
+        scalar_t const* row = &tile[idx];
+
+        real_t max = 0;
+        if (uplo == lapack::Uplo::Lower) {
+            for (int64_t j = 0; j <= idx && j < n; ++j) // lower
+                max = max_nan(max, abs(row[j*lda]));
+        }
+        else {
+            // Loop backwards (n-1 down to i) to maintain coalesced reads.
+            for (int64_t j = n-1; j >= idx; --j) // upper
+                max = max_nan(max, abs(row[j*lda]));
+        }
+        row_max[chunk] = max_nan(max, row_max[chunk]);
+        __syncthreads();
+    }
 
     // Reduction to find max of tile.
-    max_nan_reduce(blockDim.x, threadIdx.x, row_max);
-    if (threadIdx.x == 0) {
+    idx = threadIdx.x;
+    max_nan_reduce(blockDim.x, idx, row_max);
+    if (idx == 0) {
         tiles_maxima[blockIdx.x] = row_max[0];
     }
 }
@@ -109,28 +118,33 @@ __global__ void synormOneKernel(
     blas::real_type<scalar_t>* tiles_sums, int64_t ldv)
 {
     using real_t = blas::real_type<scalar_t>;
+    int idx = threadIdx.x;
     scalar_t const* tile = tiles[blockIdx.x];
-    scalar_t const* row    = &tile[threadIdx.x];
-    scalar_t const* column = &tile[lda*threadIdx.x];
 
     // Each thread sums one row/column.
     // todo: the row reads are coalesced, but the col reads are not coalesced
-    real_t sum = 0;
-    if (uplo == lapack::Uplo::Lower) {
-        for (int64_t j = 0; j <= threadIdx.x; ++j) // lower
-            sum += abs(row[j*lda]);
-        for (int64_t i = threadIdx.x + 1; i < n; ++i) // strictly lower
-            sum += abs(column[i]);
-    }
-    else {
-        // Loop backwards (n-1 down to i) to maintain coalesced reads.
-        for (int64_t j = n-1; j >= threadIdx.x; --j) // upper
-            sum += abs(row[j*lda]);
-        for (int64_t i = 0; i < threadIdx.x && i < n; ++i) // strictly upper
-            sum += abs(column[i]);
+    for (idx = threadIdx.x; idx < n; idx += blockDim.x) {
+
+        scalar_t const* row    = &tile[idx];
+        scalar_t const* column = &tile[lda*idx];
+        real_t sum = 0;
+
+        if (uplo == lapack::Uplo::Lower) {
+            for (int64_t j = 0; j <= idx; ++j) // lower
+                sum += abs(row[j*lda]);
+            for (int64_t i = idx + 1; i < n; ++i) // strictly lower
+                sum += abs(column[i]);
+        }
+        else {
+            // Loop backwards (n-1 down to i) to maintain coalesced reads.
+            for (int64_t j = n-1; j >= idx; --j) // upper
+                sum += abs(row[j*lda]);
+            for (int64_t i = 0; i < idx && i < n; ++i) // strictly upper
+                sum += abs(column[i]);
+        }
+        tiles_sums[blockIdx.x*ldv + idx] = sum;
     }
 
-    tiles_sums[blockIdx.x*ldv + threadIdx.x] = sum;
 }
 
 //------------------------------------------------------------------------------
@@ -168,46 +182,57 @@ __global__ void synormFroKernel(
     blas::real_type<scalar_t>* tiles_values)
 {
     using real_t = blas::real_type<scalar_t>;
+    int idx = threadIdx.x;
     scalar_t const* tile = tiles[blockIdx.x];
-    scalar_t const* row = &tile[threadIdx.x];
-
-    // Each thread finds sum-of-squares of one row.
-    // This does coalesced reads of one column at a time in parallel.
-    real_t scale = 0;
-    real_t sumsq = 1;
-    if (uplo == lapack::Uplo::Lower) {
-        for (int64_t j = 0; j < threadIdx.x && j < n; ++j) // strictly lower
-            add_sumsq(scale, sumsq, abs(row[j*lda]));
-        // double for symmetric entries
-        sumsq *= 2;
-        // diagonal
-        add_sumsq(scale, sumsq, abs(row[threadIdx.x*lda]));
-    }
-    else {
-        // Loop backwards (n-1 down to i) to maintain coalesced reads.
-        for (int64_t j = n-1; j > threadIdx.x; --j) // strictly upper
-            add_sumsq(scale, sumsq, abs(row[j*lda]));
-        // double for symmetric entries
-        sumsq *= 2;
-        // diagonal
-        add_sumsq(scale, sumsq, abs(row[threadIdx.x*lda]));
-    }
 
     // Save partial results in shared memory.
     extern __shared__ char dynamic_data[];
     real_t* row_scale = (real_t*) &dynamic_data[0];
-    real_t* row_sumsq = &row_scale[n];
-    row_scale[threadIdx.x] = scale;
-    row_sumsq[threadIdx.x] = sumsq;
-    __syncthreads();
+    real_t* row_sumsq = &row_scale[blockDim.x];
+    int chunk;
+
+    // Each thread finds sum-of-squares of one row.
+    // This does coalesced reads of one column at a time in parallel.
+    for (idx = threadIdx.x; idx < n; idx += blockDim.x) {
+        real_t scale = 0;
+        real_t sumsq = 1;
+        chunk = idx % blockDim.x;
+        scalar_t const* row = &tile[idx];
+
+        if (uplo == lapack::Uplo::Lower) {
+            for (int64_t j = 0; j < idx && j < n; ++j) // strictly lower
+                add_sumsq(scale, sumsq, abs(row[j*lda]));
+            // double for symmetric entries
+            sumsq *= 2;
+            // diagonal
+            add_sumsq(scale, sumsq, abs(row[idx*lda]));
+        }
+        else {
+            // Loop backwards (n-1 down to i) to maintain coalesced reads.
+            for (int64_t j = n-1; j > idx; --j) // strictly upper
+                add_sumsq(scale, sumsq, abs(row[j*lda]));
+            // double for symmetric entries
+            sumsq *= 2;
+            // diagonal
+            add_sumsq(scale, sumsq, abs(row[idx*lda]));
+        }
+
+        if (idx < blockDim.x) {
+            row_scale[chunk] = 0;
+            row_sumsq[chunk] = 1;
+        }
+        add_sumsq(row_scale[chunk], row_sumsq[chunk], scale, sumsq);
+        __syncthreads();
+    }
 
     // Reduction to find sum-of-squares of tile.
     // todo: parallel reduction.
-    if (threadIdx.x == 0) {
+    idx = threadIdx.x;
+    if (idx == 0) {
         real_t tile_scale = row_scale[0];
         real_t tile_sumsq = row_sumsq[0];
-        for (int64_t i = 1; i < n; ++i)
-            add_sumsq(tile_scale, tile_sumsq, row_scale[i], row_sumsq[i]);
+        for (int64_t chunk = 1; chunk < blockDim.x; ++chunk)
+            add_sumsq(tile_scale, tile_sumsq, row_scale[chunk], row_sumsq[chunk]);
 
         tiles_values[blockIdx.x*2 + 0] = tile_scale;
         tiles_values[blockIdx.x*2 + 1] = tile_sumsq;
@@ -272,6 +297,7 @@ void synorm(
     cudaStream_t stream)
 {
     using real_t = blas::real_type<scalar_t>;
+    int64_t nb = 512;
 
     // quick return
     if (batch_count == 0)
@@ -284,10 +310,9 @@ void synorm(
             cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count, stream);
         }
         else {
-            assert(n <= 1024);
             assert(ldv == 1);
             // Max 1024 threads * 8 bytes = 8 KiB shared memory in double [complex].
-            synormMaxKernel<<<batch_count, n, sizeof(real_t) * n, stream>>>
+            synormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, stream>>>
                 (uplo, n, Aarray, lda, values);
         }
     }
@@ -298,9 +323,8 @@ void synorm(
             cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * n, stream);
         }
         else {
-            assert(n <= 1024);
             assert(ldv >= n);
-            synormOneKernel<<<batch_count, n, 0, stream>>>
+            synormOneKernel<<<batch_count, nb, 0, stream>>>
                 (uplo, n, Aarray, lda, values, ldv);
         }
     }
@@ -311,10 +335,9 @@ void synorm(
             cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * 2, stream);
         }
         else {
-            assert(n <= 1024);
             assert(ldv == 2);
             // Max 1024 threads * 16 bytes = 16 KiB shared memory in double [complex].
-            synormFroKernel<<<batch_count, n, sizeof(real_t) * n * 2, stream>>>
+            synormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, stream>>>
                 (uplo, n, Aarray, lda, values);
         }
     }

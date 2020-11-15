@@ -636,8 +636,8 @@ void syrk(internal::TargetType<Target::Devices>,
                     queue->sync();
 
                     // both off-diagonal batch gemm and diagonal syrk are done
-                    for (int64_t j = 0; j < C.nt()-1; ++j) {
-                        for (int64_t i = j+1; i < C.mt(); ++i) {
+                    for (int64_t j = 0; j < C.nt(); ++j) {
+                        for (int64_t i = j; i < C.mt(); ++i) {
                             if (C.tileIsLocal(i, j)) {
                                 if (device == C.tileDevice(i, j)) {
                                     // erase tmp local and remote device tiles;
@@ -661,108 +661,109 @@ void syrk(internal::TargetType<Target::Devices>,
     #pragma omp taskwait
 
     if (err)
-        throw std::exception();
+        slate_error(std::to_string(err));
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
+
 // ----------------------------------------
 template
 void syrk<Target::HostTask, float>(
-    float alpha, Matrix<float>&& A,
+    float alpha,          Matrix<float>&& A,
     float beta,  SymmetricMatrix<float>&& C,
     int priority);
 
 template
 void syrk<Target::HostNest, float>(
-    float alpha, Matrix<float>&& A,
+    float alpha,          Matrix<float>&& A,
     float beta,  SymmetricMatrix<float>&& C,
     int priority);
 
 template
 void syrk<Target::HostBatch, float>(
-    float alpha, Matrix<float>&& A,
+    float alpha,          Matrix<float>&& A,
     float beta,  SymmetricMatrix<float>&& C,
     int priority);
 
 template
 void syrk<Target::Devices, float>(
-    float alpha, Matrix<float>&& A,
+    float alpha,          Matrix<float>&& A,
     float beta,  SymmetricMatrix<float>&& C,
     int priority);
 
 // ----------------------------------------
 template
 void syrk<Target::HostTask, double>(
-    double alpha, Matrix<double>&& A,
+    double alpha,          Matrix<double>&& A,
     double beta,  SymmetricMatrix<double>&& C,
     int priority);
 
 template
 void syrk<Target::HostNest, double>(
-    double alpha, Matrix<double>&& A,
+    double alpha,          Matrix<double>&& A,
     double beta,  SymmetricMatrix<double>&& C,
     int priority);
 
 template
 void syrk<Target::HostBatch, double>(
-    double alpha, Matrix<double>&& A,
+    double alpha,          Matrix<double>&& A,
     double beta,  SymmetricMatrix<double>&& C,
     int priority);
 
 template
 void syrk<Target::Devices, double>(
-    double alpha, Matrix<double>&& A,
+    double alpha,          Matrix<double>&& A,
     double beta,  SymmetricMatrix<double>&& C,
     int priority);
 
 // ----------------------------------------
 template
 void syrk< Target::HostTask, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+    std::complex<float> alpha,          Matrix< std::complex<float> >&& A,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
     int priority);
 
 template
 void syrk< Target::HostNest, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+    std::complex<float> alpha,          Matrix< std::complex<float> >&& A,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
     int priority);
 
 template
 void syrk< Target::HostBatch, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+    std::complex<float> alpha,          Matrix< std::complex<float> >&& A,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
     int priority);
 
 template
 void syrk< Target::Devices, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+    std::complex<float> alpha,          Matrix< std::complex<float> >&& A,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
     int priority);
 
 // ----------------------------------------
 template
 void syrk< Target::HostTask, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+    std::complex<double> alpha,          Matrix< std::complex<double> >&& A,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
     int priority);
 
 template
 void syrk< Target::HostNest, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+    std::complex<double> alpha,          Matrix< std::complex<double> >&& A,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
     int priority);
 
 template
 void syrk< Target::HostBatch, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+    std::complex<double> alpha,          Matrix< std::complex<double> >&& A,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
     int priority);
 
 template
 void syrk< Target::Devices, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+    std::complex<double> alpha,          Matrix< std::complex<double> >&& A,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
     int priority);
 

@@ -446,6 +446,7 @@ void herk(internal::TargetType<Target::Devices>,
                             }
                         }
                     }
+
                     #pragma omp task default(shared)
                     {
                         A.tileGetForReading(
@@ -658,7 +659,6 @@ void herk(internal::TargetType<Target::Devices>,
                 }
             }
         }
-
     }
     #pragma omp taskwait
 
@@ -668,6 +668,7 @@ void herk(internal::TargetType<Target::Devices>,
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
+
 // ----------------------------------------
 template
 void herk<Target::HostTask, float>(

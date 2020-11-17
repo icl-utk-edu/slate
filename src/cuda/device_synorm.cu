@@ -73,10 +73,10 @@ __global__ void synormMaxKernel(
                 max = max_nan(max, abs(row[j*lda]));
         }
         row_max[chunk] = max_nan(max, row_max[chunk]);
-        __syncthreads();
     }
 
     // Reduction to find max of tile.
+    __syncthreads();
     max_nan_reduce(blockDim.x, threadIdx.x, row_max);
     if (threadIdx.x == 0) {
         tiles_maxima[blockIdx.x] = row_max[0];

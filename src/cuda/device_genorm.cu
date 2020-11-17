@@ -72,6 +72,7 @@ __global__ void genormMaxKernel(
     }
 
     // Reduction to find max of tile.
+    __syncthreads();
     max_nan_reduce(blockDim.x, threadIdx.x, row_max);
     if (threadIdx.x == 0) {
         tiles_maxima[blockIdx.x] = row_max[0];

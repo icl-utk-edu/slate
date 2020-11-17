@@ -46,20 +46,21 @@ __global__ void synormMaxKernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
-    //scalar_t const* row = &tile[threadIdx.x];
-    int idx = threadIdx.x;
+    int chunk;
 
     // Save partial results in shared memory.
     extern __shared__ char dynamic_data[];
     real_t* row_max = (real_t*) dynamic_data;
-    int chunk;
 
     // Each thread finds max of one row.
     // This does coalesced reads of one column at a time in parallel.
-    for (idx = threadIdx.x; idx < n; idx += blockDim.x) {
+    for (int idx = threadIdx.x; idx < n; idx += blockDim.x) {
         chunk = idx % blockDim.x;
 
         scalar_t const* row = &tile[idx];
+        if (idx < blockDim.x) {
+            row_max[chunk] = 0;
+        }
 
         real_t max = 0;
         if (uplo == lapack::Uplo::Lower) {
@@ -76,9 +77,8 @@ __global__ void synormMaxKernel(
     }
 
     // Reduction to find max of tile.
-    idx = threadIdx.x;
-    max_nan_reduce(blockDim.x, idx, row_max);
-    if (idx == 0) {
+    max_nan_reduce(blockDim.x, threadIdx.x, row_max);
+    if (threadIdx.x == 0) {
         tiles_maxima[blockIdx.x] = row_max[0];
     }
 }
@@ -118,13 +118,11 @@ __global__ void synormOneKernel(
     blas::real_type<scalar_t>* tiles_sums, int64_t ldv)
 {
     using real_t = blas::real_type<scalar_t>;
-    int idx = threadIdx.x;
     scalar_t const* tile = tiles[blockIdx.x];
 
     // Each thread sums one row/column.
     // todo: the row reads are coalesced, but the col reads are not coalesced
-    for (idx = threadIdx.x; idx < n; idx += blockDim.x) {
-
+    for (int idx = threadIdx.x; idx < n; idx += blockDim.x) {
         scalar_t const* row    = &tile[idx];
         scalar_t const* column = &tile[lda*idx];
         real_t sum = 0;
@@ -144,7 +142,6 @@ __global__ void synormOneKernel(
         }
         tiles_sums[blockIdx.x*ldv + idx] = sum;
     }
-
 }
 
 //------------------------------------------------------------------------------
@@ -182,18 +179,17 @@ __global__ void synormFroKernel(
     blas::real_type<scalar_t>* tiles_values)
 {
     using real_t = blas::real_type<scalar_t>;
-    int idx = threadIdx.x;
     scalar_t const* tile = tiles[blockIdx.x];
+    int chunk;
 
     // Save partial results in shared memory.
     extern __shared__ char dynamic_data[];
     real_t* row_scale = (real_t*) &dynamic_data[0];
     real_t* row_sumsq = &row_scale[blockDim.x];
-    int chunk;
 
     // Each thread finds sum-of-squares of one row.
     // This does coalesced reads of one column at a time in parallel.
-    for (idx = threadIdx.x; idx < n; idx += blockDim.x) {
+    for (int idx = threadIdx.x; idx < n; idx += blockDim.x) {
         real_t scale = 0;
         real_t sumsq = 1;
         chunk = idx % blockDim.x;
@@ -227,11 +223,10 @@ __global__ void synormFroKernel(
 
     // Reduction to find sum-of-squares of tile.
     // todo: parallel reduction.
-    idx = threadIdx.x;
-    if (idx == 0) {
+    if (threadIdx.x == 0) {
         real_t tile_scale = row_scale[0];
         real_t tile_sumsq = row_sumsq[0];
-        for (int64_t chunk = 1; chunk < blockDim.x; ++chunk)
+        for (int64_t chunk = 1; chunk < blockDim.x && chunk < n; ++chunk)
             add_sumsq(tile_scale, tile_sumsq, row_scale[chunk], row_sumsq[chunk]);
 
         tiles_values[blockIdx.x*2 + 0] = tile_scale;
@@ -311,7 +306,6 @@ void synorm(
         }
         else {
             assert(ldv == 1);
-            // Max 1024 threads * 8 bytes = 8 KiB shared memory in double [complex].
             synormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, stream>>>
                 (uplo, n, Aarray, lda, values);
         }

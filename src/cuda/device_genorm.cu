@@ -48,34 +48,32 @@ __global__ void genormMaxKernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
-    int idx = threadIdx.x;
 
     // Save partial results in shared memory.
     extern __shared__ char dynamic_data[];
     real_t* row_max = (real_t*) dynamic_data;
     int chunk;
-    real_t max = 0;
+    if (threadIdx.x < blockDim.x) {
+        row_max[threadIdx.x] = 0;
+    }
 
     // This does coalesced reads of one column at a time in parallel.
-    for (idx = threadIdx.x; idx < m; idx += blockDim.x) {
+    for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
         chunk = idx % blockDim.x;
         scalar_t const* row = &tile[idx];
+        real_t max = 0;
 
         // Each thread finds max of one row.
         for (int64_t j = 0; j < n; ++j)
             max = max_nan(max, abs(row[j*lda]));
 
-        if (idx < blockDim.x) {
-            row_max[chunk] = 0;
-        }
         // Save partial results in shared memory.
         row_max[chunk] = max_nan(max, row_max[chunk]);
     }
 
     // Reduction to find max of tile.
-    idx = threadIdx.x;
-    max_nan_reduce(blockDim.x, idx, row_max);
-    if (idx == 0) {
+    max_nan_reduce(blockDim.x, threadIdx.x, row_max);
+    if (threadIdx.x == 0) {
         tiles_maxima[blockIdx.x] = row_max[0];
     }
 }
@@ -240,20 +238,19 @@ __global__ void genormFroKernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
-    int idx = threadIdx.x;
+    int chunk;
 
     // Save partial results in shared memory.
     extern __shared__ char dynamic_data[];
     real_t* row_scale = (real_t*) &dynamic_data[0];
     real_t* row_sumsq = &row_scale[blockDim.x];
-    int chunk;
 
     real_t tile_scale = row_scale[0];
     real_t tile_sumsq = row_sumsq[0];
 
     // Each thread finds sum-of-squares of one row.
     // This does coalesced reads of one column at a time in parallel.
-    for (idx = threadIdx.x; idx < m; idx += blockDim.x) {
+    for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
         real_t scale = 0;
         real_t sumsq = 1;
         chunk = idx % blockDim.x;
@@ -275,12 +272,11 @@ __global__ void genormFroKernel(
 
     // Reduction to find sum-of-squares of tile.
     // todo: parallel reduction.
-    idx = threadIdx.x;
-    if (idx == 0)
+    if (threadIdx.x == 0)
     {
         tile_scale = row_scale[0];
         tile_sumsq = row_sumsq[0];
-        for (int64_t chunk = 1; chunk < blockDim.x; ++chunk) {
+        for (int64_t chunk = 1; chunk < blockDim.x && chunk < m; ++chunk) {
             add_sumsq(tile_scale, tile_sumsq, row_scale[chunk], row_sumsq[chunk]);
         }
 

@@ -163,14 +163,18 @@ void test_genorm_dev(Norm norm)
     int64_t iseed[4] = { 1, 0, 2, 3 };
     lapack::larnv( idist, iseed, lda * n, A.data() );
 
-    cudaStream_t stream;
-    test_assert(cudaStreamCreate(&stream) == cudaSuccess);
+    int device_idx;
+    cudaGetDevice(&device_idx);
+    const int batch_arrays_index = 0;
+    blas::Queue queue(device_idx, batch_arrays_index);
+
+    //test_assert(cudaStreamCreate(&stream) == cudaSuccess);
 
     double* dAdata;
     test_assert(cudaMalloc((void**)&dAdata, sizeof(double) * lda * n) == cudaSuccess);
     test_assert(dAdata != nullptr);
     slate::Tile<double> dA(m, n, dAdata, lda, 0, slate::TileKind::UserOwned);
-    A.copyData(&dA, stream);
+    A.copyData(&dA, queue.stream());
 
     const int batch_count = 1;
     double* Aarray[batch_count];
@@ -198,8 +202,8 @@ void test_genorm_dev(Norm norm)
     test_assert(dvalues != nullptr);
 
     slate::device::genorm( norm, slate::NormScope::Matrix, m, n, dAarray, lda,
-                           dvalues, ldv, batch_count, stream );
-    slate_cuda_call( cudaStreamSynchronize( stream ) );
+                           dvalues, ldv, batch_count, queue );
+    queue.stream();
     test_assert(cudaMemcpy( &values[0], dvalues, sizeof(double) * values.size(),
                             cudaMemcpyDeviceToHost ) == cudaSuccess );
 

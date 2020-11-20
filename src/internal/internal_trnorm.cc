@@ -538,13 +538,15 @@ void norm(
                                     stream));
 
                 // off-diagonal blocks
+                const int batch_arrays_index = 1;
+                blas::Queue* queue = A.queue(device, batch_arrays_index);
                 for (int q = 0; q < 4; ++q) {
                     if (group_count[q] > 0) {
                         device::genorm(in_norm, NormScope::Matrix,
                                        mb[q], nb[q],
                                        a_dev_array, lda[q],
                                        vals_dev_array, ldv,
-                                       group_count[q], stream);
+                                       group_count[q], *queue);
                         a_dev_array += group_count[q];
                         vals_dev_array += group_count[q] * ldv;
                     }

@@ -86,7 +86,7 @@ void potrf(slate::internal::TargetType<target>,
                     // A(j, j) -= A(j, k) * A(j, k)^H
                     internal::herk<Target::HostTask>(
                         real_t(-1.0), A.sub(j, j, k, k),
-                        real_t( 1.0), A.sub(j, j), 1);
+                        real_t( 1.0), A.sub(j, j), layout, 1);
 
                     // A(j+1:nt-1, j) -= A(j+1:nt-1, k) * A(j, k)^H
                     if (j+1 <= A_nt-1) {

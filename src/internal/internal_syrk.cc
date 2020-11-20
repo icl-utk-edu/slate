@@ -29,7 +29,7 @@ namespace internal {
 template <Target target, typename scalar_t>
 void syrk(scalar_t alpha,          Matrix<scalar_t>&& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>&& C,
-          int priority)
+          Layout layout, int priority, int64_t queue_index)
 {
     if (! ((C.uplo() == Uplo::Lower)
            &&
@@ -40,7 +40,7 @@ void syrk(scalar_t alpha,          Matrix<scalar_t>&& A,
     syrk(internal::TargetType<target>(),
          alpha, A,
          beta,  C,
-         priority);
+         layout, priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -51,16 +51,16 @@ void syrk(scalar_t alpha,          Matrix<scalar_t>&& A,
 ///
 template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostTask>,
-          scalar_t alpha, Matrix<scalar_t>& A,
+          scalar_t alpha,          Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          int priority)
+          Layout layout, int priority, int64_t queue_index)
 {
     // CPU assumes column major
     // todo: relax this assumption, by updating Tile_blas.hh::syrk()
     //       to operate in row major
     // todo: optimize for the number of layout conversions,
     //       by watching 'layout' and 'C(i, j).layout()'
-    const Layout layout = Layout::ColMajor;
+    assert(layout == Layout::ColMajor);
 
     // Lower, NoTrans
     int err = 0;
@@ -108,7 +108,6 @@ void syrk(internal::TargetType<Target::HostTask>,
             }
         }
     }
-
     #pragma omp taskwait
 
     if (err)
@@ -125,14 +124,14 @@ template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostNest>,
           scalar_t alpha,          Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          int priority)
+          Layout layout, int priority, int64_t queue_index)
 {
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::syrk()
     //       to take layout param
     // todo: optimize for the number of layout conversions,
     //       by watching 'layout' and 'C(i, j).layout()'
-    const Layout layout = Layout::ColMajor;
+    assert(layout == Layout::ColMajor);
 
     // Lower, NoTrans
     int err = 0;
@@ -180,7 +179,6 @@ void syrk(internal::TargetType<Target::HostNest>,
             }
         }
     }
-
     #pragma omp taskwait
 
     if (err)
@@ -197,14 +195,14 @@ template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostBatch>,
           scalar_t alpha,          Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          int priority)
+          Layout layout, int priority, int64_t queue_index)
 {
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::syrk()
     //       to take layout param
     // todo: optimize for the number of layout conversions,
     //       by watching 'layout' and 'C(i, j).layout()'
-    const Layout layout = Layout::ColMajor;
+    assert(layout == Layout::ColMajor);
 
     // diagonal tiles by syrk on host
     int err = 0;
@@ -342,7 +340,6 @@ void syrk(internal::TargetType<Target::HostBatch>,
             }
         }
     }
-
     #pragma omp taskwait
 
     if (err)
@@ -359,19 +356,11 @@ template <typename scalar_t>
 void syrk(internal::TargetType<Target::Devices>,
           scalar_t alpha,          Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          int priority)
+          Layout layout, int priority, int64_t queue_index)
 {
     int err = 0;
     using std::swap;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
-
-    // assumes column major for now
-    // todo: relax this assumption,
-    //       by allowing Tile_blas.hh::syrk() to take layout param
-    //       look at internal::gemm()
-    // todo: optimize for the number of layout conversions,
-    //       by watching 'layout' and 'C(i, j).layout()'
-    const Layout layout = Layout::ColMajor;
 
     assert(C.num_devices() > 0);
 
@@ -406,7 +395,7 @@ void syrk(internal::TargetType<Target::Devices>,
     }
     else {
         // off-diagonal tiles by batch gemm on device
-        // diagonal tiles by herk on device
+        // diagonal tiles by syrk on device
         for (int device = 0; device < C.num_devices(); ++device) {
             #pragma omp task shared(A, C, err) priority(priority)
             {
@@ -470,8 +459,9 @@ void syrk(internal::TargetType<Target::Devices>,
                     int64_t ldb_gemm_0 = 0;
                     int64_t ldc_gemm_0 = 0;
 
-                    int64_t mb0 = C.tileMb(0);
-                    int64_t nb0 = C.tileNb(0);
+                    int64_t mb_gemm_0 = C.tileMb(0);
+                    int64_t nb_gemm_0 = C.tileNb(0);
+
                     int64_t kb  = A.tileNb(0);
 
                     for (int64_t j = 0; j < C.nt()-1; ++j) {
@@ -493,6 +483,10 @@ void syrk(internal::TargetType<Target::Devices>,
                         }
                     }
 
+                    a_array_host_gemm_0.resize(batch_count_gemm_0);
+                    b_array_host_gemm_0.resize(batch_count_gemm_0);
+                    c_array_host_gemm_0.resize(batch_count_gemm_0);
+
                     std::vector<scalar_t*> a_array_host_gemm_1(batch_size_gemm);
                     std::vector<scalar_t*> b_array_host_gemm_1(batch_size_gemm);
                     std::vector<scalar_t*> c_array_host_gemm_1(batch_size_gemm);
@@ -502,8 +496,8 @@ void syrk(internal::TargetType<Target::Devices>,
                     int64_t ldb_gemm_1 = 0;
                     int64_t ldc_gemm_1 = 0;
 
-                    int64_t mb1 = C.tileMb(C.mt()-1);
-                    int64_t nb1 = C.tileNb(0);
+                    int64_t mb_gemm_1 = C.tileMb(C.mt()-1);
+                    int64_t nb_gemm_1 = C.tileNb(0);
 
                     {
                         int64_t i = C.mt()-1;
@@ -525,6 +519,10 @@ void syrk(internal::TargetType<Target::Devices>,
                         }
                     }
 
+                    a_array_host_gemm_1.resize(batch_count_gemm_1);
+                    b_array_host_gemm_1.resize(batch_count_gemm_1);
+                    c_array_host_gemm_1.resize(batch_count_gemm_1);
+
                     if (C.op() != Op::NoTrans) {
                         // swap A <=> B; swap m <=> n
                         swap(opA, opB);
@@ -532,13 +530,14 @@ void syrk(internal::TargetType<Target::Devices>,
                         swap(a_array_host_gemm_1, b_array_host_gemm_1);
                         swap(lda_gemm_0, ldb_gemm_0);
                         swap(lda_gemm_1, ldb_gemm_1);
-                        swap(mb0, nb0);
-                        swap(mb1, nb1);
+                        swap(mb_gemm_0, nb_gemm_0);
+                        swap(mb_gemm_1, nb_gemm_1);
                     }
 
-                    blas::Queue* queue = C.queue(device);
+                    blas::Queue* queue = C.queue(device, queue_index);
                     std::vector<Op> transA(1, opA);
                     std::vector<int64_t> k(1, kb);
+
                     std::vector<scalar_t> alpha_(1, scalar_t(alpha));
                     std::vector<scalar_t> beta_(1, scalar_t(beta));
 
@@ -548,8 +547,8 @@ void syrk(internal::TargetType<Target::Devices>,
                         std::vector<Op> transB(1, opB);
 
                         if (batch_count_gemm_0 > 0) {
-                            std::vector<int64_t> m(1, mb0);
-                            std::vector<int64_t> n(1, nb0);
+                            std::vector<int64_t> m(1, mb_gemm_0);
+                            std::vector<int64_t> n(1, nb_gemm_0);
                             std::vector<int64_t> ldda(1, lda_gemm_0);
                             std::vector<int64_t> lddb(1, ldb_gemm_0);
                             std::vector<int64_t> lddc(1, ldc_gemm_0);
@@ -564,8 +563,8 @@ void syrk(internal::TargetType<Target::Devices>,
                         }
 
                         if (batch_count_gemm_1 > 0) {
-                            std::vector<int64_t> m(1, mb1);
-                            std::vector<int64_t> n(1, nb1);
+                            std::vector<int64_t> m(1, mb_gemm_1);
+                            std::vector<int64_t> n(1, nb_gemm_1);
                             std::vector<int64_t> ldda(1, lda_gemm_1);
                             std::vector<int64_t> lddb(1, ldb_gemm_1);
                             std::vector<int64_t> lddc(1, ldc_gemm_1);
@@ -594,42 +593,93 @@ void syrk(internal::TargetType<Target::Devices>,
 
                     int64_t batch_size_syrk = C_tiles_syrk.size();
 
-                    std::vector<scalar_t*> a_array_host_syrk(batch_size_syrk);
-                    std::vector<scalar_t*> c_array_host_syrk(batch_size_syrk);
+                    std::vector<scalar_t*> a_array_host_syrk_0(batch_size_syrk);
+                    std::vector<scalar_t*> c_array_host_syrk_0(batch_size_syrk);
 
-                    int64_t batch_count_syrk = 0;
-                    int64_t lda_syrk = 0;
-                    int64_t ldc_syrk = 0;
+                    int64_t batch_count_syrk_0 = 0;
+                    int64_t lda_syrk_0 = 0;
+                    int64_t ldc_syrk_0 = 0;
 
-                    for (auto iter  = C_tiles_syrk.begin();
-                              iter != C_tiles_syrk.end();
-                            ++iter) {
-                        int64_t j = std::get<1>(*iter);
-                        a_array_host_syrk[batch_count_syrk]
-                            = A(j, 0, device).data();
-                        c_array_host_syrk[batch_count_syrk]
-                            = C(j, j, device).data();
-                        lda_syrk = A(j, 0, device).stride();
-                        ldc_syrk = C(j, j, device).stride();
-                        ++batch_count_syrk;
+                    int64_t nb_syrk_0 = C.tileNb(0);
+
+                    for (int64_t j = 0; j < C.nt()-1; ++j) {
+                        for (int64_t i = j; i < C.mt()-1; ++i) {
+                            if (C.tileIsLocal(i, j)) {
+                                if (device == C.tileDevice(i, j)) {
+                                    if (i == j) {
+                                        a_array_host_syrk_0[batch_count_syrk_0]
+                                            = A(j, 0, device).data();
+                                        c_array_host_syrk_0[batch_count_syrk_0]
+                                            = C(j, j, device).data();
+                                        lda_syrk_0 = A(j, 0, device).stride();
+                                        ldc_syrk_0 = C(j, j, device).stride();
+                                        ++batch_count_syrk_0;
+                                    }
+                                }
+                            }
+                        }
                     }
+
+                    a_array_host_syrk_0.resize(batch_count_syrk_0);
+                    c_array_host_syrk_0.resize(batch_count_syrk_0);
+
+                    std::vector<scalar_t*> a_array_host_syrk_1(batch_size_syrk);
+                    std::vector<scalar_t*> c_array_host_syrk_1(batch_size_syrk);
+
+                    int64_t batch_count_syrk_1 = 0;
+                    int64_t lda_syrk_1 = 0;
+                    int64_t ldc_syrk_1 = 0;
+
+                    int64_t nb_syrk_1 = C.tileNb(C.nt()-1);
+
+                    {
+                        int i = C.mt()-1;
+                        int j = C.nt()-1;
+                        if (C.tileIsLocal(i, j)) {
+                            if (device == C.tileDevice(i, j)) {
+                                a_array_host_syrk_1[batch_count_syrk_1]
+                                    = A(j, 0, device).data();
+                                c_array_host_syrk_1[batch_count_syrk_1]
+                                    = C(j, j, device).data();
+                                lda_syrk_1 = A(j, 0, device).stride();
+                                ldc_syrk_1 = C(j, j, device).stride();
+                                ++batch_count_syrk_1;
+                            }
+                        }
+                    }
+
+                    a_array_host_syrk_1.resize(batch_count_syrk_1);
+                    c_array_host_syrk_1.resize(batch_count_syrk_1);
 
                     {
                         trace::Block trace_block("blas::batch::syrk");
 
                         std::vector<Uplo> uplo(1, C.uploPhysical());
 
-                        if (batch_count_syrk > 0) {
-                            std::vector<int64_t> n(1, nb0);
-                            std::vector<int64_t> ldda(1, lda_syrk);
-                            std::vector<int64_t> lddc(1, ldc_syrk);
-                            std::vector<int64_t> info(batch_count_syrk);
+                        if (batch_count_syrk_0 > 0) {
+                            std::vector<int64_t> n(1, nb_syrk_0);
+                            std::vector<int64_t> ldda(1, lda_syrk_0);
+                            std::vector<int64_t> lddc(1, ldc_syrk_0);
+                            std::vector<int64_t> info(batch_count_syrk_0);
                             blas::batch::syrk(
                                 layout, uplo, transA,
                                 n, k,
-                                alpha_, a_array_host_syrk, ldda,
-                                beta_,  c_array_host_syrk, lddc,
-                                batch_count_syrk, info, *queue);
+                                alpha_, a_array_host_syrk_0, ldda,
+                                beta_,  c_array_host_syrk_0, lddc,
+                                batch_count_syrk_0, info, *queue);
+                        }
+
+                        if (batch_count_syrk_1 > 0) {
+                            std::vector<int64_t> n(1, nb_syrk_1);
+                            std::vector<int64_t> ldda(1, lda_syrk_1);
+                            std::vector<int64_t> lddc(1, ldc_syrk_1);
+                            std::vector<int64_t> info(batch_count_syrk_1);
+                            blas::batch::syrk(
+                                layout, uplo, transA,
+                                n, k,
+                                alpha_, a_array_host_syrk_1, ldda,
+                                beta_,  c_array_host_syrk_1, lddc,
+                                batch_count_syrk_1, info, *queue);
                         }
                     }
 
@@ -672,100 +722,100 @@ template
 void syrk<Target::HostTask, float>(
     float alpha,          Matrix<float>&& A,
     float beta,  SymmetricMatrix<float>&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syrk<Target::HostNest, float>(
     float alpha,          Matrix<float>&& A,
     float beta,  SymmetricMatrix<float>&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syrk<Target::HostBatch, float>(
     float alpha,          Matrix<float>&& A,
     float beta,  SymmetricMatrix<float>&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syrk<Target::Devices, float>(
     float alpha,          Matrix<float>&& A,
     float beta,  SymmetricMatrix<float>&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
 void syrk<Target::HostTask, double>(
     double alpha,          Matrix<double>&& A,
     double beta,  SymmetricMatrix<double>&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syrk<Target::HostNest, double>(
     double alpha,          Matrix<double>&& A,
     double beta,  SymmetricMatrix<double>&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syrk<Target::HostBatch, double>(
     double alpha,          Matrix<double>&& A,
     double beta,  SymmetricMatrix<double>&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syrk<Target::Devices, double>(
     double alpha,          Matrix<double>&& A,
     double beta,  SymmetricMatrix<double>&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
 void syrk< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha,          Matrix< std::complex<float> >&& A,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syrk< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha,          Matrix< std::complex<float> >&& A,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syrk< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha,          Matrix< std::complex<float> >&& A,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syrk< Target::Devices, std::complex<float> >(
     std::complex<float> alpha,          Matrix< std::complex<float> >&& A,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
 void syrk< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha,          Matrix< std::complex<double> >&& A,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syrk< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha,          Matrix< std::complex<double> >&& A,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syrk< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha,          Matrix< std::complex<double> >&& A,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syrk< Target::Devices, std::complex<double> >(
     std::complex<double> alpha,          Matrix< std::complex<double> >&& A,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 } // namespace internal
 } // namespace slate

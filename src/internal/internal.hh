@@ -258,20 +258,24 @@ void hemm(Side side,
 //-----------------------------------------
 // herk()
 template <Target target=Target::HostTask, typename scalar_t>
-void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
-          blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>&& C,
-          int priority=0);
+void herk(
+    blas::real_type<scalar_t> alpha,          Matrix<scalar_t>&& A,
+    blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>&& C,
+    Layout layout=Layout::ColMajor, int priority=0, int64_t queue_index=0);
 
 // forward real-symmetric matrices to herk;
 // disabled for complex
 template <Target target=Target::HostTask, typename scalar_t>
-void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
-          blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>&& C,
-          int priority=0,
-          enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+void herk(
+    blas::real_type<scalar_t> alpha,          Matrix<scalar_t>&& A,
+    blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>&& C,
+    Layout layout=Layout::ColMajor, int priority=0, int64_t queue_index=0,
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    herk<target>(alpha, std::move(A),
-                 beta, HermitianMatrix<scalar_t>(C), priority);
+    herk<target>(
+        alpha,                 std::move(A),
+        beta,  HermitianMatrix<scalar_t>(C),
+        layout, priority, queue_index);
 }
 
 //-----------------------------------------
@@ -321,20 +325,24 @@ void symm(Side side,
 //-----------------------------------------
 // syrk()
 template <Target target=Target::HostTask, typename scalar_t>
-void syrk(scalar_t alpha, Matrix<scalar_t>&& A,
-          scalar_t beta,  SymmetricMatrix<scalar_t>&& C,
-          int priority=0);
+void syrk(
+    scalar_t alpha,          Matrix<scalar_t>&& A,
+    scalar_t beta,  SymmetricMatrix<scalar_t>&& C,
+    Layout layout=Layout::ColMajor, int priority=0, int64_t queue_index=0);
 
 // forward real-Hermitian matrices to syrk;
 // disabled for complex
 template <Target target=Target::HostTask, typename scalar_t>
-void syrk(scalar_t alpha, Matrix<scalar_t>&& A,
-          scalar_t beta,  HermitianMatrix<scalar_t>&& C,
-          int priority=0,
-          enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+void syrk(
+    scalar_t alpha,          Matrix<scalar_t>&& A,
+    scalar_t beta,  HermitianMatrix<scalar_t>&& C,
+    Layout layout=Layout::ColMajor, int priority=0, int64_t queue_index=0,
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    syrk<target>(alpha, std::move(A),
-                 beta, SymmetricMatrix<scalar_t>(C), priority);
+    syrk<target>
+        (alpha,                 std::move(A),
+        beta,   SymmetricMatrix<scalar_t>(C),
+        layout, priority, queue_index);
 }
 
 //-----------------------------------------

@@ -20,7 +20,7 @@ namespace slate {
 namespace internal {
 
 //------------------------------------------------------------------------------
-/// Symmetric rank-k update of single block column (i.e., k = nb).
+/// Symmetric rank-2k update of single block column (i.e., k = nb).
 /// Dispatches to target implementations.
 /// C is Lower, NoTrans or Upper, Trans/ConjTrans.
 /// In complex case, A, B, and C cannot be ConjTrans.
@@ -28,10 +28,10 @@ namespace internal {
 /// @ingroup syr2k_internal
 ///
 template <Target target, typename scalar_t>
-void syr2k(scalar_t alpha, Matrix<scalar_t>&& A,
-                           Matrix<scalar_t>&& B,
+void syr2k(scalar_t alpha,          Matrix<scalar_t>&& A,
+                                    Matrix<scalar_t>&& B,
            scalar_t beta,  SymmetricMatrix<scalar_t>&& C,
-           int priority)
+           Layout layout, int priority, int64_t queue_index)
 {
     if (! ((C.uplo() == Uplo::Lower)
            &&
@@ -45,31 +45,32 @@ void syr2k(scalar_t alpha, Matrix<scalar_t>&& A,
           alpha, A,
                  B,
           beta,  C,
-          priority);
+          layout, priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
-/// Symmetric rank-k update of single block column (i.e., k = nb).
+/// Symmetric rank-2k update of single block column (i.e., k = nb).
 /// Host OpenMP task implementation.
 /// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
 /// @ingroup syr2k_internal
 ///
 template <typename scalar_t>
 void syr2k(internal::TargetType<Target::HostTask>,
-           scalar_t alpha, Matrix<scalar_t>& A,
-                           Matrix<scalar_t>& B,
+           scalar_t alpha,          Matrix<scalar_t>& A,
+                                    Matrix<scalar_t>& B,
            scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-           int priority)
+           Layout layout, int priority, int64_t queue_index)
 {
     // CPU assumes column major
-    // todo: relax this assumption, by allowing Tile_blas.hh::syr2k() to take layout param
+    // todo: relax this assumption, by allowing Tile_blas.hh::syrk2k()
+    //       to take layout param
     // todo: optimize for the number of layout conversions,
     //       by watching 'layout' and 'C(i, j).layout()'
-    const Layout layout = Layout::ColMajor;
+    assert(layout == Layout::ColMajor);
 
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j) {
-        for (int64_t i = j; i < C.mt(); ++i) {  // lower
+        for (int64_t i = j; i < C.mt(); ++i) { // lower
             if (C.tileIsLocal(i, j)) {
                 if (i == j) {
                     #pragma omp task shared(A, B, C, err) priority(priority)
@@ -83,6 +84,7 @@ void syr2k(internal::TargetType<Target::HostTask>,
                                   beta,  C(j, j));
                             // todo: should tileRelease()?
                             A.tileTick(j, 0);
+                            // todo: why the second tick?
                             B.tileTick(j, 0);
                         }
                         catch (std::exception& e) {
@@ -113,8 +115,7 @@ void syr2k(internal::TargetType<Target::HostTask>,
                             B.tileTick(i, 0);
                             B.tileTick(j, 0);
                         }
-                        catch (std::exception& e)
-                        {
+                        catch (std::exception& e) {
                             err = __LINE__;
                         }
                     }
@@ -122,7 +123,6 @@ void syr2k(internal::TargetType<Target::HostTask>,
             }
         }
     }
-
     #pragma omp taskwait
 
     if (err)
@@ -130,23 +130,24 @@ void syr2k(internal::TargetType<Target::HostTask>,
 }
 
 //------------------------------------------------------------------------------
-/// Symmetric rank-k update of single block column (i.e., k = nb).
+/// Symmetric rank-2k update of single block column (i.e., k = nb).
 /// Host nested OpenMP implementation.
 /// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
 /// @ingroup syr2k_internal
 ///
 template <typename scalar_t>
 void syr2k(internal::TargetType<Target::HostNest>,
-           scalar_t alpha, Matrix<scalar_t>& A,
-                           Matrix<scalar_t>& B,
+           scalar_t alpha,          Matrix<scalar_t>& A,
+                                    Matrix<scalar_t>& B,
            scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-           int priority)
+           Layout layout, int priority, int64_t queue_index)
 {
     // CPU assumes column major
-    // todo: relax this assumption, by allowing Tile_blas.hh::syr2k() to take layout param
+    // todo: relax this assumption, by allowing Tile_blas.hh::syr2k()
+    //       to take layout param
     // todo: optimize for the number of layout conversions,
     //       by watching 'layout' and 'C(i, j).layout()'
-    const Layout layout = Layout::ColMajor;
+    assert(layout == Layout::ColMajor);
 
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j) {
@@ -171,13 +172,9 @@ void syr2k(internal::TargetType<Target::HostNest>,
         }
     }
 
-    int64_t C_nt = C.nt();
-    int64_t C_mt = C.mt();
-
-//  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
     #pragma omp parallel for collapse(2) schedule(dynamic, 1)
-    for (int64_t j = 0; j < C_nt; ++j) {
-        for (int64_t i = 0; i < C_mt; ++i) {  // full
+    for (int64_t j = 0; j < C.nt(); ++j) {
+        for (int64_t i = 0; i < C.mt(); ++i) {  // full
             if (i >= j+1) {                     // strictly lower
                 if (C.tileIsLocal(i, j)) {
                     try {
@@ -189,8 +186,8 @@ void syr2k(internal::TargetType<Target::HostNest>,
                         gemm(alpha, A(i, 0),
                                     transpose(Bj0),
                              beta,  C(i, j));
-                        gemm(alpha, B(i, 0),
-                                    transpose(Aj0),
+                        gemm(alpha,         B(i, 0),
+                                            transpose(Aj0),
                              scalar_t(1.0), C(i, j));
                         // todo: should tileRelease()?
                         A.tileTick(i, 0);
@@ -205,7 +202,6 @@ void syr2k(internal::TargetType<Target::HostNest>,
             }
         }
     }
-
     #pragma omp taskwait
 
     if (err)
@@ -213,23 +209,24 @@ void syr2k(internal::TargetType<Target::HostNest>,
 }
 
 //------------------------------------------------------------------------------
-/// Symmetric rank-k update of single block column (i.e., k = nb).
+/// Symmetric rank-2k update of single block column (i.e., k = nb).
 /// Host batched implementation.
 /// Assumes A is NoTrans or Trans; C is Lower, NoTrans or Upper, Trans.
 /// @ingroup syr2k_internal
 ///
 template <typename scalar_t>
 void syr2k(internal::TargetType<Target::HostBatch>,
-           scalar_t alpha, Matrix<scalar_t>& A,
-                           Matrix<scalar_t>& B,
+           scalar_t alpha,          Matrix<scalar_t>& A,
+                                    Matrix<scalar_t>& B,
            scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-           int priority)
+           Layout layout, int priority, int64_t queue_index)
 {
     // CPU assumes column major
-    // todo: relax this assumption, by allowing Tile_blas.hh::syr2k() to take layout param
+    // todo: relax this assumption, by allowing Tile_blas.hh::syrk2k() to
+    //       take layout param
     // todo: optimize for the number of layout conversions,
     //       by watching 'layout' and 'C(i, j).layout()'
-    const Layout layout = Layout::ColMajor;
+    assert(layout == Layout::ColMajor);
 
     // diagonal tiles by syr2k on host
     int err = 0;
@@ -325,12 +322,14 @@ void syr2k(internal::TargetType<Target::HostBatch>,
                     aj_array[index] = A(j, 0).data();
                     bi_array[index] = B(i, 0).data();
                     bj_array[index] = B(j, 0).data();
+
                     c_array[index] = C(i, j).data();
 
                     ldai_array[index] = A(i, 0).stride();
                     ldaj_array[index] = A(j, 0).stride();
                     ldbi_array[index] = B(i, 0).stride();
                     ldbj_array[index] = B(j, 0).stride();
+
                     ldc_array[index] = C(i, j).stride();
 
                     ++index;
@@ -340,16 +339,18 @@ void syr2k(internal::TargetType<Target::HostBatch>,
 
         if (C.op() != Op::NoTrans) {
             // swap A <=> B; swap m <=> n
-            swap(opA_array,  opB_array);
-            swap(ai_array,   bj_array);
-            swap(aj_array,   bi_array);
+            // alpha conjugated above
+            swap(opA_array,  opB_array );
+            swap(ai_array,   bj_array  );
+            swap(aj_array,   bi_array  );
             swap(ldai_array, ldbj_array);
             swap(ldaj_array, ldbi_array);
-            swap(m_array,    n_array);
+            swap(m_array,    n_array   );
         }
 
         {
             trace::Block trace_block("cblas_gemm_batch");
+
             #ifdef SLATE_WITH_MKL
                 // mkl_set_num_threads_local(...);
                 cblas_gemm_batch(CblasColMajor,
@@ -375,7 +376,8 @@ void syr2k(internal::TargetType<Target::HostBatch>,
                                  batch_count, group_size.data());
                 // mkl_set_num_threads_local(1);
             #else
-                assert(false);
+                slate_not_implemented(
+                    "slate::Target::HostBatch needs Intel MKL.");
             #endif
         }
 
@@ -391,7 +393,6 @@ void syr2k(internal::TargetType<Target::HostBatch>,
             }
         }
     }
-
     #pragma omp taskwait
 
     if (err)
@@ -409,333 +410,480 @@ void syr2k(internal::TargetType<Target::Devices>,
            scalar_t alpha, Matrix<scalar_t>& A,
                            Matrix<scalar_t>& B,
            scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-           int priority)
+           Layout layout, int priority, int64_t queue_index)
 {
     using std::swap;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
-
-    // assumes column major for now
-    // todo: relax this assumption,
-    //       by allowing Tile_blas.hh::syr2k() to take layout param
-    //       look at internal::gemm()
-    // todo: optimize for the number of layout conversions,
-    //       by watching 'layout' and 'C(i, j).layout()'
-    const Layout layout = Layout::ColMajor;
 
     assert(C.num_devices() > 0);
 
     int err = 0;
 
-    // off-diagonal tiles by batch gemm on device
-    for (int device = 0; device < C.num_devices(); ++device) {
-        #pragma omp task shared(A, B, C, err) priority(priority)
-        {
-            try {
-                // if op(C) is NoTrans, invert opA, opB if possible
-                Op opA = A.op();
-                if (C.op() != Op::NoTrans) {
-                    if (A.op() == Op::NoTrans)
-                        opA = C.op();
-                    else if (A.op() == C.op() || C.is_real) {
-                        // A and C are both Trans or both ConjTrans;
-                        // Trans == ConjTrans if real
-                        opA = Op::NoTrans;
-                    }
-                    else
-                        throw std::exception();
-                }
+    // if single tile, avoid creating tasks for all devices
+    if (C.nt() == 1) {
+        if (C.tileIsLocal(0, 0)) {
+            #pragma omp task shared(A, B, C, err) priority(priority)
+            {
+                auto device = C.tileDevice(0, 0);
+                A.tileGetForReading(0, 0, device, LayoutConvert(layout));
+                B.tileGetForReading(0, 0, device, LayoutConvert(layout));
+                C.tileGetForWriting(0, 0, device, LayoutConvert(layout));
 
-                Op opB = (opA == Op::NoTrans ? Op::Trans : Op::NoTrans);
+                blas::Queue* queue = C.queue(device, queue_index);
 
-                std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;
-                for (int64_t j = 0; j < C.nt()-1; ++j) {
-                    for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
-                        if (C.tileIsLocal(i, j)) {
-                            if (device == C.tileDevice(i, j)) {
-                                A_tiles_set.insert({i, 0});
-                                A_tiles_set.insert({j, 0});
-                                B_tiles_set.insert({i, 0});
-                                B_tiles_set.insert({j, 0});
-                                C_tiles_set.insert({i, j});
-                            }
-                        }
-                    }
-                }
-                #pragma omp task default(shared)
-                {
-                    A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
-                }
-                #pragma omp task default(shared)
-                {
-                    B.tileGetForReading(B_tiles_set, device, LayoutConvert(layout));
-                }
-                #pragma omp task default(shared)
-                {
-                    C.tileGetForWriting(C_tiles_set, device, LayoutConvert(layout));
-                }
-                #pragma omp taskwait
+                auto A00 = A(0, 0, device);
+                auto B00 = B(0, 0, device);
+                auto C00 = C(0, 0, device);
 
-                int64_t batch_size = C_tiles_set.size();
-                scalar_t** a_array_host = C.array_host(device);
-                scalar_t** b_array_host = a_array_host + batch_size;
-                scalar_t** c_array_host = b_array_host + batch_size;
+                blas::syr2k(
+                    layout, C00.uploPhysical(), A00.op(),
+                    C00.nb(), A00.nb(),
+                    alpha, A00.data(), A00.stride(),
+                           B00.data(), B00.stride(),
+                    beta,  C00.data(), C00.stride(), *queue);
 
-                //----------------------------------------
-                // A * B^T
-                int64_t batch_count = 0;
-                int64_t batch_count_00 = 0;
-                int64_t lda00 = 0;
-                int64_t ldb00 = 0;
-                int64_t ldc00 = 0;
-                int64_t mb00 = C.tileMb(0);
-                int64_t nb00 = C.tileNb(0);
-                int64_t kb = A.tileNb(0);   // == A.tileMb(0)
-                for (int64_t j = 0; j < C.nt()-1; ++j) {
-                    // strictly lower
-                    for (int64_t i = j+1; i < C.mt()-1; ++i) {
-                        if (C.tileIsLocal(i, j)) {
-                            if (device == C.tileDevice(i, j)) {
-                                a_array_host[batch_count] =
-                                    A(i, 0, device).data();
-                                b_array_host[batch_count] =
-                                    B(j, 0, device).data();
-                                c_array_host[batch_count] =
-                                    C(i, j, device).data();
-                                lda00 = A(i, 0, device).stride();
-                                ldb00 = B(j, 0, device).stride();
-                                ldc00 = C(i, j, device).stride();
-                                ++batch_count_00;
-                                ++batch_count;
-                            }
-                        }
-                    }
-                }
+                queue->sync();
 
-                int64_t batch_count_10 = 0;
-                int64_t lda10 = 0;
-                int64_t ldb10 = 0;
-                int64_t ldc10 = 0;
-                int64_t mb10 = C.tileMb(C.mt()-1);
-                int64_t nb10 = C.tileNb(0);
-                // same kb as above
-                {
-                    int64_t i = C.mt()-1;
-                    for (int64_t j = 0; j < C.nt()-1; ++j) {
-                        if (C.tileIsLocal(i, j)) {
-                            if (device == C.tileDevice(i, j)) {
-                                a_array_host[batch_count] =
-                                    A(i, 0, device).data();
-                                b_array_host[batch_count] =
-                                    B(j, 0, device).data();
-                                c_array_host[batch_count] =
-                                    C(i, j, device).data();
-                                lda10 = A(i, 0, device).stride();
-                                ldb10 = B(j, 0, device).stride();
-                                ldc10 = C(i, j, device).stride();
-                                ++batch_count_10;
-                                ++batch_count;
-                            }
-                        }
-                    }
-                }
-                slate_assert(batch_count == batch_size);
-
-                scalar_t** a_array_dev = C.array_device(device);
-                scalar_t** b_array_dev = a_array_dev + batch_size;
-                scalar_t** c_array_dev = b_array_dev + batch_size;
-
-                if (C.op() != Op::NoTrans) {
-                    // swap A <=> B; swap m <=> n
-                    swap(opA, opB);
-                    swap(a_array_dev, b_array_dev);
-                    swap(lda00, ldb00);
-                    swap(lda10, ldb10);
-                    swap(mb00, nb00);
-                    swap(mb10, nb10);
-                }
-
-                slate_cuda_call(
-                    cudaSetDevice(device));
-
-                // cublas_handle uses this stream
-                cudaStream_t stream = C.compute_stream(device);
-                cublasHandle_t cublas_handle = C.cublas_handle(device);
-
-                slate_cuda_call(
-                    cudaMemcpyAsync(C.array_device(device), C.array_host(device),
-                                    sizeof(scalar_t*)*batch_count*3,
-                                    cudaMemcpyHostToDevice,
-                                    stream));
-
-                {
-                    trace::Block trace_block("cublasGemmBatched");
-                    if (batch_count_00 > 0) {
-                        slate_cublas_call(
-                            cublasGemmBatched(
-                                cublas_handle,  // uses stream
-                                cublas_op_const(opA), cublas_op_const(opB),
-                                mb00, nb00, kb,
-                                &alpha, (const scalar_t**) a_array_dev, lda00,
-                                        (const scalar_t**) b_array_dev, ldb00,
-                                &beta,                     c_array_dev, ldc00,
-                                batch_count_00));
-                        a_array_dev += batch_count_00;
-                        b_array_dev += batch_count_00;
-                        c_array_dev += batch_count_00;
-                    }
-
-                    if (batch_count_10 > 0) {
-                        slate_cublas_call(
-                            cublasGemmBatched(
-                                cublas_handle,  // uses stream
-                                cublas_op_const(opA), cublas_op_const(opB),
-                                mb10, nb10, kb,
-                                &alpha, (const scalar_t**) a_array_dev, lda10,
-                                        (const scalar_t**) b_array_dev, ldb10,
-                                &beta,                     c_array_dev, ldc10,
-                                batch_count_10));
-                    }
-
-                    // todo: need to wait for previous cudaMemcpy to finish,
-                    // NOT for gemm batched to finish
-                    slate_cuda_call(
-                        cudaStreamSynchronize(stream));
-                }
-
-                //----------------------------------------
-                // B * A^T
-                // ai => bi, bj => aj, set beta = 1
-                batch_count = 0;
-                for (int64_t j = 0; j < C.nt()-1; ++j) {
-                    // strictly lower
-                    for (int64_t i = j+1; i < C.mt()-1; ++i) {
-                        if (C.tileIsLocal(i, j)) {
-                            if (device == C.tileDevice(i, j)) {
-                                a_array_host[batch_count] =
-                                    A(j, 0, device).data();
-                                b_array_host[batch_count] =
-                                    B(i, 0, device).data();
-                                lda00 = A(j, 0, device).stride();
-                                ldb00 = B(i, 0, device).stride();
-                                ++batch_count;
-                            }
-                        }
-                    }
-                }
-
-                {
-                    int i = C.mt()-1;
-                    for (int64_t j = 0; j < C.nt()-1; ++j) {
-                        if (C.tileIsLocal(i, j)) {
-                            if (device == C.tileDevice(i, j)) {
-                                a_array_host[batch_count] =
-                                    A(j, 0, device).data();
-                                b_array_host[batch_count] =
-                                    B(i, 0, device).data();
-                                lda10 = A(j, 0, device).stride();
-                                ldb10 = B(i, 0, device).stride();
-                                ++batch_count;
-                            }
-                        }
-                    }
-                }
-
-                a_array_dev = C.array_device(device);
-                b_array_dev = a_array_dev + batch_size;
-                c_array_dev = b_array_dev + batch_size;
-
-                if (C.op() != Op::NoTrans) {
-                    // swap A <=> B; swap m <=> n
-                    //swap(opA, opB);  // already done above
-                    swap(a_array_dev, b_array_dev);
-                    swap(lda00, ldb00);
-                    swap(lda10, ldb10);
-                    //swap(mb00, nb00);  // already done above
-                    //swap(mb10, nb10);  // already done above
-                }
-
-                slate_cuda_call(
-                    cudaMemcpyAsync(C.array_device(device), C.array_host(device),
-                                    sizeof(scalar_t*)*batch_count*2,
-                                    cudaMemcpyHostToDevice,
-                                    stream));
-
-                {
-                    trace::Block trace_block("cublasGemmBatched");
-                    scalar_t one = 1;
-
-                    if (batch_count_00 > 0) {
-                        slate_cublas_call(
-                            cublasGemmBatched(
-                                cublas_handle,  // uses stream
-                                cublas_op_const(opA), cublas_op_const(opB),
-                                mb00, nb00, kb,
-                                &alpha, (const scalar_t**) b_array_dev, ldb00,
-                                        (const scalar_t**) a_array_dev, lda00,
-                                &one,                      c_array_dev, ldc00,
-                                batch_count_00));
-                        a_array_dev += batch_count_00;
-                        b_array_dev += batch_count_00;
-                        c_array_dev += batch_count_00;
-                    }
-
-                    if (batch_count_10 > 0) {
-                        slate_cublas_call(
-                            cublasGemmBatched(
-                                cublas_handle,  // uses stream
-                                cublas_op_const(opA), cublas_op_const(opB),
-                                mb10, nb10, kb,
-                                &alpha, (const scalar_t**) b_array_dev, ldb10,
-                                        (const scalar_t**) a_array_dev, lda10,
-                                &one,                      c_array_dev, ldc10,
-                                batch_count_10));
-                    }
-
-                    slate_cuda_call(
-                        cudaStreamSynchronize(stream));
-                }
-
-                for (int64_t j = 0; j < C.nt()-1; ++j) {
-                    for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
-                        if (C.tileIsLocal(i, j)) {
-                            if (device == C.tileDevice(i, j)) {
-                                // erase tmp local and remote device tiles;
-                                A.tileRelease(i, 0, device);
-                                A.tileRelease(j, 0, device);
-                                B.tileRelease(i, 0, device);
-                                B.tileRelease(j, 0, device);
-                                // decrement life for remote tiles
-                                // todo: should tileRelease()?
-                                A.tileTick(i, 0);
-                                A.tileTick(j, 0);
-                                B.tileTick(i, 0);
-                                B.tileTick(j, 0);
-                            }
-                        }
-                    }
-                }
-            }
-            catch (std::exception& e) {
-                err = __LINE__;
+                A.tileRelease(0, 0, device);
+                B.tileRelease(0, 0, device);
+                A.tileTick(0, 0);
+                A.tileTick(0, 0);
+                B.tileTick(0, 0);
+                B.tileTick(0, 0);
             }
         }
     }
-
-    // diagonal tiles by syr2k on host
-    for (int64_t j = 0; j < C.nt(); ++j) {
-        if (C.tileIsLocal(j, j)) {
-            #pragma omp task shared(A, B, C, err)
+    else {
+        // off-diagonal tiles by batch gemm on device
+        // diagonal tiles by cublas syr2k on device
+        for (int device = 0; device < C.num_devices(); ++device) {
+            #pragma omp task shared(A, B, C, err) priority(priority)
             {
                 try {
-                    A.tileGetForReading(j, 0, LayoutConvert(layout));
-                    B.tileGetForReading(j, 0, LayoutConvert(layout));
-                    C.tileGetForWriting(j, j, LayoutConvert(layout));
-                    syr2k(alpha, A(j, 0),
-                                 B(j, 0),
-                          beta,  C(j, j));
-                    // todo: should tileRelease()?
-                    A.tileTick(j, 0);
-                    B.tileTick(j, 0);
+                    // if op(C) is NoTrans, invert opA, opB if possible
+                    Op opA = A.op();
+                    if (C.op() != Op::NoTrans) {
+                        if (A.op() == Op::NoTrans)
+                            opA = C.op();
+                        else if (A.op() == C.op() || C.is_real) {
+                            // A and C are both Trans or both ConjTrans;
+                            // Trans == ConjTrans if real
+                            opA = Op::NoTrans;
+                        }
+                        else
+                            throw std::exception();
+                    }
+
+                    Op opB = (opA == Op::NoTrans ? Op::Trans : Op::NoTrans);
+
+                    std::set<ij_tuple> A_tiles_gemm, B_tiles_gemm, C_tiles_gemm;
+                    std::set<ij_tuple> A_tiles_syr2k, B_tiles_syr2k,
+                                       C_tiles_syr2k;
+                    for (int64_t j = 0; j < C.nt(); ++j) {
+                        for (int64_t i = j; i < C.mt(); ++i) {
+                            if (C.tileIsLocal(i, j)) {
+                                if (device == C.tileDevice(i, j)) {
+                                    if (i == j) {
+                                        A_tiles_syr2k.insert({j, 0});
+                                        B_tiles_syr2k.insert({j, 0});
+                                        C_tiles_syr2k.insert({i, j});
+                                    }
+                                    else {
+                                        A_tiles_gemm.insert({i, 0});
+                                        A_tiles_gemm.insert({j, 0});
+                                        B_tiles_gemm.insert({i, 0});
+                                        B_tiles_gemm.insert({j, 0});
+                                        C_tiles_gemm.insert({i, j});
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    #pragma omp task default(shared)
+                    {
+                        A.tileGetForReading(
+                            A_tiles_gemm, device, LayoutConvert(layout));
+                    }
+                    #pragma omp task default(shared)
+                    {
+                        B.tileGetForReading(
+                            B_tiles_gemm, device, LayoutConvert(layout));
+                    }
+                    #pragma omp task default(shared)
+                    {
+                        C.tileGetForWriting(
+                            C_tiles_gemm, device, LayoutConvert(layout));
+                    }
+                    #pragma omp taskwait
+
+                    int64_t batch_size_gemm = C_tiles_gemm.size();
+
+                    std::vector<scalar_t*> a_array_host_gemm_0(batch_size_gemm);
+                    std::vector<scalar_t*> b_array_host_gemm_0(batch_size_gemm);
+                    std::vector<scalar_t*> c_array_host_gemm_0(batch_size_gemm);
+
+                    int64_t batch_count_gemm_0 = 0;
+                    int64_t lda_gemm_0 = 0;
+                    int64_t ldb_gemm_0 = 0;
+                    int64_t ldc_gemm_0 = 0;
+
+                    int64_t mb_gemm_0 = C.tileMb(0);
+                    int64_t nb_gemm_0 = C.tileNb(0);
+
+                    int64_t kb  = A.tileNb(0);
+
+                    for (int64_t j = 0; j < C.nt()-1; ++j) {
+                        for (int64_t i = j+1; i < C.mt()-1; ++i) {
+                            if (C.tileIsLocal(i, j)) {
+                                if (device == C.tileDevice(i, j)) {
+                                    a_array_host_gemm_0[batch_count_gemm_0]
+                                        = A(i, 0, device).data();
+                                    b_array_host_gemm_0[batch_count_gemm_0]
+                                        = B(j, 0, device).data();
+                                    c_array_host_gemm_0[batch_count_gemm_0]
+                                        = C(i, j, device).data();
+                                    lda_gemm_0 = A(i, 0, device).stride();
+                                    ldb_gemm_0 = B(j, 0, device).stride();
+                                    ldc_gemm_0 = C(i, j, device).stride();
+                                    ++batch_count_gemm_0;
+                                }
+                            }
+                        }
+                    }
+
+                    a_array_host_gemm_0.resize(batch_count_gemm_0);
+                    b_array_host_gemm_0.resize(batch_count_gemm_0);
+                    c_array_host_gemm_0.resize(batch_count_gemm_0);
+
+                    std::vector<scalar_t*> a_array_host_gemm_1(batch_size_gemm);
+                    std::vector<scalar_t*> b_array_host_gemm_1(batch_size_gemm);
+                    std::vector<scalar_t*> c_array_host_gemm_1(batch_size_gemm);
+
+                    int64_t batch_count_gemm_1 = 0;
+                    int64_t lda_gemm_1 = 0;
+                    int64_t ldb_gemm_1 = 0;
+                    int64_t ldc_gemm_1 = 0;
+
+                    int64_t mb_gemm_1 = C.tileMb(C.mt()-1);
+                    int64_t nb_gemm_1 = C.tileNb(0);
+
+                    {
+                        int64_t i = C.mt()-1;
+                        for (int64_t j = 0; j < C.nt()-1; ++j) {
+                            if (C.tileIsLocal(i, j)) {
+                                if (device == C.tileDevice(i, j)) {
+                                    a_array_host_gemm_1[batch_count_gemm_1]
+                                        = A(i, 0, device).data();
+                                    b_array_host_gemm_1[batch_count_gemm_1]
+                                        = B(j, 0, device).data();
+                                    c_array_host_gemm_1[batch_count_gemm_1]
+                                        = C(i, j, device).data();
+                                    lda_gemm_1 = A(i, 0, device).stride();
+                                    ldb_gemm_1 = B(j, 0, device).stride();
+                                    ldc_gemm_1 = C(i, j, device).stride();
+                                    ++batch_count_gemm_1;
+                                }
+                            }
+                        }
+                    }
+
+                    a_array_host_gemm_1.resize(batch_count_gemm_1);
+                    b_array_host_gemm_1.resize(batch_count_gemm_1);
+                    c_array_host_gemm_1.resize(batch_count_gemm_1);
+
+                    if (C.op() != Op::NoTrans) {
+                        // swap A <=> B; swap m <=> n
+                        swap(opA, opB);
+                        swap(a_array_host_gemm_0, b_array_host_gemm_0);
+                        swap(a_array_host_gemm_1, b_array_host_gemm_1);
+                        swap(lda_gemm_0, ldb_gemm_0);
+                        swap(lda_gemm_1, ldb_gemm_1);
+                        swap(mb_gemm_0, nb_gemm_0);
+                        swap(mb_gemm_1, nb_gemm_1);
+                    }
+
+                    blas::Queue* queue = C.queue(device, queue_index);
+                    std::vector<Op> transA(1, opA);
+                    std::vector<Op> transB(1, opB);
+                    std::vector<int64_t> k(1, kb);
+
+                    std::vector<scalar_t> alpha_(1, alpha);
+                    std::vector<scalar_t> beta_(1, beta);
+
+                    {
+                        trace::Block trace_block("blas::batch::gemm");
+
+                        std::vector<Op> transB(1, opB);
+
+                        if (batch_count_gemm_0 > 0) {
+                            std::vector<int64_t> m(1, mb_gemm_0);
+                            std::vector<int64_t> n(1, nb_gemm_0);
+                            std::vector<int64_t> ldda(1, lda_gemm_0);
+                            std::vector<int64_t> lddb(1, ldb_gemm_0);
+                            std::vector<int64_t> lddc(1, ldc_gemm_0);
+                            std::vector<int64_t> info(batch_count_gemm_0);
+                            blas::batch::gemm(
+                                layout, transA, transB,
+                                m, n, k,
+                                alpha_, a_array_host_gemm_0, ldda,
+                                        b_array_host_gemm_0, lddb,
+                                beta_,  c_array_host_gemm_0, lddc,
+                                batch_count_gemm_0, info, *queue);
+                        }
+
+                        if (batch_count_gemm_1 > 0) {
+                            std::vector<int64_t> m(1, mb_gemm_1);
+                            std::vector<int64_t> n(1, nb_gemm_1);
+                            std::vector<int64_t> ldda(1, lda_gemm_1);
+                            std::vector<int64_t> lddb(1, ldb_gemm_1);
+                            std::vector<int64_t> lddc(1, ldc_gemm_1);
+                            std::vector<int64_t> info(batch_count_gemm_1);
+                            blas::batch::gemm(
+                                layout, transA, transB,
+                                m, n, k,
+                                alpha_, a_array_host_gemm_1, ldda,
+                                        b_array_host_gemm_1, lddb,
+                                beta_,  c_array_host_gemm_1, lddc,
+                                batch_count_gemm_1, info, *queue);
+                        }
+                    }
+
+                    // queue->sync(); // todo: why first sync
+
+                    //----------------------------------------
+                    // B * A^T
+                    // ai => bi, bj => aj, set beta = 1
+
+                    batch_count_gemm_0 = 0;
+
+                    for (int64_t j = 0; j < C.nt()-1; ++j) {
+                        for (int64_t i = j+1; i < C.mt()-1; ++i) {
+                            if (C.tileIsLocal(i, j)) {
+                                if (device == C.tileDevice(i, j)) {
+                                    a_array_host_gemm_0[batch_count_gemm_0]
+                                        = A(j, 0, device).data();
+                                    b_array_host_gemm_0[batch_count_gemm_0]
+                                        = B(i, 0, device).data();
+                                    lda_gemm_0 = A(j, 0, device).stride();
+                                    ldb_gemm_0 = B(i, 0, device).stride();
+                                    ++batch_count_gemm_0;
+                                }
+                            }
+                        }
+                    }
+
+                    batch_count_gemm_1 = 0;
+                    {
+                        int i = C.mt()-1;
+                        for (int64_t j = 0; j < C.nt()-1; ++j) {
+                            if (C.tileIsLocal(i, j)) {
+                                if (device == C.tileDevice(i, j)) {
+                                    a_array_host_gemm_1[batch_count_gemm_1]
+                                        = A(j, 0, device).data();
+                                    b_array_host_gemm_1[batch_count_gemm_1]
+                                        = B(i, 0, device).data();
+                                    lda_gemm_1 = A(j, 0, device).stride();
+                                    ldb_gemm_1 = B(i, 0, device).stride();
+                                    ++batch_count_gemm_1;
+                                }
+                            }
+                        }
+                    }
+
+                    if (C.op() != Op::NoTrans) {
+                        // swap A <=> B; swap m <=> n
+                        swap(a_array_host_gemm_0, a_array_host_gemm_0);
+                        swap(lda_gemm_0, ldb_gemm_0);
+                        swap(lda_gemm_1, ldb_gemm_1);
+                    }
+
+                    {
+                        trace::Block trace_block("blas::batch::gemm");
+
+                        std::vector<scalar_t> beta_(1, scalar_t(1));
+
+                        if (batch_count_gemm_0 > 0) {
+                            std::vector<int64_t> m(1, mb_gemm_0);
+                            std::vector<int64_t> n(1, nb_gemm_0);
+                            std::vector<int64_t> ldda(1, lda_gemm_0);
+                            std::vector<int64_t> lddb(1, ldb_gemm_0);
+                            std::vector<int64_t> lddc(1, ldc_gemm_0);
+                            std::vector<int64_t> info(batch_count_gemm_0);
+                            blas::batch::gemm(
+                                layout, transA, transB,
+                                m, n, k,
+                                alpha_, b_array_host_gemm_0, lddb,
+                                        a_array_host_gemm_0, ldda,
+                                beta_,  c_array_host_gemm_0, lddc,
+                                batch_count_gemm_0, info, *queue);
+                        }
+
+                        if (batch_count_gemm_1 > 0) {
+                            std::vector<int64_t> m(1, mb_gemm_1);
+                            std::vector<int64_t> n(1, nb_gemm_1);
+                            std::vector<int64_t> ldda(1, lda_gemm_1);
+                            std::vector<int64_t> lddb(1, ldb_gemm_1);
+                            std::vector<int64_t> lddc(1, ldc_gemm_1);
+                            std::vector<int64_t> info(batch_count_gemm_1);
+                            blas::batch::gemm(
+                                layout, transA, transB,
+                                m, n, k,
+                                alpha_, b_array_host_gemm_1, lddb,
+                                        a_array_host_gemm_1, ldda,
+                                beta_,  c_array_host_gemm_1, lddc,
+                                batch_count_gemm_1, info, *queue);
+                        }
+                    }
+
+                    // queue->sync(); // todo: why second sync
+
+                    #pragma omp task default(shared)
+                    {
+                        A.tileGetForReading(
+                            A_tiles_syr2k, device, LayoutConvert(layout));
+                    }
+                    #pragma omp task default(shared)
+                    {
+                        B.tileGetForReading(
+                            B_tiles_syr2k, device, LayoutConvert(layout));
+                    }
+                    #pragma omp task default(shared)
+                    {
+                        C.tileGetForWriting(
+                            C_tiles_syr2k, device, LayoutConvert(layout));
+                    }
+                    #pragma omp taskwait
+
+                    int64_t batch_size_syr2k = C_tiles_syr2k.size();
+
+                    std::vector<scalar_t*> a_array_host_syr2k_0(batch_size_syr2k);
+                    std::vector<scalar_t*> b_array_host_syr2k_0(batch_size_syr2k);
+                    std::vector<scalar_t*> c_array_host_syr2k_0(batch_size_syr2k);
+
+                    int64_t batch_count_syr2k_0 = 0;
+                    int64_t lda_syr2k_0 = 0;
+                    int64_t ldb_syr2k_0 = 0;
+                    int64_t ldc_syr2k_0 = 0;
+
+                    int64_t nb_syr2k_0 = C.tileNb(0);
+
+                    for (int64_t j = 0; j < C.nt()-1; ++j) {
+                        for (int64_t i = j; i < C.mt()-1; ++i) {
+                            if (C.tileIsLocal(i, j)) {
+                                if (device == C.tileDevice(i, j)) {
+                                    if (i == j) {
+                                        a_array_host_syr2k_0[batch_count_syr2k_0]
+                                            = A(j, 0, device).data();
+                                        b_array_host_syr2k_0[batch_count_syr2k_0]
+                                            = B(j, 0, device).data();
+                                        c_array_host_syr2k_0[batch_count_syr2k_0]
+                                            = C(j, j, device).data();
+                                        lda_syr2k_0 = A(j, 0, device).stride();
+                                        ldb_syr2k_0 = B(j, 0, device).stride();
+                                        ldc_syr2k_0 = C(j, j, device).stride();
+                                        ++batch_count_syr2k_0;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    a_array_host_syr2k_0.resize(batch_count_syr2k_0);
+                    b_array_host_syr2k_0.resize(batch_count_syr2k_0);
+                    c_array_host_syr2k_0.resize(batch_count_syr2k_0);
+
+                    std::vector<scalar_t*> a_array_host_syr2k_1(batch_size_syr2k);
+                    std::vector<scalar_t*> b_array_host_syr2k_1(batch_size_syr2k);
+                    std::vector<scalar_t*> c_array_host_syr2k_1(batch_size_syr2k);
+
+                    int64_t batch_count_syr2k_1 = 0;
+                    int64_t lda_syr2k_1 = 0;
+                    int64_t ldb_syr2k_1 = 0;
+                    int64_t ldc_syr2k_1 = 0;
+
+                    int64_t nb_syr2k_1 = C.tileNb(C.nt()-1);
+
+                    {
+                        int i = C.mt()-1;
+                        int j = C.nt()-1;
+                        if (C.tileIsLocal(i, j)) {
+                            if (device == C.tileDevice(i, j)) {
+                                a_array_host_syr2k_1[batch_count_syr2k_1]
+                                    = A(j, 0, device).data();
+                                b_array_host_syr2k_1[batch_count_syr2k_1]
+                                    = B(j, 0, device).data();
+                                c_array_host_syr2k_1[batch_count_syr2k_1]
+                                    = C(j, j, device).data();
+                                lda_syr2k_1 = A(j, 0, device).stride();
+                                ldb_syr2k_1 = B(j, 0, device).stride();
+                                ldc_syr2k_1 = C(j, j, device).stride();
+                                ++batch_count_syr2k_1;
+                            }
+                        }
+                    }
+
+                    a_array_host_syr2k_1.resize(batch_count_syr2k_1);
+                    b_array_host_syr2k_1.resize(batch_count_syr2k_1);
+                    c_array_host_syr2k_1.resize(batch_count_syr2k_1);
+
+                    {
+                        trace::Block trace_block("blas::batch::syr2k");
+
+                        std::vector<Uplo> uplo(1, C.uploPhysical());
+
+                        if (batch_count_syr2k_0 > 0) {
+                            std::vector<int64_t> n(1, nb_syr2k_0);
+                            std::vector<int64_t> ldda(1, lda_syr2k_0);
+                            std::vector<int64_t> lddb(1, ldb_syr2k_0);
+                            std::vector<int64_t> lddc(1, ldc_syr2k_0);
+                            std::vector<int64_t> info(batch_count_syr2k_0);
+                            blas::batch::syr2k(
+                                layout, uplo, transA,
+                                n, k,
+                                alpha_, a_array_host_syr2k_0, ldda,
+                                        b_array_host_syr2k_0, lddb,
+                                beta_,  c_array_host_syr2k_0, lddc,
+                                batch_count_syr2k_0, info, *queue);
+                        }
+
+                        if (batch_count_syr2k_1 > 0) {
+                            std::vector<int64_t> n(1, nb_syr2k_1);
+                            std::vector<int64_t> ldda(1, lda_syr2k_1);
+                            std::vector<int64_t> lddb(1, ldb_syr2k_1);
+                            std::vector<int64_t> lddc(1, ldc_syr2k_1);
+                            std::vector<int64_t> info(batch_count_syr2k_1);
+                            blas::batch::syr2k(
+                                layout, uplo, transA,
+                                n, k,
+                                alpha_, a_array_host_syr2k_1, ldda,
+                                        b_array_host_syr2k_1, lddb,
+                                beta_,  c_array_host_syr2k_1, lddc,
+                                batch_count_syr2k_1, info, *queue);
+                        }
+                    }
+
+                    queue->sync();
+
+                    for (int64_t j = 0; j < C.nt(); ++j) {
+                        for (int64_t i = j; i < C.mt(); ++i) {
+                            if (C.tileIsLocal(i, j)) {
+                                if (device == C.tileDevice(i, j)) {
+                                    // erase tmp local and remote device tiles;
+                                    A.tileRelease(i, 0, device);
+                                    A.tileRelease(j, 0, device);
+                                    B.tileRelease(i, 0, device);
+                                    B.tileRelease(j, 0, device);
+                                    // decrement life for remote tiles
+                                    // todo: should tileRelease()?
+                                    A.tileTick(i, 0);
+                                    A.tileTick(j, 0);
+                                    B.tileTick(i, 0);
+                                    B.tileTick(j, 0);
+                                }
+                            }
+                        }
+                    }
                 }
                 catch (std::exception& e) {
                     err = __LINE__;
@@ -743,7 +891,6 @@ void syr2k(internal::TargetType<Target::Devices>,
             }
         }
     }
-
     #pragma omp taskwait
 
     if (err)
@@ -755,118 +902,118 @@ void syr2k(internal::TargetType<Target::Devices>,
 // ----------------------------------------
 template
 void syr2k<Target::HostTask, float>(
-    float alpha, Matrix<float>&& A,
-                 Matrix<float>&& B,
+    float alpha,          Matrix<float>&& A,
+                          Matrix<float>&& B,
     float beta,  SymmetricMatrix<float>&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syr2k<Target::HostNest, float>(
-    float alpha, Matrix<float>&& A,
-                 Matrix<float>&& B,
+    float alpha,          Matrix<float>&& A,
+                          Matrix<float>&& B,
     float beta,  SymmetricMatrix<float>&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syr2k<Target::HostBatch, float>(
-    float alpha, Matrix<float>&& A,
-                 Matrix<float>&& B,
+    float alpha,          Matrix<float>&& A,
+                          Matrix<float>&& B,
     float beta,  SymmetricMatrix<float>&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syr2k<Target::Devices, float>(
-    float alpha, Matrix<float>&& A,
-                 Matrix<float>&& B,
+    float alpha,          Matrix<float>&& A,
+                          Matrix<float>&& B,
     float beta,  SymmetricMatrix<float>&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
 void syr2k<Target::HostTask, double>(
-    double alpha, Matrix<double>&& A,
-                  Matrix<double>&& B,
+    double alpha,          Matrix<double>&& A,
+                           Matrix<double>&& B,
     double beta,  SymmetricMatrix<double>&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syr2k<Target::HostNest, double>(
-    double alpha, Matrix<double>&& A,
-                  Matrix<double>&& B,
+    double alpha,          Matrix<double>&& A,
+                           Matrix<double>&& B,
     double beta,  SymmetricMatrix<double>&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syr2k<Target::HostBatch, double>(
-    double alpha, Matrix<double>&& A,
-                  Matrix<double>&& B,
+    double alpha,          Matrix<double>&& A,
+                           Matrix<double>&& B,
     double beta,  SymmetricMatrix<double>&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syr2k<Target::Devices, double>(
-    double alpha, Matrix<double>&& A,
-                  Matrix<double>&& B,
+    double alpha,          Matrix<double>&& A,
+                           Matrix<double>&& B,
     double beta,  SymmetricMatrix<double>&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
 void syr2k< Target::HostTask, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
-                               Matrix< std::complex<float> >&& B,
+    std::complex<float> alpha,          Matrix< std::complex<float> >&& A,
+                                        Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syr2k< Target::HostNest, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
-                               Matrix< std::complex<float> >&& B,
+    std::complex<float> alpha,          Matrix< std::complex<float> >&& A,
+                                        Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syr2k< Target::HostBatch, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
-                               Matrix< std::complex<float> >&& B,
+    std::complex<float> alpha,          Matrix< std::complex<float> >&& A,
+                                        Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syr2k< Target::Devices, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
-                               Matrix< std::complex<float> >&& B,
+    std::complex<float> alpha,          Matrix< std::complex<float> >&& A,
+                                        Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
 void syr2k< Target::HostTask, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
-                                Matrix< std::complex<double> >&& B,
+    std::complex<double> alpha,          Matrix< std::complex<double> >&& A,
+                                         Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syr2k< Target::HostNest, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
-                                Matrix< std::complex<double> >&& B,
+    std::complex<double> alpha,          Matrix< std::complex<double> >&& A,
+                                         Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syr2k< Target::HostBatch, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
-                                Matrix< std::complex<double> >&& B,
+    std::complex<double> alpha,          Matrix< std::complex<double> >&& A,
+                                         Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void syr2k< Target::Devices, std::complex<double> >(
-    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
-                                Matrix< std::complex<double> >&& B,
+    std::complex<double> alpha,          Matrix< std::complex<double> >&& A,
+                                         Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
-    int priority);
+    Layout layout, int priority, int64_t queue_index);
 
 } // namespace internal
 } // namespace slate

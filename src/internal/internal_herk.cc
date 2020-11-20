@@ -374,7 +374,7 @@ void herk(internal::TargetType<Target::Devices>,
                 A.tileGetForReading(0, 0, device, LayoutConvert(layout));
                 C.tileGetForWriting(0, 0, device, LayoutConvert(layout));
 
-                blas::Queue* queue = C.queue(device);
+                blas::Queue* queue = C.queue(device, queue_index);
 
                 auto A00 = A(0, 0, device);
                 auto C00 = C(0, 0, device);

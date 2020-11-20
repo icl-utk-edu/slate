@@ -281,22 +281,26 @@ void herk(
 //-----------------------------------------
 // her2k()
 template <Target target=Target::HostTask, typename scalar_t>
-void her2k(scalar_t alpha,                  Matrix< scalar_t >&& A,
-                                            Matrix< scalar_t >&& B,
-           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>&& C,
-           int priority=0);
+void her2k(
+        scalar_t alpha,                          Matrix<scalar_t>&& A,
+                                                 Matrix<scalar_t>&& B,
+        blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>&& C,
+        Layout layout=Layout::ColMajor, int priority=0, int64_t queue_index=0);
 
 // forward real-symmetric matrices to her2k;
 // disabled for complex
 template <Target target=Target::HostTask, typename scalar_t>
-void her2k(scalar_t alpha,                  Matrix<scalar_t>&& A,
-                                            Matrix<scalar_t>&& B,
-           blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>&& C,
-           int priority=0,
-           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+void her2k(
+        scalar_t alpha,                           Matrix<scalar_t>&& A,
+                                                  Matrix<scalar_t>&& B,
+        blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>&& C,
+        Layout layout=Layout::ColMajor, int priority=0, int64_t queue_index=0,
+        enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    her2k<target>(alpha, std::move(A),
-                  beta, HermitianMatrix<scalar_t>(C), priority);
+    her2k<target>(
+        alpha,                 std::move(A),
+        beta,  HermitianMatrix<scalar_t>(C),
+        layout, priority, queue_index);
 }
 
 //-----------------------------------------
@@ -348,22 +352,27 @@ void syrk(
 //-----------------------------------------
 // syr2k()
 template <Target target=Target::HostTask, typename scalar_t>
-void syr2k(scalar_t alpha, Matrix<scalar_t>&& A,
-                           Matrix<scalar_t>&& B,
-           scalar_t beta,  SymmetricMatrix<scalar_t>&& C,
-           int priority=0);
+void syr2k(
+        scalar_t alpha,          Matrix<scalar_t>&& A,
+                                 Matrix<scalar_t>&& B,
+        scalar_t beta,  SymmetricMatrix<scalar_t>&& C,
+        Layout layout=Layout::ColMajor, int priority=0, int64_t queue_index=0);
 
 // forward real-Hermitian matrices to syr2k;
 // disabled for complex
 template <Target target=Target::HostTask, typename scalar_t>
-void syr2k(scalar_t alpha, Matrix<scalar_t>&& A,
-                           Matrix<scalar_t>&& B,
-           scalar_t beta,  HermitianMatrix<scalar_t>&& C,
-           int priority=0,
-           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+void syr2k(
+    scalar_t alpha,          Matrix<scalar_t>&& A,
+                             Matrix<scalar_t>&& B,
+    scalar_t beta,  HermitianMatrix<scalar_t>&& C,
+    Layout layout=Layout::ColMajor, int priority=0, int64_t queue_index=0,
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    syr2k<target>(alpha, std::move(A), std::move(B),
-                  beta, SymmetricMatrix<scalar_t>(C), priority);
+    syr2k<target>(
+        alpha,                std::move(A),
+                              std::move(B),
+        beta, SymmetricMatrix<scalar_t>(C),
+        layout, priority, queue_index);
 }
 
 //-----------------------------------------

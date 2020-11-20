@@ -9,6 +9,8 @@
 #include <cstdio>
 #include <cuComplex.h>
 
+//#include "../blaspp/include/blas/device.hh"
+
 namespace slate {
 namespace device {
 
@@ -185,10 +187,8 @@ __global__ void genormInfKernel(
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
     int idx = threadIdx.x;
-    int chunk;
 
     for (idx = threadIdx.x; idx < m; idx += blockDim.x) {
-        chunk = idx % blockDim.x;
         scalar_t const* row = &tile[idx];
 
         // Each thread sums one row.
@@ -381,9 +381,8 @@ void genorm(
     int64_t m, int64_t n,
     scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue &queue)
 {
-    //blas::Queue queue(0 ,0);
     using real_t = blas::real_type<scalar_t>;
     int64_t nb = 512;
 
@@ -397,12 +396,11 @@ void genorm(
         // max norm
         if (norm == lapack::Norm::Max) {
             if (m == 0 || n == 0) {
-                cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count, stream);
-                //values = blas::device_malloc<real_t>( batch_count * sizeof(real_t) );
+                blas::device_memset(values, 0, batch_count, queue);
             }
             else {
                 assert(ldv == 1);
-                genormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, stream>>>
+                genormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, queue.stream()>>>
                     (m, n, Aarray, lda, values);
             }
         }
@@ -410,12 +408,11 @@ void genorm(
         // one norm
         else if (norm == lapack::Norm::One) {
             if (m == 0 || n == 0) {
-                cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * n, stream);
-                //values = blas::device_malloc<real_t>( batch_count * sizeof(real_t) * n );
+                blas::device_memset(values, 0, batch_count * n, queue);
             }
             else {
                 assert(ldv >= n);
-                genormOneKernel<<<batch_count, one_ib, sizeof(real_t)*one_ib*one_ib1, stream>>>
+                genormOneKernel<<<batch_count, one_ib, sizeof(real_t)*one_ib*one_ib1, queue.stream()>>>
                     (m, n, Aarray, lda, values, ldv);
             }
         }
@@ -423,12 +420,11 @@ void genorm(
         // inf norm
         else if (norm == lapack::Norm::Inf) {
             if (m == 0 || n == 0) {
-                cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * m, stream);
-                //values = blas::device_malloc<real_t>( batch_count * sizeof(real_t) * m );
+                blas::device_memset(values, 0, batch_count * m, queue);
             }
             else {
                 assert(ldv >= m);
-                genormInfKernel<<<batch_count, nb, 0, stream>>>
+                genormInfKernel<<<batch_count, nb, 0, queue.stream()>>>
                     (m, n, Aarray, lda, values, ldv);
             }
         }
@@ -436,14 +432,13 @@ void genorm(
         // Frobenius norm
         else if (norm == lapack::Norm::Fro) {
             if (m == 0 || n == 0) {
-                cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * 2, stream);
-                //values = blas::device_malloc<real_t>( batch_count * sizeof(real_t) * 2 );
+                blas::device_memset(values, 0, batch_count * 2, queue);
             }
             else {
                 assert(ldv == 2);
                 // Max 1024 threads * 16 bytes = 16 KiB shared memory in double [complex].
 
-                genormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, stream>>>
+                genormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, queue.stream()>>>
                     (m, n, Aarray, lda, values);
             }
         }
@@ -453,11 +448,11 @@ void genorm(
         if (norm == Norm::Max) {
 
             if (m == 0 || n == 0) {
-                cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * n, stream);
+                blas::device_memset(values, 0, batch_count * n, queue);
             }
             else {
                 assert(ldv >= n);
-                geColNormsMaxKernel<<<batch_count, one_ib, sizeof(real_t)*one_ib*one_ib1, stream>>>
+                geColNormsMaxKernel<<<batch_count, one_ib, sizeof(real_t)*one_ib*one_ib1, queue.stream()>>>
                     (m, n, Aarray, lda, values, ldv);
             }
         }
@@ -480,7 +475,7 @@ void genorm(
     int64_t m, int64_t n,
     float const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void genorm(
@@ -488,7 +483,7 @@ void genorm(
     int64_t m, int64_t n,
     double const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void genorm(
@@ -496,7 +491,7 @@ void genorm(
     int64_t m, int64_t n,
     cuFloatComplex const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void genorm(
@@ -504,7 +499,7 @@ void genorm(
     int64_t m, int64_t n,
     cuDoubleComplex const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 } // namespace device
 } // namespace slate

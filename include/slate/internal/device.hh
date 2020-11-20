@@ -74,7 +74,7 @@ void genorm(
     scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* values, int64_t ldv,
     int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>

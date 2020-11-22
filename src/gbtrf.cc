@@ -135,7 +135,7 @@ void gbtrf(slate::internal::TargetType<target>,
                     internal::trsm<Target::HostTask>(
                         Side::Left,
                         scalar_t(1.0), std::move(Tkk),
-                                       A.sub(k, k, j, j), priority_one);
+                                       A.sub(k, k, j, j), layout, priority_one);
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     A.tileBcast(k, j, A.sub(k+1, i_end-1, j, j), layout, tag_j);

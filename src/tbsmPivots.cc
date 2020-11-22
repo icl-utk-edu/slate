@@ -132,7 +132,7 @@ void tbsm(slate::internal::TargetType<target>,
                     internal::trsm<Target::HostTask>(
                         Side::Left,
                         one, A.sub(k, k),
-                             B.sub(k, k, 0, nt-1), 1);
+                             B.sub(k, k, 0, nt-1), layout, 1);
 
                     // send A(i=k+1:i_end-1, k) to ranks owning block row B(i, :)
                     BcastList bcast_list_A;
@@ -200,7 +200,7 @@ void tbsm(slate::internal::TargetType<target>,
                     internal::trsm<Target::HostTask>(
                         Side::Left,
                         one, A.sub(k, k),
-                             B.sub(k, k, 0, nt-1), 1);
+                             B.sub(k, k, 0, nt-1), layout, 1);
 
                     // send A(i=k-kdt:k-1, k) to ranks owning block row B(i, :)
                     BcastList bcast_list_A;
@@ -293,7 +293,7 @@ void tbsm(slate::internal::TargetType<target>,
                     internal::trsm<Target::HostTask>(
                         Side::Left,
                         one, A.sub(k, k),
-                             B.sub(k, k, 0, nt-1), 1);
+                             B.sub(k, k, 0, nt-1), layout, 1);
                 }
 
                 // swap rows in B(k:mt-1, 0:nt-1)

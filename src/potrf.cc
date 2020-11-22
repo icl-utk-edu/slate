@@ -65,7 +65,7 @@ void potrf(slate::internal::TargetType<target>,
                     internal::trsm<Target::HostTask>(
                         Side::Right,
                         scalar_t(1.0), conjTranspose(Tkk),
-                        A.sub(k+1, A_nt-1, k, k), 1);
+                        A.sub(k+1, A_nt-1, k, k), layout, 1);
                 }
 
                 BcastListTag bcast_list_A;
@@ -228,7 +228,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                         Side::Right,
                         scalar_t(1.0), conjTranspose(Tkk),
                                        A.sub(k+1, A_nt-1, k, k),
-                        priority_zero, layout, batch_arrays_index_one);
+                        layout, priority_zero, batch_arrays_index_one);
                 }
 
                 BcastListTag bcast_list_A;

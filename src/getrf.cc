@@ -114,7 +114,8 @@ void getrf(slate::internal::TargetType<target>,
                     internal::trsm<Target::HostTask>(
                         Side::Left,
                         scalar_t(1.0), std::move(Tkk),
-                                       A.sub(k, k, j, j), priority_one);
+                                       A.sub(k, k, j, j),
+                        host_layout, priority_one);
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor

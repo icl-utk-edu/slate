@@ -22,13 +22,13 @@ template <Target target, typename scalar_t>
 void trsm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
-          int priority, Layout layout, int64_t batch_arrays_index)
+          Layout layout, int priority, int64_t queue_index)
 {
     trsm(internal::TargetType<target>(),
          side,
          alpha, A,
                 B,
-         priority, layout, batch_arrays_index);
+         layout, priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -41,7 +41,7 @@ void trsm(internal::TargetType<Target::HostTask>,
           Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
-          int priority, Layout layout, int64_t batch_arrays_index)
+          Layout layout, int priority, int64_t queue_index)
 {
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::trsm()
@@ -102,7 +102,7 @@ void trsm(internal::TargetType<Target::HostNest>,
           Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
-          int priority, Layout layout, int64_t batch_arrays_index)
+          Layout layout, int priority, int64_t queue_index)
 {
     slate_not_implemented("Target::HostNest isn't yet supported.");
 }
@@ -117,7 +117,7 @@ void trsm(internal::TargetType<Target::HostBatch>,
           Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
-          int priority, Layout layout, int64_t batch_arrays_index)
+          Layout layout, int priority, int64_t queue_index)
 {
     slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
@@ -132,18 +132,11 @@ void trsm(internal::TargetType<Target::Devices>,
           Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
-          int priority, Layout layout, int64_t batch_arrays_index)
+          Layout layout, int priority, int64_t queue_index)
 {
     using std::swap;
     using blas::conj;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
-
-    // GPU assumes column major
-    // todo:  relax this assumption, by allowing Tile_blas.hh::trsm() to take
-    //        layout param
-    // todo:  optimize for the number of layout conversions,
-    //        by watching 'layout' and 'B(i, j).layout()'
-    assert(layout == Layout::ColMajor);
 
     assert(B.num_devices() > 0);
     assert(A.mt() == 1);
@@ -208,17 +201,23 @@ void trsm(internal::TargetType<Target::Devices>,
 
                 std::vector<scalar_t*> a_array_host_0(batch_size);
                 std::vector<scalar_t*> b_array_host_0(batch_size);
+
                 int64_t batch_count_0 = 0;
+
                 int64_t lda0 = 0;
                 int64_t ldb0 = 0;
+
                 int64_t mb0 = B.tileMb(0);
                 int64_t nb0 = B.tileNb(0);
 
                 std::vector<scalar_t*> a_array_host_1(batch_size);
                 std::vector<scalar_t*> b_array_host_1(batch_size);
+
                 int64_t batch_count_1 = 0;
+
                 int64_t lda1 = 0;
                 int64_t ldb1 = 0;
+
                 int64_t mb1 = B.tileMb(B.mt()-1);
                 int64_t nb1 = B.tileNb(B.nt()-1);
 
@@ -226,8 +225,10 @@ void trsm(internal::TargetType<Target::Devices>,
                     for (int64_t i = 0; i < B.mt()-1; ++i) {
                         if (B.tileIsLocal(i, 0)) {
                             if (device == B.tileDevice(i, 0)) {
-                                a_array_host_0[batch_count_0] = A(0, 0, device).data();
-                                b_array_host_0[batch_count_0] = B(i, 0, device).data();
+                                a_array_host_0[batch_count_0]
+                                    = A(0, 0, device).data();
+                                b_array_host_0[batch_count_0]
+                                    = B(i, 0, device).data();
                                 lda0 = A(0, 0, device).stride();
                                 ldb0 = B(i, 0, device).stride();
                                 ++batch_count_0;
@@ -238,8 +239,10 @@ void trsm(internal::TargetType<Target::Devices>,
                         int64_t i = B.mt()-1;
                         if (B.tileIsLocal(i, 0)) {
                             if (device == B.tileDevice(i, 0)) {
-                                a_array_host_1[batch_count_1] = A(0, 0, device).data();
-                                b_array_host_1[batch_count_1] = B(i, 0, device).data();
+                                a_array_host_1[batch_count_1]
+                                    = A(0, 0, device).data();
+                                b_array_host_1[batch_count_1]
+                                    = B(i, 0, device).data();
                                 lda1 = A(0, 0, device).stride();
                                 ldb1 = B(i, 0, device).stride();
                                 ++batch_count_1;
@@ -251,8 +254,10 @@ void trsm(internal::TargetType<Target::Devices>,
                     for (int64_t j = 0; j < B.nt()-1; ++j) {
                         if (B.tileIsLocal(0, j)) {
                             if (device == B.tileDevice(0, j)) {
-                                a_array_host_0[batch_count_0] = A(0, 0, device).data();
-                                b_array_host_0[batch_count_0] = B(0, j, device).data();
+                                a_array_host_0[batch_count_0]
+                                    = A(0, 0, device).data();
+                                b_array_host_0[batch_count_0]
+                                    = B(0, j, device).data();
                                 lda0 = A(0, 0, device).stride();
                                 ldb0 = B(0, j, device).stride();
                                 ++batch_count_0;
@@ -263,8 +268,10 @@ void trsm(internal::TargetType<Target::Devices>,
                         int64_t j = B.nt()-1;
                         if (B.tileIsLocal(0, j)) {
                             if (device == B.tileDevice(0, j)) {
-                                a_array_host_1[batch_count_1] = A(0, 0, device).data();
-                                b_array_host_1[batch_count_1] = B(0, j, device).data();
+                                a_array_host_1[batch_count_1]
+                                    = A(0, 0, device).data();
+                                b_array_host_1[batch_count_1]
+                                    = B(0, j, device).data();
                                 lda1 = A(0, 0, device).stride();
                                 ldb1 = B(0, j, device).stride();
                                 ++batch_count_1;
@@ -272,6 +279,12 @@ void trsm(internal::TargetType<Target::Devices>,
                         }
                     }
                 }
+
+                a_array_host_0.resize(batch_count_0);
+                b_array_host_0.resize(batch_count_0);
+
+                a_array_host_1.resize(batch_count_1);
+                b_array_host_1.resize(batch_count_1);
 
                 if (B.op() != Op::NoTrans) {
                     swap(mb0, nb0);
@@ -287,7 +300,7 @@ void trsm(internal::TargetType<Target::Devices>,
                     std::vector<Diag>     diag_(1, diagA);
                     std::vector<scalar_t> alpha_(1, alpha);
 
-                    blas::Queue* queue = B.queue(device, batch_arrays_index);
+                    blas::Queue* queue = B.queue(device, queue_index);
 
                     if (batch_count_0 > 0) {
                         std::vector<int64_t> m(1, mb0);
@@ -316,6 +329,7 @@ void trsm(internal::TargetType<Target::Devices>,
                                     b_array_host_1, ldb,
                             batch_count_1, info, *queue);
                     }
+
                     queue->sync();
                 }
 
@@ -326,7 +340,6 @@ void trsm(internal::TargetType<Target::Devices>,
             }
         }
     }
-
     #pragma omp taskwait
 }
 
@@ -338,28 +351,28 @@ void trsm<Target::HostTask, float>(
     Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
-    int priority, Layout layout, int64_t batch_arrays_index);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void trsm<Target::HostNest, float>(
     Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
-    int priority, Layout layout, int64_t batch_arrays_index);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void trsm<Target::HostBatch, float>(
     Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
-    int priority, Layout layout, int64_t batch_arrays_index);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void trsm<Target::Devices, float>(
     Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
-    int priority, Layout layout, int64_t batch_arrays_index);
+    Layout layout, int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
@@ -367,28 +380,28 @@ void trsm<Target::HostTask, double>(
     Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
-    int priority, Layout layout, int64_t batch_arrays_index);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void trsm<Target::HostNest, double>(
     Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
-    int priority, Layout layout, int64_t batch_arrays_index);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void trsm<Target::HostBatch, double>(
     Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
-    int priority, Layout layout, int64_t batch_arrays_index);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void trsm<Target::Devices, double>(
     Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
-    int priority, Layout layout, int64_t batch_arrays_index);
+    Layout layout, int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
@@ -396,28 +409,28 @@ void trsm< Target::HostTask, std::complex<float> >(
     Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
-    int priority, Layout layout, int64_t batch_arrays_index);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void trsm< Target::HostNest, std::complex<float> >(
     Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
-    int priority, Layout layout, int64_t batch_arrays_index);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void trsm< Target::HostBatch, std::complex<float> >(
     Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
-    int priority, Layout layout, int64_t batch_arrays_index);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void trsm< Target::Devices, std::complex<float> >(
     Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
-    int priority, Layout layout, int64_t batch_arrays_index);
+    Layout layout, int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
@@ -425,28 +438,28 @@ void trsm< Target::HostTask, std::complex<double> >(
     Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
-    int priority, Layout layout, int64_t batch_arrays_index);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void trsm< Target::HostNest, std::complex<double> >(
     Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
-    int priority, Layout layout, int64_t batch_arrays_index);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void trsm< Target::HostBatch, std::complex<double> >(
     Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
-    int priority, Layout layout, int64_t batch_arrays_index);
+    Layout layout, int priority, int64_t queue_index);
 
 template
 void trsm< Target::Devices, std::complex<double> >(
     Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
-    int priority, Layout layout, int64_t batch_arrays_index);
+    Layout layout, int priority, int64_t queue_index);
 
 } // namespace internal
 } // namespace slate

@@ -358,7 +358,7 @@ void henorm(
     int64_t n,
     scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue &queue)
 {
     using real_t = blas::real_type<scalar_t>;
     int64_t nb = 512;
@@ -371,11 +371,11 @@ void henorm(
     // max norm
     if (norm == lapack::Norm::Max) {
         if (n == 0) {
-            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count, stream);
+            blas::device_memset(values, 0, batch_count, queue);
         }
         else {
             assert(ldv == 1);
-            henormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, stream>>>
+            henormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, queue.stream()>>>
                 (uplo, n, Aarray, lda, values);
         }
     }
@@ -383,11 +383,11 @@ void henorm(
     // one norm
     else if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
         if (n == 0) {
-            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * n, stream);
+            blas::device_memset(values, 0, batch_count * n, queue);
         }
         else {
             assert(ldv >= n);
-            henormOneKernel<<<batch_count, nb, 0, stream>>>
+            henormOneKernel<<<batch_count, nb, 0, queue.stream()>>>
                 (uplo, n, Aarray, lda, values, ldv);
         }
     }
@@ -395,11 +395,11 @@ void henorm(
     // Frobenius norm
     else if (norm == lapack::Norm::Fro) {
         if (n == 0) {
-            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * 2, stream);
+            blas::device_memset(values, 0, batch_count * 2, queue);
         }
         else {
             assert(ldv == 2);
-            henormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, stream>>>
+            henormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, queue.stream()>>>
                 (uplo, n, Aarray, lda, values);
         }
     }
@@ -415,7 +415,7 @@ void henorm(
     int64_t n,
     float const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void henorm(
@@ -423,7 +423,7 @@ void henorm(
     int64_t n,
     double const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void henorm(
@@ -431,7 +431,7 @@ void henorm(
     int64_t n,
     cuFloatComplex const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void henorm(
@@ -439,7 +439,7 @@ void henorm(
     int64_t n,
     cuDoubleComplex const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 } // namespace device
 } // namespace slate

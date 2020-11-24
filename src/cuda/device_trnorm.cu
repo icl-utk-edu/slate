@@ -417,7 +417,7 @@ void trnorm(
     int64_t m, int64_t n,
     scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue &queue)
 {
     using real_t = blas::real_type<scalar_t>;
     int64_t nb = 512;
@@ -430,11 +430,11 @@ void trnorm(
     // max norm
     if (norm == lapack::Norm::Max) {
         if (m == 0 || n == 0) {
-            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count, stream);
+            blas::device_memset(values, 0, batch_count, queue);
         }
         else {
             assert(ldv == 1);
-            trnormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, stream>>>
+            trnormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, queue.stream()>>>
                 (uplo, diag, m, n, Aarray, lda, values);
         }
     }
@@ -442,11 +442,11 @@ void trnorm(
     // one norm
     else if (norm == lapack::Norm::One) {
         if (m == 0 || n == 0) {
-            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * n, stream);
+            blas::device_memset(values, 0, batch_count * n, queue);
         }
         else {
             assert(ldv >= n);
-            trnormOneKernel<<<batch_count, nb, 0, stream>>>
+            trnormOneKernel<<<batch_count, nb, 0, queue.stream()>>>
                 (uplo, diag, m, n, Aarray, lda, values, ldv);
         }
     }
@@ -454,11 +454,11 @@ void trnorm(
     // inf norm
     else if (norm == lapack::Norm::Inf) {
         if (m == 0 || n == 0) {
-            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * m, stream);
+            blas::device_memset(values, 0, batch_count * m, queue);
         }
         else {
             assert(ldv >= m);
-            trnormInfKernel<<<batch_count, nb, 0, stream>>>
+            trnormInfKernel<<<batch_count, nb, 0, queue.stream()>>>
                 (uplo, diag, m, n, Aarray, lda, values, ldv);
         }
     }
@@ -466,12 +466,12 @@ void trnorm(
     // Frobenius norm
     else if (norm == lapack::Norm::Fro) {
         if (m == 0 || n == 0) {
-            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * 2, stream);
+            blas::device_memset(values, 0, batch_count * 2, queue);
         }
         else {
             assert(ldv == 2);
             // Max 1024 threads * 16 bytes = 16 KiB shared memory in double [complex].
-            trnormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, stream>>>
+            trnormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, queue.stream()>>>
                 (uplo, diag, m, n, Aarray, lda, values);
         }
     }
@@ -487,7 +487,7 @@ void trnorm(
     int64_t m, int64_t n,
     float const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void trnorm(
@@ -495,7 +495,7 @@ void trnorm(
     int64_t m, int64_t n,
     double const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void trnorm(
@@ -503,7 +503,7 @@ void trnorm(
     int64_t m, int64_t n,
     cuFloatComplex const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void trnorm(
@@ -511,7 +511,7 @@ void trnorm(
     int64_t m, int64_t n,
     cuDoubleComplex const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 } // namespace device
 } // namespace slate

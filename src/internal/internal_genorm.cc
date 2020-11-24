@@ -602,8 +602,7 @@ void norm(
     #pragma omp taskwait
 
     for (int device = 0; device < A.num_devices(); ++device) {
-        slate_cuda_call(
-            cudaSetDevice(device));
+        blas::set_device(device);
         slate_cuda_call(
             cudaFree((void*)a_dev_arrays[device]));
         slate_cuda_call(

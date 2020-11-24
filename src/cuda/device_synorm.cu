@@ -289,7 +289,7 @@ void synorm(
     int64_t n,
     scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue &queue)
 {
     using real_t = blas::real_type<scalar_t>;
     int64_t nb = 512;
@@ -302,11 +302,11 @@ void synorm(
     // max norm
     if (norm == lapack::Norm::Max) {
         if (n == 0) {
-            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count, stream);
+            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count, queue.stream());
         }
         else {
             assert(ldv == 1);
-            synormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, stream>>>
+            synormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, queue.stream()>>>
                 (uplo, n, Aarray, lda, values);
         }
     }
@@ -314,11 +314,11 @@ void synorm(
     // one norm
     else if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
         if (n == 0) {
-            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * n, stream);
+            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * n, queue.stream());
         }
         else {
             assert(ldv >= n);
-            synormOneKernel<<<batch_count, nb, 0, stream>>>
+            synormOneKernel<<<batch_count, nb, 0, queue.stream()>>>
                 (uplo, n, Aarray, lda, values, ldv);
         }
     }
@@ -326,12 +326,12 @@ void synorm(
     // Frobenius norm
     else if (norm == lapack::Norm::Fro) {
         if (n == 0) {
-            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * 2, stream);
+            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * 2, queue.stream());
         }
         else {
             assert(ldv == 2);
             // Max 1024 threads * 16 bytes = 16 KiB shared memory in double [complex].
-            synormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, stream>>>
+            synormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, queue.stream()>>>
                 (uplo, n, Aarray, lda, values);
         }
     }
@@ -483,7 +483,7 @@ void synormOffdiag(
     scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* values, int64_t ldv,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue &queue)
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -497,7 +497,7 @@ void synormOffdiag(
         assert(ldv >= n);
         size_t lwork = sizeof(real_t) * (one_ib*one_ib1 + roundup(m, int64_t(one_ib)));
         assert(lwork <= 48*1024); // max 48 KiB
-        synormOffdiagOneKernel<<<batch_count, 32, lwork, stream>>>
+        synormOffdiagOneKernel<<<batch_count, 32, lwork, queue.stream()>>>
             (m, n, Aarray, lda, values, ldv);
     }
     else {
@@ -515,7 +515,7 @@ void synorm(
     int64_t n,
     float const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void synorm(
@@ -523,7 +523,7 @@ void synorm(
     int64_t n,
     double const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void synorm(
@@ -531,7 +531,7 @@ void synorm(
     int64_t n,
     cuFloatComplex const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void synorm(
@@ -539,7 +539,7 @@ void synorm(
     int64_t n,
     cuDoubleComplex const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 //----------------------------------------
 template
@@ -549,7 +549,7 @@ void synormOffdiag(
     float const* const* Aarray, int64_t lda,
     float* values, int64_t ldv,
     int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void synormOffdiag(
@@ -558,7 +558,7 @@ void synormOffdiag(
     double const* const* Aarray, int64_t lda,
     double* values, int64_t ldv,
     int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void synormOffdiag(
@@ -567,7 +567,7 @@ void synormOffdiag(
     cuFloatComplex const* const* Aarray, int64_t lda,
     float* values, int64_t ldv,
     int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void synormOffdiag(
@@ -576,7 +576,7 @@ void synormOffdiag(
     cuDoubleComplex const* const* Aarray, int64_t lda,
     double* values, int64_t ldv,
     int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 } // namespace device
 } // namespace slate

@@ -57,7 +57,8 @@ void geadd(
     int64_t m, int64_t n,
     scalar_t alpha, scalar_t** Aarray, int64_t lda,
     scalar_t beta, scalar_t** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream);
+    int64_t batch_count,
+    blas::Queue &queue);
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>

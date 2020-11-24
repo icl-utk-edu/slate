@@ -82,7 +82,6 @@ double imag(cuDoubleComplex a)
 /// @param[in] n
 ///     Number of rows and columns of each tile. n >= 1.
 ///     Also the number of threads per block (blockDim.x), hence,
-///     n <= 1024 for current CUDA architectures (2.x to 6.x).
 ///
 /// @param[in] tiles
 ///     Array of tiles of dimension gridDim.x,
@@ -156,7 +155,6 @@ __global__ void henormMaxKernel(
 /// @param[in] n
 ///     Number of rows and columns of each tile. n >= 1.
 ///     Also the number of threads per block (blockDim.x), hence,
-///     n <= 1024 for current CUDA architectures (2.x to 6.x).
 ///
 /// @param[in] tiles
 ///     Array of tiles of dimension gridDim.x,
@@ -222,7 +220,6 @@ __global__ void henormOneKernel(
 /// @param[in] n
 ///     Number of rows and columns of each tile. n >= 1.
 ///     Also the number of threads per block, hence,
-///     n <= 1024 for current CUDA architectures (2.x to 6.x).
 ///
 /// @param[in] tiles
 ///     Array of tiles of dimension blockDim.x,
@@ -315,7 +312,6 @@ __global__ void henormFroKernel(
 ///
 /// @param[in] n
 ///     Number of rows and columns of each tile. n >= 0.
-///     Currently, n <= 1024 due to CUDA implementation.
 ///
 /// @param[in] Aarray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,

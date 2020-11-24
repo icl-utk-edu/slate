@@ -23,7 +23,6 @@ namespace device {
 /// @param[in] m
 ///     Number of rows of each tile. m >= 1.
 ///     Also the number of threads per block (blockDim.x), hence,
-///     m <= 1024 for current CUDA architectures (2.x to 6.x).
 ///
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
@@ -116,7 +115,6 @@ __global__ void trnormMaxKernel(
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
 ///     Also the number of threads per block (blockDim.x), hence,
-///     n <= 1024 for current CUDA architectures (2.x to 6.x).
 ///
 /// @param[in] tiles
 ///     Array of tiles of dimension gridDim.x,
@@ -188,7 +186,6 @@ __global__ void trnormOneKernel(
 /// @param[in] m
 ///     Number of rows of each tile. m >= 1.
 ///     Also the number of threads per block, hence,
-///     m <= 1024 for current CUDA architectures (2.x to 6.x).
 ///
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
@@ -267,7 +264,6 @@ __global__ void trnormInfKernel(
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
 ///     Also the number of threads per block, hence,
-///     n <= 1024 for current CUDA architectures (2.x to 6.x).
 ///
 /// @param[in] tiles
 ///     Array of tiles of dimension blockDim.x,
@@ -372,7 +368,6 @@ __global__ void trnormFroKernel(
 ///
 /// @param[in] n
 ///     Number of columns of each tile. n >= 0.
-///     Currently, n <= 1024 due to CUDA implementation.
 ///
 /// @param[in] Aarray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
@@ -470,7 +465,6 @@ void trnorm(
         }
         else {
             assert(ldv == 2);
-            // Max 1024 threads * 16 bytes = 16 KiB shared memory in double [complex].
             trnormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, queue.stream()>>>
                 (uplo, diag, m, n, Aarray, lda, values);
         }

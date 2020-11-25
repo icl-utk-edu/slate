@@ -235,27 +235,29 @@ void geadd(internal::TargetType<Target::Devices>,
             scalar_t** a_array_dev = B.array_device(device);
             scalar_t** b_array_dev = a_array_dev + batch_size;
 
+            blas::set_device(device);
             const int batch_arrays_index = 0;
-            blas::Queue* queue = A.queue(device, batch_arrays_index);
-            queue->sync();
+            blas::Queue queue(device, batch_arrays_index);
+            // TODO: Use the A.queue()
+            //blas::Queue* queue = A.queue(device, batch_arrays_index);
 
             blas::device_memcpy<scalar_t*>((void*)a_array_dev, (void*)a_array_host,
                                 batch_count*2,
                                 cudaMemcpyHostToDevice,
-                                *queue);
+                                queue);
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
                     device::geadd(mb[q], nb[q],
                                   alpha, a_array_dev, lda[q],
-                                  beta, b_array_dev, ldb[q],
-                                  group_count[q], *queue);
+                                  beta,  b_array_dev, ldb[q],
+                                  group_count[q], queue);
                     a_array_dev += group_count[q];
                     b_array_dev += group_count[q];
                 }
             }
 
-            queue->sync();
+            queue.sync();
 
             for (int64_t i = 0; i < B.mt(); ++i) {
                 for (int64_t j = 0; j < B.nt(); ++j) {

@@ -86,7 +86,7 @@ template <typename scalar_t>
 void geset(
     int64_t m, int64_t n,
     scalar_t diag_value, scalar_t offdiag_value, scalar_t** Aarray, int64_t lda,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
     // quick return
     if (batch_count == 0)
@@ -95,7 +95,7 @@ void geset(
     // Max threads/block=1024 for current CUDA compute capability (<=7.5)
     int64_t nthreads = std::min((int64_t)1024 , m);
 
-    gesetKernel<<<batch_count, nthreads, 0, stream>>>(
+    gesetKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
         m, n,
         diag_value, offdiag_value, Aarray, lda);
 
@@ -108,27 +108,27 @@ template
 void geset(
     int64_t m, int64_t n,
     float diag_value, float offdiag_value, float** Aarray, int64_t lda,
-    int64_t batch_count, cudaStream_t stream);
+    int64_t batch_count, blas::Queue &queue);
 
 template
 void geset(
     int64_t m, int64_t n,
     double diag_value, double offdiag_value, double** Aarray, int64_t lda,
-    int64_t batch_count, cudaStream_t stream);
+    int64_t batch_count, blas::Queue &queue);
 
 template
 void geset(
     int64_t m, int64_t n,
     cuFloatComplex diag_value, cuFloatComplex offdiag_value,
     cuFloatComplex** Aarray, int64_t lda,
-    int64_t batch_count, cudaStream_t stream);
+    int64_t batch_count, blas::Queue &queue);
 
 template
 void geset(
     int64_t m, int64_t n,
     cuDoubleComplex diag_value, cuDoubleComplex offdiag_value,
     cuDoubleComplex** Aarray, int64_t lda,
-    int64_t batch_count, cudaStream_t stream);
+    int64_t batch_count, blas::Queue &queue);
 
 } // namespace device
 } // namespace slate

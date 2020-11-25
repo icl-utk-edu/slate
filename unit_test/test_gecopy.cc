@@ -48,20 +48,23 @@ void test_gecopy_dev()
     slate::Tile<double> B(m, n, Bdata, ldb, -1, slate::TileKind::UserOwned);
     //gecopy( A, B );
 
-    cudaStream_t stream;
-    test_assert(cudaStreamCreate(&stream) == cudaSuccess);
+    int device_idx;
+    blas::get_device(&device_idx);
+    const int batch_arrays_index = 0;
+    blas::Queue queue(device_idx, batch_arrays_index);
+    //test_assert(cudaStreamCreate(&stream) == cudaSuccess);
 
     double* dAdata;
-    test_assert(cudaMalloc((void**)&dAdata, sizeof(double) * lda * n) == cudaSuccess);
+    //test_assert(cudaMalloc((void**)&dAdata, sizeof(double) * lda * n) == cudaSuccess);
     test_assert(dAdata != nullptr);
     slate::Tile<double> dA(m, n, dAdata, lda, 0, slate::TileKind::UserOwned);
-    A.copyData(&dA, stream);
+    A.copyData(&dA, queue.stream());
 
     double* dBdata;
-    test_assert(cudaMalloc((void**)&dBdata, sizeof(double) * ldb * n) == cudaSuccess);
+    //test_assert(cudaMalloc((void**)&dBdata, sizeof(double) * ldb * n) == cudaSuccess);
     test_assert(dBdata != nullptr);
     slate::Tile<double> dB(m, n, dBdata, ldb, 0, slate::TileKind::UserOwned);
-    B.copyData(&dB, stream);
+    B.copyData(&dB, queue.stream());
 
     const int batch_count = 1;
     double* Aarray[batch_count];
@@ -69,28 +72,28 @@ void test_gecopy_dev()
     test_assert(cudaMalloc((void**)&dAarray, sizeof(double*) * batch_count) == cudaSuccess);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
-    test_assert(cudaMemcpy(dAarray, Aarray, sizeof(double*) * batch_count,
-                           cudaMemcpyHostToDevice ) == cudaSuccess);
+    //test_assert(cudaMemcpy(dAarray, Aarray, sizeof(double*) * batch_count,
+    //                       cudaMemcpyHostToDevice ) == cudaSuccess);
 
     double* Barray[batch_count];
     double** dBarray;
-    test_assert(cudaMalloc((void**)&dBarray, sizeof(double*) * batch_count) == cudaSuccess);
+    //test_assert(cudaMalloc((void**)&dBarray, sizeof(double*) * batch_count) == cudaSuccess);
     test_assert(dBarray != nullptr);
     Barray[0] = dB.data();
-    test_assert(cudaMemcpy(dBarray, Barray, sizeof(double*) * batch_count,
-                           cudaMemcpyHostToDevice ) == cudaSuccess);
-    slate::device::gecopy( m, n, 
+    //test_assert(cudaMemcpy(dBarray, Barray, sizeof(double*) * batch_count,
+    //                       cudaMemcpyHostToDevice ) == cudaSuccess);
+    slate::device::gecopy( m, n,
                            dAarray, lda,
-                           dBarray, ldb, 
-                           batch_count, stream );
+                           dBarray, ldb,
+                           batch_count, queue );
 
-    slate_cuda_call( cudaStreamSynchronize( stream ) );
+    queue.sync();
 
-    test_assert(cudaMemcpy( Barray, dBarray, sizeof(double*) * batch_count,
-                            cudaMemcpyDeviceToHost ) == cudaSuccess );
-    dB.copyData(&B, stream);
+    //test_assert(cudaMemcpy( Barray, dBarray, sizeof(double*) * batch_count,
+    //                        cudaMemcpyDeviceToHost ) == cudaSuccess );
+    dB.copyData(&B, queue.stream());
 
-    // compute B-B0 on CPU to check the results 
+    // compute B-B0 on CPU to check the results
     //blas::axpy( A.size(), neg_one, A.data(), ione, B.data(), ione );
     for( int j = 0; j < n; ++j ) {
         for( int i = 0; i < m; ++i ) {

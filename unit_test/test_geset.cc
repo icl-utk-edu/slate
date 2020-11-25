@@ -44,41 +44,44 @@ void test_geset_dev()
     double* Bdata = new double[ ldb * n ];
     slate::Tile<double> B(m, n, Bdata, ldb, -1, slate::TileKind::UserOwned);
 
-    cudaStream_t stream;
-    test_assert(cudaStreamCreate(&stream) == cudaSuccess);
+    int device_idx;
+    blas::get_device(&device_idx);
+    const int batch_arrays_index = 0;
+    blas::Queue queue(device_idx, batch_arrays_index);
+    //test_assert(cudaStreamCreate(&stream) == cudaSuccess);
 
     double* dAdata;
-    test_assert(cudaMalloc((void**)&dAdata, sizeof(double) * lda * n) == cudaSuccess);
+    //test_assert(cudaMalloc((void**)&dAdata, sizeof(double) * lda * n) == cudaSuccess);
     test_assert(dAdata != nullptr);
     slate::Tile<double> dA(m, n, dAdata, lda, 0, slate::TileKind::UserOwned);
 
     const int batch_count = 1;
     double* Aarray[batch_count];
     double** dAarray;
-    test_assert(cudaMalloc((void**)&dAarray, sizeof(double*) * batch_count) == cudaSuccess);
+    //test_assert(cudaMalloc((void**)&dAarray, sizeof(double*) * batch_count) == cudaSuccess);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
-    test_assert(cudaMemcpy(dAarray, Aarray, sizeof(double*) * batch_count,
-                           cudaMemcpyHostToDevice ) == cudaSuccess);
+    //test_assert(cudaMemcpy(dAarray, Aarray, sizeof(double*) * batch_count,
+    //                       cudaMemcpyHostToDevice ) == cudaSuccess);
 
-    slate::device::geset( m, n, 
+    slate::device::geset( m, n,
                           offdiag_value, diag_value, dAarray, lda,
-                          batch_count, stream );
+                          batch_count, queue );
 
-    slate_cuda_call( cudaStreamSynchronize( stream ) );
+    queue.sync();
 
-    test_assert(cudaMemcpy( Aarray, dAarray, sizeof(double*) * batch_count,
-                            cudaMemcpyDeviceToHost ) == cudaSuccess );
-    dA.copyData(&A, stream);
+    //test_assert(cudaMemcpy( Aarray, dAarray, sizeof(double*) * batch_count,
+    //                        cudaMemcpyDeviceToHost ) == cudaSuccess );
+    dA.copyData(&A, queue.stream());
 
-    // compute on CPU to check the results 
+    // compute on CPU to check the results
     for( int j = 0; j < n; ++j ) {
         for( int i = 0; i < m; ++i ) {
             if (i == j) {
-                Bdata[ i + j*ldb ] = diag_value; 
+                Bdata[ i + j*ldb ] = diag_value;
             }
             else {
-                Bdata[ i + j*ldb ] = offdiag_value; 
+                Bdata[ i + j*ldb ] = offdiag_value;
             }
         }
     }

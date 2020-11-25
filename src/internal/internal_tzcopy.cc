@@ -21,14 +21,14 @@ void tzcopy(
     int64_t m, int64_t n,
     std::complex<float>** Aarray, int64_t lda,
     std::complex<float>** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 #if !defined(SLATE_NO_CUDA)
     tzcopy(uplo,
            m, n,
            (cuFloatComplex**) Aarray, lda,
            (cuFloatComplex**) Barray, ldb,
-           batch_count, stream);
+           batch_count, queue);
 #endif
 }
 
@@ -38,14 +38,14 @@ void tzcopy(
     int64_t m, int64_t n,
     std::complex<float>** Aarray, int64_t lda,
     std::complex<double>** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 #if !defined(SLATE_NO_CUDA)
     tzcopy(uplo,
            m, n,
            (cuFloatComplex**) Aarray, lda,
            (cuDoubleComplex**) Barray, ldb,
-           batch_count, stream);
+           batch_count, queue);
 #endif
 }
 
@@ -55,14 +55,14 @@ void tzcopy(
     int64_t m, int64_t n,
     std::complex<double>** Aarray, int64_t lda,
     std::complex<double>** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 #if !defined(SLATE_NO_CUDA)
     tzcopy(uplo,
            m, n,
            (cuDoubleComplex**) Aarray, lda,
            (cuDoubleComplex**) Barray, ldb,
-           batch_count, stream);
+           batch_count, queue);
 #endif
 }
 
@@ -72,14 +72,14 @@ void tzcopy(
     int64_t m, int64_t n,
     std::complex<double>** Aarray, int64_t lda,
     std::complex<float>** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 #if !defined(SLATE_NO_CUDA)
     tzcopy(uplo,
            m, n,
            (cuDoubleComplex**) Aarray, lda,
            (cuFloatComplex**) Barray, ldb,
-           batch_count, stream);
+           batch_count, queue);
 #endif
 }
 
@@ -92,7 +92,7 @@ void tzcopy(
     int64_t m, int64_t n,
     double** Aarray, int64_t lda,
     double** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 }
 
@@ -102,7 +102,7 @@ void tzcopy(
     int64_t m, int64_t n,
     double** Aarray, int64_t lda,
     float** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 }
 
@@ -112,7 +112,7 @@ void tzcopy(
     int64_t m, int64_t n,
     float** Aarray, int64_t lda,
     float** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 }
 template <>
@@ -121,7 +121,7 @@ void tzcopy(
     int64_t m, int64_t n,
     float** Aarray, int64_t lda,
     double** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 }
 #endif // not SLATE_NO_CUDA
@@ -323,29 +323,26 @@ void copy(internal::TargetType<Target::Devices>,
             src_scalar_t** a_array_dev = A.array_device(device);
             dst_scalar_t** b_array_dev = B.array_device(device);
 
-            slate_cuda_call(cudaSetDevice(device));
+            const int batch_arrays_index = 0;
+            blas::Queue* queue = A.queue(device, batch_arrays_index);
+            blas::set_device(device);
 
-            cudaStream_t stream = B.compute_stream(device);
-            // cublasHandle_t cublas_handle = B.cublas_handle(device);
-
-            slate_cuda_call(
-                cudaMemcpyAsync(a_array_dev, a_array_host,
-                                sizeof(src_scalar_t*)*batch_count,
+            blas::device_memcpy<src_scalar_t*>((void*)a_array_dev, (void*)a_array_host,
+                                batch_count,
                                 cudaMemcpyHostToDevice,
-                                stream));
+                                *queue);
 
-            slate_cuda_call(
-                cudaMemcpyAsync(b_array_dev, b_array_host,
-                                sizeof(dst_scalar_t*)*batch_count,
+            blas::device_memcpy<dst_scalar_t*>((void*)b_array_dev, (void*)b_array_host,
+                                batch_count,
                                 cudaMemcpyHostToDevice,
-                                stream));
+                                *queue);
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
                     device::gecopy(mb[q], nb[q],
                                    a_array_dev, lda[q],
                                    b_array_dev, ldb[q],
-                                   group_count[q], stream);
+                                   group_count[q], *queue);
                     a_array_dev += group_count[q];
                     b_array_dev += group_count[q];
                 }
@@ -356,13 +353,13 @@ void copy(internal::TargetType<Target::Devices>,
                                    mb[q], nb[q],
                                    a_array_dev, lda[q],
                                    b_array_dev, ldb[q],
-                                   group_count[q], stream);
+                                   group_count[q], *queue);
                     a_array_dev += group_count[q];
                     b_array_dev += group_count[q];
                 }
             }
 
-            slate_cuda_call(cudaStreamSynchronize(stream));
+            queue->sync();
 
             for (int64_t i = 0; i < B.mt(); ++i) {
                 for (int64_t j = 0; j < B.nt(); ++j) {

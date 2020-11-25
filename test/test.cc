@@ -365,6 +365,8 @@ Params::Params():
     matrixB.kind.name( "matrixB" );
     matrixB.cond.name( "condB" );
     matrixB.condD.name( "condD_B" );
+    matrixB.seed.name( "seedB" );
+    matrixB.seed.set_default( 42 );
 
     // change names of matrix C's params
     matrixC.kind.name( "matrixC" );

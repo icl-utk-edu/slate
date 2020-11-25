@@ -23,6 +23,7 @@ public:
     testsweeper::ParamString kind;
     testsweeper::ParamScientific cond, cond_used;
     testsweeper::ParamScientific condD;
+    testsweeper::ParamInt seed;
 };
 
 #endif // SLATE_MATRIX_PARAMS_HH

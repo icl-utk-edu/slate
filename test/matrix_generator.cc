@@ -105,7 +105,8 @@ void generate_sigma(
     blas::real_type<typename matrix_type::value_type> cond,
     blas::real_type<typename matrix_type::value_type> sigma_max,
     matrix_type& A,
-    std::vector< blas::real_type<typename matrix_type::value_type> >& Sigma )
+    std::vector< blas::real_type<typename matrix_type::value_type> >& Sigma,
+    int64_t iseed[4] )
 {
     using scalar_t = typename matrix_type::value_type;
     using real_t = blas::real_type<scalar_t>;
@@ -172,7 +173,7 @@ void generate_sigma(
 
         case TestMatrixDist::logrand: {
             real_t range = log( 1/cond );
-            lapack::larnv( idist_rand, params.iseed, Sigma.size(), Sigma.data() );
+            lapack::larnv( idist_rand, iseed, Sigma.size(), Sigma.data() );
             for (int64_t i = 0; i < min_mn; ++i) {
                 Sigma[i] = exp( Sigma[i] * range );
             }
@@ -188,7 +189,7 @@ void generate_sigma(
         case TestMatrixDist::rands:
         case TestMatrixDist::rand: {
             int64_t idist = (int64_t) dist;
-            lapack::larnv( idist, params.iseed, Sigma.size(), Sigma.data() );
+            lapack::larnv( idist, iseed, Sigma.size(), Sigma.data() );
             break;
         }
 
@@ -210,7 +211,9 @@ void generate_sigma(
     if (rand_sign) {
         // apply random signs
         for (int64_t i = 0; i < min_mn; ++i) {
-            if (rand() > RAND_MAX/2) {
+            float rand;
+            lapack::larnv( idist_rand, iseed, 1, &rand );
+            if (rand > 0.5) {
                 Sigma[i] = -Sigma[i];
             }
         }
@@ -310,7 +313,8 @@ void generate_svd(
     blas::real_type<scalar_t> condD,
     blas::real_type<scalar_t> sigma_max,
     slate::Matrix<scalar_t>& A,
-    std::vector< blas::real_type<scalar_t> >& Sigma )
+    std::vector< blas::real_type<scalar_t> >& Sigma,
+    int64_t iseed[4] )
 {
     using real_t = blas::real_type<scalar_t>;
     assert( A.m() >= A.n() );
@@ -326,7 +330,7 @@ void generate_svd(
     slate::TriangularFactors<scalar_t> T;
 
     // ----------
-    generate_sigma( params, dist, false, cond, sigma_max, A, Sigma );
+    generate_sigma( params, dist, false, cond, sigma_max, A, Sigma, iseed );
 
     // for generate correlation factor, need sum sigma_i^2 = n
     // scaling doesn't change cond
@@ -368,13 +372,13 @@ void generate_svd(
                 //    U.tileMb(i)*U.tileNb(j), Tmpij.data() );
 
                 // Added local seed array for each process to prevent race condition contention of params.seed
-                int64_t iseed[4];
-                iseed[0] = (params.iseed[0] + i) % 4096;
-                iseed[1] = (params.iseed[1] + j) % 4096;
-                iseed[2] =  params.iseed[2];
-                iseed[3] =  params.iseed[3];
+                int64_t tile_iseed[4];
+                tile_iseed[0] = (iseed[0] + i) % 4096;
+                tile_iseed[1] = (iseed[1] + j) % 4096;
+                tile_iseed[2] =  iseed[2];
+                tile_iseed[3] =  iseed[3];
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
-                    lapack::larnv(idist_randn, iseed, Tmpij.mb(), &data[k*ldt]);
+                    lapack::larnv(idist_randn, tile_iseed, Tmpij.mb(), &data[k*ldt]);
                 }
                 gecopy(Tmp(i, j), U(i, j));
                 Tmp.tileErase(i, j);
@@ -382,7 +386,7 @@ void generate_svd(
         }
     }
     // Hack to update iseed between matrices.
-    params.iseed[2] = (params.iseed[2] + 1) % 4096;
+    iseed[2] = (iseed[2]*31) % 4096;
 
     // we need to make each random column into a Householder vector;
     // no need to update subsequent columns (as in geqrf).
@@ -396,8 +400,8 @@ void generate_svd(
     // random V, n-by-min_mn (stored column-wise in U)
     auto V = U.sub(0, nt-1, 0, nt-1);
     #pragma omp parallel for collapse(2)
-    for (int64_t j = 0; j < nt; ++j) {
-        for (int64_t i = 0; i < mt; ++i) {
+    for (int64_t j = 0; j < min_mt_nt; ++j) {
+        for (int64_t i = 0; i < nt; ++i) {
             if (V.tileIsLocal(i, j)) {
                 Tmp.tileInsert(i, j);
                 auto Tmpij = Tmp(i, j);
@@ -405,13 +409,13 @@ void generate_svd(
                 int64_t ldt = Tmpij.stride();
 
                 // Added local seed array for each process to prevent race condition contention of params.seed
-                int64_t iseed[4];
-                iseed[0] = (params.iseed[0] + i) % 4096;
-                iseed[1] = (params.iseed[1] + j) % 4096;
-                iseed[2] =  params.iseed[2];
-                iseed[3] =  params.iseed[3];
+                int64_t tile_iseed[4];
+                tile_iseed[0] = (iseed[0] + i) % 4096;
+                tile_iseed[1] = (iseed[1] + j) % 4096;
+                tile_iseed[2] =  iseed[2];
+                tile_iseed[3] =  iseed[3];
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
-                    lapack::larnv(idist_randn, iseed, Tmpij.mb(), &data[k*ldt]);
+                    lapack::larnv(idist_randn, tile_iseed, Tmpij.mb(), &data[k*ldt]);
                 }
                 gecopy(Tmp(i, j), V(i, j));
                 Tmp.tileErase(i, j);
@@ -419,7 +423,7 @@ void generate_svd(
         }
     }
     // Hack to update iseed between matrices.
-    params.iseed[2] = (params.iseed[2] + 1) % 4096;
+    iseed[2] = (iseed[2] + 1) % 4096;
 
     slate::geqrf(V, T);
 
@@ -435,7 +439,7 @@ void generate_svd(
         // A = A*D col scaling
         std::vector<real_t> D( n );
         real_t range = log( condD );
-        lapack::larnv( idist_rand, params.iseed, D.size(), D.data() );
+        lapack::larnv( idist_rand, iseed, D.size(), D.data() );
         for (auto& D_i: D) {
             D_i = exp( D_i * range );
         }
@@ -481,7 +485,8 @@ void generate_heev(
     blas::real_type<scalar_t> condD,
     blas::real_type<scalar_t> sigma_max,
     slate::Matrix<scalar_t>& A,
-    std::vector< blas::real_type<scalar_t> >& Sigma )
+    std::vector< blas::real_type<scalar_t> >& Sigma,
+    int64_t iseed[4] )
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -495,7 +500,7 @@ void generate_heev(
     slate::TriangularFactors<scalar_t> T;
 
     // ----------
-    generate_sigma( params, dist, rand_sign, cond, sigma_max, A, Sigma );
+    generate_sigma( params, dist, rand_sign, cond, sigma_max, A, Sigma, iseed );
 
     // random U, m-by-min_mn
     int64_t nt = U.nt();
@@ -512,13 +517,13 @@ void generate_heev(
                 int64_t ldt = Tmpij.stride();
 
                 // Added local seed array for each process to prevent race condition contention of params.seed
-                int64_t iseed[4];
-                iseed[0] = (params.iseed[0] + i) % 4096;
-                iseed[1] = (params.iseed[1] + j) % 4096;
-                iseed[2] =  params.iseed[2];
-                iseed[3] =  params.iseed[3];
+                int64_t tile_iseed[4];
+                tile_iseed[0] = (iseed[0] + i) % 4096;
+                tile_iseed[1] = (iseed[1] + j) % 4096;
+                tile_iseed[2] =  iseed[2];
+                tile_iseed[3] =  iseed[3];
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
-                    lapack::larnv(idist_rand, iseed, Tmpij.mb(), &data[k*ldt]);
+                    lapack::larnv(idist_rand, tile_iseed, Tmpij.mb(), &data[k*ldt]);
                 }
                 gecopy(Tmp(i, j), U(i, j));
                 Tmp.tileErase(i, j);
@@ -526,7 +531,7 @@ void generate_heev(
         }
     }
     // Hack to update iseed between matrices.
-    params.iseed[2] = (params.iseed[2] + 1) % 4096;
+    iseed[2] = (iseed[2]*11) % 4096;
 
     // we need to make each random column into a Householder vector;
     // no need to update subsequent columns (as in geqrf).
@@ -557,7 +562,7 @@ void generate_heev(
         // A = D*A*D row & column scaling
         std::vector<real_t> D( n );
         real_t range = log( condD );
-        lapack::larnv( idist_rand, params.iseed, n, D.data() );
+        lapack::larnv( idist_rand, iseed, n, D.data() );
         for (int64_t i = 0; i < n; ++i) {
             D[i] = exp( D[i] * range );
         }
@@ -599,7 +604,8 @@ void generate_geev(
     blas::real_type<scalar_t> cond,
     blas::real_type<scalar_t> sigma_max,
     slate::Matrix<scalar_t>& A,
-    std::vector< blas::real_type<scalar_t> >& Sigma )
+    std::vector< blas::real_type<scalar_t> >& Sigma,
+    int64_t iseed[4] )
 {
     throw std::exception();  // not implemented
 }
@@ -619,7 +625,8 @@ void generate_geevx(
     blas::real_type<scalar_t> cond,
     blas::real_type<scalar_t> sigma_max,
     slate::Matrix<scalar_t>& A,
-    std::vector< blas::real_type<scalar_t> >& Sigma )
+    std::vector< blas::real_type<scalar_t> >& Sigma,
+    int64_t iseed[4] )
 {
     throw std::exception();  // not implemented
 }
@@ -731,6 +738,7 @@ void decode_matrix(
     if (condD_default) {
         condD = 1;
     }
+
     //---------------
     sigma_max = 1;
     std::vector< std::string > tokens = split( kind, "-_" );
@@ -1098,6 +1106,8 @@ void generate_matrix(
     bool dominant;
     decode_matrix<scalar_t>(params, A, type, dist, cond, condD, sigma_max, dominant);
 
+    int64_t iseed[] = {params.seed(), params.iseed[1], params.iseed[2], params.iseed[3]};
+
     int64_t n = A.n();
     int64_t nt = A.nt();
     int64_t mt = A.mt();
@@ -1184,13 +1194,13 @@ void generate_matrix(
                         scalar_t* data = Aij.data();
                         int64_t lda = Aij.stride();
                         // Added local seed array for each process to prevent race condition contention of params.seed
-                        int64_t iseed[4];
-                        iseed[0] = (params.iseed[0] + i) % 4096;
-                        iseed[1] = (params.iseed[1] + j) % 4096;
-                        iseed[2] =  params.iseed[2];
-                        iseed[3] =  params.iseed[3];
+                        int64_t tile_iseed[4];
+                        tile_iseed[0] = (iseed[0] + i) % 4096;
+                        tile_iseed[1] = (iseed[1] + j) % 4096;
+                        tile_iseed[2] =  iseed[2];
+                        tile_iseed[3] =  iseed[3];
                         for (int64_t k = 0; k < Aij.nb(); ++k) {
-                            lapack::larnv(idist, iseed, Aij.mb(), &data[k*lda]);
+                            lapack::larnv(idist, tile_iseed, Aij.mb(), &data[k*lda]);
                         }
                         // Make it diagonally dominant
                         if (dominant) {
@@ -1210,32 +1220,32 @@ void generate_matrix(
                 }
             }
             // Hack to update iseed between matrices.
-            params.iseed[2] = (params.iseed[2] + 1) % 4096;
+            iseed[2] = (iseed[2] + 1) % 4096;
             break;
         }
 
         case TestMatrixType::diag:
-            generate_sigma( params, dist, false, cond, sigma_max, A, Sigma );
+            generate_sigma( params, dist, false, cond, sigma_max, A, Sigma, iseed );
             break;
 
         case TestMatrixType::svd:
-            generate_svd( params, dist, cond, condD, sigma_max, A, Sigma );
+            generate_svd( params, dist, cond, condD, sigma_max, A, Sigma, iseed );
             break;
 
         case TestMatrixType::poev:
-            generate_heev( params, dist, false, cond, condD, sigma_max, A, Sigma );
+            generate_heev( params, dist, false, cond, condD, sigma_max, A, Sigma, iseed );
             break;
 
         case TestMatrixType::heev:
-            generate_heev( params, dist, true, cond, condD, sigma_max, A, Sigma );
+            generate_heev( params, dist, true, cond, condD, sigma_max, A, Sigma, iseed );
             break;
 
         case TestMatrixType::geev:
-            generate_geev( params, dist, cond, sigma_max, A, Sigma );
+            generate_geev( params, dist, cond, sigma_max, A, Sigma, iseed );
             break;
 
         case TestMatrixType::geevx:
-            generate_geevx( params, dist, cond, sigma_max, A, Sigma );
+            generate_geevx( params, dist, cond, sigma_max, A, Sigma, iseed );
             break;
     }
 
@@ -1282,6 +1292,8 @@ void generate_matrix(
     real_t sigma_max;
     bool dominant;
     decode_matrix<scalar_t>(params, A, type, dist, cond, condD, sigma_max, dominant);
+
+    int64_t iseed[] = {params.seed(), params.iseed[1], params.iseed[2], params.iseed[3]};
 
     int64_t n = A.n();
     int64_t nt = A.nt();
@@ -1370,13 +1382,13 @@ void generate_matrix(
                             scalar_t* data = Aij.data();
                             int64_t lda = Aij.stride();
                             // Added local seed array for each process to prevent race condition contention of params.seed
-                            int64_t iseed[4];
-                            iseed[0] = (params.iseed[0] + i) % 4096;
-                            iseed[1] = (params.iseed[1] + j) % 4096;
-                            iseed[2] =  params.iseed[2];
-                            iseed[3] =  params.iseed[3];
+                            int64_t tile_iseed[4];
+                            tile_iseed[0] = (iseed[0] + i) % 4096;
+                            tile_iseed[1] = (iseed[1] + j) % 4096;
+                            tile_iseed[2] =  iseed[2];
+                            tile_iseed[3] =  iseed[3];
                             for (int64_t k = 0; k < Aij.nb(); ++k) {
-                                lapack::larnv(idist, iseed, Aij.mb(), &data[k*lda]);
+                                lapack::larnv(idist, tile_iseed, Aij.mb(), &data[k*lda]);
                             }
 
                             // Make it diagonally dominant
@@ -1412,13 +1424,13 @@ void generate_matrix(
                             scalar_t* data = Aij.data();
                             int64_t lda = Aij.stride();
                             // Added local seed array for each process to prevent race condition contention of params.seed
-                            int64_t iseed[4];
-                            iseed[0] = (params.iseed[0] + i) % 4096;
-                            iseed[1] = (params.iseed[1] + j) % 4096;
-                            iseed[2] =  params.iseed[2];
-                            iseed[3] =  params.iseed[3];
+                            int64_t tile_iseed[4];
+                            tile_iseed[0] = (iseed[0] + i) % 4096;
+                            tile_iseed[1] = (iseed[1] + j) % 4096;
+                            tile_iseed[2] =  iseed[2];
+                            tile_iseed[3] =  iseed[3];
                             for (int64_t k = 0; k < Aij.nb(); ++k) {
-                                lapack::larnv(idist, iseed, Aij.mb(), &data[k*lda]);
+                                lapack::larnv(idist, tile_iseed, Aij.mb(), &data[k*lda]);
                             }
                             // Make it diagonally dominant
                             if (dominant) {
@@ -1439,12 +1451,12 @@ void generate_matrix(
                 }
             }
             // Hack to update iseed between matrices.
-            params.iseed[2] = (params.iseed[2] + 1) % 4096;
+            iseed[2] = (iseed[2] + 1) % 4096;
             break;
         }
 
         case TestMatrixType::diag:
-            generate_sigma( params, dist, false, cond, sigma_max, A, Sigma );
+            generate_sigma( params, dist, false, cond, sigma_max, A, Sigma, iseed );
             break;
 
         case TestMatrixType::poev:

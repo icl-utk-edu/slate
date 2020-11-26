@@ -97,36 +97,6 @@ inline cublasOperation_t cublas_op_const(Op op)
 }
 
 //------------------------------------------------------------------------------
-inline cublasFillMode_t cublas_uplo_const(Uplo uplo)
-{
-    switch (uplo) {
-        case Uplo::Lower: return CUBLAS_FILL_MODE_LOWER;
-        case Uplo::Upper: return CUBLAS_FILL_MODE_UPPER;
-        default: assert(false);
-    }
-}
-
-//------------------------------------------------------------------------------
-inline cublasSideMode_t cublas_side_const(Side side)
-{
-    switch (side) {
-        case Side::Left:  return CUBLAS_SIDE_LEFT;
-        case Side::Right: return CUBLAS_SIDE_RIGHT;
-        default: assert(false);
-    }
-}
-
-//------------------------------------------------------------------------------
-inline cublasDiagType_t cublas_diag_const(Diag diag)
-{
-    switch (diag) {
-        case Diag::NonUnit: return CUBLAS_DIAG_NON_UNIT;
-        case Diag::Unit:    return CUBLAS_DIAG_UNIT;
-        default: assert(false);
-    }
-}
-
-//------------------------------------------------------------------------------
 // Auxiliary class to store and communicate the pivot information internally
 // in the panel factorization routine.
 template <typename scalar_t>
@@ -210,7 +180,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
-          Layout layout, int priority=0, int64_t batch_arrays_index=0);
+          Layout layout, int priority=0, int64_t queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void gemmA(scalar_t alpha, Matrix<scalar_t>&& A,

@@ -299,11 +299,15 @@ public:
             slate_cuda_call(
                 cudaFree(array_dev_));
 
-            // Allocate host arrays.
-            slateCudaMallocHost(&array_host_, batch_size * dim_);
+            const size_t len = std::max(
+                            sizeof(scalar_t) * batch_size * dim_, size_t(1));
 
+            // Allocate host arrays.
+            slate_cuda_call(cudaMallocHost((void**)&array_host_, len));
+            // slateCudaMallocHost(&array_host_, batch_size * dim_);
             // Allocate device arrays.
-            slateCudaMalloc(&array_dev_, batch_size * dim_);
+            slate_cuda_call(cudaMalloc((void**)&array_dev_, len));
+            // slateCudaMalloc(&array_dev_, batch_size * dim_);
 
             batch_count_ = batch_size;
         }

@@ -486,6 +486,10 @@ public:
     void tileSend(int64_t i, int64_t j, int dst_rank, int tag = 0);
 
     template <Target target = Target::Host>
+    void tileIsend(int64_t i, int64_t j, int dst_rank,
+                   int tag, MPI_Request* request);
+
+    template <Target target = Target::Host>
     void tileRecv(int64_t i, int64_t j, int dst_rank,
                   Layout layout, int tag = 0);
 
@@ -1739,6 +1743,42 @@ void BaseMatrix<scalar_t>::tileSend(
         // todo: need to acquire read access lock to TileNode(i, j)
         tileGetForReading(i, j, LayoutConvert::None);
         at(i, j).send(dst_rank, mpiComm(), tag);
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Immediately send tile {i, j} of op(A) to the given MPI rank.
+/// Destination rank must call tileRecv().
+///
+/// @tparam target
+///     Destination to target; either Host (default) or Device.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] dst_rank
+///     Destination MPI rank. If dst_rank == mpiRank, this is a no-op.
+///
+/// @param[in] tag
+///     MPI tag, default 0.
+///
+/// @param[out] request
+///     Pointer to an MPI_Request struct
+///
+template <typename scalar_t>
+template <Target target>
+void BaseMatrix<scalar_t>::tileIsend(
+    int64_t i, int64_t j, int dst_rank, int tag, MPI_Request* request)
+{
+    if (dst_rank != mpiRank()) {
+        //todo: need to qcquire read access lock to TileNode(i, j)
+        tileGetForReading(i, j, LayoutConvert::None);
+        at(i, j).isend(dst_rank, mpiComm(), tag, request);
+    } else {
+        *request = MPI_REQUEST_NULL;
     }
 }
 

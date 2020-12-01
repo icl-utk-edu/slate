@@ -153,6 +153,17 @@ void set(
 // Level 3 BLAS and LAPACK auxiliary
 
 //-----------------------------------------
+// gerbt()
+template<typename scalar_t>
+void gerbt(Matrix<scalar_t>& U,
+           Matrix<scalar_t>& A,
+           Matrix<scalar_t>& V);
+
+template<typename scalar_t>
+void gerbt(Matrix<scalar_t>& U,
+           Matrix<scalar_t>& A);
+
+//-----------------------------------------
 // gbmm()
 template <typename scalar_t>
 void gbmm(

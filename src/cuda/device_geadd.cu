@@ -105,6 +105,9 @@ void geadd(
         m, n,
         alpha, Aarray, lda,
         beta, Barray, ldb);
+
+    cudaError_t error = cudaGetLastError();
+    slate_assert(error == cudaSuccess);
 }
 
 //------------------------------------------------------------------------------

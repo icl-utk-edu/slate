@@ -457,6 +457,9 @@ void genorm(
     else {
         slate_not_implemented("The norm scope isn't yet supported.");
     }
+
+    cudaError_t error = cudaGetLastError();
+    slate_assert(error == cudaSuccess);
 }
 
 //------------------------------------------------------------------------------

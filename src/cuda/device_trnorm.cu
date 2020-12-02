@@ -469,6 +469,9 @@ void trnorm(
                 (uplo, diag, m, n, Aarray, lda, values);
         }
     }
+
+    cudaError_t error = cudaGetLastError();
+    slate_assert(error == cudaSuccess);
 }
 
 //------------------------------------------------------------------------------

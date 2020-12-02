@@ -399,6 +399,9 @@ void henorm(
                 (uplo, n, Aarray, lda, values);
         }
     }
+
+    cudaError_t error = cudaGetLastError();
+    slate_assert(error == cudaSuccess);
 }
 
 //------------------------------------------------------------------------------

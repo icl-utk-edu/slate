@@ -330,6 +330,9 @@ void synorm(
                 (uplo, n, Aarray, lda, values);
         }
     }
+
+    cudaError_t error = cudaGetLastError();
+    slate_assert(error == cudaSuccess);
 }
 
 const int one_ib = 32;
@@ -495,6 +498,9 @@ void synormOffdiag(
     else {
         slate_not_implemented("Only Norm::One and Norm::Inf is supported.");
     }
+
+    cudaError_t error = cudaGetLastError();
+    slate_assert(error == cudaSuccess);
 }
 
 //------------------------------------------------------------------------------

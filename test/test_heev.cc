@@ -271,8 +271,8 @@ void test_heev_work(Params& params, bool run)
         real_t reduced_error;
         real_t local_error;
         // Relative forward error: || W_ref - W_tst || / || W_ref ||
-        local_error = lapack::lange(norm, W_tst.size(), 1, &W_tst[0], 1)
-                       / lapack::lange(norm, W_ref.size(), 1, &W_ref[0], 1);
+        local_error = lapack::lange(norm, 1, W_tst.size(), &W_tst[0], 1)
+                    / lapack::lange(norm, 1, W_ref.size(), &W_ref[0], 1);
 
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
 

@@ -623,7 +623,6 @@ void gemm(internal::TargetType<Target::Devices>,
                 std::vector<Op> transB(1, opB);
                 std::vector<scalar_t> alpha_(1, alpha);
                 std::vector<scalar_t> beta_(1, beta);
-                blas::Queue* queue = C.queue(device, queue_index);
                 std::vector<int64_t> k(1, kb);
 
                 if (batch_count_00 > 0) {
@@ -633,6 +632,8 @@ void gemm(internal::TargetType<Target::Devices>,
                     std::vector<int64_t> lddb(1, ldb00);
                     std::vector<int64_t> lddc(1, ldc00);
                     std::vector<int64_t> info(batch_count_00);
+
+                    blas::Queue* queue = C.queue(device, queue_index);
                     blas::batch::gemm(
                         layout, transA, transB,
                         m, n, k,
@@ -648,6 +649,8 @@ void gemm(internal::TargetType<Target::Devices>,
                     std::vector<int64_t> lddb(1, ldb10);
                     std::vector<int64_t> lddc(1, ldc10);
                     std::vector<int64_t> info(batch_count_10);
+
+                    blas::Queue* queue = C.queue(device, queue_index);
                     blas::batch::gemm(
                         layout, transA, transB,
                         m, n, k,
@@ -663,6 +666,8 @@ void gemm(internal::TargetType<Target::Devices>,
                     std::vector<int64_t> lddb(1, ldb01);
                     std::vector<int64_t> lddc(1, ldc01);
                     std::vector<int64_t> info(batch_count_01);
+
+                    blas::Queue* queue = C.queue(device, queue_index);
                     blas::batch::gemm(
                         layout, transA, transB,
                         m, n, k,
@@ -678,6 +683,8 @@ void gemm(internal::TargetType<Target::Devices>,
                     std::vector<int64_t> lddb(1, ldb11);
                     std::vector<int64_t> lddc(1, ldc11);
                     std::vector<int64_t> info(batch_count_11);
+
+                    blas::Queue* queue = C.queue(device, queue_index);
                     blas::batch::gemm(
                         layout, transA, transB,
                         m, n, k,
@@ -687,7 +694,10 @@ void gemm(internal::TargetType<Target::Devices>,
                         batch_count_11, info, *queue);
                 }
                 
-                queue->sync();
+                if (batch_count_00 > 0 || batch_count_01 > 0 ||
+                    batch_count_10 > 0 || batch_count_11 > 0) {
+                    C.queue(device, queue_index)->sync();
+                }
             }
 
             for (int64_t i = 0; i < C.mt(); ++i) {

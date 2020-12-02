@@ -618,7 +618,6 @@ void her2k(internal::TargetType<Target::Devices>,
                         swap(mb_gemm_1, nb_gemm_1);
                     }
 
-                    blas::Queue* queue = C.queue(device, queue_index);
                     std::vector<Op> transA(1, opA);
                     std::vector<Op> transB(1, opB);
                     std::vector<int64_t> k(1, kb);
@@ -636,6 +635,8 @@ void her2k(internal::TargetType<Target::Devices>,
                             std::vector<int64_t> lddb(1, ldb_gemm_0);
                             std::vector<int64_t> lddc(1, ldc_gemm_0);
                             std::vector<int64_t> info(batch_count_gemm_0);
+
+                            blas::Queue* queue = C.queue(device, queue_index);
                             blas::batch::gemm(
                                 layout, transA, transB,
                                 m, n, k,
@@ -652,6 +653,8 @@ void her2k(internal::TargetType<Target::Devices>,
                             std::vector<int64_t> lddb(1, ldb_gemm_1);
                             std::vector<int64_t> lddc(1, ldc_gemm_1);
                             std::vector<int64_t> info(batch_count_gemm_1);
+
+                            blas::Queue* queue = C.queue(device, queue_index);
                             blas::batch::gemm(
                                 layout, transA, transB,
                                 m, n, k,
@@ -724,6 +727,8 @@ void her2k(internal::TargetType<Target::Devices>,
                             std::vector<int64_t> lddb(1, ldb_gemm_0);
                             std::vector<int64_t> lddc(1, ldc_gemm_0);
                             std::vector<int64_t> info(batch_count_gemm_0);
+
+                            blas::Queue* queue = C.queue(device, queue_index);
                             blas::batch::gemm(
                                 layout, transA, transB,
                                 m, n, k,
@@ -740,6 +745,8 @@ void her2k(internal::TargetType<Target::Devices>,
                             std::vector<int64_t> lddb(1, ldb_gemm_1);
                             std::vector<int64_t> lddc(1, ldc_gemm_1);
                             std::vector<int64_t> info(batch_count_gemm_1);
+
+                            blas::Queue* queue = C.queue(device, queue_index);
                             blas::batch::gemm(
                                 layout, transA, transB,
                                 m, n, k,
@@ -854,6 +861,8 @@ void her2k(internal::TargetType<Target::Devices>,
                             std::vector<int64_t> lddb(1, ldb_her2k_0);
                             std::vector<int64_t> lddc(1, ldc_her2k_0);
                             std::vector<int64_t> info(batch_count_her2k_0);
+
+                            blas::Queue* queue = C.queue(device, queue_index);
                             blas::batch::her2k(
                                 layout, uplo, transA,
                                 n, k,
@@ -869,6 +878,8 @@ void her2k(internal::TargetType<Target::Devices>,
                             std::vector<int64_t> lddb(1, ldb_her2k_1);
                             std::vector<int64_t> lddc(1, ldc_her2k_1);
                             std::vector<int64_t> info(batch_count_her2k_1);
+
+                            blas::Queue* queue = C.queue(device, queue_index);
                             blas::batch::her2k(
                                 layout, uplo, transA,
                                 n, k,
@@ -879,7 +890,10 @@ void her2k(internal::TargetType<Target::Devices>,
                         }
                     }
 
-                    queue->sync();
+                    if (batch_count_gemm_0  > 0 || batch_count_gemm_1  > 0 ||
+                        batch_count_her2k_0 > 0 || batch_count_her2k_1 > 0) {
+                        C.queue(device, queue_index)->sync();
+                    }
 
                     for (int64_t j = 0; j < C.nt(); ++j) {
                         for (int64_t i = j; i < C.mt(); ++i) {

@@ -300,14 +300,14 @@ void trsm(internal::TargetType<Target::Devices>,
                     std::vector<Diag>     diag_(1, diagA);
                     std::vector<scalar_t> alpha_(1, alpha);
 
-                    blas::Queue* queue = B.queue(device, queue_index);
-
                     if (batch_count_0 > 0) {
                         std::vector<int64_t> m(1, mb0);
                         std::vector<int64_t> n(1, nb0);
                         std::vector<int64_t> lda(1, lda0);
                         std::vector<int64_t> ldb(1, ldb0);
                         std::vector<int64_t> info(batch_count_0);
+
+                        blas::Queue* queue = B.queue(device, queue_index);
                         blas::batch::trsm(
                             layout, side_, uplo_, trans_, diag_,
                             m, n,
@@ -322,6 +322,8 @@ void trsm(internal::TargetType<Target::Devices>,
                         std::vector<int64_t> lda(1, lda1);
                         std::vector<int64_t> ldb(1, ldb1);
                         std::vector<int64_t> info(batch_count_1);
+
+                        blas::Queue* queue = B.queue(device, queue_index);
                         blas::batch::trsm(
                             layout, side_, uplo_, trans_, diag_,
                             m, n,
@@ -330,7 +332,9 @@ void trsm(internal::TargetType<Target::Devices>,
                             batch_count_1, info, *queue);
                     }
 
-                    queue->sync();
+                    if (batch_count_0 > 0 || batch_count_1 > 0) {
+                        B.queue(device, queue_index)->sync();
+                    }
                 }
 
                 A.tileRelease(0, 0, device);

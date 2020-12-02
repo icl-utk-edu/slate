@@ -98,8 +98,6 @@ void geset(
     gesetKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
         m, n,
         diag_value, offdiag_value, Aarray, lda);
-
-    slate_cuda_call(cudaGetLastError());
 }
 
 //------------------------------------------------------------------------------

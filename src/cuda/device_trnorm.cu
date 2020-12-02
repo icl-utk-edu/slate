@@ -469,8 +469,6 @@ void trnorm(
                 (uplo, diag, m, n, Aarray, lda, values);
         }
     }
-
-    slate_cuda_call(cudaGetLastError());
 }
 
 //------------------------------------------------------------------------------

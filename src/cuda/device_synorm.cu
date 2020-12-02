@@ -298,7 +298,7 @@ void synorm(
     // max norm
     if (norm == lapack::Norm::Max) {
         if (n == 0) {
-            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count, queue.stream());
+            blas::device_memset(values, 0, batch_count, queue);
         }
         else {
             assert(ldv == 1);
@@ -310,7 +310,7 @@ void synorm(
     // one norm
     else if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
         if (n == 0) {
-            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * n, queue.stream());
+            blas::device_memset(values, 0, batch_count * n, queue);
         }
         else {
             assert(ldv >= n);
@@ -322,7 +322,7 @@ void synorm(
     // Frobenius norm
     else if (norm == lapack::Norm::Fro) {
         if (n == 0) {
-            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * 2, queue.stream());
+            blas::device_memset(values, 0, batch_count * 2, queue);
         }
         else {
             assert(ldv == 2);
@@ -330,8 +330,6 @@ void synorm(
                 (uplo, n, Aarray, lda, values);
         }
     }
-
-    slate_cuda_call(cudaGetLastError());
 }
 
 const int one_ib = 32;
@@ -497,8 +495,6 @@ void synormOffdiag(
     else {
         slate_not_implemented("Only Norm::One and Norm::Inf is supported.");
     }
-
-    slate_cuda_call(cudaGetLastError());
 }
 
 //------------------------------------------------------------------------------

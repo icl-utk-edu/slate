@@ -105,8 +105,6 @@ void geadd(
         m, n,
         alpha, Aarray, lda,
         beta, Barray, ldb);
-
-    slate_cuda_call(cudaGetLastError());
 }
 
 //------------------------------------------------------------------------------

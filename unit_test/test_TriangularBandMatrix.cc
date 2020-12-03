@@ -309,7 +309,7 @@ int main(int argc, char** argv)
     MPI_Comm_rank(mpi_comm, &mpi_rank);
     MPI_Comm_size(mpi_comm, &mpi_size);
 
-    cudaGetDeviceCount(&num_devices);
+    num_devices = blas::get_device_count();
     host_num = slate::HostNum;
 
     // globals

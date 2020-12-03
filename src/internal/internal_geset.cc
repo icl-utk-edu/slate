@@ -223,7 +223,7 @@ void set(internal::TargetType<Target::Devices>,
 
             blas::device_memcpy<scalar_t*>((void*)a_array_dev, (void*)a_array_host,
                                 batch_count,
-                                cudaMemcpyHostToDevice,
+                                blas::MemcpyKind::HostToDevice,
                                 *queue);
 
             for (int q = 0; q < 4; ++q) {

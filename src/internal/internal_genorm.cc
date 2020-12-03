@@ -547,12 +547,14 @@ void norm(
                 trace::Block trace_block("slate::device::genorm");
 
                 const int batch_arrays_index = 0;
-                blas::Queue* queue = A.queue(device, batch_arrays_index);
+                // TODO: Use the A.queue()
+                //blas::Queue* queue = A.queue(device, batch_arrays_index);
+                blas::Queue queue(device, batch_arrays_index);
 
                 blas::device_memcpy<scalar_t*>((void*)a_dev_array, (void*)a_host_array,
                                     batch_count,
                                     blas::MemcpyKind::HostToDevice,
-                                    *queue);
+                                    queue);
 
                 for (int q = 0; q < 4; ++q) {
                     if (group_count[q] > 0) {
@@ -560,7 +562,7 @@ void norm(
                                        mb[q], nb[q],
                                        a_dev_array, lda[q],
                                        vals_dev_array, ldv,
-                                       group_count[q], *queue);
+                                       group_count[q], queue);
                         a_dev_array += group_count[q];
                         vals_dev_array += group_count[q] * ldv;
                     }
@@ -571,9 +573,9 @@ void norm(
                 blas::device_memcpy<real_t>((void*)vals_host_array, (void*)vals_dev_array,
                                     batch_count*ldv,
                                     blas::MemcpyKind::DeviceToHost,
-                                    *queue);
+                                    queue);
 
-                queue->sync();
+                queue.sync();
             }
 
             if (scope == NormScope::Matrix) {

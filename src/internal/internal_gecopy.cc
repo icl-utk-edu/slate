@@ -253,12 +253,12 @@ void copy(internal::TargetType<Target::Devices>,
 
             blas::device_memcpy<src_scalar_t*>((void*)a_array_dev, (void*)a_array_host,
                                 batch_count,
-                                cudaMemcpyHostToDevice,
+                                blas::MemcpyKind::HostToDevice,
                                 *queue);
 
             blas::device_memcpy<dst_scalar_t*>((void*)b_array_dev, (void*)b_array_host,
                                 batch_count,
-                                cudaMemcpyHostToDevice,
+                                blas::MemcpyKind::HostToDevice,
                                 *queue);
 
             for (int q = 0; q < 4; ++q) {

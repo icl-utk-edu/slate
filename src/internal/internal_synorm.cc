@@ -468,13 +468,8 @@ void norm(
         a_host_arrays[device].resize(num_tiles);
         vals_host_arrays[device].resize(num_tiles*ldv);
 
-        slate_cuda_call(
-            cudaMalloc((void**)&a_dev_arrays[device],
-                       sizeof(scalar_t*)*num_tiles));
-
-        slate_cuda_call(
-            cudaMalloc((void**)&vals_dev_arrays[device],
-                       sizeof(real_t)*num_tiles*ldv));
+        a_dev_arrays[device] = blas::device_malloc<scalar_t*>(num_tiles);
+        vals_dev_arrays[device] = blas::device_malloc<real_t>(num_tiles*ldv);
     }
 
     // Define index ranges for quadrants of matrix.
@@ -581,7 +576,7 @@ void norm(
 
                 blas::device_memcpy<scalar_t*>((void*)a_dev_array, (void*)a_host_array,
                                     batch_count,
-                                    cudaMemcpyHostToDevice,
+                                    blas::MemcpyKind::HostToDevice,
                                     queue);
 
                 // off-diagonal blocks
@@ -622,7 +617,7 @@ void norm(
 
                 blas::device_memcpy<real_t>((void*)vals_host_array, (void*)vals_dev_array,
                                     batch_count*ldv,
-                                    cudaMemcpyDeviceToHost,
+                                    blas::MemcpyKind::DeviceToHost,
                                     queue);
 
                 queue.sync();
@@ -654,10 +649,8 @@ void norm(
 
     for (int device = 0; device < A.num_devices(); ++device) {
         blas::set_device(device);
-        slate_cuda_call(
-            cudaFree((void*)a_dev_arrays[device]));
-        slate_cuda_call(
-            cudaFree((void*)vals_dev_arrays[device]));
+        blas::device_free(a_dev_arrays[device]);
+        blas::device_free((void*)vals_dev_arrays[device]);
     }
 
     // Reduction over devices to local result.

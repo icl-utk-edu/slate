@@ -48,30 +48,32 @@ void test_geset_dev()
     blas::get_device(&device_idx);
     const int batch_arrays_index = 0;
     blas::Queue queue(device_idx, batch_arrays_index);
-    //test_assert(cudaStreamCreate(&stream) == cudaSuccess);
 
     double* dAdata;
-    //test_assert(cudaMalloc((void**)&dAdata, sizeof(double) * lda * n) == cudaSuccess);
+    dAdata = blas::device_malloc<double>(lda * n);
     test_assert(dAdata != nullptr);
     slate::Tile<double> dA(m, n, dAdata, lda, 0, slate::TileKind::UserOwned);
 
     const int batch_count = 1;
     double* Aarray[batch_count];
     double** dAarray;
-    //test_assert(cudaMalloc((void**)&dAarray, sizeof(double*) * batch_count) == cudaSuccess);
+    dAarray = blas::device_malloc<double*>(batch_count);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
-    //test_assert(cudaMemcpy(dAarray, Aarray, sizeof(double*) * batch_count,
-    //                       cudaMemcpyHostToDevice ) == cudaSuccess);
+    blas::device_memcpy<double*>((void*)dAarray, (void*)Aarray,
+                        batch_count,
+                        blas::MemcpyKind::HostToDevice,
+                        queue);
 
     slate::device::geset( m, n,
                           offdiag_value, diag_value, dAarray, lda,
                           batch_count, queue );
 
     queue.sync();
-
-    //test_assert(cudaMemcpy( Aarray, dAarray, sizeof(double*) * batch_count,
-    //                        cudaMemcpyDeviceToHost ) == cudaSuccess );
+    blas::device_memcpy<double*>((void*)Aarray, (void*)dAarray,
+                        batch_count,
+                        blas::MemcpyKind::DeviceToHost,
+                        queue);
     dA.copyData(&A, queue.stream());
 
     // compute on CPU to check the results
@@ -102,8 +104,8 @@ void test_geset_dev()
                 result );
     }
 
-    cudaFree( dAdata );
-    cudaFree( dAarray );
+    blas::device_free(dAdata);
+    blas::device_free(dAarray);
     delete[] Adata;
 
     test_assert( result < 3*eps );
@@ -128,7 +130,7 @@ int main(int argc, char** argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
-    cudaGetDeviceCount(&num_devices);
+    num_devices = blas::get_device_count();
 
     verbose = 0;
     for (int i = 1; i < argc; ++i)

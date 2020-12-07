@@ -141,6 +141,8 @@ public:
     testsweeper::ParamInt    debug;
     testsweeper::ParamDouble pivot_threshold;
     testsweeper::ParamString deflate;
+    testsweeper::ParamInt    refine;
+    testsweeper::ParamInt    depth;
 
     // ----- output parameters
     testsweeper::ParamScientific value;

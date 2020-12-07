@@ -111,6 +111,10 @@ void test_gesv_work(Params& params, bool run)
     if (params.routine == "gesv_mixed" || params.routine == "gesv_mixed_gmres") {
         params.iters();
     }
+    else if (params.routine == "gesv_rbt") {
+        params.refine();
+        params.depth();
+    }
 
     if (! run)
         return;
@@ -302,6 +306,11 @@ void test_gesv_work(Params& params, bool run)
                 info = slate::gesv_mixed_gmres( A, pivots, B, X, iters, opts );
                 params.iters() = iters;
             }
+        }
+        else if (params.routine == "gesv_rbt") {
+            const int64_t depth = params.depth();
+            const int64_t refine = params.refine();
+            slate::gesv_rbt(A, B, opts, depth, refine);
         }
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
         // compute and save timing/performance

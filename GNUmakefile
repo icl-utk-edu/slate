@@ -598,6 +598,7 @@ ifneq ($(only_unit),1)
         src/gesv_mixed.cc \
         src/gesv_mixed_gmres.cc \
         src/gesv_nopiv.cc \
+        src/gesv_rbt.cc \
         src/getrf.cc \
         src/getrf_nopiv.cc \
         src/getrf_tntpiv.cc \

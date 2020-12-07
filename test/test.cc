@@ -112,9 +112,14 @@ std::vector< testsweeper::routines_t > routines = {
     // LU
     { "gesv",               test_gesv,         Section::gesv },
     { "gesv_nopiv",         test_gesv,         Section::gesv },
+<<<<<<< HEAD
     { "gesv_tntpiv",        test_gesv,         Section::gesv },
     { "gesv_mixed",         test_gesv,         Section::gesv },
     { "gesv_mixed_gmres",   test_gesv,         Section::gesv },
+=======
+    { "gesvMixed",          test_gesv,         Section::gesv },
+    { "gesv_rbt",           test_gesv,         Section::gesv },
+>>>>>>> 79194bd2 (Create gesv_rbt)
     { "gbsv",               test_gbsv,         Section::gesv },
     { "",                   nullptr,           Section::newline },
 
@@ -411,6 +416,8 @@ Params::Params():
     deflate   ("deflate", 12,   ParamType::List, "",
                "multiple space-separated (index or /-separated index pairs)"
                " to deflate, e.g., --deflate '1 2/4 3/5'"),
+    refine    ("refine",  6,    ParamType::List,  1,     -1, 1000000, "Number of iterations of refinement"),
+    depth     ("depth",   5,    ParamType::List,  2,      0, 1000,    "Number of butterflies to apply"),
 
     // ----- output parameters
     // min, max are ignored

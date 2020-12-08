@@ -496,12 +496,10 @@ private:
     static int host_num_;
     static int num_devices_;
 
-    int64_t batch_array_size_;
+    std::vector< std::vector< blas::Queue* > >    comm_queues_;
+    std::vector< std::vector< blas::Queue* > > compute_queues_;
 
-    // CUDA streams and cuBLAS handles
-    std::vector<cudaStream_t> compute_streams_;
-    std::vector<cudaStream_t> comm_streams_;
-    std::vector<cublasHandle_t> cublas_handles_;
+    int64_t batch_array_size_;
 
     // host pointers arrays for batch GEMM
     std::vector< std::vector< scalar_t** > > array_host_;
@@ -619,6 +617,12 @@ MatrixStorage<scalar_t>::~MatrixStorage()
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::initCudaStreams()
 {
+    comm_queues_   .resize(1);
+    compute_queues_.resize(1);
+
+    comm_queues_   .at(0).resize(num_devices_, nullptr);
+    compute_queues_.at(0).resize(num_devices_, nullptr);
+
     array_host_.resize(1);
     array_host_.at(0).resize(num_devices_, nullptr);
 
@@ -628,26 +632,11 @@ void MatrixStorage<scalar_t>::initCudaStreams()
     queue_.resize(1);
     queue_.at(0).resize(num_devices_, nullptr);
 
-    compute_streams_ .resize(num_devices_);
-    comm_streams_    .resize(num_devices_);
-    cublas_handles_  .resize(num_devices_);
-
     for (int device = 0; device < num_devices_; ++device) {
-        slate_cuda_call(
-            cudaSetDevice(device));
-        slate_cuda_call(
-            cudaStreamCreate(&compute_streams_[device]));
-        // todo: need to have seperate in/out streams (at least), or multiple streams
-        slate_cuda_call(
-            cudaStreamCreate(&comm_streams_[device]));
+        blas::set_device(device);
 
-        // create cuBLAS handles, associated with compute_streams_
-        slate_cublas_call(
-            cublasCreate(&cublas_handles_[device]));
-
-        slate_cublas_call(
-            cublasSetStream(cublas_handles_[device],
-                                          compute_streams_[device]));
+        comm_queues_   .at(0)[device] = new blas::Queue(device, 0);
+        compute_queues_.at(0)[device] = new blas::Queue(device, 0);
     }
 }
 
@@ -659,22 +648,13 @@ template <typename scalar_t>
 void MatrixStorage<scalar_t>::destroyCudaStreams()
 {
     for (int device = 0; device < num_devices_; ++device) {
-        slate_cuda_call(
-            cudaSetDevice(device));
+        blas::set_device(device);
 
-        // destroy cuBLAS handles, associated with compute_streams_
-        slate_cublas_call(
-            cublasDestroy(cublas_handles_[device]));
-        cublas_handles_[device] = nullptr;
+        delete    comm_queues_.at(0)[device];
+        delete compute_queues_.at(0)[device];
 
-        // destroy CUDA streams
-        slate_cuda_call(
-            cudaStreamDestroy(compute_streams_[device]));
-        compute_streams_[device] = nullptr;
-
-        slate_cuda_call(
-            cudaStreamDestroy(comm_streams_[device]));
-        comm_streams_[device] = nullptr;
+           comm_queues_.at(0)[device] = nullptr;
+        compute_queues_.at(0)[device] = nullptr;
     }
 }
 

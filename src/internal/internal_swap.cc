@@ -419,7 +419,7 @@ void permuteRows(
                             int64_t i2 = pivot[i].elementOffset();
                             int64_t idx2 = pivot[i].tileIndex();
                             slate_cuda_call(cudaSetDevice(device));
-                            cublasSwap(A.cublas_handle(device),
+                            cublasSwap(A.compute_queue(device)->handle(),
                                        A.tileNb(j),
                                        &A(0, j, device).at(i1, 0), 1,
                                        &A(idx2, j, device).at(i2, 0), 1);
@@ -433,7 +433,7 @@ void permuteRows(
                             A(pivot[i].tileIndex(), j, device),
                             pivot[i].elementOffset(),
                             A.tileRank(0, j), A.mpiComm(),
-                            A.compute_stream(device), tag);
+                            *(A.compute_queue(device)), tag);
                     }
                 }
                 // I don't own the pivot.
@@ -445,7 +445,7 @@ void permuteRows(
                             0,  A.tileNb(j), device,
                             A(0, j, device), i,
                             pivot_rank, A.mpiComm(),
-                            A.compute_stream(device), tag);
+                            *(A.compute_queue(device)), tag);
                     }
                 }
             }
@@ -454,7 +454,7 @@ void permuteRows(
         for (int device : dev_set) {
             slate_cuda_call(cudaSetDevice(device));
             slate_cuda_call(
-                cudaStreamSynchronize(A.compute_stream(device)));
+                cudaStreamSynchronize(A.compute_queue(device)->stream()));
         }
     }
 }

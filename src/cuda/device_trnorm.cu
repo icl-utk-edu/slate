@@ -214,12 +214,12 @@ __global__ void trnormInfKernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
-    int chunk;
+    // int chunk; // silent compiler unused warnings
 
     // Each thread sums one row.
     // This does coalesced reads of one column at a time in parallel.
     for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
-        chunk = idx % blockDim.x;
+        // chunk = idx % blockDim.x; // silent compiler unused warnings
         scalar_t const* row = &tile[idx];
         real_t sum = 0;
         if (uplo == lapack::Uplo::Lower) {

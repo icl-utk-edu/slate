@@ -12,7 +12,6 @@
 #include "slate/internal/MatrixStorage.hh"
 #include "slate/Tile.hh"
 #include "slate/Tile_blas.hh"
-// #include "slate/Tile_aux.hh"
 #include "slate/types.hh"
 
 #include "lapack.hh"
@@ -25,8 +24,6 @@
 #include <utility>
 #include <vector>
 
-#include "slate/internal/cuda.hh"
-#include "slate/internal/cublas.hh"
 #include "slate/internal/mpi.hh"
 #include "slate/internal/openmp.hh"
 
@@ -522,7 +519,7 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    /// @return batch blas queue object
+    /// @return blas queue object
     blas::Queue* queue(int device, int64_t index=0)
     {
         assert(index >= 0);
@@ -551,18 +548,16 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    /// @return CUDA streams and cuBLAS handles
-    cublasHandle_t cublas_handle(int device)
+    /// @return BLAS++ queues
+    blas::Queue* comm_queue(int device, int queue_index=0)
     {
-        return storage_->cublas_handles_.at(device);
+        assert(queue_index >= 0);
+        return storage_->comm_queues_.at(queue_index).at(device);
     }
-    cudaStream_t compute_stream(int device)
+    blas::Queue* compute_queue(int device, int queue_index=0)
     {
-        return storage_->compute_streams_.at(device);
-    }
-    cudaStream_t comm_stream(int device)
-    {
-        return storage_->comm_streams_.at(device);
+        assert(queue_index >= 0);
+        return storage_->compute_queues_.at(queue_index).at(device);
     }
 
 protected:
@@ -2330,78 +2325,82 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
 
     if (need_convert && (! is_square)) {
         assert(work_device != host_num_);
-        slate_cuda_call(
-            cudaSetDevice(work_device));
+        blas::set_device(work_device);
     }
 
     if (need_workspace) {
         work_data = storage_->allocWorkspaceBuffer(work_device);
-        // printf("%p\n", work_data);
     }
 
-    cudaStream_t stream = comm_stream(dst_tile->device() == host_num_ ?
-                                      src_tile->device() :
-                                      dst_tile->device());
+    blas::Queue* queue = comm_queue(
+                        dst_tile->device() == host_num_ ? src_tile->device()
+                                                        : dst_tile->device());
+
     if (is_square || (! need_convert)) {
-        src_tile->copyData(dst_tile, stream, async);
+        src_tile->copyData(dst_tile, *queue, async);
     }
 
     if (need_convert) {
         if (is_square) {
-            dst_tile->layoutConvert(stream, async);
+            dst_tile->layoutConvert(*queue, async);
         }
         else if (copy_first) {
             int64_t work_stride = src_tile->stride();
 
-            Tile<scalar_t> work_tile(src_tile->mb(), src_tile->nb(), work_data,
-                                     work_stride, work_device,
-                                     TileKind::Workspace, src_tile->layout());
-            src_tile->copyData(&work_tile, comm_stream(work_device), async);
+            Tile<scalar_t> work_tile(
+                src_tile->mb(), src_tile->nb(),
+                work_data, work_stride, work_device, TileKind::Workspace,
+                src_tile->layout());
+
+            blas::Queue* queue = comm_queue(work_device);
+
+            src_tile->copyData(&work_tile, *queue, async);
 
             if (dst_tile->isContiguous())
-                dst_tile->stride( src_tile->layout() == Layout::ColMajor ?
-                                  src_tile->nb() :
-                                  src_tile->mb());
-            int64_t phys_mb = src_tile->layout() == Layout::ColMajor ?
-                              src_tile->mb() :
-                              src_tile->nb();
-            int64_t phys_nb = src_tile->layout() == Layout::ColMajor ?
-                              src_tile->nb() :
-                              src_tile->mb();
-            device::transpose(phys_mb, phys_nb,
-                              work_data, work_stride,
-                              dst_data, dst_tile->stride(),
-                              comm_stream(work_device));
+                dst_tile->stride(
+                    src_tile->layout() == Layout::ColMajor ? src_tile->nb()
+                                                           : src_tile->mb());
+            int64_t phys_mb =
+                    src_tile->layout() == Layout::ColMajor ? src_tile->mb()
+                                                           : src_tile->nb();
+            int64_t phys_nb =
+                    src_tile->layout() == Layout::ColMajor ? src_tile->nb()
+                                                           : src_tile->mb();
+            device::transpose(
+                phys_mb, phys_nb, work_data,      work_stride,
+                                   dst_data, dst_tile->stride(), *queue);
+
             if (! async)
-                slate_cuda_call(
-                    cudaStreamSynchronize(comm_stream(work_device)));
+                queue->sync();
         }
         else {
-            int64_t work_stride = src_tile->layout() == Layout::ColMajor ?
-                                  src_tile->nb() :
-                                  src_tile->mb();
-            int64_t phys_mb = src_tile->layout() == Layout::ColMajor ?
-                              src_tile->mb() :
-                              src_tile->nb();
-            int64_t phys_nb = src_tile->layout() == Layout::ColMajor ?
-                              src_tile->nb() :
-                              src_tile->mb();
+            blas::Queue* queue = comm_queue(work_device);
 
-            device::transpose(phys_mb, phys_nb,
-                              src_data, src_tile->stride(),
-                              work_data, work_stride,
-                              comm_stream(work_device));
-            Tile<scalar_t> work_tile(src_tile->mb(), src_tile->nb(), work_data,
-                                     work_stride, work_device,
-                                     TileKind::Workspace, target_layout);
+            int64_t work_stride =
+                    src_tile->layout() == Layout::ColMajor ? src_tile->nb()
+                                                           : src_tile->mb();
+            int64_t phys_mb =
+                    src_tile->layout() == Layout::ColMajor ? src_tile->mb()
+                                                           : src_tile->nb();
+            int64_t phys_nb =
+                    src_tile->layout() == Layout::ColMajor ? src_tile->nb()
+                                                           : src_tile->mb();
+
+            device::transpose(
+                phys_mb, phys_nb, src_data, src_tile->stride(),
+                                 work_data,      work_stride, *queue);
+            Tile<scalar_t> work_tile(
+                src_tile->mb(), src_tile->nb(),
+                work_data, work_stride, work_device, TileKind::Workspace,
+                target_layout);
+
             if (dst_tile->isContiguous())
                 dst_tile->stride(work_stride);
 
-            work_tile.copyData(dst_tile, comm_stream(work_device), async);
+            work_tile.copyData(dst_tile, *queue, async);
 
             if (! async)
-                slate_cuda_call(
-                    cudaStreamSynchronize(comm_stream(work_device)));
+                queue->sync();
         }
     }
 
@@ -2714,14 +2713,14 @@ void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set,
 
         // ensure workspace exists for the rest
         if (tile_set.size() > size_t(existing_tiles))
-            storage_->ensureDeviceWorkspace(device, tile_set.size() - existing_tiles);
+            storage_->ensureDeviceWorkspace(
+                device, tile_set.size() - existing_tiles);
     }
 
     tileGet(tile_set, device, layout, false, false, device != hostNum());
 
     if (device != hostNum())
-        slate_cuda_call(
-            cudaStreamSynchronize(comm_stream(device)));
+        comm_queue(device)->sync();
 }
 
 //------------------------------------------------------------------------------
@@ -2748,8 +2747,7 @@ void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set,
 {
     tileGet(tile_set, hostNum(), layout, false, false, true);
 
-    slate_cuda_call(
-        cudaStreamSynchronize(comm_stream(from_device)));
+    comm_queue(from_device)->sync();
 }
 
 //------------------------------------------------------------------------------
@@ -2816,14 +2814,14 @@ void BaseMatrix<scalar_t>::tileGetForWriting(std::set<ij_tuple>& tile_set,
 
         // ensure workspace exists for the rest
         if (tile_set.size() > size_t(existing_tiles))
-            storage_->ensureDeviceWorkspace(device, tile_set.size() - existing_tiles);
+            storage_->ensureDeviceWorkspace(
+                device, tile_set.size() - existing_tiles);
     }
 
     tileGet(tile_set, device, layout, true, false, device != hostNum());
 
     if (device != hostNum())
-        slate_cuda_call(
-            cudaStreamSynchronize(comm_stream(device)));
+        comm_queue(device)->sync();
 }
 
 //------------------------------------------------------------------------------
@@ -2893,8 +2891,7 @@ void BaseMatrix<scalar_t>::tileGetAndHold(std::set<ij_tuple>& tile_set, int devi
     tileGet(tile_set, device, layout, false, true, device != hostNum());
 
     if (device != hostNum())
-        slate_cuda_call(
-            cudaStreamSynchronize(comm_stream(device)));
+        comm_queue(device)->sync();
 }
 
 //------------------------------------------------------------------------------
@@ -3243,9 +3240,8 @@ bool BaseMatrix<scalar_t>::tileLayoutIsConvertible(int64_t i, int64_t j, int dev
 ///
 /// todo: handle op(A), sub-matrix, and sliced-matrix
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileLayoutConvert(int64_t i, int64_t j, int device,
-                                             Layout layout, bool reset,
-                                             bool async)
+void BaseMatrix<scalar_t>::tileLayoutConvert(
+    int64_t i, int64_t j, int device, Layout layout, bool reset, bool async)
 {
     LockGuard guard(storage_->at(globalIndex(i, j, device)).getLock());
     auto tile = storage_->at(globalIndex(i, j, device)).tile();
@@ -3262,11 +3258,13 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(int64_t i, int64_t j, int device,
         if (need_workspace)
             work_data = storage_->allocWorkspaceBuffer(tile->device());
 
-        tile->layoutConvert(work_data,
-                            tile->device() == host_num_ ?
-                                              nullptr :
-                                              comm_stream(tile->device()),
-                            async && (! need_workspace));
+        if (tile->device() == host_num_) {
+            tile->layoutConvert(work_data);
+        }
+        else {
+            blas::Queue* queue = comm_queue(tile->device());
+            tile->layoutConvert(work_data, *queue, async && (! need_workspace));
+        }
 
         // release the workspace buffer if allocated
         if (need_workspace)
@@ -3302,9 +3300,8 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(int64_t i, int64_t j, int device,
 ///
 // todo: async API
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
-                                             int device, Layout layout,
-                                             bool reset)
+void BaseMatrix<scalar_t>::tileLayoutConvert(
+    std::set<ij_tuple>& tile_set, int device, Layout layout, bool reset)
 {
     if (device == host_num_) {
         for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
@@ -3327,7 +3324,8 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
         // map key tuple: m, n, extended, stride, work_stride
         using mnss_tuple = std::tuple<int64_t, int64_t, bool, int64_t, int64_t>;
         // map value tuple: data and extended data buffers
-        using data_tuple = std::pair<std::vector<scalar_t*>, std::vector<scalar_t*>>;
+        using data_tuple =
+            std::pair<std::vector<scalar_t*>, std::vector<scalar_t*>>;
 
         using BatchedTilesBuckets = std::map< mnss_tuple, data_tuple >;
 
@@ -3370,9 +3368,11 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
                 // if rectangular, prepare a workspace
                 if (tile->mb() != tile->nb()) {
                     if (tile->extended())
-                        tilesBuckets[mns].second.push_back(tile->layoutBackData());
+                        tilesBuckets[mns].second.push_back(
+                            tile->layoutBackData());
                     else
-                        tilesBuckets[mns].second.push_back(storage_->allocWorkspaceBuffer(device));
+                        tilesBuckets[mns].second.push_back(
+                            storage_->allocWorkspaceBuffer(device));
                 }
 
                 // adjust stride if need be
@@ -3387,8 +3387,11 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
 
         // Allocate batch arrays, if not done already.
         int64_t batch_count = 0;
-        for (auto bucket = tilesBuckets.begin(); bucket != tilesBuckets.end(); ++bucket) {
-            batch_count = std::max(batch_count, int64_t(bucket->second.first.size()));
+        for (auto bucket  = tilesBuckets.begin();
+                  bucket != tilesBuckets.end();
+                ++bucket) {
+            batch_count =
+                std::max(batch_count, int64_t(bucket->second.first.size()));
         }
 
         int64_t num_arrays =
@@ -3397,21 +3400,25 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
         // todo: shouldn't we allocate for the current device only?
         allocateBatchArrays(batch_count, num_arrays);
 
-        const int batch_arrays_index = 0;
-        blas::Queue queue(device, batch_arrays_index);
+        blas::Queue* queue = comm_queue(device);
+        // todo: we shouldn't set it here because device is already set in BLAS++
         blas::set_device(device);
 
+        // todo: should we've compute queues of size batch counts.
+
         // for each bucket
-        for (auto bucket = tilesBuckets.begin(); bucket != tilesBuckets.end(); ++bucket) {
+        for (auto bucket  = tilesBuckets.begin();
+                  bucket != tilesBuckets.end();
+                ++bucket) {
             batch_count = bucket->second.first.size();
 
             scalar_t** array_dev = this->array_device(device);
             scalar_t** work_array_dev = this->array_device(device) + batch_count;
 
-            int64_t mb       = std::get<0>(bucket->first);
-            int64_t nb       = std::get<1>(bucket->first);
-            int64_t extended = std::get<2>(bucket->first);
-            int64_t stride   = std::get<3>(bucket->first);
+            int64_t mb          = std::get<0>(bucket->first);
+            int64_t nb          = std::get<1>(bucket->first);
+            int64_t extended    = std::get<2>(bucket->first);
+            int64_t stride      = std::get<3>(bucket->first);
             int64_t work_stride = std::get<4>(bucket->first);
 
             // todo: should we handle batch of size one differently?
@@ -3419,58 +3426,53 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(std::set<ij_tuple>& tile_set,
             // if (batch_count == 1) {
             //     tileLayoutConvert(i, j, device, layout);
             // }
-            // else
-            {
-                slate_cuda_call(
-                    cudaMemcpyAsync(array_dev, bucket->second.first.data(),
-                                    sizeof(scalar_t*)*batch_count,
-                                    cudaMemcpyHostToDevice,
-                                    queue.stream()));
 
-                if (mb == nb) {
-                    // in-place transpose
-                    device::transpose_batch(nb,
-                                            array_dev, stride,
-                                            batch_count, queue.stream());
-                }
-                else {
-                    // rectangular tiles: out-of-place transpose
-                    slate_cuda_call(
-                        cudaMemcpyAsync(work_array_dev, bucket->second.second.data(),
-                                        sizeof(scalar_t*)*batch_count,
-                                        cudaMemcpyHostToDevice,
-                                        queue.stream()));
+            blas::device_memcpy<scalar_t*>(
+                array_dev, bucket->second.first.data(),
+                batch_count, blas::MemcpyKind::HostToDevice, *queue);
 
-                    device::transpose_batch(layout == Layout::ColMajor ? nb : mb,
-                                            layout == Layout::ColMajor ? mb : nb,
-                                            array_dev, stride,
-                                            work_array_dev, work_stride,
-                                            batch_count, queue.stream());
+            if (mb == nb) { // in-place transpose
+                device::transpose_batch(
+                    nb, array_dev, stride, batch_count, *queue);
+            }
+            else { // rectangular tiles: out-of-place transpose
+                blas::device_memcpy<scalar_t*>(
+                    work_array_dev, bucket->second.second.data(),
+                    batch_count, blas::MemcpyKind::HostToDevice, *queue);
 
-                    if (! extended) {
-                        // copy back to data buffer
-                        device::gecopy( layout == Layout::ColMajor ? mb : nb,
-                                        layout == Layout::ColMajor ? nb : mb,
-                                        work_array_dev, work_stride,
-                                        array_dev, work_stride,
-                                        batch_count, queue);
-                    }
+                device::transpose_batch(
+                    layout == Layout::ColMajor ? nb : mb,
+                    layout == Layout::ColMajor ? mb : nb,
+                         array_dev,      stride,
+                    work_array_dev, work_stride, batch_count, *queue);
+
+                if (! extended) {
+                    // copy back to data buffer
+                    device::gecopy(
+                        layout == Layout::ColMajor ? mb : nb,
+                        layout == Layout::ColMajor ? nb : mb,
+                        work_array_dev, work_stride,
+                             array_dev, work_stride,
+                        batch_count, *queue);
                 }
             }
 
             // release workspace buffer if allocated
             if ((mb != nb) && (! extended)) {
-                queue.sync();
-                for (auto iter = bucket->second.second.begin(); iter != bucket->second.second.end(); iter++) {
+                queue->sync();
+
+                for (auto iter  = bucket->second.second.begin();
+                          iter != bucket->second.second.end();
+                          iter++) {
                     storage_->releaseWorkspaceBuffer(*iter, device);
                 }
             }
         }
-        queue.sync();
+
+        queue->sync();
 
         if (reset) {
             for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
-                // #pragma omp task
                 {
                     int64_t i = std::get<0>(*iter);
                     int64_t j = std::get<1>(*iter);

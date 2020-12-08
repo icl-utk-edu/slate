@@ -672,9 +672,9 @@ void test_copyData(int align_host, int align_dev)
     slate::Tile<double> dB(m, n, Bdata_dev, ldda, 0, slate::TileKind::UserOwned);
 
     // copy H2D->D2D->D2H, then verify
-    A.copyData(&dA, queue.stream());
-    dA.copyData(&dB, queue.stream());
-    dB.copyData(&B, queue.stream());
+    A.copyData(&dA,  queue);
+    dA.copyData(&dB, queue);
+    dB.copyData(&B,  queue);
     verify_data(B, mpi_rank);
 
     // copy host to host, then verify

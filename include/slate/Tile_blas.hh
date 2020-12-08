@@ -859,27 +859,31 @@ template <typename scalar_t>
 void swapRemoteRowDevice(
     int64_t j, int64_t n,
     int device, Tile<scalar_t>& A, int64_t i,
-    int other_rank, MPI_Comm mpi_comm, cudaStream_t stream, int tag = 0)
+    int other_rank, MPI_Comm mpi_comm, blas::Queue& queue, int tag = 0)
 {
     std::vector<scalar_t> local_row(n);
     std::vector<scalar_t> other_row(n);
 
     // todo: this assumes row is contiguous on GPU, right? Add asserts.
-    slate_cuda_call(cudaSetDevice(device));
-    slate_cuda_call(cudaMemcpyAsync(local_row.data(), &A.at(i, j),
-                                    sizeof(scalar_t)*n, cudaMemcpyDeviceToHost,
-                                    stream));
-    slate_cuda_call(cudaStreamSynchronize(stream));
+
+    blas::set_device(device);
+
+    blas::device_memcpy<scalar_t>(
+        local_row.data(), &A.at(i, j), n,
+        blas::MemcpyKind::DeviceToHost, queue);
+
+    queue.sync();
 
     MPI_Sendrecv(
         local_row.data(), n, mpi_type<scalar_t>::value, other_rank, tag,
         other_row.data(), n, mpi_type<scalar_t>::value, other_rank, tag,
         mpi_comm, MPI_STATUS_IGNORE);
 
-    slate_cuda_call(cudaMemcpyAsync(&A.at(i, j), other_row.data(),
-                                    sizeof(scalar_t)*n, cudaMemcpyHostToDevice,
-                                    stream));
-    slate_cuda_call(cudaStreamSynchronize(stream));
+    blas::device_memcpy<scalar_t>(
+        &A.at(i, j), other_row.data(), n,
+        blas::MemcpyKind::HostToDevice, queue);
+
+    queue.sync();
 }
 
 //--------------------------------------
@@ -890,9 +894,9 @@ template <typename scalar_t>
 void swapRemoteRowDevice(
     int64_t j, int64_t n,
     int device, Tile<scalar_t>&& A, int64_t i,
-    int other_rank, MPI_Comm mpi_comm, cudaStream_t stream, int tag = 0)
+    int other_rank, MPI_Comm mpi_comm, blas::Queue& queue, int tag = 0)
 {
-    swapRemoteRowDevice(j, n, device, A, i, other_rank, mpi_comm, stream, tag);
+    swapRemoteRowDevice(j, n, device, A, i, other_rank, mpi_comm, queue, tag);
 }
 
 //------------------------------------------------------------------------------
